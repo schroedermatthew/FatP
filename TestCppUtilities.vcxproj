@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{9ca9815c-24da-422e-8029-2cdf49265f29}</ProjectGuid>
+    <RootNamespace>TestCppUtilities</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions);NOMINMAX</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);NOMINMAX</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <PreprocessToFile>false</PreprocessToFile>
+      <PreprocessKeepComments>false</PreprocessKeepComments>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="TestCppUtilities.cpp" />
+    <ClCompile Include="test_AdaptiveIterator.cpp" />
+    <ClCompile Include="test_AllocationStrategy.cpp" />
+    <ClCompile Include="test_AtomicReference.cpp" />
+    <ClCompile Include="test_CheckedArithmetic.cpp" />
+    <ClCompile Include="test_ConcurrencyPolicies.cpp" />
+    <ClCompile Include="test_ConstexprUtilities.cpp" />
+    <ClCompile Include="test_ContractException.cpp" />
+    <ClCompile Include="test_DiagnosticLogger.cpp" />
+    <ClCompile Include="test_Enforce.cpp" />
+    <ClCompile Include="test_EnforcedInit.cpp" />
+    <ClCompile Include="test_EnumPlus.cpp" />
+    <ClCompile Include="test_EqualityComparisons.cpp" />
+    <ClCompile Include="test_Expected.cpp" />
+    <ClCompile Include="test_Factory.cpp" />
+    <ClCompile Include="test_ScopeGuard.cpp" />
+    <ClCompile Include="test_Stringify.cpp" />
+    <ClCompile Include="test_StrongId.cpp" />
+    <ClCompile Include="test_TypeTraits.cpp" />
+    <ClCompile Include="test_ValueGuard.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AdaptiveIterator.h" />
+    <ClInclude Include="AllocationStrategy.h" />
+    <ClInclude Include="AsyncLogger.h" />
+    <ClInclude Include="AtomicReference.h" />
+    <ClInclude Include="ComparisonTolerances.h" />
+    <ClInclude Include="ConcurrencyPolicies.h" />
+    <ClInclude Include="ConstexprUtilities.h" />
+    <ClInclude Include="ContractException.h" />
+    <ClInclude Include="DiagnosticLogger.h" />
+    <ClInclude Include="enforce.h" />
+    <ClInclude Include="enforce_contextual.h" />
+    <ClInclude Include="enforce_contextual_policies.h" />
+    <ClInclude Include="enforce_enforcers.h" />
+    <ClInclude Include="enforce_predicates.h" />
+    <ClInclude Include="enforce_raisers.h" />
+    <ClInclude Include="enforce_raiser_selector.h" />
+    <ClInclude Include="EnumPlus.h" />
+    <ClInclude Include="EqualityAny.h" />
+    <ClInclude Include="EqualityComparisons.h" />
+    <ClInclude Include="Expected.h" />
+    <ClInclude Include="Factory.h" />
+    <ClInclude Include="EnforcedInit.h" />
+    <ClInclude Include="HybridLogger.h" />
+    <ClInclude Include="PolicyLogger.h" />
+    <ClInclude Include="Stringify.h" />
+    <ClInclude Include="StrongId.h" />
+    <ClInclude Include="CheckedArithmetic.h" />
+    <ClInclude Include="test_AdaptiveIterator.h" />
+    <ClInclude Include="test_AllocationStrategy.h" />
+    <ClInclude Include="test_AtomicReference.h" />
+    <ClInclude Include="test_CheckedArithmetic.h" />
+    <ClInclude Include="test_ConcurrencyPolicies.h" />
+    <ClInclude Include="test_ConstexprUtilities.h" />
+    <ClInclude Include="test_ContractException.h" />
+    <ClInclude Include="test_DiagnosticLogger.h" />
+    <ClInclude Include="test_Enforce.h" />
+    <ClInclude Include="test_EnforcedInit.h" />
+    <ClInclude Include="test_EnumPlus.h" />
+    <ClInclude Include="test_EqualityComparisons.h" />
+    <ClInclude Include="test_Expected.h" />
+    <ClInclude Include="test_Factory.h" />
+    <ClInclude Include="test_ScopeGuard.h" />
+    <ClInclude Include="test_Stringify.h" />
+    <ClInclude Include="test_StrongId.h" />
+    <ClInclude Include="test_TypeTraits.h" />
+    <ClInclude Include="test_Utilities.h" />
+    <ClInclude Include="test_ValueGuard.h" />
+    <ClInclude Include="TypeTraits.h" />
+    <ClInclude Include="ValueGuard.h" />
+    <ClInclude Include="ScopeGuard.h" />
+    <ClInclude Include="ScopeGuardPolicies.h" />
+    <ClInclude Include="SortedContainer.h" />
+    <ClInclude Include="StateMachine.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
