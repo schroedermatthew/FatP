@@ -32,7 +32,7 @@ namespace cpp_utilities {
 
  /**
  * @brief Type alias for the Factory used as the registry (thread-safe). */
- using AnyRegistryFactory = Factory<std::pair<std::type_index, std::type_index>,
+ using AnyRegistryFactory = LegacyVariadicFactory<std::pair<std::type_index, std::type_index>,
      bool, true, AnyFallbackPolicy,
      const std::any&, const std::any&, double, double>;
 
