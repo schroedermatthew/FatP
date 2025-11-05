@@ -40,14 +40,15 @@
 #include "test_EqualityComparisons.h"
 #include "test_Expected.h"
 #include "test_Factory.h"
-//#include "test_Json.h"
+#include "test_JsonLite.h"
 #include "test_ScopeGuard.h"
-//#include "test_SortedContainer.h"
+#include "test_SortedContainer.h"
+#include "test_StateMachine.h"
 #include "test_Stringify.h"
 #include "test_StrongId.h"
 #include "test_TypeTraits.h"
 #include "test_Utilities.h"
-//#include "test_UltraLoggers.h"
+#include "test_UltraLoggers.h"
 #include "test_ValueGuard.h"
 
 namespace cpp_utilities::testing
@@ -73,15 +74,15 @@ int main() {
     all_passed &= test_EqualityComparisons();
     all_passed &= test_Expected();
     all_passed &= test_Factory();
+    all_passed &= test_JsonLite();
     all_passed &= test_ScopeGuard();
-//    all_passed &= test_StateMachine();
+    all_passed &= test_StateMachine();
     all_passed &= test_Stringify();
     all_passed &= test_StrongId();
-    //all_passed &= test_SortedContainer();
+    all_passed &= test_SortedContainer();
     all_passed &= test_TypeTraits();
     all_passed &= test_ValueGuard();
-//    all_passed &= test_UltraLoggers();
-//    all_passed &= test_Json();
+    all_passed &= test_UltraLoggers();
 
 
     if (all_passed) {

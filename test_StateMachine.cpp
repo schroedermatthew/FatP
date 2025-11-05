@@ -540,7 +540,7 @@ namespace cpp_utilities::testing
         // Test all permutations work
         sm.transition<StateD>();
         ASSERT_TRUE(sm.is_in_state<StateD>(), "Should be in StateD");
-        ASSERT_EQ(ctx.counter, 11, "Counter should reflect StateD entry");  // 1 from init + 10 from D
+        ASSERT_EQ(ctx.counter, 12, "Counter should reflect StateD entry");  // 1 from A init + 1 from A exit + 10 from D entry
         
         sm.transition<StateB>();
         ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
@@ -664,15 +664,16 @@ namespace cpp_utilities::testing
                      NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
         
         // Perform multiple transitions and verify log accumulates
+        // Note: Initial StateA entry already happened during construction
         sm.transition<StateB>();
         sm.transition<StateC>();
         sm.transition<StateA>();
         sm.transition<StateB>();
         
-        // Log should contain all transitions
-        std::string expected = "A_exit;B_entry;B_exit;C_entry;C_exit;A_entry;A_exit;B_entry;";
+        // Log should contain initial entry plus all transitions
+        std::string expected = "A_entry;A_exit;B_entry;B_exit;C_entry;C_exit;A_entry;A_exit;B_entry;";
         ASSERT_EQ(ctx.log, expected, "Context log should persist and accumulate");
-        ASSERT_EQ(ctx.counter, 8, "Counter should reflect all actions");
+        ASSERT_EQ(ctx.counter, 9, "Counter should reflect all actions");  // 1 initial + 8 from transitions
         
         return true;
     }
@@ -692,7 +693,7 @@ namespace cpp_utilities::testing
         // External modification should be visible
         ctx.counter = 50;
         sm.transition<StateB>();
-        ASSERT_EQ(ctx.counter, 51, "External modifications should be visible");
+        ASSERT_EQ(ctx.counter, 52, "External modifications should be visible");  // 50 + 1 (A exit) + 1 (B entry)
         
         return true;
     }
@@ -882,9 +883,17 @@ namespace cpp_utilities::testing
         StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
                      NoExceptActionPolicy, 0, StateA, StateB> sm(ctx);
         
-        // With NoExceptActionPolicy, transition should be noexcept
+        // With NoExceptActionPolicy AND AnyToAnyTransitionPolicy, transition should be noexcept
         static_assert(noexcept(sm.template transition<StateB>()),
-                     "transition should be noexcept with NoExceptActionPolicy");
+                     "transition should be noexcept with NoExceptActionPolicy and AnyToAnyTransitionPolicy");
+        
+        // With StrictTransitionPolicy, transition is NOT noexcept (can throw on invalid transition)
+        using StrictTransitionList = std::tuple<std::pair<StateA, StateB>>;
+        StateMachine<TestContext, StrictTransitionList, StrictTransitionPolicy,
+                     NoExceptActionPolicy, 0, StateA, StateB> sm_strict(ctx);
+        
+        static_assert(!noexcept(sm_strict.template transition<StateB>()),
+                     "transition should NOT be noexcept with StrictTransitionPolicy (can throw)");
         
         return true;
     }
@@ -990,14 +999,12 @@ namespace cpp_utilities::testing
         return true;
     }
 
-} // namespace cpp_utilities::testing
 
 // ============================================================================
 // Main Test Runner
 // ============================================================================
 
-int main() {
-    using namespace cpp_utilities::testing;
+bool test_StateMachine() {
     
     TestRunner runner;
     
@@ -1068,5 +1075,7 @@ int main() {
     RUN_TEST(runner, cyclic_transitions);
     RUN_TEST(runner, state_machine_with_custom_initial);
     
-    return runner.print_summary();
+    return 0 == runner.print_summary();
 }
+
+} // namespace cpp_utilities::testing

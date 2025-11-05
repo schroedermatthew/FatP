@@ -157,7 +157,8 @@ namespace cpp_utilities {
          * @tparam TNextState The target state type (must be in the States pack).
          */
         template <typename TNextState>
-        void transition() noexcept(std::is_same_v<TActionPolicy, NoExceptActionPolicy>) {
+        void transition() noexcept(std::is_same_v<TActionPolicy, NoExceptActionPolicy> && 
+                                    std::is_same_v<TTransitionPolicy, AnyToAnyTransitionPolicy>) {
             constexpr int nextIndex = get_state_index<TNextState>();
             const int currentIndex = currentStateIndex_;
             
@@ -295,7 +296,7 @@ namespace cpp_utilities {
          * @throws std::runtime_error if transition is not in TransitionList.
          */
         template <typename TNextState>
-        void transition() noexcept(std::is_same_v<TActionPolicy, NoExceptActionPolicy>) {
+        void transition() {
             constexpr int nextIndex = get_state_index<TNextState>();
             const int currentIndex = currentStateIndex_;
             

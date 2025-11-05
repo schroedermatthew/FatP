@@ -145,16 +145,19 @@
     <ClCompile Include="test_EqualityComparisons.cpp" />
     <ClCompile Include="test_Expected.cpp" />
     <ClCompile Include="test_Factory.cpp" />
+    <ClCompile Include="test_JsonLite.cpp" />
     <ClCompile Include="test_ScopeGuard.cpp" />
+    <ClCompile Include="test_SortedContainer.cpp" />
+    <ClCompile Include="test_StateMachine.cpp" />
     <ClCompile Include="test_Stringify.cpp" />
     <ClCompile Include="test_StrongId.cpp" />
     <ClCompile Include="test_TypeTraits.cpp" />
+    <ClCompile Include="test_UltraLoggers.cpp" />
     <ClCompile Include="test_ValueGuard.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AdaptiveIterator.h" />
     <ClInclude Include="AllocationStrategy.h" />
-    <ClInclude Include="AsyncLogger.h" />
     <ClInclude Include="AtomicReference.h" />
     <ClInclude Include="ComparisonTolerances.h" />
     <ClInclude Include="ConcurrencyPolicies.h" />
@@ -174,8 +177,10 @@
     <ClInclude Include="Expected.h" />
     <ClInclude Include="Factory.h" />
     <ClInclude Include="EnforcedInit.h" />
-    <ClInclude Include="HybridLogger.h" />
-    <ClInclude Include="PolicyLogger.h" />
+    <ClInclude Include="JsonLite.h" />
+    <ClInclude Include="LoggerAsync.h" />
+    <ClInclude Include="LoggerHybrid.h" />
+    <ClInclude Include="LoggerPolicy.h" />
     <ClInclude Include="Stringify.h" />
     <ClInclude Include="StrongId.h" />
     <ClInclude Include="CheckedArithmetic.h" />
@@ -193,10 +198,14 @@
     <ClInclude Include="test_EqualityComparisons.h" />
     <ClInclude Include="test_Expected.h" />
     <ClInclude Include="test_Factory.h" />
+    <ClInclude Include="test_JsonLite.h" />
     <ClInclude Include="test_ScopeGuard.h" />
+    <ClInclude Include="test_SortedContainer.h" />
+    <ClInclude Include="test_StateMachine.h" />
     <ClInclude Include="test_Stringify.h" />
     <ClInclude Include="test_StrongId.h" />
     <ClInclude Include="test_TypeTraits.h" />
+    <ClInclude Include="test_UltraLoggers.h" />
     <ClInclude Include="test_Utilities.h" />
     <ClInclude Include="test_ValueGuard.h" />
     <ClInclude Include="TypeTraits.h" />

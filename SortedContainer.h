@@ -5,16 +5,18 @@
  * @details Uses Policy-Based Design for uniqueness, comparison, allocation, and concurrency.
  * Supports batch inserts with sorting. Read-only iterators to preserve order.
  * Integrates with library's DbC (enforce.h), Expected for error handling, and EqualityComparisons for fuzzy compares.
- * Conditional thread-safety via ConcurrencyPolicy (SingleThreaded, Mutex, RWLock, or Spinlock).
+ * Conditional thread-safety via ConcurrencyPolicy from ConcurrencyPolicies.h (SingleThreadedPolicy, 
+ * MutexSynchronizationPolicy, SharedMutexPolicy, SpinlockSynchronizationPolicy, etc.).
  * Extensible with new policies (e.g., LoggingPolicy for inserts, TransformUniquenessPolicy).
- * Wish-List: Erase support, lower/upper_bound/count/reverse_iterator, fuzzy uniqueness, auto-invariant checks in debug,
- * const T inserts, movable-only T support, EXPECTED_TRY in methods.
- * Optimized: Reserve aggressively; insertion sort for small batches (<16); SIMD note for future numeric inserts.
+ * Features: Erase support, lower/upper_bound/count/reverse_iterator, fuzzy uniqueness, auto-invariant checks in debug,
+ * const T inserts, movable-only T support, reserve/capacity/clear methods.
+ * Optimized: Reserve aggressively; insertion sort for small batches (<16); stable_sort for large batches.
  * C++17 compliant; header-only; no external deps (guards optional <shared_mutex>/<atomic>).
  *
  * @note Invariant checks are debug-only (via enforce); release has zero overhead.
  * @note Supports movable-only T via move inserts; tests with floats for fuzzy.
  * @note Exposes internal vector with warnings (Modifying may break invariant).
+ * @note All synchronization policies are imported from ConcurrencyPolicies.h - no redundant definitions.
  */
 #pragma once
 #if !defined(CPP_UTILITIES_USE_SHARED_MUTEX)
@@ -31,16 +33,18 @@
 #endif
 #include <algorithm>
 #include <vector>
+#include <deque>
+#include <sstream>
 #include <stdexcept>
 #include <functional>
 #include <type_traits>
-#include <mutex> // For Mutex SynchronizationPolicy
+#include <mutex> // For MutexSynchronizationPolicy
 
 #if CPP_UTILITIES_USE_SHARED_MUTEX
 #include <shared_mutex> // For RWLock SynchronizationPolicy (C++17; guarded)
 #endif
 #if CPP_UTILITIES_USE_ATOMIC
-#include <atomic> // For Spinlock SynchronizationPolicy (guarded)
+#include <atomic> // For SpinlockSynchronizationPolicy (guarded)
 #endif
 #include <optional> // For optional in some returns if needed
 
@@ -65,6 +69,10 @@ struct DequeBackendPolicy {
     using type = std::deque<T, Allocator>;
 };
 namespace cpp_utilities {
+    // Helper trait for detecting FuzzyUniquePolicy specializations
+    template <typename Policy>
+    struct is_fuzzy_unique_policy : std::false_type {};
+
     // --- 1. Uniqueness Policies - Extended ---
     /**
      * @brief Policy that allows duplicate elements.
@@ -84,9 +92,9 @@ namespace cpp_utilities {
          */
         template <typename T, typename Vector, typename Compare>
         static bool insert(Vector& vec, T&& value, Compare comp) {
-            // Inserts the element at the position of the first element not
-            // considered less than value (maintains stability).
-            vec.insert(std::lower_bound(vec.begin(), vec.end(), value, comp), std::forward<T>(value));
+            // Use upper_bound to insert after all equal elements, preserving stability.
+            // This mimics std::multiset behavior for duplicates.
+            vec.insert(std::upper_bound(vec.begin(), vec.end(), value, comp), std::forward<T>(value));
             return true;
         }
     };
@@ -127,6 +135,8 @@ namespace cpp_utilities {
      */
     template <typename EqPolicy = HybridComparisonPolicy, typename... EpsParams>
     struct FuzzyUniquePolicy {
+        using is_fuzzy_policy = void;  // Trait marker
+        using EqPolicy_t = EqPolicy;   // Expose for access
         /**
          * @brief Inserts only if no approximately equal element exists.
          * @param vec The internal container.
@@ -135,16 +145,27 @@ namespace cpp_utilities {
          * @param eps Epsilon params for areEqual.
          * @return bool True if inserted, false if fuzzy duplicate skipped.
          */
-        template <typename T, typename Vector, typename Compare>
-        static bool insert(Vector& vec, T&& value, Compare comp, EpsParams... eps) {
+        template <typename T, typename Vector, typename Compare, typename... EpsArgs>
+        static bool insert(Vector& vec, T&& value, Compare comp, EpsArgs... eps) {
             auto it = std::lower_bound(vec.begin(), vec.end(), value, comp);
             if (it != vec.end() && areEqual<T, EqPolicy>(*it, value, eps...)) {
                 return false; // Fuzzy duplicate, skip
             }
-            vec.insert(it, std::forward<T>(value));
+            if (it != vec.begin()) {
+                auto prev = std::prev(it);
+                if (areEqual<T, EqPolicy>(*prev, value, eps...)) {
+                    return false; // Fuzzy duplicate found before
+                }
+            }
+            vec.insert(std::upper_bound(vec.begin(), vec.end(), value, comp), std::forward<T>(value));
             return true;
         }
     };
+    
+    // Specialize trait for FuzzyUniquePolicy
+    template <typename... Args>
+    struct is_fuzzy_unique_policy<FuzzyUniquePolicy<Args...>> : std::true_type {};
+    
     /**
      * @brief Logging policy that logs inserts (e.g., via DiagnosticLogger).
      * @tparam BasePolicy The base uniqueness policy to wrap.
@@ -152,9 +173,11 @@ namespace cpp_utilities {
     template <typename BasePolicy>
     struct LoggingUniquePolicy : BasePolicy {
         template <typename T, typename Vector, typename Compare>
-        static bool insert(Vector& vec, const T& value, Compare comp) {
-            conditionalPrintError([] { return "Inserting: " + std::to_string(value); });
-            return BasePolicy::insert(vec, value, comp);
+        static bool insert(Vector& vec, T&& value, Compare comp) {
+            std::ostringstream oss;
+            oss << "Inserting: " << value;  // Assume T supports <<; add static_assert if needed
+            conditionalPrintError([msg = oss.str()] { return msg; });
+            return BasePolicy::insert(vec, std::forward<T>(value), comp);
         }
     };
     /**
@@ -167,13 +190,15 @@ namespace cpp_utilities {
         template <typename T, typename Vector, typename Compare>
         static bool insert(Vector& vec, T&& value, Compare comp) {
             Transformer transformer;
+            using TransformedType = decltype(transformer(std::declval<T>()));
             auto transformed_comp = [comp, &transformer](const T& lhs, const T& rhs) {
                 return comp(transformer(lhs), transformer(rhs));
-                };
+            };
+            static_assert(std::is_invocable_v<Compare, TransformedType, TransformedType>, "Compare must work on transformed type");
             return BasePolicy::insert(vec, std::forward<T>(value), transformed_comp);
         }
     };
-    // --- 2. SortedVector Class - Exhaustive Improvements ---
+    // --- 2. SortedContainer Class - Exhaustive Improvements ---
     /**
      * @brief A container that maintains its elements in sorted order at all times.
      *
@@ -201,26 +226,28 @@ namespace cpp_utilities {
         typename ConcurrencyPolicy = SingleThreadedPolicy,
         template <typename, typename> class BackendPolicy = VectorBackendPolicy
     >
-    class SortedVector : public ConcurrencyPolicy {
+    class SortedContainer : public ConcurrencyPolicy {
     private:
         // This type alias must be defined before the public aliases use it.
         using InternalContainer = typename BackendPolicy<T, Allocator>::type;
         // EnforcedInit for internal container (updates: enforced state)
         EnforcedInit<InternalContainer> internalContainer_;
     public:
-        // --- Typedefs and Iterators (camelCase for the public API) ---
-        using valueType = T;
+        // --- Typedefs and Iterators (snake_case for STL consistency) ---
+        using value_type = T;
         using iterator = typename InternalContainer::iterator;
-        using constIterator = typename InternalContainer::const_iterator;
+        using const_iterator = typename InternalContainer::const_iterator;
         using reverse_iterator = std::reverse_iterator<iterator>;
-        using const_reverse_iterator = std::reverse_iterator<constIterator>;
+        using const_reverse_iterator = std::reverse_iterator<const_iterator>;
         // Use StrongId for type-safe size/indices (updates)
         using size_type = StrongId<size_t, struct SizeTag>;
         // --- Constructors ---
         /**
          * @brief Default constructor.
          */
-        SortedVector() = default;
+        SortedContainer() {
+            internalContainer_.init();
+        }
         /**
          * @brief Range constructor: inserts elements from an iterator range
          * and sorts the result.
@@ -228,25 +255,27 @@ namespace cpp_utilities {
          * @tparam InputIt Iterator type.
          * @param first Start of the range.
          * @param last End of the range.
+         * @param eps Optional epsilon params for fuzzy policies.
          */
-        template <typename InputIt>
-        SortedVector(InputIt first, InputIt last) {
-            insertRange(first, last);
+        template <typename InputIt, typename... EpsParams>
+        SortedContainer(InputIt first, InputIt last, EpsParams... eps) {
+            internalContainer_.init();
+            insertRange(first, last, eps...);
         }
         // --- Core STL methods (Read-only access) ---
         /**
          * @brief Returns a const iterator to the beginning of the container.
-         * @return constIterator
+         * @return const_iterator
          */
-        [[nodiscard]] constIterator begin() const {
+        [[nodiscard]] const_iterator begin() const {
             typename ConcurrencyPolicy::SharedGuard guard(this->getLock()); // Shared for read
             return internalContainer_.get().begin();
         }
         /**
          * @brief Returns a const iterator to the end of the container.
-         * @return constIterator
+         * @return const_iterator
          */
-        [[nodiscard]] constIterator end() const {
+        [[nodiscard]] const_iterator end() const {
             typename ConcurrencyPolicy::SharedGuard guard(this->getLock()); // Shared for read
             return internalContainer_.get().end();
         }
@@ -268,7 +297,7 @@ namespace cpp_utilities {
         }
         /**
          * @brief Returns the number of elements in the container.
-         * @return size_t
+         * @return size_type
          */
         [[nodiscard]] size_type size() const {
             typename ConcurrencyPolicy::SharedGuard guard(this->getLock()); // Shared for read
@@ -283,9 +312,37 @@ namespace cpp_utilities {
             return internalContainer_.get().empty();
         }
         /**
+         * @brief Returns the current capacity of the container.
+         * @return size_type The capacity.
+         */
+        [[nodiscard]] size_type capacity() const {
+            typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
+            return size_type(internalContainer_.get().capacity());
+        }
+        /**
+         * @brief Reserves storage for at least n elements.
+         * @param n The number of elements to reserve space for.
+         */
+        void reserve(size_type n) {
+            typename ConcurrencyPolicy::LockGuard guard(this->getLock());
+            internalContainer_.get().reserve(static_cast<size_t>(n));
+        }
+        /**
+         * @brief Clears all elements from the container.
+         */
+        void clear() {
+            typename ConcurrencyPolicy::LockGuard guard(this->getLock());
+            try {
+                internalContainer_.get().clear();
+                validateInvariant();
+            } catch (const std::exception&) {
+                throw;
+            }
+        }
+        /**
          * @brief Counts occurrences of value (O(log N + K) where K=matches).
          * @param value The value to count.
-         * @return size_t Number of matches (1 for unique policies).
+         * @return size_type Number of matches (1 for unique policies).
          */
         [[nodiscard]] size_type count(const T& value) const {
             typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
@@ -304,22 +361,25 @@ namespace cpp_utilities {
         template <typename U = T, typename... EpsParams, typename = std::enable_if_t<std::is_convertible_v<U, T>>>
         Expected<bool, std::string> insert(U&& value, EpsParams... eps) {
             typename ConcurrencyPolicy::LockGuard guard(this->getLock()); // Write lock
-            // ScopeGuard for RAII cleanup (updates)
-            ScopeGuard<std::function<void()>> cleanup_guard([&]() { validateInvariant(); });
             // Precondition: T movable/copyable if forward
             static_assert(std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>, "T must be movable or copyable");
-            bool inserted;
-            if constexpr (std::is_same_v<UniquenessPolicy, FuzzyUniquePolicy<>>) {
-                inserted = UniquenessPolicy::insert(internalContainer_.get(), std::forward<U>(value), compare_, eps...);
+            try {
+                bool inserted;
+                if constexpr (is_fuzzy_unique_policy<UniquenessPolicy>::value) {
+                    inserted = UniquenessPolicy::insert(internalContainer_.get(), std::forward<U>(value), compare_, eps...);
+                }
+                else {
+                    inserted = UniquenessPolicy::insert(internalContainer_.get(), std::forward<U>(value), compare_);
+                }
+                // Log if failed
+                if (!inserted) {
+                    conditionalPrintError([] { return "Insert failed: duplicate or error"; });
+                }
+                validateInvariant();
+                return Expected<bool, std::string>(inserted);
+            } catch (const std::exception& e) {
+                return unexpected<std::string>(e.what());
             }
-            else {
-                inserted = UniquenessPolicy::insert(internalContainer_.get(), std::forward<U>(value), compare_);
-            }
-            // Log invariant violation if failed (updates: DiagnosticLogger)
-            if (!inserted) {
-                conditionalPrintError([] { return "Insert failed: duplicate or error"; });
-            }
-            return inserted;
         }
         /**
          * @brief Batch insert: Appends elements and sorts once (O(N log N)).
@@ -328,45 +388,54 @@ namespace cpp_utilities {
          * @tparam InputIt Iterator type.
          * @param first Start of the range.
          * @param last End of the range.
+         * @param eps Optional epsilon params for fuzzy uniqueness.
          * @return Expected<void, std::string> Success or error (e.g., invariant).
          */
-        template <typename InputIt>
-        Expected<void, std::string> insertRange(InputIt first, InputIt last) {
+        template <typename InputIt, typename... EpsParams>
+        Expected<void, std::string> insertRange(InputIt first, InputIt last, EpsParams... eps) {
             typename ConcurrencyPolicy::LockGuard guard(this->getLock()); // Write lock
-            // ScopeGuard for RAII (updates)
-            ScopeGuard<std::function<void()>> cleanup_guard([&]() { validateInvariant(); });
-            // Reserve for perf (use CheckedArithmetic for safe add)
-            auto range_size = std::distance(first, last);
-            auto new_size = checked_add<ThrowOnErrorPolicy>(internalContainer_.get().size(), range_size);
-            internalContainer_.get().reserve(new_size);
-            internalContainer_.get().insert(internalContainer_.get().end(), first, last);
-            // Optimized sort: Insertion sort for small, std::sort for large
-            if (range_size < 16) {
-                // Insertion sort on appended part (stable, fast for small)
-                for (auto it = internalContainer_.get().end() - range_size; it != internalContainer_.get().end(); ++it) {
-                    auto insertion_point = std::upper_bound(internalContainer_.get().begin(), it, *it, compare_);
-                    std::rotate(insertion_point, it, it + 1);
+            try {
+                // Reserve for perf (use CheckedArithmetic for safe add)
+                auto range_size = std::distance(first, last);
+                auto new_size = checked_add<ThrowOnErrorPolicy>(internalContainer_.get().size(), static_cast<size_t>(range_size));
+                internalContainer_.get().reserve(new_size);
+                internalContainer_.get().insert(internalContainer_.get().end(), first, last);
+                // Optimized sort: Insertion sort for small, std::stable_sort for large
+                if (range_size < 16) {
+                    // Insertion sort on appended part (stable, fast for small)
+                    for (auto it = internalContainer_.get().end() - range_size; it != internalContainer_.get().end(); ++it) {
+                        auto insertion_point = std::upper_bound(internalContainer_.get().begin(), it, *it, compare_);
+                        std::rotate(insertion_point, it, it + 1);
+                    }
                 }
-            }
-            else {
-                std::sort(internalContainer_.get().begin(), internalContainer_.get().end(), compare_);
-            }
-            // Apply uniqueness logic if configured for it
-            if constexpr (std::is_same_v<UniquenessPolicy, OnlyUniquePolicy>) {
-                auto lastUnique = std::unique(internalContainer_.get().begin(), internalContainer_.get().end());
-                internalContainer_.get().erase(lastUnique, internalContainer_.get().end());
-            }
-            else if constexpr (std::is_same_v<UniquenessPolicy, FuzzyUniquePolicy<>>) {
-                // Fuzzy unique: Sort first, then remove fuzzy dups (needs custom unique)
-                auto fuzzy_unique = [this](const T& lhs, const T& rhs) {
-                    return areEqual<T, typename UniquenessPolicy::EqPolicy>(lhs, rhs /*, eps if needed*/);
+                else {
+                    // Use stable_sort to maintain stability for equal elements
+                    std::stable_sort(internalContainer_.get().begin(), internalContainer_.get().end(), compare_);
+                }
+                // Apply uniqueness logic if configured for it
+                if constexpr (std::is_same_v<UniquenessPolicy, OnlyUniquePolicy>) {
+                    // Use equivalence relation based on Compare (not operator==)
+                    auto equiv = [this](const T& a, const T& b) {
+                        return !compare_(a, b) && !compare_(b, a);
                     };
-                auto lastUnique = std::unique(internalContainer_.get().begin(), internalContainer_.get().end(), fuzzy_unique);
-                internalContainer_.get().erase(lastUnique, internalContainer_.get().end());
+                    auto lastUnique = std::unique(internalContainer_.get().begin(), internalContainer_.get().end(), equiv);
+                    internalContainer_.get().erase(lastUnique, internalContainer_.get().end());
+                }
+                else if constexpr (is_fuzzy_unique_policy<UniquenessPolicy>::value) {
+                    // Fuzzy unique: Sort first, then remove fuzzy dups
+                    auto fuzzy_unique = [this, eps...](const T& lhs, const T& rhs) {
+                        return areEqual<T, typename UniquenessPolicy::EqPolicy_t>(lhs, rhs, eps...);
+                        };
+                    auto lastUnique = std::unique(internalContainer_.get().begin(), internalContainer_.get().end(), fuzzy_unique);
+                    internalContainer_.get().erase(lastUnique, internalContainer_.get().end());
+                }
+                validateInvariant();
+                return {};
+            } catch (const std::exception& e) {
+                return unexpected<std::string>(e.what());
             }
-            return {};
         }
-        // --- Erase Support (Wish-List) ---
+        // --- Erase Support ---
         /**
          * @brief Erases the first occurrence of value (O(log N) find + O(N) erase).
          * @param value The value to erase.
@@ -374,29 +443,34 @@ namespace cpp_utilities {
          */
         Expected<bool, std::string> erase(const T& value) {
             typename ConcurrencyPolicy::LockGuard guard(this->getLock()); // Write lock
-            // ScopeGuard for RAII (updates)
-            ScopeGuard<std::function<void()>> cleanup_guard([&]() { validateInvariant(); });
-            auto it = find(value);
-            if (it == end()) return false;
-            internalContainer_.get().erase(it);
-            return true;
+            try {
+                auto it = find(value);
+                if (it == end()) {
+                    return Expected<bool, std::string>(false);
+                }
+                internalContainer_.get().erase(it);
+                validateInvariant();
+                return Expected<bool, std::string>(true);
+            } catch (const std::exception& e) {
+                return unexpected<std::string>(e.what());
+            }
         }
-        // --- Binary Search Methods (Wish-List: lower/upper_bound) ---
+        // --- Binary Search Methods ---
         /**
          * @brief Returns iterator to first element not less than value.
          * @param value The value to search for.
-         * @return constIterator
+         * @return const_iterator
          */
-        [[nodiscard]] constIterator lower_bound(const T& value) const {
+        [[nodiscard]] const_iterator lower_bound(const T& value) const {
             typename ConcurrencyPolicy::SharedGuard guard(this->getLock()); // Read lock
             return std::lower_bound(internalContainer_.get().begin(), internalContainer_.get().end(), value, compare_);
         }
         /**
          * @brief Returns iterator to first element greater than value.
          * @param value The value to search for.
-         * @return constIterator
+         * @return const_iterator
          */
-        [[nodiscard]] constIterator upper_bound(const T& value) const {
+        [[nodiscard]] const_iterator upper_bound(const T& value) const {
             typename ConcurrencyPolicy::SharedGuard guard(this->getLock()); // Read lock
             return std::upper_bound(internalContainer_.get().begin(), internalContainer_.get().end(), value, compare_);
         }
@@ -405,10 +479,10 @@ namespace cpp_utilities {
          * @brief Finds an element using binary search (O(log N)).
          *
          * @param value The value to find.
-         * @return constIterator An iterator to the element, or end() if not
+         * @return const_iterator An iterator to the element, or end() if not
          * found.
          */
-        [[nodiscard]] constIterator find(const T& value) const {
+        [[nodiscard]] const_iterator find(const T& value) const {
             typename ConcurrencyPolicy::SharedGuard guard(this->getLock()); // Read lock
             auto it = std::lower_bound(internalContainer_.get().begin(), internalContainer_.get().end(), value, compare_);
             // Final check to ensure the found element is actually equivalent to
@@ -431,7 +505,7 @@ namespace cpp_utilities {
             // Refactored to use the generic 'enforce' macro, which automatically
             // maps to DebugOnlyPolicy, compiling away to nothing in Release builds.
             enforce(std::is_sorted(internalContainer_.get().begin(), internalContainer_.get().end(), compare_),
-                "SortedVector invariant violated: container is not sorted."
+                "SortedContainer invariant violated: container is not sorted."
             );
             // Log violation if failed (updates: DiagnosticLogger)
             if (!std::is_sorted(internalContainer_.get().begin(), internalContainer_.get().end(), compare_)) {
@@ -442,7 +516,7 @@ namespace cpp_utilities {
         /**
          * @brief Returns a copy of the internal data vector.
          *
-         * @return std::vector<T, Allocator> A copy of the internal data.
+         * @return InternalContainer A copy of the internal data.
          */
         [[nodiscard]] InternalContainer toVector() const {
             typename ConcurrencyPolicy::SharedGuard guard(this->getLock()); // Read lock
@@ -452,37 +526,34 @@ namespace cpp_utilities {
          * @brief Returns a const reference to the internal vector.
          *
          * @warning Use with caution: Modifying the returned vector may break the sorted invariant.
-         * Modifying Modifying may lead to UB or invariant violations. Prefer toVector() for safe copies or read-only operations.
+         * Modifying may lead to UB or invariant violations. Prefer toVector() for safe copies or read-only operations.
          * @return const InternalContainer& A read-only reference to the internal data.
          */
         const InternalContainer& asVector() const {
             typename ConcurrencyPolicy::SharedGuard guard(this->getLock()); // Read lock
             return internalContainer_.get();
         }
+        
+        /**
+         * @brief Executes a function with scoped access to the internal container.
+         *
+         * This method holds the read lock during the execution of the provided function,
+         * ensuring thread-safety for read-only operations without exposing the reference.
+         * 
+         * @tparam Func A callable type that takes const InternalContainer& as argument.
+         * @param func The function to execute with access to the internal container.
+         * @return The return value of func.
+         */
+        template <typename Func>
+        decltype(auto) withInternalContainer(Func&& func) const {
+            typename ConcurrencyPolicy::SharedGuard guard(this->getLock()); // Read lock held during func
+            return std::forward<Func>(func)(internalContainer_.get());
+        }
     private:
         // Member variables are kept at the bottom of the private section.
         ComparePolicy compare_{};
     };
 
-    // --- 3. Additional SynchronizationPolicies (Wish-List: Spinlock) ---
-    /**
-     * @brief Spinlock policy using std::atomic (busy-wait for low-contention).
-     */
-    struct SpinlockSynchronizationPolicy {
-        mutable std::atomic<bool> lock_{ false };
-        class LockGuard {
-        public:
-            explicit LockGuard(std::atomic<bool>& lock) : lock_(lock) {
-                while (lock_.exchange(true, std::memory_order_acquire)) {} // Spin
-            }
-            ~LockGuard() { lock_.store(false, std::memory_order_release); }
-        private:
-            std::atomic<bool>& lock_;
-        };
-        // No shared lock for spin (exclusive only)
-        using SharedGuard = LockGuard;
-        std::atomic<bool>& getLock() const { return lock_; }
-    };
     // Guard optional deps
     // Users define CPP_UTILITIES_USE_SHARED_MUTEX / CPP_UTILITIES_USE_ATOMIC to 0 if not wanted.
 

@@ -75,6 +75,18 @@
     <ClCompile Include="test_AdaptiveIterator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="test_StateMachine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test_SortedContainer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test_JsonLite.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test_UltraLoggers.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AllocationStrategy.h">
@@ -212,15 +224,6 @@
     <ClInclude Include="test_AtomicReference.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="AsyncLogger.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HybridLogger.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="PolicyLogger.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="test_StrongId.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -234,6 +237,30 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="test_AdaptiveIterator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="test_StateMachine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="test_SortedContainer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="test_JsonLite.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LoggerAsync.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LoggerHybrid.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LoggerPolicy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="test_UltraLoggers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="JsonLite.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
