@@ -47,6 +47,8 @@
 #include <atomic> // For SpinlockSynchronizationPolicy (guarded)
 #endif
 #include <optional> // For optional in some returns if needed
+#include <tuple>     // For std::make_tuple, std::apply (CRITICAL FIX for variadic lambda capture)
+#include <utility>   // For std::forward
 
 #include "CheckedArithmetic.h" // For safe arithmetic in size/reserve
 #include "ConcurrencyPolicies.h" // For synchronization policies (extended with Spinlock/RW)
@@ -246,7 +248,8 @@ namespace cpp_utilities {
          * @brief Default constructor.
          */
         SortedContainer() {
-            internalContainer_.init();
+            auto init_res = internalContainer_.init();
+            always_enforce(static_cast<bool>(init_res), "Failed to initialize container");
         }
         /**
          * @brief Range constructor: inserts elements from an iterator range
@@ -259,8 +262,12 @@ namespace cpp_utilities {
          */
         template <typename InputIt, typename... EpsParams>
         SortedContainer(InputIt first, InputIt last, EpsParams... eps) {
-            internalContainer_.init();
-            insertRange(first, last, eps...);
+            auto init_res = internalContainer_.init();
+            always_enforce(static_cast<bool>(init_res), "Failed to initialize container");
+            auto insert_res = insertRange(first, last, eps...);
+            if (!insert_res.has_value()) {
+                always_enforce(false, "Failed to insert range: " + insert_res.error());
+            }
         }
         // --- Core STL methods (Read-only access) ---
         /**
@@ -395,15 +402,38 @@ namespace cpp_utilities {
         Expected<void, std::string> insertRange(InputIt first, InputIt last, EpsParams... eps) {
             typename ConcurrencyPolicy::LockGuard guard(this->getLock()); // Write lock
             try {
-                // Reserve for perf (use CheckedArithmetic for safe add)
+                // CRITICAL FIX: Calculate range size safely and validate
                 auto range_size = std::distance(first, last);
-                auto new_size = checked_add<ThrowOnErrorPolicy>(internalContainer_.get().size(), static_cast<size_t>(range_size));
+                if (range_size <= 0) {
+                    return {};  // Empty range, nothing to do
+                }
+                
+                // Reserve space with checked arithmetic
+                auto current_size = internalContainer_.get().size();
+                auto new_size = checked_add<ThrowOnErrorPolicy>(current_size, static_cast<size_t>(range_size));
                 internalContainer_.get().reserve(new_size);
+                
+                // Insert elements at the end
                 internalContainer_.get().insert(internalContainer_.get().end(), first, last);
+                
+                // CRITICAL FIX: Verify insertion succeeded
+                if (internalContainer_.get().size() != new_size) {
+                    return unexpected<std::string>("Container size mismatch after insertion");
+                }
+                
                 // Optimized sort: Insertion sort for small, std::stable_sort for large
                 if (range_size < 16) {
+                    // CRITICAL FIX: Bounds check before insertion sort
+                    auto container_end = internalContainer_.get().end();
+                    auto start_it = container_end - range_size;
+                    
+                    // Validate iterator bounds
+                    if (start_it < internalContainer_.get().begin() || start_it > container_end) {
+                        return unexpected<std::string>("Invalid iterator range in insertion sort");
+                    }
+                    
                     // Insertion sort on appended part (stable, fast for small)
-                    for (auto it = internalContainer_.get().end() - range_size; it != internalContainer_.get().end(); ++it) {
+                    for (auto it = start_it; it != container_end; ++it) {
                         auto insertion_point = std::upper_bound(internalContainer_.get().begin(), it, *it, compare_);
                         std::rotate(insertion_point, it, it + 1);
                     }
@@ -412,23 +442,36 @@ namespace cpp_utilities {
                     // Use stable_sort to maintain stability for equal elements
                     std::stable_sort(internalContainer_.get().begin(), internalContainer_.get().end(), compare_);
                 }
+                
                 // Apply uniqueness logic if configured for it
                 if constexpr (std::is_same_v<UniquenessPolicy, OnlyUniquePolicy>) {
-                    // Use equivalence relation based on Compare (not operator==)
-                    auto equiv = [this](const T& a, const T& b) {
-                        return !compare_(a, b) && !compare_(b, a);
+                    // IMPROVED: Capture compare_ by const reference for safety
+                    const auto& comp_ref = compare_;
+                    auto equiv = [&comp_ref](const T& a, const T& b) {
+                        return !comp_ref(a, b) && !comp_ref(b, a);
                     };
-                    auto lastUnique = std::unique(internalContainer_.get().begin(), internalContainer_.get().end(), equiv);
+                    auto lastUnique = std::unique(internalContainer_.get().begin(), 
+                                                   internalContainer_.get().end(), 
+                                                   equiv);
                     internalContainer_.get().erase(lastUnique, internalContainer_.get().end());
                 }
                 else if constexpr (is_fuzzy_unique_policy<UniquenessPolicy>::value) {
-                    // Fuzzy unique: Sort first, then remove fuzzy dups
-                    auto fuzzy_unique = [this, eps...](const T& lhs, const T& rhs) {
-                        return areEqual<T, typename UniquenessPolicy::EqPolicy_t>(lhs, rhs, eps...);
-                        };
-                    auto lastUnique = std::unique(internalContainer_.get().begin(), internalContainer_.get().end(), fuzzy_unique);
+                    // CRITICAL FIX: Safe capture of variadic parameters using tuple + std::apply
+                    // This prevents stack corruption from direct variadic lambda capture [this, eps...]
+                    auto eps_tuple = std::make_tuple(eps...);
+                    
+                    auto fuzzy_unique = [this, eps_tuple](const T& lhs, const T& rhs) {
+                        return std::apply([this, &lhs, &rhs](auto&&... args) {
+                            return areEqual<T, typename UniquenessPolicy::EqPolicy_t>(lhs, rhs, args...);
+                        }, eps_tuple);
+                    };
+                    
+                    auto lastUnique = std::unique(internalContainer_.get().begin(), 
+                                                   internalContainer_.get().end(), 
+                                                   fuzzy_unique);
                     internalContainer_.get().erase(lastUnique, internalContainer_.get().end());
                 }
+                
                 validateInvariant();
                 return {};
             } catch (const std::exception& e) {

@@ -820,11 +820,8 @@ namespace cpp_utilities::testing
     // ============================================================================
 
     bool test_AllocationStrategy() {
-        std::cout << "======================================\n";
-        std::cout << "AllocationStrategy - Comprehensive Test Suite\n";
-        std::cout << "C++17, Header-Only, High Performance\n";
-        std::cout << "Policy-Based Allocators with Zero Overhead\n";
-        std::cout << "======================================\n\n";
+
+        PRINT_HEADER(ALLOCATION STRATEGY)
 
         TestRunner runner;
         get_test_config().verbose = true;
@@ -893,21 +890,6 @@ namespace cpp_utilities::testing
         // Print summary
         int failed = runner.print_summary();
         
-        if (failed == 0) {
-            std::cout << "\n" << colors::green() << colors::bold()
-                     << "======================================\n";
-            std::cout << "✓ All AllocationStrategy tests passed!\n";
-            std::cout << "✓ Production ready\n";
-            std::cout << "======================================\n"
-                     << colors::reset();
-        } else {
-            std::cout << "\n" << colors::red() << colors::bold()
-                     << "======================================\n";
-            std::cout << "✗ " << failed << " test(s) failed\n";
-            std::cout << "======================================\n"
-                     << colors::reset();
-        }
-
         return failed == 0;
     }
 

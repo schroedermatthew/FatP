@@ -1146,21 +1146,9 @@ bool test_compile_time_predicate_noexcept() {
 // ============================================================================
 
 bool test_Enforce() {
-    std::cout << "\n";
-    std::cout << "════════════════════════════════════════════════════════════════\n";
-    std::cout << "    ENFORCE LIBRARY - COMPREHENSIVE UNIT TEST SUITE            \n";
-    std::cout << "════════════════════════════════════════════════════════════════\n";
-    std::cout << "  Target: Intel Core i7-8850H @ 2.60GHz                       \n";
-    std::cout << "  C++ Standard: C++17                                          \n";
-    std::cout << "  Build Mode: " 
-              #ifdef NDEBUG
-              << "Release (NDEBUG defined)"
-              #else
-              << "Debug"
-              #endif
-              << "                      \n";
-    std::cout << "════════════════════════════════════════════════════════════════\n\n";
-    
+
+    PRINT_HEADER(ENFORCE LIBRARY)
+
     TestRunner runner;
     
     // Configure test runner
@@ -1257,13 +1245,13 @@ bool test_Enforce() {
         
     } catch (const std::exception& e) {
         std::cerr << "\n" << colors::red() << colors::bold() 
-                  << "💥 FATAL ERROR: Uncaught exception in test suite!" 
+                  << "FATAL ERROR : Uncaught exception in test suite!" 
                   << colors::reset() << "\n";
         std::cerr << "   " << e.what() << "\n\n";
         return false;
     } catch (...) {
         std::cerr << "\n" << colors::red() << colors::bold() 
-                  << "💥 FATAL ERROR: Unknown exception in test suite!" 
+                  << "FATAL ERROR: Unknown exception in test suite!" 
                   << colors::reset() << "\n\n";
         return false;
     }

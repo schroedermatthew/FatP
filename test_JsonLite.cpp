@@ -1,12 +1,12 @@
 // test_JsonLite.cpp
-#include "JsonLite.h"
-#include "test_JsonLite.h"
-#include "test_Utilities.h"
 #include <cassert>
 #include <sstream>
 #include <cmath>
 #include <climits>
 
+#include "JsonLite.h"
+#include "test_JsonLite.h"
+#include "test_Utilities.h"
 
 // ====================================================================
 // Test Macros
@@ -16,16 +16,8 @@
     std::cout << colors::cyan() << "\n=== " << name << " ===" << colors::reset() << std::endl
 
 #define TEST_PASS(msg) \
-    std::cout << colors::green() << "✓ " << msg << colors::reset() << std::endl; \
+    std::cout << colors::green() << "âœ“ " << msg << colors::reset() << std::endl; \
     return true
-
-#define TEST_SUITE_BEGIN(name) \
-    std::cout << colors::bold() << "\n" << std::string(60, '=') << "\n" \
-              << name << "\n" << std::string(60, '=') << colors::reset() << std::endl
-
-#define TEST_SUITE_END() \
-    std::cout << colors::bold() << "\n" << std::string(60, '=') << "\n" \
-              << "All Tests Completed\n" << std::string(60, '=') << colors::reset() << std::endl
 
 // ====================================================================
 // Test Structs
@@ -98,7 +90,7 @@ CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(AppConfig, port, host, allowed_ips, timeout)
 namespace cpp_utilities::testing
 {
 
-bool test_basic_types() {
+bool test_json_lite_basic_types() {
     TEST_SECTION("Basic JSON Types");
     
     // Null
@@ -137,7 +129,7 @@ bool test_basic_types() {
     TEST_PASS("Basic types serialize correctly");
 }
 
-bool test_string_escaping() {
+bool test_json_lite_string_escaping() {
     TEST_SECTION("String Escaping");
     
     std::string test_str = "line1\nline2\ttab\"quote\\backslash";
@@ -152,7 +144,7 @@ bool test_string_escaping() {
     TEST_PASS("String escaping works correctly");
 }
 
-bool test_containers() {
+bool test_json_lite_containers() {
     TEST_SECTION("Container Serialization");
     
     // Vector
@@ -190,7 +182,7 @@ bool test_containers() {
     TEST_PASS("Container serialization works");
 }
 
-bool test_optional() {
+bool test_json_lite_optional() {
     TEST_SECTION("Optional Support");
     
     // Has value
@@ -219,7 +211,7 @@ bool test_optional() {
     TEST_PASS("Optional serialization works");
 }
 
-bool test_tuples_pairs() {
+bool test_json_lite_tuples_pairs() {
     TEST_SECTION("Tuple and Pair Serialization");
     
     // Pair
@@ -252,7 +244,7 @@ bool test_tuples_pairs() {
 // Struct Tests
 // ====================================================================
 
-bool test_simple_struct() {
+bool test_json_lite_simple_struct() {
     TEST_SECTION("Simple Struct Serialization");
     
     Point p{10, 20};
@@ -272,7 +264,7 @@ bool test_simple_struct() {
     TEST_PASS("Simple struct serialization works");
 }
 
-bool test_complex_struct() {
+bool test_json_lite_complex_struct() {
     TEST_SECTION("Complex Struct Serialization");
     
     Person person{"Alice", 30, {"reading", "coding", "hiking"}};
@@ -289,7 +281,7 @@ bool test_complex_struct() {
     TEST_PASS("Complex struct with nested containers works");
 }
 
-bool test_optional_fields() {
+bool test_json_lite_optional_fields() {
     TEST_SECTION("Optional Fields in Structs");
     
     // All fields present
@@ -325,7 +317,7 @@ bool test_optional_fields() {
     TEST_PASS("Optional field handling works");
 }
 
-bool test_intrusive_serialization() {
+bool test_json_lite_intrusive_serialization() {
     TEST_SECTION("Intrusive Serialization (Private Members)");
     
     PrivateData data(42, "secret123");
@@ -340,7 +332,7 @@ bool test_intrusive_serialization() {
     TEST_PASS("Intrusive serialization with private members works");
 }
 
-bool test_nested_structs() {
+bool test_json_lite_nested_structs() {
     TEST_SECTION("Nested Struct Serialization");
     
     Nested nested{{5, 10}, "origin"};
@@ -360,7 +352,7 @@ bool test_nested_structs() {
     TEST_PASS("Nested struct serialization works");
 }
 
-bool test_complex_nested() {
+bool test_json_lite_complex_nested() {
     TEST_SECTION("Complex Nested Structures");
     
     Complex c;
@@ -388,7 +380,7 @@ bool test_complex_nested() {
 // Parser Tests
 // ====================================================================
 
-bool test_parser_basic() {
+bool test_json_lite_parser_basic() {
     TEST_SECTION("JSON Parser - Basic Types");
     
     // Parse null
@@ -420,7 +412,7 @@ bool test_parser_basic() {
     TEST_PASS("Parser handles basic types");
 }
 
-bool test_parser_containers() {
+bool test_json_lite_parser_containers() {
     TEST_SECTION("JSON Parser - Containers");
     
     // Parse array
@@ -429,7 +421,7 @@ bool test_parser_containers() {
         assert(j.is_array());
         const auto& arr = std::get<JsonArray>(j);
         assert(arr.size() == 3);
-        assert(std::get<double>(arr[0]) == 1);
+        assert(std::get<int64_t>(arr[0]) == 1);
     }
     
     // Parse object
@@ -439,7 +431,7 @@ bool test_parser_containers() {
         const auto& obj = std::get<JsonObject>(j);
         assert(obj.size() == 2);
         assert(std::get<std::string>(obj.at("name")) == "Alice");
-        assert(std::get<double>(obj.at("age")) == 30);
+        assert(std::get<int64_t>(obj.at("age")) == 30);
     }
     
     // Parse nested
@@ -456,7 +448,7 @@ bool test_parser_containers() {
     TEST_PASS("Parser handles containers");
 }
 
-bool test_parser_edge_cases() {
+bool test_json_lite_parser_edge_cases() {
     TEST_SECTION("JSON Parser - Edge Cases");
     
     // Empty array
@@ -484,7 +476,7 @@ bool test_parser_edge_cases() {
     TEST_PASS("Parser handles edge cases");
 }
 
-bool test_parser_errors() {
+bool test_json_lite_parser_errors() {
     TEST_SECTION("JSON Parser - Error Handling");
     
     bool caught = false;
@@ -522,7 +514,7 @@ bool test_parser_errors() {
 // Policy Tests
 // ====================================================================
 
-bool test_pretty_print() {
+bool test_json_lite_pretty_print() {
     TEST_SECTION("Pretty Print Policy");
     
     Point p{10, 20};
@@ -536,7 +528,7 @@ bool test_pretty_print() {
     TEST_PASS("Pretty print policy works");
 }
 
-bool test_numeric_precision() {
+bool test_json_lite_numeric_precision() {
     TEST_SECTION("Numeric Precision Policy");
     
     double pi = 3.14159265359;
@@ -549,7 +541,7 @@ bool test_numeric_precision() {
     TEST_PASS("Numeric precision policy works");
 }
 
-bool test_nan_inf_handling() {
+bool test_json_lite_nan_inf_handling() {
     TEST_SECTION("NaN/Infinity Handling");
     
     // Standard policy - converts to null
@@ -575,7 +567,7 @@ bool test_nan_inf_handling() {
 // File I/O Tests
 // ====================================================================
 
-bool test_file_io() {
+bool test_json_lite_file_io() {
     TEST_SECTION("File I/O");
     
     const std::string filename = "test_json_output.json";
@@ -608,7 +600,7 @@ bool test_file_io() {
 // Round-trip Tests
 // ====================================================================
 
-bool test_roundtrip_all_types() {
+bool test_json_lite_roundtrip_all_types() {
     TEST_SECTION("Round-trip All Types");
     
     // Test various types can round-trip correctly
@@ -643,7 +635,7 @@ bool test_roundtrip_all_types() {
     TEST_PASS("Round-trip for all types works");
 }
 
-bool test_convenience_functions() {
+bool test_json_lite_convenience_functions() {
     TEST_SECTION("Convenience Functions");
     
     Point p{15, 25};
@@ -662,7 +654,7 @@ bool test_convenience_functions() {
 // Performance/Stress Tests
 // ====================================================================
 
-bool test_large_data() {
+bool test_json_lite_large_data() {
     TEST_SECTION("Large Data Handling");
     
     // Large array
@@ -682,7 +674,7 @@ bool test_large_data() {
     TEST_PASS("Large data handling works");
 }
 
-bool test_deeply_nested() {
+bool test_json_lite_deeply_nested() {
     TEST_SECTION("Deeply Nested Structures");
     
     // Create nested structure (within safe limits)
@@ -693,7 +685,7 @@ bool test_deeply_nested() {
         (*current)["nested"] = JsonObject{};
         current = &std::get<JsonObject>((*current)["nested"]);
     }
-    (*current)["value"] = 42.0;
+    (*current)["value"] = 42;
     
     // Serialize and parse
     std::string str = to_json_string(j);
@@ -705,7 +697,7 @@ bool test_deeply_nested() {
         curr2 = &std::get<JsonObject>(curr2->at("nested"));
     }
     
-    assert(std::get<double>(curr2->at("value")) == 42.0);
+    assert(std::get<int64_t>(curr2->at("value")) == 42);
     
     TEST_PASS("Deeply nested structures work");
 }
@@ -714,7 +706,7 @@ bool test_deeply_nested() {
 // SuperGrok Enhancement Tests
 // ====================================================================
 
-bool test_depth_limit_parse() {
+bool test_json_lite_depth_limit_parse() {
     TEST_SECTION("Depth Limit - Parser");
     
     // Create deeply nested JSON (exceeds limit)
@@ -742,11 +734,11 @@ bool test_depth_limit_parse() {
     TEST_PASS("Parse depth limit protection works");
 }
 
-bool test_depth_limit_dump() {
+bool test_json_lite_depth_limit_dump() {
     TEST_SECTION("Depth Limit - Serializer");
     
     // Create deeply nested structure (exceeds limit)
-    JsonValue j = 1.0;
+    JsonValue j = 1;
     for (int i = 0; i < 600; ++i) {
         JsonArray arr;
         arr.push_back(j);
@@ -767,7 +759,7 @@ bool test_depth_limit_dump() {
     TEST_PASS("Dump depth limit protection works");
 }
 
-bool test_range_checks() {
+bool test_json_lite_range_checks() {
     TEST_SECTION("Integer Range Checking");
     
     // Test int overflow
@@ -804,7 +796,7 @@ bool test_range_checks() {
     
     // Test valid conversion
     {
-        JsonValue j = 42.0;
+        JsonValue j = 42;
         int value = 0;
         from_json(j, value);
         assert(value == 42);
@@ -813,7 +805,7 @@ bool test_range_checks() {
     TEST_PASS("Range checking works");
 }
 
-bool test_better_error_messages() {
+bool test_json_lite_better_error_messages() {
     TEST_SECTION("Enhanced Error Messages");
     
     // Test missing field error includes field name
@@ -849,7 +841,7 @@ bool test_better_error_messages() {
     TEST_PASS("Enhanced error messages work");
 }
 
-bool test_param_helpers() {
+bool test_json_lite_param_helpers() {
     TEST_SECTION("Parameter Helper Functions");
     
     AppConfig config;
@@ -891,7 +883,7 @@ bool test_param_helpers() {
     TEST_PASS("Param helper functions work");
 }
 
-bool test_position_in_errors() {
+bool test_json_lite_position_in_errors() {
     TEST_SECTION("Position Information in Errors");
     
     std::string json = R"({"key": "value", "bad": })";
@@ -911,7 +903,8 @@ bool test_position_in_errors() {
 
 
 bool test_JsonLite() {
-    TEST_SUITE_BEGIN("JSON Serialization Tests");
+
+    PRINT_HEADER(JSON LITE)
     
     TestRunner runner;
     auto& out = *get_test_config().output;
@@ -919,66 +912,64 @@ bool test_JsonLite() {
     // Basic types
     out << "\n" << colors::bold() << "=== Basic Type Tests ===" 
         << colors::reset() << std::endl;
-    runner.run_test("Basic Types", test_basic_types);
-    runner.run_test("String Escaping", test_string_escaping);
-    runner.run_test("Containers", test_containers);
-    runner.run_test("Optional Support", test_optional);
-    runner.run_test("Tuples and Pairs", test_tuples_pairs);
+    runner.run_test("Basic Types", test_json_lite_basic_types);
+    runner.run_test("String Escaping", test_json_lite_string_escaping);
+    runner.run_test("Containers", test_json_lite_containers);
+    runner.run_test("Optional Support", test_json_lite_optional);
+    runner.run_test("Tuples and Pairs", test_json_lite_tuples_pairs);
     
     // Structs
     out << "\n" << colors::bold() << "=== Struct Serialization Tests ===" 
         << colors::reset() << std::endl;
-    runner.run_test("Simple Struct", test_simple_struct);
-    runner.run_test("Complex Struct", test_complex_struct);
-    runner.run_test("Optional Fields", test_optional_fields);
-    runner.run_test("Intrusive Serialization", test_intrusive_serialization);
-    runner.run_test("Nested Structs", test_nested_structs);
-    runner.run_test("Complex Nested", test_complex_nested);
+    runner.run_test("Simple Struct", test_json_lite_simple_struct);
+    runner.run_test("Complex Struct", test_json_lite_complex_struct);
+    runner.run_test("Optional Fields", test_json_lite_optional_fields);
+    runner.run_test("Intrusive Serialization", test_json_lite_intrusive_serialization);
+    runner.run_test("Nested Structs", test_json_lite_nested_structs);
+    runner.run_test("Complex Nested", test_json_lite_complex_nested);
     
     // Parser
     out << "\n" << colors::bold() << "=== Parser Tests ===" 
         << colors::reset() << std::endl;
-    runner.run_test("Parser Basic", test_parser_basic);
-    runner.run_test("Parser Containers", test_parser_containers);
-    runner.run_test("Parser Edge Cases", test_parser_edge_cases);
-    runner.run_test("Parser Errors", test_parser_errors);
+    runner.run_test("Parser Basic", test_json_lite_parser_basic);
+    runner.run_test("Parser Containers", test_json_lite_parser_containers);
+    runner.run_test("Parser Edge Cases", test_json_lite_parser_edge_cases);
+    runner.run_test("Parser Errors", test_json_lite_parser_errors);
     
     // Policies
     out << "\n" << colors::bold() << "=== Policy Tests ===" 
         << colors::reset() << std::endl;
-    runner.run_test("Pretty Print", test_pretty_print);
-    runner.run_test("Numeric Precision", test_numeric_precision);
-    runner.run_test("NaN/Inf Handling", test_nan_inf_handling);
+    runner.run_test("Pretty Print", test_json_lite_pretty_print);
+    runner.run_test("Numeric Precision", test_json_lite_numeric_precision);
+    runner.run_test("NaN/Inf Handling", test_json_lite_nan_inf_handling);
     
     // File I/O
     out << "\n" << colors::bold() << "=== File I/O Tests ===" 
         << colors::reset() << std::endl;
-    runner.run_test("File I/O", test_file_io);
+    runner.run_test("File I/O", test_json_lite_file_io);
     
     // Round-trip
     out << "\n" << colors::bold() << "=== Round-trip Tests ===" 
         << colors::reset() << std::endl;
-    runner.run_test("Roundtrip All Types", test_roundtrip_all_types);
-    runner.run_test("Convenience Functions", test_convenience_functions);
+    runner.run_test("Roundtrip All Types", test_json_lite_roundtrip_all_types);
+    runner.run_test("Convenience Functions", test_json_lite_convenience_functions);
     
     // Performance
     out << "\n" << colors::bold() << "=== Performance Tests ===" 
         << colors::reset() << std::endl;
-    runner.run_test("Large Data", test_large_data);
-    runner.run_test("Deeply Nested", test_deeply_nested);
+    runner.run_test("Large Data", test_json_lite_large_data);
+    runner.run_test("Deeply Nested", test_json_lite_deeply_nested);
     
     // SuperGrok Enhancements
     out << "\n" << colors::bold() << "=== SuperGrok Enhancement Tests ===" 
         << colors::reset() << std::endl;
-    runner.run_test("Depth Limit (Parse)", test_depth_limit_parse);
-    runner.run_test("Depth Limit (Dump)", test_depth_limit_dump);
-    runner.run_test("Range Checks", test_range_checks);
-    runner.run_test("Better Error Messages", test_better_error_messages);
-    runner.run_test("Param Helpers", test_param_helpers);
-    runner.run_test("Position in Errors", test_position_in_errors);
-    
-    TEST_SUITE_END();
-    
+    runner.run_test("Depth Limit (Parse)", test_json_lite_depth_limit_parse);
+    runner.run_test("Depth Limit (Dump)", test_json_lite_depth_limit_dump);
+    runner.run_test("Range Checks", test_json_lite_range_checks);
+    runner.run_test("Better Error Messages", test_json_lite_better_error_messages);
+    runner.run_test("Param Helpers", test_json_lite_param_helpers);
+    runner.run_test("Position in Errors", test_json_lite_position_in_errors);
+        
     int failed = runner.print_summary();
     return failed == 0;
 }

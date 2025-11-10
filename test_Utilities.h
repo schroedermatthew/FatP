@@ -9,6 +9,8 @@
 #include <vector>
 #include <algorithm>
 
+#include "EqualityComparisons.h"
+
 namespace cpp_utilities {
 namespace testing {
 
@@ -163,9 +165,116 @@ namespace colors {
         return false; \
     }
 
+/**
+ * @brief Assert that two floating-point values are approximately equal
+ * Uses approximateEqual from EqualityComparisons.h with default epsilon
+ */
+#define ASSERT_CLOSE(actual, expected, msg) \
+    if (!cpp_utilities::approximateEqual((actual), (expected))) { \
+        *cpp_utilities::testing::get_test_config().error \
+            << cpp_utilities::testing::colors::red() << cpp_utilities::testing::colors::bold() \
+            << "ASSERT_CLOSE FAILED: " << cpp_utilities::testing::colors::reset() \
+            << cpp_utilities::testing::colors::red() << msg \
+            << "\n  Expected: " << (expected) \
+            << "\n  Actual:   " << (actual) \
+            << "\n  Diff:     " << std::abs((actual) - (expected)) \
+            << "\n  at " << __FILE__ << ":" << __LINE__ \
+            << cpp_utilities::testing::colors::reset() << std::endl; \
+        if (cpp_utilities::testing::get_test_config().abort_on_failure) { \
+            std::abort(); \
+        } \
+        return false; \
+    }
+
+/**
+ * @brief Assert that two floating-point values are approximately equal with custom epsilon
+ * Uses the same epsilon value for both relative and absolute tolerance
+ */
+#define ASSERT_CLOSE_EPS(actual, expected, epsilon, msg) \
+    if (!cpp_utilities::approximateEqual((actual), (expected), (epsilon), (epsilon))) { \
+        *cpp_utilities::testing::get_test_config().error \
+            << cpp_utilities::testing::colors::red() << cpp_utilities::testing::colors::bold() \
+            << "ASSERT_CLOSE_EPS FAILED: " << cpp_utilities::testing::colors::reset() \
+            << cpp_utilities::testing::colors::red() << msg \
+            << "\n  Expected: " << (expected) \
+            << "\n  Actual:   " << (actual) \
+            << "\n  Epsilon:  " << (epsilon) \
+            << "\n  Diff:     " << std::abs((actual) - (expected)) \
+            << "\n  at " << __FILE__ << ":" << __LINE__ \
+            << cpp_utilities::testing::colors::reset() << std::endl; \
+        if (cpp_utilities::testing::get_test_config().abort_on_failure) { \
+            std::abort(); \
+        } \
+        return false; \
+    }
+
+/**
+ * @brief Assert that two floating-point values are approximately equal with separate relative and absolute epsilon
+ * Provides full control over the HybridComparisonPolicy parameters
+ */
+#define ASSERT_CLOSE_REL_ABS(actual, expected, rel_eps, abs_eps, msg) \
+    if (!cpp_utilities::approximateEqual((actual), (expected), (rel_eps), (abs_eps))) { \
+        *cpp_utilities::testing::get_test_config().error \
+            << cpp_utilities::testing::colors::red() << cpp_utilities::testing::colors::bold() \
+            << "ASSERT_CLOSE_REL_ABS FAILED: " << cpp_utilities::testing::colors::reset() \
+            << cpp_utilities::testing::colors::red() << msg \
+            << "\n  Expected: " << (expected) \
+            << "\n  Actual:   " << (actual) \
+            << "\n  Rel Eps:  " << (rel_eps) \
+            << "\n  Abs Eps:  " << (abs_eps) \
+            << "\n  Diff:     " << std::abs((actual) - (expected)) \
+            << "\n  at " << __FILE__ << ":" << __LINE__ \
+            << cpp_utilities::testing::colors::reset() << std::endl; \
+        if (cpp_utilities::testing::get_test_config().abort_on_failure) { \
+            std::abort(); \
+        } \
+        return false; \
+    }
+
 // ============================================================================
 // Performance Measurement
 // ============================================================================
+
+/**
+ * @brief Prevents the compiler from optimizing away the value
+ * 
+ * This function forces the compiler to treat the value as used,
+ * preventing dead code elimination in benchmarks.
+ * 
+ * @tparam T Type of value
+ * @param value Value to preserve
+ */
+template <typename T>
+inline void DoNotOptimize(T const& value) {
+#if defined(__GNUC__) || defined(__clang__)
+    asm volatile("" : : "r,m"(value) : "memory");
+#elif defined(_MSC_VER)
+    // MSVC doesn't optimize away the pointer read
+    volatile const T* ptr = &value;
+    (void)ptr;
+#else
+    // Portable fallback
+    static volatile const T* ptr = &value;
+    (void)ptr;
+#endif
+}
+
+/**
+ * @brief Overload for non-const references
+ */
+template <typename T>
+inline void DoNotOptimize(T& value) {
+#if defined(__GNUC__) || defined(__clang__)
+    asm volatile("" : "+r,m"(value) : : "memory");
+#elif defined(_MSC_VER)
+    volatile T* ptr = &value;
+    (void)ptr;
+#else
+    static volatile T* ptr = &value;
+    (void)ptr;
+#endif
+}
+
 
 /**
  * @brief Statistics for benchmark results
@@ -271,13 +380,13 @@ BenchmarkStats measure_perf_stats(Func func, size_t iterations = 1000000, size_t
 }
 
 /**
- * @brief Formats time in appropriate units (ns, μs, ms, s)
+ * @brief Formats time in appropriate units (ns, ÃŽÂ¼s, ms, s)
  */
 inline std::string format_time(double time_ms) {
     if (time_ms < 0.001) {
         return std::to_string(time_ms * 1000000.0) + " ns";
     } else if (time_ms < 1.0) {
-        return std::to_string(time_ms * 1000.0) + " μs";
+        return std::to_string(time_ms * 1000.0) + " us";
     } else if (time_ms < 1000.0) {
         return std::to_string(time_ms) + " ms";
     } else {
@@ -354,18 +463,22 @@ void benchmark_compare(const char* name1, Func1 func1,
     out << "  " << name1 << ": " << format_time(time1) << "\n";
     out << "  " << name2 << ": " << format_time(time2) << "\n";
     
-    if (time1 < time2) {
+    if (time1 < time2)
+    {
         double speedup = time2 / time1;
-        out << "  " << colors::green() << "→ " << name1 << " is " 
+        out << "  " << colors::green() << name1 << " is " 
             << std::fixed << std::setprecision(2) << speedup << "x faster" 
             << colors::reset() << "\n";
-    } else if (time2 < time1) {
+    } else if (time2 < time1) 
+    {
         double speedup = time1 / time2;
-        out << "  " << colors::green() << "→ " << name2 << " is " 
+        out << "  " << colors::green() << name2 << " is " 
             << std::fixed << std::setprecision(2) << speedup << "x faster" 
             << colors::reset() << "\n";
-    } else {
-        out << "  " << colors::yellow() << "→ Same performance" 
+    }
+    else
+    {
+        out << "  " << colors::yellow() << "Same performance" 
             << colors::reset() << "\n";
     }
 }
@@ -433,16 +546,21 @@ public:
      * 
      * @return Number of failed tests
      */
-    int print_summary() const {
+    int print_summary() const
+    {
         auto& out = *get_test_config().output;
         
         int passed = 0;
         int failed = 0;
         
-        for (const auto& result : results_) {
-            if (result.passed) {
+        for (const auto& result : results_)
+        {
+            if (result.passed)
+            {
                 ++passed;
-            } else {
+            }
+            else 
+            {
                 ++failed;
             }
         }
@@ -450,27 +568,28 @@ public:
         out << "\n" << colors::bold() << "=== Test Summary ===" 
             << colors::reset() << "\n";
         out << colors::green() << "Passed: " << passed << colors::reset() << "\n";
-        if (failed > 0) {
+        if (failed > 0)
+        {
             out << colors::red() << "Failed: " << failed << colors::reset() << "\n";
-        } else {
+        }
+        else
+        {
             out << "Failed: " << failed << "\n";
         }
         out << "Total:  " << (passed + failed) << "\n";
         
-        if (failed == 0) {
-            out << "\n" << colors::green() << colors::bold() 
-                << "✓ All tests passed!" << colors::reset() << "\n";
-        } else {
-            out << "\n" << colors::red() << colors::bold() 
-                << "✗ Some tests failed" << colors::reset() << "\n";
-            
+        if (0 > failed)
+        {
             out << "\nFailed tests:\n";
-            for (const auto& result : results_) {
-                if (!result.passed) {
-                    out << "  " << colors::red() << "✗ " << result.name 
+            for (const auto& result : results_)
+            {
+                if (!result.passed)
+                {
+                    out << "  " << colors::red() << result.name 
                         << colors::reset() << "\n";
                 }
             }
+            out << "\n";
         }
         
         return failed;
@@ -511,6 +630,26 @@ public:
  */
 #define RUN_TEST(runner, test_name) \
     runner.run_test(#test_name, test_##test_name)
+
+ /**
+  * \brief Prints a header for unit tests.
+  *
+  * This macro outputs a formatted header to std::cout, including the specified section name,
+  * surrounded by separator lines, for organizing unit test output.
+  *
+  * Usage example:
+  * \code
+  * PRINT_HEADER(CONTRACT EXCEPTION);
+  * \endcode
+  *
+  * \param section The name of the section (e.g., CONTRACT EXCEPTION). It will be stringified.
+  */
+#define PRINT_HEADER(section) \
+    std::cout << "\n"; \
+    std::cout << "==========================================================\n"; \
+    std::cout << #section << " UNIT TESTS\n"; \
+    std::cout << "==========================================================\n"; \
+    std::cout << "\n";
 
 } // namespace testing
 } // namespace cpp_utilities

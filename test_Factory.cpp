@@ -23,9 +23,6 @@
  * - Performance benchmarks
  */
 
-using namespace cpp_utilities;
-using namespace cpp_utilities::testing;
-
 namespace cpp_utilities::testing {
 
 // ============================================================================
@@ -173,7 +170,7 @@ public:
 // Basic Functionality Tests
 // ============================================================================
 
-bool test_basic_registration() {
+bool test_factory_basic_registration() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Basic Registration Test ===" 
         << colors::reset() << std::endl;
@@ -198,7 +195,7 @@ bool test_basic_registration() {
     return true;
 }
 
-bool test_basic_make() {
+bool test_factory_basic_make() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Basic Make Test ===" 
         << colors::reset() << std::endl;
@@ -228,7 +225,7 @@ bool test_basic_make() {
     return true;
 }
 
-bool test_lambda_capture_parameters() {
+bool test_factory_lambda_capture_parameters() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Lambda Capture Parameters Test ===" 
         << colors::reset() << std::endl;
@@ -265,7 +262,7 @@ bool test_lambda_capture_parameters() {
     return true;
 }
 
-bool test_database_connection_lambda_capture() {
+bool test_factory_database_connection_lambda_capture() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Database Connection Lambda Capture Test ===" 
         << colors::reset() << std::endl;
@@ -311,7 +308,7 @@ bool test_database_connection_lambda_capture() {
     return true;
 }
 
-bool test_duplicate_registration() {
+bool test_factory_duplicate_registration() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Duplicate Registration Test ===" 
         << colors::reset() << std::endl;
@@ -337,7 +334,7 @@ bool test_duplicate_registration() {
     return true;
 }
 
-bool test_unregister() {
+bool test_factory_unregister() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Unregister Test ===" 
         << colors::reset() << std::endl;
@@ -366,7 +363,7 @@ bool test_unregister() {
     return true;
 }
 
-bool test_clear() {
+bool test_factory_clear() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Clear Test ===" 
         << colors::reset() << std::endl;
@@ -394,7 +391,7 @@ bool test_clear() {
     return true;
 }
 
-bool test_get_registered_keys() {
+bool test_factory_get_registered_keys() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Get Registered Keys Test ===" 
         << colors::reset() << std::endl;
@@ -427,7 +424,7 @@ bool test_get_registered_keys() {
 // NEW: Exception Handling Tests (CRITICAL - was missing)
 // ============================================================================
 
-bool test_throwing_make() {
+bool test_factory_throwing_make() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Throwing Make Test ===" 
         << colors::reset() << std::endl;
@@ -464,7 +461,7 @@ bool test_throwing_make() {
 // NEW: Statistics Tests (CRITICAL - was incomplete)
 // ============================================================================
 
-bool test_statistics() {
+bool test_factory_statistics() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Statistics Test ===" 
         << colors::reset() << std::endl;
@@ -500,7 +497,7 @@ bool test_statistics() {
 // NEW: Policy Tests (CRITICAL - was missing)
 // ============================================================================
 
-bool test_overwrite_policy() {
+bool test_factory_overwrite_policy() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Overwrite Policy Test ===" 
         << colors::reset() << std::endl;
@@ -536,7 +533,7 @@ bool test_overwrite_policy() {
     return true;
 }
 
-bool test_unordered_map_storage() {
+bool test_factory_unordered_map_storage() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== UnorderedMap Storage Test ===" 
         << colors::reset() << std::endl;
@@ -570,7 +567,7 @@ bool test_unordered_map_storage() {
 // NEW: Concurrency Tests (CRITICAL - was completely missing!)
 // ============================================================================
 
-bool test_concurrent_access() {
+bool test_factory_concurrent_access() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Concurrent Access Test ===" 
         << colors::reset() << std::endl;
@@ -635,7 +632,7 @@ bool test_concurrent_access() {
     return true;
 }
 
-bool test_concurrent_read_write() {
+bool test_factory_concurrent_read_write() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Concurrent Read/Write Test ===" 
         << colors::reset() << std::endl;
@@ -704,7 +701,7 @@ bool test_concurrent_read_write() {
 // NEW: Batch Registration Test
 // ============================================================================
 
-bool test_batch_registration() {
+bool test_factory_batch_registration() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Batch Registration Test ===" 
         << colors::reset() << std::endl;
@@ -743,7 +740,7 @@ bool test_batch_registration() {
 // Advanced Features Tests
 // ============================================================================
 
-bool test_lambda_with_captures() {
+bool test_factory_lambda_with_captures() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Lambda with Captures Test ===" 
         << colors::reset() << std::endl;
@@ -765,7 +762,7 @@ bool test_lambda_with_captures() {
     return true;
 }
 
-bool test_movable_only_types() {
+bool test_factory_movable_only_types() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Movable-Only Types Test ===" 
         << colors::reset() << std::endl;
@@ -789,7 +786,7 @@ bool test_movable_only_types() {
     return true;
 }
 
-bool test_unique_ptr_factory() {
+bool test_factory_unique_ptr_factory() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== unique_ptr Factory Test ===" 
         << colors::reset() << std::endl;
@@ -811,7 +808,7 @@ bool test_unique_ptr_factory() {
     return true;
 }
 
-bool test_integer_keys() {
+bool test_factory_integer_keys() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Integer Keys Test ===" 
         << colors::reset() << std::endl;
@@ -835,7 +832,7 @@ bool test_integer_keys() {
     return true;
 }
 
-bool test_tracked_object_lifecycle() {
+bool test_factory_tracked_object_lifecycle() {
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Tracked Object Lifecycle Test ==="
         << colors::reset() << std::endl;
@@ -1033,61 +1030,56 @@ void run_factory_benchmarks() {
 // ============================================================================
 
 bool test_Factory() {
+
+    PRINT_HEADER(FACTORY)
+
     TestRunner runner;
     
     auto& out = *get_test_config().output;
-    out << colors::bold() << colors::cyan()
-        << "\n================================================\n"
-        << "  Factory Test Suite v3.0\n"
-        << "  - make() for clear semantics\n"
-        << "  - Lambda captures for runtime params\n"
-        << "  - All bug fixes applied\n"
-        << "================================================\n"
-        << colors::reset() << std::endl;
-        
+
     // Basic functionality
     out << "\n" << colors::bold() << "=== Basic Functionality Tests ===" 
         << colors::reset() << std::endl;
-    runner.run_test("Basic Registration", test_basic_registration);
-    runner.run_test("Basic Make", test_basic_make);
-    runner.run_test("Lambda Capture Parameters", test_lambda_capture_parameters);
-    runner.run_test("Database Connection Lambda Capture", test_database_connection_lambda_capture);
-    runner.run_test("Duplicate Registration", test_duplicate_registration);
-    runner.run_test("Unregister", test_unregister);
-    runner.run_test("Clear", test_clear);
-    runner.run_test("Get Registered Keys", test_get_registered_keys);
+    runner.run_test("Basic Registration", test_factory_basic_registration);
+    runner.run_test("Basic Make", test_factory_basic_make);
+    runner.run_test("Lambda Capture Parameters", test_factory_lambda_capture_parameters);
+    runner.run_test("Database Connection Lambda Capture", test_factory_database_connection_lambda_capture);
+    runner.run_test("Duplicate Registration", test_factory_duplicate_registration);
+    runner.run_test("Unregister", test_factory_unregister);
+    runner.run_test("Clear", test_factory_clear);
+    runner.run_test("Get Registered Keys", test_factory_get_registered_keys);
     
     // Exception and statistics
     out << "\n" << colors::bold() << "=== Exception & Statistics Tests ===" 
         << colors::reset() << std::endl;
-    runner.run_test("Throwing Make", test_throwing_make);
-    runner.run_test("Statistics Tracking", test_statistics);
+    runner.run_test("Throwing Make", test_factory_throwing_make);
+    runner.run_test("Statistics Tracking", test_factory_statistics);
     
     // Policy tests
     out << "\n" << colors::bold() << "=== Policy Tests ===" 
         << colors::reset() << std::endl;
-    runner.run_test("Overwrite Policy", test_overwrite_policy);
-    runner.run_test("UnorderedMap Storage", test_unordered_map_storage);
+    runner.run_test("Overwrite Policy", test_factory_overwrite_policy);
+    runner.run_test("UnorderedMap Storage", test_factory_unordered_map_storage);
     
     // Concurrency tests
     out << "\n" << colors::bold() << "=== Concurrency Tests ===" 
         << colors::reset() << std::endl;
-    runner.run_test("Concurrent Access", test_concurrent_access);
-    runner.run_test("Concurrent Read/Write", test_concurrent_read_write);
+    runner.run_test("Concurrent Access", test_factory_concurrent_access);
+    runner.run_test("Concurrent Read/Write", test_factory_concurrent_read_write);
     
     // Batch operations
     out << "\n" << colors::bold() << "=== Batch Operations ===" 
         << colors::reset() << std::endl;
-    runner.run_test("Batch Registration", test_batch_registration);
+    runner.run_test("Batch Registration", test_factory_batch_registration);
     
     // Advanced features
     out << "\n" << colors::bold() << "=== Advanced Features Tests ===" 
         << colors::reset() << std::endl;
-    runner.run_test("Lambda with Captures", test_lambda_with_captures);
-    runner.run_test("Movable-Only Types", test_movable_only_types);
-    runner.run_test("unique_ptr Factory", test_unique_ptr_factory);
-    runner.run_test("Integer Keys", test_integer_keys);
-    runner.run_test("Tracked Object Lifecycle", test_tracked_object_lifecycle);
+    runner.run_test("Lambda with Captures", test_factory_lambda_with_captures);
+    runner.run_test("Movable-Only Types", test_factory_movable_only_types);
+    runner.run_test("unique_ptr Factory", test_factory_unique_ptr_factory);
+    runner.run_test("Integer Keys", test_factory_integer_keys);
+    runner.run_test("Tracked Object Lifecycle", test_factory_tracked_object_lifecycle);
     
     int failed = runner.print_summary();
     

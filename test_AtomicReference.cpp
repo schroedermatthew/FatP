@@ -337,8 +337,13 @@ bool test_wait_notify_basic() {
     std::thread waiter([&]() {
         bool changed = ref.wait(old_val, std::memory_order_acquire, std::chrono::seconds(5));
         if (changed) {
-            SIMPLE_ASSERT(ref.load()->value == 120, "New value should be visible");
-            waiter_done = true;
+            // Check value directly without using SIMPLE_ASSERT (which has return)
+            if (ref.load()->value != 120) {
+                *get_test_config().error << colors::red() << "ASSERT FAILED: New value should be visible" 
+                    << colors::reset() << std::endl;
+            } else {
+                waiter_done = true;
+            }
         }
     });
     
@@ -1060,15 +1065,11 @@ void run_automic_reference_performance_benchmarks() {
 // ============================================================================
 
 bool test_AtomicReference() {
+    
+    PRINT_HEADER(ATOMIC REFERENCE)
+
     auto& out = *get_test_config().output;
-    
-    out << "\n";
-    out << colors::bold() << "======================================" << colors::reset() << "\n";
-    out << colors::bold() << "AtomicReference v2.0 - Test Suite" << colors::reset() << "\n";
-    out << "C++17+, Header-Only, High Performance" << colors::reset() << "\n";
-    out << "All SuperGrok Recommendations Implemented" << colors::reset() << "\n";
-    out << colors::bold() << "======================================" << colors::reset() << "\n";
-    
+        
     TestRunner runner;
     
     // Basic functionality
@@ -1161,12 +1162,8 @@ bool test_AtomicReference() {
     if (failed == 0) {
         run_automic_reference_performance_benchmarks();
         
-        out << "\n" << colors::bold() << colors::green() 
-            << "======================================" << colors::reset() << "\n";
         out << colors::bold() << colors::green() 
-            << "✓ All Tests Passed Successfully!" << colors::reset() << "\n";
-        out << colors::bold() << colors::green() 
-            << "======================================" << colors::reset() << "\n";
+            << "All Tests Passed Successfully!" << colors::reset() << "\n";
     }
     
     return failed == 0;

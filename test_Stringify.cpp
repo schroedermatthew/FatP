@@ -448,17 +448,7 @@ void run_stringify_performance_benchmarks() {
 
 bool test_Stringify() {
 
-    std::cout << "\n";
-    std::cout << "======================================================================\n";
-    std::cout << "   STRINGIFY v2.0 - COMPREHENSIVE UNIT TEST SUITE                     \n";
-    std::cout << "======================================================================\n";
-    std::cout << "  C++ Standard: C++17\n";
-#ifdef NDEBUG
-    std::cout << "  Build Mode: Release" << "\n";
-#else
-    std::cout << "  Build Mode: Debug" << "\n";
-#endif
-    std::cout << "======================================================================\n";
+    PRINT_HEADER(STRINGIFY)
 
     try {
         TestRunner runner;

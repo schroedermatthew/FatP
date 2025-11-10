@@ -991,11 +991,8 @@ namespace cpp_utilities::testing
     // ============================================================================
 
     bool test_Expected() {
-        std::cout << "======================================\n";
-        std::cout << "Expected Monad - Complete Examples\n";
-        std::cout << "C++17, Zero Dependencies, High Performance\n";
-        std::cout << "v4.1 - C++20/23 Integration\n";
-        std::cout << "======================================\n\n";
+
+        PRINT_HEADER(EXPECTED)
 
         if (!run_unit_tests()) {
             std::cerr << "Expected.h Unit tests failed!\n";

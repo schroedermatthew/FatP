@@ -92,13 +92,13 @@ bool test_lock_free_disabled_performance() {
     SIMPLE_ASSERT(ns < 15.0, "Disabled overhead should be < 15ns");
     
     if (ns < 5.0) {
-        out << colors::green() << "  âœ“ EXCELLENT: < 5 ns (lock-free atomic check)" 
+        out << colors::green() << "  EXCELLENT: < 5 ns (lock-free atomic check)" 
             << colors::reset() << "\n";
     } else if (ns < 10.0) {
-        out << colors::green() << "  âœ“ GOOD: < 10 ns (meets target)" 
+        out << colors::green() << "  GOOD: < 10 ns (meets target)" 
             << colors::reset() << "\n";
     } else {
-        out << colors::green() << "  âœ“ ACCEPTABLE: < 15 ns (still 2x better than v1.0)" 
+        out << colors::green() << "  ACCEPTABLE: < 15 ns (still 2x better than v1.0)" 
             << colors::reset() << "\n";
     }
     
@@ -135,13 +135,13 @@ bool test_lock_free_filtered_performance() {
     SIMPLE_ASSERT(ns < 15.0, "Filtered overhead should be < 15ns");
     
     if (ns < 5.0) {
-        out << colors::green() << "  âœ“ EXCELLENT: < 5 ns (lock-free level check)" 
+        out << colors::green() << "  EXCELLENT: < 5 ns (lock-free level check)" 
             << colors::reset() << "\n";
     } else if (ns < 10.0) {
-        out << colors::green() << "  âœ“ GOOD: < 10 ns (meets target)" 
+        out << colors::green() << "  GOOD: < 10 ns (meets target)" 
             << colors::reset() << "\n";
     } else {
-        out << colors::green() << "  âœ“ ACCEPTABLE: < 15 ns (still 2x better than v1.0)" 
+        out << colors::green() << "  ACCEPTABLE: < 15 ns (still 2x better than v1.0)" 
             << colors::reset() << "\n";
     }
     
@@ -180,16 +180,16 @@ bool test_active_logging_performance() {
     
     
     if (avg_ns < 120.0) {
-        out << colors::green() << "  ✓ EXCELLENT: < 120 ns/msg (GCC/Clang optimization)" 
+        out << colors::green() << " EXCELLENT: < 120 ns/msg (GCC/Clang optimization)" 
             << colors::reset() << "\n";
     } else if (avg_ns < 180.0) {
-        out << colors::green() << "  ✓ GOOD: < 180 ns/msg (matches or beats v1.0)" 
+        out << colors::green() << " GOOD: < 180 ns/msg (matches or beats v1.0)" 
             << colors::reset() << "\n";
     } else if (avg_ns < 300.0) {
-        out << colors::yellow() << "  ⚠ ACCEPTABLE: < 300 ns/msg (MSVC typical)" 
+        out << colors::yellow() << " ACCEPTABLE: < 300 ns/msg (MSVC typical)" 
             << colors::reset() << "\n";
     } else {
-        out << colors::yellow() << "  ⚠ SLOW: < 500 ns/msg (check system load)" 
+        out << colors::yellow() << " SLOW: < 500 ns/msg (check system load)" 
             << colors::reset() << "\n";
     }
     
@@ -197,89 +197,7 @@ bool test_active_logging_performance() {
 }
 
 // =============================================================================
-// Test Suite 2: Performance Comparison vs v1.0
-// =============================================================================
-
-bool test_performance_improvement_summary() {
-    std::cout << colors::cyan() << "Measuring performance improvements vs v1.0..." 
-              << colors::reset() << std::endl;
-    
-    struct BenchResult {
-        double disabled_ns;
-        double filtered_ns;
-        double active_ns;
-    };
-    
-    // Measure v2.0
-    Logger logger;
-    auto testSinkPtr = new TestSink();
-    logger.addSink(std::unique_ptr<ISink>(testSinkPtr));
-    
-    constexpr size_t ITERATIONS = 1000000;
-    
-    // Disabled benchmark
-    logger.setEnabled(false);
-    auto start = high_resolution_clock::now();
-    for (size_t i = 0; i < ITERATIONS; ++i) {
-        std::atomic_signal_fence(std::memory_order_seq_cst);
-        logger.debug("test");
-    }
-    auto end = high_resolution_clock::now();
-    double disabled_ns = duration<double, std::nano>(end - start).count() / ITERATIONS;
-    
-    // Filtered benchmark
-    logger.setEnabled(true);
-    logger.setMinLevel(LogLevel::Error);
-    start = high_resolution_clock::now();
-    for (size_t i = 0; i < ITERATIONS; ++i) {
-        std::atomic_signal_fence(std::memory_order_seq_cst);
-        logger.debug("test");
-    }
-    end = high_resolution_clock::now();
-    double filtered_ns = duration<double, std::nano>(end - start).count() / ITERATIONS;
-    
-    // Active benchmark
-    testSinkPtr->clear();
-    logger.setMinLevel(LogLevel::Trace);
-    start = high_resolution_clock::now();
-    for (size_t i = 0; i < 100000; ++i) {  // Fewer iterations for active
-        logger.info("test");
-    }
-    end = high_resolution_clock::now();
-    double active_ns = duration<double, std::nano>(end - start).count() / 100000;
-    
-    auto& out = *get_test_config().output;
-    out << "\n" << colors::bold() << "Performance Comparison vs v1.0:" 
-        << colors::reset() << "\n";
-    out << "â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”\n";
-    out << "â”‚ Operation       â”‚ v1.0     â”‚ v2.0     â”‚ Improvement â”‚\n";
-    out << "â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤\n";
-    out << "â”‚ Disabled        â”‚ 33.4 ns  â”‚ " << std::setw(6) << std::fixed 
-        << std::setprecision(1) << disabled_ns << " ns â”‚ " 
-        << std::setw(9) << std::fixed << std::setprecision(1) 
-        << (33.4 / disabled_ns) << "x â”‚\n";
-    out << "â”‚ Filtered        â”‚ 28.6 ns  â”‚ " << std::setw(6) << std::fixed 
-        << std::setprecision(1) << filtered_ns << " ns â”‚ " 
-        << std::setw(9) << std::fixed << std::setprecision(1) 
-        << (28.6 / filtered_ns) << "x â”‚\n";
-    out << "â”‚ Active          â”‚ 177.0 ns â”‚ " << std::setw(6) << std::fixed 
-        << std::setprecision(1) << active_ns << " ns â”‚ " 
-        << std::setw(9) << std::fixed << std::setprecision(1) 
-        << (177.0 / active_ns) << "x â”‚\n";
-    out << "â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜\n";
-    
-    // Overall improvement
-    double avg_improvement = ((33.4/disabled_ns) + (28.6/filtered_ns) + (177.0/active_ns)) / 3.0;
-    out << "\n" << colors::green() << colors::bold() 
-        << "Average improvement: " << std::fixed << std::setprecision(1) 
-        << avg_improvement << "x faster âš¡" 
-        << colors::reset() << "\n\n";
-    
-    return true;
-}
-
-// =============================================================================
-// Test Suite 3: Backward Compatibility
+// Test Suite 2: Backward Compatibility
 // =============================================================================
 
 bool test_backward_compatibility_basic() {
@@ -369,7 +287,7 @@ bool test_backward_compatibility_enable_disable() {
 }
 
 // =============================================================================
-// Test Suite 4: Thread Safety with Atomics
+// Test Suite 3: Thread Safety with Atomics
 // =============================================================================
 
 bool test_thread_safety_with_atomics() {
@@ -455,7 +373,7 @@ bool test_concurrent_enable_disable() {
 }
 
 // =============================================================================
-// Test Suite 5: Lazy Evaluation Still Works
+// Test Suite 4: Lazy Evaluation Still Works
 // =============================================================================
 
 bool test_lazy_evaluation_still_works() {
@@ -506,18 +424,8 @@ bool test_lazy_evaluation_still_works() {
 // =============================================================================
 
 bool test_DiagnosticLogger () {
-    std::cout << "\n";
-    std::cout << "======================================================================\n";
-    std::cout << "   DIAGNOSTICLOGGER v2.0 - OPTIMIZED TEST SUITE                       \n";
-    std::cout << "======================================================================\n";
-    std::cout << "  C++ Standard: C++17\n";
-#ifdef NDEBUG
-    std::cout << "  Build Mode: Release" << "\n";
-#else
-    std::cout << "  Build Mode: Debug" << "\n";
-#endif
-    std::cout << "  Optimizations: Lock-free atomics, branch prediction hints\n";
-    std::cout << "======================================================================\n";
+
+    PRINT_HEADER(DIAGNOSTIC LOGGER)
 
     try {
         TestRunner runner;
@@ -530,31 +438,26 @@ bool test_DiagnosticLogger () {
         runner.run_test("Lock-Free Filtered Performance", test_lock_free_filtered_performance);
         runner.run_test("Active Logging Performance", test_active_logging_performance);
         
-        // Test Suite 2: Performance Comparison
-        std::cout << "\n" << colors::cyan() << colors::bold()
-                  << "Test Suite 2: Performance Improvement Summary" 
-                  << colors::reset() << "\n";
-        runner.run_test("Performance vs v1.0", test_performance_improvement_summary);
         
-        // Test Suite 3: Backward Compatibility
+        // Test Suite 2: Backward Compatibility
         std::cout << "\n" << colors::cyan() << colors::bold()
-                  << "Test Suite 3: Backward Compatibility" 
+                  << "Test Suite 2: Backward Compatibility" 
                   << colors::reset() << "\n";
         runner.run_test("Basic Logging", test_backward_compatibility_basic);
         runner.run_test("All Log Levels", test_backward_compatibility_all_levels);
         runner.run_test("Level Filtering", test_backward_compatibility_filtering);
         runner.run_test("Enable/Disable", test_backward_compatibility_enable_disable);
         
-        // Test Suite 4: Thread Safety
+        // Test Suite 3: Thread Safety
         std::cout << "\n" << colors::cyan() << colors::bold()
-                  << "Test Suite 4: Thread Safety with Atomics" 
+                  << "Test Suite 3: Thread Safety with Atomics" 
                   << colors::reset() << "\n";
         runner.run_test("Thread Safety", test_thread_safety_with_atomics);
         runner.run_test("Concurrent Enable/Disable", test_concurrent_enable_disable);
         
-        // Test Suite 5: Lazy Evaluation
+        // Test Suite 4: Lazy Evaluation
         std::cout << "\n" << colors::cyan() << colors::bold()
-                  << "Test Suite 5: Lazy Evaluation" 
+                  << "Test Suite 4: Lazy Evaluation" 
                   << colors::reset() << "\n";
         runner.run_test("Lazy Evaluation", test_lazy_evaluation_still_works);
         

@@ -631,12 +631,8 @@ void benchmark_filtering_unroll_factors() {
 // ============================================================================
 
 bool test_AdaptiveIterator() {
-    std::cout << colors::bold() << colors::cyan() 
-              << "=== AdaptiveIterator Test Suite ===" 
-              << colors::reset() << "\n\n";
-    
-    // Run functional tests
-    std::cout << colors::yellow() << "Running Functional Tests..." << colors::reset() << "\n";
+
+    PRINT_HEADER(ADAPTIVE ITERATOR)
     
     TestRunner runner;
 
@@ -659,24 +655,12 @@ bool test_AdaptiveIterator() {
     RUN_TEST(runner, factory_stride_policies);
     RUN_TEST(runner, factory_filter_predicates);
     RUN_TEST(runner, concurrency_multithreaded_read);
-    
-    // Run benchmarks
-    std::cout << "\n" << colors::yellow() << "Running Performance Benchmarks..." << colors::reset() << "\n";
-    std::cout << colors::cyan() << "Processor: Intel(R) Core(TM) i7-8850H CPU @ 2.60GHz" << colors::reset() << "\n";
-    std::cout << colors::cyan() << "RAM: 32.0 GB" << colors::reset() << "\n\n";
-    
+        
     benchmark_standard_vs_raw_pointer();
     benchmark_stride_policies();
     benchmark_filtering_unroll_factors();
-    
-    std::cout << "\n" << colors::bold() << colors::green() 
-              << "=== All Tests Complete ===" 
-              << colors::reset() << "\n";
-    
-    // Print summary
-    int failed = runner.print_summary();
 
-    return failed == 0;
+    return runner.print_summary() == 0;
 }
 
 } // namespace cpp_utilities::testing

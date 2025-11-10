@@ -757,16 +757,15 @@ void run_strong_id_benchmarks() {
 }
 
 bool test_StrongId() {
+
+    PRINT_HEADER(STRONG ID)
+
     TestRunner runner;
     
     auto& config = get_test_config();
     config.verbose = true;
     
-    auto& out = *config.output;
-    out << colors::cyan() << colors::bold() 
-        << "=== StrongId Comprehensive Test Suite ===" 
-        << colors::reset() << "\n\n";
-    
+    auto& out = *config.output;    
     // Basic Functionality
     out << colors::blue() << "--- Basic Functionality ---" << colors::reset() << "\n";
     RUN_TEST(runner, default_constructor);

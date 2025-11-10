@@ -1281,12 +1281,8 @@ void run_performance_benchmarks() {
 // =============================================================================
 
 bool test_ConcurrencyPolicies() {
-    std::cout << colors::bold() << colors::cyan()
-              << "======================================"<< std::endl;
-    std::cout << "ConcurrencyPolicies v4.0.0 - Complete Test Suite" << std::endl;
-    std::cout << "ALL 19 Policies - C++17/C++20/C++23 Compatible" << std::endl;
-    std::cout << "======================================"
-              << colors::reset() << std::endl;
+
+    PRINT_HEADER(CONCURRENCY POLICIES)
 
     TestRunner runner;
 

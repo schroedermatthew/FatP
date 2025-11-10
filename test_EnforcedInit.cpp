@@ -219,7 +219,7 @@ namespace cpp_utilities::testing
     // Test Suite 1: Basic Initialization and Access
     // ============================================================================
 
-    bool test_basic_initialization() {
+    bool test_enforce_init_basic_initialization() {
         // Test 1: Basic init and access
         {
             EnforcedInit<int> value;
@@ -270,7 +270,7 @@ namespace cpp_utilities::testing
         return true;
     }
 
-    bool test_double_init_prevention() {
+    bool test_enforce_init_double_init_prevention() {
         // Test 1: Second init should fail with descriptive error - FIX #14
         {
             EnforcedInit<int> value;
@@ -303,7 +303,7 @@ namespace cpp_utilities::testing
         return true;
     }
 
-    bool test_access_before_init() {
+    bool test_enforce_init_access_before_init() {
         // Test 1: Get before init should throw
         {
             EnforcedInit<int> value;
@@ -344,7 +344,7 @@ namespace cpp_utilities::testing
         return true;
     }
 
-    bool test_is_initialized_query() {
+    bool test_enforce_init_is_initialized_query() {
         EnforcedInit<int> value;
         ASSERT_FALSE(value.is_initialized(), "Not initialized initially");
 
@@ -362,7 +362,7 @@ namespace cpp_utilities::testing
     // Test Suite 2: Reset Policy Tests
     // ============================================================================
 
-    bool test_reset_not_allowed() {
+    bool test_enforce_init_reset_not_allowed() {
         // Test 1: Default policy disallows reset
         {
             EnforcedInit<int> value;
@@ -378,7 +378,7 @@ namespace cpp_utilities::testing
         return true;
     }
 
-    bool test_reset_allowed() {
+    bool test_enforce_init_reset_allowed() {
         using ResettableInit = EnforcedInit<int, SingleThreadedPolicy, DefaultCheckPolicy, AllowResetPolicy>;
         
         // Test 1: AllowResetPolicy permits reset
@@ -446,7 +446,7 @@ namespace cpp_utilities::testing
     // Test Suite 3: Custom Check Policies
     // ============================================================================
 
-    bool test_custom_check_policy() {
+    bool test_enforce_init_custom_check_policy() {
         using RangeEnforced = EnforcedInit<int, SingleThreadedPolicy, RangeCheckPolicy>;
         
         // Test 1: Pre-init check validation
@@ -491,7 +491,7 @@ namespace cpp_utilities::testing
     }
     
     // FIX #17: Test PolicyPack composition
-    bool test_policy_pack_composition() {
+    bool test_enforce_init_policy_pack_composition() {
         // Multiple check policies composed - PositiveCheckPolicy defined at namespace level
         using MultiCheck = EnforcedInit<int, SingleThreadedPolicy, 
                                        PolicyPack<RangeCheckPolicy, PositiveCheckPolicy>>;
@@ -519,7 +519,7 @@ namespace cpp_utilities::testing
     // Test Suite 4: Lazy Initialization
     // ============================================================================
 
-    bool test_lazy_init() {
+    bool test_enforce_init_lazy_init() {
         // Test 1: Basic lazy init
         {
             EnforcedInit<int> value;
@@ -580,7 +580,7 @@ namespace cpp_utilities::testing
     // Test Suite 5: Copy and Move Semantics - FIX #4 applied in header
     // ============================================================================
 
-    bool test_copy_semantics() {
+    bool test_enforce_init_copy_semantics() {
         // Test 1: Copy construction
         {
             EnforcedInit<int> original;
@@ -624,7 +624,7 @@ namespace cpp_utilities::testing
         return true;
     }
 
-    bool test_move_semantics() {
+    bool test_enforce_init_move_semantics() {
         // Test 1: Move construction
         {
             EnforcedInit<std::string> original;
@@ -661,7 +661,7 @@ namespace cpp_utilities::testing
     }
     
     // FIX #4: Test thread-safe copy/move
-    bool test_copy_move_thread_safety() {
+    bool test_enforce_init_copy_move_thread_safety() {
         // Test concurrent copy operations with proper locking
         {
             EnforcedInit<int, MutexSynchronizationPolicy> original;
@@ -706,7 +706,7 @@ namespace cpp_utilities::testing
     // Test Suite 6: Thread-Safety with Concurrency Policies
     // ============================================================================
 
-    bool test_single_threaded_policy() {
+    bool test_enforce_init_single_threaded_policy() {
         // Test 1: Default policy is single-threaded (zero overhead)
         {
             EnforcedInit<int> value;
@@ -724,7 +724,7 @@ namespace cpp_utilities::testing
         return true;
     }
 
-    bool test_mutex_synchronization_policy() {
+    bool test_enforce_init_mutex_synchronization_policy() {
         // Test 1: Basic mutex policy
         {
             EnforcedInit<int, MutexSynchronizationPolicy> value;
@@ -799,7 +799,7 @@ namespace cpp_utilities::testing
         return true;
     }
 
-    bool test_spinlock_synchronization_policy() {
+    bool test_enforce_init_spinlock_synchronization_policy() {
         // Test 1: Basic spinlock usage
         {
             EnforcedInit<int, SpinlockSynchronizationPolicy> value;
@@ -835,7 +835,7 @@ namespace cpp_utilities::testing
         return true;
     }
 
-    bool test_shared_mutex_policy() {
+    bool test_enforce_init_shared_mutex_policy() {
         // Test 1: Shared read-write lock
         {
             EnforcedInit<int, SharedMutexPolicy> value;
@@ -863,7 +863,7 @@ namespace cpp_utilities::testing
     }
     
     // FIX #13: Add AtomicPolicy tests
-    bool test_atomic_policy() {
+    bool test_enforce_init_atomic_policy() {
 #if CPP_UTILITIES_USE_ATOMIC
         // Test 1: Basic atomic policy usage
         {
@@ -924,7 +924,7 @@ namespace cpp_utilities::testing
     }
     
     // FIX #5: Add comprehensive ConditionVarPolicy tests
-    bool test_condition_variable_policy() {
+    bool test_enforce_init_condition_variable_policy() {
         using WaitableInit = EnforcedInit<int, ConditionVarPolicy>;
         
         // Test 1: Wait succeeds when value is initialized
@@ -1019,7 +1019,7 @@ namespace cpp_utilities::testing
     // Test Suite 7: Storage Policies
     // ============================================================================
 
-    bool test_optional_storage_policy() {
+    bool test_enforce_init_optional_storage_policy() {
         // Test 1: Default optional storage
         {
             EnforcedInit<int> value;
@@ -1043,7 +1043,7 @@ namespace cpp_utilities::testing
         return true;
     }
 
-    bool test_union_storage_policy() {
+    bool test_enforce_init_union_storage_policy() {
         using UnionInit = EnforcedInit<int, SingleThreadedPolicy, DefaultCheckPolicy, 
                                       NoResetPolicy, UnionStoragePolicy>;
         using OptionalInit = EnforcedInit<int, SingleThreadedPolicy, DefaultCheckPolicy, 
@@ -1097,7 +1097,7 @@ namespace cpp_utilities::testing
     // Test Suite 8: Lifecycle and RAII
     // ============================================================================
 
-    bool test_lifecycle_tracking() {
+    bool test_enforce_init_lifecycle_tracking() {
         TestObject::reset_counts();
 
         // Test 1: Construction and destruction
@@ -1134,7 +1134,7 @@ namespace cpp_utilities::testing
         return true;
     }
 
-    bool test_exception_safety() {
+    bool test_enforce_init_exception_safety() {
         // Test 1: Exception during initialization doesn't leave object in bad state
         {
             struct ThrowOnConstruct {
@@ -1197,7 +1197,7 @@ namespace cpp_utilities::testing
     // Test Suite 9: Integration Patterns
     // ============================================================================
 
-    bool test_unique_ptr_variant() {
+    bool test_enforce_init_unique_ptr_variant() {
         // Test 1: EnforcedInitUnique with unique_ptr
         {
             EnforcedInitUnique<int> ptr;
@@ -1239,7 +1239,7 @@ namespace cpp_utilities::testing
         return true;
     }
 
-    bool test_integration_with_expected() {
+    bool test_enforce_init_integration_with_expected() {
         // Test 1: init() returns Expected
         {
             EnforcedInit<int> value;
@@ -1281,7 +1281,7 @@ namespace cpp_utilities::testing
     }
     
     // FIX #20: Add const-correctness tests
-    bool test_const_correctness() {
+    bool test_enforce_init_const_correctness() {
         // Test 1: Const EnforcedInit allows const get()
         {
             EnforcedInit<int> value;
@@ -1363,7 +1363,7 @@ namespace cpp_utilities::testing
     }
 
     // FIX #10 & #25: Strengthened stress test with configurable parameters
-    bool test_stress_concurrent_access() {
+    bool test_enforce_init_stress_concurrent_access() {
         // FIX #25: Use hardware concurrency if available
         const int num_threads = std::min(STRESS_THREAD_COUNT, 
                                         static_cast<int>(std::thread::hardware_concurrency()));
@@ -1409,7 +1409,7 @@ namespace cpp_utilities::testing
     }
     
     // FIX #26: Add fuzz testing
-    bool test_fuzz_initialization() {
+    bool test_enforce_init_fuzz_initialization() {
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<> dis(1, 1000);
@@ -1444,7 +1444,7 @@ namespace cpp_utilities::testing
         out << time_t << "," << name << "," << mean_ns << "," << stddev_ns << "\n";
     }
 
-    void run_benchmarks() {
+    void run_enforce_init_benchmarks() {
         std::cout << "\n" << colors::cyan() << colors::bold() 
                   << "=== Performance Benchmarks ===" 
                   << colors::reset() << "\n\n";
@@ -1602,13 +1602,8 @@ namespace cpp_utilities::testing
     // ============================================================================
 
     bool test_EnforcedInit() {
-        std::cout << "======================================\n";
-        std::cout << "EnforcedInit<T> - Comprehensive Test Suite\n";
-        std::cout << "FULLY CORRECTED VERSION 2.0\n";
-        std::cout << "C++17, Header-Only, High Performance\n";
-        std::cout << "Policy-Based Design with Thread-Safety\n";
-        std::cout << "All 32 Fixes Implemented ✓\n";
-        std::cout << "======================================\n\n";
+
+        PRINT_HEADER(ENFORCED INIT)
 
         TestRunner runner;
         get_test_config().verbose = true;
@@ -1616,93 +1611,77 @@ namespace cpp_utilities::testing
         // Test Suite 1: Basic Initialization and Access
         std::cout << "\n" << colors::cyan() << "Test Suite 1: Basic Initialization and Access" 
                   << colors::reset() << "\n";
-        runner.run_test("basic_initialization", test_basic_initialization);
-        runner.run_test("double_init_prevention", test_double_init_prevention);
-        runner.run_test("access_before_init", test_access_before_init);
-        runner.run_test("is_initialized_query", test_is_initialized_query);
+        runner.run_test("basic_initialization", test_enforce_init_basic_initialization);
+        runner.run_test("double_init_prevention", test_enforce_init_double_init_prevention);
+        runner.run_test("access_before_init", test_enforce_init_access_before_init);
+        runner.run_test("is_initialized_query", test_enforce_init_is_initialized_query);
 
         // Test Suite 2: Reset Policy
         std::cout << "\n" << colors::cyan() << "Test Suite 2: Reset Policy" 
                   << colors::reset() << "\n";
-        runner.run_test("reset_not_allowed", test_reset_not_allowed);
-        runner.run_test("reset_allowed", test_reset_allowed);
+        runner.run_test("reset_not_allowed", test_enforce_init_reset_not_allowed);
+        runner.run_test("reset_allowed", test_enforce_init_reset_allowed);
 
         // Test Suite 3: Custom Check Policies
         std::cout << "\n" << colors::cyan() << "Test Suite 3: Custom Check Policies" 
                   << colors::reset() << "\n";
-        runner.run_test("custom_check_policy", test_custom_check_policy);
-        runner.run_test("policy_pack_composition", test_policy_pack_composition);
+        runner.run_test("custom_check_policy", test_enforce_init_custom_check_policy);
+        runner.run_test("policy_pack_composition", test_enforce_init_policy_pack_composition);
 
         // Test Suite 4: Lazy Initialization
         std::cout << "\n" << colors::cyan() << "Test Suite 4: Lazy Initialization" 
                   << colors::reset() << "\n";
-        runner.run_test("lazy_init", test_lazy_init);
+        runner.run_test("lazy_init", test_enforce_init_lazy_init);
 
         // Test Suite 5: Copy and Move Semantics
         std::cout << "\n" << colors::cyan() << "Test Suite 5: Copy and Move Semantics" 
                   << colors::reset() << "\n";
-        runner.run_test("copy_semantics", test_copy_semantics);
-        runner.run_test("move_semantics", test_move_semantics);
-        runner.run_test("copy_move_thread_safety", test_copy_move_thread_safety);
+        runner.run_test("copy_semantics", test_enforce_init_copy_semantics);
+        runner.run_test("move_semantics", test_enforce_init_move_semantics);
+        runner.run_test("copy_move_thread_safety", test_enforce_init_copy_move_thread_safety);
 
         // Test Suite 6: Thread-Safety
         std::cout << "\n" << colors::cyan() << "Test Suite 6: Thread-Safety with Concurrency Policies" 
                   << colors::reset() << "\n";
-        runner.run_test("single_threaded_policy", test_single_threaded_policy);
-        runner.run_test("mutex_synchronization_policy", test_mutex_synchronization_policy);
-        runner.run_test("spinlock_synchronization_policy", test_spinlock_synchronization_policy);
-        runner.run_test("shared_mutex_policy", test_shared_mutex_policy);
-        runner.run_test("atomic_policy", test_atomic_policy);
-        runner.run_test("condition_variable_policy", test_condition_variable_policy);
+        runner.run_test("single_threaded_policy", test_enforce_init_single_threaded_policy);
+        runner.run_test("mutex_synchronization_policy", test_enforce_init_mutex_synchronization_policy);
+        runner.run_test("spinlock_synchronization_policy", test_enforce_init_spinlock_synchronization_policy);
+        runner.run_test("shared_mutex_policy", test_enforce_init_shared_mutex_policy);
+        runner.run_test("atomic_policy", test_enforce_init_atomic_policy);
+        runner.run_test("condition_variable_policy", test_enforce_init_condition_variable_policy);
 
         // Test Suite 7: Storage Policies
         std::cout << "\n" << colors::cyan() << "Test Suite 7: Storage Policies" 
                   << colors::reset() << "\n";
-        runner.run_test("optional_storage_policy", test_optional_storage_policy);
-        runner.run_test("union_storage_policy", test_union_storage_policy);
+        runner.run_test("optional_storage_policy", test_enforce_init_optional_storage_policy);
+        runner.run_test("union_storage_policy", test_enforce_init_union_storage_policy);
 
         // Test Suite 8: Lifecycle and RAII
         std::cout << "\n" << colors::cyan() << "Test Suite 8: Lifecycle and RAII" 
                   << colors::reset() << "\n";
-        runner.run_test("lifecycle_tracking", test_lifecycle_tracking);
-        runner.run_test("exception_safety", test_exception_safety);
+        runner.run_test("lifecycle_tracking", test_enforce_init_lifecycle_tracking);
+        runner.run_test("exception_safety", test_enforce_init_exception_safety);
 
         // Test Suite 9: Integration Patterns
         std::cout << "\n" << colors::cyan() << "Test Suite 9: Integration Patterns" 
                   << colors::reset() << "\n";
-        runner.run_test("unique_ptr_variant", test_unique_ptr_variant);
-        runner.run_test("integration_with_expected", test_integration_with_expected);
-        runner.run_test("const_correctness", test_const_correctness);
+        runner.run_test("unique_ptr_variant", test_enforce_init_unique_ptr_variant);
+        runner.run_test("integration_with_expected", test_enforce_init_integration_with_expected);
+        runner.run_test("const_correctness", test_enforce_init_const_correctness);
 
         // Test Suite 10: Edge Cases
         std::cout << "\n" << colors::cyan() << "Test Suite 10: Edge Cases and Stress Tests" 
                   << colors::reset() << "\n";
         runner.run_test("edge_cases", test_enforced_init_edge_cases);
-        runner.run_test("stress_concurrent_access", test_stress_concurrent_access);
-        runner.run_test("fuzz_initialization", test_fuzz_initialization);
+        runner.run_test("stress_concurrent_access", test_enforce_init_stress_concurrent_access);
+        runner.run_test("fuzz_initialization", test_enforce_init_fuzz_initialization);
 
         // Performance Benchmarks
-        run_benchmarks();
+        run_enforce_init_benchmarks();
 
         // Print summary
         int failed = runner.print_summary();
         
-        if (failed == 0) {
-            std::cout << "\n" << colors::green() << colors::bold()
-                     << "======================================\n";
-            std::cout << "✓ All EnforcedInit tests passed!\n";
-            std::cout << "✓ All 32 fixes validated\n";
-            std::cout << "✓ Production ready\n";
-            std::cout << "======================================\n"
-                     << colors::reset();
-        } else {
-            std::cout << "\n" << colors::red() << colors::bold()
-                     << "======================================\n";
-            std::cout << "✗ " << failed << " test(s) failed\n";
-            std::cout << "======================================\n"
-                     << colors::reset();
-        }
-
         return failed == 0;
     }
 

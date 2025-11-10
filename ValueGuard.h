@@ -24,7 +24,7 @@
  * @tparam T The type of the value being guarded (must be assignable).
  * @tparam Policy The restoration policy (defaults to ValueGuardCopyPolicy<T>).
  * 
- * @version 2.0
+ * @version 2.1 - FIXED: Correct swap() semantics (swaps ALL members including original_)
  * @date 2025
  */
 #pragma once
@@ -400,15 +400,35 @@ public:
     // --- Swap Support ---
     
     /**
-     * @brief Swaps the state of this guard with another.
-     * @details Exchanges targets and policies/active flags, but keeps originals to match test expectations.
+     * @brief Swaps the complete state of this guard with another.
+     * @details FIXED v2.1: Exchanges ALL member variables including original_
+     * to satisfy the swap contract. After swap(g1, g2), each guard will
+     * restore the other guard's original value to its own target, which is
+     * the mathematically correct behavior for a swapped RAII guard.
+     * 
+     * Semantic Correctness Example:
+     *   int x = 10, y = 20;
+     *   ValueGuard g1(x, 100);  // x→100, will restore to 10
+     *   ValueGuard g2(y, 200);  // y→200, will restore to 20
+     *   swap(g1, g2);
+     *   // Now: g1 manages y (with original=20), g2 manages x (with original=10)
+     *   // On destruction: g1 restores y→20 ✓, g2 restores x→10 ✓
+     * 
      * @param other The other guard to swap with.
+     * 
+     * @note Previous version incorrectly didn't swap original_ to "match test
+     * expectations", which violated fundamental swap semantics. This has been
+     * FIXED to implement proper swap behavior. If tests fail after this fix,
+     * the TESTS are wrong, not the swap implementation.
      */
-    void swap(ValueGuard& other) noexcept(std::is_nothrow_swappable_v<T>) {
+    void swap(ValueGuard& other) noexcept(
+        std::is_nothrow_swappable_v<T> &&
+        std::is_nothrow_swappable_v<Policy>) 
+    {
         using std::swap;
         swap(static_cast<Policy&>(*this), static_cast<Policy&>(other));
         swap(target_, other.target_);
-        // Do not swap originals to match the test's restoration expectations
+        swap(original_, other.original_);  // CRITICAL FIX: Must swap ALL state
         swap(active_, other.active_);
     }
     
@@ -419,7 +439,10 @@ public:
      * @param lhs The first guard.
      * @param rhs The second guard.
      */
-    friend void swap(ValueGuard& lhs, ValueGuard& rhs) noexcept(std::is_nothrow_swappable_v<T>) {
+    friend void swap(ValueGuard& lhs, ValueGuard& rhs) noexcept(
+        std::is_nothrow_swappable_v<T> &&
+        std::is_nothrow_swappable_v<Policy>) 
+    {
         lhs.swap(rhs);
     }
 

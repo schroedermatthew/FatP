@@ -896,8 +896,9 @@ namespace cpp_utilities::testing
     // ============================================================================
     
     bool test_SortedContainer() {
-        std::cout << "\n=== SortedContainer Test Suite ===" << std::endl;
-        
+
+        PRINT_HEADER(SORTED CONTAINER)
+
         bool all_passed = true;
         
         // Bug Fix Tests

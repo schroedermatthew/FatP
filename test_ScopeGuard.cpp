@@ -1115,13 +1115,9 @@ void run_scope_guard_benchmarks() {
 // =============================================================================
 
 bool test_ScopeGuard() {
-    std::cout << colors::bold() << colors::cyan()
-              << "======================================"<< std::endl;
-    std::cout << "ScopeGuard v2.0 - Complete Test Suite" << std::endl;
-    std::cout << "C++17 Compatible - Header-Only" << std::endl;
-    std::cout << "======================================"
-              << colors::reset() << std::endl;
-    
+
+    PRINT_HEADER(SCOPE GUARD)
+
     TestRunner runner;
     
     // Core functionality tests

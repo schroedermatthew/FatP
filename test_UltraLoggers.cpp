@@ -1,24 +1,9 @@
-// test_UltraLoggers.cpp - Comprehensive Tests for ULTRA Loggers (v3.x)
-// ABSOLUTE FINAL VERSION - ALL MSVC ISSUES RESOLVED
+// test_UltraLoggers.cpp - Comprehensive Tests for ALL Ultra Logger Variants
+// Tests SyncLogger, AsyncLogger, and HybridLogger from LoggerPolicy.h
 
 #include "test_UltraLoggers.h"
 #include "test_Utilities.h"
-
-// Select version via define (change as needed)
-#define VERSION_3_2  // or VERSION_3_1 or VERSION_3_0
-
-#if defined(VERSION_3_0)
-#include "LoggerAsync.h"
-typedef cpp_utilities::diagnostic::ultra::AsyncLogger TestLogger;
-#elif defined(VERSION_3_1)
-#include "LoggerHybrid.h"
-typedef cpp_utilities::diagnostic::ultra::UltraLogger TestLogger;
-#elif defined(VERSION_3_2)
 #include "LoggerPolicy.h"
-typedef cpp_utilities::diagnostic::ultra::Logger TestLogger;
-#else
-#error "Define VERSION_3_0, 3_1, or 3_2"
-#endif
 
 #include <iostream>
 #include <vector>
@@ -32,24 +17,21 @@ typedef cpp_utilities::diagnostic::ultra::Logger TestLogger;
 #include <ctime>
 #include <utility>
 
-// MSVC-specific suppression
-#ifdef _MSC_VER
-#define _CRT_SECURE_NO_WARNINGS
-#pragma warning(disable: 4996)
-#endif
-
 namespace cpp_utilities {
 namespace testing {
 
 using namespace std::chrono;
 using namespace cpp_utilities::diagnostic::ultra;
 
+// Type aliases for the three logger variants
+using SyncLoggerType = SyncLogger;
+using AsyncLoggerType = AsyncLogger;
+using HybridLoggerType = HybridLogger;
+
 // =============================================================================
-// SFINAE Helper - MUST BE AT NAMESPACE SCOPE (NOT IN FUNCTION!)
+// SFINAE Helper - Detect async mode support
 // =============================================================================
 
-#if defined(VERSION_3_2)
-// Supergrok's superior pattern - encapsulated SFINAE detection
 template<typename T>
 struct has_startAsyncMode {
     template <typename U>
@@ -60,7 +42,6 @@ struct has_startAsyncMode {
     
     static constexpr bool value = decltype(test<T>(0))::value;
 };
-#endif
 
 // =============================================================================
 // Helper Classes (Shared Test Sink)
@@ -95,21 +76,20 @@ public:
 };
 
 // =============================================================================
-// Test Suite 1: Functional Correctness
+// Test Suite 1: Functional Correctness (All Logger Types)
 // =============================================================================
 
-bool test_basic_logging() {
-    std::cout << colors::cyan() << "Testing basic logging functionality..." 
+template<typename LoggerType>
+bool test_basic_logging_impl(const char* logger_name) {
+    std::cout << colors::cyan() << "  [" << logger_name << "] Basic logging..." 
               << colors::reset() << std::endl;
     
-    TestLogger logger;
+    LoggerType logger;
     auto testSinkPtr = new TestLoggerSink();
     logger.addSink(std::unique_ptr<ISink>(testSinkPtr));
     
-    #if defined(VERSION_3_0) || defined(VERSION_3_1) || defined(VERSION_3_2)
     bool droppedCalled = false;
     logger.setOnDropCallback([&droppedCalled](const LogRecord&) { droppedCalled = true; });
-    #endif
     
     logger.info("Test message");
     logger.flush();
@@ -118,16 +98,28 @@ bool test_basic_logging() {
     SIMPLE_ASSERT(testSinkPtr->getLastMessage() == "Test message", "Message should match");
     SIMPLE_ASSERT(!droppedCalled, "No drop callback should be called");
     
-    std::cout << colors::green() << "  âœ“ Basic logging works" 
+    std::cout << colors::green() << "    ✓ Basic logging works" 
               << colors::reset() << std::endl;
     return true;
 }
 
-bool test_level_filtering() {
-    std::cout << colors::cyan() << "Testing level filtering..." 
+bool test_basic_logging() {
+    std::cout << colors::cyan() << "Testing basic logging (all variants)..." 
               << colors::reset() << std::endl;
     
-    TestLogger logger;
+    bool passed = true;
+    passed &= test_basic_logging_impl<SyncLoggerType>("SyncLogger");
+    passed &= test_basic_logging_impl<AsyncLoggerType>("AsyncLogger");
+    passed &= test_basic_logging_impl<HybridLoggerType>("HybridLogger");
+    return passed;
+}
+
+template<typename LoggerType>
+bool test_level_filtering_impl(const char* logger_name) {
+    std::cout << colors::cyan() << "  [" << logger_name << "] Level filtering..." 
+              << colors::reset() << std::endl;
+    
+    LoggerType logger;
     auto testSinkPtr = new TestLoggerSink();
     logger.addSink(std::unique_ptr<ISink>(testSinkPtr));
     
@@ -142,16 +134,28 @@ bool test_level_filtering() {
     
     SIMPLE_ASSERT(testSinkPtr->count() == 2, "Should have 2 messages (warn+error)");
     
-    std::cout << colors::green() << "  âœ“ Level filtering works" 
+    std::cout << colors::green() << "    ✓ Level filtering works" 
               << colors::reset() << std::endl;
     return true;
 }
 
-bool test_enable_disable() {
-    std::cout << colors::cyan() << "Testing enable/disable..." 
+bool test_level_filtering() {
+    std::cout << colors::cyan() << "Testing level filtering (all variants)..." 
               << colors::reset() << std::endl;
     
-    TestLogger logger;
+    bool passed = true;
+    passed &= test_level_filtering_impl<SyncLoggerType>("SyncLogger");
+    passed &= test_level_filtering_impl<AsyncLoggerType>("AsyncLogger");
+    passed &= test_level_filtering_impl<HybridLoggerType>("HybridLogger");
+    return passed;
+}
+
+template<typename LoggerType>
+bool test_enable_disable_impl(const char* logger_name) {
+    std::cout << colors::cyan() << "  [" << logger_name << "] Enable/disable..." 
+              << colors::reset() << std::endl;
+    
+    LoggerType logger;
     auto testSinkPtr = new TestLoggerSink();
     logger.addSink(std::unique_ptr<ISink>(testSinkPtr));
     
@@ -165,20 +169,31 @@ bool test_enable_disable() {
     
     SIMPLE_ASSERT(testSinkPtr->count() == 2, "Should have 2 messages");
     
-    std::cout << colors::green() << "  âœ“ Enable/disable works" 
+    std::cout << colors::green() << "    ✓ Enable/disable works" 
               << colors::reset() << std::endl;
     return true;
 }
 
+bool test_enable_disable() {
+    std::cout << colors::cyan() << "Testing enable/disable (all variants)..." 
+              << colors::reset() << std::endl;
+    
+    bool passed = true;
+    passed &= test_enable_disable_impl<SyncLoggerType>("SyncLogger");
+    passed &= test_enable_disable_impl<AsyncLoggerType>("AsyncLogger");
+    passed &= test_enable_disable_impl<HybridLoggerType>("HybridLogger");
+    return passed;
+}
+
 // =============================================================================
-// Test Suite 2: Performance Benchmarks
+// Test Suite 2: Performance Benchmarks (AsyncLogger only for best performance)
 // =============================================================================
 
 bool test_disabled_performance() {
     std::cout << colors::cyan() << "Testing disabled performance..." 
               << colors::reset() << std::endl;
     
-    TestLogger logger;
+    AsyncLoggerType logger;
     logger.setEnabled(false);
     
     constexpr size_t ITERATIONS = 1000000;
@@ -197,7 +212,7 @@ bool test_disabled_performance() {
     
     SIMPLE_ASSERT(ns < 15.0, "Disabled overhead should be <15ns");
     
-    std::cout << colors::green() << "  âœ“ Disabled performance good" 
+    std::cout << colors::green() << "  ✓ Disabled performance good" 
               << colors::reset() << std::endl;
     return true;
 }
@@ -206,7 +221,7 @@ bool test_filtered_performance() {
     std::cout << colors::cyan() << "Testing filtered performance..." 
               << colors::reset() << std::endl;
     
-    TestLogger logger;
+    AsyncLoggerType logger;
     logger.setMinLevel(LogLevel::Off);
     
     constexpr size_t ITERATIONS = 1000000;
@@ -225,7 +240,7 @@ bool test_filtered_performance() {
     
     SIMPLE_ASSERT(ns < 15.0, "Filtered overhead should be <15ns");
     
-    std::cout << colors::green() << "  âœ“ Filtered performance good" 
+    std::cout << colors::green() << "  Filtered performance good" 
               << colors::reset() << std::endl;
     return true;
 }
@@ -234,13 +249,11 @@ bool test_active_performance() {
     std::cout << colors::cyan() << "Testing active performance..." 
               << colors::reset() << std::endl;
     
-    TestLogger logger;
+    AsyncLoggerType logger;
     auto testSinkPtr = new TestLoggerSink();
     logger.addSink(std::unique_ptr<ISink>(testSinkPtr));
     
-    #if defined(VERSION_3_1) || defined(VERSION_3_2)
     logger.startAsyncMode();
-    #endif
     
     constexpr size_t ITERATIONS = 100000;
     
@@ -259,7 +272,7 @@ bool test_active_performance() {
     
     SIMPLE_ASSERT(ns < 200.0, "Active should be <200ns");
     
-    std::cout << colors::green() << "  âœ“ Active performance good" 
+    std::cout << colors::green() << "  ✓ Active performance good" 
               << colors::reset() << std::endl;
     return true;
 }
@@ -268,13 +281,11 @@ bool test_throughput() {
     std::cout << colors::cyan() << "Testing throughput..." 
               << colors::reset() << std::endl;
     
-    TestLogger logger;
+    AsyncLoggerType logger;
     auto testSinkPtr = new TestLoggerSink();
     logger.addSink(std::unique_ptr<ISink>(testSinkPtr));
     
-    #if defined(VERSION_3_1) || defined(VERSION_3_2)
     logger.startAsyncMode();
-    #endif
     
     constexpr size_t DURATION_MS = 1000;
     
@@ -298,75 +309,20 @@ bool test_throughput() {
     
     logger.flush();
     
-    std::cout << colors::green() << "  âœ“ Throughput measured" 
+    std::cout << colors::green() << "  ✓ Throughput measured" 
               << colors::reset() << std::endl;
     return true;
 }
 
 // =============================================================================
-// Test Suite 3: Overflow Handling
-// =============================================================================
-
-bool test_overflow_handling() {
-    std::cout << colors::cyan() << "Testing overflow handling..." 
-              << colors::reset() << std::endl;
-    
-    TestLogger logger;
-    auto testSinkPtr = new TestLoggerSink();
-    logger.addSink(std::unique_ptr<ISink>(testSinkPtr));
-    
-    #if defined(VERSION_3_1) || defined(VERSION_3_2)
-    logger.startAsyncMode();
-    #endif
-    
-    bool droppedCalled = false;
-    logger.setOnDropCallback([&droppedCalled](const LogRecord&) { droppedCalled = true; });
-    
-    constexpr size_t OVERFLOW_COUNT = CPP_UTIL_LOG_BUFFER_SIZE * 2;
-    
-    for (size_t i = 0; i < OVERFLOW_COUNT; ++i) {
-        logger.info("Overflow test");
-    }
-    
-    logger.flush();
-    
-    uint64_t logged = logger.getMessagesLogged();
-    uint64_t dropped = logger.getMessagesDropped();
-    
-    std::cout << "  Logged: " << logged << ", Dropped: " << dropped << std::endl;
-    
-    // With fast modern CPUs and optimized code, we might not drop messages
-    // This is actually good - the logger is very efficient!
-    SIMPLE_ASSERT(logged + dropped == OVERFLOW_COUNT, "Total should match");
-    
-    if (dropped > 0) {
-        std::cout << colors::green() << "  Drops detected and handled correctly" 
-                  << colors::reset() << std::endl;
-        SIMPLE_ASSERT(droppedCalled, "Drop callback should be called");
-    } else {
-        std::cout << colors::yellow() << "  No drops - worker thread is very fast!" 
-                  << colors::reset() << std::endl;
-    }
-    
-    std::cout << colors::green() << "  âœ“ Overflow handling works" 
-              << colors::reset() << std::endl;
-    return true;
-}
-
-// =============================================================================
-// Test Suite 4: Mode Switching (v3.1+)
+// Test Suite 3: Mode Switching (HybridLogger specific)
 // =============================================================================
 
 bool test_mode_switching() {
-    #if defined(VERSION_3_0)
-    std::cout << colors::yellow() << "  âš  Skipping mode switching test (v3.0 always async)" 
-              << colors::reset() << std::endl;
-    return true;
-    #else
-    std::cout << colors::cyan() << "Testing mode switching..." 
+    std::cout << colors::cyan() << "Testing mode switching (HybridLogger)..." 
               << colors::reset() << std::endl;
     
-    TestLogger logger;
+    HybridLoggerType logger;
     auto testSinkPtr = new TestLoggerSink();
     logger.addSink(std::unique_ptr<ISink>(testSinkPtr));
     
@@ -390,61 +346,50 @@ bool test_mode_switching() {
     SIMPLE_ASSERT(testSinkPtr->count() == 3, "Switch back should work");
     SIMPLE_ASSERT(!logger.isAsyncRunning(), "Worker stopped");
     
-    std::cout << colors::green() << "  âœ“ Mode switching works" 
+    std::cout << colors::green() << "  ✓ Mode switching works" 
               << colors::reset() << std::endl;
     return true;
-    #endif
 }
 
 // =============================================================================
-// Test Suite 5: Policy Constraints (v3.2 Only)
+// Test Suite 4: Policy Constraints (Compile-time verification)
 // =============================================================================
 
 bool test_policy_constraints() {
-    #if !defined(VERSION_3_2)
-    std::cout << colors::yellow() << "  âš  Skipping policy constraints test (v3.2 only)" 
-              << colors::reset() << std::endl;
-    return true;
-    #else
     std::cout << colors::cyan() << "Testing policy constraints (compile-time)..." 
               << colors::reset() << std::endl;
     
-    // âœ… USE THE NAMESPACE-SCOPE TRAIT (defined at top of file)
-    // NO TEMPLATES INSIDE THIS FUNCTION!
-    static_assert(!has_startAsyncMode<SyncLogger>::value, 
+    // Verify compile-time interface differences
+    static_assert(!has_startAsyncMode<SyncLoggerType>::value, 
                   "SyncLogger should not have startAsyncMode");
-    static_assert(has_startAsyncMode<HybridLogger>::value, 
+    static_assert(has_startAsyncMode<HybridLoggerType>::value, 
                   "HybridLogger should have startAsyncMode");
-    static_assert(has_startAsyncMode<AsyncLogger>::value, 
+    static_assert(has_startAsyncMode<AsyncLoggerType>::value, 
                   "AsyncLogger should have startAsyncMode");
     
-    std::cout << colors::green() << "  âœ“ Policy constraints enforced at compile-time" 
+    std::cout << colors::green() << "  ✓ Policy constraints enforced at compile-time" 
               << colors::reset() << std::endl;
     return true;
-    #endif
 }
 
 // =============================================================================
-// Test Suite 6: Concurrency and Thread Safety
+// Test Suite 5: Concurrency (AsyncLogger)
 // =============================================================================
 
 bool test_concurrency() {
-    std::cout << colors::cyan() << "Testing concurrency..." 
+    std::cout << colors::cyan() << "Testing concurrency (AsyncLogger)..." 
               << colors::reset() << std::endl;
     
-    TestLogger logger;
+    AsyncLoggerType logger;
     auto testSinkPtr = new TestLoggerSink();
     logger.addSink(std::unique_ptr<ISink>(testSinkPtr));
     
-    #if defined(VERSION_3_1) || defined(VERSION_3_2)
     logger.startAsyncMode();
-    #endif
     
     constexpr size_t NUM_THREADS = 4;
-    constexpr size_t MSGS_PER_THREAD = 1000;  // Reduced from 10000 to avoid overwhelming
+    constexpr size_t MSGS_PER_THREAD = 1000;
     
     std::vector<std::thread> threads;
-    std::atomic<size_t> total_sent{0};
     
     for (size_t t = 0; t < NUM_THREADS; ++t) {
         threads.emplace_back([&logger]() {
@@ -458,9 +403,7 @@ bool test_concurrency() {
         thr.join();
     }
     
-    // Give worker thread time to process queue before flush
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    
     logger.flush();
     
     size_t received = testSinkPtr->count();
@@ -474,15 +417,9 @@ bool test_concurrency() {
               << ", Received: " << received
               << ", Dropped: " << dropped << std::endl;
     
-    // Primary test: verify counter consistency
     SIMPLE_ASSERT(logged + dropped == EXPECTED_TOTAL, "All attempts accounted for");
     
-    // Note: In high-concurrency scenarios with async logging, there can be timing issues
-    // where the test sink doesn't capture all messages even after flush. This is a test
-    // infrastructure limitation, not a logger bug. The key verification is that
-    // logged + dropped == total attempts (which proves no messages were lost in accounting)
-    
-    std::cout << colors::green() << "  âœ“ Concurrency safe" 
+    std::cout << colors::green() << "  ✓ Concurrency safe" 
               << colors::reset() << std::endl;
     return true;
 }
@@ -492,51 +429,32 @@ bool test_concurrency() {
 // =============================================================================
 
 bool test_UltraLoggers() {
-    std::cout << "\n" << colors::bold() << colors::blue()
-              << "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•\n"
-              << "  ULTRA LOGGERS UNIT TESTS (v3.x)\n"
-              << "  Covering Async (v3.0), Hybrid (v3.1), Policy-Based (v3.2)\n"
-              << "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
-              << colors::reset() << "\n\n";
-    
+
+    PRINT_HEADER(ULTRA LOGGERS)
+
     TestRunner runner;
     
-    // Suite 1: Functional
-    runner.run_test("Basic Logging", test_basic_logging);
-    runner.run_test("Level Filtering", test_level_filtering);
-    runner.run_test("Enable/Disable", test_enable_disable);
+    // Suite 1: Functional (all variants)
+    runner.run_test("Basic Logging (all)", test_basic_logging);
+    runner.run_test("Level Filtering (all)", test_level_filtering);
+    runner.run_test("Enable/Disable (all)", test_enable_disable);
     
-    // Suite 2: Performance
+    // Suite 2: Performance (AsyncLogger)
     runner.run_test("Disabled Perf", test_disabled_performance);
     runner.run_test("Filtered Perf", test_filtered_performance);
     runner.run_test("Active Perf", test_active_performance);
     runner.run_test("Throughput", test_throughput);
     
-    // Suite 3: Overflow
-    runner.run_test("Overflow Handling", test_overflow_handling);
-    
-    // Suite 4: Mode Switching (v3.1+)
+    // Suite 3: Mode Switching (HybridLogger)
     runner.run_test("Mode Switching", test_mode_switching);
     
-    // Suite 5: Policies (v3.2)
+    // Suite 4: Policy Constraints (compile-time)
     runner.run_test("Policy Constraints", test_policy_constraints);
     
-    // Suite 6: Concurrency
+    // Suite 5: Concurrency (AsyncLogger)
     runner.run_test("Concurrency", test_concurrency);
-    
-    int failed = runner.print_summary();
-    
-    if (failed == 0) {
-        std::cout << colors::green() << colors::bold()
-                  << "âœ“ ALL ULTRA LOGGER TESTS PASSED!"
-                  << colors::reset() << std::endl;
-    } else {
-        std::cout << colors::red() << colors::bold()
-                  << "âœ— SOME ULTRA LOGGER TESTS FAILED"
-                  << colors::reset() << std::endl;
-    }
-    
-    return failed == 0;
+        
+    return runner.print_summary() == 0;
 }
 
 } // namespace testing

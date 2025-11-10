@@ -501,11 +501,8 @@ namespace cpp_utilities::testing
     // ============================================================================
 
     bool test_EnumPlus() {
-        std::cout << "======================================\n";
-        std::cout << "EnumPlus - Comprehensive Test Suite\n";
-        std::cout << "C++17, Header-Only, High Performance\n";
-        std::cout << "Type-Safe Enum Utilities with Zero Overhead\n";
-        std::cout << "======================================\n\n";
+
+        PRINT_HEADER(ENUM PLUS)
 
         TestRunner runner;
         get_test_config().verbose = true;
@@ -570,21 +567,6 @@ namespace cpp_utilities::testing
         // Print summary
         int failed = runner.print_summary();
         
-        if (failed == 0) {
-            std::cout << "\n" << colors::green() << colors::bold()
-                     << "======================================\n";
-            std::cout << "✓ All EnumPlus tests passed!\n";
-            std::cout << "✓ Production ready\n";
-            std::cout << "======================================\n"
-                     << colors::reset();
-        } else {
-            std::cout << "\n" << colors::red() << colors::bold()
-                     << "======================================\n";
-            std::cout << "✗ " << failed << " test(s) failed\n";
-            std::cout << "======================================\n"
-                     << colors::reset();
-        }
-
         return failed == 0;
     }
 

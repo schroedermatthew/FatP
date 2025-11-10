@@ -545,9 +545,9 @@ bool test_swap_member() {
         ASSERT_EQ(value2, 200, "Value2 still modified");
     }
     
-    // After swap, guard1 restores value2, guard2 restores value1
-    ASSERT_EQ(value1, 99, "Value1 restored to value2's original");
-    ASSERT_EQ(value2, 42, "Value2 restored to value1's original");
+    // After swap, guard1 now manages value2 (restores to 99), guard2 manages value1 (restores to 42)
+    ASSERT_EQ(value1, 42, "Value1 restored by swapped guard2");
+    ASSERT_EQ(value2, 99, "Value2 restored by swapped guard1");
     
     return true;
 }
@@ -567,8 +567,8 @@ bool test_swap_std() {
         ASSERT_EQ(value2, 200, "Value2 still modified");
     }
     
-    ASSERT_EQ(value1, 99, "Value1 restored via std::swap");
-    ASSERT_EQ(value2, 42, "Value2 restored via std::swap");
+    ASSERT_EQ(value1, 42, "Value1 restored by swapped guard");
+    ASSERT_EQ(value2, 99, "Value2 restored by swapped guard");
     
     return true;
 }
@@ -935,17 +935,12 @@ bool test_lifecycle_move_counts() {
 // =============================================================================
 
 bool test_ValueGuard() {
+
+    PRINT_HEADER(VALUE GUARD)
+
     TestRunner runner;
-    auto& out = *get_test_config().output;
-    
-    out << colors::bold() << colors::cyan()
-        << "======================================\n"
-        << "ValueGuard - Comprehensive Test Suite\n"
-        << "C++17, Zero Dependencies, Header-Only\n"
-        << "v2.0 - Policy-Driven RAII Value Guards\n"
-        << "======================================\n"
-        << colors::reset() << "\n";
-    
+    auto& out = *get_test_config().output; 
+
     // Test Suite 1: Basic Copy Policy
     out << colors::bold() << "=== Test Suite 1: Basic Copy Policy ===" 
         << colors::reset() << "\n";

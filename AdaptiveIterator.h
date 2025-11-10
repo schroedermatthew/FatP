@@ -15,24 +15,8 @@
  * @note Checks are debug-only (via enforce); release zero-overhead.
  * @note Supports movable-only T via std::forward.
  * @note Exposes stride_size() for user queries.
- *
- * UPDATES (Iterator SuperGrok - FIXED):
- * - Fixed duplicate constructor issues by merging predicate/transformer constructors
- * - Fixed std::conditional_t with missing types using helper traits
- * - Fixed ConcurrencyPolicy::lock_type -> NoOpLock
- * - Fixed Expected<Iterator&> -> Expected<void> (can't return references in Expected)
- * - All policies use non-static const methods
- * - Integrated CheckedArithmetic for safe pointer operations
- * - Proper policy composition with correct chaining logic
- * - Complete ConstAdaptiveIterator implementation
- * - Thread-safe iteration support
- * - Tunable performance parameters
- *
- * NEW UPDATES (Performance Improvements):
- * - Debug-only bounds checks via enforce (no-op in release).
- * - Optimized return type (void for non-failing policies like Standard).
- * - Added SafeAdaptiveIterator alias for always-checked variant.
  */
+
 #pragma once
 #include <iterator>
 #include <type_traits>

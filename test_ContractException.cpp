@@ -31,6 +31,7 @@
 #include <stdexcept>
 #include <typeinfo>
 #include <sstream>
+#include <climits>
 
 // Include the updated ContractException header
 #include "ContractException.h"
@@ -432,12 +433,16 @@ bool test_concurrent_exception_throwing() {
         t.join();
     }
     
-    int expected_per_type = (num_threads * iterations) / 3;
-    SIMPLE_ASSERT(logic_count.load() == expected_per_type,
+    int base = iterations / 3;
+    int rem = iterations % 3;
+    int expected_logic = num_threads * (base + (rem > 0 ? 1 : 0));
+    int expected_runtime = num_threads * (base + (rem > 1 ? 1 : 0));
+    int expected_alloc = num_threads * base;
+    SIMPLE_ASSERT(logic_count.load() == expected_logic,
                   "Logic exceptions counted correctly in concurrent test");
-    SIMPLE_ASSERT(runtime_count.load() == expected_per_type,
+    SIMPLE_ASSERT(runtime_count.load() == expected_runtime,
                   "Runtime exceptions counted correctly in concurrent test");
-    SIMPLE_ASSERT(alloc_count.load() == expected_per_type + (num_threads * iterations) % 3,
+    SIMPLE_ASSERT(alloc_count.load() == expected_alloc,
                   "Alloc exceptions counted correctly in concurrent test");
     
     return true;
@@ -484,18 +489,18 @@ bool test_factory_error_pattern() {
 bool test_checked_arithmetic_pattern() {
     // Simulate CheckedArithmetic.h overflow detection pattern
     auto checked_add = [](int a, int b) -> int {
-        if (a > 0 && b > INT32_MAX - a) {
+        if (a > 0 && b > INT_MAX - a) {
             throw OverflowContractError("Integer overflow in addition");
         }
         return a + b;
     };
     
     try {
-        checked_add(INT32_MAX, 1);
+        checked_add(INT_MAX, 1);
         SIMPLE_ASSERT(false, "Should have thrown OverflowContractError");
     } catch (const OverflowContractError& e) {
-        SIMPLE_ASSERT(std::string(e.category()) == "Logic",
-                      "Overflow error has Logic category (std::overflow_error inherits logic_error)");
+        SIMPLE_ASSERT(std::string(e.category()) == "Runtime",
+                      "Overflow error has Runtime category (std::overflow_error inherits runtime_error)");
     }
     
     return true;
@@ -545,11 +550,11 @@ bool test_allocator_pattern() {
 // =============================================================================
 
 bool test_ContractException() {
+
+    PRINT_HEADER(CONTRACT EXCEPTION)
+
     TestRunner runner;
-    
-    // Test Suite 1: Basic Functionality
-    std::cout << "\n" << colors::cyan() << "Test Suite 1: Basic Exception Functionality" 
-              << colors::reset() << "\n";
+ 
     runner.run_test("logic_contract_error_basic", test_logic_contract_error_basic);
     runner.run_test("runtime_contract_error_basic", test_runtime_contract_error_basic);
     runner.run_test("alloc_contract_error_basic", test_alloc_contract_error_basic);
@@ -593,7 +598,7 @@ bool test_ContractException() {
     runner.run_test("checked_arithmetic_pattern", test_checked_arithmetic_pattern);
     runner.run_test("allocator_pattern", test_allocator_pattern);
     
-    return runner.print_summary();
+    return 0 == runner.print_summary();
 }
 
 } // namespace cpp_utilities::testing

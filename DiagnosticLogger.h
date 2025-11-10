@@ -372,14 +372,15 @@ public:
 };
 
 // ============================================================================
-// Logger - OPTIMIZED v2.0 with Lock-Free Fast Path
+// Logger - OPTIMIZED v2.1 with Ultra-Fast Path
 // ============================================================================
 
 class Logger {
     std::vector<std::unique_ptr<ISink>> sinks_;
     
     // OPTIMIZATION: Use atomics for lock-free fast path
-    std::atomic<bool> enabled_;
+    // Use unsigned char for enabled to pack better with LogLevel
+    std::atomic<unsigned char> enabled_;
     std::atomic<LogLevel> runtimeMinLevel_;
     
     // Mutex only for sink operations (slow path)
@@ -387,7 +388,7 @@ class Logger {
 
 public:
     Logger() 
-        : enabled_(true)
+        : enabled_(1)
         , runtimeMinLevel_(LogLevel::Trace)
     {}
 
@@ -417,14 +418,24 @@ public:
      * @brief Enable or disable logging at runtime (lock-free)
      */
     void setEnabled(bool enabled) {
-        enabled_.store(enabled, std::memory_order_relaxed);
+        enabled_.store(enabled ? 1 : 0, std::memory_order_relaxed);
     }
 
     /**
      * @brief Check if logging is enabled (lock-free)
      */
     bool isEnabled() const {
-        return enabled_.load(std::memory_order_relaxed);
+        return enabled_.load(std::memory_order_relaxed) != 0;
+    }
+
+    /**
+     * @brief Ultra-fast path check - single atomic load
+     */
+    FORCE_INLINE
+    bool should_log(LogLevel level) const noexcept {
+        // Combine checks to minimize atomic loads
+        return LIKELY(enabled_.load(std::memory_order_relaxed)) &&
+               LIKELY(level >= runtimeMinLevel_.load(std::memory_order_relaxed));
     }
 
     /**
@@ -453,16 +464,10 @@ public:
             }
         }
         
-        // OPTIMIZATION 3: Lock-free runtime checks (FAST PATH)
-        // Branch prediction hints: assume logging is usually enabled
-        if (UNLIKELY(!enabled_.load(std::memory_order_relaxed))) {
-            return; // Disabled check: ~2-4 ns (vs 30ns with mutex)
-        }
-        
-        // OPTIMIZATION 4: Lock-free level check (FAST PATH)
-        LogLevel runtimeMin = runtimeMinLevel_.load(std::memory_order_relaxed);
-        if (UNLIKELY(level < runtimeMin)) {
-            return; // Filtered check: ~2-4 ns (vs 30ns with mutex)
+        // OPTIMIZATION 3: Combined lock-free check (ULTRA-FAST PATH)
+        // Single branch that checks both enabled and level
+        if (UNLIKELY(!should_log(level))) {
+            return; // <5ns typical case
         }
         
         // SLOW PATH: Only execute if we're definitely logging
@@ -481,9 +486,61 @@ public:
     }
 
     /**
-     * @brief Convenience methods for each log level
+     * @brief Convenience methods for each log level - optimized for string literals
      */
+    
+    // String literal overloads (zero-overhead for disabled/filtered)
+    FORCE_INLINE
+    void trace(const char* msg, SourceLocation location = SourceLocation()) {
+        if constexpr (gMinLogLevel <= LogLevel::Trace) {
+            if (UNLIKELY(!should_log(LogLevel::Trace))) return;
+            log_slow_path_string(LogLevel::Trace, msg, location);
+        }
+    }
+    
+    FORCE_INLINE
+    void debug(const char* msg, SourceLocation location = SourceLocation()) {
+        if constexpr (gMinLogLevel <= LogLevel::Debug) {
+            if (UNLIKELY(!should_log(LogLevel::Debug))) return;
+            log_slow_path_string(LogLevel::Debug, msg, location);
+        }
+    }
+    
+    FORCE_INLINE
+    void info(const char* msg, SourceLocation location = SourceLocation()) {
+        if constexpr (gMinLogLevel <= LogLevel::Info) {
+            if (UNLIKELY(!should_log(LogLevel::Info))) return;
+            log_slow_path_string(LogLevel::Info, msg, location);
+        }
+    }
+    
+    FORCE_INLINE
+    void warning(const char* msg, SourceLocation location = SourceLocation()) {
+        if constexpr (gMinLogLevel <= LogLevel::Warning) {
+            if (UNLIKELY(!should_log(LogLevel::Warning))) return;
+            log_slow_path_string(LogLevel::Warning, msg, location);
+        }
+    }
+    
+    FORCE_INLINE
+    void error(const char* msg, SourceLocation location = SourceLocation()) {
+        if constexpr (gMinLogLevel <= LogLevel::Error) {
+            if (UNLIKELY(!should_log(LogLevel::Error))) return;
+            log_slow_path_string(LogLevel::Error, msg, location);
+        }
+    }
+    
+    FORCE_INLINE
+    void fatal(const char* msg, SourceLocation location = SourceLocation()) {
+        if constexpr (gMinLogLevel <= LogLevel::Fatal) {
+            if (UNLIKELY(!should_log(LogLevel::Fatal))) return;
+            log_slow_path_string(LogLevel::Fatal, msg, location);
+        }
+    }
+    
+    // Lambda/callable overloads (for lazy evaluation)
     template <typename MessageGenerator>
+    FORCE_INLINE
     void trace(MessageGenerator&& messageGen, SourceLocation location = SourceLocation()) {
         if constexpr (gMinLogLevel <= LogLevel::Trace) {
             log(LogLevel::Trace, std::forward<MessageGenerator>(messageGen), location);
@@ -491,6 +548,7 @@ public:
     }
 
     template <typename MessageGenerator>
+    FORCE_INLINE
     void debug(MessageGenerator&& messageGen, SourceLocation location = SourceLocation()) {
         if constexpr (gMinLogLevel <= LogLevel::Debug) {
             log(LogLevel::Debug, std::forward<MessageGenerator>(messageGen), location);
@@ -498,6 +556,7 @@ public:
     }
 
     template <typename MessageGenerator>
+    FORCE_INLINE
     void info(MessageGenerator&& messageGen, SourceLocation location = SourceLocation()) {
         if constexpr (gMinLogLevel <= LogLevel::Info) {
             log(LogLevel::Info, std::forward<MessageGenerator>(messageGen), location);
@@ -505,6 +564,7 @@ public:
     }
 
     template <typename MessageGenerator>
+    FORCE_INLINE
     void warning(MessageGenerator&& messageGen, SourceLocation location = SourceLocation()) {
         if constexpr (gMinLogLevel <= LogLevel::Warning) {
             log(LogLevel::Warning, std::forward<MessageGenerator>(messageGen), location);
@@ -512,6 +572,7 @@ public:
     }
 
     template <typename MessageGenerator>
+    FORCE_INLINE
     void error(MessageGenerator&& messageGen, SourceLocation location = SourceLocation()) {
         if constexpr (gMinLogLevel <= LogLevel::Error) {
             log(LogLevel::Error, std::forward<MessageGenerator>(messageGen), location);
@@ -519,6 +580,7 @@ public:
     }
 
     template <typename MessageGenerator>
+    FORCE_INLINE
     void fatal(MessageGenerator&& messageGen, SourceLocation location = SourceLocation()) {
         if constexpr (gMinLogLevel <= LogLevel::Fatal) {
             log(LogLevel::Fatal, std::forward<MessageGenerator>(messageGen), location);
@@ -526,6 +588,27 @@ public:
     }
 
 private:
+    /**
+     * @brief Slow path for string literals
+     */
+    NO_INLINE
+    void log_slow_path_string(LogLevel level, const char* msg, SourceLocation location) {
+        std::lock_guard<std::mutex> lock(sinkMutex_);
+        
+        // Recheck conditions after acquiring lock
+        if (!enabled_.load(std::memory_order_relaxed) || 
+            level < runtimeMinLevel_.load(std::memory_order_relaxed) || 
+            sinks_.empty()) {
+            return;
+        }
+        
+        LogRecord record{level, std::string(msg), std::move(location)};
+        
+        for (auto& sink : sinks_) {
+            sink->write(record);
+        }
+    }
+    
     /**
      * @brief Slow path: actual logging with mutex protection
      * 

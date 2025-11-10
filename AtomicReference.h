@@ -300,6 +300,10 @@ struct PollingWaitPolicy {
             long cur_count = current.use_count();
             
             if (cur_ptr != old_ptr || cur_count != old_count) {
+                // Change detected - perform a final synchronizing load to ensure
+                // subsequent loads in the calling thread will see the new value
+                // Use seq_cst to create a total ordering with the store operation
+                (void)traits.raw_load(std::memory_order_seq_cst);
                 return true; // Change detected
             }
             
@@ -966,7 +970,7 @@ public:
         }
         
         auto start = std::chrono::steady_clock::now();
-        std::chrono::microseconds delay(100);  // Start with 100μs for faster detection
+        std::chrono::microseconds delay(100);  // Start with 100ÃŽÂ¼s for faster detection
         constexpr auto max_delay = std::chrono::milliseconds(50);  // Max 50ms
         size_t attempts = 0;
         
@@ -1124,58 +1128,42 @@ class AtomicReference;
  * @tparam WaitPolicy Wait policy type
  * @tparam DurationPolicy Duration type for timeouts
  */
+/**
+ * @brief RAII guard for checking AtomicReference invariants.
+ * 
+ * @details Captures state on construction and validates on destruction.
+ * 
+ * The guard holds a snapshot reference during the operation to prevent
+ * premature destruction of the underlying object. Use count checks have
+ * been removed as they are inherently racy in concurrent scenarios.
+ * 
+ * @tparam T Value type
+ * @tparam EnforcementPolicy Policy for invariant checks
+ * @tparam WaitPolicy Wait policy type
+ * @tparam DurationPolicy Duration type for timeouts
+ */
 template <typename T, typename EnforcementPolicy, template <typename> class WaitPolicy, typename DurationPolicy = std::chrono::seconds>
 class InvariantGuard {
 private:
     const AtomicReference<T, EnforcementPolicy, WaitPolicy, DurationPolicy>& ref_;
-    long initial_count_;
-    T* initial_ptr_;
-    bool mutating_op_;  ///< True for store/exchange/CAS (relaxed checks)
+    std::shared_ptr<T> snapshot_;
 
 public:
     /**
      * @brief Construct guard and capture initial state.
      * 
      * @param ref Reference to AtomicReference
-     * @param mutating True if this is a mutating operation
      */
-    explicit InvariantGuard(const AtomicReference<T, EnforcementPolicy, WaitPolicy, DurationPolicy>& ref, 
-                           bool mutating = false) noexcept
-        : ref_(ref)
-        , initial_count_(0)
-        , initial_ptr_(nullptr)
-        , mutating_op_(mutating)
-    {
-        auto sp = ref_.raw_load(std::memory_order_relaxed);
-        if (sp) {
-            initial_count_ = sp.use_count();
-            initial_ptr_ = sp.get();
-        }
-    }
+    explicit InvariantGuard(const AtomicReference<T, EnforcementPolicy, WaitPolicy, DurationPolicy>& ref) noexcept
+        : ref_(ref), snapshot_(ref_.raw_load(std::memory_order_relaxed)) {}
 
     /**
      * @brief Destructor: validate invariants.
      * 
-     * @details Checks depend on operation type:
-     * - Read operations: use_count must not decrease
-     * - Write operations: relaxed checks (reset to 1 is expected)
+     * @details The snapshot held by the guard prevents use-after-free.
+     * No use count checks are performed as they are unreliable in concurrent scenarios.
      */
-    ~InvariantGuard() noexcept(false) {
-        auto sp = ref_.raw_load(std::memory_order_relaxed);
-        
-        if (!mutating_op_) {
-            // Read operations: use_count should not decrease
-            long final_count = sp ? sp.use_count() : 0;
-            T* final_ptr = sp ? sp.get() : nullptr;
-            
-            // Only enforce for non-mutating reads
-            if (initial_ptr_ && final_ptr == initial_ptr_) {
-                enforce_policy_check(final_count >= initial_count_, 
-                                   "Use count decreased unexpectedly during read");
-            }
-        }
-        // Mutating operations: skip use_count check (reset to 1 is expected)
-    }
+    ~InvariantGuard() noexcept = default;
 
     // Non-copyable, non-movable
     InvariantGuard(const InvariantGuard&) = delete;
@@ -1185,7 +1173,8 @@ public:
 /**
  * @brief Invariant guard specialization for weak_ptr.
  * 
- * @details Checks expiration state rather than use_count.
+ * @details Holds a weak_ptr snapshot for API consistency.
+ * No validation checks performed.
  * 
  * @tparam T Value type
  * @tparam EnforcementPolicy Policy for invariant checks
@@ -1196,30 +1185,13 @@ template <typename T, typename EnforcementPolicy, template <typename> class Wait
 class InvariantGuardWeak {
 private:
     const AtomicReference<std::weak_ptr<T>, EnforcementPolicy, WaitPolicy, DurationPolicy>& ref_;
-    bool initially_expired_;
-    bool mutating_op_;
+    std::weak_ptr<T> snapshot_;
 
 public:
-    explicit InvariantGuardWeak(const AtomicReference<std::weak_ptr<T>, EnforcementPolicy, WaitPolicy, DurationPolicy>& ref,
-                               bool mutating = false) noexcept
-        : ref_(ref)
-        , initially_expired_(false)
-        , mutating_op_(mutating)
-    {
-        auto wp = ref_.raw_load(std::memory_order_relaxed);
-        initially_expired_ = wp.expired();
-    }
+    explicit InvariantGuardWeak(const AtomicReference<std::weak_ptr<T>, EnforcementPolicy, WaitPolicy, DurationPolicy>& ref) noexcept
+        : ref_(ref), snapshot_(ref_.raw_load(std::memory_order_relaxed)) {}
 
-    ~InvariantGuardWeak() noexcept(false) {
-        if (!mutating_op_) {
-            auto wp = ref_.raw_load(std::memory_order_relaxed);
-            // Can transition from valid to expired, but not expired to valid without store
-            if (initially_expired_) {
-                enforce_policy_check(wp.expired(), 
-                                   "Weak pointer unexpectedly became valid without store");
-            }
-        }
-    }
+    ~InvariantGuardWeak() noexcept = default;
 
     InvariantGuardWeak(const InvariantGuardWeak&) = delete;
     InvariantGuardWeak& operator=(const InvariantGuardWeak&) = delete;
@@ -1310,7 +1282,7 @@ public:
      * @return Copy of the stored shared_ptr
      */
     std::shared_ptr<T> load(std::memory_order order = std::memory_order_acquire) const {
-        guard_type guard(*this, false);  // Read operation
+        guard_type guard(*this);  // Read operation
         auto result = this->raw_load(order);
         // Enforce non-null based on EnforcementPolicy
         using Raiser = typename RaiserSelector<EnforcementPolicy>::type;
@@ -1338,7 +1310,7 @@ public:
      */
     Expected<std::shared_ptr<T>, std::string> load_expected(
         std::memory_order order = std::memory_order_acquire) const noexcept {
-        guard_type guard(*this, false);
+        guard_type guard(*this);
         auto result = this->raw_load(order);
         if (!result) {
             return make_unexpected("Null loaded from AtomicReference");
@@ -1357,7 +1329,7 @@ public:
      * @param order Memory order (default: release)
      */
     void store(std::shared_ptr<T> p, std::memory_order order = std::memory_order_release) {
-        guard_type guard(*this, true);  // Mutating operation
+        guard_type guard(*this);  // Mutating operation
         // Enforce non-null based on EnforcementPolicy
         using Raiser = typename RaiserSelector<EnforcementPolicy>::type;
         auto enforcer = MakeEnforcer<Raiser>(p != nullptr, "p != nullptr", 
@@ -1389,7 +1361,7 @@ public:
      */
     std::shared_ptr<T> exchange(std::shared_ptr<T> desired, 
                                 std::memory_order order = std::memory_order_acq_rel) {
-        guard_type guard(*this, true);  // Mutating operation
+        guard_type guard(*this);  // Mutating operation
         // Enforce non-null based on EnforcementPolicy
         using Raiser = typename RaiserSelector<EnforcementPolicy>::type;
         auto enforcer = MakeEnforcer<Raiser>(desired != nullptr, "desired != nullptr", 
@@ -1429,7 +1401,7 @@ public:
     bool compare_exchange_weak(std::shared_ptr<T>& expected, std::shared_ptr<T> desired,
                               std::memory_order success = std::memory_order_acq_rel,
                               std::memory_order failure = std::memory_order_acquire) {
-        guard_type guard(*this, true);  // Mutating operation
+        guard_type guard(*this);  // Mutating operation
         enforce_policy_check(expected.get() != desired.get(), "CAS with identical expected and desired");
         return this->raw_compare_exchange_weak(expected, std::move(desired), success, failure);
     }
@@ -1449,7 +1421,7 @@ public:
     bool compare_exchange_strong(std::shared_ptr<T>& expected, std::shared_ptr<T> desired,
                                 std::memory_order success = std::memory_order_acq_rel,
                                 std::memory_order failure = std::memory_order_acquire) {
-        guard_type guard(*this, true);  // Mutating operation
+        guard_type guard(*this);  // Mutating operation
         enforce_policy_check(expected.get() != desired.get(), "CAS with identical expected and desired");
         return this->raw_compare_exchange_strong(expected, std::move(desired), success, failure);
     }
@@ -1469,7 +1441,7 @@ public:
         std::memory_order success = std::memory_order_acq_rel,
         std::memory_order failure = std::memory_order_acquire,
         size_t max_retries = 10) {
-        guard_type guard(*this, true);
+        guard_type guard(*this);
         for (size_t i = 0; i < max_retries; ++i) {
             if (this->raw_compare_exchange_weak(expected, std::move(desired), success, failure)) {
                 return true;
@@ -1488,7 +1460,7 @@ public:
         std::memory_order success = std::memory_order_acq_rel,
         std::memory_order failure = std::memory_order_acquire,
         size_t max_retries = 10) {
-        guard_type guard(*this, true);
+        guard_type guard(*this);
         for (size_t i = 0; i < max_retries; ++i) {
             if (this->raw_compare_exchange_strong(expected, std::move(desired), success, failure)) {
                 return true;
@@ -1808,7 +1780,7 @@ public:
      * @return Copy of the stored weak_ptr
      */
     std::weak_ptr<T> load(std::memory_order order = std::memory_order_acquire) const {
-        guard_type guard(*this, false);
+        guard_type guard(*this);
         return this->raw_load(order);
     }
 
@@ -1854,7 +1826,7 @@ public:
      */
     Expected<std::shared_ptr<T>, std::string> lock_expected(
         std::memory_order order = std::memory_order_acquire) const noexcept {
-        guard_type guard(*this, false);
+        guard_type guard(*this);
         return traits_type::lock_expected(order);
     }
 
@@ -1886,7 +1858,7 @@ public:
      * @brief Atomically store a new weak_ptr.
      */
     void store(std::weak_ptr<T> p, std::memory_order order = std::memory_order_release) {
-        guard_type guard(*this, true);
+        guard_type guard(*this);
         this->raw_store(std::move(p), order);
     }
 
@@ -1896,7 +1868,7 @@ public:
      * @details Stores the weak_ptr and triggers notification for waiting threads.
      */
     void store(std::shared_ptr<T> p, std::memory_order order = std::memory_order_release) {
-        guard_type guard(*this, true);
+        guard_type guard(*this);
         std::weak_ptr<T> wp(std::move(p));
         this->raw_store(std::move(wp), order);
         // Note: notify is called by guard destructor if needed
@@ -1918,7 +1890,7 @@ public:
      */
     std::weak_ptr<T> exchange(std::weak_ptr<T> desired, 
                               std::memory_order order = std::memory_order_acq_rel) {
-        guard_type guard(*this, true);
+        guard_type guard(*this);
         return this->raw_exchange(std::move(desired), order);
     }
 
@@ -1940,7 +1912,7 @@ public:
     bool compare_exchange_weak(std::weak_ptr<T>& expected, std::weak_ptr<T> desired,
                               std::memory_order success = std::memory_order_acq_rel,
                               std::memory_order failure = std::memory_order_acquire) {
-        guard_type guard(*this, true);
+        guard_type guard(*this);
         return this->raw_compare_exchange_weak(expected, std::move(desired), success, failure);
     }
 
@@ -1950,7 +1922,7 @@ public:
     bool compare_exchange_strong(std::weak_ptr<T>& expected, std::weak_ptr<T> desired,
                                 std::memory_order success = std::memory_order_acq_rel,
                                 std::memory_order failure = std::memory_order_acquire) {
-        guard_type guard(*this, true);
+        guard_type guard(*this);
         return this->raw_compare_exchange_strong(expected, std::move(desired), success, failure);
     }
 

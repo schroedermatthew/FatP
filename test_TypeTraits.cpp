@@ -645,12 +645,8 @@ bool test_performance_characteristics() {
 // ============================================================================
 
 bool test_TypeTraits() {
-    std::cout << colors::bold() << colors::cyan()
-              << "======================================" << std::endl
-              << "TypeTraits.h v1.1 - Complete Test Suite" << std::endl
-              << "All Fixes Applied - C++17 Compatible" << std::endl
-              << "======================================" 
-              << colors::reset() << std::endl;
+
+    PRINT_HEADER(TYPE TRAITS)
 
     TestRunner runner;
 

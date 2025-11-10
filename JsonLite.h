@@ -1,33 +1,63 @@
 // JsonLite.h
+// Lightweight JSON library for loading/saving parameter sets
+// - C++17 header-only
+// - No external dependencies
+// - High performance with minimal allocations
+// - Extensible via policies and custom type serialization
 #pragma once
 
 #include <algorithm>
-#include <any>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <optional>
 #include <set>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
-#include <vector>
 #include <variant>
-#include <string>
-#include <string_view>
-#include <sstream>
-#include <iomanip>
+#include <vector>
 #include <fstream>
-#include <stdexcept>
-
-#include "EqualityComparisons.h"  // Assuming this exists; if not, remove or define.
+#include <iomanip>
 
 namespace cpp_utilities {
+
+// ====================================================================
+// Type Traits (self-contained, no external dependencies)
+// ====================================================================
+
+namespace detail {
+    // Check if type is iterable (has begin/end)
+    template <typename T, typename = void>
+    struct IsIterable : std::false_type {};
+    
+    template <typename T>
+    struct IsIterable<T, std::void_t<
+        decltype(std::begin(std::declval<T&>())),
+        decltype(std::end(std::declval<T&>()))
+    >> : std::true_type {};
+    
+    // Check if type has mapped_type (is associative container)
+    template <typename T, typename = void>
+    struct HasMappedType : std::false_type {};
+    
+    template <typename T>
+    struct HasMappedType<T, std::void_t<typename T::mapped_type>> : std::true_type {};
+    
+    // Extract value_type from container
+    template <typename Container>
+    using ContainerValueT = typename Container::value_type;
+}
 
 // ====================================================================
 // JSON Value Type (for Parsing)
@@ -36,13 +66,16 @@ namespace cpp_utilities {
 using JsonObject = std::map<std::string, struct JsonValue>;
 using JsonArray = std::vector<struct JsonValue>;
 
-struct JsonValue : std::variant<std::nullptr_t, bool, double, std::string, JsonArray, JsonObject> {
+// JsonValue holds: null, bool, int64_t, double, string, array, or object
+// Using int64_t preserves integer precision (addresses issue #9)
+struct JsonValue : std::variant<std::nullptr_t, bool, int64_t, double, std::string, JsonArray, JsonObject> {
     using variant::variant;
     
     // Helper methods for type checking
     [[nodiscard]] bool is_null() const noexcept { return std::holds_alternative<std::nullptr_t>(*this); }
     [[nodiscard]] bool is_bool() const noexcept { return std::holds_alternative<bool>(*this); }
-    [[nodiscard]] bool is_number() const noexcept { return std::holds_alternative<double>(*this); }
+    [[nodiscard]] bool is_int() const noexcept { return std::holds_alternative<int64_t>(*this); }
+    [[nodiscard]] bool is_number() const noexcept { return std::holds_alternative<int64_t>(*this) || std::holds_alternative<double>(*this); }
     [[nodiscard]] bool is_string() const noexcept { return std::holds_alternative<std::string>(*this); }
     [[nodiscard]] bool is_array() const noexcept { return std::holds_alternative<JsonArray>(*this); }
     [[nodiscard]] bool is_object() const noexcept { return std::holds_alternative<JsonObject>(*this); }
@@ -54,10 +87,12 @@ struct JsonValue : std::variant<std::nullptr_t, bool, double, std::string, JsonA
 
 struct StandardJsonPolicy {
     static constexpr bool pretty_print = false;
-    static constexpr int numeric_precision = 6;
+    static constexpr int numeric_precision = 16;
     static constexpr int indent_step = 4;
     static constexpr bool allow_nan_inf = false;
     static constexpr bool escape_unicode = true;
+    static constexpr size_t max_parse_depth = 512;
+    static constexpr size_t max_dump_depth = 512;
 };
 
 struct PrettyJsonPolicy : StandardJsonPolicy {
@@ -74,12 +109,8 @@ struct CompatJsonPolicy : StandardJsonPolicy {
 // ====================================================================
 
 namespace detail {
-    // Depth limit to prevent stack overflow
-    static constexpr size_t MAX_PARSE_DEPTH = 512;
-    static constexpr size_t MAX_DUMP_DEPTH = 512;
-    
     template <typename Os>
-    void output_indent(Os& os, int indent) {
+    inline void output_indent(Os& os, int indent) noexcept {
         for (int i = 0; i < indent; ++i) {
             os << ' ';
         }
@@ -119,6 +150,8 @@ namespace detail {
     void dump_scalar(Os& os, const T& obj) {
         if constexpr (std::is_same_v<T, bool>) {
             os << (obj ? "true" : "false");
+        } else if constexpr (std::is_same_v<T, int64_t>) {
+            os << obj;
         } else if constexpr (std::is_arithmetic_v<T>) {
             if constexpr (std::is_floating_point_v<T>) {
                 if (std::isnan(obj)) {
@@ -135,15 +168,21 @@ namespace detail {
                     }
                 } else {
                     double intpart;
-                    if (std::modf(obj, &intpart) == 0.0) {
-                        // Print as integer if no fractional part
-                        os << static_cast<long long>(intpart);
+                    if (std::modf(obj, &intpart) == 0.0 && 
+                        intpart >= std::numeric_limits<int64_t>::min() &&
+                        intpart <= std::numeric_limits<int64_t>::max()) {
+                        // Print as integer if no fractional part and fits in int64
+                        os << static_cast<int64_t>(intpart);
                     } else {
+                        // Note: std::fixed with precision=16 works well for "normal" ranges (1e-15 to 1e+15).
+                        // For scientific values outside this range (e.g., Planck constant 6.626e-34,
+                        // Avogadro's number 6.022e23), consider using scientific notation or storing
+                        // as strings to preserve precision and readability.
                         os << std::fixed << std::setprecision(Policy::numeric_precision) << obj;
                     }
                 }
             } else {
-                os << obj;
+                os << static_cast<int64_t>(obj);
             }
         } else if constexpr (std::is_convertible_v<T, std::string_view>) {
             escape_string<Os, Policy>(os, obj);
@@ -185,11 +224,12 @@ namespace detail {
     inline constexpr bool has_to_json_v = has_to_json<T>::value;
 
     // Helper to check dump depth
-    inline void check_dump_depth(int indent, int indent_step) {
-        size_t depth = static_cast<size_t>(indent / (indent_step > 0 ? indent_step : 1));
-        if (depth > MAX_DUMP_DEPTH) {
+    template <typename Policy>
+    inline void check_dump_depth(int indent) {
+        size_t depth = static_cast<size_t>(indent / (Policy::indent_step > 0 ? Policy::indent_step : 1));
+        if (depth > Policy::max_dump_depth) {
             throw std::runtime_error("JSON dump error: maximum nesting depth (" + 
-                                   std::to_string(MAX_DUMP_DEPTH) + ") exceeded");
+                                   std::to_string(Policy::max_dump_depth) + ") exceeded");
         }
     }
 
@@ -214,7 +254,7 @@ struct JsonDispatcher<std::nullptr_t, Policy> {
 
 // Scalar (non-iterable or string)
 template <typename T, typename Policy>
-struct JsonDispatcher<T, Policy, std::enable_if_t<!IsIterable<T>::value || std::is_same_v<std::decay_t<T>, std::string>>> {
+struct JsonDispatcher<T, Policy, std::enable_if_t<!detail::IsIterable<T>::value || std::is_same_v<std::decay_t<T>, std::string>>> {
     template <typename Os>
     static void dump(Os& os, const T& obj, bool pretty = Policy::pretty_print, int indent = 0) {
         if constexpr (std::is_same_v<T, std::nullptr_t> || std::is_null_pointer_v<T>) {
@@ -244,7 +284,7 @@ struct JsonDispatcher<std::optional<T>, Policy> {
     }
 };
 
-// Pair (as array, corrected from original which dumped as object)
+// Pair (as array)
 template <typename T1, typename T2, typename Policy>
 struct JsonDispatcher<std::pair<T1, T2>, Policy> {
     template <typename Os>
@@ -253,10 +293,10 @@ struct JsonDispatcher<std::pair<T1, T2>, Policy> {
         if (pretty) os << '\n';
         if (pretty) detail::output_indent(os, indent + Policy::indent_step);
         JsonDispatcher<T1, Policy>::dump(os, p.first, pretty, indent + Policy::indent_step);
-        os << (pretty ? ", " : ",");
+        os << ',';
+        if (pretty) { os << '\n'; detail::output_indent(os, indent + Policy::indent_step); }
         JsonDispatcher<T2, Policy>::dump(os, p.second, pretty, indent + Policy::indent_step);
-        if (pretty) os << '\n';
-        if (pretty) detail::output_indent(os, indent);
+        if (pretty) { os << '\n'; detail::output_indent(os, indent); }
         os << ']';
     }
 };
@@ -272,44 +312,49 @@ struct JsonDispatcher<std::tuple<Ts...>, Policy> {
 
 // Iterable non-associative (as array)
 template <typename T, typename Policy>
-struct JsonDispatcher<T, Policy, std::enable_if_t<IsIterable<T>::value && !std::is_same_v<std::decay_t<T>, std::string> && !HasMappedType<T>::value>> {
+struct JsonDispatcher<T, Policy, std::enable_if_t<detail::IsIterable<T>::value && !std::is_same_v<std::decay_t<T>, std::string> && !detail::HasMappedType<T>::value>> {
     template <typename Os>
     static void dump(Os& os, const T& cont, bool pretty = Policy::pretty_print, int indent = 0) {
-        detail::check_dump_depth(indent, Policy::indent_step);
+        detail::check_dump_depth<Policy>(indent);
         os << '[';
         if (pretty && !cont.empty()) os << '\n';
         bool first = true;
         for (const auto& elem : cont) {
-            if (!first) os << (pretty ? ",\n" : ",");
+            if (!first) os << ',';
+            if (pretty) { os << '\n'; detail::output_indent(os, indent + Policy::indent_step); }
             first = false;
-            if (pretty) detail::output_indent(os, indent + Policy::indent_step);
-            JsonDispatcher<ContainerValueT<T>, Policy>::dump(os, elem, pretty, indent + Policy::indent_step);
+            JsonDispatcher<detail::ContainerValueT<T>, Policy>::dump(os, elem, pretty, indent + Policy::indent_step);
         }
-        if (pretty && !cont.empty()) os << '\n';
-        if (pretty) detail::output_indent(os, indent);
+        if (pretty && !cont.empty()) { os << '\n'; detail::output_indent(os, indent); }
         os << ']';
     }
 };
 
 // Associative (as object)
 template <typename T, typename Policy>
-struct JsonDispatcher<T, Policy, std::enable_if_t<IsIterable<T>::value && !std::is_same_v<std::decay_t<T>, std::string> && HasMappedType<T>::value>> {
+struct JsonDispatcher<T, Policy, std::enable_if_t<detail::IsIterable<T>::value && !std::is_same_v<std::decay_t<T>, std::string> && detail::HasMappedType<T>::value>> {
     template <typename Os>
     static void dump(Os& os, const T& cont, bool pretty = Policy::pretty_print, int indent = 0) {
-        detail::check_dump_depth(indent, Policy::indent_step);
+        detail::check_dump_depth<Policy>(indent);
         os << '{';
         if (pretty && !cont.empty()) os << '\n';
         bool first = true;
         for (const auto& elem : cont) {
-            if (!first) os << (pretty ? ",\n" : ",");
+            if (!first) os << ',';
+            if (pretty) { os << '\n'; detail::output_indent(os, indent + Policy::indent_step); }
             first = false;
-            if (pretty) detail::output_indent(os, indent + Policy::indent_step);
-            detail::escape_string<Os, Policy>(os, elem.first);
+            // Key must be convertible to string
+            if constexpr (std::is_convertible_v<typename T::key_type, std::string_view>) {
+                detail::escape_string<Os, Policy>(os, elem.first);
+            } else {
+                std::ostringstream key_stream;
+                key_stream << elem.first;
+                detail::escape_string<Os, Policy>(os, key_stream.str());
+            }
             os << (pretty ? " : " : ":");
             JsonDispatcher<typename T::mapped_type, Policy>::dump(os, elem.second, pretty, indent + Policy::indent_step);
         }
-        if (pretty && !cont.empty()) os << '\n';
-        if (pretty) detail::output_indent(os, indent);
+        if (pretty && !cont.empty()) { os << '\n'; detail::output_indent(os, indent); }
         os << '}';
     }
 };
@@ -330,18 +375,15 @@ namespace detail {
     template <typename Os, typename Policy, typename Tuple, std::size_t... I>
     void dump_tuple_impl(Os& os, const Tuple& tup, std::index_sequence<I...>, bool pretty, int indent) {
         os << '[';
-        if (pretty) os << '\n';
+        if (pretty && sizeof...(I) > 0) os << '\n';
         bool first = true;
         (..., ([&]() {
-            if (!first) {
-                os << (pretty ? ",\n" : ",");
-            }
+            if (!first) os << ',';
+            if (pretty) { os << '\n'; output_indent(os, indent + Policy::indent_step); }
             first = false;
-            if (pretty) output_indent(os, indent + Policy::indent_step);
             JsonDispatcher<std::tuple_element_t<I, Tuple>, Policy>::dump(os, std::get<I>(tup), pretty, indent + Policy::indent_step);
         })());
-        if (pretty && sizeof...(I) > 0) os << '\n';
-        if (pretty) output_indent(os, indent);
+        if (pretty && sizeof...(I) > 0) { os << '\n'; output_indent(os, indent); }
         os << ']';
     }
 }  // namespace detail
@@ -368,7 +410,7 @@ inline JsonValue to_json(const JsonValue& value) {
 }
 
 // ====================================================================
-// C++17-Compatible Macros (NO __VA_OPT__)
+// C++17-Compatible Macros (with proper hygiene - issue #14)
 // ====================================================================
 
 // MSVC workaround: needs extra expansion layer
@@ -380,49 +422,55 @@ inline JsonValue to_json(const JsonValue& value) {
 #define CPP_JSON_CAT(a, b) CPP_JSON_CAT_IMPL(a, b)
 #define CPP_JSON_CAT_IMPL(a, b) a##b
 
+// Fixed macro hygiene with do-while(0) pattern (issue #14)
 #define CPP_JSON_TO_FIELD(field) \
-    obj[#field] = to_json(value.field);
+    do { obj[#field] = to_json(value.field); } while(0)
 
 #define CPP_JSON_FROM_FIELD(field) \
-    if (auto it = obj.find(#field); it != obj.end()) { \
-        try { \
-            from_json(it->second, value.field); \
-        } catch (const std::exception& e) { \
-            throw std::runtime_error(std::string("Error deserializing field '") + #field + "': " + e.what()); \
+    do { \
+        if (auto it = obj.find(#field); it != obj.end()) { \
+            try { \
+                from_json(it->second, value.field); \
+            } catch (const std::exception& e) { \
+                throw std::runtime_error(std::string("Error deserializing field '") + #field + "': " + e.what()); \
+            } \
+        } else if constexpr (!detail::is_optional_v<decltype((value.field))>) { \
+            throw std::runtime_error("Required field missing: '" #field "'"); \
         } \
-    } else if constexpr (!detail::is_optional_v<decltype((value.field))>) { \
-        throw std::runtime_error("Required field missing: '" #field "'"); \
-    }
+    } while(0)
 
 #define CPP_JSON_FROM_FIELD_OPT(field) \
-    if (auto it = obj.find(#field); it != obj.end()) { \
-        from_json(it->second, value.field); \
-    }
+    do { \
+        if (auto it = obj.find(#field); it != obj.end()) { \
+            from_json(it->second, value.field); \
+        } \
+    } while(0)
 
-#define CPP_JSON_APPLY_1(macro, x1) macro(x1)
-#define CPP_JSON_APPLY_2(macro, x1, x2) macro(x1) macro(x2)
-#define CPP_JSON_APPLY_3(macro, x1, x2, x3) macro(x1) macro(x2) macro(x3)
-#define CPP_JSON_APPLY_4(macro, x1, x2, x3, x4) macro(x1) macro(x2) macro(x3) macro(x4)
-#define CPP_JSON_APPLY_5(macro, x1, x2, x3, x4, x5) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5)
-#define CPP_JSON_APPLY_6(macro, x1, x2, x3, x4, x5, x6) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6)
-#define CPP_JSON_APPLY_7(macro, x1, x2, x3, x4, x5, x6, x7) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6) macro(x7)
-#define CPP_JSON_APPLY_8(macro, x1, x2, x3, x4, x5, x6, x7, x8) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6) macro(x7) macro(x8)
-#define CPP_JSON_APPLY_9(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6) macro(x7) macro(x8) macro(x9)
-#define CPP_JSON_APPLY_10(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6) macro(x7) macro(x8) macro(x9) macro(x10)
-#define CPP_JSON_APPLY_11(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6) macro(x7) macro(x8) macro(x9) macro(x10) macro(x11)
-#define CPP_JSON_APPLY_12(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6) macro(x7) macro(x8) macro(x9) macro(x10) macro(x11) macro(x12)
-#define CPP_JSON_APPLY_13(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6) macro(x7) macro(x8) macro(x9) macro(x10) macro(x11) macro(x12) macro(x13)
-#define CPP_JSON_APPLY_14(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6) macro(x7) macro(x8) macro(x9) macro(x10) macro(x11) macro(x12) macro(x13) macro(x14)
-#define CPP_JSON_APPLY_15(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6) macro(x7) macro(x8) macro(x9) macro(x10) macro(x11) macro(x12) macro(x13) macro(x14) macro(x15)
-#define CPP_JSON_APPLY_16(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6) macro(x7) macro(x8) macro(x9) macro(x10) macro(x11) macro(x12) macro(x13) macro(x14) macro(x15) macro(x16)
-#define CPP_JSON_APPLY_17(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6) macro(x7) macro(x8) macro(x9) macro(x10) macro(x11) macro(x12) macro(x13) macro(x14) macro(x15) macro(x16) macro(x17)
-#define CPP_JSON_APPLY_18(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6) macro(x7) macro(x8) macro(x9) macro(x10) macro(x11) macro(x12) macro(x13) macro(x14) macro(x15) macro(x16) macro(x17) macro(x18)
-#define CPP_JSON_APPLY_19(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6) macro(x7) macro(x8) macro(x9) macro(x10) macro(x11) macro(x12) macro(x13) macro(x14) macro(x15) macro(x16) macro(x17) macro(x18) macro(x19)
-#define CPP_JSON_APPLY_20(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20) macro(x1) macro(x2) macro(x3) macro(x4) macro(x5) macro(x6) macro(x7) macro(x8) macro(x9) macro(x10) macro(x11) macro(x12) macro(x13) macro(x14) macro(x15) macro(x16) macro(x17) macro(x18) macro(x19) macro(x20)
+#define CPP_JSON_APPLY_1(macro, x1) macro(x1);
+#define CPP_JSON_APPLY_2(macro, x1, x2) macro(x1); macro(x2);
+#define CPP_JSON_APPLY_3(macro, x1, x2, x3) macro(x1); macro(x2); macro(x3);
+#define CPP_JSON_APPLY_4(macro, x1, x2, x3, x4) macro(x1); macro(x2); macro(x3); macro(x4);
+#define CPP_JSON_APPLY_5(macro, x1, x2, x3, x4, x5) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5);
+#define CPP_JSON_APPLY_6(macro, x1, x2, x3, x4, x5, x6) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6);
+#define CPP_JSON_APPLY_7(macro, x1, x2, x3, x4, x5, x6, x7) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7);
+#define CPP_JSON_APPLY_8(macro, x1, x2, x3, x4, x5, x6, x7, x8) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8);
+#define CPP_JSON_APPLY_9(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9);
+#define CPP_JSON_APPLY_10(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10);
+#define CPP_JSON_APPLY_11(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11);
+#define CPP_JSON_APPLY_12(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12);
+#define CPP_JSON_APPLY_13(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13);
+#define CPP_JSON_APPLY_14(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14);
+#define CPP_JSON_APPLY_15(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15);
+#define CPP_JSON_APPLY_16(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16);
+#define CPP_JSON_APPLY_17(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17);
+#define CPP_JSON_APPLY_18(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18);
+#define CPP_JSON_APPLY_19(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19);
+#define CPP_JSON_APPLY_20(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20);
 
 #define CPP_JSON_FOR_EACH(macro, ...) \
     CPP_JSON_EXPAND(CPP_JSON_CAT(CPP_JSON_APPLY_, CPP_JSON_ARG_COUNT(__VA_ARGS__))(macro, __VA_ARGS__))
 
+// Macro for non-intrusive serialization (struct defined outside class)
 #define CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Type, ...)                                           \
 inline void to_json(JsonValue& j, const Type& value) {                                          \
     JsonObject obj;                                                                             \
@@ -430,10 +478,12 @@ inline void to_json(JsonValue& j, const Type& value) {                          
     j = std::move(obj);                                                                         \
 }                                                                                               \
 inline void from_json(const JsonValue& j, Type& value) {                                        \
+    if (!j.is_object()) throw std::runtime_error("JSON type mismatch: expected object");       \
     const auto& obj = std::get<JsonObject>(j);                                                  \
     CPP_JSON_FOR_EACH(CPP_JSON_FROM_FIELD, __VA_ARGS__)                                         \
 }
 
+// Macro for optional fields (all fields optional)
 #define CPP_JSON_DEFINE_TYPE_OPTIONAL(Type, ...)                                                \
 inline void to_json(JsonValue& j, const Type& value) {                                          \
     JsonObject obj;                                                                             \
@@ -441,10 +491,12 @@ inline void to_json(JsonValue& j, const Type& value) {                          
     j = std::move(obj);                                                                         \
 }                                                                                               \
 inline void from_json(const JsonValue& j, Type& value) {                                        \
+    if (!j.is_object()) throw std::runtime_error("JSON type mismatch: expected object");       \
     const auto& obj = std::get<JsonObject>(j);                                                  \
     CPP_JSON_FOR_EACH(CPP_JSON_FROM_FIELD_OPT, __VA_ARGS__)                                     \
 }
 
+// Macro for intrusive serialization (defined inside class as friend)
 #define CPP_JSON_DEFINE_TYPE_INTRUSIVE(Type, ...)                                               \
 friend void to_json(JsonValue& j, const Type& value) {                                          \
     JsonObject obj;                                                                             \
@@ -452,27 +504,32 @@ friend void to_json(JsonValue& j, const Type& value) {                          
     j = std::move(obj);                                                                         \
 }                                                                                               \
 friend void from_json(const JsonValue& j, Type& value) {                                        \
+    if (!j.is_object()) throw std::runtime_error("JSON type mismatch: expected object");       \
     const auto& obj = std::get<JsonObject>(j);                                                  \
     CPP_JSON_FOR_EACH(CPP_JSON_FROM_FIELD, __VA_ARGS__)                                         \
 }
 
 // ====================================================================
-// JSON Parser
+// JSON Parser (Fixed issues #2, #3, #4)
 // ====================================================================
 
 namespace detail {
-    inline void skip_whitespace(std::string_view s, size_t& pos) {
+    inline void skip_whitespace(std::string_view s, size_t& pos) noexcept {
         while (pos < s.size() && std::isspace(static_cast<unsigned char>(s[pos]))) ++pos;
     }
 
     inline std::string parse_string(std::string_view s, size_t& pos) {
-        if (s[pos] != '"') throw std::runtime_error("JSON parse error: expected string");
+        if (pos >= s.size() || s[pos] != '"') 
+            throw std::runtime_error("JSON parse error: expected string at position " + std::to_string(pos));
         ++pos;
         std::string res;
+        res.reserve(64);  // Issue #5: reserve capacity to reduce allocations
+        
         while (pos < s.size() && s[pos] != '"') {
             if (s[pos] == '\\') {
                 ++pos;
-                if (pos >= s.size()) throw std::runtime_error("JSON parse error: invalid escape sequence");
+                if (pos >= s.size()) 
+                    throw std::runtime_error("JSON parse error: invalid escape sequence at position " + std::to_string(pos));
                 switch (s[pos]) {
                     case '"': res += '"'; break;
                     case '\\': res += '\\'; break;
@@ -483,12 +540,42 @@ namespace detail {
                     case 'r': res += '\r'; break;
                     case 't': res += '\t'; break;
                     case 'u': {
+                        // Issue #2: Improved unicode handling with surrogate pair support
                         if (pos + 4 >= s.size()) 
-                            throw std::runtime_error("JSON parse error: invalid unicode escape");
+                            throw std::runtime_error("JSON parse error: invalid unicode escape at position " + std::to_string(pos));
                         std::string hex = std::string(s.substr(pos + 1, 4));
-                        uint32_t codepoint = static_cast<uint32_t>(std::stoul(hex, nullptr, 16));
+                        uint32_t codepoint;
+                        try {
+                            codepoint = static_cast<uint32_t>(std::stoul(hex, nullptr, 16));
+                        } catch (...) {
+                            throw std::runtime_error("JSON parse error: invalid unicode hex at position " + std::to_string(pos));
+                        }
                         pos += 4;
-                        // Append UTF-8 encoded codepoint (basic, no surrogate handling)
+                        
+                        // Handle UTF-16 surrogate pairs
+                        if (codepoint >= 0xD800 && codepoint <= 0xDBFF) {
+                            // High surrogate - need low surrogate
+                            if (pos + 6 >= s.size() || s[pos + 1] != '\\' || s[pos + 2] != 'u') {
+                                throw std::runtime_error("JSON parse error: incomplete surrogate pair at position " + std::to_string(pos));
+                            }
+                            std::string low_hex = std::string(s.substr(pos + 3, 4));
+                            uint32_t low_surrogate;
+                            try {
+                                low_surrogate = static_cast<uint32_t>(std::stoul(low_hex, nullptr, 16));
+                            } catch (...) {
+                                throw std::runtime_error("JSON parse error: invalid low surrogate at position " + std::to_string(pos));
+                            }
+                            if (low_surrogate < 0xDC00 || low_surrogate > 0xDFFF) {
+                                throw std::runtime_error("JSON parse error: invalid low surrogate value at position " + std::to_string(pos));
+                            }
+                            pos += 6;
+                            // Combine surrogates
+                            codepoint = 0x10000 + ((codepoint & 0x3FF) << 10) + (low_surrogate & 0x3FF);
+                        } else if (codepoint >= 0xDC00 && codepoint <= 0xDFFF) {
+                            throw std::runtime_error("JSON parse error: unexpected low surrogate at position " + std::to_string(pos));
+                        }
+                        
+                        // Encode as UTF-8
                         if (codepoint <= 0x7F) {
                             res += static_cast<char>(codepoint);
                         } else if (codepoint <= 0x7FF) {
@@ -503,10 +590,13 @@ namespace detail {
                             res += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
                             res += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
                             res += static_cast<char>(0x80 | (codepoint & 0x3F));
+                        } else {
+                            throw std::runtime_error("JSON parse error: invalid unicode codepoint at position " + std::to_string(pos));
                         }
                         break;
                     }
-                    default: throw std::runtime_error("JSON parse error: invalid escape character");
+                    default: 
+                        throw std::runtime_error(std::string("JSON parse error: invalid escape character '") + s[pos] + "' at position " + std::to_string(pos));
                 }
             } else {
                 res += s[pos];
@@ -514,44 +604,89 @@ namespace detail {
             ++pos;
         }
         if (pos >= s.size() || s[pos] != '"') 
-            throw std::runtime_error("JSON parse error: unterminated string");
+            throw std::runtime_error("JSON parse error: unterminated string at position " + std::to_string(pos));
         ++pos;
         return res;
     }
 
-    inline double parse_number(std::string_view s, size_t& pos) {
+    // Issue #3 & #4: Fixed number parsing - returns either int64_t or double
+    inline JsonValue parse_number(std::string_view s, size_t& pos) {
         size_t start = pos;
-        if (s[pos] == '-') ++pos;
         
+        // Issue #4: Handle NaN and Infinity (consolidated logic)
         if (s.substr(pos, 3) == "NaN") {
             pos += 3;
             return std::numeric_limits<double>::quiet_NaN();
         }
         if (s.substr(pos, 8) == "Infinity") {
             pos += 8;
-            return start < pos && s[start] == '-' ? -std::numeric_limits<double>::infinity() 
-                                                   : std::numeric_limits<double>::infinity();
+            return std::numeric_limits<double>::infinity();
+        }
+        if (s.substr(pos, 9) == "-Infinity") {
+            pos += 9;
+            return -std::numeric_limits<double>::infinity();
         }
         
-        while (pos < s.size() && (std::isdigit(s[pos]) || s[pos] == '.' || 
-               s[pos] == 'e' || s[pos] == 'E' || s[pos] == '+' || s[pos] == '-')) {
+        // Issue #3: Numbers can't start with '.' in JSON
+        if (pos >= s.size() || (!std::isdigit(s[pos]) && s[pos] != '-')) {
+            throw std::runtime_error("JSON parse error: invalid number at position " + std::to_string(pos));
+        }
+        
+        if (s[pos] == '-') {
             ++pos;
+            if (pos >= s.size() || !std::isdigit(s[pos])) {
+                throw std::runtime_error("JSON parse error: invalid number after '-' at position " + std::to_string(pos));
+            }
         }
         
-        std::string num_str = std::string(s.substr(start, pos - start));
+        // Detect if number has decimal point or exponent
+        bool has_decimal = false;
+        bool has_exponent = false;
+        size_t scan_pos = pos;
+        
+        while (scan_pos < s.size()) {
+            char c = s[scan_pos];
+            if (c == '.') has_decimal = true;
+            else if (c == 'e' || c == 'E') has_exponent = true;
+            else if (!std::isdigit(c) && c != '+' && c != '-') break;
+            ++scan_pos;
+        }
+        
+        std::string num_str = std::string(s.substr(start, scan_pos - start));
+        pos = scan_pos;
+        
+        // Issue #9: Parse as int64_t if no decimal/exponent to preserve precision
+        if (!has_decimal && !has_exponent) {
+            try {
+                int64_t int_val = std::stoll(num_str);
+                return int_val;
+            } catch (const std::out_of_range&) {
+                // Fallback to double if out of int64 range
+                try {
+                    return std::stod(num_str);
+                } catch (...) {
+                    throw std::runtime_error("JSON parse error: invalid number '" + num_str + "' at position " + std::to_string(start));
+                }
+            } catch (...) {
+                throw std::runtime_error("JSON parse error: invalid number '" + num_str + "' at position " + std::to_string(start));
+            }
+        }
+        
+        // Has decimal or exponent - parse as double
         try {
             return std::stod(num_str);
         } catch (...) {
-            throw std::runtime_error("JSON parse error: invalid number '" + num_str + "'");
+            throw std::runtime_error("JSON parse error: invalid number '" + num_str + "' at position " + std::to_string(start));
         }
     }
 
     JsonValue parse_value(std::string_view s, size_t& pos, size_t depth = 0);
 
+    template <typename Policy = StandardJsonPolicy>
     inline JsonArray parse_array(std::string_view s, size_t& pos, size_t depth) {
-        if (depth > MAX_PARSE_DEPTH) {
+        if (depth > Policy::max_parse_depth) {
             throw std::runtime_error("JSON parse error: maximum nesting depth (" + 
-                                   std::to_string(MAX_PARSE_DEPTH) + ") exceeded");
+                                   std::to_string(Policy::max_parse_depth) + ") exceeded at position " + std::to_string(pos));
         }
         JsonArray arr;
         ++pos;
@@ -577,10 +712,11 @@ namespace detail {
         throw std::runtime_error("JSON parse error: unterminated array");
     }
 
+    template <typename Policy = StandardJsonPolicy>
     inline JsonObject parse_object(std::string_view s, size_t& pos, size_t depth) {
-        if (depth > MAX_PARSE_DEPTH) {
+        if (depth > Policy::max_parse_depth) {
             throw std::runtime_error("JSON parse error: maximum nesting depth (" + 
-                                   std::to_string(MAX_PARSE_DEPTH) + ") exceeded");
+                                   std::to_string(Policy::max_parse_depth) + ") exceeded at position " + std::to_string(pos));
         }
         JsonObject obj;
         ++pos;
@@ -591,13 +727,15 @@ namespace detail {
         }
         while (pos < s.size()) {
             skip_whitespace(s, pos);
+            if (pos >= s.size() || s[pos] != '"') 
+                throw std::runtime_error("JSON parse error: expected string key at position " + std::to_string(pos));
             std::string key = parse_string(s, pos);
             skip_whitespace(s, pos);
             if (pos >= s.size() || s[pos] != ':') 
                 throw std::runtime_error("JSON parse error: expected ':' after object key '" + key + "' at position " + std::to_string(pos));
             ++pos;
             skip_whitespace(s, pos);
-            obj[key] = parse_value(s, pos, depth + 1);
+            obj[std::move(key)] = parse_value(s, pos, depth + 1);
             skip_whitespace(s, pos);
             if (pos >= s.size()) 
                 throw std::runtime_error("JSON parse error: unterminated object at position " + std::to_string(pos));
@@ -621,30 +759,34 @@ namespace detail {
         if (c == '{') return parse_object(s, pos, depth);
         if (c == '[') return parse_array(s, pos, depth);
         if (c == '"') return parse_string(s, pos);
+        
+        // Check for literals
         if (s.substr(pos, 4) == "true") { pos += 4; return true; }
         if (s.substr(pos, 5) == "false") { pos += 5; return false; }
         if (s.substr(pos, 4) == "null") { pos += 4; return nullptr; }
-        if (std::isdigit(c) || c == '-' || c == '.') return parse_number(s, pos);
         
-        if (s.substr(pos, 3) == "NaN") { pos += 3; return std::numeric_limits<double>::quiet_NaN(); }
-        if (s.substr(pos, 8) == "Infinity") { pos += 8; return std::numeric_limits<double>::infinity(); }
-        if (s.substr(pos, 9) == "-Infinity") { pos += 9; return -std::numeric_limits<double>::infinity(); }
+        // Issue #3 & #4: Fixed - numbers handled correctly
+        if (std::isdigit(c) || c == '-' || s.substr(pos, 3) == "NaN" || 
+            s.substr(pos, 8) == "Infinity" || s.substr(pos, 9) == "-Infinity") {
+            return parse_number(s, pos);
+        }
         
         throw std::runtime_error("JSON parse error: invalid value at position " + std::to_string(pos));
     }
 }  // namespace detail
 
+template <typename Policy = StandardJsonPolicy>
 [[nodiscard]] inline JsonValue parse_json(std::string_view json) {
     size_t pos = 0;
     JsonValue val = detail::parse_value(json, pos);
     detail::skip_whitespace(json, pos);
     if (pos != json.size()) 
-        throw std::runtime_error("JSON parse error: extra data after JSON value");
+        throw std::runtime_error("JSON parse error: extra data after JSON value at position " + std::to_string(pos));
     return val;
 }
 
 // ====================================================================
-// to_json and from_json implementations
+// to_json and from_json implementations (Issue #9, #12: Fixed validation)
 // ====================================================================
 
 // Forward declare for use in map deserialization
@@ -652,105 +794,203 @@ template <typename T>
 [[nodiscard]] T from_json_string(std::string_view json_str);
 
 // Basic types - to_json (output parameter version for consistency with macros)
-inline void to_json(JsonValue& j, std::nullptr_t) { j = nullptr; }
-inline void to_json(JsonValue& j, bool value) { j = value; }
-inline void to_json(JsonValue& j, int value) { j = static_cast<double>(value); }
-inline void to_json(JsonValue& j, unsigned int value) { j = static_cast<double>(value); }
-inline void to_json(JsonValue& j, long value) { j = static_cast<double>(value); }
-inline void to_json(JsonValue& j, unsigned long value) { j = static_cast<double>(value); }
-inline void to_json(JsonValue& j, long long value) { j = static_cast<double>(value); }
-inline void to_json(JsonValue& j, unsigned long long value) { j = static_cast<double>(value); }
-inline void to_json(JsonValue& j, float value) { j = static_cast<double>(value); }
-inline void to_json(JsonValue& j, double value) { j = value; }
+inline void to_json(JsonValue& j, std::nullptr_t) noexcept { j = nullptr; }
+inline void to_json(JsonValue& j, bool value) noexcept { j = value; }
+inline void to_json(JsonValue& j, int value) noexcept { j = static_cast<int64_t>(value); }
+inline void to_json(JsonValue& j, unsigned int value) noexcept { j = static_cast<int64_t>(value); }
+inline void to_json(JsonValue& j, long value) noexcept { j = static_cast<int64_t>(value); }
+inline void to_json(JsonValue& j, unsigned long value) noexcept { 
+    if (value > static_cast<unsigned long>(std::numeric_limits<int64_t>::max())) {
+        j = static_cast<double>(value);  // Fallback to double for large unsigned
+    } else {
+        j = static_cast<int64_t>(value);
+    }
+}
+inline void to_json(JsonValue& j, long long value) noexcept { j = static_cast<int64_t>(value); }
+inline void to_json(JsonValue& j, unsigned long long value) noexcept { 
+    if (value > static_cast<unsigned long long>(std::numeric_limits<int64_t>::max())) {
+        j = static_cast<double>(value);  // Fallback to double for large unsigned
+    } else {
+        j = static_cast<int64_t>(value);
+    }
+}
+inline void to_json(JsonValue& j, float value) noexcept { j = static_cast<double>(value); }
+inline void to_json(JsonValue& j, double value) noexcept { j = value; }
 inline void to_json(JsonValue& j, const std::string& value) { j = value; }
 inline void to_json(JsonValue& j, const char* value) { j = std::string(value); }
 
 // Return-value versions for backward compatibility and direct usage
-inline JsonValue to_json(std::nullptr_t) { return nullptr; }
-inline JsonValue to_json(bool value) { return value; }
-inline JsonValue to_json(int value) { return static_cast<double>(value); }
-inline JsonValue to_json(unsigned int value) { return static_cast<double>(value); }
-inline JsonValue to_json(long value) { return static_cast<double>(value); }
-inline JsonValue to_json(unsigned long value) { return static_cast<double>(value); }
-inline JsonValue to_json(long long value) { return static_cast<double>(value); }
-inline JsonValue to_json(unsigned long long value) { return static_cast<double>(value); }
-inline JsonValue to_json(float value) { return static_cast<double>(value); }
-inline JsonValue to_json(double value) { return value; }
+inline JsonValue to_json(std::nullptr_t) noexcept { return nullptr; }
+inline JsonValue to_json(bool value) noexcept { return value; }
+inline JsonValue to_json(int value) noexcept { return static_cast<int64_t>(value); }
+inline JsonValue to_json(unsigned int value) noexcept { return static_cast<int64_t>(value); }
+inline JsonValue to_json(long value) noexcept { return static_cast<int64_t>(value); }
+inline JsonValue to_json(unsigned long value) noexcept { 
+    if (value > static_cast<unsigned long>(std::numeric_limits<int64_t>::max())) {
+        return static_cast<double>(value);
+    }
+    return static_cast<int64_t>(value);
+}
+inline JsonValue to_json(long long value) noexcept { return static_cast<int64_t>(value); }
+inline JsonValue to_json(unsigned long long value) noexcept { 
+    if (value > static_cast<unsigned long long>(std::numeric_limits<int64_t>::max())) {
+        return static_cast<double>(value);
+    }
+    return static_cast<int64_t>(value);
+}
+inline JsonValue to_json(float value) noexcept { return static_cast<double>(value); }
+inline JsonValue to_json(double value) noexcept { return value; }
 inline JsonValue to_json(const std::string& value) { return value; }
 inline JsonValue to_json(const char* value) { return std::string(value); }
 
-// Basic types - from_json (output parameter version)
+// Basic types - from_json (output parameter version) - Issue #12: Improved validation
 inline void from_json(const JsonValue& j, bool& value) {
     if (!j.is_bool()) throw std::runtime_error("JSON type mismatch: expected bool");
     value = std::get<bool>(j);
 }
 
 inline void from_json(const JsonValue& j, int& value) {
-    if (!j.is_number()) throw std::runtime_error("JSON type mismatch: expected number");
-    double d = std::get<double>(j);
-    if (d < static_cast<double>(std::numeric_limits<int>::min()) || 
-        d > static_cast<double>(std::numeric_limits<int>::max())) {
-        throw std::runtime_error("JSON number out of range for int");
+    if (j.is_int()) {
+        int64_t i64 = std::get<int64_t>(j);
+        if (i64 < std::numeric_limits<int>::min() || i64 > std::numeric_limits<int>::max()) {
+            throw std::runtime_error("JSON value out of range for int: " + std::to_string(i64));
+        }
+        value = static_cast<int>(i64);
+    } else if (j.is_number()) {
+        double d = std::get<double>(j);
+        double intpart;
+        if (std::modf(d, &intpart) != 0.0) {
+            throw std::runtime_error("JSON value has fractional part, cannot convert to int: " + std::to_string(d));
+        }
+        if (intpart < std::numeric_limits<int>::min() || intpart > std::numeric_limits<int>::max()) {
+            throw std::runtime_error("JSON value out of range for int: " + std::to_string(d));
+        }
+        value = static_cast<int>(intpart);
+    } else {
+        throw std::runtime_error("JSON type mismatch: expected number");
     }
-    value = static_cast<int>(d);
-}
-
-inline void from_json(const JsonValue& j, long& value) {
-    if (!j.is_number()) throw std::runtime_error("JSON type mismatch: expected number");
-    double d = std::get<double>(j);
-    if (d < static_cast<double>(std::numeric_limits<long>::min()) || 
-        d > static_cast<double>(std::numeric_limits<long>::max())) {
-        throw std::runtime_error("JSON number out of range for long");
-    }
-    value = static_cast<long>(d);
-}
-
-inline void from_json(const JsonValue& j, long long& value) {
-    if (!j.is_number()) throw std::runtime_error("JSON type mismatch: expected number");
-    double d = std::get<double>(j);
-    // Note: double can't precisely represent all long long values
-    if (d < static_cast<double>(std::numeric_limits<long long>::min()) || 
-        d > static_cast<double>(std::numeric_limits<long long>::max())) {
-        throw std::runtime_error("JSON number out of range for long long");
-    }
-    value = static_cast<long long>(d);
 }
 
 inline void from_json(const JsonValue& j, unsigned int& value) {
-    if (!j.is_number()) throw std::runtime_error("JSON type mismatch: expected number");
-    double d = std::get<double>(j);
-    if (d < 0.0 || d > static_cast<double>(std::numeric_limits<unsigned int>::max())) {
-        throw std::runtime_error("JSON number out of range for unsigned int");
+    if (j.is_int()) {
+        int64_t i64 = std::get<int64_t>(j);
+        if (i64 < 0 || i64 > std::numeric_limits<unsigned int>::max()) {
+            throw std::runtime_error("JSON value out of range for unsigned int: " + std::to_string(i64));
+        }
+        value = static_cast<unsigned int>(i64);
+    } else if (j.is_number()) {
+        double d = std::get<double>(j);
+        double intpart;
+        if (std::modf(d, &intpart) != 0.0) {
+            throw std::runtime_error("JSON value has fractional part, cannot convert to unsigned int: " + std::to_string(d));
+        }
+        if (intpart < 0 || intpart > std::numeric_limits<unsigned int>::max()) {
+            throw std::runtime_error("JSON value out of range for unsigned int: " + std::to_string(d));
+        }
+        value = static_cast<unsigned int>(intpart);
+    } else {
+        throw std::runtime_error("JSON type mismatch: expected number");
     }
-    value = static_cast<unsigned int>(d);
+}
+
+inline void from_json(const JsonValue& j, long& value) {
+    if (j.is_int()) {
+        int64_t i64 = std::get<int64_t>(j);
+        if (i64 < std::numeric_limits<long>::min() || i64 > std::numeric_limits<long>::max()) {
+            throw std::runtime_error("JSON value out of range for long: " + std::to_string(i64));
+        }
+        value = static_cast<long>(i64);
+    } else if (j.is_number()) {
+        double d = std::get<double>(j);
+        double intpart;
+        if (std::modf(d, &intpart) != 0.0) {
+            throw std::runtime_error("JSON value has fractional part, cannot convert to long: " + std::to_string(d));
+        }
+        if (intpart < std::numeric_limits<long>::min() || intpart > std::numeric_limits<long>::max()) {
+            throw std::runtime_error("JSON value out of range for long: " + std::to_string(d));
+        }
+        value = static_cast<long>(intpart);
+    } else {
+        throw std::runtime_error("JSON type mismatch: expected number");
+    }
 }
 
 inline void from_json(const JsonValue& j, unsigned long& value) {
-    if (!j.is_number()) throw std::runtime_error("JSON type mismatch: expected number");
-    double d = std::get<double>(j);
-    if (d < 0.0 || d > static_cast<double>(std::numeric_limits<unsigned long>::max())) {
-        throw std::runtime_error("JSON number out of range for unsigned long");
+    if (j.is_int()) {
+        int64_t i64 = std::get<int64_t>(j);
+        if (i64 < 0) {
+            throw std::runtime_error("JSON value is negative, cannot convert to unsigned long: " + std::to_string(i64));
+        }
+        value = static_cast<unsigned long>(i64);
+    } else if (j.is_number()) {
+        double d = std::get<double>(j);
+        if (d < 0) {
+            throw std::runtime_error("JSON value is negative, cannot convert to unsigned long");
+        }
+        value = static_cast<unsigned long>(d);
+    } else {
+        throw std::runtime_error("JSON type mismatch: expected number");
     }
-    value = static_cast<unsigned long>(d);
+}
+
+inline void from_json(const JsonValue& j, long long& value) {
+    if (j.is_int()) {
+        int64_t i64 = std::get<int64_t>(j);
+        if (i64 < std::numeric_limits<long long>::min() || i64 > std::numeric_limits<long long>::max()) {
+            throw std::runtime_error("JSON value out of range for long long: " + std::to_string(i64));
+        }
+        value = static_cast<long long>(i64);
+    } else if (j.is_number()) {
+        double d = std::get<double>(j);
+        double intpart;
+        if (std::modf(d, &intpart) != 0.0) {
+            throw std::runtime_error("JSON value has fractional part, cannot convert to long long: " + std::to_string(d));
+        }
+        if (intpart < std::numeric_limits<long long>::min() || intpart > std::numeric_limits<long long>::max()) {
+            throw std::runtime_error("JSON value out of range for long long: " + std::to_string(d));
+        }
+        value = static_cast<long long>(intpart);
+    } else {
+        throw std::runtime_error("JSON type mismatch: expected number");
+    }
 }
 
 inline void from_json(const JsonValue& j, unsigned long long& value) {
-    if (!j.is_number()) throw std::runtime_error("JSON type mismatch: expected number");
-    double d = std::get<double>(j);
-    if (d < 0.0 || d > static_cast<double>(std::numeric_limits<unsigned long long>::max())) {
-        throw std::runtime_error("JSON number out of range for unsigned long long");
+    if (j.is_int()) {
+        int64_t i64 = std::get<int64_t>(j);
+        if (i64 < 0) {
+            throw std::runtime_error("JSON value is negative, cannot convert to unsigned long long: " + std::to_string(i64));
+        }
+        value = static_cast<unsigned long long>(i64);
+    } else if (j.is_number()) {
+        double d = std::get<double>(j);
+        if (d < 0) {
+            throw std::runtime_error("JSON value is negative, cannot convert to unsigned long long");
+        }
+        value = static_cast<unsigned long long>(d);
+    } else {
+        throw std::runtime_error("JSON type mismatch: expected number");
     }
-    value = static_cast<unsigned long long>(d);
-}
-
-inline void from_json(const JsonValue& j, double& value) {
-    if (!j.is_number()) throw std::runtime_error("JSON type mismatch: expected number");
-    value = std::get<double>(j);
 }
 
 inline void from_json(const JsonValue& j, float& value) {
-    if (!j.is_number()) throw std::runtime_error("JSON type mismatch: expected number");
-    value = static_cast<float>(std::get<double>(j));
+    if (j.is_int()) {
+        value = static_cast<float>(std::get<int64_t>(j));
+    } else if (j.is_number()) {
+        value = static_cast<float>(std::get<double>(j));
+    } else {
+        throw std::runtime_error("JSON type mismatch: expected number");
+    }
+}
+
+inline void from_json(const JsonValue& j, double& value) {
+    if (j.is_int()) {
+        value = static_cast<double>(std::get<int64_t>(j));
+    } else if (j.is_number()) {
+        value = std::get<double>(j);
+    } else {
+        throw std::runtime_error("JSON type mismatch: expected number");
+    }
 }
 
 inline void from_json(const JsonValue& j, std::string& value) {
@@ -758,10 +998,11 @@ inline void from_json(const JsonValue& j, std::string& value) {
     value = std::get<std::string>(j);
 }
 
-// Containers - to_json (output parameter versions)
+// Containers - to_json (output parameter version)
 template <typename T>
 void to_json(JsonValue& j, const std::vector<T>& vec) {
     JsonArray arr;
+    arr.reserve(vec.size());
     for (const auto& elem : vec) {
         arr.push_back(to_json(elem));
     }
@@ -781,11 +1022,17 @@ template <typename K, typename V>
 void to_json(JsonValue& j, const std::map<K, V>& m) {
     JsonObject obj;
     for (const auto& [key, val] : m) {
+        std::string key_str;
         if constexpr (std::is_convertible_v<K, std::string>) {
-            obj[key] = to_json(val);
+            key_str = key;
+        } else if constexpr (std::is_arithmetic_v<K>) {
+            key_str = std::to_string(key);
         } else {
-            obj[to_json_string(key)] = to_json(val);
+            std::ostringstream oss;
+            oss << key;
+            key_str = oss.str();
         }
+        obj[std::move(key_str)] = to_json(val);
     }
     j = std::move(obj);
 }
@@ -793,7 +1040,7 @@ void to_json(JsonValue& j, const std::map<K, V>& m) {
 template <typename T>
 void to_json(JsonValue& j, const std::optional<T>& opt) {
     if (opt.has_value()) {
-        j = to_json(*opt);
+        to_json(j, *opt);
     } else {
         j = nullptr;
     }
@@ -824,6 +1071,7 @@ void to_json(JsonValue& j, const std::tuple<Ts...>& tup) {
 template <typename T>
 JsonValue to_json(const std::vector<T>& vec) {
     JsonArray arr;
+    arr.reserve(vec.size());
     for (const auto& elem : vec) {
         arr.push_back(to_json(elem));
     }
@@ -843,11 +1091,17 @@ template <typename K, typename V>
 JsonValue to_json(const std::map<K, V>& m) {
     JsonObject obj;
     for (const auto& [key, val] : m) {
+        std::string key_str;
         if constexpr (std::is_convertible_v<K, std::string>) {
-            obj[key] = to_json(val);
+            key_str = key;
+        } else if constexpr (std::is_arithmetic_v<K>) {
+            key_str = std::to_string(key);
         } else {
-            obj[to_json_string(key)] = to_json(val);
+            std::ostringstream oss;
+            oss << key;
+            key_str = oss.str();
         }
+        obj[std::move(key_str)] = to_json(val);
     }
     return obj;
 }
@@ -892,8 +1146,15 @@ void from_json(const JsonValue& j, std::map<K, V>& m) {
         from_json(val, value);
         if constexpr (std::is_same_v<K, std::string>) {
             m[key] = std::move(value);
+        } else if constexpr (std::is_arithmetic_v<K>) {
+            K converted_key;
+            std::istringstream iss(key);
+            if (!(iss >> converted_key)) {
+                throw std::runtime_error("Failed to convert map key: " + key);
+            }
+            m[converted_key] = std::move(value);
         } else {
-            m[from_json_string<K>(key)] = std::move(value);
+            throw std::runtime_error("Unsupported map key type for deserialization");
         }
     }
 }
@@ -909,27 +1170,34 @@ void from_json(const JsonValue& j, std::optional<T>& opt) {
     }
 }
 
+// Issue #10, #11: Improved pair and tuple validation
 template <typename T1, typename T2>
 void from_json(const JsonValue& j, std::pair<T1, T2>& p) {
-    if (!j.is_array()) throw std::runtime_error("JSON type mismatch: expected array");
+    if (!j.is_array()) throw std::runtime_error("JSON type mismatch: expected array for pair");
     const auto& arr = std::get<JsonArray>(j);
-    if (arr.size() >= 2) {
-        from_json(arr[0], p.first);
-        from_json(arr[1], p.second);
+    if (arr.size() != 2) {
+        throw std::runtime_error("JSON array size mismatch: expected 2 elements for pair, got " + std::to_string(arr.size()));
     }
+    from_json(arr[0], p.first);
+    from_json(arr[1], p.second);
 }
 
 template <typename... Ts>
 void from_json(const JsonValue& j, std::tuple<Ts...>& tup) {
-    if (!j.is_array()) throw std::runtime_error("JSON type mismatch: expected array");
+    if (!j.is_array()) throw std::runtime_error("JSON type mismatch: expected array for tuple");
     const auto& arr = std::get<JsonArray>(j);
+    constexpr size_t expected_size = sizeof...(Ts);
+    if (arr.size() != expected_size) {
+        throw std::runtime_error("JSON array size mismatch: expected " + std::to_string(expected_size) + 
+                               " elements for tuple, got " + std::to_string(arr.size()));
+    }
     from_json_tuple_impl(arr, tup, std::index_sequence_for<Ts...>{});
 }
 
 // Helper for tuple deserialization
 template <typename Tuple, std::size_t... I>
 void from_json_tuple_impl(const JsonArray& arr, Tuple& tup, std::index_sequence<I...>) {
-    (..., (I < arr.size() ? from_json(arr[I], std::get<I>(tup)) : void()));
+    (..., from_json(arr[I], std::get<I>(tup)));
 }
 
 // Template return-value from_json for backward compatibility
@@ -951,23 +1219,27 @@ auto to_json(const T& value) -> decltype(to_json(std::declval<JsonValue&>(), val
 }
 
 // ====================================================================
-// File I/O
+// File I/O (Issue #13: Improved error handling)
 // ====================================================================
 
 [[nodiscard]] inline JsonValue load_json_from_file(const std::string& filename) {
     std::ifstream ifs(filename, std::ios::binary);
-    if (!ifs) 
-        throw std::runtime_error("Failed to open file: " + filename);
+    if (!ifs.is_open()) 
+        throw std::runtime_error("Failed to open file for reading: " + filename);
     std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+    if (ifs.bad()) 
+        throw std::runtime_error("Error reading file: " + filename);
     return parse_json(content);
 }
 
 template <typename Policy = StandardJsonPolicy>
 inline void save_json_to_file(const std::string& filename, const JsonValue& val, bool pretty = Policy::pretty_print) {
     std::ofstream ofs(filename);
-    if (!ofs) 
-        throw std::runtime_error("Failed to open file: " + filename);
+    if (!ofs.is_open()) 
+        throw std::runtime_error("Failed to open file for writing: " + filename);
     to_json_stream<JsonValue, Policy>(ofs, val, pretty);
+    if (!ofs.good()) 
+        throw std::runtime_error("Error writing to file: " + filename);
 }
 
 // ====================================================================
@@ -986,7 +1258,7 @@ template <typename T>
 
 /**
  * @brief Save application parameters to a JSON file with pretty printing by default
- * @tparam T The parameter struct type
+ * @tparam T The parameter struct type (must have to_json defined)
  * @tparam Policy The JSON formatting policy (default: PrettyJsonPolicy for readable configs)
  * @param filename Path to the output file
  * @param params The parameter struct to save
@@ -998,7 +1270,7 @@ inline void save_params(const std::string& filename, const T& params) {
 
 /**
  * @brief Load application parameters from a JSON file
- * @tparam T The parameter struct type
+ * @tparam T The parameter struct type (must have from_json defined)
  * @param filename Path to the input file
  * @return The deserialized parameter struct
  * @throws std::runtime_error if file cannot be opened or JSON is invalid
@@ -1010,8 +1282,8 @@ template<typename T>
 
 /**
  * @brief Save application parameters with a backup of the old file
- * @tparam T The parameter struct type
- * @tparam Policy The JSON formatting policy
+ * @tparam T The parameter struct type (must have to_json defined)
+ * @tparam Policy The JSON formatting policy (default: PrettyJsonPolicy)
  * @param filename Path to the output file
  * @param params The parameter struct to save
  * @param backup_suffix Suffix for backup file (default: ".bak")
@@ -1019,15 +1291,34 @@ template<typename T>
 template<typename T, typename Policy = PrettyJsonPolicy>
 inline void save_params_with_backup(const std::string& filename, const T& params, 
                                    const std::string& backup_suffix = ".bak") {
-    // If file exists, create backup
+    // Issue #13: Improved backup file handling with error checks
     std::ifstream test(filename);
     if (test.good()) {
         test.close();
         std::string backup_name = filename + backup_suffix;
+        
+        // Create backup
         std::ifstream src(filename, std::ios::binary);
+        if (!src.is_open()) {
+            throw std::runtime_error("Failed to open source file for backup: " + filename);
+        }
+        
         std::ofstream dst(backup_name, std::ios::binary);
+        if (!dst.is_open()) {
+            throw std::runtime_error("Failed to create backup file: " + backup_name);
+        }
+        
         dst << src.rdbuf();
+        
+        if (!dst.good()) {
+            throw std::runtime_error("Error writing backup file: " + backup_name);
+        }
+        
+        dst.close();
+        src.close();
     }
+    
+    // Save new params
     save_params<T, Policy>(filename, params);
 }
 

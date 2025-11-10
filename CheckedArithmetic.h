@@ -2,7 +2,6 @@
  * @file CheckedArithmetic.h
  * @brief Provides checked arithmetic operations for integers and floating-
  * point types, with policy-based error handling and extensibility.
- * @version 3.0 - All critical fixes and optimizations applied
  *
  * @details This module extends basic integer operations (addition,
  * subtraction, multiplication) to include division, floating-point support,
@@ -123,9 +122,11 @@ concept FloatingPoint = std::floating_point<T>;
 template <typename T>
 concept Arithmetic = IntegralNonBool<T> || FloatingPoint<T>;
 
-#define ENABLE_IF_INTEGRAL IntegralNonBool
-#define ENABLE_IF_FLOATING FloatingPoint
-#define ENABLE_IF_ARITHMETIC Arithmetic
+// For C++20: Concept constraints are applied via requires clause or template parameter
+// The macro expands to the template parameter declaration with concept constraint
+#define ENABLE_IF_INTEGRAL IntegralNonBool T
+#define ENABLE_IF_FLOATING FloatingPoint T
+#define ENABLE_IF_ARITHMETIC Arithmetic T
 #else
 // C++17 fallback - SFINAE
 template <typename T>

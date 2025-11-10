@@ -265,23 +265,6 @@ struct is_atomic<std::atomic<T>> : std::true_type {};
 template <typename T>
 inline constexpr bool is_atomic_v = is_atomic<T>::value;
 
-/**
- * @brief is_expected - detects Expected types (forward declaration compatible)
- */
-template <typename T>
-struct is_expected : std::false_type {};
-
-template <typename T>
-inline constexpr bool is_expected_v = is_expected<T>::value;
-
-/**
- * @brief is_strong_id - detects StrongId types (forward declaration compatible)
- */
-template <typename T>
-struct is_strong_id : std::false_type {};
-
-template <typename T>
-inline constexpr bool is_strong_id_v = is_strong_id<T>::value;
 
 // =============================================================================
 // Policy Detection Traits

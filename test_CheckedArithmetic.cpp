@@ -719,13 +719,9 @@ bool test_checked_fp_operations() {
 // =============================================================================
 
 bool test_CheckedArithmetic() {
-    std::cout << colors::blue() << "\n"
-              << "╔════════════════════════════════════════════════════════════╗\n"
-              << "║  CheckedArithmetic v3.0 - Comprehensive Test Suite         ║\n"
-              << "║  All Critical Fixes & Enhancements                         ║\n"
-              << "╚════════════════════════════════════════════════════════════╝\n"
-              << colors::reset() << std::endl;
-    
+
+    PRINT_HEADER(CHECKED ARITHMETIC)
+
     bool all_passed = true;
     
     // Critical fix tests
@@ -758,26 +754,13 @@ bool test_CheckedArithmetic() {
     all_passed &= test_checked_fp_operations();
     
     // Summary
-    std::cout << "\n" << colors::blue() 
-              << "═══════════════════════════════════════════════════════════" 
-              << colors::reset() << std::endl;
     
     if (all_passed) {
-        std::cout << colors::green() << "✓ ALL TESTS PASSED" << colors::reset() << std::endl;
-        std::cout << colors::green() 
-                  << "  - All critical fixes verified\n"
-                  << "  - All enhancements working\n"
-                  << "  - All edge cases handled\n"
-                  << "  - Performance targets met"
-                  << colors::reset() << std::endl;
+        std::cout << colors::green() << "ALL TESTS PASSED" << colors::reset() << std::endl;
     } else {
-        std::cout << colors::red() << "✗ SOME TESTS FAILED" << colors::reset() << std::endl;
+        std::cout << colors::red() << "SOME TESTS FAILED" << colors::reset() << std::endl;
     }
-    
-    std::cout << colors::blue() 
-              << "═══════════════════════════════════════════════════════════\n" 
-              << colors::reset() << std::endl;
-    
+        
     return all_passed;
 }
 

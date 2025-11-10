@@ -100,7 +100,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);NOMINMAX</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);NOMINMAX;WIN32_MEAN_AND_LEAN</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -115,13 +115,14 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;NOMINMAX;WIN32_MEAN_AND_LEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <FloatingPointModel>Fast</FloatingPointModel>
       <PreprocessToFile>false</PreprocessToFile>
       <PreprocessKeepComments>false</PreprocessKeepComments>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -132,12 +133,22 @@
   <ItemGroup>
     <ClCompile Include="TestCppUtilities.cpp" />
     <ClCompile Include="test_AdaptiveIterator.cpp" />
+    <ClCompile Include="test_AlignedVector.cpp" />
     <ClCompile Include="test_AllocationStrategy.cpp" />
+    <ClCompile Include="test_AsyncOperations.cpp" />
     <ClCompile Include="test_AtomicReference.cpp" />
+    <ClCompile Include="test_BenchmarkHarness.cpp" />
+    <ClCompile Include="test_BinarySerializer.cpp" />
+    <ClCompile Include="test_BitSet.cpp" />
+    <ClCompile Include="test_CacheUtilities.cpp" />
     <ClCompile Include="test_CheckedArithmetic.cpp" />
+    <ClCompile Include="test_CircularBuffer.cpp" />
     <ClCompile Include="test_ConcurrencyPolicies.cpp" />
     <ClCompile Include="test_ConstexprUtilities.cpp" />
     <ClCompile Include="test_ContractException.cpp" />
+    <ClCompile Include="test_CoroutineTask.cpp" />
+    <ClCompile Include="test_CSRMatrix.cpp" />
+    <ClCompile Include="test_DebugOnly.cpp" />
     <ClCompile Include="test_DiagnosticLogger.cpp" />
     <ClCompile Include="test_Enforce.cpp" />
     <ClCompile Include="test_EnforcedInit.cpp" />
@@ -145,25 +156,64 @@
     <ClCompile Include="test_EqualityComparisons.cpp" />
     <ClCompile Include="test_Expected.cpp" />
     <ClCompile Include="test_Factory.cpp" />
+    <ClCompile Include="test_FastHashMap.cpp" />
+    <ClCompile Include="test_FeatureManager.cpp" />
+    <ClCompile Include="test_FixedTensor.cpp" />
+    <ClCompile Include="test_FlatMap.cpp" />
+    <ClCompile Include="test_FlatSet.cpp" />
+    <ClCompile Include="test_IdGenerator.cpp" />
+    <ClCompile Include="test_IntrusiveList.cpp" />
     <ClCompile Include="test_JsonLite.cpp" />
+    <ClCompile Include="test_LockFreeQueue.cpp" />
+    <ClCompile Include="test_LockFreeRingBuffer.cpp" />
+    <ClCompile Include="test_MemoryMappedFile.cpp" />
+    <ClCompile Include="test_NumaAllocator.cpp" />
+    <ClCompile Include="test_ObjectPool.cpp" />
+    <ClCompile Include="test_PipeOperator.cpp" />
+    <ClCompile Include="test_RateLimiter.cpp" />
+    <ClCompile Include="test_Reflection.cpp" />
     <ClCompile Include="test_ScopeGuard.cpp" />
+    <ClCompile Include="test_SimdVector.cpp" />
+    <ClCompile Include="test_SlotMap.cpp" />
+    <ClCompile Include="test_SmallVector.cpp" />
     <ClCompile Include="test_SortedContainer.cpp" />
+    <ClCompile Include="test_SparseSet.cpp" />
+    <ClCompile Include="test_Stacktrace.cpp" />
     <ClCompile Include="test_StateMachine.cpp" />
     <ClCompile Include="test_Stringify.cpp" />
+    <ClCompile Include="test_StringPool.cpp" />
     <ClCompile Include="test_StrongId.cpp" />
+    <ClCompile Include="test_Tensor.cpp" />
+    <ClCompile Include="test_TensorCompareSeialize.cpp" />
+    <ClCompile Include="test_TensorEinsum.cpp" />
+    <ClCompile Include="test_TensorMath.cpp" />
+    <ClCompile Include="test_TensorSerialization.cpp" />
+    <ClCompile Include="test_ThreadPool.cpp" />
     <ClCompile Include="test_TypeTraits.cpp" />
     <ClCompile Include="test_UltraLoggers.cpp" />
     <ClCompile Include="test_ValueGuard.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AdaptiveIterator.h" />
+    <ClInclude Include="AlignedVector.h" />
     <ClInclude Include="AllocationStrategy.h" />
+    <ClInclude Include="AsyncOperations.h" />
     <ClInclude Include="AtomicReference.h" />
+    <ClInclude Include="BenchmarkHarness.h" />
+    <ClInclude Include="BinarySerializer.h" />
+    <ClInclude Include="BinarySerializer_Tensor.h" />
+    <ClInclude Include="BitSet.h" />
+    <ClInclude Include="CacheUtilities.h" />
+    <ClInclude Include="CircularBuffer.h" />
     <ClInclude Include="ComparisonTolerances.h" />
     <ClInclude Include="ConcurrencyPolicies.h" />
     <ClInclude Include="ConstexprUtilities.h" />
     <ClInclude Include="ContractException.h" />
+    <ClInclude Include="CoroutineTask.h" />
+    <ClInclude Include="CSRMatrix.h" />
+    <ClInclude Include="DebugOnly.h" />
     <ClInclude Include="DiagnosticLogger.h" />
+    <ClInclude Include="DumpToJson.h" />
     <ClInclude Include="enforce.h" />
     <ClInclude Include="enforce_contextual.h" />
     <ClInclude Include="enforce_contextual_policies.h" />
@@ -174,23 +224,59 @@
     <ClInclude Include="EnumPlus.h" />
     <ClInclude Include="EqualityAny.h" />
     <ClInclude Include="EqualityComparisons.h" />
+    <ClInclude Include="EqualityTensor.h" />
     <ClInclude Include="Expected.h" />
     <ClInclude Include="Factory.h" />
     <ClInclude Include="EnforcedInit.h" />
+    <ClInclude Include="FastHashMap.h" />
+    <ClInclude Include="FeatureManager.h" />
+    <ClInclude Include="FixedTensor.h" />
+    <ClInclude Include="FlatMap.h" />
+    <ClInclude Include="FlatSet.h" />
+    <ClInclude Include="IdGenerator.h" />
+    <ClInclude Include="IntrusiveList.h" />
     <ClInclude Include="JsonLite.h" />
+    <ClInclude Include="LockFreeQueue.h" />
+    <ClInclude Include="LockFreeRingBuffer.h" />
     <ClInclude Include="LoggerAsync.h" />
     <ClInclude Include="LoggerHybrid.h" />
     <ClInclude Include="LoggerPolicy.h" />
+    <ClInclude Include="MemoryMappedFile.h" />
+    <ClInclude Include="NumaAllocator.h" />
+    <ClInclude Include="ObjectPool.h" />
+    <ClInclude Include="PipeOperator.h" />
+    <ClInclude Include="RateLimiter.h" />
+    <ClInclude Include="Reflection.h" />
+    <ClInclude Include="SimdVector.h" />
+    <ClInclude Include="SlidingFileWindow.h" />
+    <ClInclude Include="SlotMap.h" />
+    <ClInclude Include="SmallVector.h" />
+    <ClInclude Include="SparseSet.h" />
+    <ClInclude Include="Stacktrace.h" />
     <ClInclude Include="Stringify.h" />
+    <ClInclude Include="StringPool.h" />
     <ClInclude Include="StrongId.h" />
     <ClInclude Include="CheckedArithmetic.h" />
+    <ClInclude Include="Tensor.h" />
+    <ClInclude Include="TensorEinsum.h" />
+    <ClInclude Include="TensorMath.h" />
     <ClInclude Include="test_AdaptiveIterator.h" />
+    <ClInclude Include="test_AlignedVector.h" />
     <ClInclude Include="test_AllocationStrategy.h" />
+    <ClInclude Include="test_AsyncOperations.h" />
     <ClInclude Include="test_AtomicReference.h" />
+    <ClInclude Include="test_BenchmarkHarness.h" />
+    <ClInclude Include="test_BinarySerializer.h" />
+    <ClInclude Include="test_BitSet.h" />
+    <ClInclude Include="test_CacheUtilities.h" />
     <ClInclude Include="test_CheckedArithmetic.h" />
+    <ClInclude Include="test_CircularBuffer.h" />
     <ClInclude Include="test_ConcurrencyPolicies.h" />
     <ClInclude Include="test_ConstexprUtilities.h" />
     <ClInclude Include="test_ContractException.h" />
+    <ClInclude Include="test_CoroutineTask.h" />
+    <ClInclude Include="test_CSRMatrix.h" />
+    <ClInclude Include="test_DebugOnly.h" />
     <ClInclude Include="test_DiagnosticLogger.h" />
     <ClInclude Include="test_Enforce.h" />
     <ClInclude Include="test_EnforcedInit.h" />
@@ -198,16 +284,45 @@
     <ClInclude Include="test_EqualityComparisons.h" />
     <ClInclude Include="test_Expected.h" />
     <ClInclude Include="test_Factory.h" />
+    <ClInclude Include="test_FastHashMap.h" />
+    <ClInclude Include="test_FeatureManager.h" />
+    <ClInclude Include="test_FixedTensor.h" />
+    <ClInclude Include="test_FlatMap.h" />
+    <ClInclude Include="test_FlatSet.h" />
+    <ClInclude Include="test_IdGenerator.h" />
+    <ClInclude Include="test_IntrusiveList.h" />
     <ClInclude Include="test_JsonLite.h" />
+    <ClInclude Include="test_LockFreeQueue.h" />
+    <ClInclude Include="test_LockFreeRingBuffer.h" />
+    <ClInclude Include="test_MemoryMappedFile.h" />
+    <ClInclude Include="test_NumaAllocator.h" />
+    <ClInclude Include="test_ObjectPool.h" />
+    <ClInclude Include="test_PipeOperator.h" />
+    <ClInclude Include="test_RateLimiter.h" />
+    <ClInclude Include="test_Reflection.h" />
     <ClInclude Include="test_ScopeGuard.h" />
+    <ClInclude Include="test_SimdVector.h" />
+    <ClInclude Include="test_SlidingFileWindow.h" />
+    <ClInclude Include="test_SlotMap.h" />
+    <ClInclude Include="test_SmallVector.h" />
     <ClInclude Include="test_SortedContainer.h" />
+    <ClInclude Include="test_SparseSet.h" />
+    <ClInclude Include="test_Stacktrace.h" />
     <ClInclude Include="test_StateMachine.h" />
     <ClInclude Include="test_Stringify.h" />
+    <ClInclude Include="test_StringPool.h" />
     <ClInclude Include="test_StrongId.h" />
+    <ClInclude Include="test_Tensor.h" />
+    <ClInclude Include="test_TensorCompareSeialize.h" />
+    <ClInclude Include="test_TensorEinsum.h" />
+    <ClInclude Include="test_TensorMath.h" />
+    <ClInclude Include="test_TensorSerialization.h" />
+    <ClInclude Include="test_ThreadPool.h" />
     <ClInclude Include="test_TypeTraits.h" />
     <ClInclude Include="test_UltraLoggers.h" />
     <ClInclude Include="test_Utilities.h" />
     <ClInclude Include="test_ValueGuard.h" />
+    <ClInclude Include="ThreadPool.h" />
     <ClInclude Include="TypeTraits.h" />
     <ClInclude Include="ValueGuard.h" />
     <ClInclude Include="ScopeGuard.h" />

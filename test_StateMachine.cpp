@@ -35,418 +35,418 @@ using namespace cpp_utilities::testing;
 
 namespace cpp_utilities::testing
 {
-    // ============================================================================
-    // Test Context and States
-    // ============================================================================
+// ============================================================================
+// Test Context and States
+// ============================================================================
 
-    // Shared context for state machine tests
-    struct TestContext {
-        int counter = 0;
-        std::string log;
-        bool flag = false;
-        
-        void reset() {
-            counter = 0;
-            log.clear();
-            flag = false;
-        }
-    };
-
-    // Simple states for basic testing
-    struct StateA {
-        void on_entry(TestContext& ctx) noexcept {
-            ctx.log += "A_entry;";
-            ctx.counter++;
-        }
-        void on_exit(TestContext& ctx) noexcept {
-            ctx.log += "A_exit;";
-            ctx.counter++;
-        }
-    };
-
-    struct StateB {
-        void on_entry(TestContext& ctx) noexcept {
-            ctx.log += "B_entry;";
-            ctx.counter++;
-        }
-        void on_exit(TestContext& ctx) noexcept {
-            ctx.log += "B_exit;";
-            ctx.counter++;
-        }
-    };
-
-    struct StateC {
-        void on_entry(TestContext& ctx) noexcept {
-            ctx.log += "C_entry;";
-            ctx.counter++;
-        }
-        void on_exit(TestContext& ctx) noexcept {
-            ctx.log += "C_exit;";
-            ctx.counter++;
-        }
-    };
-
-    struct StateD {
-        void on_entry(TestContext& ctx) noexcept {
-            ctx.log += "D_entry;";
-            ctx.counter += 10;
-        }
-        void on_exit(TestContext& ctx) noexcept {
-            ctx.log += "D_exit;";
-            ctx.counter += 10;
-        }
-    };
-
-    // States with data manipulation
-    struct IdleState {
-        void on_entry(TestContext& ctx) noexcept {
-            ctx.flag = false;
-            ctx.log += "[Idle]";
-        }
-        void on_exit(TestContext& ctx) noexcept {
-            ctx.log += "[Leaving_Idle]";
-        }
-    };
-
-    struct ProcessingState {
-        void on_entry(TestContext& ctx) noexcept {
-            ctx.flag = true;
-            ctx.counter += 10;
-            ctx.log += "[Processing]";
-        }
-        void on_exit(TestContext& ctx) noexcept {
-            ctx.log += "[Leaving_Processing]";
-        }
-    };
-
-    struct CompletedState {
-        void on_entry(TestContext& ctx) noexcept {
-            ctx.counter += 100;
-            ctx.log += "[Completed]";
-        }
-        void on_exit(TestContext& ctx) noexcept {
-            ctx.log += "[Leaving_Completed]";
-        }
-    };
-
-    struct ErrorState {
-        void on_entry(TestContext& ctx) noexcept {
-            ctx.flag = false;
-            ctx.counter = -1;
-            ctx.log += "[Error]";
-        }
-        void on_exit(TestContext& ctx) noexcept {
-            ctx.log += "[Leaving_Error]";
-        }
-    };
-
-    // States that throw (for testing ThrowingActionPolicy)
-    struct ThrowingEntryState {
-        void on_entry(TestContext& ctx) {
-            ctx.log += "ThrowEntry;";
-            if (ctx.counter > 5) {
-                throw std::runtime_error("Entry action failed");
-            }
-        }
-        void on_exit(TestContext& ctx) noexcept {
-            ctx.log += "ThrowExit;";
-        }
-    };
-
-    struct ThrowingExitState {
-        void on_entry(TestContext& ctx) noexcept {
-            ctx.log += "NormalEntry;";
-        }
-        void on_exit(TestContext& ctx) {
-            ctx.log += "ThrowExit;";
-            if (ctx.flag) {
-                throw std::runtime_error("Exit action failed");
-            }
-        }
-    };
-
-    struct NormalState {
-        void on_entry(TestContext& ctx) {
-            ctx.log += "Normal;";
-        }
-        void on_exit(TestContext& ctx) {
-            ctx.log += "NormalExit;";
-        }
-    };
-
-    // ============================================================================
-    // Test Suite 1: Basic State Machine Construction and Initialization
-    // ============================================================================
-
-    bool test_state_machine_construction() {
-        TestContext ctx;
-        
-        using TransitionList = std::tuple<
-            std::pair<StateA, StateB>,
-            std::pair<StateB, StateC>
-        >;
-        
-        StateMachine<TestContext, TransitionList, StrictTransitionPolicy, 
-                     NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
-        
-        // Should start in StateA (index 0) and call its on_entry
-        ASSERT_EQ(sm.current_state_index(), 0, "Should start in first state (StateA)");
-        ASSERT_EQ(ctx.log, std::string("A_entry;"), "Should have called StateA on_entry");
-        ASSERT_EQ(ctx.counter, 1, "Counter should be 1 after StateA entry");
-        ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
-        
-        return true;
+// Shared context for state machine tests
+struct TestContext {
+    int counter = 0;
+    std::string log;
+    bool flag = false;
+    
+    void reset() {
+        counter = 0;
+        log.clear();
+        flag = false;
     }
+};
 
-    bool test_state_machine_default_policy() {
-        TestContext ctx;
-        
-        // AnyToAnyTransitionPolicy with empty transition list
-        using TransitionList = std::tuple<>;
-        
-        StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
-                     NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
-        
-        ASSERT_EQ(sm.current_state_index(), 0, "Should start in first state");
-        ASSERT_EQ(ctx.log, std::string("A_entry;"), "Should have called StateA on_entry");
-        ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
-        ASSERT_FALSE(sm.is_in_state<StateB>(), "Should not be in StateB");
-        
-        return true;
+// Simple states for basic testing
+struct StateA {
+    void on_entry(TestContext& ctx) noexcept {
+        ctx.log += "A_entry;";
+        ctx.counter++;
     }
-
-    bool test_state_machine_custom_initial_state() {
-        TestContext ctx;
-        
-        using TransitionList = std::tuple<>;
-        
-        // Start at index 1 (StateB)
-        StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
-                     NoExceptActionPolicy, 1, StateA, StateB, StateC> sm(ctx);
-        
-        ASSERT_EQ(sm.current_state_index(), 1, "Should start in StateB (index 1)");
-        ASSERT_EQ(ctx.log, std::string("B_entry;"), "Should have called StateB on_entry");
-        ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
-        ASSERT_FALSE(sm.is_in_state<StateA>(), "Should not be in StateA");
-        
-        // Start at index 2 (StateC)
-        ctx.reset();
-        StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
-                     NoExceptActionPolicy, 2, StateA, StateB, StateC> sm2(ctx);
-        
-        ASSERT_EQ(sm2.current_state_index(), 2, "Should start in StateC (index 2)");
-        ASSERT_EQ(ctx.log, std::string("C_entry;"), "Should have called StateC on_entry");
-        ASSERT_TRUE(sm2.is_in_state<StateC>(), "Should be in StateC");
-        
-        return true;
+    void on_exit(TestContext& ctx) noexcept {
+        ctx.log += "A_exit;";
+        ctx.counter++;
     }
+};
 
-    // ============================================================================
-    // Test Suite 2: Basic State Transitions
-    // ============================================================================
-
-    bool test_simple_transition() {
-        TestContext ctx;
-        
-        using TransitionList = std::tuple<
-            std::pair<StateA, StateB>,
-            std::pair<StateB, StateC>
-        >;
-        
-        StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
-                     NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
-        
-        ctx.log.clear();
-        sm.transition<StateB>();
-        
-        ASSERT_EQ(sm.current_state_index(), 1, "Should now be in StateB (index 1)");
-        ASSERT_EQ(ctx.log, std::string("A_exit;B_entry;"), "Should exit A and enter B");
-        ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
-        ASSERT_FALSE(sm.is_in_state<StateA>(), "Should not be in StateA");
-        
-        return true;
+struct StateB {
+    void on_entry(TestContext& ctx) noexcept {
+        ctx.log += "B_entry;";
+        ctx.counter++;
     }
-
-    bool test_chained_transitions() {
-        TestContext ctx;
-        
-        using TransitionList = std::tuple<
-            std::pair<StateA, StateB>,
-            std::pair<StateB, StateC>,
-            std::pair<StateC, StateA>
-        >;
-        
-        StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
-                     NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
-        
-        ctx.log.clear();
-        ctx.counter = 0;
-        
-        sm.transition<StateB>();
-        ASSERT_EQ(sm.current_state_index(), 1, "Should be in StateB");
-        ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
-        
-        sm.transition<StateC>();
-        ASSERT_EQ(sm.current_state_index(), 2, "Should be in StateC");
-        ASSERT_TRUE(sm.is_in_state<StateC>(), "Should be in StateC");
-        
-        sm.transition<StateA>();
-        ASSERT_EQ(sm.current_state_index(), 0, "Should be back in StateA");
-        ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
-        
-        // Should have: A_exit, B_entry, B_exit, C_entry, C_exit, A_entry
-        ASSERT_EQ(ctx.counter, 6, "Should have 6 action calls");
-        ASSERT_EQ(ctx.log, std::string("A_exit;B_entry;B_exit;C_entry;C_exit;A_entry;"),
-                  "Transition sequence should be correct");
-        
-        return true;
+    void on_exit(TestContext& ctx) noexcept {
+        ctx.log += "B_exit;";
+        ctx.counter++;
     }
+};
 
-    bool test_self_transition_is_noop() {
-        TestContext ctx;
-        
-        using TransitionList = std::tuple<
-            std::pair<StateA, StateA>,  // Self-transition allowed
-            std::pair<StateA, StateB>
-        >;
-        
-        StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
-                     NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
-        
-        ctx.log.clear();
-        ctx.counter = 0;
-        
-        sm.transition<StateA>();  // Transition to self
-        
-        ASSERT_EQ(sm.current_state_index(), 0, "Should remain in StateA");
-        ASSERT_EQ(ctx.log, std::string(""), "Self-transition should not call actions");
-        ASSERT_EQ(ctx.counter, 0, "Counter should not change");
-        ASSERT_TRUE(sm.is_in_state<StateA>(), "Should still be in StateA");
-        
-        return true;
+struct StateC {
+    void on_entry(TestContext& ctx) noexcept {
+        ctx.log += "C_entry;";
+        ctx.counter++;
     }
-
-    bool test_multiple_transitions_same_state() {
-        TestContext ctx;
-        
-        using TransitionList = std::tuple<
-            std::pair<StateA, StateB>,
-            std::pair<StateB, StateA>,
-            std::pair<StateA, StateC>
-        >;
-        
-        StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
-                     NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
-        
-        ctx.log.clear();
-        
-        sm.transition<StateB>();
-        sm.transition<StateA>();
-        sm.transition<StateB>();
-        sm.transition<StateA>();
-        
-        ASSERT_EQ(sm.current_state_index(), 0, "Should be in StateA");
-        ASSERT_TRUE(ctx.log.find("A_exit;B_entry;B_exit;A_entry;A_exit;B_entry;B_exit;A_entry;") != std::string::npos,
-                   "Should have multiple back-and-forth transitions");
-        
-        return true;
+    void on_exit(TestContext& ctx) noexcept {
+        ctx.log += "C_exit;";
+        ctx.counter++;
     }
+};
 
-    // ============================================================================
-    // Test Suite 3: StrictTransitionPolicy Validation
-    // ============================================================================
-
-    bool test_strict_policy_valid_transitions() {
-        TestContext ctx;
-        
-        using TransitionList = std::tuple<
-            std::pair<IdleState, ProcessingState>,
-            std::pair<ProcessingState, CompletedState>,
-            std::pair<ProcessingState, ErrorState>,
-            std::pair<ErrorState, IdleState>,
-            std::pair<CompletedState, IdleState>
-        >;
-        
-        StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
-                     NoExceptActionPolicy, 0, IdleState, ProcessingState, 
-                     CompletedState, ErrorState> sm(ctx);
-        
-        ctx.log.clear();
-        
-        // Valid transitions
-        sm.transition<ProcessingState>();
-        ASSERT_EQ(ctx.flag, true, "Flag should be set in ProcessingState");
-        ASSERT_EQ(ctx.counter, 10, "Counter should be 10");
-        
-        sm.transition<CompletedState>();
-        ASSERT_EQ(ctx.counter, 110, "Counter should be 110 after completion");
-        
-        sm.transition<IdleState>();
-        ASSERT_EQ(ctx.flag, false, "Flag should be cleared in IdleState");
-        
-        return true;
+struct StateD {
+    void on_entry(TestContext& ctx) noexcept {
+        ctx.log += "D_entry;";
+        ctx.counter += 10;
     }
+    void on_exit(TestContext& ctx) noexcept {
+        ctx.log += "D_exit;";
+        ctx.counter += 10;
+    }
+};
 
-    bool test_strict_policy_invalid_transition_throws() {
-        TestContext ctx;
-        
-        using TransitionList = std::tuple<
-            std::pair<StateA, StateB>
-            // Note: StateA -> StateC is NOT allowed
-        >;
-        
-        StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
-                     NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
-        
-        bool exception_thrown = false;
-        try {
-            sm.transition<StateC>();  // Invalid transition
-        } catch (const std::runtime_error& e) {
-            exception_thrown = true;
-            std::string msg = e.what();
-            ASSERT_TRUE(msg.find("not valid") != std::string::npos,
-                       "Exception message should mention invalid transition");
+// States with data manipulation
+struct IdleState {
+    void on_entry(TestContext& ctx) noexcept {
+        ctx.flag = false;
+        ctx.log += "[Idle]";
+    }
+    void on_exit(TestContext& ctx) noexcept {
+        ctx.log += "[Leaving_Idle]";
+    }
+};
+
+struct ProcessingState {
+    void on_entry(TestContext& ctx) noexcept {
+        ctx.flag = true;
+        ctx.counter += 10;
+        ctx.log += "[Processing]";
+    }
+    void on_exit(TestContext& ctx) noexcept {
+        ctx.log += "[Leaving_Processing]";
+    }
+};
+
+struct CompletedState {
+    void on_entry(TestContext& ctx) noexcept {
+        ctx.counter += 100;
+        ctx.log += "[Completed]";
+    }
+    void on_exit(TestContext& ctx) noexcept {
+        ctx.log += "[Leaving_Completed]";
+    }
+};
+
+struct ErrorState {
+    void on_entry(TestContext& ctx) noexcept {
+        ctx.flag = false;
+        ctx.counter = -1;
+        ctx.log += "[Error]";
+    }
+    void on_exit(TestContext& ctx) noexcept {
+        ctx.log += "[Leaving_Error]";
+    }
+};
+
+// States that throw (for testing ThrowingActionPolicy)
+struct ThrowingEntryState {
+    void on_entry(TestContext& ctx) {
+        ctx.log += "ThrowEntry;";
+        if (ctx.counter > 5) {
+            throw std::runtime_error("Entry action failed");
         }
-        
-        ASSERT_TRUE(exception_thrown, "Should throw on invalid transition");
-        ASSERT_EQ(sm.current_state_index(), 0, "Should remain in original state after failed transition");
-        ASSERT_TRUE(sm.is_in_state<StateA>(), "Should still be in StateA");
-        
-        return true;
     }
+    void on_exit(TestContext& ctx) noexcept {
+        ctx.log += "ThrowExit;";
+    }
+};
 
-    bool test_strict_policy_complex_graph() {
-        TestContext ctx;
-        
-        // Complex state graph: Idle -> Processing -> {Completed, Error}
-        //                      Error -> Idle
-        //                      Completed -> Idle
-        using TransitionList = std::tuple<
-            std::pair<IdleState, ProcessingState>,
-            std::pair<ProcessingState, CompletedState>,
-            std::pair<ProcessingState, ErrorState>,
-            std::pair<ErrorState, IdleState>,
-            std::pair<CompletedState, IdleState>
-        >;
-        
-        StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
-                     NoExceptActionPolicy, 0, IdleState, ProcessingState,
-                     CompletedState, ErrorState> sm(ctx);
-        
-        // Test error path
-        ctx.reset();
-        sm.transition<ProcessingState>();
-        sm.transition<ErrorState>();
-        ASSERT_EQ(ctx.counter, -1, "Error state should set counter to -1");
-        ASSERT_TRUE(sm.is_in_state<ErrorState>(), "Should be in ErrorState");
-        
-        // Recover from error
-        sm.transition<IdleState>();
-        ASSERT_EQ(ctx.flag, false, "Should be back in idle state");
-        ASSERT_TRUE(sm.is_in_state<IdleState>(), "Should be in IdleState");
-        
-        return true;
+struct ThrowingExitState {
+    void on_entry(TestContext& ctx) noexcept {
+        ctx.log += "NormalEntry;";
     }
+    void on_exit(TestContext& ctx) {
+        ctx.log += "ThrowExit;";
+        if (ctx.flag) {
+            throw std::runtime_error("Exit action failed");
+        }
+    }
+};
+
+struct NormalState {
+    void on_entry(TestContext& ctx) {
+        ctx.log += "Normal;";
+    }
+    void on_exit(TestContext& ctx) {
+        ctx.log += "NormalExit;";
+    }
+};
+
+// ============================================================================
+// Test Suite 1: Basic State Machine Construction and Initialization
+// ============================================================================
+
+bool test_state_machine_construction() {
+    TestContext ctx;
+    
+    using TransitionList = std::tuple<
+        std::pair<StateA, StateB>,
+        std::pair<StateB, StateC>
+    >;
+    
+    StateMachine<TestContext, TransitionList, StrictTransitionPolicy, 
+                 NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
+    
+    // Should start in StateA (index 0) and call its on_entry
+    ASSERT_EQ(sm.current_state_index(), 0, "Should start in first state (StateA)");
+    ASSERT_EQ(ctx.log, std::string("A_entry;"), "Should have called StateA on_entry");
+    ASSERT_EQ(ctx.counter, 1, "Counter should be 1 after StateA entry");
+    ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
+    
+    return true;
+}
+
+bool test_state_machine_default_policy() {
+    TestContext ctx;
+    
+    // AnyToAnyTransitionPolicy with empty transition list
+    using TransitionList = std::tuple<>;
+    
+    StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
+                 NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
+    
+    ASSERT_EQ(sm.current_state_index(), 0, "Should start in first state");
+    ASSERT_EQ(ctx.log, std::string("A_entry;"), "Should have called StateA on_entry");
+    ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
+    ASSERT_FALSE(sm.is_in_state<StateB>(), "Should not be in StateB");
+    
+    return true;
+}
+
+bool test_state_machine_custom_initial_state() {
+    TestContext ctx;
+    
+    using TransitionList = std::tuple<>;
+    
+    // Start at index 1 (StateB)
+    StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
+                 NoExceptActionPolicy, 1, StateA, StateB, StateC> sm(ctx);
+    
+    ASSERT_EQ(sm.current_state_index(), 1, "Should start in StateB (index 1)");
+    ASSERT_EQ(ctx.log, std::string("B_entry;"), "Should have called StateB on_entry");
+    ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
+    ASSERT_FALSE(sm.is_in_state<StateA>(), "Should not be in StateA");
+    
+    // Start at index 2 (StateC)
+    ctx.reset();
+    StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
+                 NoExceptActionPolicy, 2, StateA, StateB, StateC> sm2(ctx);
+    
+    ASSERT_EQ(sm2.current_state_index(), 2, "Should start in StateC (index 2)");
+    ASSERT_EQ(ctx.log, std::string("C_entry;"), "Should have called StateC on_entry");
+    ASSERT_TRUE(sm2.is_in_state<StateC>(), "Should be in StateC");
+    
+    return true;
+}
+
+// ============================================================================
+// Test Suite 2: Basic State Transitions
+// ============================================================================
+
+bool test_simple_transition() {
+    TestContext ctx;
+    
+    using TransitionList = std::tuple<
+        std::pair<StateA, StateB>,
+        std::pair<StateB, StateC>
+    >;
+    
+    StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
+                 NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
+    
+    ctx.log.clear();
+    sm.transition<StateB>();
+    
+    ASSERT_EQ(sm.current_state_index(), 1, "Should now be in StateB (index 1)");
+    ASSERT_EQ(ctx.log, std::string("A_exit;B_entry;"), "Should exit A and enter B");
+    ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
+    ASSERT_FALSE(sm.is_in_state<StateA>(), "Should not be in StateA");
+    
+    return true;
+}
+
+bool test_chained_transitions() {
+    TestContext ctx;
+    
+    using TransitionList = std::tuple<
+        std::pair<StateA, StateB>,
+        std::pair<StateB, StateC>,
+        std::pair<StateC, StateA>
+    >;
+    
+    StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
+                 NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
+    
+    ctx.log.clear();
+    ctx.counter = 0;
+    
+    sm.transition<StateB>();
+    ASSERT_EQ(sm.current_state_index(), 1, "Should be in StateB");
+    ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
+    
+    sm.transition<StateC>();
+    ASSERT_EQ(sm.current_state_index(), 2, "Should be in StateC");
+    ASSERT_TRUE(sm.is_in_state<StateC>(), "Should be in StateC");
+    
+    sm.transition<StateA>();
+    ASSERT_EQ(sm.current_state_index(), 0, "Should be back in StateA");
+    ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
+    
+    // Should have: A_exit, B_entry, B_exit, C_entry, C_exit, A_entry
+    ASSERT_EQ(ctx.counter, 6, "Should have 6 action calls");
+    ASSERT_EQ(ctx.log, std::string("A_exit;B_entry;B_exit;C_entry;C_exit;A_entry;"),
+              "Transition sequence should be correct");
+    
+    return true;
+}
+
+bool test_self_transition_is_noop() {
+    TestContext ctx;
+    
+    using TransitionList = std::tuple<
+        std::pair<StateA, StateA>,  // Self-transition allowed
+        std::pair<StateA, StateB>
+    >;
+    
+    StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
+                 NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
+    
+    ctx.log.clear();
+    ctx.counter = 0;
+    
+    sm.transition<StateA>();  // Transition to self
+    
+    ASSERT_EQ(sm.current_state_index(), 0, "Should remain in StateA");
+    ASSERT_EQ(ctx.log, std::string(""), "Self-transition should not call actions");
+    ASSERT_EQ(ctx.counter, 0, "Counter should not change");
+    ASSERT_TRUE(sm.is_in_state<StateA>(), "Should still be in StateA");
+    
+    return true;
+}
+
+bool test_multiple_transitions_same_state() {
+    TestContext ctx;
+    
+    using TransitionList = std::tuple<
+        std::pair<StateA, StateB>,
+        std::pair<StateB, StateA>,
+        std::pair<StateA, StateC>
+    >;
+    
+    StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
+                 NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
+    
+    ctx.log.clear();
+    
+    sm.transition<StateB>();
+    sm.transition<StateA>();
+    sm.transition<StateB>();
+    sm.transition<StateA>();
+    
+    ASSERT_EQ(sm.current_state_index(), 0, "Should be in StateA");
+    ASSERT_TRUE(ctx.log.find("A_exit;B_entry;B_exit;A_entry;A_exit;B_entry;B_exit;A_entry;") != std::string::npos,
+               "Should have multiple back-and-forth transitions");
+    
+    return true;
+}
+
+// ============================================================================
+// Test Suite 3: StrictTransitionPolicy Validation
+// ============================================================================
+
+bool test_strict_policy_valid_transitions() {
+    TestContext ctx;
+    
+    using TransitionList = std::tuple<
+        std::pair<IdleState, ProcessingState>,
+        std::pair<ProcessingState, CompletedState>,
+        std::pair<ProcessingState, ErrorState>,
+        std::pair<ErrorState, IdleState>,
+        std::pair<CompletedState, IdleState>
+    >;
+    
+    StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
+                 NoExceptActionPolicy, 0, IdleState, ProcessingState, 
+                 CompletedState, ErrorState> sm(ctx);
+    
+    ctx.log.clear();
+    
+    // Valid transitions
+    sm.transition<ProcessingState>();
+    ASSERT_EQ(ctx.flag, true, "Flag should be set in ProcessingState");
+    ASSERT_EQ(ctx.counter, 10, "Counter should be 10");
+    
+    sm.transition<CompletedState>();
+    ASSERT_EQ(ctx.counter, 110, "Counter should be 110 after completion");
+    
+    sm.transition<IdleState>();
+    ASSERT_EQ(ctx.flag, false, "Flag should be cleared in IdleState");
+    
+    return true;
+}
+
+bool test_strict_policy_invalid_transition_throws() {
+    TestContext ctx;
+    
+    using TransitionList = std::tuple<
+        std::pair<StateA, StateB>
+        // Note: StateA -> StateC is NOT allowed
+    >;
+    
+    StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
+                 NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
+    
+    bool exception_thrown = false;
+    try {
+        sm.transition<StateC>();  // Invalid transition
+    } catch (const std::runtime_error& e) {
+        exception_thrown = true;
+        std::string msg = e.what();
+        ASSERT_TRUE(msg.find("not valid") != std::string::npos,
+                   "Exception message should mention invalid transition");
+    }
+    
+    ASSERT_TRUE(exception_thrown, "Should throw on invalid transition");
+    ASSERT_EQ(sm.current_state_index(), 0, "Should remain in original state after failed transition");
+    ASSERT_TRUE(sm.is_in_state<StateA>(), "Should still be in StateA");
+    
+    return true;
+}
+
+bool test_strict_policy_complex_graph() {
+    TestContext ctx;
+    
+    // Complex state graph: Idle -> Processing -> {Completed, Error}
+    //                      Error -> Idle
+    //                      Completed -> Idle
+    using TransitionList = std::tuple<
+        std::pair<IdleState, ProcessingState>,
+        std::pair<ProcessingState, CompletedState>,
+        std::pair<ProcessingState, ErrorState>,
+        std::pair<ErrorState, IdleState>,
+        std::pair<CompletedState, IdleState>
+    >;
+    
+    StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
+                 NoExceptActionPolicy, 0, IdleState, ProcessingState,
+                 CompletedState, ErrorState> sm(ctx);
+    
+    // Test error path
+    ctx.reset();
+    sm.transition<ProcessingState>();
+    sm.transition<ErrorState>();
+    ASSERT_EQ(ctx.counter, -1, "Error state should set counter to -1");
+    ASSERT_TRUE(sm.is_in_state<ErrorState>(), "Should be in ErrorState");
+    
+    // Recover from error
+    sm.transition<IdleState>();
+    ASSERT_EQ(ctx.flag, false, "Should be back in idle state");
+    ASSERT_TRUE(sm.is_in_state<IdleState>(), "Should be in IdleState");
+    
+    return true;
+}
 
     bool test_strict_policy_prevents_shortcut() {
         TestContext ctx;
@@ -1006,13 +1006,10 @@ namespace cpp_utilities::testing
 
 bool test_StateMachine() {
     
+    PRINT_HEADER(STATE MACHINE)
+
     TestRunner runner;
-    
-    std::cout << "==================================================\n";
-    std::cout << "StateMachine Test Suite\n";
-    std::cout << "C++17 Policy-Based State Machine\n";
-    std::cout << "==================================================\n\n";
-    
+
     // Suite 1: Construction
     std::cout << "Suite 1: Construction and Initialization\n";
     RUN_TEST(runner, state_machine_construction);

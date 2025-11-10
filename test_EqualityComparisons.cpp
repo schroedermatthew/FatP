@@ -430,9 +430,9 @@ bool test_string_comparison() {
 // =============================================================================
 
 bool test_EqualityComparisons() {
-    std::cout << colors::bold() << "\n=== EqualityComparisons Test Suite ===" 
-              << colors::reset() << "\n\n";
-    
+
+    PRINT_HEADER(EQUALITY COMPARISONS)
+
     TestRunner runner;
     
     // Run all test suites

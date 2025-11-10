@@ -663,12 +663,8 @@ void run_constexpr_utilities_benchmarks() {
 // =============================================================================
 
 bool test_ConstexprUtilities() {
-    std::cout << colors::bold() << colors::cyan()
-              << "\n======================================"<< std::endl;
-    std::cout << "ConstexprUtilities v2.0 - Complete Test Suite" << std::endl;
-    std::cout << "Enhanced with Full Integer Support, 64-bit Hash, and Floating-Point" << std::endl;
-    std::cout << "======================================"
-              << colors::reset() << std::endl;
+
+    PRINT_HEADER(CONSTEXPR UTILITIES)
 
     TestRunner runner;
     
