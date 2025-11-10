@@ -1,9 +1,88 @@
-// JsonLite.h
-// Lightweight JSON library for loading/saving parameter sets
-// - C++17 header-only
-// - No external dependencies
-// - High performance with minimal allocations
-// - Extensible via policies and custom type serialization
+/**
+ * @file JsonLite.h
+ * @brief Lightweight JSON library for C++ configuration and parameter management
+ * @version 0.1.0
+ * @date 2024
+ * 
+ * @section overview Overview
+ * JsonLite is a modern C++17 header-only JSON library designed specifically for
+ * application configuration files, parameter persistence, and structured data
+ * serialization where simplicity and zero dependencies are priorities.
+ * 
+ * @section features Features
+ * - C++17 header-only library (single file, no build configuration)
+ * - Zero external dependencies (pure standard library)
+ * - Policy-based design for compile-time customization
+ * - Type-safe variant-based JSON value representation
+ * - Macro-based automatic struct serialization
+ * - Comprehensive error messages with position information
+ * - Support for std::optional, std::vector, std::map, std::tuple, std::pair
+ * - Integer precision preservation using int64_t
+ * 
+ * @section intended_use Intended Use Cases
+ * ✓ Application configuration files
+ * ✓ Game save files and player data
+ * ✓ Parameter persistence and settings management
+ * ✓ Small to medium data serialization (<10MB)
+ * ✓ Structured logging output
+ * 
+ * @section not_intended Not Intended For
+ * ✗ High-frequency trading or real-time systems (use specialized parsers)
+ * ✗ Untrusted network input without additional validation
+ * ✗ Streaming large files (>100MB) - entire file loaded into memory
+ * ✗ Scientific computing with extreme numeric values (see limitations)
+ * 
+ * @section limitations Known Limitations
+ * 
+ * 1. **Numeric Formatting**: Uses std::fixed with 16 decimal places. This works
+ *    well for values in the range ±1e-15 to ±1e+15 but may produce unreadable
+ *    output for values outside this range (e.g., Planck constant 6.626e-34 or
+ *    Avogadro's number 6.022e23). For scientific data, consider storing extreme
+ *    values as strings or using scientific notation externally.
+ * 
+ * 2. **Memory Model**: Non-streaming parser requires entire JSON to fit in memory.
+ *    Suitable for configuration files but not for processing multi-gigabyte logs.
+ * 
+ * 3. **Thread Safety**: Not thread-safe. Synchronization must be provided externally
+ *    if accessing shared JsonValue objects from multiple threads.
+ * 
+ * 4. **Container Storage**: Uses std::map for JSON objects (O(log n) lookup) to
+ *    ensure deterministic iteration order. For applications requiring O(1) lookup
+ *    with large objects (>100 fields), consider specialized alternatives.
+ * 
+ * 5. **Macro Field Limit**: Automatic serialization macros support up to 20 fields
+ *    per struct. For larger structures, use nested structs or write custom
+ *    serialization functions.
+ * 
+ * 6. **Security Bounds**: Depth limit of 512 levels prevents stack overflow but
+ *    no limits on string length or array size. Not suitable for untrusted input
+ *    without additional size validation.
+ * 
+ * @section example Basic Example
+ * @code{.cpp}
+ * #include "JsonLite.h"
+ * using namespace cpp_utilities;
+ * 
+ * struct Config {
+ *     int port;
+ *     std::string host;
+ *     std::optional<int> timeout;
+ * };
+ * CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, timeout)
+ * 
+ * int main() {
+ *     Config cfg{8080, "localhost", 30};
+ *     save_params("config.json", cfg);
+ *     
+ *     auto loaded = load_params<Config>("config.json");
+ *     return 0;
+ * }
+ * @endcode
+ * 
+ * @section license License
+ * This library is part of the cpp_utilities collection.
+ * Use freely with attribution.
+ */
 #pragma once
 
 #include <algorithm>
@@ -63,21 +142,50 @@ namespace detail {
 // JSON Value Type (for Parsing)
 // ====================================================================
 
+/** @brief Type alias for JSON object representation using ordered map */
 using JsonObject = std::map<std::string, struct JsonValue>;
+
+/** @brief Type alias for JSON array representation */
 using JsonArray = std::vector<struct JsonValue>;
 
-// JsonValue holds: null, bool, int64_t, double, string, array, or object
-// Using int64_t preserves integer precision (addresses issue #9)
+/**
+ * @brief Type-safe JSON value container using std::variant
+ * 
+ * Represents any valid JSON value type. Uses int64_t for integers to preserve
+ * precision up to ±2^63, and std::map for objects to maintain deterministic
+ * iteration order.
+ * 
+ * Supported types:
+ * - null (std::nullptr_t)
+ * - boolean (bool)
+ * - integer (int64_t)
+ * - floating-point (double)
+ * - string (std::string)
+ * - array (JsonArray)
+ * - object (JsonObject)
+ */
 struct JsonValue : std::variant<std::nullptr_t, bool, int64_t, double, std::string, JsonArray, JsonObject> {
     using variant::variant;
     
-    // Helper methods for type checking
+    /** @brief Check if value is null */
     [[nodiscard]] bool is_null() const noexcept { return std::holds_alternative<std::nullptr_t>(*this); }
+    
+    /** @brief Check if value is boolean */
     [[nodiscard]] bool is_bool() const noexcept { return std::holds_alternative<bool>(*this); }
+    
+    /** @brief Check if value is integer (int64_t) */
     [[nodiscard]] bool is_int() const noexcept { return std::holds_alternative<int64_t>(*this); }
+    
+    /** @brief Check if value is numeric (int64_t or double) */
     [[nodiscard]] bool is_number() const noexcept { return std::holds_alternative<int64_t>(*this) || std::holds_alternative<double>(*this); }
+    
+    /** @brief Check if value is string */
     [[nodiscard]] bool is_string() const noexcept { return std::holds_alternative<std::string>(*this); }
+    
+    /** @brief Check if value is array */
     [[nodiscard]] bool is_array() const noexcept { return std::holds_alternative<JsonArray>(*this); }
+    
+    /** @brief Check if value is object */
     [[nodiscard]] bool is_object() const noexcept { return std::holds_alternative<JsonObject>(*this); }
 };
 
@@ -85,23 +193,48 @@ struct JsonValue : std::variant<std::nullptr_t, bool, int64_t, double, std::stri
 // JSON Policies
 // ====================================================================
 
+/**
+ * @brief Standard JSON formatting policy
+ * 
+ * Default policy for strict JSON compliance:
+ * - Compact output (no pretty printing)
+ * - 16 decimal places for floating-point precision
+ * - No NaN/Infinity support (outputs null instead)
+ * - Unicode characters escaped to \uXXXX sequences
+ * - Maximum nesting depth of 512 levels
+ */
 struct StandardJsonPolicy {
-    static constexpr bool pretty_print = false;
-    static constexpr int numeric_precision = 16;
-    static constexpr int indent_step = 4;
-    static constexpr bool allow_nan_inf = false;
-    static constexpr bool escape_unicode = true;
-    static constexpr size_t max_parse_depth = 512;
-    static constexpr size_t max_dump_depth = 512;
+    static constexpr bool pretty_print = false;        ///< Disable pretty printing
+    static constexpr int numeric_precision = 16;       ///< Decimal places for floating-point
+    static constexpr int indent_step = 4;              ///< Spaces per indentation level
+    static constexpr bool allow_nan_inf = false;       ///< Reject NaN/Infinity (output null)
+    static constexpr bool escape_unicode = true;       ///< Escape non-ASCII as \uXXXX
+    static constexpr size_t max_parse_depth = 512;     ///< Maximum parsing depth
+    static constexpr size_t max_dump_depth = 512;      ///< Maximum serialization depth
 };
 
+/**
+ * @brief Pretty-printing JSON policy
+ * 
+ * Extends StandardJsonPolicy with human-readable formatting:
+ * - Multi-line output with indentation
+ * - Suitable for configuration files and debugging
+ */
 struct PrettyJsonPolicy : StandardJsonPolicy {
-    static constexpr bool pretty_print = true;
+    static constexpr bool pretty_print = true;         ///< Enable pretty printing
 };
 
+/**
+ * @brief Compatibility JSON policy
+ * 
+ * Relaxed policy for compatibility with non-standard JSON:
+ * - Allows NaN and Infinity values
+ * - Preserves Unicode characters in output
+ * - Useful for JavaScript interoperability
+ */
 struct CompatJsonPolicy : StandardJsonPolicy {
-    static constexpr bool allow_nan_inf = true;
-    static constexpr bool escape_unicode = false;
+    static constexpr bool allow_nan_inf = true;        ///< Allow NaN/Infinity values
+    static constexpr bool escape_unicode = false;      ///< Output Unicode directly
 };
 
 // ====================================================================
@@ -171,13 +304,16 @@ namespace detail {
                     if (std::modf(obj, &intpart) == 0.0 && 
                         intpart >= std::numeric_limits<int64_t>::min() &&
                         intpart <= std::numeric_limits<int64_t>::max()) {
-                        // Print as integer if no fractional part and fits in int64
+                        // Output as integer if no fractional part and fits in int64_t
                         os << static_cast<int64_t>(intpart);
                     } else {
-                        // Note: std::fixed with precision=16 works well for "normal" ranges (1e-15 to 1e+15).
-                        // For scientific values outside this range (e.g., Planck constant 6.626e-34,
-                        // Avogadro's number 6.022e23), consider using scientific notation or storing
-                        // as strings to preserve precision and readability.
+                        // Floating-point output with fixed precision
+                        // Note: std::fixed with precision=16 is optimal for typical values
+                        // in the range ±1e-15 to ±1e+15. Values outside this range
+                        // (e.g., Planck constant 6.626e-34, Avogadro's number 6.022e23)
+                        // may produce very long strings or lose precision. For scientific
+                        // data with extreme exponents, consider storing as strings or
+                        // pre-formatting with std::scientific before serialization.
                         os << std::fixed << std::setprecision(Policy::numeric_precision) << obj;
                     }
                 }
@@ -392,6 +528,17 @@ namespace detail {
 // High-Level API Functions
 // ====================================================================
 
+/**
+ * @brief Serialize an object to a JSON string
+ * 
+ * @tparam T Type of object to serialize (must have to_json defined or be a basic type)
+ * @tparam Policy Formatting policy (default: StandardJsonPolicy)
+ * @param obj Object to serialize
+ * @param pretty Enable pretty-printing (default: from policy)
+ * @return std::string JSON representation
+ * 
+ * @note For custom types, use CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE or implement to_json
+ */
 template <typename T, typename Policy = StandardJsonPolicy>
 std::string to_json_string(const T& obj, bool pretty = Policy::pretty_print) {
     std::ostringstream oss;
@@ -399,19 +546,47 @@ std::string to_json_string(const T& obj, bool pretty = Policy::pretty_print) {
     return oss.str();
 }
 
+/**
+ * @brief Serialize an object to an output stream
+ * 
+ * @tparam T Type of object to serialize
+ * @tparam Policy Formatting policy (default: StandardJsonPolicy)
+ * @tparam Os Output stream type
+ * @param os Output stream
+ * @param obj Object to serialize
+ * @param pretty Enable pretty-printing (default: from policy)
+ */
 template <typename T, typename Policy = StandardJsonPolicy, typename Os>
 void to_json_stream(Os& os, const T& obj, bool pretty = Policy::pretty_print) {
     JsonDispatcher<T, Policy>::dump(os, obj, pretty);
 }
 
-// Specialization for already JsonValue
+/**
+ * @brief Identity function for JsonValue
+ * @param value JsonValue to return
+ * @return JsonValue Copy of input value
+ */
 inline JsonValue to_json(const JsonValue& value) {
     return value;
 }
 
 // ====================================================================
-// C++17-Compatible Macros (with proper hygiene - issue #14)
+// Automatic Serialization Macros
 // ====================================================================
+
+/**
+ * @defgroup macros Automatic Serialization Macros
+ * @brief Macros for automatic generation of to_json/from_json functions
+ * 
+ * These macros generate serialization functions for custom structs, supporting
+ * up to 20 fields per struct. Three variants are provided:
+ * 
+ * - CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE: Define outside class (most common)
+ * - CPP_JSON_DEFINE_TYPE_OPTIONAL: All fields optional (no "missing field" errors)
+ * - CPP_JSON_DEFINE_TYPE_INTRUSIVE: Define inside class (for private members)
+ * 
+ * @{
+ */
 
 // MSVC workaround: needs extra expansion layer
 #define CPP_JSON_EXPAND(x) x
@@ -422,7 +597,7 @@ inline JsonValue to_json(const JsonValue& value) {
 #define CPP_JSON_CAT(a, b) CPP_JSON_CAT_IMPL(a, b)
 #define CPP_JSON_CAT_IMPL(a, b) a##b
 
-// Fixed macro hygiene with do-while(0) pattern (issue #14)
+// Macro hygiene: wrapped in do-while(0) to behave like statements
 #define CPP_JSON_TO_FIELD(field) \
     do { obj[#field] = to_json(value.field); } while(0)
 
@@ -470,7 +645,22 @@ inline JsonValue to_json(const JsonValue& value) {
 #define CPP_JSON_FOR_EACH(macro, ...) \
     CPP_JSON_EXPAND(CPP_JSON_CAT(CPP_JSON_APPLY_, CPP_JSON_ARG_COUNT(__VA_ARGS__))(macro, __VA_ARGS__))
 
-// Macro for non-intrusive serialization (struct defined outside class)
+/**
+ * @brief Define JSON serialization for a struct (non-intrusive)
+ * 
+ * Use this macro outside the struct definition to generate to_json and from_json
+ * functions. Supports up to 20 fields. All fields are required unless declared
+ * as std::optional.
+ * 
+ * @param Type The struct type name
+ * @param ... Field names (up to 20 fields)
+ * 
+ * Example:
+ * @code
+ * struct Point { int x, y; };
+ * CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Point, x, y)
+ * @endcode
+ */
 #define CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Type, ...)                                           \
 inline void to_json(JsonValue& j, const Type& value) {                                          \
     JsonObject obj;                                                                             \
@@ -483,7 +673,22 @@ inline void from_json(const JsonValue& j, Type& value) {                        
     CPP_JSON_FOR_EACH(CPP_JSON_FROM_FIELD, __VA_ARGS__)                                         \
 }
 
-// Macro for optional fields (all fields optional)
+/**
+ * @brief Define JSON serialization with all optional fields
+ * 
+ * Similar to CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE but treats all fields as optional.
+ * Missing fields in JSON will not cause errors; struct fields retain their
+ * existing values.
+ * 
+ * @param Type The struct type name
+ * @param ... Field names (up to 20 fields)
+ * 
+ * Example:
+ * @code
+ * struct Config { int port = 8080; std::string host = "localhost"; };
+ * CPP_JSON_DEFINE_TYPE_OPTIONAL(Config, port, host)
+ * @endcode
+ */
 #define CPP_JSON_DEFINE_TYPE_OPTIONAL(Type, ...)                                                \
 inline void to_json(JsonValue& j, const Type& value) {                                          \
     JsonObject obj;                                                                             \
@@ -496,7 +701,24 @@ inline void from_json(const JsonValue& j, Type& value) {                        
     CPP_JSON_FOR_EACH(CPP_JSON_FROM_FIELD_OPT, __VA_ARGS__)                                     \
 }
 
-// Macro for intrusive serialization (defined inside class as friend)
+/**
+ * @brief Define JSON serialization within a class (intrusive)
+ * 
+ * Use this macro inside a class definition to enable serialization of private
+ * members. The generated functions are declared as friends.
+ * 
+ * @param Type The class type name
+ * @param ... Field names, including private members (up to 20 fields)
+ * 
+ * Example:
+ * @code
+ * class Secret {
+ *     int value_;
+ * public:
+ *     CPP_JSON_DEFINE_TYPE_INTRUSIVE(Secret, value_)
+ * };
+ * @endcode
+ */
 #define CPP_JSON_DEFINE_TYPE_INTRUSIVE(Type, ...)                                               \
 friend void to_json(JsonValue& j, const Type& value) {                                          \
     JsonObject obj;                                                                             \
@@ -509,9 +731,25 @@ friend void from_json(const JsonValue& j, Type& value) {                        
     CPP_JSON_FOR_EACH(CPP_JSON_FROM_FIELD, __VA_ARGS__)                                         \
 }
 
+/** @} */ // end of macros group
+
 // ====================================================================
-// JSON Parser (Fixed issues #2, #3, #4)
+// JSON Parser
 // ====================================================================
+
+/**
+ * @defgroup parser JSON Parser Functions
+ * @brief Recursive descent parser for JSON strings
+ * 
+ * Implements a single-pass recursive descent parser with:
+ * - Full UTF-16 surrogate pair support
+ * - Configurable depth limits (default: 512 levels)
+ * - Position information in all error messages
+ * - Automatic int64_t vs double selection for numbers
+ * - Optional NaN/Infinity support (policy-controlled)
+ * 
+ * @{
+ */
 
 namespace detail {
     inline void skip_whitespace(std::string_view s, size_t& pos) noexcept {
@@ -523,7 +761,7 @@ namespace detail {
             throw std::runtime_error("JSON parse error: expected string at position " + std::to_string(pos));
         ++pos;
         std::string res;
-        res.reserve(64);  // Issue #5: reserve capacity to reduce allocations
+        res.reserve(64);  // Pre-allocate typical string size
         
         while (pos < s.size() && s[pos] != '"') {
             if (s[pos] == '\\') {
@@ -540,7 +778,7 @@ namespace detail {
                     case 'r': res += '\r'; break;
                     case 't': res += '\t'; break;
                     case 'u': {
-                        // Issue #2: Improved unicode handling with surrogate pair support
+                        // Unicode escape: \uXXXX with UTF-16 surrogate pair support
                         if (pos + 4 >= s.size()) 
                             throw std::runtime_error("JSON parse error: invalid unicode escape at position " + std::to_string(pos));
                         std::string hex = std::string(s.substr(pos + 1, 4));
@@ -609,11 +847,10 @@ namespace detail {
         return res;
     }
 
-    // Issue #3 & #4: Fixed number parsing - returns either int64_t or double
     inline JsonValue parse_number(std::string_view s, size_t& pos) {
         size_t start = pos;
         
-        // Issue #4: Handle NaN and Infinity (consolidated logic)
+        // Handle NaN and Infinity (non-standard JSON, policy-controlled)
         if (s.substr(pos, 3) == "NaN") {
             pos += 3;
             return std::numeric_limits<double>::quiet_NaN();
@@ -627,7 +864,7 @@ namespace detail {
             return -std::numeric_limits<double>::infinity();
         }
         
-        // Issue #3: Numbers can't start with '.' in JSON
+        // Numbers must start with digit or minus sign
         if (pos >= s.size() || (!std::isdigit(s[pos]) && s[pos] != '-')) {
             throw std::runtime_error("JSON parse error: invalid number at position " + std::to_string(pos));
         }
@@ -655,7 +892,7 @@ namespace detail {
         std::string num_str = std::string(s.substr(start, scan_pos - start));
         pos = scan_pos;
         
-        // Issue #9: Parse as int64_t if no decimal/exponent to preserve precision
+        // Parse as int64_t if no decimal/exponent to preserve integer precision
         if (!has_decimal && !has_exponent) {
             try {
                 int64_t int_val = std::stoll(num_str);
@@ -765,7 +1002,7 @@ namespace detail {
         if (s.substr(pos, 5) == "false") { pos += 5; return false; }
         if (s.substr(pos, 4) == "null") { pos += 4; return nullptr; }
         
-        // Issue #3 & #4: Fixed - numbers handled correctly
+        // Numbers (including optional NaN/Infinity)
         if (std::isdigit(c) || c == '-' || s.substr(pos, 3) == "NaN" || 
             s.substr(pos, 8) == "Infinity" || s.substr(pos, 9) == "-Infinity") {
             return parse_number(s, pos);
@@ -775,6 +1012,20 @@ namespace detail {
     }
 }  // namespace detail
 
+/**
+ * @brief Parse a JSON string into a JsonValue
+ * 
+ * Parses a complete JSON value from a string_view. The input must contain
+ * exactly one JSON value with no trailing data.
+ * 
+ * @tparam Policy Parsing policy (default: StandardJsonPolicy)
+ * @param json JSON string to parse
+ * @return JsonValue Parsed JSON value
+ * @throws std::runtime_error On parse errors with position information
+ * 
+ * @note Entire string must be consumed. Trailing whitespace is allowed but
+ *       trailing non-whitespace causes an error.
+ */
 template <typename Policy = StandardJsonPolicy>
 [[nodiscard]] inline JsonValue parse_json(std::string_view json) {
     size_t pos = 0;
@@ -785,9 +1036,25 @@ template <typename Policy = StandardJsonPolicy>
     return val;
 }
 
+/** @} */ // end of parser group
+
 // ====================================================================
-// to_json and from_json implementations (Issue #9, #12: Fixed validation)
+// Type Conversion Functions
 // ====================================================================
+
+/**
+ * @defgroup conversion Type Conversion Functions
+ * @brief Functions to convert between C++ types and JSON
+ * 
+ * Provides bidirectional conversion between C++ types and JsonValue:
+ * - to_json: Convert C++ type to JsonValue
+ * - from_json: Extract C++ type from JsonValue with validation
+ * 
+ * All numeric conversions include range checking and fractional part
+ * validation to prevent silent data loss.
+ * 
+ * @{
+ */
 
 // Forward declare for use in map deserialization
 template <typename T>
@@ -843,7 +1110,7 @@ inline JsonValue to_json(double value) noexcept { return value; }
 inline JsonValue to_json(const std::string& value) { return value; }
 inline JsonValue to_json(const char* value) { return std::string(value); }
 
-// Basic types - from_json (output parameter version) - Issue #12: Improved validation
+// Basic types - from_json (output parameter version with validation)
 inline void from_json(const JsonValue& j, bool& value) {
     if (!j.is_bool()) throw std::runtime_error("JSON type mismatch: expected bool");
     value = std::get<bool>(j);
@@ -1170,7 +1437,6 @@ void from_json(const JsonValue& j, std::optional<T>& opt) {
     }
 }
 
-// Issue #10, #11: Improved pair and tuple validation
 template <typename T1, typename T2>
 void from_json(const JsonValue& j, std::pair<T1, T2>& p) {
     if (!j.is_array()) throw std::runtime_error("JSON type mismatch: expected array for pair");
@@ -1218,10 +1484,25 @@ auto to_json(const T& value) -> decltype(to_json(std::declval<JsonValue&>(), val
     return j;
 }
 
+/** @} */ // end of conversion group
+
 // ====================================================================
-// File I/O (Issue #13: Improved error handling)
+// File I/O Functions
 // ====================================================================
 
+/**
+ * @defgroup fileio File I/O Functions
+ * @brief Functions for reading and writing JSON files
+ * @{
+ */
+
+/**
+ * @brief Load and parse a JSON file
+ * 
+ * @param filename Path to JSON file
+ * @return JsonValue Parsed JSON content
+ * @throws std::runtime_error If file cannot be opened or read, or JSON is invalid
+ */
 [[nodiscard]] inline JsonValue load_json_from_file(const std::string& filename) {
     std::ifstream ifs(filename, std::ios::binary);
     if (!ifs.is_open()) 
@@ -1232,6 +1513,15 @@ auto to_json(const T& value) -> decltype(to_json(std::declval<JsonValue&>(), val
     return parse_json(content);
 }
 
+/**
+ * @brief Save a JsonValue to a file
+ * 
+ * @tparam Policy Formatting policy (default: StandardJsonPolicy)
+ * @param filename Path to output file
+ * @param val JsonValue to save
+ * @param pretty Enable pretty printing (default: from policy)
+ * @throws std::runtime_error If file cannot be opened or written
+ */
 template <typename Policy = StandardJsonPolicy>
 inline void save_json_to_file(const std::string& filename, const JsonValue& val, bool pretty = Policy::pretty_print) {
     std::ofstream ofs(filename);
@@ -1242,10 +1532,20 @@ inline void save_json_to_file(const std::string& filename, const JsonValue& val,
         throw std::runtime_error("Error writing to file: " + filename);
 }
 
+/** @} */ // end of fileio group
+
 // ====================================================================
-// Convenience
+// Convenience Functions
 // ====================================================================
 
+/**
+ * @brief Parse JSON string and convert to type T
+ * 
+ * @tparam T Target type
+ * @param json_str JSON string
+ * @return T Deserialized value
+ * @throws std::runtime_error On parse or conversion errors
+ */
 template <typename T>
 [[nodiscard]] T from_json_string(std::string_view json_str) {
     JsonValue val = parse_json(json_str);
@@ -1291,7 +1591,7 @@ template<typename T>
 template<typename T, typename Policy = PrettyJsonPolicy>
 inline void save_params_with_backup(const std::string& filename, const T& params, 
                                    const std::string& backup_suffix = ".bak") {
-    // Issue #13: Improved backup file handling with error checks
+    // Check if file exists and create backup if so
     std::ifstream test(filename);
     if (test.good()) {
         test.close();
