@@ -17,7 +17,7 @@
  * @section features Features
  * - Header-only, C++17 compliant
  * - No dependencies beyond standard library
- * - Lock-free work stealing queues
+ * - Work stealing queues with fine-grained locking
  * - RAII lifecycle management
  * - Integration with Expected for error handling
  * - Policy-based design for extensibility
@@ -65,6 +65,7 @@
 #include <type_traits>
 #include <chrono>
 #include <algorithm>
+#include <random>
 
 namespace cpp_utilities {
 
@@ -136,10 +137,11 @@ inline std::atomic<uint64_t> Task::s_next_id{0};
 // ============================================================================
 
 /**
- * @brief Lock-free work stealing deque for per-thread task storage
+ * @brief Work stealing deque for per-thread task storage
  * 
- * Owner thread pushes/pops from bottom (LIFO for cache locality)
- * Thieves steal from top (FIFO to avoid contention)
+ * Uses mutex-based synchronization for thread-safe access.
+ * Owner thread pushes/pops from bottom (LIFO for cache locality).
+ * Thieves steal from top (FIFO to avoid contention).
  */
 class WorkStealingQueue {
 public:
@@ -209,6 +211,34 @@ private:
     std::deque<Task> m_tasks;
     mutable std::mutex m_mutex;
     std::atomic<size_t> m_size{0};
+};
+
+// ============================================================================
+// Cache-Line Aligned Queue Wrapper (Prevents False Sharing)
+// ============================================================================
+
+/**
+ * @brief Cache-line aligned wrapper for WorkStealingQueue
+ * @details Prevents false sharing by ensuring each queue is on its own cache line
+ */
+struct alignas(64) AlignedQueue {
+    WorkStealingQueue queue;
+    
+    // Explicit constructors
+    AlignedQueue() = default;
+    AlignedQueue(AlignedQueue&&) = default;
+    AlignedQueue& operator=(AlignedQueue&&) = default;
+    
+    // Non-copyable
+    AlignedQueue(const AlignedQueue&) = delete;
+    AlignedQueue& operator=(const AlignedQueue&) = delete;
+    
+    // Delegate operations
+    void push(Task task) { queue.push(std::move(task)); }
+    bool pop(Task& task) { return queue.pop(task); }
+    bool steal(Task& task) { return queue.steal(task); }
+    size_t size() const noexcept { return queue.size(); }
+    bool empty() const noexcept { return queue.empty(); }
 };
 
 // ============================================================================
@@ -465,13 +495,18 @@ private:
     }
     
     /**
-     * @brief Try to steal work from another thread
+     * @brief Try to steal work from another thread using random victim selection
+     * @details Uses random victim selection (proven in Intel TBB, Cilk) instead
+     *          of sequential selection to reduce contention hotspots
      */
     bool try_steal(Task& task, size_t my_idx) {
-        // Try stealing from random threads
-        for (size_t i = 0; i < m_num_threads; ++i) {
-            size_t victim_idx = (my_idx + i + 1) % m_num_threads;
-            if (m_worker_queues[victim_idx].steal(task)) {
+        thread_local std::mt19937 rng(std::random_device{}() + static_cast<unsigned int>(my_idx));
+        std::uniform_int_distribution<size_t> dist(0, m_num_threads - 1);
+        
+        // Try stealing from random victims
+        for (size_t attempt = 0; attempt < m_num_threads; ++attempt) {
+            size_t victim = dist(rng);
+            if (victim != my_idx && m_worker_queues[victim].steal(task)) {
                 return true;
             }
         }
@@ -496,8 +531,8 @@ private:
     // Worker threads
     std::vector<std::thread> m_workers;
     
-    // Per-thread work queues
-    std::vector<WorkStealingQueue> m_worker_queues;
+    // Per-thread work queues (cache-line aligned to prevent false sharing)
+    std::vector<AlignedQueue> m_worker_queues;
     
     // Global priority queue
     std::priority_queue<Task> m_global_queue;

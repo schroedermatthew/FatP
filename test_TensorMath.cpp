@@ -26,31 +26,31 @@ namespace cpp_utilities::testing
 // =============================================================================
 
 TEST_CASE(default_construction) {
-    Tensor<float, Vector<4>> v;
+    StaticTensor<float, Vector<4>, UncheckedPolicy> v;
     ASSERT_EQ(v[0], 0.0f, "Default construction should zero-initialize");
     return true;
 }
 
 TEST_CASE(scalar_broadcast) {
-    Tensor<int, Vector<3>> v(42);
+    StaticTensor<int, Vector<3>, UncheckedPolicy> v(42);
     ASSERT_TRUE(v[0] == 42 && v[1] == 42 && v[2] == 42, "Scalar constructor should broadcast");
     return true;
 }
 
 TEST_CASE(initializer_list_construction) {
-    Tensor<double, Vector<3>> v{1.0, 2.0, 3.0};
+    StaticTensor<double, Vector<3>, UncheckedPolicy> v{1.0, 2.0, 3.0};
     ASSERT_TRUE(v[0] == 1.0 && v[1] == 2.0 && v[2] == 3.0, "Initializer list construction");
     return true;
 }
 
 TEST_CASE(variadic_constructor) {
-    Tensor<float, Vector<4>> v{1.0f, 2.0f, 3.0f, 4.0f};
+    StaticTensor<float, Vector<4>, UncheckedPolicy> v{1.0f, 2.0f, 3.0f, 4.0f};
     ASSERT_TRUE(v[0] == 1.0f && v[3] == 4.0f, "Variadic constructor");
     return true;
 }
 
 TEST_CASE(matrix_construction) {
-    Tensor<int, Matrix<2, 3>> m{1, 2, 3, 4, 5, 6};
+    StaticTensor<int, Matrix<2, 3>, UncheckedPolicy> m{1, 2, 3, 4, 5, 6};
     ASSERT_TRUE(m.at(0, 0) == 1 && m.at(1, 2) == 6, "Matrix construction");
     return true;
 }
@@ -228,7 +228,7 @@ TEST_CASE(matrix_matrix_multiply) {
 }
 
 TEST_CASE(matrix_transpose) {
-    Tensor<float, Matrix<2, 3>> m{1.0f, 2.0f, 3.0f,
+    StaticTensor<float, Matrix<2, 3>, UncheckedPolicy> m{1.0f, 2.0f, 3.0f,
                                    4.0f, 5.0f, 6.0f};
     auto result = transpose(m);
     
@@ -244,7 +244,7 @@ TEST_CASE(outer_product) {
     auto result = outer(a, b);
     
     // [1]         [1*3  1*4]   [3  4]
-    // [2] ⊗ [3 4] [2*3  2*4] = [6  8]
+    // [2] âŠ— [3 4] [2*3  2*4] = [6  8]
     
     ASSERT_TRUE(result.at(0, 0) == 3.0f && result.at(0, 1) == 4.0f, "Outer product row 0");
     ASSERT_TRUE(result.at(1, 0) == 6.0f && result.at(1, 1) == 8.0f, "Outer product row 1");
@@ -305,8 +305,8 @@ TEST_CASE(normalize_produces_unit_vector) {
 #ifdef __AVX2__
 TEST_CASE(simd_addition) {
     constexpr size_t N = 16;
-    Tensor<float, Vector<N>, UncheckedPolicy> a;
-    Tensor<float, Vector<N>, UncheckedPolicy> b;
+    StaticTensor<float, Vector<N>, UncheckedPolicy> a;
+    StaticTensor<float, Vector<N>, UncheckedPolicy> b;
     
     for (size_t i = 0; i < N; ++i) {
         a[i] = static_cast<float>(i);
@@ -326,8 +326,8 @@ TEST_CASE(simd_addition) {
 
 TEST_CASE(simd_multiplication) {
     constexpr size_t N = 16;
-    Tensor<float, Vector<N>, UncheckedPolicy> a;
-    Tensor<float, Vector<N>, UncheckedPolicy> b;
+    StaticTensor<float, Vector<N>, UncheckedPolicy> a;
+    StaticTensor<float, Vector<N>, UncheckedPolicy> b;
     
     for (size_t i = 0; i < N; ++i) {
         a[i] = static_cast<float>(i);
@@ -347,8 +347,8 @@ TEST_CASE(simd_multiplication) {
 
 TEST_CASE(simd_dot_product) {
     constexpr size_t N = 16;
-    Tensor<float, Vector<N>, UncheckedPolicy> a;
-    Tensor<float, Vector<N>, UncheckedPolicy> b;
+    StaticTensor<float, Vector<N>, UncheckedPolicy> a;
+    StaticTensor<float, Vector<N>, UncheckedPolicy> b;
     
     for (size_t i = 0; i < N; ++i) {
         a[i] = static_cast<float>(i);
@@ -370,26 +370,26 @@ TEST_CASE(simd_dot_product) {
 // =============================================================================
 
 TEST_CASE(tensor_3d_size) {
-    Tensor<float, Tensor3<2, 3, 4>> t;
+    StaticTensor<float, Tensor3<2, 3, 4>, UncheckedPolicy> t;
     ASSERT_EQ(t.size, 24u, "3D tensor size");
     return true;
 }
 
 TEST_CASE(tensor_3d_indexing) {
-    Tensor<float, Tensor3<2, 3, 4>> t;
+    StaticTensor<float, Tensor3<2, 3, 4>, UncheckedPolicy> t;
     t.at(1, 2, 3) = 42.0f;
     ASSERT_EQ(t.at(1, 2, 3), 42.0f, "3D tensor indexing");
     return true;
 }
 
 TEST_CASE(tensor_4d_size) {
-    Tensor<int, Tensor4<2, 2, 2, 2>> t;
+    StaticTensor<int, Tensor4<2, 2, 2, 2>, UncheckedPolicy> t;
     ASSERT_EQ(t.size, 16u, "4D tensor size");
     return true;
 }
 
 TEST_CASE(tensor_4d_indexing) {
-    Tensor<int, Tensor4<2, 2, 2, 2>> t;
+    StaticTensor<int, Tensor4<2, 2, 2, 2>, UncheckedPolicy> t;
     
     for (size_t i = 0; i < 16; ++i) {
         t[i] = static_cast<int>(i);
@@ -464,8 +464,8 @@ void run_tensor_math_benchmarks() {
     // SIMD operations
     out << "\n" << colors::blue() << "--- SIMD Operations ---" << colors::reset() << "\n";
     {
-        Tensor<float, Vector<64>, UncheckedPolicy> a;
-        Tensor<float, Vector<64>, UncheckedPolicy> b;
+        StaticTensor<float, Vector<64>, UncheckedPolicy> a;
+        StaticTensor<float, Vector<64>, UncheckedPolicy> b;
         for (size_t i = 0; i < 64; ++i) {
             a[i] = static_cast<float>(i);
             b[i] = static_cast<float>(i * 2);
@@ -571,9 +571,9 @@ bool test_TensorMath() {
     RUN_TEST(runner, simd_addition);
     RUN_TEST(runner, simd_multiplication);
     RUN_TEST(runner, simd_dot_product);
-    out << "\n" << colors::green() << "✓ SIMD support detected and tested" << colors::reset() << "\n";
+    out << "\n" << colors::green() << "âœ“ SIMD support detected and tested" << colors::reset() << "\n";
 #else
-    out << "\n" << colors::yellow() << "⚠ SIMD tests skipped (no AVX2 support)" << colors::reset() << "\n";
+    out << "\n" << colors::yellow() << "âš  SIMD tests skipped (no AVX2 support)" << colors::reset() << "\n";
 #endif
     
     // Higher-Order Tensors

@@ -23,7 +23,7 @@
  *
  * @performance
  * - Vector operations: 0.3-1.0 ns per element (SIMD)
- * - Matrix multiply (NxN): ~O(N³) with SIMD acceleration
+ * - Matrix multiply (NxN): ~O(NÂ³) with SIMD acceleration
  * - Checked policy: +2-5 ns overhead per operation
  *
  * Requires: C++17, CheckedArithmetic.h (for checked policies)
@@ -196,7 +196,7 @@ template<size_t D1, size_t D2, size_t D3, size_t D4> using Tensor4 = Shape<D1, D
  * @tparam Policy Arithmetic policy (UncheckedPolicy, CheckedPolicy, SaturatingArithmeticPolicy)
  */
 template<typename T, typename ShapeT, typename Policy = UncheckedPolicy>
-class Tensor {
+class StaticTensor {
 public:
     using value_type = T;
     using shape_type = ShapeT;
@@ -209,19 +209,19 @@ public:
     alignas(32) std::array<T, size> data_;
     
     // Constructors
-    constexpr Tensor() : data_{} {}
+    constexpr StaticTensor() : data_{} {}
     
-    constexpr explicit Tensor(T scalar) {
+    constexpr explicit StaticTensor(T scalar) {
         data_.fill(scalar);
     }
     
-    constexpr Tensor(std::initializer_list<T> init) {
+    constexpr StaticTensor(std::initializer_list<T> init) {
         always_enforce(init.size() == size, "Initializer size mismatch");
         std::copy(init.begin(), init.end(), data_.begin());
     }
     
     template<typename... Args>
-    constexpr explicit Tensor(Args... args) : data_{static_cast<T>(args)...} {
+    constexpr explicit StaticTensor(Args... args) : data_{static_cast<T>(args)...} {
         static_assert(sizeof...(args) == size, "Argument count must match tensor size");
     }
     
@@ -274,8 +274,8 @@ private:
  * @brief Element-wise addition
  */
 template<typename T, typename S, typename P>
-constexpr Tensor<T, S, P> operator+(const Tensor<T, S, P>& a, const Tensor<T, S, P>& b) {
-    Tensor<T, S, P> result;
+constexpr StaticTensor<T, S, P> operator+(const StaticTensor<T, S, P>& a, const StaticTensor<T, S, P>& b) {
+    StaticTensor<T, S, P> result;
     for (size_t i = 0; i < S::size; ++i) {
         result[i] = P::add(a[i], b[i]);
     }
@@ -286,8 +286,8 @@ constexpr Tensor<T, S, P> operator+(const Tensor<T, S, P>& a, const Tensor<T, S,
  * @brief Element-wise subtraction
  */
 template<typename T, typename S, typename P>
-constexpr Tensor<T, S, P> operator-(const Tensor<T, S, P>& a, const Tensor<T, S, P>& b) {
-    Tensor<T, S, P> result;
+constexpr StaticTensor<T, S, P> operator-(const StaticTensor<T, S, P>& a, const StaticTensor<T, S, P>& b) {
+    StaticTensor<T, S, P> result;
     for (size_t i = 0; i < S::size; ++i) {
         result[i] = P::sub(a[i], b[i]);
     }
@@ -298,8 +298,8 @@ constexpr Tensor<T, S, P> operator-(const Tensor<T, S, P>& a, const Tensor<T, S,
  * @brief Element-wise multiplication (Hadamard product)
  */
 template<typename T, typename S, typename P>
-constexpr Tensor<T, S, P> operator*(const Tensor<T, S, P>& a, const Tensor<T, S, P>& b) {
-    Tensor<T, S, P> result;
+constexpr StaticTensor<T, S, P> operator*(const StaticTensor<T, S, P>& a, const StaticTensor<T, S, P>& b) {
+    StaticTensor<T, S, P> result;
     for (size_t i = 0; i < S::size; ++i) {
         result[i] = P::mul(a[i], b[i]);
     }
@@ -310,8 +310,8 @@ constexpr Tensor<T, S, P> operator*(const Tensor<T, S, P>& a, const Tensor<T, S,
  * @brief Element-wise division
  */
 template<typename T, typename S, typename P>
-constexpr Tensor<T, S, P> operator/(const Tensor<T, S, P>& a, const Tensor<T, S, P>& b) {
-    Tensor<T, S, P> result;
+constexpr StaticTensor<T, S, P> operator/(const StaticTensor<T, S, P>& a, const StaticTensor<T, S, P>& b) {
+    StaticTensor<T, S, P> result;
     for (size_t i = 0; i < S::size; ++i) {
         result[i] = P::div(a[i], b[i]);
     }
@@ -322,8 +322,8 @@ constexpr Tensor<T, S, P> operator/(const Tensor<T, S, P>& a, const Tensor<T, S,
  * @brief Scalar multiplication
  */
 template<typename T, typename S, typename P>
-constexpr Tensor<T, S, P> operator*(const Tensor<T, S, P>& tensor, T scalar) {
-    Tensor<T, S, P> result;
+constexpr StaticTensor<T, S, P> operator*(const StaticTensor<T, S, P>& tensor, T scalar) {
+    StaticTensor<T, S, P> result;
     for (size_t i = 0; i < S::size; ++i) {
         result[i] = P::mul(tensor[i], scalar);
     }
@@ -331,7 +331,7 @@ constexpr Tensor<T, S, P> operator*(const Tensor<T, S, P>& tensor, T scalar) {
 }
 
 template<typename T, typename S, typename P>
-constexpr Tensor<T, S, P> operator*(T scalar, const Tensor<T, S, P>& tensor) {
+constexpr StaticTensor<T, S, P> operator*(T scalar, const StaticTensor<T, S, P>& tensor) {
     return tensor * scalar;
 }
 
@@ -339,8 +339,8 @@ constexpr Tensor<T, S, P> operator*(T scalar, const Tensor<T, S, P>& tensor) {
  * @brief Scalar division
  */
 template<typename T, typename S, typename P>
-constexpr Tensor<T, S, P> operator/(const Tensor<T, S, P>& tensor, T scalar) {
-    Tensor<T, S, P> result;
+constexpr StaticTensor<T, S, P> operator/(const StaticTensor<T, S, P>& tensor, T scalar) {
+    StaticTensor<T, S, P> result;
     for (size_t i = 0; i < S::size; ++i) {
         result[i] = P::div(tensor[i], scalar);
     }
@@ -351,8 +351,8 @@ constexpr Tensor<T, S, P> operator/(const Tensor<T, S, P>& tensor, T scalar) {
  * @brief Unary negation
  */
 template<typename T, typename S, typename P>
-constexpr Tensor<T, S, P> operator-(const Tensor<T, S, P>& tensor) {
-    Tensor<T, S, P> result;
+constexpr StaticTensor<T, S, P> operator-(const StaticTensor<T, S, P>& tensor) {
+    StaticTensor<T, S, P> result;
     for (size_t i = 0; i < S::size; ++i) {
         result[i] = P::sub(T{0}, tensor[i]);
     }
@@ -370,10 +370,10 @@ constexpr Tensor<T, S, P> operator-(const Tensor<T, S, P>& tensor) {
  * @details Uses AVX2 for 8-wide SIMD (256-bit).
  */
 template<size_t N>
-inline Tensor<float, Vector<N>, UncheckedPolicy> 
-simd_mul(const Tensor<float, Vector<N>, UncheckedPolicy>& a,
-         const Tensor<float, Vector<N>, UncheckedPolicy>& b) {
-    Tensor<float, Vector<N>, UncheckedPolicy> result;
+inline StaticTensor<float, Vector<N>, UncheckedPolicy> 
+simd_mul(const StaticTensor<float, Vector<N>, UncheckedPolicy>& a,
+         const StaticTensor<float, Vector<N>, UncheckedPolicy>& b) {
+    StaticTensor<float, Vector<N>, UncheckedPolicy> result;
     
     constexpr size_t simd_width = 8;
     constexpr size_t simd_blocks = N / simd_width;
@@ -396,8 +396,8 @@ simd_mul(const Tensor<float, Vector<N>, UncheckedPolicy>& a,
  * @brief SIMD-optimized dot product for float vectors
  */
 template<size_t N>
-inline float simd_dot(const Tensor<float, Vector<N>, UncheckedPolicy>& a,
-                      const Tensor<float, Vector<N>, UncheckedPolicy>& b) {
+inline float simd_dot(const StaticTensor<float, Vector<N>, UncheckedPolicy>& a,
+                      const StaticTensor<float, Vector<N>, UncheckedPolicy>& b) {
     constexpr size_t simd_width = 8;
     constexpr size_t simd_blocks = N / simd_width;
     
@@ -434,7 +434,7 @@ inline float simd_dot(const Tensor<float, Vector<N>, UncheckedPolicy>& a,
  * @brief Dot product (inner product) for vectors
  */
 template<typename T, size_t N, typename P>
-constexpr T dot(const Tensor<T, Vector<N>, P>& a, const Tensor<T, Vector<N>, P>& b) {
+constexpr T dot(const StaticTensor<T, Vector<N>, P>& a, const StaticTensor<T, Vector<N>, P>& b) {
     T result = T{0};
     for (size_t i = 0; i < N; ++i) {
         result = P::add(result, P::mul(a[i], b[i]));
@@ -444,12 +444,12 @@ constexpr T dot(const Tensor<T, Vector<N>, P>& a, const Tensor<T, Vector<N>, P>&
 
 /**
  * @brief Matrix-vector multiplication
- * @details (M×N) @ (N×1) → (M×1)
+ * @details (MÃ—N) @ (NÃ—1) â†’ (MÃ—1)
  */
 template<typename T, size_t M, size_t N, typename P>
-constexpr Tensor<T, Vector<M>, P> 
-matvec(const Tensor<T, Matrix<M, N>, P>& mat, const Tensor<T, Vector<N>, P>& vec) {
-    Tensor<T, Vector<M>, P> result;
+constexpr StaticTensor<T, Vector<M>, P> 
+matvec(const StaticTensor<T, Matrix<M, N>, P>& mat, const StaticTensor<T, Vector<N>, P>& vec) {
+    StaticTensor<T, Vector<M>, P> result;
     for (size_t i = 0; i < M; ++i) {
         T sum = T{0};
         for (size_t j = 0; j < N; ++j) {
@@ -462,12 +462,12 @@ matvec(const Tensor<T, Matrix<M, N>, P>& mat, const Tensor<T, Vector<N>, P>& vec
 
 /**
  * @brief Matrix-matrix multiplication
- * @details (M×K) @ (K×N) → (M×N)
+ * @details (MÃ—K) @ (KÃ—N) â†’ (MÃ—N)
  */
 template<typename T, size_t M, size_t K, size_t N, typename P>
-constexpr Tensor<T, Matrix<M, N>, P> 
-matmul(const Tensor<T, Matrix<M, K>, P>& a, const Tensor<T, Matrix<K, N>, P>& b) {
-    Tensor<T, Matrix<M, N>, P> result;
+constexpr StaticTensor<T, Matrix<M, N>, P> 
+matmul(const StaticTensor<T, Matrix<M, K>, P>& a, const StaticTensor<T, Matrix<K, N>, P>& b) {
+    StaticTensor<T, Matrix<M, N>, P> result;
     for (size_t i = 0; i < M; ++i) {
         for (size_t j = 0; j < N; ++j) {
             T sum = T{0};
@@ -484,8 +484,8 @@ matmul(const Tensor<T, Matrix<M, K>, P>& a, const Tensor<T, Matrix<K, N>, P>& b)
  * @brief Transpose a matrix
  */
 template<typename T, size_t M, size_t N, typename P>
-constexpr Tensor<T, Matrix<N, M>, P> transpose(const Tensor<T, Matrix<M, N>, P>& mat) {
-    Tensor<T, Matrix<N, M>, P> result;
+constexpr StaticTensor<T, Matrix<N, M>, P> transpose(const StaticTensor<T, Matrix<M, N>, P>& mat) {
+    StaticTensor<T, Matrix<N, M>, P> result;
     for (size_t i = 0; i < M; ++i) {
         for (size_t j = 0; j < N; ++j) {
             result.at(j, i) = mat.at(i, j);
@@ -496,12 +496,12 @@ constexpr Tensor<T, Matrix<N, M>, P> transpose(const Tensor<T, Matrix<M, N>, P>&
 
 /**
  * @brief Outer product (tensor product) of two vectors
- * @details (M×1) ⊗ (N×1) → (M×N)
+ * @details (MÃ—1) âŠ— (NÃ—1) â†’ (MÃ—N)
  */
 template<typename T, size_t M, size_t N, typename P>
-constexpr Tensor<T, Matrix<M, N>, P> 
-outer(const Tensor<T, Vector<M>, P>& a, const Tensor<T, Vector<N>, P>& b) {
-    Tensor<T, Matrix<M, N>, P> result;
+constexpr StaticTensor<T, Matrix<M, N>, P> 
+outer(const StaticTensor<T, Vector<M>, P>& a, const StaticTensor<T, Vector<N>, P>& b) {
+    StaticTensor<T, Matrix<M, N>, P> result;
     for (size_t i = 0; i < M; ++i) {
         for (size_t j = 0; j < N; ++j) {
             result.at(i, j) = P::mul(a[i], b[j]);
@@ -518,7 +518,7 @@ outer(const Tensor<T, Vector<M>, P>& a, const Tensor<T, Vector<N>, P>& b) {
  * @brief Sum of all elements
  */
 template<typename T, typename S, typename P>
-constexpr T sum(const Tensor<T, S, P>& tensor) {
+constexpr T sum(const StaticTensor<T, S, P>& tensor) {
     T result = T{0};
     for (size_t i = 0; i < S::size; ++i) {
         result = P::add(result, tensor[i]);
@@ -530,7 +530,7 @@ constexpr T sum(const Tensor<T, S, P>& tensor) {
  * @brief Mean of all elements
  */
 template<typename T, typename S, typename P>
-constexpr T mean(const Tensor<T, S, P>& tensor) {
+constexpr T mean(const StaticTensor<T, S, P>& tensor) {
     return P::div(sum(tensor), static_cast<T>(S::size));
 }
 
@@ -538,7 +538,7 @@ constexpr T mean(const Tensor<T, S, P>& tensor) {
  * @brief Maximum element
  */
 template<typename T, typename S, typename P>
-constexpr T max(const Tensor<T, S, P>& tensor) {
+constexpr T max(const StaticTensor<T, S, P>& tensor) {
     return *std::max_element(tensor.begin(), tensor.end());
 }
 
@@ -546,7 +546,7 @@ constexpr T max(const Tensor<T, S, P>& tensor) {
  * @brief Minimum element
  */
 template<typename T, typename S, typename P>
-constexpr T min(const Tensor<T, S, P>& tensor) {
+constexpr T min(const StaticTensor<T, S, P>& tensor) {
     return *std::min_element(tensor.begin(), tensor.end());
 }
 
@@ -554,7 +554,7 @@ constexpr T min(const Tensor<T, S, P>& tensor) {
  * @brief L2 norm (Euclidean norm)
  */
 template<typename T, size_t N, typename P>
-T norm(const Tensor<T, Vector<N>, P>& vec) {
+T norm(const StaticTensor<T, Vector<N>, P>& vec) {
     T sum_sq = T{0};
     for (size_t i = 0; i < N; ++i) {
         sum_sq = P::add(sum_sq, P::mul(vec[i], vec[i]));
@@ -566,9 +566,9 @@ T norm(const Tensor<T, Vector<N>, P>& vec) {
  * @brief Normalize vector to unit length
  */
 template<typename T, size_t N, typename P>
-Tensor<T, Vector<N>, P> normalize(const Tensor<T, Vector<N>, P>& vec) {
+StaticTensor<T, Vector<N>, P> normalize(const StaticTensor<T, Vector<N>, P>& vec) {
     T n = norm(vec);
-    Tensor<T, Vector<N>, P> result;
+    StaticTensor<T, Vector<N>, P> result;
     for (size_t i = 0; i < N; ++i) {
         result[i] = P::div(vec[i], n);
     }
@@ -580,14 +580,14 @@ Tensor<T, Vector<N>, P> normalize(const Tensor<T, Vector<N>, P>& vec) {
 // =============================================================================
 
 // Common vector types
-template<typename T, typename P = UncheckedPolicy> using Vec2 = Tensor<T, Vector<2>, P>;
-template<typename T, typename P = UncheckedPolicy> using Vec3 = Tensor<T, Vector<3>, P>;
-template<typename T, typename P = UncheckedPolicy> using Vec4 = Tensor<T, Vector<4>, P>;
+template<typename T, typename P = UncheckedPolicy> using Vec2 = StaticTensor<T, Vector<2>, P>;
+template<typename T, typename P = UncheckedPolicy> using Vec3 = StaticTensor<T, Vector<3>, P>;
+template<typename T, typename P = UncheckedPolicy> using Vec4 = StaticTensor<T, Vector<4>, P>;
 
 // Common matrix types
-template<typename T, typename P = UncheckedPolicy> using Mat2x2 = Tensor<T, Matrix<2, 2>, P>;
-template<typename T, typename P = UncheckedPolicy> using Mat3x3 = Tensor<T, Matrix<3, 3>, P>;
-template<typename T, typename P = UncheckedPolicy> using Mat4x4 = Tensor<T, Matrix<4, 4>, P>;
+template<typename T, typename P = UncheckedPolicy> using Mat2x2 = StaticTensor<T, Matrix<2, 2>, P>;
+template<typename T, typename P = UncheckedPolicy> using Mat3x3 = StaticTensor<T, Matrix<3, 3>, P>;
+template<typename T, typename P = UncheckedPolicy> using Mat4x4 = StaticTensor<T, Matrix<4, 4>, P>;
 
 // Float specializations
 using Vec2f = Vec2<float>;

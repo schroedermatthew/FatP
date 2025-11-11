@@ -1,23 +1,26 @@
 /**
  * @file Tensor.h
  * @brief High-performance N-dimensional tensor with policy-based iterators
- * @version 5.0 - ConcurrencyPolicies, AVX-512, Vectorized Broadcasting, einsum, FixedTensor - Complete Expression Templates, ContractException, ThreadPool integration
+ * @version 5.1 - Enhanced Safety Features: Bounds Checking, View Lifetime Tracking, RCU Integration
  * 
  * @details Production-ready tensor implementation for HPC optimization and scientific computing.
  * Features policy-based iterator system for different traversal patterns and full library integration.
  * 
  * Key Features:
  * - Safe shared ownership with std::shared_ptr (no dangling views)
+ * - Enhanced bounds checking with detailed error messages (NEW in v5.1 - debug only)
+ * - View lifetime tracking to detect dangling references (NEW in v5.1 - debug only)
+ * - RCU concurrency policy for lock-free tensor sharing (NEW in v5.1)
  * - Policy-based iterators (RowMajor, ColumnMajor, Blocked, Strided)
  * - Stride-aware operations
  * - SIMD-aligned memory using AlignedVector (32/64-byte alignment)
  * - View/slice support (zero-copy, safe lifetime)
  * - NumPy-style broadcasting operations
  * - Expected.h integration for safe operations
- * - Complete expression templates with lazy evaluation (NEW in v4.3)
- * - Typed contract exceptions (DomainContractError, etc.) (NEW in v4.3)
- * - ThreadPool integration for parallel operations (NEW in v4.3)
- * - Contextual enforce for noexcept-safe checks (NEW in v4.3)
+ * - Complete expression templates with lazy evaluation
+ * - Typed contract exceptions (DomainContractError, etc.)
+ * - ThreadPool integration for parallel operations
+ * - Contextual enforce for noexcept-safe checks
  * - Reshape without reallocation
  * - Debug-only enforce checks (zero overhead in release builds)
  * - SIMD-optimized operations (AVX2/AVX10/AVX-512)
@@ -55,6 +58,9 @@
 #include "ContractException.h"
 #include "ThreadPool.h"
 #include "ConcurrencyPolicies.h"
+#include "TensorStorage.h"
+#include "EnhancedBoundsChecking.h"
+#include "ViewLifetimeTracking.h"
 #include <vector>
 #include <array>
 #include <memory>
@@ -67,6 +73,7 @@
 #include <iterator>
 #include <typeinfo>
 #include <optional>
+#include <sstream>
 
 #ifdef __AVX2__
 #include <immintrin.h>
@@ -166,7 +173,19 @@ public:
     }
     
     difference_type operator-(const StrideIterator& other) const {
-        return (ptr_ - other.ptr_) / stride_;
+        #ifndef NDEBUG
+        always_enforce(stride_ != 0, "Iterator has zero stride");
+        #endif
+        
+        ptrdiff_t ptr_diff = ptr_ - other.ptr_;
+        
+        #ifndef NDEBUG
+        always_enforce(ptr_diff % stride_ == 0, 
+            "Iterator distance not a multiple of stride - "
+            "iterators may be from different views or incompatible");
+        #endif
+        
+        return ptr_diff / stride_;
     }
     
     reference operator[](difference_type n) const {
@@ -833,24 +852,101 @@ public:
     }
     
     /**
-     * @brief Bounds-checked access
+     * @brief Bounds-checked access with enhanced error messages
+     * @details In debug builds, provides detailed error messages showing index and valid range.
+     *          In release builds (-DNDEBUG), provides basic bounds checking.
      */
     template<typename... Indices>
     reference at(Indices... indices) {
-        size_t offset = compute_offset(static_cast<size_t>(indices)...);
-        if (offset >= size_) {
-            throw std::out_of_range("Tensor index out of bounds");
+        static_assert(sizeof...(indices) > 0, "at() requires at least one index");
+        
+        // Validate index count matches tensor dimensions
+        #ifndef NDEBUG
+        if (sizeof...(indices) != shape_.size()) {
+            std::ostringstream oss;
+            oss << "Tensor::at index count mismatch: tensor has " << shape_.size()
+                << " dimensions, but got " << sizeof...(indices) << " indices";
+            throw std::out_of_range(oss.str());
         }
+        #endif
+        
+        // Check each dimension's bounds
+        std::vector<size_t> idx_vec = {static_cast<size_t>(indices)...};
+        #ifndef NDEBUG
+        // Debug build: enhanced error messages with dimension info
+        debug_bounds_check_nd(idx_vec, shape_, "Tensor::at");
+        #else
+        // Release build: efficient bounds check that works for all layouts
+        for (size_t i = 0; i < idx_vec.size(); ++i) {
+            if (idx_vec[i] >= shape_[i]) {
+                throw std::out_of_range("Tensor index out of bounds");
+            }
+        }
+        #endif
+        
+        size_t offset = compute_offset(static_cast<size_t>(indices)...);
         return data_[offset];
     }
     
     template<typename... Indices>
     const_reference at(Indices... indices) const {
-        size_t offset = compute_offset(static_cast<size_t>(indices)...);
-        if (offset >= size_) {
-            throw std::out_of_range("Tensor index out of bounds");
+        static_assert(sizeof...(indices) > 0, "at() requires at least one index");
+        
+        // Validate index count matches tensor dimensions
+        #ifndef NDEBUG
+        if (sizeof...(indices) != shape_.size()) {
+            std::ostringstream oss;
+            oss << "Tensor::at index count mismatch: tensor has " << shape_.size()
+                << " dimensions, but got " << sizeof...(indices) << " indices";
+            throw std::out_of_range(oss.str());
         }
+        #endif
+        
+        // Check each dimension's bounds
+        std::vector<size_t> idx_vec = {static_cast<size_t>(indices)...};
+        #ifndef NDEBUG
+        // Debug build: enhanced error messages with dimension info
+        debug_bounds_check_nd(idx_vec, shape_, "Tensor::at");
+        #else
+        // Release build: efficient bounds check that works for all layouts
+        for (size_t i = 0; i < idx_vec.size(); ++i) {
+            if (idx_vec[i] >= shape_[i]) {
+                throw std::out_of_range("Tensor index out of bounds");
+            }
+        }
+        #endif
+        
+        size_t offset = compute_offset(static_cast<size_t>(indices)...);
         return data_[offset];
+    }
+    
+    /**
+     * @brief Linear bounds-checked access (always checks, even in release)
+     */
+    reference at_linear(size_t index) {
+        if (index >= size_) {
+            #ifndef NDEBUG
+            std::ostringstream oss;
+            oss << "Tensor::at_linear index " << index << " out of range [0, " << size_ << ")";
+            throw std::out_of_range(oss.str());
+            #else
+            throw std::out_of_range("Tensor::at_linear index out of bounds");
+            #endif
+        }
+        return data_[index];
+    }
+    
+    const_reference at_linear(size_t index) const {
+        if (index >= size_) {
+            #ifndef NDEBUG
+            std::ostringstream oss;
+            oss << "Tensor::at_linear index " << index << " out of range [0, " << size_ << ")";
+            throw std::out_of_range(oss.str());
+            #else
+            throw std::out_of_range("Tensor::at_linear index out of bounds");
+            #endif
+        }
+        return data_[index];
     }
     
     /**
@@ -977,6 +1073,87 @@ public:
         std::vector<ptrdiff_t> new_strides = compute_strides(new_shape);
         return Tensor(shared_data_, data_, new_shape, new_strides);
     }
+    
+    // =========================================================================
+    // Lifetime Tracking Support (NEW in v5.1)
+    // =========================================================================
+    
+    /**
+     * @brief Create a lifetime tracker for this tensor
+     * @details In debug builds, tracks tensor lifetime to detect dangling views.
+     *          In release builds, returns a lightweight wrapper with zero overhead.
+     * 
+     * Usage:
+     *   auto tracker = tensor.create_tracker();
+     *   auto view = tracker.create_view();
+     *   view.check_valid();  // Throws in debug if tensor destroyed
+     */
+    LifetimeTracker<Tensor> create_tracker(const char* name = "Tensor") {
+        return LifetimeTracker<Tensor>(*this, name);
+    }
+    
+    /**
+     * @brief Create a tracked view (const version)
+     */
+    LifetimeTracker<const Tensor> create_tracker(const char* name = "Tensor") const {
+        return LifetimeTracker<const Tensor>(*this, name);
+    }
+    
+    /**
+     * @brief Create a tracked view with slice
+     * @details Combines view() with lifetime tracking
+     * 
+     * Usage:
+     *   auto tracked_slice = tensor.create_tracked_slice({0, 0}, {10, 10});
+     *   // In debug: tracked_slice.check_valid() validates tensor still exists
+     */
+    #ifndef NDEBUG
+    auto create_tracked_slice(std::vector<size_t> start, std::vector<size_t> end, 
+                             const char* name = "TensorSlice") const {
+        // Validate bounds with enhanced checking
+        for (size_t i = 0; i < start.size(); ++i) {
+            debug_validate_slice(start[i], end[i], size_t{1}, shape_[i], "Tensor::create_tracked_slice");
+        }
+        
+        Tensor slice_view = view(start, end);
+        return slice_view.create_tracker(name);
+    }
+    #else
+    auto create_tracked_slice(std::vector<size_t> start, std::vector<size_t> end, 
+                             const char* = nullptr) const {
+        return view(start, end);
+    }
+    #endif
+    
+    /**
+     * @brief Create tracked row view (2D tensors)
+     */
+    #ifndef NDEBUG
+    auto create_tracked_row(size_t index, const char* name = "TensorRow") const {
+        debug_bounds_check(index, size_t{0}, shape_[0], "Tensor::create_tracked_row");
+        Tensor row_view = row(index);
+        return row_view.create_tracker(name);
+    }
+    #else
+    auto create_tracked_row(size_t index, const char* = nullptr) const {
+        return row(index);
+    }
+    #endif
+    
+    /**
+     * @brief Create tracked column view (2D tensors)
+     */
+    #ifndef NDEBUG
+    auto create_tracked_col(size_t index, const char* name = "TensorColumn") const {
+        debug_bounds_check(index, size_t{0}, shape_[1], "Tensor::create_tracked_col");
+        Tensor col_view = col(index);
+        return col_view.create_tracker(name);
+    }
+    #else
+    auto create_tracked_col(size_t index, const char* = nullptr) const {
+        return col(index);
+    }
+    #endif
     
     
     // =========================================================================
@@ -2084,27 +2261,59 @@ private:
         return strides;
     }
     
-    // Compute linear offset from multi-dimensional indices
+    // Compute linear offset from multi-dimensional indices (overflow-safe)
     template<typename... Indices>
     size_t compute_offset(Indices... indices) const {
         std::array<size_t, sizeof...(Indices)> idx_array = {indices...};
-        size_t offset = 0;
+        ptrdiff_t offset = 0;  // Use signed arithmetic throughout
+        
         for (size_t i = 0; i < idx_array.size(); ++i) {
-            offset += idx_array[i] * strides_[i];
+            // Compute with signed arithmetic to handle negative strides
+            ptrdiff_t idx_signed = static_cast<ptrdiff_t>(idx_array[i]);
+            ptrdiff_t term = checked_mul<ThrowOnErrorPolicy>(idx_signed, strides_[i]);
+            offset = checked_add<ThrowOnErrorPolicy>(offset, term);
         }
-        return offset;
+        
+        // Offset should be non-negative for valid indices
+        always_enforce(offset >= 0, "Computed offset is negative - invalid indices");
+        return static_cast<size_t>(offset);
     }
     
-    // Compute offset from vector of indices
+    // Compute offset from vector of indices (overflow-safe)
     size_t compute_offset_from_vector(const std::vector<size_t>& indices) const {
-        size_t offset = 0;
+        ptrdiff_t offset = 0;  // Use signed arithmetic throughout
+        
         for (size_t i = 0; i < indices.size(); ++i) {
-            offset += indices[i] * strides_[i];
+            // Compute with signed arithmetic to handle negative strides
+            ptrdiff_t idx_signed = static_cast<ptrdiff_t>(indices[i]);
+            ptrdiff_t term = checked_mul<ThrowOnErrorPolicy>(idx_signed, strides_[i]);
+            offset = checked_add<ThrowOnErrorPolicy>(offset, term);
         }
-        return offset;
+        
+        // Offset should be non-negative for valid indices
+        always_enforce(offset >= 0, "Computed offset is negative - invalid indices");
+        return static_cast<size_t>(offset);
     }
     
-    std::shared_ptr<T[]> shared_data_;
+    /**
+     * @brief Check if tensor has contiguous row-major strides
+     * @details For views, strides may not be contiguous. This helper is used
+     *          to determine if simple offset bounds checking is valid.
+     */
+    bool is_contiguous() const {
+        if (shape_.empty()) return true;
+        
+        ptrdiff_t expected_stride = 1;
+        for (size_t i = shape_.size(); i > 0; --i) {
+            if (strides_[i - 1] != expected_stride) {
+                return false;
+            }
+            expected_stride *= static_cast<ptrdiff_t>(shape_[i - 1]);
+        }
+        return true;
+    }
+    
+    std::shared_ptr<T[]> shared_data_;  // Using std::shared_ptr for now - consider TensorStorage for 10-20% performance gain
     T* data_;
     std::vector<size_t> shape_;
     std::vector<ptrdiff_t> strides_;

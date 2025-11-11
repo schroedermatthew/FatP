@@ -919,12 +919,270 @@ TEST_CASE(parallel_threshold) {
 }
 
 // =============================================================================
+// v5.1 Tests - Enhanced Safety Features
+// =============================================================================
+
+bool test_enhanced_bounds_checking() {
+    Tensor<double> mat({10, 20});
+    
+    // Valid access
+    try {
+        mat.at(5, 10) = 42.0;
+        SIMPLE_ASSERT(mat.at(5, 10) == 42.0, "Valid at() should work");
+    } catch (...) {
+        SIMPLE_ASSERT(false, "Valid access should not throw");
+        return false;
+    }
+    
+    // Invalid access - out of bounds
+    bool caught_error = false;
+    try {
+        mat.at(15, 25) = 99.0;
+    } catch (const std::out_of_range& e) {
+        caught_error = true;
+        #ifndef NDEBUG
+        std::string msg = e.what();
+        SIMPLE_ASSERT(msg.find("dimension") != std::string::npos ||
+                     msg.find("out of range") != std::string::npos,
+                     "Error message should be detailed in debug mode");
+        #endif
+    }
+    SIMPLE_ASSERT(caught_error, "Should throw on out of bounds access");
+    
+    #ifndef NDEBUG
+    bool caught_dimension_error = false;
+    try {
+        mat.at(5);  // Only 1 index for 2D tensor
+    } catch (const std::out_of_range& e) {
+        caught_dimension_error = true;
+        std::string msg = e.what();
+        SIMPLE_ASSERT(msg.find("mismatch") != std::string::npos,
+                     "Should mention dimension mismatch");
+    }
+    SIMPLE_ASSERT(caught_dimension_error, "Should throw on dimension mismatch");
+    #endif
+    
+    return true;
+}
+
+bool test_at_linear() {
+    Tensor<int> vec({100});
+    
+    // Valid linear access
+    try {
+        vec.at_linear(50) = 42;
+        SIMPLE_ASSERT(vec.at_linear(50) == 42, "at_linear should work");
+    } catch (...) {
+        SIMPLE_ASSERT(false, "Valid linear access should not throw");
+        return false;
+    }
+    
+    // Invalid linear access
+    bool caught_error = false;
+    try {
+        vec.at_linear(150) = 99;
+    } catch (const std::out_of_range& e) {
+        caught_error = true;
+    }
+    SIMPLE_ASSERT(caught_error, "Should throw on out of bounds");
+    
+    // Test with const tensor
+    const Tensor<int> const_vec({50});
+    try {
+        int val = const_vec.at_linear(25);
+        (void)val;
+    } catch (...) {
+        SIMPLE_ASSERT(false, "Const linear access should work");
+        return false;
+    }
+    
+    return true;
+}
+
+bool test_lifetime_tracking_integration() {
+    #ifndef NDEBUG
+    {
+        Tensor<double> tensor({10, 10}, 1.0);
+        auto tracker = tensor.create_tracker("test_tensor");
+        auto view = tracker.create_view();
+        
+        SIMPLE_ASSERT(view.is_valid(), "View should be valid while tensor exists");
+        SIMPLE_ASSERT((*view)(5, 5) == 1.0, "View should access tensor data");
+    }
+    
+    {
+        Tensor<double> tensor({20, 30});
+        auto slice = tensor.create_tracked_slice({5, 5}, {15, 25}, "slice");
+    }
+    
+    {
+        Tensor<double> mat({50, 100});
+        auto row = mat.create_tracked_row(25, "row_25");
+        auto col = mat.create_tracked_col(75, "col_75");
+    }
+    
+    {
+        Tensor<double> mat({10, 10});
+        bool caught_error = false;
+        try {
+            auto row = mat.create_tracked_row(15, "invalid_row");
+        } catch (const std::out_of_range&) {
+            caught_error = true;
+        }
+        SIMPLE_ASSERT(caught_error, "Should catch invalid row index");
+    }
+    #else
+    Tensor<double> tensor({10, 10});
+    auto slice = tensor.create_tracked_slice({0, 0}, {5, 5});
+    auto row = tensor.create_tracked_row(5);
+    auto col = tensor.create_tracked_col(5);
+    SIMPLE_ASSERT(slice.size() == 25, "Slice should have correct size");
+    #endif
+    
+    return true;
+}
+
+bool test_rcu_tensor_integration() {
+    #if defined(CPP_UTILITIES_USE_ATOMIC) && defined(CPP_UTILITIES_USE_SHARED_MUTEX)
+    
+    {
+        RCUPolicy<Tensor<double>> rcu_tensor(Tensor<double>({10, 10}));
+        
+        {
+            auto guard = rcu_tensor.write();
+            guard.update([](Tensor<double>& t) { t.fill(42.0); });
+        }
+        
+        {
+            auto guard = rcu_tensor.read();
+            const auto& t = *guard;
+            SIMPLE_ASSERT(t(5, 5) == 42.0, "RCU read should work");
+        }
+    }
+    
+    {
+        RCUPolicy<Tensor<float>> weights(Tensor<float>({100, 100}));
+        
+        {
+            auto guard = weights.write();
+            guard.update([](Tensor<float>& w) {
+                for (size_t i = 0; i < w.size(); ++i) {
+                    w[i] = static_cast<float>(i) * 0.01f;
+                }
+            });
+        }
+        
+        {
+            auto guard = weights.read();
+            const auto& w = *guard;
+            SIMPLE_ASSERT(std::abs(w[0] - 0.0f) < 0.001f, "First element should be ~0");
+            SIMPLE_ASSERT(std::abs(w[100] - 1.0f) < 0.001f, "Element 100 should be ~1");
+        }
+    }
+    
+    #endif
+    
+    return true;
+}
+
+bool test_v51_safety_comprehensive() {
+    {
+        Tensor<int> tensor3d({5, 6, 7});
+        
+        try {
+            tensor3d.at(2, 3, 4) = 100;
+            SIMPLE_ASSERT(tensor3d.at(2, 3, 4) == 100, "3D access should work");
+        } catch (...) {
+            SIMPLE_ASSERT(false, "Valid 3D access should not throw");
+            return false;
+        }
+        
+        bool caught = false;
+        try {
+            tensor3d.at(5, 6, 7) = 200;
+        } catch (const std::out_of_range&) {
+            caught = true;
+        }
+        SIMPLE_ASSERT(caught, "Should catch 3D out of bounds");
+    }
+    
+    {
+        Tensor<double> mat({100, 200});
+        mat.fill(1.0);
+        auto view = mat.view({10, 10}, {20, 20});
+        
+        try {
+            view.at(5, 5) = 42.0;
+            SIMPLE_ASSERT(view.at(5, 5) == 42.0, "View at() should work");
+        } catch (...) {
+            SIMPLE_ASSERT(false, "Valid view access should work");
+            return false;
+        }
+    }
+    
+    {
+        Tensor<float> small({10});
+        Tensor<float> medium({1000});
+        
+        try {
+            small.at_linear(9) = 1.0f;
+            medium.at_linear(999) = 2.0f;
+            
+            SIMPLE_ASSERT(small.at_linear(9) == 1.0f, "Small tensor access");
+            SIMPLE_ASSERT(medium.at_linear(999) == 2.0f, "Medium tensor access");
+        } catch (...) {
+            SIMPLE_ASSERT(false, "Valid linear access should work");
+            return false;
+        }
+    }
+    
+    {
+        const Tensor<double> const_tensor({5, 5}, 42.0);
+        
+        try {
+            double val = const_tensor.at(2, 3);
+            SIMPLE_ASSERT(val == 42.0, "Const at() should work");
+            
+            val = const_tensor.at_linear(12);
+            SIMPLE_ASSERT(val == 42.0, "Const at_linear() should work");
+        } catch (...) {
+            SIMPLE_ASSERT(false, "Const access should work");
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+bool test_v51_zero_overhead_release() {
+    #ifdef NDEBUG
+    Tensor<double> tensor({100, 100});
+    
+    try {
+        tensor.at(50, 50) = 1.0;
+        tensor.at_linear(5000) = 2.0;
+    } catch (...) {
+        SIMPLE_ASSERT(false, "Basic operations should work in release");
+        return false;
+    }
+    
+    auto tracker = tensor.create_tracker();
+    auto slice = tensor.create_tracked_slice({0, 0}, {10, 10});
+    auto row = tensor.create_tracked_row(50);
+    auto col = tensor.create_tracked_col(75);
+    #endif
+    
+    return true;
+}
+
+
+// =============================================================================
 // Main Test Runner
 // =============================================================================
 
 bool test_Tensor() {
-    using namespace cpp_utilities::testing;  // Bring test functions into scope
-    PRINT_HEADER(TENSOR WITH ITERATOR POLICIES - v4.3)
+    using namespace cpp_utilities::testing;
+    PRINT_HEADER(TENSOR WITH ITERATOR POLICIES - v5.1)
     
     using cpp_utilities::testing::TestRunner;
     TestRunner runner;
@@ -970,6 +1228,14 @@ bool test_Tensor() {
     RUN_TEST(runner, parallel_operations);
     RUN_TEST(runner, contract_exceptions);
     RUN_TEST(runner, parallel_threshold);
+    
+    // v5.1 tests - Enhanced Safety Features
+    RUN_TEST(runner, enhanced_bounds_checking);
+    RUN_TEST(runner, at_linear);
+    RUN_TEST(runner, lifetime_tracking_integration);
+    RUN_TEST(runner, rcu_tensor_integration);
+    RUN_TEST(runner, v51_safety_comprehensive);
+    RUN_TEST(runner, v51_zero_overhead_release);
     
     // Run benchmarks
     benchmark_iterators();

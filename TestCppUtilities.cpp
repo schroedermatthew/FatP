@@ -39,6 +39,7 @@
 #include "test_DiagnosticLogger.h"
 #include "test_Enforce.h"
 #include "test_EnforcedInit.h"
+#include "test_EnhancedBoundsChecking.h"
 #include "test_EnumPlus.h"
 #include "test_EqualityComparisons.h"
 #include "test_Expected.h"
@@ -57,6 +58,7 @@
 #include "test_NumaAllocator.h"
 #include "test_ObjectPool.h"
 #include "test_PipeOperator.h"
+#include "test_RCU_integration.h"
 #include "test_RateLimiter.h"
 #include "test_Reflection.h"
 #include "test_ScopeGuard.h"
@@ -75,11 +77,13 @@
 #include "test_TensorEinsum.h"
 #include "test_TensorMath.h"
 #include "test_TensorSerialization.h"
+#include "test_TensorStorage.h"
 #include "test_ThreadPool.h"
 #include "test_TypeTraits.h"
 #include "test_UltraLoggers.h"
 #include "test_Utilities.h"
 #include "test_ValueGuard.h"
+#include "test_ViewLifetimeTracking.h"
 
 
 int main() {
@@ -120,6 +124,7 @@ int main() {
     RUN_AND_RECORD(test_DiagnosticLogger);
     RUN_AND_RECORD(test_Enforce);
     RUN_AND_RECORD(test_EnforcedInit);
+    RUN_AND_RECORD(test_EnhancedBoundsChecking);
     RUN_AND_RECORD(test_EnumPlus);
     RUN_AND_RECORD(test_EqualityComparisons);
     RUN_AND_RECORD(test_Expected);
@@ -139,6 +144,7 @@ int main() {
     RUN_AND_RECORD(test_ObjectPool);
     RUN_AND_RECORD(test_PipeOperator);
     RUN_AND_RECORD(test_RateLimiter);
+    RUN_AND_RECORD(test_RCU_integration);
     RUN_AND_RECORD(test_Reflection);
     RUN_AND_RECORD(test_ScopeGuard);
     RUN_AND_RECORD(test_SimdVector);
@@ -156,10 +162,12 @@ int main() {
     RUN_AND_RECORD(test_TensorEinsum);
     RUN_AND_RECORD(test_TensorMath);
     RUN_AND_RECORD(test_TensorSerialization);
+    RUN_AND_RECORD(test_TensorStorage);
     RUN_AND_RECORD(test_ThreadPool);
     RUN_AND_RECORD(test_TypeTraits);
     RUN_AND_RECORD(test_UltraLoggers);
     RUN_AND_RECORD(test_ValueGuard);
+    RUN_AND_RECORD(test_ViewLifetimeTracking);
 
 #undef RUN_AND_RECORD
 
