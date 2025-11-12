@@ -938,7 +938,7 @@ bool test_enhanced_bounds_checking() {
     bool caught_error = false;
     try {
         mat.at(15, 25) = 99.0;
-    } catch (const std::out_of_range& e) {
+    } catch (const std::out_of_range&) {
         caught_error = true;
         #ifndef NDEBUG
         std::string msg = e.what();
@@ -981,7 +981,7 @@ bool test_at_linear() {
     bool caught_error = false;
     try {
         vec.at_linear(150) = 99;
-    } catch (const std::out_of_range& e) {
+    } catch (const std::out_of_range&) {
         caught_error = true;
     }
     SIMPLE_ASSERT(caught_error, "Should throw on out of bounds");

@@ -46,12 +46,12 @@
 #include "test_Factory.h"
 #include "test_FastHashMap.h"
 #include "test_FeatureManager.h"
-#include "test_FixedTensor.h"
 #include "test_FlatMap.h"
 #include "test_FlatSet.h"
+#include "test_FloatingPointComparison.h"
 #include "test_IdGenerator.h"
 #include "test_IntrusiveList.h"
-#include "test_JsonLite.h"
+#include "JsonLiteTests.h"
 #include "test_LockFreeQueue.h"
 #include "test_LockFreeRingBuffer.h"
 #include "test_MemoryMappedFile.h"
@@ -131,9 +131,9 @@ int main() {
     RUN_AND_RECORD(test_Factory);
     RUN_AND_RECORD(test_FastHashMap);
     RUN_AND_RECORD(test_FeatureManager);
-    RUN_AND_RECORD(test_FixedTensor);
     RUN_AND_RECORD(test_FlatMap);
     RUN_AND_RECORD(test_FlatSet);
+    RUN_AND_RECORD(test_FloatingPointComparison);
     RUN_AND_RECORD(test_IdGenerator);
     RUN_AND_RECORD(test_IntrusiveList);
     RUN_AND_RECORD(test_JsonLite);

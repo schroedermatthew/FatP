@@ -131,6 +131,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="JsonLiteTests.cpp" />
     <ClCompile Include="TestCppUtilities.cpp" />
     <ClCompile Include="test_AdaptiveIterator.cpp" />
     <ClCompile Include="test_AlignedVector.cpp" />
@@ -152,18 +153,18 @@
     <ClCompile Include="test_DiagnosticLogger.cpp" />
     <ClCompile Include="test_Enforce.cpp" />
     <ClCompile Include="test_EnforcedInit.cpp" />
+    <ClCompile Include="test_EnhancedBoundsChecking.cpp" />
     <ClCompile Include="test_EnumPlus.cpp" />
     <ClCompile Include="test_EqualityComparisons.cpp" />
     <ClCompile Include="test_Expected.cpp" />
     <ClCompile Include="test_Factory.cpp" />
     <ClCompile Include="test_FastHashMap.cpp" />
     <ClCompile Include="test_FeatureManager.cpp" />
-    <ClCompile Include="test_FixedTensor.cpp" />
     <ClCompile Include="test_FlatMap.cpp" />
     <ClCompile Include="test_FlatSet.cpp" />
+    <ClCompile Include="test_FloatingPointComparison.cpp" />
     <ClCompile Include="test_IdGenerator.cpp" />
     <ClCompile Include="test_IntrusiveList.cpp" />
-    <ClCompile Include="test_JsonLite.cpp" />
     <ClCompile Include="test_LockFreeQueue.cpp" />
     <ClCompile Include="test_LockFreeRingBuffer.cpp" />
     <ClCompile Include="test_MemoryMappedFile.cpp" />
@@ -171,6 +172,7 @@
     <ClCompile Include="test_ObjectPool.cpp" />
     <ClCompile Include="test_PipeOperator.cpp" />
     <ClCompile Include="test_RateLimiter.cpp" />
+    <ClCompile Include="test_RCU_integration.cpp" />
     <ClCompile Include="test_Reflection.cpp" />
     <ClCompile Include="test_ScopeGuard.cpp" />
     <ClCompile Include="test_SimdVector.cpp" />
@@ -188,10 +190,12 @@
     <ClCompile Include="test_TensorEinsum.cpp" />
     <ClCompile Include="test_TensorMath.cpp" />
     <ClCompile Include="test_TensorSerialization.cpp" />
+    <ClCompile Include="test_TensorStorage.cpp" />
     <ClCompile Include="test_ThreadPool.cpp" />
     <ClCompile Include="test_TypeTraits.cpp" />
     <ClCompile Include="test_UltraLoggers.cpp" />
     <ClCompile Include="test_ValueGuard.cpp" />
+    <ClCompile Include="test_ViewLifetimeTracking.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AdaptiveIterator.h" />
@@ -221,6 +225,7 @@
     <ClInclude Include="enforce_predicates.h" />
     <ClInclude Include="enforce_raisers.h" />
     <ClInclude Include="enforce_raiser_selector.h" />
+    <ClInclude Include="EnhancedBoundsChecking.h" />
     <ClInclude Include="EnumPlus.h" />
     <ClInclude Include="EqualityAny.h" />
     <ClInclude Include="EqualityComparisons.h" />
@@ -233,9 +238,11 @@
     <ClInclude Include="FixedTensor.h" />
     <ClInclude Include="FlatMap.h" />
     <ClInclude Include="FlatSet.h" />
+    <ClInclude Include="FloatingPointComparison.h" />
     <ClInclude Include="IdGenerator.h" />
     <ClInclude Include="IntrusiveList.h" />
     <ClInclude Include="JsonLite.h" />
+    <ClInclude Include="JsonLiteTests.h" />
     <ClInclude Include="LockFreeQueue.h" />
     <ClInclude Include="LockFreeRingBuffer.h" />
     <ClInclude Include="LoggerAsync.h" />
@@ -260,6 +267,7 @@
     <ClInclude Include="Tensor.h" />
     <ClInclude Include="TensorEinsum.h" />
     <ClInclude Include="TensorMath.h" />
+    <ClInclude Include="TensorStorage.h" />
     <ClInclude Include="test_AdaptiveIterator.h" />
     <ClInclude Include="test_AlignedVector.h" />
     <ClInclude Include="test_AllocationStrategy.h" />
@@ -280,18 +288,18 @@
     <ClInclude Include="test_DiagnosticLogger.h" />
     <ClInclude Include="test_Enforce.h" />
     <ClInclude Include="test_EnforcedInit.h" />
+    <ClInclude Include="test_EnhancedBoundsChecking.h" />
     <ClInclude Include="test_EnumPlus.h" />
     <ClInclude Include="test_EqualityComparisons.h" />
     <ClInclude Include="test_Expected.h" />
     <ClInclude Include="test_Factory.h" />
     <ClInclude Include="test_FastHashMap.h" />
     <ClInclude Include="test_FeatureManager.h" />
-    <ClInclude Include="test_FixedTensor.h" />
     <ClInclude Include="test_FlatMap.h" />
     <ClInclude Include="test_FlatSet.h" />
+    <ClInclude Include="test_FloatingPointComparison.h" />
     <ClInclude Include="test_IdGenerator.h" />
     <ClInclude Include="test_IntrusiveList.h" />
-    <ClInclude Include="test_JsonLite.h" />
     <ClInclude Include="test_LockFreeQueue.h" />
     <ClInclude Include="test_LockFreeRingBuffer.h" />
     <ClInclude Include="test_MemoryMappedFile.h" />
@@ -299,6 +307,7 @@
     <ClInclude Include="test_ObjectPool.h" />
     <ClInclude Include="test_PipeOperator.h" />
     <ClInclude Include="test_RateLimiter.h" />
+    <ClInclude Include="test_RCU_integration.h" />
     <ClInclude Include="test_Reflection.h" />
     <ClInclude Include="test_ScopeGuard.h" />
     <ClInclude Include="test_SimdVector.h" />
@@ -317,11 +326,13 @@
     <ClInclude Include="test_TensorEinsum.h" />
     <ClInclude Include="test_TensorMath.h" />
     <ClInclude Include="test_TensorSerialization.h" />
+    <ClInclude Include="test_TensorStorage.h" />
     <ClInclude Include="test_ThreadPool.h" />
     <ClInclude Include="test_TypeTraits.h" />
     <ClInclude Include="test_UltraLoggers.h" />
     <ClInclude Include="test_Utilities.h" />
     <ClInclude Include="test_ValueGuard.h" />
+    <ClInclude Include="test_ViewLifetimeTracking.h" />
     <ClInclude Include="ThreadPool.h" />
     <ClInclude Include="TypeTraits.h" />
     <ClInclude Include="ValueGuard.h" />
@@ -329,6 +340,7 @@
     <ClInclude Include="ScopeGuardPolicies.h" />
     <ClInclude Include="SortedContainer.h" />
     <ClInclude Include="StateMachine.h" />
+    <ClInclude Include="ViewLifetimeTracking.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

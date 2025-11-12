@@ -81,9 +81,6 @@
     <ClCompile Include="test_SortedContainer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="test_JsonLite.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="test_UltraLoggers.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -195,7 +192,22 @@
     <ClCompile Include="test_TensorEinsum.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="test_FixedTensor.cpp">
+    <ClCompile Include="test_TensorStorage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test_ViewLifetimeTracking.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test_RCU_integration.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test_EnhancedBoundsChecking.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="JsonLiteTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test_FloatingPointComparison.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -354,9 +366,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="test_SortedContainer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="test_JsonLite.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="LoggerAsync.h">
@@ -596,13 +605,40 @@
     <ClInclude Include="test_TensorEinsum.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="test_FixedTensor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="TensorEinsum.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="FixedTensor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="test_TensorStorage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TensorStorage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ViewLifetimeTracking.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="test_ViewLifetimeTracking.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="test_RCU_integration.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="test_EnhancedBoundsChecking.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="EnhancedBoundsChecking.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="JsonLiteTests.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="test_FloatingPointComparison.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FloatingPointComparison.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
