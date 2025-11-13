@@ -16,7 +16,6 @@
 #include <atomic>
 
 #include "Stringify.h"
-#include "test_Stringify.h"
 #include "test_Utilities.h"
 
 namespace cpp_utilities::testing {
@@ -78,18 +77,18 @@ bool test_trait_return_type_checking() {
     SIMPLE_ASSERT(!has_to_string_method_v<NonStreamable>, 
                   "Should NOT detect non-existent method");
     
-    std::cout << colors::green() << "  ✓ Trait return type checking fixed" 
+    std::cout << colors::green() << "  Trait return type checking fixed" 
               << colors::reset() << std::endl;
     
     return true;
 }
 
 // =============================================================================
-// Test Suite 2: Fast Path Performance (CRITICAL FIX)
+// Test Suite 2: Fast Path Performance
 // =============================================================================
 
 bool test_integer_fast_path_performance() {
-    std::cout << colors::cyan() << "Testing integer fast path performance (CRITICAL FIX)..." 
+    std::cout << colors::cyan() << "Testing integer fast path performance..." 
               << colors::reset() << std::endl;
     
     constexpr size_t ITERATIONS = 1000000;
@@ -125,10 +124,10 @@ bool test_integer_fast_path_performance() {
                   "toString should be within 2x of std::to_string");
     
     if (optimized_ns / baseline_ns < 1.5) {
-        out << colors::green() << "  ✓ EXCELLENT: Fast path matches std::to_string!" 
+        out << colors::green() << "  EXCELLENT: Fast path matches std::to_string!" 
             << colors::reset() << "\n";
     } else {
-        out << colors::yellow() << "  ⚠ ACCEPTABLE: Fast path within 2x of std::to_string" 
+        out << colors::yellow() << "  ACCEPTABLE: Fast path within 2x of std::to_string" 
             << colors::reset() << "\n";
     }
     
@@ -158,7 +157,7 @@ bool test_integer_types_fast_path() {
     ASSERT_EQ(toString(std::numeric_limits<int>::min()), 
               std::to_string(std::numeric_limits<int>::min()), "int min");
     
-    std::cout << colors::green() << "  ✓ All integer types use fast path" 
+    std::cout << colors::green() << "  All integer types use fast path" 
               << colors::reset() << std::endl;
     
     return true;
@@ -202,7 +201,7 @@ bool test_container_stringification() {
     ASSERT_TRUE(nested_str.find("[[") != std::string::npos, "Nested containers");
     std::cout << "  Nested: " << nested_str << "\n";
     
-    std::cout << colors::green() << "  ✓ Container stringification working" 
+    std::cout << colors::green() << "  Container stringification working" 
               << colors::reset() << std::endl;
     
     return true;
@@ -235,7 +234,7 @@ bool test_container_options() {
     ASSERT_TRUE(depth_str.find("<max depth>") != std::string::npos, 
                 "Should hit max depth");
     
-    std::cout << colors::green() << "  ✓ Container options working" 
+    std::cout << colors::green() << "  Container options working" 
               << colors::reset() << std::endl;
     
     return true;
@@ -260,7 +259,7 @@ bool test_wide_string_support() {
     // Should contain "true" or "1"
     ASSERT_TRUE(!wstr3.empty(), "Wide bool conversion");
     
-    std::cout << colors::green() << "  ✓ Wide string support working" 
+    std::cout << colors::green() << "  Wide string support working" 
               << colors::reset() << std::endl;
     
     return true;
@@ -290,7 +289,7 @@ bool test_enhanced_padding() {
     auto center_pad = toStringPadded(42, 6, '^', '.');
     ASSERT_EQ(center_pad, "..42..", "Center align custom char");
     
-    std::cout << colors::green() << "  ✓ Enhanced padding working" 
+    std::cout << colors::green() << "  Enhanced padding working" 
               << colors::reset() << std::endl;
     
     return true;
@@ -310,7 +309,7 @@ bool test_variadic_concatenation() {
     
     std::cout << "  Result: " << result << "\n";
     
-    std::cout << colors::green() << "  ✓ Variadic concatenation working" 
+    std::cout << colors::green() << "  Variadic concatenation working" 
               << colors::reset() << std::endl;
     
     return true;
@@ -362,7 +361,7 @@ bool test_backward_compatibility() {
     
     ASSERT_EQ(toStringPointer(static_cast<int*>(nullptr)), "nullptr", "nullptr");
     
-    std::cout << colors::green() << "  ✓ All backward compatibility maintained" 
+    std::cout << colors::green() << "  All backward compatibility maintained" 
               << colors::reset() << std::endl;
     
     return true;
@@ -435,10 +434,10 @@ void run_stringify_performance_benchmarks() {
     }
     
     out << "\n" << colors::green() << "Performance Summary:" << colors::reset() << "\n";
-    out << "  ✓ Integer toString() now matches std::to_string performance\n";
-    out << "  ✓ Fast path eliminates 40x overhead from stringstream\n";
-    out << "  ✓ Container support adds minimal overhead\n";
-    out << "  ✓ All operations remain zero-allocation where possible\n";
+    out << "  Integer toString() now matches std::to_string performance\n";
+    out << "  Fast path eliminates 40x overhead from stringstream\n";
+    out << "  Container support adds minimal overhead\n";
+    out << "  All operations remain zero-allocation where possible\n";
     out << "\n";
 }
 
@@ -513,6 +512,13 @@ bool test_Stringify() {
                   << e.what() << std::endl;
         return false;
     }
+
+    return true;
 }
 
 } // namespace cpp_utilities::testing
+
+//int main()
+//{
+//    return cpp_utilities::testing::test_Stringify() ? 0 : 1;
+//}

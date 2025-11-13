@@ -101,13 +101,20 @@ struct Company {
 };
 CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Company, name, departments, metadata)
 
-struct Max20Fields {
+struct Max50Fields {
     int f1, f2, f3, f4, f5, f6, f7, f8, f9, f10;
     int f11, f12, f13, f14, f15, f16, f17, f18, f19, f20;
+    int f21, f22, f23, f24, f25, f26, f27, f28, f29, f30;
+    int f31, f32, f33, f34, f35, f36, f37, f38, f39, f40;
+    int f41, f42, f43, f44, f45, f46, f47, f48, f49, f50;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Max20Fields, 
+
+CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Max50Fields, 
     f1, f2, f3, f4, f5, f6, f7, f8, f9, f10,
-    f11, f12, f13, f14, f15, f16, f17, f18, f19, f20)
+    f11, f12, f13, f14, f15, f16, f17, f18, f19, f20,
+    f21, f22, f23, f24, f25, f26, f27, f28, f29, f30,
+    f31, f32, f33, f34, f35, f36, f37, f38, f39, f40,
+    f41, f42, f43, f44, f45, f46, f47, f48, f49, f50)
 
 struct TestBasic { int x; };
 CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(TestBasic, x)
@@ -1931,7 +1938,7 @@ bool test_json_lite_field_limit() {
     SIMPLE_ASSERT(back.f50 == 50, "Field 50 should serialize correctly");
     SIMPLE_ASSERT(back.f1 == 1, "Field 1 should serialize correctly");
     
-    std::cout << " 20 fields work correctly\n";
+    std::cout << " 50 fields work correctly\n";
     std::cout << " Note: 51+ fields will produce a clear compile-time error message\n";
     
     return true;
@@ -2057,7 +2064,7 @@ bool test_json_lite_bug4_error_context() {
                   "Error should include position information");
     
     std::cout << "  Error message: " << error_msg << "\n";
-    std::cout << "  ✓ Position information IS provided in error messages\n";
+    std::cout << "  Position information IS provided in error messages\n";
     
     return true;
 }
@@ -2071,9 +2078,9 @@ bool test_json_lite_bug5_fixed_arrays() {
     SIMPLE_ASSERT(back.values[2] == 3, "std::array deserializes correctly");
     SIMPLE_ASSERT(std::abs(back.coords[0] - 3.14) < 1e-5, "double array works");
     
-    std::cout << "  ✓ std::array works perfectly\n";
-    std::cout << "  ℹ C-style arrays (int x[5]) are not supported by design\n";
-    std::cout << "  ℹ Modern C++ recommendation: use std::array instead\n";
+    std::cout << "  std::array works perfectly\n";
+    std::cout << "  C-style arrays (int x[5]) are not supported by design\n";
+    std::cout << "  Modern C++ recommendation: use std::array instead\n";
     
     return true;
 }
@@ -2090,11 +2097,11 @@ bool test_json_lite_bug6_policy_incompatibility() {
     bool policy_respected = (std_json != low_json);
     
     if (policy_respected) {
-        std::cout << "  ✓ Policies are respected by macros\n";
-        std::cout << "  ✓ PolicyContext system working correctly\n";
+        std::cout << "  Policies are respected by macros\n";
+        std::cout << "  PolicyContext system working correctly\n";
     } else {
-        std::cout << "  ✗ Policies are ignored\n";
-        std::cout << "  ✗ Expected different precision, got identical output\n";
+        std::cout << "  Policies are ignored\n";
+        std::cout << "  Expected different precision, got identical output\n";
     }
     
     SIMPLE_ASSERT(policy_respected, "Custom policies must be respected by macro-generated functions");
@@ -2119,8 +2126,8 @@ bool test_json_lite_bug6_policy_fix_verification() {
     SIMPLE_ASSERT(json4.length() < json8.length(), "Higher precision should produce longer output");
     SIMPLE_ASSERT(json8.length() < json16.length(), "Higher precision should produce longer output");
     
-    std::cout << "  ✓ All precision levels produce different output\n";
-    std::cout << "  ✓ PolicyContext system fully functional\n";
+    std::cout << "  All precision levels produce different output\n";
+    std::cout << "  PolicyContext system fully functional\n";
     
     return true;
 }
@@ -2288,7 +2295,7 @@ bool test_JsonLite() {
     RUN_TEST(runner, json_lite_position_in_errors);
     RUN_TEST(runner, json_lite_error_messages_comprehensive);
     
-    RUN_TEST(runner, json_lite_bug1_field_limit);
+    RUN_TEST(runner, json_lite_field_limit);
     RUN_TEST(runner, json_lite_bug2_name_collision);
     RUN_TEST(runner, json_lite_bug2_collision_prevention);
     RUN_TEST(runner, json_lite_numeric_formatting);

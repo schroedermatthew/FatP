@@ -210,6 +210,9 @@
     <ClCompile Include="test_FloatingPointComparison.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="test_CppUtilitiesTypeTraits.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AllocationStrategy.h">
@@ -639,6 +642,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="FloatingPointComparison.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="test_CppUtilitiesTypeTraits.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CppUtilitiesTypeTraits.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

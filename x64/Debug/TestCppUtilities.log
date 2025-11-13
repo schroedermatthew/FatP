@@ -1,21 +1,57 @@
 ﻿  TestCppUtilities.cpp
   test_AdaptiveIterator.cpp
+  test_AllocationStrategy.cpp
+  test_AsyncOperations.cpp
   test_AtomicReference.cpp
+  test_BenchmarkHarness.cpp
+  test_BinarySerializer.cpp
+  test_BitSet.cpp
   test_CheckedArithmetic.cpp
+  test_CircularBuffer.cpp
   test_ConcurrencyPolicies.cpp
   test_ConstexprUtilities.cpp
   test_ContractException.cpp
+  test_CoroutineTask.cpp
+  test_DebugOnly.cpp
   test_DiagnosticLogger.cpp
   test_Enforce.cpp
   test_EnforcedInit.cpp
+  test_EnumPlus.cpp
   test_EqualityComparisons.cpp
+  Generating Code...
+  Compiling...
   test_Expected.cpp
   test_Factory.cpp
+  test_FastHashMap.cpp
+  test_FeatureManager.cpp
+  test_FlatMap.cpp
+  test_FlatSet.cpp
+  test_IdGenerator.cpp
+  test_IntrusiveList.cpp
+  test_JsonLite.cpp
+  test_LockFreeQueue.cpp
+  test_LockFreeRingBuffer.cpp
+  test_MemoryMappedFile.cpp
+  test_ObjectPool.cpp
+  test_PipeOperator.cpp
+  test_RateLimiter.cpp
+  test_Reflection.cpp
   test_ScopeGuard.cpp
+  test_SlotMap.cpp
+  test_SmallVector.cpp
+  test_SortedContainer.cpp
+  Generating Code...
+  Compiling...
+  test_SparseSet.cpp
+  test_Stacktrace.cpp
+  test_StateMachine.cpp
   test_Stringify.cpp
+  test_StringPool.cpp
   test_StrongId.cpp
+  test_TensorMath.cpp
+  test_ThreadPool.cpp
   test_TypeTraits.cpp
+  test_UltraLoggers.cpp
   test_ValueGuard.cpp
   Generating Code...
-C:\Users\Fat Penelope\Desktop\code\TestCppUtilities\TestCppUtilities\test_AtomicReference.cpp(343,1): warning C4715: '`cpp_utilities::testing::test_wait_notify_basic'::`2'::<lambda_1>::operator()': not all control paths return a value
   TestCppUtilities.vcxproj -> C:\Users\Fat Penelope\Desktop\code\TestCppUtilities\x64\Debug\TestCppUtilities.exe

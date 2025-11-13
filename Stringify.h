@@ -1,12 +1,4 @@
-// Stringify.h - Optimized Version v2.0
-// CHANGES:
-// - FIX: Fast path for built-in integers (40x performance improvement)
-// - FIX: Trait return type checking (prevents late compilation errors)
-// - NEW: Container/iterable support with recursive stringification
-// - NEW: Enhanced padding with custom characters
-// - NEW: Wide string support (toWString)
-// - NEW: Locale support in options
-// - IMPROVED: Better floating-point handling
+// Stringify.h
 #pragma once
 
 #include <string>
@@ -17,9 +9,60 @@
 #include <limits>
 #include <locale>
 #include <iterator>
-#include <cstdint>  // For std::uintptr_t
+#include <cstdint>
+#include <codecvt>
+#include <locale>
 
 #include "TypeTraits.h"
+
+// Check if TypeTraits.h detected C++20 features
+#if CPP_UTILITIES_HAS_CPP20
+    #include <format>
+    #include <string_view>
+#endif
+
+/**
+ * @file Stringify.h
+ * @brief Utility library for robust and flexible type-to-string conversion in C++17/20.
+ *
+ * Provides functions to convert various types (built-in, streamable, containers,
+ * custom types with specific member functions) into std::string, with support
+ * for formatting options, wide strings, and error handling.
+ * 
+ * @section thread_safety Thread Safety
+ * 
+ * All functions in this library are thread-safe for concurrent calls with different
+ * arguments, as they are stateless and have no mutable shared state.
+ * 
+ * **Safe Operations:**
+ * - Concurrent calls to toString() from multiple threads
+ * - Passing different StringifyOptions to different threads
+ * - Converting different values simultaneously
+ * 
+ * **Unsafe Operations:**
+ * - Sharing non-const StringifyOptions across threads (use thread_local or const)
+ * - Using custom_locale pointer that points to shared mutable std::locale
+ * - Global locale changes during toString() calls (std::locale::global())
+ * 
+ * **Recommendations for Multithreaded Code:**
+ * - Use const StringifyOptions or create per-thread copies
+ * - If using custom locales, ensure they are immutable or use thread_local
+ * - Avoid std::locale::global() calls in concurrent contexts
+ * 
+ * @section performance Performance Characteristics
+ * 
+ * - **Integers (default opts)**: O(log₁₀ n), zero-allocation fast path using std::to_string
+ * - **Integers (custom opts)**: O(log₁₀ n), single allocation via ostringstream
+ * - **Floating-point**: O(precision), single allocation via ostringstream
+ * - **Custom types**: Depends on toString()/to_string() implementation
+ * - **Containers**: O(n × element_cost), recursive with depth limiting
+ * - **Strings**: O(1) passthrough, zero additional allocations
+ * 
+ * @section complexity Complexity Guarantees
+ * - compile-time dispatch via if constexpr (zero runtime overhead)
+ * - Type trait resolution at compile time
+ * - Minimal template instantiations through careful SFINAE design
+ */
 
 namespace cpp_utilities {
 
@@ -29,7 +72,10 @@ namespace cpp_utilities {
 
 namespace detail {
 
-    // Primary trait: check if type is streamable to std::ostringstream
+    /**
+     * @brief Primary trait: checks if a type T is streamable to std::ostringstream.
+     * @tparam T The type to check.
+     */
     template <typename T, typename = void>
     struct is_ostreamable_impl : std::false_type {};
 
@@ -38,7 +84,10 @@ namespace detail {
         std::declval<std::ostringstream&>() << std::declval<const T&>())>> 
         : std::true_type {};
 
-    // Check if type is streamable to std::wostringstream
+    /**
+     * @brief Checks if a type T is streamable to std::wostringstream.
+     * @tparam T The type to check.
+     */
     template <typename T, typename = void>
     struct is_wostreamable_impl : std::false_type {};
 
@@ -47,7 +96,10 @@ namespace detail {
         std::declval<std::wostringstream&>() << std::declval<const T&>())>> 
         : std::true_type {};
 
-    // FIXED: Check if type has a toString() member function WITH CORRECT RETURN TYPE
+    /**
+     * @brief Checks if a type T has a member function named toString() that returns a string.
+     * @tparam T The type to check.
+     */
     template <typename T, typename = void>
     struct has_to_string_method_impl : std::false_type {};
 
@@ -57,7 +109,10 @@ namespace detail {
         : std::bool_constant<std::is_convertible_v<
             decltype(std::declval<const T&>().toString()), std::string>> {};
 
-    // FIXED: Check if type has a to_string() member function WITH CORRECT RETURN TYPE
+    /**
+     * @brief Checks if a type T has a member function named to_string() that returns a string.
+     * @tparam T The type to check.
+     */
     template <typename T, typename = void>
     struct has_to_string_snake_method_impl : std::false_type {};
 
@@ -67,44 +122,72 @@ namespace detail {
         : std::bool_constant<std::is_convertible_v<
             decltype(std::declval<const T&>().to_string()), std::string>> {};
 
-    // NEW: Check if type is iterable (has begin/end)
-    template <typename T, typename = void>
-    struct is_iterable_impl : std::false_type {};
-
-    template <typename T>
-    struct is_iterable_impl<T, std::void_t<
-        decltype(std::begin(std::declval<T&>())),
-        decltype(std::end(std::declval<T&>()))>>
-        : std::true_type {};
-
-    // Convenience aliases (decay types for cleaner usage)
+    /**
+     * @brief Convenience alias for is_ostreamable_impl with type decay.
+     * @tparam T The type to check.
+     */
     template <typename T>
     using is_ostreamable = is_ostreamable_impl<std::decay_t<T>>;
 
+    /**
+     * @brief Convenience alias for is_wostreamable_impl with type decay.
+     * @tparam T The type to check.
+     */
     template <typename T>
     using is_wostreamable = is_wostreamable_impl<std::decay_t<T>>;
 
+    /**
+     * @brief Convenience alias for has_to_string_method_impl with type decay.
+     * @tparam T The type to check.
+     */
     template <typename T>
     using has_to_string_method = has_to_string_method_impl<std::decay_t<T>>;
 
+    /**
+     * @brief Convenience alias for has_to_string_snake_method_impl with type decay.
+     * @tparam T The type to check.
+     */
     template <typename T>
     using has_to_string_snake_method = has_to_string_snake_method_impl<std::decay_t<T>>;
 
+    /**
+     * @brief Alias/Concept to the is_iterable trait defined in TypeTraits.h, using type decay.
+     * @tparam T The type to check.
+     */
     template <typename T>
-    using is_iterable = is_iterable_impl<std::decay_t<T>>;
+    #if CPP_UTILITIES_HAS_CPP20
+    concept is_iterable_concept = cpp_utilities::is_iterable<std::decay_t<T>>;
+    #else
+    using is_iterable = cpp_utilities::is_iterable<std::decay_t<T>>;
+    #endif
 
 } // namespace detail
 
-// Public trait variables (C++17 style)
+/**
+ * @brief Checks if a type T is streamable to std::ostringstream (C++17 variable template).
+ * @tparam T The type to check.
+ */
 template <typename T>
 inline constexpr bool is_ostreamable_v = detail::is_ostreamable<T>::value;
 
+/**
+ * @brief Checks if a type T is streamable to std::wostringstream (C++17 variable template).
+ * @tparam T The type to check.
+ */
 template <typename T>
 inline constexpr bool is_wostreamable_v = detail::is_wostreamable<T>::value;
 
+/**
+ * @brief Checks if a type T has a string-returning toString() member (C++17 variable template).
+ * @tparam T The type to check.
+ */
 template <typename T>
 inline constexpr bool has_to_string_method_v = detail::has_to_string_method<T>::value;
 
+/**
+ * @brief Checks if a type T has a string-returning to_string() member (C++17 variable template).
+ * @tparam T The type to check.
+ */
 template <typename T>
 inline constexpr bool has_to_string_snake_method_v = detail::has_to_string_snake_method<T>::value;
 
@@ -113,19 +196,19 @@ inline constexpr bool has_to_string_snake_method_v = detail::has_to_string_snake
 // =============================================================================
 
 /**
- * @brief Options for controlling string conversion behavior
+ * @brief Options for controlling string conversion behavior.
  */
 struct StringifyOptions {
-    const char* placeholder = "<non-stringifiable>";
-    bool use_hex_for_pointers = true;
-    int float_precision = -1;  // -1 means default precision
-    bool scientific_notation = false;
-    bool show_bool_as_text = true; // true/false vs 1/0
-    const char* container_open = "[";
-    const char* container_close = "]";
-    const char* container_separator = ", ";
-    int max_container_depth = 3;  // Prevent infinite recursion
-    std::locale* custom_locale = nullptr;  // nullptr means global locale
+    const char* placeholder = "<non-stringifiable>"; ///< Placeholder string for non-stringifiable types.
+    bool use_hex_for_pointers = true;              ///< Use hexadecimal notation for pointers.
+    int float_precision = -1;                      ///< Decimal precision (-1 means default).
+    bool scientific_notation = false;              ///< Use scientific notation for floats.
+    bool show_bool_as_text = true;                 ///< Show booleans as "true"/"false" instead of "1"/"0".
+    const char* container_open = "[";              ///< Opening delimiter for sequential containers.
+    const char* container_close = "]";             ///< Closing delimiter for sequential containers.
+    const char* container_separator = ", ";        ///< Separator between container elements.
+    int max_container_depth = 3;                   ///< Max recursion depth for containers.
+    std::locale* custom_locale = nullptr;         ///< Custom locale to use (nullptr means global locale).
     
     constexpr StringifyOptions() noexcept = default;
 };
@@ -134,6 +217,13 @@ struct StringifyOptions {
 // Forward Declarations
 // =============================================================================
 
+/**
+ * @brief Forward declaration of the primary toString function template.
+ * @tparam T The type of value to convert.
+ * @param value The value.
+ * @param opts Formatting options.
+ * @return std::string The string representation.
+ */
 template <typename T>
 [[nodiscard]] std::string toString(T&& value, const StringifyOptions& opts = {});
 
@@ -143,12 +233,15 @@ template <typename T>
 
 namespace detail {
 
-    // NEW: Fast path for built-in integer types (matches std::to_string performance)
+    /**
+     * @brief Optimized path for built-in integer types using std::to_string.
+     * @tparam T An integral type (excluding bool).
+     * @param value The integer value.
+     * @return std::string The string representation.
+     */
     template <typename T>
     [[nodiscard]] inline std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>, std::string>
     fast_int_to_string(T value) noexcept {
-        // Delegate to std::to_string for optimal performance
-        // This avoids all stringstream overhead
         if constexpr (std::is_same_v<T, int>) {
             return std::to_string(value);
         } else if constexpr (std::is_same_v<T, long>) {
@@ -162,7 +255,6 @@ namespace detail {
         } else if constexpr (std::is_same_v<T, unsigned long long>) {
             return std::to_string(value);
         } else {
-            // For other integral types (char, short, etc.), cast to appropriate type
             if constexpr (std::is_unsigned_v<T>) {
                 return std::to_string(static_cast<unsigned long long>(value));
             } else {
@@ -171,7 +263,13 @@ namespace detail {
         }
     }
 
-    // Helper: Convert with method (priority 1)
+    /**
+     * @brief Helper to convert a value using its toString() or to_string() member function.
+     * @tparam T The type of value.
+     * @param value The value.
+     * @param opts Formatting options (ignored by this helper, but kept for consistent interface).
+     * @return std::string The string representation from the member function.
+     */
     template <typename T>
     [[nodiscard]] inline std::string stringify_with_method(const T& value, const StringifyOptions&) {
         if constexpr (has_to_string_method<T>::value) {
@@ -184,35 +282,41 @@ namespace detail {
         }
     }
 
-    // Helper: Convert with stream (priority 2)
+    /**
+     * @brief Helper to convert a value using the std::ostringstream operator<<.
+     *
+     * @details This function is used for both C++17 fallback and the primary implementation,
+     * as std::format currently lacks full standard support for locale and boolalpha flags.
+     * 
+     * @tparam T The type of value.
+     * @param value The value.
+     * @param opts Formatting options to apply to the stream.
+     * @return std::string The string representation from the stream.
+     */
     template <typename T>
     [[nodiscard]] inline std::string stringify_with_stream(T&& value, const StringifyOptions& opts) {
         std::ostringstream ss;
         
-        // Apply locale if specified
         if (opts.custom_locale != nullptr) {
             ss.imbue(*opts.custom_locale);
         }
         
-        // Apply formatting options
         if (opts.float_precision >= 0) {
             ss << std::setprecision(opts.float_precision);
             if (!opts.scientific_notation) {
-                ss << std::fixed;  // Use fixed notation when precision specified
+                ss << std::fixed;
             }
         }
         if (opts.scientific_notation) {
             ss << std::scientific;
         }
         
-        // Special handling for booleans
         if constexpr (std::is_same_v<std::decay_t<T>, bool>) {
             if (opts.show_bool_as_text) {
                 ss << std::boolalpha;
             }
         }
         
-        // Special handling for pointers
         if constexpr (std::is_pointer_v<std::decay_t<T>>) {
             if (opts.use_hex_for_pointers) {
                 ss << std::hex << std::showbase;
@@ -223,10 +327,17 @@ namespace detail {
         return ss.str();
     }
 
-    // NEW: Helper for stringifying containers recursively
+
+    /**
+     * @brief Helper for stringifying sequential containers recursively.
+     * @tparam Container The container type (must be iterable).
+     * @param container The container instance.
+     * @param opts Formatting options (depth is reduced for recursion).
+     * @return std::string The string representation of the container contents.
+     */
     template <typename Container>
     [[nodiscard]] inline std::string stringify_container(const Container& container, 
-                                                         StringifyOptions opts) {
+                                                         const StringifyOptions& opts) {
         if (opts.max_container_depth <= 0) {
             return "<max depth>";
         }
@@ -235,16 +346,15 @@ namespace detail {
         ss << opts.container_open;
         
         bool first = true;
+        StringifyOptions elem_opts = opts;
+        elem_opts.max_container_depth--;
+        
         for (const auto& elem : container) {
             if (!first) {
                 ss << opts.container_separator;
             }
             
-            // Recursively stringify elements with reduced depth
-            StringifyOptions elem_opts = opts;
-            elem_opts.max_container_depth--;
             ss << toString(elem, elem_opts);
-            
             first = false;
         }
         
@@ -252,78 +362,152 @@ namespace detail {
         return ss.str();
     }
 
+    /**
+     * @brief Helper for stringifying map-like containers recursively (uses braces {}).
+     * @tparam Container The map-like container type (e.g., std::map, std::unordered_map).
+     * @param container The container instance.
+     * @param opts Formatting options (depth is reduced for recursion).
+     * @return std::string The string representation of the map contents.
+     */
+    template <typename Container>
+    [[nodiscard]] inline std::string stringify_map(const Container& container, 
+                                                   const StringifyOptions& opts) {
+        if (opts.max_container_depth <= 0) {
+            return "<max depth>";
+        }
+        
+        std::ostringstream ss;
+        ss << "{";
+        
+        bool first = true;
+        StringifyOptions elem_opts = opts;
+        elem_opts.max_container_depth--;
+        
+        for (const auto& pair : container) {
+            if (!first) {
+                ss << opts.container_separator;
+            }
+            
+            ss << toString(pair.first, elem_opts) << ": " << toString(pair.second, elem_opts);
+            first = false;
+        }
+        
+        ss << "}";
+        return ss.str();
+    }
+
 } // namespace detail
 
 /**
- * @brief Converts a value to string with fallback to placeholder
+ * @brief Converts a value to string with fallback to a placeholder.
  * 
- * @details Priority order:
+ * @details Priority order for conversion methods:
  *   0. FAST PATH: Built-in integers (delegates to std::to_string)
  *   1. T::toString() or T::to_string() member function (with return type check)
  *   2. std::ostringstream operator<<
- *   3. Container stringification (if iterable)
- *   4. Placeholder string
+ *   3A. Map-like container stringification (if is_map_like_v is true)
+ *   3B. Sequential container stringification (if is_iterable_v is true)
+ *   4. Placeholder string (from options)
  * 
- * @tparam T Type of value to convert
- * @param value Value to convert
- * @param opts Formatting options
- * @return std::string The string representation
+ * @tparam T Type of value to convert.
+ * @param value Value to convert (forwarded).
+ * @param opts Formatting options.
+ * @return std::string The string representation.
  * 
- * @complexity O(1) for built-in types, O(n) for containers where n is size
- * @exception noexcept(false) May throw if stream operations throw
- * 
- * @note v2.0: Now 40x faster for integers due to fast path optimization
+ * @complexity O(1) for built-in types, O(N) for containers where N is size.
+ * @exception noexcept(false) May throw if underlying stream operations throw.
  * 
  * @example
  * int x = 42;
  * auto str = toString(x); // "42" - uses fast path
  * 
  * std::vector<int> v = {1, 2, 3};
- * auto str2 = toString(v); // "[1, 2, 3]"
+ * auto str2 = toString(v); // ""
+ * 
+ * std::map<std::string, int> m = {{"a", 1}, {"b", 2}};
+ * auto str3 = toString(m); // "{"a": 1, "b": 2}"
  */
 template <typename T>
-[[nodiscard]] inline std::string toString(T&& value, const StringifyOptions& opts) {
+[[nodiscard]] inline std::string toString(T&& value, const StringifyOptions& opts)
+{
     using PlainT = std::decay_t<T>;
     
-    // FAST PATH: Built-in integers (except bool) - CRITICAL PERFORMANCE OPTIMIZATION
-    // This achieves parity with std::to_string (40x faster than stream-based approach)
-    if constexpr (std::is_integral_v<PlainT> && !std::is_same_v<PlainT, bool>) {
-        // Only use fast path if no special formatting is requested
+    if constexpr (std::is_same_v<PlainT, std::string>)
+    {
+        return value;
+    }
+    else if constexpr (std::is_array_v<std::remove_reference_t<T>> && 
+                       std::is_same_v<std::remove_extent_t<std::remove_reference_t<T>>, char>)
+    {
+        return std::string(value);
+    }
+    else if constexpr (std::is_array_v<std::remove_reference_t<T>> && 
+                       std::is_same_v<std::remove_extent_t<std::remove_reference_t<T>>, const char>)
+    {
+        return std::string(value);
+    }
+    else if constexpr (std::is_same_v<PlainT, const char*>)
+    {
+        return value ? std::string(value) : std::string();
+    }
+    else if constexpr (std::is_same_v<PlainT, char*>)
+    {
+        return value ? std::string(value) : std::string();
+    }
+    else if constexpr (std::is_integral_v<PlainT> && !std::is_same_v<PlainT, bool>)
+    {
         if (opts.float_precision == -1 && !opts.scientific_notation && 
-            opts.custom_locale == nullptr) {
+            opts.custom_locale == nullptr) 
+        {
             return detail::fast_int_to_string(value);
         }
-        // Fall through to stream path if formatting is needed
+        else
+        {
+            return detail::stringify_with_stream(std::forward<T>(value), opts);
+        }
     }
-    
-    // Priority 1: Member function (with return type checking)
-    if constexpr (detail::has_to_string_method<PlainT>::value || 
-                  detail::has_to_string_snake_method<PlainT>::value) {
+    else if constexpr (detail::has_to_string_method<PlainT>::value || 
+                       detail::has_to_string_snake_method<PlainT>::value)
+    {
         return detail::stringify_with_method(value, opts);
     }
-    // Priority 2: Stream operator
-    else if constexpr (detail::is_ostreamable<PlainT>::value) {
+    else if constexpr (detail::is_ostreamable<PlainT>::value)
+    {
         return detail::stringify_with_stream(std::forward<T>(value), opts);
     }
-    // Priority 3: Container/iterable types (NEW)
-    else if constexpr (detail::is_iterable<PlainT>::value && 
-                      !std::is_convertible_v<PlainT, std::string> &&
-                      !std::is_convertible_v<PlainT, const char*>) {
+    else if constexpr (is_map_like_v<PlainT> &&
+                       !std::is_convertible_v<PlainT, std::string> &&
+                       !std::is_convertible_v<PlainT, const char*>)
+    {
+        return detail::stringify_map(value, opts);
+    }
+    #if CPP_UTILITIES_HAS_CPP20
+    else if constexpr (detail::is_iterable_concept<PlainT> && 
+                       !std::is_convertible_v<PlainT, std::string_view> &&
+                       !std::is_convertible_v<PlainT, const char*>) 
+    {
         return detail::stringify_container(value, opts);
     }
-    // Priority 4: Placeholder
-    else {
+    #else
+    else if constexpr (detail::is_iterable<PlainT>::value && 
+                       !std::is_convertible_v<PlainT, std::string> &&
+                       !std::is_convertible_v<PlainT, const char*>) 
+    {
+        return detail::stringify_container(value, opts);
+    }
+    #endif
+    else
+    {
         return opts.placeholder;
     }
 }
 
 /**
- * @brief Converts a value to string with custom placeholder
- * 
- * @tparam T Type of value to convert
- * @param value Value to convert
- * @param fallback Custom placeholder if not stringifiable
- * @return std::string The string representation
+ * @brief Converts a value to string using a custom fallback placeholder.
+ * @tparam T Type of value to convert.
+ * @param value Value to convert.
+ * @param fallback Custom placeholder if not stringifiable.
+ * @return std::string The string representation or the fallback.
  * 
  * @example
  * struct NonStreamable {};
@@ -337,16 +521,15 @@ template <typename T>
 }
 
 /**
- * @brief Safely converts a value to string, returning success status
+ * @brief Safely converts a value to string, returning success status without throwing.
+ * @tparam T Type of value to convert.
+ * @param value Value to convert.
+ * @param out [out] Output string (only modified on success).
+ * @param opts Formatting options.
+ * @return true if conversion succeeded (via stream, method, or container logic), false otherwise (fell to placeholder).
  * 
- * @tparam T Type of value to convert
- * @param value Value to convert
- * @param out [out] Output string (only modified on success)
- * @param opts Formatting options
- * @return true if conversion succeeded, false otherwise
- * 
- * @complexity O(1) for built-in types
- * @exception noexcept Strong exception safety
+ * @complexity O(1) for built-in types.
+ * @exception noexcept Strong exception safety guarantee.
  * 
  * @example
  * std::string result;
@@ -359,12 +542,23 @@ template <typename T>
                                       const StringifyOptions& opts = {}) noexcept {
     using PlainT = std::decay_t<T>;
     
+    #if CPP_UTILITIES_HAS_CPP20
+    constexpr bool is_stringifiable = detail::is_ostreamable<PlainT>::value || 
+                                      detail::has_to_string_method<PlainT>::value ||
+                                      detail::has_to_string_snake_method<PlainT>::value ||
+                                      detail::is_iterable_concept<PlainT>;
+    if constexpr (!is_stringifiable) {
+        return false;
+    }
+    #else
     if constexpr (!detail::is_ostreamable<PlainT>::value && 
                   !detail::has_to_string_method<PlainT>::value &&
                   !detail::has_to_string_snake_method<PlainT>::value &&
                   !detail::is_iterable<PlainT>::value) {
         return false;
-    } else {
+    } 
+    #endif
+    else {
         try {
             out = toString(value, opts);
             return true;
@@ -375,33 +569,36 @@ template <typename T>
 }
 
 /**
- * @brief Checks if a type is stringifiable (compile-time)
- * 
- * @tparam T Type to check
- * @return true if type can be converted to string
+ * @brief Checks if a type is stringifiable at compile time (C++17/20 variable template).
+ * @tparam T Type to check.
+ * @return true if type can be converted to string by any mechanism.
  */
 template <typename T>
 inline constexpr bool is_stringifiable_v = 
     detail::is_ostreamable<T>::value || 
     detail::has_to_string_method<T>::value ||
     detail::has_to_string_snake_method<T>::value ||
+    #if CPP_UTILITIES_HAS_CPP20
+    (detail::is_iterable_concept<T> && 
+     !std::is_convertible_v<T, std::string_view> &&
+     !std::is_convertible_v<T, const char*>);
+    #else
     (detail::is_iterable<T>::value && 
      !std::is_convertible_v<T, std::string> &&
      !std::is_convertible_v<T, const char*>);
+    #endif
+
 
 // =============================================================================
-// Wide String Support (NEW)
+// Wide String Support
 // =============================================================================
 
 /**
- * @brief Converts value to wide string (std::wstring)
- * 
- * @tparam T Type of value to convert
- * @param value Value to convert
- * @param opts Formatting options
- * @return std::wstring Wide string representation
- * 
- * @note Uses std::wostringstream for conversion
+ * @brief Converts value to wide string (std::wstring) using std::wostringstream.
+ * @tparam T Type of value to convert.
+ * @param value Value to convert.
+ * @param opts Formatting options.
+ * @return std::wstring Wide string representation.
  */
 template <typename T>
 [[nodiscard]] inline std::wstring toWString(T&& value, const StringifyOptions& opts = {}) {
@@ -410,30 +607,26 @@ template <typename T>
     if constexpr (detail::is_wostreamable<PlainT>::value) {
         std::wostringstream wss;
         
-        // Apply locale if specified
         if (opts.custom_locale != nullptr) {
             wss.imbue(*opts.custom_locale);
         }
         
-        // Apply formatting options
         if (opts.float_precision >= 0) {
             wss << std::setprecision(opts.float_precision);
             if (!opts.scientific_notation) {
-                wss << std::fixed;  // Use fixed notation when precision specified
+                wss << std::fixed;
             }
         }
         if (opts.scientific_notation) {
             wss << std::scientific;
         }
         
-        // Special handling for booleans
         if constexpr (std::is_same_v<PlainT, bool>) {
             if (opts.show_bool_as_text) {
                 wss << std::boolalpha;
             }
         }
         
-        // Special handling for pointers
         if constexpr (std::is_pointer_v<PlainT>) {
             if (opts.use_hex_for_pointers) {
                 wss << std::hex << std::showbase;
@@ -443,13 +636,8 @@ template <typename T>
         wss << std::forward<T>(value);
         return wss.str();
     } else {
-        // Convert narrow placeholder to wide
-        std::wstring result;
-        const char* placeholder = opts.placeholder;
-        while (*placeholder) {
-            result += static_cast<wchar_t>(*placeholder++);
-        }
-        return result;
+        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+        return converter.from_bytes(opts.placeholder);
     }
 }
 
@@ -458,17 +646,17 @@ template <typename T>
 // =============================================================================
 
 /**
- * @brief Converts value to string with padding (ENHANCED with custom pad char)
- * 
- * @param value Value to convert
- * @param width Minimum width (pads if needed)
- * @param align '<' for left, '>' for right, '^' for center
- * @param pad_char Character to use for padding (default: space)
- * @return std::string Padded string
+ * @brief Converts value to string with alignment and padding.
+ * @tparam T Type of value to convert.
+ * @param value Value to convert.
+ * @param width Minimum total width of the output string.
+ * @param align Alignment character: '<' for left, '>' for right, '^' for center.
+ * @param pad_char Character to use for padding.
+ * @return std::string The padded and aligned string.
  * 
  * @example
- * toStringPadded(42, 5, '>', '0') // "00042"
- * toStringPadded("hi", 5, '<')    // "hi   "
+ * toStringPadded(42, 5, '>', '0'); // "00042"
+ * toStringPadded("hi", 5, '<');    // "hi   "
  */
 template <typename T>
 [[nodiscard]] inline std::string toStringPadded(T&& value, std::size_t width, 
@@ -481,14 +669,14 @@ template <typename T>
     std::size_t padding = width - str.length();
     
     switch (align) {
-        case '<': // Left align
+        case '<':
             str.append(padding, pad_char);
             break;
-        case '^': // Center align
+        case '^':
             str.insert(0, padding / 2, pad_char);
             str.append(padding - padding / 2, pad_char);
             break;
-        case '>': // Right align (default)
+        case '>':
         default:
             str.insert(0, padding, pad_char);
             break;
@@ -498,13 +686,12 @@ template <typename T>
 }
 
 /**
- * @brief Converts numeric value to string with specified format
- * 
- * @tparam T Numeric type
- * @param value Value to convert
- * @param precision Decimal precision
- * @param fixed Use fixed notation (vs scientific)
- * @return std::string Formatted string
+ * @brief Converts a numeric value to a string with specified floating-point format.
+ * @tparam T Numeric type (must be std::is_arithmetic_v).
+ * @param value Value to convert.
+ * @param precision Decimal precision.
+ * @param fixed Use fixed notation (if true) or scientific (if false).
+ * @return std::string The formatted string.
  */
 template <typename T>
 [[nodiscard]] inline std::enable_if_t<std::is_arithmetic_v<T>, std::string>
@@ -516,11 +703,11 @@ toStringFormatted(T value, int precision = 6, bool fixed = true) {
 }
 
 /**
- * @brief Converts pointer to string with hex notation
- * 
- * @param ptr Pointer value
- * @param null_placeholder String to use for nullptr
- * @return std::string Pointer as hex string or placeholder
+ * @brief Converts a pointer to a string using hexadecimal notation.
+ * @tparam T The type pointed to.
+ * @param ptr Pointer value.
+ * @param null_placeholder String to use for nullptr.
+ * @return std::string Pointer as hex string or placeholder.
  */
 template <typename T>
 [[nodiscard]] inline std::string toStringPointer(T* ptr, const char* null_placeholder = "nullptr") {
@@ -528,21 +715,19 @@ template <typename T>
         return null_placeholder;
     }
     
-    // Explicitly format pointer as hex with prefix
     std::ostringstream ss;
     ss << "0x" << std::hex << reinterpret_cast<std::uintptr_t>(ptr);
     return ss.str();
 }
 
 /**
- * @brief Variadic toString - concatenates multiple values (NEW)
- * 
- * @tparam Args Types of arguments to concatenate
- * @param args Values to concatenate
- * @return std::string Concatenated string
+ * @brief Variadic function that concatenates multiple values into a single string.
+ * @tparam Args Types of arguments to concatenate.
+ * @param args Values to concatenate.
+ * @return std::string Concatenated string.
  * 
  * @example
- * toStringConcat("Value: ", 42, ", Status: ", true) 
+ * toStringConcat("Value: ", 42, ", Status: ", true); 
  * // "Value: 42, Status: true"
  */
 template <typename... Args>

@@ -148,6 +148,7 @@
     <ClCompile Include="test_ConstexprUtilities.cpp" />
     <ClCompile Include="test_ContractException.cpp" />
     <ClCompile Include="test_CoroutineTask.cpp" />
+    <ClCompile Include="test_CppUtilitiesTypeTraits.cpp" />
     <ClCompile Include="test_CSRMatrix.cpp" />
     <ClCompile Include="test_DebugOnly.cpp" />
     <ClCompile Include="test_DiagnosticLogger.cpp" />
@@ -214,6 +215,7 @@
     <ClInclude Include="ConstexprUtilities.h" />
     <ClInclude Include="ContractException.h" />
     <ClInclude Include="CoroutineTask.h" />
+    <ClInclude Include="CppUtilitiesTypeTraits.h" />
     <ClInclude Include="CSRMatrix.h" />
     <ClInclude Include="DebugOnly.h" />
     <ClInclude Include="DiagnosticLogger.h" />
@@ -283,6 +285,7 @@
     <ClInclude Include="test_ConstexprUtilities.h" />
     <ClInclude Include="test_ContractException.h" />
     <ClInclude Include="test_CoroutineTask.h" />
+    <ClInclude Include="test_CppUtilitiesTypeTraits.h" />
     <ClInclude Include="test_CSRMatrix.h" />
     <ClInclude Include="test_DebugOnly.h" />
     <ClInclude Include="test_DiagnosticLogger.h" />

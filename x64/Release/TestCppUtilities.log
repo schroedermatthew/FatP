@@ -1,57 +1,72 @@
-﻿  TestCppUtilities.cpp
+﻿  JsonLiteTests.cpp
+  TestCppUtilities.cpp
   test_AdaptiveIterator.cpp
+  test_AlignedVector.cpp
   test_AllocationStrategy.cpp
+  test_AsyncOperations.cpp
   test_AtomicReference.cpp
+  test_BenchmarkHarness.cpp
+  test_BinarySerializer.cpp
+  test_BitSet.cpp
+  test_CacheUtilities.cpp
   test_CheckedArithmetic.cpp
+  test_CircularBuffer.cpp
   test_ConcurrencyPolicies.cpp
   test_ConstexprUtilities.cpp
   test_ContractException.cpp
+  test_CoroutineTask.cpp
+  test_CppUtilitiesTypeTraits.cpp
+  test_CSRMatrix.cpp
+  test_DebugOnly.cpp
+  Compiling...
   test_DiagnosticLogger.cpp
   test_Enforce.cpp
   test_EnforcedInit.cpp
+  test_EnhancedBoundsChecking.cpp
   test_EnumPlus.cpp
   test_EqualityComparisons.cpp
   test_Expected.cpp
   test_Factory.cpp
-  test_JsonLite.cpp
+  test_FastHashMap.cpp
+  test_FeatureManager.cpp
+  test_FlatMap.cpp
+  test_FlatSet.cpp
+  test_FloatingPointComparison.cpp
+  test_IdGenerator.cpp
+  test_IntrusiveList.cpp
+  test_LockFreeQueue.cpp
+  test_LockFreeRingBuffer.cpp
+  test_MemoryMappedFile.cpp
+  test_NumaAllocator.cpp
+  test_ObjectPool.cpp
+  Compiling...
+  test_PipeOperator.cpp
+  test_RateLimiter.cpp
+  test_RCU_integration.cpp
+  test_Reflection.cpp
   test_ScopeGuard.cpp
+  test_SimdVector.cpp
+  test_SlotMap.cpp
+  test_SmallVector.cpp
   test_SortedContainer.cpp
-C:\Users\Fat Penelope\Desktop\code\TestCppUtilities\TestCppUtilities\SortedContainer.h(262,32): warning C4834: discarding return value of function with [[nodiscard]] attribute
-  (compiling source file 'test_SortedContainer.cpp')
-      C:\Users\Fat Penelope\Desktop\code\TestCppUtilities\TestCppUtilities\SortedContainer.h(262,32):
-      the template instantiation context (the oldest one first) is
-          C:\Users\Fat Penelope\Desktop\code\TestCppUtilities\TestCppUtilities\test_SortedContainer.cpp(418,32):
-          see reference to function template instantiation 'cpp_utilities::SortedContainer<int,cpp_utilities::AllowDuplicatesPolicy,std::less<int>,std::allocator<int>,cpp_utilities::SingleThreadedPolicy,VectorBackendPolicy>::SortedContainer<std::_Vector_iterator<std::_Vector_val<std::_Simple_types<_Ty>>>,>(InputIt,InputIt)' being compiled
-          with
-          [
-              _Ty=int,
-              InputIt=std::_Vector_iterator<std::_Vector_val<std::_Simple_types<int>>>
-          ]
-              C:\Users\Fat Penelope\Desktop\code\TestCppUtilities\TestCppUtilities\test_SortedContainer.cpp(418,32):
-              see the first reference to 'cpp_utilities::SortedContainer<int,cpp_utilities::AllowDuplicatesPolicy,std::less<int>,std::allocator<int>,cpp_utilities::SingleThreadedPolicy,VectorBackendPolicy>::SortedContainer' in 'cpp_utilities::testing::test_RangeConstructor'
-  
-C:\Users\Fat Penelope\Desktop\code\TestCppUtilities\TestCppUtilities\SortedContainer.h(263,13): warning C4834: discarding return value of function with [[nodiscard]] attribute
-  (compiling source file 'test_SortedContainer.cpp')
-  
-C:\Users\Fat Penelope\Desktop\code\TestCppUtilities\TestCppUtilities\SortedContainer.h(249,32): warning C4834: discarding return value of function with [[nodiscard]] attribute
-  (compiling source file 'test_SortedContainer.cpp')
-      C:\Users\Fat Penelope\Desktop\code\TestCppUtilities\TestCppUtilities\SortedContainer.h(249,32):
-      the template instantiation context (the oldest one first) is
-          C:\Users\Fat Penelope\Desktop\code\TestCppUtilities\TestCppUtilities\test_SortedContainer.cpp(790,45):
-          see reference to class template instantiation 'cpp_utilities::SortedContainer<int,cpp_utilities::AllowDuplicatesPolicy,std::less<int>,std::allocator<int>,cpp_utilities::SingleThreadedPolicy,DequeBackendPolicy>' being compiled
-          C:\Users\Fat Penelope\Desktop\code\TestCppUtilities\TestCppUtilities\SortedContainer.h(248,9):
-          while compiling class template member function 'cpp_utilities::SortedContainer<int,cpp_utilities::AllowDuplicatesPolicy,std::less<int>,std::allocator<int>,cpp_utilities::SingleThreadedPolicy,DequeBackendPolicy>::SortedContainer(void)'
-              C:\Users\Fat Penelope\Desktop\code\TestCppUtilities\TestCppUtilities\test_SortedContainer.cpp(790,45):
-              see the first reference to 'cpp_utilities::SortedContainer<int,cpp_utilities::AllowDuplicatesPolicy,std::less<int>,std::allocator<int>,cpp_utilities::SingleThreadedPolicy,DequeBackendPolicy>::SortedContainer' in 'cpp_utilities::testing::test_WithInternalContainerBackendAgnostic'
-  
+  test_SparseSet.cpp
+  test_Stacktrace.cpp
   test_StateMachine.cpp
   test_Stringify.cpp
-  Compiling...
+  test_StringPool.cpp
   test_StrongId.cpp
+  test_Tensor.cpp
+  test_TensorCompareSeialize.cpp
+  test_TensorEinsum.cpp
+  test_TensorMath.cpp
+  test_TensorSerialization.cpp
+  Compiling...
+  test_TensorStorage.cpp
+  test_ThreadPool.cpp
   test_TypeTraits.cpp
   test_UltraLoggers.cpp
   test_ValueGuard.cpp
+  test_ViewLifetimeTracking.cpp
   Generating code
-C:\Users\Fat Penelope\Desktop\code\TestCppUtilities\TestCppUtilities\test_AtomicReference.cpp(343): warning C4715: '`cpp_utilities::testing::test_wait_notify_basic'::`2'::<lambda_1>::operator()': not all control paths return a value
   Finished generating code
   TestCppUtilities.vcxproj -> C:\Users\Fat Penelope\Desktop\code\TestCppUtilities\x64\Release\TestCppUtilities.exe

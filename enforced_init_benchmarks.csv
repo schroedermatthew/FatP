@@ -352,3 +352,15 @@ Timestamp,Benchmark,Mean(ns),StdDev(ns)
 Timestamp,Benchmark,Mean(ns),StdDev(ns)
 1762963744,init_get_overhead,0.401453,0
 1762963744,lazy_init,0.410643,0
+Timestamp,Benchmark,Mean(ns),StdDev(ns)
+1763013799,init_get_overhead,0.3607,0
+1763013799,lazy_init,0.310371,0
+Timestamp,Benchmark,Mean(ns),StdDev(ns)
+1763022267,init_get_overhead,0.277125,0
+1763022267,lazy_init,0.305227,0
+Timestamp,Benchmark,Mean(ns),StdDev(ns)
+1763023251,init_get_overhead,0.285774,0
+1763023251,lazy_init,0.281586,0
+Timestamp,Benchmark,Mean(ns),StdDev(ns)
+1763024248,init_get_overhead,0.488269,0
+1763024248,lazy_init,0.462354,0

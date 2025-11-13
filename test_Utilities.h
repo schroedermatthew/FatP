@@ -9,7 +9,7 @@
 #include <vector>
 #include <algorithm>
 
-#include "EqualityComparisons.h"
+#include "FloatingPointComparison.h"
 
 namespace cpp_utilities {
 namespace testing {

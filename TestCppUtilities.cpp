@@ -34,6 +34,7 @@
 #include "test_ConstexprUtilities.h"
 #include "test_ContractException.h"
 #include "test_CoroutineTask.h"
+#include "test_CppUtilitiesTypeTraits.h"
 #include "test_CSRMatrix.h"
 #include "test_DebugOnly.h"
 #include "test_DiagnosticLogger.h"
@@ -119,6 +120,7 @@ int main() {
     RUN_AND_RECORD(test_ConstexprUtilities);
     RUN_AND_RECORD(test_ContractException);
     RUN_AND_RECORD(test_CoroutineTask);
+    RUN_AND_RECORD(test_CppUtilitiesTypeTraits);
     RUN_AND_RECORD(test_CSRMatrix);
     RUN_AND_RECORD(test_DebugOnly);
     RUN_AND_RECORD(test_DiagnosticLogger);
