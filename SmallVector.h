@@ -12,6 +12,8 @@
 #include <utility>
 #include <stdexcept>
 
+#include "CppUtilitiesTypeTraits.h"
+
 namespace cpp_utilities {
 
 /**
@@ -21,7 +23,7 @@ namespace cpp_utilities {
  * @tparam Allocator Allocator type (default: std::allocator<T>)
  * 
  * @details Performance characteristics:
- * - Small sizes (≤ InlineCapacity): No heap allocation, cache-friendly
+ * - Small sizes (â‰¤ InlineCapacity): No heap allocation, cache-friendly
  * - Large sizes: Automatic promotion to heap storage
  * - Move operations: O(1) for heap, O(N) for inline
  * 
@@ -583,6 +585,9 @@ template <class T, size_t N, class Alloc>
 bool operator!=(const SmallVector<T, N, Alloc>& lhs, const SmallVector<T, N, Alloc>& rhs) {
     return !(lhs == rhs);
 }
+
+template <typename T, size_t N, typename A>
+struct is_small_vector<SmallVector<T, N, A>> : std::true_type {};
 
 }  // namespace cpp_utilities
 

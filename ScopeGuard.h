@@ -170,11 +170,11 @@ namespace detail {
  * if multiple threads might simultaneously attempt to move from the same object.
  *
  * Policy Compatibility (v2.1):
- * ✅ Compatible: SingleThreaded, Mutex, SharedMutex, UniqueRWLock, Spinlock,
+ * âœ… Compatible: SingleThreaded, Mutex, SharedMutex, UniqueRWLock, Spinlock,
  *               Ticket, MCS, Adaptive, Versioned, SeqLock, PriorityInheritance,
  *               Waitable, Recursive, Timed, SharedTimed
- * ⚠️ Requires care: RCUPolicy, HazardPointerPolicy (templated on data type)
- * ❌ Not compatible: LockFreeSynchronization (assertion-only, debug mode)
+ * âš ï¸ Requires care: RCUPolicy, HazardPointerPolicy (templated on data type)
+ * âŒ Not compatible: LockFreeSynchronization (assertion-only, debug mode)
  *
  * Example:
  * @code
@@ -585,5 +585,8 @@ template <typename Policy, typename Fn>
 #define SCOPE_GUARD_EX(PolicyTag) \
     auto CPP_UTILITIES_SCOPE_GUARD_UNIQUE(scope_guard_) = \
         ::cpp_utilities::MakeScopeGuard<PolicyTag>() + [&]() GET_NOEXCEPT(PolicyTag)
+
+template <typename OnExit, typename OnSuccess, typename OnFailure, typename ExecutionPolicy>
+struct is_scope_guard<ScopeGuardImpl<OnExit, OnSuccess, OnFailure, ExecutionPolicy>> : std::true_type {};
 
 } // namespace cpp_utilities

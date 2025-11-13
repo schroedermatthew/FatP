@@ -600,4 +600,7 @@ namespace cpp_utilities {
     // Guard optional deps
     // Users define CPP_UTILITIES_USE_SHARED_MUTEX / CPP_UTILITIES_USE_ATOMIC to 0 if not wanted.
 
+template <typename T, typename UP, typename CP, typename A, typename ConP, template <typename, typename> class BP>
+struct is_sorted_container<SortedContainer<T, UP, CP, A, ConP, BP>> : std::true_type {};
+
 } // namespace cpp_utilities

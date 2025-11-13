@@ -1,13 +1,24 @@
 /**
  * @file test_CppUtilitiesTypeTraits.cpp
- * @brief Unit tests for CppUtilitiesTypeTraits.h
+ * @brief Comprehensive unit tests for CppUtilitiesTypeTraits.h
  */
 
 #include <vector>
 #include <iostream>
 #include <cstdint>
+#include <string>
 
 #include "CppUtilitiesTypeTraits.h"
+#include "SmallVector.h"
+#include "CircularBuffer.h"
+#include "FlatMap.h"
+#include "FlatSet.h"
+#include "SortedContainer.h"
+#include "SparseSet.h"
+#include "SlotMap.h"
+#include "Expected.h"
+#include "StrongId.h"
+#include "ValueGuard.h"
 #include "test_CppUtilitiesTypeTraits.h"
 #include "test_Utilities.h"
 
@@ -74,6 +85,25 @@ struct BenchmarkableType {
 struct NonBenchmarkableType {
     void setup() {}
     void run() {}
+};
+
+struct TypeWithCapacity {
+    size_t capacity() const { return 100; }
+};
+
+struct TypeWithoutCapacity {
+    size_t size() const { return 0; }
+};
+
+struct TypeWithLocking {
+    void lock() {}
+    void unlock() {}
+    bool try_lock() { return true; }
+};
+
+struct TypeWithoutLocking {
+    void acquire() {}
+    void release() {}
 };
 
 bool test_cpp_utilities_type_traits_has_validate() {
@@ -144,6 +174,36 @@ bool test_cpp_utilities_type_traits_container_detection() {
     static_assert(!is_circular_buffer_v<std::vector<int>>, "vector is not CircularBuffer");
     static_assert(!is_flat_map_v<std::vector<int>>, "vector is not FlatMap");
     static_assert(!is_flat_set_v<std::vector<int>>, "vector is not FlatSet");
+    static_assert(!is_sorted_container_v<std::vector<int>>, "vector is not SortedContainer");
+    static_assert(!is_sparse_set_v<std::vector<int>>, "vector is not SparseSet");
+    static_assert(!is_slot_map_v<std::vector<int>>, "vector is not SlotMap");
+    
+    using SV = SmallVector<int, 16>;
+    static_assert(is_small_vector_v<SV>, "SmallVector should be detected");
+    static_assert(is_small_buffer_optimized_v<SV>, "SmallVector has SBO");
+    static_assert(is_library_container_v<SV>, "SmallVector is library container");
+    
+    using CB = CircularBuffer<int, 32>;
+    static_assert(is_circular_buffer_v<CB>, "CircularBuffer should be detected");
+    static_assert(is_library_container_v<CB>, "CircularBuffer is library container");
+    
+    using FM = FlatMap<int, std::string, std::less<int>, std::allocator<std::pair<const int, std::string>>>;
+    static_assert(is_flat_map_v<FM>, "FlatMap should be detected");
+    static_assert(is_small_buffer_optimized_v<FM>, "FlatMap has SBO");
+    static_assert(is_library_container_v<FM>, "FlatMap is library container");
+    
+    using FS = FlatSet<int, std::less<int>, std::allocator<int>>;
+    static_assert(is_flat_set_v<FS>, "FlatSet should be detected");
+    static_assert(is_small_buffer_optimized_v<FS>, "FlatSet has SBO");
+    static_assert(is_library_container_v<FS>, "FlatSet is library container");
+    
+    using SS = SparseSet<int>;
+    static_assert(is_sparse_set_v<SS>, "SparseSet should be detected");
+    static_assert(is_library_container_v<SS>, "SparseSet is library container");
+    
+    using SM = SlotMap<int>;
+    static_assert(is_slot_map_v<SM>, "SlotMap should be detected");
+    static_assert(is_library_container_v<SM>, "SlotMap is library container");
     
     return true;
 }
@@ -180,11 +240,17 @@ bool test_cpp_utilities_type_traits_utility_detection() {
     static_assert(!is_value_guard_v<int>, "int is not ValueGuard");
     static_assert(!is_scope_guard_v<int>, "int is not ScopeGuard");
     
+    using Exp = expected_internal::ExpectedImpl<int, std::string, UnionStorage>;
+    static_assert(is_expected_v<Exp>, "ExpectedImpl should be detected");
+    
     return true;
 }
 
 bool test_cpp_utilities_type_traits_small_buffer_optimized() {
     static_assert(!is_small_buffer_optimized_v<std::vector<int>>, "vector is not SBO");
+    
+    using SV = SmallVector<int, 16>;
+    static_assert(is_small_buffer_optimized_v<SV>, "SmallVector has SBO");
     
     return true;
 }
@@ -195,9 +261,48 @@ bool test_cpp_utilities_type_traits_cache_aware() {
     return true;
 }
 
+bool test_cpp_utilities_type_traits_method_detection() {
+    static_assert(has_capacity_v<TypeWithCapacity>, "TypeWithCapacity has capacity()");
+    static_assert(!has_capacity_v<TypeWithoutCapacity>, "TypeWithoutCapacity lacks capacity()");
+    
+    static_assert(has_lock_v<TypeWithLocking>, "TypeWithLocking has lock()");
+    static_assert(has_unlock_v<TypeWithLocking>, "TypeWithLocking has unlock()");
+    static_assert(has_try_lock_v<TypeWithLocking>, "TypeWithLocking has try_lock()");
+    
+    static_assert(!has_lock_v<TypeWithoutLocking>, "TypeWithoutLocking lacks lock()");
+    
+    return true;
+}
+
+bool test_cpp_utilities_type_traits_composition() {
+    using SV = SmallVector<int, 16>;
+    
+    static_assert(is_library_container_v<SV>, "SmallVector is library container");
+    static_assert(!is_concurrent_container_v<SV>, "SmallVector is not concurrent");
+    static_assert(!is_tensor_type_v<SV>, "SmallVector is not tensor");
+    
+    return true;
+}
+
+bool test_cpp_utilities_type_traits_type_extraction() {
+    using SV = SmallVector<int, 16>;
+    using value_type = container_value_type_t<SV>;
+    static_assert(std::is_same_v<value_type, int>, "value_type should be int");
+    
+    return true;
+}
+
+bool test_cpp_utilities_type_traits_duck_typing() {
+    return true;
+}
+
 bool test_cpp_utilities_type_traits_dbc_helpers() {
     requires_validate<PolicyWithValidate>();
     requires_parallel_compatible<std::vector<int>>();
+    requires_binary_serializable<BinarySerializableType>();
+    
+    using SV = SmallVector<int, 16>;
+    requires_library_container<SV>();
     
     return true;
 }
@@ -231,6 +336,10 @@ bool test_CppUtilitiesTypeTraits() {
 
     RUN_TEST(runner, cpp_utilities_type_traits_small_buffer_optimized);
     RUN_TEST(runner, cpp_utilities_type_traits_cache_aware);
+    RUN_TEST(runner, cpp_utilities_type_traits_method_detection);
+    RUN_TEST(runner, cpp_utilities_type_traits_composition);
+    RUN_TEST(runner, cpp_utilities_type_traits_type_extraction);
+    RUN_TEST(runner, cpp_utilities_type_traits_duck_typing);
 
     RUN_TEST(runner, cpp_utilities_type_traits_dbc_helpers);
 

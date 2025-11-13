@@ -397,4 +397,7 @@ using FixedVecChecked = FixedTensor<T, N>;
 template <typename T, std::size_t M, std::size_t N>
 using FixedMatChecked = FixedTensor<T, M, N>;
 
+template <typename T, size_t... Dims>
+struct is_fixed_tensor<FixedTensor<T, Dims...>> : std::true_type {};
+
 } // namespace cpp_utilities

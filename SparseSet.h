@@ -422,4 +422,7 @@ private:
     std::vector<T> m_sparse;
 };
 
+template <typename T>
+struct is_sparse_set<SparseSet<T>> : std::true_type {};
+
 } // namespace cpp_utilities

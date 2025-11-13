@@ -256,4 +256,7 @@ private:
     std::vector<size_type> free_list_; // Free slot indices
 };
 
+template <typename T>
+struct is_slot_map<SlotMap<T>> : std::true_type {};
+
 } // namespace cpp_utilities

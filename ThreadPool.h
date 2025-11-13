@@ -540,4 +540,8 @@ private:
     std::condition_variable m_global_cv;
 };
 
+
+template <>
+struct is_thread_pool<ThreadPool> : std::true_type {};
+
 } // namespace cpp_utilities

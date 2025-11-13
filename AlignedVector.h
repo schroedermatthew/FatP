@@ -513,4 +513,8 @@ bool operator>=(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs) 
 }
 
 } // namespace memory
+
+template <typename T, size_t Alignment, typename Allocator>
+struct is_aligned_vector<AlignedVector<T, Alignment, Allocator>> : std::true_type {};
+
 } // namespace cpp_utilities

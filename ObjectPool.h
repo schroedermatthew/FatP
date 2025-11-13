@@ -239,3 +239,8 @@ PooledObject<T, SyncPolicy> make_pooled(ObjectPool<T, SyncPolicy>& pool, Args&&.
 }  // namespace cpp_utilities
 
 #endif  // CPP_UTILITIES_OBJECT_POOL_H
+
+template <typename T>
+struct is_object_pool<ObjectPool<T>> : std::true_type {};
+
+} // namespace cpp_utilities

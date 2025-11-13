@@ -970,7 +970,7 @@ public:
         }
         
         auto start = std::chrono::steady_clock::now();
-        std::chrono::microseconds delay(100);  // Start with 100ÃŽÂ¼s for faster detection
+        std::chrono::microseconds delay(100);  // Start with 100ÃƒÅ½Ã‚Â¼s for faster detection
         constexpr auto max_delay = std::chrono::milliseconds(50);  // Max 50ms
         size_t attempts = 0;
         
@@ -2158,5 +2158,9 @@ template<typename T, typename EnforcementPolicy = DebugOnlyPolicy>
 std::weak_ptr<T> make_atomic_weak(std::weak_ptr<T> wp) {
     return std::move(wp);
 }
+
+
+template <typename T, typename EP, template <typename> class WP, typename DP>
+struct is_atomic_reference<AtomicReference<T, EP, WP, DP>> : std::true_type {};
 
 } // namespace cpp_utilities

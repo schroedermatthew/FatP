@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <memory>
 #include <utility>
+#include "CppUtilitiesTypeTraits.h"
 
 namespace cpp_utilities {
 
@@ -114,6 +115,9 @@ public:
      */
     static constexpr size_t capacity() { return Capacity; }
 };
+
+template <typename T, size_t N>
+struct is_circular_buffer<CircularBuffer<T, N>> : std::true_type {};
 
 }  // namespace cpp_utilities
 

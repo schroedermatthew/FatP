@@ -68,6 +68,8 @@
 #include <cassert>      // For assert
 #include <functional>   // For std::hash
 
+#include "CppUtilitiesTypeTraits.h"
+
 #ifdef USE_VARIANT_STORAGE
 #include <variant>      // For VariantStorage policy (conditional use)
 #endif
@@ -2706,7 +2708,7 @@ namespace cpp_utilities {
  * @endcode
  */
 
- // --- Conversion: cpp_utilities::Expected → std::expected ---
+ // --- Conversion: cpp_utilities::Expected â†’ std::expected ---
 
  /**
   * @brief Convert cpp_utilities::Expected to std::expected (lvalue)
@@ -2772,7 +2774,7 @@ namespace cpp_utilities {
         }
     }
 
-    // --- Conversion: std::expected → cpp_utilities::Expected ---
+    // --- Conversion: std::expected â†’ cpp_utilities::Expected ---
 
     /**
      * @brief Convert std::expected to cpp_utilities::Expected (lvalue)
@@ -2888,6 +2890,8 @@ namespace cpp_utilities {
 
 #endif // __cpp_lib_expected
 
+template <typename T, typename E, template <typename, typename> class SP>
+struct is_expected<expected_internal::ExpectedImpl<T, E, SP>> : std::true_type {};
 
 } // namespace cpp_utilities
 
@@ -2947,5 +2951,4 @@ namespace std {
     if (!__res.has_value()) { \
         return unexpected(std::move(__res).error()); \
     } 
-
 

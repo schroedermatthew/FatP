@@ -392,4 +392,8 @@ private:
     alignas(CACHE_LINE_SIZE) std::atomic<size_t> read_pos_;
 };
 
+
+template <typename T, size_t Capacity>
+struct is_lock_free_ring_buffer<LockFreeRingBuffer<T, Capacity>> : std::true_type {};
+
 } // namespace cpp_utilities

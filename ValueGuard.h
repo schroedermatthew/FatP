@@ -408,11 +408,11 @@ public:
      * 
      * Semantic Correctness Example:
      *   int x = 10, y = 20;
-     *   ValueGuard g1(x, 100);  // x→100, will restore to 10
-     *   ValueGuard g2(y, 200);  // y→200, will restore to 20
+     *   ValueGuard g1(x, 100);  // xâ†’100, will restore to 10
+     *   ValueGuard g2(y, 200);  // yâ†’200, will restore to 20
      *   swap(g1, g2);
      *   // Now: g1 manages y (with original=20), g2 manages x (with original=10)
-     *   // On destruction: g1 restores y→20 ✓, g2 restores x→10 ✓
+     *   // On destruction: g1 restores yâ†’20 âœ“, g2 restores xâ†’10 âœ“
      * 
      * @param other The other guard to swap with.
      * 
@@ -547,5 +547,8 @@ template <typename T>
 auto make_value_guard_no_restore(T& target, const T& new_value) {
     return ValueGuard<T, ValueGuardNoRestorePolicy<T>>(target, new_value);
 }
+
+template <typename T, typename Policy>
+struct is_value_guard<ValueGuard<T, Policy>> : std::true_type {};
 
 } // namespace cpp_utilities

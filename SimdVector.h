@@ -770,4 +770,8 @@ using SimdVectorF = SimdVector<float>;
 using SimdVectorD = SimdVector<double>;
 
 } // namespace simd
+
+template <typename T, size_t N>
+struct is_simd_vector<SimdVector<T, N>> : std::true_type {};
+
 } // namespace cpp_utilities

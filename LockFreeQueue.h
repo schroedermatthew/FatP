@@ -313,4 +313,8 @@ private:
     alignas(CPP_UTILITIES_CACHE_LINE_SIZE) std::array<Slot, MaxSize> m_slots;
 };
 
+
+template <typename T, typename Allocator>
+struct is_lock_free_queue<LockFreeQueue<T, Allocator>> : std::true_type {};
+
 } // namespace cpp_utilities

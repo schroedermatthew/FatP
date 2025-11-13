@@ -862,3 +862,10 @@ namespace std {
         }
     };
 } // namespace std
+
+namespace cpp_utilities {
+
+template <typename T, typename Tag, typename V, typename C, template <typename> class O>
+struct is_strong_id<StrongId<T, Tag, V, C, O>> : std::true_type {};
+
+}

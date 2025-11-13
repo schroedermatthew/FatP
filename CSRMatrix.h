@@ -579,4 +579,8 @@ CSRMatrix<T, IndexType> diagonal_matrix(const std::vector<T>& diag) {
 }
 
 } // namespace sparse
+
+template <typename T, typename IndexType, typename Allocator>
+struct is_csr_matrix<CSRMatrix<T, IndexType, Allocator>> : std::true_type {};
+
 } // namespace cpp_utilities

@@ -8,6 +8,7 @@
 #include <iterator>
 #include <utility>
 #include <vector>
+#include "CppUtilitiesTypeTraits.h"
 
 namespace cpp_utilities {
 
@@ -186,6 +187,9 @@ public:
     value_compare value_comp() const { return comp_; }
     allocator_type get_allocator() const noexcept { return data_.get_allocator(); }
 };
+
+template <typename T, typename C, typename A>
+struct is_flat_set<FlatSet<T, C, A>> : std::true_type {};
 
 }  // namespace cpp_utilities
 

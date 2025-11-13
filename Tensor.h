@@ -53,6 +53,7 @@
 #include "AlignedVector.h"
 #include "enforce.h"
 #include "TypeTraits.h"
+#include "CppUtilitiesTypeTraits.h"
 #include "CheckedArithmetic.h"
 #include "Expected.h"
 #include "ContractException.h"
