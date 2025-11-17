@@ -3,12 +3,10 @@
 
 #include "AlignedVector.h"
 #include "test_AlignedVector.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
-
-using namespace memory;
 
 bool test_aligned_vector_construction() {
     AlignedVector<int> vec1;
@@ -224,4 +222,4 @@ bool test_AlignedVector() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

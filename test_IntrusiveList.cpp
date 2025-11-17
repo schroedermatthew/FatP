@@ -4,11 +4,11 @@
 
 #include "IntrusiveList.h"
 #include "test_IntrusiveList.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-using namespace cpp_utilities;
+using namespace fat_p;
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 // Test node type
@@ -401,4 +401,4 @@ bool test_IntrusiveList() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

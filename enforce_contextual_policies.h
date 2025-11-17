@@ -12,7 +12,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace cpp_utilities {
+namespace fat_p {
 
     struct NoThrowRaiser;
 
@@ -153,4 +153,4 @@ namespace cpp_utilities {
         using type = NoThrowRaiser;
     };
     // Add custom resolver specializations if needed (extensibility)
-} // namespace cpp_utilities
+} // namespace fat_p

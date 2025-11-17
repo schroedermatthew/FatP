@@ -5,7 +5,7 @@
 #include <cctype>   // For escape
 #include <utility>  // For forwarding
 
-namespace cpp_utilities {
+namespace fat_p {
     // --- JSON Policies ---
     struct StandardJsonPolicy {
         static constexpr bool pretty_print = false;

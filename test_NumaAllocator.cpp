@@ -4,9 +4,9 @@
 
 #include "NumaAllocator.h"
 #include "test_NumaAllocator.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 using namespace memory;
@@ -212,4 +212,4 @@ bool test_NumaAllocator() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

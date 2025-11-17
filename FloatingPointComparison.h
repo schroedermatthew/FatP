@@ -1,6 +1,5 @@
 // FloatingPointComparison.h
 // Core floating-point comparison policies and utilities
-// Lightweight header with minimal dependencies for basic float/double comparisons
 #pragma once
 
 #include <cmath>
@@ -14,7 +13,7 @@
 #include "DiagnosticLogger.h"     // For conditionalPrintError
 #include "Stringify.h"            // For toString
 
-namespace cpp_utilities {
+namespace fat_p {
     
     // ====================================================================
     // Helper Functions
@@ -433,4 +432,4 @@ namespace cpp_utilities {
         return Policy::epsilonMatch(a, b, eps...);
     }
 
-} // namespace cpp_utilities
+} // namespace fat_p

@@ -1,11 +1,12 @@
 #include <iostream>
 #include <string>
 
+#include "CppStandardDetection.h"
 #include "DebugOnly.h"
 #include "test_DebugOnly.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 bool test_debug_only_basic_construction() {
@@ -66,7 +67,7 @@ bool test_debug_only_complex_type() {
 bool test_debug_only_zero_cost() {
     struct WithDebug {
         int data;
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         [[no_unique_address]]
 #endif
         DebugOnly<std::string> debug_info;
@@ -78,7 +79,7 @@ bool test_debug_only_zero_cost() {
     // - C++17: sizeof(WithDebug) == sizeof(int) + padding (typically 8 bytes on 64-bit due to alignment)
     // The test should be realistic about C++ version limitations
     
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
     // With C++20 [[no_unique_address]], we get true zero-overhead
     SIMPLE_ASSERT(sizeof(WithDebug) == sizeof(int), 
                   "C++20: Should have zero overhead with [[no_unique_address]]");
@@ -110,14 +111,8 @@ void benchmark_debugonly() {
     std::cout << "Running in DEBUG mode\n";
     #endif
     
-    std::cout << "C++ Standard: ";
-#if __cplusplus >= 202002L
-    std::cout << "C++20 or later (supports [[no_unique_address]])\n";
-#elif __cplusplus >= 201703L
-    std::cout << "C++17\n";
-#else
-    std::cout << "C++14 or earlier\n";
-#endif
+    std::cout << "C++ Standard: " << fat_p::detail::cplusplus_string() << "\n";
+    std::cout << "Compiler: " << fat_p::detail::compiler_name() << "\n";
     
     DebugOnly<int> debug_val;
     
@@ -130,7 +125,7 @@ void benchmark_debugonly() {
     
     struct WithDebug {
         int data;
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         [[no_unique_address]]
 #endif
         DebugOnly<std::string> debug_info;
@@ -140,7 +135,7 @@ void benchmark_debugonly() {
     std::cout << "Size of WithDebug: " << sizeof(WithDebug) << " bytes\n";
     
 #ifdef NDEBUG
-    #if __cplusplus >= 202002L
+    #if FATP_HAS_CPP20
     std::cout << "  ✓ C++20: True zero-overhead with [[no_unique_address]]\n";
     #else
     std::cout << "  ℹ C++17: Minimal overhead (empty class = 1 byte + padding)\n";
@@ -166,4 +161,4 @@ bool test_DebugOnly() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

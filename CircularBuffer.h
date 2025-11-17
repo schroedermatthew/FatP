@@ -1,14 +1,14 @@
 // CircularBuffer.h
-#ifndef CPP_UTILITIES_CIRCULAR_BUFFER_H
-#define CPP_UTILITIES_CIRCULAR_BUFFER_H
+#pragma once
 
 #include <atomic>
 #include <cstddef>
 #include <memory>
 #include <utility>
-#include "CppUtilitiesTypeTraits.h"
 
-namespace cpp_utilities {
+#include "FatPTypeTraits.h"
+
+namespace fat_p {
 
 /**
  * @brief Lock-free single-producer single-consumer (SPSC) circular buffer
@@ -119,6 +119,4 @@ public:
 template <typename T, size_t N>
 struct is_circular_buffer<CircularBuffer<T, N>> : std::true_type {};
 
-}  // namespace cpp_utilities
-
-#endif  // CPP_UTILITIES_CIRCULAR_BUFFER_H
+}  // namespace fay_p

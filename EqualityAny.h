@@ -14,7 +14,7 @@
 #include "EqualityComparisons.h"
 #include "Factory.h"
 
-namespace cpp_utilities {
+namespace fat_p {
 
  /**
  * @brief Function type for comparing std::any values, with two tolerance
@@ -228,4 +228,4 @@ bool areEqual(const std::any& a, const std::any& b,
     }
 }
 
-} // namespace cpp_utilities
+} // namespace fat_p

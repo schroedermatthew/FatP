@@ -6,13 +6,14 @@
 #include <memory_resource>  // For pmr allocators
 #include <chrono>
 
+#include "CppStandardDetection.h"
 #include "AtomicReference.h"
 #include "test_AtomicReference.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
 /**
  * @file test_AtomicReference.cpp
- * @brief Comprehensive test suite for cpp_utilities::AtomicReference v2.0
+ * @brief Comprehensive test suite for fat_p::AtomicReference v2.0
  * 
  * @details Tests all SuperGrok recommendations implementation:
  * 
@@ -50,10 +51,10 @@
  * - Performance benchmarks
  */
 
-using namespace cpp_utilities;
-using namespace cpp_utilities::testing;
+using namespace fat_p;
+using namespace fat_p::testing;
 
-namespace cpp_utilities::testing {
+namespace fat_p::testing {
 
 // ============================================================================
 // Test Fixtures and Helper Classes
@@ -112,7 +113,7 @@ bool test_basic_construction() {
     SIMPLE_ASSERT(loaded, "Constructed with value should not be null");
     ASSERT_EQ(loaded->value, 42, "Value should match");
     
-    out << colors::green() << "✓ All construction checks passed" 
+    out << colors::green() << "âœ“ All construction checks passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -144,7 +145,7 @@ bool test_load_store_operations() {
     loaded = ref.load();
     ASSERT_EQ(loaded->value, 200, "Value should update");
     
-    out << colors::green() << "✓ All load/store operations passed" 
+    out << colors::green() << "âœ“ All load/store operations passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -163,7 +164,7 @@ bool test_exchange_operations() {
     ASSERT_EQ(old_val->value, 10, "Exchange should return old value");
     ASSERT_EQ(ref.load()->value, 20, "New value should be stored");
     
-    out << colors::green() << "✓ Exchange operations passed" 
+    out << colors::green() << "âœ“ Exchange operations passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -190,7 +191,7 @@ bool test_compare_exchange_weak() {
     SIMPLE_ASSERT(!success, "CAS should fail when expected doesn't match");
     ASSERT_EQ(ref.load()->value, 40, "Value should not change on failed CAS");
     
-    out << colors::green() << "✓ Compare-exchange weak passed" 
+    out << colors::green() << "âœ“ Compare-exchange weak passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -210,7 +211,7 @@ bool test_compare_exchange_strong() {
     SIMPLE_ASSERT(success, "Strong CAS should succeed");
     ASSERT_EQ(ref.load()->value, 70, "Value should be updated");
     
-    out << colors::green() << "✓ Compare-exchange strong passed" 
+    out << colors::green() << "âœ“ Compare-exchange strong passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -237,7 +238,7 @@ bool test_use_count_basic() {
     count = ref.use_count();
     ASSERT_EQ(count, 1L, "Use count should be 1 after sp reset");
     
-    out << colors::green() << "✓ Basic use count passed" 
+    out << colors::green() << "âœ“ Basic use count passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -271,7 +272,7 @@ bool test_fetch_add_use_count_atomic() {
                      "Holders should point to same object");
     }
     
-    out << colors::green() << "✓ Atomic fetch_add_use_count passed" 
+    out << colors::green() << "âœ“ Atomic fetch_add_use_count passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -314,7 +315,7 @@ bool test_fetch_add_use_count_concurrent() {
         }
     }
     
-    out << colors::green() << "✓ Concurrent fetch_add_use_count passed" 
+    out << colors::green() << "âœ“ Concurrent fetch_add_use_count passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -357,7 +358,7 @@ bool test_wait_notify_basic() {
     waiter.join();
     SIMPLE_ASSERT(waiter_done.load(), "Waiter should complete");
     
-    out << colors::green() << "✓ Wait/notify coordination passed" 
+    out << colors::green() << "âœ“ Wait/notify coordination passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -377,7 +378,7 @@ bool test_wait_timeout() {
     
     SIMPLE_ASSERT(!changed, "Wait should timeout");
     
-    out << colors::green() << "✓ Wait timeout handled correctly" 
+    out << colors::green() << "âœ“ Wait timeout handled correctly" 
         << colors::reset() << std::endl;
     
     return true;
@@ -418,7 +419,7 @@ bool test_notify_all_multiple_waiters() {
     
     ASSERT_EQ(waiters_done.load(), num_waiters, "All waiters should be notified");
     
-    out << colors::green() << "✓ Notify all multiple waiters passed" 
+    out << colors::green() << "âœ“ Notify all multiple waiters passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -454,7 +455,7 @@ bool test_weak_ptr_basic() {
     auto locked2 = weak_ref.lock_expected();
     SIMPLE_ASSERT(!locked2.has_value(), "lock_expected should fail on expired");
     
-    out << colors::green() << "✓ Basic weak_ptr operations passed" 
+    out << colors::green() << "âœ“ Basic weak_ptr operations passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -484,7 +485,7 @@ bool test_weak_ptr_store_load() {
     // Now should be expired
     SIMPLE_ASSERT(weak_ref.expired(), "Should be expired");
     
-    out << colors::green() << "✓ Weak pointer store/load passed" 
+    out << colors::green() << "âœ“ Weak pointer store/load passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -518,7 +519,7 @@ bool test_weak_ptr_wait_on_expiration() {
     waiter.join();
     SIMPLE_ASSERT(waiter_done.load(), "Waiter should detect expiration");
     
-    out << colors::green() << "✓ Weak pointer wait on expiration passed" 
+    out << colors::green() << "âœ“ Weak pointer wait on expiration passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -546,7 +547,7 @@ bool test_custom_allocator_pmr() {
     // Allocations come from pool
     // (Memory is managed by pool, freed when pool goes out of scope)
     
-    out << colors::green() << "✓ Custom PMR allocator passed" 
+    out << colors::green() << "âœ“ Custom PMR allocator passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -577,7 +578,7 @@ bool test_debug_only_policy() {
         << colors::reset() << std::endl;
 #endif
     
-    out << colors::green() << "✓ DebugOnlyPolicy passed" 
+    out << colors::green() << "âœ“ DebugOnlyPolicy passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -599,7 +600,7 @@ bool test_always_enforce_policy() {
     }
     SIMPLE_ASSERT(caught, "AlwaysEnforcePolicy should always throw on null");
     
-    out << colors::green() << "✓ AlwaysEnforcePolicy passed" 
+    out << colors::green() << "âœ“ AlwaysEnforcePolicy passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -625,7 +626,7 @@ bool test_invariant_guard_read_operations() {
     ASSERT_EQ(val2->value, 200, "Value should match");
     ASSERT_EQ(val3->value, 200, "Value should match");
     
-    out << colors::green() << "✓ InvariantGuard read operations passed" 
+    out << colors::green() << "âœ“ InvariantGuard read operations passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -645,7 +646,7 @@ bool test_invariant_guard_write_operations() {
     ref.store(std::make_shared<TestData>(230));
     ASSERT_EQ(ref.load()->value, 230, "Value should update again");
     
-    out << colors::green() << "✓ InvariantGuard write operations passed" 
+    out << colors::green() << "âœ“ InvariantGuard write operations passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -670,13 +671,13 @@ bool test_lock_free_detection() {
     out << "  is_always_lock_free(): " << (always_lock_free ? "true" : "false") << "\n";
     out << "  is_lock_free():        " << (instance_lock_free ? "true" : "false") << "\n";
     
-#if __cplusplus >= 202002L && (defined(__x86_64__) || defined(_M_X64))
+#if FATP_HAS_CPP20 && (defined(__x86_64__) || defined(_M_X64))
     out << "  Platform: C++20 on x86-64 (likely lock-free)\n";
 #else
     out << "  Platform: Pre-C++20 or non-x86-64 (may not be lock-free)\n";
 #endif
     
-    out << colors::green() << "✓ Lock-free detection passed" 
+    out << colors::green() << "âœ“ Lock-free detection passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -697,7 +698,7 @@ bool test_load_expected_success() {
     SIMPLE_ASSERT(result.has_value(), "load_expected should succeed");
     ASSERT_EQ(result.value()->value, 240, "Value should match");
     
-    out << colors::green() << "✓ load_expected success passed" 
+    out << colors::green() << "âœ“ load_expected success passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -713,7 +714,7 @@ bool test_load_expected_failure() {
     auto result = ref.load_expected();
     SIMPLE_ASSERT(!result.has_value(), "load_expected should fail on null");
     
-    out << colors::green() << "✓ load_expected failure passed" 
+    out << colors::green() << "âœ“ load_expected failure passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -734,7 +735,7 @@ bool test_try_compare_exchange_with_retries() {
     SIMPLE_ASSERT(result.value(), "CAS should succeed");
     ASSERT_EQ(ref.load()->value, 260, "Value should update");
     
-    out << colors::green() << "✓ try_compare_exchange with retries passed" 
+    out << colors::green() << "âœ“ try_compare_exchange with retries passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -771,7 +772,7 @@ bool test_concurrent_loads() {
     
     ASSERT_EQ(success_count.load(), num_threads * 1000, "All loads should succeed");
     
-    out << colors::green() << "✓ Concurrent loads passed" 
+    out << colors::green() << "âœ“ Concurrent loads passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -806,7 +807,7 @@ bool test_concurrent_stores() {
     auto final_val = ref.load();
     SIMPLE_ASSERT(final_val, "Final value should exist");
     
-    out << colors::green() << "✓ Concurrent stores passed" 
+    out << colors::green() << "âœ“ Concurrent stores passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -841,7 +842,7 @@ bool test_concurrent_cas() {
     // Should have some successful CAS operations
     SIMPLE_ASSERT(success_count.load() > 0, "Should have successful CAS operations");
     
-    out << colors::green() << "✓ Concurrent CAS passed" 
+    out << colors::green() << "âœ“ Concurrent CAS passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -861,7 +862,7 @@ bool test_dereference_operator() {
     auto& val = *ref;
     ASSERT_EQ(val.value, 280, "Dereference should work");
     
-    out << colors::green() << "✓ Dereference operator passed" 
+    out << colors::green() << "âœ“ Dereference operator passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -876,7 +877,7 @@ bool test_arrow_operator() {
     
     ASSERT_EQ(ref->value, 290, "Arrow operator should work");
     
-    out << colors::green() << "✓ Arrow operator passed" 
+    out << colors::green() << "âœ“ Arrow operator passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -892,7 +893,7 @@ bool test_conversion_operator() {
     std::shared_ptr<TestData> sp = ref;  // Implicit conversion
     ASSERT_EQ(sp->value, 300, "Conversion operator should work");
     
-    out << colors::green() << "✓ Conversion operator passed" 
+    out << colors::green() << "âœ“ Conversion operator passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -909,7 +910,7 @@ bool test_assign_to_method() {
     ref.assign_to(sp);
     ASSERT_EQ(sp->value, 310, "assign_to should work");
     
-    out << colors::green() << "✓ assign_to method passed" 
+    out << colors::green() << "âœ“ assign_to method passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -941,7 +942,7 @@ bool test_owner_before() {
         SIMPLE_ASSERT(result2, "owner_before should provide total ordering");
     }
     
-    out << colors::green() << "✓ owner_before passed" 
+    out << colors::green() << "âœ“ owner_before passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -959,7 +960,7 @@ bool test_make_atomic_shared_factory() {
     AtomicReference<TestData> ref(make_atomic_shared<TestData>(340));
     ASSERT_EQ(ref.load()->value, 340, "make_atomic_shared should work");
     
-    out << colors::green() << "✓ make_atomic_shared factory passed" 
+    out << colors::green() << "âœ“ make_atomic_shared factory passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -978,7 +979,7 @@ bool test_make_atomic_weak_factory() {
     SIMPLE_ASSERT(locked.has_value(), "Should lock successfully");
     ASSERT_EQ(locked.value()->value, 350, "Value should match");
     
-    out << colors::green() << "✓ make_atomic_weak factory passed" 
+    out << colors::green() << "âœ“ make_atomic_weak factory passed" 
         << colors::reset() << std::endl;
     
     return true;
@@ -1169,4 +1170,4 @@ bool test_AtomicReference() {
     return failed == 0;
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

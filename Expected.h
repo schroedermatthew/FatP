@@ -68,7 +68,7 @@
 #include <cassert>      // For assert
 #include <functional>   // For std::hash
 
-#include "CppUtilitiesTypeTraits.h"
+#include "FatPTypeTraits.h"
 
 #ifdef USE_VARIANT_STORAGE
 #include <variant>      // For VariantStorage policy (conditional use)
@@ -156,7 +156,7 @@
 #endif
 #endif
 
-namespace cpp_utilities {
+namespace fat_p {
 
     /**
      * @struct unexpect_tag_t
@@ -2472,21 +2472,21 @@ namespace cpp_utilities {
      * @brief Configurable default storage policy.
      *
      * Users can define their own default storage by defining
-     * CPP_UTILITIES_DEFAULT_STORAGE before including this header.
+     * FATP_DEFAULT_STORAGE before including this header.
      *
      * @example Use custom storage globally:
      * @code
-     * #define CPP_UTILITIES_DEFAULT_STORAGE ArenaStorage
+     * #define FATP_DEFAULT_STORAGE ArenaStorage
      * #include "Expected.h"
      *
      * Expected<int> x = ...;  // Uses ArenaStorage<int, std::string>
      * @endcode
      */
-#ifndef CPP_UTILITIES_DEFAULT_STORAGE
+#ifndef FATP_DEFAULT_STORAGE
 #ifdef USE_VARIANT_STORAGE
-#define CPP_UTILITIES_DEFAULT_STORAGE VariantStorage
+#define FATP_DEFAULT_STORAGE VariantStorage
 #else
-#define CPP_UTILITIES_DEFAULT_STORAGE UnionStorage
+#define FATP_DEFAULT_STORAGE UnionStorage
 #endif
 #endif
 
@@ -2496,7 +2496,7 @@ namespace cpp_utilities {
       * @brief Primary Expected type with configurable storage.
       *
       * Storage policy is controlled by:
-      * 1. CPP_UTILITIES_DEFAULT_STORAGE macro (for custom policies)
+      * 1. FATP_DEFAULT_STORAGE macro (for custom policies)
       * 2. USE_VARIANT_STORAGE macro (for built-in VariantStorage)
       * 3. Default: UnionStorage
       *
@@ -2514,7 +2514,7 @@ namespace cpp_utilities {
       * @example Custom storage policy:
       * @code
       * // In your build system or before #include:
-      * #define CPP_UTILITIES_DEFAULT_STORAGE ArenaStorage
+      * #define FATP_DEFAULT_STORAGE ArenaStorage
       * #include "Expected.h"
       *
       * Expected<int> x = ...;           // ArenaStorage<int, std::string>
@@ -2523,7 +2523,7 @@ namespace cpp_utilities {
       * @endcode
       */
     template <typename T, typename E = std::string>
-    using Expected = ExpectedImpl<T, E, CPP_UTILITIES_DEFAULT_STORAGE>;
+    using Expected = ExpectedImpl<T, E, FATP_DEFAULT_STORAGE>;
 
     /**
      * @brief Explicit alias for UnionStorage (bypasses configuration).
@@ -2696,7 +2696,7 @@ namespace cpp_utilities {
  *
  * @code
  * // Example: Bridge between implementations
- * cpp_utilities::Expected<int, string> my_result = compute();
+ * fat_p::Expected<int, string> my_result = compute();
  *
  * // Pass to third-party library expecting std::expected
  * std::expected<int, string> for_library = to_std_expected(my_result);
@@ -2708,10 +2708,10 @@ namespace cpp_utilities {
  * @endcode
  */
 
- // --- Conversion: cpp_utilities::Expected â†’ std::expected ---
+ // --- Conversion: fat_p::Expected Ã¢â€ â€™ std::expected ---
 
  /**
-  * @brief Convert cpp_utilities::Expected to std::expected (lvalue)
+  * @brief Convert fat_p::Expected to std::expected (lvalue)
   * @tparam T Value type
   * @tparam E Error type
   * @param exp The Expected object to convert
@@ -2730,7 +2730,7 @@ namespace cpp_utilities {
     }
 
     /**
-     * @brief Convert cpp_utilities::Expected to std::expected (rvalue)
+     * @brief Convert fat_p::Expected to std::expected (rvalue)
      * @tparam T Value type
      * @tparam E Error type
      * @param exp The Expected object to convert (will be moved from)
@@ -2749,7 +2749,7 @@ namespace cpp_utilities {
     }
 
     /**
-     * @brief Convert cpp_utilities::Expected<void, E> to std::expected<void, E> (lvalue)
+     * @brief Convert fat_p::Expected<void, E> to std::expected<void, E> (lvalue)
      */
     template <typename E>
     constexpr std::expected<void, E> to_std_expected(const Expected<void, E>& exp) {
@@ -2762,7 +2762,7 @@ namespace cpp_utilities {
     }
 
     /**
-     * @brief Convert cpp_utilities::Expected<void, E> to std::expected<void, E> (rvalue)
+     * @brief Convert fat_p::Expected<void, E> to std::expected<void, E> (rvalue)
      */
     template <typename E>
     constexpr std::expected<void, E> to_std_expected(Expected<void, E>&& exp) {
@@ -2774,10 +2774,10 @@ namespace cpp_utilities {
         }
     }
 
-    // --- Conversion: std::expected â†’ cpp_utilities::Expected ---
+    // --- Conversion: std::expected Ã¢â€ â€™ fat_p::Expected ---
 
     /**
-     * @brief Convert std::expected to cpp_utilities::Expected (lvalue)
+     * @brief Convert std::expected to fat_p::Expected (lvalue)
      * @tparam T Value type
      * @tparam E Error type
      * @param exp The std::expected object to convert
@@ -2795,7 +2795,7 @@ namespace cpp_utilities {
     }
 
     /**
-     * @brief Convert std::expected to cpp_utilities::Expected (rvalue)
+     * @brief Convert std::expected to fat_p::Expected (rvalue)
      * @tparam T Value type
      * @tparam E Error type
      * @param exp The std::expected object to convert (will be moved from)
@@ -2813,7 +2813,7 @@ namespace cpp_utilities {
     }
 
     /**
-     * @brief Convert std::expected<void, E> to cpp_utilities::Expected<void, E> (lvalue)
+     * @brief Convert std::expected<void, E> to fat_p::Expected<void, E> (lvalue)
      */
     template <typename E>
     constexpr Expected<void, E> from_std_expected(const std::expected<void, E>& exp) {
@@ -2826,7 +2826,7 @@ namespace cpp_utilities {
     }
 
     /**
-     * @brief Convert std::expected<void, E> to cpp_utilities::Expected<void, E> (rvalue)
+     * @brief Convert std::expected<void, E> to fat_p::Expected<void, E> (rvalue)
      */
     template <typename E>
     constexpr Expected<void, E> from_std_expected(std::expected<void, E>&& exp) {
@@ -2893,50 +2893,6 @@ namespace cpp_utilities {
 template <typename T, typename E, template <typename, typename> class SP>
 struct is_expected<expected_internal::ExpectedImpl<T, E, SP>> : std::true_type {};
 
-} // namespace cpp_utilities
-
-// --- std::hash specialization ---
-// ADDED: Hash support for use in unordered containers
-
-namespace std {
-
-    template <typename T, typename E, template <typename, typename> class SP>
-    struct hash<cpp_utilities::ExpectedImpl<T, E, SP>> {
-        size_t operator()(const cpp_utilities::ExpectedImpl<T, E, SP>& exp) const
-            noexcept(noexcept(hash<T>{}(exp.value())) && noexcept(hash<E>{}(exp.error()))) {
-            if (exp.has_value()) {
-                return hash<T>{}(*exp);
-            }
-            else {
-                // Combine with a different seed to distinguish from value hash
-                return hash<E>{}(exp.error()) ^ 0x9e3779b9;
-            }
-        }
-    };
-
-    template <typename E, template <typename, typename> class SP>
-    struct hash<cpp_utilities::ExpectedImpl<void, E, SP>> {
-        size_t operator()(const cpp_utilities::ExpectedImpl<void, E, SP>& exp) const
-            noexcept(noexcept(hash<E>{}(exp.error()))) {
-            if (exp.has_value()) {
-                return 0; // All successful void Expected hash to same value
-            }
-            else {
-                return hash<E>{}(exp.error()) ^ 0x9e3779b9;
-            }
-        }
-    };
-
-    template <typename E>
-    struct hash<cpp_utilities::unexpected<E>> {
-        size_t operator()(const cpp_utilities::unexpected<E>& unexp) const
-            noexcept(noexcept(hash<E>{}(unexp.value()))) {
-            return hash<E>{}(unexp.value());
-        }
-    };
-
-} // namespace std
-
 // --- EXPECTED_TRY Macro ---
 
 #define EXPECTED_TRY(var, expr) \
@@ -2951,4 +2907,48 @@ namespace std {
     if (!__res.has_value()) { \
         return unexpected(std::move(__res).error()); \
     } 
+
+} // namespace fat_p
+
+// --- std::hash specialization ---
+// ADDED: Hash support for use in unordered containers
+
+namespace std {
+
+    template <typename T, typename E, template <typename, typename> class SP>
+    struct hash<fat_p::ExpectedImpl<T, E, SP>> {
+        size_t operator()(const fat_p::ExpectedImpl<T, E, SP>& exp) const
+            noexcept(noexcept(hash<T>{}(exp.value())) && noexcept(hash<E>{}(exp.error()))) {
+            if (exp.has_value()) {
+                return hash<T>{}(*exp);
+            }
+            else {
+                // Combine with a different seed to distinguish from value hash
+                return hash<E>{}(exp.error()) ^ 0x9e3779b9;
+            }
+        }
+    };
+
+    template <typename E, template <typename, typename> class SP>
+    struct hash<fat_p::ExpectedImpl<void, E, SP>> {
+        size_t operator()(const fat_p::ExpectedImpl<void, E, SP>& exp) const
+            noexcept(noexcept(hash<E>{}(exp.error()))) {
+            if (exp.has_value()) {
+                return 0; // All successful void Expected hash to same value
+            }
+            else {
+                return hash<E>{}(exp.error()) ^ 0x9e3779b9;
+            }
+        }
+    };
+
+    template <typename E>
+    struct hash<fat_p::unexpected<E>> {
+        size_t operator()(const fat_p::unexpected<E>& unexp) const
+            noexcept(noexcept(hash<E>{}(unexp.value()))) {
+            return hash<E>{}(unexp.value());
+        }
+    };
+
+} // namespace std
 

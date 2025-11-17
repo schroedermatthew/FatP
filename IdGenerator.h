@@ -21,7 +21,7 @@
 #include "StrongId.h"
 #include "ConcurrencyPolicies.h"
 
-namespace cpp_utilities {
+namespace fat_p {
 
     // =============================================================================
     // Error Types
@@ -432,4 +432,4 @@ namespace cpp_utilities {
         ExpectedErrorPolicy<IdType, IdError>,
         SingleThreadedPolicy>;
 
-} // namespace cpp_utilities
+} // namespace fat_p

@@ -1,24 +1,25 @@
 // PipeOperator.h (User-defined pipe operator overload)
-#ifndef CPP_UTILITIES_PIPE_OPERATOR_H
-#define CPP_UTILITIES_PIPE_OPERATOR_H
+#pragma once
 
-#include "Expected.h"
 #include <type_traits>
 
-namespace cpp_utilities {
+#include "Expected.h"
+#include "FatPTypeTraits.h"
+
+namespace fat_p {
 
 // =============================================================================
-// Type Traits for Detecting Expected
+// Type Trait Specialization
 // =============================================================================
 
-template <typename T>
-struct is_expected : std::false_type {};
-
+/**
+ * @brief Specialize is_expected for ExpectedImpl
+ * @details This specialization is critical for pipe operator overload resolution.
+ * Without it, is_expected_v always returns false, causing the wrong overload
+ * to be selected and resulting in double-wrapping of Expected types.
+ */
 template <typename T, typename E, template <typename, typename> class Storage>
 struct is_expected<ExpectedImpl<T, E, Storage>> : std::true_type {};
-
-template <typename T>
-inline constexpr bool is_expected_v = is_expected<std::decay_t<T>>::value;
 
 // =============================================================================
 // General Pipe Operator for Non-Expected Types
@@ -37,7 +38,7 @@ inline constexpr bool is_expected_v = is_expected<std::decay_t<T>>::value;
  */
 template <typename T, typename Func>
 auto operator|(T&& value, Func&& func) 
-    -> std::enable_if_t<!is_expected_v<T>, decltype(func(std::forward<T>(value)))>
+    -> std::enable_if_t<!is_expected_v<std::decay_t<T>>, decltype(func(std::forward<T>(value)))>
 {
     return func(std::forward<T>(value));
 }
@@ -63,7 +64,7 @@ auto operator|(T&& value, Func&& func)
 template <typename T, typename E, template <typename, typename> class Storage, typename Func>
 auto operator|(ExpectedImpl<T, E, Storage>&& exp, Func&& func)
     -> std::enable_if_t<
-        !is_expected_v<decltype(func(*std::move(exp)))>,
+        !is_expected_v<std::decay_t<decltype(func(*std::move(exp)))>>,
         ExpectedImpl<decltype(func(*std::move(exp))), E, Storage>
     >
 {
@@ -94,7 +95,7 @@ auto operator|(ExpectedImpl<T, E, Storage>&& exp, Func&& func)
 template <typename T, typename E, template <typename, typename> class Storage, typename Func>
 auto operator|(ExpectedImpl<T, E, Storage>&& exp, Func&& func)
     -> std::enable_if_t<
-        is_expected_v<decltype(func(*std::move(exp)))>,
+        is_expected_v<std::decay_t<decltype(func(*std::move(exp)))>>,
         decltype(func(*std::move(exp)))
     >
 {
@@ -112,7 +113,7 @@ auto operator|(ExpectedImpl<T, E, Storage>&& exp, Func&& func)
 template <typename T, typename E, template <typename, typename> class Storage, typename Func>
 auto operator|(const ExpectedImpl<T, E, Storage>& exp, Func&& func)
     -> std::enable_if_t<
-        !is_expected_v<decltype(func(*exp))>,
+        !is_expected_v<std::decay_t<decltype(func(*exp))>>,
         ExpectedImpl<decltype(func(*exp)), E, Storage>
     >
 {
@@ -131,7 +132,7 @@ auto operator|(const ExpectedImpl<T, E, Storage>& exp, Func&& func)
 template <typename T, typename E, template <typename, typename> class Storage, typename Func>
 auto operator|(const ExpectedImpl<T, E, Storage>& exp, Func&& func)
     -> std::enable_if_t<
-        is_expected_v<decltype(func(*exp))>,
+        is_expected_v<std::decay_t<decltype(func(*exp))>>,
         decltype(func(*exp))
     >
 {
@@ -143,6 +144,4 @@ auto operator|(const ExpectedImpl<T, E, Storage>& exp, Func&& func)
     return ReturnType(unexpected<E>(exp.error()));
 }
 
-}  // namespace cpp_utilities
-
-#endif  // CPP_UTILITIES_PIPE_OPERATOR_H
+}  // namespace fat_p

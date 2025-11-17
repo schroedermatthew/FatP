@@ -38,7 +38,7 @@
 #include <cmath>
 #include <immintrin.h>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // =============================================================================
 // TENSOR ARITHMETIC POLICIES
@@ -118,36 +118,36 @@ struct SaturatingArithmeticPolicy {
     template<typename T>
     static constexpr T add(T a, T b) noexcept {
         if constexpr (std::is_floating_point_v<T>) {
-            return checked_add_fp<cpp_utilities::SaturatingPolicy>(a, b);
+            return checked_add_fp<fat_p::SaturatingPolicy>(a, b);
         } else {
-            return checked_add<cpp_utilities::SaturatingPolicy>(a, b);
+            return checked_add<fat_p::SaturatingPolicy>(a, b);
         }
     }
     
     template<typename T>
     static constexpr T sub(T a, T b) noexcept {
         if constexpr (std::is_floating_point_v<T>) {
-            return checked_sub_fp<cpp_utilities::SaturatingPolicy>(a, b);
+            return checked_sub_fp<fat_p::SaturatingPolicy>(a, b);
         } else {
-            return checked_sub<cpp_utilities::SaturatingPolicy>(a, b);
+            return checked_sub<fat_p::SaturatingPolicy>(a, b);
         }
     }
     
     template<typename T>
     static constexpr T mul(T a, T b) noexcept {
         if constexpr (std::is_floating_point_v<T>) {
-            return checked_mul_fp<cpp_utilities::SaturatingPolicy>(a, b);
+            return checked_mul_fp<fat_p::SaturatingPolicy>(a, b);
         } else {
-            return checked_mul<cpp_utilities::SaturatingPolicy>(a, b);
+            return checked_mul<fat_p::SaturatingPolicy>(a, b);
         }
     }
     
     template<typename T>
     static constexpr T div(T a, T b) noexcept {
         if constexpr (std::is_floating_point_v<T>) {
-            return checked_div_fp<cpp_utilities::SaturatingPolicy>(a, b);
+            return checked_div_fp<fat_p::SaturatingPolicy>(a, b);
         } else {
-            return checked_div<cpp_utilities::SaturatingPolicy>(a, b);
+            return checked_div<fat_p::SaturatingPolicy>(a, b);
         }
     }
 };
@@ -626,4 +626,4 @@ template<typename T> using Mat2x2s = Mat2x2<T, SaturatingArithmeticPolicy>;
 template<typename T> using Mat3x3s = Mat3x3<T, SaturatingArithmeticPolicy>;
 template<typename T> using Mat4x4s = Mat4x4<T, SaturatingArithmeticPolicy>;
 
-} // namespace cpp_utilities
+} // namespace fat_p

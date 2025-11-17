@@ -7,11 +7,11 @@
 
 #include "Factory.h"
 #include "test_Factory.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
 /**
  * @file test_Factory.cpp (v3.0 - Corrected)
- * @brief Comprehensive test suite for cpp_utilities::Factory v3.0
+ * @brief Comprehensive test suite for fat_p::Factory v3.0
  * 
  * Tests cover all v3.0 features:
  * - make() instead of create() (better naming)
@@ -23,7 +23,7 @@
  * - Performance benchmarks
  */
 
-namespace cpp_utilities::testing {
+namespace fat_p::testing {
 
 // ============================================================================
 // Test Fixtures and Helper Classes
@@ -1090,4 +1090,4 @@ bool test_Factory() {
     return failed == 0;
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

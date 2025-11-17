@@ -3,9 +3,9 @@
 
 #include "RateLimiter.h"
 #include "test_RateLimiter.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 bool test_token_bucket_basic() {
@@ -117,4 +117,4 @@ bool test_RateLimiter() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

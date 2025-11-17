@@ -107,7 +107,7 @@
 #include <type_traits>
 #include <filesystem>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // Forward declarations
 template <typename T, typename E> class Expected;
@@ -724,4 +724,4 @@ template <typename ElementType>
 using BinarySlidingWindow = SlidingFileWindow<ElementType,
     BinarySerializationPolicy<ElementType>>;
 
-} // namespace cpp_utilities
+} // namespace fat_p

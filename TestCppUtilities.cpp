@@ -34,7 +34,6 @@
 #include "test_ConstexprUtilities.h"
 #include "test_ContractException.h"
 #include "test_CoroutineTask.h"
-#include "test_CppUtilitiesTypeTraits.h"
 #include "test_CSRMatrix.h"
 #include "test_DebugOnly.h"
 #include "test_DiagnosticLogger.h"
@@ -46,13 +45,15 @@
 #include "test_Expected.h"
 #include "test_Factory.h"
 #include "test_FastHashMap.h"
+#include "test_FatPJsonLite.h"
+#include "test_FatPTypeTraits.h"
 #include "test_FeatureManager.h"
 #include "test_FlatMap.h"
 #include "test_FlatSet.h"
 #include "test_FloatingPointComparison.h"
 #include "test_IdGenerator.h"
 #include "test_IntrusiveList.h"
-#include "JsonLiteTests.h"
+#include "test_JsonLite.h"
 #include "test_LockFreeQueue.h"
 #include "test_LockFreeRingBuffer.h"
 #include "test_MemoryMappedFile.h"
@@ -82,13 +83,15 @@
 #include "test_ThreadPool.h"
 #include "test_TypeTraits.h"
 #include "test_UltraLoggers.h"
-#include "test_Utilities.h"
 #include "test_ValueGuard.h"
 #include "test_ViewLifetimeTracking.h"
 
+// Test of the test suite itself
+#include "FatPTest.h"
+#include "test_FatPTest.h"
 
 int main() {
-    using namespace cpp_utilities::testing;
+    using namespace fat_p::testing;
 
     std::cout << "Starting expanded tests for cpp_utilities..." << std::endl;
 
@@ -120,7 +123,6 @@ int main() {
     RUN_AND_RECORD(test_ConstexprUtilities);
     RUN_AND_RECORD(test_ContractException);
     RUN_AND_RECORD(test_CoroutineTask);
-    RUN_AND_RECORD(test_CppUtilitiesTypeTraits);
     RUN_AND_RECORD(test_CSRMatrix);
     RUN_AND_RECORD(test_DebugOnly);
     RUN_AND_RECORD(test_DiagnosticLogger);
@@ -132,6 +134,8 @@ int main() {
     RUN_AND_RECORD(test_Expected);
     RUN_AND_RECORD(test_Factory);
     RUN_AND_RECORD(test_FastHashMap);
+    RUN_AND_RECORD(test_FatPJsonLite);
+    RUN_AND_RECORD(test_FatPTypeTraits);
     RUN_AND_RECORD(test_FeatureManager);
     RUN_AND_RECORD(test_FlatMap);
     RUN_AND_RECORD(test_FlatSet);
@@ -170,6 +174,9 @@ int main() {
     RUN_AND_RECORD(test_UltraLoggers);
     RUN_AND_RECORD(test_ValueGuard);
     RUN_AND_RECORD(test_ViewLifetimeTracking);
+
+    // Test of the test suite itself
+    RUN_AND_RECORD(test_FatPTest);   
 
 #undef RUN_AND_RECORD
 

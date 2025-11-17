@@ -7,7 +7,7 @@
 #include <utility>
 #include <stdexcept>
 
-namespace cpp_utilities {
+namespace fat_p {
     // ====================================================================
     // 1. Policies and Checker Traits
     // ====================================================================
@@ -335,4 +335,4 @@ namespace cpp_utilities {
         }
     };
     
-} // namespace cpp_utilities
+} // namespace fat_p

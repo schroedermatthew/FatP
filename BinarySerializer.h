@@ -2,8 +2,8 @@
 // High-performance, header-only binary serialization library with multiple format policies
 // Supports CustomBinaryPolicy (simple little-endian format) and CborPolicy (RFC 8949 CBOR)
 // C++17, no dependencies beyond standard library
-#ifndef CPP_UTILITIES_BINARY_SERIALIZER_H
-#define CPP_UTILITIES_BINARY_SERIALIZER_H
+#ifndef FATP_BINARY_SERIALIZER_H
+#define FATP_BINARY_SERIALIZER_H
 
 #include "Expected.h"
 #include "enforce.h"
@@ -12,12 +12,15 @@
 #include <vector>
 #include <type_traits>
 #include <cstring>
+#include <ostream>
+#include <istream>
+#include <sstream>
 
 #ifdef __AVX2__
 #include <immintrin.h>
 #endif
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // Custom error type to avoid Expected<string, string>
 struct SerializationError {
@@ -523,6 +526,91 @@ BinarySerializer<CborPolicy>::deserialize_vector(const std::vector<uint8_t>& dat
     return result;
 }
 
-}  // namespace cpp_utilities
+/**
+ * @brief Binary output archive for serialization
+ * @details Provides operator& interface for seamless serialization to std::ostream
+ */
+class BinaryOutputArchive {
+public:
+    using is_loading = std::false_type;
+    
+    explicit BinaryOutputArchive(std::ostream& os) : os_(os) {
+        enforce(os.good(), "Output stream must be in good state");
+    }
+    
+    template<typename T>
+    BinaryOutputArchive& operator&(const T& value) {
+        serialize_impl(value);
+        return *this;
+    }
+    
+    bool good() const { return os_.good(); }
+    
+private:
+    std::ostream& os_;
+    
+    template<typename T>
+    void serialize_impl(const T& value) {
+        if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>) {
+            os_.write(reinterpret_cast<const char*>(&value), sizeof(T));
+            enforce(os_.good(), "Failed to write arithmetic/enum value");
+        } else if constexpr (std::is_same_v<T, std::string>) {
+            size_t len = value.size();
+            os_.write(reinterpret_cast<const char*>(&len), sizeof(len));
+            if (len > 0) {
+                os_.write(value.data(), static_cast<std::streamsize>(len));
+            }
+            enforce(os_.good(), "Failed to write string");
+        } else {
+            const_cast<T&>(value).serialize(*this);
+        }
+    }
+};
 
-#endif  // CPP_UTILITIES_BINARY_SERIALIZER_H
+/**
+ * @brief Binary input archive for deserialization
+ * @details Provides operator& interface for seamless deserialization from std::istream
+ */
+class BinaryInputArchive {
+public:
+    using is_loading = std::true_type;
+    
+    explicit BinaryInputArchive(std::istream& is) : is_(is) {
+        enforce(is.good(), "Input stream must be in good state");
+    }
+    
+    template<typename T>
+    BinaryInputArchive& operator&(T& value) {
+        deserialize_impl(value);
+        return *this;
+    }
+    
+    bool good() const { return is_.good(); }
+    
+private:
+    std::istream& is_;
+    
+    template<typename T>
+    void deserialize_impl(T& value) {
+        if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>) {
+            is_.read(reinterpret_cast<char*>(&value), sizeof(T));
+            enforce(is_.good(), "Failed to read arithmetic/enum value");
+        } else if constexpr (std::is_same_v<T, std::string>) {
+            size_t len;
+            is_.read(reinterpret_cast<char*>(&len), sizeof(len));
+            enforce(is_.good(), "Failed to read string length");
+            enforce(len <= 1000000000, "String length too large");
+            value.resize(len);
+            if (len > 0) {
+                is_.read(&value[0], static_cast<std::streamsize>(len));
+                enforce(is_.good(), "Failed to read string data");
+            }
+        } else {
+            value.serialize(*this);
+        }
+    }
+};
+
+}  // namespace fat_p
+
+#endif  // FATP_BINARY_SERIALIZER_H

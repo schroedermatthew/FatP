@@ -1,14 +1,15 @@
 // ObjectPool.h
-#ifndef CPP_UTILITIES_OBJECT_POOL_H
-#define CPP_UTILITIES_OBJECT_POOL_H
+#pragma once
 
-#include "ConcurrencyPolicies.h"
 #include <cstddef>
 #include <memory>
 #include <vector>
 #include <type_traits>
 
-namespace cpp_utilities {
+#include "ConcurrencyPolicies.h"
+#include "FatPTypeTraits.h"
+
+namespace fat_p {
 
 /**
  * @brief High-performance object pool with block-based growth
@@ -236,11 +237,7 @@ PooledObject<T, SyncPolicy> make_pooled(ObjectPool<T, SyncPolicy>& pool, Args&&.
     return PooledObject<T, SyncPolicy>(&pool, pool.acquire(std::forward<Args>(args)...));
 }
 
-}  // namespace cpp_utilities
+template <typename T, typename SyncPolicy>
+struct is_object_pool<ObjectPool<T, SyncPolicy>> : std::true_type {};
 
-#endif  // CPP_UTILITIES_OBJECT_POOL_H
-
-template <typename T>
-struct is_object_pool<ObjectPool<T>> : std::true_type {};
-
-} // namespace cpp_utilities
+} // namespace fat_p

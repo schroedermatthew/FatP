@@ -53,7 +53,7 @@
 #include <string>
 #include <type_traits>  // Required for static_assert traits
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // =============================================================================
 // Polymorphic Base for All Contract Violations
@@ -145,4 +145,4 @@ public:
     }
 };
 
-} // namespace cpp_utilities
+} // namespace fat_p

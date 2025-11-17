@@ -1,6 +1,6 @@
 // Stacktrace.h
-#ifndef CPP_UTILITIES_STACKTRACE_H
-#define CPP_UTILITIES_STACKTRACE_H
+#ifndef FATP_STACKTRACE_H
+#define FATP_STACKTRACE_H
 
 #include <string>
 #include <vector>
@@ -8,7 +8,7 @@
 // Placeholder for Boost.Stacktrace or custom impl; assume single-header polyfill
 // For real use, include <boost/stacktrace.hpp> if allowing Boost, else custom unwind
 
-namespace cpp_utilities {
+namespace fat_p {
 
 struct StackFrame {
     std::string function;
@@ -41,6 +41,6 @@ public:
 
 // Integration with enforce: e.g., enforce(condition) << Stacktrace::current();
 
-}  // namespace cpp_utilities
+}  // namespace fat_p
 
-#endif  // CPP_UTILITIES_STACKTRACE_H
+#endif  // FATP_STACKTRACE_H

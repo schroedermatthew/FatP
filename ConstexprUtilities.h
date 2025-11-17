@@ -7,7 +7,7 @@
 #include <utility> // For std::forward
 #include <cmath>   // Added for std::isnan, std::isinf, std::signbit, std::abs
 
-namespace cpp_utilities
+namespace fat_p
 {
 
 // --- Hashing Utilities ---
@@ -345,4 +345,4 @@ template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
     return converter.view();
 }
 
-} // namespace cpp_utilities
+} // namespace fat_p

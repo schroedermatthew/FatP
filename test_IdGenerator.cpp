@@ -36,9 +36,9 @@
 #include "Expected.h"
 #include "ConcurrencyPolicies.h"
 #include "test_IdGenerator.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing {
+namespace fat_p::testing {
 
 // =============================================================================
 // Test Helpers
@@ -413,4 +413,4 @@ bool test_IdGenerator() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

@@ -20,12 +20,12 @@
 
 #include "ConcurrencyPolicies.h"
 #include "test_ConcurrencyPolicies.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-using namespace cpp_utilities::testing;
-using namespace cpp_utilities;
+using namespace fat_p::testing;
+using namespace fat_p;
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 // =============================================================================
@@ -45,8 +45,8 @@ struct ProtectedValue {
         return typename Policy::SharedGuard(policy.getLock());
     }
 
-#if (defined(CPP_UTILITIES_USE_MUTEX) && CPP_UTILITIES_USE_MUTEX) || \
-    (defined(CPP_UTILITIES_USE_ATOMIC) && CPP_UTILITIES_USE_ATOMIC)
+#if (defined(FATP_USE_MUTEX) && FATP_USE_MUTEX) || \
+    (defined(FATP_USE_ATOMIC) && FATP_USE_ATOMIC)
     template<typename P = Policy>
     auto get_contention() const -> decltype(std::declval<P>().get_contention()) {
         return policy.get_contention();
@@ -161,7 +161,7 @@ bool test_SingleThreadedPolicy() {
 // II. MutexSynchronizationPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
 bool test_MutexSynchronizationPolicy() {
     std::cout << colors::cyan() << "\nTesting MutexSynchronizationPolicy..."
               << colors::reset() << std::endl;
@@ -175,7 +175,7 @@ bool test_MutexSynchronizationPolicy() {
         run_concurrent_write_test<MutexSynchronizationPolicy>(data, num_threads, ops);
         ASSERT_EQ(data.value, expected_value, "Concurrent writes should be thread-safe");
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
         int contention = data.policy.get_contention();
         std::cout << colors::blue()
                   << "  [INFO] MutexSynchronizationPolicy Contention (Total Acquisitions): "
@@ -207,7 +207,7 @@ bool test_MutexSynchronizationPolicy() {
 // III. SharedMutexPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_SHARED_MUTEX
+#if FATP_USE_SHARED_MUTEX
 bool test_SharedMutexPolicy() {
     std::cout << colors::cyan() << "\nTesting SharedMutexPolicy..."
               << colors::reset() << std::endl;
@@ -244,7 +244,7 @@ bool test_SharedMutexPolicy() {
 // IV. UniqueRWLockPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_SHARED_MUTEX
+#if FATP_USE_SHARED_MUTEX
 bool test_UniqueRWLockPolicy() {
     std::cout << colors::cyan() << "\nTesting UniqueRWLockPolicy..."
               << colors::reset() << std::endl;
@@ -281,7 +281,7 @@ bool test_UniqueRWLockPolicy() {
 // V. SpinlockSynchronizationPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 bool test_SpinlockSynchronizationPolicy() {
     std::cout << colors::cyan() << "\nTesting SpinlockSynchronizationPolicy..."
               << colors::reset() << std::endl;
@@ -329,7 +329,7 @@ bool test_SpinlockSynchronizationPolicy() {
 // VI. LockFreeSynchronizationPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 bool test_LockFreeSynchronizationPolicy() {
     std::cout << colors::cyan() << "\nTesting LockFreeSynchronizationPolicy..."
               << colors::reset() << std::endl;
@@ -354,7 +354,7 @@ bool test_LockFreeSynchronizationPolicy() {
 // VII. LockFreeWithFallbackPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_ATOMIC && FATP_USE_MUTEX
 bool test_LockFreeWithFallbackPolicy() {
     std::cout << colors::cyan() << "\nTesting LockFreeWithFallbackPolicy..."
               << colors::reset() << std::endl;
@@ -390,7 +390,7 @@ bool test_LockFreeWithFallbackPolicy() {
 // VIII. WaitableSynchronizationPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_MUTEX && CPP_UTILITIES_USE_CONDITION_VARIABLE
+#if FATP_USE_MUTEX && FATP_USE_CONDITION_VARIABLE
 bool test_WaitableSynchronizationPolicy() {
     std::cout << colors::cyan() << "\nTesting WaitableSynchronizationPolicy..."
               << colors::reset() << std::endl;
@@ -445,7 +445,7 @@ bool test_WaitableSynchronizationPolicy() {
 // IX. SeqLockPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 bool test_SeqLockPolicy() {
     std::cout << colors::cyan() << "\nTesting SeqLockPolicy..."
               << colors::reset() << std::endl;
@@ -558,7 +558,7 @@ bool test_SeqLockPolicy() {
 // X. TicketLockPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 bool test_TicketLockPolicy() {
     std::cout << colors::cyan() << "\nTesting TicketLockPolicy..."
               << colors::reset() << std::endl;
@@ -601,7 +601,7 @@ bool test_TicketLockPolicy() {
 // XI. MCSLockPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 bool test_MCSLockPolicy() {
     std::cout << colors::cyan() << "\nTesting MCSLockPolicy..."
               << colors::reset() << std::endl;
@@ -637,7 +637,7 @@ bool test_MCSLockPolicy() {
 // XII. RCUPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_SHARED_MUTEX
+#if FATP_USE_ATOMIC && FATP_USE_SHARED_MUTEX
 bool test_RCUPolicy() {
     std::cout << colors::cyan() << "\nTesting RCUPolicy..."
               << colors::reset() << std::endl;
@@ -685,7 +685,7 @@ bool test_RCUPolicy() {
 // XIII. HazardPointerPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 bool test_HazardPointerPolicy() {
     std::cout << colors::cyan() << "\nTesting HazardPointerPolicy..."
               << colors::reset() << std::endl;
@@ -714,7 +714,7 @@ bool test_HazardPointerPolicy() {
 // XIV. AdaptiveLockPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_ATOMIC && FATP_USE_MUTEX
 bool test_AdaptiveLockPolicy() {
     std::cout << colors::cyan() << "\nTesting AdaptiveLockPolicy..."
               << colors::reset() << std::endl;
@@ -765,7 +765,7 @@ bool test_AdaptiveLockPolicy() {
 // XV. PriorityInheritanceLockPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
 bool test_PriorityInheritanceLockPolicy() {
     std::cout << colors::cyan() << "\nTesting PriorityInheritanceLockPolicy..."
               << colors::reset() << std::endl;
@@ -805,7 +805,7 @@ bool test_PriorityInheritanceLockPolicy() {
 // XVI. VersionedLockPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_ATOMIC && FATP_USE_MUTEX
 bool test_VersionedLockPolicy() {
     std::cout << colors::cyan() << "\nTesting VersionedLockPolicy..."
               << colors::reset() << std::endl;
@@ -849,7 +849,7 @@ bool test_VersionedLockPolicy() {
 // XVII. RecursiveMutexPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
 bool test_RecursiveMutexPolicy() {
     std::cout << colors::cyan() << "\nTesting RecursiveMutexPolicy..."
               << colors::reset() << std::endl;
@@ -902,7 +902,7 @@ bool test_RecursiveMutexPolicy() {
 // XVIII. TimedMutexPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
 bool test_TimedMutexPolicy() {
     std::cout << colors::cyan() << "\nTesting TimedMutexPolicy..."
               << colors::reset() << std::endl;
@@ -956,7 +956,7 @@ bool test_TimedMutexPolicy() {
 // XIX. SharedTimedMutexPolicy Tests
 // =============================================================================
 
-#if CPP_UTILITIES_USE_SHARED_MUTEX
+#if FATP_USE_SHARED_MUTEX
 bool test_SharedTimedMutexPolicy() {
     std::cout << colors::cyan() << "\nTesting SharedTimedMutexPolicy..."
               << colors::reset() << std::endl;
@@ -1142,7 +1142,7 @@ void run_contended_benchmarks() {
     for (size_t tc : thread_counts) std::cout << tc << " ";
     std::cout << colors::reset() << "\n" << std::endl;
     
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
     std::cout << colors::cyan() << "MutexSynchronizationPolicy:" << colors::reset() << std::endl;
     for (size_t threads : thread_counts) {
         auto result = ContentionBenchmark<MutexSynchronizationPolicy>::run("Mutex", threads, ITERATIONS_PER_THREAD);
@@ -1150,7 +1150,7 @@ void run_contended_benchmarks() {
     }
 #endif
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
     std::cout << "\n" << colors::cyan() << "SpinlockSynchronizationPolicy:" << colors::reset() << std::endl;
     for (size_t threads : thread_counts) {
         auto result = ContentionBenchmark<SpinlockSynchronizationPolicy>::run("Spinlock", threads, ITERATIONS_PER_THREAD);
@@ -1170,7 +1170,7 @@ void run_contended_benchmarks() {
     }
 #endif
 
-#if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_ATOMIC && FATP_USE_MUTEX
     std::cout << "\n" << colors::cyan() << "AdaptiveLockPolicy:" << colors::reset() << std::endl;
     for (size_t threads : thread_counts) {
         auto result = ContentionBenchmark<AdaptiveLockPolicy>::run("Adaptive", threads, ITERATIONS_PER_THREAD);
@@ -1209,7 +1209,7 @@ void run_performance_benchmarks() {
         }, ITERATIONS);
     }
 
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
     {
         MutexSynchronizationPolicy policy;
         int value = 0;
@@ -1220,7 +1220,7 @@ void run_performance_benchmarks() {
     }
 #endif
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
     {
         SpinlockSynchronizationPolicy policy;
         int value = 0;
@@ -1254,7 +1254,7 @@ void run_performance_benchmarks() {
     }
 #endif
 
-#if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_ATOMIC && FATP_USE_MUTEX
     {
         AdaptiveLockPolicy policy;
         benchmark("AdaptiveLockPolicy", [&]() {
@@ -1289,56 +1289,56 @@ bool test_ConcurrencyPolicies() {
     // Original 8 policies
     runner.run_test("SingleThreadedPolicy", test_SingleThreadedPolicy);
 
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
     runner.run_test("MutexSynchronizationPolicy", test_MutexSynchronizationPolicy);
 #endif
 
-#if CPP_UTILITIES_USE_SHARED_MUTEX
+#if FATP_USE_SHARED_MUTEX
     runner.run_test("SharedMutexPolicy", test_SharedMutexPolicy);
     runner.run_test("UniqueRWLockPolicy", test_UniqueRWLockPolicy);
 #endif
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
     runner.run_test("SpinlockSynchronizationPolicy", test_SpinlockSynchronizationPolicy);
     runner.run_test("LockFreeSynchronizationPolicy", test_LockFreeSynchronizationPolicy);
 #endif
 
-#if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_ATOMIC && FATP_USE_MUTEX
     runner.run_test("LockFreeWithFallbackPolicy", test_LockFreeWithFallbackPolicy);
 #endif
 
-#if CPP_UTILITIES_USE_MUTEX && CPP_UTILITIES_USE_CONDITION_VARIABLE
+#if FATP_USE_MUTEX && FATP_USE_CONDITION_VARIABLE
     runner.run_test("WaitableSynchronizationPolicy", test_WaitableSynchronizationPolicy);
 #endif
 
     // New 8 advanced policies
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
     runner.run_test("SeqLockPolicy", test_SeqLockPolicy);
     runner.run_test("TicketLockPolicy", test_TicketLockPolicy);
     runner.run_test("MCSLockPolicy", test_MCSLockPolicy);
     runner.run_test("HazardPointerPolicy", test_HazardPointerPolicy);
 #endif
 
-#if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_SHARED_MUTEX
+#if FATP_USE_ATOMIC && FATP_USE_SHARED_MUTEX
     runner.run_test("RCUPolicy", test_RCUPolicy);
 #endif
 
-#if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_ATOMIC && FATP_USE_MUTEX
     runner.run_test("AdaptiveLockPolicy", test_AdaptiveLockPolicy);
     runner.run_test("VersionedLockPolicy", test_VersionedLockPolicy);
 #endif
 
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
     runner.run_test("PriorityInheritanceLockPolicy", test_PriorityInheritanceLockPolicy);
 
 
     // New 3 standard policies
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
     runner.run_test("RecursiveMutexPolicy", test_RecursiveMutexPolicy);
     runner.run_test("TimedMutexPolicy", test_TimedMutexPolicy);
 #endif
 
-#if CPP_UTILITIES_USE_SHARED_MUTEX
+#if FATP_USE_SHARED_MUTEX
     runner.run_test("SharedTimedMutexPolicy", test_SharedTimedMutexPolicy);
 #endif
 #endif
@@ -1353,4 +1353,4 @@ bool test_ConcurrencyPolicies() {
     return failed == 0;
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

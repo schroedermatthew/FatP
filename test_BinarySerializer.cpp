@@ -5,9 +5,9 @@
 #include "BinarySerializer.h"
 #include "Expected.h"
 #include "test_BinarySerializer.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 // =============================================================================
@@ -365,4 +365,4 @@ bool test_BinarySerializer() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

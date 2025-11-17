@@ -16,14 +16,15 @@
  * - Performance benchmarks
  */
 
+#include "CppStandardDetection.h"
 #include "StrongId.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 #include <unordered_map>
 #include <thread>
 #include <vector>
 #include <atomic>
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 // --- Test Tags ---
@@ -137,7 +138,7 @@ TEST_CASE(all_relational_operators) {
     return true;
 }
 
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
 TEST_CASE(spaceship_operator) {
     UserId id1(100);
     UserId id2(200);
@@ -367,7 +368,7 @@ TEST_CASE(modular_multiplication) {
 
 TEST_CASE(modular_division) {
     // Test modular division: (a / b) mod 7 = (a * b^-1) mod 7
-    // For prime modulus 7: 2^-1 mod 7 = 4 (because 2 * 4 = 8 ≡ 1 mod 7)
+    // For prime modulus 7: 2^-1 mod 7 = 4 (because 2 * 4 = 8 â‰¡ 1 mod 7)
     ModularId id1(6);
     ModularId id2(2);
     
@@ -375,7 +376,7 @@ TEST_CASE(modular_division) {
     ASSERT_EQ(id3.get(), 3, "Modular division: (6 / 2) % 7 = 3");
     
     // Another test: (1 / 3) mod 7
-    // 3^-1 mod 7 = 5 (because 3 * 5 = 15 ≡ 1 mod 7)
+    // 3^-1 mod 7 = 5 (because 3 * 5 = 15 â‰¡ 1 mod 7)
     ModularId id4(1);
     ModularId id5(3);
     ModularId id6 = id4 / id5;
@@ -781,7 +782,7 @@ bool test_StrongId() {
     RUN_TEST(runner, inequality_comparison);
     RUN_TEST(runner, less_than_comparison);
     RUN_TEST(runner, all_relational_operators);
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
     RUN_TEST(runner, spaceship_operator);
 #endif
     
@@ -853,4 +854,4 @@ bool test_StrongId() {
     // Summary
     return 0 == runner.print_summary() ? true : false;
 }
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

@@ -23,7 +23,7 @@
 #include <cctype>
 #include "Tensor.h"
 
-namespace cpp_utilities {
+namespace fat_p {
 
 namespace detail {
 
@@ -362,4 +362,4 @@ T trace_einsum(const Tensor<T>& a) {
     return result[0];
 }
 
-} // namespace cpp_utilities
+} // namespace fat_p

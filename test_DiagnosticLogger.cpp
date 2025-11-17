@@ -6,8 +6,6 @@
 // - Thread safety with atomics
 // - All existing features
 
-#include "DiagnosticLogger.h"
-#include "test_Utilities.h"
 #include <iostream>
 #include <vector>
 #include <thread>
@@ -17,13 +15,12 @@
 #include <sstream>
 
 #include "DiagnosticLogger.h"
-#include "test_DiagnosticLogger.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing {
+namespace fat_p::testing {
 
 using namespace std::chrono;
-using namespace cpp_utilities::diagnostic;
+using namespace fat_p::diagnostic;
 
 // =============================================================================
 // Helper Classes
@@ -304,7 +301,7 @@ bool test_thread_safety_with_atomics() {
     
     std::vector<std::thread> threads;
     for (int t = 0; t < NUM_THREADS; ++t) {
-        threads.emplace_back([&logger, &completed, t]() {
+        threads.emplace_back([&logger, &completed, t, MESSAGES_PER_THREAD]() {
             for (int i = 0; i < MESSAGES_PER_THREAD; ++i) {
                 logger.info([t, i]() {
                     return "Thread " + std::to_string(t) + " message " + std::to_string(i);
@@ -474,4 +471,11 @@ bool test_DiagnosticLogger () {
     }
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing
+
+#ifdef ENABLE_TEST_APPLICATION
+int main()
+{
+    return fat_p::testing::test_DiagnosticLogger() ? 0 : 1;
+}
+#endif

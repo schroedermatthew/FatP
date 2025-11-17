@@ -4,7 +4,7 @@
 #include <iterator>
 #include <type_traits>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // ============================================================================
 // IntrusiveList - Zero-Allocation Linked List
@@ -425,4 +425,4 @@ private:
     size_type size_;
 };
 
-} // namespace cpp_utilities
+} // namespace fat_p

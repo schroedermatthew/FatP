@@ -29,8 +29,10 @@
  */
 #pragma once
 
+#include "CppStandardDetection.h"
+
 // Only compile if C++20 or later
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
 
 #include "Expected.h"
 #include <coroutine>
@@ -39,7 +41,7 @@
 #include <variant>
 #include <optional>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // =============================================================================
 // BASIC COROUTINE TASK
@@ -413,6 +415,6 @@ template<typename T> using TaskResult = Expected<T, std::string>;
 // Void task (no return value)
 using VoidTask = CoroutineTask<std::monostate, std::string>;
 
-} // namespace cpp_utilities
+} // namespace fat_p
 
-#endif // __cplusplus >= 202002L
+#endif // FATP_HAS_CPP20

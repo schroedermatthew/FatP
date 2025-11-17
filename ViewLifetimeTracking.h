@@ -22,8 +22,8 @@
  * Requires: C++17
  */
 
-#ifndef CPP_UTILITIES_VIEW_LIFETIME_TRACKING_H
-#define CPP_UTILITIES_VIEW_LIFETIME_TRACKING_H
+#ifndef FATP_VIEW_LIFETIME_TRACKING_H
+#define FATP_VIEW_LIFETIME_TRACKING_H
 
 #pragma once
 
@@ -33,7 +33,7 @@
 #include <stdexcept>
 #include <sstream>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // =============================================================================
 // Lifetime Tracking Exception
@@ -294,24 +294,24 @@ public:
  * @brief Create tracked view with automatic naming
  */
 #define TRACKED_VIEW(obj) \
-    cpp_utilities::LifetimeTracker<std::decay_t<decltype(obj)>>(obj, #obj)
+    fat_p::LifetimeTracker<std::decay_t<decltype(obj)>>(obj, #obj)
 
 /**
  * @brief Create view guard with scope name
  */
 #define VIEW_GUARD(view) \
-    cpp_utilities::ViewGuard<std::decay_t<decltype(view)>> \
-    CPP_UTILITIES_CONCAT(view_guard_, __LINE__)(view, __func__)
+    fat_p::ViewGuard<std::decay_t<decltype(view)>> \
+    FATP_CONCAT(view_guard_, __LINE__)(view, __func__)
 
 // Helper for unique names
-#define CPP_UTILITIES_CONCAT_IMPL(x, y) x##y
-#define CPP_UTILITIES_CONCAT(x, y) CPP_UTILITIES_CONCAT_IMPL(x, y)
+#define FATP_CONCAT_IMPL(x, y) x##y
+#define FATP_CONCAT(x, y) FATP_CONCAT_IMPL(x, y)
 
 #else
 #define TRACKED_VIEW(obj) (obj)
 #define VIEW_GUARD(view) ((void)0)
 #endif
 
-} // namespace cpp_utilities
+} // namespace fat_p
 
-#endif // CPP_UTILITIES_VIEW_LIFETIME_TRACKING_H
+#endif // FATP_VIEW_LIFETIME_TRACKING_H

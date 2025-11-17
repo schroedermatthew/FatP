@@ -52,6 +52,8 @@
 
 #pragma once
 
+#include "CppStandardDetection.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -59,26 +61,26 @@
 #include <type_traits>
 
 // C++20 detection
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
     #include <span>
-    #define CPP_UTILITIES_HAS_STD_SPAN
+    #define FATP_HAS_STD_SPAN
 #endif
 
 // Platform detection
 #ifdef _WIN32
-    #define CPP_UTILITIES_PLATFORM_WINDOWS
+    #define FATP_PLATFORM_WINDOWS
     #include <windows.h>
 #else
-    #define CPP_UTILITIES_PLATFORM_POSIX
+    #define FATP_PLATFORM_POSIX
     #include <sys/mman.h>
     #include <sys/stat.h>
     #include <fcntl.h>
     #include <unistd.h>
 #endif
 
-namespace cpp_utilities {
+namespace fat_p {
 
-#ifndef CPP_UTILITIES_HAS_STD_SPAN
+#ifndef FATP_HAS_STD_SPAN
 // ============================================================================
 // Lightweight span implementation for C++17
 // ============================================================================
@@ -178,7 +180,7 @@ private:
 #else
 // Use std::span for C++20 and later
 using std::span;
-#endif // CPP_UTILITIES_HAS_STD_SPAN
+#endif // FATP_HAS_STD_SPAN
 
 // ============================================================================
 // Memory Mapped File
@@ -264,18 +266,18 @@ public:
     /**
      * @brief Get typed span view of mapped memory
      * @tparam T Element type
-     * @return cpp_utilities::span<T> view
+     * @return fat_p::span<T> view
      */
     template<typename T>
-    cpp_utilities::span<T> get_span() noexcept;
+    fat_p::span<T> get_span() noexcept;
     
     /**
      * @brief Get const typed span view of mapped memory
      * @tparam T Element type
-     * @return cpp_utilities::span<const T> view
+     * @return fat_p::span<const T> view
      */
     template<typename T>
-    cpp_utilities::span<const T> get_span() const noexcept;
+    fat_p::span<const T> get_span() const noexcept;
     
     /**
      * @brief Prefetch pages into memory (hint to OS)
@@ -297,7 +299,7 @@ private:
     void* m_data;
     size_t m_size;
     
-#ifdef CPP_UTILITIES_PLATFORM_WINDOWS
+#ifdef FATP_PLATFORM_WINDOWS
     HANDLE m_file_handle;
     HANDLE m_map_handle;
 #else
@@ -312,7 +314,7 @@ private:
 inline MemoryMappedFile::MemoryMappedFile() noexcept
     : m_data(nullptr)
     , m_size(0)
-#ifdef CPP_UTILITIES_PLATFORM_WINDOWS
+#ifdef FATP_PLATFORM_WINDOWS
     , m_file_handle(INVALID_HANDLE_VALUE)
     , m_map_handle(nullptr)
 #else
@@ -334,7 +336,7 @@ inline MemoryMappedFile::~MemoryMappedFile() {
 inline MemoryMappedFile::MemoryMappedFile(MemoryMappedFile&& other) noexcept
     : m_data(other.m_data)
     , m_size(other.m_size)
-#ifdef CPP_UTILITIES_PLATFORM_WINDOWS
+#ifdef FATP_PLATFORM_WINDOWS
     , m_file_handle(other.m_file_handle)
     , m_map_handle(other.m_map_handle)
 #else
@@ -343,7 +345,7 @@ inline MemoryMappedFile::MemoryMappedFile(MemoryMappedFile&& other) noexcept
 {
     other.m_data = nullptr;
     other.m_size = 0;
-#ifdef CPP_UTILITIES_PLATFORM_WINDOWS
+#ifdef FATP_PLATFORM_WINDOWS
     other.m_file_handle = INVALID_HANDLE_VALUE;
     other.m_map_handle = nullptr;
 #else
@@ -357,7 +359,7 @@ inline MemoryMappedFile& MemoryMappedFile::operator=(MemoryMappedFile&& other) n
         
         m_data = other.m_data;
         m_size = other.m_size;
-#ifdef CPP_UTILITIES_PLATFORM_WINDOWS
+#ifdef FATP_PLATFORM_WINDOWS
         m_file_handle = other.m_file_handle;
         m_map_handle = other.m_map_handle;
 #else
@@ -366,7 +368,7 @@ inline MemoryMappedFile& MemoryMappedFile::operator=(MemoryMappedFile&& other) n
         
         other.m_data = nullptr;
         other.m_size = 0;
-#ifdef CPP_UTILITIES_PLATFORM_WINDOWS
+#ifdef FATP_PLATFORM_WINDOWS
         other.m_file_handle = INVALID_HANDLE_VALUE;
         other.m_map_handle = nullptr;
 #else
@@ -380,7 +382,7 @@ inline bool MemoryMappedFile::open(const std::string& filename, Mode mode) {
     close();  // Close any existing mapping
     
     try {
-#ifdef CPP_UTILITIES_PLATFORM_WINDOWS
+#ifdef FATP_PLATFORM_WINDOWS
         return open_windows(filename, mode);
 #else
         return open_posix(filename, mode);
@@ -393,7 +395,7 @@ inline bool MemoryMappedFile::open(const std::string& filename, Mode mode) {
 
 inline void MemoryMappedFile::close() noexcept {
     if (m_data) {
-#ifdef CPP_UTILITIES_PLATFORM_WINDOWS
+#ifdef FATP_PLATFORM_WINDOWS
         UnmapViewOfFile(m_data);
 #else
         munmap(m_data, m_size);
@@ -403,7 +405,7 @@ inline void MemoryMappedFile::close() noexcept {
     
     m_size = 0;
     
-#ifdef CPP_UTILITIES_PLATFORM_WINDOWS
+#ifdef FATP_PLATFORM_WINDOWS
     if (m_map_handle) {
         CloseHandle(m_map_handle);
         m_map_handle = nullptr;
@@ -421,7 +423,7 @@ inline void MemoryMappedFile::close() noexcept {
 }
 
 inline bool MemoryMappedFile::is_open() const noexcept {
-#ifdef CPP_UTILITIES_PLATFORM_WINDOWS
+#ifdef FATP_PLATFORM_WINDOWS
     return m_file_handle != INVALID_HANDLE_VALUE;
 #else
     return m_file_descriptor >= 0;
@@ -441,19 +443,19 @@ inline size_t MemoryMappedFile::size() const noexcept {
 }
 
 template<typename T>
-inline cpp_utilities::span<T> MemoryMappedFile::get_span() noexcept {
-    return cpp_utilities::span<T>(static_cast<T*>(m_data), m_size / sizeof(T));
+inline fat_p::span<T> MemoryMappedFile::get_span() noexcept {
+    return fat_p::span<T>(static_cast<T*>(m_data), m_size / sizeof(T));
 }
 
 template<typename T>
-inline cpp_utilities::span<const T> MemoryMappedFile::get_span() const noexcept {
-    return cpp_utilities::span<const T>(static_cast<const T*>(m_data), m_size / sizeof(T));
+inline fat_p::span<const T> MemoryMappedFile::get_span() const noexcept {
+    return fat_p::span<const T>(static_cast<const T*>(m_data), m_size / sizeof(T));
 }
 
 inline void MemoryMappedFile::prefetch() const {
     if (!m_data) return;
     
-#ifdef CPP_UTILITIES_PLATFORM_WINDOWS
+#ifdef FATP_PLATFORM_WINDOWS
     WIN32_MEMORY_RANGE_ENTRY entry;
     entry.VirtualAddress = m_data;
     entry.NumberOfBytes = m_size;
@@ -466,7 +468,7 @@ inline void MemoryMappedFile::prefetch() const {
 inline void MemoryMappedFile::flush(bool async) {
     if (!m_data) return;
     
-#ifdef CPP_UTILITIES_PLATFORM_WINDOWS
+#ifdef FATP_PLATFORM_WINDOWS
     FlushViewOfFile(m_data, m_size);
     if (!async) {
         FlushFileBuffers(m_file_handle);
@@ -476,7 +478,7 @@ inline void MemoryMappedFile::flush(bool async) {
 #endif
 }
 
-#ifdef CPP_UTILITIES_PLATFORM_WINDOWS
+#ifdef FATP_PLATFORM_WINDOWS
 inline bool MemoryMappedFile::open_windows(const std::string& filename, Mode mode) {
     // Open file
     DWORD access = (mode == Mode::ReadOnly) ? GENERIC_READ : (GENERIC_READ | GENERIC_WRITE);
@@ -565,4 +567,4 @@ inline bool MemoryMappedFile::open_posix(const std::string& filename, Mode mode)
 }
 #endif
 
-} // namespace cpp_utilities
+} // namespace fat_p

@@ -4,21 +4,21 @@
  */
 
 #include "TensorStorage.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 #include "AlignedVector.h"
 #include <iostream>
 #include <thread>
 #include <vector>
 #include <chrono>
 
-namespace cpp_utilities::testing {
+namespace fat_p::testing {
 
 // =============================================================================
 // Basic Tests
 // =============================================================================
 
 bool test_tensor_storage_construction() {
-    using Alloc = memory::AlignedAllocator<float, 64>;
+    using Alloc = AlignedAllocator<float, 64>;
     Alloc alloc;
     
     // Default construction
@@ -42,7 +42,7 @@ bool test_tensor_storage_construction() {
 }
 
 bool test_tensor_storage_copy() {
-    using Alloc = memory::AlignedAllocator<double, 64>;
+    using Alloc = AlignedAllocator<double, 64>;
     Alloc alloc;
     
     double* data = alloc.allocate(5);
@@ -73,7 +73,7 @@ bool test_tensor_storage_copy() {
 }
 
 bool test_tensor_storage_move() {
-    using Alloc = memory::AlignedAllocator<int, 32>;
+    using Alloc = AlignedAllocator<int, 32>;
     Alloc alloc;
     
     int* data = alloc.allocate(3);
@@ -104,7 +104,7 @@ bool test_tensor_storage_move() {
 }
 
 bool test_tensor_storage_reset() {
-    using Alloc = memory::AlignedAllocator<float, 64>;
+    using Alloc = AlignedAllocator<float, 64>;
     Alloc alloc;
     
     float* data1 = alloc.allocate(4);
@@ -133,7 +133,7 @@ bool test_tensor_storage_reset() {
 }
 
 bool test_tensor_storage_unique() {
-    using Alloc = memory::AlignedAllocator<double, 64>;
+    using Alloc = AlignedAllocator<double, 64>;
     Alloc alloc;
     
     double* data = alloc.allocate(2);
@@ -158,7 +158,7 @@ bool test_tensor_storage_unique() {
 // =============================================================================
 
 bool test_tensor_storage_concurrent_copy() {
-    using Alloc = memory::AlignedAllocator<int, 64>;
+    using Alloc = AlignedAllocator<int, 64>;
     Alloc alloc;
     
     int* data = alloc.allocate(1000);
@@ -207,7 +207,7 @@ bool test_tensor_storage_concurrent_copy() {
 }
 
 bool test_tensor_storage_concurrent_mixed_ops() {
-    using Alloc = memory::AlignedAllocator<float, 64>;
+    using Alloc = AlignedAllocator<float, 64>;
     Alloc alloc;
     
     float* data = alloc.allocate(100);
@@ -262,7 +262,7 @@ bool test_tensor_storage_concurrent_mixed_ops() {
 void benchmark_tensor_storage() {
     std::cout << "\n" << colors::cyan() << "TensorStorage Benchmarks:" << colors::reset() << "\n\n";
     
-    using Alloc = memory::AlignedAllocator<double, 64>;
+    using Alloc = AlignedAllocator<double, 64>;
     Alloc alloc;
     
     constexpr size_t size = 1000;
@@ -336,4 +336,4 @@ bool test_TensorStorage() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

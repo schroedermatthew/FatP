@@ -1,9 +1,10 @@
-// test_JsonLite.h (no changes)
 #pragma once
 
-namespace cpp_utilities::testing
+#ifndef ENABLE_TEST_APPLICATION
+namespace fat_p::testing
 {
 
 bool test_JsonLite();
 
-} // namespace cpp_utilities::testing
+}
+#endif

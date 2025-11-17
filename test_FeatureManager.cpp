@@ -4,10 +4,10 @@
 #include <atomic>
 
 #include "test_FeatureManager.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 #include "FeatureManager.h"
 
-namespace cpp_utilities
+namespace fat_p
 { 
 
 // Custom enum for testing group states
@@ -20,7 +20,7 @@ enum class NetworkState {
 
 // EnumStringPolicy for NetworkState
 template<>
-struct cpp_utilities::EnumStringPolicy<NetworkState> {
+struct fat_p::EnumStringPolicy<NetworkState> {
     static constexpr bool has_names = true;
     static constexpr std::array<std::string_view, 4> names = {
         "Disconnected", "Connecting", "Connected", "Error"
@@ -48,7 +48,7 @@ enum class LogLevel {
 
 // EnumStringPolicy for LogLevel
 template<>
-struct cpp_utilities::EnumStringPolicy<LogLevel> {
+struct fat_p::EnumStringPolicy<LogLevel> {
     static constexpr bool has_names = true;
     static constexpr std::array<std::string_view, 4> names = {
         "Off", "Basic", "Verbose", "Debug"
@@ -665,4 +665,4 @@ bool test_FeatureManager() {
 }
 
 } // namespace  testing
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

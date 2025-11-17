@@ -1,10 +1,13 @@
 #include <iostream>
 
 #include "BitSet.h"
-#include "test_BitSet.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+#ifndef ENABLE_TEST_APPLICATION
+#include "test_BitSet.h"
+#endif
+
+namespace fat_p::testing
 {
 
 bool test_bit_set_basic_operations() {
@@ -160,4 +163,11 @@ bool test_BitSet() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing
+
+#ifdef ENABLE_TEST_APPLICATION
+int main()
+{
+    return fat_p::testing::test_BitSet() ? 0 : 1;
+}
+#endif

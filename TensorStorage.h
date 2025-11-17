@@ -33,7 +33,7 @@
 #include <utility>
 #include <type_traits>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // =============================================================================
 // Memory Ordering Policies
@@ -409,4 +409,4 @@ TensorStorage<T, Allocator, OrderPolicy> make_tensor_storage(T* ptr, size_t size
     return TensorStorage<T, Allocator, OrderPolicy>(ptr, size, alloc);
 }
 
-} // namespace cpp_utilities
+} // namespace fat_p

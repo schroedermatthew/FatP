@@ -1,8 +1,8 @@
 #pragma once
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 bool test_AllocationStrategy();
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

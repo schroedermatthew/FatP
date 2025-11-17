@@ -10,7 +10,7 @@
  */
 #pragma once
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 /**
@@ -20,4 +20,4 @@ namespace cpp_utilities::testing
  */
 bool test_ValueGuard();
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

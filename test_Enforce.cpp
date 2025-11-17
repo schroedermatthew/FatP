@@ -42,9 +42,9 @@
 #include "ContractException.h"
 #include "Expected.h"
 #include "test_Enforce.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 using namespace std::chrono;
@@ -103,7 +103,7 @@ bool test_core_enforcement_debug_behavior() {
     try {
         enforce(false, "Should fail");
         SIMPLE_ASSERT(false, "enforce() should have thrown in debug");
-    } catch (const cpp_utilities::LogicContractError&) {
+    } catch (const fat_p::LogicContractError&) {
         // Expected
     }
     #else
@@ -122,7 +122,7 @@ bool test_core_enforcement_always() {
     try {
         always_enforce(false, "This should always fail");
         SIMPLE_ASSERT(false, "always_enforce() should have thrown");
-    } catch (const cpp_utilities::LogicContractError&) {
+    } catch (const fat_p::LogicContractError&) {
         // Expected
     }
     
@@ -148,7 +148,7 @@ bool test_core_enforcement_message_interpolation() {
     try {
         always_enforce(false, "Value:", value, " Name:", name);
         SIMPLE_ASSERT(false, "Message interpolation should have thrown");
-    } catch (const cpp_utilities::LogicContractError&) {
+    } catch (const fat_p::LogicContractError&) {
         // Expected
     }
     
@@ -163,10 +163,10 @@ bool test_predicate_not_null() {
     int* valid_ptr = new int(42);
     int* null_ptr = nullptr;
     
-    SIMPLE_ASSERT(cpp_utilities::NotNullPredicate::check(valid_ptr),
+    SIMPLE_ASSERT(fat_p::NotNullPredicate::check(valid_ptr),
                   "NotNullPredicate with valid pointer");
     
-    SIMPLE_ASSERT(!cpp_utilities::NotNullPredicate::check(null_ptr),
+    SIMPLE_ASSERT(!fat_p::NotNullPredicate::check(null_ptr),
                   "NotNullPredicate with null pointer");
     
     // Test with enforcement macro
@@ -176,7 +176,7 @@ bool test_predicate_not_null() {
         always_enforce_not_null(null_ptr, "Null pointer");
         delete valid_ptr;
         SIMPLE_ASSERT(false, "always_enforce_not_null should have thrown");
-    } catch (const cpp_utilities::LogicContractError&) {
+    } catch (const fat_p::LogicContractError&) {
         // Expected
     }
     
@@ -185,29 +185,29 @@ bool test_predicate_not_null() {
 }
 
 bool test_predicate_is_positive() {
-    SIMPLE_ASSERT(cpp_utilities::IsPositivePredicate::check(42),
+    SIMPLE_ASSERT(fat_p::IsPositivePredicate::check(42),
                   "IsPositivePredicate with positive integer");
     
-    SIMPLE_ASSERT(cpp_utilities::IsPositivePredicate::check(3.14),
+    SIMPLE_ASSERT(fat_p::IsPositivePredicate::check(3.14),
                   "IsPositivePredicate with positive double");
     
-    SIMPLE_ASSERT(!cpp_utilities::IsPositivePredicate::check(0),
+    SIMPLE_ASSERT(!fat_p::IsPositivePredicate::check(0),
                   "IsPositivePredicate with zero");
     
-    SIMPLE_ASSERT(!cpp_utilities::IsPositivePredicate::check(-5),
+    SIMPLE_ASSERT(!fat_p::IsPositivePredicate::check(-5),
                   "IsPositivePredicate with negative value");
     
     return true;
 }
 
 bool test_predicate_is_non_negative() {
-    SIMPLE_ASSERT(cpp_utilities::IsNonNegativePredicate::check(0),
+    SIMPLE_ASSERT(fat_p::IsNonNegativePredicate::check(0),
                   "IsNonNegativePredicate with zero");
     
-    SIMPLE_ASSERT(cpp_utilities::IsNonNegativePredicate::check(42),
+    SIMPLE_ASSERT(fat_p::IsNonNegativePredicate::check(42),
                   "IsNonNegativePredicate with positive value");
     
-    SIMPLE_ASSERT(!cpp_utilities::IsNonNegativePredicate::check(-1),
+    SIMPLE_ASSERT(!fat_p::IsNonNegativePredicate::check(-1),
                   "IsNonNegativePredicate with negative value");
     
     return true;
@@ -219,60 +219,60 @@ bool test_predicate_not_empty() {
     std::string empty_str = "";
     std::string filled_str = "hello";
     
-    SIMPLE_ASSERT(!cpp_utilities::NotEmptyPredicate::check(empty_vec),
+    SIMPLE_ASSERT(!fat_p::NotEmptyPredicate::check(empty_vec),
                   "NotEmptyPredicate with empty vector");
     
-    SIMPLE_ASSERT(cpp_utilities::NotEmptyPredicate::check(filled_vec),
+    SIMPLE_ASSERT(fat_p::NotEmptyPredicate::check(filled_vec),
                   "NotEmptyPredicate with filled vector");
     
-    SIMPLE_ASSERT(!cpp_utilities::NotEmptyPredicate::check(empty_str),
+    SIMPLE_ASSERT(!fat_p::NotEmptyPredicate::check(empty_str),
                   "NotEmptyPredicate with empty string");
     
-    SIMPLE_ASSERT(cpp_utilities::NotEmptyPredicate::check(filled_str),
+    SIMPLE_ASSERT(fat_p::NotEmptyPredicate::check(filled_str),
                   "NotEmptyPredicate with filled string");
     
     return true;
 }
 
 bool test_predicate_in_range() {
-    SIMPLE_ASSERT(cpp_utilities::InRangePredicate::check(50, 0, 100),
+    SIMPLE_ASSERT(fat_p::InRangePredicate::check(50, 0, 100),
                   "InRangePredicate with value in range");
     
-    SIMPLE_ASSERT(cpp_utilities::InRangePredicate::check(0, 0, 100),
+    SIMPLE_ASSERT(fat_p::InRangePredicate::check(0, 0, 100),
                   "InRangePredicate with value at lower bound");
     
-    SIMPLE_ASSERT(cpp_utilities::InRangePredicate::check(100, 0, 100),
+    SIMPLE_ASSERT(fat_p::InRangePredicate::check(100, 0, 100),
                   "InRangePredicate with value at upper bound");
     
-    SIMPLE_ASSERT(!cpp_utilities::InRangePredicate::check(-1, 0, 100),
+    SIMPLE_ASSERT(!fat_p::InRangePredicate::check(-1, 0, 100),
                   "InRangePredicate with value below range");
     
-    SIMPLE_ASSERT(!cpp_utilities::InRangePredicate::check(101, 0, 100),
+    SIMPLE_ASSERT(!fat_p::InRangePredicate::check(101, 0, 100),
                   "InRangePredicate with value above range");
     
     return true;
 }
 
 bool test_predicate_is_power_of_two() {
-    SIMPLE_ASSERT(cpp_utilities::IsPowerOfTwoPredicate::check(1),
+    SIMPLE_ASSERT(fat_p::IsPowerOfTwoPredicate::check(1),
                   "IsPowerOfTwoPredicate with 1");
     
-    SIMPLE_ASSERT(cpp_utilities::IsPowerOfTwoPredicate::check(2),
+    SIMPLE_ASSERT(fat_p::IsPowerOfTwoPredicate::check(2),
                   "IsPowerOfTwoPredicate with 2");
     
-    SIMPLE_ASSERT(cpp_utilities::IsPowerOfTwoPredicate::check(16),
+    SIMPLE_ASSERT(fat_p::IsPowerOfTwoPredicate::check(16),
                   "IsPowerOfTwoPredicate with 16");
     
-    SIMPLE_ASSERT(cpp_utilities::IsPowerOfTwoPredicate::check(1024),
+    SIMPLE_ASSERT(fat_p::IsPowerOfTwoPredicate::check(1024),
                   "IsPowerOfTwoPredicate with 1024");
     
-    SIMPLE_ASSERT(!cpp_utilities::IsPowerOfTwoPredicate::check(0),
+    SIMPLE_ASSERT(!fat_p::IsPowerOfTwoPredicate::check(0),
                   "IsPowerOfTwoPredicate with 0");
     
-    SIMPLE_ASSERT(!cpp_utilities::IsPowerOfTwoPredicate::check(3),
+    SIMPLE_ASSERT(!fat_p::IsPowerOfTwoPredicate::check(3),
                   "IsPowerOfTwoPredicate with 3");
     
-    SIMPLE_ASSERT(!cpp_utilities::IsPowerOfTwoPredicate::check(15),
+    SIMPLE_ASSERT(!fat_p::IsPowerOfTwoPredicate::check(15),
                   "IsPowerOfTwoPredicate with 15");
     
     return true;
@@ -284,16 +284,16 @@ bool test_predicate_is_sorted() {
     std::vector<int> single_elem = {42};
     std::vector<int> empty_sorted;
     
-    SIMPLE_ASSERT(cpp_utilities::IsSortedPredicate::check(sorted_vec),
+    SIMPLE_ASSERT(fat_p::IsSortedPredicate::check(sorted_vec),
                   "IsSortedPredicate with sorted vector");
     
-    SIMPLE_ASSERT(!cpp_utilities::IsSortedPredicate::check(unsorted_vec),
+    SIMPLE_ASSERT(!fat_p::IsSortedPredicate::check(unsorted_vec),
                   "IsSortedPredicate with unsorted vector");
     
-    SIMPLE_ASSERT(cpp_utilities::IsSortedPredicate::check(single_elem),
+    SIMPLE_ASSERT(fat_p::IsSortedPredicate::check(single_elem),
                   "IsSortedPredicate with single element");
     
-    SIMPLE_ASSERT(cpp_utilities::IsSortedPredicate::check(empty_sorted),
+    SIMPLE_ASSERT(fat_p::IsSortedPredicate::check(empty_sorted),
                   "IsSortedPredicate with empty vector");
     
     return true;
@@ -303,10 +303,10 @@ bool test_predicate_container_is_unique() {
     std::vector<int> unique_vec = {1, 2, 3, 4, 5};
     std::vector<int> duplicate_vec = {1, 2, 3, 2, 5};
     
-    SIMPLE_ASSERT(cpp_utilities::ContainerIsUniquePredicate::check(unique_vec),
+    SIMPLE_ASSERT(fat_p::ContainerIsUniquePredicate::check(unique_vec),
                   "ContainerIsUniquePredicate with unique elements");
     
-    SIMPLE_ASSERT(!cpp_utilities::ContainerIsUniquePredicate::check(duplicate_vec),
+    SIMPLE_ASSERT(!fat_p::ContainerIsUniquePredicate::check(duplicate_vec),
                   "ContainerIsUniquePredicate with duplicates");
     
     return true;
@@ -315,10 +315,10 @@ bool test_predicate_container_is_unique() {
 bool test_predicate_has_size() {
     std::vector<int> vec_size_5 = {1, 2, 3, 4, 5};
     
-    SIMPLE_ASSERT(cpp_utilities::HasSizePredicate::check(5, vec_size_5),
+    SIMPLE_ASSERT(fat_p::HasSizePredicate::check(5, vec_size_5),
                   "HasSizePredicate with correct size");
     
-    SIMPLE_ASSERT(!cpp_utilities::HasSizePredicate::check(3, vec_size_5),
+    SIMPLE_ASSERT(!fat_p::HasSizePredicate::check(3, vec_size_5),
                   "HasSizePredicate with incorrect size");
     
     return true;
@@ -329,26 +329,26 @@ bool test_predicate_approx_equal() {
     double b = 1.0000001;
     double c = 1.1;
     
-    SIMPLE_ASSERT(cpp_utilities::ApproxEqualPredicate::check(0.001, a, b),
+    SIMPLE_ASSERT(fat_p::ApproxEqualPredicate::check(0.001, a, b),
                   "ApproxEqualPredicate with close values");
     
-    SIMPLE_ASSERT(!cpp_utilities::ApproxEqualPredicate::check(0.001, a, c),
+    SIMPLE_ASSERT(!fat_p::ApproxEqualPredicate::check(0.001, a, c),
                   "ApproxEqualPredicate with distant values");
     
     return true;
 }
 
 bool test_predicate_comparisons() {
-    SIMPLE_ASSERT(cpp_utilities::IsLessThanPredicate::check(5, 10),
+    SIMPLE_ASSERT(fat_p::IsLessThanPredicate::check(5, 10),
                   "IsLessThanPredicate with 5 < 10");
     
-    SIMPLE_ASSERT(!cpp_utilities::IsLessThanPredicate::check(10, 5),
+    SIMPLE_ASSERT(!fat_p::IsLessThanPredicate::check(10, 5),
                   "IsLessThanPredicate with 10 < 5");
     
-    SIMPLE_ASSERT(cpp_utilities::IsGreaterThanPredicate::check(10, 5),
+    SIMPLE_ASSERT(fat_p::IsGreaterThanPredicate::check(10, 5),
                   "IsGreaterThanPredicate with 10 > 5");
     
-    SIMPLE_ASSERT(!cpp_utilities::IsGreaterThanPredicate::check(5, 10),
+    SIMPLE_ASSERT(!fat_p::IsGreaterThanPredicate::check(5, 10),
                   "IsGreaterThanPredicate with 5 > 10");
     
     return true;
@@ -359,22 +359,22 @@ bool test_predicate_container_unique_noexcept() {
     // Test 1: Hashable types (int, string) - should work correctly
     {
         std::vector<int> vec_unique = {1, 2, 3, 4, 5};
-        SIMPLE_ASSERT(cpp_utilities::ContainerIsUniquePredicate::check(vec_unique),
+        SIMPLE_ASSERT(fat_p::ContainerIsUniquePredicate::check(vec_unique),
                       "ContainerIsUniquePredicate with unique ints");
         
         std::vector<int> vec_duplicate = {1, 2, 3, 2, 5};
-        SIMPLE_ASSERT(!cpp_utilities::ContainerIsUniquePredicate::check(vec_duplicate),
+        SIMPLE_ASSERT(!fat_p::ContainerIsUniquePredicate::check(vec_duplicate),
                       "ContainerIsUniquePredicate with duplicate ints");
     }
     
     // Test 2: String containers (hashable)
     {
         std::vector<std::string> vec_unique = {"a", "b", "c"};
-        SIMPLE_ASSERT(cpp_utilities::ContainerIsUniquePredicate::check(vec_unique),
+        SIMPLE_ASSERT(fat_p::ContainerIsUniquePredicate::check(vec_unique),
                       "ContainerIsUniquePredicate with unique strings");
         
         std::vector<std::string> vec_duplicate = {"a", "b", "a"};
-        SIMPLE_ASSERT(!cpp_utilities::ContainerIsUniquePredicate::check(vec_duplicate),
+        SIMPLE_ASSERT(!fat_p::ContainerIsUniquePredicate::check(vec_duplicate),
                       "ContainerIsUniquePredicate with duplicate strings");
     }
     
@@ -383,7 +383,7 @@ bool test_predicate_container_unique_noexcept() {
         // For hashable types, should be noexcept(false) because unordered_set can throw
         std::vector<int> vec;
         constexpr bool is_noexcept_int = noexcept(
-            cpp_utilities::ContainerIsUniquePredicate::check(vec)
+            fat_p::ContainerIsUniquePredicate::check(vec)
         );
         
         // The function should NOT be noexcept for hashable types
@@ -402,12 +402,12 @@ bool test_predicate_noexcept_correctness() {
         std::vector<int> vec = {1, 2, 3, 4, 5};
         
         // Normal comparator should work
-        SIMPLE_ASSERT(cpp_utilities::IsSortedPredicate::check(vec),
+        SIMPLE_ASSERT(fat_p::IsSortedPredicate::check(vec),
                       "IsSortedPredicate with sorted vector");
         
         // Test with custom comparator
         auto custom_less = [](int a, int b) { return a < b; };
-        SIMPLE_ASSERT(cpp_utilities::IsSortedPredicate::check(vec, custom_less),
+        SIMPLE_ASSERT(fat_p::IsSortedPredicate::check(vec, custom_less),
                       "IsSortedPredicate with custom comparator");
     }
     
@@ -416,11 +416,11 @@ bool test_predicate_noexcept_correctness() {
         std::vector<int> vec = {2, 4, 6, 8};
         auto is_even = [](int x) { return x % 2 == 0; };
         
-        SIMPLE_ASSERT(cpp_utilities::AllSatisfyPredicate::check(is_even, vec),
+        SIMPLE_ASSERT(fat_p::AllSatisfyPredicate::check(is_even, vec),
                       "AllSatisfyPredicate with all even numbers");
         
         std::vector<int> vec2 = {2, 4, 5, 8};
-        SIMPLE_ASSERT(!cpp_utilities::AllSatisfyPredicate::check(is_even, vec2),
+        SIMPLE_ASSERT(!fat_p::AllSatisfyPredicate::check(is_even, vec2),
                       "AllSatisfyPredicate with mixed numbers");
     }
     
@@ -429,11 +429,11 @@ bool test_predicate_noexcept_correctness() {
         std::vector<int> vec = {1, 3, 5, 7};
         auto is_even = [](int x) { return x % 2 == 0; };
         
-        SIMPLE_ASSERT(!cpp_utilities::AnySatisfyPredicate::check(is_even, vec),
+        SIMPLE_ASSERT(!fat_p::AnySatisfyPredicate::check(is_even, vec),
                       "AnySatisfyPredicate with no even numbers");
         
         std::vector<int> vec2 = {1, 3, 4, 7};
-        SIMPLE_ASSERT(cpp_utilities::AnySatisfyPredicate::check(is_even, vec2),
+        SIMPLE_ASSERT(fat_p::AnySatisfyPredicate::check(is_even, vec2),
                       "AnySatisfyPredicate with one even number");
     }
     
@@ -450,7 +450,7 @@ bool test_raiser_logic_error() {
     try {
         always_enforce(false, "Logic error");
         SIMPLE_ASSERT(false, "LogicRaiser should throw LogicContractError");
-    } catch (const cpp_utilities::LogicContractError&) {
+    } catch (const fat_p::LogicContractError&) {
         // Expected
     }
     
@@ -461,7 +461,7 @@ bool test_raiser_out_of_range() {
     try {
         always_enforce_in_range(0, 100, 150, "Out of range");
         SIMPLE_ASSERT(false, "Should have thrown exception");
-    } catch (const cpp_utilities::LogicContractError&) {
+    } catch (const fat_p::LogicContractError&) {
         // Expected - always_enforce_in_range uses AlwaysEnforcePolicy -> LogicRaiser
     }
     
@@ -510,7 +510,7 @@ bool test_policy_debug_only() {
     try {
         enforce(false, "Should throw in debug");
         SIMPLE_ASSERT(false, "DebugOnlyPolicy should throw in debug");
-    } catch (const cpp_utilities::LogicContractError&) {
+    } catch (const fat_p::LogicContractError&) {
         // Expected
     }
     #endif
@@ -522,7 +522,7 @@ bool test_policy_always_enforce() {
     try {
         always_enforce(false, "Always enforced");
         SIMPLE_ASSERT(false, "AlwaysEnforcePolicy should always throw");
-    } catch (const cpp_utilities::LogicContractError&) {
+    } catch (const fat_p::LogicContractError&) {
         // Expected
     }
     
@@ -573,7 +573,7 @@ bool test_contextual_throwing_function() {
     try {
         always_enforce_not_null(null_ptr, "Null pointer test");
         SIMPLE_ASSERT(false, "Should have thrown with null pointer");
-    } catch (const cpp_utilities::LogicContractError&) {
+    } catch (const fat_p::LogicContractError&) {
         // Expected
     }
     
@@ -679,7 +679,7 @@ bool test_expected_no_exceptions() {
     // Test 4: enforce_predicate_expected
     {
         int positive = 42;
-        auto result = enforce_predicate_expected(cpp_utilities::IsPositivePredicate, 
+        auto result = enforce_predicate_expected(fat_p::IsPositivePredicate, 
                                                  positive, "Should be positive");
         SIMPLE_ASSERT(result.has_value(), 
                       "enforce_predicate_expected should return Ok for positive value");
@@ -728,7 +728,7 @@ bool test_expected_predicate_variants() {
         int value = 42;
         auto test_func = [&]() noexcept -> Expected<bool, std::string> {
             return contextual_enforce_expected_1(&test_func, 
-                                                 cpp_utilities::IsPositivePredicate,
+                                                 fat_p::IsPositivePredicate,
                                                  value, "Value should be positive");
         };
         
@@ -744,7 +744,7 @@ bool test_expected_predicate_variants() {
         std::vector<int> vec = {1, 2, 3};
         auto test_func = [&]() noexcept -> Expected<bool, std::string> {
             return contextual_enforce_expected_2(&test_func,
-                                                 cpp_utilities::HasSizePredicate,
+                                                 fat_p::HasSizePredicate,
                                                  3, vec, "Size should be 3");
         };
         
@@ -760,7 +760,7 @@ bool test_expected_predicate_variants() {
         int value = 50;
         auto test_func = [&]() noexcept -> Expected<bool, std::string> {
             return contextual_enforce_expected_3(&test_func,
-                                                 cpp_utilities::InRangePredicate,
+                                                 fat_p::InRangePredicate,
                                                  value, 0, 100,
                                                  "Value should be in range");
         };
@@ -869,7 +869,7 @@ bool test_performance_predicate_overhead() {
     
     auto start = high_resolution_clock::now();
     for (int i = 0; i < iterations; ++i) {
-        volatile bool result = cpp_utilities::NotNullPredicate::check(ptr);
+        volatile bool result = fat_p::NotNullPredicate::check(ptr);
         (void)result;
     }
     auto end = high_resolution_clock::now();
@@ -907,7 +907,7 @@ bool test_thread_safety_concurrent_enforcement() {
                 } else {
                     always_enforce(false, "Thread ", thread_id, " iteration ", i);
                 }
-            } catch (const cpp_utilities::LogicContractError&) {
+            } catch (const fat_p::LogicContractError&) {
                 ++failure_count;
             }
         }
@@ -951,7 +951,7 @@ bool test_edge_case_long_message() {
     try {
         always_enforce(false, long_msg);
         SIMPLE_ASSERT(false, "Should have thrown with long message");
-    } catch (const cpp_utilities::LogicContractError&) {
+    } catch (const fat_p::LogicContractError&) {
         // Expected
     }
     
@@ -962,7 +962,7 @@ bool test_edge_case_special_characters() {
     try {
         always_enforce(false, "Special chars: \n\t\"\'\\");
         SIMPLE_ASSERT(false, "Should have thrown with special characters");
-    } catch (const cpp_utilities::LogicContractError&) {
+    } catch (const fat_p::LogicContractError&) {
         // Expected
     }
     
@@ -974,7 +974,7 @@ bool test_edge_case_multiple_types() {
         always_enforce(false, "Int:", 42, " Double:", 3.14, 
                        " String:", "test", " Bool:", true);
         SIMPLE_ASSERT(false, "Should have thrown with multiple types");
-    } catch (const cpp_utilities::LogicContractError&) {
+    } catch (const fat_p::LogicContractError&) {
         // Expected
     }
     
@@ -982,7 +982,7 @@ bool test_edge_case_multiple_types() {
 }
 
 bool test_edge_case_numeric_limits() {
-    SIMPLE_ASSERT(cpp_utilities::InRangePredicate::check(
+    SIMPLE_ASSERT(fat_p::InRangePredicate::check(
         std::numeric_limits<int>::max(),
         std::numeric_limits<int>::min(),
         std::numeric_limits<int>::max()
@@ -994,10 +994,10 @@ bool test_edge_case_numeric_limits() {
 bool test_edge_case_empty_containers() {
     std::vector<int> empty;
     
-    SIMPLE_ASSERT(cpp_utilities::IsSortedPredicate::check(empty),
+    SIMPLE_ASSERT(fat_p::IsSortedPredicate::check(empty),
                   "IsSortedPredicate with empty container");
     
-    SIMPLE_ASSERT(cpp_utilities::ContainerIsUniquePredicate::check(empty),
+    SIMPLE_ASSERT(fat_p::ContainerIsUniquePredicate::check(empty),
                   "ContainerIsUniquePredicate with empty container");
     
     return true;
@@ -1006,21 +1006,21 @@ bool test_edge_case_empty_containers() {
 bool test_edge_case_single_element() {
     std::vector<int> single = {42};
     
-    SIMPLE_ASSERT(cpp_utilities::IsSortedPredicate::check(single),
+    SIMPLE_ASSERT(fat_p::IsSortedPredicate::check(single),
                   "IsSortedPredicate with single element");
     
-    SIMPLE_ASSERT(cpp_utilities::ContainerIsUniquePredicate::check(single),
+    SIMPLE_ASSERT(fat_p::ContainerIsUniquePredicate::check(single),
                   "ContainerIsUniquePredicate with single element");
     
     return true;
 }
 
 bool test_edge_case_floating_point() {
-    SIMPLE_ASSERT(cpp_utilities::ApproxEqualPredicate::check(1e-10, 0.0, 1e-11),
+    SIMPLE_ASSERT(fat_p::ApproxEqualPredicate::check(1e-10, 0.0, 1e-11),
                   "ApproxEqualPredicate with very small values");
     
     double inf = std::numeric_limits<double>::infinity();
-    SIMPLE_ASSERT(!cpp_utilities::ApproxEqualPredicate::check(0.001, inf, 1.0),
+    SIMPLE_ASSERT(!fat_p::ApproxEqualPredicate::check(0.001, inf, 1.0),
                   "ApproxEqualPredicate with infinity");
     
     return true;
@@ -1031,16 +1031,16 @@ bool test_edge_case_floating_point() {
 // ============================================================================
 
 bool test_compile_time_constexpr() {
-    constexpr bool null_check = cpp_utilities::NotNullPredicate::check((int*)nullptr);
+    constexpr bool null_check = fat_p::NotNullPredicate::check((int*)nullptr);
     SIMPLE_ASSERT(!null_check, "constexpr null check");
     
-    constexpr bool positive_check = cpp_utilities::IsPositivePredicate::check(42);
+    constexpr bool positive_check = fat_p::IsPositivePredicate::check(42);
     SIMPLE_ASSERT(positive_check, "constexpr positive check");
     
-    constexpr bool range_check = cpp_utilities::InRangePredicate::check(50, 0, 100);
+    constexpr bool range_check = fat_p::InRangePredicate::check(50, 0, 100);
     SIMPLE_ASSERT(range_check, "constexpr range check");
     
-    constexpr bool power_of_two = cpp_utilities::IsPowerOfTwoPredicate::check(16);
+    constexpr bool power_of_two = fat_p::IsPowerOfTwoPredicate::check(16);
     SIMPLE_ASSERT(power_of_two, "constexpr power of two check");
     
     return true;
@@ -1048,11 +1048,11 @@ bool test_compile_time_constexpr() {
 
 bool test_compile_time_static_assertions() {
     // Static assertions (compile-time only)
-    static_assert(cpp_utilities::IsPositivePredicate::check(1), 
+    static_assert(fat_p::IsPositivePredicate::check(1), 
                   "Static positive check");
-    static_assert(!cpp_utilities::IsPositivePredicate::check(0), 
+    static_assert(!fat_p::IsPositivePredicate::check(0), 
                   "Static non-positive check");
-    static_assert(cpp_utilities::IsPowerOfTwoPredicate::check(1024), 
+    static_assert(fat_p::IsPowerOfTwoPredicate::check(1024), 
                   "Static power of two");
     
     std::cout << "    → All constexpr checks evaluated at compile-time\n";
@@ -1076,35 +1076,35 @@ bool test_compile_time_noexcept_detection() {
     };
     
     // Static assertions for noexcept detection
-    static_assert(cpp_utilities::is_noexcept_function_ptr<
+    static_assert(fat_p::is_noexcept_function_ptr<
                       decltype(&TestClass::normal)>::value,
                   "Should detect normal noexcept");
     
-    static_assert(cpp_utilities::is_noexcept_function_ptr<
+    static_assert(fat_p::is_noexcept_function_ptr<
                       decltype(&TestClass::const_ref)>::value,
                   "Should detect const & noexcept");
     
-    static_assert(cpp_utilities::is_noexcept_function_ptr<
+    static_assert(fat_p::is_noexcept_function_ptr<
                       decltype(&TestClass::const_rvalue)>::value,
                   "Should detect const && noexcept");
     
-    static_assert(cpp_utilities::is_noexcept_function_ptr<
+    static_assert(fat_p::is_noexcept_function_ptr<
                       decltype(&TestClass::volatile_ref)>::value,
                   "Should detect volatile & noexcept");
     
-    static_assert(cpp_utilities::is_noexcept_function_ptr<
+    static_assert(fat_p::is_noexcept_function_ptr<
                       decltype(&TestClass::volatile_rvalue)>::value,
                   "Should detect volatile && noexcept");
     
-    static_assert(cpp_utilities::is_noexcept_function_ptr<
+    static_assert(fat_p::is_noexcept_function_ptr<
                       decltype(&TestClass::cv_ref)>::value,
                   "Should detect const volatile & noexcept");
     
-    static_assert(cpp_utilities::is_noexcept_function_ptr<
+    static_assert(fat_p::is_noexcept_function_ptr<
                       decltype(&TestClass::cv_rvalue)>::value,
                   "Should detect const volatile && noexcept");
     
-    static_assert(!cpp_utilities::is_noexcept_function_ptr<
+    static_assert(!fat_p::is_noexcept_function_ptr<
                       decltype(&TestClass::throwing)>::value,
                   "Should detect non-noexcept");
     
@@ -1122,11 +1122,11 @@ bool test_compile_time_predicate_noexcept() {
         // Both should compile (one is noexcept(false), one might be noexcept(true))
         // The key is that it compiles and works correctly
         constexpr bool int_noexcept = noexcept(
-            cpp_utilities::ContainerIsUniquePredicate::check(vec_int)
+            fat_p::ContainerIsUniquePredicate::check(vec_int)
         );
         
         constexpr bool string_noexcept = noexcept(
-            cpp_utilities::ContainerIsUniquePredicate::check(vec_string)
+            fat_p::ContainerIsUniquePredicate::check(vec_string)
         );
         
         // For hashable types (int, string), should be noexcept(false)
@@ -1257,4 +1257,4 @@ bool test_Enforce() {
     }
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

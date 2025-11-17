@@ -2,9 +2,9 @@
 
 #include "Stacktrace.h"
 #include "test_Stacktrace.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 bool test_current() {
@@ -73,4 +73,4 @@ bool test_Stacktrace() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

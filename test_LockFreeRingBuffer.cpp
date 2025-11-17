@@ -4,10 +4,10 @@
 
 #include "LockFreeRingBuffer.h"
 #include "test_LockFreeRingBuffer.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 bool test_ring_buffer_basic() {
@@ -199,4 +199,4 @@ bool test_LockFreeRingBuffer() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

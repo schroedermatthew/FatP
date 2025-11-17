@@ -14,11 +14,11 @@
  */
 
 #include "TensorMath.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 #include <limits>
 #include <cmath>
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 // =============================================================================
@@ -590,4 +590,4 @@ bool test_TensorMath() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

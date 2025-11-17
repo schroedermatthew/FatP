@@ -90,23 +90,23 @@
 // Configuration Macros
 // ============================================================================
 
-#if !defined(CPP_UTILITIES_USE_ATOMIC)
-#define CPP_UTILITIES_USE_ATOMIC 1 ///< Enable atomic operations (disable for minimal builds)
+#if !defined(FATP_USE_ATOMIC)
+#define FATP_USE_ATOMIC 1 ///< Enable atomic operations (disable for minimal builds)
 #endif
 
-#if !defined(CPP_UTILITIES_USE_CHRONO)
-#define CPP_UTILITIES_USE_CHRONO 1 ///< Enable chrono for timeouts/polling
+#if !defined(FATP_USE_CHRONO)
+#define FATP_USE_CHRONO 1 ///< Enable chrono for timeouts/polling
 #endif
 
-#if !defined(CPP_UTILITIES_DEFAULT_TIMEOUT_SECONDS)
-#define CPP_UTILITIES_DEFAULT_TIMEOUT_SECONDS 30 ///< Default timeout for wait operations
+#if !defined(FATP_DEFAULT_TIMEOUT_SECONDS)
+#define FATP_DEFAULT_TIMEOUT_SECONDS 30 ///< Default timeout for wait operations
 #endif
 
 // ============================================================================
 // Standard Library Includes
 // ============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 #include <atomic>      // atomic operations and memory orders
 #endif
 
@@ -115,7 +115,7 @@
 #include <type_traits> // enable_if, is_same, etc.
 #include <mutex>       // mutex, lock_guard for C++17 weak_ptr thread-safety
 
-#if CPP_UTILITIES_USE_CHRONO
+#if FATP_USE_CHRONO
 #include <chrono>      // duration, steady_clock, time_point
 #include <thread>      // sleep_for, yield
 #endif
@@ -127,6 +127,7 @@
 // Library Includes
 // ============================================================================
 
+#include "CppStandardDetection.h"      // Portable C++ standard detection
 #include "enforce.h"                    // Enforcement macros
 #include "enforce_contextual.h"         // Contextual enforcement
 #include "enforce_raiser_selector.h"    // RaiserSelector for policy mapping
@@ -135,7 +136,7 @@
 #include "Expected.h"                   // Expected<T, E> for error handling
 #include "TypeTraits.h"                 // Type trait utilities
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // ============================================================================
 // Enforcement Policy Implementation
@@ -152,9 +153,9 @@ namespace cpp_utilities {
  */
 #define enforce_policy_check(condition, message) \
     do { \
-        using Raiser = typename cpp_utilities::RaiserSelector<EnforcementPolicy>::type; \
-        auto enforcer = cpp_utilities::MakeEnforcer<Raiser>((condition), #condition, \
-                                                             __FILE__ ":" CPP_UTILITIES_STRINGIFY(__LINE__)); \
+        using Raiser = typename fat_p::RaiserSelector<EnforcementPolicy>::type; \
+        auto enforcer = fat_p::MakeEnforcer<Raiser>((condition), #condition, \
+                                                             __FILE__ ":" FATP_STRINGIFY(__LINE__)); \
         enforcer(message); \
     } while(0)
 
@@ -198,7 +199,7 @@ struct NativeWaitPolicy {
     template <typename Storage, typename Duration>
     static bool wait(const Storage& ptr, std::shared_ptr<T> old, 
                      std::memory_order order, const Duration& timeout) {
-#if __cplusplus >= 202002L && CPP_UTILITIES_USE_CHRONO
+#if FATP_HAS_CPP20 && FATP_USE_CHRONO
         // Check if this is an "infinite" timeout
         if (timeout == Duration::max() || timeout >= std::chrono::hours(24)) {
             // Use native wait for untimed case (most efficient)
@@ -220,7 +221,7 @@ struct NativeWaitPolicy {
      */
     template <typename Storage>
     static void notify_one(const Storage& ptr) noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         ptr.notify_one();
 #else
         (void)ptr;
@@ -232,7 +233,7 @@ struct NativeWaitPolicy {
      */
     template <typename Storage>
     static void notify_all(const Storage& ptr) noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         ptr.notify_all();
 #else
         (void)ptr;
@@ -281,7 +282,7 @@ struct PollingWaitPolicy {
     template <typename TraitsType, typename Duration>
     static bool wait(const TraitsType& traits, std::shared_ptr<T> old, 
                      std::memory_order order, const Duration& timeout) {
-#if CPP_UTILITIES_USE_CHRONO
+#if FATP_USE_CHRONO
         auto start = std::chrono::steady_clock::now();
         auto current = traits.raw_load(order);
         
@@ -537,7 +538,7 @@ struct BenchmarkPolicy : BasePolicy {
     template <typename TraitsType, typename Duration>
     static bool wait(const TraitsType& traits, std::shared_ptr<typename TraitsType::value_type> old, 
                      std::memory_order order, const Duration& timeout) {
-#if CPP_UTILITIES_USE_CHRONO && !defined(NDEBUG)
+#if FATP_USE_CHRONO && !defined(NDEBUG)
         auto start = std::chrono::high_resolution_clock::now();
         bool res = BasePolicy::wait(traits, old, order, timeout);
         auto end = std::chrono::high_resolution_clock::now();
@@ -585,7 +586,7 @@ public:
     using duration_type = std::chrono::seconds;
 
 protected:
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
     std::atomic<std::shared_ptr<T>> ptr_;  ///< Native C++20 atomic shared_ptr
 #else
     std::shared_ptr<T> ptr_;  ///< Fallback: non-atomic (use external synchronization)
@@ -611,7 +612,7 @@ public:
      * @return Copy of the stored shared_ptr
      */
     std::shared_ptr<T> raw_load(std::memory_order order = std::memory_order_acquire) const noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         return ptr_.load(order);
 #else
         // Pre-C++20: use atomic operations
@@ -626,7 +627,7 @@ public:
      * @param order Memory order (default: release)
      */
     void raw_store(std::shared_ptr<T> p, std::memory_order order = std::memory_order_release) noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         ptr_.store(std::move(p), order);
 #else
         std::atomic_store_explicit(&ptr_, std::move(p), order);
@@ -642,7 +643,7 @@ public:
      */
     std::shared_ptr<T> raw_exchange(std::shared_ptr<T> p, 
                                     std::memory_order order = std::memory_order_acq_rel) noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         return ptr_.exchange(std::move(p), order);
 #else
         return std::atomic_exchange_explicit(&ptr_, std::move(p), order);
@@ -660,7 +661,7 @@ public:
      */
     bool raw_compare_exchange_weak(std::shared_ptr<T>& expected, std::shared_ptr<T> desired,
                                    std::memory_order success, std::memory_order failure) noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         return ptr_.compare_exchange_weak(expected, std::move(desired), success, failure);
 #else
         return std::atomic_compare_exchange_weak_explicit(&ptr_, &expected, std::move(desired), success, failure);
@@ -678,7 +679,7 @@ public:
      */
     bool raw_compare_exchange_strong(std::shared_ptr<T>& expected, std::shared_ptr<T> desired,
                                      std::memory_order success, std::memory_order failure) noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         return ptr_.compare_exchange_strong(expected, std::move(desired), success, failure);
 #else
         return std::atomic_compare_exchange_strong_explicit(&ptr_, &expected, std::move(desired), success, failure);
@@ -698,7 +699,7 @@ public:
      */
     template <typename Duration = duration_type>
     bool wait(std::shared_ptr<T> old, std::memory_order order = std::memory_order_seq_cst, 
-              const Duration& timeout = Duration(CPP_UTILITIES_DEFAULT_TIMEOUT_SECONDS)) const {
+              const Duration& timeout = Duration(FATP_DEFAULT_TIMEOUT_SECONDS)) const {
         return WaitPolicy<T>::wait(*this, std::move(old), order, timeout);
     }
 
@@ -722,7 +723,7 @@ public:
      * @return true if lock-free, false if uses mutexes
      */
     static constexpr bool is_always_lock_free() noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         return std::atomic<std::shared_ptr<T>>::is_always_lock_free;
 #else
         return false; // Pre-C++20 may not be lock-free
@@ -735,7 +736,7 @@ public:
      * @return true if lock-free, false if uses mutexes
      */
     bool is_lock_free() const noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         return ptr_.is_lock_free();
 #else
         return std::atomic_is_lock_free(&ptr_);
@@ -779,7 +780,7 @@ public:
     using duration_type = std::chrono::seconds;
 
 protected:
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
     std::atomic<std::weak_ptr<T>> ptr_;  ///< Native C++20 atomic weak_ptr
 #else
     mutable std::mutex mutex_;           ///< Mutex for thread-safe access in C++17
@@ -816,7 +817,7 @@ public:
      * @return Copy of the stored weak_ptr
      */
     std::weak_ptr<T> raw_load(std::memory_order order = std::memory_order_acquire) const noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         return ptr_.load(order);
 #else
         (void)order; // Memory order ignored in pre-C++20
@@ -832,7 +833,7 @@ public:
      * @param order Memory order (default: release)
      */
     void raw_store(std::weak_ptr<T> p, std::memory_order order = std::memory_order_release) noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         ptr_.store(std::move(p), order);
 #else
         (void)order;
@@ -850,7 +851,7 @@ public:
      */
     std::weak_ptr<T> raw_exchange(std::weak_ptr<T> p, 
                                    std::memory_order order = std::memory_order_acq_rel) noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         return ptr_.exchange(std::move(p), order);
 #else
         (void)order;
@@ -864,7 +865,7 @@ public:
      */
     bool raw_compare_exchange_weak(std::weak_ptr<T>& expected, std::weak_ptr<T> desired,
                                    std::memory_order success, std::memory_order failure) noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         return ptr_.compare_exchange_weak(expected, std::move(desired), success, failure);
 #else
         (void)success; (void)failure;
@@ -885,7 +886,7 @@ public:
      */
     bool raw_compare_exchange_strong(std::weak_ptr<T>& expected, std::weak_ptr<T> desired,
                                      std::memory_order success, std::memory_order failure) noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         return ptr_.compare_exchange_strong(expected, std::move(desired), success, failure);
 #else
         return raw_compare_exchange_weak(expected, std::move(desired), success, failure);
@@ -943,15 +944,15 @@ public:
      */
     template <typename Duration = duration_type>
     bool wait(std::weak_ptr<T> old, std::memory_order order = std::memory_order_seq_cst, 
-              const Duration& timeout = Duration(CPP_UTILITIES_DEFAULT_TIMEOUT_SECONDS)) const {
+              const Duration& timeout = Duration(FATP_DEFAULT_TIMEOUT_SECONDS)) const {
         // CRITICAL: Don't lock 'old' at start - that would keep the object alive!
         // Instead, compare weak_ptrs or lock on each iteration
         
         // Custom wait logic for weak_ptr: check for expiration OR pointer change
-#if CPP_UTILITIES_USE_CHRONO
+#if FATP_USE_CHRONO
         // Immediate check - avoid unnecessary delay if already expired/changed
         {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
             auto current = ptr_.load(order);
 #else
             std::lock_guard<std::mutex> lock(mutex_);
@@ -970,12 +971,12 @@ public:
         }
         
         auto start = std::chrono::steady_clock::now();
-        std::chrono::microseconds delay(100);  // Start with 100ÃƒÅ½Ã‚Â¼s for faster detection
+        std::chrono::microseconds delay(100);  // Start with 100ÃƒÆ’Ã…Â½Ãƒâ€šÃ‚Â¼s for faster detection
         constexpr auto max_delay = std::chrono::milliseconds(50);  // Max 50ms
         size_t attempts = 0;
         
         while (std::chrono::steady_clock::now() - start < timeout) {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
             auto current = ptr_.load(order);
 #else
             std::weak_ptr<T> current;
@@ -1034,7 +1035,7 @@ public:
      * @brief Check if operations are lock-free.
      */
     static constexpr bool is_always_lock_free() noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         return std::atomic<std::weak_ptr<T>>::is_always_lock_free;
 #else
         return false;
@@ -1045,7 +1046,7 @@ public:
      * @brief Check if this instance is lock-free.
      */
     bool is_lock_free() const noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         return ptr_.is_lock_free();
 #else
         return false;
@@ -1287,7 +1288,7 @@ public:
         // Enforce non-null based on EnforcementPolicy
         using Raiser = typename RaiserSelector<EnforcementPolicy>::type;
         auto enforcer = MakeEnforcer<Raiser>(result != nullptr, "result != nullptr", 
-                                             __FILE__ ":" CPP_UTILITIES_STRINGIFY(__LINE__));
+                                             __FILE__ ":" FATP_STRINGIFY(__LINE__));
         enforcer("Loaded null from AtomicReference");
         return result;
     }
@@ -1333,7 +1334,7 @@ public:
         // Enforce non-null based on EnforcementPolicy
         using Raiser = typename RaiserSelector<EnforcementPolicy>::type;
         auto enforcer = MakeEnforcer<Raiser>(p != nullptr, "p != nullptr", 
-                                             __FILE__ ":" CPP_UTILITIES_STRINGIFY(__LINE__));
+                                             __FILE__ ":" FATP_STRINGIFY(__LINE__));
         enforcer("Storing null to AtomicReference");
         this->raw_store(std::move(p), order);
     }
@@ -1365,7 +1366,7 @@ public:
         // Enforce non-null based on EnforcementPolicy
         using Raiser = typename RaiserSelector<EnforcementPolicy>::type;
         auto enforcer = MakeEnforcer<Raiser>(desired != nullptr, "desired != nullptr", 
-                                             __FILE__ ":" CPP_UTILITIES_STRINGIFY(__LINE__));
+                                             __FILE__ ":" FATP_STRINGIFY(__LINE__));
         enforcer("Exchanging null to AtomicReference");
         return this->raw_exchange(std::move(desired), order);
     }
@@ -1485,7 +1486,7 @@ public:
      * @return Use count (0 if null)
      */
     long use_count(std::memory_order order = std::memory_order_acquire) const noexcept {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         // C++20: Direct access to avoid temporary
         auto sp = this->ptr_.load(order);
         return sp ? (sp.use_count() - 1) : 0;
@@ -1563,7 +1564,7 @@ public:
     template <typename Duration = duration_type>
     bool wait(std::shared_ptr<T> old, 
               std::memory_order order = std::memory_order_seq_cst,
-              const Duration& timeout = Duration(CPP_UTILITIES_DEFAULT_TIMEOUT_SECONDS)) const {
+              const Duration& timeout = Duration(FATP_DEFAULT_TIMEOUT_SECONDS)) const {
         return traits_type::wait(std::move(old), order, timeout);
     }
 
@@ -1942,7 +1943,7 @@ public:
     template <typename Duration = duration_type>
     bool wait(std::weak_ptr<T> old, 
               std::memory_order order = std::memory_order_seq_cst,
-              const Duration& timeout = Duration(CPP_UTILITIES_DEFAULT_TIMEOUT_SECONDS)) const {
+              const Duration& timeout = Duration(FATP_DEFAULT_TIMEOUT_SECONDS)) const {
         return traits_type::wait(std::move(old), order, timeout);
     }
 
@@ -2163,4 +2164,4 @@ std::weak_ptr<T> make_atomic_weak(std::weak_ptr<T> wp) {
 template <typename T, typename EP, template <typename> class WP, typename DP>
 struct is_atomic_reference<AtomicReference<T, EP, WP, DP>> : std::true_type {};
 
-} // namespace cpp_utilities
+} // namespace fat_p

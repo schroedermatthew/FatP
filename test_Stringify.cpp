@@ -1,10 +1,9 @@
-// test_Stringify.cpp - Comprehensive Unit Tests for Stringify v2.0
+// test_Stringify.cpp - Comprehensive Unit Tests for Stringify v1.0
 // Tests for:
 // - Performance improvements (40x faster integers)
 // - Trait return type checking fix
 // - Container support
 // - Wide string support
-// - All new features
 
 #include <iostream>
 #include <vector>
@@ -16,9 +15,13 @@
 #include <atomic>
 
 #include "Stringify.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing {
+#ifndef ENABLE_TEST_APPLICATION
+#include "test_Stringify.h"
+#endif
+
+namespace fat_p::testing {
 
 using namespace std::chrono;
 
@@ -38,12 +41,12 @@ struct CustomStringifiable2 {
     std::string to_string() const { return "Custom2(" + std::to_string(value) + ")"; }
 };
 
-// BUGFIX TEST: Class with toString() returning wrong type
+// Class with toString() returning wrong type
 struct BadToString {
     int toString() const { return 42; }  // Returns int, not string
 };
 
-// BUGFIX TEST: Class with to_string() returning wrong type  
+// Class with to_string() returning wrong type  
 struct BadToString2 {
     void to_string() const {}  // Returns void, not string
 };
@@ -54,11 +57,11 @@ struct NonStreamable {
 };
 
 // =============================================================================
-// Test Suite 1: Trait Return Type Checking (BUGFIX)
+// Test Suite 1: Trait Return Type Checking
 // =============================================================================
 
 bool test_trait_return_type_checking() {
-    std::cout << colors::cyan() << "Testing trait return type checking (BUGFIX)..." 
+    std::cout << colors::cyan() << "Testing trait return type checking..." 
               << colors::reset() << std::endl;
     
     // Valid classes should be detected
@@ -67,7 +70,7 @@ bool test_trait_return_type_checking() {
     SIMPLE_ASSERT(has_to_string_snake_method_v<CustomStringifiable2>, 
                   "Should detect valid to_string()");
     
-    // Invalid return types should NOT be detected (BUGFIX)
+    // Invalid return types should NOT be detected
     SIMPLE_ASSERT(!has_to_string_method_v<BadToString>, 
                   "Should NOT detect toString() with wrong return type");
     SIMPLE_ASSERT(!has_to_string_snake_method_v<BadToString2>, 
@@ -77,7 +80,7 @@ bool test_trait_return_type_checking() {
     SIMPLE_ASSERT(!has_to_string_method_v<NonStreamable>, 
                   "Should NOT detect non-existent method");
     
-    std::cout << colors::green() << "  Trait return type checking fixed" 
+    std::cout << colors::green() << "  Trait return type checking" 
               << colors::reset() << std::endl;
     
     return true;
@@ -164,11 +167,11 @@ bool test_integer_types_fast_path() {
 }
 
 // =============================================================================
-// Test Suite 3: Container Support (NEW FEATURE)
+// Test Suite 3: Container Support
 // =============================================================================
 
 bool test_container_stringification() {
-    std::cout << colors::cyan() << "Testing container stringification (NEW)..." 
+    std::cout << colors::cyan() << "Testing container stringification ..." 
               << colors::reset() << std::endl;
     
     // Vector
@@ -241,11 +244,11 @@ bool test_container_options() {
 }
 
 // =============================================================================
-// Test Suite 4: Wide String Support (NEW FEATURE)
+// Test Suite 4: Wide String Support
 // =============================================================================
 
 bool test_wide_string_support() {
-    std::cout << colors::cyan() << "Testing wide string support (NEW)..." 
+    std::cout << colors::cyan() << "Testing wide string support ..." 
               << colors::reset() << std::endl;
     
     // Basic types
@@ -266,7 +269,7 @@ bool test_wide_string_support() {
 }
 
 // =============================================================================
-// Test Suite 5: Enhanced Padding (NEW FEATURE)
+// Test Suite 5: Enhanced Padding
 // =============================================================================
 
 bool test_enhanced_padding() {
@@ -296,11 +299,11 @@ bool test_enhanced_padding() {
 }
 
 // =============================================================================
-// Test Suite 6: Variadic Concatenation (NEW FEATURE)
+// Test Suite 6: Variadic Concatenation 
 // =============================================================================
 
 bool test_variadic_concatenation() {
-    std::cout << colors::cyan() << "Testing variadic concatenation (NEW)..." 
+    std::cout << colors::cyan() << "Testing variadic concatenation..." 
               << colors::reset() << std::endl;
     
     auto result = toStringConcat("Value: ", 42, ", Status: ", true);
@@ -452,41 +455,41 @@ bool test_Stringify() {
     try {
         TestRunner runner;
         
-        // Test Suite 1: Trait Return Type Checking (BUGFIX)
+        // Test Suite 1: Trait Return Type Checking
         std::cout << colors::cyan() << colors::bold()
-                  << "Test Suite 1: Trait Return Type Checking (BUGFIX)" 
+                  << "Test Suite 1: Trait Return Type Checking" 
                   << colors::reset() << "\n";
         runner.run_test("Trait Return Type Checking", test_trait_return_type_checking);
         
         // Test Suite 2: Fast Path Performance (CRITICAL FIX)
         std::cout << "\n" << colors::cyan() << colors::bold()
-                  << "Test Suite 2: Fast Path Performance (40x FIX)" 
+                  << "Test Suite 2: Fast Path Performance (40x)" 
                   << colors::reset() << "\n";
         runner.run_test("Integer Fast Path Performance", test_integer_fast_path_performance);
         runner.run_test("All Integer Types Fast Path", test_integer_types_fast_path);
         
-        // Test Suite 3: Container Support (NEW)
+        // Test Suite 3: Container Support
         std::cout << "\n" << colors::cyan() << colors::bold()
-                  << "Test Suite 3: Container Support (NEW)" 
+                  << "Test Suite 3: Container Support" 
                   << colors::reset() << "\n";
         runner.run_test("Container Stringification", test_container_stringification);
         runner.run_test("Container Options", test_container_options);
         
-        // Test Suite 4: Wide String Support (NEW)
+        // Test Suite 4: Wide String Support
         std::cout << "\n" << colors::cyan() << colors::bold()
-                  << "Test Suite 4: Wide String Support (NEW)" 
+                  << "Test Suite 4: Wide String Support" 
                   << colors::reset() << "\n";
         runner.run_test("Wide String Support", test_wide_string_support);
         
-        // Test Suite 5: Enhanced Padding (NEW)
+        // Test Suite 5: Enhanced Padding
         std::cout << "\n" << colors::cyan() << colors::bold()
-                  << "Test Suite 5: Enhanced Padding (NEW)" 
+                  << "Test Suite 5: Enhanced Padding" 
                   << colors::reset() << "\n";
         runner.run_test("Enhanced Padding", test_enhanced_padding);
         
-        // Test Suite 6: Variadic Concatenation (NEW)
+        // Test Suite 6: Variadic Concatenation
         std::cout << "\n" << colors::cyan() << colors::bold()
-                  << "Test Suite 6: Variadic Concatenation (NEW)" 
+                  << "Test Suite 6: Variadic Concatenation" 
                   << colors::reset() << "\n";
         runner.run_test("Variadic Concatenation", test_variadic_concatenation);
         
@@ -516,9 +519,11 @@ bool test_Stringify() {
     return true;
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing
 
-//int main()
-//{
-//    return cpp_utilities::testing::test_Stringify() ? 0 : 1;
-//}
+#ifdef ENABLE_TEST_APPLICATION
+int main()
+{
+    return fat_p::testing::test_Stringify() ? 0 : 1;
+}
+#endif

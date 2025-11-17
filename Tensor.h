@@ -53,7 +53,7 @@
 #include "AlignedVector.h"
 #include "enforce.h"
 #include "TypeTraits.h"
-#include "CppUtilitiesTypeTraits.h"
+#include "FatPTypeTraits.h"
 #include "CheckedArithmetic.h"
 #include "Expected.h"
 #include "ContractException.h"
@@ -88,7 +88,7 @@
 // explicit AVX-512 optimizations for even better performance.
 #endif
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // Forward declarations for serialization
 class JsonValue;
@@ -109,7 +109,7 @@ class Tensor;
  * @brief SIMD-aligned allocator for tensor memory (from AlignedVector.h)
  */
 template<typename T, size_t Alignment = 64>
-using TensorAllocator = memory::AlignedAllocator<T, Alignment>;
+using TensorAllocator = AlignedAllocator<T, Alignment>;
 
 // =============================================================================
 // Stride Iterator (Base for all iterators)
@@ -2342,15 +2342,15 @@ using BlockedTensor = Tensor<T, Alloc, BlockedPolicy<BlockSize>>;
 template<typename T>
 using OptimizedTensor = Tensor<T, TensorAllocator<T>, RowMajorPolicy>;
 
-} // namespace cpp_utilities
+} // namespace fat_p
 
 // =============================================================================
 // std::hash Specialization (must be in std namespace)
 // =============================================================================
 namespace std {
     template <typename T, typename Alloc, typename IteratorPolicy>
-    struct hash<cpp_utilities::Tensor<T, Alloc, IteratorPolicy>> {
-        size_t operator()(const cpp_utilities::Tensor<T, Alloc, IteratorPolicy>& tensor) const {
+    struct hash<fat_p::Tensor<T, Alloc, IteratorPolicy>> {
+        size_t operator()(const fat_p::Tensor<T, Alloc, IteratorPolicy>& tensor) const {
             size_t seed = 0;
             
             // Hash shape

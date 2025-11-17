@@ -1,4 +1,6 @@
 /**
+
+#include "CppStandardDetection.h"
  * @file test_CoroutineTask.cpp
  * @brief Comprehensive unit tests for CoroutineTask
  * 
@@ -15,18 +17,20 @@
  * Note: Requires C++20 for coroutine support
  */
 
-#include "test_Utilities.h"
 #include <iostream>
 
+#include "FatPTest.h"
+#include "CppStandardDetection.h"
+
 // Only run tests if C++20 or later
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
 
 #include "CoroutineTask.h"
 #include <vector>
 #include <string>
 #include <numeric>
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 // =============================================================================
@@ -537,11 +541,11 @@ bool test_CoroutineTask() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing
 
-#else // __cplusplus < 202002L
+#else // !FATP_HAS_CPP20
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 bool test_CoroutineTask() {
@@ -554,11 +558,11 @@ bool test_CoroutineTask() {
         << colors::reset() << "\n";
     out << colors::yellow() 
         << "Coroutines require C++20 or later. Current standard: C++" 
-        << (__cplusplus / 100 % 100) 
+        << (FATP_CPLUSPLUS / 100 % 100) 
         << colors::reset() << "\n";
     return true;
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing
 
-#endif // __cplusplus >= 202002L
+#endif // FATP_HAS_CPP20

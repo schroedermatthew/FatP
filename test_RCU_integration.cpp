@@ -18,9 +18,9 @@
 
 #include "ConcurrencyPolicies.h"
 #include "TensoR.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing {
+namespace fat_p::testing {
 
 using namespace std::chrono_literals;
 
@@ -32,7 +32,7 @@ bool test_rcu_tensor_basic() {
     std::cout << colors::cyan() << "\n[TEST] RCU with Tensor - Basic Operations"
               << colors::reset() << std::endl;
     
-    #if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_SHARED_MUTEX
+    #if FATP_USE_ATOMIC && FATP_USE_SHARED_MUTEX
     
     using TensorType = Tensor<double>;
     RCUPolicy<TensorType> rcu_tensor(TensorType({100}));
@@ -75,7 +75,7 @@ bool test_rcu_concurrent_readers_writers() {
     std::cout << colors::cyan() << "\n[TEST] RCU - Concurrent Readers/Writers"
               << colors::reset() << std::endl;
     
-    #if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_SHARED_MUTEX
+    #if FATP_USE_ATOMIC && FATP_USE_SHARED_MUTEX
     
     using TensorType = Tensor<int>;
     RCUPolicy<TensorType> rcu_tensor(TensorType({1000}));
@@ -153,7 +153,7 @@ bool test_rcu_performance() {
     std::cout << colors::cyan() << "\n[TEST] RCU Performance - Lock-Free Reads"
               << colors::reset() << std::endl;
     
-    #if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_SHARED_MUTEX
+    #if FATP_USE_ATOMIC && FATP_USE_SHARED_MUTEX
     
     using TensorType = Tensor<double>;
     RCUPolicy<TensorType> rcu_tensor(TensorType({10000}));
@@ -207,7 +207,7 @@ bool test_rcu_complex_updates() {
     std::cout << colors::cyan() << "\n[TEST] RCU - Complex Tensor Updates"
               << colors::reset() << std::endl;
     
-    #if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_SHARED_MUTEX
+    #if FATP_USE_ATOMIC && FATP_USE_SHARED_MUTEX
     
     using TensorType = Tensor<double>;
     RCUPolicy<TensorType> rcu_tensor(TensorType({100, 100}));
@@ -278,4 +278,4 @@ bool test_RCU_integration() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

@@ -3,12 +3,10 @@
 
 #include "SimdVector.h"
 #include "test_SimdVector.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
-
-using namespace simd;
 
 bool test_simd_vector_construction() {
     SimdVectorF vec_scalar(5.0f);
@@ -268,4 +266,4 @@ bool test_SimdVector() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

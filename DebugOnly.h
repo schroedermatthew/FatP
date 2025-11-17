@@ -1,10 +1,11 @@
 // DebugOnly.h
-#ifndef CPP_UTILITIES_DEBUG_ONLY_H
-#define CPP_UTILITIES_DEBUG_ONLY_H
+#ifndef FATP_DEBUG_ONLY_H
+#define FATP_DEBUG_ONLY_H
 
+#include "CppStandardDetection.h"
 #include <utility>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 /**
  * @brief RAII wrapper for debug-only values that has zero overhead in release builds
@@ -72,7 +73,7 @@ struct DebugOnly {
  *     int data;
  *     
  *     // C++20: Use [[no_unique_address]] for true zero-overhead
- *     #if __cplusplus >= 202002L
+ *     #if FATP_HAS_CPP20
  *     [[no_unique_address]]
  *     #endif
  *     DebugOnly<std::string> debug_name;
@@ -83,6 +84,6 @@ struct DebugOnly {
  * @endcode
  */
 
-}  // namespace cpp_utilities
+}  // namespace fat_p
 
-#endif  // CPP_UTILITIES_DEBUG_ONLY_H
+#endif  // FATP_DEBUG_ONLY_H

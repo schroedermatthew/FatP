@@ -49,8 +49,8 @@
  * @details Set to 0 to disable exception handling in policies (useful for
  * embedded systems or when compiling with -fno-exceptions).
  */
-#ifndef CPP_UTILITIES_USE_EXCEPTION
-    #define CPP_UTILITIES_USE_EXCEPTION 1
+#ifndef FATP_USE_EXCEPTION
+    #define FATP_USE_EXCEPTION 1
 #endif
 
 /**
@@ -59,8 +59,8 @@
  * @details When enabled, ScopeGuardLogAndSwallowPolicy will output error
  * messages to std::cerr. Set to 0 to disable all diagnostic output.
  */
-#ifndef CPP_UTILITIES_SCOPE_GUARD_LOG_ERRORS
-    #define CPP_UTILITIES_SCOPE_GUARD_LOG_ERRORS 1
+#ifndef FATP_SCOPE_GUARD_LOG_ERRORS
+    #define FATP_SCOPE_GUARD_LOG_ERRORS 1
 #endif
 
 /**
@@ -68,11 +68,11 @@
  * 
  * @details v2.1: Mutex support is now used for thread-safe logging.
  */
-#ifndef CPP_UTILITIES_USE_MUTEX
-    #define CPP_UTILITIES_USE_MUTEX 1
+#ifndef FATP_USE_MUTEX
+    #define FATP_USE_MUTEX 1
 #endif
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // =============================================================================
 // Thread-Safe Error Logging Support (FIXED v2.1)
@@ -95,14 +95,14 @@ namespace cpp_utilities {
  * Performance Impact: Negligible (only called on exception paths, which are rare).
  * The mutex overhead (~25ns) is insignificant compared to exception handling costs.
  * 
- * For embedded systems without mutex support, set CPP_UTILITIES_USE_MUTEX=0
+ * For embedded systems without mutex support, set FATP_USE_MUTEX=0
  * to disable synchronization (logging will be non-thread-safe but available).
  * 
  * @param message The error message to print.
  */
-#if CPP_UTILITIES_SCOPE_GUARD_LOG_ERRORS
+#if FATP_SCOPE_GUARD_LOG_ERRORS
 inline void conditionalPrintError(const std::string& message) {
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
     // FIXED v2.1: Thread-safe logging with static mutex
     static std::mutex log_mutex;
     std::lock_guard<std::mutex> guard(log_mutex);
@@ -118,7 +118,7 @@ inline void conditionalPrintError(const std::string& message) {
  * @param message The C-string error message to print.
  */
 inline void conditionalPrintError(const char* message) {
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
     // FIXED v2.1: Thread-safe logging with static mutex
     static std::mutex log_mutex;
     std::lock_guard<std::mutex> guard(log_mutex);
@@ -148,7 +148,7 @@ inline void conditionalPrintError(const char* message) {
 template <typename MessageGen, 
           typename = std::enable_if_t<std::is_invocable_r_v<std::string, MessageGen>>>
 inline void conditionalPrintError(MessageGen&& messageGen) {
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
     // FIXED v2.1: Thread-safe logging with static mutex
     static std::mutex log_mutex;
     std::lock_guard<std::mutex> guard(log_mutex);
@@ -221,7 +221,7 @@ struct ScopeGuardTerminatePolicy {};
  * 
  * @details This allows a throwing action, but guarantees the destructor
  * itself will not throw, which is essential for C++ safety. The log is
- * configurable via CPP_UTILITIES_SCOPE_GUARD_LOG_ERRORS.
+ * configurable via FATP_SCOPE_GUARD_LOG_ERRORS.
  * 
  * THREAD-SAFETY (v2.1): Logging is now thread-safe with static mutex
  * synchronization. Multiple threads can log simultaneously without garbled output.
@@ -336,7 +336,7 @@ struct ScopeGuardPolicyExecutor<F, ScopeGuardTerminatePolicy> {
      * @param action The cleanup function object.
      */
     static void execute(F& action) noexcept {
-#if CPP_UTILITIES_USE_EXCEPTION
+#if FATP_USE_EXCEPTION
         try {
             action();
         }
@@ -387,7 +387,7 @@ struct ScopeGuardPolicyExecutor<F, ScopeGuardLogAndSwallowPolicy> {
      * @param action The cleanup function object.
      */
     static void execute(F& action) noexcept {
-#if CPP_UTILITIES_USE_EXCEPTION
+#if FATP_USE_EXCEPTION
         try {
             action();
         }
@@ -439,7 +439,7 @@ struct ScopeGuardPolicyExecutor<F, ScopeGuardRethrowPolicy> {
      * @param action The cleanup function object.
      */
     static void execute(F& action) noexcept(false) {
-#if CPP_UTILITIES_USE_EXCEPTION
+#if FATP_USE_EXCEPTION
         try {
             action();
         }
@@ -454,4 +454,4 @@ struct ScopeGuardPolicyExecutor<F, ScopeGuardRethrowPolicy> {
     }
 };
 
-} // namespace cpp_utilities
+} // namespace fat_p

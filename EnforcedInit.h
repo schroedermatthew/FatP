@@ -25,19 +25,19 @@
  */
 #pragma once
 
-#if !defined(CPP_UTILITIES_USE_OPTIONAL)
-#define CPP_UTILITIES_USE_OPTIONAL 1
+#if !defined(FATP_USE_OPTIONAL)
+#define FATP_USE_OPTIONAL 1
 #endif
 
-#if !defined(CPP_UTILITIES_USE_ATOMIC)
-#define CPP_UTILITIES_USE_ATOMIC 1
+#if !defined(FATP_USE_ATOMIC)
+#define FATP_USE_ATOMIC 1
 #endif
 
-#if CPP_UTILITIES_USE_OPTIONAL
+#if FATP_USE_OPTIONAL
 #include <optional>
 #endif
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 #include <atomic>
 #endif
 
@@ -52,7 +52,7 @@
 #include "ConcurrencyPolicies.h"
 #include "Expected.h"
 
-namespace cpp_utilities {
+namespace fat_p {
     // --- Policies for Customization ---
     struct DefaultCheckPolicy {
         template <typename T, typename... Args>
@@ -114,7 +114,7 @@ namespace cpp_utilities {
         };
     };
     
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
     struct AtomicPolicy {
         mutable std::atomic<bool> init_flag_{ false };
         
@@ -438,4 +438,4 @@ namespace cpp_utilities {
     template <typename T, typename... Policies>
     using EnforcedInitUnique = EnforcedInit<std::unique_ptr<T>, Policies...>;
     
-} // namespace cpp_utilities
+} // namespace fat_p

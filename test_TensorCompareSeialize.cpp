@@ -7,12 +7,12 @@
 #include "EqualityComparisons.h"
 #include "EqualityTensor.h"
 #include "test_TensorCompareSeialize.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
-using namespace cpp_utilities;
+using namespace fat_p;
 
 // =============================================================================
 // Test Suite 1: operator== (Exact Comparison for STL Containers)
@@ -400,4 +400,4 @@ bool test_TensorCompareSerialize() {
     return runner.print_summary() == 0;
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

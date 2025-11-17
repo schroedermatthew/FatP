@@ -1,6 +1,6 @@
 // AsyncOperations.h
-#ifndef CPP_UTILITIES_ASYNC_OPERATIONS_H
-#define CPP_UTILITIES_ASYNC_OPERATIONS_H
+#ifndef FATP_ASYNC_OPERATIONS_H
+#define FATP_ASYNC_OPERATIONS_H
 
 #include "Expected.h"  // Assuming Expected<T, E> is in Expected.h
 #include <functional>
@@ -9,7 +9,7 @@
 #include <utility>
 #include <type_traits>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // Helper to extract value_type from Expected return types
 template <typename T>
@@ -105,6 +105,6 @@ auto async_task(Func&& func, Args&&... args) {
     return AsyncTask<ValueType, ErrorType>::create(std::forward<Func>(func), std::forward<Args>(args)...);
 }
 
-}  // namespace cpp_utilities
+}  // namespace fat_p
 
-#endif  // CPP_UTILITIES_ASYNC_OPERATIONS_H
+#endif  // FATP_ASYNC_OPERATIONS_H

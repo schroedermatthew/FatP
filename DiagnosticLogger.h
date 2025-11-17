@@ -1,14 +1,7 @@
 /**
- * @file DiagnosticLogger_optimized.h (v2.0)
+ * @file DiagnosticLogger_optimized.h (v1.0)
  * @brief High-performance diagnostic logging with lock-free fast path
  * 
- * CHANGES FROM v1.0:
- * - CRITICAL FIX: Lock-free fast path (3-10x faster for disabled/filtered logs)
- * - OPTIMIZATION: Atomic flags for enabled/level checks (no mutex in hot path)
- * - OPTIMIZATION: Double-checked locking pattern
- * - OPTIMIZATION: Branch prediction hints (__builtin_expect)
- * - OPTIMIZATION: Separate hot path (checks) from cold path (actual logging)
- * - OPTIMIZATION: Smart macros (avoid stringstream for literals)
  * 
  * PERFORMANCE TARGETS:
  * - Disabled logging: <10 ns/call (vs 33 ns before)
@@ -36,7 +29,7 @@
 #include <vector>
 #include <memory>
 #include <mutex>
-#include <atomic>  // NEW: For lock-free fast path
+#include <atomic>  // For lock-free fast path
 #include <chrono>
 #include <iomanip>
 #include <functional>
@@ -49,7 +42,7 @@
 #define CPP_UTIL_MIN_LOG_LEVEL 0
 #endif
 
-// NEW: Branch prediction hints for better performance
+// Branch prediction hints for better performance
 #ifndef LIKELY
 #  if defined(__GNUC__) || defined(__clang__)
 #    define LIKELY(x)   __builtin_expect(!!(x), 1)
@@ -81,7 +74,7 @@
 #  endif
 #endif
 
-namespace cpp_utilities {
+namespace fat_p {
 namespace diagnostic {
 
 // ============================================================================
@@ -130,7 +123,7 @@ struct SourceLocation {
 };
 
 #define CPP_UTIL_SOURCE_LOCATION() \
-    ::cpp_utilities::diagnostic::SourceLocation(__FILE__, __LINE__, __func__)
+    ::fat_p::diagnostic::SourceLocation(__FILE__, __LINE__, __func__)
 
 // ============================================================================
 // Log Record
@@ -372,7 +365,7 @@ public:
 };
 
 // ============================================================================
-// Logger - OPTIMIZED v2.1 with Ultra-Fast Path
+// Logger - OPTIMIZED  with Ultra-Fast Path
 // ============================================================================
 
 class Logger {
@@ -662,7 +655,7 @@ inline Logger& getGlobalLogger() {
 // OPTIMIZED Macros - Avoid Unnecessary stringstream for Literals
 // ============================================================================
 
-// NEW: Helper to detect if argument is a string literal or needs stringstream
+// Helper to detect if argument is a string literal or needs stringstream
 namespace detail {
     template<typename T>
     struct is_string_literal : std::false_type {};
@@ -677,8 +670,8 @@ namespace detail {
 // OPTIMIZATION: Smart macro that avoids stringstream for simple cases
 #define LOG_TRACE(msg) \
     do { \
-        if constexpr (::cpp_utilities::diagnostic::gMinLogLevel <= ::cpp_utilities::diagnostic::LogLevel::Trace) { \
-            ::cpp_utilities::diagnostic::getGlobalLogger().trace([&]() -> std::string { \
+        if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::Trace) { \
+            ::fat_p::diagnostic::getGlobalLogger().trace([&]() -> std::string { \
                 if constexpr (std::is_convertible_v<decltype(msg), std::string>) { \
                     return std::string(msg); \
                 } else { \
@@ -690,8 +683,8 @@ namespace detail {
 
 #define LOG_DEBUG(msg) \
     do { \
-        if constexpr (::cpp_utilities::diagnostic::gMinLogLevel <= ::cpp_utilities::diagnostic::LogLevel::Debug) { \
-            ::cpp_utilities::diagnostic::getGlobalLogger().debug([&]() -> std::string { \
+        if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::Debug) { \
+            ::fat_p::diagnostic::getGlobalLogger().debug([&]() -> std::string { \
                 if constexpr (std::is_convertible_v<decltype(msg), std::string>) { \
                     return std::string(msg); \
                 } else { \
@@ -703,8 +696,8 @@ namespace detail {
 
 #define LOG_INFO(msg) \
     do { \
-        if constexpr (::cpp_utilities::diagnostic::gMinLogLevel <= ::cpp_utilities::diagnostic::LogLevel::Info) { \
-            ::cpp_utilities::diagnostic::getGlobalLogger().info([&]() -> std::string { \
+        if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::Info) { \
+            ::fat_p::diagnostic::getGlobalLogger().info([&]() -> std::string { \
                 if constexpr (std::is_convertible_v<decltype(msg), std::string>) { \
                     return std::string(msg); \
                 } else { \
@@ -716,8 +709,8 @@ namespace detail {
 
 #define LOG_WARNING(msg) \
     do { \
-        if constexpr (::cpp_utilities::diagnostic::gMinLogLevel <= ::cpp_utilities::diagnostic::LogLevel::Warning) { \
-            ::cpp_utilities::diagnostic::getGlobalLogger().warning([&]() -> std::string { \
+        if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::Warning) { \
+            ::fat_p::diagnostic::getGlobalLogger().warning([&]() -> std::string { \
                 if constexpr (std::is_convertible_v<decltype(msg), std::string>) { \
                     return std::string(msg); \
                 } else { \
@@ -729,8 +722,8 @@ namespace detail {
 
 #define LOG_ERROR(msg) \
     do { \
-        if constexpr (::cpp_utilities::diagnostic::gMinLogLevel <= ::cpp_utilities::diagnostic::LogLevel::Error) { \
-            ::cpp_utilities::diagnostic::getGlobalLogger().error([&]() -> std::string { \
+        if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::Error) { \
+            ::fat_p::diagnostic::getGlobalLogger().error([&]() -> std::string { \
                 if constexpr (std::is_convertible_v<decltype(msg), std::string>) { \
                     return std::string(msg); \
                 } else { \
@@ -742,8 +735,8 @@ namespace detail {
 
 #define LOG_FATAL(msg) \
     do { \
-        if constexpr (::cpp_utilities::diagnostic::gMinLogLevel <= ::cpp_utilities::diagnostic::LogLevel::Fatal) { \
-            ::cpp_utilities::diagnostic::getGlobalLogger().fatal([&]() -> std::string { \
+        if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::Fatal) { \
+            ::fat_p::diagnostic::getGlobalLogger().fatal([&]() -> std::string { \
                 if constexpr (std::is_convertible_v<decltype(msg), std::string>) { \
                     return std::string(msg); \
                 } else { \
@@ -799,4 +792,4 @@ inline void initializeFileLogger(const std::string& filename, bool alsoConsole =
 }
 
 } // namespace diagnostic
-} // namespace cpp_utilities
+} // namespace fat_p

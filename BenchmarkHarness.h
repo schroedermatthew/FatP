@@ -63,7 +63,7 @@
 #include <sstream>
 #include <map>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // ============================================================================
 // Benchmark Statistics
@@ -427,4 +427,4 @@ private:
     std::vector<BenchmarkStats> m_results;
 };
 
-} // namespace cpp_utilities
+} // namespace fat_p

@@ -10,6 +10,8 @@
  */
 #pragma once
 
+#include "CppStandardDetection.h"
+
 // MSVC-specific warnings suppression
 #ifdef _MSC_VER
 #define _CRT_SECURE_NO_WARNINGS
@@ -48,7 +50,7 @@
     #include <unistd.h>
 #endif
 
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
 #include <source_location>
 #endif
 
@@ -92,7 +94,7 @@
 #define CACHE_LINE_SIZE 64
 #endif
 
-namespace cpp_utilities {
+namespace fat_p {
 namespace diagnostic {
 namespace ultra {
 
@@ -128,7 +130,7 @@ inline const char* toString(LogLevel level) {
 // Source Location
 // ============================================================================
 
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
 using SourceLocation = std::source_location;
 #else
 struct SourceLocation {
@@ -173,7 +175,7 @@ struct alignas(CACHE_LINE_SIZE) LogRecord {
     }
     
     void setLocation(const SourceLocation& loc) {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         const char* basename = loc.file_name();
 #else
         const char* basename = loc.file;
@@ -187,12 +189,12 @@ struct alignas(CACHE_LINE_SIZE) LogRecord {
         std::memcpy(file, basename, file_len);
         file[file_len] = '\0';
         
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         const char* func_name = loc.function_name();
-        line = static_cast<int>(loc.line());  // âœ… C++20: METHOD CALL
+        line = static_cast<int>(loc.line());  // Ã¢Å“â€¦ C++20: METHOD CALL
 #else
         const char* func_name = loc.function;
-        line = loc.line;  // âœ… C++17: MEMBER ACCESS (NO PARENTHESES!)
+        line = loc.line;  // Ã¢Å“â€¦ C++17: MEMBER ACCESS (NO PARENTHESES!)
 #endif
         size_t func_len = std::min(strlen(func_name), size_t(63));
         std::memcpy(function, func_name, func_len);
@@ -629,7 +631,7 @@ private:
         
         if constexpr (ModePolicy::NeedsRingBuffer) {
             constexpr size_t BATCH_SIZE = 32;
-            // âœ… FIX: Use heap allocation to avoid stack overflow (16KB on stack was too large)
+            // Ã¢Å“â€¦ FIX: Use heap allocation to avoid stack overflow (16KB on stack was too large)
             auto batch = std::make_unique<LogRecord[]>(BATCH_SIZE);
             
             while (!stopWorker_.load(std::memory_order_acquire)) {
@@ -765,4 +767,4 @@ public:
 
 } // namespace ultra
 } // namespace diagnostic
-} // namespace cpp_utilities
+} // namespace fat_p

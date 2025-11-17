@@ -1,0 +1,2702 @@
+// FatPTest.h
+#pragma once
+
+/**
+ * @file FatPTest.h
+ * @brief Zero-dependency test infrastructure for header-only C++ libraries
+ * 
+ * DESIGN PHILOSOPHY:
+ * This test infrastructure is intentionally lightweight and self-contained,
+ * requiring no external testing frameworks (GoogleTest, Boost.Test, Catch2, etc.).
+ * 
+ * FEATURES:
+ * - 18+ assertion macros (equality, comparison, floating-point, exceptions)
+ * - Test fixtures with automatic setup/teardown
+ * - Parameterized/data-driven tests
+ * - String assertion utilities (contains, starts_with, ends_with, regex)
+ * - Container/range comparison with detailed diff output
+ * - Test filtering by name pattern
+ * - Enhanced benchmarking (percentiles, outliers, baseline comparison)
+ * - Colored output with ANSI codes
+ * - Test runner infrastructure
+ * - Zero external dependencies
+ * 
+ * RATIONALE FOR ZERO DEPENDENCIES:
+ * - The components under test are header-only and require no external dependencies
+ * - Test infrastructure should not impose dependency requirements on users
+ * - GoogleTest and Boost.Test are powerful but heavyweight (linking, installation)
+ * - For header-only libraries, a simple assertion framework is sufficient
+ * - Enables testing in minimal environments (embedded, CI without package managers)
+ * - Reduces build complexity and compilation time
+ * 
+ * CRITICAL DESIGN DECISION - CIRCULAR DEPENDENCY AVOIDANCE:
+ * This file must remain independent of all components being tested. It provides
+ * primitive floating-point comparison via primitive::are_close() which is
+ * intentionally simple and obviously correct by inspection.
+ * 
+ * - For production code: Use FloatingPointComparison.h
+ * - For test code: Use the ASSERT_CLOSE* macros provided here
+ * 
+ * The primitive comparison is NOT production-quality. It exists solely to enable
+ * independent testing of FloatingPointComparison.h and other components without
+ * creating circular dependencies.
+ * 
+ * THREAD SAFETY:
+ * This test infrastructure is NOT thread-safe. All tests must be executed in a
+ * single-threaded context. Do not run multiple test runners concurrently or
+ * execute tests from multiple threads simultaneously.
+ * 
+ * @note This infrastructure provides: assertions, benchmarking, colored output,
+ *       floating-point comparison, exception testing, and test runners - all
+ *       with zero external dependencies beyond the C++ standard library.
+ */
+
+#include <chrono>
+#include <iostream>
+#include <iomanip>
+#include <sstream>
+#include <string>
+#include <cmath>
+#include <cstddef>
+#include <vector>
+#include <algorithm>
+#include <limits>
+#include <exception>
+#include <regex>
+#include <map>
+#include <cctype>
+#include <future>
+#include <fstream>
+#include <ctime>
+#include <iterator>
+
+namespace fat_p
+{
+namespace testing
+{
+
+// ============================================================================
+// Primitive Floating-Point Comparison (Test Infrastructure Only)
+// ============================================================================
+
+/**
+ * @brief Primitive floating-point comparison for test infrastructure ONLY
+ * 
+ * This namespace provides a simple, obviously-correct comparison function
+ * independent of FloatingPointComparison.h to avoid circular dependencies.
+ * The implementation is intentionally minimal and verifiable by inspection.
+ * 
+ * ALGORITHM: Hybrid absolute + relative tolerance comparison
+ * 1. NaN handling: NaN never equals anything (including itself) - IEEE 754 compliant
+ * 2. Infinity handling: Same-sign infinities are equal, mixed signs are not
+ * 3. Exact equality: Catches ±0 equality and identical values (optimization)
+ * 4. Absolute tolerance: Handles comparisons near zero
+ * 5. Relative tolerance: Handles comparisons at large magnitudes
+ * 
+ * DEFAULT EPSILON VALUES:
+ * - Relative epsilon: 100 × machine epsilon (standard practice)
+ * - Absolute epsilon: 1 × machine epsilon (100× tighter for near-zero values)
+ * 
+ * This is NOT for production use - it's intentionally simplified for test
+ * infrastructure. Production code should use FloatingPointComparison.h which
+ * provides additional features like ULP comparison, configurable policies,
+ * and diagnostic logging.
+ * 
+ * @note The 100× scaling factor for relative epsilon is a widely-accepted
+ *       default that balances precision with practical tolerance for rounding
+ *       errors in typical floating-point calculations.
+ */
+namespace primitive
+{
+    template <typename T>
+    constexpr T RELATIVE_EPSILON_SCALE = static_cast<T>(100);
+
+    template <typename T>
+    constexpr T get_default_epsilon()
+    {
+        static_assert(std::is_floating_point_v<T>, "T must be floating-point");
+        return std::numeric_limits<T>::epsilon() * RELATIVE_EPSILON_SCALE<T>;
+    }
+
+    template <typename T>
+    inline bool are_close(T a, T b, 
+                          T rel_eps = get_default_epsilon<T>(),
+                          T abs_eps = get_default_epsilon<T>() / RELATIVE_EPSILON_SCALE<T>)
+    {
+        static_assert(std::is_floating_point_v<T>, "T must be floating-point");
+        
+        if (std::isnan(a) || std::isnan(b))
+        {
+            return false;
+        }
+        
+        if (std::isinf(a) || std::isinf(b))
+        {
+            if (std::isinf(a) && std::isinf(b))
+            {
+                return (a > 0) == (b > 0);
+            }
+            return false;
+        }
+        
+        if (a == b)
+        {
+            return true;
+        }
+        
+        T diff = std::fabs(a - b);
+        
+        if (diff <= abs_eps)
+        {
+            return true;
+        }
+        
+        T max_abs = std::max(std::fabs(a), std::fabs(b));
+        return diff <= rel_eps * max_abs;
+    }
+}
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
+/**
+ * @brief Global configuration for testing utilities
+ */
+struct TestConfig
+{
+    bool colored_output = true;
+    bool verbose = false;
+    bool abort_on_failure = false;
+    std::ostream* output = &std::cout;
+    std::ostream* error = &std::cerr;
+};
+
+inline TestConfig& get_test_config() noexcept
+{
+    static TestConfig config;
+    return config;
+}
+
+// ============================================================================
+// Terminal Colors (ANSI escape codes)
+// ============================================================================
+
+namespace colors
+{
+    inline const char* reset() noexcept
+    {
+        return get_test_config().colored_output ? "\033[0m" : "";
+    }
+    
+    inline const char* red() noexcept
+    {
+        return get_test_config().colored_output ? "\033[91m" : "";
+    }
+    
+    inline const char* green() noexcept
+    {
+        return get_test_config().colored_output ? "\033[92m" : "";
+    }
+    
+    inline const char* yellow() noexcept
+    {
+        return get_test_config().colored_output ? "\033[93m" : "";
+    }
+    
+    inline const char* blue() noexcept
+    {
+        return get_test_config().colored_output ? "\033[94m" : "";
+    }
+    
+    inline const char* magenta() noexcept
+    {
+        return get_test_config().colored_output ? "\033[95m" : "";
+    }
+    
+    inline const char* cyan() noexcept
+    {
+        return get_test_config().colored_output ? "\033[96m" : "";
+    }
+    
+    inline const char* bold() noexcept
+    {
+        return get_test_config().colored_output ? "\033[1m" : "";
+    }
+}
+
+// ============================================================================
+// String Utilities
+// ============================================================================
+
+namespace string_utils
+{
+    inline bool contains(const std::string& str, const std::string& substr) noexcept
+    {
+        return str.find(substr) != std::string::npos;
+    }
+    
+    inline bool starts_with(const std::string& str, const std::string& prefix) noexcept
+    {
+        if (prefix.size() > str.size())
+        {
+            return false;
+        }
+        return str.compare(0, prefix.size(), prefix) == 0;
+    }
+    
+    inline bool ends_with(const std::string& str, const std::string& suffix) noexcept
+    {
+        if (suffix.size() > str.size())
+        {
+            return false;
+        }
+        return str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+    }
+    
+    inline std::string to_lower(const std::string& str)
+    {
+        std::string result = str;
+        std::transform(result.begin(), result.end(), result.begin(),
+                      [](unsigned char c) { return std::tolower(c); });
+        return result;
+    }
+    
+    /**
+     * @brief Pattern matching implementation with wildcard support
+     * 
+     * Supports '*' (any characters) and '?' (single character) wildcards.
+     * 
+     * @note Limited to recursion depth of 100 to prevent stack overflow.
+     *       For patterns with >100 consecutive wildcards, consider an
+     *       iterative dynamic programming implementation.
+     */
+    inline bool matches_pattern_impl(const std::string& str, const std::string& pattern, 
+                                     size_t str_pos, size_t pat_pos, int depth) noexcept
+    {
+        constexpr int MAX_RECURSION_DEPTH = 100;
+        
+        if (depth > MAX_RECURSION_DEPTH)
+        {
+            return false;
+        }
+        
+        while (str_pos < str.size() && pat_pos < pattern.size())
+        {
+            if (pattern[pat_pos] == '*')
+            {
+                if (pat_pos + 1 == pattern.size())
+                {
+                    return true;
+                }
+                
+                ++pat_pos;
+                while (str_pos < str.size())
+                {
+                    if (matches_pattern_impl(str, pattern, str_pos, pat_pos, depth + 1))
+                    {
+                        return true;
+                    }
+                    ++str_pos;
+                }
+                return false;
+            }
+            else if (pattern[pat_pos] == '?' || pattern[pat_pos] == str[str_pos])
+            {
+                ++str_pos;
+                ++pat_pos;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        
+        while (pat_pos < pattern.size() && pattern[pat_pos] == '*')
+        {
+            ++pat_pos;
+        }
+        
+        return str_pos == str.size() && pat_pos == pattern.size();
+    }
+    
+    inline bool matches_pattern(const std::string& str, const std::string& pattern) noexcept
+    {
+        return matches_pattern_impl(str, pattern, 0, 0, 0);
+    }
+}
+
+// ============================================================================
+// Subtest Tracking (Forward Declaration)
+// ============================================================================
+
+class SubtestTracker;
+inline SubtestTracker& get_subtest_tracker();
+
+// ============================================================================
+// Assertion Macros
+// ============================================================================
+
+/**
+ * @brief Simple assert macro for tests (no dependency on testing framework)
+ * 
+ * Usage:
+ *   SIMPLE_ASSERT(condition, "error message");
+ * 
+ * If the condition is false, prints error message and returns false from the
+ * calling function. The calling function must return bool.
+ */
+#define SIMPLE_ASSERT(condition, msg) \
+    if (!(condition)) { \
+        *fat_p::testing::get_test_config().error \
+            << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+            << "ASSERT FAILED: " << fat_p::testing::colors::reset() \
+            << fat_p::testing::colors::red() \
+            << msg << " at " << __FILE__ << ":" << __LINE__ \
+            << fat_p::testing::colors::reset() << std::endl; \
+        if (fat_p::testing::get_test_config().abort_on_failure) { \
+            std::abort(); \
+        } \
+        if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+            fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+        } else { \
+            return false; \
+        } \
+    }
+
+/**
+ * @brief Assert with custom failure handler
+ * 
+ * Usage:
+ *   ASSERT_WITH_HANDLER(x == 42, "x should be 42", {
+ *       cleanup_resources();
+ *   });
+ */
+#define ASSERT_WITH_HANDLER(condition, msg, handler) \
+    if (!(condition)) { \
+        *fat_p::testing::get_test_config().error \
+            << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+            << "ASSERT FAILED: " << fat_p::testing::colors::reset() \
+            << fat_p::testing::colors::red() \
+            << msg << " at " << __FILE__ << ":" << __LINE__ \
+            << fat_p::testing::colors::reset() << std::endl; \
+        handler; \
+        if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+            fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+        } else { \
+            return false; \
+        } \
+    }
+
+/**
+ * @brief Assert with equality comparison, showing actual vs expected
+ * 
+ * Uses auto&& (universal/forwarding reference) to handle all value categories
+ * without copying. Binds lvalues as lvalue references and extends lifetime
+ * of rvalues. Works with non-copyable types like std::atomic.
+ */
+#define ASSERT_EQ(actual, expected, msg) \
+    { \
+        auto&& actual_val = (actual); \
+        auto&& expected_val = (expected); \
+        if (!(actual_val == expected_val)) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_EQ FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  Expected: " << expected_val \
+                << "\n  Actual:   " << actual_val \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert with inequality comparison
+ * 
+ * Uses auto&& (universal/forwarding reference) to handle all value categories
+ * without copying. Binds lvalues as lvalue references and extends lifetime
+ * of rvalues. Works with non-copyable types like std::atomic.
+ */
+#define ASSERT_NE(actual, expected, msg) \
+    { \
+        auto&& actual_val = (actual); \
+        auto&& expected_val = (expected); \
+        if (actual_val == expected_val) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_NE FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  Should not equal: " << expected_val \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert less than
+ * 
+ * Uses auto&& (universal/forwarding reference) to handle all value categories
+ * without copying. Binds lvalues as lvalue references and extends lifetime
+ * of rvalues.
+ */
+#define ASSERT_LT(actual, expected, msg) \
+    { \
+        auto&& actual_val = (actual); \
+        auto&& expected_val = (expected); \
+        if (!(actual_val < expected_val)) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_LT FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  Expected: " << actual_val << " < " << expected_val \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert less than or equal
+ * 
+ * Uses auto&& (universal/forwarding reference) to handle all value categories
+ * without copying. Binds lvalues as lvalue references and extends lifetime
+ * of rvalues.
+ */
+#define ASSERT_LE(actual, expected, msg) \
+    { \
+        auto&& actual_val = (actual); \
+        auto&& expected_val = (expected); \
+        if (!(actual_val <= expected_val)) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_LE FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  Expected: " << actual_val << " <= " << expected_val \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert greater than
+ * 
+ * Uses auto&& (universal/forwarding reference) to handle all value categories
+ * without copying. Binds lvalues as lvalue references and extends lifetime
+ * of rvalues.
+ */
+#define ASSERT_GT(actual, expected, msg) \
+    { \
+        auto&& actual_val = (actual); \
+        auto&& expected_val = (expected); \
+        if (!(actual_val > expected_val)) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_GT FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  Expected: " << actual_val << " > " << expected_val \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert greater than or equal
+ * 
+ * Uses auto&& (universal/forwarding reference) to handle all value categories
+ * without copying. Binds lvalues as lvalue references and extends lifetime
+ * of rvalues.
+ */
+#define ASSERT_GE(actual, expected, msg) \
+    { \
+        auto&& actual_val = (actual); \
+        auto&& expected_val = (expected); \
+        if (!(actual_val >= expected_val)) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_GE FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  Expected: " << actual_val << " >= " << expected_val \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert true
+ */
+#define ASSERT_TRUE(condition, msg) \
+    if (!(condition)) { \
+        *fat_p::testing::get_test_config().error \
+            << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+            << "ASSERT_TRUE FAILED: " << fat_p::testing::colors::reset() \
+            << fat_p::testing::colors::red() << msg \
+            << "\n  at " << __FILE__ << ":" << __LINE__ \
+            << fat_p::testing::colors::reset() << std::endl; \
+        if (fat_p::testing::get_test_config().abort_on_failure) { \
+            std::abort(); \
+        } \
+        if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+            fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+        } else { \
+            return false; \
+        } \
+    }
+
+/**
+ * @brief Assert false
+ */
+#define ASSERT_FALSE(condition, msg) \
+    if ((condition)) { \
+        *fat_p::testing::get_test_config().error \
+            << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+            << "ASSERT_FALSE FAILED: " << fat_p::testing::colors::reset() \
+            << fat_p::testing::colors::red() << msg \
+            << "\n  at " << __FILE__ << ":" << __LINE__ \
+            << fat_p::testing::colors::reset() << std::endl; \
+        if (fat_p::testing::get_test_config().abort_on_failure) { \
+            std::abort(); \
+        } \
+        if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+            fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+        } else { \
+            return false; \
+        } \
+    }
+
+/**
+ * @brief Assert pointer is nullptr
+ */
+#define ASSERT_NULLPTR(ptr, msg) \
+    { \
+        auto&& ptr_val = (ptr); \
+        if (ptr_val != nullptr) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_NULLPTR FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  Expected: nullptr" \
+                << "\n  Actual:   " << static_cast<const void*>(ptr_val) \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert pointer is not nullptr
+ */
+#define ASSERT_NOT_NULLPTR(ptr, msg) \
+    { \
+        auto&& ptr_val = (ptr); \
+        if (ptr_val == nullptr) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_NOT_NULLPTR FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  Expected: non-null pointer" \
+                << "\n  Actual:   nullptr" \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert that two floating-point values are approximately equal
+ * Uses primitive::are_close() with default epsilon
+ * 
+ * Uses auto&& (universal/forwarding reference) to handle all value categories
+ * without copying. Binds lvalues as lvalue references and extends lifetime
+ * of rvalues.
+ */
+#define ASSERT_CLOSE(actual, expected, msg) \
+    { \
+        auto&& actual_val = (actual); \
+        auto&& expected_val = (expected); \
+        if (!fat_p::testing::primitive::are_close(actual_val, expected_val)) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_CLOSE FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  Expected: " << expected_val \
+                << "\n  Actual:   " << actual_val \
+                << "\n  Diff:     " << std::abs(actual_val - expected_val) \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert that two floating-point values are approximately equal with custom epsilon
+ * Uses the same epsilon value for both relative and absolute tolerance
+ * 
+ * Uses auto&& (universal/forwarding reference) to handle all value categories
+ * without copying. Binds lvalues as lvalue references and extends lifetime
+ * of rvalues.
+ */
+#define ASSERT_CLOSE_EPS(actual, expected, epsilon, msg) \
+    { \
+        auto&& actual_val = (actual); \
+        auto&& expected_val = (expected); \
+        auto&& epsilon_val = (epsilon); \
+        if (!fat_p::testing::primitive::are_close(actual_val, expected_val, epsilon_val, epsilon_val)) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_CLOSE_EPS FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  Expected: " << expected_val \
+                << "\n  Actual:   " << actual_val \
+                << "\n  Epsilon:  " << epsilon_val \
+                << "\n  Diff:     " << std::abs(actual_val - expected_val) \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert that two floating-point values are approximately equal with separate relative and absolute epsilon
+ * Provides full control over the HybridComparisonPolicy parameters
+ * 
+ * Uses auto&& (universal/forwarding reference) to handle all value categories
+ * without copying. Binds lvalues as lvalue references and extends lifetime
+ * of rvalues.
+ */
+#define ASSERT_CLOSE_REL_ABS(actual, expected, rel_eps, abs_eps, msg) \
+    { \
+        auto&& actual_val = (actual); \
+        auto&& expected_val = (expected); \
+        auto&& rel_eps_val = (rel_eps); \
+        auto&& abs_eps_val = (abs_eps); \
+        if (!fat_p::testing::primitive::are_close(actual_val, expected_val, rel_eps_val, abs_eps_val)) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_CLOSE_REL_ABS FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  Expected: " << expected_val \
+                << "\n  Actual:   " << actual_val \
+                << "\n  Rel Eps:  " << rel_eps_val \
+                << "\n  Abs Eps:  " << abs_eps_val \
+                << "\n  Diff:     " << std::abs(actual_val - expected_val) \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert that an expression throws a specific exception type
+ *
+ * This macro verifies that an expression throws the expected exception type.
+ * If the expression throws a different exception type, the macro reports which
+ * exception was actually thrown and displays its message if available.
+ *
+ * Usage:
+ *   ASSERT_THROWS(my_function(), std::runtime_error, "Should throw runtime_error");
+ *
+ * If the expression does not throw the expected exception type, prints error
+ * message and returns false from the calling function.
+ *
+ * @param expression Expression to evaluate (should throw)
+ * @param exception_type Expected exception type
+ * @param msg Error message to display on failure
+ */
+#define ASSERT_THROWS(expression, exception_type, msg) \
+    { \
+        bool threw_correct = false; \
+        bool threw_wrong = false; \
+        std::string wrong_exception_msg; \
+        try { \
+            (expression); \
+        } catch (const exception_type&) { \
+            threw_correct = true; \
+        } catch (const std::exception& e) { \
+            threw_wrong = true; \
+            wrong_exception_msg = e.what(); \
+        } catch (...) { \
+            threw_wrong = true; \
+            wrong_exception_msg = "(unknown exception type)"; \
+        } \
+        if (!threw_correct) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_THROWS FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg; \
+            if (threw_wrong) { \
+                *fat_p::testing::get_test_config().error \
+                    << "\n  Expected: " << #exception_type \
+                    << "\n  " << fat_p::testing::colors::yellow() \
+                    << "Got different exception: " << wrong_exception_msg \
+                    << fat_p::testing::colors::red(); \
+            } else { \
+                *fat_p::testing::get_test_config().error \
+                    << "\n  Expected exception: " << #exception_type \
+                    << "\n  But no exception was thrown"; \
+            } \
+            *fat_p::testing::get_test_config().error \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert that an expression does not throw any exception
+ *
+ * This macro verifies that an expression executes without throwing any exception.
+ * If an exception is thrown, it displays the exception message if available.
+ *
+ * Usage:
+ *   ASSERT_NO_THROW(my_function(), "Should not throw");
+ *
+ * If the expression throws any exception, prints error message and returns
+ * false from the calling function.
+ *
+ * @param expression Expression to evaluate (should not throw)
+ * @param msg Error message to display on failure
+ */
+#define ASSERT_NO_THROW(expression, msg) \
+    { \
+        bool threw = false; \
+        std::string exception_msg; \
+        try { \
+            (expression); \
+        } catch (const std::exception& e) { \
+            threw = true; \
+            exception_msg = e.what(); \
+        } catch (...) { \
+            threw = true; \
+            exception_msg = "(unknown exception type)"; \
+        } \
+        if (threw) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_NO_THROW FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  Unexpected exception: " << exception_msg \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+// ============================================================================
+// String Assertions
+// ============================================================================
+
+/**
+ * @brief Assert that a string contains a substring
+ *
+ * Usage:
+ *   ASSERT_CONTAINS("hello world", "world", "Should contain world");
+ */
+#define ASSERT_CONTAINS(str, substr, msg) \
+    { \
+        auto&& str_val = (str); \
+        auto&& substr_val = (substr); \
+        if (!fat_p::testing::string_utils::contains(str_val, substr_val)) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_CONTAINS FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  String:    \"" << str_val << "\"" \
+                << "\n  Substring: \"" << substr_val << "\" (not found)" \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert that a string does not contain a substring
+ */
+#define ASSERT_NOT_CONTAINS(str, substr, msg) \
+    { \
+        auto&& str_val = (str); \
+        auto&& substr_val = (substr); \
+        if (fat_p::testing::string_utils::contains(str_val, substr_val)) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_NOT_CONTAINS FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  String:    \"" << str_val << "\"" \
+                << "\n  Substring: \"" << substr_val << "\" (found but should not be)" \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert that a string starts with a prefix
+ */
+#define ASSERT_STARTS_WITH(str, prefix, msg) \
+    { \
+        auto&& str_val = (str); \
+        auto&& prefix_val = (prefix); \
+        if (!fat_p::testing::string_utils::starts_with(str_val, prefix_val)) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_STARTS_WITH FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  String: \"" << str_val << "\"" \
+                << "\n  Prefix: \"" << prefix_val << "\" (not found)" \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert that a string ends with a suffix
+ */
+#define ASSERT_ENDS_WITH(str, suffix, msg) \
+    { \
+        auto&& str_val = (str); \
+        auto&& suffix_val = (suffix); \
+        if (!fat_p::testing::string_utils::ends_with(str_val, suffix_val)) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_ENDS_WITH FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  String: \"" << str_val << "\"" \
+                << "\n  Suffix: \"" << suffix_val << "\" (not found)" \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert that a string matches a regular expression
+ */
+#define ASSERT_MATCHES(str, pattern, msg) \
+    { \
+        auto&& str_val = (str); \
+        auto&& pattern_val = (pattern); \
+        try { \
+            std::regex regex_pattern(pattern_val); \
+            if (!std::regex_match(str_val, regex_pattern)) { \
+                *fat_p::testing::get_test_config().error \
+                    << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                    << "ASSERT_MATCHES FAILED: " << fat_p::testing::colors::reset() \
+                    << fat_p::testing::colors::red() << msg \
+                    << "\n  String:  \"" << str_val << "\"" \
+                    << "\n  Pattern: \"" << pattern_val << "\" (no match)" \
+                    << "\n  at " << __FILE__ << ":" << __LINE__ \
+                    << fat_p::testing::colors::reset() << std::endl; \
+                if (fat_p::testing::get_test_config().abort_on_failure) { \
+                    std::abort(); \
+                } \
+                if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                    fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+                } else { \
+                    return false; \
+                } \
+            } \
+        } catch (const std::regex_error& e) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_MATCHES ERROR: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  Invalid regex pattern: \"" << pattern_val << "\"" \
+                << "\n  Error: " << e.what() \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert that two strings are equal (case-insensitive)
+ */
+#define ASSERT_STR_EQ_IGNORE_CASE(str1, str2, msg) \
+    { \
+        auto&& str1_val = (str1); \
+        auto&& str2_val = (str2); \
+        std::string lower1 = fat_p::testing::string_utils::to_lower(str1_val); \
+        std::string lower2 = fat_p::testing::string_utils::to_lower(str2_val); \
+        if (lower1 != lower2) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_STR_EQ_IGNORE_CASE FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << "\n  Expected: \"" << str2_val << "\"" \
+                << "\n  Actual:   \"" << str1_val << "\"" \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+// ============================================================================
+// Container/Range Assertions
+// ============================================================================
+
+/**
+ * @brief Assert that two containers have equal elements
+ * 
+ * Provides detailed output showing which elements differ
+ */
+#define ASSERT_RANGE_EQ(actual, expected, msg) \
+    { \
+        auto&& actual_val = (actual); \
+        auto&& expected_val = (expected); \
+        \
+        size_t actual_size = std::distance(std::begin(actual_val), std::end(actual_val)); \
+        size_t expected_size = std::distance(std::begin(expected_val), std::end(expected_val)); \
+        \
+        bool ranges_equal = true; \
+        std::ostringstream diff_output; \
+        \
+        if (actual_size != expected_size) { \
+            ranges_equal = false; \
+            diff_output << "\n  Size mismatch: " << actual_size << " != " << expected_size; \
+        } \
+        \
+        auto actual_it = std::begin(actual_val); \
+        auto actual_end = std::end(actual_val); \
+        auto expected_it = std::begin(expected_val); \
+        auto expected_end = std::end(expected_val); \
+        \
+        size_t index = 0; \
+        while (actual_it != actual_end && expected_it != expected_end) { \
+            if (!(*actual_it == *expected_it)) { \
+                ranges_equal = false; \
+                diff_output << "\n  Element [" << index << "]: " \
+                           << *actual_it << " != " << *expected_it; \
+            } \
+            ++actual_it; \
+            ++expected_it; \
+            ++index; \
+        } \
+        \
+        if (!ranges_equal) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_RANGE_EQ FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << diff_output.str() \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+/**
+ * @brief Assert that two floating-point containers have approximately equal elements
+ */
+#define ASSERT_RANGE_CLOSE(actual, expected, epsilon, msg) \
+    { \
+        auto&& actual_val = (actual); \
+        auto&& expected_val = (expected); \
+        auto&& epsilon_val = (epsilon); \
+        \
+        size_t actual_size = std::distance(std::begin(actual_val), std::end(actual_val)); \
+        size_t expected_size = std::distance(std::begin(expected_val), std::end(expected_val)); \
+        \
+        bool ranges_equal = true; \
+        std::ostringstream diff_output; \
+        \
+        if (actual_size != expected_size) { \
+            ranges_equal = false; \
+            diff_output << "\n  Size mismatch: " << actual_size << " != " << expected_size; \
+        } \
+        \
+        auto actual_it = std::begin(actual_val); \
+        auto actual_end = std::end(actual_val); \
+        auto expected_it = std::begin(expected_val); \
+        auto expected_end = std::end(expected_val); \
+        \
+        size_t index = 0; \
+        while (actual_it != actual_end && expected_it != expected_end) { \
+            if (!fat_p::testing::primitive::are_close(*actual_it, *expected_it, epsilon_val, epsilon_val)) { \
+                ranges_equal = false; \
+                diff_output << "\n  Element [" << index << "]: " \
+                           << *actual_it << " != " << *expected_it \
+                           << " (diff: " << std::abs(*actual_it - *expected_it) << ")"; \
+            } \
+            ++actual_it; \
+            ++expected_it; \
+            ++index; \
+        } \
+        \
+        if (!ranges_equal) { \
+            *fat_p::testing::get_test_config().error \
+                << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
+                << "ASSERT_RANGE_CLOSE FAILED: " << fat_p::testing::colors::reset() \
+                << fat_p::testing::colors::red() << msg \
+                << diff_output.str() \
+                << "\n  Epsilon: " << epsilon_val \
+                << "\n  at " << __FILE__ << ":" << __LINE__ \
+                << fat_p::testing::colors::reset() << std::endl; \
+            if (fat_p::testing::get_test_config().abort_on_failure) { \
+                std::abort(); \
+            } \
+            if (fat_p::testing::get_subtest_tracker().is_inside_subtest()) { \
+                fat_p::testing::get_subtest_tracker().fail_current_subtest(msg); \
+            } else { \
+                return false; \
+            } \
+        } \
+    }
+
+// ============================================================================
+// Performance Measurement
+// ============================================================================
+
+/**
+ * @brief Prevents the compiler from optimizing away the value
+ * 
+ * This function forces the compiler to treat the value as used,
+ * preventing dead code elimination in benchmarks.
+ * 
+ * @tparam T Type of value
+ * @param value Value to preserve
+ */
+template <typename T>
+inline void DoNotOptimize(T const& value) noexcept
+{
+#if defined(__GNUC__) || defined(__clang__)
+    asm volatile("" : : "r,m"(value) : "memory");
+#elif defined(_MSC_VER)
+    volatile const T* ptr = &value;
+    (void)ptr;
+#else
+    volatile const T* ptr = &value;
+    (void)ptr;
+#endif
+}
+
+/**
+ * @brief Overload for non-const references
+ */
+template <typename T>
+inline void DoNotOptimize(T& value) noexcept
+{
+#if defined(__GNUC__) || defined(__clang__)
+    asm volatile("" : "+g"(value) : : "memory");
+#elif defined(_MSC_VER)
+    volatile T* ptr = &value;
+    (void)ptr;
+#else
+    volatile T* ptr = &value;
+    (void)ptr;
+#endif
+}
+
+/**
+ * @brief Statistics for benchmark results
+ */
+struct BenchmarkStats
+{
+    double min_ms;
+    double max_ms;
+    double mean_ms;
+    double median_ms;
+    double stddev_ms;
+    double p95_ms;
+    double p99_ms;
+    size_t outliers;
+    size_t iterations;
+    
+    [[nodiscard]] double min_ns() const noexcept { return min_ms * 1000000.0; }
+    [[nodiscard]] double max_ns() const noexcept { return max_ms * 1000000.0; }
+    [[nodiscard]] double mean_ns() const noexcept { return mean_ms * 1000000.0; }
+    [[nodiscard]] double median_ns() const noexcept { return median_ms * 1000000.0; }
+    [[nodiscard]] double stddev_ns() const noexcept { return stddev_ms * 1000000.0; }
+    [[nodiscard]] double p95_ns() const noexcept { return p95_ms * 1000000.0; }
+    [[nodiscard]] double p99_ns() const noexcept { return p99_ms * 1000000.0; }
+};
+
+/**
+ * @brief Baseline storage for benchmark regression detection
+ */
+class BenchmarkBaseline
+{
+private:
+    std::map<std::string, BenchmarkStats> baselines_;
+    
+public:
+    void save(const std::string& name, const BenchmarkStats& stats)
+    {
+        baselines_[name] = stats;
+    }
+    
+    [[nodiscard]] bool has_baseline(const std::string& name) const
+    {
+        return baselines_.find(name) != baselines_.end();
+    }
+    
+    [[nodiscard]] const BenchmarkStats& get(const std::string& name) const
+    {
+        return baselines_.at(name);
+    }
+    
+    [[nodiscard]] double compare(const std::string& name, const BenchmarkStats& current) const
+    {
+        if (!has_baseline(name))
+        {
+            return 0.0;
+        }
+        
+        const auto& baseline = baselines_.at(name);
+        return ((current.mean_ms - baseline.mean_ms) / baseline.mean_ms) * 100.0;
+    }
+};
+
+inline BenchmarkBaseline& get_benchmark_baseline()
+{
+    static BenchmarkBaseline baseline;
+    return baseline;
+}
+
+/**
+ * @brief Performance measurement helper with warm-up
+ * 
+ * Runs the given function N times and returns the average duration per call in milliseconds.
+ * Includes warm-up iterations to prime caches and checks timer resolution.
+ * 
+ * @tparam Func Function type to measure
+ * @param func The function to measure (should be fast, < 1ms per call)
+ * @param iterations Number of iterations to run (default: 1,000,000)
+ * @param warmup_iterations Number of warm-up iterations (default: 1000)
+ * @return Average time per call in milliseconds
+ */
+template <typename Func>
+[[nodiscard]] double measure_perf(Func func, size_t iterations = 1000000, size_t warmup_iterations = 1000)
+{
+    using clock = std::chrono::high_resolution_clock;
+    
+    for (size_t i = 0; i < warmup_iterations; ++i)
+    {
+        func();
+    }
+    
+    auto start = clock::now();
+    for (size_t i = 0; i < iterations; ++i)
+    {
+        func();
+    }
+    auto end = clock::now();
+    
+    double time_ms = std::chrono::duration<double, std::milli>(end - start).count() / iterations;
+    
+    auto resolution_sec = static_cast<double>(clock::period::num) / clock::period::den;
+    double resolution_ms = resolution_sec * 1000.0;
+    
+    if (time_ms < resolution_ms * 10.0)
+    {
+        *get_test_config().error 
+            << colors::yellow() << "Warning: Measurement (" << time_ms 
+            << " ms) near timer resolution (" << resolution_ms 
+            << " ms). Results may be unreliable." << colors::reset() << std::endl;
+    }
+    
+    return time_ms;
+}
+
+/**
+ * @brief Advanced performance measurement with enhanced statistics
+ * 
+ * Runs multiple batches and collects comprehensive statistics including
+ * percentiles and outlier detection.
+ * 
+ * @tparam Func Function type to measure
+ * @param func The function to measure
+ * @param iterations Number of iterations per batch
+ * @param batches Number of batches to run (default: 20, minimum: 5)
+ * @return BenchmarkStats with detailed statistics
+ */
+template <typename Func>
+[[nodiscard]] BenchmarkStats measure_perf_stats(Func func, size_t iterations = 1000000, size_t batches = 20)
+{
+    if (batches < 5)
+    {
+        batches = 5;
+    }
+    
+    std::vector<double> times;
+    times.reserve(batches);
+    
+    for (size_t i = 0; i < 1000; ++i)
+    {
+        func();
+    }
+    
+    for (size_t b = 0; b < batches; ++b)
+    {
+        auto start = std::chrono::high_resolution_clock::now();
+        for (size_t i = 0; i < iterations; ++i)
+        {
+            func();
+        }
+        auto end = std::chrono::high_resolution_clock::now();
+        double batch_ms = std::chrono::duration<double, std::milli>(end - start).count() / iterations;
+        times.push_back(batch_ms);
+    }
+    
+    std::sort(times.begin(), times.end());
+    
+    double min = times.front();
+    double max = times.back();
+    double sum = 0.0;
+    for (double t : times)
+    {
+        sum += t;
+    }
+    double mean = sum / times.size();
+    
+    double median = times.size() % 2 == 0 
+        ? (times[times.size()/2 - 1] + times[times.size()/2]) / 2.0
+        : times[times.size()/2];
+    
+    if (times.empty())
+    {
+        return BenchmarkStats{ 0, 0, 0, 0, 0, 0, 0, 0, iterations };
+    }
+
+    size_t p95_idx = static_cast<size_t>(std::floor((times.size() - 1) * 0.95));
+    double p95 = times[p95_idx];
+
+    size_t p99_idx = static_cast<size_t>(std::floor((times.size() - 1) * 0.99));
+    double p99 = times[p99_idx];
+
+    double variance = 0.0;
+    if (times.size() > 1)
+    {
+        for (double t : times)
+        {
+            double diff = t - mean;
+            variance += diff * diff;
+        }
+        variance /= (times.size() - 1);
+    }
+    double stddev = std::sqrt(variance);
+    
+    size_t outliers = 0;
+    double outlier_threshold = mean + 2.0 * stddev;
+    for (double t : times)
+    {
+        if (t > outlier_threshold)
+        {
+            ++outliers;
+        }
+    }
+    
+    return BenchmarkStats{min, max, mean, median, stddev, p95, p99, outliers, iterations};
+}
+
+/**
+ * @brief Formats time in appropriate units (ns, us, ms, s)
+ * 
+ * @param time_ms Time in milliseconds
+ * @return Formatted string with appropriate unit
+ */
+[[nodiscard]] inline std::string format_time(double time_ms)
+{
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(3);
+    
+    if (time_ms < 0.001)
+    {
+        oss << (time_ms * 1000000.0) << " ns";
+    }
+    else if (time_ms < 1.0)
+    {
+        oss << (time_ms * 1000.0) << " us";
+    }
+    else if (time_ms < 1000.0)
+    {
+        oss << time_ms << " ms";
+    }
+    else
+    {
+        oss << (time_ms / 1000.0) << " s";
+    }
+    
+    return oss.str();
+}
+
+/**
+ * @brief Measures performance and prints results in a formatted way
+ * 
+ * @tparam Func Function type to measure
+ * @param name Description of what's being measured
+ * @param func The function to measure
+ * @param iterations Number of iterations (default: 1,000,000)
+ */
+template <typename Func>
+void benchmark(const char* name, Func func, size_t iterations = 1000000)
+{
+    double avg_ms = measure_perf(func, iterations);
+    
+    auto& out = *get_test_config().output;
+    out << colors::cyan() << name << colors::reset() << ":\n";
+    out << "  Average time per operation: " << colors::bold() 
+        << format_time(avg_ms) << colors::reset() << "\n";
+    out << "  Total for " << iterations << " iterations: " 
+        << format_time(avg_ms * iterations) << "\n";
+}
+
+/**
+ * @brief Detailed benchmark with enhanced statistics
+ * 
+ * Includes percentiles, outlier detection, and optional baseline comparison.
+ * 
+ * @tparam Func Function type to measure
+ * @param name Description of what's being measured
+ * @param func The function to measure
+ * @param iterations Number of iterations per batch
+ * @param batches Number of batches to run
+ * @param save_baseline If true, saves this run as baseline for future comparisons
+ */
+template <typename Func>
+void benchmark_detailed(const char* name, Func func, size_t iterations = 1000000, size_t batches = 20, bool save_baseline = false)
+{
+    auto stats = measure_perf_stats(func, iterations, batches);
+    
+    auto& out = *get_test_config().output;
+    out << colors::cyan() << name << colors::reset() << " (" << batches << " batches):\n";
+    out << "  Mean:   " << colors::bold() << format_time(stats.mean_ms) << colors::reset() << "\n";
+    out << "  Median: " << format_time(stats.median_ms) << "\n";
+    out << "  Min:    " << format_time(stats.min_ms) << "\n";
+    out << "  Max:    " << format_time(stats.max_ms) << "\n";
+    out << "  P95:    " << format_time(stats.p95_ms) << "\n";
+    out << "  P99:    " << format_time(stats.p99_ms) << "\n";
+    out << "  StdDev: " << format_time(stats.stddev_ms) << "\n";
+    
+    if (stats.outliers > 0)
+    {
+        out << "  " << colors::yellow() << "Outliers: " << stats.outliers 
+            << " (" << std::fixed << std::setprecision(1) 
+            << (100.0 * stats.outliers / batches) << "%)" 
+            << colors::reset() << "\n";
+    }
+    
+    auto& baseline = get_benchmark_baseline();
+    if (baseline.has_baseline(name))
+    {
+        double change_pct = baseline.compare(name, stats);
+        if (std::abs(change_pct) > 5.0)
+        {
+            const char* color = change_pct > 0 ? colors::red() : colors::green();
+            const char* symbol = change_pct > 0 ? "^" : "v";
+            out << "  " << color << "Baseline: " << symbol << " " 
+                << std::fixed << std::setprecision(1) << std::abs(change_pct) 
+                << "%" << colors::reset() << "\n";
+        }
+        else
+        {
+            out << "  Baseline: ≈ (within 5%)\n";
+        }
+    }
+    
+    if (save_baseline)
+    {
+        baseline.save(name, stats);
+        out << "  " << colors::blue() << "(Saved as baseline)" << colors::reset() << "\n";
+    }
+    
+    out << "  Total:  " << format_time(stats.mean_ms * iterations) << " per batch\n";
+}
+
+/**
+ * @brief Compare two functions and show speedup/slowdown
+ * 
+ * Measures both functions and calculates the speedup ratio. If function1 takes
+ * less time than function2, then function1 is faster by a factor of time2/time1.
+ * 
+ * Example: If func1 takes 100ms and func2 takes 200ms, func1 is 2.0x faster.
+ * 
+ * The speedup calculation uses the ratio of execution times:
+ * - Speedup = slower_time / faster_time
+ * - A speedup of 2.0x means the faster function takes half the time
+ * - Functions with very similar times are reported as having the same performance
+ * 
+ * @tparam Func1 First function type
+ * @tparam Func2 Second function type
+ * @param name1 Description of first function
+ * @param func1 First function
+ * @param name2 Description of second function
+ * @param func2 Second function
+ * @param iterations Number of iterations
+ */
+template <typename Func1, typename Func2>
+void benchmark_compare(const char* name1, Func1 func1,
+                      const char* name2, Func2 func2,
+                      size_t iterations = 1000000)
+{
+    auto& out = *get_test_config().output;
+    
+    out << colors::cyan() << "Comparing: " << colors::reset() 
+        << name1 << " vs " << name2 << "\n";
+    
+    double time1 = measure_perf(func1, iterations);
+    double time2 = measure_perf(func2, iterations);
+    
+    out << "  " << name1 << ": " << format_time(time1) << "\n";
+    out << "  " << name2 << ": " << format_time(time2) << "\n";
+    
+    if (time1 < time2)
+    {
+        double speedup = time2 / time1;
+        out << "  " << colors::green() << name1 << " is " 
+            << std::fixed << std::setprecision(2) << speedup << "x faster" 
+            << colors::reset() << "\n";
+    }
+    else if (time2 < time1)
+    {
+        double speedup = time1 / time2;
+        out << "  " << colors::green() << name2 << " is " 
+            << std::fixed << std::setprecision(2) << speedup << "x faster" 
+            << colors::reset() << "\n";
+    }
+    else
+    {
+        out << "  " << colors::yellow() << "Same performance" 
+            << colors::reset() << "\n";
+    }
+}
+
+// ============================================================================
+// Test Fixtures
+// ============================================================================
+
+/**
+ * @brief Base class for test fixtures
+ * 
+ * Test fixtures provide setup and teardown hooks that run before and after
+ * each test. This ensures proper resource initialization and cleanup even
+ * if tests fail or throw exceptions.
+ * 
+ * Usage:
+ *   struct MyFixture : public TestFixture
+ *   {
+ *       Database* db;
+ *       
+ *       void SetUp() override
+ *       {
+ *           db = new Database();
+ *           db->connect();
+ *       }
+ *       
+ *       void TearDown() override
+ *       {
+ *           db->disconnect();
+ *           delete db;
+ *       }
+ *   };
+ */
+struct TestFixture
+{
+    virtual void SetUp() {}
+    virtual void TearDown() {}
+    virtual ~TestFixture() = default;
+};
+
+// ============================================================================
+// Test Runner
+// ============================================================================
+
+/**
+ * @brief Test case result
+ */
+struct TestResult
+{
+    std::string name;
+    bool passed;
+    double duration_ms;
+};
+
+/**
+ * @brief Subtest result tracking
+ */
+struct SubtestResult
+{
+    std::string name;
+    bool passed;
+    std::string failure_message;
+};
+
+/**
+ * @brief Global subtest tracker (thread-local for safety)
+ */
+class SubtestTracker
+{
+private:
+    std::vector<SubtestResult> subtests_;
+    bool current_subtest_passed_;
+    std::string current_subtest_name_;
+    bool inside_subtest_;
+    
+public:
+    SubtestTracker()
+        : current_subtest_passed_(true)
+        , inside_subtest_(false)
+    {
+    }
+    
+    void begin_subtest(const std::string& name)
+    {
+        inside_subtest_ = true;
+        current_subtest_name_ = name;
+        current_subtest_passed_ = true;
+    }
+    
+    void fail_current_subtest(const std::string& message)
+    {
+        current_subtest_passed_ = false;
+        subtests_.push_back({current_subtest_name_, false, message});
+    }
+    
+    void end_subtest()
+    {
+        inside_subtest_ = false;
+        if (current_subtest_passed_)
+        {
+            subtests_.push_back({current_subtest_name_, true, ""});
+        }
+        current_subtest_name_.clear();
+    }
+    
+    [[nodiscard]] const std::vector<SubtestResult>& get_results() const
+    {
+        return subtests_;
+    }
+    
+    void clear()
+    {
+        subtests_.clear();
+        current_subtest_passed_ = true;
+        current_subtest_name_.clear();
+        inside_subtest_ = false;
+    }
+    
+    [[nodiscard]] bool all_passed() const
+    {
+        for (const auto& result : subtests_)
+        {
+            if (!result.passed)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    [[nodiscard]] bool is_inside_subtest() const
+    {
+        return inside_subtest_;
+    }
+};
+
+inline SubtestTracker& get_subtest_tracker()
+{
+    static thread_local SubtestTracker tracker;
+    return tracker;
+}
+
+
+/**
+ * @brief Simple test runner for organizing tests
+ */
+class TestRunner
+{
+private:
+    std::vector<TestResult> results_;
+    std::string filter_pattern_;
+    
+public:
+    /**
+     * @brief Set filter pattern for test selection
+     * 
+     * Supports wildcards: * (any characters) and ? (single character)
+     * 
+     * Examples:
+     *   set_filter("*Math*")     - Run tests with "Math" in the name
+     *   set_filter("test_add*")  - Run tests starting with "test_add"
+     *   set_filter("*_slow")     - Run tests ending with "_slow"
+     */
+    void set_filter(const std::string& pattern)
+    {
+        filter_pattern_ = pattern;
+    }
+    
+    /**
+     * @brief Check if test name matches filter
+     */
+    [[nodiscard]] bool matches_filter(const char* name) const noexcept
+    {
+        if (filter_pattern_.empty())
+        {
+            return true;
+        }
+        return string_utils::matches_pattern(name, filter_pattern_);
+    }
+    
+    /**
+     * @brief Run a test and record result
+     * 
+     * @param name Test name
+     * @param test_func Test function that returns bool
+     * @return True if test passed
+     */
+    template <typename Func>
+    bool run_test(const char* name, Func test_func)
+    {
+        if (!matches_filter(name))
+        {
+            return true;
+        }
+
+        get_subtest_tracker().clear();
+
+        auto& out = *get_test_config().output;
+        
+        if (get_test_config().verbose)
+        {
+            out << colors::blue() << "Running: " << colors::reset() << name << " ... ";
+            out.flush();
+        }
+        
+        auto start = std::chrono::high_resolution_clock::now();
+        bool passed = test_func();
+        auto end = std::chrono::high_resolution_clock::now();
+        double duration = std::chrono::duration<double, std::milli>(end - start).count();
+        
+        results_.push_back({name, passed, duration});
+        
+        get_subtest_tracker().clear();
+
+        if (get_test_config().verbose)
+        {
+            if (passed)
+            {
+                out << colors::green() << colors::bold() << "PASSED" 
+                    << colors::reset() << " (" << duration << " ms)\n";
+            }
+            else
+            {
+                out << colors::red() << colors::bold() << "FAILED" 
+                    << colors::reset() << "\n";
+            }
+        }
+        
+        return passed;
+    }
+    
+    /**
+     * @brief Run a test with a fixture
+     * 
+     * Guarantees SetUp() and TearDown() are called even if test fails
+     * 
+     * @tparam FixtureType Type of fixture (must derive from TestFixture)
+     * @param name Test name
+     * @param test_func Test function that takes fixture reference and returns bool
+     * @return True if test passed
+     */
+    template <typename FixtureType, typename Func>
+    bool run_test_with_fixture(const char* name, Func test_func)
+    {
+        if (!matches_filter(name))
+        {
+            return true;
+        }
+        
+        auto& out = *get_test_config().output;
+        
+        if (get_test_config().verbose)
+        {
+            out << colors::blue() << "Running: " << colors::reset() << name << " ... ";
+            out.flush();
+        }
+        
+        bool passed = false;
+        double duration = 0.0;
+        FixtureType fixture;
+        
+        try
+        {
+            fixture.SetUp();
+            
+            auto start = std::chrono::high_resolution_clock::now();
+            passed = test_func(fixture);
+            auto end = std::chrono::high_resolution_clock::now();
+            duration = std::chrono::duration<double, std::milli>(end - start).count();
+            
+            fixture.TearDown();
+        }
+        catch (const std::exception& e)
+        {
+            std::string teardown_error;
+            try
+            {
+                fixture.TearDown();
+            }
+            catch (const std::exception& td_ex)
+            {
+                teardown_error = td_ex.what();
+            }
+            catch (...)
+            {
+                teardown_error = "(unknown exception)";
+            }
+
+            out << colors::red() << colors::bold() << "EXCEPTION: "
+                << colors::reset() << colors::red() << e.what();
+            if (!teardown_error.empty())
+            {
+                out << "\n  " << colors::yellow() << "TearDown also failed: "
+                    << teardown_error << colors::reset();
+            }
+            out << colors::reset() << std::endl;
+            passed = false;
+        }
+        catch (...)
+        {
+            std::string teardown_error;
+            try
+            {
+                fixture.TearDown();
+            }
+            catch (const std::exception& td_ex)
+            {
+                teardown_error = td_ex.what();
+            }
+            catch (...)
+            {
+                teardown_error = "(unknown exception)";
+            }
+
+            out << colors::red() << colors::bold() << "UNKNOWN EXCEPTION";
+            if (!teardown_error.empty())
+            {
+                out << "\n  " << colors::yellow() << "TearDown also failed: "
+                    << teardown_error << colors::reset();
+            }
+            out << colors::reset() << std::endl;
+            passed = false;
+        }
+        results_.push_back({name, passed, duration});
+        
+        if (get_test_config().verbose)
+        {
+            if (passed)
+            {
+                out << colors::green() << colors::bold() << "PASSED" 
+                    << colors::reset() << " (" << duration << " ms)\n";
+            }
+            else
+            {
+                out << colors::red() << colors::bold() << "FAILED" 
+                    << colors::reset() << "\n";
+            }
+        }
+        
+        return passed;
+    }
+    
+    /**
+     * @brief Run a test with a timeout
+     * 
+     * Runs a test function with a maximum time limit. If the test doesn't complete
+     * within the timeout period, it's marked as failed. Uses std::async for
+     * portable timeout support across platforms.
+     * 
+     * IMPORTANT LIMITATION: On timeout, the test thread continues running in the
+     * background. This is a fundamental C++ limitation - there is no safe, portable
+     * way to kill threads. Thread cancellation violates RAII principles and can
+     * corrupt process state.
+     * 
+     * GUIDELINES:
+     * - Use timeouts to detect hanging tests, not enforce precise execution limits
+     * - If a test times out, consider aborting the entire test suite
+     * - Ensure tests either naturally terminate or have no dangerous side effects
+     * - This is the same approach used by Google Test and other major frameworks
+     * 
+     * @tparam Func Test function type (should return bool)
+     * @param name Test name for reporting
+     * @param test_func Test function to run
+     * @param timeout_ms Timeout in milliseconds (default: 5000ms = 5 seconds)
+     * @return True if test passed within timeout
+     */
+    template <typename Func>
+    bool run_test_with_timeout(const char* name, Func test_func, size_t timeout_ms = 5000)
+    {
+        if (!matches_filter(name))
+        {
+            return true;
+        }
+        
+        auto& out = *get_test_config().output;
+        
+        if (get_test_config().verbose)
+        {
+            out << colors::blue() << "Running (timeout " << timeout_ms << "ms): " 
+                << colors::reset() << name << " ... ";
+            out.flush();
+        }
+        
+        bool passed = false;
+        double duration = 0.0;
+        bool timed_out = false;
+        
+        auto start = std::chrono::high_resolution_clock::now();
+        
+        auto future = std::async(std::launch::async, test_func);
+        
+        if (future.wait_for(std::chrono::milliseconds(timeout_ms)) == std::future_status::timeout)
+        {
+            timed_out = true;
+            passed = false;
+            duration = static_cast<double>(timeout_ms);
+        }
+        else
+        {
+            try
+            {
+                passed = future.get();
+                auto end = std::chrono::high_resolution_clock::now();
+                duration = std::chrono::duration<double, std::milli>(end - start).count();
+            }
+            catch (const std::exception& e)
+            {
+                out << colors::red() << colors::bold() << "EXCEPTION: " 
+                    << colors::reset() << colors::red() << e.what() 
+                    << colors::reset() << std::endl;
+                passed = false;
+                auto end = std::chrono::high_resolution_clock::now();
+                duration = std::chrono::duration<double, std::milli>(end - start).count();
+            }
+            catch (...)
+            {
+                out << colors::red() << colors::bold() << "UNKNOWN EXCEPTION" 
+                    << colors::reset() << std::endl;
+                passed = false;
+                auto end = std::chrono::high_resolution_clock::now();
+                duration = std::chrono::duration<double, std::milli>(end - start).count();
+            }
+        }
+        
+        results_.push_back({name, passed, duration});
+        
+        if (get_test_config().verbose)
+        {
+            if (timed_out)
+            {
+                out << colors::red() << colors::bold() << "TIMEOUT" 
+                    << colors::reset() << " (>" << timeout_ms << " ms)\n";
+            }
+            else if (passed)
+            {
+                out << colors::green() << colors::bold() << "PASSED" 
+                    << colors::reset() << " (" << duration << " ms)\n";
+            }
+            else
+            {
+                out << colors::red() << colors::bold() << "FAILED" 
+                    << colors::reset() << "\n";
+            }
+        }
+        else if (timed_out)
+        {
+            out << colors::red() << "TIMEOUT: " << name << " (>" << timeout_ms << " ms)" 
+                << colors::reset() << "\n";
+        }
+        
+        return passed;
+    }
+    
+    /**
+     * @brief Print summary of all test results
+     * 
+     * @return Number of failed tests
+     */
+    int print_summary() const
+    {
+        auto& out = *get_test_config().output;
+        
+        int passed = 0;
+        int failed = 0;
+        
+        for (const auto& result : results_)
+        {
+            if (result.passed)
+            {
+                ++passed;
+            }
+            else
+            {
+                ++failed;
+            }
+        }
+        
+        out << "\n" << colors::bold() << "=== Test Summary ===" 
+            << colors::reset() << "\n";
+        out << colors::green() << "Passed: " << passed << colors::reset() << "\n";
+        if (failed > 0)
+        {
+            out << colors::red() << "Failed: " << failed << colors::reset() << "\n";
+        }
+        else
+        {
+            out << "Failed: " << failed << "\n";
+        }
+        
+        if (!filter_pattern_.empty())
+        {
+            out << "Filter: \"" << filter_pattern_ << "\"\n";
+        }
+        
+        out << "Total:  " << (passed + failed) << "\n";
+        
+        if (failed > 0)
+        {
+            out << "\nFailed tests:\n";
+            for (const auto& result : results_)
+            {
+                if (!result.passed)
+                {
+                    out << "  " << colors::red() << result.name 
+                        << colors::reset() << "\n";
+                }
+            }
+            out << "\n";
+        }
+        
+        return failed;
+    }
+    
+    /**
+     * @brief Get all test results
+     */
+    [[nodiscard]] const std::vector<TestResult>& results() const
+    {
+        return results_; 
+    }
+    
+    /**
+     * @brief Clear all results and reset filter
+     */
+    void clear()
+    {
+        results_.clear();
+        filter_pattern_.clear();
+    }
+    
+    /**
+     * @brief Export results to JUnit XML format
+     */
+    bool export_to_junit_xml(const std::string& filename, 
+                             const std::string& suite_name = "TestSuite") const;
+    
+    /**
+     * @brief Result of repeated test execution
+     */
+    struct RepetitionResult
+    {
+        std::string name;
+        size_t total_runs;
+        size_t passed;
+        size_t failed;
+        double pass_rate;
+        std::vector<size_t> failed_runs;
+    };
+    
+    /**
+     * @brief Run a test multiple times to detect flakiness
+     * 
+     * Runs the same test repeatedly and tracks which runs pass/fail.
+     * Useful for detecting non-deterministic bugs, race conditions,
+     * and other intermittent failures.
+     * 
+     * Classification:
+     * - 100% pass rate: Stable
+     * - 95-99% pass rate: Slightly flaky
+     * - 50-94% pass rate: Very flaky
+     * - <50% pass rate: Consistently failing
+     * 
+     * @tparam Func Test function type (should return bool)
+     * @param name Test name for reporting
+     * @param test_func Test function to run repeatedly
+     * @param repetitions Number of times to run the test (default: 100)
+     * @return RepetitionResult with detailed statistics
+     * 
+     * @example
+     * auto result = runner.run_test_repeat("flaky_test", test_func, 100);
+     * if (result.pass_rate < 100.0) {
+     *     std::cout << "Test is flaky! Pass rate: " << result.pass_rate << "%\n";
+     * }
+     */
+    template <typename Func>
+    [[nodiscard]] RepetitionResult run_test_repeat(const char* name, Func test_func, size_t repetitions = 100)
+    {
+        if (!matches_filter(name))
+        {
+            return RepetitionResult{name, 0, 0, 0, 0.0, {}};
+        }
+        
+        RepetitionResult result;
+        result.name = name;
+        result.total_runs = repetitions;
+        result.passed = 0;
+        result.failed = 0;
+        
+        auto& out = *get_test_config().output;
+        out << colors::blue() << "Repeating: " << colors::reset() 
+            << name << " (" << repetitions << " times)\n";
+        
+        size_t progress_interval = repetitions / 10;
+        if (progress_interval == 0)
+        {
+            progress_interval = 1;
+        }
+        
+        for (size_t i = 0; i < repetitions; ++i)
+        {
+            bool passed = test_func();
+            
+            if (passed)
+            {
+                ++result.passed;
+            }
+            else
+            {
+                ++result.failed;
+                result.failed_runs.push_back(i + 1);
+            }
+            
+            if (get_test_config().verbose)
+            {
+                if (((i + 1) % progress_interval == 0) || (i + 1 == repetitions))
+                {
+                    out << "  Progress: " << (i + 1) << "/" << repetitions << "\r";
+                    out.flush();
+                }
+            }
+        }
+        
+        if (get_test_config().verbose)
+        {
+            out << "\n";
+        }
+        
+        result.pass_rate = (100.0 * result.passed) / result.total_runs;
+        
+        out << "  Results: " << colors::green() << result.passed << " passed" 
+            << colors::reset() << ", ";
+        if (result.failed > 0)
+        {
+            out << colors::red() << result.failed << " failed" << colors::reset();
+        }
+        else
+        {
+            out << result.failed << " failed";
+        }
+        out << "\n";
+        
+        out << "  Pass rate: " << std::fixed << std::setprecision(1) 
+            << result.pass_rate << "%\n";
+        
+        if (result.failed > 0 && result.failed <= 10)
+        {
+            out << colors::red() << "  Failed on runs: ";
+            for (size_t run : result.failed_runs)
+            {
+                out << run << " ";
+            }
+            out << colors::reset() << "\n";
+        }
+        else if (result.failed > 10)
+        {
+            out << colors::red() << "  Failed on " << result.failed 
+                << " runs (first 10): ";
+            for (size_t i = 0; i < 10; ++i)
+            {
+                out << result.failed_runs[i] << " ";
+            }
+            out << "..." << colors::reset() << "\n";
+        }
+        
+        if (result.failed == 0)
+        {
+            out << colors::green() << colors::bold() 
+                << "  Status: Stable" << colors::reset() << "\n";
+        }
+        else if (result.pass_rate >= 95.0)
+        {
+            out << colors::yellow() << colors::bold() 
+                << "  Status: Slightly flaky" << colors::reset() << "\n";
+        }
+        else if (result.pass_rate >= 50.0)
+        {
+            out << colors::red() << colors::bold() 
+                << "  Status: Very flaky!" << colors::reset() << "\n";
+        }
+        else
+        {
+            out << colors::red() << colors::bold() 
+                << "  Status: Consistently failing!" << colors::reset() << "\n";
+        }
+        
+        out << "\n";
+        
+        return result;
+    }
+    
+    /**
+     * @brief Run a test repeatedly until it fails or max runs reached
+     * 
+     * Useful for stress testing and finding rare race conditions.
+     * Continues running until the test fails or max_runs is reached.
+     * 
+     * @tparam Func Test function type (should return bool)
+     * @param name Test name for reporting
+     * @param test_func Test function to run
+     * @param max_runs Maximum number of runs (default: 1000)
+     * @return Number of runs before failure (0 if no failure found)
+     * 
+     * @example
+     * size_t failed_at = runner.run_until_failure("stress_test", test_func, 10000);
+     * if (failed_at == 0) {
+     *     std::cout << "Test is robust!\n";
+     * } else {
+     *     std::cout << "Test failed after " << failed_at << " runs\n";
+     * }
+     */
+    template <typename Func>
+    [[nodiscard]] size_t run_until_failure(const char* name, Func test_func, size_t max_runs = 1000)
+    {
+        if (!matches_filter(name))
+        {
+            return 0;
+        }
+        
+        auto& out = *get_test_config().output;
+        out << colors::blue() << "Running until failure: " << colors::reset() 
+            << name << " (max " << max_runs << " runs)\n";
+        
+        size_t progress_interval = max_runs / 10;
+        if (progress_interval == 0)
+        {
+            progress_interval = 1;
+        }
+        
+        for (size_t i = 0; i < max_runs; ++i)
+        {
+            bool passed = test_func();
+            
+            if (!passed)
+            {
+                out << "\n" << colors::red() << colors::bold() 
+                    << "  ✗ Failed on run " << (i + 1) << "/" << max_runs
+                    << colors::reset() << "\n\n";
+                return i + 1;
+            }
+            
+            if (get_test_config().verbose)
+            {
+                if (((i + 1) % progress_interval == 0) || (i + 1 == max_runs))
+                {
+                    out << "  Completed: " << (i + 1) << "/" << max_runs << "\r";
+                    out.flush();
+                }
+            }
+        }
+        
+        out << "\n" << colors::green() << colors::bold() 
+            << "  ✓ Test passed all " << max_runs << " runs!" 
+            << colors::reset() << "\n\n";
+        
+        return 0;
+    }
+};
+
+// ============================================================================
+// Parameterized Tests
+// ============================================================================
+
+/**
+ * @brief Helper for running parameterized tests
+ * 
+ * Usage:
+ *   std::vector<TestCase<int, int, int>> cases = {
+ *       {{2, 3, 5}, "2+3"},
+ *       {{10, 20, 30}, "10+20"},
+ *       {{-1, 1, 0}, "-1+1"}
+ *   };
+ *   
+ *   run_parameterized_test("addition", cases, [](const auto& tc) {
+ *       ASSERT_EQ(add(std::get<0>(tc.inputs), std::get<1>(tc.inputs)), 
+ *                 std::get<2>(tc.inputs), tc.description);
+ *       return true;
+ *   });
+ */
+template <typename... Args>
+struct TestCase
+{
+    std::tuple<Args...> inputs;
+    std::string description;
+};
+
+template <typename TestCaseType, typename Func>
+bool run_parameterized_test(const char* test_name, const std::vector<TestCaseType>& test_cases, Func test_func)
+{
+    auto& out = *get_test_config().output;
+    
+    if (get_test_config().verbose)
+    {
+        out << colors::blue() << "Running parameterized: " << colors::reset() 
+            << test_name << " (" << test_cases.size() << " cases)\n";
+    }
+    
+    size_t passed = 0;
+    size_t failed = 0;
+    
+    for (size_t i = 0; i < test_cases.size(); ++i)
+    {
+        const auto& tc = test_cases[i];
+        
+        if (get_test_config().verbose)
+        {
+            out << "  Case " << (i+1) << "/" << test_cases.size() 
+                << " [" << tc.description << "] ... ";
+            out.flush();
+        }
+        
+        bool result = test_func(tc);
+        
+        if (result)
+        {
+            ++passed;
+            if (get_test_config().verbose)
+            {
+                out << colors::green() << "PASSED" << colors::reset() << "\n";
+            }
+        }
+        else
+        {
+            ++failed;
+            if (get_test_config().verbose)
+            {
+                out << colors::red() << "FAILED" << colors::reset() << "\n";
+            }
+            else
+            {
+                out << colors::red() << "FAILED: " << test_name 
+                    << " case " << (i+1) << " [" << tc.description << "]" 
+                    << colors::reset() << "\n";
+            }
+        }
+    }
+    
+    if (get_test_config().verbose)
+    {
+        out << "  Summary: " << passed << " passed, " << failed << " failed\n";
+    }
+    
+    return failed == 0;
+}
+
+// ============================================================================
+// JUnit XML Output
+// ============================================================================
+
+/**
+ * @brief XML escape helper for JUnit output
+ */
+inline std::string xml_escape(const std::string& str)
+{
+    std::string result;
+    result.reserve(str.size() * 2);
+    
+    for (char c : str)
+    {
+        switch (c)
+        {
+            case '&':  result += "&amp;"; break;
+            case '<':  result += "&lt;"; break;
+            case '>':  result += "&gt;"; break;
+            case '"':  result += "&quot;"; break;
+            case '\'': result += "&apos;"; break;
+            default:   result += c; break;
+        }
+    }
+    
+    return result;
+}
+
+/**
+ * @brief Export test results to JUnit XML format
+ * 
+ * Creates a JUnit-compatible XML file that can be consumed by CI/CD systems
+ * like Jenkins, GitLab CI, GitHub Actions, etc.
+ * 
+ * @param filename Output filename (e.g., "test_results.xml")
+ * @param results Vector of test results to export
+ * @param suite_name Name of the test suite (default: "TestSuite")
+ * @return True if file was written successfully
+ * 
+ * @example
+ * TestRunner runner;
+ * // ... run tests ...
+ * export_junit_xml("results.xml", runner.results(), "MyTests");
+ */
+inline bool export_junit_xml(const std::string& filename, 
+                             const std::vector<TestResult>& results,
+                             const std::string& suite_name = "TestSuite")
+{
+    std::ofstream file(filename);
+    if (!file.is_open())
+    {
+        std::cerr << "Failed to open file for JUnit XML output: " << filename << std::endl;
+        return false;
+    }
+    
+    size_t total_tests = results.size();
+    size_t failures = 0;
+    double total_time = 0.0;
+    
+    for (const auto& result : results)
+    {
+        if (!result.passed)
+        {
+            ++failures;
+        }
+        total_time += result.duration_ms;
+    }
+    
+    std::time_t now = std::time(nullptr);
+    char timestamp[100];
+    std::tm time_info{};
+    
+#if defined(_WIN32) || defined(_WIN64)
+    localtime_s(&time_info, &now);
+#elif defined(__linux__) || defined(__unix__)
+    localtime_r(&now, &time_info);
+#else
+    localtime_r(&now, &time_info);
+#endif
+    std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%S", &time_info);
+    
+    file << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    file << "<testsuites>\n";
+    file << "  <testsuite name=\"" << xml_escape(suite_name) << "\" "
+         << "tests=\"" << total_tests << "\" "
+         << "failures=\"" << failures << "\" "
+         << "errors=\"0\" "
+         << "time=\"" << std::fixed << std::setprecision(3) << (total_time / 1000.0) << "\" "
+         << "timestamp=\"" << timestamp << "\">\n";
+    
+    for (const auto& result : results)
+    {
+        file << "    <testcase name=\"" << xml_escape(result.name) << "\" "
+             << "time=\"" << std::fixed << std::setprecision(3) << (result.duration_ms / 1000.0) << "\"";
+        
+        if (result.passed)
+        {
+            file << "/>\n";
+        }
+        else
+        {
+            file << ">\n";
+            file << "      <failure message=\"Test failed\"/>\n";
+            file << "    </testcase>\n";
+        }
+    }
+    
+    file << "  </testsuite>\n";
+    file << "</testsuites>\n";
+
+    if (!file.good())
+    {
+        std::cerr << "Error writing JUnit XML output: " << filename << std::endl;
+        return false;
+    }
+
+    file.close();
+    return file.good();
+}
+
+inline bool TestRunner::export_to_junit_xml(const std::string& filename, 
+                                            const std::string& suite_name) const
+{
+    return export_junit_xml(filename, results_, suite_name);
+}
+
+// ============================================================================
+// Convenience Macros for Test Suites
+// ============================================================================
+
+/**
+ * @brief Define a test function
+ * 
+ * Usage:
+ *   TEST_CASE("my test")
+ *   {
+ *       ASSERT_EQ(1 + 1, 2, "Math works");
+ *       return true;
+ *   }
+ */
+#define TEST_CASE(name) \
+    bool test_##name()
+
+/**
+ * @brief Define a test function with fixture
+ * 
+ * Usage:
+ *   TEST_CASE_F(MyFixture, "my test")
+ *   {
+ *       ASSERT_NOT_NULLPTR(fixture.db, "Database initialized");
+ *       return true;
+ *   }
+ */
+#define TEST_CASE_F(fixture_type, name) \
+    bool test_##name(fixture_type& fixture)
+
+/**
+ * @brief Run a test case with test runner
+ * 
+ * Usage:
+ *   RUN_TEST(runner, my_test);
+ */
+#define RUN_TEST(runner, test_name) \
+    runner.run_test(#test_name, test_##test_name)
+
+/**
+ * @brief Run a test case with fixture
+ * 
+ * Usage:
+ *   RUN_TEST_F(runner, MyFixture, my_test);
+ */
+#define RUN_TEST_F(runner, fixture_type, test_name) \
+    runner.run_test_with_fixture<fixture_type>(#test_name, test_##test_name)
+
+/**
+ * @brief Prints a formatted header for unit test sections
+ *
+ * This macro outputs a formatted header with the specified section name,
+ * surrounded by separator lines, for organizing unit test output. Respects
+ * the configured output stream from TestConfig.
+ *
+ * Usage example:
+ * \code
+ * PRINT_HEADER(CONTRACT EXCEPTION);
+ * \endcode
+ *
+ * @param section The name of the section (e.g., CONTRACT EXCEPTION). It will be stringified.
+ */
+#define PRINT_HEADER(section) \
+    *fat_p::testing::get_test_config().output \
+        << "\n==========================================================\n" \
+        << #section << " UNIT TESTS\n" \
+        << "==========================================================\n\n";
+
+/**
+ * @brief Define a subtest that continues even if it fails
+ * 
+ * Subtests allow you to break a test into multiple parts. If one subtest fails,
+ * subsequent subtests will still run. At the end, the overall test passes only
+ * if all subtests passed.
+ * 
+ * IMPORTANT: SUBTEST and END_SUBTEST must be paired. The SUBTEST macro begins
+ * a try block and END_SUBTEST closes it. Forgetting END_SUBTEST will result
+ * in a compilation error.
+ * 
+ * BEHAVIOR: Exceptions thrown inside SUBTEST blocks are caught and recorded as
+ * failures. Assertion macros (ASSERT_*) also work correctly within SUBTEST blocks,
+ * recording failures without exiting the test function.
+ * 
+ * Usage:
+ *   bool test_complex()
+ *   {
+ *       SUBTEST("initialization") {
+ *           ASSERT_EQ(init(), 0, "Init succeeds");
+ *       }
+ *       END_SUBTEST
+ *       
+ *       SUBTEST("processing") {
+ *           ASSERT_EQ(process(), 0, "Process succeeds");
+ *       }
+ *       END_SUBTEST
+ *       
+ *       return fat_p::testing::get_subtest_tracker().all_passed();
+ *   }
+ */
+#define SUBTEST(name) \
+    if (fat_p::testing::get_subtest_tracker().get_results().empty()) { \
+        *fat_p::testing::get_test_config().output << "\n"; \
+    } \
+    fat_p::testing::get_subtest_tracker().begin_subtest(name); \
+    *fat_p::testing::get_test_config().output << "  " << fat_p::testing::colors::blue() \
+        << "Subtest: " << fat_p::testing::colors::reset() << name << " ... "; \
+    fat_p::testing::get_test_config().output->flush(); \
+    try
+
+#define END_SUBTEST \
+    catch (const std::exception& e) { \
+        fat_p::testing::get_subtest_tracker().fail_current_subtest(e.what()); \
+        *fat_p::testing::get_test_config().output << fat_p::testing::colors::red() \
+            << "FAILED" << fat_p::testing::colors::reset() << " (" << e.what() << ")\n"; \
+    } catch (...) { \
+        fat_p::testing::get_subtest_tracker().fail_current_subtest("Unknown exception"); \
+        *fat_p::testing::get_test_config().output << fat_p::testing::colors::red() \
+            << "FAILED" << fat_p::testing::colors::reset() << " (unknown exception)\n"; \
+    } \
+    if (fat_p::testing::get_subtest_tracker().get_results().empty() || \
+        fat_p::testing::get_subtest_tracker().get_results().back().passed) { \
+        *fat_p::testing::get_test_config().output << fat_p::testing::colors::green() \
+            << "PASSED" << fat_p::testing::colors::reset() << "\n"; \
+    } \
+    fat_p::testing::get_subtest_tracker().end_subtest();
+
+} // namespace testing
+} // namespace fat_p

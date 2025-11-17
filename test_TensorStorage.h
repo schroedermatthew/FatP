@@ -1,9 +1,9 @@
 #pragma once
 
-namespace cpp_utilities {
+namespace fat_p {
 namespace testing {
 
 bool test_TensorStorage();
 
 } // namespace testing
-} // namespace cpp_utilities
+} // namespace fat_p

@@ -5,9 +5,9 @@
 
 #include "BenchmarkHarness.h"
 #include "test_BenchmarkHarness.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 bool test_benchmark_harness_basic_benchmark() {
@@ -148,4 +148,4 @@ bool test_BenchmarkHarness() {
 
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

@@ -11,11 +11,11 @@
 
 #include "AllocationStrategy.h"
 #include "test_AllocationStrategy.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
 /**
  * @file test_AllocationStrategy.cpp
- * @brief Comprehensive test suite for cpp_utilities::AllocationStrategy
+ * @brief Comprehensive test suite for fat_p::AllocationStrategy
  * 
  * This test suite demonstrates all features of AllocationStrategy including:
  * - Standard heap allocation
@@ -35,10 +35,10 @@
  * - Tested on Intel(R) Core(TM) i7-8850H CPU @ 2.60GHz
  */
 
-using namespace cpp_utilities;
-using namespace cpp_utilities::testing;
+using namespace fat_p;
+using namespace fat_p::testing;
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
     // ============================================================================
     // Constants
@@ -893,4 +893,4 @@ namespace cpp_utilities::testing
         return failed == 0;
     }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

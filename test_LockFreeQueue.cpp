@@ -10,9 +10,9 @@
 
 #include "LockFreeQueue.h"
 #include "test_LockFreeQueue.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 // Test 1: Basic enqueue/dequeue
@@ -242,4 +242,4 @@ bool test_LockFreeQueue() {
 
 }
 
-} // namespace cpp_utilities::testing 
+} // namespace fat_p::testing 

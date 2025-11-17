@@ -1,12 +1,12 @@
 #include <iostream>
 #include <string>
 
-#include "PipeOperator.h"
 #include "Expected.h"
+#include "PipeOperator.h"
 #include "test_PipeOperator.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 bool test_basic_pipe() {
@@ -129,4 +129,4 @@ bool test_PipeOperator() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

@@ -16,7 +16,7 @@
 #include "enforce_contextual_policies.h" // Provides policy tags and traits
 #include "enforce_predicates.h" // For predicate forward declarations
 
-namespace cpp_utilities {
+namespace fat_p {
 
     // --- 1. Policy Tags ---
 
@@ -228,4 +228,4 @@ namespace cpp_utilities {
         using type = ExpectedRaiser<std::string>;  // Default to string error
     };
 
-} // namespace cpp_utilities
+} // namespace fat_p

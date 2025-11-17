@@ -4,9 +4,9 @@
 
 #include "Tensor.h"
 #include "test_Tensor.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 // =============================================================================
@@ -549,7 +549,7 @@ void benchmark_operations() {
 // =============================================================================
 
 TEST_CASE(broadcasting_shape) {
-    using cpp_utilities::Tensor;
+    using fat_p::Tensor;
     Tensor<double> a({3, 4});
     Tensor<double> b({3, 4});
     
@@ -579,7 +579,7 @@ TEST_CASE(broadcasting_shape) {
 }
 
 TEST_CASE(broadcast_to) {
-    using cpp_utilities::Tensor;
+    using fat_p::Tensor;
     Tensor<double> scalar({1}, 5.0);
     
     // Broadcast scalar to 2D
@@ -601,7 +601,7 @@ TEST_CASE(broadcast_to) {
 }
 
 TEST_CASE(broadcasting_operations) {
-    using cpp_utilities::Tensor;
+    using fat_p::Tensor;
     Tensor<double> a({3, 4});
     Tensor<double> b({3, 4});
     
@@ -632,7 +632,7 @@ TEST_CASE(broadcasting_operations) {
 }
 
 TEST_CASE(is_broadcastable) {
-    using cpp_utilities::Tensor;
+    using fat_p::Tensor;
     Tensor<double> a({3, 4});
     Tensor<double> b({3, 4});
     Tensor<double> c({1, 4});
@@ -650,7 +650,7 @@ TEST_CASE(is_broadcastable) {
 // =============================================================================
 
 TEST_CASE(safe_operations) {
-    using cpp_utilities::Tensor;
+    using fat_p::Tensor;
     Tensor<double> a({3, 4});
     Tensor<double> b({3, 4});
     a.fill(1.0);
@@ -680,7 +680,7 @@ TEST_CASE(safe_operations) {
 }
 
 TEST_CASE(safe_view) {
-    using cpp_utilities::Tensor;
+    using fat_p::Tensor;
     Tensor<double> a({5, 5});
     a.fill(42.0);
     
@@ -705,7 +705,7 @@ TEST_CASE(safe_view) {
 }
 
 TEST_CASE(safe_reshape) {
-    using cpp_utilities::Tensor;
+    using fat_p::Tensor;
     Tensor<double> a({3, 4});
     a.fill(1.0);
     
@@ -728,7 +728,7 @@ TEST_CASE(safe_reshape) {
 // =============================================================================
 
 TEST_CASE(lazy_evaluation) {
-    using cpp_utilities::Tensor;
+    using fat_p::Tensor;
     Tensor<double> a({1000});
     Tensor<double> b({1000});
     Tensor<double> c({1000});
@@ -751,7 +751,7 @@ TEST_CASE(lazy_evaluation) {
 }
 
 TEST_CASE(lazy_operations) {
-    using cpp_utilities::Tensor;
+    using fat_p::Tensor;
     Tensor<double> a({100});
     Tensor<double> b({100});
     
@@ -793,7 +793,7 @@ TEST_CASE(lazy_operations) {
 }
 
 TEST_CASE(expression_chaining) {
-    using cpp_utilities::Tensor;
+    using fat_p::Tensor;
     Tensor<double> a({50});
     Tensor<double> b({50});
     Tensor<double> c({50});
@@ -827,7 +827,7 @@ TEST_CASE(expression_chaining) {
 // =============================================================================
 
 TEST_CASE(parallel_operations) {
-    using cpp_utilities::Tensor;
+    using fat_p::Tensor;
     
     // Test parallel addition with large tensor (>100K threshold)
     Tensor<double> a({500, 500});  // 250K elements
@@ -851,10 +851,10 @@ TEST_CASE(parallel_operations) {
 }
 
 TEST_CASE(contract_exceptions) {
-    using cpp_utilities::Tensor;
-    using cpp_utilities::DomainContractError;
-    using cpp_utilities::LogicContractError;
-    using cpp_utilities::OutOfRangeContractError;
+    using fat_p::Tensor;
+    using fat_p::DomainContractError;
+    using fat_p::LogicContractError;
+    using fat_p::OutOfRangeContractError;
     
     // Test DomainContractError for shape mismatch
     Tensor<double> a({3, 4});
@@ -892,7 +892,7 @@ TEST_CASE(contract_exceptions) {
 }
 
 TEST_CASE(parallel_threshold) {
-    using cpp_utilities::Tensor;
+    using fat_p::Tensor;
     
     // Small tensor (below 100K threshold) - uses serial
     Tensor<double> small({100, 100});  // 10K elements
@@ -1043,7 +1043,7 @@ bool test_lifetime_tracking_integration() {
 }
 
 bool test_rcu_tensor_integration() {
-    #if defined(CPP_UTILITIES_USE_ATOMIC) && defined(CPP_UTILITIES_USE_SHARED_MUTEX)
+    #if defined(FATP_USE_ATOMIC) && defined(FATP_USE_SHARED_MUTEX)
     
     {
         RCUPolicy<Tensor<double>> rcu_tensor(Tensor<double>({10, 10}));
@@ -1181,10 +1181,10 @@ bool test_v51_zero_overhead_release() {
 // =============================================================================
 
 bool test_Tensor() {
-    using namespace cpp_utilities::testing;
+    using namespace fat_p::testing;
     PRINT_HEADER(TENSOR WITH ITERATOR POLICIES - v5.1)
     
-    using cpp_utilities::testing::TestRunner;
+    using fat_p::testing::TestRunner;
     TestRunner runner;
     
     // Basic tests
@@ -1245,4 +1245,4 @@ bool test_Tensor() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

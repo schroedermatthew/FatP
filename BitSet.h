@@ -65,18 +65,18 @@
 // Compiler intrinsics for performance
 #ifdef _MSC_VER
     #include <intrin.h>
-    #define CPP_UTILITIES_POPCNT64(x) __popcnt64(x)
-    #define CPP_UTILITIES_CTZ64(x) _tzcnt_u64(x)
+    #define FATP_POPCNT64(x) __popcnt64(x)
+    #define FATP_CTZ64(x) _tzcnt_u64(x)
 #elif defined(__GNUC__) || defined(__clang__)
-    #define CPP_UTILITIES_POPCNT64(x) __builtin_popcountll(x)
-    #define CPP_UTILITIES_CTZ64(x) __builtin_ctzll(x)
+    #define FATP_POPCNT64(x) __builtin_popcountll(x)
+    #define FATP_CTZ64(x) __builtin_ctzll(x)
 #else
     // Fallback implementations
-    #define CPP_UTILITIES_POPCNT64(x) cpp_utilities::detail::popcnt64_fallback(x)
-    #define CPP_UTILITIES_CTZ64(x) cpp_utilities::detail::ctz64_fallback(x)
+    #define FATP_POPCNT64(x) fat_p::detail::popcnt64_fallback(x)
+    #define FATP_CTZ64(x) fat_p::detail::ctz64_fallback(x)
 #endif
 
-namespace cpp_utilities {
+namespace fat_p {
 
 namespace detail {
     // Fallback population count
@@ -248,7 +248,7 @@ public:
     size_t count() const {
         size_t total = 0;
         for (size_t i = 0; i < NUM_WORDS; ++i) {
-            total += CPP_UTILITIES_POPCNT64(m_words[i]);
+            total += FATP_POPCNT64(m_words[i]);
         }
         return total;
     }
@@ -291,7 +291,7 @@ public:
     size_t find_first() const {
         for (size_t i = 0; i < NUM_WORDS; ++i) {
             if (m_words[i] != 0) {
-                return i * BITS_PER_WORD + CPP_UTILITIES_CTZ64(m_words[i]);
+                return i * BITS_PER_WORD + FATP_CTZ64(m_words[i]);
             }
         }
         return N;
@@ -312,13 +312,13 @@ public:
         // Check remainder of first word
         uint64_t word = m_words[word_idx] & (~0ULL << bit_offset);
         if (word != 0) {
-            return word_idx * BITS_PER_WORD + CPP_UTILITIES_CTZ64(word);
+            return word_idx * BITS_PER_WORD + FATP_CTZ64(word);
         }
         
         // Check remaining words
         for (size_t i = word_idx + 1; i < NUM_WORDS; ++i) {
             if (m_words[i] != 0) {
-                return i * BITS_PER_WORD + CPP_UTILITIES_CTZ64(m_words[i]);
+                return i * BITS_PER_WORD + FATP_CTZ64(m_words[i]);
             }
         }
         
@@ -428,4 +428,4 @@ private:
     std::array<uint64_t, NUM_WORDS> m_words;
 };
 
-} // namespace cpp_utilities
+} // namespace fat_p

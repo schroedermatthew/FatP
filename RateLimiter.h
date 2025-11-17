@@ -57,7 +57,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // ============================================================================
 // Token Bucket Rate Limiter
@@ -361,4 +361,4 @@ private:
     mutable std::mutex m_mutex;
 };
 
-} // namespace cpp_utilities
+} // namespace fat_p

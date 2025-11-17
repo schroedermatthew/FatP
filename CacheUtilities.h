@@ -48,7 +48,7 @@
     #define CACHE_ARM
 #endif
 
-namespace cpp_utilities {
+namespace fat_p {
 namespace perf {
 
 // =============================================================================
@@ -528,4 +528,4 @@ inline size_t alignment_offset(const void* ptr, size_t alignment) {
 }
 
 } // namespace perf
-} // namespace cpp_utilities
+} // namespace fat_p

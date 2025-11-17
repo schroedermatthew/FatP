@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include "CppStandardDetection.h"
+
 #include "ConstexprUtilities.h"
 #include <cstddef>
 #include <cstdint>
@@ -39,21 +41,18 @@
 #include <array>
 #include <string>
 
-namespace cpp_utilities {
+namespace fat_p {
 
     // ============================================================================
     // C++ Version Detection
     // ============================================================================
 
 #if defined(__cpp_lib_reflection) && __cpp_lib_reflection >= 202502L
-#define CPP_UTILITIES_HAS_CPP26_REFLECTION 1
-#define CPP_UTILITIES_HAS_CPP20 1
-#elif __cplusplus >= 202002L
-#define CPP_UTILITIES_HAS_CPP26_REFLECTION 0
-#define CPP_UTILITIES_HAS_CPP20 1
+#define FATP_HAS_CPP26_REFLECTION 1
+#elif FATP_HAS_CPP20
+#define FATP_HAS_CPP26_REFLECTION 0
 #else
-#define CPP_UTILITIES_HAS_CPP26_REFLECTION 0
-#define CPP_UTILITIES_HAS_CPP20 0
+#define FATP_HAS_CPP26_REFLECTION 0
 #endif
 
 // ============================================================================
@@ -82,7 +81,7 @@ namespace cpp_utilities {
 // C++26: Native Reflection (P2996) - Experimental (Stub)
 // ============================================================================
 
-#if CPP_UTILITIES_HAS_CPP26_REFLECTION
+#if FATP_HAS_CPP26_REFLECTION
     // Future: Native reflection support when compilers implement P2996
     // For now, fall through to C++20 implementation
 #endif
@@ -91,7 +90,7 @@ namespace cpp_utilities {
 // C++20: Fixed String for NTTP
 // ============================================================================
 
-#if CPP_UTILITIES_HAS_CPP20
+#if FATP_HAS_CPP20
 
     namespace detail {
 
@@ -122,7 +121,7 @@ namespace cpp_utilities {
 
     } // namespace detail
 
-#endif // CPP_UTILITIES_HAS_CPP20
+#endif // FATP_HAS_CPP20
 
 // ============================================================================
 // Forward Declarations
@@ -166,7 +165,7 @@ namespace cpp_utilities {
     // Field Information Storage
     // ============================================================================
 
-#if CPP_UTILITIES_HAS_CPP20
+#if FATP_HAS_CPP20
 
 /**
  * @brief Field metadata (C++20 version with compile-time name)
@@ -238,7 +237,7 @@ namespace cpp_utilities {
         }
     };
 
-#endif // CPP_UTILITIES_HAS_CPP20
+#endif // FATP_HAS_CPP20
 
     // ============================================================================
     // Reflection Helpers (Recursive for C++17 Compatibility)
@@ -492,11 +491,11 @@ namespace cpp_utilities {
       * IMPORTANT: Must be called at GLOBAL SCOPE with qualified Type
       *
       * Usage:
-      *   REFLECT_REGISTER(::cpp_utilities::testing::Point, x, y)
+      *   REFLECT_REGISTER(::fat_p::testing::Point, x, y)
       */
 #define REFLECT_REGISTER(Type, ...) \
     template <> \
-    struct cpp_utilities::Reflectable<Type> { \
+    struct fat_p::Reflectable<Type> { \
         static constexpr auto fields = std::make_tuple(REFLECT_MAP(REFLECT_FIELD, Type, __VA_ARGS__)); \
         static constexpr size_t field_count = REFLECT_COUNT(__VA_ARGS__); \
         \
@@ -525,7 +524,7 @@ namespace cpp_utilities {
     };
 
       // Field macro (version-specific)
-#if CPP_UTILITIES_HAS_CPP20
+#if FATP_HAS_CPP20
 #define REFLECT_FIELD(Type, field) \
     Field<Type, decltype(Type::field), &Type::field, #field>{}
 #else
@@ -609,4 +608,4 @@ namespace cpp_utilities {
 
 #define REFLECT_MAP_32(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z, aa, ab, ac, ad, ae, af) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z), m(T, aa), m(T, ab), m(T, ac), m(T, ad), m(T, ae), m(T, af)
 
-} // namespace cpp_utilities
+} // namespace fat_p

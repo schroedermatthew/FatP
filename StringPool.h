@@ -1,25 +1,23 @@
 /**
  * @file StringPool.h
- * @brief High-performance string interning pool with perfect deduplication
+ * @brief High-performance string interning pool with policy-based thread safety
  * 
  * @details String pooling (interning) for memory-efficient string storage.
  * Deduplicates identical strings, returning references to single canonical copy.
  * 
  * Features:
  * - Automatic deduplication of identical strings
- * - Thread-safe operations
+ * - Policy-based conditional thread safety (zero overhead for single-threaded)
  * - Stable string pointers (lifetime = pool lifetime)
  * - Fast lookup via hash table
  * - Memory usage tracking
  * - Garbage collection support
  * 
- * @version 1.0.0
- * @date 2025-11
- * 
  * @section performance Performance Impact
- * - Intern: O(1) average, ~100-300ns per call
+ * - Intern: O(1) average, ~100ns (single-threaded) to ~150ns (multi-threaded)
  * - Memory savings: 50-90% for duplicate-heavy workloads
  * - Cache-friendly: Single string instance improves locality
+ * - Zero overhead with SingleThreadedPolicy (no locks, no atomics)
  * 
  * @section use_cases Use Cases
  * - Configuration keys/values
@@ -28,14 +26,20 @@
  * - Compiler symbol tables
  * - Game entity names/tags
  * 
- * @section usage Usage Example
+ * @section usage Usage Examples
  * @code
- * StringPool pool;
- * 
- * // Intern strings
+ * // Single-threaded (zero overhead)
+ * StringPool<SingleThreadedPolicy> pool;
  * const char* s1 = pool.intern("hello");
  * const char* s2 = pool.intern("hello");
  * assert(s1 == s2);  // Same pointer!
+ * 
+ * // Multi-threaded with shared reads
+ * StringPool<SharedMutexPolicy> shared_pool;
+ * auto s = shared_pool.intern("concurrent");  // Thread-safe
+ * 
+ * // Multi-threaded with exclusive locking
+ * StringPool<MutexSynchronizationPolicy> mutex_pool;
  * 
  * // Get stats
  * auto stats = pool.stats();
@@ -45,7 +49,6 @@
  * 
  * Compilation: Requires C++17
  * - g++ -std=c++17 -O3 your_code.cpp
- * - Tested on Intel Core i7-8850H @ 2.60GHz, 32GB RAM
  */
 
 #pragma once
@@ -53,76 +56,68 @@
 #include <string>
 #include <string_view>
 #include <unordered_set>
-#include <mutex>
-#include <shared_mutex>
 #include <memory>
 #include <cstring>
 #include <atomic>
+#include <type_traits>
 
-namespace cpp_utilities {
+#include "ConcurrencyPolicies.h"
 
-// ============================================================================
-// String Pool Statistics
-// ============================================================================
+namespace fat_p {
 
-/**
- * @brief Statistics for string pool monitoring
- */
-struct StringPoolStats {
-    size_t unique_strings = 0;     // Number of unique strings stored
-    size_t total_interns = 0;      // Total intern() calls
-    size_t bytes_allocated = 0;    // Bytes allocated for strings
-    size_t memory_saved = 0;       // Bytes saved by deduplication
-    double hit_rate = 0.0;         // Cache hit rate (0.0-1.0)
+struct StringPoolStats 
+{
+    size_t unique_strings = 0;
+    size_t total_interns = 0;
+    size_t bytes_allocated = 0;
+    size_t memory_saved = 0;
+    double hit_rate = 0.0;
 };
-
-// ============================================================================
-// String Pool Implementation Details
-// ============================================================================
 
 namespace detail {
 
-// Determine if we can use transparent lookup
-// Transparent lookup in unordered containers requires C++20
-#if defined(__cpp_lib_generic_unordered_lookup) && __cpp_lib_generic_unordered_lookup >= 201811L
-    // C++20 feature test macro - safest detection
-    #define CPP_UTILITIES_USE_TRANSPARENT_LOOKUP 1
+#if defined(__cpp_lib_generic_unordered_lookup) && \
+    __cpp_lib_generic_unordered_lookup >= 201811L
+    #define FATP_USE_TRANSPARENT_LOOKUP 1
 #elif __cplusplus >= 202002L
-    // C++20 or later - try it
-    #define CPP_UTILITIES_USE_TRANSPARENT_LOOKUP 1
+    #define FATP_USE_TRANSPARENT_LOOKUP 1
 #else
-    // C++17 and earlier: transparent lookup not supported in unordered containers
-    #define CPP_UTILITIES_USE_TRANSPARENT_LOOKUP 0
+    #define FATP_USE_TRANSPARENT_LOOKUP 0
 #endif
 
-#if CPP_UTILITIES_USE_TRANSPARENT_LOOKUP
+#if FATP_USE_TRANSPARENT_LOOKUP
 
-// Transparent hash functor for string_view lookup
-struct StringHash {
+struct StringHash 
+{
     using is_transparent = void;
     
-    size_t operator()(std::string_view sv) const noexcept {
+    size_t operator()(std::string_view sv) const noexcept 
+    {
         return std::hash<std::string_view>{}(sv);
     }
     
-    size_t operator()(const std::string& s) const noexcept {
+    size_t operator()(const std::string& s) const noexcept 
+    {
         return std::hash<std::string>{}(s);
     }
 };
 
-// Transparent equality functor for string_view comparison
-struct StringEqual {
+struct StringEqual 
+{
     using is_transparent = void;
     
-    bool operator()(std::string_view lhs, std::string_view rhs) const noexcept {
+    bool operator()(std::string_view lhs, std::string_view rhs) const noexcept 
+    {
         return lhs == rhs;
     }
     
-    bool operator()(const std::string& lhs, std::string_view rhs) const noexcept {
+    bool operator()(const std::string& lhs, std::string_view rhs) const noexcept 
+    {
         return lhs == rhs;
     }
     
-    bool operator()(std::string_view lhs, const std::string& rhs) const noexcept {
+    bool operator()(std::string_view lhs, const std::string& rhs) const noexcept 
+    {
         return lhs == rhs;
     }
 };
@@ -131,43 +126,97 @@ using StringSet = std::unordered_set<std::string, StringHash, StringEqual>;
 
 #else
 
-// Fallback: use standard hash/equal (works on all compilers)
 using StringSet = std::unordered_set<std::string>;
 
 #endif
 
-} // namespace detail
+template<typename SyncPolicy, typename T>
+using StatType = std::conditional_t<std::is_same_v<SyncPolicy, SingleThreadedPolicy>, 
+                                     T, std::atomic<T>>;
 
-// ============================================================================
-// String Pool
-// ============================================================================
+template<typename T>
+inline void increment_stat(T& stat, size_t delta = 1) 
+{
+    if constexpr (std::is_same_v<T, std::atomic<size_t>>) 
+    {
+        stat.fetch_add(delta, std::memory_order_relaxed);
+    } 
+    else 
+    {
+        stat += delta;
+    }
+}
+
+template<typename T>
+inline size_t load_stat(const T& stat) 
+{
+    if constexpr (std::is_same_v<T, std::atomic<size_t>>) 
+    {
+        return stat.load(std::memory_order_relaxed);
+    } 
+    else 
+    {
+        return stat;
+    }
+}
+
+template<typename T>
+inline void store_stat(T& stat, size_t value) 
+{
+    if constexpr (std::is_same_v<T, std::atomic<size_t>>) 
+    {
+        stat.store(value, std::memory_order_relaxed);
+    } 
+    else 
+    {
+        stat = value;
+    }
+}
+
+}
 
 /**
- * @brief Thread-safe string interning pool
+ * @brief Policy-based string interning pool with conditional thread safety
  * 
- * Stores unique strings and returns const char* pointers to them.
+ * @tparam SyncPolicy Synchronization policy (default: SingleThreadedPolicy)
+ * 
+ * @details Stores unique strings and returns const char* pointers to them.
  * Multiple calls with identical strings return the same pointer.
  * 
- * Thread-safety: Full (using shared_mutex for concurrent reads)
+ * Thread-safety: Depends on SyncPolicy
+ * - SingleThreadedPolicy: No synchronization (zero overhead)
+ * - SharedMutexPolicy: Read/write locks for concurrent access
+ * - MutexSynchronizationPolicy: Exclusive locks for concurrent access
+ * 
  * Exception-safety: Strong guarantee
+ * 
+ * @section performance Performance Characteristics
+ * SingleThreadedPolicy:
+ * - Intern (hit): ~100ns
+ * - Intern (miss): ~150ns
+ * - Memory overhead: 0 bytes (no locks, no atomics)
+ * 
+ * SharedMutexPolicy:
+ * - Intern (hit, uncontended): ~150ns (shared lock)
+ * - Intern (miss, uncontended): ~200ns (exclusive lock)
+ * - Memory overhead: ~40 bytes (shared_mutex)
+ * 
+ * @section when_to_use When to Use Each Policy
+ * - SingleThreadedPolicy: Command-line tools, single-threaded parsers
+ * - SharedMutexPolicy: Multi-threaded servers, read-heavy workloads
+ * - MutexSynchronizationPolicy: Write-heavy workloads, simpler locking
  */
-class StringPool {
+template<typename SyncPolicy = SingleThreadedPolicy>
+class StringPool 
+{
 public:
-    /**
-     * @brief Construct empty string pool
-     */
     StringPool() = default;
     
-    /**
-     * @brief Destructor - frees all interned strings
-     */
     ~StringPool() = default;
     
-    // Non-copyable (stores unique pointers)
     StringPool(const StringPool&) = delete;
     StringPool& operator=(const StringPool&) = delete;
     
-    // Movable
     StringPool(StringPool&&) noexcept = default;
     StringPool& operator=(StringPool&&) noexcept = default;
     
@@ -179,85 +228,83 @@ public:
      * If string already exists, returns existing pointer.
      * Otherwise, allocates new copy and returns its pointer.
      * 
-     * Thread-safe: Yes
+     * Thread-safe: Depends on SyncPolicy
      * Complexity: O(1) average
      */
-    const char* intern(std::string_view str) {
-#if CPP_UTILITIES_USE_TRANSPARENT_LOOKUP
-        // Fast path: Try read-only lookup first (using string_view directly)
+    const char* intern(std::string_view str) 
+    {
+#if FATP_USE_TRANSPARENT_LOOKUP
         {
-            std::shared_lock<std::shared_mutex> read_lock(m_mutex);
+            typename SyncPolicy::ReadLock read_lock(sync_policy_.getLock());
             auto it = m_strings.find(str);
-            if (it != m_strings.end()) {
-                m_stats.total_interns.fetch_add(1, std::memory_order_relaxed);
-                // Cache hit - we saved memory by not allocating a duplicate
-                m_stats.memory_saved.fetch_add(str.size() + 1, std::memory_order_relaxed);
+            if (it != m_strings.end()) 
+            {
+                detail::increment_stat(m_stats.total_interns);
+                detail::increment_stat(m_stats.memory_saved, str.size() + 1);
                 return it->c_str();
             }
         }
         
-        // Slow path: Need to insert new string
-        std::unique_lock<std::shared_mutex> write_lock(m_mutex);
+        typename SyncPolicy::WriteLock write_lock(sync_policy_.getLock());
         
-        // Double-check (another thread may have inserted)
         auto it = m_strings.find(str);
-        if (it != m_strings.end()) {
-            m_stats.total_interns.fetch_add(1, std::memory_order_relaxed);
-            // Cache hit on double-check
-            m_stats.memory_saved.fetch_add(str.size() + 1, std::memory_order_relaxed);
+        if (it != m_strings.end()) 
+        {
+            detail::increment_stat(m_stats.total_interns);
+            detail::increment_stat(m_stats.memory_saved, str.size() + 1);
             return it->c_str();
         }
         
-        // Insert new string
         auto [inserted_it, success] = m_strings.emplace(str);
 #else
-        // Fallback: create temporary string for lookup
         std::string temp(str);
         
-        // Fast path: Try read-only lookup first
         {
-            std::shared_lock<std::shared_mutex> read_lock(m_mutex);
+            typename SyncPolicy::ReadLock read_lock(sync_policy_.getLock());
             auto it = m_strings.find(temp);
-            if (it != m_strings.end()) {
-                m_stats.total_interns.fetch_add(1, std::memory_order_relaxed);
-                // Cache hit - we saved memory by not allocating a duplicate
-                m_stats.memory_saved.fetch_add(str.size() + 1, std::memory_order_relaxed);
+            if (it != m_strings.end()) 
+            {
+                detail::increment_stat(m_stats.total_interns);
+                detail::increment_stat(m_stats.memory_saved, str.size() + 1);
                 return it->c_str();
             }
         }
         
-        // Slow path: Need to insert new string
-        std::unique_lock<std::shared_mutex> write_lock(m_mutex);
+        typename SyncPolicy::WriteLock write_lock(sync_policy_.getLock());
         
-        // Double-check (another thread may have inserted)
         auto it = m_strings.find(temp);
-        if (it != m_strings.end()) {
-            m_stats.total_interns.fetch_add(1, std::memory_order_relaxed);
-            // Cache hit on double-check
-            m_stats.memory_saved.fetch_add(str.size() + 1, std::memory_order_relaxed);
+        if (it != m_strings.end()) 
+        {
+            detail::increment_stat(m_stats.total_interns);
+            detail::increment_stat(m_stats.memory_saved, str.size() + 1);
             return it->c_str();
         }
         
-        // Insert new string
         auto [inserted_it, success] = m_strings.insert(std::move(temp));
 #endif
         
-        if (success) {
-            m_stats.bytes_allocated.fetch_add(str.size() + 1, std::memory_order_relaxed);
+        if (success) 
+        {
+            detail::increment_stat(m_stats.bytes_allocated, str.size() + 1);
+            detail::increment_stat(m_stats.unique_strings);
         }
         
-        m_stats.total_interns.fetch_add(1, std::memory_order_relaxed);
-        // NOTE: Do NOT increment memory_saved here - this is the first insert (miss)
+        detail::increment_stat(m_stats.total_interns);
         
         return inserted_it->c_str();
     }
     
     /**
      * @brief Intern a C string
-     * @param str Null-terminated C string
+     * @param str Null-terminated C string (nullptr returns interned empty string)
      * @return Pointer to interned string
      */
-    const char* intern(const char* str) {
+    const char* intern(const char* str) 
+    {
+        if (!str) 
+        {
+            return intern(std::string_view(""));
+        }
         return intern(std::string_view(str));
     }
     
@@ -266,7 +313,8 @@ public:
      * @param str String to intern
      * @return Pointer to interned string
      */
-    const char* intern(const std::string& str) {
+    const char* intern(const std::string& str) 
+    {
         return intern(std::string_view(str));
     }
     
@@ -275,9 +323,10 @@ public:
      * @param str String to check
      * @return true if string exists in pool
      */
-    bool contains(std::string_view str) const {
-        std::shared_lock<std::shared_mutex> lock(m_mutex);
-#if CPP_UTILITIES_USE_TRANSPARENT_LOOKUP
+    bool contains(std::string_view str) const 
+    {
+        typename SyncPolicy::ReadLock lock(sync_policy_.getLock());
+#if FATP_USE_TRANSPARENT_LOOKUP
         return m_strings.find(str) != m_strings.end();
 #else
         return m_strings.find(std::string(str)) != m_strings.end();
@@ -289,9 +338,10 @@ public:
      * @param str String to find
      * @return Pointer to interned string, or nullptr if not found
      */
-    const char* find(std::string_view str) const {
-        std::shared_lock<std::shared_mutex> lock(m_mutex);
-#if CPP_UTILITIES_USE_TRANSPARENT_LOOKUP
+    const char* find(std::string_view str) const 
+    {
+        typename SyncPolicy::ReadLock lock(sync_policy_.getLock());
+#if FATP_USE_TRANSPARENT_LOOKUP
         auto it = m_strings.find(str);
 #else
         auto it = m_strings.find(std::string(str));
@@ -302,16 +352,18 @@ public:
     /**
      * @brief Get number of unique strings
      */
-    size_t size() const {
-        std::shared_lock<std::shared_mutex> lock(m_mutex);
+    size_t size() const 
+    {
+        typename SyncPolicy::ReadLock lock(sync_policy_.getLock());
         return m_strings.size();
     }
     
     /**
      * @brief Check if pool is empty
      */
-    bool empty() const {
-        std::shared_lock<std::shared_mutex> lock(m_mutex);
+    bool empty() const 
+    {
+        typename SyncPolicy::ReadLock lock(sync_policy_.getLock());
         return m_strings.empty();
     }
     
@@ -320,26 +372,31 @@ public:
      * 
      * WARNING: Invalidates all pointers returned by intern()
      */
-    void clear() {
-        std::unique_lock<std::shared_mutex> lock(m_mutex);
+    void clear() 
+    {
+        typename SyncPolicy::WriteLock lock(sync_policy_.getLock());
         m_strings.clear();
-        m_stats.bytes_allocated.store(0, std::memory_order_relaxed);
-        m_stats.memory_saved.store(0, std::memory_order_relaxed);
+        detail::store_stat(m_stats.total_interns, 0);
+        detail::store_stat(m_stats.bytes_allocated, 0);
+        detail::store_stat(m_stats.memory_saved, 0);
+        detail::store_stat(m_stats.unique_strings, 0);
     }
     
     /**
      * @brief Get statistics
      */
-    StringPoolStats stats() const {
-        std::shared_lock<std::shared_mutex> lock(m_mutex);
+    StringPoolStats stats() const 
+    {
+        typename SyncPolicy::ReadLock lock(sync_policy_.getLock());
         
         StringPoolStats result;
-        result.unique_strings = m_strings.size();
-        result.total_interns = m_stats.total_interns.load(std::memory_order_relaxed);
-        result.bytes_allocated = m_stats.bytes_allocated.load(std::memory_order_relaxed);
-        result.memory_saved = m_stats.memory_saved.load(std::memory_order_relaxed);
+        result.unique_strings = detail::load_stat(m_stats.unique_strings);
+        result.total_interns = detail::load_stat(m_stats.total_interns);
+        result.bytes_allocated = detail::load_stat(m_stats.bytes_allocated);
+        result.memory_saved = detail::load_stat(m_stats.memory_saved);
         
-        if (result.total_interns > 0) {
+        if (result.total_interns > 0) 
+        {
             size_t hits = result.total_interns - result.unique_strings;
             result.hit_rate = static_cast<double>(hits) / result.total_interns;
         }
@@ -348,31 +405,40 @@ public:
     }
     
     /**
-     * @brief Reset statistics
+     * @brief Reset statistics to current pool state
+     * 
+     * Sets total_interns to unique_strings count and resets memory_saved to zero.
+     * bytes_allocated remains unchanged as it reflects current pool memory usage.
      */
-    void reset_stats() {
-        m_stats.total_interns.store(m_strings.size(), std::memory_order_relaxed);
-        m_stats.memory_saved.store(0, std::memory_order_relaxed);
+    void reset_stats() 
+    {
+        typename SyncPolicy::WriteLock lock(sync_policy_.getLock());
+        
+        size_t current_bytes = 0;
+        for (const auto& s : m_strings) 
+        {
+            current_bytes += s.size() + 1;
+        }
+        
+        detail::store_stat(m_stats.unique_strings, m_strings.size());
+        detail::store_stat(m_stats.total_interns, m_strings.size());
+        detail::store_stat(m_stats.bytes_allocated, current_bytes);
+        detail::store_stat(m_stats.memory_saved, 0);
     }
     
 private:
-    // Set of interned strings
     detail::StringSet m_strings;
     
-    // Thread-safety
-    mutable std::shared_mutex m_mutex;
+    mutable SyncPolicy sync_policy_;
     
-    // Statistics
-    struct {
-        std::atomic<size_t> total_interns{0};
-        std::atomic<size_t> bytes_allocated{0};
-        std::atomic<size_t> memory_saved{0};
+    struct 
+    {
+        detail::StatType<SyncPolicy, size_t> total_interns{0};
+        detail::StatType<SyncPolicy, size_t> bytes_allocated{0};
+        detail::StatType<SyncPolicy, size_t> memory_saved{0};
+        detail::StatType<SyncPolicy, size_t> unique_strings{0};
     } m_stats;
 };
-
-// ============================================================================
-// String Handle (Optional RAII wrapper)
-// ============================================================================
 
 /**
  * @brief RAII wrapper for interned string pointer
@@ -380,7 +446,8 @@ private:
  * Provides automatic lifetime management and comparison operators.
  * Useful for storing interned strings in containers.
  */
-class StringHandle {
+class StringHandle 
+{
 public:
     StringHandle() : m_ptr(nullptr) {}
     
@@ -390,19 +457,23 @@ public:
     const char* c_str() const noexcept { return m_ptr ? m_ptr : ""; }
     
     operator const char*() const noexcept { return m_ptr; }
-    operator std::string_view() const noexcept { 
+    operator std::string_view() const noexcept 
+    { 
         return m_ptr ? std::string_view(m_ptr) : std::string_view();
     }
     
-    bool operator==(const StringHandle& other) const noexcept {
-        return m_ptr == other.m_ptr;  // Pointer comparison!
+    bool operator==(const StringHandle& other) const noexcept 
+    {
+        return m_ptr == other.m_ptr;
     }
     
-    bool operator!=(const StringHandle& other) const noexcept {
+    bool operator!=(const StringHandle& other) const noexcept 
+    {
         return m_ptr != other.m_ptr;
     }
     
-    bool operator<(const StringHandle& other) const noexcept {
+    bool operator<(const StringHandle& other) const noexcept 
+    {
         if (m_ptr == other.m_ptr) return false;
         if (!m_ptr) return true;
         if (!other.m_ptr) return false;
@@ -415,14 +486,14 @@ private:
     const char* m_ptr;
 };
 
-} // namespace cpp_utilities
+}
 
-// Hash specialization for StringHandle
 namespace std {
     template<>
-    struct hash<cpp_utilities::StringHandle> {
-        size_t operator()(const cpp_utilities::StringHandle& handle) const noexcept {
-            // Pointer-based hash for O(1) performance
+    struct hash<fat_p::StringHandle> 
+    {
+        size_t operator()(const fat_p::StringHandle& handle) const noexcept 
+        {
             return std::hash<const void*>{}(handle.get());
         }
     };

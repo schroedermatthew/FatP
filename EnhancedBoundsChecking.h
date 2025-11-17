@@ -16,8 +16,8 @@
  * Requires: C++17, enforce.h
  */
 
-#ifndef CPP_UTILITIES_ENHANCED_BOUNDS_CHECKING_H
-#define CPP_UTILITIES_ENHANCED_BOUNDS_CHECKING_H
+#ifndef FATP_ENHANCED_BOUNDS_CHECKING_H
+#define FATP_ENHANCED_BOUNDS_CHECKING_H
 
 #pragma once
 
@@ -26,7 +26,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // =============================================================================
 // Enhanced Bounds Checking Functions
@@ -287,6 +287,6 @@ inline void debug_validate_slice(T start, T stop, T step, T size,
     #endif
 }
 
-} // namespace cpp_utilities
+} // namespace fat_p
 
-#endif // CPP_UTILITIES_ENHANCED_BOUNDS_CHECKING_H
+#endif // FATP_ENHANCED_BOUNDS_CHECKING_H

@@ -17,8 +17,8 @@
  * Requires: C++17
  */
 
-#ifndef CPP_UTILITIES_BINARY_SERIALIZER_TENSOR_H
-#define CPP_UTILITIES_BINARY_SERIALIZER_TENSOR_H
+#ifndef FATP_BINARY_SERIALIZER_TENSOR_H
+#define FATP_BINARY_SERIALIZER_TENSOR_H
 
 #include "BinarySerializer.h"
 #include "Tensor.h"
@@ -27,7 +27,7 @@
 #include <cstring>
 #include <type_traits>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // =============================================================================
 // Portable Byte-Swap Intrinsics
@@ -417,6 +417,6 @@ deserialize_tensor(const std::vector<uint8_t>& data, [[maybe_unused]] CborPolicy
     }
 }
 
-} // namespace cpp_utilities
+} // namespace fat_p
 
-#endif // CPP_UTILITIES_BINARY_SERIALIZER_TENSOR_H
+#endif // FATP_BINARY_SERIALIZER_TENSOR_H

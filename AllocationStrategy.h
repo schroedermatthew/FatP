@@ -15,11 +15,11 @@
  * @note Supports movable-only T via forward.
  */
 #pragma once
-#if !defined(CPP_UTILITIES_USE_MUTEX)
-#define CPP_UTILITIES_USE_MUTEX 1 // Enable by default; undef to disable <mutex>
+#if !defined(FATP_USE_MUTEX)
+#define FATP_USE_MUTEX 1 // Enable by default; undef to disable <mutex>
 #endif
-#if !defined(CPP_UTILITIES_USE_ATOMIC)
-#define CPP_UTILITIES_USE_ATOMIC 1 // Enable by default
+#if !defined(FATP_USE_ATOMIC)
+#define FATP_USE_ATOMIC 1 // Enable by default
 #endif
 #include <mutex> // for std::mutex if enabled
 #include <atomic> // for std::atomic if enabled
@@ -44,7 +44,7 @@
 #include "EnforcedInit.h" // For enforced init in stateful policies (e.g., buffer)
 #include "DiagnosticLogger.h" // For logging allocation failures
 
-namespace cpp_utilities {
+namespace fat_p {
     // Forward declaration of the AllocationStrategy needed for policy
     // constructors and rebind operations.
     template <typename T, typename Impl>
@@ -567,7 +567,7 @@ namespace cpp_utilities {
     };
     
     // --- LockFreeWrapper using Atomic (Updates: Lock-Free for Stateful) ---
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
     /**
      * @brief Wrapper for lock-free operations on stateful allocators.
      * @note Requires BaseImpl to use atomic operations internally.
@@ -740,9 +740,9 @@ namespace cpp_utilities {
         AllocationStrategy<T, PoolAllocatorImpl<T, 1024>>;
     
     // LockFreeStackAllocator using LockFreeWrapper
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
     template <typename T>
     using LockFreeStackAllocator =
         AllocationStrategy<T, LockFreeWrapper<T, StackAllocatorImpl<T, 4096>>>;
 #endif
-} // namespace cpp_utilities
+} // namespace fat_p

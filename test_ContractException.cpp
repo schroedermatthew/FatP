@@ -35,11 +35,11 @@
 
 // Include the updated ContractException header
 #include "ContractException.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing {
+namespace fat_p::testing {
 
-using namespace cpp_utilities;
+using namespace fat_p;
 
 // =============================================================================
 // Test Suite 1: Basic Functionality
@@ -601,4 +601,4 @@ bool test_ContractException() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

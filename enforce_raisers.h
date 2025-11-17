@@ -9,16 +9,16 @@
  * tailored to different contexts (logic, runtime, allocation).
  */
 #pragma once
-#if !defined(CPP_UTILITIES_USE_IOSTREAM)
-#define CPP_UTILITIES_USE_IOSTREAM 1 // Enable by default; undef to disable <iostream> for cerr
+#if !defined(FATP_USE_IOSTREAM)
+#define FATP_USE_IOSTREAM 1 // Enable by default; undef to disable <iostream> for cerr
 #endif
-#if !defined(CPP_UTILITIES_USE_ATOMIC)
-#define CPP_UTILITIES_USE_ATOMIC 1 // Enable by default for atomic handler
+#if !defined(FATP_USE_ATOMIC)
+#define FATP_USE_ATOMIC 1 // Enable by default for atomic handler
 #endif
-#if CPP_UTILITIES_USE_IOSTREAM
+#if FATP_USE_IOSTREAM
 #include <iostream>
 #endif
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 #include <atomic> // For atomic<function> handler
 #endif
 #include <cstdlib>
@@ -33,7 +33,7 @@
 #include "Expected.h"
 #include <mutex>  // For std::mutex and std::lock_guard
 
-namespace cpp_utilities {
+namespace fat_p {
     // Define the type alias for the handler function signature
     using ViolationHandlerFunction = std::function<void(const std::string&)>;
 
@@ -270,4 +270,4 @@ namespace cpp_utilities {
             throw ExpectedException<E>(E(message));
         }
     };
-} // namespace cpp_utilities
+} // namespace fat_p

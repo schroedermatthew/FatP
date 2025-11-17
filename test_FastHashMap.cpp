@@ -1,6 +1,6 @@
 /**
  * @file test_FastHashMap.cpp
- * @brief Comprehensive test suite for cpp_utilities::FastHashMap
+ * @brief Comprehensive test suite for fat_p::FastHashMap
  * 
  * Tests all features including:
  * - Robin Hood hashing collision resolution
@@ -22,12 +22,12 @@
 
 #include "FastHashMap.h"
 #include "test_FastHashMap.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-using namespace cpp_utilities;
-using namespace cpp_utilities::testing;
+using namespace fat_p;
+using namespace fat_p::testing;
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
     // ============================================================================
     // Test Constants
@@ -344,4 +344,4 @@ namespace cpp_utilities::testing
         return runner.print_summary() == 0;
     }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

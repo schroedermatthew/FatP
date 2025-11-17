@@ -11,9 +11,6 @@
  * - Graceful shutdown with task completion
  * - Low contention design with per-thread queues
  * 
- * @version 1.0.0
- * @date 2025-11
- * 
  * @section features Features
  * - Header-only, C++17 compliant
  * - No dependencies beyond standard library
@@ -44,9 +41,6 @@
  * pool.submit_batch(tasks);
  * @endcode
  * 
- * Compilation: No special flags required
- * - g++ -std=c++17 -O3 -pthread your_code.cpp
- * - Tested on Intel Core i7-8850H @ 2.60GHz, 32GB RAM
  */
 
 #pragma once
@@ -67,7 +61,9 @@
 #include <algorithm>
 #include <random>
 
-namespace cpp_utilities {
+#include "FatPTypeTraits.h"
+
+namespace fat_p {
 
 // ============================================================================
 // Priority Enum
@@ -544,4 +540,4 @@ private:
 template <>
 struct is_thread_pool<ThreadPool> : std::true_type {};
 
-} // namespace cpp_utilities
+} // namespace fat_p

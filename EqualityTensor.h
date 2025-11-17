@@ -39,7 +39,7 @@
 #include "Tensor.h"
 #include "EqualityComparisons.h"
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // =============================================================================
 // EqualDispatcher Specialization for Tensor
@@ -183,4 +183,4 @@ struct EqualDispatcher<Tensor<T, Alloc, IteratorPolicy>, Policy> {
     }
 };
 
-} // namespace cpp_utilities
+} // namespace fat_p

@@ -1,6 +1,5 @@
 // FlatSet.h
-#ifndef CPP_UTILITIES_FLAT_SET_H
-#define CPP_UTILITIES_FLAT_SET_H
+#pragma once
 
 #include <algorithm>
 #include <functional>
@@ -8,9 +7,10 @@
 #include <iterator>
 #include <utility>
 #include <vector>
-#include "CppUtilitiesTypeTraits.h"
 
-namespace cpp_utilities {
+#include "FatPTypeTraits.h"
+
+namespace fat_p {
 
 template <typename T, typename Compare = std::less<T>, typename Allocator = std::allocator<T>>
 class FlatSet {
@@ -191,6 +191,4 @@ public:
 template <typename T, typename C, typename A>
 struct is_flat_set<FlatSet<T, C, A>> : std::true_type {};
 
-}  // namespace cpp_utilities
-
-#endif  // CPP_UTILITIES_FLAT_SET_H
+}  // namespace fat_p

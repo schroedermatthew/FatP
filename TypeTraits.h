@@ -17,7 +17,6 @@
  * - Container operations (has_clear, has_push_back, has_emplace_back)
  * - Advanced traits (is_contiguous_container, is_trivially_relocatable)
  * - Trait composition (all_of, any_of, none_of)
- * - Extension macros (DEFINE_HAS_MEMBER, DEFINE_HAS_METHOD)
  * - Diagnostic helpers (why_not_container, why_not_hashable, etc.)
  * 
  * @note All traits are constexpr and have zero runtime overhead
@@ -39,7 +38,7 @@
  * @subsection comparison_checks Comparison Checks
  * @code
  * is_hashable_v<T>          // std::hash<T> exists
- * is_comparable_v<T>        // Has operator<
+ * has_less_than_v<T>        // Has operator<
  * is_fully_ordered_v<T>     // Has <, <=, >, >=
  * is_equality_comparable_v<T>  // Has operator==
  * @endcode
@@ -74,20 +73,13 @@
 #include <iterator>
 #include <cstddef>
 
-namespace cpp_utilities {
+#include "CppStandardDetection.h"
 
-#if __cplusplus >= 202002L
-    #define CPP_UTILITIES_HAS_CPP20 1
+#if FATP_HAS_CPP20
     #include <concepts>
-#else
-    #define CPP_UTILITIES_HAS_CPP20 0
 #endif
 
-#if __cplusplus >= 202302L
-    #define CPP_UTILITIES_HAS_CPP23 1
-#else
-    #define CPP_UTILITIES_HAS_CPP23 0
-#endif
+namespace fat_p {
 
 namespace detail {
     /**
@@ -202,7 +194,79 @@ using is_detected_convertible = std::is_convertible<detected_t<Op, Args...>, To>
 template <typename To, template <typename...> class Op, typename... Args>
 inline constexpr bool is_detected_convertible_v = is_detected_convertible<To, Op, Args...>::value;
 
-#if CPP_UTILITIES_HAS_CPP20
+/**
+ * @brief has_begin - detects if T has begin() method or std::begin works
+ * @tparam T The type to check
+ */
+template <typename T, typename = void>
+struct has_begin : std::false_type {};
+
+template <typename T>
+struct has_begin<T, detail::void_t<decltype(std::begin(std::declval<T&>()))>> 
+    : std::true_type {};
+
+/**
+ * @brief has_begin_v - variable template for has_begin
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool has_begin_v = has_begin<T>::value;
+
+/**
+ * @brief has_end - detects if T has end() method or std::end works
+ * @tparam T The type to check
+ */
+template <typename T, typename = void>
+struct has_end : std::false_type {};
+
+template <typename T>
+struct has_end<T, detail::void_t<decltype(std::end(std::declval<T&>()))>> 
+    : std::true_type {};
+
+/**
+ * @brief has_end_v - variable template for has_end
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool has_end_v = has_end<T>::value;
+
+/**
+ * @brief has_size - detects if T has size() method
+ * @tparam T The type to check
+ */
+template <typename T, typename = void>
+struct has_size : std::false_type {};
+
+template <typename T>
+struct has_size<T, detail::void_t<decltype(std::declval<T&>().size())>> 
+    : std::true_type {};
+
+/**
+ * @brief has_size_v - variable template for has_size
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool has_size_v = has_size<T>::value;
+
+/**
+ * @brief has_data - detects if T has data() method
+ * @tparam T The type to check
+ */
+template <typename T, typename = void>
+struct has_data : std::false_type {};
+
+template <typename T>
+struct has_data<T, detail::void_t<decltype(std::declval<T&>().data())>> 
+    : std::true_type {};
+
+/**
+ * @brief has_data_v - variable template for has_data
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool has_data_v = has_data<T>::value;
+
+#if FATP_HAS_CPP20
 
     /**
      * @brief C++20 concept: checks if T can be iterated (has begin and end returning iterators)
@@ -215,6 +279,13 @@ inline constexpr bool is_detected_convertible_v = is_detected_convertible<To, Op
     };
 
     /**
+     * @brief is_iterable_v - variable template for is_iterable concept
+     * @tparam T The type to check
+     */
+    template<typename T>
+    inline constexpr bool is_iterable_v = is_iterable<T>;
+
+    /**
      * @brief C++20 concept: checks if T has a size() method returning an integral
      * @tparam T The type to check
      */
@@ -224,12 +295,26 @@ inline constexpr bool is_detected_convertible_v = is_detected_convertible<To, Op
     };
 
     /**
+     * @brief is_sized_v - variable template for is_sized concept
+     * @tparam T The type to check
+     */
+    template<typename T>
+    inline constexpr bool is_sized_v = is_sized<T>;
+
+    /**
      * @brief C++20 concept: checks if T is a container (iterable + sized)
      * @tparam T The type to check
      */
     template<typename T>
     concept is_container = is_iterable<T> && is_sized<T>;
     
+    /**
+     * @brief is_container_v - variable template for is_container concept
+     * @tparam T The type to check
+     */
+    template<typename T>
+    inline constexpr bool is_container_v = is_container<T>;
+
     /**
      * @brief C++20 concept: checks if T supports reverse iteration
      * @tparam T The type to check
@@ -240,61 +325,14 @@ inline constexpr bool is_detected_convertible_v = is_detected_convertible<To, Op
         { std::rend(val) } -> std::input_or_output_iterator;
     };
 
+    /**
+     * @brief is_reverse_iterable_v - variable template for is_reverse_iterable concept
+     * @tparam T The type to check
+     */
+    template<typename T>
+    inline constexpr bool is_reverse_iterable_v = is_reverse_iterable<T>;
+
 #else
-
-    /**
-     * @brief has_begin - detects if T has begin() method or std::begin works (C++17)
-     * @tparam T The type to check
-     */
-    template <typename T, typename = void>
-    struct has_begin : std::false_type {};
-    
-    template <typename T>
-    struct has_begin<T, detail::void_t<decltype(std::begin(std::declval<T&>()))>> 
-        : std::true_type {};
-    
-    /**
-     * @brief has_begin_v - variable template for has_begin
-     * @tparam T The type to check
-     */
-    template <typename T>
-    inline constexpr bool has_begin_v = has_begin<T>::value;
-
-    /**
-     * @brief has_end - detects if T has end() method or std::end works (C++17)
-     * @tparam T The type to check
-     */
-    template <typename T, typename = void>
-    struct has_end : std::false_type {};
-    
-    template <typename T>
-    struct has_end<T, detail::void_t<decltype(std::end(std::declval<T&>()))>> 
-        : std::true_type {};
-    
-    /**
-     * @brief has_end_v - variable template for has_end
-     * @tparam T The type to check
-     */
-    template <typename T>
-    inline constexpr bool has_end_v = has_end<T>::value;
-
-    /**
-     * @brief has_size - detects if T has size() method (C++17)
-     * @tparam T The type to check
-     */
-    template <typename T, typename = void>
-    struct has_size : std::false_type {};
-    
-    template <typename T>
-    struct has_size<T, detail::void_t<decltype(std::declval<T&>().size())>> 
-        : std::true_type {};
-    
-    /**
-     * @brief has_size_v - variable template for has_size
-     * @tparam T The type to check
-     */
-    template <typename T>
-    inline constexpr bool has_size_v = has_size<T>::value;
 
     /**
      * @brief has_empty - detects if T has empty() method (C++17)
@@ -331,24 +369,6 @@ inline constexpr bool is_detected_convertible_v = is_detected_convertible<To, Op
      */
     template <typename T>
     inline constexpr bool has_reserve_v = has_reserve<T>::value;
-
-    /**
-     * @brief has_data - detects if T has data() method (C++17)
-     * @tparam T The type to check
-     */
-    template <typename T, typename = void>
-    struct has_data : std::false_type {};
-    
-    template <typename T>
-    struct has_data<T, detail::void_t<decltype(std::declval<T&>().data())>> 
-        : std::true_type {};
-    
-    /**
-     * @brief has_data_v - variable template for has_data
-     * @tparam T The type to check
-     */
-    template <typename T>
-    inline constexpr bool has_data_v = has_data<T>::value;
 
     /**
      * @brief has_rbegin - detects if T supports rbegin() (C++17)
@@ -781,24 +801,24 @@ template <typename T>
 inline constexpr bool is_fully_ordered_v = is_fully_ordered<T>::value;
 
 /**
- * @brief is_comparable - detects if T has operator< (for ordering)
+ * @brief has_less_than - detects if T has operator< (for ordering)
  * @tparam T The type to check
  */
 template <typename T, typename = void>
-struct is_comparable : std::false_type {};
+struct has_less_than : std::false_type {};
 
 template <typename T>
-struct is_comparable<T, detail::void_t<decltype(
+struct has_less_than<T, detail::void_t<decltype(
     std::declval<T>() < std::declval<T>())>> : std::true_type {};
 
 /**
- * @brief is_comparable_v - variable template for is_comparable
+ * @brief has_less_than_v - variable template for has_less_than
  * @tparam T The type to check
  */
 template <typename T>
-inline constexpr bool is_comparable_v = is_comparable<T>::value;
+inline constexpr bool has_less_than_v = has_less_than<T>::value;
 
-#if CPP_UTILITIES_HAS_CPP20
+#if FATP_HAS_CPP20
 /**
  * @brief is_three_way_comparable - detects if T has operator<=> (C++20)
  * @tparam T The type to check
@@ -1125,7 +1145,7 @@ struct is_function_object<T, detail::void_t<decltype(&T::operator())>> : std::tr
 template <typename T>
 inline constexpr bool is_function_object_v = is_function_object<T>::value;
 
-#if __cplusplus >= 201703L
+#if FATP_HAS_CPP17
 /**
  * @brief is_aggregate - checks if T is an aggregate type (C++17)
  * @tparam T The type to check
@@ -1406,7 +1426,14 @@ inline constexpr bool is_sized_range_v = is_sized_range<T>::value;
 /**
  * @brief is_trivially_relocatable - checks if T can be relocated with memcpy
  * @tparam T The type to check
- * @note Currently uses is_trivially_copyable as approximation
+ * 
+ * @note Uses std::is_trivially_copyable as the implementation, which guarantees
+ * that T has a trivial destructor, trivial copy constructor, and trivial move
+ * constructor (if applicable). This is a safe and conservative check for types
+ * that can be relocated by simply copying their byte representation.
+ * 
+ * @note For C++23 and later, this may be replaced with std::is_trivially_relocatable
+ * when that proposal is standardized.
  */
 template<typename T>
 struct is_trivially_relocatable : std::is_trivially_copyable<T> {};
@@ -1590,58 +1617,6 @@ constexpr const char* diagnose_comparable() {
 } // namespace diagnostics
 
 /**
- * @def DEFINE_HAS_MEMBER
- * @brief Macro to define a trait that detects if a type has a specific member variable
- * @param member_name The name of the member to detect
- * 
- * @details Creates has_<member_name> and has_<member_name>_v traits
- * 
- * Example:
- * @code
- * DEFINE_HAS_MEMBER(value)
- * struct WithValue { int value; };
- * static_assert(has_value_v<WithValue>);
- * @endcode
- */
-#define DEFINE_HAS_MEMBER(member_name) \
-    template <typename T, typename = void> \
-    struct has_##member_name : std::false_type {}; \
-    \
-    template <typename T> \
-    struct has_##member_name<T, cpp_utilities::detail::void_t<decltype(&T::member_name)>> \
-        : std::true_type {}; \
-    \
-    template <typename T> \
-    inline constexpr bool has_##member_name##_v = has_##member_name<T>::value;
-
-/**
- * @def DEFINE_HAS_METHOD
- * @brief Macro to define a trait that detects if a type has a specific method
- * @param method_name The name of the method to detect
- * @param ... Arguments to pass to the method
- * 
- * @details Creates has_<method_name> and has_<method_name>_v traits
- * 
- * Example:
- * @code
- * DEFINE_HAS_METHOD(reset)
- * struct Resettable { void reset(); };
- * static_assert(has_reset_v<Resettable>);
- * @endcode
- */
-#define DEFINE_HAS_METHOD(method_name, ...) \
-    template <typename T, typename = void> \
-    struct has_##method_name : std::false_type {}; \
-    \
-    template <typename T> \
-    struct has_##method_name<T, cpp_utilities::detail::void_t<decltype( \
-        std::declval<T&>().method_name(__VA_ARGS__))>> \
-        : std::true_type {}; \
-    \
-    template <typename T> \
-    inline constexpr bool has_##method_name##_v = has_##method_name<T>::value;
-
-/**
  * @namespace extension_points
  * @brief Extension points for user-defined type traits
  */
@@ -1655,7 +1630,7 @@ namespace extension_points {
      * 
      * Example:
      * @code
-     * namespace cpp_utilities::extension_points {
+     * namespace fat_p::extension_points {
      *     template<>
      *     struct custom_traits<MyType> {
      *         static constexpr bool is_relocatable = true;
@@ -1716,7 +1691,7 @@ constexpr void requires_hashable() {
  */
 template<typename T>
 constexpr void requires_comparable() {
-    static_assert(is_comparable_v<T>,
+    static_assert(has_less_than_v<T>,
         "[CONTRACT VIOLATION] Type must be comparable (operator< must exist)");
 }
 
@@ -1761,4 +1736,4 @@ constexpr void requires_contiguous() {
         "[CONTRACT VIOLATION] Type must be a contiguous container (have data())");
 }
 
-} // namespace cpp_utilities
+} // namespace fat_p

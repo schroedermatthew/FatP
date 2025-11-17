@@ -5,9 +5,9 @@
 
 #include "CacheUtilities.h"
 #include "test_CacheUtilities.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 using namespace perf;
@@ -296,4 +296,4 @@ bool test_CacheUtilities() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

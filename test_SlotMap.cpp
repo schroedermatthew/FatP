@@ -3,12 +3,11 @@
 #include <vector>
 
 #include "SlotMap.h"
+#include "FatPTest.h"
+
 #include "test_SlotMap.h"
-#include "test_Utilities.h"
 
-using namespace cpp_utilities;
-
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 // Test data structure
@@ -311,4 +310,4 @@ bool test_SlotMap() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

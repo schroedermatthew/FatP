@@ -21,7 +21,7 @@
 #include "ConstexprUtilities.h"
 #include "TypeTraits.h"
 
-namespace cpp_utilities {
+namespace fat_p {
 
     // ===================================================================
     // 1. Core Predicates
@@ -488,4 +488,4 @@ namespace cpp_utilities {
             // Add runtime-only code here if needed
         }
     };
-} // namespace cpp_utilities
+} // namespace fat_p

@@ -1,8 +1,12 @@
 #pragma once
 
-namespace cpp_utilities::testing
+#ifndef ENABLE_TEST_APPLICATION
+
+namespace fat_p::testing
 {
 
 bool test_StringPool();
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing
+
+#endif

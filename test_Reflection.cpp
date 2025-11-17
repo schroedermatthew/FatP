@@ -4,13 +4,13 @@
 
 #include "Reflection.h"
 #include "test_Reflection.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
 // ============================================================================
 // Define Test Types (inside namespace)
 // ============================================================================
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 struct Point {
@@ -49,26 +49,26 @@ struct NestedStruct {
 
 REFLECT_DECLARE(NestedStruct, position, label, id);
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing
 
 // ============================================================================
 // Register Types for Reflection (at global scope)
 // ============================================================================
 
 // Unified syntax for both C++17 and C++20!
-REFLECT_REGISTER(cpp_utilities::testing::Point, x, y)
-REFLECT_REGISTER(cpp_utilities::testing::Person, name, age, height)
-REFLECT_REGISTER(cpp_utilities::testing::ComplexStruct, a, b, c, d, e, f, g, h)
-REFLECT_REGISTER(cpp_utilities::testing::NestedStruct, position, label, id)
+REFLECT_REGISTER(fat_p::testing::Point, x, y)
+REFLECT_REGISTER(fat_p::testing::Person, name, age, height)
+REFLECT_REGISTER(fat_p::testing::ComplexStruct, a, b, c, d, e, f, g, h)
+REFLECT_REGISTER(fat_p::testing::NestedStruct, position, label, id)
 
 // ============================================================================
 // Test Implementation (back in namespace)
 // ============================================================================
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
-using namespace cpp_utilities;
+using namespace fat_p;
 
 // ============================================================================
 // Unit Tests
@@ -430,7 +430,7 @@ bool test_Reflection() {
 
     PRINT_HEADER(REFLECTION)
 
-#if CPP_UTILITIES_HAS_CPP20
+#if FATP_HAS_CPP20
     std::cout << "(C++20 Mode) Unified REFLECT_REGISTER Syntax with NTTP Field Names\n";
 #else
     std::cout << "(C++17 Mode) Unified REFLECT_REGISTER Syntax with Constructor Field Names\n";
@@ -458,4 +458,4 @@ bool test_Reflection() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

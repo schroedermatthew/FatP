@@ -10,9 +10,9 @@
 #include <thread>
 
 #include "ViewLifetimeTracking.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing {
+namespace fat_p::testing {
 
 // =============================================================================
 // Test 1: Basic Lifetime Tracking
@@ -318,4 +318,4 @@ bool test_ViewLifetimeTracking() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

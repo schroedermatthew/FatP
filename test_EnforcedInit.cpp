@@ -12,11 +12,11 @@
 
 #include "EnforcedInit.h"
 #include "test_EnforcedInit.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
 /**
  * @file test_EnforcedInit.cpp
- * @brief Comprehensive test suite for cpp_utilities::EnforcedInit - FULLY CORRECTED VERSION
+ * @brief Comprehensive test suite for fat_p::EnforcedInit - FULLY CORRECTED VERSION
  * 
  * This test suite demonstrates all features of EnforcedInit including:
  * - Basic initialization and access enforcement
@@ -43,10 +43,10 @@
  * - Tested on Intel(R) Core(TM) i7-8850H CPU @ 2.60GHz
  */
 
-using namespace cpp_utilities;
-using namespace cpp_utilities::testing;
+using namespace fat_p;
+using namespace fat_p::testing;
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
     // ============================================================================
     // Constants - FIX #27: Named constants instead of magic numbers
@@ -864,7 +864,7 @@ namespace cpp_utilities::testing
     
     // FIX #13: Add AtomicPolicy tests
     bool test_enforce_init_atomic_policy() {
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
         // Test 1: Basic atomic policy usage
         {
             EnforcedInit<int, AtomicPolicy> value;
@@ -1685,4 +1685,4 @@ namespace cpp_utilities::testing
         return failed == 0;
     }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

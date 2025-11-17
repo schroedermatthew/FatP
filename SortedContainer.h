@@ -19,16 +19,16 @@
  * @note All synchronization policies are imported from ConcurrencyPolicies.h - no redundant definitions.
  */
 #pragma once
-#if !defined(CPP_UTILITIES_USE_SHARED_MUTEX)
-#define CPP_UTILITIES_USE_SHARED_MUTEX 1 // Enable by default; undef to disable
+#if !defined(FATP_USE_SHARED_MUTEX)
+#define FATP_USE_SHARED_MUTEX 1 // Enable by default; undef to disable
 #endif
-#if !defined(CPP_UTILITIES_USE_ATOMIC)
-#define CPP_UTILITIES_USE_ATOMIC 1 // Enable by default
+#if !defined(FATP_USE_ATOMIC)
+#define FATP_USE_ATOMIC 1 // Enable by default
 #endif
-#if !defined(CPP_UTILITIES_USE_IMMINTRIN)
-#define CPP_UTILITIES_USE_IMMINTRIN 0 // Disable by default; enable for SIMD
+#if !defined(FATP_USE_IMMINTRIN)
+#define FATP_USE_IMMINTRIN 0 // Disable by default; enable for SIMD
 #endif
-#if CPP_UTILITIES_USE_IMMINTRIN
+#if FATP_USE_IMMINTRIN
 #include <immintrin.h> // For SIMD intrinsics
 #endif
 #include <algorithm>
@@ -40,10 +40,10 @@
 #include <type_traits>
 #include <mutex> // For MutexSynchronizationPolicy
 
-#if CPP_UTILITIES_USE_SHARED_MUTEX
+#if FATP_USE_SHARED_MUTEX
 #include <shared_mutex> // For RWLock SynchronizationPolicy (C++17; guarded)
 #endif
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 #include <atomic> // For SpinlockSynchronizationPolicy (guarded)
 #endif
 #include <optional> // For optional in some returns if needed
@@ -70,7 +70,7 @@ template <typename T, typename Allocator>
 struct DequeBackendPolicy {
     using type = std::deque<T, Allocator>;
 };
-namespace cpp_utilities {
+namespace fat_p {
     // Helper trait for detecting FuzzyUniquePolicy specializations
     template <typename Policy>
     struct is_fuzzy_unique_policy : std::false_type {};
@@ -598,9 +598,9 @@ namespace cpp_utilities {
     };
 
     // Guard optional deps
-    // Users define CPP_UTILITIES_USE_SHARED_MUTEX / CPP_UTILITIES_USE_ATOMIC to 0 if not wanted.
+    // Users define FATP_USE_SHARED_MUTEX / FATP_USE_ATOMIC to 0 if not wanted.
 
 template <typename T, typename UP, typename CP, typename A, typename ConP, template <typename, typename> class BP>
 struct is_sorted_container<SortedContainer<T, UP, CP, A, ConP, BP>> : std::true_type {};
 
-} // namespace cpp_utilities
+} // namespace fat_p

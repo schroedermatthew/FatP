@@ -2,9 +2,9 @@
 
 #include "SparseSet.h"
 #include "test_SparseSet.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 bool test_sparse_set_basic_operations() {
@@ -134,4 +134,4 @@ bool test_SparseSet() {
 
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

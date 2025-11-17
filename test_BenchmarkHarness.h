@@ -1,9 +1,9 @@
 #pragma once
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 bool test_BenchmarkHarness();
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing
 

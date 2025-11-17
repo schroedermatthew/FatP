@@ -5,9 +5,9 @@
 
 #include "CircularBuffer.h"
 #include "test_CircularBuffer.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 constexpr size_t BUFFER_SIZE = 16;
@@ -253,4 +253,4 @@ bool test_CircularBuffer() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

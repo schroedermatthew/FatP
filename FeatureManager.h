@@ -41,7 +41,7 @@
 #include "EnumPlus.h"
 #include "SortedContainer.h"
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // ============================================================================
 // Enum Definitions
@@ -716,17 +716,17 @@ public:
     //
     // Priority ordering: Higher priority observers are called first (e.g., 100 before 10)
     //
-    // ⚠️  CRITICAL REENTRANCY WARNING:
+    // CRITICAL REENTRANCY WARNING:
     // Observers are called while holding the FeatureManager's internal lock.
     // DO NOT call any FeatureManager methods from within an observer callback,
     // as this will cause a deadlock:
     //
-    //   ❌ WRONG - Will deadlock:
+    //   WRONG - Will deadlock:
     //     manager.add_observer([&](auto name, auto enabled, auto success) {
     //         if (enabled) manager.enable("AnotherFeature");  // DEADLOCK!
     //     });
     //
-    //   ✅ CORRECT - Defer action or use flag:
+    //   CORRECT - Defer action or use flag:
     //     bool needs_update = false;
     //     manager.add_observer([&](auto name, auto enabled, auto success) {
     //         if (enabled) needs_update = true;  // Set flag
@@ -911,4 +911,4 @@ public:
     }
 };
 
-}  // namespace cpp_utilities
+}  // namespace fat_p

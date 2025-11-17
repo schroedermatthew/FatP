@@ -1,3 +1,4 @@
+// LockFreeRingBuffer.h
 #pragma once
 
 #include <atomic>
@@ -8,7 +9,9 @@
 #include <type_traits>
 #include <malloc.h> // For _aligned_malloc and _aligned_free on Windows
 
-namespace cpp_utilities {
+#include "FatPTypeTraits.h"
+
+namespace fat_p {
 
 // ============================================================================
 // LockFreeRingBuffer - Single Producer Single Consumer Queue
@@ -393,7 +396,7 @@ private:
 };
 
 
-template <typename T, size_t Capacity>
-struct is_lock_free_ring_buffer<LockFreeRingBuffer<T, Capacity>> : std::true_type {};
+template <typename T>
+struct is_lock_free_ring_buffer<LockFreeRingBuffer<T>> : std::true_type {};
 
-} // namespace cpp_utilities
+} // namespace fat_p

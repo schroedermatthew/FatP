@@ -11,7 +11,7 @@
 #include <vector>
 #include <stdexcept>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 /**
  * @brief Fast hash map using Robin Hood hashing with backward-shift deletion
@@ -296,6 +296,6 @@ public:
     }
 };
 
-}  // namespace cpp_utilities
+}  // namespace fat_p
 
 #endif  // FAST_HASH_MAP_H

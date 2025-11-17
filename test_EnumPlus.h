@@ -1,10 +1,10 @@
-#ifndef CPP_UTILITIES_TEST_ENUM_PLUS_H
-#define CPP_UTILITIES_TEST_ENUM_PLUS_H
+#ifndef FATP_TEST_ENUM_PLUS_H
+#define FATP_TEST_ENUM_PLUS_H
 
-#include "test_Utilities.h"
+#include "FatPTest.h"
 #include "EnumPlus.h"
 
-namespace cpp_utilities {
+namespace fat_p {
 namespace testing {
 
 // Test enum types
@@ -46,13 +46,13 @@ enum class LargeEnum {
 bool test_EnumPlus();
 
 } // namespace testing
-} // namespace cpp_utilities
+} // namespace fat_p
 
 // ============================================================================
 // Template Specializations - MUST be in cpp_utilities namespace
 // ============================================================================
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // EnumSizeTrait specializations
 template<>
@@ -134,6 +134,6 @@ struct EnumStringPolicy<testing::Status> {
     }
 };
 
-} // namespace cpp_utilities
+} // namespace fat_p
 
-#endif // CPP_UTILITIES_TEST_ENUM_PLUS_H
+#endif // FATP_TEST_ENUM_PLUS_H

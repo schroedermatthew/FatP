@@ -34,7 +34,9 @@
 #include <algorithm>    // for std::swap
 #include <functional>   // for std::invoke (C++17)
 
-namespace cpp_utilities {
+#include "FatPTypeTraits.h"
+
+namespace fat_p {
 
 // --- Policy Tags and Definitions ---
 
@@ -551,4 +553,4 @@ auto make_value_guard_no_restore(T& target, const T& new_value) {
 template <typename T, typename Policy>
 struct is_value_guard<ValueGuard<T, Policy>> : std::true_type {};
 
-} // namespace cpp_utilities
+} // namespace fat_p

@@ -20,11 +20,6 @@
  * - AVX:     8 floats / 4 doubles per operation
  * - AVX-512: 16 floats / 8 doubles per operation
  * - NEON:    4 floats / 2 doubles per operation
- * 
- * Requires: C++17
- * 
- * @author cpp_utilities
- * @date 2025
  */
 
 #pragma once
@@ -67,8 +62,9 @@
     #include <arm_neon.h>
 #endif
 
-namespace cpp_utilities {
-namespace simd {
+#include "FatPTypeTraits.h"
+
+namespace fat_p {
 
 // =============================================================================
 // SIMD Architecture Traits
@@ -769,9 +765,7 @@ public:
 using SimdVectorF = SimdVector<float>;
 using SimdVectorD = SimdVector<double>;
 
-} // namespace simd
+template <typename T>
+struct is_simd_vector<SimdVector<T>> : std::true_type {};
 
-template <typename T, size_t N>
-struct is_simd_vector<SimdVector<T, N>> : std::true_type {};
-
-} // namespace cpp_utilities
+} // namespace fat_p

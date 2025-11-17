@@ -8,7 +8,7 @@
 //
 // For lightweight floating-point-only tests, see test_FloatingPointComparison.cpp
 //
-// FIXED: MSVC-compatible macro usage (extra parentheses around template calls)
+// MSVC-compatible macro usage (extra parentheses around template calls)
 
 #include <iostream>
 #include <vector>
@@ -20,12 +20,9 @@
 #include <cmath>
 
 #include "EqualityComparisons.h"
-#include "test_EqualityComparisons.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing {
-
-using namespace cpp_utilities;
+namespace fat_p::testing {
 
 // =============================================================================
 // Test Suite 1: StandardComparisonPolicy Edge Cases
@@ -98,7 +95,7 @@ bool test_ulp_policy_basic() {
     float b = 1.0f + std::numeric_limits<float>::epsilon();
     
     // Within 4 ULPs (default)
-    // FIX: Use extra parentheses to protect template arguments from macro expansion
+    // Use extra parentheses to protect template arguments from macro expansion
     ASSERT_TRUE((areEqual<float, UlpComparisonPolicy>(a, a)), "Same value");
     ASSERT_TRUE((areEqual<float, UlpComparisonPolicy>(a, b, 4.0)), "Within 4 ULPs");
     
@@ -430,4 +427,12 @@ bool test_EqualityComparisons() {
     return (failed == 0);
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing
+
+#ifdef ENABLE_TEST_APPLICATION
+int main()
+{
+    return fat_p::testing::test_EqualityComparisons() ? 0 : 1;
+}
+#endif
+

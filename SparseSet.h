@@ -65,7 +65,9 @@
 #include <algorithm>
 #include <iterator>
 
-namespace cpp_utilities {
+#include "FatPTypeTraits.h"
+
+namespace fat_p {
 
 // ============================================================================
 // Sparse Set
@@ -425,4 +427,4 @@ private:
 template <typename T>
 struct is_sparse_set<SparseSet<T>> : std::true_type {};
 
-} // namespace cpp_utilities
+} // namespace fat_p

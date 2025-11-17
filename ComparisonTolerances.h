@@ -4,7 +4,7 @@
 #include <cmath>
 #include <limits>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 /** @brief Default epsilon for double-precision floating-point comparisons. */
 inline constexpr double kDefaultDoubleEpsilon = 
@@ -14,4 +14,4 @@ inline constexpr double kDefaultDoubleEpsilon =
 inline constexpr float kDefaultFloatEpsilon = 
     std::numeric_limits<float>::epsilon() * 100.0f; 
 
-} // namespace cpp_utilities
+} // namespace fat_p

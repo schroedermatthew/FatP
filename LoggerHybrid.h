@@ -3,11 +3,11 @@
  * @brief Ultra-high-performance diagnostic logging with OPTIONAL async mode
  * 
  * CHANGES FROM v3.0:
- * - âœ… OPTIONAL async mode (no mandatory thread!)
- * - âœ… Lazy thread creation (starts on first async log)
- * - âœ… Sync mode available (no thread, still fast: ~150-180ns)
- * - âœ… Runtime toggle between sync/async
- * - âœ… Better control over threading behavior
+ * - Ã¢Å“â€¦ OPTIONAL async mode (no mandatory thread!)
+ * - Ã¢Å“â€¦ Lazy thread creation (starts on first async log)
+ * - Ã¢Å“â€¦ Sync mode available (no thread, still fast: ~150-180ns)
+ * - Ã¢Å“â€¦ Runtime toggle between sync/async
+ * - Ã¢Å“â€¦ Better control over threading behavior
  * 
  * PERFORMANCE:
  * - Async mode (with thread): 100-150ns
@@ -20,6 +20,8 @@
  * 3. HYBRID: Start sync, switch to async on demand
  */
 #pragma once
+
+#include "CppStandardDetection.h"
 
 #include <iostream>
 #include <fstream>
@@ -38,7 +40,7 @@
 #include <cstring>
 #include <mutex>
 #include <algorithm>
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
 #include <source_location>
 #endif
 
@@ -83,7 +85,7 @@
 #define CACHE_LINE_SIZE 64
 #endif
 
-namespace cpp_utilities {
+namespace fat_p {
 namespace diagnostic {
 namespace ultra {
 
@@ -119,7 +121,7 @@ inline const char* toString(LogLevel level) {
 // Source Location
 // ============================================================================
 
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
 using SourceLocation = std::source_location;
 #else
 struct SourceLocation {
@@ -164,7 +166,7 @@ struct alignas(CACHE_LINE_SIZE) LogRecord {
     }
     
     void setLocation(const SourceLocation& loc) {
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         const char* basename = loc.file_name();
 #else
         const char* basename = loc.file;
@@ -178,7 +180,7 @@ struct alignas(CACHE_LINE_SIZE) LogRecord {
         std::memcpy(file, basename, file_len);
         file[file_len] = '\0';
         
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         const char* func_name = loc.function_name();
 #else
         const char* func_name = loc.function;
@@ -187,7 +189,7 @@ struct alignas(CACHE_LINE_SIZE) LogRecord {
         std::memcpy(function, func_name, func_len);
         function[func_len] = '\0';
         
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         line = static_cast<int>(loc.line());  // C++20: METHOD CALL
 #else
         line = loc.line;  // C++17: MEMBER ACCESS
@@ -444,7 +446,7 @@ public:
         return enabled_.load(std::memory_order_relaxed);
     }
     
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
     template <typename MessageGenerator>
     requires std::invocable<MessageGenerator> || std::convertible_to<MessageGenerator, std::string_view>
 #else
@@ -732,4 +734,4 @@ public:
 
 } // namespace ultra
 } // namespace diagnostic
-} // namespace cpp_utilities
+} // namespace fat_p

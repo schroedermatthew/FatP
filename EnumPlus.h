@@ -1,5 +1,5 @@
-#ifndef CPP_UTILITIES_ENUM_PLUS_H
-#define CPP_UTILITIES_ENUM_PLUS_H
+#ifndef FATP_ENUM_PLUS_H
+#define FATP_ENUM_PLUS_H
 
 #include <array>
 #include <type_traits>
@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <functional>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // ============================================================================
 // Forward Declarations
@@ -434,6 +434,6 @@ constexpr auto enum_values() noexcept
     return values;
 }
 
-} // namespace cpp_utilities
+} // namespace fat_p
 
-#endif // CPP_UTILITIES_ENUM_PLUS_H
+#endif // FATP_ENUM_PLUS_H

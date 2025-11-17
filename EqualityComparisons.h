@@ -22,7 +22,7 @@
 #include "DiagnosticLogger.h"        // Dependency for conditionalPrintError and toString
 #include "Stringify.h"               // For toString
 
-namespace cpp_utilities {
+namespace fat_p {
     
     // ====================================================================
     // Configuration Constants
@@ -404,4 +404,4 @@ namespace cpp_utilities {
         return EqualDispatcher<T, Policy>::compare(a, b, eps...);
     }
 
-} // namespace cpp_utilities
+} // namespace fat_p

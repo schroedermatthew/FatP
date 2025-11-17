@@ -62,7 +62,7 @@
     #undef max
 #endif
 
-namespace cpp_utilities {
+namespace fat_p {
 namespace memory {
 
 // =============================================================================
@@ -475,4 +475,4 @@ inline NumaMemoryStats get_node_memory_stats(int node) {
 }
 
 } // namespace memory
-} // namespace cpp_utilities
+} // namespace fat_p

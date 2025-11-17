@@ -2,7 +2,7 @@
 // Tests SyncLogger, AsyncLogger, and HybridLogger from LoggerPolicy.h
 
 #include "test_UltraLoggers.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 #include "LoggerPolicy.h"
 
 #include <iostream>
@@ -17,11 +17,11 @@
 #include <ctime>
 #include <utility>
 
-namespace cpp_utilities {
+namespace fat_p {
 namespace testing {
 
 using namespace std::chrono;
-using namespace cpp_utilities::diagnostic::ultra;
+using namespace fat_p::diagnostic::ultra;
 
 // Type aliases for the three logger variants
 using SyncLoggerType = SyncLogger;
@@ -458,4 +458,4 @@ bool test_UltraLoggers() {
 }
 
 } // namespace testing
-} // namespace cpp_utilities
+} // namespace fat_p

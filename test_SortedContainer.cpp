@@ -1,6 +1,6 @@
 /**
  * @file test_SortedContainer.cpp
- * @brief Comprehensive test suite for cpp_utilities::SortedContainer
+ * @brief Comprehensive test suite for fat_p::SortedContainer
  * 
  * This test suite verifies all features and bug fixes including:
  * - Bug Fix #1: Stability of AllowDuplicatesPolicy (upper_bound)
@@ -40,12 +40,12 @@
 
 #include "SortedContainer.h"
 #include "test_SortedContainer.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-using namespace cpp_utilities;
-using namespace cpp_utilities::testing;
+using namespace fat_p;
+using namespace fat_p::testing;
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
     // ============================================================================
     // Test Constants
@@ -954,4 +954,4 @@ namespace cpp_utilities::testing
         return all_passed;
     }
     
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

@@ -1,7 +1,7 @@
 #pragma once
 
-namespace cpp_utilities::testing {
+namespace fat_p::testing {
 
 bool test_UltraLoggers();
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

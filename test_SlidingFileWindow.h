@@ -26,10 +26,10 @@
 
 #include "SlidingFileWindow.h"
 #include "test_SlidingFileWindow.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
 // Mock implementations for standalone compilation
-namespace cpp_utilities {
+namespace fat_p {
 
 template <typename T, typename E>
 class Expected {
@@ -104,11 +104,11 @@ public:
     };
 };
 
-} // namespace cpp_utilities
+} // namespace fat_p
 
-namespace cpp_utilities::testing {
+namespace fat_p::testing {
 
-using namespace cpp_utilities;
+using namespace fat_p;
 namespace fs = std::filesystem;
 
 // =============================================================================
@@ -637,4 +637,4 @@ bool test_SlidingFileWindow() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

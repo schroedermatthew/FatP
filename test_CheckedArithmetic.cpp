@@ -1,12 +1,13 @@
 /**
- * @file test_CheckedArithmetic_v3.cpp
+ * @file test_ca_CheckedArithmetic_v3.cpp
  * @brief Comprehensive test suite for CheckedArithmetic v3.0
- * @version 3.0 - All critical fixes and enhancements tested
+ * @version 3.1 - Enhanced FP vector operations with full NaN/Inf overflow detection
  * 
  * @details Tests covering:
  * - All critical bug fixes (multiplication, division, FP validation)
  * - Enhanced functionality (noexcept, SIMD, type-safe shifts)
  * - Edge cases (denormals, signaling NaN, unsigned overflow)
+ * - FP vector operations (NaN/Inf detection, policy compliance, SIMD consistency)
  * - Performance validation
  */
 
@@ -18,10 +19,13 @@
 #include <chrono>
 
 #include "CheckedArithmetic.h"
-#include "test_CheckedArithmetic.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing {
+#ifndef ENABLE_TEST_APPLICATION
+#include "test_CheckedArithmetic.h"
+#endif
+
+namespace fat_p::testing {
 
 // =============================================================================
 // Test Helpers
@@ -39,15 +43,10 @@ bool test_throws(const char* operation_name, Func func) {
     }
 }
 
-// =============================================================================
-// CRITICAL FIX TESTS
-// =============================================================================
-
-bool test_critical_fix_mul_type_mismatch() {
+bool test_ca_mul_type_mismatch() {
     std::cout << colors::cyan() << "\n[CRITICAL FIX TEST] Testing checked_mul type mismatch fix..."
               << colors::reset() << std::endl;
     
-    // Fix #1: Type mismatch in fallback path
     {
         // Test multiplication by zero (should compile and return Expected{0})
         auto result1 = checked_mul<ReturnExpectedPolicy>(5, 0);
@@ -74,16 +73,15 @@ bool test_critical_fix_mul_type_mismatch() {
         ASSERT_EQ(result, 0, "Saturating policy should also work");
     }
     
-    std::cout << colors::green() << "[CRITICAL FIX] checked_mul type mismatch: FIXED ✓" 
+    std::cout << colors::green() << "[CRITICAL FIX] checked_mul type mismatch: FIXED âœ“" 
               << colors::reset() << std::endl;
     return true;
 }
 
-bool test_critical_fix_div_sign_aware_saturation() {
+bool test_ca_div_sign_aware_saturation() {
     std::cout << colors::cyan() << "\n[CRITICAL FIX TEST] Testing sign-aware saturation..."
               << colors::reset() << std::endl;
     
-    // Fix #2: Integral division sign-aware saturation
     {
         auto pos_result = checked_div<SaturatingPolicy>(100, 0);
         ASSERT_EQ(pos_result, std::numeric_limits<int>::max(), 
@@ -97,7 +95,6 @@ bool test_critical_fix_div_sign_aware_saturation() {
         ASSERT_EQ(zero_result, 0, "0 / 0 should return 0");
     }
     
-    // Fix #3: FP division sign-aware saturation
     {
         auto pos_result = checked_div_fp<SaturatingPolicy>(5.0, 0.0);
         ASSERT_EQ(pos_result, std::numeric_limits<double>::max(), 
@@ -117,19 +114,18 @@ bool test_critical_fix_div_sign_aware_saturation() {
                   "Small negative / 0.0 should saturate to lowest");
     }
     
-    std::cout << colors::green() << "[CRITICAL FIX] Sign-aware saturation: FIXED ✓" 
+    std::cout << colors::green() << "[CRITICAL FIX] Sign-aware saturation: FIXED âœ“" 
               << colors::reset() << std::endl;
     return true;
 }
 
-bool test_critical_fix_fp_input_validation() {
+bool test_ca_fp_input_validation() {
     std::cout << colors::cyan() << "\n[CRITICAL FIX TEST] Testing FP input validation..."
               << colors::reset() << std::endl;
     
     double nan_val = std::numeric_limits<double>::quiet_NaN();
     double inf_val = std::numeric_limits<double>::infinity();
     
-    // Fix #4: NaN input detection in addition
     {
         SIMPLE_ASSERT(test_throws("NaN + 1", [&]() {
             checked_add_fp<ThrowOnErrorPolicy>(nan_val, 1.0);
@@ -218,7 +214,7 @@ bool test_critical_fix_fp_input_validation() {
         ASSERT_EQ(result.error(), MathError::Inf, "Should return Inf error for overflow");
     }
     
-    std::cout << colors::green() << "[CRITICAL FIX] FP input validation: FIXED ✓" 
+    std::cout << colors::green() << "[CRITICAL FIX] FP input validation: FIXED âœ“" 
               << colors::reset() << std::endl;
     return true;
 }
@@ -227,7 +223,7 @@ bool test_critical_fix_fp_input_validation() {
 // ENHANCED FUNCTIONALITY TESTS
 // =============================================================================
 
-bool test_noexcept_specifications() {
+bool test_ca_noexcept_specifications() {
     std::cout << colors::cyan() << "\n[ENHANCEMENT TEST] Testing noexcept specifications..."
               << colors::reset() << std::endl;
     
@@ -245,12 +241,12 @@ bool test_noexcept_specifications() {
     static_assert(noexcept(checked_add_fp<SaturatingPolicy>(1.0, 2.0)),
                   "FP SaturatingPolicy should be noexcept");
     
-    std::cout << colors::green() << "[ENHANCEMENT] noexcept specifications: WORKING ✓" 
+    std::cout << colors::green() << "[ENHANCEMENT] noexcept specifications: WORKING âœ“" 
               << colors::reset() << std::endl;
     return true;
 }
 
-bool test_type_safe_shifts() {
+bool test_ca_type_safe_shifts() {
     std::cout << colors::cyan() << "\n[ENHANCEMENT TEST] Testing type-safe shift operations..."
               << colors::reset() << std::endl;
     
@@ -285,12 +281,12 @@ bool test_type_safe_shifts() {
         }), "Should throw on shift >= bitwidth");
     }
     
-    std::cout << colors::green() << "[ENHANCEMENT] Type-safe shifts: WORKING ✓" 
+    std::cout << colors::green() << "[ENHANCEMENT] Type-safe shifts: WORKING âœ“" 
               << colors::reset() << std::endl;
     return true;
 }
 
-bool test_static_math_mod() {
+bool test_ca_static_math_mod() {
     std::cout << colors::cyan() << "\n[ENHANCEMENT TEST] Testing static_math::mod..."
               << colors::reset() << std::endl;
     
@@ -310,7 +306,7 @@ bool test_static_math_mod() {
     // constexpr int error1 = static_math::mod<int, 10, 0>();  // Division by zero
     // constexpr int error2 = static_math::mod<int, INT_MIN, -1>();  // Overflow
     
-    std::cout << colors::green() << "[ENHANCEMENT] static_math::mod: WORKING ✓" 
+    std::cout << colors::green() << "[ENHANCEMENT] static_math::mod: WORKING âœ“" 
               << colors::reset() << std::endl;
     return true;
 }
@@ -319,7 +315,7 @@ bool test_static_math_mod() {
 // EXPANDED EDGE CASE TESTS
 // =============================================================================
 
-bool test_fp_denormals() {
+bool test_ca_fp_denormals() {
     std::cout << colors::cyan() << "\n[EDGE CASE TEST] Testing denormal handling..."
               << colors::reset() << std::endl;
     
@@ -347,12 +343,12 @@ bool test_fp_denormals() {
                      "Should handle division producing denormal or underflow to zero");
     }
     
-    std::cout << colors::green() << "[EDGE CASE] Denormal handling: PASSED ✓" 
+    std::cout << colors::green() << "[EDGE CASE] Denormal handling: PASSED âœ“" 
               << colors::reset() << std::endl;
     return true;
 }
 
-bool test_unsigned_overflow() {
+bool test_ca_unsigned_overflow() {
     std::cout << colors::cyan() << "\n[EDGE CASE TEST] Testing unsigned overflow patterns..."
               << colors::reset() << std::endl;
     
@@ -382,12 +378,12 @@ bool test_unsigned_overflow() {
         SIMPLE_ASSERT(!result.has_value(), "unsigned max * 2 should overflow");
     }
     
-    std::cout << colors::green() << "[EDGE CASE] Unsigned overflow: PASSED ✓" 
+    std::cout << colors::green() << "[EDGE CASE] Unsigned overflow: PASSED âœ“" 
               << colors::reset() << std::endl;
     return true;
 }
 
-bool test_mixed_sign_operations() {
+bool test_ca_mixed_sign_operations() {
     std::cout << colors::cyan() << "\n[EDGE CASE TEST] Testing mixed-sign operations..."
               << colors::reset() << std::endl;
     
@@ -413,7 +409,7 @@ bool test_mixed_sign_operations() {
         ASSERT_EQ(result, near_min + 5, "Should handle mixed-sign addition near min");
     }
     
-    std::cout << colors::green() << "[EDGE CASE] Mixed-sign operations: PASSED ✓" 
+    std::cout << colors::green() << "[EDGE CASE] Mixed-sign operations: PASSED âœ“" 
               << colors::reset() << std::endl;
     return true;
 }
@@ -422,7 +418,7 @@ bool test_mixed_sign_operations() {
 // SIMD VALIDATION TESTS
 // =============================================================================
 
-bool test_simd_int32_correctness() {
+bool test_ca_simd_int32_correctness() {
     std::cout << colors::cyan() << "\n[SIMD TEST] Testing int32 vector operations..."
               << colors::reset() << std::endl;
     
@@ -450,17 +446,17 @@ bool test_simd_int32_correctness() {
     }
     
 #ifdef __AVX2__
-    std::cout << colors::green() << "[SIMD] int32 operations (AVX2): PASSED ✓" 
+    std::cout << colors::green() << "[SIMD] int32 operations (AVX2): PASSED âœ“" 
               << colors::reset() << std::endl;
 #else
-    std::cout << colors::yellow() << "[SIMD] int32 operations (scalar fallback): PASSED ✓" 
+    std::cout << colors::yellow() << "[SIMD] int32 operations (scalar fallback): PASSED âœ“" 
               << colors::reset() << std::endl;
 #endif
     
     return true;
 }
 
-bool test_simd_overflow_detection() {
+bool test_ca_simd_overflow_detection() {
     std::cout << colors::cyan() << "\n[SIMD TEST] Testing SIMD overflow detection..."
               << colors::reset() << std::endl;
     
@@ -479,16 +475,338 @@ bool test_simd_overflow_detection() {
     ASSERT_EQ(result[2], std::numeric_limits<int32_t>::max(), 
              "Overflow element should saturate");
     
-    std::cout << colors::green() << "[SIMD] Overflow detection: PASSED ✓" 
+    std::cout << colors::green() << "[SIMD] Overflow detection: PASSED âœ“" 
               << colors::reset() << std::endl;
     return true;
 }
 
 // =============================================================================
+// FP VECTOR OPERATIONS TESTS (v3.1 Enhancement)
+// =============================================================================
+
+bool test_ca_fp_vec_sub_nan_detection() {
+    std::cout << colors::cyan() << "\n[FP VEC SUB] Testing NaN detection..."
+              << colors::reset() << std::endl;
+    
+    std::vector<double> vec_a = {1.0, 2.0, std::numeric_limits<double>::quiet_NaN(), 4.0};
+    std::vector<double> vec_b = {1.0, 2.0, 3.0, 4.0};
+    
+    SIMPLE_ASSERT(test_throws("Vector sub with NaN", [&]() {
+        checked_sub_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
+    }), "Should detect NaN in subtraction");
+    
+    auto result = checked_sub_vec_fp<ReturnExpectedPolicy>(vec_a, vec_b);
+    SIMPLE_ASSERT(!result.has_value(), "ReturnExpected should return error for NaN");
+    ASSERT_EQ(result.error(), MathError::NaN, "Error should be MathError::NaN");
+    
+    std::cout << colors::green() << "[FP VEC SUB] NaN detection: PASSED " 
+              << colors::reset() << std::endl;
+    return true;
+}
+
+bool test_ca_fp_vec_sub_inf_overflow() {
+    std::cout << colors::cyan() << "\n[FP VEC SUB] Testing Inf overflow detection..."
+              << colors::reset() << std::endl;
+    
+    std::vector<double> vec_a = {1.0, std::numeric_limits<double>::max(), 3.0};
+    std::vector<double> vec_b = {1.0, -std::numeric_limits<double>::max(), 3.0};
+    
+    SIMPLE_ASSERT(test_throws("Vector sub overflow to Inf", [&]() {
+        checked_sub_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
+    }), "Should detect Inf overflow from finite inputs");
+    
+    auto result = checked_sub_vec_fp<ReturnExpectedPolicy>(vec_a, vec_b);
+    SIMPLE_ASSERT(!result.has_value(), "ReturnExpected should return error for Inf overflow");
+    ASSERT_EQ(result.error(), MathError::Inf, "Error should be MathError::Inf");
+    
+    auto saturated = checked_sub_vec_fp<SaturatingPolicy>(vec_a, vec_b);
+    ASSERT_EQ(saturated[0], 0.0, "Non-overflow elements should compute correctly");
+    ASSERT_EQ(saturated[1], std::numeric_limits<double>::max(), "Overflow should saturate to max");
+    
+    std::cout << colors::green() << "[FP VEC SUB] Inf overflow: PASSED " 
+              << colors::reset() << std::endl;
+    return true;
+}
+
+bool test_ca_fp_vec_sub_inf_tolerant() {
+    std::cout << colors::cyan() << "\n[FP VEC SUB] Testing InfTolerant policy..."
+              << colors::reset() << std::endl;
+    
+    std::vector<double> vec_a = {1.0, std::numeric_limits<double>::max(), 3.0};
+    std::vector<double> vec_b = {1.0, -std::numeric_limits<double>::max(), 3.0};
+    
+    auto result = checked_sub_vec_fp<InfTolerantPolicy>(vec_a, vec_b);
+    ASSERT_EQ(result[0], 0.0, "Normal elements should compute correctly");
+    SIMPLE_ASSERT(std::isinf(result[1]), "InfTolerant should allow Inf results");
+    ASSERT_EQ(result[2], 0.0, "Normal elements should compute correctly");
+    
+    std::cout << colors::green() << "[FP VEC SUB] InfTolerant: PASSED " 
+              << colors::reset() << std::endl;
+    return true;
+}
+
+bool test_ca_fp_vec_mul_nan_detection() {
+    std::cout << colors::cyan() << "\n[FP VEC MUL] Testing NaN detection..."
+              << colors::reset() << std::endl;
+    
+    std::vector<double> vec_a = {1.0, 2.0, 0.0, 4.0};
+    std::vector<double> vec_b = {1.0, 2.0, std::numeric_limits<double>::infinity(), 4.0};
+    
+    SIMPLE_ASSERT(test_throws("Vector mul with 0 * Inf → NaN", [&]() {
+        checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
+    }), "Should detect NaN from 0 * Inf");
+    
+    auto result = checked_mul_vec_fp<ReturnExpectedPolicy>(vec_a, vec_b);
+    SIMPLE_ASSERT(!result.has_value(), "ReturnExpected should return error for NaN");
+    
+    std::cout << colors::green() << "[FP VEC MUL] NaN detection: PASSED " 
+              << colors::reset() << std::endl;
+    return true;
+}
+
+bool test_ca_fp_vec_mul_inf_overflow() {
+    std::cout << colors::cyan() << "\n[FP VEC MUL] Testing Inf overflow detection..."
+              << colors::reset() << std::endl;
+    
+    const double large_val = std::numeric_limits<double>::max() / 2.0;
+    std::vector<double> vec_a = {1.0, large_val, 3.0};
+    std::vector<double> vec_b = {1.0, 3.0, 3.0};
+    
+    SIMPLE_ASSERT(test_throws("Vector mul overflow to Inf", [&]() {
+        checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
+    }), "Should detect Inf overflow from finite multiplication");
+    
+    auto result = checked_mul_vec_fp<ReturnExpectedPolicy>(vec_a, vec_b);
+    SIMPLE_ASSERT(!result.has_value(), "ReturnExpected should return error for Inf overflow");
+    ASSERT_EQ(result.error(), MathError::Inf, "Error should be MathError::Inf");
+    
+    auto saturated = checked_mul_vec_fp<SaturatingPolicy>(vec_a, vec_b);
+    ASSERT_EQ(saturated[0], 1.0, "Non-overflow elements should compute correctly");
+    ASSERT_EQ(saturated[1], std::numeric_limits<double>::max(), "Overflow should saturate");
+    
+    std::cout << colors::green() << "[FP VEC MUL] Inf overflow: PASSED " 
+              << colors::reset() << std::endl;
+    return true;
+}
+
+bool test_ca_fp_vec_mul_mixed_overflow() {
+    std::cout << colors::cyan() << "\n[FP VEC MUL] Testing mixed overflow in vector..."
+              << colors::reset() << std::endl;
+    
+    const double large_val = std::numeric_limits<double>::max() / 2.0;
+    std::vector<double> vec_a = {1.0, 2.0, large_val, 4.0, 5.0};
+    std::vector<double> vec_b = {2.0, 3.0, 10.0, 6.0, 7.0};
+    
+    SIMPLE_ASSERT(test_throws("Mixed overflow detection", [&]() {
+        checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
+    }), "Should detect overflow in middle of vector");
+    
+    auto saturated = checked_mul_vec_fp<SaturatingPolicy>(vec_a, vec_b);
+    ASSERT_EQ(saturated[0], 2.0, "Element 0 should be correct");
+    ASSERT_EQ(saturated[1], 6.0, "Element 1 should be correct");
+    ASSERT_EQ(saturated[2], std::numeric_limits<double>::max(), "Element 2 should saturate");
+    ASSERT_EQ(saturated[3], 24.0, "Element 3 should be correct");
+    ASSERT_EQ(saturated[4], 35.0, "Element 4 should be correct");
+    
+    std::cout << colors::green() << "[FP VEC MUL] Mixed overflow: PASSED " 
+              << colors::reset() << std::endl;
+    return true;
+}
+
+bool test_ca_fp_vec_mul_inf_tolerant() {
+    std::cout << colors::cyan() << "\n[FP VEC MUL] Testing InfTolerant policy..."
+              << colors::reset() << std::endl;
+    
+    const double large_val = std::numeric_limits<double>::max() / 2.0;
+    std::vector<double> vec_a = {1.0, large_val};
+    std::vector<double> vec_b = {2.0, 10.0};
+    
+    auto result = checked_mul_vec_fp<InfTolerantPolicy>(vec_a, vec_b);
+    ASSERT_EQ(result[0], 2.0, "Normal element should compute correctly");
+    SIMPLE_ASSERT(std::isinf(result[1]), "InfTolerant should allow Inf results");
+    
+    std::cout << colors::green() << "[FP VEC MUL] InfTolerant: PASSED " 
+              << colors::reset() << std::endl;
+    return true;
+}
+
+bool test_ca_fp_vec_div_nan_detection() {
+    std::cout << colors::cyan() << "\n[FP VEC DIV] Testing NaN detection..."
+              << colors::reset() << std::endl;
+    
+    std::vector<double> vec_a = {1.0, std::numeric_limits<double>::infinity(), 3.0};
+    std::vector<double> vec_b = {2.0, std::numeric_limits<double>::infinity(), 3.0};
+    
+    SIMPLE_ASSERT(test_throws("Vector div with Inf / Inf → NaN", [&]() {
+        checked_div_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
+    }), "Should detect NaN from Inf / Inf");
+    
+    auto result = checked_div_vec_fp<ReturnExpectedPolicy>(vec_a, vec_b);
+    SIMPLE_ASSERT(!result.has_value(), "ReturnExpected should return error for NaN");
+    
+    std::cout << colors::green() << "[FP VEC DIV] NaN detection: PASSED " 
+              << colors::reset() << std::endl;
+    return true;
+}
+
+bool test_ca_fp_vec_div_inf_overflow() {
+    std::cout << colors::cyan() << "\n[FP VEC DIV] Testing Inf overflow detection..."
+              << colors::reset() << std::endl;
+    
+    const double small_val = std::numeric_limits<double>::min();
+    std::vector<double> vec_a = {1.0, std::numeric_limits<double>::max(), 3.0};
+    std::vector<double> vec_b = {2.0, small_val, 3.0};
+    
+    SIMPLE_ASSERT(test_throws("Vector div overflow to Inf", [&]() {
+        checked_div_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
+    }), "Should detect Inf overflow from division");
+    
+    auto result = checked_div_vec_fp<ReturnExpectedPolicy>(vec_a, vec_b);
+    SIMPLE_ASSERT(!result.has_value(), "ReturnExpected should return error for Inf overflow");
+    ASSERT_EQ(result.error(), MathError::Inf, "Error should be MathError::Inf");
+    
+    auto saturated = checked_div_vec_fp<SaturatingPolicy>(vec_a, vec_b);
+    ASSERT_EQ(saturated[0], 0.5, "Non-overflow elements should compute correctly");
+    ASSERT_EQ(saturated[1], std::numeric_limits<double>::max(), "Overflow should saturate");
+    
+    std::cout << colors::green() << "[FP VEC DIV] Inf overflow: PASSED " 
+              << colors::reset() << std::endl;
+    return true;
+}
+
+bool test_ca_fp_vec_div_by_zero() {
+    std::cout << colors::cyan() << "\n[FP VEC DIV] Testing division by zero..."
+              << colors::reset() << std::endl;
+    
+    std::vector<double> vec_a = {1.0, 2.0, 3.0};
+    std::vector<double> vec_b = {2.0, 0.0, 3.0};
+    
+    SIMPLE_ASSERT(test_throws("Vector div by zero", [&]() {
+        checked_div_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
+    }), "Should detect division by zero");
+    
+    auto result = checked_div_vec_fp<ReturnExpectedPolicy>(vec_a, vec_b);
+    SIMPLE_ASSERT(!result.has_value(), "ReturnExpected should return error for div by zero");
+    ASSERT_EQ(result.error(), MathError::DivByZero, "Error should be DivByZero");
+    
+    std::cout << colors::green() << "[FP VEC DIV] Division by zero: PASSED " 
+              << colors::reset() << std::endl;
+    return true;
+}
+
+bool test_ca_fp_vec_div_inf_tolerant() {
+    std::cout << colors::cyan() << "\n[FP VEC DIV] Testing InfTolerant policy..."
+              << colors::reset() << std::endl;
+    
+    const double small_val = std::numeric_limits<double>::min();
+    std::vector<double> vec_a = {1.0, std::numeric_limits<double>::max()};
+    std::vector<double> vec_b = {2.0, small_val};
+    
+    auto result = checked_div_vec_fp<InfTolerantPolicy>(vec_a, vec_b);
+    ASSERT_EQ(result[0], 0.5, "Normal element should compute correctly");
+    SIMPLE_ASSERT(std::isinf(result[1]), "InfTolerant should allow Inf results");
+    
+    std::vector<double> vec_c = {1.0, 2.0};
+    std::vector<double> vec_d = {2.0, 0.0};
+    auto result2 = checked_div_vec_fp<InfTolerantPolicy>(vec_c, vec_d);
+    SIMPLE_ASSERT(std::isinf(result2[1]), "InfTolerant should produce Inf for div by zero");
+    
+    std::cout << colors::green() << "[FP VEC DIV] InfTolerant: PASSED " 
+              << colors::reset() << std::endl;
+    return true;
+}
+
+bool test_ca_fp_vec_simd_consistency() {
+    std::cout << colors::cyan() << "\n[FP VEC SIMD] Testing SIMD path consistency..."
+              << colors::reset() << std::endl;
+    
+    std::vector<size_t> sizes = {1, 3, 4, 5, 8, 15, 16, 100};
+    
+    for (size_t size : sizes) {
+        std::vector<double> vec_a(size);
+        std::vector<double> vec_b(size);
+        
+        for (size_t i = 0; i < size; ++i) {
+            vec_a[i] = static_cast<double>(i + 1) * 1.5;
+            vec_b[i] = static_cast<double>(i + 1) * 0.5;
+        }
+        
+        auto sub_result = checked_sub_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
+        ASSERT_EQ(sub_result.size(), size, "Sub result size should match");
+        
+        auto mul_result = checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
+        ASSERT_EQ(mul_result.size(), size, "Mul result size should match");
+        
+        auto div_result = checked_div_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
+        ASSERT_EQ(div_result.size(), size, "Div result size should match");
+        
+        for (size_t i = 0; i < size; ++i) {
+            double expected_sub = vec_a[i] - vec_b[i];
+            double expected_mul = vec_a[i] * vec_b[i];
+            double expected_div = vec_a[i] / vec_b[i];
+            
+            ASSERT_EQ(sub_result[i], expected_sub, "SIMD sub should match scalar");
+            ASSERT_EQ(mul_result[i], expected_mul, "SIMD mul should match scalar");
+            ASSERT_EQ(div_result[i], expected_div, "SIMD div should match scalar");
+        }
+    }
+    
+#ifdef __AVX2__
+    std::cout << colors::green() << "[FP VEC SIMD] Consistency (AVX2): PASSED " 
+              << colors::reset() << std::endl;
+#else
+    std::cout << colors::yellow() << "[FP VEC SIMD] Consistency (scalar fallback): PASSED âœ"" 
+              << colors::reset() << std::endl;
+#endif
+    
+    return true;
+}
+
+bool test_ca_fp_vec_boundary_detection() {
+    std::cout << colors::cyan() << "\n[FP VEC EDGE] Testing boundary overflow detection..."
+              << colors::reset() << std::endl;
+    
+    const double max_val = std::numeric_limits<double>::max();
+    const double min_val = std::numeric_limits<double>::min();
+    
+    {
+        std::vector<double> vec_a = {max_val, max_val};
+        std::vector<double> vec_b = {max_val, 2.0};
+        
+        SIMPLE_ASSERT(test_throws("Mul overflow at DBL_MAX", [&]() {
+            checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
+        }), "Should detect DBL_MAX overflow");
+    }
+    
+    {
+        std::vector<double> vec_a = {max_val, 1.0};
+        std::vector<double> vec_b = {min_val, 1.0};
+        
+        SIMPLE_ASSERT(test_throws("Div overflow DBL_MAX/DBL_MIN", [&]() {
+            checked_div_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
+        }), "Should detect division overflow");
+    }
+    
+    {
+        std::vector<double> vec_a = {max_val, 1.0};
+        std::vector<double> vec_b = {-max_val, 1.0};
+        
+        SIMPLE_ASSERT(test_throws("Sub overflow to Inf", [&]() {
+            checked_sub_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
+        }), "Should detect subtraction overflow");
+    }
+    
+    std::cout << colors::green() << "[FP VEC EDGE] Boundary detection: PASSED " 
+              << colors::reset() << std::endl;
+    return true;
+}
+
+
+// =============================================================================
 // PERFORMANCE VALIDATION TESTS
 // =============================================================================
 
-bool test_performance_benchmarks() {
+bool test_ca_performance_benchmarks() {
     std::cout << colors::cyan() << "\n[PERFORMANCE TEST] Running benchmarks..."
               << colors::reset() << std::endl;
     
@@ -524,11 +842,11 @@ bool test_performance_benchmarks() {
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
         double avg_us = static_cast<double>(duration.count()) / 100.0;
         
-        std::cout << "  Vector checked_add_vec (1K elems): " << avg_us << " µs/op" << std::endl;
+        std::cout << "  Vector checked_add_vec (1K elems): " << avg_us << " Âµs/op" << std::endl;
         
 #ifdef __AVX2__
-        SIMPLE_ASSERT(avg_us < 5.0, "SIMD vector addition should be fast (< 5µs for 1K)");
-        std::cout << colors::green() << "  [AVX2 ENABLED] Performance target met ✓" 
+        SIMPLE_ASSERT(avg_us < 5.0, "SIMD vector addition should be fast (< 5Âµs for 1K)");
+        std::cout << colors::green() << "  [AVX2 ENABLED] Performance target met âœ“" 
                   << colors::reset() << std::endl;
 #else
         std::cout << colors::yellow() << "  [Scalar fallback] Performance acceptable" 
@@ -541,7 +859,7 @@ bool test_performance_benchmarks() {
         std::cout << "Unlikely sentinel" << std::endl;
     }
     
-    std::cout << colors::green() << "[PERFORMANCE] Benchmarks: PASSED ✓" 
+    std::cout << colors::green() << "[PERFORMANCE] Benchmarks: PASSED âœ“" 
               << colors::reset() << std::endl;
     return true;
 }
@@ -550,7 +868,7 @@ bool test_performance_benchmarks() {
 // EXISTING TESTS (Updated)
 // =============================================================================
 
-bool test_checked_add() {
+bool test_ca_checked_add() {
     std::cout << colors::cyan() << "\nTesting checked_add..." << colors::reset() << std::endl;
     
     // ThrowOnErrorPolicy - normal cases
@@ -597,7 +915,7 @@ bool test_checked_add() {
     return true;
 }
 
-bool test_checked_sub() {
+bool test_ca_checked_sub() {
     std::cout << colors::cyan() << "\nTesting checked_sub..." << colors::reset() << std::endl;
     
     // Normal cases
@@ -617,7 +935,7 @@ bool test_checked_sub() {
     return true;
 }
 
-bool test_checked_mul() {
+bool test_ca_checked_mul() {
     std::cout << colors::cyan() << "\nTesting checked_mul..." << colors::reset() << std::endl;
     
     // Normal cases
@@ -646,7 +964,7 @@ bool test_checked_mul() {
     return true;
 }
 
-bool test_checked_div() {
+bool test_ca_checked_div() {
     std::cout << colors::cyan() << "\nTesting checked_div..." << colors::reset() << std::endl;
     
     // Normal cases
@@ -680,7 +998,7 @@ bool test_checked_div() {
     return true;
 }
 
-bool test_checked_fp_operations() {
+bool test_ca_checked_fp_operations() {
     std::cout << colors::cyan() << "\nTesting FP operations..." << colors::reset() << std::endl;
     
     // Normal operations
@@ -722,46 +1040,60 @@ bool test_CheckedArithmetic() {
 
     PRINT_HEADER(CHECKED ARITHMETIC)
 
+    TestRunner runner;
+
+    RUN_TEST(runner, ca_mul_type_mismatch);
+    RUN_TEST(runner, ca_div_sign_aware_saturation);
+    RUN_TEST(runner, ca_fp_input_validation);
+
     bool all_passed = true;
-    
-    // Critical fix tests
-    all_passed &= test_critical_fix_mul_type_mismatch();
-    all_passed &= test_critical_fix_div_sign_aware_saturation();
-    all_passed &= test_critical_fix_fp_input_validation();
-    
     // Enhancement tests
-    all_passed &= test_noexcept_specifications();
-    all_passed &= test_type_safe_shifts();
-    all_passed &= test_static_math_mod();
+    RUN_TEST(runner, ca_noexcept_specifications);
+    RUN_TEST(runner, ca_type_safe_shifts);
+    RUN_TEST(runner, ca_static_math_mod);
     
     // Edge case tests
-    all_passed &= test_fp_denormals();
-    all_passed &= test_unsigned_overflow();
-    all_passed &= test_mixed_sign_operations();
+    RUN_TEST(runner, ca_fp_denormals);
+    RUN_TEST(runner, ca_unsigned_overflow);
+    RUN_TEST(runner, ca_mixed_sign_operations);
     
     // SIMD tests
-    all_passed &= test_simd_int32_correctness();
-    all_passed &= test_simd_overflow_detection();
+    RUN_TEST(runner, ca_simd_int32_correctness);
+    RUN_TEST(runner, ca_simd_overflow_detection);
+    
+    // FP vector tests (v3.1 enhancement)
+    RUN_TEST(runner, ca_fp_vec_sub_nan_detection);
+    RUN_TEST(runner, ca_fp_vec_sub_inf_overflow);
+    RUN_TEST(runner, ca_fp_vec_sub_inf_tolerant);
+    RUN_TEST(runner, ca_fp_vec_mul_nan_detection);
+    RUN_TEST(runner, ca_fp_vec_mul_inf_overflow);
+    RUN_TEST(runner, ca_fp_vec_mul_mixed_overflow);
+    RUN_TEST(runner, ca_fp_vec_mul_inf_tolerant);
+    RUN_TEST(runner, ca_fp_vec_div_nan_detection);
+    RUN_TEST(runner, ca_fp_vec_div_inf_overflow);
+    RUN_TEST(runner, ca_fp_vec_div_by_zero);
+    RUN_TEST(runner, ca_fp_vec_div_inf_tolerant);
+    RUN_TEST(runner, ca_fp_vec_simd_consistency);
+    RUN_TEST(runner, ca_fp_vec_boundary_detection);
     
     // Performance tests
-    all_passed &= test_performance_benchmarks();
+    RUN_TEST(runner, ca_performance_benchmarks);
     
     // Existing core tests
-    all_passed &= test_checked_add();
-    all_passed &= test_checked_sub();
-    all_passed &= test_checked_mul();
-    all_passed &= test_checked_div();
-    all_passed &= test_checked_fp_operations();
-    
-    // Summary
-    
-    if (all_passed) {
-        std::cout << colors::green() << "ALL TESTS PASSED" << colors::reset() << std::endl;
-    } else {
-        std::cout << colors::red() << "SOME TESTS FAILED" << colors::reset() << std::endl;
-    }
-        
-    return all_passed;
+    RUN_TEST(runner, ca_checked_add);
+    RUN_TEST(runner, ca_checked_sub);
+    RUN_TEST(runner, ca_checked_mul);
+    RUN_TEST(runner, ca_checked_div);
+    RUN_TEST(runner, ca_checked_fp_operations);
+            
+    return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing
+
+#ifdef ENABLE_TEST_APPLICATION
+int main()
+{
+    return fat_p::testing::test_CheckedArithmetic() ? 0 : 1;
+}
+#endif

@@ -5,11 +5,11 @@
 
 #include "StateMachine.h"
 #include "test_StateMachine.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
 /**
  * @file test_StateMachine.cpp
- * @brief Comprehensive test suite for cpp_utilities::StateMachine
+ * @brief Comprehensive test suite for fat_p::StateMachine
  * 
  * This test suite demonstrates all features of StateMachine including:
  * - Strict and AnyToAny transition policies
@@ -30,10 +30,10 @@
  * - Tested on Intel(R) Core(TM) i7-8850H CPU @ 2.60GHz, 32GB RAM
  */
 
-using namespace cpp_utilities;
-using namespace cpp_utilities::testing;
+using namespace fat_p;
+using namespace fat_p::testing;
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 // ============================================================================
 // Test Context and States
@@ -1075,4 +1075,4 @@ bool test_StateMachine() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

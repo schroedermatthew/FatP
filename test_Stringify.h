@@ -1,8 +1,12 @@
 // test_Stringify.h
 #pragma once
 
-namespace cpp_utilities::testing {
+#ifndef ENABLE_TEST_APPLICATION
+
+namespace fat_p::testing {
 
 bool test_Stringify();
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing
+
+#endif

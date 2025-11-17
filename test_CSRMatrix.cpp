@@ -1,15 +1,14 @@
+// test_CSRMatrix.cpp
 #include <iostream>
 #include <vector>
 #include <cmath>
 
 #include "CSRMatrix.h"
 #include "test_CSRMatrix.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
-
-using namespace sparse;
 
 bool test_csr_matrix_construction() {
     CSRMatrix<double> mat1;
@@ -298,4 +297,4 @@ bool test_CSRMatrix() {
     return 0 == runner.print_summary();
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

@@ -26,10 +26,6 @@
  * - Eliminates unaligned load/store penalties
  * - Reduces cache-line splits
  * 
- * Requires: C++17
- * 
- * @author cpp_utilities
- * @date 2025
  */
 
 #pragma once
@@ -45,8 +41,9 @@
 #include <cstring>
 #include <limits>
 
-namespace cpp_utilities {
-namespace memory {
+#include "FatPTypeTraits.h"
+
+namespace fat_p {
 
 // =============================================================================
 // Aligned Allocator
@@ -512,9 +509,7 @@ bool operator>=(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs) 
     return !(lhs < rhs);
 }
 
-} // namespace memory
+template <typename T, size_t Alignment>
+struct is_aligned_vector<AlignedVector<T, Alignment>> : std::true_type {};
 
-template <typename T, size_t Alignment, typename Allocator>
-struct is_aligned_vector<AlignedVector<T, Alignment, Allocator>> : std::true_type {};
-
-} // namespace cpp_utilities
+} // namespace fat_p

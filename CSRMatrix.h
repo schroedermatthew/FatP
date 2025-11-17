@@ -29,11 +29,6 @@
  * Performance:
  * - SpMV: O(nnz) vs O(m*n) for dense
  * - Memory: ~10-100x less than dense for typical sparsity
- * 
- * Requires: C++17
- * 
- * @author cpp_utilities
- * @date 2025
  */
 
 #pragma once
@@ -47,8 +42,9 @@
 #include <utility>
 #include <tuple>
 
-namespace cpp_utilities {
-namespace sparse {
+#include "FatPTypeTraits.h"
+
+namespace fat_p {
 
 // =============================================================================
 // CSR Matrix
@@ -578,9 +574,7 @@ CSRMatrix<T, IndexType> diagonal_matrix(const std::vector<T>& diag) {
     return CSRMatrix<T, IndexType>(n, n, row_indices, col_indices, diag);
 }
 
-} // namespace sparse
+template <typename T, typename IndexType>
+struct is_csr_matrix<CSRMatrix<T, IndexType>> : std::true_type {};
 
-template <typename T, typename IndexType, typename Allocator>
-struct is_csr_matrix<CSRMatrix<T, IndexType, Allocator>> : std::true_type {};
-
-} // namespace cpp_utilities
+} // namespace fat_p

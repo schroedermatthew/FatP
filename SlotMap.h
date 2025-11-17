@@ -6,7 +6,9 @@
 #include <optional>
 #include <stdexcept>
 
-namespace cpp_utilities {
+#include "FatPTypeTraits.h"
+
+namespace fat_p {
 
 // ============================================================================
 // SlotMap - Generational Index Container
@@ -259,4 +261,4 @@ private:
 template <typename T>
 struct is_slot_map<SlotMap<T>> : std::true_type {};
 
-} // namespace cpp_utilities
+} // namespace fat_p

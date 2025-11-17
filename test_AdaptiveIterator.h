@@ -5,9 +5,9 @@
 
 #pragma once
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 bool test_AdaptiveIterator();
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

@@ -1,7 +1,7 @@
 #pragma once
 
-namespace cpp_utilities::testing {
+namespace fat_p::testing {
 
 bool test_IdGenerator();
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

@@ -20,12 +20,12 @@
 
 #include "ConstexprUtilities.h"
 #include "test_ConstexprUtilities.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-using namespace cpp_utilities::testing;
-using namespace cpp_utilities;
+using namespace fat_p::testing;
+using namespace fat_p;
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 // =============================================================================
@@ -709,4 +709,4 @@ bool test_ConstexprUtilities() {
     return failed == 0;
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

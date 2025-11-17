@@ -36,15 +36,15 @@
 #include "CheckedArithmetic.h"   // For safe pointer arithmetic (overflow checks)
 #include "Factory.h"             // For factory integration
 
-#if !defined(CPP_UTILITIES_USE_SHARED_MUTEX)
-#define CPP_UTILITIES_USE_SHARED_MUTEX 1  // Enable RW by default
+#if !defined(FATP_USE_SHARED_MUTEX)
+#define FATP_USE_SHARED_MUTEX 1  // Enable RW by default
 #endif
 
-#if !defined(CPP_UTILITIES_USE_ATOMIC)
-#define CPP_UTILITIES_USE_ATOMIC 1  // Enable spinlock
+#if !defined(FATP_USE_ATOMIC)
+#define FATP_USE_ATOMIC 1  // Enable spinlock
 #endif
 
-namespace cpp_utilities {
+namespace fat_p {
 
     // --------------------------------------------------------------------
     // 0. Policy Traits (SFINAE Helpers) - Extended
@@ -1030,4 +1030,4 @@ namespace cpp_utilities {
         using type = P;
     };
 
-} // namespace cpp_utilities
+} // namespace fat_p

@@ -3,7 +3,7 @@
  * @brief Defines macros and template functions for contextual contract enforcement that automatically
  * adapt failure behavior based on the function's 'noexcept' specification.
  *
- * @details This system uses the CPP_UTILITIES_CONTEXTUAL_RESOLVER metafunction
+ * @details This system uses the FATP_CONTEXTUAL_RESOLVER metafunction
  * to select the appropriate raiser: NoThrowRaiser if the function is noexcept,
  * or the default throwing raiser (mapped from PredicateType or explicitly
  * specified) unless explicitly overridden. The convenience predicate macros (formerly Section III)
@@ -19,64 +19,64 @@
 #include "Expected.h" // For Expected integration
 #include "ScopeGuard.h" // For RAII in contextual if needed
 
-namespace cpp_utilities {
+namespace fat_p {
 
-#ifndef CPP_UTILITIES_LOCUS
-#define CPP_UTILITIES_LOCUS __FILE__ ":" CPP_UTILITIES_STRINGIFY(__LINE__)
-#define CPP_UTILITIES_STRINGIFY(x) CPP_UTILITIES_TOSTRING(x)
-#define CPP_UTILITIES_TOSTRING(x) #x
+#ifndef FATP_LOCUS
+#define FATP_LOCUS __FILE__ ":" FATP_STRINGIFY(__LINE__)
+#define FATP_STRINGIFY(x) FATP_TOSTRING(x)
+#define FATP_TOSTRING(x) #x
 #endif
 
     // --- Internal Contextual Resolver Factory ---
-#define CPP_UTILITIES_CONTEXTUAL_RESOLVER(FunctionPtr, ThrowingRaiserType) \
-    typename cpp_utilities::ContextualRaiserResolver< \
+#define FATP_CONTEXTUAL_RESOLVER(FunctionPtr, ThrowingRaiserType) \
+    typename fat_p::ContextualRaiserResolver< \
         std::conditional_t< \
-            cpp_utilities::is_noexcept_function_ptr< \
+            fat_p::is_noexcept_function_ptr< \
                 decltype((FunctionPtr)) \
             >::value, \
-            cpp_utilities::NoexceptFunctionPolicy, \
-            cpp_utilities::ThrowingFunctionPolicy \
+            fat_p::NoexceptFunctionPolicy, \
+            fat_p::ThrowingFunctionPolicy \
         >, \
         ThrowingRaiserType \
     >::type
 // --- Internal Predicate Enforcement Helper (N-argument) ---
-#define CPP_UTILITIES_CONTEXTUAL_PREDICATE_N(FunctionPtr, PredicateType, N, Targets, ...) \
+#define FATP_CONTEXTUAL_PREDICATE_N(FunctionPtr, PredicateType, N, Targets, ...) \
         do { \
             using DefaultThrowingRaiser = \
-                typename cpp_utilities::PredicateToRaiser<PredicateType>::type; \
+                typename fat_p::PredicateToRaiser<PredicateType>::type; \
             \
             using FinalRaiser = \
-                CPP_UTILITIES_CONTEXTUAL_RESOLVER(FunctionPtr, DefaultThrowingRaiser); \
+                FATP_CONTEXTUAL_RESOLVER(FunctionPtr, DefaultThrowingRaiser); \
             \
-            auto enforcer = cpp_utilities::enforce_policy_impl<FinalRaiser>( \
+            auto enforcer = fat_p::enforce_policy_impl<FinalRaiser>( \
                 PredicateType::check(Targets), \
                 #PredicateType "(" #Targets ")", \
-                CPP_UTILITIES_LOCUS \
+                FATP_LOCUS \
             ); \
             enforcer(__VA_ARGS__); \
         } while(0)
 // --- Internal Helper for Explicit Policy (Abort/Debug) with Predicates ---
-#define CPP_UTILITIES_CONTEXTUAL_ABORT_N_IMPL(FunctionPtr, PredicateType, Targets, ...) \
+#define FATP_CONTEXTUAL_ABORT_N_IMPL(FunctionPtr, PredicateType, Targets, ...) \
         do { \
-            using FinalRaiser = CPP_UTILITIES_CONTEXTUAL_RESOLVER(FunctionPtr, cpp_utilities::AbortRaiser); \
+            using FinalRaiser = FATP_CONTEXTUAL_RESOLVER(FunctionPtr, fat_p::AbortRaiser); \
             \
-            auto enforcer = cpp_utilities::enforce_policy_impl<FinalRaiser>( \
+            auto enforcer = fat_p::enforce_policy_impl<FinalRaiser>( \
                 PredicateType::check(Targets), \
                 #PredicateType "(" #Targets ")", \
-                CPP_UTILITIES_LOCUS \
+                FATP_LOCUS \
             ); \
             enforcer(__VA_ARGS__); \
         } while(0)
-#define CPP_UTILITIES_CONTEXTUAL_DEBUG_N_IMPL(FunctionPtr, PredicateType, Targets, ...) do { \
-        if constexpr (!std::is_same_v<cpp_utilities::RaiserSelector<cpp_utilities::DebugOnlyPolicy>::type, cpp_utilities::NoOpRaiser>) \
+#define FATP_CONTEXTUAL_DEBUG_N_IMPL(FunctionPtr, PredicateType, Targets, ...) do { \
+        if constexpr (!std::is_same_v<fat_p::RaiserSelector<fat_p::DebugOnlyPolicy>::type, fat_p::NoOpRaiser>) \
         { \
-            using ThrowingRaiser = cpp_utilities::RaiserSelector<cpp_utilities::DebugOnlyPolicy>::type; \
-            using FinalRaiser = CPP_UTILITIES_CONTEXTUAL_RESOLVER(FunctionPtr, ThrowingRaiser); \
+            using ThrowingRaiser = fat_p::RaiserSelector<fat_p::DebugOnlyPolicy>::type; \
+            using FinalRaiser = FATP_CONTEXTUAL_RESOLVER(FunctionPtr, ThrowingRaiser); \
             \
-            auto enforcer = cpp_utilities::enforce_policy_impl<FinalRaiser>( \
+            auto enforcer = fat_p::enforce_policy_impl<FinalRaiser>( \
                 PredicateType::check(Targets), \
                 #PredicateType "(" #Targets ")", \
-                CPP_UTILITIES_LOCUS \
+                FATP_LOCUS \
             ); \
             enforcer(__VA_ARGS__); \
         } \
@@ -84,76 +84,76 @@ namespace cpp_utilities {
 // --- I. Contextual Simple Condition Checks ---
 #define contextual_enforce(func_ptr, condition, ...) do { \
     using FinalRaiser = \
-        CPP_UTILITIES_CONTEXTUAL_RESOLVER(func_ptr, cpp_utilities::LogicRaiser); \
-    auto enforcer = cpp_utilities::enforce_policy_impl<FinalRaiser>( \
-        (condition), #condition, CPP_UTILITIES_LOCUS); \
+        FATP_CONTEXTUAL_RESOLVER(func_ptr, fat_p::LogicRaiser); \
+    auto enforcer = fat_p::enforce_policy_impl<FinalRaiser>( \
+        (condition), #condition, FATP_LOCUS); \
     enforcer(__VA_ARGS__); \
 } while(0)
 #define contextual_enforce_invalid_arg(func_ptr, condition, ...) do { \
     using FinalRaiser = \
-        CPP_UTILITIES_CONTEXTUAL_RESOLVER(func_ptr, cpp_utilities::InvalidArgumentRaiser); \
-    auto enforcer = cpp_utilities::enforce_policy_impl<FinalRaiser>( \
-        (condition), #condition, CPP_UTILITIES_LOCUS); \
+        FATP_CONTEXTUAL_RESOLVER(func_ptr, fat_p::InvalidArgumentRaiser); \
+    auto enforcer = fat_p::enforce_policy_impl<FinalRaiser>( \
+        (condition), #condition, FATP_LOCUS); \
     enforcer(__VA_ARGS__); \
 } while(0)
 // --- II. Contextual Generic Predicate Checks ---
 #define contextual_enforce_1(func_ptr, PredicateType, target, ...) \
-    CPP_UTILITIES_CONTEXTUAL_PREDICATE_N( \
+    FATP_CONTEXTUAL_PREDICATE_N( \
         func_ptr, PredicateType, 1, (target), __VA_ARGS__ \
     )
 #define contextual_enforce_2(func_ptr, PredicateType, target1, target2, ...) \
-    CPP_UTILITIES_CONTEXTUAL_PREDICATE_N( \
+    FATP_CONTEXTUAL_PREDICATE_N( \
         func_ptr, PredicateType, 2, (target1, target2), __VA_ARGS__ \
     )
 #define contextual_enforce_3(func_ptr, PredicateType, target1, target2, target3, ...) \
-    CPP_UTILITIES_CONTEXTUAL_PREDICATE_N( \
+    FATP_CONTEXTUAL_PREDICATE_N( \
         func_ptr, PredicateType, 3, (target1, target2, target3), __VA_ARGS__ \
     )
 #define contextual_enforce_4(func_ptr, PredicateType, target1, target2, target3, target4, ...) \
-    CPP_UTILITIES_CONTEXTUAL_PREDICATE_N( \
+    FATP_CONTEXTUAL_PREDICATE_N( \
         func_ptr, PredicateType, 4, (target1, target2, target3, target4), __VA_ARGS__ \
     )
 #define contextual_enforce_5(func_ptr, PredicateType, target1, target2, target3, target4, target5, ...) \
-    CPP_UTILITIES_CONTEXTUAL_PREDICATE_N( \
+    FATP_CONTEXTUAL_PREDICATE_N( \
         func_ptr, PredicateType, 5, (target1, target2, target3, target4, target5), __VA_ARGS__ \
     )
 // --- III. Contextual Abort Policy Checks ---
 #define contextual_abort(func_ptr, condition, ...) do { \
-    using FinalRaiser = CPP_UTILITIES_CONTEXTUAL_RESOLVER(func_ptr, cpp_utilities::AbortRaiser); \
-    auto enforcer = cpp_utilities::enforce_policy_impl<FinalRaiser>( \
-        (condition), #condition, CPP_UTILITIES_LOCUS); \
+    using FinalRaiser = FATP_CONTEXTUAL_RESOLVER(func_ptr, fat_p::AbortRaiser); \
+    auto enforcer = fat_p::enforce_policy_impl<FinalRaiser>( \
+        (condition), #condition, FATP_LOCUS); \
     enforcer(__VA_ARGS__); \
 } while(0)
 #define contextual_abort_1(func_ptr, PredicateType, target, ...) \
-    CPP_UTILITIES_CONTEXTUAL_ABORT_N_IMPL(func_ptr, PredicateType, (target), __VA_ARGS__)
+    FATP_CONTEXTUAL_ABORT_N_IMPL(func_ptr, PredicateType, (target), __VA_ARGS__)
 #define contextual_abort_2(func_ptr, PredicateType, target1, target2, ...) \
-    CPP_UTILITIES_CONTEXTUAL_ABORT_N_IMPL(func_ptr, PredicateType, (target1, target2), __VA_ARGS__)
+    FATP_CONTEXTUAL_ABORT_N_IMPL(func_ptr, PredicateType, (target1, target2), __VA_ARGS__)
 #define contextual_abort_3(func_ptr, PredicateType, target1, target2, target3, ...) \
-    CPP_UTILITIES_CONTEXTUAL_ABORT_N_IMPL(func_ptr, PredicateType, (target1, target2, target3), __VA_ARGS__)
+    FATP_CONTEXTUAL_ABORT_N_IMPL(func_ptr, PredicateType, (target1, target2, target3), __VA_ARGS__)
 #define contextual_abort_4(func_ptr, PredicateType, target1, target2, target3, target4, ...) \
-    CPP_UTILITIES_CONTEXTUAL_ABORT_N_IMPL(func_ptr, PredicateType, (target1, target2, target3, target4), __VA_ARGS__)
+    FATP_CONTEXTUAL_ABORT_N_IMPL(func_ptr, PredicateType, (target1, target2, target3, target4), __VA_ARGS__)
 #define contextual_abort_5(func_ptr, PredicateType, target1, target2, target3, target4, target5, ...) \
-    CPP_UTILITIES_CONTEXTUAL_ABORT_N_IMPL(func_ptr, PredicateType, (target1, target2, target3, target4, target5), __VA_ARGS__)
+    FATP_CONTEXTUAL_ABORT_N_IMPL(func_ptr, PredicateType, (target1, target2, target3, target4, target5), __VA_ARGS__)
 // --- IV. Contextual Debug Policy Checks ---
 #define contextual_debug(func_ptr, condition, ...) do { \
-    if constexpr (!std::is_same_v<cpp_utilities::RaiserSelector<cpp_utilities::DebugOnlyPolicy>::type, cpp_utilities::NoOpRaiser>) { \
-        using ThrowingRaiser = cpp_utilities::RaiserSelector<cpp_utilities::DebugOnlyPolicy>::type; \
-        using FinalRaiser = CPP_UTILITIES_CONTEXTUAL_RESOLVER(func_ptr, ThrowingRaiser); \
-        auto enforcer = cpp_utilities::enforce_policy_impl<FinalRaiser>( \
-            (condition), #condition, CPP_UTILITIES_LOCUS); \
+    if constexpr (!std::is_same_v<fat_p::RaiserSelector<fat_p::DebugOnlyPolicy>::type, fat_p::NoOpRaiser>) { \
+        using ThrowingRaiser = fat_p::RaiserSelector<fat_p::DebugOnlyPolicy>::type; \
+        using FinalRaiser = FATP_CONTEXTUAL_RESOLVER(func_ptr, ThrowingRaiser); \
+        auto enforcer = fat_p::enforce_policy_impl<FinalRaiser>( \
+            (condition), #condition, FATP_LOCUS); \
         enforcer(__VA_ARGS__); \
     } \
 } while(0)
 #define contextual_debug_1(func_ptr, PredicateType, target, ...) \
-    CPP_UTILITIES_CONTEXTUAL_DEBUG_N_IMPL(func_ptr, PredicateType, (target), __VA_ARGS__)
+    FATP_CONTEXTUAL_DEBUG_N_IMPL(func_ptr, PredicateType, (target), __VA_ARGS__)
 #define contextual_debug_2(func_ptr, PredicateType, target1, target2, ...) \
-    CPP_UTILITIES_CONTEXTUAL_DEBUG_N_IMPL(func_ptr, PredicateType, (target1, target2), __VA_ARGS__)
+    FATP_CONTEXTUAL_DEBUG_N_IMPL(func_ptr, PredicateType, (target1, target2), __VA_ARGS__)
 #define contextual_debug_3(func_ptr, PredicateType, target1, target2, target3, ...) \
-    CPP_UTILITIES_CONTEXTUAL_DEBUG_N_IMPL(func_ptr, PredicateType, (target1, target2, target3), __VA_ARGS__)
+    FATP_CONTEXTUAL_DEBUG_N_IMPL(func_ptr, PredicateType, (target1, target2, target3), __VA_ARGS__)
 #define contextual_debug_4(func_ptr, PredicateType, target1, target2, target3, target4, ...) \
-    CPP_UTILITIES_CONTEXTUAL_DEBUG_N_IMPL(func_ptr, PredicateType, (target1, target2, target3, target4), __VA_ARGS__)
+    FATP_CONTEXTUAL_DEBUG_N_IMPL(func_ptr, PredicateType, (target1, target2, target3, target4), __VA_ARGS__)
 #define contextual_debug_5(func_ptr, PredicateType, target1, target2, target3, target4, target5, ...) \
-    CPP_UTILITIES_CONTEXTUAL_DEBUG_N_IMPL(func_ptr, PredicateType, (target1, target2, target3, target4, target5), __VA_ARGS__)
+    FATP_CONTEXTUAL_DEBUG_N_IMPL(func_ptr, PredicateType, (target1, target2, target3, target4, target5), __VA_ARGS__)
 // --- V. Contextual Convenience Predicate Checks ---
 #define contextual_enforce_not_null(func_ptr, ptr, ...) \
     contextual_enforce_1(func_ptr, NotNullPredicate, ptr, __VA_ARGS__)
@@ -236,66 +236,66 @@ namespace cpp_utilities {
 // --- VI. Contextual Expected Integration Checks ---
 #define contextual_enforce_expected(func_ptr, condition, ...) ([&]() -> Expected<void, std::string> { \
     if (!(condition)) { \
-        cpp_utilities::MessageBuilder mb; \
+        fat_p::MessageBuilder mb; \
         mb.format(__VA_ARGS__); \
-        std::string msg = mb.get_message(CPP_UTILITIES_LOCUS, #condition); \
+        std::string msg = mb.get_message(FATP_LOCUS, #condition); \
         diagnostic::conditionalPrintError([&]() { return "Expected Failure: " + msg; }); \
-        return cpp_utilities::make_unexpected(msg); \
+        return fat_p::make_unexpected(msg); \
     } \
     return {}; \
 })()
 #define contextual_enforce_expected_1(func_ptr, PredicateType, target, ...) ([&]() -> Expected<bool, std::string> { \
     auto result = PredicateType::check(target); \
     if (!result) { \
-        cpp_utilities::MessageBuilder mb; \
+        fat_p::MessageBuilder mb; \
         mb.format(__VA_ARGS__); \
-        std::string msg = mb.get_message(CPP_UTILITIES_LOCUS, #PredicateType "(" #target ")"); \
+        std::string msg = mb.get_message(FATP_LOCUS, #PredicateType "(" #target ")"); \
         diagnostic::conditionalPrintError([&]() { return "Expected Failure: " + msg; }); \
-        return cpp_utilities::make_unexpected(msg); \
+        return fat_p::make_unexpected(msg); \
     } \
     return result; \
 })()
 #define contextual_enforce_expected_2(func_ptr, PredicateType, target1, target2, ...) ([&]() -> Expected<bool, std::string> { \
     auto result = PredicateType::check(target1, target2); \
     if (!result) { \
-        cpp_utilities::MessageBuilder mb; \
+        fat_p::MessageBuilder mb; \
         mb.format(__VA_ARGS__); \
-        std::string msg = mb.get_message(CPP_UTILITIES_LOCUS, #PredicateType "(" #target1 ", " #target2 ")"); \
+        std::string msg = mb.get_message(FATP_LOCUS, #PredicateType "(" #target1 ", " #target2 ")"); \
         diagnostic::conditionalPrintError([&]() { return "Expected Failure: " + msg; }); \
-        return cpp_utilities::make_unexpected(msg); \
+        return fat_p::make_unexpected(msg); \
     } \
     return result; \
 })()
 #define contextual_enforce_expected_3(func_ptr, PredicateType, target1, target2, target3, ...) ([&]() -> Expected<bool, std::string> { \
     auto result = PredicateType::check(target1, target2, target3); \
     if (!result) { \
-        cpp_utilities::MessageBuilder mb; \
+        fat_p::MessageBuilder mb; \
         mb.format(__VA_ARGS__); \
-        std::string msg = mb.get_message(CPP_UTILITIES_LOCUS, #PredicateType "(" #target1 ", " #target2 ", " #target3 ")"); \
+        std::string msg = mb.get_message(FATP_LOCUS, #PredicateType "(" #target1 ", " #target2 ", " #target3 ")"); \
         diagnostic::conditionalPrintError([&]() { return "Expected Failure: " + msg; }); \
-        return cpp_utilities::make_unexpected(msg); \
+        return fat_p::make_unexpected(msg); \
     } \
     return result; \
 })()
 #define contextual_enforce_expected_4(func_ptr, PredicateType, target1, target2, target3, target4, ...) ([&]() -> Expected<bool, std::string> { \
     auto result = PredicateType::check(target1, target2, target3, target4); \
     if (!result) { \
-        cpp_utilities::MessageBuilder mb; \
+        fat_p::MessageBuilder mb; \
         mb.format(__VA_ARGS__); \
-        std::string msg = mb.get_message(CPP_UTILITIES_LOCUS, #PredicateType "(" #target1 ", " #target2 ", " #target3 ", " #target4 ")"); \
+        std::string msg = mb.get_message(FATP_LOCUS, #PredicateType "(" #target1 ", " #target2 ", " #target3 ", " #target4 ")"); \
         diagnostic::conditionalPrintError([&]() { return "Expected Failure: " + msg; }); \
-        return cpp_utilities::make_unexpected(msg); \
+        return fat_p::make_unexpected(msg); \
     } \
     return result; \
 })()
 #define contextual_enforce_expected_5(func_ptr, PredicateType, target1, target2, target3, target4, target5, ...) ([&]() -> Expected<bool, std::string> { \
     auto result = PredicateType::check(target1, target2, target3, target4, target5); \
     if (!result) { \
-        cpp_utilities::MessageBuilder mb; \
+        fat_p::MessageBuilder mb; \
         mb.format(__VA_ARGS__); \
-        std::string msg = mb.get_message(CPP_UTILITIES_LOCUS, #PredicateType "(" #target1 ", " #target2 ", " #target3 ", " #target4 ", " #target5 ")"); \
+        std::string msg = mb.get_message(FATP_LOCUS, #PredicateType "(" #target1 ", " #target2 ", " #target3 ", " #target4 ", " #target5 ")"); \
         diagnostic::conditionalPrintError([&]() { return "Expected Failure: " + msg; }); \
-        return cpp_utilities::make_unexpected(msg); \
+        return fat_p::make_unexpected(msg); \
     } \
     return result; \
 })()
@@ -303,4 +303,4 @@ namespace cpp_utilities {
 #define contextual_enforce_expected_not_null(func_ptr, ptr, ...) \
     contextual_enforce_expected_1(func_ptr, NotNullPredicate, ptr, __VA_ARGS__)
 // Add similar for other predicates as needed
-} // namespace cpp_utilities
+} // namespace fat_p

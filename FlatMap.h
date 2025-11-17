@@ -8,10 +8,11 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
-#include "CppUtilitiesTypeTraits.h"
 
-namespace cpp_utilities {
+#include "FatPTypeTraits.h"
 
+namespace fat_p
+{
 template <typename Key, typename T, typename Compare = std::less<Key>, 
           typename Allocator = std::allocator<std::pair<const Key, T>>>
 class FlatMap {
@@ -293,4 +294,4 @@ public:
 template <typename K, typename V, typename C, typename A>
 struct is_flat_map<FlatMap<K, V, C, A>> : std::true_type {};
 
-}  // namespace cpp_utilities
+}  // namespace fat_p

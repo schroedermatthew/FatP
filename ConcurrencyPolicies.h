@@ -6,7 +6,7 @@
  * @details This header provides a comprehensive set of concurrency primitives ranging from
  * zero-cost (single-threaded) to advanced lock-free synchronization (RCU, hazard pointers,
  * SeqLock), all exposing a consistent policy interface. The policies rely on macro definitions
- * (e.g., \c CPP_UTILITIES_USE_MUTEX) for compile-time feature selection.
+ * (e.g., \c FATP_USE_MUTEX) for compile-time feature selection.
  *
  * @version 4.1.0 - ENHANCED EDITION (November 2025):
  *   FEATURES:
@@ -75,57 +75,59 @@
 
 #pragma once
 
+#include "CppStandardDetection.h"
+
  // =============================================================================
  // Feature Detection Macros
  // =============================================================================
 
-#if !defined(CPP_UTILITIES_USE_MUTEX)
+#if !defined(FATP_USE_MUTEX)
  /**< Enable std::mutex by default */
-#define CPP_UTILITIES_USE_MUTEX 1
+#define FATP_USE_MUTEX 1
 #endif
-#if !defined(CPP_UTILITIES_USE_SHARED_MUTEX)
+#if !defined(FATP_USE_SHARED_MUTEX)
 /**< Enable std::shared_mutex by default (C++17) */
-#define CPP_UTILITIES_USE_SHARED_MUTEX 1
+#define FATP_USE_SHARED_MUTEX 1
 #endif
-#if !defined(CPP_UTILITIES_USE_ATOMIC)
+#if !defined(FATP_USE_ATOMIC)
  /**< Enable std::atomic by default */
-#define CPP_UTILITIES_USE_ATOMIC 1
+#define FATP_USE_ATOMIC 1
 #endif
-#if !defined(CPP_UTILITIES_USE_CHRONO)
+#if !defined(FATP_USE_CHRONO)
  /**< Enable std::chrono by default for timeouts */
-#define CPP_UTILITIES_USE_CHRONO 1
+#define FATP_USE_CHRONO 1
 #endif
-#if !defined(CPP_UTILITIES_USE_CONDITION_VARIABLE)
+#if !defined(FATP_USE_CONDITION_VARIABLE)
 /**< Enable std::condition_variable by default (for wait/notify patterns) */
-#define CPP_UTILITIES_USE_CONDITION_VARIABLE 1
+#define FATP_USE_CONDITION_VARIABLE 1
 #endif
 
 // C++23 feature detection
-#if __cplusplus >= 202302L || (defined(__cpp_lib_jthread) && __cpp_lib_jthread >= 201911L)
-#define CPP_UTILITIES_HAS_JTHREAD 1
+#if FATP_HAS_CPP23 || (defined(__cpp_lib_jthread) && __cpp_lib_jthread >= 201911L)
+#define FATP_HAS_JTHREAD 1
 #else
-#define CPP_UTILITIES_HAS_JTHREAD 0
+#define FATP_HAS_JTHREAD 0
 #endif
 
 // --- Standard Library Includes Gated by Macros ---
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
 #include <mutex>
 #include <memory>
 #include <utility>
 #endif
-#if CPP_UTILITIES_USE_SHARED_MUTEX
+#if FATP_USE_SHARED_MUTEX
 #include <shared_mutex>
 #endif
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 #include <atomic>
 #include <thread>
 #include <vector>
 #include <array>
 #endif
-#if CPP_UTILITIES_USE_CHRONO
+#if FATP_USE_CHRONO
 #include <chrono>
 #endif
-#if CPP_UTILITIES_USE_CONDITION_VARIABLE
+#if FATP_USE_CONDITION_VARIABLE
 #include <condition_variable>
 #endif
 
@@ -148,7 +150,7 @@
 #include <windows.h>
 #endif
 
-namespace cpp_utilities {
+namespace fat_p {
 
     // =============================================================================
     // I. Extended Synchronization Policy Traits (v3.0)
@@ -353,6 +355,12 @@ namespace cpp_utilities {
          * @details Used to maintain consistent policy interfaces.
          */
         using SharedGuard = LockGuard;
+        
+        /**
+         * @brief Aliases for SmallVector and other containers
+         */
+        using WriteLock = LockGuard;
+        using ReadLock = LockGuard;
 
         /**
          * @brief Returns a reference to the NoOpLock object.
@@ -373,7 +381,7 @@ namespace cpp_utilities {
             return lock_;
         }
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
         /**
          * @brief Optional debug check to catch single-threaded code running in parallel.
          * @details Intended to be used with debugging infrastructure for assertion testing.
@@ -394,7 +402,7 @@ namespace cpp_utilities {
     // III. MutexSynchronization Policy (Std::mutex)
     // =============================================================================
 
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
 /**
  * @brief Synchronization policy using \c std::mutex for exclusive locking.
  * @details This is the standard, blocking synchronization primitive in C++. It
@@ -424,7 +432,7 @@ namespace cpp_utilities {
         MutexSynchronizationPolicy& operator=(const MutexSynchronizationPolicy&) =
             delete;
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
     private:
         /**
          * @brief Optional atomic counter for tracking contention/debug purposes.
@@ -460,7 +468,7 @@ namespace cpp_utilities {
              */
             explicit LockGuard(std::mutex& mutex) : guard_(mutex) {}
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
             /**
              * @brief Overload that accepts the policy object for contention tracking (non-standard for consistency).
              * @param policy Reference to the policy object containing the lock.
@@ -479,7 +487,7 @@ namespace cpp_utilities {
              */
             ~LockGuard() = default;
 
-#if CPP_UTILITIES_USE_CONDITION_VARIABLE
+#if FATP_USE_CONDITION_VARIABLE
             /**
              * @brief Allows a thread to wait on a condition variable while holding
              * the unique lock.
@@ -506,7 +514,7 @@ namespace cpp_utilities {
             /**
              * @brief Optional pointer to the policy object for contention tracking.
              */
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
             MutexSynchronizationPolicy* policy_ptr_ = nullptr;
 #endif
         };
@@ -517,6 +525,12 @@ namespace cpp_utilities {
          * \c SharedGuard also acts as an exclusive lock for interface consistency.
          */
         using SharedGuard = LockGuard;
+        
+        /**
+         * @brief Aliases for SmallVector and other containers
+         */
+        using WriteLock = LockGuard;
+        using ReadLock = LockGuard;
 
         /**
          * @brief Returns a reference to the policy's internal \c std::mutex.
@@ -543,13 +557,13 @@ namespace cpp_utilities {
          */
         mutable std::mutex mutex_{};
     };
-#endif // CPP_UTILITIES_USE_MUTEX
+#endif // FATP_USE_MUTEX
 
     // =============================================================================
     // IV. Shared Mutex Policy
     // =============================================================================
 
-#if CPP_UTILITIES_USE_SHARED_MUTEX
+#if FATP_USE_SHARED_MUTEX
 /**
  * @brief Synchronization policy using a shared pointer to a \c std::shared_mutex.
  * @details This policy provides full Read-Write (shared/exclusive) capabilities.
@@ -608,6 +622,15 @@ namespace cpp_utilities {
             explicit LockGuard(const std::shared_ptr<std::shared_mutex>& mutex_ptr)
                 : lock_(*mutex_ptr) {
             }
+            
+            /**
+             * @brief Acquires the exclusive lock from a policy object.
+             * @param policy The SharedMutexPolicy instance.
+             */
+            explicit LockGuard(const SharedMutexPolicy& policy)
+                : lock_(*policy.getLock()) {
+            }
+            
             LockGuard(const LockGuard&) = delete;
             LockGuard& operator=(const LockGuard&) = delete;
             /**
@@ -636,6 +659,15 @@ namespace cpp_utilities {
             explicit SharedGuard(const std::shared_ptr<std::shared_mutex>& mutex_ptr)
                 : lock_(*mutex_ptr) {
             }
+            
+            /**
+             * @brief Acquires the shared lock from a policy object.
+             * @param policy The SharedMutexPolicy instance.
+             */
+            explicit SharedGuard(const SharedMutexPolicy& policy)
+                : lock_(*policy.getLock()) {
+            }
+            
             SharedGuard(const SharedGuard&) = delete;
             SharedGuard& operator=(const SharedGuard&) = delete;
             /**
@@ -643,6 +675,12 @@ namespace cpp_utilities {
              */
             ~SharedGuard() = default;
         };
+
+        /**
+         * @brief Aliases for SmallVector and other containers with proper read-write separation
+         */
+        using WriteLock = LockGuard;   // Exclusive (write) access
+        using ReadLock = SharedGuard;  // Shared (read) access
 
         /**
          * @brief Returns the shared pointer to the internal \c std::shared_mutex.
@@ -670,13 +708,13 @@ namespace cpp_utilities {
          */
         std::shared_ptr<std::shared_mutex> mutex_;
     };
-#endif // CPP_UTILITIES_USE_SHARED_MUTEX
+#endif // FATP_USE_SHARED_MUTEX
 
     // =============================================================================
     // V. Unique Read/Write Lock Policy
     // =============================================================================
 
-#if CPP_UTILITIES_USE_SHARED_MUTEX
+#if FATP_USE_SHARED_MUTEX
 /**
  * @brief Synchronization policy using a unique pointer to \c std::shared_mutex.
  * @details Similar to \c SharedMutexPolicy, but uses \c std::unique_ptr instead
@@ -737,6 +775,12 @@ namespace cpp_utilities {
         };
 
         /**
+         * @brief Aliases for SmallVector and other containers with proper read-write separation
+         */
+        using WriteLock = LockGuard;   // Exclusive (write) access
+        using ReadLock = SharedGuard;  // Shared (read) access
+
+        /**
          * @brief Returns a reference to the internal \c std::shared_mutex.
          * @return Reference to the shared mutex instance.
          */
@@ -755,13 +799,13 @@ namespace cpp_utilities {
     private:
         std::unique_ptr<std::shared_mutex> mutex_;
     };
-#endif // CPP_UTILITIES_USE_SHARED_MUTEX
+#endif // FATP_USE_SHARED_MUTEX
 
     // =============================================================================
     // VI. Spinlock Synchronization Policy
     // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 /**
  * @brief Synchronization policy using a spinlock based on \c std::atomic_flag.
  * @details This policy busy-waits (spins) instead of blocking the thread,
@@ -867,6 +911,12 @@ namespace cpp_utilities {
          * acts as an exclusive lock for interface consistency.
          */
         using SharedGuard = LockGuard;
+        
+        /**
+         * @brief Aliases for SmallVector and other containers
+         */
+        using WriteLock = LockGuard;
+        using ReadLock = LockGuard;
 
         /**
          * @brief Returns a reference to the policy itself (or its lockable object).
@@ -892,13 +942,13 @@ namespace cpp_utilities {
          */
         std::atomic_flag& getRawLock() { return lock_flag_; }
     };
-#endif // CPP_UTILITIES_USE_ATOMIC
+#endif // FATP_USE_ATOMIC
 
     // =============================================================================
     // VII. Lock-Free/Atomic Synchronization Policy
     // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 /**
  * @brief A non-blocking, lock-free policy with a compile-time fallback to an
  * assertion.
@@ -985,13 +1035,13 @@ namespace cpp_utilities {
          */
         mutable NoOpLock lock_{};
     };
-#endif // CPP_UTILITIES_USE_ATOMIC
+#endif // FATP_USE_ATOMIC
 
     // =============================================================================
     // VIII. Lock-Free Policy with Fallback
     // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_ATOMIC && FATP_USE_MUTEX
 /**
  * @brief Synchronization policy that uses a lock-free approach only in debug
  * mode (asserting failure) and falls back to a standard mutex in release mode.
@@ -1125,13 +1175,13 @@ namespace cpp_utilities {
             return FallbackPolicy::getLock();
         }
     };
-#endif // CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_MUTEX
+#endif // FATP_USE_ATOMIC && FATP_USE_MUTEX
 
     // =============================================================================
     // IX. Waitable Synchronization Policy (C++20 style)
     // =============================================================================
 
-#if CPP_UTILITIES_USE_MUTEX && CPP_UTILITIES_USE_CONDITION_VARIABLE
+#if FATP_USE_MUTEX && FATP_USE_CONDITION_VARIABLE
 /**
  * @brief Synchronization policy using \c std::mutex and \c std::unique_lock
  * to fully support condition variables.
@@ -1141,7 +1191,7 @@ namespace cpp_utilities {
  *
  * @section performance Performance Characteristics
  * - Uncontended: ~30ns (slightly slower than mutex due to unique_lock)
- * - Wait/notify: ~1-10ÃƒÅ½Ã‚Â¼s (thread scheduling)
+ * - Wait/notify: ~1-10ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â½ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼s (thread scheduling)
  * - Overhead: Additional flexibility for condition variables
  *
  * @section when_to_use When to Use
@@ -1199,7 +1249,7 @@ namespace cpp_utilities {
                 cond.wait(lock_, std::move(pred));
             }
 
-#if CPP_UTILITIES_HAS_JTHREAD
+#if FATP_HAS_JTHREAD
             /**
              * @brief Allows a thread to wait with C++23 jthread cooperative cancellation.
              * @tparam Predicate The type of the predicate (e.g., a lambda).
@@ -1231,7 +1281,7 @@ namespace cpp_utilities {
                 return cond.wait_for(lock_, rel_time, std::move(pred));
             }
 
-#if CPP_UTILITIES_HAS_JTHREAD
+#if FATP_HAS_JTHREAD
             /**
              * @brief Wait with timeout and C++23 stop_token support.
              * @return \c true if predicate true, \c false if timeout or stop requested.
@@ -1302,13 +1352,13 @@ namespace cpp_utilities {
          */
         mutable std::condition_variable condition_{};
     };
-#endif // CPP_UTILITIES_USE_MUTEX && CPP_UTILITIES_USE_CONDITION_VARIABLE
+#endif // FATP_USE_MUTEX && FATP_USE_CONDITION_VARIABLE
 
     // =============================================================================
     // NEW POLICY 1: SeqLock Policy - Optimistic Read-Heavy Synchronization
     // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 /**
  * @brief Sequence lock for optimistic readers with rare writers.
  * @details Readers check a sequence counter before and after reading. Writers
@@ -1443,13 +1493,13 @@ namespace cpp_utilities {
     private:
         std::atomic<uint64_t> sequence_{ 0 };
     };
-#endif // CPP_UTILITIES_USE_ATOMIC
+#endif // FATP_USE_ATOMIC
 
     // =============================================================================
     // NEW POLICY 2: Ticket Lock Policy - Fair FIFO Spinlock
     // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 /**
  * @brief FIFO spinlock with guaranteed fairness using ticket dispenser pattern.
  * @details Threads take a ticket and wait for their number to be served.
@@ -1525,13 +1575,13 @@ namespace cpp_utilities {
         std::atomic<uint64_t> next_ticket_{ 0 };
         std::atomic<uint64_t> now_serving_{ 0 };
     };
-#endif // CPP_UTILITIES_USE_ATOMIC
+#endif // FATP_USE_ATOMIC
 
     // =============================================================================
     // NEW POLICY 3: MCS Lock Policy - Scalable Queue-Based Lock for NUMA
     // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 /**
  * @brief Mellor-Crummey Scott lock for many-core and NUMA systems.
  * @details Each thread spins on its own queue node (local memory).
@@ -1633,13 +1683,13 @@ namespace cpp_utilities {
     private:
         std::atomic<QNode*> tail_{ nullptr };
     };
-#endif // CPP_UTILITIES_USE_ATOMIC
+#endif // FATP_USE_ATOMIC
 
     // =============================================================================
     // NEW POLICY 4: RCU Policy - Read-Copy-Update for Lock-Free Reads
     // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_ATOMIC && FATP_USE_MUTEX
 /**
  * @brief Copy-on-Write Policy with automatic memory reclamation.
  * @details Readers get consistent snapshots via shared_ptr. Writers copy-update.
@@ -1685,7 +1735,7 @@ namespace cpp_utilities {
         // Enhanced C++20 detection
 #ifndef __cpp_lib_atomic_shared_ptr
     // Manual detection for compilers with incomplete feature macros
-#if __cplusplus >= 202002L && \
+#if FATP_HAS_CPP20 && \
         (defined(__GNUC__) && __GNUC__ >= 11 || \
          defined(__clang__) && __clang_major__ >= 13 || \
          defined(_MSC_VER) && _MSC_VER >= 1930)
@@ -1862,13 +1912,13 @@ namespace cpp_utilities {
         std::mutex write_mutex_; // Serialize writers only
 #endif
     };
-#endif // CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_MUTEX
+#endif // FATP_USE_ATOMIC && FATP_USE_MUTEX
 
     // =============================================================================
     // NEW POLICY 5: Hazard Pointer Policy - Safe Memory Reclamation
     // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 /**
  * @brief Hazard pointers for safe memory reclamation in lock-free structures.
  * @details Threads announce pointers they're using via thread-local hazard pointers;
@@ -2037,13 +2087,13 @@ namespace cpp_utilities {
         }
     };
 
-#endif // CPP_UTILITIES_USE_ATOMIC
+#endif // FATP_USE_ATOMIC
 
     // =============================================================================
     // NEW POLICY 6: Adaptive Lock Policy - Runtime Strategy Selection
     // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_ATOMIC && FATP_USE_MUTEX
 /**
  * @brief Adaptively switches between spinlock and mutex based on contention.
  * @details Monitors contention patterns; spins briefly then blocks if contended.
@@ -2169,13 +2219,13 @@ namespace cpp_utilities {
         std::atomic<uint32_t> contention_counter_{ 0 };
         std::atomic<bool> use_mutex_{ false };
     };
-#endif // CPP_UTILITIES_USE_ATOMIC && CPP_UTILITIES_USE_MUTEX
+#endif // FATP_USE_ATOMIC && FATP_USE_MUTEX
 
     // =============================================================================
     // NEW POLICY 7: Priority Inheritance Lock - Real-Time Systems
     // =============================================================================
 
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
 /**
  * @brief Priority inheritance mutex for real-time systems.
  * @details Boosts lock holder to highest waiter priority to avoid priority inversion.
@@ -2326,13 +2376,13 @@ namespace cpp_utilities {
         std::mutex mutex_;
 #endif
     };
-#endif // CPP_UTILITIES_USE_MUTEX
+#endif // FATP_USE_MUTEX
 
     // =============================================================================
     // NEW POLICY 8: Versioned Lock Policy - Optimistic Versioned Concurrency
     // =============================================================================
 
-#if CPP_UTILITIES_USE_ATOMIC
+#if FATP_USE_ATOMIC
 /**
  * @brief Version-stamped optimistic concurrency control.
  * @details Similar to SeqLock but with explicit version tracking for transactions.
@@ -2450,14 +2500,14 @@ namespace cpp_utilities {
         std::atomic<uint64_t> version_{ 0 };
         std::mutex write_lock_; // Serialize writers only
     };
-#endif // CPP_UTILITIES_USE_ATOMIC
+#endif // FATP_USE_ATOMIC
 
 
     // =============================================================================
     // STANDARD POLICY 1: RecursiveMutexPolicy - Reentrant Mutex
     // =============================================================================
 
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
 /**
  * @brief Recursive mutex allowing same thread to acquire multiple times.
  * @details Standard reentrant mutex - same thread can lock multiple times,
@@ -2498,13 +2548,13 @@ namespace cpp_utilities {
     private:
         mutable std::recursive_mutex lock_;
     };
-#endif // CPP_UTILITIES_USE_MUTEX
+#endif // FATP_USE_MUTEX
 
     // =============================================================================
     // STANDARD POLICY 2: TimedMutexPolicy - Mutex with Timeout
     // =============================================================================
 
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
 /**
  * @brief Mutex with timeout support for try_lock operations.
  * @details Allows attempting to acquire lock with timeout, preventing deadlocks
@@ -2575,13 +2625,13 @@ namespace cpp_utilities {
     private:
         mutable std::timed_mutex lock_;
     };
-#endif // CPP_UTILITIES_USE_MUTEX
+#endif // FATP_USE_MUTEX
 
     // =============================================================================
     // STANDARD POLICY 3: SharedTimedMutexPolicy - Shared Mutex with Timeout
     // =============================================================================
 
-#if CPP_UTILITIES_USE_SHARED_MUTEX
+#if FATP_USE_SHARED_MUTEX
 /**
  * @brief Shared mutex with timeout for readers and writers.
  * @details Combines reader/writer lock with timeout support.
@@ -2619,6 +2669,13 @@ namespace cpp_utilities {
     private:
         mutable std::shared_timed_mutex lock_;
     };
-#endif // CPP_UTILITIES_USE_SHARED_MUTEX
+#endif // FATP_USE_SHARED_MUTEX
 
-} // namespace cpp_utilities
+    /**
+     * @brief Convenience aliases for common policy names used in SmallVector and other containers
+     */
+    using NoLocking = SingleThreadedPolicy;
+    using ReadWriteLock = SharedMutexPolicy;
+    using SpinLock = SpinlockSynchronizationPolicy;
+
+} // namespace fat_p

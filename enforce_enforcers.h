@@ -19,7 +19,7 @@
 #include "Stringify.h" // For type-safe string conversion
 #include "ContractException.h" // Defines the ContractViolationError base
 
-namespace cpp_utilities {
+namespace fat_p {
     /**
      * @brief Utility struct for building the final diagnostic message string.
      *
@@ -212,4 +212,4 @@ namespace cpp_utilities {
             return Enforcer<Raiser>(passed, expression_str, locus);
         }
     }
-} // namespace cpp_utilities
+} // namespace fat_p

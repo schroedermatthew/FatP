@@ -29,7 +29,7 @@
 #include <optional>
 #include <shared_mutex>
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // ============================================================================
 // Error Types (shared by both implementations)
@@ -626,4 +626,4 @@ using FastFactory = Factory<K, T,
     InstanceLifetimePolicy
 >;
 
-} // namespace cpp_utilities
+} // namespace fat_p

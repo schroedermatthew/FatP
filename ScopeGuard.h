@@ -44,20 +44,22 @@
 #include <utility>      // For std::forward, std::move
 #include <cassert>      // For assert
 
+
+#include "FatPTypeTraits.h"
 #include "ScopeGuardPolicies.h"  // For PolicyExecutor and tags
 #include "ConcurrencyPolicies.h" // For thread-safety policy
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // =============================================================================
 // Minimal Enforce Support for Debug Builds
 // =============================================================================
 
 #ifndef NDEBUG
-    #define CPP_UTILITIES_DEBUG_ENFORCE(cond, msg) \
+    #define FATP_DEBUG_ENFORCE(cond, msg) \
         do { if (!(cond)) { assert((cond) && (msg)); } } while(0)
 #else
-    #define CPP_UTILITIES_DEBUG_ENFORCE(cond, msg) ((void)0)
+    #define FATP_DEBUG_ENFORCE(cond, msg) ((void)0)
 #endif
 
 // =============================================================================
@@ -170,11 +172,11 @@ namespace detail {
  * if multiple threads might simultaneously attempt to move from the same object.
  *
  * Policy Compatibility (v2.1):
- * âœ… Compatible: SingleThreaded, Mutex, SharedMutex, UniqueRWLock, Spinlock,
+ * Ã¢Å“â€¦ Compatible: SingleThreaded, Mutex, SharedMutex, UniqueRWLock, Spinlock,
  *               Ticket, MCS, Adaptive, Versioned, SeqLock, PriorityInheritance,
  *               Waitable, Recursive, Timed, SharedTimed
- * âš ï¸ Requires care: RCUPolicy, HazardPointerPolicy (templated on data type)
- * âŒ Not compatible: LockFreeSynchronization (assertion-only, debug mode)
+ * Ã¢Å¡Â Ã¯Â¸Â Requires care: RCUPolicy, HazardPointerPolicy (templated on data type)
+ * Ã¢ÂÅ’ Not compatible: LockFreeSynchronization (assertion-only, debug mode)
  *
  * Example:
  * @code
@@ -236,7 +238,7 @@ public:
         , m_action_storage(std::forward<F>(action))
         , m_execute(true)
     {
-        CPP_UTILITIES_DEBUG_ENFORCE(&m_action_storage, 
+        FATP_DEBUG_ENFORCE(&m_action_storage, 
             "ScopeGuard constructed with null action storage");
     }
     
@@ -261,7 +263,7 @@ public:
         , m_action_storage(std::forward<Args>(args)...)
         , m_execute(true)
     {
-        CPP_UTILITIES_DEBUG_ENFORCE(&m_action_storage, 
+        FATP_DEBUG_ENFORCE(&m_action_storage, 
             "ScopeGuard emplace-constructed with null action storage");
     }
     
@@ -542,16 +544,16 @@ template <typename Policy, typename Fn>
 // Helper macro to generate a unique name for the ScopeGuard instance
 // Use __COUNTER__ if available for better uniqueness; fallback to __LINE__
 #if defined(__COUNTER__)
-    #define CPP_UTILITIES_SCOPE_GUARD_UNIQUE(prefix) \
-        CPP_UTILITIES_SCOPE_GUARD_CONCAT_IMPL(prefix, __COUNTER__)
+    #define FATP_SCOPE_GUARD_UNIQUE(prefix) \
+        FATP_SCOPE_GUARD_CONCAT_IMPL(prefix, __COUNTER__)
 #else
-    #define CPP_UTILITIES_SCOPE_GUARD_UNIQUE(prefix) \
-        CPP_UTILITIES_SCOPE_GUARD_CONCAT_IMPL(prefix, __LINE__)
+    #define FATP_SCOPE_GUARD_UNIQUE(prefix) \
+        FATP_SCOPE_GUARD_CONCAT_IMPL(prefix, __LINE__)
 #endif
 
-#define CPP_UTILITIES_SCOPE_GUARD_CONCAT_IMPL(a, b) \
-    CPP_UTILITIES_SCOPE_GUARD_CONCAT_IMPL2(a, b)
-#define CPP_UTILITIES_SCOPE_GUARD_CONCAT_IMPL2(a, b) a##b
+#define FATP_SCOPE_GUARD_CONCAT_IMPL(a, b) \
+    FATP_SCOPE_GUARD_CONCAT_IMPL2(a, b)
+#define FATP_SCOPE_GUARD_CONCAT_IMPL2(a, b) a##b
 
 /**
  * @brief Factory macro to create a ScopeGuard with default policy.
@@ -565,8 +567,8 @@ template <typename Policy, typename Fn>
  * @endcode
  */
 #define SCOPE_GUARD \
-    auto CPP_UTILITIES_SCOPE_GUARD_UNIQUE(scope_guard_) = \
-        ::cpp_utilities::MakeScopeGuard() + [&]() 
+    auto FATP_SCOPE_GUARD_UNIQUE(scope_guard_) = \
+        ::fat_p::MakeScopeGuard() + [&]() 
 
 /**
  * @brief Factory macro to create a ScopeGuard with an explicit policy.
@@ -583,10 +585,10 @@ template <typename Policy, typename Fn>
  * @endcode
  */
 #define SCOPE_GUARD_EX(PolicyTag) \
-    auto CPP_UTILITIES_SCOPE_GUARD_UNIQUE(scope_guard_) = \
-        ::cpp_utilities::MakeScopeGuard<PolicyTag>() + [&]() GET_NOEXCEPT(PolicyTag)
+    auto FATP_SCOPE_GUARD_UNIQUE(scope_guard_) = \
+        ::fat_p::MakeScopeGuard<PolicyTag>() + [&]() GET_NOEXCEPT(PolicyTag)
 
 template <typename OnExit, typename OnSuccess, typename OnFailure, typename ExecutionPolicy>
 struct is_scope_guard<ScopeGuardImpl<OnExit, OnSuccess, OnFailure, ExecutionPolicy>> : std::true_type {};
 
-} // namespace cpp_utilities
+} // namespace fat_p

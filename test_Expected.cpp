@@ -7,11 +7,11 @@
 
 #include "Expected.h"
 #include "test_Expected.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
 /**
  * @file test_Expected.cpp
- * @brief Comprehensive test suite for cpp_utilities::Expected
+ * @brief Comprehensive test suite for fat_p::Expected
  * 
  * This test suite demonstrates all features of the Expected monad including:
  * - Basic value and error handling
@@ -40,7 +40,7 @@
  *      template <typename T, typename E>
  *      struct MyCustomStorage { ... };
  *      
- *      #define CPP_UTILITIES_DEFAULT_STORAGE MyCustomStorage
+ *      #define FATP_DEFAULT_STORAGE MyCustomStorage
  *      #include "Expected_v4_FINAL.h"
  *      @endcode
  *    - Best for: Arena allocators, object pools, custom memory management
@@ -57,9 +57,9 @@
  * - Mix storage policies in the same translation unit if needed
  */
 
-using namespace cpp_utilities;
+using namespace fat_p;
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
     // ============================================================================
@@ -265,13 +265,13 @@ namespace cpp_utilities::testing
 #endif
 
         std::cout << "\nStorage Policy Configuration:\n";
-        std::cout << "  - Default Expected<T,E>: Controlled by CPP_UTILITIES_DEFAULT_STORAGE macro\n";
+        std::cout << "  - Default Expected<T,E>: Controlled by FATP_DEFAULT_STORAGE macro\n";
         std::cout << "  - ExpectedUnion<T,E>: Always uses UnionStorage (zero-overhead)\n";
 #ifdef USE_VARIANT_STORAGE
         std::cout << "  - ExpectedVariant<T,E>: Always uses VariantStorage (debug-friendly)\n";
 #endif
         std::cout << "\nTo use custom storage globally:\n";
-        std::cout << "  #define CPP_UTILITIES_DEFAULT_STORAGE MyStorage\n";
+        std::cout << "  #define FATP_DEFAULT_STORAGE MyStorage\n";
         std::cout << "  #include \"Expected.h\"\n";
         std::cout << "\n";
     }
@@ -1034,4 +1034,4 @@ namespace cpp_utilities::testing
         return true;
     }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

@@ -8,12 +8,9 @@
 #include <cmath>
 
 #include "FloatingPointComparison.h"
-#include "test_FloatingPointComparison.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-namespace cpp_utilities::testing {
-
-using namespace cpp_utilities;
+namespace fat_p::testing {
 
 // =============================================================================
 // Test Suite 1: StandardComparisonPolicy
@@ -351,4 +348,12 @@ bool test_FloatingPointComparison() {
     return (failed == 0);
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing
+
+#ifdef ENABLE_TEST_APPLICATION
+int main()
+{
+    return fat_p::testing::test_FloatingPointComparison() ? 0 : 1;
+}
+#endif
+

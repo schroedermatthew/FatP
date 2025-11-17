@@ -24,10 +24,13 @@
  * Extensible: CheckPolicy for custom validation.
  */
 #pragma once
-#if !defined(CPP_UTILITIES_ENABLE_IOSTREAM)
-#define CPP_UTILITIES_ENABLE_IOSTREAM 1 // Enable by default; undef to disable <iostream> for <<
+#if !defined(FATP_ENABLE_IOSTREAM)
+#define FATP_ENABLE_IOSTREAM 1 // Enable by default; undef to disable <iostream> for <<
 #endif
-#if CPP_UTILITIES_ENABLE_IOSTREAM
+
+#include "CppStandardDetection.h"
+
+#if FATP_ENABLE_IOSTREAM
 #include <iostream>
 #endif
 #include <utility>
@@ -35,7 +38,7 @@
 #include <functional>
 #include <limits>
 #include <stdexcept>
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
 #include <compare> // For std::strong_ordering in <=> operator
 #endif
 
@@ -44,7 +47,7 @@
 #include "AtomicReference.h" // For atomic wrap (conditional)
 #include "ConcurrencyPolicies.h" // For thread-safety in ops
 
-namespace cpp_utilities {
+namespace fat_p {
     // --- Policy for Custom Checks (Extensible) ---
     /**
      * @brief Default check policy: no additional validation.
@@ -393,7 +396,7 @@ namespace cpp_utilities {
         [[nodiscard]] friend bool operator>=(const StrongId& lhs, const StrongId& rhs) noexcept {
             return !(lhs < rhs);
         }
-#if __cplusplus >= 202002L
+#if FATP_HAS_CPP20
         [[nodiscard]] friend std::strong_ordering operator<=>(const StrongId& lhs, const StrongId& rhs) noexcept {
             if constexpr (is_shared_policy_v<ConcurrencyPolicy>) {
                 typename ConcurrencyPolicy::SharedGuard guard_lhs(lhs.getLock());
@@ -792,7 +795,7 @@ namespace cpp_utilities {
         T m_value{};
     };
     
-#if CPP_UTILITIES_ENABLE_IOSTREAM
+#if FATP_ENABLE_IOSTREAM
     // --- External Utilities ---
     /**
      * @brief Overload for standard output streams (e.g., std::cout).
@@ -838,7 +841,7 @@ namespace cpp_utilities {
         template <typename> class OpPolicy = DefaultOpPolicy>
     using AtomicStrongId = AtomicReference<StrongId<T, Tag, CheckPolicy, ConcurrencyPolicy, OpPolicy>>;
     
-} // namespace cpp_utilities
+} // namespace fat_p
 
 // --- Hash Specialization for Standard Containers ---
 /**
@@ -848,14 +851,14 @@ namespace cpp_utilities {
  */
 namespace std {
     template <typename T, typename Tag, typename CheckPolicy, typename ConcurrencyPolicy, template <typename> class OpPolicy>
-    struct hash<cpp_utilities::StrongId<T, Tag, CheckPolicy, ConcurrencyPolicy, OpPolicy>> {
+    struct hash<fat_p::StrongId<T, Tag, CheckPolicy, ConcurrencyPolicy, OpPolicy>> {
         /**
          * @brief Hash functor operator.
          * @param id The StrongId object to hash.
          * @return The hash value (size_t) derived from the underlying T.
          */
         [[nodiscard]] size_t operator()(
-            const cpp_utilities::StrongId<T, Tag, CheckPolicy, ConcurrencyPolicy, OpPolicy>& id) const noexcept
+            const fat_p::StrongId<T, Tag, CheckPolicy, ConcurrencyPolicy, OpPolicy>& id) const noexcept
         {
             // Delegates hashing to the underlying type T's standard hash.
             return std::hash<T>{}(id.get());
@@ -863,7 +866,7 @@ namespace std {
     };
 } // namespace std
 
-namespace cpp_utilities {
+namespace fat_p {
 
 template <typename T, typename Tag, typename V, typename C, template <typename> class O>
 struct is_strong_id<StrongId<T, Tag, V, C, O>> : std::true_type {};

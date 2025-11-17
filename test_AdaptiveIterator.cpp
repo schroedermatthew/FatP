@@ -15,10 +15,10 @@
 
 #include "AdaptiveIterator.h"
 #include "test_AdaptiveIterator.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 
@@ -295,7 +295,7 @@ bool test_combined_policy_stride_filter() {
     auto even_pred = [](const int& v) { return v % 2 == 0; };
     using StridePolicy = StrideIteratorPolicy<int, 2>;
     using FilterPolicy = FilteringIteratorPolicy<int, decltype(even_pred)>;
-    using CombinedPolicy = cpp_utilities::CombinedPolicy<StridePolicy, FilterPolicy>;
+    using CombinedPolicy = fat_p::CombinedPolicy<StridePolicy, FilterPolicy>;
     
     // Note: CombinedPolicy composition might not work as expected for this test
     // This tests the composition logic; actual behavior depends on implementation
@@ -663,4 +663,4 @@ bool test_AdaptiveIterator() {
     return runner.print_summary() == 0;
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

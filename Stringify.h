@@ -16,7 +16,7 @@
 #include "TypeTraits.h"
 
 // Check if TypeTraits.h detected C++20 features
-#if CPP_UTILITIES_HAS_CPP20
+#if FATP_HAS_CPP20
     #include <format>
     #include <string_view>
 #endif
@@ -64,7 +64,7 @@
  * - Minimal template instantiations through careful SFINAE design
  */
 
-namespace cpp_utilities {
+namespace fat_p {
 
 // =============================================================================
 // SFINAE Traits for Streamability Detection
@@ -155,10 +155,10 @@ namespace detail {
      * @tparam T The type to check.
      */
     template <typename T>
-    #if CPP_UTILITIES_HAS_CPP20
-    concept is_iterable_concept = cpp_utilities::is_iterable<std::decay_t<T>>;
+    #if FATP_HAS_CPP20
+    concept is_iterable_concept = fat_p::is_iterable<std::decay_t<T>>;
     #else
-    using is_iterable = cpp_utilities::is_iterable<std::decay_t<T>>;
+    using is_iterable = fat_p::is_iterable<std::decay_t<T>>;
     #endif
 
 } // namespace detail
@@ -481,7 +481,7 @@ template <typename T>
     {
         return detail::stringify_map(value, opts);
     }
-    #if CPP_UTILITIES_HAS_CPP20
+    #if FATP_HAS_CPP20
     else if constexpr (detail::is_iterable_concept<PlainT> && 
                        !std::is_convertible_v<PlainT, std::string_view> &&
                        !std::is_convertible_v<PlainT, const char*>) 
@@ -542,7 +542,7 @@ template <typename T>
                                       const StringifyOptions& opts = {}) noexcept {
     using PlainT = std::decay_t<T>;
     
-    #if CPP_UTILITIES_HAS_CPP20
+    #if FATP_HAS_CPP20
     constexpr bool is_stringifiable = detail::is_ostreamable<PlainT>::value || 
                                       detail::has_to_string_method<PlainT>::value ||
                                       detail::has_to_string_snake_method<PlainT>::value ||
@@ -578,7 +578,7 @@ inline constexpr bool is_stringifiable_v =
     detail::is_ostreamable<T>::value || 
     detail::has_to_string_method<T>::value ||
     detail::has_to_string_snake_method<T>::value ||
-    #if CPP_UTILITIES_HAS_CPP20
+    #if FATP_HAS_CPP20
     (detail::is_iterable_concept<T> && 
      !std::is_convertible_v<T, std::string_view> &&
      !std::is_convertible_v<T, const char*>);
@@ -737,4 +737,4 @@ template <typename... Args>
     return ss.str();
 }
 
-} // namespace cpp_utilities
+} // namespace fat_p

@@ -38,12 +38,12 @@
 #include "ScopeGuardPolicies.h"
 #include "ConcurrencyPolicies.h"
 #include "test_ScopeGuard.h"
-#include "test_Utilities.h"
+#include "FatPTest.h"
 
-using namespace cpp_utilities::testing;
-using namespace cpp_utilities;
+using namespace fat_p::testing;
+using namespace fat_p;
 
-namespace cpp_utilities::testing
+namespace fat_p::testing
 {
 
 // =============================================================================
@@ -639,7 +639,7 @@ bool test_ThreadSafety() {
     std::cout << colors::cyan() << "\nTesting Thread-Safety..."
               << colors::reset() << std::endl;
     
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
     // Test 1: Concurrent dismiss operations
     {
         std::cout << colors::blue() << "  [TEST] Concurrent dismiss with MutexSynchronizationPolicy"
@@ -681,7 +681,7 @@ bool test_ThreadSafety() {
 // =============================================================================
 
 // Test 2: SharedMutexPolicy Read/Write Race Detection (Fix #1)
-#if CPP_UTILITIES_USE_SHARED_MUTEX
+#if FATP_USE_SHARED_MUTEX
     {
         std::cout << colors::blue() << "  [TEST] SharedMutexPolicy read/write race detection (Fix #1)"
                   << colors::reset() << std::endl;
@@ -744,7 +744,7 @@ bool test_ThreadSafety() {
 #endif
 
 // Test 3: Move Constructor Race Detection (Fix #2)
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
     {
         std::cout << colors::blue() << "  [TEST] Move constructor race detection (Fix #2)"
                   << colors::reset() << std::endl;
@@ -794,7 +794,7 @@ bool test_ThreadSafety() {
 #endif
 
 // Test 4: Move Assignment Race Detection (Fix #2)
-#if CPP_UTILITIES_USE_MUTEX
+#if FATP_USE_MUTEX
     {
         std::cout << colors::blue() << "  [TEST] Move assignment race detection (Fix #2)"
                   << colors::reset() << std::endl;
@@ -860,7 +860,7 @@ bool test_ThreadSafety() {
 #endif
 
 // Test 5: Concurrent Logging Thread Safety (Fix #3)
-#if CPP_UTILITIES_USE_MUTEX && CPP_UTILITIES_SCOPE_GUARD_LOG_ERRORS
+#if FATP_USE_MUTEX && FATP_SCOPE_GUARD_LOG_ERRORS
     {
         std::cout << colors::blue() << "  [TEST] Concurrent logging thread safety (Fix #3)"
                   << colors::reset() << std::endl;
@@ -897,7 +897,7 @@ bool test_ThreadSafety() {
 #endif
 
 // Test 6: UniqueRWLockPolicy (same fix as SharedMutexPolicy)
-#if CPP_UTILITIES_USE_SHARED_MUTEX
+#if FATP_USE_SHARED_MUTEX
     {
         std::cout << colors::blue() << "  [TEST] UniqueRWLockPolicy read/write (Fix #1)"
                   << colors::reset() << std::endl;
@@ -939,7 +939,7 @@ bool test_ThreadSafety() {
 #endif
 #else
     std::cout << colors::yellow() 
-              << "  [SKIPPED] Thread-safety tests require CPP_UTILITIES_USE_MUTEX"
+              << "  [SKIPPED] Thread-safety tests require FATP_USE_MUTEX"
               << colors::reset() << std::endl;
 #endif
     
@@ -1145,4 +1145,4 @@ bool test_ScopeGuard() {
     return failed == 0;
 }
 
-} // namespace cpp_utilities::testing
+} // namespace fat_p::testing

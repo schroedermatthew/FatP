@@ -13,9 +13,6 @@
  * - Cache-line aligned to prevent false sharing
  * - Bounded memory usage
  * 
- * @version 1.0.0
- * @date 2025-11
- * 
  * @section performance Performance Characteristics
  * - Enqueue: O(1) amortized, ~50-100ns uncontended
  * - Dequeue: O(1) amortized, ~50-100ns uncontended
@@ -45,10 +42,6 @@
  * auto stats = queue.stats();
  * std::cout << "Enqueued: " << stats.total_enqueues << "\n";
  * @endcode
- * 
- * Compilation: Requires C++17 and atomic support
- * - g++ -std=c++17 -O3 -pthread your_code.cpp
- * - Tested on Intel Core i7-8850H @ 2.60GHz, 32GB RAM
  */
 
 #pragma once
@@ -61,14 +54,16 @@
 #include <new>
 #include <type_traits>
 
-namespace cpp_utilities {
+#include "FatPTypeTraits.h"
+
+namespace fat_p {
 
 // ============================================================================
 // Cache Line Size
 // ============================================================================
 
-#ifndef CPP_UTILITIES_CACHE_LINE_SIZE
-#define CPP_UTILITIES_CACHE_LINE_SIZE 64
+#ifndef FATP_CACHE_LINE_SIZE
+#define FATP_CACHE_LINE_SIZE 64
 #endif
 
 // ============================================================================
@@ -106,7 +101,7 @@ class LockFreeQueue {
     static_assert(MaxSize > 0, "MaxSize must be positive");
     
     // Slot with sequence number for ABA prevention
-    struct alignas(CPP_UTILITIES_CACHE_LINE_SIZE) Slot {
+    struct alignas(FATP_CACHE_LINE_SIZE) Slot {
         std::atomic<uint64_t> sequence;
         T data;
         
@@ -296,25 +291,25 @@ private:
     }
     
     // Align to cache line to prevent false sharing
-    alignas(CPP_UTILITIES_CACHE_LINE_SIZE) std::atomic<uint64_t> m_enqueue_pos;
-    alignas(CPP_UTILITIES_CACHE_LINE_SIZE) std::atomic<uint64_t> m_dequeue_pos;
+    alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> m_enqueue_pos;
+    alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> m_dequeue_pos;
     
     const uint64_t m_mask;
     
     // Statistics (relaxed ordering for performance)
     struct {
-        alignas(CPP_UTILITIES_CACHE_LINE_SIZE) std::atomic<uint64_t> total_enqueues{0};
-        alignas(CPP_UTILITIES_CACHE_LINE_SIZE) std::atomic<uint64_t> total_dequeues{0};
-        alignas(CPP_UTILITIES_CACHE_LINE_SIZE) std::atomic<uint64_t> failed_enqueues{0};
-        alignas(CPP_UTILITIES_CACHE_LINE_SIZE) std::atomic<uint64_t> failed_dequeues{0};
+        alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> total_enqueues{0};
+        alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> total_dequeues{0};
+        alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> failed_enqueues{0};
+        alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> failed_dequeues{0};
     } m_stats;
     
     // Slot array (must be last for alignment)
-    alignas(CPP_UTILITIES_CACHE_LINE_SIZE) std::array<Slot, MaxSize> m_slots;
+    alignas(FATP_CACHE_LINE_SIZE) std::array<Slot, MaxSize> m_slots;
 };
 
 
-template <typename T, typename Allocator>
-struct is_lock_free_queue<LockFreeQueue<T, Allocator>> : std::true_type {};
+template <typename T, size_t MaxSize >
+struct is_lock_free_queue<LockFreeQueue<T, MaxSize>> : std::true_type {};
 
-} // namespace cpp_utilities
+} // namespace fat_p
