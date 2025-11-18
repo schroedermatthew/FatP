@@ -1,5 +1,28 @@
-// FloatingPointComparison.h
-// Core floating-point comparison policies and utilities
+/**
+ * @file FloatingPointComparison.h
+ * @brief Robust floating-point comparison utilities
+ * 
+ * QUICK START:
+ * - For most cases: Use approximateEqual() with HybridComparisonPolicy (default)
+ * - For exact bit-level testing: Use floatEqual<T, UlpComparisonPolicy>()
+ * - For simple absolute tolerance: Use floatEqual() with StandardComparisonPolicy (default)
+ * 
+ * POLICY SELECTION GUIDE:
+ * - StandardComparisonPolicy: Absolute difference |a - b| <= epsilon
+ *   → Best for: Values near a known scale, simple use cases
+ * 
+ * - RelativeComparisonPolicy: |a - b| <= epsilon * max(|a|, |b|)
+ *   → Best for: Values spanning many orders of magnitude (WARNING: fails near zero)
+ * 
+ * - UlpComparisonPolicy: Unit in Last Place (bit-exact) comparison
+ *   → Best for: Testing numerical algorithms, bit-exact requirements
+ *   → Limitations: float/double only (no long double), complex handling near zero
+ * 
+ * - HybridComparisonPolicy: Combines absolute AND relative (RECOMMENDED)
+ *   → Best for: Production code requiring robustness across all scales
+ *   → Handles both near-zero and large magnitude values correctly
+ */
+
 #pragma once
 
 #include <cmath>
@@ -8,43 +31,104 @@
 #include <limits>
 #include <string>
 #include <type_traits>
+#include <algorithm> // For std::max
+#include <optional>  // For std::optional in detail::handleSpecialValues
+
+// For C++20 support for type-punning without UB
+#if __cplusplus >= 202002L
+#include <bit>
+#endif
 
 #include "ComparisonTolerances.h" // kDefaultDoubleEpsilon, kDefaultFloatEpsilon
 #include "DiagnosticLogger.h"     // For conditionalPrintError
 #include "Stringify.h"            // For toString
 
 namespace fat_p {
-    
+
     // ====================================================================
     // Helper Functions
     // ====================================================================
-    
+
     /**
      * @brief Helper to get the correct default epsilon for a floating-point type.
      * @tparam T The floating-point type (float, double, or long double).
-     * @return The appropriate default epsilon value.
+     * @return The appropriate default epsilon value, correctly typed as T.
      */
     template <typename T>
-    constexpr double getDefaultEpsilon() {
+    constexpr T getDefaultEpsilon() {
         static_assert(std::is_floating_point_v<T>, "T must be a floating-point type.");
         if constexpr (std::is_same_v<T, float>) {
-            return kDefaultFloatEpsilon;
+            return static_cast<T>(kDefaultFloatEpsilon);
         }
         else if constexpr (std::is_same_v<T, double>) {
-            return kDefaultDoubleEpsilon;
+            return static_cast<T>(kDefaultDoubleEpsilon);
         }
         else {
             // long double: compute appropriate epsilon
-            return static_cast<double>(
+            return static_cast<T>(
                 std::numeric_limits<long double>::epsilon() * 100.0L
             );
         }
     }
 
+    namespace detail {
+        /**
+         * @brief Centralized handling for special floating-point values (NaN, Inf).
+         * @return std::optional<bool>: 
+         * - value if special values determine equality (true/false).
+         * - nullopt if comparison should proceed using tolerance logic.
+         */
+        template <typename T>
+        std::optional<bool> handleSpecialValues(T a, T b) {
+            // NaN is never equal to anything
+            if (std::isnan(a) || std::isnan(b)) return false;
+
+            // Same-sign infinities are equal
+            if (std::isinf(a) && std::isinf(b)) {
+                return (a > 0) == (b > 0);
+            }
+
+            // One infinity, one finite: not equal
+            if (std::isinf(a) || std::isinf(b)) return false;
+
+            // Normal values: proceed with comparison
+            return std::nullopt;
+        }
+
+        /**
+         * @brief Check if values have consistent signs.
+         * 
+         * Ensures that values with opposite signs (excluding ±0) are never
+         * considered equal, regardless of magnitude. This is a critical
+         * correctness check for all comparison policies.
+         * 
+         * @return std::optional<bool>:
+         * - true if both are zero (including -0.0 and +0.0)
+         * - false if opposite signs (and not both zero)
+         * - nullopt if same sign (continue with tolerance checks)
+         */
+        template <typename T>
+        std::optional<bool> handleSignConsistency(T a, T b) {
+            // Both zero (including -0.0 and +0.0) are considered equal
+            if (a == static_cast<T>(0.0) && b == static_cast<T>(0.0)) {
+                return true;
+            }
+            
+            // Opposite signs (non-zero) should never be equal
+            if (std::signbit(a) != std::signbit(b)) {
+                return false;
+            }
+            
+            // Same sign, continue with tolerance checks
+            return std::nullopt;
+        }
+    } // namespace detail
+
+
     // ====================================================================
     // Comparison Policies
     // ====================================================================
-    
+
     /**
      * @brief Standard absolute tolerance comparison policy for floating-point types.
      * 
@@ -54,42 +138,43 @@ namespace fat_p {
      * Features:
      * - Uses type-specific defaults if no epsilon is supplied
      * - Handles NaN, infinity, and subnormal numbers correctly
+     * - Enforces sign consistency (opposite signs are never equal)
      * - Simple and predictable behavior
      * 
-     * @note This is the default policy for areEqual().
+     * @note This is the default policy for floatEqual().
+     * 
+     * @example
+     * @code
+     * double a = 1.0, b = 1.0 + 1e-10;
+     * bool eq = floatEqual(a, b);  // Uses StandardComparisonPolicy by default
+     * bool eq2 = floatEqual(a, b, 1e-8);  // Custom epsilon
+     * @endcode
      */
     struct StandardComparisonPolicy {
-        /**
-         * @brief Performs an epsilon-based comparison.
-         * @tparam T Floating-point type.
-         * @param a The first value.
-         * @param b The second value.
-         * @param eps The absolute tolerance (optional).
-         * @return `true` if values are equal within tolerance, `false` otherwise.
-         */
         template <typename T, typename... EpsParams>
         static bool epsilonMatch(T a, T b, EpsParams... eps) {
             static_assert(std::is_floating_point_v<T>,
                 "Policy only for floating-point types");
-            
-            double actualEps;
+
+            // Handle NaN and Infinity
+            if (auto result = detail::handleSpecialValues(a, b)) {
+                return *result;
+            }
+
+            // Handle sign consistency
+            if (auto sign_result = detail::handleSignConsistency(a, b)) {
+                return *sign_result;
+            }
+
+            T actualEps;
             if constexpr (sizeof...(eps) > 0) {
-                // Use the provided epsilon (must be the first parameter in the pack)
+                // Use the provided epsilon
                 actualEps = std::get<0>(std::forward_as_tuple(eps...));
             }
             else {
                 // Use the type-specific default epsilon
                 actualEps = getDefaultEpsilon<T>();
             }
-            
-            // Handle NaN
-            if (std::isnan(a) || std::isnan(b)) return false;
-            
-            // Handle infinity (same sign infinities are equal)
-            if (std::isinf(a) && std::isinf(b) && (a > 0) == (b > 0)) {
-                return true;
-            }
-            if (std::isinf(a) || std::isinf(b)) return false;
 
             // Standard absolute difference comparison
             if (std::fabs(a - b) > actualEps) {
@@ -114,52 +199,62 @@ namespace fat_p {
      * - Considers floating-point representation directly
      * - Default tolerance: 4 ULPs
      * - Hybrid handling of subnormals using absolute tolerance
+     * - Enforces sign consistency (opposite signs are never equal)
+     * - C++20: Uses std::bit_cast (standard-compliant)
+     * - Pre-C++20: Uses union type-punning (widely supported)
      * 
      * Limitations:
      * - Only supports float (4 bytes) and double (8 bytes)
      * - Not available for long double (platform-dependent size)
      * 
      * @note For long double, use StandardComparisonPolicy or HybridComparisonPolicy.
+     * 
+     * @example
+     * @code
+     * double a = 1.0;
+     * double b = std::nextafter(1.0, 2.0);  // Next representable value
+     * bool eq = floatEqual<double, UlpComparisonPolicy>(a, b, 1.0);  // Within 1 ULP
+     * @endcode
      */
     struct UlpComparisonPolicy {
-        /**
-         * @brief Performs a ULP-based comparison with a hybrid check for subnormals.
-         * @tparam T Floating-point type (float or double only).
-         * @param a The first value.
-         * @param b The second value.
-         * @param eps The ULP tolerance (if provided). Defaults to 4.0.
-         * @return `true` if values are equal within tolerance, `false` otherwise.
-         */
         template <typename T, typename... EpsParams>
         static bool epsilonMatch(T a, T b, EpsParams... eps) {
             static_assert(std::is_floating_point_v<T>,
                 "Policy only for floating-point types");
-            
-            // ULP comparison uses union type-punning which only works for
-            // float (4 bytes) and double (8 bytes). Long double is platform-dependent
-            // (10/12/16 bytes) and would cause undefined behavior.
+
+            // ULP comparison only supports float (4 bytes) and double (8 bytes)
             static_assert(sizeof(T) == 4 || sizeof(T) == 8,
                 "ULP comparison only supports float (4 bytes) and double (8 bytes). "
                 "For long double, use StandardComparisonPolicy or HybridComparisonPolicy.");
 
-            double actualEps = 4.0; // Default ULP tolerance
+            // Handle NaN and Infinity
+            if (auto result = detail::handleSpecialValues(a, b)) {
+                return *result;
+            }
+
+            T actualEps = static_cast<T>(4.0); // Default ULP tolerance (4 ULPs)
             if constexpr (sizeof...(eps) > 0) {
                 actualEps = std::get<0>(std::forward_as_tuple(eps...));
             }
+            
+            // Optimization: exact match is always true (handles zero)
+            if (a == b) return true;
 
-            // Use a static absolute tolerance for the subnormal range
-            // This is necessary because ULP definition breaks down near zero.
-            // Type-specific: 1e-6 for float, 1e-12 for double
+            // Use a fixed absolute tolerance for the subnormal range (where ULP breaks down)
+            // Rationale: In the subnormal range, ULP distance becomes unreliable because
+            // the exponent is fixed at the minimum value and only the mantissa varies.
+            // These thresholds (1e-6 for float, 1e-12 for double) are chosen to be:
+            // - Large enough to span the entire subnormal range robustly
+            // - Small enough to not cause false positives for normalized values near zero
             constexpr T AbsSubnormalTolerance = [] {
                 if constexpr (std::is_same_v<T, float>) {
-                    return static_cast<T>(1.0e-6f);   // ~10x float epsilon
+                    // 1e-6 ~= 10 * FLT_EPSILON, covers float subnormals (min: ~1.4e-45)
+                    return static_cast<T>(1.0e-6f);
                 } else {
-                    return static_cast<T>(1.0e-12);   // ~5e4x double epsilon
+                    // 1e-12 ~= 5000 * DBL_EPSILON, covers double subnormals (min: ~5e-324)
+                    return static_cast<T>(1.0e-12);
                 }
             }();
-
-            if (std::isnan(a) || std::isnan(b)) return false;
-            if (a == b) return true;
 
             // Handle signs (must have the same sign for ULP to make sense unless both are zero)
             if (std::signbit(a) != std::signbit(b)) return false;
@@ -172,40 +267,43 @@ namespace fat_p {
                 return std::fabs(a - b) <= AbsSubnormalTolerance;
             }
 
-            // --- STANDARD ULP COMPARISON ---
-            // Note: Union type-punning is technically undefined behavior in C++ standard
-            // but is widely supported by all major compilers (GCC, Clang, MSVC).
-            // For C++20+, consider using std::bit_cast instead.
-            
-            // Union for type-punning: allows interpreting bits as an integer.
+            // --- STANDARD ULP COMPARISON using Type-Punning ---
             using IntType = std::conditional_t<sizeof(T) == 4, int32_t, int64_t>;
+            IntType int_a, int_b;
 
-            union {
-                T mF;
-                IntType mI;
-            } ua = { a }, ub = { b };
+            // Use std::bit_cast (C++20 compliant) or union (pre-C++20, common UB but widely supported)
+            #if __cplusplus >= 202002L
+                int_a = std::bit_cast<IntType>(a);
+                int_b = std::bit_cast<IntType>(b);
+            #else
+                union {
+                    T mF;
+                    IntType mI;
+                } ua = { a }, ub = { b };
+                int_a = ua.mI;
+                int_b = ub.mI;
+            #endif
 
             // Convert signed magnitude to unsigned integer representation for distance calculation
-            // Negative zero is handled here if it wasn't caught by a == b check.
-            if (ua.mI < 0) {
+            if (int_a < 0) {
                 if constexpr (sizeof(T) == 4) {
-                    ua.mI = INT32_MIN - ua.mI;
+                    int_a = INT32_MIN - int_a;
                 }
                 else {
-                    ua.mI = INT64_MIN - ua.mI;
+                    int_a = INT64_MIN - int_a;
                 }
             }
-            if (ub.mI < 0) {
+            if (int_b < 0) {
                 if constexpr (sizeof(T) == 4) {
-                    ub.mI = INT32_MIN - ub.mI;
+                    int_b = INT32_MIN - int_b;
                 }
                 else {
-                    ub.mI = INT64_MIN - ub.mI;
+                    int_b = INT64_MIN - int_b;
                 }
             }
 
-            // Calculate the absolute difference in the integer representation
-            auto diff = std::abs(static_cast<IntType>(ua.mI - ub.mI));
+            // Calculate the absolute difference in the integer representation (ULP count)
+            auto diff = std::abs(static_cast<IntType>(int_a - int_b));
 
             if (diff > static_cast<decltype(diff)>(actualEps)) {
                 // Logging failure message if enabled
@@ -226,57 +324,66 @@ namespace fat_p {
      * @brief Relative tolerance comparison policy for floating-point types.
      * 
      * Compares values based on their relative difference: |a - b| <= epsilon * max(|a|, |b|)
-     * Best for: Values spanning many orders of magnitude
+     * Best for: Values spanning many orders of magnitude but bounded away from zero
      * 
      * Features:
      * - Scale-independent comparison
-     * - Works well for large and small values
+     * - Works well for large and small values (if not too close to zero)
+     * - Enforces sign consistency (opposite signs are never equal)
      * 
      * Limitations:
      * - Poor behavior near zero (relative error becomes meaningless)
-     * - Requires explicit epsilon parameter
+     * - Requires explicit epsilon parameter for best results
+     * 
+     * @warning This policy is unreliable for values near zero (relative error becomes
+     *          meaningless as magnitude approaches zero). For robust comparison across
+     *          all scales, use HybridComparisonPolicy instead.
      * 
      * @note For robust comparison near zero, use HybridComparisonPolicy instead.
+     * 
+     * @example
+     * @code
+     * // Good use case: comparing large values
+     * double a = 1e6, b = 1e6 + 0.01;
+     * bool eq = floatEqual<double, RelativeComparisonPolicy>(a, b, 1e-5);
+     * 
+     * // Bad use case: comparing near-zero values
+     * double c = 1e-15, d = 2e-15;  // Use HybridComparisonPolicy instead!
+     * @endcode
      */
     struct RelativeComparisonPolicy {
-        /**
-         * @brief Performs a relative tolerance-based comparison.
-         * @tparam T Floating-point type.
-         * @param a The first value.
-         * @param b The second value.
-         * @param eps The relative tolerance.
-         * @return `true` if values are equal within tolerance, `false` otherwise.
-         */
         template <typename T, typename... EpsParams>
         static bool epsilonMatch(T a, T b, EpsParams... eps) {
             static_assert(std::is_floating_point_v<T>,
                 "Policy only for floating-point types");
 
-            double relEps;
+            // Handle NaN and Infinity
+            if (auto result = detail::handleSpecialValues(a, b)) {
+                return *result;
+            }
+
+            // Handle sign consistency
+            if (auto sign_result = detail::handleSignConsistency(a, b)) {
+                return *sign_result;
+            }
+
+            T relEps;
             if constexpr (sizeof...(eps) > 0) {
                 relEps = std::get<0>(std::forward_as_tuple(eps...));
             }
             else {
-                // Use default epsilon if none provided
                 relEps = getDefaultEpsilon<T>();
             }
-            
-            if (std::isnan(a) || std::isnan(b)) return false;
-            if (std::isinf(a) && std::isinf(b) && (a > 0) == (b > 0)) {
-                return true;
-            }
-            if (std::isinf(a) || std::isinf(b)) return false;
-            
-            double maxAbs = std::max(std::fabs(a), std::fabs(b));
-            
-            // Handle near-zero case
-            if (maxAbs <= relEps * 0.5) return true;
-            
+
+            T maxAbs = std::max(std::fabs(a), std::fabs(b));
+
+            // Avoid division by zero and handle exact equality at zero
+            if (maxAbs == static_cast<T>(0.0)) return true; // a == b == 0.0
+
             if (std::fabs(a - b) > relEps * maxAbs) {
                 diagnostic::conditionalPrintError([&]() -> std::string {
                     return std::string("Equality check failed: ") +
-                        toString(a) +
-                        " and " + toString(b) +
+                        toString(a) + " and " + toString(b) +
                         " differ by more than the relative tolerance " +
                         toString(relEps);
                     });
@@ -298,62 +405,69 @@ namespace fat_p {
      * Features:
      * - Handles both near-zero and large values correctly
      * - Combines benefits of absolute and relative comparison
+     * - Enforces sign consistency (opposite signs are never equal)
      * - Most robust policy available
      * 
      * @note This is the policy used by approximateEqual().
+     * 
+     * @example
+     * @code
+     * // Near zero - absolute tolerance dominates
+     * double a = 1e-10, b = 2e-10;
+     * bool eq1 = floatEqual<double, HybridComparisonPolicy>(a, b, 1e-5, 1e-8);
+     * 
+     * // Large values - relative tolerance dominates
+     * double c = 1e6, d = 1e6 + 0.01;
+     * bool eq2 = floatEqual<double, HybridComparisonPolicy>(c, d, 1e-5, 1e-8);
+     * @endcode
      */
     struct HybridComparisonPolicy {
-        /**
-         * @brief Performs a hybrid tolerance-based comparison.
-         * @tparam T Floating-point type.
-         * @param a The first value.
-         * @param b The second value.
-         * @param relEps The relative tolerance.
-         * @param absEps The absolute tolerance.
-         * @return `true` if values are equal within tolerance, `false` otherwise.
-         */
         template <typename T, typename... EpsParams>
         static bool epsilonMatch(T a, T b, EpsParams... eps) {
             static_assert(std::is_floating_point_v<T>,
                 "Policy only for floating-point types");
-            
+
+            // Handle NaN and Infinity
+            if (auto result = detail::handleSpecialValues(a, b)) {
+                return *result;
+            }
+
+            // Handle sign consistency
+            if (auto sign_result = detail::handleSignConsistency(a, b)) {
+                return *sign_result;
+            }
+
             // Extract parameters with defaults
             auto eps_tuple = std::forward_as_tuple(eps...);
-            double relEps;
-            double absEps;
-            
+            T relEps;
+            T absEps;
+
             if constexpr (sizeof...(eps) >= 2) {
                 relEps = std::get<0>(eps_tuple);
                 absEps = std::get<1>(eps_tuple);
             }
             else if constexpr (sizeof...(eps) == 1) {
+                // Use the provided single value for both tolerances
                 relEps = std::get<0>(eps_tuple);
-                absEps = relEps; // Use same value for both if only one provided
+                absEps = relEps;
             }
             else {
-                // Use defaults
+                // Use type-specific defaults for both tolerances
                 relEps = getDefaultEpsilon<T>();
                 absEps = getDefaultEpsilon<T>();
             }
-            
-            if (std::isnan(a) || std::isnan(b)) return false;
-            if (std::isinf(a) && std::isinf(b) && (a > 0) == (b > 0)) {
-                return true;
-            }
-            if (std::isinf(a) || std::isinf(b)) return false;
-            
-            double diff = std::fabs(a - b);
-            
-            // Pass if absolute tolerance is met
+
+            T diff = std::fabs(a - b);
+
+            // 1. Pass if absolute tolerance is met (handles near-zero)
             if (diff <= absEps) return true;
-            
-            // Otherwise check relative tolerance
-            double maxAbs = std::max(std::fabs(a), std::fabs(b));
+
+            // 2. Otherwise check relative tolerance (handles large magnitude)
+            T maxAbs = std::max(std::fabs(a), std::fabs(b));
             if (diff > relEps * maxAbs) {
                 diagnostic::conditionalPrintError([&]() -> std::string {
                     return std::string("Equality check failed: ") +
-                        toString(a) +
-                        " and " + toString(b) +
+                        toString(a) + " and " + toString(b) +
                         " differ by more than rel=" +
                         toString(relEps) + " abs=" +
                         toString(absEps);
@@ -367,7 +481,7 @@ namespace fat_p {
     // ====================================================================
     // Convenience Functions
     // ====================================================================
-    
+
     /**
      * @brief Simplified interface for robust approximate floating-point comparison.
      * 
@@ -378,7 +492,7 @@ namespace fat_p {
      * @param a The first value.
      * @param b The second value.
      * @param relEps The relative tolerance (default: type-specific epsilon).
-     * @param absEps The absolute tolerance (default: type-specific epsilon * 0.01).
+     * @param absEps The absolute tolerance (default: type-specific epsilon).
      * @return True if the values are approximately equal according to the Hybrid policy.
      * 
      * @example
@@ -394,9 +508,9 @@ namespace fat_p {
     template <typename T>
     [[nodiscard]]
     std::enable_if_t<std::is_floating_point_v<T>, bool>
-    approximateEqual(const T& a, const T& b, 
-                     double relEps = getDefaultEpsilon<T>(), 
-                     double absEps = getDefaultEpsilon<T>() * 0.01) {
+    approximateEqual(const T& a, const T& b,
+                     T relEps = getDefaultEpsilon<T>(), // Use T for precision
+                     T absEps = getDefaultEpsilon<T>()) { // absEps defaults to relEps
         return HybridComparisonPolicy::epsilonMatch(a, b, relEps, absEps);
     }
 
@@ -404,13 +518,14 @@ namespace fat_p {
      * @brief Basic floating-point equality comparison with a single policy.
      * 
      * This is a simplified version that works directly with floating-point types
-     * without the full EqualDispatcher machinery.
+     * without the full EqualDispatcher machinery. Allows explicit selection of
+     * the comparison policy.
      * 
      * @tparam T The floating-point type.
      * @tparam Policy The comparison policy (default: StandardComparisonPolicy).
      * @param a The first value.
      * @param b The second value.
-     * @param eps Optional epsilon parameter(s) for the policy.
+     * @param eps Optional epsilon parameter(s) for the policy (should be of type T).
      * @return True if values are equal according to the policy.
      * 
      * @example

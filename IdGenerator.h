@@ -92,15 +92,17 @@ namespace fat_p {
         std::optional<IdType> next_id(IdType max_id, bool first_call = false) noexcept {
             IdType candidate;
             
-            if (first_call || next_id_ > max_id) {
-                // Use next_id_ for fresh generation or first call
+            if (first_call) {
+                // First call: use our internal counter
                 candidate = next_id_;
             } else {
-                // Continue from max_id + 1
+                // Subsequent calls: use max of our counter and current maximum + 1
+                // This ensures we never go backwards and respect both recycling gaps
+                // and our internal sequence state
                 if (max_id == std::numeric_limits<IdType>::max()) {
                     return std::nullopt;  // Can't go past max
                 }
-                candidate = max_id + 1;
+                candidate = (next_id_ > max_id) ? next_id_ : (max_id + 1);
             }
             
             // Update next_id_ for next call
@@ -129,7 +131,7 @@ namespace fat_p {
 
     public:
         explicit RandomAllocationPolicy(IdType = 0)
-            : rng_(std::random_device{}()), dist_(1, std::numeric_limits<IdType>::max()) {}
+            : rng_(std::random_device{}()), dist_(0, std::numeric_limits<IdType>::max()) {}
 
         std::optional<IdType> next_id(IdType, bool = false) noexcept {
             try {
@@ -269,7 +271,9 @@ namespace fat_p {
 
             // Generate new ID
             bool is_first = ids_in_use_.empty();
-            underlying_type max_id = is_first ? 0 : *ids_in_use_.rbegin();
+            // On first call, pass base_id_ (though policy uses first_call flag)
+            // On subsequent calls, pass the actual maximum ID in use
+            underlying_type max_id = is_first ? base_id_ : *ids_in_use_.rbegin();
             auto new_id_opt = AllocationPolicy::next_id(max_id, is_first);
 
             if (!new_id_opt) {
