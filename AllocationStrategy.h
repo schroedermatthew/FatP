@@ -42,7 +42,7 @@
 #include "ScopeGuard.h" // For RAII guards in alloc to ensure dealloc on failure
 #include "StrongId.h" // For type-safe sizes (e.g., StrongId<size_t> for n)
 #include "EnforcedInit.h" // For enforced init in stateful policies (e.g., buffer)
-#include "DiagnosticLogger.h" // For logging allocation failures
+#include "DiagnosticLogger_Core.h" // For logging allocation failures
 
 namespace fat_p {
     // Forward declaration of the AllocationStrategy needed for policy
@@ -60,7 +60,7 @@ namespace fat_p {
         explicit AllocationFailure(const std::string& message)
             : std::runtime_error("Allocation Failure: " + message) {
             // Integration: DiagnosticLogger for logging failures
-            conditionalPrintError([&]() { return message; });
+            LOG_ERROR(message);
         }
     };
     // --- Standard Allocator Policy ---

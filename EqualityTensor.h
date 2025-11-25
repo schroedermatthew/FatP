@@ -80,50 +80,50 @@ struct EqualDispatcher<Tensor<T, Alloc, IteratorPolicy>, Policy> {
                         EpsParams... eps) {
         // Check shape match
         if (a.shape() != b.shape()) {
-            diagnostic::conditionalPrintError([&]() -> std::string {
-                std::string msg = "Tensor shapes differ:\n";
-                msg += "  Expected shape: [";
+            LOG_ERROR(([&]() {
+                std::ostringstream oss;
+                oss << "Tensor shapes differ:\n";
+                oss << "  Expected shape: [";
                 for (size_t i = 0; i < a.shape().size(); ++i) {
-                    if (i > 0) msg += ", ";
-                    msg += std::to_string(a.shape()[i]);
+                    if (i > 0) oss << ", ";
+                    oss << a.shape()[i];  // Direct streaming, no to_string needed
                 }
-                msg += "]\n  Got shape: [";
+                oss << "]\n  Got shape: [";
                 for (size_t i = 0; i < b.shape().size(); ++i) {
-                    if (i > 0) msg += ", ";
-                    msg += std::to_string(b.shape()[i]);
+                    if (i > 0) oss << ", ";
+                    oss << b.shape()[i];
                 }
-                msg += "]";
-                return msg;
-            });
+                oss << "]";
+                return oss.str();
+                })());
             return false;
         }
         
         // Check strides match (important for views)
         if (a.strides() != b.strides()) {
-            diagnostic::conditionalPrintError([&]() -> std::string {
-                std::string msg = "Tensor strides differ (different memory layouts):\n";
-                msg += "  Expected strides: [";
+            LOG_ERROR(([&]() {
+                std::ostringstream oss;
+                oss << "Tensor strides differ (different memory layouts):\n";
+                oss << "  Expected strides: [";
                 for (size_t i = 0; i < a.strides().size(); ++i) {
-                    if (i > 0) msg += ", ";
-                    msg += std::to_string(a.strides()[i]);
+                    if (i > 0) oss << ", ";
+                    oss << a.strides()[i];
                 }
-                msg += "]\n  Got strides: [";
+                oss << "]\n  Got strides: [";
                 for (size_t i = 0; i < b.strides().size(); ++i) {
-                    if (i > 0) msg += ", ";
-                    msg += std::to_string(b.strides()[i]);
+                    if (i > 0) oss << ", ";
+                    oss << b.strides()[i];
                 }
-                msg += "]";
-                return msg;
-            });
+                oss << "]";
+                return oss.str();
+                })());
             return false;
         }
         
         // Check size match
         if (a.size() != b.size()) {
-            diagnostic::conditionalPrintError([&]() -> std::string {
-                return "Tensor sizes differ: " + 
-                       std::to_string(a.size()) + " vs " + std::to_string(b.size());
-            });
+            LOG_ERROR("Tensor sizes differ: " + 
+                       std::to_string(a.size()) + " vs " + std::to_string(b.size()));
             return false;
         }
         
@@ -137,28 +137,34 @@ struct EqualDispatcher<Tensor<T, Alloc, IteratorPolicy>, Policy> {
             if constexpr (std::is_floating_point_v<T>) {
                 // Floating-point comparison with policy
                 if (!Policy::epsilonMatch(*it_a, *it_b, eps...)) {
-                    diagnostic::conditionalPrintError([&]() -> std::string {
+                    LOG_ERROR(([&]() {
+                        std::ostringstream oss;
+
                         // Convert linear index to multi-dimensional indices
-                        std::string indices = "[";
+                        oss << "[";
                         size_t remaining = i;
                         for (size_t dim = 0; dim < a.shape().size(); ++dim) {
-                            if (dim > 0) indices += ", ";
+                            if (dim > 0) oss << ", ";
                             size_t dim_size = 1;
                             for (size_t j = dim + 1; j < a.shape().size(); ++j) {
                                 dim_size *= a.shape()[j];
                             }
-                            indices += std::to_string(remaining / dim_size);
+                            oss << (remaining / dim_size);
                             remaining %= dim_size;
                         }
-                        indices += "]";
-                        
-                        return "Tensor elements differ at logical index " + 
-                               std::to_string(i) + " " + indices + ":\n" +
-                               "  Expected: " + toString(*it_a) + "\n" +
-                               "  Got:      " + toString(*it_b) + "\n" +
-                               "  Diff:     " + toString(std::abs(*it_a - *it_b));
-                    });
-                    
+                        oss << "]";
+
+                        std::string indices = oss.str();
+                        oss.str("");  // Clear the stream
+                        oss.clear();  // Clear any error flags
+
+                        oss << "Tensor elements differ at logical index " << i << " " << indices << ":\n";
+                        oss << "  Expected: " << toString(*it_a) << "\n";
+                        oss << "  Got:      " << toString(*it_b) << "\n";
+                        oss << "  Diff:     " << toString(std::abs(*it_a - *it_b));
+
+                        return oss.str();
+                        })());
                     if constexpr (kStopOnFirstError) {
                         return false;
                     }
@@ -166,11 +172,9 @@ struct EqualDispatcher<Tensor<T, Alloc, IteratorPolicy>, Policy> {
             } else {
                 // Integer/exact comparison
                 if (*it_a != *it_b) {
-                    diagnostic::conditionalPrintError([&]() -> std::string {
-                        return "Tensor elements differ at logical index " + 
+                    LOG_ERROR("Tensor elements differ at logical index " +
                                std::to_string(i) + ": " +
-                               toString(*it_a) + " vs " + toString(*it_b);
-                    });
+                               toString(*it_a) + " vs " + toString(*it_b));
                     
                     if constexpr (kStopOnFirstError) {
                         return false;

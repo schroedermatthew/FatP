@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "FloatingPointComparison.h" // Provides all comparison policies
-#include "DiagnosticLogger.h"        // Dependency for conditionalPrintError and toString
+#include "DiagnosticLogger_Core.h"        // Dependency for LOG_ERROR and toString
 #include "Stringify.h"               // For toString
 
 namespace fat_p {
@@ -202,11 +202,9 @@ namespace fat_p {
             else if constexpr (IsIterable<T>::value) {
                 // Check sizes first
                 if (a.size() != b.size()) {
-                    diagnostic::conditionalPrintError([&]() -> std::string {
-                        return std::string("Containers have different sizes: ") +
+                    LOG_ERROR(std::string("Containers have different sizes: ") +
                             std::to_string(a.size()) + " vs " +
-                            std::to_string(b.size());
-                        });
+                            std::to_string(b.size()));
                     return false;
                 }
                 
@@ -222,10 +220,8 @@ namespace fat_p {
                             const KeyT& keyA = elemA.first;
                             auto itB = b.find(keyA);
                             if (itB == b.end()) {
-                                diagnostic::conditionalPrintError([&]() -> std::string {
-                                    return std::string("Key not found in second container: ") + 
-                                           toString(keyA);
-                                    });
+                                LOG_ERROR(std::string("Key not found in second container: ") +
+                                           toString(keyA));
                                 return false;
                             }
                             const auto& valA = elemA.second;
@@ -234,10 +230,7 @@ namespace fat_p {
                                 valA, valB, eps...);
                             if (!result) {
                                 success = false;
-                                diagnostic::conditionalPrintError([&]() -> std::string {
-                                    return std::string("Values for key '") + 
-                                           toString(keyA) + "' differ.";
-                                    });
+                                LOG_ERROR(std::string("Values for key '") + toString(keyA) + "' differ.");
                                 if (kStopOnFirstError) {
                                     return false;
                                 }
@@ -248,10 +241,7 @@ namespace fat_p {
                             const KeyT& keyA = elemA;
                             auto itB = b.find(keyA);
                             if (itB == b.end()) {
-                                diagnostic::conditionalPrintError([&]() -> std::string {
-                                    return std::string("Key not found in second container: ") + 
-                                           toString(keyA);
-                                    });
+                                LOG_ERROR(std::string("Key not found in second container: ") + toString(keyA));
                                 return false;
                             }
                             const auto& valA = elemA;
@@ -260,10 +250,8 @@ namespace fat_p {
                                 valA, valB, eps...);
                             if (!result) {
                                 success = false;
-                                diagnostic::conditionalPrintError([&]() -> std::string {
-                                    return std::string("Values for key '") + 
-                                           toString(keyA) + "' differ.";
-                                    });
+                                LOG_ERROR(std::string("Values for key '") +
+                                           toString(keyA) + "' differ.");
                                 if (kStopOnFirstError) {
                                     return false;
                                 }
@@ -282,9 +270,7 @@ namespace fat_p {
                             *it1, *it2, eps...);
                         if (!result) {
                             success = false;
-                            diagnostic::conditionalPrintError([&]() -> std::string {
-                                return std::string("Container elements differ.");
-                                });
+                            LOG_ERROR(std::string("Container elements differ."));
                             if (kStopOnFirstError) {
                                 return false;
                             }
@@ -307,21 +293,17 @@ namespace fat_p {
                     return true;
                 }
                 else {
-                    diagnostic::conditionalPrintError([&]() -> std::string {
-                        return std::string("Equality check failed: ") +
+                    LOG_ERROR(std::string("Equality check failed: ") +
                             toString(a) + " and " +
-                            toString(b) + " are not equal.";
-                        });
+                            toString(b) + " are not equal.");
                     return false;
                 }
             }
             
             // === UNSUPPORTED TYPES ===
             else {
-                diagnostic::conditionalPrintError([&]() -> std::string {
-                    return std::string("Unsupported type for equality comparison: ") +
-                        typeid(T).name();
-                    });
+                LOG_ERROR(std::string("Unsupported type for equality comparison: ") +
+                        typeid(T).name());
                 return false;
             }
         }

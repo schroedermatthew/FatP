@@ -26,8 +26,8 @@
  * // Diagnostic utilities
  * auto info = diagnose_expected<MyType>();
  *
- * // C++20 concepts
- * template <Tensor T>
+ * // C++20 concepts (in fat_p::concepts namespace)
+ * template <fat_p::concepts::TensorType T>
  * void process(T&& tensor) { }
  * @endcode
  *
@@ -73,7 +73,10 @@ namespace expected_internal {
     template <typename T, typename E, template <typename, typename> class StoragePolicy> class ExpectedImpl;
 }
 
-template <typename T, typename Tag, typename ValueType, typename ComparePolicy, template <typename> class OpPolicy> class StrongId;
+// StrongId: 4 template parameters (T, Tag, CheckPolicy, OpPolicy)
+// Thread safety via std::atomic<StrongId<...>> wrapper, not internal ConcurrencyPolicy
+template <typename T, typename Tag, typename CheckPolicy, template <typename> class OpPolicy> class StrongId;
+
 template <typename T, typename Policy> class ValueGuard;
 
 template <typename OnExit, typename OnSuccess, typename OnFailure, typename ExecutionPolicy> class ScopeGuardImpl;
@@ -872,52 +875,61 @@ struct why_not_binary_serializable {
 #if FATP_HAS_CPP20
 
 /**
+ * @brief C++20 concepts for library-specific type traits
+ * 
+ * @details Concepts are in the fat_p::concepts namespace to avoid naming conflicts
+ * with forward-declared class templates. Use PascalCase names to distinguish from
+ * struct-based traits.
+ */
+namespace concepts {
+
+/**
  * @brief Concept for SmallVector types
  */
 template <typename T>
-concept SmallVector = is_small_vector_v<T>;
+concept SmallVectorType = is_small_vector_v<T>;
 
 /**
  * @brief Concept for CircularBuffer types
  */
 template <typename T>
-concept CircularBuffer = is_circular_buffer_v<T>;
+concept CircularBufferType = is_circular_buffer_v<T>;
 
 /**
  * @brief Concept for FlatMap types
  */
 template <typename T>
-concept FlatMap = is_flat_map_v<T>;
+concept FlatMapType = is_flat_map_v<T>;
 
 /**
  * @brief Concept for FlatSet types
  */
 template <typename T>
-concept FlatSet = is_flat_set_v<T>;
+concept FlatSetType = is_flat_set_v<T>;
 
 /**
  * @brief Concept for Tensor types
  */
 template <typename T>
-concept Tensor = is_tensor_v<T>;
+concept TensorType = is_tensor_v<T>;
 
 /**
  * @brief Concept for FixedTensor types
  */
 template <typename T>
-concept FixedTensor = is_fixed_tensor_v<T>;
+concept FixedTensorType = is_fixed_tensor_v<T>;
 
 /**
  * @brief Concept for Expected types
  */
 template <typename T>
-concept Expected = is_expected_v<T>;
+concept ExpectedType = is_expected_v<T>;
 
 /**
  * @brief Concept for StrongId types
  */
 template <typename T>
-concept StrongId = is_strong_id_v<T>;
+concept StrongIdType = is_strong_id_v<T>;
 
 /**
  * @brief Concept for binary serializable types
@@ -938,16 +950,18 @@ template <typename T>
 concept LibraryContainer = is_library_container_v<T>;
 
 /**
- * @brief Concept for tensor-like types
+ * @brief Concept for tensor-like types (duck-typed)
  */
 template <typename T>
-concept TensorType = is_tensor_type_v<T>;
+concept TensorLikeType = is_tensor_type_v<T>;
 
 /**
  * @brief Concept for concurrent container types
  */
 template <typename T>
 concept ConcurrentContainer = is_concurrent_container_v<T>;
+
+} // namespace concepts
 
 #endif
 

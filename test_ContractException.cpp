@@ -41,6 +41,10 @@ namespace fat_p::testing {
 
 using namespace fat_p;
 
+// anonymous
+namespace
+{
+
 // =============================================================================
 // Test Suite 1: Basic Functionality
 // =============================================================================
@@ -544,6 +548,8 @@ bool test_allocator_pattern() {
     
     return true;
 }
+
+} // anonymous namespace
 
 // =============================================================================
 // Test Runner

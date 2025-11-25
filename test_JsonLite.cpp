@@ -1,11 +1,11 @@
-/**
- * @file test_JsonLite.cpp
+/* @file test_JsonLite.cpp
  * @brief Comprehensive unit tests for standalone JsonLite.h
  * 
  * Tests the standalone JsonLite implementation with ZERO external dependencies
- * (beyond standard library). All 120+ test cases verify:
+ * (beyond standard library). All 150+ test cases verify:
  * - Basic types (null, bool, numeric, string)
  * - All integer types (int8_t through int64_t, signed and unsigned)
+ * - Comprehensive boundary testing for all numeric types
  * - Floating-point types and edge cases
  * - Container types (vector, map, set, array, deque, list, etc.)
  * - Optional types and nullability
@@ -19,11 +19,11 @@
  * - Round-trip conversions
  * - Large data handling
  * - Value-returning API convenience functions
- * - JSONC comment parsing (NEW)
- * - UTF-8 escaping and multi-byte character handling (IMPROVED)
- * - Numeric bounds checking without artificial margins (FIXED)
- * - NaN/Infinity policy enforcement (ENHANCED)
- * - Locale-independent parsing (FIXED)
+ * - JSONC comment parsing
+ * - UTF-8 escaping and multi-byte character handling
+ * - Numeric bounds checking with overflow detection via roundtrip validation
+ * - NaN/Infinity policy enforcement
+ * - Locale-independent parsing
  */
 
 #include <iostream>
@@ -283,7 +283,7 @@ bool test_json_lite_basic_types() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_int8() {
@@ -310,7 +310,7 @@ bool test_json_lite_int8() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_int16() {
@@ -336,7 +336,7 @@ bool test_json_lite_int16() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_int32() {
@@ -362,7 +362,7 @@ bool test_json_lite_int32() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_int64() {
@@ -381,7 +381,7 @@ bool test_json_lite_int64() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_uint8() {
@@ -414,7 +414,7 @@ bool test_json_lite_uint8() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_uint16() {
@@ -440,7 +440,7 @@ bool test_json_lite_uint16() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_uint32() {
@@ -466,7 +466,7 @@ bool test_json_lite_uint32() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_uint64() {
@@ -485,7 +485,7 @@ bool test_json_lite_uint64() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_float_types() {
@@ -519,7 +519,7 @@ bool test_json_lite_float_types() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_numeric_edge_cases() {
@@ -548,7 +548,7 @@ bool test_json_lite_numeric_edge_cases() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_fixed_width_int8() {
@@ -712,7 +712,7 @@ bool test_json_lite_string_escaping() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_string_empty() {
@@ -754,7 +754,7 @@ bool test_json_lite_string_unicode() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_string_long() {
@@ -791,7 +791,7 @@ bool test_json_lite_containers() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_vector_empty() {
@@ -962,7 +962,7 @@ bool test_json_lite_optional() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_optional_string() {
@@ -1011,7 +1011,7 @@ bool test_json_lite_tuples_pairs() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_pair_nested() {
@@ -1175,7 +1175,7 @@ bool test_json_lite_parser_basic() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_parser_containers() {
@@ -1195,7 +1195,7 @@ bool test_json_lite_parser_containers() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_parser_edge_cases() {
@@ -1220,7 +1220,7 @@ bool test_json_lite_parser_edge_cases() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_parser_numbers() {
@@ -1244,7 +1244,7 @@ bool test_json_lite_parser_numbers() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_parser_strings() {
@@ -1262,7 +1262,7 @@ bool test_json_lite_parser_strings() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_parser_nested() {
@@ -1302,7 +1302,7 @@ bool test_json_lite_parser_errors() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_parser_literals() {
@@ -1324,7 +1324,7 @@ bool test_json_lite_parser_literals() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_parser_unicode() {
@@ -1334,7 +1334,7 @@ bool test_json_lite_parser_unicode() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_pretty_print() {
@@ -1364,7 +1364,7 @@ bool test_json_lite_numeric_precision() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_nan_inf_handling() {
@@ -1382,7 +1382,7 @@ bool test_json_lite_nan_inf_handling() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_standard_policy_nan() {
@@ -1451,7 +1451,7 @@ bool test_json_lite_roundtrip_all_types() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_convenience_functions() {
@@ -1584,7 +1584,7 @@ bool test_json_lite_range_checks() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_range_int8() {
@@ -1654,7 +1654,7 @@ bool test_json_lite_error_messages_comprehensive() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_lite_field_limit() {
@@ -1833,7 +1833,7 @@ bool test_jsonc_comment_edge_cases() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_jsonc_strict_mode_rejection() {
@@ -1847,7 +1847,7 @@ bool test_jsonc_strict_mode_rejection() {
 }
 
 bool test_utf8_european_chars_escaped() {
-    std::string text = "cafÃƒÂ©";
+    std::string text = "cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©";
     std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
     
     ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should contain unicode escapes for European chars");
@@ -1859,7 +1859,7 @@ bool test_utf8_european_chars_escaped() {
 }
 
 bool test_utf8_asian_chars_escaped() {
-    std::string text = "Ã¤Â¸â€“Ã§â€¢Å’";
+    std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢";
     std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
     
     ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should contain unicode escapes for Asian chars");
@@ -1871,7 +1871,7 @@ bool test_utf8_asian_chars_escaped() {
 }
 
 bool test_utf8_emoji_surrogate_pairs() {
-    std::string text = "Ã°Å¸Ëœâ‚¬";
+    std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬";
     std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
     
     ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should contain unicode escapes for emoji");
@@ -1883,7 +1883,7 @@ bool test_utf8_emoji_surrogate_pairs() {
 }
 
 bool test_utf8_raw_passthrough() {
-    std::string text = "Ã¤Â¸â€“Ã§â€¢Å’ cafÃƒÂ© Ã°Å¸Ëœâ‚¬";
+    std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬";
     std::string json = to_json_string<std::string, CompatJsonPolicy>(text);
     
     ASSERT_TRUE(json.find("\\u") == std::string::npos, "CompatJsonPolicy should not escape unicode");
@@ -1896,10 +1896,10 @@ bool test_utf8_raw_passthrough() {
 
 bool test_utf8_mixed_content() {
     Utf8TestData data;
-    data.european_text = "cafÃƒÂ© rÃƒÂ©sumÃƒÂ©";
-    data.asian_text = "Ã¦â€”Â¥Ã¦Å“Â¬Ã¨ÂªÅ¾ Ã¤Â¸Â­Ã¦â€“â€¡";
-    data.emoji_text = "Ã°Å¸Ëœâ‚¬ Ã°Å¸Å½â€° Ã¢ÂÂ¤Ã¯Â¸Â";
-    data.mixed_text = "Hello Ã¤Â¸â€“Ã§â€¢Å’ cafÃƒÂ© Ã°Å¸Ëœâ‚¬";
+    data.european_text = "cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©sumÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©";
+    data.asian_text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂªÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¾ ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡";
+    data.emoji_text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â½ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â° ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â";
+    data.mixed_text = "Hello ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬";
     
     std::string json = to_json_string<Utf8TestData, StandardJsonPolicy>(data);
     Utf8TestData result = from_json_string<Utf8TestData>(json);
@@ -1974,7 +1974,7 @@ bool test_numeric_all_primitives_from_double() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_numeric_unsigned_negative_all_types() {
@@ -1999,7 +1999,730 @@ bool test_numeric_unsigned_negative_all_types() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_int64_max_boundary() {
+    SUBTEST("INT64_MAX exact value") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<int64_t>::max());
+        int64_t result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<int64_t>::max(), "Should handle INT64_MAX exactly");
+    }
+    END_SUBTEST
+    
+    SUBTEST("INT64_MAX as double within precision") {
+        JsonValue j = 9.223372036854775e18;
+        int64_t result = 0;
+        from_json(j, result);
+        ASSERT_TRUE(result > 0, "Should convert large double within int64 precision");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Just above INT64_MAX") {
+        double type_max_as_double = static_cast<double>(std::numeric_limits<int64_t>::max());
+        double just_above = std::nextafter(type_max_as_double, INFINITY);
+        JsonValue j = just_above;
+        int64_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject value above INT64_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Far above INT64_MAX") {
+        JsonValue j = 1.0e19;
+        int64_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject far above INT64_MAX");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_int64_min_boundary() {
+    SUBTEST("INT64_MIN exact value") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<int64_t>::min());
+        int64_t result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<int64_t>::min(), "Should handle INT64_MIN exactly");
+    }
+    END_SUBTEST
+    
+    SUBTEST("INT64_MIN as double within precision") {
+        JsonValue j = -9.223372036854775e18;
+        int64_t result = 0;
+        from_json(j, result);
+        ASSERT_TRUE(result < 0, "Should convert large negative double within int64 precision");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Just below INT64_MIN") {
+        double type_min_as_double = static_cast<double>(std::numeric_limits<int64_t>::min());
+        double just_below = std::nextafter(type_min_as_double, -INFINITY);
+        JsonValue j = just_below;
+        int64_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject value below INT64_MIN");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Far below INT64_MIN") {
+        JsonValue j = -1.0e19;
+        int64_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject far below INT64_MIN");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_int32_boundaries() {
+    SUBTEST("INT32_MAX exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<int32_t>::max());
+        int32_t result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<int32_t>::max(), "Should handle INT32_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("INT32_MIN exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<int32_t>::min());
+        int32_t result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<int32_t>::min(), "Should handle INT32_MIN");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Above INT32_MAX") {
+        JsonValue j = static_cast<int64_t>(2147483648LL);
+        int32_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject above INT32_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Below INT32_MIN") {
+        JsonValue j = static_cast<int64_t>(-2147483649LL);
+        int32_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject below INT32_MIN");
+    }
+    END_SUBTEST
+    
+    SUBTEST("INT32_MAX from double") {
+        JsonValue j = 2147483647.0;
+        int32_t result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<int32_t>::max(), "Should convert double INT32_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Above INT32_MAX from double") {
+        JsonValue j = 2147483648.0;
+        int32_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject double above INT32_MAX");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_int16_boundaries() {
+    SUBTEST("INT16_MAX exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<int16_t>::max());
+        int16_t result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<int16_t>::max(), "Should handle INT16_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("INT16_MIN exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<int16_t>::min());
+        int16_t result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<int16_t>::min(), "Should handle INT16_MIN");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Above INT16_MAX") {
+        JsonValue j = static_cast<int64_t>(32768);
+        int16_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject above INT16_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Below INT16_MIN") {
+        JsonValue j = static_cast<int64_t>(-32769);
+        int16_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject below INT16_MIN");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_int8_boundaries() {
+    SUBTEST("INT8_MAX exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<int8_t>::max());
+        int8_t result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<int8_t>::max(), "Should handle INT8_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("INT8_MIN exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<int8_t>::min());
+        int8_t result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<int8_t>::min(), "Should handle INT8_MIN");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Above INT8_MAX") {
+        JsonValue j = static_cast<int64_t>(128);
+        int8_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject above INT8_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Below INT8_MIN") {
+        JsonValue j = static_cast<int64_t>(-129);
+        int8_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject below INT8_MIN");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_uint64_boundaries() {
+    SUBTEST("UINT64_MAX large value") {
+        JsonValue j = 18446744073709551615.0;
+        uint64_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject UINT64_MAX due to precision loss beyond 2^53");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Zero for unsigned") {
+        JsonValue j = static_cast<int64_t>(0);
+        uint64_t result = 1;
+        from_json(j, result);
+        ASSERT_EQ(result, 0ULL, "Should handle zero");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Negative to uint64") {
+        JsonValue j = static_cast<int64_t>(-1);
+        uint64_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject negative for uint64");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Large positive int64 to uint64") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<int64_t>::max());
+        uint64_t result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, static_cast<uint64_t>(std::numeric_limits<int64_t>::max()), "Should convert INT64_MAX to uint64");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_uint32_boundaries() {
+    SUBTEST("UINT32_MAX exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<uint32_t>::max());
+        uint32_t result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<uint32_t>::max(), "Should handle UINT32_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Above UINT32_MAX") {
+        JsonValue j = static_cast<int64_t>(4294967296LL);
+        uint32_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject above UINT32_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Negative to uint32") {
+        JsonValue j = static_cast<int64_t>(-1);
+        uint32_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject negative for uint32");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Zero for uint32") {
+        JsonValue j = static_cast<int64_t>(0);
+        uint32_t result = 1;
+        from_json(j, result);
+        ASSERT_EQ(result, 0U, "Should handle zero");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_uint16_boundaries() {
+    SUBTEST("UINT16_MAX exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<uint16_t>::max());
+        uint16_t result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<uint16_t>::max(), "Should handle UINT16_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Above UINT16_MAX") {
+        JsonValue j = static_cast<int64_t>(65536);
+        uint16_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject above UINT16_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Negative to uint16") {
+        JsonValue j = static_cast<int64_t>(-1);
+        uint16_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject negative for uint16");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_uint8_boundaries() {
+    SUBTEST("UINT8_MAX exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<uint8_t>::max());
+        uint8_t result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<uint8_t>::max(), "Should handle UINT8_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Above UINT8_MAX") {
+        JsonValue j = static_cast<int64_t>(256);
+        uint8_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject above UINT8_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Negative to uint8") {
+        JsonValue j = static_cast<int64_t>(-1);
+        uint8_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject negative for uint8");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_double_to_int_precision_edge_cases() {
+    SUBTEST("Very small fractional part") {
+        JsonValue j = 42.0000000001;
+        int result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should detect tiny fractional part");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Exact integer as double") {
+        JsonValue j = 123456789.0;
+        int result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, 123456789, "Should accept exact integer");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Large double near int boundary") {
+        JsonValue j = 2147483646.9;
+        int result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject fractional near INT_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Negative with small fractional") {
+        JsonValue j = -100.1;
+        int result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should detect fractional on negative");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_overflow_detection_via_roundtrip() {
+    SUBTEST("Int64 overflow detection") {
+        double type_max_as_double = static_cast<double>(std::numeric_limits<int64_t>::max());
+        double just_above = std::nextafter(type_max_as_double, INFINITY);
+        JsonValue j = just_above;
+        int64_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should detect int64 overflow");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Int64 underflow detection") {
+        double type_min_as_double = static_cast<double>(std::numeric_limits<int64_t>::min());
+        double just_below = std::nextafter(type_min_as_double, -INFINITY);
+        JsonValue j = just_below;
+        int64_t result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should detect int64 underflow");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Unsigned long long overflow detection") {
+        JsonValue j = 1.8446744073709552e19;
+        unsigned long long result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Roundtrip should detect uint64 overflow");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Long long valid near boundary") {
+        JsonValue j = 9.223372036854774e18;
+        long long result = 0;
+        from_json(j, result);
+        ASSERT_TRUE(result > 0, "Should accept valid value near boundary");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_signed_char_comprehensive() {
+    SUBTEST("SCHAR_MAX exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<signed char>::max());
+        signed char result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<signed char>::max(), "Should handle SCHAR_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("SCHAR_MIN exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<signed char>::min());
+        signed char result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<signed char>::min(), "Should handle SCHAR_MIN");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Above SCHAR_MAX") {
+        JsonValue j = static_cast<int64_t>(128);
+        signed char result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject above SCHAR_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Below SCHAR_MIN") {
+        JsonValue j = static_cast<int64_t>(-129);
+        signed char result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject below SCHAR_MIN");
+    }
+    END_SUBTEST
+    
+    SUBTEST("SCHAR_MAX from double") {
+        JsonValue j = 127.0;
+        signed char result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, 127, "Should convert double SCHAR_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Fractional to signed char") {
+        JsonValue j = 50.5;
+        signed char result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject fractional");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_unsigned_char_comprehensive() {
+    SUBTEST("UCHAR_MAX exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<unsigned char>::max());
+        unsigned char result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<unsigned char>::max(), "Should handle UCHAR_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Above UCHAR_MAX") {
+        JsonValue j = static_cast<int64_t>(256);
+        unsigned char result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject above UCHAR_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Negative to unsigned char") {
+        JsonValue j = static_cast<int64_t>(-1);
+        unsigned char result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject negative");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Zero for unsigned char") {
+        JsonValue j = static_cast<int64_t>(0);
+        unsigned char result = 1;
+        from_json(j, result);
+        ASSERT_EQ(result, static_cast<unsigned char>(0), "Should handle zero");
+    }
+    END_SUBTEST
+    
+    SUBTEST("UCHAR_MAX from double") {
+        JsonValue j = 255.0;
+        unsigned char result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, 255, "Should convert double UCHAR_MAX");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_short_comprehensive() {
+    SUBTEST("SHRT_MAX exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<short>::max());
+        short result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<short>::max(), "Should handle SHRT_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("SHRT_MIN exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<short>::min());
+        short result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<short>::min(), "Should handle SHRT_MIN");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Above SHRT_MAX") {
+        JsonValue j = static_cast<int64_t>(32768);
+        short result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject above SHRT_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Below SHRT_MIN") {
+        JsonValue j = static_cast<int64_t>(-32769);
+        short result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject below SHRT_MIN");
+    }
+    END_SUBTEST
+    
+    SUBTEST("SHRT_MAX from double") {
+        JsonValue j = 32767.0;
+        short result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, 32767, "Should convert double SHRT_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Fractional to short") {
+        JsonValue j = 1000.75;
+        short result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject fractional");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_unsigned_short_comprehensive() {
+    SUBTEST("USHRT_MAX exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<unsigned short>::max());
+        unsigned short result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<unsigned short>::max(), "Should handle USHRT_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Above USHRT_MAX") {
+        JsonValue j = static_cast<int64_t>(65536);
+        unsigned short result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject above USHRT_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Negative to unsigned short") {
+        JsonValue j = static_cast<int64_t>(-1);
+        unsigned short result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject negative");
+    }
+    END_SUBTEST
+    
+    SUBTEST("USHRT_MAX from double") {
+        JsonValue j = 65535.0;
+        unsigned short result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, 65535, "Should convert double USHRT_MAX");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_double_extreme_values() {
+    SUBTEST("Very large positive double") {
+        JsonValue j = 1.7976931348623157e308;
+        double result = 0.0;
+        from_json(j, result);
+        ASSERT_TRUE(std::abs(result - 1.7976931348623157e308) < 1e292, "Should handle large double");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Very small positive double") {
+        JsonValue j = 2.2250738585072014e-308;
+        double result = 0.0;
+        from_json(j, result);
+        ASSERT_TRUE(result > 0 && result < 1e-300, "Should handle small double");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Very large negative double") {
+        JsonValue j = -1.7976931348623157e308;
+        double result = 0.0;
+        from_json(j, result);
+        ASSERT_TRUE(std::abs(result + 1.7976931348623157e308) < 1e292, "Should handle large negative double");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Double subnormal value") {
+        JsonValue j = 5e-324;
+        double result = 0.0;
+        from_json(j, result);
+        ASSERT_TRUE(result >= 0, "Should handle subnormal double");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_float_boundaries() {
+    SUBTEST("Float max value") {
+        JsonValue j = 3.4028234663852886e38;
+        float result = 0.0f;
+        from_json(j, result);
+        ASSERT_TRUE(result > 3e38f, "Should handle large float");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Float small value") {
+        JsonValue j = 1.1754943508222875e-38;
+        float result = 0.0f;
+        from_json(j, result);
+        ASSERT_TRUE(result > 0 && result < 1e-37f, "Should handle small float");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Float from int64") {
+        JsonValue j = static_cast<int64_t>(123456789);
+        float result = 0.0f;
+        from_json(j, result);
+        ASSERT_TRUE(std::abs(result - 123456789.0f) < 100.0f, "Should convert int64 to float");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_zero_and_negative_zero() {
+    SUBTEST("Positive zero int") {
+        JsonValue j = static_cast<int64_t>(0);
+        int result = 1;
+        from_json(j, result);
+        ASSERT_EQ(result, 0, "Should handle positive zero");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Positive zero double") {
+        JsonValue j = 0.0;
+        double result = 1.0;
+        from_json(j, result);
+        ASSERT_EQ(result, 0.0, "Should handle positive zero double");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Negative zero double") {
+        JsonValue j = -0.0;
+        double result = 1.0;
+        from_json(j, result);
+        ASSERT_EQ(result, -0.0, "Should handle negative zero double");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_long_and_long_long_boundaries() {
+    SUBTEST("LONG_MAX exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<long>::max());
+        long result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<long>::max(), "Should handle LONG_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("LONG_MIN exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<long>::min());
+        long result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<long>::min(), "Should handle LONG_MIN");
+    }
+    END_SUBTEST
+    
+    SUBTEST("LLONG_MAX exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<long long>::max());
+        long long result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<long long>::max(), "Should handle LLONG_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("LLONG_MIN exact") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<long long>::min());
+        long long result = 0;
+        from_json(j, result);
+        ASSERT_EQ(result, std::numeric_limits<long long>::min(), "Should handle LLONG_MIN");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
+}
+
+bool test_unsigned_long_and_long_long_boundaries() {
+    SUBTEST("ULONG_MAX from int64") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<int64_t>::max());
+        unsigned long result = 0;
+        
+        if constexpr (sizeof(unsigned long) == 8) 
+        {
+            from_json(j, result);
+            ASSERT_TRUE(result > 0, "Should handle large unsigned long on 64-bit platform");
+        }
+        else
+        {
+            ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject INT64_MAX for 32-bit unsigned long");
+        }
+    }
+    END_SUBTEST
+    
+    SUBTEST("Negative to unsigned long") {
+        JsonValue j = static_cast<int64_t>(-1);
+        unsigned long result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject negative for unsigned long");
+    }
+    END_SUBTEST
+    
+    SUBTEST("ULLONG from large int64") {
+        JsonValue j = static_cast<int64_t>(std::numeric_limits<int64_t>::max());
+        unsigned long long result = 0;
+        from_json(j, result);
+        ASSERT_TRUE(result > 0, "Should handle large unsigned long long");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Negative to unsigned long long") {
+        JsonValue j = static_cast<int64_t>(-1);
+        unsigned long long result = 0;
+        ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject negative for unsigned long long");
+    }
+    END_SUBTEST
+    
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_nan_default_rejection() {
@@ -2168,7 +2891,7 @@ bool test_json_pointer_basic_navigation() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_pointer_escape_sequences() {
@@ -2193,7 +2916,7 @@ bool test_json_pointer_escape_sequences() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_pointer_type_safe() {
@@ -2227,7 +2950,7 @@ bool test_json_pointer_type_safe() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_pointer_mutable() {
@@ -2257,7 +2980,7 @@ bool test_json_pointer_mutable() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_pointer_complex_nested() {
@@ -2288,7 +3011,7 @@ bool test_json_pointer_complex_nested() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_pointer_errors() {
@@ -2372,7 +3095,7 @@ bool test_json_pointer_errors() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_pointer_edge_cases() {
@@ -2400,7 +3123,7 @@ bool test_json_pointer_edge_cases() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_pointer_with_structs() {
@@ -2422,7 +3145,7 @@ bool test_json_pointer_with_structs() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 bool test_json_pointer_rfc6901_examples() {
@@ -2460,7 +3183,7 @@ bool test_json_pointer_rfc6901_examples() {
     }
     END_SUBTEST
     
-    return true;
+    return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
 void benchmark_jsonlite() {
@@ -2646,6 +3369,27 @@ bool test_JsonLite() {
     RUN_TEST(runner, numeric_double_to_unsigned_negative);
     RUN_TEST(runner, numeric_all_primitives_from_double);
     RUN_TEST(runner, numeric_unsigned_negative_all_types);
+    
+    RUN_TEST(runner, int64_max_boundary);
+    RUN_TEST(runner, int64_min_boundary);
+    RUN_TEST(runner, int32_boundaries);
+    RUN_TEST(runner, int16_boundaries);
+    RUN_TEST(runner, int8_boundaries);
+    RUN_TEST(runner, uint64_boundaries);
+    RUN_TEST(runner, uint32_boundaries);
+    RUN_TEST(runner, uint16_boundaries);
+    RUN_TEST(runner, uint8_boundaries);
+    RUN_TEST(runner, double_to_int_precision_edge_cases);
+    RUN_TEST(runner, overflow_detection_via_roundtrip);
+    RUN_TEST(runner, signed_char_comprehensive);
+    RUN_TEST(runner, unsigned_char_comprehensive);
+    RUN_TEST(runner, short_comprehensive);
+    RUN_TEST(runner, unsigned_short_comprehensive);
+    RUN_TEST(runner, double_extreme_values);
+    RUN_TEST(runner, float_boundaries);
+    RUN_TEST(runner, zero_and_negative_zero);
+    RUN_TEST(runner, long_and_long_long_boundaries);
+    RUN_TEST(runner, unsigned_long_and_long_long_boundaries);
     
     RUN_TEST(runner, nan_default_rejection);
     RUN_TEST(runner, infinity_default_rejection);

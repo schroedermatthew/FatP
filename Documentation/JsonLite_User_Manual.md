@@ -133,10 +133,10 @@ JsonLite is designed for a specific niche: **applications that need simple, safe
 for configuration files and parameter persistence with zero external dependencies**.
 
 It makes deliberate trade-offs:
-- **Safety over speed**: All numeric conversions check for overflow ✓
-- **Simplicity over features**: Core JSON + JSON Pointer, no streaming, no binary formats ✓
-- **Clarity over convenience**: Explicit conversions, no silent type coercion ✓
-- **Modern C++ over backwards compatibility**: Requires C++17, uses std::variant ✓
+- **Safety over speed**: All numeric conversions check for overflow 
+- **Simplicity over features**: Core JSON + JSON Pointer, no streaming, no binary formats 
+- **Clarity over convenience**: Explicit conversions, no silent type coercion 
+- **Modern C++ over backwards compatibility**: Requires C++17, uses std::variant 
 
 JsonLite is **not** the fastest JSON library. It's **not** the most feature-complete. It **is** 
 the right choice when you need to parse configuration files safely without pulling in external 
@@ -171,10 +171,10 @@ that fits in these types without loss.
 Many JSON libraries use a class with virtual functions or a union-like structure. JsonLite uses 
 `std::variant` because:
 
-1. ✓ **Type Safety**: Cannot accidentally access wrong type - throws `std::bad_variant_access`
-2. ✓ **No Heap Overhead**: Small values (bool, int64_t, double) stored inline
-3. ✓ **Modern C++**: Works naturally with `std::visit`, pattern matching
-4. ✓ **Compile-Time Dispatch**: No virtual function overhead
+1.  **Type Safety**: Cannot accidentally access wrong type - throws `std::bad_variant_access`
+2.  **No Heap Overhead**: Small values (bool, int64_t, double) stored inline
+3.  **Modern C++**: Works naturally with `std::visit`, pattern matching
+4.  **Compile-Time Dispatch**: No virtual function overhead
 
 The downside is more verbose access compared to libraries like nlohmann/json:
 
@@ -338,9 +338,13 @@ CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age, email)
 ```
 
 **Requirements:**
-- All fields must be public
+- All fields must be public (use INTRUSIVE for private fields)
 - All fields must be listed in the macro
 - Macro must be called in the same namespace as the type
+
+> **Common Error:** If you get a compile error like "cannot access private member",
+> your struct has private fields. Either make them public or use 
+> `CPP_JSON_DEFINE_TYPE_INTRUSIVE` inside the class body instead.
 
 **Behavior:**
 - Missing optional fields are set to `std::nullopt`
@@ -964,12 +968,16 @@ const int port = query_json_as<int>(config, "/server/port");
 const std::string host = query_json_as<std::string>(config, "/server/host");
 const bool logging = query_json_as<bool>(config, "/features/logging");
 
-// Extract optionals
+// Extract optionals - does NOT throw on missing keys!
 const auto timeout = query_json_as<std::optional<int>>(config, "/server/timeout");
 if (timeout)
 {
     std::cout << "Timeout: " << *timeout << " seconds\n";
 }
+
+// Safe check for optional nested config
+const auto metrics_port = query_json_as<std::optional<int>>(config, "/metrics/port");
+// Returns std::nullopt if /metrics or /metrics/port doesn't exist - no exception!
 
 // Extract containers
 JsonValue arr_doc = parse_json(R"({"servers": ["web1", "web2", "web3"]})");
@@ -1007,6 +1015,11 @@ std::cout << "DB: " << db_config.host << ":" << db_config.port << "\n";
 - Automatic error checking for both navigation and conversion
 - Supports all types that `from_json<T>()` supports
 - Clean, readable code
+- **`std::optional<T>` queries never throw on missing keys** - returns `std::nullopt` instead
+
+> **Tip for Configuration Files:** When reading optional configuration values, always use
+> `query_json_as<std::optional<T>>()`. This provides safe, exception-free access to fields
+> that may or may not exist, making your code robust against config file variations.
 
 ### Mutable Access
 
@@ -1538,6 +1551,25 @@ JSON Pointer error: Key 'database' not found in JSON object at pointer '/databas
 
 ### Catching Errors
 
+**Basic parse_json error handling:**
+```cpp
+std::string user_input = get_user_json();  // Could be malformed
+
+try
+{
+    JsonValue data = parse_json(user_input);
+    // Process valid JSON...
+    auto name = from_json<std::string>(data.at("name"));
+}
+catch (const std::runtime_error& e)
+{
+    // Catches both parse errors and type conversion errors
+    std::cerr << "JSON error: " << e.what() << "\n";
+    // e.what() includes position info for parse errors, e.g.:
+    // "JSON parse error at line 3, column 15: Expected ':' after object key"
+}
+```
+
 **Specific error handling:**
 ```cpp
 try
@@ -1598,13 +1630,17 @@ Config load_validated_config()
 | `int8_t`, `int16_t`, `int32_t` | integer | Stored as `int64_t` |
 | `int64_t`, `int`, `long` | integer | Native representation |
 | `uint8_t`, `uint16_t`, `uint32_t` | integer | Converted to `int64_t` |
-| `uint64_t`, `unsigned`, `unsigned long` | integer | Converted to `int64_t` |
+| `uint64_t`, `unsigned long long` | integer/number | Values <= INT64_MAX stored as `int64_t`; larger values become `double` |
 | `float` | number | Converted to `double` |
 | `double` | number | Native representation |
 | `std::string` | string | UTF-8 encoded |
 | `const char*` | string | Converted to `std::string` |
 | `std::string_view` | string | Converted to `std::string` |
 | `std::nullptr_t` | null | JSON null |
+
+> **Warning:** Values of `uint64_t` greater than `INT64_MAX` (9,223,372,036,854,775,807)
+> are stored as `double`, which may lose precision for very large integers. If you need
+> exact representation of such values, consider storing them as strings.
 
 **Important notes:**
 - All integer types are stored as `int64_t` internally
@@ -1625,7 +1661,7 @@ Config load_validated_config()
 | `std::unordered_set<T>` | array | Unordered |
 | `std::map<std::string, T>` | object | Ordered by key |
 | `std::unordered_map<std::string, T>` | object | Hash-based |
-| `std::optional<T>` | T or null | `nullopt` → `null` |
+| `std::optional<T>` | T or null | `nullopt`  `null` |
 | `std::pair<T, U>` | array | 2-element array |
 | `std::tuple<Ts...>` | array | N-element array |
 
@@ -1633,15 +1669,15 @@ Config load_validated_config()
 
 **Maps must have string keys:**
 ```cpp
-std::map<std::string, int> ok;  // ✓ Works
-std::map<int, std::string> no;  // ✗ Won't compile
+std::map<std::string, int> ok;  //  Works
+std::map<int, std::string> no;  //  Won't compile
 ```
 
 **Nested containers work:**
 ```cpp
-std::vector<std::vector<int>> matrix;  // ✓ OK
-std::map<std::string, std::vector<int>> data;  // ✓ OK
-std::vector<std::map<std::string, double>> records;  // ✓ OK
+std::vector<std::vector<int>> matrix;  //  OK
+std::map<std::string, std::vector<int>> data;  //  OK
+std::vector<std::map<std::string, double>> records;  //  OK
 ```
 
 **Optional fields:**
@@ -1737,6 +1773,8 @@ for (const auto& elem : mixed)
 For types that need custom logic, write your own `to_json` and `from_json`:
 
 ```cpp
+#include <charconv>  // C++17
+
 struct Date
 {
     int year, month, day;
@@ -1751,9 +1789,29 @@ struct Date
     
     static Date from_string(const std::string& s)
     {
-        // Parse "YYYY-MM-DD"
-        Date d;
-        std::sscanf(s.c_str(), "%d-%d-%d", &d.year, &d.month, &d.day);
+        // Parse "YYYY-MM-DD" using C++17 std::from_chars
+        Date d{};
+        const char* ptr = s.data();
+        const char* end = s.data() + s.size();
+        
+        auto [p1, ec1] = std::from_chars(ptr, end, d.year);
+        if (ec1 != std::errc{} || p1 >= end || *p1 != '-')
+        {
+            throw std::runtime_error("Invalid date format: " + s);
+        }
+        
+        auto [p2, ec2] = std::from_chars(p1 + 1, end, d.month);
+        if (ec2 != std::errc{} || p2 >= end || *p2 != '-')
+        {
+            throw std::runtime_error("Invalid date format: " + s);
+        }
+        
+        auto [p3, ec3] = std::from_chars(p2 + 1, end, d.day);
+        if (ec3 != std::errc{})
+        {
+            throw std::runtime_error("Invalid date format: " + s);
+        }
+        
         return d;
     }
 };
@@ -1871,11 +1929,11 @@ std::unique_ptr<Shape> shape_from_json(const JsonValue& j)
 | **Numeric Checking** | Overflow detection | No checking |
 | **Parsing Speed** | Moderate | Moderate |
 | **Memory Usage** | std containers | std containers |
-| **JSON Pointer** | ✓ RFC 6901 | ✓ RFC 6901 + JSON Patch |
-| **Struct Macros** | ✓ Non-intrusive | ✓ Intrusive/non-intrusive |
+| **JSON Pointer** |  RFC 6901 |  RFC 6901 + JSON Patch |
+| **Struct Macros** |  Non-intrusive |  Intrusive/non-intrusive |
 | **Error Messages** | Detailed with position | Good |
 | **Special Values** | Policy-based (NaN/Inf) | Configurable |
-| **Comments** | ✓ Via ConfigJsonPolicy | ✗ |
+| **Comments** |  Via ConfigJsonPolicy |  |
 
 **Choose nlohmann/json if:**
 - Need C++11 compatibility
@@ -1897,8 +1955,8 @@ std::unique_ptr<Shape> shape_from_json(const JsonValue& j)
 | **Parsing Speed** | ~150 MB/s | ~400-1000 MB/s |
 | **API Style** | Modern (variant) | Classic (pointers) |
 | **Memory** | std allocator | Custom allocators |
-| **SAX Parser** | ✗ | ✓ |
-| **JSON Pointer** | ✓ | ✓ |
+| **SAX Parser** |  |  |
+| **JSON Pointer** |  |  |
 | **Safety** | High (overflow checks) | Lower (manual) |
 | **Ease of Use** | High | Moderate |
 
@@ -1921,7 +1979,7 @@ std::unique_ptr<Shape> shape_from_json(const JsonValue& j)
 | **Parsing Speed** | ~150 MB/s | ~2-4 GB/s |
 | **API** | Read/Write | Read-only |
 | **SIMD** | No | Yes (AVX2, SSE4) |
-| **Modification** | ✓ Can modify | ✗ Read-only |
+| **Modification** |  Can modify |  Read-only |
 | **Use Case** | General purpose | High-throughput parsing |
 
 **Choose simdjson if:**
@@ -1965,7 +2023,7 @@ std::unique_ptr<Shape> shape_from_json(const JsonValue& j)
 | **Memory** | Standard | Optimized (30-50% savings) |
 | **Large Files** | Standard I/O | Memory-mapped I/O |
 | **Binary Size** | Smaller | Larger (+20-30%) |
-| **JSON Pointer** | ✓ Exception-based | ✓ Expected-based |
+| **JSON Pointer** |  Exception-based |  Expected-based |
 
 **Choose FatPJsonLite if:**
 - Need exception-free code
@@ -1985,7 +2043,7 @@ std::unique_ptr<Shape> shape_from_json(const JsonValue& j)
 
 ### Configuration Files
 
-**✓ Ideal for JsonLite**
+** Ideal for JsonLite**
 
 Configuration files are JsonLite's primary use case:
 
@@ -2031,7 +2089,7 @@ void update_config(const ServerConfig& cfg)
 
 ### REST API Responses
 
-**○ Possible but not optimal**
+** Possible but not optimal**
 
 JsonLite works for REST APIs but isn't optimized for it:
 
@@ -2064,7 +2122,7 @@ std::string handle_get_user(int user_id)
 
 ### Game Save Files
 
-**✓ Good fit for JsonLite**
+** Good fit for JsonLite**
 
 Game save data benefits from JsonLite's safety and ease of use:
 
@@ -2108,7 +2166,7 @@ PlayerData load_game()
 
 ### High-Frequency Trading / Real-Time
 
-**✗ Not suitable**
+** Not suitable**
 
 JsonLite is **not** designed for high-frequency or real-time systems:
 
@@ -2125,7 +2183,7 @@ JsonLite is **not** designed for high-frequency or real-time systems:
 
 ### Large Data Processing
 
-**○ Depends on file size**
+** Depends on file size**
 
 - **<10 MB files**: JsonLite is fine
 - **10-100 MB files**: Consider FatPJsonLite with memory-mapped I/O
@@ -2133,7 +2191,7 @@ JsonLite is **not** designed for high-frequency or real-time systems:
 
 ### Embedded Systems
 
-**○ Possible with caveats**
+** Possible with caveats**
 
 JsonLite can work on embedded systems:
 
@@ -2154,7 +2212,7 @@ JsonLite can work on embedded systems:
 
 ### Cross-Platform Tools
 
-**✓ Excellent fit**
+** Excellent fit**
 
 JsonLite works across all major platforms:
 
@@ -2382,8 +2440,8 @@ JsonLite achieves **100-200 MB/s** parsing throughput on typical hardware:
 
 **Typical performance:**
 - Small objects (<1KB): ~650 ns per parse
-- Medium objects (1-10KB): ~5-50 µs per parse
-- Large objects (>100KB): ~500 µs - 5 ms per parse
+- Medium objects (1-10KB): ~5-50 us per parse
+- Large objects (>100KB): ~500 us - 5 ms per parse
 
 This is sufficient for:
 - Configuration files at application startup
@@ -2406,7 +2464,7 @@ JsonLite uses standard containers:
 
 Memory overhead per JsonValue: ~32-64 bytes depending on type and platform.
 
-For memory-critical applications, consider FatPJsonLite with SmallVector (inline storage for ≤8 
+For memory-critical applications, consider FatPJsonLite with SmallVector (inline storage for 8 
 elements) and FlatMap (contiguous storage, better cache locality).
 
 ### Optimization Tips
@@ -2444,7 +2502,7 @@ save_json_to_file("config.json", config);
 
 ### Design Patterns
 
-**1. ✓ Use std::optional for optional fields:**
+**1.  Use std::optional for optional fields:**
 
 ```cpp
 struct Config
@@ -2457,7 +2515,7 @@ struct Config
 CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, timeout, cert)
 ```
 
-**2. ✓ Provide defaults with OPTIONAL macro:**
+**2.  Provide defaults with OPTIONAL macro:**
 
 ```cpp
 struct Config
@@ -2469,7 +2527,7 @@ struct Config
 CPP_JSON_DEFINE_TYPE_OPTIONAL(Config, port, host, timeout)
 ```
 
-**3. ✓ Validate after loading:**
+**3.  Validate after loading:**
 
 ```cpp
 Config cfg = load_params<Config>("config.json");
@@ -2484,21 +2542,21 @@ if (cfg.timeout <= 0)
 }
 ```
 
-**4. ✓ Use backup for critical files:**
+**4.  Use backup for critical files:**
 
 ```cpp
 // Always save with backup for config files
 save_params_with_backup<PrettyJsonPolicy>("config.json", cfg);
 ```
 
-**5. ✓ Use pretty printing for human-edited files:**
+**5.  Use pretty printing for human-edited files:**
 
 ```cpp
 // Make config readable for manual editing
 save_params<PrettyJsonPolicy>("config.json", cfg);
 ```
 
-**6. ✓ Use JSON Pointer for deep access:**
+**6.  Use JSON Pointer for deep access:**
 
 ```cpp
 // Instead of nested get() calls
@@ -2619,30 +2677,30 @@ JsonLite is a **safety-first, modern C++17 JSON library** designed for applicati
 prioritize correctness and simplicity over maximum performance.
 
 **Key Characteristics:**
-- ✓ Zero external dependencies (standard library only)
-- ✓ Explicit type safety (no silent conversions)
-- ✓ Checked arithmetic (no overflow)
-- ✓ Detailed error messages with source positions
-- ✓ Macro-based struct serialization
-- ✓ Both reference-based and value-returning APIs
-- ✓ JSON Pointer (RFC 6901) support
-- ✓ JSONC comment support via policies
-- ✓ Backup on save for data protection
+-  Zero external dependencies (standard library only)
+-  Explicit type safety (no silent conversions)
+-  Checked arithmetic (no overflow)
+-  Detailed error messages with source positions
+-  Macro-based struct serialization
+-  Both reference-based and value-returning APIs
+-  JSON Pointer (RFC 6901) support
+-  JSONC comment support via policies
+-  Backup on save for data protection
 
 **Best For:**
-- ✓ Configuration file management
-- ✓ Parameter persistence
-- ✓ Game save files
-- ✓ Small to medium JSON (<10MB)
-- ✓ Applications where safety matters more than speed
-- ✓ Cross-platform tools and utilities
+-  Configuration file management
+-  Parameter persistence
+-  Game save files
+-  Small to medium JSON (<10MB)
+-  Applications where safety matters more than speed
+-  Cross-platform tools and utilities
 
 **Not Ideal For:**
-- ✗ High-frequency API responses (>1000 req/s)
-- ✗ Real-time systems with tight latency requirements
-- ✗ Very large JSON files (>100MB)
-- ✗ Need for JSON Patch or JSON Schema
-- ✗ C++11 compatibility required
+-  High-frequency API responses (>1000 req/s)
+-  Real-time systems with tight latency requirements
+-  Very large JSON files (>100MB)
+-  Need for JSON Patch or JSON Schema
+-  C++11 compatibility required
 
 **Choose JsonLite when:**
 - You want explicit type safety
@@ -2653,10 +2711,10 @@ prioritize correctness and simplicity over maximum performance.
 - Human-readable config files are important
 
 **Choose alternatives when:**
-- Maximum parsing speed required → RapidJSON or simdjson
-- More features needed → nlohmann/json
-- Exception-free code required → FatPJsonLite
-- C++11 compatibility required → nlohmann/json or RapidJSON
+- Maximum parsing speed required  RapidJSON or simdjson
+- More features needed  nlohmann/json
+- Exception-free code required  FatPJsonLite
+- C++11 compatibility required  nlohmann/json or RapidJSON
 
 JsonLite fills a specific niche in the C++ JSON ecosystem. It's not trying to be the fastest or 
 most feature-complete library. It's designed to make configuration file handling safe, simple, 

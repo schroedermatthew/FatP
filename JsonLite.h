@@ -76,6 +76,7 @@
 #include <limits>
 #include <list>
 #include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -313,10 +314,10 @@ namespace json_detail {
  * within the target type's representable range.
  * 
  * The function handles all combinations of signed/unsigned conversions:
- * - Signed ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Signed: Checks both min and max bounds
- * - Unsigned ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Signed: Checks maximum bound and signedness
- * - Signed ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Unsigned: Checks for negativity and maximum bound
- * - Unsigned ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Unsigned: Checks maximum bound
+ * - Signed ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€š ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ Signed: Checks both min and max bounds
+ * - Unsigned ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€š ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ Signed: Checks maximum bound and signedness
+ * - Signed ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€š ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ Unsigned: Checks for negativity and maximum bound
+ * - Unsigned ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€š ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ Unsigned: Checks maximum bound
  * 
  * @section behavior Special Behaviors
  * - If source and target types are identical, returns value directly (zero overhead)
@@ -484,27 +485,65 @@ namespace json_detail {
                     "target_type", type_name);
         }
         
-        constexpr double type_min = static_cast<double>(std::numeric_limits<IntType>::min());
-        constexpr double type_max = static_cast<double>(std::numeric_limits<IntType>::max());
-        
-        json_enforce(intpart >= type_min && intpart <= type_max,
-                "JSON conversion error: value out of range",
-                "value", d,
-                "target_type", type_name);
-        
-        IntType candidate = static_cast<IntType>(intpart);
-        
-        if constexpr (sizeof(IntType) >= 8) 
+        if constexpr (std::is_signed_v<IntType> && sizeof(IntType) >= 8) 
         {
-            double roundtrip = static_cast<double>(candidate);
-            json_enforce(roundtrip == intpart,
-                    "JSON conversion error: precision loss or overflow detected",
-                    "value", d,
-                    "converted", candidate,
-                    "target_type", type_name);
+            constexpr double type_min = static_cast<double>(std::numeric_limits<IntType>::min());
+            constexpr double type_max = static_cast<double>(std::numeric_limits<IntType>::max());
+            
+            if (intpart < type_min || intpart > type_max)
+            {
+                json_enforce(false,
+                        "JSON conversion error: value out of range for 64-bit signed integer",
+                        "value", d,
+                        "target_type", type_name);
+            }
+            
+            IntType candidate = static_cast<IntType>(intpart);
+            
+            if (intpart < 0.0 && candidate > 0)
+            {
+                json_enforce(false,
+                        "JSON conversion error: underflow detected",
+                        "value", d,
+                        "converted", candidate,
+                        "target_type", type_name);
+            }
+            
+            if (intpart > 0.0 && candidate < 0)
+            {
+                json_enforce(false,
+                        "JSON conversion error: overflow detected",
+                        "value", d,
+                        "converted", candidate,
+                        "target_type", type_name);
+            }
+            
+            result = candidate;
         }
-        
-        result = candidate;
+        else
+        {
+            constexpr double type_min = static_cast<double>(std::numeric_limits<IntType>::min());
+            constexpr double type_max = static_cast<double>(std::numeric_limits<IntType>::max());
+            
+            json_enforce(intpart >= type_min && intpart <= type_max,
+                    "JSON conversion error: value out of range",
+                    "value", d,
+                    "target_type", type_name);
+            
+            IntType candidate = static_cast<IntType>(intpart);
+            
+            if constexpr (sizeof(IntType) >= 8) 
+            {
+                double roundtrip = static_cast<double>(candidate);
+                json_enforce(roundtrip == intpart,
+                        "JSON conversion error: precision loss or overflow detected",
+                        "value", d,
+                        "converted", candidate,
+                        "target_type", type_name);
+            }
+            
+            result = candidate;
+        }
     }
 
     /**
@@ -1133,21 +1172,20 @@ namespace json_detail {
         }
     };
     
-    inline thread_local PolicyContext* current_policy_context = nullptr;
+    inline thread_local std::unique_ptr<PolicyContext> current_policy_context = nullptr;
     
     template <typename Policy>
     struct PolicyScope {
-        PolicyContext ctx;
-        PolicyContext* prev;
+        std::unique_ptr<PolicyContext> prev_ctx;
         
-        PolicyScope() : ctx(PolicyContext::from_policy<Policy>()), prev(current_policy_context) 
+        PolicyScope() : prev_ctx(std::move(current_policy_context))
         {
-            current_policy_context = &ctx;
+            current_policy_context = std::make_unique<PolicyContext>(PolicyContext::from_policy<Policy>());
         }
         
         ~PolicyScope() 
         { 
-            current_policy_context = prev; 
+            current_policy_context = std::move(prev_ctx);
         }
         
         PolicyScope(const PolicyScope&) = delete;
@@ -1159,23 +1197,21 @@ namespace json_detail {
     template <typename Policy>
     inline int get_effective_numeric_precision() 
     {
-        return current_policy_context ? current_policy_context->numeric_precision 
-                                      : Policy::numeric_precision;
+        return current_policy_context ? current_policy_context->numeric_precision : Policy::numeric_precision;
     }
     
     template <typename Policy>
     inline bool get_effective_allow_nan_inf() 
     {
-        return current_policy_context ? current_policy_context->allow_nan_inf 
-                                      : Policy::allow_nan_inf;
+        return current_policy_context ? current_policy_context->allow_nan_inf : Policy::allow_nan_inf;
     }
     
     template <typename Policy>
     inline bool get_effective_escape_unicode() 
     {
-        return current_policy_context ? current_policy_context->escape_unicode 
-                                      : Policy::escape_unicode;
+        return current_policy_context ? current_policy_context->escape_unicode : Policy::escape_unicode;
     }
+
 }
 
 namespace json_detail {
@@ -1777,7 +1813,7 @@ inline JsonValue to_json(const JsonValue& value)
 #define CPP_JSON_CAT_IMPL(a, b) a##b
 
 #define CPP_JSON_TO_FIELD(field) \
-    do { obj[#field] = to_json(value.field); } while(0)
+    do { obj[#field] = json_detail::to_json_value(value.field); } while(0)
 
 #define CPP_JSON_FROM_FIELD(field) \
     do { \
@@ -2954,6 +2990,17 @@ inline void from_json(const JsonValue& j, unsigned short& value)
 }
 
 
+namespace json_detail 
+{
+    template <typename T>
+    JsonValue to_json_value(const T& value) 
+    {
+        JsonValue result;
+        to_json(result, value);
+        return result;
+    }
+}
+
 template <typename T, size_t N>
 void to_json(JsonValue& j, const std::array<T, N>& arr) 
 {
@@ -2961,7 +3008,7 @@ void to_json(JsonValue& j, const std::array<T, N>& arr)
     json_arr.reserve(N);
     for (const auto& elem : arr) 
     {
-        json_arr.push_back(to_json(elem));
+        json_arr.push_back(json_detail::to_json_value(elem));
     }
     j = std::move(json_arr);
 }
@@ -2973,7 +3020,7 @@ void to_json(JsonValue& j, const std::vector<T>& vec)
     arr.reserve(vec.size());
     for (const auto& elem : vec) 
     {
-        arr.push_back(to_json(elem));
+        arr.push_back(json_detail::to_json_value(elem));
     }
     j = std::move(arr);
 }
@@ -2984,7 +3031,7 @@ void to_json(JsonValue& j, const std::set<T>& s)
     JsonArray arr;
     for (const auto& elem : s) 
     {
-        arr.push_back(to_json(elem));
+        arr.push_back(json_detail::to_json_value(elem));
     }
     j = std::move(arr);
 }
@@ -2996,7 +3043,7 @@ void to_json(JsonValue& j, const std::unordered_set<T>& s)
     arr.reserve(s.size());
     for (const auto& elem : s) 
     {
-        arr.push_back(to_json(elem));
+        arr.push_back(json_detail::to_json_value(elem));
     }
     j = std::move(arr);
 }
@@ -3008,7 +3055,7 @@ void to_json(JsonValue& j, const std::deque<T>& d)
     arr.reserve(d.size());
     for (const auto& elem : d) 
     {
-        arr.push_back(to_json(elem));
+        arr.push_back(json_detail::to_json_value(elem));
     }
     j = std::move(arr);
 }
@@ -3020,7 +3067,7 @@ void to_json(JsonValue& j, const std::list<T>& lst)
     arr.reserve(lst.size());
     for (const auto& elem : lst) 
     {
-        arr.push_back(to_json(elem));
+        arr.push_back(json_detail::to_json_value(elem));
     }
     j = std::move(arr);
 }
@@ -3046,7 +3093,7 @@ void to_json(JsonValue& j, const std::map<K, V>& m)
             oss << key;
             key_str = oss.str();
         }
-        obj[std::move(key_str)] = to_json(val);
+        obj[std::move(key_str)] = json_detail::to_json_value(val);
     }
     j = std::move(obj);
 }
@@ -3072,7 +3119,7 @@ void to_json(JsonValue& j, const std::unordered_map<K, V>& m)
             oss << key;
             key_str = oss.str();
         }
-        obj[std::move(key_str)] = to_json(val);
+        obj[std::move(key_str)] = json_detail::to_json_value(val);
     }
     j = std::move(obj);
 }
@@ -3094,8 +3141,8 @@ template <typename T1, typename T2>
 void to_json(JsonValue& j, const std::pair<T1, T2>& p) 
 {
     JsonArray arr;
-    arr.push_back(to_json(p.first));
-    arr.push_back(to_json(p.second));
+    arr.push_back(json_detail::to_json_value(p.first));
+    arr.push_back(json_detail::to_json_value(p.second));
     j = std::move(arr);
 }
 
@@ -3103,7 +3150,7 @@ template <typename Tuple, std::size_t... I>
 JsonArray tuple_to_json_impl(const Tuple& tup, std::index_sequence<I...>) 
 {
     JsonArray arr;
-    (..., arr.push_back(to_json(std::get<I>(tup))));
+    (..., arr.push_back(json_detail::to_json_value(std::get<I>(tup))));
     return arr;
 }
 
@@ -3120,7 +3167,7 @@ JsonValue to_json(const std::array<T, N>& arr)
     json_arr.reserve(N);
     for (const auto& elem : arr) 
     {
-        json_arr.push_back(to_json(elem));
+        json_arr.push_back(json_detail::to_json_value(elem));
     }
     return json_arr;
 }
@@ -3132,7 +3179,7 @@ JsonValue to_json(const std::vector<T>& vec)
     arr.reserve(vec.size());
     for (const auto& elem : vec) 
     {
-        arr.push_back(to_json(elem));
+        arr.push_back(json_detail::to_json_value(elem));
     }
     return arr;
 }
@@ -3143,7 +3190,7 @@ JsonValue to_json(const std::set<T>& s)
     JsonArray arr;
     for (const auto& elem : s) 
     {
-        arr.push_back(to_json(elem));
+        arr.push_back(json_detail::to_json_value(elem));
     }
     return arr;
 }
@@ -3155,7 +3202,7 @@ JsonValue to_json(const std::unordered_set<T>& s)
     arr.reserve(s.size());
     for (const auto& elem : s) 
     {
-        arr.push_back(to_json(elem));
+        arr.push_back(json_detail::to_json_value(elem));
     }
     return arr;
 }
@@ -3166,7 +3213,7 @@ JsonValue to_json(const std::deque<T>& d)
     JsonArray arr;
     for (const auto& elem : d) 
     {
-        arr.push_back(to_json(elem));
+        arr.push_back(json_detail::to_json_value(elem));
     }
     return arr;
 }
@@ -3178,7 +3225,7 @@ JsonValue to_json(const std::list<T>& lst)
     arr.reserve(lst.size());
     for (const auto& elem : lst) 
     {
-        arr.push_back(to_json(elem));
+        arr.push_back(json_detail::to_json_value(elem));
     }
     return arr;
 }
@@ -3204,7 +3251,7 @@ JsonValue to_json(const std::map<K, V>& m)
             oss << key;
             key_str = oss.str();
         }
-        obj[std::move(key_str)] = to_json(val);
+        obj[std::move(key_str)] = json_detail::to_json_value(val);
     }
     return obj;
 }
@@ -3230,7 +3277,7 @@ JsonValue to_json(const std::unordered_map<K, V>& m)
             oss << key;
             key_str = oss.str();
         }
-        obj[std::move(key_str)] = to_json(val);
+        obj[std::move(key_str)] = json_detail::to_json_value(val);
     }
     return obj;
 }
@@ -3249,8 +3296,8 @@ template <typename T1, typename T2>
 JsonValue to_json(const std::pair<T1, T2>& p) 
 {
     JsonArray arr;
-    arr.push_back(to_json(p.first));
-    arr.push_back(to_json(p.second));
+    arr.push_back(json_detail::to_json_value(p.first));
+    arr.push_back(json_detail::to_json_value(p.second));
     return arr;
 }
 
@@ -4233,4 +4280,3 @@ inline void save_params_with_backup(const std::string& filename, const T& params
 }
 
 } // namespace fat_p
-

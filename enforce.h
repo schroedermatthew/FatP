@@ -70,7 +70,7 @@ namespace fat_p {
         fat_p::MessageBuilder mb; \
         mb.format(__VA_ARGS__); \
         std::string msg = mb.get_message(FATP_LOCUS, #condition); \
-        diagnostic::conditionalPrintError([&]() { return "Expected Failure: " + msg; }); \
+        fat_p::detail::writeToStderr("Expected Failure: ", msg); \
         return fat_p::make_unexpected(msg); \
     } \
     return {}; \
@@ -81,7 +81,7 @@ namespace fat_p {
         fat_p::MessageBuilder mb; \
         mb.format(__VA_ARGS__); \
         std::string msg = mb.get_message(FATP_LOCUS, #condition); \
-        diagnostic::conditionalPrintError([&]() { return "Expected Failure: " + msg; }); \
+        fat_p::detail::writeToStderr("Expected Failure: ", msg); \
         return fat_p::make_unexpected(msg); \
     } \
     return {}; \
@@ -93,7 +93,7 @@ namespace fat_p {
         fat_p::MessageBuilder mb; \
         mb.format(__VA_ARGS__); \
         std::string msg = mb.get_message(FATP_LOCUS, #PredicateType "(" #target ")"); \
-        diagnostic::conditionalPrintError([&]() { return "Expected Failure: " + msg; }); \
+        fat_p::detail::writeToStderr("Expected Failure: ", msg); \
         return fat_p::make_unexpected(msg); \
     } \
     return result; \

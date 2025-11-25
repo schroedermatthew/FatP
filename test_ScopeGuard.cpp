@@ -8,35 +8,22 @@
  * - Move semantics (construction and assignment)
  * - Dismiss functionality (dismiss, dismiss_if)
  * - Macro convenience helpers (SCOPE_GUARD, SCOPE_GUARD_EX)
- * - Thread-safety with different concurrency policies
  * - Resource management patterns
  * - Performance characteristics
  * 
- * Test Configuration:
- * - Processor: Intel Core i7-8850H @ 2.60GHz
- * - RAM: 32GB  
- * - C++ Standard: C++17
- * - Build Modes: Debug and Release
- *
- * @version 1.0
- * @author C++ Utilities Library
- * @date 2025
+ * Note: ScopeGuard is designed for single-threaded use only.
  */
 
 #include <iostream>
-#include <thread>
 #include <vector>
-#include <atomic>
 #include <string>
 #include <memory>
 #include <stdexcept>
 #include <chrono>
 #include <cassert>
 
-// Include the headers we're testing
 #include "ScopeGuard.h"
 #include "ScopeGuardPolicies.h"
-#include "ConcurrencyPolicies.h"
 #include "test_ScopeGuard.h"
 #include "FatPTest.h"
 
@@ -46,18 +33,11 @@ using namespace fat_p;
 namespace fat_p::testing
 {
 
-// =============================================================================
-// Helper Classes and Utilities
-// =============================================================================
-
-/**
- * @brief Test resource that tracks construction, destruction, and state
- */
 class TestResource {
 public:
-    static inline std::atomic<int> construction_count{0};
-    static inline std::atomic<int> destruction_count{0};
-    static inline std::atomic<int> cleanup_count{0};
+    static inline int construction_count{0};
+    static inline int destruction_count{0};
+    static inline int cleanup_count{0};
     
     int id;
     bool cleaned = false;
@@ -82,9 +62,6 @@ public:
     }
 };
 
-/**
- * @brief Action that can be configured to throw
- */
 class ThrowingAction {
 public:
     bool should_throw;
@@ -100,10 +77,6 @@ public:
         }
     }
 };
-
-// =============================================================================
-// I. Basic ScopeGuard Functionality Tests
-// =============================================================================
 
 bool test_BasicScopeGuard() {
     std::cout << colors::cyan() << "\nTesting Basic ScopeGuard Functionality..."
@@ -635,323 +608,6 @@ bool test_MacroConvenience() {
 // VI. Thread-Safety Tests
 // =============================================================================
 
-bool test_ThreadSafety() {
-    std::cout << colors::cyan() << "\nTesting Thread-Safety..."
-              << colors::reset() << std::endl;
-    
-#if FATP_USE_MUTEX
-    // Test 1: Concurrent dismiss operations
-    {
-        std::cout << colors::blue() << "  [TEST] Concurrent dismiss with MutexSynchronizationPolicy"
-                  << colors::reset() << std::endl;
-        
-        std::atomic<int> cleanup_count{0};
-        const int num_threads = 10;
-        
-        {
-            auto guard = ScopeGuard<std::function<void()>, 
-                                   ScopeGuardTerminatePolicy,
-                                   MutexSynchronizationPolicy>(
-                [&cleanup_count]() { ++cleanup_count; });
-            
-            std::vector<std::thread> threads;
-            for (int i = 0; i < num_threads; ++i) {
-                threads.emplace_back([&guard]() {
-                    // All threads try to dismiss
-                    guard.dismiss();
-                });
-            }
-            
-            for (auto& t : threads) {
-                t.join();
-            }
-            
-            SIMPLE_ASSERT(!guard.is_active(), "Guard should be dismissed");
-        }
-        
-        ASSERT_EQ(cleanup_count, 0, "Dismissed guard should not execute");
-    }
-// =============================================================================
-// Enhanced Thread-Safety Tests (v2.1)
-// =============================================================================
-// These tests verify the fixes applied in v2.1:
-// - Fix #1: dismiss() uses LockGuardType (exclusive lock)
-// - Fix #2: Move operations lock source object
-// - Fix #3: Logging is thread-safe
-// =============================================================================
-
-// Test 2: SharedMutexPolicy Read/Write Race Detection (Fix #1)
-#if FATP_USE_SHARED_MUTEX
-    {
-        std::cout << colors::blue() << "  [TEST] SharedMutexPolicy read/write race detection (Fix #1)"
-                  << colors::reset() << std::endl;
-        
-        std::atomic<int> cleanup_count{0};
-        std::atomic<int> read_ops{0};
-        std::atomic<int> write_ops{0};
-        std::atomic<bool> stop{false};
-        
-        const int num_readers = 8;
-        const int num_writers = 4;
-        const int iterations = 50000;
-        
-        {
-            ScopeGuard<std::function<void()>, 
-                       ScopeGuardTerminatePolicy,
-                       SharedMutexPolicy> guard(
-                [&cleanup_count]() { ++cleanup_count; });
-            
-            std::vector<std::thread> threads;
-            
-            // Reader threads (concurrent reads with shared locks)
-            for (int i = 0; i < num_readers; ++i) {
-                threads.emplace_back([&guard, &read_ops, &stop, iterations]() {
-                    for (int j = 0; j < iterations && !stop; ++j) {
-                        if (guard.is_active()) {  // Shared lock
-                            ++read_ops;
-                        }
-                    }
-                });
-            }
-            
-            // Writer threads (exclusive locks required)
-            for (int i = 0; i < num_writers; ++i) {
-                threads.emplace_back([&guard, &write_ops, &stop, iterations]() {
-                    for (int j = 0; j < iterations && !stop; ++j) {
-                        guard.dismiss_if(j % 2 == 0);  // Exclusive lock (FIXED v2.1)
-                        ++write_ops;
-                    }
-                });
-            }
-            
-            // Let threads run
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            stop = true;
-            
-            for (auto& t : threads) {
-                t.join();
-            }
-            
-            std::cout << colors::blue() << "    Read ops: " << read_ops 
-                      << ", Write ops: " << write_ops << colors::reset() << std::endl;
-            SIMPLE_ASSERT(!guard.is_active(), "Guard should be dismissed");
-        }
-        
-        ASSERT_EQ(cleanup_count, 0, "Dismissed guard should not execute");
-        std::cout << colors::green() << "    ✓ No data races (verify with ThreadSanitizer)"
-                  << colors::reset() << std::endl;
-    }
-#endif
-
-// Test 3: Move Constructor Race Detection (Fix #2)
-#if FATP_USE_MUTEX
-    {
-        std::cout << colors::blue() << "  [TEST] Move constructor race detection (Fix #2)"
-                  << colors::reset() << std::endl;
-        
-        std::atomic<int> cleanup_count{0};
-        const int stress_iterations = 100;
-        
-        for (int test = 0; test < stress_iterations; ++test) {
-            std::atomic<bool> move_started{false};
-            std::atomic<bool> move_completed{false};
-            
-            ScopeGuard<std::function<void()>, 
-                       ScopeGuardTerminatePolicy,
-                       MutexSynchronizationPolicy> guard(
-                [&cleanup_count]() { ++cleanup_count; });
-            
-            // Thread 1: Moves the guard
-            std::thread mover([&]() {
-                move_started = true;
-                std::this_thread::sleep_for(std::chrono::microseconds(1));
-                
-                auto guard_moved = std::move(guard);  // FIXED v2.1: Locks source
-                move_completed = true;
-            });
-            
-            // Thread 2: Accesses guard during move
-            std::thread accessor([&]() {
-                while (!move_started) {
-                    std::this_thread::yield();
-                }
-                
-                while (!move_completed) {
-                    volatile bool active = guard.is_active();
-                    (void)active;
-                    guard.dismiss_if(true);
-                }
-            });
-            
-            mover.join();
-            accessor.join();
-        }
-        
-        std::cout << colors::green() << "    ✓ " << stress_iterations 
-                  << " stress iterations completed without races"
-                  << colors::reset() << std::endl;
-    }
-#endif
-
-// Test 4: Move Assignment Race Detection (Fix #2)
-#if FATP_USE_MUTEX
-    {
-        std::cout << colors::blue() << "  [TEST] Move assignment race detection (Fix #2)"
-                  << colors::reset() << std::endl;
-        
-        std::atomic<int> cleanup_count{0};
-        const int stress_iterations = 100;
-        
-        for (int test = 0; test < stress_iterations; ++test) {
-            ScopeGuard<std::function<void()>, 
-                       ScopeGuardTerminatePolicy,
-                       MutexSynchronizationPolicy> guard1(
-                [&cleanup_count]() { ++cleanup_count; });
-            
-            ScopeGuard<std::function<void()>, 
-                       ScopeGuardTerminatePolicy,
-                       MutexSynchronizationPolicy> guard2(
-                [&cleanup_count]() { ++cleanup_count; });
-            
-            std::atomic<bool> assignment_started{false};
-            std::atomic<bool> assignment_completed{false};
-            
-            // Thread 1: Move assigns guard2 = guard1
-            std::thread assigner([&]() {
-                assignment_started = true;
-                std::this_thread::sleep_for(std::chrono::microseconds(1));
-                
-                guard2 = std::move(guard1);  // FIXED v2.1: std::scoped_lock
-                assignment_completed = true;
-            });
-            
-            // Thread 2: Accesses guard1
-            std::thread accessor1([&]() {
-                while (!assignment_started) {
-                    std::this_thread::yield();
-                }
-                
-                while (!assignment_completed) {
-                    volatile bool active = guard1.is_active();
-                    (void)active;
-                }
-            });
-            
-            // Thread 3: Accesses guard2
-            std::thread accessor2([&]() {
-                while (!assignment_started) {
-                    std::this_thread::yield();
-                }
-                
-                while (!assignment_completed) {
-                    guard2.dismiss_if(true);
-                }
-            });
-            
-            assigner.join();
-            accessor1.join();
-            accessor2.join();
-        }
-        
-        std::cout << colors::green() << "    ✓ " << stress_iterations 
-                  << " stress iterations completed without races"
-                  << colors::reset() << std::endl;
-    }
-#endif
-
-// Test 5: Concurrent Logging Thread Safety (Fix #3)
-#if FATP_USE_MUTEX && FATP_SCOPE_GUARD_LOG_ERRORS
-    {
-        std::cout << colors::blue() << "  [TEST] Concurrent logging thread safety (Fix #3)"
-                  << colors::reset() << std::endl;
-        
-        const int num_threads = 20;
-        std::vector<std::thread> threads;
-        
-        std::cout << colors::yellow() << "    Spawning " << num_threads 
-                  << " threads with throwing actions..." << colors::reset() << std::endl;
-        
-        for (int i = 0; i < num_threads; ++i) {
-            threads.emplace_back([i]() {
-                try {
-                    ScopeGuard<std::function<void()>, 
-                               ScopeGuardLogAndSwallowPolicy,
-                               MutexSynchronizationPolicy> guard(
-                        [i]() {
-                            throw std::runtime_error("Test exception from thread " + std::to_string(i));
-                        });
-                    // Guard destructor triggers logging (FIXED v2.1: thread-safe)
-                } catch (...) {
-                    // Should not happen (LogAndSwallow suppresses exceptions)
-                }
-            });
-        }
-        
-        for (auto& t : threads) {
-            t.join();
-        }
-        
-        std::cout << colors::green() << "    ✓ Logging completed (check output is not garbled)"
-                  << colors::reset() << std::endl;
-    }
-#endif
-
-// Test 6: UniqueRWLockPolicy (same fix as SharedMutexPolicy)
-#if FATP_USE_SHARED_MUTEX
-    {
-        std::cout << colors::blue() << "  [TEST] UniqueRWLockPolicy read/write (Fix #1)"
-                  << colors::reset() << std::endl;
-        
-        std::atomic<int> cleanup_count{0};
-        const int num_threads = 10;
-        const int iterations = 10000;
-        
-        {
-            ScopeGuard<std::function<void()>, 
-                       ScopeGuardTerminatePolicy,
-                       UniqueRWLockPolicy> guard(
-                [&cleanup_count]() { ++cleanup_count; });
-            
-            std::vector<std::thread> threads;
-            
-            for (int i = 0; i < num_threads; ++i) {
-                threads.emplace_back([&guard, iterations, i]() {
-                    for (int j = 0; j < iterations; ++j) {
-                        if (i % 2 == 0) {
-                            volatile bool active = guard.is_active();  // Shared lock
-                            (void)active;
-                        } else {
-                            guard.dismiss_if(j % 10 == 0);  // Exclusive lock
-                        }
-                    }
-                });
-            }
-            
-            for (auto& t : threads) {
-                t.join();
-            }
-        }
-        
-        ASSERT_EQ(cleanup_count, 0, "Guard should be dismissed");
-        std::cout << colors::green() << "    ✓ UniqueRWLockPolicy thread-safe"
-                  << colors::reset() << std::endl;
-    }
-#endif
-#else
-    std::cout << colors::yellow() 
-              << "  [SKIPPED] Thread-safety tests require FATP_USE_MUTEX"
-              << colors::reset() << std::endl;
-#endif
-    
-    std::cout << colors::green() << "Thread-Safety: Tests passed."
-              << colors::reset() << std::endl;
-    return true;
-}
-
-// =============================================================================
-// VII. Complex Resource Management Tests
-// =============================================================================
-
 bool test_ComplexResourceManagement() {
     std::cout << colors::cyan() << "\nTesting Complex Resource Management..."
               << colors::reset() << std::endl;
@@ -1114,26 +770,23 @@ void run_scope_guard_benchmarks() {
 // Main Test Function
 // =============================================================================
 
+
 bool test_ScopeGuard() {
 
     PRINT_HEADER(SCOPE GUARD)
 
     TestRunner runner;
     
-    // Core functionality tests
     runner.run_test("BasicScopeGuard", test_BasicScopeGuard);
     runner.run_test("DismissFunctionality", test_DismissFunctionality);
     runner.run_test("MoveSemantics", test_MoveSemantics);
     
-    // Policy tests
     runner.run_test("NothrowPolicy", test_NothrowPolicy);
     runner.run_test("TerminatePolicy", test_TerminatePolicy);
     runner.run_test("LogAndSwallowPolicy", test_LogAndSwallowPolicy);
     runner.run_test("RethrowPolicy", test_RethrowPolicy);
     
-    // Convenience and advanced tests
     runner.run_test("MacroConvenience", test_MacroConvenience);
-    runner.run_test("ThreadSafety", test_ThreadSafety);
     runner.run_test("ComplexResourceManagement", test_ComplexResourceManagement);
     
     int failed = runner.print_summary();
@@ -1145,4 +798,4 @@ bool test_ScopeGuard() {
     return failed == 0;
 }
 
-} // namespace fat_p::testing
+}

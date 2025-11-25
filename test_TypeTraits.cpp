@@ -262,6 +262,80 @@ struct WithIndex
     }
 };
 
+// Policy detection test types
+struct PolicyWithValidate
+{
+    void validate()
+    {
+    }
+};
+
+struct PolicyWithoutValidate
+{
+    void check()
+    {
+    }
+};
+
+struct PolicyWithSharedLocking
+{
+    struct SharedGuard
+    {
+    };
+};
+
+struct PolicyWithoutSharedLocking
+{
+    struct ExclusiveGuard
+    {
+    };
+};
+
+struct LockFreePolicy
+{
+    struct LockFreeTag
+    {
+    };
+};
+
+struct LockingPolicy
+{
+    struct MutexTag
+    {
+    };
+};
+
+// Noexcept callable test types
+struct NoexceptCallable
+{
+    int operator()(int x) const noexcept
+    {
+        return x * 2;
+    }
+};
+
+struct ThrowingCallable
+{
+    int operator()(int x) const
+    {
+        return x * 2;
+    }
+};
+
+void noexcept_function(int) noexcept
+{
+}
+
+void throwing_function(int)
+{
+}
+
+// Extension point test type
+struct ExtensionTestType
+{
+    int value;
+};
+
 bool test_detection_idiom()
 {
     using namespace detail;
@@ -273,7 +347,8 @@ bool test_detection_idiom()
     static_assert(std::is_same_v<default_type, double>, "detected_or uses default");
     static_assert(is_detected_exact_v<int, op_value_type, std::vector<int>>, "exact type match");
     static_assert(!is_detected_exact_v<double, op_value_type, std::vector<int>>, "type mismatch");
-    static_assert(is_detected_convertible_v<long, op_value_type, std::vector<int>>, "int converts to long");
+    static_assert(is_detected_convertible_v<long, op_value_type, std::vector<int>>,
+        "int converts to long");
     return true;
 }
 
@@ -408,7 +483,8 @@ bool test_comparator_traits()
 {
     static_assert(is_valid_comparator_v<std::less<int>, int>, "std::less is valid for int");
     static_assert(is_valid_comparator_v<TransparentComparator, int>, "transparent comparator valid");
-    static_assert(is_valid_comparator_v<NonTransparentComparator, int>, "non-transparent comparator valid");
+    static_assert(is_valid_comparator_v<NonTransparentComparator, int>,
+        "non-transparent comparator valid");
     static_assert(is_transparent_v<TransparentComparator>, "has is_transparent tag");
     static_assert(!is_transparent_v<NonTransparentComparator>, "lacks is_transparent tag");
     static_assert(!is_transparent_v<int>, "int not transparent");
@@ -447,7 +523,8 @@ bool test_allocator_traits()
     static_assert(is_allocator_v<std::allocator<int>>, "std::allocator is allocator");
     static_assert(is_allocator_v<CustomAllocator<int>>, "custom allocator is allocator");
     static_assert(!is_allocator_v<NotAnAllocator>, "not an allocator");
-    static_assert(has_rebind_v<std::allocator<int>>, "std::allocator has rebind");
+    // Note: std::allocator::rebind was removed in C++20 (use std::allocator_traits::rebind_alloc)
+    // So we only test custom allocator's rebind which we control
     static_assert(has_rebind_v<CustomAllocator<int>>, "custom allocator has rebind");
     static_assert(!has_rebind_v<int>, "int has no rebind");
     return true;
@@ -472,6 +549,126 @@ bool test_callable_traits()
     static_assert(!is_function_object_v<int>, "int not function object");
     return true;
 }
+
+bool test_nothrow_invocable()
+{
+    // Test noexcept lambdas
+    auto noexcept_lambda = [](int x) noexcept
+    {
+        return x * 2;
+    };
+    auto throwing_lambda = [](int x)
+    {
+        return x * 2;
+    };
+
+    static_assert(is_nothrow_invocable_v<decltype(noexcept_lambda), int>,
+        "noexcept lambda is nothrow invocable");
+    static_assert(!is_nothrow_invocable_v<decltype(throwing_lambda), int>,
+        "throwing lambda is not nothrow invocable");
+
+    // Test noexcept function objects
+    static_assert(is_nothrow_invocable_v<NoexceptCallable, int>,
+        "noexcept callable is nothrow invocable");
+    static_assert(!is_nothrow_invocable_v<ThrowingCallable, int>,
+        "throwing callable is not nothrow invocable");
+
+    // Test noexcept function pointers
+    static_assert(is_nothrow_invocable_v<decltype(&noexcept_function), int>,
+        "noexcept function ptr is nothrow invocable");
+    static_assert(!is_nothrow_invocable_v<decltype(&throwing_function), int>,
+        "throwing function ptr is not nothrow invocable");
+
+    // Test non-invocable cases
+    static_assert(!is_nothrow_invocable_v<int, int>, "int is not invocable");
+    static_assert(!is_nothrow_invocable_v<NoexceptCallable>, "callable needs argument");
+
+    return true;
+}
+
+bool test_range_traits()
+{
+    // is_range_v is an alias for is_iterable_v
+    static_assert(is_range_v<std::vector<int>>, "vector is a range");
+    static_assert(is_range_v<std::list<int>>, "list is a range");
+    static_assert(is_range_v<std::array<int, 5>>, "array is a range");
+    static_assert(is_range_v<std::string>, "string is a range");
+    static_assert(is_range_v<int[10]>, "C array is a range");
+    static_assert(!is_range_v<int>, "int is not a range");
+    static_assert(!is_range_v<double>, "double is not a range");
+
+    // is_sized_range_v requires both iteration and size()
+    static_assert(is_sized_range_v<std::vector<int>>, "vector is a sized range");
+    static_assert(is_sized_range_v<std::list<int>>, "list is a sized range");
+    static_assert(is_sized_range_v<std::string>, "string is a sized range");
+    static_assert(!is_sized_range_v<int>, "int is not a sized range");
+
+    // forward_list is iterable but has no size()
+    static_assert(is_range_v<std::forward_list<int>>, "forward_list is a range");
+    static_assert(!is_sized_range_v<std::forward_list<int>>, "forward_list has no size()");
+
+    return true;
+}
+
+bool test_policy_detection()
+{
+    // Test has_validate
+    static_assert(has_validate_v<PolicyWithValidate>, "policy has validate method");
+    static_assert(!has_validate_v<PolicyWithoutValidate>, "policy lacks validate method");
+    static_assert(!has_validate_v<int>, "int has no validate");
+
+    // Test has_shared_locking
+    static_assert(has_shared_locking_v<PolicyWithSharedLocking>, "policy has SharedGuard");
+    static_assert(!has_shared_locking_v<PolicyWithoutSharedLocking>, "policy lacks SharedGuard");
+    static_assert(!has_shared_locking_v<int>, "int has no SharedGuard");
+
+    // Test is_lock_free_policy
+    static_assert(is_lock_free_policy_v<LockFreePolicy>, "policy has LockFreeTag");
+    static_assert(!is_lock_free_policy_v<LockingPolicy>, "policy lacks LockFreeTag");
+    static_assert(!is_lock_free_policy_v<int>, "int has no LockFreeTag");
+
+    return true;
+}
+
+bool test_extension_points()
+{
+    // Test that custom_traits can be specialized
+    // The default custom_traits is an empty struct
+    using default_traits = extension_points::custom_traits<int>;
+    static_assert(std::is_empty_v<default_traits>, "default custom_traits is empty");
+
+    // Verify extension_points namespace exists and is usable
+    using ext_traits = extension_points::custom_traits<ExtensionTestType>;
+    static_assert(std::is_empty_v<ext_traits>, "unspecialized custom_traits is empty");
+
+    return true;
+}
+
+#if FATP_HAS_CPP20
+bool test_three_way_comparable()
+{
+    // Standard types with operator<=>
+    static_assert(is_three_way_comparable_v<int>, "int has operator<=>");
+    static_assert(is_three_way_comparable_v<double>, "double has operator<=>");
+    static_assert(is_three_way_comparable_v<std::string>, "string has operator<=>");
+
+    // Pointer types
+    static_assert(is_three_way_comparable_v<int*>, "pointer has operator<=>");
+
+    // Types without operator<=>
+    struct NoSpaceship
+    {
+        int value;
+        bool operator<(const NoSpaceship& other) const
+        {
+            return value < other.value;
+        }
+    };
+    static_assert(!is_three_way_comparable_v<NoSpaceship>, "NoSpaceship lacks operator<=>");
+
+    return true;
+}
+#endif
 
 bool test_aggregate_and_array_traits()
 {
@@ -507,7 +704,8 @@ bool test_tuple_traits()
 
 bool test_iterator_traits()
 {
-    static_assert(has_iterator_category_v<std::vector<int>::iterator>, "vector iterator has category");
+    static_assert(has_iterator_category_v<std::vector<int>::iterator>,
+        "vector iterator has category");
     static_assert(has_iterator_category_v<std::list<int>::iterator>, "list iterator has category");
     static_assert(has_iterator_category_v<int*>, "pointer has iterator traits");
     static_assert(!has_iterator_category_v<int>, "int has no iterator category");
@@ -542,8 +740,10 @@ bool test_optional_variant_traits()
 bool test_trivially_relocatable()
 {
     static_assert(is_trivially_relocatable_v<int>, "int is trivially relocatable");
-    static_assert(is_trivially_relocatable_v<TriviallyRelocatable>, "trivial struct is relocatable");
-    static_assert(!is_trivially_relocatable_v<NonTriviallyRelocatable>, "non-trivial not relocatable");
+    static_assert(is_trivially_relocatable_v<TriviallyRelocatable>,
+        "trivial struct is relocatable");
+    static_assert(!is_trivially_relocatable_v<NonTriviallyRelocatable>,
+        "non-trivial not relocatable");
     static_assert(!is_trivially_relocatable_v<std::string>, "string not trivially relocatable");
     return true;
 }
@@ -551,10 +751,14 @@ bool test_trivially_relocatable()
 bool test_trait_composition()
 {
     using namespace trait_ops;
-    static_assert(all_of_v<std::vector<int>, is_iterable, is_sized, has_reserve>, "vector passes all traits");
-    static_assert(!all_of_v<std::list<int>, is_iterable, is_sized, has_reserve>, "list fails reserve");
-    static_assert(any_of_v<std::vector<int>, has_reserve, has_push_front>, "vector has reserve");
-    static_assert(!any_of_v<std::array<int, 5>, has_reserve, has_clear>, "array has neither");
+    static_assert(all_of_v<std::vector<int>, is_iterable, is_sized, has_reserve>,
+        "vector passes all traits");
+    static_assert(!all_of_v<std::list<int>, is_iterable, is_sized, has_reserve>,
+        "list fails reserve");
+    static_assert(any_of_v<std::vector<int>, has_reserve, has_push_front>,
+        "vector has reserve");
+    static_assert(!any_of_v<std::array<int, 5>, has_reserve, has_clear>,
+        "array has neither");
     static_assert(none_of_v<int, is_iterable>, "int not iterable");
     static_assert(!none_of_v<std::vector<int>, is_iterable>, "vector is iterable");
     return true;
@@ -574,9 +778,11 @@ bool test_diagnostics()
     using namespace diagnostics;
     const char* reason = diagnose_container<int>();
     SIMPLE_ASSERT(reason != nullptr, "diagnostic returns reason");
-    static_assert(why_not_container<std::vector<int>>::reason != nullptr, "vector diagnostic exists");
+    static_assert(why_not_container<std::vector<int>>::reason != nullptr,
+        "vector diagnostic exists");
     static_assert(why_not_hashable<int>::reason != nullptr, "int hashable diagnostic exists");
-    static_assert(why_not_serializable<int>::reason != nullptr, "int serializable diagnostic exists");
+    static_assert(why_not_serializable<int>::reason != nullptr,
+        "int serializable diagnostic exists");
     static_assert(why_not_comparable<int>::reason != nullptr, "int comparable diagnostic exists");
     return true;
 }
@@ -597,7 +803,8 @@ bool test_dbc_helpers()
 
 bool test_value_type_detection()
 {
-    static_assert(is_detected_v<detail::op_value_type, std::vector<int>>, "vector has value_type");
+    static_assert(is_detected_v<detail::op_value_type, std::vector<int>>,
+        "vector has value_type");
     static_assert(is_detected_v<detail::op_value_type, WithValueType>, "custom has value_type");
     static_assert(!is_detected_v<detail::op_value_type, WithoutValueType>, "no value_type");
     return true;
@@ -617,7 +824,8 @@ bool test_constexpr_evaluation()
 void benchmark_typetraits()
 {
     std::cout << "\n" << colors::cyan() << "TypeTraits Benchmarks:" << colors::reset() << "\n\n";
-    std::cout << "Note: Type traits are compile-time only, so runtime benchmarks measure overhead.\n";
+    std::cout << "Note: Type traits are compile-time only, "
+              << "so runtime benchmarks measure overhead.\n";
     double lambda_invoke_time = measure_perf([]()
     {
         auto f = [](int x)
@@ -638,7 +846,8 @@ void benchmark_typetraits()
         }
         DoNotOptimize(sum);
     }, 100000, 1000);
-    std::cout << "Container iteration (verified iterable): " << format_time(container_iteration_time) << "\n";
+    std::cout << "Container iteration (verified iterable): "
+              << format_time(container_iteration_time) << "\n";
 }
 
 bool test_TypeTraits()
@@ -659,6 +868,13 @@ bool test_TypeTraits()
     RUN_TEST(runner, serialization_traits);
     RUN_TEST(runner, allocator_traits);
     RUN_TEST(runner, callable_traits);
+    RUN_TEST(runner, nothrow_invocable);
+    RUN_TEST(runner, range_traits);
+    RUN_TEST(runner, policy_detection);
+    RUN_TEST(runner, extension_points);
+#if FATP_HAS_CPP20
+    RUN_TEST(runner, three_way_comparable);
+#endif
     RUN_TEST(runner, aggregate_and_array_traits);
     RUN_TEST(runner, tuple_traits);
     RUN_TEST(runner, iterator_traits);

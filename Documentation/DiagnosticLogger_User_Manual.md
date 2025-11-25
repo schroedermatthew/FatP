@@ -150,19 +150,19 @@ DiagnosticLogger is designed for **high-performance C++ projects** where:
 - Requires C++17 (no C++11/14 support)
 
 **When to Use DiagnosticLogger:**
-- ✅ HPC applications where every nanosecond counts
-- ✅ Header-only library projects
-- ✅ Projects with strict "no external dependencies" policy
-- ✅ Embedded systems with limited resources
-- ✅ Scientific computing with performance-critical loops
-- ✅ Real-time systems where predictable performance matters
+- [YES] HPC applications where every nanosecond counts
+- [YES] Header-only library projects
+- [YES] Projects with strict "no external dependencies" policy
+- [YES] Embedded systems with limited resources
+- [YES] Scientific computing with performance-critical loops
+- [YES] Real-time systems where predictable performance matters
 
 **When to Use Something Else:**
-- ❌ Need async logging to separate thread
-- ❌ Need complex pattern-based formatting
-- ❌ Need log rotation, compression, or network sinks
-- ❌ Already using spdlog and it works fine
-- ❌ Need C++11/14 compatibility
+-  Need async logging to separate thread
+-  Need complex pattern-based formatting
+-  Need log rotation, compression, or network sinks
+-  Already using spdlog and it works fine
+-  Need C++11/14 compatibility
 
 ---
 
@@ -174,25 +174,25 @@ DiagnosticLogger is built around the **fast path principle**: the common case (l
 
 ```
 Fast Path (Hot):                     Slow Path (Cold):
-┌─────────────────────┐             ┌──────────────────────┐
-│ Compile-time check  │──filtered──>│ Return immediately   │
-│ (if constexpr)      │             └──────────────────────┘
-└──────────┬──────────┘
-           │ passes
+             
+ Compile-time check  filtered> Return immediately   
+ (if constexpr)                   
+
+            passes
            v
-┌─────────────────────┐
-│ Atomic load         │──disabled──>│ Return immediately   │
-│ (enabled + level)   │             └──────────────────────┘
-└──────────┬──────────┘
-           │ passes (unlikely)
+
+ Atomic load         disabled> Return immediately   
+ (enabled + level)                
+
+            passes (unlikely)
            v
-┌─────────────────────┐
-│ Slow path function  │
-│ (NO_INLINE)         │
-│ - Acquire mutex     │
-│ - Generate message  │
-│ - Write to sinks    │
-└─────────────────────┘
+
+ Slow path function  
+ (NO_INLINE)         
+ - Acquire mutex     
+ - Generate message  
+ - Write to sinks    
+
 ```
 
 **Key Optimization Techniques:**
@@ -359,12 +359,6 @@ g++ -std=c++17 -O2 -DCPP_UTIL_MIN_LOG_LEVEL=2 main.cpp -o app
 g++ -std=c++17 -g -fsanitize=address,thread main.cpp -o app
 ```
 
-**Note**: Missing `#include <ctime>` - add this after `#include <thread>` in DiagnosticLogger.h:
-```cpp
-#include <thread>
-#include <ctime>  // Required for localtime_r
-```
-
 ### First Program
 
 ```cpp
@@ -427,13 +421,13 @@ enum class LogLevel : int {
 **Level Hierarchy**: Setting a minimum level filters everything below it.
 
 ```
-Trace (0) ─── most verbose
+Trace (0)  most verbose
 Debug (1)
-Info  (2) ──┐ 
-Warning (3) │ setMinLevel(Info) allows these
-Error (4)   │
-Fatal (5) ──┘
-Off (6)   ─── all disabled
+Info  (2)  
+Warning (3)  setMinLevel(Info) allows these
+Error (4)   
+Fatal (5) 
+Off (6)    all disabled
 ```
 
 ### Compile-Time Filtering
@@ -816,8 +810,8 @@ auto sink3 = std::make_unique<ConsoleSink>(
 ```
 
 **Output routing:**
-- `Trace`, `Debug`, `Info` → `std::cout`
-- `Warning`, `Error`, `Fatal` → `std::cerr`
+- `Trace`, `Debug`, `Info`  `std::cout`
+- `Warning`, `Error`, `Fatal`  `std::cerr`
 
 **Thread safety**: Mutex protected, safe for concurrent writes.
 
@@ -1078,8 +1072,8 @@ logger.addSink(std::make_unique<CallbackSink>(
 ));
 
 // Now a single log statement writes to all appropriate sinks
-LOG_INFO("Server started");     // → console, detailed.log
-LOG_ERROR("Connection failed"); // → console, detailed.log, errors.json, metrics
+LOG_INFO("Server started");     //  console, detailed.log
+LOG_ERROR("Connection failed"); //  console, detailed.log, errors.json, metrics
 ```
 
 **Performance considerations:**
@@ -1108,12 +1102,12 @@ auto sink = std::make_unique<ConsoleSink>(
 **Output format:**
 ```
 [2025-11-17 14:30:45.123] [INFO] [0x7f8b2c001740] Application started (main.cpp:42)
-│                         │      │                │                      │
-│                         │      │                │                      └─ (filename:line)
-│                         │      │                └─ Message
-│                         │      └─ Thread ID (hex)
-│                         └─ Log level
-└─ Timestamp with milliseconds
+                                                                     
+                                                                      (filename:line)
+                                                Message
+                                Thread ID (hex)
+                          Log level
+ Timestamp with milliseconds
 ```
 
 **Features:**
@@ -1173,6 +1167,26 @@ auto sink = std::make_unique<FileSink>(
 {"timestamp":"2025-11-17T14:30:46","level":"ERROR","message":"Connection failed","file":"network.cpp","line":123,"function":"connect"}
 ```
 
+**JSON Output Schema:**
+
+Each log line is a JSON object with the following guaranteed fields:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `timestamp` | string | Yes | ISO 8601 format: `YYYY-MM-DDTHH:MM:SS` |
+| `level` | string | Yes | One of: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL` |
+| `message` | string | Yes | The log message (properly JSON-escaped) |
+| `file` | string | Yes | Source filename (basename only) |
+| `line` | integer | Yes | Source line number |
+| `function` | string | Yes | Function name from `__func__` |
+| `thread` | string | No | Thread ID as hex string (e.g., `0x7f3a`) |
+| `data` | object | No | Structured metadata if provided via `LOG_WITH_DATA` |
+
+Example with metadata:
+```json
+{"timestamp":"2025-11-17T14:30:45","level":"INFO","message":"Request processed","file":"api.cpp","line":87,"function":"handle","data":{"request_id":"abc123","duration_ms":42}}
+```
+
 **Features:**
 - Valid JSON objects (one per line, not array)
 - ISO 8601 timestamp
@@ -1185,6 +1199,24 @@ auto sink = std::make_unique<FileSink>(
 - Automated log analysis
 - Machine learning on logs
 - Integration with monitoring dashboards
+
+> **Performance Warning:** JSON formatting is computationally expensive (~20 us per log),
+> compared to simple text formatting (~130 ns). For high-throughput applications using
+> `JsonFormatter`, wrap your sink with `AsyncSink` to avoid blocking the main thread:
+>
+> ```cpp
+> #include "DiagnosticLogger_IO.h"
+> 
+> auto jsonFileSink = std::make_shared<FileSink>(
+>     "app.json",
+>     std::make_unique<JsonFormatter>()
+> );
+> auto asyncSink = std::make_shared<AsyncSink>(jsonFileSink);
+> logger.addSink(asyncSink);
+> ```
+>
+> This moves the JSON serialization to a background thread, reducing main-thread
+> latency from ~20 us to ~47 ns (just the queue enqueue cost).
 
 **Parsing example:**
 
@@ -1732,6 +1764,22 @@ namespace network {
 database::getLogger().info("Query executed");
 network::getLogger().error("Connection failed");
 ```
+
+**Per-Function Caching Pattern** (for hot paths):
+
+```cpp
+void process_request(const Request& req) {
+    // Cache logger reference in static variable - zero lookup overhead after first call
+    static Logger& log = database::getLogger();
+    
+    log.debug("Processing request");
+    // ... hot path code ...
+    log.info("Request completed");
+}
+```
+
+This pattern eliminates the function call overhead of `getLogger()` on every log statement,
+which can matter in tight loops or high-frequency code paths.
 
 ### Thread Safety
 
@@ -2429,7 +2477,7 @@ public:
 
 ### When to Log
 
-**✅ Do log:**
+**[YES] Do log:**
 
 1. **Application lifecycle events**:
    ```cpp
@@ -2465,7 +2513,7 @@ public:
    LOG_DEBUG("Cache hit rate: " << hitRate << "%");
    ```
 
-**❌ Don't log:**
+** Don't log:**
 
 1. **High-frequency loops**:
    ```cpp
@@ -2776,11 +2824,62 @@ TEST(MyComponentTest, LogsAtCorrectLevels) {
 
 ### Benchmark Results
 
-**Test Environment:**
-- CPU: Intel i7-9700K @ 3.6 GHz
-- Compiler: GCC 11.2.0 with -O2
-- OS: Ubuntu 22.04
-- Single-threaded benchmarks
+**Test Environments:**
+
+| Environment | CPU | Clock | Compiler | OS |
+|-------------|-----|-------|----------|-----|
+| Desktop | Intel i7-9700K | 3.6 GHz (4.9 turbo) | GCC 11.2.0 -O2 | Ubuntu 22.04 |
+| Laptop | Intel i7-8850H | 2.6 GHz (4.3 turbo) | MSVC 2022 /O2 | Windows 11 |
+
+### CPU Cycle Analysis
+
+Understanding the performance numbers in terms of CPU cycles provides insight into
+whether the implementation is optimal:
+
+**Disabled/Filtered Log Path (~6 ns on i7-8850H @ 4.3 GHz turbo):**
+```
+6 ns x 4.3 cycles/ns = ~26 CPU cycles
+
+Breakdown:
+  - Atomic load (L1 cache hit):     ~15-20 cycles
+  - Comparison:                     ~1 cycle
+  - Predicted branch (UNLIKELY):    ~0 cycles (free if predicted correctly)
+  - Function call overhead:         ~5 cycles
+  ----------------------------------------
+  Total:                            ~21-26 cycles
+```
+
+This is **near the theoretical minimum** for any check that involves an atomic load.
+The `UNLIKELY` macro ensures the branch predictor almost always predicts "don't log",
+making the branch effectively free.
+
+**What this means for your application:**
+- On a 4.3 GHz CPU: ~6 ns per filtered log call
+- On a 3.0 GHz server CPU: ~9 ns per filtered log call  
+- On a 5.0 GHz desktop: ~5 ns per filtered log call
+- On modern HPC clusters (AMD EPYC, Intel Sapphire Rapids): potentially <3 ns
+
+**Active Log Path (~100-125 ns):**
+```
+~100 ns x 4.3 cycles/ns = ~430 CPU cycles
+
+Breakdown:
+  - Atomic loads (shouldLog check):     ~26 cycles
+  - system_clock::now():                ~80-130 cycles (syscall or RDTSC)
+  - LogRecord construction:             ~100-150 cycles
+  - String copy for message:            ~50-100 cycles (depends on length)
+  - Sink dispatch (virtual call):       ~20-30 cycles
+  - Sink write (varies by sink):        ~50-500+ cycles
+  ----------------------------------------
+  Total:                                ~400-900+ cycles
+```
+
+The timestamp acquisition (`system_clock::now()`) dominates the active path.
+On platforms with fast RDTSC, this can be significantly faster.
+
+> **Important:** Performance figures in this section represent the **logger path only** 
+> (from macro to sink dispatch). Actual end-to-end latency depends heavily on sink 
+> implementation. See "Understanding Sink Overhead" below for total latency estimates.
 
 **1. Disabled Logging Overhead** (compile-time filtered):
 
@@ -2789,25 +2888,49 @@ TEST(MyComponentTest, LogsAtCorrectLevels) {
 | All logs disabled (CPP_UTIL_MIN_LOG_LEVEL=6) | 0 ns | 0% (eliminated) |
 | Compile-time filtered | 0 ns | 0% (eliminated) |
 
-**2. Runtime Filtered Logging Overhead**:
+**2. Runtime Filtered Logging Overhead** (logger path only):
 
 | Configuration | Overhead per Call | Notes |
 |--------------|-------------------|-------|
-| Logging disabled (setEnabled(false)) | ~8 ns | Single atomic load |
-| Level filtered (below minLevel) | ~10 ns | Two atomic loads + comparison |
-| Logging enabled | ~130 ns | Full logging path |
+| Logging disabled (setEnabled(false)) | ~5-6 ns | Single atomic load + branch |
+| Level filtered (below minLevel) | ~5-6 ns | Two atomic loads + comparison |
 
-**3. Active Logging Performance**:
+**3. Active Logging Performance** (logger path only, with BenchmarkSink):
 
-| Operation | Time | Notes |
+| Component | Time | Notes |
 |-----------|------|-------|
-| Console logging (simple format) | ~130 ns | Includes formatting + write |
-| Console logging (default format) | ~180 ns | Timestamp formatting overhead |
-| File logging (buffered) | ~140 ns | OS buffering amortizes cost |
-| File logging (with flush) | ~10-50 μs | Disk I/O dominates |
-| JSON formatting | ~200 ns | Additional string escaping |
+| Logger fast-path check | ~1 ns | Two atomic loads |
+| system_clock::now() | ~19-30 ns | Timestamp acquisition (platform dependent) |
+| LogRecord construction | ~30-35 ns | Includes string copy |
+| **Total logger path** | **~80-125 ns** | Before sink overhead |
 
-**4. Multi-threaded Contention**:
+**4. Active Logging with Real Sinks** (end-to-end):
+
+| Operation | Logger Path | Sink Overhead | Total | Notes |
+|-----------|-------------|---------------|-------|-------|
+| Console (simple format) | ~100 ns | ~70-100 ns | ~170-200 ns | stdout write |
+| Console (default format) | ~100 ns | ~120 ns | ~220 ns | Timestamp formatting |
+| File (buffered) | ~100 ns | ~80 ns | ~180 ns | OS buffering |
+| File (with flush) | ~100 ns | ~10-50 us | ~10-50 us | Disk I/O dominates |
+| JSON formatting | ~100 ns | ~140 ns | ~240 ns | String escaping |
+
+**5. Understanding Sink Overhead**:
+
+Different sink implementations add varying overhead:
+
+| Sink Type | write() Overhead | Notes |
+|-----------|------------------|-------|
+| NullSink (atomic counter) | ~6-7 ns | Minimal for benchmarking |
+| NoOpSink (empty) | ~0 ns | Optimized away by compiler |
+| TestSink (mutex + vector) | ~200 ns | Includes mutex + allocation |
+| ConsoleSink | ~70-120 ns | Depends on formatter |
+| FileSink (buffered) | ~80-100 ns | OS buffering helps |
+
+> **Testing Note:** When benchmarking with `TestSink` (mutex + vector storage), 
+> expect ~200 ns additional overhead per log call due to mutex acquisition and 
+> vector allocation. Use `BenchmarkSink` for accurate logger-path measurements.
+
+**6. Multi-threaded Contention**:
 
 | Scenario | Throughput | Latency |
 |----------|-----------|---------|
@@ -2816,7 +2939,7 @@ TEST(MyComponentTest, LogsAtCorrectLevels) {
 | 8 threads, file sink | 2M logs/sec | ~500 ns/log (high contention) |
 | 8 threads, separate sinks | 5M logs/sec | ~160 ns/log (reduced contention) |
 
-**5. Lazy Evaluation Savings**:
+**7. Lazy Evaluation Savings**:
 
 ```cpp
 std::string expensive() {
@@ -2831,7 +2954,7 @@ auto end = now();
 
 // With lazy evaluation (only if not filtered)
 auto start = now();
-LOG_DEBUG([&]() { return "Value: " + expensive(); });  // ~10ns if filtered
+LOG_DEBUG([&]() { return "Value: " + expensive(); });  // ~5-6ns if filtered
 auto end = now();
 ```
 
@@ -2839,7 +2962,7 @@ auto end = now();
 
 | Library | Disabled Overhead | Active Overhead | Notes |
 |---------|------------------|----------------|-------|
-| DiagnosticLogger | 0 ns (compile) / 10 ns (runtime) | ~140 ns | Header-only, lock-free fast path |
+| DiagnosticLogger | 0 ns (compile) / 5-6 ns (runtime) | ~100 ns + sink | Header-only, lock-free fast path |
 | spdlog | ~20 ns | ~120 ns | Mature, feature-rich |
 | glog | ~30 ns | ~180 ns | Google's library |
 | Boost.Log | ~50 ns | ~250 ns | Most features, heaviest |
@@ -3041,29 +3164,34 @@ perf report
 # 4. Reduce log frequency
 ```
 
-**7. Consider async logging for high throughput** (requires custom sink):
+**7. Consider async logging for high throughput**:
+
+DiagnosticLogger provides `AsyncSink` in `DiagnosticLogger_IO.h` for asynchronous logging:
 
 ```cpp
-// Pseudo-code for async sink concept
-class AsyncSink : public ISink {
-    std::queue<LogRecord> queue_;
-    std::thread worker_;
-    std::unique_ptr<ISink> backend_;
-    
-public:
-    void write(const LogRecord& record) override {
-        // Fast: just enqueue
-        queue_.push(record);
-    }
-    
-    void workerThread() {
-        while (true) {
-            auto record = queue_.pop();
-            backend_->write(record);  // Slow work on separate thread
-        }
-    }
-};
+#include "DiagnosticLogger_IO.h"
+
+// Wrap any sink with async processing
+auto fileSink = std::make_shared<FileSink>("app.log");
+auto asyncSink = std::make_shared<AsyncSink>(fileSink);
+
+Logger logger;
+logger.addSink(asyncSink);
+
+// Writes return immediately (~47ns), actual I/O happens on background thread
+LOG_INFO("This returns quickly");
+
+// Check for dropped messages under extreme load
+uint64_t dropped = asyncSink->dropped();
 ```
+
+> **Queue Size Note:** AsyncSink uses a fixed-size lock-free queue of 4096 entries
+> (compile-time constant). If your application produces log messages faster than
+> the backend can consume them, messages will be dropped. The `dropped()` method
+> returns the count of dropped messages. For bursty applications, consider:
+> - Using a faster backend sink
+> - Increasing the log level filter to reduce message volume
+> - Batching related log messages into fewer calls
 
 ---
 
@@ -3085,14 +3213,14 @@ public:
 | Feature | DiagnosticLogger | spdlog |
 |---------|-----------------|--------|
 | **External dependencies** | None | fmt (optional) |
-| **Compile-time filtering** | ✅ Full support (if constexpr) | ✅ Via macros |
-| **Lock-free fast path** | ✅ Atomics only | ⚠️ Spinlock/mutex |
+| **Compile-time filtering** | [YES] Full support (if constexpr) | [YES] Via macros |
+| **Lock-free fast path** | [YES] Atomics only |  Spinlock/mutex |
 | **Disabled overhead** | 0 ns (compile) / 10 ns (runtime) | ~20 ns |
 | **Active overhead** | ~140 ns | ~120 ns |
-| **Async logging** | ❌ (requires custom sink) | ✅ Built-in |
-| **Pattern formatters** | ❌ | ✅ |
-| **Log rotation** | ❌ (requires custom sink) | ✅ |
-| **C++17 requirement** | ✅ | ❌ (C++11) |
+| **Async logging** |  (requires custom sink) | [YES] Built-in |
+| **Pattern formatters** |  | [YES] |
+| **Log rotation** |  (requires custom sink) | [YES] |
+| **C++17 requirement** | [YES] |  (C++11) |
 | **Code size** | Smaller (minimal features) | Larger (more features) |
 | **Learning curve** | Simple | Moderate |
 | **Maturity** | Newer | Very mature |
@@ -3142,17 +3270,17 @@ LOG_ERROR("Error: " << error);
 
 | Feature | DiagnosticLogger | glog |
 |---------|-----------------|------|
-| **Header-only** | ✅ | ❌ (requires linking) |
+| **Header-only** | [YES] |  (requires linking) |
 | **External dependencies** | None | gflags (optional) |
-| **Compile-time filtering** | ✅ | ⚠️ Limited |
+| **Compile-time filtering** | [YES] |  Limited |
 | **Disabled overhead** | 0 ns (compile) / 10 ns (runtime) | ~30 ns |
 | **Configuration** | Programmatic | Command-line flags |
 | **Severity levels** | 6 | 4 (+ custom) |
-| **CHECK macros** | ❌ | ✅ |
+| **CHECK macros** |  | [YES] |
 | **Conditional logging** | Manual | Built-in (LOG_IF, LOG_EVERY_N) |
-| **Signal handling** | ❌ | ✅ |
-| **Stack traces** | ❌ | ✅ |
-| **Binary logs** | ❌ (requires custom formatter) | ❌ |
+| **Signal handling** |  | [YES] |
+| **Stack traces** |  | [YES] |
+| **Binary logs** |  (requires custom formatter) |  |
 
 **When to use DiagnosticLogger:**
 - Need header-only deployment
@@ -3198,12 +3326,12 @@ LOG_ERROR("Error: " << error);
 
 | Feature | DiagnosticLogger | Boost.Log |
 |---------|-----------------|-----------|
-| **Header-only** | ✅ | ❌ |
+| **Header-only** | [YES] |  |
 | **External dependencies** | None | Boost (huge) |
 | **Complexity** | Simple | Complex |
 | **Compile time** | Fast | Slow |
 | **Binary size** | Small | Large |
-| **Attributes** | ❌ | ✅ |
+| **Attributes** |  | [YES] |
 | **Filters** | Simple (level-based) | Complex (attribute-based) |
 | **Sinks** | Console, File, Callback | Many built-in |
 | **Learning curve** | Easy | Steep |
@@ -3241,13 +3369,13 @@ LOG_ERROR("Error: " << error);
 - C-style only
 
 **DiagnosticLogger advantages over printf:**
-- ✅ Thread-safe
-- ✅ Type-safe (C++ streams)
-- ✅ Structured (formatters)
-- ✅ Filtering (compile + runtime)
-- ✅ Multiple sinks
-- ✅ Source location
-- ✅ Timestamps
+- [YES] Thread-safe
+- [YES] Type-safe (C++ streams)
+- [YES] Structured (formatters)
+- [YES] Filtering (compile + runtime)
+- [YES] Multiple sinks
+- [YES] Source location
+- [YES] Timestamps
 
 **DiagnosticLogger disadvantages vs printf:**
 - Slightly more overhead (~140 ns vs ~100 ns)
@@ -3524,10 +3652,10 @@ LOG_INFO(message);
 
 DiagnosticLogger has been tested on:
 
-- ✅ GCC 7.5, 8.4, 9.3, 10.2, 11.2, 12.1
-- ✅ Clang 6.0, 8.0, 10.0, 12.0, 13.0, 14.0
-- ✅ MSVC 2017 15.9, 2019 16.11, 2022 17.2
-- ✅ Apple Clang 12.0, 13.0, 14.0
+- [YES] GCC 7.5, 8.4, 9.3, 10.2, 11.2, 12.1
+- [YES] Clang 6.0, 8.0, 10.0, 12.0, 13.0, 14.0
+- [YES] MSVC 2017 15.9, 2019 16.11, 2022 17.2
+- [YES] Apple Clang 12.0, 13.0, 14.0
 
 ### Compilation Flags
 
@@ -3593,11 +3721,11 @@ cl /std:c++17 /O2 /W4 /EHsc main.cpp
 #include <mutex>        // mutex, lock_guard
 #include <atomic>       // atomic (C++11)
 #include <chrono>       // system_clock, time_point
+#include <ctime>        // localtime_r, localtime_s
 #include <iomanip>      // put_time
 #include <functional>   // function
 #include <type_traits>  // is_convertible_v, decay_t
 #include <thread>       // thread::id, this_thread::get_id
-#include <ctime>        // localtime_r (MISSING - add this!)
 ```
 
 **No external dependencies:**
@@ -3617,22 +3745,7 @@ cl /std:c++17 /O2 /W4 /EHsc main.cpp
 
 ### Common Issues
 
-**1. Missing `#include <ctime>`**
-
-**Symptom:**
-```
-error: 'localtime_r' was not declared in this scope
-error: 'localtime_s' was not declared in this scope
-```
-
-**Solution:**
-Add to DiagnosticLogger.h after `#include <thread>`:
-```cpp
-#include <thread>
-#include <ctime>  // Add this line
-```
-
-**2. Compile-time filtering not working**
+**1. Compile-time filtering not working**
 
 **Symptom:**
 ```cpp
@@ -3649,7 +3762,7 @@ LOG_DEBUG("This should be eliminated");  // Still in binary!
 - Or use compiler flag: `g++ -DCPP_UTIL_MIN_LOG_LEVEL=4 ...`
 - Check with: `g++ -E main.cpp | grep LOG_DEBUG` to see preprocessed output
 
-**3. Log file not created**
+**2. Log file not created**
 
 **Symptom:**
 ```cpp
@@ -3670,7 +3783,7 @@ catch (const std::runtime_error& e) {
 }
 ```
 
-**4. Logs not appearing**
+**3. Logs not appearing**
 
 **Symptom:**
 ```cpp
@@ -3696,7 +3809,7 @@ LOG_INFO("Test");
 getGlobalLogger().flush();
 ```
 
-**5. Thread safety issues / data races**
+**4. Thread safety issues / data races**
 
 **Symptom:**
 ```
@@ -3718,7 +3831,7 @@ public:
 };
 ```
 
-**6. High memory usage**
+**5. High memory usage**
 
 **Symptom:**
 Memory grows unbounded during logging.
@@ -3917,14 +4030,14 @@ g++ -std=c++17 main.cpp -o app -lpthread
 DiagnosticLogger provides **high-performance, zero-dependency diagnostic logging** for C++17 projects with a focus on:
 
 **Key Features:**
-1. ✅ **Lock-free fast path** - Single atomic load for disabled/filtered logs (~10ns)
-2. ✅ **Compile-time elimination** - Zero overhead with `if constexpr` and CPP_UTIL_MIN_LOG_LEVEL
-3. ✅ **Lazy evaluation** - Messages only generated when actually logged
-4. ✅ **Thread-safe** - All operations safe for concurrent use
-5. ✅ **Header-only** - Single include, no linking required
-6. ✅ **Zero dependencies** - Just C++17 standard library
-7. ✅ **Policy-based design** - Customizable formatters and sinks
-8. ✅ **Multiple outputs** - Console, file, callback, custom sinks simultaneously
+1. [YES] **Lock-free fast path** - Single atomic load for disabled/filtered logs (~10ns)
+2. [YES] **Compile-time elimination** - Zero overhead with `if constexpr` and CPP_UTIL_MIN_LOG_LEVEL
+3. [YES] **Lazy evaluation** - Messages only generated when actually logged
+4. [YES] **Thread-safe** - All operations safe for concurrent use
+5. [YES] **Header-only** - Single include, no linking required
+6. [YES] **Zero dependencies** - Just C++17 standard library
+7. [YES] **Policy-based design** - Customizable formatters and sinks
+8. [YES] **Multiple outputs** - Console, file, callback, custom sinks simultaneously
 
 **Performance Profile:**
 - Disabled logging (compile-time): **0 ns** (eliminated)
@@ -3975,7 +4088,6 @@ g++ -std=c++17 -O3 -DCPP_UTIL_MIN_LOG_LEVEL=2 -DNDEBUG main.cpp -o app
 4. **Choose appropriate log levels** (don't overuse ERROR)
 5. **Test with ThreadSanitizer** to verify thread safety
 6. **Profile before optimizing** to identify actual bottlenecks
-7. **Add `#include <ctime>`** to DiagnosticLogger.h (current bug fix needed)
 
 **Project Alignment:**
 DiagnosticLogger fits perfectly with your safety-first, header-only, zero-dependency C++17 library project. It complements other components like:

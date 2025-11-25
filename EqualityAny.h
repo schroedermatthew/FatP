@@ -168,21 +168,17 @@ template <typename Policy>
 bool areEqual(const std::any& a, const std::any& b,
     double eps, double eps2, int depth) {
     if (depth > 10) {  // Prevent infinite recursion
-        conditionalPrintError([]() -> std::string {
-            return "Recursion depth exceeded in any comparison.";
-            });
+        LOG_ERROR("Recursion depth exceeded in any comparison.");
         return false;
     }
     if (!a.has_value() && !b.has_value()) {
         return true;
     }
     if (a.has_value() != b.has_value() || a.type() != b.type()) {
-        conditionalPrintError([&]() -> std::string {
-            return std::string("Type mismatch or empty value in any object. a.type(): ") +
+        LOG_ERROR(std::string("Type mismatch or empty value in any object. a.type(): ") +
                 (a.has_value() ? a.type().name() : "empty") +
                 ", b.type(): " +
-                (b.has_value() ? b.type().name() : "empty");
-            });
+                (b.has_value() ? b.type().name() : "empty"));
         return false;
     }
 
@@ -194,9 +190,7 @@ bool areEqual(const std::any& a, const std::any& b,
             return result;
         }
         catch (const std::bad_any_cast&) {
-            conditionalPrintError([&]() -> std::string {
-                return std::string("Bad any_cast for nested std::any.");
-                });
+            LOG_ERROR(std::string("Bad any_cast for nested std::any."));
             return false;
         }
     }
@@ -211,18 +205,14 @@ bool areEqual(const std::any& a, const std::any& b,
         auto fallbackPolicyType = std::type_index(typeid(StandardComparisonPolicy));
         auto fallbackKey = std::make_pair(valueType, fallbackPolicyType);
         if (getAnyCompareRegistry().hasType(fallbackKey)) {
-            conditionalPrintError([&]() -> std::string {
-                return std::string("Requested policy not registered for type ") + std::string(valueType.name()) +
-                    "; falling back to StandardComparisonPolicy.";
-                });
+            LOG_ERROR(std::string("Requested policy not registered for type ") + std::string(valueType.name()) +
+                    "; falling back to StandardComparisonPolicy.");
             bool result = getAnyCompareRegistry().create(fallbackKey, a, b, eps, eps2);
             return result;
         }
         else {
-            conditionalPrintError([&]() -> std::string {
-                return std::string("Unsupported type/policy in any for comparison (not registered): ") +
-                    std::string(valueType.name()) + " with policy " + std::string(policyType.name());
-                });
+            LOG_ERROR(std::string("Unsupported type/policy in any for comparison (not registered): ") +
+                    std::string(valueType.name()) + " with policy " + std::string(policyType.name()));
             return false;
         }
     }

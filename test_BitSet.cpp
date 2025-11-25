@@ -10,7 +10,11 @@
 namespace fat_p::testing
 {
 
-bool test_bit_set_basic_operations() {
+// anonymous
+namespace
+{ 
+
+bool test_basic_operations() {
     BitSet<64> bits;
     
     SIMPLE_ASSERT(bits.none(), "Should start with no bits set");
@@ -25,7 +29,7 @@ bool test_bit_set_basic_operations() {
     return true;
 }
 
-bool test_bit_set_bulk_operations() {
+bool test_bulk_operations() {
     BitSet<128> bits;
     
     bits.set_all();
@@ -47,7 +51,7 @@ bool test_bit_set_bulk_operations() {
     return true;
 }
 
-bool test_bit_set_find_operations() {
+bool test_find_operations() {
     BitSet<256> bits;
     
     bits.set(10);
@@ -62,7 +66,7 @@ bool test_bit_set_find_operations() {
     return true;
 }
 
-bool test_bit_set_iteration() {
+bool test_iteration() {
     BitSet<128> bits;
     
     bits.set(5);
@@ -84,7 +88,7 @@ bool test_bit_set_iteration() {
     return true;
 }
 
-bool test_bit_set_bitwise_operations() {
+bool test_bitwise_operations() {
     BitSet<64> a, b;
     
     a.set(1);
@@ -146,17 +150,19 @@ void benchmark_bitset() {
     std::cout << "Bitwise AND: " << format_time(and_time) << "\n";
 }
 
+} // anonymous namespace
+
 bool test_BitSet() {
 
     PRINT_HEADER(BIT SET)
 
     TestRunner runner;
 
-    RUN_TEST(runner, bit_set_basic_operations);
-    RUN_TEST(runner, bit_set_bulk_operations);
-    RUN_TEST(runner, bit_set_find_operations);
-    RUN_TEST(runner, bit_set_iteration);
-    RUN_TEST(runner, bit_set_bitwise_operations);
+    RUN_TEST(runner, basic_operations);
+    RUN_TEST(runner, bulk_operations);
+    RUN_TEST(runner, find_operations);
+    RUN_TEST(runner, iteration);
+    RUN_TEST(runner, bitwise_operations);
 
     benchmark_bitset();
 

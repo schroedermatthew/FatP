@@ -15,8 +15,8 @@
 //
 // Performance characteristics:
 // - Add feature: O(log n)
-// - Enable/disable: O(d × log n) where d = dependency depth (limited to MAX_VALIDATION_DEPTH)
-// - Validate: O(n × d × log n)
+// - Enable/disable: O(d Ã— log n) where d = dependency depth (limited to MAX_VALIDATION_DEPTH)
+// - Validate: O(n Ã— d Ã— log n)
 // - Memory: ~550 bytes per feature with 5 relationships (using SortedContainer)
 //
 
@@ -40,6 +40,7 @@
 #include "Stringify.h"
 #include "EnumPlus.h"
 #include "SortedContainer.h"
+#include "Factory.h"
 
 namespace fat_p {
 
@@ -143,6 +144,68 @@ template <typename StateEnum>
 using StateComputer = std::function<StateEnum(const std::set<std::string>&, size_t, bool, bool)>;
 
 // ============================================================================
+// FeatureCheck Callback Factory
+// ============================================================================
+
+// Global factory for FeatureCheck callbacks
+// Key: string identifier, Product: FeatureCheck (which is std::function<Expected<void, std::string>()>)
+using FeatureCheckFactory = SimpleFactory<std::string, FeatureCheck>;
+
+// Singleton accessor for the global FeatureCheck factory
+inline FeatureCheckFactory& get_feature_check_factory() {
+    static FeatureCheckFactory factory;
+    return factory;
+}
+
+// RAII helper class for automatic registration/unregistration of FeatureCheck callbacks
+// This allows modules to register their checks independently and have them automatically
+// cleaned up when the registration object goes out of scope
+class FeatureCheckRegistration {
+public:
+    // Register a FeatureCheck creator function with the given key
+    // The creator is a factory function that returns a FeatureCheck
+    FeatureCheckRegistration(const std::string& key, 
+                            std::function<FeatureCheck()> creator) 
+        : key_(key) {
+        [[maybe_unused]] bool registered = 
+            get_feature_check_factory().registerType(key_, std::move(creator));
+    }
+    
+    // Automatically unregister on destruction
+    ~FeatureCheckRegistration() {
+        if (!key_.empty()) {
+            [[maybe_unused]] bool unregistered = 
+                get_feature_check_factory().unregisterType(key_);
+        }
+    }
+    
+    // Non-copyable
+    FeatureCheckRegistration(const FeatureCheckRegistration&) = delete;
+    FeatureCheckRegistration& operator=(const FeatureCheckRegistration&) = delete;
+    
+    // Movable
+    FeatureCheckRegistration(FeatureCheckRegistration&& other) noexcept 
+        : key_(std::move(other.key_)) {
+        other.key_.clear(); // Mark as moved-from
+    }
+    
+    FeatureCheckRegistration& operator=(FeatureCheckRegistration&& other) noexcept {
+        if (this != &other) {
+            if (!key_.empty()) {
+                [[maybe_unused]] bool unregistered = 
+                    get_feature_check_factory().unregisterType(key_);
+            }
+            key_ = std::move(other.key_);
+            other.key_.clear();
+        }
+        return *this;
+    }
+    
+private:
+    std::string key_;
+};
+
+// ============================================================================
 // Internal Structures
 // ============================================================================
 
@@ -157,6 +220,7 @@ using StateComputer = std::function<StateEnum(const std::set<std::string>&, size
 struct FeatureNode {
     bool enabled = false;
     FeatureCheck check;
+    std::string check_key;  // Key for looking up callback in factory (for serialization)
     
     // Use std::map for relationship types (only 4 possible keys)
     // and SortedContainer for target feature names (where the performance gains are)
@@ -165,6 +229,9 @@ struct FeatureNode {
     JsonValue to_json() const {
         JsonObject obj;
         obj["enabled"] = JsonValue{enabled};
+        if (!check_key.empty()) {
+            obj["check_key"] = JsonValue{check_key};
+        }
         for (const auto& [type, targets] : relationships) {
             std::string type_str = std::string(EnumStringPolicy<FeatureRelationship>::to_string(type));
             JsonArray arr;
@@ -184,6 +251,21 @@ struct FeatureNode {
             node.enabled = std::get<bool>(it->second);
         } else {
             node.enabled = false;
+        }
+
+        // Restore callback from factory if check_key is present
+        it = obj.find("check_key");
+        if (it != obj.end()) {
+            if (!it->second.is_string()) return unexpected("check_key must be string");
+            node.check_key = std::get<std::string>(it->second);
+            
+            // Look up callback from factory
+            auto check_result = get_feature_check_factory().make(node.check_key);
+            if (check_result) {
+                node.check = *check_result;
+            }
+            // Note: If lookup fails, check remains empty (feature will have no validation)
+            // This allows deserialization to succeed even if callbacks aren't registered yet
         }
 
         std::array<std::string_view, 4> types = {"Requires", "Conflicts", "Implies", "MutuallyExclusive"};
@@ -271,7 +353,7 @@ private:
     //    - Increasing this constant (test with your stack size)
     //
     // Performance: Each level adds ~50-100ns overhead for function call + map lookups
-    // At depth 100: ~5-10μs total, which is acceptable for enable operations
+    // At depth 100: ~5-10Î¼s total, which is acceptable for enable operations
     //
     // To measure actual depth in your system:
     //   - Enable verbose logging or use depth parameter in error messages
@@ -293,7 +375,7 @@ private:
     
     // Build a human-readable cycle path from the enabling chain
     // Example: enabling_chain = {"A", "B", "C"}, target = "A"
-    // Returns: "A → B → C → A" 
+    // Returns: "A â†’ B â†’ C â†’ A" 
     std::string build_cycle_path(const std::set<std::string>& enabling_chain, 
                                   const std::string& target) const {
         if (enabling_chain.empty()) {
@@ -310,13 +392,13 @@ private:
                 path = feature;
                 started = true;
             } else {
-                path += " → " + feature;
+                path += " â†’ " + feature;
             }
         }
         
         // Add the target to close the cycle
         if (started) {
-            path += " → " + target;
+            path += " â†’ " + target;
         } else {
             path = target;
         }
@@ -572,10 +654,35 @@ public:
     };
 
     // Add a feature with optional validation check
+    // Add a feature with an optional validation check
     Expected<void, std::string> add_feature(const std::string& name, FeatureCheck check = nullptr) {
         typename SyncPolicy::LockGuard guard(sync_.getLock());
         if (features_.count(name)) return unexpected("Feature already exists: " + name);
-        features_[name] = FeatureNode{false, check, {}};
+        FeatureNode node;
+        node.enabled = false;
+        node.check = check;
+        node.check_key = "";  // No key when added directly with callback
+        features_[name] = std::move(node);
+        return {};
+    }
+
+    // Add a feature using a registered callback key from the factory
+    // This allows the feature to be fully serialized and deserialized
+    Expected<void, std::string> add_feature(const std::string& name, const std::string& check_key) {
+        typename SyncPolicy::LockGuard guard(sync_.getLock());
+        if (features_.count(name)) return unexpected("Feature already exists: " + name);
+        
+        // Look up the check from factory
+        auto check_result = get_feature_check_factory().make(check_key);
+        if (!check_result) {
+            return unexpected("Check key '" + check_key + "' not found in factory");
+        }
+        
+        FeatureNode node;
+        node.enabled = false;
+        node.check = *check_result;
+        node.check_key = check_key;
+        features_[name] = std::move(node);
         return {};
     }
 

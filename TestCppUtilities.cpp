@@ -36,7 +36,10 @@
 #include "test_CoroutineTask.h"
 #include "test_CSRMatrix.h"
 #include "test_DebugOnly.h"
-#include "test_DiagnosticLogger.h"
+#include "test_DiagnosticLogger_Core.h"
+#include "test_DiagnosticLogger_Json.h"
+#include "test_DiagnosticLogger_IO.h"
+#include "test_DiagnosticLogger_ScopeGuard.h"
 #include "test_Enforce.h"
 #include "test_EnforcedInit.h"
 #include "test_EnhancedBoundsChecking.h"
@@ -82,7 +85,6 @@
 #include "test_TensorStorage.h"
 #include "test_ThreadPool.h"
 #include "test_TypeTraits.h"
-#include "test_UltraLoggers.h"
 #include "test_ValueGuard.h"
 #include "test_ViewLifetimeTracking.h"
 
@@ -125,7 +127,10 @@ int main() {
     RUN_AND_RECORD(test_CoroutineTask);
     RUN_AND_RECORD(test_CSRMatrix);
     RUN_AND_RECORD(test_DebugOnly);
-    RUN_AND_RECORD(test_DiagnosticLogger);
+    RUN_AND_RECORD(test_DiagnosticLogger_Core);
+    RUN_AND_RECORD(test_DiagnosticLogger_Json);
+    RUN_AND_RECORD(test_DiagnosticLogger_IO);
+    RUN_AND_RECORD(test_DiagnosticLogger_ScopeGuard);
     RUN_AND_RECORD(test_Enforce);
     RUN_AND_RECORD(test_EnforcedInit);
     RUN_AND_RECORD(test_EnhancedBoundsChecking);
@@ -171,7 +176,6 @@ int main() {
     RUN_AND_RECORD(test_TensorStorage);
     RUN_AND_RECORD(test_ThreadPool);
     RUN_AND_RECORD(test_TypeTraits);
-    RUN_AND_RECORD(test_UltraLoggers);
     RUN_AND_RECORD(test_ValueGuard);
     RUN_AND_RECORD(test_ViewLifetimeTracking);
 

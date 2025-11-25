@@ -13,7 +13,11 @@
 namespace fat_p::testing
 {
 
-bool test_string_pool_basic_interning() {
+// anonymous
+namespace
+{
+
+bool test_basic_interning() {
     StringPool pool;
     
     const char* s1 = pool.intern("hello");
@@ -24,7 +28,7 @@ bool test_string_pool_basic_interning() {
     return true;
 }
 
-bool test_string_pool_different_strings() {
+bool test_different_strings() {
     StringPool pool;
     
     const char* s1 = pool.intern("hello");
@@ -34,7 +38,7 @@ bool test_string_pool_different_strings() {
     return true;
 }
 
-bool test_string_pool_memory_savings() {
+bool test_memory_savings() {
     StringPool pool;
     
     std::vector<const char*> pointers;
@@ -54,7 +58,7 @@ bool test_string_pool_memory_savings() {
     return true;
 }
 
-bool test_string_pool_thread_safety() {
+bool test_thread_safety() {
     StringPool pool;
     std::atomic<int> matches{0};
     
@@ -459,16 +463,18 @@ void benchmark_string_pool() {
     }
 }
 
+} // anonymous namespace
+
 bool test_StringPool() {
 
     PRINT_HEADER(STRING POOL)
 
     TestRunner runner;
 
-    RUN_TEST(runner, string_pool_basic_interning);
-    RUN_TEST(runner, string_pool_different_strings);
-    RUN_TEST(runner, string_pool_memory_savings);
-    RUN_TEST(runner, string_pool_thread_safety);
+    RUN_TEST(runner, basic_interning);
+    RUN_TEST(runner, different_strings);
+    RUN_TEST(runner, memory_savings);
+    RUN_TEST(runner, thread_safety);
     RUN_TEST(runner, empty_string);
     RUN_TEST(runner, nullptr_handling);
     RUN_TEST(runner, clear_behavior);

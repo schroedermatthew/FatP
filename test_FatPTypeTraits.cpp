@@ -858,72 +858,111 @@ bool test_fatp_type_traits_library_container_comprehensive()
     return get_subtest_tracker().all_passed();
 }
 
-#if FATP_HAS_CPP20
-bool test_fatp_type_traits_concepts()
+bool test_fatp_type_traits_extension_points()
 {
-    SUBTEST("SmallVector concept")
+    SUBTEST("library_custom_traits default is empty")
     {
-        using SV = SmallVector<int, 16>;
-        static_assert(SmallVector<SV>, "SmallVector should satisfy concept");
-        static_assert(!SmallVector<std::vector<int>>, "vector should not satisfy concept");
+        using DefaultTraits = extension_points::library_custom_traits<int>;
+        static_assert(std::is_class_v<DefaultTraits>, 
+                     "library_custom_traits should be a class");
+        // Note: We can't test if it's truly empty without specializing it
     }
     END_SUBTEST
     
-    SUBTEST("CircularBuffer concept")
+    SUBTEST("library_custom_traits for SmallVector")
     {
-        using CB = CircularBuffer<int, 32>;
-        static_assert(CircularBuffer<CB>, "CircularBuffer should satisfy concept");
-        static_assert(!CircularBuffer<std::vector<int>>, 
+        using SV = SmallVector<int, 16>;
+        using SVTraits = extension_points::library_custom_traits<SV>;
+        static_assert(std::is_class_v<SVTraits>, 
+                     "library_custom_traits should work with SmallVector");
+    }
+    END_SUBTEST
+    
+    SUBTEST("library_custom_traits for custom type")
+    {
+        struct CustomType {};
+        using CustomTraits = extension_points::library_custom_traits<CustomType>;
+        static_assert(std::is_class_v<CustomTraits>, 
+                     "library_custom_traits should work with custom types");
+    }
+    END_SUBTEST
+    
+    return get_subtest_tracker().all_passed();
+}
+
+#if FATP_HAS_CPP20
+bool test_fatp_type_traits_concepts()
+{
+    SUBTEST("SmallVectorType concept")
+    {
+        using SV = SmallVector<int, 16>;
+        static_assert(concepts::SmallVectorType<SV>, "SmallVector should satisfy concept");
+        static_assert(!concepts::SmallVectorType<std::vector<int>>, 
                      "vector should not satisfy concept");
     }
     END_SUBTEST
     
-    SUBTEST("FlatMap concept")
+    SUBTEST("CircularBufferType concept")
+    {
+        using CB = CircularBuffer<int, 32>;
+        static_assert(concepts::CircularBufferType<CB>, 
+                     "CircularBuffer should satisfy concept");
+        static_assert(!concepts::CircularBufferType<std::vector<int>>, 
+                     "vector should not satisfy concept");
+    }
+    END_SUBTEST
+    
+    SUBTEST("FlatMapType concept")
     {
         using FM = FlatMap<int, std::string, std::less<int>, 
                           std::allocator<std::pair<const int, std::string>>>;
-        static_assert(FlatMap<FM>, "FlatMap should satisfy concept");
-        static_assert(!FlatMap<std::vector<int>>, "vector should not satisfy concept");
+        static_assert(concepts::FlatMapType<FM>, "FlatMap should satisfy concept");
+        static_assert(!concepts::FlatMapType<std::vector<int>>, 
+                     "vector should not satisfy concept");
     }
     END_SUBTEST
     
-    SUBTEST("FlatSet concept")
+    SUBTEST("FlatSetType concept")
     {
         using FS = FlatSet<int, std::less<int>, std::allocator<int>>;
-        static_assert(FlatSet<FS>, "FlatSet should satisfy concept");
-        static_assert(!FlatSet<std::vector<int>>, "vector should not satisfy concept");
+        static_assert(concepts::FlatSetType<FS>, "FlatSet should satisfy concept");
+        static_assert(!concepts::FlatSetType<std::vector<int>>, 
+                     "vector should not satisfy concept");
     }
     END_SUBTEST
     
-    SUBTEST("Expected concept")
+    SUBTEST("ExpectedType concept")
     {
         using Exp = expected_internal::ExpectedImpl<int, std::string, UnionStorage>;
-        static_assert(Expected<Exp>, "ExpectedImpl should satisfy concept");
-        static_assert(!Expected<int>, "int should not satisfy concept");
+        static_assert(concepts::ExpectedType<Exp>, "ExpectedImpl should satisfy concept");
+        static_assert(!concepts::ExpectedType<int>, "int should not satisfy concept");
     }
     END_SUBTEST
     
     SUBTEST("BinarySerializable concept")
     {
-        static_assert(BinarySerializable<BinarySerializableType>, 
+        static_assert(concepts::BinarySerializable<BinarySerializableType>, 
                      "BinarySerializableType should satisfy concept");
-        static_assert(!BinarySerializable<int>, "int should not satisfy concept");
+        static_assert(!concepts::BinarySerializable<int>, 
+                     "int should not satisfy concept");
     }
     END_SUBTEST
     
     SUBTEST("ParallelCompatible concept")
     {
-        static_assert(ParallelCompatible<std::vector<int>>, 
+        static_assert(concepts::ParallelCompatible<std::vector<int>>, 
                      "vector should satisfy concept");
-        static_assert(!ParallelCompatible<int>, "int should not satisfy concept");
+        static_assert(!concepts::ParallelCompatible<int>, 
+                     "int should not satisfy concept");
     }
     END_SUBTEST
     
     SUBTEST("LibraryContainer concept")
     {
         using SV = SmallVector<int, 16>;
-        static_assert(LibraryContainer<SV>, "SmallVector should satisfy concept");
-        static_assert(!LibraryContainer<std::vector<int>>, 
+        static_assert(concepts::LibraryContainer<SV>, 
+                     "SmallVector should satisfy concept");
+        static_assert(!concepts::LibraryContainer<std::vector<int>>, 
                      "std::vector should not satisfy concept");
     }
     END_SUBTEST
@@ -987,6 +1026,7 @@ bool test_FatPTypeTraits()
     
     RUN_TEST(runner, fatp_type_traits_negative_cases);
     RUN_TEST(runner, fatp_type_traits_library_container_comprehensive);
+    RUN_TEST(runner, fatp_type_traits_extension_points);
 
     #if FATP_HAS_CPP20
     RUN_TEST(runner, fatp_type_traits_concepts);

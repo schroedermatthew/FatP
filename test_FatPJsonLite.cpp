@@ -857,7 +857,7 @@ bool test_fpjl_jsonc_comments() {
 
 bool test_fpjl_utf8_handling() {
     SUBTEST("European chars escaped") {
-        std::string text = "cafÃƒÂ©";
+        std::string text = "cafÃƒÆ’Ã‚Â©";
         std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
         
         ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should escape European chars");
@@ -869,7 +869,7 @@ bool test_fpjl_utf8_handling() {
     END_SUBTEST
     
     SUBTEST("Asian chars escaped") {
-        std::string text = "Ã¤Â¸â€“Ã§â€¢Å’";
+        std::string text = "ÃƒÂ¤Ã‚Â¸Ã¢â‚¬â€œÃƒÂ§Ã¢â‚¬Â¢Ã…â€™";
         std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
         
         ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should escape Asian chars");
@@ -880,7 +880,7 @@ bool test_fpjl_utf8_handling() {
     END_SUBTEST
     
     SUBTEST("Emoji with surrogate pairs") {
-        std::string text = "Ã°Å¸Ëœâ‚¬";
+        std::string text = "ÃƒÂ°Ã…Â¸Ã‹Å“Ã¢â€šÂ¬";
         std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
         
         ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should escape emoji");
@@ -891,7 +891,7 @@ bool test_fpjl_utf8_handling() {
     END_SUBTEST
     
     SUBTEST("Raw UTF-8 with CompatJsonPolicy") {
-        std::string text = "Ã¤Â¸â€“Ã§â€¢Å’ cafÃƒÂ© Ã°Å¸Ëœâ‚¬";
+        std::string text = "ÃƒÂ¤Ã‚Â¸Ã¢â‚¬â€œÃƒÂ§Ã¢â‚¬Â¢Ã…â€™ cafÃƒÆ’Ã‚Â© ÃƒÂ°Ã…Â¸Ã‹Å“Ã¢â€šÂ¬";
         std::string json = to_json_string<std::string, CompatJsonPolicy>(text);
         
         ASSERT_TRUE(json.find("\\u") == std::string::npos, "CompatPolicy should not escape");
@@ -1258,7 +1258,8 @@ bool test_fpjl_atomic_save_basic() {
         ASSERT_TRUE(result.has_value(), "Should save successfully");
         ASSERT_TRUE(std::filesystem::exists(filename), "File should exist");
         
-        std::filesystem::remove(filename);
+        std::error_code ec;
+        std::filesystem::remove(filename, ec);
     }
     END_SUBTEST
     
@@ -1280,7 +1281,8 @@ bool test_fpjl_atomic_save_basic() {
         ASSERT_EQ(loaded.priority, original.priority, "Priority should match");
         ASSERT_EQ(loaded.progress, original.progress, "Progress should match");
         
-        std::filesystem::remove(filename);
+        std::error_code ec;
+        std::filesystem::remove(filename, ec);
     }
     END_SUBTEST
     
@@ -1299,7 +1301,8 @@ bool test_fpjl_atomic_save_basic() {
         
         ASSERT_TRUE(content.find('\n') != std::string::npos, "Should have newlines (pretty)");
         
-        std::filesystem::remove(filename);
+        std::error_code ec;
+        std::filesystem::remove(filename, ec);
     }
     END_SUBTEST
     
@@ -1319,7 +1322,8 @@ bool test_fpjl_atomic_save_basic() {
         ASSERT_TRUE(content.find('\n') == std::string::npos || 
                    content.find('\n') == content.size() - 1, "Should be compact");
         
-        std::filesystem::remove(filename);
+        std::error_code ec;
+        std::filesystem::remove(filename, ec);
     }
     END_SUBTEST
     
@@ -1372,7 +1376,8 @@ bool test_fpjl_atomic_save_safety() {
         ASSERT_TRUE(load_result.has_value(), "Should load");
         ASSERT_EQ(std::get<int64_t>(*load_result), 99, "Should have new value");
         
-        std::filesystem::remove(filename);
+        std::error_code ec;
+        std::filesystem::remove(filename, ec);
     }
     END_SUBTEST
     
@@ -1391,7 +1396,8 @@ bool test_fpjl_atomic_save_safety() {
         ASSERT_TRUE(load_result->is_array(), "Should be array");
         ASSERT_EQ(std::get<JsonArray>(*load_result).size(), 1000U, "Should have 1000 elements");
         
-        std::filesystem::remove(filename);
+        std::error_code ec;
+        std::filesystem::remove(filename, ec);
     }
     END_SUBTEST
     
@@ -1422,8 +1428,9 @@ bool test_fpjl_atomic_save_vs_regular() {
         
         ASSERT_EQ(atomic_content, regular_content, "Output should be identical");
         
-        std::filesystem::remove(atomic_file);
-        std::filesystem::remove(regular_file);
+        std::error_code ec;
+        std::filesystem::remove(atomic_file, ec);
+        std::filesystem::remove(regular_file, ec);
     }
     END_SUBTEST
     
@@ -1438,7 +1445,8 @@ bool test_fpjl_atomic_save_vs_regular() {
         auto result2 = try_save_atomic(filename, j2);
         ASSERT_TRUE(result2.has_value(), "Second save should succeed");
         
-        std::filesystem::remove(filename);
+        std::error_code ec;
+        std::filesystem::remove(filename, ec);
     }
     END_SUBTEST
     

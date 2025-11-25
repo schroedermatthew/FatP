@@ -41,7 +41,7 @@
  * 
  * @section performance Performance:
  * - Zero overhead when exceptions not thrown
- * - Throw time: ~1-5 µs (dominated by stack unwinding)
+ * - Throw time: ~1-5 us (dominated by stack unwinding)
  * - Memory overhead: +8 bytes per instance (vtable pointer)
  * 
  * @note Thread-safe: Each exception is independent, safe for concurrent throwing

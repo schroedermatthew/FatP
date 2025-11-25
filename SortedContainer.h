@@ -55,7 +55,7 @@
 #include "enforce.h" // For DbC and invariant checks
 #include "EnforcedInit.h" // For enforced init of internal vector
 #include "EqualityComparisons.h" // For fuzzy equality in uniqueness (optional policy)
-#include "DiagnosticLogger.h" // For logging invariant violations
+#include "DiagnosticLogger_Core.h" // For logging invariant violations
 #include "Expected.h" // For non-throwing returns (e.g., insert)
 #include "ScopeGuard.h" // For RAII in ops
 #include "StrongId.h" // For type-safe indices/sizes
@@ -380,7 +380,7 @@ namespace fat_p {
                 }
                 // Log if failed
                 if (!inserted) {
-                    conditionalPrintError([] { return "Insert failed: duplicate or error"; });
+                    LOG_ERROR("Insert failed: duplicate or error");
                 }
                 validateInvariant();
                 return Expected<bool, std::string>(inserted);
@@ -552,7 +552,7 @@ namespace fat_p {
             );
             // Log violation if failed (updates: DiagnosticLogger)
             if (!std::is_sorted(internalContainer_.get().begin(), internalContainer_.get().end(), compare_)) {
-                conditionalPrintError([] { return "Invariant violation logged"; });
+                LOG_ERROR("Invariant violation logged");
             }
         }
         // --- Vector Interoperability Additions ---

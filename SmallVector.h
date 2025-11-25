@@ -19,6 +19,11 @@
  * - Large sizes: Standard vector performance with 2x geometric growth
  * - Move operations: O(1) for heap storage with equal allocators
  *
+ * Implementation Notes:
+ * - Uses pointer-based storage discrimination (LLVM-style) for optimal hot-path performance
+ * - data_ pointer always valid - points to inline_buffer_ or heap allocation
+ * - begin()/data() are simple pointer returns with no branching
+ *
  * @example Basic Usage
  * @code
  * SmallVector<int, 8> vec;
@@ -46,13 +51,16 @@
 #include <memory>
 #include <type_traits>
 #include <utility>
-#include <variant>
 
 #include "enforce.h"
 #include "CheckedArithmetic.h"
 #include "ScopeGuard.h"
 
 namespace fat_p {
+
+// Forward declaration for type trait
+template <typename T, size_t C, typename A>
+class SmallVector;
 
 /**
  * @brief Small-size optimized vector with inline storage
@@ -66,31 +74,28 @@ namespace fat_p {
  * @tparam InlineCapacity Number of elements to store inline before heap allocation (default: 8)
  * @tparam Allocator Allocator type for heap storage (default: std::allocator<T>)
  *
- * @invariant size_ <= capacity()
- * @invariant Elements in [begin(), begin() + size_) are constructed
- * @invariant Elements in [begin() + size_, begin() + capacity_) are uninitialized
+ * @invariant size_ <= capacity_
+ * @invariant data_ points to either inline_buffer_ or heap allocation
+ * @invariant Elements in [data_, data_ + size_) are constructed
+ * @invariant Elements in [data_ + size_, data_ + capacity_) are uninitialized
  */
 template <typename T, size_t InlineCapacity = 8, typename Allocator = std::allocator<T>>
 class SmallVector {
 private:
     using AllocTraits = std::allocator_traits<Allocator>;
     
-    // Aligned storage for inline elements. Uses std::byte to avoid default construction.
-    struct InlineStorage {
-        alignas(T) std::byte data[InlineCapacity * sizeof(T)];
-    };
-
-    // Heap-allocated storage metadata. Actual element count tracked separately in size_.
-    struct HeapStorage {
-        T* data_;
-        size_t capacity_;
-    };
-
-    // Discriminated union holding either inline or heap storage
-    std::variant<InlineStorage, HeapStorage> storage_;
+    // Inline buffer for small element storage - no heap allocation needed
+    alignas(T) std::byte inline_buffer_[InlineCapacity * sizeof(T)];
     
-    // Current number of constructed elements. Invariant: size_ <= capacity()
+    // Always-valid pointer to current storage (inline or heap)
+    // Hot path optimization: begin()/data() just return this pointer
+    T* data_;
+    
+    // Current number of constructed elements
     size_t size_ = 0;
+    
+    // Current capacity (InlineCapacity when inline, heap capacity otherwise)
+    size_t capacity_ = InlineCapacity;
 
 #if FATP_HAS_CPP20
     // EBO allows zero-size allocators to occupy no space
@@ -99,26 +104,19 @@ private:
     Allocator allocator_;
 #endif 
 
+    // Returns pointer to inline buffer as T*
+    T* inline_ptr() noexcept {
+        return reinterpret_cast<T*>(inline_buffer_);
+    }
+    
+    const T* inline_ptr() const noexcept {
+        return reinterpret_cast<const T*>(inline_buffer_);
+    }
+
     // Runtime check for which storage mode is active
+    // Simple pointer comparison - very fast
     bool is_inline() const noexcept {
-        return std::holds_alternative<InlineStorage>(storage_);
-    }
-
-    // Converts aligned byte buffer to T* for inline storage access
-    T* inline_data() noexcept {
-        return reinterpret_cast<T*>(std::get<InlineStorage>(storage_).data);
-    }
-
-    const T* inline_data() const noexcept {
-        return reinterpret_cast<const T*>(std::get<InlineStorage>(storage_).data);
-    }
-
-    T* heap_data() noexcept {
-        return std::get<HeapStorage>(storage_).data_;
-    }
-
-    const T* heap_data() const noexcept {
-        return std::get<HeapStorage>(storage_).data_;
+        return data_ == inline_ptr();
     }
 
     /**
@@ -137,10 +135,8 @@ private:
      * @throws Any exception from T's move constructor
      */
     void grow(size_t min_capacity) {
-        size_t current_cap = capacity();
-        
         // Overflow-safe capacity calculation using CheckedArithmetic
-        auto new_cap_result = checked_mul<ReturnExpectedPolicy>(current_cap, size_t(2));
+        auto new_cap_result = checked_mul<ReturnExpectedPolicy>(capacity_, size_t(2));
         
         size_t new_cap;
         if (new_cap_result.has_value()) {
@@ -170,7 +166,7 @@ private:
         
         // Move-construct elements (may throw)
         for (size_t i = 0; i < size_; ++i) {
-            AllocTraits::construct(allocator_, new_data + i, std::move(begin()[i]));
+            AllocTraits::construct(allocator_, new_data + i, std::move(data_[i]));
             ++constructed;
         }
         
@@ -178,16 +174,17 @@ private:
         element_guard.dismiss();
         cleanup_guard.dismiss();
         
-        // Now safe to destroy old storage
-        std::destroy_n(begin(), size_);
+        // Now safe to destroy old elements
+        std::destroy_n(data_, size_);
         
+        // Deallocate old heap storage if not inline
         if (!is_inline()) {
-            T* old_data = heap_data();
-            size_t old_cap = std::get<HeapStorage>(storage_).capacity_;
-            AllocTraits::deallocate(allocator_, old_data, old_cap);
+            AllocTraits::deallocate(allocator_, data_, capacity_);
         }
         
-        storage_.template emplace<HeapStorage>(HeapStorage{new_data, new_cap});
+        // Update to new heap storage
+        data_ = new_data;
+        capacity_ = new_cap;
     }
 
 public:
@@ -209,11 +206,12 @@ public:
     // ==================================================================================
 
     /** @brief Default constructor creating empty vector with inline storage */
-    SmallVector() noexcept : storage_(std::in_place_type<InlineStorage>), size_(0), allocator_() {}
+    SmallVector() noexcept 
+        : data_(inline_ptr()), size_(0), capacity_(InlineCapacity), allocator_() {}
 
     /** @brief Constructor with explicit allocator */
     explicit SmallVector(const Allocator& alloc) noexcept
-        : storage_(std::in_place_type<InlineStorage>), size_(0), allocator_(alloc) {}
+        : data_(inline_ptr()), size_(0), capacity_(InlineCapacity), allocator_(alloc) {}
 
     /** @brief Constructs vector with count default-constructed elements */
     explicit SmallVector(size_type count, const Allocator& alloc = Allocator()) 
@@ -222,7 +220,7 @@ public:
     }
 
     /** @brief Constructs vector with count copies of value */
-    SmallVector(size_type count, const T& value, const Allocator& alloc = Allocator()) 
+    SmallVector(size_type count, const T& value, const Allocator& alloc = Allocator())
         : SmallVector(alloc) {
         assign(count, value);
     }
@@ -257,19 +255,21 @@ public:
      * @note Steals heap storage in O(1), inline storage requires O(N) element-wise move
      */
     SmallVector(SmallVector&& other) noexcept
-        : storage_(std::in_place_type<InlineStorage>), size_(0), 
+        : data_(inline_ptr()), size_(0), capacity_(InlineCapacity),
           allocator_(std::move(other.allocator_)) {
         if (other.is_inline()) {
             // Inline storage requires element-wise move
-            std::uninitialized_move_n(other.begin(), other.size_, inline_data());
+            std::uninitialized_move_n(other.data_, other.size_, data_);
             size_ = other.size_;
-            std::destroy_n(other.begin(), other.size_);
-            other.storage_.template emplace<InlineStorage>();
+            std::destroy_n(other.data_, other.size_);
         } else {
             // Heap storage: O(1) pointer steal
-            storage_.template emplace<HeapStorage>(std::get<HeapStorage>(other.storage_));
+            data_ = other.data_;
             size_ = other.size_;
-            other.storage_.template emplace<InlineStorage>();
+            capacity_ = other.capacity_;
+            // Reset other to inline state
+            other.data_ = other.inline_ptr();
+            other.capacity_ = InlineCapacity;
         }
         other.size_ = 0;
     }
@@ -282,13 +282,15 @@ public:
         if (allocator_ == other.allocator_) {
             // Equal allocators: can steal resources
             if (other.is_inline()) {
-                std::uninitialized_move_n(other.begin(), other.size_, inline_data());
+                std::uninitialized_move_n(other.data_, other.size_, data_);
                 size_ = other.size_;
-                std::destroy_n(other.begin(), other.size_);
+                std::destroy_n(other.data_, other.size_);
             } else {
-                storage_.template emplace<HeapStorage>(std::get<HeapStorage>(other.storage_));
+                data_ = other.data_;
                 size_ = other.size_;
-                other.storage_.template emplace<InlineStorage>();
+                capacity_ = other.capacity_;
+                other.data_ = other.inline_ptr();
+                other.capacity_ = InlineCapacity;
             }
             other.size_ = 0;
         } else {
@@ -300,11 +302,9 @@ public:
 
     /** @brief Destructor */
     ~SmallVector() noexcept {
-        std::destroy_n(begin(), size_);
+        std::destroy_n(data_, size_);
         if (!is_inline()) {
-            T* data = heap_data();
-            size_t cap = std::get<HeapStorage>(storage_).capacity_;
-            AllocTraits::deallocate(allocator_, data, cap);
+            AllocTraits::deallocate(allocator_, data_, capacity_);
         }
     }
 
@@ -322,10 +322,9 @@ public:
                 // Allocator will change - must deallocate with old allocator first
                 clear();
                 if (!is_inline()) {
-                    T* data = heap_data();
-                    size_t cap = std::get<HeapStorage>(storage_).capacity_;
-                    AllocTraits::deallocate(allocator_, data, cap);
-                    storage_.template emplace<InlineStorage>();
+                    AllocTraits::deallocate(allocator_, data_, capacity_);
+                    data_ = inline_ptr();
+                    capacity_ = InlineCapacity;
                 }
                 allocator_ = other.allocator_;
             }
@@ -346,13 +345,15 @@ public:
         if (this == &other) return *this;
 
         // Clean up existing resources
-        std::destroy_n(begin(), size_);
+        std::destroy_n(data_, size_);
         if (!is_inline()) {
-            T* data = heap_data();
-            size_t cap = std::get<HeapStorage>(storage_).capacity_;
-            AllocTraits::deallocate(allocator_, data, cap);
+            AllocTraits::deallocate(allocator_, data_, capacity_);
         }
-        storage_.template emplace<InlineStorage>();
+        
+        // Reset to inline state
+        data_ = inline_ptr();
+        capacity_ = InlineCapacity;
+        size_ = 0;
 
         constexpr bool Pocma = AllocTraits::propagate_on_container_move_assignment::value;
 
@@ -363,24 +364,25 @@ public:
             // POCMA=false and allocators unequal: element-wise move required
             assign(std::make_move_iterator(other.begin()), 
                    std::make_move_iterator(other.end()));
-            other.size_ = 0;
-            other.storage_.template emplace<InlineStorage>();
+            other.clear();
             return *this;
         }
         // POCMA=false and allocators equal: can steal without propagation
 
         // Perform efficient resource transfer
         if (other.is_inline()) {
-            std::uninitialized_move_n(other.begin(), other.size_, inline_data());
-            std::destroy_n(other.begin(), other.size_);
+            std::uninitialized_move_n(other.data_, other.size_, data_);
+            std::destroy_n(other.data_, other.size_);
         } else {
-            storage_ = std::move(other.storage_);
+            data_ = other.data_;
+            capacity_ = other.capacity_;
+            other.data_ = other.inline_ptr();
+            other.capacity_ = InlineCapacity;
         }
         size_ = other.size_;
 
         // Leave other in valid empty state
         other.size_ = 0;
-        other.storage_.template emplace<InlineStorage>();
         
         return *this;
     }
@@ -398,10 +400,10 @@ public:
     /** @brief Replaces contents with count copies of value */
     void assign(size_type count, const T& value) {
         clear();
-        if (count > capacity()) {
+        if (count > capacity_) {
             reserve(count);
         }
-        std::uninitialized_fill_n(begin(), count, value);
+        std::uninitialized_fill_n(data_, count, value);
         size_ = count;
     }
 
@@ -410,10 +412,10 @@ public:
     void assign(InputIt first, InputIt last) {
         clear();
         size_t count = std::distance(first, last);
-        if (count > capacity()) {
+        if (count > capacity_) {
             reserve(count);
         }
-        std::uninitialized_copy(first, last, begin());
+        std::uninitialized_copy(first, last, data_);
         size_ = count;
     }
 
@@ -423,16 +425,16 @@ public:
     }
 
     // ==================================================================================
-    // Iterators
+    // Iterators - HOT PATH - Simple pointer returns, no branching
     // ==================================================================================
 
-    iterator begin() noexcept { return is_inline() ? inline_data() : heap_data(); }
-    const_iterator begin() const noexcept { return is_inline() ? inline_data() : heap_data(); }
-    const_iterator cbegin() const noexcept { return begin(); }
+    iterator begin() noexcept { return data_; }
+    const_iterator begin() const noexcept { return data_; }
+    const_iterator cbegin() const noexcept { return data_; }
     
-    iterator end() noexcept { return begin() + size_; }
-    const_iterator end() const noexcept { return begin() + size_; }
-    const_iterator cend() const noexcept { return end(); }
+    iterator end() noexcept { return data_ + size_; }
+    const_iterator end() const noexcept { return data_ + size_; }
+    const_iterator cend() const noexcept { return data_ + size_; }
     
     reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
     const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
@@ -459,9 +461,7 @@ public:
      * @brief Returns current capacity
      * @note For inline storage returns InlineCapacity, for heap returns allocated capacity
      */
-    size_type capacity() const noexcept {
-        return is_inline() ? InlineCapacity : std::get<HeapStorage>(storage_).capacity_;
-    }
+    size_type capacity() const noexcept { return capacity_; }
 
     /** @brief Checks if container is empty */
     bool empty() const noexcept { return size_ == 0; }
@@ -472,7 +472,7 @@ public:
      * @throws std::bad_alloc or exception from T's move constructor
      */
     void reserve(size_type new_cap) {
-        if (new_cap <= capacity()) {
+        if (new_cap <= capacity_) {
             return;
         }
         grow(new_cap);
@@ -487,11 +487,14 @@ public:
             return;
         }
         
-        T* old_data = heap_data();
-        size_t old_capacity = std::get<HeapStorage>(storage_).capacity_;
+        T* old_data = data_;
+        size_t old_capacity = capacity_;
         
-        storage_.template emplace<InlineStorage>();
-        std::uninitialized_move_n(old_data, size_, inline_data());
+        // Move back to inline storage
+        data_ = inline_ptr();
+        capacity_ = InlineCapacity;
+        
+        std::uninitialized_move_n(old_data, size_, data_);
         std::destroy_n(old_data, size_);
         AllocTraits::deallocate(allocator_, old_data, old_capacity);
     }
@@ -506,13 +509,13 @@ public:
      */
     reference at(size_type pos) {
         always_enforce(pos < size_, "Index ", pos, " out of bounds (size=", size_, ")");
-        return begin()[pos];
+        return data_[pos];
     }
 
     /** @brief Access element with bounds checking (const) */
     const_reference at(size_type pos) const {
         always_enforce(pos < size_, "Index ", pos, " out of bounds (size=", size_, ")");
-        return begin()[pos];
+        return data_[pos];
     }
 
     /**
@@ -522,47 +525,47 @@ public:
      */
     reference operator[](size_type pos) {
         enforce(pos < size_, "Index out of bounds");
-        return begin()[pos];
+        return data_[pos];
     }
 
     /** @brief Access element without bounds checking (const) */
     const_reference operator[](size_type pos) const {
         enforce(pos < size_, "Index out of bounds");
-        return begin()[pos];
+        return data_[pos];
     }
 
     /** @brief Access first element */
     reference front() {
         enforce(size_ > 0, "Cannot access front of empty vector");
-        return *begin();
+        return data_[0];
     }
 
     /** @brief Access first element (const) */
     const_reference front() const {
         enforce(size_ > 0, "Cannot access front of empty vector");
-        return *begin();
+        return data_[0];
     }
 
     /** @brief Access last element */
     reference back() {
         enforce(size_ > 0, "Cannot access back of empty vector");
-        return *(end() - 1);
+        return data_[size_ - 1];
     }
 
     /** @brief Access last element (const) */
     const_reference back() const {
         enforce(size_ > 0, "Cannot access back of empty vector");
-        return *(end() - 1);
+        return data_[size_ - 1];
     }
 
     /**
      * @brief Returns pointer to underlying element storage
      * @note Pointer valid until reallocation. May point to inline or heap storage.
      */
-    T* data() noexcept { return begin(); }
+    T* data() noexcept { return data_; }
 
     /** @brief Returns const pointer to underlying element storage */
-    const T* data() const noexcept { return begin(); }
+    const T* data() const noexcept { return data_; }
     
     // ==================================================================================
     // Modifiers
@@ -573,7 +576,7 @@ public:
      * @note Preserves current capacity. Storage mode unchanged.
      */
     void clear() noexcept {
-        std::destroy_n(begin(), size_);
+        std::destroy_n(data_, size_);
         size_ = 0;
     }
 
@@ -593,11 +596,11 @@ public:
      * @throws std::bad_alloc or exception from T's copy constructor
      */
     iterator insert(const_iterator pos, size_type count, const T& value) {
-        size_t idx = pos - begin();
-        always_enforce(idx <= size_, "Insert position out of range");
+        size_t idx = pos - data_;
+        enforce(idx <= size_, "Insert position out of range");
         
         if (count == 0) {
-            return begin() + idx;
+            return data_ + idx;
         }
         
         // Verify new size won't overflow
@@ -605,9 +608,9 @@ public:
         always_enforce(new_size_result.has_value(), "Insert would exceed max_size");
         size_t new_size = *new_size_result;
         
-        if (new_size > capacity()) {
+        if (new_size > capacity_) {
             // Growth path with STRONG exception safety
-            auto new_cap_result = checked_mul<ReturnExpectedPolicy>(capacity(), size_t(2));
+            auto new_cap_result = checked_mul<ReturnExpectedPolicy>(capacity_, size_t(2));
             size_t new_cap = new_cap_result.has_value() ? 
                 std::max(new_size, *new_cap_result) : new_size;
             
@@ -624,7 +627,7 @@ public:
             
             // Move prefix
             for (size_t i = 0; i < idx; ++i) {
-                AllocTraits::construct(allocator_, new_data + i, std::move(begin()[i]));
+                AllocTraits::construct(allocator_, new_data + i, std::move(data_[i]));
                 ++constructed;
             }
             
@@ -636,7 +639,7 @@ public:
             
             // Move suffix
             for (size_t i = idx; i < size_; ++i) {
-                AllocTraits::construct(allocator_, new_data + i + count, std::move(begin()[i]));
+                AllocTraits::construct(allocator_, new_data + i + count, std::move(data_[i]));
                 ++constructed;
             }
             
@@ -644,20 +647,19 @@ public:
             cleanup_guard.dismiss();
             
             // Clean up old storage and commit
-            std::destroy_n(begin(), size_);
+            std::destroy_n(data_, size_);
             if (!is_inline()) {
-                T* old_data = heap_data();
-                size_t old_cap = std::get<HeapStorage>(storage_).capacity_;
-                AllocTraits::deallocate(allocator_, old_data, old_cap);
+                AllocTraits::deallocate(allocator_, data_, capacity_);
             }
             
-            storage_.template emplace<HeapStorage>(HeapStorage{new_data, new_cap});
+            data_ = new_data;
+            capacity_ = new_cap;
             size_ = new_size;
-            return new_data + idx;
+            return data_ + idx;
         }
         
         // In-place insertion without reallocation
-        iterator insert_pos = begin() + idx;
+        iterator insert_pos = data_ + idx;
         
         if (idx < size_) {
             size_t tail = size_ - idx;
@@ -685,21 +687,21 @@ public:
      */
     template <class InputIt, std::enable_if_t<!std::is_integral_v<InputIt>, int> = 0>
     iterator insert(const_iterator pos, InputIt first, InputIt last) {
-        size_t idx = pos - begin();
-        always_enforce(idx <= size_, "Insert position out of range");
+        size_t idx = pos - data_;
+        enforce(idx <= size_, "Insert position out of range");
         
         size_t count = std::distance(first, last);
         if (count == 0) {
-            return begin() + idx;
+            return data_ + idx;
         }
         
         auto new_size_result = checked_add<ReturnExpectedPolicy>(size_, count);
         always_enforce(new_size_result.has_value(), "Insert would exceed max_size");
         size_t new_size = *new_size_result;
         
-        if (new_size > capacity()) {
+        if (new_size > capacity_) {
             // Growth path with STRONG exception safety
-            auto new_cap_result = checked_mul<ReturnExpectedPolicy>(capacity(), size_t(2));
+            auto new_cap_result = checked_mul<ReturnExpectedPolicy>(capacity_, size_t(2));
             size_t new_cap = new_cap_result.has_value() ? 
                 std::max(new_size, *new_cap_result) : new_size;
             
@@ -716,7 +718,7 @@ public:
             
             // Move prefix
             for (size_t i = 0; i < idx; ++i) {
-                AllocTraits::construct(allocator_, new_data + i, std::move(begin()[i]));
+                AllocTraits::construct(allocator_, new_data + i, std::move(data_[i]));
                 ++constructed;
             }
             
@@ -728,27 +730,26 @@ public:
             
             // Move suffix
             for (size_t i = idx; i < size_; ++i) {
-                AllocTraits::construct(allocator_, new_data + i + count, std::move(begin()[i]));
+                AllocTraits::construct(allocator_, new_data + i + count, std::move(data_[i]));
                 ++constructed;
             }
             
             element_guard.dismiss();
             cleanup_guard.dismiss();
             
-            std::destroy_n(begin(), size_);
+            std::destroy_n(data_, size_);
             if (!is_inline()) {
-                T* old_data = heap_data();
-                size_t old_cap = std::get<HeapStorage>(storage_).capacity_;
-                AllocTraits::deallocate(allocator_, old_data, old_cap);
+                AllocTraits::deallocate(allocator_, data_, capacity_);
             }
             
-            storage_.template emplace<HeapStorage>(HeapStorage{new_data, new_cap});
+            data_ = new_data;
+            capacity_ = new_cap;
             size_ = new_size;
-            return new_data + idx;
+            return data_ + idx;
         }
         
         // In-place insertion
-        iterator insert_pos = begin() + idx;
+        iterator insert_pos = data_ + idx;
         
         if (idx < size_) {
             size_t tail = size_ - idx;
@@ -788,12 +789,12 @@ public:
      */
     template <class... Args>
     iterator emplace(const_iterator pos, Args&&... args) {
-        size_t idx = pos - begin();
-        always_enforce(idx <= size_, "Emplace position out of range");
+        size_t idx = pos - data_;
+        enforce(idx <= size_, "Emplace position out of range");
         
-        if (size_ >= capacity()) {
+        if (size_ >= capacity_) {
             // Growth path with strong exception safety
-            size_t new_cap = capacity() == 0 ? 1 : capacity() * 2;
+            size_t new_cap = capacity_ == 0 ? 1 : capacity_ * 2;
             
             T* new_data = AllocTraits::allocate(allocator_, new_cap);
             
@@ -808,7 +809,7 @@ public:
             
             // Move prefix
             for (size_t i = 0; i < idx; ++i) {
-                AllocTraits::construct(allocator_, new_data + i, std::move(begin()[i]));
+                AllocTraits::construct(allocator_, new_data + i, std::move(data_[i]));
                 ++constructed;
             }
             
@@ -818,7 +819,7 @@ public:
             
             // Move suffix
             for (size_t i = idx; i < size_; ++i) {
-                AllocTraits::construct(allocator_, new_data + i + 1, std::move(begin()[i]));
+                AllocTraits::construct(allocator_, new_data + i + 1, std::move(data_[i]));
                 ++constructed;
             }
             
@@ -826,20 +827,19 @@ public:
             cleanup_guard.dismiss();
             
             // Cleanup old storage
-            std::destroy_n(begin(), size_);
+            std::destroy_n(data_, size_);
             if (!is_inline()) {
-                T* old_data = heap_data();
-                size_t old_cap = std::get<HeapStorage>(storage_).capacity_;
-                AllocTraits::deallocate(allocator_, old_data, old_cap);
+                AllocTraits::deallocate(allocator_, data_, capacity_);
             }
             
-            storage_.template emplace<HeapStorage>(HeapStorage{new_data, new_cap});
+            data_ = new_data;
+            capacity_ = new_cap;
             ++size_;
-            return new_data + idx;
+            return data_ + idx;
         }
         
-        // Non-growing path: size_ < capacity()
-        iterator insert_pos = begin() + idx;
+        // Non-growing path: size_ < capacity_
+        iterator insert_pos = data_ + idx;
         
         if (idx < size_) {
             // HPC optimization: use memmove for trivially moveable types
@@ -870,10 +870,10 @@ public:
      * @return Iterator to element following erased element
      */
     iterator erase(const_iterator pos) {
-        size_t idx = pos - begin();
-        always_enforce(idx < size_, "Erase position out of range");
+        size_t idx = pos - data_;
+        enforce(idx < size_, "Erase position out of range");
         
-        iterator it = begin() + idx;
+        iterator it = data_ + idx;
         std::move(it + 1, end(), it);
         std::destroy_at(end() - 1);
         --size_;
@@ -889,12 +889,12 @@ public:
             return const_cast<iterator>(first);
         }
         
-        size_t first_idx = first - begin();
-        size_t last_idx = last - begin();
-        always_enforce(first_idx <= last_idx && last_idx <= size_, "Erase range invalid");
+        size_t first_idx = first - data_;
+        size_t last_idx = last - data_;
+        enforce(first_idx <= last_idx && last_idx <= size_, "Erase range invalid");
         
-        iterator f = begin() + first_idx;
-        iterator l = begin() + last_idx;
+        iterator f = data_ + first_idx;
+        iterator l = data_ + last_idx;
         std::move(l, end(), f);
         size_t count = last_idx - first_idx;
         std::destroy_n(end() - count, count);
@@ -919,21 +919,21 @@ public:
      */
     template <class... Args>
     reference emplace_back(Args&&... args) {
-        if (size_ >= capacity()) {
-            size_t new_cap = capacity() == 0 ? 1 : capacity() * 2;
+        if (size_ >= capacity_) {
+            size_t new_cap = capacity_ == 0 ? 1 : capacity_ * 2;
             reserve(new_cap);
         }
         
-        AllocTraits::construct(allocator_, end(), std::forward<Args>(args)...);
+        AllocTraits::construct(allocator_, data_ + size_, std::forward<Args>(args)...);
         ++size_;
-        return back();
+        return data_[size_ - 1];
     }
 
     /** @brief Removes last element */
     void pop_back() {
         always_enforce(size_ > 0, "Cannot pop from empty vector");
         --size_;
-        std::destroy_at(end());
+        std::destroy_at(data_ + size_);
     }
 
     /**
@@ -942,12 +942,12 @@ public:
      */
     void resize(size_type count) {
         if (count < size_) {
-            std::destroy_n(begin() + count, size_ - count);
+            std::destroy_n(data_ + count, size_ - count);
         } else if (count > size_) {
-            if (count > capacity()) {
+            if (count > capacity_) {
                 reserve(count);
             }
-            std::uninitialized_value_construct_n(begin() + size_, count - size_);
+            std::uninitialized_value_construct_n(data_ + size_, count - size_);
         }
         size_ = count;
     }
@@ -955,12 +955,12 @@ public:
     /** @brief Resizes container, initializing new elements with value */
     void resize(size_type count, const T& value) {
         if (count < size_) {
-            std::destroy_n(begin() + count, size_ - count);
+            std::destroy_n(data_ + count, size_ - count);
         } else if (count > size_) {
-            if (count > capacity()) {
+            if (count > capacity_) {
                 reserve(count);
             }
-            std::uninitialized_fill_n(begin() + size_, count - size_, value);
+            std::uninitialized_fill_n(data_ + size_, count - size_, value);
         }
         size_ = count;
     }
@@ -987,9 +987,62 @@ public:
                           "Cannot swap containers with unequal allocators when POCS is false");
         }
         
-        using std::swap;
-        swap(storage_, other.storage_);
-        swap(size_, other.size_);
+        // Both inline: element-wise swap
+        if (is_inline() && other.is_inline()) {
+            size_t min_size = std::min(size_, other.size_);
+            size_t max_size = std::max(size_, other.size_);
+            
+            // Swap common elements
+            for (size_t i = 0; i < min_size; ++i) {
+                using std::swap;
+                swap(data_[i], other.data_[i]);
+            }
+            
+            // Move excess elements
+            if (size_ > other.size_) {
+                std::uninitialized_move_n(data_ + min_size, size_ - min_size, 
+                                          other.data_ + min_size);
+                std::destroy_n(data_ + min_size, size_ - min_size);
+            } else if (other.size_ > size_) {
+                std::uninitialized_move_n(other.data_ + min_size, other.size_ - min_size,
+                                          data_ + min_size);
+                std::destroy_n(other.data_ + min_size, other.size_ - min_size);
+            }
+            
+            using std::swap;
+            swap(size_, other.size_);
+            return;
+        }
+        
+        // Both heap: just swap pointers
+        if (!is_inline() && !other.is_inline()) {
+            using std::swap;
+            swap(data_, other.data_);
+            swap(size_, other.size_);
+            swap(capacity_, other.capacity_);
+            return;
+        }
+        
+        // One inline, one heap: move inline to heap's inline, steal heap pointer
+        SmallVector* inline_vec = is_inline() ? this : &other;
+        SmallVector* heap_vec = is_inline() ? &other : this;
+        
+        // Save heap info
+        T* heap_data = heap_vec->data_;
+        size_t heap_size = heap_vec->size_;
+        size_t heap_cap = heap_vec->capacity_;
+        
+        // Move inline elements to heap_vec's inline buffer
+        heap_vec->data_ = heap_vec->inline_ptr();
+        heap_vec->capacity_ = InlineCapacity;
+        std::uninitialized_move_n(inline_vec->data_, inline_vec->size_, heap_vec->data_);
+        heap_vec->size_ = inline_vec->size_;
+        
+        // Destroy inline elements and give heap to inline_vec
+        std::destroy_n(inline_vec->data_, inline_vec->size_);
+        inline_vec->data_ = heap_data;
+        inline_vec->size_ = heap_size;
+        inline_vec->capacity_ = heap_cap;
     }
 
     /** @brief Returns copy of allocator */

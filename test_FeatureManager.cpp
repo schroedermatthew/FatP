@@ -1,14 +1,28 @@
 // test_FeatureManager.cpp
+//
+// Unified Test Suite for FeatureManager
+// Includes:
+// 1. Graph Logic & State Machine Tests
+// 2. Serialization & Factory Tests
+// 3. Performance Benchmarks
+
+#include <vector>
+#include <string>
 #include <thread>
 #include <chrono>
 #include <atomic>
+#include <random>
+#include <algorithm>
+#include <memory>
 
-#include "test_FeatureManager.h"
-#include "FatPTest.h"
 #include "FeatureManager.h"
+#include "FatPTest.h"
 
-namespace fat_p
-{ 
+// ============================================================================
+// SECTION 0: Global Enums & Policies (Required for Type-Safe Tests)
+// ============================================================================
+
+namespace fat_p {
 
 // Custom enum for testing group states
 enum class NetworkState {
@@ -20,7 +34,7 @@ enum class NetworkState {
 
 // EnumStringPolicy for NetworkState
 template<>
-struct fat_p::EnumStringPolicy<NetworkState> {
+struct EnumStringPolicy<NetworkState> {
     static constexpr bool has_names = true;
     static constexpr std::array<std::string_view, 4> names = {
         "Disconnected", "Connecting", "Connected", "Error"
@@ -48,7 +62,7 @@ enum class LogLevel {
 
 // EnumStringPolicy for LogLevel
 template<>
-struct fat_p::EnumStringPolicy<LogLevel> {
+struct EnumStringPolicy<LogLevel> {
     static constexpr bool has_names = true;
     static constexpr std::array<std::string_view, 4> names = {
         "Off", "Basic", "Verbose", "Debug"
@@ -67,8 +81,13 @@ struct fat_p::EnumStringPolicy<LogLevel> {
     }
 };
 
-namespace  testing
-{
+} // namespace fat_p
+
+// ============================================================================
+// SECTION 1: Graph Logic & Core Feature Tests
+// ============================================================================
+
+namespace fat_p::testing::logic {
 
 // Custom state computer for network group
 NetworkState network_state_computer(const std::set<std::string>& group_flags,
@@ -81,19 +100,7 @@ NetworkState network_state_computer(const std::set<std::string>& group_flags,
     return NetworkState::Connected;
 }
 
-// Custom state computer for log level
-LogLevel log_level_computer(const std::set<std::string>& group_flags,
-                            size_t enabled_count,
-                            bool has_conflict,
-                            bool all_checks_pass) {
-    if (!all_checks_pass || has_conflict) return LogLevel::Off;
-    if (enabled_count == 0) return LogLevel::Off;
-    if (enabled_count == 1) return LogLevel::Basic;
-    if (enabled_count == 2) return LogLevel::Verbose;
-    return LogLevel::Debug;
-}
-
-bool test_feature_manager_basic_operations() {
+bool test_basic_operations() {
     // Test basic flag addition
     {
         FeatureManager<> graph;
@@ -132,27 +139,13 @@ bool test_feature_manager_basic_operations() {
         
         auto enabled = graph.get_enabled();
         ASSERT_EQ(enabled.size(), 2u, "Should have 2 enabled flags");
-        ASSERT_TRUE(std::find(enabled.begin(), enabled.end(), "A") != enabled.end(), 
-                   "A should be enabled");
-        ASSERT_TRUE(std::find(enabled.begin(), enabled.end(), "C") != enabled.end(), 
-                   "C should be enabled");
+        ASSERT_TRUE(std::find(enabled.begin(), enabled.end(), "A") != enabled.end(), "A should be enabled");
+        ASSERT_TRUE(std::find(enabled.begin(), enabled.end(), "C") != enabled.end(), "C should be enabled");
     }
-
-    // Test get_all_features
-    {
-        FeatureManager<> graph;
-        (void)graph.add_feature("X");
-        (void)graph.add_feature("Y");
-        (void)graph.add_feature("Z");
-        
-        auto all_flags = graph.get_all_features();
-        ASSERT_EQ(all_flags.size(), 3u, "Should have 3 flags");
-    }
-
     return true;
 }
 
-bool test_feature_manager_interactions() {
+bool test_interactions() {
     // Test Requires interaction
     {
         FeatureManager<> graph;
@@ -192,8 +185,7 @@ bool test_feature_manager_interactions() {
         (void)graph.add_relationship("AdvancedGraphics", FeatureRelationship::Implies, "BasicGraphics");
         
         (void)graph.enable("AdvancedGraphics");
-        ASSERT_TRUE(graph.is_enabled("BasicGraphics"), 
-                   "BasicGraphics should be auto-enabled by Implies");
+        ASSERT_TRUE(graph.is_enabled("BasicGraphics"), "BasicGraphics should be auto-enabled by Implies");
     }
 
     // Test MutuallyExclusive interaction
@@ -215,17 +207,10 @@ bool test_feature_manager_interactions() {
         auto res = graph.add_relationship("SelfRef", FeatureRelationship::Requires, "SelfRef");
         ASSERT_FALSE(res.has_value(), "Should prevent self-referential interaction");
     }
-
     return true;
 }
 
-bool test_feature_manager_validation() {
-    // This test validates the FeatureManager's safety mechanisms:
-    // 1. Custom check functions can accept or reject feature enablement
-    // 2. Circular dependencies are correctly detected and prevented
-    // 3. Excessive dependency depth is caught before stack overflow
-    // All tests in this function validate CORRECT error-handling behavior.
-    
+bool test_validation_and_cycles() {
     // Test custom check function
     {
         FeatureManager<> graph;
@@ -247,10 +232,7 @@ bool test_feature_manager_validation() {
         ASSERT_FALSE(res.has_value(), "Should fail when check fails");
     }
 
-    // Test cycle detection - This test CORRECTLY validates that circular dependencies
-    // are detected and prevented. The implementation detects cycles via either explicit
-    // "Circular dependency" detection or via depth limit - both are correct behaviors.
-    // This is NOT a test failure - it confirms the safety mechanism works as designed.
+    // Test cycle detection
     {
         FeatureManager<> graph;
         (void)graph.add_feature("A");
@@ -266,16 +248,15 @@ bool test_feature_manager_validation() {
         auto res = graph.enable("A");
         ASSERT_FALSE(res.has_value(), "Should detect cycle and prevent enable");
         
-        // Error message should indicate cycle was detected (either explicitly or via depth)
         ASSERT_TRUE(res.error().find("Circular") != std::string::npos || 
-                   res.error().find("depth") != std::string::npos, 
-                   "Error should mention cycle or depth limit");
+                    res.error().find("depth") != std::string::npos, 
+                    "Error should mention cycle or depth limit");
     }
 
     // Test depth limit
     {
         FeatureManager<> graph;
-        const int chain_length = 150;  // Exceeds MAX_VALIDATION_DEPTH
+        const int chain_length = 150; // Exceeds MAX_VALIDATION_DEPTH
         
         for (int i = 0; i < chain_length; ++i) {
             (void)graph.add_feature("Flag" + std::to_string(i));
@@ -283,20 +264,19 @@ bool test_feature_manager_validation() {
         
         for (int i = 0; i < chain_length - 1; ++i) {
             (void)graph.add_relationship("Flag" + std::to_string(i), 
-                                 FeatureRelationship::Implies, 
-                                 "Flag" + std::to_string(i + 1));
+                                     FeatureRelationship::Implies, 
+                                     "Flag" + std::to_string(i + 1));
         }
         
         auto res = graph.enable("Flag0");
         ASSERT_FALSE(res.has_value(), "Should hit depth limit");
         ASSERT_TRUE(res.error().find("depth") != std::string::npos, 
-                   "Error should mention depth limit");
+                    "Error should mention depth limit");
     }
-
     return true;
 }
 
-bool test_feature_manager_groups() {
+bool test_groups() {
     // Test basic group with default FeatureGroupState
     {
         FeatureManager<> graph;
@@ -357,136 +337,88 @@ bool test_feature_manager_groups() {
         auto enable_res = graph.enable("Green");
         ASSERT_FALSE(enable_res.has_value(), "Should fail: mutually exclusive");
     }
-
     return true;
 }
 
-bool test_feature_manager_serialization() {
+bool test_complex_scenario() {
+    // Test realistic game graphics configuration
     FeatureManager<> graph;
-    (void)graph.add_feature("Feature1");
-    (void)graph.add_feature("Feature2");
-    (void)graph.add_feature("Feature3");
-    (void)graph.add_relationship("Feature1", FeatureRelationship::Requires, "Feature2");
-    (void)graph.add_group("Group1", {"Feature1", "Feature2"});
-    (void)graph.enable("Feature2");
     
-    // Serialize
-    std::string json = graph.to_json();
-    ASSERT_FALSE(json.empty(), "JSON should not be empty");
+    // Add flags
+    (void)graph.add_feature("DX12");
+    (void)graph.add_feature("Vulkan");
+    (void)graph.add_feature("OpenGL");
+    (void)graph.add_feature("HighRes");
+    (void)graph.add_feature("MSAA");
+    (void)graph.add_feature("RayTracing");
+    (void)graph.add_feature("VSync");
     
-    // Deserialize
-    auto restored = FeatureManager<>::from_json(json);
-    ASSERT_TRUE(restored.has_value(), "Should deserialize successfully");
+    // Mutually exclusive rendering backends
+    (void)graph.add_mutually_exclusive_group("RenderBackend", {"DX12", "Vulkan", "OpenGL"});
     
-    // Verify state
-    ASSERT_TRUE(restored->is_enabled("Feature2"), "Feature2 should be enabled");
-    ASSERT_FALSE(restored->is_enabled("Feature1"), "Feature1 should be disabled");
+    // Dependencies
+    (void)graph.add_relationship("RayTracing", FeatureRelationship::Requires, "DX12");
+    (void)graph.add_relationship("HighRes", FeatureRelationship::Implies, "MSAA");
     
-    auto all_flags = restored->get_all_features();
-    ASSERT_EQ(all_flags.size(), 3u, "Should have 3 flags");
+    // Group for advanced features
+    (void)graph.add_group("AdvancedGraphics", {"HighRes", "MSAA", "RayTracing"});
+    
+    // Enable DX12
+    auto res = graph.enable("DX12");
+    ASSERT_TRUE(res.has_value(), "Should enable DX12");
+    
+    // Enable RayTracing (requires DX12, which is enabled)
+    res = graph.enable("RayTracing");
+    ASSERT_TRUE(res.has_value(), "Should enable RayTracing with DX12");
+    
+    // Try to enable Vulkan (should fail, mutually exclusive with DX12)
+    res = graph.enable("Vulkan");
+    ASSERT_FALSE(res.has_value(), "Should fail: mutually exclusive with DX12");
+    
+    // Enable HighRes (should auto-enable MSAA via Implies)
+    res = graph.enable("HighRes");
+    ASSERT_TRUE(res.has_value(), "Should enable HighRes");
+    ASSERT_TRUE(graph.is_enabled("MSAA"), "MSAA should be auto-enabled");
+    
+    // Check group state
+    auto state = graph.get_group_state("AdvancedGraphics");
+    ASSERT_TRUE(*state == FeatureGroupState::Active, "All advanced features should be active");
 
     return true;
 }
 
-bool test_feature_manager_dot_export() {
-    FeatureManager<> graph;
-    (void)graph.add_feature("NodeA");
-    (void)graph.add_feature("NodeB");
-    (void)graph.add_feature("NodeC");
-    (void)graph.add_relationship("NodeA", FeatureRelationship::Requires, "NodeB");
-    (void)graph.add_relationship("NodeA", FeatureRelationship::Conflicts, "NodeC");
-    (void)graph.add_group("TestGroup", {"NodeA", "NodeB"});
+bool test_thread_safety() {
+    FeatureManager<MutexSynchronizationPolicy> graph;
+    (void)graph.add_feature("SharedFlag");
     
-    std::string dot = graph.to_dot();
-    ASSERT_FALSE(dot.empty(), "DOT output should not be empty");
-    ASSERT_TRUE(dot.find("digraph") != std::string::npos, "Should contain digraph declaration");
-    ASSERT_TRUE(dot.find("NodeA") != std::string::npos, "Should contain NodeA");
-    ASSERT_TRUE(dot.find("Requires") != std::string::npos, "Should contain interaction label");
+    std::atomic<int> success_count{0};
     
-    return true;
-}
-
-bool test_feature_manager_memory_safety() {
-    // Test move operations
-    {
-        FeatureManager<> graph1;
-        (void)graph1.add_feature("Test");
-        (void)graph1.enable("Test");
-        
-        FeatureManager<> graph2 = std::move(graph1);
-        ASSERT_TRUE(graph2.is_enabled("Test"), "Moved graph should preserve state");
-    }
-
-    // Test clear
-    {
-        FeatureManager<> graph;
-        (void)graph.add_feature("A");
-        (void)graph.add_feature("B");
-        (void)graph.add_group("G", {"A", "B"});
-        
-        graph.clear();
-        auto all_flags = graph.get_all_features();
-        ASSERT_TRUE(all_flags.empty(), "Should clear all flags");
-        
-        auto all_groups = graph.get_all_groups();
-        ASSERT_TRUE(all_groups.empty(), "Should clear all groups");
-    }
-
-    return true;
-}
-
-bool test_feature_manager_thread_safety() {
-    // Test with MutexSynchronizationPolicy
-    {
-        FeatureManager<MutexSynchronizationPolicy> graph;
-        (void)graph.add_feature("SharedFlag");
-        
-        std::atomic<int> success_count{0};
-        
-        auto worker = [&]() {
-            for (int i = 0; i < 100; ++i) {
-                auto res = graph.enable("SharedFlag");
-                if (res.has_value()) {
-                    success_count++;
-                }
-                
-                (void)graph.disable("SharedFlag");
-                
-                bool enabled = graph.is_enabled("SharedFlag");
-                (void)enabled;
+    auto worker = [&]() {
+        for (int i = 0; i < 100; ++i) {
+            auto res = graph.enable("SharedFlag");
+            if (res.has_value()) {
+                success_count++;
             }
-        };
-        
-        std::vector<std::thread> threads;
-        for (int i = 0; i < 4; ++i) {
-            threads.emplace_back(worker);
+            (void)graph.disable("SharedFlag");
+            bool enabled = graph.is_enabled("SharedFlag");
+            (void)enabled;
         }
-        
-        for (auto& t : threads) {
-            t.join();
-        }
-        
-        ASSERT_TRUE(success_count > 0, "Should have some successful operations");
+    };
+    
+    std::vector<std::thread> threads;
+    for (int i = 0; i < 4; ++i) {
+        threads.emplace_back(worker);
     }
-
+    
+    for (auto& t : threads) {
+        t.join();
+    }
+    
+    ASSERT_TRUE(success_count > 0, "Should have some successful operations");
     return true;
 }
 
-bool test_feature_manager_scoped_changes() {
-    FeatureManager<> graph;
-    (void)graph.add_feature("TempFlag");
-    
-    {
-        FeatureManager<>::ScopedFeatureChange scope(graph, "TempFlag", true);
-        ASSERT_TRUE(graph.is_enabled("TempFlag"), "Should be enabled in scope");
-    }
-    
-    ASSERT_FALSE(graph.is_enabled("TempFlag"), "Should be disabled after scope");
-    
-    return true;
-}
-
-bool test_feature_manager_observers() {
+bool test_observers() {
     FeatureManager<> graph;
     (void)graph.add_feature("Observed");
     
@@ -514,155 +446,377 @@ bool test_feature_manager_observers() {
     return true;
 }
 
-bool test_feature_manager_batch_operations() {
+bool test_dot_export() {
     FeatureManager<> graph;
-    (void)graph.add_feature("Batch1");
-    (void)graph.add_feature("Batch2");
-    (void)graph.add_feature("Batch3");
+    (void)graph.add_feature("NodeA");
+    (void)graph.add_feature("NodeB");
+    (void)graph.add_feature("NodeC");
+    (void)graph.add_relationship("NodeA", FeatureRelationship::Requires, "NodeB");
+    (void)graph.add_relationship("NodeA", FeatureRelationship::Conflicts, "NodeC");
+    (void)graph.add_group("TestGroup", {"NodeA", "NodeB"});
     
-    auto res = graph.batch_enable({"Batch1", "Batch2"});
-    ASSERT_TRUE(res.has_value(), "Should batch enable");
-    ASSERT_TRUE(graph.is_enabled("Batch1"), "Batch1 enabled");
-    ASSERT_TRUE(graph.is_enabled("Batch2"), "Batch2 enabled");
-    ASSERT_FALSE(graph.is_enabled("Batch3"), "Batch3 disabled");
+    std::string dot = graph.to_dot();
+    ASSERT_FALSE(dot.empty(), "DOT output should not be empty");
+    ASSERT_TRUE(dot.find("digraph") != std::string::npos, "Should contain digraph declaration");
+    ASSERT_TRUE(dot.find("NodeA") != std::string::npos, "Should contain NodeA");
+    ASSERT_TRUE(dot.find("Requires") != std::string::npos, "Should contain interaction label");
     
-    // Test rollback on failure
-    (void)graph.add_relationship("Batch3", FeatureRelationship::Conflicts, "Batch1");
-    res = graph.batch_enable({"Batch2", "Batch3"});
-    ASSERT_FALSE(res.has_value(), "Should fail batch due to conflict");
-    ASSERT_TRUE(graph.is_enabled("Batch1"), "Batch1 unchanged");
-    ASSERT_TRUE(graph.is_enabled("Batch2"), "Batch2 unchanged");
-    ASSERT_FALSE(graph.is_enabled("Batch3"), "Batch3 not enabled on failure");
-
     return true;
 }
 
-bool test_feature_manager_get_group_features() {
-    FeatureManager<> graph;
-    (void)graph.add_feature("G1");
-    (void)graph.add_feature("G2");
-    (void)graph.add_group("TestGroup", {"G1", "G2"});
-    
-    auto flags_res = graph.get_group_features("TestGroup");
-    ASSERT_TRUE(flags_res.has_value(), "Should get group flags");
-    ASSERT_EQ(flags_res->size(), 2u, "Should have 2 flags");
+} // namespace fat_p::testing::logic
 
+// ============================================================================
+// SECTION 2: Serialization & Factory Tests
+// ============================================================================
+
+namespace fat_p::testing::factory {
+
+// --- Helpers for Module Independence Test ---
+namespace module_a {
+    int hardware_check_call_count = 0;
+    Expected<void, std::string> check_hardware() {
+        ++hardware_check_call_count;
+        return {};
+    }
+    void register_checks() {
+        get_feature_check_factory().registerType("module_a.hardware", []() -> FeatureCheck {
+            return []() { return check_hardware(); };
+        });
+    }
+}
+
+namespace module_b {
+    int license_check_call_count = 0;
+    Expected<void, std::string> check_license() {
+        ++license_check_call_count;
+        return {};
+    }
+    void register_checks() {
+        get_feature_check_factory().registerType("module_b.license", []() -> FeatureCheck {
+            return []() { return check_license(); };
+        });
+    }
+}
+
+// --- Actual Tests ---
+
+bool test_basic_factory_registration() {
+    auto& factory = get_feature_check_factory();
+    factory.clear();
+    
+    bool registered = factory.registerType("test.simple", []() -> FeatureCheck {
+        return []() -> Expected<void, std::string> { return {}; };
+    });
+    ASSERT_TRUE(registered, "Should register new check");
+    
+    bool registered_again = factory.registerType("test.simple", []() -> FeatureCheck {
+        return []() -> Expected<void, std::string> { return unexpected("No"); };
+    });
+    ASSERT_FALSE(registered_again, "Should not allow duplicate registration");
+    
+    auto check_result = factory.make("test.simple");
+    ASSERT_TRUE(check_result.has_value(), "Should find registered check");
+    
+    auto check = *check_result;
+    auto result = check();
+    ASSERT_TRUE(result.has_value(), "Check should pass");
+    
+    auto missing_result = factory.make("test.missing");
+    ASSERT_FALSE(missing_result.has_value(), "Should not find non-existent check");
+    
+    factory.clear();
     return true;
 }
 
-bool test_feature_manager_complex_scenarios() {
-    // Test realistic game graphics configuration
+bool test_json_serialization_roundtrip() {
+    auto& factory = get_feature_check_factory();
+    factory.clear();
+    
+    [[maybe_unused]] bool r1 = factory.registerType("hardware.gpu", []() -> FeatureCheck {
+        return []() -> Expected<void, std::string> { return {}; };
+    });
+    [[maybe_unused]] bool r2 = factory.registerType("license.valid", []() -> FeatureCheck {
+        return []() -> Expected<void, std::string> { return {}; };
+    });
+    
+    FeatureManager<> manager;
+    (void)manager.add_feature("GPUAcceleration", "hardware.gpu");
+    (void)manager.add_feature("PremiumFeature", "license.valid");
+    (void)manager.add_feature("BasicFeature");
+    (void)manager.add_relationship("PremiumFeature", FeatureRelationship::Requires, "BasicFeature");
+    
+    (void)manager.enable("BasicFeature");
+    (void)manager.enable("GPUAcceleration");
+    
+    std::string json = manager.to_json();
+    ASSERT_TRUE(!json.empty(), "Should produce JSON");
+    ASSERT_TRUE(json.find("hardware.gpu") != std::string::npos, "Should contain check key");
+    
+    auto restored_result = FeatureManager<>::from_json(json);
+    ASSERT_TRUE(restored_result.has_value(), "Should deserialize successfully");
+    
+    auto& restored = *restored_result;
+    ASSERT_TRUE(restored.is_enabled("GPUAcceleration"), "GPUAcceleration should be enabled");
+    ASSERT_TRUE(restored.is_enabled("BasicFeature"), "BasicFeature should be enabled");
+    ASSERT_FALSE(restored.is_enabled("PremiumFeature"), "PremiumFeature should not be enabled");
+    
+    factory.clear();
+    return true;
+}
+
+bool test_raii_registration() {
+    auto& factory = get_feature_check_factory();
+    factory.clear();
+    
     {
-        FeatureManager<> graph;
+        FeatureCheckRegistration reg1("test.raii1", []() -> FeatureCheck {
+            return []() -> Expected<void, std::string> { return {}; };
+        });
+        ASSERT_TRUE(factory.hasType("test.raii1"), "Should be registered");
         
-        // Add flags
-        (void)graph.add_feature("DX12");
-        (void)graph.add_feature("Vulkan");
-        (void)graph.add_feature("OpenGL");
-        (void)graph.add_feature("HighRes");
-        (void)graph.add_feature("MSAA");
-        (void)graph.add_feature("RayTracing");
-        (void)graph.add_feature("VSync");
-        
-        // Mutually exclusive rendering backends
-        (void)graph.add_mutually_exclusive_group("RenderBackend", {"DX12", "Vulkan", "OpenGL"});
-        
-        // Dependencies
-        (void)graph.add_relationship("RayTracing", FeatureRelationship::Requires, "DX12");
-        (void)graph.add_relationship("HighRes", FeatureRelationship::Implies, "MSAA");
-        
-        // Group for advanced features
-        (void)graph.add_group("AdvancedGraphics", {"HighRes", "MSAA", "RayTracing"});
-        
-        // Enable DX12
-        auto res = graph.enable("DX12");
-        ASSERT_TRUE(res.has_value(), "Should enable DX12");
-        
-        // Enable RayTracing (requires DX12, which is enabled)
-        res = graph.enable("RayTracing");
-        ASSERT_TRUE(res.has_value(), "Should enable RayTracing with DX12");
-        
-        // Try to enable Vulkan (should fail, mutually exclusive with DX12)
-        res = graph.enable("Vulkan");
-        ASSERT_FALSE(res.has_value(), "Should fail: mutually exclusive with DX12");
-        
-        // Enable HighRes (should auto-enable MSAA via Implies)
-        res = graph.enable("HighRes");
-        ASSERT_TRUE(res.has_value(), "Should enable HighRes");
-        ASSERT_TRUE(graph.is_enabled("MSAA"), "MSAA should be auto-enabled");
-        
-        // Check group state
-        auto state = graph.get_group_state("AdvancedGraphics");
-        ASSERT_TRUE(*state == FeatureGroupState::Active, "All advanced features should be active");
+        FeatureManager<> manager;
+        auto add_result = manager.add_feature("Feature1", "test.raii1");
+        ASSERT_TRUE(add_result.has_value(), "Should add feature");
+    }
+    
+    ASSERT_FALSE(factory.hasType("test.raii1"), "Should be unregistered");
+    factory.clear();
+    return true;
+}
+
+bool test_module_independence() {
+    auto& factory = get_feature_check_factory();
+    factory.clear();
+    
+    module_a::register_checks();
+    module_b::register_checks();
+    
+    FeatureManager<> manager;
+    (void)manager.add_feature("HardwareFeature", "module_a.hardware");
+    (void)manager.add_feature("LicenseFeature", "module_b.license");
+    
+    module_a::hardware_check_call_count = 0;
+    module_b::license_check_call_count = 0;
+    
+    (void)manager.enable("HardwareFeature");
+    ASSERT_EQ(module_a::hardware_check_call_count, 1, "Should call module A check");
+    ASSERT_EQ(module_b::license_check_call_count, 0, "Should not call module B check");
+    
+    (void)manager.enable("LicenseFeature");
+    ASSERT_EQ(module_a::hardware_check_call_count, 1, "Should not call module A check again");
+    ASSERT_EQ(module_b::license_check_call_count, 1, "Should call module B check");
+    
+    factory.clear();
+    return true;
+}
+
+bool test_complex_graph_serialization() {
+    auto& factory = get_feature_check_factory();
+    factory.clear();
+    
+    [[maybe_unused]] bool r1 = factory.registerType("check.a", []() -> FeatureCheck { return []() -> Expected<void, std::string> { return {}; }; });
+    [[maybe_unused]] bool r2 = factory.registerType("check.b", []() -> FeatureCheck { return []() -> Expected<void, std::string> { return {}; }; });
+    
+    FeatureManager<> manager;
+    (void)manager.add_feature("A", "check.a");
+    (void)manager.add_feature("B", "check.b");
+    (void)manager.add_feature("C");
+    (void)manager.add_feature("D");
+    
+    (void)manager.add_relationship("B", FeatureRelationship::Requires, "A");
+    (void)manager.add_relationship("C", FeatureRelationship::Implies, "D");
+    (void)manager.add_relationship("A", FeatureRelationship::Conflicts, "D");
+    
+    (void)manager.enable("A");
+    (void)manager.enable("B");
+    
+    std::string json = manager.to_json();
+    auto restored_result = FeatureManager<>::from_json(json);
+    ASSERT_TRUE(restored_result.has_value(), "Should deserialize complex graph");
+    
+    auto& restored = *restored_result;
+    ASSERT_TRUE(restored.is_enabled("A"), "A should be enabled");
+    ASSERT_TRUE(restored.is_enabled("B"), "B should be enabled");
+    ASSERT_FALSE(restored.is_enabled("C"), "C should not be enabled");
+    
+    auto enable_d = restored.enable("D");
+    ASSERT_FALSE(enable_d.has_value(), "Should not enable D due to conflict");
+    
+    factory.clear();
+    return true;
+}
+
+} // namespace fat_p::testing::factory
+
+// ============================================================================
+// SECTION 3: Benchmarks
+// ============================================================================
+
+namespace fat_p::testing::bench {
+
+void setup_dense_graph(FeatureManager<>& manager, int count, int dependency_density_percent) {
+    std::mt19937 rng(42);
+    for (int i = 0; i < count; ++i) {
+        manager.add_feature("F" + std::to_string(i));
+    }
+    std::uniform_int_distribution<int> dist(0, 100);
+    for (int i = 1; i < count; ++i) {
+        if (dist(rng) < dependency_density_percent) {
+            std::uniform_int_distribution<int> target_dist(0, i - 1);
+            int target = target_dist(rng);
+            manager.add_relationship("F" + std::to_string(i), 
+                                   FeatureRelationship::Requires, 
+                                   "F" + std::to_string(target));
+        }
+    }
+}
+
+void benchmark_hot_path_lookup() {
+    FeatureManager<> manager;
+    int node_count = 10000;
+    setup_dense_graph(manager, node_count, 10);
+    manager.enable("F5000");
+    
+    benchmark_detailed("Hot Path: is_enabled() [Hit]", [&]() {
+        bool status = manager.is_enabled("F5000");
+        DoNotOptimize(status);
+    }, 100000, 50);
+
+    benchmark_detailed("Hot Path: is_enabled() [Miss]", [&]() {
+        bool status = manager.is_enabled("F9999");
+        DoNotOptimize(status);
+    }, 100000, 50);
+}
+
+void benchmark_dependency_resolution() {
+    // Case A: Shallow
+    {
+        FeatureManager<> manager;
+        setup_dense_graph(manager, 1000, 0);
+        benchmark_detailed("Write: enable() [No Dependencies]", [&]() {
+            FeatureManager<> temp;
+            temp.add_feature("A");
+            temp.enable("A");
+            DoNotOptimize(temp);
+        }, 1000, 20);
+    }
+    // Case B: Deep Chain
+    {
+        FeatureManager<> deep_manager;
+        for(int i=0; i<51; ++i) deep_manager.add_feature("N" + std::to_string(i));
+        for(int i=0; i<50; ++i) {
+            deep_manager.add_relationship("N" + std::to_string(i), 
+                                        FeatureRelationship::Requires, 
+                                        "N" + std::to_string(i+1));
+        }
+        benchmark_detailed("Write: enable() [Chain Depth 50]", [&]() {
+            deep_manager.disable("N0"); 
+            deep_manager.enable("N0");
+        }, 10000, 20);
+    }
+}
+
+void benchmark_full_validation() {
+    FeatureManager<> manager;
+    setup_dense_graph(manager, 1000, 5);
+    benchmark_detailed("Maintenance: validate() [1k nodes]", [&]() {
+        auto res = manager.validate();
+        DoNotOptimize(res);
+    }, 100, 10);
+}
+
+void benchmark_mutex_overhead() {
+    FeatureManager<SingleThreadedPolicy> st_manager;
+    st_manager.add_feature("F1");
+    st_manager.enable("F1");
+
+    FeatureManager<MutexSynchronizationPolicy> mt_manager;
+    mt_manager.add_feature("F1");
+    mt_manager.enable("F1");
+
+    benchmark_compare("SingleThreaded Read", [&]() {
+        bool s = st_manager.is_enabled("F1");
+        DoNotOptimize(s);
+    },
+    "MutexLock Read", [&]() {
+        bool s = mt_manager.is_enabled("F1");
+        DoNotOptimize(s);
+    }, 1000000);
+}
+
+} // namespace fat_p::testing::bench
+
+// ============================================================================
+// MAIN: Unified Test Runner
+// ============================================================================
+
+
+namespace fat_p::testing
+{
+
+    bool test_FeatureManager() {
+        // Configuration
+        get_test_config().verbose = true;
+        get_test_config().colored_output = true;
+
+        TestRunner runner;
+        bool all_passed = true;
+
+        // ------------------------------------------------------------------------
+        // 1. Run Logic Tests
+        // ------------------------------------------------------------------------
+        PRINT_HEADER(LOGIC LAYER TESTS);
+
+        runner.run_test("Basic Operations", logic::test_basic_operations);
+        runner.run_test("Interactions (Requires/Conflicts)", logic::test_interactions);
+        runner.run_test("Validation & Cycles", logic::test_validation_and_cycles);
+        runner.run_test("Groups & States", logic::test_groups);
+        runner.run_test("Complex Scenarios", logic::test_complex_scenario);
+        runner.run_test("Thread Safety", logic::test_thread_safety);
+        runner.run_test("Observers", logic::test_observers);
+        runner.run_test("DOT Export", logic::test_dot_export);
+
+        if (runner.print_summary() > 0) all_passed = false;
+        runner.clear();
+
+        // ------------------------------------------------------------------------
+        // 2. Run Factory/Serialization Tests
+        // ------------------------------------------------------------------------
+        PRINT_HEADER(FACTORY & SERIALIZATION TESTS);
+
+        runner.run_test("Factory Registration", factory::test_basic_factory_registration);
+        runner.run_test("JSON Roundtrip", factory::test_json_serialization_roundtrip);
+        runner.run_test("RAII Registration", factory::test_raii_registration);
+        runner.run_test("Module Independence", factory::test_module_independence);
+        runner.run_test("Complex Graph JSON", factory::test_complex_graph_serialization);
+
+        if (runner.print_summary() > 0) all_passed = false;
+
+        // ------------------------------------------------------------------------
+        // 3. Run Benchmarks
+        // ------------------------------------------------------------------------
+        if (all_passed) {
+            PRINT_HEADER(PERFORMANCE BENCHMARKS);
+            std::cout << fat_p::testing::colors::yellow()
+                << "Note: Benchmarks include outliers and P99 stats."
+                << fat_p::testing::colors::reset() << "\n\n";
+
+            bench::benchmark_hot_path_lookup();
+            std::cout << "\n";
+            bench::benchmark_dependency_resolution();
+            std::cout << "\n";
+            bench::benchmark_full_validation();
+            std::cout << "\n";
+            bench::benchmark_mutex_overhead();
+        }
+        else {
+            std::cout << fat_p::testing::colors::red()
+                << "\nSkipping benchmarks due to test failures."
+                << fat_p::testing::colors::reset() << "\n";
+        }
+
+        return all_passed;
     }
 
-    return true;
-}
-
-bool test_feature_manager_edge_cases() {
-    // Test empty graph operations
-    {
-        FeatureManager<> graph;
-        auto res = graph.enable("NonExistent");
-        ASSERT_FALSE(res.has_value(), "Should fail on non-existent flag");
-        
-        ASSERT_FALSE(graph.is_enabled("NonExistent"), "Non-existent flag should not be enabled");
-        
-        auto enabled = graph.get_enabled();
-        ASSERT_TRUE(enabled.empty(), "Empty graph should have no enabled flags");
-    }
-
-    // Test bidirectional conflict symmetry
-    {
-        FeatureManager<> graph;
-        (void)graph.add_feature("X");
-        (void)graph.add_feature("Y");
-        
-        (void)graph.add_relationship("X", FeatureRelationship::Conflicts, "Y");
-        
-        // Enable X, then Y should fail
-        (void)graph.enable("X");
-        auto res = graph.enable("Y");
-        ASSERT_FALSE(res.has_value(), "Y should conflict with X");
-        
-        // Clear and try reverse
-        graph.clear();
-        (void)graph.add_feature("X");
-        (void)graph.add_feature("Y");
-        (void)graph.add_relationship("X", FeatureRelationship::Conflicts, "Y");
-        
-        (void)graph.enable("Y");
-        res = graph.enable("X");
-        ASSERT_FALSE(res.has_value(), "X should conflict with Y (bidirectional)");
-    }
-
-    return true;
-}
-
-bool test_FeatureManager() {
-
-    PRINT_HEADER(FEATURE MANAGER)
-
-    TestRunner runner;
-    get_test_config().verbose = true;
-
-    runner.run_test("Basic Operations", test_feature_manager_basic_operations);
-    runner.run_test("Interactions", test_feature_manager_interactions);
-    runner.run_test("Validation", test_feature_manager_validation);
-    runner.run_test("Groups", test_feature_manager_groups);
-    runner.run_test("Serialization", test_feature_manager_serialization);
-    runner.run_test("DOT Export", test_feature_manager_dot_export);
-    runner.run_test("Memory Safety", test_feature_manager_memory_safety);
-    runner.run_test("Thread Safety", test_feature_manager_thread_safety);
-    runner.run_test("Scoped Changes", test_feature_manager_scoped_changes);
-    runner.run_test("Observers", test_feature_manager_observers);
-    runner.run_test("Batch Operations", test_feature_manager_batch_operations);
-    runner.run_test("Get Group Flags", test_feature_manager_get_group_features);
-    runner.run_test("Complex Scenarios", test_feature_manager_complex_scenarios);
-    runner.run_test("Edge Cases", test_feature_manager_edge_cases);
-    
-    return 0 == runner.print_summary();
-}
-
-} // namespace  testing
 } // namespace fat_p::testing

@@ -186,7 +186,8 @@ template <typename To, template <typename...> class Op, typename... Args>
 using is_detected_convertible = std::is_convertible<detected_t<Op, Args...>, To>;
 
 /**
- * @brief is_detected_convertible_v - checks if detected type converts to To (C++17 variable template)
+ * @brief is_detected_convertible_v - checks if detected type converts to To (C++17 variable
+ *        template)
  * @tparam To The target type for conversion
  * @tparam Op Template template to test
  * @tparam Args Arguments to Op
@@ -266,217 +267,247 @@ struct has_data<T, detail::void_t<decltype(std::declval<T&>().data())>>
 template <typename T>
 inline constexpr bool has_data_v = has_data<T>::value;
 
+/**
+ * @brief has_empty - detects if T has empty() method
+ * @tparam T The type to check
+ */
+template <typename T, typename = void>
+struct has_empty : std::false_type {};
+
+template <typename T>
+struct has_empty<T, detail::void_t<decltype(std::declval<T&>().empty())>> 
+    : std::true_type {};
+
+/**
+ * @brief has_empty_v - variable template for has_empty
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool has_empty_v = has_empty<T>::value;
+
+/**
+ * @brief has_reserve - detects if T has reserve() method
+ * @tparam T The type to check
+ */
+template <typename T, typename = void>
+struct has_reserve : std::false_type {};
+
+template <typename T>
+struct has_reserve<T, detail::void_t<decltype(std::declval<T&>().reserve(
+    std::declval<std::size_t>()))>> : std::true_type {};
+
+/**
+ * @brief has_reserve_v - variable template for has_reserve
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool has_reserve_v = has_reserve<T>::value;
+
+/**
+ * @brief has_rbegin - detects if T supports rbegin()
+ * @tparam T The type to check
+ */
+template <typename T, typename = void>
+struct has_rbegin : std::false_type {};
+
+template <typename T>
+struct has_rbegin<T, detail::void_t<decltype(std::rbegin(std::declval<T&>()))>> 
+    : std::true_type {};
+
+/**
+ * @brief has_rbegin_v - variable template for has_rbegin
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool has_rbegin_v = has_rbegin<T>::value;
+
+/**
+ * @brief has_rend - detects if T supports rend()
+ * @tparam T The type to check
+ */
+template <typename T, typename = void>
+struct has_rend : std::false_type {};
+
+template <typename T>
+struct has_rend<T, detail::void_t<decltype(std::rend(std::declval<T&>()))>> 
+    : std::true_type {};
+
+/**
+ * @brief has_rend_v - variable template for has_rend
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool has_rend_v = has_rend<T>::value;
+
+/**
+ * @brief is_iterable - checks if T can be iterated (has begin and end)
+ * @tparam T The type to check
+ */
+template <typename T>
+struct is_iterable : std::conjunction<has_begin<T>, has_end<T>> {};
+
+/**
+ * @brief is_iterable_v - variable template for is_iterable
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool is_iterable_v = is_iterable<T>::value;
+
+/**
+ * @brief is_sized - checks if T has size() method
+ * @tparam T The type to check
+ */
+template <typename T>
+struct is_sized : has_size<T> {};
+
+/**
+ * @brief is_sized_v - variable template for is_sized
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool is_sized_v = is_sized<T>::value;
+
+/**
+ * @brief is_container - checks if T is a container (iterable + sized)
+ * @tparam T The type to check
+ */
+template <typename T>
+struct is_container : std::conjunction<is_iterable<T>, is_sized<T>> {};
+
+/**
+ * @brief is_container_v - variable template for is_container
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool is_container_v = is_container<T>::value;
+
+/**
+ * @brief is_reservable - checks if T has reserve() (e.g., vector, string)
+ * @tparam T The type to check
+ */
+template <typename T>
+struct is_reservable : has_reserve<T> {};
+
+/**
+ * @brief is_reservable_v - variable template for is_reservable
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool is_reservable_v = is_reservable<T>::value;
+
+/**
+ * @brief is_reverse_iterable - checks if T supports reverse iteration
+ * @tparam T The type to check
+ */
+template <typename T>
+struct is_reverse_iterable : std::conjunction<has_rbegin<T>, has_rend<T>> {};
+
+/**
+ * @brief is_reverse_iterable_v - variable template for is_reverse_iterable
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool is_reverse_iterable_v = is_reverse_iterable<T>::value;
+
 #if FATP_HAS_CPP20
 
-    /**
-     * @brief C++20 concept: checks if T can be iterated (has begin and end returning iterators)
-     * @tparam T The type to check
-     */
-    template<typename T>
-    concept is_iterable = requires(T val) {
-        { std::begin(val) } -> std::input_or_output_iterator;
-        { std::end(val) } -> std::input_or_output_iterator;
-    };
+/**
+ * @namespace concepts
+ * @brief C++20 concepts for type constraints
+ * 
+ * @details These concepts provide cleaner syntax for template constraints
+ * while the struct-based traits remain available for use with std::conjunction
+ * and other metaprogramming utilities.
+ */
+namespace concepts {
 
-    /**
-     * @brief is_iterable_v - variable template for is_iterable concept
-     * @tparam T The type to check
-     */
-    template<typename T>
-    inline constexpr bool is_iterable_v = is_iterable<T>;
+/**
+ * @brief C++20 concept: checks if T can be iterated (has begin and end returning iterators)
+ * @tparam T The type to check
+ */
+template<typename T>
+concept Iterable = requires(T val) {
+    { std::begin(val) } -> std::input_or_output_iterator;
+    { std::end(val) } -> std::input_or_output_iterator;
+};
 
-    /**
-     * @brief C++20 concept: checks if T has a size() method returning an integral
-     * @tparam T The type to check
-     */
-    template<typename T>
-    concept is_sized = requires(T val) {
-        { val.size() } -> std::integral;
-    };
+/**
+ * @brief C++20 concept: checks if T has a size() method returning an integral
+ * @tparam T The type to check
+ */
+template<typename T>
+concept Sized = requires(T val) {
+    { val.size() } -> std::integral;
+};
 
-    /**
-     * @brief is_sized_v - variable template for is_sized concept
-     * @tparam T The type to check
-     */
-    template<typename T>
-    inline constexpr bool is_sized_v = is_sized<T>;
+/**
+ * @brief C++20 concept: checks if T is a container (iterable + sized)
+ * @tparam T The type to check
+ */
+template<typename T>
+concept Container = Iterable<T> && Sized<T>;
 
-    /**
-     * @brief C++20 concept: checks if T is a container (iterable + sized)
-     * @tparam T The type to check
-     */
-    template<typename T>
-    concept is_container = is_iterable<T> && is_sized<T>;
-    
-    /**
-     * @brief is_container_v - variable template for is_container concept
-     * @tparam T The type to check
-     */
-    template<typename T>
-    inline constexpr bool is_container_v = is_container<T>;
+/**
+ * @brief C++20 concept: checks if T supports reverse iteration
+ * @tparam T The type to check
+ */
+template<typename T>
+concept ReverseIterable = requires(T val) {
+    { std::rbegin(val) } -> std::input_or_output_iterator;
+    { std::rend(val) } -> std::input_or_output_iterator;
+};
 
-    /**
-     * @brief C++20 concept: checks if T supports reverse iteration
-     * @tparam T The type to check
-     */
-    template<typename T>
-    concept is_reverse_iterable = requires(T val) {
-        { std::rbegin(val) } -> std::input_or_output_iterator;
-        { std::rend(val) } -> std::input_or_output_iterator;
-    };
+/**
+ * @brief C++20 concept: checks if T has reserve() method
+ * @tparam T The type to check
+ */
+template<typename T>
+concept Reservable = requires(T val) {
+    val.reserve(std::size_t{});
+};
 
-    /**
-     * @brief is_reverse_iterable_v - variable template for is_reverse_iterable concept
-     * @tparam T The type to check
-     */
-    template<typename T>
-    inline constexpr bool is_reverse_iterable_v = is_reverse_iterable<T>;
+/**
+ * @brief C++20 concept: checks if T is a contiguous container
+ * @tparam T The type to check
+ */
+template<typename T>
+concept ContiguousContainer = Container<T> && requires(T val) {
+    { val.data() };
+};
 
-#else
+/**
+ * @brief C++20 concept: checks if T is hashable
+ * @tparam T The type to check
+ */
+template<typename T>
+concept Hashable = requires(T val) {
+    { std::hash<std::remove_cv_t<T>>{}(val) } -> std::convertible_to<std::size_t>;
+};
 
-    /**
-     * @brief has_empty - detects if T has empty() method (C++17)
-     * @tparam T The type to check
-     */
-    template <typename T, typename = void>
-    struct has_empty : std::false_type {};
-    
-    template <typename T>
-    struct has_empty<T, detail::void_t<decltype(std::declval<T&>().empty())>> 
-        : std::true_type {};
-    
-    /**
-     * @brief has_empty_v - variable template for has_empty
-     * @tparam T The type to check
-     */
-    template <typename T>
-    inline constexpr bool has_empty_v = has_empty<T>::value;
+/**
+ * @brief C++20 concept: checks if T is equality comparable
+ * @tparam T The type to check
+ */
+template<typename T>
+concept EqualityComparable = requires(T a, T b) {
+    { a == b } -> std::convertible_to<bool>;
+};
 
-    /**
-     * @brief has_reserve - detects if T has reserve() method (C++17)
-     * @tparam T The type to check
-     */
-    template <typename T, typename = void>
-    struct has_reserve : std::false_type {};
-    
-    template <typename T>
-    struct has_reserve<T, detail::void_t<decltype(std::declval<T&>().reserve(
-        std::declval<std::size_t>()))>> : std::true_type {};
-    
-    /**
-     * @brief has_reserve_v - variable template for has_reserve
-     * @tparam T The type to check
-     */
-    template <typename T>
-    inline constexpr bool has_reserve_v = has_reserve<T>::value;
+/**
+ * @brief C++20 concept: checks if T is fully ordered
+ * @tparam T The type to check
+ */
+template<typename T>
+concept FullyOrdered = requires(T a, T b) {
+    { a < b } -> std::convertible_to<bool>;
+    { a <= b } -> std::convertible_to<bool>;
+    { a > b } -> std::convertible_to<bool>;
+    { a >= b } -> std::convertible_to<bool>;
+};
 
-    /**
-     * @brief has_rbegin - detects if T supports rbegin() (C++17)
-     * @tparam T The type to check
-     */
-    template <typename T, typename = void>
-    struct has_rbegin : std::false_type {};
-    
-    template <typename T>
-    struct has_rbegin<T, detail::void_t<decltype(std::rbegin(std::declval<T&>()))>> 
-        : std::true_type {};
-    
-    /**
-     * @brief has_rbegin_v - variable template for has_rbegin
-     * @tparam T The type to check
-     */
-    template <typename T>
-    inline constexpr bool has_rbegin_v = has_rbegin<T>::value;
+} // namespace concepts
 
-    /**
-     * @brief has_rend - detects if T supports rend() (C++17)
-     * @tparam T The type to check
-     */
-    template <typename T, typename = void>
-    struct has_rend : std::false_type {};
-    
-    template <typename T>
-    struct has_rend<T, detail::void_t<decltype(std::rend(std::declval<T&>()))>> 
-        : std::true_type {};
-    
-    /**
-     * @brief has_rend_v - variable template for has_rend
-     * @tparam T The type to check
-     */
-    template <typename T>
-    inline constexpr bool has_rend_v = has_rend<T>::value;
-
-    /**
-     * @brief is_iterable - checks if T can be iterated (has begin and end) (C++17)
-     * @tparam T The type to check
-     */
-    template <typename T>
-    struct is_iterable : std::conjunction<has_begin<T>, has_end<T>> {};
-    
-    /**
-     * @brief is_iterable_v - variable template for is_iterable
-     * @tparam T The type to check
-     */
-    template <typename T>
-    inline constexpr bool is_iterable_v = is_iterable<T>::value;
-
-    /**
-     * @brief is_sized - checks if T has size() method (C++17)
-     * @tparam T The type to check
-     */
-    template <typename T>
-    struct is_sized : has_size<T> {};
-    
-    /**
-     * @brief is_sized_v - variable template for is_sized
-     * @tparam T The type to check
-     */
-    template <typename T>
-    inline constexpr bool is_sized_v = is_sized<T>::value;
-
-    /**
-     * @brief is_container - checks if T is a container (iterable + sized) (C++17)
-     * @tparam T The type to check
-     */
-    template <typename T>
-    struct is_container : std::conjunction<is_iterable<T>, is_sized<T>> {};
-    
-    /**
-     * @brief is_container_v - variable template for is_container
-     * @tparam T The type to check
-     */
-    template <typename T>
-    inline constexpr bool is_container_v = is_container<T>::value;
-
-    /**
-     * @brief is_reservable - checks if T has reserve() (e.g., vector, string) (C++17)
-     * @tparam T The type to check
-     */
-    template <typename T>
-    struct is_reservable : has_reserve<T> {};
-    
-    /**
-     * @brief is_reservable_v - variable template for is_reservable
-     * @tparam T The type to check
-     */
-    template <typename T>
-    inline constexpr bool is_reservable_v = is_reservable<T>::value;
-
-    /**
-     * @brief is_reverse_iterable - checks if T supports reverse iteration (C++17)
-     * @tparam T The type to check
-     */
-    template <typename T>
-    struct is_reverse_iterable : std::conjunction<has_rbegin<T>, has_rend<T>> {};
-    
-    /**
-     * @brief is_reverse_iterable_v - variable template for is_reverse_iterable
-     * @tparam T The type to check
-     */
-    template <typename T>
-    inline constexpr bool is_reverse_iterable_v = is_reverse_iterable<T>::value;
-
-#endif
+#endif // FATP_HAS_CPP20
 
 /**
  * @brief has_subscript - detects if T supports operator[]
@@ -1051,7 +1082,8 @@ template <typename T>
 struct is_allocator<T, detail::void_t<
     typename T::value_type,
     decltype(std::declval<T&>().allocate(std::declval<std::size_t>())),
-    decltype(std::declval<T&>().deallocate(std::declval<typename T::value_type*>(), std::declval<std::size_t>()))
+    decltype(std::declval<T&>().deallocate(
+        std::declval<typename T::value_type*>(), std::declval<std::size_t>()))
 >> : std::true_type {};
 
 /**
@@ -1218,7 +1250,8 @@ template <typename T, typename = void>
 struct has_tuple_element : std::false_type {};
 
 template <typename T>
-struct has_tuple_element<T, detail::void_t<typename std::tuple_element<0, T>::type>> : std::true_type {};
+struct has_tuple_element<T, detail::void_t<typename std::tuple_element<0, T>::type>> 
+    : std::true_type {};
 
 /**
  * @brief has_tuple_element_v - variable template for has_tuple_element
@@ -1270,7 +1303,8 @@ template <typename T, typename = void>
 struct has_iterator_category : std::false_type {};
 
 template <typename T>
-struct has_iterator_category<T, detail::void_t<typename std::iterator_traits<T>::iterator_category>> : std::true_type {};
+struct has_iterator_category<T, detail::void_t<
+    typename std::iterator_traits<T>::iterator_category>> : std::true_type {};
 
 /**
  * @brief has_iterator_category_v - variable template for has_iterator_category
@@ -1321,7 +1355,8 @@ template <typename T, typename = void>
 struct has_has_value : std::false_type {};
 
 template <typename T>
-struct has_has_value<T, detail::void_t<decltype(std::declval<T&>().has_value())>> : std::true_type {};
+struct has_has_value<T, detail::void_t<decltype(std::declval<T&>().has_value())>> 
+    : std::true_type {};
 
 /**
  * @brief has_has_value_v - variable template for has_has_value
@@ -1338,7 +1373,8 @@ template <typename T, typename = void>
 struct has_value_method : std::false_type {};
 
 template <typename T>
-struct has_value_method<T, detail::void_t<decltype(std::declval<T&>().value())>> : std::true_type {};
+struct has_value_method<T, detail::void_t<decltype(std::declval<T&>().value())>> 
+    : std::true_type {};
 
 /**
  * @brief has_value_method_v - variable template for has_value_method
@@ -1372,7 +1408,8 @@ template <typename T, typename = void>
 struct has_index_method : std::false_type {};
 
 template <typename T>
-struct has_index_method<T, detail::void_t<decltype(std::declval<T&>().index())>> : std::true_type {};
+struct has_index_method<T, detail::void_t<decltype(std::declval<T&>().index())>> 
+    : std::true_type {};
 
 /**
  * @brief has_index_method_v - variable template for has_index_method

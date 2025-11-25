@@ -137,12 +137,18 @@ struct PolicyTraits
         std::is_same_v<Policy, InfTolerantPolicy>;
 };
 
-#if defined(__clang__) || defined(__GNUC__)
-#define HAS_BUILTIN_OVERFLOW (__has_builtin(__builtin_add_overflow) && \
-                              __has_builtin(__builtin_sub_overflow) && \
-                              __has_builtin(__builtin_mul_overflow))
+#if defined(__has_builtin)
+    #if __has_builtin(__builtin_add_overflow) && \
+        __has_builtin(__builtin_sub_overflow) && \
+        __has_builtin(__builtin_mul_overflow)
+        #define HAS_BUILTIN_OVERFLOW 1
+    #else
+        #define HAS_BUILTIN_OVERFLOW 0
+    #endif
+#elif defined(__GNUC__) && (__GNUC__ >= 5)
+    #define HAS_BUILTIN_OVERFLOW 1
 #else
-#define HAS_BUILTIN_OVERFLOW 0
+    #define HAS_BUILTIN_OVERFLOW 0
 #endif
 
 #define VALIDATE_FP_INPUTS(a, b, op_name)                                              \
@@ -177,7 +183,7 @@ struct PolicyTraits
     } while(0)
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
-constexpr PolicyReturnType<Policy, T> checked_add(T a, T b)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_add(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
 #if HAS_BUILTIN_OVERFLOW
@@ -266,7 +272,7 @@ constexpr PolicyReturnType<Policy, T> checked_add(T a, T b)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
-constexpr PolicyReturnType<Policy, T> checked_sub(T a, T b)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_sub(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
 #if HAS_BUILTIN_OVERFLOW
@@ -353,7 +359,7 @@ constexpr PolicyReturnType<Policy, T> checked_sub(T a, T b)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
-constexpr PolicyReturnType<Policy, T> checked_mul(T a, T b)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_mul(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
 #if HAS_BUILTIN_OVERFLOW
@@ -433,7 +439,7 @@ constexpr PolicyReturnType<Policy, T> checked_mul(T a, T b)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
-constexpr PolicyReturnType<Policy, T> checked_div(T a, T b)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_div(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if (b == 0)
@@ -481,7 +487,7 @@ constexpr PolicyReturnType<Policy, T> checked_div(T a, T b)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
-constexpr PolicyReturnType<Policy, T> checked_mod(T a, T b)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_mod(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if (b == 0)
@@ -525,7 +531,7 @@ constexpr PolicyReturnType<Policy, T> checked_mod(T a, T b)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
-PolicyReturnType<Policy, T> checked_add_fp(T a, T b)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_add_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     VALIDATE_FP_INPUTS(a, b, "+");
@@ -568,7 +574,7 @@ PolicyReturnType<Policy, T> checked_add_fp(T a, T b)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
-PolicyReturnType<Policy, T> checked_sub_fp(T a, T b)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_sub_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     VALIDATE_FP_INPUTS(a, b, "-");
@@ -611,7 +617,7 @@ PolicyReturnType<Policy, T> checked_sub_fp(T a, T b)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
-PolicyReturnType<Policy, T> checked_mul_fp(T a, T b)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_mul_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     VALIDATE_FP_INPUTS(a, b, "*");
@@ -654,7 +660,7 @@ PolicyReturnType<Policy, T> checked_mul_fp(T a, T b)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
-PolicyReturnType<Policy, T> checked_div_fp(T a, T b)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_div_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     VALIDATE_FP_INPUTS(a, b, "/");
@@ -679,7 +685,13 @@ PolicyReturnType<Policy, T> checked_div_fp(T a, T b)
         }
         else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)
         {
-            return (a >= 0) ? std::numeric_limits<T>::infinity() :
+            // 0/0 is mathematically undefined - return NaN
+            if (a == T{0})
+            {
+                return std::numeric_limits<T>::quiet_NaN();
+            }
+            // Non-zero / 0 returns appropriately signed infinity
+            return (a > T{0}) ? std::numeric_limits<T>::infinity() :
                               -std::numeric_limits<T>::infinity();
         }
     }
@@ -722,7 +734,7 @@ PolicyReturnType<Policy, T> checked_div_fp(T a, T b)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
-constexpr PolicyReturnType<Policy, T> checked_and(T a, T b)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_and(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     T result = a & b;
@@ -730,7 +742,7 @@ constexpr PolicyReturnType<Policy, T> checked_and(T a, T b)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
-constexpr PolicyReturnType<Policy, T> checked_or(T a, T b)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_or(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     T result = a | b;
@@ -738,7 +750,7 @@ constexpr PolicyReturnType<Policy, T> checked_or(T a, T b)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
-constexpr PolicyReturnType<Policy, T> checked_xor(T a, T b)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_xor(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     T result = a ^ b;
@@ -746,7 +758,7 @@ constexpr PolicyReturnType<Policy, T> checked_xor(T a, T b)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL, typename S>
-constexpr PolicyReturnType<Policy, T> checked_left_shift(T a, S shift)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_left_shift(T a, S shift)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_integral_v<S>, "Shift must be integral");
@@ -774,7 +786,7 @@ constexpr PolicyReturnType<Policy, T> checked_left_shift(T a, S shift)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL, typename S>
-constexpr PolicyReturnType<Policy, T> checked_right_shift(T a, S shift)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_right_shift(T a, S shift)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_integral_v<S>, "Shift must be integral");
@@ -809,7 +821,7 @@ constexpr PolicyReturnType<Policy, T> checked_right_shift(T a, S shift)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_ARITHMETIC>
-constexpr PolicyReturnType<Policy, T> checked_negate(T a)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_negate(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
@@ -828,6 +840,10 @@ constexpr PolicyReturnType<Policy, T> checked_negate(T a)
             {
                 return std::numeric_limits<T>::max();
             }
+            else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)
+            {
+                return std::numeric_limits<T>::max();
+            }
         }
     }
     
@@ -836,7 +852,7 @@ constexpr PolicyReturnType<Policy, T> checked_negate(T a)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, typename T>
-constexpr PolicyReturnType<Policy, T> checked_clamp(T value, T min_val, T max_val)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_clamp(T value, T min_val, T max_val)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_arithmetic_v<T>, "checked_clamp requires arithmetic types");
@@ -851,7 +867,8 @@ constexpr PolicyReturnType<Policy, T> checked_clamp(T value, T min_val, T max_va
         {
             return Expected<T, MathError>(unexpect, MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             std::swap(min_val, max_val);
         }
@@ -869,7 +886,8 @@ constexpr PolicyReturnType<Policy, T> checked_clamp(T value, T min_val, T max_va
             {
                 return Expected<T, MathError>(unexpect, MathError::NaN);
             }
-            else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+            else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                              std::is_same_v<Policy, InfTolerantPolicy>)
             {
                 return std::numeric_limits<T>::quiet_NaN();
             }
@@ -882,7 +900,7 @@ constexpr PolicyReturnType<Policy, T> checked_clamp(T value, T min_val, T max_va
 }
 
 template <typename Policy = ReturnExpectedPolicy, typename T>
-constexpr PolicyReturnType<Policy, bool> checked_in_range(T value, T min_val, T max_val)
+[[nodiscard]] constexpr PolicyReturnType<Policy, bool> checked_in_range(T value, T min_val, T max_val)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_arithmetic_v<T>, "checked_in_range requires arithmetic types");
@@ -897,7 +915,8 @@ constexpr PolicyReturnType<Policy, bool> checked_in_range(T value, T min_val, T 
         {
             return Expected<bool, MathError>(unexpect, MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             std::swap(min_val, max_val);
         }
@@ -915,7 +934,8 @@ constexpr PolicyReturnType<Policy, bool> checked_in_range(T value, T min_val, T 
             {
                 return Expected<bool, MathError>(unexpect, MathError::NaN);
             }
-            else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+            else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                              std::is_same_v<Policy, InfTolerantPolicy>)
             {
                 return false;
             }
@@ -928,7 +948,7 @@ constexpr PolicyReturnType<Policy, bool> checked_in_range(T value, T min_val, T 
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
-PolicyReturnType<Policy, T> checked_mod_fp(T a, T b)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_mod_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     VALIDATE_FP_INPUTS(a, b, "%");
@@ -980,7 +1000,7 @@ PolicyReturnType<Policy, T> checked_mod_fp(T a, T b)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
-PolicyReturnType<Policy, T> checked_abs_fp(T a)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_abs_fp(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if (std::isnan(a))
@@ -1009,7 +1029,7 @@ PolicyReturnType<Policy, T> checked_abs_fp(T a)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
-PolicyReturnType<Policy, T> checked_sqrt_fp(T a)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_sqrt_fp(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if (std::isnan(a))
@@ -1058,7 +1078,7 @@ PolicyReturnType<Policy, T> checked_sqrt_fp(T a)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
-PolicyReturnType<Policy, T> checked_floor_fp(T a)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_floor_fp(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if (std::isnan(a))
@@ -1087,7 +1107,7 @@ PolicyReturnType<Policy, T> checked_floor_fp(T a)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
-PolicyReturnType<Policy, T> checked_ceil_fp(T a)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_ceil_fp(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if (std::isnan(a))
@@ -1116,7 +1136,7 @@ PolicyReturnType<Policy, T> checked_ceil_fp(T a)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
-PolicyReturnType<Policy, T> checked_trunc_fp(T a)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_trunc_fp(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if (std::isnan(a))
@@ -1145,7 +1165,7 @@ PolicyReturnType<Policy, T> checked_trunc_fp(T a)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
-PolicyReturnType<Policy, T> checked_round_fp(T a)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_round_fp(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if (std::isnan(a))
@@ -1174,14 +1194,14 @@ PolicyReturnType<Policy, T> checked_round_fp(T a)
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
-constexpr PolicyReturnType<Policy, T> checked_inc(T a)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_inc(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     return checked_add<Policy>(a, T{1});
 }
 
 template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
-constexpr PolicyReturnType<Policy, T> checked_dec(T a)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_dec(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     return checked_sub<Policy>(a, T{1});
@@ -1194,6 +1214,8 @@ constexpr PolicyReturnType<Policy, T> checked_dec(T a)
  *          ensure the resulting pointer remains within the same allocated object
  *          or one-past-the-end. Violating this remains undefined behavior per the
  *          C++ standard, even though the address arithmetic succeeds.
+ * @note The offset is in elements (like standard pointer arithmetic), not bytes.
+ *       For ptr + n, the address advances by n * sizeof(P) bytes.
  * @example
  *   int arr[10];
  *   int* p = &arr[0];
@@ -1201,16 +1223,27 @@ constexpr PolicyReturnType<Policy, T> checked_dec(T a)
  *   auto r2 = checked_add(p, 1000);  // UB: not in same object (even if no overflow)
  */
 template <typename P, typename Policy = ReturnExpectedPolicy>
-PolicyReturnType<Policy, P*> checked_add(P* ptr, std::ptrdiff_t offset)
+[[nodiscard]] PolicyReturnType<Policy, P*> checked_add(P* ptr, std::ptrdiff_t offset)
     noexcept(PolicyTraits<Policy>::template is_noexcept<std::ptrdiff_t>)
 {
-    auto addr = reinterpret_cast<std::uintptr_t>(ptr);
+    static_assert(!std::is_void_v<P>, "Cannot perform pointer arithmetic on void*");
     
+    auto addr = reinterpret_cast<std::uintptr_t>(ptr);
+    constexpr std::size_t elem_size = sizeof(P);
+    
+    // First check if offset * sizeof(P) would overflow
     if (offset >= 0)
     {
-        auto res = checked_add<Policy>(addr, static_cast<std::uintptr_t>(offset));
+        auto byte_offset_result = checked_mul<Policy>(
+            static_cast<std::uintptr_t>(offset),
+            static_cast<std::uintptr_t>(elem_size));
         if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
+            if (!byte_offset_result.has_value())
+            {
+                return unexpected(byte_offset_result.error());
+            }
+            auto res = checked_add<Policy>(addr, byte_offset_result.value());
             if (!res.has_value())
             {
                 return unexpected(res.error());
@@ -1219,6 +1252,7 @@ PolicyReturnType<Policy, P*> checked_add(P* ptr, std::ptrdiff_t offset)
         }
         else
         {
+            auto res = checked_add<Policy>(addr, byte_offset_result);
             return reinterpret_cast<P*>(res);
         }
     }
@@ -1238,11 +1272,22 @@ PolicyReturnType<Policy, P*> checked_add(P* ptr, std::ptrdiff_t offset)
             {
                 return nullptr;
             }
+            else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)
+            {
+                return nullptr;
+            }
         }
         
-        auto res = checked_sub<Policy>(addr, static_cast<std::uintptr_t>(-offset));
+        auto byte_offset_result = checked_mul<Policy>(
+            static_cast<std::uintptr_t>(-offset),
+            static_cast<std::uintptr_t>(elem_size));
         if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
+            if (!byte_offset_result.has_value())
+            {
+                return unexpected(byte_offset_result.error());
+            }
+            auto res = checked_sub<Policy>(addr, byte_offset_result.value());
             if (!res.has_value())
             {
                 return unexpected(res.error());
@@ -1251,6 +1296,7 @@ PolicyReturnType<Policy, P*> checked_add(P* ptr, std::ptrdiff_t offset)
         }
         else
         {
+            auto res = checked_sub<Policy>(addr, byte_offset_result);
             return reinterpret_cast<P*>(res);
         }
     }
@@ -1260,18 +1306,29 @@ PolicyReturnType<Policy, P*> checked_add(P* ptr, std::ptrdiff_t offset)
  * @brief Checked pointer arithmetic (subtraction) with address-space overflow detection
  * @warning This function guarantees ADDRESS-SPACE overflow safety but CANNOT
  *          guarantee object lifetime or array bounds safety. See checked_add for details.
+ * @note The offset is in elements (like standard pointer arithmetic), not bytes.
  */
 template <typename P, typename Policy = ReturnExpectedPolicy>
-PolicyReturnType<Policy, P*> checked_sub(P* ptr, std::ptrdiff_t offset)
+[[nodiscard]] PolicyReturnType<Policy, P*> checked_sub(P* ptr, std::ptrdiff_t offset)
     noexcept(PolicyTraits<Policy>::template is_noexcept<std::ptrdiff_t>)
 {
+    static_assert(!std::is_void_v<P>, "Cannot perform pointer arithmetic on void*");
+    
     auto addr = reinterpret_cast<std::uintptr_t>(ptr);
+    constexpr std::size_t elem_size = sizeof(P);
     
     if (offset >= 0)
     {
-        auto res = checked_sub<Policy>(addr, static_cast<std::uintptr_t>(offset));
+        auto byte_offset_result = checked_mul<Policy>(
+            static_cast<std::uintptr_t>(offset),
+            static_cast<std::uintptr_t>(elem_size));
         if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
+            if (!byte_offset_result.has_value())
+            {
+                return unexpected(byte_offset_result.error());
+            }
+            auto res = checked_sub<Policy>(addr, byte_offset_result.value());
             if (!res.has_value())
             {
                 return unexpected(res.error());
@@ -1280,6 +1337,7 @@ PolicyReturnType<Policy, P*> checked_sub(P* ptr, std::ptrdiff_t offset)
         }
         else
         {
+            auto res = checked_sub<Policy>(addr, byte_offset_result);
             return reinterpret_cast<P*>(res);
         }
     }
@@ -1299,11 +1357,22 @@ PolicyReturnType<Policy, P*> checked_sub(P* ptr, std::ptrdiff_t offset)
             {
                 return nullptr;
             }
+            else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)
+            {
+                return nullptr;
+            }
         }
         
-        auto res = checked_add<Policy>(addr, static_cast<std::uintptr_t>(-offset));
+        auto byte_offset_result = checked_mul<Policy>(
+            static_cast<std::uintptr_t>(-offset),
+            static_cast<std::uintptr_t>(elem_size));
         if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
+            if (!byte_offset_result.has_value())
+            {
+                return unexpected(byte_offset_result.error());
+            }
+            auto res = checked_add<Policy>(addr, byte_offset_result.value());
             if (!res.has_value())
             {
                 return unexpected(res.error());
@@ -1312,20 +1381,21 @@ PolicyReturnType<Policy, P*> checked_sub(P* ptr, std::ptrdiff_t offset)
         }
         else
         {
+            auto res = checked_add<Policy>(addr, byte_offset_result);
             return reinterpret_cast<P*>(res);
         }
     }
 }
 
 template <typename P, typename Policy = ReturnExpectedPolicy>
-PolicyReturnType<Policy, P*> checked_inc(P* ptr)
+[[nodiscard]] PolicyReturnType<Policy, P*> checked_inc(P* ptr)
     noexcept(PolicyTraits<Policy>::template is_noexcept<std::ptrdiff_t>)
 {
     return checked_add<P, Policy>(ptr, std::ptrdiff_t{1});
 }
 
 template <typename P, typename Policy = ReturnExpectedPolicy>
-PolicyReturnType<Policy, P*> checked_dec(P* ptr)
+[[nodiscard]] PolicyReturnType<Policy, P*> checked_dec(P* ptr)
     noexcept(PolicyTraits<Policy>::template is_noexcept<std::ptrdiff_t>)
 {
     return checked_sub<P, Policy>(ptr, std::ptrdiff_t{1});
@@ -1334,7 +1404,7 @@ PolicyReturnType<Policy, P*> checked_dec(P* ptr)
 namespace detail {
 
 template <typename Policy, typename T, typename ScalarOp>
-PolicyReturnType<Policy, std::vector<T>> 
+[[nodiscard]] PolicyReturnType<Policy, std::vector<T>> 
 checked_vec_op_generic(const std::vector<T>& vec_a, 
                        const std::vector<T>& vec_b,
                        ScalarOp scalar_op,
@@ -1385,7 +1455,7 @@ checked_vec_op_generic(const std::vector<T>& vec_a,
 }
 
 template <typename Policy = ThrowOnErrorPolicy, typename T>
-PolicyReturnType<Policy, std::vector<T>> checked_add_vec(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
+[[nodiscard]] PolicyReturnType<Policy, std::vector<T>> checked_add_vec(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_integral_v<T>, "checked_add_vec requires integral types");
@@ -1527,7 +1597,7 @@ PolicyReturnType<Policy, std::vector<T>> checked_add_vec(const std::vector<T>& v
 }
 
 template <typename Policy = ThrowOnErrorPolicy, typename T>
-PolicyReturnType<Policy, std::vector<T>> checked_sub_vec(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
+[[nodiscard]] PolicyReturnType<Policy, std::vector<T>> checked_sub_vec(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_integral_v<T>, "checked_sub_vec requires integral types");
@@ -1669,7 +1739,7 @@ PolicyReturnType<Policy, std::vector<T>> checked_sub_vec(const std::vector<T>& v
 }
 
 template <typename Policy = ThrowOnErrorPolicy, typename T>
-PolicyReturnType<Policy, std::vector<T>> checked_mul_vec(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
+[[nodiscard]] PolicyReturnType<Policy, std::vector<T>> checked_mul_vec(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_integral_v<T>, "checked_mul_vec requires integral types");
@@ -1715,7 +1785,7 @@ PolicyReturnType<Policy, std::vector<T>> checked_mul_vec(const std::vector<T>& v
 }
 
 template <typename Policy = ThrowOnErrorPolicy, typename T>
-PolicyReturnType<Policy, std::vector<T>> checked_div_vec(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
+[[nodiscard]] PolicyReturnType<Policy, std::vector<T>> checked_div_vec(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_integral_v<T>, "checked_div_vec requires integral types");
@@ -1761,7 +1831,7 @@ PolicyReturnType<Policy, std::vector<T>> checked_div_vec(const std::vector<T>& v
 }
 
 template <typename Policy = ThrowOnErrorPolicy, typename T>
-PolicyReturnType<Policy, std::vector<T>> checked_add_vec_fp(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
+[[nodiscard]] PolicyReturnType<Policy, std::vector<T>> checked_add_vec_fp(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_floating_point_v<T>, "checked_add_vec_fp requires floating-point types");
@@ -1904,7 +1974,7 @@ auto detect_simd_error = [](const __m256d& va, const __m256d& vb,
 }
 
 template <typename Policy = ThrowOnErrorPolicy, typename T>
-PolicyReturnType<Policy, std::vector<T>> checked_sub_vec_fp(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
+[[nodiscard]] PolicyReturnType<Policy, std::vector<T>> checked_sub_vec_fp(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_floating_point_v<T>, "checked_sub_vec_fp requires floating-point types");
@@ -2047,7 +2117,7 @@ auto detect_simd_error = [](const __m256d& va, const __m256d& vb,
 }
 
 template <typename Policy = ThrowOnErrorPolicy, typename T>
-PolicyReturnType<Policy, std::vector<T>> checked_mul_vec_fp(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
+[[nodiscard]] PolicyReturnType<Policy, std::vector<T>> checked_mul_vec_fp(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_floating_point_v<T>, "checked_mul_vec_fp requires floating-point types");
@@ -2190,7 +2260,7 @@ auto detect_simd_error = [](const __m256d& va, const __m256d& vb,
 }
 
 template <typename Policy = ThrowOnErrorPolicy, typename T>
-PolicyReturnType<Policy, std::vector<T>> checked_div_vec_fp(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
+[[nodiscard]] PolicyReturnType<Policy, std::vector<T>> checked_div_vec_fp(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_floating_point_v<T>, "checked_div_vec_fp requires floating-point types");
@@ -2408,21 +2478,5 @@ template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
 constexpr T xor_op(T a, T b) { return a ^ b; }
 
 }
-
-/**
- * @note The detail::checked_vec_op_generic template provides a generic implementation
- *       for vector operations that reduces code duplication. Example usage:
- * 
- *       template <typename Policy = ThrowOnErrorPolicy, typename T>
- *       PolicyReturnType<Policy, std::vector<T>>
- *       checked_add_vec_alt(const std::vector<T>& a, const std::vector<T>& b) {
- *           return detail::checked_vec_op_generic<Policy>(a, b,
- *               [](T x, T y) { return checked_add<Policy>(x, y); },
- *               "addition");
- *       }
- * 
- *       This approach can be used for new operations or to refactor existing ones,
- *       reducing the ~200 lines of boilerplate per operation to ~5 lines.
- */
 
 } // namespace fat_p

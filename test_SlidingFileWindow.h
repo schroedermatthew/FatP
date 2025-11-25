@@ -220,7 +220,8 @@ bool test_sliding_window_basic_open_close() {
         SIMPLE_ASSERT(!window.is_open(), "Window should be closed");
     }
     
-    fs::remove(filename);
+    std::error_code ec;
+    fs::remove(filename, ec);
     return true;
 }
 
@@ -245,13 +246,13 @@ bool test_sliding_window_element_access() {
     SIMPLE_ASSERT(elem5->value == 7.5, "Incorrect element 5 value"); // 5 * 1.5
     SIMPLE_ASSERT(elem5->id == 5, "Incorrect element 5 id");
     
-    // Modify element
     elem5->value = 999.0;
     auto elem5_again = window[5];
     SIMPLE_ASSERT(elem5_again->value == 999.0, "Element modification failed");
     
     window.close();
-    fs::remove(filename);
+    std::error_code ec;
+    fs::remove(filename, ec);
     return true;
 }
 
@@ -274,13 +275,13 @@ bool test_sliding_window_shifting() {
     // Verify window moved
     SIMPLE_ASSERT(window.begin_index() >= 40, "Window should have shifted forward");
     
-    // Access element at 50 (should be in window now)
     auto elem50 = window[50];
     SIMPLE_ASSERT(elem50.has_value(), "Failed to access element after shift");
     SIMPLE_ASSERT(elem50->id == 50, "Incorrect element after shift");
     
     window.close();
-    fs::remove(filename);
+    std::error_code ec;
+    fs::remove(filename, ec);
     return true;
 }
 
@@ -316,7 +317,8 @@ bool test_sliding_window_binary_serialization() {
     SIMPLE_ASSERT(elem25->value == 250, "Incorrect binary element at 25");
     
     window.close();
-    fs::remove(filename);
+    std::error_code ec;
+    fs::remove(filename, ec);
     return true;
 }
 
@@ -349,7 +351,8 @@ bool test_sliding_window_large_file() {
     }
     
     window.close();
-    fs::remove(filename);
+    std::error_code ec;
+    fs::remove(filename, ec);
     return true;
 }
 
@@ -372,14 +375,14 @@ bool test_sliding_window_error_handling() {
     create_test_file(filename, 10);
     window.open(filename, sizeof(DataPoint), 5);
     
-    // Out of bounds access
     auto out_of_bounds = window[1000];
     SIMPLE_ASSERT(!out_of_bounds.has_value(), "Should fail out-of-bounds access");
     SIMPLE_ASSERT(out_of_bounds.error() == FileError::InvalidIndex,
                   "Should report InvalidIndex error");
     
     window.close();
-    fs::remove(filename);
+    std::error_code ec;
+    fs::remove(filename, ec);
     return true;
 }
 
@@ -429,11 +432,12 @@ bool test_sliding_window_thread_safety() {
     
     SIMPLE_ASSERT(error_count == 0, "Thread-safety violations detected");
     
-    std::cout << "    ✓ " << (num_threads * reads_per_thread) 
+    std::cout << "    âœ“ " << (num_threads * reads_per_thread) 
               << " concurrent reads completed in " << duration.count() << " ms\n";
     
     window.close();
-    fs::remove(filename);
+    std::error_code ec;
+    fs::remove(filename, ec);
     return true;
 }
 
@@ -454,13 +458,13 @@ bool test_sliding_window_lag_offset() {
     SIMPLE_ASSERT(open_result.has_value(), "Lag offset open failed");
     SIMPLE_ASSERT(window.begin_index() == 80, "Incorrect lag offset start position");
     
-    // Verify we can access elements near the end
     auto elem85 = window[85];
     SIMPLE_ASSERT(elem85.has_value(), "Failed to access lagged element");
     SIMPLE_ASSERT(elem85->id == 85, "Incorrect lagged element");
     
     window.close();
-    fs::remove(filename);
+    std::error_code ec;
+    fs::remove(filename, ec);
     return true;
 }
 
@@ -509,11 +513,12 @@ bool test_sliding_window_performance() {
     double seq_us_per_access = static_cast<double>(seq_time.count()) / window_size;
     double rand_us_per_access = static_cast<double>(rand_time.count()) / random_accesses;
     
-    std::cout << "    ✓ Sequential access: " << seq_us_per_access << " µs/element\n";
-    std::cout << "    ✓ Random access:     " << rand_us_per_access << " µs/element\n";
+    std::cout << "    âœ“ Sequential access: " << seq_us_per_access << " Âµs/element\n";
+    std::cout << "    âœ“ Random access:     " << rand_us_per_access << " Âµs/element\n";
     
     window.close();
-    fs::remove(filename);
+    std::error_code ec;
+    fs::remove(filename, ec);
     return true;
 }
 
@@ -551,7 +556,8 @@ bool test_sliding_window_persistence() {
         window.close();
     }
     
-    fs::remove(filename);
+    std::error_code ec;
+    fs::remove(filename, ec);
     return true;
 }
 
@@ -606,7 +612,8 @@ bool test_sliding_window_edge_cases() {
         window.close();
     }
     
-    fs::remove(filename);
+    std::error_code ec;
+    fs::remove(filename, ec);
     return true;
 }
 
