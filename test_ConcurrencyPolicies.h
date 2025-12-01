@@ -5,4 +5,4 @@ namespace fat_p::testing
 
 bool test_ConcurrencyPolicies();
 
-} //  namespace fat_p::testing
+} // namespace fat_p::testing

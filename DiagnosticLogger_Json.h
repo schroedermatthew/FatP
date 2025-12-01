@@ -3,9 +3,9 @@
  * @brief Extension for Structured JSON Logging.
  * @dependencies DiagnosticLogger_Core.h, JsonLite.h
  * 
- * FIXES APPLIED (v2.0):
- * - P4.1: Fixed JSON-in-JSON escaping - now properly embeds parsed JSON objects
- * - P4.2: Added missing log levels (ERROR, WARNING, FATAL, TRACE)
+ * FIXES APPLIED (v2.1):
+ * - ADL Support for user-defined types (using-declaration idiom)
+ * - Compile-time filtering via if constexpr (zero-overhead guarantee)
  */
 #pragma once
 
@@ -74,7 +74,8 @@ inline void logJsonHelper(LogLevel level, const T& data, SourceLocation loc)
     if (!logger.shouldLog(level)) return;
 
     fat_p::JsonValue j;
-    fat_p::to_json(j, data);
+    using fat_p::to_json;  // Bring library to_json into scope for fallback
+    to_json(j, data);      // Unqualified call enables ADL for user types
     std::string jsonStr = fat_p::to_json_string(j);
 
     logger.log(level, "", loc, std::move(jsonStr));
@@ -87,7 +88,8 @@ inline void logWithDataHelper(LogLevel level, std::string_view msg, const T& dat
     if (!logger.shouldLog(level)) return;
 
     fat_p::JsonValue j;
-    fat_p::to_json(j, data);
+    using fat_p::to_json;  // Bring library to_json into scope for fallback
+    to_json(j, data);      // Unqualified call enables ADL for user types
     std::string jsonStr = fat_p::to_json_string(j);
 
     logger.log(level, std::string(msg), loc, std::move(jsonStr));
@@ -96,62 +98,36 @@ inline void logWithDataHelper(LogLevel level, std::string_view msg, const T& dat
 } // namespace diagnostic
 } // namespace fat_p
 
-#define LOG_TRACE_JSON(obj) \
-    do { if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::Trace)) { \
-        ::fat_p::diagnostic::logJsonHelper(::fat_p::diagnostic::LogLevel::Trace, obj, CPP_UTIL_SOURCE_LOCATION()); \
-    }} while(0)
+// HELPER MACROS TO ENSURE COMPILE-TIME REMOVAL
+#define LOG_JSON_MACRO_IMPL(func, obj) \
+    do { \
+        if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::func) { \
+            if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::func)) { \
+                ::fat_p::diagnostic::logJsonHelper(::fat_p::diagnostic::LogLevel::func, obj, CPP_UTIL_SOURCE_LOCATION()); \
+            } \
+        } \
+    } while (0)
 
-#define LOG_DEBUG_JSON(obj) \
-    do { if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::Debug)) { \
-        ::fat_p::diagnostic::logJsonHelper(::fat_p::diagnostic::LogLevel::Debug, obj, CPP_UTIL_SOURCE_LOCATION()); \
-    }} while(0)
+#define LOG_WITH_DATA_MACRO_IMPL(func, msg, obj) \
+    do { \
+        if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::func) { \
+            if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::func)) { \
+                ::fat_p::diagnostic::logWithDataHelper(::fat_p::diagnostic::LogLevel::func, msg, obj, CPP_UTIL_SOURCE_LOCATION()); \
+            } \
+        } \
+    } while (0)
 
-#define LOG_INFO_JSON(obj) \
-    do { if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::Info)) { \
-        ::fat_p::diagnostic::logJsonHelper(::fat_p::diagnostic::LogLevel::Info, obj, CPP_UTIL_SOURCE_LOCATION()); \
-    }} while(0)
+// PUBLIC MACROS
+#define LOG_TRACE_JSON(obj) LOG_JSON_MACRO_IMPL(Trace, obj)
+#define LOG_DEBUG_JSON(obj) LOG_JSON_MACRO_IMPL(Debug, obj)
+#define LOG_INFO_JSON(obj) LOG_JSON_MACRO_IMPL(Info, obj)
+#define LOG_WARNING_JSON(obj) LOG_JSON_MACRO_IMPL(Warning, obj)
+#define LOG_ERROR_JSON(obj) LOG_JSON_MACRO_IMPL(Error, obj)
+#define LOG_FATAL_JSON(obj) LOG_JSON_MACRO_IMPL(Fatal, obj)
 
-#define LOG_WARNING_JSON(obj) \
-    do { if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::Warning)) { \
-        ::fat_p::diagnostic::logJsonHelper(::fat_p::diagnostic::LogLevel::Warning, obj, CPP_UTIL_SOURCE_LOCATION()); \
-    }} while(0)
-
-#define LOG_ERROR_JSON(obj) \
-    do { if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::Error)) { \
-        ::fat_p::diagnostic::logJsonHelper(::fat_p::diagnostic::LogLevel::Error, obj, CPP_UTIL_SOURCE_LOCATION()); \
-    }} while(0)
-
-#define LOG_FATAL_JSON(obj) \
-    do { if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::Fatal)) { \
-        ::fat_p::diagnostic::logJsonHelper(::fat_p::diagnostic::LogLevel::Fatal, obj, CPP_UTIL_SOURCE_LOCATION()); \
-    }} while(0)
-
-#define LOG_TRACE_WITH_DATA(msg, obj) \
-    do { if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::Trace)) { \
-        ::fat_p::diagnostic::logWithDataHelper(::fat_p::diagnostic::LogLevel::Trace, msg, obj, CPP_UTIL_SOURCE_LOCATION()); \
-    }} while(0)
-
-#define LOG_DEBUG_WITH_DATA(msg, obj) \
-    do { if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::Debug)) { \
-        ::fat_p::diagnostic::logWithDataHelper(::fat_p::diagnostic::LogLevel::Debug, msg, obj, CPP_UTIL_SOURCE_LOCATION()); \
-    }} while(0)
-
-#define LOG_INFO_WITH_DATA(msg, obj) \
-    do { if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::Info)) { \
-        ::fat_p::diagnostic::logWithDataHelper(::fat_p::diagnostic::LogLevel::Info, msg, obj, CPP_UTIL_SOURCE_LOCATION()); \
-    }} while(0)
-
-#define LOG_WARNING_WITH_DATA(msg, obj) \
-    do { if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::Warning)) { \
-        ::fat_p::diagnostic::logWithDataHelper(::fat_p::diagnostic::LogLevel::Warning, msg, obj, CPP_UTIL_SOURCE_LOCATION()); \
-    }} while(0)
-
-#define LOG_ERROR_WITH_DATA(msg, obj) \
-    do { if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::Error)) { \
-        ::fat_p::diagnostic::logWithDataHelper(::fat_p::diagnostic::LogLevel::Error, msg, obj, CPP_UTIL_SOURCE_LOCATION()); \
-    }} while(0)
-
-#define LOG_FATAL_WITH_DATA(msg, obj) \
-    do { if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::Fatal)) { \
-        ::fat_p::diagnostic::logWithDataHelper(::fat_p::diagnostic::LogLevel::Fatal, msg, obj, CPP_UTIL_SOURCE_LOCATION()); \
-    }} while(0)
+#define LOG_TRACE_WITH_DATA(msg, obj) LOG_WITH_DATA_MACRO_IMPL(Trace, msg, obj)
+#define LOG_DEBUG_WITH_DATA(msg, obj) LOG_WITH_DATA_MACRO_IMPL(Debug, msg, obj)
+#define LOG_INFO_WITH_DATA(msg, obj) LOG_WITH_DATA_MACRO_IMPL(Info, msg, obj)
+#define LOG_WARNING_WITH_DATA(msg, obj) LOG_WITH_DATA_MACRO_IMPL(Warning, msg, obj)
+#define LOG_ERROR_WITH_DATA(msg, obj) LOG_WITH_DATA_MACRO_IMPL(Error, msg, obj)
+#define LOG_FATAL_WITH_DATA(msg, obj) LOG_WITH_DATA_MACRO_IMPL(Fatal, msg, obj)

@@ -37,8 +37,10 @@
 #include <atomic>
 #include <sstream>
 
-// Include the updated ValueGuard header
+#ifndef ENABLE_TEST_APPLICATION
 #include "ValueGuard.h"
+#endif // #ifndef ENABLE_TEST_APPLICATION
+
 #include "FatPTest.h"
 
 namespace fat_p::testing {

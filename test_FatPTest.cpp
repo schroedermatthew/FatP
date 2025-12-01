@@ -78,24 +78,24 @@ void test_primitive_comparison()
 {
     TEST_SECTION("Primitive Floating-Point Comparison");
     
-    double nan = std::numeric_limits<double>::quiet_NaN();
+    constexpr double nan = std::numeric_limits<double>::quiet_NaN();
     VERIFY(!primitive::are_close(nan, nan), "NaN != NaN (IEEE 754)");
     VERIFY(!primitive::are_close(nan, 1.0), "NaN != value");
     VERIFY(!primitive::are_close(1.0, nan), "value != NaN");
     
-    double inf = std::numeric_limits<double>::infinity();
-    double neg_inf = -std::numeric_limits<double>::infinity();
-    VERIFY(primitive::are_close(inf, inf), "+∞ == +∞");
-    VERIFY(primitive::are_close(neg_inf, neg_inf), "-∞ == -∞");
-    VERIFY(!primitive::are_close(inf, neg_inf), "+∞ != -∞");
-    VERIFY(!primitive::are_close(inf, 1e308), "∞ != finite");
+    constexpr double inf = std::numeric_limits<double>::infinity();
+    constexpr double neg_inf = -std::numeric_limits<double>::infinity();
+    VERIFY(primitive::are_close(inf, inf), "+inf == +inf");
+    VERIFY(primitive::are_close(neg_inf, neg_inf), "-inf == -inf");
+    VERIFY(!primitive::are_close(inf, neg_inf), "+inf != -inf");
+    VERIFY(!primitive::are_close(inf, 1e308), "inf != finite");
     
     VERIFY(primitive::are_close(0.0, -0.0), "+0 == -0");
     VERIFY(primitive::are_close(0.0, 0.0), "0 == 0");
-    VERIFY(primitive::are_close(1e-100, 0.0), "tiny ≈ 0");
+    VERIFY(primitive::are_close(1e-100, 0.0), "tiny ~ 0");
     
-    VERIFY(primitive::are_close(1.0, 1.0 + 1e-15), "1.0 ≈ 1.0+ε");
-    VERIFY(!primitive::are_close(1.0, 1.001), "1.0 ≉ 1.001");
+    VERIFY(primitive::are_close(1.0, 1.0 + 1e-15), "1.0 ~ 1.0+eps");
+    VERIFY(!primitive::are_close(1.0, 1.001), "1.0 !~ 1.001");
     
     VERIFY(primitive::are_close(1.0, 1.05, 0.1, 0.1), "Custom epsilon works");
 }
@@ -149,11 +149,93 @@ void test_string_utilities()
     VERIFY(string_utils::to_lower("HELLO") == "hello", "to_lower: uppercase");
     VERIFY(string_utils::to_lower("HeLLo") == "hello", "to_lower: mixed");
     
+    // Basic pattern matching
     VERIFY(string_utils::matches_pattern("test", "test"), "pattern: exact");
     VERIFY(string_utils::matches_pattern("test", "t*t"), "pattern: wildcard *");
     VERIFY(string_utils::matches_pattern("test", "t?st"), "pattern: wildcard ?");
     VERIFY(string_utils::matches_pattern("hello", "*"), "pattern: match all");
     VERIFY(!string_utils::matches_pattern("test", "xyz"), "pattern: no match");
+    
+    // Advanced pattern matching (iterative algorithm tests)
+    VERIFY(string_utils::matches_pattern("", ""), "pattern: empty strings");
+    VERIFY(string_utils::matches_pattern("", "*"), "pattern: empty with star");
+    VERIFY(!string_utils::matches_pattern("", "a"), "pattern: empty vs char");
+    VERIFY(string_utils::matches_pattern("abc", "a*c"), "pattern: star middle");
+    VERIFY(string_utils::matches_pattern("abc", "*bc"), "pattern: star start");
+    VERIFY(string_utils::matches_pattern("abc", "ab*"), "pattern: star end");
+    VERIFY(string_utils::matches_pattern("abcdef", "*a*b*c*"), "pattern: multiple stars");
+    VERIFY(string_utils::matches_pattern("hello", "?????"), "pattern: exact ? count");
+    VERIFY(!string_utils::matches_pattern("hello", "????"), "pattern: too few ?");
+    VERIFY(string_utils::matches_pattern("hello", "**"), "pattern: consecutive stars");
+    
+    // Stress test - long strings (would overflow stack with recursive impl)
+    std::string long_str(500, 'a');
+    VERIFY(string_utils::matches_pattern(long_str, "*"), "pattern: long string star");
+    VERIFY(string_utils::matches_pattern(long_str, "a*"), "pattern: long string prefix");
+    VERIFY(string_utils::matches_pattern(long_str, "*a"), "pattern: long string suffix");
+    VERIFY(string_utils::matches_pattern(long_str, "*a*a*a*a*a*"), "pattern: long many stars");
+    VERIFY(!string_utils::matches_pattern(long_str, "*b*"), "pattern: long no match");
+    
+    // Truncation utility
+    std::string short_str = "hello";
+    std::string truncated = string_utils::truncate_for_display(short_str);
+    VERIFY(truncated == short_str, "truncate: short unchanged");
+    
+    std::string long_display(300, 'x');
+    truncated = string_utils::truncate_for_display(long_display);
+    VERIFY(truncated.size() < long_display.size(), "truncate: long is shorter");
+    VERIFY(truncated.find("300 chars") != std::string::npos, "truncate: shows length");
+}
+
+void test_auto_calibration()
+{
+    TEST_SECTION("Auto-Calibration");
+    
+    // Test calibrate_iterations
+    volatile int sink = 0;
+    auto fast_op = [&]() { sink++; };
+    
+    double resolution_ms = HighResolutionTimer::resolution_ms();
+    double min_total_ms = resolution_ms * 1000.0;
+    
+    size_t calibrated = calibrate_iterations(fast_op, min_total_ms);
+    VERIFY(calibrated >= 1000, "calibrate: minimum 1000 iterations");
+    VERIFY(calibrated <= 100000000, "calibrate: max 100M iterations");
+    
+    // Test measure_perf with auto-calibration (iterations = 0)
+    double time_auto = measure_perf(fast_op);
+    VERIFY(time_auto > 0, "measure_perf auto: positive time");
+    
+    // Test measure_perf with explicit iterations
+    double time_explicit = measure_perf(fast_op, 10000);
+    VERIFY(time_explicit > 0, "measure_perf explicit: positive time");
+    
+    // Test measure_perf_stats with auto-calibration
+    auto stats = measure_perf_stats(fast_op, 0, 5);
+    VERIFY(stats.iterations >= 1000, "stats auto: calibrated iterations");
+    VERIFY(stats.min_ms <= stats.mean_ms, "stats auto: min <= mean");
+    VERIFY(stats.mean_ms <= stats.max_ms, "stats auto: mean <= max");
+}
+
+void test_benchmark_context()
+{
+    TEST_SECTION("Benchmark Context");
+    
+    OutputCapture capture;
+    
+    volatile int sink = 0;
+    benchmark("context_test", [&]() { sink++; }, 1000);
+    
+    std::string output = capture.get_output();
+    
+    // Verify timestamp is present (format: YYYY-MM-DD HH:MM:SS)
+    VERIFY(output.find("[20") != std::string::npos, "context: has timestamp year");
+    VERIFY(output.find(":") != std::string::npos, "context: has time separator");
+    
+    // Verify CPU info is present
+    VERIFY(output.find("CPU:") != std::string::npos || 
+           output.find("MHz") != std::string::npos ||
+           output.size() > 50, "context: has CPU info or reasonable output");
 }
 
 void test_assert_macros_basic()
@@ -265,7 +347,7 @@ void test_assert_macros_float()
     bool result = []() -> bool {
         double a = 0.1 + 0.2;
         double b = 0.3;
-        ASSERT_CLOSE(a, b, "0.1 + 0.2 ≈ 0.3");
+        ASSERT_CLOSE(a, b, "0.1 + 0.2 ~ 0.3");
         return true;
     }();
     VERIFY(result, "ASSERT_CLOSE passes");
@@ -719,6 +801,8 @@ bool test_FatPTest()
     test_primitive_comparison();
     test_configuration();
     test_string_utilities();
+    test_auto_calibration();
+    test_benchmark_context();
     test_assert_macros_basic();
     test_assert_macros_comparison();
     test_assert_macros_pointers();

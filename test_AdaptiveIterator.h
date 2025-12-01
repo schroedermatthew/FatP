@@ -1,8 +1,4 @@
-/**
- * @file test_AdaptiveIterator.h
- * @brief Test declarations for AdaptiveIterator
- */
-
+// test_AdaptiveIterator.h
 #pragma once
 
 namespace fat_p::testing

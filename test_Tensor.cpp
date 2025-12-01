@@ -938,7 +938,7 @@ bool test_enhanced_bounds_checking() {
     bool caught_error = false;
     try {
         mat.at(15, 25) = 99.0;
-    } catch (const std::out_of_range&) {
+    } catch (const std::out_of_range& /*e*/) {
         caught_error = true;
         #ifndef NDEBUG
         std::string msg = e.what();

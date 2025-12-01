@@ -38,13 +38,11 @@
 #include "ContractException.h"
 #include "Expected.h"
 
-namespace fat_p
-{
+namespace fat_p {
 
 using ViolationHandlerFunction = std::function<void(const std::string&)>;
 
-namespace detail
-{
+namespace detail {
 
 inline std::mutex& getViolationMutex()
 {
@@ -83,14 +81,60 @@ inline void default_violation_handler(const std::string& message)
 #endif
 }
 
-inline std::mutex violation_mutex;
+namespace detail {
 
-inline ViolationHandlerFunction violation_handler = default_violation_handler;
+struct ViolationHandlerStorage
+{
+    std::mutex mutex;
+    ViolationHandlerFunction handler = default_violation_handler;
 
+    static ViolationHandlerStorage& instance()
+    {
+        static ViolationHandlerStorage storage;
+        return storage;
+    }
+};
+
+} // namespace detail
+
+/**
+ * @brief Set a custom violation handler for non-throwing contract failures.
+ *
+ * @details This function is thread-safe. The handler will be called by
+ * NoThrowRaiser when a contract violation occurs. The default handler
+ * logs to stderr and aborts in debug builds.
+ *
+ * @param new_handler The new handler function to install.
+ */
 inline void set_violation_handler(ViolationHandlerFunction new_handler)
 {
-    std::lock_guard<std::mutex> lock(violation_mutex);
-    violation_handler = std::move(new_handler);
+    auto& storage = detail::ViolationHandlerStorage::instance();
+    std::lock_guard<std::mutex> lock(storage.mutex);
+    storage.handler = std::move(new_handler);
+}
+
+/**
+ * @brief Get the current violation handler.
+ *
+ * @details This function is thread-safe.
+ *
+ * @return A copy of the current handler function.
+ */
+inline ViolationHandlerFunction get_violation_handler()
+{
+    auto& storage = detail::ViolationHandlerStorage::instance();
+    std::lock_guard<std::mutex> lock(storage.mutex);
+    return storage.handler;
+}
+
+/**
+ * @brief Reset the violation handler to the default.
+ *
+ * @details This function is thread-safe.
+ */
+inline void reset_violation_handler()
+{
+    set_violation_handler(default_violation_handler);
 }
 
 /**
@@ -189,9 +233,10 @@ struct WarningToCerrRaiser
 };
 
 /**
- * @brief Raiser for non-throwing contracts. Calls the global violation handler and continues.
+ * @brief Raiser for non-throwing contracts. Calls the global violation handler and
+ * continues.
  *
- * @details Used by macros like 'noexcept_ensures'. This ensures no
+ * @details Used by macros like 'noexcept_enforce'. This ensures no
  * exception is thrown, making it safe for `noexcept` functions.
  */
 struct NoThrowRaiser
@@ -202,8 +247,9 @@ struct NoThrowRaiser
      */
     static void fail(const std::string& message)
     {
-        std::lock_guard<std::mutex> lock(violation_mutex);
-        violation_handler(message);
+        auto& storage = detail::ViolationHandlerStorage::instance();
+        std::lock_guard<std::mutex> lock(storage.mutex);
+        storage.handler(message);
     }
 };
 
@@ -279,7 +325,7 @@ struct SystemErrorRaiser
     static void fail(const std::string& message)
     {
         detail::writeToStderr("Exception: ", message);
-        throw std::system_error(std::make_error_code(std::errc::invalid_argument), message);
+        throw std::system_error(std::make_error_code(std::errc::state_not_recoverable), message);
     }
 };
 

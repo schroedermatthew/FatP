@@ -24,7 +24,7 @@
 #include <vector>
 #include <atomic>
 
-namespace fat_p::testing
+namespace fat_p::testing::strongid
 {
 
 // --- Test Tags ---
@@ -848,6 +848,11 @@ void run_comparative_benchmarks() {
         << "   optimized away or have negligible cost for add/increment.\n\n";
 }
 
+} // namespace fat_p::testing::strongid
+
+namespace fat_p::testing
+{
+
 bool test_StrongId() {
 
     PRINT_HEADER(STRONG ID)
@@ -860,89 +865,97 @@ bool test_StrongId() {
     auto& out = *config.output;    
     // Basic Functionality
     out << colors::blue() << "--- Basic Functionality ---" << colors::reset() << "\n";
-    RUN_TEST(runner, default_constructor);
-    RUN_TEST(runner, explicit_constructor);
-    RUN_TEST(runner, default_constructor_with_check_policy);
-    RUN_TEST(runner, type_safety);
-    RUN_TEST(runner, get_accessor);
-    RUN_TEST(runner, value_accessor);
-    RUN_TEST(runner, explicit_cast);
+    RUN_TEST_NS(runner, strongid, default_constructor);
+    RUN_TEST_NS(runner, strongid, explicit_constructor);
+    RUN_TEST_NS(runner, strongid, default_constructor_with_check_policy);
+    RUN_TEST_NS(runner, strongid, type_safety);
+    RUN_TEST_NS(runner, strongid, get_accessor);
+    RUN_TEST_NS(runner, strongid, value_accessor);
+    RUN_TEST_NS(runner, strongid, explicit_cast);
     
     // Comparison Operators
     out << "\n" << colors::blue() << "--- Comparison Operators ---" << colors::reset() << "\n";
-    RUN_TEST(runner, equality_comparison);
-    RUN_TEST(runner, inequality_comparison);
-    RUN_TEST(runner, less_than_comparison);
-    RUN_TEST(runner, all_relational_operators);
+    RUN_TEST_NS(runner, strongid, equality_comparison);
+    RUN_TEST_NS(runner, strongid, inequality_comparison);
+    RUN_TEST_NS(runner, strongid, less_than_comparison);
+    RUN_TEST_NS(runner, strongid, all_relational_operators);
 #if FATP_HAS_CPP20
-    RUN_TEST(runner, spaceship_operator);
+    RUN_TEST_NS(runner, strongid, spaceship_operator);
 #endif
     
     // Arithmetic Operators
     out << "\n" << colors::blue() << "--- Arithmetic Operators ---" << colors::reset() << "\n";
-    RUN_TEST(runner, increment_operators);
-    RUN_TEST(runner, decrement_operators);
-    RUN_TEST(runner, addition_operators);
-    RUN_TEST(runner, subtraction_operators);
-    RUN_TEST(runner, multiplication_operators);
-    RUN_TEST(runner, division_operators);
-    RUN_TEST(runner, modulo_operators);
-    RUN_TEST(runner, unary_operators);
+    RUN_TEST_NS(runner, strongid, increment_operators);
+    RUN_TEST_NS(runner, strongid, decrement_operators);
+    RUN_TEST_NS(runner, strongid, addition_operators);
+    RUN_TEST_NS(runner, strongid, subtraction_operators);
+    RUN_TEST_NS(runner, strongid, multiplication_operators);
+    RUN_TEST_NS(runner, strongid, division_operators);
+    RUN_TEST_NS(runner, strongid, modulo_operators);
+    RUN_TEST_NS(runner, strongid, unary_operators);
     
     // Bitwise Operators
     out << "\n" << colors::blue() << "--- Bitwise Operators ---" << colors::reset() << "\n";
-    RUN_TEST(runner, bitwise_and);
-    RUN_TEST(runner, bitwise_or);
-    RUN_TEST(runner, bitwise_xor);
-    RUN_TEST(runner, bitwise_not);
-    RUN_TEST(runner, bit_shifts);
+    RUN_TEST_NS(runner, strongid, bitwise_and);
+    RUN_TEST_NS(runner, strongid, bitwise_or);
+    RUN_TEST_NS(runner, strongid, bitwise_xor);
+    RUN_TEST_NS(runner, strongid, bitwise_not);
+    RUN_TEST_NS(runner, strongid, bit_shifts);
     
     // CheckPolicy
     out << "\n" << colors::blue() << "--- CheckPolicy Validation ---" << colors::reset() << "\n";
-    RUN_TEST(runner, positive_check_policy_valid);
-    RUN_TEST(runner, positive_check_policy_invalid);
-    RUN_TEST(runner, check_policy_in_default_constructor);
+    RUN_TEST_NS(runner, strongid, positive_check_policy_valid);
+    RUN_TEST_NS(runner, strongid, positive_check_policy_invalid);
+    RUN_TEST_NS(runner, strongid, check_policy_in_default_constructor);
     
     // Expected
     out << "\n" << colors::blue() << "--- Expected-Based Safe Creation ---" << colors::reset() << "\n";
-    RUN_TEST(runner, expected_create_success);
-    RUN_TEST(runner, expected_create_failure);
+    RUN_TEST_NS(runner, strongid, expected_create_success);
+    RUN_TEST_NS(runner, strongid, expected_create_failure);
     
     // Assignment
     out << "\n" << colors::blue() << "--- Assignment Operators ---" << colors::reset() << "\n";
-    RUN_TEST(runner, copy_assignment);
-    RUN_TEST(runner, move_assignment);
-    RUN_TEST(runner, self_assignment);
+    RUN_TEST_NS(runner, strongid, copy_assignment);
+    RUN_TEST_NS(runner, strongid, move_assignment);
+    RUN_TEST_NS(runner, strongid, self_assignment);
     
     // Swap
     out << "\n" << colors::blue() << "--- Swap Functionality ---" << colors::reset() << "\n";
-    RUN_TEST(runner, member_swap);
-    RUN_TEST(runner, adl_swap);
+    RUN_TEST_NS(runner, strongid, member_swap);
+    RUN_TEST_NS(runner, strongid, adl_swap);
     
     // Hash and Containers
     out << "\n" << colors::blue() << "--- Hash and Containers ---" << colors::reset() << "\n";
-    RUN_TEST(runner, hash_function);
-    RUN_TEST(runner, unordered_map_usage);
+    RUN_TEST_NS(runner, strongid, hash_function);
+    RUN_TEST_NS(runner, strongid, unordered_map_usage);
     
     // Atomic Operations
     out << "\n" << colors::blue() << "--- Atomic StrongId (Thread-Safety) ---" << colors::reset() << "\n";
-    RUN_TEST(runner, atomic_basic_operations);
-    RUN_TEST(runner, atomic_exchange);
-    RUN_TEST(runner, atomic_compare_exchange);
-    RUN_TEST(runner, atomic_concurrent_reads);
-    RUN_TEST(runner, atomic_concurrent_increments);
+    RUN_TEST_NS(runner, strongid, atomic_basic_operations);
+    RUN_TEST_NS(runner, strongid, atomic_exchange);
+    RUN_TEST_NS(runner, strongid, atomic_compare_exchange);
+    RUN_TEST_NS(runner, strongid, atomic_concurrent_reads);
+    RUN_TEST_NS(runner, strongid, atomic_concurrent_increments);
     
     // Type Traits
     out << "\n" << colors::blue() << "--- Type Traits ---" << colors::reset() << "\n";
-    RUN_TEST(runner, is_strong_id_trait);
+    RUN_TEST_NS(runner, strongid, is_strong_id_trait);
     
     // Performance Benchmarks
-    run_strong_id_benchmarks();
+    strongid::run_strong_id_benchmarks();
     
     // Comparative Benchmarks: StrongId vs Raw int
-    run_comparative_benchmarks();
+    strongid::run_comparative_benchmarks();
     
     // Summary
     return 0 == runner.print_summary() ? true : false;
 }
+
 } // namespace fat_p::testing
+
+#ifdef ENABLE_TEST_APPLICATION
+int main()
+{
+    return fat_p::testing::test_StrongId() ? 0 : 1;
+}
+#endif

@@ -3,22 +3,29 @@
  * @brief Tests for view lifetime tracking utilities
  */
 
+#include "ViewLifetimeTracking.h"
+#include "FatPTest.h"
+
+#ifndef ENABLE_TEST_APPLICATION
+#include "test_ViewLifetimeTracking.h"
+#endif
+
 #include <iostream>
 #include <vector>
 #include <memory>
 #include <optional>
 #include <thread>
+#include <atomic>
 
-#include "ViewLifetimeTracking.h"
-#include "FatPTest.h"
-
-namespace fat_p::testing {
+namespace fat_p::testing::viewlifetimetracking
+{
 
 // =============================================================================
 // Test 1: Basic Lifetime Tracking
 // =============================================================================
 
-bool test_basic_lifetime_tracking() {
+TEST_CASE(basic_lifetime_tracking)
+{
     std::cout << colors::cyan() << "\n[TEST] Basic Lifetime Tracking"
               << colors::reset() << std::endl;
     
@@ -31,7 +38,7 @@ bool test_basic_lifetime_tracking() {
         SIMPLE_ASSERT(view.is_valid(), "View should be valid");
         SIMPLE_ASSERT(view->size() == 5, "View should access data");
         
-        std::cout << colors::green() << "✓ Basic tracking works in debug mode"
+        std::cout << colors::green() << "[OK] Basic tracking works in debug mode"
                   << colors::reset() << std::endl;
     }
     #else
@@ -46,7 +53,8 @@ bool test_basic_lifetime_tracking() {
 // Test 2: Dangling Reference Detection
 // =============================================================================
 
-bool test_dangling_reference_detection() {
+TEST_CASE(dangling_reference_detection)
+{
     std::cout << colors::cyan() << "\n[TEST] Dangling Reference Detection"
               << colors::reset() << std::endl;
     
@@ -79,7 +87,7 @@ bool test_dangling_reference_detection() {
     }
     SIMPLE_ASSERT(threw, "Should throw on dangling reference access");
     
-    std::cout << colors::green() << "✓ Dangling reference detection works"
+    std::cout << colors::green() << "[OK] Dangling reference detection works"
               << colors::reset() << std::endl;
     #else
     std::cout << colors::blue() << "  Release build: detection compiled out"
@@ -93,7 +101,8 @@ bool test_dangling_reference_detection() {
 // Test 3: Multiple Views
 // =============================================================================
 
-bool test_multiple_views() {
+TEST_CASE(multiple_views)
+{
     std::cout << colors::cyan() << "\n[TEST] Multiple Views"
               << colors::reset() << std::endl;
     
@@ -113,7 +122,7 @@ bool test_multiple_views() {
     SIMPLE_ASSERT((*view2)[1] == 20, "View 2 should access data");
     SIMPLE_ASSERT((*view3)[2] == 30, "View 3 should access data");
     
-    std::cout << colors::green() << "✓ Multiple views work correctly"
+    std::cout << colors::green() << "[OK] Multiple views work correctly"
               << colors::reset() << std::endl;
     #else
     std::cout << colors::blue() << "  Release build: tracking compiled out"
@@ -127,7 +136,8 @@ bool test_multiple_views() {
 // Test 4: Weak Pointer Utilities
 // =============================================================================
 
-bool test_weak_pointer_utilities() {
+TEST_CASE(weak_pointer_utilities)
+{
     std::cout << colors::cyan() << "\n[TEST] Weak Pointer Utilities"
               << colors::reset() << std::endl;
     
@@ -162,7 +172,7 @@ bool test_weak_pointer_utilities() {
     auto result = safe_lock(weak);
     SIMPLE_ASSERT(result == nullptr, "safe_lock should return nullptr");
     
-    std::cout << colors::green() << "✓ Weak pointer utilities work"
+    std::cout << colors::green() << "[OK] Weak pointer utilities work"
               << colors::reset() << std::endl;
     return true;
 }
@@ -171,7 +181,8 @@ bool test_weak_pointer_utilities() {
 // Test 5: View Guard
 // =============================================================================
 
-bool test_view_guard() {
+TEST_CASE(view_guard)
+{
     std::cout << colors::cyan() << "\n[TEST] View Guard"
               << colors::reset() << std::endl;
     
@@ -188,7 +199,7 @@ bool test_view_guard() {
     
     SIMPLE_ASSERT(view.is_valid(), "View should still be valid");
     
-    std::cout << colors::green() << "✓ View guard works"
+    std::cout << colors::green() << "[OK] View guard works"
               << colors::reset() << std::endl;
     #else
     std::cout << colors::blue() << "  Release build: guard is no-op"
@@ -202,7 +213,8 @@ bool test_view_guard() {
 // Test 6: Macro Convenience
 // =============================================================================
 
-bool test_macro_convenience() {
+TEST_CASE(macro_convenience)
+{
     std::cout << colors::cyan() << "\n[TEST] Macro Convenience"
               << colors::reset() << std::endl;
     
@@ -214,7 +226,7 @@ bool test_macro_convenience() {
     SIMPLE_ASSERT(view.is_valid(), "Macro-created tracker should work");
     SIMPLE_ASSERT((*view)[1] == 200, "Should access correct data");
     
-    std::cout << colors::green() << "✓ Macro convenience works"
+    std::cout << colors::green() << "[OK] Macro convenience works"
               << colors::reset() << std::endl;
     #else
     std::cout << colors::blue() << "  Release build: macros are pass-through"
@@ -228,7 +240,8 @@ bool test_macro_convenience() {
 // Test 7: Thread Safety
 // =============================================================================
 
-bool test_thread_safety() {
+TEST_CASE(thread_safety)
+{
     std::cout << colors::cyan() << "\n[TEST] Thread Safety"
               << colors::reset() << std::endl;
     
@@ -259,7 +272,7 @@ bool test_thread_safety() {
     
     SIMPLE_ASSERT(success_count == 10, "All threads should succeed");
     
-    std::cout << colors::green() << "✓ Thread safety works"
+    std::cout << colors::green() << "[OK] Thread safety works"
               << colors::reset() << std::endl;
     #else
     std::cout << colors::blue() << "  Release build: no thread-safety overhead"
@@ -273,7 +286,8 @@ bool test_thread_safety() {
 // Test 8: Zero Overhead in Release
 // =============================================================================
 
-bool test_zero_overhead_release() {
+TEST_CASE(zero_overhead_release)
+{
     std::cout << colors::cyan() << "\n[TEST] Zero Overhead in Release"
               << colors::reset() << std::endl;
     
@@ -287,7 +301,7 @@ bool test_zero_overhead_release() {
     SIMPLE_ASSERT(sizeof(TrackerType) == sizeof(void*), 
                  "Release tracker should be pointer-sized");
     
-    std::cout << colors::green() << "✓ Release build has zero overhead"
+    std::cout << colors::green() << "[OK] Release build has zero overhead"
               << colors::reset() << std::endl;
     #else
     std::cout << colors::blue() << "  Debug build: tracking active"
@@ -297,25 +311,38 @@ bool test_zero_overhead_release() {
     return true;
 }
 
+} // namespace fat_p::testing::viewlifetimetracking
+
+namespace fat_p::testing
+{
+
 // =============================================================================
 // Test Runner
 // =============================================================================
 
-bool test_ViewLifetimeTracking() {
+bool test_ViewLifetimeTracking()
+{
     PRINT_HEADER(VIEW LIFETIME TRACKING)
     
     TestRunner runner;
     
-    RUN_TEST(runner, basic_lifetime_tracking);
-    RUN_TEST(runner, dangling_reference_detection);
-    RUN_TEST(runner, multiple_views);
-    RUN_TEST(runner, weak_pointer_utilities);
-    RUN_TEST(runner, view_guard);
-    RUN_TEST(runner, macro_convenience);
-    RUN_TEST(runner, thread_safety);
-    RUN_TEST(runner, zero_overhead_release);
+    RUN_TEST_NS(runner, viewlifetimetracking, basic_lifetime_tracking);
+    RUN_TEST_NS(runner, viewlifetimetracking, dangling_reference_detection);
+    RUN_TEST_NS(runner, viewlifetimetracking, multiple_views);
+    RUN_TEST_NS(runner, viewlifetimetracking, weak_pointer_utilities);
+    RUN_TEST_NS(runner, viewlifetimetracking, view_guard);
+    RUN_TEST_NS(runner, viewlifetimetracking, macro_convenience);
+    RUN_TEST_NS(runner, viewlifetimetracking, thread_safety);
+    RUN_TEST_NS(runner, viewlifetimetracking, zero_overhead_release);
     
     return 0 == runner.print_summary();
 }
 
 } // namespace fat_p::testing
+
+#ifdef ENABLE_TEST_APPLICATION
+int main()
+{
+    return fat_p::testing::test_ViewLifetimeTracking() ? 0 : 1;
+}
+#endif

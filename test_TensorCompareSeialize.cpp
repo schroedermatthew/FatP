@@ -244,7 +244,7 @@ bool test_tensor_equal_dispatcher_hybrid() {
     Tensor<float> b({5, 5}, 1.0f + 1e-7f);
     
     // HybridComparisonPolicy with relative and absolute tolerances
-    bool result = areEqual<Tensor<float>, HybridComparisonPolicy>(a, b, 1e-6, 1e-6);
+    bool result = areEqual<Tensor<float>, HybridComparisonPolicy>(a, b, 1e-6f, 1e-6f);
     SIMPLE_ASSERT(result, "HybridPolicy should pass with appropriate tolerances");
     
     return true;

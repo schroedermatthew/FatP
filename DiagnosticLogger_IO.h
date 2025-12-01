@@ -20,7 +20,6 @@
 #pragma once
 
 #include "DiagnosticLogger_Core.h"
-#include "CircularBuffer.h"
 #include "LockFreeQueue.h"
 #include "ThreadPool.h"
 #include "ScopeGuard.h"
@@ -34,31 +33,78 @@ namespace fat_p
 namespace diagnostic
 {
 
+/**
+ * @brief Sink that writes log records to a file.
+ *
+ * @details Thread-safe file output with configurable minimum level and append mode.
+ * The destructor ensures all buffered data is flushed before the file is closed.
+ */
 class FileSink : public ISink
 {
     std::ofstream file_;
     std::unique_ptr<IFormatter> formatter_;
+    LogLevel minLevel_;
     std::mutex mutex_;
     bool is_valid_;
-    
+
 public:
-    explicit FileSink(const std::string& filename, std::unique_ptr<IFormatter> fmt = std::make_unique<DefaultFormatter>()) 
-        : file_(filename, std::ios::app), formatter_(std::move(fmt)), is_valid_(file_.is_open()) {}
-    
-    bool is_valid() const { return is_valid_; }
-    
+    /**
+     * @brief Constructs a FileSink for the given file.
+     * @param filename Path to the log file.
+     * @param fmt Formatter to use. Defaults to DefaultFormatter.
+     * @param minLevel Minimum level to write. Defaults to Trace (all levels).
+     * @param append If true, append to existing file. If false, truncate.
+     */
+    explicit FileSink(const std::string& filename,
+                      std::unique_ptr<IFormatter> fmt = std::make_unique<DefaultFormatter>(),
+                      LogLevel minLevel = LogLevel::Trace,
+                      bool append = true)
+        : formatter_(std::move(fmt))
+        , minLevel_(minLevel)
+        , is_valid_(false)
+    {
+        auto mode = std::ios::out | (append ? std::ios::app : std::ios::trunc);
+        file_.open(filename, mode);
+        is_valid_ = file_.is_open();
+    }
+
+    ~FileSink() noexcept
+    {
+        try
+        {
+            flush();
+        }
+        catch (...)
+        {
+        }
+    }
+
+    FileSink(const FileSink&) = delete;
+    FileSink& operator=(const FileSink&) = delete;
+
+    bool is_valid() const
+    {
+        return is_valid_;
+    }
+
     void write(const LogRecord& record) override
     {
-        if (!is_valid_) return;
+        if (!is_valid_ || record.level < minLevel_)
+        {
+            return;
+        }
         std::lock_guard<std::mutex> lock(mutex_);
         file_ << formatter_->format(record) << '\n';
     }
-    
+
     void flush() override
-    { 
-        if (!is_valid_) return;
+    {
+        if (!is_valid_)
+        {
+            return;
+        }
         std::lock_guard<std::mutex> lock(mutex_);
-        file_.flush(); 
+        file_.flush();
     }
 };
 
@@ -68,34 +114,81 @@ inline std::shared_ptr<FileSink> makeFileSink(const std::string& filename, std::
     return sink->is_valid() ? sink : nullptr;
 }
 
+/**
+ * @brief In-memory ring buffer sink for crash diagnostics.
+ *
+ * @details Stores the last N log records in memory. When an error occurs,
+ * call dumpTo() to flush the buffer to a persistent sink for analysis.
+ * New records overwrite old ones when the buffer is full.
+ */
 class RingBufferSink : public ISink
 {
-    CircularBuffer<LogRecord, 1024> buffer_;
+    std::vector<LogRecord> buffer_;
+    size_t head_ = 0;
+    size_t count_ = 0;
+    size_t capacity_;
     mutable std::mutex mutex_;
-    
+
 public:
-    explicit RingBufferSink() = default;
-    
+    /**
+     * @brief Constructs a RingBufferSink with the specified capacity.
+     * @param capacity Maximum number of records to store. Defaults to 1024.
+     */
+    explicit RingBufferSink(size_t capacity = 1024)
+        : capacity_(capacity > 0 ? capacity : 1024)
+    {
+        buffer_.resize(capacity_);
+    }
+
     void write(const LogRecord& record) override
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        buffer_.push(record);
+        size_t idx = (head_ + count_) % capacity_;
+        buffer_[idx] = record;
+        if (count_ < capacity_)
+        {
+            ++count_;
+        }
+        else
+        {
+            head_ = (head_ + 1) % capacity_;
+        }
     }
-    
+
+    /**
+     * @brief Dumps all buffered records to another sink and clears the buffer.
+     * @param target The sink to write records to.
+     */
     void dumpTo(ISink& target)
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        while (!buffer_.empty())
+        for (size_t i = 0; i < count_; ++i)
         {
-            LogRecord rec;
-            if (buffer_.pop(rec))
-            {
-                target.write(rec);
-            }
+            size_t idx = (head_ + i) % capacity_;
+            target.write(buffer_[idx]);
         }
+        head_ = 0;
+        count_ = 0;
         target.flush();
     }
-    
+
+    /**
+     * @brief Returns the current number of records in the buffer.
+     */
+    size_t size() const
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return count_;
+    }
+
+    /**
+     * @brief Returns the maximum capacity of the buffer.
+     */
+    size_t capacity() const
+    {
+        return capacity_;
+    }
+
     void flush() override {}
 };
 
@@ -256,7 +349,12 @@ public:
     {
         running_.store(false, std::memory_order_release);
         flush_cv_.notify_all();
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        
+        // Wait for queue to drain instead of arbitrary sleep
+        while (!queue_.empty())
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
     }
 
     void write(const LogRecord& record) override
@@ -367,6 +465,41 @@ public:
     }
     
     void flush() override { target_->flush(); }
+};
+
+/**
+ * @brief Sink that invokes a user-provided callback for each log record.
+ *
+ * @details Useful for custom integrations like metrics collection,
+ * monitoring systems, or custom output formats.
+ */
+class CallbackSink : public ISink
+{
+    std::function<void(const LogRecord&)> callback_;
+    LogLevel minLevel_;
+
+public:
+    /**
+     * @brief Constructs a CallbackSink.
+     * @param callback Function to call for each log record.
+     * @param minLevel Minimum level to trigger the callback.
+     */
+    CallbackSink(std::function<void(const LogRecord&)> callback,
+                 LogLevel minLevel = LogLevel::Trace)
+        : callback_(std::move(callback))
+        , minLevel_(minLevel)
+    {
+    }
+
+    void write(const LogRecord& record) override
+    {
+        if (record.level >= minLevel_)
+        {
+            callback_(record);
+        }
+    }
+
+    void flush() override {}
 };
 
 inline void initializeRotatingLogger(const std::string& filename)

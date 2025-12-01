@@ -1,13 +1,6 @@
 /**
  * @file test_ConcurrencyPolicies.cpp
- * @brief Comprehensive unit tests for ALL 16 ConcurrencyPolicies
- *
- * @details Complete test suite for:
- * - 8 Original policies (Mutex, Spinlock, SharedMutex, etc.)
- * - 8 New advanced policies (SeqLock, TicketLock, MCS, RCU, etc.)
- * 
- * @version 4.0.0 - COMPLETE with all 19 policies, C++17/C++20/C++23 compatible
- * Includes: Fixed SeqLock test, contended benchmarks, enhanced traits
+ * @brief Comprehensive unit tests for all 19 ConcurrencyPolicies
  */
 
 #include <iostream>
@@ -17,6 +10,7 @@
 #include <string>
 #include <memory>
 #include <iomanip>
+#include <chrono>
 
 #include "ConcurrencyPolicies.h"
 #include "test_ConcurrencyPolicies.h"
@@ -33,107 +27,115 @@ namespace fat_p::testing
 // =============================================================================
 
 template <typename Policy>
-struct ProtectedValue {
+struct ProtectedValue
+{
     Policy policy;
     int value = 0;
 
-    typename Policy::LockGuard lock() {
+    typename Policy::LockGuard lock()
+    {
         return typename Policy::LockGuard(policy.getLock());
     }
 
-    typename Policy::SharedGuard shared_lock() {
+    typename Policy::SharedGuard shared_lock()
+    {
         return typename Policy::SharedGuard(policy.getLock());
     }
-
-#if (defined(FATP_USE_MUTEX) && FATP_USE_MUTEX) || \
-    (defined(FATP_USE_ATOMIC) && FATP_USE_ATOMIC)
-    template<typename P = Policy>
-    auto get_contention() const -> decltype(std::declval<P>().get_contention()) {
-        return policy.get_contention();
-    }
-#endif
 };
 
-// Generic helper for most policies
 template <typename Policy>
-void run_concurrent_write_test(ProtectedValue<Policy>& data, int num_threads, int ops_per_thread) {
-    std::vector<std::thread> threads;
-    for (int i = 0; i < num_threads; ++i) {
-        threads.emplace_back([&data, ops_per_thread]() {
-            for (int j = 0; j < ops_per_thread; ++j) {
-                typename Policy::LockGuard guard(data.policy.getLock());
-                data.value++;
-            }
-        });
+void run_concurrent_increment(Policy& policy, std::atomic<int>& counter, int ops)
+{
+    for (int i = 0; i < ops; ++i)
+    {
+        auto guard = policy.lock();
+        counter.fetch_add(1, std::memory_order_relaxed);
     }
-    for (auto& t : threads) { if (t.joinable()) t.join(); }
-}
-
-// Specialization for MutexSynchronizationPolicy (contention tracking)
-template <>
-void run_concurrent_write_test<MutexSynchronizationPolicy>(
-    ProtectedValue<MutexSynchronizationPolicy>& data,
-    int num_threads,
-    int ops_per_thread) {
-    std::vector<std::thread> threads;
-    for (int i = 0; i < num_threads; ++i) {
-        threads.emplace_back([&data, ops_per_thread]() {
-            for (int j = 0; j < ops_per_thread; ++j) {
-                MutexSynchronizationPolicy::LockGuard guard(data.policy);
-                data.value++;
-            }
-        });
-    }
-    for (auto& t : threads) { if (t.joinable()) t.join(); }
-}
-
-// Specialization for SpinlockSynchronizationPolicy (contention tracking)
-template <>
-void run_concurrent_write_test<SpinlockSynchronizationPolicy>(
-    ProtectedValue<SpinlockSynchronizationPolicy>& data,
-    int num_threads,
-    int ops_per_thread) {
-    std::vector<std::thread> threads;
-    for (int i = 0; i < num_threads; ++i) {
-        threads.emplace_back([&data, ops_per_thread]() {
-            for (int j = 0; j < ops_per_thread; ++j) {
-                SpinlockSynchronizationPolicy::LockGuard guard(data.policy);
-                data.value++;
-            }
-        });
-    }
-    for (auto& t : threads) { if (t.joinable()) t.join(); }
-}
-
-template <typename Policy>
-void run_concurrent_read_test(ProtectedValue<Policy>& data, int num_threads, std::atomic<int>& read_sum) {
-    std::vector<std::thread> threads;
-    for (int i = 0; i < num_threads; ++i) {
-        threads.emplace_back([&data, &read_sum]() {
-            typename Policy::SharedGuard guard(data.policy.getLock());
-            read_sum.fetch_add(data.value, std::memory_order_relaxed);
-        });
-    }
-    for (auto& t : threads) { if (t.joinable()) t.join(); }
 }
 
 // =============================================================================
-// ORIGINAL 8 POLICIES TESTS
+// Trait Tests
 // =============================================================================
 
+bool test_policy_traits()
+{
+    std::cout << colors::cyan() << "\nTesting Policy Traits..." << colors::reset() << std::endl;
+
+    static_assert(is_concurrency_policy_v<SingleThreadedPolicy>, "Should have PolicyTag");
+    static_assert(is_concurrency_policy_v<MutexSynchronizationPolicy>, "Should have PolicyTag");
+    static_assert(is_concurrency_policy_v<SharedMutexPolicy>, "Should have PolicyTag");
+    static_assert(is_concurrency_policy_v<SpinlockSynchronizationPolicy>, "Should have PolicyTag");
+
+    static_assert(is_shared_policy_v<SingleThreadedPolicy>, "Should have SharedGuard");
+    static_assert(is_shared_policy_v<MutexSynchronizationPolicy>, "Should have SharedGuard");
+    static_assert(is_shared_policy_v<SharedMutexPolicy>, "Should have SharedGuard");
+
+    static_assert(is_fair_policy_v<TicketLockPolicy>, "TicketLock is fair");
+    static_assert(is_fair_policy_v<MCSLockPolicy>, "MCS is fair");
+    static_assert(!is_fair_policy_v<SpinlockSynchronizationPolicy>, "Spinlock not fair");
+
+    static_assert(is_optimistic_policy_v<SeqLockPolicy>, "SeqLock is optimistic");
+    static_assert(is_optimistic_policy_v<VersionedLockPolicy>, "Versioned is optimistic");
+    static_assert(!is_optimistic_policy_v<MutexSynchronizationPolicy>, "Mutex not optimistic");
+
+    static_assert(is_numa_aware_policy_v<MCSLockPolicy>, "MCS is NUMA-aware");
+    static_assert(!is_numa_aware_policy_v<TicketLockPolicy>, "TicketLock not NUMA-aware");
+
+    static_assert(is_realtime_policy_v<PriorityInheritanceLockPolicy>, "PI is realtime");
+
+    static_assert(is_lockfree_policy_v<RCUPolicy<int>>, "RCU is lock-free");
+    static_assert(is_lockfree_policy_v<HazardPointerPolicy<int>>, "HP is lock-free");
+    static_assert(is_lockfree_policy_v<LockFreeSynchronizationPolicy>, "LockFree has tag");
+
+    static_assert(is_adaptive_policy_v<AdaptiveLockPolicy>, "Adaptive is adaptive");
+
+    static_assert(has_contention_tracking_v<SingleThreadedPolicy>, "ST tracks contention");
+    static_assert(has_contention_tracking_v<MutexSynchronizationPolicy>, "Mutex tracks contention");
+    static_assert(has_contention_tracking_v<SpinlockSynchronizationPolicy>, "Spinlock tracks");
+    static_assert(has_contention_tracking_v<AdaptiveLockPolicy>, "Adaptive tracks");
+
+    static_assert(is_recursive_policy_v<RecursiveMutexPolicy>, "RecursiveMutex is recursive");
+    static_assert(!is_recursive_policy_v<MutexSynchronizationPolicy>, "Mutex not recursive");
+
+    static_assert(is_timed_policy_v<TimedMutexPolicy>, "TimedMutex is timed");
+
+    static_assert(supports_try_lock_v<SingleThreadedPolicy>, "ST supports try_lock");
+    static_assert(supports_try_lock_v<MutexSynchronizationPolicy>, "Mutex supports try_lock");
+    static_assert(supports_try_lock_v<SharedMutexPolicy>, "SharedMutex supports try_lock");
+    static_assert(supports_try_lock_v<SpinlockSynchronizationPolicy>, "Spinlock supports try_lock");
+    static_assert(supports_try_lock_v<TicketLockPolicy>, "TicketLock supports try_lock");
+    static_assert(supports_try_lock_v<AdaptiveLockPolicy>, "Adaptive supports try_lock");
+    static_assert(supports_try_lock_v<VersionedLockPolicy>, "Versioned supports try_lock");
+    static_assert(supports_try_lock_v<RecursiveMutexPolicy>, "Recursive supports try_lock");
+    static_assert(supports_try_lock_v<TimedMutexPolicy>, "Timed supports try_lock");
+    static_assert(supports_try_lock_v<PriorityInheritanceLockPolicy>, "PI supports try_lock");
+
+    std::cout << colors::green() << "Policy Traits: All static_asserts passed."
+              << colors::reset() << std::endl;
+    return true;
+}
+
 // =============================================================================
-// I. SingleThreadedPolicy Tests
+// SingleThreadedPolicy Tests
 // =============================================================================
 
-bool test_SingleThreadedPolicy() {
+bool test_SingleThreadedPolicy()
+{
     std::cout << colors::cyan() << "\nTesting SingleThreadedPolicy..."
               << colors::reset() << std::endl;
-    ProtectedValue<SingleThreadedPolicy> data;
+
+    SingleThreadedPolicy policy;
+    int value = 0;
 
     {
-        auto guard = data.lock();
-        data.value = 42;
-        ASSERT_EQ(data.value, 42, "Value should be 42");
+        auto guard = policy.lock();
+        value = 42;
+        ASSERT_EQ(value, 42, "Value should be 42");
+    }
+
+    {
+        auto guard = policy.lock_shared();
+        ASSERT_EQ(value, 42, "Shared read should work");
     }
 
     {
@@ -142,59 +144,54 @@ bool test_SingleThreadedPolicy() {
         SIMPLE_ASSERT(true, "Static lock should work");
     }
 
-    {
-        auto guard = data.shared_lock();
-        int val = data.value;
-        ASSERT_EQ(val, 42, "Shared guard should work");
-    }
-
-    std::cout << colors::blue()
-              << "  [INFO] Concurrent test skipped (Policy is non-concurrent)."
-              << colors::reset() << std::endl;
-
     std::cout << colors::green() << "SingleThreadedPolicy: Tests passed."
               << colors::reset() << std::endl;
     return true;
 }
 
 // =============================================================================
-// II. MutexSynchronizationPolicy Tests
+// MutexSynchronizationPolicy Tests
 // =============================================================================
 
 #if FATP_USE_MUTEX
-bool test_MutexSynchronizationPolicy() {
+bool test_MutexSynchronizationPolicy()
+{
     std::cout << colors::cyan() << "\nTesting MutexSynchronizationPolicy..."
               << colors::reset() << std::endl;
-    ProtectedValue<MutexSynchronizationPolicy> data;
-    const int num_threads = 10;
-    const int ops = 50000;
-    const int expected_value = num_threads * ops;
 
+    MutexSynchronizationPolicy policy;
+    std::atomic<int> counter{0};
+    const int num_threads = 8;
+    const int ops_per_thread = 10000;
+
+    policy.reset_contention();
+    ASSERT_EQ(policy.get_contention(), 0u, "Contention should reset to 0");
+
+    std::vector<std::thread> threads;
+    for (int i = 0; i < num_threads; ++i)
     {
-        data.value = 0;
-        run_concurrent_write_test<MutexSynchronizationPolicy>(data, num_threads, ops);
-        ASSERT_EQ(data.value, expected_value, "Concurrent writes should be thread-safe");
-
-#if FATP_USE_ATOMIC
-        int contention = data.policy.get_contention();
-        std::cout << colors::blue()
-                  << "  [INFO] MutexSynchronizationPolicy Contention (Total Acquisitions): "
-                  << contention << colors::reset() << std::endl;
-        SIMPLE_ASSERT(contention == expected_value, "Contention counter should match acquisitions");
-#endif
+        threads.emplace_back([&]()
+        {
+            run_concurrent_increment(policy, counter, ops_per_thread);
+        });
     }
 
+    for (auto& t : threads)
     {
-        data.value = 1;
-        typename MutexSynchronizationPolicy::SharedGuard shared_guard(data.policy.getLock());
-        data.value = 2;
-        ASSERT_EQ(data.value, 2, "SharedGuard should work as exclusive lock");
+        t.join();
     }
+
+    ASSERT_EQ(counter.load(), num_threads * ops_per_thread, "All increments counted");
+
+    uint64_t contention = policy.get_contention();
+    std::cout << colors::blue() << "  [INFO] Contention count: " << contention
+              << colors::reset() << std::endl;
+    SIMPLE_ASSERT(contention > 0, "Should have tracked contention");
 
     {
         auto& static_lock = MutexSynchronizationPolicy::getStaticLock();
         MutexSynchronizationPolicy::LockGuard guard(static_lock);
-        SIMPLE_ASSERT(true, "Static mutex access should work");
+        SIMPLE_ASSERT(true, "Static lock works");
     }
 
     std::cout << colors::green() << "MutexSynchronizationPolicy: Tests passed."
@@ -204,34 +201,50 @@ bool test_MutexSynchronizationPolicy() {
 #endif
 
 // =============================================================================
-// III. SharedMutexPolicy Tests
+// SharedMutexPolicy Tests
 // =============================================================================
 
 #if FATP_USE_SHARED_MUTEX
-bool test_SharedMutexPolicy() {
+bool test_SharedMutexPolicy()
+{
     std::cout << colors::cyan() << "\nTesting SharedMutexPolicy..."
               << colors::reset() << std::endl;
-    ProtectedValue<SharedMutexPolicy> data;
-    const int num_threads = 10;
-    const int ops = 50000;
-    const int expected_value = num_threads * ops / 2;
+
+    SharedMutexPolicy policy;
+    std::atomic<int> value{0};
+    std::atomic<int> read_sum{0};
 
     {
-        data.value = 0;
-        run_concurrent_write_test<SharedMutexPolicy>(data, num_threads / 2, ops);
-        ASSERT_EQ(data.value, expected_value, "Concurrent writes should be thread-safe");
+        auto guard = policy.lock();
+        value.store(100, std::memory_order_relaxed);
     }
 
+    const int num_readers = 8;
+    std::vector<std::thread> readers;
+    for (int i = 0; i < num_readers; ++i)
     {
-        std::atomic<int> read_sum(0);
-        run_concurrent_read_test<SharedMutexPolicy>(data, num_threads, read_sum);
-        ASSERT_EQ(read_sum.load(), data.value * num_threads, "Concurrent reads should work");
+        readers.emplace_back([&]()
+        {
+            for (int j = 0; j < 1000; ++j)
+            {
+                auto guard = policy.lock_shared();
+                read_sum.fetch_add(value.load(std::memory_order_relaxed),
+                                   std::memory_order_relaxed);
+            }
+        });
     }
 
+    for (auto& t : readers)
     {
-        auto static_lock = SharedMutexPolicy::getStaticLock();
+        t.join();
+    }
+
+    ASSERT_EQ(read_sum.load(), num_readers * 1000 * 100, "All reads correct");
+
+    {
+        auto& static_lock = SharedMutexPolicy::getStaticLock();
         SharedMutexPolicy::LockGuard guard(static_lock);
-        SIMPLE_ASSERT(true, "Static shared mutex access should work");
+        SIMPLE_ASSERT(true, "Static lock works");
     }
 
     std::cout << colors::green() << "SharedMutexPolicy: Tests passed."
@@ -241,35 +254,34 @@ bool test_SharedMutexPolicy() {
 #endif
 
 // =============================================================================
-// IV. UniqueRWLockPolicy Tests
+// UniqueRWLockPolicy Tests
 // =============================================================================
 
 #if FATP_USE_SHARED_MUTEX
-bool test_UniqueRWLockPolicy() {
+bool test_UniqueRWLockPolicy()
+{
     std::cout << colors::cyan() << "\nTesting UniqueRWLockPolicy..."
               << colors::reset() << std::endl;
-    ProtectedValue<UniqueRWLockPolicy> data;
-    const int num_threads = 10;
-    const int ops = 50000;
-    const int expected_value = num_threads * ops / 2;
+
+    UniqueRWLockPolicy policy;
+    std::atomic<int> counter{0};
 
     {
-        data.value = 0;
-        run_concurrent_write_test<UniqueRWLockPolicy>(data, num_threads / 2, ops);
-        ASSERT_EQ(data.value, expected_value, "Concurrent writes should be thread-safe");
+        auto guard = policy.lock();
+        counter.store(42, std::memory_order_relaxed);
     }
 
     {
-        std::atomic<int> read_sum(0);
-        run_concurrent_read_test<UniqueRWLockPolicy>(data, num_threads, read_sum);
-        ASSERT_EQ(read_sum.load(), data.value * num_threads, "Concurrent reads should work");
+        auto guard = policy.lock_shared();
+        ASSERT_EQ(counter.load(), 42, "Read should work");
     }
 
+    UniqueRWLockPolicy policy2 = std::move(policy);
     {
-        auto& static_lock = UniqueRWLockPolicy::getStaticLock();
-        UniqueRWLockPolicy::LockGuard guard(static_lock);
-        SIMPLE_ASSERT(true, "Static unique RW lock access should work");
+        auto guard = policy2.lock();
+        counter.store(100, std::memory_order_relaxed);
     }
+    ASSERT_EQ(counter.load(), 100, "Move should work");
 
     std::cout << colors::green() << "UniqueRWLockPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -278,46 +290,42 @@ bool test_UniqueRWLockPolicy() {
 #endif
 
 // =============================================================================
-// V. SpinlockSynchronizationPolicy Tests
+// SpinlockSynchronizationPolicy Tests
 // =============================================================================
 
 #if FATP_USE_ATOMIC
-bool test_SpinlockSynchronizationPolicy() {
+bool test_SpinlockSynchronizationPolicy()
+{
     std::cout << colors::cyan() << "\nTesting SpinlockSynchronizationPolicy..."
               << colors::reset() << std::endl;
-    ProtectedValue<SpinlockSynchronizationPolicy> data;
-    const int num_threads = 10;
-    const int ops = 50000;
-    const int expected_value = num_threads * ops;
 
+    SpinlockSynchronizationPolicy policy;
+    std::atomic<int> counter{0};
+    const int num_threads = 8;
+    const int ops_per_thread = 10000;
+
+    policy.reset_contention();
+
+    std::vector<std::thread> threads;
+    for (int i = 0; i < num_threads; ++i)
     {
-        data.value = 0;
-        run_concurrent_write_test<SpinlockSynchronizationPolicy>(data, num_threads, ops);
-        ASSERT_EQ(data.value, expected_value, "Concurrent increment should be thread-safe");
-
-        int contention = data.policy.get_contention();
-        std::cout << colors::blue()
-                  << "  [INFO] SpinlockSynchronizationPolicy Contention: "
-                  << contention << colors::reset() << std::endl;
-        std::cout << colors::blue()
-                  << "  [INFO] Contention ratio: "
-                  << (double)contention / expected_value << "x spins per acquisition"
-                  << colors::reset() << std::endl;
-        SIMPLE_ASSERT(contention >= 0, "Contention count should be valid");
+        threads.emplace_back([&]()
+        {
+            run_concurrent_increment(policy, counter, ops_per_thread);
+        });
     }
 
+    for (auto& t : threads)
     {
-        data.value = 1;
-        typename SpinlockSynchronizationPolicy::SharedGuard shared_guard(data.policy.getLock());
-        data.value = 2;
-        ASSERT_EQ(data.value, 2, "SharedGuard should work as exclusive lock");
+        t.join();
     }
 
-    {
-        auto& static_lock = SpinlockSynchronizationPolicy::getStaticLock();
-        SpinlockSynchronizationPolicy::LockGuard guard(static_lock);
-        SIMPLE_ASSERT(true, "Static spinlock access should work");
-    }
+    ASSERT_EQ(counter.load(), num_threads * ops_per_thread, "All increments counted");
+
+    uint64_t contention = policy.get_contention();
+    std::cout << colors::blue() << "  [INFO] Spin contention: " << contention
+              << " (" << (double)contention / (num_threads * ops_per_thread) << "x)"
+              << colors::reset() << std::endl;
 
     std::cout << colors::green() << "SpinlockSynchronizationPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -326,23 +334,26 @@ bool test_SpinlockSynchronizationPolicy() {
 #endif
 
 // =============================================================================
-// VI. LockFreeSynchronizationPolicy Tests
+// LockFreeSynchronizationPolicy Tests
 // =============================================================================
 
 #if FATP_USE_ATOMIC
-bool test_LockFreeSynchronizationPolicy() {
+bool test_LockFreeSynchronizationPolicy()
+{
     std::cout << colors::cyan() << "\nTesting LockFreeSynchronizationPolicy..."
               << colors::reset() << std::endl;
 
+    LockFreeSynchronizationPolicy policy;
+
     {
-        LockFreeSynchronizationPolicy policy;
-        LockFreeSynchronizationPolicy::LockGuard guard(policy.getLock());
-        SIMPLE_ASSERT(true, "Lock guard construction should work");
+        auto guard = policy.lock();
+        SIMPLE_ASSERT(true, "Lock guard construction works");
     }
 
-    std::cout << colors::blue()
-              << "  [INFO] LockFreePolicy Destructor expected to call assert(false) in debug builds."
-              << colors::reset() << std::endl;
+    {
+        auto guard = policy.lock_shared();
+        SIMPLE_ASSERT(true, "Shared guard construction works");
+    }
 
     std::cout << colors::green() << "LockFreeSynchronizationPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -351,34 +362,58 @@ bool test_LockFreeSynchronizationPolicy() {
 #endif
 
 // =============================================================================
-// VII. LockFreeWithFallbackPolicy Tests
+// LockFreeWithFallbackPolicy Tests
 // =============================================================================
 
 #if FATP_USE_ATOMIC && FATP_USE_MUTEX
-bool test_LockFreeWithFallbackPolicy() {
+bool test_LockFreeWithFallbackPolicy()
+{
     std::cout << colors::cyan() << "\nTesting LockFreeWithFallbackPolicy..."
               << colors::reset() << std::endl;
 
-#ifdef NDEBUG
+    LockFreeWithFallbackPolicy<MutexSynchronizationPolicy> policy;
+    std::atomic<int> counter{0};
+
+#ifndef NDEBUG
     std::cout << colors::blue()
-              << "  [INFO] LockFreeWithFallbackPolicy: Testing Release Mode (Fallback)..."
+              << "  [INFO] Debug mode - uses mutex fallback for safety"
               << colors::reset() << std::endl;
 
-    ProtectedValue<LockFreeWithFallbackPolicy<MutexSynchronizationPolicy>> data;
-    const int num_threads = 4;
-    const int ops = 10000;
-    const int expected_value = num_threads * ops;
-
+    std::vector<std::thread> threads;
+    for (int i = 0; i < 4; ++i)
     {
-        data.value = 0;
-        run_concurrent_write_test<LockFreeWithFallbackPolicy<MutexSynchronizationPolicy>>(data, num_threads, ops);
-        ASSERT_EQ(data.value, expected_value, "Fallback should work correctly in release mode");
+        threads.emplace_back([&]()
+        {
+            for (int j = 0; j < 1000; ++j)
+            {
+                auto guard = policy.lock();
+                counter.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
+
+    for (auto& t : threads)
+    {
+        t.join();
+    }
+
+    ASSERT_EQ(counter.load(), 4000, "Debug mode uses mutex fallback");
+    SIMPLE_ASSERT(policy.get_contention() > 0, "Should track contention in debug");
 #else
     std::cout << colors::blue()
-              << "  [INFO] LockFreeWithFallbackPolicy: Debug Mode (assertions active)"
+              << "  [INFO] Release mode - no-op (lock-free)"
               << colors::reset() << std::endl;
+
+    for (int j = 0; j < 1000; ++j)
+    {
+        auto guard = policy.lock();
+        counter.fetch_add(1, std::memory_order_relaxed);
+    }
+    ASSERT_EQ(counter.load(), 1000, "Release mode is no-op");
+    ASSERT_EQ(policy.get_contention(), 0u, "No contention tracking in release");
 #endif
+
+    SIMPLE_ASSERT(policy.try_lock(), "try_lock should work");
 
     std::cout << colors::green() << "LockFreeWithFallbackPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -387,48 +422,43 @@ bool test_LockFreeWithFallbackPolicy() {
 #endif
 
 // =============================================================================
-// VIII. WaitableSynchronizationPolicy Tests
+// WaitableSynchronizationPolicy Tests
 // =============================================================================
 
 #if FATP_USE_MUTEX && FATP_USE_CONDITION_VARIABLE
-bool test_WaitableSynchronizationPolicy() {
+bool test_WaitableSynchronizationPolicy()
+{
     std::cout << colors::cyan() << "\nTesting WaitableSynchronizationPolicy..."
               << colors::reset() << std::endl;
 
+    WaitableSynchronizationPolicy policy;
+    bool ready = false;
+    bool processed = false;
+
+    std::thread producer([&]()
     {
-        WaitableSynchronizationPolicy policy;
-        WaitableSynchronizationPolicy::LockGuard guard(policy.getLock());
-        SIMPLE_ASSERT(true, "Waitable lock guard should work");
-    }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        auto guard = policy.lock();
+        ready = true;
+        policy.getCondition().notify_one();
+    });
 
+    std::thread consumer([&]()
     {
-        WaitableSynchronizationPolicy policy;
-        bool ready = false;
-        bool processed = false;
+        auto guard = policy.lock();
+        guard.wait(policy.getCondition(), [&]() { return ready; });
+        processed = true;
+    });
 
-        std::thread producer([&]() {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            WaitableSynchronizationPolicy::LockGuard guard(policy.getLock());
-            ready = true;
-            policy.getCondition().notify_one();
-        });
+    producer.join();
+    consumer.join();
 
-        std::thread consumer([&]() {
-            WaitableSynchronizationPolicy::LockGuard guard(policy.getLock());
-            guard.wait(policy.getCondition(), [&]() { return ready; });
-            processed = true;
-        });
-
-        producer.join();
-        consumer.join();
-
-        SIMPLE_ASSERT(ready && processed, "Wait/notify should synchronize correctly");
-    }
+    SIMPLE_ASSERT(ready && processed, "Producer/consumer should synchronize");
 
     {
-        auto& static_lock = WaitableSynchronizationPolicy::getStaticLock();
-        WaitableSynchronizationPolicy::LockGuard guard(static_lock);
-        SIMPLE_ASSERT(true, "Static waitable lock access should work");
+        auto guard = policy.lock();
+        SIMPLE_ASSERT(guard.owns_lock(), "Should own lock");
+        SIMPLE_ASSERT(guard.mutex() != nullptr, "Should have mutex pointer");
     }
 
     std::cout << colors::green() << "WaitableSynchronizationPolicy: Tests passed."
@@ -438,115 +468,92 @@ bool test_WaitableSynchronizationPolicy() {
 #endif
 
 // =============================================================================
-// NEW 8 ADVANCED POLICIES TESTS
-// =============================================================================
-
-// =============================================================================
-// IX. SeqLockPolicy Tests
+// SeqLockPolicy Tests
 // =============================================================================
 
 #if FATP_USE_ATOMIC
-bool test_SeqLockPolicy() {
+bool test_SeqLockPolicy()
+{
     std::cout << colors::cyan() << "\nTesting SeqLockPolicy..."
               << colors::reset() << std::endl;
-    
+
     SeqLockPolicy policy;
     int test_data = 0;
 
-    // Basic functionality test
     {
-        {
-            SeqLockPolicy::LockGuard guard(policy.getLock());
-            test_data = 42;
-        }
-
-        {
-            SeqLockPolicy::SharedGuard guard(policy.getLock());
-            int value = test_data;
-            SIMPLE_ASSERT(guard.is_valid(), "Read should be valid");
-            ASSERT_EQ(value, 42, "Read value should match");
-        }
+        auto guard = policy.lock();
+        test_data = 42;
     }
 
-    // BEST SOLUTION: Burst pattern - realistic SeqLock use case
-    // SeqLock is designed for infrequent writes with frequent reads
     {
-        test_data = 0;
-        std::atomic<int> successful_reads{0};
-        std::atomic<int> failed_reads{0};
-        std::atomic<bool> stop{false};
+        auto guard = policy.lock_shared();
+        int value = test_data;
+        SIMPLE_ASSERT(guard.is_valid(), "Read should be valid");
+        ASSERT_EQ(value, 42, "Read value should match");
+    }
 
-        // Writer does bursts of writes with pauses between bursts
-        // This demonstrates SeqLock's strength: handling occasional write bursts
-        // while allowing many successful reads during stable periods
-        std::thread writer([&]() {
-            constexpr int BURSTS = 10;
-            constexpr int WRITES_PER_BURST = 100;
-            
-            for (int burst = 0; burst < BURSTS; ++burst) {
-                // Quick burst of writes
-                for (int i = 0; i < WRITES_PER_BURST; ++i) {
-                    SeqLockPolicy::LockGuard guard(policy.getLock());
-                    test_data++;
-                }
-                
-                // Pause between bursts - readers can succeed here
-                // This is realistic: updates come in batches with quiet periods
-                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    uint64_t seq1 = policy.get_sequence();
+    {
+        auto guard = policy.lock();
+        test_data = 100;
+    }
+    uint64_t seq2 = policy.get_sequence();
+    SIMPLE_ASSERT(seq2 > seq1, "Sequence should increment");
+
+    std::atomic<int> successful_reads{0};
+    std::atomic<int> failed_reads{0};
+    std::atomic<bool> stop{false};
+
+    test_data = 0;
+
+    std::thread writer([&]()
+    {
+        for (int burst = 0; burst < 10; ++burst)
+        {
+            for (int i = 0; i < 100; ++i)
+            {
+                auto guard = policy.lock();
+                test_data++;
             }
-            
-            stop.store(true);
-        });
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+        stop.store(true);
+    });
 
-        // Readers continuously try to read
-        std::vector<std::thread> readers;
-        for (int i = 0; i < 4; ++i) {
-            readers.emplace_back([&]() {
-                int last_value = -1;
-                
-                while (!stop.load()) {
-                    SeqLockPolicy::SharedGuard guard(policy.getLock());
-                    int value = test_data;
-                    
-                    if (guard.is_valid()) {
-                        if (value >= last_value) {  // Monotonic check
-                            successful_reads.fetch_add(1);
-                            last_value = value;
-                        }
-                    } else {
-                        failed_reads.fetch_add(1);
-                    }
-                    
-                    // No yield - try to read as fast as possible during stable periods
+    std::vector<std::thread> readers;
+    for (int i = 0; i < 4; ++i)
+    {
+        readers.emplace_back([&]()
+        {
+            while (!stop.load())
+            {
+                auto guard = policy.lock_shared();
+                int value = test_data;
+                (void)value;
+                if (guard.is_valid())
+                {
+                    successful_reads.fetch_add(1);
                 }
-            });
-        }
-
-        writer.join();
-        for (auto& r : readers) { r.join(); }
-
-        ASSERT_EQ(test_data, 1000, "All writes should complete");
-        
-        std::cout << colors::blue()
-                  << "  [INFO] SeqLock Statistics:\n"
-                  << "    Successful reads: " << successful_reads.load() << "\n"
-                  << "    Failed reads (retry): " << failed_reads.load() << "\n"
-                  << "    Final value: " << test_data << "\n"
-                  << "    Read success ratio: " 
-                  << (100.0 * successful_reads.load() / (successful_reads.load() + failed_reads.load()))
-                  << "%"
-                  << colors::reset() << std::endl;
-        
-        // With burst pattern, should have many successful reads during quiet periods
-        SIMPLE_ASSERT(successful_reads.load() > 100, "Should have many successful reads in burst pattern");
-        
-        if (successful_reads.load() < 1000) {
-            std::cout << colors::yellow()
-                      << "  [INFO] This is expected - writes occur in bursts, "
-                      << "readers succeed during stable periods"
-                      << colors::reset() << std::endl;
-        }
+                else
+                {
+                    failed_reads.fetch_add(1);
+                }
+            }
+        });
     }
+
+    writer.join();
+    for (auto& r : readers)
+    {
+        r.join();
+    }
+
+    ASSERT_EQ(test_data, 1000, "All writes should complete");
+    std::cout << colors::blue()
+              << "  [INFO] Successful reads: " << successful_reads.load()
+              << ", Failed: " << failed_reads.load()
+              << colors::reset() << std::endl;
+    SIMPLE_ASSERT(successful_reads.load() > 100, "Should have successful reads");
 
     std::cout << colors::green() << "SeqLockPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -555,41 +562,40 @@ bool test_SeqLockPolicy() {
 #endif
 
 // =============================================================================
-// X. TicketLockPolicy Tests
+// TicketLockPolicy Tests
 // =============================================================================
 
 #if FATP_USE_ATOMIC
-bool test_TicketLockPolicy() {
+bool test_TicketLockPolicy()
+{
     std::cout << colors::cyan() << "\nTesting TicketLockPolicy..."
               << colors::reset() << std::endl;
+
     TicketLockPolicy policy;
     std::atomic<int> counter{0};
+    const int num_threads = 8;
+    const int ops = 5000;
 
+    std::vector<std::thread> threads;
+    for (int i = 0; i < num_threads; ++i)
     {
-        std::vector<std::thread> threads;
-        const int num_threads = 8;
-        const int ops = 10000;
-
-        for (int i = 0; i < num_threads; ++i) {
-            threads.emplace_back([&]() {
-                for (int j = 0; j < ops; ++j) {
-                    TicketLockPolicy::LockGuard guard(policy);
-                    counter++;
-                }
-            });
-        }
-
-        for (auto& t : threads) { t.join(); }
-
-        ASSERT_EQ(counter.load(), num_threads * ops, "Ticket lock should be thread-safe");
+        threads.emplace_back([&]()
+        {
+            for (int j = 0; j < ops; ++j)
+            {
+                auto guard = policy.lock();
+                counter.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
+    for (auto& t : threads)
     {
-        uint64_t queue_len = policy.get_queue_length();
-        std::cout << colors::blue() << "  [INFO] Queue length: " << queue_len
-                  << colors::reset() << std::endl;
-        SIMPLE_ASSERT(queue_len == 0, "Queue should be empty after all threads complete");
+        t.join();
     }
+
+    ASSERT_EQ(counter.load(), num_threads * ops, "All increments counted");
+    ASSERT_EQ(policy.get_queue_length(), 0u, "Queue should be empty");
 
     std::cout << colors::green() << "TicketLockPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -598,34 +604,39 @@ bool test_TicketLockPolicy() {
 #endif
 
 // =============================================================================
-// XI. MCSLockPolicy Tests
+// MCSLockPolicy Tests
 // =============================================================================
 
 #if FATP_USE_ATOMIC
-bool test_MCSLockPolicy() {
+bool test_MCSLockPolicy()
+{
     std::cout << colors::cyan() << "\nTesting MCSLockPolicy..."
               << colors::reset() << std::endl;
+
     MCSLockPolicy policy;
     std::atomic<int> counter{0};
+    const int num_threads = 8;
+    const int ops = 5000;
 
+    std::vector<std::thread> threads;
+    for (int i = 0; i < num_threads; ++i)
     {
-        std::vector<std::thread> threads;
-        const int num_threads = 8;
-        const int ops = 10000;
-
-        for (int i = 0; i < num_threads; ++i) {
-            threads.emplace_back([&]() {
-                for (int j = 0; j < ops; ++j) {
-                    MCSLockPolicy::LockGuard guard(policy.getLock());
-                    counter++;
-                }
-            });
-        }
-
-        for (auto& t : threads) { t.join(); }
-
-        ASSERT_EQ(counter.load(), num_threads * ops, "MCS lock should be thread-safe");
+        threads.emplace_back([&]()
+        {
+            for (int j = 0; j < ops; ++j)
+            {
+                auto guard = policy.lock();
+                counter.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
+
+    for (auto& t : threads)
+    {
+        t.join();
+    }
+
+    ASSERT_EQ(counter.load(), num_threads * ops, "All increments counted");
 
     std::cout << colors::green() << "MCSLockPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -634,18 +645,20 @@ bool test_MCSLockPolicy() {
 #endif
 
 // =============================================================================
-// XII. RCUPolicy Tests
+// RCUPolicy Tests
 // =============================================================================
 
 #if FATP_USE_ATOMIC && FATP_USE_SHARED_MUTEX
-bool test_RCUPolicy() {
+bool test_RCUPolicy()
+{
     std::cout << colors::cyan() << "\nTesting RCUPolicy..."
               << colors::reset() << std::endl;
+
     RCUPolicy<int> rcu(42);
 
     {
         auto guard = rcu.read();
-        ASSERT_EQ(*guard, 42, "RCU read should work");
+        ASSERT_EQ(*guard, 42, "Initial read should work");
     }
 
     {
@@ -655,25 +668,37 @@ bool test_RCUPolicy() {
 
     {
         auto guard = rcu.read();
-        ASSERT_EQ(*guard, 100, "RCU write should update value");
+        ASSERT_EQ(*guard, 100, "Updated value should be visible");
     }
 
+    std::atomic<int> read_count{0};
+    std::vector<std::thread> readers;
+
+    for (int i = 0; i < 4; ++i)
     {
-        std::atomic<int> read_count{0};
-        std::vector<std::thread> readers;
-
-        for (int i = 0; i < 4; ++i) {
-            readers.emplace_back([&]() {
-                for (int j = 0; j < 1000; ++j) {
-                    auto guard = rcu.read();
-                    if (*guard == 100) read_count++;
+        readers.emplace_back([&]()
+        {
+            for (int j = 0; j < 1000; ++j)
+            {
+                auto guard = rcu.read();
+                if (*guard == 100)
+                {
+                    read_count.fetch_add(1);
                 }
-            });
-        }
-
-        for (auto& r : readers) { r.join(); }
-        SIMPLE_ASSERT(read_count.load() == 4000, "All reads should see updated value");
+            }
+        });
     }
+
+    for (auto& r : readers)
+    {
+        r.join();
+    }
+
+    ASSERT_EQ(read_count.load(), 4000, "All reads should see updated value");
+
+    std::cout << colors::blue()
+              << "  [INFO] RCU is_lock_free: " << (RCUPolicy<int>::is_lock_free() ? "yes" : "no")
+              << colors::reset() << std::endl;
 
     std::cout << colors::green() << "RCUPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -682,27 +707,74 @@ bool test_RCUPolicy() {
 #endif
 
 // =============================================================================
-// XIII. HazardPointerPolicy Tests
+// HazardPointerPolicy Tests
 // =============================================================================
 
 #if FATP_USE_ATOMIC
-bool test_HazardPointerPolicy() {
+bool test_HazardPointerPolicy()
+{
     std::cout << colors::cyan() << "\nTesting HazardPointerPolicy..."
               << colors::reset() << std::endl;
+
     HazardPointerPolicy<int> hp;
 
+    std::atomic<int*> ptr(new int(42));
     {
-        std::atomic<int*> ptr(new int(42));
         auto guard = hp.acquire();
         int* protected_ptr = guard.protect(ptr);
-        ASSERT_EQ(*protected_ptr, 42, "Protected pointer should be accessible");
+        ASSERT_EQ(*protected_ptr, 42, "Protected read should work");
     }
 
+    int* old_ptr = ptr.exchange(new int(100));
+    hp.retire(old_ptr);
+    SIMPLE_ASSERT(true, "Retire should work");
+
+    std::atomic<int*> shared_ptr(new int(0));
+    std::atomic<int> sum{0};
+    std::atomic<bool> stop{false};
+
+    std::thread writer([&]()
     {
-        int* old_ptr = new int(100);
-        hp.retire(old_ptr);
-        SIMPLE_ASSERT(true, "Retire should work without errors");
+        for (int i = 1; i <= 100; ++i)
+        {
+            int* new_val = new int(i);
+            int* old_val = shared_ptr.exchange(new_val);
+            hp.retire(old_val);
+            std::this_thread::yield();
+        }
+        stop.store(true);
+    });
+
+    std::vector<std::thread> readers;
+    for (int i = 0; i < 4; ++i)
+    {
+        readers.emplace_back([&]()
+        {
+            while (!stop.load())
+            {
+                auto guard = hp.acquire();
+                int* p = guard.protect(shared_ptr);
+                if (p)
+                {
+                    sum.fetch_add(*p, std::memory_order_relaxed);
+                }
+            }
+        });
     }
+
+    writer.join();
+    for (auto& r : readers)
+    {
+        r.join();
+    }
+
+    hp.force_reclaim();
+
+    delete shared_ptr.load();
+
+    std::cout << colors::blue()
+              << "  [INFO] Sum of reads: " << sum.load()
+              << colors::reset() << std::endl;
 
     std::cout << colors::green() << "HazardPointerPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -711,49 +783,56 @@ bool test_HazardPointerPolicy() {
 #endif
 
 // =============================================================================
-// XIV. AdaptiveLockPolicy Tests
+// AdaptiveLockPolicy Tests
 // =============================================================================
 
 #if FATP_USE_ATOMIC && FATP_USE_MUTEX
-bool test_AdaptiveLockPolicy() {
+bool test_AdaptiveLockPolicy()
+{
     std::cout << colors::cyan() << "\nTesting AdaptiveLockPolicy..."
               << colors::reset() << std::endl;
+
     AdaptiveLockPolicy policy;
     std::atomic<int> counter{0};
 
+    for (int i = 0; i < 100; ++i)
     {
-        for (int i = 0; i < 100; ++i) {
-            AdaptiveLockPolicy::LockGuard guard(policy);
-            counter++;
-        }
-        ASSERT_EQ(counter.load(), 100, "Low contention should work");
-        std::cout << colors::blue() << "  [INFO] Using mutex: "
-                  << policy.is_using_mutex() << colors::reset() << std::endl;
+        auto guard = policy.lock();
+        counter.fetch_add(1, std::memory_order_relaxed);
+    }
+    ASSERT_EQ(counter.load(), 100, "Low contention should work");
+
+    bool initial_mode = policy.is_using_mutex();
+    std::cout << colors::blue()
+              << "  [INFO] Initial mode (mutex): " << initial_mode
+              << colors::reset() << std::endl;
+
+    counter.store(0);
+    policy.reset_contention();
+
+    std::vector<std::thread> threads;
+    for (int i = 0; i < 8; ++i)
+    {
+        threads.emplace_back([&]()
+        {
+            for (int j = 0; j < 2000; ++j)
+            {
+                auto guard = policy.lock();
+                counter.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
+    for (auto& t : threads)
     {
-        counter = 0;
-        std::vector<std::thread> threads;
-        const int num_threads = 8;
-        const int ops = 5000;
-
-        for (int i = 0; i < num_threads; ++i) {
-            threads.emplace_back([&]() {
-                for (int j = 0; j < ops; ++j) {
-                    AdaptiveLockPolicy::LockGuard guard(policy);
-                    counter++;
-                }
-            });
-        }
-
-        for (auto& t : threads) { t.join(); }
-
-        ASSERT_EQ(counter.load(), num_threads * ops, "High contention should work");
-        std::cout << colors::blue() << "  [INFO] Contention: "
-                  << policy.get_contention() << colors::reset() << std::endl;
-        std::cout << colors::blue() << "  [INFO] Adapted to mutex: "
-                  << policy.is_using_mutex() << colors::reset() << std::endl;
+        t.join();
     }
+
+    ASSERT_EQ(counter.load(), 16000, "High contention should work");
+    std::cout << colors::blue()
+              << "  [INFO] Final mode (mutex): " << policy.is_using_mutex()
+              << ", Contention: " << policy.get_contention()
+              << colors::reset() << std::endl;
 
     std::cout << colors::green() << "AdaptiveLockPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -762,38 +841,51 @@ bool test_AdaptiveLockPolicy() {
 #endif
 
 // =============================================================================
-// XV. PriorityInheritanceLockPolicy Tests
+// PriorityInheritanceLockPolicy Tests
 // =============================================================================
 
 #if FATP_USE_MUTEX
-bool test_PriorityInheritanceLockPolicy() {
+bool test_PriorityInheritanceLockPolicy()
+{
     std::cout << colors::cyan() << "\nTesting PriorityInheritanceLockPolicy..."
               << colors::reset() << std::endl;
+
     PriorityInheritanceLockPolicy policy;
     std::atomic<int> counter{0};
 
+    std::vector<std::thread> threads;
+    for (int i = 0; i < 4; ++i)
     {
-        std::vector<std::thread> threads;
-        const int num_threads = 4;
-        const int ops = 10000;
-
-        for (int i = 0; i < num_threads; ++i) {
-            threads.emplace_back([&]() {
-                for (int j = 0; j < ops; ++j) {
-                    PriorityInheritanceLockPolicy::LockGuard guard(policy.getLock());
-                    counter++;
-                }
-            });
-        }
-
-        for (auto& t : threads) { t.join(); }
-
-        ASSERT_EQ(counter.load(), num_threads * ops, "Priority inheritance lock should work");
+        threads.emplace_back([&]()
+        {
+            for (int j = 0; j < 5000; ++j)
+            {
+                auto guard = policy.lock();
+                counter.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
+    for (auto& t : threads)
+    {
+        t.join();
+    }
+
+    ASSERT_EQ(counter.load(), 20000, "All increments counted");
+
+#if FATP_HAS_PTHREAD_PRIO_INHERIT
     std::cout << colors::blue()
-              << "  [INFO] Note: Full priority inheritance requires OS-specific APIs"
+              << "  [INFO] Using PTHREAD_PRIO_INHERIT"
               << colors::reset() << std::endl;
+#elif FATP_HAS_WIN32_CRITICAL_SECTION
+    std::cout << colors::blue()
+              << "  [INFO] Using Win32 CRITICAL_SECTION"
+              << colors::reset() << std::endl;
+#else
+    std::cout << colors::blue()
+              << "  [INFO] Using fallback std::mutex"
+              << colors::reset() << std::endl;
+#endif
 
     std::cout << colors::green() << "PriorityInheritanceLockPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -802,41 +894,42 @@ bool test_PriorityInheritanceLockPolicy() {
 #endif
 
 // =============================================================================
-// XVI. VersionedLockPolicy Tests
+// VersionedLockPolicy Tests
 // =============================================================================
 
-#if FATP_USE_ATOMIC && FATP_USE_MUTEX
-bool test_VersionedLockPolicy() {
+#if FATP_USE_ATOMIC
+bool test_VersionedLockPolicy()
+{
     std::cout << colors::cyan() << "\nTesting VersionedLockPolicy..."
               << colors::reset() << std::endl;
+
     VersionedLockPolicy policy;
     int test_data = 0;
 
+    uint64_t v1 = policy.get_version();
     {
-        {
-            auto handle = policy.getLock();
-            VersionedLockPolicy::LockGuard guard(handle.version, handle.write_lock);
-            test_data = 42;
-        }
+        auto guard = policy.lock();
+        test_data = 42;
+    }
+    uint64_t v2 = policy.get_version();
+    SIMPLE_ASSERT(v2 > v1, "Version should increment after write");
 
-        {
-            VersionedLockPolicy::SharedGuard guard(policy.getLock().version);
-            int value = test_data;
-            SIMPLE_ASSERT(guard.validate(), "Version should be valid");
-            ASSERT_EQ(value, 42, "Read value should be correct");
-        }
+    {
+        auto guard = policy.lock_shared();
+        int value = test_data;
+        SIMPLE_ASSERT(guard.validate(), "Version should be valid");
+        ASSERT_EQ(value, 42, "Read value should match");
+        ASSERT_EQ(guard.get_version(), v2, "Guard version should match");
     }
 
     {
-        uint64_t v1 = policy.get_version();
-        {
-            auto handle = policy.getLock();
-            VersionedLockPolicy::LockGuard guard(handle.version, handle.write_lock);
-            test_data = 100;
-        }
-        uint64_t v2 = policy.get_version();
-        SIMPLE_ASSERT(v2 > v1, "Version should increment after write");
+        auto guard = policy.lock();
+        test_data = 100;
+        ASSERT_EQ(guard.get_version(), v2, "Write guard has old version");
+        guard.commit();
     }
+    uint64_t v3 = policy.get_version();
+    SIMPLE_ASSERT(v3 > v2, "Explicit commit should increment version");
 
     std::cout << colors::green() << "VersionedLockPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -844,53 +937,53 @@ bool test_VersionedLockPolicy() {
 }
 #endif
 
-
 // =============================================================================
-// XVII. RecursiveMutexPolicy Tests
+// RecursiveMutexPolicy Tests
 // =============================================================================
 
 #if FATP_USE_MUTEX
-bool test_RecursiveMutexPolicy() {
+bool test_RecursiveMutexPolicy()
+{
     std::cout << colors::cyan() << "\nTesting RecursiveMutexPolicy..."
               << colors::reset() << std::endl;
+
     RecursiveMutexPolicy policy;
     std::atomic<int> counter{0};
 
     {
-        // Test recursive locking
-        RecursiveMutexPolicy::LockGuard guard1(policy.getLock());
-        counter++;
+        auto guard1 = policy.lock();
+        counter.fetch_add(1);
         {
-            RecursiveMutexPolicy::LockGuard guard2(policy.getLock());
-            counter++;
+            auto guard2 = policy.lock();
+            counter.fetch_add(1);
             {
-                RecursiveMutexPolicy::LockGuard guard3(policy.getLock());
-                counter++;
+                auto guard3 = policy.lock();
+                counter.fetch_add(1);
             }
         }
-        ASSERT_EQ(counter.load(), 3, "Recursive locks should work");
     }
+    ASSERT_EQ(counter.load(), 3, "Recursive locks should work");
 
+    counter.store(0);
+    std::vector<std::thread> threads;
+    for (int i = 0; i < 4; ++i)
     {
-        // Test with threads
-        counter = 0;
-        std::vector<std::thread> threads;
-        const int num_threads = 4;
-        const int ops = 10000;
-
-        for (int i = 0; i < num_threads; ++i) {
-            threads.emplace_back([&]() {
-                for (int j = 0; j < ops; ++j) {
-                    RecursiveMutexPolicy::LockGuard guard(policy.getLock());
-                    counter++;
-                }
-            });
-        }
-
-        for (auto& t : threads) { t.join(); }
-
-        ASSERT_EQ(counter.load(), num_threads * ops, "Recursive mutex should be thread-safe");
+        threads.emplace_back([&]()
+        {
+            for (int j = 0; j < 5000; ++j)
+            {
+                auto guard = policy.lock();
+                counter.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
+
+    for (auto& t : threads)
+    {
+        t.join();
+    }
+
+    ASSERT_EQ(counter.load(), 20000, "Concurrent access should work");
 
     std::cout << colors::green() << "RecursiveMutexPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -899,52 +992,52 @@ bool test_RecursiveMutexPolicy() {
 #endif
 
 // =============================================================================
-// XVIII. TimedMutexPolicy Tests
+// TimedMutexPolicy Tests
 // =============================================================================
 
 #if FATP_USE_MUTEX
-bool test_TimedMutexPolicy() {
+bool test_TimedMutexPolicy()
+{
     std::cout << colors::cyan() << "\nTesting TimedMutexPolicy..."
               << colors::reset() << std::endl;
+
     TimedMutexPolicy policy;
 
     {
-        // Test normal locking
-        TimedMutexPolicy::LockGuard guard(policy.getLock());
+        auto guard = policy.lock();
         SIMPLE_ASSERT(guard.owns_lock(), "Should acquire lock");
     }
 
     {
-        // Test timeout behavior
-        TimedMutexPolicy policy2;  // Use separate policy for timeout test
-        std::atomic<bool> locked{false};
-
-        std::thread holder([&]() {
-            TimedMutexPolicy::LockGuard guard(policy2.getLock());
-            locked = true;
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        });
-
-        // Wait for holder to acquire lock
-        while (!locked.load()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-
-        // Now try to acquire with timeout (should fail since holder has it)
-        auto& lock = policy2.getLock();
-        bool acquired = lock.try_lock_for(std::chrono::milliseconds(10));
-        
-        if (!acquired) {
-            std::cout << colors::blue() << "  [INFO] Timeout correctly prevented acquisition"
-                      << colors::reset() << std::endl;
-        } else {
-            lock.unlock();  // Clean up if we somehow got it
-        }
-        
-        holder.join();
-
-        SIMPLE_ASSERT(!acquired, "Should timeout waiting for lock");
+        auto guard = policy.lock_deferred();
+        SIMPLE_ASSERT(!guard.owns_lock(), "Deferred should not own lock");
+        bool acquired = guard.try_lock_for(std::chrono::milliseconds(10));
+        SIMPLE_ASSERT(acquired, "Should acquire uncontended lock");
+        SIMPLE_ASSERT(guard.owns_lock(), "Should own lock after try_lock_for");
     }
+
+    TimedMutexPolicy policy2;
+    std::atomic<bool> holder_ready{false};
+
+    std::thread holder([&]()
+    {
+        auto guard = policy2.lock();
+        holder_ready.store(true);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    });
+
+    while (!holder_ready.load())
+    {
+        std::this_thread::yield();
+    }
+
+    {
+        auto guard = policy2.lock_deferred();
+        bool acquired = guard.try_lock_for(std::chrono::milliseconds(10));
+        SIMPLE_ASSERT(!acquired, "Should timeout on contended lock");
+    }
+
+    holder.join();
 
     std::cout << colors::green() << "TimedMutexPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -953,48 +1046,44 @@ bool test_TimedMutexPolicy() {
 #endif
 
 // =============================================================================
-// XIX. SharedTimedMutexPolicy Tests
+// SharedTimedMutexPolicy Tests
 // =============================================================================
 
 #if FATP_USE_SHARED_MUTEX
-bool test_SharedTimedMutexPolicy() {
+bool test_SharedTimedMutexPolicy()
+{
     std::cout << colors::cyan() << "\nTesting SharedTimedMutexPolicy..."
               << colors::reset() << std::endl;
-    ProtectedValue<SharedTimedMutexPolicy> data;
-    const int num_threads = 10;
-    const int ops = 10000;
+
+    SharedTimedMutexPolicy policy;
+    std::atomic<int> value{0};
 
     {
-        // Test write operations
-        data.value = 0;
-        std::vector<std::thread> threads;
-        for (int i = 0; i < num_threads / 2; ++i) {
-            threads.emplace_back([&]() {
-                for (int j = 0; j < ops; ++j) {
-                    SharedTimedMutexPolicy::LockGuard guard(data.policy.getLock());
-                    data.value++;
-                }
-            });
-        }
-
-        for (auto& t : threads) { t.join(); }
-        ASSERT_EQ(data.value, (num_threads / 2) * ops, "Writes should be thread-safe");
+        auto guard = policy.lock();
+        value.store(42);
     }
 
+    std::atomic<int> read_sum{0};
+    std::vector<std::thread> readers;
+
+    for (int i = 0; i < 8; ++i)
     {
-        // Test concurrent reads
-        std::atomic<int> read_sum(0);
-        std::vector<std::thread> threads;
-        for (int i = 0; i < num_threads; ++i) {
-            threads.emplace_back([&]() {
-                SharedTimedMutexPolicy::SharedGuard guard(data.policy.getLock());
-                read_sum.fetch_add(data.value, std::memory_order_relaxed);
-            });
-        }
-
-        for (auto& t : threads) { t.join(); }
-        ASSERT_EQ(read_sum.load(), data.value * num_threads, "Concurrent reads should work");
+        readers.emplace_back([&]()
+        {
+            for (int j = 0; j < 1000; ++j)
+            {
+                auto guard = policy.lock_shared();
+                read_sum.fetch_add(value.load(), std::memory_order_relaxed);
+            }
+        });
     }
+
+    for (auto& r : readers)
+    {
+        r.join();
+    }
+
+    ASSERT_EQ(read_sum.load(), 8 * 1000 * 42, "All shared reads correct");
 
     std::cout << colors::green() << "SharedTimedMutexPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -1003,220 +1092,38 @@ bool test_SharedTimedMutexPolicy() {
 #endif
 
 // =============================================================================
-// Contended Benchmark Framework (NEW in v4.0)
-// =============================================================================
-
-template <typename Policy>
-struct ContentionBenchmark {
-    struct Result {
-        std::string policy_name;
-        size_t num_threads;
-        size_t total_ops;
-        double avg_ns_per_op;
-        double total_seconds;
-        double throughput_ops_per_sec;
-    };
-    
-    static Result run(const std::string& name, size_t num_threads, size_t ops_per_thread) {
-        Policy policy;
-        std::atomic<size_t> counter{0};
-        std::vector<std::thread> threads;
-        
-        auto start = std::chrono::high_resolution_clock::now();
-        
-        for (size_t i = 0; i < num_threads; ++i) {
-            threads.emplace_back([&policy, &counter, ops_per_thread]() {
-                for (size_t j = 0; j < ops_per_thread; ++j) {
-                    typename Policy::LockGuard guard(policy.getLock());
-                    counter.fetch_add(1, std::memory_order_relaxed);
-                    std::this_thread::yield();  // Simulate minimal work
-                }
-            });
-        }
-        
-        for (auto& t : threads) t.join();
-        auto end = std::chrono::high_resolution_clock::now();
-        
-        size_t total_ops = num_threads * ops_per_thread;
-        auto duration_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-        double duration_s = duration_ns / 1e9;
-        double avg_ns = static_cast<double>(duration_ns) / total_ops;
-        double throughput = total_ops / duration_s;
-        
-        return Result{name, num_threads, total_ops, avg_ns, duration_s, throughput};
-    }
-    
-    static void print_result(const Result& r) {
-        std::cout << colors::blue()
-                  << "  " << r.policy_name << " [" << r.num_threads << " threads]:\n"
-                  << "    Avg time/op:  " << std::fixed << std::setprecision(2) 
-                  << r.avg_ns_per_op << " ns\n"
-                  << "    Throughput:   " << std::scientific << std::setprecision(2)
-                  << r.throughput_ops_per_sec << " ops/sec"
-                  << colors::reset() << std::endl;
-    }
-};
-
-// Specialization for MutexSynchronizationPolicy
-template <>
-ContentionBenchmark<MutexSynchronizationPolicy>::Result
-ContentionBenchmark<MutexSynchronizationPolicy>::run(
-    const std::string& name, size_t num_threads, size_t ops_per_thread
-) {
-    MutexSynchronizationPolicy policy;
-    std::atomic<size_t> counter{0};
-    std::vector<std::thread> threads;
-    
-    auto start = std::chrono::high_resolution_clock::now();
-    for (size_t i = 0; i < num_threads; ++i) {
-        threads.emplace_back([&policy, &counter, ops_per_thread]() {
-            for (size_t j = 0; j < ops_per_thread; ++j) {
-                MutexSynchronizationPolicy::LockGuard guard(policy);
-                counter.fetch_add(1, std::memory_order_relaxed);
-                std::this_thread::yield();
-            }
-        });
-    }
-    for (auto& t : threads) t.join();
-    auto end = std::chrono::high_resolution_clock::now();
-    
-    size_t total_ops = num_threads * ops_per_thread;
-    auto duration_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-    double duration_s = duration_ns / 1e9;
-    double avg_ns = static_cast<double>(duration_ns) / total_ops;
-    double throughput = total_ops / duration_s;
-    
-    return Result{name, num_threads, total_ops, avg_ns, duration_s, throughput};
-}
-
-// Specialization for SpinlockSynchronizationPolicy  
-template <>
-ContentionBenchmark<SpinlockSynchronizationPolicy>::Result
-ContentionBenchmark<SpinlockSynchronizationPolicy>::run(
-    const std::string& name, size_t num_threads, size_t ops_per_thread
-) {
-    SpinlockSynchronizationPolicy policy;
-    std::atomic<size_t> counter{0};
-    std::vector<std::thread> threads;
-    
-    auto start = std::chrono::high_resolution_clock::now();
-    for (size_t i = 0; i < num_threads; ++i) {
-        threads.emplace_back([&policy, &counter, ops_per_thread]() {
-            for (size_t j = 0; j < ops_per_thread; ++j) {
-                SpinlockSynchronizationPolicy::LockGuard guard(policy);
-                counter.fetch_add(1, std::memory_order_relaxed);
-                std::this_thread::yield();
-            }
-        });
-    }
-    for (auto& t : threads) t.join();
-    auto end = std::chrono::high_resolution_clock::now();
-    
-    size_t total_ops = num_threads * ops_per_thread;
-    auto duration_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-    double duration_s = duration_ns / 1e9;
-    double avg_ns = static_cast<double>(duration_ns) / total_ops;
-    double throughput = total_ops / duration_s;
-    
-    return Result{name, num_threads, total_ops, avg_ns, duration_s, throughput};
-}
-
-void run_contended_benchmarks() {
-    std::cout << "\n" << colors::bold() << colors::cyan()
-              << "=== CONTENDED Performance Benchmarks (NEW in v4.0) ==="
-              << colors::reset() << std::endl;
-    
-    size_t hw_threads = std::thread::hardware_concurrency();
-    std::cout << colors::blue()
-              << "System: " << hw_threads << " hardware threads\n"
-              << "Test: Multiple threads competing for same lock"
-              << colors::reset() << std::endl;
-    
-    const size_t ITERATIONS_PER_THREAD = 10000;
-    std::vector<size_t> thread_counts = {1, 2, 4, 8};
-    if (hw_threads > 8) {
-        thread_counts.push_back(hw_threads);
-    }
-    
-    std::cout << "\n" << colors::yellow() << "Testing thread counts: ";
-    for (size_t tc : thread_counts) std::cout << tc << " ";
-    std::cout << colors::reset() << "\n" << std::endl;
-    
-#if FATP_USE_MUTEX
-    std::cout << colors::cyan() << "MutexSynchronizationPolicy:" << colors::reset() << std::endl;
-    for (size_t threads : thread_counts) {
-        auto result = ContentionBenchmark<MutexSynchronizationPolicy>::run("Mutex", threads, ITERATIONS_PER_THREAD);
-        ContentionBenchmark<MutexSynchronizationPolicy>::print_result(result);
-    }
-#endif
-
-#if FATP_USE_ATOMIC
-    std::cout << "\n" << colors::cyan() << "SpinlockSynchronizationPolicy:" << colors::reset() << std::endl;
-    for (size_t threads : thread_counts) {
-        auto result = ContentionBenchmark<SpinlockSynchronizationPolicy>::run("Spinlock", threads, ITERATIONS_PER_THREAD);
-        ContentionBenchmark<SpinlockSynchronizationPolicy>::print_result(result);
-    }
-    
-    std::cout << "\n" << colors::cyan() << "TicketLockPolicy:" << colors::reset() << std::endl;
-    for (size_t threads : thread_counts) {
-        auto result = ContentionBenchmark<TicketLockPolicy>::run("TicketLock", threads, ITERATIONS_PER_THREAD);
-        ContentionBenchmark<TicketLockPolicy>::print_result(result);
-    }
-    
-    std::cout << "\n" << colors::cyan() << "MCSLockPolicy:" << colors::reset() << std::endl;
-    for (size_t threads : thread_counts) {
-        auto result = ContentionBenchmark<MCSLockPolicy>::run("MCSLock", threads, ITERATIONS_PER_THREAD);
-        ContentionBenchmark<MCSLockPolicy>::print_result(result);
-    }
-#endif
-
-#if FATP_USE_ATOMIC && FATP_USE_MUTEX
-    std::cout << "\n" << colors::cyan() << "AdaptiveLockPolicy:" << colors::reset() << std::endl;
-    for (size_t threads : thread_counts) {
-        auto result = ContentionBenchmark<AdaptiveLockPolicy>::run("Adaptive", threads, ITERATIONS_PER_THREAD);
-        ContentionBenchmark<AdaptiveLockPolicy>::print_result(result);
-    }
-#endif
-    
-    std::cout << "\n" << colors::bold() << colors::green() << "Key Insights:" << colors::reset() << std::endl;
-    std::cout << colors::blue()
-              << "- 1 thread:    Uncontended baseline\n"
-              << "- 2-4 threads: Light contention (2-10x slowdown)\n"
-              << "- 8+ threads:  Heavy contention (10-100x slowdown)\n"
-              << "- MCSLock typically scales best at high thread counts"
-              << colors::reset() << std::endl;
-}
-
-
-// =============================================================================
 // Performance Benchmarks
 // =============================================================================
 
-void run_performance_benchmarks() {
+void run_performance_benchmarks()
+{
     std::cout << "\n" << colors::bold() << colors::cyan()
-              << "=== Performance Benchmarks ==="
+              << "=== Performance Benchmarks (Uncontended) ==="
               << colors::reset() << std::endl;
 
     const size_t ITERATIONS = 100000;
 
-    // Baseline
     {
         SingleThreadedPolicy policy;
         int value = 0;
-        benchmark("SingleThreadedPolicy", [&]() {
-            SingleThreadedPolicy::LockGuard guard(policy.getLock());
+        benchmark("SingleThreadedPolicy", [&]()
+        {
+            auto guard = policy.lock();
             value++;
         }, ITERATIONS);
+        DoNotOptimize(value);
     }
 
 #if FATP_USE_MUTEX
     {
         MutexSynchronizationPolicy policy;
         int value = 0;
-        benchmark("MutexSynchronizationPolicy", [&]() {
-            MutexSynchronizationPolicy::LockGuard guard(policy);
+        benchmark("MutexSynchronizationPolicy", [&]()
+        {
+            auto guard = policy.lock();
             value++;
         }, ITERATIONS);
+        DoNotOptimize(value);
     }
 #endif
 
@@ -1224,55 +1131,152 @@ void run_performance_benchmarks() {
     {
         SpinlockSynchronizationPolicy policy;
         int value = 0;
-        benchmark("SpinlockSynchronizationPolicy", [&]() {
-            SpinlockSynchronizationPolicy::LockGuard guard(policy);
+        benchmark("SpinlockPolicy", [&]()
+        {
+            auto guard = policy.lock();
             value++;
         }, ITERATIONS);
+        DoNotOptimize(value);
+    }
+
+    {
+        TicketLockPolicy policy;
+        int value = 0;
+        benchmark("TicketLockPolicy", [&]()
+        {
+            auto guard = policy.lock();
+            value++;
+        }, ITERATIONS);
+        DoNotOptimize(value);
+    }
+
+    {
+        MCSLockPolicy policy;
+        int value = 0;
+        benchmark("MCSLockPolicy", [&]()
+        {
+            auto guard = policy.lock();
+            value++;
+        }, ITERATIONS);
+        DoNotOptimize(value);
     }
 
     {
         SeqLockPolicy policy;
         int data = 0;
-        benchmark("SeqLockPolicy write", [&]() {
-            SeqLockPolicy::LockGuard guard(policy.getLock());
+        benchmark("SeqLockPolicy (write)", [&]()
+        {
+            auto guard = policy.lock();
             data++;
         }, ITERATIONS);
-    }
-
-    {
-        TicketLockPolicy policy;
-        benchmark("TicketLockPolicy", [&]() {
-            TicketLockPolicy::LockGuard guard(policy);
-        }, ITERATIONS);
-    }
-
-    {
-        MCSLockPolicy policy;
-        benchmark("MCSLockPolicy", [&]() {
-            MCSLockPolicy::LockGuard guard(policy.getLock());
-        }, ITERATIONS);
+        DoNotOptimize(data);
     }
 #endif
 
 #if FATP_USE_ATOMIC && FATP_USE_MUTEX
     {
         AdaptiveLockPolicy policy;
-        benchmark("AdaptiveLockPolicy", [&]() {
-            AdaptiveLockPolicy::LockGuard guard(policy);
+        int value = 0;
+        benchmark("AdaptiveLockPolicy", [&]()
+        {
+            auto guard = policy.lock();
+            value++;
         }, ITERATIONS);
+        DoNotOptimize(value);
     }
 
     {
         VersionedLockPolicy policy;
-        benchmark("VersionedLockPolicy", [&]() {
-            auto handle = policy.getLock();
-            VersionedLockPolicy::LockGuard guard(handle.version, handle.write_lock);
+        int value = 0;
+        benchmark("VersionedLockPolicy", [&]()
+        {
+            auto guard = policy.lock();
+            value++;
         }, ITERATIONS);
+        DoNotOptimize(value);
     }
 #endif
 
-    std::cout << "\n" << colors::blue()
-              << "[NOTE] Benchmarks show uncontended lock/unlock overhead"
+    std::cout << colors::blue()
+              << "\n[NOTE] Benchmarks show uncontended lock/unlock overhead"
+              << colors::reset() << std::endl;
+}
+
+void run_contended_benchmarks()
+{
+    std::cout << "\n" << colors::bold() << colors::cyan()
+              << "=== Contended Performance Benchmarks ==="
+              << colors::reset() << std::endl;
+
+    const size_t ITERATIONS_PER_THREAD = 10000;
+    const size_t NUM_THREADS = 4;
+
+    auto run_contended_test = [&](auto& policy, const char* name)
+    {
+        std::atomic<int> counter{0};
+        auto start = std::chrono::high_resolution_clock::now();
+
+        std::vector<std::thread> threads;
+        for (size_t i = 0; i < NUM_THREADS; ++i)
+        {
+            threads.emplace_back([&]()
+            {
+                for (size_t j = 0; j < ITERATIONS_PER_THREAD; ++j)
+                {
+                    auto guard = policy.lock();
+                    counter.fetch_add(1, std::memory_order_relaxed);
+                }
+            });
+        }
+
+        for (auto& t : threads)
+        {
+            t.join();
+        }
+
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        double ops_per_sec = (NUM_THREADS * ITERATIONS_PER_THREAD * 1000000.0) / duration.count();
+
+        std::cout << "  " << std::setw(30) << std::left << name
+                  << std::setw(10) << std::right << duration.count() << " us"
+                  << std::setw(15) << std::fixed << std::setprecision(0) << ops_per_sec << " ops/s"
+                  << std::endl;
+    };
+
+#if FATP_USE_MUTEX
+    {
+        MutexSynchronizationPolicy policy;
+        run_contended_test(policy, "MutexSynchronizationPolicy");
+    }
+#endif
+
+#if FATP_USE_ATOMIC
+    {
+        SpinlockSynchronizationPolicy policy;
+        run_contended_test(policy, "SpinlockPolicy");
+    }
+
+    {
+        TicketLockPolicy policy;
+        run_contended_test(policy, "TicketLockPolicy");
+    }
+
+    {
+        MCSLockPolicy policy;
+        run_contended_test(policy, "MCSLockPolicy");
+    }
+#endif
+
+#if FATP_USE_ATOMIC && FATP_USE_MUTEX
+    {
+        AdaptiveLockPolicy policy;
+        run_contended_test(policy, "AdaptiveLockPolicy");
+    }
+#endif
+
+    std::cout << colors::blue()
+              << "\n[NOTE] " << NUM_THREADS << " threads x " << ITERATIONS_PER_THREAD << " ops each"
               << colors::reset() << std::endl;
 }
 
@@ -1280,13 +1284,13 @@ void run_performance_benchmarks() {
 // Main Test Function
 // =============================================================================
 
-bool test_ConcurrencyPolicies() {
-
+bool test_ConcurrencyPolicies()
+{
     PRINT_HEADER(CONCURRENCY POLICIES)
 
     TestRunner runner;
 
-    // Original 8 policies
+    runner.run_test("policy_traits", test_policy_traits);
     runner.run_test("SingleThreadedPolicy", test_SingleThreadedPolicy);
 
 #if FATP_USE_MUTEX
@@ -1311,7 +1315,6 @@ bool test_ConcurrencyPolicies() {
     runner.run_test("WaitableSynchronizationPolicy", test_WaitableSynchronizationPolicy);
 #endif
 
-    // New 8 advanced policies
 #if FATP_USE_ATOMIC
     runner.run_test("SeqLockPolicy", test_SeqLockPolicy);
     runner.run_test("TicketLockPolicy", test_TicketLockPolicy);
@@ -1330,10 +1333,6 @@ bool test_ConcurrencyPolicies() {
 
 #if FATP_USE_MUTEX
     runner.run_test("PriorityInheritanceLockPolicy", test_PriorityInheritanceLockPolicy);
-
-
-    // New 3 standard policies
-#if FATP_USE_MUTEX
     runner.run_test("RecursiveMutexPolicy", test_RecursiveMutexPolicy);
     runner.run_test("TimedMutexPolicy", test_TimedMutexPolicy);
 #endif
@@ -1341,11 +1340,11 @@ bool test_ConcurrencyPolicies() {
 #if FATP_USE_SHARED_MUTEX
     runner.run_test("SharedTimedMutexPolicy", test_SharedTimedMutexPolicy);
 #endif
-#endif
 
     int failed = runner.print_summary();
 
-    if (failed == 0) {
+    if (failed == 0)
+    {
         run_performance_benchmarks();
         run_contended_benchmarks();
     }

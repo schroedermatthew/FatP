@@ -67,6 +67,8 @@
 #include "test_RateLimiter.h"
 #include "test_Reflection.h"
 #include "test_ScopeGuard.h"
+#include "test_ScopeGuardExpected.h"
+#include "test_Signal.h"
 #include "test_SimdVector.h"
 #include "test_SlotMap.h"
 #include "test_SmallVector.h"
@@ -158,6 +160,8 @@ int main() {
     RUN_AND_RECORD(test_RCU_integration);
     RUN_AND_RECORD(test_Reflection);
     RUN_AND_RECORD(test_ScopeGuard);
+    RUN_AND_RECORD(test_ScopeGuardExpected);
+    RUN_AND_RECORD(test_Signal);
     RUN_AND_RECORD(test_SimdVector);
     RUN_AND_RECORD(test_SlotMap);
     RUN_AND_RECORD(test_SmallVector);
@@ -181,6 +185,9 @@ int main() {
 
     // Test of the test suite itself
     RUN_AND_RECORD(test_FatPTest);   
+
+    //RUN_AND_RECORD(test_FlatMap);
+    //RUN_AND_RECORD(test_FlatSet);
 
 #undef RUN_AND_RECORD
 

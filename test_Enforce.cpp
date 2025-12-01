@@ -392,7 +392,7 @@ bool test_predicate_container_unique_noexcept() {
                       "ContainerIsUniquePredicate should be noexcept(false) for hashable types");
     }
     
-    std::cout << "    → Conditional noexcept working correctly\n";
+    std::cout << "    â†’ Conditional noexcept working correctly\n";
     return true;
 }
 
@@ -437,7 +437,7 @@ bool test_predicate_noexcept_correctness() {
                       "AnySatisfyPredicate with one even number");
     }
     
-    std::cout << "    → Predicates correctly allow exceptions to propagate\n";
+    std::cout << "    â†’ Predicates correctly allow exceptions to propagate\n";
     return true;
 }
 
@@ -551,57 +551,280 @@ bool test_policy_no_throw() {
 // Test Suite 5: Contextual Enforcement
 // ============================================================================
 
+namespace contextual_test_helpers
+{
+
+// Global flags for tracking raiser behavior
+bool g_called_handler = false;
+std::string g_handler_message;
+
+void reset_flags()
+{
+    g_called_handler = false;
+    g_handler_message.clear();
+}
+
+void test_handler(const std::string& msg)
+{
+    g_called_handler = true;
+    g_handler_message = msg;
+}
+
+// Named functions for contextual enforcement testing
+// Non-noexcept function - should use throwing raiser
+void throwing_check_condition(bool condition)
+{
+    contextual_enforce(&throwing_check_condition, condition, "Condition check failed");
+}
+
+void throwing_check_not_null(int* ptr)
+{
+    contextual_enforce_not_null(&throwing_check_not_null, ptr, "Null pointer");
+}
+
+void throwing_check_positive(int value)
+{
+    contextual_enforce_is_positive(&throwing_check_positive, value, "Not positive");
+}
+
+// Noexcept function - should use non-throwing raiser (handler)
+void noexcept_check_condition(bool condition) noexcept
+{
+    contextual_enforce(&noexcept_check_condition, condition, "Condition check failed");
+}
+
+void noexcept_check_not_null(int* ptr) noexcept
+{
+    contextual_enforce_not_null(&noexcept_check_not_null, ptr, "Null pointer");
+}
+
+void noexcept_check_positive(int value) noexcept
+{
+    contextual_enforce_is_positive(&noexcept_check_positive, value, "Not positive");
+}
+
+} // namespace contextual_test_helpers
+
 bool test_contextual_throwing_function() {
-    // Test that contextual enforcement works with regular functions
-    // Note: Contextual enforcement with lambdas has limitations in C++17
+    using namespace contextual_test_helpers;
+    reset_flags();
+    set_violation_handler(test_handler);
     
-    // Simple test: just verify the macro compiles and runs
-    int* valid_ptr = new int(42);
-    int* null_ptr = nullptr;
+    // Test 1: Throwing function with passing condition - no exception
+    try
+    {
+        throwing_check_condition(true);
+        SIMPLE_ASSERT(!g_called_handler, "Handler should not be called on success");
+    }
+    catch (...)
+    {
+        reset_violation_handler();
+        SIMPLE_ASSERT(false, "Should not throw with true condition");
+    }
     
-    // This should work fine
-    try {
-        // Use always_enforce instead since contextual enforcement with lambdas is problematic
-        always_enforce_not_null(valid_ptr, "Valid pointer test");
-        delete valid_ptr;
-    } catch (...) {
-        delete valid_ptr;
+    // Test 2: Throwing function with failing condition - should throw
+    reset_flags();
+    try
+    {
+        throwing_check_condition(false);
+        reset_violation_handler();
+        SIMPLE_ASSERT(false, "Should have thrown with false condition");
+    }
+    catch (const fat_p::LogicContractError&)
+    {
+        SIMPLE_ASSERT(!g_called_handler, "Handler not called - exception thrown instead");
+    }
+    catch (...)
+    {
+        reset_violation_handler();
+        SIMPLE_ASSERT(false, "Wrong exception type thrown");
+    }
+    
+    // Test 3: Throwing function with valid pointer
+    reset_flags();
+    int value = 42;
+    int* valid_ptr = &value;
+    try
+    {
+        throwing_check_not_null(valid_ptr);
+        SIMPLE_ASSERT(!g_called_handler, "Handler not called with valid pointer");
+    }
+    catch (...)
+    {
+        reset_violation_handler();
         SIMPLE_ASSERT(false, "Should not throw with valid pointer");
     }
     
-    // This should throw
-    try {
-        always_enforce_not_null(null_ptr, "Null pointer test");
+    // Test 4: Throwing function with null pointer - should throw
+    reset_flags();
+    try
+    {
+        throwing_check_not_null(nullptr);
+        reset_violation_handler();
         SIMPLE_ASSERT(false, "Should have thrown with null pointer");
-    } catch (const fat_p::LogicContractError&) {
-        // Expected
+    }
+    catch (const fat_p::LogicContractError&)
+    {
+        SIMPLE_ASSERT(!g_called_handler, "Handler not called - exception thrown");
+    }
+    catch (...)
+    {
+        reset_violation_handler();
+        SIMPLE_ASSERT(false, "Wrong exception type for null pointer");
     }
     
+    // Test 5: Throwing function with positive value
+    reset_flags();
+    try
+    {
+        throwing_check_positive(10);
+        SIMPLE_ASSERT(!g_called_handler, "Handler not called with positive");
+    }
+    catch (...)
+    {
+        reset_violation_handler();
+        SIMPLE_ASSERT(false, "Should not throw with positive value");
+    }
+    
+    // Test 6: Throwing function with negative value - should throw
+    reset_flags();
+    try
+    {
+        throwing_check_positive(-5);
+        reset_violation_handler();
+        SIMPLE_ASSERT(false, "Should have thrown with negative value");
+    }
+    catch (const fat_p::LogicContractError&)
+    {
+        SIMPLE_ASSERT(!g_called_handler, "Handler not called - exception thrown");
+    }
+    catch (...)
+    {
+        reset_violation_handler();
+        SIMPLE_ASSERT(false, "Wrong exception type for negative value");
+    }
+    
+    reset_violation_handler();
     return true;
 }
 
 bool test_contextual_noexcept_function() {
-    // Test noexcept enforcement behavior
-    // Note: Full contextual enforcement requires runtime type inspection
-    //       which is complex with lambdas in C++17
+    using namespace contextual_test_helpers;
+    reset_flags();
+    set_violation_handler(test_handler);
     
-    // Simple test with noexcept_enforce
-    int* ptr = nullptr;
+    // Test 1: Noexcept function with passing condition - no handler call
+    noexcept_check_condition(true);
+    SIMPLE_ASSERT(!g_called_handler, "Handler not called on success");
     
-    // noexcept_enforce should not throw even with null pointer
-    noexcept_enforce(ptr != nullptr, "This should not throw");
+    // Test 2: Noexcept function with failing condition - should call handler, not throw
+    reset_flags();
+    bool did_throw = false;
+    try
+    {
+        noexcept_check_condition(false);
+    }
+    catch (...)
+    {
+        did_throw = true;
+    }
+    SIMPLE_ASSERT(!did_throw, "Noexcept function must not throw");
+    SIMPLE_ASSERT(g_called_handler, "Handler called for noexcept violation");
+    SIMPLE_ASSERT(g_handler_message.find("Condition") != std::string::npos,
+                  "Handler received message");
     
-    // Verify it also works with valid pointer
+    // Test 3: Noexcept function with valid pointer - no handler call
+    reset_flags();
     int value = 42;
     int* valid_ptr = &value;
-    noexcept_enforce(valid_ptr != nullptr, "Valid pointer check");
+    noexcept_check_not_null(valid_ptr);
+    SIMPLE_ASSERT(!g_called_handler, "Handler not called with valid pointer");
     
+    // Test 4: Noexcept function with null pointer - should call handler
+    reset_flags();
+    did_throw = false;
+    try
+    {
+        noexcept_check_not_null(nullptr);
+    }
+    catch (...)
+    {
+        did_throw = true;
+    }
+    SIMPLE_ASSERT(!did_throw, "Noexcept null check must not throw");
+    SIMPLE_ASSERT(g_called_handler, "Handler called for null pointer");
+    
+    // Test 5: Noexcept function with positive value - no handler call
+    reset_flags();
+    noexcept_check_positive(10);
+    SIMPLE_ASSERT(!g_called_handler, "Handler not called with positive");
+    
+    // Test 6: Noexcept function with negative value - should call handler
+    reset_flags();
+    did_throw = false;
+    try
+    {
+        noexcept_check_positive(-5);
+    }
+    catch (...)
+    {
+        did_throw = true;
+    }
+    SIMPLE_ASSERT(!did_throw, "Noexcept positive check must not throw");
+    SIMPLE_ASSERT(g_called_handler, "Handler called for negative value");
+    
+    reset_violation_handler();
+    return true;
+}
+
+bool test_contextual_raiser_selection() {
+    // Verify the noexcept detection at compile time
+    using namespace contextual_test_helpers;
+    
+    // Non-noexcept functions can throw
+    SIMPLE_ASSERT(!noexcept(throwing_check_condition(true)),
+                  "throwing_check_condition is not noexcept");
+    SIMPLE_ASSERT(!noexcept(throwing_check_not_null(nullptr)),
+                  "throwing_check_not_null is not noexcept");
+    SIMPLE_ASSERT(!noexcept(throwing_check_positive(1)),
+                  "throwing_check_positive is not noexcept");
+    
+    // Noexcept functions cannot throw
+    SIMPLE_ASSERT(noexcept(noexcept_check_condition(true)),
+                  "noexcept_check_condition is noexcept");
+    SIMPLE_ASSERT(noexcept(noexcept_check_not_null(nullptr)),
+                  "noexcept_check_not_null is noexcept");
+    SIMPLE_ASSERT(noexcept(noexcept_check_positive(1)),
+                  "noexcept_check_positive is noexcept");
+    
+    return true;
+}
+
+bool test_contextual_expected_integration() {
+    using namespace contextual_test_helpers;
+    reset_flags();
+    set_violation_handler(test_handler);
+    
+    // Test contextual_enforce_expected with passing condition
+    auto result1 = contextual_enforce_expected(&test_contextual_expected_integration,
+                                                true, "Should pass");
+    SIMPLE_ASSERT(result1.has_value(), "Expected succeeds with true");
+    
+    // Test contextual_enforce_expected with failing condition
+    auto result2 = contextual_enforce_expected(&test_contextual_expected_integration,
+                                                false, "Should fail");
+    SIMPLE_ASSERT(!result2.has_value(), "Expected fails with false");
+    SIMPLE_ASSERT(result2.error().find("Should fail") != std::string::npos,
+                  "Error message preserved");
+    
+    reset_violation_handler();
     return true;
 }
 
 // ============================================================================
 // Test Suite 6: Expected Integration
 // ============================================================================
+
 
 bool test_expected_passing_condition() {
     auto result = enforce_expected(true, "Should succeed");
@@ -687,7 +910,7 @@ bool test_expected_no_exceptions() {
                       "enforce_predicate_expected should return true for passing predicate");
     }
     
-    std::cout << "    → Expected integration using direct checks (no RAII)\n";
+    std::cout << "    â†’ Expected integration using direct checks (no RAII)\n";
     return true;
 }
 
@@ -718,7 +941,7 @@ bool test_expected_contextual_noexcept() {
     SIMPLE_ASSERT(result_fail.error().find("Failed") != std::string::npos,
                   "Error message should be preserved");
     
-    std::cout << "    → Contextual Expected works correctly in noexcept functions\n";
+    std::cout << "    â†’ Contextual Expected works correctly in noexcept functions\n";
     return true;
 }
 
@@ -772,7 +995,7 @@ bool test_expected_predicate_variants() {
                       "contextual_enforce_expected_3 should return predicate result");
     }
     
-    std::cout << "    → All Expected arity variants (1-3) working correctly\n";
+    std::cout << "    â†’ All Expected arity variants (1-3) working correctly\n";
     return true;
 }
 
@@ -808,7 +1031,7 @@ bool test_expected_error_propagation() {
     SIMPLE_ASSERT(result_fail.error().find("First check failed") != std::string::npos,
                   "Error message from first check");
     
-    std::cout << "    → Expected error propagation patterns working correctly\n";
+    std::cout << "    â†’ Expected error propagation patterns working correctly\n";
     return true;
 }
 
@@ -836,10 +1059,10 @@ bool test_performance_enforce_overhead() {
     
     #ifdef NDEBUG
     SIMPLE_ASSERT(ns_per_call < 10.0, "enforce() has minimal overhead in release build");
-    std::cout << "    → enforce() overhead: " << ns_per_call << " ns/call (release)\n";
+    std::cout << "    â†’ enforce() overhead: " << ns_per_call << " ns/call (release)\n";
     #else
     SIMPLE_ASSERT(ns_per_call < 500.0, "enforce() overhead acceptable in debug build");
-    std::cout << "    → enforce() overhead: " << ns_per_call << " ns/call (debug)\n";
+    std::cout << "    â†’ enforce() overhead: " << ns_per_call << " ns/call (debug)\n";
     #endif
     
     return true;
@@ -858,7 +1081,7 @@ bool test_performance_always_enforce_overhead() {
     double ns_per_call = static_cast<double>(duration) / iterations;
     
     SIMPLE_ASSERT(ns_per_call < 500.0, "always_enforce() overhead is reasonable");
-    std::cout << "    → always_enforce() overhead: " << ns_per_call << " ns/call\n";
+    std::cout << "    â†’ always_enforce() overhead: " << ns_per_call << " ns/call\n";
     
     return true;
 }
@@ -878,7 +1101,7 @@ bool test_performance_predicate_overhead() {
     double ns_per_call = static_cast<double>(duration) / iterations;
     
     SIMPLE_ASSERT(ns_per_call < 10.0, "Predicate check overhead is minimal");
-    std::cout << "    → NotNullPredicate::check() overhead: " << ns_per_call << " ns/call\n";
+    std::cout << "    â†’ NotNullPredicate::check() overhead: " << ns_per_call << " ns/call\n";
     
     delete ptr;
     return true;
@@ -931,7 +1154,7 @@ bool test_thread_safety_concurrent_enforcement() {
     SIMPLE_ASSERT(failure_count.load() == expected_failure,
                   "Concurrent enforcement failure count correct");
     
-    std::cout << "    → Processed " << (num_threads * iterations_per_thread)
+    std::cout << "    â†’ Processed " << (num_threads * iterations_per_thread)
               << " enforcement calls across " << num_threads << " threads\n";
     
     return true;
@@ -1055,7 +1278,7 @@ bool test_compile_time_static_assertions() {
     static_assert(fat_p::IsPowerOfTwoPredicate::check(1024), 
                   "Static power of two");
     
-    std::cout << "    → All constexpr checks evaluated at compile-time\n";
+    std::cout << "    â†’ All constexpr checks evaluated at compile-time\n";
     
     return true;
 }
@@ -1108,8 +1331,8 @@ bool test_compile_time_noexcept_detection() {
                       decltype(&TestClass::throwing)>::value,
                   "Should detect non-noexcept");
     
-    std::cout << "    → All 8 cv-ref qualifier combinations detected correctly\n";
-    std::cout << "    → is_noexcept_function_ptr trait complete\n";
+    std::cout << "    â†’ All 8 cv-ref qualifier combinations detected correctly\n";
+    std::cout << "    â†’ is_noexcept_function_ptr trait complete\n";
     return true;
 }
 
@@ -1136,7 +1359,7 @@ bool test_compile_time_predicate_noexcept() {
                       "Hashable string should have noexcept(false)");
     }
     
-    std::cout << "    → Conditional noexcept evaluated at compile-time\n";
+    std::cout << "    â†’ Conditional noexcept evaluated at compile-time\n";
     return true;
 }
 
@@ -1144,6 +1367,17 @@ bool test_compile_time_predicate_noexcept() {
 // ============================================================================
 // Main Test Runner
 // ============================================================================
+
+namespace
+{
+
+// Handler that doesn't abort - just logs to a discard buffer
+void test_global_handler(const std::string&)
+{
+    // Do nothing - prevents abort during tests
+}
+
+} // anonymous namespace
 
 bool test_Enforce() {
 
@@ -1153,6 +1387,9 @@ bool test_Enforce() {
     
     // Configure test runner
     get_test_config().verbose = true;
+    
+    // Set a non-aborting handler for all tests
+    set_violation_handler(test_global_handler);
     
     try {
         // Test Suite 1: Core Enforcement
@@ -1198,6 +1435,8 @@ bool test_Enforce() {
         std::cout << "\n" << colors::cyan() << "Test Suite 5: Contextual Enforcement" << colors::reset() << "\n";
         runner.run_test("contextual_throwing_function", test_contextual_throwing_function);
         runner.run_test("contextual_noexcept_function", test_contextual_noexcept_function);
+        runner.run_test("contextual_raiser_selection", test_contextual_raiser_selection);
+        runner.run_test("contextual_expected_integration", test_contextual_expected_integration);
         
         // Test Suite 6: Expected Integration
         std::cout << "\n" << colors::cyan() << "Test Suite 6: Expected Integration" << colors::reset() << "\n";
@@ -1241,15 +1480,20 @@ bool test_Enforce() {
         // Print summary
         int failed = runner.print_summary();
         
+        // Reset handler
+        reset_violation_handler();
+        
         return (failed == 0);
         
     } catch (const std::exception& e) {
+        reset_violation_handler();
         std::cerr << "\n" << colors::red() << colors::bold() 
                   << "FATAL ERROR : Uncaught exception in test suite!" 
                   << colors::reset() << "\n";
         std::cerr << "   " << e.what() << "\n\n";
         return false;
     } catch (...) {
+        reset_violation_handler();
         std::cerr << "\n" << colors::red() << colors::bold() 
                   << "FATAL ERROR: Unknown exception in test suite!" 
                   << colors::reset() << "\n\n";

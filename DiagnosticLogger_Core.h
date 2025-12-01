@@ -244,6 +244,20 @@ public:
 };
 
 /**
+ * @brief Simple formatter producing minimal output: [LEVEL] message
+ */
+class SimpleFormatter : public IFormatter
+{
+public:
+    std::string format(const LogRecord& record) const override
+    {
+        std::ostringstream oss;
+        oss << "[" << logLevelToString(record.level) << "] " << record.message;
+        return oss.str();
+    }
+};
+
+/**
  * @brief Interface for log output destinations.
  */
 class ISink
@@ -374,6 +388,27 @@ public:
     }
 
     /**
+     * @brief Replaces all sinks with the given vector of sinks.
+     * @param newSinks The new sinks to use.
+     */
+    void setSinks(std::vector<std::shared_ptr<ISink>> newSinks)
+    {
+        autoInitDisabled_.store(true, std::memory_order_release);
+        std::lock_guard<std::mutex> lock(sinkMutex_);
+        sinks_ = std::make_shared<std::vector<std::shared_ptr<ISink>>>(std::move(newSinks));
+    }
+
+    /**
+     * @brief Returns a copy of all currently configured sinks.
+     * @return Vector of sink shared pointers.
+     */
+    std::vector<std::shared_ptr<ISink>> getSinks() const
+    {
+        std::lock_guard<std::mutex> lock(sinkMutex_);
+        return sinks_ ? *sinks_ : std::vector<std::shared_ptr<ISink>>{};
+    }
+
+    /**
      * @brief Checks if the logger has any sinks configured.
      * @return True if at least one sink is present.
      */
@@ -414,12 +449,30 @@ public:
     }
 
     /**
+     * @brief Alias for setLevel() to match manual documentation.
+     * @param level The minimum level to log.
+     */
+    void setMinLevel(LogLevel level) noexcept
+    {
+        setLevel(level);
+    }
+
+    /**
      * @brief Gets the current runtime minimum log level.
      * @return The current minimum log level.
      */
     LogLevel getLevel() const noexcept
     {
         return runtimeMinLevel_.load(std::memory_order_acquire);
+    }
+
+    /**
+     * @brief Alias for getLevel() to match manual documentation.
+     * @return The current minimum log level.
+     */
+    LogLevel getMinLevel() const noexcept
+    {
+        return getLevel();
     }
 
     /**
@@ -465,12 +518,12 @@ public:
                           SourceLocation location,
                           std::string metadata = "")
     {
-        if (UNLIKELY(!shouldLog(level)))
+        // Optimization: Logging is usually the cold path.
+        if (UNLIKELY(shouldLog(level)))
         {
-            return;
+            log_slow_path(level, std::forward<MessageGenerator>(messageGen), location,
+                          std::move(metadata));
         }
-        log_slow_path(level, std::forward<MessageGenerator>(messageGen), location,
-                      std::move(metadata));
     }
 
     template <typename T>
@@ -507,6 +560,21 @@ public:
     FORCE_INLINE void fatal(T&& msg, SourceLocation loc)
     {
         log(LogLevel::Fatal, std::forward<T>(msg), loc);
+    }
+
+    /**
+     * @brief Flushes all sinks.
+     */
+    void flush()
+    {
+        std::lock_guard<std::mutex> lock(sinkMutex_);
+        if (sinks_)
+        {
+            for (auto& sink : *sinks_)
+            {
+                sink->flush();
+            }
+        }
     }
 
 private:

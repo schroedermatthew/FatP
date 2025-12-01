@@ -4,1034 +4,848 @@
 #include <thread>
 #include <atomic>
 #include <array>
+#include <optional>
 
 #include "Expected.h"
-#include "test_Expected.h"
 #include "FatPTest.h"
 
-/**
- * @file test_Expected.cpp
- * @brief Comprehensive test suite for fat_p::Expected
- * 
- * This test suite demonstrates all features of the Expected monad including:
- * - Basic value and error handling
- * - Monadic operations (map, and_then, or_else)
- * - Void Expected specialization
- * - Storage policy configuration
- * - Performance benchmarks
- * 
- * @section storage_config Storage Policy Configuration
- * 
- * Expected supports configurable storage policies via macros:
- * 
- * 1. **Default Mode** (Production):
- *    - Compile: g++ test_Expected.cpp
- *    - Uses: UnionStorage (zero-overhead, manual lifetime management)
- *    - Best for: Production code, maximum performance
- * 
- * 2. **Debug Mode**:
- *    - Compile: g++ -DUSE_VARIANT_STORAGE test_Expected.cpp
- *    - Uses: VariantStorage (std::variant-based, automatic lifetime)
- *    - Best for: Development, debugging, better debugger support
- * 
- * 3. **Custom Storage** (Advanced):
- *    - Define your storage policy template before including Expected.h:
- *      @code
- *      template <typename T, typename E>
- *      struct MyCustomStorage { ... };
- *      
- *      #define FATP_DEFAULT_STORAGE MyCustomStorage
- *      #include "Expected_v4_FINAL.h"
- *      @endcode
- *    - Best for: Arena allocators, object pools, custom memory management
- * 
- * @section storage_aliases Storage Policy Aliases
- * 
- * - `Expected<T, E>`: Uses default storage (controlled by macros above)
- * - `ExpectedUnion<T, E>`: Always uses UnionStorage (explicit)
- * - `ExpectedVariant<T, E>`: Always uses VariantStorage (if USE_VARIANT_STORAGE defined)
- * 
- * This allows you to:
- * - Switch storage globally with one macro (no code changes)
- * - Use explicit storage in performance-critical paths
- * - Mix storage policies in the same translation unit if needed
- */
-
-using namespace fat_p;
+#ifndef ENABLE_TEST_APPLICATION
+#include "test_Expected.h"
+#endif
 
 namespace fat_p::testing
 {
 
-    // ============================================================================
-    // Example: Basic Usage
-    // ============================================================================
+// ============================================================================
+// Helper Functions
+// ============================================================================
 
-    Expected<int, std::string> divide(int a, int b) {
-        if (b == 0) {
-            return unexpected{ "Division by zero" };  // FIXED: No ambiguity
-        }
-        return a / b;
+Expected<int, std::string> divide(int a, int b)
+{
+    if (b == 0)
+    {
+        return unexpected{"Division by zero"};
     }
+    return a / b;
+}
 
-    Expected<int, std::string> safe_stoi(const std::string& s) {
-        try {
-            return std::stoi(s);
-        }
-        catch (...) {
-            return unexpected{ "Invalid integer: " + s };
-        }
+Expected<int, std::string> safe_stoi(const std::string& s)
+{
+    try
+    {
+        return std::stoi(s);
     }
-
-    // ============================================================================
-    // Example: Void Expected
-    // ============================================================================
-
-    Expected<void, std::string> validate_age(int age) {
-        if (age < 0 || age > 150) {
-            return unexpected{ "Invalid age" };
-        }
-        return {};  // Success
+    catch (...)
+    {
+        return unexpected{"Invalid integer: " + s};
     }
+}
 
-    // ============================================================================
-    // Example: Monadic Chaining
-    // ============================================================================
-
-    void example_monadic_operations() {
-        std::cout << "=== Monadic Operations Example ===\n";
-
-        auto result = safe_stoi("100")
-            .and_then([](int x) { return divide(200, x); })
-            .map([](int x) { return x * 2; })
-            .inspect([](int x) {
-            std::cout << "Success: " << x << "\n";
-                })
-            .value_or(-1);
-
-        std::cout << "Final result: " << result << "\n\n";
-
-        // Error path
-        auto error_result = safe_stoi("not_a_number")
-            .and_then([](int x) { return divide(200, x); })
-            .map([](int x) { return x * 2; })
-            .inspect_error([](const std::string& e) {
-            std::cout << "Error: " << e << "\n";
-                })
-            .value_or(-1);
-
-        std::cout << "Error result: " << error_result << "\n\n";
+Expected<void, std::string> validate_age(int age)
+{
+    if (age < 0 || age > 150)
+    {
+        return unexpected{"Invalid age"};
     }
+    return {};
+}
 
-    // ============================================================================
-    // Example: Error Recovery with or_else
-    // ============================================================================
+// ============================================================================
+// Unit Tests
+// ============================================================================
 
-    void example_error_recovery() {
-        std::cout << "=== Error Recovery Example ===\n";
+bool test_expected_basic_construction()
+{
+    Expected<int, std::string> v(42);
+    SIMPLE_ASSERT(v.has_value(), "Expected should have value");
+    SIMPLE_ASSERT(*v == 42, "Value should be 42");
 
-        auto result = divide(10, 0)
-            .or_else([](const std::string& err) -> Expected<int, std::string> {
-            std::cout << "Recovering from error: " << err << "\n";
-            return 0;  // Default value
-                })
-            .map([](int x) { return x + 100; });
+    Expected<int, std::string> e(unexpected{"error"});
+    SIMPLE_ASSERT(!e.has_value(), "Expected should have error");
+    SIMPLE_ASSERT(e.error() == "error", "Error should be 'error'");
 
-        std::cout << "Recovered result: " << *result << "\n\n";
-    }
+    return true;
+}
 
-    // ============================================================================
-    // Example: Error Transformation
-    // ============================================================================
+bool test_expected_copy_construction()
+{
+    Expected<int, std::string> v1(42);
+    Expected<int, std::string> v2(v1);
+    SIMPLE_ASSERT(*v2 == 42, "Copy construction should preserve value");
 
-    enum class ErrorCode {
-        InvalidInput,
-        DivisionByZero,
-        Overflow
+    Expected<std::string, int> s1("hello");
+    Expected<std::string, int> s2(s1);
+    SIMPLE_ASSERT(*s2 == "hello", "Copy construction should preserve string");
+
+    return true;
+}
+
+bool test_expected_move_construction()
+{
+    Expected<std::string, int> v1("hello");
+    Expected<std::string, int> v2(std::move(v1));
+    SIMPLE_ASSERT(*v2 == "hello", "Move construction should transfer value");
+
+    return true;
+}
+
+bool test_expected_copy_assignment()
+{
+    Expected<int, std::string> v1(42);
+    Expected<int, std::string> v2(100);
+    v1 = v2;
+    SIMPLE_ASSERT(*v1 == 100, "Value should be 100 after assignment");
+
+    Expected<int, std::string> v3(42);
+    v3 = v3;
+    SIMPLE_ASSERT(*v3 == 42, "Self-assignment should work");
+
+    return true;
+}
+
+bool test_expected_move_assignment()
+{
+    Expected<std::string, int> v1("hello");
+    Expected<std::string, int> v2("world");
+    v2 = std::move(v1);
+    SIMPLE_ASSERT(*v2 == "hello", "Move assignment should transfer value");
+
+    return true;
+}
+
+bool test_expected_value_access()
+{
+    Expected<int, std::string> v(42);
+    SIMPLE_ASSERT(v.value() == 42, "value() should return 42");
+    SIMPLE_ASSERT(*v == 42, "operator* should return 42");
+    SIMPLE_ASSERT(v.value_or(0) == 42, "value_or should return 42");
+
+    Expected<int, std::string> e(unexpected{"error"});
+    SIMPLE_ASSERT(e.value_or(0) == 0, "value_or should return default");
+
+    return true;
+}
+
+bool test_expected_error_access()
+{
+    Expected<int, std::string> e(unexpected{"error"});
+    SIMPLE_ASSERT(e.error() == "error", "error() should return 'error'");
+    SIMPLE_ASSERT(e.error_or("default") == "error", "error_or should return error");
+
+    Expected<int, std::string> v(42);
+    SIMPLE_ASSERT(v.error_or("default") == "default", "error_or should return default");
+
+    return true;
+}
+
+bool test_expected_has_error()
+{
+    Expected<int, std::string> v(42);
+    SIMPLE_ASSERT(!v.has_error(), "has_error should be false for value");
+    SIMPLE_ASSERT(v.has_value() != v.has_error(), "has_value and has_error are opposites");
+
+    Expected<int, std::string> e(unexpected{"error"});
+    SIMPLE_ASSERT(e.has_error(), "has_error should be true for error");
+
+    Expected<void, std::string> void_v;
+    SIMPLE_ASSERT(!void_v.has_error(), "void has_error should be false for value");
+
+    Expected<void, std::string> void_e(unexpected{"error"});
+    SIMPLE_ASSERT(void_e.has_error(), "void has_error should be true for error");
+
+    return true;
+}
+
+bool test_expected_error_or_else()
+{
+    int call_count = 0;
+    auto factory = [&]()
+    {
+        ++call_count;
+        return std::string("computed");
     };
 
-    std::string error_code_to_string(ErrorCode code) {
-        switch (code) {
-        case ErrorCode::InvalidInput: return "Invalid input";
-        case ErrorCode::DivisionByZero: return "Division by zero";
-        case ErrorCode::Overflow: return "Overflow";
-        }
-        return "Unknown error";
-    }
+    Expected<int, std::string> v(42);
+    std::string e1 = v.error_or_else(factory);
+    SIMPLE_ASSERT(e1 == "computed", "error_or_else computes for value");
+    SIMPLE_ASSERT(call_count == 1, "error_or_else calls factory for value");
 
-    Expected<int, ErrorCode> typed_divide(int a, int b) {
-        if (b == 0) return unexpected{ ErrorCode::DivisionByZero };
-        return a / b;
-    }
+    call_count = 0;
+    Expected<int, std::string> e(unexpected{"actual"});
+    std::string e2 = e.error_or_else(factory);
+    SIMPLE_ASSERT(e2 == "actual", "error_or_else returns error");
+    SIMPLE_ASSERT(call_count == 0, "error_or_else skips factory for error");
 
-    void example_error_transformation() {
-        std::cout << "=== Error Transformation Example ===\n";
+    return true;
+}
 
-        auto result = typed_divide(10, 0)
-            .map_error([](ErrorCode code) {
-            return error_code_to_string(code);
-                });
+bool test_expected_map()
+{
+    auto result = Expected<int, std::string>(10).map([](int x) { return x * 2; });
+    SIMPLE_ASSERT(*result == 20, "Map should double the value");
 
-        if (!result) {
-            std::cout << "Error: " << result.error() << "\n\n";
-        }
-    }
+    auto err_result = Expected<int, std::string>(unexpected{"error"})
+        .map([](int x) { return x * 2; });
+    SIMPLE_ASSERT(!err_result.has_value(), "Error should propagate through map");
+    SIMPLE_ASSERT(err_result.error() == "error", "Error should be preserved");
 
-    // ============================================================================
-    // Example: Void Expected with Monadic Operations
-    // ============================================================================
+    return true;
+}
 
-    void example_void_expected() {
-        std::cout << "=== Void Expected Example ===\n";
+bool test_expected_and_then()
+{
+    auto result = Expected<int, std::string>(10)
+        .and_then([](int x) -> Expected<int, std::string> { return x * 2; });
+    SIMPLE_ASSERT(*result == 20, "and_then should double the value");
 
-        auto result = validate_age(25)
-            .and_then([]() { return validate_age(30); })
-            .and_then([]() { return validate_age(150); })
-            .map([]() {
-            std::cout << "All validations passed!\n";
-            return 42;
-                });
+    auto err_result = Expected<int, std::string>(unexpected{"error"})
+        .and_then([](int x) -> Expected<int, std::string> { return x * 2; });
+    SIMPLE_ASSERT(!err_result.has_value(), "Error should propagate through and_then");
 
-        if (result) {
-            std::cout << "Result: " << *result << "\n";
-        }
-        else {
-            std::cout << "Validation failed: " << result.error() << "\n";
-        }
-        std::cout << "\n";
-    }
+    return true;
+}
 
-    // ============================================================================
-    // Example: Performance - Optimized Assignment
-    // ============================================================================
+bool test_expected_or_else()
+{
+    auto result = Expected<int, std::string>(unexpected{"error"})
+        .or_else([](const std::string&) -> Expected<int, std::string> { return 42; });
+    SIMPLE_ASSERT(*result == 42, "or_else should recover with 42");
 
-    void example_optimized_assignment() {
-        std::cout << "=== Optimized Assignment Example ===\n";
+    auto val_result = Expected<int, std::string>(10)
+        .or_else([](const std::string&) -> Expected<int, std::string> { return 42; });
+    SIMPLE_ASSERT(*val_result == 10, "or_else should not affect values");
 
-        Expected<std::vector<int>, std::string> v1(std::vector<int>{1, 2, 3});
-        Expected<std::vector<int>, std::string> v2(std::vector<int>{4, 5, 6});
+    return true;
+}
 
-        // OPTIMIZED: Same state assignment - no destructor/constructor calls
-        v1 = std::move(v2);  // Just moves the vector, no destroy+construct
+bool test_expected_transform_error()
+{
+    auto result = Expected<int, std::string>(unexpected{"error"})
+        .transform_error([](const std::string& e) { return e + "_transformed"; });
+    SIMPLE_ASSERT(result.error() == "error_transformed", "transform_error should transform");
 
-        std::cout << "Vector size after optimized move: " << v1->size() << "\n";
+    return true;
+}
 
-        // Different state assignment - still efficient
-        Expected<std::vector<int>, std::string> err(unexpected{ "error" });
-        v1 = std::move(err);  // Changes state, but efficiently
+bool test_expected_inspect()
+{
+    int inspected_value = 0;
+    Expected<int, std::string>(42).inspect([&](int x) { inspected_value = x; });
+    SIMPLE_ASSERT(inspected_value == 42, "inspect should observe value");
 
-        std::cout << "After error assignment: " << (v1 ? "has value" : v1.error()) << "\n\n";
-    }
+    std::string inspected_error;
+    Expected<int, std::string>(unexpected{"error"})
+        .inspect_error([&](const std::string& e) { inspected_error = e; });
+    SIMPLE_ASSERT(inspected_error == "error", "inspect_error should observe error");
 
-    // ============================================================================
-    // Example: CTAD (Class Template Argument Deduction)
-    // ============================================================================
+    return true;
+}
 
-    void example_ctad() {
-        std::cout << "=== CTAD Example ===\n";
+bool test_expected_void_specialization()
+{
+    Expected<void, std::string> v;
+    SIMPLE_ASSERT(v.has_value(), "Void Expected should have value");
 
-        // Deduces Expected<int, std::string>
-        ExpectedImpl value = 42;
-        static_assert(std::is_same_v<decltype(value), Expected<int, std::string>>);
+    Expected<void, std::string> e(unexpected{"error"});
+    SIMPLE_ASSERT(!e.has_value(), "Void Expected should have error");
+    SIMPLE_ASSERT(e.error() == "error", "Void Expected error should be accessible");
 
-        // Deduces Expected<void, const char*>
-        ExpectedImpl err = unexpected{ "error" };
-        static_assert(std::is_same_v<decltype(err), Expected<void, const char*>>);
+    // Test map returning non-void
+    auto mapped = v.map([]() { return 42; });
+    SIMPLE_ASSERT(mapped.has_value() && *mapped == 42, "Void map to int works");
 
-        std::cout << "CTAD works! Value: " << *value << "\n\n";
-    }
+    // Test map returning void (void -> void)
+    int side_effect = 0;
+    auto void_mapped = v.map([&]() { side_effect = 100; });
+    SIMPLE_ASSERT(void_mapped.has_value(), "Void map to void works");
+    SIMPLE_ASSERT(side_effect == 100, "Void map side effect executed");
 
-    // ============================================================================
-    // Example: Storage Policy Configuration
-    // ============================================================================
+    // Test map on error state (should not invoke)
+    side_effect = 0;
+    auto err_mapped = e.map([&]() { side_effect = 999; });
+    SIMPLE_ASSERT(!err_mapped.has_value(), "Error propagates through void map");
+    SIMPLE_ASSERT(side_effect == 0, "Void map not invoked on error");
 
-    void example_storage_policy() {
-        std::cout << "=== Storage Policy Configuration Example ===\n";
+    return true;
+}
 
-        // Default behavior: Uses UnionStorage (or VariantStorage if USE_VARIANT_STORAGE is defined)
-        Expected<int, std::string> default_storage(42);
-        std::cout << "Default storage: " << *default_storage << "\n";
+bool test_expected_emplace()
+{
+    Expected<std::string, int> exp(unexpected{42});
+    exp.emplace("emplaced");
+    SIMPLE_ASSERT(*exp == "emplaced", "Emplace should construct value");
 
-        // Explicit UnionStorage (always uses UnionStorage regardless of macros)
-        ExpectedUnion<int, std::string> union_storage(100);
-        std::cout << "Explicit UnionStorage: " << *union_storage << "\n";
+    return true;
+}
 
-#ifdef USE_VARIANT_STORAGE
-        // Explicit VariantStorage (only available when USE_VARIANT_STORAGE is defined)
-        ExpectedVariant<int, std::string> variant_storage(200);
-        std::cout << "Explicit VariantStorage: " << *variant_storage << "\n";
-        std::cout << "Note: USE_VARIANT_STORAGE is defined - default Expected uses VariantStorage\n";
-#else
-        std::cout << "Note: USE_VARIANT_STORAGE is NOT defined - default Expected uses UnionStorage\n";
-#endif
+bool test_expected_swap()
+{
+    Expected<int, std::string> v1(42);
+    Expected<int, std::string> v2(100);
+    v1.swap(v2);
+    SIMPLE_ASSERT(*v1 == 100 && *v2 == 42, "Swap should exchange values");
 
-        std::cout << "\nStorage Policy Configuration:\n";
-        std::cout << "  - Default Expected<T,E>: Controlled by FATP_DEFAULT_STORAGE macro\n";
-        std::cout << "  - ExpectedUnion<T,E>: Always uses UnionStorage (zero-overhead)\n";
-#ifdef USE_VARIANT_STORAGE
-        std::cout << "  - ExpectedVariant<T,E>: Always uses VariantStorage (debug-friendly)\n";
-#endif
-        std::cout << "\nTo use custom storage globally:\n";
-        std::cout << "  #define FATP_DEFAULT_STORAGE MyStorage\n";
-        std::cout << "  #include \"Expected.h\"\n";
-        std::cout << "\n";
-    }
+    Expected<int, std::string> v(42);
+    Expected<int, std::string> e(unexpected{"error"});
+    v.swap(e);
+    SIMPLE_ASSERT(!v.has_value() && e.has_value(), "Cross-state swap should work");
+    SIMPLE_ASSERT(v.error() == "error" && *e == 42, "Cross-state swap data correct");
 
-    // ============================================================================
-    // Example: Inspection for Debugging
-    // ============================================================================
+    return true;
+}
 
-    void example_inspection() {
-        std::cout << "=== Inspection Example ===\n";
+bool test_expected_comparisons()
+{
+    Expected<int, std::string> v1(42);
+    Expected<int, std::string> v2(42);
+    SIMPLE_ASSERT(v1 == v2, "Equal Expected should compare equal");
+    SIMPLE_ASSERT(v1 == 42, "Expected should compare equal to value");
 
-        auto result = safe_stoi("123")
-            .inspect([](int x) {
-            std::cout << "[DEBUG] Parsed value: " << x << "\n";
-                })
-            .map([](int x) { return x * 2; })
-            .inspect([](int x) {
-            std::cout << "[DEBUG] After doubling: " << x << "\n";
-                })
-            .and_then([](int x) { return divide(x, 2); })
-            .inspect([](int x) {
-            std::cout << "[DEBUG] After division: " << x << "\n";
-                });
+    Expected<int, std::string> e(unexpected{"error"});
+    SIMPLE_ASSERT(e == unexpected{"error"}, "Expected should compare equal to unexpected");
 
-        std::cout << "Final: " << *result << "\n\n";
-    }
+    return true;
+}
 
-    // ============================================================================
-    // Example: Comparison Operators
-    // ============================================================================
+bool test_expected_ordering()
+{
+    Expected<int, std::string> v1(5);
+    Expected<int, std::string> v2(10);
+    const Expected<int, std::string> v3(15);
 
-    void example_comparisons() {
-        std::cout << "=== Comparison Example ===\n";
+    SIMPLE_ASSERT(v1 < v2, "operator< works");
+    SIMPLE_ASSERT(v1 <= v2, "operator<= works");
+    SIMPLE_ASSERT(v2 > v1, "operator> works");
+    SIMPLE_ASSERT(v2 >= v1, "operator>= works");
 
-        Expected<int, std::string> v1(42);
-        Expected<int, std::string> v2(42);
-        Expected<int, std::string> v3(100);
-        Expected<int, std::string> err(unexpected{ "error" });
+    SIMPLE_ASSERT(v1 < v3, "operator< with const rhs");
+    SIMPLE_ASSERT(v1 <= v3, "operator<= with const rhs");
+    SIMPLE_ASSERT(v3 > v1, "operator> with const lhs");
+    SIMPLE_ASSERT(v3 >= v1, "operator>= with const lhs");
 
-        std::cout << "v1 == v2: " << (v1 == v2) << "\n";
-        std::cout << "v1 == v3: " << (v1 == v3) << "\n";
-        std::cout << "v1 == 42: " << (v1 == 42) << "\n";
-        std::cout << "err == unexpected: " << (err == unexpected{ "error" }) << "\n\n";
-    }
+    return true;
+}
 
-    // ============================================================================
-    // Example: Hash Support
-    // ============================================================================
+bool test_expected_hash()
+{
+    Expected<int, std::string> v1(42);
+    Expected<int, std::string> v2(42);
+    std::hash<Expected<int, std::string>> hasher;
 
-    void example_hash() {
-        std::cout << "=== Hash Support Example ===\n";
+    SIMPLE_ASSERT(hasher(v1) == hasher(v2), "Same values should have same hash");
 
-        Expected<int, std::string> v1(42);
-        Expected<int, std::string> v2(42);
-        Expected<int, std::string> err(unexpected{ "error" });
+    return true;
+}
 
-        std::hash<Expected<int, std::string>> hasher;
+bool test_expected_make_expected()
+{
+    auto v1 = make_expected<std::string>(42);
+    SIMPLE_ASSERT(v1.has_value() && *v1 == 42, "make_expected works");
 
-        std::cout << "hash(v1): " << hasher(v1) << "\n";
-        std::cout << "hash(v2): " << hasher(v2) << "\n";
-        std::cout << "hash(err): " << hasher(err) << "\n";
-        std::cout << "v1 and v2 have same hash: " << (hasher(v1) == hasher(v2)) << "\n\n";
-    }
+    auto v2 = make_expected<int>(std::string("hello"));
+    SIMPLE_ASSERT(*v2 == "hello", "make_expected different error type");
 
-    // ============================================================================
-    // Example: error_or utility
-    // ============================================================================
+    return true;
+}
 
-    void example_error_or() {
-        std::cout << "=== error_or Example ===\n";
+bool test_expected_result_status_aliases()
+{
+    Result<int> r = 42;
+    SIMPLE_ASSERT(r.has_value() && *r == 42, "Result alias works");
 
-        Expected<int, std::string> success(42);
-        Expected<int, std::string> failure(unexpected{ "actual error" });
+    Status s;
+    SIMPLE_ASSERT(s.has_value(), "Status default is success");
 
-        std::cout << "Success error_or: " << success.error_or("default error") << "\n";
-        std::cout << "Failure error_or: " << failure.error_or("default error") << "\n\n";
-    }
+    Status s_err = unexpected{"failed"};
+    SIMPLE_ASSERT(s_err.has_error(), "Status holds error");
 
-    // ============================================================================
-    // Example: Real-world Use Case - Configuration Parser
-    // ============================================================================
+    return true;
+}
 
-    struct Config {
-        std::string host;
-        int port;
-        int timeout_ms;
+bool test_expected_storage_policy()
+{
+    ExpectedUnion<int, std::string> v(42);
+    SIMPLE_ASSERT(v.has_value(), "ExpectedUnion should have value");
+    SIMPLE_ASSERT(*v == 42, "ExpectedUnion value should be 42");
+
+    Expected<int, std::string> v2(100);
+    SIMPLE_ASSERT(v2.has_value(), "Expected should have value");
+    SIMPLE_ASSERT(*v2 == 100, "Expected value should be 100");
+
+    return true;
+}
+
+bool test_expected_rebind()
+{
+    using IntExpected = Expected<int, std::string>;
+    using DoubleExpected = IntExpected::rebind<double>;
+
+    static_assert(std::is_same_v<DoubleExpected, Expected<double, std::string>>,
+        "rebind changes value type");
+
+    auto to_double = [](auto exp) -> typename decltype(exp)::template rebind<double>
+    {
+        return exp.map([](const auto& x) { return static_cast<double>(x); });
     };
 
-    // Wrapper to avoid Expected<string, string>
-    struct ConfigError {
-        std::string message;
+    Expected<int, std::string> int_exp(42);
+    auto double_exp = to_double(int_exp);
+    SIMPLE_ASSERT(double_exp.has_value(), "Rebind conversion works");
+    SIMPLE_ASSERT(*double_exp == 42.0, "Rebind value correct");
 
-        ConfigError(const char* msg) : message(msg) {}
-        ConfigError(const std::string& msg) : message(msg) {}
-        ConfigError(std::string&& msg) : message(std::move(msg)) {}
+    return true;
+}
 
-        bool operator==(const ConfigError& other) const {
-            return message == other.message;
-        }
+bool test_expected_non_default_constructible()
+{
+    struct NoDefault
+    {
+        int value;
+        NoDefault() = delete;
+        explicit NoDefault(int v) : value(v) {}
     };
 
-    Expected<Config, ConfigError> parse_config(const std::vector<std::string>& lines) {
-        Config cfg;
+    Expected<NoDefault, std::string> exp(std::in_place, 42);
+    SIMPLE_ASSERT(exp.has_value(), "NoDefault construction works");
+    SIMPLE_ASSERT(exp->value == 42, "NoDefault value correct");
 
-        auto find_value = [&](const std::string& key) -> Expected<std::string, ConfigError> {
-            for (const auto& line : lines) {
-                if (line.find(key + "=") == 0) {
-                    return line.substr(key.length() + 1);
+    Expected<NoDefault, std::string> err(unexpected{"error"});
+    SIMPLE_ASSERT(!err.has_value(), "NoDefault error state works");
+
+    return true;
+}
+
+bool test_expected_large_objects()
+{
+    struct LargeObject
+    {
+        std::array<int, 100> data;
+        LargeObject() { data.fill(42); }
+    };
+
+    Expected<LargeObject, std::string> exp(std::in_place);
+    SIMPLE_ASSERT(exp.has_value(), "Large object construction");
+    SIMPLE_ASSERT(exp->data[0] == 42, "Large object value correct");
+
+    auto moved = std::move(exp);
+    SIMPLE_ASSERT(moved.has_value(), "Large object moved");
+
+    return true;
+}
+
+bool test_expected_concurrent_read()
+{
+    Expected<int, std::string> shared_exp(42);
+    std::atomic<int> sum{0};
+
+    std::vector<std::thread> threads;
+    for (int i = 0; i < 4; ++i)
+    {
+        threads.emplace_back([&]()
+        {
+            for (int j = 0; j < 100; ++j)
+            {
+                if (shared_exp.has_value())
+                {
+                    sum += *shared_exp;
                 }
             }
-            return unexpected{ ConfigError("Key not found: " + key) };
-            };
-
-        auto safe_stoi_wrapped = [](const std::string& s) -> Expected<int, ConfigError> {
-            try {
-                return std::stoi(s);
-            }
-            catch (...) {
-                return unexpected{ ConfigError("Invalid integer: " + s) };
-            }
-            };
-
-        // Parse host
-        auto host_result = find_value("host");
-        if (!host_result) return unexpected{ host_result.error() };
-        cfg.host = *host_result;
-
-        // Parse port
-        auto port_str_result = find_value("port");
-        if (!port_str_result) return unexpected{ port_str_result.error() };
-
-        auto port_result = safe_stoi_wrapped(*port_str_result);
-        if (!port_result) return unexpected{ port_result.error() };
-        cfg.port = *port_result;
-
-        // Parse timeout
-        auto timeout_str_result = find_value("timeout");
-        if (!timeout_str_result) return unexpected{ timeout_str_result.error() };
-
-        auto timeout_result = safe_stoi_wrapped(*timeout_str_result);
-        if (!timeout_result) return unexpected{ timeout_result.error() };
-        cfg.timeout_ms = *timeout_result;
-
-        return cfg;
+        });
     }
 
-    void example_real_world() {
-        std::cout << "=== Real-world Config Parser Example ===\n";
-
-        std::vector<std::string> config_lines = {
-            "host=localhost",
-            "port=8080",
-            "timeout=5000"
-        };
-
-        auto result = parse_config(config_lines)
-            .inspect([](const Config& cfg) {
-            std::cout << "Config loaded successfully:\n";
-            std::cout << "  Host: " << cfg.host << "\n";
-            std::cout << "  Port: " << cfg.port << "\n";
-            std::cout << "  Timeout: " << cfg.timeout_ms << "ms\n";
-                })
-            .inspect_error([](const ConfigError& err) {
-            std::cout << "Failed to load config: " << err.message << "\n";
-                });
-
-        std::cout << "\n";
+    for (auto& t : threads)
+    {
+        t.join();
     }
 
-    // ============================================================================
-    // Performance Test - Demonstrating Optimized Assignment
-    // ============================================================================
+    SIMPLE_ASSERT(sum == 42 * 400, "Concurrent reads safe");
 
-    void benchmark_assignment() {
-        std::cout << "=== Assignment Performance Benchmark ===\n";
+    return true;
+}
 
-        constexpr size_t ITERATIONS = 1000000;
+bool test_expected_monadic_chaining()
+{
+    auto result = safe_stoi("10")
+        .and_then([](int x) { return divide(100, x); })
+        .map([](int x) { return x * 2; });
 
-        // Same-state assignment (OPTIMIZED PATH - Fast)
-        {
-            Expected<int, std::string> e1(42);
-            Expected<int, std::string> e2(100);
+    SIMPLE_ASSERT(result.has_value(), "Chained operations succeed");
+    SIMPLE_ASSERT(*result == 20, "Chained result correct");
 
-            benchmark("Same-state assignment (FAST PATH)", [&]() {
-                e1 = e2;  // Fast path: direct assignment, no destructor calls
-                }, ITERATIONS);
-        }
+    auto err_result = safe_stoi("not_a_number")
+        .and_then([](int x) { return divide(100, x); })
+        .map([](int x) { return x * 2; });
 
-        // Different-state assignment (SLOW PATH - Unavoidable)
-        {
-            Expected<int, std::string> e1(42);
-            Expected<int, std::string> e2(unexpected{ "error" });
+    SIMPLE_ASSERT(!err_result.has_value(), "Error propagates through chain");
 
-            benchmark("Different-state assignment (SLOW PATH)", [&]() {
-                e1 = e2;  // Slow path: destroy value, construct error
-                e2 = Expected<int, std::string>(100);  // Restore for next iteration
-                }, ITERATIONS);
-        }
+    return true;
+}
 
-        // Monadic operations performance
-        {
-            Expected<int, std::string> e(42);
+bool test_expected_fold()
+{
+    auto v = Expected<int, std::string>(42);
+    int result = v.fold(
+        [](int x) { return x * 2; },
+        [](const std::string&) { return -1; }
+    );
+    SIMPLE_ASSERT(result == 84, "fold with value");
 
-            benchmark("Monadic map operation", [&]() {
-                auto result = e.map([](int x) { return x * 2; });
-                (void)result;
-                }, ITERATIONS);
-        }
+    auto e = Expected<int, std::string>(unexpected{"error"});
+    int err_result = e.fold(
+        [](int x) { return x * 2; },
+        [](const std::string&) { return -1; }
+    );
+    SIMPLE_ASSERT(err_result == -1, "fold with error");
 
-        // and_then operation
-        {
-            Expected<int, std::string> e(42);
+    return true;
+}
 
-            benchmark("Monadic and_then operation", [&]() {
-                auto result = e.and_then([](int x) -> Expected<int, std::string> {
-                    return x * 2;
-                    });
-                (void)result;
-                }, ITERATIONS);
-        }
+bool test_expected_value_unchecked()
+{
+    Expected<int, std::string> v(42);
+    SIMPLE_ASSERT(v.value_unchecked() == 42, "value_unchecked returns value");
 
-        // Value construction
-        {
-            benchmark("Value construction", []() {
-                Expected<int, std::string> e(42);
-                (void)e;
-                }, ITERATIONS);
-        }
+    v.value_unchecked() = 100;
+    SIMPLE_ASSERT(*v == 100, "value_unchecked can modify");
 
-        // Error construction
-        {
-            benchmark("Error construction", []() {
-                Expected<int, std::string> e(unexpected{ "error" });
-                (void)e;
-                }, ITERATIONS);
-        }
+    const Expected<int, std::string> cv(200);
+    SIMPLE_ASSERT(cv.value_unchecked() == 200, "const value_unchecked works");
 
-        // has_value check
-        {
-            Expected<int, std::string> e(42);
+    Expected<std::string, int> sv("hello");
+    SIMPLE_ASSERT(sv.value_unchecked() == "hello", "value_unchecked with string");
 
-            benchmark("has_value() check", [&]() {
-                bool has = e.has_value();
-                (void)has;
-                }, ITERATIONS);
-        }
+    return true;
+}
 
-        // value_or access
-        {
-            Expected<int, std::string> e(42);
+bool test_expected_trivial_storage()
+{
+    enum class ErrorCode : int { None = 0, NotFound = 1, Invalid = 2 };
+    using TrivExp = fat_p::ExpectedImpl<int, ErrorCode, fat_p::TrivialStorage>;
 
-            benchmark("value_or() with value", [&]() {
-                int val = e.value_or(0);
-                (void)val;
-                }, ITERATIONS);
-        }
+    TrivExp v(42);
+    SIMPLE_ASSERT(v.has_value(), "TrivialExpected has value");
+    SIMPLE_ASSERT(*v == 42, "TrivialExpected value correct");
 
-        {
-            Expected<int, std::string> e(unexpected{ "error" });
+    TrivExp e(fat_p::unexpect, ErrorCode::NotFound);
+    SIMPLE_ASSERT(!e.has_value(), "TrivialExpected has error");
+    SIMPLE_ASSERT(e.error() == ErrorCode::NotFound, "TrivialExpected error correct");
 
-            benchmark("value_or() with error", [&]() {
-                int val = e.value_or(0);
-                (void)val;
-                }, ITERATIONS);
-        }
+    TrivExp copy = v;
+    SIMPLE_ASSERT(*copy == 42, "TrivialExpected copy works");
 
-        std::cout << "\n";
-        std::cout << "Performance Summary:\n";
-        std::cout << "  ✓ Same-state assignment uses FAST PATH (direct assignment)\n";
-        std::cout << "  ✓ Different-state assignment uses SLOW PATH (destroy + construct)\n";
-        std::cout << "  ✓ All operations have zero-overhead abstractions\n";
-        std::cout << "  ✓ Monadic operations have minimal overhead (~nanoseconds)\n";
-        std::cout << "\n";
-    }
+    TrivExp moved = std::move(copy);
+    SIMPLE_ASSERT(*moved == 42, "TrivialExpected move works");
 
-    // ============================================================================
-    // Unit Tests
-    // ============================================================================
+    static_assert(std::is_trivially_copyable_v<fat_p::TrivialStorage<int, ErrorCode>>,
+        "TrivialStorage should be trivially copyable");
 
-    bool run_unit_tests() {
-        std::cout << "=== Running Unit Tests ===\n";
+    static_assert(std::is_trivially_copyable_v<TrivExp>,
+        "TrivialExpected should be trivially copyable for register passing");
 
-        // Test 1: Basic construction
-        {
-            Expected<int, std::string> v(42);
-            SIMPLE_ASSERT(v.has_value(), "Expected should have value");
-            SIMPLE_ASSERT(*v == 42, "Value should be 42");
-        }
+    v.swap(e);
+    SIMPLE_ASSERT(!v.has_value() && e.has_value(), "TrivialExpected swap works");
 
-        // Test 2: Error construction (FIXED - no ambiguity)
-        {
-            Expected<int, std::string> e(unexpected{ "error" });
-            SIMPLE_ASSERT(!e.has_value(), "Expected should have error");
-            SIMPLE_ASSERT(e.error() == "error", "Error should be 'error'");
-        }
+    auto mapped = e.map([](int x) { return x * 2; });
+    SIMPLE_ASSERT(*mapped == 84, "TrivialExpected map works");
 
-        // Test 3: Optimized assignment
-        {
-            Expected<int, std::string> v1(42);
-            Expected<int, std::string> v2(100);
-            v1 = v2;
-            SIMPLE_ASSERT(*v1 == 100, "Value should be 100 after assignment");
-        }
+    return true;
+}
 
-        // Test 4: Monadic map
-        {
-            auto result = Expected<int, std::string>(10)
-                .map([](int x) { return x * 2; });
-            SIMPLE_ASSERT(*result == 20, "Map should double the value");
-        }
+bool test_expected_assign_or_return()
+{
+    auto success_fn = []() -> Expected<int, std::string> { return 42; };
+    auto fail_fn = []() -> Expected<int, std::string> { return unexpected{"fail"}; };
 
-        // Test 5: Monadic and_then
-        {
-            auto result = Expected<int, std::string>(10)
-                .and_then([](int x) -> Expected<int, std::string> {
-                return x * 2;
-                    });
-            SIMPLE_ASSERT(*result == 20, "and_then should double the value");
-        }
+    auto wrapper_success = [&]() -> Expected<int, std::string>
+    {
+        int val = 0;
+        EXPECTED_ASSIGN_OR_RETURN(val, success_fn());
+        return val * 2;
+    };
 
-        // Test 6: Error propagation
-        {
-            auto result = Expected<int, std::string>(unexpected{ "error" })
-                .map([](int x) { return x * 2; });
-            SIMPLE_ASSERT(!result.has_value(), "Error should propagate");
-            SIMPLE_ASSERT(result.error() == "error", "Error should be 'error'");
-        }
+    auto wrapper_fail = [&]() -> Expected<int, std::string>
+    {
+        int val = 0;
+        EXPECTED_ASSIGN_OR_RETURN(val, fail_fn());
+        return val * 2;
+    };
 
-        // Test 7: or_else recovery
-        {
-            auto result = Expected<int, std::string>(unexpected{ "error" })
-                .or_else([](const std::string&) -> Expected<int, std::string> {
-                return 42;
-                    });
-            SIMPLE_ASSERT(*result == 42, "or_else should recover with 42");
-        }
+    auto res1 = wrapper_success();
+    SIMPLE_ASSERT(res1.has_value() && *res1 == 84, "ASSIGN_OR_RETURN success path");
 
-        // Test 8: Void expected
-        {
-            Expected<void, std::string> v;
-            SIMPLE_ASSERT(v.has_value(), "Void Expected should have value");
+    auto res2 = wrapper_fail();
+    SIMPLE_ASSERT(!res2.has_value() && res2.error() == "fail", "ASSIGN_OR_RETURN error propagation");
 
-            Expected<void, std::string> e(unexpected{ "error" });
-            SIMPLE_ASSERT(!e.has_value(), "Void Expected should have error");
-        }
-
-        // Test 9: value_or
-        {
-            Expected<int, std::string> v(42);
-            SIMPLE_ASSERT(v.value_or(0) == 42, "value_or should return 42");
-
-            Expected<int, std::string> e(unexpected{ "error" });
-            SIMPLE_ASSERT(e.value_or(0) == 0, "value_or should return default");
-        }
-
-        // Test 10: error_or
-        {
-            Expected<int, std::string> v(42);
-            SIMPLE_ASSERT(v.error_or("default") == "default", "error_or should return default");
-
-            Expected<int, std::string> e(unexpected{ "error" });
-            SIMPLE_ASSERT(e.error_or("default") == "error", "error_or should return error");
-        }
-
-        // Test 11: Comparisons
-        {
-            Expected<int, std::string> v1(42);
-            Expected<int, std::string> v2(42);
-            SIMPLE_ASSERT(v1 == v2, "Equal Expected should compare equal");
-            SIMPLE_ASSERT(v1 == 42, "Expected should compare equal to value");
-
-            Expected<int, std::string> e(unexpected{ "error" });
-            SIMPLE_ASSERT(e == unexpected{ "error" }, "Expected should compare equal to unexpected");
-        }
-
-        // Test 12: inspect
-        {
-            int inspected_value = 0;
-            Expected<int, std::string>(42)
-                .inspect([&](int x) { inspected_value = x; });
-            SIMPLE_ASSERT(inspected_value == 42, "inspect should observe value");
-        }
-
-        // Test 13: inspect_error
-        {
-            std::string inspected_error;
-            Expected<int, std::string>(unexpected{ "error" })
-                .inspect_error([&](const std::string& e) { inspected_error = e; });
-            SIMPLE_ASSERT(inspected_error == "error", "inspect_error should observe error");
-        }
-
-        // Test 14: map_error
-        {
-            auto result = Expected<int, std::string>(unexpected{ "error" })
-                .map_error([](const std::string& e) { return e + "_transformed"; });
-            SIMPLE_ASSERT(result.error() == "error_transformed", "map_error should transform error");
-        }
-
-        // Test 15: Copy construction
-        {
-            Expected<int, std::string> v1(42);
-            Expected<int, std::string> v2(v1);
-            SIMPLE_ASSERT(*v2 == 42, "Copy construction should preserve value");
-        }
-
-        // Test 16: Move construction
-        {
-            Expected<std::string, int> v1("hello");
-            Expected<std::string, int> v2(std::move(v1));
-            SIMPLE_ASSERT(*v2 == "hello", "Move construction should transfer value");
-        }
-
-        // Test 17: Emplace
-        {
-            Expected<std::string, int> exp(unexpected{ 42 });
-            exp.emplace("emplaced");
-            SIMPLE_ASSERT(*exp == "emplaced", "Emplace should construct value");
-        }
-
-        // Test 18: Swap
-        {
-            Expected<int, std::string> v1(42);
-            Expected<int, std::string> v2(100);
-            v1.swap(v2);
-            SIMPLE_ASSERT(*v1 == 100 && *v2 == 42, "Swap should exchange values");
-        }
-
-        // Test 19: Cross-state swap
-        {
-            Expected<int, std::string> v(42);
-            Expected<int, std::string> e(unexpected{ "error" });
-            v.swap(e);
-            SIMPLE_ASSERT(!v.has_value() && e.has_value(), "Cross-state swap should exchange states");
-            SIMPLE_ASSERT(v.error() == "error" && *e == 42, "Cross-state swap should preserve data");
-        }
-
-        // Test 20: Transform (alias for map)
-        {
-            auto result = Expected<int, std::string>(10)
-                .transform([](int x) { return x * 3; });
-            SIMPLE_ASSERT(*result == 30, "Transform should triple the value");
-        }
-
-        // Test 21: Storage policy - ExpectedUnion always uses UnionStorage
-        {
-            ExpectedUnion<int, std::string> v(42);
-            SIMPLE_ASSERT(v.has_value(), "ExpectedUnion should have value");
-            SIMPLE_ASSERT(*v == 42, "ExpectedUnion value should be 42");
-        }
-
-        // Test 22: Storage policy - Default Expected respects configuration
-        {
-            Expected<int, std::string> v(100);
-            SIMPLE_ASSERT(v.has_value(), "Expected should have value");
-            SIMPLE_ASSERT(*v == 100, "Expected value should be 100");
-        }
-
-#ifdef USE_VARIANT_STORAGE
-        // Test 23: Storage policy - ExpectedVariant uses VariantStorage
-        {
-            ExpectedVariant<int, std::string> v(200);
-            SIMPLE_ASSERT(v.has_value(), "ExpectedVariant should have value");
-            SIMPLE_ASSERT(*v == 200, "ExpectedVariant value should be 200");
-        }
-#endif
-
-        // Test 24: Feature test macros
-        {
-#if defined(__cpp_utilities_expected) && __cpp_utilities_expected >= 202411L
-            // Base Expected is available
-            Expected<int, std::string> v(42);
-            SIMPLE_ASSERT(v.has_value(), "Expected base features work");
-#endif
-
-#if defined(__cpp_utilities_expected_monadic) && __cpp_utilities_expected_monadic >= 202411L
-            // Monadic operations are available
-            auto result = Expected<int, std::string>(42)
-                .map([](int x) { return x * 2; });
-            SIMPLE_ASSERT(*result == 84, "Monadic operations available via macro");
-#endif
-
-#if defined(__cpp_utilities_expected_rebind) && __cpp_utilities_expected_rebind >= 202411L
-            // Rebind is available
-            using IntExp = Expected<int, std::string>;
-            using DoubleExp = IntExp::rebind<double>;
-            static_assert(std::is_same_v<DoubleExp, Expected<double, std::string>>,
-                         "Rebind changes value type");
-#endif
-            SIMPLE_ASSERT(true, "Feature test macros work correctly");
-        }
-
-        // Test 25: Rebind template member
-        {
-            // Basic rebind
-            using IntExpected = Expected<int, std::string>;
-            using DoubleExpected = IntExpected::rebind<double>;
-            
-            static_assert(std::is_same_v<DoubleExpected, Expected<double, std::string>>,
-                         "rebind changes value type");
-            static_assert(std::is_same_v<IntExpected::error_type, DoubleExpected::error_type>,
-                         "rebind preserves error type");
-            
-            // Use in generic code
-            auto to_double = [](auto exp) -> typename decltype(exp)::template rebind<double> {
-                return exp.map([](const auto& x) { return static_cast<double>(x); });
-            };
-            
-            Expected<int, std::string> int_exp(42);
-            auto double_exp = to_double(int_exp);
-            SIMPLE_ASSERT(double_exp.has_value(), "Rebind conversion works");
-            SIMPLE_ASSERT(*double_exp == 42.0, "Rebind value correct");
-        }
-
-        // Test 26: Non-default-constructible types
-        {
-            struct NoDefault {
-                int value;
-                NoDefault() = delete;
-                explicit NoDefault(int v) : value(v) {}
-                bool operator==(const NoDefault& other) const { return value == other.value; }
-            };
-            
-            Expected<NoDefault, std::string> exp(std::in_place, 42);
-            SIMPLE_ASSERT(exp.has_value(), "NoDefault construction works");
-            SIMPLE_ASSERT(exp->value == 42, "NoDefault value correct");
-            
-            Expected<NoDefault, std::string> err(unexpected{"error"});
-            SIMPLE_ASSERT(!err.has_value(), "NoDefault error state works");
-            
-            auto mapped = exp.map([](const NoDefault& nd) { return nd.value * 2; });
-            SIMPLE_ASSERT(*mapped == 84, "NoDefault map works");
-        }
-
-        // Test 27: Large objects and move semantics
-        {
-            struct LargeObject {
-                std::array<int, 100> data;
-                LargeObject() { data.fill(42); }
-            };
-            
-            Expected<LargeObject, std::string> exp(std::in_place);
-            SIMPLE_ASSERT(exp.has_value(), "Large object construction");
-            SIMPLE_ASSERT(exp->data[0] == 42, "Large object value correct");
-            
-            auto moved = std::move(exp);
-            SIMPLE_ASSERT(moved.has_value(), "Large object moved");
-        }
-
-        // Test 28: Concurrent read access (thread safety)
-        {
-            Expected<int, std::string> shared_exp(42);
-            std::atomic<int> sum{0};
-            
-            // Launch multiple threads reading concurrently (safe)
-            std::vector<std::thread> threads;
-            for (int i = 0; i < 4; ++i) {
-                threads.emplace_back([&]() {
-                    for (int j = 0; j < 100; ++j) {
-                        if (shared_exp.has_value()) {
-                            sum += *shared_exp;
-                        }
-                    }
-                });
-            }
-            
-            for (auto& t : threads) t.join();
-            SIMPLE_ASSERT(sum == 42 * 400, "Concurrent reads safe");
-        }
-
-#ifdef USE_VARIANT_STORAGE
-        std::cout << "All unit tests passed! ✓ (28/28)\n\n";
-#else
-        std::cout << "All unit tests passed! ✓ (27/27)\n\n";
-#endif
-        return true;
-    }
+    return true;
+}
 
 #if defined(__cpp_lib_three_way_comparison) && __cpp_lib_three_way_comparison >= 201907L
-    /**
-     * @brief Test three-way comparison operator (C++20)
-     */
-    bool test_three_way_comparison() {
-        std::cout << "\n=== Three-Way Comparison (C++20) ===\n";
-        
-        Expected<int, std::string> v1(42);
-        Expected<int, std::string> v2(43);
-        Expected<int, std::string> v3(42);
-        Expected<int, std::string> err1(unexpected{"error1"});
-        Expected<int, std::string> err2(unexpected{"error2"});
-        
-        // Value comparisons
-        SIMPLE_ASSERT((v1 <=> v2) == std::strong_ordering::less, "42 < 43");
-        SIMPLE_ASSERT((v2 <=> v1) == std::strong_ordering::greater, "43 > 42");
-        SIMPLE_ASSERT((v1 <=> v3) == std::strong_ordering::equal, "42 == 42");
-        
-        // Error < Value ordering
-        SIMPLE_ASSERT((err1 <=> v1) == std::strong_ordering::less, "error < value");
-        SIMPLE_ASSERT((v1 <=> err1) == std::strong_ordering::greater, "value > error");
-        
-        // Error comparisons
-        SIMPLE_ASSERT((err1 <=> err2) == std::strong_ordering::less, "error1 < error2");
-        SIMPLE_ASSERT((err1 <=> err1) == std::strong_ordering::equal, "error1 == error1");
-        
-        // All six operators work automatically from <=>
-        SIMPLE_ASSERT(v1 < v2, "operator< works");
-        SIMPLE_ASSERT(v1 <= v3, "operator<= works");
-        SIMPLE_ASSERT(v2 > v1, "operator> works");
-        SIMPLE_ASSERT(v1 >= v3, "operator>= works");
-        SIMPLE_ASSERT(v1 == v3, "operator== works");
-        SIMPLE_ASSERT(v1 != v2, "operator!= works");
-        
-        // Void Expected
-        Expected<void, std::string> void1;
-        Expected<void, std::string> void2;
-        Expected<void, std::string> void_err(unexpected{"error"});
-        
-        SIMPLE_ASSERT((void1 <=> void2) == std::strong_ordering::equal, "void == void");
-        SIMPLE_ASSERT((void_err <=> void1) == std::strong_ordering::less, "void error < value");
-        
-        std::cout << "  ✓ Three-way comparison tests passed (C++20)\n";
-        return true;
-    }
+bool test_expected_three_way_comparison()
+{
+    Expected<int, std::string> v1(42);
+    Expected<int, std::string> v2(43);
+    Expected<int, std::string> v3(42);
+    Expected<int, std::string> err1(unexpected{"error1"});
+    Expected<int, std::string> err2(unexpected{"error2"});
+
+    SIMPLE_ASSERT((v1 <=> v2) == std::strong_ordering::less, "42 < 43");
+    SIMPLE_ASSERT((v2 <=> v1) == std::strong_ordering::greater, "43 > 42");
+    SIMPLE_ASSERT((v1 <=> v3) == std::strong_ordering::equal, "42 == 42");
+    SIMPLE_ASSERT((err1 <=> v1) == std::strong_ordering::less, "error < value");
+    SIMPLE_ASSERT((v1 <=> err1) == std::strong_ordering::greater, "value > error");
+    SIMPLE_ASSERT((err1 <=> err2) == std::strong_ordering::less, "error1 < error2");
+
+    return true;
+}
 #endif
 
 #if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
-    /**
-     * @brief Test std::expected integration (C++23)
-     */
-    bool test_std_expected_integration() {
-        std::cout << "\n=== std::expected Integration (C++23) ===\n";
-        
-        // Test 1: Convert custom → standard (value)
-        {
-            Expected<int, std::string> custom(42);
-            auto std_exp = to_std_expected(custom);
-            
-            SIMPLE_ASSERT(std_exp.has_value(), "Converted value state");
-            SIMPLE_ASSERT(*std_exp == 42, "Converted value correct");
-        }
-        
-        // Test 2: Convert custom → standard (error)
-        {
-            Expected<int, std::string> custom(unexpected{"error"});
-            auto std_exp = to_std_expected(custom);
-            
-            SIMPLE_ASSERT(!std_exp.has_value(), "Converted error state");
-            SIMPLE_ASSERT(std_exp.error() == "error", "Converted error correct");
-        }
-        
-        // Test 3: Convert standard → custom (value)
-        {
-            std::expected<int, std::string> std_exp(42);
-            auto custom = from_std_expected(std_exp);
-            
-            SIMPLE_ASSERT(custom.has_value(), "Converted back value state");
-            SIMPLE_ASSERT(*custom == 42, "Converted back value correct");
-        }
-        
-        // Test 4: Convert standard → custom (error)
-        {
-            std::expected<int, std::string> std_exp(std::unexpect, "error");
-            auto custom = from_std_expected(std_exp);
-            
-            SIMPLE_ASSERT(!custom.has_value(), "Converted back error state");
-            SIMPLE_ASSERT(custom.error() == "error", "Converted back error correct");
-        }
-        
-        // Test 5: Round-trip conversion
-        {
-            Expected<int, std::string> original(42);
-            auto std_exp = to_std_expected(original);
-            auto back = from_std_expected(std_exp);
-            
-            SIMPLE_ASSERT(back.has_value(), "Round-trip preserves state");
-            SIMPLE_ASSERT(*back == 42, "Round-trip preserves value");
-        }
-        
-        // Test 6: Void Expected conversion
-        {
-            Expected<void, std::string> custom_void;
-            auto std_void = to_std_expected(custom_void);
-            
-            SIMPLE_ASSERT(std_void.has_value(), "Void conversion works");
-            
-            auto back_void = from_std_expected(std_void);
-            SIMPLE_ASSERT(back_void.has_value(), "Void round-trip works");
-        }
-        
-        // Test 7: Move semantics
-        {
-            Expected<std::string, int> custom("hello");
-            auto std_exp = to_std_expected(std::move(custom));
-            
-            SIMPLE_ASSERT(std_exp.has_value(), "Move conversion preserves state");
-            SIMPLE_ASSERT(*std_exp == "hello", "Move conversion preserves value");
-        }
-        
-        // Test 8: Interop with std::expected monadic ops
-        {
-            Expected<int, std::string> custom(21);
-            auto std_exp = to_std_expected(custom);
-            
-            // Use std::expected's transform (equivalent to map)
-            auto transformed = std_exp.transform([](int x) { return x * 2; });
-            
-            auto back = from_std_expected(transformed);
-            SIMPLE_ASSERT(*back == 42, "Monadic ops work across boundary");
-        }
-        
-        std::cout << "  ✓ std::expected integration tests passed (C++23)\n";
-        return true;
-    }
+bool test_expected_std_expected_integration()
+{
+    Expected<int, std::string> custom(42);
+    auto std_exp = to_std_expected(custom);
+
+    SIMPLE_ASSERT(std_exp.has_value(), "Converted value state");
+    SIMPLE_ASSERT(*std_exp == 42, "Converted value correct");
+
+    Expected<int, std::string> custom_err(unexpected{"error"});
+    auto std_exp_err = to_std_expected(custom_err);
+
+    SIMPLE_ASSERT(!std_exp_err.has_value(), "Converted error state");
+    SIMPLE_ASSERT(std_exp_err.error() == "error", "Converted error correct");
+
+    std::expected<int, std::string> std_v(42);
+    auto back = from_std_expected(std_v);
+
+    SIMPLE_ASSERT(back.has_value(), "Converted back value state");
+    SIMPLE_ASSERT(*back == 42, "Converted back value correct");
+
+    Expected<void, std::string> custom_void;
+    auto std_void = to_std_expected(custom_void);
+    SIMPLE_ASSERT(std_void.has_value(), "Void conversion works");
+
+    return true;
+}
 #endif
 
-    // ============================================================================
-    // Main
-    // ============================================================================
+// ============================================================================
+// Benchmarks
+// ============================================================================
 
-    bool test_Expected() {
+void benchmark_expected()
+{
+    constexpr size_t N = 1000000;
 
-        PRINT_HEADER(EXPECTED)
+    std::cout << "\n" << colors::yellow() << "Expected Benchmarks" << colors::reset() << "\n\n";
 
-        if (!run_unit_tests()) {
-            std::cerr << "Expected.h Unit tests failed!\n";
-            return false;
-        }
+    std::cout << colors::yellow() << "1. Construction" << colors::reset() << "\n";
+    benchmark("Value construction", []()
+    {
+        Expected<int, std::string> e(42);
+        DoNotOptimize(e.has_value());
+    }, N);
+
+    benchmark("Error construction", []()
+    {
+        Expected<int, std::string> e(unexpected{"error"});
+        DoNotOptimize(e.has_value());
+    }, N);
+
+    std::cout << "\n" << colors::yellow() << "2. Assignment" << colors::reset() << "\n";
+    Expected<int, std::string> assign_target(0);
+    Expected<int, std::string> assign_source(42);
+    DoNotOptimize(assign_target.has_value());
+    DoNotOptimize(assign_source.has_value());
+
+    benchmark("Same-state assignment", [&]()
+    {
+        assign_target = assign_source;
+        DoNotOptimize(assign_target.has_value());
+    }, N);
+
+    Expected<int, std::string> val_exp(42);
+    Expected<int, std::string> err_exp(unexpected{"error"});
+    DoNotOptimize(val_exp.has_value());
+    DoNotOptimize(err_exp.has_value());
+
+    benchmark("Different-state assignment", [&]()
+    {
+        val_exp = err_exp;
+        err_exp = Expected<int, std::string>(100);
+        DoNotOptimize(val_exp.has_value());
+    }, N / 10);
+
+    std::cout << "\n" << colors::yellow() << "3. Value Access" << colors::reset() << "\n";
+    Expected<int, std::string> access_exp(42);
+    DoNotOptimize(access_exp.has_value());
+
+    benchmark("has_value()", [&]()
+    {
+        bool has = access_exp.has_value();
+        DoNotOptimize(has);
+    }, N);
+
+    benchmark("value_or()", [&]()
+    {
+        int val = access_exp.value_or(0);
+        DoNotOptimize(val);
+    }, N);
+
+    benchmark("operator*", [&]()
+    {
+        int val = *access_exp;
+        DoNotOptimize(val);
+    }, N);
+
+    std::cout << "\n" << colors::yellow() << "4. Monadic Operations" << colors::reset() << "\n";
+    Expected<int, std::string> monadic_exp(42);
+    DoNotOptimize(monadic_exp.has_value());
+
+    benchmark("map()", [&]()
+    {
+        auto result = monadic_exp.map([](int x) { return x * 2; });
+        DoNotOptimize(result.has_value());
+    }, N);
+
+    benchmark("and_then()", [&]()
+    {
+        auto result = monadic_exp.and_then([](int x) -> Expected<int, std::string>
+        {
+            return x * 2;
+        });
+        DoNotOptimize(result.has_value());
+    }, N);
+
+    benchmark("or_else() with value", [&]()
+    {
+        auto result = monadic_exp.or_else([](const std::string&) -> Expected<int, std::string>
+        {
+            return 0;
+        });
+        DoNotOptimize(result.has_value());
+    }, N);
+
+    Expected<int, std::string> err_for_or_else(unexpected{"error"});
+    DoNotOptimize(err_for_or_else.has_value());
+
+    benchmark("or_else() with error", [&]()
+    {
+        auto result = err_for_or_else.or_else([](const std::string&) -> Expected<int, std::string>
+        {
+            return 0;
+        });
+        DoNotOptimize(result.has_value());
+    }, N);
+
+    std::cout << "\n" << colors::yellow() << "5. Comparison with std::optional" << colors::reset() << "\n";
+    benchmark("Expected<int> construction", []()
+    {
+        Expected<int, std::string> e(42);
+        DoNotOptimize(e.has_value());
+    }, N);
+
+    benchmark("std::optional<int> construction", []()
+    {
+        std::optional<int> o(42);
+        DoNotOptimize(o.has_value());
+    }, N);
+
+    std::cout << "\n" << colors::yellow() << "6. Void Specialization" << colors::reset() << "\n";
+    benchmark("Expected<void> success construction", []()
+    {
+        Expected<void, std::string> e;
+        DoNotOptimize(e.has_value());
+    }, N);
+
+    benchmark("Expected<void> error construction", []()
+    {
+        Expected<void, std::string> e(unexpected{"error"});
+        DoNotOptimize(e.has_value());
+    }, N);
+
+    Expected<void, std::string> void_exp;
+    DoNotOptimize(void_exp.has_value());
+
+    benchmark("Expected<void> has_value()", [&]()
+    {
+        bool has = void_exp.has_value();
+        DoNotOptimize(has);
+    }, N);
+
+    benchmark("Expected<void> map()", [&]()
+    {
+        auto result = void_exp.map([]() { return 42; });
+        DoNotOptimize(result.has_value());
+    }, N);
+
+    benchmark("Status alias construction", []()
+    {
+        Status s;
+        DoNotOptimize(s.has_value());
+    }, N);
+}
+
+// ============================================================================
+// Main Test Runner
+// ============================================================================
+
+bool test_Expected()
+{
+    PRINT_HEADER(EXPECTED)
+
+    TestRunner runner;
+
+    RUN_TEST(runner, expected_basic_construction);
+    RUN_TEST(runner, expected_copy_construction);
+    RUN_TEST(runner, expected_move_construction);
+    RUN_TEST(runner, expected_copy_assignment);
+    RUN_TEST(runner, expected_move_assignment);
+    RUN_TEST(runner, expected_value_access);
+    RUN_TEST(runner, expected_error_access);
+    RUN_TEST(runner, expected_has_error);
+    RUN_TEST(runner, expected_error_or_else);
+    RUN_TEST(runner, expected_map);
+    RUN_TEST(runner, expected_and_then);
+    RUN_TEST(runner, expected_or_else);
+    RUN_TEST(runner, expected_transform_error);
+    RUN_TEST(runner, expected_inspect);
+    RUN_TEST(runner, expected_void_specialization);
+    RUN_TEST(runner, expected_emplace);
+    RUN_TEST(runner, expected_swap);
+    RUN_TEST(runner, expected_comparisons);
+    RUN_TEST(runner, expected_ordering);
+    RUN_TEST(runner, expected_hash);
+    RUN_TEST(runner, expected_make_expected);
+    RUN_TEST(runner, expected_result_status_aliases);
+    RUN_TEST(runner, expected_storage_policy);
+    RUN_TEST(runner, expected_rebind);
+    RUN_TEST(runner, expected_non_default_constructible);
+    RUN_TEST(runner, expected_large_objects);
+    RUN_TEST(runner, expected_concurrent_read);
+    RUN_TEST(runner, expected_monadic_chaining);
+    RUN_TEST(runner, expected_fold);
+    RUN_TEST(runner, expected_value_unchecked);
+    RUN_TEST(runner, expected_trivial_storage);
+    RUN_TEST(runner, expected_assign_or_return);
 
 #if defined(__cpp_lib_three_way_comparison) && __cpp_lib_three_way_comparison >= 201907L
-        if (!test_three_way_comparison()) {
-            std::cerr << "Three-way comparison tests failed!\n";
-            return false;
-        }
+    RUN_TEST(runner, expected_three_way_comparison);
 #endif
 
 #if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
-        if (!test_std_expected_integration()) {
-            std::cerr << "std::expected integration tests failed!\n";
-            return false;
-        }
+    RUN_TEST(runner, expected_std_expected_integration);
 #endif
 
-        example_monadic_operations();
-        example_error_recovery();
-        example_error_transformation();
-        example_void_expected();
-        example_optimized_assignment();
-        example_ctad();
-        example_storage_policy();
-        example_inspection();
-        example_comparisons();
-        example_hash();
-        example_error_or();
-        example_real_world();
-        benchmark_assignment();
+    benchmark_expected();
 
-        std::cout << "======================================\n";
-        std::cout << "All examples completed successfully!\n";
-        std::cout << "======================================\n";
-
-        return true;
-    }
+    return 0 == runner.print_summary();
+}
 
 } // namespace fat_p::testing
+
+#ifdef ENABLE_TEST_APPLICATION
+int main()
+{
+    return fat_p::testing::test_Expected() ? 0 : 1;
+}
+#endif

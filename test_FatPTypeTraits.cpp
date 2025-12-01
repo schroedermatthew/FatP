@@ -409,7 +409,8 @@ bool test_fatp_type_traits_utility_detection()
         static_assert(!is_expected_v<std::vector<int>>, "vector is not Expected");
         static_assert(!is_expected_v<int>, "int is not Expected");
         
-        using Exp = expected_internal::ExpectedImpl<int, std::string, UnionStorage>;
+        // ExpectedImpl is in fat_p namespace (not expected_internal)
+        using Exp = ExpectedImpl<int, std::string, UnionStorage>;
         static_assert(is_expected_v<Exp>, "ExpectedImpl should be detected");
     }
     END_SUBTEST
@@ -658,7 +659,8 @@ bool test_fatp_type_traits_dbc_helpers_comprehensive()
     
     SUBTEST("requires_expected")
     {
-        using Exp = expected_internal::ExpectedImpl<int, std::string, UnionStorage>;
+        // ExpectedImpl is in fat_p namespace (not expected_internal)
+        using Exp = ExpectedImpl<int, std::string, UnionStorage>;
         requires_expected<Exp>();
     }
     END_SUBTEST
@@ -780,7 +782,7 @@ bool test_fatp_type_traits_negative_cases()
     {
         static_assert(!is_small_vector_v<const SmallVector<int, 16>>, 
                      "Const SmallVector should not match");
-        static_assert(!is_expected_v<const expected_internal::ExpectedImpl<int, std::string, UnionStorage>>, 
+        static_assert(!is_expected_v<const ExpectedImpl<int, std::string, UnionStorage>>, 
                      "Const Expected should not match");
     }
     END_SUBTEST
@@ -933,7 +935,7 @@ bool test_fatp_type_traits_concepts()
     
     SUBTEST("ExpectedType concept")
     {
-        using Exp = expected_internal::ExpectedImpl<int, std::string, UnionStorage>;
+        using Exp = ExpectedImpl<int, std::string, UnionStorage>;
         static_assert(concepts::ExpectedType<Exp>, "ExpectedImpl should satisfy concept");
         static_assert(!concepts::ExpectedType<int>, "int should not satisfy concept");
     }

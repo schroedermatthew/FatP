@@ -1595,20 +1595,24 @@ grep -r "==" *.cpp | grep -E "double|float" && exit 1
 
 **Decision tree:**
 
-```
-Need bit-exact verification?
-├─ YES → UlpComparisonPolicy
-└─ NO → Continue
-
-Values bounded away from zero?
-├─ YES → Multi-scale data?
-│   ├─ YES → HybridComparisonPolicy
-│   └─ NO → RelativeComparisonPolicy
-└─ NO → Continue
-
-Control system with noise floor?
-├─ YES → StandardComparisonPolicy or HybridComparisonPolicy
-└─ NO → HybridComparisonPolicy (safest default)
+```mermaid
+flowchart TD
+    A["Need bit-exact verification?"] -->|YES| B["UlpComparisonPolicy"]
+    A -->|NO| C["Values bounded away from zero?"]
+    
+    C -->|YES| D["Multi-scale data?"]
+    D -->|YES| E["HybridComparisonPolicy"]
+    D -->|NO| F["RelativeComparisonPolicy"]
+    
+    C -->|NO| G["Control system with noise floor?"]
+    G -->|YES| H["StandardComparisonPolicy<br/>or HybridComparisonPolicy"]
+    G -->|NO| I["HybridComparisonPolicy<br/>safest default"]
+    
+    style B fill:#e1f5fe
+    style E fill:#e8f5e9
+    style F fill:#fff3e0
+    style H fill:#fce4ec
+    style I fill:#e8f5e9
 ```
 
 **Quick reference:**

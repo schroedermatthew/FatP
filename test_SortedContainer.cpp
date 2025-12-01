@@ -19,7 +19,7 @@
  * - Erase support
  * - Range constructors and insertRange
  * - Custom policies (Transform, Logging)
- * - Container access methods (toVector, asVector, withInternalContainer)
+ * - Container access methods (toVector, withInternalContainer)
  * 
  * Total Tests: 26
  * 
@@ -145,7 +145,7 @@ namespace fat_p::testing
         
         // Verify they maintain insertion order (stable)
         auto vec = sv.toVector();
-        SIMPLE_ASSERT(static_cast<size_t>(vec.size()) == 3, "Should have 3 elements");
+        SIMPLE_ASSERT(vec.size() == 3, "Should have 3 elements");
         SIMPLE_ASSERT(std::all_of(vec.begin(), vec.end(), [](int v) { return v == 5; }),
                    "All elements should be 5");
         
@@ -158,14 +158,14 @@ namespace fat_p::testing
         (void)sv2.insert(2);
         
         vec = sv2.toVector();
-        SIMPLE_ASSERT(static_cast<size_t>(vec.size()) == 5, "Should have 5 elements");
+        SIMPLE_ASSERT(vec.size() == 5, "Should have 5 elements");
         SIMPLE_ASSERT(std::is_sorted(vec.begin(), vec.end()), "Should be sorted");
         
         // Count occurrences
-        SIMPLE_ASSERT(static_cast<size_t>(sv2.count(2)) == 2, "Should have 2 occurrences of 2");
-        SIMPLE_ASSERT(static_cast<size_t>(sv2.count(3)) == 2, "Should have 2 occurrences of 3");
+        SIMPLE_ASSERT(sv2.count(2) == 2, "Should have 2 occurrences of 2");
+        SIMPLE_ASSERT(sv2.count(3) == 2, "Should have 2 occurrences of 3");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -196,13 +196,13 @@ namespace fat_p::testing
         auto result3 = sv.insert(1.02, FUZZY_EPSILON, FUZZY_EPSILON);
         SIMPLE_ASSERT(result3.has_value() && result3.value(), "Non-duplicate should be accepted");
         
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 2, "Should have 2 elements after fuzzy filtering");
+        SIMPLE_ASSERT(sv.size() == 2, "Should have 2 elements after fuzzy filtering");
         
         // Test fuzzy duplicate before insertion point
         auto result4 = sv.insert(0.995, FUZZY_EPSILON, FUZZY_EPSILON);
         SIMPLE_ASSERT(result4.has_value() && !result4.value(), "Fuzzy duplicate before should be rejected");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -220,7 +220,7 @@ namespace fat_p::testing
         SIMPLE_ASSERT(result.has_value(), "insertRange should succeed");
         
         // Should have filtered fuzzy duplicates
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) < values.size(), "Fuzzy duplicates should be filtered");
+        SIMPLE_ASSERT(sv.size() < values.size(), "Fuzzy duplicates should be filtered");
         
         auto vec = sv.toVector();
         // Verify no two elements are within epsilon
@@ -229,7 +229,7 @@ namespace fat_p::testing
                        "No two elements should be within epsilon");
         }
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -251,9 +251,9 @@ namespace fat_p::testing
         auto final_moves = TestObject::move_count.load();
         
         SIMPLE_ASSERT(final_moves > initial_moves, "Move should have been performed");
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 1, "Should have 1 element");
+        SIMPLE_ASSERT(sv.size() == 1, "Should have 1 element");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -270,13 +270,13 @@ namespace fat_p::testing
         SIMPLE_ASSERT(result.has_value(), "insertRange should succeed");
         
         // Should have unique elements only
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 4, "Should have 4 unique elements");
+        SIMPLE_ASSERT(sv.size() == 4, "Should have 4 unique elements");
         
         auto vec = sv.toVector();
         SIMPLE_ASSERT(vec[0] == 1 && vec[1] == 2 && vec[2] == 3 && vec[3] == 4,
                    "Should have correct unique values");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -296,12 +296,12 @@ namespace fat_p::testing
         
         auto result = sv.insertRange(values.begin(), values.end());
         SIMPLE_ASSERT(result.has_value(), "insertRange should succeed");
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 100, "Should have 100 elements");
+        SIMPLE_ASSERT(sv.size() == 100, "Should have 100 elements");
         
         auto vec = sv.toVector();
         SIMPLE_ASSERT(std::is_sorted(vec.begin(), vec.end()), "Should be sorted");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -313,20 +313,20 @@ namespace fat_p::testing
         
         SortedContainer<int> sv;
         
-        SIMPLE_ASSERT(static_cast<size_t>(sv.capacity()) == 0, "Initial capacity should be 0");
+        SIMPLE_ASSERT(sv.capacity() == 0, "Initial capacity should be 0");
         
-        sv.reserve(SortedContainer<int>::size_type(100));
-        SIMPLE_ASSERT(static_cast<size_t>(sv.capacity()) >= 100, "Capacity should be at least 100 after reserve");
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 0, "Size should still be 0");
+        sv.reserve(100);
+        SIMPLE_ASSERT(sv.capacity() >= 100, "Capacity should be at least 100 after reserve");
+        SIMPLE_ASSERT(sv.size() == 0, "Size should still be 0");
         
         // Insert elements and verify capacity unchanged
         for (int i = 0; i < 50; ++i) {
             (void)sv.insert(i);
         }
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 50, "Should have 50 elements");
-        SIMPLE_ASSERT(static_cast<size_t>(sv.capacity()) >= 100, "Capacity should still be at least 100");
+        SIMPLE_ASSERT(sv.size() == 50, "Should have 50 elements");
+        SIMPLE_ASSERT(sv.capacity() >= 100, "Capacity should still be at least 100");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -341,18 +341,18 @@ namespace fat_p::testing
         for (int i = 0; i < 50; ++i) {
             (void)sv.insert(i);
         }
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 50, "Should have 50 elements");
+        SIMPLE_ASSERT(sv.size() == 50, "Should have 50 elements");
         SIMPLE_ASSERT(!sv.empty(), "Should not be empty");
         
         sv.clear();
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 0, "Should have 0 elements after clear");
+        SIMPLE_ASSERT(sv.size() == 0, "Should have 0 elements after clear");
         SIMPLE_ASSERT(sv.empty(), "Should be empty after clear");
         
         // Verify can still insert after clear
         (void)sv.insert(42);
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 1, "Should be able to insert after clear");
+        SIMPLE_ASSERT(sv.size() == 1, "Should be able to insert after clear");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -371,7 +371,7 @@ namespace fat_p::testing
         (void)sv.insert(1);
         (void)sv.insert(9);
         
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 5, "Should have 5 elements");
+        SIMPLE_ASSERT(sv.size() == 5, "Should have 5 elements");
         
         // Verify sorting
         auto vec = sv.toVector();
@@ -386,7 +386,7 @@ namespace fat_p::testing
         auto it2 = sv.find(99);
         SIMPLE_ASSERT(it2 == sv.end(), "Should not find 99");
         
-        return true;;
+        return true;
     }
     
     bool test_OnlyUniquePolicyBasic() {
@@ -400,15 +400,15 @@ namespace fat_p::testing
         auto r2 = sv.insert(5);
         SIMPLE_ASSERT(r2.has_value() && !r2.value(), "Duplicate should be rejected");
         
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 1, "Should have 1 unique element");
+        SIMPLE_ASSERT(sv.size() == 1, "Should have 1 unique element");
         
         (void)sv.insert(3);
         (void)sv.insert(7);
         (void)sv.insert(3); // duplicate
         
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 3, "Should have 3 unique elements");
+        SIMPLE_ASSERT(sv.size() == 3, "Should have 3 unique elements");
         
-        return true;;
+        return true;
     }
     
     bool test_RangeConstructor() {
@@ -417,12 +417,12 @@ namespace fat_p::testing
         std::vector<int> values = {5, 2, 8, 1, 9, 3};
         SortedContainer<int> sv(values.begin(), values.end());
         
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 6, "Should have 6 elements");
+        SIMPLE_ASSERT(sv.size() == 6, "Should have 6 elements");
         
         auto vec = sv.toVector();
         SIMPLE_ASSERT(std::is_sorted(vec.begin(), vec.end()), "Should be sorted");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -445,10 +445,10 @@ namespace fat_p::testing
         SIMPLE_ASSERT(ub != sv.end() && *ub == 5, "upper_bound should find element after 3");
         
         // Test count
-        SIMPLE_ASSERT(static_cast<size_t>(sv.count(3)) == 3, "Should count 3 occurrences of 3");
-        SIMPLE_ASSERT(static_cast<size_t>(sv.count(99)) == 0, "Should count 0 occurrences of 99");
+        SIMPLE_ASSERT(sv.count(3) == 3, "Should count 3 occurrences of 3");
+        SIMPLE_ASSERT(sv.count(99) == 0, "Should count 0 occurrences of 99");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -465,7 +465,7 @@ namespace fat_p::testing
         
         auto result = sv.erase(2);
         SIMPLE_ASSERT(result.has_value() && result.value(), "Erase should succeed");
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 2, "Should have 2 elements after erase");
+        SIMPLE_ASSERT(sv.size() == 2, "Should have 2 elements after erase");
         
         auto vec = sv.toVector();
         SIMPLE_ASSERT(vec[0] == 1 && vec[1] == 3, "Correct elements remaining");
@@ -473,7 +473,7 @@ namespace fat_p::testing
         auto result2 = sv.erase(99);
         SIMPLE_ASSERT(result2.has_value() && !result2.value(), "Erase of non-existent should return false");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -501,7 +501,7 @@ namespace fat_p::testing
             --expected;
         }
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -520,9 +520,9 @@ namespace fat_p::testing
         (void)sv.insert(TestObject(-5)); // Should be rejected (same absolute value)
         (void)sv.insert(TestObject(3));
         
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 2, "Should have 2 elements (5 and 3, -5 rejected)");
+        SIMPLE_ASSERT(sv.size() == 2, "Should have 2 elements (5 and 3, -5 rejected)");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -553,11 +553,11 @@ namespace fat_p::testing
             thread.join();
         }
         
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == CONCURRENT_THREAD_COUNT * CONCURRENT_ITERATIONS,
+        SIMPLE_ASSERT(sv.size() == CONCURRENT_THREAD_COUNT * CONCURRENT_ITERATIONS,
                    "All inserts should succeed");
         SIMPLE_ASSERT(std::is_sorted(sv.begin(), sv.end()), "Should remain sorted");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -579,12 +579,12 @@ namespace fat_p::testing
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 10000, "Should have 10000 elements");
+        SIMPLE_ASSERT(sv.size() == 10000, "Should have 10000 elements");
         SIMPLE_ASSERT(std::is_sorted(sv.begin(), sv.end()), "Should be sorted");
         
         std::cout << "  Inserted 10000 elements in " << duration.count() << "ms" << std::endl;
         
-        return true;;
+        return true;
     }
     
     bool test_BatchInsertPerformance() {
@@ -606,12 +606,12 @@ namespace fat_p::testing
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         
         SIMPLE_ASSERT(result.has_value(), "insertRange should succeed");
-        SIMPLE_ASSERT(static_cast<size_t>(sv.size()) == 10000, "Should have 10000 elements");
+        SIMPLE_ASSERT(sv.size() == 10000, "Should have 10000 elements");
         SIMPLE_ASSERT(std::is_sorted(sv.begin(), sv.end()), "Should be sorted");
         
         std::cout << "  Batch inserted 10000 elements in " << duration.count() << "ms" << std::endl;
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -649,7 +649,7 @@ namespace fat_p::testing
         
         ASSERT_EQ(max_val, 8, "Max should be 8");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -710,7 +710,7 @@ namespace fat_p::testing
         ASSERT_EQ(read_count.load(), 50, "Should complete 50 reads");
         ASSERT_TRUE(all_reads_valid.load(), "All reads should see consistent state");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -758,7 +758,7 @@ namespace fat_p::testing
         
         ASSERT_FALSE(has_negative, "Should not have negative values");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -799,7 +799,7 @@ namespace fat_p::testing
         
         ASSERT_EQ(deque_sum, 60, "Deque backend sum should be 60");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -842,8 +842,8 @@ namespace fat_p::testing
         end = std::chrono::high_resolution_clock::now();
         auto withContainer_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
         
-        std::cout << "  toVector (100 iterations):            " << toVector_time << " μs" << std::endl;
-        std::cout << "  withInternalContainer (100 iterations): " << withContainer_time << " μs" << std::endl;
+        std::cout << "  toVector (100 iterations):            " << toVector_time << " Î¼s" << std::endl;
+        std::cout << "  withInternalContainer (100 iterations): " << withContainer_time << " Î¼s" << std::endl;
         
         if (withContainer_time > 0) {
             std::cout << "  Speedup: " << (static_cast<double>(toVector_time) / withContainer_time) << "x" << std::endl;
@@ -853,11 +853,11 @@ namespace fat_p::testing
         ASSERT_TRUE(withContainer_time < toVector_time, 
                         "withInternalContainer should be faster than toVector");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
-    // Test: toVector vs asVector Behavior
+    // Test: toVector and withInternalContainer Behavior
     // ============================================================================
     
     bool test_VectorAccessMethods()
@@ -875,20 +875,22 @@ namespace fat_p::testing
         vec_copy.push_back(999); // Modify copy
         
         // Original should be unchanged
-        ASSERT_EQ(static_cast<size_t>(sc.size()), 3u, "Original should still have 3 elements");
+        ASSERT_EQ(sc.size(), 3u, "Original should still have 3 elements");
         
-        // Test asVector - returns const reference (for legacy compatibility)
-        const auto& vec_ref = sc.asVector();
-        ASSERT_EQ(vec_ref.size(), 3u, "Reference should have 3 elements");
+        // Test withInternalContainer - scoped access (preferred method)
+        auto size_check = sc.withInternalContainer([](const auto& container) {
+            return container.size();
+        });
+        ASSERT_EQ(size_check, 3u, "Scoped access should show 3 elements");
         
-        // Test withInternalContainer - scoped access
+        // Test withInternalContainer for computation
         int sum = sc.withInternalContainer([](const auto& container) {
             return std::accumulate(container.begin(), container.end(), 0);
         });
         
         ASSERT_EQ(sum, 6, "Sum should be 1+2+3=6");
         
-        return true;;
+        return true;
     }
     
     // ============================================================================
@@ -946,9 +948,9 @@ namespace fat_p::testing
         all_passed &= test_VectorAccessMethods();
         
         if (all_passed) {
-            std::cout << "\n✓ All SortedContainer tests passed!" << std::endl;
+            std::cout << "\nâœ“ All SortedContainer tests passed!" << std::endl;
         } else {
-            std::cout << "\n✗ Some SortedContainer tests failed!" << std::endl;
+            std::cout << "\nâœ— Some SortedContainer tests failed!" << std::endl;
         }
         
         return all_passed;

@@ -53,21 +53,31 @@ public:
     }
 
     /**
-     * @brief Writes a log record to stdout.
+     * @brief Writes a log record to stdout or stderr based on level.
      * @param record The log record to write.
+     *
+     * @details Warning, Error, and Fatal go to stderr; others go to stdout.
      */
     void write(const LogRecord& record) override
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        std::cout << formatter_->format(record) << std::endl;
+        if (record.level >= LogLevel::Warning)
+        {
+            std::cerr << formatter_->format(record) << '\n';
+        }
+        else
+        {
+            std::cout << formatter_->format(record) << '\n';
+        }
     }
 
     /**
-     * @brief Flushes the stdout stream.
+     * @brief Flushes both stdout and stderr streams.
      */
     void flush() override
     {
         std::cout.flush();
+        std::cerr.flush();
     }
 };
 
@@ -99,7 +109,7 @@ public:
     void write(const LogRecord& record) override
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        std::cerr << formatter_->format(record) << std::endl;
+        std::cerr << formatter_->format(record) << '\n';
     }
 
     /**
@@ -159,7 +169,10 @@ inline void ensureFactoryRegistered()
  */
 inline void initializeDefaultLogger()
 {
-    getGlobalLogger().addSink(std::make_shared<ConsoleSink>());
+    static std::once_flag flag;
+    std::call_once(flag, []() {
+        getGlobalLogger().addSink(std::make_shared<ConsoleSink>());
+    });
 }
 
 /**

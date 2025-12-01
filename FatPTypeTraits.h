@@ -79,7 +79,10 @@ template <typename T, typename Tag, typename CheckPolicy, template <typename> cl
 
 template <typename T, typename Policy> class ValueGuard;
 
-template <typename OnExit, typename OnSuccess, typename OnFailure, typename ExecutionPolicy> class ScopeGuardImpl;
+template <typename F, 
+          typename ThrowingPolicy, 
+          template <typename> class ActionPolicy> 
+class ScopeGuard;
 
 // =============================================================================
 // Detection Helpers

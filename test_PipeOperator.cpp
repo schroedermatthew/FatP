@@ -85,6 +85,117 @@ bool test_complex_chain() {
     return true;
 }
 
+bool test_void_to_value() {
+    // Expected<void> success -> value producing function
+    Expected<void, std::string> success;
+    auto produce_int = []() { return 42; };
+    
+    auto result = std::move(success) | produce_int;
+    
+    SIMPLE_ASSERT(result.has_value(), "Void-to-value should succeed");
+    SIMPLE_ASSERT(*result == 42, "Should contain 42");
+    return true;
+}
+
+bool test_void_to_expected() {
+    // Expected<void> success -> Expected producing function
+    Expected<void, std::string> success;
+    auto produce_expected = []() -> Expected<int, std::string> { return 100; };
+    
+    auto result = std::move(success) | produce_expected;
+    
+    SIMPLE_ASSERT(result.has_value(), "Void-to-expected should succeed");
+    SIMPLE_ASSERT(*result == 100, "Should contain 100");
+    return true;
+}
+
+bool test_void_error_propagation() {
+    // Expected<void> error -> any function (should propagate error)
+    Expected<void, std::string> failure(unexpected<std::string>("void error"));
+    auto produce_int = []() { return 42; };
+    
+    auto result = std::move(failure) | produce_int;
+    
+    SIMPLE_ASSERT(!result.has_value(), "Error should propagate");
+    SIMPLE_ASSERT(result.error() == "void error", "Error message preserved");
+    return true;
+}
+
+bool test_void_chain() {
+    // Chain: void -> void -> value
+    int side_effect = 0;
+    Expected<void, std::string> start;
+    
+    auto step1 = [&side_effect]() { side_effect = 1; };
+    auto step2 = [&side_effect]() { side_effect += 10; };
+    auto step3 = [&side_effect]() { return side_effect * 2; };
+    
+    auto result = std::move(start) | step1 | step2 | step3;
+    
+    SIMPLE_ASSERT(result.has_value(), "Chain should succeed");
+    SIMPLE_ASSERT(*result == 22, "Should be (1+10)*2 = 22");
+    SIMPLE_ASSERT(side_effect == 11, "Side effects should have run");
+    return true;
+}
+
+bool test_void_to_void() {
+    // Expected<void> -> void function -> Expected<void>
+    int counter = 0;
+    Expected<void, std::string> start;
+    
+    auto increment = [&counter]() { counter++; };
+    
+    auto result = std::move(start) | increment;
+    
+    SIMPLE_ASSERT(result.has_value(), "Void-to-void should succeed");
+    SIMPLE_ASSERT(counter == 1, "Side effect should have run");
+    return true;
+}
+
+bool test_const_void_pipe() {
+    // Const lvalue void piping
+    const Expected<void, std::string> success;
+    auto produce = []() { return 99; };
+    
+    auto result = success | produce;
+    
+    SIMPLE_ASSERT(result.has_value(), "Const void pipe should work");
+    SIMPLE_ASSERT(*result == 99, "Should contain 99");
+    return true;
+}
+
+// Simple error code enum for tests where string error would cause T==E
+enum class TestError { None, Invalid, NotFound };
+
+bool test_mixed_pipeline() {
+    // Real-world scenario: status -> config -> validation
+    auto init = []() -> Expected<void, TestError> { return {}; };
+    auto get_config = []() -> Expected<int, TestError> { return 42; };
+    auto validate = [](int x) -> Expected<int, TestError> {
+        if (x > 0) return x * 2;
+        return unexpected<TestError>(TestError::Invalid);
+    };
+    auto format = [](int x) { return std::to_string(x) + " units"; };
+    
+    auto result = init() | get_config | validate | format;
+    
+    SIMPLE_ASSERT(result.has_value(), "Mixed pipeline should succeed");
+    SIMPLE_ASSERT(*result == "84 units", "Should be formatted result");
+    return true;
+}
+
+bool test_pipe_wrapper() {
+    // Test explicit pipe() wrapper for disambiguation
+    Expected<int, std::string> exp(5);
+    auto double_it = [](int x) { return x * 2; };
+    
+    auto result = pipe(std::move(exp)) | double_it;
+    
+    SIMPLE_ASSERT(result.has_value(), "Pipe wrapper should work");
+    SIMPLE_ASSERT(*result == 10, "Should be 10");
+    return true;
+}
+
 void benchmark_pipeoperator() {
     std::cout << "\n" << colors::cyan() << "PipeOperator Benchmarks:" << colors::reset() << "\n\n";
     
@@ -123,6 +234,14 @@ bool test_PipeOperator() {
     RUN_TEST(runner, expected_error);
     RUN_TEST(runner, type_conversion);
     RUN_TEST(runner, complex_chain);
+    RUN_TEST(runner, void_to_value);
+    RUN_TEST(runner, void_to_expected);
+    RUN_TEST(runner, void_error_propagation);
+    RUN_TEST(runner, void_chain);
+    RUN_TEST(runner, void_to_void);
+    RUN_TEST(runner, const_void_pipe);
+    RUN_TEST(runner, mixed_pipeline);
+    RUN_TEST(runner, pipe_wrapper);
 
     benchmark_pipeoperator();
 

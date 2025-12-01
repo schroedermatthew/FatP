@@ -97,11 +97,11 @@ bool test_ulp_policy_basic() {
     // Within 4 ULPs (default)
     // Use extra parentheses to protect template arguments from macro expansion
     ASSERT_TRUE((areEqual<float, UlpComparisonPolicy>(a, a)), "Same value");
-    ASSERT_TRUE((areEqual<float, UlpComparisonPolicy>(a, b, 4.0)), "Within 4 ULPs");
+    ASSERT_TRUE((areEqual<float, UlpComparisonPolicy>(a, b, 4.0f)), "Within 4 ULPs");
     
     // More than 4 ULPs apart
     float c = 1.0f + 10.0f * std::numeric_limits<float>::epsilon();
-    ASSERT_FALSE((areEqual<float, UlpComparisonPolicy>(a, c, 4.0)), "Beyond 4 ULPs");
+    ASSERT_FALSE((areEqual<float, UlpComparisonPolicy>(a, c, 4.0f)), "Beyond 4 ULPs");
     
     return true;
 }
@@ -166,7 +166,7 @@ bool test_relative_policy_near_zero_weakness() {
     
     // This demonstrates the weakness: relative error is huge,
     // but absolute difference is tiny
-    bool result = areEqual<double, RelativeComparisonPolicy>(a, b, relEps);
+    (void)areEqual<double, RelativeComparisonPolicy>(a, b, relEps);
         
     return true;
 }
@@ -268,7 +268,7 @@ bool test_tuple_comparison() {
     ASSERT_TRUE(areEqual(t1, t3), "Tuples within epsilon");
     ASSERT_FALSE(areEqual(t1, t4), "Different string in tuple");
     
-    std::cout << colors::green() << "  ✓ Tuple comparison correct" 
+    std::cout << colors::green() << "  âœ“ Tuple comparison correct" 
               << colors::reset() << std::endl;
     
     return true;

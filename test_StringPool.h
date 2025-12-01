@@ -9,4 +9,4 @@ bool test_StringPool();
 
 } // namespace fat_p::testing
 
-#endif
+#endif // #ifndef ENABLE_TEST_APPLICATION

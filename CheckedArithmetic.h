@@ -45,7 +45,6 @@
 #include <limits>
 #include <vector>
 #include <cmath>
-#include <iostream>
 #include <cstdint>
 #include "enforce.h"
 #include "Expected.h"
@@ -161,7 +160,7 @@ struct PolicyTraits
             } else if constexpr (std::is_same_v<Policy, SaturatingPolicy>) {           \
                 return std::numeric_limits<T>::quiet_NaN();                            \
             } else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>) {          \
-                always_enforce(false, "FP input contains NaN:", a, op_name, b);        \
+                return std::numeric_limits<T>::quiet_NaN();                            \
             }                                                                          \
         }                                                                              \
         if (std::isinf(a) && std::isinf(b)) {                                          \
@@ -176,7 +175,7 @@ struct PolicyTraits
                 } else if constexpr (std::is_same_v<Policy, SaturatingPolicy>) {       \
                     return std::numeric_limits<T>::quiet_NaN();                        \
                 } else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>) {      \
-                    always_enforce(false, "FP Inf-Inf undefined:", a, op_name, b);     \
+                    return std::numeric_limits<T>::quiet_NaN();                        \
                 }                                                                      \
             }                                                                          \
         }                                                                              \
@@ -206,7 +205,8 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
                 return Expected<T, MathError>(unexpect, MathError::Overflow);
             }
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             if constexpr (std::is_signed_v<T>)
             {
@@ -253,7 +253,8 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
                 return Expected<T, MathError>(unexpect, MathError::Overflow);
             }
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             if constexpr (std::is_signed_v<T>)
             {
@@ -295,7 +296,8 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
                 return Expected<T, MathError>(unexpect, MathError::Underflow);
             }
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             if constexpr (std::is_signed_v<T>)
             {
@@ -340,7 +342,8 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
                 return Expected<T, MathError>(unexpect, MathError::Underflow);
             }
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             if constexpr (std::is_signed_v<T>)
             {
@@ -374,7 +377,8 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
         {
             return Expected<T, MathError>(unexpect, MathError::Overflow);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             if constexpr (std::is_signed_v<T>)
             {
@@ -419,7 +423,8 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
         {
             return Expected<T, MathError>(unexpect, MathError::Overflow);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             if constexpr (std::is_signed_v<T>)
             {
@@ -452,11 +457,10 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
         {
             return Expected<T, MathError>(unexpect, MathError::DivByZero);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
-            // When a == 0, division by zero saturates to 0 (numerator dominates)
             if (a == 0) return T{0};
-            // Otherwise saturate based on sign of numerator
             return (a > 0) ? std::numeric_limits<T>::max() : 
                              std::numeric_limits<T>::lowest();
         }
@@ -475,7 +479,8 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
             {
                 return Expected<T, MathError>(unexpect, MathError::Overflow);
             }
-            else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+            else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                              std::is_same_v<Policy, InfTolerantPolicy>)
             {
                 return std::numeric_limits<T>::max();
             }
@@ -500,7 +505,8 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
         {
             return Expected<T, MathError>(unexpect, MathError::DivByZero);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             return T{0};
         }
@@ -519,7 +525,8 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
             {
                 return Expected<T, MathError>(unexpect, MathError::Overflow);
             }
-            else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+            else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                              std::is_same_v<Policy, InfTolerantPolicy>)
             {
                 return T{0};
             }
@@ -549,7 +556,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
             {
                 return result;
             }
-            always_enforce(false, "Addition error (NaN):", a, "+", b);
+            return std::numeric_limits<T>::quiet_NaN();
         }
         else if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
@@ -592,7 +599,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
             {
                 return result;
             }
-            always_enforce(false, "Subtraction error (NaN):", a, "-", b);
+            return std::numeric_limits<T>::quiet_NaN();
         }
         else if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
@@ -635,7 +642,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
             {
                 return result;
             }
-            always_enforce(false, "Multiplication error (NaN):", a, "*", b);
+            return std::numeric_limits<T>::quiet_NaN();
         }
         else if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
@@ -709,7 +716,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
             {
                 return result;
             }
-            always_enforce(false, "Division error (NaN):", a, "/", b);
+            return std::numeric_limits<T>::quiet_NaN();
         }
         else if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
@@ -775,7 +782,8 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL, typename S>
         {
             return Expected<T, MathError>(unexpect, MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             return T{0};
         }
@@ -803,7 +811,8 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL, typename S>
         {
             return Expected<T, MathError>(unexpect, MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             if constexpr (std::is_signed_v<T>)
             {
@@ -849,6 +858,48 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_ARITHMETIC>
     
     T result = -a;
     return result;
+}
+
+/**
+ * @brief Checked absolute value for integers with overflow detection.
+ * 
+ * @tparam Policy Error handling policy
+ * @tparam T Integral type
+ * @param a Value to take absolute value of
+ * @return Absolute value according to policy
+ * 
+ * @note For signed types, abs(MIN) overflows because |MIN| > MAX in two's complement.
+ *       For unsigned types, this is a no-op that returns the input unchanged.
+ */
+template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
+[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_abs(T a)
+    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+{
+    if constexpr (std::is_unsigned_v<T>)
+    {
+        return a;
+    }
+    else
+    {
+        if (a == std::numeric_limits<T>::min())
+        {
+            if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
+            {
+                always_enforce(false, "Overflow in abs (min):", a);
+            }
+            else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
+            {
+                return Expected<T, MathError>(unexpect, MathError::Overflow);
+            }
+            else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                              std::is_same_v<Policy, InfTolerantPolicy>)
+            {
+                return std::numeric_limits<T>::max();
+            }
+        }
+        
+        return (a < 0) ? -a : a;
+    }
 }
 
 template <typename Policy = ThrowOnErrorPolicy, typename T>
@@ -978,11 +1029,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
     
     if (is_nan)
     {
-        if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)
-        {
-            always_enforce(false, "Modulo error (NaN):", a, "%", b);
-        }
-        else if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
+        if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
             always_enforce(false, "Modulo error (NaN):", a, "%", b);
         }
@@ -991,6 +1038,10 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
             return Expected<T, MathError>(unexpect, MathError::NaN);
         }
         else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        {
+            return std::numeric_limits<T>::quiet_NaN();
+        }
+        else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)
         {
             return std::numeric_limits<T>::quiet_NaN();
         }
@@ -1422,7 +1473,8 @@ checked_vec_op_generic(const std::vector<T>& vec_a,
             return Expected<std::vector<T>, MathError>(unexpect, 
                                                        MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             return std::vector<T>();
         }
@@ -1452,7 +1504,61 @@ checked_vec_op_generic(const std::vector<T>& vec_a,
     return result;
 }
 
+#if defined(__AVX2__) && (defined(__x86_64__) || defined(_M_X64))
+/**
+ * @brief Detects NaN or overflow-to-Inf in AVX2 double vector results.
+ * 
+ * @tparam Policy Error handling policy (InfTolerantPolicy skips Inf checks)
+ * @param va First input vector
+ * @param vb Second input vector  
+ * @param vr Result vector to check
+ * @return true if any element is NaN or (for non-InfTolerant) Inf from finite inputs
+ */
+template <typename Policy>
+[[nodiscard]] inline bool detect_fp_simd_error(
+    const __m256d& va, const __m256d& vb, const __m256d& vr) noexcept
+{
+    // Check for NaN in result (NaN != NaN)
+    __m256d nan_mask = _mm256_cmp_pd(vr, vr, _CMP_UNORD_Q);
+    if (_mm256_movemask_pd(nan_mask) != 0)
+    {
+        return true;
+    }
+    
+    // For non-InfTolerant policies, check for overflow (finite inputs -> Inf result)
+    if constexpr (!std::is_same_v<Policy, InfTolerantPolicy>)
+    {
+        __m256d inf_pos = _mm256_set1_pd(std::numeric_limits<double>::infinity());
+        __m256d inf_neg = _mm256_set1_pd(-std::numeric_limits<double>::infinity());
+        __m256d result_is_inf = _mm256_or_pd(
+            _mm256_cmp_pd(vr, inf_pos, _CMP_EQ_OQ),
+            _mm256_cmp_pd(vr, inf_neg, _CMP_EQ_OQ));
+        
+        __m256d a_is_finite = _mm256_and_pd(
+            _mm256_cmp_pd(va, va, _CMP_ORD_Q),
+            _mm256_and_pd(
+                _mm256_cmp_pd(va, inf_pos, _CMP_NEQ_OQ),
+                _mm256_cmp_pd(va, inf_neg, _CMP_NEQ_OQ)));
+        
+        __m256d b_is_finite = _mm256_and_pd(
+            _mm256_cmp_pd(vb, vb, _CMP_ORD_Q),
+            _mm256_and_pd(
+                _mm256_cmp_pd(vb, inf_pos, _CMP_NEQ_OQ),
+                _mm256_cmp_pd(vb, inf_neg, _CMP_NEQ_OQ)));
+        
+        __m256d overflow = _mm256_and_pd(result_is_inf,
+                                         _mm256_and_pd(a_is_finite, b_is_finite));
+        
+        if (_mm256_movemask_pd(overflow) != 0)
+        {
+            return true;
+        }
+    }
+    return false;
 }
+#endif
+
+} // namespace detail
 
 template <typename Policy = ThrowOnErrorPolicy, typename T>
 [[nodiscard]] PolicyReturnType<Policy, std::vector<T>> checked_add_vec(const std::vector<T>& vec_a, const std::vector<T>& vec_b)
@@ -1470,7 +1576,8 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
         {
             return Expected<std::vector<T>, MathError>(unexpect, MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             return std::vector<T>();
         }
@@ -1612,7 +1719,8 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
         {
             return Expected<std::vector<T>, MathError>(unexpect, MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             return std::vector<T>();
         }
@@ -1754,7 +1862,8 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
         {
             return Expected<std::vector<T>, MathError>(unexpect, MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             return std::vector<T>();
         }
@@ -1800,7 +1909,8 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
         {
             return Expected<std::vector<T>, MathError>(unexpect, MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             return std::vector<T>();
         }
@@ -1846,7 +1956,8 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
         {
             return Expected<std::vector<T>, MathError>(unexpect, MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             return std::vector<T>();
         }
@@ -1859,48 +1970,13 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
 #if defined(__AVX2__) && (defined(__x86_64__) || defined(_M_X64))
     if constexpr (std::is_same_v<T, double>)
     {
-auto detect_simd_error = [](const __m256d& va, const __m256d& vb, 
-                                      const __m256d& vr) -> bool {
-            __m256d nan_mask = _mm256_cmp_pd(vr, vr, _CMP_UNORD_Q);
-            if (_mm256_movemask_pd(nan_mask) != 0) {
-                return true;
-            }
-            
-            if constexpr (!std::is_same_v<Policy, InfTolerantPolicy>) {
-                __m256d inf_pos = _mm256_set1_pd(std::numeric_limits<double>::infinity());
-                __m256d inf_neg = _mm256_set1_pd(-std::numeric_limits<double>::infinity());
-                __m256d result_is_inf = _mm256_or_pd(
-                    _mm256_cmp_pd(vr, inf_pos, _CMP_EQ_OQ),
-                    _mm256_cmp_pd(vr, inf_neg, _CMP_EQ_OQ));
-                
-                __m256d a_is_finite = _mm256_and_pd(
-                    _mm256_cmp_pd(va, va, _CMP_ORD_Q),
-                    _mm256_and_pd(
-                        _mm256_cmp_pd(va, inf_pos, _CMP_NEQ_OQ),
-                        _mm256_cmp_pd(va, inf_neg, _CMP_NEQ_OQ)));
-                
-                __m256d b_is_finite = _mm256_and_pd(
-                    _mm256_cmp_pd(vb, vb, _CMP_ORD_Q),
-                    _mm256_and_pd(
-                        _mm256_cmp_pd(vb, inf_pos, _CMP_NEQ_OQ),
-                        _mm256_cmp_pd(vb, inf_neg, _CMP_NEQ_OQ)));
-                
-                __m256d overflow = _mm256_and_pd(result_is_inf,
-                                                 _mm256_and_pd(a_is_finite, b_is_finite));
-                
-                if (_mm256_movemask_pd(overflow) != 0) {
-                    return true;
-                }
-            }
-            return false;
-        };
         for (size_t i = 0; i + AVX2_DOUBLES_PER_REG <= n; i += AVX2_DOUBLES_PER_REG)
         {
             __m256d va = _mm256_loadu_pd(&vec_a[i]);
             __m256d vb = _mm256_loadu_pd(&vec_b[i]);
             __m256d vr = _mm256_add_pd(va, vb);
             
-            bool has_error = detect_simd_error(va, vb, vr);
+            bool has_error = detail::detect_fp_simd_error<Policy>(va, vb, vr);
             
             if (has_error)
             {
@@ -1989,7 +2065,8 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
         {
             return Expected<std::vector<T>, MathError>(unexpect, MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             return std::vector<T>();
         }
@@ -2002,48 +2079,13 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
 #if defined(__AVX2__) && (defined(__x86_64__) || defined(_M_X64))
     if constexpr (std::is_same_v<T, double>)
     {
-auto detect_simd_error = [](const __m256d& va, const __m256d& vb, 
-                                      const __m256d& vr) -> bool {
-            __m256d nan_mask = _mm256_cmp_pd(vr, vr, _CMP_UNORD_Q);
-            if (_mm256_movemask_pd(nan_mask) != 0) {
-                return true;
-            }
-            
-            if constexpr (!std::is_same_v<Policy, InfTolerantPolicy>) {
-                __m256d inf_pos = _mm256_set1_pd(std::numeric_limits<double>::infinity());
-                __m256d inf_neg = _mm256_set1_pd(-std::numeric_limits<double>::infinity());
-                __m256d result_is_inf = _mm256_or_pd(
-                    _mm256_cmp_pd(vr, inf_pos, _CMP_EQ_OQ),
-                    _mm256_cmp_pd(vr, inf_neg, _CMP_EQ_OQ));
-                
-                __m256d a_is_finite = _mm256_and_pd(
-                    _mm256_cmp_pd(va, va, _CMP_ORD_Q),
-                    _mm256_and_pd(
-                        _mm256_cmp_pd(va, inf_pos, _CMP_NEQ_OQ),
-                        _mm256_cmp_pd(va, inf_neg, _CMP_NEQ_OQ)));
-                
-                __m256d b_is_finite = _mm256_and_pd(
-                    _mm256_cmp_pd(vb, vb, _CMP_ORD_Q),
-                    _mm256_and_pd(
-                        _mm256_cmp_pd(vb, inf_pos, _CMP_NEQ_OQ),
-                        _mm256_cmp_pd(vb, inf_neg, _CMP_NEQ_OQ)));
-                
-                __m256d overflow = _mm256_and_pd(result_is_inf,
-                                                 _mm256_and_pd(a_is_finite, b_is_finite));
-                
-                if (_mm256_movemask_pd(overflow) != 0) {
-                    return true;
-                }
-            }
-            return false;
-        };
         for (size_t i = 0; i + AVX2_DOUBLES_PER_REG <= n; i += AVX2_DOUBLES_PER_REG)
         {
             __m256d va = _mm256_loadu_pd(&vec_a[i]);
             __m256d vb = _mm256_loadu_pd(&vec_b[i]);
             __m256d vr = _mm256_sub_pd(va, vb);
             
-            bool has_error = detect_simd_error(va, vb, vr);
+            bool has_error = detail::detect_fp_simd_error<Policy>(va, vb, vr);
             
             if (has_error)
             {
@@ -2132,7 +2174,8 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
         {
             return Expected<std::vector<T>, MathError>(unexpect, MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             return std::vector<T>();
         }
@@ -2145,48 +2188,13 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
 #if defined(__AVX2__) && (defined(__x86_64__) || defined(_M_X64))
     if constexpr (std::is_same_v<T, double>)
     {
-auto detect_simd_error = [](const __m256d& va, const __m256d& vb, 
-                                      const __m256d& vr) -> bool {
-            __m256d nan_mask = _mm256_cmp_pd(vr, vr, _CMP_UNORD_Q);
-            if (_mm256_movemask_pd(nan_mask) != 0) {
-                return true;
-            }
-            
-            if constexpr (!std::is_same_v<Policy, InfTolerantPolicy>) {
-                __m256d inf_pos = _mm256_set1_pd(std::numeric_limits<double>::infinity());
-                __m256d inf_neg = _mm256_set1_pd(-std::numeric_limits<double>::infinity());
-                __m256d result_is_inf = _mm256_or_pd(
-                    _mm256_cmp_pd(vr, inf_pos, _CMP_EQ_OQ),
-                    _mm256_cmp_pd(vr, inf_neg, _CMP_EQ_OQ));
-                
-                __m256d a_is_finite = _mm256_and_pd(
-                    _mm256_cmp_pd(va, va, _CMP_ORD_Q),
-                    _mm256_and_pd(
-                        _mm256_cmp_pd(va, inf_pos, _CMP_NEQ_OQ),
-                        _mm256_cmp_pd(va, inf_neg, _CMP_NEQ_OQ)));
-                
-                __m256d b_is_finite = _mm256_and_pd(
-                    _mm256_cmp_pd(vb, vb, _CMP_ORD_Q),
-                    _mm256_and_pd(
-                        _mm256_cmp_pd(vb, inf_pos, _CMP_NEQ_OQ),
-                        _mm256_cmp_pd(vb, inf_neg, _CMP_NEQ_OQ)));
-                
-                __m256d overflow = _mm256_and_pd(result_is_inf,
-                                                 _mm256_and_pd(a_is_finite, b_is_finite));
-                
-                if (_mm256_movemask_pd(overflow) != 0) {
-                    return true;
-                }
-            }
-            return false;
-        };
         for (size_t i = 0; i + AVX2_DOUBLES_PER_REG <= n; i += AVX2_DOUBLES_PER_REG)
         {
             __m256d va = _mm256_loadu_pd(&vec_a[i]);
             __m256d vb = _mm256_loadu_pd(&vec_b[i]);
             __m256d vr = _mm256_mul_pd(va, vb);
             
-            bool has_error = detect_simd_error(va, vb, vr);
+            bool has_error = detail::detect_fp_simd_error<Policy>(va, vb, vr);
             
             if (has_error)
             {
@@ -2275,7 +2283,8 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
         {
             return Expected<std::vector<T>, MathError>(unexpect, MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
+                          std::is_same_v<Policy, InfTolerantPolicy>)
         {
             return std::vector<T>();
         }
@@ -2288,48 +2297,13 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
 #if defined(__AVX2__) && (defined(__x86_64__) || defined(_M_X64))
     if constexpr (std::is_same_v<T, double>)
     {
-auto detect_simd_error = [](const __m256d& va, const __m256d& vb, 
-                                      const __m256d& vr) -> bool {
-            __m256d nan_mask = _mm256_cmp_pd(vr, vr, _CMP_UNORD_Q);
-            if (_mm256_movemask_pd(nan_mask) != 0) {
-                return true;
-            }
-            
-            if constexpr (!std::is_same_v<Policy, InfTolerantPolicy>) {
-                __m256d inf_pos = _mm256_set1_pd(std::numeric_limits<double>::infinity());
-                __m256d inf_neg = _mm256_set1_pd(-std::numeric_limits<double>::infinity());
-                __m256d result_is_inf = _mm256_or_pd(
-                    _mm256_cmp_pd(vr, inf_pos, _CMP_EQ_OQ),
-                    _mm256_cmp_pd(vr, inf_neg, _CMP_EQ_OQ));
-                
-                __m256d a_is_finite = _mm256_and_pd(
-                    _mm256_cmp_pd(va, va, _CMP_ORD_Q),
-                    _mm256_and_pd(
-                        _mm256_cmp_pd(va, inf_pos, _CMP_NEQ_OQ),
-                        _mm256_cmp_pd(va, inf_neg, _CMP_NEQ_OQ)));
-                
-                __m256d b_is_finite = _mm256_and_pd(
-                    _mm256_cmp_pd(vb, vb, _CMP_ORD_Q),
-                    _mm256_and_pd(
-                        _mm256_cmp_pd(vb, inf_pos, _CMP_NEQ_OQ),
-                        _mm256_cmp_pd(vb, inf_neg, _CMP_NEQ_OQ)));
-                
-                __m256d overflow = _mm256_and_pd(result_is_inf,
-                                                 _mm256_and_pd(a_is_finite, b_is_finite));
-                
-                if (_mm256_movemask_pd(overflow) != 0) {
-                    return true;
-                }
-            }
-            return false;
-        };
         for (size_t i = 0; i + AVX2_DOUBLES_PER_REG <= n; i += AVX2_DOUBLES_PER_REG)
         {
             __m256d va = _mm256_loadu_pd(&vec_a[i]);
             __m256d vb = _mm256_loadu_pd(&vec_b[i]);
             __m256d vr = _mm256_div_pd(va, vb);
             
-            bool has_error = detect_simd_error(va, vb, vr);
+            bool has_error = detail::detect_fp_simd_error<Policy>(va, vb, vr);
             
             if (has_error)
             {
@@ -2477,6 +2451,237 @@ constexpr T or_op(T a, T b) { return a | b; }
 template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
 constexpr T xor_op(T a, T b) { return a ^ b; }
 
+} // namespace static_math
+
+// =============================================================================
+// CHECKED CAST - Safe narrowing conversions
+// =============================================================================
+
+namespace detail {
+
+template <typename To, typename From>
+struct CastOverflowCheck
+{
+    static constexpr bool would_overflow(From value) noexcept
+    {
+        using ToLimits = std::numeric_limits<To>;
+        
+        if constexpr (std::is_same_v<To, From>)
+        {
+            return false;
+        }
+        else if constexpr (std::is_floating_point_v<From> && std::is_integral_v<To>)
+        {
+            if (std::isnan(value) || std::isinf(value))
+            {
+                return true;
+            }
+            return value < static_cast<From>(ToLimits::lowest()) ||
+                   value > static_cast<From>(ToLimits::max());
+        }
+        else if constexpr (std::is_integral_v<From> && std::is_floating_point_v<To>)
+        {
+            return false;
+        }
+        else if constexpr (std::is_signed_v<From> == std::is_signed_v<To>)
+        {
+            if constexpr (sizeof(From) <= sizeof(To))
+            {
+                return false;
+            }
+            else
+            {
+                return value < static_cast<From>(ToLimits::lowest()) ||
+                       value > static_cast<From>(ToLimits::max());
+            }
+        }
+        else if constexpr (std::is_signed_v<From> && !std::is_signed_v<To>)
+        {
+            if (value < 0)
+            {
+                return true;
+            }
+            using UnsignedFrom = std::make_unsigned_t<From>;
+            return static_cast<UnsignedFrom>(value) > ToLimits::max();
+        }
+        else
+        {
+            if constexpr (sizeof(From) < sizeof(To))
+            {
+                return false;
+            }
+            else
+            {
+                return value > static_cast<From>(ToLimits::max());
+            }
+        }
+    }
+};
+
+} // namespace detail
+
+/**
+ * @brief Safely cast a value from one numeric type to another with overflow detection.
+ * 
+ * @tparam To Target type
+ * @tparam From Source type (deduced)
+ * @tparam Policy Error handling policy (default: ThrowOnErrorPolicy)
+ * @param value Value to convert
+ * @return Converted value or error according to policy
+ * 
+ * Detects:
+ * - Integer narrowing overflow (e.g., int64 -> int32)
+ * - Sign conversion errors (e.g., negative int -> unsigned)
+ * - Float-to-int overflow and special values (NaN, Inf)
+ * 
+ * @example
+ *   int64_t big = 1000000000000LL;
+ *   auto result = checked_cast<int32_t, ThrowOnErrorPolicy>(big);  // throws
+ *   
+ *   auto safe = checked_cast<int32_t, ReturnExpectedPolicy>(100LL);
+ *   if (safe.has_value()) { int32_t x = *safe; }
+ */
+template <typename To, typename Policy = ThrowOnErrorPolicy, typename From>
+[[nodiscard]] constexpr PolicyReturnType<Policy, To> checked_cast(From value)
+    noexcept(PolicyTraits<Policy>::template is_noexcept<To>)
+{
+    static_assert(std::is_arithmetic_v<From>, "checked_cast requires arithmetic source type");
+    static_assert(std::is_arithmetic_v<To>, "checked_cast requires arithmetic target type");
+    static_assert(!std::is_same_v<From, bool>, "checked_cast does not support bool source");
+    static_assert(!std::is_same_v<To, bool>, "checked_cast does not support bool target");
+    
+    if constexpr (std::is_same_v<To, From>)
+    {
+        return static_cast<To>(value);
+    }
+    
+    if constexpr (std::is_floating_point_v<From>)
+    {
+        if (std::isnan(value))
+        {
+            if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
+            {
+                always_enforce(false, "checked_cast: NaN cannot be converted");
+            }
+            else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
+            {
+                return Expected<To, MathError>(unexpect, MathError::NaN);
+            }
+            else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+            {
+                if constexpr (std::is_floating_point_v<To>)
+                {
+                    return std::numeric_limits<To>::quiet_NaN();
+                }
+                else
+                {
+                    return To{0};
+                }
+            }
+            else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)
+            {
+                if constexpr (std::is_floating_point_v<To>)
+                {
+                    return std::numeric_limits<To>::quiet_NaN();
+                }
+                else
+                {
+                    return To{0};
+                }
+            }
+        }
+        
+        if (std::isinf(value) && std::is_integral_v<To>)
+        {
+            if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
+            {
+                always_enforce(false, "checked_cast: Inf cannot be converted to integer");
+            }
+            else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
+            {
+                return Expected<To, MathError>(unexpect, MathError::Inf);
+            }
+            else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+            {
+                return (value > 0) ? std::numeric_limits<To>::max() :
+                                     std::numeric_limits<To>::lowest();
+            }
+            else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)
+            {
+                return (value > 0) ? std::numeric_limits<To>::max() :
+                                     std::numeric_limits<To>::lowest();
+            }
+        }
+    }
+    
+    bool overflow = detail::CastOverflowCheck<To, From>::would_overflow(value);
+    
+    if (overflow)
+    {
+        if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
+        {
+            always_enforce(false, "checked_cast overflow");
+        }
+        else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
+        {
+            if constexpr (std::is_signed_v<From> && !std::is_floating_point_v<From>)
+            {
+                if (value < 0)
+                {
+                    return Expected<To, MathError>(unexpect, MathError::Underflow);
+                }
+            }
+            return Expected<To, MathError>(unexpect, MathError::Overflow);
+        }
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
+        {
+            if constexpr (std::is_signed_v<From> && !std::is_floating_point_v<From>)
+            {
+                if (value < 0)
+                {
+                    return std::numeric_limits<To>::lowest();
+                }
+            }
+            return std::numeric_limits<To>::max();
+        }
+        else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)
+        {
+            if constexpr (std::is_signed_v<From> && !std::is_floating_point_v<From>)
+            {
+                if (value < 0)
+                {
+                    return std::numeric_limits<To>::lowest();
+                }
+            }
+            return std::numeric_limits<To>::max();
+        }
+    }
+    
+    return static_cast<To>(value);
+}
+
+/**
+ * @brief Compile-time checked cast using static_assert.
+ * 
+ * @tparam To Target type
+ * @tparam From Source type
+ * @tparam value Value to convert
+ * @return Converted value (fails to compile if overflow would occur)
+ */
+template <typename To, typename From, From value>
+constexpr To static_checked_cast()
+{
+    static_assert(std::is_arithmetic_v<From>, "static_checked_cast requires arithmetic source");
+    static_assert(std::is_arithmetic_v<To>, "static_checked_cast requires arithmetic target");
+    static_assert(!detail::CastOverflowCheck<To, From>::would_overflow(value),
+                  "static_checked_cast: value would overflow target type");
+    return static_cast<To>(value);
 }
 
 } // namespace fat_p
+
+// =============================================================================
+// Macro cleanup - prevent leaking internal macros to user code
+// =============================================================================
+#undef HAS_BUILTIN_OVERFLOW
+#undef VALIDATE_FP_INPUTS

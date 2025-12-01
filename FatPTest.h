@@ -69,6 +69,22 @@
 #include <fstream>
 #include <ctime>
 #include <iterator>
+#include <thread>
+
+#if defined(_WIN32) || defined(_WIN64)
+    #ifndef NOMINMAX
+        #define NOMINMAX
+    #endif
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif
+    #ifndef FATP_ENABLE_PDH_STATS
+        #define FATP_ENABLE_PDH_STATS
+    #endif
+#include <Windows.h>
+#else
+    #include <unistd.h>  // For isatty()
+#endif
 
 namespace fat_p
 {
@@ -89,20 +105,20 @@ namespace testing
  * ALGORITHM: Hybrid absolute + relative tolerance comparison
  * 1. NaN handling: NaN never equals anything (including itself) - IEEE 754 compliant
  * 2. Infinity handling: Same-sign infinities are equal, mixed signs are not
- * 3. Exact equality: Catches ±0 equality and identical values (optimization)
+ * 3. Exact equality: Catches ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±0 equality and identical values (optimization)
  * 4. Absolute tolerance: Handles comparisons near zero
  * 5. Relative tolerance: Handles comparisons at large magnitudes
  * 
  * DEFAULT EPSILON VALUES:
- * - Relative epsilon: 100 × machine epsilon (standard practice)
- * - Absolute epsilon: 1 × machine epsilon (100× tighter for near-zero values)
+ * - Relative epsilon: 100 ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â machine epsilon (standard practice)
+ * - Absolute epsilon: 1 ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â machine epsilon (100ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â tighter for near-zero values)
  * 
  * This is NOT for production use - it's intentionally simplified for test
  * infrastructure. Production code should use FloatingPointComparison.h which
  * provides additional features like ULP comparison, configurable policies,
  * and diagnostic logging.
  * 
- * @note The 100× scaling factor for relative epsilon is a widely-accepted
+ * @note The 100ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â scaling factor for relative epsilon is a widely-accepted
  *       default that balances precision with practical tolerance for rounding
  *       errors in typical floating-point calculations.
  */
@@ -161,11 +177,41 @@ namespace primitive
 // ============================================================================
 
 /**
+ * @brief Detect if terminal supports ANSI colors
+ * 
+ * On Windows: Checks if virtual terminal processing is available
+ * On Linux/Mac: Checks if stdout is a TTY
+ */
+inline bool detect_terminal_colors() noexcept
+{
+#if defined(_WIN32) || defined(_WIN64)
+    // Try to enable virtual terminal processing on Windows 10+
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut == INVALID_HANDLE_VALUE) return false;
+    
+    DWORD dwMode = 0;
+    if (!GetConsoleMode(hOut, &dwMode)) return false;
+    
+    // Check if already enabled or try to enable
+    if (dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING) return true;
+    
+    // Try to enable VT processing
+    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    if (SetConsoleMode(hOut, dwMode)) return true;
+    
+    return false;  // Old Windows without VT support
+#else
+    // POSIX: check if stdout is a terminal
+    return isatty(fileno(stdout)) != 0;
+#endif
+}
+
+/**
  * @brief Global configuration for testing utilities
  */
 struct TestConfig
 {
-    bool colored_output = true;
+    bool colored_output = detect_terminal_colors();
     bool verbose = false;
     bool abort_on_failure = false;
     std::ostream* output = &std::cout;
@@ -267,62 +313,82 @@ namespace string_utils
      * 
      * Supports '*' (any characters) and '?' (single character) wildcards.
      * 
-     * @note Limited to recursion depth of 100 to prevent stack overflow.
-     *       For patterns with >100 consecutive wildcards, consider an
-     *       iterative dynamic programming implementation.
+     * Uses an iterative algorithm with explicit backtracking to avoid stack overflow.
+     * The algorithm handles wildcards by remembering positions for backtracking
+     * when a match fails after consuming characters with '*'.
      */
-    inline bool matches_pattern_impl(const std::string& str, const std::string& pattern, 
-                                     size_t str_pos, size_t pat_pos, int depth) noexcept
+    inline bool matches_pattern(const std::string& str, const std::string& pattern) noexcept
     {
-        constexpr int MAX_RECURSION_DEPTH = 100;
+        size_t str_pos = 0;
+        size_t pat_pos = 0;
+        size_t star_pat_pos = std::string::npos;  // Position after last '*' in pattern
+        size_t star_str_pos = 0;                   // Position in str when '*' was matched
         
-        if (depth > MAX_RECURSION_DEPTH)
+        while (str_pos < str.size())
         {
-            return false;
-        }
-        
-        while (str_pos < str.size() && pat_pos < pattern.size())
-        {
-            if (pattern[pat_pos] == '*')
+            if (pat_pos < pattern.size() && 
+                (pattern[pat_pos] == '?' || pattern[pat_pos] == str[str_pos]))
             {
-                if (pat_pos + 1 == pattern.size())
-                {
-                    return true;
-                }
-                
-                ++pat_pos;
-                while (str_pos < str.size())
-                {
-                    if (matches_pattern_impl(str, pattern, str_pos, pat_pos, depth + 1))
-                    {
-                        return true;
-                    }
-                    ++str_pos;
-                }
-                return false;
-            }
-            else if (pattern[pat_pos] == '?' || pattern[pat_pos] == str[str_pos])
-            {
+                // Character match or '?' wildcard
                 ++str_pos;
                 ++pat_pos;
             }
+            else if (pat_pos < pattern.size() && pattern[pat_pos] == '*')
+            {
+                // '*' wildcard - remember this position for backtracking
+                star_pat_pos = pat_pos;
+                star_str_pos = str_pos;
+                ++pat_pos;  // Try matching '*' with empty string first
+            }
+            else if (star_pat_pos != std::string::npos)
+            {
+                // Mismatch, but we have a '*' to backtrack to
+                // Let '*' consume one more character and retry
+                pat_pos = star_pat_pos + 1;
+                ++star_str_pos;
+                str_pos = star_str_pos;
+            }
             else
             {
+                // No match and no '*' to backtrack to
                 return false;
             }
         }
         
+        // Consume any remaining '*' wildcards in pattern
         while (pat_pos < pattern.size() && pattern[pat_pos] == '*')
         {
             ++pat_pos;
         }
         
-        return str_pos == str.size() && pat_pos == pattern.size();
+        return pat_pos == pattern.size();
     }
     
-    inline bool matches_pattern(const std::string& str, const std::string& pattern) noexcept
+    /**
+     * @brief Truncate a string for display in error messages
+     * 
+     * For strings longer than max_length, returns first and last portions
+     * with an ellipsis in the middle showing the total length.
+     * 
+     * @param str String to potentially truncate
+     * @param max_length Maximum display length (default: 200)
+     * @return Original string if short enough, truncated version otherwise
+     */
+    inline std::string truncate_for_display(const std::string& str, size_t max_length = 200)
     {
-        return matches_pattern_impl(str, pattern, 0, 0, 0);
+        if (str.size() <= max_length)
+        {
+            return str;
+        }
+        
+        size_t head_len = max_length / 2 - 10;
+        size_t tail_len = max_length / 2 - 10;
+        
+        std::ostringstream oss;
+        oss << str.substr(0, head_len) 
+            << "... [" << str.size() << " chars total] ..."
+            << str.substr(str.size() - tail_len);
+        return oss.str();
     }
 }
 
@@ -791,7 +857,7 @@ inline SubtestTracker& get_subtest_tracker();
         bool threw_wrong = false; \
         std::string wrong_exception_msg; \
         try { \
-            (expression); \
+            (void)(expression); \
         } catch (const exception_type&) { \
             threw_correct = true; \
         } catch (const std::exception& e) { \
@@ -887,6 +953,8 @@ inline SubtestTracker& get_subtest_tracker();
  *
  * Usage:
  *   ASSERT_CONTAINS("hello world", "world", "Should contain world");
+ * 
+ * Long strings are truncated in error output for readability.
  */
 #define ASSERT_CONTAINS(str, substr, msg) \
     { \
@@ -897,7 +965,8 @@ inline SubtestTracker& get_subtest_tracker();
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
                 << "ASSERT_CONTAINS FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
-                << "\n  String:    \"" << str_val << "\"" \
+                << "\n  String:    \"" \
+                << fat_p::testing::string_utils::truncate_for_display(str_val) << "\"" \
                 << "\n  Substring: \"" << substr_val << "\" (not found)" \
                 << "\n  at " << __FILE__ << ":" << __LINE__ \
                 << fat_p::testing::colors::reset() << std::endl; \
@@ -914,6 +983,8 @@ inline SubtestTracker& get_subtest_tracker();
 
 /**
  * @brief Assert that a string does not contain a substring
+ * 
+ * Long strings are truncated in error output for readability.
  */
 #define ASSERT_NOT_CONTAINS(str, substr, msg) \
     { \
@@ -924,7 +995,8 @@ inline SubtestTracker& get_subtest_tracker();
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
                 << "ASSERT_NOT_CONTAINS FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
-                << "\n  String:    \"" << str_val << "\"" \
+                << "\n  String:    \"" \
+                << fat_p::testing::string_utils::truncate_for_display(str_val) << "\"" \
                 << "\n  Substring: \"" << substr_val << "\" (found but should not be)" \
                 << "\n  at " << __FILE__ << ":" << __LINE__ \
                 << fat_p::testing::colors::reset() << std::endl; \
@@ -941,6 +1013,8 @@ inline SubtestTracker& get_subtest_tracker();
 
 /**
  * @brief Assert that a string starts with a prefix
+ * 
+ * Long strings are truncated in error output for readability.
  */
 #define ASSERT_STARTS_WITH(str, prefix, msg) \
     { \
@@ -951,7 +1025,8 @@ inline SubtestTracker& get_subtest_tracker();
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
                 << "ASSERT_STARTS_WITH FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
-                << "\n  String: \"" << str_val << "\"" \
+                << "\n  String: \"" \
+                << fat_p::testing::string_utils::truncate_for_display(str_val) << "\"" \
                 << "\n  Prefix: \"" << prefix_val << "\" (not found)" \
                 << "\n  at " << __FILE__ << ":" << __LINE__ \
                 << fat_p::testing::colors::reset() << std::endl; \
@@ -968,6 +1043,8 @@ inline SubtestTracker& get_subtest_tracker();
 
 /**
  * @brief Assert that a string ends with a suffix
+ * 
+ * Long strings are truncated in error output for readability.
  */
 #define ASSERT_ENDS_WITH(str, suffix, msg) \
     { \
@@ -978,7 +1055,8 @@ inline SubtestTracker& get_subtest_tracker();
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
                 << "ASSERT_ENDS_WITH FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
-                << "\n  String: \"" << str_val << "\"" \
+                << "\n  String: \"" \
+                << fat_p::testing::string_utils::truncate_for_display(str_val) << "\"" \
                 << "\n  Suffix: \"" << suffix_val << "\" (not found)" \
                 << "\n  at " << __FILE__ << ":" << __LINE__ \
                 << fat_p::testing::colors::reset() << std::endl; \
@@ -1042,6 +1120,8 @@ inline SubtestTracker& get_subtest_tracker();
 
 /**
  * @brief Assert that two strings are equal (case-insensitive)
+ * 
+ * Long strings are truncated in error output for readability.
  */
 #define ASSERT_STR_EQ_IGNORE_CASE(str1, str2, msg) \
     { \
@@ -1054,8 +1134,10 @@ inline SubtestTracker& get_subtest_tracker();
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
                 << "ASSERT_STR_EQ_IGNORE_CASE FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
-                << "\n  Expected: \"" << str2_val << "\"" \
-                << "\n  Actual:   \"" << str1_val << "\"" \
+                << "\n  Expected: \"" \
+                << fat_p::testing::string_utils::truncate_for_display(str2_val) << "\"" \
+                << "\n  Actual:   \"" \
+                << fat_p::testing::string_utils::truncate_for_display(str1_val) << "\"" \
                 << "\n  at " << __FILE__ << ":" << __LINE__ \
                 << fat_p::testing::colors::reset() << std::endl; \
             if (fat_p::testing::get_test_config().abort_on_failure) { \
@@ -1201,18 +1283,45 @@ inline SubtestTracker& get_subtest_tracker();
  * @tparam T Type of value
  * @param value Value to preserve
  */
+#if defined(_MSC_VER)
+// MSVC requires special handling - use a global volatile sink
+// to truly prevent optimization
+namespace benchmark_detail
+{
+    inline volatile char benchmark_sink_storage;
+    
+    template <typename T>
+    __forceinline void use_value(T const& value) noexcept
+    {
+        // Write value address XOR'd with itself to a volatile location
+        // This creates a data dependency the optimizer cannot remove
+        benchmark_sink_storage = static_cast<char>(
+            reinterpret_cast<uintptr_t>(&value) ^ 
+            reinterpret_cast<uintptr_t>(&value));
+        _ReadWriteBarrier();
+    }
+}
+
+template <typename T>
+__forceinline void DoNotOptimize(T const& value) noexcept
+{
+    benchmark_detail::use_value(value);
+}
+
+template <typename T>
+__forceinline void DoNotOptimize(T& value) noexcept
+{
+    benchmark_detail::use_value(value);
+    _ReadWriteBarrier();
+}
+
+#else
+// GCC/Clang implementation using inline assembly
+
 template <typename T>
 inline void DoNotOptimize(T const& value) noexcept
 {
-#if defined(__GNUC__) || defined(__clang__)
     asm volatile("" : : "r,m"(value) : "memory");
-#elif defined(_MSC_VER)
-    volatile const T* ptr = &value;
-    (void)ptr;
-#else
-    volatile const T* ptr = &value;
-    (void)ptr;
-#endif
 }
 
 /**
@@ -1221,16 +1330,10 @@ inline void DoNotOptimize(T const& value) noexcept
 template <typename T>
 inline void DoNotOptimize(T& value) noexcept
 {
-#if defined(__GNUC__) || defined(__clang__)
     asm volatile("" : "+g"(value) : : "memory");
-#elif defined(_MSC_VER)
-    volatile T* ptr = &value;
-    (void)ptr;
-#else
-    volatile T* ptr = &value;
-    (void)ptr;
-#endif
 }
+
+#endif
 
 /**
  * @brief Statistics for benchmark results
@@ -1298,46 +1401,861 @@ inline BenchmarkBaseline& get_benchmark_baseline()
     return baseline;
 }
 
+// ============================================================================
+// High-Resolution Timer (Platform-Specific)
+// ============================================================================
+
 /**
- * @brief Performance measurement helper with warm-up
+ * @brief High-resolution timer abstraction
+ * 
+ * On Windows, uses QueryPerformanceCounter for sub-microsecond precision.
+ * On other platforms, uses std::chrono::high_resolution_clock.
+ * 
+ * The Windows high_resolution_clock often aliases to system_clock with ~1ms
+ * resolution, making it unsuitable for micro-benchmarks. QueryPerformanceCounter
+ * provides true high-resolution timing on Windows.
+ */
+class HighResolutionTimer
+{
+public:
+#if defined(_WIN32) || defined(_WIN64)
+    using time_point = LARGE_INTEGER;
+    
+    static time_point now()
+    {
+        LARGE_INTEGER t;
+        QueryPerformanceCounter(&t);
+        return t;
+    }
+    
+    static double elapsed_ms(const time_point& start, const time_point& end)
+    {
+        LONGLONG freq = get_frequency();
+        if (freq == 0) return 0.0;  // Safety: avoid division by zero
+        return static_cast<double>(end.QuadPart - start.QuadPart) * 1000.0 / 
+               static_cast<double>(freq);
+    }
+    
+    static double resolution_ms()
+    {
+        LONGLONG freq = get_frequency();
+        if (freq == 0) return 1.0;  // Fallback to 1ms resolution
+        return 1000.0 / static_cast<double>(freq);
+    }
+    
+    static const char* timer_name()
+    {
+        return "QueryPerformanceCounter";
+    }
+    
+private:
+    // Cache the frequency - it doesn't change during execution
+    // Returns 0 on failure (extremely rare - only on ancient hardware)
+    static LONGLONG get_frequency()
+    {
+        static LONGLONG frequency = []() -> LONGLONG {
+            LARGE_INTEGER freq;
+            if (!QueryPerformanceFrequency(&freq) || freq.QuadPart == 0)
+            {
+                return 0;  // Fallback: will cause elapsed_ms to return 0
+            }
+            return freq.QuadPart;
+        }();
+        return frequency;
+    }
+    
+public:
+#else
+    using time_point = std::chrono::high_resolution_clock::time_point;
+    
+    static time_point now()
+    {
+        return std::chrono::high_resolution_clock::now();
+    }
+    
+    static double elapsed_ms(const time_point& start, const time_point& end)
+    {
+        return std::chrono::duration<double, std::milli>(end - start).count();
+    }
+    
+    static double resolution_ms()
+    {
+        using clock = std::chrono::high_resolution_clock;
+        return static_cast<double>(clock::period::num) / clock::period::den * 1000.0;
+    }
+    
+    static const char* timer_name()
+    {
+        return "std::chrono::high_resolution_clock";
+    }
+#endif
+};
+
+// ============================================================================
+// PDH CPU Monitor (Optional - Windows Only)
+// ============================================================================
+// Provides accurate CPU frequency monitoring including thermal throttling
+// and turbo boost detection via Windows Performance Data Helper (PDH).
+//
+// LIMITATIONS:
+// 1. English Windows Only (uses hardcoded counter strings)
+// 2. Requires FATP_ENABLE_PDH_STATS to be defined
+// 3. pdh.dll is loaded dynamically - no link-time dependency
+// ============================================================================
+
+#if defined(FATP_ENABLE_PDH_STATS) && (defined(_WIN32) || defined(_WIN64))
+
+class PdhCpuMonitor
+{
+private:
+    // Forward declare PDH types to avoid requiring pdh.h
+    using PDH_HQUERY = void*;
+    using PDH_HCOUNTER = void*;
+    using PDH_STATUS = long;
+    
+    struct PDH_FMT_COUNTERVALUE {
+        DWORD CStatus;
+        union {
+            LONG longValue;
+            double doubleValue;
+            LONGLONG largeValue;
+            LPCSTR AnsiStringValue;
+            LPCWSTR WideStringValue;
+        };
+    };
+    
+    static constexpr DWORD PDH_FMT_DOUBLE = 0x00000200;
+    static constexpr PDH_STATUS ERROR_SUCCESS_PDH = 0;
+
+    // Typedefs for dynamic loading
+    using PdhOpenQueryA_t = PDH_STATUS(WINAPI*)(LPCSTR, DWORD_PTR, PDH_HQUERY*);
+    using PdhAddCounterA_t = PDH_STATUS(WINAPI*)(PDH_HQUERY, LPCSTR, DWORD_PTR, PDH_HCOUNTER*);
+    using PdhCollectQueryData_t = PDH_STATUS(WINAPI*)(PDH_HQUERY);
+    using PdhGetFormattedCounterValue_t = PDH_STATUS(WINAPI*)(PDH_HCOUNTER, DWORD, LPDWORD, PDH_FMT_COUNTERVALUE*);
+    using PdhCloseQuery_t = PDH_STATUS(WINAPI*)(PDH_HQUERY);
+
+    HMODULE hPdh_ = nullptr;
+    PDH_HQUERY hQuery_ = nullptr;
+    PDH_HCOUNTER hCounter_ = nullptr;
+    
+    // Function Pointers
+    PdhOpenQueryA_t pOpenQuery_ = nullptr;
+    PdhAddCounterA_t pAddCounter_ = nullptr;
+    PdhCollectQueryData_t pCollectData_ = nullptr;
+    PdhGetFormattedCounterValue_t pGetValue_ = nullptr;
+    PdhCloseQuery_t pCloseQuery_ = nullptr;
+
+    bool initialized_ = false;
+
+public:
+    PdhCpuMonitor()
+    {
+        // 1. Load DLL dynamically
+        hPdh_ = LoadLibraryA("pdh.dll");
+        if (!hPdh_) return;
+
+        // 2. Resolve function pointers
+        pOpenQuery_ = reinterpret_cast<PdhOpenQueryA_t>(GetProcAddress(hPdh_, "PdhOpenQueryA"));
+        pAddCounter_ = reinterpret_cast<PdhAddCounterA_t>(GetProcAddress(hPdh_, "PdhAddCounterA"));
+        pCollectData_ = reinterpret_cast<PdhCollectQueryData_t>(GetProcAddress(hPdh_, "PdhCollectQueryData"));
+        pGetValue_ = reinterpret_cast<PdhGetFormattedCounterValue_t>(GetProcAddress(hPdh_, "PdhGetFormattedCounterValue"));
+        pCloseQuery_ = reinterpret_cast<PdhCloseQuery_t>(GetProcAddress(hPdh_, "PdhCloseQuery"));
+
+        if (!pOpenQuery_ || !pAddCounter_ || !pCollectData_ || !pGetValue_ || !pCloseQuery_) return;
+
+        // 3. Open Query
+        if (pOpenQuery_(nullptr, 0, &hQuery_) != ERROR_SUCCESS_PDH) return;
+
+        // 4. Add Counter (ENGLISH WINDOWS ONLY)
+        // "Processor Information" supports >64 cores, unlike legacy "Processor"
+        const char* counterPath = "\\Processor Information(_Total)\\% of Maximum Frequency";
+        if (pAddCounter_(hQuery_, counterPath, 0, &hCounter_) != ERROR_SUCCESS_PDH)
+        {
+            // Fallback for older Windows versions
+            counterPath = "\\Processor(_Total)\\% Processor Performance";
+            if (pAddCounter_(hQuery_, counterPath, 0, &hCounter_) != ERROR_SUCCESS_PDH)
+            {
+                return;
+            }
+        }
+
+        // 5. Prime the counter (first read is always invalid for rate counters)
+        pCollectData_(hQuery_);
+        initialized_ = true;
+    }
+
+    ~PdhCpuMonitor()
+    {
+        if (hQuery_ && pCloseQuery_) pCloseQuery_(hQuery_);
+        if (hPdh_) FreeLibrary(hPdh_);
+    }
+    
+    // Non-copyable
+    PdhCpuMonitor(const PdhCpuMonitor&) = delete;
+    PdhCpuMonitor& operator=(const PdhCpuMonitor&) = delete;
+
+    /**
+     * @brief Returns current CPU frequency as a percentage of base frequency
+     * 
+     * Examples:
+     *   100.0 = Running at base clock
+     *   150.0 = Turbo boost (50% above base)
+     *   50.0  = Throttled to half speed
+     * 
+     * @return Percentage (0.0 on error)
+     */
+    [[nodiscard]] double get_frequency_percentage()
+    {
+        if (!initialized_) return 0.0;
+
+        // Collect new data sample
+        if (pCollectData_(hQuery_) != ERROR_SUCCESS_PDH) return 0.0;
+
+        PDH_FMT_COUNTERVALUE value{};
+        if (pGetValue_(hCounter_, PDH_FMT_DOUBLE, nullptr, &value) == ERROR_SUCCESS_PDH)
+        {
+            return value.doubleValue;
+        }
+        return 0.0;
+    }
+    
+    /**
+     * @brief Calculate actual frequency in MHz
+     * @param base_freq_mhz Base CPU frequency
+     * @return Current frequency in MHz (0.0 on error)
+     */
+    [[nodiscard]] double get_current_freq_mhz(double base_freq_mhz)
+    {
+        double pct = get_frequency_percentage();
+        if (pct <= 0.0) return 0.0;
+        return base_freq_mhz * (pct / 100.0);
+    }
+    
+    [[nodiscard]] bool is_available() const { return initialized_; }
+};
+
+#endif // FATP_ENABLE_PDH_STATS && Windows
+
+// ============================================================================
+// System Information (Platform-Specific)
+// ============================================================================
+
+/**
+ * @brief Captures system information for benchmark context
+ * 
+ * Provides CPU model, core count, frequency, and timestamp information
+ * to help interpret benchmark results. Platform-specific implementations
+ * for Windows and Linux.
+ * 
+ * Usage:
+ *   auto info = SystemInfo::capture();
+ *   info.print();
+ */
+class SystemInfo
+{
+public:
+    std::string cpu_model;
+    int logical_cores = 0;
+    int physical_cores = 0;
+    double base_freq_mhz = 0.0;
+    double current_freq_mhz = 0.0;  // May be 0 if unavailable
+    double cpu_temp_celsius = -1.0; // -1 if unavailable
+    std::string timestamp;
+    std::string os_info;
+    
+    /**
+     * @brief Capture current system information
+     * @return SystemInfo populated with available metrics
+     */
+    static SystemInfo capture()
+    {
+        SystemInfo info;
+        info.logical_cores = static_cast<int>(std::thread::hardware_concurrency());
+        info.timestamp = get_timestamp();
+        
+#if defined(_WIN32) || defined(_WIN64)
+        info.cpu_model = get_cpu_model_windows();
+        info.base_freq_mhz = get_cpu_freq_windows();
+        info.current_freq_mhz = get_current_freq_windows(info.base_freq_mhz);
+        info.physical_cores = get_physical_cores_windows();
+        info.os_info = get_os_info_windows();
+#else
+        info.cpu_model = get_cpu_model_linux();
+        info.base_freq_mhz = get_cpu_freq_linux();
+        info.current_freq_mhz = get_current_freq_linux();
+        info.physical_cores = get_physical_cores_linux();
+        info.cpu_temp_celsius = get_cpu_temp_linux();
+        info.os_info = get_os_info_linux();
+#endif
+        
+        // Fallback for physical cores
+        if (info.physical_cores <= 0)
+        {
+            info.physical_cores = info.logical_cores;
+        }
+        
+        return info;
+    }
+    
+    /**
+     * @brief Print system information to stdout
+     */
+    void print() const
+    {
+        std::cout << colors::cyan() << "System Information:" << colors::reset() << "\n";
+        std::cout << "  CPU: " << cpu_model << "\n";
+        std::cout << "  Cores: " << physical_cores << " physical, " 
+                  << logical_cores << " logical\n";
+        
+        if (base_freq_mhz > 0)
+        {
+            std::cout << "  Base Frequency: " << static_cast<int>(base_freq_mhz) << " MHz";
+            if (current_freq_mhz > 0)
+            {
+                std::cout << " (current: " << static_cast<int>(current_freq_mhz) << " MHz";
+                double throttle_pct = (1.0 - current_freq_mhz / base_freq_mhz) * 100.0;
+                if (throttle_pct > 5.0)
+                {
+                    std::cout << ", " << colors::yellow() << std::fixed << std::setprecision(0) 
+                              << throttle_pct << "% throttled" << colors::reset();
+                }
+                else if (throttle_pct < -5.0)
+                {
+                    // Turbo boost - running above base frequency
+                    std::cout << ", " << colors::green() << "turbo" << colors::reset();
+                }
+                std::cout << ")";
+            }
+            std::cout << "\n";
+        }
+        
+        if (cpu_temp_celsius > 0)
+        {
+            std::cout << "  CPU Temperature: " << static_cast<int>(cpu_temp_celsius) << " C";
+            if (cpu_temp_celsius > 80)
+            {
+                std::cout << " " << colors::red() << "(HOT)" << colors::reset();
+            }
+            else if (cpu_temp_celsius > 70)
+            {
+                std::cout << " " << colors::yellow() << "(warm)" << colors::reset();
+            }
+            std::cout << "\n";
+        }
+        
+        std::cout << "  OS: " << os_info << "\n";
+        std::cout << "  Timer: " << HighResolutionTimer::timer_name() 
+                  << " (resolution: " << std::fixed << std::setprecision(2) 
+                  << HighResolutionTimer::resolution_ms() * 1e6 << " ns)\n";
+        std::cout << "  Timestamp: " << timestamp << "\n";
+        std::cout << "\n";
+    }
+    
+    /**
+     * @brief Get a one-line summary suitable for benchmark headers
+     */
+    [[nodiscard]] std::string one_line_summary() const
+    {
+        std::ostringstream oss;
+        oss << cpu_model;
+        if (physical_cores > 0)
+        {
+            oss << " (" << physical_cores << "C/" << logical_cores << "T";
+            if (base_freq_mhz > 0)
+            {
+                oss << " @ " << static_cast<int>(base_freq_mhz) << " MHz";
+            }
+            oss << ")";
+        }
+        return oss.str();
+    }
+    
+    /**
+     * @brief Get throttle percentage (0 = no throttling, 50 = running at half speed)
+     * @return Throttle percentage, or -1 if current frequency unavailable
+     */
+    [[nodiscard]] double throttle_percentage() const
+    {
+        if (current_freq_mhz <= 0 || base_freq_mhz <= 0)
+        {
+            return -1.0;  // Unknown
+        }
+        return (1.0 - current_freq_mhz / base_freq_mhz) * 100.0;
+    }
+    
+    /**
+     * @brief Check if CPU appears to be thermally throttled (>10% reduction)
+     */
+    [[nodiscard]] bool is_throttled() const
+    {
+        double pct = throttle_percentage();
+        return pct > 10.0;
+    }
+
+private:
+    static std::string get_timestamp()
+    {
+        auto now = std::chrono::system_clock::now();
+        auto time = std::chrono::system_clock::to_time_t(now);
+        std::tm tm_buf{};
+        
+#if defined(_WIN32) || defined(_WIN64)
+        localtime_s(&tm_buf, &time);
+#else
+        localtime_r(&time, &tm_buf);
+#endif
+        
+        std::ostringstream oss;
+        oss << std::put_time(&tm_buf, "%Y-%m-%d %H:%M:%S");
+        return oss.str();
+    }
+
+#if defined(_WIN32) || defined(_WIN64)
+    // Windows implementations
+    
+    static std::string get_cpu_model_windows()
+    {
+        char buffer[256] = {0};
+        DWORD size = sizeof(buffer);
+        HKEY hKey;
+        
+        if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,
+                          "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+                          0, KEY_READ, &hKey) == ERROR_SUCCESS)
+        {
+            RegQueryValueExA(hKey, "ProcessorNameString", nullptr, nullptr,
+                            reinterpret_cast<LPBYTE>(buffer), &size);
+            RegCloseKey(hKey);
+        }
+        
+        // Trim whitespace
+        std::string result(buffer);
+        size_t start = result.find_first_not_of(" \t");
+        size_t end = result.find_last_not_of(" \t");
+        if (start != std::string::npos && end != std::string::npos)
+        {
+            result = result.substr(start, end - start + 1);
+        }
+        
+        return result.empty() ? "Unknown CPU" : result;
+    }
+    
+    static double get_cpu_freq_windows()
+    {
+        DWORD freq = 0;
+        DWORD size = sizeof(DWORD);
+        HKEY hKey;
+        
+        if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,
+                          "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+                          0, KEY_READ, &hKey) == ERROR_SUCCESS)
+        {
+            RegQueryValueExA(hKey, "~MHz", nullptr, nullptr,
+                            reinterpret_cast<LPBYTE>(&freq), &size);
+            RegCloseKey(hKey);
+        }
+        
+        return static_cast<double>(freq);
+    }
+    
+    /**
+     * @brief Get current CPU frequency on Windows using PDH
+     * 
+     * This function is only available when FATP_ENABLE_PDH_STATS is defined.
+     * It uses PDH (Performance Data Helper) to get actual CPU frequency
+     * including thermal throttling and turbo boost.
+     * 
+     * LIMITATIONS:
+     * - English Windows only (hardcoded counter strings)
+     * - Requires pdh.dll (present on all modern Windows)
+     * 
+     * @param base_freq_mhz Base CPU frequency for percentage calculation
+     * @return Current frequency in MHz, or 0 if unavailable
+     */
+    static double get_current_freq_windows([[maybe_unused]] double base_freq_mhz)
+    {
+#if defined(FATP_ENABLE_PDH_STATS)
+        // Use static monitor instance for efficiency (created once)
+        static PdhCpuMonitor monitor;
+        return monitor.get_current_freq_mhz(base_freq_mhz);
+#else
+        return 0.0;  // Feature not enabled
+#endif
+    }
+    
+    static int get_physical_cores_windows()
+    {
+        DWORD length = 0;
+        GetLogicalProcessorInformation(nullptr, &length);
+        
+        if (length == 0) return 0;
+        
+        std::vector<SYSTEM_LOGICAL_PROCESSOR_INFORMATION> buffer(
+            length / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION));
+        
+        if (!GetLogicalProcessorInformation(buffer.data(), &length))
+        {
+            return 0;
+        }
+        
+        int physical_cores = 0;
+        for (const auto& info : buffer)
+        {
+            if (info.Relationship == RelationProcessorCore)
+            {
+                ++physical_cores;
+            }
+        }
+        
+        return physical_cores;
+    }
+    
+    static std::string get_os_info_windows()
+    {
+        std::ostringstream oss;
+        oss << "Windows";
+        
+        // Try to get version from registry (works on Windows 10+)
+        HKEY hKey;
+        if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,
+                          "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+                          0, KEY_READ, &hKey) == ERROR_SUCCESS)
+        {
+            char product[256] = {0};
+            char build[64] = {0};
+            DWORD size = sizeof(product);
+            
+            if (RegQueryValueExA(hKey, "ProductName", nullptr, nullptr,
+                                reinterpret_cast<LPBYTE>(product), &size) == ERROR_SUCCESS)
+            {
+                oss.str("");
+                oss << product;
+            }
+            
+            size = sizeof(build);
+            if (RegQueryValueExA(hKey, "CurrentBuild", nullptr, nullptr,
+                                reinterpret_cast<LPBYTE>(build), &size) == ERROR_SUCCESS)
+            {
+                oss << " (Build " << build << ")";
+            }
+            
+            RegCloseKey(hKey);
+        }
+        
+        // Add architecture
+#if defined(_M_X64) || defined(__x86_64__)
+        oss << " x64";
+#elif defined(_M_IX86) || defined(__i386__)
+        oss << " x86";
+#elif defined(_M_ARM64) || defined(__aarch64__)
+        oss << " ARM64";
+#endif
+        
+        return oss.str();
+    }
+
+#else
+    // Linux implementations
+    
+    static std::string get_cpu_model_linux()
+    {
+        std::ifstream cpuinfo("/proc/cpuinfo");
+        std::string line;
+        
+        while (std::getline(cpuinfo, line))
+        {
+            if (line.find("model name") != std::string::npos)
+            {
+                size_t pos = line.find(':');
+                if (pos != std::string::npos)
+                {
+                    std::string model = line.substr(pos + 1);
+                    // Trim whitespace
+                    size_t start = model.find_first_not_of(" \t");
+                    size_t end = model.find_last_not_of(" \t");
+                    if (start != std::string::npos && end != std::string::npos)
+                    {
+                        return model.substr(start, end - start + 1);
+                    }
+                }
+            }
+        }
+        
+        return "Unknown CPU";
+    }
+    
+    static double get_cpu_freq_linux()
+    {
+        // Try to get base/max frequency from cpufreq
+        std::ifstream freq_file("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq");
+        if (freq_file)
+        {
+            double khz;
+            freq_file >> khz;
+            return khz / 1000.0;  // Convert to MHz
+        }
+        
+        // Fallback: parse from /proc/cpuinfo
+        std::ifstream cpuinfo("/proc/cpuinfo");
+        std::string line;
+        
+        while (std::getline(cpuinfo, line))
+        {
+            if (line.find("cpu MHz") != std::string::npos)
+            {
+                size_t pos = line.find(':');
+                if (pos != std::string::npos)
+                {
+                    return std::stod(line.substr(pos + 1));
+                }
+            }
+        }
+        
+        return 0.0;
+    }
+    
+    static double get_current_freq_linux()
+    {
+        std::ifstream freq_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq");
+        if (freq_file)
+        {
+            double khz;
+            freq_file >> khz;
+            return khz / 1000.0;  // Convert to MHz
+        }
+        return 0.0;
+    }
+    
+    static int get_physical_cores_linux()
+    {
+        std::ifstream cpuinfo("/proc/cpuinfo");
+        std::string line;
+        int cores = 0;
+        
+        // Count unique core ids
+        std::vector<int64_t> core_ids;
+        int current_physical_id = -1;
+        int current_core_id = -1;
+        
+        while (std::getline(cpuinfo, line))
+        {
+            if (line.find("physical id") != std::string::npos)
+            {
+                size_t pos = line.find(':');
+                if (pos != std::string::npos)
+                {
+                    current_physical_id = std::stoi(line.substr(pos + 1));
+                }
+            }
+            else if (line.find("core id") != std::string::npos)
+            {
+                size_t pos = line.find(':');
+                if (pos != std::string::npos)
+                {
+                    current_core_id = std::stoi(line.substr(pos + 1));
+                    // Create unique ID from physical_id and core_id
+                    // Use 64-bit to avoid overflow with large physical_id values
+                    int64_t unique_id = static_cast<int64_t>(current_physical_id) * 100000LL + current_core_id;
+                    if (std::find(core_ids.begin(), core_ids.end(), unique_id) == core_ids.end())
+                    {
+                        core_ids.push_back(unique_id);
+                    }
+                }
+            }
+            else if (line.find("cpu cores") != std::string::npos && cores == 0)
+            {
+                // Fallback: use "cpu cores" field
+                size_t pos = line.find(':');
+                if (pos != std::string::npos)
+                {
+                    cores = std::stoi(line.substr(pos + 1));
+                }
+            }
+        }
+        
+        return core_ids.empty() ? cores : static_cast<int>(core_ids.size());
+    }
+    
+    static double get_cpu_temp_linux()
+    {
+        // Try common hwmon paths
+        const char* paths[] = {
+            "/sys/class/thermal/thermal_zone0/temp",
+            "/sys/class/hwmon/hwmon0/temp1_input",
+            "/sys/class/hwmon/hwmon1/temp1_input",
+            "/sys/class/hwmon/hwmon2/temp1_input"
+        };
+        
+        for (const char* path : paths)
+        {
+            std::ifstream temp_file(path);
+            if (temp_file)
+            {
+                double millidegrees;
+                temp_file >> millidegrees;
+                return millidegrees / 1000.0;  // Convert to Celsius
+            }
+        }
+        
+        return -1.0;  // Not available
+    }
+    
+    static std::string get_os_info_linux()
+    {
+        std::ostringstream oss;
+        
+        // Try to read from /etc/os-release
+        std::ifstream os_release("/etc/os-release");
+        std::string line;
+        std::string pretty_name;
+        
+        while (std::getline(os_release, line))
+        {
+            if (line.find("PRETTY_NAME=") == 0)
+            {
+                pretty_name = line.substr(12);
+                // Remove quotes
+                if (!pretty_name.empty() && pretty_name.front() == '"')
+                {
+                    pretty_name = pretty_name.substr(1);
+                }
+                if (!pretty_name.empty() && pretty_name.back() == '"')
+                {
+                    pretty_name.pop_back();
+                }
+                break;
+            }
+        }
+        
+        if (!pretty_name.empty())
+        {
+            oss << pretty_name;
+        }
+        else
+        {
+            oss << "Linux";
+        }
+        
+        // Add architecture
+#if defined(__x86_64__)
+        oss << " x86_64";
+#elif defined(__i386__)
+        oss << " i386";
+#elif defined(__aarch64__)
+        oss << " aarch64";
+#elif defined(__arm__)
+        oss << " arm";
+#endif
+        
+        return oss.str();
+    }
+#endif
+};
+
+/**
+ * @brief Calibrates iteration count to ensure measurement precision
+ * 
+ * Runs a quick calibration to estimate operation time, then calculates
+ * the minimum iterations needed for reliable measurements.
+ * 
+ * @tparam Func Function type to measure
+ * @param func The function to calibrate
+ * @param min_total_ms Minimum total measurement time for precision (default: 0.1ms)
+ * @param max_iterations Maximum iterations to suggest (default: 100,000,000)
+ * @return Suggested iteration count
+ */
+template <typename Func>
+[[nodiscard]] size_t calibrate_iterations(
+    Func func, 
+    double min_total_ms = 0.1, 
+    size_t max_iterations = 100000000)
+{
+    constexpr size_t calibration_iterations = 1000;
+    
+    for (size_t i = 0; i < 100; ++i)
+    {
+        func();
+    }
+    
+    auto start = HighResolutionTimer::now();
+    for (size_t i = 0; i < calibration_iterations; ++i)
+    {
+        func();
+    }
+    auto end = HighResolutionTimer::now();
+    
+    double calibration_ms = HighResolutionTimer::elapsed_ms(start, end);
+    
+    if (calibration_ms <= 0.0)
+    {
+        return max_iterations;
+    }
+    
+    double time_per_op_ms = calibration_ms / static_cast<double>(calibration_iterations);
+    
+    if (time_per_op_ms <= 0.0)
+    {
+        return max_iterations;
+    }
+    
+    size_t needed = static_cast<size_t>(std::ceil(min_total_ms / time_per_op_ms));
+    
+    needed = std::max(needed, static_cast<size_t>(1000));
+    needed = std::min(needed, max_iterations);
+    
+    return needed;
+}
+
+/**
+ * @brief Performance measurement helper with warm-up and optional auto-calibration
  * 
  * Runs the given function N times and returns the average duration per call in milliseconds.
  * Includes warm-up iterations to prime caches and checks timer resolution.
  * 
+ * When iterations is set to 0 (default), auto-calibrates to determine optimal iteration count.
+ * This ensures sufficient measurement precision for both fast and slow operations.
+ * 
+ * Uses QueryPerformanceCounter on Windows for accurate sub-microsecond measurements.
+ * Uses std::chrono::high_resolution_clock on other platforms.
+ * 
  * @tparam Func Function type to measure
  * @param func The function to measure (should be fast, < 1ms per call)
- * @param iterations Number of iterations to run (default: 1,000,000)
+ * @param iterations Number of iterations to run (0 = auto-calibrate, default)
  * @param warmup_iterations Number of warm-up iterations (default: 1000)
  * @return Average time per call in milliseconds
  */
 template <typename Func>
-[[nodiscard]] double measure_perf(Func func, size_t iterations = 1000000, size_t warmup_iterations = 1000)
+[[nodiscard]] double measure_perf(Func func, size_t iterations = 0, size_t warmup_iterations = 1000)
 {
-    using clock = std::chrono::high_resolution_clock;
+    double resolution_ms = HighResolutionTimer::resolution_ms();
+    double min_total_ms = resolution_ms * 1000.0;
+    
+    if (iterations == 0)
+    {
+        iterations = calibrate_iterations(func, min_total_ms);
+    }
     
     for (size_t i = 0; i < warmup_iterations; ++i)
     {
         func();
     }
     
-    auto start = clock::now();
+    auto start = HighResolutionTimer::now();
     for (size_t i = 0; i < iterations; ++i)
     {
         func();
     }
-    auto end = clock::now();
+    auto end = HighResolutionTimer::now();
     
-    double time_ms = std::chrono::duration<double, std::milli>(end - start).count() / iterations;
+    double total_ms = HighResolutionTimer::elapsed_ms(start, end);
+    double time_ms = total_ms / static_cast<double>(iterations);
     
-    auto resolution_sec = static_cast<double>(clock::period::num) / clock::period::den;
-    double resolution_ms = resolution_sec * 1000.0;
-    
-    if (time_ms < resolution_ms * 10.0)
+    if (total_ms < min_total_ms)
     {
         *get_test_config().error 
-            << colors::yellow() << "Warning: Measurement (" << time_ms 
-            << " ms) near timer resolution (" << resolution_ms 
-            << " ms). Results may be unreliable." << colors::reset() << std::endl;
+            << colors::yellow() << "Warning: Total measurement (" << total_ms 
+            << " ms) may have insufficient precision. Consider increasing iterations." 
+            << colors::reset() << std::endl;
     }
     
     return time_ms;
@@ -1349,18 +2267,32 @@ template <typename Func>
  * Runs multiple batches and collects comprehensive statistics including
  * percentiles and outlier detection.
  * 
+ * When iterations is set to 0 (default), auto-calibrates to determine optimal iteration count.
+ * This ensures sufficient measurement precision for both fast and slow operations.
+ * 
+ * Uses QueryPerformanceCounter on Windows for accurate sub-microsecond measurements.
+ * Uses std::chrono::high_resolution_clock on other platforms.
+ * 
  * @tparam Func Function type to measure
  * @param func The function to measure
- * @param iterations Number of iterations per batch
+ * @param iterations Number of iterations per batch (0 = auto-calibrate, default)
  * @param batches Number of batches to run (default: 20, minimum: 5)
  * @return BenchmarkStats with detailed statistics
  */
 template <typename Func>
-[[nodiscard]] BenchmarkStats measure_perf_stats(Func func, size_t iterations = 1000000, size_t batches = 20)
+[[nodiscard]] BenchmarkStats measure_perf_stats(Func func, size_t iterations = 0, size_t batches = 20)
 {
     if (batches < 5)
     {
         batches = 5;
+    }
+    
+    double resolution_ms = HighResolutionTimer::resolution_ms();
+    double min_total_ms = resolution_ms * 1000.0;
+    
+    if (iterations == 0)
+    {
+        iterations = calibrate_iterations(func, min_total_ms);
     }
     
     std::vector<double> times;
@@ -1373,13 +2305,13 @@ template <typename Func>
     
     for (size_t b = 0; b < batches; ++b)
     {
-        auto start = std::chrono::high_resolution_clock::now();
+        auto start = HighResolutionTimer::now();
         for (size_t i = 0; i < iterations; ++i)
         {
             func();
         }
-        auto end = std::chrono::high_resolution_clock::now();
-        double batch_ms = std::chrono::duration<double, std::milli>(end - start).count() / iterations;
+        auto end = HighResolutionTimer::now();
+        double batch_ms = HighResolutionTimer::elapsed_ms(start, end) / static_cast<double>(iterations);
         times.push_back(batch_ms);
     }
     
@@ -1393,6 +2325,11 @@ template <typename Func>
         sum += t;
     }
     double mean = sum / times.size();
+    
+    // Clamp mean to [min, max] to handle floating-point precision issues
+    // with extremely small measurements where accumulation errors can 
+    // cause mean to fall slightly outside the valid range
+    mean = std::max(min, std::min(mean, max));
     
     double median = times.size() % 2 == 0 
         ? (times[times.size()/2 - 1] + times[times.size()/2]) / 2.0
@@ -1466,20 +2403,72 @@ template <typename Func>
 }
 
 /**
+ * @brief Print benchmark context (timestamp and CPU frequency)
+ * 
+ * Prints a compact line with current timestamp and CPU frequency information
+ * suitable for benchmark output. Shows throttle/turbo status when available.
+ * 
+ * @param out Output stream to write to
+ */
+inline void print_benchmark_context(std::ostream& out)
+{
+    auto info = SystemInfo::capture();
+    
+    out << "  " << colors::blue() << "[" << info.timestamp << "]";
+    
+    if (info.base_freq_mhz > 0)
+    {
+        out << " CPU: ";
+        if (info.current_freq_mhz > 0)
+        {
+            out << static_cast<int>(info.current_freq_mhz) << " MHz";
+            double throttle_pct = info.throttle_percentage();
+            if (throttle_pct > 5.0)
+            {
+                out << " (" << colors::yellow() << std::fixed << std::setprecision(0) 
+                    << throttle_pct << "% throttled" << colors::reset() << colors::blue() << ")";
+            }
+            else if (throttle_pct < -5.0)
+            {
+                out << " (" << colors::green() << "turbo" << colors::reset() << colors::blue() << ")";
+            }
+        }
+        else
+        {
+            out << static_cast<int>(info.base_freq_mhz) << " MHz (base)";
+        }
+    }
+    
+    out << colors::reset() << "\n";
+}
+
+/**
  * @brief Measures performance and prints results in a formatted way
+ * 
+ * Includes timestamp and CPU frequency information for benchmark context.
+ * When iterations is 0 (default), auto-calibrates for optimal precision.
  * 
  * @tparam Func Function type to measure
  * @param name Description of what's being measured
  * @param func The function to measure
- * @param iterations Number of iterations (default: 1,000,000)
+ * @param iterations Number of iterations (0 = auto-calibrate)
  */
 template <typename Func>
-void benchmark(const char* name, Func func, size_t iterations = 1000000)
+void benchmark(const char* name, Func func, size_t iterations = 0)
 {
+    double resolution_ms = HighResolutionTimer::resolution_ms();
+    double min_total_ms = resolution_ms * 1000.0;
+    
+    if (iterations == 0)
+    {
+        iterations = calibrate_iterations(func, min_total_ms);
+    }
+    
     double avg_ms = measure_perf(func, iterations);
     
     auto& out = *get_test_config().output;
     out << colors::cyan() << name << colors::reset() << ":\n";
+    print_benchmark_context(out);
     out << "  Average time per operation: " << colors::bold() 
         << format_time(avg_ms) << colors::reset() << "\n";
     out << "  Total for " << iterations << " iterations: " 
@@ -1490,21 +2479,31 @@ void benchmark(const char* name, Func func, size_t iterations = 1000000)
  * @brief Detailed benchmark with enhanced statistics
  * 
  * Includes percentiles, outlier detection, and optional baseline comparison.
+ * When iterations is 0 (default), auto-calibrates for optimal precision.
  * 
  * @tparam Func Function type to measure
  * @param name Description of what's being measured
  * @param func The function to measure
- * @param iterations Number of iterations per batch
+ * @param iterations Number of iterations per batch (0 = auto-calibrate)
  * @param batches Number of batches to run
  * @param save_baseline If true, saves this run as baseline for future comparisons
  */
 template <typename Func>
-void benchmark_detailed(const char* name, Func func, size_t iterations = 1000000, size_t batches = 20, bool save_baseline = false)
+void benchmark_detailed(const char* name, Func func, size_t iterations = 0, size_t batches = 20, bool save_baseline = false)
 {
+    double resolution_ms = HighResolutionTimer::resolution_ms();
+    double min_total_ms = resolution_ms * 1000.0;
+    
+    if (iterations == 0)
+    {
+        iterations = calibrate_iterations(func, min_total_ms);
+    }
+    
     auto stats = measure_perf_stats(func, iterations, batches);
     
     auto& out = *get_test_config().output;
     out << colors::cyan() << name << colors::reset() << " (" << batches << " batches):\n";
+    print_benchmark_context(out);
     out << "  Mean:   " << colors::bold() << format_time(stats.mean_ms) << colors::reset() << "\n";
     out << "  Median: " << format_time(stats.median_ms) << "\n";
     out << "  Min:    " << format_time(stats.min_ms) << "\n";
@@ -1535,7 +2534,7 @@ void benchmark_detailed(const char* name, Func func, size_t iterations = 1000000
         }
         else
         {
-            out << "  Baseline: ≈ (within 5%)\n";
+            out << "  Baseline: ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°Ãƒâ€¹Ã¢â‚¬Â  (within 5%)\n";
         }
     }
     
@@ -1561,23 +2560,27 @@ void benchmark_detailed(const char* name, Func func, size_t iterations = 1000000
  * - A speedup of 2.0x means the faster function takes half the time
  * - Functions with very similar times are reported as having the same performance
  * 
+ * When iterations is 0 (default), auto-calibrates for optimal precision.
+ * Note: Both functions are calibrated independently to ensure fair comparison.
+ * 
  * @tparam Func1 First function type
  * @tparam Func2 Second function type
  * @param name1 Description of first function
  * @param func1 First function
  * @param name2 Description of second function
  * @param func2 Second function
- * @param iterations Number of iterations
+ * @param iterations Number of iterations (0 = auto-calibrate each function independently)
  */
 template <typename Func1, typename Func2>
 void benchmark_compare(const char* name1, Func1 func1,
                       const char* name2, Func2 func2,
-                      size_t iterations = 1000000)
+                      size_t iterations = 0)
 {
     auto& out = *get_test_config().output;
     
     out << colors::cyan() << "Comparing: " << colors::reset() 
         << name1 << " vs " << name2 << "\n";
+    print_benchmark_context(out);
     
     double time1 = measure_perf(func1, iterations);
     double time2 = measure_perf(func2, iterations);
@@ -1782,6 +2785,75 @@ public:
         return string_utils::matches_pattern(name, filter_pattern_);
     }
     
+private:
+    /**
+     * @brief Print timestamp and CPU frequency info before running a test
+     * 
+     * Only prints when verbose mode is enabled. Shows current time and
+     * CPU frequency (with throttle/turbo status if available via PDH).
+     */
+    void print_test_context(std::ostream& out) const
+    {
+        if (!get_test_config().verbose) return;
+        
+        // Get timestamp
+        auto now = std::chrono::system_clock::now();
+        auto time = std::chrono::system_clock::to_time_t(now);
+        std::tm tm_buf{};
+#if defined(_WIN32) || defined(_WIN64)
+        localtime_s(&tm_buf, &time);
+#else
+        localtime_r(&time, &tm_buf);
+#endif
+        
+        out << colors::cyan() << "[" 
+            << std::put_time(&tm_buf, "%H:%M:%S") << "] " << colors::reset();
+        
+        // Get current frequency if PDH is available
+#if defined(FATP_ENABLE_PDH_STATS) && (defined(_WIN32) || defined(_WIN64))
+        static PdhCpuMonitor monitor;
+        if (monitor.is_available())
+        {
+            double pct = monitor.get_frequency_percentage();
+            if (pct > 0)
+            {
+                // Get base frequency from registry (cached)
+                static double base_freq = []() {
+                    DWORD freq = 0;
+                    DWORD size = sizeof(DWORD);
+                    HKEY hKey;
+                    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,
+                                      "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+                                      0, KEY_READ, &hKey) == ERROR_SUCCESS)
+                    {
+                        RegQueryValueExA(hKey, "~MHz", nullptr, nullptr,
+                                        reinterpret_cast<LPBYTE>(&freq), &size);
+                        RegCloseKey(hKey);
+                    }
+                    return static_cast<double>(freq);
+                }();
+                
+                double current_freq = base_freq * (pct / 100.0);
+                out << colors::cyan() << "CPU: " << static_cast<int>(current_freq) << " MHz";
+                
+                double throttle_pct = 100.0 - pct;
+                if (throttle_pct > 5.0)
+                {
+                    out << " (" << colors::yellow() << static_cast<int>(throttle_pct) 
+                        << "% throttled" << colors::reset() << colors::cyan() << ")";
+                }
+                else if (throttle_pct < -5.0)
+                {
+                    out << " (" << colors::green() << "turbo" << colors::reset() 
+                        << colors::cyan() << ")";
+                }
+                out << colors::reset() << " ";
+            }
+        }
+#endif
+    }
+
+public:
     /**
      * @brief Run a test and record result
      * 
@@ -1803,6 +2875,7 @@ public:
         
         if (get_test_config().verbose)
         {
+            print_test_context(out);
             out << colors::blue() << "Running: " << colors::reset() << name << " ... ";
             out.flush();
         }
@@ -1855,6 +2928,7 @@ public:
         
         if (get_test_config().verbose)
         {
+            print_test_context(out);
             out << colors::blue() << "Running: " << colors::reset() << name << " ... ";
             out.flush();
         }
@@ -1980,6 +3054,7 @@ public:
         
         if (get_test_config().verbose)
         {
+            print_test_context(out);
             out << colors::blue() << "Running (timeout " << timeout_ms << "ms): " 
                 << colors::reset() << name << " ... ";
             out.flush();
@@ -2144,10 +3219,10 @@ public:
     struct RepetitionResult
     {
         std::string name;
-        size_t total_runs;
-        size_t passed;
-        size_t failed;
-        double pass_rate;
+        size_t total_runs = 0;
+        size_t passed = 0;
+        size_t failed = 0;
+        double pass_rate = 0.0;
         std::vector<size_t> failed_runs;
     };
     
@@ -2191,6 +3266,7 @@ public:
         result.failed = 0;
         
         auto& out = *get_test_config().output;
+        print_test_context(out);
         out << colors::blue() << "Repeating: " << colors::reset() 
             << name << " (" << repetitions << " times)\n";
         
@@ -2337,7 +3413,7 @@ public:
             if (!passed)
             {
                 out << "\n" << colors::red() << colors::bold() 
-                    << "  ✗ Failed on run " << (i + 1) << "/" << max_runs
+                    << "  ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Failed on run " << (i + 1) << "/" << max_runs
                     << colors::reset() << "\n\n";
                 return i + 1;
             }
@@ -2353,7 +3429,7 @@ public:
         }
         
         out << "\n" << colors::green() << colors::bold() 
-            << "  ✓ Test passed all " << max_runs << " runs!" 
+            << "  ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ Test passed all " << max_runs << " runs!" 
             << colors::reset() << "\n\n";
         
         return 0;
@@ -2610,6 +3686,17 @@ inline bool TestRunner::export_to_junit_xml(const std::string& filename,
  */
 #define RUN_TEST(runner, test_name) \
     runner.run_test(#test_name, test_##test_name)
+
+/**
+ * @brief Run a test case from a specific namespace
+ * 
+ * Usage:
+ *   RUN_TEST_NS(runner, strongid, my_test);
+ * 
+ * Expands to: runner.run_test("my_test", strongid::test_my_test)
+ */
+#define RUN_TEST_NS(runner, ns, test_name) \
+    runner.run_test(#test_name, ns::test_##test_name)
 
 /**
  * @brief Run a test case with fixture

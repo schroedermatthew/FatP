@@ -58,7 +58,6 @@
 #include "DiagnosticLogger_Core.h" // For logging invariant violations
 #include "Expected.h" // For non-throwing returns (e.g., insert)
 #include "ScopeGuard.h" // For RAII in ops
-#include "StrongId.h" // For type-safe indices/sizes
 #include "TypeTraits.h"
 
  // Backend Policies (Extensibility: vector vs deque)
@@ -241,8 +240,7 @@ namespace fat_p {
         using const_iterator = typename InternalContainer::const_iterator;
         using reverse_iterator = std::reverse_iterator<iterator>;
         using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-        // Use StrongId for type-safe size/indices (updates)
-        using size_type = StrongId<size_t, struct SizeTag>;
+        using size_type = std::size_t;
         // --- Constructors ---
         /**
          * @brief Default constructor.
@@ -308,7 +306,7 @@ namespace fat_p {
          */
         [[nodiscard]] size_type size() const {
             typename ConcurrencyPolicy::SharedGuard guard(this->getLock()); // Shared for read
-            return size_type(internalContainer_.get().size());
+            return internalContainer_.get().size();
         }
         /**
          * @brief Checks if the container is empty.
@@ -324,7 +322,7 @@ namespace fat_p {
          */
         [[nodiscard]] size_type capacity() const {
             typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
-            return size_type(internalContainer_.get().capacity());
+            return internalContainer_.get().capacity();
         }
         /**
          * @brief Reserves storage for at least n elements.
@@ -332,19 +330,15 @@ namespace fat_p {
          */
         void reserve(size_type n) {
             typename ConcurrencyPolicy::LockGuard guard(this->getLock());
-            internalContainer_.get().reserve(static_cast<size_t>(n));
+            internalContainer_.get().reserve(n);
         }
         /**
          * @brief Clears all elements from the container.
          */
         void clear() {
             typename ConcurrencyPolicy::LockGuard guard(this->getLock());
-            try {
-                internalContainer_.get().clear();
-                validateInvariant();
-            } catch (const std::exception&) {
-                throw;
-            }
+            internalContainer_.get().clear();
+            validateInvariant_unlocked();
         }
         /**
          * @brief Counts occurrences of value (O(log N + K) where K=matches).
@@ -354,7 +348,7 @@ namespace fat_p {
         [[nodiscard]] size_type count(const T& value) const {
             typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
             auto [lower, upper] = std::equal_range(internalContainer_.get().begin(), internalContainer_.get().end(), value, compare_);
-            return size_type(std::distance(lower, upper));
+            return static_cast<size_type>(std::distance(lower, upper));
         }
         // --- Core Functionality (Write Access) ---
         /**
@@ -366,7 +360,7 @@ namespace fat_p {
          * @return Expected<bool, std::string> True if inserted (or skipped), error on failure (e.g., invariant violation).
          */
         template <typename U = T, typename... EpsParams, typename = std::enable_if_t<std::is_convertible_v<U, T>>>
-        Expected<bool, std::string> insert(U&& value, EpsParams... eps) {
+        [[nodiscard]] Expected<bool, std::string> insert(U&& value, EpsParams... eps) {
             typename ConcurrencyPolicy::LockGuard guard(this->getLock()); // Write lock
             // Precondition: T movable/copyable if forward
             static_assert(std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>, "T must be movable or copyable");
@@ -378,11 +372,7 @@ namespace fat_p {
                 else {
                     inserted = UniquenessPolicy::insert(internalContainer_.get(), std::forward<U>(value), compare_);
                 }
-                // Log if failed
-                if (!inserted) {
-                    LOG_ERROR("Insert failed: duplicate or error");
-                }
-                validateInvariant();
+                validateInvariant_unlocked();
                 return Expected<bool, std::string>(inserted);
             } catch (const std::exception& e) {
                 return unexpected<std::string>(e.what());
@@ -399,80 +389,79 @@ namespace fat_p {
          * @return Expected<void, std::string> Success or error (e.g., invariant).
          */
         template <typename InputIt, typename... EpsParams>
-        Expected<void, std::string> insertRange(InputIt first, InputIt last, EpsParams... eps) {
-            typename ConcurrencyPolicy::LockGuard guard(this->getLock()); // Write lock
+        [[nodiscard]] Expected<void, std::string> insertRange(InputIt first, InputIt last, EpsParams... eps) {
+            typename ConcurrencyPolicy::LockGuard guard(this->getLock());
             try {
-                // CRITICAL FIX: Calculate range size safely and validate
-                auto range_size = std::distance(first, last);
-                if (range_size <= 0) {
-                    return {};  // Empty range, nothing to do
-                }
+                using iter_category = typename std::iterator_traits<InputIt>::iterator_category;
                 
-                // Reserve space with checked arithmetic
-                auto current_size = internalContainer_.get().size();
-                auto new_size = checked_add<ThrowOnErrorPolicy>(current_size, static_cast<size_t>(range_size));
-                internalContainer_.get().reserve(new_size);
-                
-                // Insert elements at the end
-                internalContainer_.get().insert(internalContainer_.get().end(), first, last);
-                
-                // CRITICAL FIX: Verify insertion succeeded
-                if (internalContainer_.get().size() != new_size) {
-                    return unexpected<std::string>("Container size mismatch after insertion");
-                }
-                
-                // Optimized sort: Insertion sort for small, std::stable_sort for large
-                if (range_size < 16) {
-                    // CRITICAL FIX: Bounds check before insertion sort
-                    auto container_end = internalContainer_.get().end();
-                    auto start_it = container_end - range_size;
-                    
-                    // Validate iterator bounds
-                    if (start_it < internalContainer_.get().begin() || start_it > container_end) {
-                        return unexpected<std::string>("Invalid iterator range in insertion sort");
+                if constexpr (std::is_base_of_v<std::forward_iterator_tag, iter_category>) {
+                    // Forward iterators or better: can traverse multiple times safely
+                    auto range_size = std::distance(first, last);
+                    if (range_size <= 0) {
+                        return {};
                     }
                     
-                    // Insertion sort on appended part (stable, fast for small)
-                    for (auto it = start_it; it != container_end; ++it) {
-                        auto insertion_point = std::upper_bound(internalContainer_.get().begin(), it, *it, compare_);
-                        std::rotate(insertion_point, it, it + 1);
+                    auto current_size = internalContainer_.get().size();
+                    auto new_size = checked_add<ThrowOnErrorPolicy>(current_size, 
+                                                                     static_cast<size_t>(range_size));
+                    internalContainer_.get().reserve(new_size);
+                    internalContainer_.get().insert(internalContainer_.get().end(), first, last);
+                    
+                    if (internalContainer_.get().size() != new_size) {
+                        return unexpected<std::string>("Container size mismatch after insertion");
+                    }
+                    
+                    // Optimized sort: insertion sort for small, stable_sort for large
+                    if (range_size < 16) {
+                        auto container_end = internalContainer_.get().end();
+                        auto start_it = container_end - range_size;
+                        
+                        if (start_it < internalContainer_.get().begin() || start_it > container_end) {
+                            return unexpected<std::string>("Invalid iterator range in insertion sort");
+                        }
+                        
+                        for (auto it = start_it; it != container_end; ++it) {
+                            auto insertion_point = std::upper_bound(
+                                internalContainer_.get().begin(), it, *it, compare_);
+                            std::rotate(insertion_point, it, it + 1);
+                        }
+                    }
+                    else {
+                        std::stable_sort(internalContainer_.get().begin(), 
+                                         internalContainer_.get().end(), compare_);
                     }
                 }
                 else {
-                    // Use stable_sort to maintain stability for equal elements
-                    std::stable_sort(internalContainer_.get().begin(), internalContainer_.get().end(), compare_);
+                    // Input iterators: single-pass, cannot call distance without consuming
+                    // Just append and sort — no optimization possible
+                    internalContainer_.get().insert(internalContainer_.get().end(), first, last);
+                    std::stable_sort(internalContainer_.get().begin(), 
+                                     internalContainer_.get().end(), compare_);
                 }
                 
-                // Apply uniqueness logic if configured for it
+                // Apply uniqueness logic
                 if constexpr (std::is_same_v<UniquenessPolicy, OnlyUniquePolicy>) {
-                    // IMPROVED: Capture compare_ by const reference for safety
                     const auto& comp_ref = compare_;
                     auto equiv = [&comp_ref](const T& a, const T& b) {
                         return !comp_ref(a, b) && !comp_ref(b, a);
                     };
                     auto lastUnique = std::unique(internalContainer_.get().begin(), 
-                                                   internalContainer_.get().end(), 
-                                                   equiv);
+                                                   internalContainer_.get().end(), equiv);
                     internalContainer_.get().erase(lastUnique, internalContainer_.get().end());
                 }
                 else if constexpr (is_fuzzy_unique_policy<UniquenessPolicy>::value) {
-                    // CRITICAL FIX: Safe capture of variadic parameters using tuple + std::apply
-                    // This prevents stack corruption from direct variadic lambda capture [this, eps...]
                     auto eps_tuple = std::make_tuple(eps...);
-                    
                     auto fuzzy_unique = [this, eps_tuple](const T& lhs, const T& rhs) {
                         return std::apply([this, &lhs, &rhs](auto&&... args) {
                             return areEqual<T, typename UniquenessPolicy::EqPolicy_t>(lhs, rhs, args...);
                         }, eps_tuple);
                     };
-                    
                     auto lastUnique = std::unique(internalContainer_.get().begin(), 
-                                                   internalContainer_.get().end(), 
-                                                   fuzzy_unique);
+                                                   internalContainer_.get().end(), fuzzy_unique);
                     internalContainer_.get().erase(lastUnique, internalContainer_.get().end());
                 }
                 
-                validateInvariant();
+                validateInvariant_unlocked();
                 return {};
             } catch (const std::exception& e) {
                 return unexpected<std::string>(e.what());
@@ -484,15 +473,15 @@ namespace fat_p {
          * @param value The value to erase.
          * @return Expected<bool, std::string> True if erased, false if not found.
          */
-        Expected<bool, std::string> erase(const T& value) {
-            typename ConcurrencyPolicy::LockGuard guard(this->getLock()); // Write lock
+        [[nodiscard]] Expected<bool, std::string> erase(const T& value) {
+            typename ConcurrencyPolicy::LockGuard guard(this->getLock());
             try {
-                auto it = find(value);
-                if (it == end()) {
+                auto it = find_unlocked(value);
+                if (it == internalContainer_.get().end()) {
                     return Expected<bool, std::string>(false);
                 }
                 internalContainer_.get().erase(it);
-                validateInvariant();
+                validateInvariant_unlocked();
                 return Expected<bool, std::string>(true);
             } catch (const std::exception& e) {
                 return unexpected<std::string>(e.what());
@@ -526,14 +515,47 @@ namespace fat_p {
          * found.
          */
         [[nodiscard]] const_iterator find(const T& value) const {
-            typename ConcurrencyPolicy::SharedGuard guard(this->getLock()); // Read lock
-            auto it = std::lower_bound(internalContainer_.get().begin(), internalContainer_.get().end(), value, compare_);
-            // Final check to ensure the found element is actually equivalent to
-            // the target using the comparison policy (not just 'not less than').
-            if (it != internalContainer_.get().end() && !compare_(*it, value) && !compare_(value, *it)) {
-                return it;
+            typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
+            return find_unlocked(value);
+        }
+        /**
+         * @brief Thread-safe find that returns a copy of the found element.
+         * 
+         * Unlike find(), the returned value remains valid after the lock is released.
+         * This is the preferred method for thread-safe lookups when you need the value.
+         *
+         * @param value The value to find.
+         * @return std::optional<T> The found element, or std::nullopt if not found.
+         */
+        [[nodiscard]] std::optional<T> findCopy(const T& value) const {
+            typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
+            auto it = find_unlocked(value);
+            if (it != internalContainer_.get().end()) {
+                return *it;
             }
-            return internalContainer_.get().end();
+            return std::nullopt;
+        }
+        /**
+         * @brief Executes a callback on the found element while holding the lock.
+         * 
+         * This is the safest way to work with found elements in multi-threaded code.
+         * The lock is held for the entire duration of the callback, ensuring the
+         * element remains valid.
+         *
+         * @tparam Func Callable type accepting const T&.
+         * @param value The value to find.
+         * @param func The function to execute if the element is found.
+         * @return bool True if the element was found and func was called.
+         */
+        template <typename Func>
+        bool findApply(const T& value, Func&& func) const {
+            typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
+            auto it = find_unlocked(value);
+            if (it != internalContainer_.get().end()) {
+                std::forward<Func>(func)(*it);
+                return true;
+            }
+            return false;
         }
         /**
          * @brief Manually checks the sorted invariant. Throws a contract
@@ -544,16 +566,8 @@ namespace fat_p {
          * designed to guarantee the invariant internally.
          */
         void validateInvariant() const {
-            typename ConcurrencyPolicy::SharedGuard guard(this->getLock()); // Read lock
-            // Refactored to use the generic 'enforce' macro, which automatically
-            // maps to DebugOnlyPolicy, compiling away to nothing in Release builds.
-            enforce(std::is_sorted(internalContainer_.get().begin(), internalContainer_.get().end(), compare_),
-                "SortedContainer invariant violated: container is not sorted."
-            );
-            // Log violation if failed (updates: DiagnosticLogger)
-            if (!std::is_sorted(internalContainer_.get().begin(), internalContainer_.get().end(), compare_)) {
-                LOG_ERROR("Invariant violation logged");
-            }
+            typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
+            validateInvariant_unlocked();
         }
         // --- Vector Interoperability Additions ---
         /**
@@ -562,18 +576,7 @@ namespace fat_p {
          * @return InternalContainer A copy of the internal data.
          */
         [[nodiscard]] InternalContainer toVector() const {
-            typename ConcurrencyPolicy::SharedGuard guard(this->getLock()); // Read lock
-            return internalContainer_.get();
-        }
-        /**
-         * @brief Returns a const reference to the internal vector.
-         *
-         * @warning Use with caution: Modifying the returned vector may break the sorted invariant.
-         * Modifying may lead to UB or invariant violations. Prefer toVector() for safe copies or read-only operations.
-         * @return const InternalContainer& A read-only reference to the internal data.
-         */
-        const InternalContainer& asVector() const {
-            typename ConcurrencyPolicy::SharedGuard guard(this->getLock()); // Read lock
+            typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
             return internalContainer_.get();
         }
         
@@ -593,6 +596,37 @@ namespace fat_p {
             return std::forward<Func>(func)(internalContainer_.get());
         }
     private:
+        // --- Private Unlocked Helpers (caller must hold lock) ---
+        
+        /**
+         * @brief Non-locking find for internal use.
+         * @warning Caller MUST hold appropriate lock before calling.
+         */
+        const_iterator find_unlocked(const T& value) const {
+            auto it = std::lower_bound(
+                internalContainer_.get().begin(), 
+                internalContainer_.get().end(), 
+                value, compare_);
+            if (it != internalContainer_.get().end() && 
+                !compare_(*it, value) && !compare_(value, *it)) {
+                return it;
+            }
+            return internalContainer_.get().end();
+        }
+        
+        /**
+         * @brief Non-locking invariant check for internal use.
+         * @warning Caller MUST hold appropriate lock before calling.
+         */
+        void validateInvariant_unlocked() const {
+            enforce(std::is_sorted(
+                internalContainer_.get().begin(), 
+                internalContainer_.get().end(), 
+                compare_),
+                "SortedContainer invariant violated: container is not sorted."
+            );
+        }
+        
         // Member variables are kept at the bottom of the private section.
         ComparePolicy compare_{};
     };

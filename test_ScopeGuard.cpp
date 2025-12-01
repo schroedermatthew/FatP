@@ -15,6 +15,7 @@
  */
 
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <string>
 #include <memory>
@@ -468,6 +469,38 @@ bool test_LogAndSwallowPolicy() {
         }
     }
     
+    // Test 4: Verify logging output goes to stderr
+    {
+        std::cout << colors::blue() << "  [TEST] Logging to stderr"
+                  << colors::reset() << std::endl;
+        
+        // Redirect stderr to a stringstream
+        std::stringstream captured;
+        std::streambuf* original_stderr = std::cerr.rdbuf(captured.rdbuf());
+        
+        {
+            auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>([]() {
+                throw std::runtime_error("Captured error message");
+            });
+        }
+        
+        // Restore stderr
+        std::cerr.rdbuf(original_stderr);
+        
+        std::string output = captured.str();
+        SIMPLE_ASSERT(output.find("Captured error message") != std::string::npos,
+            "Error message should be logged to stderr");
+        SIMPLE_ASSERT(output.find("ScopeGuard") != std::string::npos ||
+                      output.find("swallowed") != std::string::npos,
+            "Log should indicate source and that exception was handled");
+    }
+    
+    // Note: To test FATP_SCOPE_GUARD_LOG_ERRORS=0, compile a separate test file with:
+    //   #define FATP_SCOPE_GUARD_LOG_ERRORS 0
+    //   #include "ScopeGuardPolicies.h"
+    // Then verify captured.str() is empty after triggering an exception.
+    // This cannot be tested in the same translation unit due to macro evaluation order.
+    
     std::cout << colors::green() << "ScopeGuardLogAndSwallowPolicy: Tests passed."
               << colors::reset() << std::endl;
     return true;
@@ -719,51 +752,519 @@ void run_scope_guard_benchmarks() {
     
     const size_t ITERATIONS = 1000000;
     
+    // Use a shared counter to have something meaningful to increment
+    int shared_counter = 0;
+    
     // Benchmark 1: ScopeGuard overhead
-    {
-        int counter = 0;
-        benchmark("ScopeGuard creation and execution", [&]() {
-            auto guard = makeScopeGuard([&counter]() { ++counter; });
-        }, ITERATIONS);
-    }
+    benchmark("ScopeGuard creation and execution", [&shared_counter]() {
+        auto guard = makeScopeGuard([&shared_counter]() { ++shared_counter; });
+        DoNotOptimize(guard);
+    }, ITERATIONS);
+    DoNotOptimize(shared_counter);
+    
+    // Reset for next test
+    shared_counter = 0;
     
     // Benchmark 2: Dismissed guard overhead
-    {
-        int counter = 0;
-        benchmark("ScopeGuard with dismiss", [&]() {
-            auto guard = makeScopeGuard([&counter]() { ++counter; });
-            guard.dismiss();
-        }, ITERATIONS);
-    }
+    benchmark("ScopeGuard with dismiss", [&shared_counter]() {
+        auto guard = makeScopeGuard([&shared_counter]() { ++shared_counter; });
+        guard.dismiss();
+        DoNotOptimize(guard);
+    }, ITERATIONS);
+    DoNotOptimize(shared_counter);
+    
+    // Reset
+    shared_counter = 0;
     
     // Benchmark 3: Manual cleanup (baseline)
-    {
-        int counter = 0;
-        benchmark("Manual cleanup (baseline)", [&]() {
-            ++counter;
-        }, ITERATIONS);
-    }
+    benchmark("Manual cleanup (baseline)", [&shared_counter]() {
+        ++shared_counter;
+        DoNotOptimize(shared_counter);
+    }, ITERATIONS);
+    
+    // Reset
+    shared_counter = 0;
     
     // Benchmark 4: Different policies
-    {
-        int counter = 0;
-        benchmark("ScopeGuardTerminatePolicy", [&]() {
-            auto guard = makeScopeGuard<ScopeGuardTerminatePolicy>(
-                [&counter]() { ++counter; });
-        }, ITERATIONS / 10);
-    }
+    benchmark("ScopeGuardTerminatePolicy", [&shared_counter]() {
+        auto guard = makeScopeGuard<ScopeGuardTerminatePolicy>(
+            [&shared_counter]() { ++shared_counter; });
+        DoNotOptimize(guard);
+    }, ITERATIONS / 10);
+    DoNotOptimize(shared_counter);
     
-    {
-        int counter = 0;
-        benchmark("ScopeGuardLogAndSwallowPolicy", [&]() {
-            auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>(
-                [&counter]() { ++counter; });
-        }, ITERATIONS / 10);
-    }
+    shared_counter = 0;
+    
+    benchmark("ScopeGuardLogAndSwallowPolicy", [&shared_counter]() {
+        auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>(
+            [&shared_counter]() { ++shared_counter; });
+        DoNotOptimize(guard);
+    }, ITERATIONS / 10);
+    DoNotOptimize(shared_counter);
+    
+    // Policy comparison benchmark
+    std::cout << "\n" << colors::bold() << "Policy Overhead Comparison:" 
+              << colors::reset() << std::endl;
+    
+    shared_counter = 0;
+    
+    benchmark("NothrowPolicy (no try/catch)", [&shared_counter]() {
+        auto guard = makeScopeGuard<ScopeGuardNothrowPolicy>(
+            [&shared_counter]() noexcept { ++shared_counter; });
+        DoNotOptimize(guard);
+    }, ITERATIONS);
+    DoNotOptimize(shared_counter);
+    
+    shared_counter = 0;
+    
+    benchmark("TerminatePolicy (try/catch)", [&shared_counter]() {
+        auto guard = makeScopeGuard<ScopeGuardTerminatePolicy>(
+            [&shared_counter]() noexcept { ++shared_counter; });
+        DoNotOptimize(guard);
+    }, ITERATIONS);
+    DoNotOptimize(shared_counter);
+    
+    shared_counter = 0;
+    
+    benchmark("LogAndSwallowPolicy (try/catch)", [&shared_counter]() {
+        auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>(
+            [&shared_counter]() noexcept { ++shared_counter; });
+        DoNotOptimize(guard);
+    }, ITERATIONS);
+    DoNotOptimize(shared_counter);
     
     std::cout << "\n" << colors::blue()
               << "[NOTE] Benchmarks show RAII overhead vs manual cleanup"
               << colors::reset() << std::endl;
+    std::cout << colors::blue()
+              << "[NOTE] NothrowPolicy should have lowest overhead (no exception handling)"
+              << colors::reset() << std::endl;
+}
+
+// =============================================================================
+// Type Trait Tests
+// =============================================================================
+
+bool test_ScopeGuardTypeTraits()
+{
+    std::cout << colors::cyan() << "\nTesting Type Traits..."
+              << colors::reset() << std::endl;
+    
+    // Test 1: ScopeGuard detection
+    {
+        std::cout << colors::blue() << "  [TEST] is_scope_guard detection"
+                  << colors::reset() << std::endl;
+        
+        using BasicGuard = ScopeGuard<std::function<void()>>;
+        using PolicyGuard = ScopeGuard<std::function<void()>, ScopeGuardNothrowPolicy>;
+        
+        static_assert(is_scope_guard_v<BasicGuard>, 
+            "ScopeGuard should be detected");
+        static_assert(is_scope_guard_v<PolicyGuard>, 
+            "ScopeGuard with policy should be detected");
+        static_assert(!is_scope_guard_v<int>, 
+            "int should not be detected as ScopeGuard");
+        static_assert(!is_scope_guard_v<std::function<void()>>, 
+            "std::function should not be detected as ScopeGuard");
+        
+        SIMPLE_ASSERT(is_scope_guard_v<BasicGuard>, "Runtime check: BasicGuard");
+        SIMPLE_ASSERT(!is_scope_guard_v<double>, "Runtime check: double");
+    }
+    
+    // Test 2: ScopeGuardOnFail detection
+    {
+        std::cout << colors::blue() << "  [TEST] is_scope_guard detection for OnFail"
+                  << colors::reset() << std::endl;
+        
+        using FailGuard = ScopeGuardOnFail<std::function<void()>>;
+        
+        static_assert(is_scope_guard_v<FailGuard>,
+            "ScopeGuardOnFail should be detected as scope guard");
+        
+        SIMPLE_ASSERT(is_scope_guard_v<FailGuard>, "Runtime check: FailGuard");
+    }
+    
+    // Test 3: ScopeGuardOnSuccess detection
+    {
+        std::cout << colors::blue() << "  [TEST] is_scope_guard detection for OnSuccess"
+                  << colors::reset() << std::endl;
+        
+        using SuccessGuard = ScopeGuardOnSuccess<std::function<void()>>;
+        
+        static_assert(is_scope_guard_v<SuccessGuard>,
+            "ScopeGuardOnSuccess should be detected as scope guard");
+        
+        SIMPLE_ASSERT(is_scope_guard_v<SuccessGuard>, "Runtime check: SuccessGuard");
+    }
+    
+    std::cout << colors::green() << "Type Traits: Tests passed."
+              << colors::reset() << std::endl;
+    return true;
+}
+
+// =============================================================================
+// SCOPE_FAIL / SCOPE_SUCCESS Tests
+// =============================================================================
+
+bool test_ScopeFail()
+{
+    std::cout << colors::cyan() << "\nTesting SCOPE_FAIL..."
+              << colors::reset() << std::endl;
+    
+    // Test 1: SCOPE_FAIL executes on exception
+    {
+        std::cout << colors::blue() << "  [TEST] SCOPE_FAIL executes on exception"
+                  << colors::reset() << std::endl;
+        
+        int rollback_count = 0;
+        
+        try
+        {
+            SCOPE_FAIL { ++rollback_count; };
+            throw std::runtime_error("test exception");
+        }
+        catch (...)
+        {
+            // Expected
+        }
+        
+        ASSERT_EQ(rollback_count, 1, "SCOPE_FAIL should execute on exception");
+    }
+    
+    // Test 2: SCOPE_FAIL does NOT execute on normal exit
+    {
+        std::cout << colors::blue() << "  [TEST] SCOPE_FAIL skipped on normal exit"
+                  << colors::reset() << std::endl;
+        
+        int rollback_count = 0;
+        
+        {
+            SCOPE_FAIL { ++rollback_count; };
+            // Normal exit - no exception
+        }
+        
+        ASSERT_EQ(rollback_count, 0, "SCOPE_FAIL should not execute on normal exit");
+    }
+    
+    // Test 3: Multiple SCOPE_FAIL in same scope
+    {
+        std::cout << colors::blue() << "  [TEST] Multiple SCOPE_FAIL guards"
+                  << colors::reset() << std::endl;
+        
+        int count1 = 0, count2 = 0;
+        
+        try
+        {
+            SCOPE_FAIL { ++count1; };
+            SCOPE_FAIL { ++count2; };
+            throw std::runtime_error("test");
+        }
+        catch (...)
+        {
+        }
+        
+        ASSERT_EQ(count1, 1, "First SCOPE_FAIL should execute");
+        ASSERT_EQ(count2, 1, "Second SCOPE_FAIL should execute");
+    }
+    
+    // Test 4: SCOPE_FAIL can be dismissed
+    {
+        std::cout << colors::blue() << "  [TEST] SCOPE_FAIL dismiss"
+                  << colors::reset() << std::endl;
+        
+        int rollback_count = 0;
+        
+        try
+        {
+            auto guard = makeScopeGuardOnFail([&] { ++rollback_count; });
+            guard.dismiss();
+            throw std::runtime_error("test");
+        }
+        catch (...)
+        {
+        }
+        
+        ASSERT_EQ(rollback_count, 0, "Dismissed SCOPE_FAIL should not execute");
+    }
+    
+    // Test 5: SCOPE_FAIL swallows exceptions from cleanup (doesn't call terminate)
+    {
+        std::cout << colors::blue() << "  [TEST] SCOPE_FAIL swallows cleanup exceptions"
+                  << colors::reset() << std::endl;
+        
+        int rollback_count = 0;
+        bool outer_exception_caught = false;
+        
+        try
+        {
+            SCOPE_FAIL { 
+                ++rollback_count;
+                throw std::logic_error("cleanup exception");  // This should be swallowed
+            };
+            throw std::runtime_error("original exception");
+        }
+        catch (const std::runtime_error&)
+        {
+            outer_exception_caught = true;
+            // Should catch the ORIGINAL exception, not the cleanup exception
+        }
+        catch (...)
+        {
+            SIMPLE_ASSERT(false, "Should not catch cleanup exception");
+        }
+        
+        ASSERT_EQ(rollback_count, 1, "SCOPE_FAIL should have executed");
+        SIMPLE_ASSERT(outer_exception_caught, "Original exception should propagate");
+    }
+    
+    std::cout << colors::green() << "SCOPE_FAIL: Tests passed."
+              << colors::reset() << std::endl;
+    return true;
+}
+
+bool test_ScopeSuccess()
+{
+    std::cout << colors::cyan() << "\nTesting SCOPE_SUCCESS..."
+              << colors::reset() << std::endl;
+    
+    // Test 1: SCOPE_SUCCESS executes on normal exit
+    {
+        std::cout << colors::blue() << "  [TEST] SCOPE_SUCCESS executes on normal exit"
+                  << colors::reset() << std::endl;
+        
+        int commit_count = 0;
+        
+        {
+            SCOPE_SUCCESS { ++commit_count; };
+            // Normal exit
+        }
+        
+        ASSERT_EQ(commit_count, 1, "SCOPE_SUCCESS should execute on normal exit");
+    }
+    
+    // Test 2: SCOPE_SUCCESS does NOT execute on exception
+    {
+        std::cout << colors::blue() << "  [TEST] SCOPE_SUCCESS skipped on exception"
+                  << colors::reset() << std::endl;
+        
+        int commit_count = 0;
+        
+        try
+        {
+            SCOPE_SUCCESS { ++commit_count; };
+            throw std::runtime_error("test exception");
+        }
+        catch (...)
+        {
+            // Expected
+        }
+        
+        ASSERT_EQ(commit_count, 0, "SCOPE_SUCCESS should not execute on exception");
+    }
+    
+    // Test 3: Combined SCOPE_SUCCESS and SCOPE_FAIL
+    {
+        std::cout << colors::blue() << "  [TEST] Combined SUCCESS and FAIL - normal exit"
+                  << colors::reset() << std::endl;
+        
+        int commits = 0, rollbacks = 0;
+        
+        {
+            SCOPE_SUCCESS { ++commits; };
+            SCOPE_FAIL { ++rollbacks; };
+            // Normal exit
+        }
+        
+        ASSERT_EQ(commits, 1, "SCOPE_SUCCESS should execute");
+        ASSERT_EQ(rollbacks, 0, "SCOPE_FAIL should not execute");
+    }
+    
+    // Test 4: Combined SCOPE_SUCCESS and SCOPE_FAIL on exception
+    {
+        std::cout << colors::blue() << "  [TEST] Combined SUCCESS and FAIL - exception"
+                  << colors::reset() << std::endl;
+        
+        int commits = 0, rollbacks = 0;
+        
+        try
+        {
+            SCOPE_SUCCESS { ++commits; };
+            SCOPE_FAIL { ++rollbacks; };
+            throw std::runtime_error("test");
+        }
+        catch (...)
+        {
+        }
+        
+        ASSERT_EQ(commits, 0, "SCOPE_SUCCESS should not execute on exception");
+        ASSERT_EQ(rollbacks, 1, "SCOPE_FAIL should execute on exception");
+    }
+    
+    std::cout << colors::green() << "SCOPE_SUCCESS: Tests passed."
+              << colors::reset() << std::endl;
+    return true;
+}
+
+// =============================================================================
+// Conditional Guard Move Assignment Tests
+// =============================================================================
+
+bool test_ConditionalGuardMoveAssignment()
+{
+    std::cout << colors::cyan() << "\nTesting Conditional Guard Move Assignment..."
+              << colors::reset() << std::endl;
+    
+    // Test 1: ScopeGuardOnFail move assignment during normal operation
+    // Note: We use std::function because each lambda has a unique type
+    {
+        std::cout << colors::blue() << "  [TEST] ScopeGuardOnFail move assignment (normal)"
+                  << colors::reset() << std::endl;
+        
+        int count1 = 0;
+        int count2 = 0;
+        
+        try
+        {
+            std::function<void()> action1 = [&] { ++count1; };
+            std::function<void()> action2 = [&] { ++count2; };
+            
+            ScopeGuardOnFail<std::function<void()>> guard1(std::move(action1));
+            ScopeGuardOnFail<std::function<void()>> guard2(std::move(action2));
+            
+            // Move assign: guard2 gets guard1's action
+            // Since we are NOT throwing yet, guard2's old action should NOT execute
+            guard2 = std::move(guard1);
+            
+            throw std::runtime_error("Trigger");
+        }
+        catch (...)
+        {
+        }
+        
+        ASSERT_EQ(count1, 1, "Moved action should execute on exception");
+        ASSERT_EQ(count2, 0, "Overwritten action should NOT execute (no exception when assigned)");
+    }
+    
+    // Test 2: ScopeGuardOnSuccess move assignment during normal operation
+    {
+        std::cout << colors::blue() << "  [TEST] ScopeGuardOnSuccess move assignment (normal)"
+                  << colors::reset() << std::endl;
+        
+        int count1 = 0;
+        int count2 = 0;
+        
+        {
+            std::function<void()> action1 = [&] { ++count1; };
+            std::function<void()> action2 = [&] { ++count2; };
+            
+            ScopeGuardOnSuccess<std::function<void()>> guard1(std::move(action1));
+            ScopeGuardOnSuccess<std::function<void()>> guard2(std::move(action2));
+            
+            // Move assign: guard2 gets guard1's action
+            // Since we ARE in normal operation, guard2's old action SHOULD execute
+            guard2 = std::move(guard1);
+        }
+        
+        ASSERT_EQ(count1, 1, "Moved action should execute on success");
+        ASSERT_EQ(count2, 1, "Overwritten action SHOULD execute (was in success state when assigned)");
+    }
+    
+    // Test 3: ScopeGuardOnFail move assignment preserves baseline
+    {
+        std::cout << colors::blue() << "  [TEST] ScopeGuardOnFail baseline preservation"
+                  << colors::reset() << std::endl;
+        
+        int count = 0;
+        
+        {
+            std::function<void()> action1 = [&] { ++count; };
+            std::function<void()> action2 = [] {};
+            
+            ScopeGuardOnFail<std::function<void()>> guard1(std::move(action1));
+            ScopeGuardOnFail<std::function<void()>> guard2(std::move(action2));
+            
+            guard2 = std::move(guard1);
+            // Normal exit - guard2 (with guard1's action) should NOT execute
+        }
+        
+        ASSERT_EQ(count, 0, "Moved OnFail guard should not execute on normal exit");
+    }
+    
+    std::cout << colors::green() << "Conditional Guard Move Assignment: Tests passed."
+              << colors::reset() << std::endl;
+    return true;
+}
+
+// =============================================================================
+// SCOPE_EXIT Alias Test
+// =============================================================================
+
+bool test_ScopeExitAlias()
+{
+    std::cout << colors::cyan() << "\nTesting SCOPE_EXIT alias..."
+              << colors::reset() << std::endl;
+    
+    // Test 1: SCOPE_EXIT works same as SCOPE_GUARD
+    {
+        std::cout << colors::blue() << "  [TEST] SCOPE_EXIT basic functionality"
+                  << colors::reset() << std::endl;
+        
+        int cleanup_count = 0;
+        {
+            SCOPE_EXIT { ++cleanup_count; };
+        }
+        ASSERT_EQ(cleanup_count, 1, "SCOPE_EXIT should execute on scope exit");
+    }
+    
+    // Test 2: SCOPE_EXIT executes on exception too
+    {
+        std::cout << colors::blue() << "  [TEST] SCOPE_EXIT on exception"
+                  << colors::reset() << std::endl;
+        
+        int cleanup_count = 0;
+        try
+        {
+            SCOPE_EXIT { ++cleanup_count; };
+            throw std::runtime_error("test");
+        }
+        catch (...)
+        {
+        }
+        ASSERT_EQ(cleanup_count, 1, "SCOPE_EXIT should execute on exception");
+    }
+    
+    std::cout << colors::green() << "SCOPE_EXIT: Tests passed."
+              << colors::reset() << std::endl;
+    return true;
+}
+
+// =============================================================================
+// Noexcept Propagation Tests
+// =============================================================================
+
+bool test_NoexceptPropagation()
+{
+    std::cout << colors::cyan() << "\nTesting Noexcept Propagation..."
+              << colors::reset() << std::endl;
+    
+    // Test 1: Noexcept lambda results in noexcept move
+    {
+        std::cout << colors::blue() << "  [TEST] Noexcept action -> noexcept move"
+                  << colors::reset() << std::endl;
+        
+        auto guard = makeScopeGuard([]() noexcept {});
+        using GuardType = decltype(guard);
+        
+        static_assert(std::is_nothrow_move_constructible_v<GuardType>,
+            "Guard with noexcept action should be nothrow move constructible");
+        
+        SIMPLE_ASSERT((std::is_nothrow_move_constructible_v<GuardType>),
+            "Runtime verification of noexcept move");
+    }
+    
+    std::cout << colors::green() << "Noexcept Propagation: Tests passed."
+              << colors::reset() << std::endl;
+    return true;
 }
 
 // =============================================================================
@@ -771,29 +1272,38 @@ void run_scope_guard_benchmarks() {
 // =============================================================================
 
 
-bool test_ScopeGuard() {
-
+bool test_ScopeGuard()
+{
     PRINT_HEADER(SCOPE GUARD)
 
     TestRunner runner;
     
+    // Basic functionality
     runner.run_test("BasicScopeGuard", test_BasicScopeGuard);
     runner.run_test("DismissFunctionality", test_DismissFunctionality);
     runner.run_test("MoveSemantics", test_MoveSemantics);
     
+    // Policies
     runner.run_test("NothrowPolicy", test_NothrowPolicy);
     runner.run_test("TerminatePolicy", test_TerminatePolicy);
     runner.run_test("LogAndSwallowPolicy", test_LogAndSwallowPolicy);
     runner.run_test("RethrowPolicy", test_RethrowPolicy);
     
+    // Macros
     runner.run_test("MacroConvenience", test_MacroConvenience);
+    runner.run_test("ScopeExitAlias", test_ScopeExitAlias);
+    runner.run_test("ScopeFail", test_ScopeFail);
+    runner.run_test("ScopeSuccess", test_ScopeSuccess);
+    runner.run_test("ConditionalGuardMoveAssignment", test_ConditionalGuardMoveAssignment);
+    
+    // Advanced
     runner.run_test("ComplexResourceManagement", test_ComplexResourceManagement);
+    runner.run_test("TypeTraits", test_ScopeGuardTypeTraits);
+    runner.run_test("NoexceptPropagation", test_NoexceptPropagation);
     
     int failed = runner.print_summary();
     
-    if (failed == 0) {
-        run_scope_guard_benchmarks();
-    }
+    run_scope_guard_benchmarks();
     
     return failed == 0;
 }

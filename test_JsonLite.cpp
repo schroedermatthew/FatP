@@ -42,7 +42,7 @@
 #include "test_JsonLite.h"
 #endif
 
-namespace fat_p {
+namespace fat_p::testing::jsonlite {
 
 USING_JSON_LITE()
 
@@ -172,13 +172,13 @@ public:
     int get_secret() const { return secret_; }
 };
 
-struct User { std::string name; int age; };
+struct User { std::string name; int age = 0; };
 CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(User, name, age)
 
-struct Product { std::string name; double price; };
+struct Product { std::string name; double price = 0.0; };
 CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Product, name, price)
 
-struct Order { std::string name; int quantity; };
+struct Order { std::string name; int quantity = 0; };
 CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Order, name, quantity)
 
 struct Container { std::vector<int> items; };
@@ -225,7 +225,7 @@ CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Utf8TestData, european_text, asian_text, emoj
 
 struct DatabaseConfig {
     std::string host;
-    int port;
+    int port = 0;
     std::optional<int> timeout;
 };
 CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(DatabaseConfig, host, port, timeout)
@@ -235,10 +235,6 @@ struct ServerConfig {
     std::vector<std::string> servers;
 };
 CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(ServerConfig, database, servers)
-
-}
-
-namespace fat_p::testing {
 
 struct LowPrecisionPolicy : StandardJsonPolicy {
     static constexpr int numeric_precision = 2;
@@ -256,7 +252,8 @@ struct Precision8 : StandardJsonPolicy {
     static constexpr int numeric_precision = 8; 
 };
 
-bool test_json_lite_basic_types() {
+TEST_CASE(json_lite_basic_types)
+{
     SUBTEST("null type") {
         JsonValue j = nullptr;
         ASSERT_TRUE(j.is_null(), "Should be null");
@@ -286,7 +283,8 @@ bool test_json_lite_basic_types() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_int8() {
+TEST_CASE(json_lite_int8)
+{
     SUBTEST("int8_t serialization") {
         int8_t val = 127;
         JsonValue j = to_json(val);
@@ -313,7 +311,8 @@ bool test_json_lite_int8() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_int16() {
+TEST_CASE(json_lite_int16)
+{
     SUBTEST("int16_t serialization") {
         int16_t val = 32767;
         JsonValue j = to_json(val);
@@ -339,7 +338,8 @@ bool test_json_lite_int16() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_int32() {
+TEST_CASE(json_lite_int32)
+{
     SUBTEST("int32_t serialization") {
         int val = 2147483647;
         JsonValue j = to_json(val);
@@ -365,7 +365,8 @@ bool test_json_lite_int32() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_int64() {
+TEST_CASE(json_lite_int64)
+{
     SUBTEST("int64_t serialization") {
         int64_t val = 9223372036854775807LL;
         JsonValue j = to_json(val);
@@ -384,7 +385,8 @@ bool test_json_lite_int64() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_uint8() {
+TEST_CASE(json_lite_uint8)
+{
     SUBTEST("uint8_t serialization") {
         uint8_t val = 255;
         JsonValue j = to_json(val);
@@ -417,7 +419,8 @@ bool test_json_lite_uint8() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_uint16() {
+TEST_CASE(json_lite_uint16)
+{
     SUBTEST("uint16_t serialization") {
         uint16_t val = 65535;
         JsonValue j = to_json(val);
@@ -443,7 +446,8 @@ bool test_json_lite_uint16() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_uint32() {
+TEST_CASE(json_lite_uint32)
+{
     SUBTEST("uint32_t serialization") {
         unsigned int val = 4294967295U;
         JsonValue j = to_json(val);
@@ -469,7 +473,8 @@ bool test_json_lite_uint32() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_uint64() {
+TEST_CASE(json_lite_uint64)
+{
     SUBTEST("uint64_t serialization large value") {
         unsigned long long val = 9223372036854775808ULL;
         JsonValue j = to_json(val);
@@ -488,7 +493,8 @@ bool test_json_lite_uint64() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_float_types() {
+TEST_CASE(json_lite_float_types)
+{
     SUBTEST("float serialization") {
         float val = 3.14f;
         JsonValue j = to_json(val);
@@ -522,7 +528,8 @@ bool test_json_lite_float_types() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_numeric_edge_cases() {
+TEST_CASE(json_lite_numeric_edge_cases)
+{
     SUBTEST("very large double") {
         double val = 1.7976931348623157e+308;
         JsonValue j = to_json(val);
@@ -551,7 +558,8 @@ bool test_json_lite_numeric_edge_cases() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_fixed_width_int8() {
+TEST_CASE(json_lite_fixed_width_int8)
+{
     int8_t val = -128;
     JsonValue j = to_json(val);
     int8_t result = 0;
@@ -566,7 +574,8 @@ bool test_json_lite_fixed_width_int8() {
     return true;
 }
 
-bool test_json_lite_fixed_width_int16() {
+TEST_CASE(json_lite_fixed_width_int16)
+{
     int16_t val = -32768;
     JsonValue j = to_json(val);
     int16_t result = 0;
@@ -581,7 +590,8 @@ bool test_json_lite_fixed_width_int16() {
     return true;
 }
 
-bool test_json_lite_fixed_width_int32() {
+TEST_CASE(json_lite_fixed_width_int32)
+{
     int32_t val = -2147483647 - 1;
     JsonValue j = to_json(val);
     int32_t result = 0;
@@ -596,7 +606,8 @@ bool test_json_lite_fixed_width_int32() {
     return true;
 }
 
-bool test_json_lite_fixed_width_int64() {
+TEST_CASE(json_lite_fixed_width_int64)
+{
     int64_t val = LLONG_MIN;
     JsonValue j = to_json(val);
     int64_t result = 0;
@@ -611,7 +622,8 @@ bool test_json_lite_fixed_width_int64() {
     return true;
 }
 
-bool test_json_lite_fixed_width_uint8() {
+TEST_CASE(json_lite_fixed_width_uint8)
+{
     uint8_t val = 0;
     JsonValue j = to_json(val);
     uint8_t result = 1;
@@ -626,7 +638,8 @@ bool test_json_lite_fixed_width_uint8() {
     return true;
 }
 
-bool test_json_lite_fixed_width_uint16() {
+TEST_CASE(json_lite_fixed_width_uint16)
+{
     uint16_t val = 0;
     JsonValue j = to_json(val);
     uint16_t result = 1;
@@ -641,7 +654,8 @@ bool test_json_lite_fixed_width_uint16() {
     return true;
 }
 
-bool test_json_lite_fixed_width_uint32() {
+TEST_CASE(json_lite_fixed_width_uint32)
+{
     uint32_t val = 0;
     JsonValue j = to_json(val);
     uint32_t result = 1;
@@ -656,7 +670,8 @@ bool test_json_lite_fixed_width_uint32() {
     return true;
 }
 
-bool test_json_lite_fixed_width_uint64() {
+TEST_CASE(json_lite_fixed_width_uint64)
+{
     uint64_t val = 0;
     JsonValue j = to_json(val);
     uint64_t result = 1;
@@ -671,7 +686,8 @@ bool test_json_lite_fixed_width_uint64() {
     return true;
 }
 
-bool test_json_lite_size_t_type() {
+TEST_CASE(json_lite_size_t_type)
+{
     size_t val = 123456;
     JsonValue j = to_json(val);
     ASSERT_TRUE(j.is_int() || j.is_number(), "size_t should be numeric");
@@ -679,7 +695,8 @@ bool test_json_lite_size_t_type() {
     return true;
 }
 
-bool test_json_lite_ptrdiff_t_type() {
+TEST_CASE(json_lite_ptrdiff_t_type)
+{
     ptrdiff_t val = -123456;
     JsonValue j = to_json(val);
     ASSERT_TRUE(j.is_int(), "ptrdiff_t should be int");
@@ -687,7 +704,8 @@ bool test_json_lite_ptrdiff_t_type() {
     return true;
 }
 
-bool test_json_lite_string_escaping() {
+TEST_CASE(json_lite_string_escaping)
+{
     SUBTEST("basic escaping") {
         std::string val = "Hello \"World\"";
         JsonValue j = to_json(val);
@@ -715,7 +733,8 @@ bool test_json_lite_string_escaping() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_string_empty() {
+TEST_CASE(json_lite_string_empty)
+{
     std::string val = "";
     JsonValue j = to_json(val);
     std::string result;
@@ -725,7 +744,8 @@ bool test_json_lite_string_empty() {
     return true;
 }
 
-bool test_json_lite_string_whitespace() {
+TEST_CASE(json_lite_string_whitespace)
+{
     std::string val = "   spaces   ";
     JsonValue j = to_json(val);
     std::string result;
@@ -735,7 +755,8 @@ bool test_json_lite_string_whitespace() {
     return true;
 }
 
-bool test_json_lite_string_special_chars() {
+TEST_CASE(json_lite_string_special_chars)
+{
     std::string val = "Special: !@#$%^&*()_+-={}[]|:;'<>?,./";
     JsonValue j = to_json(val);
     std::string result;
@@ -745,7 +766,8 @@ bool test_json_lite_string_special_chars() {
     return true;
 }
 
-bool test_json_lite_string_unicode() {
+TEST_CASE(json_lite_string_unicode)
+{
     SUBTEST("basic unicode") {
         std::string val = "Unicode: \u00e9";
         JsonValue j = to_json(val);
@@ -757,7 +779,8 @@ bool test_json_lite_string_unicode() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_string_long() {
+TEST_CASE(json_lite_string_long)
+{
     std::string val(10000, 'x');
     JsonValue j = to_json(val);
     std::string result;
@@ -767,7 +790,8 @@ bool test_json_lite_string_long() {
     return true;
 }
 
-bool test_json_lite_containers() {
+TEST_CASE(json_lite_containers)
+{
     SUBTEST("vector<int>") {
         std::vector<int> vec = {1, 2, 3, 4, 5};
         JsonValue j = to_json(vec);
@@ -794,7 +818,8 @@ bool test_json_lite_containers() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_vector_empty() {
+TEST_CASE(json_lite_vector_empty)
+{
     std::vector<int> vec;
     JsonValue j = to_json(vec);
     ASSERT_TRUE(j.is_array(), "Empty vector should be array");
@@ -805,7 +830,8 @@ bool test_json_lite_vector_empty() {
     return true;
 }
 
-bool test_json_lite_vector_single() {
+TEST_CASE(json_lite_vector_single)
+{
     std::vector<int> vec = {42};
     JsonValue j = to_json(vec);
     std::vector<int> result;
@@ -816,7 +842,8 @@ bool test_json_lite_vector_single() {
     return true;
 }
 
-bool test_json_lite_set() {
+TEST_CASE(json_lite_set)
+{
     std::set<int> s = {1, 2, 3, 4, 5};
     JsonValue j = to_json(s);
     ASSERT_TRUE(j.is_array(), "Set should be array");
@@ -828,7 +855,8 @@ bool test_json_lite_set() {
     return true;
 }
 
-bool test_json_lite_map_empty() {
+TEST_CASE(json_lite_map_empty)
+{
     std::map<std::string, int> m;
     JsonValue j = to_json(m);
     ASSERT_TRUE(j.is_object(), "Empty map should be object");
@@ -839,7 +867,8 @@ bool test_json_lite_map_empty() {
     return true;
 }
 
-bool test_json_lite_map_numeric_keys() {
+TEST_CASE(json_lite_map_numeric_keys)
+{
     std::map<int, std::string> m = {{1, "one"}, {2, "two"}};
     JsonValue j = to_json(m);
     ASSERT_TRUE(j.is_object(), "Map with int keys should be object");
@@ -850,7 +879,8 @@ bool test_json_lite_map_numeric_keys() {
     return true;
 }
 
-bool test_json_lite_nested_vectors() {
+TEST_CASE(json_lite_nested_vectors)
+{
     std::vector<std::vector<int>> nested = {{1, 2}, {3, 4}, {5, 6}};
     JsonValue j = to_json(nested);
     std::vector<std::vector<int>> result;
@@ -862,7 +892,8 @@ bool test_json_lite_nested_vectors() {
     return true;
 }
 
-bool test_json_lite_mixed_nested() {
+TEST_CASE(json_lite_mixed_nested)
+{
     std::map<std::string, std::vector<int>> m = {{"nums", {1, 2, 3}}, {"more", {4, 5}}};
     JsonValue j = to_json(m);
     std::map<std::string, std::vector<int>> result;
@@ -873,7 +904,8 @@ bool test_json_lite_mixed_nested() {
     return true;
 }
 
-bool test_json_lite_array() {
+TEST_CASE(json_lite_array)
+{
     std::array<int, 3> arr = {10, 20, 30};
     JsonValue j = to_json(arr);
     ASSERT_TRUE(j.is_array(), "std::array should be array");
@@ -885,7 +917,8 @@ bool test_json_lite_array() {
     return true;
 }
 
-bool test_json_lite_unordered_set() {
+TEST_CASE(json_lite_unordered_set)
+{
     std::unordered_set<int> s = {1, 2, 3};
     JsonValue j = to_json(s);
     ASSERT_TRUE(j.is_array(), "Unordered set should be array");
@@ -896,7 +929,8 @@ bool test_json_lite_unordered_set() {
     return true;
 }
 
-bool test_json_lite_unordered_map() {
+TEST_CASE(json_lite_unordered_map)
+{
     std::unordered_map<std::string, int> m = {{"a", 1}, {"b", 2}};
     JsonValue j = to_json(m);
     ASSERT_TRUE(j.is_object(), "Unordered map should be object");
@@ -907,7 +941,8 @@ bool test_json_lite_unordered_map() {
     return true;
 }
 
-bool test_json_lite_deque() {
+TEST_CASE(json_lite_deque)
+{
     std::deque<int> d = {1, 2, 3, 4};
     JsonValue j = to_json(d);
     ASSERT_TRUE(j.is_array(), "Deque should be array");
@@ -918,7 +953,8 @@ bool test_json_lite_deque() {
     return true;
 }
 
-bool test_json_lite_list() {
+TEST_CASE(json_lite_list)
+{
     std::list<int> lst = {5, 10, 15};
     JsonValue j = to_json(lst);
     ASSERT_TRUE(j.is_array(), "List should be array");
@@ -929,7 +965,8 @@ bool test_json_lite_list() {
     return true;
 }
 
-bool test_json_lite_string_view() {
+TEST_CASE(json_lite_string_view)
+{
     std::string_view sv = "test string";
     JsonValue j = to_json(sv);
     ASSERT_TRUE(j.is_string(), "String view should be string");
@@ -940,7 +977,8 @@ bool test_json_lite_string_view() {
     return true;
 }
 
-bool test_json_lite_optional() {
+TEST_CASE(json_lite_optional)
+{
     SUBTEST("optional with value") {
         std::optional<int> opt = 42;
         JsonValue j = to_json(opt);
@@ -948,7 +986,7 @@ bool test_json_lite_optional() {
         std::optional<int> result;
         from_json(j, result);
         ASSERT_TRUE(result.has_value(), "Result should have value");
-        ASSERT_EQ(*result, 42, "Value should be 42");
+        ASSERT_EQ(result.value(), 42, "Value should be 42");
     }
     END_SUBTEST
     
@@ -965,29 +1003,32 @@ bool test_json_lite_optional() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_optional_string() {
+TEST_CASE(json_lite_optional_string)
+{
     std::optional<std::string> opt = "hello";
     JsonValue j = to_json(opt);
     std::optional<std::string> result;
     from_json(j, result);
     ASSERT_TRUE(result.has_value(), "Result should have value");
-    ASSERT_EQ(*result, "hello", "Value should be hello");
+    ASSERT_EQ(result.value(), "hello", "Value should be hello");
     
     return true;
 }
 
-bool test_json_lite_optional_vector() {
+TEST_CASE(json_lite_optional_vector)
+{
     std::optional<std::vector<int>> opt = std::vector<int>{1, 2, 3};
     JsonValue j = to_json(opt);
     std::optional<std::vector<int>> result;
     from_json(j, result);
     ASSERT_TRUE(result.has_value(), "Result should have value");
-    ASSERT_EQ(result->size(), static_cast<size_t>(3), "Size should be 3");
+    ASSERT_EQ(result.value().size(), static_cast<size_t>(3), "Size should be 3");
     
     return true;
 }
 
-bool test_json_lite_tuples_pairs() {
+TEST_CASE(json_lite_tuples_pairs)
+{
     SUBTEST("pair<int, string>") {
         std::pair<int, std::string> p = {42, "answer"};
         JsonValue j = to_json(p);
@@ -1014,7 +1055,8 @@ bool test_json_lite_tuples_pairs() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_pair_nested() {
+TEST_CASE(json_lite_pair_nested)
+{
     std::pair<int, std::vector<int>> p = {10, {1, 2, 3}};
     JsonValue j = to_json(p);
     std::pair<int, std::vector<int>> result;
@@ -1025,7 +1067,8 @@ bool test_json_lite_pair_nested() {
     return true;
 }
 
-bool test_json_lite_tuple_large() {
+TEST_CASE(json_lite_tuple_large)
+{
     std::tuple<int, int, int, int, int> t = {1, 2, 3, 4, 5};
     JsonValue j = to_json(t);
     std::tuple<int, int, int, int, int> result;
@@ -1036,7 +1079,8 @@ bool test_json_lite_tuple_large() {
     return true;
 }
 
-bool test_json_lite_simple_struct() {
+TEST_CASE(json_lite_simple_struct)
+{
     Point p{10, 20};
     JsonValue j = to_json(p);
     ASSERT_TRUE(j.is_object(), "Struct should be object");
@@ -1047,7 +1091,8 @@ bool test_json_lite_simple_struct() {
     return true;
 }
 
-bool test_json_lite_complex_struct() {
+TEST_CASE(json_lite_complex_struct)
+{
     Person p;
     p.name = "Alice";
     p.age = 30;
@@ -1062,7 +1107,8 @@ bool test_json_lite_complex_struct() {
     return true;
 }
 
-bool test_json_lite_optional_fields() {
+TEST_CASE(json_lite_optional_fields)
+{
     Config cfg;
     cfg.port = 9000;
     cfg.timeout = 30;
@@ -1076,7 +1122,8 @@ bool test_json_lite_optional_fields() {
     return true;
 }
 
-bool test_json_lite_intrusive_serialization() {
+TEST_CASE(json_lite_intrusive_serialization)
+{
     PrivateData pd(42, "secret");
     JsonValue j = to_json(pd);
     PrivateData result = from_json<PrivateData>(j);
@@ -1086,7 +1133,8 @@ bool test_json_lite_intrusive_serialization() {
     return true;
 }
 
-bool test_json_lite_nested_structs() {
+TEST_CASE(json_lite_nested_structs)
+{
     Nested n;
     n.position = {5, 10};
     n.label = "point1";
@@ -1100,7 +1148,8 @@ bool test_json_lite_nested_structs() {
     return true;
 }
 
-bool test_json_lite_complex_nested() {
+TEST_CASE(json_lite_complex_nested)
+{
     Complex c;
     c.scores["math"] = 95;
     c.scores["science"] = 88;
@@ -1117,7 +1166,8 @@ bool test_json_lite_complex_nested() {
     return true;
 }
 
-bool test_json_lite_deep_hierarchy() {
+TEST_CASE(json_lite_deep_hierarchy)
+{
     Company company;
     company.name = "TechCorp";
     
@@ -1141,7 +1191,8 @@ bool test_json_lite_deep_hierarchy() {
     return true;
 }
 
-bool test_json_lite_parser_basic() {
+TEST_CASE(json_lite_parser_basic)
+{
     SUBTEST("parse null") {
         JsonValue j = parse_json("null");
         ASSERT_TRUE(j.is_null(), "Should parse null");
@@ -1178,7 +1229,8 @@ bool test_json_lite_parser_basic() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_parser_containers() {
+TEST_CASE(json_lite_parser_containers)
+{
     SUBTEST("parse array") {
         JsonValue j = parse_json("[1, 2, 3]");
         ASSERT_TRUE(j.is_array(), "Should parse array");
@@ -1198,7 +1250,8 @@ bool test_json_lite_parser_containers() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_parser_edge_cases() {
+TEST_CASE(json_lite_parser_edge_cases)
+{
     SUBTEST("empty array") {
         JsonValue j = parse_json("[]");
         ASSERT_TRUE(j.is_array(), "Should parse empty array");
@@ -1223,7 +1276,8 @@ bool test_json_lite_parser_edge_cases() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_parser_numbers() {
+TEST_CASE(json_lite_parser_numbers)
+{
     SUBTEST("negative integer") {
         JsonValue j = parse_json("-42");
         ASSERT_EQ(std::get<int64_t>(j), static_cast<int64_t>(-42), "Should be -42");
@@ -1247,7 +1301,8 @@ bool test_json_lite_parser_numbers() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_parser_strings() {
+TEST_CASE(json_lite_parser_strings)
+{
     SUBTEST("escaped quotes") {
         JsonValue j = parse_json(R"("He said \"hello\"")");
         ASSERT_EQ(std::get<std::string>(j), "He said \"hello\"", "Should handle escaped quotes");
@@ -1265,7 +1320,8 @@ bool test_json_lite_parser_strings() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_parser_nested() {
+TEST_CASE(json_lite_parser_nested)
+{
     std::string json = R"({
         "array": [1, 2, {"nested": true}],
         "object": {"a": 1, "b": [2, 3]}
@@ -1281,7 +1337,8 @@ bool test_json_lite_parser_nested() {
     return true;
 }
 
-bool test_json_lite_parser_errors() {
+TEST_CASE(json_lite_parser_errors)
+{
     SUBTEST("invalid json") {
         ASSERT_THROWS(parse_json("invalid"), std::runtime_error, "Should throw on invalid JSON");
     }
@@ -1305,7 +1362,8 @@ bool test_json_lite_parser_errors() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_parser_literals() {
+TEST_CASE(json_lite_parser_literals)
+{
     SUBTEST("true literal") {
         JsonValue j = parse_json("true");
         ASSERT_TRUE(std::get<bool>(j), "Should be true");
@@ -1327,7 +1385,8 @@ bool test_json_lite_parser_literals() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_parser_unicode() {
+TEST_CASE(json_lite_parser_unicode)
+{
     SUBTEST("unicode escape") {
         JsonValue j = parse_json(R"("\u0041")");
         ASSERT_EQ(std::get<std::string>(j), "A", "Should parse unicode escape");
@@ -1337,7 +1396,8 @@ bool test_json_lite_parser_unicode() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_pretty_print() {
+TEST_CASE(json_lite_pretty_print)
+{
     Point p{10, 20};
     std::string compact = to_json_string(p, false);
     std::string pretty = to_json_string(p, true);
@@ -1348,7 +1408,8 @@ bool test_json_lite_pretty_print() {
     return true;
 }
 
-bool test_json_lite_numeric_precision() {
+TEST_CASE(json_lite_numeric_precision)
+{
     SUBTEST("default precision") {
         double val = 3.141592653589793;
         std::string json = to_json_string<double, StandardJsonPolicy>(val);
@@ -1367,16 +1428,17 @@ bool test_json_lite_numeric_precision() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_nan_inf_handling() {
+TEST_CASE(json_lite_nan_inf_handling)
+{
     SUBTEST("NaN with compat policy") {
-        double val = std::numeric_limits<double>::quiet_NaN();
+        constexpr double val = std::numeric_limits<double>::quiet_NaN();
         std::string json = to_json_string<double, CompatJsonPolicy>(val);
         ASSERT_TRUE(json.find("NaN") != std::string::npos, "NaN should be serialized");
     }
     END_SUBTEST
     
     SUBTEST("Infinity with compat policy") {
-        double val = std::numeric_limits<double>::infinity();
+        constexpr double val = std::numeric_limits<double>::infinity();
         std::string json = to_json_string<double, CompatJsonPolicy>(val);
         ASSERT_TRUE(json.find("Infinity") != std::string::npos, "Infinity should be serialized");
     }
@@ -1385,15 +1447,17 @@ bool test_json_lite_nan_inf_handling() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_standard_policy_nan() {
-    double val = std::numeric_limits<double>::quiet_NaN();
+TEST_CASE(json_lite_standard_policy_nan)
+{
+    constexpr double val = std::numeric_limits<double>::quiet_NaN();
     std::string json = to_json_string<double, StandardJsonPolicy>(val);
     ASSERT_TRUE(json.find("null") != std::string::npos, "NaN should be null with standard policy");
     
     return true;
 }
 
-bool test_json_lite_file_io() {
+TEST_CASE(json_lite_file_io)
+{
     Point p{100, 200};
     save_params("test_point.json", p);
     Point loaded = load_params<Point>("test_point.json");
@@ -1404,7 +1468,8 @@ bool test_json_lite_file_io() {
     return true;
 }
 
-bool test_json_lite_file_io_complex() {
+TEST_CASE(json_lite_file_io_complex)
+{
     AppConfig cfg;
     cfg.port = 8080;
     cfg.host = "localhost";
@@ -1421,12 +1486,14 @@ bool test_json_lite_file_io_complex() {
     return true;
 }
 
-bool test_json_lite_file_io_errors() {
+TEST_CASE(json_lite_file_io_errors)
+{
     ASSERT_THROWS(load_params<Point>("nonexistent.json"), std::runtime_error, "Should throw on missing file");
     return true;
 }
 
-bool test_json_lite_roundtrip_all_types() {
+TEST_CASE(json_lite_roundtrip_all_types)
+{
     SUBTEST("int round-trip") {
         int val = 42;
         std::string json = to_json_string(val);
@@ -1454,7 +1521,8 @@ bool test_json_lite_roundtrip_all_types() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_convenience_functions() {
+TEST_CASE(json_lite_convenience_functions)
+{
     Point p{10, 20};
     std::string json = to_json_string(p);
     Point result = from_json_string<Point>(json);
@@ -1464,7 +1532,8 @@ bool test_json_lite_convenience_functions() {
     return true;
 }
 
-bool test_json_lite_value_returning_from_json() {
+TEST_CASE(json_lite_value_returning_from_json)
+{
     JsonValue j = static_cast<int64_t>(42);
     const int result = from_json<int>(j);
     ASSERT_EQ(result, 42, "Value-returning from_json should work");
@@ -1472,7 +1541,8 @@ bool test_json_lite_value_returning_from_json() {
     return true;
 }
 
-bool test_json_lite_roundtrip_vectors() {
+TEST_CASE(json_lite_roundtrip_vectors)
+{
     std::vector<int> vec = {1, 2, 3, 4, 5};
     std::string json = to_json_string(vec);
     std::vector<int> result = from_json_string<std::vector<int>>(json);
@@ -1482,7 +1552,8 @@ bool test_json_lite_roundtrip_vectors() {
     return true;
 }
 
-bool test_json_lite_roundtrip_maps() {
+TEST_CASE(json_lite_roundtrip_maps)
+{
     std::map<std::string, int> m = {{"a", 1}, {"b", 2}};
     std::string json = to_json_string(m);
     std::map<std::string, int> result = from_json_string<std::map<std::string, int>>(json);
@@ -1492,7 +1563,8 @@ bool test_json_lite_roundtrip_maps() {
     return true;
 }
 
-bool test_json_lite_large_data() {
+TEST_CASE(json_lite_large_data)
+{
     std::vector<int> large_vec(10000);
     for (size_t i = 0; i < large_vec.size(); ++i) 
     {
@@ -1505,7 +1577,8 @@ bool test_json_lite_large_data() {
     return true;
 }
 
-bool test_json_lite_deeply_nested() {
+TEST_CASE(json_lite_deeply_nested)
+{
     std::string json = R"({"a": {"b": {"c": {"d": {"e": 42}}}}})";
     JsonValue j = parse_json(json);
     ASSERT_TRUE(j.is_object(), "Should parse deeply nested object");
@@ -1513,7 +1586,8 @@ bool test_json_lite_deeply_nested() {
     return true;
 }
 
-bool test_json_lite_large_strings() {
+TEST_CASE(json_lite_large_strings)
+{
     std::string large_str(100000, 'x');
     JsonValue j = to_json(large_str);
     std::string json = to_json_string(j);
@@ -1522,7 +1596,8 @@ bool test_json_lite_large_strings() {
     return true;
 }
 
-bool test_json_lite_large_map() {
+TEST_CASE(json_lite_large_map)
+{
     std::map<std::string, int> large_map;
     for (int i = 0; i < 1000; ++i) 
     {
@@ -1536,7 +1611,8 @@ bool test_json_lite_large_map() {
     return true;
 }
 
-bool test_json_lite_depth_limit_parse() {
+TEST_CASE(json_lite_depth_limit_parse)
+{
     std::string deep_json = "[";
     for (int i = 0; i < 600; ++i) 
     {
@@ -1552,7 +1628,8 @@ bool test_json_lite_depth_limit_parse() {
     return true;
 }
 
-bool test_json_lite_depth_limit_dump() {
+TEST_CASE(json_lite_depth_limit_dump)
+{
     JsonArray deep_array;
     JsonArray* current = &deep_array;
     for (int i = 0; i < 600; ++i) 
@@ -1569,7 +1646,8 @@ bool test_json_lite_depth_limit_dump() {
     return true;
 }
 
-bool test_json_lite_range_checks() {
+TEST_CASE(json_lite_range_checks)
+{
     SUBTEST("int overflow") {
         JsonValue j = static_cast<int64_t>(3000000000LL);
         int result = 0;
@@ -1587,7 +1665,8 @@ bool test_json_lite_range_checks() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_range_int8() {
+TEST_CASE(json_lite_range_int8)
+{
     JsonValue j = static_cast<int64_t>(200);
     int8_t result = 0;
     ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should throw on int8_t overflow");
@@ -1595,10 +1674,11 @@ bool test_json_lite_range_int8() {
     return true;
 }
 
-bool test_json_lite_better_error_messages() {
+TEST_CASE(json_lite_better_error_messages)
+{
     try 
     {
-        parse_json("invalid json");
+        (void)parse_json("invalid json");
         ASSERT_TRUE(false, "Should have thrown");
     } 
     catch (const std::exception& e) 
@@ -1610,7 +1690,8 @@ bool test_json_lite_better_error_messages() {
     return true;
 }
 
-bool test_json_lite_param_helpers() {
+TEST_CASE(json_lite_param_helpers)
+{
     Point p{42, 84};
     save_params("test_helpers.json", p);
     Point loaded = load_params<Point>("test_helpers.json");
@@ -1621,10 +1702,11 @@ bool test_json_lite_param_helpers() {
     return true;
 }
 
-bool test_json_lite_position_in_errors() {
+TEST_CASE(json_lite_position_in_errors)
+{
     try 
     {
-        parse_json(R"({"key": invalid_value})");
+        (void)parse_json(R"({"key": invalid_value})");
         ASSERT_TRUE(false, "Should have thrown");
     } 
     catch (const std::exception& e) 
@@ -1636,7 +1718,8 @@ bool test_json_lite_position_in_errors() {
     return true;
 }
 
-bool test_json_lite_error_messages_comprehensive() {
+TEST_CASE(json_lite_error_messages_comprehensive)
+{
     SUBTEST("type mismatch") {
         JsonValue j = "string";
         int result = 0;
@@ -1657,7 +1740,8 @@ bool test_json_lite_error_messages_comprehensive() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_lite_field_limit() {
+TEST_CASE(json_lite_field_limit)
+{
     Max50Fields data{};
     for (int i = 0; i < 50; ++i) 
     {
@@ -1672,7 +1756,8 @@ bool test_json_lite_field_limit() {
     return true;
 }
 
-bool test_json_lite_bug2_name_collision() {
+TEST_CASE(json_lite_bug2_name_collision)
+{
     TypeA a{42};
     TypeB b{3.14};
     
@@ -1688,7 +1773,8 @@ bool test_json_lite_bug2_name_collision() {
     return true;
 }
 
-bool test_json_lite_bug2_collision_prevention() {
+TEST_CASE(json_lite_bug2_collision_prevention)
+{
     User u{"Alice", 30};
     Product p{"Widget", 19.99};
     Order o{"Item", 5};
@@ -1708,7 +1794,8 @@ bool test_json_lite_bug2_collision_prevention() {
     return true;
 }
 
-bool test_json_lite_numeric_formatting() {
+TEST_CASE(json_lite_numeric_formatting)
+{
     ScientificData data;
     data.planck_constant = 6.62607015e-34;
     data.avogadro_number = 6.02214076e23;
@@ -1725,7 +1812,8 @@ bool test_json_lite_numeric_formatting() {
     return true;
 }
 
-bool test_json_lite_bug4_error_context() {
+TEST_CASE(json_lite_bug4_error_context)
+{
     std::string bad_json = R"({"key": "value", "number": not_a_number})";
     
     try 
@@ -1742,7 +1830,8 @@ bool test_json_lite_bug4_error_context() {
     return true;
 }
 
-bool test_json_lite_bug5_fixed_arrays() {
+TEST_CASE(json_lite_bug5_fixed_arrays)
+{
     WithStdArray data;
     data.values = {1, 2, 3};
     data.coords = {3.14, 2.71};
@@ -1758,7 +1847,8 @@ bool test_json_lite_bug5_fixed_arrays() {
     return true;
 }
 
-bool test_json_lite_bug6_policy_incompatibility() {
+TEST_CASE(json_lite_bug6_policy_incompatibility)
+{
     TestData data{3.14159265358979};
     
     auto std_json = to_json_string<TestData, StandardJsonPolicy>(data);
@@ -1771,7 +1861,8 @@ bool test_json_lite_bug6_policy_incompatibility() {
     return true;
 }
 
-bool test_json_lite_bug6_policy_fix_verification() {
+TEST_CASE(json_lite_bug6_policy_fix_verification)
+{
     ComplexData data{98.6543210, 1013.25987654, "sensor_1"};
     
     auto json2 = to_json_string<ComplexData, Precision2>(data);
@@ -1786,7 +1877,8 @@ bool test_json_lite_bug6_policy_fix_verification() {
     return true;
 }
 
-bool test_jsonc_line_comments() {
+TEST_CASE(jsonc_line_comments)
+{
     std::string json_with_comments = R"({
         "port": 8080,
         "host": "localhost"
@@ -1802,7 +1894,8 @@ bool test_jsonc_line_comments() {
     return true;
 }
 
-bool test_jsonc_block_comments() {
+TEST_CASE(jsonc_block_comments)
+{
     std::string json = R"({
         "name": "test",
         "value": 42
@@ -1814,7 +1907,8 @@ bool test_jsonc_block_comments() {
     return true;
 }
 
-bool test_jsonc_comment_edge_cases() {
+TEST_CASE(jsonc_comment_edge_cases)
+{
     SUBTEST("comment with quotes") {
         std::string json = R"({
             "key": "value"
@@ -1836,7 +1930,8 @@ bool test_jsonc_comment_edge_cases() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_jsonc_strict_mode_rejection() {
+TEST_CASE(jsonc_strict_mode_rejection)
+{
     std::string json = R"({
         // This is a comment
         "key": "value"
@@ -1846,8 +1941,9 @@ bool test_jsonc_strict_mode_rejection() {
     return true;
 }
 
-bool test_utf8_european_chars_escaped() {
-    std::string text = "cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©";
+TEST_CASE(utf8_european_chars_escaped)
+{
+    std::string text = "cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©";
     std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
     
     ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should contain unicode escapes for European chars");
@@ -1858,8 +1954,9 @@ bool test_utf8_european_chars_escaped() {
     return true;
 }
 
-bool test_utf8_asian_chars_escaped() {
-    std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢";
+TEST_CASE(utf8_asian_chars_escaped)
+{
+    std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢";
     std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
     
     ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should contain unicode escapes for Asian chars");
@@ -1870,8 +1967,9 @@ bool test_utf8_asian_chars_escaped() {
     return true;
 }
 
-bool test_utf8_emoji_surrogate_pairs() {
-    std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬";
+TEST_CASE(utf8_emoji_surrogate_pairs)
+{
+    std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬";
     std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
     
     ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should contain unicode escapes for emoji");
@@ -1882,8 +1980,9 @@ bool test_utf8_emoji_surrogate_pairs() {
     return true;
 }
 
-bool test_utf8_raw_passthrough() {
-    std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬";
+TEST_CASE(utf8_raw_passthrough)
+{
+    std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬";
     std::string json = to_json_string<std::string, CompatJsonPolicy>(text);
     
     ASSERT_TRUE(json.find("\\u") == std::string::npos, "CompatJsonPolicy should not escape unicode");
@@ -1894,12 +1993,13 @@ bool test_utf8_raw_passthrough() {
     return true;
 }
 
-bool test_utf8_mixed_content() {
+TEST_CASE(utf8_mixed_content)
+{
     Utf8TestData data;
-    data.european_text = "cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©sumÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©";
-    data.asian_text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂªÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¾ ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡";
-    data.emoji_text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â½ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â° ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â";
-    data.mixed_text = "Hello ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬";
+    data.european_text = "cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©sumÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©";
+    data.asian_text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂªÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¾ ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡";
+    data.emoji_text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â½ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â° ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â";
+    data.mixed_text = "Hello ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬";
     
     std::string json = to_json_string<Utf8TestData, StandardJsonPolicy>(data);
     Utf8TestData result = from_json_string<Utf8TestData>(json);
@@ -1912,7 +2012,8 @@ bool test_utf8_mixed_content() {
     return true;
 }
 
-bool test_numeric_margin_removed_max_int64() {
+TEST_CASE(numeric_margin_removed_max_int64)
+{
     JsonValue j = static_cast<int64_t>(LLONG_MAX);
     int64_t result = 0;
     from_json(j, result);
@@ -1921,7 +2022,8 @@ bool test_numeric_margin_removed_max_int64() {
     return true;
 }
 
-bool test_numeric_margin_removed_overflow_detection() {
+TEST_CASE(numeric_margin_removed_overflow_detection)
+{
     JsonValue j = 9.223372036854776e18;
     int64_t result = 0;
     ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should throw on genuine overflow");
@@ -1929,7 +2031,8 @@ bool test_numeric_margin_removed_overflow_detection() {
     return true;
 }
 
-bool test_numeric_double_to_int_fractional() {
+TEST_CASE(numeric_double_to_int_fractional)
+{
     JsonValue j = 3.14;
     int result = 0;
     ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should throw on fractional value");
@@ -1937,7 +2040,8 @@ bool test_numeric_double_to_int_fractional() {
     return true;
 }
 
-bool test_numeric_double_to_unsigned_negative() {
+TEST_CASE(numeric_double_to_unsigned_negative)
+{
     JsonValue j = -1.0;
     unsigned int result = 0;
     ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should throw on negative to unsigned");
@@ -1945,7 +2049,8 @@ bool test_numeric_double_to_unsigned_negative() {
     return true;
 }
 
-bool test_numeric_all_primitives_from_double() {
+TEST_CASE(numeric_all_primitives_from_double)
+{
     SUBTEST("short from fractional") {
         JsonValue j = 3.14;
         short result = 0;
@@ -1977,7 +2082,8 @@ bool test_numeric_all_primitives_from_double() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_numeric_unsigned_negative_all_types() {
+TEST_CASE(numeric_unsigned_negative_all_types)
+{
     SUBTEST("unsigned int from negative") {
         JsonValue j = static_cast<int64_t>(-1);
         unsigned int result = 0;
@@ -2002,7 +2108,8 @@ bool test_numeric_unsigned_negative_all_types() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_int64_max_boundary() {
+TEST_CASE(int64_max_boundary)
+{
     SUBTEST("INT64_MAX exact value") {
         JsonValue j = static_cast<int64_t>(std::numeric_limits<int64_t>::max());
         int64_t result = 0;
@@ -2020,8 +2127,9 @@ bool test_int64_max_boundary() {
     END_SUBTEST
     
     SUBTEST("Just above INT64_MAX") {
-        double type_max_as_double = static_cast<double>(std::numeric_limits<int64_t>::max());
-        double just_above = std::nextafter(type_max_as_double, INFINITY);
+        constexpr double type_max_as_double = 
+            static_cast<double>(std::numeric_limits<int64_t>::max());
+        double just_above = type_max_as_double * 1.0000001;
         JsonValue j = just_above;
         int64_t result = 0;
         ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject value above INT64_MAX");
@@ -2038,7 +2146,8 @@ bool test_int64_max_boundary() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_int64_min_boundary() {
+TEST_CASE(int64_min_boundary)
+{
     SUBTEST("INT64_MIN exact value") {
         JsonValue j = static_cast<int64_t>(std::numeric_limits<int64_t>::min());
         int64_t result = 0;
@@ -2056,8 +2165,9 @@ bool test_int64_min_boundary() {
     END_SUBTEST
     
     SUBTEST("Just below INT64_MIN") {
-        double type_min_as_double = static_cast<double>(std::numeric_limits<int64_t>::min());
-        double just_below = std::nextafter(type_min_as_double, -INFINITY);
+        constexpr double type_min_as_double = 
+            static_cast<double>(std::numeric_limits<int64_t>::min());
+        double just_below = type_min_as_double * 1.0000001;
         JsonValue j = just_below;
         int64_t result = 0;
         ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject value below INT64_MIN");
@@ -2074,7 +2184,8 @@ bool test_int64_min_boundary() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_int32_boundaries() {
+TEST_CASE(int32_boundaries)
+{
     SUBTEST("INT32_MAX exact") {
         JsonValue j = static_cast<int64_t>(std::numeric_limits<int32_t>::max());
         int32_t result = 0;
@@ -2123,7 +2234,8 @@ bool test_int32_boundaries() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_int16_boundaries() {
+TEST_CASE(int16_boundaries)
+{
     SUBTEST("INT16_MAX exact") {
         JsonValue j = static_cast<int64_t>(std::numeric_limits<int16_t>::max());
         int16_t result = 0;
@@ -2157,7 +2269,8 @@ bool test_int16_boundaries() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_int8_boundaries() {
+TEST_CASE(int8_boundaries)
+{
     SUBTEST("INT8_MAX exact") {
         JsonValue j = static_cast<int64_t>(std::numeric_limits<int8_t>::max());
         int8_t result = 0;
@@ -2191,9 +2304,10 @@ bool test_int8_boundaries() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_uint64_boundaries() {
+TEST_CASE(uint64_boundaries)
+{
     SUBTEST("UINT64_MAX large value") {
-        JsonValue j = 18446744073709551615.0;
+        JsonValue j = static_cast<double>(std::numeric_limits<uint64_t>::max());
         uint64_t result = 0;
         ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should reject UINT64_MAX due to precision loss beyond 2^53");
     }
@@ -2225,7 +2339,8 @@ bool test_uint64_boundaries() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_uint32_boundaries() {
+TEST_CASE(uint32_boundaries)
+{
     SUBTEST("UINT32_MAX exact") {
         JsonValue j = static_cast<int64_t>(std::numeric_limits<uint32_t>::max());
         uint32_t result = 0;
@@ -2259,7 +2374,8 @@ bool test_uint32_boundaries() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_uint16_boundaries() {
+TEST_CASE(uint16_boundaries)
+{
     SUBTEST("UINT16_MAX exact") {
         JsonValue j = static_cast<int64_t>(std::numeric_limits<uint16_t>::max());
         uint16_t result = 0;
@@ -2285,7 +2401,8 @@ bool test_uint16_boundaries() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_uint8_boundaries() {
+TEST_CASE(uint8_boundaries)
+{
     SUBTEST("UINT8_MAX exact") {
         JsonValue j = static_cast<int64_t>(std::numeric_limits<uint8_t>::max());
         uint8_t result = 0;
@@ -2311,7 +2428,8 @@ bool test_uint8_boundaries() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_double_to_int_precision_edge_cases() {
+TEST_CASE(double_to_int_precision_edge_cases)
+{
     SUBTEST("Very small fractional part") {
         JsonValue j = 42.0000000001;
         int result = 0;
@@ -2344,10 +2462,12 @@ bool test_double_to_int_precision_edge_cases() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_overflow_detection_via_roundtrip() {
+TEST_CASE(overflow_detection_via_roundtrip)
+{
     SUBTEST("Int64 overflow detection") {
-        double type_max_as_double = static_cast<double>(std::numeric_limits<int64_t>::max());
-        double just_above = std::nextafter(type_max_as_double, INFINITY);
+        constexpr double type_max_as_double = 
+            static_cast<double>(std::numeric_limits<int64_t>::max());
+        double just_above = type_max_as_double * 1.0000001;
         JsonValue j = just_above;
         int64_t result = 0;
         ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should detect int64 overflow");
@@ -2355,8 +2475,9 @@ bool test_overflow_detection_via_roundtrip() {
     END_SUBTEST
     
     SUBTEST("Int64 underflow detection") {
-        double type_min_as_double = static_cast<double>(std::numeric_limits<int64_t>::min());
-        double just_below = std::nextafter(type_min_as_double, -INFINITY);
+        constexpr double type_min_as_double = 
+            static_cast<double>(std::numeric_limits<int64_t>::min());
+        double just_below = type_min_as_double * 1.0000001;
         JsonValue j = just_below;
         int64_t result = 0;
         ASSERT_THROWS(from_json(j, result), std::runtime_error, "Should detect int64 underflow");
@@ -2364,7 +2485,7 @@ bool test_overflow_detection_via_roundtrip() {
     END_SUBTEST
     
     SUBTEST("Unsigned long long overflow detection") {
-        JsonValue j = 1.8446744073709552e19;
+        JsonValue j = std::nextafter(static_cast<double>(std::numeric_limits<uint64_t>::max()), std::numeric_limits<double>::infinity());
         unsigned long long result = 0;
         ASSERT_THROWS(from_json(j, result), std::runtime_error, "Roundtrip should detect uint64 overflow");
     }
@@ -2381,7 +2502,8 @@ bool test_overflow_detection_via_roundtrip() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_signed_char_comprehensive() {
+TEST_CASE(signed_char_comprehensive)
+{
     SUBTEST("SCHAR_MAX exact") {
         JsonValue j = static_cast<int64_t>(std::numeric_limits<signed char>::max());
         signed char result = 0;
@@ -2430,7 +2552,8 @@ bool test_signed_char_comprehensive() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_unsigned_char_comprehensive() {
+TEST_CASE(unsigned_char_comprehensive)
+{
     SUBTEST("UCHAR_MAX exact") {
         JsonValue j = static_cast<int64_t>(std::numeric_limits<unsigned char>::max());
         unsigned char result = 0;
@@ -2472,7 +2595,8 @@ bool test_unsigned_char_comprehensive() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_short_comprehensive() {
+TEST_CASE(short_comprehensive)
+{
     SUBTEST("SHRT_MAX exact") {
         JsonValue j = static_cast<int64_t>(std::numeric_limits<short>::max());
         short result = 0;
@@ -2521,7 +2645,8 @@ bool test_short_comprehensive() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_unsigned_short_comprehensive() {
+TEST_CASE(unsigned_short_comprehensive)
+{
     SUBTEST("USHRT_MAX exact") {
         JsonValue j = static_cast<int64_t>(std::numeric_limits<unsigned short>::max());
         unsigned short result = 0;
@@ -2555,7 +2680,8 @@ bool test_unsigned_short_comprehensive() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_double_extreme_values() {
+TEST_CASE(double_extreme_values)
+{
     SUBTEST("Very large positive double") {
         JsonValue j = 1.7976931348623157e308;
         double result = 0.0;
@@ -2591,7 +2717,8 @@ bool test_double_extreme_values() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_float_boundaries() {
+TEST_CASE(float_boundaries)
+{
     SUBTEST("Float max value") {
         JsonValue j = 3.4028234663852886e38;
         float result = 0.0f;
@@ -2619,7 +2746,8 @@ bool test_float_boundaries() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_zero_and_negative_zero() {
+TEST_CASE(zero_and_negative_zero)
+{
     SUBTEST("Positive zero int") {
         JsonValue j = static_cast<int64_t>(0);
         int result = 1;
@@ -2647,7 +2775,8 @@ bool test_zero_and_negative_zero() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_long_and_long_long_boundaries() {
+TEST_CASE(long_and_long_long_boundaries)
+{
     SUBTEST("LONG_MAX exact") {
         JsonValue j = static_cast<int64_t>(std::numeric_limits<long>::max());
         long result = 0;
@@ -2683,7 +2812,8 @@ bool test_long_and_long_long_boundaries() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_unsigned_long_and_long_long_boundaries() {
+TEST_CASE(unsigned_long_and_long_long_boundaries)
+{
     SUBTEST("ULONG_MAX from int64") {
         JsonValue j = static_cast<int64_t>(std::numeric_limits<int64_t>::max());
         unsigned long result = 0;
@@ -2725,19 +2855,22 @@ bool test_unsigned_long_and_long_long_boundaries() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_nan_default_rejection() {
+TEST_CASE(nan_default_rejection)
+{
     std::string json = R"({"value": NaN})";
     ASSERT_THROWS(parse_json(json), std::runtime_error, "Standard policy should reject NaN");
     return true;
 }
 
-bool test_infinity_default_rejection() {
+TEST_CASE(infinity_default_rejection)
+{
     std::string json = R"({"value": Infinity})";
     ASSERT_THROWS(parse_json(json), std::runtime_error, "Standard policy should reject Infinity");
     return true;
 }
 
-bool test_nan_compat_acceptance() {
+TEST_CASE(nan_compat_acceptance)
+{
     std::string json = R"({"value": NaN})";
     JsonValue j = parse_json<CompatJsonPolicy>(json);
     ASSERT_TRUE(j.is_object(), "Should parse object with NaN");
@@ -2749,7 +2882,8 @@ bool test_nan_compat_acceptance() {
     return true;
 }
 
-bool test_infinity_compat_acceptance() {
+TEST_CASE(infinity_compat_acceptance)
+{
     std::string json = R"({"value": Infinity})";
     JsonValue j = parse_json<CompatJsonPolicy>(json);
     ASSERT_TRUE(j.is_object(), "Should parse object with Infinity");
@@ -2761,7 +2895,8 @@ bool test_infinity_compat_acceptance() {
     return true;
 }
 
-bool test_negative_infinity_compat() {
+TEST_CASE(negative_infinity_compat)
+{
     std::string json = R"({"value": -Infinity})";
     JsonValue j = parse_json<CompatJsonPolicy>(json);
     
@@ -2772,9 +2907,16 @@ bool test_negative_infinity_compat() {
     return true;
 }
 
-bool test_locale_independent_double_keys() {
-    std::locale original_locale = std::locale::global(std::locale::classic());
+TEST_CASE(locale_independent_double_keys)
+{
+    // RAII guard to ensure locale is always restored
+    struct LocaleGuard {
+        std::locale original;
+        LocaleGuard() : original(std::locale::global(std::locale::classic())) {}
+        ~LocaleGuard() { std::locale::global(original); }
+    } guard;
     
+    // Test with classic locale first (baseline)
     std::map<double, int> m;
     m[3.14] = 42;
     m[2.71] = 100;
@@ -2785,11 +2927,120 @@ bool test_locale_independent_double_keys() {
     ASSERT_EQ(result.size(), m.size(), "Map size should match");
     ASSERT_TRUE(result.count(3.14) > 0, "Should have key 3.14");
     
-    std::locale::global(original_locale);
+    // Now test with a locale that uses comma as decimal separator (if available)
+    // This verifies that our imbue(std::locale::classic()) fix works
+    try
+    {
+        // Try to set German locale (uses comma as decimal separator)
+        // Fall back gracefully if not available on this system
+        std::locale german_locale("de_DE.UTF-8");
+        std::locale::global(german_locale);
+        
+        // Serialize with German locale active - should still produce valid JSON with '.'
+        std::string json_german = to_json_string(m);
+        
+        // Verify the output contains '.' not ','
+        ASSERT_TRUE(json_german.find("3.14") != std::string::npos || 
+                    json_german.find("3,14") == std::string::npos,
+                    "JSON should use '.' decimal separator regardless of locale");
+        
+        // Round-trip should work
+        std::map<double, int> result_german = from_json_string<std::map<double, int>>(json_german);
+        ASSERT_EQ(result_german.size(), m.size(), "Map size should match after German locale test");
+    }
+    catch (const std::runtime_error&)
+    {
+        // German locale not available on this system - skip this part of test
+    }
+    
     return true;
 }
 
-bool test_container_empty_vector() {
+TEST_CASE(locale_independent_serialization)
+{
+    // RAII guard to ensure locale is always restored
+    struct LocaleGuard {
+        std::locale original;
+        LocaleGuard() : original(std::locale::global(std::locale::classic())) {}
+        ~LocaleGuard() { std::locale::global(original); }
+    } guard;
+    
+    // Test basic double serialization
+    double test_value = 3.14159;
+    
+    try
+    {
+        // Try to set a locale with comma decimal separator
+        std::locale comma_locale("de_DE.UTF-8");
+        std::locale::global(comma_locale);
+        
+        // Serialize - should produce "3.14159" not "3,14159"
+        std::string json = to_json_string(test_value);
+        
+        // The JSON must contain a period, not a comma for decimal
+        ASSERT_TRUE(json.find('.') != std::string::npos, 
+                    "Double serialization should use '.' regardless of locale");
+        ASSERT_TRUE(json.find(',') == std::string::npos,
+                    "Double serialization should not use ',' as decimal separator");
+        
+        // Parse it back
+        double parsed = from_json_string<double>(json);
+        ASSERT_CLOSE_EPS(parsed, test_value, 0.00001, "Round-trip should preserve value");
+    }
+    catch (const std::runtime_error&)
+    {
+        // Locale not available - test passes by default since we can't test it
+    }
+    
+    return true;
+}
+
+TEST_CASE(locale_independent_parsing)
+{
+    // RAII guard to ensure locale is always restored
+    struct LocaleGuard {
+        std::locale original;
+        LocaleGuard() : original(std::locale::global(std::locale::classic())) {}
+        ~LocaleGuard() { std::locale::global(original); }
+    } guard;
+    
+    try
+    {
+        // Try to set a locale with comma decimal separator
+        std::locale comma_locale("de_DE.UTF-8");
+        std::locale::global(comma_locale);
+        
+        // Parse JSON containing floating point numbers
+        // This should work regardless of locale because from_chars is locale-independent
+        std::string json = R"({"value": 3.14159, "array": [1.5, 2.5, 3.5]})";
+        auto parsed = parse_json(json);
+        
+        // Verify the values were parsed correctly
+        ASSERT_TRUE(parsed.is_object(), "Should parse as object");
+        
+        auto& obj = std::get<JsonObject>(parsed);
+        ASSERT_TRUE(obj.count("value") > 0, "Should have 'value' key");
+        
+        double value = from_json<double>(obj["value"]);
+        ASSERT_CLOSE_EPS(value, 3.14159, 0.00001, "Value should be parsed correctly");
+        
+        // Check array values
+        auto arr = from_json<std::vector<double>>(obj["array"]);
+        ASSERT_EQ(arr.size(), 3u, "Array should have 3 elements");
+        ASSERT_CLOSE_EPS(arr[0], 1.5, 0.001, "First element should be 1.5");
+        ASSERT_CLOSE_EPS(arr[1], 2.5, 0.001, "Second element should be 2.5");
+        ASSERT_CLOSE_EPS(arr[2], 3.5, 0.001, "Third element should be 3.5");
+    }
+    catch (const std::runtime_error&)
+    {
+        // Locale not available - test passes by default
+    }
+    
+    return true;
+}
+
+TEST_CASE(container_empty_vector)
+{
     JsonArray arr;
     std::vector<int> vec;
     from_json(arr, vec);
@@ -2798,7 +3049,8 @@ bool test_container_empty_vector() {
     return true;
 }
 
-bool test_container_empty_set() {
+TEST_CASE(container_empty_set)
+{
     JsonArray arr;
     std::set<int> s;
     from_json(arr, s);
@@ -2807,7 +3059,8 @@ bool test_container_empty_set() {
     return true;
 }
 
-bool test_container_empty_deque() {
+TEST_CASE(container_empty_deque)
+{
     JsonArray arr;
     std::deque<int> d;
     from_json(arr, d);
@@ -2816,7 +3069,8 @@ bool test_container_empty_deque() {
     return true;
 }
 
-bool test_save_params_with_backup() {
+TEST_CASE(save_params_with_backup)
+{
     Point p1{10, 20};
     save_params("backup_test.json", p1);
     
@@ -2837,7 +3091,8 @@ bool test_save_params_with_backup() {
     return true;
 }
 
-bool test_save_params_with_custom_backup_suffix() {
+TEST_CASE(save_params_with_custom_backup_suffix)
+{
     Point p1{5, 15};
     save_params("custom_backup.json", p1);
     
@@ -2851,7 +3106,8 @@ bool test_save_params_with_custom_backup_suffix() {
     return true;
 }
 
-bool test_json_pointer_basic_navigation() {
+TEST_CASE(json_pointer_basic_navigation)
+{
     SUBTEST("object navigation") {
         JsonValue doc = parse_json(R"({
             "database": {
@@ -2894,7 +3150,8 @@ bool test_json_pointer_basic_navigation() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_pointer_escape_sequences() {
+TEST_CASE(json_pointer_escape_sequences)
+{
     SUBTEST("tilde escape ~0") {
         JsonValue doc = parse_json(R"({"a~b": "value1"})");
         const JsonValue& val = query_json_pointer(doc, "/a~0b");
@@ -2919,7 +3176,8 @@ bool test_json_pointer_escape_sequences() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_pointer_type_safe() {
+TEST_CASE(json_pointer_type_safe)
+{
     JsonValue doc = parse_json(R"({
         "database": {
             "host": "localhost",
@@ -2953,7 +3211,8 @@ bool test_json_pointer_type_safe() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_pointer_mutable() {
+TEST_CASE(json_pointer_mutable)
+{
     JsonValue doc = parse_json(R"({
         "config": {
             "port": 8080,
@@ -2983,7 +3242,8 @@ bool test_json_pointer_mutable() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_pointer_complex_nested() {
+TEST_CASE(json_pointer_complex_nested)
+{
     JsonValue doc = parse_json(R"({
         "level1": {
             "level2": {
@@ -3014,7 +3274,8 @@ bool test_json_pointer_complex_nested() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_pointer_errors() {
+TEST_CASE(json_pointer_errors)
+{
     SUBTEST("invalid pointer no leading slash") {
         JsonValue doc = parse_json(R"({"key": "value"})");
         ASSERT_THROWS(
@@ -3098,7 +3359,8 @@ bool test_json_pointer_errors() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_pointer_edge_cases() {
+TEST_CASE(json_pointer_edge_cases)
+{
     SUBTEST("empty object key") {
         JsonValue doc = parse_json(R"({"": "empty_key"})");
         std::string val = query_json_as<std::string>(doc, "/");
@@ -3126,7 +3388,8 @@ bool test_json_pointer_edge_cases() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_pointer_with_structs() {
+TEST_CASE(json_pointer_with_structs)
+{
     SUBTEST("extract custom struct from pointer") {
         JsonValue doc = parse_json(R"({
             "database": {
@@ -3148,7 +3411,8 @@ bool test_json_pointer_with_structs() {
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
 
-bool test_json_pointer_rfc6901_examples() {
+TEST_CASE(json_pointer_rfc6901_examples)
+{
     JsonValue doc = parse_json(R"({
         "foo": ["bar", "baz"],
         "": 0,
@@ -3238,190 +3502,198 @@ void benchmark_jsonlite() {
     std::cout << "Round-trip complex struct: " << format_time(complex_struct_time) << "\n";
 }
 
-bool test_JsonLite() {
+} // namespace fat_p::testing::jsonlite
+
+namespace fat_p::testing
+{
+
+bool test_JsonLite()
+{
     PRINT_HEADER(JSON LITE)
     
     TestRunner runner;
     
-    RUN_TEST(runner, json_lite_basic_types);
+    RUN_TEST_NS(runner, jsonlite, json_lite_basic_types);
     
-    RUN_TEST(runner, json_lite_int8);
-    RUN_TEST(runner, json_lite_int16);
-    RUN_TEST(runner, json_lite_int32);
-    RUN_TEST(runner, json_lite_int64);
-    RUN_TEST(runner, json_lite_uint8);
-    RUN_TEST(runner, json_lite_uint16);
-    RUN_TEST(runner, json_lite_uint32);
-    RUN_TEST(runner, json_lite_uint64);
-    RUN_TEST(runner, json_lite_float_types);
-    RUN_TEST(runner, json_lite_numeric_edge_cases);
-    RUN_TEST(runner, json_lite_fixed_width_int8);
-    RUN_TEST(runner, json_lite_fixed_width_int16);
-    RUN_TEST(runner, json_lite_fixed_width_int32);
-    RUN_TEST(runner, json_lite_fixed_width_int64);
-    RUN_TEST(runner, json_lite_fixed_width_uint8);
-    RUN_TEST(runner, json_lite_fixed_width_uint16);
-    RUN_TEST(runner, json_lite_fixed_width_uint32);
-    RUN_TEST(runner, json_lite_fixed_width_uint64);
-    RUN_TEST(runner, json_lite_size_t_type);
-    RUN_TEST(runner, json_lite_ptrdiff_t_type);
+    RUN_TEST_NS(runner, jsonlite, json_lite_int8);
+    RUN_TEST_NS(runner, jsonlite, json_lite_int16);
+    RUN_TEST_NS(runner, jsonlite, json_lite_int32);
+    RUN_TEST_NS(runner, jsonlite, json_lite_int64);
+    RUN_TEST_NS(runner, jsonlite, json_lite_uint8);
+    RUN_TEST_NS(runner, jsonlite, json_lite_uint16);
+    RUN_TEST_NS(runner, jsonlite, json_lite_uint32);
+    RUN_TEST_NS(runner, jsonlite, json_lite_uint64);
+    RUN_TEST_NS(runner, jsonlite, json_lite_float_types);
+    RUN_TEST_NS(runner, jsonlite, json_lite_numeric_edge_cases);
+    RUN_TEST_NS(runner, jsonlite, json_lite_fixed_width_int8);
+    RUN_TEST_NS(runner, jsonlite, json_lite_fixed_width_int16);
+    RUN_TEST_NS(runner, jsonlite, json_lite_fixed_width_int32);
+    RUN_TEST_NS(runner, jsonlite, json_lite_fixed_width_int64);
+    RUN_TEST_NS(runner, jsonlite, json_lite_fixed_width_uint8);
+    RUN_TEST_NS(runner, jsonlite, json_lite_fixed_width_uint16);
+    RUN_TEST_NS(runner, jsonlite, json_lite_fixed_width_uint32);
+    RUN_TEST_NS(runner, jsonlite, json_lite_fixed_width_uint64);
+    RUN_TEST_NS(runner, jsonlite, json_lite_size_t_type);
+    RUN_TEST_NS(runner, jsonlite, json_lite_ptrdiff_t_type);
     
-    RUN_TEST(runner, json_lite_string_escaping);
-    RUN_TEST(runner, json_lite_string_empty);
-    RUN_TEST(runner, json_lite_string_whitespace);
-    RUN_TEST(runner, json_lite_string_special_chars);
-    RUN_TEST(runner, json_lite_string_unicode);
-    RUN_TEST(runner, json_lite_string_long);
+    RUN_TEST_NS(runner, jsonlite, json_lite_string_escaping);
+    RUN_TEST_NS(runner, jsonlite, json_lite_string_empty);
+    RUN_TEST_NS(runner, jsonlite, json_lite_string_whitespace);
+    RUN_TEST_NS(runner, jsonlite, json_lite_string_special_chars);
+    RUN_TEST_NS(runner, jsonlite, json_lite_string_unicode);
+    RUN_TEST_NS(runner, jsonlite, json_lite_string_long);
     
-    RUN_TEST(runner, json_lite_containers);
-    RUN_TEST(runner, json_lite_vector_empty);
-    RUN_TEST(runner, json_lite_vector_single);
-    RUN_TEST(runner, json_lite_set);
-    RUN_TEST(runner, json_lite_map_empty);
-    RUN_TEST(runner, json_lite_map_numeric_keys);
-    RUN_TEST(runner, json_lite_nested_vectors);
-    RUN_TEST(runner, json_lite_mixed_nested);
-    RUN_TEST(runner, json_lite_array);
-    RUN_TEST(runner, json_lite_unordered_set);
-    RUN_TEST(runner, json_lite_unordered_map);
-    RUN_TEST(runner, json_lite_deque);
-    RUN_TEST(runner, json_lite_list);
-    RUN_TEST(runner, json_lite_string_view);
+    RUN_TEST_NS(runner, jsonlite, json_lite_containers);
+    RUN_TEST_NS(runner, jsonlite, json_lite_vector_empty);
+    RUN_TEST_NS(runner, jsonlite, json_lite_vector_single);
+    RUN_TEST_NS(runner, jsonlite, json_lite_set);
+    RUN_TEST_NS(runner, jsonlite, json_lite_map_empty);
+    RUN_TEST_NS(runner, jsonlite, json_lite_map_numeric_keys);
+    RUN_TEST_NS(runner, jsonlite, json_lite_nested_vectors);
+    RUN_TEST_NS(runner, jsonlite, json_lite_mixed_nested);
+    RUN_TEST_NS(runner, jsonlite, json_lite_array);
+    RUN_TEST_NS(runner, jsonlite, json_lite_unordered_set);
+    RUN_TEST_NS(runner, jsonlite, json_lite_unordered_map);
+    RUN_TEST_NS(runner, jsonlite, json_lite_deque);
+    RUN_TEST_NS(runner, jsonlite, json_lite_list);
+    RUN_TEST_NS(runner, jsonlite, json_lite_string_view);
     
-    RUN_TEST(runner, json_lite_optional);
-    RUN_TEST(runner, json_lite_optional_string);
-    RUN_TEST(runner, json_lite_optional_vector);
+    RUN_TEST_NS(runner, jsonlite, json_lite_optional);
+    RUN_TEST_NS(runner, jsonlite, json_lite_optional_string);
+    RUN_TEST_NS(runner, jsonlite, json_lite_optional_vector);
     
-    RUN_TEST(runner, json_lite_tuples_pairs);
-    RUN_TEST(runner, json_lite_pair_nested);
-    RUN_TEST(runner, json_lite_tuple_large);
+    RUN_TEST_NS(runner, jsonlite, json_lite_tuples_pairs);
+    RUN_TEST_NS(runner, jsonlite, json_lite_pair_nested);
+    RUN_TEST_NS(runner, jsonlite, json_lite_tuple_large);
     
-    RUN_TEST(runner, json_lite_simple_struct);
-    RUN_TEST(runner, json_lite_complex_struct);
-    RUN_TEST(runner, json_lite_optional_fields);
-    RUN_TEST(runner, json_lite_intrusive_serialization);
-    RUN_TEST(runner, json_lite_nested_structs);
-    RUN_TEST(runner, json_lite_complex_nested);
-    RUN_TEST(runner, json_lite_deep_hierarchy);
+    RUN_TEST_NS(runner, jsonlite, json_lite_simple_struct);
+    RUN_TEST_NS(runner, jsonlite, json_lite_complex_struct);
+    RUN_TEST_NS(runner, jsonlite, json_lite_optional_fields);
+    RUN_TEST_NS(runner, jsonlite, json_lite_intrusive_serialization);
+    RUN_TEST_NS(runner, jsonlite, json_lite_nested_structs);
+    RUN_TEST_NS(runner, jsonlite, json_lite_complex_nested);
+    RUN_TEST_NS(runner, jsonlite, json_lite_deep_hierarchy);
     
-    RUN_TEST(runner, json_lite_parser_basic);
-    RUN_TEST(runner, json_lite_parser_containers);
-    RUN_TEST(runner, json_lite_parser_edge_cases);
-    RUN_TEST(runner, json_lite_parser_numbers);
-    RUN_TEST(runner, json_lite_parser_strings);
-    RUN_TEST(runner, json_lite_parser_nested);
-    RUN_TEST(runner, json_lite_parser_errors);
-    RUN_TEST(runner, json_lite_parser_literals);
-    RUN_TEST(runner, json_lite_parser_unicode);
+    RUN_TEST_NS(runner, jsonlite, json_lite_parser_basic);
+    RUN_TEST_NS(runner, jsonlite, json_lite_parser_containers);
+    RUN_TEST_NS(runner, jsonlite, json_lite_parser_edge_cases);
+    RUN_TEST_NS(runner, jsonlite, json_lite_parser_numbers);
+    RUN_TEST_NS(runner, jsonlite, json_lite_parser_strings);
+    RUN_TEST_NS(runner, jsonlite, json_lite_parser_nested);
+    RUN_TEST_NS(runner, jsonlite, json_lite_parser_errors);
+    RUN_TEST_NS(runner, jsonlite, json_lite_parser_literals);
+    RUN_TEST_NS(runner, jsonlite, json_lite_parser_unicode);
     
-    RUN_TEST(runner, json_lite_pretty_print);
-    RUN_TEST(runner, json_lite_numeric_precision);
-    RUN_TEST(runner, json_lite_nan_inf_handling);
-    RUN_TEST(runner, json_lite_standard_policy_nan);
+    RUN_TEST_NS(runner, jsonlite, json_lite_pretty_print);
+    RUN_TEST_NS(runner, jsonlite, json_lite_numeric_precision);
+    RUN_TEST_NS(runner, jsonlite, json_lite_nan_inf_handling);
+    RUN_TEST_NS(runner, jsonlite, json_lite_standard_policy_nan);
     
-    RUN_TEST(runner, json_lite_file_io);
-    RUN_TEST(runner, json_lite_file_io_complex);
-    RUN_TEST(runner, json_lite_file_io_errors);
+    RUN_TEST_NS(runner, jsonlite, json_lite_file_io);
+    RUN_TEST_NS(runner, jsonlite, json_lite_file_io_complex);
+    RUN_TEST_NS(runner, jsonlite, json_lite_file_io_errors);
     
-    RUN_TEST(runner, json_lite_roundtrip_all_types);
-    RUN_TEST(runner, json_lite_convenience_functions);
-    RUN_TEST(runner, json_lite_value_returning_from_json);
-    RUN_TEST(runner, json_lite_roundtrip_vectors);
-    RUN_TEST(runner, json_lite_roundtrip_maps);
+    RUN_TEST_NS(runner, jsonlite, json_lite_roundtrip_all_types);
+    RUN_TEST_NS(runner, jsonlite, json_lite_convenience_functions);
+    RUN_TEST_NS(runner, jsonlite, json_lite_value_returning_from_json);
+    RUN_TEST_NS(runner, jsonlite, json_lite_roundtrip_vectors);
+    RUN_TEST_NS(runner, jsonlite, json_lite_roundtrip_maps);
     
-    RUN_TEST(runner, json_lite_large_data);
-    RUN_TEST(runner, json_lite_deeply_nested);
-    RUN_TEST(runner, json_lite_large_strings);
-    RUN_TEST(runner, json_lite_large_map);
+    RUN_TEST_NS(runner, jsonlite, json_lite_large_data);
+    RUN_TEST_NS(runner, jsonlite, json_lite_deeply_nested);
+    RUN_TEST_NS(runner, jsonlite, json_lite_large_strings);
+    RUN_TEST_NS(runner, jsonlite, json_lite_large_map);
     
-    RUN_TEST(runner, json_lite_depth_limit_parse);
-    RUN_TEST(runner, json_lite_depth_limit_dump);
-    RUN_TEST(runner, json_lite_range_checks);
-    RUN_TEST(runner, json_lite_range_int8);
-    RUN_TEST(runner, json_lite_better_error_messages);
-    RUN_TEST(runner, json_lite_param_helpers);
-    RUN_TEST(runner, json_lite_position_in_errors);
-    RUN_TEST(runner, json_lite_error_messages_comprehensive);
+    RUN_TEST_NS(runner, jsonlite, json_lite_depth_limit_parse);
+    RUN_TEST_NS(runner, jsonlite, json_lite_depth_limit_dump);
+    RUN_TEST_NS(runner, jsonlite, json_lite_range_checks);
+    RUN_TEST_NS(runner, jsonlite, json_lite_range_int8);
+    RUN_TEST_NS(runner, jsonlite, json_lite_better_error_messages);
+    RUN_TEST_NS(runner, jsonlite, json_lite_param_helpers);
+    RUN_TEST_NS(runner, jsonlite, json_lite_position_in_errors);
+    RUN_TEST_NS(runner, jsonlite, json_lite_error_messages_comprehensive);
     
-    RUN_TEST(runner, json_lite_field_limit);
-    RUN_TEST(runner, json_lite_bug2_name_collision);
-    RUN_TEST(runner, json_lite_bug2_collision_prevention);
-    RUN_TEST(runner, json_lite_numeric_formatting);
-    RUN_TEST(runner, json_lite_bug4_error_context);
-    RUN_TEST(runner, json_lite_bug5_fixed_arrays);
-    RUN_TEST(runner, json_lite_bug6_policy_incompatibility);
-    RUN_TEST(runner, json_lite_bug6_policy_fix_verification);
+    RUN_TEST_NS(runner, jsonlite, json_lite_field_limit);
+    RUN_TEST_NS(runner, jsonlite, json_lite_bug2_name_collision);
+    RUN_TEST_NS(runner, jsonlite, json_lite_bug2_collision_prevention);
+    RUN_TEST_NS(runner, jsonlite, json_lite_numeric_formatting);
+    RUN_TEST_NS(runner, jsonlite, json_lite_bug4_error_context);
+    RUN_TEST_NS(runner, jsonlite, json_lite_bug5_fixed_arrays);
+    RUN_TEST_NS(runner, jsonlite, json_lite_bug6_policy_incompatibility);
+    RUN_TEST_NS(runner, jsonlite, json_lite_bug6_policy_fix_verification);
     
-    RUN_TEST(runner, jsonc_line_comments);
-    RUN_TEST(runner, jsonc_block_comments);
-    RUN_TEST(runner, jsonc_comment_edge_cases);
-    RUN_TEST(runner, jsonc_strict_mode_rejection);
+    RUN_TEST_NS(runner, jsonlite, jsonc_line_comments);
+    RUN_TEST_NS(runner, jsonlite, jsonc_block_comments);
+    RUN_TEST_NS(runner, jsonlite, jsonc_comment_edge_cases);
+    RUN_TEST_NS(runner, jsonlite, jsonc_strict_mode_rejection);
     
-    RUN_TEST(runner, utf8_european_chars_escaped);
-    RUN_TEST(runner, utf8_asian_chars_escaped);
-    RUN_TEST(runner, utf8_emoji_surrogate_pairs);
-    RUN_TEST(runner, utf8_raw_passthrough);
-    RUN_TEST(runner, utf8_mixed_content);
+    RUN_TEST_NS(runner, jsonlite, utf8_european_chars_escaped);
+    RUN_TEST_NS(runner, jsonlite, utf8_asian_chars_escaped);
+    RUN_TEST_NS(runner, jsonlite, utf8_emoji_surrogate_pairs);
+    RUN_TEST_NS(runner, jsonlite, utf8_raw_passthrough);
+    RUN_TEST_NS(runner, jsonlite, utf8_mixed_content);
     
-    RUN_TEST(runner, numeric_margin_removed_max_int64);
-    RUN_TEST(runner, numeric_margin_removed_overflow_detection);
-    RUN_TEST(runner, numeric_double_to_int_fractional);
-    RUN_TEST(runner, numeric_double_to_unsigned_negative);
-    RUN_TEST(runner, numeric_all_primitives_from_double);
-    RUN_TEST(runner, numeric_unsigned_negative_all_types);
+    RUN_TEST_NS(runner, jsonlite, numeric_margin_removed_max_int64);
+    RUN_TEST_NS(runner, jsonlite, numeric_margin_removed_overflow_detection);
+    RUN_TEST_NS(runner, jsonlite, numeric_double_to_int_fractional);
+    RUN_TEST_NS(runner, jsonlite, numeric_double_to_unsigned_negative);
+    RUN_TEST_NS(runner, jsonlite, numeric_all_primitives_from_double);
+    RUN_TEST_NS(runner, jsonlite, numeric_unsigned_negative_all_types);
     
-    RUN_TEST(runner, int64_max_boundary);
-    RUN_TEST(runner, int64_min_boundary);
-    RUN_TEST(runner, int32_boundaries);
-    RUN_TEST(runner, int16_boundaries);
-    RUN_TEST(runner, int8_boundaries);
-    RUN_TEST(runner, uint64_boundaries);
-    RUN_TEST(runner, uint32_boundaries);
-    RUN_TEST(runner, uint16_boundaries);
-    RUN_TEST(runner, uint8_boundaries);
-    RUN_TEST(runner, double_to_int_precision_edge_cases);
-    RUN_TEST(runner, overflow_detection_via_roundtrip);
-    RUN_TEST(runner, signed_char_comprehensive);
-    RUN_TEST(runner, unsigned_char_comprehensive);
-    RUN_TEST(runner, short_comprehensive);
-    RUN_TEST(runner, unsigned_short_comprehensive);
-    RUN_TEST(runner, double_extreme_values);
-    RUN_TEST(runner, float_boundaries);
-    RUN_TEST(runner, zero_and_negative_zero);
-    RUN_TEST(runner, long_and_long_long_boundaries);
-    RUN_TEST(runner, unsigned_long_and_long_long_boundaries);
+    RUN_TEST_NS(runner, jsonlite, int64_max_boundary);
+    RUN_TEST_NS(runner, jsonlite, int64_min_boundary);
+    RUN_TEST_NS(runner, jsonlite, int32_boundaries);
+    RUN_TEST_NS(runner, jsonlite, int16_boundaries);
+    RUN_TEST_NS(runner, jsonlite, int8_boundaries);
+    RUN_TEST_NS(runner, jsonlite, uint64_boundaries);
+    RUN_TEST_NS(runner, jsonlite, uint32_boundaries);
+    RUN_TEST_NS(runner, jsonlite, uint16_boundaries);
+    RUN_TEST_NS(runner, jsonlite, uint8_boundaries);
+    RUN_TEST_NS(runner, jsonlite, double_to_int_precision_edge_cases);
+    RUN_TEST_NS(runner, jsonlite, overflow_detection_via_roundtrip);
+    RUN_TEST_NS(runner, jsonlite, signed_char_comprehensive);
+    RUN_TEST_NS(runner, jsonlite, unsigned_char_comprehensive);
+    RUN_TEST_NS(runner, jsonlite, short_comprehensive);
+    RUN_TEST_NS(runner, jsonlite, unsigned_short_comprehensive);
+    RUN_TEST_NS(runner, jsonlite, double_extreme_values);
+    RUN_TEST_NS(runner, jsonlite, float_boundaries);
+    RUN_TEST_NS(runner, jsonlite, zero_and_negative_zero);
+    RUN_TEST_NS(runner, jsonlite, long_and_long_long_boundaries);
+    RUN_TEST_NS(runner, jsonlite, unsigned_long_and_long_long_boundaries);
     
-    RUN_TEST(runner, nan_default_rejection);
-    RUN_TEST(runner, infinity_default_rejection);
-    RUN_TEST(runner, nan_compat_acceptance);
-    RUN_TEST(runner, infinity_compat_acceptance);
-    RUN_TEST(runner, negative_infinity_compat);
+    RUN_TEST_NS(runner, jsonlite, nan_default_rejection);
+    RUN_TEST_NS(runner, jsonlite, infinity_default_rejection);
+    RUN_TEST_NS(runner, jsonlite, nan_compat_acceptance);
+    RUN_TEST_NS(runner, jsonlite, infinity_compat_acceptance);
+    RUN_TEST_NS(runner, jsonlite, negative_infinity_compat);
     
-    RUN_TEST(runner, locale_independent_double_keys);
+    RUN_TEST_NS(runner, jsonlite, locale_independent_double_keys);
+    RUN_TEST_NS(runner, jsonlite, locale_independent_serialization);
+    RUN_TEST_NS(runner, jsonlite, locale_independent_parsing);
     
-    RUN_TEST(runner, container_empty_vector);
-    RUN_TEST(runner, container_empty_set);
-    RUN_TEST(runner, container_empty_deque);
+    RUN_TEST_NS(runner, jsonlite, container_empty_vector);
+    RUN_TEST_NS(runner, jsonlite, container_empty_set);
+    RUN_TEST_NS(runner, jsonlite, container_empty_deque);
     
-    RUN_TEST(runner, save_params_with_backup);
-    RUN_TEST(runner, save_params_with_custom_backup_suffix);
+    RUN_TEST_NS(runner, jsonlite, save_params_with_backup);
+    RUN_TEST_NS(runner, jsonlite, save_params_with_custom_backup_suffix);
     
-    RUN_TEST(runner, json_pointer_basic_navigation);
-    RUN_TEST(runner, json_pointer_escape_sequences);
-    RUN_TEST(runner, json_pointer_type_safe);
-    RUN_TEST(runner, json_pointer_mutable);
-    RUN_TEST(runner, json_pointer_complex_nested);
-    RUN_TEST(runner, json_pointer_errors);
-    RUN_TEST(runner, json_pointer_edge_cases);
-    RUN_TEST(runner, json_pointer_with_structs);
-    RUN_TEST(runner, json_pointer_rfc6901_examples);
+    RUN_TEST_NS(runner, jsonlite, json_pointer_basic_navigation);
+    RUN_TEST_NS(runner, jsonlite, json_pointer_escape_sequences);
+    RUN_TEST_NS(runner, jsonlite, json_pointer_type_safe);
+    RUN_TEST_NS(runner, jsonlite, json_pointer_mutable);
+    RUN_TEST_NS(runner, jsonlite, json_pointer_complex_nested);
+    RUN_TEST_NS(runner, jsonlite, json_pointer_errors);
+    RUN_TEST_NS(runner, jsonlite, json_pointer_edge_cases);
+    RUN_TEST_NS(runner, jsonlite, json_pointer_with_structs);
+    RUN_TEST_NS(runner, jsonlite, json_pointer_rfc6901_examples);
     
-    benchmark_jsonlite();
+    jsonlite::benchmark_jsonlite();
     
     return 0 == runner.print_summary();
 }
 
-}
+} // namespace fat_p::testing
 
 #ifdef ENABLE_TEST_APPLICATION
 int main()

@@ -50,6 +50,7 @@
 #include <cmath>
 #include <climits>
 #include <limits>
+#include <clocale>
 
 #include "FatPJsonLite.h"
 #include "FatPTest.h"
@@ -179,7 +180,11 @@ struct EnumStringPolicy<testing::Color> {
 
 }
 
-namespace fat_p::testing {
+namespace fat_p::testing::fatpjsonlite {
+
+USING_FATP_JSON_LITE()
+
+using namespace std::chrono;
 
 struct Task {
     std::string name;
@@ -248,7 +253,7 @@ std::string generate_repeated_keys_json(size_t num_objects) {
     return oss.str();
 }
 
-bool test_fpjl_expected_api_basic() {
+TEST_CASE(expected_api_basic) {
     SUBTEST("Valid JSON parsing") {
         std::string json = R"({"name":"Alice","age":30,"active":true})";
         auto result = try_parse_json(json);
@@ -285,10 +290,10 @@ bool test_fpjl_expected_api_basic() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_expected_api_types() {
+TEST_CASE(expected_api_types) {
     SUBTEST("Parse null") {
         auto result = try_parse_json("null");
         ASSERT_TRUE(result.has_value(), "Should parse null");
@@ -355,10 +360,10 @@ bool test_fpjl_expected_api_types() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_error_handling() {
+TEST_CASE(error_handling) {
     SUBTEST("Parse error with position") {
         std::string json = R"({"key": invalid})";
         auto result = try_parse_json(json);
@@ -396,10 +401,144 @@ bool test_fpjl_error_handling() {
     }
     END_SUBTEST
     
-    return true;
+    SUBTEST("Unknown error code streaming") {
+        std::ostringstream oss;
+        oss << JsonErrorCode::Unknown;
+        ASSERT_EQ(oss.str(), "Unknown", "Should stream as Unknown");
+    }
+    END_SUBTEST
+    
+    SUBTEST("JsonError with Unknown code") {
+        JsonError err{JsonErrorCode::Unknown, "Some unexpected error", 0, "context"};
+        std::string str = err.to_string();
+        ASSERT_TRUE(str.find("Unknown") != std::string::npos, "Should contain Unknown");
+    }
+    END_SUBTEST
+    
+    SUBTEST("NumericOverflow error code") {
+        JsonValue j = static_cast<int64_t>(1000);
+        auto result = safe_from_json_numeric<int8_t>(j);
+        ASSERT_FALSE(result.has_value(), "Should fail");
+        ASSERT_EQ(result.error().code, JsonErrorCode::NumericOverflow, "Should be overflow");
+    }
+    END_SUBTEST
+    
+    SUBTEST("FileError error code") {
+        auto result = try_load_json("/nonexistent/path/file.json");
+        ASSERT_FALSE(result.has_value(), "Should fail");
+        ASSERT_EQ(result.error().code, JsonErrorCode::FileError, "Should be file error");
+    }
+    END_SUBTEST
+    
+    SUBTEST("ExtraData error code") {
+        std::string json = R"({"a":1} extra stuff)";
+        auto result = try_parse_json(json);
+        ASSERT_FALSE(result.has_value(), "Should fail with extra data");
+        ASSERT_EQ(result.error().code, JsonErrorCode::ExtraData, "Should be extra data error");
+    }
+    END_SUBTEST
+    
+    SUBTEST("RangeError via invalid array index") {
+        auto result = try_parse_json("[1,2,3]");
+        ASSERT_TRUE(result.has_value(), "Should parse");
+        auto ptr_result = try_query_json_pointer(*result, "/999");
+        ASSERT_FALSE(ptr_result.has_value(), "Should fail for out-of-bounds");
+        // JSON pointer returns TypeError for navigation errors
+        ASSERT_EQ(ptr_result.error().code, JsonErrorCode::TypeError, "Should be type error");
+    }
+    END_SUBTEST
+    
+    SUBTEST("MissingField via invalid key") {
+        auto result = try_parse_json(R"({"a":1})");
+        ASSERT_TRUE(result.has_value(), "Should parse");
+        auto ptr_result = try_query_json_pointer(*result, "/nonexistent");
+        ASSERT_FALSE(ptr_result.has_value(), "Should fail for missing key");
+        // JSON pointer returns TypeError for navigation errors
+        ASSERT_EQ(ptr_result.error().code, JsonErrorCode::TypeError, "Should be type error");
+    }
+    END_SUBTEST
+    
+    SUBTEST("All JsonErrorCode values stream correctly") {
+        std::ostringstream oss;
+        oss << JsonErrorCode::Success << ",";
+        oss << JsonErrorCode::ParseError << ",";
+        oss << JsonErrorCode::TypeError << ",";
+        oss << JsonErrorCode::RangeError << ",";
+        oss << JsonErrorCode::FileError << ",";
+        oss << JsonErrorCode::DepthExceeded << ",";
+        oss << JsonErrorCode::MemoryError << ",";
+        oss << JsonErrorCode::InvalidUtf8 << ",";
+        oss << JsonErrorCode::NumericOverflow << ",";
+        oss << JsonErrorCode::MissingField << ",";
+        oss << JsonErrorCode::ExtraData << ",";
+        oss << JsonErrorCode::Unknown;
+        
+        std::string all = oss.str();
+        ASSERT_TRUE(all.find("Success") != std::string::npos, "Should have Success");
+        ASSERT_TRUE(all.find("ParseError") != std::string::npos, "Should have ParseError");
+        ASSERT_TRUE(all.find("TypeError") != std::string::npos, "Should have TypeError");
+        ASSERT_TRUE(all.find("Unknown") != std::string::npos, "Should have Unknown");
+    }
+    END_SUBTEST
+    
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_safe_numeric_conversions() {
+TEST_CASE(json_stats) {
+    SUBTEST("Default initialization") {
+        JsonStats stats;
+        ASSERT_EQ(stats.parse_count, 0U, "Default parse_count should be 0");
+        ASSERT_EQ(stats.serialize_count, 0U, "Default serialize_count should be 0");
+        ASSERT_CLOSE(stats.avg_parse_time_ms(), 0.0, "Default avg parse time should be 0");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Average calculations") {
+        JsonStats stats;
+        stats.parse_count = 10;
+        stats.total_parse_time_ms = 100.0;
+        stats.serialize_count = 5;
+        stats.total_serialize_time_ms = 25.0;
+        
+        ASSERT_CLOSE(stats.avg_parse_time_ms(), 10.0, "Avg parse time should be 10ms");
+        ASSERT_CLOSE(stats.avg_serialize_time_ms(), 5.0, "Avg serialize time should be 5ms");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Throughput calculation") {
+        JsonStats stats;
+        stats.total_bytes_parsed = 1024 * 1024;
+        stats.total_parse_time_ms = 1000.0;
+        
+        ASSERT_CLOSE(stats.parse_throughput_mb_per_sec(), 1.0, "Should be 1 MB/s");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Reset") {
+        JsonStats stats;
+        stats.parse_count = 100;
+        stats.total_bytes_parsed = 1000000;
+        
+        stats.reset();
+        
+        ASSERT_EQ(stats.parse_count, 0U, "Should reset parse_count");
+        ASSERT_EQ(stats.total_bytes_parsed, 0U, "Should reset total_bytes_parsed");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Zero time handling") {
+        JsonStats stats;
+        stats.total_parse_time_ms = 0.0;
+        stats.total_bytes_parsed = 1000;
+        
+        ASSERT_CLOSE(stats.parse_throughput_mb_per_sec(), 0.0, "Should handle zero time");
+    }
+    END_SUBTEST
+    
+    return get_subtest_tracker().all_passed();
+}
+
+TEST_CASE(safe_numeric_conversions) {
     SUBTEST("int8_t range") {
         auto j = try_parse_json("127");
         ASSERT_TRUE(j.has_value(), "Should parse");
@@ -467,10 +606,74 @@ bool test_fpjl_safe_numeric_conversions() {
     }
     END_SUBTEST
     
-    return true;
+    SUBTEST("uint64_t from positive int64_t") {
+        JsonValue j = static_cast<int64_t>(1000);
+        auto result = safe_from_json_numeric<uint64_t>(j);
+        ASSERT_TRUE(result.has_value(), "Should convert positive int64 to uint64");
+        ASSERT_EQ(*result, 1000ULL, "Should be 1000");
+    }
+    END_SUBTEST
+    
+    SUBTEST("uint64_t from zero") {
+        JsonValue j = static_cast<int64_t>(0);
+        auto result = safe_from_json_numeric<uint64_t>(j);
+        ASSERT_TRUE(result.has_value(), "Should convert zero");
+        ASSERT_EQ(*result, 0ULL, "Should be 0");
+    }
+    END_SUBTEST
+    
+    SUBTEST("uint64_t from negative int64_t fails") {
+        JsonValue j = static_cast<int64_t>(-1);
+        auto result = safe_from_json_numeric<uint64_t>(j);
+        ASSERT_FALSE(result.has_value(), "Should fail for negative value");
+        ASSERT_EQ(result.error().code, JsonErrorCode::NumericOverflow, "Should be overflow error");
+    }
+    END_SUBTEST
+    
+    SUBTEST("uint64_t from INT64_MAX") {
+        JsonValue j = static_cast<int64_t>(INT64_MAX);
+        auto result = safe_from_json_numeric<uint64_t>(j);
+        ASSERT_TRUE(result.has_value(), "Should convert INT64_MAX");
+        ASSERT_EQ(*result, static_cast<uint64_t>(INT64_MAX), "Should match INT64_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("uint32_t from large positive") {
+        JsonValue j = static_cast<int64_t>(UINT32_MAX);
+        auto result = safe_from_json_numeric<uint32_t>(j);
+        ASSERT_TRUE(result.has_value(), "Should convert UINT32_MAX");
+        ASSERT_EQ(*result, UINT32_MAX, "Should be UINT32_MAX");
+    }
+    END_SUBTEST
+    
+    SUBTEST("uint32_t overflow") {
+        JsonValue j = static_cast<int64_t>(static_cast<int64_t>(UINT32_MAX) + 1);
+        auto result = safe_from_json_numeric<uint32_t>(j);
+        ASSERT_FALSE(result.has_value(), "Should fail for overflow");
+        ASSERT_EQ(result.error().code, JsonErrorCode::NumericOverflow, "Should be overflow error");
+    }
+    END_SUBTEST
+    
+    SUBTEST("uint8_t valid range") {
+        JsonValue j = static_cast<int64_t>(255);
+        auto result = safe_from_json_numeric<uint8_t>(j);
+        ASSERT_TRUE(result.has_value(), "Should convert 255");
+        ASSERT_EQ(*result, static_cast<uint8_t>(255), "Should be 255");
+    }
+    END_SUBTEST
+    
+    SUBTEST("uint8_t overflow") {
+        JsonValue j = static_cast<int64_t>(256);
+        auto result = safe_from_json_numeric<uint8_t>(j);
+        ASSERT_FALSE(result.has_value(), "Should fail for 256");
+        ASSERT_EQ(result.error().code, JsonErrorCode::NumericOverflow, "Should be overflow error");
+    }
+    END_SUBTEST
+    
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_safe_generic_conversions() {
+TEST_CASE(safe_generic_conversions) {
     SUBTEST("Safe struct conversion") {
         std::string json = R"({"x":10,"y":20})";
         auto j = try_parse_json(json);
@@ -504,10 +707,10 @@ bool test_fpjl_safe_generic_conversions() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_file_operations() {
+TEST_CASE(file_operations) {
     SUBTEST("try_load_json success") {
         {
             std::ofstream ofs("test_fpjl_load.json");
@@ -557,10 +760,70 @@ bool test_fpjl_file_operations() {
     }
     END_SUBTEST
     
-    return true;
+    SUBTEST("try_load_json with ConfigJsonPolicy (line comments)") {
+        const std::string filename = "test_jsonc_load.jsonc";
+        {
+            std::ofstream ofs(filename);
+            ofs << "{\n"
+                << "    // Server configuration\n"
+                << "    \"port\": 8080,\n"
+                << "    \"host\": \"localhost\"\n"
+                << "}\n";
+        }
+        
+        auto result = try_load_json<ConfigJsonPolicy>(filename);
+        ASSERT_TRUE(result.has_value(), "Should load JSONC file with comments");
+        
+        const auto& obj = std::get<JsonObject>(*result);
+        ASSERT_EQ(from_json<int>(obj, "port"), 8080, "Port should be 8080");
+        ASSERT_EQ(from_json<std::string>(obj, "host"), "localhost", "Host should be localhost");
+        
+        std::remove(filename.c_str());
+    }
+    END_SUBTEST
+    
+    SUBTEST("try_load_json with ConfigJsonPolicy (block comments)") {
+        const std::string filename = "test_jsonc_block.jsonc";
+        {
+            std::ofstream ofs(filename);
+            ofs << "{\n"
+                << "    /* Multi-line\n"
+                << "       comment block */\n"
+                << "    \"value\": 42\n"
+                << "}\n";
+        }
+        
+        auto result = try_load_json<ConfigJsonPolicy>(filename);
+        ASSERT_TRUE(result.has_value(), "Should load JSONC file with block comments");
+        
+        const auto& obj = std::get<JsonObject>(*result);
+        ASSERT_EQ(from_json<int>(obj, "value"), 42, "Value should be 42");
+        
+        std::remove(filename.c_str());
+    }
+    END_SUBTEST
+    
+    SUBTEST("StandardJsonPolicy rejects JSONC file") {
+        const std::string filename = "test_jsonc_reject.jsonc";
+        {
+            std::ofstream ofs(filename);
+            ofs << "{\n"
+                << "    // This comment should cause rejection\n"
+                << "    \"key\": \"value\"\n"
+                << "}\n";
+        }
+        
+        auto result = try_load_json<StandardJsonPolicy>(filename);
+        ASSERT_FALSE(result.has_value(), "Standard policy should reject JSONC");
+        
+        std::remove(filename.c_str());
+    }
+    END_SUBTEST
+    
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_memory_mapped_io() {
+TEST_CASE(memory_mapped_io) {
     SUBTEST("load_json_mmap small file") {
         {
             std::ofstream ofs("test_fpjl_mmap.json");
@@ -599,10 +862,48 @@ bool test_fpjl_memory_mapped_io() {
     }
     END_SUBTEST
     
-    return true;
+    SUBTEST("load_json_mmap with ConfigJsonPolicy") {
+        const std::string filename = "test_mmap_jsonc.jsonc";
+        {
+            std::ofstream ofs(filename);
+            ofs << "{\n"
+                << "    // Configuration file\n"
+                << "    \"database\": {\n"
+                << "        \"host\": \"db.example.com\",\n"
+                << "        \"port\": 5432\n"
+                << "    }\n"
+                << "}\n";
+        }
+        
+        auto result = load_json_mmap<ConfigJsonPolicy>(filename);
+        ASSERT_TRUE(result.has_value(), "Should load JSONC via mmap");
+        
+        auto port = try_query_json_as<int>(*result, "/database/port");
+        ASSERT_TRUE(port.has_value(), "Should extract port");
+        ASSERT_EQ(*port, 5432, "Port should be 5432");
+        
+        std::remove(filename.c_str());
+    }
+    END_SUBTEST
+    
+    SUBTEST("load_json_mmap invalid JSON") {
+        const std::string filename = "test_mmap_invalid.json";
+        {
+            std::ofstream ofs(filename);
+            ofs << "{invalid json content}";
+        }
+        
+        auto result = load_json_mmap(filename);
+        ASSERT_FALSE(result.has_value(), "Should fail for invalid JSON");
+        
+        std::remove(filename.c_str());
+    }
+    END_SUBTEST
+    
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_json_array() {
+TEST_CASE(json_array) {
     SUBTEST("FatPJsonArray creation") {
         FatPJsonArray arr;
         for (int i = 0; i < 5; ++i) {
@@ -647,10 +948,10 @@ bool test_fpjl_json_array() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_json_object() {
+TEST_CASE(json_object) {
     SUBTEST("FatPJsonObject creation") {
         FatPJsonObject<> obj;
         obj["key1"] = to_json(1);
@@ -693,10 +994,10 @@ bool test_fpjl_json_object() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_pooled_json_object() {
+TEST_CASE(pooled_json_object) {
     SUBTEST("PooledJsonObject basic usage") {
         StringPool<SingleThreadedPolicy> pool;
         PooledJsonObject pooled(pool);
@@ -759,10 +1060,10 @@ bool test_fpjl_pooled_json_object() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_batch_parsing() {
+TEST_CASE(batch_parsing) {
     SUBTEST("Batch parse all valid") {
         std::vector<std::string> jsons = {
             R"({"a":1})",
@@ -812,15 +1113,16 @@ bool test_fpjl_batch_parsing() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_jsonc_comments() {
+TEST_CASE(jsonc_comments) {
     SUBTEST("Line comments") {
-        std::string json = R"({
-            "port": 8080,
-            "host": "localhost"
-        })";
+        std::string json = "{\n"
+            "    // This is a line comment\n"
+            "    \"port\": 8080,  // Inline comment\n"
+            "    \"host\": \"localhost\"\n"
+            "}";
         
         auto result = try_parse_json<ConfigJsonPolicy>(json);
         ASSERT_TRUE(result.has_value(), "Should parse with line comments");
@@ -831,20 +1133,25 @@ bool test_fpjl_jsonc_comments() {
     END_SUBTEST
     
     SUBTEST("Block comments") {
-        std::string json = R"({
-            "name": "test",
-            "value": 42
-        })";
+        std::string json = "{\n"
+            "    /* This is a block comment */\n"
+            "    \"name\": \"test\",\n"
+            "    \"value\": /* inline block */ 42\n"
+            "}";
         
         auto result = try_parse_json<ConfigJsonPolicy>(json);
         ASSERT_TRUE(result.has_value(), "Should parse with block comments");
+        
+        const auto& obj = std::get<JsonObject>(*result);
+        ASSERT_EQ(from_json<int>(obj, "value"), 42, "Value should be 42");
     }
     END_SUBTEST
     
     SUBTEST("Strict policy rejects comments") {
-        std::string json = R"({
-            "key": "value"
-        })";
+        std::string json = "{\n"
+            "    // Comment that should cause rejection\n"
+            "    \"key\": \"value\"\n"
+            "}";
         
         auto result = try_parse_json<StandardJsonPolicy>(json);
         ASSERT_FALSE(result.has_value(), "Standard policy should reject comments");
@@ -852,12 +1159,12 @@ bool test_fpjl_jsonc_comments() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_utf8_handling() {
+TEST_CASE(utf8_handling) {
     SUBTEST("European chars escaped") {
-        std::string text = "cafÃƒÆ’Ã‚Â©";
+        std::string text = "cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©";
         std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
         
         ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should escape European chars");
@@ -869,7 +1176,7 @@ bool test_fpjl_utf8_handling() {
     END_SUBTEST
     
     SUBTEST("Asian chars escaped") {
-        std::string text = "ÃƒÂ¤Ã‚Â¸Ã¢â‚¬â€œÃƒÂ§Ã¢â‚¬Â¢Ã…â€™";
+        std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢";
         std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
         
         ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should escape Asian chars");
@@ -880,7 +1187,7 @@ bool test_fpjl_utf8_handling() {
     END_SUBTEST
     
     SUBTEST("Emoji with surrogate pairs") {
-        std::string text = "ÃƒÂ°Ã…Â¸Ã‹Å“Ã¢â€šÂ¬";
+        std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Â¹Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬";
         std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
         
         ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should escape emoji");
@@ -891,7 +1198,7 @@ bool test_fpjl_utf8_handling() {
     END_SUBTEST
     
     SUBTEST("Raw UTF-8 with CompatJsonPolicy") {
-        std::string text = "ÃƒÂ¤Ã‚Â¸Ã¢â‚¬â€œÃƒÂ§Ã¢â‚¬Â¢Ã…â€™ cafÃƒÆ’Ã‚Â© ÃƒÂ°Ã…Â¸Ã‹Å“Ã¢â€šÂ¬";
+        std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Â¹Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬";
         std::string json = to_json_string<std::string, CompatJsonPolicy>(text);
         
         ASSERT_TRUE(json.find("\\u") == std::string::npos, "CompatPolicy should not escape");
@@ -901,10 +1208,10 @@ bool test_fpjl_utf8_handling() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_nan_infinity_handling() {
+TEST_CASE(nan_infinity_handling) {
     SUBTEST("NaN default rejection") {
         std::string json = R"({"value": NaN})";
         auto result = try_parse_json<StandardJsonPolicy>(json);
@@ -952,10 +1259,10 @@ bool test_fpjl_nan_infinity_handling() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_numeric_bounds_no_margin() {
+TEST_CASE(numeric_bounds_no_margin) {
     SUBTEST("LLONG_MAX without margin") {
         JsonValue j = static_cast<int64_t>(LLONG_MAX);
         auto result = safe_from_json_numeric<int64_t>(j);
@@ -988,10 +1295,10 @@ bool test_fpjl_numeric_bounds_no_margin() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_value_returning_api() {
+TEST_CASE(value_returning_api) {
     SUBTEST("Value-returning from_json") {
         auto j = try_parse_json("42");
         ASSERT_TRUE(j.has_value(), "Should parse");
@@ -1025,10 +1332,10 @@ bool test_fpjl_value_returning_api() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_large_datasets() {
+TEST_CASE(large_datasets) {
     SUBTEST("Large object parsing") {
         std::string large_json = generate_large_json_object(LARGE_OBJECT_SIZE);
         auto result = try_parse_json(large_json);
@@ -1057,10 +1364,78 @@ bool test_fpjl_large_datasets() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_enum_integration_basic() {
+TEST_CASE(locale_independence) {
+    // Test that parsing is locale-independent (uses '.' for decimals regardless of locale)
+    
+    SUBTEST("Parse double - locale should not affect decimal point") {
+        // Store current locale
+        std::string orig_locale_name = std::setlocale(LC_NUMERIC, nullptr);
+        
+        // Try to set a locale that uses comma as decimal separator
+        // Note: This may fail if locale is not installed, which is OK - test passes
+        const char* test_locales[] = {"de_DE.UTF-8", "fr_FR.UTF-8", "es_ES.UTF-8", "C"};
+        bool locale_set = false;
+        
+        for (const char* loc : test_locales) {
+            if (std::setlocale(LC_NUMERIC, loc) != nullptr) {
+                locale_set = true;
+                break;
+            }
+        }
+        
+        // Parse with standard JSON decimal notation (always '.')
+        auto result = try_parse_json("3.14159");
+        
+        // Restore original locale
+        std::setlocale(LC_NUMERIC, orig_locale_name.c_str());
+        
+        ASSERT_TRUE(result.has_value(), "Should parse regardless of locale");
+        ASSERT_TRUE(result->is_number(), "Should be a number");
+        double val = std::get<double>(*result);
+        ASSERT_TRUE(std::abs(val - 3.14159) < 0.0001, "Value should be ~3.14159");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Parse integer - locale should not affect thousands separator") {
+        std::string orig_locale_name = std::setlocale(LC_NUMERIC, nullptr);
+        std::setlocale(LC_NUMERIC, "C");  // Reset to standard
+        
+        // JSON integers never have thousands separators
+        auto result = try_parse_json("1000000");
+        
+        std::setlocale(LC_NUMERIC, orig_locale_name.c_str());
+        
+        ASSERT_TRUE(result.has_value(), "Should parse integer");
+        ASSERT_TRUE(result->is_int(), "Should be integer");
+        ASSERT_EQ(std::get<int64_t>(*result), 1000000LL, "Value should be 1000000");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Parse scientific notation") {
+        auto result = try_parse_json("1.5e10");
+        ASSERT_TRUE(result.has_value(), "Should parse scientific notation");
+        ASSERT_TRUE(result->is_number(), "Should be number");
+        double val = std::get<double>(*result);
+        ASSERT_TRUE(std::abs(val - 1.5e10) < 1e6, "Value should be ~1.5e10");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Parse negative decimal") {
+        auto result = try_parse_json("-123.456");
+        ASSERT_TRUE(result.has_value(), "Should parse negative decimal");
+        ASSERT_TRUE(result->is_number(), "Should be number");
+        double val = std::get<double>(*result);
+        ASSERT_TRUE(std::abs(val - (-123.456)) < 0.001, "Value should be ~-123.456");
+    }
+    END_SUBTEST
+    
+    return get_subtest_tracker().all_passed();
+}
+
+TEST_CASE(enum_integration_basic) {
     SUBTEST("Enum to JSON string") {
         TaskStatus status = TaskStatus::Running;
         JsonValue j = to_json(status);
@@ -1111,10 +1486,10 @@ bool test_fpjl_enum_integration_basic() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_enum_integration_structs() {
+TEST_CASE(enum_integration_structs) {
     SUBTEST("Struct with enum fields") {
         Task task{"Build System", TaskStatus::Running, Priority::High, 75};
         JsonValue j = to_json(task);
@@ -1169,10 +1544,10 @@ bool test_fpjl_enum_integration_structs() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_enum_integration_errors() {
+TEST_CASE(enum_integration_errors) {
     SUBTEST("Invalid enum string throws") {
         JsonValue j = to_json(std::string("InvalidStatus"));
         TaskStatus status;
@@ -1245,10 +1620,10 @@ bool test_fpjl_enum_integration_errors() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_atomic_save_basic() {
+TEST_CASE(atomic_save_basic) {
     SUBTEST("Atomic save creates file") {
         const std::string filename = "test_atomic_basic.json";
         JsonValue j = to_json(42);
@@ -1327,10 +1702,10 @@ bool test_fpjl_atomic_save_basic() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_atomic_save_safety() {
+TEST_CASE(atomic_save_safety) {
     SUBTEST("Atomic save to invalid path") {
         const std::string filename = "/invalid/path/test.json";
         JsonValue j = to_json(42);
@@ -1401,10 +1776,10 @@ bool test_fpjl_atomic_save_safety() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_atomic_save_vs_regular() {
+TEST_CASE(atomic_save_vs_regular) {
     SUBTEST("Compare atomic and regular save output") {
         const std::string atomic_file = "test_compare_atomic.json";
         const std::string regular_file = "test_compare_regular.json";
@@ -1450,7 +1825,90 @@ bool test_fpjl_atomic_save_vs_regular() {
     }
     END_SUBTEST
     
-    return true;
+    SUBTEST("Concurrent atomic saves use unique temp files") {
+        // Test that concurrent saves from different threads don't collide
+        const std::string base_filename = "test_atomic_concurrent_";
+        constexpr int NUM_THREADS = 4;
+        constexpr int SAVES_PER_THREAD = 5;
+        
+        std::atomic<int> success_count{0};
+        std::atomic<int> failure_count{0};
+        std::vector<std::thread> threads;
+        
+        for (int t = 0; t < NUM_THREADS; ++t) {
+            threads.emplace_back([&, t]() {
+                for (int i = 0; i < SAVES_PER_THREAD; ++i) {
+                    std::string filename = base_filename + std::to_string(t) + "_" + 
+                                          std::to_string(i) + ".json";
+                    JsonValue j = to_json(t * 100 + i);
+                    auto result = try_save_atomic(filename, j);
+                    if (result.has_value()) {
+                        success_count.fetch_add(1, std::memory_order_relaxed);
+                    } else {
+                        failure_count.fetch_add(1, std::memory_order_relaxed);
+                    }
+                    std::error_code ec;
+                    std::filesystem::remove(filename, ec);
+                }
+            });
+        }
+        
+        for (auto& t : threads) {
+            t.join();
+        }
+        
+        ASSERT_EQ(success_count.load(), NUM_THREADS * SAVES_PER_THREAD, 
+                  "All concurrent saves should succeed");
+        ASSERT_EQ(failure_count.load(), 0, "No saves should fail");
+    }
+    END_SUBTEST
+    
+    SUBTEST("Concurrent atomic saves to SAME file") {
+        // Stress test: multiple threads saving to the same file simultaneously
+        // All should succeed; final file should contain valid JSON from one of them
+        const std::string filename = "test_atomic_same_file.json";
+        constexpr int NUM_THREADS = 8;
+        constexpr int SAVES_PER_THREAD = 10;
+        
+        std::atomic<int> success_count{0};
+        std::atomic<int> failure_count{0};
+        std::vector<std::thread> threads;
+        
+        for (int t = 0; t < NUM_THREADS; ++t) {
+            threads.emplace_back([&, t]() {
+                for (int i = 0; i < SAVES_PER_THREAD; ++i) {
+                    // Each thread writes its ID so we can verify valid content
+                    JsonValue j = to_json(t * 1000 + i);
+                    auto result = try_save_atomic(filename, j);
+                    if (result.has_value()) {
+                        success_count.fetch_add(1, std::memory_order_relaxed);
+                    } else {
+                        failure_count.fetch_add(1, std::memory_order_relaxed);
+                    }
+                }
+            });
+        }
+        
+        for (auto& th : threads) {
+            th.join();
+        }
+        
+        // All saves should succeed (no temp file collisions)
+        ASSERT_EQ(success_count.load(), NUM_THREADS * SAVES_PER_THREAD,
+                  "All concurrent same-file saves should succeed");
+        ASSERT_EQ(failure_count.load(), 0, "No saves should fail");
+        
+        // Final file should be valid JSON
+        auto final_result = try_load_json(filename);
+        ASSERT_TRUE(final_result.has_value(), "Final file should be valid JSON");
+        ASSERT_TRUE(final_result->is_int(), "Should contain an integer");
+        
+        std::error_code ec;
+        std::filesystem::remove(filename, ec);
+    }
+    END_SUBTEST
+    
+    return get_subtest_tracker().all_passed();
 }
 
 void benchmark_parse_small_json() {
@@ -1659,7 +2117,7 @@ void benchmark_memory_mapped_io() {
     std::remove("test_mmap_bench.json");
 }
 
-bool test_fpjl_json_pointer_basic() {
+TEST_CASE(json_pointer_basic) {
     SUBTEST("basic navigation with Expected") {
         auto result = try_parse_json(R"({
             "database": {
@@ -1705,10 +2163,10 @@ bool test_fpjl_json_pointer_basic() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_json_pointer_type_safe() {
+TEST_CASE(json_pointer_type_safe) {
     auto result = try_parse_json(R"({
         "database": {
             "host": "localhost",
@@ -1745,10 +2203,40 @@ bool test_fpjl_json_pointer_type_safe() {
     }
     END_SUBTEST
     
-    return true;
+    SUBTEST("query_json_as_or - get existing value") {
+        int port = query_json_as_or(*result, "/database/port", 3306);
+        ASSERT_EQ(port, 5432, "Should get actual port");
+    }
+    END_SUBTEST
+    
+    SUBTEST("query_json_as_or - get default for missing key") {
+        int pool_size = query_json_as_or(*result, "/database/pool_size", 10);
+        ASSERT_EQ(pool_size, 10, "Should get default pool_size");
+    }
+    END_SUBTEST
+    
+    SUBTEST("query_json_as_or - get default for type mismatch") {
+        int host_as_int = query_json_as_or(*result, "/database/host", -1);
+        ASSERT_EQ(host_as_int, -1, "Should get default for type mismatch");
+    }
+    END_SUBTEST
+    
+    SUBTEST("query_json_as_or - get default for invalid path") {
+        std::string value = query_json_as_or(*result, "/nonexistent/path", std::string("default"));
+        ASSERT_EQ(value, "default", "Should get default for invalid path");
+    }
+    END_SUBTEST
+    
+    SUBTEST("query_json_as_or - string default") {
+        std::string host = query_json_as_or(*result, "/database/host", std::string("127.0.0.1"));
+        ASSERT_EQ(host, "localhost", "Should get actual host");
+    }
+    END_SUBTEST
+    
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_json_pointer_errors() {
+TEST_CASE(json_pointer_errors) {
     SUBTEST("key not found") {
         auto result = try_parse_json(R"({"key": "value"})");
         ASSERT_TRUE(result.has_value(), "Parse should succeed");
@@ -1787,10 +2275,10 @@ bool test_fpjl_json_pointer_errors() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_json_pointer_mutable() {
+TEST_CASE(json_pointer_mutable) {
     auto result = try_parse_json(R"({
         "config": {
             "port": 8080,
@@ -1825,10 +2313,10 @@ bool test_fpjl_json_pointer_mutable() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_json_pointer_escape_sequences() {
+TEST_CASE(json_pointer_escape_sequences) {
     SUBTEST("tilde escape ~0") {
         auto result = try_parse_json(R"({"a~b": "value1"})");
         ASSERT_TRUE(result.has_value(), "Parse should succeed");
@@ -1859,10 +2347,10 @@ bool test_fpjl_json_pointer_escape_sequences() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_json_pointer_complex() {
+TEST_CASE(json_pointer_complex) {
     SUBTEST("deep nested navigation") {
         auto result = try_parse_json(R"({
             "level1": {
@@ -1889,10 +2377,10 @@ bool test_fpjl_json_pointer_complex() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_json_pointer_optional() {
+TEST_CASE(json_pointer_optional) {
     auto result = try_parse_json(R"({
         "config": {
             "required": 42,
@@ -1918,10 +2406,10 @@ bool test_fpjl_json_pointer_optional() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_json_pointer_monadic() {
+TEST_CASE(json_pointer_monadic) {
     SUBTEST("chaining with and_then") {
         auto result = try_parse_json(R"({
             "database": {
@@ -1950,10 +2438,10 @@ bool test_fpjl_json_pointer_monadic() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
 
-bool test_fpjl_json_pointer_structs() {
+TEST_CASE(json_pointer_structs) {
     SUBTEST("extract custom struct") {
         auto result = try_parse_json(R"({
             "database": {
@@ -1974,8 +2462,12 @@ bool test_fpjl_json_pointer_structs() {
     }
     END_SUBTEST
     
-    return true;
+    return get_subtest_tracker().all_passed();
 }
+
+} // namespace fat_p::testing::fatpjsonlite
+
+namespace fat_p::testing {
 
 void run_benchmarks() {
     *get_test_config().output << "\n" << colors::bold() 
@@ -1984,13 +2476,13 @@ void run_benchmarks() {
     *get_test_config().output << "==========================================================" 
                                << colors::reset() << "\n";
     
-    benchmark_parse_small_json();
-    benchmark_parse_large_array();
-    benchmark_array_operations();
-    benchmark_object_operations();
-    benchmark_string_pool_memory();
-    benchmark_error_handling();
-    benchmark_memory_mapped_io();
+    fatpjsonlite::benchmark_parse_small_json();
+    fatpjsonlite::benchmark_parse_large_array();
+    fatpjsonlite::benchmark_array_operations();
+    fatpjsonlite::benchmark_object_operations();
+    fatpjsonlite::benchmark_string_pool_memory();
+    fatpjsonlite::benchmark_error_handling();
+    fatpjsonlite::benchmark_memory_mapped_io();
 }
 
 bool test_FatPJsonLite() {
@@ -1998,46 +2490,48 @@ bool test_FatPJsonLite() {
     
     TestRunner runner;
     
-    RUN_TEST(runner, fpjl_expected_api_basic);
-    RUN_TEST(runner, fpjl_expected_api_types);
-    RUN_TEST(runner, fpjl_error_handling);
-    RUN_TEST(runner, fpjl_safe_numeric_conversions);
-    RUN_TEST(runner, fpjl_safe_generic_conversions);
-    RUN_TEST(runner, fpjl_file_operations);
-    RUN_TEST(runner, fpjl_memory_mapped_io);
-    RUN_TEST(runner, fpjl_json_array);
-    RUN_TEST(runner, fpjl_json_object);
-    RUN_TEST(runner, fpjl_pooled_json_object);
-    RUN_TEST(runner, fpjl_batch_parsing);
-    RUN_TEST(runner, fpjl_jsonc_comments);
-    RUN_TEST(runner, fpjl_utf8_handling);
-    RUN_TEST(runner, fpjl_nan_infinity_handling);
-    RUN_TEST(runner, fpjl_numeric_bounds_no_margin);
-    RUN_TEST(runner, fpjl_value_returning_api);
-    RUN_TEST(runner, fpjl_large_datasets);
-    RUN_TEST(runner, fpjl_enum_integration_basic);
-    RUN_TEST(runner, fpjl_enum_integration_structs);
-    RUN_TEST(runner, fpjl_enum_integration_errors);
-    RUN_TEST(runner, fpjl_atomic_save_basic);
-    RUN_TEST(runner, fpjl_atomic_save_safety);
-    RUN_TEST(runner, fpjl_atomic_save_vs_regular);
+    RUN_TEST_NS(runner, fatpjsonlite, expected_api_basic);
+    RUN_TEST_NS(runner, fatpjsonlite, expected_api_types);
+    RUN_TEST_NS(runner, fatpjsonlite, error_handling);
+    RUN_TEST_NS(runner, fatpjsonlite, json_stats);
+    RUN_TEST_NS(runner, fatpjsonlite, safe_numeric_conversions);
+    RUN_TEST_NS(runner, fatpjsonlite, safe_generic_conversions);
+    RUN_TEST_NS(runner, fatpjsonlite, file_operations);
+    RUN_TEST_NS(runner, fatpjsonlite, memory_mapped_io);
+    RUN_TEST_NS(runner, fatpjsonlite, json_array);
+    RUN_TEST_NS(runner, fatpjsonlite, json_object);
+    RUN_TEST_NS(runner, fatpjsonlite, pooled_json_object);
+    RUN_TEST_NS(runner, fatpjsonlite, batch_parsing);
+    RUN_TEST_NS(runner, fatpjsonlite, jsonc_comments);
+    RUN_TEST_NS(runner, fatpjsonlite, utf8_handling);
+    RUN_TEST_NS(runner, fatpjsonlite, nan_infinity_handling);
+    RUN_TEST_NS(runner, fatpjsonlite, numeric_bounds_no_margin);
+    RUN_TEST_NS(runner, fatpjsonlite, value_returning_api);
+    RUN_TEST_NS(runner, fatpjsonlite, large_datasets);
+    RUN_TEST_NS(runner, fatpjsonlite, locale_independence);
+    RUN_TEST_NS(runner, fatpjsonlite, enum_integration_basic);
+    RUN_TEST_NS(runner, fatpjsonlite, enum_integration_structs);
+    RUN_TEST_NS(runner, fatpjsonlite, enum_integration_errors);
+    RUN_TEST_NS(runner, fatpjsonlite, atomic_save_basic);
+    RUN_TEST_NS(runner, fatpjsonlite, atomic_save_safety);
+    RUN_TEST_NS(runner, fatpjsonlite, atomic_save_vs_regular);
     
-    RUN_TEST(runner, fpjl_json_pointer_basic);
-    RUN_TEST(runner, fpjl_json_pointer_type_safe);
-    RUN_TEST(runner, fpjl_json_pointer_errors);
-    RUN_TEST(runner, fpjl_json_pointer_mutable);
-    RUN_TEST(runner, fpjl_json_pointer_escape_sequences);
-    RUN_TEST(runner, fpjl_json_pointer_complex);
-    RUN_TEST(runner, fpjl_json_pointer_optional);
-    RUN_TEST(runner, fpjl_json_pointer_monadic);
-    RUN_TEST(runner, fpjl_json_pointer_structs);
+    RUN_TEST_NS(runner, fatpjsonlite, json_pointer_basic);
+    RUN_TEST_NS(runner, fatpjsonlite, json_pointer_type_safe);
+    RUN_TEST_NS(runner, fatpjsonlite, json_pointer_errors);
+    RUN_TEST_NS(runner, fatpjsonlite, json_pointer_mutable);
+    RUN_TEST_NS(runner, fatpjsonlite, json_pointer_escape_sequences);
+    RUN_TEST_NS(runner, fatpjsonlite, json_pointer_complex);
+    RUN_TEST_NS(runner, fatpjsonlite, json_pointer_optional);
+    RUN_TEST_NS(runner, fatpjsonlite, json_pointer_monadic);
+    RUN_TEST_NS(runner, fatpjsonlite, json_pointer_structs);
     
     run_benchmarks();
     
     return 0 == runner.print_summary();
 }
 
-}
+} // namespace fat_p::testing
 
 #ifdef ENABLE_TEST_APPLICATION
 int main() {
