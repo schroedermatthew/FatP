@@ -661,6 +661,31 @@ TEST_CASE(range_exceptions)
     return true;
 }
 
+TEST_CASE(range_word_boundaries)
+{
+    fat_p::BitSet<128> bits;
+
+    bits.set_range(0, 64);
+    ASSERT_EQ(bits.count(), 64u, "Should have exactly 64 bits set");
+    SIMPLE_ASSERT(bits.test(0), "Bit 0 should be set");
+    SIMPLE_ASSERT(bits.test(63), "Bit 63 should be set");
+    SIMPLE_ASSERT(!bits.test(64), "Bit 64 should not be set");
+
+    bits.clear_all();
+    bits.set_range(64, 128);
+    ASSERT_EQ(bits.count(), 64u, "Should have exactly 64 bits set");
+    SIMPLE_ASSERT(!bits.test(63), "Bit 63 should not be set");
+    SIMPLE_ASSERT(bits.test(64), "Bit 64 should be set");
+    SIMPLE_ASSERT(bits.test(127), "Bit 127 should be set");
+
+    bits.clear_all();
+    bits.set_range(0, 128);
+    ASSERT_EQ(bits.count(), 128u, "Full range should set all bits");
+    SIMPLE_ASSERT(bits.all(), "all() should return true");
+
+    return true;
+}
+
 // ============================================================================
 // Hash Tests
 // ============================================================================
@@ -844,6 +869,7 @@ bool test_BitSet()
 
     RUN_TEST_NS(runner, bitset, out_of_range_exceptions);
     RUN_TEST_NS(runner, bitset, range_exceptions);
+    RUN_TEST_NS(runner, bitset, range_word_boundaries);
 
     RUN_TEST_NS(runner, bitset, std_hash);
     RUN_TEST_NS(runner, bitset, data_access);

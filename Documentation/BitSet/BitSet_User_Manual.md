@@ -112,16 +112,31 @@ Choose `fat_p::BitSet` when:
 
 `BitSet<N>` stores bits in an array of 64-bit words:
 
+```mermaid
+block-beta
+    columns 4
+    block:w0["Word 0"]
+        w0b["bits 0-63"]
+    end
+    block:w1["Word 1"]
+        w1b["bits 64-127"]
+    end
+    block:w2["Word 2"]
+        w2b["bits 128-191"]
+    end
+    block:w3["Word 3"]
+        w3b["bits 192-199 + padding"]
+    end
 ```
-BitSet<200> layout:
 
-Word 0 (bits 0-63)    Word 1 (bits 64-127)   Word 2 (bits 128-191)  Word 3 (bits 192-199)
-┌────────────────────┬────────────────────┬────────────────────┬────────────────────┐
-│ 0 1 2 ... 62 63    │ 64 65 ... 126 127  │ 128 129 ... 190 191│ 192 ... 199 [pad] │
-└────────────────────┴────────────────────┴────────────────────┴────────────────────┘
-                                                                 ↑
-                                                           Unused bits always 0
-```
+For `BitSet<200>`:
+
+| Word Index | Bit Range | Usage |
+|------------|-----------|-------|
+| 0 | 0-63 | Full word |
+| 1 | 64-127 | Full word |
+| 2 | 128-191 | Full word |
+| 3 | 192-199 | Partial (bits 200-255 always zero) |
 
 Key implementation details:
 
@@ -518,13 +533,13 @@ size_t first = bits.find_first();  // 500
 
 #### `find_next(after)`
 
-Returns index of next set bit after `after`, or N if none.
+Returns index of next set bit after `after`, or N if none. Specifically, it searches starting at index `after + 1`.
 
 ```cpp
 size_t pos = bits.find_first();
 while (pos != bits.size()) {
     process(pos);
-    pos = bits.find_next(pos);
+    pos = bits.find_next(pos);  // Searches from pos+1 onward
 }
 ```
 
@@ -820,7 +835,11 @@ Examples:
 
 ### The C++ Standard Library Option
 
-`std::bitset<N>` has been part of C++ since C++98. It's widely available, well-tested, and familiar. However, it was designed for different use cases than HPC workloads.
+`std::bitset<N>` has been part of C++ since C++98. It was designed as a general-purpose fixed-size bit array, prioritizing correctness and standard compliance over raw performance. The standard guarantees certain behaviors (like string conversion) but leaves implementation details (like internal storage) unspecified.
+
+Over the past 25+ years, `std::bitset` has become the default choice for simple bit manipulation tasks. It's familiar, well-documented, and requires no external dependencies. However, it was designed before modern SIMD instructions, hardware population count, and the rise of HPC workloads that process millions of bits per second.
+
+`fat_p::BitSet` takes a different approach: it specifically targets HPC and scientific computing scenarios where you need to iterate over sparse sets, find specific bits quickly, or process ranges of bits efficiently. It trades some `std::bitset` conveniences (like string conversion) for features that matter in performance-critical code.
 
 ### Feature Comparison
 

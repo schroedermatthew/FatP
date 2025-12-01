@@ -23,7 +23,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <iterator>
 #include <stdexcept>
@@ -89,6 +88,19 @@ inline size_t clz64_fallback(uint64_t x) noexcept
         x <<= 1;
     }
     return count;
+}
+
+// Create a mask with bits [0, bit_index] set (inclusive)
+// Avoids reliance on unsigned overflow behavior
+inline constexpr uint64_t mask_up_to(size_t bit_index) noexcept
+{
+    return (bit_index >= 63) ? ~0ULL : ((1ULL << (bit_index + 1)) - 1);
+}
+
+// Create a mask with bits [bit_index, 63] set (inclusive)
+inline constexpr uint64_t mask_from(size_t bit_index) noexcept
+{
+    return ~0ULL << bit_index;
 }
 
 } // namespace detail
@@ -264,7 +276,7 @@ public:
      * @return true if bit is 1, false if 0
      * @throws std::out_of_range if index >= N
      */
-    bool test(size_t index) const
+    [[nodiscard]] bool test(size_t index) const
     {
         if (index >= N)
         {
@@ -309,7 +321,7 @@ public:
      * @param index Bit index (caller must ensure index < N)
      * @return true if bit is 1
      */
-    bool test_unchecked(size_t index) const noexcept
+    [[nodiscard]] bool test_unchecked(size_t index) const noexcept
     {
         return (m_words[index / BITS_PER_WORD] & (1ULL << (index % BITS_PER_WORD))) != 0;
     }
@@ -319,7 +331,7 @@ public:
      * @param index Bit index
      * @return true if bit is 1
      */
-    bool operator[](size_t index) const noexcept
+    [[nodiscard]] bool operator[](size_t index) const noexcept
     {
         return test_unchecked(index);
     }
@@ -407,17 +419,17 @@ public:
 
         if (start_word == end_word)
         {
-            uint64_t mask = ((2ULL << end_bit) - 1) & ~((1ULL << start_bit) - 1);
+            uint64_t mask = detail::mask_up_to(end_bit) & detail::mask_from(start_bit);
             m_words[start_word] |= mask;
         }
         else
         {
-            m_words[start_word] |= ~((1ULL << start_bit) - 1);
+            m_words[start_word] |= detail::mask_from(start_bit);
             for (size_t i = start_word + 1; i < end_word; ++i)
             {
                 m_words[i] = ~0ULL;
             }
-            m_words[end_word] |= (2ULL << end_bit) - 1;
+            m_words[end_word] |= detail::mask_up_to(end_bit);
         }
     }
 
@@ -445,17 +457,17 @@ public:
 
         if (start_word == end_word)
         {
-            uint64_t mask = ((2ULL << end_bit) - 1) & ~((1ULL << start_bit) - 1);
+            uint64_t mask = detail::mask_up_to(end_bit) & detail::mask_from(start_bit);
             m_words[start_word] &= ~mask;
         }
         else
         {
-            m_words[start_word] &= (1ULL << start_bit) - 1;
+            m_words[start_word] &= ~detail::mask_from(start_bit);
             for (size_t i = start_word + 1; i < end_word; ++i)
             {
                 m_words[i] = 0;
             }
-            m_words[end_word] &= ~((2ULL << end_bit) - 1);
+            m_words[end_word] &= ~detail::mask_up_to(end_bit);
         }
     }
 
@@ -466,7 +478,7 @@ public:
      * @return Number of set bits in range
      * @throws std::out_of_range if start > end or end > N
      */
-    size_t count_range(size_t start, size_t end) const
+    [[nodiscard]] size_t count_range(size_t start, size_t end) const
     {
         if (start > end || end > N)
         {
@@ -484,17 +496,17 @@ public:
 
         if (start_word == end_word)
         {
-            uint64_t mask = ((2ULL << end_bit) - 1) & ~((1ULL << start_bit) - 1);
+            uint64_t mask = detail::mask_up_to(end_bit) & detail::mask_from(start_bit);
             return FATP_POPCNT64(m_words[start_word] & mask);
         }
 
-        size_t count = FATP_POPCNT64(m_words[start_word] & ~((1ULL << start_bit) - 1));
+        size_t cnt = FATP_POPCNT64(m_words[start_word] & detail::mask_from(start_bit));
         for (size_t i = start_word + 1; i < end_word; ++i)
         {
-            count += FATP_POPCNT64(m_words[i]);
+            cnt += FATP_POPCNT64(m_words[i]);
         }
-        count += FATP_POPCNT64(m_words[end_word] & ((2ULL << end_bit) - 1));
-        return count;
+        cnt += FATP_POPCNT64(m_words[end_word] & detail::mask_up_to(end_bit));
+        return cnt;
     }
 
     // ========================================================================
@@ -505,7 +517,7 @@ public:
      * @brief Count number of set bits
      * @return Number of 1 bits
      */
-    size_t count() const noexcept
+    [[nodiscard]] size_t count() const noexcept
     {
         size_t total = 0;
         for (size_t i = 0; i < NUM_WORDS; ++i)
@@ -518,7 +530,7 @@ public:
     /**
      * @brief Check if any bit is set
      */
-    bool any() const noexcept
+    [[nodiscard]] bool any() const noexcept
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
@@ -533,7 +545,7 @@ public:
     /**
      * @brief Check if no bits are set
      */
-    bool none() const noexcept
+    [[nodiscard]] bool none() const noexcept
     {
         return !any();
     }
@@ -541,7 +553,7 @@ public:
     /**
      * @brief Check if all bits are set
      */
-    bool all() const noexcept
+    [[nodiscard]] bool all() const noexcept
     {
         for (size_t i = 0; i < NUM_WORDS - 1; ++i)
         {
@@ -556,7 +568,7 @@ public:
     /**
      * @brief Get bit capacity (template parameter N)
      */
-    constexpr size_t size() const noexcept
+    [[nodiscard]] constexpr size_t size() const noexcept
     {
         return N;
     }
@@ -569,7 +581,7 @@ public:
      * @brief Find first set bit
      * @return Index of first set bit, or N if none
      */
-    size_t find_first() const noexcept
+    [[nodiscard]] size_t find_first() const noexcept
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
@@ -587,7 +599,7 @@ public:
      * @param after Search starts after this index
      * @return Index of next set bit, or N if none
      */
-    size_t find_next(size_t after) const noexcept
+    [[nodiscard]] size_t find_next(size_t after) const noexcept
     {
         ++after;
         if (after >= N)
@@ -598,7 +610,7 @@ public:
         size_t word_idx = after / BITS_PER_WORD;
         size_t bit_offset = after % BITS_PER_WORD;
 
-        uint64_t word = m_words[word_idx] & (~0ULL << bit_offset);
+        uint64_t word = m_words[word_idx] & detail::mask_from(bit_offset);
         if (word != 0)
         {
             size_t idx = word_idx * BITS_PER_WORD + FATP_CTZ64(word);
@@ -621,7 +633,7 @@ public:
      * @brief Find last set bit
      * @return Index of last set bit, or N if none
      */
-    size_t find_last() const noexcept
+    [[nodiscard]] size_t find_last() const noexcept
     {
         for (size_t i = NUM_WORDS; i-- > 0;)
         {
@@ -644,7 +656,7 @@ public:
      * @param other The potential superset
      * @return true if every bit set in this is also set in other
      */
-    bool is_subset_of(const BitSet& other) const noexcept
+    [[nodiscard]] bool is_subset_of(const BitSet& other) const noexcept
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
@@ -661,7 +673,7 @@ public:
      * @param other The other set
      * @return true if any bit is set in both sets
      */
-    bool intersects(const BitSet& other) const noexcept
+    [[nodiscard]] bool intersects(const BitSet& other) const noexcept
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
@@ -677,7 +689,7 @@ public:
     // Bitwise operators
     // ========================================================================
 
-    BitSet operator~() const noexcept
+    [[nodiscard]] BitSet operator~() const noexcept
     {
         BitSet result;
         for (size_t i = 0; i < NUM_WORDS - 1; ++i)
@@ -688,7 +700,7 @@ public:
         return result;
     }
 
-    BitSet operator&(const BitSet& other) const noexcept
+    [[nodiscard]] BitSet operator&(const BitSet& other) const noexcept
     {
         BitSet result;
         for (size_t i = 0; i < NUM_WORDS; ++i)
@@ -698,7 +710,7 @@ public:
         return result;
     }
 
-    BitSet operator|(const BitSet& other) const noexcept
+    [[nodiscard]] BitSet operator|(const BitSet& other) const noexcept
     {
         BitSet result;
         for (size_t i = 0; i < NUM_WORDS; ++i)
@@ -708,7 +720,7 @@ public:
         return result;
     }
 
-    BitSet operator^(const BitSet& other) const noexcept
+    [[nodiscard]] BitSet operator^(const BitSet& other) const noexcept
     {
         BitSet result;
         for (size_t i = 0; i < NUM_WORDS; ++i)
@@ -749,7 +761,7 @@ public:
     // Comparison operators
     // ========================================================================
 
-    bool operator==(const BitSet& other) const noexcept
+    [[nodiscard]] bool operator==(const BitSet& other) const noexcept
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
@@ -761,7 +773,7 @@ public:
         return true;
     }
 
-    bool operator!=(const BitSet& other) const noexcept
+    [[nodiscard]] bool operator!=(const BitSet& other) const noexcept
     {
         return !(*this == other);
     }
@@ -770,12 +782,12 @@ public:
     // Iteration
     // ========================================================================
 
-    Iterator begin() const noexcept
+    [[nodiscard]] Iterator begin() const noexcept
     {
         return Iterator(this, find_first());
     }
 
-    Iterator end() const noexcept
+    [[nodiscard]] Iterator end() const noexcept
     {
         return Iterator(this, N);
     }
@@ -787,7 +799,7 @@ public:
     /**
      * @brief Get pointer to underlying word array
      */
-    const uint64_t* data() const noexcept
+    [[nodiscard]] const uint64_t* data() const noexcept
     {
         return m_words.data();
     }
@@ -796,7 +808,7 @@ public:
      * @brief Get mutable pointer to underlying word array
      * @warning Caller must maintain invariant: unused bits in last word must be 0
      */
-    uint64_t* data() noexcept
+    [[nodiscard]] uint64_t* data() noexcept
     {
         return m_words.data();
     }
@@ -804,16 +816,13 @@ public:
     /**
      * @brief Get number of 64-bit words used internally
      */
-    static constexpr size_t word_count() noexcept
+    [[nodiscard]] static constexpr size_t word_count() noexcept
     {
         return NUM_WORDS;
     }
 
 private:
     std::array<uint64_t, NUM_WORDS> m_words;
-
-    template<size_t M>
-    friend struct std::hash;
 };
 
 } // namespace fat_p
@@ -831,10 +840,10 @@ struct hash<fat_p::BitSet<N>>
     size_t operator()(const fat_p::BitSet<N>& bs) const noexcept
     {
         size_t h = 0;
-        const uint64_t* data = bs.data();
+        const uint64_t* words = bs.data();
         for (size_t i = 0; i < fat_p::BitSet<N>::word_count(); ++i)
         {
-            h ^= std::hash<uint64_t>{}(data[i]) + 0x9e3779b9 + (h << 6) + (h >> 2);
+            h ^= hash<uint64_t>{}(words[i]) + 0x9e3779b9 + (h << 6) + (h >> 2);
         }
         return h;
     }
