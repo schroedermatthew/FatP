@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <iterator>
@@ -13,6 +14,10 @@
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
+
+#if defined(_MSC_VER)
+#include <malloc.h>
+#endif
 
 // =============================================================================
 // SIMD Platform Detection
@@ -173,25 +178,31 @@ public:
     // Find empty or deleted slots (for insertion)
     BitMask match_empty_or_deleted() const {
         // Both empty (0x00) and deleted (0x7E) have bit 7 = 0
-        // Check if high bit is clear AND not sentinel (0x7F)
-        auto special = _mm_set1_epi8(static_cast<char>(kSentinel));
-        auto is_special = _mm_cmpeq_epi8(ctrl_, special);
-        
-        // Bytes with high bit set become negative (signed comparison)
+        // Check if high bit is clear: (ctrl & 0x80) == 0
+        auto high_bit_mask = _mm_set1_epi8(static_cast<char>(0x80u));
+        auto high_bits = _mm_and_si128(ctrl_, high_bit_mask);
         auto zero = _mm_setzero_si128();
-        auto is_empty_or_del = _mm_cmplt_epi8(ctrl_, _mm_set1_epi8(static_cast<char>(0x80)));
+        auto has_high_bit_clear = _mm_cmpeq_epi8(high_bits, zero);
         
-        // Exclude sentinel
-        auto result = _mm_andnot_si128(is_special, is_empty_or_del);
+        // Exclude sentinel (0x7F)
+        auto sentinel = _mm_set1_epi8(static_cast<char>(kSentinel));
+        auto is_sentinel = _mm_cmpeq_epi8(ctrl_, sentinel);
+        
+        auto result = _mm_andnot_si128(is_sentinel, has_high_bit_clear);
         return BitMask(static_cast<uint32_t>(_mm_movemask_epi8(result)));
     }
     
     // Count leading empty or deleted (for probe sequence termination)
     uint32_t count_leading_empty_or_deleted() const {
-        auto special = _mm_set1_epi8(static_cast<char>(kSentinel));
-        auto is_special = _mm_cmpeq_epi8(ctrl_, special);
-        auto is_empty_or_del = _mm_cmplt_epi8(ctrl_, _mm_set1_epi8(static_cast<char>(0x80)));
-        auto result = _mm_andnot_si128(is_special, is_empty_or_del);
+        auto high_bit_mask = _mm_set1_epi8(static_cast<char>(0x80u));
+        auto high_bits = _mm_and_si128(ctrl_, high_bit_mask);
+        auto zero = _mm_setzero_si128();
+        auto has_high_bit_clear = _mm_cmpeq_epi8(high_bits, zero);
+        
+        auto sentinel = _mm_set1_epi8(static_cast<char>(kSentinel));
+        auto is_sentinel = _mm_cmpeq_epi8(ctrl_, sentinel);
+        
+        auto result = _mm_andnot_si128(is_sentinel, has_high_bit_clear);
         uint32_t mask = static_cast<uint32_t>(_mm_movemask_epi8(result));
         
         // Count trailing ones (we're looking from the start)
@@ -373,8 +384,9 @@ class ProbeSequence {
 public:
     ProbeSequence(size_t hash, size_t mask) 
         : mask_(mask)
+        , base_(hash & mask)
         , offset_(hash & mask)
-        , index_(0) {}
+        , step_(0) {}
     
     size_t offset() const { return offset_; }
     
@@ -383,14 +395,17 @@ public:
     }
     
     void next() {
-        index_ += Group::kWidth;
-        offset_ = (offset_ + index_) & mask_;
+        ++step_;
+        // Use linear probing by group width to ensure we visit all groups
+        // For a power-of-2 capacity, this will eventually cover all positions
+        offset_ = (base_ + step_ * Group::kWidth) & mask_;
     }
     
 private:
     size_t mask_;
-    size_t offset_;
-    size_t index_;
+    size_t base_;     // Starting position (H1(hash) & mask)
+    size_t offset_;   // Current probe offset
+    size_t step_;     // Probe step counter (0, 1, 2, 3, ...)
 };
 
 } // namespace swiss_detail
@@ -483,7 +498,34 @@ private:
     Hash hasher_;
     KeyEqual key_equal_;
     
-    static constexpr size_t kMinCapacity = Group::kWidth;
+    static constexpr size_t kMinCapacity = Group::kWidth * 2;  // Need at least 2 groups for probing
+    
+    // ==========================================================================
+    // Platform-specific aligned allocation
+    // ==========================================================================
+    
+    static void* aligned_alloc_impl(size_t alignment, size_t size)
+    {
+#if defined(_MSC_VER)
+        return _aligned_malloc(size, alignment);
+#else
+        void* ptr = nullptr;
+        if (posix_memalign(&ptr, alignment, size) != 0)
+        {
+            return nullptr;
+        }
+        return ptr;
+#endif
+    }
+    
+    static void aligned_free_impl(void* ptr)
+    {
+#if defined(_MSC_VER)
+        _aligned_free(ptr);
+#else
+        free(ptr);
+#endif
+    }
     
     // ==========================================================================
     // Memory Layout
@@ -491,31 +533,30 @@ private:
     
     // Allocate aligned memory for ctrl + slots
     void allocate(size_t cap) {
-        //// Control array needs Group::kWidth extra bytes at end for sentinel
-        //size_t ctrl_size = cap + Group::kWidth;
-        //size_t slots_size = cap * sizeof(Slot);
-        //
-        //// Allocate control bytes (aligned to Group::kWidth)
-        //ctrl_ = static_cast<uint8_t*>(
-        //    std::aligned_alloc(Group::kWidth, ctrl_size));
-        //if (!ctrl_) throw std::bad_alloc();
-        //
-        //// Initialize all control bytes to empty
-        //std::memset(ctrl_, swiss_detail::kEmpty, cap);
-        //// Set sentinel bytes at end
-        //std::memset(ctrl_ + cap, swiss_detail::kSentinel, Group::kWidth);
-        //
-        //// Allocate slots
-        //slots_ = static_cast<Slot*>(std::malloc(slots_size));
-        //if (!slots_) {
-        //    std::free(ctrl_);
-        //    ctrl_ = nullptr;
-        //    throw std::bad_alloc();
-        //}
-        //
-        //capacity_ = cap;
-        //mask_ = cap - 1;
-        //growth_threshold_ = static_cast<size_t>(cap * max_load_factor_);
+        // Control array needs Group::kWidth extra bytes at end for sentinel
+        size_t ctrl_size = cap + Group::kWidth;
+        size_t slots_size = cap * sizeof(Slot);
+        
+        // Allocate control bytes (aligned to Group::kWidth)
+        ctrl_ = static_cast<uint8_t*>(aligned_alloc_impl(Group::kWidth, ctrl_size));
+        if (!ctrl_) throw std::bad_alloc();
+        
+        // Initialize all control bytes to empty
+        std::memset(ctrl_, swiss_detail::kEmpty, cap);
+        // Set sentinel bytes at end
+        std::memset(ctrl_ + cap, swiss_detail::kSentinel, Group::kWidth);
+        
+        // Allocate slots
+        slots_ = static_cast<Slot*>(std::malloc(slots_size));
+        if (!slots_) {
+            aligned_free_impl(ctrl_);
+            ctrl_ = nullptr;
+            throw std::bad_alloc();
+        }
+        
+        capacity_ = cap;
+        mask_ = cap - 1;
+        growth_threshold_ = static_cast<size_t>(cap * max_load_factor_);
     }
     
     void deallocate() {
@@ -526,7 +567,7 @@ private:
                     slots_[i].destroy();
                 }
             }
-            std::free(ctrl_);
+            aligned_free_impl(ctrl_);
             std::free(slots_);
             ctrl_ = nullptr;
             slots_ = nullptr;
