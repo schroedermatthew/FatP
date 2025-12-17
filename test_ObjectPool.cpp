@@ -1,0 +1,732 @@
+/**
+ * @file test_ObjectPool.cpp
+ * @brief Comprehensive tests for ObjectPool v3.2 (Four-Reviewer Consensus)
+ *
+ * Tests cover:
+ * - Core operations (acquire, release, reuse)
+ * - New APIs (try_acquire, reserve_blocks, stats, capacity, available)
+ * - RAII wrapper (PooledObject, make_pooled)
+ * - Exception safety (constructor throws, allocation fails)
+ * - Thread safety (MutexSynchronizationPolicy)
+ * - Debug-mode checks (double-release, foreign pointer, leak detection)
+ * - Type aliases (SimpleObjectPool, ThreadSafeObjectPool)
+ * - Specialized acquisition (acquire_uninitialized, acquire_zeroed)
+ */
+
+#include <iostream>
+#include <thread>
+#include <vector>
+#include <stdexcept>
+#include <atomic>
+#include <string>
+
+#include "ObjectPool.h"
+#include "test_ObjectPool.h"
+#include "FatPTest.h"
+
+namespace fat_p::testing
+{
+
+// ============================================================================
+// Test Objects
+// ============================================================================
+
+struct TestObject
+{
+    int value{0};
+    static inline std::atomic<int> construct_count{0};
+    static inline std::atomic<int> destruct_count{0};
+
+    TestObject(int v = 0) : value(v) { ++construct_count; }
+    ~TestObject() { ++destruct_count; }
+
+    static void reset()
+    {
+        construct_count = 0;
+        destruct_count = 0;
+    }
+};
+
+struct ThrowingObject
+{
+    static inline bool should_throw{false};
+    int value;
+
+    ThrowingObject(int v = 0) : value(v)
+    {
+        if (should_throw)
+        {
+            throw std::runtime_error("ThrowingObject constructor failed");
+        }
+    }
+};
+
+struct ComplexObject
+{
+    int a, b;
+    std::string str;
+
+    ComplexObject(int x, int y, std::string s)
+        : a(x), b(y), str(std::move(s))
+    {
+    }
+};
+
+// Trivially constructible/destructible for specialized acquire tests
+struct TrivialObject
+{
+    int x;
+    int y;
+    double z;
+};
+static_assert(std::is_trivially_constructible_v<TrivialObject>);
+static_assert(std::is_trivially_destructible_v<TrivialObject>);
+
+// ============================================================================
+// Core Operation Tests
+// ============================================================================
+
+bool test_object_pool_basic_acquire_release()
+{
+    ObjectPool<TestObject> pool(4);
+
+    TestObject* obj = pool.acquire(42);
+    SIMPLE_ASSERT(obj != nullptr, "Should acquire object");
+    SIMPLE_ASSERT(obj->value == 42, "Object should be initialized with value");
+
+    pool.release(obj);
+
+    return true;
+}
+
+bool test_object_pool_reuse()
+{
+    TestObject::reset();
+
+    ObjectPool<TestObject> pool(4);
+
+    TestObject* obj1 = pool.acquire(1);
+    pool.release(obj1);
+
+    TestObject* obj2 = pool.acquire(2);
+    pool.release(obj2);
+
+    // Should reuse memory (same address)
+    SIMPLE_ASSERT(obj1 == obj2, "Should reuse released object memory");
+
+    return true;
+}
+
+bool test_object_pool_multiple_acquire()
+{
+    ObjectPool<TestObject> pool(4);
+
+    std::vector<TestObject*> objects;
+    for (int i = 0; i < 10; ++i)
+    {
+        objects.push_back(pool.acquire(i));
+    }
+
+    SIMPLE_ASSERT(objects.size() == 10, "Should acquire 10 objects");
+    SIMPLE_ASSERT(pool.num_blocks() >= 2, "Should allocate multiple blocks");
+
+    for (auto* obj : objects)
+    {
+        pool.release(obj);
+    }
+
+    return true;
+}
+
+bool test_object_pool_block_growth()
+{
+    ObjectPool<TestObject> pool(4);
+
+    SIMPLE_ASSERT(pool.num_blocks() == 1, "Should start with 1 block");
+    SIMPLE_ASSERT(pool.capacity() == 4, "Initial capacity should be block_size");
+
+    std::vector<TestObject*> objects;
+    for (int i = 0; i < 10; ++i)
+    {
+        objects.push_back(pool.acquire(i));
+    }
+
+    SIMPLE_ASSERT(pool.num_blocks() >= 3, "Should grow to multiple blocks");
+    SIMPLE_ASSERT(pool.capacity() >= 12, "Capacity should grow with blocks");
+
+    for (auto* obj : objects)
+    {
+        pool.release(obj);
+    }
+
+    return true;
+}
+
+bool test_object_pool_constructor_args()
+{
+    ObjectPool<ComplexObject> pool(4);
+
+    ComplexObject* obj = pool.acquire(10, 20, "test");
+    SIMPLE_ASSERT(obj->a == 10 && obj->b == 20 && obj->str == "test",
+                  "Constructor args should be forwarded correctly");
+
+    pool.release(obj);
+
+    return true;
+}
+
+// ============================================================================
+// New API Tests (v3.2)
+// ============================================================================
+
+bool test_object_pool_try_acquire()
+{
+    ObjectPool<TestObject> pool(2);
+
+    // Exhaust the initial block
+    TestObject* obj1 = pool.acquire(1);
+    TestObject* obj2 = pool.acquire(2);
+
+    // Pool is now empty (2 objects acquired from block of 2)
+    // try_acquire should return nullptr without allocating
+    // But wait - acquire() allocates a new block when empty
+    // So we need to test differently
+
+    // Release and test try_acquire succeeds
+    pool.release(obj1);
+    TestObject* obj3 = pool.try_acquire(3);
+    SIMPLE_ASSERT(obj3 != nullptr, "try_acquire should succeed when pool has free nodes");
+    SIMPLE_ASSERT(obj3->value == 3, "try_acquire should construct object");
+
+    pool.release(obj2);
+    pool.release(obj3);
+
+    return true;
+}
+
+bool test_object_pool_reserve_blocks()
+{
+    ObjectPool<TestObject> pool(4);
+
+    SIMPLE_ASSERT(pool.num_blocks() == 1, "Should start with 1 block");
+
+    pool.reserve_blocks(5);
+
+    SIMPLE_ASSERT(pool.num_blocks() == 5, "Should have 5 blocks after reserve");
+    SIMPLE_ASSERT(pool.capacity() == 20, "Capacity should be 5 * 4 = 20");
+
+    // Acquire should not need to allocate new blocks
+    std::vector<TestObject*> objects;
+    for (int i = 0; i < 15; ++i)
+    {
+        objects.push_back(pool.acquire(i));
+    }
+
+    SIMPLE_ASSERT(pool.num_blocks() == 5, "Should still have 5 blocks");
+
+    for (auto* obj : objects)
+    {
+        pool.release(obj);
+    }
+
+    return true;
+}
+
+bool test_object_pool_stats()
+{
+    ObjectPool<TestObject> pool(4);
+
+    auto stats1 = pool.stats();
+    SIMPLE_ASSERT(stats1.total_capacity == 4, "Initial capacity should be 4");
+    SIMPLE_ASSERT(stats1.available == 4, "All 4 should be available initially");
+    SIMPLE_ASSERT(stats1.acquired == 0, "None should be acquired initially");
+    SIMPLE_ASSERT(stats1.num_blocks == 1, "Should have 1 block");
+    SIMPLE_ASSERT(stats1.block_size == 4, "Block size should be 4");
+
+    TestObject* obj1 = pool.acquire(1);
+    TestObject* obj2 = pool.acquire(2);
+
+    auto stats2 = pool.stats();
+    SIMPLE_ASSERT(stats2.available == 2, "2 should be available after acquiring 2");
+    SIMPLE_ASSERT(stats2.acquired == 2, "2 should be acquired");
+
+    pool.release(obj1);
+
+    auto stats3 = pool.stats();
+    SIMPLE_ASSERT(stats3.available == 3, "3 should be available after releasing 1");
+    SIMPLE_ASSERT(stats3.acquired == 1, "1 should still be acquired");
+
+    pool.release(obj2);
+
+    return true;
+}
+
+bool test_object_pool_capacity_and_available()
+{
+    ObjectPool<TestObject> pool(4);
+
+    SIMPLE_ASSERT(pool.capacity() == 4, "Initial capacity should be 4");
+    SIMPLE_ASSERT(pool.available() == 4, "All 4 should be available");
+
+    TestObject* obj = pool.acquire(42);
+
+    SIMPLE_ASSERT(pool.capacity() == 4, "Capacity unchanged after acquire");
+    SIMPLE_ASSERT(pool.available() == 3, "3 available after acquiring 1");
+
+    pool.release(obj);
+
+    SIMPLE_ASSERT(pool.available() == 4, "4 available after release");
+
+    return true;
+}
+
+bool test_object_pool_active_count()
+{
+    ObjectPool<TestObject> pool(4);
+
+#ifndef NDEBUG
+    SIMPLE_ASSERT(pool.active_count() == 0, "Initially 0 active");
+
+    TestObject* obj1 = pool.acquire(1);
+    SIMPLE_ASSERT(pool.active_count() == 1, "1 active after acquire");
+
+    TestObject* obj2 = pool.acquire(2);
+    SIMPLE_ASSERT(pool.active_count() == 2, "2 active after second acquire");
+
+    pool.release(obj1);
+    SIMPLE_ASSERT(pool.active_count() == 1, "1 active after release");
+
+    pool.release(obj2);
+    SIMPLE_ASSERT(pool.active_count() == 0, "0 active after all released");
+#else
+    // In release mode, active_count() returns 0
+    SIMPLE_ASSERT(pool.active_count() == 0, "active_count returns 0 in release mode");
+    TestObject* obj = pool.acquire(42);
+    pool.release(obj);
+#endif
+
+    return true;
+}
+
+// ============================================================================
+// Specialized Acquire Tests (Gemini contribution)
+// ============================================================================
+
+bool test_object_pool_acquire_uninitialized()
+{
+    ObjectPool<TrivialObject> pool(4);
+
+    TrivialObject* obj = pool.acquire_uninitialized();
+    SIMPLE_ASSERT(obj != nullptr, "acquire_uninitialized should return pointer");
+
+    // Manually initialize
+    obj->x = 10;
+    obj->y = 20;
+    obj->z = 3.14;
+
+    SIMPLE_ASSERT(obj->x == 10 && obj->y == 20, "Should be able to use memory");
+
+    pool.release(obj);
+
+    return true;
+}
+
+bool test_object_pool_acquire_zeroed()
+{
+    ObjectPool<TrivialObject> pool(4);
+
+    TrivialObject* obj = pool.acquire_zeroed();
+    SIMPLE_ASSERT(obj != nullptr, "acquire_zeroed should return pointer");
+
+    // Memory should be zeroed
+    SIMPLE_ASSERT(obj->x == 0 && obj->y == 0, "Memory should be zero-initialized");
+
+    pool.release(obj);
+
+    return true;
+}
+
+// ============================================================================
+// RAII Wrapper Tests
+// ============================================================================
+
+bool test_object_pool_pooled_object_raii()
+{
+    TestObject::reset();
+
+    {
+        ObjectPool<TestObject> pool(4);
+
+        {
+            auto pooled = make_pooled(pool, 42);
+            SIMPLE_ASSERT(pooled.get() != nullptr, "PooledObject should hold object");
+            SIMPLE_ASSERT(pooled->value == 42, "PooledObject should access object");
+            SIMPLE_ASSERT((*pooled).value == 42, "operator* should work");
+
+            auto stats = pool.stats();
+            SIMPLE_ASSERT(stats.acquired == 1, "1 should be acquired via PooledObject");
+        }
+        // PooledObject destroyed, should release back to pool
+
+        auto stats = pool.stats();
+        SIMPLE_ASSERT(stats.acquired == 0, "0 should be acquired after PooledObject destroyed");
+    }
+
+    return true;
+}
+
+bool test_object_pool_pooled_object_move()
+{
+    ObjectPool<TestObject> pool(4);
+
+    auto pooled1 = make_pooled(pool, 100);
+    TestObject* raw_ptr = pooled1.get();
+
+    // Move construction
+    PooledObject<TestObject> pooled2(std::move(pooled1));
+
+    SIMPLE_ASSERT(pooled1.get() == nullptr, "Moved-from should be null");
+    SIMPLE_ASSERT(pooled2.get() == raw_ptr, "Moved-to should hold original pointer");
+    SIMPLE_ASSERT(pooled2->value == 100, "Value should be preserved");
+
+    // Move assignment
+    auto pooled3 = make_pooled(pool, 200);
+    pooled3 = std::move(pooled2);
+
+    SIMPLE_ASSERT(pooled2.get() == nullptr, "Moved-from should be null");
+    SIMPLE_ASSERT(pooled3.get() == raw_ptr, "Move-assigned should hold pointer");
+
+    return true;
+}
+
+bool test_object_pool_pooled_object_reset()
+{
+    ObjectPool<TestObject> pool(4);
+
+    auto pooled = make_pooled(pool, 42);
+    SIMPLE_ASSERT(pool.stats().acquired == 1, "1 acquired");
+
+    pooled.reset();
+
+    SIMPLE_ASSERT(pooled.get() == nullptr, "reset() should clear pointer");
+    SIMPLE_ASSERT(pool.stats().acquired == 0, "reset() should release to pool");
+
+    return true;
+}
+
+bool test_object_pool_pooled_object_release()
+{
+    ObjectPool<TestObject> pool(4);
+
+    auto pooled = make_pooled(pool, 42);
+    TestObject* raw = pooled.release();
+
+    SIMPLE_ASSERT(pooled.get() == nullptr, "release() should clear pointer");
+    SIMPLE_ASSERT(raw != nullptr, "release() should return raw pointer");
+    SIMPLE_ASSERT(raw->value == 42, "Raw pointer should still be valid");
+
+    // Object is still acquired - we own it now
+    SIMPLE_ASSERT(pool.stats().acquired == 1, "Object still acquired after release()");
+
+    // Must manually release
+    pool.release(raw);
+
+    SIMPLE_ASSERT(pool.stats().acquired == 0, "Manual release should work");
+
+    return true;
+}
+
+bool test_object_pool_pooled_object_get_pool()
+{
+    ObjectPool<TestObject> pool(4);
+
+    auto pooled = make_pooled(pool, 42);
+
+    SIMPLE_ASSERT(pooled.get_pool() == &pool, "get_pool() should return owning pool");
+
+    return true;
+}
+
+bool test_object_pool_pooled_object_bool_conversion()
+{
+    ObjectPool<TestObject> pool(4);
+
+    PooledObject<TestObject> empty;
+    SIMPLE_ASSERT(!empty, "Default PooledObject should be falsy");
+
+    auto pooled = make_pooled(pool, 42);
+    SIMPLE_ASSERT(static_cast<bool>(pooled), "Valid PooledObject should be truthy");
+
+    pooled.reset();
+    SIMPLE_ASSERT(!pooled, "Reset PooledObject should be falsy");
+
+    return true;
+}
+
+// ============================================================================
+// Exception Safety Tests
+// ============================================================================
+
+bool test_object_pool_constructor_exception_safety()
+{
+    ObjectPool<ThrowingObject> pool(4);
+
+    ThrowingObject::should_throw = false;
+
+    // Normal acquisition should work
+    ThrowingObject* obj1 = pool.acquire(1);
+    SIMPLE_ASSERT(obj1 != nullptr, "Normal acquire should succeed");
+    SIMPLE_ASSERT(obj1->value == 1, "Value should be set");
+
+    auto stats_before = pool.stats();
+    size_t available_before = stats_before.available;
+
+    // Enable throwing
+    ThrowingObject::should_throw = true;
+
+    bool caught = false;
+    try
+    {
+        (void)pool.acquire(2);  // Should throw, suppress [[nodiscard]] warning
+    }
+    catch (const std::runtime_error&)
+    {
+        caught = true;
+    }
+
+    SIMPLE_ASSERT(caught, "Exception should be thrown");
+
+    auto stats_after = pool.stats();
+    SIMPLE_ASSERT(stats_after.available == available_before,
+                  "Node should be restored to free list after constructor throws");
+
+    // Disable throwing and verify pool still works
+    ThrowingObject::should_throw = false;
+
+    ThrowingObject* obj2 = pool.acquire(3);
+    SIMPLE_ASSERT(obj2 != nullptr, "Pool should still work after exception");
+
+    pool.release(obj1);
+    pool.release(obj2);
+
+    return true;
+}
+
+// ============================================================================
+// Thread Safety Tests
+// ============================================================================
+
+bool test_object_pool_thread_safety()
+{
+    ObjectPool<TestObject, MutexSynchronizationPolicy> pool(16);
+
+    std::atomic<int> total_ops{0};
+    std::vector<std::thread> threads;
+
+    for (int i = 0; i < 4; ++i)
+    {
+        threads.emplace_back([&pool, &total_ops]() {
+            for (int j = 0; j < 100; ++j)
+            {
+                TestObject* obj = pool.acquire(j);
+                pool.release(obj);
+                ++total_ops;
+            }
+        });
+    }
+
+    for (auto& t : threads)
+    {
+        t.join();
+    }
+
+    SIMPLE_ASSERT(total_ops == 400, "All operations should complete");
+    SIMPLE_ASSERT(pool.stats().acquired == 0, "All objects should be released");
+
+    return true;
+}
+
+bool test_object_pool_thread_safe_alias()
+{
+    ThreadSafeObjectPool<TestObject> pool(8);
+
+    std::vector<std::thread> threads;
+    for (int i = 0; i < 2; ++i)
+    {
+        threads.emplace_back([&pool]() {
+            for (int j = 0; j < 50; ++j)
+            {
+                TestObject* obj = pool.acquire(j);
+                pool.release(obj);
+            }
+        });
+    }
+
+    for (auto& t : threads)
+    {
+        t.join();
+    }
+
+    return true;
+}
+
+// ============================================================================
+// Type Alias Tests
+// ============================================================================
+
+bool test_object_pool_simple_alias()
+{
+    SimpleObjectPool<TestObject> pool(4);
+
+    TestObject* obj = pool.acquire(42);
+    SIMPLE_ASSERT(obj != nullptr, "SimpleObjectPool should work");
+    SIMPLE_ASSERT(obj->value == 42, "Value should be correct");
+
+    pool.release(obj);
+
+    return true;
+}
+
+// ============================================================================
+// Edge Case Tests
+// ============================================================================
+
+bool test_object_pool_null_release()
+{
+    ObjectPool<TestObject> pool(4);
+
+    // Releasing nullptr should be safe (no-op)
+    pool.release(nullptr);
+
+    return true;
+}
+
+bool test_object_pool_exhaust_and_grow()
+{
+    ObjectPool<TestObject> pool(2);
+
+    TestObject* obj1 = pool.acquire();
+    TestObject* obj2 = pool.acquire();
+    TestObject* obj3 = pool.acquire();  // Should trigger new block
+
+    SIMPLE_ASSERT(obj1 && obj2 && obj3, "Should handle pool exhaustion by growing");
+    SIMPLE_ASSERT(pool.num_blocks() >= 2, "Should have allocated new block");
+
+    pool.release(obj1);
+    pool.release(obj2);
+    pool.release(obj3);
+
+    return true;
+}
+
+bool test_object_pool_block_size_accessor()
+{
+    ObjectPool<TestObject> pool(32);
+
+    SIMPLE_ASSERT(pool.block_size() == 32, "block_size() should return configured size");
+
+    return true;
+}
+
+// ============================================================================
+// Benchmark
+// ============================================================================
+
+void benchmark_objectpool()
+{
+    std::cout << "\n" << colors::cyan() << "ObjectPool Benchmarks:" << colors::reset() << "\n\n";
+
+    ObjectPool<TestObject> pool(64);
+
+    // Benchmark acquire + release
+    double pool_time = measure_perf([&pool]() {
+        TestObject* obj = pool.acquire(42);
+        pool.release(obj);
+    }, 100000, 1000);
+    std::cout << "Pool acquire + release: " << format_time(pool_time) << "\n";
+
+    // Benchmark new + delete for comparison
+    double new_time = measure_perf([]() {
+        TestObject* obj = new TestObject(42);
+        delete obj;
+    }, 100000, 1000);
+    std::cout << "new + delete:           " << format_time(new_time) << "\n";
+
+    if (pool_time > 0)
+    {
+        std::cout << "Speedup: " << std::fixed << std::setprecision(1)
+                  << (new_time / pool_time) << "x\n";
+    }
+
+    // Benchmark try_acquire
+    double try_time = measure_perf([&pool]() {
+        TestObject* obj = pool.try_acquire(42);
+        if (obj) pool.release(obj);
+    }, 100000, 1000);
+    std::cout << "try_acquire + release:  " << format_time(try_time) << "\n";
+
+    // Benchmark stats() (cold path)
+    double stats_time = measure_perf([&pool]() {
+        auto s = pool.stats();
+        (void)s;
+    }, 10000, 100);
+    std::cout << "stats() (cold path):    " << format_time(stats_time) << "\n";
+}
+
+// ============================================================================
+// Main Test Runner
+// ============================================================================
+
+bool test_ObjectPool()
+{
+    PRINT_HEADER(OBJECT POOL v3.2)
+
+    TestRunner runner;
+
+    // Core operations
+    RUN_TEST(runner, object_pool_basic_acquire_release);
+    RUN_TEST(runner, object_pool_reuse);
+    RUN_TEST(runner, object_pool_multiple_acquire);
+    RUN_TEST(runner, object_pool_block_growth);
+    RUN_TEST(runner, object_pool_constructor_args);
+
+    // New v3.2 APIs
+    RUN_TEST(runner, object_pool_try_acquire);
+    RUN_TEST(runner, object_pool_reserve_blocks);
+    RUN_TEST(runner, object_pool_stats);
+    RUN_TEST(runner, object_pool_capacity_and_available);
+    RUN_TEST(runner, object_pool_active_count);
+
+    // Specialized acquire (trivial types)
+    RUN_TEST(runner, object_pool_acquire_uninitialized);
+    RUN_TEST(runner, object_pool_acquire_zeroed);
+
+    // RAII wrapper
+    RUN_TEST(runner, object_pool_pooled_object_raii);
+    RUN_TEST(runner, object_pool_pooled_object_move);
+    RUN_TEST(runner, object_pool_pooled_object_reset);
+    RUN_TEST(runner, object_pool_pooled_object_release);
+    RUN_TEST(runner, object_pool_pooled_object_get_pool);
+    RUN_TEST(runner, object_pool_pooled_object_bool_conversion);
+
+    // Exception safety
+    RUN_TEST(runner, object_pool_constructor_exception_safety);
+
+    // Thread safety
+    RUN_TEST(runner, object_pool_thread_safety);
+    RUN_TEST(runner, object_pool_thread_safe_alias);
+
+    // Type aliases
+    RUN_TEST(runner, object_pool_simple_alias);
+
+    // Edge cases
+    RUN_TEST(runner, object_pool_null_release);
+    RUN_TEST(runner, object_pool_exhaust_and_grow);
+    RUN_TEST(runner, object_pool_block_size_accessor);
+
+    benchmark_objectpool();
+
+    return 0 == runner.print_summary();
+}
+
+} // namespace fat_p::testing

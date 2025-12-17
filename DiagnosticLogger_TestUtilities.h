@@ -1,0 +1,306 @@
+/**
+ * @file DiagnosticLogger_TestUtilities.h
+ * @brief Test utilities for DiagnosticLogger using ScopeGuard for safe state management
+ * 
+ * This file provides RAII-based utilities for temporarily changing logger state
+ * during tests, ensuring automatic restoration even in the presence of exceptions.
+ */
+#pragma once
+
+#include "DiagnosticLogger_Core.h"
+#include "ScopeGuard.h"
+
+namespace fat_p {
+namespace diagnostic {
+namespace test_util {
+
+/**
+ * @brief RAII guard for temporarily changing log level
+ * 
+ * Automatically restores the original log level when the guard goes out of scope,
+ * even if exceptions are thrown.
+ * 
+ * Example:
+ * @code
+ * {
+ *     LogLevelGuard guard(logger, LogLevel::Debug);
+ *     // ... test code with debug logging enabled ...
+ * } // Original level automatically restored
+ * @endcode
+ */
+class LogLevelGuard
+{
+    Logger& logger_;
+    LogLevel originalLevel_;
+    
+public:
+    explicit LogLevelGuard(Logger& logger, LogLevel tempLevel)
+        : logger_(logger)
+        , originalLevel_(logger.getLevel())
+    {
+        logger_.setLevel(tempLevel);
+    }
+    
+    ~LogLevelGuard()
+    {
+        logger_.setLevel(originalLevel_);
+    }
+    
+    LogLevelGuard(const LogLevelGuard&) = delete;
+    LogLevelGuard& operator=(const LogLevelGuard&) = delete;
+    LogLevelGuard(LogLevelGuard&&) = delete;
+    LogLevelGuard& operator=(LogLevelGuard&&) = delete;
+    
+    /**
+     * @brief Get the original log level that will be restored
+     */
+    LogLevel originalLevel() const noexcept { return originalLevel_; }
+    
+    /**
+     * @brief Create a ScopeGuard-based log level guard
+     * 
+     * Alternative factory method that returns a ScopeGuard directly.
+     */
+    static auto makeScopeGuard(Logger& logger, LogLevel tempLevel)
+    {
+        auto originalLevel = logger.getLevel();
+        logger.setLevel(tempLevel);
+        
+        return fat_p::makeScopeGuard([&logger, originalLevel]() {
+            logger.setLevel(originalLevel);
+        });
+    }
+};
+
+/**
+ * @brief RAII guard for temporarily enabling/disabling the logger
+ * 
+ * Example:
+ * @code
+ * {
+ *     LoggerEnabledGuard guard(logger, false); // Disable logging
+ *     // ... test code with logging disabled ...
+ * } // Original state automatically restored
+ * @endcode
+ */
+class LoggerEnabledGuard
+{
+    Logger& logger_;
+    bool originalState_;
+    
+public:
+    explicit LoggerEnabledGuard(Logger& logger, bool enabled)
+        : logger_(logger)
+        , originalState_(logger.shouldLog(LogLevel::Trace)) // Check if currently enabled
+    {
+        logger_.setEnabled(enabled);
+    }
+    
+    ~LoggerEnabledGuard()
+    {
+        logger_.setEnabled(originalState_);
+    }
+    
+    LoggerEnabledGuard(const LoggerEnabledGuard&) = delete;
+    LoggerEnabledGuard& operator=(const LoggerEnabledGuard&) = delete;
+};
+
+/**
+ * @brief RAII guard for temporarily managing logger sinks
+ * 
+ * Saves all current sinks on construction and restores them on destruction.
+ * Optionally clears sinks after saving for a clean test configuration.
+ * 
+ * Example:
+ * @code
+ * {
+ *     SinkGuard guard(logger);
+ *     logger.addSink(testSink); // Add test-specific sink
+ *     // ... test code ...
+ * } // Original sinks automatically restored
+ * @endcode
+ */
+class SinkGuard
+{
+    Logger& logger_;
+    std::vector<std::shared_ptr<ISink>> originalSinks_;
+    
+public:
+    explicit SinkGuard(Logger& logger, bool clearSinks = true)
+        : logger_(logger)
+        , originalSinks_(logger.getSinks())
+    {
+        if (clearSinks)
+        {
+            logger_.clearSinks();
+        }
+    }
+    
+    ~SinkGuard()
+    {
+        // Restore original sinks
+        logger_.setSinks(std::move(originalSinks_));
+    }
+    
+    SinkGuard(const SinkGuard&) = delete;
+    SinkGuard& operator=(const SinkGuard&) = delete;
+};
+
+/**
+ * @brief Create a temporary test sink that captures log records
+ * 
+ * Useful for verifying that specific log messages were generated during a test.
+ */
+class CapturingSink : public ISink
+{
+public:
+    std::vector<LogRecord> records;
+    mutable std::mutex mutex_;
+    
+    void write(const LogRecord& record) override
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        records.push_back(record);
+    }
+    
+    void flush() override {}
+    
+    /**
+     * @brief Check if any captured record contains the given message substring
+     */
+    bool containsMessage(const std::string& substr) const
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (const auto& rec : records)
+        {
+            if (rec.message.find(substr) != std::string::npos)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * @brief Count records at a specific log level
+     */
+    size_t countLevel(LogLevel level) const
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return std::count_if(records.begin(), records.end(),
+            [level](const LogRecord& rec) { return rec.level == level; });
+    }
+    
+    /**
+     * @brief Clear all captured records
+     */
+    void clear()
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        records.clear();
+    }
+    
+    /**
+     * @brief Get the number of captured records
+     */
+    size_t count() const
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return records.size();
+    }
+};
+
+/**
+ * @brief RAII guard that adds a sink temporarily and restores original sinks on destruction
+ * 
+ * Saves current sinks, clears them, adds the temporary sink, then restores
+ * original sinks when the guard goes out of scope.
+ * 
+ * Example:
+ * @code
+ * auto capturingSink = std::make_shared<CapturingSink>();
+ * {
+ *     TemporarySinkGuard guard(logger, capturingSink);
+ *     LOG_INFO("Test message");
+ * } // Original sinks automatically restored
+ * 
+ * assert(capturingSink->containsMessage("Test message"));
+ * @endcode
+ */
+class TemporarySinkGuard
+{
+    Logger& logger_;
+    std::vector<std::shared_ptr<ISink>> originalSinks_;
+    
+public:
+    TemporarySinkGuard(Logger& logger, std::shared_ptr<ISink> sink)
+        : logger_(logger)
+        , originalSinks_(logger.getSinks())
+    {
+        logger_.clearSinks();
+        logger_.addSink(std::move(sink));
+    }
+    
+    ~TemporarySinkGuard()
+    {
+        logger_.setSinks(std::move(originalSinks_));
+    }
+    
+    TemporarySinkGuard(const TemporarySinkGuard&) = delete;
+    TemporarySinkGuard& operator=(const TemporarySinkGuard&) = delete;
+};
+
+/**
+ * @brief Convenience function to temporarily change log level for a code block
+ * 
+ * Example:
+ * @code
+ * withLogLevel(logger, LogLevel::Trace, []() {
+ *     // Code that needs trace logging
+ * });
+ * // Original level automatically restored
+ * @endcode
+ */
+template<typename Func>
+void withLogLevel(Logger& logger, LogLevel level, Func&& func)
+{
+    LogLevelGuard guard(logger, level);
+    std::forward<Func>(func)();
+}
+
+/**
+ * @brief Convenience function to capture logs during a code block
+ * 
+ * Saves current sinks, replaces them with a capturing sink, executes the
+ * function, then restores original sinks and returns captured records.
+ * 
+ * Example:
+ * @code
+ * auto records = captureLogsFrom(logger, []() {
+ *     LOG_INFO("Test message");
+ * });
+ * 
+ * assert(!records.empty());
+ * @endcode
+ */
+template<typename Func>
+std::vector<LogRecord> captureLogsFrom(Logger& logger, Func&& func)
+{
+    auto originalSinks = logger.getSinks();
+    auto sink = std::make_shared<CapturingSink>();
+    
+    logger.clearSinks();
+    logger.addSink(sink);
+    
+    auto guard = fat_p::makeScopeGuard([&logger, &originalSinks]() {
+        logger.setSinks(std::move(originalSinks));
+    });
+    
+    std::forward<Func>(func)();
+    
+    return sink->records;
+}
+
+} // namespace test_util
+} // namespace diagnostic
+} // namespace fat_p

@@ -1,0 +1,1058 @@
+// test_FloatingPointComparison.cpp
+// Comprehensive test suite with corrected logic for "Noise Floor" stability
+// Now includes benchmark tests
+
+#include <iostream>
+#include <iomanip>
+#include <limits>
+#include <cmath>
+#include <algorithm>
+#include <functional>
+#include <vector>
+#include <random>
+#include "FloatingPointComparison.h"
+#include "FatPTest.h"
+
+namespace fat_p::testing {
+
+    // =============================================================================
+    // Test Suite 1: StandardComparisonPolicy
+    // =============================================================================
+    bool test_standard_basic() {
+        // Exact equality
+        ASSERT_TRUE(floatEqual(1.0, 1.0), "Exact equality");
+
+        // Within default epsilon
+        double eps = getDefaultEpsilon<double>();
+        ASSERT_TRUE(floatEqual(1.0, 1.0 + eps * 0.5), "Within default epsilon");
+
+        // Beyond default epsilon
+        ASSERT_FALSE(floatEqual(1.0, 1.0 + eps * 2.0), "Beyond default epsilon");
+
+        // Custom epsilon
+        ASSERT_TRUE(floatEqual(1.0, 1.1, 0.2), "Custom epsilon 0.2");
+        ASSERT_FALSE(floatEqual(1.0, 1.1, 0.05), "Custom epsilon 0.05");
+
+        return true;
+    }
+
+    bool test_standard_boundary_values() {
+        double eps = getDefaultEpsilon<double>();
+        double a = 1.0;
+
+        // Exactly at epsilon boundary
+        double b_at_boundary = a + eps;
+        ASSERT_TRUE(floatEqual(a, b_at_boundary), "Exactly at epsilon boundary passes");
+
+        // Just beyond epsilon boundary
+        double b_beyond = a + eps * 2.0;
+        ASSERT_FALSE(floatEqual(a, b_beyond), "Just beyond epsilon fails");
+
+        // Exactly at custom epsilon boundary
+        double c = 10.0;
+        double d = 10.0 + 0.1;
+        ASSERT_TRUE(floatEqual(c, d, 0.1), "At custom epsilon boundary");
+        ASSERT_FALSE(floatEqual(c, d, 0.099), "Beyond custom epsilon boundary");
+
+        return true;
+    }
+
+    bool test_standard_negative_values() {
+        double eps = getDefaultEpsilon<double>();
+
+        // Negative values within epsilon
+        ASSERT_TRUE(floatEqual(-1.0, -1.0 + eps * 0.5), "Negative within epsilon");
+        ASSERT_TRUE(floatEqual(-1.0, -1.0 - eps * 0.5), "Negative within epsilon (other direction)");
+
+        // Negative values beyond epsilon
+        ASSERT_FALSE(floatEqual(-1.0, -1.0 + eps * 2.0), "Negative beyond epsilon");
+
+        // Large negative values
+        ASSERT_TRUE(floatEqual(-1e6, -1e6 + eps * 0.5), "Large negative within epsilon");
+
+        return true;
+    }
+
+    bool test_standard_special_values() {
+        double pos_inf = std::numeric_limits<double>::infinity();
+        double neg_inf = -std::numeric_limits<double>::infinity();
+        double nan = std::numeric_limits<double>::quiet_NaN();
+
+        // Infinities
+        ASSERT_TRUE(floatEqual(pos_inf, pos_inf), "+inf == +inf");
+        ASSERT_TRUE(floatEqual(neg_inf, neg_inf), "-inf == -inf");
+        ASSERT_FALSE(floatEqual(pos_inf, neg_inf), "+inf != -inf");
+        ASSERT_FALSE(floatEqual(pos_inf, 1.0), "+inf != finite");
+
+        // NaN
+        ASSERT_FALSE(floatEqual(nan, nan), "NaN != NaN (IEEE 754)");
+        ASSERT_FALSE(floatEqual(nan, 0.0), "NaN != 0");
+
+        // Signed zeros
+        ASSERT_TRUE(floatEqual(0.0, -0.0), "+0 == -0");
+        ASSERT_TRUE(floatEqual(-0.0, 0.0), "-0 == +0");
+
+        return true;
+    }
+
+    bool test_standard_zero_comparisons() {
+        double zero = 0.0;
+        double tiny = std::numeric_limits<double>::denorm_min();
+        double eps = getDefaultEpsilon<double>();
+
+        // Zero vs tiny value (should pass with default epsilon)
+        ASSERT_TRUE(floatEqual(zero, tiny), "Zero vs denorm_min");
+
+        // Zero vs value just beyond epsilon
+        ASSERT_FALSE(floatEqual(zero, eps * 1.1), "Zero vs value beyond epsilon");
+
+        // Zero vs value at epsilon
+        ASSERT_TRUE(floatEqual(zero, eps), "Zero vs value at epsilon");
+
+        return true;
+    }
+
+    // =============================================================================
+    // Test Suite 2: UlpComparisonPolicy
+    // =============================================================================
+    bool test_ulp_basic() {
+        float a = 1.0f;
+        float b = 1.0f + std::numeric_limits<float>::epsilon();
+
+        // Within 4 ULPs (default)
+        ASSERT_TRUE((floatEqual<float, UlpComparisonPolicy>(a, a)), "Same value");
+        ASSERT_TRUE((floatEqual<float, UlpComparisonPolicy>(a, b, 4.0f)), "Within 4 ULPs");
+
+        // Beyond 4 ULPs
+        float c = 1.0f + 10.0f * std::numeric_limits<float>::epsilon();
+        ASSERT_FALSE((floatEqual<float, UlpComparisonPolicy>(a, c, 4.0f)), "Beyond 4 ULPs");
+
+        return true;
+    }
+
+    bool test_ulp_exact_boundaries() {
+        float a = 1.0f;
+
+        // Exactly 1 ULP apart
+        float b = std::nextafter(a, 2.0f);
+        ASSERT_TRUE((floatEqual<float, UlpComparisonPolicy>(a, b, 1.0f)),
+            "Exactly 1 ULP apart with tolerance 1.0");
+        ASSERT_FALSE((floatEqual<float, UlpComparisonPolicy>(a, b, 0.5f)),
+            "Beyond 0.5 ULP tolerance");
+
+        // Exactly 4 ULPs apart (default tolerance)
+        float c = a;
+        for (int i = 0; i < 4; ++i) {
+            c = std::nextafter(c, 2.0f);
+        }
+        ASSERT_TRUE((floatEqual<float, UlpComparisonPolicy>(a, c)),
+            "Exactly 4 ULPs with default tolerance");
+
+        // 5 ULPs apart - should fail with default
+        float d = std::nextafter(c, 2.0f);
+        ASSERT_FALSE((floatEqual<float, UlpComparisonPolicy>(a, d)),
+            "5 ULPs exceeds default tolerance");
+
+        // Double precision test
+        double da = 1.0;
+        double db = std::nextafter(da, 2.0);
+        ASSERT_TRUE((floatEqual<double, UlpComparisonPolicy>(da, db, 1.0)),
+            "Double: exactly 1 ULP apart");
+
+        return true;
+    }
+
+    bool test_ulp_negative_values() {
+        // ULP with negative values (important for signed magnitude conversion)
+        double neg_a = -1.0;
+        double neg_b = std::nextafter(neg_a, -2.0);
+        ASSERT_TRUE((floatEqual<double, UlpComparisonPolicy>(neg_a, neg_b, 1.0)),
+            "Negative: 1 ULP apart");
+
+        // Multiple ULPs in negative range
+        double neg_c = neg_a;
+        for (int i = 0; i < 3; ++i) {
+            neg_c = std::nextafter(neg_c, -2.0);
+        }
+        ASSERT_TRUE((floatEqual<double, UlpComparisonPolicy>(neg_a, neg_c, 3.0)),
+            "Negative: 3 ULPs apart");
+        ASSERT_FALSE((floatEqual<double, UlpComparisonPolicy>(neg_a, neg_c, 2.0)),
+            "Negative: beyond 2 ULP tolerance");
+
+        // Large negative values
+        double large_neg_a = -1e6;
+        double large_neg_b = std::nextafter(large_neg_a, -2e6);
+        ASSERT_TRUE((floatEqual<double, UlpComparisonPolicy>(large_neg_a, large_neg_b, 1.0)),
+            "Large negative: 1 ULP apart");
+
+        return true;
+    }
+
+    bool test_ulp_subnormals() {
+        // Float subnormals
+        float denorm_f = std::numeric_limits<float>::denorm_min();
+        ASSERT_TRUE((floatEqual<float, UlpComparisonPolicy>(denorm_f, denorm_f)),
+            "Float subnormal equals itself");
+
+        // Double subnormals
+        double denorm_d = std::numeric_limits<double>::denorm_min();
+        ASSERT_TRUE((floatEqual<double, UlpComparisonPolicy>(denorm_d, denorm_d)),
+            "Double subnormal equals itself");
+
+        // Near-zero hybrid handling
+        ASSERT_TRUE((floatEqual<float, UlpComparisonPolicy>(0.0f, denorm_f)),
+            "Zero close to subnormal");
+
+        return true;
+    }
+
+    bool test_ulp_subnormal_boundaries() {
+        // Test subnormals near the boundary to normal numbers
+        float min_normal_f = std::numeric_limits<float>::min();
+        float denorm_f = std::numeric_limits<float>::denorm_min();
+
+        // ULP policy uses absolute tolerance (1e-6 for float) when subnormals are involved
+        // min_normal (~1.175e-38) and denorm_min (~1.4e-45) both fall within 1e-6
+        // This is expected and practical behavior - subnormals are treated with larger tolerance
+        ASSERT_TRUE((floatEqual<float, UlpComparisonPolicy>(min_normal_f, denorm_f)),
+            "Normal and subnormal within subnormal absolute tolerance");
+
+        return true;
+    }
+
+    bool test_ulp_sign_sensitivity() {
+        // ULP comparison is STRICT about signs (can't cross zero)
+        float a = 1.0f;
+        float b = -1.0f;
+
+        ASSERT_FALSE((floatEqual<float, UlpComparisonPolicy>(a, b, 1000.0f)),
+            "Different signs always fail");
+
+        // Even tiny opposite-sign values fail
+        double tiny_pos = 1e-10;
+        double tiny_neg = -1e-10;
+        ASSERT_FALSE((floatEqual<double, UlpComparisonPolicy>(tiny_pos, tiny_neg, 1000.0)),
+            "Tiny opposite signs fail");
+
+        return true;
+    }
+
+    // =============================================================================
+    // Test Suite 3: RelativeComparisonPolicy
+    // =============================================================================
+    bool test_relative_scale_independence() {
+        double rel_eps = 1e-6;
+
+        // Small scale
+        double small_a = 1e-8;
+        double small_b = 1e-8 * (1.0 + rel_eps * 0.5);
+        ASSERT_TRUE((floatEqual<double, RelativeComparisonPolicy>(small_a, small_b, rel_eps)),
+            "Small scale: within relative tolerance");
+
+        // Large scale
+        double large_a = 1e8;
+        double large_b = 1e8 * (1.0 + rel_eps * 0.5);
+        ASSERT_TRUE((floatEqual<double, RelativeComparisonPolicy>(large_a, large_b, rel_eps)),
+            "Large scale: within relative tolerance");
+
+        return true;
+    }
+
+    bool test_relative_near_zero_weakness() {
+        double rel_eps = 1e-6;
+
+        // Relative policy struggles near zero
+        double near_zero_a = 1e-15;
+        double near_zero_b = 2e-15;
+
+        // Even though difference is tiny, relative error is 100%!
+        ASSERT_FALSE((floatEqual<double, RelativeComparisonPolicy>(near_zero_a, near_zero_b, rel_eps)),
+            "Near zero: relative policy fails");
+
+        return true;
+    }
+
+    bool test_relative_default_epsilon() {
+        double a = 1.0;
+        double b = 1.0 + getDefaultEpsilon<double>() * 0.5;
+
+        ASSERT_TRUE((floatEqual<double, RelativeComparisonPolicy>(a, b)),
+            "Default epsilon works");
+
+        return true;
+    }
+
+    bool test_relative_zero_comparisons() {
+        // Zeros are always equal in relative comparison
+        ASSERT_TRUE((floatEqual<double, RelativeComparisonPolicy>(0.0, 0.0)),
+            "Zero equals zero");
+        ASSERT_TRUE((floatEqual<double, RelativeComparisonPolicy>(0.0, -0.0)),
+            "+0 equals -0");
+
+        // But any non-zero vs zero fails (infinite relative error)
+        double eps = getDefaultEpsilon<double>();
+        ASSERT_FALSE((floatEqual<double, RelativeComparisonPolicy>(0.0, eps)),
+            "Zero vs epsilon fails");
+
+        return true;
+    }
+
+    // =============================================================================
+    // Test Suite 4: HybridComparisonPolicy
+    // =============================================================================
+    bool test_hybrid_robustness() {
+        double rel_eps = 1e-6;
+        double abs_eps = 1e-12;
+
+        // Works at small scale (absolute tolerance kicks in)
+        double small_a = 1e-13;
+        double small_b = 2e-13;
+        ASSERT_TRUE((floatEqual<double, HybridComparisonPolicy>(small_a, small_b, rel_eps, abs_eps)),
+            "Small scale: absolute tolerance works");
+
+        // Works at large scale (relative tolerance kicks in)
+        double large_a = 1e8;
+        double large_b = 1e8 * (1.0 + rel_eps * 0.5);
+        ASSERT_TRUE((floatEqual<double, HybridComparisonPolicy>(large_a, large_b, rel_eps, abs_eps)),
+            "Large scale: relative tolerance works");
+
+        return true;
+    }
+
+    bool test_hybrid_near_zero_robustness() {
+        double rel_eps = 1e-6;
+        double abs_eps = 1e-12;
+
+        // Hybrid handles near-zero gracefully
+        double a = 5e-13;
+        double b = -5e-13;
+
+        ASSERT_TRUE(approximateEqual(a, b, rel_eps, abs_eps),
+            "Near zero: absolute tolerance catches it");
+
+        return true;
+    }
+
+    bool test_hybrid_parameter_flexibility() {
+        // Can use same value for both parameters
+        double eps = 1e-9;
+        double a = 1.0;
+        double b = 1.0 + eps * 0.5;
+
+        ASSERT_TRUE(approximateEqual(a, b, eps, eps),
+            "Single epsilon for both tolerances");
+
+        // Or different values
+        double rel_eps = 1e-6;
+        double abs_eps = 1e-12;
+        ASSERT_TRUE(approximateEqual(a, b, rel_eps, abs_eps),
+            "Different tolerances");
+
+        return true;
+    }
+
+    bool test_hybrid_boundary_conditions() {
+        double rel_eps = 1e-6;
+        double abs_eps = 1e-12;
+
+        // At the boundary between absolute and relative regimes
+        double boundary_val = abs_eps / rel_eps;  // ~ 1e-6
+
+        double a = boundary_val;
+        double b = boundary_val * (1.0 + rel_eps * 0.5);
+
+        ASSERT_TRUE(approximateEqual(a, b, rel_eps, abs_eps),
+            "Boundary between absolute and relative regimes");
+
+        return true;
+    }
+
+    // =============================================================================
+    // Test Suite 5: Cross-Policy Verification
+    // =============================================================================
+    bool test_policy_differences() {
+        // Show where policies differ
+        double a = 1e-10;
+        double b = -1e-10;
+
+        // Standard/Hybrid allow sign crossing (noise floor)
+        ASSERT_TRUE(floatEqual(a, b, 1e-6),
+            "Standard allows sign crossing");
+        ASSERT_TRUE(approximateEqual(a, b, 1e-6, 1e-6),
+            "Hybrid allows sign crossing");
+
+        // Relative/ULP are strict about signs
+        ASSERT_FALSE((floatEqual<double, RelativeComparisonPolicy>(a, b, 1e-6)),
+            "Relative rejects sign crossing");
+        ASSERT_FALSE((floatEqual<double, UlpComparisonPolicy>(a, b, 1000.0)),
+            "ULP rejects sign crossing");
+
+        return true;
+    }
+
+    bool test_policy_consistency_on_special_values() {
+        double pos_inf = std::numeric_limits<double>::infinity();
+        double neg_inf = -std::numeric_limits<double>::infinity();
+        double nan = std::numeric_limits<double>::quiet_NaN();
+
+        // All policies agree on infinities
+        ASSERT_TRUE(floatEqual(pos_inf, pos_inf), "Standard: +inf == +inf");
+        ASSERT_TRUE((floatEqual<double, RelativeComparisonPolicy>(pos_inf, pos_inf)), "Relative: +inf == +inf");
+        ASSERT_TRUE((floatEqual<double, UlpComparisonPolicy>(pos_inf, pos_inf)), "ULP: +inf == +inf");
+        ASSERT_TRUE(approximateEqual(pos_inf, pos_inf), "Hybrid: +inf == +inf");
+
+        // All policies agree on NaN
+        ASSERT_FALSE(floatEqual(nan, nan), "Standard: NaN != NaN");
+        ASSERT_FALSE((floatEqual<double, RelativeComparisonPolicy>(nan, nan)), "Relative: NaN != NaN");
+        ASSERT_FALSE((floatEqual<double, UlpComparisonPolicy>(nan, nan)), "ULP: NaN != NaN");
+        ASSERT_FALSE(approximateEqual(nan, nan), "Hybrid: NaN != NaN");
+
+        return true;
+    }
+
+    bool test_scale_transition_points() {
+        // Test transition between absolute and relative dominance
+        double rel_eps = 1e-6;
+        double abs_eps = 1e-12;
+
+        // Very small: absolute dominates
+        double tiny_a = 1e-14;
+        double tiny_b = 2e-14;
+        ASSERT_TRUE(approximateEqual(tiny_a, tiny_b, rel_eps, abs_eps),
+            "Tiny scale: absolute dominates");
+
+        // Medium: transition zone
+        double med_a = 1e-9;
+        double med_b = 1e-9 + 5e-13;
+        ASSERT_TRUE(approximateEqual(med_a, med_b, rel_eps, abs_eps),
+            "Medium scale: transition zone");
+
+        // Large: relative dominates
+        double large_a = 1e6;
+        double large_b = 1e6 + 0.1;
+        ASSERT_TRUE(approximateEqual(large_a, large_b, rel_eps, abs_eps),
+            "Large scale: relative dominates");
+
+        return true;
+    }
+
+    // =============================================================================
+    // Test Suite 6: Mixed-Sign Edge Cases
+    // =============================================================================
+    bool test_mixed_signs_noise_floor() {
+        // This is the KEY TEST for noise floor semantics
+        double noise_floor = 1e-6;
+
+        double pos_noise = +5e-7;
+        double neg_noise = -5e-7;
+        double zero = 0.0;
+
+        // All should be considered equal within noise floor
+        ASSERT_TRUE(approximateEqual(pos_noise, zero, noise_floor, noise_floor),
+            "Positive noise equals zero");
+        ASSERT_TRUE(approximateEqual(neg_noise, zero, noise_floor, noise_floor),
+            "Negative noise equals zero");
+        ASSERT_TRUE(approximateEqual(pos_noise, neg_noise, noise_floor, noise_floor),
+            "Opposite-sign noise values equal (CRITICAL)");
+
+        return true;
+    }
+
+    bool test_near_zero_crossing_stability() {
+        // Simulates value oscillating around zero
+        std::vector<double> oscillating = { 1e-7, -2e-7, 3e-7, -1e-7, 2e-7 };
+        double noise_floor = 1e-6;
+
+        // All should be considered "at zero"
+        for (double val : oscillating) {
+            ASSERT_TRUE(approximateEqual(val, 0.0, noise_floor, noise_floor),
+                "Oscillating value treated as zero");
+        }
+
+        // Consecutive values should be consistent
+        for (size_t i = 0; i < oscillating.size() - 1; ++i) {
+            ASSERT_TRUE(approximateEqual(oscillating[i], oscillating[i + 1], noise_floor, noise_floor),
+                "Consecutive oscillating values equal");
+        }
+
+        return true;
+    }
+
+    // =============================================================================
+    // Test Suite 7: approximateEqual Convenience Function
+    // =============================================================================
+    bool test_approximate_equal_basic() {
+        // Default parameters - use difference within default epsilon
+        double a = 1.0;
+        double b = 1.0 + 1e-15;  // Within default epsilon (~2.22e-14)
+        ASSERT_TRUE(approximateEqual(a, b), "Default parameters");
+
+        // Custom parameters
+        double c = 1.0;
+        double d = 1.0 + 1e-10;
+        ASSERT_TRUE(approximateEqual(c, d, 1e-8, 1e-8), "Custom parameters");
+
+        return true;
+    }
+
+    bool test_approximate_equal_types() {
+        // Float - default epsilon is ~1.19e-5
+        float f1 = 1.0f;
+        float f2 = 1.0f + 1e-6f;  // Within default epsilon
+        ASSERT_TRUE(approximateEqual(f1, f2), "Float comparison");
+
+        // Double - default epsilon is ~2.22e-14
+        double d1 = 1.0;
+        double d2 = 1.0 + 1e-15;  // Within default epsilon
+        ASSERT_TRUE(approximateEqual(d1, d2), "Double comparison");
+
+        // Long double - use very small difference within default epsilon
+        long double ld1 = 1.0L;
+        long double ld2 = 1.0L + 1e-18L;  // Much smaller to be safe
+        ASSERT_TRUE(approximateEqual(ld1, ld2), "Long double comparison");
+
+        return true;
+    }
+
+    bool test_approximate_equal_zero_handling() {
+        double zero = 0.0;
+        double tiny = 1e-14;
+        double eps = 1e-12;
+
+        ASSERT_TRUE(approximateEqual(zero, tiny, eps, eps),
+            "Zero vs tiny within tolerance");
+
+        return true;
+    }
+
+    // =============================================================================
+    // Test Suite 8: Type-Specific Default Epsilons
+    // =============================================================================
+    bool test_default_epsilons() {
+        float f_eps = getDefaultEpsilon<float>();
+        double d_eps = getDefaultEpsilon<double>();
+        long double ld_eps = getDefaultEpsilon<long double>();
+
+        // Float epsilon should be larger (less precision)
+        ASSERT_TRUE(f_eps > d_eps, "Float epsilon > double epsilon");
+
+        // All should be positive
+        ASSERT_TRUE(f_eps > 0, "Float epsilon positive");
+        ASSERT_TRUE(d_eps > 0, "Double epsilon positive");
+        ASSERT_TRUE(ld_eps > 0, "Long double epsilon positive");
+
+        return true;
+    }
+
+    bool test_epsilon_type_correctness() {
+        // Ensure epsilon types match parameter types
+        float f_eps = getDefaultEpsilon<float>();
+        double d_eps = getDefaultEpsilon<double>();
+
+        float f1 = 1.0f;
+        float f2 = 1.0f + f_eps * 0.5f;
+        ASSERT_TRUE(floatEqual(f1, f2), "Float uses float epsilon");
+
+        double d1 = 1.0;
+        double d2 = 1.0 + d_eps * 0.5;
+        ASSERT_TRUE(floatEqual(d1, d2), "Double uses double epsilon");
+
+        return true;
+    }
+
+    // =============================================================================
+    // Test Suite 9: Edge Cases and Stress Tests
+    // =============================================================================
+    bool test_extreme_values() {
+        // Very large values
+        double huge_a = std::numeric_limits<double>::max() * 0.5;
+        double huge_b = std::numeric_limits<double>::max() * 0.5;
+        ASSERT_TRUE(approximateEqual(huge_a, huge_b), "Huge values equal");
+
+        // Very small positive values
+        double tiny_a = std::numeric_limits<double>::min();
+        double tiny_b = std::numeric_limits<double>::min();
+        ASSERT_TRUE(approximateEqual(tiny_a, tiny_b), "Tiny positive values equal");
+
+        return true;
+    }
+
+    bool test_denormal_numbers() {
+        double denorm = std::numeric_limits<double>::denorm_min();
+
+        // Denormals should equal zero with default epsilon
+        ASSERT_TRUE(approximateEqual(denorm, 0.0), "Denormal ~= zero");
+
+        // Multiple denormals
+        ASSERT_TRUE(approximateEqual(denorm, denorm * 2.0), "Denormals ~= each other");
+
+        return true;
+    }
+
+    bool test_pathological_cases() {
+        // Accumulated rounding error
+        double sum = 0.0;
+        for (int i = 0; i < 10; ++i) {
+            sum += 0.1;
+        }
+        ASSERT_TRUE(approximateEqual(sum, 1.0), "Accumulated rounding error");
+
+        // Reciprocals
+        double third = 1.0 / 3.0;
+        double approx_third = 0.333333333333;
+        ASSERT_TRUE(approximateEqual(third, approx_third, 1e-10, 1e-12),
+            "1/3 approximation");
+
+        // Values near sqrt(2)
+        double sqrt2_calc = std::sqrt(2.0);
+        double sqrt2_approx = 1.41421356237;
+        ASSERT_TRUE(approximateEqual(sqrt2_calc, sqrt2_approx, 1e-10, 1e-11),
+            "sqrt(2) approximation");
+
+        return true;
+    }
+
+    bool test_consecutive_values() {
+        // Test multiple consecutive floating-point values
+
+        float base = 1.0f;
+        float current = base;
+
+        // Test first 10 consecutive values
+        for (int i = 0; i < 10; ++i) {
+            float next = std::nextafter(current, 2.0f);
+
+            // Each should be within i+1 ULPs of base
+            ASSERT_TRUE((floatEqual<float, UlpComparisonPolicy>(base, next, static_cast<float>(i + 1))),
+                "Consecutive value within ULP tolerance");
+
+            // But should fail with i ULPs tolerance (except for i=0)
+            if (i > 0) {
+                ASSERT_FALSE((floatEqual<float, UlpComparisonPolicy>(base, next, static_cast<float>(i))),
+                    "Consecutive value beyond ULP tolerance");
+            }
+
+            current = next;
+        }
+
+        return true;
+    }
+
+    // =============================================================================
+    // Test Suite 10: Long Double Comprehensive Testing
+    // =============================================================================
+    bool test_long_double_comprehensive() {
+        long double ld_eps = getDefaultEpsilon<long double>();
+
+        // Verify long double uses its precision
+        long double a = 1.0L;
+        long double b = 1.0L + ld_eps * 0.5L;
+        ASSERT_TRUE(approximateEqual(a, b), "Long double within epsilon");
+
+        // Beyond epsilon
+        long double c = 1.0L + ld_eps * 2.0L;
+        ASSERT_FALSE(approximateEqual(a, c), "Long double beyond epsilon");
+
+        // Long double special values
+        long double ld_inf = std::numeric_limits<long double>::infinity();
+        ASSERT_TRUE(approximateEqual(ld_inf, ld_inf), "Long double infinity");
+
+        // Long double denormals
+        long double ld_denorm = std::numeric_limits<long double>::denorm_min();
+        ASSERT_TRUE(approximateEqual(ld_denorm, 0.0L), "Long double denorm ~= zero");
+
+        return true;
+    }
+
+    bool test_long_double_precision() {
+        // Demonstrate long double precision
+
+        long double ld1 = 1.0L;
+        long double ld_eps_val = std::numeric_limits<long double>::epsilon();
+        long double ld2 = ld1 + ld_eps_val * 0.5L;
+
+        // Cast to double
+        double d1 = static_cast<double>(ld1);
+        double d2 = static_cast<double>(ld2);
+
+        // Long double comparison should distinguish these
+        ASSERT_TRUE(approximateEqual(ld1, ld2), "Long double: within epsilon");
+
+        // After casting to double, they might be identical
+        bool doubles_equal = (d1 == d2);
+        std::cout << "    Long double -> double precision test: "
+            << (doubles_equal ? "values became identical (as expected)" : "values still distinct")
+            << std::endl;
+
+        return true;
+    }
+
+    // =============================================================================
+    // Test Suite 11: Control System Simulation (NEW)
+    // =============================================================================
+    bool test_control_system_noise() {
+        // Simulates PID controller output oscillating around setpoint
+        double setpoint = 0.0;
+
+        // Simulated sensor noise (Frame N and Frame N+1)
+        double frame_N = +1e-9;
+        double frame_N1 = -1e-9;
+
+        // Defined noise floor for the system
+        double noise_floor = 1e-6;
+
+        // Verify that the oscillation is considered "stable" (equal to setpoint)
+        ASSERT_TRUE(approximateEqual(frame_N, setpoint, noise_floor, noise_floor),
+            "Control: +Noise equals setpoint");
+        ASSERT_TRUE(approximateEqual(frame_N1, setpoint, noise_floor, noise_floor),
+            "Control: -Noise equals setpoint");
+
+        // Verify that the two frames are consistent with each other
+        // This is the critical "Sign Consistency Trap" fix.
+        // Difference is 2e-9, which is <= 1e-6 (noise_floor).
+        ASSERT_TRUE(approximateEqual(frame_N, frame_N1, noise_floor, noise_floor),
+            "Control: +Noise equals -Noise (Inter-frame stability)");
+
+        // Verify that actual signal change is detected
+        double real_signal = 1e-5; // Larger than noise floor
+        ASSERT_FALSE(approximateEqual(real_signal, setpoint, noise_floor, noise_floor),
+            "Control: Real signal detected");
+
+        return true;
+    }
+
+    // =============================================================================
+    // BENCHMARK INFRASTRUCTURE
+    // =============================================================================
+
+    class BenchmarkData
+    {
+    public:
+        static constexpr size_t DATASET_SIZE = 10000;
+        std::vector<double> values_near_zero;
+        std::vector<double> values_normal;
+        std::vector<double> values_large;
+        std::vector<double> values_mixed;
+        
+        BenchmarkData()
+        {
+            std::mt19937_64 rng(42);
+            std::uniform_real_distribution<double> dist_near_zero(1e-10, 1e-8);
+            std::uniform_real_distribution<double> dist_normal(1.0, 10.0);
+            std::uniform_real_distribution<double> dist_large(1e6, 1e8);
+            std::uniform_real_distribution<double> dist_mixed(1e-10, 1e8);
+            
+            values_near_zero.reserve(DATASET_SIZE);
+            values_normal.reserve(DATASET_SIZE);
+            values_large.reserve(DATASET_SIZE);
+            values_mixed.reserve(DATASET_SIZE);
+            
+            for (size_t i = 0; i < DATASET_SIZE; ++i)
+            {
+                values_near_zero.push_back(dist_near_zero(rng));
+                values_normal.push_back(dist_normal(rng));
+                values_large.push_back(dist_large(rng));
+                values_mixed.push_back(dist_mixed(rng));
+            }
+        }
+    };
+
+    // =============================================================================
+    // BENCHMARK FUNCTIONS
+    // =============================================================================
+
+    void benchmark_policy_standard(const BenchmarkData& data)
+    {
+        std::cout << "\n=== Benchmark: StandardComparisonPolicy ===" << std::endl;
+        
+        benchmark_detailed("Standard - Normal values", [&]()
+        {
+            volatile bool result = false;
+            for (size_t i = 0; i < data.values_normal.size() - 1; ++i)
+            {
+                result = floatEqual(data.values_normal[i], 
+                                  data.values_normal[i + 1], 
+                                  1e-9);
+            }
+            return result;
+        }, 1000);
+        
+        benchmark_detailed("Standard - Near zero", [&]()
+        {
+            volatile bool result = false;
+            for (size_t i = 0; i < data.values_near_zero.size() - 1; ++i)
+            {
+                result = floatEqual(data.values_near_zero[i], 
+                                  data.values_near_zero[i + 1], 
+                                  1e-12);
+            }
+            return result;
+        }, 1000);
+    }
+
+    void benchmark_policy_relative(const BenchmarkData& data)
+    {
+        std::cout << "\n=== Benchmark: RelativeComparisonPolicy ===" << std::endl;
+        
+        benchmark_detailed("Relative - Normal values", [&]()
+        {
+            volatile bool result = false;
+            for (size_t i = 0; i < data.values_normal.size() - 1; ++i)
+            {
+                result = floatEqual<double, RelativeComparisonPolicy>(
+                    data.values_normal[i], 
+                    data.values_normal[i + 1], 
+                    1e-9);
+            }
+            return result;
+        }, 1000);
+    }
+
+    void benchmark_policy_ulp(const BenchmarkData& data)
+    {
+        std::cout << "\n=== Benchmark: UlpComparisonPolicy ===" << std::endl;
+        
+        benchmark_detailed("ULP - Normal values", [&]()
+        {
+            volatile bool result = false;
+            for (size_t i = 0; i < data.values_normal.size() - 1; ++i)
+            {
+                result = floatEqual<double, UlpComparisonPolicy>(
+                    data.values_normal[i], 
+                    data.values_normal[i + 1], 
+                    4.0);
+            }
+            return result;
+        }, 1000);
+    }
+
+    void benchmark_policy_hybrid(const BenchmarkData& data)
+    {
+        std::cout << "\n=== Benchmark: HybridComparisonPolicy ===" << std::endl;
+        
+        benchmark_detailed("Hybrid - Normal values", [&]()
+        {
+            volatile bool result = false;
+            for (size_t i = 0; i < data.values_normal.size() - 1; ++i)
+            {
+                result = approximateEqual(data.values_normal[i], 
+                                        data.values_normal[i + 1], 
+                                        1e-9, 1e-12);
+            }
+            return result;
+        }, 1000);
+        
+        benchmark_detailed("Hybrid - Mixed scales", [&]()
+        {
+            volatile bool result = false;
+            for (size_t i = 0; i < data.values_mixed.size() - 1; ++i)
+            {
+                result = approximateEqual(data.values_mixed[i], 
+                                        data.values_mixed[i + 1], 
+                                        1e-6, 1e-12);
+            }
+            return result;
+        }, 1000);
+    }
+
+    void benchmark_policy_comparison(const BenchmarkData& data)
+    {
+        std::cout << "\n=== Benchmark: Cross-Policy Comparison ===" << std::endl;
+        
+        benchmark_compare(
+            "Standard",
+            [&]()
+            {
+                volatile bool result = false;
+                for (size_t i = 0; i < 1000; ++i)
+                {
+                    result = floatEqual(data.values_normal[i], 
+                                      data.values_normal[i + 1], 
+                                      1e-9);
+                }
+                return result;
+            },
+            "Hybrid",
+            [&]()
+            {
+                volatile bool result = false;
+                for (size_t i = 0; i < 1000; ++i)
+                {
+                    result = approximateEqual(data.values_normal[i], 
+                                            data.values_normal[i + 1], 
+                                            1e-9, 1e-12);
+                }
+                return result;
+            },
+            10000
+        );
+    }
+
+    void benchmark_special_values()
+    {
+        std::cout << "\n=== Benchmark: Special Value Handling ===" << std::endl;
+        
+        double nan_val = std::numeric_limits<double>::quiet_NaN();
+        double inf_val = std::numeric_limits<double>::infinity();
+        double zero_val = 0.0;
+        
+        benchmark_detailed("NaN comparisons", [&]()
+        {
+            volatile bool result = false;
+            for (int i = 0; i < 10000; ++i)
+            {
+                result = approximateEqual(nan_val, nan_val);
+            }
+            return result;
+        }, 1000);
+        
+        benchmark_detailed("Infinity comparisons", [&]()
+        {
+            volatile bool result = false;
+            for (int i = 0; i < 10000; ++i)
+            {
+                result = approximateEqual(inf_val, inf_val);
+            }
+            return result;
+        }, 1000);
+    }
+
+    // =============================================================================
+    // BENCHMARK RUNNER
+    // =============================================================================
+
+    bool benchmark_FloatingPointComparison()
+    {
+        std::cout << "\n";
+        std::cout << "================================================================\n";
+        std::cout << "  FloatingPointComparison.h - Performance Benchmarks\n";
+        std::cout << "================================================================\n";
+        std::cout << "\nTest Environment:\n";
+        std::cout << "  Platform: " << sizeof(void*) * 8 << "-bit\n";
+        std::cout << "  Float size: " << sizeof(float) << " bytes\n";
+        std::cout << "  Double size: " << sizeof(double) << " bytes\n";
+        std::cout << "  Build: " 
+    #ifdef NDEBUG
+                  << "Release (optimized)\n";
+    #else
+                  << "Debug (not optimized - benchmarks may be slow)\n";
+    #endif
+        std::cout << "\nNOTE: Run benchmarks in Release mode for accurate results.\n";
+        
+        BenchmarkData data;
+        
+        benchmark_policy_standard(data);
+        benchmark_policy_relative(data);
+        benchmark_policy_ulp(data);
+        benchmark_policy_hybrid(data);
+        
+        benchmark_policy_comparison(data);
+        benchmark_special_values();
+        
+        std::cout << "\n";
+        std::cout << "================================================================\n";
+        std::cout << "  Benchmark Suite Complete\n";
+        std::cout << "================================================================\n";
+        
+        return true;
+    }
+
+    // =============================================================================
+    // Main Entry Points
+    // =============================================================================
+    bool test_FloatingPointComparison() {
+        PRINT_HEADER("FLOATING-POINT COMPARISON - ROBUST CONTROL")
+            TestRunner runner;
+
+        std::cout << "\n=== StandardComparisonPolicy ===" << std::endl;
+        RUN_TEST(runner, standard_basic);
+        RUN_TEST(runner, standard_boundary_values);
+        RUN_TEST(runner, standard_negative_values);
+        RUN_TEST(runner, standard_special_values);
+        RUN_TEST(runner, standard_zero_comparisons);
+
+        std::cout << "\n=== UlpComparisonPolicy ===" << std::endl;
+        RUN_TEST(runner, ulp_basic);
+        RUN_TEST(runner, ulp_exact_boundaries);
+        RUN_TEST(runner, ulp_negative_values);
+        RUN_TEST(runner, ulp_subnormals);
+        RUN_TEST(runner, ulp_subnormal_boundaries);
+        RUN_TEST(runner, ulp_sign_sensitivity);
+
+        std::cout << "\n=== RelativeComparisonPolicy ===" << std::endl;
+        RUN_TEST(runner, relative_scale_independence);
+        RUN_TEST(runner, relative_near_zero_weakness);
+        RUN_TEST(runner, relative_default_epsilon);
+        RUN_TEST(runner, relative_zero_comparisons);
+
+        std::cout << "\n=== HybridComparisonPolicy ===" << std::endl;
+        RUN_TEST(runner, hybrid_robustness);
+        RUN_TEST(runner, hybrid_near_zero_robustness);
+        RUN_TEST(runner, hybrid_parameter_flexibility);
+        RUN_TEST(runner, hybrid_boundary_conditions);
+
+        std::cout << "\n=== Cross-Policy Verification ===" << std::endl;
+        RUN_TEST(runner, policy_differences);
+        RUN_TEST(runner, policy_consistency_on_special_values);
+        RUN_TEST(runner, scale_transition_points);
+
+        std::cout << "\n=== Mixed-Sign Edge Cases (Updated) ===" << std::endl;
+        RUN_TEST(runner, mixed_signs_noise_floor);
+        RUN_TEST(runner, near_zero_crossing_stability);
+
+        std::cout << "\n=== approximateEqual Convenience Function ===" << std::endl;
+        RUN_TEST(runner, approximate_equal_basic);
+        RUN_TEST(runner, approximate_equal_types);
+        RUN_TEST(runner, approximate_equal_zero_handling);
+
+        std::cout << "\n=== Type-Specific Default Epsilons ===" << std::endl;
+        RUN_TEST(runner, default_epsilons);
+        RUN_TEST(runner, epsilon_type_correctness);
+
+        std::cout << "\n=== Edge Cases and Stress Tests ===" << std::endl;
+        RUN_TEST(runner, extreme_values);
+        RUN_TEST(runner, denormal_numbers);
+        RUN_TEST(runner, pathological_cases);
+        RUN_TEST(runner, consecutive_values);
+
+        std::cout << "\n=== Long Double Comprehensive Testing ===" << std::endl;
+        RUN_TEST(runner, long_double_comprehensive);
+        RUN_TEST(runner, long_double_precision);
+
+        std::cout << "\n=== Control System Simulation (New) ===" << std::endl;
+        RUN_TEST(runner, control_system_noise);
+
+        // Print summary
+        int failed = runner.print_summary();
+
+        return (failed == 0);
+    }
+} // namespace fat_p::testing
+
+#ifdef ENABLE_TEST_APPLICATION
+int main(int argc, char* argv[])
+{
+    // Check for benchmark flag
+    bool run_benchmarks = false;
+    for (int i = 1; i < argc; ++i)
+    {
+        if (std::string(argv[i]) == "--benchmark" || std::string(argv[i]) == "-b")
+        {
+            run_benchmarks = true;
+            break;
+        }
+    }
+    
+    if (run_benchmarks)
+    {
+        std::cout << "Running benchmarks...\n";
+        return fat_p::testing::benchmark_FloatingPointComparison() ? 0 : 1;
+    }
+    else
+    {
+        std::cout << "Running unit tests...\n";
+        std::cout << "Use --benchmark or -b flag to run benchmarks instead.\n\n";
+        return fat_p::testing::test_FloatingPointComparison() ? 0 : 1;
+    }
+}
+#endif

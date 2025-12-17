@@ -1,0 +1,492 @@
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <iomanip>
+#include <iostream>
+#include <string>
+#include <vector>
+
+#include "FatPJsonStream.h"
+#include "FatPTest.h"
+
+#ifndef ENABLE_TEST_APPLICATION
+#include "test_FatPJsonStream.h"
+#endif
+
+namespace fat_p::testing::fatpjsonstream
+{
+
+using namespace fat_p::json_stream_fatp;
+
+// =============================================================================
+// Basic Parsing Tests
+// =============================================================================
+
+TEST_CASE(default_parser_basic)
+{
+    fat_p::DefaultJsonStreamParser parser;
+
+    auto result = parser.parse(R"({"key": 42})");
+
+    SIMPLE_ASSERT(result.has_value(), "Parse succeeded");
+    SIMPLE_ASSERT(result->is_object(), "Is object");
+    SIMPLE_ASSERT(result->as_object().at("key").as_int() == 42, "Value 42");
+
+    return true;
+}
+
+TEST_CASE(default_parser_array)
+{
+    fat_p::DefaultJsonStreamParser parser;
+
+    auto result = parser.parse("[1, 2, 3]");
+
+    SIMPLE_ASSERT(result.has_value(), "Parse succeeded");
+    SIMPLE_ASSERT(result->is_array(), "Is array");
+    SIMPLE_ASSERT(result->as_array().size() == 3, "Size 3");
+
+    return true;
+}
+
+TEST_CASE(strict_parser_basic)
+{
+    fat_p::StrictJsonStreamParser parser;
+
+    auto result = parser.parse(R"({"name": "test"})");
+
+    SIMPLE_ASSERT(result.has_value(), "Parse succeeded");
+    SIMPLE_ASSERT(result->as_object().at("name").as_string() == "test", "Value");
+
+    return true;
+}
+
+TEST_CASE(relaxed_parser_basic)
+{
+    fat_p::RelaxedJsonStreamParser parser;
+
+    auto result = parser.parse("[1, 2, 3]");
+
+    SIMPLE_ASSERT(result.has_value(), "Parse succeeded");
+    SIMPLE_ASSERT(result->as_array().size() == 3, "Size 3");
+
+    return true;
+}
+
+// =============================================================================
+// Convenience Function Tests
+// =============================================================================
+
+TEST_CASE(stream_parse_json_convenience)
+{
+    auto result = fat_p::stream_parse_json("[1, 2, 3]");
+
+    SIMPLE_ASSERT(result.has_value(), "Parse succeeded");
+    SIMPLE_ASSERT(result->as_array().size() == 3, "Size 3");
+
+    return true;
+}
+
+TEST_CASE(stream_parse_json_strict_convenience)
+{
+    auto result = fat_p::stream_parse_json_strict(R"({"key": "value"})");
+
+    SIMPLE_ASSERT(result.has_value(), "Parse succeeded");
+    SIMPLE_ASSERT(result->as_object().at("key").as_string() == "value", "Value");
+
+    return true;
+}
+
+TEST_CASE(stream_parse_json_limited_convenience)
+{
+    fat_p::RuntimeLimitsPolicy limits;
+    limits.max_depth = 4;
+
+    auto result = fat_p::stream_parse_json_limited("[1]", limits);
+
+    SIMPLE_ASSERT(result.has_value(), "Parse succeeded");
+
+    return true;
+}
+
+// =============================================================================
+// Policy Limit Tests
+// =============================================================================
+
+TEST_CASE(strict_limits_depth)
+{
+    fat_p::StrictJsonStreamParser parser;  // max_depth = 32
+
+    // Create deeply nested JSON
+    std::string json = "";
+    for (int i = 0; i < 40; ++i)
+    {
+        json += "[";
+    }
+    json += "1";
+    for (int i = 0; i < 40; ++i)
+    {
+        json += "]";
+    }
+
+    auto result = parser.parse(json);
+
+    SIMPLE_ASSERT(!result.has_value(), "Parse failed");
+    SIMPLE_ASSERT(result.error().code == ParseError::MaxDepthExceeded, "Depth err");
+
+    return true;
+}
+
+TEST_CASE(strict_limits_string_size)
+{
+    fat_p::StrictJsonStreamParser parser;  // max_string_bytes = 64KB
+
+    // Create string larger than 64KB
+    std::string large = "[\"" + std::string(100 * 1024, 'x') + "\"]";
+
+    auto result = parser.parse(large);
+
+    SIMPLE_ASSERT(!result.has_value(), "Parse failed");
+    SIMPLE_ASSERT(result.error().code == ParseError::MaxStringSizeExceeded, "Err");
+
+    return true;
+}
+
+TEST_CASE(configurable_limits)
+{
+    fat_p::RuntimeLimitsPolicy limits;
+    limits.max_depth = 2;
+
+    fat_p::ConfigurableJsonStreamParser parser(limits);
+
+    // Create 5-level deep nesting
+    auto result = parser.parse("[[[[[1]]]]]");
+
+    SIMPLE_ASSERT(!result.has_value(), "Parse failed");
+    SIMPLE_ASSERT(result.error().code == ParseError::MaxDepthExceeded, "Depth err");
+
+    return true;
+}
+
+// =============================================================================
+// Chunked Feeding Tests
+// =============================================================================
+
+TEST_CASE(chunked_feeding)
+{
+    fat_p::DefaultJsonStreamParser parser;
+
+    std::string json = R"({"items": [1, 2, 3]})";
+
+    // Feed byte by byte
+    for (std::size_t i = 0; i < json.size() - 1; ++i)
+    {
+        auto status = parser.feed(json.data() + i, 1);
+        SIMPLE_ASSERT(status.has_value(), "Feed succeeded");
+        SIMPLE_ASSERT(*status == ParseStatus::NeedMoreData, "Need more");
+    }
+
+    // Last byte
+    auto status = parser.feed(json.data() + json.size() - 1, 1);
+    SIMPLE_ASSERT(status.has_value(), "Final feed succeeded");
+    SIMPLE_ASSERT(*status == ParseStatus::Done, "Done");
+
+    const auto& result = parser.result();
+    SIMPLE_ASSERT(result.is_object(), "Is object");
+
+    return true;
+}
+
+TEST_CASE(chunked_feeding_error)
+{
+    fat_p::StrictJsonStreamParser parser;
+
+    // Create deeply nested structure
+    std::string json = "";
+    for (int i = 0; i < 50; ++i)
+    {
+        json += "[";
+    }
+
+    bool got_error = false;
+    for (std::size_t i = 0; i < json.size(); ++i)
+    {
+        auto status = parser.feed(json.data() + i, 1);
+        if (!status.has_value())
+        {
+            got_error = true;
+            SIMPLE_ASSERT(status.error().code == ParseError::MaxDepthExceeded,
+                          "Depth error");
+            break;
+        }
+    }
+
+    SIMPLE_ASSERT(got_error, "Error detected");
+
+    return true;
+}
+
+// =============================================================================
+// Progress Callback Tests
+// =============================================================================
+
+TEST_CASE(progress_callback)
+{
+    fat_p::DefaultJsonStreamParser parser;
+
+    int callback_count = 0;
+    std::size_t last_bytes = 0;
+
+    parser.set_progress_interval(10);
+    parser.set_progress_callback(
+        [&](std::size_t bytes, std::size_t depth, std::size_t values)
+        {
+            ++callback_count;
+            last_bytes = bytes;
+            (void)depth;
+            (void)values;
+        });
+
+    // Build larger JSON
+    std::string json = "[";
+    for (int i = 0; i < 50; ++i)
+    {
+        if (i > 0)
+        {
+            json += ",";
+        }
+        json += std::to_string(i);
+    }
+    json += "]";
+
+    auto result = parser.parse(json);
+    SIMPLE_ASSERT(result.has_value(), "Parse succeeded");
+    SIMPLE_ASSERT(callback_count > 0, "Callbacks fired");
+    SIMPLE_ASSERT(last_bytes > 0, "Bytes reported");
+
+    return true;
+}
+
+// =============================================================================
+// Error Information Tests
+// =============================================================================
+
+TEST_CASE(error_information)
+{
+    fat_p::StrictJsonStreamParser parser;
+
+    // Create deeply nested
+    std::string json = "";
+    for (int i = 0; i < 50; ++i)
+    {
+        json += "[";
+    }
+
+    auto result = parser.parse(json);
+    SIMPLE_ASSERT(!result.has_value(), "Parse failed");
+
+    const auto& error = result.error();
+    SIMPLE_ASSERT(error.code == ParseError::MaxDepthExceeded, "Correct code");
+    SIMPLE_ASSERT(error.byte_position > 0, "Position recorded");
+    SIMPLE_ASSERT(!error.message.empty(), "Message present");
+
+    std::string error_str = error.to_string();
+    SIMPLE_ASSERT(error_str.find("line") != std::string::npos, "Has line");
+    SIMPLE_ASSERT(error_str.find("column") != std::string::npos, "Has column");
+
+    return true;
+}
+
+TEST_CASE(error_line_column)
+{
+    fat_p::DefaultJsonStreamParser parser;
+
+    // Error on line 3
+    std::string json = "{\n  \"key\": \n  invalid\n}";
+
+    auto result = parser.parse(json);
+    SIMPLE_ASSERT(!result.has_value(), "Parse failed");
+    SIMPLE_ASSERT(result.error().line == 3, "Line 3");
+
+    return true;
+}
+
+TEST_CASE(incomplete_input_error)
+{
+    fat_p::DefaultJsonStreamParser parser;
+
+    auto result = parser.parse("[1, 2,");  // Incomplete
+
+    SIMPLE_ASSERT(!result.has_value(), "Parse failed");
+    SIMPLE_ASSERT(result.error().code == ParseError::UnexpectedEof, "EOF error");
+
+    return true;
+}
+
+// =============================================================================
+// USING Macro Test
+// =============================================================================
+
+TEST_CASE(using_macro)
+{
+    USING_FATP_JSON_STREAM();
+
+    auto result = stream_parse_json("[true, false]");
+
+    SIMPLE_ASSERT(result.has_value(), "Parse succeeded");
+    SIMPLE_ASSERT(result->as_array()[0].as_bool() == true, "True");
+
+    return true;
+}
+
+// =============================================================================
+// Nested Structure Tests
+// =============================================================================
+
+TEST_CASE(nested_objects)
+{
+    fat_p::DefaultJsonStreamParser parser;
+
+    auto result = parser.parse(R"({"a": {"b": {"c": 123}}})");
+
+    SIMPLE_ASSERT(result.has_value(), "Parse succeeded");
+
+    int val = result->as_object()
+                    .at("a").as_object()
+                    .at("b").as_object()
+                    .at("c").as_int();
+    SIMPLE_ASSERT(val == 123, "Deep value");
+
+    return true;
+}
+
+TEST_CASE(mixed_nesting)
+{
+    fat_p::DefaultJsonStreamParser parser;
+
+    auto result = parser.parse(R"({"items": [{"id": 1}, {"id": 2}]})");
+
+    SIMPLE_ASSERT(result.has_value(), "Parse succeeded");
+
+    auto& items = result->as_object().at("items").as_array();
+    SIMPLE_ASSERT(items.size() == 2, "Two items");
+    SIMPLE_ASSERT(items[0].as_object().at("id").as_int() == 1, "First id");
+    SIMPLE_ASSERT(items[1].as_object().at("id").as_int() == 2, "Second id");
+
+    return true;
+}
+
+// =============================================================================
+// Benchmarks
+// =============================================================================
+
+void benchmark_policies()
+{
+    std::cout << "\n" << colors::cyan() << "FatPJsonStream Policy Benchmarks:"
+              << colors::reset() << "\n\n";
+
+    constexpr int iterations = 1000;
+    constexpr int warmup = 100;
+
+    // Build test JSON
+    std::string json = "[";
+    for (int i = 0; i < 100; ++i)
+    {
+        if (i > 0)
+        {
+            json += ",";
+        }
+        json += R"({"id":)" + std::to_string(i);
+        json += R"(,"name":"item_)" + std::to_string(i) + "\"";
+        json += R"(,"value":)" + std::to_string(i * 100) + "}";
+    }
+    json += "]";
+
+    std::cout << "Test data size: " << json.size() << " bytes\n\n";
+
+    // Default parser
+    double time_default = measure_perf([&]()
+    {
+        fat_p::DefaultJsonStreamParser parser;
+        auto result = parser.parse(json);
+        DoNotOptimize(result);
+    }, iterations, warmup);
+
+    std::cout << "DefaultJsonStreamParser: " << format_time(time_default) << "\n";
+
+    // Strict parser
+    double time_strict = measure_perf([&]()
+    {
+        fat_p::StrictJsonStreamParser parser;
+        auto result = parser.parse(json);
+        DoNotOptimize(result);
+    }, iterations, warmup);
+
+    std::cout << "StrictJsonStreamParser:  " << format_time(time_strict) << "\n";
+
+    // Relaxed parser
+    double time_relaxed = measure_perf([&]()
+    {
+        fat_p::RelaxedJsonStreamParser parser;
+        auto result = parser.parse(json);
+        DoNotOptimize(result);
+    }, iterations, warmup);
+
+    std::cout << "RelaxedJsonStreamParser: " << format_time(time_relaxed) << "\n";
+
+    // Calculate throughput
+    double throughput_default = json.size() / time_default / 1000.0;
+    double throughput_strict = json.size() / time_strict / 1000.0;
+    double throughput_relaxed = json.size() / time_relaxed / 1000.0;
+
+    std::cout << "\nThroughput (default): " << std::fixed << std::setprecision(1)
+              << throughput_default << " MB/s\n";
+    std::cout << "Throughput (strict):  " << std::fixed << std::setprecision(1)
+              << throughput_strict << " MB/s\n";
+    std::cout << "Throughput (relaxed): " << std::fixed << std::setprecision(1)
+              << throughput_relaxed << " MB/s\n";
+}
+
+} // namespace fat_p::testing::fatpjsonstream
+
+namespace fat_p::testing
+{
+
+bool test_FatPJsonStream()
+{
+    PRINT_HEADER(FATP JSON STREAM)
+
+    TestRunner runner;
+
+    RUN_TEST_NS(runner, fatpjsonstream, default_parser_basic);
+    RUN_TEST_NS(runner, fatpjsonstream, default_parser_array);
+    RUN_TEST_NS(runner, fatpjsonstream, strict_parser_basic);
+    RUN_TEST_NS(runner, fatpjsonstream, relaxed_parser_basic);
+    RUN_TEST_NS(runner, fatpjsonstream, stream_parse_json_convenience);
+    RUN_TEST_NS(runner, fatpjsonstream, stream_parse_json_strict_convenience);
+    RUN_TEST_NS(runner, fatpjsonstream, stream_parse_json_limited_convenience);
+    RUN_TEST_NS(runner, fatpjsonstream, strict_limits_depth);
+    RUN_TEST_NS(runner, fatpjsonstream, strict_limits_string_size);
+    RUN_TEST_NS(runner, fatpjsonstream, configurable_limits);
+    RUN_TEST_NS(runner, fatpjsonstream, chunked_feeding);
+    RUN_TEST_NS(runner, fatpjsonstream, chunked_feeding_error);
+    RUN_TEST_NS(runner, fatpjsonstream, progress_callback);
+    RUN_TEST_NS(runner, fatpjsonstream, error_information);
+    RUN_TEST_NS(runner, fatpjsonstream, error_line_column);
+    RUN_TEST_NS(runner, fatpjsonstream, incomplete_input_error);
+    RUN_TEST_NS(runner, fatpjsonstream, using_macro);
+    RUN_TEST_NS(runner, fatpjsonstream, nested_objects);
+    RUN_TEST_NS(runner, fatpjsonstream, mixed_nesting);
+
+    fatpjsonstream::benchmark_policies();
+
+    return 0 == runner.print_summary();
+}
+
+} // namespace fat_p::testing
+
+#ifdef ENABLE_TEST_APPLICATION
+int main()
+{
+    return fat_p::testing::test_FatPJsonStream() ? 0 : 1;
+}
+#endif
