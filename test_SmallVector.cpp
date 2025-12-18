@@ -1083,6 +1083,219 @@ bool test_sv_insert_boundaries()
     return true;
 }
 
+// =============================================================================
+// Self-Range Insertion Stress Tests
+// These tests verify the P0 fix for self-range insertion UB in the
+// in-place forward-iterator path.
+// =============================================================================
+
+bool test_sv_insert_self_range_stress_int()
+{
+    // Exhaustive test: all combinations of (initial_size, pos, first, last)
+    // Compares against std::vector as reference implementation
+    using Vec = SmallVector<int, 8>;
+
+    for (int initial_size = 0; initial_size <= 20; ++initial_size) {
+        Vec base;
+        for (int i = 0; i < initial_size; ++i)
+            base.push_back(i);
+
+        for (int first = 0; first <= initial_size; ++first) {
+            for (int last = first; last <= initial_size; ++last) {
+                for (int pos = 0; pos <= initial_size; ++pos) {
+
+                    // Reference behavior using std::vector
+                    std::vector<int> ref_vec(base.begin(), base.end());
+                    ref_vec.insert(ref_vec.begin() + pos,
+                                   ref_vec.begin() + first,
+                                   ref_vec.begin() + last);
+
+                    // Test SmallVector self-insert
+                    Vec v = base;
+                    v.insert(v.begin() + pos,
+                             v.begin() + first,
+                             v.begin() + last);
+
+                    SIMPLE_ASSERT(v.size() == ref_vec.size(), 
+                        "Size mismatch in self-range insert");
+
+                    bool values_match = true;
+                    for (size_t i = 0; i < v.size() && values_match; ++i) {
+                        values_match = (v[i] == ref_vec[i]);
+                    }
+                    SIMPLE_ASSERT(values_match, "Value mismatch in self-range insert");
+                }
+            }
+        }
+    }
+    return true;
+}
+
+bool test_sv_insert_self_range_stress_move_only()
+{
+    // Verify move-only types work with insert from external source
+    // Note: Self-insert with move iterators is not well-defined (moves invalidate source)
+    struct MoveOnly {
+        int value;
+        explicit MoveOnly(int v) : value(v) {}
+        MoveOnly(MoveOnly&& other) noexcept : value(other.value) { other.value = -1; }
+        MoveOnly& operator=(MoveOnly&& other) noexcept { 
+            value = other.value; 
+            other.value = -1; 
+            return *this; 
+        }
+
+        MoveOnly(const MoveOnly&) = delete;
+        MoveOnly& operator=(const MoveOnly&) = delete;
+    };
+
+    using Vec = SmallVector<MoveOnly, 8>;
+
+    // Test insert from external source with move iterators
+    {
+        Vec v;
+        for (int i = 0; i < 4; ++i)
+            v.emplace_back(i);
+
+        std::vector<MoveOnly> src;
+        src.emplace_back(10);
+        src.emplace_back(20);
+        src.emplace_back(30);
+
+        v.insert(v.begin() + 2, 
+                 std::make_move_iterator(src.begin()),
+                 std::make_move_iterator(src.end()));
+
+        SIMPLE_ASSERT(v.size() == 7, "Move insert: size");
+        SIMPLE_ASSERT(v[0].value == 0, "Move insert: original[0]");
+        SIMPLE_ASSERT(v[2].value == 10, "Move insert: inserted[0]");
+        SIMPLE_ASSERT(v[3].value == 20, "Move insert: inserted[1]");
+        SIMPLE_ASSERT(v[4].value == 30, "Move insert: inserted[2]");
+        SIMPLE_ASSERT(v[5].value == 2, "Move insert: original[2]");
+    }
+
+    // Test insert triggering reallocation with move-only type
+    {
+        Vec v;
+        for (int i = 0; i < 8; ++i)  // Fill to inline capacity
+            v.emplace_back(i);
+
+        std::vector<MoveOnly> src;
+        src.emplace_back(100);
+
+        v.insert(v.begin() + 4,
+                 std::make_move_iterator(src.begin()),
+                 std::make_move_iterator(src.end()));
+
+        SIMPLE_ASSERT(v.size() == 9, "Move insert realloc: size");
+        SIMPLE_ASSERT(v[4].value == 100, "Move insert realloc: inserted value");
+    }
+
+    return true;
+}
+
+bool test_sv_insert_self_range_throwing_copy()
+{
+    // Verify basic exception guarantee during temp materialization
+    using Vec = SmallVector<ThrowOnCopy, 8>;
+
+    Vec v;
+    for (int i = 0; i < 12; ++i)
+        v.emplace_back(i);
+
+    // Save original state
+    std::vector<int> original_values;
+    for (const auto& e : v)
+        original_values.push_back(e.value);
+
+    ThrowOnCopy::reset();
+    ThrowOnCopy::throw_after = 3;  // Throw after 3 operations
+
+    bool threw = false;
+    try {
+        v.insert(v.begin() + 3,
+                 v.begin() + 2,
+                 v.begin() + 7);
+    } catch (const std::runtime_error&) {
+        threw = true;
+    }
+
+    ThrowOnCopy::reset();
+
+    // Either it succeeded or threw - either way, container should be valid
+    // If it threw, we have basic guarantee (valid but unspecified state)
+    // Just verify we can still use the container
+    SIMPLE_ASSERT(v.size() > 0 || threw, "Container should be usable after exception");
+    
+    // Verify we can iterate without crashing
+    size_t count = 0;
+    for (const auto& e : v) {
+        (void)e.value;
+        ++count;
+    }
+    SIMPLE_ASSERT(count == v.size(), "Iteration count matches size");
+
+    return true;
+}
+
+bool test_sv_insert_self_range_specific_cases()
+{
+    // Specific regression cases for self-range insertion
+    using Vec = SmallVector<int, 16>;
+
+    // Case 1: Insert before source range (in-place, no realloc)
+    {
+        Vec v = {1, 2, 3, 4, 5, 6};
+        v.reserve(16);
+        v.insert(v.begin() + 1, v.begin() + 3, v.begin() + 5);  // Insert [4,5] at pos 1
+        // Expected: {1, 4, 5, 2, 3, 4, 5, 6}
+        SIMPLE_ASSERT(v.size() == 8, "Case 1: size");
+        SIMPLE_ASSERT(v[0] == 1 && v[1] == 4 && v[2] == 5 && v[3] == 2, "Case 1: values");
+    }
+
+    // Case 2: Insert after source range (in-place, no realloc)
+    {
+        Vec v = {1, 2, 3, 4, 5, 6};
+        v.reserve(16);
+        v.insert(v.begin() + 5, v.begin(), v.begin() + 2);  // Insert [1,2] at pos 5
+        // Expected: {1, 2, 3, 4, 5, 1, 2, 6}
+        SIMPLE_ASSERT(v.size() == 8, "Case 2: size");
+        SIMPLE_ASSERT(v[5] == 1 && v[6] == 2 && v[7] == 6, "Case 2: values");
+    }
+
+    // Case 3: Overlapping insert (source overlaps insertion point)
+    {
+        Vec v = {1, 2, 3, 4, 5, 6};
+        v.reserve(16);
+        v.insert(v.begin() + 2, v.begin() + 1, v.begin() + 4);  // Insert [2,3,4] at pos 2
+        // Expected: {1, 2, 2, 3, 4, 3, 4, 5, 6}
+        SIMPLE_ASSERT(v.size() == 9, "Case 3: size");
+        SIMPLE_ASSERT(v[2] == 2 && v[3] == 3 && v[4] == 4, "Case 3: inserted values");
+    }
+
+    // Case 4: Insert with reallocation (already handled correctly)
+    {
+        Vec v = {1, 2, 3, 4};
+        // Don't reserve - force reallocation
+        v.insert(v.begin() + 2, v.begin(), v.begin() + 2);  // Insert [1,2] at pos 2
+        // Expected: {1, 2, 1, 2, 3, 4}
+        SIMPLE_ASSERT(v.size() == 6, "Case 4: size");
+        SIMPLE_ASSERT(v[0] == 1 && v[2] == 1 && v[3] == 2 && v[4] == 3, "Case 4: values");
+    }
+
+    // Case 5: Insert entire vector into itself
+    {
+        Vec v = {1, 2, 3};
+        v.reserve(16);
+        v.insert(v.begin() + 1, v.begin(), v.end());  // Insert [1,2,3] at pos 1
+        // Expected: {1, 1, 2, 3, 2, 3}
+        SIMPLE_ASSERT(v.size() == 6, "Case 5: size");
+        SIMPLE_ASSERT(v[0] == 1 && v[1] == 1 && v[2] == 2 && v[3] == 3, "Case 5: values");
+    }
+
+    return true;
+}
+
 bool test_sv_swap_edge_cases()
 {
     // Self-swap
@@ -2018,6 +2231,13 @@ bool test_SmallVector()
     RUN_TEST(runner, sv_iterator_invalidation);
     RUN_TEST(runner, sv_reserve_edge_cases);
     RUN_TEST(runner, sv_insert_boundaries);
+    
+    // Self-range insertion stress tests (P0 fix verification)
+    RUN_TEST(runner, sv_insert_self_range_stress_int);
+    RUN_TEST(runner, sv_insert_self_range_stress_move_only);
+    RUN_TEST(runner, sv_insert_self_range_throwing_copy);
+    RUN_TEST(runner, sv_insert_self_range_specific_cases);
+    
     RUN_TEST(runner, sv_swap_edge_cases);
 
     // Additional edge case tests

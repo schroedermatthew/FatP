@@ -138,6 +138,20 @@
 #include <compare>
 #endif
 
+// ==================================================================================
+// Portable Compiler Intrinsics
+// ==================================================================================
+
+// Branch prediction hints - help optimizer but not required for correctness
+#if defined(__GNUC__) || defined(__clang__)
+    #define FATP_LIKELY(x)   __builtin_expect(!!(x), 1)
+    #define FATP_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+    // MSVC and others: no-op, optimizer handles it
+    #define FATP_LIKELY(x)   (x)
+    #define FATP_UNLIKELY(x) (x)
+#endif
+
 namespace fat_p {
 
 // Forward declaration for type trait
@@ -185,8 +199,9 @@ private:
     // Current capacity (InlineCapacity when inline, heap capacity otherwise)
     size_t capacity_ = InlineCapacity;
 
-#if FATP_HAS_CPP20
     // EBO allows zero-size allocators to occupy no space
+    // [[no_unique_address]] is C++20 but GCC/Clang support it in C++17 mode
+#if __has_cpp_attribute(no_unique_address)
     [[no_unique_address]] Allocator allocator_;
 #else
     Allocator allocator_;
@@ -1192,7 +1207,47 @@ private:
             return data_ + idx;
         }
         
-        // In-place insertion
+        // In-place insertion must handle self-referential ranges.
+        // If [first, last) aliases this container, move_backward can mutate the
+        // source range before std::copy reads from it. std::copy is not overlap-safe.
+        // 
+        // Detection: Check if first's underlying pointer is within [data_, data_+size_).
+        // This only applies to pointer-like iterators (raw pointers, our own iterator type).
+        // For wrapped iterators like move_iterator, we can't reliably detect aliasing,
+        // but that's acceptable since the user explicitly requested move semantics.
+        //
+        // Fix: Materialize the input range to a temporary buffer, then insert from that.
+        if constexpr (std::is_pointer_v<ForwardIt> || 
+                      std::is_same_v<ForwardIt, iterator> ||
+                      std::is_same_v<ForwardIt, const_iterator>) {
+            // Get the address of the first element (if range is non-empty)
+            const T* first_addr = std::addressof(*first);
+            const bool aliases_this = (first_addr >= data_) && (first_addr < data_ + size_);
+            
+            if (aliases_this) {
+                // Materialize to temp buffer to break aliasing
+                T* tmp = AllocTraits::allocate(allocator_, count);
+                size_t constructed = 0;
+                auto tmp_guard = makeScopeGuard([&]() noexcept {
+                    std::destroy_n(tmp, constructed);
+                    AllocTraits::deallocate(allocator_, tmp, count);
+                });
+                
+                for (auto it = first; it != last; ++it) {
+                    AllocTraits::construct(allocator_, tmp + constructed, *it);
+                    ++constructed;
+                }
+                
+                // Recurse with non-aliasing pointer range
+                // tmp_guard will clean up after recursive call returns
+                iterator result = insert_range_impl(idx, tmp, tmp + count, std::forward_iterator_tag{});
+                
+                // Success - destroy temp (guard handles this)
+                return result;
+            }
+        }
+        
+        // In-place insertion (non-aliasing case)
         iterator insert_pos = data_ + idx;
         
         if (idx < size_) {
@@ -1453,7 +1508,7 @@ public:
      */
     template <class... Args>
     reference emplace_back(Args&&... args) {
-        if (size_ < capacity_) {
+        if (FATP_LIKELY(size_ < capacity_)) {
             // Fast path: no reallocation needed
             AllocTraits::construct(allocator_, data_ + size_, std::forward<Args>(args)...);
             ++size_;
