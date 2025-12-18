@@ -122,7 +122,7 @@ flowchart LR
     P --> P3[Real-world focus]
 ```
 
-The library emerged from the practical needs of HPC and simulation codebases—contexts where correctness matters, performance is non-negotiable, and code must be maintainable for years.
+The library is designed for HPC and simulation codebases—contexts where correctness matters, performance is non-negotiable, and code must be maintainable for years.
 
 ---
 
@@ -134,12 +134,10 @@ If you don't use a feature, you don't pay for it. Policy-based designs let you c
 
 ```cpp
 // Zero-cost for single-threaded use
-using FastMap = fat_p::StableHashMap<std::string, Value, 
-    fat_p::SingleThreadedPolicy>;
+using FastPool = fat_p::ObjectPool<Widget, fat_p::SingleThreadedPolicy>;
 
 // Thread-safe when you need it
-using SharedMap = fat_p::StableHashMap<std::string, Value,
-    fat_p::MutexSynchronizationPolicy>;
+using SharedPool = fat_p::ObjectPool<Widget, fat_p::MutexSynchronizationPolicy>;
 ```
 
 ### Correctness by Construction
@@ -147,13 +145,13 @@ using SharedMap = fat_p::StableHashMap<std::string, Value,
 APIs are designed to make misuse difficult or impossible:
 
 ```cpp
-// Strong types prevent unit confusion
-using Meters = fat_p::StrongId<double, struct MetersTag>;
-using Seconds = fat_p::StrongId<double, struct SecondsTag>;
+// Strong types prevent ID confusion
+using UserId = fat_p::StrongId<uint64_t, struct UserIdTag>;
+using OrderId = fat_p::StrongId<uint64_t, struct OrderIdTag>;
 
-Meters distance{100.0};
-Seconds time{9.58};
-// distance + time;  // Compilation error — can't add meters to seconds
+UserId user{12345};
+OrderId order{67890};
+// process_order(user);  // Compilation error — can't pass UserId where OrderId expected
 ```
 
 ### Performance as an Invariant
@@ -171,10 +169,10 @@ flowchart LR
 
 ```cpp
 // StableHashMap guarantees: no degradation under churn
-// This is tested in CI, not just documented
+// This can be tested as an invariant, not just benchmarked
 auto aged_lookup = measure_lookup(after_1M_insert_delete_cycles);
 auto fresh_lookup = measure_lookup(fresh_table);
-ASSERT_LT(aged_lookup / fresh_lookup, 1.25);  // Enforced invariant
+ASSERT_LT(aged_lookup / fresh_lookup, 1.25);  // Testable invariant
 ```
 
 ### Documentation-Driven Development
@@ -318,9 +316,9 @@ graph TB
 
 | Component | Description | Key Feature |
 |-----------|-------------|-------------|
-| **DiagnosticLogger** | Structured logging | JSON output, sinks |
+| **DiagnosticLogger** | Structured logging | JSON output, configurable sinks |
 | **BenchmarkHarness** | Microbenchmark framework | Statistical analysis |
-| **FatPTest** | Test utilities | Property-based testing helpers |
+| **FatPTest** | Test utilities | Zero-dependency assertions, fixtures |
 | **Stacktrace** | Stack trace capture | Cross-platform |
 | **DebugOnly** | Debug-build-only code | Zero cost in release |
 | **CacheUtilities** | Cache behavior analysis | Prefetch hints |
@@ -341,23 +339,22 @@ FAT-P includes comprehensive documentation that teaches *design thinking*, not j
 
 ### Teaching Documents
 
-| Document | Focus |
-|----------|-------|
-| **The Discipline of Class Design** | Complete guide to C++ class design: RAII, move semantics, exception safety, testability, concurrency |
-| **Factory Pattern Guide** | Runtime object creation: self-registration, configuration patterns, RAII tradeoffs |
-| **Designing Performance Invariants** | Making performance guarantees testable and enforceable |
-| **C++ Historical Context** | Why C++ features exist—the problems they solved |
+Cross-cutting guides that apply across the library:
+
+- **Class design** — RAII, move semantics, exception safety, testability, concurrency
+- **Pattern guides** — Factory patterns, self-registration, configuration handling
+- **Performance** — Making performance guarantees testable and enforceable
+- **Historical context** — Why C++ features exist, the problems they solved
 
 ### Component Documentation
 
-| Document | Description |
-|----------|-------------|
-| **SmallVector Overview** | Design rationale and performance characteristics |
-| **SmallVector User Manual** | API reference and usage patterns |
-| **StableHashMap Overview** | Why pointer stability matters, design tradeoffs |
-| **StableHashMap User Manual** | Complete API with examples |
-| **StableHashMap Companion Guide** | Advanced patterns, integration strategies |
-| **StableHashMap Benchmarking Case Study** | Performance analysis methodology |
+Every component includes:
+
+- **Overview** — Design rationale, tradeoffs, when to use (and when not to)
+- **User Manual** — Complete API reference with examples
+- **Companion Guide** — Advanced patterns, integration strategies (where applicable)
+
+Documentation follows a consistent structure: start with the problem, explain why naive solutions fail, present the design with full rationale.
 
 ### Documentation Philosophy
 
@@ -381,7 +378,7 @@ No bullet-point API dumps. No "best practices" without justification. Every reco
 
 ```bash
 # Clone the repository
-git clone https://github.com/anthropics/fat-p.git
+git clone https://github.com/your-username/fat-p.git
 
 # Add to your include path
 g++ -std=c++17 -I/path/to/fat-p/include your_code.cpp
@@ -390,7 +387,7 @@ g++ -std=c++17 -I/path/to/fat-p/include your_code.cpp
 ### Example: SmallVector
 
 ```cpp
-#include <fat_p/SmallVector.h>
+#include "SmallVector.h"
 
 // Stack-allocated for small sizes, heap for large
 fat_p::SmallVector<int, 16> vec;
@@ -405,7 +402,7 @@ vec.resize(100);  // Now heap-allocated, but seamless API
 ### Example: StableHashMap
 
 ```cpp
-#include <fat_p/StableHashMap.h>
+#include "StableHashMap.h"
 
 fat_p::StableHashMap<std::string, Widget> widgets;
 
@@ -419,12 +416,12 @@ widgets.emplace("slider", Widget{...});  // ptr still valid!
 ### Example: Expected
 
 ```cpp
-#include <fat_p/Expected.h>
+#include "Expected.h"
 
 fat_p::Expected<Config, ParseError> load_config(const std::string& path) {
     auto file = open_file(path);
     if (!file) {
-        return fat_p::Unexpected(ParseError::FileNotFound);
+        return fat_p::make_unexpected(ParseError::FileNotFound);
     }
     return parse(*file);
 }
@@ -444,12 +441,12 @@ if (result) {
 ### Example: ScopeGuard
 
 ```cpp
-#include <fat_p/ScopeGuard.h>
+#include "ScopeGuard.h"
 
 void transfer(Account& from, Account& to, Money amount) {
     from.withdraw(amount);
     
-    auto rollback = fat_p::make_scope_guard([&] {
+    auto rollback = fat_p::makeScopeGuard([&] {
         from.deposit(amount);  // Undo withdrawal if we don't reach commit
     });
     
@@ -462,48 +459,56 @@ void transfer(Account& from, Account& to, Money amount) {
 ### Example: Checked Arithmetic
 
 ```cpp
-#include <fat_p/CheckedArithmetic.h>
+#include "CheckedArithmetic.h"
 
-// Overflow-checked operations
-auto result = fat_p::checked_add(a, b);
+// Overflow-checked operations with Expected return
+auto result = fat_p::checked_add<fat_p::ReturnExpectedPolicy>(a, b);
 if (result) {
     use(*result);
 } else {
     handle_overflow();
 }
 
-// Or with policy-based behavior
-using SafeInt = fat_p::CheckedInt<int, fat_p::ThrowOnOverflow>;
-SafeInt x = 2000000000;
-SafeInt y = x + x;  // Throws std::overflow_error
+// Or with throwing policy (default)
+try {
+    auto sum = fat_p::checked_add(a, b);  // Throws on overflow
+    use(sum);
+} catch (const std::exception& e) {
+    handle_overflow();
+}
 ```
 
 ### Example: Factory with Self-Registration
 
 ```cpp
-#include <fat_p/Factory.h>
+#include "Factory.h"
 
-// In PhysicsModel.h
-class PhysicsModel { /* ... */ };
-
+// Define the factory type
 using ModelFactory = fat_p::Factory<
     std::string, 
-    std::unique_ptr<PhysicsModel>,
-    fat_p::SingleThreadedPolicy,
-    fat_p::ExpectedErrorPolicy<std::unique_ptr<PhysicsModel>, std::string>
+    std::unique_ptr<PhysicsModel>
 >;
+
+// Global factory instance
+ModelFactory& getModelFactory() {
+    static ModelFactory factory;
+    return factory;
+}
 
 // In NavierStokes.cpp — self-registration
 namespace {
     const bool registered = [] {
-        ModelFactory::instance().registerType("navier_stokes", 
+        getModelFactory().registerType("navier_stokes", 
             [] { return std::make_unique<NavierStokesModel>(); });
         return true;
     }();
 }
 
 // In main.cpp — no knowledge of concrete types
-auto model = ModelFactory::instance().make(config.model_name);
+auto result = getModelFactory().make(config.model_name);
+if (result) {
+    auto model = std::move(*result);
+}
 ```
 
 ---
@@ -548,8 +553,7 @@ ctest --output-on-failure
 Every component has corresponding tests in `test_ComponentName.h` and `test_ComponentName.cpp`. Tests cover:
 
 - Correctness invariants
-- Exception safety guarantees
-- Performance invariants (non-degradation)
+- Exception safety guarantees  
 - Edge cases and error conditions
 - Thread safety (where applicable)
 
@@ -559,7 +563,7 @@ Every component has corresponding tests in `test_ComponentName.h` and `test_Comp
 
 ```
 fat-p/
-├── include/fat_p/          # Header files (the library)
+├── include/                 # Header files (the library)
 │   ├── SmallVector.h
 │   ├── StableHashMap.h
 │   ├── Expected.h
@@ -569,44 +573,8 @@ fat-p/
 │   ├── test_SmallVector.cpp
 │   └── ...
 ├── docs/                    # Documentation
-│   ├── Discipline_of_Class_Design.md
-│   ├── Factory_Pattern_Guide.md
-│   ├── Designing_Performance_Invariants.md
-│   └── ...
-├── benchmarks/              # Performance benchmarks
 └── examples/                # Usage examples
 ```
-
----
-
-## Performance Characteristics
-
-### SmallVector
-
-| Operation | Complexity | Notes |
-|-----------|------------|-------|
-| `push_back` | Amortized O(1) | No allocation if size ≤ N |
-| `operator[]` | O(1) | Bounds-checked in debug |
-| `insert` | O(n) | Shifts elements |
-| `clear` | O(n) | Destroys elements, keeps capacity |
-
-### StableHashMap
-
-| Operation | Complexity | Notes |
-|-----------|------------|-------|
-| `insert` | Expected O(1) | Pointer stability guaranteed |
-| `find` | Expected O(1) | No degradation under churn |
-| `erase` | Expected O(1) | Actual erasure, no tombstones |
-| `iterate` | O(n) | Dense iteration |
-
-### SwissTable
-
-| Operation | Complexity | Notes |
-|-----------|------------|-------|
-| `insert` | Expected O(1) | SIMD-accelerated probing |
-| `find` | Expected O(1) | 1-2 cache lines typical |
-| `erase` | Expected O(1) | Tombstone-based |
-| Load factor | Up to 87.5% | Before resize |
 
 ---
 
@@ -616,15 +584,13 @@ fat-p/
 
 - **Foundational components** for building larger systems
 - **Teaching material** that explains design decisions
-- **Production-ready code** used in real HPC applications
-- **A demonstration** that AI can produce professional-grade C++
+- **A demonstration** that AI and humans can collaborate to produce professional-grade C++
 
 ### What FAT-P Is Not
 
 - **A framework** — it's a library; you call it, it doesn't call you
 - **A standard library replacement** — it complements `std::`
 - **Bleeding-edge only** — it targets C++17 for broad compatibility
-- **Magic** — every performance claim is backed by tested invariants
 
 ---
 
