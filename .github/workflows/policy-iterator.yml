@@ -82,6 +82,7 @@ jobs:
           #include <functional>
           #include <memory>
           #include <sstream>
+          #include <vector>
           #include "PolicyIterator.h"
           #include "TensorStridePolicy.h"
           #include "TensorIteration.h"
@@ -89,13 +90,17 @@ jobs:
           #include <list>
           int main() {
               std::vector<int> d = {1,2,3,4,5,6};
-              // Test PolicyIterator
-              fat_p::iterator::PolicyIterator<int> it(d.data(), d.data()+6);
-              if (*it != 1) return 1;
+              // Test PolicyIterator with static factories (L18 API)
+              using Iter = fat_p::iterator::PolicyIterator<int>;
+              auto it  = Iter::begin(d.data(), d.data() + 6);
+              auto end = Iter::end(d.data(), d.data() + 6);
+              int sum = 0;
+              for (; it != end; ++it) sum += *it;
+              if (sum != 21) return 1;
               // Test TensorIteration
-              int64_t sum = 0;
-              fat_p::iterator::iterateND(d.data(), {2, 3}, [&](int v) { sum += v; });
-              return (sum == 21) ? 0 : 1;
+              int64_t tsum = 0;
+              fat_p::iterator::iterateND(d.data(), {2, 3}, [&](int v) { tsum += v; });
+              return (tsum == 21) ? 0 : 1;
           }
           EOF
           g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./$INCLUDE_DIR -o stress_test stress_test.cpp

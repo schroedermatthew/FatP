@@ -204,6 +204,12 @@ void iterateND(T* base,
     SmallVector<std::size_t, 8> shapeVec(shape);
     SmallVector<std::ptrdiff_t, 8> strideVec(strides);
     
+    // Contract enforcement (debug): prevent UB from negative/zero strides before pointer arithmetic
+    for (std::size_t i = 0; i < shapeVec.size(); ++i) {
+        enforce(shapeVec[i] > 0, "All dimensions must be > 0");
+        enforce(strideVec[i] > 0, "All strides must be > 0");
+    }
+    
     detail::iterateNDImpl(base, shapeVec.data(), strideVec.data(),
                           shapeVec.size(), fn);
 }
@@ -232,6 +238,11 @@ void iterateND(T* base,
     
     SmallVector<std::size_t, 8> shapeVec(shape);
     SmallVector<std::ptrdiff_t, 8> strideVec(shape.size());
+    
+    // Contract enforcement (debug): dimensions must be non-zero for row-major traversal
+    for (std::size_t i = 0; i < shapeVec.size(); ++i) {
+        enforce(shapeVec[i] > 0, "All dimensions must be > 0");
+    }
     
     detail::computeRowMajorStrides(shapeVec.data(), strideVec.data(), shapeVec.size());
     
@@ -399,6 +410,12 @@ void forEachSlice(T* base,
     SmallVector<std::size_t, 8> shapeVec(shape);
     SmallVector<std::ptrdiff_t, 8> strideVec(strides);
     
+    // Contract enforcement (debug): prevent UB from negative/zero strides before pointer arithmetic
+    for (std::size_t i = 0; i < shapeVec.size(); ++i) {
+        enforce(shapeVec[i] > 0, "All dimensions must be > 0");
+        enforce(strideVec[i] > 0, "All strides must be > 0");
+    }
+    
     for (std::size_t i = 0; i < shapeVec[0]; ++i) {
         T* slice = base + static_cast<std::ptrdiff_t>(i) * strideVec[0];
         fn(i, slice);
@@ -416,6 +433,11 @@ void forEachSlice(T* base,
     
     SmallVector<std::size_t, 8> shapeVec(shape);
     SmallVector<std::ptrdiff_t, 8> strideVec(shape.size());
+    
+    // Contract enforcement (debug): dimensions must be non-zero for row-major traversal
+    for (std::size_t i = 0; i < shapeVec.size(); ++i) {
+        enforce(shapeVec[i] > 0, "All dimensions must be > 0");
+    }
     
     detail::computeRowMajorStrides(shapeVec.data(), strideVec.data(), shapeVec.size());
     

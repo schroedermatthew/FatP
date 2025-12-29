@@ -1376,6 +1376,52 @@ TEST_CASE(iterate_nd_mismatch_contract) {
     ASSERT_TRUE(caught, "Shape/stride mismatch should throw");
     return true;
 }
+
+TEST_CASE(iterate_nd_zero_stride_contract) {
+    // Verify zero stride is rejected (prevents UB in pointer arithmetic)
+    std::vector<int> data = {1, 2, 3, 4};
+    
+    bool caught = false;
+    try {
+        iterateND(data.data(), {2, 2}, {0, 1}, [](int) {});  // Zero outer stride
+    } catch (const std::logic_error&) {
+        caught = true;
+    }
+    
+    ASSERT_TRUE(caught, "Zero stride should throw");
+    return true;
+}
+
+TEST_CASE(iterate_nd_zero_dim_contract) {
+    // Verify zero dimension is rejected
+    std::vector<int> data = {1, 2, 3, 4};
+    
+    bool caught = false;
+    try {
+        iterateND(data.data(), {0, 2}, {2, 1}, [](int) {});  // Zero dimension
+    } catch (const std::logic_error&) {
+        caught = true;
+    }
+    
+    ASSERT_TRUE(caught, "Zero dimension should throw");
+    return true;
+}
+
+TEST_CASE(for_each_slice_zero_stride_contract) {
+    // Verify forEachSlice rejects zero outer stride
+    std::vector<int> data(60);
+    
+    bool caught = false;
+    try {
+        forEachSlice(data.data(), {3, 4, 5}, {0, 5, 1},
+                     [](std::size_t, int*) {});
+    } catch (const std::logic_error&) {
+        caught = true;
+    }
+    
+    ASSERT_TRUE(caught, "forEachSlice with zero stride should throw");
+    return true;
+}
 #endif
 
 // ============================================================================
@@ -2000,6 +2046,9 @@ bool test_PolicyIterator() {
     std::cout << "\n" << colors::blue() << "--- Contract Violation Tests (Debug) ---" << colors::reset() << "\n";
     RUN_TEST_NS(runner, policyiterator, iterate_nd_empty_contract);
     RUN_TEST_NS(runner, policyiterator, iterate_nd_mismatch_contract);
+    RUN_TEST_NS(runner, policyiterator, iterate_nd_zero_stride_contract);
+    RUN_TEST_NS(runner, policyiterator, iterate_nd_zero_dim_contract);
+    RUN_TEST_NS(runner, policyiterator, for_each_slice_zero_stride_contract);
     RUN_TEST_NS(runner, policyiterator, contract_tensor_advance_past_end);
     RUN_TEST_NS(runner, policyiterator, contract_tensor_retreat_before_begin);
     RUN_TEST_NS(runner, policyiterator, contract_tensor_deref_end);
