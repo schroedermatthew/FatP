@@ -1,0 +1,9 @@
+The package boost-mqtt5 is compatible with built-in CMake targets of FindBoost.cmake:
+
+    find_package(Boost REQUIRED COMPONENTS mqtt5)
+    target_link_libraries(main PRIVATE Boost::mqtt5)
+
+or the generated cmake configs via:
+
+    find_package( REQUIRED CONFIG)
+    target_link_libraries(main PRIVATE Boost::mqtt5)

@@ -1,0 +1,11 @@
+prefix=${pcfiledir}/../..
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libfolly
+Description: Facebook (Folly) C++ library
+Version: 0.58.0-dev
+
+Libs: "-L${libdir}" -lfolly -lIphlpapi.lib -lWs2_32.lib "-l${prefix}/lib/libssl.lib" -l "-l${prefix}/lib/libcrypto.lib" -l "-l${prefix}/lib/lzma.lib" -l
+Cflags: "-I${includedir}" /utf-8 /permissive- /Zc:__cplusplus  -DFMT_SHARED -DBOOST_CONTEXT_NO_LIB= -DBOOST_CONTEXT_DYN_LINK= -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_FILESYSTEM_NO_LIB -DBOOST_FILESYSTEM_DYN_LINK=1 -D -DBOOST_PROGRAM_OPTIONS_NO_LIB -DBOOST_PROGRAM_OPTIONS_DYN_LINK -DBOOST_THREAD_NO_LIB -DBOOST_THREAD_DYN_LINK -DBOOST_THREAD_USE_DLL -DGFLAGS_IS_A_DLL=1 -DGLOG_USE_GLOG_EXPORT -DGLOG_USE_GFLAGS -DGLOG_NO_ABBREVIATED_SEVERITIES "-I${prefix}/include"

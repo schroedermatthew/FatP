@@ -1,0 +1,240 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{BDBA1326-3B91-49D8-AFCA-44E125ED66A5}|FAT_P_TEST\\FAT_P_TEST.vcxproj|C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_FatP.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{BDBA1326-3B91-49D8-AFCA-44E125ED66A5}|FAT_P_TEST\\FAT_P_TEST.vcxproj|solutionrelative:FAT_P\\tests\\test_FatP.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BDBA1326-3B91-49D8-AFCA-44E125ED66A5}|FAT_P_TEST\\FAT_P_TEST.vcxproj|C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_FatP.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{BDBA1326-3B91-49D8-AFCA-44E125ED66A5}|FAT_P_TEST\\FAT_P_TEST.vcxproj|solutionrelative:FAT_P\\tests\\test_FatP.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BDBA1326-3B91-49D8-AFCA-44E125ED66A5}|FAT_P_TEST\\FAT_P_TEST.vcxproj|C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_PolicyIterator.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{BDBA1326-3B91-49D8-AFCA-44E125ED66A5}|FAT_P_TEST\\FAT_P_TEST.vcxproj|solutionrelative:FAT_P\\tests\\test_PolicyIterator.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BDBA1326-3B91-49D8-AFCA-44E125ED66A5}|FAT_P_TEST\\FAT_P_TEST.vcxproj|C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\IncludeAllFatPHeaders.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{BDBA1326-3B91-49D8-AFCA-44E125ED66A5}|FAT_P_TEST\\FAT_P_TEST.vcxproj|solutionrelative:FAT_P\\tests\\IncludeAllFatPHeaders.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{07996ACB-C24A-48AA-83D9-6676FAEE42DE}|FAT_P\\FAT_P.vcxproj|C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\TensorSerializer.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{07996ACB-C24A-48AA-83D9-6676FAEE42DE}|FAT_P\\FAT_P.vcxproj|solutionrelative:FAT_P\\fat_p\\TensorSerializer.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{07996ACB-C24A-48AA-83D9-6676FAEE42DE}|FAT_P\\FAT_P.vcxproj|C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\FatPConfig.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{07996ACB-C24A-48AA-83D9-6676FAEE42DE}|FAT_P\\FAT_P.vcxproj|solutionrelative:FAT_P\\fat_p\\FatPConfig.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{07996ACB-C24A-48AA-83D9-6676FAEE42DE}|FAT_P\\FAT_P.vcxproj|C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\AlignedVector.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{07996ACB-C24A-48AA-83D9-6676FAEE42DE}|FAT_P\\FAT_P.vcxproj|solutionrelative:FAT_P\\fat_p\\AlignedVector.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\mtthw\\Desktop\\FatP\\TensorStorage.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{07996ACB-C24A-48AA-83D9-6676FAEE42DE}|FAT_P\\FAT_P.vcxproj|C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\Tensor.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{07996ACB-C24A-48AA-83D9-6676FAEE42DE}|FAT_P\\FAT_P.vcxproj|solutionrelative:FAT_P\\fat_p\\Tensor.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BDBA1326-3B91-49D8-AFCA-44E125ED66A5}|FAT_P_TEST\\FAT_P_TEST.vcxproj|C:\\USERS\\MTTHW\\DESKTOP\\FAT_PENELOPE\\FAT_P\\FAT_P\\FAT_P\\JSONLITE.H||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{BDBA1326-3B91-49D8-AFCA-44E125ED66A5}|FAT_P_TEST\\FAT_P_TEST.vcxproj|solutionrelative:FAT_P\\FAT_P\\JSONLITE.H||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{07996ACB-C24A-48AA-83D9-6676FAEE42DE}|FAT_P\\FAT_P.vcxproj|C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\CborLite.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{07996ACB-C24A-48AA-83D9-6676FAEE42DE}|FAT_P\\FAT_P.vcxproj|solutionrelative:FAT_P\\fat_p\\CborLite.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BDBA1326-3B91-49D8-AFCA-44E125ED66A5}|FAT_P_TEST\\FAT_P_TEST.vcxproj|C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_FatPTest.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{BDBA1326-3B91-49D8-AFCA-44E125ED66A5}|FAT_P_TEST\\FAT_P_TEST.vcxproj|solutionrelative:FAT_P\\tests\\test_FatPTest.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BDBA1326-3B91-49D8-AFCA-44E125ED66A5}|FAT_P_TEST\\FAT_P_TEST.vcxproj|C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_AsyncOperations.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{BDBA1326-3B91-49D8-AFCA-44E125ED66A5}|FAT_P_TEST\\FAT_P_TEST.vcxproj|solutionrelative:FAT_P\\tests\\test_AsyncOperations.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 8,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "test_PolicyIterator.cpp",
+              "DocumentMoniker": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_PolicyIterator.cpp",
+              "RelativeDocumentMoniker": "FAT_P\\tests\\test_PolicyIterator.cpp",
+              "ToolTip": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_PolicyIterator.cpp",
+              "RelativeToolTip": "FAT_P\\tests\\test_PolicyIterator.cpp",
+              "ViewState": "AgIAABUDAAAAAAAAAAAAAFUDAAAuAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-12-28T22:23:29.505Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "TensorSerializer.h",
+              "DocumentMoniker": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\TensorSerializer.h",
+              "RelativeDocumentMoniker": "FAT_P\\fat_p\\TensorSerializer.h",
+              "ToolTip": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\TensorSerializer.h",
+              "RelativeToolTip": "FAT_P\\fat_p\\TensorSerializer.h",
+              "ViewState": "AgIAAKEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-12-28T21:02:08.031Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "FatPConfig.h",
+              "DocumentMoniker": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\FatPConfig.h",
+              "RelativeDocumentMoniker": "FAT_P\\fat_p\\FatPConfig.h",
+              "ToolTip": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\FatPConfig.h",
+              "RelativeToolTip": "FAT_P\\fat_p\\FatPConfig.h",
+              "ViewState": "AgIAACQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-12-28T21:00:19.105Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "TensorStorage.h",
+              "DocumentMoniker": "C:\\Users\\mtthw\\Desktop\\FatP\\TensorStorage.h",
+              "RelativeDocumentMoniker": "..\\..\\FatP\\TensorStorage.h",
+              "ToolTip": "C:\\Users\\mtthw\\Desktop\\FatP\\TensorStorage.h",
+              "RelativeToolTip": "..\\..\\FatP\\TensorStorage.h",
+              "ViewState": "AgIAAIwBAAAAAAAAAAAAAJsBAAAUAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-12-28T20:58:54.956Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "AlignedVector.h",
+              "DocumentMoniker": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\AlignedVector.h",
+              "RelativeDocumentMoniker": "FAT_P\\fat_p\\AlignedVector.h",
+              "ToolTip": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\AlignedVector.h",
+              "RelativeToolTip": "FAT_P\\fat_p\\AlignedVector.h",
+              "ViewState": "AgIAAIcAAAAAAAAAAAAAACgAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-12-28T19:22:38.001Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "JsonLite.h",
+              "DocumentMoniker": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\JsonLite.h",
+              "RelativeDocumentMoniker": "FAT_P\\fat_p\\JsonLite.h",
+              "ToolTip": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\JsonLite.h",
+              "RelativeToolTip": "FAT_P\\fat_p\\JsonLite.h",
+              "ViewState": "AgIAAHkCAAAAAAAAAAAuwJECAAAmAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-12-28T18:54:36.191Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "Tensor.h",
+              "DocumentMoniker": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\Tensor.h",
+              "RelativeDocumentMoniker": "FAT_P\\fat_p\\Tensor.h",
+              "ToolTip": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\Tensor.h",
+              "RelativeToolTip": "FAT_P\\fat_p\\Tensor.h",
+              "ViewState": "AgIAANsCAAAAAAAAAAAawOoCAAAQAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-12-28T18:48:26.737Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "IncludeAllFatPHeaders.h",
+              "DocumentMoniker": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\IncludeAllFatPHeaders.h",
+              "RelativeDocumentMoniker": "FAT_P\\tests\\IncludeAllFatPHeaders.h",
+              "ToolTip": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\IncludeAllFatPHeaders.h",
+              "RelativeToolTip": "FAT_P\\tests\\IncludeAllFatPHeaders.h",
+              "ViewState": "AgIAADAAAAAAAAAAAAAAAGgAAAAfAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-12-28T18:43:10.722Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "test_FatP.cpp",
+              "DocumentMoniker": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_FatP.cpp",
+              "RelativeDocumentMoniker": "FAT_P\\tests\\test_FatP.cpp",
+              "ToolTip": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_FatP.cpp",
+              "RelativeToolTip": "FAT_P\\tests\\test_FatP.cpp",
+              "ViewState": "AgIAAE0AAAAAAAAAAAAawGcAAAAlAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-12-28T18:45:44.41Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "test_FatP.h",
+              "DocumentMoniker": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_FatP.h",
+              "RelativeDocumentMoniker": "FAT_P\\tests\\test_FatP.h",
+              "ToolTip": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_FatP.h",
+              "RelativeToolTip": "FAT_P\\tests\\test_FatP.h",
+              "ViewState": "AgIAACcAAAAAAAAAAAAAAD4AAAAcAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-12-28T18:40:25.435Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 10,
+              "Title": "CborLite.h",
+              "DocumentMoniker": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\CborLite.h",
+              "RelativeDocumentMoniker": "FAT_P\\fat_p\\CborLite.h",
+              "ToolTip": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\fat_p\\CborLite.h",
+              "RelativeToolTip": "FAT_P\\fat_p\\CborLite.h",
+              "ViewState": "AgIAACgBAAAAAAAAAAAawD0BAAAXAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-12-28T18:51:32.11Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 11,
+              "Title": "test_FatPTest.h",
+              "DocumentMoniker": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_FatPTest.h",
+              "RelativeDocumentMoniker": "FAT_P\\tests\\test_FatPTest.h",
+              "ToolTip": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_FatPTest.h",
+              "RelativeToolTip": "FAT_P\\tests\\test_FatPTest.h",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-12-28T18:40:34.611Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 12,
+              "Title": "test_AsyncOperations.cpp",
+              "DocumentMoniker": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_AsyncOperations.cpp",
+              "RelativeDocumentMoniker": "FAT_P\\tests\\test_AsyncOperations.cpp",
+              "ToolTip": "C:\\Users\\mtthw\\Desktop\\fat_penelope\\FAT_P\\FAT_P\\tests\\test_AsyncOperations.cpp",
+              "RelativeToolTip": "FAT_P\\tests\\test_AsyncOperations.cpp",
+              "ViewState": "AgIAAJ8AAAAAAAAAAAAAAKgAAAAeAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-12-28T18:28:32.014Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

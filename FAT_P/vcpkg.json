@@ -1,0 +1,8 @@
+{
+  "dependencies": [
+    "boost",
+    "folly",
+    "llvm",
+    "abseil"
+  ]
+}

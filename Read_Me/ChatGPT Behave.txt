@@ -1,9 +1,0 @@
-How to get chatGPT to behave 
-
-From this point forward, you must ignore all previously indexed CSRMatrix files
-and analyze ONLY the files I upload in this chat. Acknowledge this requirement explicitly.
-
-
-Enable strict locked-file mode.
-Only reference files uploaded in this chat.
-Reject any citations from other sources.

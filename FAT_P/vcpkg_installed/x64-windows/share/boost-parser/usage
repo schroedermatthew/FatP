@@ -1,0 +1,9 @@
+The package boost-parser is compatible with built-in CMake targets of FindBoost.cmake:
+
+    find_package(Boost REQUIRED COMPONENTS parser)
+    target_link_libraries(main PRIVATE Boost::parser)
+
+or the generated cmake configs via:
+
+    find_package( REQUIRED CONFIG)
+    target_link_libraries(main PRIVATE Boost::parser)

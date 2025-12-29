@@ -1,0 +1,17 @@
+prefix=${pcfiledir}/../..
+#libevent pkg-config source file
+
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: libevent_extra
+Description: libevent_extra
+Version: 2.2.0
+Requires:
+Conflicts:
+Libs: "-L${libdir}" -levent_extra
+Libs.private:  -lws2_32 -lshell32 -ladvapi32 -lbcrypt
+Cflags: "-I${includedir}"
+
+

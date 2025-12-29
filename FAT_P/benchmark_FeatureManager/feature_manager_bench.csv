@@ -1,0 +1,10 @@
+Name,Iterations,Samples,Min(ns),Mean(ns),Median(ns),Max(ns),StdDev(ns),P25(ns),P75(ns),P95(ns),P99(ns),Throughput(ops/s)
+is_enabled: enabled hit (10k features),1,200,0,47.5,0,100,49.9375,0,100,100,100,2.10526e+07
+is_enabled: disabled hit (10k features),1,185,100,100,100,100,0,100,100,100,100,1e+07
+is_enabled: missing feature (10k features),1,200,0,64.5,100,100,47.8513,0,100,100,100,1.55039e+07
+validate: requires-chain depth 50 (all enabled),1,198,6000,6130.3,6100,6900,115.867,6100,6200,6215,6606,163124
+batch_enable + batch_disable: requires-chain depth 50 (cold each iter),1,197,29800,30741.6,30600,34300,735.878,30400,30900,32040,33904,32529.2
+enable: 1 observer (flat graph, single feature),1,196,312700,332360,331500,354100,5396.38,330100,334400,341025,348595,3008.78
+to_json: 10k features, no relationships,1,165,1.11409e+07,1.20439e+07,1.20665e+07,1.29065e+07,299902,1.18523e+07,1.22363e+07,1.25118e+07,1.27574e+07,83.0293
+from_json: 10k features, no relationships (parse + build),1,192,8.1838e+06,9.27784e+06,9.2148e+06,1.11428e+07,485207,8.93098e+06,9.59645e+06,1.01058e+07,1.04642e+07,107.784
+to_dot: 10k features, no relationships,1,193,1.0179e+06,1.06353e+06,1.0735e+06,1.1965e+06,31239.8,1.0322e+06,1.085e+06,1.09726e+06,1.17322e+06,940.264

@@ -1,0 +1,204 @@
+# =============================================================================
+# .github/workflows/policy-iterator.yml
+# =============================================================================
+# CI workflow for PolicyIterator component
+#
+# Triggers: push/PR to main, manual dispatch
+# Jobs: header-check, test-gcc, test-clang, sanitizers, benchmark (manual only)
+# =============================================================================
+
+name: PolicyIterator CI
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'PolicyIterator.h'
+      - 'TensorStridePolicy.h'
+      - 'test_PolicyIterator.cpp'
+      - 'benchmark_PolicyIterator.cpp'
+      - '.github/workflows/policy-iterator.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'PolicyIterator.h'
+      - 'TensorStridePolicy.h'
+      - 'test_PolicyIterator.cpp'
+      - 'benchmark_PolicyIterator.cpp'
+  workflow_dispatch:
+    inputs:
+      run_benchmarks:
+        description: 'Run benchmarks'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  # ===========================================================================
+  # Header Self-Containment Check
+  # ===========================================================================
+  header-check:
+    name: Header Self-Containment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check PolicyIterator.h
+        run: |
+          echo '#include "PolicyIterator.h"' | g++ -std=c++17 -fsyntax-only -I. -x c++ -
+          echo "✓ PolicyIterator.h compiles standalone"
+      
+      - name: Check TensorStridePolicy.h
+        run: |
+          echo '#include "TensorStridePolicy.h"' | g++ -std=c++17 -fsyntax-only -I. -x c++ -
+          echo "✓ TensorStridePolicy.h compiles standalone"
+      
+      - name: Include-order stress test
+        run: |
+          cat > stress_test.cpp << 'EOF'
+          #include <map>
+          #include <unordered_set>
+          #include <algorithm>
+          #include <functional>
+          #include <memory>
+          #include <sstream>
+          #include "PolicyIterator.h"
+          #include "TensorStridePolicy.h"
+          #include <set>
+          #include <list>
+          int main() {
+              std::vector<int> d = {1,2,3};
+              fat_p::iterator::PolicyIterator<int> it(d.data(), d.data()+3);
+              return (*it == 1) ? 0 : 1;
+          }
+          EOF
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I. -o stress_test stress_test.cpp
+          ./stress_test
+          echo "✓ Include-order stress test passed"
+
+  # ===========================================================================
+  # GCC Tests (Debug + Release)
+  # ===========================================================================
+  test-gcc:
+    name: GCC ${{ matrix.build_type }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+        include:
+          - build_type: Debug
+            flags: "-g -DENABLE_TEST_APPLICATION"
+          - build_type: Release
+            flags: "-O3 -DNDEBUG -DENABLE_TEST_APPLICATION"
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+              ${{ matrix.flags }} -I. \
+              -o test_runner test_PolicyIterator.cpp
+      
+      - name: Run tests
+        run: |
+          ./test_runner
+          echo "✓ ${{ matrix.build_type }} tests passed"
+
+  # ===========================================================================
+  # Clang Tests (Debug + Release)
+  # ===========================================================================
+  test-clang:
+    name: Clang ${{ matrix.build_type }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+        include:
+          - build_type: Debug
+            flags: "-g -DENABLE_TEST_APPLICATION"
+          - build_type: Release
+            flags: "-O3 -DNDEBUG -DENABLE_TEST_APPLICATION"
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Clang
+        run: sudo apt-get update && sudo apt-get install -y clang
+      
+      - name: Build
+        run: |
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+              ${{ matrix.flags }} -I. \
+              -o test_runner test_PolicyIterator.cpp
+      
+      - name: Run tests
+        run: |
+          ./test_runner
+          echo "✓ Clang ${{ matrix.build_type }} tests passed"
+
+  # ===========================================================================
+  # Sanitizers (ASan + UBSan)
+  # ===========================================================================
+  sanitizers:
+    name: Sanitizers (ASan + UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build with sanitizers
+        run: |
+          g++ -std=c++17 -g \
+              -fsanitize=address,undefined \
+              -fno-omit-frame-pointer \
+              -DENABLE_TEST_APPLICATION -I. \
+              -o test_san test_PolicyIterator.cpp
+      
+      - name: Run sanitized tests
+        run: |
+          ./test_san
+          echo "✓ No sanitizer issues found"
+
+  # ===========================================================================
+  # Strict Warnings Check
+  # ===========================================================================
+  strict-warnings:
+    name: Strict Warnings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Compile with strict warnings
+        run: |
+          g++ -std=c++17 \
+              -Wall -Wextra -Wpedantic \
+              -Wconversion -Wsign-conversion \
+              -Wshadow -Wformat=2 \
+              -Werror \
+              -DENABLE_TEST_APPLICATION -I. \
+              -o test_strict test_PolicyIterator.cpp
+          echo "✓ No warnings"
+
+  # ===========================================================================
+  # Benchmarks (Manual trigger only)
+  # ===========================================================================
+  benchmarks:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_benchmarks == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build benchmark
+        run: |
+          g++ -std=c++17 -O3 -DNDEBUG -march=native -I. \
+              -o benchmark benchmark_PolicyIterator.cpp
+      
+      - name: Run benchmark
+        run: |
+          ./benchmark
+      
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark_results.csv
+          if-no-files-found: ignore
