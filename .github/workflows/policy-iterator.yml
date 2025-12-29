@@ -3,8 +3,10 @@
 # =============================================================================
 # CI workflow for PolicyIterator component
 #
-# Triggers: push/PR to main, manual dispatch
-# Jobs: header-check, test-gcc, test-clang, sanitizers, benchmark (manual only)
+# Directory structure:
+#   Headers:    FAT_P/FAT_P/fat_p/PolicyIterator.h, TensorStridePolicy.h
+#   Tests:      FAT_P/FAT_P/tests/test_PolicyIterator.cpp
+#   Benchmarks: FAT_P/FAT_P/benchmarks/benchmark_PolicyIterator.cpp
 # =============================================================================
 
 name: PolicyIterator CI
@@ -13,18 +15,18 @@ on:
   push:
     branches: [main, master]
     paths:
-      - 'PolicyIterator.h'
-      - 'TensorStridePolicy.h'
-      - 'test_PolicyIterator.cpp'
-      - 'benchmark_PolicyIterator.cpp'
+      - 'FAT_P/FAT_P/fat_p/PolicyIterator.h'
+      - 'FAT_P/FAT_P/fat_p/TensorStridePolicy.h'
+      - 'FAT_P/FAT_P/tests/test_PolicyIterator.cpp'
+      - 'FAT_P/FAT_P/benchmarks/benchmark_PolicyIterator.cpp'
       - '.github/workflows/policy-iterator.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'PolicyIterator.h'
-      - 'TensorStridePolicy.h'
-      - 'test_PolicyIterator.cpp'
-      - 'benchmark_PolicyIterator.cpp'
+      - 'FAT_P/FAT_P/fat_p/PolicyIterator.h'
+      - 'FAT_P/FAT_P/fat_p/TensorStridePolicy.h'
+      - 'FAT_P/FAT_P/tests/test_PolicyIterator.cpp'
+      - 'FAT_P/FAT_P/benchmarks/benchmark_PolicyIterator.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:
@@ -32,6 +34,11 @@ on:
         required: false
         default: 'false'
         type: boolean
+
+env:
+  INCLUDE_DIR: FAT_P/FAT_P/fat_p
+  TEST_SRC: FAT_P/FAT_P/tests/test_PolicyIterator.cpp
+  BENCH_SRC: FAT_P/FAT_P/benchmarks/benchmark_PolicyIterator.cpp
 
 jobs:
   # ===========================================================================
@@ -45,13 +52,17 @@ jobs:
       
       - name: Check PolicyIterator.h
         run: |
-          echo '#include "PolicyIterator.h"' | g++ -std=c++17 -fsyntax-only -I. -x c++ -
+          echo '#include "PolicyIterator.h"' | g++ -std=c++17 -fsyntax-only -I./$INCLUDE_DIR -x c++ -
           echo "✓ PolicyIterator.h compiles standalone"
+        env:
+          INCLUDE_DIR: FAT_P/FAT_P/fat_p
       
       - name: Check TensorStridePolicy.h
         run: |
-          echo '#include "TensorStridePolicy.h"' | g++ -std=c++17 -fsyntax-only -I. -x c++ -
+          echo '#include "TensorStridePolicy.h"' | g++ -std=c++17 -fsyntax-only -I./$INCLUDE_DIR -x c++ -
           echo "✓ TensorStridePolicy.h compiles standalone"
+        env:
+          INCLUDE_DIR: FAT_P/FAT_P/fat_p
       
       - name: Include-order stress test
         run: |
@@ -72,9 +83,11 @@ jobs:
               return (*it == 1) ? 0 : 1;
           }
           EOF
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I. -o stress_test stress_test.cpp
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./$INCLUDE_DIR -o stress_test stress_test.cpp
           ./stress_test
           echo "✓ Include-order stress test passed"
+        env:
+          INCLUDE_DIR: FAT_P/FAT_P/fat_p
 
   # ===========================================================================
   # GCC Tests (Debug + Release)
@@ -96,8 +109,8 @@ jobs:
       - name: Build
         run: |
           g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
-              ${{ matrix.flags }} -I. \
-              -o test_runner test_PolicyIterator.cpp
+              ${{ matrix.flags }} -I./FAT_P/FAT_P/fat_p \
+              -o test_runner FAT_P/FAT_P/tests/test_PolicyIterator.cpp
       
       - name: Run tests
         run: |
@@ -126,9 +139,11 @@ jobs:
       
       - name: Build
         run: |
+          # -Wno-gnu-zero-variadic-macro-arguments: suppress warning from enforce.h macro
           clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
-              ${{ matrix.flags }} -I. \
-              -o test_runner test_PolicyIterator.cpp
+              -Wno-gnu-zero-variadic-macro-arguments \
+              ${{ matrix.flags }} -I./FAT_P/FAT_P/fat_p \
+              -o test_runner FAT_P/FAT_P/tests/test_PolicyIterator.cpp
       
       - name: Run tests
         run: |
@@ -149,8 +164,8 @@ jobs:
           g++ -std=c++17 -g \
               -fsanitize=address,undefined \
               -fno-omit-frame-pointer \
-              -DENABLE_TEST_APPLICATION -I. \
-              -o test_san test_PolicyIterator.cpp
+              -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
+              -o test_san FAT_P/FAT_P/tests/test_PolicyIterator.cpp
       
       - name: Run sanitized tests
         run: |
@@ -173,8 +188,8 @@ jobs:
               -Wconversion -Wsign-conversion \
               -Wshadow -Wformat=2 \
               -Werror \
-              -DENABLE_TEST_APPLICATION -I. \
-              -o test_strict test_PolicyIterator.cpp
+              -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
+              -o test_strict FAT_P/FAT_P/tests/test_PolicyIterator.cpp
           echo "✓ No warnings"
 
   # ===========================================================================
@@ -189,8 +204,8 @@ jobs:
       
       - name: Build benchmark
         run: |
-          g++ -std=c++17 -O3 -DNDEBUG -march=native -I. \
-              -o benchmark benchmark_PolicyIterator.cpp
+          g++ -std=c++17 -O3 -DNDEBUG -march=native -I./FAT_P/FAT_P/fat_p \
+              -o benchmark FAT_P/FAT_P/benchmarks/benchmark_PolicyIterator.cpp
       
       - name: Run benchmark
         run: |
