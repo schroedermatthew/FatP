@@ -1126,10 +1126,14 @@ TEST_CASE(self_assignment)
 {
     fat_p::AlignedVector<int> vec = {1, 2, 3, 4, 5};
 
+#if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wself-assign-overloaded"
+#endif
     vec = vec;
+#if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
+#endif
 
     ASSERT_EQ(vec.size(), 5u, "Self-assignment should preserve size");
     ASSERT_EQ(vec[0], 1, "Elements should be preserved");

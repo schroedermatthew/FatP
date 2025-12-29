@@ -99,6 +99,7 @@
 #include "StrongId.h"
 #include "Tensor.h"
 #include "TensorEinsum.h"
+#include "TensorIteration.h"
 #include "TensorMath.h"
 #include "TensorSerializer.h"
 #include "TensorStorage.h"

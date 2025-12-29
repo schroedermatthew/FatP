@@ -241,6 +241,7 @@
     <ClInclude Include="fat_p\StrongId.h" />
     <ClInclude Include="fat_p\Tensor.h" />
     <ClInclude Include="fat_p\TensorEinsum.h" />
+    <ClInclude Include="fat_p\TensorIteration.h" />
     <ClInclude Include="fat_p\TensorMath.h" />
     <ClInclude Include="fat_p\TensorSerializer.h" />
     <ClInclude Include="fat_p\TensorStorage.h" />

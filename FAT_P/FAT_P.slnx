@@ -3,6 +3,7 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Project Path="benchmark_AlignedVector/benchmark_AlignedVector.vcxproj" Id="dcc234ae-841c-4776-b526-6c596c288b88" />
   <Project Path="benchmark_EqualityComparisons/benchmark_EqualityComparisons.vcxproj" Id="18835972-9542-4763-8486-f6b1f94ca417" />
   <Project Path="benchmark_FatPHashMaps/benchmark_FatPHashMaps.vcxproj" Id="bed9dc70-a711-4f49-bb4e-e6bb4a7647ff" />
   <Project Path="benchmark_FeatureManager/benchmark_FeatureManager.vcxproj" Id="a5b8cc99-23f5-4ffe-b496-5f8209b62d3a" />
@@ -13,12 +14,4 @@
   <Project Path="benchmark_SmallVector/benchmark_SmallVector.vcxproj" Id="6f0e9afa-2538-4e80-b411-dcbb85782fb6" />
   <Project Path="FAT_P/FAT_P.vcxproj" Id="07996acb-c24a-48aa-83d9-6676faee42de" />
   <Project Path="FAT_P_TEST/FAT_P_TEST.vcxproj" Id="bdba1326-3b91-49d8-afca-44e125ed66a5" />
-  <Project Path="test_EqualityAny/test_EqualityAny.vcxproj" Id="a7bfa2e7-6c5b-488d-90e2-e583368f01cd" />
-  <Project Path="test_EqualityComparisons/test_EqualityComparisons.vcxproj" Id="f43d6bd6-5fe3-4de0-98e8-c87d7ca1359e" />
-  <Project Path="test_FlatMap/test_FlatMap.vcxproj" Id="882ce9d5-d43a-48f1-8100-c50dd5321563" />
-  <Project Path="test_FlatSet/test_FlatSet.vcxproj" Id="93f3b643-5310-443f-8dbf-53d4472d8cb7" />
-  <Project Path="test_FloatingPointComparison/test_FloatingPointComparison.vcxproj" Id="fca4748e-c287-4c68-8425-ff61f0be5f05" />
-  <Project Path="test_SlotMap/test_SlotMap.vcxproj" Id="91be4778-34b9-4fca-81a5-8fa9f47f8285" />
-  <Project Path="test_SmallVector/test_SmallVector.vcxproj" Id="7bb71295-ca0c-4b79-86fd-70ac0cd88e70" />
-  <Project Path="test_StableHashMap/test_StableHashMap.vcxproj" Id="99155cae-416c-4d4c-9ce4-a7c8db9129ba" />
 </Solution>

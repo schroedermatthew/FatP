@@ -19,6 +19,7 @@
 
 #include "PolicyIterator.h"
 #include "TensorStridePolicy.h"
+#include "TensorIteration.h"
 #include "FatPTest.h"
 
 namespace fat_p::testing::policyiterator {
@@ -794,17 +795,22 @@ TEST_CASE(tensor_padded_layout) {
 
 TEST_CASE(stride1d_basic) {
     // Basic 1D strided iteration
-    std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    // Contract: end must equal base + count*stride
+    // So buffer must be at least count*stride = 4*3 = 12 elements
+    std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     
-    // Every 3rd element starting at 0
+    // Every 3rd element starting at 0: indices 0, 3, 6, 9
     Stride1DPolicy<int> policy(4, 3);  // 4 elements, stride 3
-    auto it = PolicyIterator<int, Stride1DPolicy<int>>::begin(
-        data.data(), data.data() + data.size(), policy);
-    auto end = PolicyIterator<int, Stride1DPolicy<int>>::end(
-        data.data(), data.data() + data.size(), policy);
+    
+    // end = base + count*stride = base + 12
+    int* base = data.data();
+    int* end = base + 4 * 3;  // Contract-compliant end
+    
+    auto it = PolicyIterator<int, Stride1DPolicy<int>>::begin(base, end, policy);
+    auto endIt = PolicyIterator<int, Stride1DPolicy<int>>::end(base, end, policy);
     
     std::vector<int> result;
-    for (; it != end; ++it) {
+    for (; it != endIt; ++it) {
         result.push_back(*it);
     }
     
@@ -839,17 +845,19 @@ TEST_CASE(stride1d_column_sum) {
 }
 
 TEST_CASE(stride1d_bidirectional) {
-    std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    // Contract: end must equal base + count*stride
+    std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     
     Stride1DPolicy<int> policy(4, 3);
-    auto it = PolicyIterator<int, Stride1DPolicy<int>>::begin(
-        data.data(), data.data() + data.size(), policy);
-    auto end = PolicyIterator<int, Stride1DPolicy<int>>::end(
-        data.data(), data.data() + data.size(), policy);
+    int* base = data.data();
+    int* end = base + 4 * 3;  // Contract-compliant end
+    
+    auto it = PolicyIterator<int, Stride1DPolicy<int>>::begin(base, end, policy);
+    auto endIt = PolicyIterator<int, Stride1DPolicy<int>>::end(base, end, policy);
     
     // Forward to end
     ++it; ++it; ++it; ++it;
-    ASSERT_TRUE(it == end, "Should be at end after 4 increments");
+    ASSERT_TRUE(it == endIt, "Should be at end after 4 increments");
     
     // Backward
     --it;
@@ -887,20 +895,29 @@ TEST_CASE(stride2d_basic) {
     return check_sequence(result, expected, "Stride2D row-major iteration");
 }
 
-TEST_CASE(stride2d_column_major_traversal) {
+TEST_CASE(tensor_column_major_traversal_correct) {
     // 3x4 matrix stored row-major, but traverse column-major
+    // This demonstrates the CORRECT way to do column-major traversal:
+    // Use TensorStridePolicy with permuted shape and strides.
+    //
+    // NOTE: Stride2DPolicy does NOT support column-major traversal because
+    // it uses pointer-equality for end detection, which only works for
+    // monotonic pointer advancement patterns.
     std::vector<int> data = {
         0, 1, 2, 3,
         4, 5, 6, 7,
         8, 9, 10, 11
     };
     
-    // Traverse columns first: 4 columns, 3 rows each
-    // colStride=1, rowStride=4
-    Stride2DPolicy<int> policy(4, 3, 1, 4);  // 4 cols (outer), 3 rows (inner)
-    auto it = PolicyIterator<int, Stride2DPolicy<int>>::begin(
+    // For column-major traversal of a row-major stored matrix:
+    // - Original: 3 rows x 4 cols, rowStride=4, colStride=1
+    // - Permuted: shape={4 cols, 3 rows}, strides={1, 4}
+    // This makes columns the outer dimension and rows the inner dimension
+    TensorStridePolicy<int> policy({4, 3}, {1, 4});
+    
+    auto it = PolicyIterator<int, TensorStridePolicy<int>>::begin(
         data.data(), data.data() + data.size(), policy);
-    auto end = PolicyIterator<int, Stride2DPolicy<int>>::end(
+    auto end = PolicyIterator<int, TensorStridePolicy<int>>::end(
         data.data(), data.data() + data.size(), policy);
     
     std::vector<int> result;
@@ -910,7 +927,7 @@ TEST_CASE(stride2d_column_major_traversal) {
     
     // Column-major order: col0(0,4,8), col1(1,5,9), col2(2,6,10), col3(3,7,11)
     std::vector<int> expected = {0, 4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11};
-    return check_sequence(result, expected, "Stride2D column-major traversal");
+    return check_sequence(result, expected, "TensorStridePolicy column-major traversal");
 }
 
 TEST_CASE(stride2d_single_column) {
@@ -959,6 +976,88 @@ TEST_CASE(stride2d_bidirectional) {
     ASSERT_EQ(*it, 3, "Wrapped to previous row's last element");
     
     return true;
+}
+
+// ============================================================================
+// Stride1D/Stride2D Spec Anchor Tests
+// ============================================================================
+
+TEST_CASE(stride1d_decrement_end_yields_last) {
+    // --end should yield the last visited element (bidirectional requirement)
+    std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    
+    // count=4, stride=3 -> visits indices 0, 3, 6, 9 (values 0, 3, 6, 9)
+    Stride1DPolicy<int> policy(4, 3);
+    
+    using Iter = PolicyIterator<int, Stride1DPolicy<int>>;
+    auto end = Iter::end(data.data(), data.data() + data.size(), policy);
+    
+    --end;
+    ASSERT_EQ(*end, 9, "Stride1D --end yields last visited element");
+    
+    --end;
+    ASSERT_EQ(*end, 6, "Second --end yields second-to-last");
+    
+    return true;
+}
+
+TEST_CASE(stride2d_decrement_end_yields_last) {
+    // --end should yield the last element (bidirectional requirement)
+    std::vector<int> data = {0, 1, 2, 3, 4, 5};  // 2x3 matrix
+    
+    Stride2DPolicy<int> policy(2, 3);
+    
+    using Iter = PolicyIterator<int, Stride2DPolicy<int>>;
+    auto end = Iter::end(data.data(), data.data() + data.size(), policy);
+    
+    --end;
+    ASSERT_EQ(*end, 5, "Stride2D --end yields last element");
+    
+    --end;
+    ASSERT_EQ(*end, 4, "Second --end yields second-to-last");
+    
+    return true;
+}
+
+TEST_CASE(reverse_iterator_stride1d) {
+    // std::reverse_iterator must work correctly with Stride1DPolicy
+    std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    
+    // count=4, stride=3 -> visits 0, 3, 6, 9
+    Stride1DPolicy<int> policy(4, 3);
+    
+    using Iter = PolicyIterator<int, Stride1DPolicy<int>>;
+    auto begin = Iter::begin(data.data(), data.data() + data.size(), policy);
+    auto end = Iter::end(data.data(), data.data() + data.size(), policy);
+    
+    std::vector<int> result;
+    for (auto rit = std::make_reverse_iterator(end);
+         rit != std::make_reverse_iterator(begin); ++rit) {
+        result.push_back(*rit);
+    }
+    
+    std::vector<int> expected = {9, 6, 3, 0};
+    return check_sequence(result, expected, "Stride1D reverse iteration");
+}
+
+TEST_CASE(reverse_iterator_stride2d) {
+    // std::reverse_iterator must work correctly with Stride2DPolicy
+    std::vector<int> data = {0, 1, 2, 3, 4, 5};  // 2x3 matrix
+    
+    Stride2DPolicy<int> policy(2, 3);
+    
+    using Iter = PolicyIterator<int, Stride2DPolicy<int>>;
+    auto begin = Iter::begin(data.data(), data.data() + data.size(), policy);
+    auto end = Iter::end(data.data(), data.data() + data.size(), policy);
+    
+    std::vector<int> result;
+    for (auto rit = std::make_reverse_iterator(end);
+         rit != std::make_reverse_iterator(begin); ++rit) {
+        result.push_back(*rit);
+    }
+    
+    std::vector<int> expected = {5, 4, 3, 2, 1, 0};
+    return check_sequence(result, expected, "Stride2D reverse iteration");
 }
 
 TEST_CASE(standard_decrement_end_yields_last) {
@@ -1037,6 +1136,247 @@ TEST_CASE(reverse_iterator_transform) {
     std::vector<int> expected = {10, 8, 6, 4, 2};
     return check_sequence(result, expected, "Reverse transform iteration");
 }
+
+// ============================================================================
+// TensorIteration.h Composition Helper Tests
+// ============================================================================
+
+TEST_CASE(iterate_nd_1d_basic) {
+    // 1D iteration should work and use Stride1DPolicy internally
+    std::vector<int> data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    
+    int64_t sum = 0;
+    iterateND(data.data(), {10}, {1}, [&](int v) { sum += v; });
+    
+    ASSERT_EQ(sum, 55, "1D iterateND sum");
+    return true;
+}
+
+TEST_CASE(iterate_nd_1d_strided) {
+    // 1D with stride > 1
+    std::vector<int> data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    
+    int64_t sum = 0;
+    iterateND(data.data(), {5}, {2}, [&](int v) { sum += v; });  // 1,3,5,7,9
+    
+    ASSERT_EQ(sum, 25, "1D strided iterateND sum");
+    return true;
+}
+
+TEST_CASE(iterate_nd_2d_basic) {
+    // 2D iteration should work and use Stride2DPolicy internally
+    std::vector<int> data = {
+        1, 2, 3,
+        4, 5, 6
+    };
+    
+    int64_t sum = 0;
+    iterateND(data.data(), {2, 3}, {3, 1}, [&](int v) { sum += v; });
+    
+    ASSERT_EQ(sum, 21, "2D iterateND sum");
+    return true;
+}
+
+TEST_CASE(iterate_nd_2d_contiguous) {
+    // 2D with automatic stride computation
+    std::vector<int> data(100);
+    std::iota(data.begin(), data.end(), 1);  // 1..100
+    
+    int64_t sum = 0;
+    iterateND(data.data(), {10, 10}, [&](int v) { sum += v; });
+    
+    ASSERT_EQ(sum, 5050, "2D contiguous iterateND sum");
+    return true;
+}
+
+TEST_CASE(iterate_nd_3d_basic) {
+    // 3D iteration: outer loop + Stride2DPolicy for inner 2D
+    std::vector<int> data(2 * 3 * 4);
+    std::iota(data.begin(), data.end(), 1);  // 1..24
+    
+    int64_t sum = 0;
+    iterateND(data.data(), {2, 3, 4}, {12, 4, 1}, [&](int v) { sum += v; });
+    
+    ASSERT_EQ(sum, 300, "3D iterateND sum (1+2+...+24 = 300)");
+    return true;
+}
+
+TEST_CASE(iterate_nd_3d_contiguous) {
+    // 3D with automatic strides
+    std::vector<int> data(2 * 3 * 4);
+    std::iota(data.begin(), data.end(), 1);
+    
+    int64_t sum = 0;
+    iterateND(data.data(), {2, 3, 4}, [&](int v) { sum += v; });
+    
+    ASSERT_EQ(sum, 300, "3D contiguous iterateND sum");
+    return true;
+}
+
+TEST_CASE(iterate_nd_4d_basic) {
+    // 4D iteration: 2 outer loops + Stride2DPolicy for inner 2D
+    std::vector<int> data(2 * 2 * 3 * 4);
+    std::iota(data.begin(), data.end(), 1);  // 1..48
+    
+    int64_t sum = 0;
+    iterateND(data.data(), {2, 2, 3, 4}, [&](int v) { sum += v; });
+    
+    // Sum of 1..48 = 48*49/2 = 1176
+    ASSERT_EQ(sum, 1176, "4D iterateND sum");
+    return true;
+}
+
+TEST_CASE(iterate_nd_5d_basic) {
+    // 5D to verify deep recursion works
+    std::vector<int> data(2 * 2 * 2 * 3 * 4);
+    std::iota(data.begin(), data.end(), 1);  // 1..96
+    
+    int64_t sum = 0;
+    iterateND(data.data(), {2, 2, 2, 3, 4}, [&](int v) { sum += v; });
+    
+    // Sum of 1..96 = 96*97/2 = 4656
+    ASSERT_EQ(sum, 4656, "5D iterateND sum");
+    return true;
+}
+
+TEST_CASE(iterate_nd_mutation) {
+    // Verify elements can be mutated
+    std::vector<int> data = {1, 2, 3, 4, 5, 6};
+    
+    iterateND(data.data(), {2, 3}, [](int& v) { v *= 2; });
+    
+    std::vector<int> expected = {2, 4, 6, 8, 10, 12};
+    return check_sequence(data, expected, "iterateND mutation");
+}
+
+TEST_CASE(reduce_nd_sum) {
+    // Basic reduction
+    std::vector<int> data(100);
+    std::iota(data.begin(), data.end(), 1);
+    
+    auto sum = reduceND(data.data(), {10, 10}, int64_t{0}, std::plus<>{});
+    
+    ASSERT_EQ(sum, 5050, "reduceND sum");
+    return true;
+}
+
+TEST_CASE(reduce_nd_max) {
+    // Max reduction
+    std::vector<int> data = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8};
+    
+    auto maxVal = reduceND(data.data(), {3, 4},
+                           std::numeric_limits<int>::min(),
+                           [](int a, int b) { return std::max(a, b); });
+    
+    ASSERT_EQ(maxVal, 9, "reduceND max");
+    return true;
+}
+
+TEST_CASE(reduce_nd_product) {
+    // Product reduction
+    std::vector<int> data = {1, 2, 3, 4};
+    
+    auto product = reduceND(data.data(), {2, 2}, 1, std::multiplies<>{});
+    
+    ASSERT_EQ(product, 24, "reduceND product");
+    return true;
+}
+
+TEST_CASE(reduce_nd_3d_strided) {
+    // 3D reduction with explicit strides (padded layout)
+    // 2x3x4 logical, but rows padded to 8
+    std::vector<int> data(2 * 3 * 8, 0);
+    int val = 1;
+    for (size_t d = 0; d < 2; ++d) {
+        for (size_t r = 0; r < 3; ++r) {
+            for (size_t c = 0; c < 4; ++c) {
+                data[d * 3 * 8 + r * 8 + c] = val++;
+            }
+        }
+    }
+    
+    auto sum = reduceND(data.data(), {2, 3, 4}, {24, 8, 1}, int64_t{0}, std::plus<>{});
+    
+    ASSERT_EQ(sum, 300, "reduceND 3D strided sum (1..24)");
+    return true;
+}
+
+TEST_CASE(transform_nd_negate) {
+    // Transform all elements
+    std::vector<int> data = {1, 2, 3, 4, 5, 6};
+    
+    transformND(data.data(), {2, 3}, std::negate<>{});
+    
+    std::vector<int> expected = {-1, -2, -3, -4, -5, -6};
+    return check_sequence(data, expected, "transformND negate");
+}
+
+TEST_CASE(transform_nd_scale) {
+    // Scale by constant
+    std::vector<double> data = {1.0, 2.0, 3.0, 4.0};
+    
+    transformND(data.data(), {2, 2}, [](double v) { return v * 2.5; });
+    
+    ASSERT_EQ(data[0], 2.5, "transformND scale [0]");
+    ASSERT_EQ(data[1], 5.0, "transformND scale [1]");
+    ASSERT_EQ(data[2], 7.5, "transformND scale [2]");
+    ASSERT_EQ(data[3], 10.0, "transformND scale [3]");
+    return true;
+}
+
+TEST_CASE(for_each_slice_basic) {
+    // Process each slice of a 3D array
+    std::vector<int> data(3 * 4 * 5);
+    std::iota(data.begin(), data.end(), 1);  // 1..60
+    
+    std::vector<int64_t> sliceSums;
+    forEachSlice(data.data(), {3, 4, 5},
+        [&](std::size_t /*idx*/, int* slice) {
+            auto sum = reduceND(slice, {4, 5}, int64_t{0}, std::plus<>{});
+            sliceSums.push_back(sum);
+        });
+    
+    ASSERT_EQ(sliceSums.size(), 3u, "forEachSlice count");
+    // Slice 0: 1..20, sum = 210
+    // Slice 1: 21..40, sum = 610
+    // Slice 2: 41..60, sum = 1010
+    ASSERT_EQ(sliceSums[0], 210, "Slice 0 sum");
+    ASSERT_EQ(sliceSums[1], 610, "Slice 1 sum");
+    ASSERT_EQ(sliceSums[2], 1010, "Slice 2 sum");
+    return true;
+}
+
+#ifndef NDEBUG
+TEST_CASE(iterate_nd_empty_contract) {
+    // Verify empty shape is rejected
+    std::vector<int> data = {1};
+    
+    bool caught = false;
+    try {
+        iterateND(data.data(), {}, {}, [](int) {});
+    } catch (const std::logic_error&) {
+        caught = true;
+    }
+    
+    ASSERT_TRUE(caught, "Empty shape should throw");
+    return true;
+}
+
+TEST_CASE(iterate_nd_mismatch_contract) {
+    // Verify shape/stride mismatch is rejected
+    std::vector<int> data = {1, 2, 3, 4};
+    
+    bool caught = false;
+    try {
+        iterateND(data.data(), {2, 2}, {2}, [](int) {});  // 2 dims, 1 stride
+    } catch (const std::logic_error&) {
+        caught = true;
+    }
+    
+    ASSERT_TRUE(caught, "Shape/stride mismatch should throw");
+    return true;
+}
+#endif
 
 // ============================================================================
 // 8c. Contract Violation Tests (Debug-Only - verify enforce fires)
@@ -1170,6 +1510,101 @@ TEST_CASE(contract_tensor_shape_stride_mismatch) {
     }
     
     ASSERT_TRUE(caught, "Shape/stride mismatch should throw in debug");
+    return true;
+}
+
+TEST_CASE(contract_stride1d_negative_stride) {
+    // Verify: negative stride triggers enforce (not supported)
+    bool caught = false;
+    try {
+        Stride1DPolicy<int> policy(10, -1);  // Negative stride
+    } catch (const std::logic_error&) {
+        caught = true;
+    }
+    
+    ASSERT_TRUE(caught, "Stride1D negative stride should throw in debug");
+    return true;
+}
+
+TEST_CASE(contract_stride1d_zero_stride) {
+    // Verify: zero stride triggers enforce
+    bool caught = false;
+    try {
+        Stride1DPolicy<int> policy(10, 0);  // Zero stride
+    } catch (const std::logic_error&) {
+        caught = true;
+    }
+    
+    ASSERT_TRUE(caught, "Stride1D zero stride should throw in debug");
+    return true;
+}
+
+TEST_CASE(contract_stride2d_negative_stride) {
+    // Verify: negative stride triggers enforce (not supported)
+    bool caught = false;
+    try {
+        Stride2DPolicy<int> policy(3, 4, -4, 1);  // Negative row stride
+    } catch (const std::logic_error&) {
+        caught = true;
+    }
+    
+    ASSERT_TRUE(caught, "Stride2D negative stride should throw in debug");
+    return true;
+}
+
+TEST_CASE(contract_stride2d_non_monotonic) {
+    // Verify: non-monotonic stride layout triggers enforce
+    // rowStride < cols * colStride means wrapping could revisit addresses
+    bool caught = false;
+    try {
+        Stride2DPolicy<int> policy(3, 4, 2, 1);  // rowStride=2 < cols*colStride=4
+    } catch (const std::logic_error&) {
+        caught = true;
+    }
+    
+    ASSERT_TRUE(caught, "Stride2D non-monotonic layout should throw in debug");
+    return true;
+}
+
+TEST_CASE(contract_stride1d_span_mismatch) {
+    // Verify: end - base must equal count * stride
+    std::vector<int> data(10);  // Span = 10
+    
+    // Policy expects span = count * stride = 5 * 3 = 15
+    // But we pass end = base + 10, so span mismatch
+    Stride1DPolicy<int> policy(5, 3);
+    
+    bool caught = false;
+    try {
+        using Iter = PolicyIterator<int, Stride1DPolicy<int>>;
+        auto end = Iter::end(data.data(), data.data() + data.size(), policy);
+        (void)end;
+    } catch (const std::logic_error&) {
+        caught = true;
+    }
+    
+    ASSERT_TRUE(caught, "Stride1D span mismatch should throw in debug");
+    return true;
+}
+
+TEST_CASE(contract_stride2d_span_mismatch) {
+    // Verify: end - base must equal rows * rowStride
+    std::vector<int> data(10);  // Span = 10
+    
+    // Policy expects span = rows * rowStride = 3 * 4 = 12
+    // But we pass end = base + 10, so span mismatch
+    Stride2DPolicy<int> policy(3, 4);  // 3 rows, 4 cols
+    
+    bool caught = false;
+    try {
+        using Iter = PolicyIterator<int, Stride2DPolicy<int>>;
+        auto end = Iter::end(data.data(), data.data() + data.size(), policy);
+        (void)end;
+    } catch (const std::logic_error&) {
+        caught = true;
+    }
+    
+    ASSERT_TRUE(caught, "Stride2D span mismatch should throw in debug");
     return true;
 }
 
@@ -1486,6 +1921,16 @@ bool test_PolicyIterator() {
     RUN_TEST_NS(runner, policyiterator, tensor_column_major);
     RUN_TEST_NS(runner, policyiterator, tensor_indices);
     
+    // Stride1D/Stride2D Policies (Lightweight Specializations)
+    std::cout << "\n" << colors::blue() << "--- Stride1D/Stride2D Policies ---" << colors::reset() << "\n";
+    RUN_TEST_NS(runner, policyiterator, stride1d_basic);
+    RUN_TEST_NS(runner, policyiterator, stride1d_column_sum);
+    RUN_TEST_NS(runner, policyiterator, stride1d_bidirectional);
+    RUN_TEST_NS(runner, policyiterator, stride2d_basic);
+    RUN_TEST_NS(runner, policyiterator, stride2d_single_column);
+    RUN_TEST_NS(runner, policyiterator, stride2d_bidirectional);
+    RUN_TEST_NS(runner, policyiterator, tensor_column_major_traversal_correct);
+    
     // Operators and Methods
     std::cout << "\n" << colors::blue() << "--- Operators & Methods ---" << colors::reset() << "\n";
     RUN_TEST_NS(runner, policyiterator, post_increment);
@@ -1526,10 +1971,35 @@ bool test_PolicyIterator() {
     RUN_TEST_NS(runner, policyiterator, transform_decrement_end_yields_last);
     RUN_TEST_NS(runner, policyiterator, reverse_iterator_standard);
     RUN_TEST_NS(runner, policyiterator, reverse_iterator_transform);
+    RUN_TEST_NS(runner, policyiterator, stride1d_decrement_end_yields_last);
+    RUN_TEST_NS(runner, policyiterator, stride2d_decrement_end_yields_last);
+    RUN_TEST_NS(runner, policyiterator, reverse_iterator_stride1d);
+    RUN_TEST_NS(runner, policyiterator, reverse_iterator_stride2d);
+    
+    // TensorIteration Composition Helpers
+    std::cout << "\n" << colors::blue() << "--- TensorIteration Composition Helpers ---" << colors::reset() << "\n";
+    RUN_TEST_NS(runner, policyiterator, iterate_nd_1d_basic);
+    RUN_TEST_NS(runner, policyiterator, iterate_nd_1d_strided);
+    RUN_TEST_NS(runner, policyiterator, iterate_nd_2d_basic);
+    RUN_TEST_NS(runner, policyiterator, iterate_nd_2d_contiguous);
+    RUN_TEST_NS(runner, policyiterator, iterate_nd_3d_basic);
+    RUN_TEST_NS(runner, policyiterator, iterate_nd_3d_contiguous);
+    RUN_TEST_NS(runner, policyiterator, iterate_nd_4d_basic);
+    RUN_TEST_NS(runner, policyiterator, iterate_nd_5d_basic);
+    RUN_TEST_NS(runner, policyiterator, iterate_nd_mutation);
+    RUN_TEST_NS(runner, policyiterator, reduce_nd_sum);
+    RUN_TEST_NS(runner, policyiterator, reduce_nd_max);
+    RUN_TEST_NS(runner, policyiterator, reduce_nd_product);
+    RUN_TEST_NS(runner, policyiterator, reduce_nd_3d_strided);
+    RUN_TEST_NS(runner, policyiterator, transform_nd_negate);
+    RUN_TEST_NS(runner, policyiterator, transform_nd_scale);
+    RUN_TEST_NS(runner, policyiterator, for_each_slice_basic);
     
 #ifndef NDEBUG
     // Contract Violation Tests (debug-only)
     std::cout << "\n" << colors::blue() << "--- Contract Violation Tests (Debug) ---" << colors::reset() << "\n";
+    RUN_TEST_NS(runner, policyiterator, iterate_nd_empty_contract);
+    RUN_TEST_NS(runner, policyiterator, iterate_nd_mismatch_contract);
     RUN_TEST_NS(runner, policyiterator, contract_tensor_advance_past_end);
     RUN_TEST_NS(runner, policyiterator, contract_tensor_retreat_before_begin);
     RUN_TEST_NS(runner, policyiterator, contract_tensor_deref_end);
@@ -1538,6 +2008,12 @@ bool test_PolicyIterator() {
     RUN_TEST_NS(runner, policyiterator, contract_tensor_empty_shape);
     RUN_TEST_NS(runner, policyiterator, contract_tensor_zero_dimension);
     RUN_TEST_NS(runner, policyiterator, contract_tensor_shape_stride_mismatch);
+    RUN_TEST_NS(runner, policyiterator, contract_stride1d_negative_stride);
+    RUN_TEST_NS(runner, policyiterator, contract_stride1d_zero_stride);
+    RUN_TEST_NS(runner, policyiterator, contract_stride2d_negative_stride);
+    RUN_TEST_NS(runner, policyiterator, contract_stride2d_non_monotonic);
+    RUN_TEST_NS(runner, policyiterator, contract_stride1d_span_mismatch);
+    RUN_TEST_NS(runner, policyiterator, contract_stride2d_span_mismatch);
     RUN_TEST_NS(runner, policyiterator, contract_standard_increment_past_end);
     RUN_TEST_NS(runner, policyiterator, contract_standard_decrement_before_begin);
     RUN_TEST_NS(runner, policyiterator, contract_standard_deref_end);

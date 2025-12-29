@@ -452,12 +452,13 @@ public:
     /**
      * @brief Construct 1D stride policy.
      * @param count Number of elements to iterate.
-     * @param stride Distance between elements (default 1 = contiguous).
+     * @param stride Distance between elements (must be > 0, default 1 = contiguous).
+     * @pre stride > 0 (descending/negative stride not supported)
      */
     explicit Stride1DPolicy(std::size_t count, std::ptrdiff_t stride = 1)
         : mCount(count), mStride(stride), mPosition(0) {
         enforce(count > 0, "Count must be > 0");
-        enforce(stride != 0, "Stride cannot be 0");
+        enforce(stride > 0, "Stride must be > 0 (descending stride not supported)");
     }
 
     [[nodiscard]] bool atEnd() const noexcept { return mPosition >= mCount; }
@@ -478,20 +479,37 @@ public:
         --mPosition;
     }
 
-    void setToEnd(pointer& ptr, pointer base) {
-        ptr = base + static_cast<std::ptrdiff_t>(mCount) * mStride;
+    void setToEnd(pointer& ptr, pointer base, pointer bufferEnd) {
+        // Validate using integer span comparison (no UB pointer arithmetic)
+        // Contract: user must pass end == base + count*stride
+#ifndef NDEBUG
+        auto span = bufferEnd - base;
+        auto expected = static_cast<std::ptrdiff_t>(mCount) * mStride;
+        enforce(span == expected,
+                "Stride1D: end must equal base + count*stride");
+#else
+        (void)ptr;
+        (void)base;
+        (void)bufferEnd;
+#endif
+        // Keep ptr unchanged (== bufferEnd, preserving single-end model)
+        // Only initialize policy state so --end works correctly
         mPosition = mCount;
     }
 };
 
 /**
- * @brief Lightweight 2D strided iteration policy.
+ * @brief Lightweight 2D strided iteration policy for row-major traversal.
  * @tparam T Element type.
  *
- * For iterating a 2D matrix with configurable traversal and memory layout.
- * Much faster than TensorStridePolicy<T>({rows, cols}, {rowStride, colStride}).
+ * For iterating a 2D matrix with configurable row and column strides.
+ * Much faster than TensorStridePolicy<T>({rows, cols}, {rowStride, colStride})
+ * for the common case of row-major (or row-slice) iteration.
  *
- * Iteration is row-major (columns vary fastest) unless you swap the parameters.
+ * IMPORTANT: This policy supports ROW-MAJOR traversal only (monotonic pointer
+ * advancement where columns vary fastest within each row). For column-major
+ * or arbitrary permuted traversal patterns, use TensorStridePolicy with
+ * appropriately permuted shape and strides.
  *
  * Example: Iterate column 0 of a 1000x1000 row-major matrix
  * @code
@@ -502,6 +520,13 @@ public:
  * Example: Full row-major iteration of 100x200 matrix
  * @code
  * Stride2DPolicy<int> policy(100, 200, 200, 1);  // 100 rows, 200 cols
+ * @endcode
+ *
+ * Example: For column-major traversal, use TensorStridePolicy instead
+ * @code
+ * // 3x4 matrix stored row-major, traverse column-major
+ * // Permute: shape={cols, rows}, strides={colStride, rowStride}
+ * TensorStridePolicy<int> policy({4, 3}, {1, 4});
  * @endcode
  */
 template <typename T>
@@ -531,6 +556,8 @@ public:
      * @param cols Number of columns.
      * @param rowStride Memory stride between rows.
      * @param colStride Memory stride between columns.
+     * @pre rowStride > 0 && colStride > 0 (descending strides not supported)
+     * @pre rowStride >= cols * colStride (monotonic traversal requirement)
      */
     Stride2DPolicy(std::size_t rows, std::size_t cols,
                    std::ptrdiff_t rowStride, std::ptrdiff_t colStride)
@@ -539,6 +566,10 @@ public:
         , mRow(0), mCol(0)
         , mTotal(rows * cols), mPosition(0) {
         enforce(rows > 0 && cols > 0, "Dimensions must be > 0");
+        enforce(rowStride > 0 && colStride > 0, 
+                "Strides must be > 0 (descending strides not supported)");
+        enforce(rowStride >= static_cast<std::ptrdiff_t>(cols) * colStride,
+                "rowStride must be >= cols * colStride for monotonic row-major traversal");
     }
 
     /// Convenience: Row-major contiguous matrix
@@ -585,11 +616,24 @@ public:
         }
     }
 
-    void setToEnd(pointer& ptr, pointer base) {
+    void setToEnd(pointer& ptr, pointer base, pointer bufferEnd) {
+        // Validate using integer span comparison (no UB pointer arithmetic)
+        // Contract: user must pass end == base + rows*rowStride
+#ifndef NDEBUG
+        auto span = bufferEnd - base;
+        auto expected = static_cast<std::ptrdiff_t>(mRows) * mRowStride;
+        enforce(span == expected,
+                "Stride2D: end must equal base + rows*rowStride");
+#else
+        (void)ptr;
+        (void)base;
+        (void)bufferEnd;
+#endif
+        // Keep ptr unchanged (== bufferEnd, preserving single-end model)
+        // Only initialize policy state so --end works correctly
         mRow = mRows;
         mCol = 0;
         mPosition = mTotal;
-        ptr = base + static_cast<std::ptrdiff_t>(mRows) * mRowStride;
     }
 };
 

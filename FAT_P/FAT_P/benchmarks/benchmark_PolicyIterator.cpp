@@ -38,6 +38,7 @@
 #include "FatPBenchmarkRunner.h"
 #include "PolicyIterator.h"
 #include "TensorStridePolicy.h"
+#include "TensorIteration.h"
 
 #include <numeric>
 
@@ -1282,6 +1283,209 @@ void benchMatrixIteration(const BenchConfig& cfg)
 #endif
 
 // ============================================================================
+// Benchmark: TensorIteration Composition Helpers
+// ============================================================================
+
+void benchTensorIteration(const BenchConfig& cfg)
+{
+    printSectionHeader(std::cout, "TENSOR ITERATION COMPOSITION HELPERS");
+    printContract(std::cout, "Compare iterateND composition vs manual loops vs TensorStridePolicy");
+    print_cpu_context(std::cout, "Start");
+
+    // 3D benchmark: 50 x 100 x 200 = 1,000,000 elements
+    constexpr std::size_t d1 = 50, d2 = 100, d3 = 200;
+    constexpr std::size_t total3D = d1 * d2 * d3;
+    auto data3D = generateData(total3D, cfg.seed);
+    
+    // 4D benchmark: 8 x 16 x 50 x 100 = 640,000 elements
+    constexpr std::size_t e1 = 8, e2 = 16, e3 = 50, e4 = 100;
+    constexpr std::size_t total4D = e1 * e2 * e3 * e4;
+    auto data4D = generateData(total4D, cfg.seed + 1);
+
+    std::cout << "  3D Tensor: " << d1 << " x " << d2 << " x " << d3 
+              << " (" << total3D << " elements)\n";
+    std::cout << "  4D Tensor: " << e1 << " x " << e2 << " x " << e3 << " x " << e4 
+              << " (" << total4D << " elements)\n\n";
+
+    // Pre-compute expected sums for correctness checks
+    int64_t expected3D = 0;
+    for (auto v : data3D) expected3D += v;
+    int64_t expected4D = 0;
+    for (auto v : data4D) expected4D += v;
+
+    std::vector<double> manual3DTimes, tensor3DTimes, iterateND3DTimes;
+    std::vector<double> manual4DTimes, tensor4DTimes, iterateND4DTimes;
+
+    const std::size_t totalRuns = cfg.warmupRuns + cfg.measuredRuns;
+    for (std::size_t run = 0; run < totalRuns; ++run)
+    {
+        bool measured = (run >= cfg.warmupRuns);
+
+        // ===== 3D BENCHMARKS =====
+        
+        // Manual nested loop (3D)
+        {
+            int64_t sum = 0;
+            Timer t;
+            t.start();
+            for (std::size_t i = 0; i < d1; ++i) {
+                for (std::size_t j = 0; j < d2; ++j) {
+                    for (std::size_t k = 0; k < d3; ++k) {
+                        sum += data3D[i * d2 * d3 + j * d3 + k];
+                    }
+                }
+            }
+            double elapsed = t.elapsedNs();
+            DoNotOptimize(sum);
+            if (measured) manual3DTimes.push_back(elapsed / static_cast<double>(total3D));
+            if (run == 0 && sum != expected3D) {
+                std::cerr << "CORRECTNESS FAILURE: Manual 3D sum\n";
+                return;
+            }
+        }
+
+        // TensorStridePolicy (3D)
+        {
+            int64_t sum = 0;
+            Timer t;
+            t.start();
+            TensorStridePolicy<int64_t> policy({d1, d2, d3}, 
+                {static_cast<std::ptrdiff_t>(d2 * d3), 
+                 static_cast<std::ptrdiff_t>(d3), 1});
+            using Iter = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>;
+            auto it = Iter::begin(data3D.data(), data3D.data() + data3D.size(), policy);
+            auto end = Iter::end(data3D.data(), data3D.data() + data3D.size(), policy);
+            for (; it != end; ++it) {
+                sum += *it;
+            }
+            double elapsed = t.elapsedNs();
+            DoNotOptimize(sum);
+            if (measured) tensor3DTimes.push_back(elapsed / static_cast<double>(total3D));
+            if (run == 0 && sum != expected3D) {
+                std::cerr << "CORRECTNESS FAILURE: TensorStridePolicy 3D sum\n";
+                return;
+            }
+        }
+
+        // iterateND composition (3D)
+        {
+            int64_t sum = 0;
+            Timer t;
+            t.start();
+            iterateND(data3D.data(), {d1, d2, d3}, [&](int64_t v) { sum += v; });
+            double elapsed = t.elapsedNs();
+            DoNotOptimize(sum);
+            if (measured) iterateND3DTimes.push_back(elapsed / static_cast<double>(total3D));
+            if (run == 0 && sum != expected3D) {
+                std::cerr << "CORRECTNESS FAILURE: iterateND 3D sum\n";
+                return;
+            }
+        }
+
+        // ===== 4D BENCHMARKS =====
+        
+        // Manual nested loop (4D)
+        {
+            int64_t sum = 0;
+            Timer t;
+            t.start();
+            for (std::size_t i = 0; i < e1; ++i) {
+                for (std::size_t j = 0; j < e2; ++j) {
+                    for (std::size_t k = 0; k < e3; ++k) {
+                        for (std::size_t l = 0; l < e4; ++l) {
+                            sum += data4D[i * e2 * e3 * e4 + j * e3 * e4 + k * e4 + l];
+                        }
+                    }
+                }
+            }
+            double elapsed = t.elapsedNs();
+            DoNotOptimize(sum);
+            if (measured) manual4DTimes.push_back(elapsed / static_cast<double>(total4D));
+            if (run == 0 && sum != expected4D) {
+                std::cerr << "CORRECTNESS FAILURE: Manual 4D sum\n";
+                return;
+            }
+        }
+
+        // TensorStridePolicy (4D)
+        {
+            int64_t sum = 0;
+            Timer t;
+            t.start();
+            TensorStridePolicy<int64_t> policy({e1, e2, e3, e4}, 
+                {static_cast<std::ptrdiff_t>(e2 * e3 * e4),
+                 static_cast<std::ptrdiff_t>(e3 * e4),
+                 static_cast<std::ptrdiff_t>(e4), 1});
+            using Iter = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>;
+            auto it = Iter::begin(data4D.data(), data4D.data() + data4D.size(), policy);
+            auto end = Iter::end(data4D.data(), data4D.data() + data4D.size(), policy);
+            for (; it != end; ++it) {
+                sum += *it;
+            }
+            double elapsed = t.elapsedNs();
+            DoNotOptimize(sum);
+            if (measured) tensor4DTimes.push_back(elapsed / static_cast<double>(total4D));
+            if (run == 0 && sum != expected4D) {
+                std::cerr << "CORRECTNESS FAILURE: TensorStridePolicy 4D sum\n";
+                return;
+            }
+        }
+
+        // iterateND composition (4D)
+        {
+            int64_t sum = 0;
+            Timer t;
+            t.start();
+            iterateND(data4D.data(), {e1, e2, e3, e4}, [&](int64_t v) { sum += v; });
+            double elapsed = t.elapsedNs();
+            DoNotOptimize(sum);
+            if (measured) iterateND4DTimes.push_back(elapsed / static_cast<double>(total4D));
+            if (run == 0 && sum != expected4D) {
+                std::cerr << "CORRECTNESS FAILURE: iterateND 4D sum\n";
+                return;
+            }
+        }
+    }
+
+    // Compute statistics
+    auto manual3DStats = Statistics::compute(std::move(manual3DTimes));
+    auto tensor3DStats = Statistics::compute(std::move(tensor3DTimes));
+    auto iterateND3DStats = Statistics::compute(std::move(iterateND3DTimes));
+    
+    auto manual4DStats = Statistics::compute(std::move(manual4DTimes));
+    auto tensor4DStats = Statistics::compute(std::move(tensor4DTimes));
+    auto iterateND4DStats = Statistics::compute(std::move(iterateND4DTimes));
+
+    std::cout << "  3D Results (ns/element):\n";
+    manual3DStats.printComparison(std::cout, "Manual nested loop", "ns/op");
+    tensor3DStats.printComparison(std::cout, "TensorStridePolicy", "ns/op");
+    iterateND3DStats.printComparison(std::cout, "iterateND (composition)", "ns/op");
+
+    std::cout << "\n  3D vs Manual:\n";
+    std::cout << "    TensorStridePolicy:     " << std::fixed << std::setprecision(2)
+              << (tensor3DStats.median / manual3DStats.median) << "x\n";
+    std::cout << "    iterateND (composition): " << std::fixed << std::setprecision(2)
+              << (iterateND3DStats.median / manual3DStats.median) << "x\n";
+
+    std::cout << "\n  4D Results (ns/element):\n";
+    manual4DStats.printComparison(std::cout, "Manual nested loop", "ns/op");
+    tensor4DStats.printComparison(std::cout, "TensorStridePolicy", "ns/op");
+    iterateND4DStats.printComparison(std::cout, "iterateND (composition)", "ns/op");
+
+    std::cout << "\n  4D vs Manual:\n";
+    std::cout << "    TensorStridePolicy:     " << std::fixed << std::setprecision(2)
+              << (tensor4DStats.median / manual4DStats.median) << "x\n";
+    std::cout << "    iterateND (composition): " << std::fixed << std::setprecision(2)
+              << (iterateND4DStats.median / manual4DStats.median) << "x\n";
+
+    std::cout << "\n  Composition vs TensorStridePolicy:\n";
+    std::cout << "    3D: iterateND is " << std::fixed << std::setprecision(2)
+              << (tensor3DStats.median / iterateND3DStats.median) << "x faster\n";
+    std::cout << "    4D: iterateND is " << std::fixed << std::setprecision(2)
+              << (tensor4DStats.median / iterateND4DStats.median) << "x faster\n";
+}
+
+// ============================================================================
 // Benchmark: Data Size Scaling (Cache Effects)
 // ============================================================================
 
@@ -1428,6 +1632,9 @@ int main()
     benchMatrixIteration(cfg);
     if (!cfg.noCooldown) cooldownDelay(cfg.cooldownSectionMs, "section transition");
 #endif
+
+    benchTensorIteration(cfg);
+    if (!cfg.noCooldown) cooldownDelay(cfg.cooldownSectionMs, "section transition");
 
     benchSizeScaling(cfg);
 

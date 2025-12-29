@@ -69,6 +69,18 @@ struct is_tensor_policy<P, std::void_t<decltype(P::kIsTensorPolicy)>>
 template <typename P>
 struct requires_functor : std::bool_constant<has_predicate<P>::value || has_transformer<P>::value> {};
 
+// Trait to detect policies with setToEnd(pointer&, pointer, pointer) for end iterator initialization
+template <typename P, typename = void>
+struct has_set_to_end : std::false_type {};
+
+template <typename P>
+struct has_set_to_end<P, std::void_t<
+    decltype(std::declval<P&>().setToEnd(
+        std::declval<typename P::pointer&>(),
+        std::declval<typename P::pointer>(),
+        std::declval<typename P::pointer>()))
+>> : std::true_type {};
+
 // --------------------------------------------------------------------
 // Policies
 // --------------------------------------------------------------------
@@ -302,14 +314,23 @@ public:
     template <typename P = Policy,
               std::enable_if_t<!requires_functor<P>::value && !is_tensor_policy<P>::value, int> = 0>
     [[nodiscard]] static PolicyIterator end(T* base, T* end) {
-        return PolicyIterator(base, end, end, Policy{});
+        Policy policy{};
+        T* ptr = end;
+        if constexpr (has_set_to_end<Policy>::value) {
+            policy.setToEnd(ptr, base, end);
+        }
+        return PolicyIterator(base, end, ptr, std::move(policy));
     }
 
     /// Create an end iterator for standard policies with explicit policy
     template <typename P = Policy,
               std::enable_if_t<!requires_functor<P>::value && !is_tensor_policy<P>::value, int> = 0>
     [[nodiscard]] static PolicyIterator end(T* base, T* end, Policy policy) {
-        return PolicyIterator(base, end, end, std::move(policy));
+        T* ptr = end;
+        if constexpr (has_set_to_end<Policy>::value) {
+            policy.setToEnd(ptr, base, end);
+        }
+        return PolicyIterator(base, end, ptr, std::move(policy));
     }
 
     // --- Filter policies ---
