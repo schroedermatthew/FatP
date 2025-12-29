@@ -2,6 +2,8 @@
  * @file TensorIteration.h
  * @brief Composition helpers for efficient N-dimensional tensor iteration.
  *
+ * @layer Policy
+ *
  * This file provides convenient functions for iterating over N-dimensional
  * tensors using composition of optimized Stride1D/Stride2D policies.
  *
@@ -22,12 +24,49 @@
 
 #pragma once
 
+// Explicit includes for header self-containment (do not rely on transitive includes)
+#include <cstddef>
+#include <initializer_list>
+#include <utility>
+
+#include "enforce.h"
+#include "SmallVector.h"
+
 #include "PolicyIterator.h"
 #include "TensorStridePolicy.h"
 
-#include <initializer_list>
-
 namespace fat_p::iterator {
+
+// ============================================================================
+// PERFORMANCE MODEL / POLICY SELECTION
+// ============================================================================
+//
+// TensorIteration provides high-level helpers for iterating over tensors using PolicyIterator,
+// with an emphasis on practical performance for common layouts.
+//
+// The core idea:
+//   - Use lightweight specialized policies in common hot cases (1D/2D row-major),
+//   - Avoid paying the full generality overhead of TensorStridePolicy when it isn't needed.
+//
+// EXPECTATIONS:
+//   - For 1D runtime-stride walks (e.g., scanning a column): prefer Stride1DPolicy behavior.
+//   - For 2D row-major traversal (contiguous or padded rows): prefer Stride2DPolicy behavior.
+//   - For arbitrary N-D / permuted axes / complex stride patterns: use TensorStridePolicy directly.
+//
+// LIMITATIONS / CONTRACT:
+//   These helpers are optimized for monotonic row-major-like traversal in the innermost planes.
+//   If you pass stride patterns that imply non-monotonic pointer progression (e.g., column-major
+//   traversal over row-major storage without permuting dimensions), the specialized fast paths
+//   are not applicable. In such cases:
+//     - either use TensorStridePolicy (general, slower), or
+//     - treat the usage as a contract violation (debug enforce / UB in release), depending on
+//       your project policy.
+//
+// NOTE:
+//   Tuned math libraries (e.g., Eigen) may still outperform iterator-based scalar loops on
+//   contiguous reductions due to SIMD/vectorized kernels. Use the specialized policies where
+//   appropriate, and use library kernels for peak contiguous throughput.
+// ============================================================================
 
 // ============================================================================
 // Implementation Details
@@ -131,6 +170,11 @@ inline void computeRowMajorStrides(const std::size_t* shape,
  * @par Performance
  * Equivalent to hand-written nested loops. The innermost 2 dimensions
  * use the optimized Stride2DPolicy, achieving ~1.3x manual loop performance.
+ *
+ * @note This helper is optimized for monotonic row-major layouts (positive strides;
+ *       innermost 2D plane is row-major). For arbitrary stride permutations
+ *       (e.g., column-major traversal, negative strides), use TensorStridePolicy
+ *       directly (more general but slower).
  *
  * @par Example
  * @code

@@ -6,6 +6,12 @@
  *
  * Provides true N-dimensional tensor iteration with configurable shape and strides.
  * Uses SmallVector for zero-allocation storage of typical tensor dimensions (≤8D).
+ *
+ * @note **Performance guidance:** For hot 1D/2D row-major loops, prefer
+ *       Stride1DPolicy / Stride2DPolicy (defined at the end of this file).
+ *       TensorStridePolicy is more general but has higher per-step overhead
+ *       (~3-6x slower than manual loops in benchmarks). The specialized
+ *       policies achieve near zero-overhead (~1.0-1.3x manual loops).
  * 
  * PERFORMANCE CHARACTERISTICS:
  * 
@@ -89,8 +95,34 @@
 
 namespace fat_p::iterator {
 
+namespace detail {
 /// Default inline capacity for tensor dimension storage (covers up to 8D tensors without heap)
 inline constexpr std::size_t kDefaultTensorDims = 8;
+} // namespace detail
+
+// ============================================================================
+// PERFORMANCE EXPECTATIONS
+// ============================================================================
+//
+// TensorStridePolicy is the "general correctness" option: it supports true N-dimensional
+// iteration with configurable shape + strides (including permuted axes and non-trivial layouts).
+//
+// This generality has an inherent cost. In tight microbenchmarks—especially for contiguous
+// traversal and simple reductions—the compiler is less likely to auto-vectorize/unroll an
+// iterator-driven loop than a raw pointer loop. As a result, TensorStridePolicy can be
+// multiple times slower than hand-written loops or tuned libraries (e.g., Eigen) on contiguous
+// data.
+//
+// RECOMMENDED USE:
+//   - Use TensorStridePolicy when you truly need general N-D traversal or arbitrary strides.
+//   - For hot-path 1D/2D row-major iteration, prefer specialized policies:
+//       * Stride1DPolicy  (runtime stride 1D walks, e.g., column access)
+//       * Stride2DPolicy  (fast row-major 2D traversal; supports padded/pitched rows)
+//
+// RULE OF THUMB:
+//   - Correctness + generality: TensorStridePolicy
+//   - Peak throughput on common layouts: Stride1DPolicy / Stride2DPolicy (or raw loops)
+// ============================================================================
 
 /**
  * @brief Multi-dimensional tensor iterator policy.
@@ -103,7 +135,7 @@ inline constexpr std::size_t kDefaultTensorDims = 8;
  * 
  * Uses cached indices with incremental offset updates for O(1) amortized advance/retreat.
  */
-template <typename T, std::size_t MaxInlineDims = kDefaultTensorDims>
+template <typename T, std::size_t MaxInlineDims = detail::kDefaultTensorDims>
 struct TensorStridePolicy {
     using iterator_category = std::bidirectional_iterator_tag;
     using difference_type = std::ptrdiff_t;
@@ -479,7 +511,7 @@ public:
         --mPosition;
     }
 
-    void setToEnd(pointer& ptr, pointer base, pointer bufferEnd) {
+    void setToEnd([[maybe_unused]] pointer& ptr, pointer base, pointer bufferEnd) {
         // Validate using integer span comparison (no UB pointer arithmetic)
         // Contract: user must pass end == base + count*stride
 #ifndef NDEBUG
@@ -487,8 +519,9 @@ public:
         auto expected = static_cast<std::ptrdiff_t>(mCount) * mStride;
         enforce(span == expected,
                 "Stride1D: end must equal base + count*stride");
+        (void)base;       // Used only in debug
+        (void)bufferEnd;  // Used only in debug
 #else
-        (void)ptr;
         (void)base;
         (void)bufferEnd;
 #endif
@@ -499,17 +532,27 @@ public:
 };
 
 /**
- * @brief Lightweight 2D strided iteration policy for row-major traversal.
+ * @brief Fast 2D row-major traversal policy (monotonic address progression).
  * @tparam T Element type.
  *
- * For iterating a 2D matrix with configurable row and column strides.
- * Much faster than TensorStridePolicy<T>({rows, cols}, {rowStride, colStride})
- * for the common case of row-major (or row-slice) iteration.
+ * Stride2DPolicy is a specialized policy intended for hot 2D iteration where memory
+ * addresses progress monotonically in a row-major pattern (columns vary fastest). This
+ * includes both contiguous and padded/pitched row-major layouts.
  *
- * IMPORTANT: This policy supports ROW-MAJOR traversal only (monotonic pointer
- * advancement where columns vary fastest within each row). For column-major
- * or arbitrary permuted traversal patterns, use TensorStridePolicy with
- * appropriately permuted shape and strides.
+ * PERFORMANCE EXPECTATIONS:
+ *   - Designed to be close to manual nested loops for full-matrix traversal.
+ *   - Much faster than generic TensorStridePolicy on simple 2D row-major workloads.
+ *
+ * IMPORTANT LIMITATION:
+ *   - This policy is NOT a general axis-permutation iterator.
+ *   - Do not use it for column-major/permuted traversal over row-major storage.
+ *     For that, use TensorStridePolicy with permuted shape + strides.
+ *
+ * CONTRACT / PRECONDITIONS:
+ *   - Strides are positive.
+ *   - rowStride is consistent with row-major progression (commonly rowStride >= cols * colStride).
+ *   - The iterator range passed to PolicyIterator must represent the full traversal span
+ *     (e.g., end == base + rows * rowStride for a row-major/pitched layout).
  *
  * Example: Iterate column 0 of a 1000x1000 row-major matrix
  * @code
@@ -616,7 +659,7 @@ public:
         }
     }
 
-    void setToEnd(pointer& ptr, pointer base, pointer bufferEnd) {
+    void setToEnd([[maybe_unused]] pointer& ptr, pointer base, pointer bufferEnd) {
         // Validate using integer span comparison (no UB pointer arithmetic)
         // Contract: user must pass end == base + rows*rowStride
 #ifndef NDEBUG
@@ -624,8 +667,9 @@ public:
         auto expected = static_cast<std::ptrdiff_t>(mRows) * mRowStride;
         enforce(span == expected,
                 "Stride2D: end must equal base + rows*rowStride");
+        (void)base;       // Used only in debug
+        (void)bufferEnd;  // Used only in debug
 #else
-        (void)ptr;
         (void)base;
         (void)bufferEnd;
 #endif

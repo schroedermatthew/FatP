@@ -1,25 +1,35 @@
-# .github/workflows/aligned_vector_ci.yml
+# =============================================================================
+# .github/workflows/aligned_vector.yml
+# =============================================================================
+# CI workflow for AlignedVector component
 #
-# CI/CD workflow for AlignedVector component.
-# Uses direct compiler invocations (no CMake required).
+# Directory structure:
+#   Headers:    FAT_P/FAT_P/fat_p/AlignedVector.h
+#   Tests:      FAT_P/FAT_P/tests/test_AlignedVector.cpp
+#   Benchmarks: FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp
 #
 # Fat-P Guidelines compliance:
 #   - Section 6.1: Include-all compile test
 #   - Section 6.2: Header self-contained tests
 #   - Section 6.4: Warning cleanliness (-Wall -Wextra -Wpedantic -Werror)
+# =============================================================================
 
 name: AlignedVector CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, master]
     paths:
-      - 'AlignedVector.h'
-      - 'test_AlignedVector.cpp'
-      - 'benchmark_AlignedVector.cpp'
-      - '.github/workflows/aligned_vector_ci.yml'
+      - 'FAT_P/FAT_P/fat_p/AlignedVector.h'
+      - 'FAT_P/FAT_P/tests/test_AlignedVector.cpp'
+      - 'FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp'
+      - '.github/workflows/aligned_vector.yml'
   pull_request:
-    branches: [main, develop]
+    branches: [main, master]
+    paths:
+      - 'FAT_P/FAT_P/fat_p/AlignedVector.h'
+      - 'FAT_P/FAT_P/tests/test_AlignedVector.cpp'
+      - 'FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp'
   schedule:
     - cron: '0 2 * * 0'  # Weekly benchmarks
   workflow_dispatch:
@@ -29,6 +39,11 @@ on:
         required: false
         default: 'false'
         type: boolean
+
+env:
+  INCLUDE_DIR: FAT_P/FAT_P/fat_p
+  TEST_SRC: FAT_P/FAT_P/tests/test_AlignedVector.cpp
+  BENCH_SRC: FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp
 
 jobs:
   # ===========================================================================
@@ -63,7 +78,8 @@ jobs:
           g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
-            test_AlignedVector.cpp -o test_av
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
 
       - name: Run tests
         run: ./test_av
@@ -103,7 +119,8 @@ jobs:
           clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
-            test_AlignedVector.cpp -o test_av
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
 
       - name: Run tests
         run: ./test_av
@@ -127,7 +144,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG test_AlignedVector.cpp /Fe:test_av.exe
+          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_AlignedVector.cpp /Fe:test_av.exe
 
       - name: Run tests
         run: .\test_av.exe
@@ -145,7 +162,8 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
-            test_AlignedVector.cpp -o test_av
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
 
       - name: Run with ASan
         env:
@@ -162,7 +180,8 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
-            test_AlignedVector.cpp -o test_av
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
 
       - name: Run with UBSan
         env:
@@ -179,7 +198,8 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Wextra -g -O1 \
             -fsanitize=thread -fno-omit-frame-pointer \
-            test_AlignedVector.cpp -o test_av
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
 
       - name: Run with TSan
         env:
@@ -201,6 +221,7 @@ jobs:
           echo 'int main() { return 0; }' >> test_include.cpp
           
           g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -I./FAT_P/FAT_P/fat_p \
             -c test_include.cpp -o /dev/null
           
           echo "✓ Header is self-contained"
@@ -223,8 +244,8 @@ jobs:
           int main() { fat_p::AlignedVector<int> v; return 0; }
           EOF
           
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -c test1.cpp -o /dev/null
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -c test2.cpp -o /dev/null
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./FAT_P/FAT_P/fat_p -c test1.cpp -o /dev/null
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./FAT_P/FAT_P/fat_p -c test2.cpp -o /dev/null
           
           echo "✓ Include order independent"
 
@@ -241,7 +262,8 @@ jobs:
       - name: Build benchmark
         run: |
           g++ -std=c++17 -O3 -DNDEBUG -march=native \
-            benchmark_AlignedVector.cpp -o bench_av
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp -o bench_av
 
       - name: Run benchmarks
         env:
