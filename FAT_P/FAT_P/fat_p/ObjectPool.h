@@ -1,0 +1,676 @@
+/**
+ * @file ObjectPool.h
+ * @brief High-performance object pool with concurrency policy support
+ *
+ * @details Object pool that integrates with fat_p concurrency infrastructure.
+ *
+ * Multi-reviewer validated implementation incorporating findings from:
+ * - Claude (semantic analysis, exception safety, memory ownership)
+ * - Gemini (code production, allocator concepts)
+ * - Grok (compliance, validation, performance)
+ * - ChatGPT (API enhancements, alignment concerns)
+ *
+ * Critical fixes implemented:
+ * - CRITICAL-1: Deleted move operations (prevents use-after-free)
+ * - CRITICAL-2: static_assert for Node layout (prevents fragile cast)
+ * - CRITICAL-3: [[nodiscard]] on acquire() (prevents silent leaks)
+ * - CRITICAL-4: Debug assertion in destructor (detects unreleased objects)
+ * - CRITICAL-5: reserve() before free_list_ modification (exception safety)
+ * - CRITICAL-6: try-catch in acquire() (constructor exception safety)
+ *
+ * @version 3.2 (Four-Reviewer Final Consensus)
+ */
+
+#pragma once
+
+#include <cassert>
+#include <cstddef>
+#include <cstring>
+#include <memory>
+#include <new>
+#include <type_traits>
+#include <vector>
+
+#include "ConcurrencyPolicies.h"
+#include "FatPTypeTraits.h"
+
+namespace fat_p
+{
+
+/**
+ * @brief High-performance object pool with configurable synchronization
+ *
+ * @tparam T          Object type to pool
+ * @tparam SyncPolicy Concurrency policy (default: SingleThreadedPolicy)
+ *
+ * @note Non-movable to prevent dangling pointer bugs
+ * @note Template signature matches fat_p forward declaration
+ */
+template <typename T, typename SyncPolicy = SingleThreadedPolicy>
+class [[nodiscard]] ObjectPool
+{
+public:
+    // ========================================================================
+    // Type Definitions
+    // ========================================================================
+
+    using value_type = T;
+    using sync_policy_type = SyncPolicy;
+
+private:
+    // ========================================================================
+    // Internal Node Structure
+    // ========================================================================
+
+    struct Node
+    {
+        alignas(T) std::byte storage[sizeof(T)];
+        Node* next = nullptr;
+    };
+
+    // CRITICAL-2 FIX: Compile-time layout verification
+    // Ensures reinterpret_cast<Node*>(obj) is valid because storage is at offset 0
+    static_assert(offsetof(Node, storage) == 0,
+                  "Node layout assumption violated: storage must be at offset 0");
+
+    // Compile-time alignment verification (ChatGPT contribution)
+    static_assert(alignof(Node) >= alignof(T),
+                  "Node alignment must be sufficient for T");
+    static_assert(offsetof(Node, storage) % alignof(T) == 0,
+                  "Storage must be correctly aligned for T");
+
+    // Compile-time type requirements
+    static_assert(std::is_destructible_v<T>,
+                  "T must be destructible");
+
+    // ========================================================================
+    // Member Variables
+    // ========================================================================
+
+    Node* free_list_ = nullptr;
+    std::vector<std::unique_ptr<Node[]>> blocks_;
+    size_t block_size_;
+    mutable SyncPolicy sync_policy_;  // mutable for const methods (ALL FOUR agreed)
+
+#ifndef NDEBUG
+    size_t acquired_count_ = 0;       // Debug tracking for leak detection
+    size_t total_acquires_ = 0;       // Lifetime statistics
+    size_t total_releases_ = 0;
+#endif
+
+    // ========================================================================
+    // Block Management
+    // ========================================================================
+
+    void allocate_block()
+    {
+        auto block = std::make_unique<Node[]>(block_size_);
+        Node* raw_block = block.get();
+
+        // CRITICAL-5 FIX: Exception safety - reserve before modifying free_list_
+        // If reserve throws, unique_ptr cleans up block and free_list_ remains valid
+        blocks_.reserve(blocks_.size() + 1);
+
+        // Initialize nodes and weave into free list (no-throw after reserve)
+        for (size_t i = 0; i < block_size_; ++i)
+        {
+            Node* node = &raw_block[i];
+            node->next = free_list_;
+            free_list_ = node;
+        }
+
+        // No-throw guarantee after reserve succeeded
+        blocks_.push_back(std::move(block));
+    }
+
+#ifndef NDEBUG
+    // Debug helper: check if pointer belongs to this pool (Grok contribution)
+    bool is_from_pool(const T* obj) const noexcept
+    {
+        if (!obj)
+        {
+            return false;
+        }
+
+        const Node* node = reinterpret_cast<const Node*>(obj);
+        for (const auto& block : blocks_)
+        {
+            const Node* begin = block.get();
+            const Node* end = begin + block_size_;
+
+            if (node >= begin && node < end)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+#endif
+
+public:
+    // ========================================================================
+    // Constructors and Destructor
+    // ========================================================================
+
+    /**
+     * @brief Construct object pool
+     * @param initial_block_size Number of objects per block (must be > 0)
+     */
+    explicit ObjectPool(size_t initial_block_size = 64)
+        : block_size_(initial_block_size)
+    {
+        assert(block_size_ > 0 && "Block size must be positive");
+        allocate_block();
+    }
+
+    // CRITICAL-1 FIX: Non-copyable and non-movable
+    // Moving a pool while objects are acquired invalidates all outstanding pointers
+    ObjectPool(const ObjectPool&) = delete;
+    ObjectPool& operator=(const ObjectPool&) = delete;
+    ObjectPool(ObjectPool&&) = delete;
+    ObjectPool& operator=(ObjectPool&&) = delete;
+
+    /**
+     * @brief Destructor - destroys all blocks
+     * @warning In debug mode, asserts if objects are still acquired
+     */
+    ~ObjectPool()
+    {
+#ifndef NDEBUG
+        // CRITICAL-4 FIX: Debug assertion for unreleased objects
+        assert(acquired_count_ == 0 &&
+               "ObjectPool destroyed with unreleased objects - resource leak!");
+#endif
+        // unique_ptr handles block deallocation automatically
+    }
+
+    // ========================================================================
+    // Core Operations
+    // ========================================================================
+
+    /**
+     * @brief Acquires an object from the pool
+     * @tparam Args Constructor argument types
+     * @param args Arguments forwarded to T's constructor
+     * @return Pointer to constructed object (never null)
+     *
+     * @throws std::bad_alloc if block allocation fails
+     * @throws Any exception thrown by T's constructor (node is restored)
+     *
+     * @note If pool is empty, allocates a new block
+     * @note Return value MUST be released back to pool or wrapped in PooledObject
+     */
+    template <typename... Args>
+    [[nodiscard]] T* acquire(Args&&... args)  // CRITICAL-3 FIX: [[nodiscard]]
+    {
+        typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
+
+        if (!free_list_)
+        {
+            allocate_block();
+        }
+
+        Node* node = free_list_;
+        free_list_ = node->next;
+
+        // CRITICAL-6 FIX: Exception-safe construction
+        try
+        {
+            T* obj = new (node->storage) T(std::forward<Args>(args)...);
+#ifndef NDEBUG
+            ++acquired_count_;
+            ++total_acquires_;
+#endif
+            return obj;
+        }
+        catch (...)
+        {
+            // Restore node to free list before rethrowing
+            node->next = free_list_;
+            free_list_ = node;
+            throw;
+        }
+    }
+
+    /**
+     * @brief Tries to acquire without allocating new blocks (ChatGPT contribution)
+     * @tparam Args Constructor argument types
+     * @param args Arguments forwarded to T's constructor
+     * @return Pointer to constructed object, or nullptr if pool is empty
+     *
+     * @throws Any exception thrown by T's constructor (node is restored)
+     *
+     * @note Never allocates new blocks - useful for HPC where memory growth is forbidden
+     * @note Conditionally noexcept based on T's constructor (Gemini optimization)
+     */
+    template <typename... Args>
+    T* try_acquire(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
+    {
+        typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
+
+        if (!free_list_)
+        {
+            return nullptr;  // Pool empty, don't allocate
+        }
+
+        Node* node = free_list_;
+        free_list_ = node->next;
+
+        // Optimization: Skip try-catch for noexcept constructors (Gemini)
+        if constexpr (std::is_nothrow_constructible_v<T, Args...>)
+        {
+            T* obj = new (node->storage) T(std::forward<Args>(args)...);
+#ifndef NDEBUG
+            ++acquired_count_;
+            ++total_acquires_;
+#endif
+            return obj;
+        }
+        else
+        {
+            try
+            {
+                T* obj = new (node->storage) T(std::forward<Args>(args)...);
+#ifndef NDEBUG
+                ++acquired_count_;
+                ++total_acquires_;
+#endif
+                return obj;
+            }
+            catch (...)
+            {
+                node->next = free_list_;
+                free_list_ = node;
+                throw;
+            }
+        }
+    }
+
+    /**
+     * @brief Acquires uninitialized storage (Gemini contribution)
+     * @return Pointer to uninitialized storage
+     *
+     * @note Caller MUST placement-new before use and ensure destructor is called
+     * @note Only available for trivially destructible T (safety constraint)
+     */
+    template <typename U = T>
+    [[nodiscard]] std::enable_if_t<std::is_trivially_destructible_v<U>, T*>
+    acquire_uninitialized()
+    {
+        typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
+
+        if (!free_list_)
+        {
+            allocate_block();
+        }
+
+        Node* node = free_list_;
+        free_list_ = node->next;
+
+#ifndef NDEBUG
+        ++acquired_count_;
+        ++total_acquires_;
+#endif
+        return reinterpret_cast<T*>(node->storage);
+    }
+
+    /**
+     * @brief Acquires zero-initialized storage (Gemini contribution)
+     * @return Pointer to zero-filled storage
+     *
+     * @note Only available for trivially constructible T
+     * @note Returns value-initialized memory, not a constructed object
+     */
+    template <typename U = T>
+    [[nodiscard]] std::enable_if_t<std::is_trivially_constructible_v<U>, T*>
+    acquire_zeroed()
+    {
+        typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
+
+        if (!free_list_)
+        {
+            allocate_block();
+        }
+
+        Node* node = free_list_;
+        free_list_ = node->next;
+
+        std::memset(node->storage, 0, sizeof(T));
+
+#ifndef NDEBUG
+        ++acquired_count_;
+        ++total_acquires_;
+#endif
+        return reinterpret_cast<T*>(node->storage);
+    }
+
+    /**
+     * @brief Releases an object back to the pool
+     * @param obj Pointer previously obtained from acquire()
+     *
+     * @note Calls destructor and returns memory to free list
+     * @warning UB if obj was not acquired from this pool or already released
+     * @note In debug builds, these conditions trigger assertion failures
+     */
+    void release(T* obj)
+    {
+        if (!obj)
+        {
+            return;
+        }
+
+        typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
+
+#ifndef NDEBUG
+        // Double-release and foreign pointer detection (Claude + Grok)
+        assert(is_from_pool(obj) && "ObjectPool::release: pointer not from this pool");
+        assert(acquired_count_ > 0 && "ObjectPool::release: double release detected");
+        --acquired_count_;
+        ++total_releases_;
+#endif
+
+        // Destroy object
+        obj->~T();
+
+        // Return node to free list
+        // Valid cast due to static_assert checking offsetof(Node, storage) == 0
+        Node* node = reinterpret_cast<Node*>(obj);
+        node->next = free_list_;
+        free_list_ = node;
+    }
+
+    // ========================================================================
+    // Capacity Management (ChatGPT contribution)
+    // ========================================================================
+
+    /**
+     * @brief Pre-allocate blocks upfront
+     * @param n Minimum number of blocks to have allocated
+     *
+     * @note Useful when workload size is known beforehand
+     * @note No-op if already have >= n blocks
+     */
+    void reserve_blocks(size_t n)
+    {
+        typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
+
+        while (blocks_.size() < n)
+        {
+            allocate_block();
+        }
+    }
+
+    // ========================================================================
+    // Diagnostics (Claude + Grok + ChatGPT)
+    // ========================================================================
+
+    /**
+     * @brief Pool statistics for monitoring and debugging
+     */
+    struct Stats
+    {
+        size_t total_capacity;    ///< Total objects pool can hold
+        size_t available;         ///< Objects currently in free list
+        size_t acquired;          ///< Objects currently in use
+        size_t num_blocks;        ///< Number of allocated blocks
+        size_t block_size;        ///< Objects per block
+#ifndef NDEBUG
+        size_t lifetime_acquires; ///< Total acquire() calls (debug only)
+        size_t lifetime_releases; ///< Total release() calls (debug only)
+#endif
+    };
+
+    /**
+     * @brief Returns current pool statistics
+     * @return Stats structure with current state
+     */
+    Stats stats() const
+    {
+        typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
+
+        size_t avail = 0;
+        for (Node* n = free_list_; n != nullptr; n = n->next)
+        {
+            ++avail;
+        }
+
+        size_t total = blocks_.size() * block_size_;
+        return Stats{
+            total,
+            avail,
+            total - avail,
+            blocks_.size(),
+            block_size_
+#ifndef NDEBUG
+            ,
+            total_acquires_,
+            total_releases_
+#endif
+        };
+    }
+
+    /// @brief Get the block size
+    size_t block_size() const
+    {
+        return block_size_;
+    }
+
+    /// @brief Get total number of blocks allocated
+    size_t num_blocks() const
+    {
+        typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
+        return blocks_.size();
+    }
+
+    /// @brief Get total capacity of the pool
+    size_t capacity() const
+    {
+        typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
+        return blocks_.size() * block_size_;
+    }
+
+    /**
+     * @brief Get number of objects available for acquire()
+     * @return Number of free objects
+     * @note O(n) operation - traverses free list
+     */
+    size_t available() const
+    {
+        typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
+
+        size_t count = 0;
+        for (Node* n = free_list_; n != nullptr; n = n->next)
+        {
+            ++count;
+        }
+        return count;
+    }
+
+    /**
+     * @brief Get number of currently acquired objects
+     * @return Number of objects in use (debug mode only, 0 in release)
+     */
+    size_t active_count() const
+    {
+#ifndef NDEBUG
+        typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
+        return acquired_count_;
+#else
+        return 0;  // Not tracked in release mode
+#endif
+    }
+};
+
+// ============================================================================
+// RAII Wrapper
+// ============================================================================
+
+/**
+ * @brief RAII wrapper for object pool objects
+ * @tparam T Object type
+ * @tparam SyncPolicy Synchronization policy
+ *
+ * @details Automatically releases object back to pool on destruction.
+ * Move-only semantics prevent accidental copies.
+ */
+template <typename T, typename SyncPolicy = SingleThreadedPolicy>
+class PooledObject
+{
+public:
+    using pool_type = ObjectPool<T, SyncPolicy>;
+
+private:
+    pool_type* pool_ = nullptr;
+    T* obj_ = nullptr;
+
+public:
+    /// @brief Default constructor - creates empty wrapper
+    PooledObject() = default;
+
+    /**
+     * @brief Construct from pool and object
+     * @param pool Pool that owns the object
+     * @param obj Object pointer (may be nullptr)
+     */
+    PooledObject(pool_type* pool, T* obj)
+        : pool_(pool)
+        , obj_(obj)
+    {
+    }
+
+    // Non-copyable
+    PooledObject(const PooledObject&) = delete;
+    PooledObject& operator=(const PooledObject&) = delete;
+
+    // Movable
+    PooledObject(PooledObject&& other) noexcept
+        : pool_(other.pool_)
+        , obj_(other.obj_)
+    {
+        other.pool_ = nullptr;
+        other.obj_ = nullptr;
+    }
+
+    PooledObject& operator=(PooledObject&& other) noexcept
+    {
+        if (this != &other)
+        {
+            reset();
+            pool_ = other.pool_;
+            obj_ = other.obj_;
+            other.pool_ = nullptr;
+            other.obj_ = nullptr;
+        }
+        return *this;
+    }
+
+    /// @brief Destructor - releases object back to pool
+    ~PooledObject()
+    {
+        reset();
+    }
+
+    /// @brief Release object back to pool and clear wrapper
+    void reset()
+    {
+        if (obj_ && pool_)
+        {
+            pool_->release(obj_);
+        }
+        obj_ = nullptr;
+        pool_ = nullptr;
+    }
+
+    /**
+     * @brief Release ownership without returning to pool
+     * @return Raw pointer (caller takes ownership)
+     * @note Caller is responsible for calling pool->release()
+     */
+    [[nodiscard]] T* release()
+    {
+        T* tmp = obj_;
+        obj_ = nullptr;
+        pool_ = nullptr;
+        return tmp;
+    }
+
+    // Accessors with null checks (Claude + Grok)
+    T* operator->()
+    {
+        assert(obj_ != nullptr && "Dereferencing null PooledObject");
+        return obj_;
+    }
+
+    const T* operator->() const
+    {
+        assert(obj_ != nullptr && "Dereferencing null PooledObject");
+        return obj_;
+    }
+
+    T& operator*()
+    {
+        assert(obj_ != nullptr && "Dereferencing null PooledObject");
+        return *obj_;
+    }
+
+    const T& operator*() const
+    {
+        assert(obj_ != nullptr && "Dereferencing null PooledObject");
+        return *obj_;
+    }
+
+    /// @brief Get raw pointer (may be nullptr)
+    T* get() { return obj_; }
+
+    /// @brief Get raw pointer (may be nullptr)
+    const T* get() const { return obj_; }
+
+    /// @brief Check if wrapper holds a valid object
+    explicit operator bool() const { return obj_ != nullptr; }
+
+    /// @brief Get owning pool (ChatGPT suggestion)
+    pool_type* get_pool() const { return pool_; }
+};
+
+// ============================================================================
+// Factory Function
+// ============================================================================
+
+/**
+ * @brief Helper to create RAII-wrapped pooled object
+ * @tparam T Object type
+ * @tparam SyncPolicy Synchronization policy
+ * @tparam Args Constructor argument types
+ * @param pool Object pool
+ * @param args Constructor arguments
+ * @return RAII wrapper holding newly acquired object
+ */
+template <typename T, typename SyncPolicy, typename... Args>
+[[nodiscard]] PooledObject<T, SyncPolicy>
+make_pooled(ObjectPool<T, SyncPolicy>& pool, Args&&... args)
+{
+    return PooledObject<T, SyncPolicy>(&pool, pool.acquire(std::forward<Args>(args)...));
+}
+
+// ============================================================================
+// Type Traits (matches FatPTypeTraits.h forward declaration)
+// ============================================================================
+
+template <typename T, typename SyncPolicy>
+struct is_object_pool<ObjectPool<T, SyncPolicy>> : std::true_type
+{
+};
+
+// ============================================================================
+// Convenience Aliases
+// ============================================================================
+
+/// @brief Single-threaded object pool (zero synchronization overhead)
+template <typename T>
+using SimpleObjectPool = ObjectPool<T, SingleThreadedPolicy>;
+
+/// @brief Thread-safe object pool with mutex synchronization
+template <typename T>
+using ThreadSafeObjectPool = ObjectPool<T, MutexSynchronizationPolicy>;
+
+} // namespace fat_p

@@ -1,0 +1,33 @@
+NVIDIA system information report created on: 12/23/2025 11:01:15
+NVIDIA App version: 11.0.5.420
+Operating system: Microsoft Windows 11 Pro, Version 10.0.26200
+DirectX runtime version: DirectX 12
+Driver: Game Ready Driver - 581.04 - Wed Apr 16, 2025
+CPU: Intel(R) Core(TM) Ultra 9 285K
+RAM: 64.0 GB
+Storage (2): SSD - 1.9 TB,SSD - 953.9 GB
+
+Graphics card
+GPU: NVIDIA GeForce RTX 5080
+Direct3D feature level: 12_1
+CUDA cores: 10752
+Graphics clock: 2617 MHz
+Resizable BAR: Yes
+Memory data rate: 30.00 Gbps
+Memory interface: 256-bit
+Memory bandwidth: 960.064 GB/s
+Total available graphics memory: 48920 MB
+System video memory: N/A
+Shared system memory: 32617 MB
+Dedicated video memory: 16303 MB GDDR7
+Video BIOS version: 98.03.3b.80.d9
+Device ID: 10DE 2C02 53111028
+Part number: G147 0045
+IRQ: Not used
+Bus: PCI Express x16
+
+Display (1): AOC 2752
+Resolution: 1080p, 1920 x 1080 (native)
+Refresh rate: 60 Hz
+Desktop color depth: Highest (32-bit)
+HDCP: Supported

@@ -1,0 +1,788 @@
+# Fat-P Benchmark Code Style Guide
+
+## Purpose
+
+This guide defines how to write benchmark `.cpp` files for Fat-P components. It ensures consistent methodology, statistical rigor, and fair comparisons across all Fat-P benchmarks.
+
+Benchmarks are part of the public credibility story:
+
+* Correctness is established by unit tests.
+* Performance claims are established by benchmarks.
+* Benchmarks must be reproducible, honest about semantics, and robust to machine state drift.
+
+Reference implementations: `benchmark_StableHashMap.cpp`, `benchmark_SmallVector.cpp`, `BenchmarkHarness.h`
+
+---
+
+## File Structure
+
+### Naming
+
+```
+benchmark_ComponentName.cpp
+```
+
+### Required Sections
+
+```cpp
+// 1. File header with build instructions
+// 2. Includes
+// 3. Benchmark configuration (env vars + defaults)
+// 4. Platform configuration (warmup/batches + platform differences)
+// 5. CPU frequency monitoring (+ optional stabilization)
+// 6. Benchmark scope (priority/affinity)
+// 7. Timer (+ minimum duration / calibration)
+// 8. Statistics
+// 9. Data generation
+// 10. Correctness guardrails (checks OUTSIDE timed regions)
+// 11. Contract note (semantic equivalence)
+// 12. Adapter interface (if comparing libraries)
+// 13. Benchmark cases
+// 14. Output formatting (+ machine-readable export)
+// 15. Main
+```
+
+---
+
+## Benchmark Configuration (Canonical)
+
+All Fat-P benchmarks must support the same environment variables. Do not invent per-benchmark config names.
+
+### Canonical Environment Variables
+
+| Variable                   | Meaning                                                          | Default                     |
+| -------------------------- | ---------------------------------------------------------------- | --------------------------- |
+| `FATP_BENCH_WARMUP_RUNS`   | Number of warmup batches (not reported)                          | `3`                         |
+| `FATP_BENCH_BATCHES`       | Number of measured batches                                       | Windows: `15`, others: `50` |
+| `FATP_BENCH_SEED`          | RNG seed for data generation                                     | `12345`                     |
+| `FATP_BENCH_TARGET_WORK`   | Target work per batch (ops or bytes); benchmark-specific meaning | `5_000_000`                 |
+| `FATP_BENCH_MIN_BATCH_MS`  | Minimum wall time per measured batch (auto-calibration target)   | `50`                        |
+| `FATP_BENCH_VERBOSE_STATS` | Print extra statistics / raw samples                             | `0`                         |
+| `FATP_BENCH_OUTPUT_CSV`    | Optional CSV output path                                         | empty (disabled)            |
+| `FATP_BENCH_OUTPUT_JSON`   | Optional JSON output path                                        | empty (disabled)            |
+| `FATP_BENCH_NO_SCOPE`      | Disable priority/affinity changes                                | unset                       |
+| `FATP_BENCH_NO_STABILIZE`  | Disable CPU stabilization wait                                   | unset                       |
+| `FATP_BENCH_NO_COOLDOWN`   | Disable cool-down sleeps                                         | unset                       |
+
+**Rule:** Every benchmark must print the resolved configuration once at startup (seed, warmup, batches, target_work, min_batch_ms, scope/stabilize/cooldown status).
+
+---
+
+## Platform Configuration
+
+### Warmup and Measured Runs (Defaults)
+
+These are defaults only. Environment variables override them.
+
+```cpp
+#if defined(_WIN32) || defined(_WIN64)
+static constexpr size_t DEFAULT_WARMUP_RUNS = 3;
+static constexpr size_t DEFAULT_MEASURED_RUNS = 15;  // Windows: higher run-to-run variance
+#else
+static constexpr size_t DEFAULT_WARMUP_RUNS = 3;
+static constexpr size_t DEFAULT_MEASURED_RUNS = 50;
+#endif
+```
+
+**Rationale:** Windows scheduling is less deterministic; more runs don't help as much. Linux benefits from more samples.
+
+---
+
+## CPU Frequency Monitoring
+
+### Implementation Options
+
+Either:
+
+1. **Implement locally** following this guide's accuracy requirements, or
+2. **Use shared helper** (`FatPBenchmarkUtils.h`, `BenchmarkHarness.h`, or `FatPTest.h`) if it meets the same `ref_is_max` rules.
+
+If using a shared helper, verify it:
+
+* Distinguishes `base_frequency` from `cpuinfo_max_freq`
+* Only prints `[THROTTLED]` when the reference is a true base
+* Prints timestamp and frequency info
+
+### Required Structure
+
+```cpp
+struct CpuFreqInfo
+{
+    double ref_freq_mhz = 0;      // Base frequency (or max as fallback)
+    double current_freq_mhz = 0;
+    bool ref_is_max = false;      // True if using max_freq fallback
+
+    double throttle_percentage() const
+    {
+        if (current_freq_mhz <= 0 || ref_freq_mhz <= 0) return 0;
+        return (1.0 - current_freq_mhz / ref_freq_mhz) * 100.0;
+    }
+
+    // CRITICAL: Only claim throttling when ref is true base frequency
+    bool is_throttled() const { return !ref_is_max && throttle_percentage() > 5.0; }
+    bool is_turbo() const { return !ref_is_max && current_freq_mhz > ref_freq_mhz * 1.05; }
+};
+```
+
+### Reference Source Rule (P0 - Critical)
+
+**Only print `[THROTTLED]` when the reference is a true base frequency.**
+
+| Source                  | `ref_is_max` | Throttle/Turbo Detection |
+| ----------------------- | ------------ | ------------------------ |
+| `base_frequency`        | `false`      | ✓ Reliable               |
+| `cpuinfo_max_freq`      | `true`       | ✗ Disabled               |
+| Windows registry `~MHz` | `false`      | ✓ Reliable               |
+
+When `ref_is_max == true`, either:
+
+* Print no throttle status at all, or
+* Print `(max: 4200)` without any `[THROTTLED]` claim
+
+**Rationale:** `cpuinfo_max_freq` is turbo frequency. Running below turbo is normal, not throttling. Claiming "THROTTLED 30%" when the CPU is simply at base clock is misleading.
+
+### Platform-Specific Implementation
+
+**Linux:** Read from `/sys/devices/system/cpu/cpu0/cpufreq/`:
+
+* `scaling_cur_freq` — current frequency
+* `base_frequency` — reliable base (preferred)
+* `cpuinfo_max_freq` — fallback only; set `ref_is_max = true`
+
+**Windows:** Read from registry:
+
+* `HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0\~MHz`
+
+### Output Format
+
+```cpp
+void print_cpu_context(const char* label = nullptr)
+{
+    auto info = get_cpu_freq();
+    // ...
+    if (info.ref_freq_mhz > 0)
+    {
+        const char* ref_label = info.ref_is_max ? "max" : "base";
+        std::cout << " (" << ref_label << ": " << static_cast<int>(info.ref_freq_mhz) << ")";
+
+        // Only print throttle/turbo status when ref is reliable
+        if (!info.ref_is_max)
+        {
+            if (info.is_throttled())
+                std::cout << " [THROTTLED " << info.throttle_percentage() << "%]";
+            else if (info.is_turbo())
+                std::cout << " [TURBO]";
+        }
+    }
+}
+```
+
+**Example outputs:**
+
+* `CPU: 3133 MHz (base: 3700) [THROTTLED 15%]` — reliable, true base
+* `CPU: 4200 MHz (base: 3700) [TURBO]` — reliable, true base
+* `CPU: 2600 MHz (max: 4200)` — no claim, ref is turbo fallback
+
+### Per-Function CPU Context (Required)
+
+**Every benchmark function must call `print_cpu_context()` at the start** to record the CPU frequency state when that specific benchmark runs:
+
+```cpp
+void benchVectorDouble(const BenchConfig& cfg)
+{
+    print_header("vector<double> vs Manual Epsilon Loop");
+    print_cpu_context();  // Required
+
+    // ... benchmark code ...
+}
+```
+
+### Optional CPU Stabilization (Recommended)
+
+Many FAT-P benchmarks already report throttling and warn about timer precision. Add one more guardrail: **wait for stable CPU frequency before running a section** (unless disabled).
+
+**Rule:** If stabilization is implemented, it must be:
+
+* opt-out via `FATP_BENCH_NO_STABILIZE`
+* visible in output (print "Stabilization: ON/OFF")
+* bounded (do not wait forever)
+
+Recommended policy:
+
+* Warm up with a short burst of work
+* Sample frequency N times (e.g., 5 samples)
+* Consider stable if variance ≤ 10% for 3 consecutive windows
+* If stability not reached within a timeout (e.g., 3 seconds), continue but print `[NOTE] CPU not stabilized`
+
+### Optional Cool-Down (Recommended)
+
+If the suite runs many heavy benchmarks (hash maps, big vectors), insert small sleeps between major sections to reduce thermal drift.
+
+* opt-out via `FATP_BENCH_NO_COOLDOWN`
+* keep sleeps short (e.g., 50–250 ms)
+* print when used
+
+---
+
+## BenchmarkScope (Windows)
+
+Pin thread to non-zero CPU core and elevate priority during measurement.
+
+**Policy:** BenchmarkScope is enabled by default on Windows. Opt-out via `FATP_BENCH_NO_SCOPE=1`.
+
+```cpp
+#if defined(_WIN32) || defined(_WIN64)
+
+static inline bool has_env_var(const char* name)
+{
+    char buf[2];
+    return GetEnvironmentVariableA(name, buf, sizeof(buf)) > 0;
+}
+
+class BenchmarkScope
+{
+    DWORD old_priority_ = 0;
+    DWORD_PTR old_affinity_ = 0;
+    bool applied_ = false;
+
+public:
+    explicit BenchmarkScope(bool verbose = false)
+    {
+        if (has_env_var("FATP_BENCH_NO_SCOPE")) return;
+
+        HANDLE proc = GetCurrentProcess();
+        old_priority_ = GetPriorityClass(proc);
+        SetPriorityClass(proc, HIGH_PRIORITY_CLASS);
+
+        HANDLE thread = GetCurrentThread();
+        DWORD_PTR proc_mask = 0, sys_mask = 0;
+        DWORD_PTR target = 1;
+        if (GetProcessAffinityMask(GetCurrentProcess(), &proc_mask, &sys_mask) && proc_mask)
+        {
+            DWORD_PTR nonzero = proc_mask & ~static_cast<DWORD_PTR>(1);
+            DWORD_PTR pick = nonzero ? nonzero : proc_mask;
+            target = pick & (~pick + 1);  // lowest set bit
+        }
+        old_affinity_ = SetThreadAffinityMask(thread, target);
+        applied_ = true;
+
+        if (verbose)
+        {
+            std::cout << "[BenchmarkScope] High priority, CPU"
+                      << (target > 1 ? " non-0" : " 0") << " affinity\n";
+        }
+    }
+
+    ~BenchmarkScope()
+    {
+        if (!applied_) return;
+
+        HANDLE proc = GetCurrentProcess();
+        SetPriorityClass(proc, old_priority_);
+
+        HANDLE thread = GetCurrentThread();
+        if (old_affinity_ != 0)
+            SetThreadAffinityMask(thread, old_affinity_);
+    }
+
+    BenchmarkScope(const BenchmarkScope&) = delete;
+    BenchmarkScope& operator=(const BenchmarkScope&) = delete;
+};
+
+#else
+class BenchmarkScope
+{
+public:
+    explicit BenchmarkScope(bool = false) {}
+};
+#endif
+```
+
+**Usage:**
+
+```cpp
+int main()
+{
+    BenchmarkScope scope(/*verbose=*/true);
+    // ... run benchmarks ...
+}
+```
+
+---
+
+## Timer
+
+Benchmarks must not be dominated by timer quantization.
+
+### Baseline Timer
+
+Use `std::chrono::steady_clock`:
+
+```cpp
+struct Timer
+{
+    using clock = std::chrono::steady_clock;
+    clock::time_point t0;
+
+    void start() { t0 = clock::now(); }
+
+    double elapsed_ns() const
+    {
+        auto t1 = clock::now();
+        return std::chrono::duration<double, std::nano>(t1 - t0).count();
+    }
+};
+```
+
+### Minimum Batch Duration (P0 - Critical)
+
+**Each measured batch must run long enough to be meaningfully above timer resolution.**
+
+Rule:
+
+* Either auto-calibrate iterations/ops to hit a minimum duration, or
+* ensure the fixed workload is large enough that each batch is ≥ `FATP_BENCH_MIN_BATCH_MS` (default 50 ms).
+
+If you cannot hit the minimum duration, print a warning (do not silently report misleading numbers).
+
+---
+
+## Statistics
+
+### Required Structure
+
+```cpp
+struct Statistics
+{
+    double median = 0;
+    double mean = 0;
+    double stddev = 0;
+    double ci95_low = 0;
+    double ci95_high = 0;
+    double min = 0;
+    double max = 0;
+
+    static Statistics compute(std::vector<double> samples)
+    {
+        Statistics s{};
+        if (samples.empty()) return s;
+
+        std::sort(samples.begin(), samples.end());
+        size_t n = samples.size();
+
+        s.min = samples.front();
+        s.max = samples.back();
+
+        if (n % 2 == 1) s.median = samples[n / 2];
+        else s.median = 0.5 * (samples[n / 2 - 1] + samples[n / 2]);
+
+        double sum = std::accumulate(samples.begin(), samples.end(), 0.0);
+        s.mean = sum / static_cast<double>(n);
+
+        if (n > 1)
+        {
+            double acc = 0.0;
+            for (double x : samples)
+            {
+                double d = x - s.mean;
+                acc += d * d;
+            }
+            s.stddev = std::sqrt(acc / static_cast<double>(n - 1));
+
+            double se = s.stddev / std::sqrt(static_cast<double>(n));
+            constexpr double z = 1.96;  // 95% CI (normal approx)
+            s.ci95_low = s.mean - z * se;
+            s.ci95_high = s.mean + z * se;
+        }
+
+        return s;
+    }
+};
+```
+
+### Primary Metric
+
+**Median** is the primary reported statistic. Mean and CI are supplementary.
+
+**CI note:** CI95 is `mean ± 1.96 * SE`. With low batch counts (Windows default 15), this is approximate and assumes normality. Do not over-interpret small CI differences.
+
+### Concurrency Benchmarks: Percentiles
+
+For concurrency benchmarks (thread pool, lock-free queue), also report at least:
+
+* p95 latency
+* p99 latency
+
+Do not add percentiles to single-thread microbenches by default.
+
+---
+
+## Preventing Dead Code Elimination
+
+### Required Rule
+
+Benchmarks must prevent the optimizer from deleting or simplifying the work.
+
+Prefer using FAT-P utilities if available (recommended):
+
+* `fat_p::testing::DoNotOptimize(...)`
+* `fat_p::testing::ClobberMemory()`
+
+If not available, use the portable volatile sink pattern.
+
+### Volatile Sink (Portable Default)
+
+```cpp
+static volatile std::uint64_t benchmark_sink_u64 = 0;
+
+// Usage:
+benchmark_sink_u64 += static_cast<std::uint64_t>(value);
+```
+
+**Rule:** Do not use `static volatile auto sink = value;` as a DCE barrier. It is not a reliable cross-compiler technique and can introduce one-time initialization artifacts.
+
+### DoNotOptimize (GCC/Clang)
+
+```cpp
+template <typename T>
+inline void DoNotOptimize(T const& value)
+{
+#if defined(__GNUC__) || defined(__clang__)
+    asm volatile("" : : "r,m"(value) : "memory");
+#else
+    // MSVC: prefer volatile sink
+    (void)value;
+#endif
+}
+```
+
+---
+
+## Round-Robin Execution
+
+### The Problem
+
+Sequential execution (all runs of Library A, then all runs of Library B) causes:
+
+* Thermal drift (later libraries run hotter)
+* Frequency scaling drift (turbo decays)
+* Cache state differences
+
+### The Solution
+
+Interleave libraries within each run and randomize the order:
+
+```cpp
+for (size_t run = 0; run < MEASURED_RUNS; ++run)
+{
+    std::vector<IAdapter*> order = adapters;
+    std::shuffle(order.begin(), order.end(), rng);
+
+    for (IAdapter* a : order)
+    {
+        a->setup();
+
+        Timer t;
+        t.start();
+        size_t ops = a->run_operation();
+        double elapsed = t.elapsed_ns();
+
+        a->teardown();
+
+        samples[a].push_back(elapsed / ops);
+    }
+}
+```
+
+### Design Invariants
+
+1. Each measured run executes exactly one timed iteration per library
+2. Library execution order is randomized per run
+3. Setup and teardown occur OUTSIDE timed regions
+4. All libraries observe the same distribution of machine states
+5. Median is the primary reported statistic
+
+### Single-Library, Multi-Case Benchmarks (Update)
+
+Even when only one implementation is measured, sequential execution of many cases/sizes can bias the printed table due to thermal drift.
+
+**Rule:** If a benchmark prints a table comparing multiple cases/sizes, the benchmark must either:
+
+* randomize case order per batch, or
+* apply stabilization/cool-down between cases.
+
+---
+
+## Adapter Pattern (Multi-Library Comparison)
+
+When comparing against competitors (std::, boost::, tsl::, etc.):
+
+```cpp
+struct IAdapter
+{
+    virtual ~IAdapter() = default;
+    virtual const char* name() const = 0;
+    virtual void setup(size_t N) = 0;
+    virtual void teardown() = 0;
+    virtual size_t run_operation() = 0;  // returns ops count
+};
+```
+
+**Adapters contain:**
+
+* No timing logic
+* No statistics
+* No policy decisions
+
+They are dumb, mechanical mappings to library APIs.
+
+---
+
+## Competitor Auto-Detection
+
+Use `__has_include` for optional dependencies:
+
+```cpp
+#if __has_include("tsl/robin_map.h")
+#include "tsl/robin_map.h"
+#define HAS_TSL 1
+#else
+#define HAS_TSL 0
+#endif
+
+#if __has_include(<boost/container/small_vector.hpp>)
+#include <boost/container/small_vector.hpp>
+#define HAS_BOOST 1
+#else
+#define HAS_BOOST 0
+#endif
+```
+
+For libraries requiring explicit linking (e.g., Abseil):
+
+```cpp
+#if defined(USE_ABSL) && USE_ABSL && __has_include("absl/container/flat_hash_map.h")
+#include "absl/container/flat_hash_map.h"
+#define HAS_ABSL 1
+#else
+#define HAS_ABSL 0
+#endif
+```
+
+---
+
+## Data Generation
+
+### Reproducibility
+
+Always use seeded RNGs. The seed must be configurable via `FATP_BENCH_SEED`.
+
+```cpp
+std::vector<std::int64_t> generate_keys(std::size_t n, std::uint64_t seed)
+{
+    std::vector<std::int64_t> keys(n);
+    std::mt19937_64 rng(seed);
+    std::uniform_int_distribution<std::int64_t> dist(0, INT64_MAX);
+    for (std::size_t i = 0; i < n; ++i)
+        keys[i] = dist(rng);
+    return keys;
+}
+```
+
+### Preventing Optimizer Effects
+
+For small data (tuples, scalars), generate multiple instances and cycle through them:
+
+```cpp
+std::array<std::tuple<double,double,double>, 64> tuples;
+for (int i = 0; i < 64; ++i)
+    tuples[i] = generateTuple(seed + static_cast<std::uint64_t>(i));
+
+volatile std::size_t idx = 0;
+for (std::size_t i = 0; i < iters; ++i)
+{
+    bool eq = compare(tuples[idx], tuples[(idx + 32) % 64]);
+    DoNotOptimize(eq);
+    idx = (idx + 1) % 64;
+}
+```
+
+---
+
+## Correctness Guardrails (Required)
+
+Benchmarks must not silently measure broken behavior.
+
+**Rule:** Each benchmark case must include at least one correctness validation outside the timed region.
+
+Examples:
+
+* After inserting N keys, verify size is N and a sample of lookups succeeds.
+* After a round-trip encode/decode, verify decoded data matches the input.
+* After a concurrent run, verify total work counts match expectations.
+
+Do not place assertions inside the hot measured loop (unless the benchmark is explicitly measuring validation cost).
+
+---
+
+## Contract Note (Required)
+
+Benchmarks must be explicit about semantics.
+
+**Rule:** Each benchmark section must print a short "Contract Note" describing the semantics being measured.
+
+Examples:
+
+* "pointer stability required"
+* "ABA-safe handles required"
+* "exact equality vs epsilon equality"
+* "deterministic encoding"
+* "allocation included/excluded (reserve performed)"
+
+If a competitor baseline does not provide equivalent semantics, label it explicitly in output (e.g., "unordered_map (no handle safety)").
+
+---
+
+## Output Formatting
+
+### Section Headers
+
+```cpp
+void print_header(const std::string& title)
+{
+    std::cout << "\n";
+    std::cout << std::string(80, '=') << "\n";
+    std::cout << "  " << title << "\n";
+    std::cout << std::string(80, '=') << "\n\n";
+}
+```
+
+### Result Tables
+
+```cpp
+std::cout << std::fixed << std::setprecision(2);
+std::cout << std::setw(30) << "Library"
+          << std::setw(12) << "Median"
+          << std::setw(12) << "Mean"
+          << std::setw(10) << "Stddev"
+          << "  CI95\n";
+std::cout << std::string(79, '-') << "\n";
+```
+
+### Sanity Checks
+
+Report anomalies without failing the benchmark:
+
+```cpp
+if (stats.stddev > stats.median && stats.median > 0)
+{
+    std::cout << "  [NOTE] high variance (stddev " << stats.stddev
+              << " > median " << stats.median << ")\n";
+}
+```
+
+---
+
+## Machine-Readable Output (CSV/JSON)
+
+Benchmarks must support machine-readable export for regression tracking.
+
+### Required behavior
+
+If `FATP_BENCH_OUTPUT_CSV` is set, write a CSV file with at least:
+
+* timestamp
+* benchmark name
+* case name
+* library name
+* unit (ns/op, MB/s, ops/s, us/op)
+* median/mean/stddev/ci95_low/ci95_high
+* platform + compiler string
+* CPU context string
+* config (seed, warmup, batches, target_work, min_batch_ms)
+
+If `FATP_BENCH_OUTPUT_JSON` is set, write the same information as JSON (one record per case+library).
+
+**Rule:** CSV/JSON output must not change field names without bumping the benchmark schema version.
+
+---
+
+## Concurrency Benchmarks (Additional Requirements)
+
+Concurrency benchmarks must report scaling and latency distribution.
+
+### Requirements
+
+* Measure scaling across thread counts: 1, 2, 4, … up to hardware concurrency (or a documented cap).
+* Use a start barrier so all threads begin measurement simultaneously.
+* Use warmup + measured phase (steady-state).
+* Report at minimum:
+
+  * throughput (ops/sec)
+  * median latency (if per-op timing exists)
+  * p95 and p99 latency
+* Be explicit about pinning policy (on/off).
+* Do not perform logging or allocation in the measured region unless that cost is part of the case definition.
+
+---
+
+## Build Instructions
+
+Include in file header:
+
+```cpp
+/**
+ * Compile (minimal):
+ *   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_X.cpp -o bench_x
+ *
+ * Compile (with competitors):
+ *   g++ -std=c++17 -O3 -DNDEBUG -march=native -I/path/to/tsl \
+ *       benchmark_X.cpp -o bench_x
+ *
+ * Windows (MSVC):
+ *   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_X.cpp
+ */
+```
+
+---
+
+## Checklist
+
+* [ ] Canonical env vars supported (`FATP_BENCH_*` set)
+* [ ] Resolved configuration printed at startup
+* [ ] Warmup + measured batches (env overrides supported)
+* [ ] CpuFreqInfo with correct throttle/turbo semantics (`ref_is_max` rule)
+* [ ] `print_cpu_context()` called at start of each benchmark function
+* [ ] Optional stabilization/cool-down obey env opt-outs
+* [ ] BenchmarkScope enabled on Windows with `FATP_BENCH_NO_SCOPE` opt-out
+* [ ] Timer uses minimum batch duration or calibration (`FATP_BENCH_MIN_BATCH_MS`)
+* [ ] Statistics struct with median/mean/stddev/CI95 (median is primary)
+* [ ] Round-robin execution for multi-library comparisons
+* [ ] Multi-case/sizes: randomize order or stabilize between cases
+* [ ] Setup/teardown outside timed regions
+* [ ] Dead-code elimination prevented (FAT-P DoNotOptimize or portable volatile sink)
+* [ ] Seeded RNG for reproducible data (`FATP_BENCH_SEED`)
+* [ ] `__has_include` for optional competitors
+* [ ] Correctness checks outside timed regions
+* [ ] Contract note printed for every section
+* [ ] Optional CSV/JSON output via env vars
+* [ ] Build instructions in file header
+
+---
+
+## Simplified Benchmarks
+
+For benchmarks without competitors (Fat-P vs manual baseline, or one implementation), the full adapter pattern is optional. However, still use:
+
+* warmup + measured batches
+* statistics (median primary)
+* CPU frequency monitoring
+* correctness guardrail checks
+* DCE prevention
+* case-order randomization (if printing multiple cases/sizes)
+
+Sequential runs are acceptable only when the benchmark has a single measured case and does not present a comparative table across multiple sizes/cases.
+
+---
+
+*Fat-P Benchmark Code Style Guide v1.2 — December 2025*

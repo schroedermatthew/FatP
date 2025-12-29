@@ -1,0 +1,21 @@
+# Build outputs
+build/
+out/
+*.obj
+*.pdb
+*.ilk
+*.exe
+*.dll
+*.lib
+
+# Results / profiler artifacts
+results/*.etl
+results/*.json
+results/*.csv
+results/*.txt
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
