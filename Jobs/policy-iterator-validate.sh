@@ -2,12 +2,17 @@
 # =============================================================================
 # validate.sh - PolicyIterator validation script
 # =============================================================================
-# Run: ./validate.sh [--quick|--full|--bench]
+# Run from repo root: ./validate.sh [--quick|--full|--bench]
 #
 # Options:
 #   --quick  Header checks + debug tests only (fastest)
 #   --full   All checks including sanitizers (default)
 #   --bench  Full checks + benchmark run
+#
+# Directory structure:
+#   Headers:    FAT_P/FAT_P/fat_p/
+#   Tests:      FAT_P/FAT_P/tests/
+#   Benchmarks: FAT_P/FAT_P/benchmarks/
 # =============================================================================
 
 set -e
@@ -19,6 +24,9 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 MODE="${1:---full}"
+INCLUDE_DIR="./FAT_P/FAT_P/fat_p"
+TEST_SRC="./FAT_P/FAT_P/tests/test_PolicyIterator.cpp"
+BENCH_SRC="./FAT_P/FAT_P/benchmarks/benchmark_PolicyIterator.cpp"
 
 pass() { echo -e "${GREEN}✓ $1${NC}"; }
 fail() { echo -e "${RED}✗ $1${NC}"; exit 1; }
@@ -34,11 +42,11 @@ trap cleanup EXIT
 section "Header Self-Containment"
 # =============================================================================
 
-echo '#include "PolicyIterator.h"' | g++ -std=c++17 -fsyntax-only -I. -x c++ - \
+echo '#include "PolicyIterator.h"' | g++ -std=c++17 -fsyntax-only -I${INCLUDE_DIR} -x c++ - \
     && pass "PolicyIterator.h compiles standalone" \
     || fail "PolicyIterator.h not self-contained"
 
-echo '#include "TensorStridePolicy.h"' | g++ -std=c++17 -fsyntax-only -I. -x c++ - \
+echo '#include "TensorStridePolicy.h"' | g++ -std=c++17 -fsyntax-only -I${INCLUDE_DIR} -x c++ - \
     && pass "TensorStridePolicy.h compiles standalone" \
     || fail "TensorStridePolicy.h not self-contained"
 
@@ -66,7 +74,7 @@ int main() {
 }
 EOF
 
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I. -o /tmp/include_stress_$$ /tmp/include_stress_$$.cpp \
+g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I${INCLUDE_DIR} -o /tmp/include_stress_$$ /tmp/include_stress_$$.cpp \
     && /tmp/include_stress_$$ \
     && pass "Include-order stress test" \
     || fail "Include-order stress test failed"
@@ -78,7 +86,7 @@ section "Strict Warnings Compile"
 # =============================================================================
 
 g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wformat=2 -Werror \
-    -DENABLE_TEST_APPLICATION -I. -o test_strict test_PolicyIterator.cpp \
+    -DENABLE_TEST_APPLICATION -I${INCLUDE_DIR} -o test_strict ${TEST_SRC} \
     && pass "Compiles with strict warnings" \
     || fail "Strict warnings compile failed"
 
@@ -86,7 +94,7 @@ g++ -std=c++17 -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wformat=2 -Werror
 section "Debug Build + Tests"
 # =============================================================================
 
-g++ -std=c++17 -g -DENABLE_TEST_APPLICATION -I. -o test_debug test_PolicyIterator.cpp \
+g++ -std=c++17 -g -DENABLE_TEST_APPLICATION -I${INCLUDE_DIR} -o test_debug ${TEST_SRC} \
     && pass "Debug build" \
     || fail "Debug build failed"
 
@@ -104,7 +112,7 @@ rm -f /tmp/test_debug_$$.log
 section "Release Build + Tests"
 # =============================================================================
 
-g++ -std=c++17 -O3 -DNDEBUG -DENABLE_TEST_APPLICATION -I. -o test_release test_PolicyIterator.cpp \
+g++ -std=c++17 -O3 -DNDEBUG -DENABLE_TEST_APPLICATION -I${INCLUDE_DIR} -o test_release ${TEST_SRC} \
     && pass "Release build" \
     || fail "Release build failed"
 
@@ -128,7 +136,7 @@ section "Sanitizers (ASan + UBSan)"
 # =============================================================================
 
 g++ -std=c++17 -fsanitize=address,undefined -fno-omit-frame-pointer -g \
-    -DENABLE_TEST_APPLICATION -I. -o test_san test_PolicyIterator.cpp 2>/dev/null \
+    -DENABLE_TEST_APPLICATION -I${INCLUDE_DIR} -o test_san ${TEST_SRC} 2>/dev/null \
     && pass "Sanitizer build" \
     || fail "Sanitizer build failed"
 
@@ -150,7 +158,7 @@ fi
 section "Benchmark Build + Run"
 # =============================================================================
 
-g++ -std=c++17 -O3 -DNDEBUG -march=native -I. -o benchmark_run benchmark_PolicyIterator.cpp \
+g++ -std=c++17 -O3 -DNDEBUG -march=native -I${INCLUDE_DIR} -o benchmark_run ${BENCH_SRC} \
     && pass "Benchmark build" \
     || fail "Benchmark build failed"
 

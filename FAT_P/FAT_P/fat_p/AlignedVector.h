@@ -1,11 +1,12 @@
 /**
  * @file AlignedVector.h
  * @brief Cache-aware aligned vector container for HPC workloads
- * @version 1.2 (Final)
- * 
+ *
+ * @layer Infrastructure
+ *
  * @details Drop-in replacement for std::vector with explicit memory alignment control.
  * Optimized for SIMD operations and cache-line awareness to prevent false sharing.
- * 
+ *
  * Key Features:
  * - Configurable memory alignment (16, 32, 64, 128 bytes)
  * - SIMD-friendly data layout
@@ -14,36 +15,18 @@
  * - Move semantics support
  * - Exception-safe operations
  * - Zero-overhead when alignment == alignof(T)
- * 
- * Use Cases:
- * - SIMD vectorized loops
- * - Cache-sensitive algorithms
- * - Parallel HPC workloads
- * - Large numerical arrays
- * 
- * Performance:
- * - ~5-15% faster SIMD operations vs std::vector
- * - Eliminates unaligned load/store penalties
- * - Reduces cache-line splits
- * 
- * Patch Notes (v1.1):
- * - Fixed assign() to provide strong exception guarantee
- * - Fixed insert(range) self-insertion crash (use-after-free)
- * - Fixed insert() exception safety (leak prevention)
- * - Fixed construct_range_copy/move to destroy partial constructions on throw
- * - Fixed push_back aliasing when value references internal element
- * - Added safe_grow_capacity() with overflow check
- * - Added is_internal_reference() for aliasing detection
- * 
- * Patch Notes (v1.2):
- * - Added missing <cstdint> include for uintptr_t (CRITICAL portability fix)
- * - Added MSVC __assume fallback for assume_aligned() 
+ *
+ * @note Thread-safety: NOT thread-safe. Caller must synchronize for concurrent access.
+ *
+ * @see HpcVector.h for NUMA-aware variant
+ * @see CheckedArithmetic.h for integration with checked vector operations
  */
 
 #pragma once
 
+#include <cassert>
 #include <cstddef>
-#include <cstdint>   // For uintptr_t (used in is_aligned())
+#include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <stdexcept>
@@ -64,79 +47,111 @@ namespace fat_p {
 
 /**
  * @brief STL-compatible allocator with configurable alignment
+ *
  * @tparam T Value type
  * @tparam Alignment Memory alignment in bytes (must be power of 2)
+ *
+ * @note Thread-safety: NOT thread-safe. Each container should have its own allocator.
  */
 template<typename T, size_t Alignment = 64>
-class AlignedAllocator {
+class AlignedAllocator
+{
 public:
     using value_type = T;
     using size_type = std::size_t;
     using difference_type = std::ptrdiff_t;
     using pointer = T*;
     using const_pointer = const T*;
-    
+
     static_assert((Alignment & (Alignment - 1)) == 0, "Alignment must be power of 2");
     static_assert(Alignment >= alignof(T), "Alignment must be at least alignof(T)");
-    
+
     static constexpr size_t alignment = Alignment;
-    
+
     AlignedAllocator() noexcept = default;
-    
+
     template<typename U>
-    AlignedAllocator(const AlignedAllocator<U, Alignment>&) noexcept {}
-    
+    AlignedAllocator(const AlignedAllocator<U, Alignment>&) noexcept
+    {
+    }
+
     /**
      * @brief Allocate aligned memory
+     *
+     * @param n Number of elements to allocate
+     * @return Pointer to aligned memory block
+     * @throws std::bad_alloc if allocation fails or overflow detected
+     *
+     * @note Complexity: O(1)
      */
-    [[nodiscard]] T* allocate(size_t n) {
-        if (n == 0) return nullptr;
-        
-        if (n > std::numeric_limits<size_t>::max() / sizeof(T)) {
+    [[nodiscard]] T* allocate(size_t n)
+    {
+        if (n == 0)
+        {
+            return nullptr;
+        }
+
+        if (n > std::numeric_limits<size_t>::max() / sizeof(T))
+        {
             throw std::bad_alloc();
         }
-        
+
         size_t size = n * sizeof(T);
         void* ptr = nullptr;
-        
+
 #if defined(_MSC_VER)
         ptr = _aligned_malloc(size, Alignment);
-        if (!ptr) throw std::bad_alloc();
+        if (!ptr)
+        {
+            throw std::bad_alloc();
+        }
 #else
-        if (posix_memalign(&ptr, Alignment, size) != 0) {
+        if (posix_memalign(&ptr, Alignment, size) != 0)
+        {
             throw std::bad_alloc();
         }
 #endif
-        
+
         return static_cast<T*>(ptr);
     }
-    
+
     /**
      * @brief Deallocate aligned memory
+     *
+     * @param ptr Pointer to memory block (may be nullptr)
+     *
+     * @note Complexity: O(1)
      */
-    void deallocate(T* ptr, size_t) noexcept {
-        if (!ptr) return;
-        
+    void deallocate(T* ptr, size_t) noexcept
+    {
+        if (!ptr)
+        {
+            return;
+        }
+
 #if defined(_MSC_VER)
         _aligned_free(ptr);
 #else
         free(ptr);
 #endif
     }
-    
+
     template<typename U>
-    struct rebind {
+    struct rebind
+    {
         using other = AlignedAllocator<U, Alignment>;
     };
 };
 
 template<typename T1, size_t A1, typename T2, size_t A2>
-bool operator==(const AlignedAllocator<T1, A1>&, const AlignedAllocator<T2, A2>&) noexcept {
+bool operator==(const AlignedAllocator<T1, A1>&, const AlignedAllocator<T2, A2>&) noexcept
+{
     return A1 == A2;
 }
 
 template<typename T1, size_t A1, typename T2, size_t A2>
-bool operator!=(const AlignedAllocator<T1, A1>&, const AlignedAllocator<T2, A2>&) noexcept {
+bool operator!=(const AlignedAllocator<T1, A1>&, const AlignedAllocator<T2, A2>&) noexcept
+{
     return A1 != A2;
 }
 
@@ -146,11 +161,17 @@ bool operator!=(const AlignedAllocator<T1, A1>&, const AlignedAllocator<T2, A2>&
 
 /**
  * @brief Cache-aware vector with configurable alignment
+ *
  * @tparam T Element type
  * @tparam Alignment Memory alignment in bytes (default: 64 for cache line)
+ *
+ * @note Thread-safety: NOT thread-safe. Caller must synchronize for concurrent access.
+ *
+ * @see AlignedAllocator for allocation details
  */
 template<typename T, size_t Alignment = 64>
-class AlignedVector {
+class AlignedVector
+{
 public:
     using value_type = T;
     using size_type = std::size_t;
@@ -164,314 +185,579 @@ public:
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
     using allocator_type = AlignedAllocator<T, Alignment>;
-    
+
     static constexpr size_t alignment = Alignment;
-    
+
 private:
-    allocator_type allocator_;
-    pointer data_;
-    size_type size_;
-    size_type capacity_;
-    
+    allocator_type mAllocator;
+    pointer mData;
+    size_type mSize;
+    size_type mCapacity;
+
     /**
      * @brief Calculate safe growth capacity with overflow check
      */
-    [[nodiscard]] size_type safe_grow_capacity(size_type min_capacity) const {
-        constexpr size_type max_cap = std::numeric_limits<size_type>::max() / sizeof(T);
-        if (min_capacity > max_cap) {
+    [[nodiscard]] size_type safeGrowCapacity(size_type minCapacity) const
+    {
+        constexpr size_type maxCap = std::numeric_limits<size_type>::max() / sizeof(T);
+        if (minCapacity > maxCap)
+        {
             throw std::length_error("AlignedVector: capacity overflow");
         }
-        size_type new_cap = (capacity_ == 0) ? 1 : capacity_;
-        if (new_cap <= max_cap / 2) {
-            new_cap *= 2;
-        } else {
-            new_cap = max_cap;
+        size_type newCap = (mCapacity == 0) ? 1 : mCapacity;
+        if (newCap <= maxCap / 2)
+        {
+            newCap *= 2;
         }
-        return std::max(new_cap, min_capacity);
+        else
+        {
+            newCap = maxCap;
+        }
+        return std::max(newCap, minCapacity);
     }
-    
+
     /**
      * @brief Destroy elements in range [first, last)
      */
-    void destroy_range(pointer first, pointer last) noexcept {
-        if constexpr (!std::is_trivially_destructible_v<T>) {
-            for (; first != last; ++first) {
+    void destroyRange(pointer first, pointer last) noexcept
+    {
+        if constexpr (!std::is_trivially_destructible_v<T>)
+        {
+            for (; first != last; ++first)
+            {
                 first->~T();
             }
         }
     }
-    
+
     /**
      * @brief Construct elements by copying with exception safety
-     * 
+     *
      * If copy construction throws at element N, elements 0..N-1 are destroyed.
      */
-    void construct_range_copy(pointer dest, const_pointer src, size_type count) {
-        if constexpr (std::is_trivially_copyable_v<T>) {
+    void constructRangeCopy(pointer dest, const_pointer src, size_type count)
+    {
+        if constexpr (std::is_trivially_copyable_v<T>)
+        {
             std::memcpy(dest, src, count * sizeof(T));
-        } else {
+        }
+        else
+        {
             size_type constructed = 0;
-            try {
-                for (; constructed < count; ++constructed) {
+            try
+            {
+                for (; constructed < count; ++constructed)
+                {
                     new (dest + constructed) T(src[constructed]);
                 }
-            } catch (...) {
-                destroy_range(dest, dest + constructed);
+            }
+            catch (...)
+            {
+                destroyRange(dest, dest + constructed);
                 throw;
             }
         }
     }
-    
+
     /**
      * @brief Construct elements by moving with exception safety
-     * 
+     *
      * If move construction throws at element N, elements 0..N-1 are destroyed.
      */
-    void construct_range_move(pointer dest, pointer src, size_type count) {
-        if constexpr (std::is_trivially_copyable_v<T>) {
+    void constructRangeMove(pointer dest, pointer src, size_type count)
+    {
+        if constexpr (std::is_trivially_copyable_v<T>)
+        {
             std::memcpy(dest, src, count * sizeof(T));
-        } else {
+        }
+        else
+        {
             size_type constructed = 0;
-            try {
-                for (; constructed < count; ++constructed) {
+            try
+            {
+                for (; constructed < count; ++constructed)
+                {
                     new (dest + constructed) T(std::move(src[constructed]));
                 }
-            } catch (...) {
-                destroy_range(dest, dest + constructed);
+            }
+            catch (...)
+            {
+                destroyRange(dest, dest + constructed);
                 throw;
             }
         }
     }
-    
+
     /**
      * @brief Check if pointer references element within this vector
      */
-    [[nodiscard]] bool is_internal_reference(const T* ptr) const noexcept {
-        return ptr >= data_ && ptr < data_ + size_;
+    [[nodiscard]] bool isInternalReference(const T* ptr) const noexcept
+    {
+        return ptr >= mData && ptr < mData + mSize;
     }
-    
+
     /**
      * @brief Exception-safe reallocation
-     * 
+     *
      * If move construction throws at element N, elements 0..N-1 are properly
      * destroyed before re-throwing. Prevents resource leaks for non-trivial types.
      */
-    void reallocate(size_type new_capacity) {
-        pointer new_data = allocator_.allocate(new_capacity);
-        size_type constructed_count = 0;
-        
-        try {
-            if constexpr (std::is_trivially_copyable_v<T>) {
-                std::memcpy(new_data, data_, size_ * sizeof(T));
-                constructed_count = size_;
-            } else {
-                for (; constructed_count < size_; ++constructed_count) {
+    void reallocate(size_type newCapacity)
+    {
+        pointer newData = mAllocator.allocate(newCapacity);
+        size_type constructedCount = 0;
+
+        try
+        {
+            if constexpr (std::is_trivially_copyable_v<T>)
+            {
+                std::memcpy(newData, mData, mSize * sizeof(T));
+                constructedCount = mSize;
+            }
+            else
+            {
+                for (; constructedCount < mSize; ++constructedCount)
+                {
                     if constexpr (std::is_nothrow_move_constructible_v<T> ||
-                                  !std::is_copy_constructible_v<T>) {
-                        new (new_data + constructed_count) T(std::move(data_[constructed_count]));
-                    } else {
-                        new (new_data + constructed_count) T(data_[constructed_count]);
+                                  !std::is_copy_constructible_v<T>)
+                    {
+                        new (newData + constructedCount) T(std::move(mData[constructedCount]));
+                    }
+                    else
+                    {
+                        new (newData + constructedCount) T(mData[constructedCount]);
                     }
                 }
             }
-        } catch (...) {
-            destroy_range(new_data, new_data + constructed_count);
-            allocator_.deallocate(new_data, new_capacity);
+        }
+        catch (...)
+        {
+            destroyRange(newData, newData + constructedCount);
+            mAllocator.deallocate(newData, newCapacity);
             throw;
         }
-        
-        destroy_range(data_, data_ + size_);
-        allocator_.deallocate(data_, capacity_);
-        
-        data_ = new_data;
-        capacity_ = new_capacity;
+
+        destroyRange(mData, mData + mSize);
+        mAllocator.deallocate(mData, mCapacity);
+
+        mData = newData;
+        mCapacity = newCapacity;
     }
-    
+
 public:
+    // =========================================================================
     // Constructors
-    AlignedVector() noexcept : data_(nullptr), size_(0), capacity_(0) {}
-    
-    explicit AlignedVector(size_type count) 
-        : data_(nullptr), size_(0), capacity_(0) 
+    // =========================================================================
+
+    /**
+     * @brief Default constructor - creates empty vector
+     *
+     * @note Complexity: O(1)
+     */
+    AlignedVector() noexcept
+        : mAllocator()
+        , mData(nullptr)
+        , mSize(0)
+        , mCapacity(0)
     {
-        if (count > 0) {
-            data_ = allocator_.allocate(count);
-            capacity_ = count;
-            
-            if constexpr (std::is_trivially_default_constructible_v<T>) {
-                std::memset(data_, 0, count * sizeof(T));
-                size_ = count;
-            } else {
-                try {
-                    for (size_ = 0; size_ < count; ++size_) {
-                        new (data_ + size_) T();
+    }
+
+    /**
+     * @brief Construct vector with count value-initialized elements
+     *
+     * @param count Number of elements
+     * @throws std::bad_alloc if allocation fails
+     *
+     * @note Complexity: O(count)
+     */
+    explicit AlignedVector(size_type count)
+        : mAllocator()
+        , mData(nullptr)
+        , mSize(0)
+        , mCapacity(0)
+    {
+        if (count > 0)
+        {
+            mData = mAllocator.allocate(count);
+            mCapacity = count;
+
+            if constexpr (std::is_trivially_default_constructible_v<T>)
+            {
+                std::memset(mData, 0, count * sizeof(T));
+                mSize = count;
+            }
+            else
+            {
+                try
+                {
+                    for (mSize = 0; mSize < count; ++mSize)
+                    {
+                        new (mData + mSize) T();
                     }
-                } catch (...) {
-                    destroy_range(data_, data_ + size_);
-                    allocator_.deallocate(data_, capacity_);
+                }
+                catch (...)
+                {
+                    destroyRange(mData, mData + mSize);
+                    mAllocator.deallocate(mData, mCapacity);
                     throw;
                 }
             }
         }
     }
-    
+
+    /**
+     * @brief Construct vector with count copies of value
+     *
+     * @param count Number of elements
+     * @param value Value to copy
+     * @throws std::bad_alloc if allocation fails
+     *
+     * @note Complexity: O(count)
+     */
     AlignedVector(size_type count, const T& value)
-        : data_(nullptr), size_(0), capacity_(0)
+        : mAllocator()
+        , mData(nullptr)
+        , mSize(0)
+        , mCapacity(0)
     {
-        if (count > 0) {
-            data_ = allocator_.allocate(count);
-            capacity_ = count;
-            
-            try {
-                for (size_ = 0; size_ < count; ++size_) {
-                    new (data_ + size_) T(value);
+        if (count > 0)
+        {
+            mData = mAllocator.allocate(count);
+            mCapacity = count;
+
+            try
+            {
+                for (mSize = 0; mSize < count; ++mSize)
+                {
+                    new (mData + mSize) T(value);
                 }
-            } catch (...) {
-                destroy_range(data_, data_ + size_);
-                allocator_.deallocate(data_, capacity_);
+            }
+            catch (...)
+            {
+                destroyRange(mData, mData + mSize);
+                mAllocator.deallocate(mData, mCapacity);
                 throw;
             }
         }
     }
-    
+
+    /**
+     * @brief Construct from initializer list
+     *
+     * @param init Initializer list
+     * @throws std::bad_alloc if allocation fails
+     *
+     * @note Complexity: O(init.size())
+     */
     AlignedVector(std::initializer_list<T> init)
-        : data_(nullptr), size_(0), capacity_(0)
+        : mAllocator()
+        , mData(nullptr)
+        , mSize(0)
+        , mCapacity(0)
     {
-        if (init.size() > 0) {
-            data_ = allocator_.allocate(init.size());
-            capacity_ = init.size();
-            
-            try {
-                for (const auto& value : init) {
-                    new (data_ + size_) T(value);
-                    ++size_;
+        if (init.size() > 0)
+        {
+            mData = mAllocator.allocate(init.size());
+            mCapacity = init.size();
+
+            try
+            {
+                for (const auto& value : init)
+                {
+                    new (mData + mSize) T(value);
+                    ++mSize;
                 }
-            } catch (...) {
-                destroy_range(data_, data_ + size_);
-                allocator_.deallocate(data_, capacity_);
+            }
+            catch (...)
+            {
+                destroyRange(mData, mData + mSize);
+                mAllocator.deallocate(mData, mCapacity);
                 throw;
             }
         }
     }
-    
+
     /**
      * @brief Construct from iterator range
+     *
+     * @tparam InputIt Iterator type
+     * @param first Iterator to first element
+     * @param last Iterator past last element
+     * @throws std::bad_alloc if allocation fails
+     *
+     * @note Complexity: O(distance(first, last))
      */
-    template<typename InputIt, 
+    template<typename InputIt,
              typename = std::enable_if_t<!std::is_integral_v<InputIt>>>
     AlignedVector(InputIt first, InputIt last)
-        : data_(nullptr), size_(0), capacity_(0)
+        : mAllocator()
+        , mData(nullptr)
+        , mSize(0)
+        , mCapacity(0)
     {
         if constexpr (std::is_base_of_v<std::random_access_iterator_tag,
-                      typename std::iterator_traits<InputIt>::iterator_category>) {
+                      typename std::iterator_traits<InputIt>::iterator_category>)
+        {
             auto count = static_cast<size_type>(std::distance(first, last));
-            if (count > 0) {
-                data_ = allocator_.allocate(count);
-                capacity_ = count;
-                try {
-                    for (; first != last; ++first, ++size_) {
-                        new (data_ + size_) T(*first);
+            if (count > 0)
+            {
+                mData = mAllocator.allocate(count);
+                mCapacity = count;
+                try
+                {
+                    for (; first != last; ++first, ++mSize)
+                    {
+                        new (mData + mSize) T(*first);
                     }
-                } catch (...) {
-                    destroy_range(data_, data_ + size_);
-                    allocator_.deallocate(data_, capacity_);
+                }
+                catch (...)
+                {
+                    destroyRange(mData, mData + mSize);
+                    mAllocator.deallocate(mData, mCapacity);
                     throw;
                 }
             }
-        } else {
-            for (; first != last; ++first) {
+        }
+        else
+        {
+            for (; first != last; ++first)
+            {
                 push_back(*first);
             }
         }
     }
-    
-    // Copy constructor
+
+    /**
+     * @brief Copy constructor
+     *
+     * @param other Vector to copy
+     * @throws std::bad_alloc if allocation fails
+     *
+     * @note Complexity: O(other.size())
+     */
     AlignedVector(const AlignedVector& other)
-        : data_(nullptr), size_(0), capacity_(0)
+        : mAllocator()
+        , mData(nullptr)
+        , mSize(0)
+        , mCapacity(0)
     {
-        if (other.size_ > 0) {
-            data_ = allocator_.allocate(other.size_);
-            capacity_ = other.size_;
-            try {
-                construct_range_copy(data_, other.data_, other.size_);
-                size_ = other.size_;
-            } catch (...) {
-                allocator_.deallocate(data_, capacity_);
+        if (other.mSize > 0)
+        {
+            mData = mAllocator.allocate(other.mSize);
+            mCapacity = other.mSize;
+            try
+            {
+                constructRangeCopy(mData, other.mData, other.mSize);
+                mSize = other.mSize;
+            }
+            catch (...)
+            {
+                mAllocator.deallocate(mData, mCapacity);
                 throw;
             }
         }
     }
-    
-    // Move constructor
+
+    /**
+     * @brief Move constructor
+     *
+     * @param other Vector to move from (left empty)
+     *
+     * @note Complexity: O(1)
+     */
     AlignedVector(AlignedVector&& other) noexcept
-        : data_(other.data_)
-        , size_(other.size_)
-        , capacity_(other.capacity_)
+        : mAllocator(std::move(other.mAllocator))
+        , mData(other.mData)
+        , mSize(other.mSize)
+        , mCapacity(other.mCapacity)
     {
-        other.data_ = nullptr;
-        other.size_ = 0;
-        other.capacity_ = 0;
+        other.mData = nullptr;
+        other.mSize = 0;
+        other.mCapacity = 0;
     }
-    
-    // Destructor
-    ~AlignedVector() {
-        destroy_range(data_, data_ + size_);
-        allocator_.deallocate(data_, capacity_);
+
+    /**
+     * @brief Destructor
+     *
+     * @note Complexity: O(size())
+     */
+    ~AlignedVector()
+    {
+        destroyRange(mData, mData + mSize);
+        mAllocator.deallocate(mData, mCapacity);
     }
-    
-    // Copy assignment (already uses copy-and-swap)
-    AlignedVector& operator=(const AlignedVector& other) {
-        if (this != &other) {
+
+    // =========================================================================
+    // Assignment Operators
+    // =========================================================================
+
+    /**
+     * @brief Copy assignment operator
+     *
+     * @param other Vector to copy
+     * @return Reference to this
+     *
+     * @note Complexity: O(size() + other.size())
+     * @note Exception safety: Strong guarantee (copy-and-swap)
+     */
+    AlignedVector& operator=(const AlignedVector& other)
+    {
+        if (this != &other)
+        {
             AlignedVector temp(other);
             swap(temp);
         }
         return *this;
     }
-    
-    // Move assignment
-    AlignedVector& operator=(AlignedVector&& other) noexcept {
-        if (this != &other) {
-            destroy_range(data_, data_ + size_);
-            allocator_.deallocate(data_, capacity_);
-            
-            data_ = other.data_;
-            size_ = other.size_;
-            capacity_ = other.capacity_;
-            
-            other.data_ = nullptr;
-            other.size_ = 0;
-            other.capacity_ = 0;
+
+    /**
+     * @brief Move assignment operator
+     *
+     * @param other Vector to move from
+     * @return Reference to this
+     *
+     * @note Complexity: O(size())
+     */
+    AlignedVector& operator=(AlignedVector&& other) noexcept
+    {
+        if (this != &other)
+        {
+            destroyRange(mData, mData + mSize);
+            mAllocator.deallocate(mData, mCapacity);
+
+            mAllocator = std::move(other.mAllocator);
+            mData = other.mData;
+            mSize = other.mSize;
+            mCapacity = other.mCapacity;
+
+            other.mData = nullptr;
+            other.mSize = 0;
+            other.mCapacity = 0;
         }
         return *this;
     }
-    
-    // Element access (no std::launder needed - data_ is already T*)
-    reference operator[](size_type pos) noexcept { return data_[pos]; }
-    const_reference operator[](size_type pos) const noexcept { return data_[pos]; }
-    
-    reference at(size_type pos) {
-        if (pos >= size_) {
+
+    /**
+     * @brief Initializer list assignment
+     *
+     * @param ilist Initializer list
+     * @return Reference to this
+     *
+     * @note Complexity: O(size() + ilist.size())
+     */
+    AlignedVector& operator=(std::initializer_list<T> ilist)
+    {
+        assign(ilist.begin(), ilist.end());
+        return *this;
+    }
+
+    // =========================================================================
+    // Element Access
+    // =========================================================================
+
+    /**
+     * @brief Access element by index (unchecked)
+     *
+     * @param pos Element index
+     * @return Reference to element
+     *
+     * @pre pos < size()
+     * @note Complexity: O(1)
+     */
+    reference operator[](size_type pos) noexcept
+    {
+        return mData[pos];
+    }
+
+    const_reference operator[](size_type pos) const noexcept
+    {
+        return mData[pos];
+    }
+
+    /**
+     * @brief Access element by index (bounds-checked)
+     *
+     * @param pos Element index
+     * @return Reference to element
+     * @throws std::out_of_range if pos >= size()
+     *
+     * @note Complexity: O(1)
+     */
+    reference at(size_type pos)
+    {
+        if (pos >= mSize)
+        {
             throw std::out_of_range("AlignedVector::at");
         }
-        return data_[pos];
+        return mData[pos];
     }
-    
-    const_reference at(size_type pos) const {
-        if (pos >= size_) {
+
+    const_reference at(size_type pos) const
+    {
+        if (pos >= mSize)
+        {
             throw std::out_of_range("AlignedVector::at");
         }
-        return data_[pos];
+        return mData[pos];
     }
-    
-    reference front() noexcept { return data_[0]; }
-    const_reference front() const noexcept { return data_[0]; }
-    
-    reference back() noexcept { return data_[size_ - 1]; }
-    const_reference back() const noexcept { return data_[size_ - 1]; }
-    
-    pointer data() noexcept { return data_; }
-    const_pointer data() const noexcept { return data_; }
-    
+
+    /**
+     * @brief Access first element
+     *
+     * @return Reference to first element
+     *
+     * @pre size() > 0
+     * @note Complexity: O(1)
+     */
+    reference front() noexcept
+    {
+        assert(mSize > 0 && "front() called on empty AlignedVector");
+        return mData[0];
+    }
+
+    const_reference front() const noexcept
+    {
+        assert(mSize > 0 && "front() called on empty AlignedVector");
+        return mData[0];
+    }
+
+    /**
+     * @brief Access last element
+     *
+     * @return Reference to last element
+     *
+     * @pre size() > 0
+     * @note Complexity: O(1)
+     */
+    reference back() noexcept
+    {
+        assert(mSize > 0 && "back() called on empty AlignedVector");
+        return mData[mSize - 1];
+    }
+
+    const_reference back() const noexcept
+    {
+        assert(mSize > 0 && "back() called on empty AlignedVector");
+        return mData[mSize - 1];
+    }
+
+    /**
+     * @brief Direct access to underlying array
+     *
+     * @return Pointer to data (nullptr if empty)
+     *
+     * @note Complexity: O(1)
+     */
+    [[nodiscard]] pointer data() noexcept
+    {
+        return mData;
+    }
+
+    [[nodiscard]] const_pointer data() const noexcept
+    {
+        return mData;
+    }
+
     /**
      * @brief Get pointer with compiler alignment hint
      *
@@ -483,604 +769,963 @@ public:
      * checked vector operations.
      *
      * @return Pointer with Alignment hint for compiler optimization
+     *
+     * @note Complexity: O(1)
      */
-    pointer assume_aligned() noexcept {
+    [[nodiscard]] pointer assume_aligned() noexcept
+    {
 #if defined(__GNUC__) || defined(__clang__)
-        return static_cast<pointer>(__builtin_assume_aligned(data_, Alignment));
+        return static_cast<pointer>(__builtin_assume_aligned(mData, Alignment));
 #elif defined(_MSC_VER)
-        __assume((reinterpret_cast<std::uintptr_t>(data_) % Alignment) == 0);
-        return data_;
+        __assume((reinterpret_cast<std::uintptr_t>(mData) % Alignment) == 0);
+        return mData;
 #else
-        return data_;
+        return mData;
 #endif
     }
-    
-    const_pointer assume_aligned() const noexcept {
+
+    [[nodiscard]] const_pointer assume_aligned() const noexcept
+    {
 #if defined(__GNUC__) || defined(__clang__)
-        return static_cast<const_pointer>(__builtin_assume_aligned(data_, Alignment));
+        return static_cast<const_pointer>(__builtin_assume_aligned(mData, Alignment));
 #elif defined(_MSC_VER)
-        __assume((reinterpret_cast<std::uintptr_t>(data_) % Alignment) == 0);
-        return data_;
+        __assume((reinterpret_cast<std::uintptr_t>(mData) % Alignment) == 0);
+        return mData;
 #else
-        return data_;
+        return mData;
 #endif
     }
-    
+
+    // =========================================================================
     // Iterators
-    iterator begin() noexcept { return data_; }
-    const_iterator begin() const noexcept { return data_; }
-    const_iterator cbegin() const noexcept { return data_; }
-    
-    iterator end() noexcept { return data_ + size_; }
-    const_iterator end() const noexcept { return data_ + size_; }
-    const_iterator cend() const noexcept { return data_ + size_; }
-    
+    // =========================================================================
+
+    iterator begin() noexcept { return mData; }
+    const_iterator begin() const noexcept { return mData; }
+    const_iterator cbegin() const noexcept { return mData; }
+
+    iterator end() noexcept { return mData + mSize; }
+    const_iterator end() const noexcept { return mData + mSize; }
+    const_iterator cend() const noexcept { return mData + mSize; }
+
     reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
     const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
     const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(end()); }
-    
+
     reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
     const_reverse_iterator rend() const noexcept { return const_reverse_iterator(begin()); }
     const_reverse_iterator crend() const noexcept { return const_reverse_iterator(begin()); }
-    
+
+    // =========================================================================
     // Capacity
-    bool empty() const noexcept { return size_ == 0; }
-    size_type size() const noexcept { return size_; }
-    size_type capacity() const noexcept { return capacity_; }
-    
-    size_type max_size() const noexcept {
+    // =========================================================================
+
+    /**
+     * @brief Check if vector is empty
+     * @return true if size() == 0
+     * @note Complexity: O(1)
+     */
+    [[nodiscard]] bool empty() const noexcept
+    {
+        return mSize == 0;
+    }
+
+    /**
+     * @brief Get number of elements
+     * @return Current element count
+     * @note Complexity: O(1)
+     */
+    [[nodiscard]] size_type size() const noexcept
+    {
+        return mSize;
+    }
+
+    /**
+     * @brief Get current capacity
+     * @return Number of elements that can be held without reallocation
+     * @note Complexity: O(1)
+     */
+    [[nodiscard]] size_type capacity() const noexcept
+    {
+        return mCapacity;
+    }
+
+    /**
+     * @brief Get maximum possible size
+     * @return Maximum number of elements
+     * @note Complexity: O(1)
+     */
+    [[nodiscard]] size_type max_size() const noexcept
+    {
         return std::numeric_limits<size_type>::max() / sizeof(T);
     }
-    
-    allocator_type get_allocator() const noexcept { return allocator_; }
-    
-    void reserve(size_type new_capacity) {
-        if (new_capacity > capacity_) {
-            reallocate(new_capacity);
+
+    /**
+     * @brief Get allocator
+     * @return Copy of allocator
+     * @note Complexity: O(1)
+     */
+    [[nodiscard]] allocator_type get_allocator() const noexcept
+    {
+        return mAllocator;
+    }
+
+    /**
+     * @brief Reserve capacity
+     *
+     * @param newCapacity Minimum capacity to reserve
+     * @throws std::bad_alloc if allocation fails
+     *
+     * @note Complexity: O(size()) if reallocation occurs, O(1) otherwise
+     */
+    void reserve(size_type newCapacity)
+    {
+        if (newCapacity > mCapacity)
+        {
+            reallocate(newCapacity);
         }
     }
-    
-    void shrink_to_fit() {
-        if (size_ < capacity_) {
-            if (size_ == 0) {
-                allocator_.deallocate(data_, capacity_);
-                data_ = nullptr;
-                capacity_ = 0;
-            } else {
-                reallocate(size_);
+
+    /**
+     * @brief Shrink capacity to fit size
+     *
+     * @note Complexity: O(size()) if reallocation occurs, O(1) otherwise
+     */
+    void shrink_to_fit()
+    {
+        if (mSize < mCapacity)
+        {
+            if (mSize == 0)
+            {
+                mAllocator.deallocate(mData, mCapacity);
+                mData = nullptr;
+                mCapacity = 0;
+            }
+            else
+            {
+                reallocate(mSize);
             }
         }
     }
-    
+
+    // =========================================================================
     // Modifiers
-    void clear() noexcept {
-        destroy_range(data_, data_ + size_);
-        size_ = 0;
-    }
-    
+    // =========================================================================
+
     /**
-     * @brief Assign count copies of value (strong exception guarantee)
-     * 
-     * Uses copy-and-swap pattern to ensure old data is preserved if
-     * construction of new elements throws.
+     * @brief Clear all elements
+     *
+     * @note Complexity: O(size())
+     * @note Does not deallocate memory
      */
-    void assign(size_type count, const T& value) {
+    void clear() noexcept
+    {
+        destroyRange(mData, mData + mSize);
+        mSize = 0;
+    }
+
+    /**
+     * @brief Assign count copies of value
+     *
+     * @param count Number of elements
+     * @param value Value to copy
+     *
+     * @note Complexity: O(size() + count)
+     * @note Exception safety: Strong guarantee
+     */
+    void assign(size_type count, const T& value)
+    {
         // Handle aliasing: if value is inside this vector, copy first
-        const T* val_ptr = std::addressof(value);
-        if (is_internal_reference(val_ptr)) {
-            T value_copy = value;
-            assign(count, value_copy);
+        const T* valPtr = std::addressof(value);
+        if (isInternalReference(valPtr))
+        {
+            T valueCopy = value;
+            assign(count, valueCopy);
             return;
         }
-        
+
         // Build new vector, then swap (strong exception guarantee)
         AlignedVector temp;
-        if (count > 0) {
-            temp.data_ = temp.allocator_.allocate(count);
-            temp.capacity_ = count;
-            try {
-                for (temp.size_ = 0; temp.size_ < count; ++temp.size_) {
-                    new (temp.data_ + temp.size_) T(value);
+        if (count > 0)
+        {
+            temp.mData = temp.mAllocator.allocate(count);
+            temp.mCapacity = count;
+            try
+            {
+                for (temp.mSize = 0; temp.mSize < count; ++temp.mSize)
+                {
+                    new (temp.mData + temp.mSize) T(value);
                 }
-            } catch (...) {
-                temp.destroy_range(temp.data_, temp.data_ + temp.size_);
-                temp.allocator_.deallocate(temp.data_, temp.capacity_);
-                temp.data_ = nullptr;
-                temp.size_ = 0;
-                temp.capacity_ = 0;
+            }
+            catch (...)
+            {
+                temp.destroyRange(temp.mData, temp.mData + temp.mSize);
+                temp.mAllocator.deallocate(temp.mData, temp.mCapacity);
+                temp.mData = nullptr;
+                temp.mSize = 0;
+                temp.mCapacity = 0;
                 throw;
             }
         }
         swap(temp);
     }
-    
+
     /**
-     * @brief Assign from iterator range (strong exception guarantee)
+     * @brief Assign from iterator range
+     *
+     * @tparam InputIt Iterator type
+     * @param first Iterator to first element
+     * @param last Iterator past last element
+     *
+     * @note Complexity: O(size() + distance(first, last))
+     * @note Exception safety: Strong guarantee
      */
     template<typename InputIt,
              typename = std::enable_if_t<!std::is_integral_v<InputIt>>>
-    void assign(InputIt first, InputIt last) {
+    void assign(InputIt first, InputIt last)
+    {
         // Build new vector, then swap (strong exception guarantee)
         AlignedVector temp(first, last);
         swap(temp);
     }
-    
+
     /**
      * @brief Assign from initializer list
+     *
+     * @param ilist Initializer list
+     *
+     * @note Complexity: O(size() + ilist.size())
      */
-    void assign(std::initializer_list<T> ilist) {
+    void assign(std::initializer_list<T> ilist)
+    {
         assign(ilist.begin(), ilist.end());
     }
-    
+
     /**
-     * @brief Insert single element at position
+     * @brief Insert single element at position (lvalue)
+     *
+     * @param pos Position to insert at
+     * @param value Value to insert
+     * @return Iterator to inserted element
+     *
+     * @note Complexity: O(size())
      */
-    iterator insert(const_iterator pos, const T& value) {
-        size_type index = pos - data_;
-        
+    iterator insert(const_iterator pos, const T& value)
+    {
+        size_type index = pos - mData;
+
         // Handle aliasing: if value is inside this vector, copy first
-        const T* val_ptr = std::addressof(value);
-        if (is_internal_reference(val_ptr)) {
-            T value_copy = value;
-            return insert(data_ + index, std::move(value_copy));
+        const T* valPtr = std::addressof(value);
+        if (isInternalReference(valPtr))
+        {
+            T valueCopy = value;
+            return insert(mData + index, std::move(valueCopy));
         }
-        
-        if (size_ == capacity_) {
-            size_type new_capacity = safe_grow_capacity(size_ + 1);
-            reallocate(new_capacity);
+
+        if (mSize == mCapacity)
+        {
+            size_type newCapacity = safeGrowCapacity(mSize + 1);
+            reallocate(newCapacity);
         }
-        
-        if (index < size_) {
-            new (data_ + size_) T(std::move(data_[size_ - 1]));
-            for (size_type i = size_ - 1; i > index; --i) {
-                data_[i] = std::move(data_[i - 1]);
+
+        if (index < mSize)
+        {
+            new (mData + mSize) T(std::move(mData[mSize - 1]));
+            for (size_type i = mSize - 1; i > index; --i)
+            {
+                mData[i] = std::move(mData[i - 1]);
             }
-            data_[index] = value;
-        } else {
-            new (data_ + size_) T(value);
+            mData[index] = value;
         }
-        ++size_;
-        return data_ + index;
+        else
+        {
+            new (mData + mSize) T(value);
+        }
+        ++mSize;
+        return mData + index;
     }
-    
-    iterator insert(const_iterator pos, T&& value) {
-        size_type index = pos - data_;
-        
+
+    /**
+     * @brief Insert single element at position (rvalue)
+     *
+     * @param pos Position to insert at
+     * @param value Value to move-insert
+     * @return Iterator to inserted element
+     *
+     * @note Complexity: O(size())
+     */
+    iterator insert(const_iterator pos, T&& value)
+    {
+        size_type index = pos - mData;
+
         // Handle aliasing
-        const T* val_ptr = std::addressof(value);
-        if (is_internal_reference(val_ptr)) {
-            T value_copy = std::move(value);
-            return insert(data_ + index, std::move(value_copy));
+        const T* valPtr = std::addressof(value);
+        if (isInternalReference(valPtr))
+        {
+            T valueCopy = std::move(value);
+            return insert(mData + index, std::move(valueCopy));
         }
-        
-        if (size_ == capacity_) {
-            size_type new_capacity = safe_grow_capacity(size_ + 1);
-            reallocate(new_capacity);
+
+        if (mSize == mCapacity)
+        {
+            size_type newCapacity = safeGrowCapacity(mSize + 1);
+            reallocate(newCapacity);
         }
-        
-        if (index < size_) {
-            new (data_ + size_) T(std::move(data_[size_ - 1]));
-            for (size_type i = size_ - 1; i > index; --i) {
-                data_[i] = std::move(data_[i - 1]);
+
+        if (index < mSize)
+        {
+            new (mData + mSize) T(std::move(mData[mSize - 1]));
+            for (size_type i = mSize - 1; i > index; --i)
+            {
+                mData[i] = std::move(mData[i - 1]);
             }
-            data_[index] = std::move(value);
-        } else {
-            new (data_ + size_) T(std::move(value));
+            mData[index] = std::move(value);
         }
-        ++size_;
-        return data_ + index;
+        else
+        {
+            new (mData + mSize) T(std::move(value));
+        }
+        ++mSize;
+        return mData + index;
     }
-    
+
     /**
-     * @brief Insert count copies of value at position (exception-safe)
-     * 
-     * Handles aliasing and provides basic exception guarantee.
+     * @brief Insert count copies of value at position
+     *
+     * @param pos Position to insert at
+     * @param count Number of copies
+     * @param value Value to copy
+     * @return Iterator to first inserted element
+     *
+     * @note Complexity: O(size() + count)
+     * @note Exception safety: Basic guarantee
      */
-    iterator insert(const_iterator pos, size_type count, const T& value) {
-        if (count == 0) return const_cast<iterator>(pos);
-        
-        size_type index = pos - data_;
-        
+    iterator insert(const_iterator pos, size_type count, const T& value)
+    {
+        if (count == 0)
+        {
+            return const_cast<iterator>(pos);
+        }
+
+        size_type index = pos - mData;
+
         // Handle aliasing: if value is inside this vector, copy first
-        const T* val_ptr = std::addressof(value);
-        if (is_internal_reference(val_ptr)) {
-            T value_copy = value;
-            return insert(data_ + index, count, value_copy);
+        const T* valPtr = std::addressof(value);
+        if (isInternalReference(valPtr))
+        {
+            T valueCopy = value;
+            return insert(mData + index, count, valueCopy);
         }
-        
-        if (size_ + count > capacity_) {
-            size_type new_capacity = safe_grow_capacity(size_ + count);
-            reallocate(new_capacity);
+
+        if (mSize + count > mCapacity)
+        {
+            size_type newCapacity = safeGrowCapacity(mSize + count);
+            reallocate(newCapacity);
         }
-        
-        if (index < size_) {
+
+        if (index < mSize)
+        {
             // Track what we construct in uninitialized memory for cleanup
-            size_type tail_constructed = 0;
-            try {
+            size_type tailConstructed = 0;
+            try
+            {
                 // Phase 1: Move tail elements into uninitialized space
-                size_type to_construct = std::min(count, size_ - index);
-                for (size_type i = 0; i < to_construct; ++i) {
-                    new (data_ + size_ + count - 1 - i) T(std::move(data_[size_ - 1 - i]));
-                    ++tail_constructed;
+                size_type toConstruct = std::min(count, mSize - index);
+                for (size_type i = 0; i < toConstruct; ++i)
+                {
+                    new (mData + mSize + count - 1 - i) T(std::move(mData[mSize - 1 - i]));
+                    ++tailConstructed;
                 }
-                
+
                 // Phase 2: Shift remaining elements within initialized space
-                for (size_type i = size_ - to_construct; i > index; --i) {
-                    data_[i + count - 1] = std::move(data_[i - 1]);
+                for (size_type i = mSize - toConstruct; i > index; --i)
+                {
+                    mData[i + count - 1] = std::move(mData[i - 1]);
                 }
-                
+
                 // Phase 3: Fill the gap
-                size_type gap_constructed = 0;
-                try {
-                    for (size_type i = 0; i < count; ++i) {
-                        if (index + i < size_) {
-                            data_[index + i] = value;
-                        } else {
-                            new (data_ + index + i) T(value);
-                            ++gap_constructed;
+                size_type gapConstructed = 0;
+                try
+                {
+                    for (size_type i = 0; i < count; ++i)
+                    {
+                        if (index + i < mSize)
+                        {
+                            mData[index + i] = value;
+                        }
+                        else
+                        {
+                            new (mData + index + i) T(value);
+                            ++gapConstructed;
                         }
                     }
-                } catch (...) {
+                }
+                catch (...)
+                {
                     // Destroy gap elements we just constructed
-                    destroy_range(data_ + size_, data_ + size_ + gap_constructed);
+                    destroyRange(mData + mSize, mData + mSize + gapConstructed);
                     throw;
                 }
-            } catch (...) {
-                // Destroy tail elements we constructed
-                destroy_range(data_ + size_ + count - tail_constructed, 
-                             data_ + size_ + count);
-                throw;
             }
-        } else {
-            // Appending at end
-            size_type constructed = 0;
-            try {
-                for (size_type i = 0; i < count; ++i) {
-                    new (data_ + size_ + i) T(value);
-                    ++constructed;
-                }
-            } catch (...) {
-                destroy_range(data_ + size_, data_ + size_ + constructed);
+            catch (...)
+            {
+                // Destroy tail elements we constructed
+                destroyRange(mData + mSize + count - tailConstructed,
+                             mData + mSize + count);
                 throw;
             }
         }
-        size_ += count;
-        return data_ + index;
+        else
+        {
+            // Appending at end
+            size_type constructed = 0;
+            try
+            {
+                for (size_type i = 0; i < count; ++i)
+                {
+                    new (mData + mSize + i) T(value);
+                    ++constructed;
+                }
+            }
+            catch (...)
+            {
+                destroyRange(mData + mSize, mData + mSize + constructed);
+                throw;
+            }
+        }
+        mSize += count;
+        return mData + index;
     }
-    
+
     /**
-     * @brief Insert from iterator range (exception-safe, handles self-insertion)
+     * @brief Insert from iterator range
+     *
+     * @tparam InputIt Iterator type
+     * @param pos Position to insert at
+     * @param first Iterator to first element
+     * @param last Iterator past last element
+     * @return Iterator to first inserted element
+     *
+     * @note Complexity: O(size() + distance(first, last))
+     * @note Exception safety: Basic guarantee
+     * @note Handles self-insertion safely
      */
     template<typename InputIt,
              typename = std::enable_if_t<!std::is_integral_v<InputIt>>>
-    iterator insert(const_iterator pos, InputIt first, InputIt last) {
-        size_type index = pos - data_;
-        
+    iterator insert(const_iterator pos, InputIt first, InputIt last)
+    {
+        size_type index = pos - mData;
+
         if constexpr (std::is_base_of_v<std::random_access_iterator_tag,
-                      typename std::iterator_traits<InputIt>::iterator_category>) {
+                      typename std::iterator_traits<InputIt>::iterator_category>)
+        {
             size_type count = static_cast<size_type>(std::distance(first, last));
-            if (count == 0) return data_ + index;
-            
+            if (count == 0)
+            {
+                return mData + index;
+            }
+
             // Self-insertion check: if iterators point into this vector,
             // copy to temporary to avoid use-after-free on reallocation
-            if constexpr (std::is_same_v<InputIt, iterator> || 
-                          std::is_same_v<InputIt, const_iterator>) {
-                if (is_internal_reference(first)) {
+            if constexpr (std::is_same_v<InputIt, iterator> ||
+                          std::is_same_v<InputIt, const_iterator>)
+            {
+                if (isInternalReference(first))
+                {
                     AlignedVector temp(first, last);
-                    return insert(data_ + index, temp.begin(), temp.end());
+                    return insert(mData + index, temp.begin(), temp.end());
                 }
             }
-            
-            if (size_ + count > capacity_) {
-                size_type new_capacity = safe_grow_capacity(size_ + count);
-                reallocate(new_capacity);
+
+            if (mSize + count > mCapacity)
+            {
+                size_type newCapacity = safeGrowCapacity(mSize + count);
+                reallocate(newCapacity);
             }
-            
-            if (index < size_) {
-                size_type tail_constructed = 0;
-                try {
+
+            if (index < mSize)
+            {
+                size_type tailConstructed = 0;
+                try
+                {
                     // Phase 1: Move tail into uninitialized space
-                    size_type to_construct = std::min(count, size_ - index);
-                    for (size_type i = 0; i < to_construct; ++i) {
-                        new (data_ + size_ + count - 1 - i) T(std::move(data_[size_ - 1 - i]));
-                        ++tail_constructed;
+                    size_type toConstruct = std::min(count, mSize - index);
+                    for (size_type i = 0; i < toConstruct; ++i)
+                    {
+                        new (mData + mSize + count - 1 - i) T(std::move(mData[mSize - 1 - i]));
+                        ++tailConstructed;
                     }
-                    
+
                     // Phase 2: Shift remaining elements
-                    for (size_type i = size_ - to_construct; i > index; --i) {
-                        data_[i + count - 1] = std::move(data_[i - 1]);
+                    for (size_type i = mSize - toConstruct; i > index; --i)
+                    {
+                        mData[i + count - 1] = std::move(mData[i - 1]);
                     }
-                    
+
                     // Phase 3: Copy input range into gap
-                    size_type gap_constructed = 0;
-                    try {
+                    size_type gapConstructed = 0;
+                    try
+                    {
                         size_type i = 0;
-                        for (; first != last; ++first, ++i) {
-                            if (index + i < size_) {
-                                data_[index + i] = *first;
-                            } else {
-                                new (data_ + index + i) T(*first);
-                                ++gap_constructed;
+                        for (; first != last; ++first, ++i)
+                        {
+                            if (index + i < mSize)
+                            {
+                                mData[index + i] = *first;
+                            }
+                            else
+                            {
+                                new (mData + index + i) T(*first);
+                                ++gapConstructed;
                             }
                         }
-                    } catch (...) {
-                        destroy_range(data_ + size_, data_ + size_ + gap_constructed);
+                    }
+                    catch (...)
+                    {
+                        destroyRange(mData + mSize, mData + mSize + gapConstructed);
                         throw;
                     }
-                } catch (...) {
-                    destroy_range(data_ + size_ + count - tail_constructed,
-                                 data_ + size_ + count);
+                }
+                catch (...)
+                {
+                    destroyRange(mData + mSize + count - tailConstructed,
+                                 mData + mSize + count);
                     throw;
                 }
-            } else {
+            }
+            else
+            {
                 // Appending at end
                 size_type constructed = 0;
-                try {
-                    for (; first != last; ++first) {
-                        new (data_ + size_ + constructed) T(*first);
+                try
+                {
+                    for (; first != last; ++first)
+                    {
+                        new (mData + mSize + constructed) T(*first);
                         ++constructed;
                     }
-                } catch (...) {
-                    destroy_range(data_ + size_, data_ + size_ + constructed);
+                }
+                catch (...)
+                {
+                    destroyRange(mData + mSize, mData + mSize + constructed);
                     throw;
                 }
             }
-            size_ += count;
-            return data_ + index;
-        } else {
+            mSize += count;
+            return mData + index;
+        }
+        else
+        {
             // For forward iterators, insert one at a time
             size_type inserted = 0;
-            for (; first != last; ++first, ++inserted) {
-                insert(data_ + index + inserted, *first);
+            for (; first != last; ++first, ++inserted)
+            {
+                insert(mData + index + inserted, *first);
             }
-            return data_ + index;
+            return mData + index;
         }
     }
-    
+
     /**
      * @brief Insert from initializer list
+     *
+     * @param pos Position to insert at
+     * @param ilist Initializer list
+     * @return Iterator to first inserted element
+     *
+     * @note Complexity: O(size() + ilist.size())
      */
-    iterator insert(const_iterator pos, std::initializer_list<T> ilist) {
+    iterator insert(const_iterator pos, std::initializer_list<T> ilist)
+    {
         return insert(pos, ilist.begin(), ilist.end());
     }
-    
+
     /**
      * @brief Emplace element at position
+     *
+     * @tparam Args Constructor argument types
+     * @param pos Position to emplace at
+     * @param args Constructor arguments
+     * @return Iterator to emplaced element
+     *
+     * @note Complexity: O(size())
+     * @note Exception safety: Basic guarantee
      */
     template<typename... Args>
-    iterator emplace(const_iterator pos, Args&&... args) {
-        size_type index = pos - data_;
-        if (size_ == capacity_) {
-            size_type new_capacity = safe_grow_capacity(size_ + 1);
-            reallocate(new_capacity);
+    iterator emplace(const_iterator pos, Args&&... args)
+    {
+        size_type index = pos - mData;
+
+        if (mSize == mCapacity)
+        {
+            size_type newCapacity = safeGrowCapacity(mSize + 1);
+            reallocate(newCapacity);
         }
-        if (index < size_) {
-            new (data_ + size_) T(std::move(data_[size_ - 1]));
-            for (size_type i = size_ - 1; i > index; --i) {
-                data_[i] = std::move(data_[i - 1]);
+
+        if (index < mSize)
+        {
+            // Construct the new element first to ensure exception safety.
+            // If construction throws, vector state is unchanged.
+            T temp(std::forward<Args>(args)...);
+
+            // Now do the shift (move operations should be noexcept for most types)
+            new (mData + mSize) T(std::move(mData[mSize - 1]));
+            for (size_type i = mSize - 1; i > index; --i)
+            {
+                mData[i] = std::move(mData[i - 1]);
             }
-            data_[index].~T();
-            new (data_ + index) T(std::forward<Args>(args)...);
-        } else {
-            new (data_ + size_) T(std::forward<Args>(args)...);
+
+            // Move temp into position (move assignment should be noexcept)
+            mData[index] = std::move(temp);
         }
-        ++size_;
-        return data_ + index;
+        else
+        {
+            new (mData + mSize) T(std::forward<Args>(args)...);
+        }
+        ++mSize;
+        return mData + index;
     }
-    
+
     /**
      * @brief Erase element at position
+     *
+     * @param pos Position to erase
+     * @return Iterator to element after erased
+     *
+     * @note Complexity: O(size())
      */
-    iterator erase(const_iterator pos) {
-        size_type index = pos - data_;
-        if (index >= size_) return end();
-        
-        for (size_type i = index; i < size_ - 1; ++i) {
-            data_[i] = std::move(data_[i + 1]);
+    iterator erase(const_iterator pos)
+    {
+        size_type index = pos - mData;
+        if (index >= mSize)
+        {
+            return end();
         }
-        --size_;
-        data_[size_].~T();
-        return data_ + index;
+
+        for (size_type i = index; i < mSize - 1; ++i)
+        {
+            mData[i] = std::move(mData[i + 1]);
+        }
+        --mSize;
+        mData[mSize].~T();
+        return mData + index;
     }
-    
+
     /**
      * @brief Erase range [first, last)
+     *
+     * @param first Iterator to first element to erase
+     * @param last Iterator past last element to erase
+     * @return Iterator to element after erased range
+     *
+     * @note Complexity: O(size())
      */
-    iterator erase(const_iterator first, const_iterator last) {
-        size_type start_index = first - data_;
-        size_type end_index = last - data_;
-        
-        if (start_index >= size_ || start_index >= end_index) {
-            return data_ + start_index;
+    iterator erase(const_iterator first, const_iterator last)
+    {
+        size_type startIndex = first - mData;
+        size_type endIndex = last - mData;
+
+        if (startIndex >= mSize || startIndex >= endIndex)
+        {
+            return mData + startIndex;
         }
-        
-        size_type count = end_index - start_index;
-        
-        for (size_type i = start_index; i + count < size_; ++i) {
-            data_[i] = std::move(data_[i + count]);
+
+        size_type count = endIndex - startIndex;
+
+        for (size_type i = startIndex; i + count < mSize; ++i)
+        {
+            mData[i] = std::move(mData[i + count]);
         }
-        
-        destroy_range(data_ + size_ - count, data_ + size_);
-        size_ -= count;
-        return data_ + start_index;
+
+        destroyRange(mData + mSize - count, mData + mSize);
+        mSize -= count;
+        return mData + startIndex;
     }
-    
+
     /**
-     * @brief Push element to back (handles self-reference aliasing)
+     * @brief Push element to back (lvalue)
+     *
+     * @param value Value to copy
+     *
+     * @note Complexity: O(1) amortized, O(size()) worst-case
+     * @note Handles aliasing when value references internal element
      */
-    void push_back(const T& value) {
-        if (size_ == capacity_) {
+    void push_back(const T& value)
+    {
+        if (mSize == mCapacity)
+        {
             // Handle aliasing: value might be inside this vector
-            const T* val_ptr = std::addressof(value);
-            if (is_internal_reference(val_ptr)) {
+            const T* valPtr = std::addressof(value);
+            if (isInternalReference(valPtr))
+            {
                 T temp = value;
-                size_type new_capacity = safe_grow_capacity(size_ + 1);
-                reallocate(new_capacity);
-                new (data_ + size_) T(std::move(temp));
-                ++size_;
+                size_type newCapacity = safeGrowCapacity(mSize + 1);
+                reallocate(newCapacity);
+                new (mData + mSize) T(std::move(temp));
+                ++mSize;
                 return;
             }
-            size_type new_capacity = safe_grow_capacity(size_ + 1);
-            reallocate(new_capacity);
+            size_type newCapacity = safeGrowCapacity(mSize + 1);
+            reallocate(newCapacity);
         }
-        new (data_ + size_) T(value);
-        ++size_;
+        new (mData + mSize) T(value);
+        ++mSize;
     }
-    
-    void push_back(T&& value) {
-        if (size_ == capacity_) {
-            // Handle aliasing
-            const T* val_ptr = std::addressof(value);
-            if (is_internal_reference(val_ptr)) {
-                T temp = std::move(value);
-                size_type new_capacity = safe_grow_capacity(size_ + 1);
-                reallocate(new_capacity);
-                new (data_ + size_) T(std::move(temp));
-                ++size_;
-                return;
-            }
-            size_type new_capacity = safe_grow_capacity(size_ + 1);
-            reallocate(new_capacity);
-        }
-        new (data_ + size_) T(std::move(value));
-        ++size_;
-    }
-    
-    template<typename... Args>
-    reference emplace_back(Args&&... args) {
-        if (size_ == capacity_) {
-            size_type new_capacity = safe_grow_capacity(size_ + 1);
-            reallocate(new_capacity);
-        }
-        new (data_ + size_) T(std::forward<Args>(args)...);
-        ++size_;
-        return data_[size_ - 1];
-    }
-    
-    void pop_back() noexcept {
-        if (size_ > 0) {
-            --size_;
-            data_[size_].~T();
-        }
-    }
-    
+
     /**
-     * @brief Resize with exception safety
+     * @brief Push element to back (rvalue)
+     *
+     * @param value Value to move
+     *
+     * @note Complexity: O(1) amortized, O(size()) worst-case
      */
-    void resize(size_type count) {
-        if (count > size_) {
-            if (count > capacity_) {
+    void push_back(T&& value)
+    {
+        if (mSize == mCapacity)
+        {
+            // Handle aliasing
+            const T* valPtr = std::addressof(value);
+            if (isInternalReference(valPtr))
+            {
+                T temp = std::move(value);
+                size_type newCapacity = safeGrowCapacity(mSize + 1);
+                reallocate(newCapacity);
+                new (mData + mSize) T(std::move(temp));
+                ++mSize;
+                return;
+            }
+            size_type newCapacity = safeGrowCapacity(mSize + 1);
+            reallocate(newCapacity);
+        }
+        new (mData + mSize) T(std::move(value));
+        ++mSize;
+    }
+
+    /**
+     * @brief Emplace element at back
+     *
+     * @tparam Args Constructor argument types
+     * @param args Constructor arguments
+     * @return Reference to emplaced element
+     *
+     * @note Complexity: O(1) amortized, O(size()) worst-case
+     */
+    template<typename... Args>
+    reference emplace_back(Args&&... args)
+    {
+        if (mSize == mCapacity)
+        {
+            size_type newCapacity = safeGrowCapacity(mSize + 1);
+            reallocate(newCapacity);
+        }
+        new (mData + mSize) T(std::forward<Args>(args)...);
+        ++mSize;
+        return mData[mSize - 1];
+    }
+
+    /**
+     * @brief Remove last element
+     *
+     * @pre size() > 0
+     * @note Complexity: O(1)
+     */
+    void pop_back() noexcept
+    {
+        if (mSize > 0)
+        {
+            --mSize;
+            mData[mSize].~T();
+        }
+    }
+
+    /**
+     * @brief Resize to count elements (default-constructed)
+     *
+     * @param count New size
+     *
+     * @note Complexity: O(|size() - count|)
+     * @note Exception safety: Basic guarantee
+     */
+    void resize(size_type count)
+    {
+        if (count > mSize)
+        {
+            if (count > mCapacity)
+            {
                 reallocate(count);
             }
-            if constexpr (std::is_trivially_default_constructible_v<T>) {
-                std::memset(data_ + size_, 0, (count - size_) * sizeof(T));
-                size_ = count;
-            } else {
-                size_type constructed = size_;
-                try {
-                    for (; constructed < count; ++constructed) {
-                        new (data_ + constructed) T();
+            if constexpr (std::is_trivially_default_constructible_v<T>)
+            {
+                std::memset(mData + mSize, 0, (count - mSize) * sizeof(T));
+                mSize = count;
+            }
+            else
+            {
+                size_type constructed = mSize;
+                try
+                {
+                    for (; constructed < count; ++constructed)
+                    {
+                        new (mData + constructed) T();
                     }
-                    size_ = count;
-                } catch (...) {
-                    destroy_range(data_ + size_, data_ + constructed);
+                    mSize = count;
+                }
+                catch (...)
+                {
+                    destroyRange(mData + mSize, mData + constructed);
                     throw;
                 }
             }
-        } else {
-            destroy_range(data_ + count, data_ + size_);
-            size_ = count;
+        }
+        else
+        {
+            destroyRange(mData + count, mData + mSize);
+            mSize = count;
         }
     }
-    
-    void resize(size_type count, const T& value) {
-        if (count > size_) {
-            if (count > capacity_) {
+
+    /**
+     * @brief Resize to count elements (copy-constructed from value)
+     *
+     * @param count New size
+     * @param value Value to copy for new elements
+     *
+     * @note Complexity: O(|size() - count|)
+     * @note Exception safety: Basic guarantee
+     */
+    void resize(size_type count, const T& value)
+    {
+        if (count > mSize)
+        {
+            if (count > mCapacity)
+            {
                 // Handle aliasing
-                const T* val_ptr = std::addressof(value);
-                if (is_internal_reference(val_ptr)) {
-                    T value_copy = value;
-                    resize(count, value_copy);
+                const T* valPtr = std::addressof(value);
+                if (isInternalReference(valPtr))
+                {
+                    T valueCopy = value;
+                    resize(count, valueCopy);
                     return;
                 }
                 reallocate(count);
             }
-            size_type constructed = size_;
-            try {
-                for (; constructed < count; ++constructed) {
-                    new (data_ + constructed) T(value);
+            size_type constructed = mSize;
+            try
+            {
+                for (; constructed < count; ++constructed)
+                {
+                    new (mData + constructed) T(value);
                 }
-                size_ = count;
-            } catch (...) {
-                destroy_range(data_ + size_, data_ + constructed);
+                mSize = count;
+            }
+            catch (...)
+            {
+                destroyRange(mData + mSize, mData + constructed);
                 throw;
             }
-        } else {
-            destroy_range(data_ + count, data_ + size_);
-            size_ = count;
+        }
+        else
+        {
+            destroyRange(mData + count, mData + mSize);
+            mSize = count;
         }
     }
-    
-    void swap(AlignedVector& other) noexcept {
-        std::swap(data_, other.data_);
-        std::swap(size_, other.size_);
-        std::swap(capacity_, other.capacity_);
+
+    /**
+     * @brief Swap contents with another vector
+     *
+     * @param other Vector to swap with
+     *
+     * @note Complexity: O(1)
+     */
+    void swap(AlignedVector& other) noexcept
+    {
+        std::swap(mAllocator, other.mAllocator);
+        std::swap(mData, other.mData);
+        std::swap(mSize, other.mSize);
+        std::swap(mCapacity, other.mCapacity);
     }
-    
-    // Alignment information
-    static constexpr size_t get_alignment() noexcept { return Alignment; }
-    
+
+    // =========================================================================
+    // Alignment Information
+    // =========================================================================
+
+    /**
+     * @brief Get alignment value
+     * @return Alignment in bytes
+     * @note Complexity: O(1)
+     */
+    static constexpr size_t get_alignment() noexcept
+    {
+        return Alignment;
+    }
+
     /**
      * @brief Check if data pointer is properly aligned
-     * 
+     *
+     * @return true if data() is aligned to Alignment bytes
+     *
      * @note PORTABILITY: Uses pointer->uintptr_t conversion for alignment check.
      *       This assumes a flat address space with conventional pointer representation.
      *       Not intended for CHERI, capability-based, or exotic pointer models.
      *       On standard x86_64/AArch64 HPC targets, this is the idiomatic approach.
+     *
+     * @note Complexity: O(1)
      */
-    bool is_aligned() const noexcept {
-        return data_ == nullptr || (reinterpret_cast<uintptr_t>(data_) % Alignment) == 0;
+    [[nodiscard]] bool is_aligned() const noexcept
+    {
+        return mData == nullptr || (reinterpret_cast<uintptr_t>(mData) % Alignment) == 0;
     }
 };
 
-// Non-member swap
+// =============================================================================
+// Non-member Functions
+// =============================================================================
+
 template<typename T, size_t A>
-void swap(AlignedVector<T, A>& lhs, AlignedVector<T, A>& rhs) noexcept {
+void swap(AlignedVector<T, A>& lhs, AlignedVector<T, A>& rhs) noexcept
+{
     lhs.swap(rhs);
 }
 
-// Comparison operators
 template<typename T, size_t A>
-bool operator==(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs) {
+bool operator==(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs)
+{
     return lhs.size() == rhs.size() && std::equal(lhs.begin(), lhs.end(), rhs.begin());
 }
 
 template<typename T, size_t A>
-bool operator!=(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs) {
+bool operator!=(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs)
+{
     return !(lhs == rhs);
 }
 
 template<typename T, size_t A>
-bool operator<(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs) {
+bool operator<(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs)
+{
     return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 }
 
 template<typename T, size_t A>
-bool operator<=(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs) {
+bool operator<=(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs)
+{
     return !(rhs < lhs);
 }
 
 template<typename T, size_t A>
-bool operator>(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs) {
+bool operator>(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs)
+{
     return rhs < lhs;
 }
 
 template<typename T, size_t A>
-bool operator>=(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs) {
+bool operator>=(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs)
+{
     return !(lhs < rhs);
 }
 
-template <typename T, size_t Alignment>
+// Type trait specialization
+template<typename T, size_t Alignment>
 struct is_aligned_vector<AlignedVector<T, Alignment>> : std::true_type {};
 
 } // namespace fat_p

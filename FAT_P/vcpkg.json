@@ -1,8 +1,13 @@
 {
+  "name": "fat-p",
+  "version": "1.0.0",
   "dependencies": [
     "boost",
     "folly",
     "llvm",
-    "abseil"
+    "abseil",
+    "eigen3",
+    "range-v3",
+	"xtensor"
   ]
 }
