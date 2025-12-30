@@ -146,7 +146,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_AlignedVector.cpp /Fe:test_av.exe
+          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_AlignedVector.cpp /Fe:test_av.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_av.exe

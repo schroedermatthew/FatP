@@ -227,11 +227,17 @@ Every workflow MUST include these jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_<Component>.cpp /Fe:test_bin.exe
+          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_<Component>.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe
 ```
+
+**Required Libraries:**
+
+| Library | Purpose |
+|---------|---------|
+| `advapi32.lib` | Windows Registry API for CPU info in `FatPTest.h` |
 
 **MSVC Warning Suppressions:**
 
@@ -241,7 +247,7 @@ Every workflow MUST include these jobs:
 
 Example with suppression:
 ```yaml
-cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /wd4324 /O2 ...
+cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /wd4324 /O2 ... /link advapi32.lib
 ```
 
 ### 5.4 Sanitizer Jobs (Required)
@@ -569,6 +575,7 @@ Before committing a new workflow:
 | `test_Foo.cpp` (flat path) | `FAT_P/FAT_P/tests/test_Foo.cpp` |
 | Missing `-I` flag | `-I./FAT_P/FAT_P/fat_p` |
 | MSVC forward slashes | Use backslashes: `FAT_P\FAT_P\fat_p` |
+| MSVC missing `advapi32.lib` | Add `/link advapi32.lib` for FatPTest.h Registry API |
 | Forgetting `workflow_dispatch` | Always include for manual runs |
 | Single compiler version | Use full GCC/Clang/MSVC matrix |
 | Combined sanitizers | Use separate jobs for ASan/UBSan/TSan |

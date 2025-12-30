@@ -63,6 +63,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <new>
 #include <numeric>
 #include <random>
 #include <sstream>
@@ -983,93 +984,6 @@ double bench_erase_range_middle(size_t initial_size, size_t erase_count, size_t 
     return total_ns / static_cast<double>(iterations * shifted);
 }
 
-// -----------------------------------------------------------------------------
-// Raw memmove baselines (shift-only throughput)
-// -----------------------------------------------------------------------------
-// These functions measure the best-case bulk-move throughput for the same shift
-// distances used by the insert/erase range microbench. They intentionally do
-// NOT include element construction/destruction or container logic.
-//
-// Reported as ns per shifted element (includes an additional raw memmove shift-only baseline).
-//
-static double bench_raw_memmove_shift_right(size_t initial_size, size_t insert_count, size_t iterations)
-{
-    const size_t index = initial_size / 2;
-    const size_t shifted = initial_size - index;
-
-    if (insert_count == 0 || shifted == 0)
-    {
-        return 0.0;
-    }
-
-    double total_ns = 0;
-
-    for (size_t iter = 0; iter < iterations; ++iter)
-    {
-        // Allocate enough space for the shifted tail + inserted block.
-        fat_p::AlignedVector<int, 64> buf(initial_size + insert_count, 0);
-
-        // Fill with a non-trivial pattern outside the timed region so the memmove has an observable effect.
-        for (size_t i = 0; i < initial_size; ++i)
-        {
-            buf[i] = static_cast<int>(i + (iter & 7));
-        }
-
-        Timer timer;
-        timer.start();
-        std::memmove(buf.data() + index + insert_count,
-                     buf.data() + index,
-                     shifted * sizeof(int));
-        total_ns += timer.elapsed_ns();
-
-        // Observe moved data to prevent DCE.
-        prevent_opt(static_cast<int64_t>(buf[index + insert_count]));
-    }
-
-    return total_ns / static_cast<double>(iterations * shifted);
-}
-
-static double bench_raw_memmove_shift_left(size_t initial_size, size_t erase_count, size_t iterations)
-{
-    const size_t index = initial_size / 2;
-
-    if (erase_count == 0 || index + erase_count > initial_size)
-    {
-        return 0.0;
-    }
-
-    const size_t shifted = initial_size - (index + erase_count);
-    if (shifted == 0)
-    {
-        return 0.0;
-    }
-
-    double total_ns = 0;
-
-    for (size_t iter = 0; iter < iterations; ++iter)
-    {
-        fat_p::AlignedVector<int, 64> buf(initial_size, 0);
-
-        for (size_t i = 0; i < initial_size; ++i)
-        {
-            buf[i] = static_cast<int>(i + (iter & 7));
-        }
-
-        Timer timer;
-        timer.start();
-        std::memmove(buf.data() + index,
-                     buf.data() + index + erase_count,
-                     shifted * sizeof(int));
-        total_ns += timer.elapsed_ns();
-
-        prevent_opt(static_cast<int64_t>(buf[index]));
-    }
-
-    return total_ns / static_cast<double>(iterations * shifted);
-}
-
-
-
 void benchmark_shift_memmove(const std::vector<size_t>& sizes)
 {
     print_header("SHIFT MICROBENCH (memmove fast-path)");
@@ -1077,8 +991,7 @@ void benchmark_shift_memmove(const std::vector<size_t>& sizes)
         "Isolates the cost of shifting elements during insert/erase range operations. "
         "Compares a trivially copyable element type (int) that can use bulk memmove shifts "
         "against an equivalent-size non-trivially copyable wrapper that forces element-wise moves. "
-        "Reported as ns per shifted element (also includes a raw memmove shift-only baseline)."
-        );
+        "Reported as ns per shifted element.");
 
     print_cpu_context("Shift/memmove");
 
@@ -1119,7 +1032,6 @@ void benchmark_shift_memmove(const std::vector<size_t>& sizes)
             std::vector<BenchmarkResult> results;
             results.push_back({"AlignedVector<int,64> (trivial => memmove shift)", {}});
             results.push_back({"AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)", {}});
-            results.push_back({"Raw memmove baseline (shift only)", {}});
 
             std::vector<size_t> order(results.size());
             std::iota(order.begin(), order.end(), 0);
@@ -1141,10 +1053,6 @@ void benchmark_shift_memmove(const std::vector<size_t>& sizes)
                     else if (results[idx].name == "AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)")
                     {
                         ns = bench_insert_range_middle<fat_p::AlignedVector<NonTrivialInt, 64>>(N, payload_nt, ITERS);
-                    }
-                    else if (results[idx].name == "Raw memmove baseline (shift only)")
-                    {
-                        ns = bench_raw_memmove_shift_right(N, K, ITERS);
                     }
 
                     if (!is_warmup)
@@ -1171,7 +1079,6 @@ void benchmark_shift_memmove(const std::vector<size_t>& sizes)
             std::vector<BenchmarkResult> results;
             results.push_back({"AlignedVector<int,64> (trivial => memmove shift)", {}});
             results.push_back({"AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)", {}});
-            results.push_back({"Raw memmove baseline (shift only)", {}});
 
             std::vector<size_t> order(results.size());
             std::iota(order.begin(), order.end(), 0);
@@ -1194,10 +1101,6 @@ void benchmark_shift_memmove(const std::vector<size_t>& sizes)
                     {
                         ns = bench_erase_range_middle<fat_p::AlignedVector<NonTrivialInt, 64>>(N, K, ITERS);
                     }
-                    else if (results[idx].name == "Raw memmove baseline (shift only)")
-                    {
-                        ns = bench_raw_memmove_shift_left(N, K, ITERS);
-                    }
 
                     if (!is_warmup)
                     {
@@ -1219,6 +1122,7 @@ void benchmark_shift_memmove(const std::vector<size_t>& sizes)
 }
 
 // ============================================================================
+// ============================================================================
 // BENCHMARK: Copy and Move
 // ============================================================================
 
@@ -1238,8 +1142,113 @@ double bench_copy(const Container& src, size_t iterations)
     return elapsed / static_cast<double>(iterations);
 }
 
+/**
+ * @brief Measures move-construction cost without allocations.
+ *
+ * Rationale: A naïve "move benchmark" that constructs a fresh source container inside the
+ * timed loop is dominated by allocation + fill (O(n)), and does NOT measure move itself.
+ *
+ * This benchmark keeps two full containers alive (with distinct buffers) and rotates ownership
+ * between them using a third temporary object constructed via placement-new.
+ *
+ * The rotation ensures the observed data() pointer alternates each iteration, preventing the
+ * compiler from trivially eliding the loop.
+ *
+ * Returns: nanoseconds per move-construction.
+ */
 template<typename Container>
-double bench_move(size_t size, size_t iterations)
+double bench_move_ctor_rotation(size_t size, size_t iterations)
+{
+    using T = typename Container::value_type;
+    using Storage = std::aligned_storage_t<sizeof(Container), alignof(Container)>;
+
+    Storage storageA;
+    Storage storageB;
+    Storage storageC;
+
+    // Two distinct allocations (different buffers) created outside the timed region.
+    Container* a = new (&storageA) Container(size, T(42));
+    Container* b = new (&storageB) Container(size, T(7));
+    Container* c = nullptr;
+
+    Timer timer;
+    timer.start();
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        // c = move_ctor(a); a becomes moved-from (empty)
+        c = new (&storageC) Container(std::move(*a));
+        a->~Container();  // destroys moved-from (empty)
+
+        // a = move_ctor(b); b becomes moved-from (empty)
+        a = new (&storageA) Container(std::move(*b));
+        b->~Container();  // destroys moved-from (empty)
+
+        // b = move_ctor(c); c becomes moved-from (empty)
+        b = new (&storageB) Container(std::move(*c));
+        c->~Container();  // destroys moved-from (empty)
+
+        // Observe alternating pointer value to prevent dead-code elimination.
+        prevent_opt(static_cast<int64_t>(reinterpret_cast<intptr_t>(a->data())));
+    }
+
+    double elapsed = timer.elapsed_ns();
+
+    // Clean up live objects outside timing (will deallocate their buffers once each).
+    a->~Container();
+    b->~Container();
+
+    // 3 move-ctors per rotation iteration.
+    return elapsed / static_cast<double>(iterations * 3);
+}
+
+/**
+ * @brief Measures move-assignment cost without allocations.
+ *
+ * We rotate ownership among two full containers and one empty container such that
+ * the destination of each move-assignment is empty. This avoids deallocation/reallocation
+ * work and isolates the constant-time move-assignment path.
+ *
+ * Returns: nanoseconds per move-assignment.
+ */
+template<typename Container>
+double bench_move_assign_rotation(size_t size, size_t iterations)
+{
+    using T = typename Container::value_type;
+
+    // Two distinct allocations created outside the timed region.
+    Container a(size, T(42));
+    Container b(size, T(7));
+    Container tmp;  // empty
+
+    Timer timer;
+    timer.start();
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        tmp = std::move(a);  // tmp empty -> steals buffer
+        a = std::move(b);    // a empty   -> steals buffer
+        b = std::move(tmp);  // b empty   -> steals buffer
+
+        prevent_opt(static_cast<int64_t>(reinterpret_cast<intptr_t>(a.data())));
+    }
+
+    double elapsed = timer.elapsed_ns();
+
+    // 3 move-assigns per rotation iteration.
+    return elapsed / static_cast<double>(iterations * 3);
+}
+
+/**
+ * @brief Retains the old "construct+move" shape for context (O(n)).
+ *
+ * This includes allocation and element initialization inside the timed loop.
+ * It is useful to understand end-to-end costs, but it is NOT a pure move benchmark.
+ *
+ * Returns: nanoseconds per iteration of {construct+move}.
+ */
+template<typename Container>
+double bench_construct_and_move(size_t size, size_t iterations)
 {
     using T = typename Container::value_type;
 
@@ -1248,8 +1257,8 @@ double bench_move(size_t size, size_t iterations)
 
     for (size_t iter = 0; iter < iterations; ++iter)
     {
-        Container src(size, T(42));
-        Container dst(std::move(src));
+        Container src(size, T(42));   // O(n): allocation + fill/construct
+        Container dst(std::move(src)); // O(1): move-ctor
         prevent_opt(static_cast<int64_t>(dst.size()));
     }
 
@@ -1260,8 +1269,13 @@ double bench_move(size_t size, size_t iterations)
 void benchmark_copy_move(const std::vector<size_t>& sizes)
 {
     print_header("COPY AND MOVE OPERATIONS");
-    print_contract_note("Copy should be O(n), move should be O(1). "
-                        "Tests bulk memory operations.");
+    print_contract_note(
+        "Copy construction should be O(n). Move construction/assignment should be O(1). "
+        "This section reports:\n"
+        "  1) copy-ctor (bulk copy)\n"
+        "  2) move-ctor (rotation; no allocation)\n"
+        "  3) move-assign (rotation; no allocation)\n"
+        "  4) construct+move (includes allocation+fill; O(n), not a pure move test)");
 
     print_cpu_context("Copy/Move");
 
@@ -1270,16 +1284,24 @@ void benchmark_copy_move(const std::vector<size_t>& sizes)
         print_subheader("N = " + std::to_string(N));
 
         auto data = generate_data<double>(N, g_config.seed);
-        constexpr size_t ITERS = 100;
+
+        // Iteration counts: copy/construct are O(n), move-only is O(1).
+        constexpr size_t ITERS_COPY = 100;
+        constexpr size_t ITERS_CONSTRUCT_MOVE = 100;
+        constexpr size_t ITERS_MOVE_ONLY = 500000;
 
         std::vector<double> std_vec(data.begin(), data.end());
         fat_p::AlignedVector<double, 64> av64(data.begin(), data.end());
 
         std::vector<BenchmarkResult> results;
-        results.push_back({"std::vector copy", {}});
-        results.push_back({"std::vector move", {}});
-        results.push_back({"AlignedVector<64> copy", {}});
-        results.push_back({"AlignedVector<64> move", {}});
+        results.push_back({"std::vector copy-ctor", {}});
+        results.push_back({"std::vector move-ctor (rotation)", {}});
+        results.push_back({"std::vector move-assign (rotation)", {}});
+        results.push_back({"std::vector construct+move (alloc+fill)", {}});
+        results.push_back({"AlignedVector<64> copy-ctor", {}});
+        results.push_back({"AlignedVector<64> move-ctor (rotation)", {}});
+        results.push_back({"AlignedVector<64> move-assign (rotation)", {}});
+        results.push_back({"AlignedVector<64> construct+move (alloc+fill)", {}});
 
         std::vector<size_t> order(results.size());
         std::iota(order.begin(), order.end(), 0);
@@ -1293,22 +1315,39 @@ void benchmark_copy_move(const std::vector<size_t>& sizes)
             for (size_t idx : order)
             {
                 double ns = 0;
+                const std::string& name = results[idx].name;
 
-                if (results[idx].name == "std::vector copy")
+                if (name == "std::vector copy-ctor")
                 {
-                    ns = bench_copy(std_vec, ITERS);
+                    ns = bench_copy(std_vec, ITERS_COPY);
                 }
-                else if (results[idx].name == "std::vector move")
+                else if (name == "std::vector move-ctor (rotation)")
                 {
-                    ns = bench_move<std::vector<double>>(N, ITERS);
+                    ns = bench_move_ctor_rotation<std::vector<double>>(N, ITERS_MOVE_ONLY);
                 }
-                else if (results[idx].name == "AlignedVector<64> copy")
+                else if (name == "std::vector move-assign (rotation)")
                 {
-                    ns = bench_copy(av64, ITERS);
+                    ns = bench_move_assign_rotation<std::vector<double>>(N, ITERS_MOVE_ONLY);
                 }
-                else if (results[idx].name == "AlignedVector<64> move")
+                else if (name == "std::vector construct+move (alloc+fill)")
                 {
-                    ns = bench_move<fat_p::AlignedVector<double, 64>>(N, ITERS);
+                    ns = bench_construct_and_move<std::vector<double>>(N, ITERS_CONSTRUCT_MOVE);
+                }
+                else if (name == "AlignedVector<64> copy-ctor")
+                {
+                    ns = bench_copy(av64, ITERS_COPY);
+                }
+                else if (name == "AlignedVector<64> move-ctor (rotation)")
+                {
+                    ns = bench_move_ctor_rotation<fat_p::AlignedVector<double, 64>>(N, ITERS_MOVE_ONLY);
+                }
+                else if (name == "AlignedVector<64> move-assign (rotation)")
+                {
+                    ns = bench_move_assign_rotation<fat_p::AlignedVector<double, 64>>(N, ITERS_MOVE_ONLY);
+                }
+                else if (name == "AlignedVector<64> construct+move (alloc+fill)")
+                {
+                    ns = bench_construct_and_move<fat_p::AlignedVector<double, 64>>(N, ITERS_CONSTRUCT_MOVE);
                 }
 
                 if (!is_warmup)
@@ -1328,7 +1367,6 @@ void benchmark_copy_move(const std::vector<size_t>& sizes)
         cooling_delay(COOLING_DELAY_SIZE_MS, "between sizes");
     }
 }
-
 // ============================================================================
 // BENCHMARK: SIMD Dot Product
 // ============================================================================
