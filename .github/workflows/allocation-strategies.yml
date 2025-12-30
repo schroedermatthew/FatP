@@ -1,0 +1,341 @@
+# =============================================================================
+# .github/workflows/allocation-strategies.yml
+# =============================================================================
+# CI workflow for AllocationStrategies component
+#
+# Directory structure:
+#   Headers:    FAT_P/FAT_P/fat_p/AllocationStrategies.h
+#   Tests:      FAT_P/FAT_P/tests/test_AllocationStrategies.cpp
+#   Benchmarks: FAT_P/FAT_P/tests/test_AllocationStrategies.cpp (integrated)
+#
+# Fat-P Guidelines compliance:
+#   - Section 6.1: Include-all compile test
+#   - Section 6.2: Header self-contained tests
+#   - Section 6.4: Warning cleanliness (-Wall -Wextra -Wpedantic -Werror)
+# =============================================================================
+
+name: AllocationStrategies
+
+env:
+  INCLUDE_DIR: FAT_P/FAT_P/fat_p
+  TEST_SRC: FAT_P/FAT_P/tests/test_AllocationStrategies.cpp
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'FAT_P/FAT_P/fat_p/AllocationStrategies.h'
+      - 'FAT_P/FAT_P/tests/test_AllocationStrategies.cpp'
+      - '.github/workflows/allocation-strategies.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'FAT_P/FAT_P/fat_p/AllocationStrategies.h'
+      - 'FAT_P/FAT_P/tests/test_AllocationStrategies.cpp'
+      - '.github/workflows/allocation-strategies.yml'
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly benchmarks at 2am Sunday UTC
+  workflow_dispatch:
+    inputs:
+      run_benchmarks:
+        description: 'Run benchmarks'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  # ===========================================================================
+  # Linux GCC Builds
+  # ===========================================================================
+  linux-gcc:
+    name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 11
+            std: 17
+          - version: 12
+            std: 17
+          - version: 12
+            std: 20
+          - version: 13
+            std: 17
+          - version: 13
+            std: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
+
+      - name: Build tests
+        run: |
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_bin
+
+      - name: Run tests
+        run: ./test_bin
+
+  # ===========================================================================
+  # Linux Clang Builds
+  # ===========================================================================
+  linux-clang:
+    name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 14
+            std: 17
+          - version: 15
+            std: 17
+          - version: 15
+            std: 20
+          - version: 16
+            std: 17
+          - version: 16
+            std: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.version }}
+
+      - name: Build tests
+        run: |
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_bin
+
+      - name: Run tests
+        run: ./test_bin
+
+  # ===========================================================================
+  # Windows MSVC Builds
+  # ===========================================================================
+  windows-msvc:
+    name: Windows MSVC C++${{ matrix.std }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [17, 20]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build tests
+        run: |
+          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_AllocationStrategies.cpp /Fe:test_bin.exe /link advapi32.lib
+
+      - name: Run tests
+        run: .\test_bin.exe
+
+  # ===========================================================================
+  # Sanitizer Jobs
+  # ===========================================================================
+  sanitizer-asan:
+    name: AddressSanitizer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with ASan
+        run: |
+          g++ -std=c++17 -Wall -Wextra -g -O1 \
+            -fsanitize=address -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_bin
+
+      - name: Run with ASan
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+        run: ./test_bin
+
+  sanitizer-ubsan:
+    name: UndefinedBehaviorSanitizer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with UBSan
+        run: |
+          g++ -std=c++17 -Wall -Wextra -g -O1 \
+            -fsanitize=undefined -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_bin
+
+      - name: Run with UBSan
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ./test_bin
+
+  sanitizer-tsan:
+    name: ThreadSanitizer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with TSan
+        run: |
+          g++ -std=c++17 -Wall -Wextra -g -O1 \
+            -fsanitize=thread -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_bin
+
+      - name: Run with TSan
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+        run: ./test_bin
+
+  # ===========================================================================
+  # Header Self-Containment Check
+  # ===========================================================================
+  header-check:
+    name: Header Self-Containment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test AllocationStrategies.h compiles standalone
+        run: |
+          echo '#include "AllocationStrategies.h"' > test_include.cpp
+          echo 'int main() { return 0; }' >> test_include.cpp
+          
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -I./FAT_P/FAT_P/fat_p \
+            -c test_include.cpp -o /dev/null
+          
+          echo "✓ Header is self-contained"
+
+      - name: Test include order independence
+        run: |
+          # AllocationStrategies first
+          cat > test1.cpp << 'EOF'
+          #include "AllocationStrategies.h"
+          #include <vector>
+          #include <algorithm>
+          int main() {
+              fat_p::NewDeleteAllocator<int> alloc;
+              int* p = alloc.allocate(42);
+              alloc.deallocate(p);
+              return 0;
+          }
+          EOF
+          
+          # AllocationStrategies last
+          cat > test2.cpp << 'EOF'
+          #include <algorithm>
+          #include <vector>
+          #include "AllocationStrategies.h"
+          int main() {
+              fat_p::BlockAllocator<long> alloc;
+              long* p = alloc.allocate(42);
+              alloc.deallocate(p);
+              return 0;
+          }
+          EOF
+          
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./FAT_P/FAT_P/fat_p -c test1.cpp -o /dev/null
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./FAT_P/FAT_P/fat_p -c test2.cpp -o /dev/null
+          
+          echo "✓ Include order independent"
+
+  # ===========================================================================
+  # Strict Warnings Check
+  # ===========================================================================
+  strict-warnings:
+    name: Strict Warnings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile with strict warnings
+        run: |
+          g++ -std=c++17 \
+              -Wall -Wextra -Wpedantic \
+              -Wconversion -Wsign-conversion \
+              -Wshadow -Wformat=2 \
+              -Werror \
+              -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
+              -o test_strict FAT_P/FAT_P/tests/test_AllocationStrategies.cpp
+          echo "✓ No warnings"
+
+  # ===========================================================================
+  # Benchmarks (Weekly/Manual)
+  # ===========================================================================
+  benchmarks:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check AVX2 support
+        run: |
+          if grep -q avx2 /proc/cpuinfo; then
+            echo "✓ AVX2 supported"
+          else
+            echo "⚠ AVX2 not supported on this runner"
+          fi
+
+      - name: Build benchmark
+        run: |
+          g++ -std=c++17 -O3 -DNDEBUG -march=native \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o bench_bin
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: 1
+        run: ./bench_bin 2>&1 | tee benchmark.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark.log
+
+  # ===========================================================================
+  # CI Gate Job
+  # ===========================================================================
+  ci-success:
+    name: CI Success
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.linux-gcc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.linux-clang.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
+          echo "✓ All checks passed"

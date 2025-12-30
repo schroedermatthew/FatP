@@ -1,21 +1,24 @@
 /**
  * @file test_AllocationStrategies.cpp
- * @brief Test suite for fat_p::AllocationStrategies
- * 
+ * @brief Comprehensive unit tests for fat_p::AllocationStrategies
+ *
  * Tests the three allocator policies:
  * - NewDeleteAllocator: Standard new/delete per object
  * - BlockAllocator: Contiguous block allocation with bump pointer
  * - PoolAllocator: Fixed-size pre-allocated pool
- * 
- * @version 2.0
+ *
+ * @version 2.1
  */
 
-#include <iostream>
-#include <string>
-#include <vector>
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <iostream>
+#include <memory>
+#include <random>
+#include <string>
+#include <vector>
 
 #include "AllocationStrategies.h"
 #include "FatPTest.h"
@@ -33,34 +36,34 @@ namespace fat_p::testing::allocationns
 class LifecycleTracker
 {
 public:
-    static inline std::atomic<int> construct_count{0};
-    static inline std::atomic<int> destruct_count{0};
-    static inline std::atomic<int> copy_count{0};
-    static inline std::atomic<int> move_count{0};
+    static inline std::atomic<int> sConstructCount{0};
+    static inline std::atomic<int> sDestructCount{0};
+    static inline std::atomic<int> sCopyCount{0};
+    static inline std::atomic<int> sMoveCount{0};
 
-    int64_t value;  // Ensures type is at least pointer-sized
+    int64_t mValue;  // Ensures type is at least pointer-sized
 
-    explicit LifecycleTracker(int v = 0) : value(v) 
-    { 
-        construct_count.fetch_add(1, std::memory_order_relaxed);
+    explicit LifecycleTracker(int v = 0) : mValue(v)
+    {
+        sConstructCount.fetch_add(1, std::memory_order_relaxed);
     }
 
-    LifecycleTracker(const LifecycleTracker& other) : value(other.value) 
-    { 
-        copy_count.fetch_add(1, std::memory_order_relaxed);
+    LifecycleTracker(const LifecycleTracker& other) : mValue(other.mValue)
+    {
+        sCopyCount.fetch_add(1, std::memory_order_relaxed);
     }
 
-    LifecycleTracker(LifecycleTracker&& other) noexcept : value(other.value) 
-    { 
-        move_count.fetch_add(1, std::memory_order_relaxed);
+    LifecycleTracker(LifecycleTracker&& other) noexcept : mValue(other.mValue)
+    {
+        sMoveCount.fetch_add(1, std::memory_order_relaxed);
     }
 
     LifecycleTracker& operator=(const LifecycleTracker& other)
     {
         if (this != &other)
         {
-            value = other.value;
-            copy_count.fetch_add(1, std::memory_order_relaxed);
+            mValue = other.mValue;
+            sCopyCount.fetch_add(1, std::memory_order_relaxed);
         }
         return *this;
     }
@@ -69,23 +72,23 @@ public:
     {
         if (this != &other)
         {
-            value = other.value;
-            move_count.fetch_add(1, std::memory_order_relaxed);
+            mValue = other.mValue;
+            sMoveCount.fetch_add(1, std::memory_order_relaxed);
         }
         return *this;
     }
 
-    ~LifecycleTracker() 
-    { 
-        destruct_count.fetch_add(1, std::memory_order_relaxed);
+    ~LifecycleTracker()
+    {
+        sDestructCount.fetch_add(1, std::memory_order_relaxed);
     }
 
     static void reset() noexcept
     {
-        construct_count.store(0, std::memory_order_relaxed);
-        destruct_count.store(0, std::memory_order_relaxed);
-        copy_count.store(0, std::memory_order_relaxed);
-        move_count.store(0, std::memory_order_relaxed);
+        sConstructCount.store(0, std::memory_order_relaxed);
+        sDestructCount.store(0, std::memory_order_relaxed);
+        sCopyCount.store(0, std::memory_order_relaxed);
+        sMoveCount.store(0, std::memory_order_relaxed);
     }
 };
 
@@ -94,11 +97,11 @@ public:
  */
 struct TrivialNode
 {
-    int key;
-    int value;
-    
-    TrivialNode() : key(0), value(0) {}
-    TrivialNode(int k, int v) : key(k), value(v) {}
+    int mKey;
+    int mValue;
+
+    TrivialNode() : mKey(0), mValue(0) {}
+    TrivialNode(int k, int v) : mKey(k), mValue(v) {}
 };
 static_assert(std::is_trivially_copyable_v<TrivialNode>);
 
@@ -107,10 +110,10 @@ static_assert(std::is_trivially_copyable_v<TrivialNode>);
  */
 struct alignas(64) CacheAligned
 {
-    char data[64];
-    
-    CacheAligned() { data[0] = 0; }
-    explicit CacheAligned(char c) { data[0] = c; }
+    char mData[64];
+
+    CacheAligned() { mData[0] = 0; }
+    explicit CacheAligned(char c) { mData[0] = c; }
 };
 
 // ============================================================================
@@ -120,11 +123,11 @@ struct alignas(64) CacheAligned
 TEST_CASE(newdelete_basic)
 {
     NewDeleteAllocator<int> alloc;
-    
+
     int* ptr = alloc.allocate(42);
     ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
     ASSERT_EQ(*ptr, 42, "Value should be constructed in-place");
-    
+
     alloc.deallocate(ptr);
     return true;
 }
@@ -133,50 +136,51 @@ TEST_CASE(newdelete_multiple_allocations)
 {
     NewDeleteAllocator<int> alloc;
     std::vector<int*> ptrs;
-    
-    for (int i = 0; i < 100; ++i)
+
+    constexpr int kCount = 100;
+    for (int i = 0; i < kCount; ++i)
     {
         int* ptr = alloc.allocate(i * 10);
         ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
         ASSERT_EQ(*ptr, i * 10, "Value should match");
         ptrs.push_back(ptr);
     }
-    
+
     for (auto ptr : ptrs)
     {
         alloc.deallocate(ptr);
     }
-    
+
     return true;
 }
 
 TEST_CASE(newdelete_lifecycle_tracking)
 {
     LifecycleTracker::reset();
-    
+
     NewDeleteAllocator<LifecycleTracker> alloc;
-    
+
     LifecycleTracker* ptr = alloc.allocate(42);
-    ASSERT_EQ(LifecycleTracker::construct_count.load(), 1, "One construction");
-    ASSERT_EQ(ptr->value, 42, "Value should be set");
-    
+    ASSERT_EQ(LifecycleTracker::sConstructCount.load(), 1, "One construction");
+    ASSERT_EQ(ptr->mValue, 42, "Value should be set");
+
     alloc.deallocate(ptr);
-    ASSERT_EQ(LifecycleTracker::destruct_count.load(), 1, "One destruction");
-    
+    ASSERT_EQ(LifecycleTracker::sDestructCount.load(), 1, "One destruction");
+
     return true;
 }
 
 TEST_CASE(newdelete_over_aligned)
 {
     NewDeleteAllocator<CacheAligned> alloc;
-    
+
     CacheAligned* ptr = alloc.allocate('X');
     ASSERT_NOT_NULLPTR(ptr, "Aligned allocation should succeed");
-    
+
     uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
     ASSERT_EQ(addr % 64, size_t(0), "Should be 64-byte aligned");
-    ASSERT_EQ(ptr->data[0], 'X', "Value should be constructed");
-    
+    ASSERT_EQ(ptr->mData[0], 'X', "Value should be constructed");
+
     alloc.deallocate(ptr);
     return true;
 }
@@ -184,19 +188,19 @@ TEST_CASE(newdelete_over_aligned)
 TEST_CASE(newdelete_copy_move)
 {
     NewDeleteAllocator<int> alloc1;
-    
+
     // Copy construction
     NewDeleteAllocator<int> alloc2(alloc1);
     int* ptr = alloc2.allocate(123);
     ASSERT_EQ(*ptr, 123, "Copied allocator should work");
     alloc2.deallocate(ptr);
-    
+
     // Move construction
     NewDeleteAllocator<int> alloc3(std::move(alloc1));
     ptr = alloc3.allocate(456);
     ASSERT_EQ(*ptr, 456, "Moved allocator should work");
     alloc3.deallocate(ptr);
-    
+
     return true;
 }
 
@@ -208,15 +212,15 @@ TEST_CASE(block_basic)
 {
     BlockAllocator<LifecycleTracker> alloc;
     LifecycleTracker::reset();
-    
+
     LifecycleTracker* ptr = alloc.allocate(42);
     ASSERT_NOT_NULLPTR(ptr, "Block allocation should succeed");
-    ASSERT_EQ(ptr->value, 42, "Value should be constructed");
-    ASSERT_EQ(LifecycleTracker::construct_count.load(), 1, "One construction");
-    
+    ASSERT_EQ(ptr->mValue, 42, "Value should be constructed");
+    ASSERT_EQ(LifecycleTracker::sConstructCount.load(), 1, "One construction");
+
     alloc.deallocate(ptr);
-    ASSERT_EQ(LifecycleTracker::destruct_count.load(), 1, "One destruction");
-    
+    ASSERT_EQ(LifecycleTracker::sDestructCount.load(), 1, "One destruction");
+
     return true;
 }
 
@@ -225,26 +229,26 @@ TEST_CASE(block_multiple_allocations)
     BlockAllocator<LifecycleTracker> alloc;
     LifecycleTracker::reset();
     std::vector<LifecycleTracker*> ptrs;
-    
-    constexpr int count = 500;  // More than one block (256 per block)
-    
-    for (int i = 0; i < count; ++i)
+
+    constexpr int kCount = 500;  // More than one block (256 per block)
+
+    for (int i = 0; i < kCount; ++i)
     {
         LifecycleTracker* ptr = alloc.allocate(i);
         ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
-        ASSERT_EQ(ptr->value, i, "Value should match");
+        ASSERT_EQ(ptr->mValue, i, "Value should match");
         ptrs.push_back(ptr);
     }
-    
-    ASSERT_EQ(LifecycleTracker::construct_count.load(), count, "All constructions");
-    
+
+    ASSERT_EQ(LifecycleTracker::sConstructCount.load(), kCount, "All constructions");
+
     for (auto ptr : ptrs)
     {
         alloc.deallocate(ptr);
     }
-    
-    ASSERT_EQ(LifecycleTracker::destruct_count.load(), count, "All destructions");
-    
+
+    ASSERT_EQ(LifecycleTracker::sDestructCount.load(), kCount, "All destructions");
+
     return true;
 }
 
@@ -252,20 +256,20 @@ TEST_CASE(block_free_list_reuse)
 {
     BlockAllocator<LifecycleTracker> alloc;
     LifecycleTracker::reset();
-    
+
     // Allocate
     LifecycleTracker* ptr1 = alloc.allocate(1);
-    
+
     // Deallocate - goes to free list
     alloc.deallocate(ptr1);
-    
+
     // Allocate again - should reuse from free list
     LifecycleTracker* ptr2 = alloc.allocate(2);
-    
+
     // Due to LIFO free list, should get same memory back
     ASSERT_EQ(ptr1, ptr2, "Should reuse deallocated memory");
-    ASSERT_EQ(ptr2->value, 2, "Value should be newly constructed");
-    
+    ASSERT_EQ(ptr2->mValue, 2, "Value should be newly constructed");
+
     alloc.deallocate(ptr2);
     return true;
 }
@@ -274,34 +278,34 @@ TEST_CASE(block_move_semantics)
 {
     BlockAllocator<LifecycleTracker> alloc1;
     LifecycleTracker::reset();
-    
+
     // Allocate from first allocator
     LifecycleTracker* ptr = alloc1.allocate(42);
-    ASSERT_EQ(ptr->value, 42, "Initial allocation");
-    
+    ASSERT_EQ(ptr->mValue, 42, "Initial allocation");
+
     // Move construct - transfers ownership
     BlockAllocator<LifecycleTracker> alloc2(std::move(alloc1));
-    
+
     // Can still use the pointer through moved allocator
-    ASSERT_EQ(ptr->value, 42, "Value preserved after move");
-    
+    ASSERT_EQ(ptr->mValue, 42, "Value preserved after move");
+
     // Deallocate through new owner
     alloc2.deallocate(ptr);
-    ASSERT_EQ(LifecycleTracker::destruct_count.load(), 1, "Destruction via new owner");
-    
+    ASSERT_EQ(LifecycleTracker::sDestructCount.load(), 1, "Destruction via new owner");
+
     return true;
 }
 
 TEST_CASE(block_alignment)
 {
     BlockAllocator<CacheAligned> alloc;
-    
+
     CacheAligned* ptr = alloc.allocate('A');
     ASSERT_NOT_NULLPTR(ptr, "Aligned allocation should succeed");
-    
+
     uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
     ASSERT_EQ(addr % 64, size_t(0), "Should be 64-byte aligned");
-    
+
     alloc.deallocate(ptr);
     return true;
 }
@@ -313,39 +317,39 @@ TEST_CASE(block_alignment)
 TEST_CASE(pool_basic)
 {
     PoolAllocator<100>::Allocator<TrivialNode> alloc;
-    
+
     ASSERT_EQ(alloc.capacity(), size_t(100), "Capacity should match template");
     ASSERT_EQ(alloc.allocated(), size_t(0), "Initially none allocated");
     ASSERT_EQ(alloc.available(), size_t(100), "All available initially");
     ASSERT_FALSE(alloc.full(), "Should not be full");
-    
+
     TrivialNode* ptr = alloc.allocate(1, 100);
     ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
-    ASSERT_EQ(ptr->key, 1, "Key should match");
-    ASSERT_EQ(ptr->value, 100, "Value should match");
-    
+    ASSERT_EQ(ptr->mKey, 1, "Key should match");
+    ASSERT_EQ(ptr->mValue, 100, "Value should match");
+
     ASSERT_EQ(alloc.allocated(), size_t(1), "One allocated");
     ASSERT_EQ(alloc.available(), size_t(99), "99 remaining");
-    
+
     alloc.deallocate(ptr);
     ASSERT_EQ(alloc.allocated(), size_t(0), "None allocated after dealloc");
-    
+
     return true;
 }
 
 TEST_CASE(pool_free_list_reuse)
 {
     PoolAllocator<10>::Allocator<TrivialNode> alloc;
-    
+
     TrivialNode* ptr1 = alloc.allocate(1, 10);
     alloc.deallocate(ptr1);
-    
+
     TrivialNode* ptr2 = alloc.allocate(2, 20);
-    
+
     // Free list LIFO: should get same memory back
     ASSERT_EQ(ptr1, ptr2, "Should reuse deallocated slot");
-    ASSERT_EQ(ptr2->key, 2, "New value constructed");
-    
+    ASSERT_EQ(ptr2->mKey, 2, "New value constructed");
+
     alloc.deallocate(ptr2);
     return true;
 }
@@ -354,7 +358,7 @@ TEST_CASE(pool_exhaustion)
 {
     PoolAllocator<5>::Allocator<TrivialNode> alloc;
     std::vector<TrivialNode*> ptrs;
-    
+
     // Allocate all 5 slots
     for (int i = 0; i < 5; ++i)
     {
@@ -362,10 +366,10 @@ TEST_CASE(pool_exhaustion)
         ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed while pool has space");
         ptrs.push_back(ptr);
     }
-    
+
     ASSERT_TRUE(alloc.full(), "Pool should be full");
     ASSERT_EQ(alloc.available(), size_t(0), "No slots available");
-    
+
     // Next allocation should throw
     bool threw = false;
     try
@@ -377,15 +381,15 @@ TEST_CASE(pool_exhaustion)
         threw = true;
     }
     ASSERT_TRUE(threw, "Should throw std::bad_alloc when exhausted");
-    
+
     // Cleanup
     for (auto ptr : ptrs)
     {
         alloc.deallocate(ptr);
     }
-    
+
     ASSERT_FALSE(alloc.full(), "Pool no longer full after deallocation");
-    
+
     return true;
 }
 
@@ -393,21 +397,21 @@ TEST_CASE(pool_full_capacity_cycle)
 {
     PoolAllocator<100>::Allocator<TrivialNode> alloc;
     std::vector<TrivialNode*> ptrs;
-    
+
     // Fill the pool
     for (int i = 0; i < 100; ++i)
     {
         ptrs.push_back(alloc.allocate(i, i));
     }
     ASSERT_EQ(alloc.allocated(), size_t(100), "All allocated");
-    
+
     // Empty the pool
     for (auto ptr : ptrs)
     {
         alloc.deallocate(ptr);
     }
     ASSERT_EQ(alloc.allocated(), size_t(0), "All deallocated");
-    
+
     // Refill - should work with free list
     ptrs.clear();
     for (int i = 0; i < 100; ++i)
@@ -416,41 +420,41 @@ TEST_CASE(pool_full_capacity_cycle)
         ASSERT_NOT_NULLPTR(ptr, "Re-allocation should succeed");
         ptrs.push_back(ptr);
     }
-    
+
     for (auto ptr : ptrs)
     {
         alloc.deallocate(ptr);
     }
-    
+
     return true;
 }
 
 TEST_CASE(pool_move_semantics)
 {
     PoolAllocator<10>::Allocator<TrivialNode> alloc1;
-    
+
     // Allocate from first
     TrivialNode* ptr1 = alloc1.allocate(1, 10);
     TrivialNode* ptr2 = alloc1.allocate(2, 20);
     ASSERT_EQ(alloc1.allocated(), size_t(2), "Two allocated");
-    
+
     // Move construct
     PoolAllocator<10>::Allocator<TrivialNode> alloc2(std::move(alloc1));
-    
+
     // State transferred
     ASSERT_EQ(alloc2.allocated(), size_t(2), "Allocation count transferred");
-    
+
     // Source should be reset
     ASSERT_EQ(alloc1.allocated(), size_t(0), "Source reset after move");
-    
+
     // Can continue using moved allocator
     TrivialNode* ptr3 = alloc2.allocate(3, 30);
-    ASSERT_EQ(ptr3->key, 3, "New allocation works");
-    
+    ASSERT_EQ(ptr3->mKey, 3, "New allocation works");
+
     alloc2.deallocate(ptr3);
     alloc2.deallocate(ptr2);
     alloc2.deallocate(ptr1);
-    
+
     return true;
 }
 
@@ -464,18 +468,18 @@ TEST_CASE(edge_default_construction)
     NewDeleteAllocator<int> nda;
     BlockAllocator<LifecycleTracker> ba;
     PoolAllocator<10>::Allocator<TrivialNode> pa;
-    
+
     // Should be usable immediately
     int* p1 = nda.allocate(1);
     nda.deallocate(p1);
-    
+
     LifecycleTracker::reset();
     LifecycleTracker* p2 = ba.allocate(2);
     ba.deallocate(p2);
-    
+
     TrivialNode* p3 = pa.allocate(3, 30);
     pa.deallocate(p3);
-    
+
     return true;
 }
 
@@ -484,18 +488,18 @@ TEST_CASE(edge_single_element_type)
     // Smallest valid type that can hold a pointer
     struct SmallType
     {
-        void* data;
-        SmallType() : data(nullptr) {}
-        explicit SmallType(void* p) : data(p) {}
+        void* mData;
+        SmallType() : mData(nullptr) {}
+        explicit SmallType(void* p) : mData(p) {}
     };
     static_assert(sizeof(SmallType) >= sizeof(void*));
-    
+
     BlockAllocator<SmallType> alloc;
-    
+
     SmallType* ptr = alloc.allocate(nullptr);
     ASSERT_NOT_NULLPTR(ptr, "Should allocate small type");
-    ASSERT_NULLPTR(ptr->data, "Value should be default");
-    
+    ASSERT_NULLPTR(ptr->mData, "Value should be default");
+
     alloc.deallocate(ptr);
     return true;
 }
@@ -503,25 +507,155 @@ TEST_CASE(edge_single_element_type)
 TEST_CASE(edge_destructor_cleanup)
 {
     LifecycleTracker::reset();
-    
+
     {
         BlockAllocator<LifecycleTracker> alloc;
-        
+
         // Allocate several objects
         for (int i = 0; i < 10; ++i)
         {
             alloc.allocate(i);
         }
-        
-        ASSERT_EQ(LifecycleTracker::construct_count.load(), 10, "All constructed");
-        // Note: We intentionally don't deallocate - allocator destructor 
+
+        ASSERT_EQ(LifecycleTracker::sConstructCount.load(), 10, "All constructed");
+        // Note: We intentionally don't deallocate - allocator destructor
         // will free the blocks but not call destructors on live objects
         // This is by design - allocator manages memory, not object lifetime
     }
-    
+
     // Destructor freed blocks but didn't call object destructors
     // This is expected behavior - caller must deallocate to invoke destructors
-    
+
+    return true;
+}
+
+// ============================================================================
+// Test Suite 5: Stress/Fuzz Tests
+// ============================================================================
+
+TEST_CASE(stress_block_random_operations)
+{
+    BlockAllocator<LifecycleTracker> alloc;
+    LifecycleTracker::reset();
+    std::vector<LifecycleTracker*> live;
+
+    std::mt19937 rng(42);  // Fixed seed for reproducibility
+    constexpr int kIterations = 10000;
+
+    for (int i = 0; i < kIterations; ++i)
+    {
+        // 70% allocate, 30% deallocate (when possible)
+        if (live.empty() || rng() % 10 < 7)
+        {
+            live.push_back(alloc.allocate(i));
+        }
+        else
+        {
+            std::uniform_int_distribution<size_t> dist(0, live.size() - 1);
+            size_t idx = dist(rng);
+            alloc.deallocate(live[idx]);
+            live.erase(live.begin() + static_cast<ptrdiff_t>(idx));
+        }
+    }
+
+    // Verify remaining pointers are valid by accessing values
+    for (auto* ptr : live)
+    {
+        ASSERT_GE(ptr->mValue, 0, "Values should be valid");
+    }
+
+    // Cleanup
+    for (auto* ptr : live)
+    {
+        alloc.deallocate(ptr);
+    }
+
+    // Verify lifecycle counts
+    int constructs = LifecycleTracker::sConstructCount.load();
+    int destructs = LifecycleTracker::sDestructCount.load();
+    ASSERT_EQ(constructs, destructs, "All constructions should have matching destructions");
+
+    return true;
+}
+
+TEST_CASE(stress_pool_fill_empty_cycles)
+{
+    constexpr size_t kPoolSize = 100;
+    constexpr size_t kCycles = 50;
+    PoolAllocator<kPoolSize>::Allocator<TrivialNode> alloc;
+
+    for (size_t cycle = 0; cycle < kCycles; ++cycle)
+    {
+        std::vector<TrivialNode*> ptrs;
+
+        // Fill pool
+        for (size_t i = 0; i < kPoolSize; ++i)
+        {
+            int key = static_cast<int>(cycle * kPoolSize + i);
+            int value = static_cast<int>(i);
+            TrivialNode* ptr = alloc.allocate(key, value);
+            ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
+            ptrs.push_back(ptr);
+        }
+
+        ASSERT_TRUE(alloc.full(), "Pool should be full");
+
+        // Verify all values
+        for (size_t i = 0; i < kPoolSize; ++i)
+        {
+            int expectedKey = static_cast<int>(cycle * kPoolSize + i);
+            int expectedValue = static_cast<int>(i);
+            ASSERT_EQ(ptrs[i]->mKey, expectedKey, "Key should match");
+            ASSERT_EQ(ptrs[i]->mValue, expectedValue, "Value should match");
+        }
+
+        // Empty pool in random order
+        std::mt19937 rng(static_cast<unsigned>(cycle));
+        std::shuffle(ptrs.begin(), ptrs.end(), rng);
+        for (auto* ptr : ptrs)
+        {
+            alloc.deallocate(ptr);
+        }
+
+        ASSERT_EQ(alloc.allocated(), size_t(0), "Pool should be empty");
+    }
+
+    return true;
+}
+
+TEST_CASE(stress_newdelete_interleaved)
+{
+    NewDeleteAllocator<LifecycleTracker> alloc;
+    LifecycleTracker::reset();
+
+    std::vector<LifecycleTracker*> ptrs;
+    std::mt19937 rng(12345);
+    constexpr int kIterations = 5000;
+
+    for (int i = 0; i < kIterations; ++i)
+    {
+        if (ptrs.empty() || rng() % 2 == 0)
+        {
+            ptrs.push_back(alloc.allocate(i));
+        }
+        else
+        {
+            std::uniform_int_distribution<size_t> dist(0, ptrs.size() - 1);
+            size_t idx = dist(rng);
+            alloc.deallocate(ptrs[idx]);
+            ptrs.erase(ptrs.begin() + static_cast<ptrdiff_t>(idx));
+        }
+    }
+
+    for (auto* ptr : ptrs)
+    {
+        alloc.deallocate(ptr);
+    }
+
+    ASSERT_EQ(LifecycleTracker::sConstructCount.load(),
+              LifecycleTracker::sDestructCount.load(),
+              "All allocations should be freed");
+
     return true;
 }
 
@@ -532,102 +666,169 @@ TEST_CASE(edge_destructor_cleanup)
 void run_benchmarks()
 {
     auto& out = *get_test_config().output;
-    out << "\n" << colors::cyan() << "Allocation Strategies Benchmarks:" 
+    out << "\n" << colors::cyan() << "Allocation Strategies Benchmarks:"
         << colors::reset() << "\n\n";
 
-    constexpr size_t iterations = 100000;
-    constexpr size_t warmup = 1000;
+    constexpr size_t kIterations = 100000;
+    constexpr size_t kWarmup = 1000;
 
-    // Benchmark 1: NewDeleteAllocator single allocation
+    // Benchmark 1: Single allocation/deallocation comparison
     {
         out << colors::yellow() << "Single Allocation/Deallocation:" << colors::reset() << "\n";
-        
-        double nd_time = measure_perf([]() {
+
+        // NewDeleteAllocator
+        double ndTime = measure_perf([]() {
             NewDeleteAllocator<int> alloc;
             int* ptr = alloc.allocate(42);
             DoNotOptimize(ptr);
             alloc.deallocate(ptr);
-        }, iterations, warmup);
-        
-        out << "  NewDeleteAllocator: " << format_time(nd_time) << "\n";
-    }
+        }, kIterations, kWarmup);
+        out << "  NewDeleteAllocator: " << format_time(ndTime) << "\n";
 
-    // Benchmark 2: BlockAllocator with reuse
-    {
-        // Use int64_t instead of int (must be at least pointer-sized)
-        BlockAllocator<int64_t> alloc;
-        
-        double block_time = measure_perf([&alloc]() {
-            int64_t* ptr = alloc.allocate(42);
+        // std::allocator for comparison
+        double stdTime = measure_perf([]() {
+            std::allocator<int> alloc;
+            int* ptr = alloc.allocate(1);
             DoNotOptimize(ptr);
-            alloc.deallocate(ptr);  // Goes to free list
-        }, iterations, warmup);
-        
-        out << "  BlockAllocator:     " << format_time(block_time) << "\n";
-    }
+            *ptr = 42;
+            alloc.deallocate(ptr, 1);
+        }, kIterations, kWarmup);
+        out << "  std::allocator:     " << format_time(stdTime) << "\n";
 
-    // Benchmark 3: PoolAllocator
-    {
-        PoolAllocator<1000>::Allocator<TrivialNode> alloc;
-        
-        double pool_time = measure_perf([&alloc]() {
-            TrivialNode* ptr = alloc.allocate(1, 2);
+        // BlockAllocator with reuse (use int64_t - must be at least pointer-sized)
+        BlockAllocator<int64_t> blockAlloc;
+        double blockTime = measure_perf([&blockAlloc]() {
+            int64_t* ptr = blockAlloc.allocate(42);
             DoNotOptimize(ptr);
-            alloc.deallocate(ptr);
-        }, iterations, warmup);
-        
-        out << "  PoolAllocator:      " << format_time(pool_time) << "\n";
+            blockAlloc.deallocate(ptr);  // Goes to free list
+        }, kIterations, kWarmup);
+        out << "  BlockAllocator:     " << format_time(blockTime) << "\n";
+
+        // PoolAllocator
+        PoolAllocator<1000>::Allocator<TrivialNode> poolAlloc;
+        double poolTime = measure_perf([&poolAlloc]() {
+            TrivialNode* ptr = poolAlloc.allocate(1, 2);
+            DoNotOptimize(ptr);
+            poolAlloc.deallocate(ptr);
+        }, kIterations, kWarmup);
+        out << "  PoolAllocator:      " << format_time(poolTime) << "\n";
     }
 
-    // Benchmark 4: Burst allocation pattern
+    // Benchmark 2: Burst allocation pattern
     {
-        out << "\n" << colors::yellow() << "Burst Allocation (100 objects):" 
+        out << "\n" << colors::yellow() << "Burst Allocation (100 objects):"
             << colors::reset() << "\n";
-        
-        double nd_burst = measure_perf([]() {
+
+        constexpr size_t kBurstIterations = kIterations / 100;
+        constexpr size_t kBurstWarmup = kWarmup / 10;
+
+        // NewDeleteAllocator
+        double ndBurst = measure_perf([]() {
             NewDeleteAllocator<int> alloc;
             std::array<int*, 100> ptrs;
-            for (int i = 0; i < 100; ++i)
+            for (size_t i = 0; i < 100; ++i)
             {
-                ptrs[i] = alloc.allocate(i);
+                ptrs[i] = alloc.allocate(static_cast<int>(i));
             }
             for (auto ptr : ptrs)
             {
                 alloc.deallocate(ptr);
             }
-        }, iterations / 100, warmup / 10);
-        
-        out << "  NewDeleteAllocator: " << format_time(nd_burst) << "\n";
-        
-        double block_burst = measure_perf([]() {
+        }, kBurstIterations, kBurstWarmup);
+        out << "  NewDeleteAllocator: " << format_time(ndBurst) << "\n";
+
+        // std::allocator for comparison
+        double stdBurst = measure_perf([]() {
+            std::allocator<int> alloc;
+            std::array<int*, 100> ptrs;
+            for (size_t i = 0; i < 100; ++i)
+            {
+                ptrs[i] = alloc.allocate(1);
+                *ptrs[i] = static_cast<int>(i);
+            }
+            for (auto ptr : ptrs)
+            {
+                alloc.deallocate(ptr, 1);
+            }
+        }, kBurstIterations, kBurstWarmup);
+        out << "  std::allocator:     " << format_time(stdBurst) << "\n";
+
+        // BlockAllocator
+        double blockBurst = measure_perf([]() {
             BlockAllocator<int64_t> alloc;
             std::array<int64_t*, 100> ptrs;
-            for (int i = 0; i < 100; ++i)
+            for (size_t i = 0; i < 100; ++i)
             {
-                ptrs[i] = alloc.allocate(i);
+                ptrs[i] = alloc.allocate(static_cast<int64_t>(i));
             }
             for (auto ptr : ptrs)
             {
                 alloc.deallocate(ptr);
             }
-        }, iterations / 100, warmup / 10);
-        
-        out << "  BlockAllocator:     " << format_time(block_burst) << "\n";
-        
-        double pool_burst = measure_perf([]() {
+        }, kBurstIterations, kBurstWarmup);
+        out << "  BlockAllocator:     " << format_time(blockBurst) << "\n";
+
+        // PoolAllocator
+        double poolBurst = measure_perf([]() {
             PoolAllocator<100>::Allocator<TrivialNode> alloc;
             std::array<TrivialNode*, 100> ptrs;
-            for (int i = 0; i < 100; ++i)
+            for (size_t i = 0; i < 100; ++i)
             {
-                ptrs[i] = alloc.allocate(i, i);
+                int val = static_cast<int>(i);
+                ptrs[i] = alloc.allocate(val, val);
             }
             for (auto ptr : ptrs)
             {
                 alloc.deallocate(ptr);
             }
-        }, iterations / 100, warmup / 10);
-        
-        out << "  PoolAllocator:      " << format_time(pool_burst) << "\n";
+        }, kBurstIterations, kBurstWarmup);
+        out << "  PoolAllocator:      " << format_time(poolBurst) << "\n";
+    }
+
+    // Benchmark 3: Sustained churn (allocate/deallocate interleaved)
+    {
+        out << "\n" << colors::yellow() << "Sustained Churn (steady state):"
+            << colors::reset() << "\n";
+
+        constexpr size_t kChurnIterations = kIterations / 10;
+
+        // BlockAllocator - primed with some allocations
+        BlockAllocator<int64_t> primed;
+        std::vector<int64_t*> primeVec;
+        for (int i = 0; i < 50; ++i)
+        {
+            primeVec.push_back(primed.allocate(i));
+        }
+        for (auto* p : primeVec)
+        {
+            primed.deallocate(p);
+        }
+
+        double churnTime = measure_perf([&primed]() {
+            int64_t* ptr = primed.allocate(99);
+            DoNotOptimize(ptr);
+            primed.deallocate(ptr);
+        }, kChurnIterations, kWarmup);
+        out << "  BlockAllocator (warmed): " << format_time(churnTime) << "\n";
+
+        // PoolAllocator - primed
+        PoolAllocator<100>::Allocator<TrivialNode> primedPool;
+        std::vector<TrivialNode*> primePoolVec;
+        for (int i = 0; i < 50; ++i)
+        {
+            primePoolVec.push_back(primedPool.allocate(i, i));
+        }
+        for (auto* p : primePoolVec)
+        {
+            primedPool.deallocate(p);
+        }
+
+        double poolChurn = measure_perf([&primedPool]() {
+            TrivialNode* ptr = primedPool.allocate(99, 99);
+            DoNotOptimize(ptr);
+            primedPool.deallocate(ptr);
+        }, kChurnIterations, kWarmup);
+        out << "  PoolAllocator (warmed):  " << format_time(poolChurn) << "\n";
     }
 
     out << "\n";
@@ -645,10 +846,10 @@ namespace fat_p::testing
 bool test_AllocationStrategies()
 {
     PRINT_HEADER(ALLOCATION STRATEGIES)
-    
+
     TestRunner runner;
     auto& out = *get_test_config().output;
-    
+
     // Test Suite 1: NewDeleteAllocator
     out << colors::blue() << "--- NewDeleteAllocator ---" << colors::reset() << "\n";
     RUN_TEST_NS(runner, allocationns, newdelete_basic);
@@ -656,7 +857,7 @@ bool test_AllocationStrategies()
     RUN_TEST_NS(runner, allocationns, newdelete_lifecycle_tracking);
     RUN_TEST_NS(runner, allocationns, newdelete_over_aligned);
     RUN_TEST_NS(runner, allocationns, newdelete_copy_move);
-    
+
     // Test Suite 2: BlockAllocator
     out << "\n" << colors::blue() << "--- BlockAllocator ---" << colors::reset() << "\n";
     RUN_TEST_NS(runner, allocationns, block_basic);
@@ -664,7 +865,7 @@ bool test_AllocationStrategies()
     RUN_TEST_NS(runner, allocationns, block_free_list_reuse);
     RUN_TEST_NS(runner, allocationns, block_move_semantics);
     RUN_TEST_NS(runner, allocationns, block_alignment);
-    
+
     // Test Suite 3: PoolAllocator
     out << "\n" << colors::blue() << "--- PoolAllocator ---" << colors::reset() << "\n";
     RUN_TEST_NS(runner, allocationns, pool_basic);
@@ -672,20 +873,26 @@ bool test_AllocationStrategies()
     RUN_TEST_NS(runner, allocationns, pool_exhaustion);
     RUN_TEST_NS(runner, allocationns, pool_full_capacity_cycle);
     RUN_TEST_NS(runner, allocationns, pool_move_semantics);
-    
+
     // Test Suite 4: Edge Cases
     out << "\n" << colors::blue() << "--- Edge Cases ---" << colors::reset() << "\n";
     RUN_TEST_NS(runner, allocationns, edge_default_construction);
     RUN_TEST_NS(runner, allocationns, edge_single_element_type);
     RUN_TEST_NS(runner, allocationns, edge_destructor_cleanup);
-    
+
+    // Test Suite 5: Stress Tests
+    out << "\n" << colors::blue() << "--- Stress Tests ---" << colors::reset() << "\n";
+    RUN_TEST_NS(runner, allocationns, stress_block_random_operations);
+    RUN_TEST_NS(runner, allocationns, stress_pool_fill_empty_cycles);
+    RUN_TEST_NS(runner, allocationns, stress_newdelete_interleaved);
+
     // Benchmarks
 #ifndef NDEBUG
     out << "\n[Debug build - skipping benchmarks]\n";
 #else
     allocationns::run_benchmarks();
 #endif
-    
+
     return 0 == runner.print_summary();
 }
 

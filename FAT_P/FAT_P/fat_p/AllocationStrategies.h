@@ -1,55 +1,31 @@
-// AllocationStrategies.h - Simple allocator policies with zero dependencies
-//
-// Provides lightweight allocator policies for containers like StableHashMap.
-// For full-featured allocators with DbC, thread-safety wrappers, diagnostics,
-// and Expected-based error handling, see FatPAllocationStrategies.h.
-//
-// Allocator Policies:
-//
-//   NewDeleteAllocator (recommended default)
-//     - Standard new/delete per object
-//     - Best cache locality for lookups (malloc's allocation patterns)
-//     - Simple, well-understood behavior
-//     - Best for: Lookup-heavy workloads, general use
-//
-//   BlockAllocator
-//     - Allocates objects in contiguous 256-object blocks
-//     - Fast allocation (bump pointer) and deallocation (free list)
-//     - May hurt lookup cache locality (objects scattered across blocks)
-//     - Best for: Insert/erase-heavy workloads, churn
-//
-//   PoolAllocator<MaxObjects>
-//     - Pre-allocated contiguous pool with free list
-//     - Fastest allocation after warmup (just pointer ops)
-//     - Excellent cache locality
-//     - Fixed maximum capacity (throws std::bad_alloc if exceeded)
-//     - Best for: Fixed-size containers with known bounds
-//
-// Usage with StableHashMap:
-//
-//   // Default (NewDeleteAllocator) - best for most use cases
-//   fat_p::StableHashMap<K, V> map1;
-//
-//   // BlockAllocator for insert-heavy workloads
-//   fat_p::StableHashMap<K, V, std::hash<K>, std::equal_to<K>,
-//                        fat_p::BlockAllocator> map2;
-//
-//   // PoolAllocator for fixed-size, maximum performance
-//   fat_p::StableHashMap<K, V, std::hash<K>, std::equal_to<K>,
-//                        fat_p::PoolAllocator<10000>::template Allocator> map3;
-//
-// Allocator Concept Requirements:
-//   - Allocator<T> is default constructible
-//   - T* allocate(Args&&... args) - allocate and construct in-place
-//   - void deallocate(T* ptr) - destroy and recycle memory
-//   - Move constructible and move assignable
-//   - Copy operations deleted (stateful allocators)
-//
-// Thread Safety:
-//   These allocators are NOT thread-safe. For thread-safe allocators,
-//   see FatPAllocationStrategies.h which provides SynchronizedWrapper
-//   and LockFreeWrapper policies.
-//
+/**
+ * @file AllocationStrategies.h
+ * @brief Lightweight allocator policies for Fat-P containers.
+ *
+ * @layer Infrastructure
+ *
+ * Provides three allocator policies for use with policy-based containers
+ * like StableHashMap:
+ *
+ * - NewDeleteAllocator: Standard new/delete per object (recommended default)
+ * - BlockAllocator: Contiguous block allocation with bump pointer
+ * - PoolAllocator: Fixed-size pre-allocated pool
+ *
+ * These allocators are intentionally placed in the root `fat_p` namespace
+ * as they are cross-cutting primitives used by multiple container components.
+ *
+ * For full-featured allocators with DbC, thread-safety wrappers, diagnostics,
+ * and Expected-based error handling, see FatPAllocationStrategies.h.
+ *
+ * @note Thread-safety: NOT thread-safe. All allocators require external
+ *       synchronization for concurrent access. For thread-safe allocators,
+ *       see FatPAllocationStrategies.h which provides SynchronizedWrapper
+ *       and LockFreeWrapper policies.
+ *
+ * @see StableHashMap for primary usage with hash containers.
+ * @see FatPAllocationStrategies.h for thread-safe and diagnostic variants.
+ */
+
 #pragma once
 
 #include <cstddef>
@@ -60,27 +36,34 @@
 
 namespace fat_p {
 
-// ============================================================================
-// NewDeleteAllocator - Standard new/delete per object
-// ============================================================================
-//
-// Simple wrapper around operator new/delete. Each object is individually
-// allocated from the heap. This often provides better cache locality for
-// lookups due to malloc's allocation patterns.
-//
-// Supports over-aligned types (alignof(T) > alignof(std::max_align_t)) via
-// C++17 aligned new/delete. Examples: SIMD types, cache-line aligned structs.
-//
-// Complexity:
-//   allocate:   O(1) amortized (malloc)
-//   deallocate: O(1) amortized (free)
-//
-// Memory overhead: malloc metadata per object (~16-32 bytes typical)
-//
+/**
+ * @brief Standard new/delete allocator with per-object heap allocation.
+ *
+ * Simple wrapper around operator new/delete. Each object is individually
+ * allocated from the heap. This often provides better cache locality for
+ * lookups due to malloc's allocation patterns.
+ *
+ * Supports over-aligned types (alignof(T) > alignof(std::max_align_t)) via
+ * C++17 aligned new/delete. Examples: SIMD types, cache-line aligned structs.
+ *
+ * @tparam T Element type to allocate.
+ *
+ * @note Complexity: allocate() O(1) amortized, deallocate() O(1) amortized.
+ * @note Memory overhead: malloc metadata per object (~16-32 bytes typical).
+ * @note Thread-safety: NOT thread-safe. Caller must synchronize.
+ *
+ * @par Usage
+ * @code
+ * fat_p::NewDeleteAllocator<MyNode> alloc;
+ * MyNode* p = alloc.allocate(arg1, arg2);  // Constructs in-place
+ * alloc.deallocate(p);                      // Destroys and frees
+ * @endcode
+ */
 template<typename T>
-class NewDeleteAllocator {
-    static constexpr bool is_overaligned = alignof(T) > alignof(std::max_align_t);
-    
+class NewDeleteAllocator
+{
+    static constexpr bool kIsOveraligned = alignof(T) > alignof(std::max_align_t);
+
 public:
     NewDeleteAllocator() = default;
     NewDeleteAllocator(const NewDeleteAllocator&) = default;
@@ -88,304 +71,441 @@ public:
     NewDeleteAllocator(NewDeleteAllocator&&) noexcept = default;
     NewDeleteAllocator& operator=(NewDeleteAllocator&&) noexcept = default;
     ~NewDeleteAllocator() = default;
-    
+
+    /**
+     * @brief Allocates and constructs an object.
+     *
+     * @tparam Args Constructor argument types.
+     * @param args Arguments forwarded to T's constructor.
+     * @return Pointer to newly constructed object.
+     *
+     * @throws std::bad_alloc if allocation fails.
+     * @throws Any exception thrown by T's constructor.
+     */
     template<typename... Args>
-    T* allocate(Args&&... args) {
-        if constexpr (is_overaligned) {
+    T* allocate(Args&&... args)
+    {
+        if constexpr (kIsOveraligned)
+        {
             // Over-aligned: use aligned allocation + placement new
             void* mem = ::operator new(sizeof(T), std::align_val_t{alignof(T)});
             return new (mem) T(std::forward<Args>(args)...);
-        } else {
+        }
+        else
+        {
             // Normal alignment: standard new handles it
             return new T(std::forward<Args>(args)...);
         }
     }
-    
-    void deallocate(T* ptr) {
-        if constexpr (is_overaligned) {
+
+    /**
+     * @brief Destroys and deallocates an object.
+     *
+     * @param ptr Pointer to object previously returned by allocate().
+     *
+     * @pre ptr was returned by allocate() on this allocator.
+     * @pre ptr has not already been deallocated.
+     */
+    void deallocate(T* ptr)
+    {
+        if constexpr (kIsOveraligned)
+        {
             // Over-aligned: explicit destructor + aligned delete
             ptr->~T();
             ::operator delete(ptr, std::align_val_t{alignof(T)});
-        } else {
+        }
+        else
+        {
             delete ptr;
         }
     }
 };
 
-// ============================================================================
-// BlockAllocator - Allocates objects in contiguous blocks
-// ============================================================================
-//
-// Allocates objects from contiguous blocks of memory. New allocations use
-// a bump pointer within the current block. Deallocated objects go to a
-// free list for reuse.
-//
-// Supports over-aligned types via alignas propagation - the Block struct
-// inherits T's alignment, and C++17 new handles over-aligned structs.
-//
-// Complexity:
-//   allocate:   O(1) (bump pointer or free list pop)
-//   deallocate: O(1) (free list push)
-//
-// Memory overhead: ~8 bytes per block for linked list pointer
-//
-// Trade-offs vs NewDeleteAllocator:
-//   + Faster allocation (no malloc per object)
-//   + Faster deallocation (no free per object)
-//   + Less memory fragmentation
-//   - Objects scattered across blocks may hurt lookup cache locality
-//   - Memory not returned to OS until allocator destroyed
-//
+/**
+ * @brief Block allocator with contiguous storage and free list recycling.
+ *
+ * Allocates objects from contiguous blocks of memory. New allocations use
+ * a bump pointer within the current block. Deallocated objects go to a
+ * free list for reuse.
+ *
+ * Supports over-aligned types via alignas propagation - the Block struct
+ * inherits T's alignment, and C++17 new handles over-aligned structs.
+ *
+ * @tparam T Element type to allocate. Must be at least sizeof(void*).
+ *
+ * @note Complexity: allocate() O(1), deallocate() O(1).
+ * @note Memory overhead: ~8 bytes per block for linked list pointer.
+ * @note Thread-safety: NOT thread-safe. Caller must synchronize.
+ *
+ * @par Trade-offs vs NewDeleteAllocator
+ * - Faster allocation (no malloc per object)
+ * - Faster deallocation (no free per object)
+ * - Less memory fragmentation
+ * - Objects scattered across blocks may hurt lookup cache locality
+ * - Memory not returned to OS until allocator destroyed
+ *
+ * @par Usage
+ * @code
+ * fat_p::BlockAllocator<MyNode> alloc;
+ * MyNode* p = alloc.allocate(arg1, arg2);
+ * alloc.deallocate(p);
+ * @endcode
+ */
 template<typename T>
-class BlockAllocator {
+class BlockAllocator
+{
     static constexpr size_t kBlockSize = 256;  // Objects per block
-    
-    struct FreeNode {
+
+    struct FreeNode
+    {
         FreeNode* next;
     };
-    
+
     // T must be at least as large as a pointer for free list to work
-    static_assert(sizeof(T) >= sizeof(FreeNode*), 
+    static_assert(sizeof(T) >= sizeof(FreeNode*),
         "BlockAllocator<T>: T is too small (must be at least pointer-sized)");
-    
-    struct Block {
+
+    struct Block
+    {
         alignas(alignof(T)) char data[kBlockSize * sizeof(T)];
         Block* next = nullptr;
     };
-    
-    Block* head_block_ = nullptr;
-    FreeNode* free_list_ = nullptr;
-    size_t current_offset_ = kBlockSize;  // Forces new block on first alloc
-    
+
+    Block* mHeadBlock = nullptr;
+    FreeNode* mFreeList = nullptr;
+    size_t mCurrentOffset = kBlockSize;  // Forces new block on first alloc
+
 public:
     BlockAllocator() = default;
-    
+
     // Non-copyable (stateful)
     BlockAllocator(const BlockAllocator&) = delete;
     BlockAllocator& operator=(const BlockAllocator&) = delete;
-    
+
+    /**
+     * @brief Move constructor. Transfers ownership of all blocks.
+     * @param other Source allocator (left empty after move).
+     */
     BlockAllocator(BlockAllocator&& other) noexcept
-        : head_block_(other.head_block_),
-          free_list_(other.free_list_),
-          current_offset_(other.current_offset_) {
-        other.head_block_ = nullptr;
-        other.free_list_ = nullptr;
-        other.current_offset_ = kBlockSize;
+        : mHeadBlock(other.mHeadBlock)
+        , mFreeList(other.mFreeList)
+        , mCurrentOffset(other.mCurrentOffset)
+    {
+        other.mHeadBlock = nullptr;
+        other.mFreeList = nullptr;
+        other.mCurrentOffset = kBlockSize;
     }
-    
-    BlockAllocator& operator=(BlockAllocator&& other) noexcept {
-        if (this != &other) {
-            destroy_all_blocks();
-            head_block_ = other.head_block_;
-            free_list_ = other.free_list_;
-            current_offset_ = other.current_offset_;
-            other.head_block_ = nullptr;
-            other.free_list_ = nullptr;
-            other.current_offset_ = kBlockSize;
+
+    /**
+     * @brief Move assignment. Transfers ownership of all blocks.
+     * @param other Source allocator (left empty after move).
+     * @return Reference to this allocator.
+     */
+    BlockAllocator& operator=(BlockAllocator&& other) noexcept
+    {
+        if (this != &other)
+        {
+            destroyAllBlocks();
+            mHeadBlock = other.mHeadBlock;
+            mFreeList = other.mFreeList;
+            mCurrentOffset = other.mCurrentOffset;
+            other.mHeadBlock = nullptr;
+            other.mFreeList = nullptr;
+            other.mCurrentOffset = kBlockSize;
         }
         return *this;
     }
-    
-    ~BlockAllocator() {
-        destroy_all_blocks();
+
+    ~BlockAllocator()
+    {
+        destroyAllBlocks();
     }
-    
+
+    /**
+     * @brief Allocates and constructs an object.
+     *
+     * @tparam Args Constructor argument types.
+     * @param args Arguments forwarded to T's constructor.
+     * @return Pointer to newly constructed object.
+     *
+     * @throws std::bad_alloc if block allocation fails.
+     * @throws Any exception thrown by T's constructor.
+     */
     template<typename... Args>
-    T* allocate(Args&&... args) {
-        T* ptr = allocate_raw();
+    T* allocate(Args&&... args)
+    {
+        T* ptr = allocateRaw();
         new (ptr) T(std::forward<Args>(args)...);
         return ptr;
     }
-    
-    void deallocate(T* ptr) {
+
+    /**
+     * @brief Destroys and recycles an object to the free list.
+     *
+     * @param ptr Pointer to object previously returned by allocate().
+     *
+     * @pre ptr was returned by allocate() on this allocator.
+     * @pre ptr has not already been deallocated.
+     */
+    void deallocate(T* ptr)
+    {
         ptr->~T();
         FreeNode* fn = reinterpret_cast<FreeNode*>(ptr);
-        fn->next = free_list_;
-        free_list_ = fn;
+        fn->next = mFreeList;
+        mFreeList = fn;
     }
-    
+
 private:
-    T* allocate_raw() {
+    T* allocateRaw()
+    {
         // Fast path: reuse from free list
-        if (free_list_) {
-            FreeNode* fn = free_list_;
-            free_list_ = fn->next;
+        if (mFreeList)
+        {
+            FreeNode* fn = mFreeList;
+            mFreeList = fn->next;
             return reinterpret_cast<T*>(fn);
         }
-        
+
         // Allocate new block if needed
-        if (current_offset_ >= kBlockSize) {
-            Block* new_block = new Block();
-            new_block->next = head_block_;
-            head_block_ = new_block;
-            current_offset_ = 0;
+        if (mCurrentOffset >= kBlockSize)
+        {
+            Block* newBlock = new Block();
+            newBlock->next = mHeadBlock;
+            mHeadBlock = newBlock;
+            mCurrentOffset = 0;
         }
-        
+
         T* ptr = reinterpret_cast<T*>(
-            head_block_->data + current_offset_ * sizeof(T));
-        ++current_offset_;
+            mHeadBlock->data + mCurrentOffset * sizeof(T));
+        ++mCurrentOffset;
         return ptr;
     }
-    
-    void destroy_all_blocks() {
-        while (head_block_) {
-            Block* next = head_block_->next;
-            delete head_block_;
-            head_block_ = next;
+
+    void destroyAllBlocks()
+    {
+        while (mHeadBlock)
+        {
+            Block* next = mHeadBlock->next;
+            delete mHeadBlock;
+            mHeadBlock = next;
         }
-        free_list_ = nullptr;
-        current_offset_ = kBlockSize;
+        mFreeList = nullptr;
+        mCurrentOffset = kBlockSize;
     }
 };
 
-// ============================================================================
-// PoolAllocator - Fixed-size pre-allocated pool
-// ============================================================================
-//
-// Pre-allocates a contiguous array of objects. Allocation pops from free list,
-// deallocation pushes to free list. Zero heap allocations after construction.
-//
-// Complexity:
-//   allocate:   O(1) (free list pop)
-//   deallocate: O(1) (free list push)
-//
-// Memory overhead: None beyond the pre-allocated pool
-//
-// Trade-offs:
-//   + Fastest possible allocation
-//   + Best cache locality (contiguous memory)
-//   + No fragmentation
-//   + Deterministic performance (no malloc calls)
-//   - Fixed maximum capacity
-//   - Memory allocated upfront even if unused
-//   - Throws std::bad_alloc if pool exhausted
-//
-// Usage:
-//   fat_p::PoolAllocator<1024>::Allocator<MyNode> alloc;
-//   MyNode* p = alloc.allocate(args...);
-//   alloc.deallocate(p);
-//
+/**
+ * @brief Fixed-size pre-allocated pool allocator.
+ *
+ * Pre-allocates a contiguous array of objects. Allocation pops from free list,
+ * deallocation pushes to free list. Zero heap allocations after construction.
+ *
+ * @tparam MaxObjects Maximum number of objects the pool can hold.
+ *
+ * @note Complexity: allocate() O(1), deallocate() O(1).
+ * @note Memory overhead: None beyond the pre-allocated pool.
+ * @note Thread-safety: NOT thread-safe. Caller must synchronize.
+ *
+ * @par Trade-offs
+ * - Fastest possible allocation (just pointer operations)
+ * - Best cache locality (contiguous memory)
+ * - No fragmentation
+ * - Deterministic performance (no malloc calls)
+ * - Fixed maximum capacity
+ * - Memory allocated upfront even if unused
+ * - Throws std::bad_alloc if pool exhausted
+ *
+ * @par Usage
+ * @code
+ * fat_p::PoolAllocator<1024>::Allocator<MyNode> alloc;
+ * MyNode* p = alloc.allocate(args...);
+ * alloc.deallocate(p);
+ *
+ * // Query pool status
+ * size_t remaining = alloc.available();
+ * bool isFull = alloc.full();
+ * @endcode
+ */
 template<size_t MaxObjects>
-struct PoolAllocator {
+struct PoolAllocator
+{
+    /**
+     * @brief The actual allocator type for a specific element type.
+     *
+     * @tparam T Element type to allocate. Must be trivially copyable and
+     *         at least sizeof(void*).
+     */
     template<typename T>
-    class Allocator {
-        struct FreeNode {
+    class Allocator
+    {
+        struct FreeNode
+        {
             FreeNode* next;
         };
-        
+
         // T must be at least as large as a pointer for free list to work
-        static_assert(sizeof(T) >= sizeof(FreeNode*), 
+        static_assert(sizeof(T) >= sizeof(FreeNode*),
             "PoolAllocator<T>: T is too small (must be at least pointer-sized)");
-        
+
         // Move operations use memcpy, which requires trivially copyable T
-        // If you need non-trivial types, use NewDeleteAllocator or BlockAllocator instead
+        // If you need non-trivial types, use NewDeleteAllocator or BlockAllocator
         static_assert(std::is_trivially_copyable_v<T> || MaxObjects == 0,
             "PoolAllocator<T>: T must be trivially copyable for move operations. "
             "Use NewDeleteAllocator or BlockAllocator for non-trivial types.");
-        
-        alignas(alignof(T)) char storage_[MaxObjects * sizeof(T)];
-        FreeNode* free_list_ = nullptr;
-        size_t allocated_ = 0;
-        bool initialized_ = false;
-        
-        void initialize() {
-            if (initialized_) return;
-            // Build free list in reverse (LIFO order)
-            for (size_t i = MaxObjects; i > 0; --i) {
-                FreeNode* fn = reinterpret_cast<FreeNode*>(
-                    storage_ + (i - 1) * sizeof(T));
-                fn->next = free_list_;
-                free_list_ = fn;
+
+        alignas(alignof(T)) char mStorage[MaxObjects * sizeof(T)];
+        FreeNode* mFreeList = nullptr;
+        size_t mAllocated = 0;
+        bool mInitialized = false;
+
+        void initialize()
+        {
+            if (mInitialized)
+            {
+                return;
             }
-            initialized_ = true;
+            // Build free list in reverse (LIFO order)
+            for (size_t i = MaxObjects; i > 0; --i)
+            {
+                FreeNode* fn = reinterpret_cast<FreeNode*>(
+                    mStorage + (i - 1) * sizeof(T));
+                fn->next = mFreeList;
+                mFreeList = fn;
+            }
+            mInitialized = true;
         }
-        
+
     public:
         Allocator() = default;
-        
+
         // Non-copyable (stateful with embedded storage)
         Allocator(const Allocator&) = delete;
         Allocator& operator=(const Allocator&) = delete;
-        
+
+        /**
+         * @brief Move constructor. Copies storage and rebuilds free list.
+         * @param other Source allocator (left empty after move).
+         */
         Allocator(Allocator&& other) noexcept
-            : free_list_(nullptr),
-              allocated_(other.allocated_),
-              initialized_(other.initialized_) {
-            if (initialized_) {
-                std::memcpy(storage_, other.storage_, MaxObjects * sizeof(T));
+            : mFreeList(nullptr)
+            , mAllocated(other.mAllocated)
+            , mInitialized(other.mInitialized)
+        {
+            if (mInitialized)
+            {
+                std::memcpy(mStorage, other.mStorage, MaxObjects * sizeof(T));
                 // Rebuild free list for new storage location
-                free_list_ = nullptr;
-                FreeNode* other_current = other.free_list_;
-                FreeNode** my_tail = &free_list_;
-                while (other_current) {
-                    size_t offset = reinterpret_cast<char*>(other_current) - other.storage_;
-                    FreeNode* my_node = reinterpret_cast<FreeNode*>(storage_ + offset);
-                    *my_tail = my_node;
-                    my_tail = &my_node->next;
-                    other_current = other_current->next;
+                mFreeList = nullptr;
+                FreeNode* otherCurrent = other.mFreeList;
+                FreeNode** myTail = &mFreeList;
+                while (otherCurrent)
+                {
+                    ptrdiff_t diff = reinterpret_cast<char*>(otherCurrent) - other.mStorage;
+                    size_t offset = static_cast<size_t>(diff);
+                    FreeNode* myNode = reinterpret_cast<FreeNode*>(mStorage + offset);
+                    *myTail = myNode;
+                    myTail = &myNode->next;
+                    otherCurrent = otherCurrent->next;
                 }
-                *my_tail = nullptr;
+                *myTail = nullptr;
             }
-            other.free_list_ = nullptr;
-            other.allocated_ = 0;
-            other.initialized_ = false;
+            other.mFreeList = nullptr;
+            other.mAllocated = 0;
+            other.mInitialized = false;
         }
-        
-        Allocator& operator=(Allocator&& other) noexcept {
-            if (this != &other) {
-                allocated_ = other.allocated_;
-                initialized_ = other.initialized_;
-                if (initialized_) {
-                    std::memcpy(storage_, other.storage_, MaxObjects * sizeof(T));
+
+        /**
+         * @brief Move assignment. Copies storage and rebuilds free list.
+         * @param other Source allocator (left empty after move).
+         * @return Reference to this allocator.
+         */
+        Allocator& operator=(Allocator&& other) noexcept
+        {
+            if (this != &other)
+            {
+                mAllocated = other.mAllocated;
+                mInitialized = other.mInitialized;
+                if (mInitialized)
+                {
+                    std::memcpy(mStorage, other.mStorage, MaxObjects * sizeof(T));
                     // Rebuild free list
-                    free_list_ = nullptr;
-                    FreeNode* other_current = other.free_list_;
-                    FreeNode** my_tail = &free_list_;
-                    while (other_current) {
-                        size_t offset = reinterpret_cast<char*>(other_current) - other.storage_;
-                        FreeNode* my_node = reinterpret_cast<FreeNode*>(storage_ + offset);
-                        *my_tail = my_node;
-                        my_tail = &my_node->next;
-                        other_current = other_current->next;
+                    mFreeList = nullptr;
+                    FreeNode* otherCurrent = other.mFreeList;
+                    FreeNode** myTail = &mFreeList;
+                    while (otherCurrent)
+                    {
+                        ptrdiff_t diff = reinterpret_cast<char*>(otherCurrent) - other.mStorage;
+                        size_t offset = static_cast<size_t>(diff);
+                        FreeNode* myNode = reinterpret_cast<FreeNode*>(mStorage + offset);
+                        *myTail = myNode;
+                        myTail = &myNode->next;
+                        otherCurrent = otherCurrent->next;
                     }
-                    *my_tail = nullptr;
+                    *myTail = nullptr;
                 }
-                other.free_list_ = nullptr;
-                other.allocated_ = 0;
-                other.initialized_ = false;
+                other.mFreeList = nullptr;
+                other.mAllocated = 0;
+                other.mInitialized = false;
             }
             return *this;
         }
-        
+
         ~Allocator() = default;
-        
+
+        /**
+         * @brief Allocates and constructs an object from the pool.
+         *
+         * @tparam Args Constructor argument types.
+         * @param args Arguments forwarded to T's constructor.
+         * @return Pointer to newly constructed object.
+         *
+         * @throws std::bad_alloc if pool is exhausted.
+         * @throws Any exception thrown by T's constructor.
+         */
         template<typename... Args>
-        T* allocate(Args&&... args) {
+        T* allocate(Args&&... args)
+        {
             initialize();
-            if (!free_list_) {
+            if (!mFreeList)
+            {
                 throw std::bad_alloc();  // Pool exhausted
             }
-            FreeNode* fn = free_list_;
-            free_list_ = fn->next;
-            ++allocated_;
+            FreeNode* fn = mFreeList;
+            mFreeList = fn->next;
+            ++mAllocated;
             T* ptr = reinterpret_cast<T*>(fn);
             new (ptr) T(std::forward<Args>(args)...);
             return ptr;
         }
-        
-        void deallocate(T* ptr) {
+
+        /**
+         * @brief Destroys and returns an object to the pool.
+         *
+         * @param ptr Pointer to object previously returned by allocate().
+         *
+         * @pre ptr was returned by allocate() on this allocator.
+         * @pre ptr has not already been deallocated.
+         */
+        void deallocate(T* ptr)
+        {
             ptr->~T();
             FreeNode* fn = reinterpret_cast<FreeNode*>(ptr);
-            fn->next = free_list_;
-            free_list_ = fn;
-            --allocated_;
+            fn->next = mFreeList;
+            mFreeList = fn;
+            --mAllocated;
         }
-        
-        // Pool status queries
-        static constexpr size_t capacity() { return MaxObjects; }
-        size_t allocated() const { return allocated_; }
-        size_t available() const { return MaxObjects - allocated_; }
-        bool full() const { return allocated_ >= MaxObjects; }
+
+        /// @brief Returns the maximum number of objects the pool can hold.
+        [[nodiscard]] static constexpr size_t capacity() { return MaxObjects; }
+
+        /// @brief Returns the number of currently allocated objects.
+        [[nodiscard]] size_t allocated() const { return mAllocated; }
+
+        /// @brief Returns the number of available slots in the pool.
+        [[nodiscard]] size_t available() const { return MaxObjects - mAllocated; }
+
+        /// @brief Returns true if the pool is fully allocated.
+        [[nodiscard]] bool full() const { return mAllocated >= MaxObjects; }
     };
 };
 
