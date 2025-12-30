@@ -78,6 +78,7 @@ jobs:
           g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
             -I./FAT_P/FAT_P/fat_p \
             FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
 
@@ -89,7 +90,7 @@ jobs:
   # ===========================================================================
   linux-clang:
     name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -119,6 +120,7 @@ jobs:
           clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
             -I./FAT_P/FAT_P/fat_p \
             FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
 
@@ -144,7 +146,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_AlignedVector.cpp /Fe:test_av.exe
+          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_AlignedVector.cpp /Fe:test_av.exe
 
       - name: Run tests
         run: .\test_av.exe
@@ -162,6 +164,7 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
             -I./FAT_P/FAT_P/fat_p \
             FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
 
@@ -180,6 +183,7 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
             -I./FAT_P/FAT_P/fat_p \
             FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
 
@@ -198,6 +202,7 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Wextra -g -O1 \
             -fsanitize=thread -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
             -I./FAT_P/FAT_P/fat_p \
             FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
 
