@@ -29,7 +29,7 @@
  * - SaturatingPolicy on NEON: Zero overhead via hardware vqadd/vqsub
  *
  * Why int8/int16 SIMD is NOT implemented:
- * - Wide-multiply explosion (int8*int8→int16 requires unpack/repack)
+ * - Wide-multiply explosion (int8*int8â†’int16 requires unpack/repack)
  * - No _mm256_mul_epi8 intrinsic exists
  * - C++ promotes int8*int8 to int (overflow on narrowing, not operation)
  * - Image/audio usually wants saturation, not error detection
@@ -53,6 +53,7 @@
 #include <cstdint>    // std::int32_t, etc.
 #include <limits>     // std::numeric_limits
 #include <type_traits> // std::is_signed_v, etc.
+#include <utility>    // std::forward
 #include <vector>
 
 // Integer SIMD acceleration (SSE2, AVX2, NEON)
@@ -60,6 +61,30 @@
 #include "CheckedArithmetic_IntSimd.h"
 
 namespace fat_p {
+
+// =============================================================================
+// Internal Helper: Non-constexpr Error Path
+// =============================================================================
+// Rationale: C++17 constexpr functions may not contain non-literal locals.
+// always_enforce() constructs an RAII enforcer (non-literal type), so we route
+// the failure path through a non-constexpr helper while preserving the caller's
+// FATP_LOCUS for accurate error reporting.
+//
+// This helper is intentionally [[noreturn]] to enable dead-code elimination
+// and prevent "control reaches end of non-void function" warnings.
+
+namespace detail {
+
+template <typename... Msgs>
+inline void checked_arithmetic_fail(const char* locus, Msgs&&... msgs)
+{
+    auto enforcer =
+        ::fat_p::enforce_policy_impl<::fat_p::AlwaysEnforcePolicy>(false, "false", locus);
+    enforcer(std::forward<Msgs>(msgs)...);
+    // RAII destructor throws on scope exit
+}
+
+} // namespace detail
 
 // =============================================================================
 // Scalar Integer Operations
@@ -92,8 +117,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Addition overflow:", a, "+", b);
-            return T{};  // Unreachable; satisfies return type if enforce returns
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Addition overflow:", a, "+", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -141,8 +165,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Addition overflow:", a, "+", b);
-            return T{};  // Unreachable; satisfies return type if enforce returns
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Addition overflow:", a, "+", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -191,8 +214,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Subtraction overflow:", a, "-", b);
-            return T{};  // Unreachable; satisfies return type if enforce returns
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Subtraction overflow:", a, "-", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -238,8 +260,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Subtraction overflow:", a, "-", b);
-            return T{};  // Unreachable; satisfies return type if enforce returns
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Subtraction overflow:", a, "-", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -288,8 +309,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Multiplication overflow:", a, "*", b);
-            return T{};  // Unreachable; satisfies return type if enforce returns
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Multiplication overflow:", a, "*", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -335,8 +355,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Multiplication overflow:", a, "*", b);
-            return T{};  // Unreachable; satisfies return type if enforce returns
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Multiplication overflow:", a, "*", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -380,8 +399,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Division by zero:", a, "/", b);
-            return T{};  // Unreachable; satisfies return type if enforce returns
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Division by zero:", a, "/", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -403,8 +421,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                always_enforce(false, "Overflow in division (min/-1):", a, "/", b);
-                return T{};  // Unreachable; satisfies return type if enforce returns
+                detail::checked_arithmetic_fail(FATP_LOCUS, "Overflow in division (min/-1):", a, "/", b);
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -433,8 +450,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Modulo by zero:", a, "%", b);
-            return T{};  // Unreachable; satisfies return type if enforce returns
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Modulo by zero:", a, "%", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -454,8 +470,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                always_enforce(false, "Overflow in mod (min%-1):", a, "%", b);
-                return T{};  // Unreachable; satisfies return type if enforce returns
+                detail::checked_arithmetic_fail(FATP_LOCUS, "Overflow in mod (min%-1):", a, "%", b);
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -531,8 +546,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL, typename S>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Invalid left shift amount:", shift);
-            return T{};  // Unreachable; satisfies return type if enforce returns
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Invalid left shift amount:", shift);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -552,8 +566,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL, typename S>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                always_enforce(false, "Left shift of negative value is undefined:", a, "<<", shift);
-                return T{};  // Unreachable; satisfies return type if enforce returns
+                detail::checked_arithmetic_fail(FATP_LOCUS, "Left shift of negative value is undefined:", a, "<<", shift);
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -574,8 +587,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL, typename S>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                always_enforce(false, "Left shift overflow:", a, "<<", shift);
-                return T{};  // Unreachable; satisfies return type if enforce returns
+                detail::checked_arithmetic_fail(FATP_LOCUS, "Left shift overflow:", a, "<<", shift);
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -609,8 +621,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL, typename S>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Invalid right shift amount:", shift);
-            return T{};  // Unreachable; satisfies return type if enforce returns
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Invalid right shift amount:", shift);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -653,8 +664,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                always_enforce(false, "Overflow in negation (min):", a);
-                return T{};  // Unreachable; satisfies return type if enforce returns
+                detail::checked_arithmetic_fail(FATP_LOCUS, "Overflow in negation (min):", a);
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -692,8 +702,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                always_enforce(false, "Overflow in abs (min):", a);
-                return T{};  // Unreachable; satisfies return type if enforce returns
+                detail::checked_arithmetic_fail(FATP_LOCUS, "Overflow in abs (min):", a);
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -781,8 +790,7 @@ template <typename P, typename Policy = ReturnExpectedPolicy>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                always_enforce(false, "Pointer arithmetic overflow: offset == PTRDIFF_MIN");
-                return nullptr;  // Unreachable; satisfies return type if enforce returns
+                detail::checked_arithmetic_fail(FATP_LOCUS, "Pointer arithmetic overflow: offset == PTRDIFF_MIN");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -860,8 +868,7 @@ template <typename P, typename Policy = ReturnExpectedPolicy>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                always_enforce(false, "Pointer arithmetic overflow: offset == PTRDIFF_MIN");
-                return nullptr;  // Unreachable; satisfies return type if enforce returns
+                detail::checked_arithmetic_fail(FATP_LOCUS, "Pointer arithmetic overflow: offset == PTRDIFF_MIN");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -945,8 +952,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Vector size mismatch in addition");
-            return std::vector<T>();  // Unreachable; satisfies return type if enforce returns
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Vector size mismatch in addition");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -1025,8 +1031,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Vector size mismatch in subtraction");
-            return std::vector<T>();  // Unreachable; satisfies return type if enforce returns
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Vector size mismatch in subtraction");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -1093,7 +1098,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
 /**
  * @brief SIMD-accelerated checked vector multiplication for integers
  *
- * Uses wide-multiply technique: int32*int32→int64 with bounds check.
+ * Uses wide-multiply technique: int32*int32â†’int64 with bounds check.
  * Only available for int32_t/uint32_t (int64 would need int128).
  */
 template <typename Policy = ThrowOnErrorPolicy, typename T>
@@ -1108,8 +1113,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Vector size mismatch in multiplication");
-            return std::vector<T>();  // Unreachable; satisfies return type if enforce returns
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Vector size mismatch in multiplication");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {

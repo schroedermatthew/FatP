@@ -80,7 +80,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Invalid range: min > max");
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Invalid range: min > max");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -99,7 +99,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                always_enforce(false, "NaN in clamp");
+                detail::checked_arithmetic_fail(FATP_LOCUS, "NaN in clamp");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -138,7 +138,7 @@ template <typename Policy = ReturnExpectedPolicy, typename T>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Invalid range: min > max");
+            detail::checked_arithmetic_fail(FATP_LOCUS, "Invalid range: min > max");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -157,7 +157,7 @@ template <typename Policy = ReturnExpectedPolicy, typename T>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                always_enforce(false, "NaN in range check");
+                detail::checked_arithmetic_fail(FATP_LOCUS, "NaN in range check");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -286,7 +286,7 @@ template <typename To, typename Policy = ThrowOnErrorPolicy, typename From>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                always_enforce(false, "checked_cast: NaN cannot be converted");
+                detail::checked_arithmetic_fail(FATP_LOCUS, "checked_cast: NaN cannot be converted");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -310,7 +310,7 @@ template <typename To, typename Policy = ThrowOnErrorPolicy, typename From>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                always_enforce(false, "checked_cast: Inf cannot be converted to integer");
+                detail::checked_arithmetic_fail(FATP_LOCUS, "checked_cast: Inf cannot be converted to integer");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -332,7 +332,7 @@ template <typename To, typename Policy = ThrowOnErrorPolicy, typename From>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "checked_cast overflow");
+            detail::checked_arithmetic_fail(FATP_LOCUS, "checked_cast overflow");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {

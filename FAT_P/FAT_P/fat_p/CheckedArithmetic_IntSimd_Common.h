@@ -6,7 +6,7 @@
  * This provides the foundational infrastructure for checked integer SIMD
  * operations across SSE2, AVX2, and NEON architectures.
  * 
- * Design: detect → scalar fallback
+ * Design: detect â†’ scalar fallback
  * - Perform SIMD arithmetic (fast path)
  * - Check for overflow using architecture-specific masks
  * - If overflow detected, fall back to scalar checked_* for proper error handling
@@ -103,7 +103,7 @@ constexpr OverflowType detect_add_overflow(T a, T b, T result) noexcept {
  * @brief Detect signed subtraction overflow
  */
 template<typename T>
-constexpr OverflowType detect_sub_overflow(T a, T b, T result) noexcept {
+constexpr OverflowType detect_sub_overflow(T a, T b, [[maybe_unused]] T result) noexcept {
     static_assert(std::is_integral_v<T>, "Integral type required");
     
     if constexpr (std::is_signed_v<T>) {

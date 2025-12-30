@@ -661,7 +661,9 @@ public:
         if constexpr (std::is_base_of_v<std::forward_iterator_tag, IterCategory>) {
             // Forward+ iterators: can compute distance and traverse twice
             clear();
-            size_t count = std::distance(first, last);
+            auto dist = std::distance(first, last);
+            enforce(dist >= 0, "Negative iterator distance");
+            size_t count = static_cast<size_t>(dist);
             if (count > capacity_) {
                 reserve(count);
             }
@@ -1127,7 +1129,9 @@ private:
                                ForwardIt first,
                                ForwardIt last,
                                std::forward_iterator_tag) {
-        size_t count = std::distance(first, last);
+        auto dist = std::distance(first, last);
+        enforce(dist >= 0, "Negative iterator distance");
+        size_t count = static_cast<size_t>(dist);
         if (count == 0) {
             return data_ + idx;
         }
