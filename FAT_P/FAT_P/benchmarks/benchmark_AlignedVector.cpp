@@ -1286,7 +1286,9 @@ void benchmark_copy_move(const std::vector<size_t>& sizes)
         auto data = generate_data<double>(N, g_config.seed);
 
         // Iteration counts: copy/construct are O(n), move-only is O(1).
-        constexpr size_t ITERS_COPY = 100;
+        // Copy-ctor includes allocation and can be noisy at small N; use more iterations
+        // for smaller sizes to stabilize measurements without changing semantics.
+        const size_t ITERS_COPY = (N <= 20000 ? 500 : (N <= 200000 ? 200 : 50));
         constexpr size_t ITERS_CONSTRUCT_MOVE = 100;
         constexpr size_t ITERS_MOVE_ONLY = 500000;
 
@@ -1867,7 +1869,8 @@ void benchmark_corner_cases()
 
         std::mt19937 rng(g_config.seed);
         std::vector<size_t> order = {0, 1};
-        constexpr size_t CAP = 1000;
+        constexpr size_t CAP_TARGET = 1000;
+        constexpr size_t BATCH = 512; // reallocation events per timed sample
 
         for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
         {
@@ -1880,18 +1883,25 @@ void benchmark_corner_cases()
 
                 if (idx == 0)
                 {
-                    std::vector<int> vec;
-                    vec.reserve(CAP);
-                    for (size_t i = 0; i < CAP; ++i)
+                    std::vector<std::vector<int>> batch;
+                    batch.reserve(BATCH);
+                    for (size_t b = 0; b < BATCH; ++b)
                     {
-                        vec.push_back(static_cast<int>(i));
+                        std::vector<int> vec;
+                        vec.reserve(CAP_TARGET);
+                        const size_t cap = vec.capacity();
+                        vec.resize(cap);
+                        batch.push_back(std::move(vec));
                     }
 
                     timer.start();
-                    vec.push_back(999);  // Triggers reallocation
-                    double ns = timer.elapsed_ns();
+                    for (auto& vec : batch)
+                    {
+                        vec.push_back(999);  // Triggers reallocation
+                    }
+                    double ns = timer.elapsed_ns() / static_cast<double>(BATCH);
 
-                    prevent_opt(static_cast<int64_t>(vec.size()));
+                    prevent_opt(static_cast<int64_t>(batch[0].size()));
                     if (!is_warmup)
                     {
                         results[idx].samples.push_back(ns);
@@ -1899,18 +1909,25 @@ void benchmark_corner_cases()
                 }
                 else
                 {
-                    fat_p::AlignedVector<int, 64> vec;
-                    vec.reserve(CAP);
-                    for (size_t i = 0; i < CAP; ++i)
+                    std::vector<fat_p::AlignedVector<int, 64>> batch;
+                    batch.reserve(BATCH);
+                    for (size_t b = 0; b < BATCH; ++b)
                     {
-                        vec.push_back(static_cast<int>(i));
+                        fat_p::AlignedVector<int, 64> vec;
+                        vec.reserve(CAP_TARGET);
+                        const size_t cap = vec.capacity();
+                        vec.resize(cap);
+                        batch.push_back(std::move(vec));
                     }
 
                     timer.start();
-                    vec.push_back(999);  // Triggers reallocation
-                    double ns = timer.elapsed_ns();
+                    for (auto& vec : batch)
+                    {
+                        vec.push_back(999);  // Triggers reallocation
+                    }
+                    double ns = timer.elapsed_ns() / static_cast<double>(BATCH);
 
-                    prevent_opt(static_cast<int64_t>(vec.size()));
+                    prevent_opt(static_cast<int64_t>(batch[0].size()));
                     if (!is_warmup)
                     {
                         results[idx].samples.push_back(ns);
