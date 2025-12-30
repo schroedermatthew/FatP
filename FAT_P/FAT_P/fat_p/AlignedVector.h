@@ -65,6 +65,8 @@ public:
 
     static_assert((Alignment & (Alignment - 1)) == 0, "Alignment must be power of 2");
     static_assert(Alignment >= alignof(T), "Alignment must be at least alignof(T)");
+    static_assert(Alignment >= alignof(void*),
+                  "Alignment must be at least alignof(void*) for posix_memalign/_aligned_malloc");
 
     static constexpr size_t alignment = Alignment;
 
@@ -1009,6 +1011,7 @@ public:
      * @return Iterator to inserted element
      *
      * @note Complexity: O(size())
+     * @note Exception safety: Basic guarantee (leak-free even if move assignment throws)
      */
     iterator insert(const_iterator pos, const T& value)
     {
@@ -1030,12 +1033,23 @@ public:
 
         if (index < mSize)
         {
+            // Construct tail element in uninitialized memory
             new (mData + mSize) T(std::move(mData[mSize - 1]));
-            for (size_type i = mSize - 1; i > index; --i)
+            try
             {
-                mData[i] = std::move(mData[i - 1]);
+                // Shift elements (may throw)
+                for (size_type i = mSize - 1; i > index; --i)
+                {
+                    mData[i] = std::move(mData[i - 1]);
+                }
+                mData[index] = value;
             }
-            mData[index] = value;
+            catch (...)
+            {
+                // Destroy the tail element we constructed before rethrowing
+                destroyRange(mData + mSize, mData + mSize + 1);
+                throw;
+            }
         }
         else
         {
@@ -1053,6 +1067,7 @@ public:
      * @return Iterator to inserted element
      *
      * @note Complexity: O(size())
+     * @note Exception safety: Basic guarantee (leak-free even if move assignment throws)
      */
     iterator insert(const_iterator pos, T&& value)
     {
@@ -1074,12 +1089,23 @@ public:
 
         if (index < mSize)
         {
+            // Construct tail element in uninitialized memory
             new (mData + mSize) T(std::move(mData[mSize - 1]));
-            for (size_type i = mSize - 1; i > index; --i)
+            try
             {
-                mData[i] = std::move(mData[i - 1]);
+                // Shift elements (may throw)
+                for (size_type i = mSize - 1; i > index; --i)
+                {
+                    mData[i] = std::move(mData[i - 1]);
+                }
+                mData[index] = std::move(value);
             }
-            mData[index] = std::move(value);
+            catch (...)
+            {
+                // Destroy the tail element we constructed before rethrowing
+                destroyRange(mData + mSize, mData + mSize + 1);
+                throw;
+            }
         }
         else
         {
@@ -1349,7 +1375,7 @@ public:
      * @return Iterator to emplaced element
      *
      * @note Complexity: O(size())
-     * @note Exception safety: Basic guarantee
+     * @note Exception safety: Basic guarantee (leak-free even if move assignment throws)
      */
     template<typename... Args>
     iterator emplace(const_iterator pos, Args&&... args)
@@ -1368,15 +1394,25 @@ public:
             // If construction throws, vector state is unchanged.
             T temp(std::forward<Args>(args)...);
 
-            // Now do the shift (move operations should be noexcept for most types)
+            // Construct tail element in uninitialized memory
             new (mData + mSize) T(std::move(mData[mSize - 1]));
-            for (size_type i = mSize - 1; i > index; --i)
+            try
             {
-                mData[i] = std::move(mData[i - 1]);
-            }
+                // Shift elements (may throw)
+                for (size_type i = mSize - 1; i > index; --i)
+                {
+                    mData[i] = std::move(mData[i - 1]);
+                }
 
-            // Move temp into position (move assignment should be noexcept)
-            mData[index] = std::move(temp);
+                // Move temp into position (may throw)
+                mData[index] = std::move(temp);
+            }
+            catch (...)
+            {
+                // Destroy the tail element we constructed before rethrowing
+                destroyRange(mData + mSize, mData + mSize + 1);
+                throw;
+            }
         }
         else
         {

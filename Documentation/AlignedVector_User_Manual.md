@@ -53,9 +53,10 @@
    - [Allocator Comparison](#allocator-comparison)
    - [Custom Allocator Integration](#custom-allocator-integration)
 10. [Exception Safety](#exception-safety)
-    - [The Strong Guarantee](#the-strong-guarantee)
-    - [How It Works](#how-it-works)
-    - [move_if_noexcept](#move_if_noexcept)
+    - [Summary of Guarantees](#summary-of-guarantees)
+    - [Reallocation Behavior](#reallocation-behavior)
+    - [Practical Guidance](#practical-guidance)
+    - [Exceptions Thrown](#exceptions-thrown)
 11. [SIMD and Auto-Vectorization](#simd-and-auto-vectorization)
     - [What is SIMD?](#what-is-simd)
     - [The assume_aligned Accessor](#the-assume_aligned-accessor)
@@ -394,7 +395,7 @@ void deallocate(T* ptr, size_t) noexcept {
 - No runtime storage overhead for alignment value
 - Compiler optimization opportunities
 
-**Strong exception guarantee:** All mutating operations leave the container unchanged if an exception is thrown. This is essential for production code where errors must not corrupt data.
+**Exception safety:** Container remains valid on exceptions; reallocation operations (reserve, shrink_to_fit, copy assignment) provide the strong guarantee. In-place operations (insert, emplace, erase) provide the basic guarantee.
 
 **std::vector compatibility:** AlignedVector provides the full `std::vector` interface, making it a drop-in replacement in most code.
 
@@ -1124,91 +1125,47 @@ alloc.deallocate(buffer, 100);
 
 ## Exception Safety
 
-### The Strong Guarantee
+AlignedVector is **exception-safe**: if an operation throws, the container remains valid (destructible, iterable, and queryable) and does not leak resources.  
+However, **not every mutating operation provides the strong exception guarantee**—some operations must shift elements in-place and therefore only provide the basic guarantee.
 
-AlignedVector provides the **strong exception guarantee** for all mutating operations: if an operation throws an exception, the container is left unchanged.
+### Summary of Guarantees
 
-```cpp
-struct MayThrow {
-    MayThrow(int v) : value(v) {
-        if (v == 42) throw std::runtime_error("42 is forbidden");
-    }
-    int value;
-};
+**Strong guarantee** (operation either succeeds or has no observable effect):
+- Constructors that fail during construction (no partially-formed container escapes)
+- Copy assignment (`operator=(const AlignedVector&)`) via copy-and-swap
+- `assign(...)` overloads (build a temporary and swap)
+- `reserve()` and `shrink_to_fit()` (reallocation is commit-on-success)
 
-fat_p::AlignedVector<MayThrow> vec;
-vec.emplace_back(1);
-vec.emplace_back(2);
+**Basic guarantee** (container remains valid; contents may be partially modified if an exception is thrown):
+- `insert(...)` and `emplace(pos, ...)` (shifts elements in-place using move/copy assignment)
+- `erase(...)` (shifts elements in-place using move assignment)
+- `resize(...)` (may reallocate and then throw during element construction; `size()` remains unchanged but `capacity()` / `data()` may change)
 
-try {
-    vec.emplace_back(42);  // Throws!
-} catch (...) {
-    // vec is unchanged
-    assert(vec.size() == 2);
-    assert(vec[0].value == 1);
-    assert(vec[1].value == 2);
-}
-```
+### Reallocation Behavior
 
-### How It Works
+Operations that reallocate follow a commit-on-success pattern:
 
-For operations that might reallocate (like `push_back` when capacity is full):
+1. Allocate a new aligned buffer
+2. Construct/move/copy elements into the new buffer
+3. If construction throws, destroy the partially-constructed new buffer and rethrow
+4. Only on success: destroy the old buffer and commit the new storage
 
-1. Allocate new memory block
-2. Move or copy elements to new block
-3. If step 2 throws, destroy partial new block and rethrow
-4. Only if step 2 succeeds: destroy old block
+To preserve the strong guarantee for reallocation, AlignedVector follows a **“move if noexcept, otherwise copy”** policy when transferring existing elements:
 
-```cpp
-void reallocate(size_type new_capacity) {
-    // Step 1: Allocate new memory
-    pointer new_data = allocator_.allocate(new_capacity);
-    
-    try {
-        // Step 2: Move/copy elements
-        construct_range_move(new_data, data_, size_);
-    } catch (...) {
-        // Step 3: Cleanup on failure
-        allocator_.deallocate(new_data, new_capacity);
-        throw;  // Original data_ unchanged!
-    }
-    
-    // Step 4: Success - replace old with new
-    destroy_range(data_, data_ + size_);
-    allocator_.deallocate(data_, capacity_);
-    data_ = new_data;
-    capacity_ = new_capacity;
-}
-```
+- If `T` is `std::is_nothrow_move_constructible_v<T>` (or copying is not possible), elements are moved
+- Otherwise, elements are copied
 
-### move_if_noexcept
+### Practical Guidance
 
-When moving elements to a new buffer, AlignedVector uses `std::move_if_noexcept`:
+- If you need the strongest guarantees and best performance, prefer element types `T` with `noexcept` move constructor **and** `noexcept` move assignment.
+- For types that can throw on move/copy assignment, middle `insert`/`emplace`/`erase` are still safe (no leaks), but may leave some elements moved-from before the exception is observed.
 
-```cpp
-// If T's move constructor is noexcept: move (fast)
-// If T's move constructor might throw: copy (safe)
+### Exceptions Thrown
 
-new (dest) T(std::move_if_noexcept(source));
-```
+- Allocation failures: `std::bad_alloc`
+- Capacity overflow during growth: `std::length_error`
+- Bounds-checked access: `std::out_of_range` (from `at()`)
 
-This ensures that if moving throws, the original elements are still intact (they weren't moved from).
-
-**Implication:** If your type has a throwing move constructor, AlignedVector falls back to copying, which is slower. Mark your move constructors `noexcept` when possible:
-
-```cpp
-struct Widget {
-    std::vector<int> data;
-    
-    // Good: noexcept move constructor
-    Widget(Widget&& other) noexcept : data(std::move(other.data)) {}
-    
-    // Bad: potentially throwing move (if custom allocator might throw)
-    // Widget(Widget&& other) : data(std::move(other.data)) {}
-};
-```
-
----
 
 ## SIMD and Auto-Vectorization
 
@@ -1478,8 +1435,8 @@ AlignedVector<float, 64> cache_data;
 |---------|---------------|-------------|
 | Alignment control | Configurable (16-256+) | alignof(T) only |
 | Auto-vectorization hint | assume_aligned() | None |
-| Exception safety | Strong guarantee | Strong guarantee |
-| Interface compatibility | Full std::vector | Standard |
+| Exception safety | Operation-dependent (see Exception Safety) | Operation- and type-dependent |
+| Interface compatibility | std::vector-like subset | Standard |
 | Dependencies | Single header | Standard library |
 
 **When to use std::vector:**
@@ -1520,7 +1477,7 @@ Eigen is a popular linear algebra library that includes aligned allocators.
 |---------|---------------|---------------------|
 | Memory management | Automatic (RAII) | Manual free() required |
 | Growth | Automatic | Manual reallocation |
-| Exception safety | Strong guarantee | None |
+| Exception safety | Operation-dependent (see Exception Safety) | None (manual cleanup on failure) |
 | Move semantics | Built-in | Manual |
 | Complexity | Simple API | Low-level |
 
@@ -2239,7 +2196,7 @@ AlignedVector is a **cache-aware vector container** providing:
 - **Configurable alignment:** 16, 32, 64, 128+ bytes via template parameter
 - **Full std::vector interface:** Drop-in replacement for most code
 - **Auto-vectorization support:** `assume_aligned()` for compiler hints
-- **Strong exception guarantee:** Operations leave container unchanged on failure
+- **Exception safety:** Container remains valid on failure; reallocation provides strong guarantee
 - **Platform portability:** Works on Windows and POSIX systems
 - **Zero dependencies:** Single header, standard library only
 

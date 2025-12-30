@@ -71,6 +71,10 @@
 #include <thread>
 #include <vector>
 
+#if defined(__AVX2__)
+#include <immintrin.h>
+#endif
+
 #include "FatPBenchmarkRunner.h"
 #include "AlignedVector.h"
 
@@ -1099,6 +1103,237 @@ void benchmark_simd_dot_product(const std::vector<size_t>& sizes)
     }
 }
 
+
+
+// ============================================================================
+// BENCHMARK: Explicit SIMD SAXPY (Alignment vs Misalignment)
+// ============================================================================
+// Uses explicit AVX2 intrinsics to demonstrate a realistic benefit of guaranteed
+// alignment: the ability to safely use aligned loads/stores, and the ability to
+// avoid systematic misalignment that can trigger split cache-line accesses.
+//
+// NOTE: On many modern CPUs, aligned vs unaligned instructions on already-aligned
+// addresses can be very close. The more reliable downside to avoid is a base
+// pointer that is consistently misaligned.
+
+#if defined(__AVX2__)
+
+static float* pick_misaligned_32(float* base, size_t max_offset_elems = 8)
+{
+    // Find a small offset that makes the pointer not 32-byte aligned.
+    for (size_t o = 0; o < max_offset_elems; ++o)
+    {
+        if ((reinterpret_cast<std::uintptr_t>(base + o) & 31u) != 0u)
+        {
+            return base + o;
+        }
+    }
+    // Fallback: 1 float offset is very likely to be misaligned.
+    return base + 1;
+}
+
+static double bench_saxpy_avx2_aligned(const float* x, float* y, float a, size_t n, size_t iterations)
+{
+    // Round down to multiple of 8 for AVX2 (8 floats per vector)
+    n = n & ~size_t(7);
+    if (n == 0) return 0.0;
+
+    __m256 va = _mm256_set1_ps(a);
+
+    Timer timer;
+    timer.start();
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        for (size_t i = 0; i < n; i += 8)
+        {
+            __m256 vx = _mm256_load_ps(x + i);
+            __m256 vy = _mm256_load_ps(y + i);
+            vy = _mm256_add_ps(_mm256_mul_ps(vx, va), vy);
+            _mm256_store_ps(y + i, vy);
+        }
+    }
+
+    double elapsed = timer.elapsed_ns();
+    prevent_opt(static_cast<int64_t>(y[n / 2]));
+    return elapsed / static_cast<double>(iterations * n);
+}
+
+static double bench_saxpy_avx2_unaligned(const float* x, float* y, float a, size_t n, size_t iterations)
+{
+    // Round down to multiple of 8 for AVX2 (8 floats per vector)
+    n = n & ~size_t(7);
+    if (n == 0) return 0.0;
+
+    __m256 va = _mm256_set1_ps(a);
+
+    Timer timer;
+    timer.start();
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        for (size_t i = 0; i < n; i += 8)
+        {
+            __m256 vx = _mm256_loadu_ps(x + i);
+            __m256 vy = _mm256_loadu_ps(y + i);
+            vy = _mm256_add_ps(_mm256_mul_ps(vx, va), vy);
+            _mm256_storeu_ps(y + i, vy);
+        }
+    }
+
+    double elapsed = timer.elapsed_ns();
+    prevent_opt(static_cast<int64_t>(y[n / 2]));
+    return elapsed / static_cast<double>(iterations * n);
+}
+
+void benchmark_simd_saxpy_explicit(const std::vector<size_t>& sizes)
+{
+    print_header("SIMD SAXPY (Explicit AVX2)");
+    print_contract_note(
+        "Demonstrates alignment impact with explicit AVX2 loads/stores. "
+        "Includes a deliberately misaligned-pointer case to show a realistic downside of misalignment "
+        "without overstating typical wins.");
+
+    print_cpu_context("SAXPY");
+
+    for (size_t N : sizes)
+    {
+        print_subheader("N = " + std::to_string(N));
+
+        // Keep the iteration count moderate; SAXPY is bandwidth-heavy.
+        const size_t ITERS = (N >= 1'000'000) ? 20 : 80;
+        constexpr float A = 1.001f;
+
+        auto x_init = generate_data<float>(N, g_config.seed);
+        auto y_init = generate_data<float>(N, g_config.seed + 1);
+
+        // Reference slices (we operate on exactly N elements)
+        std::vector<float> x_ref(x_init.begin(), x_init.end());
+        std::vector<float> y_ref(y_init.begin(), y_init.end());
+
+        fat_p::AlignedVector<float, 64> ax(x_ref.begin(), x_ref.end());
+        fat_p::AlignedVector<float, 64> ux(x_ref.begin(), x_ref.end());
+        fat_p::AlignedVector<float, 64> ay(N);
+        fat_p::AlignedVector<float, 64> uy(N);
+
+        // Misaligned buffers (allocate a little extra and intentionally offset)
+        std::vector<float> mx_buf(N + 16);
+        std::vector<float> my_buf(N + 16);
+        float* mx = pick_misaligned_32(mx_buf.data());
+        float* my = pick_misaligned_32(my_buf.data());
+
+        // Initialize x once (x is read-only)
+        std::copy(x_ref.begin(), x_ref.end(), ax.begin());
+        std::copy(x_ref.begin(), x_ref.end(), ux.begin());
+        std::copy(x_ref.begin(), x_ref.end(), mx);
+
+        std::vector<BenchmarkResult> results;
+        results.push_back({"AVX2 aligned (load_ps/store_ps)", {}});
+        results.push_back({"AVX2 unaligned (loadu/storeu on aligned ptr)", {}});
+        results.push_back({"AVX2 unaligned (loadu/storeu on misaligned ptr)", {}});
+
+        std::vector<size_t> order(results.size());
+        std::iota(order.begin(), order.end(), 0);
+        std::mt19937 rng(g_config.seed);
+
+        for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
+        {
+            bool is_warmup = (run < WARMUP_RUNS());
+            std::shuffle(order.begin(), order.end(), rng);
+
+            for (size_t idx : order)
+            {
+                double ns = 0;
+
+                if (results[idx].name == "AVX2 aligned (load_ps/store_ps)")
+                {
+                    std::copy(y_ref.begin(), y_ref.end(), ay.begin());
+                    ns = bench_saxpy_avx2_aligned(ax.assume_aligned(), ay.assume_aligned(), A, N, ITERS);
+                }
+                else if (results[idx].name == "AVX2 unaligned (loadu/storeu on aligned ptr)")
+                {
+                    std::copy(y_ref.begin(), y_ref.end(), uy.begin());
+                    ns = bench_saxpy_avx2_unaligned(ux.assume_aligned(), uy.assume_aligned(), A, N, ITERS);
+                }
+                else if (results[idx].name == "AVX2 unaligned (loadu/storeu on misaligned ptr)")
+                {
+                    std::copy(y_ref.begin(), y_ref.end(), my);
+                    ns = bench_saxpy_avx2_unaligned(mx, my, A, N, ITERS);
+                }
+
+                if (!is_warmup)
+                {
+                    results[idx].samples.push_back(ns);
+                }
+            }
+        }
+
+        print_result_table_header();
+        for (const auto& r : results)
+        {
+            auto stats = Statistics::compute(r.samples);
+            print_result_row(r.name, stats, "ns/elem");
+        }
+
+        // Minimal correctness check (first 64 elements, 1 iteration)
+        size_t checkN = std::min<size_t>(N, 64);
+        checkN = (checkN / 8) * 8;
+        if (checkN >= 8)
+        {
+            std::vector<float> expected(y_ref.begin(), y_ref.begin() + checkN);
+            for (size_t i = 0; i < checkN; ++i)
+            {
+                expected[i] = expected[i] + A * x_ref[i];
+            }
+
+            std::copy(y_ref.begin(), y_ref.begin() + checkN, ay.begin());
+            bench_saxpy_avx2_aligned(ax.assume_aligned(), ay.assume_aligned(), A, checkN, 1);
+            for (size_t i = 0; i < checkN; ++i)
+            {
+                if (std::abs(ay[i] - expected[i]) > 1e-3f * (1.0f + std::abs(expected[i])))
+                {
+                    std::cout << "[ERROR] Correctness check failed (aligned) at i=" << i << "\n";
+                    break;
+                }
+            }
+
+            std::copy(y_ref.begin(), y_ref.begin() + checkN, uy.begin());
+            bench_saxpy_avx2_unaligned(ux.assume_aligned(), uy.assume_aligned(), A, checkN, 1);
+            for (size_t i = 0; i < checkN; ++i)
+            {
+                if (std::abs(uy[i] - expected[i]) > 1e-3f * (1.0f + std::abs(expected[i])))
+                {
+                    std::cout << "[ERROR] Correctness check failed (unaligned/aligned-ptr) at i=" << i << "\n";
+                    break;
+                }
+            }
+
+            std::copy(y_ref.begin(), y_ref.begin() + checkN, my);
+            bench_saxpy_avx2_unaligned(mx, my, A, checkN, 1);
+            for (size_t i = 0; i < checkN; ++i)
+            {
+                if (std::abs(my[i] - expected[i]) > 1e-3f * (1.0f + std::abs(expected[i])))
+                {
+                    std::cout << "[ERROR] Correctness check failed (unaligned/misaligned-ptr) at i=" << i << "\n";
+                    break;
+                }
+            }
+        }
+
+        cooling_delay(COOLING_DELAY_SIZE_MS, "between sizes");
+    }
+}
+
+#else
+
+void benchmark_simd_saxpy_explicit(const std::vector<size_t>&)
+{
+    print_header("SIMD SAXPY (Explicit AVX2)");
+    print_contract_note("Skipped: AVX2 not enabled at compile time. Build with -mavx2 or -march=native (or /arch:AVX2 on MSVC). ");
+}
+
+#endif
+
 // ============================================================================
 // BENCHMARK: Corner Cases
 // ============================================================================
@@ -1479,6 +1714,9 @@ int main(int argc, char* argv[])
 
     cooling_delay(COOLING_DELAY_SECTION_MS, "before SIMD dot product");
     benchmark_simd_dot_product(medium_sizes);
+
+    cooling_delay(COOLING_DELAY_SECTION_MS, "before SIMD SAXPY");
+    benchmark_simd_saxpy_explicit(large_sizes);
 
     cooling_delay(COOLING_DELAY_SECTION_MS, "before random access");
     benchmark_random_access(medium_sizes);

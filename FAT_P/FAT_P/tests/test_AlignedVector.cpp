@@ -164,6 +164,99 @@ int ThrowOnCopy::copyCount = 0;
 int ThrowOnCopy::limit = 100;
 
 /**
+ * @brief Type that throws on move assignment (configurable) and tracks live instances
+ *
+ * Used to test exception safety in insert/emplace when move assignment throws.
+ * This catches bugs where an element is constructed in uninitialized memory
+ * but not tracked in size, leading to leaks if subsequent moves throw.
+ *
+ * The `alive` counter provides direct leak detection: if any instance leaks,
+ * `alive` won't return to 0 when all scopes exit.
+ */
+struct ThrowOnMoveAssign
+{
+    int value;
+    static int alive;          // Live instance count (increment on ctor, decrement on dtor)
+    static int moveAssignCount;
+    static int throwAfter;
+    static int constructCount;
+    static int destructCount;
+
+    ThrowOnMoveAssign(int v = 0)
+        : value(v)
+    {
+        ++alive;
+        ++constructCount;
+    }
+
+    ThrowOnMoveAssign(const ThrowOnMoveAssign& other)
+        : value(other.value)
+    {
+        ++alive;
+        ++constructCount;
+    }
+
+    ThrowOnMoveAssign(ThrowOnMoveAssign&& other) noexcept
+        : value(other.value)
+    {
+        other.value = -1;
+        ++alive;
+        ++constructCount;
+    }
+
+    ThrowOnMoveAssign& operator=(const ThrowOnMoveAssign& other)
+    {
+        value = other.value;
+        return *this;
+    }
+
+    ThrowOnMoveAssign& operator=(ThrowOnMoveAssign&& other)
+    {
+        // Throw BEFORE incrementing, so throwAfter=0 throws on 1st call,
+        // throwAfter=1 throws on 2nd call, etc. (0-based indexing)
+        if (throwAfter >= 0 && moveAssignCount == throwAfter)
+        {
+            throw std::runtime_error("ThrowOnMoveAssign: move assignment throw");
+        }
+        ++moveAssignCount;
+        value = other.value;
+        other.value = -1;
+        return *this;
+    }
+
+    ~ThrowOnMoveAssign()
+    {
+        --alive;
+        ++destructCount;
+    }
+
+    static void reset(int throwAt = -1)
+    {
+        moveAssignCount = 0;
+        throwAfter = throwAt;
+        constructCount = 0;
+        destructCount = 0;
+        // Note: don't reset alive here - it should already be 0 if no leaks
+    }
+
+    static bool balanced()
+    {
+        return constructCount == destructCount;
+    }
+
+    static bool no_leaks()
+    {
+        return alive == 0 && balanced();
+    }
+};
+
+int ThrowOnMoveAssign::alive = 0;
+int ThrowOnMoveAssign::moveAssignCount = 0;
+int ThrowOnMoveAssign::throwAfter = -1;
+int ThrowOnMoveAssign::constructCount = 0;
+int ThrowOnMoveAssign::destructCount = 0;
+
+/**
  * @brief Counts destructor calls for RAII verification
  */
 struct DestructorCounter
@@ -1631,6 +1724,189 @@ TEST_CASE(emplace_back_exception_safety)
     return true;
 }
 
+// ============================================================================
+// Throwing Move Assignment Tests (regression tests for leak bug)
+// ============================================================================
+
+TEST_CASE(insert_single_throwing_move_assign)
+{
+    // This test catches a bug where insert(pos, value) would leak an element
+    // if move assignment throws after the tail element was constructed.
+    using helpers::ThrowOnMoveAssign;
+
+    // Ensure clean state at start
+    ASSERT_EQ(ThrowOnMoveAssign::alive, 0, "No live instances at test start");
+    ThrowOnMoveAssign::reset();
+
+    {
+        fat_p::AlignedVector<ThrowOnMoveAssign> vec;
+        vec.reserve(10);
+
+        // Add some elements (no throwing yet)
+        for (int i = 0; i < 5; ++i)
+        {
+            vec.push_back(ThrowOnMoveAssign(i));
+        }
+
+        const int aliveBefore = ThrowOnMoveAssign::alive;
+
+        // Set to throw on 3rd move assignment (0-indexed: call #2)
+        // Insert at pos 1 with 5 elements does: tail construct, then shifts [4]→[3]→[2]→[1]
+        // Throwing mid-shift tests the leak fix for the already-constructed tail element
+        ThrowOnMoveAssign::throwAfter = 2;
+        ThrowOnMoveAssign::moveAssignCount = 0;
+
+        bool threw = false;
+        try
+        {
+            ThrowOnMoveAssign newVal(99);
+            vec.insert(vec.begin() + 1, newVal);  // Insert in middle
+        }
+        catch (const std::runtime_error&)
+        {
+            threw = true;
+        }
+
+        ASSERT_TRUE(threw, "Should have thrown from move assignment");
+
+        // Vector should still be valid and destructible
+        // Size should be unchanged (basic guarantee)
+        ASSERT_EQ(vec.size(), 5u, "Size should be unchanged after exception");
+        
+        // No leaked elements from the failed insert
+        ASSERT_EQ(ThrowOnMoveAssign::alive, aliveBefore,
+                  "Failed insert should not leak a constructed tail element");
+    }
+
+    // Critical check: all constructed objects must have been destroyed
+    ASSERT_TRUE(ThrowOnMoveAssign::no_leaks(),
+                "Constructor/destructor count mismatch - leak detected!");
+
+    ThrowOnMoveAssign::reset();
+    return true;
+}
+
+TEST_CASE(insert_rvalue_throwing_move_assign)
+{
+    // Same test but with rvalue insert
+    using helpers::ThrowOnMoveAssign;
+
+    ASSERT_EQ(ThrowOnMoveAssign::alive, 0, "No live instances at test start");
+    ThrowOnMoveAssign::reset();
+
+    {
+        fat_p::AlignedVector<ThrowOnMoveAssign> vec;
+        vec.reserve(10);
+
+        for (int i = 0; i < 5; ++i)
+        {
+            vec.push_back(ThrowOnMoveAssign(i));
+        }
+
+        const int aliveBefore = ThrowOnMoveAssign::alive;
+
+        // Throw on 3rd move assignment (0-indexed: call #2) during shift
+        ThrowOnMoveAssign::throwAfter = 2;
+        ThrowOnMoveAssign::moveAssignCount = 0;
+
+        bool threw = false;
+        try
+        {
+            vec.insert(vec.begin() + 1, ThrowOnMoveAssign(99));  // rvalue
+        }
+        catch (const std::runtime_error&)
+        {
+            threw = true;
+        }
+
+        ASSERT_TRUE(threw, "Should have thrown from move assignment");
+        ASSERT_EQ(vec.size(), 5u, "Size should be unchanged after exception");
+        ASSERT_EQ(ThrowOnMoveAssign::alive, aliveBefore,
+                  "Failed insert should not leak a constructed tail element");
+    }
+
+    ASSERT_TRUE(ThrowOnMoveAssign::no_leaks(),
+                "Constructor/destructor count mismatch - leak detected!");
+
+    ThrowOnMoveAssign::reset();
+    return true;
+}
+
+TEST_CASE(emplace_throwing_move_assign)
+{
+    // Test emplace with throwing move assignment
+    using helpers::ThrowOnMoveAssign;
+
+    ASSERT_EQ(ThrowOnMoveAssign::alive, 0, "No live instances at test start");
+    ThrowOnMoveAssign::reset();
+
+    {
+        fat_p::AlignedVector<ThrowOnMoveAssign> vec;
+        vec.reserve(10);
+
+        for (int i = 0; i < 5; ++i)
+        {
+            vec.push_back(ThrowOnMoveAssign(i));
+        }
+
+        const int aliveBefore = ThrowOnMoveAssign::alive;
+
+        // Throw on 3rd move assignment (0-indexed: call #2) during shift
+        ThrowOnMoveAssign::throwAfter = 2;
+        ThrowOnMoveAssign::moveAssignCount = 0;
+
+        bool threw = false;
+        try
+        {
+            vec.emplace(vec.begin() + 1, 99);  // Emplace in middle
+        }
+        catch (const std::runtime_error&)
+        {
+            threw = true;
+        }
+
+        ASSERT_TRUE(threw, "Should have thrown from move assignment");
+        ASSERT_EQ(vec.size(), 5u, "Size should be unchanged after exception");
+        ASSERT_EQ(ThrowOnMoveAssign::alive, aliveBefore,
+                  "Failed emplace should not leak a constructed tail element");
+    }
+
+    ASSERT_TRUE(ThrowOnMoveAssign::no_leaks(),
+                "Constructor/destructor count mismatch - leak detected!");
+
+    ThrowOnMoveAssign::reset();
+    return true;
+}
+
+TEST_CASE(insert_at_end_no_shift)
+{
+    // Sanity check: insert at end doesn't do shifting, should not throw
+    using helpers::ThrowOnMoveAssign;
+
+    ThrowOnMoveAssign::reset();
+
+    fat_p::AlignedVector<ThrowOnMoveAssign> vec;
+    vec.reserve(10);
+
+    for (int i = 0; i < 5; ++i)
+    {
+        vec.push_back(ThrowOnMoveAssign(i));
+    }
+
+    // Set throw to trigger immediately, but insert at end should not use move assignment
+    ThrowOnMoveAssign::throwAfter = 0;
+    ThrowOnMoveAssign::moveAssignCount = 0;
+
+    // This should NOT throw because we're inserting at end (no shifting)
+    vec.insert(vec.end(), ThrowOnMoveAssign(99));
+
+    ASSERT_EQ(vec.size(), 6u, "Size should be 6 after insert at end");
+    ASSERT_EQ(vec.back().value, 99, "Last element should be 99");
+
+    ThrowOnMoveAssign::reset();
+    return true;
+}
+
 TEST_CASE(self_insertion_safety)
 {
     // Test that self-insertion doesn't cause use-after-free
@@ -2088,6 +2364,10 @@ bool test_AlignedVector()
     RUN_TEST_NS(runner, alignedvector, construct_range_copy_no_leak);
     RUN_TEST_NS(runner, alignedvector, resize_exception_safety);
     RUN_TEST_NS(runner, alignedvector, emplace_back_exception_safety);
+    RUN_TEST_NS(runner, alignedvector, insert_single_throwing_move_assign);
+    RUN_TEST_NS(runner, alignedvector, insert_rvalue_throwing_move_assign);
+    RUN_TEST_NS(runner, alignedvector, emplace_throwing_move_assign);
+    RUN_TEST_NS(runner, alignedvector, insert_at_end_no_shift);
     RUN_TEST_NS(runner, alignedvector, self_insertion_safety);
     RUN_TEST_NS(runner, alignedvector, push_back_aliasing);
 
