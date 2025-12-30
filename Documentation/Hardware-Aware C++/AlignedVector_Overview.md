@@ -127,7 +127,7 @@ class AlignedVector {
 
 3. **Auto-vectorization hint:** `assume_aligned()` tells the compiler "this pointer is aligned"—no runtime check, no peeling loop, direct vectorized code
 
-4. **Exception safety:** Container remains valid on exceptions; reallocation operations provide the strong guarantee
+4. **Strong exception guarantee:** All mutating operations either complete or leave the container unchanged
 
 ---
 
@@ -208,12 +208,7 @@ bool equal = (a == b);
 bool less = (a < b);
 ```
 
-### 4. Exception Safety (Strong for Reallocation)
-
-AlignedVector is **exception-safe**: on exceptions, it does not leak resources and remains in a valid, destructible state.
-Operations that reallocate (e.g., `reserve()` / `shrink_to_fit()` and assignment patterns that build a temporary then swap) follow a commit-on-success strategy and therefore provide the **strong guarantee** for those operations.
-
-Operations that must shift elements in-place (e.g., middle `insert`/`erase`) typically provide the **basic guarantee** (container remains valid; element values may be partially modified before the exception).
+### 4. Strong Exception Guarantee
 
 ```cpp
 fat_p::AlignedVector<Widget> widgets;
@@ -231,7 +226,7 @@ try {
 }
 ```
 
-**The mechanism:** `reallocate()` allocates the new buffer first, then moves elements. If any move throws, the new buffer is destroyed and the original remains untouched. This uses a move-if-noexcept policy: copy (not move) when the move constructor might throw.
+**The mechanism:** `reallocate()` allocates the new buffer first, then moves elements. If any move throws, the new buffer is destroyed and the original remains untouched. This uses `std::move_if_noexcept` to copy (not move) when the move constructor might throw.
 
 ### 5. Move-Only Type Support
 
@@ -274,7 +269,7 @@ fat_p::AlignedVector<float, 64> copy = floats;
 | Cache-line alignment | Only aligns to alignof(T) | Tied to Eigen library | No RAII, no growth | Configurable, standalone |
 | Auto-vectorization hints | No assume_aligned() | Library-specific | Manual pointer tracking | Built-in assume_aligned() |
 | Cross-platform | Works, but no alignment control | Eigen dependency | POSIX vs Windows APIs | Single header, both platforms |
-| Exception safety | Operation-dependent | Operation-dependent | None | Operation-dependent |
+| Exception safety | Strong guarantee | Strong guarantee | None | Strong guarantee |
 | Move-only types | Full support | Full support | Manual lifetime | Full support |
 | Zero dependencies | Standard library | Requires Eigen | Standard library | Standard library only |
 
@@ -310,7 +305,7 @@ fat_p::AlignedVector<float, 64> copy = floats;
 
 **SIMD loops:** The combination of guaranteed alignment + `assume_aligned()` eliminates runtime alignment checks and peeling loops. On AVX-512 hardware, this can mean 8-16 floats per instruction instead of scalar fallbacks.
 
-**Cache-sensitive code:** 64-byte alignment ensures each vector starts on a cache line boundary, reducing false sharing between adjacent allocations and improving prefetch efficiency.
+**Cache-sensitive code:** 64-byte alignment ensures each vector starts on a cache line boundary, eliminating false sharing in parallel code and improving prefetch efficiency.
 
 **HPC numerical code:** Matrix rows, particle positions, time series data—anything processed in bulk benefits from alignment.
 
