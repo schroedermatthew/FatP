@@ -983,6 +983,93 @@ double bench_erase_range_middle(size_t initial_size, size_t erase_count, size_t 
     return total_ns / static_cast<double>(iterations * shifted);
 }
 
+// -----------------------------------------------------------------------------
+// Raw memmove baselines (shift-only throughput)
+// -----------------------------------------------------------------------------
+// These functions measure the best-case bulk-move throughput for the same shift
+// distances used by the insert/erase range microbench. They intentionally do
+// NOT include element construction/destruction or container logic.
+//
+// Reported as ns per shifted element (includes an additional raw memmove shift-only baseline).
+//
+static double bench_raw_memmove_shift_right(size_t initial_size, size_t insert_count, size_t iterations)
+{
+    const size_t index = initial_size / 2;
+    const size_t shifted = initial_size - index;
+
+    if (insert_count == 0 || shifted == 0)
+    {
+        return 0.0;
+    }
+
+    double total_ns = 0;
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        // Allocate enough space for the shifted tail + inserted block.
+        fat_p::AlignedVector<int, 64> buf(initial_size + insert_count, 0);
+
+        // Fill with a non-trivial pattern outside the timed region so the memmove has an observable effect.
+        for (size_t i = 0; i < initial_size; ++i)
+        {
+            buf[i] = static_cast<int>(i + (iter & 7));
+        }
+
+        Timer timer;
+        timer.start();
+        std::memmove(buf.data() + index + insert_count,
+                     buf.data() + index,
+                     shifted * sizeof(int));
+        total_ns += timer.elapsed_ns();
+
+        // Observe moved data to prevent DCE.
+        prevent_opt(static_cast<int64_t>(buf[index + insert_count]));
+    }
+
+    return total_ns / static_cast<double>(iterations * shifted);
+}
+
+static double bench_raw_memmove_shift_left(size_t initial_size, size_t erase_count, size_t iterations)
+{
+    const size_t index = initial_size / 2;
+
+    if (erase_count == 0 || index + erase_count > initial_size)
+    {
+        return 0.0;
+    }
+
+    const size_t shifted = initial_size - (index + erase_count);
+    if (shifted == 0)
+    {
+        return 0.0;
+    }
+
+    double total_ns = 0;
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        fat_p::AlignedVector<int, 64> buf(initial_size, 0);
+
+        for (size_t i = 0; i < initial_size; ++i)
+        {
+            buf[i] = static_cast<int>(i + (iter & 7));
+        }
+
+        Timer timer;
+        timer.start();
+        std::memmove(buf.data() + index,
+                     buf.data() + index + erase_count,
+                     shifted * sizeof(int));
+        total_ns += timer.elapsed_ns();
+
+        prevent_opt(static_cast<int64_t>(buf[index]));
+    }
+
+    return total_ns / static_cast<double>(iterations * shifted);
+}
+
+
+
 void benchmark_shift_memmove(const std::vector<size_t>& sizes)
 {
     print_header("SHIFT MICROBENCH (memmove fast-path)");
@@ -990,7 +1077,8 @@ void benchmark_shift_memmove(const std::vector<size_t>& sizes)
         "Isolates the cost of shifting elements during insert/erase range operations. "
         "Compares a trivially copyable element type (int) that can use bulk memmove shifts "
         "against an equivalent-size non-trivially copyable wrapper that forces element-wise moves. "
-        "Reported as ns per shifted element.");
+        "Reported as ns per shifted element (also includes a raw memmove shift-only baseline)."
+        );
 
     print_cpu_context("Shift/memmove");
 
@@ -1031,6 +1119,7 @@ void benchmark_shift_memmove(const std::vector<size_t>& sizes)
             std::vector<BenchmarkResult> results;
             results.push_back({"AlignedVector<int,64> (trivial => memmove shift)", {}});
             results.push_back({"AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)", {}});
+            results.push_back({"Raw memmove baseline (shift only)", {}});
 
             std::vector<size_t> order(results.size());
             std::iota(order.begin(), order.end(), 0);
@@ -1052,6 +1141,10 @@ void benchmark_shift_memmove(const std::vector<size_t>& sizes)
                     else if (results[idx].name == "AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)")
                     {
                         ns = bench_insert_range_middle<fat_p::AlignedVector<NonTrivialInt, 64>>(N, payload_nt, ITERS);
+                    }
+                    else if (results[idx].name == "Raw memmove baseline (shift only)")
+                    {
+                        ns = bench_raw_memmove_shift_right(N, K, ITERS);
                     }
 
                     if (!is_warmup)
@@ -1078,6 +1171,7 @@ void benchmark_shift_memmove(const std::vector<size_t>& sizes)
             std::vector<BenchmarkResult> results;
             results.push_back({"AlignedVector<int,64> (trivial => memmove shift)", {}});
             results.push_back({"AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)", {}});
+            results.push_back({"Raw memmove baseline (shift only)", {}});
 
             std::vector<size_t> order(results.size());
             std::iota(order.begin(), order.end(), 0);
@@ -1099,6 +1193,10 @@ void benchmark_shift_memmove(const std::vector<size_t>& sizes)
                     else if (results[idx].name == "AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)")
                     {
                         ns = bench_erase_range_middle<fat_p::AlignedVector<NonTrivialInt, 64>>(N, K, ITERS);
+                    }
+                    else if (results[idx].name == "Raw memmove baseline (shift only)")
+                    {
+                        ns = bench_raw_memmove_shift_left(N, K, ITERS);
                     }
 
                     if (!is_warmup)

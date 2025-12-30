@@ -233,6 +233,17 @@ Every workflow MUST include these jobs:
         run: .\test_bin.exe
 ```
 
+**MSVC Warning Suppressions:**
+
+| Warning | Flag | When to Use |
+|---------|------|-------------|
+| C4324 | `/wd4324` | Component uses `ConcurrencyPolicies.h` or has intentional `alignas()` padding |
+
+Example with suppression:
+```yaml
+cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /wd4324 /O2 ...
+```
+
 ### 5.4 Sanitizer Jobs (Required)
 
 ```yaml
@@ -442,7 +453,45 @@ If `enforce.h` triggers GNU extension warnings:
 -Wno-gnu-zero-variadic-macro-arguments
 ```
 
-### 7.4 Build Configurations
+### 7.4 MSVC-Specific Suppressions
+
+| Warning | Suppression | Reason |
+|---------|-------------|--------|
+| C4324 | `/wd4324` in CI | "Structure was padded due to alignment specifier" — intentional for cache-line alignment |
+| C4702 | `#pragma warning` in header | "Unreachable code" — false positive from `if constexpr` discarded branches |
+
+**C4324 (alignment padding):** Suppress in CI workflow when component uses `ConcurrencyPolicies.h` or has intentional `alignas()`:
+
+```yaml
+cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /wd4324 /O2 ...
+```
+
+**C4702 (unreachable code):** Add pragma guards in headers that use `if constexpr`:
+
+```cpp
+#pragma once
+
+// MSVC warning C4702: unreachable code
+// False positive triggered by if constexpr discarded branches.
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4702)
+#endif
+
+#include <...>
+
+// ... header content ...
+
+} // namespace fat_p
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
+```
+
+This approach is preferred over `/wd4702` in CI because other compilers still warn about real unreachable code.
+
+### 7.5 Build Configurations
 
 | Configuration | Flags |
 |---------------|-------|
