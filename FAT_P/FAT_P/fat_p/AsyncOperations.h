@@ -1,6 +1,5 @@
 // AsyncOperations.h
-#ifndef FATP_ASYNC_OPERATIONS_H
-#define FATP_ASYNC_OPERATIONS_H
+#pragma once
 
 #include "Expected.h"  // Assuming Expected<T, E> is in Expected.h
 #include <functional>
@@ -106,5 +105,3 @@ auto async_task(Func&& func, Args&&... args) {
 }
 
 }  // namespace fat_p
-
-#endif  // FATP_ASYNC_OPERATIONS_H

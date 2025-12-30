@@ -6,7 +6,7 @@
 # Directory structure:
 #   Headers:    FAT_P/FAT_P/fat_p/AllocationStrategies.h
 #   Tests:      FAT_P/FAT_P/tests/test_AllocationStrategies.cpp
-#   Benchmarks: FAT_P/FAT_P/tests/test_AllocationStrategies.cpp (integrated)
+#   Benchmarks: FAT_P/FAT_P/benchmarks/benchmark_AllocationStrategies.cpp
 #
 # Fat-P Guidelines compliance:
 #   - Section 6.1: Include-all compile test
@@ -19,6 +19,7 @@ name: AllocationStrategies
 env:
   INCLUDE_DIR: FAT_P/FAT_P/fat_p
   TEST_SRC: FAT_P/FAT_P/tests/test_AllocationStrategies.cpp
+  BENCH_SRC: FAT_P/FAT_P/benchmarks/benchmark_AllocationStrategies.cpp
 
 on:
   push:
@@ -26,12 +27,14 @@ on:
     paths:
       - 'FAT_P/FAT_P/fat_p/AllocationStrategies.h'
       - 'FAT_P/FAT_P/tests/test_AllocationStrategies.cpp'
+      - 'FAT_P/FAT_P/benchmarks/benchmark_AllocationStrategies.cpp'
       - '.github/workflows/allocation-strategies.yml'
   pull_request:
     branches: [main, master]
     paths:
       - 'FAT_P/FAT_P/fat_p/AllocationStrategies.h'
       - 'FAT_P/FAT_P/tests/test_AllocationStrategies.cpp'
+      - 'FAT_P/FAT_P/benchmarks/benchmark_AllocationStrategies.cpp'
       - '.github/workflows/allocation-strategies.yml'
   schedule:
     - cron: '0 2 * * 0'  # Weekly benchmarks at 2am Sunday UTC
@@ -303,22 +306,25 @@ jobs:
       - name: Build benchmark
         run: |
           g++ -std=c++17 -O3 -DNDEBUG -march=native \
-            -DENABLE_TEST_APPLICATION \
             -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o bench_bin
+            FAT_P/FAT_P/benchmarks/benchmark_AllocationStrategies.cpp \
+            -o bench_bin -pthread
 
       - name: Run benchmarks
         env:
           FATP_BENCH_WARMUP_RUNS: 3
           FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_OUTPUT_CSV: results.csv
         run: ./bench_bin 2>&1 | tee benchmark.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results
-          path: benchmark.log
+          path: |
+            results.csv
+            benchmark.log
 
   # ===========================================================================
   # CI Gate Job

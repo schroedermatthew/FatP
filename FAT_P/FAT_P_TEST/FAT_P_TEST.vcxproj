@@ -171,8 +171,6 @@
     <ClCompile Include="..\FAT_P\tests\test_EnforcedInit.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_EnhancedBoundsChecking.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_EnumPlus.cpp" />
-    <ClCompile Include="..\FAT_P\tests\test_EqualityAny.cpp" />
-    <ClCompile Include="..\FAT_P\tests\test_EqualityComparisons.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_Expected.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_Factory.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_FastHashMap.cpp" />

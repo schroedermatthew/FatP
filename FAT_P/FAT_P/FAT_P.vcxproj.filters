@@ -13,9 +13,6 @@
     <ClInclude Include="fat_p\AlignedVector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="fat_p\AllocationStrategy.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="fat_p\AsyncOperations.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -332,6 +329,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="fat_p\TensorIteration.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="fat_p\AllocationStrategies.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
