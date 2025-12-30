@@ -249,7 +249,10 @@ private:
     {
         if constexpr (std::is_trivially_copyable_v<T>)
         {
-            std::memcpy(dest, src, count * sizeof(T));
+            if (count > 0)
+            {
+                std::memcpy(dest, src, count * sizeof(T));
+            }
         }
         else
         {
@@ -278,7 +281,10 @@ private:
     {
         if constexpr (std::is_trivially_copyable_v<T>)
         {
-            std::memcpy(dest, src, count * sizeof(T));
+            if (count > 0)
+            {
+                std::memcpy(dest, src, count * sizeof(T));
+            }
         }
         else
         {
@@ -321,7 +327,10 @@ private:
         {
             if constexpr (std::is_trivially_copyable_v<T>)
             {
-                std::memcpy(newData, mData, mSize * sizeof(T));
+                if (mSize > 0)
+                {
+                    std::memcpy(newData, mData, mSize * sizeof(T));
+                }
                 constructedCount = mSize;
             }
             else
