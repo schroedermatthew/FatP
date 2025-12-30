@@ -197,6 +197,38 @@ private:
     size_type mCapacity;
 
     /**
+     * @brief Convert an iterator into an index without performing pointer arithmetic on nullptr.
+     *
+     * @note Like std::vector, passing an iterator that does not originate from this container
+     *       results in undefined behavior. This helper only avoids nullptr subtraction for
+     *       the empty-vector case where begin()/end() are nullptr in this implementation.
+     */
+    [[nodiscard]] size_type indexFrom(const_iterator pos) const noexcept
+    {
+        assert(mData != nullptr || pos == nullptr);
+        return mData ? static_cast<size_type>(pos - mData) : 0;
+    }
+
+    /**
+     * @brief Get iterator at index without performing nullptr + 0 when empty.
+     */
+    [[nodiscard]] iterator iterAt(size_type idx) noexcept
+    {
+        assert(mData != nullptr || idx == 0);
+        return mData ? (mData + idx) : mData;
+    }
+
+    /**
+     * @brief Get const-iterator at index without performing nullptr + 0 when empty.
+     */
+    [[nodiscard]] const_iterator iterAt(size_type idx) const noexcept
+    {
+        assert(mData != nullptr || idx == 0);
+        return mData ? (mData + idx) : mData;
+    }
+
+
+    /**
      * @brief Calculate safe growth capacity with overflow check
      */
     [[nodiscard]] size_type safeGrowCapacity(size_type minCapacity) const
@@ -295,7 +327,11 @@ private:
      */
     [[nodiscard]] bool isInternalReference(const T* ptr) const noexcept
     {
-        return ptr >= mData && ptr < mData + mSize;
+        if (!mData)
+        {
+            return false;
+        }
+        return ptr >= mData && ptr < iterAt(mSize);
     }
 
     /**
@@ -339,7 +375,7 @@ private:
             throw;
         }
 
-        destroyRange(mData, mData + mSize);
+        destroyRange(mData, iterAt(mSize));
         mAllocator.deallocate(mData, mCapacity);
 
         mData = newData;
@@ -399,7 +435,7 @@ public:
                 }
                 catch (...)
                 {
-                    destroyRange(mData, mData + mSize);
+                    destroyRange(mData, iterAt(mSize));
                     mAllocator.deallocate(mData, mCapacity);
                     throw;
                 }
@@ -436,7 +472,7 @@ public:
             }
             catch (...)
             {
-                destroyRange(mData, mData + mSize);
+                destroyRange(mData, iterAt(mSize));
                 mAllocator.deallocate(mData, mCapacity);
                 throw;
             }
@@ -472,7 +508,7 @@ public:
             }
             catch (...)
             {
-                destroyRange(mData, mData + mSize);
+                destroyRange(mData, iterAt(mSize));
                 mAllocator.deallocate(mData, mCapacity);
                 throw;
             }
@@ -514,7 +550,7 @@ public:
                 }
                 catch (...)
                 {
-                    destroyRange(mData, mData + mSize);
+                    destroyRange(mData, iterAt(mSize));
                     mAllocator.deallocate(mData, mCapacity);
                     throw;
                 }
@@ -585,7 +621,7 @@ public:
      */
     ~AlignedVector()
     {
-        destroyRange(mData, mData + mSize);
+        destroyRange(mData, iterAt(mSize));
         mAllocator.deallocate(mData, mCapacity);
     }
 
@@ -624,7 +660,7 @@ public:
     {
         if (this != &other)
         {
-            destroyRange(mData, mData + mSize);
+            destroyRange(mData, iterAt(mSize));
             mAllocator.deallocate(mData, mCapacity);
 
             mAllocator = std::move(other.mAllocator);
@@ -806,9 +842,9 @@ public:
     const_iterator begin() const noexcept { return mData; }
     const_iterator cbegin() const noexcept { return mData; }
 
-    iterator end() noexcept { return mData + mSize; }
-    const_iterator end() const noexcept { return mData + mSize; }
-    const_iterator cend() const noexcept { return mData + mSize; }
+    iterator end() noexcept { return iterAt(mSize); }
+    const_iterator end() const noexcept { return iterAt(mSize); }
+    const_iterator cend() const noexcept { return iterAt(mSize); }
 
     reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
     const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
@@ -922,7 +958,7 @@ public:
      */
     void clear() noexcept
     {
-        destroyRange(mData, mData + mSize);
+        destroyRange(mData, iterAt(mSize));
         mSize = 0;
     }
 
@@ -961,7 +997,7 @@ public:
             }
             catch (...)
             {
-                temp.destroyRange(temp.mData, temp.mData + temp.mSize);
+                temp.destroyRange(temp.mData, temp.iterAt(temp.mSize));
                 temp.mAllocator.deallocate(temp.mData, temp.mCapacity);
                 temp.mData = nullptr;
                 temp.mSize = 0;
@@ -1015,7 +1051,7 @@ public:
      */
     iterator insert(const_iterator pos, const T& value)
     {
-        size_type index = pos - mData;
+        size_type index = indexFrom(pos);
 
         // Handle aliasing: if value is inside this vector, copy first
         const T* valPtr = std::addressof(value);
@@ -1033,22 +1069,31 @@ public:
 
         if (index < mSize)
         {
-            // Construct tail element in uninitialized memory
-            new (mData + mSize) T(std::move(mData[mSize - 1]));
-            try
+            if constexpr (std::is_trivially_copyable_v<T>)
             {
-                // Shift elements (may throw)
-                for (size_type i = mSize - 1; i > index; --i)
-                {
-                    mData[i] = std::move(mData[i - 1]);
-                }
+                // Fast path: shift as raw bytes (overlap-safe)
+                std::memmove(mData + index + 1, mData + index, (mSize - index) * sizeof(T));
                 mData[index] = value;
             }
-            catch (...)
+            else
             {
-                // Destroy the tail element we constructed before rethrowing
-                destroyRange(mData + mSize, mData + mSize + 1);
-                throw;
+                // Construct tail element in uninitialized memory
+                new (mData + mSize) T(std::move(mData[mSize - 1]));
+                try
+                {
+                    // Shift elements (may throw)
+                    for (size_type i = mSize - 1; i > index; --i)
+                    {
+                        mData[i] = std::move(mData[i - 1]);
+                    }
+                    mData[index] = value;
+                }
+                catch (...)
+                {
+                    // Destroy the tail element we constructed before rethrowing
+                    destroyRange(mData + mSize, mData + mSize + 1);
+                    throw;
+                }
             }
         }
         else
@@ -1071,7 +1116,7 @@ public:
      */
     iterator insert(const_iterator pos, T&& value)
     {
-        size_type index = pos - mData;
+        size_type index = indexFrom(pos);
 
         // Handle aliasing
         const T* valPtr = std::addressof(value);
@@ -1089,22 +1134,31 @@ public:
 
         if (index < mSize)
         {
-            // Construct tail element in uninitialized memory
-            new (mData + mSize) T(std::move(mData[mSize - 1]));
-            try
+            if constexpr (std::is_trivially_copyable_v<T>)
             {
-                // Shift elements (may throw)
-                for (size_type i = mSize - 1; i > index; --i)
-                {
-                    mData[i] = std::move(mData[i - 1]);
-                }
+                // Fast path: shift as raw bytes (overlap-safe)
+                std::memmove(mData + index + 1, mData + index, (mSize - index) * sizeof(T));
                 mData[index] = std::move(value);
             }
-            catch (...)
+            else
             {
-                // Destroy the tail element we constructed before rethrowing
-                destroyRange(mData + mSize, mData + mSize + 1);
-                throw;
+                // Construct tail element in uninitialized memory
+                new (mData + mSize) T(std::move(mData[mSize - 1]));
+                try
+                {
+                    // Shift elements (may throw)
+                    for (size_type i = mSize - 1; i > index; --i)
+                    {
+                        mData[i] = std::move(mData[i - 1]);
+                    }
+                    mData[index] = std::move(value);
+                }
+                catch (...)
+                {
+                    // Destroy the tail element we constructed before rethrowing
+                    destroyRange(mData + mSize, mData + mSize + 1);
+                    throw;
+                }
             }
         }
         else
@@ -1133,7 +1187,7 @@ public:
             return const_cast<iterator>(pos);
         }
 
-        size_type index = pos - mData;
+        size_type index = indexFrom(pos);
 
         // Handle aliasing: if value is inside this vector, copy first
         const T* valPtr = std::addressof(value);
@@ -1147,6 +1201,23 @@ public:
         {
             size_type newCapacity = safeGrowCapacity(mSize + count);
             reallocate(newCapacity);
+        }
+
+        if constexpr (std::is_trivially_copyable_v<T>)
+        {
+            // Fast path for trivially copyable types: shift with memmove and fill the gap
+            if (index < mSize)
+            {
+                std::memmove(mData + index + count, mData + index, (mSize - index) * sizeof(T));
+                std::fill_n(mData + index, count, value);
+            }
+            else
+            {
+                // Append into uninitialized memory
+                std::uninitialized_fill_n(mData + mSize, count, value);
+            }
+            mSize += count;
+            return mData + index;
         }
 
         if (index < mSize)
@@ -1240,7 +1311,13 @@ public:
              typename = std::enable_if_t<!std::is_integral_v<InputIt>>>
     iterator insert(const_iterator pos, InputIt first, InputIt last)
     {
-        size_type index = pos - mData;
+        size_type index = indexFrom(pos);
+
+        // Avoid nullptr + 0 in the empty-vector case when inserting an empty range
+        if (first == last)
+        {
+            return const_cast<iterator>(pos);
+        }
 
         if constexpr (std::is_base_of_v<std::random_access_iterator_tag,
                       typename std::iterator_traits<InputIt>::iterator_category>)
@@ -1248,7 +1325,7 @@ public:
             size_type count = static_cast<size_type>(std::distance(first, last));
             if (count == 0)
             {
-                return mData + index;
+                return const_cast<iterator>(pos);
             }
 
             // Self-insertion check: if iterators point into this vector,
@@ -1267,6 +1344,22 @@ public:
             {
                 size_type newCapacity = safeGrowCapacity(mSize + count);
                 reallocate(newCapacity);
+            }
+
+            if constexpr (std::is_trivially_copyable_v<T>)
+            {
+                // Fast path for trivially copyable types: shift with memmove and copy into the gap
+                if (index < mSize)
+                {
+                    std::memmove(mData + index + count, mData + index, (mSize - index) * sizeof(T));
+                    std::copy(first, last, mData + index);
+                }
+                else
+                {
+                    std::uninitialized_copy(first, last, mData + mSize);
+                }
+                mSize += count;
+                return mData + index;
             }
 
             if (index < mSize)
@@ -1346,7 +1439,7 @@ public:
             size_type inserted = 0;
             for (; first != last; ++first, ++inserted)
             {
-                insert(mData + index + inserted, *first);
+                insert(iterAt(index + inserted), *first);
             }
             return mData + index;
         }
@@ -1380,7 +1473,7 @@ public:
     template<typename... Args>
     iterator emplace(const_iterator pos, Args&&... args)
     {
-        size_type index = pos - mData;
+        size_type index = indexFrom(pos);
 
         if (mSize == mCapacity)
         {
@@ -1394,24 +1487,33 @@ public:
             // If construction throws, vector state is unchanged.
             T temp(std::forward<Args>(args)...);
 
-            // Construct tail element in uninitialized memory
-            new (mData + mSize) T(std::move(mData[mSize - 1]));
-            try
+            if constexpr (std::is_trivially_copyable_v<T>)
             {
-                // Shift elements (may throw)
-                for (size_type i = mSize - 1; i > index; --i)
-                {
-                    mData[i] = std::move(mData[i - 1]);
-                }
-
-                // Move temp into position (may throw)
+                // Fast path: shift as raw bytes (overlap-safe)
+                std::memmove(mData + index + 1, mData + index, (mSize - index) * sizeof(T));
                 mData[index] = std::move(temp);
             }
-            catch (...)
+            else
             {
-                // Destroy the tail element we constructed before rethrowing
-                destroyRange(mData + mSize, mData + mSize + 1);
-                throw;
+                // Construct tail element in uninitialized memory
+                new (mData + mSize) T(std::move(mData[mSize - 1]));
+                try
+                {
+                    // Shift elements (may throw)
+                    for (size_type i = mSize - 1; i > index; --i)
+                    {
+                        mData[i] = std::move(mData[i - 1]);
+                    }
+
+                    // Move temp into position (may throw)
+                    mData[index] = std::move(temp);
+                }
+                catch (...)
+                {
+                    // Destroy the tail element we constructed before rethrowing
+                    destroyRange(mData + mSize, mData + mSize + 1);
+                    throw;
+                }
             }
         }
         else
@@ -1432,10 +1534,21 @@ public:
      */
     iterator erase(const_iterator pos)
     {
-        size_type index = pos - mData;
+        size_type index = indexFrom(pos);
         if (index >= mSize)
         {
             return end();
+        }
+
+        if constexpr (std::is_trivially_copyable_v<T>)
+        {
+            // Fast path: shift as raw bytes (overlap-safe)
+            if (index + 1 < mSize)
+            {
+                std::memmove(mData + index, mData + index + 1, (mSize - index - 1) * sizeof(T));
+            }
+            --mSize;
+            return mData + index;
         }
 
         for (size_type i = index; i < mSize - 1; ++i)
@@ -1458,15 +1571,27 @@ public:
      */
     iterator erase(const_iterator first, const_iterator last)
     {
-        size_type startIndex = first - mData;
-        size_type endIndex = last - mData;
+        size_type startIndex = indexFrom(first);
+        size_type endIndex = indexFrom(last);
 
         if (startIndex >= mSize || startIndex >= endIndex)
         {
-            return mData + startIndex;
+            return iterAt(startIndex);
         }
 
         size_type count = endIndex - startIndex;
+
+        if constexpr (std::is_trivially_copyable_v<T>)
+        {
+            // Fast path: shift as raw bytes (overlap-safe)
+            const size_type tailCount = mSize - endIndex;
+            if (tailCount > 0)
+            {
+                std::memmove(mData + startIndex, mData + endIndex, tailCount * sizeof(T));
+            }
+            mSize -= count;
+            return mData + startIndex;
+        }
 
         for (size_type i = startIndex; i + count < mSize; ++i)
         {

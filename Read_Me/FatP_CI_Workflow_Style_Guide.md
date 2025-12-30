@@ -94,6 +94,8 @@ on:
     branches: [main, master]
     paths:
       # Same paths as push
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly benchmarks at 2am Sunday UTC
   workflow_dispatch:
     inputs:
       run_benchmarks:
@@ -101,13 +103,6 @@ on:
         required: false
         default: 'false'
         type: boolean
-```
-
-### 4.2 Optional: Scheduled Benchmarks
-
-```yaml
-  schedule:
-    - cron: '0 2 * * 0'  # Weekly at 2am Sunday UTC
 ```
 
 ---
@@ -118,116 +113,17 @@ Every workflow MUST include these jobs:
 
 | Job | Purpose | Fat-P Compliance |
 |-----|---------|------------------|
+| `linux-gcc` | GCC 11/12/13 × C++17/20 matrix | §6.4 |
+| `linux-clang` | Clang 14/15/16 × C++17/20 matrix | §6.4 |
+| `windows-msvc` | MSVC C++17/20 matrix | §6.4 |
+| `sanitizer-asan` | AddressSanitizer | Best practice |
+| `sanitizer-ubsan` | UndefinedBehaviorSanitizer | Best practice |
+| `sanitizer-tsan` | ThreadSanitizer | Best practice |
 | `header-check` | Verify headers compile standalone | §6.2 |
-| `test-gcc` | GCC debug + release tests | §6.4 |
-| `test-clang` | Clang debug + release tests | §6.4 |
-| `sanitizers` | ASan + UBSan validation | Best practice |
 | `strict-warnings` | Extended warning flags | §6.4 |
+| `ci-success` | Gate job aggregating all results | Best practice |
 
-### 5.1 Header Self-Containment Job
-
-```yaml
-  header-check:
-    name: Header Self-Containment
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Check <Header>.h
-        run: |
-          echo '#include "<Header>.h"' | \
-            g++ -std=c++17 -fsyntax-only -I./FAT_P/FAT_P/fat_p -x c++ -
-          echo "✓ <Header>.h compiles standalone"
-      
-      - name: Include-order stress test
-        run: |
-          cat > stress_test.cpp << 'EOF'
-          #include <vector>
-          #include <algorithm>
-          #include "<Header>.h"
-          #include <map>
-          int main() { /* minimal usage test */ return 0; }
-          EOF
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
-            -I./FAT_P/FAT_P/fat_p -o stress_test stress_test.cpp
-          ./stress_test
-```
-
-### 5.2 Compiler Test Jobs
-
-```yaml
-  test-gcc:
-    name: GCC ${{ matrix.build_type }}
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        build_type: [Debug, Release]
-        include:
-          - build_type: Debug
-            flags: "-g -DENABLE_TEST_APPLICATION"
-          - build_type: Release
-            flags: "-O3 -DNDEBUG -DENABLE_TEST_APPLICATION"
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Build
-        run: |
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
-              ${{ matrix.flags }} -I./FAT_P/FAT_P/fat_p \
-              -o test_runner FAT_P/FAT_P/tests/test_<Component>.cpp
-      
-      - name: Run tests
-        run: ./test_runner
-```
-
-### 5.3 Sanitizer Job
-
-```yaml
-  sanitizers:
-    name: Sanitizers (ASan + UBSan)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Build with sanitizers
-        run: |
-          g++ -std=c++17 -g \
-              -fsanitize=address,undefined \
-              -fno-omit-frame-pointer \
-              -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
-              -o test_san FAT_P/FAT_P/tests/test_<Component>.cpp
-      
-      - name: Run sanitized tests
-        run: ./test_san
-```
-
-### 5.4 Strict Warnings Job
-
-```yaml
-  strict-warnings:
-    name: Strict Warnings
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Compile with strict warnings
-        run: |
-          g++ -std=c++17 \
-              -Wall -Wextra -Wpedantic \
-              -Wconversion -Wsign-conversion \
-              -Wshadow -Wformat=2 \
-              -Werror \
-              -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
-              -o test_strict FAT_P/FAT_P/tests/test_<Component>.cpp
-```
-
----
-
-## 6. Optional Jobs
-
-### 6.1 Multi-Version Compiler Matrix
-
-For thorough compatibility testing:
+### 5.1 Linux GCC Builds (Required)
 
 ```yaml
   linux-gcc:
@@ -247,55 +143,278 @@ For thorough compatibility testing:
             std: 17
           - version: 13
             std: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
+
+      - name: Build tests
+        run: |
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_<Component>.cpp -o test_bin
+
+      - name: Run tests
+        run: ./test_bin
 ```
 
-### 6.2 Windows MSVC
+### 5.2 Linux Clang Builds (Required)
+
+```yaml
+  linux-clang:
+    name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 14
+            std: 17
+          - version: 15
+            std: 17
+          - version: 15
+            std: 20
+          - version: 16
+            std: 17
+          - version: 16
+            std: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.version }}
+
+      - name: Build tests
+        run: |
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_<Component>.cpp -o test_bin
+
+      - name: Run tests
+        run: ./test_bin
+```
+
+**Note:** Add `-Wno-gnu-zero-variadic-macro-arguments` if `enforce.h` triggers GNU extension warnings.
+
+### 5.3 Windows MSVC Builds (Required)
 
 ```yaml
   windows-msvc:
     name: Windows MSVC C++${{ matrix.std }}
     runs-on: windows-latest
     strategy:
+      fail-fast: false
       matrix:
         std: [17, 20]
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
+
       - name: Build tests
         run: |
-          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG ^
-            /I.\FAT_P\FAT_P\fat_p ^
-            FAT_P\FAT_P\tests\test_<Component>.cpp /Fe:test.exe
+          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_<Component>.cpp /Fe:test_bin.exe
+
       - name: Run tests
-        run: .\test.exe
+        run: .\test_bin.exe
 ```
 
-### 6.3 Benchmarks (Gated)
+### 5.4 Sanitizer Jobs (Required)
+
+```yaml
+  sanitizer-asan:
+    name: AddressSanitizer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with ASan
+        run: |
+          g++ -std=c++17 -Wall -Wextra -g -O1 \
+            -fsanitize=address -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_<Component>.cpp -o test_bin
+
+      - name: Run with ASan
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+        run: ./test_bin
+
+  sanitizer-ubsan:
+    name: UndefinedBehaviorSanitizer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with UBSan
+        run: |
+          g++ -std=c++17 -Wall -Wextra -g -O1 \
+            -fsanitize=undefined -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_<Component>.cpp -o test_bin
+
+      - name: Run with UBSan
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ./test_bin
+
+  sanitizer-tsan:
+    name: ThreadSanitizer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with TSan
+        run: |
+          g++ -std=c++17 -Wall -Wextra -g -O1 \
+            -fsanitize=thread -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_<Component>.cpp -o test_bin
+
+      - name: Run with TSan
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+        run: ./test_bin
+```
+
+### 5.5 Header Self-Containment Job (Required)
+
+```yaml
+  header-check:
+    name: Header Self-Containment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test <Header>.h compiles standalone
+        run: |
+          echo '#include "<Header>.h"' > test_include.cpp
+          echo 'int main() { return 0; }' >> test_include.cpp
+          
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -I./FAT_P/FAT_P/fat_p \
+            -c test_include.cpp -o /dev/null
+          
+          echo "✓ Header is self-contained"
+
+      - name: Test include order independence
+        run: |
+          # <Header> first
+          cat > test1.cpp << 'EOF'
+          #include "<Header>.h"
+          #include <vector>
+          #include <algorithm>
+          int main() { /* minimal usage */ return 0; }
+          EOF
+          
+          # <Header> last
+          cat > test2.cpp << 'EOF'
+          #include <algorithm>
+          #include <vector>
+          #include "<Header>.h"
+          int main() { /* minimal usage */ return 0; }
+          EOF
+          
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./FAT_P/FAT_P/fat_p -c test1.cpp -o /dev/null
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./FAT_P/FAT_P/fat_p -c test2.cpp -o /dev/null
+          
+          echo "✓ Include order independent"
+```
+
+### 5.6 Strict Warnings Job (Required)
+
+```yaml
+  strict-warnings:
+    name: Strict Warnings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile with strict warnings
+        run: |
+          g++ -std=c++17 \
+              -Wall -Wextra -Wpedantic \
+              -Wconversion -Wsign-conversion \
+              -Wshadow -Wformat=2 \
+              -Werror \
+              -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
+              -o test_strict FAT_P/FAT_P/tests/test_<Component>.cpp
+          echo "✓ No warnings"
+```
+
+### 5.7 CI Gate Job (Required)
+
+```yaml
+  ci-success:
+    name: CI Success
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.linux-gcc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.linux-clang.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
+          echo "✓ All checks passed"
+```
+
+**Note:** TSan is not included in the gate by default as it may have false positives on some components. Include it when the component has explicit threading code.
+
+---
+
+## 6. Benchmarks (Weekly/Manual)
 
 ```yaml
   benchmarks:
     name: Benchmarks
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_benchmarks == 'true'
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Build benchmark
         run: |
           g++ -std=c++17 -O3 -DNDEBUG -march=native \
             -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/benchmarks/benchmark_<Component>.cpp -o benchmark
-      
-      - name: Run benchmark
-        run: ./benchmark
-      
+            FAT_P/FAT_P/benchmarks/benchmark_<Component>.cpp -o bench_bin
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_OUTPUT_CSV: results.csv
+        run: ./bench_bin 2>&1 | tee benchmark.log
+
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results
-          path: benchmark_results.csv
-          if-no-files-found: ignore
+          path: |
+            results.csv
+            benchmark.log
 ```
 
 ---
@@ -327,14 +446,40 @@ If `enforce.h` triggers GNU extension warnings:
 
 | Configuration | Flags |
 |---------------|-------|
-| Debug | `-g -DENABLE_TEST_APPLICATION` |
-| Release | `-O3 -DNDEBUG -DENABLE_TEST_APPLICATION` |
-| Sanitizer | `-g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer` |
+| Release | `-O2 -DNDEBUG -DENABLE_TEST_APPLICATION` |
+| Sanitizer | `-g -O1 -fsanitize=<type> -fno-omit-frame-pointer` |
 | Benchmark | `-O3 -DNDEBUG -march=native` |
 
 ---
 
-## 8. Checklist for New Workflows
+## 8. Compiler Version Matrix
+
+### 8.1 Required GCC Versions
+
+| Version | C++ Standards |
+|---------|---------------|
+| GCC 11 | C++17 |
+| GCC 12 | C++17, C++20 |
+| GCC 13 | C++17, C++20 |
+
+### 8.2 Required Clang Versions
+
+| Version | C++ Standards |
+|---------|---------------|
+| Clang 14 | C++17 |
+| Clang 15 | C++17, C++20 |
+| Clang 16 | C++17, C++20 |
+
+### 8.3 Required MSVC Standards
+
+| Standard |
+|----------|
+| C++17 |
+| C++20 |
+
+---
+
+## 9. Checklist for New Workflows
 
 Before committing a new workflow:
 
@@ -342,17 +487,23 @@ Before committing a new workflow:
 - [ ] Header block with directory structure documented
 - [ ] All paths use `FAT_P/FAT_P/fat_p/` prefix
 - [ ] `env:` block defines INCLUDE_DIR, TEST_SRC, BENCH_SRC
-- [ ] `header-check` job included
-- [ ] `test-gcc` job with Debug/Release matrix
-- [ ] `test-clang` job with Debug/Release matrix
-- [ ] `sanitizers` job (ASan + UBSan)
+- [ ] `linux-gcc` job with GCC 11/12/13 × C++17/20 matrix
+- [ ] `linux-clang` job with Clang 14/15/16 × C++17/20 matrix
+- [ ] `windows-msvc` job with C++17/20 matrix
+- [ ] `sanitizer-asan` job
+- [ ] `sanitizer-ubsan` job
+- [ ] `sanitizer-tsan` job
+- [ ] `header-check` job
 - [ ] `strict-warnings` job
+- [ ] `benchmarks` job (weekly + manual trigger)
+- [ ] `ci-success` gate job
 - [ ] Path triggers include the workflow file itself
+- [ ] `schedule` trigger for weekly benchmarks
 - [ ] Tested locally with `act` or manual validation
 
 ---
 
-## 9. Common Mistakes
+## 10. Common Mistakes
 
 | Mistake | Correct Pattern |
 |---------|-----------------|
@@ -360,10 +511,16 @@ Before committing a new workflow:
 | Missing `-I` flag | `-I./FAT_P/FAT_P/fat_p` |
 | MSVC forward slashes | Use backslashes: `FAT_P\FAT_P\fat_p` |
 | Forgetting `workflow_dispatch` | Always include for manual runs |
-| Hard-coding compiler version | Use matrix for flexibility |
+| Single compiler version | Use full GCC/Clang/MSVC matrix |
+| Combined sanitizers | Use separate jobs for ASan/UBSan/TSan |
+| Missing `fail-fast: false` | Add to strategy to run all matrix entries |
+| No CI gate job | Always add `ci-success` job |
 
 ---
 
-## 10. Example: Minimal Complete Workflow
+## 11. Reference Implementations
 
-See `policy-iterator.yml` or `aligned_vector.yml` in the repository for complete reference implementations.
+See these workflows for complete examples:
+
+- `aligned_vector.yml` — Full reference implementation
+- `policy-iterator.yml` — Multi-header component example

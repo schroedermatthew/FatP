@@ -69,6 +69,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 #if defined(__AVX2__)
@@ -857,6 +858,262 @@ void benchmark_insert(const std::vector<size_t>& sizes)
         {
             auto stats = Statistics::compute(r.samples);
             print_result_row(r.name, stats, "ns/insert");
+        }
+
+        cooling_delay(COOLING_DELAY_SIZE_MS, "between sizes");
+    }
+}
+
+// ============================================================================
+// BENCHMARK: Shift Microbench (memmove fast-path vs element-wise moves)
+// ============================================================================
+// This benchmark isolates the benefit of using memmove-style bulk shifts for
+// trivially copyable types during insert/erase range operations.
+//
+// We compare:
+//   - AlignedVector<int, 64>               : trivially copyable => memmove fast-path
+//   - AlignedVector<NonTrivialInt, 64>     : same size, NOT trivially copyable => element-wise shift
+//
+// Reported metric: ns per shifted element (lower is better).
+//
+// NOTE: This does NOT claim AlignedVector is always faster than std::vector.
+// It is a focused microbenchmark for the "shift elements" hot path.
+
+namespace
+{
+struct NonTrivialInt
+{
+    int v;
+
+    NonTrivialInt() : v(0) {}
+    explicit NonTrivialInt(int x) : v(x) {}
+
+    NonTrivialInt(const NonTrivialInt&) = default;
+    NonTrivialInt(NonTrivialInt&&) noexcept = default;
+
+    // User-defined assignments make this type non-trivially copyable.
+    NonTrivialInt& operator=(const NonTrivialInt& other)
+    {
+        v = other.v;
+        return *this;
+    }
+    NonTrivialInt& operator=(NonTrivialInt&& other) noexcept
+    {
+        v = other.v;
+        return *this;
+    }
+};
+
+static_assert(sizeof(NonTrivialInt) == sizeof(int),
+              "NonTrivialInt must match int size for a fair shift comparison.");
+static_assert(!std::is_trivially_copyable_v<NonTrivialInt>,
+              "NonTrivialInt must be non-trivially copyable to force the element-wise shift path.");
+} // namespace
+
+template<typename Container, typename PayloadVec>
+double bench_insert_range_middle(size_t initial_size, const PayloadVec& payload, size_t iterations)
+{
+    using T = typename Container::value_type;
+
+    const size_t K = payload.size();
+    const size_t index = initial_size / 2;
+
+    // Elements shifted right during insert at middle.
+    const size_t shifted = initial_size - index;
+    if (shifted == 0)
+    {
+        return 0.0;
+    }
+
+    double total_ns = 0;
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        Container vec(initial_size, T(0));
+        vec.reserve(initial_size + K);  // avoid reallocation (isolate shift + placement)
+
+        auto pos = vec.begin() + static_cast<ptrdiff_t>(index);
+
+        Timer timer;
+        timer.start();
+        vec.insert(pos, payload.begin(), payload.end());
+        total_ns += timer.elapsed_ns();
+
+        prevent_opt(static_cast<int64_t>(vec.size()));
+    }
+
+    return total_ns / static_cast<double>(iterations * shifted);
+}
+
+template<typename Container>
+double bench_erase_range_middle(size_t initial_size, size_t erase_count, size_t iterations)
+{
+    using T = typename Container::value_type;
+
+    const size_t index = initial_size / 2;
+    if (erase_count == 0 || index + erase_count > initial_size)
+    {
+        return 0.0;
+    }
+
+    // Elements shifted left during erase at middle.
+    const size_t shifted = initial_size - (index + erase_count);
+    if (shifted == 0)
+    {
+        return 0.0;
+    }
+
+    double total_ns = 0;
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        Container vec(initial_size, T(0));
+
+        auto first = vec.begin() + static_cast<ptrdiff_t>(index);
+        auto last = first + static_cast<ptrdiff_t>(erase_count);
+
+        Timer timer;
+        timer.start();
+        vec.erase(first, last);
+        total_ns += timer.elapsed_ns();
+
+        prevent_opt(static_cast<int64_t>(vec.size()));
+    }
+
+    return total_ns / static_cast<double>(iterations * shifted);
+}
+
+void benchmark_shift_memmove(const std::vector<size_t>& sizes)
+{
+    print_header("SHIFT MICROBENCH (memmove fast-path)");
+    print_contract_note(
+        "Isolates the cost of shifting elements during insert/erase range operations. "
+        "Compares a trivially copyable element type (int) that can use bulk memmove shifts "
+        "against an equivalent-size non-trivially copyable wrapper that forces element-wise moves. "
+        "Reported as ns per shifted element.");
+
+    print_cpu_context("Shift/memmove");
+
+    constexpr size_t K = 32;  // range length inserted/erased
+
+    for (size_t N : sizes)
+    {
+        if (N < 2 * K + 8)
+        {
+            continue;
+        }
+
+        print_subheader("N = " + std::to_string(N) + ", range K = " + std::to_string(K) + " at middle");
+
+        // More iterations for smaller sizes to reduce timer noise
+        const size_t ITERS = (N >= 100'000) ? 50 : 200;
+
+        // Payloads for range insert
+        std::vector<int> payload_i(K);
+        for (size_t i = 0; i < K; ++i)
+        {
+            payload_i[i] = static_cast<int>(i);
+        }
+
+        std::vector<NonTrivialInt> payload_nt;
+        payload_nt.reserve(K);
+        for (size_t i = 0; i < K; ++i)
+        {
+            payload_nt.emplace_back(static_cast<int>(i));
+        }
+
+        // --------------------------------------------------------------------
+        // Insert(range) at middle (shift right)
+        // --------------------------------------------------------------------
+        {
+            print_subheader("insert(pos, first, last)   [shift right]");
+
+            std::vector<BenchmarkResult> results;
+            results.push_back({"AlignedVector<int,64> (trivial => memmove shift)", {}});
+            results.push_back({"AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)", {}});
+
+            std::vector<size_t> order(results.size());
+            std::iota(order.begin(), order.end(), 0);
+            std::mt19937 rng(g_config.seed);
+
+            for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
+            {
+                bool is_warmup = (run < WARMUP_RUNS());
+                std::shuffle(order.begin(), order.end(), rng);
+
+                for (size_t idx : order)
+                {
+                    double ns = 0;
+
+                    if (results[idx].name == "AlignedVector<int,64> (trivial => memmove shift)")
+                    {
+                        ns = bench_insert_range_middle<fat_p::AlignedVector<int, 64>>(N, payload_i, ITERS);
+                    }
+                    else if (results[idx].name == "AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)")
+                    {
+                        ns = bench_insert_range_middle<fat_p::AlignedVector<NonTrivialInt, 64>>(N, payload_nt, ITERS);
+                    }
+
+                    if (!is_warmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                }
+            }
+
+            print_result_table_header();
+            for (const auto& r : results)
+            {
+                auto stats = Statistics::compute(r.samples);
+                print_result_row(r.name, stats, "ns/shifted-elem");
+            }
+        }
+
+        // --------------------------------------------------------------------
+        // Erase(range) at middle (shift left)
+        // --------------------------------------------------------------------
+        {
+            print_subheader("erase(first, last)        [shift left]");
+
+            std::vector<BenchmarkResult> results;
+            results.push_back({"AlignedVector<int,64> (trivial => memmove shift)", {}});
+            results.push_back({"AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)", {}});
+
+            std::vector<size_t> order(results.size());
+            std::iota(order.begin(), order.end(), 0);
+            std::mt19937 rng(g_config.seed);
+
+            for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
+            {
+                bool is_warmup = (run < WARMUP_RUNS());
+                std::shuffle(order.begin(), order.end(), rng);
+
+                for (size_t idx : order)
+                {
+                    double ns = 0;
+
+                    if (results[idx].name == "AlignedVector<int,64> (trivial => memmove shift)")
+                    {
+                        ns = bench_erase_range_middle<fat_p::AlignedVector<int, 64>>(N, K, ITERS);
+                    }
+                    else if (results[idx].name == "AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)")
+                    {
+                        ns = bench_erase_range_middle<fat_p::AlignedVector<NonTrivialInt, 64>>(N, K, ITERS);
+                    }
+
+                    if (!is_warmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                }
+            }
+
+            print_result_table_header();
+            for (const auto& r : results)
+            {
+                auto stats = Statistics::compute(r.samples);
+                print_result_row(r.name, stats, "ns/shifted-elem");
+            }
         }
 
         cooling_delay(COOLING_DELAY_SIZE_MS, "between sizes");
@@ -1726,6 +1983,9 @@ int main(int argc, char* argv[])
 
     cooling_delay(COOLING_DELAY_SECTION_MS, "before insert");
     benchmark_insert(small_sizes);
+
+    cooling_delay(COOLING_DELAY_SECTION_MS, "before shift memmove microbench");
+    benchmark_shift_memmove(medium_sizes);
 
     cooling_delay(COOLING_DELAY_SECTION_MS, "before copy/move");
     benchmark_copy_move(medium_sizes);

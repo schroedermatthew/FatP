@@ -7,6 +7,11 @@
 #   Headers:    FAT_P/FAT_P/fat_p/PolicyIterator.h, TensorStridePolicy.h, TensorIteration.h
 #   Tests:      FAT_P/FAT_P/tests/test_PolicyIterator.cpp
 #   Benchmarks: FAT_P/FAT_P/benchmarks/benchmark_PolicyIterator.cpp
+#
+# Fat-P Guidelines compliance:
+#   - Section 6.1: Include-all compile test
+#   - Section 6.2: Header self-contained tests
+#   - Section 6.4: Warning cleanliness (-Wall -Wextra -Wpedantic -Werror)
 # =============================================================================
 
 name: PolicyIterator CI
@@ -29,6 +34,8 @@ on:
       - 'FAT_P/FAT_P/fat_p/TensorIteration.h'
       - 'FAT_P/FAT_P/tests/test_PolicyIterator.cpp'
       - 'FAT_P/FAT_P/benchmarks/benchmark_PolicyIterator.cpp'
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly benchmarks
   workflow_dispatch:
     inputs:
       run_benchmarks:
@@ -44,35 +51,213 @@ env:
 
 jobs:
   # ===========================================================================
-  # Header Self-Containment Check
+  # Linux GCC Builds
+  # ===========================================================================
+  linux-gcc:
+    name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 11
+            std: 17
+          - version: 12
+            std: 17
+          - version: 12
+            std: 20
+          - version: 13
+            std: 17
+          - version: 13
+            std: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
+
+      - name: Build tests
+        run: |
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_PolicyIterator.cpp -o test_pi
+
+      - name: Run tests
+        run: ./test_pi
+
+  # ===========================================================================
+  # Linux Clang Builds
+  # ===========================================================================
+  linux-clang:
+    name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 14
+            std: 17
+          - version: 15
+            std: 17
+          - version: 15
+            std: 20
+          - version: 16
+            std: 17
+          - version: 16
+            std: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.version }}
+
+      - name: Build tests
+        run: |
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -Wno-gnu-zero-variadic-macro-arguments \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_PolicyIterator.cpp -o test_pi
+
+      - name: Run tests
+        run: ./test_pi
+
+  # ===========================================================================
+  # Windows MSVC Build
+  # ===========================================================================
+  windows-msvc:
+    name: Windows MSVC C++${{ matrix.std }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [17, 20]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build tests
+        run: |
+          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_PolicyIterator.cpp /Fe:test_pi.exe
+
+      - name: Run tests
+        run: .\test_pi.exe
+
+  # ===========================================================================
+  # Sanitizers
+  # ===========================================================================
+  sanitizer-asan:
+    name: AddressSanitizer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with ASan
+        run: |
+          g++ -std=c++17 -Wall -Wextra -g -O1 \
+            -fsanitize=address -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_PolicyIterator.cpp -o test_pi
+
+      - name: Run with ASan
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+        run: ./test_pi
+
+  sanitizer-ubsan:
+    name: UndefinedBehaviorSanitizer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with UBSan
+        run: |
+          g++ -std=c++17 -Wall -Wextra -g -O1 \
+            -fsanitize=undefined -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_PolicyIterator.cpp -o test_pi
+
+      - name: Run with UBSan
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ./test_pi
+
+  sanitizer-tsan:
+    name: ThreadSanitizer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with TSan
+        run: |
+          g++ -std=c++17 -Wall -Wextra -g -O1 \
+            -fsanitize=thread -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/tests/test_PolicyIterator.cpp -o test_pi
+
+      - name: Run with TSan
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+        run: ./test_pi
+
+  # ===========================================================================
+  # Header Self-Containment (Fat-P §6.2)
   # ===========================================================================
   header-check:
     name: Header Self-Containment
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Check PolicyIterator.h
         run: |
-          echo '#include "PolicyIterator.h"' | g++ -std=c++17 -fsyntax-only -I./$INCLUDE_DIR -x c++ -
-          echo "✓ PolicyIterator.h compiles standalone"
-        env:
-          INCLUDE_DIR: FAT_P/FAT_P/fat_p
-      
+          echo '#include "PolicyIterator.h"' > test_include.cpp
+          echo 'int main() { return 0; }' >> test_include.cpp
+          
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -I./FAT_P/FAT_P/fat_p \
+            -c test_include.cpp -o /dev/null
+          
+          echo "✓ PolicyIterator.h is self-contained"
+
       - name: Check TensorStridePolicy.h
         run: |
-          echo '#include "TensorStridePolicy.h"' | g++ -std=c++17 -fsyntax-only -I./$INCLUDE_DIR -x c++ -
-          echo "✓ TensorStridePolicy.h compiles standalone"
-        env:
-          INCLUDE_DIR: FAT_P/FAT_P/fat_p
-      
+          echo '#include "TensorStridePolicy.h"' > test_include.cpp
+          echo 'int main() { return 0; }' >> test_include.cpp
+          
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -I./FAT_P/FAT_P/fat_p \
+            -c test_include.cpp -o /dev/null
+          
+          echo "✓ TensorStridePolicy.h is self-contained"
+
       - name: Check TensorIteration.h
         run: |
-          echo '#include "TensorIteration.h"' | g++ -std=c++17 -fsyntax-only -I./$INCLUDE_DIR -x c++ -
-          echo "✓ TensorIteration.h compiles standalone"
-        env:
-          INCLUDE_DIR: FAT_P/FAT_P/fat_p
-      
+          echo '#include "TensorIteration.h"' > test_include.cpp
+          echo 'int main() { return 0; }' >> test_include.cpp
+          
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -I./FAT_P/FAT_P/fat_p \
+            -c test_include.cpp -o /dev/null
+          
+          echo "✓ TensorIteration.h is self-contained"
+
       - name: Include-order stress test
         run: |
           cat > stress_test.cpp << 'EOF'
@@ -90,107 +275,21 @@ jobs:
           #include <list>
           int main() {
               std::vector<int> d = {1,2,3,4,5,6};
-              // Test PolicyIterator with static factories (L18 API)
               using Iter = fat_p::iterator::PolicyIterator<int>;
               auto it  = Iter::begin(d.data(), d.data() + 6);
               auto end = Iter::end(d.data(), d.data() + 6);
               int sum = 0;
               for (; it != end; ++it) sum += *it;
               if (sum != 21) return 1;
-              // Test TensorIteration
               int64_t tsum = 0;
               fat_p::iterator::iterateND(d.data(), {2, 3}, [&](int v) { tsum += v; });
               return (tsum == 21) ? 0 : 1;
           }
           EOF
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./$INCLUDE_DIR -o stress_test stress_test.cpp
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -I./FAT_P/FAT_P/fat_p -o stress_test stress_test.cpp
           ./stress_test
           echo "✓ Include-order stress test passed"
-        env:
-          INCLUDE_DIR: FAT_P/FAT_P/fat_p
-
-  # ===========================================================================
-  # GCC Tests (Debug + Release)
-  # ===========================================================================
-  test-gcc:
-    name: GCC ${{ matrix.build_type }}
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        build_type: [Debug, Release]
-        include:
-          - build_type: Debug
-            flags: "-g -DENABLE_TEST_APPLICATION"
-          - build_type: Release
-            flags: "-O3 -DNDEBUG -DENABLE_TEST_APPLICATION"
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Build
-        run: |
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
-              ${{ matrix.flags }} -I./FAT_P/FAT_P/fat_p \
-              -o test_runner FAT_P/FAT_P/tests/test_PolicyIterator.cpp
-      
-      - name: Run tests
-        run: |
-          ./test_runner
-          echo "✓ ${{ matrix.build_type }} tests passed"
-
-  # ===========================================================================
-  # Clang Tests (Debug + Release)
-  # ===========================================================================
-  test-clang:
-    name: Clang ${{ matrix.build_type }}
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        build_type: [Debug, Release]
-        include:
-          - build_type: Debug
-            flags: "-g -DENABLE_TEST_APPLICATION"
-          - build_type: Release
-            flags: "-O3 -DNDEBUG -DENABLE_TEST_APPLICATION"
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Clang
-        run: sudo apt-get update && sudo apt-get install -y clang
-      
-      - name: Build
-        run: |
-          # -Wno-gnu-zero-variadic-macro-arguments: suppress warning from enforce.h macro
-          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
-              -Wno-gnu-zero-variadic-macro-arguments \
-              ${{ matrix.flags }} -I./FAT_P/FAT_P/fat_p \
-              -o test_runner FAT_P/FAT_P/tests/test_PolicyIterator.cpp
-      
-      - name: Run tests
-        run: |
-          ./test_runner
-          echo "✓ Clang ${{ matrix.build_type }} tests passed"
-
-  # ===========================================================================
-  # Sanitizers (ASan + UBSan)
-  # ===========================================================================
-  sanitizers:
-    name: Sanitizers (ASan + UBSan)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Build with sanitizers
-        run: |
-          g++ -std=c++17 -g \
-              -fsanitize=address,undefined \
-              -fno-omit-frame-pointer \
-              -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
-              -o test_san FAT_P/FAT_P/tests/test_PolicyIterator.cpp
-      
-      - name: Run sanitized tests
-        run: |
-          ./test_san
-          echo "✓ No sanitizer issues found"
 
   # ===========================================================================
   # Strict Warnings Check
@@ -200,7 +299,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Compile with strict warnings
         run: |
           g++ -std=c++17 \
@@ -213,27 +312,53 @@ jobs:
           echo "✓ No warnings"
 
   # ===========================================================================
-  # Benchmarks (Manual trigger only)
+  # Benchmarks (Weekly/Manual)
   # ===========================================================================
   benchmarks:
     name: Benchmarks
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_benchmarks == 'true'
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Build benchmark
         run: |
-          g++ -std=c++17 -O3 -DNDEBUG -march=native -I./FAT_P/FAT_P/fat_p \
-              -o benchmark FAT_P/FAT_P/benchmarks/benchmark_PolicyIterator.cpp
-      
-      - name: Run benchmark
-        run: |
-          ./benchmark
-      
+          g++ -std=c++17 -O3 -DNDEBUG -march=native \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/benchmarks/benchmark_PolicyIterator.cpp -o bench_pi
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_OUTPUT_CSV: results.csv
+        run: ./bench_pi 2>&1 | tee benchmark.log
+
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results
-          path: benchmark_results.csv
-          if-no-files-found: ignore
+          path: |
+            results.csv
+            benchmark.log
+
+  # ===========================================================================
+  # CI Gate
+  # ===========================================================================
+  ci-success:
+    name: CI Success
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.linux-gcc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.linux-clang.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
+          echo "✓ All checks passed"
