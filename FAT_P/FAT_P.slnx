@@ -4,6 +4,7 @@
     <Platform Name="x86" />
   </Configurations>
   <Project Path="benchmark_AlignedVector/benchmark_AlignedVector.vcxproj" Id="dcc234ae-841c-4776-b526-6c596c288b88" />
+  <Project Path="benchmark_AllocationStrategies/benchmark_AllocationStrategies.vcxproj" Id="a7e68b15-11f1-45a5-ae7b-e27ac24de5d8" />
   <Project Path="benchmark_EqualityComparisons/benchmark_EqualityComparisons.vcxproj" Id="18835972-9542-4763-8486-f6b1f94ca417" />
   <Project Path="benchmark_FatPHashMaps/benchmark_FatPHashMaps.vcxproj" Id="bed9dc70-a711-4f49-bb4e-e6bb4a7647ff" />
   <Project Path="benchmark_FeatureManager/benchmark_FeatureManager.vcxproj" Id="a5b8cc99-23f5-4ffe-b496-5f8209b62d3a" />

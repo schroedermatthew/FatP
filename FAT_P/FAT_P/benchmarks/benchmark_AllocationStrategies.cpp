@@ -33,6 +33,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <memory_resource>  // C++17 PMR
 #include <numeric>
 #include <random>
 #include <sstream>
@@ -41,6 +42,28 @@
 #include <vector>
 
 #include "AllocationStrategies.h"
+
+// =============================================================================
+// Competitor Auto-Detection
+// =============================================================================
+
+// Boost.Pool - optional
+#if __has_include(<boost/pool/object_pool.hpp>)
+#include <boost/pool/object_pool.hpp>
+#include <boost/pool/pool_alloc.hpp>
+#define HAS_BOOST_POOL 1
+#else
+#define HAS_BOOST_POOL 0
+#endif
+
+// Boost.Container pool_allocator - optional
+#if __has_include(<boost/container/pmr/polymorphic_allocator.hpp>)
+#include <boost/container/pmr/polymorphic_allocator.hpp>
+#include <boost/container/pmr/monotonic_buffer_resource.hpp>
+#define HAS_BOOST_PMR 1
+#else
+#define HAS_BOOST_PMR 0
+#endif
 
 // =============================================================================
 // Platform Detection
@@ -77,6 +100,61 @@ struct BenchConfig
     std::string jsonPath;
 };
 
+#if FATP_WINDOWS
+// MSVC-safe environment variable access
+inline std::string getEnvOr(const char* name, const char* defaultVal)
+{
+    char* buf = nullptr;
+    size_t len = 0;
+    if (_dupenv_s(&buf, &len, name) == 0 && buf != nullptr)
+    {
+        std::string result(buf);
+        free(buf);
+        return result;
+    }
+    return defaultVal;
+}
+
+inline size_t getEnvSize(const char* name, size_t defaultVal)
+{
+    char* buf = nullptr;
+    size_t len = 0;
+    if (_dupenv_s(&buf, &len, name) == 0 && buf != nullptr)
+    {
+        size_t result = static_cast<size_t>(std::stoull(buf));
+        free(buf);
+        return result;
+    }
+    return defaultVal;
+}
+
+inline uint64_t getEnvU64(const char* name, uint64_t defaultVal)
+{
+    char* buf = nullptr;
+    size_t len = 0;
+    if (_dupenv_s(&buf, &len, name) == 0 && buf != nullptr)
+    {
+        uint64_t result = static_cast<uint64_t>(std::stoull(buf));
+        free(buf);
+        return result;
+    }
+    return defaultVal;
+}
+
+inline bool hasEnvVar(const char* name)
+{
+    char* buf = nullptr;
+    size_t len = 0;
+    if (_dupenv_s(&buf, &len, name) == 0 && buf != nullptr)
+    {
+        bool hasValue = (len > 0 && buf[0] != '\0');
+        free(buf);
+        return hasValue;
+    }
+    return false;
+}
+#else
+// POSIX environment variable access
 inline std::string getEnvOr(const char* name, const char* defaultVal)
 {
     const char* val = std::getenv(name);
@@ -100,6 +178,7 @@ inline bool hasEnvVar(const char* name)
     const char* val = std::getenv(name);
     return val && val[0] != '\0';
 }
+#endif
 
 BenchConfig loadConfig()
 {
@@ -141,6 +220,19 @@ void printConfig(const BenchConfig& cfg)
         std::cout << "  CSV output:     " << cfg.csvPath << "\n";
     if (!cfg.jsonPath.empty())
         std::cout << "  JSON output:    " << cfg.jsonPath << "\n";
+    
+    std::cout << "\nCompetitor Libraries:\n";
+    std::cout << "  std::pmr:       YES (C++17 standard)\n";
+#if HAS_BOOST_POOL
+    std::cout << "  Boost.Pool:     YES\n";
+#else
+    std::cout << "  Boost.Pool:     NO (not found)\n";
+#endif
+#if HAS_BOOST_PMR
+    std::cout << "  Boost.PMR:      YES\n";
+#else
+    std::cout << "  Boost.PMR:      NO (not found)\n";
+#endif
     std::cout << "\n";
 }
 
@@ -238,7 +330,14 @@ void printCpuContext(const char* label = nullptr)
     auto now = std::chrono::system_clock::now();
     auto time = std::chrono::system_clock::to_time_t(now);
 
+#if FATP_WINDOWS
+    struct tm timeInfo;
+    localtime_s(&timeInfo, &time);
+    std::cout << "[" << std::put_time(&timeInfo, "%H:%M:%S") << "] ";
+#else
     std::cout << "[" << std::put_time(std::localtime(&time), "%H:%M:%S") << "] ";
+#endif
+
     if (label)
         std::cout << label << " ";
 
@@ -526,7 +625,13 @@ void recordResult(const std::string& benchmark, const std::string& testCase,
     auto now = std::chrono::system_clock::now();
     auto time = std::chrono::system_clock::to_time_t(now);
     std::ostringstream oss;
+#if FATP_WINDOWS
+    struct tm timeInfo;
+    localtime_s(&timeInfo, &time);
+    oss << std::put_time(&timeInfo, "%Y-%m-%dT%H:%M:%S");
+#else
     oss << std::put_time(std::localtime(&time), "%Y-%m-%dT%H:%M:%S");
+#endif
     r.timestamp = oss.str();
 
     auto freq = getCpuFreq();
@@ -672,11 +777,21 @@ void benchSingleAllocation(const BenchConfig& cfg)
     std::vector<double> stdAllocSamples;
     std::vector<double> blockSamples;
     std::vector<double> poolSamples;
+    std::vector<double> pmrMonotonicSamples;
+    std::vector<double> pmrUnsyncSamples;
+#if HAS_BOOST_POOL
+    std::vector<double> boostPoolSamples;
+#endif
 
     newDeleteSamples.reserve(cfg.measuredBatches);
     stdAllocSamples.reserve(cfg.measuredBatches);
     blockSamples.reserve(cfg.measuredBatches);
     poolSamples.reserve(cfg.measuredBatches);
+    pmrMonotonicSamples.reserve(cfg.measuredBatches);
+    pmrUnsyncSamples.reserve(cfg.measuredBatches);
+#if HAS_BOOST_POOL
+    boostPoolSamples.reserve(cfg.measuredBatches);
+#endif
 
     // Pre-create allocators for steady-state measurement
     fat_p::BlockAllocator<PointerSized> blockAlloc;
@@ -784,6 +899,73 @@ void benchSingleAllocation(const BenchConfig& cfg)
             double ns = Duration(end - start).count() / static_cast<double>(kIterations);
             poolSamples.push_back(ns);
         }
+
+        // std::pmr::monotonic_buffer_resource (no dealloc, reset at end)
+        // Note: monotonic doesn't support per-object dealloc, so we measure
+        // allocation only and reset the buffer periodically
+        {
+            constexpr size_t kBufferSize = 256 * 1024;  // 256KB buffer (heap allocated)
+            auto buffer = std::make_unique<char[]>(kBufferSize);
+            std::pmr::monotonic_buffer_resource mbr(buffer.get(), kBufferSize);
+            std::pmr::polymorphic_allocator<PointerSized> alloc(&mbr);
+
+            auto start = Clock::now();
+            for (size_t i = 0; i < kIterations; ++i)
+            {
+                PointerSized* p = alloc.allocate(1);
+                new (p) PointerSized(static_cast<int64_t>(i));
+                doNotOptimize(p);
+                p->~PointerSized();
+                // Note: monotonic_buffer_resource doesn't actually free on deallocate
+                alloc.deallocate(p, 1);
+                
+                // Reset buffer periodically to avoid exhaustion
+                if ((i + 1) % 10000 == 0)
+                {
+                    mbr.release();
+                }
+            }
+            auto end = Clock::now();
+            double ns = Duration(end - start).count() / static_cast<double>(kIterations);
+            pmrMonotonicSamples.push_back(ns);
+        }
+
+        // std::pmr::unsynchronized_pool_resource (supports dealloc)
+        {
+            std::pmr::unsynchronized_pool_resource pool;
+            std::pmr::polymorphic_allocator<PointerSized> alloc(&pool);
+
+            auto start = Clock::now();
+            for (size_t i = 0; i < kIterations; ++i)
+            {
+                PointerSized* p = alloc.allocate(1);
+                new (p) PointerSized(static_cast<int64_t>(i));
+                doNotOptimize(p);
+                p->~PointerSized();
+                alloc.deallocate(p, 1);
+            }
+            auto end = Clock::now();
+            double ns = Duration(end - start).count() / static_cast<double>(kIterations);
+            pmrUnsyncSamples.push_back(ns);
+        }
+
+#if HAS_BOOST_POOL
+        // Boost.Pool object_pool
+        {
+            boost::object_pool<PointerSized> pool;
+
+            auto start = Clock::now();
+            for (size_t i = 0; i < kIterations; ++i)
+            {
+                PointerSized* p = pool.construct(static_cast<int64_t>(i));
+                doNotOptimize(p);
+                pool.destroy(p);
+            }
+            auto end = Clock::now();
+            double ns = Duration(end - start).count() / static_cast<double>(kIterations);
+            boostPoolSamples.push_back(ns);
+        }
+#endif
     }
 
     // Compute statistics
@@ -791,19 +973,35 @@ void benchSingleAllocation(const BenchConfig& cfg)
     Stats stdAllocStats = computeStats(stdAllocSamples);
     Stats blockStats = computeStats(blockSamples);
     Stats poolStats = computeStats(poolSamples);
+    Stats pmrMonotonicStats = computeStats(pmrMonotonicSamples);
+    Stats pmrUnsyncStats = computeStats(pmrUnsyncSamples);
+#if HAS_BOOST_POOL
+    Stats boostPoolStats = computeStats(boostPoolSamples);
+#endif
 
     // Print results
     printResultHeader();
     printResult("fat_p::NewDeleteAllocator", newDeleteStats);
-    printResult("std::allocator", stdAllocStats);
     printResult("fat_p::BlockAllocator", blockStats);
     printResult("fat_p::PoolAllocator", poolStats);
+    std::cout << std::string(90, '-') << "\n";
+    printResult("std::allocator", stdAllocStats);
+    printResult("std::pmr::monotonic", pmrMonotonicStats);
+    printResult("std::pmr::unsync_pool", pmrUnsyncStats);
+#if HAS_BOOST_POOL
+    printResult("boost::object_pool", boostPoolStats);
+#endif
 
     // Record for CSV/JSON
     recordResult("AllocationStrategies", "SingleAlloc", "NewDeleteAllocator", newDeleteStats);
-    recordResult("AllocationStrategies", "SingleAlloc", "std::allocator", stdAllocStats);
     recordResult("AllocationStrategies", "SingleAlloc", "BlockAllocator", blockStats);
     recordResult("AllocationStrategies", "SingleAlloc", "PoolAllocator", poolStats);
+    recordResult("AllocationStrategies", "SingleAlloc", "std::allocator", stdAllocStats);
+    recordResult("AllocationStrategies", "SingleAlloc", "pmr::monotonic", pmrMonotonicStats);
+    recordResult("AllocationStrategies", "SingleAlloc", "pmr::unsync_pool", pmrUnsyncStats);
+#if HAS_BOOST_POOL
+    recordResult("AllocationStrategies", "SingleAlloc", "boost::object_pool", boostPoolStats);
+#endif
 
     // Correctness check (outside timed region)
     {
@@ -842,11 +1040,21 @@ void benchBurstAllocation(const BenchConfig& cfg)
     std::vector<double> stdAllocSamples;
     std::vector<double> blockSamples;
     std::vector<double> poolSamples;
+    std::vector<double> pmrMonotonicSamples;
+    std::vector<double> pmrUnsyncSamples;
+#if HAS_BOOST_POOL
+    std::vector<double> boostPoolSamples;
+#endif
 
     newDeleteSamples.reserve(cfg.measuredBatches);
     stdAllocSamples.reserve(cfg.measuredBatches);
     blockSamples.reserve(cfg.measuredBatches);
     poolSamples.reserve(cfg.measuredBatches);
+    pmrMonotonicSamples.reserve(cfg.measuredBatches);
+    pmrUnsyncSamples.reserve(cfg.measuredBatches);
+#if HAS_BOOST_POOL
+    boostPoolSamples.reserve(cfg.measuredBatches);
+#endif
 
     // Warmup
     for (size_t w = 0; w < cfg.warmupRuns; ++w)
@@ -950,23 +1158,118 @@ void benchBurstAllocation(const BenchConfig& cfg)
             double ns = Duration(end - start).count() / static_cast<double>(kIterations);
             poolSamples.push_back(ns);
         }
+
+        // std::pmr::monotonic_buffer_resource
+        {
+            auto start = Clock::now();
+            for (size_t iter = 0; iter < kIterations; ++iter)
+            {
+                constexpr size_t kBufSize = kBurstSize * sizeof(PointerSized) * 2;
+                alignas(alignof(PointerSized)) char buffer[kBufSize];
+                std::pmr::monotonic_buffer_resource mbr(buffer, sizeof(buffer));
+                std::pmr::polymorphic_allocator<PointerSized> alloc(&mbr);
+                
+                std::array<PointerSized*, kBurstSize> ptrs;
+                for (size_t i = 0; i < kBurstSize; ++i)
+                {
+                    ptrs[i] = alloc.allocate(1);
+                    new (ptrs[i]) PointerSized(static_cast<int64_t>(i));
+                }
+                doNotOptimize(ptrs);
+                for (auto p : ptrs)
+                {
+                    p->~PointerSized();
+                    alloc.deallocate(p, 1);
+                }
+                // Buffer released when mbr goes out of scope
+            }
+            auto end = Clock::now();
+            double ns = Duration(end - start).count() / static_cast<double>(kIterations);
+            pmrMonotonicSamples.push_back(ns);
+        }
+
+        // std::pmr::unsynchronized_pool_resource
+        {
+            auto start = Clock::now();
+            for (size_t iter = 0; iter < kIterations; ++iter)
+            {
+                std::pmr::unsynchronized_pool_resource pool;
+                std::pmr::polymorphic_allocator<PointerSized> alloc(&pool);
+                
+                std::array<PointerSized*, kBurstSize> ptrs;
+                for (size_t i = 0; i < kBurstSize; ++i)
+                {
+                    ptrs[i] = alloc.allocate(1);
+                    new (ptrs[i]) PointerSized(static_cast<int64_t>(i));
+                }
+                doNotOptimize(ptrs);
+                for (auto p : ptrs)
+                {
+                    p->~PointerSized();
+                    alloc.deallocate(p, 1);
+                }
+            }
+            auto end = Clock::now();
+            double ns = Duration(end - start).count() / static_cast<double>(kIterations);
+            pmrUnsyncSamples.push_back(ns);
+        }
+
+#if HAS_BOOST_POOL
+        // Boost.Pool object_pool
+        {
+            auto start = Clock::now();
+            for (size_t iter = 0; iter < kIterations; ++iter)
+            {
+                boost::object_pool<PointerSized> pool;
+                std::array<PointerSized*, kBurstSize> ptrs;
+                for (size_t i = 0; i < kBurstSize; ++i)
+                {
+                    ptrs[i] = pool.construct(static_cast<int64_t>(i));
+                }
+                doNotOptimize(ptrs);
+                for (auto p : ptrs)
+                {
+                    pool.destroy(p);
+                }
+            }
+            auto end = Clock::now();
+            double ns = Duration(end - start).count() / static_cast<double>(kIterations);
+            boostPoolSamples.push_back(ns);
+        }
+#endif
     }
 
     Stats newDeleteStats = computeStats(newDeleteSamples);
     Stats stdAllocStats = computeStats(stdAllocSamples);
     Stats blockStats = computeStats(blockSamples);
     Stats poolStats = computeStats(poolSamples);
+    Stats pmrMonotonicStats = computeStats(pmrMonotonicSamples);
+    Stats pmrUnsyncStats = computeStats(pmrUnsyncSamples);
+#if HAS_BOOST_POOL
+    Stats boostPoolStats = computeStats(boostPoolSamples);
+#endif
 
     printResultHeader();
     printResult("fat_p::NewDeleteAllocator", newDeleteStats);
-    printResult("std::allocator", stdAllocStats);
     printResult("fat_p::BlockAllocator", blockStats);
     printResult("fat_p::PoolAllocator", poolStats);
+    std::cout << std::string(90, '-') << "\n";
+    printResult("std::allocator", stdAllocStats);
+    printResult("std::pmr::monotonic", pmrMonotonicStats);
+    printResult("std::pmr::unsync_pool", pmrUnsyncStats);
+#if HAS_BOOST_POOL
+    printResult("boost::object_pool", boostPoolStats);
+#endif
 
     recordResult("AllocationStrategies", "BurstAlloc100", "NewDeleteAllocator", newDeleteStats);
-    recordResult("AllocationStrategies", "BurstAlloc100", "std::allocator", stdAllocStats);
     recordResult("AllocationStrategies", "BurstAlloc100", "BlockAllocator", blockStats);
     recordResult("AllocationStrategies", "BurstAlloc100", "PoolAllocator", poolStats);
+    recordResult("AllocationStrategies", "BurstAlloc100", "std::allocator", stdAllocStats);
+    recordResult("AllocationStrategies", "BurstAlloc100", "pmr::monotonic", pmrMonotonicStats);
+    recordResult("AllocationStrategies", "BurstAlloc100", "pmr::unsync_pool", pmrUnsyncStats);
+#if HAS_BOOST_POOL
+    recordResult("AllocationStrategies", "BurstAlloc100", "boost::object_pool", boostPoolStats);
+#endif
 
     printCpuContext("End");
 }
