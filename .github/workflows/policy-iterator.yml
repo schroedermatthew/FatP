@@ -312,14 +312,44 @@ jobs:
           echo "✓ No warnings"
 
   # ===========================================================================
-  # Benchmarks (Weekly/Manual)
+  # Benchmarks - Linux GCC (Weekly/Manual)
   # ===========================================================================
-  benchmarks:
-    name: Benchmarks
+  benchmarks-gcc:
+    name: Benchmark GCC-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 11
+            std: 17
+          - version: 12
+            std: 17
+          - version: 12
+            std: 20
+          - version: 13
+            std: 17
+          - version: 13
+            std: 20
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
+
+      - name: Install competitor libraries
+        run: |
+          sudo apt-get install -y \
+            libboost-dev \
+            libeigen3-dev \
+            librange-v3-dev
+          
+          echo "Installed competitor libraries:"
+          echo "  - Boost (boost/iterator, boost/multi_array)"
+          echo "  - Eigen3"
+          echo "  - range-v3"
 
       - name: Check AVX2 support
         run: |
@@ -331,8 +361,10 @@ jobs:
 
       - name: Build benchmark
         run: |
-          g++ -std=c++17 -O3 -DNDEBUG -march=native -mavx2 \
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -O3 -DNDEBUG -march=native \
             -I./FAT_P/FAT_P/fat_p \
+            -I/usr/include/eigen3 \
             FAT_P/FAT_P/benchmarks/benchmark_PolicyIterator.cpp -o bench_pi
 
       - name: Run benchmarks
@@ -340,16 +372,195 @@ jobs:
           FATP_BENCH_WARMUP_RUNS: 3
           FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: 1
-          FATP_BENCH_OUTPUT_CSV: results.csv
-        run: ./bench_pi 2>&1 | tee benchmark.log
+          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
+        run: ./bench_pi 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-results
+          name: benchmark-gcc${{ matrix.version }}-cpp${{ matrix.std }}
           path: |
-            results.csv
-            benchmark.log
+            results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
+            benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmarks - Linux Clang (Weekly/Manual)
+  # ===========================================================================
+  benchmarks-clang:
+    name: Benchmark Clang-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-22.04
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 14
+            std: 17
+          - version: 15
+            std: 17
+          - version: 15
+            std: 20
+          - version: 16
+            std: 17
+          - version: 16
+            std: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.version }}
+
+      - name: Install competitor libraries
+        run: |
+          sudo apt-get install -y \
+            libboost-dev \
+            libeigen3-dev \
+            librange-v3-dev
+          
+          echo "Installed competitor libraries:"
+          echo "  - Boost (boost/iterator, boost/multi_array)"
+          echo "  - Eigen3"
+          echo "  - range-v3"
+
+      - name: Check AVX2 support
+        run: |
+          if grep -q avx2 /proc/cpuinfo; then
+            echo "✓ AVX2 supported"
+          else
+            echo "⚠ AVX2 not supported on this runner"
+          fi
+
+      - name: Build benchmark
+        run: |
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -O3 -DNDEBUG -march=native \
+            -I./FAT_P/FAT_P/fat_p \
+            -I/usr/include/eigen3 \
+            FAT_P/FAT_P/benchmarks/benchmark_PolicyIterator.cpp -o bench_pi
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
+        run: ./bench_pi 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-clang${{ matrix.version }}-cpp${{ matrix.std }}
+          path: |
+            results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
+            benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmarks - Windows MSVC (Weekly/Manual)
+  # ===========================================================================
+  benchmarks-msvc:
+    name: Benchmark MSVC C++${{ matrix.std }}
+    runs-on: windows-latest
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [17, 20]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install competitor libraries via vcpkg
+        run: |
+          vcpkg install boost-iterator:x64-windows
+          vcpkg install boost-multi-array:x64-windows
+          vcpkg install eigen3:x64-windows
+          vcpkg install range-v3:x64-windows
+          
+          echo "Installed competitor libraries via vcpkg"
+
+      - name: Build benchmark
+        run: |
+          cl /std:c++${{ matrix.std }} /O2 /DNDEBUG /EHsc /permissive- /wd4324 /I.\FAT_P\FAT_P\fat_p /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include" FAT_P\FAT_P\benchmarks\benchmark_PolicyIterator.cpp /Fe:bench_pi.exe /link advapi32.lib
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp${{ matrix.std }}.csv
+        run: |
+          .\bench_pi.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-msvc-cpp${{ matrix.std }}
+          path: |
+            results_msvc_cpp${{ matrix.std }}.csv
+            benchmark_msvc_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmark Summary (Aggregates all benchmark artifacts)
+  # ===========================================================================
+  benchmark-summary:
+    name: Benchmark Summary
+    needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
+    runs-on: ubuntu-latest
+    if: ${{ always() && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true') }}
+    steps:
+      - name: Download all benchmark artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: benchmark-*
+          path: all-benchmarks
+          merge-multiple: false
+
+      - name: Aggregate results
+        run: |
+          echo "# Benchmark Summary" > summary.md
+          echo "" >> summary.md
+          echo "| Compiler | Standard | Status |" >> summary.md
+          echo "|----------|----------|--------|" >> summary.md
+          
+          for dir in all-benchmarks/benchmark-*/; do
+            name=$(basename "$dir")
+            if ls "$dir"/*.csv 1>/dev/null 2>&1; then
+              echo "| $name | ✓ |" >> summary.md
+            else
+              echo "| $name | ✗ |" >> summary.md
+            fi
+          done
+          
+          echo "" >> summary.md
+          echo "## Individual Results" >> summary.md
+          
+          for dir in all-benchmarks/benchmark-*/; do
+            name=$(basename "$dir")
+            echo "" >> summary.md
+            echo "### $name" >> summary.md
+            if [ -f "$dir"/*.log ]; then
+              echo '```' >> summary.md
+              tail -50 "$dir"/*.log >> summary.md
+              echo '```' >> summary.md
+            fi
+          done
+          
+          cat summary.md
+
+      - name: Upload combined results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-summary
+          path: |
+            all-benchmarks/
+            summary.md
 
   # ===========================================================================
   # CI Gate
