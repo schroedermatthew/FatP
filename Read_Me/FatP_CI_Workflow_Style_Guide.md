@@ -405,9 +405,17 @@ cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /wd4324 /O2 ...
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check AVX2 support
+        run: |
+          if grep -q avx2 /proc/cpuinfo; then
+            echo "✓ AVX2 supported"
+          else
+            echo "⚠ AVX2 not supported on this runner"
+          fi
+
       - name: Build benchmark
         run: |
-          g++ -std=c++17 -O3 -DNDEBUG -march=native \
+          g++ -std=c++17 -O3 -DNDEBUG -march=native -mavx2 \
             -I./FAT_P/FAT_P/fat_p \
             FAT_P/FAT_P/benchmarks/benchmark_<Component>.cpp -o bench_bin
 
@@ -497,7 +505,9 @@ This approach is preferred over `/wd4702` in CI because other compilers still wa
 |---------------|-------|
 | Release | `-O2 -DNDEBUG -DENABLE_TEST_APPLICATION` |
 | Sanitizer | `-g -O1 -fsanitize=<type> -fno-omit-frame-pointer` |
-| Benchmark | `-O3 -DNDEBUG -march=native` |
+| Benchmark | `-O3 -DNDEBUG -march=native -mavx2` |
+
+**Note:** The `-mavx2` flag explicitly enables AVX2 intrinsics for SIMD benchmarks. GitHub Actions runners support AVX2.
 
 ---
 

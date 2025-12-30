@@ -264,9 +264,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check AVX2 support
+        run: |
+          if grep -q avx2 /proc/cpuinfo; then
+            echo "✓ AVX2 supported"
+          else
+            echo "⚠ AVX2 not supported on this runner"
+          fi
+
       - name: Build benchmark
         run: |
-          g++ -std=c++17 -O3 -DNDEBUG -march=native \
+          g++ -std=c++17 -O3 -DNDEBUG -march=native -mavx2 \
             -I./FAT_P/FAT_P/fat_p \
             FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp -o bench_av
 
