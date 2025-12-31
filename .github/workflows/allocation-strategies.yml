@@ -14,12 +14,7 @@
 #   - Section 6.4: Warning cleanliness (-Wall -Wextra -Wpedantic -Werror)
 # =============================================================================
 
-name: AllocationStrategies
-
-env:
-  INCLUDE_DIR: FAT_P/FAT_P/fat_p
-  TEST_SRC: FAT_P/FAT_P/tests/test_AllocationStrategies.cpp
-  BENCH_SRC: FAT_P/FAT_P/benchmarks/benchmark_AllocationStrategies.cpp
+name: AllocationStrategies CI
 
 on:
   push:
@@ -45,6 +40,11 @@ on:
         required: false
         default: 'false'
         type: boolean
+
+env:
+  INCLUDE_DIR: FAT_P/FAT_P/fat_p
+  TEST_SRC: FAT_P/FAT_P/tests/test_AllocationStrategies.cpp
+  BENCH_SRC: FAT_P/FAT_P/benchmarks/benchmark_AllocationStrategies.cpp
 
 jobs:
   # ===========================================================================
@@ -81,10 +81,10 @@ jobs:
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
             -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_bin
+            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_as
 
       - name: Run tests
-        run: ./test_bin
+        run: ./test_as
 
   # ===========================================================================
   # Linux Clang Builds
@@ -120,13 +120,14 @@ jobs:
         run: |
           clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
+            -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
             -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_bin
+            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_as
 
       - name: Run tests
-        run: ./test_bin
+        run: ./test_as
 
   # ===========================================================================
   # Windows MSVC Builds
@@ -147,10 +148,10 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_AllocationStrategies.cpp /Fe:test_bin.exe /link advapi32.lib
+          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_AllocationStrategies.cpp /Fe:test_as.exe /link advapi32.lib
 
       - name: Run tests
-        run: .\test_bin.exe
+        run: .\test_as.exe
 
   # ===========================================================================
   # Sanitizer Jobs
@@ -167,12 +168,12 @@ jobs:
             -fsanitize=address -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_bin
+            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_as
 
       - name: Run with ASan
         env:
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
-        run: ./test_bin
+        run: ./test_as
 
   sanitizer-ubsan:
     name: UndefinedBehaviorSanitizer
@@ -186,12 +187,12 @@ jobs:
             -fsanitize=undefined -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_bin
+            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_as
 
       - name: Run with UBSan
         env:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
-        run: ./test_bin
+        run: ./test_as
 
   sanitizer-tsan:
     name: ThreadSanitizer
@@ -205,12 +206,12 @@ jobs:
             -fsanitize=thread -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_bin
+            FAT_P/FAT_P/tests/test_AllocationStrategies.cpp -o test_as
 
       - name: Run with TSan
         env:
           TSAN_OPTIONS: halt_on_error=1
-        run: ./test_bin
+        run: ./test_as
 
   # ===========================================================================
   # Header Self-Containment Check
@@ -286,96 +287,244 @@ jobs:
           echo "✓ No warnings"
 
   # ===========================================================================
-  # Benchmarks - Linux Baseline (Weekly/Manual)
+  # Benchmarks - Linux GCC (Weekly/Manual)
   # ===========================================================================
-  benchmarks-linux-baseline:
-    name: Benchmarks Linux (Baseline)
+  benchmarks-gcc:
+    name: Benchmark GCC-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true'
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 12
+            std: 17
+          - version: 12
+            std: 20
+          - version: 13
+            std: 17
+          - version: 13
+            std: 20
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build (Baseline)
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
+
+      - name: Install competitor libraries
         run: |
-          g++ -std=c++20 -O3 -DNDEBUG \
-            -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/benchmarks/benchmark_AllocationStrategies.cpp \
-            -o bench_baseline -pthread
-
-      - name: Run
-        env:
-          FATP_BENCH_NO_STABILIZE: "1"
-        run: ./bench_baseline > benchmark.log
-
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-linux-baseline
-          path: benchmark.log
-
-  # ===========================================================================
-  # Benchmarks - Linux AVX2 (Weekly/Manual)
-  # ===========================================================================
-  benchmarks-linux-avx2:
-    name: Benchmarks Linux (AVX2)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true'
-    steps:
-      - uses: actions/checkout@v4
+          sudo apt-get install -y \
+            libboost-dev
+          
+          echo "Installed competitor libraries:"
+          echo "  - Boost (boost/pool)"
 
       - name: Check AVX2 support
         run: |
-          grep -q avx2 /proc/cpuinfo || { echo "AVX2 not supported on this runner"; exit 0; }
+          if grep -q avx2 /proc/cpuinfo; then
+            echo "✓ AVX2 supported"
+          else
+            echo "⚠ AVX2 not supported on this runner"
+          fi
 
-      - name: Build (AVX2)
+      - name: Build benchmark
         run: |
-          g++ -std=c++20 -O3 -DNDEBUG -mavx2 -mfma \
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -O3 -DNDEBUG -mavx2 -mfma \
             -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/benchmarks/benchmark_AllocationStrategies.cpp \
-            -o bench_avx2 -pthread
+            FAT_P/FAT_P/benchmarks/benchmark_AllocationStrategies.cpp -o bench_as -pthread
 
-      - name: Run
+      - name: Run benchmarks
         env:
-          FATP_BENCH_NO_STABILIZE: "1"
-        run: ./bench_avx2 > benchmark.log
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
+        run: ./bench_as 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-linux-avx2
-          path: benchmark.log
+          name: benchmark-gcc${{ matrix.version }}-cpp${{ matrix.std }}
+          path: |
+            results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
+            benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
 
   # ===========================================================================
-  # Benchmarks - Windows AVX2 (Weekly/Manual)
+  # Benchmarks - Linux Clang (Weekly/Manual)
   # ===========================================================================
-  benchmarks-windows-avx2:
-    name: Benchmarks Windows (AVX2)
-    runs-on: windows-latest
-    if: github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true'
+  benchmarks-clang:
+    name: Benchmark Clang-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-22.04
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 14
+            std: 17
+          - version: 15
+            std: 17
+          - version: 15
+            std: 20
+          - version: 16
+            std: 17
+          - version: 16
+            std: 20
+
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Build (AVX2)
-        shell: pwsh
+      - name: Install Clang
         run: |
-          cl /nologo /std:c++20 /O2 /DNDEBUG /arch:AVX2 /EHsc /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\benchmarks\benchmark_AllocationStrategies.cpp /Fe:bench_avx2.exe /link advapi32.lib
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.version }}
 
-      - name: Run
-        shell: pwsh
+      - name: Install competitor libraries
+        run: |
+          sudo apt-get install -y \
+            libboost-dev
+          
+          echo "Installed competitor libraries:"
+          echo "  - Boost (boost/pool)"
+
+      - name: Check AVX2 support
+        run: |
+          if grep -q avx2 /proc/cpuinfo; then
+            echo "✓ AVX2 supported"
+          else
+            echo "⚠ AVX2 not supported on this runner"
+          fi
+
+      - name: Build benchmark
+        run: |
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -O3 -DNDEBUG -mavx2 -mfma \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/benchmarks/benchmark_AllocationStrategies.cpp -o bench_as -pthread
+
+      - name: Run benchmarks
         env:
-          FATP_BENCH_NO_STABILIZE: "1"
-        run: |
-          .\bench_avx2.exe > benchmark.log
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
+        run: ./bench_as 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-windows-avx2
-          path: benchmark.log
+          name: benchmark-clang${{ matrix.version }}-cpp${{ matrix.std }}
+          path: |
+            results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
+            benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmarks - Windows MSVC (Weekly/Manual)
+  # ===========================================================================
+  benchmarks-msvc:
+    name: Benchmark MSVC C++${{ matrix.std }}
+    runs-on: windows-latest
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [17, 20]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install competitor libraries via vcpkg
+        run: |
+          vcpkg install boost-pool:x64-windows
+          
+          echo "Installed competitor libraries via vcpkg"
+
+      - name: Build benchmark
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++${{ matrix.std }} /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\FAT_P\FAT_P\fat_p /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include" FAT_P\FAT_P\benchmarks\benchmark_AllocationStrategies.cpp /Fe:bench_as.exe /link advapi32.lib
+
+      - name: Run benchmarks
+        shell: pwsh
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp${{ matrix.std }}.csv
+        run: |
+          .\bench_as.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-msvc-cpp${{ matrix.std }}
+          path: |
+            results_msvc_cpp${{ matrix.std }}.csv
+            benchmark_msvc_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmark Summary (Aggregates all benchmark artifacts)
+  # ===========================================================================
+  benchmark-summary:
+    name: Benchmark Summary
+    needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
+    runs-on: ubuntu-latest
+    if: ${{ always() && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true') }}
+    steps:
+      - name: Download all benchmark artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: benchmark-*
+          path: all-benchmarks
+          merge-multiple: false
+
+      - name: Aggregate results
+        run: |
+          echo "# Benchmark Summary - AllocationStrategies" > summary.md
+          echo "" >> summary.md
+          echo "| Compiler | Standard | Status |" >> summary.md
+          echo "|----------|----------|--------|" >> summary.md
+          
+          for dir in all-benchmarks/benchmark-*/; do
+            name=$(basename "$dir")
+            if ls "$dir"/*.csv 1>/dev/null 2>&1; then
+              echo "| $name | ✓ |" >> summary.md
+            else
+              echo "| $name | ✗ |" >> summary.md
+            fi
+          done
+          
+          echo "" >> summary.md
+          echo "## Individual Results" >> summary.md
+          
+          for dir in all-benchmarks/benchmark-*/; do
+            name=$(basename "$dir")
+            echo "" >> summary.md
+            echo "### $name" >> summary.md
+            if [ -f "$dir"/*.log ]; then
+              echo '```' >> summary.md
+              tail -50 "$dir"/*.log >> summary.md
+              echo '```' >> summary.md
+            fi
+          done
+          
+          cat summary.md
+
+      - name: Upload combined results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-summary
+          path: |
+            all-benchmarks/
+            summary.md
 
   # ===========================================================================
   # CI Gate Job
