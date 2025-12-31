@@ -286,45 +286,96 @@ jobs:
           echo "✓ No warnings"
 
   # ===========================================================================
-  # Benchmarks (Weekly/Manual)
+  # Benchmarks - Linux Baseline (Weekly/Manual)
   # ===========================================================================
-  benchmarks:
-    name: Benchmarks
+  benchmarks-linux-baseline:
+    name: Benchmarks Linux (Baseline)
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    if: github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (Baseline)
+        run: |
+          g++ -std=c++20 -O3 -DNDEBUG \
+            -I./FAT_P/FAT_P/fat_p \
+            FAT_P/FAT_P/benchmarks/benchmark_AllocationStrategies.cpp \
+            -o bench_baseline -pthread
+
+      - name: Run
+        env:
+          FATP_BENCH_NO_STABILIZE: "1"
+        run: ./bench_baseline > benchmark.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-linux-baseline
+          path: benchmark.log
+
+  # ===========================================================================
+  # Benchmarks - Linux AVX2 (Weekly/Manual)
+  # ===========================================================================
+  benchmarks-linux-avx2:
+    name: Benchmarks Linux (AVX2)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true'
     steps:
       - uses: actions/checkout@v4
 
       - name: Check AVX2 support
         run: |
-          if grep -q avx2 /proc/cpuinfo; then
-            echo "✓ AVX2 supported"
-          else
-            echo "⚠ AVX2 not supported on this runner"
-          fi
+          grep -q avx2 /proc/cpuinfo || { echo "AVX2 not supported on this runner"; exit 0; }
 
-      - name: Build benchmark
+      - name: Build (AVX2)
         run: |
-          g++ -std=c++17 -O3 -DNDEBUG -march=native \
+          g++ -std=c++20 -O3 -DNDEBUG -mavx2 -mfma \
             -I./FAT_P/FAT_P/fat_p \
             FAT_P/FAT_P/benchmarks/benchmark_AllocationStrategies.cpp \
-            -o bench_bin -pthread
+            -o bench_avx2 -pthread
 
-      - name: Run benchmarks
+      - name: Run
         env:
-          FATP_BENCH_WARMUP_RUNS: 3
-          FATP_BENCH_BATCHES: 20
-          FATP_BENCH_NO_STABILIZE: 1
-          FATP_BENCH_OUTPUT_CSV: results.csv
-        run: ./bench_bin 2>&1 | tee benchmark.log
+          FATP_BENCH_NO_STABILIZE: "1"
+        run: ./bench_avx2 > benchmark.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-results
-          path: |
-            results.csv
-            benchmark.log
+          name: benchmark-linux-avx2
+          path: benchmark.log
+
+  # ===========================================================================
+  # Benchmarks - Windows AVX2 (Weekly/Manual)
+  # ===========================================================================
+  benchmarks-windows-avx2:
+    name: Benchmarks Windows (AVX2)
+    runs-on: windows-latest
+    if: github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build (AVX2)
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++20 /O2 /DNDEBUG /arch:AVX2 /EHsc /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\benchmarks\benchmark_AllocationStrategies.cpp /Fe:bench_avx2.exe /link advapi32.lib
+
+      - name: Run
+        shell: pwsh
+        env:
+          FATP_BENCH_NO_STABILIZE: "1"
+        run: |
+          .\bench_avx2.exe > benchmark.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-windows-avx2
+          path: benchmark.log
 
   # ===========================================================================
   # CI Gate Job

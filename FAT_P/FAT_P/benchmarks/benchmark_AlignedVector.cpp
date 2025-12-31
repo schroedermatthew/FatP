@@ -59,6 +59,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#if defined(__linux__)
+#include <time.h>
+#endif
 #include <functional>
 #include <iomanip>
 #include <iostream>
@@ -126,9 +129,30 @@ static constexpr int COOLING_DELAY_CASE_MS = 50;
 // Timer and Statistics
 // ============================================================================
 
+#if defined(__linux__)
+struct BenchClock
+{
+    using duration = std::chrono::nanoseconds;
+    using rep = duration::rep;
+    using period = duration::period;
+    using time_point = std::chrono::time_point<BenchClock, duration>;
+    static constexpr bool is_steady = true;
+
+    static time_point now() noexcept
+    {
+        timespec ts;
+        clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+        const auto ns = static_cast<rep>(ts.tv_sec) * 1000000000LL + static_cast<rep>(ts.tv_nsec);
+        return time_point(duration(ns));
+    }
+};
+#else
+using BenchClock = std::chrono::steady_clock;
+#endif
+
 struct Timer
 {
-    using clock = std::chrono::steady_clock;
+    using clock = BenchClock;
     clock::time_point t0;
 
     void start() { t0 = clock::now(); }

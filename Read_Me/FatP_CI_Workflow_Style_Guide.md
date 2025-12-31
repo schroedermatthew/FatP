@@ -403,46 +403,85 @@ cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /wd4324 /O2 ... /link ad
 
 ## 6. Benchmarks (Weekly/Manual)
 
+Benchmarks are **informational** on GitHub-hosted runners (noise, frequency scaling, shared hardware). They are still
+valuable for catching large regressions and for ensuring SIMD-only code paths compile/run.
+
+### 6.1 Build variants
+
+Maintain two benchmark builds:
+
+- **baseline**: portable build (no ISA flags)
+- **avx2**: enables AVX2 so explicit AVX2 benches compile (`__AVX2__` defined)
+
+### 6.2 Linux example (AVX2)
+
 ```yaml
-  benchmarks:
-    name: Benchmarks
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
-    steps:
-      - uses: actions/checkout@v4
+benchmarks-linux-avx2:
+  runs-on: ubuntu-latest
+  if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+  steps:
+    - uses: actions/checkout@v4
 
-      - name: Check AVX2 support
-        run: |
-          if grep -q avx2 /proc/cpuinfo; then
-            echo "✓ AVX2 supported"
-          else
-            echo "⚠ AVX2 not supported on this runner"
-          fi
+    - name: Check AVX2 support
+      run: |
+        grep -q avx2 /proc/cpuinfo || { echo "AVX2 not supported on this runner"; exit 0; }
 
-      - name: Build benchmark
-        run: |
-          g++ -std=c++17 -O3 -DNDEBUG -march=native -mavx2 \
-            -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/benchmarks/benchmark_<Component>.cpp -o bench_bin
+    - name: Build (AVX2)
+      run: |
+        g++ -std=c++20 -O3 -DNDEBUG -mavx2 -mfma -I. benchmark_AlignedVector.cpp -o bench_avx2
 
-      - name: Run benchmarks
-        env:
-          FATP_BENCH_WARMUP_RUNS: 3
-          FATP_BENCH_BATCHES: 20
-          FATP_BENCH_NO_STABILIZE: 1
-          FATP_BENCH_OUTPUT_CSV: results.csv
-        run: ./bench_bin 2>&1 | tee benchmark.log
+    - name: Run
+      env:
+        FATP_BENCH_NO_STABILIZE: "1"
+      run: |
+        ./bench_avx2 > benchmark.log
 
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: |
-            results.csv
-            benchmark.log
+    - name: Upload results
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-linux-avx2
+        path: benchmark.log
 ```
 
+### 6.3 Windows example (MSVC, /arch:AVX2)
+
+```yaml
+benchmarks-windows-avx2:
+  runs-on: windows-latest
+  if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+  steps:
+    - uses: actions/checkout@v4
+
+    - uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Build (AVX2)
+      shell: pwsh
+      run: |
+        cl /nologo /std:c++20 /O2 /DNDEBUG /arch:AVX2 /I. benchmark_AlignedVector.cpp /Fe:bench_avx2.exe
+
+    - name: Run
+      shell: pwsh
+      env:
+        FATP_BENCH_NO_STABILIZE: "1"
+      run: |
+        .\bench_avx2.exe > benchmark.log
+
+    - name: Upload results
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-windows-avx2
+        path: benchmark.log
+```
+
+### 6.4 Linux timing note
+
+On Linux, benchmark timing uses `CLOCK_MONOTONIC_RAW` (when available) to reduce jitter from time adjustments.
+CPU frequency reporting is best-effort and may be **estimated** in containers; timing results remain valid.
+
 ---
+
 
 ## 7. Compiler Flags Reference
 
@@ -511,9 +550,10 @@ This approach is preferred over `/wd4702` in CI because other compilers still wa
 |---------------|-------|
 | Release | `-O2 -DNDEBUG -DENABLE_TEST_APPLICATION` |
 | Sanitizer | `-g -O1 -fsanitize=<type> -fno-omit-frame-pointer` |
-| Benchmark | `-O3 -DNDEBUG -march=native -mavx2` |
+| Benchmark (AVX2) | `-O3 -DNDEBUG -mavx2 -mfma` |
 
-**Note:** The `-mavx2` flag explicitly enables AVX2 intrinsics for SIMD benchmarks. GitHub Actions runners support AVX2.
+**Note:** Prefer `-mavx2 -mfma` (and avoid `-march=native` in CI) so the benchmark ISA stays consistent across runners.\
+Windows/MSVC equivalent: `/O2 /DNDEBUG /arch:AVX2`.
 
 ---
 

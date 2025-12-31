@@ -98,6 +98,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#if defined(__linux__)
+#include <time.h>
+#endif
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -530,6 +533,115 @@ inline bool read_int64_from_file(const char* path, int64_t& outValue)
     return true;
 }
 
+
+inline bool read_proc_cpuinfo_double(const char* key, double& outValue)
+{
+    std::ifstream f("/proc/cpuinfo");
+    if (!f.is_open())
+    {
+        return false;
+    }
+
+    std::string line;
+    const std::string keyStr(key);
+
+    while (std::getline(f, line))
+    {
+        // Example: "cpu MHz\t\t: 2793.123"
+        if (line.size() >= keyStr.size() && line.compare(0, keyStr.size(), keyStr) == 0)
+        {
+            const auto colon = line.find(':');
+            if (colon == std::string::npos)
+            {
+                return false;
+            }
+
+            const std::string valueStr = line.substr(colon + 1);
+            try
+            {
+                outValue = std::stod(valueStr);
+                return outValue > 0.0;
+            }
+            catch (...)
+            {
+                return false;
+            }
+        }
+    }
+
+    return false;
+}
+
+inline bool read_proc_cpuinfo_model_base_mhz(double& outMHz)
+{
+    std::ifstream f("/proc/cpuinfo");
+    if (!f.is_open())
+    {
+        return false;
+    }
+
+    std::string line;
+    const std::string keyStr("model name");
+
+    while (std::getline(f, line))
+    {
+        if (line.size() >= keyStr.size() && line.compare(0, keyStr.size(), keyStr) == 0)
+        {
+            const auto colon = line.find(':');
+            if (colon == std::string::npos)
+            {
+                return false;
+            }
+
+            // Example: "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz"
+            std::string model = line.substr(colon + 1);
+            const auto at = model.find('@');
+            if (at == std::string::npos)
+            {
+                return false;
+            }
+
+            std::string freq = model.substr(at + 1);
+            const auto first = freq.find_first_not_of(" \t");
+            if (first == std::string::npos)
+            {
+                return false;
+            }
+            freq = freq.substr(first);
+
+            std::size_t idx = 0;
+            double v = 0.0;
+            try
+            {
+                v = std::stod(freq, &idx);
+            }
+            catch (...)
+            {
+                return false;
+            }
+
+            const std::string unit = freq.substr(idx);
+
+            if (unit.find("GHz") != std::string::npos || unit.find("ghz") != std::string::npos)
+            {
+                outMHz = v * 1000.0;
+                return outMHz > 0.0;
+            }
+
+            if (unit.find("MHz") != std::string::npos || unit.find("mhz") != std::string::npos)
+            {
+                outMHz = v;
+                return outMHz > 0.0;
+            }
+
+            return false;
+        }
+    }
+
+    return false;
+}
+
+
 #endif
 
 } // namespace detail
@@ -585,6 +697,12 @@ inline bool read_int64_from_file(const char* path, int64_t& outValue)
     else
     {
         info.mCurrentIsEstimated = true;
+
+        double mhz = 0.0;
+        if (detail::read_proc_cpuinfo_double("cpu MHz", mhz))
+        {
+            info.mCurrentFreqMHz = mhz;
+        }
     }
 
     if (detail::read_int64_from_file("/sys/devices/system/cpu/cpu0/cpufreq/base_frequency", khz))
@@ -599,6 +717,26 @@ inline bool read_int64_from_file(const char* path, int64_t& outValue)
         info.mRefFreqMHz = static_cast<double>(khz) / 1000.0;
         info.mRefIsMax = true;
     }
+
+    // If cpufreq sysfs is unavailable (common in containers/CI), fall back to /proc/cpuinfo.
+    if (info.mRefFreqMHz <= 0.0)
+    {
+        double base_mhz = 0.0;
+        if (detail::read_proc_cpuinfo_model_base_mhz(base_mhz))
+        {
+            info.mRefFreqMHz = base_mhz;
+            info.mRefIsEstimated = true;
+            info.mRefIsMax = false;
+        }
+        else if (info.mCurrentFreqMHz > 0.0)
+        {
+            // Last resort: treat current as reference to avoid printing 0 MHz.
+            info.mRefFreqMHz = info.mCurrentFreqMHz;
+            info.mRefIsEstimated = true;
+            info.mRefIsMax = false;
+        }
+    }
+
 
 #endif
 
@@ -1094,6 +1232,29 @@ inline void preventOpt(std::int64_t value)
 /**
  * @brief High-resolution timer for benchmarking
  */
+#if defined(__linux__)
+struct MonotonicRawClock
+{
+    using duration = std::chrono::nanoseconds;
+    using rep = duration::rep;
+    using period = duration::period;
+    using time_point = std::chrono::time_point<MonotonicRawClock, duration>;
+    static constexpr bool is_steady = true;
+
+    static time_point now() noexcept
+    {
+        timespec ts;
+        clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+        const auto ns = static_cast<rep>(ts.tv_sec) * 1000000000LL + static_cast<rep>(ts.tv_nsec);
+        return time_point(duration(ns));
+    }
+};
+
+using BenchClock = MonotonicRawClock;
+#else
+using BenchClock = std::chrono::steady_clock;
+#endif
+
 struct Timer
 {
     using Clock = std::chrono::steady_clock;

@@ -119,6 +119,7 @@ jobs:
         run: |
           clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
+            -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
             -I./FAT_P/FAT_P/fat_p \
@@ -146,7 +147,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_AlignedVector.cpp /Fe:test_av.exe /link advapi32.lib
+          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /wd4324 /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_AlignedVector.cpp /Fe:test_av.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_av.exe
@@ -255,6 +256,26 @@ jobs:
           echo "✓ Include order independent"
 
   # ===========================================================================
+  # Strict Warnings Check
+  # ===========================================================================
+  strict-warnings:
+    name: Strict Warnings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile with strict warnings
+        run: |
+          g++ -std=c++17 \
+              -Wall -Wextra -Wpedantic \
+              -Wconversion -Wsign-conversion \
+              -Wshadow -Wformat=2 \
+              -Werror \
+              -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
+              -o test_strict FAT_P/FAT_P/tests/test_AlignedVector.cpp
+          echo "✓ No warnings"
+
+  # ===========================================================================
   # Benchmarks - Linux GCC (Weekly/Manual)
   # ===========================================================================
   benchmarks-gcc:
@@ -303,7 +324,7 @@ jobs:
       - name: Build benchmark
         run: |
           g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
-            -O3 -DNDEBUG -march=native \
+            -O3 -DNDEBUG -mavx2 -mfma \
             -I./FAT_P/FAT_P/fat_p \
             -I/usr/include/eigen3 \
             FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp -o bench_av
@@ -376,7 +397,7 @@ jobs:
       - name: Build benchmark
         run: |
           clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
-            -O3 -DNDEBUG -march=native \
+            -O3 -DNDEBUG -mavx2 -mfma \
             -I./FAT_P/FAT_P/fat_p \
             -I/usr/include/eigen3 \
             FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp -o bench_av
@@ -414,6 +435,8 @@ jobs:
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
       - name: Install competitor libraries via vcpkg
         run: |
@@ -423,14 +446,16 @@ jobs:
           echo "Installed competitor libraries via vcpkg"
 
       - name: Build benchmark
+        shell: pwsh
         run: |
-          cl /std:c++${{ matrix.std }} /O2 /DNDEBUG /EHsc /permissive- /I.\FAT_P\FAT_P\fat_p /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include" FAT_P\FAT_P\benchmarks\benchmark_AlignedVector.cpp /Fe:bench_av.exe /link advapi32.lib
+          cl /nologo /std:c++${{ matrix.std }} /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /wd4324 /I.\FAT_P\FAT_P\fat_p /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include" FAT_P\FAT_P\benchmarks\benchmark_AlignedVector.cpp /Fe:bench_av.exe /link advapi32.lib
 
       - name: Run benchmarks
+        shell: pwsh
         env:
           FATP_BENCH_WARMUP_RUNS: 3
           FATP_BENCH_BATCHES: 20
-          FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_NO_STABILIZE: "1"
           FATP_BENCH_OUTPUT_CSV: results_msvc_cpp${{ matrix.std }}.csv
         run: |
           .\bench_av.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
@@ -504,7 +529,7 @@ jobs:
   # ===========================================================================
   ci-success:
     name: CI Success
-    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check]
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -516,4 +541,5 @@ jobs:
           if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
           echo "✓ All checks passed"
