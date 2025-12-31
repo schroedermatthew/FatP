@@ -664,9 +664,9 @@ TEST_CASE(insert_single_lvalue)
     ASSERT_EQ(*it, 3, "Iterator should point to inserted element");
     ASSERT_EQ(vec[2], 3, "Inserted element should be at position 2");
 
-    for (int i = 0; i < 5; ++i)
+    for (size_t i = 0; i < 5; ++i)
     {
-        ASSERT_EQ(vec[i], i + 1, "Elements should be 1,2,3,4,5");
+        ASSERT_EQ(vec[i], static_cast<int>(i) + 1, "Elements should be 1,2,3,4,5");
     }
 
     return true;
@@ -759,9 +759,9 @@ TEST_CASE(insert_range)
     vec.insert(vec.begin() + 1, src.begin(), src.end());
 
     ASSERT_EQ(vec.size(), 5u, "Size should be 5");
-    for (int i = 0; i < 5; ++i)
+    for (size_t i = 0; i < 5; ++i)
     {
-        ASSERT_EQ(vec[i], i + 1, "Elements should be 1,2,3,4,5");
+        ASSERT_EQ(vec[i], static_cast<int>(i) + 1, "Elements should be 1,2,3,4,5");
     }
 
     return true;
@@ -774,9 +774,9 @@ TEST_CASE(insert_initializer_list)
     vec.insert(vec.begin() + 1, {2, 3, 4});
 
     ASSERT_EQ(vec.size(), 5u, "Size should be 5");
-    for (int i = 0; i < 5; ++i)
+    for (size_t i = 0; i < 5; ++i)
     {
-        ASSERT_EQ(vec[i], i + 1, "Elements should be 1,2,3,4,5");
+        ASSERT_EQ(vec[i], static_cast<int>(i) + 1, "Elements should be 1,2,3,4,5");
     }
 
     return true;
@@ -794,9 +794,9 @@ TEST_CASE(insert_triggers_reallocation)
 
     ASSERT_EQ(vec.size(), 4u, "Size should be 4");
     ASSERT_TRUE(vec.capacity() > 3, "Capacity should have grown");
-    for (int i = 0; i < 4; ++i)
+    for (size_t i = 0; i < 4; ++i)
     {
-        ASSERT_EQ(vec[i], i + 1, "Elements should be 1,2,3,4");
+        ASSERT_EQ(vec[i], static_cast<int>(i) + 1, "Elements should be 1,2,3,4");
     }
 
     return true;
@@ -841,9 +841,9 @@ TEST_CASE(emplace_at_begin)
     vec.emplace(vec.begin(), 1);
 
     ASSERT_EQ(vec.size(), 4u, "Size should be 4");
-    for (int i = 0; i < 4; ++i)
+    for (size_t i = 0; i < 4; ++i)
     {
-        ASSERT_EQ(vec[i], i + 1, "Elements should be 1,2,3,4");
+        ASSERT_EQ(vec[i], static_cast<int>(i) + 1, "Elements should be 1,2,3,4");
     }
 
     return true;
@@ -1751,7 +1751,7 @@ TEST_CASE(insert_single_throwing_move_assign)
         const int aliveBefore = ThrowOnMoveAssign::alive;
 
         // Set to throw on 3rd move assignment (0-indexed: call #2)
-        // Insert at pos 1 with 5 elements does: tail construct, then shifts [4]→[3]→[2]→[1]
+        // Insert at pos 1 with 5 elements does: tail construct, then shifts [4]â†’[3]â†’[2]â†’[1]
         // Throwing mid-shift tests the leak fix for the already-constructed tail element
         ThrowOnMoveAssign::throwAfter = 2;
         ThrowOnMoveAssign::moveAssignCount = 0;
@@ -2000,7 +2000,7 @@ TEST_CASE(fuzz_vs_std_vector)
                 {
                     size_t pos = ours.empty() ? 0 : (rng() % (ours.size() + 1));
                     ours.insert(ours.begin() + pos, val);
-                    theirs.insert(theirs.begin() + pos, val);
+                    theirs.insert(theirs.begin() + static_cast<std::ptrdiff_t>(pos), val);
                 }
                 break;
 
@@ -2009,7 +2009,7 @@ TEST_CASE(fuzz_vs_std_vector)
                 {
                     size_t pos = rng() % ours.size();
                     ours.erase(ours.begin() + pos);
-                    theirs.erase(theirs.begin() + pos);
+                    theirs.erase(theirs.begin() + static_cast<std::ptrdiff_t>(pos));
                 }
                 break;
 
@@ -2100,7 +2100,7 @@ void benchmark_aligned_vector()
             {
                 v.push_back(i);
             }
-            g_benchmarkSink = v.size();
+            g_benchmarkSink = static_cast<long long>(v.size());
         },
         1000,
         100);
@@ -2176,7 +2176,7 @@ void benchmark_aligned_vector()
             {
                 v.insert(v.begin(), i);
             }
-            g_benchmarkSink = v.size();
+            g_benchmarkSink = static_cast<long long>(v.size());
         },
         1000,
         10);
