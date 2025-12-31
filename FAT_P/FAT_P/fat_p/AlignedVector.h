@@ -24,6 +24,14 @@
 
 #pragma once
 
+// MSVC warning C4702: unreachable code
+// This is a false positive triggered by if constexpr discarded branches.
+// GCC/Clang don't warn about this (correctly).
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4702)
+#endif
+
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -273,7 +281,10 @@ private:
     {
         if constexpr (std::is_trivially_copyable_v<T>)
         {
-            std::memcpy(dest, src, count * sizeof(T));
+            if (count > 0)
+            {
+                std::memcpy(dest, src, count * sizeof(T));
+            }
         }
         else
         {
@@ -302,7 +313,10 @@ private:
     {
         if constexpr (std::is_trivially_copyable_v<T>)
         {
-            std::memcpy(dest, src, count * sizeof(T));
+            if (count > 0)
+            {
+                std::memcpy(dest, src, count * sizeof(T));
+            }
         }
         else
         {
@@ -349,7 +363,10 @@ private:
         {
             if constexpr (std::is_trivially_copyable_v<T>)
             {
-                std::memcpy(newData, mData, mSize * sizeof(T));
+                if (mSize > 0)
+                {
+                    std::memcpy(newData, mData, mSize * sizeof(T));
+                }
                 constructedCount = mSize;
             }
             else
@@ -465,12 +482,14 @@ public:
 
             try
             {
-                std::uninitialized_fill_n(mData, count, value);
-                mSize = count;
+                for (mSize = 0; mSize < count; ++mSize)
+                {
+                    new (mData + mSize) T(value);
+                }
             }
             catch (...)
             {
-                // std::uninitialized_fill_n destroys any constructed elements on exception.
+                destroyRange(mData, iterAt(mSize));
                 mAllocator.deallocate(mData, mCapacity);
                 throw;
             }
@@ -986,8 +1005,22 @@ public:
         {
             temp.mData = temp.mAllocator.allocate(count);
             temp.mCapacity = count;
-            std::uninitialized_fill_n(temp.mData, count, value);
-            temp.mSize = count;
+            try
+            {
+                for (temp.mSize = 0; temp.mSize < count; ++temp.mSize)
+                {
+                    new (temp.mData + temp.mSize) T(value);
+                }
+            }
+            catch (...)
+            {
+                temp.destroyRange(temp.mData, temp.iterAt(temp.mSize));
+                temp.mAllocator.deallocate(temp.mData, temp.mCapacity);
+                temp.mData = nullptr;
+                temp.mSize = 0;
+                temp.mCapacity = 0;
+                throw;
+            }
         }
         swap(temp);
     }
@@ -1874,3 +1907,7 @@ template<typename T, size_t Alignment>
 struct is_aligned_vector<AlignedVector<T, Alignment>> : std::true_type {};
 
 } // namespace fat_p
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
