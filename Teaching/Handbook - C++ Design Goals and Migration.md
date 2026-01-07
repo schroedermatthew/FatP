@@ -1486,15 +1486,4 @@ Key terms for readers who may be new to C++ or systems programming.
 
 ---
 
-## Closing Note
-
-You can keep the categorized lists as the chapter's "scan‑first" sections. The detailed prose that follows is what makes the document teachable: it connects engineering values to concrete C++ practices and the guardrails that keep performance work safe and repeatable.
-
-If you want, you can extend this chapter with:
-- a worked example (like a "slow miss" case study),
-- a section on benchmarking methodology,
-- and a section on "how to review performance PRs."
-
----
-
 *Handbook - C++ Design Goals and C→C++ Migration (HPC + Safety) — v3.0 — December 2025*
