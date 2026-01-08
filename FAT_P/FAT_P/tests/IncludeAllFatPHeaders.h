@@ -84,6 +84,7 @@
 #include "ScopeGuard.h"
 #include "ScopeGuardExpected.h"
 #include "ScopeGuardPolicies.h"
+#include "ServiceLocator.h"
 #include "Signal.h"
 #include "SimdVector.h"
 #include "SlidingFileWindow.h"

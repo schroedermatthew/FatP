@@ -32,8 +32,8 @@ namespace fat_p::testing
 	bool test_EnforcedInit();
 	bool test_EnhancedBoundsChecking();
 	bool test_EnumPlus();
-	//bool test_EqualityAny();
-	//bool test_EqualityComparisons();
+	bool test_EqualityAny();
+	bool test_EqualityComparisons();
 	bool test_Expected();
 	bool test_Factory();
 	bool test_FastHashMap();
@@ -66,6 +66,7 @@ namespace fat_p::testing
 	bool test_Reflection();
 	bool test_ScopeGuard();
 	bool test_ScopeGuardExpected();
+	bool test_ServiceLocator();
 	bool test_Signal();
 	bool test_SimdVector();
 	bool test_SlidingFileWindow();

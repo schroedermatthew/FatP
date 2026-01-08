@@ -73,8 +73,8 @@ int main() {
     RUN_AND_RECORD(test_EnforcedInit);
     RUN_AND_RECORD(test_EnhancedBoundsChecking);
     RUN_AND_RECORD(test_EnumPlus);
-    //RUN_AND_RECORD(test_EqualityComparisons);
-    //RUN_AND_RECORD(test_EqualityAny);
+    RUN_AND_RECORD(test_EqualityComparisons);
+    RUN_AND_RECORD(test_EqualityAny);
     RUN_AND_RECORD(test_Expected);
     RUN_AND_RECORD(test_Factory);
     RUN_AND_RECORD(test_FastHashMap);
@@ -106,6 +106,7 @@ int main() {
     RUN_AND_RECORD(test_Reflection);
     RUN_AND_RECORD(test_ScopeGuard);
     RUN_AND_RECORD(test_ScopeGuardExpected);
+    RUN_AND_RECORD(test_ServiceLocator);
     RUN_AND_RECORD(test_Signal);
     RUN_AND_RECORD(test_SimdVector);
     RUN_AND_RECORD(test_SlidingFileWindow);

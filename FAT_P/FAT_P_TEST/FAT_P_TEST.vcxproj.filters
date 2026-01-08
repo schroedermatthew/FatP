@@ -274,5 +274,14 @@
     <ClCompile Include="..\FAT_P\tests\test_PolicyIterator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\FAT_P\tests\test_EqualityAny.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\FAT_P\tests\test_EqualityComparisons.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\FAT_P\tests\test_ServiceLocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

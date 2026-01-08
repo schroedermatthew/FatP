@@ -334,5 +334,8 @@
     <ClInclude Include="fat_p\AllocationStrategies.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="fat_p\ServiceLocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

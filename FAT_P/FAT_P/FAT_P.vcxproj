@@ -226,6 +226,7 @@
     <ClInclude Include="fat_p\ScopeGuard.h" />
     <ClInclude Include="fat_p\ScopeGuardExpected.h" />
     <ClInclude Include="fat_p\ScopeGuardPolicies.h" />
+    <ClInclude Include="fat_p\ServiceLocator.h" />
     <ClInclude Include="fat_p\Signal.h" />
     <ClInclude Include="fat_p\SimdVector.h" />
     <ClInclude Include="fat_p\SlidingFileWindow.h" />
