@@ -51,6 +51,31 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: CSRMatrix_HPC
+  file_role: public_header
+  path: fat_p/CSRMatrix_HPC.h
+  namespace: fat_p
+  summary: "Public header for CSRMatrix_HPC."
+  api_stability: in_work
+  related:
+    docs_search: "CSRMatrix_HPC"
+    tests:
+      - tests/test_CSRMatrix_HPC.cpp
+      - tests/test_CSRMatrix_HPC_Parallel.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <algorithm>
 #include <atomic>
 #include <cmath>

@@ -2,6 +2,30 @@
  * @file test_DiagnosticLogger_IO.cpp
  * @brief Comprehensive unit tests for DiagnosticLogger_IO.h
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: DiagnosticLogger_IO
+  file_role: test
+  path: tests/test_DiagnosticLogger_IO.cpp
+  namespace: fat_p
+  summary: "Unit tests for DiagnosticLogger_IO."
+  related:
+    docs_search: "DiagnosticLogger_IO"
+    headers:
+      - fat_p/DiagnosticLogger_IO.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 #include <fstream>
@@ -68,7 +92,7 @@ bool test_file_sink_basic()
         ASSERT_TRUE(sink != nullptr, "FileSink created successfully");
         ASSERT_TRUE(sink->is_valid(), "FileSink is valid");
         
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         LogRecord record(LogLevel::Info, "Test file sink message", loc);
         sink->write(record);
         sink->flush();
@@ -94,7 +118,7 @@ bool test_file_sink_multiple_writes()
     
     {
         auto sink = makeFileSink(filename);
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         
         for (int i = 0; i < 10; ++i)
         {
@@ -121,7 +145,7 @@ bool test_file_sink_append_mode()
         fs::remove(filename, ec);
     }
     
-    auto loc = CPP_UTIL_SOURCE_LOCATION();
+    auto loc = FATP_SOURCE_LOCATION();
     
     {
         auto sink1 = makeFileSink(filename);
@@ -156,7 +180,7 @@ bool test_file_sink_invalid_path()
 bool test_ring_buffer_sink()
 {
     RingBufferSink rbSink;
-    auto loc = CPP_UTIL_SOURCE_LOCATION();
+    auto loc = FATP_SOURCE_LOCATION();
     
     for (int i = 0; i < 10; ++i)
     {
@@ -187,7 +211,7 @@ bool test_ring_buffer_sink()
 bool test_ring_buffer_overflow()
 {
     RingBufferSink rbSink;
-    auto loc = CPP_UTIL_SOURCE_LOCATION();
+    auto loc = FATP_SOURCE_LOCATION();
     
     for (int i = 0; i < 2000; ++i)
     {
@@ -225,7 +249,7 @@ bool test_rotating_file_sink_basic()
         ASSERT_TRUE(sink != nullptr, "RotatingFileSink created");
         ASSERT_TRUE(sink->is_valid(), "RotatingFileSink is valid");
         
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         for (int i = 0; i < 100; ++i)
         {
             LogRecord record(LogLevel::Info, std::string(50, 'X') + std::to_string(i), loc);
@@ -247,7 +271,7 @@ bool test_rotating_file_sink_rotation()
     
     {
         auto sink = makeRotatingFileSink(filename, 500, 3);
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         
         for (int i = 0; i < 50; ++i)
         {
@@ -294,7 +318,7 @@ bool test_resilient_sink_primary_works()
         auto fallback = makeFileSink(fallbackFile);
         auto resilient = std::make_shared<ResilientSink>(primary, fallback);
         
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         LogRecord record(LogLevel::Info, "Primary test", loc);
         resilient->write(record);
         resilient->flush();
@@ -322,7 +346,7 @@ bool test_async_sink()
         auto fileSink = makeFileSink(filename);
         auto asyncSink = std::make_shared<AsyncSink>(fileSink);
         
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         for (int i = 0; i < 100; ++i)
         {
             LogRecord record(LogLevel::Info, "Async message " + std::to_string(i), loc);
@@ -354,7 +378,7 @@ bool test_async_sink_high_load()
         auto fileSink = makeFileSink(filename);
         auto asyncSink = std::make_shared<AsyncSink>(fileSink);
         
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         std::atomic<int> counter{0};
         
         std::vector<std::thread> threads;
@@ -398,7 +422,7 @@ bool test_rate_limiting_sink()
         auto fileSink = makeFileSink(filename);
         auto rateLimitSink = std::make_shared<RateLimitingSink>(fileSink, 10.0);
         
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         for (int i = 0; i < 100; ++i)
         {
             LogRecord record(LogLevel::Info, "Rate limited " + std::to_string(i), loc);
@@ -429,7 +453,7 @@ bool test_rate_limiting_burst()
         auto fileSink = makeFileSink(filename);
         auto rateLimitSink = std::make_shared<RateLimitingSink>(fileSink, 10.0, 20.0);
         
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         for (int i = 0; i < 20; ++i)
         {
             LogRecord record(LogLevel::Info, "Burst " + std::to_string(i), loc);
@@ -459,7 +483,7 @@ bool test_filtering_sink()
         auto fileSink = makeFileSink(filename);
         auto filterSink = std::make_shared<FilteringSink>(fileSink, [](const LogRecord& rec) { return rec.level >= LogLevel::Warning; });
         
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         
         LogRecord trace(LogLevel::Trace, "Trace", loc);
         LogRecord debug(LogLevel::Debug, "Debug", loc);
@@ -503,7 +527,7 @@ bool test_filtering_sink_custom_filter()
         auto fileSink = makeFileSink(filename);
         auto filterSink = std::make_shared<FilteringSink>(fileSink, [](const LogRecord& rec) { return rec.message.find("important") != std::string::npos; });
         
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         
         LogRecord r1(LogLevel::Info, "Normal message", loc);
         LogRecord r2(LogLevel::Info, "This is important", loc);
@@ -533,7 +557,7 @@ bool test_initialize_rotating_logger()
     getGlobalLogger().clearSinks();
     initializeRotatingLogger(filename);
     
-    LOG_INFO("Test rotating logger initialization");
+    FATP_LOG_INFO("Test rotating logger initialization");
     
     ASSERT_TRUE(fs::exists(filename), "Rotating log file created");
     
@@ -568,7 +592,7 @@ bool test_combined_sinks()
         getGlobalLogger().addSink(sink1);
         getGlobalLogger().addSink(sink2);
         
-        LOG_INFO("Combined sink test");
+        FATP_LOG_INFO("Combined sink test");
         
         sink1->flush();
         sink2->flush();
@@ -600,7 +624,7 @@ bool test_async_sink_flush_consistency()
     {
         auto fileSink = makeFileSink(filename);
         auto asyncSink = std::make_shared<AsyncSink>(fileSink);
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
 
         for (int i = 0; i < 50; ++i)
         {
@@ -632,7 +656,7 @@ bool test_async_with_filtering()
         auto filterSink = std::make_shared<FilteringSink>(fileSink, [](const LogRecord& rec) { return rec.level >= LogLevel::Error; });
         auto asyncSink = std::make_shared<AsyncSink>(filterSink);
         
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         
         for (int i = 0; i < 20; ++i)
         {
@@ -665,7 +689,7 @@ void benchmark_io_sinks()
     
     {
         auto fileSink = makeFileSink(filename);
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         
         double file_time = measure_perf([&fileSink, loc]() {
             LogRecord record(LogLevel::Info, "Benchmark message", loc);
@@ -707,7 +731,7 @@ bool test_rotating_file_sink_scope_guard_safety()
         ASSERT_TRUE(sink != nullptr, "RotatingFileSink created");
         ASSERT_TRUE(sink->is_valid(), "RotatingFileSink is valid initially");
         
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         
         for (int i = 0; i < 10; ++i)
         {
@@ -801,7 +825,7 @@ bool test_resilient_sink_scope_guard_state_management()
         auto fallback = makeFileSink(fallbackFile);
         auto resilient = std::make_shared<ResilientSink>(primary, fallback);
         
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         
         LogRecord record1(LogLevel::Info, "First message", loc);
         resilient->write(record1);
@@ -836,7 +860,7 @@ bool test_rotating_file_sink_multiple_rotations_with_guard()
     
     {
         auto sink = makeRotatingFileSink(filename, 150, 3);
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
         
         for (int i = 0; i < 30; ++i)
         {

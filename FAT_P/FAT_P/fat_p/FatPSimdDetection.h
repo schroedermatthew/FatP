@@ -40,6 +40,28 @@
  */
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: FatPSimdDetection
+  file_role: public_header
+  path: fat_p/FatPSimdDetection.h
+  namespace: fat_p
+  summary: "Public header for FatPSimdDetection."
+  api_stability: in_work
+  related:
+    docs_search: "FatPSimdDetection"
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 20
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <cstddef>
 #include <cstdint>
 

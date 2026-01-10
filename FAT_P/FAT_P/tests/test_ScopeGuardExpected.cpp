@@ -10,6 +10,30 @@
  * - with_expected_resource: RAII wrapper with Expected resource
  * - Combined transaction patterns
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: ScopeGuardExpected
+  file_role: test
+  path: tests/test_ScopeGuardExpected.cpp
+  namespace: fat_p
+  summary: "Unit tests for ScopeGuardExpected."
+  related:
+    docs_search: "ScopeGuardExpected"
+    headers:
+      - fat_p/ScopeGuardExpected.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 #include <string>

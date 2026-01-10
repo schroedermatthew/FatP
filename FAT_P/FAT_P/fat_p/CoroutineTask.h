@@ -29,6 +29,30 @@
  */
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: CoroutineTask
+  file_role: public_header
+  path: fat_p/CoroutineTask.h
+  namespace: fat_p
+  summary: "Public header for CoroutineTask."
+  api_stability: in_work
+  related:
+    docs_search: "CoroutineTask"
+    tests:
+      - tests/test_CoroutineTask.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include "CppStandardDetection.h"
 
 // Only compile if C++20 or later

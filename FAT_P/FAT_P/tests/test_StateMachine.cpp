@@ -13,6 +13,30 @@
  * - Configurable initial state
  * - Unique state type enforcement
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: StateMachine
+  file_role: test
+  path: tests/test_StateMachine.cpp
+  namespace: fat_p
+  summary: "Unit tests for StateMachine."
+  related:
+    docs_search: "StateMachine"
+    headers:
+      - fat_p/StateMachine.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 #include <sstream>

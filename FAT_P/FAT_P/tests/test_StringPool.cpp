@@ -2,6 +2,30 @@
  * @file test_StringPool.cpp
  * @brief Comprehensive unit tests for StringPool.h
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: StringPool
+  file_role: test
+  path: tests/test_StringPool.cpp
+  namespace: fat_p
+  summary: "Unit tests for StringPool."
+  related:
+    docs_search: "StringPool"
+    headers:
+      - fat_p/StringPool.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <chrono>
 #include <iomanip>

@@ -32,6 +32,30 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: NumaAllocator
+  file_role: public_header
+  path: fat_p/NumaAllocator.h
+  namespace: fat_p
+  summary: "Public header for NumaAllocator."
+  api_stability: in_work
+  related:
+    docs_search: "NumaAllocator"
+    tests:
+      - tests/test_NumaAllocator.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 6
+    defines_unprefixed: 2
+    undefs_total: 1
+    includes_windows_h: true
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <algorithm>
 #include <atomic>
 #include <cassert>

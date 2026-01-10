@@ -1,3 +1,11 @@
+---
+doc_id: stablehashmap-companion-guide
+doc_type: companion_guide
+status: candidate
+fatp_components: [StableHashMap]
+last_updated: 2026-01-09
+---
+
 # **The Stable Table**
 
 ### *A Companion Guide to FAT-P's StableHashMap*
@@ -26,16 +34,15 @@
 7. [Node-Based Reference Stability](#chapter-7--node-based-reference-stability)
 8. [The Block Allocator](#chapter-8--the-block-allocator)
 9. [The Hash Mixer](#chapter-9--the-hash-mixer)
-10. [Read-Only Mode and freeze()](#chapter-10--read-only-mode-and-freeze)
-11. [Heterogeneous Lookup](#chapter-11--heterogeneous-lookup)
+10. [Heterogeneous Lookup](#chapter-10--heterogeneous-lookup)
 
 ## Part III — Putting It Together
 
-12. [Case Study: Graph Structure with Stable Node References](#chapter-12--case-study-graph-structure-with-stable-node-references)
-13. [Case Study: High-Throughput Event Processing](#chapter-13--case-study-high-throughput-event-processing)
-14. [Case Study: Configuration Table Migration](#chapter-14--case-study-configuration-table-migration)
-15. [Migration from std::unordered_map](#chapter-15--migration-from-stdunordered_map)
-16. [Choosing the Right Hash Table](#chapter-16--choosing-the-right-hash-table)
+11. [Case Study: Graph Structure with Stable Node References](#chapter-11--case-study-graph-structure-with-stable-node-references)
+12. [Case Study: High-Throughput Event Processing](#chapter-12--case-study-high-throughput-event-processing)
+13. [Case Study: Configuration Table Migration](#chapter-13--case-study-configuration-table-migration)
+14. [Migration from std::unordered_map](#chapter-14--migration-from-stdunordered_map)
+15. [Choosing the Right Hash Table](#chapter-15--choosing-the-right-hash-table)
 
 ## Part IV — Foundations
 
@@ -68,7 +75,6 @@ StableHashMap exists for engineers who need **both**: SIMD-accelerated lookups *
 - **Block allocator option** eliminates per-node allocation overhead
 - **Built-in hash mixer** protects against weak hash functions
 - **Zero external dependencies** for deployment anywhere
-- **~1,025 lines** of auditable, single-header code
 
 This guide explains the problems StableHashMap solves and how it solves them.
 
@@ -559,7 +565,7 @@ map[2] = data;  // malloc(sizeof(Node))
 The Block allocator pre-allocates nodes in contiguous chunks:
 
 ```cpp
-fat_p::StableHashMap<int, Data, fat_p::BlockAllocatorPolicy> map;
+fat_p::StableHashMap<int, Data, std::hash<int>, std::equal_to<int>, fat_p::BlockAllocator> map;
 
 map[1] = data;  // Use slot from pre-allocated block
 map[2] = data;  // Use next slot in same block
@@ -598,7 +604,7 @@ Benchmarks at N=1,000,000:
 fat_p::StableHashMap<int, Data> standard_map;
 
 // Block: contiguous block allocation
-fat_p::StableHashMap<int, Data, fat_p::BlockAllocatorPolicy> fast_map;
+fat_p::StableHashMap<int, Data, std::hash<int>, std::equal_to<int>, fat_p::BlockAllocator> fast_map;
 
 // APIs are identical
 fast_map[1] = data;
@@ -657,43 +663,15 @@ struct MyExcellentHash {
     }
 };
 
-fat_p::StableHashMap<int, Data, fat_p::DefaultMutablePolicy, MyExcellentHash> map;
+fat_p::StableHashMap<int, Data, MyExcellentHash> map;
 ```
 
 **Rule of thumb:** Keep the mixer unless you've verified your hash has good distribution.
 
 ---
 
-# **CHAPTER 10 — Read-Only Mode and freeze()**
 
-Many maps are built once and queried forever: configuration tables, lookup tables, interned strings.
-
-```cpp
-fat_p::StableHashMap<std::string, Config> config;
-
-// Build phase
-for (const auto& [k, v] : load_config())
-    config[k] = v;
-
-// Freeze: mutations now forbidden
-config.freeze();
-
-// Query phase (works normally)
-const Config* c = config.find("database.host");
-
-// Mutation attempts caught
-config["new_key"] = value;  // Debug: assertion
-                            // Release: undefined behavior
-```
-
-**Benefits:**
-- Bug detection in debug builds
-- Intent documentation for maintainers
-- Future optimization potential
-
----
-
-# **CHAPTER 11 — Heterogeneous Lookup**
+# **CHAPTER 10 — Heterogeneous Lookup**
 
 Avoid temporary allocations when looking up with convertible types:
 
@@ -717,7 +695,7 @@ map.find(key);  // No allocation
 
 ---
 
-# **CHAPTER 12 — Case Study: Graph Structure with Stable Node References**
+# **CHAPTER 11 — Case Study: Graph Structure with Stable Node References**
 
 ## The Context
 
@@ -764,7 +742,7 @@ The migration introduced subtle corruption that only manifested under load when 
 ```cpp
 // THE FIX: StableHashMap with Block allocator
 class SocialGraph {
-    fat_p::StableHashMap<UserId, GraphNode, fat_p::BlockAllocatorPolicy> nodes_;
+    fat_p::StableHashMap<UserId, GraphNode, std::hash<UserId>, std::equal_to<UserId>, fat_p::BlockAllocator> nodes_;
     
     void add_friendship(UserId a, UserId b) {
         GraphNode* node_a = &nodes_[a];
@@ -790,7 +768,7 @@ StableHashMap provided 2.2x faster lookups than `std::unordered_map` while prese
 
 ## FAT-P Components Used
 
-- `StableHashMap` with `BlockAllocatorPolicy` — Cache-efficient lookups with stable pointers
+- `StableHashMap` with `BlockAllocator` (node allocator template parameter) — Cache-efficient lookups with stable pointers
 
 ## Transferable Lessons
 
@@ -800,7 +778,7 @@ StableHashMap provided 2.2x faster lookups than `std::unordered_map` while prese
 
 ---
 
-# **CHAPTER 13 — Case Study: High-Throughput Event Processing**
+# **CHAPTER 12 — Case Study: High-Throughput Event Processing**
 
 ## The Context
 
@@ -856,7 +834,7 @@ class EventRouter {
 
 ---
 
-# **CHAPTER 14 — Case Study: Configuration Table Migration**
+# **CHAPTER 13 — Case Study: Configuration Table Migration**
 
 ## The Context
 
@@ -880,13 +858,9 @@ Every lookup allocated a temporary `std::string` for the find operation.
 ## The Fix
 
 ```cpp
-// THE FIX: Heterogeneous lookup + freeze
+// THE FIX: Heterogeneous lookup (no temporary allocation)
 class ConfigStore {
     fat_p::StableHashMap<std::string, std::string> settings_;
-    
-    void finalize() {
-        settings_.freeze();  // No more modifications
-    }
     
     const std::string* get(std::string_view key) const {
         return settings_.find(key);  // No allocation!
@@ -904,7 +878,6 @@ class ConfigStore {
 ## FAT-P Components Used
 
 - `StableHashMap` — Heterogeneous lookup eliminated temporary allocations
-- `freeze()` — Documented immutability, enabled future optimizations
 
 ## Transferable Lessons
 
@@ -912,7 +885,7 @@ class ConfigStore {
 
 ---
 
-# **CHAPTER 15 — Migration from std::unordered_map**
+# **CHAPTER 14 — Migration from std::unordered_map**
 
 ## Identifying Candidates
 
@@ -943,7 +916,7 @@ std::unordered_map<K, V> map;
 fat_p::StableHashMap<K, V> map;
 
 // After (block allocation for insert-heavy)
-fat_p::StableHashMap<K, V, fat_p::BlockAllocatorPolicy> map;
+fat_p::StableHashMap<K, V, std::hash<K>, std::equal_to<K>, fat_p::BlockAllocator> map;
 ```
 
 **Step 3:** Update find() usage
@@ -973,7 +946,7 @@ map.try_emplace(key, value);  // No-op if key exists
 
 ---
 
-# **CHAPTER 16 — Choosing the Right Hash Table**
+# **CHAPTER 15 — Choosing the Right Hash Table**
 
 ```mermaid
 flowchart TD

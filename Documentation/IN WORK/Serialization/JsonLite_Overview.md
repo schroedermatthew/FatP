@@ -250,7 +250,7 @@ struct Config {
 };
 
 // One macro defines both directions
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, timeout)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, timeout)
 ```
 
 The macro expands to:
@@ -276,9 +276,9 @@ inline void from_json(const JsonValue& j, Config& v) {
 
 | Macro | Use Case |
 |-------|----------|
-| `CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE` | External definition, all fields required |
-| `CPP_JSON_DEFINE_TYPE_OPTIONAL` | External definition, missing fields get defaults |
-| `CPP_JSON_DEFINE_TYPE_INTRUSIVE` | Inside class, can access private members |
+| `FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE` | External definition, all fields required |
+| `FATP_JSON_DEFINE_TYPE_OPTIONAL` | External definition, missing fields get defaults |
+| `FATP_JSON_DEFINE_TYPE_INTRUSIVE` | Inside class, can access private members |
 
 ---
 

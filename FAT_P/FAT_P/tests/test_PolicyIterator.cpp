@@ -6,6 +6,32 @@
  *   Standard:   g++ -std=c++17 -DENABLE_TEST_APPLICATION -I. -o test test_PolicyIterator.cpp
  *   Sanitizers: g++ -std=c++17 -DENABLE_TEST_APPLICATION -fsanitize=address,undefined -g -I. -o test test_PolicyIterator.cpp
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: PolicyIterator
+  file_role: test
+  path: tests/test_PolicyIterator.cpp
+  namespace: fat_p
+  summary: "Unit tests for PolicyIterator."
+  related:
+    docs_search: "PolicyIterator"
+    headers:
+      - fat_p/PolicyIterator.h
+      - fat_p/TensorStridePolicy.h
+      - fat_p/TensorIteration.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <array>
 #include <chrono>

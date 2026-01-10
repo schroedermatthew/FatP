@@ -52,6 +52,30 @@
  *   ./bench_alloc
  *   FATP_BENCH_OUTPUT_CSV=alloc_results.csv ./bench_alloc
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: AllocationStrategies
+  file_role: benchmark
+  path: benchmarks/benchmark_AllocationStrategies.cpp
+  namespace: fat_p
+  summary: "Benchmarks for AllocationStrategies."
+  related:
+    docs_search: "AllocationStrategies"
+    headers:
+      - fat_p/FatPBenchmarkRunner.h
+      - fat_p/AllocationStrategies.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 2
+    defines_unprefixed: 2
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <algorithm>
 #include <array>

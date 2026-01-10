@@ -2,6 +2,31 @@
  * @file test_DiagnosticLogger_Core.cpp
  * @brief Comprehensive unit tests for DiagnosticLogger_Core.h
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: DiagnosticLogger_Core
+  file_role: test
+  path: tests/test_DiagnosticLogger_Core.cpp
+  namespace: fat_p
+  summary: "Unit tests for DiagnosticLogger_Core."
+  related:
+    docs_search: "DiagnosticLogger_Core"
+    headers:
+      - fat_p/DiagnosticLogger_Core.h
+      - fat_p/DiagnosticLogger_Sinks.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 #include <sstream>
@@ -103,7 +128,7 @@ bool test_log_level_enum()
 
 bool test_source_location()
 {
-    auto loc = CPP_UTIL_SOURCE_LOCATION();
+    auto loc = FATP_SOURCE_LOCATION();
 
     ASSERT_TRUE(loc.file != nullptr, "File is not null");
     ASSERT_TRUE(loc.line > 0, "Line is positive");
@@ -116,7 +141,7 @@ bool test_source_location()
 
 bool test_log_record_construction()
 {
-    auto loc = CPP_UTIL_SOURCE_LOCATION();
+    auto loc = FATP_SOURCE_LOCATION();
     LogRecord record(LogLevel::Info, "Test message", loc, "metadata");
 
     ASSERT_TRUE(record.level == LogLevel::Info, "Level set correctly");
@@ -136,7 +161,7 @@ bool test_log_record_construction()
 bool test_default_formatter()
 {
     DefaultFormatter formatter;
-    auto loc = CPP_UTIL_SOURCE_LOCATION();
+    auto loc = FATP_SOURCE_LOCATION();
     LogRecord record(LogLevel::Warning, "Test warning", loc, "extra data");
 
     std::string formatted = formatter.format(record);
@@ -157,7 +182,7 @@ bool test_console_sink()
     std::cout.rdbuf(capturedOutput.rdbuf());
 
     ConsoleSink sink;
-    auto loc = CPP_UTIL_SOURCE_LOCATION();
+    auto loc = FATP_SOURCE_LOCATION();
     LogRecord record(LogLevel::Info, "Console test", loc);
 
     sink.write(record);
@@ -177,7 +202,7 @@ bool test_stderr_sink()
     std::cerr.rdbuf(capturedOutput.rdbuf());
 
     StderrSink sink;
-    auto loc = CPP_UTIL_SOURCE_LOCATION();
+    auto loc = FATP_SOURCE_LOCATION();
     LogRecord record(LogLevel::Error, "Stderr test", loc);
 
     sink.write(record);
@@ -199,14 +224,14 @@ bool test_logger_enable_disable()
     logger.setEnabled(true);
     ASSERT_TRUE(logger.isEnabled(), "Logger reports enabled");
 
-    logger.log(LogLevel::Info, "Enabled message", CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Info, "Enabled message", FATP_SOURCE_LOCATION());
     ASSERT_TRUE(testSink->count() == 1, "Message logged when enabled");
 
     testSink->clear();
     logger.setEnabled(false);
     ASSERT_TRUE(!logger.isEnabled(), "Logger reports disabled");
 
-    logger.log(LogLevel::Info, "Disabled message", CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Info, "Disabled message", FATP_SOURCE_LOCATION());
     ASSERT_TRUE(testSink->count() == 0, "No message logged when disabled");
 
     logger.setEnabled(true);
@@ -222,14 +247,14 @@ bool test_logger_level_filtering()
 
     logger.setLevel(LogLevel::Warning);
 
-    logger.log(LogLevel::Trace, "Trace msg", CPP_UTIL_SOURCE_LOCATION());
-    logger.log(LogLevel::Debug, "Debug msg", CPP_UTIL_SOURCE_LOCATION());
-    logger.log(LogLevel::Info, "Info msg", CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Trace, "Trace msg", FATP_SOURCE_LOCATION());
+    logger.log(LogLevel::Debug, "Debug msg", FATP_SOURCE_LOCATION());
+    logger.log(LogLevel::Info, "Info msg", FATP_SOURCE_LOCATION());
     ASSERT_TRUE(testSink->count() == 0, "Lower levels filtered out");
 
-    logger.log(LogLevel::Warning, "Warning msg", CPP_UTIL_SOURCE_LOCATION());
-    logger.log(LogLevel::Error, "Error msg", CPP_UTIL_SOURCE_LOCATION());
-    logger.log(LogLevel::Fatal, "Fatal msg", CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Warning, "Warning msg", FATP_SOURCE_LOCATION());
+    logger.log(LogLevel::Error, "Error msg", FATP_SOURCE_LOCATION());
+    logger.log(LogLevel::Fatal, "Fatal msg", FATP_SOURCE_LOCATION());
     ASSERT_TRUE(testSink->count() == 3, "Higher or equal levels logged");
 
     auto records = testSink->getRecords();
@@ -251,7 +276,7 @@ bool test_logger_multiple_sinks()
     logger.addSink(sink2);
     logger.addSink(sink3);
 
-    logger.log(LogLevel::Info, "Multi-sink test", CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Info, "Multi-sink test", FATP_SOURCE_LOCATION());
 
     ASSERT_TRUE(sink1->count() == 1, "First sink received message");
     ASSERT_TRUE(sink2->count() == 1, "Second sink received message");
@@ -288,13 +313,13 @@ bool test_logger_clear_sinks()
     auto testSink = std::make_shared<TestSink>();
     logger.addSink(testSink);
 
-    logger.log(LogLevel::Info, "Before clear", CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Info, "Before clear", FATP_SOURCE_LOCATION());
     ASSERT_TRUE(testSink->count() == 1, "Sink receives message before clear");
 
     logger.clearSinks();
     testSink->clear();
 
-    logger.log(LogLevel::Info, "After clear", CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Info, "After clear", FATP_SOURCE_LOCATION());
     ASSERT_TRUE(testSink->count() == 0, "Sink doesn't receive message after clear");
 
     return true;
@@ -307,7 +332,7 @@ bool test_logger_string_message()
     logger.addSink(testSink);
 
     std::string msg = "String message";
-    logger.log(LogLevel::Info, msg, CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Info, msg, FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
     ASSERT_TRUE(records.size() == 1, "One record logged");
@@ -325,7 +350,7 @@ bool test_logger_lambda_message()
     int value = 42;
     logger.log(LogLevel::Info,
                [&]() { return "Value is " + std::to_string(value); },
-               CPP_UTIL_SOURCE_LOCATION());
+               FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
     ASSERT_TRUE(records.size() == 1, "One record logged");
@@ -347,7 +372,7 @@ bool test_logger_stream_message()
                    oss << "Number: " << num;
                    return oss.str();
                },
-               CPP_UTIL_SOURCE_LOCATION());
+               FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
     ASSERT_TRUE(records.size() == 1, "One record logged");
@@ -362,7 +387,7 @@ bool test_logger_metadata()
     auto testSink = std::make_shared<TestSink>();
     logger.addSink(testSink);
 
-    logger.log(LogLevel::Info, "Test message", CPP_UTIL_SOURCE_LOCATION(), "key=value");
+    logger.log(LogLevel::Info, "Test message", FATP_SOURCE_LOCATION(), "key=value");
 
     auto records = testSink->getRecords();
     ASSERT_TRUE(records.size() == 1, "One record logged");
@@ -377,12 +402,12 @@ bool test_logger_convenience_methods()
     auto testSink = std::make_shared<TestSink>();
     logger.addSink(testSink);
 
-    logger.trace("Trace", CPP_UTIL_SOURCE_LOCATION());
-    logger.debug("Debug", CPP_UTIL_SOURCE_LOCATION());
-    logger.info("Info", CPP_UTIL_SOURCE_LOCATION());
-    logger.warning("Warning", CPP_UTIL_SOURCE_LOCATION());
-    logger.error("Error", CPP_UTIL_SOURCE_LOCATION());
-    logger.fatal("Fatal", CPP_UTIL_SOURCE_LOCATION());
+    logger.trace("Trace", FATP_SOURCE_LOCATION());
+    logger.debug("Debug", FATP_SOURCE_LOCATION());
+    logger.info("Info", FATP_SOURCE_LOCATION());
+    logger.warning("Warning", FATP_SOURCE_LOCATION());
+    logger.error("Error", FATP_SOURCE_LOCATION());
+    logger.fatal("Fatal", FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
     ASSERT_TRUE(records.size() == 6, "Six records logged");
@@ -414,7 +439,7 @@ bool test_logger_thread_safety()
             {
                 logger.log(LogLevel::Info,
                            "Thread " + std::to_string(t) + " msg " + std::to_string(i),
-                           CPP_UTIL_SOURCE_LOCATION());
+                           FATP_SOURCE_LOCATION());
             }
         });
     }
@@ -436,12 +461,12 @@ bool test_logger_sink_copy_on_write()
     auto sink1 = std::make_shared<TestSink>();
     logger.addSink(sink1);
 
-    logger.log(LogLevel::Info, "Message 1", CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Info, "Message 1", FATP_SOURCE_LOCATION());
 
     auto sink2 = std::make_shared<TestSink>();
     logger.addSink(sink2);
 
-    logger.log(LogLevel::Info, "Message 2", CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Info, "Message 2", FATP_SOURCE_LOCATION());
 
     ASSERT_TRUE(sink1->count() == 2, "First sink received both messages");
     ASSERT_TRUE(sink2->count() == 1, "Second sink only received message after being added");
@@ -455,8 +480,8 @@ bool test_logger_error_auto_flush()
     auto testSink = std::make_shared<TestSink>();
     logger.addSink(testSink);
 
-    logger.log(LogLevel::Info, "Info message", CPP_UTIL_SOURCE_LOCATION());
-    logger.log(LogLevel::Error, "Error message", CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Info, "Info message", FATP_SOURCE_LOCATION());
+    logger.log(LogLevel::Error, "Error message", FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
     ASSERT_TRUE(records.size() == 2, "Both messages logged");
@@ -474,12 +499,12 @@ bool test_log_macros()
     getGlobalLogger().addSink(testSink);
     getGlobalLogger().setLevel(LogLevel::Trace);
 
-    LOG_TRACE("Trace macro");
-    LOG_DEBUG("Debug macro");
-    LOG_INFO("Info macro");
-    LOG_WARNING("Warning macro");
-    LOG_ERROR("Error macro");
-    LOG_FATAL("Fatal macro");
+    FATP_LOG_TRACE("Trace macro");
+    FATP_LOG_DEBUG("Debug macro");
+    FATP_LOG_INFO("Info macro");
+    FATP_LOG_WARNING("Warning macro");
+    FATP_LOG_ERROR("Error macro");
+    FATP_LOG_FATAL("Fatal macro");
 
     auto records = testSink->getRecords();
     ASSERT_TRUE(records.size() == 6, "All macro messages logged");
@@ -507,7 +532,7 @@ bool test_log_macro_with_stream()
     int value = 42;
     std::string text = "test";
 
-    LOG_INFO("Value: " << value << ", Text: " << text);
+    FATP_LOG_INFO("Value: " << value << ", Text: " << text);
 
     auto records = testSink->getRecords();
     ASSERT_TRUE(records.size() == 1, "One log record");
@@ -539,7 +564,7 @@ bool test_empty_message()
     auto testSink = std::make_shared<TestSink>();
     logger.addSink(testSink);
 
-    logger.log(LogLevel::Info, "", CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Info, "", FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
     ASSERT_TRUE(records.size() == 1, "Empty message logged");
@@ -555,7 +580,7 @@ bool test_long_message()
     logger.addSink(testSink);
 
     std::string longMsg(10000, 'X');
-    logger.log(LogLevel::Info, longMsg, CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Info, longMsg, FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
     ASSERT_TRUE(records.size() == 1, "Long message logged");
@@ -571,7 +596,7 @@ bool test_special_characters()
     logger.addSink(testSink);
 
     std::string specialChars = "Special: \n\t\r\\\"'";
-    logger.log(LogLevel::Info, specialChars, CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Info, specialChars, FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
     ASSERT_TRUE(records.size() == 1, "Special chars message logged");
@@ -591,7 +616,7 @@ bool test_unicode_characters()
     // \u4E2D\u6587 (中文) = 0xE4 0xB8 0xAD 0xE6 0x96 0x87
     // \U0001F600 (😀) = 0xF0 0x9F 0x98 0x80
     std::string unicode = "Unicode: \xC3\xA9\xC3\xB1\xC3\xBC \xE4\xB8\xAD\xE6\x96\x87 \xF0\x9F\x98\x80";
-    logger.log(LogLevel::Info, unicode, CPP_UTIL_SOURCE_LOCATION());
+    logger.log(LogLevel::Info, unicode, FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
     ASSERT_TRUE(records.size() == 1, "Unicode message logged");
@@ -756,7 +781,7 @@ bool test_logger_registry_default_sinks()
 
     Logger& log = getLogger("with_default_sink");
 
-    log.info("Test message", CPP_UTIL_SOURCE_LOCATION());
+    log.info("Test message", FATP_SOURCE_LOCATION());
 
     ASSERT_TRUE(defaultSink->count() == 1, "Default sink received message");
     ASSERT_TRUE(defaultSink->containsMessage("Test message"), "Correct message");
@@ -798,8 +823,8 @@ bool test_logger_registry_add_sink_to_all()
 
     LoggerRegistry::instance().addSinkToAll(sink2);
 
-    getLogger("x").info("Message from x", CPP_UTIL_SOURCE_LOCATION());
-    getLogger("y").info("Message from y", CPP_UTIL_SOURCE_LOCATION());
+    getLogger("x").info("Message from x", FATP_SOURCE_LOCATION());
+    getLogger("y").info("Message from y", FATP_SOURCE_LOCATION());
 
     ASSERT_TRUE(sink1->count() == 2, "sink1 received both messages");
     ASSERT_TRUE(sink2->count() == 2, "sink2 received both messages");
@@ -831,7 +856,7 @@ bool test_get_logger_convenience()
     auto testSink = std::make_shared<TestSink>();
     log.addSink(testSink);
 
-    log.info("Convenience test", CPP_UTIL_SOURCE_LOCATION());
+    log.info("Convenience test", FATP_SOURCE_LOCATION());
 
     ASSERT_TRUE(testSink->count() == 1, "Message logged via getLogger");
 
@@ -868,12 +893,12 @@ bool test_named_logger_independent_levels()
     dbLog.addSink(dbSink);
     dbLog.setLevel(LogLevel::Error);
 
-    networkLog.debug("Network debug", CPP_UTIL_SOURCE_LOCATION());
-    networkLog.info("Network info", CPP_UTIL_SOURCE_LOCATION());
+    networkLog.debug("Network debug", FATP_SOURCE_LOCATION());
+    networkLog.info("Network info", FATP_SOURCE_LOCATION());
 
-    dbLog.debug("DB debug", CPP_UTIL_SOURCE_LOCATION());
-    dbLog.info("DB info", CPP_UTIL_SOURCE_LOCATION());
-    dbLog.error("DB error", CPP_UTIL_SOURCE_LOCATION());
+    dbLog.debug("DB debug", FATP_SOURCE_LOCATION());
+    dbLog.info("DB info", FATP_SOURCE_LOCATION());
+    dbLog.error("DB error", FATP_SOURCE_LOCATION());
 
     ASSERT_TRUE(networkSink->count() == 2, "Network logged debug and info");
     ASSERT_TRUE(dbSink->count() == 1, "DB only logged error");
@@ -893,12 +918,12 @@ bool test_log_to_macros()
     auto sink = std::make_shared<TestSink>();
     getLogger("macro_test").addSink(sink);
 
-    LOG_TRACE_TO("macro_test", "Trace to named");
-    LOG_DEBUG_TO("macro_test", "Debug to named");
-    LOG_INFO_TO("macro_test", "Info to named");
-    LOG_WARNING_TO("macro_test", "Warning to named");
-    LOG_ERROR_TO("macro_test", "Error to named");
-    LOG_FATAL_TO("macro_test", "Fatal to named");
+    FATP_LOG_TRACE_TO("macro_test", "Trace to named");
+    FATP_LOG_DEBUG_TO("macro_test", "Debug to named");
+    FATP_LOG_INFO_TO("macro_test", "Info to named");
+    FATP_LOG_WARNING_TO("macro_test", "Warning to named");
+    FATP_LOG_ERROR_TO("macro_test", "Error to named");
+    FATP_LOG_FATAL_TO("macro_test", "Fatal to named");
 
     ASSERT_TRUE(sink->count() == 6, "All six messages logged");
     ASSERT_TRUE(sink->countLevel(LogLevel::Trace) == 1, "One trace");
@@ -922,7 +947,7 @@ bool test_log_to_macro_with_stream()
     int value = 99;
     std::string name = "Alice";
 
-    LOG_INFO_TO("stream_test", "User " << name << " has value " << value);
+    FATP_LOG_INFO_TO("stream_test", "User " << name << " has value " << value);
 
     ASSERT_TRUE(sink->count() == 1, "One message logged");
     ASSERT_TRUE(sink->containsMessage("User Alice has value 99"),
@@ -941,7 +966,7 @@ bool test_log_to_macro_static_caching()
 
     for (int i = 0; i < 100; ++i)
     {
-        LOG_INFO_TO("cached", "Iteration " << i);
+        FATP_LOG_INFO_TO("cached", "Iteration " << i);
     }
 
     ASSERT_TRUE(sink->count() == 100, "All 100 messages logged");
@@ -962,7 +987,7 @@ bool test_lazy_init_auto_creates_sink()
     std::streambuf* oldCoutBuf = std::cout.rdbuf();
     std::cout.rdbuf(capturedOutput.rdbuf());
 
-    LOG_INFO("Auto-init test message");
+    FATP_LOG_INFO("Auto-init test message");
 
     std::cout.rdbuf(oldCoutBuf);
 
@@ -984,7 +1009,7 @@ bool test_lazy_init_disabled_by_add_sink()
     getGlobalLogger().clearSinks();
     getGlobalLogger().addSink(customSink);
 
-    LOG_INFO("Custom sink message");
+    FATP_LOG_INFO("Custom sink message");
 
     ASSERT_TRUE(customSink->count() == 1, "Custom sink received message");
     ASSERT_TRUE(getGlobalLogger().sinkCount() == 1, "Only one sink (no auto-init)");
@@ -1005,7 +1030,7 @@ bool test_lazy_init_disabled_by_clear_sinks()
     std::streambuf* oldCoutBuf = std::cout.rdbuf();
     std::cout.rdbuf(capturedOutput.rdbuf());
 
-    LOG_INFO("Should not appear");
+    FATP_LOG_INFO("Should not appear");
 
     std::cout.rdbuf(oldCoutBuf);
 
@@ -1026,7 +1051,7 @@ bool test_lazy_init_disable_auto_init()
     std::streambuf* oldCoutBuf = std::cout.rdbuf();
     std::cout.rdbuf(capturedOutput.rdbuf());
 
-    log.info("Should not appear", CPP_UTIL_SOURCE_LOCATION());
+    log.info("Should not appear", FATP_SOURCE_LOCATION());
 
     std::cout.rdbuf(oldCoutBuf);
 
@@ -1168,20 +1193,20 @@ void benchmark_logger()
     logger.addSink(testSink);
 
     double enabled_time = measure_perf(
-        [&logger]() { logger.log(LogLevel::Info, "Benchmark message", CPP_UTIL_SOURCE_LOCATION()); },
+        [&logger]() { logger.log(LogLevel::Info, "Benchmark message", FATP_SOURCE_LOCATION()); },
         10000, 100);
     std::cout << "Enabled logging: " << format_time(enabled_time) << "\n";
 
     logger.setEnabled(false);
     double disabled_time = measure_perf(
-        [&logger]() { logger.log(LogLevel::Info, "Disabled message", CPP_UTIL_SOURCE_LOCATION()); },
+        [&logger]() { logger.log(LogLevel::Info, "Disabled message", FATP_SOURCE_LOCATION()); },
         100000, 1000);
     std::cout << "Disabled logging: " << format_time(disabled_time) << "\n";
 
     logger.setEnabled(true);
     logger.setLevel(LogLevel::Error);
     double filtered_time = measure_perf(
-        [&logger]() { logger.log(LogLevel::Info, "Filtered message", CPP_UTIL_SOURCE_LOCATION()); },
+        [&logger]() { logger.log(LogLevel::Info, "Filtered message", FATP_SOURCE_LOCATION()); },
         100000, 1000);
     std::cout << "Filtered logging: " << format_time(filtered_time) << "\n";
 
@@ -1189,7 +1214,7 @@ void benchmark_logger()
     double with_lambda_time = measure_perf(
         [&logger]() {
             logger.log(LogLevel::Info, []() { return "Lambda message"; },
-                       CPP_UTIL_SOURCE_LOCATION());
+                       FATP_SOURCE_LOCATION());
         },
         10000, 100);
     std::cout << "With lambda: " << format_time(with_lambda_time) << "\n";
@@ -1209,7 +1234,7 @@ void benchmark_named_loggers()
     double lookup_time = measure_perf([]() { getLogger("bench"); }, 100000, 1000);
     std::cout << "Logger lookup (existing): " << format_time(lookup_time) << "\n";
 
-    double log_to_time = measure_perf([]() { LOG_INFO_TO("bench", "Benchmark"); }, 10000, 100);
+    double log_to_time = measure_perf([]() { FATP_LOG_INFO_TO("bench", "Benchmark"); }, 10000, 100);
     std::cout << "LOG_INFO_TO (cached): " << format_time(log_to_time) << "\n";
 
     LoggerRegistry::instance().dropAll();

@@ -27,7 +27,7 @@
  * - value_or_else for lazy evaluation
  * - error_or_else for lazy error defaults
  * - Optimized same-state assignment (fast path)
- * - Feature test macros (__cpp_utilities_expected_*)
+ * - Feature test macros (FATP_EXPECTED_*)
  * - Conversion utilities (to_std_expected, from_std_expected)
  * - Rebind template for type transformations
  * - fold() for pattern matching
@@ -60,6 +60,35 @@
  * @section exception_safety Exception Safety: Strong guarantee
  */
 #pragma once
+/*
+FATP_META:
+  meta_version: 1
+  component: Expected
+  file_role: public_header
+  path: fat_p/Expected.h
+  namespace: fat_p
+  summary: "Public header for Expected."
+  api_stability: in_work
+  related:
+    docs_search: "Expected"
+    tests:
+      - tests/test_AsyncOperations.cpp
+      - tests/test_Enforce.cpp
+      - tests/test_Expected.cpp
+      - tests/test_FatPTypeTraits.cpp
+      - tests/test_IdGenerator.cpp
+      - tests/test_PipeOperator.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 22
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <utility>      // For std::move, std::forward, etc.
 #include <string>       // Default error type
@@ -100,8 +129,8 @@
  *
  * Usage:
  * @code
- * #if defined(__cpp_utilities_expected_monadic) && \
- *     __cpp_utilities_expected_monadic >= 202411L
+ * #if defined(FATP_EXPECTED_MONADIC) && \
+ *     FATP_EXPECTED_MONADIC >= 202411L
  *     // Use monadic operations
  *     auto result = exp.map(f).and_then(g);
  * #endif
@@ -109,51 +138,51 @@
  */
 
  // Base Expected implementation (always available)
-#ifndef __cpp_utilities_expected
-#define __cpp_utilities_expected 202411L
+#ifndef FATP_EXPECTED
+#define FATP_EXPECTED 202411L
 #endif
 
 // Monadic operations (map, and_then, or_else, transform_error)
-#ifndef __cpp_utilities_expected_monadic
-#define __cpp_utilities_expected_monadic 202411L
+#ifndef FATP_EXPECTED_MONADIC
+#define FATP_EXPECTED_MONADIC 202411L
 #endif
 
 // Storage policy customization (UnionStorage, VariantStorage)
-#ifndef __cpp_utilities_expected_policies
-#define __cpp_utilities_expected_policies 202411L
+#ifndef FATP_EXPECTED_POLICIES
+#define FATP_EXPECTED_POLICIES 202411L
 #endif
 
 // Lazy evaluation with value_or_else
-#ifndef __cpp_utilities_expected_value_or_else
-#define __cpp_utilities_expected_value_or_else 202411L
+#ifndef FATP_EXPECTED_VALUE_OR_ELSE
+#define FATP_EXPECTED_VALUE_OR_ELSE 202411L
 #endif
 
 // Inspection utilities (inspect, inspect_error)
-#ifndef __cpp_utilities_expected_inspect
-#define __cpp_utilities_expected_inspect 202411L
+#ifndef FATP_EXPECTED_INSPECT
+#define FATP_EXPECTED_INSPECT 202411L
 #endif
 
 // Ordering operators (<, <=, >, >=)
-#ifndef __cpp_utilities_expected_ordering
-#define __cpp_utilities_expected_ordering 202411L
+#ifndef FATP_EXPECTED_ORDERING
+#define FATP_EXPECTED_ORDERING 202411L
 #endif
 
 // Rebind template member (C++17)
-#ifndef __cpp_utilities_expected_rebind
-#define __cpp_utilities_expected_rebind 202411L
+#ifndef FATP_EXPECTED_REBIND
+#define FATP_EXPECTED_REBIND 202411L
 #endif
 
 // Three-way comparison (C++20, conditionally available)
 #if defined(__cpp_lib_three_way_comparison) && __cpp_lib_three_way_comparison >= 201907L
-#ifndef __cpp_utilities_expected_spaceship
-#define __cpp_utilities_expected_spaceship 202411L
+#ifndef FATP_EXPECTED_SPACESHIP
+#define FATP_EXPECTED_SPACESHIP 202411L
 #endif
 #endif
 
 // std::expected integration (C++23, conditionally available)
 #if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
-#ifndef __cpp_utilities_expected_std_integration
-#define __cpp_utilities_expected_std_integration 202411L
+#ifndef FATP_EXPECTED_STD_INTEGRATION
+#define FATP_EXPECTED_STD_INTEGRATION 202411L
 #endif
 #endif
 
@@ -3366,31 +3395,31 @@ template <typename T, typename E>
 struct is_expected_like<std::expected<T, E>> : std::true_type {};
 #endif
 
-// --- EXPECTED_TRY Macro ---
+// --- FATP_EXPECTED_TRY Macro ---
 
-#define EXPECTED_TRY_CONCAT_(a, b) a##b
-#define EXPECTED_TRY_CONCAT(a, b) EXPECTED_TRY_CONCAT_(a, b)
-#define EXPECTED_TRY_UNIQUE_NAME EXPECTED_TRY_CONCAT(expected_try_result_, __LINE__)
+#define FATP_EXPECTED_TRY_CONCAT_(a, b) a##b
+#define FATP_EXPECTED_TRY_CONCAT(a, b) FATP_EXPECTED_TRY_CONCAT_(a, b)
+#define FATP_EXPECTED_TRY_UNIQUE_NAME FATP_EXPECTED_TRY_CONCAT(expected_try_result_, __LINE__)
 
-#define EXPECTED_TRY(var, expr) \
-    auto EXPECTED_TRY_UNIQUE_NAME = (expr); \
-    if (!EXPECTED_TRY_UNIQUE_NAME.has_value()) { \
-        return fat_p::unexpected(std::move(EXPECTED_TRY_UNIQUE_NAME).error()); \
+#define FATP_EXPECTED_TRY(var, expr) \
+    auto FATP_EXPECTED_TRY_UNIQUE_NAME = (expr); \
+    if (!FATP_EXPECTED_TRY_UNIQUE_NAME.has_value()) { \
+        return fat_p::unexpected(std::move(FATP_EXPECTED_TRY_UNIQUE_NAME).error()); \
     } \
-    [[maybe_unused]] decltype(auto) var = std::move(EXPECTED_TRY_UNIQUE_NAME).value()
+    [[maybe_unused]] decltype(auto) var = std::move(FATP_EXPECTED_TRY_UNIQUE_NAME).value()
 
-#define EXPECTED_TRY_VOID(expr) \
+#define FATP_EXPECTED_TRY_VOID(expr) \
     do { \
-        auto EXPECTED_TRY_UNIQUE_NAME = (expr); \
-        if (!EXPECTED_TRY_UNIQUE_NAME.has_value()) { \
-            return fat_p::unexpected(std::move(EXPECTED_TRY_UNIQUE_NAME).error()); \
+        auto FATP_EXPECTED_TRY_UNIQUE_NAME = (expr); \
+        if (!FATP_EXPECTED_TRY_UNIQUE_NAME.has_value()) { \
+            return fat_p::unexpected(std::move(FATP_EXPECTED_TRY_UNIQUE_NAME).error()); \
         } \
     } while (0)
 
 /**
  * @brief Assigns result to existing variable or returns error (Google Abseil style).
  *
- * Similar to EXPECTED_TRY but assigns to an already-declared variable.
+ * Similar to FATP_EXPECTED_TRY but assigns to an already-declared variable.
  * Useful when the variable needs to be declared before the assignment.
  *
  * @param lhs The variable to assign to (must already be declared)
@@ -3398,19 +3427,24 @@ struct is_expected_like<std::expected<T, E>> : std::true_type {};
  *
  * @code
  * int value;
- * EXPECTED_ASSIGN_OR_RETURN(value, compute_value());
+ * FATP_EXPECTED_ASSIGN_OR_RETURN(value, compute_value());
  * // value now contains the result, or function returned early with error
  * @endcode
  */
-#define EXPECTED_ASSIGN_OR_RETURN(lhs, expr) \
+#define FATP_EXPECTED_ASSIGN_OR_RETURN(lhs, expr) \
     do { \
-        auto EXPECTED_TRY_CONCAT(expected_assign_, __LINE__) = (expr); \
-        if (!EXPECTED_TRY_CONCAT(expected_assign_, __LINE__).has_value()) { \
+        auto FATP_EXPECTED_TRY_CONCAT(expected_assign_, __LINE__) = (expr); \
+        if (!FATP_EXPECTED_TRY_CONCAT(expected_assign_, __LINE__).has_value()) { \
             return fat_p::unexpected( \
-                std::move(EXPECTED_TRY_CONCAT(expected_assign_, __LINE__)).error()); \
+                std::move(FATP_EXPECTED_TRY_CONCAT(expected_assign_, __LINE__)).error()); \
         } \
-        lhs = std::move(EXPECTED_TRY_CONCAT(expected_assign_, __LINE__)).value(); \
+        lhs = std::move(FATP_EXPECTED_TRY_CONCAT(expected_assign_, __LINE__)).value(); \
     } while (0)
+
+// Note: FATP_EXPECTED_TRY_CONCAT_, FATP_EXPECTED_TRY_CONCAT, and 
+// FATP_EXPECTED_TRY_UNIQUE_NAME are intentionally NOT #undef'd because they are
+// required for the user-facing macros FATP_EXPECTED_TRY, FATP_EXPECTED_TRY_VOID,
+// and FATP_EXPECTED_ASSIGN_OR_RETURN to function correctly.
 
 } // namespace fat_p
 

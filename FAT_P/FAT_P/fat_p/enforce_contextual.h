@@ -10,6 +10,30 @@
  */
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: enforce_contextual
+  file_role: public_header
+  path: fat_p/enforce_contextual.h
+  namespace: fat_p
+  summary: "Public header for enforce_contextual."
+  api_stability: in_work
+  related:
+    docs_search: "enforce_contextual"
+    tests:
+      - tests/test_Enforce.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: true
+    defines_total: 72
+    defines_unprefixed: 65
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <type_traits>
 #include <utility>
 

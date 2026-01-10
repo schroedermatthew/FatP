@@ -21,6 +21,30 @@
 //   ./bench_fm
 //   FATP_BENCH_OUTPUT_CSV=results.csv ./bench_fm
 
+/*
+FATP_META:
+  meta_version: 1
+  component: FeatureManager
+  file_role: benchmark
+  path: benchmarks/benchmark_FeatureManager.cpp
+  namespace: fat_p
+  summary: "Benchmarks for FeatureManager."
+  related:
+    docs_search: "FeatureManager"
+    headers:
+      - fat_p/FeatureManager.h
+      - fat_p/FatPBenchmarkRunner.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <algorithm>
 #include <array>
 #include <atomic>

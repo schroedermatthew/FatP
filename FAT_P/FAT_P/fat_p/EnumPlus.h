@@ -1,5 +1,28 @@
-#ifndef FATP_ENUM_PLUS_H
-#define FATP_ENUM_PLUS_H
+#pragma once
+/*
+FATP_META:
+  meta_version: 1
+  component: EnumPlus
+  file_role: public_header
+  path: fat_p/EnumPlus.h
+  namespace: fat_p
+  summary: "Public header for EnumPlus."
+  api_stability: in_work
+  related:
+    docs_search: "EnumPlus"
+    tests:
+      - tests/test_EnumPlus.cpp
+  hygiene:
+    pragma_once: false
+    include_guard: true
+    defines_total: 1
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <array>
 #include <type_traits>
@@ -655,4 +678,3 @@ constexpr bool has_flag(EnumPlusWrapper<E> value, EnumPlusWrapper<E> flag) noexc
 
 } // namespace fat_p
 
-#endif // FATP_ENUM_PLUS_H

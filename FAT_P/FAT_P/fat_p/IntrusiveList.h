@@ -1,5 +1,29 @@
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: IntrusiveList
+  file_role: public_header
+  path: fat_p/IntrusiveList.h
+  namespace: fat_p
+  summary: "Public header for IntrusiveList."
+  api_stability: in_work
+  related:
+    docs_search: "IntrusiveList"
+    tests:
+      - tests/test_IntrusiveList.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <cstddef>
 #include <iterator>
 #include <type_traits>

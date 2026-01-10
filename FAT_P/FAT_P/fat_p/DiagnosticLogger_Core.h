@@ -22,6 +22,30 @@
  */
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: DiagnosticLogger_Core
+  file_role: public_header
+  path: fat_p/DiagnosticLogger_Core.h
+  namespace: fat_p
+  summary: "Public header for DiagnosticLogger_Core."
+  api_stability: in_work
+  related:
+    docs_search: "DiagnosticLogger_Core"
+    tests:
+      - tests/test_DiagnosticLogger_Core.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: true
+    defines_total: 26
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <atomic>
 #include <chrono>
 #include <functional>
@@ -36,37 +60,37 @@
 #include <unordered_map>
 #include <vector>
 
-#ifndef CPP_UTIL_MIN_LOG_LEVEL
-#define CPP_UTIL_MIN_LOG_LEVEL 0
+#ifndef FATP_MIN_LOG_LEVEL
+#define FATP_MIN_LOG_LEVEL 0
 #endif
 
-#ifndef LIKELY
+#ifndef FATP_LIKELY
 #if defined(__GNUC__) || defined(__clang__)
-#define LIKELY(x) __builtin_expect(!!(x), 1)
-#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#define FATP_LIKELY(x) __builtin_expect(!!(x), 1)
+#define FATP_UNLIKELY(x) __builtin_expect(!!(x), 0)
 #else
-#define LIKELY(x) (x)
-#define UNLIKELY(x) (x)
+#define FATP_LIKELY(x) (x)
+#define FATP_UNLIKELY(x) (x)
 #endif
 #endif
 
-#ifndef FORCE_INLINE
+#ifndef FATP_FORCE_INLINE
 #if defined(_MSC_VER)
-#define FORCE_INLINE __forceinline
+#define FATP_FORCE_INLINE __forceinline
 #elif defined(__GNUC__) || defined(__clang__)
-#define FORCE_INLINE inline __attribute__((always_inline))
+#define FATP_FORCE_INLINE inline __attribute__((always_inline))
 #else
-#define FORCE_INLINE inline
+#define FATP_FORCE_INLINE inline
 #endif
 #endif
 
-#ifndef NO_INLINE
+#ifndef FATP_NO_INLINE
 #if defined(_MSC_VER)
-#define NO_INLINE __declspec(noinline)
+#define FATP_NO_INLINE __declspec(noinline)
 #elif defined(__GNUC__) || defined(__clang__)
-#define NO_INLINE __attribute__((noinline))
+#define FATP_NO_INLINE __attribute__((noinline))
 #else
-#define NO_INLINE
+#define FATP_NO_INLINE
 #endif
 #endif
 
@@ -92,7 +116,7 @@ enum class LogLevel : int
 /**
  * @brief Compile-time minimum log level threshold.
  */
-constexpr LogLevel gMinLogLevel = static_cast<LogLevel>(CPP_UTIL_MIN_LOG_LEVEL);
+constexpr LogLevel gMinLogLevel = static_cast<LogLevel>(FATP_MIN_LOG_LEVEL);
 
 /**
  * @brief Converts a LogLevel to its string representation.
@@ -137,7 +161,7 @@ struct SourceLocation
     }
 };
 
-#define CPP_UTIL_SOURCE_LOCATION()                                                                 \
+#define FATP_SOURCE_LOCATION()                                                                 \
     ::fat_p::diagnostic::SourceLocation(__FILE__, __LINE__, __func__)
 
 /**
@@ -330,7 +354,7 @@ inline std::shared_ptr<ISink> createDefaultSink()
  * @brief Thread-safe logger with configurable sinks.
  *
  * @details The Logger class provides high-performance logging with:
- * - Compile-time log level filtering via CPP_UTIL_MIN_LOG_LEVEL
+ * - Compile-time log level filtering via FATP_MIN_LOG_LEVEL
  * - Runtime log level filtering via setLevel()
  * - Multiple output sinks with thread-safe management
  * - Lazy message evaluation to avoid formatting overhead when disabled
@@ -499,10 +523,10 @@ public:
      * @param level The log level to check.
      * @return True if the message would be logged.
      */
-    FORCE_INLINE bool shouldLog(LogLevel level) const noexcept
+    FATP_FORCE_INLINE bool shouldLog(LogLevel level) const noexcept
     {
-        return LIKELY(enabled_.load(std::memory_order_relaxed)) &&
-               LIKELY(level >= runtimeMinLevel_.load(std::memory_order_relaxed));
+        return FATP_LIKELY(enabled_.load(std::memory_order_relaxed)) &&
+               FATP_LIKELY(level >= runtimeMinLevel_.load(std::memory_order_relaxed));
     }
 
     /**
@@ -514,13 +538,13 @@ public:
      * @param metadata Optional structured metadata.
      */
     template <typename MessageGenerator>
-    FORCE_INLINE void log(LogLevel level,
+    FATP_FORCE_INLINE void log(LogLevel level,
                           MessageGenerator&& messageGen,
                           SourceLocation location,
                           std::string metadata = "")
     {
         // Optimization: Logging is usually the cold path.
-        if (UNLIKELY(shouldLog(level)))
+        if (FATP_UNLIKELY(shouldLog(level)))
         {
             log_slow_path(level, std::forward<MessageGenerator>(messageGen), location,
                           std::move(metadata));
@@ -528,37 +552,37 @@ public:
     }
 
     template <typename T>
-    FORCE_INLINE void trace(T&& msg, SourceLocation loc)
+    FATP_FORCE_INLINE void trace(T&& msg, SourceLocation loc)
     {
         log(LogLevel::Trace, std::forward<T>(msg), loc);
     }
 
     template <typename T>
-    FORCE_INLINE void debug(T&& msg, SourceLocation loc)
+    FATP_FORCE_INLINE void debug(T&& msg, SourceLocation loc)
     {
         log(LogLevel::Debug, std::forward<T>(msg), loc);
     }
 
     template <typename T>
-    FORCE_INLINE void info(T&& msg, SourceLocation loc)
+    FATP_FORCE_INLINE void info(T&& msg, SourceLocation loc)
     {
         log(LogLevel::Info, std::forward<T>(msg), loc);
     }
 
     template <typename T>
-    FORCE_INLINE void warning(T&& msg, SourceLocation loc)
+    FATP_FORCE_INLINE void warning(T&& msg, SourceLocation loc)
     {
         log(LogLevel::Warning, std::forward<T>(msg), loc);
     }
 
     template <typename T>
-    FORCE_INLINE void error(T&& msg, SourceLocation loc)
+    FATP_FORCE_INLINE void error(T&& msg, SourceLocation loc)
     {
         log(LogLevel::Error, std::forward<T>(msg), loc);
     }
 
     template <typename T>
-    FORCE_INLINE void fatal(T&& msg, SourceLocation loc)
+    FATP_FORCE_INLINE void fatal(T&& msg, SourceLocation loc)
     {
         log(LogLevel::Fatal, std::forward<T>(msg), loc);
     }
@@ -608,7 +632,7 @@ private:
     }
 
     template <typename MessageGenerator>
-    NO_INLINE void log_slow_path(LogLevel level,
+    FATP_NO_INLINE void log_slow_path(LogLevel level,
                                  MessageGenerator&& messageGen,
                                  SourceLocation location,
                                  std::string metadata)
@@ -674,10 +698,10 @@ private:
  * Usage:
  * @code
  * auto& logger = LoggerRegistry::instance().get("network");
- * logger.info("Connected", CPP_UTIL_SOURCE_LOCATION());
+ * logger.info("Connected", FATP_SOURCE_LOCATION());
  *
  * // Or use the convenience function
- * getLogger("network").info("Connected", CPP_UTIL_SOURCE_LOCATION());
+ * getLogger("network").info("Connected", FATP_SOURCE_LOCATION());
  * @endcode
  */
 class LoggerRegistry
@@ -937,7 +961,7 @@ inline Logger& getGlobalLogger()
 
 // Global logger macros
 
-#define LOG_MACRO_IMPL(func, msg)                                                                  \
+#define FATP_LOG_MACRO_IMPL(func, msg)                                                                  \
     do                                                                                             \
     {                                                                                              \
         if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::func)    \
@@ -949,20 +973,20 @@ inline Logger& getGlobalLogger()
                     _oss_ << msg;                                                                  \
                     return _oss_.str();                                                            \
                 },                                                                                 \
-                CPP_UTIL_SOURCE_LOCATION());                                                       \
+                FATP_SOURCE_LOCATION());                                                       \
         }                                                                                          \
     } while (0)
 
-#define LOG_TRACE(msg) LOG_MACRO_IMPL(Trace, msg)
-#define LOG_DEBUG(msg) LOG_MACRO_IMPL(Debug, msg)
-#define LOG_INFO(msg) LOG_MACRO_IMPL(Info, msg)
-#define LOG_WARNING(msg) LOG_MACRO_IMPL(Warning, msg)
-#define LOG_ERROR(msg) LOG_MACRO_IMPL(Error, msg)
-#define LOG_FATAL(msg) LOG_MACRO_IMPL(Fatal, msg)
+#define FATP_LOG_TRACE(msg) FATP_LOG_MACRO_IMPL(Trace, msg)
+#define FATP_LOG_DEBUG(msg) FATP_LOG_MACRO_IMPL(Debug, msg)
+#define FATP_LOG_INFO(msg) FATP_LOG_MACRO_IMPL(Info, msg)
+#define FATP_LOG_WARNING(msg) FATP_LOG_MACRO_IMPL(Warning, msg)
+#define FATP_LOG_ERROR(msg) FATP_LOG_MACRO_IMPL(Error, msg)
+#define FATP_LOG_FATAL(msg) FATP_LOG_MACRO_IMPL(Fatal, msg)
 
 // Named logger macros with static caching for zero lookup overhead after first call
 
-#define LOG_TO_IMPL(logger_name, func, msg)                                                        \
+#define FATP_LOG_TO_IMPL(logger_name, func, msg)                                                        \
     do                                                                                             \
     {                                                                                              \
         if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::func)    \
@@ -975,16 +999,16 @@ inline Logger& getGlobalLogger()
                                     _oss_ << msg;                                                  \
                                     return _oss_.str();                                            \
                                 },                                                                 \
-                                CPP_UTIL_SOURCE_LOCATION());                                       \
+                                FATP_SOURCE_LOCATION());                                       \
         }                                                                                          \
     } while (0)
 
-#define LOG_TRACE_TO(name, msg) LOG_TO_IMPL(name, Trace, msg)
-#define LOG_DEBUG_TO(name, msg) LOG_TO_IMPL(name, Debug, msg)
-#define LOG_INFO_TO(name, msg) LOG_TO_IMPL(name, Info, msg)
-#define LOG_WARNING_TO(name, msg) LOG_TO_IMPL(name, Warning, msg)
-#define LOG_ERROR_TO(name, msg) LOG_TO_IMPL(name, Error, msg)
-#define LOG_FATAL_TO(name, msg) LOG_TO_IMPL(name, Fatal, msg)
+#define FATP_LOG_TRACE_TO(name, msg) FATP_LOG_TO_IMPL(name, Trace, msg)
+#define FATP_LOG_DEBUG_TO(name, msg) FATP_LOG_TO_IMPL(name, Debug, msg)
+#define FATP_LOG_INFO_TO(name, msg) FATP_LOG_TO_IMPL(name, Info, msg)
+#define FATP_LOG_WARNING_TO(name, msg) FATP_LOG_TO_IMPL(name, Warning, msg)
+#define FATP_LOG_ERROR_TO(name, msg) FATP_LOG_TO_IMPL(name, Error, msg)
+#define FATP_LOG_FATAL_TO(name, msg) FATP_LOG_TO_IMPL(name, Fatal, msg)
 
 } // namespace diagnostic
 } // namespace fat_p

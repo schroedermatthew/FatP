@@ -1,3 +1,11 @@
+---
+doc_id: stablehashmap-overview
+doc_type: overview
+status: candidate
+fatp_components: [StableHashMap]
+last_updated: 2026-01-09
+---
+
 # StableHashMap: A Fat-P Library Showcase
 
 *Updated December 2025 -- Benchmarks: Windows, 3.7 GHz base (throttled ~65%)*
@@ -58,7 +66,6 @@ Group 0:
 | Block allocator | Contiguous node allocation | 2-4x faster insert/erase |
 | Built-in hash mixer | SplitMix64 finalizer | Prevents clustering from weak hashes |
 | Heterogeneous lookup | Transparent hash/equal | Zero-allocation string_view finds |
-| Read-only mode | `freeze()` | Guarantees no rehash in production |
 
 ---
 
@@ -83,7 +90,8 @@ ptr->modify();  // Still valid—node never moved
 StableHashMap<int, Data> standard;
 
 // Block: nodes allocated in contiguous chunks
-StableHashMap<int, Data, BlockAllocatorPolicy> block;
+using BlockStableMap = fat_p::StableHashMap<int, Data, std::hash<int>, std::equal_to<int>, fat_p::BlockAllocator>;
+BlockStableMap block;
 // 2.3x faster insert, 4.2x faster erase at N=1M
 ```
 
@@ -189,4 +197,3 @@ StableHashMap delivers on the fat_p promise:
 
 ---
 
-*StableHashMap.h: 1025 lines — See User Manual for full API, Companion Guide for design rationale*

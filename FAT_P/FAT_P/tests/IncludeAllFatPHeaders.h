@@ -7,6 +7,137 @@
 //
 // Success criterion: this file compiles. No runtime assertions are required.
 
+/*
+FATP_META:
+  meta_version: 1
+  component: IncludeAllFatPHeaders
+  file_role: internal_header
+  path: tests/IncludeAllFatPHeaders.h
+  namespace: fat_p
+  summary: "Test support header that includes all public FAT-P headers."
+  related:
+    docs_search: "IncludeAllFatPHeaders"
+    headers:
+      - fat_p/AlignedVector.h
+      - fat_p/AllocationStrategies.h
+      - fat_p/AsyncOperations.h
+      - fat_p/AtomicSharedPtr.h
+      - fat_p/BinaryLite.h
+      - fat_p/BitSet.h
+      - fat_p/CSRMatrix.h
+      - fat_p/CSRMatrixParallel.h
+      - fat_p/CSRMatrixPartitioning.h
+      - fat_p/CSRMatrix_HPC.h
+      - fat_p/CacheUtilities.h
+      - fat_p/CborLite.h
+      - fat_p/CborStreamLite.h
+      - fat_p/CheckedArithmetic.h
+      - fat_p/CheckedArithmeticBase.h
+      - fat_p/CheckedArithmeticFP.h
+      - fat_p/CheckedArithmeticInt.h
+      - fat_p/CheckedArithmeticPolicies.h
+      - fat_p/CheckedArithmetic_IntSimd.h
+      - fat_p/CheckedArithmetic_IntSimd_AVX2.h
+      - fat_p/CheckedArithmetic_IntSimd_Common.h
+      - fat_p/CheckedArithmetic_IntSimd_NEON.h
+      - fat_p/CheckedArithmetic_IntSimd_SSE2.h
+      - fat_p/CircularBuffer.h
+      - fat_p/ComparisonTolerances.h
+      - fat_p/ConcurrencyPolicies.h
+      - fat_p/ConstexprUtilities.h
+      - fat_p/ContractException.h
+      - fat_p/CoroutineTask.h
+      - fat_p/CppStandardDetection.h
+      - fat_p/DebugOnly.h
+      - fat_p/DiagnosticLogger_Core.h
+      - fat_p/DiagnosticLogger_IO.h
+      - fat_p/DiagnosticLogger_Json.h
+      - fat_p/DiagnosticLogger_Sinks.h
+      - fat_p/DiagnosticLogger_TestUtilities.h
+      - fat_p/EnforcedInit.h
+      - fat_p/EnhancedBoundsChecking.h
+      - fat_p/EnumPlus.h
+      - fat_p/EqualityAny.h
+      - fat_p/EqualityComparisons.h
+      - fat_p/EqualityTensor.h
+      - fat_p/Expected.h
+      - fat_p/Factory.h
+      - fat_p/FastHashMap.h
+      - fat_p/FatPBenchmarkRunner.h
+      - fat_p/FatPBinary.h
+      - fat_p/FatPCbor.h
+      - fat_p/FatPCborStream.h
+      - fat_p/FatPConfig.h
+      - fat_p/FatPJson.h
+      - fat_p/FatPJsonStream.h
+      - fat_p/FatPSimdDetection.h
+      - fat_p/FatPTest.h
+      - fat_p/FatPTypeTraits.h
+      - fat_p/FeatureManager.h
+      - fat_p/FlatMap.h
+      - fat_p/FlatSet.h
+      - fat_p/FloatingPointComparison.h
+      - fat_p/HpcVector.h
+      - fat_p/IdGenerator.h
+      - fat_p/IntrusiveList.h
+      - fat_p/JsonLite.h
+      - fat_p/JsonStreamLite.h
+      - fat_p/LockFreeQueue.h
+      - fat_p/LockFreeRingBuffer.h
+      - fat_p/MemoryMappedFile.h
+      - fat_p/NumaAlignedAllocator.h
+      - fat_p/NumaAllocator.h
+      - fat_p/ObjectPool.h
+      - fat_p/PipeOperator.h
+      - fat_p/PolicyIterator.h
+      - fat_p/RateLimiter.h
+      - fat_p/Reflection.h
+      - fat_p/ScopeGuard.h
+      - fat_p/ScopeGuardExpected.h
+      - fat_p/ScopeGuardPolicies.h
+      - fat_p/ServiceLocator.h
+      - fat_p/Signal.h
+      - fat_p/SimdVector.h
+      - fat_p/SlidingFileWindow.h
+      - fat_p/SlotMap.h
+      - fat_p/SmallVector.h
+      - fat_p/SortedContainer.h
+      - fat_p/SparseSet.h
+      - fat_p/StableHashMap.h
+      - fat_p/Stacktrace.h
+      - fat_p/StateMachine.h
+      - fat_p/StringPool.h
+      - fat_p/Stringify.h
+      - fat_p/StrongId.h
+      - fat_p/Tensor.h
+      - fat_p/TensorEinsum.h
+      - fat_p/TensorIteration.h
+      - fat_p/TensorMath.h
+      - fat_p/TensorSerializer.h
+      - fat_p/TensorStorage.h
+      - fat_p/TensorStridePolicy.h
+      - fat_p/ThreadPool.h
+      - fat_p/TypeTraits.h
+      - fat_p/ValueGuard.h
+      - fat_p/ViewLifetimeTracking.h
+      - fat_p/enforce.h
+      - fat_p/enforce_contextual.h
+      - fat_p/enforce_contextual_policies.h
+      - fat_p/enforce_enforcers.h
+      - fat_p/enforce_predicates.h
+      - fat_p/enforce_raiser_selector.h
+      - fat_p/enforce_raisers.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include "AlignedVector.h"
 #include "AllocationStrategies.h"
 #include "AsyncOperations.h"

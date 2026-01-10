@@ -1,5 +1,29 @@
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: FatPJsonStream
+  file_role: public_header
+  path: fat_p/FatPJsonStream.h
+  namespace: fat_p
+  summary: "Public header for FatPJsonStream."
+  api_stability: in_work
+  related:
+    docs_search: "FatPJsonStream"
+    tests:
+      - tests/test_FatPJsonStream.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 1
+    defines_unprefixed: 1
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 /**
  * @file FatPJsonStream.h
  * @brief Enhanced streaming JSON parser with policy-based design and Expected

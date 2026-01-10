@@ -16,6 +16,30 @@
  * - Depth guard ordering is correct
  * - kMaxAnyRecursionDepth levels of nesting permitted
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: EqualityAny
+  file_role: test
+  path: tests/test_EqualityAny.cpp
+  namespace: fat_p
+  summary: "Unit tests for EqualityAny."
+  related:
+    docs_search: "EqualityAny"
+    headers:
+      - fat_p/EqualityAny.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <any>
 #include <atomic>

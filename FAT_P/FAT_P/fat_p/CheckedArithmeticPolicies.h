@@ -51,6 +51,28 @@
  */
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: CheckedArithmeticPolicies
+  file_role: public_header
+  path: fat_p/CheckedArithmeticPolicies.h
+  namespace: fat_p
+  summary: "Public header for CheckedArithmeticPolicies."
+  api_stability: in_work
+  related:
+    docs_search: "CheckedArithmeticPolicies"
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 10
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include "CheckedArithmeticBase.h"
 #include "CppStandardDetection.h"
 #include "Expected.h"
@@ -303,9 +325,9 @@ concept ValidPolicy = requires {
 };
 
 // Macro versions for template parameter lists
-#define ENABLE_IF_INTEGRAL IntegralNonBool T
-#define ENABLE_IF_FLOATING FloatingPoint T
-#define ENABLE_IF_ARITHMETIC Arithmetic T
+#define FATP_ENABLE_IF_INTEGRAL IntegralNonBool T
+#define FATP_ENABLE_IF_FLOATING FloatingPoint T
+#define FATP_ENABLE_IF_ARITHMETIC Arithmetic T
 
 #else // C++17 SFINAE fallback
 
@@ -322,9 +344,9 @@ template <typename T>
 using EnableIfFloating = std::enable_if_t<std::is_floating_point_v<T>, T>;
 
 // Macro versions for template parameter lists
-#define ENABLE_IF_INTEGRAL typename T, typename = EnableIfIntegral<T>
-#define ENABLE_IF_FLOATING typename T, typename = EnableIfFloating<T>
-#define ENABLE_IF_ARITHMETIC typename T
+#define FATP_ENABLE_IF_INTEGRAL typename T, typename = EnableIfIntegral<T>
+#define FATP_ENABLE_IF_FLOATING typename T, typename = EnableIfFloating<T>
+#define FATP_ENABLE_IF_ARITHMETIC typename T
 
 #endif // FATP_HAS_CPP20
 
@@ -342,14 +364,14 @@ using EnableIfFloating = std::enable_if_t<std::is_floating_point_v<T>, T>;
     #if __has_builtin(__builtin_add_overflow) && \
         __has_builtin(__builtin_sub_overflow) && \
         __has_builtin(__builtin_mul_overflow)
-        #define HAS_BUILTIN_OVERFLOW 1
+        #define FATP_HAS_BUILTIN_OVERFLOW 1
     #else
-        #define HAS_BUILTIN_OVERFLOW 0
+        #define FATP_HAS_BUILTIN_OVERFLOW 0
     #endif
 #elif defined(__GNUC__) && (__GNUC__ >= 5)
-    #define HAS_BUILTIN_OVERFLOW 1
+    #define FATP_HAS_BUILTIN_OVERFLOW 1
 #else
-    #define HAS_BUILTIN_OVERFLOW 0
+    #define FATP_HAS_BUILTIN_OVERFLOW 0
 #endif
 
 } // namespace fat_p

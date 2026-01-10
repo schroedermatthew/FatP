@@ -2,6 +2,30 @@
  * @file test_CSRMatrix_HPC_Parallel.cpp
  * @brief Comprehensive unit tests for CSRMatrix_HPC_Parallel.h
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: CSRMatrix_HPC_Parallel
+  file_role: test
+  path: tests/test_CSRMatrix_HPC_Parallel.cpp
+  namespace: fat_p
+  summary: "Unit tests for CSRMatrix_HPC_Parallel."
+  related:
+    docs_search: "CSRMatrix_HPC_Parallel"
+    headers:
+      - fat_p/CSRMatrix_HPC.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <algorithm>
 #include <iostream>

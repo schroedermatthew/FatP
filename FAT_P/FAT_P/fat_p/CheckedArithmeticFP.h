@@ -38,6 +38,28 @@
  */
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: CheckedArithmeticFP
+  file_role: public_header
+  path: fat_p/CheckedArithmeticFP.h
+  namespace: fat_p
+  summary: "Public header for CheckedArithmeticFP."
+  api_stability: in_work
+  related:
+    docs_search: "CheckedArithmeticFP"
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 1
+    defines_unprefixed: 1
+    undefs_total: 1
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include "CheckedArithmeticPolicies.h"
 #include "SimdVector.h"
 #include "enforce.h"
@@ -102,9 +124,9 @@ namespace fat_p {
 /**
  * @brief Checked floating-point addition
  *
- * Validates inputs and detects overflow (finite→infinite).
+ * Validates inputs and detects overflow (finiteâ†’infinite).
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_add_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -144,7 +166,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
 /**
  * @brief Checked floating-point subtraction
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_sub_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -184,7 +206,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
 /**
  * @brief Checked floating-point multiplication
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_mul_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -226,7 +248,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
  *
  * Additionally handles division by zero specially.
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_div_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -290,7 +312,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
 /**
  * @brief Checked floating-point modulo (fmod)
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_mod_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -340,7 +362,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
 /**
  * @brief Checked floating-point absolute value
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_abs_fp(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -368,7 +390,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
  *
  * Detects NaN input and negative input (invalid domain).
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_sqrt_fp(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -414,7 +436,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
 /**
  * @brief Checked floating-point floor
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_floor_fp(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -440,7 +462,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
 /**
  * @brief Checked floating-point ceiling
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_ceil_fp(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -466,7 +488,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
 /**
  * @brief Checked floating-point truncation
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_trunc_fp(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -492,7 +514,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
 /**
  * @brief Checked floating-point rounding
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_FLOATING>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_round_fp(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -584,7 +606,7 @@ template <typename Policy, typename T>
         return true;
     }
     
-    // For non-InfTolerant policies, check for overflow (finite→Inf)
+    // For non-InfTolerant policies, check for overflow (finiteâ†’Inf)
     if constexpr (!std::is_same_v<Policy, InfTolerantPolicy>)
     {
         if (vr.has_inf())

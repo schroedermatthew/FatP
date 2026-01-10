@@ -22,11 +22,31 @@
  * Requires: C++17
  */
 
-#ifndef FATP_VIEW_LIFETIME_TRACKING_H
-#define FATP_VIEW_LIFETIME_TRACKING_H
-
 #pragma once
-
+/*
+FATP_META:
+  meta_version: 1
+  component: ViewLifetimeTracking
+  file_role: public_header
+  path: fat_p/ViewLifetimeTracking.h
+  namespace: fat_p
+  summary: "Public header for ViewLifetimeTracking."
+  api_stability: in_work
+  related:
+    docs_search: "ViewLifetimeTracking"
+    tests:
+      - tests/test_ViewLifetimeTracking.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: true
+    defines_total: 7
+    defines_unprefixed: 4
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <memory>
 #include <atomic>
 #include <iostream>
@@ -315,4 +335,3 @@ public:
 
 } // namespace fat_p
 
-#endif // FATP_VIEW_LIFETIME_TRACKING_H

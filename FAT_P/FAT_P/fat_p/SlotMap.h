@@ -47,6 +47,33 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: SlotMap
+  file_role: public_header
+  path: fat_p/SlotMap.h
+  namespace: fat_p
+  summary: "Public header for SlotMap."
+  api_stability: in_work
+  related:
+    docs_search: "SlotMap"
+    tests:
+      - tests/test_FatPTypeTraits.cpp
+      - tests/test_SlotMap.cpp
+    benchmarks:
+      - benchmarks/benchmark_SlotMap.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <cassert>
 #include <cstdint>
 #include <limits>

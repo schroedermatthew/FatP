@@ -27,6 +27,30 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: TensorStorage
+  file_role: public_header
+  path: fat_p/TensorStorage.h
+  namespace: fat_p
+  summary: "Public header for TensorStorage."
+  api_stability: in_work
+  related:
+    docs_search: "TensorStorage"
+    tests:
+      - tests/test_TensorStorage.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <atomic>
 #include <memory>
 #include <cstddef>

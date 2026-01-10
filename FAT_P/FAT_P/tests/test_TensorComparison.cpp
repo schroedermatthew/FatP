@@ -2,6 +2,32 @@
  * @file test_TensorComparison.cpp
  * @brief Comprehensive unit tests for Tensor comparison operations
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: TensorComparison
+  file_role: test
+  path: tests/test_TensorComparison.cpp
+  namespace: fat_p
+  summary: "Unit tests for TensorComparison."
+  related:
+    docs_search: "TensorComparison"
+    headers:
+      - fat_p/EqualityComparisons.h
+      - fat_p/EqualityTensor.h
+      - fat_p/FatPTest.h
+      - fat_p/Tensor.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <cmath>
 #include <iostream>

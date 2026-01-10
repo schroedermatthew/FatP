@@ -2,6 +2,30 @@
  * @file test_Expected.cpp
  * @brief Comprehensive unit tests for Expected.h
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: Expected
+  file_role: test
+  path: tests/test_Expected.cpp
+  namespace: fat_p
+  summary: "Unit tests for Expected."
+  related:
+    docs_search: "Expected"
+    headers:
+      - fat_p/Expected.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 #include <string>
@@ -560,14 +584,14 @@ bool test_expected_assign_or_return()
     auto wrapper_success = [&]() -> Expected<int, std::string>
     {
         int val = 0;
-        EXPECTED_ASSIGN_OR_RETURN(val, success_fn());
+        FATP_EXPECTED_ASSIGN_OR_RETURN(val, success_fn());
         return val * 2;
     };
 
     auto wrapper_fail = [&]() -> Expected<int, std::string>
     {
         int val = 0;
-        EXPECTED_ASSIGN_OR_RETURN(val, fail_fn());
+        FATP_EXPECTED_ASSIGN_OR_RETURN(val, fail_fn());
         return val * 2;
     };
 

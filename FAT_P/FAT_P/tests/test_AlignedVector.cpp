@@ -14,6 +14,30 @@
  * - RAII correctness
  * - Fuzz testing against std::vector
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: AlignedVector
+  file_role: test
+  path: tests/test_AlignedVector.cpp
+  namespace: fat_p
+  summary: "Unit tests for AlignedVector."
+  related:
+    docs_search: "AlignedVector"
+    headers:
+      - fat_p/AlignedVector.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <algorithm>
 #include <cstdint>

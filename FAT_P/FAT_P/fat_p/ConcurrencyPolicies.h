@@ -48,6 +48,32 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: ConcurrencyPolicies
+  file_role: public_header
+  path: fat_p/ConcurrencyPolicies.h
+  namespace: fat_p
+  summary: "Public header for ConcurrencyPolicies."
+  api_stability: in_work
+  related:
+    docs_search: "ConcurrencyPolicies"
+    tests:
+      - tests/test_ConcurrencyPolicies.cpp
+      - tests/test_IdGenerator.cpp
+      - tests/test_RcuIntegration.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 17
+    defines_unprefixed: 2
+    undefs_total: 0
+    includes_windows_h: true
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include "CppStandardDetection.h"
 
 // =============================================================================

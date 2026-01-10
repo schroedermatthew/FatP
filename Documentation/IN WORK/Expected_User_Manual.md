@@ -40,8 +40,8 @@
 8. [Error Handling Patterns](#error-handling-patterns)
    - [Early Return Pattern](#early-return-pattern)
    - [Monadic Chaining Pattern](#monadic-chaining-pattern)
-   - [EXPECTED_TRY Macro](#expected_try-macro)
-   - [EXPECTED_ASSIGN_OR_RETURN Macro](#expected_assign_or_return-macro)
+   - [FATP_EXPECTED_TRY Macro](#fatp_expected_try-macro)
+   - [FATP_EXPECTED_ASSIGN_OR_RETURN Macro](#fatp_expected_assign_or_return-macro)
    - [Error Collection Pattern](#error-collection-pattern)
    - [Real-World Pipeline Example](#real-world-pipeline-example)
 9. [Storage Policies](#storage-policies-detail)
@@ -945,16 +945,16 @@ fat_p::Expected<Result, Error> process(Input input)
 }
 ```
 
-### EXPECTED_TRY Macro
+### FATP_EXPECTED_TRY Macro
 
-The `EXPECTED_TRY` macro provides early-return syntax similar to Rust's `?` operator:
+The `FATP_EXPECTED_TRY` macro provides early-return syntax similar to Rust's `?` operator:
 
 ```cpp
 fat_p::Expected<int, std::string> process()
 {
-    EXPECTED_TRY(x, parse("42"));       // Declares x, returns on error
-    EXPECTED_TRY(y, validate(x));       // Declares y, returns on error
-    EXPECTED_TRY_VOID(log_operation()); // No variable, just early return on error
+    FATP_EXPECTED_TRY(x, parse("42"));       // Declares x, returns on error
+    FATP_EXPECTED_TRY(y, validate(x));       // Declares y, returns on error
+    FATP_EXPECTED_TRY_VOID(log_operation()); // No variable, just early return on error
     return x + y;
 }
 ```
@@ -970,7 +970,7 @@ if (!_temp.has_value())
 auto x = std::move(_temp).value();
 ```
 
-### EXPECTED_ASSIGN_OR_RETURN Macro
+### FATP_EXPECTED_ASSIGN_OR_RETURN Macro
 
 When you need to assign to an existing variable:
 
@@ -980,8 +980,8 @@ fat_p::Expected<double, std::string> compute_area()
     int width = 0;
     int height = 0;
     
-    EXPECTED_ASSIGN_OR_RETURN(width, parse_width(input));
-    EXPECTED_ASSIGN_OR_RETURN(height, parse_height(input));
+    FATP_EXPECTED_ASSIGN_OR_RETURN(width, parse_width(input));
+    FATP_EXPECTED_ASSIGN_OR_RETURN(height, parse_height(input));
     
     return width * height * 3.14159;
 }
@@ -1641,17 +1641,17 @@ auto my_exp = fat_p::from_std_expected(std_exp);
 ### Feature Detection
 
 ```cpp
-#if defined(__cpp_utilities_expected_monadic)
+#if defined(FATP_EXPECTED_MONADIC)
     // Monadic operations available
     auto result = exp.map(f).and_then(g);
 #endif
 
-#if defined(__cpp_utilities_expected_spaceship)
+#if defined(FATP_EXPECTED_SPACESHIP)
     // Three-way comparison available
     auto cmp = a <=> b;
 #endif
 
-#if defined(__cpp_utilities_expected_std_integration)
+#if defined(FATP_EXPECTED_STD_INTEGRATION)
     // std::expected conversion available
     auto std_exp = fat_p::to_std_expected(exp);
 #endif
@@ -1713,7 +1713,7 @@ Use `Expected<T, E>` when absence indicates failure with a reason.
 | Storage policies | Yes (Union, Trivial, Variant) | No |
 | inspect/inspect_error | Yes | No |
 | value_or_else | Yes | No |
-| EXPECTED_TRY macro | Yes | No |
+| FATP_EXPECTED_TRY macro | Yes | No |
 | Standard library | No | Yes |
 
 ---
@@ -2013,7 +2013,7 @@ fat_p::Expected<fat_p::Expected<int, E1>, E2> nested;
 - **Complete monadic interface**: map, and_then, or_else, transform_error, fold
 - **Three storage policies**: UnionStorage (safe), TrivialStorage (HPC), VariantStorage (debug)
 - **C++20/23 integration**: spaceship operator, std::expected interop
-- **Ergonomic macros**: EXPECTED_TRY, EXPECTED_ASSIGN_OR_RETURN
+- **Ergonomic macros**: FATP_EXPECTED_TRY, FATP_EXPECTED_ASSIGN_OR_RETURN
 - **HPC optimizations**: value_unchecked(), register-passable TrivialExpected
 
 ### Philosophy

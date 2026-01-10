@@ -25,6 +25,30 @@
  * - NaN/Infinity policy enforcement
  * - Locale-independent parsing
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: JsonLite
+  file_role: test
+  path: tests/test_JsonLite.cpp
+  namespace: fat_p
+  summary: "Unit tests for JsonLite."
+  related:
+    docs_search: "JsonLite"
+    headers:
+      - fat_p/JsonLite.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 #include <sstream>
@@ -42,34 +66,34 @@
 
 namespace fat_p::testing::jsonlite {
 
-USING_JSON_LITE()
+FATP_USING_JSON_LITE()
 
 struct Point {
     int x = 0;
     int y = 0;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Point, x, y)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Point, x, y)
 
 struct Point3D {
     int x = 0;
     int y = 0;
     int z = 0;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Point3D, x, y, z)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Point3D, x, y, z)
 
 struct Person {
     std::string name;
     int age = 0;
     std::vector<std::string> hobbies;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age, hobbies)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age, hobbies)
 
 struct Config {
     std::optional<int> timeout;
     std::optional<std::string> host;
     int port = 8080;
 };
-CPP_JSON_DEFINE_TYPE_OPTIONAL(Config, timeout, host, port)
+FATP_JSON_DEFINE_TYPE_OPTIONAL(Config, timeout, host, port)
 
 class PrivateData {
 private:
@@ -82,21 +106,21 @@ public:
     int secret() const { return secret_; }
     std::string code() const { return code_; }
     
-    CPP_JSON_DEFINE_TYPE_INTRUSIVE(PrivateData, secret_, code_)
+    FATP_JSON_DEFINE_TYPE_INTRUSIVE(PrivateData, secret_, code_)
 };
 
 struct Nested {
     Point position{};
     std::string label;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Nested, position, label)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Nested, position, label)
 
 struct Complex {
     std::map<std::string, int> scores;
     std::vector<Point> points;
     std::optional<std::string> description;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Complex, scores, points, description)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Complex, scores, points, description)
 
 struct AppConfig {
     int port = 0;
@@ -104,7 +128,7 @@ struct AppConfig {
     std::vector<std::string> allowed_ips;
     std::optional<int> timeout;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(AppConfig, port, host, allowed_ips, timeout)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(AppConfig, port, host, allowed_ips, timeout)
 
 struct Employee {
     std::string name;
@@ -113,21 +137,21 @@ struct Employee {
     std::vector<std::string> skills;
     std::map<std::string, int> certifications;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Employee, name, id, email, skills, certifications)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Employee, name, id, email, skills, certifications)
 
 struct Department {
     std::string name;
     std::vector<Employee> employees;
     std::optional<Employee> manager;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Department, name, employees, manager)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Department, name, employees, manager)
 
 struct Company {
     std::string name;
     std::vector<Department> departments;
     std::map<std::string, std::string> metadata;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Company, name, departments, metadata)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Company, name, departments, metadata)
 
 struct Max50Fields {
     int f1, f2, f3, f4, f5, f6, f7, f8, f9, f10;
@@ -141,7 +165,7 @@ struct Max50Fields {
 #pragma warning(push)
 #pragma warning(disable: 6262)
 #endif
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Max50Fields, 
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Max50Fields, 
     f1, f2, f3, f4, f5, f6, f7, f8, f9, f10,
     f11, f12, f13, f14, f15, f16, f17, f18, f19, f20,
     f21, f22, f23, f24, f25, f26, f27, f28, f29, f30,
@@ -152,66 +176,66 @@ CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Max50Fields,
 #endif
 
 struct TestBasic { int x; };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(TestBasic, x)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(TestBasic, x)
 
 struct TypeA { int value; };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(TypeA, value)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(TypeA, value)
 
 struct TypeB { double value; };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(TypeB, value)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(TypeB, value)
 
 struct OptConfig { int port = 8080; };
-CPP_JSON_DEFINE_TYPE_OPTIONAL(OptConfig, port)
+FATP_JSON_DEFINE_TYPE_OPTIONAL(OptConfig, port)
 
 class PrivateTest {
     int secret_ = 99;
 public:
-    CPP_JSON_DEFINE_TYPE_INTRUSIVE(PrivateTest, secret_)
+    FATP_JSON_DEFINE_TYPE_INTRUSIVE(PrivateTest, secret_)
     int get_secret() const { return secret_; }
 };
 
 struct User { std::string name; int age = 0; };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(User, name, age)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(User, name, age)
 
 struct Product { std::string name; double price = 0.0; };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Product, name, price)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Product, name, price)
 
 struct Order { std::string name; int quantity = 0; };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Order, name, quantity)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Order, name, quantity)
 
 struct Container { std::vector<int> items; };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Container, items)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Container, items)
 
 struct RequiredFields { int x; };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(RequiredFields, x)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(RequiredFields, x)
 
 struct OptionalFields { int y = 10; };
-CPP_JSON_DEFINE_TYPE_OPTIONAL(OptionalFields, y)
+FATP_JSON_DEFINE_TYPE_OPTIONAL(OptionalFields, y)
 
 struct ScientificData {
     double planck_constant;
     double avogadro_number;
     double normal_value;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(ScientificData, planck_constant, avogadro_number, normal_value)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(ScientificData, planck_constant, avogadro_number, normal_value)
 
 struct WithStdArray {
     std::array<int, 3> values;
     std::array<double, 2> coords;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(WithStdArray, values, coords)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(WithStdArray, values, coords)
 
 struct TestData {
     double value;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(TestData, value)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(TestData, value)
 
 struct ComplexData {
     double temperature;
     double pressure;
     std::string name;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(ComplexData, temperature, pressure, name)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(ComplexData, temperature, pressure, name)
 
 struct Utf8TestData {
     std::string european_text;
@@ -219,20 +243,20 @@ struct Utf8TestData {
     std::string emoji_text;
     std::string mixed_text;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Utf8TestData, european_text, asian_text, emoji_text, mixed_text)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Utf8TestData, european_text, asian_text, emoji_text, mixed_text)
 
 struct DatabaseConfig {
     std::string host;
     int port = 0;
     std::optional<int> timeout;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(DatabaseConfig, host, port, timeout)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(DatabaseConfig, host, port, timeout)
 
 struct ServerConfig {
     DatabaseConfig database;
     std::vector<std::string> servers;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(ServerConfig, database, servers)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(ServerConfig, database, servers)
 
 struct LowPrecisionPolicy : StandardJsonPolicy {
     static constexpr int numeric_precision = 2;

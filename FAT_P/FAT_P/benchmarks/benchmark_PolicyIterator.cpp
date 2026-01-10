@@ -34,6 +34,32 @@
  *   FATP_BENCH_MIN_BATCH_MS  - Minimum batch duration (default: 50)
  *   FATP_BENCH_OUTPUT_CSV    - CSV output path (optional)
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: PolicyIterator
+  file_role: benchmark
+  path: benchmarks/benchmark_PolicyIterator.cpp
+  namespace: fat_p
+  summary: "Benchmarks for PolicyIterator."
+  related:
+    docs_search: "PolicyIterator"
+    headers:
+      - fat_p/FatPBenchmarkRunner.h
+      - fat_p/PolicyIterator.h
+      - fat_p/TensorStridePolicy.h
+      - fat_p/TensorIteration.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 13
+    defines_unprefixed: 13
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include "FatPBenchmarkRunner.h"
 #include "PolicyIterator.h"

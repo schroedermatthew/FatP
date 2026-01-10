@@ -248,15 +248,15 @@ int main()
     
     // Option 2: Just start logging (lazy init creates ConsoleSink automatically)
     
-    LOG_INFO("Application starting");
-    LOG_DEBUG("Debug mode: " << true);
-    LOG_WARNING("Configuration file not found, using defaults");
-    LOG_ERROR("Failed to connect: " << "timeout");
+    FATP_LOG_INFO("Application starting");
+    FATP_LOG_DEBUG("Debug mode: " << true);
+    FATP_LOG_WARNING("Configuration file not found, using defaults");
+    FATP_LOG_ERROR("Failed to connect: " << "timeout");
     
     // Runtime level control
     getGlobalLogger().setMinLevel(LogLevel::Warning);
-    LOG_DEBUG("This won't print");  // Filtered at runtime
-    LOG_ERROR("This will print");
+    FATP_LOG_DEBUG("This won't print");  // Filtered at runtime
+    FATP_LOG_ERROR("This will print");
     
     return 0;
 }
@@ -282,7 +282,7 @@ g++ -std=c++17 main.cpp -o app
 g++ -std=c++17 -O2 -Wall -Wextra main.cpp -o app
 
 # Production (compile-time filtering)
-g++ -std=c++17 -O3 -DCPP_UTIL_MIN_LOG_LEVEL=2 -DNDEBUG main.cpp -o app
+g++ -std=c++17 -O3 -DFATP_MIN_LOG_LEVEL=2 -DNDEBUG main.cpp -o app
 
 # With IO extension (requires pthread on some systems)
 g++ -std=c++17 -O2 main.cpp -o app -lpthread
@@ -304,9 +304,9 @@ Without levels, you're forced to choose between:
 Log levels let you write once and filter dynamically:
 
 ```cpp
-LOG_DEBUG("Intermediate calculation: " << value);  // Development only
-LOG_INFO("Request processed");                     // Normal operation
-LOG_ERROR("Database connection lost");             // Always important
+FATP_LOG_DEBUG("Intermediate calculation: " << value);  // Development only
+FATP_LOG_INFO("Request processed");                     // Normal operation
+FATP_LOG_ERROR("Database connection lost");             // Always important
 ```
 
 ### Available Levels
@@ -335,23 +335,23 @@ enum class LogLevel : int
 **The Solution:** Compile-time filtering uses C++17's `if constexpr` to completely eliminate disabled log levels from the binary:
 
 ```bash
-g++ -DCPP_UTIL_MIN_LOG_LEVEL=2 main.cpp  # Only Info and above
+g++ -DFATP_MIN_LOG_LEVEL=2 main.cpp  # Only Info and above
 ```
 
 **Effect:**
 
 ```cpp
-// With CPP_UTIL_MIN_LOG_LEVEL=2
-LOG_TRACE("x=" << expensive());  // Completely eliminated - 0 instructions!
-LOG_DEBUG("y=" << another());    // Completely eliminated!
-LOG_INFO("Started");             // Compiled in
-LOG_ERROR("Failed");             // Compiled in
+// With FATP_MIN_LOG_LEVEL=2
+FATP_LOG_TRACE("x=" << expensive());  // Completely eliminated - 0 instructions!
+FATP_LOG_DEBUG("y=" << another());    // Completely eliminated!
+FATP_LOG_INFO("Started");             // Compiled in
+FATP_LOG_ERROR("Failed");             // Compiled in
 ```
 
 **How it works:** The macros expand to `if constexpr` checks:
 
 ```cpp
-#define LOG_DEBUG(msg) \
+#define FATP_LOG_DEBUG(msg) \
     do { \
         if constexpr (gMinLogLevel <= LogLevel::Debug) { \
             /* ... logging code ... */ \
@@ -365,10 +365,10 @@ When `gMinLogLevel > LogLevel::Debug`, the entire body is discarded by the compi
 
 | Build | Flag | Effect |
 |-------|------|--------|
-| Development | `-DCPP_UTIL_MIN_LOG_LEVEL=0` | All logs |
-| Testing | `-DCPP_UTIL_MIN_LOG_LEVEL=1` | Debug and above |
-| Production | `-DCPP_UTIL_MIN_LOG_LEVEL=2` | Info and above |
-| Minimal | `-DCPP_UTIL_MIN_LOG_LEVEL=4` | Errors only |
+| Development | `-DFATP_MIN_LOG_LEVEL=0` | All logs |
+| Testing | `-DFATP_MIN_LOG_LEVEL=1` | Debug and above |
+| Production | `-DFATP_MIN_LOG_LEVEL=2` | Info and above |
+| Minimal | `-DFATP_MIN_LOG_LEVEL=4` | Errors only |
 
 ### Runtime Filtering: Dynamic Control
 
@@ -398,12 +398,12 @@ After compile-time filtering passes, runtime filtering provides dynamic control:
 
 | Level | When to Use | Examples |
 |-------|-------------|----------|
-| **Trace** | Loop internals, variable dumps—extremely verbose output useful only during active debugging | `LOG_TRACE("Loop iteration i=" << i)` |
-| **Debug** | Algorithm decisions, intermediate results—helpful during development but too noisy for production | `LOG_DEBUG("Cache hit for key: " << key)` |
-| **Info** | Application lifecycle, significant events—what a sysadmin would want to see during normal operation | `LOG_INFO("Server started on port " << port)` |
-| **Warning** | Recoverable issues, deprecation notices—something is wrong but the application can continue | `LOG_WARNING("Retrying connection, attempt " << n)` |
-| **Error** | Operation failures that affect functionality—a specific request failed but the system is still running | `LOG_ERROR("Failed to open file: " << path)` |
-| **Fatal** | Unrecoverable errors—the application is about to crash or is in an undefined state | `LOG_FATAL("Database corruption detected")` |
+| **Trace** | Loop internals, variable dumps—extremely verbose output useful only during active debugging | `FATP_LOG_TRACE("Loop iteration i=" << i)` |
+| **Debug** | Algorithm decisions, intermediate results—helpful during development but too noisy for production | `FATP_LOG_DEBUG("Cache hit for key: " << key)` |
+| **Info** | Application lifecycle, significant events—what a sysadmin would want to see during normal operation | `FATP_LOG_INFO("Server started on port " << port)` |
+| **Warning** | Recoverable issues, deprecation notices—something is wrong but the application can continue | `FATP_LOG_WARNING("Retrying connection, attempt " << n)` |
+| **Error** | Operation failures that affect functionality—a specific request failed but the system is still running | `FATP_LOG_ERROR("Failed to open file: " << path)` |
+| **Fatal** | Unrecoverable errors—the application is about to crash or is in an undefined state | `FATP_LOG_FATAL("Database corruption detected")` |
 
 ---
 
@@ -414,7 +414,7 @@ After compile-time filtering passes, runtime filtering provides dynamic control:
 DiagnosticLogger uses a **stream-style** API because it's idiomatic C++ and supports arbitrary types via `operator<<`:
 
 ```cpp
-LOG_INFO("Processing " << count << " items in " << duration << "ms");
+FATP_LOG_INFO("Processing " << count << " items in " << duration << "ms");
 ```
 
 Internally, this expands to:
@@ -429,12 +429,12 @@ Internally, this expands to:
 These macros log to the global (default) logger:
 
 ```cpp
-LOG_TRACE(message);    // LogLevel::Trace
-LOG_DEBUG(message);    // LogLevel::Debug
-LOG_INFO(message);     // LogLevel::Info
-LOG_WARNING(message);  // LogLevel::Warning
-LOG_ERROR(message);    // LogLevel::Error
-LOG_FATAL(message);    // LogLevel::Fatal
+FATP_LOG_TRACE(message);    // LogLevel::Trace
+FATP_LOG_DEBUG(message);    // LogLevel::Debug
+FATP_LOG_INFO(message);     // LogLevel::Info
+FATP_LOG_WARNING(message);  // LogLevel::Warning
+FATP_LOG_ERROR(message);    // LogLevel::Error
+FATP_LOG_FATAL(message);    // LogLevel::Fatal
 ```
 
 **Why macros instead of functions?** Two reasons:
@@ -450,10 +450,10 @@ int count = 42;
 std::string name = "test";
 double value = 3.14159;
 
-LOG_INFO("Count: " << count);
-LOG_INFO("Name: " << name << ", Value: " << value);
-LOG_INFO("Hex: 0x" << std::hex << 255);
-LOG_INFO("Fixed: " << std::fixed << std::setprecision(2) << value);
+FATP_LOG_INFO("Count: " << count);
+FATP_LOG_INFO("Name: " << name << ", Value: " << value);
+FATP_LOG_INFO("Hex: 0x" << std::hex << 255);
+FATP_LOG_INFO("Fixed: " << std::fixed << std::setprecision(2) << value);
 ```
 
 ### Lazy Evaluation: Why It Matters
@@ -461,7 +461,7 @@ LOG_INFO("Fixed: " << std::fixed << std::setprecision(2) << value);
 **The Problem:** Consider this innocent-looking code:
 
 ```cpp
-LOG_DEBUG("User data: " << user.serialize());  // serialize() takes 10ms
+FATP_LOG_DEBUG("User data: " << user.serialize());  // serialize() takes 10ms
 ```
 
 If Debug is disabled, you might expect zero cost. But with naive implementations, `user.serialize()` is called regardless—the result is just discarded.
@@ -470,7 +470,7 @@ If Debug is disabled, you might expect zero cost. But with naive implementations
 
 ```cpp
 // What you write:
-LOG_DEBUG("Result: " << expensiveComputation());
+FATP_LOG_DEBUG("Result: " << expensiveComputation());
 
 // What actually executes when Debug is filtered:
 if (shouldLog(LogLevel::Debug)) {  // false - returns immediately
@@ -532,15 +532,15 @@ A single global logger can't satisfy all these needs. Named loggers let you:
 The `LOG_*_TO` macros log to a specific named logger:
 
 ```cpp
-LOG_INFO_TO("database", "Query executed: " << query);
-LOG_DEBUG_TO("network", "Packet received: " << size << " bytes");
-LOG_ERROR_TO("ui", "Render failed: " << errorCode);
+FATP_LOG_INFO_TO("database", "Query executed: " << query);
+FATP_LOG_DEBUG_TO("network", "Packet received: " << size << " bytes");
+FATP_LOG_ERROR_TO("ui", "Render failed: " << errorCode);
 ```
 
 **Performance note:** The first call to `LOG_*_TO` with a given name performs a registry lookup. Subsequent calls use a cached reference (via `static` local variable), so there's no repeated lookup overhead:
 
 ```cpp
-#define LOG_INFO_TO(name, msg) \
+#define FATP_LOG_INFO_TO(name, msg) \
     do { \
         static Logger& _cached_ = getLogger(name); \
         _cached_.log(LogLevel::Info, [&]() { ... }, location); \
@@ -918,24 +918,24 @@ Structured logs enable:
 #include "DiagnosticLogger_Json.h"
 
 // Log an object as JSON
-LOG_INFO_JSON(requestData);
-LOG_ERROR_JSON(errorDetails);
+FATP_LOG_INFO_JSON(requestData);
+FATP_LOG_ERROR_JSON(errorDetails);
 
 // Log a message with structured data attached
-LOG_INFO_WITH_DATA("Request processed", responseData);
-LOG_ERROR_WITH_DATA("Validation failed", validationErrors);
+FATP_LOG_INFO_WITH_DATA("Request processed", responseData);
+FATP_LOG_ERROR_WITH_DATA("Validation failed", validationErrors);
 ```
 
 **All available macros:**
 
 | Macro | Description |
 |-------|-------------|
-| `LOG_TRACE_JSON(obj)` | Log object as JSON at Trace level |
-| `LOG_DEBUG_JSON(obj)` | Log object as JSON at Debug level |
-| `LOG_INFO_JSON(obj)` | Log object as JSON at Info level |
-| `LOG_WARNING_JSON(obj)` | Log object as JSON at Warning level |
-| `LOG_ERROR_JSON(obj)` | Log object as JSON at Error level |
-| `LOG_FATAL_JSON(obj)` | Log object as JSON at Fatal level |
+| `FATP_LOG_TRACE_JSON(obj)` | Log object as JSON at Trace level |
+| `FATP_LOG_DEBUG_JSON(obj)` | Log object as JSON at Debug level |
+| `FATP_LOG_INFO_JSON(obj)` | Log object as JSON at Info level |
+| `FATP_LOG_WARNING_JSON(obj)` | Log object as JSON at Warning level |
+| `FATP_LOG_ERROR_JSON(obj)` | Log object as JSON at Error level |
+| `FATP_LOG_FATAL_JSON(obj)` | Log object as JSON at Fatal level |
 | `LOG_*_WITH_DATA(msg, obj)` | Log message with JSON data attached |
 
 ### Serializing Custom Types
@@ -962,7 +962,7 @@ void to_json(fat_p::JsonValue& j, const Request& r)
 
 // Now you can log it
 Request req{"abc123", "GET", 200};
-LOG_INFO_JSON(req);
+FATP_LOG_INFO_JSON(req);
 // Output: {"id":"abc123","method":"GET","status_code":200}
 ```
 
@@ -971,16 +971,16 @@ LOG_INFO_JSON(req);
 JSON macros use `if constexpr` to eliminate code when the log level is disabled at compile time:
 
 ```cpp
-#define CPP_UTIL_MIN_LOG_LEVEL 4  // Error only
+#define FATP_MIN_LOG_LEVEL 4  // Error only
 
 struct MyType { int x; };
 // No to_json defined!
 
-LOG_DEBUG_JSON(MyType{42});  // COMPILES! Code is eliminated entirely.
-LOG_ERROR_JSON(MyType{42});  // Compile error: no to_json for MyType
+FATP_LOG_DEBUG_JSON(MyType{42});  // COMPILES! Code is eliminated entirely.
+FATP_LOG_ERROR_JSON(MyType{42});  // Compile error: no to_json for MyType
 ```
 
-This means you can sprinkle `LOG_DEBUG_JSON` throughout your code during development, and production builds with high `CPP_UTIL_MIN_LOG_LEVEL` won't even attempt to serialize the objects.
+This means you can sprinkle `LOG_DEBUG_JSON` throughout your code during development, and production builds with high `FATP_MIN_LOG_LEVEL` won't even attempt to serialize the objects.
 
 ---
 
@@ -1012,7 +1012,7 @@ Advanced sinks address these challenges through composition—wrapping simpler s
     getGlobalLogger().addSink(asyncSink);
 
     // This returns immediately (~47ns) instead of waiting for disk I/O
-    LOG_INFO("This is queued and written asynchronously");
+    FATP_LOG_INFO("This is queued and written asynchronously");
 
     // Check if any records were dropped (queue overflow)
     uint64_t dropped = asyncSink->dropped();
@@ -1074,7 +1074,7 @@ Advanced sinks address these challenges through composition—wrapping simpler s
     getGlobalLogger().addSink(resilient);
 
     // If primary throws, automatically switches to fallback
-    LOG_ERROR("This goes to fallback if primary is unavailable");
+    FATP_LOG_ERROR("This goes to fallback if primary is unavailable");
 
     // Later, try primary again
     resilient->reset();
@@ -1248,7 +1248,7 @@ void worker(int id)
 {
     for (int i = 0; i < 1000; ++i)
     {
-        LOG_INFO("Worker " << id << " iteration " << i);
+        FATP_LOG_INFO("Worker " << id << " iteration " << i);
     }
 }
 
@@ -1320,10 +1320,10 @@ Logs are useless without context. Include enough information to diagnose the iss
 
 ```cpp
 // ❌ Bad: What connection? What failed? What now?
-LOG_ERROR("Connection failed");
+FATP_LOG_ERROR("Connection failed");
 
 // ✅ Good: Everything you need to diagnose
-LOG_ERROR("Connection failed: " << errorMsg 
+FATP_LOG_ERROR("Connection failed: " << errorMsg 
           << " (host=" << host 
           << ", port=" << port 
           << ", attempt=" << attempt << "/" << maxAttempts << ")");
@@ -1333,10 +1333,10 @@ LOG_ERROR("Connection failed: " << errorMsg
 
 ```bash
 # Development: Everything
-g++ -std=c++17 -O2 -DCPP_UTIL_MIN_LOG_LEVEL=0 main.cpp
+g++ -std=c++17 -O2 -DFATP_MIN_LOG_LEVEL=0 main.cpp
 
 # Production: Info and above
-g++ -std=c++17 -O3 -DCPP_UTIL_MIN_LOG_LEVEL=2 -DNDEBUG main.cpp
+g++ -std=c++17 -O3 -DFATP_MIN_LOG_LEVEL=2 -DNDEBUG main.cpp
 ```
 
 This eliminates Trace/Debug overhead entirely—not just filtered at runtime, but removed from the binary.
@@ -1349,7 +1349,7 @@ Don't log inside tight loops unless sampling:
 // ❌ Bad: 1,000,000 log calls
 for (size_t i = 0; i < 1000000; ++i)
 {
-    LOG_DEBUG("Processing item " << i);
+    FATP_LOG_DEBUG("Processing item " << i);
     process(items[i]);
 }
 
@@ -1358,7 +1358,7 @@ for (size_t i = 0; i < 1000000; ++i)
 {
     if (i % 10000 == 0)
     {
-        LOG_DEBUG("Progress: " << i << "/" << 1000000);
+        FATP_LOG_DEBUG("Progress: " << i << "/" << 1000000);
     }
     process(items[i]);
 }
@@ -1373,9 +1373,9 @@ getLogger("network").setMinLevel(LogLevel::Debug);
 getLogger("security").addSink(auditFileSink);
 
 // Throughout code: log to appropriate subsystem
-LOG_DEBUG_TO("network", "Packet received: " << packet.size());
-LOG_WARNING_TO("database", "Slow query: " << elapsed << "ms");
-LOG_INFO_TO("security", "User login: " << userId);
+FATP_LOG_DEBUG_TO("network", "Packet received: " << packet.size());
+FATP_LOG_WARNING_TO("database", "Slow query: " << elapsed << "ms");
+FATP_LOG_INFO_TO("security", "User login: " << userId);
 ```
 
 ---
@@ -1451,8 +1451,8 @@ std::cerr << "Error: " << message << std::endl;
 
 **After:**
 ```cpp
-LOG_INFO("Starting server on port " << port);
-LOG_ERROR("Error: " << message);
+FATP_LOG_INFO("Starting server on port " << port);
+FATP_LOG_ERROR("Error: " << message);
 ```
 
 **Benefits:** Timestamps, thread IDs, source locations, filtering, multiple outputs.
@@ -1471,7 +1471,7 @@ auto logger = spdlog::get("mylogger");
 {
     using namespace fat_p::diagnostic;
     
-    LOG_INFO("User " << username << " logged in");
+    FATP_LOG_INFO("User " << username << " logged in");
     getGlobalLogger().setMinLevel(LogLevel::Warning);
     Logger& logger = getLogger("mylogger");
 }
@@ -1496,8 +1496,8 @@ FLAGS_minloglevel = 1;
 {
     using namespace fat_p::diagnostic;
     
-    LOG_INFO("Message");
-    LOG_DEBUG("Verbose message");  // VLOG(1) roughly maps to Debug
+    FATP_LOG_INFO("Message");
+    FATP_LOG_DEBUG("Verbose message");  // VLOG(1) roughly maps to Debug
     getGlobalLogger().setMinLevel(LogLevel::Info);
 }
 ```
@@ -1518,11 +1518,11 @@ flowchart LR
 // logging_compat.h
 #ifdef USE_NEW_LOGGER
     #include "DiagnosticLogger_Sinks.h"
-    #define APP_LOG_INFO(msg) LOG_INFO(msg)
-    #define APP_LOG_ERROR(msg) LOG_ERROR(msg)
+    #define APP_FATP_LOG_INFO(msg) FATP_LOG_INFO(msg)
+    #define APP_FATP_LOG_ERROR(msg) FATP_LOG_ERROR(msg)
 #else
-    #define APP_LOG_INFO(msg) std::cout << msg << std::endl
-    #define APP_LOG_ERROR(msg) std::cerr << msg << std::endl
+    #define APP_FATP_LOG_INFO(msg) std::cout << msg << std::endl
+    #define APP_FATP_LOG_ERROR(msg) std::cerr << msg << std::endl
 #endif
 ```
 
@@ -1602,18 +1602,18 @@ DiagnosticLogger uses **only** the C++17 standard library:
 
 **1. Compile-time filtering not working**
 
-**Symptom:** `LOG_DEBUG` still executes despite `-DCPP_UTIL_MIN_LOG_LEVEL=4`
+**Symptom:** `LOG_DEBUG` still executes despite `-DFATP_MIN_LOG_LEVEL=4`
 
 **Cause:** The macro was defined after the include, or not propagated to all translation units.
 
 **Solution:**
 ```cpp
 // Option A: Define before include
-#define CPP_UTIL_MIN_LOG_LEVEL 4
+#define FATP_MIN_LOG_LEVEL 4
 #include "DiagnosticLogger_Sinks.h"
 
 // Option B: Compiler flag (recommended)
-// g++ -DCPP_UTIL_MIN_LOG_LEVEL=4 ...
+// g++ -DFATP_MIN_LOG_LEVEL=4 ...
 ```
 
 Verify with: `g++ -E main.cpp | grep "if constexpr"` to see macro expansion.
@@ -1706,11 +1706,11 @@ public:
 
 **Diagnosis:** Profile shows time in `LOG_*` macros.
 
-**Cause:** Compile-time filtering not active—Debug builds, or `CPP_UTIL_MIN_LOG_LEVEL` not set.
+**Cause:** Compile-time filtering not active—Debug builds, or `FATP_MIN_LOG_LEVEL` not set.
 
 **Solution:**
 ```bash
-g++ -std=c++17 -O2 -DCPP_UTIL_MIN_LOG_LEVEL=2 -DNDEBUG ...
+g++ -std=c++17 -O2 -DFATP_MIN_LOG_LEVEL=2 -DNDEBUG ...
 ```
 
 **2. High contention in multi-threaded code**
@@ -1722,7 +1722,7 @@ g++ -std=c++17 -O2 -DCPP_UTIL_MIN_LOG_LEVEL=2 -DNDEBUG ...
 **Solutions:**
 - Use `AsyncSink` to move I/O off the hot path
 - Use per-thread loggers with separate files
-- Increase `CPP_UTIL_MIN_LOG_LEVEL` to reduce log volume
+- Increase `FATP_MIN_LOG_LEVEL` to reduce log volume
 
 **3. Memory usage growing unbounded**
 
@@ -1777,8 +1777,8 @@ int main()
     
     initializeDefaultLogger();
     
-    LOG_INFO("Application started");
-    LOG_ERROR("An error occurred");
+    FATP_LOG_INFO("Application started");
+    FATP_LOG_ERROR("An error occurred");
     
     return 0;
 }
@@ -1787,7 +1787,7 @@ int main()
 ### Production Build
 
 ```bash
-g++ -std=c++17 -O3 -DCPP_UTIL_MIN_LOG_LEVEL=2 -DNDEBUG main.cpp -o app
+g++ -std=c++17 -O3 -DFATP_MIN_LOG_LEVEL=2 -DNDEBUG main.cpp -o app
 ```
 
 ### File Structure

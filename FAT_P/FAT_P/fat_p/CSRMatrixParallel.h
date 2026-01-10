@@ -18,6 +18,30 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: CSRMatrixParallel
+  file_role: public_header
+  path: fat_p/CSRMatrixParallel.h
+  namespace: fat_p
+  summary: "Public header for CSRMatrixParallel."
+  api_stability: in_work
+  related:
+    docs_search: "CSRMatrixParallel"
+    tests:
+      - tests/test_CSRMatrixParallel.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include "CSRMatrix.h"
 #include "ThreadPool.h"
 #include "CSRMatrixPartitioning.h"

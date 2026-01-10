@@ -2,6 +2,31 @@
  * @file test_DebugOnly.cpp
  * @brief Comprehensive unit tests for DebugOnly.h
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: DebugOnly
+  file_role: test
+  path: tests/test_DebugOnly.cpp
+  namespace: fat_p
+  summary: "Unit tests for DebugOnly."
+  related:
+    docs_search: "DebugOnly"
+    headers:
+      - fat_p/CppStandardDetection.h
+      - fat_p/DebugOnly.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 
 #include "CppStandardDetection.h"
@@ -659,12 +684,12 @@ TEST_CASE(debug_only_exec_macro)
 {
     int counter = 0;
 
-    DEBUG_ONLY_EXEC(counter = 42);
+    FATP_DEBUG_ONLY_EXEC(counter = 42);
 
 #ifndef NDEBUG
-    ASSERT_EQ(counter, 42, "DEBUG_ONLY_EXEC should execute in debug");
+    ASSERT_EQ(counter, 42, "FATP_DEBUG_ONLY_EXEC should execute in debug");
 #else
-    ASSERT_EQ(counter, 0, "DEBUG_ONLY_EXEC should not execute in release");
+    ASSERT_EQ(counter, 0, "FATP_DEBUG_ONLY_EXEC should not execute in release");
 #endif
 
     return true;
@@ -674,9 +699,9 @@ TEST_CASE(debug_only_increment_macro)
 {
     fat_p::DebugOnly<int> counter(0);
 
-    DEBUG_ONLY_INCREMENT(counter);
-    DEBUG_ONLY_INCREMENT(counter);
-    DEBUG_ONLY_INCREMENT(counter);
+    FATP_DEBUG_ONLY_INCREMENT(counter);
+    FATP_DEBUG_ONLY_INCREMENT(counter);
+    FATP_DEBUG_ONLY_INCREMENT(counter);
 
 #ifndef NDEBUG
     ASSERT_EQ(counter.get(), 3, "Counter should be 3 after 3 increments");

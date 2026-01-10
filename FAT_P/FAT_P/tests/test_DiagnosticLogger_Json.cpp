@@ -2,6 +2,31 @@
  * @file test_DiagnosticLogger_Json.cpp
  * @brief Comprehensive unit tests for DiagnosticLogger_Json.h
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: DiagnosticLogger_Json
+  file_role: test
+  path: tests/test_DiagnosticLogger_Json.cpp
+  namespace: fat_p
+  summary: "Unit tests for DiagnosticLogger_Json."
+  related:
+    docs_search: "DiagnosticLogger_Json"
+    headers:
+      - fat_p/JsonLite.h
+      - fat_p/FatPTest.h
+      - fat_p/DiagnosticLogger_Json.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 #include <map>
@@ -28,7 +53,7 @@
 // WHAT BREAKS IF ORDER IS WRONG:
 // -------------------------------
 // If DiagnosticLoggerJsonTestData is defined AFTER #include "DiagnosticLogger_Json.h",
-// then when LOG_INFO_JSON(data) is called, the compiler will:
+// then when FATP_LOG_INFO_JSON(data) is called, the compiler will:
 //   1. Instantiate logJsonHelper<DiagnosticLoggerJsonTestData>
 //   2. Try to find to_json(JsonValue&, const DiagnosticLoggerJsonTestData&)
 //   3. FAIL because that function wasn't visible during template instantiation
@@ -129,7 +154,7 @@ public:
 bool test_json_formatter_basic()
 {
     JsonFormatter formatter;
-    auto loc = CPP_UTIL_SOURCE_LOCATION();
+    auto loc = FATP_SOURCE_LOCATION();
     LogRecord record(LogLevel::Info, "Test message", loc);
     
     std::string formatted = formatter.format(record);
@@ -157,7 +182,7 @@ bool test_json_formatter_basic()
 bool test_json_formatter_with_metadata()
 {
     JsonFormatter formatter;
-    auto loc = CPP_UTIL_SOURCE_LOCATION();
+    auto loc = FATP_SOURCE_LOCATION();
     
     JsonObject metaObj;
     metaObj["key"] = "value";
@@ -185,7 +210,7 @@ bool test_json_formatter_with_metadata()
 bool test_json_formatter_invalid_metadata()
 {
     JsonFormatter formatter;
-    auto loc = CPP_UTIL_SOURCE_LOCATION();
+    auto loc = FATP_SOURCE_LOCATION();
     
     LogRecord record(LogLevel::Error, "Message", loc, "not valid json");
     
@@ -204,7 +229,7 @@ bool test_json_formatter_invalid_metadata()
 bool test_json_formatter_location_info()
 {
     JsonFormatter formatter;
-    auto loc = CPP_UTIL_SOURCE_LOCATION();
+    auto loc = FATP_SOURCE_LOCATION();
     LogRecord record(LogLevel::Debug, "Test", loc);
     
     std::string formatted = formatter.format(record);
@@ -229,7 +254,7 @@ bool test_log_json_simple_types()
     auto sink = std::make_shared<StringSink>();
     getGlobalLogger().addSink(sink);
     
-    LOG_INFO_JSON(42);
+    FATP_LOG_INFO_JSON(42);
     
     ASSERT_TRUE(sink->count() == 1, "One message logged");
     
@@ -249,7 +274,7 @@ bool test_log_json_vector()
     getGlobalLogger().addSink(sink);
     
     std::vector<int> vec = {1, 2, 3, 4, 5};
-    LOG_DEBUG_JSON(vec);
+    FATP_LOG_DEBUG_JSON(vec);
     
     std::string output = sink->getLast();
     auto parsed = parse_json(output);
@@ -270,7 +295,7 @@ bool test_log_json_map()
     getGlobalLogger().addSink(sink);
     
     std::map<std::string, int> map = {{"a", 1}, {"b", 2}, {"c", 3}};
-    LOG_INFO_JSON(map);
+    FATP_LOG_INFO_JSON(map);
     
     std::string output = sink->getLast();
     auto parsed = parse_json(output);
@@ -292,7 +317,7 @@ bool test_log_json_custom_struct()
     getGlobalLogger().addSink(sink);
     
     fat_p::DiagnosticLoggerJsonTestData data{"test", 42, 3.14};
-    LOG_INFO_JSON(data);
+    FATP_LOG_INFO_JSON(data);
     
     std::string output = sink->getLast();
     auto parsed = parse_json(output);
@@ -313,7 +338,7 @@ bool test_log_with_data_string_message()
     getGlobalLogger().addSink(sink);
     
     std::vector<int> data = {10, 20, 30};
-    LOG_INFO_WITH_DATA("Array data", data);
+    FATP_LOG_INFO_WITH_DATA("Array data", data);
     
     std::string output = sink->getLast();
     auto parsed = parse_json(output);
@@ -335,12 +360,12 @@ bool test_log_json_all_levels()
     getGlobalLogger().setLevel(LogLevel::Trace);
     
     int value = 1;
-    LOG_TRACE_JSON(value);
-    LOG_DEBUG_JSON(value);
-    LOG_INFO_JSON(value);
-    LOG_WARNING_JSON(value);
-    LOG_ERROR_JSON(value);
-    LOG_FATAL_JSON(value);
+    FATP_LOG_TRACE_JSON(value);
+    FATP_LOG_DEBUG_JSON(value);
+    FATP_LOG_INFO_JSON(value);
+    FATP_LOG_WARNING_JSON(value);
+    FATP_LOG_ERROR_JSON(value);
+    FATP_LOG_FATAL_JSON(value);
     
     ASSERT_TRUE(sink->count() == 6, "All log levels recorded");
     
@@ -370,12 +395,12 @@ bool test_log_with_data_all_levels()
     getGlobalLogger().setLevel(LogLevel::Trace);
     
     int data = 42;
-    LOG_TRACE_WITH_DATA("Trace msg", data);
-    LOG_DEBUG_WITH_DATA("Debug msg", data);
-    LOG_INFO_WITH_DATA("Info msg", data);
-    LOG_WARNING_WITH_DATA("Warning msg", data);
-    LOG_ERROR_WITH_DATA("Error msg", data);
-    LOG_FATAL_WITH_DATA("Fatal msg", data);
+    FATP_LOG_TRACE_WITH_DATA("Trace msg", data);
+    FATP_LOG_DEBUG_WITH_DATA("Debug msg", data);
+    FATP_LOG_INFO_WITH_DATA("Info msg", data);
+    FATP_LOG_WARNING_WITH_DATA("Warning msg", data);
+    FATP_LOG_ERROR_WITH_DATA("Error msg", data);
+    FATP_LOG_FATAL_WITH_DATA("Fatal msg", data);
     
     ASSERT_TRUE(sink->count() == 6, "All log levels with data recorded");
     
@@ -392,7 +417,7 @@ bool test_log_json_nested_structures()
     nested["first"] = {1, 2, 3};
     nested["second"] = {4, 5, 6};
     
-    LOG_INFO_JSON(nested);
+    FATP_LOG_INFO_JSON(nested);
     
     std::string output = sink->getLast();
     auto parsed = parse_json(output);
@@ -415,7 +440,7 @@ bool test_log_json_empty_containers()
     getGlobalLogger().addSink(sink);
     
     std::vector<int> emptyVec;
-    LOG_INFO_JSON(emptyVec);
+    FATP_LOG_INFO_JSON(emptyVec);
     
     std::string output = sink->getLast();
     auto parsed = parse_json(output);
@@ -427,7 +452,7 @@ bool test_log_json_empty_containers()
     sink->clear();
     
     std::map<std::string, int> emptyMap;
-    LOG_INFO_JSON(emptyMap);
+    FATP_LOG_INFO_JSON(emptyMap);
     
     output = sink->getLast();
     parsed = parse_json(output);
@@ -451,7 +476,7 @@ bool test_log_json_special_characters()
     data["newlines"] = "Line1\nLine2";
     data["tabs"] = "Tab\there";
     
-    LOG_INFO_JSON(data);
+    FATP_LOG_INFO_JSON(data);
     
     std::string output = sink->getLast();
     auto parsed = parse_json(output);
@@ -476,7 +501,7 @@ bool test_log_json_unicode()
     data["chinese"] = "\xE4\xB8\xAD\xE6\x96\x87";
     data["emoji"] = "\xF0\x9F\x98\x80";
     
-    LOG_INFO_JSON(data);
+    FATP_LOG_INFO_JSON(data);
     
     std::string output = sink->getLast();
     auto parsed = parse_json(output);
@@ -498,7 +523,7 @@ bool test_log_json_large_data()
         largeVec.push_back(i);
     }
     
-    LOG_INFO_JSON(largeVec);
+    FATP_LOG_INFO_JSON(largeVec);
     
     std::string output = sink->getLast();
     auto parsed = parse_json(output);
@@ -517,13 +542,13 @@ bool test_log_json_filtering()
     getGlobalLogger().addSink(sink);
     getGlobalLogger().setLevel(LogLevel::Warning);
     
-    LOG_TRACE_JSON(1);
-    LOG_DEBUG_JSON(2);
-    LOG_INFO_JSON(3);
+    FATP_LOG_TRACE_JSON(1);
+    FATP_LOG_DEBUG_JSON(2);
+    FATP_LOG_INFO_JSON(3);
     ASSERT_TRUE(sink->count() == 0, "Lower levels filtered");
     
-    LOG_WARNING_JSON(4);
-    LOG_ERROR_JSON(5);
+    FATP_LOG_WARNING_JSON(4);
+    FATP_LOG_ERROR_JSON(5);
     ASSERT_TRUE(sink->count() == 2, "Higher levels logged");
     
     getGlobalLogger().setLevel(LogLevel::Trace);
@@ -541,24 +566,24 @@ void benchmark_json_logging()
     
     std::vector<int> data = {1, 2, 3, 4, 5};
     double json_time = measure_perf([&data]() {
-        LOG_INFO_JSON(data);
+        FATP_LOG_INFO_JSON(data);
     }, 10000, 100);
     std::cout << "JSON logging (vector): " << format_time(json_time) << "\n";
     
     std::map<std::string, int> mapData = {{"a", 1}, {"b", 2}, {"c", 3}};
     double map_time = measure_perf([&mapData]() {
-        LOG_INFO_JSON(mapData);
+        FATP_LOG_INFO_JSON(mapData);
     }, 10000, 100);
     std::cout << "JSON logging (map): " << format_time(map_time) << "\n";
     
     fat_p::DiagnosticLoggerJsonTestData customData{"test", 42, 3.14};
     double custom_time = measure_perf([&customData]() {
-        LOG_INFO_JSON(customData);
+        FATP_LOG_INFO_JSON(customData);
     }, 10000, 100);
     std::cout << "JSON logging (custom struct): " << format_time(custom_time) << "\n";
     
     double with_data_time = measure_perf([&data]() {
-        LOG_INFO_WITH_DATA("Message", data);
+        FATP_LOG_INFO_WITH_DATA("Message", data);
     }, 10000, 100);
     std::cout << "With data logging: " << format_time(with_data_time) << "\n";
 }

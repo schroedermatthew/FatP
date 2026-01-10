@@ -1,5 +1,3 @@
-#pragma once
-
 // FatPBinary.h
 // Fat-P integrated binary serialization with Expected-based error handling,
 // HpcVector-backed buffers, and native fat_p type support.
@@ -16,8 +14,31 @@
 //
 // C++17, header-only
 
-#ifndef FATP_BINARY_H
-#define FATP_BINARY_H
+#pragma once
+/*
+FATP_META:
+  meta_version: 1
+  component: FatPBinary
+  file_role: public_header
+  path: fat_p/FatPBinary.h
+  namespace: fat_p
+  summary: "Public header for FatPBinary."
+  api_stability: in_work
+  related:
+    docs_search: "FatPBinary"
+    tests:
+      - tests/test_FatPBinary.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: true
+    defines_total: 2
+    defines_unprefixed: 1
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 // These headers can be mocked for standalone testing
 #ifndef FATP_EXPECTED_H
@@ -1034,5 +1055,3 @@ BinaryResult<T> binary_decode_from(const ByteContainer& buffer)
     using fat_p::binary_fatp::binary_decode;         \
     using fat_p::binary_fatp::binary_encode_to;      \
     using fat_p::binary_fatp::binary_decode_from;
-
-#endif // FATP_BINARY_H

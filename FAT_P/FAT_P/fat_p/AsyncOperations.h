@@ -1,6 +1,30 @@
 // AsyncOperations.h
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: AsyncOperations
+  file_role: public_header
+  path: fat_p/AsyncOperations.h
+  namespace: fat_p
+  summary: "Public header for AsyncOperations."
+  api_stability: in_work
+  related:
+    docs_search: "AsyncOperations"
+    tests:
+      - tests/test_AsyncOperations.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include "Expected.h"  // Assuming Expected<T, E> is in Expected.h
 #include <functional>
 #include <future>

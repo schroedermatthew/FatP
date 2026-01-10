@@ -3,6 +3,30 @@
 // C++17 header-only library
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: ConstexprUtilities
+  file_role: public_header
+  path: fat_p/ConstexprUtilities.h
+  namespace: fat_p
+  summary: "Public header for ConstexprUtilities."
+  api_stability: in_work
+  related:
+    docs_search: "ConstexprUtilities"
+    tests:
+      - tests/test_ConstexprUtilities.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 2
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <cmath>
 #include <cstdint>
 #include <iosfwd>

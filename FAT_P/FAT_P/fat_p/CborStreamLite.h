@@ -1,5 +1,29 @@
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: CborStreamLite
+  file_role: public_header
+  path: fat_p/CborStreamLite.h
+  namespace: fat_p
+  summary: "Public header for CborStreamLite."
+  api_stability: in_work
+  related:
+    docs_search: "CborStreamLite"
+    tests:
+      - tests/test_CborStreamLite.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 1
+    defines_unprefixed: 1
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 /**
  * @file CborStreamLite.h
  * @brief Streaming CBOR parser with incremental DOM construction

@@ -1,5 +1,26 @@
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: FatP
+  file_role: internal_header
+  path: tests/test_FatP.h
+  namespace: fat_p
+  summary: "Test support header for FatP."
+  related:
+    docs_search: "FatP"
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #ifndef ENABLE_TEST_APPLICATION
 namespace fat_p::testing
 {

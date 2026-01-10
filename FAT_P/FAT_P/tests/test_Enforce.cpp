@@ -22,6 +22,33 @@
  * - Debug:   g++ -std=c++17 -g test_Enforce.cpp -o test_enforce_debug
  * - Release: g++ -std=c++17 -O3 -DNDEBUG test_Enforce.cpp -o test_enforce_release
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: Enforce
+  file_role: test
+  path: tests/test_Enforce.cpp
+  namespace: fat_p
+  summary: "Unit tests for Enforce."
+  related:
+    docs_search: "Enforce"
+    headers:
+      - fat_p/enforce.h
+      - fat_p/enforce_contextual.h
+      - fat_p/ContractException.h
+      - fat_p/Expected.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 #include <string>

@@ -2,6 +2,30 @@
  * @file test_Reflection.cpp
  * @brief Comprehensive unit tests for Reflection.h
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: Reflection
+  file_role: test
+  path: tests/test_Reflection.cpp
+  namespace: fat_p
+  summary: "Unit tests for Reflection."
+  related:
+    docs_search: "Reflection"
+    headers:
+      - fat_p/Reflection.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 #include <string>
@@ -22,7 +46,7 @@ struct Point {
     int y;
 };
 
-REFLECT_DECLARE(Point, x, y);  // Optional documentation
+FATP_REFLECT_DECLARE(Point, x, y);  // Optional documentation
 
 struct Person {
     std::string name;
@@ -30,7 +54,7 @@ struct Person {
     double height;
 };
 
-REFLECT_DECLARE(Person, name, age, height);
+FATP_REFLECT_DECLARE(Person, name, age, height);
 
 struct ComplexStruct {
     int a;
@@ -43,7 +67,7 @@ struct ComplexStruct {
     char h;
 };
 
-REFLECT_DECLARE(ComplexStruct, a, b, c, d, e, f, g, h);
+FATP_REFLECT_DECLARE(ComplexStruct, a, b, c, d, e, f, g, h);
 
 struct NestedStruct {
     Point position;
@@ -51,7 +75,7 @@ struct NestedStruct {
     int id;
 };
 
-REFLECT_DECLARE(NestedStruct, position, label, id);
+FATP_REFLECT_DECLARE(NestedStruct, position, label, id);
 
 } // namespace fat_p::testing
 
@@ -60,10 +84,10 @@ REFLECT_DECLARE(NestedStruct, position, label, id);
 // ============================================================================
 
 // Unified syntax for both C++17 and C++20!
-REFLECT_REGISTER(fat_p::testing::Point, x, y)
-REFLECT_REGISTER(fat_p::testing::Person, name, age, height)
-REFLECT_REGISTER(fat_p::testing::ComplexStruct, a, b, c, d, e, f, g, h)
-REFLECT_REGISTER(fat_p::testing::NestedStruct, position, label, id)
+FATP_REFLECT_REGISTER(fat_p::testing::Point, x, y)
+FATP_REFLECT_REGISTER(fat_p::testing::Person, name, age, height)
+FATP_REFLECT_REGISTER(fat_p::testing::ComplexStruct, a, b, c, d, e, f, g, h)
+FATP_REFLECT_REGISTER(fat_p::testing::NestedStruct, position, label, id)
 
 // ============================================================================
 // Test Implementation (back in namespace)
@@ -435,9 +459,9 @@ bool test_Reflection() {
     PRINT_HEADER(REFLECTION)
 
 #if FATP_HAS_CPP20
-    std::cout << "(C++20 Mode) Unified REFLECT_REGISTER Syntax with NTTP Field Names\n";
+    std::cout << "(C++20 Mode) Unified FATP_REFLECT_REGISTER Syntax with NTTP Field Names\n";
 #else
-    std::cout << "(C++17 Mode) Unified REFLECT_REGISTER Syntax with Constructor Field Names\n";
+    std::cout << "(C++17 Mode) Unified FATP_REFLECT_REGISTER Syntax with Constructor Field Names\n";
 #endif
 
     TestRunner runner;

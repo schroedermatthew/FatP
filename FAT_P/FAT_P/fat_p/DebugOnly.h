@@ -4,8 +4,31 @@
 // Stores values in debug builds, compiles to nothing in release.
 // Use for debug labels, performance counters, creation tracking, and invariant checks.
 
-#ifndef FATP_DEBUG_ONLY_H
-#define FATP_DEBUG_ONLY_H
+#pragma once
+/*
+FATP_META:
+  meta_version: 1
+  component: DebugOnly
+  file_role: public_header
+  path: fat_p/DebugOnly.h
+  namespace: fat_p
+  summary: "Public header for DebugOnly."
+  api_stability: in_work
+  related:
+    docs_search: "DebugOnly"
+    tests:
+      - tests/test_DebugOnly.cpp
+  hygiene:
+    pragma_once: false
+    include_guard: true
+    defines_total: 7
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include "FatPConfig.h"
 
@@ -582,23 +605,23 @@ constexpr void swap(DebugOnly<T>&, DebugOnly<T>&) noexcept {}
 
 // Execute code only in debug mode
 #ifndef NDEBUG
-    #define DEBUG_ONLY_EXEC(code) do { code; } while(0)
+    #define FATP_DEBUG_ONLY_EXEC(code) do { code; } while(0)
 #else
-    #define DEBUG_ONLY_EXEC(code) do { (void)0; } while(0)
+    #define FATP_DEBUG_ONLY_EXEC(code) do { (void)0; } while(0)
 #endif
 
 // Increment a debug counter
 #ifndef NDEBUG
-    #define DEBUG_ONLY_INCREMENT(counter) ++(counter)
+    #define FATP_DEBUG_ONLY_INCREMENT(counter) ++(counter)
 #else
-    #define DEBUG_ONLY_INCREMENT(counter) ((void)0)
+    #define FATP_DEBUG_ONLY_INCREMENT(counter) ((void)0)
 #endif
 
 // Log with a debug value
 #ifndef NDEBUG
-    #define DEBUG_ONLY_LOG(stream, val) ((stream) << (val).get())
+    #define FATP_DEBUG_ONLY_LOG(stream, val) ((stream) << (val).get())
 #else
-    #define DEBUG_ONLY_LOG(stream, val) ((void)0)
+    #define FATP_DEBUG_ONLY_LOG(stream, val) ((void)0)
 #endif
 
 
@@ -634,4 +657,3 @@ struct hash<fat_p::DebugOnly<T>>
 
 } // namespace std
 
-#endif // FATP_DEBUG_ONLY_H

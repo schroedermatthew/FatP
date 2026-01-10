@@ -36,6 +36,30 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: EqualityTensor
+  file_role: public_header
+  path: fat_p/EqualityTensor.h
+  namespace: fat_p
+  summary: "Public header for EqualityTensor."
+  api_stability: in_work
+  related:
+    docs_search: "EqualityTensor"
+    tests:
+      - tests/test_TensorComparison.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include "Tensor.h"
 #include "EqualityComparisons.h"
 
@@ -80,7 +104,7 @@ struct EqualDispatcher<Tensor<T, Alloc, IteratorPolicy>, Policy> {
                         EpsParams... eps) {
         // Check shape match
         if (a.shape() != b.shape()) {
-            LOG_ERROR(([&]() {
+            FATP_LOG_ERROR(([&]() {
                 std::ostringstream oss;
                 oss << "Tensor shapes differ:\n";
                 oss << "  Expected shape: [";
@@ -101,7 +125,7 @@ struct EqualDispatcher<Tensor<T, Alloc, IteratorPolicy>, Policy> {
         
         // Check strides match (important for views)
         if (a.strides() != b.strides()) {
-            LOG_ERROR(([&]() {
+            FATP_LOG_ERROR(([&]() {
                 std::ostringstream oss;
                 oss << "Tensor strides differ (different memory layouts):\n";
                 oss << "  Expected strides: [";
@@ -122,7 +146,7 @@ struct EqualDispatcher<Tensor<T, Alloc, IteratorPolicy>, Policy> {
         
         // Check size match
         if (a.size() != b.size()) {
-            LOG_ERROR("Tensor sizes differ: " + 
+            FATP_LOG_ERROR("Tensor sizes differ: " +
                        std::to_string(a.size()) + " vs " + std::to_string(b.size()));
             return false;
         }
@@ -137,7 +161,7 @@ struct EqualDispatcher<Tensor<T, Alloc, IteratorPolicy>, Policy> {
             if constexpr (std::is_floating_point_v<T>) {
                 // Floating-point comparison with policy
                 if (!Policy::epsilonMatch(*it_a, *it_b, eps...)) {
-                    LOG_ERROR(([&]() {
+                    FATP_LOG_ERROR(([&]() {
                         std::ostringstream oss;
 
                         // Convert linear index to multi-dimensional indices
@@ -172,7 +196,7 @@ struct EqualDispatcher<Tensor<T, Alloc, IteratorPolicy>, Policy> {
             } else {
                 // Integer/exact comparison
                 if (*it_a != *it_b) {
-                    LOG_ERROR("Tensor elements differ at logical index " +
+                    FATP_LOG_ERROR("Tensor elements differ at logical index " +
                                std::to_string(i) + ": " +
                                toString(*it_a) + " vs " + toString(*it_b));
                     

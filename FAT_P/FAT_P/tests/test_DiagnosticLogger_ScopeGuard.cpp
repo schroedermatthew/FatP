@@ -7,6 +7,30 @@
  * 2. ResilientSink manages failure state correctly with ScopeGuard
  * 3. Test utilities using ScopeGuard work correctly
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: DiagnosticLogger_ScopeGuard
+  file_role: test
+  path: tests/test_DiagnosticLogger_ScopeGuard.cpp
+  namespace: fat_p
+  summary: "Unit tests for DiagnosticLogger_ScopeGuard."
+  related:
+    docs_search: "DiagnosticLogger_ScopeGuard"
+    headers:
+      - fat_p/DiagnosticLogger_IO.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 #include <fstream>
@@ -71,7 +95,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
         ASSERT_TRUE(sink != nullptr, "RotatingFileSink created");
         ASSERT_TRUE(sink->is_valid(), "Initial validity");
 
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
 
         // Write enough to trigger rotation
         for (int i = 0; i < 10; ++i)
@@ -105,7 +129,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
         cleanupTestFiles(filename);
 
         auto sink = makeRotatingFileSink(filename, 150, 3);
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
 
         // Trigger multiple rotations
         for (int i = 0; i < 50; ++i)
@@ -147,7 +171,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
 
         // Very small file size to force frequent rotations
         auto sink = makeRotatingFileSink(filename, 100, 5);
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
 
         // Rapid writes
         for (int i = 0; i < 100; ++i)
@@ -216,7 +240,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
         auto fallback = makeFileSink(fallbackFile);
         auto resilient = std::make_shared<ResilientSink>(primary, fallback);
 
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
 
         // First write succeeds
         LogRecord record1(LogLevel::Info, "Message1", loc);
@@ -270,7 +294,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
         auto fallback = makeFileSink(fallbackFile);
         auto resilient = std::make_shared<ResilientSink>(primary, fallback);
 
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
 
         // Write succeeds on primary - should return early
         LogRecord record(LogLevel::Info, "Primary success", loc);
@@ -415,7 +439,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
         auto fallback = makeRotatingFileSink(fallbackFile, 200, 3);
         auto resilient = std::make_shared<ResilientSink>(primary, fallback);
 
-        auto loc = CPP_UTIL_SOURCE_LOCATION();
+        auto loc = FATP_SOURCE_LOCATION();
 
         // Write enough to trigger rotations
         for (int i = 0; i < 20; ++i)
@@ -466,7 +490,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
             // Generate enough logs to trigger rotation
             for (int i = 0; i < 30; ++i)
             {
-                LOG_TRACE("Comprehensive test message " + std::to_string(i));
+                FATP_LOG_TRACE("Comprehensive test message " + std::to_string(i));
             }
 
             // Sink should still be valid

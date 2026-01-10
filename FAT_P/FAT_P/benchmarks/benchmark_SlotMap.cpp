@@ -46,6 +46,30 @@
 //   ./bench_sm
 //   FATP_BENCH_OUTPUT_CSV=results.csv ./bench_sm
 
+/*
+FATP_META:
+  meta_version: 1
+  component: SlotMap
+  file_role: benchmark
+  path: benchmarks/benchmark_SlotMap.cpp
+  namespace: fat_p
+  summary: "Benchmarks for SlotMap."
+  related:
+    docs_search: "SlotMap"
+    headers:
+      - fat_p/FatPBenchmarkRunner.h
+      - fat_p/SlotMap.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 14
+    defines_unprefixed: 14
+    undefs_total: 0
+    includes_windows_h: true
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <algorithm>
 #include <array>
 #include <chrono>

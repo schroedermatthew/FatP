@@ -16,6 +16,32 @@
  */
 
 #pragma once
+/*
+FATP_META:
+  meta_version: 1
+  component: PolicyIterator
+  file_role: public_header
+  path: fat_p/PolicyIterator.h
+  namespace: fat_p
+  summary: "Public header for PolicyIterator."
+  api_stability: in_work
+  related:
+    docs_search: "PolicyIterator"
+    tests:
+      - tests/test_PolicyIterator.cpp
+    benchmarks:
+      - benchmarks/benchmark_PolicyIterator.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <cstddef>
 #include <iterator>
 #include <optional>

@@ -16,6 +16,31 @@
  * 
  * Note: Requires C++20 for coroutine support
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: CoroutineTask
+  file_role: test
+  path: tests/test_CoroutineTask.cpp
+  namespace: fat_p
+  summary: "Unit tests for CoroutineTask."
+  related:
+    docs_search: "CoroutineTask"
+    headers:
+      - fat_p/CppStandardDetection.h
+      - fat_p/FatPTest.h
+      - fat_p/CoroutineTask.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 

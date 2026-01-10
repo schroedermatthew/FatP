@@ -25,6 +25,30 @@
  */
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: EnforcedInit
+  file_role: public_header
+  path: fat_p/EnforcedInit.h
+  namespace: fat_p
+  summary: "Public header for EnforcedInit."
+  api_stability: in_work
+  related:
+    docs_search: "EnforcedInit"
+    tests:
+      - tests/test_EnforcedInit.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 2
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #if !defined(FATP_USE_OPTIONAL)
 #define FATP_USE_OPTIONAL 1
 #endif

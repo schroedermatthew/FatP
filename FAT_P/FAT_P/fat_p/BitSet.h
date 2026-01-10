@@ -20,6 +20,30 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: BitSet
+  file_role: public_header
+  path: fat_p/BitSet.h
+  namespace: fat_p
+  summary: "Public header for BitSet."
+  api_stability: in_work
+  related:
+    docs_search: "BitSet"
+    tests:
+      - tests/test_BitSet.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 9
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <array>
 #include <cstddef>
 #include <cstdint>

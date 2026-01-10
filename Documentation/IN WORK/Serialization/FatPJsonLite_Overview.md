@@ -182,7 +182,7 @@ struct ApiResponse {
     SmallVector<std::string, 4> warnings;
     std::optional<Status> status;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(ApiResponse, users, warnings, status)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(ApiResponse, users, warnings, status)
 
 ApiResponse resp{
     Expected<std::vector<UserId>, std::string>{{UserId{1}, UserId{2}}},

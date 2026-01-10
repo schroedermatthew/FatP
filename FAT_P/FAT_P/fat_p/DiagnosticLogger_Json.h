@@ -9,6 +9,30 @@
  */
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: DiagnosticLogger_Json
+  file_role: public_header
+  path: fat_p/DiagnosticLogger_Json.h
+  namespace: fat_p
+  summary: "Public header for DiagnosticLogger_Json."
+  api_stability: in_work
+  related:
+    docs_search: "DiagnosticLogger_Json"
+    tests:
+      - tests/test_DiagnosticLogger_Json.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 14
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include "DiagnosticLogger_Core.h"
 #include "JsonLite.h"
 
@@ -99,35 +123,35 @@ inline void logWithDataHelper(LogLevel level, std::string_view msg, const T& dat
 } // namespace fat_p
 
 // HELPER MACROS TO ENSURE COMPILE-TIME REMOVAL
-#define LOG_JSON_MACRO_IMPL(func, obj) \
+#define FATP_LOG_JSON_MACRO_IMPL(func, obj) \
     do { \
         if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::func) { \
             if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::func)) { \
-                ::fat_p::diagnostic::logJsonHelper(::fat_p::diagnostic::LogLevel::func, obj, CPP_UTIL_SOURCE_LOCATION()); \
+                ::fat_p::diagnostic::logJsonHelper(::fat_p::diagnostic::LogLevel::func, obj, FATP_SOURCE_LOCATION()); \
             } \
         } \
     } while (0)
 
-#define LOG_WITH_DATA_MACRO_IMPL(func, msg, obj) \
+#define FATP_LOG_WITH_DATA_MACRO_IMPL(func, msg, obj) \
     do { \
         if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::func) { \
             if (::fat_p::diagnostic::getGlobalLogger().shouldLog(::fat_p::diagnostic::LogLevel::func)) { \
-                ::fat_p::diagnostic::logWithDataHelper(::fat_p::diagnostic::LogLevel::func, msg, obj, CPP_UTIL_SOURCE_LOCATION()); \
+                ::fat_p::diagnostic::logWithDataHelper(::fat_p::diagnostic::LogLevel::func, msg, obj, FATP_SOURCE_LOCATION()); \
             } \
         } \
     } while (0)
 
 // PUBLIC MACROS
-#define LOG_TRACE_JSON(obj) LOG_JSON_MACRO_IMPL(Trace, obj)
-#define LOG_DEBUG_JSON(obj) LOG_JSON_MACRO_IMPL(Debug, obj)
-#define LOG_INFO_JSON(obj) LOG_JSON_MACRO_IMPL(Info, obj)
-#define LOG_WARNING_JSON(obj) LOG_JSON_MACRO_IMPL(Warning, obj)
-#define LOG_ERROR_JSON(obj) LOG_JSON_MACRO_IMPL(Error, obj)
-#define LOG_FATAL_JSON(obj) LOG_JSON_MACRO_IMPL(Fatal, obj)
+#define FATP_LOG_TRACE_JSON(obj) FATP_LOG_JSON_MACRO_IMPL(Trace, obj)
+#define FATP_LOG_DEBUG_JSON(obj) FATP_LOG_JSON_MACRO_IMPL(Debug, obj)
+#define FATP_LOG_INFO_JSON(obj) FATP_LOG_JSON_MACRO_IMPL(Info, obj)
+#define FATP_LOG_WARNING_JSON(obj) FATP_LOG_JSON_MACRO_IMPL(Warning, obj)
+#define FATP_LOG_ERROR_JSON(obj) FATP_LOG_JSON_MACRO_IMPL(Error, obj)
+#define FATP_LOG_FATAL_JSON(obj) FATP_LOG_JSON_MACRO_IMPL(Fatal, obj)
 
-#define LOG_TRACE_WITH_DATA(msg, obj) LOG_WITH_DATA_MACRO_IMPL(Trace, msg, obj)
-#define LOG_DEBUG_WITH_DATA(msg, obj) LOG_WITH_DATA_MACRO_IMPL(Debug, msg, obj)
-#define LOG_INFO_WITH_DATA(msg, obj) LOG_WITH_DATA_MACRO_IMPL(Info, msg, obj)
-#define LOG_WARNING_WITH_DATA(msg, obj) LOG_WITH_DATA_MACRO_IMPL(Warning, msg, obj)
-#define LOG_ERROR_WITH_DATA(msg, obj) LOG_WITH_DATA_MACRO_IMPL(Error, msg, obj)
-#define LOG_FATAL_WITH_DATA(msg, obj) LOG_WITH_DATA_MACRO_IMPL(Fatal, msg, obj)
+#define FATP_LOG_TRACE_WITH_DATA(msg, obj) FATP_LOG_WITH_DATA_MACRO_IMPL(Trace, msg, obj)
+#define FATP_LOG_DEBUG_WITH_DATA(msg, obj) FATP_LOG_WITH_DATA_MACRO_IMPL(Debug, msg, obj)
+#define FATP_LOG_INFO_WITH_DATA(msg, obj) FATP_LOG_WITH_DATA_MACRO_IMPL(Info, msg, obj)
+#define FATP_LOG_WARNING_WITH_DATA(msg, obj) FATP_LOG_WITH_DATA_MACRO_IMPL(Warning, msg, obj)
+#define FATP_LOG_ERROR_WITH_DATA(msg, obj) FATP_LOG_WITH_DATA_MACRO_IMPL(Error, msg, obj)
+#define FATP_LOG_FATAL_WITH_DATA(msg, obj) FATP_LOG_WITH_DATA_MACRO_IMPL(Fatal, msg, obj)

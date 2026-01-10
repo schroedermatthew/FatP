@@ -8,6 +8,29 @@
  * COMPILE (GCC/Clang):
  * g++ -std=c++17 -Wall -Wextra -O2 test_FatPTest.cpp -o test_real -pthread
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: FatPTest
+  file_role: test
+  path: tests/test_FatPTest.cpp
+  namespace: fat_p
+  summary: "Unit tests for FatPTest."
+  related:
+    docs_search: "FatPTest"
+    headers:
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 2
+    defines_unprefixed: 2
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 #include <cassert>

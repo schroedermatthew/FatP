@@ -838,13 +838,13 @@ void timed_operation()
 
 ```cpp
 // Execute code only in debug
-DEBUG_ONLY_EXEC(validate_invariants());
+FATP_DEBUG_ONLY_EXEC(validate_invariants());
 
 // Increment a counter
-DEBUG_ONLY_INCREMENT(operation_count);
+FATP_DEBUG_ONLY_INCREMENT(operation_count);
 
 // Log with a debug value
-DEBUG_ONLY_LOG(std::cout, debug_label);
+FATP_DEBUG_ONLY_LOG(std::cout, debug_label);
 ```
 
 ---

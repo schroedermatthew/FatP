@@ -13,6 +13,28 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: CheckedArithmetic_IntSimd_SSE2
+  file_role: public_header
+  path: fat_p/CheckedArithmetic_IntSimd_SSE2.h
+  namespace: fat_p
+  summary: "Public header for CheckedArithmetic_IntSimd_SSE2."
+  api_stability: in_work
+  related:
+    docs_search: "CheckedArithmetic_IntSimd_SSE2"
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include "CheckedArithmetic_IntSimd_Common.h"
 
 #if defined(FATP_INT_SIMD_SSE2)

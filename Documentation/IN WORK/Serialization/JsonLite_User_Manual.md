@@ -16,9 +16,9 @@
    - [Compilation](#compilation)
    - [First Program](#first-program)
 4. [The Macro System](#the-macro-system)
-   - [CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE](#cpp_json_define_type_non_intrusive)
-   - [CPP_JSON_DEFINE_TYPE_OPTIONAL](#cpp_json_define_type_optional)
-   - [CPP_JSON_DEFINE_TYPE_INTRUSIVE](#cpp_json_define_type_intrusive)
+   - [FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE](#fatp_json_define_type_non_intrusive)
+   - [FATP_JSON_DEFINE_TYPE_OPTIONAL](#fatp_json_define_type_optional)
+   - [FATP_JSON_DEFINE_TYPE_INTRUSIVE](#fatp_json_define_type_intrusive)
    - [Macro Limitations](#macro-limitations)
 5. [Serialization: C++ to JSON](#serialization-c-to-json)
    - [Basic Types](#basic-types)
@@ -420,10 +420,10 @@ JsonLite is a single-header library. Copy `JsonLite.h` to your project and inclu
 
 ```cpp
 #include "JsonLite.h"
-USING_JSON_LITE()
+FATP_USING_JSON_LITE()
 ```
 
-The `USING_JSON_LITE()` macro expands to:
+The `FATP_USING_JSON_LITE()` macro expands to:
 
 ```cpp
 using namespace fat_p;
@@ -445,7 +445,7 @@ the convenience functions:
 
 ```cpp
 #include "JsonLite.h"
-JSONLITE_CONVENIENCE_USINGS()
+FATP_JSONLITE_CONVENIENCE_USINGS()
 ```
 
 This expands to:
@@ -485,7 +485,7 @@ g++ -std=c++17 -g -fsanitize=address,undefined -I/path/to/headers main.cpp -o ap
 
 ```cpp
 #include "JsonLite.h"
-USING_JSON_LITE()
+FATP_USING_JSON_LITE()
 
 #include <iostream>
 
@@ -495,7 +495,7 @@ struct Config
     std::string host;
     std::optional<int> timeout;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, timeout)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, timeout)
 
 int main()
 {
@@ -565,7 +565,7 @@ struct Person
     int age;
 };
 
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age)  // That's it!
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age)  // That's it!
 ```
 
 The macro expands to the same `to_json()` and `from_json()` functions, but you only list each field once. Add a field? Add it to the macro. Remove a field? Remove it from the macro.
@@ -576,11 +576,11 @@ JsonLite provides three macros for different use cases:
 
 | Macro | Placement | Missing Fields | Use When |
 |-------|-----------|----------------|----------|
-| `CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE` | Outside class | Error | You don't control the type |
-| `CPP_JSON_DEFINE_TYPE_OPTIONAL` | Outside class | Keep default | Fields have sensible defaults |
-| `CPP_JSON_DEFINE_TYPE_INTRUSIVE` | Inside class | Error | You need private field access |
+| `FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE` | Outside class | Error | You don't control the type |
+| `FATP_JSON_DEFINE_TYPE_OPTIONAL` | Outside class | Keep default | Fields have sensible defaults |
+| `FATP_JSON_DEFINE_TYPE_INTRUSIVE` | Inside class | Error | You need private field access |
 
-### CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE
+### FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE
 
 This macro defines serialization functions **outside** the class definition. Use this for types 
 you don't control or when you want to keep serialization logic separate.
@@ -593,7 +593,7 @@ struct Person
     std::optional<std::string> email;
 };
 
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age, email)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age, email)
 ```
 
 **Requirements:**
@@ -603,14 +603,14 @@ CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age, email)
 
 > **Common Error:** If you get a compile error like "cannot access private member",
 > your struct has private fields. Either make them public or use 
-> `CPP_JSON_DEFINE_TYPE_INTRUSIVE` inside the class body instead.
+> `FATP_JSON_DEFINE_TYPE_INTRUSIVE` inside the class body instead.
 
 **Behavior:**
 - Missing optional fields are set to `std::nullopt`
 - Missing required fields throw `std::runtime_error`
 - Extra fields in JSON are ignored
 
-### CPP_JSON_DEFINE_TYPE_OPTIONAL
+### FATP_JSON_DEFINE_TYPE_OPTIONAL
 
 This macro makes **all fields optional** with default values. If a field is missing from JSON, 
 its current value is preserved (typically the default-initialized value).
@@ -623,7 +623,7 @@ struct Config
     int timeout = 30;
 };
 
-CPP_JSON_DEFINE_TYPE_OPTIONAL(Config, port, host, timeout)
+FATP_JSON_DEFINE_TYPE_OPTIONAL(Config, port, host, timeout)
 ```
 
 **Use cases:**
@@ -639,7 +639,7 @@ JsonValue val = parse_json(json);
 from_json(val, cfg);  // port = 9000, host = "localhost", timeout = 30
 ```
 
-### CPP_JSON_DEFINE_TYPE_INTRUSIVE
+### FATP_JSON_DEFINE_TYPE_INTRUSIVE
 
 This macro defines serialization functions **inside** the class definition. Use this when you 
 control the type and want to keep everything together.
@@ -649,7 +649,7 @@ struct Point
 {
     double x, y;
     
-    CPP_JSON_DEFINE_TYPE_INTRUSIVE(Point, x, y)
+    FATP_JSON_DEFINE_TYPE_INTRUSIVE(Point, x, y)
 };
 ```
 
@@ -812,7 +812,7 @@ struct Address
     std::string city;
     int zip;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Address, street, city, zip)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Address, street, city, zip)
 
 Address addr{"123 Main St", "Springfield", 12345};
 JsonValue j = to_json(addr);
@@ -837,7 +837,7 @@ std::string pretty = to_json_string<PrettyJsonPolicy>(j);
 For objects:
 ```cpp
 struct Config { int port; std::string host; };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host)
 
 Config cfg{8080, "localhost"};
 JsonValue j = to_json(cfg);
@@ -1018,7 +1018,7 @@ struct Person
     std::string name;
     int age;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age)
 
 std::string json = R"({"name": "Alice", "age": 30})";
 JsonValue j = parse_json(json);
@@ -1352,7 +1352,7 @@ struct DatabaseConfig
     int port;
     int timeout;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(DatabaseConfig, host, port, timeout)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(DatabaseConfig, host, port, timeout)
 
 JsonValue db_doc = parse_json(R"(
 {
@@ -1561,7 +1561,7 @@ struct Config
     std::string host;
     bool debug;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, debug)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, debug)
 
 Config cfg{8080, "localhost", false};
 
@@ -1598,7 +1598,7 @@ struct UserPreferences
     int font_size;
     std::vector<std::string> recent_files;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(UserPreferences, theme, font_size, recent_files)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(UserPreferences, theme, font_size, recent_files)
 
 UserPreferences prefs{"dark", 12, {"file1.txt", "file2.txt"}};
 
@@ -2199,7 +2199,7 @@ struct Address
     std::string city;
     int zip;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Address, street, city, zip)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Address, street, city, zip)
 
 struct Person
 {
@@ -2208,7 +2208,7 @@ struct Person
     Address address;  // Nested struct
     std::vector<std::string> hobbies;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age, address, hobbies)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age, address, hobbies)
 
 Person p{"Alice", 30, {"123 Main St", "Springfield", 12345}, {"reading", "cycling"}};
 std::string json = to_json_string<PrettyJsonPolicy>(to_json(p));
@@ -2565,7 +2565,7 @@ struct ServerConfig
     std::optional<std::string> cert_path;
     bool enable_logging = true;
 };
-CPP_JSON_DEFINE_TYPE_OPTIONAL(ServerConfig, port, host, max_connections, 
+FATP_JSON_DEFINE_TYPE_OPTIONAL(ServerConfig, port, host, max_connections, 
                                cert_path, enable_logging)
 
 // Load config with fallback to defaults
@@ -2610,7 +2610,7 @@ struct UserResponse
     std::string email;
     std::vector<std::string> roles;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(UserResponse, id, username, email, roles)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(UserResponse, id, username, email, roles)
 
 std::string handle_get_user(int user_id)
 {
@@ -2645,7 +2645,7 @@ struct PlayerData
     std::vector<std::string> inventory;
     std::map<std::string, int> quest_progress;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(PlayerData, name, level, health, 
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(PlayerData, name, level, health, 
                                    gold, inventory, quest_progress)
 
 void save_game(const PlayerData& player)
@@ -2750,7 +2750,7 @@ using json = nlohmann::json;
 
 // After
 #include "JsonLite.h"
-USING_JSON_LITE()
+FATP_USING_JSON_LITE()
 ```
 
 **2. Update struct macros:**
@@ -2759,7 +2759,7 @@ USING_JSON_LITE()
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age)
 
 // After
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age)
 ```
 
 **3. Change implicit conversions:**
@@ -3026,7 +3026,7 @@ struct Config
     std::optional<int> timeout;        // May be missing
     std::optional<std::string> cert;   // May be missing
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, timeout, cert)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, timeout, cert)
 ```
 
 **2.  Provide defaults with OPTIONAL macro:**
@@ -3038,7 +3038,7 @@ struct Config
     std::string host = "localhost";
     int timeout = 30;
 };
-CPP_JSON_DEFINE_TYPE_OPTIONAL(Config, port, host, timeout)
+FATP_JSON_DEFINE_TYPE_OPTIONAL(Config, port, host, timeout)
 ```
 
 **3.  Validate after loading:**
@@ -3224,12 +3224,12 @@ error: no matching function for call to 'from_json'
 
 **Cause:** The serialization functions are not in scope.
 
-**Solution:** Add `USING_JSON_LITE()` after including the header, or use the targeted 
-`JSONLITE_CONVENIENCE_USINGS()` macro:
+**Solution:** Add `FATP_USING_JSON_LITE()` after including the header, or use the targeted 
+`FATP_JSONLITE_CONVENIENCE_USINGS()` macro:
 
 ```cpp
 #include "JsonLite.h"
-USING_JSON_LITE()  // In .cpp files only
+FATP_USING_JSON_LITE()  // In .cpp files only
 ```
 
 Or use fully qualified names:
@@ -3248,7 +3248,7 @@ error: 'JsonValue' was not declared in this scope
 
 **Cause:** Type names need namespace qualification or using declarations.
 
-**Solution:** Either use `USING_JSON_LITE()` or qualify the types:
+**Solution:** Either use `FATP_USING_JSON_LITE()` or qualify the types:
 
 ```cpp
 fat_p::JsonValue j;
@@ -3259,13 +3259,13 @@ fat_p::JsonObject obj;
 
 **Symptom:** Serialization compiles but fails at runtime, or ADL doesn't find overloads.
 
-**Cause:** The `CPP_JSON_DEFINE_TYPE_*` macro must be in the same namespace as the struct.
+**Cause:** The `FATP_JSON_DEFINE_TYPE_*` macro must be in the same namespace as the struct.
 
 **Solution:**
 ```cpp
 namespace my_app {
     struct Config { int port; };
-    CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port)  // Same namespace!
+    FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port)  // Same namespace!
 }
 ```
 
@@ -3276,16 +3276,16 @@ namespace my_app {
 JSON Error: Required field missing - field: xyz
 ```
 
-**Cause:** Using `CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE` but JSON is missing a field.
+**Cause:** Using `FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE` but JSON is missing a field.
 
-**Solution:** Either add the missing field to JSON, or use `CPP_JSON_DEFINE_TYPE_OPTIONAL` 
+**Solution:** Either add the missing field to JSON, or use `FATP_JSON_DEFINE_TYPE_OPTIONAL` 
 if fields should be optional:
 
 ```cpp
 struct Config {
     int port = 8080;  // Default value
 };
-CPP_JSON_DEFINE_TYPE_OPTIONAL(Config, port)  // Field can be missing
+FATP_JSON_DEFINE_TYPE_OPTIONAL(Config, port)  // Field can be missing
 ```
 
 ### Runtime Errors
@@ -3342,13 +3342,13 @@ JSON Error: Failed to open file for writing - filename: config.json
 
 ### Common Mistakes
 
-#### Forgetting USING_JSON_LITE() in test files
+#### Forgetting FATP_USING_JSON_LITE() in test files
 
 When writing tests, always include the macro at the top of the test namespace:
 
 ```cpp
 namespace my_tests {
-    USING_JSON_LITE()  // Required for convenience functions
+    FATP_USING_JSON_LITE()  // Required for convenience functions
     
     void test_config() {
         Config cfg{8080};
@@ -3357,14 +3357,14 @@ namespace my_tests {
 }
 ```
 
-#### Using USING_JSON_LITE() in headers
+#### Using FATP_USING_JSON_LITE() in headers
 
 **Don't do this:**
 ```cpp
 // my_types.h - BAD!
 #pragma once
 #include "JsonLite.h"
-USING_JSON_LITE()  // Pollutes every file that includes this header!
+FATP_USING_JSON_LITE()  // Pollutes every file that includes this header!
 ```
 
 **Do this instead:**
@@ -3375,14 +3375,14 @@ USING_JSON_LITE()  // Pollutes every file that includes this header!
 
 namespace my_app {
     struct Config { int port; };
-    CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port)
+    FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port)
 }
 ```
 
 ```cpp
 // my_code.cpp - GOOD
 #include "my_types.h"
-USING_JSON_LITE()  // Safe in .cpp files
+FATP_USING_JSON_LITE()  // Safe in .cpp files
 
 int main() {
     my_app::Config cfg{8080};

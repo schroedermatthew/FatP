@@ -22,6 +22,30 @@
  */
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: ScopeGuardPolicies
+  file_role: public_header
+  path: fat_p/ScopeGuardPolicies.h
+  namespace: fat_p
+  summary: "Public header for ScopeGuardPolicies."
+  api_stability: in_work
+  related:
+    docs_search: "ScopeGuardPolicies"
+    tests:
+      - tests/test_ScopeGuard.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: true
+    defines_total: 2
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <type_traits>
 #include <string>
 #include <iostream>

@@ -2,6 +2,29 @@
 // This file breaks tests into separate functions for each subcomponent.
 // Each test includes:
 
+/*
+FATP_META:
+  meta_version: 1
+  component: FatP
+  file_role: test
+  path: tests/test_FatP.cpp
+  namespace: fat_p
+  summary: "Unit tests for FatP."
+  related:
+    docs_search: "FatP"
+    headers:
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 1
+    defines_unprefixed: 1
+    undefs_total: 1
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <chrono> // For performance timing
 #include <iostream> // For output
 #include <stdexcept> // For expected exceptions

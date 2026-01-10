@@ -1,12 +1,32 @@
-#pragma once
-
 // FatPConfig.h
 // Central configuration + portability macros for the Fat-P header-only library.
 //
 // Systemic Hygiene Policy Rule F: single source of truth for configuration macros.
 
-#ifndef FATP_CONFIG_H
-#define FATP_CONFIG_H
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: FatPConfig
+  file_role: public_header
+  path: fat_p/FatPConfig.h
+  namespace: fat_p
+  summary: "Public header for FatPConfig."
+  api_stability: in_work
+  related:
+    docs_search: "FatPConfig"
+  hygiene:
+    pragma_once: true
+    include_guard: true
+    defines_total: 8
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <cstddef>
 
@@ -57,4 +77,3 @@ inline constexpr std::size_t cache_line_size = FATP_CACHE_LINE_SIZE;
 } // namespace config
 } // namespace fat_p
 
-#endif // FATP_CONFIG_H

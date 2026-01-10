@@ -1,3 +1,11 @@
+---
+doc_id: stablehashmap-user-manual
+doc_type: user_manual
+status: candidate
+fatp_components: [StableHashMap]
+last_updated: 2026-01-09
+---
+
 # StableHashMap User Manual
 
 *Updated December 2025*
@@ -16,14 +24,13 @@
 10. [The Block Allocator: Eliminating Malloc Overhead](#the-block-allocator-eliminating-malloc-overhead)
 11. [Hash Quality: Protecting Against Weak Hashes](#hash-quality-protecting-against-weak-hashes)
 12. [Load Factor: The Central Tradeoff](#load-factor-the-central-tradeoff)
-13. [Read-Only Mode: Trading Flexibility for Safety](#read-only-mode-trading-flexibility-for-safety)
-14. [Heterogeneous Lookup: Avoiding Temporary Objects](#heterogeneous-lookup-avoiding-temporary-objects)
-15. [Benchmarking StableHashMap](#benchmarking-stablehashmap)
-16. [When to Use StableHashMap (and When Not To)](#when-to-use-stablehashmap-and-when-not-to)
-17. [Migration from std::unordered_map](#migration-from-stdunordered_map)
-18. [Troubleshooting](#troubleshooting)
-19. [API Reference](#api-reference)
-20. [Summary](#summary)
+13. [Heterogeneous Lookup: Avoiding Temporary Objects](#heterogeneous-lookup-avoiding-temporary-objects)
+14. [Benchmarking StableHashMap](#benchmarking-stablehashmap)
+15. [When to Use StableHashMap (and When Not To)](#when-to-use-stablehashmap-and-when-not-to)
+16. [Migration from std::unordered_map](#migration-from-stdunordered_map)
+17. [Troubleshooting](#troubleshooting)
+18. [API Reference](#api-reference)
+19. [Summary](#summary)
 
 ---
 
@@ -794,29 +801,14 @@ int main()
 ### Understanding the Template Parameters
 
 ```cpp
-template <typename Key,
-          typename Value,
-          typename Policy = DefaultMutablePolicy>
+template<typename Key,
+         typename Value,
+         typename Hash = std::hash<Key>,
+         typename KeyEqual = std::equal_to<Key>,
+         template<typename> class NodeAllocator = fat_p::NewDeleteAllocator>
 class StableHashMap;
 ```
 
-**Key:** The type used for lookup. Must be hashable and equality-comparable.
-
-**Value:** The type stored in the map. 
-
-**Policy:** Controls allocation behavior. Options:
-- `DefaultMutablePolicy`: Per-node allocation (default)
-- `BlockAllocatorPolicy`: Block allocation for better performance
-
-Both Key and Value must be:
-- **MoveConstructible:** Elements are moved during rehashing
-- **DefaultConstructible:** Nodes contain default-constructed pairs initially
-
-If your types aren't DefaultConstructible, wrap them in `std::optional`:
-
-```cpp
-StableHashMap<int, std::optional<NonDefaultConstructible>> map;
-```
 
 ---
 
@@ -1140,7 +1132,7 @@ Benchmarks at N=1,000,000:
 fat_p::StableHashMap<int, Data> standard;
 
 // Block allocation
-fat_p::StableHashMap<int, Data, fat_p::BlockAllocatorPolicy> fast;
+fat_p::StableHashMap<int, Data, std::hash<int>, std::equal_to<int>, fat_p::BlockAllocator> fast;
 
 // Both have identical APIs
 fast[1] = data;
@@ -1229,8 +1221,7 @@ struct MyExcellentHash {
     }
 };
 
-fat_p::StableHashMap<int, Data, 
-    fat_p::DefaultMutablePolicy, MyExcellentHash> map;
+fat_p::StableHashMap<int, Data, MyExcellentHash> map;
 ```
 
 **Rule of thumb:** Unless you've verified your hash has good distribution with your actual keys, keep the mixer enabled. The ~2ns overhead is negligible compared to the clustering penalty.
@@ -1276,10 +1267,12 @@ You can adjust the threshold:
 
 ```cpp
 // Faster lookups, more memory
-map.max_load_factor(0.5f);  // Rehash at 50% full
+fat_p::StableHashMap<int, int> conservative(0, 0.5f);  // 50% max load
+conservative.reserve(1000000);
 
 // Slower lookups, less memory
-map.max_load_factor(0.9f);  // Rehash at 90% full
+fat_p::StableHashMap<int, int> dense(0, 0.9f);         // 90% max load
+dense.reserve(1000000);
 ```
 
 | Load Factor | Find (ns) | Insert (ns) | Memory Overhead |
@@ -1304,59 +1297,6 @@ Avoiding rehashes during bulk insertion provides ~20% speedup.
 
 ---
 
-## Read-Only Mode: Trading Flexibility for Safety
-
-### The Use Case
-
-Many maps are built once and queried forever: configuration tables, lookup tables, interned string pools. After initialization, mutations are bugs, not features.
-
-### Freezing a Map
-
-```cpp
-fat_p::StableHashMap<std::string, Config> config;
-
-// Build phase
-for (const auto& [key, value] : load_config_file())
-    config[key] = value;
-
-// Freeze: no more mutations allowed
-config.freeze();
-
-// Query phase (works normally)
-const Config* db = config.find("database.host");
-
-// Mutation attempts (caught!)
-config["new_key"] = value;  // Debug: assertion failure
-                            // Release: undefined behavior
-```
-
-### Benefits of Freezing
-
-**Bug detection:** Accidental mutations are caught immediately in debug builds. Release builds have undefined behavior for violations, but debug assertions catch mistakes during development.
-
-**Intent documentation:** Calling `freeze()` explicitly documents that the map is now read-only. Future maintainers understand the lifecycle.
-
-**Future optimization potential:** Future versions may leverage frozen state for additional optimizations (e.g., densifying the slot array).
-
-### Unfreezing
-
-If you need to modify a frozen map, explicitly unfreeze it:
-
-```cpp
-config.unfreeze();
-config["new_key"] = value;  // Now allowed
-config.freeze();  // Re-freeze
-```
-
-### Checking State
-
-```cpp
-if (map.is_frozen()) {
-    // Read-only operations only
-}
-```
-
----
 
 ## Heterogeneous Lookup: Avoiding Temporary Objects
 
@@ -1507,7 +1447,7 @@ n->process();  // Must remain valid
 
 **Insert-heavy workloads with Block allocator:**
 ```cpp
-StableHashMap<int, Data, BlockAllocatorPolicy> map;
+StableHashMap<int, Data, std::hash<int>, std::equal_to<int>, fat_p::BlockAllocator> map;
 for (int i = 0; i < 1000000; ++i)
     map[i] = compute(i);  // 4.8x faster than std
 ```
@@ -1665,18 +1605,6 @@ map.find(std::string(some_custom_type));
 
 ### Runtime Errors
 
-**Assertion: "mutation attempted on frozen map"**
-
-You called a mutating operation on a frozen map:
-
-```cpp
-map.freeze();
-map["key"] = value;  // Assertion failure!
-
-// Solution: unfreeze first
-map.unfreeze();
-map["key"] = value;
-```
 
 ### Performance Issues
 
@@ -1689,7 +1617,7 @@ Are you using the Block allocator?
 StableHashMap<int, Data> map;
 
 // Fast: block allocation
-StableHashMap<int, Data, BlockAllocatorPolicy> map;
+StableHashMap<int, Data, std::hash<int>, std::equal_to<int>, fat_p::BlockAllocator> map;
 ```
 
 **Find slower than expected**
@@ -1697,9 +1625,9 @@ StableHashMap<int, Data, BlockAllocatorPolicy> map;
 Check load factor and hash quality:
 
 ```cpp
-// High load factor?
-if (map.load_factor() > 0.85)
-    map.max_load_factor(0.7f);  // Trigger earlier rehash
+// If you want earlier rehashes, configure max load factor at construction.
+// (This StableHashMap version does not provide a runtime setter.)
+fat_p::StableHashMap<Key, Value> map(expected_size, 0.7f);
 
 // Pre-size if you know the count
 map.reserve(expected_size);
@@ -1713,65 +1641,58 @@ Miss lookups are inherently slower than hits (must prove non-existence). If miss
 
 ## API Reference
 
+This section reflects the current `StableHashMap` API as implemented in `StableHashMap.h`.
+
 ### Construction
 
 | Signature | Description |
 |-----------|-------------|
-| `StableHashMap()` | Empty map, default load factor 0.80 |
-| `StableHashMap(size_t n)` | Reserve capacity for n elements |
-| `StableHashMap(InputIt first, InputIt last)` | Construct from iterator range |
-| `StableHashMap(std::initializer_list<...>)` | Construct from initializer list |
+| `StableHashMap()` | Empty map. Default max load factor is 0.80. |
+| `explicit StableHashMap(size_t initial_capacity)` | Allocate a table with at least `initial_capacity` slots (power-of-two rounded). |
+| `StableHashMap(size_t initial_capacity, float max_load_factor)` | Same, with max load factor configured at construction (`0 < lf <= 1`). |
+| `StableHashMap(size_t initial_capacity, float max_load_factor, const Hash& hash)` | Same, with custom hash functor. |
+| `StableHashMap(size_t initial_capacity, float max_load_factor, const Hash& hash, const KeyEqual& equal)` | Same, with custom hash and equality. |
 
-### Element Access
+### Lookup and access
 
 | Method | Returns | Notes |
 |--------|---------|-------|
-| `operator[](key)` | `Value&` | Inserts default if missing |
-| `at(key)` | `Value&` | Throws if missing |
-| `find(key)` | `Value*` | Returns nullptr if missing |
-| `contains(key)` | `bool` | True if key exists |
+| `find(key)` | `Value*` / `const Value*` | Returns `nullptr` if missing. Supports heterogeneous lookup when hash/equal are transparent. |
+| `contains(key)` | `bool` | True if key exists. |
+| `count(key)` | `size_t` | 0 or 1. |
+| `operator[](key)` | `Value&` | Inserts default value on miss. Requires `Value` default-constructible. |
 
 ### Modifiers
 
-| Method | Overwrites Existing? | Returns |
-|--------|---------------------|---------|
-| `insert(k, v)` | No | `bool` |
-| `insert_or_assign(k, v)` | Yes | `pair<Value*, bool>` |
-| `emplace(k, args...)` | Yes | `pair<Value*, bool>` |
-| `try_emplace(k, args...)` | No | `pair<Value*, bool>` |
-| `erase(key)` | N/A | `bool` |
-| `erase(iterator)` | N/A | `iterator` |
-| `clear()` | N/A | `void` |
+| Method | Returns | Notes |
+|--------|---------|-------|
+| `insert(k, v)` | `std::pair<Value*, bool>` | Pointer to value; bool indicates inserted (`true`) vs existing (`false`). |
+| `insert_or_assign(k, v)` | `std::pair<Value*, bool>` | Inserts or assigns; bool indicates inserted (`true`) vs assigned (`false`). |
+| `try_emplace(k, args...)` | `std::pair<Value*, bool>` | Constructs `Value(args...)` only if key is missing. |
+| `erase(key)` | `bool` | True if erased. Invalidates pointers/references to the erased value only. |
+| `clear()` | `void` | Clears all elements. |
 
-### Capacity
+### Capacity and configuration
 
 | Method | Description |
 |--------|-------------|
-| `size()` | Number of elements |
-| `empty()` | True if size == 0 |
-| `bucket_count()` | Number of slots |
-| `load_factor()` | size / bucket_count |
-| `max_load_factor()` | Get threshold |
-| `max_load_factor(f)` | Set threshold |
-| `reserve(n)` | Ensure capacity for n elements |
-| `rehash(n)` | Force rehash to n buckets |
-
-### Read-Only Mode
-
-| Method | Description |
-|--------|-------------|
-| `freeze()` | Disable mutations |
-| `unfreeze()` | Re-enable mutations |
-| `is_frozen()` | Query frozen state |
+| `size()` / `empty()` | Element count queries |
+| `capacity()` | Slot count (power of two) |
+| `load_factor()` | `size / capacity` |
+| `max_load_factor()` | Configured threshold (construction-time) |
+| `reserve(n)` | Ensure capacity for `n` elements without exceeding `max_load_factor()` |
+| `get_allocator()` | Access the node allocator instance |
 
 ### Iteration
 
 ```cpp
-for (auto [key, value] : map) { ... }
+for (auto [key, value] : map) { ... }           // yields a pair by value
 for (auto it = map.begin(); it != map.end(); ++it) { ... }
-```
 
----
+// Prefer these if you want references (no pair copy):
+it.key();
+it.value();
+```
 
 ## Summary
 

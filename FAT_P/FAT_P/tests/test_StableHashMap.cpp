@@ -5,7 +5,7 @@
  * Tests all features including:
  * - Swiss Table SIMD probing with control bytes
  * - Insert, find, erase operations
- * - Load factor management (default 0.7)
+ * - Load factor management (default 0.8)
  * - Power-of-two sizing
  * - Tombstone-based deletion with rehash cleanup
  * - Heterogeneous lookup (transparent hash/equal)
@@ -14,6 +14,35 @@
  * - Performance vs std::unordered_map
  * - BlockAllocator variant for cache-friendly allocation
  */
+
+/*
+FATP_META:
+  meta_version: 1
+  component: StableHashMap
+  file_role: test
+  path: tests/tests/test_StableHashMap.cpp
+  namespace: "fat_p::testing::stablehashmap"
+  layer: tests.containers.associative
+  summary: Unit and regression tests for StableHashMap API, probing invariants, and reference stability.
+  api_stability: candidate
+  related:
+    docs:
+      - "Documentation/Documentation/Associative Containers/StableHashMap_User_Manual.md"
+      - "Documentation/Documentation/Associative Containers/StableHashMap_Overview.md"
+      - "Documentation/Documentation/Associative Containers/Companion Guide - StableHashMap.md"
+    benchmarks:
+      - benchmarks/benchmarks/benchmark_FatPHashMap.cpp
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 1
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <algorithm>
 #include <array>
@@ -30,8 +59,66 @@
 #include <unordered_map>
 #include <vector>
 
+#define FATP_STABLEHASHMAP_TESTING 1
+
 #include "StableHashMap.h"
 #include "FatPTest.h"
+
+// =============================================================================
+// StableHashMapTestingAccess Definition
+// =============================================================================
+// Forward-declared and friended in StableHashMap.h when FATP_STABLEHASHMAP_TESTING
+// is defined. We provide the definition here to keep test code out of the header.
+
+namespace fat_p::stablehash_detail {
+
+struct StableHashMapTestingAccess
+{
+    template <typename MapType>
+    static const uint8_t* ctrl_bytes(const MapType& map)
+    {
+        return map.ctrl_;
+    }
+
+    template <typename MapType>
+    static auto nodes(const MapType& map)
+    {
+        return map.nodes_;
+    }
+
+    template <typename MapType>
+    static size_t capacity(const MapType& map)
+    {
+        return map.capacity_;
+    }
+
+    template <typename MapType>
+    static size_t tombstones(const MapType& map)
+    {
+        return map.tombstones_;
+    }
+
+    template <typename MapType>
+    static size_t growth_threshold(const MapType& map)
+    {
+        return map.growth_threshold_;
+    }
+
+    template <typename MapType>
+    static size_t mask(const MapType& map)
+    {
+        return map.mask_;
+    }
+
+    template <typename MapType, typename K>
+    static size_t hash_key(const MapType& map, const K& key)
+    {
+        // Call the map's internal hash_key which respects is_avalanching trait
+        return map.hash_key(key);
+    }
+};
+
+} // namespace fat_p::stablehash_detail
 
 namespace fat_p::testing::stablehashmap
 {
@@ -182,96 +269,128 @@ template <typename MapType>
 class StableHashMapTester
 {
 public:
+    using Access = stablehash_detail::StableHashMapTestingAccess;
+
     // Count physically full slots (control byte < 0x80)
     static size_t count_full_slots(const MapType& map)
     {
-        if (map.ctrl_ == nullptr) return 0;
-        size_t count = 0;
-        for (size_t i = 0; i < map.capacity_; ++i)
+        const uint8_t* ctrl = Access::ctrl_bytes(map);
+        if (ctrl == nullptr)
         {
-            if (map.ctrl_[i] < 0x80) ++count;  // Full slot
+            return 0;
         }
+
+        size_t count = 0;
+        const size_t cap = Access::capacity(map);
+
+        for (size_t i = 0; i < cap; ++i)
+        {
+            if (ctrl[i] < 0x80)
+            {
+                ++count;
+            }
+        }
+
         return count;
     }
 
     // Count tombstone slots (control byte == 0xFE)
     static size_t count_tombstones(const MapType& map)
     {
-        return map.tombstones_;
+        return Access::tombstones(map);
     }
 
     // Check if map has accumulated tombstones
     static bool has_tombstones(const MapType& map)
     {
-        return map.tombstones_ > 0;
+        return Access::tombstones(map) > 0;
     }
 
     // Get capacity
     static size_t capacity(const MapType& map)
     {
-        return map.capacity_;
+        return Access::capacity(map);
     }
 
     // Compute approximate average probe distance (based on H1 distribution)
     // Note: Swiss Table uses triangular probing, so this is approximate
     static double average_probe_distance(const MapType& map)
     {
-        if (map.ctrl_ == nullptr || map.size_ == 0) return 0.0;
-        
+        const uint8_t* ctrl = Access::ctrl_bytes(map);
+        if (ctrl == nullptr || map.size() == 0)
+        {
+            return 0.0;
+        }
+
         size_t total_dist = 0;
         size_t count = 0;
-        
-        for (size_t i = 0; i < map.capacity_; ++i)
+
+        const size_t cap = Access::capacity(map);
+        auto nodes = Access::nodes(map);
+
+        for (size_t i = 0; i < cap; ++i)
         {
-            if (map.ctrl_[i] < 0x80 && map.nodes_[i] != nullptr)
+            if (ctrl[i] < 0x80 && nodes[i] != nullptr)
             {
                 // Compute expected position from hash
-                size_t h = map.hash_key(map.nodes_[i]->key);
-                size_t ideal = h & map.mask_;
+                size_t h = Access::hash_key(map, nodes[i]->key);
+                size_t ideal = h & Access::mask(map);
                 size_t dist = (i >= ideal) ? (i - ideal)
-                                           : (i + map.capacity_ - ideal);
+                                           : (i + cap - ideal);
                 total_dist += dist;
                 ++count;
             }
         }
+
         return count > 0 ? static_cast<double>(total_dist) / count : 0.0;
     }
 
     // Get maximum probe distance
     static size_t max_probe_distance(const MapType& map)
     {
-        if (map.ctrl_ == nullptr || map.size_ == 0) return 0;
-        
-        size_t max_dist = 0;
-        for (size_t i = 0; i < map.capacity_; ++i)
+        const uint8_t* ctrl = Access::ctrl_bytes(map);
+        if (ctrl == nullptr || map.size() == 0)
         {
-            if (map.ctrl_[i] < 0x80 && map.nodes_[i] != nullptr)
+            return 0;
+        }
+
+        size_t max_dist = 0;
+
+        const size_t cap = Access::capacity(map);
+        auto nodes = Access::nodes(map);
+
+        for (size_t i = 0; i < cap; ++i)
+        {
+            if (ctrl[i] < 0x80 && nodes[i] != nullptr)
             {
-                size_t h = map.hash_key(map.nodes_[i]->key);
-                size_t ideal = h & map.mask_;
+                size_t h = Access::hash_key(map, nodes[i]->key);
+                size_t ideal = h & Access::mask(map);
                 size_t dist = (i >= ideal) ? (i - ideal)
-                                           : (i + map.capacity_ - ideal);
-                if (dist > max_dist) max_dist = dist;
+                                           : (i + cap - ideal);
+                if (dist > max_dist)
+                {
+                    max_dist = dist;
+                }
             }
         }
+
         return max_dist;
     }
 
-
     static const uint8_t* ctrl_bytes(const MapType& map)
     {
-        return map.ctrl_;
+        return Access::ctrl_bytes(map);
     }
 
     static size_t mask(const MapType& map)
     {
-        return map.mask_;
+        return Access::mask(map);
     }
 
     template <typename K>
     static size_t hash_key(const MapType& map, const K& key)
     {
-        return map.hash_key(key);
+        return Access::hash_key(map, key);
     }
 };
 
@@ -405,7 +524,7 @@ TEST_CASE(ctrl_tail_wraparound_probe)
 {
     struct IdentityHash
     {
-        using is_avalanching = int;
+                using is_avalanching = int;  // Opt-out marker: disable hash finalizer
 
         size_t operator()(int k) const noexcept
         {
@@ -493,8 +612,8 @@ TEST_CASE(load_factor)
 
     float load = map.load_factor();
     ASSERT_TRUE(load >= 0.0f && load <= 1.0f, "Load factor should be between 0 and 1");
-    ASSERT_TRUE(load <= 0.7f, "Load factor should not exceed 0.7 (default max)");
-
+        ASSERT_TRUE(load <= map.max_load_factor(),
+        "Load factor should not exceed max_load_factor()");
     return true;
 }
 
@@ -1273,38 +1392,6 @@ TEST_CASE(reference_stability_with_strings)
     return true;
 }
 
-TEST_CASE(freeze_and_fluent_api)
-{
-    // Test freeze()
-    StableHashMap<int, int> map1;
-    map1.insert(1, 100);
-    map1.freeze();
-    
-    ASSERT_TRUE(map1.is_frozen(), "Should be frozen after freeze()");
-    
-    // Verify find still works
-    int* val = map1.find(1);
-    ASSERT_NOT_NULLPTR(val, "find() should work on frozen map");
-    ASSERT_EQ(*val, 100, "Value should be 100");
-    
-    // Test fluent chaining - freeze() returns reference
-    StableHashMap<int, int> map2;
-    map2.insert(1, 100);
-    map2.insert(2, 200);
-    
-    StableHashMap<int, int>& ref = map2.freeze();
-    ASSERT_TRUE(&ref == &map2, "freeze() should return *this");
-    ASSERT_TRUE(map2.is_frozen(), "Should be frozen");
-    
-    // Test freeze() also returns reference for chaining
-    StableHashMap<int, int> map3;
-    StableHashMap<int, int>& ref3 = map3.insert(3, 300).second ? map3 : map3;
-    map3.freeze();
-    ASSERT_TRUE(map3.is_frozen(), "Should be frozen after freeze()");
-
-    return true;
-}
-
 // ============================================================================
 // Heterogeneous Lookup Tests
 // ============================================================================
@@ -2000,8 +2087,6 @@ bool test_StableHashMap()
     RUN_TEST_NS(runner, stablehashmap, reference_stability_across_erase);
     RUN_TEST_NS(runner, stablehashmap, reference_stability_mixed_operations);
     RUN_TEST_NS(runner, stablehashmap, reference_stability_with_strings);
-    
-    RUN_TEST_NS(runner, stablehashmap, freeze_and_fluent_api);
     RUN_TEST_NS(runner, stablehashmap, heterogeneous_lookup);
     RUN_TEST_NS(runner, stablehashmap, heterogeneous_lookup_non_transparent);
     RUN_TEST_NS(runner, stablehashmap, heterogeneous_try_emplace_rvalue);

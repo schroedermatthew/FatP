@@ -70,6 +70,41 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: FatPBenchmarkRunner
+  file_role: public_header
+  path: fat_p/FatPBenchmarkRunner.h
+  namespace: fat_p
+  summary: "Public header for FatPBenchmarkRunner."
+  api_stability: in_work
+  related:
+    docs_search: "FatPBenchmarkRunner"
+    tests:
+      - tests/test_FatPBenchmarkRunner.cpp
+    benchmarks:
+      - benchmarks/benchmark_AlignedVector.cpp
+      - benchmarks/benchmark_AllocationStrategies.cpp
+      - benchmarks/benchmark_EqualityComparisonsAny.cpp
+      - benchmarks/benchmark_FatPHashMap.cpp
+      - benchmarks/benchmark_FeatureManager.cpp
+      - benchmarks/benchmark_FlatMapSet.cpp
+      - benchmarks/benchmark_FloatingPointComparison.cpp
+      - benchmarks/benchmark_PolicyIterator.cpp
+      - benchmarks/benchmark_SlotMap.cpp
+      - benchmarks/benchmark_SmallVector.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 4
+    defines_unprefixed: 3
+    undefs_total: 0
+    includes_windows_h: true
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 // ============================================================================
 // MSVC Compatibility - Must be before ANY includes
 // ============================================================================

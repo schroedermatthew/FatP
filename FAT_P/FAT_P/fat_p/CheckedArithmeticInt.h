@@ -29,7 +29,7 @@
  * - SaturatingPolicy on NEON: Zero overhead via hardware vqadd/vqsub
  *
  * Why int8/int16 SIMD is NOT implemented:
- * - Wide-multiply explosion (int8*int8â†’int16 requires unpack/repack)
+ * - Wide-multiply explosion (int8*int8Ã¢â€ â€™int16 requires unpack/repack)
  * - No _mm256_mul_epi8 intrinsic exists
  * - C++ promotes int8*int8 to int (overflow on narrowing, not operation)
  * - Image/audio usually wants saturation, not error detection
@@ -45,6 +45,28 @@
  */
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: CheckedArithmeticInt
+  file_role: public_header
+  path: fat_p/CheckedArithmeticInt.h
+  namespace: fat_p
+  summary: "Public header for CheckedArithmeticInt."
+  api_stability: in_work
+  related:
+    docs_search: "CheckedArithmeticInt"
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include "CheckedArithmeticPolicies.h"
 #include "enforce.h"
 
@@ -107,11 +129,11 @@ inline void checked_arithmetic_fail(const char* locus, Msgs&&... msgs)
  *   auto sum = checked_add(100, 200);  // Throws on overflow
  *   auto safe = checked_add<ReturnExpectedPolicy>(a, b);  // Returns Expected
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_INTEGRAL>
 [[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_add(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
-#if HAS_BUILTIN_OVERFLOW
+#if FATP_HAS_BUILTIN_OVERFLOW
     T result;
     if (__builtin_add_overflow(a, b, &result))
     {
@@ -204,11 +226,11 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
 /**
  * @brief Checked subtraction for integers with overflow detection
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_INTEGRAL>
 [[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_sub(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
-#if HAS_BUILTIN_OVERFLOW
+#if FATP_HAS_BUILTIN_OVERFLOW
     T result;
     if (__builtin_sub_overflow(a, b, &result))
     {
@@ -299,11 +321,11 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
 /**
  * @brief Checked multiplication for integers with overflow detection
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_INTEGRAL>
 [[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_mul(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
-#if HAS_BUILTIN_OVERFLOW
+#if FATP_HAS_BUILTIN_OVERFLOW
     T result;
     if (__builtin_mul_overflow(a, b, &result))
     {
@@ -391,7 +413,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
  * - Division by zero
  * - MIN / -1 overflow (for signed types)
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_INTEGRAL>
 [[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_div(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -442,7 +464,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
 /**
  * @brief Checked modulo for integers with zero and overflow detection
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_INTEGRAL>
 [[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_mod(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -495,7 +517,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
 /**
  * @brief Checked bitwise AND (always safe, no overflow possible)
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_INTEGRAL>
 [[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_and(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -506,7 +528,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
 /**
  * @brief Checked bitwise OR (always safe, no overflow possible)
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_INTEGRAL>
 [[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_or(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -517,7 +539,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
 /**
  * @brief Checked bitwise XOR (always safe, no overflow possible)
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_INTEGRAL>
 [[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_xor(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -533,7 +555,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
  * - Left-shifting negative signed values (C++ UB)
  * - Left-shifting positive signed values through the sign bit (C++ UB)
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL, typename S>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_INTEGRAL, typename S>
 [[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_left_shift(T a, S shift)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -609,7 +631,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL, typename S>
 /**
  * @brief Checked right shift with invalid shift detection
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL, typename S>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_INTEGRAL, typename S>
 [[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_right_shift(T a, S shift)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -654,7 +676,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL, typename S>
  *
  * For signed types, -MIN overflows because |MIN| > MAX in two's complement.
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_INTEGRAL>
 [[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_negate(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -688,7 +710,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
  * For signed types, abs(MIN) overflows because |MIN| > MAX.
  * For unsigned types, this is a no-op.
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_INTEGRAL>
 [[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_abs(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -722,7 +744,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
 /**
  * @brief Checked increment (a + 1)
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_INTEGRAL>
 [[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_inc(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -732,7 +754,7 @@ template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
 /**
  * @brief Checked decrement (a - 1)
  */
-template <typename Policy = ThrowOnErrorPolicy, ENABLE_IF_INTEGRAL>
+template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_INTEGRAL>
 [[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_dec(T a)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
@@ -1098,7 +1120,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
 /**
  * @brief SIMD-accelerated checked vector multiplication for integers
  *
- * Uses wide-multiply technique: int32*int32â†’int64 with bounds check.
+ * Uses wide-multiply technique: int32*int32Ã¢â€ â€™int64 with bounds check.
  * Only available for int32_t/uint32_t (int64 would need int128).
  */
 template <typename Policy = ThrowOnErrorPolicy, typename T>

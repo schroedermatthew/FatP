@@ -26,14 +26,14 @@
  * @section example Basic Example
  * @code{.cpp}
  * #include "JsonLite.h"
- * USING_JSON_LITE()
+ * FATP_USING_JSON_LITE()
  *
  * struct Config {
  *     int port;
  *     std::string host;
  *     std::optional<int> timeout;
  * };
- * CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, timeout)
+ * FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, timeout)
  * 
  * int main() {
  *     Config cfg{8080, "localhost", 30};
@@ -63,6 +63,31 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: JsonLite
+  file_role: public_header
+  path: fat_p/JsonLite.h
+  namespace: fat_p
+  summary: "Public header for JsonLite."
+  api_stability: in_work
+  related:
+    docs_search: "JsonLite"
+    tests:
+      - tests/test_DiagnosticLogger_Json.cpp
+      - tests/test_JsonLite.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 66
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -121,9 +146,9 @@ namespace json_detail {
      * 
      * @details Stores file name, line number, and function name for error reporting.
      * This is a simple alternative to std::source_location (C++20) that works in C++17.
-     * Used by json_enforce macro to provide detailed error messages with context.
+     * Used by fatp_json_enforce macro to provide detailed error messages with context.
      * 
-     * @see json_enforce
+     * @see fatp_json_enforce
      * @see JSON_LOCUS
      */
     struct SourceLocation 
@@ -138,7 +163,7 @@ namespace json_detail {
      * @brief Macro to capture current source location
      * 
      * @details Expands to a SourceLocation structure initialized with the current
-     * file, line, and function. Used internally by json_enforce for error reporting.
+     * file, line, and function. Used internally by fatp_json_enforce for error reporting.
      * 
      * @code{.cpp}
      * SourceLocation loc = JSON_LOCUS;
@@ -146,7 +171,7 @@ namespace json_detail {
      * @endcode
      * 
      * @see SourceLocation
-     * @see json_enforce
+     * @see fatp_json_enforce
      */
     #define JSON_LOCUS ::fat_p::json_detail::SourceLocation{__FILE__, __LINE__, __func__}
     
@@ -172,7 +197,7 @@ namespace json_detail {
      * @brief Variadic template to append multiple values to string stream
      * 
      * @details Recursively appends values to the output string stream, separated by
-     * spaces. This is used internally by json_enforce to build error messages from
+     * spaces. This is used internally by fatp_json_enforce to build error messages from
      * multiple arguments.
      * 
      * @code{.cpp}
@@ -187,7 +212,7 @@ namespace json_detail {
      * @param first First value to append
      * @param rest Remaining values to append
      * 
-     * @see json_enforce_impl
+     * @see fatp_json_enforce_impl
      */
     template<typename T, typename... Args>
     inline void append_to_stream(std::ostringstream& oss, const T& first, const Args&... rest) 
@@ -209,9 +234,9 @@ namespace json_detail {
     }
     
     /**
-     * @brief Internal implementation of json_enforce macro
+     * @brief Internal implementation of fatp_json_enforce macro
      * 
-     * @details This function is called by the json_enforce macro when a condition fails.
+     * @details This function is called by the fatp_json_enforce macro when a condition fails.
      * It builds a comprehensive error message including source location and any additional
      * context provided via variadic arguments, then throws std::runtime_error.
      * 
@@ -224,13 +249,13 @@ namespace json_detail {
      * 
      * @throws std::runtime_error Always throws with detailed error message
      * 
-     * @warning This function should not be called directly; use the json_enforce macro instead
+     * @warning This function should not be called directly; use the fatp_json_enforce macro instead
      * 
-     * @see json_enforce
+     * @see fatp_json_enforce
      * @see SourceLocation
      */
     template<typename... Args>
-    [[noreturn]] inline void json_enforce_impl(bool condition, SourceLocation loc, Args&&... args) 
+    [[noreturn]] inline void fatp_json_enforce_impl(bool condition, SourceLocation loc, Args&&... args) 
     {
         if (!condition) 
         {
@@ -257,10 +282,10 @@ namespace json_detail {
  *
  * @code{.cpp}
  * // Basic usage
- * json_enforce(value >= 0, "Value must be non-negative");
+ * fatp_json_enforce(value >= 0, "Value must be non-negative");
  *
  * // With context (name-value pairs)
- * json_enforce(port >= 1024,
+ * fatp_json_enforce(port >= 1024,
  *     "Invalid port number",
  *     "port", port,
  *     "min", 1024);
@@ -276,11 +301,11 @@ namespace json_detail {
  // - Condition is stringified (#condition) and included in error message
  // - JSON_LOCUS captures __FILE__, __LINE__, __func__ at the call site
  // - ##__VA_ARGS__ handles the zero-args case (GCC/Clang extension, C++20 standard)
- // - No ODR issues: macro expands inline, json_enforce_impl is in detail namespace
-#define json_enforce(condition, ...) \
+ // - No ODR issues: macro expands inline, fatp_json_enforce_impl is in detail namespace
+#define fatp_json_enforce(condition, ...) \
     do { \
         if (!(condition)) { \
-            ::fat_p::json_detail::json_enforce_impl(false, JSON_LOCUS, \
+            ::fat_p::json_detail::fatp_json_enforce_impl(false, JSON_LOCUS, \
                 "condition: ", #condition, ##__VA_ARGS__); \
         } \
     } while(0)
@@ -340,7 +365,7 @@ inline To checked_cast(From value)
         if (value < static_cast<From>(std::numeric_limits<To>::min()) ||
             value > static_cast<From>(std::numeric_limits<To>::max()))
         {
-            json_enforce(false,
+            fatp_json_enforce(false,
                 "Numeric cast out of range: value=", value,
                 " target_type=", typeid(To).name(),
                 " min=", std::numeric_limits<To>::min(),
@@ -356,7 +381,7 @@ inline To checked_cast(From value)
         if (value > static_cast<typename std::make_unsigned<To>::type>(
             std::numeric_limits<To>::max()))
         {
-            json_enforce(false,
+            fatp_json_enforce(false,
                 "Numeric cast out of range: value=", value,
                 " target_type=", typeid(To).name(),
                 " max=", std::numeric_limits<To>::max());
@@ -371,7 +396,7 @@ inline To checked_cast(From value)
         // First check: reject negative values outright
         if (value < 0)
         {
-            json_enforce(false,
+            fatp_json_enforce(false,
                 "Numeric cast: negative value for unsigned type: value=", value,
                 " target_type=", typeid(To).name());
         }
@@ -380,7 +405,7 @@ inline To checked_cast(From value)
         if (static_cast<typename std::make_unsigned<From>::type>(value) >
             std::numeric_limits<To>::max())
         {
-            json_enforce(false,
+            fatp_json_enforce(false,
                 "Numeric cast out of range: value=", value,
                 " target_type=", typeid(To).name(),
                 " max=", std::numeric_limits<To>::max());
@@ -393,7 +418,7 @@ inline To checked_cast(From value)
     {
         if (value > std::numeric_limits<To>::max())
         {
-            json_enforce(false,
+            fatp_json_enforce(false,
                 "Numeric cast out of range: value=", value,
                 " target_type=", typeid(To).name(),
                 " max=", std::numeric_limits<To>::max());
@@ -458,14 +483,14 @@ namespace json_detail {
         static_assert(std::is_integral_v<IntType>, "IntType must be an integral type");
         
         double intpart;
-        json_enforce(fabs(std::modf(d, &intpart)) <= double_epsilon,
+        fatp_json_enforce(fabs(std::modf(d, &intpart)) <= double_epsilon,
                 "JSON conversion error: fractional part detected",
                 "value", d,
                 "target_type", type_name);
         
         if constexpr (std::is_unsigned_v<IntType>) 
         {
-            json_enforce(d >= 0, 
+            fatp_json_enforce(d >= 0, 
                     "JSON conversion error: negative value for unsigned type", 
                     "value", d,
                     "target_type", type_name);
@@ -478,7 +503,7 @@ namespace json_detail {
             
             if (intpart < type_min || intpart > type_max)
             {
-                json_enforce(false,
+                fatp_json_enforce(false,
                         "JSON conversion error: value out of range for 64-bit signed integer",
                         "value", d,
                         "target_type", type_name);
@@ -488,7 +513,7 @@ namespace json_detail {
             
             if (intpart < 0.0 && candidate > 0)
             {
-                json_enforce(false,
+                fatp_json_enforce(false,
                         "JSON conversion error: underflow detected",
                         "value", d,
                         "converted", candidate,
@@ -497,7 +522,7 @@ namespace json_detail {
             
             if (intpart > 0.0 && candidate < 0)
             {
-                json_enforce(false,
+                fatp_json_enforce(false,
                         "JSON conversion error: overflow detected",
                         "value", d,
                         "converted", candidate,
@@ -511,7 +536,7 @@ namespace json_detail {
             constexpr double type_min = static_cast<double>(std::numeric_limits<IntType>::min());
             constexpr double type_max = static_cast<double>(std::numeric_limits<IntType>::max());
             
-            json_enforce(intpart >= type_min && intpart <= type_max,
+            fatp_json_enforce(intpart >= type_min && intpart <= type_max,
                     "JSON conversion error: value out of range",
                     "value", d,
                     "target_type", type_name);
@@ -521,7 +546,7 @@ namespace json_detail {
             if constexpr (sizeof(IntType) >= 8) 
             {
                 double roundtrip = static_cast<double>(candidate);
-                json_enforce(roundtrip == intpart,
+                fatp_json_enforce(roundtrip == intpart,
                         "JSON conversion error: precision loss or overflow detected",
                         "value", d,
                         "converted", candidate,
@@ -533,12 +558,12 @@ namespace json_detail {
     }
 
     /**
-     * @brief Marks code path as unreachable after json_enforce failure
+     * @brief Marks code path as unreachable after fatp_json_enforce failure
      *
-     * @details Calls std::abort(). Placed after json_enforce in functions
+     * @details Calls std::abort(). Placed after fatp_json_enforce in functions
      * that require a return value on all paths.
      *
-     * @see json_enforce
+     * @see fatp_json_enforce
      */
     [[noreturn]] inline void unreachable_after_enforce()
     {
@@ -1525,7 +1550,7 @@ namespace json_detail {
         // Guard against indent_step == 0 to prevent division by zero
         size_t depth = static_cast<size_t>(indent /
             (Policy::indent_step > 0 ? Policy::indent_step : 1));
-        json_enforce(depth <= Policy::max_dump_depth,
+        fatp_json_enforce(depth <= Policy::max_dump_depth,
             "JSON dump error: maximum nesting depth exceeded",
             "max_depth", Policy::max_dump_depth,
             "current_depth", depth);
@@ -1889,7 +1914,7 @@ inline JsonValue to_json(const JsonValue& value)
 }
 
 /**
- * @def USING_JSON_LITE
+ * @def FATP_USING_JSON_LITE
  * @brief Convenience macro to bring JsonLite symbols into scope
  * 
  * @details This macro provides a clean way to import all necessary JsonLite functionality
@@ -1902,13 +1927,13 @@ inline JsonValue to_json(const JsonValue& value)
  * Place at the top of your implementation files after including JsonLite.h:
  * @code{.cpp}
  * #include "JsonLite.h"
- * USING_JSON_LITE()
+ * FATP_USING_JSON_LITE()
  * 
  * struct Config {
  *     int port;
  *     std::string host;
  * };
- * CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host)
+ * FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host)
  * 
  * int main() {
  *     Config cfg{8080, "localhost"};
@@ -1920,7 +1945,7 @@ inline JsonValue to_json(const JsonValue& value)
  * If you prefer explicit qualification or want to avoid namespace pollution:
  * @code{.cpp}
  * #include "JsonLite.h"
- * // Don't use USING_JSON_LITE()
+ * // Don't use FATP_USING_JSON_LITE()
  * 
  * // Use explicit qualification
  * fat_p::save_params("config.json", cfg);
@@ -1934,22 +1959,22 @@ inline JsonValue to_json(const JsonValue& value)
  * @note This macro is safe to use in .cpp files but avoid in header files
  * @note It enables ADL for to_json/from_json, which is required for the macros to work
  * 
- * @see CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE
+ * @see FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE
  * @see to_json
  * @see from_json
  */
-#define USING_JSON_LITE() \
+#define FATP_USING_JSON_LITE() \
     using namespace fat_p; \
     using fat_p::to_json; \
     using fat_p::from_json;
 
 /**
- * @def JSONLITE_CONVENIENCE_USINGS
+ * @def FATP_JSONLITE_CONVENIENCE_USINGS
  * @brief Selective using declarations for JsonLite convenience functions
  * 
  * @details Brings only the commonly-used free functions into scope without
  * importing the entire fat_p namespace. This is a lighter alternative to
- * USING_JSON_LITE() for users who prefer minimal namespace pollution.
+ * FATP_USING_JSON_LITE() for users who prefer minimal namespace pollution.
  * 
  * This macro imports:
  * - save_params / load_params - File I/O
@@ -1963,11 +1988,11 @@ inline JsonValue to_json(const JsonValue& value)
  * @section usage Usage
  * @code{.cpp}
  * #include "JsonLite.h"
- * JSONLITE_CONVENIENCE_USINGS()
+ * FATP_JSONLITE_CONVENIENCE_USINGS()
  * 
  * namespace my_app {
  *     struct Config { int port; std::string host; };
- *     CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host)
+ *     FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host)
  * }
  * 
  * int main() {
@@ -1981,13 +2006,13 @@ inline JsonValue to_json(const JsonValue& value)
  * }
  * @endcode
  * 
- * @note For full namespace import including types, use USING_JSON_LITE() instead
+ * @note For full namespace import including types, use FATP_USING_JSON_LITE() instead
  * 
- * @see USING_JSON_LITE
+ * @see FATP_USING_JSON_LITE
  * @see save_params
  * @see load_params
  */
-#define JSONLITE_CONVENIENCE_USINGS() \
+#define FATP_JSONLITE_CONVENIENCE_USINGS() \
     using fat_p::save_params; \
     using fat_p::load_params; \
     using fat_p::parse_json; \
@@ -1997,34 +2022,34 @@ inline JsonValue to_json(const JsonValue& value)
     using fat_p::query_json_pointer; \
     using fat_p::save_params_with_backup;
 
-#define CPP_JSON_EXPAND(x) x
+#define FATP_JSON_EXPAND(x) x
 
-#define CPP_JSON_ARG_COUNT_IMPL(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,_22,_23,_24,_25,_26,_27,_28,_29,_30,_31,_32,_33,_34,_35,_36,_37,_38,_39,_40,_41,_42,_43,_44,_45,_46,_47,_48,_49,_50,N,...) N
-#define CPP_JSON_ARG_COUNT(...) CPP_JSON_EXPAND(CPP_JSON_ARG_COUNT_IMPL(__VA_ARGS__,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1))
+#define FATP_JSON_ARG_COUNT_IMPL(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,_22,_23,_24,_25,_26,_27,_28,_29,_30,_31,_32,_33,_34,_35,_36,_37,_38,_39,_40,_41,_42,_43,_44,_45,_46,_47,_48,_49,_50,N,...) N
+#define FATP_JSON_ARG_COUNT(...) FATP_JSON_EXPAND(FATP_JSON_ARG_COUNT_IMPL(__VA_ARGS__,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1))
 
-#define CPP_JSON_CAT(a, b) CPP_JSON_CAT_IMPL(a, b)
-#define CPP_JSON_CAT_IMPL(a, b) a##b
+#define FATP_JSON_CAT(a, b) FATP_JSON_CAT_IMPL(a, b)
+#define FATP_JSON_CAT_IMPL(a, b) a##b
 
-#define CPP_JSON_TO_FIELD(field) \
+#define FATP_JSON_TO_FIELD(field) \
     do { obj[#field] = json_detail::to_json_value(value.field); } while(0)
 
-#define CPP_JSON_FROM_FIELD(field) \
+#define FATP_JSON_FROM_FIELD(field) \
     do { \
         if (auto it = obj.find(#field); it != obj.end()) { \
             try { \
                 from_json(it->second, value.field); \
             } catch (const std::exception& e) { \
-                json_enforce(false, \
+                fatp_json_enforce(false, \
                         "Error deserializing field", \
                         "field", #field, \
                         "error", e.what()); \
             } \
         } else if constexpr (!fat_p::json_detail::is_optional_v<decltype((value.field))>) { \
-            json_enforce(false, "Required field missing", "field", #field); \
+            fatp_json_enforce(false, "Required field missing", "field", #field); \
         } \
     } while(0)
 
-#define CPP_JSON_FROM_FIELD_OPT(field) \
+#define FATP_JSON_FROM_FIELD_OPT(field) \
     do { \
         if (auto it = obj.find(#field); it != obj.end()) { \
             from_json(it->second, value.field); \
@@ -2044,70 +2069,70 @@ inline JsonValue to_json(const JsonValue& value)
   * - Split into multiple structs
   */
 
-#define CPP_JSON_APPLY_1(macro, x1) macro(x1);
-#define CPP_JSON_APPLY_2(macro, x1, x2) macro(x1); macro(x2);
-#define CPP_JSON_APPLY_3(macro, x1, x2, x3) macro(x1); macro(x2); macro(x3);
-#define CPP_JSON_APPLY_4(macro, x1, x2, x3, x4) macro(x1); macro(x2); macro(x3); macro(x4);
-#define CPP_JSON_APPLY_5(macro, x1, x2, x3, x4, x5) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5);
-#define CPP_JSON_APPLY_6(macro, x1, x2, x3, x4, x5, x6) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6);
-#define CPP_JSON_APPLY_7(macro, x1, x2, x3, x4, x5, x6, x7) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7);
-#define CPP_JSON_APPLY_8(macro, x1, x2, x3, x4, x5, x6, x7, x8) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8);
-#define CPP_JSON_APPLY_9(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9);
-#define CPP_JSON_APPLY_10(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10);
-#define CPP_JSON_APPLY_11(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11);
-#define CPP_JSON_APPLY_12(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12);
-#define CPP_JSON_APPLY_13(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13);
-#define CPP_JSON_APPLY_14(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14);
-#define CPP_JSON_APPLY_15(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15);
-#define CPP_JSON_APPLY_16(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16);
-#define CPP_JSON_APPLY_17(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17);
-#define CPP_JSON_APPLY_18(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18);
-#define CPP_JSON_APPLY_19(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19);
-#define CPP_JSON_APPLY_20(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20);
-#define CPP_JSON_APPLY_21(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21);
-#define CPP_JSON_APPLY_22(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22);
-#define CPP_JSON_APPLY_23(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23);
-#define CPP_JSON_APPLY_24(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24);
-#define CPP_JSON_APPLY_25(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25);
-#define CPP_JSON_APPLY_26(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26);
-#define CPP_JSON_APPLY_27(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27);
-#define CPP_JSON_APPLY_28(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28);
-#define CPP_JSON_APPLY_29(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29);
-#define CPP_JSON_APPLY_30(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30);
-#define CPP_JSON_APPLY_31(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31);
-#define CPP_JSON_APPLY_32(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32);
-#define CPP_JSON_APPLY_33(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33);
-#define CPP_JSON_APPLY_34(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34);
-#define CPP_JSON_APPLY_35(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35);
-#define CPP_JSON_APPLY_36(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36);
-#define CPP_JSON_APPLY_37(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37);
-#define CPP_JSON_APPLY_38(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38);
-#define CPP_JSON_APPLY_39(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39);
-#define CPP_JSON_APPLY_40(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40);
-#define CPP_JSON_APPLY_41(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41);
-#define CPP_JSON_APPLY_42(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42);
-#define CPP_JSON_APPLY_43(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43);
-#define CPP_JSON_APPLY_44(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43); macro(x44);
-#define CPP_JSON_APPLY_45(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43); macro(x44); macro(x45);
-#define CPP_JSON_APPLY_46(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43); macro(x44); macro(x45); macro(x46);
-#define CPP_JSON_APPLY_47(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43); macro(x44); macro(x45); macro(x46); macro(x47);
-#define CPP_JSON_APPLY_48(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43); macro(x44); macro(x45); macro(x46); macro(x47); macro(x48);
-#define CPP_JSON_APPLY_49(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48, x49) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43); macro(x44); macro(x45); macro(x46); macro(x47); macro(x48); macro(x49);
-#define CPP_JSON_APPLY_50(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48, x49, x50) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43); macro(x44); macro(x45); macro(x46); macro(x47); macro(x48); macro(x49); macro(x50);
+#define FATP_JSON_APPLY_1(macro, x1) macro(x1);
+#define FATP_JSON_APPLY_2(macro, x1, x2) macro(x1); macro(x2);
+#define FATP_JSON_APPLY_3(macro, x1, x2, x3) macro(x1); macro(x2); macro(x3);
+#define FATP_JSON_APPLY_4(macro, x1, x2, x3, x4) macro(x1); macro(x2); macro(x3); macro(x4);
+#define FATP_JSON_APPLY_5(macro, x1, x2, x3, x4, x5) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5);
+#define FATP_JSON_APPLY_6(macro, x1, x2, x3, x4, x5, x6) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6);
+#define FATP_JSON_APPLY_7(macro, x1, x2, x3, x4, x5, x6, x7) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7);
+#define FATP_JSON_APPLY_8(macro, x1, x2, x3, x4, x5, x6, x7, x8) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8);
+#define FATP_JSON_APPLY_9(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9);
+#define FATP_JSON_APPLY_10(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10);
+#define FATP_JSON_APPLY_11(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11);
+#define FATP_JSON_APPLY_12(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12);
+#define FATP_JSON_APPLY_13(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13);
+#define FATP_JSON_APPLY_14(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14);
+#define FATP_JSON_APPLY_15(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15);
+#define FATP_JSON_APPLY_16(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16);
+#define FATP_JSON_APPLY_17(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17);
+#define FATP_JSON_APPLY_18(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18);
+#define FATP_JSON_APPLY_19(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19);
+#define FATP_JSON_APPLY_20(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20);
+#define FATP_JSON_APPLY_21(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21);
+#define FATP_JSON_APPLY_22(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22);
+#define FATP_JSON_APPLY_23(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23);
+#define FATP_JSON_APPLY_24(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24);
+#define FATP_JSON_APPLY_25(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25);
+#define FATP_JSON_APPLY_26(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26);
+#define FATP_JSON_APPLY_27(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27);
+#define FATP_JSON_APPLY_28(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28);
+#define FATP_JSON_APPLY_29(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29);
+#define FATP_JSON_APPLY_30(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30);
+#define FATP_JSON_APPLY_31(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31);
+#define FATP_JSON_APPLY_32(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32);
+#define FATP_JSON_APPLY_33(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33);
+#define FATP_JSON_APPLY_34(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34);
+#define FATP_JSON_APPLY_35(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35);
+#define FATP_JSON_APPLY_36(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36);
+#define FATP_JSON_APPLY_37(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37);
+#define FATP_JSON_APPLY_38(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38);
+#define FATP_JSON_APPLY_39(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39);
+#define FATP_JSON_APPLY_40(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40);
+#define FATP_JSON_APPLY_41(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41);
+#define FATP_JSON_APPLY_42(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42);
+#define FATP_JSON_APPLY_43(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43);
+#define FATP_JSON_APPLY_44(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43); macro(x44);
+#define FATP_JSON_APPLY_45(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43); macro(x44); macro(x45);
+#define FATP_JSON_APPLY_46(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43); macro(x44); macro(x45); macro(x46);
+#define FATP_JSON_APPLY_47(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43); macro(x44); macro(x45); macro(x46); macro(x47);
+#define FATP_JSON_APPLY_48(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43); macro(x44); macro(x45); macro(x46); macro(x47); macro(x48);
+#define FATP_JSON_APPLY_49(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48, x49) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43); macro(x44); macro(x45); macro(x46); macro(x47); macro(x48); macro(x49);
+#define FATP_JSON_APPLY_50(macro, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39, x40, x41, x42, x43, x44, x45, x46, x47, x48, x49, x50) macro(x1); macro(x2); macro(x3); macro(x4); macro(x5); macro(x6); macro(x7); macro(x8); macro(x9); macro(x10); macro(x11); macro(x12); macro(x13); macro(x14); macro(x15); macro(x16); macro(x17); macro(x18); macro(x19); macro(x20); macro(x21); macro(x22); macro(x23); macro(x24); macro(x25); macro(x26); macro(x27); macro(x28); macro(x29); macro(x30); macro(x31); macro(x32); macro(x33); macro(x34); macro(x35); macro(x36); macro(x37); macro(x38); macro(x39); macro(x40); macro(x41); macro(x42); macro(x43); macro(x44); macro(x45); macro(x46); macro(x47); macro(x48); macro(x49); macro(x50);
 
-#define CPP_JSON_APPLY_51(...) \
+#define FATP_JSON_APPLY_51(...) \
     static_assert(false, \
-        "CPP_JSON_DEFINE_TYPE_* macros support a maximum of 50 fields. " \
+        "FATP_JSON_DEFINE_TYPE_* macros support a maximum of 50 fields. " \
         "Your struct has 51 or more fields. Solutions: " \
         "1) Use nested structs to group related fields, " \
         "2) Write custom to_json/from_json functions, " \
         "3) Split into multiple smaller structs.")
 
-#define CPP_JSON_FOR_EACH(macro, ...) \
-    CPP_JSON_EXPAND(CPP_JSON_CAT(CPP_JSON_APPLY_, CPP_JSON_ARG_COUNT(__VA_ARGS__))(macro, __VA_ARGS__))
+#define FATP_JSON_FOR_EACH(macro, ...) \
+    FATP_JSON_EXPAND(FATP_JSON_CAT(FATP_JSON_APPLY_, FATP_JSON_ARG_COUNT(__VA_ARGS__))(macro, __VA_ARGS__))
 
 /**
- * @def CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE
+ * @def FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE
  * @brief Define JSON serialization for a struct/class (non-intrusive)
  * 
  * @details This macro generates to_json() and from_json() functions for a user-defined
@@ -2125,7 +2150,7 @@ inline JsonValue to_json(const JsonValue& value)
  * };
  * 
  * // Define serialization (outside the struct, same namespace)
- * CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, enabled)
+ * FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, enabled)
  * 
  * // Now you can:
  * Config cfg{8080, "localhost", true};
@@ -2146,13 +2171,13 @@ inline JsonValue to_json(const JsonValue& value)
  *     std::string city;
  *     int zip;
  * };
- * CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Address, city, zip)
+ * FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Address, city, zip)
  * 
  * struct Person {
  *     std::string name;
  *     Address address;  // Nested struct
  * };
- * CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, address)
+ * FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, address)
  * @endcode
  * 
  * @param Type The type name (struct or class)
@@ -2160,33 +2185,33 @@ inline JsonValue to_json(const JsonValue& value)
  * 
  * @note Place macro call in the same namespace as Type (for ADL)
  * @note All fields must be public or the macro must be a friend
- * @note For private fields, use CPP_JSON_DEFINE_TYPE_INTRUSIVE instead
+ * @note For private fields, use FATP_JSON_DEFINE_TYPE_INTRUSIVE instead
  * 
  * @warning Fields must be listed in the exact order you want them serialized
  * 
- * @see CPP_JSON_DEFINE_TYPE_INTRUSIVE
- * @see CPP_JSON_DEFINE_TYPE_OPTIONAL
+ * @see FATP_JSON_DEFINE_TYPE_INTRUSIVE
+ * @see FATP_JSON_DEFINE_TYPE_OPTIONAL
  * @see to_json
  * @see from_json
  */
-#define CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Type, ...)                                       \
+#define FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Type, ...)                                       \
 [[maybe_unused]] inline void to_json(fat_p::JsonValue& j, const Type& value) {             \
     fat_p::JsonObject obj;                                                                  \
-    CPP_JSON_FOR_EACH(CPP_JSON_TO_FIELD, __VA_ARGS__)                                       \
+    FATP_JSON_FOR_EACH(FATP_JSON_TO_FIELD, __VA_ARGS__)                                       \
     j = std::move(obj);                                                                     \
 }                                                                                           \
 [[maybe_unused]] inline void from_json(const fat_p::JsonValue& j, Type& value) {           \
-    json_enforce(j.is_object(), "JSON type mismatch", "expected", "object",                      \
+    fatp_json_enforce(j.is_object(), "JSON type mismatch", "expected", "object",                      \
             "got", fat_p::json_detail::type_name(j));                                       \
     const auto& obj = std::get<fat_p::JsonObject>(j);                                       \
-    CPP_JSON_FOR_EACH(CPP_JSON_FROM_FIELD, __VA_ARGS__)                                     \
+    FATP_JSON_FOR_EACH(FATP_JSON_FROM_FIELD, __VA_ARGS__)                                     \
 }
 
 /**
- * @def CPP_JSON_DEFINE_TYPE_OPTIONAL
+ * @def FATP_JSON_DEFINE_TYPE_OPTIONAL
  * @brief Define JSON serialization with optional fields
  * 
- * @details Similar to CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE, but makes all fields optional
+ * @details Similar to FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE, but makes all fields optional
  * during deserialization. Missing fields in the JSON are silently skipped rather than
  * causing an error.
  * 
@@ -2202,7 +2227,7 @@ inline JsonValue to_json(const JsonValue& value)
  * };
  * 
  * // All fields are optional during deserialization
- * CPP_JSON_DEFINE_TYPE_OPTIONAL(Settings, port, host, debug)
+ * FATP_JSON_DEFINE_TYPE_OPTIONAL(Settings, port, host, debug)
  * 
  * // This JSON is valid (only some fields present)
  * Settings s = from_json<Settings>(parse_json(R"({"port": 9000})"));
@@ -2220,24 +2245,24 @@ inline JsonValue to_json(const JsonValue& value)
  * @note All fields must have default-constructible values or default member initializers
  * @note Serialization still writes all fields (regardless of value)
  * 
- * @see CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE
+ * @see FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE
  * @see std::optional
  */
-#define CPP_JSON_DEFINE_TYPE_OPTIONAL(Type, ...)                                                \
+#define FATP_JSON_DEFINE_TYPE_OPTIONAL(Type, ...)                                                \
 [[maybe_unused]] inline void to_json(fat_p::JsonValue& j, const Type& value) {                 \
     fat_p::JsonObject obj;                                                                      \
-    CPP_JSON_FOR_EACH(CPP_JSON_TO_FIELD, __VA_ARGS__)                                           \
+    FATP_JSON_FOR_EACH(FATP_JSON_TO_FIELD, __VA_ARGS__)                                           \
     j = std::move(obj);                                                                         \
 }                                                                                               \
 [[maybe_unused]] inline void from_json(const fat_p::JsonValue& j, Type& value) {               \
-    json_enforce(j.is_object(), "JSON type mismatch", "expected", "object",                          \
+    fatp_json_enforce(j.is_object(), "JSON type mismatch", "expected", "object",                          \
             "got", fat_p::json_detail::type_name(j));                                           \
     const auto& obj = std::get<fat_p::JsonObject>(j);                                           \
-    CPP_JSON_FOR_EACH(CPP_JSON_FROM_FIELD_OPT, __VA_ARGS__)                                     \
+    FATP_JSON_FOR_EACH(FATP_JSON_FROM_FIELD_OPT, __VA_ARGS__)                                     \
 }
 
 /**
- * @def CPP_JSON_DEFINE_TYPE_INTRUSIVE
+ * @def FATP_JSON_DEFINE_TYPE_INTRUSIVE
  * @brief Define JSON serialization inside a class (intrusive)
  * 
  * @details This macro generates to_json() and from_json() as friend functions declared
@@ -2262,7 +2287,7 @@ inline JsonValue to_json(const JsonValue& value)
  *         , user_id_(id) {}
  *     
  *     // Define serialization with access to private members
- *     CPP_JSON_DEFINE_TYPE_INTRUSIVE(User, username_, password_hash_, user_id_)
+ *     FATP_JSON_DEFINE_TYPE_INTRUSIVE(User, username_, password_hash_, user_id_)
  * };
  * 
  * // Usage is the same
@@ -2285,20 +2310,20 @@ inline JsonValue to_json(const JsonValue& value)
  * 
  * @warning Type must be default-constructible for deserialization
  * 
- * @see CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE
- * @see CPP_JSON_DEFINE_TYPE_OPTIONAL
+ * @see FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE
+ * @see FATP_JSON_DEFINE_TYPE_OPTIONAL
  */
-#define CPP_JSON_DEFINE_TYPE_INTRUSIVE(Type, ...)                                               \
+#define FATP_JSON_DEFINE_TYPE_INTRUSIVE(Type, ...)                                               \
 [[maybe_unused]] friend void to_json(fat_p::JsonValue& j, const Type& value) {                 \
     fat_p::JsonObject obj;                                                                      \
-    CPP_JSON_FOR_EACH(CPP_JSON_TO_FIELD, __VA_ARGS__)                                           \
+    FATP_JSON_FOR_EACH(FATP_JSON_TO_FIELD, __VA_ARGS__)                                           \
     j = std::move(obj);                                                                         \
 }                                                                                               \
 [[maybe_unused]] friend void from_json(const fat_p::JsonValue& j, Type& value) {               \
-    json_enforce(j.is_object(), "JSON type mismatch", "expected", "object",                          \
+    fatp_json_enforce(j.is_object(), "JSON type mismatch", "expected", "object",                          \
             "got", fat_p::json_detail::type_name(j));                                           \
     const auto& obj = std::get<fat_p::JsonObject>(j);                                           \
-    CPP_JSON_FOR_EACH(CPP_JSON_FROM_FIELD, __VA_ARGS__)                                         \
+    FATP_JSON_FOR_EACH(FATP_JSON_FROM_FIELD, __VA_ARGS__)                                         \
 }
 
 
@@ -2368,7 +2393,7 @@ namespace json_detail {
      */
     inline std::string parse_string(std::string_view s, size_t& pos)
     {
-        json_enforce(pos < s.size() && s[pos] == '"',
+        fatp_json_enforce(pos < s.size() && s[pos] == '"',
             "JSON parse error: expected string",
             "position", pos);
         ++pos;  // Skip opening quote
@@ -2381,7 +2406,7 @@ namespace json_detail {
             if (s[pos] == '\\')
             {
                 ++pos;  // Skip backslash
-                json_enforce(pos < s.size(),
+                fatp_json_enforce(pos < s.size(),
                     "JSON parse error: invalid escape sequence",
                     "position", pos);
 
@@ -2400,7 +2425,7 @@ namespace json_detail {
                     // Unicode escape: \uXXXX
                 case 'u':
                 {
-                    json_enforce(pos + 5 <= s.size(),
+                    fatp_json_enforce(pos + 5 <= s.size(),
                         "JSON parse error: invalid unicode escape",
                         "position", pos);
                     std::string hex = std::string(s.substr(pos + 1, 4));
@@ -2411,7 +2436,7 @@ namespace json_detail {
                     }
                     catch (...)
                     {
-                        json_enforce(false,
+                        fatp_json_enforce(false,
                             "JSON parse error: invalid unicode hex",
                             "position", pos,
                             "hex", hex);
@@ -2422,7 +2447,7 @@ namespace json_detail {
                     // High surrogate: D800-DBFF, must be followed by low surrogate
                     if (codepoint >= 0xD800 && codepoint <= 0xDBFF)
                     {
-                        json_enforce(pos + 6 < s.size() && s[pos + 1] == '\\' && s[pos + 2] == 'u',
+                        fatp_json_enforce(pos + 6 < s.size() && s[pos + 1] == '\\' && s[pos + 2] == 'u',
                             "JSON parse error: incomplete surrogate pair",
                             "position", pos);
                         std::string low_hex = std::string(s.substr(pos + 3, 4));
@@ -2433,13 +2458,13 @@ namespace json_detail {
                         }
                         catch (...)
                         {
-                            json_enforce(false,
+                            fatp_json_enforce(false,
                                 "JSON parse error: invalid low surrogate",
                                 "position", pos,
                                 "hex", low_hex);
                         }
                         // Low surrogate must be in DC00-DFFF range
-                        json_enforce(low_surrogate >= 0xDC00 && low_surrogate <= 0xDFFF,
+                        fatp_json_enforce(low_surrogate >= 0xDC00 && low_surrogate <= 0xDFFF,
                             "JSON parse error: invalid low surrogate value",
                             "position", pos,
                             "value", low_surrogate);
@@ -2450,7 +2475,7 @@ namespace json_detail {
                     // Lone low surrogate is invalid
                     else if (codepoint >= 0xDC00 && codepoint <= 0xDFFF)
                     {
-                        json_enforce(false,
+                        fatp_json_enforce(false,
                             "JSON parse error: unexpected low surrogate",
                             "position", pos,
                             "codepoint", codepoint);
@@ -2485,7 +2510,7 @@ namespace json_detail {
                     }
                     else
                     {
-                        json_enforce(false,
+                        fatp_json_enforce(false,
                             "JSON parse error: invalid unicode codepoint",
                             "position", pos,
                             "codepoint", codepoint);
@@ -2493,7 +2518,7 @@ namespace json_detail {
                     break;
                 }
                 default:
-                    json_enforce(false,
+                    fatp_json_enforce(false,
                         "JSON parse error: invalid escape character",
                         "position", pos,
                         "character", s[pos]);
@@ -2507,7 +2532,7 @@ namespace json_detail {
             ++pos;
         }
 
-        json_enforce(pos < s.size() && s[pos] == '"',
+        fatp_json_enforce(pos < s.size() && s[pos] == '"',
             "JSON parse error: unterminated string",
             "position", pos);
         ++pos;  // Skip closing quote
@@ -2538,7 +2563,7 @@ namespace json_detail {
         // Non-standard extensions: NaN and Infinity (only when policy allows)
         if (s.substr(pos, 3) == "NaN")
         {
-            json_enforce(Policy::allow_nan_inf,
+            fatp_json_enforce(Policy::allow_nan_inf,
                 "JSON parse error: NaN is not valid JSON (use allow_nan_inf policy to enable)",
                 "position", pos);
             pos += 3;
@@ -2546,7 +2571,7 @@ namespace json_detail {
         }
         if (s.substr(pos, 8) == "Infinity")
         {
-            json_enforce(Policy::allow_nan_inf,
+            fatp_json_enforce(Policy::allow_nan_inf,
                 "JSON parse error: Infinity is not valid JSON (use allow_nan_inf policy to enable)",
                 "position", pos);
             pos += 8;
@@ -2554,7 +2579,7 @@ namespace json_detail {
         }
         if (s.substr(pos, 9) == "-Infinity")
         {
-            json_enforce(Policy::allow_nan_inf,
+            fatp_json_enforce(Policy::allow_nan_inf,
                 "JSON parse error: -Infinity is not valid JSON (use allow_nan_inf policy to enable)",
                 "position", pos);
             pos += 9;
@@ -2562,7 +2587,7 @@ namespace json_detail {
         }
 
         // Standard JSON number: must start with digit or minus
-        json_enforce(pos < s.size() && (std::isdigit(s[pos]) || s[pos] == '-'),
+        fatp_json_enforce(pos < s.size() && (std::isdigit(s[pos]) || s[pos] == '-'),
             "JSON parse error: invalid number",
             "position", pos);
 
@@ -2570,7 +2595,7 @@ namespace json_detail {
         if (s[pos] == '-')
         {
             ++pos;
-            json_enforce(pos < s.size() && std::isdigit(s[pos]),
+            fatp_json_enforce(pos < s.size() && std::isdigit(s[pos]),
                 "JSON parse error: invalid number after '-'",
                 "position", pos);
         }
@@ -2580,7 +2605,7 @@ namespace json_detail {
         // Invalid: 01, 007, -01, 00
         if (s[pos] == '0' && pos + 1 < s.size() && std::isdigit(s[pos + 1]))
         {
-            json_enforce(false,
+            fatp_json_enforce(false,
                 "JSON parse error: leading zeros are not allowed in numbers",
                 "position", pos);
         }
@@ -2606,7 +2631,7 @@ namespace json_detail {
             has_decimal = true;
             ++scan_pos;
             // RFC 8259: frac = decimal-point 1*DIGIT (at least one digit required)
-            json_enforce(scan_pos < s.size() && std::isdigit(s[scan_pos]),
+            fatp_json_enforce(scan_pos < s.size() && std::isdigit(s[scan_pos]),
                 "JSON parse error: decimal point must be followed by at least one digit",
                 "position", scan_pos);
             while (scan_pos < s.size() && std::isdigit(s[scan_pos]))
@@ -2626,7 +2651,7 @@ namespace json_detail {
                 ++scan_pos;
             }
             // RFC 8259: exp = e [ minus / plus ] 1*DIGIT (at least one digit required)
-            json_enforce(scan_pos < s.size() && std::isdigit(s[scan_pos]),
+            fatp_json_enforce(scan_pos < s.size() && std::isdigit(s[scan_pos]),
                 "JSON parse error: exponent must be followed by at least one digit",
                 "position", scan_pos);
             while (scan_pos < s.size() && std::isdigit(s[scan_pos]))
@@ -2663,7 +2688,7 @@ namespace json_detail {
         }
 
         // from_chars failed entirely - invalid number format
-        json_enforce(false,
+        fatp_json_enforce(false,
             "JSON parse error: invalid number",
             "position", start,
             "value", std::string(s.substr(start, scan_pos - start)));
@@ -2696,7 +2721,7 @@ namespace json_detail {
     template <typename Policy = StandardJsonPolicy>
     inline JsonArray parse_array(std::string_view s, size_t& pos, size_t depth)
     {
-        json_enforce(depth <= Policy::max_parse_depth,
+        fatp_json_enforce(depth <= Policy::max_parse_depth,
             "JSON parse error: maximum nesting depth exceeded",
             "position", pos,
             "max_depth", Policy::max_parse_depth);
@@ -2718,7 +2743,7 @@ namespace json_detail {
             arr.push_back(parse_value<Policy>(s, pos, depth + 1));
             skip_whitespace<Policy>(s, pos);
 
-            json_enforce(pos < s.size(),
+            fatp_json_enforce(pos < s.size(),
                 "JSON parse error: unterminated array",
                 "position", pos);
 
@@ -2730,14 +2755,14 @@ namespace json_detail {
             }
 
             // Expect comma before next element
-            json_enforce(s[pos] == ',',
+            fatp_json_enforce(s[pos] == ',',
                 "JSON parse error: expected ',' or ']' in array",
                 "position", pos);
             ++pos;
             skip_whitespace<Policy>(s, pos);
         }
 
-        json_enforce(false, "JSON parse error: unterminated array");
+        fatp_json_enforce(false, "JSON parse error: unterminated array");
         unreachable_after_enforce();
     }
 
@@ -2757,7 +2782,7 @@ namespace json_detail {
     template <typename Policy = StandardJsonPolicy>
     inline JsonObject parse_object(std::string_view s, size_t& pos, size_t depth)
     {
-        json_enforce(depth <= Policy::max_parse_depth,
+        fatp_json_enforce(depth <= Policy::max_parse_depth,
             "JSON parse error: maximum nesting depth exceeded",
             "position", pos,
             "max_depth", Policy::max_parse_depth);
@@ -2779,7 +2804,7 @@ namespace json_detail {
             skip_whitespace<Policy>(s, pos);
 
             // Key must be a string
-            json_enforce(pos < s.size() && s[pos] == '"',
+            fatp_json_enforce(pos < s.size() && s[pos] == '"',
                 "JSON parse error: expected string key",
                 "position", pos);
             std::string key = parse_string(s, pos);
@@ -2787,7 +2812,7 @@ namespace json_detail {
             skip_whitespace<Policy>(s, pos);
 
             // Expect colon after key
-            json_enforce(pos < s.size() && s[pos] == ':',
+            fatp_json_enforce(pos < s.size() && s[pos] == ':',
                 "JSON parse error: expected ':' after object key",
                 "position", pos,
                 "key", key);
@@ -2800,7 +2825,7 @@ namespace json_detail {
 
             skip_whitespace<Policy>(s, pos);
 
-            json_enforce(pos < s.size(),
+            fatp_json_enforce(pos < s.size(),
                 "JSON parse error: unterminated object",
                 "position", pos);
 
@@ -2812,13 +2837,13 @@ namespace json_detail {
             }
 
             // Expect comma before next pair
-            json_enforce(s[pos] == ',',
+            fatp_json_enforce(s[pos] == ',',
                 "JSON parse error: expected ',' or '}' in object",
                 "position", pos);
             ++pos;
         }
 
-        json_enforce(false, "JSON parse error: unterminated object");
+        fatp_json_enforce(false, "JSON parse error: unterminated object");
         unreachable_after_enforce();
     }
 
@@ -2845,7 +2870,7 @@ namespace json_detail {
     inline JsonValue parse_value(std::string_view s, size_t& pos, size_t depth)
     {
         skip_whitespace<Policy>(s, pos);
-        json_enforce(pos < s.size(),
+        fatp_json_enforce(pos < s.size(),
             "JSON parse error: unexpected end of input");
 
         char c = s[pos];
@@ -2891,7 +2916,7 @@ namespace json_detail {
             return parse_number<Policy>(s, pos);
         }
 
-        json_enforce(false,
+        fatp_json_enforce(false,
             "JSON parse error: invalid value",
             "position", pos);
         unreachable_after_enforce();
@@ -2937,7 +2962,7 @@ template <typename Policy = StandardJsonPolicy>
 
     // Verify no trailing content after root value
     json_detail::skip_whitespace<Policy>(json, pos);
-    json_enforce(pos == json.size(),
+    fatp_json_enforce(pos == json.size(),
         "JSON parse error: extra data after JSON value",
         "position", pos);
 
@@ -3091,7 +3116,7 @@ inline JsonValue to_json(unsigned short value) noexcept { return static_cast<int
  */
 inline void from_json(const JsonValue& j, bool& value)
 {
-    json_enforce(j.is_bool(),
+    fatp_json_enforce(j.is_bool(),
         "JSON type mismatch",
         "expected", "boolean",
         "got", json_detail::type_name(j));
@@ -3112,7 +3137,7 @@ inline void from_json(const JsonValue& j, int& value)
     }
     else
     {
-        json_enforce(false,
+        fatp_json_enforce(false,
             "JSON type mismatch",
             "expected", "number",
             "got", json_detail::type_name(j));
@@ -3132,7 +3157,7 @@ inline void from_json(const JsonValue& j, unsigned int& value)
     }
     else
     {
-        json_enforce(false, "JSON type mismatch", "expected", "number",
+        fatp_json_enforce(false, "JSON type mismatch", "expected", "number",
             "got", json_detail::type_name(j));
     }
 }
@@ -3150,7 +3175,7 @@ inline void from_json(const JsonValue& j, long& value)
     }
     else
     {
-        json_enforce(false, "JSON type mismatch", "expected", "number",
+        fatp_json_enforce(false, "JSON type mismatch", "expected", "number",
             "got", json_detail::type_name(j));
     }
 }
@@ -3168,7 +3193,7 @@ inline void from_json(const JsonValue& j, unsigned long& value)
     }
     else
     {
-        json_enforce(false, "JSON type mismatch", "expected", "number",
+        fatp_json_enforce(false, "JSON type mismatch", "expected", "number",
             "got", json_detail::type_name(j));
     }
 }
@@ -3186,7 +3211,7 @@ inline void from_json(const JsonValue& j, long long& value)
     }
     else
     {
-        json_enforce(false, "JSON type mismatch", "expected", "number",
+        fatp_json_enforce(false, "JSON type mismatch", "expected", "number",
             "got", json_detail::type_name(j));
     }
 }
@@ -3204,7 +3229,7 @@ inline void from_json(const JsonValue& j, unsigned long long& value)
     }
     else
     {
-        json_enforce(false, "JSON type mismatch", "expected", "number",
+        fatp_json_enforce(false, "JSON type mismatch", "expected", "number",
             "got", json_detail::type_name(j));
     }
 }
@@ -3222,7 +3247,7 @@ inline void from_json(const JsonValue& j, float& value)
     }
     else
     {
-        json_enforce(false, "JSON type mismatch", "expected", "number",
+        fatp_json_enforce(false, "JSON type mismatch", "expected", "number",
             "got", json_detail::type_name(j));
     }
 }
@@ -3240,14 +3265,14 @@ inline void from_json(const JsonValue& j, double& value)
     }
     else
     {
-        json_enforce(false, "JSON type mismatch", "expected", "number",
+        fatp_json_enforce(false, "JSON type mismatch", "expected", "number",
             "got", json_detail::type_name(j));
     }
 }
 
 inline void from_json(const JsonValue& j, std::string& value)
 {
-    json_enforce(j.is_string(), "JSON type mismatch", "expected", "string",
+    fatp_json_enforce(j.is_string(), "JSON type mismatch", "expected", "string",
         "got", json_detail::type_name(j));
     value = std::get<std::string>(j);
 }
@@ -3264,11 +3289,11 @@ inline void from_json(const JsonValue& j, signed char& value)
         // Inline validation for small types (convert_double_to_int not specialized)
         double d = std::get<double>(j);
         double intpart;
-        json_enforce(fabs(std::modf(d, &intpart)) <= json_detail::double_epsilon,
+        fatp_json_enforce(fabs(std::modf(d, &intpart)) <= json_detail::double_epsilon,
             "JSON conversion error: fractional part detected",
             "value", d,
             "target_type", "signed char");
-        json_enforce(intpart >= static_cast<double>(std::numeric_limits<signed char>::min()) &&
+        fatp_json_enforce(intpart >= static_cast<double>(std::numeric_limits<signed char>::min()) &&
             intpart <= static_cast<double>(std::numeric_limits<signed char>::max()),
             "JSON conversion error: value out of range",
             "value", d,
@@ -3277,7 +3302,7 @@ inline void from_json(const JsonValue& j, signed char& value)
     }
     else
     {
-        json_enforce(false, "JSON type mismatch", "expected", "number",
+        fatp_json_enforce(false, "JSON type mismatch", "expected", "number",
             "got", json_detail::type_name(j));
     }
 }
@@ -3293,11 +3318,11 @@ inline void from_json(const JsonValue& j, unsigned char& value)
     {
         double d = std::get<double>(j);
         double intpart;
-        json_enforce(fabs(std::modf(d, &intpart)) <= json_detail::double_epsilon,
+        fatp_json_enforce(fabs(std::modf(d, &intpart)) <= json_detail::double_epsilon,
             "JSON conversion error: fractional part detected",
             "value", d,
             "target_type", "unsigned char");
-        json_enforce(intpart >= 0.0 &&
+        fatp_json_enforce(intpart >= 0.0 &&
             intpart <= static_cast<double>(std::numeric_limits<unsigned char>::max()),
             "JSON conversion error: value out of range",
             "value", d,
@@ -3306,7 +3331,7 @@ inline void from_json(const JsonValue& j, unsigned char& value)
     }
     else
     {
-        json_enforce(false, "JSON type mismatch", "expected", "number",
+        fatp_json_enforce(false, "JSON type mismatch", "expected", "number",
             "got", json_detail::type_name(j));
     }
 }
@@ -3322,11 +3347,11 @@ inline void from_json(const JsonValue& j, short& value)
     {
         double d = std::get<double>(j);
         double intpart;
-        json_enforce(fabs(std::modf(d, &intpart)) <= json_detail::double_epsilon,
+        fatp_json_enforce(fabs(std::modf(d, &intpart)) <= json_detail::double_epsilon,
             "JSON conversion error: fractional part detected",
             "value", d,
             "target_type", "short");
-        json_enforce(intpart >= static_cast<double>(std::numeric_limits<short>::min()) &&
+        fatp_json_enforce(intpart >= static_cast<double>(std::numeric_limits<short>::min()) &&
             intpart <= static_cast<double>(std::numeric_limits<short>::max()),
             "JSON conversion error: value out of range",
             "value", d,
@@ -3335,7 +3360,7 @@ inline void from_json(const JsonValue& j, short& value)
     }
     else
     {
-        json_enforce(false, "JSON type mismatch", "expected", "number",
+        fatp_json_enforce(false, "JSON type mismatch", "expected", "number",
             "got", json_detail::type_name(j));
     }
 }
@@ -3351,11 +3376,11 @@ inline void from_json(const JsonValue& j, unsigned short& value)
     {
         double d = std::get<double>(j);
         double intpart;
-        json_enforce(fabs(std::modf(d, &intpart)) <= json_detail::double_epsilon,
+        fatp_json_enforce(fabs(std::modf(d, &intpart)) <= json_detail::double_epsilon,
             "JSON conversion error: fractional part detected",
             "value", d,
             "target_type", "unsigned short");
-        json_enforce(intpart >= 0.0 &&
+        fatp_json_enforce(intpart >= 0.0 &&
             intpart <= static_cast<double>(std::numeric_limits<unsigned short>::max()),
             "JSON conversion error: value out of range",
             "value", d,
@@ -3364,7 +3389,7 @@ inline void from_json(const JsonValue& j, unsigned short& value)
     }
     else
     {
-        json_enforce(false, "JSON type mismatch", "expected", "number",
+        fatp_json_enforce(false, "JSON type mismatch", "expected", "number",
             "got", json_detail::type_name(j));
     }
 }
@@ -3770,10 +3795,10 @@ JsonValue to_json(const std::pair<T1, T2>& p)
 template <typename T, size_t N>
 void from_json(const JsonValue& j, std::array<T, N>& arr)
 {
-    json_enforce(j.is_array(), "JSON type mismatch", "expected", "array for std::array",
+    fatp_json_enforce(j.is_array(), "JSON type mismatch", "expected", "array for std::array",
         "got", json_detail::type_name(j));
     const auto& json_arr = std::get<JsonArray>(j);
-    json_enforce(json_arr.size() == N,
+    fatp_json_enforce(json_arr.size() == N,
         "JSON array size mismatch",
         "expected", N,
         "got", json_arr.size());
@@ -3787,7 +3812,7 @@ void from_json(const JsonValue& j, std::array<T, N>& arr)
 template <typename T>
 void from_json(const JsonValue& j, std::vector<T>& vec)
 {
-    json_enforce(j.is_array(), "JSON type mismatch", "expected", "array",
+    fatp_json_enforce(j.is_array(), "JSON type mismatch", "expected", "array",
         "got", json_detail::type_name(j));
     const auto& arr = std::get<JsonArray>(j);
     vec.clear();
@@ -3804,7 +3829,7 @@ void from_json(const JsonValue& j, std::vector<T>& vec)
 template <typename T>
 void from_json(const JsonValue& j, std::set<T>& s)
 {
-    json_enforce(j.is_array(), "JSON type mismatch", "expected", "array for std::set",
+    fatp_json_enforce(j.is_array(), "JSON type mismatch", "expected", "array for std::set",
         "got", json_detail::type_name(j));
     const auto& arr = std::get<JsonArray>(j);
     s.clear();
@@ -3820,7 +3845,7 @@ void from_json(const JsonValue& j, std::set<T>& s)
 template <typename T>
 void from_json(const JsonValue& j, std::unordered_set<T>& s)
 {
-    json_enforce(j.is_array(), "JSON type mismatch", "expected", "array for std::unordered_set",
+    fatp_json_enforce(j.is_array(), "JSON type mismatch", "expected", "array for std::unordered_set",
         "got", json_detail::type_name(j));
     const auto& arr = std::get<JsonArray>(j);
     s.clear();
@@ -3837,7 +3862,7 @@ void from_json(const JsonValue& j, std::unordered_set<T>& s)
 template <typename T>
 void from_json(const JsonValue& j, std::deque<T>& d)
 {
-    json_enforce(j.is_array(), "JSON type mismatch", "expected", "array for std::deque",
+    fatp_json_enforce(j.is_array(), "JSON type mismatch", "expected", "array for std::deque",
         "got", json_detail::type_name(j));
     const auto& arr = std::get<JsonArray>(j);
     d.clear();
@@ -3853,7 +3878,7 @@ void from_json(const JsonValue& j, std::deque<T>& d)
 template <typename T>
 void from_json(const JsonValue& j, std::list<T>& lst)
 {
-    json_enforce(j.is_array(), "JSON type mismatch", "expected", "array for std::list",
+    fatp_json_enforce(j.is_array(), "JSON type mismatch", "expected", "array for std::list",
         "got", json_detail::type_name(j));
     const auto& arr = std::get<JsonArray>(j);
     lst.clear();
@@ -3887,7 +3912,7 @@ namespace json_detail
 
         auto conv_result = std::from_chars(start, end, result);
 
-        json_enforce(conv_result.ec == std::errc() && conv_result.ptr == end,
+        fatp_json_enforce(conv_result.ec == std::errc() && conv_result.ptr == end,
             "Failed to convert map key",
             "key", key,
             "target_type", typeid(K).name());
@@ -3916,7 +3941,7 @@ namespace json_detail
 template <typename K, typename V>
 void from_json(const JsonValue& j, std::map<K, V>& m)
 {
-    json_enforce(j.is_object(), "JSON type mismatch", "expected", "object",
+    fatp_json_enforce(j.is_object(), "JSON type mismatch", "expected", "object",
         "got", json_detail::type_name(j));
     const auto& obj = std::get<JsonObject>(j);
     m.clear();
@@ -3935,7 +3960,7 @@ void from_json(const JsonValue& j, std::map<K, V>& m)
         }
         else
         {
-            json_enforce(false, "Unsupported map key type for deserialization");
+            fatp_json_enforce(false, "Unsupported map key type for deserialization");
         }
     }
 }
@@ -3944,7 +3969,7 @@ void from_json(const JsonValue& j, std::map<K, V>& m)
 template <typename K, typename V>
 void from_json(const JsonValue& j, std::unordered_map<K, V>& m)
 {
-    json_enforce(j.is_object(), "JSON type mismatch", "expected", "object for std::unordered_map",
+    fatp_json_enforce(j.is_object(), "JSON type mismatch", "expected", "object for std::unordered_map",
         "got", json_detail::type_name(j));
     const auto& obj = std::get<JsonObject>(j);
     m.clear();
@@ -3964,7 +3989,7 @@ void from_json(const JsonValue& j, std::unordered_map<K, V>& m)
         }
         else
         {
-            json_enforce(false, "Unsupported map key type for deserialization");
+            fatp_json_enforce(false, "Unsupported map key type for deserialization");
         }
     }
 }
@@ -3996,10 +4021,10 @@ void from_json(const JsonValue& j, std::optional<T>& opt)
 template <typename T1, typename T2>
 void from_json(const JsonValue& j, std::pair<T1, T2>& p)
 {
-    json_enforce(j.is_array(), "JSON type mismatch", "expected", "array for pair",
+    fatp_json_enforce(j.is_array(), "JSON type mismatch", "expected", "array for pair",
         "got", json_detail::type_name(j));
     const auto& arr = std::get<JsonArray>(j);
-    json_enforce(arr.size() == 2,
+    fatp_json_enforce(arr.size() == 2,
         "JSON array size mismatch for pair",
         "expected", 2,
         "got", arr.size());
@@ -4011,11 +4036,11 @@ void from_json(const JsonValue& j, std::pair<T1, T2>& p)
 template <typename... Ts>
 void from_json(const JsonValue& j, std::tuple<Ts...>& tup)
 {
-    json_enforce(j.is_array(), "JSON type mismatch", "expected", "array for tuple",
+    fatp_json_enforce(j.is_array(), "JSON type mismatch", "expected", "array for tuple",
         "got", json_detail::type_name(j));
     const auto& arr = std::get<JsonArray>(j);
     constexpr size_t expected_size = sizeof...(Ts);
-    json_enforce(arr.size() == expected_size,
+    fatp_json_enforce(arr.size() == expected_size,
         "JSON array size mismatch for tuple",
         "expected", expected_size,
         "got", arr.size());
@@ -4088,7 +4113,7 @@ T from_json(const JsonObject& obj, const std::string& key)
 template <typename T>
 T from_json(const JsonValue& j, const std::string& key)
 {
-    json_enforce(j.is_object(),
+    fatp_json_enforce(j.is_object(),
         "JSON type mismatch: expected object for key access",
         "expected", "object",
         "got", json_detail::type_name(j),
@@ -4129,9 +4154,9 @@ auto to_json(const T& value) -> decltype(to_json(std::declval<JsonValue&>(), val
 [[nodiscard]] inline JsonValue load_json_from_file(const std::string& filename)
 {
     std::ifstream ifs(filename, std::ios::binary);
-    json_enforce(ifs.is_open(), "Failed to open file for reading", "filename", filename);
+    fatp_json_enforce(ifs.is_open(), "Failed to open file for reading", "filename", filename);
     std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-    json_enforce(!ifs.bad(), "Error reading file", "filename", filename);
+    fatp_json_enforce(!ifs.bad(), "Error reading file", "filename", filename);
     return parse_json(content);
 }
 
@@ -4149,10 +4174,10 @@ inline void save_json_to_file(const std::string& filename, const JsonValue& val,
     bool pretty = Policy::pretty_print)
 {
     std::ofstream ofs(filename);
-    json_enforce(ofs.is_open(), "Failed to open file for writing", "filename", filename);
+    fatp_json_enforce(ofs.is_open(), "Failed to open file for writing", "filename", filename);
     ofs.imbue(std::locale::classic());  // Locale-independent numeric output
     to_json_stream<JsonValue, Policy>(ofs, val, pretty);
-    json_enforce(ofs.good(), "Error writing to file", "filename", filename);
+    fatp_json_enforce(ofs.good(), "Error writing to file", "filename", filename);
 }
 
 /**
@@ -4233,7 +4258,7 @@ namespace json_detail {
     
     for (size_t i = 0; i < token.size(); ++i) {
         if (token[i] == '~') {
-            json_enforce(i + 1 < token.size(), 
+            fatp_json_enforce(i + 1 < token.size(), 
                 "JSON Pointer: incomplete escape sequence at end of token",
                 "position", i,
                 "token", std::string(token));
@@ -4245,7 +4270,7 @@ namespace json_detail {
                 result += '/';
                 ++i;
             } else {
-                json_enforce(false,
+                fatp_json_enforce(false,
                     "JSON Pointer: invalid escape sequence (only ~0 and ~1 allowed)",
                     "sequence", std::string("~") + std::string(1, token[i + 1]),
                     "position", i);
@@ -4268,7 +4293,7 @@ namespace json_detail {
         std::string key(decoded_token);
         
         auto it = obj.find(key);
-        json_enforce(it != obj.end(),
+        fatp_json_enforce(it != obj.end(),
             "JSON Pointer: object key not found",
             "key", key);
         
@@ -4277,15 +4302,15 @@ namespace json_detail {
     else if (current.is_array()) {
         const auto& arr = std::get<JsonArray>(current);
         
-        json_enforce(!decoded_token.empty(),
+        fatp_json_enforce(!decoded_token.empty(),
             "JSON Pointer: empty array index");
         
         if (decoded_token == "-") {
-            json_enforce(false,
+            fatp_json_enforce(false,
                 "JSON Pointer: array index '-' not valid for query (use for append only)");
         }
         
-        json_enforce(decoded_token[0] != '0' || decoded_token.size() == 1,
+        fatp_json_enforce(decoded_token[0] != '0' || decoded_token.size() == 1,
             "JSON Pointer: array index has leading zero (not allowed per RFC 6901)",
             "token", std::string(decoded_token));
         
@@ -4295,11 +4320,11 @@ namespace json_detail {
             decoded_token.data() + decoded_token.size(),
             index);
         
-        json_enforce(ec == std::errc{} && ptr == decoded_token.data() + decoded_token.size(),
+        fatp_json_enforce(ec == std::errc{} && ptr == decoded_token.data() + decoded_token.size(),
             "JSON Pointer: invalid array index (must be non-negative integer)",
             "token", std::string(decoded_token));
         
-        json_enforce(index < arr.size(),
+        fatp_json_enforce(index < arr.size(),
             "JSON Pointer: array index out of bounds",
             "index", index,
             "size", arr.size());
@@ -4314,7 +4339,7 @@ namespace json_detail {
         else if (current.is_string()) type_str = "string";
         else type_str = "unknown";
         
-        json_enforce(false,
+        fatp_json_enforce(false,
             "JSON Pointer: cannot navigate into scalar value",
             "type", type_str,
             "token", std::string(decoded_token));
@@ -4345,7 +4370,7 @@ namespace json_detail {
         return root;
     }
     
-    json_enforce(pointer.front() == '/',
+    fatp_json_enforce(pointer.front() == '/',
         "JSON Pointer must start with '/' or be empty",
         "pointer", std::string(pointer));
     
@@ -4419,13 +4444,13 @@ inline void save_params_with_backup(const std::string& filename, const T& params
         std::string backup_name = filename + backup_suffix;
         
         std::ifstream src(filename, std::ios::binary);
-        json_enforce(src.is_open(), "Failed to open source file for backup", "filename", filename);
+        fatp_json_enforce(src.is_open(), "Failed to open source file for backup", "filename", filename);
         
         std::ofstream dst(backup_name, std::ios::binary);
-        json_enforce(dst.is_open(), "Failed to create backup file", "backup_file", backup_name);
+        fatp_json_enforce(dst.is_open(), "Failed to create backup file", "backup_file", backup_name);
         
         dst << src.rdbuf();
-        json_enforce(dst.good(), "Error writing backup file", "backup_file", backup_name);
+        fatp_json_enforce(dst.good(), "Error writing backup file", "backup_file", backup_name);
         
         dst.close();
         src.close();

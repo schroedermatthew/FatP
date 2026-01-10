@@ -13,6 +13,33 @@
  */
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: FlatMap
+  file_role: public_header
+  path: fat_p/FlatMap.h
+  namespace: fat_p
+  summary: "Public header for FlatMap."
+  api_stability: in_work
+  related:
+    docs_search: "FlatMap"
+    tests:
+      - tests/test_FatPTypeTraits.cpp
+      - tests/test_FlatMap.cpp
+    benchmarks:
+      - benchmarks/benchmark_FlatMapSet.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: true
+    defines_total: 1
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <algorithm>
 #include <functional>
 #include <initializer_list>

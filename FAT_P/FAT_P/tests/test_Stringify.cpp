@@ -2,6 +2,30 @@
  * @file test_Stringify.cpp
  * @brief Comprehensive unit tests for Stringify.h
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: Stringify
+  file_role: test
+  path: tests/test_Stringify.cpp
+  namespace: fat_p
+  summary: "Unit tests for Stringify."
+  related:
+    docs_search: "Stringify"
+    headers:
+      - fat_p/Stringify.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 // test_Stringify.cpp - Comprehensive Unit Tests and Benchmarks for Stringify v2.2
 // Tests for:

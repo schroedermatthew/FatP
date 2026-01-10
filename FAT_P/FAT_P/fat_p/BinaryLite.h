@@ -7,8 +7,31 @@
 // For fat_p component integration (Expected-based API, HpcVector buffers,
 // fat_p type serialization), use FatPBinary.h instead.
 
-#ifndef FATP_BINARY_LITE_H
-#define FATP_BINARY_LITE_H
+#pragma once
+/*
+FATP_META:
+  meta_version: 1
+  component: BinaryLite
+  file_role: public_header
+  path: fat_p/BinaryLite.h
+  namespace: fat_p
+  summary: "Public header for BinaryLite."
+  api_stability: in_work
+  related:
+    docs_search: "BinaryLite"
+    tests:
+      - tests/test_BinaryLite.cpp
+  hygiene:
+    pragma_once: false
+    include_guard: true
+    defines_total: 1
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <cstdint>
 #include <cstring>
@@ -740,4 +763,3 @@ private:
 } // namespace binary
 } // namespace fat_p
 
-#endif // FATP_BINARY_LITE_H

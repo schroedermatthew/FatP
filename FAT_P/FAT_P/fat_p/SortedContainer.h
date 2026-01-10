@@ -60,6 +60,31 @@
  */
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: SortedContainer
+  file_role: public_header
+  path: fat_p/SortedContainer.h
+  namespace: fat_p
+  summary: "Public header for SortedContainer."
+  api_stability: in_work
+  related:
+    docs_search: "SortedContainer"
+    tests:
+      - tests/test_FatPTypeTraits.cpp
+      - tests/test_SortedContainer.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 2
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #if !defined(FATP_USE_SHARED_MUTEX)
 #define FATP_USE_SHARED_MUTEX 1 // Enable by default; undef to disable
 #endif

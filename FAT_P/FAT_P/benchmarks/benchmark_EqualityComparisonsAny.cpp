@@ -25,6 +25,31 @@
 //   ./bench_eq
 //   FATP_BENCH_TARGET_WORK=1000000 ./bench_eq
 
+/*
+FATP_META:
+  meta_version: 1
+  component: EqualityComparisonsAny
+  file_role: benchmark
+  path: benchmarks/benchmark_EqualityComparisonsAny.cpp
+  namespace: fat_p
+  summary: "Benchmarks for EqualityComparisonsAny."
+  related:
+    docs_search: "EqualityComparisonsAny"
+    headers:
+      - fat_p/EqualityAny.h
+      - fat_p/FatPBenchmarkRunner.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 2
+    defines_unprefixed: 2
+    undefs_total: 0
+    includes_windows_h: true
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <algorithm>
 #include <any>
 #include <array>

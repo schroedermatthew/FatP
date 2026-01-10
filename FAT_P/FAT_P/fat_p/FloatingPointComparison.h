@@ -17,6 +17,32 @@
  */
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: FloatingPointComparison
+  file_role: public_header
+  path: fat_p/FloatingPointComparison.h
+  namespace: fat_p
+  summary: "Public header for FloatingPointComparison."
+  api_stability: in_work
+  related:
+    docs_search: "FloatingPointComparison"
+    tests:
+      - tests/test_FloatingPointComparison.cpp
+    benchmarks:
+      - benchmarks/benchmark_FloatingPointComparison.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 2
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -152,7 +178,7 @@ namespace fat_p {
 
             // If we get here: Signs are same, but difference > epsilon.
             #ifndef NDEBUG
-                LOG_ERROR(std::string("Equality check failed: ") +
+            FATP_LOG_ERROR(std::string("Equality check failed: ") +
                           toString(std::fabs(a - b)) + " > " + toString(actualEps));
 #endif
             return false;
@@ -208,7 +234,7 @@ namespace fat_p {
             // Fractional values are truncated to integer ULP count
             if (!std::isfinite(actualEps) || actualEps < static_cast<T>(0.0)) {
                 #ifndef NDEBUG
-                LOG_ERROR("ULP epsilon must be finite and non-negative.");
+                FATP_LOG_ERROR("ULP epsilon must be finite and non-negative.");
                 #endif
                 return false;
             }
@@ -258,7 +284,7 @@ namespace fat_p {
 
             if (ulp_diff > max_ulps) {
                 #ifndef NDEBUG
-                LOG_ERROR(std::string("Equality check failed: ") + toString(ulp_diff) + " ULPs");
+                FATP_LOG_ERROR(std::string("Equality check failed: ") + toString(ulp_diff) + " ULPs");
                 #endif
                 return false;
             }
@@ -301,7 +327,7 @@ namespace fat_p {
 
             if (std::fabs(a - b) > relEps * maxAbs) {
                 #ifndef NDEBUG
-                LOG_ERROR(std::string("Equality check failed: relative error"));
+                FATP_LOG_ERROR(std::string("Equality check failed: relative error"));
                 #endif
                 return false;
             }
@@ -356,7 +382,7 @@ namespace fat_p {
             T maxAbs = std::max(std::fabs(a), std::fabs(b));
             if (diff > relEps * maxAbs) {
                 #ifndef NDEBUG
-                LOG_ERROR(std::string("Equality check failed: Hybrid"));
+                FATP_LOG_ERROR(std::string("Equality check failed: Hybrid"));
                 #endif
                 return false;
             }

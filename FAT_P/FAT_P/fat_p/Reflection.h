@@ -5,7 +5,7 @@
  *
  * C++20: NTTP-based field names, compile-time strings
  * C++17: Constructor-based field names, minimal boilerplate
- * Both: Same REFLECT_REGISTER(Type, field1, field2, ...) syntax
+ * Both: Same FATP_REFLECT_REGISTER(Type, field1, field2, ...) syntax
  *
  * Features:
  * - Unified macro interface across C++17 and C++20
@@ -17,18 +17,42 @@
  *
  * Key Changes in v3.0.1:
  * - Added MSVC workaround for __VA_ARGS__ expansion in nested macros
- * - Uses REFLECT_MAP_EXPAND on MSVC to force proper macro expansion
+ * - Uses FATP_REFLECT_MAP_EXPAND on MSVC to force proper macro expansion
  * - GCC/Clang behavior unchanged
  *
  * Key Changes in v3.0:
- * - Eliminated REFLECT_MANUAL - now both C++17 and C++20 use REFLECT_REGISTER
+ * - Eliminated REFLECT_MANUAL (legacy) - now both C++17 and C++20 use REFLECT_REGISTER
  * - C++17 uses Field constructor with #field for names (no boilerplate)
- * - Macro expansion fixed for proper REFLECT_COUNT evaluation
+ * - Macro expansion fixed for proper FATP_REFLECT_COUNT evaluation
  * - Extended to support up to 32 fields
  */
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: Reflection
+  file_role: public_header
+  path: fat_p/Reflection.h
+  namespace: fat_p
+  summary: "Public header for Reflection."
+  api_stability: in_work
+  related:
+    docs_search: "Reflection"
+    tests:
+      - tests/test_Reflection.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 54
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include "CppStandardDetection.h"
 
 #include "ConstexprUtilities.h"
@@ -62,20 +86,20 @@ namespace fat_p {
 // MSVC has a known bug where __VA_ARGS__ is not expanded properly
 // when passed to another macro. We need multiple expansion layers.
 #if defined(_MSC_VER)
-#define EXPAND(...) __VA_ARGS__
-#define EXPAND1(...) EXPAND(__VA_ARGS__)
-#define EXPAND2(...) EXPAND1(EXPAND1(__VA_ARGS__))
-#define EXPAND3(...) EXPAND2(EXPAND2(__VA_ARGS__))
+#define FATP_EXPAND(...) __VA_ARGS__
+#define FATP_EXPAND1(...) FATP_EXPAND(__VA_ARGS__)
+#define FATP_EXPAND2(...) FATP_EXPAND1(FATP_EXPAND1(__VA_ARGS__))
+#define FATP_EXPAND3(...) FATP_EXPAND2(FATP_EXPAND2(__VA_ARGS__))
 #else
-#define EXPAND(...) __VA_ARGS__
-#define EXPAND1(...) __VA_ARGS__
-#define EXPAND2(...) __VA_ARGS__
-#define EXPAND3(...) __VA_ARGS__
+#define FATP_EXPAND(...) __VA_ARGS__
+#define FATP_EXPAND1(...) __VA_ARGS__
+#define FATP_EXPAND2(...) __VA_ARGS__
+#define FATP_EXPAND3(...) __VA_ARGS__
 #endif
 
 // Concatenation macros
-#define CONCAT_IMPL(x, y) x##y
-#define CONCAT(x, y) CONCAT_IMPL(x, y)
+#define FATP_CONCAT_IMPL(x, y) x##y
+#define FATP_CONCAT(x, y) FATP_CONCAT_IMPL(x, y)
 
 // ============================================================================
 // C++26: Native Reflection (P2996) - Experimental (Stub)
@@ -481,9 +505,9 @@ namespace fat_p {
 
     /**
      * @brief Declare reflection intent (optional, for documentation)
-     * Usage inside namespace: REFLECT_DECLARE(Point, x, y)
+     * Usage inside namespace: FATP_REFLECT_DECLARE(Point, x, y)
      */
-#define REFLECT_DECLARE(Type, ...) \
+#define FATP_REFLECT_DECLARE(Type, ...) \
     static_assert(sizeof(Type), "Type must be complete for reflection declaration")
 
      /**
@@ -491,13 +515,13 @@ namespace fat_p {
       * IMPORTANT: Must be called at GLOBAL SCOPE with qualified Type
       *
       * Usage:
-      *   REFLECT_REGISTER(::fat_p::testing::Point, x, y)
+      *   FATP_REFLECT_REGISTER(::fat_p::testing::Point, x, y)
       */
-#define REFLECT_REGISTER(Type, ...) \
+#define FATP_REFLECT_REGISTER(Type, ...) \
     template <> \
     struct fat_p::Reflectable<Type> { \
-        static constexpr auto fields = std::make_tuple(REFLECT_MAP(REFLECT_FIELD, Type, __VA_ARGS__)); \
-        static constexpr size_t field_count = REFLECT_COUNT(__VA_ARGS__); \
+        static constexpr auto fields = std::make_tuple(FATP_REFLECT_MAP(FATP_REFLECT_FIELD, Type, __VA_ARGS__)); \
+        static constexpr size_t field_count = FATP_REFLECT_COUNT(__VA_ARGS__); \
         \
         template <size_t I> \
         using field_type = typename std::tuple_element_t<I, decltype(fields)>::field_type; \
@@ -525,87 +549,93 @@ namespace fat_p {
 
       // Field macro (version-specific)
 #if FATP_HAS_CPP20
-#define REFLECT_FIELD(Type, field) \
+#define FATP_REFLECT_FIELD(Type, field) \
     Field<Type, decltype(Type::field), &Type::field, #field>{}
 #else
-#define REFLECT_FIELD(Type, field) \
+#define FATP_REFLECT_FIELD(Type, field) \
     Field<Type, decltype(Type::field), &Type::field>{#field}
 #endif
 
 // Count macro
-#define REFLECT_COUNT(...) EXPAND3(REFLECT_COUNT_IMPL(__VA_ARGS__, 32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1))
+#define FATP_REFLECT_COUNT(...) FATP_EXPAND3(FATP_REFLECT_COUNT_IMPL(__VA_ARGS__, 32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1))
 
-#define REFLECT_COUNT_IMPL(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,_22,_23,_24,_25,_26,_27,_28,_29,_30,_31,_32,N,...) N
+#define FATP_REFLECT_COUNT_IMPL(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,_22,_23,_24,_25,_26,_27,_28,_29,_30,_31,_32,N,...) N
 
 // Map macro - applies macro m to each field with Type as first arg
-#define REFLECT_MAP(m, Type, ...) EXPAND3(REFLECT_MAP_IMPL(m, Type, __VA_ARGS__))
-#define REFLECT_MAP_IMPL(m, Type, ...) EXPAND2(CONCAT(REFLECT_MAP_, REFLECT_COUNT(__VA_ARGS__))(m, Type, __VA_ARGS__))
+#define FATP_REFLECT_MAP(m, Type, ...) FATP_EXPAND3(FATP_REFLECT_MAP_IMPL(m, Type, __VA_ARGS__))
+#define FATP_REFLECT_MAP_IMPL(m, Type, ...) FATP_EXPAND2(FATP_CONCAT(FATP_REFLECT_MAP_, FATP_REFLECT_COUNT(__VA_ARGS__))(m, Type, __VA_ARGS__))
 
 // Define REFLECT_MAP_0 to REFLECT_MAP_32
-#define REFLECT_MAP_0(m, T)
+#define FATP_REFLECT_MAP_0(m, T)
 
-#define REFLECT_MAP_1(m, T, a) m(T, a)
+#define FATP_REFLECT_MAP_1(m, T, a) m(T, a)
 
-#define REFLECT_MAP_2(m, T, a, b) m(T, a), m(T, b)
+#define FATP_REFLECT_MAP_2(m, T, a, b) m(T, a), m(T, b)
 
-#define REFLECT_MAP_3(m, T, a, b, c) m(T, a), m(T, b), m(T, c)
+#define FATP_REFLECT_MAP_3(m, T, a, b, c) m(T, a), m(T, b), m(T, c)
 
-#define REFLECT_MAP_4(m, T, a, b, c, d) m(T, a), m(T, b), m(T, c), m(T, d)
+#define FATP_REFLECT_MAP_4(m, T, a, b, c, d) m(T, a), m(T, b), m(T, c), m(T, d)
 
-#define REFLECT_MAP_5(m, T, a, b, c, d, e) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e)
+#define FATP_REFLECT_MAP_5(m, T, a, b, c, d, e) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e)
 
-#define REFLECT_MAP_6(m, T, a, b, c, d, e, f) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f)
+#define FATP_REFLECT_MAP_6(m, T, a, b, c, d, e, f) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f)
 
-#define REFLECT_MAP_7(m, T, a, b, c, d, e, f, g) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g)
+#define FATP_REFLECT_MAP_7(m, T, a, b, c, d, e, f, g) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g)
 
-#define REFLECT_MAP_8(m, T, a, b, c, d, e, f, g, h) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h)
+#define FATP_REFLECT_MAP_8(m, T, a, b, c, d, e, f, g, h) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h)
 
-#define REFLECT_MAP_9(m, T, a, b, c, d, e, f, g, h, i) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i)
+#define FATP_REFLECT_MAP_9(m, T, a, b, c, d, e, f, g, h, i) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i)
 
-#define REFLECT_MAP_10(m, T, a, b, c, d, e, f, g, h, i, j) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j)
+#define FATP_REFLECT_MAP_10(m, T, a, b, c, d, e, f, g, h, i, j) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j)
 
-#define REFLECT_MAP_11(m, T, a, b, c, d, e, f, g, h, i, j, k) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k)
+#define FATP_REFLECT_MAP_11(m, T, a, b, c, d, e, f, g, h, i, j, k) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k)
 
-#define REFLECT_MAP_12(m, T, a, b, c, d, e, f, g, h, i, j, k, l) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l)
+#define FATP_REFLECT_MAP_12(m, T, a, b, c, d, e, f, g, h, i, j, k, l) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l)
 
-#define REFLECT_MAP_13(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1)
+#define FATP_REFLECT_MAP_13(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1)
 
-#define REFLECT_MAP_14(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n)
+#define FATP_REFLECT_MAP_14(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n)
 
-#define REFLECT_MAP_15(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o)
+#define FATP_REFLECT_MAP_15(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o)
 
-#define REFLECT_MAP_16(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p)
+#define FATP_REFLECT_MAP_16(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p)
 
-#define REFLECT_MAP_17(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q)
+#define FATP_REFLECT_MAP_17(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q)
 
-#define REFLECT_MAP_18(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r)
+#define FATP_REFLECT_MAP_18(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r)
 
-#define REFLECT_MAP_19(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s)
+#define FATP_REFLECT_MAP_19(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s)
 
-#define REFLECT_MAP_20(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t)
+#define FATP_REFLECT_MAP_20(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t)
 
-#define REFLECT_MAP_21(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u)
+#define FATP_REFLECT_MAP_21(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u)
 
-#define REFLECT_MAP_22(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v)
+#define FATP_REFLECT_MAP_22(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v)
 
-#define REFLECT_MAP_23(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w)
+#define FATP_REFLECT_MAP_23(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w)
 
-#define REFLECT_MAP_24(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x)
+#define FATP_REFLECT_MAP_24(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x)
 
-#define REFLECT_MAP_25(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y)
+#define FATP_REFLECT_MAP_25(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y)
 
-#define REFLECT_MAP_26(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z)
+#define FATP_REFLECT_MAP_26(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z)
 
-#define REFLECT_MAP_27(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z, aa) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z), m(T, aa)
+#define FATP_REFLECT_MAP_27(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z, aa) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z), m(T, aa)
 
-#define REFLECT_MAP_28(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z, aa, ab) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z), m(T, aa), m(T, ab)
+#define FATP_REFLECT_MAP_28(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z, aa, ab) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z), m(T, aa), m(T, ab)
 
-#define REFLECT_MAP_29(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z, aa, ab, ac) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z), m(T, aa), m(T, ab), m(T, ac)
+#define FATP_REFLECT_MAP_29(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z, aa, ab, ac) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z), m(T, aa), m(T, ab), m(T, ac)
 
-#define REFLECT_MAP_30(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z, aa, ab, ac, ad) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z), m(T, aa), m(T, ab), m(T, ac), m(T, ad)
+#define FATP_REFLECT_MAP_30(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z, aa, ab, ac, ad) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z), m(T, aa), m(T, ab), m(T, ac), m(T, ad)
 
-#define REFLECT_MAP_31(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z, aa, ab, ac, ad, ae) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z), m(T, aa), m(T, ab), m(T, ac), m(T, ad), m(T, ae)
+#define FATP_REFLECT_MAP_31(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z, aa, ab, ac, ad, ae) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z), m(T, aa), m(T, ab), m(T, ac), m(T, ad), m(T, ae)
 
-#define REFLECT_MAP_32(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z, aa, ab, ac, ad, ae, af) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z), m(T, aa), m(T, ab), m(T, ac), m(T, ad), m(T, ae), m(T, af)
+#define FATP_REFLECT_MAP_32(m, T, a, b, c, d, e, f, g, h, i, j, k, l, m1, n, o, p, q, r, s, t, u, v, w, x, y, z, aa, ab, ac, ad, ae, af) m(T, a), m(T, b), m(T, c), m(T, d), m(T, e), m(T, f), m(T, g), m(T, h), m(T, i), m(T, j), m(T, k), m(T, l), m(T, m1), m(T, n), m(T, o), m(T, p), m(T, q), m(T, r), m(T, s), m(T, t), m(T, u), m(T, v), m(T, w), m(T, x), m(T, y), m(T, z), m(T, aa), m(T, ab), m(T, ac), m(T, ad), m(T, ae), m(T, af)
+
+// Note: Internal helper macros (FATP_EXPAND*, FATP_CONCAT*, FATP_REFLECT_MAP_IMPL,
+// FATP_REFLECT_COUNT_IMPL, FATP_REFLECT_MAP_0..32) are intentionally NOT #undef'd
+// because they are required for macro expansion at user call sites when
+// FATP_REFLECT_REGISTER is invoked. Since all macros now use the FATP_ prefix,
+// namespace collision risk is eliminated per Rule F of the Systemic Hygiene Policy.
 
 } // namespace fat_p

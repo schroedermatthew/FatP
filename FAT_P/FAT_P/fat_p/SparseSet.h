@@ -58,6 +58,31 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: SparseSet
+  file_role: public_header
+  path: fat_p/SparseSet.h
+  namespace: fat_p
+  summary: "Public header for SparseSet."
+  api_stability: in_work
+  related:
+    docs_search: "SparseSet"
+    tests:
+      - tests/test_FatPTypeTraits.cpp
+      - tests/test_SparseSet.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <vector>
 #include <cstddef>
 #include <cstdint>

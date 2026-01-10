@@ -25,6 +25,30 @@
  * @version 2.4
  * @date 2025
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: ValueGuard
+  file_role: test
+  path: tests/test_ValueGuard.cpp
+  namespace: fat_p
+  summary: "Unit tests for ValueGuard."
+  related:
+    docs_search: "ValueGuard"
+    headers:
+      - fat_p/ValueGuard.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 #include <string>

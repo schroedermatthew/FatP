@@ -1,5 +1,29 @@
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: Stringify
+  file_role: public_header
+  path: fat_p/Stringify.h
+  namespace: fat_p
+  summary: "Public header for Stringify."
+  api_stability: in_work
+  related:
+    docs_search: "Stringify"
+    tests:
+      - tests/test_Stringify.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: true
+    defines_total: 4
+    defines_unprefixed: 4
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <string>
 #include <string_view>
 #include <sstream>

@@ -316,7 +316,7 @@ struct Measurement {
     std::string sensor_id;
     std::vector<float> readings;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Measurement, timestamp, sensor_id, readings)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Measurement, timestamp, sensor_id, readings)
 
 // Same struct works with all three formats
 Measurement m = {...};
@@ -551,7 +551,7 @@ The implementation stores values inline where possible. A `JsonValue` holding `t
 
 ## Struct Serialization
 
-Manual JSON manipulation is tedious and error-prone. The `CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE` macro generates serialization code for structs:
+Manual JSON manipulation is tedious and error-prone. The `FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE` macro generates serialization code for structs:
 
 ```cpp
 struct Server {
@@ -559,7 +559,7 @@ struct Server {
     int port;
     std::optional<int> timeout_ms;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Server, host, port, timeout_ms)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Server, host, port, timeout_ms)
 
 // Now you can convert between Server and JsonValue:
 Server srv{"localhost", 8080, 30000};
@@ -622,7 +622,7 @@ The file I/O functions handle the common pattern of load-parse-convert in a sing
 | Streaming partial results | ✗ | Use JsonStreamLite for streaming |
 | Deterministic output | ✓ | Same input produces identical JSON string |
 
-**Integration:** JsonLite integrates with `Expected<T, E>` for error handling via the FatPJson wrapper. Parsed documents can be converted to typed structs via the `CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE` macro.
+**Integration:** JsonLite integrates with `Expected<T, E>` for error handling via the FatPJson wrapper. Parsed documents can be converted to typed structs via the `FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE` macro.
 
 ---
 
@@ -691,7 +691,7 @@ struct Packet {
     std::string sender;
     std::vector<uint8_t> payload;  // Binary data!
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Packet, sequence, sender, payload)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Packet, sequence, sender, payload)
 
 // Serialize to CBOR
 Packet pkt{12345, "node-1", {0xDE, 0xAD, 0xBE, 0xEF}};
@@ -722,7 +722,7 @@ This gives you human-readability at system boundaries where humans interact, and
 | Round-trip fidelity | ✓ | All CBOR types preserved exactly |
 | RFC 8949 compliance | ✓ | Core deterministic encoding profile |
 
-**Integration:** CborLite integrates with `Expected<T, E>` via FatPCbor. Uses same `CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE` macro as JsonLite for struct serialization.
+**Integration:** CborLite integrates with `Expected<T, E>` via FatPCbor. Uses same `FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE` macro as JsonLite for struct serialization.
 
 ---
 
@@ -1114,7 +1114,7 @@ struct SymbolConfig {
     double taker_fee_rate;
     std::string primary_exchange;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(SymbolConfig, max_order_size, 
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(SymbolConfig, max_order_size, 
                                     taker_fee_rate, primary_exchange)
 
 class ConfigCache {
@@ -1167,7 +1167,7 @@ The variance collapsed because the hot path no longer allocates. P99 approached 
 ## FAT-P Components Used
 
 - `JsonLite` — Core JSON parsing with minimal allocations
-- `CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE` — Macro for struct-to-JSON mapping
+- `FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE` — Macro for struct-to-JSON mapping
 - `FatPJson` — Expected-based file I/O wrappers
 
 ---
@@ -2051,10 +2051,10 @@ Applications requiring larger strings can use the policy-based configuration.
 
 ```cpp
 // Before (off by one):
-json_enforce(pos + 4 < s.size(), ...);
+fatp_json_enforce(pos + 4 < s.size(), ...);
 
 // After (correct):
-json_enforce(pos + 5 <= s.size(), ...);
+fatp_json_enforce(pos + 5 <= s.size(), ...);
 ```
 
 ## MemoryMappedFile: Bounds-Checked Access

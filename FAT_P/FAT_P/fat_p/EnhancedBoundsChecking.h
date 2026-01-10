@@ -1,25 +1,28 @@
-/**
- * @file EnhancedBoundsChecking.h
- * @brief Enhanced bounds checking utilities using enforce predicates
- * @version 1.0
- * 
- * Provides enhanced bounds checking with:
- * - Better error messages (shows actual index and valid range)
- * - Debug-only validation (zero cost in release)
- * - Integration with enforce predicates
- * - Policy-based checking (always, debug, noexcept)
- * 
- * Usage:
- *   bounds_check(index, 0, size, "Array access");
- *   debug_bounds_check(row, 0, rows, "Matrix row");
- *   
- * Requires: C++17, enforce.h
- */
-
-#ifndef FATP_ENHANCED_BOUNDS_CHECKING_H
-#define FATP_ENHANCED_BOUNDS_CHECKING_H
-
 #pragma once
+/*
+FATP_META:
+  meta_version: 1
+  component: EnhancedBoundsChecking
+  file_role: public_header
+  path: fat_p/EnhancedBoundsChecking.h
+  namespace: fat_p
+  summary: "Public header for EnhancedBoundsChecking."
+  api_stability: in_work
+  related:
+    docs_search: "EnhancedBoundsChecking"
+    tests:
+      - tests/test_EnhancedBoundsChecking.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: true
+    defines_total: 1
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include "enforce.h"
 #include <string>
@@ -289,4 +292,3 @@ inline void debug_validate_slice(T start, T stop, T step, T size,
 
 } // namespace fat_p
 
-#endif // FATP_ENHANCED_BOUNDS_CHECKING_H

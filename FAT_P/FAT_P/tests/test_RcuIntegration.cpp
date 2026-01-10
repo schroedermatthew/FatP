@@ -9,6 +9,31 @@
  * - Lock-free read performance benchmarks
  * - Memory safety verification
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: RcuIntegration
+  file_role: test
+  path: tests/test_RcuIntegration.cpp
+  namespace: fat_p
+  summary: "Unit tests for RcuIntegration."
+  related:
+    docs_search: "RcuIntegration"
+    headers:
+      - fat_p/ConcurrencyPolicies.h
+      - fat_p/Tensor.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 #include <thread>

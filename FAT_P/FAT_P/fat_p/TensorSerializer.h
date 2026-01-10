@@ -1,5 +1,3 @@
-#pragma once
-
 // TensorSerializer.h
 // Big-endian serialization for cross-platform tensor storage
 // Always serializes in big-endian (network byte order) for guaranteed portability.
@@ -7,8 +5,31 @@
 //
 // Requires: C++17, Tensor.h, Expected.h
 
-#ifndef FATP_TENSOR_SERIALIZER_H
-#define FATP_TENSOR_SERIALIZER_H
+#pragma once
+/*
+FATP_META:
+  meta_version: 1
+  component: TensorSerializer
+  file_role: public_header
+  path: fat_p/TensorSerializer.h
+  namespace: fat_p
+  summary: "Public header for TensorSerializer."
+  api_stability: in_work
+  related:
+    docs_search: "TensorSerializer"
+    tests:
+      - tests/test_TensorSerializer.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: true
+    defines_total: 1
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include "Expected.h"
 #include "Tensor.h"
@@ -461,5 +482,3 @@ deserialize_tensor(const std::vector<std::uint8_t>& data)
 }
 
 } // namespace fat_p
-
-#endif // FATP_TENSOR_SERIALIZER_H

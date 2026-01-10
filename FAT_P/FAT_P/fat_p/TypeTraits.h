@@ -68,6 +68,30 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: TypeTraits
+  file_role: public_header
+  path: fat_p/TypeTraits.h
+  namespace: fat_p
+  summary: "Public header for TypeTraits."
+  api_stability: in_work
+  related:
+    docs_search: "TypeTraits"
+    tests:
+      - tests/test_TypeTraits.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <type_traits>
 #include <functional>
 #include <atomic>

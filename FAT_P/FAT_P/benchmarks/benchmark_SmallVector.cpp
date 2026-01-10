@@ -41,6 +41,30 @@
 //   ./bench_sv
 //   FATP_BENCH_OUTPUT_CSV=results.csv ./bench_sv
 
+/*
+FATP_META:
+  meta_version: 1
+  component: SmallVector
+  file_role: benchmark
+  path: benchmarks/benchmark_SmallVector.cpp
+  namespace: fat_p
+  summary: "Benchmarks for SmallVector."
+  related:
+    docs_search: "SmallVector"
+    headers:
+      - fat_p/FatPBenchmarkRunner.h
+      - fat_p/SmallVector.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 7
+    defines_unprefixed: 7
+    undefs_total: 0
+    includes_windows_h: true
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <algorithm>
 #include <chrono>
 #include <cmath>

@@ -39,6 +39,41 @@
 //   ./bench_hm
 //   FATP_BENCH_OUTPUT_CSV=results.csv ./bench_hm
 
+/*
+FATP_META:
+  meta_version: 1
+  component:
+    - FastHashMap
+    - StableHashMap
+  file_role: benchmark
+  path: benchmarks/benchmarks/benchmark_FatPHashMap.cpp
+  namespace: fat_p::bench
+  layer: benchmarks.containers.associative
+  summary: Round-robin competitor benchmarks for FastHashMap and StableHashMap.
+  api_stability: candidate
+  related:
+    docs:
+      - Documentation/Documentation/Associative Containers/StableHashMap_Overview.md
+      - Documentation/Documentation/Associative Containers/StableHashMap_User_Manual.md
+      - Documentation/Documentation/Associative Containers/Companion Guide - StableHashMap.md
+    tests:
+      - tests/tests/test_StableHashMap.cpp
+    headers:
+      - fat_p/fat_p/FastHashMap.h
+      - fat_p/fat_p/StableHashMap.h
+      - fat_p/fat_p/FatPBenchmarkRunner.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 14
+    defines_unprefixed: 13
+    undefs_total: 0
+    includes_windows_h: true
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 #include <algorithm>
 #include <array>
 #include <chrono>

@@ -550,7 +550,7 @@ For complete structs, use `safe_from_json<T>`:
 
 ```cpp
 struct Point { int x, y; };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Point, x, y)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Point, x, y)
 
 JsonValue j = parse_json(R"({"x": 10, "y": 20})");
 auto point = safe_from_json<Point>(j);
@@ -1062,7 +1062,7 @@ struct Task {
     std::string name;
     Priority priority;
 };
-CPP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Task, name, priority)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Task, name, priority)
 
 Task t{"Fix bug", Priority::Critical};
 JsonValue j = to_json(t);  

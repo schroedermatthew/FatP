@@ -50,6 +50,30 @@
  *   ./bench_av
  *   FATP_BENCH_OUTPUT_CSV=aligned_vector_results.csv ./bench_av
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: AlignedVector
+  file_role: benchmark
+  path: benchmarks/benchmark_AlignedVector.cpp
+  namespace: fat_p
+  summary: "Benchmarks for AlignedVector."
+  related:
+    docs_search: "AlignedVector"
+    headers:
+      - fat_p/FatPBenchmarkRunner.h
+      - fat_p/AlignedVector.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 5
+    defines_unprefixed: 5
+    undefs_total: 0
+    includes_windows_h: true
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <algorithm>
 #include <array>

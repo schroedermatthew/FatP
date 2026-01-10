@@ -24,6 +24,33 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: AlignedVector
+  file_role: public_header
+  path: fat_p/AlignedVector.h
+  namespace: fat_p
+  summary: "Public header for AlignedVector."
+  api_stability: in_work
+  related:
+    docs_search: "AlignedVector"
+    tests:
+      - tests/test_AlignedVector.cpp
+      - tests/test_TensorStorage.cpp
+    benchmarks:
+      - benchmarks/benchmark_AlignedVector.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 // MSVC warning C4702: unreachable code
 // This is a false positive triggered by if constexpr discarded branches.
 // GCC/Clang don't warn about this (correctly).

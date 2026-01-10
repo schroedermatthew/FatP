@@ -64,6 +64,30 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: FatPJson
+  file_role: public_header
+  path: fat_p/FatPJson.h
+  namespace: fat_p
+  summary: "Public header for FatPJson."
+  api_stability: in_work
+  related:
+    docs_search: "FatPJson"
+    tests:
+      - tests/test_FatPJson.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 3
+    defines_unprefixed: 1
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include "JsonLite.h"
 #include "Expected.h"
 #include "FlatMap.h"
@@ -626,7 +650,7 @@ namespace fat_p {
     std::enable_if_t<json_detail::has_enum_string_policy_v<E>, void>
     from_json(const JsonValue& j, E& value)
     {
-        json_enforce(j.is_string(),
+        fatp_json_enforce(j.is_string(),
                      "Enum deserialization requires string",
                      "expected",
                      "string",
@@ -639,7 +663,7 @@ namespace fat_p {
         }
         catch (const std::exception& e)
         {
-            json_enforce(false,
+            fatp_json_enforce(false,
                          "Invalid enum string value",
                          "value",
                          std::get<std::string>(j),
@@ -1183,12 +1207,12 @@ namespace fat_p {
  * @brief Convenience macro for using FatPJson
  *
  * @details Brings common FatPJson symbols into scope. Expands to:
- * - USING_JSON_LITE() (from JsonLite.h)
+ * - FATP_USING_JSON_LITE() (from JsonLite.h)
  * - using declarations for all try_* and safe_* functions
  * - ConfigJsonPolicy for JSONC support
  */
 #define USING_FATP_JSON()              \
-    USING_JSON_LITE();                      \
+    FATP_USING_JSON_LITE();                  \
     using fat_p::try_parse_json;            \
     using fat_p::try_load_json;             \
     using fat_p::load_json_mmap;            \

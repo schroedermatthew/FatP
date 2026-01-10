@@ -6,7 +6,7 @@
 // Version: December 22, 2025 (4-AI Review Round 3)
 // Fixes applied:
 //   - P0 Critical: Control byte prefix mirroring (fixes probing hang)
-//   - P0 Critical: Guaranteed ≥1 empty slot (probe termination)
+//   - P0 Critical: Guaranteed â‰¥1 empty slot (probe termination)
 //   - P0 Critical: FixedAllocator alignment fix (align address, not offset)
 //   - P0 Critical: FixedHashMap non-movable/non-swappable (prevents dangling pointers)
 //   - P1: 32-bit portable hash finalizer (SplitMix64/MurmurHash3)
@@ -78,6 +78,32 @@
 //   - GCC/Clang: -mavx2 or -march=native
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: FastHashMap
+  file_role: public_header
+  path: fat_p/FastHashMap.h
+  namespace: fat_p
+  summary: "Public header for FastHashMap."
+  api_stability: in_work
+  related:
+    docs_search: "FastHashMap"
+    tests:
+      - tests/test_FastHashMap.cpp
+    benchmarks:
+      - benchmarks/benchmark_FatPHashMap.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 7
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -105,20 +131,20 @@
 
 // AVX-512BW: 64-byte groups (commented out - frequency throttling concerns)
 // #if defined(FATP_SIMD_AVX512BW)
-//     #define FAST_HASH_MAP_AVX512 1
-//     #define FAST_HASH_MAP_AVX2 1
-//     #define FAST_HASH_MAP_SSE2 1
+//     #define FATP_FAST_HASH_MAP_AVX512 1
+//     #define FATP_FAST_HASH_MAP_AVX2 1
+//     #define FATP_FAST_HASH_MAP_SSE2 1
 //     #include <immintrin.h>
 
 // AVX2: 32-byte groups
 #if defined(FATP_SIMD_AVX2)
-    #define FAST_HASH_MAP_AVX2 1
-    #define FAST_HASH_MAP_SSE2 1
+    #define FATP_FAST_HASH_MAP_AVX2 1
+    #define FATP_FAST_HASH_MAP_SSE2 1
     #include <immintrin.h>
 
 // SSE2: 16-byte groups
 #elif defined(FATP_SIMD_SSE2)
-    #define FAST_HASH_MAP_SSE2 1
+    #define FATP_FAST_HASH_MAP_SSE2 1
     #include <emmintrin.h>
     #if defined(__SSSE3__)
         #include <tmmintrin.h>
@@ -126,17 +152,17 @@
 #endif
 
 #if defined(FATP_SIMD_NEON)
-    #define FAST_HASH_MAP_NEON 1
+    #define FATP_FAST_HASH_MAP_NEON 1
     #if FATP_SIMD_NEON_AARCH64
-        #define FAST_HASH_MAP_NEON_AARCH64 1
+        #define FATP_FAST_HASH_MAP_NEON_AARCH64 1
     #else
-        #define FAST_HASH_MAP_NEON_AARCH64 0
+        #define FATP_FAST_HASH_MAP_NEON_AARCH64 0
     #endif
     #include <arm_neon.h>
 #endif
 
-#if !defined(FAST_HASH_MAP_SSE2) && !defined(FAST_HASH_MAP_NEON)
-    #define FAST_HASH_MAP_PORTABLE 1
+#if !defined(FATP_FAST_HASH_MAP_SSE2) && !defined(FATP_FAST_HASH_MAP_NEON)
+    #define FATP_FAST_HASH_MAP_PORTABLE 1
 #endif
 
 namespace fat_p {
@@ -350,7 +376,7 @@ private:
 // Uncomment to enable. Requires: -mavx512bw (GCC/Clang) or /arch:AVX512 (MSVC)
 // WARNING: AVX-512 can cause 10-20% frequency reduction on some Intel CPUs.
 /*
-#if defined(FAST_HASH_MAP_AVX512)
+#if defined(FATP_FAST_HASH_MAP_AVX512)
 
 class Group {
 public:
@@ -385,11 +411,11 @@ private:
     __m512i ctrl_;
 };
 
-#elif defined(FAST_HASH_MAP_AVX2)
+#elif defined(FATP_FAST_HASH_MAP_AVX2)
 */
 
 // --- AVX2: 32-byte groups ---
-#if defined(FAST_HASH_MAP_AVX2) && !defined(FAST_HASH_MAP_AVX512)
+#if defined(FATP_FAST_HASH_MAP_AVX2) && !defined(FATP_FAST_HASH_MAP_AVX512)
 
 class Group {
 public:
@@ -428,7 +454,7 @@ private:
 };
 
 // --- SSE2: 16-byte groups ---
-#elif defined(FAST_HASH_MAP_SSE2)
+#elif defined(FATP_FAST_HASH_MAP_SSE2)
 
 class Group {
 public:
@@ -466,7 +492,7 @@ private:
 };
 
 // --- NEON: 16-byte groups ---
-#elif defined(FAST_HASH_MAP_NEON)
+#elif defined(FATP_FAST_HASH_MAP_NEON)
 
 class Group {
 public:
@@ -479,7 +505,7 @@ public:
     BitMask match(uint8_t h2) const {
         auto match_vec = vdupq_n_u8(h2);
         auto result = vceqq_u8(ctrl_, match_vec);
-#if FAST_HASH_MAP_NEON_AARCH64
+#if FATP_FAST_HASH_MAP_NEON_AARCH64
         static const uint8x16_t bit_mask = {1,2,4,8,16,32,64,128,1,2,4,8,16,32,64,128};
         auto masked = vandq_u8(result, bit_mask);
         auto paired = vpaddq_u8(masked, masked);
@@ -507,7 +533,7 @@ public:
         auto no_high = vceqq_u8(has_high, vdupq_n_u8(0));
         auto sentinel = vceqq_u8(ctrl_, vdupq_n_u8(kSentinel));
         auto result = vbicq_u8(no_high, sentinel);
-#if FAST_HASH_MAP_NEON_AARCH64
+#if FATP_FAST_HASH_MAP_NEON_AARCH64
         static const uint8x16_t bit_mask = {1,2,4,8,16,32,64,128,1,2,4,8,16,32,64,128};
         auto masked = vandq_u8(result, bit_mask);
         auto paired = vpaddq_u8(masked, masked);
@@ -1444,13 +1470,13 @@ public:
     
     // Diagnostics
     static const char* simd_backend() {
-#if defined(FAST_HASH_MAP_AVX512)
+#if defined(FATP_FAST_HASH_MAP_AVX512)
         return "AVX-512";
-#elif defined(FAST_HASH_MAP_AVX2)
+#elif defined(FATP_FAST_HASH_MAP_AVX2)
         return "AVX2";
-#elif defined(FAST_HASH_MAP_SSE2)
+#elif defined(FATP_FAST_HASH_MAP_SSE2)
         return "SSE2";
-#elif defined(FAST_HASH_MAP_NEON)
+#elif defined(FATP_FAST_HASH_MAP_NEON)
         return "NEON";
 #else
         return "Portable";

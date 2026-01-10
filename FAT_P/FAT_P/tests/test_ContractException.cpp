@@ -23,6 +23,30 @@
  * - Debug:   g++ -std=c++17 -g -pthread test_ContractException.cpp -o test_debug
  * - Release: g++ -std=c++17 -O3 -DNDEBUG -pthread test_ContractException.cpp -o test_release
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: ContractException
+  file_role: test
+  path: tests/test_ContractException.cpp
+  namespace: fat_p
+  summary: "Unit tests for ContractException."
+  related:
+    docs_search: "ContractException"
+    headers:
+      - fat_p/ContractException.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <atomic>
 #include <climits>

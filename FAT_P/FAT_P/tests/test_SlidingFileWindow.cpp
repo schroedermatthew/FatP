@@ -2,6 +2,30 @@
  * @file test_SlidingFileWindow.cpp
  * @brief Comprehensive unit tests for SlidingFileWindow.h
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: SlidingFileWindow
+  file_role: test
+  path: tests/test_SlidingFileWindow.cpp
+  namespace: fat_p
+  summary: "Unit tests for SlidingFileWindow."
+  related:
+    docs_search: "SlidingFileWindow"
+    headers:
+      - fat_p/FatPTest.h
+      - fat_p/SlidingFileWindow.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <chrono>
 #include <filesystem>

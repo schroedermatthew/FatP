@@ -42,6 +42,30 @@
  */
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: CheckedArithmetic
+  file_role: public_header
+  path: fat_p/CheckedArithmetic.h
+  namespace: fat_p
+  summary: "Public header for CheckedArithmetic."
+  api_stability: in_work
+  related:
+    docs_search: "CheckedArithmetic"
+    tests:
+      - tests/test_CheckedArithmetic.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 1
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 // Include the split components
 #include "CheckedArithmeticInt.h"
 #include "CheckedArithmeticFP.h"

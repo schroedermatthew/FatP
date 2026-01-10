@@ -38,6 +38,37 @@
 //
 // Compiler flags for AVX2: -mavx2 or -march=native (GCC/Clang), /arch:AVX2 (MSVC)
 #pragma once
+/*
+FATP_META:
+  meta_version: 1
+  component: StableHashMap
+  file_role: public_header
+  path: fat_p/fat_p/StableHashMap.h
+  namespace: fat_p
+  layer: containers.associative
+  summary: Reference-stable hash map with SIMD control-byte probing and configurable node allocation.
+  api_stability: candidate
+  related:
+    docs:
+      - "Documentation/Documentation/Associative Containers/StableHashMap_User_Manual.md"
+      - "Documentation/Documentation/Associative Containers/StableHashMap_Overview.md"
+      - "Documentation/Documentation/Associative Containers/Companion Guide - StableHashMap.md"
+    tests:
+      - tests/tests/test_StableHashMap.cpp
+    benchmarks:
+      - benchmarks/benchmarks/benchmark_FatPHashMap.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 
 #include <cassert>
 #include <cstddef>
@@ -73,10 +104,12 @@
 
 namespace fat_p {
 
-// Forward declaration for test framework friend access
-namespace testing { namespace stablehashmap { template<typename M> class StableHashMapTester; } }
-
 namespace stablehash_detail {
+
+
+#if defined(FATP_STABLEHASHMAP_TESTING)
+struct StableHashMapTestingAccess;
+#endif
 
 // Control byte values
 static constexpr uint8_t kEmpty = 0b10000000;
@@ -436,11 +469,10 @@ bool diagnostic_find(const Key& key, ProbeCounters& out) const
         }
 }
 #endif
+#if defined(FATP_STABLEHASHMAP_TESTING)
+    friend struct stablehash_detail::StableHashMapTestingAccess;
+#endif
 
-    
-    // Friend declaration for test framework access to internals
-    template<typename M> friend class fat_p::testing::stablehashmap::StableHashMapTester;
-    
 private:
     using Group = stablehash_detail::Group;
     using BitMask = stablehash_detail::BitMask;
@@ -471,13 +503,25 @@ private:
     size_t tombstones_ = 0;
     
     float max_load_factor_ = 0.8f;  // Lower than 0.875 for faster miss detection
-    bool frozen_ = false;
     Hash hasher_;
     KeyEqual key_equal_;
     allocator_type allocator_;
     
     static constexpr size_t kMinCapacity = Group::kWidth * 2;
     
+
+    static float validate_max_load_factor(float load_factor)
+    {
+        // Requirements: 0 < lf <= 1.0f (reserve() arithmetic and termination guarantees)
+        // Note: NaN fails ordered comparisons and is therefore rejected.
+        if (!(load_factor > 0.0f && load_factor <= 1.0f))
+        {
+            throw std::invalid_argument(
+                "StableHashMap: load_factor must satisfy 0 < lf <= 1");
+        }
+        return load_factor;
+    }
+
     // Set control byte with mirroring for group reads that wrap
     void set_ctrl(size_t idx, uint8_t value) {
         ctrl_[idx] = value;
@@ -503,7 +547,7 @@ private:
          std::is_invocable_r_v<bool, const KeyEqual&, const K&, const Key&>);
     
     // Hash with optional finalizer for robustness
-    // Skipped if Hash::is_avalanching is defined (user claims good avalanche)
+    // Skipped if Hash::is_avalanching is defined (opt-out marker; no validation is performed)
     // Note: hash value 0 is valid. With kEmpty=0x80 and H2 using high bits,
     // H2(0)=0 cannot be confused with empty slots.
     template<typename K>
@@ -715,7 +759,7 @@ public:
     
     // Constructor with capacity and max load factor
     StableHashMap(size_t initial_capacity, float load_factor)
-        : max_load_factor_(load_factor) {
+        : max_load_factor_(validate_max_load_factor(load_factor)) {
         if (initial_capacity > 0) {
             size_t cap = kMinCapacity;
             while (cap < initial_capacity) cap *= 2;
@@ -725,7 +769,7 @@ public:
     
     // Constructor with capacity, load factor, and custom hash
     StableHashMap(size_t initial_capacity, float load_factor, const Hash& hash)
-        : max_load_factor_(load_factor), hasher_(hash) {
+        : max_load_factor_(validate_max_load_factor(load_factor)), hasher_(hash) {
         if (initial_capacity > 0) {
             size_t cap = kMinCapacity;
             while (cap < initial_capacity) cap *= 2;
@@ -735,7 +779,7 @@ public:
     
     // Constructor with capacity, load factor, hash, and key_equal
     StableHashMap(size_t initial_capacity, float load_factor, const Hash& hash, const KeyEqual& equal)
-        : max_load_factor_(load_factor), hasher_(hash), key_equal_(equal) {
+        : max_load_factor_(validate_max_load_factor(load_factor)), hasher_(hash), key_equal_(equal) {
         if (initial_capacity > 0) {
             size_t cap = kMinCapacity;
             while (cap < initial_capacity) cap *= 2;
@@ -763,7 +807,7 @@ public:
         : ctrl_(other.ctrl_), nodes_(other.nodes_), size_(other.size_),
           capacity_(other.capacity_), mask_(other.mask_),
           growth_threshold_(other.growth_threshold_), tombstones_(other.tombstones_),
-          max_load_factor_(other.max_load_factor_), frozen_(other.frozen_),
+          max_load_factor_(other.max_load_factor_),
           hasher_(std::move(other.hasher_)), key_equal_(std::move(other.key_equal_)),
           allocator_(std::move(other.allocator_)) {
         other.ctrl_ = nullptr;
@@ -784,7 +828,6 @@ public:
             growth_threshold_ = other.growth_threshold_;
             tombstones_ = other.tombstones_;
             max_load_factor_ = other.max_load_factor_;
-            frozen_ = other.frozen_;
             hasher_ = std::move(other.hasher_);
             key_equal_ = std::move(other.key_equal_);
             allocator_ = std::move(other.allocator_);
@@ -800,7 +843,6 @@ public:
     // Copy constructor - preserves configuration and functor state
     StableHashMap(const StableHashMap& other)
         : max_load_factor_(other.max_load_factor_),
-          frozen_(false),  // Copies start unfrozen (intentional)
           hasher_(other.hasher_),
           key_equal_(other.key_equal_) {
         if (other.size_ > 0) {
@@ -835,7 +877,6 @@ public:
     /// The returned pointer remains valid until erase(key) is called.
     template<typename K, typename V>
     std::pair<Value*, bool> insert(K&& key, V&& value) {
-        assert(!frozen_ && "StableHashMap::insert() called on frozen map");
         if (capacity_ == 0) {
             allocate(kMinCapacity);
         }
@@ -867,7 +908,6 @@ public:
     /// Returns pair of (pointer to value, true if inserted / false if assigned).
     template<typename K, typename V>
     std::pair<Value*, bool> insert_or_assign(K&& key, V&& value) {
-        assert(!frozen_ && "StableHashMap::insert_or_assign() called on frozen map");
         if (capacity_ == 0) {
             allocate(kMinCapacity);
         }
@@ -901,7 +941,6 @@ public:
     /// Returns pair of (pointer to value, true if inserted / false if already present).
     template<typename K, typename... Args>
     std::pair<Value*, bool> try_emplace(K&& key, Args&&... args) {
-        assert(!frozen_ && "StableHashMap::try_emplace() called on frozen map");
         if (capacity_ == 0) {
             allocate(kMinCapacity);
         }
@@ -931,7 +970,7 @@ public:
     }
     
     /// Subscript operator - returns reference to value, inserting default if not present.
-    /// WARNING: Invalidates existing pointers if rehash occurs!
+    /// References and pointers remain valid until the referenced key is erased.
     Value& operator[](const Key& key) {
         auto [ptr, inserted] = try_emplace(key);
         return *ptr;
@@ -973,7 +1012,6 @@ public:
     /// Erase a key. After this call, any pointers to the erased value are INVALID.
     template<typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
     bool erase(const K& key) {
-        assert(!frozen_ && "StableHashMap::erase() called on frozen map");
         size_t h = hash_key(key);
         auto [idx, found] = find_slot(key, h);
         
@@ -989,7 +1027,6 @@ public:
     }
     
     void clear() {
-        assert(!frozen_ && "StableHashMap::clear() called on frozen map");
         if (ctrl_) {
             for (size_t i = 0; i < capacity_; ++i) {
                 if (stablehash_detail::is_full(ctrl_[i])) {
@@ -1017,14 +1054,10 @@ public:
     size_t size() const { return size_; }
     bool empty() const { return size_ == 0; }
     size_t capacity() const { return capacity_; }
+    float max_load_factor() const noexcept { return max_load_factor_; }
     float load_factor() const { 
         return capacity_ > 0 ? static_cast<float>(size_) / capacity_ : 0.0f; 
     }
-    
-    /// Freeze the map for read-only access.
-    StableHashMap& freeze() noexcept { frozen_ = true; return *this; }
-    bool is_frozen() const noexcept { return frozen_; }
-    
     /// Get the allocator (for custom allocator inspection)
     allocator_type& get_allocator() noexcept { return allocator_; }
     const allocator_type& get_allocator() const noexcept { return allocator_; }

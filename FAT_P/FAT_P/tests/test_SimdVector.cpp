@@ -2,6 +2,30 @@
  * @file test_SimdVector.cpp
  * @brief Comprehensive unit tests for SimdVector.h
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: SimdVector
+  file_role: test
+  path: tests/test_SimdVector.cpp
+  namespace: fat_p
+  summary: "Unit tests for SimdVector."
+  related:
+    docs_search: "SimdVector"
+    headers:
+      - fat_p/SimdVector.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <iostream>
 #include <cmath>

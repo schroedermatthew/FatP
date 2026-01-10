@@ -2,13 +2,15 @@
 
 ## Document Governance
 
-This is the **authoritative** Fat-P guideline document. Four documents form the complete governance set:
+This is the **authoritative** Fat-P guideline document. Six documents form the complete governance set:
 
 | Document | Role | Authority |
 |----------|------|-----------|
 | **Development Guidelines** (this) | Normative rules, AI behavior, code standards | HIGHEST -- this document wins |
 | **Teaching Documents Style Guide** | All teaching docs: Overviews, User Manuals, Companion Guides, Case Studies, Foundations, Handbooks, Pattern Guides, Design Notes, Benchmark Results | PRIMARY for all documentation |
 | **Test Suite Style Guide** | Test structure, coverage, assertions | PRIMARY for test code |
+| **Benchmark Code Style Guide** | Benchmark methodology, statistics, competitor comparison | PRIMARY for benchmark code |
+| **Systemic Hygiene Policy** | Header composability, ODR safety, namespace collision prevention | NORMATIVE for header correctness |
 | **Human Guidance** | Instructions for human maintainers | REFERENCE (includes AI Capability Estimates) |
 
 **Precedence rules:**
@@ -31,6 +33,8 @@ This is the **authoritative** Fat-P guideline document. Four documents form the 
 | "What decision did we make?" | Design Note (see Teaching Documents Style Guide) |
 | "How does this perform?" | Benchmark Results (see Teaching Documents Style Guide) |
 | "How do I test this component?" | Test Suite Style Guide |
+| "How do I write a benchmark?" | Benchmark Code Style Guide |
+| "Can these headers be included together?" | Systemic Hygiene Policy |
 | "Is this code/test/doc compliant?" | Development Guidelines |
 
 ---
@@ -799,6 +803,8 @@ WARN_NO_PARAMDOC       = YES
 | Namespace alias | **YES** | `namespace diag = fat_p::diagnostic;` |
 
 Local `using` directives improve readability in examples without polluting the global namespace.
+
+**Cross-reference:** For comprehensive header composability rules including namespace flattening prohibition and root namespace restrictions, see the *Systemic Hygiene Policy*.
 
 ---
 
@@ -1662,6 +1668,12 @@ When multiple AI reviewers analyze the same code:
 
 ## Changelog
 
+### v2.7 (January 2025)
+- Added Systemic Hygiene Policy to governance document set (6 documents total, up from 4)
+- Added Benchmark Code Style Guide to governance table
+- Added cross-reference in Section 4.9 to Systemic Hygiene Policy for namespace rules
+- Added "How do I write a benchmark?" and "Can these headers be included together?" questions to document selection table
+
 ### v2.6 (December 2025)
 - Consolidated teaching document governance from 5 separate guides to 1 unified guide
 - Removed: Overview Style Guide, User Manual Style Guide, Companion Guide Style Guide, Case Study Style Guide, Benchmark Results Style Guide
@@ -1728,4 +1740,4 @@ When multiple AI reviewers analyze the same code:
 
 ---
 
-*Fat-P Library Development Guidelines v2.6 -- December 2025*
+*Fat-P Library Development Guidelines v2.7 -- January 2025*
