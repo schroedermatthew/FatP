@@ -6,9 +6,12 @@ from_pattern: "Manual free lists, pre-allocated arrays, custom allocators"
 to_component: "ObjectPool"
 fatp_version: "1.0"
 cxx_standard: "C++17"
+std_equivalent: null
+std_since: null
+boost_equivalent: "Boost.Pool"
 migration_complexity: "Low-Medium"
 breaking_changes: true
-last_verified: "2025-01-08"
+last_verified: "2025-01-09"
 ---
 
 # Migration Guide - Free Lists to Type-Safe Object Pooling
@@ -32,6 +35,17 @@ last_verified: "2025-01-08"
 
 ---
 
+## Alternatives
+
+- **Boost.Pool** — Mature, feature-rich, part of Boost
+- **std::pmr::unsynchronized_pool_resource** (C++17) — Standard polymorphic allocator
+- **std::pmr::synchronized_pool_resource** (C++17) — Thread-safe variant
+- **jemalloc / tcmalloc** — General-purpose allocators with pooling behavior
+- **folly::Arena** — Facebook's arena allocator
+- **mimalloc** — Microsoft's high-performance allocator
+
+---
+
 ## Table of Contents
 
 1. [The Problem with Manual Pooling](#the-problem-with-manual-pooling)
@@ -43,14 +57,15 @@ last_verified: "2025-01-08"
 7. [Advanced Patterns](#advanced-patterns)
 8. [Verification](#verification)
 9. [When ObjectPool Loses](#when-objectpool-loses)
+10. [Summary](#summary)
 
 ---
 
 ## The Problem with Manual Pooling
 
-Object pools are essential for performance-critical code: game engines, network servers, real-time systems. The pattern avoids heap allocation by reusing objects from a pre-allocated pool.
+Object pools are essential for performance-critical code: game engines, network servers, real-time systems. The pattern avoids heap allocation by reusing objects from a pre-allocated pool. When you need a connection, you grab one from the pool. When you're done, you return it. No malloc, no free, no fragmentation.
 
-The C implementation:
+The C implementation looks simple. You maintain a free list—a linked list of available slots. Acquire pops from the head; release pushes to the head. O(1) allocation with zero heap overhead:
 
 ```c
 struct Object {
@@ -77,7 +92,7 @@ void release(Pool* pool, Object* obj) {
 }
 ```
 
-**The problems:**
+The simplicity is deceptive. This code has no safety checks. Release the same object twice, and you corrupt the free list—the next two acquires return the same pointer. Release an object to the wrong pool, and you've spliced foreign memory into your free list. Forget to release, and you've leaked a slot. Use an object after releasing it, and you'll corrupt whatever reused that slot.
 
 | Problem | Consequence |
 |---------|-------------|
@@ -88,13 +103,17 @@ void release(Pool* pool, Object* obj) {
 | Type confusion | Wrong type released to pool |
 | No initialization | Manual constructor/destructor calls |
 
+These bugs are silent. The code compiles. It might even run correctly for months. Then one edge case triggers a double-free, and you're debugging memory corruption with no stack trace.
+
 ---
 
 ## Real-World Pool Disasters
 
+These aren't hypothetical concerns. Pool bugs cause real crashes in production systems.
+
 ### SQLite's Lookaside Allocator
 
-SQLite uses a "lookaside" allocator for small, frequently-allocated objects. From [`src/malloc.c`](https://github.com/sqlite/sqlite/blob/master/src/malloc.c):
+SQLite uses a "lookaside" allocator for small, frequently-allocated objects. The implementation in [`src/malloc.c`](https://github.com/sqlite/sqlite/blob/master/src/malloc.c) shows how complex production pooling becomes:
 
 ```c
 /*
@@ -114,15 +133,11 @@ struct Lookaside {
 };
 ```
 
-The complexity is necessary because:
-- Must track "never used" vs "previously used" slots
-- Must handle size mismatches
-- Must maintain statistics
-- Must be thread-safe per-connection
+SQLite needs separate tracking for "never used" versus "previously used" slots, size mismatch handling, statistics for performance monitoring, and per-connection thread safety. A simple free list isn't enough. The code grows to handle every edge case, and each addition is another place for bugs.
 
 ### The Double-Free Catastrophe
 
-From a real production bug:
+A production bug that took weeks to diagnose:
 
 ```c
 void process_request(Pool* pool, Request* req) {
@@ -139,9 +154,11 @@ void process_request(Pool* pool, Request* req) {
 }
 ```
 
-The double-free corrupts the free list. Next `acquire()` might return the same pointer twice, leading to data races and corruption.
+The control flow is subtle. On error, the code releases and logs, but doesn't return. It falls through to the normal release path. The free list now contains the same slot twice. The next two acquires return the same pointer. Two threads write to the same memory. Corruption ensues.
 
 ### The Cross-Pool Release
+
+When you have multiple pools, releasing to the wrong one is an easy mistake:
 
 ```c
 Pool* pool_a;
@@ -156,11 +173,17 @@ void dangerous_code() {
 }
 ```
 
+The release function has no way to know which pool the object came from. It just pushes to the free list. Now pool_b's free list points into pool_a's storage. The corruption spreads.
+
 ---
 
 ## The C Patterns
 
+Before migrating, we need to recognize the patterns we're replacing. Pool implementations in C evolved in several directions, each trading off different concerns.
+
 ### Pattern 1: Intrusive Free List
+
+The most common pattern embeds the free list pointer inside the objects themselves. When an object is free, its first bytes store a pointer to the next free object. This wastes no extra memory—the pointer overlays the data:
 
 ```c
 typedef struct Node {
@@ -201,13 +224,11 @@ void pool_free(Pool* p, Node* n) {
 }
 ```
 
-**Problems:**
-- No double-free detection
-- No wrong-pool detection
-- No bounds checking
-- Manual capacity management
+The allocation and free are O(1), just pointer manipulation. But there's no validation. Double-free corrupts the list. Wrong-pool release corrupts the list. The pointer arithmetic is error-prone, and there's no bounds checking.
 
 ### Pattern 2: Bitset-Based Pool
+
+To detect double-frees, some implementations track which slots are in use with a bitset:
 
 ```c
 typedef struct Pool {
@@ -239,12 +260,11 @@ void pool_free(Pool* p, void* ptr) {
 }
 ```
 
-**Problems:**
-- O(n) allocation scan
-- Still no double-free detection
-- Pointer arithmetic is error-prone
+The bitset could detect double-frees—check if the bit is already zero before clearing. But most implementations don't bother. And allocation is now O(n) in the worst case, scanning for a free bit.
 
 ### Pattern 3: Index-Based Pool
+
+Returning indices instead of pointers avoids some pointer arithmetic errors:
 
 ```c
 #define INVALID_INDEX ((uint32_t)-1)
@@ -274,12 +294,11 @@ void pool_free_index(Pool* p, uint32_t index) {
 }
 ```
 
-**Problems:**
-- Separate index and pointer tracking
-- Still no safety checks
-- Manual type casting
+Now callers work with indices, converting to pointers only when needed. But the separation adds complexity—you're tracking both indices and pointers. And there are still no safety checks.
 
 ### Pattern 4: C++ std::vector as Pool
+
+A naive C++ approach uses vector for storage and a separate vector for the free list:
 
 ```cpp
 template <typename T>
@@ -305,18 +324,15 @@ public:
 };
 ```
 
-**Problems:**
-- `emplace_back()` invalidates all outstanding pointers
-- Release doesn't check if pointer is valid
-- No RAII wrapper
+This has a critical flaw: `emplace_back()` may reallocate the vector, invalidating every outstanding pointer. And release doesn't validate that the pointer actually came from this pool.
 
 ---
 
 ## The ObjectPool Solution
 
-### Core Concept
+The fundamental insight behind `ObjectPool` is that pooling is a well-defined pattern with well-known failure modes. Double-free, wrong-pool release, memory leaks—we know exactly what can go wrong. A type-safe pool can prevent or detect all of them.
 
-`ObjectPool` provides type-safe, exception-safe pooling with RAII wrappers:
+ObjectPool manages blocks of pre-allocated storage. When you acquire an object, it constructs it in place using your constructor arguments. When you release it, the destructor runs and the slot returns to the free list. The type system ensures you can only release objects of the correct type. Debug assertions catch double-frees and leaks.
 
 ```cpp
 #include "ObjectPool.h"
@@ -341,74 +357,27 @@ pool.release(conn);
 }  // Automatically released here
 ```
 
-### Key Features
+The `[[nodiscard]]` attribute on `acquire()` means the compiler warns if you ignore the return value—a common source of leaks. The `PooledObject<T>` RAII wrapper eliminates manual release calls entirely: the object returns to the pool when the wrapper goes out of scope.
 
-| Feature | Benefit |
-|---------|---------|
-| **Type-safe** | Can only release correct type to pool |
-| **Constructor forwarding** | `acquire(args...)` constructs in-place |
-| **Destructor called** | `release()` destroys object properly |
-| **RAII wrapper** | `PooledObject<T>` auto-releases |
-| **[[nodiscard]]** | Can't ignore `acquire()` return |
-| **Debug assertions** | Detects leaks and wrong-pool release |
-| **Thread-safe option** | `ThreadSafeObjectPool<T>` |
-| **try_acquire()** | Non-blocking acquire for HPC |
+### Type Safety and Debug Assertions
 
-### API Overview
+In debug builds, ObjectPool tracks which pointers are currently acquired. Releasing a pointer that wasn't acquired from this pool triggers an assertion. Destroying the pool while objects are still outstanding triggers an assertion. These checks cost nothing in release builds but catch bugs during development.
 
-```cpp
-template <typename T, typename SyncPolicy = SingleThreadedPolicy>
-class ObjectPool {
-public:
-    // Construction
-    explicit ObjectPool(size_t block_size = 64);
-    
-    // Non-copyable, non-movable (prevents dangling pointers)
-    ObjectPool(const ObjectPool&) = delete;
-    ObjectPool(ObjectPool&&) = delete;
-    
-    // Core operations
-    template <typename... Args>
-    [[nodiscard]] T* acquire(Args&&... args);  // Always succeeds (may allocate)
-    
-    template <typename... Args>
-    T* try_acquire(Args&&... args) noexcept(...);  // Returns nullptr if empty
-    
-    void release(T* obj) noexcept;  // Returns to pool, calls destructor
-    
-    // Query
-    size_t capacity() const;
-    size_t available() const;
-    size_t active_count() const;  // Debug only
-    Stats stats() const;
-};
+The pool is also non-copyable and non-movable. Copying a pool would create ambiguity about which pool owns which storage. Moving would invalidate outstanding pointers. By deleting these operations, the compiler catches use-after-move and copy bugs.
 
-// RAII wrapper
-template <typename T, typename SyncPolicy = SingleThreadedPolicy>
-class PooledObject {
-public:
-    // Smart pointer semantics
-    T* operator->() { return obj_; }
-    T& operator*() { return *obj_; }
-    T* get() { return obj_; }
-    
-    void reset();  // Release early
-    [[nodiscard]] T* release();  // Transfer ownership
-};
+### Thread-Safe Variant
 
-// Factory function
-template <typename T, typename SyncPolicy, typename... Args>
-[[nodiscard]] PooledObject<T, SyncPolicy>
-make_pooled(ObjectPool<T, SyncPolicy>& pool, Args&&... args);
-```
+For multi-threaded code, use `ThreadSafeObjectPool<T>`, which wraps all operations in appropriate synchronization. The single-threaded version has zero locking overhead.
 
 ---
 
 ## Migration Steps
 
+Migration from manual pooling to ObjectPool is mostly mechanical: replace pool_alloc/pool_free calls with acquire/release, and add RAII wrappers where appropriate. The harder part is ensuring your types have proper constructors and destructors.
+
 ### Step 1: Identify Pool Usage
 
-Find manual pooling patterns:
+Find manual pooling patterns in your codebase. Look for free list pointers, placement new, and manual initialization:
 
 ```bash
 grep -rn "free_list\|freeList\|pool_alloc\|pool_free" src/
@@ -418,7 +387,7 @@ grep -rn "placement new\|new.*storage" src/
 
 ### Step 2: Define Pooled Types
 
-For each pooled type, ensure it's properly constructed/destructed:
+C pools often use structs with uninitialized fields. ObjectPool calls constructors, so your types need proper initialization:
 
 ```cpp
 // Before: manually initialized struct
@@ -438,10 +407,14 @@ public:
 };
 ```
 
+If construction can fail, throw an exception. ObjectPool handles constructor exceptions correctly—the slot is recovered and the exception propagates to the caller.
+
 ### Step 3: Replace Pool Implementation
 
-**Before:**
+The C pool struct with its mutex and free list becomes a single template instantiation:
+
 ```c
+// Before
 typedef struct ConnectionPool {
     Connection* storage;
     Connection* free_head;
@@ -455,8 +428,8 @@ Connection* pool_acquire(ConnectionPool* p);
 void pool_release(ConnectionPool* p, Connection* c);
 ```
 
-**After:**
 ```cpp
+// After
 #include "ObjectPool.h"
 
 // Thread-safe pool
@@ -468,7 +441,8 @@ using ConnectionPool = fat_p::ObjectPool<Connection>;
 
 ### Step 4: Update Allocation Sites
 
-**Before:**
+The C code manually initializes fields after acquiring and cleans them up before releasing:
+
 ```c
 Connection* conn = pool_acquire(pool);
 if (!conn) return ERROR_NO_CONNECTION;
@@ -485,7 +459,8 @@ free(conn->host);
 pool_release(pool, conn);
 ```
 
-**After:**
+The C++ code passes constructor arguments to acquire. The constructor initializes; the destructor cleans up:
+
 ```cpp
 // Constructor handles initialization
 Connection* conn = pool.acquire(hostname, port);
@@ -499,8 +474,10 @@ pool.release(conn);  // Destructor called, then returned to pool
 
 ### Step 5: Add RAII Where Appropriate
 
-**Before:**
+C code has multiple release paths—error handling, early returns, normal completion. Each path must remember to release. The RAII wrapper eliminates this problem:
+
 ```c
+// Before: multiple release paths
 void handle_request(Pool* pool) {
     Connection* conn = pool_acquire(pool);
     if (!conn) return;
@@ -514,8 +491,8 @@ void handle_request(Pool* pool) {
 }
 ```
 
-**After:**
 ```cpp
+// After: automatic release on all paths
 void handle_request(ConnectionPool& pool) {
     auto conn = make_pooled(pool);
     if (!conn) return;
@@ -530,7 +507,7 @@ void handle_request(ConnectionPool& pool) {
 
 ### Step 6: Add Debug Validation
 
-ObjectPool includes debug-mode assertions:
+ObjectPool's debug assertions catch bugs during development. Use them:
 
 ```cpp
 // In debug builds:
@@ -547,9 +524,12 @@ ObjectPool includes debug-mode assertions:
 
 ## Before/After Examples
 
+These examples show complete transformations of realistic C pooling code to ObjectPool.
+
 ### Example 1: Network Connection Pool
 
-**Before (C-style):**
+Network servers pool connections to avoid socket creation overhead. The C version combines a free list with manual initialization and cleanup:
+
 ```c
 #define POOL_SIZE 100
 
@@ -603,7 +583,10 @@ void release_connection(ConnectionPool* p, Connection* c) {
 }
 ```
 
-**After (ObjectPool):**
+This code has a subtle bug: if socket() fails, the connection is already removed from the free list but will never be returned. The slot leaks. And there's no double-free detection—calling release_connection twice corrupts the free list.
+
+The ObjectPool version moves initialization into the constructor, where exceptions are handled properly:
+
 ```cpp
 class Connection {
     int mSocket = -1;
@@ -643,9 +626,12 @@ Connection* conn = connectionPool.acquire("localhost", 8080);
 }  // Destructor called, returned to pool
 ```
 
+If the constructor throws, the slot returns to the free list automatically. The RAII wrapper ensures the destructor runs.
+
 ### Example 2: Message Buffer Pool
 
-**Before (fixed-size buffers):**
+Message processing often uses fixed-size buffers. The C version has a lazy initialization pattern that isn't thread-safe:
+
 ```c
 #define BUFFER_SIZE 4096
 #define POOL_SIZE 256
@@ -684,7 +670,10 @@ void buffer_free(Buffer* b) {
 }
 ```
 
-**After (ObjectPool):**
+The check-then-initialize pattern is a race condition. Two threads calling buffer_alloc simultaneously might both call buffer_pool_init.
+
+The ObjectPool version handles initialization safely and provides a modern API:
+
 ```cpp
 class Buffer {
     static constexpr size_t CAPACITY = 4096;
@@ -720,7 +709,8 @@ void process_message(const char* data, size_t len) {
 
 ### Example 3: Game Entity Pool
 
-**Before (index-based):**
+Game engines spawn and destroy entities constantly—enemies, projectiles, particles. An index-based pool avoids pointer invalidation but has no safety checks:
+
 ```c
 #define MAX_ENTITIES 10000
 
@@ -760,7 +750,10 @@ void despawn_entity(int idx) {
 }
 ```
 
-**After (ObjectPool + PooledObject):**
+Calling despawn_entity twice with the same index corrupts the free_indices array. Calling it with an out-of-bounds index is undefined behavior.
+
+The ObjectPool version wraps entities in handles that manage lifetime automatically:
+
 ```cpp
 struct Entity {
     glm::vec3 position;
@@ -793,14 +786,19 @@ enemy->velocity = {1, 0, 0};
 // Entity returned to pool when EntityHandle is destroyed
 ```
 
+The EntityHandle owns the PooledObject. When the handle is destroyed (or goes out of scope), the entity returns to the pool.
+
 ---
 
 ## Advanced Patterns
 
+Once you've migrated basic pooling, these patterns address more specialized scenarios.
+
 ### Pattern: Non-Growing Pool for Real-Time
 
+Hard real-time systems can't tolerate allocation latency. The `try_acquire()` method never allocates—it returns nullptr if the pool is empty. Pre-allocate enough capacity at startup, then handle exhaustion gracefully:
+
 ```cpp
-// For hard real-time: never allocate after initialization
 ObjectPool<AudioBuffer> audioPool(1024);
 
 void process_audio() {
@@ -817,7 +815,11 @@ void process_audio() {
 }
 ```
 
+This pattern is essential for audio processing, game engines, and embedded systems where allocation latency is unacceptable.
+
 ### Pattern: Pool Statistics for Monitoring
+
+Production systems need visibility into pool utilization. The `stats()` method provides capacity, available count, and block information:
 
 ```cpp
 void monitor_pools() {
@@ -834,10 +836,13 @@ void monitor_pools() {
 }
 ```
 
+Alerting on low availability prevents pool exhaustion before it causes request failures.
+
 ### Pattern: Typed Pool Registry
 
+When you have many pooled types, a template function provides type-safe access to per-type pools:
+
 ```cpp
-// Multiple pools for different object types
 template <typename T>
 ObjectPool<T>& get_pool() {
     static ObjectPool<T> pool(256);
@@ -849,7 +854,11 @@ auto conn = make_pooled(get_pool<Connection>(), host, port);
 auto buffer = make_pooled(get_pool<Buffer>());
 ```
 
+Each type gets its own pool, lazily initialized on first use. The static local guarantees thread-safe initialization in C++11 and later.
+
 ### Pattern: Scoped Pool for Request Handling
+
+For request handlers that allocate many temporary objects, a request-scoped pool provides fast allocation with automatic cleanup:
 
 ```cpp
 void handle_http_request(Request& req) {
@@ -867,13 +876,17 @@ void handle_http_request(Request& req) {
 }
 ```
 
+When the pools go out of scope, all their storage is freed in one operation. No per-object deallocation, no fragmentation within the request.
+
 ---
 
 ## Verification
 
-### Compile-Time Verification
+ObjectPool catches bugs at both compile time and runtime.
 
-ObjectPool provides compile-time safety:
+### Compile-Time Safety
+
+The type system prevents several classes of errors. Types must be destructible—ObjectPool calls destructors on release. The `[[nodiscard]]` attribute warns if you ignore the acquire() return value, catching a common leak pattern. And the pool is non-copyable and non-movable, preventing use-after-move bugs:
 
 ```cpp
 // Type must be destructible
@@ -886,7 +899,9 @@ pool.acquire();  // Warning: ignoring return value
 ObjectPool<X> pool2 = std::move(pool1);  // Compile error
 ```
 
-### Runtime Verification
+### Runtime Tests
+
+Unit tests verify the core invariants. Basic acquire/release should round-trip values correctly, and released slots should be reused:
 
 ```cpp
 TEST(ObjectPool, BasicAcquireRelease) {
@@ -903,7 +918,11 @@ TEST(ObjectPool, BasicAcquireRelease) {
     EXPECT_EQ(a, b);  // Same memory
     EXPECT_EQ(*b, 99);  // New value
 }
+```
 
+Pools should grow automatically when exhausted, allocating new blocks:
+
+```cpp
 TEST(ObjectPool, GrowsOnDemand) {
     ObjectPool<int> pool(2);  // Block size 2
     
@@ -919,7 +938,11 @@ TEST(ObjectPool, GrowsOnDemand) {
         pool.release(p);
     }
 }
+```
 
+The RAII wrapper should release automatically when it goes out of scope:
+
+```cpp
 TEST(ObjectPool, RAIIWrapper) {
     ObjectPool<std::string> pool(4);
     
@@ -931,7 +954,11 @@ TEST(ObjectPool, RAIIWrapper) {
     
     EXPECT_EQ(pool.available(), 4);
 }
+```
 
+Constructor exceptions should be handled correctly—the slot should return to the free list:
+
+```cpp
 TEST(ObjectPool, ConstructorException) {
     struct Throws {
         Throws(bool should_throw) {
@@ -949,7 +976,11 @@ TEST(ObjectPool, ConstructorException) {
     // Slot recovered after exception
     EXPECT_EQ(pool.available(), 3);
 }
+```
 
+In debug builds, destroying a pool with unreleased objects should assert:
+
+```cpp
 #ifndef NDEBUG
 TEST(ObjectPool, DebugLeakDetection) {
     ObjectPool<int>* pool = new ObjectPool<int>(4);
@@ -968,9 +999,11 @@ TEST(ObjectPool, DebugLeakDetection) {
 
 ## When ObjectPool Loses
 
+ObjectPool excels at fixed-size, short-lived, frequently allocated objects. Some scenarios call for different approaches.
+
 ### 1. Variable-Size Allocations
 
-ObjectPool is for fixed-size objects. For variable sizes:
+ObjectPool allocates fixed-size slots. If your objects have variable size—strings of different lengths, buffers of different capacities—the pool can't optimize effectively:
 
 ```cpp
 // Can't do: pool of different-sized strings
@@ -979,9 +1012,11 @@ ObjectPool<std::string> pool;  // Each string has different capacity
 // Use std::pmr or custom allocator instead
 ```
 
+The pool allocates slots big enough for the object's fixed size. The string's internal buffer is still heap-allocated. For truly variable-size allocation, use `std::pmr` pool resources or a custom arena allocator.
+
 ### 2. Objects with Complex Ownership
 
-If objects hold external resources that shouldn't be recycled:
+If objects hold external resources that shouldn't be recycled—GPU textures, file handles, database connections—you need to ensure those resources are released before the object returns to the pool:
 
 ```cpp
 struct Widget {
@@ -990,11 +1025,11 @@ struct Widget {
 // Releasing Widget doesn't release texture from GPU
 ```
 
-**Mitigation:** Clear external resources in destructor or use separate pools.
+The destructor runs on release, so the unique_ptr would release the texture. But if you want to keep the texture alive across object reuse, pooling doesn't help. Use separate pools for the object and its resources, or manage resources independently.
 
 ### 3. Long-Lived Objects
 
-Pools are for short-lived, frequently allocated objects:
+Pools optimize allocation, not lifetime. If objects live for minutes or hours, pooling provides little benefit and fragments pool capacity:
 
 ```cpp
 // Bad: objects live for hours
@@ -1004,9 +1039,11 @@ ObjectPool<DatabaseConnection> pool;  // Connections held open
 ObjectPool<RequestContext> pool;  // Created per-request
 ```
 
+Database connection pools are different—they're really about connection reuse, not allocation optimization. Use a different pattern for long-lived resources.
+
 ### 4. When Standard Allocators Are Fast Enough
 
-Modern allocators (jemalloc, tcmalloc) are very fast:
+Modern allocators like jemalloc and tcmalloc are highly optimized. If allocation isn't showing up in profiles, ObjectPool may be premature optimization:
 
 ```cpp
 // If you're not seeing allocation in profiles, pool may be premature optimization
@@ -1014,15 +1051,15 @@ auto* obj = new Object();  // Might be fast enough
 delete obj;
 ```
 
-**Measure first.** ObjectPool shines when:
-- Allocation is in hot path
-- Object sizes are uniform
-- Allocation count is high (>1000/sec)
-- Memory fragmentation is a concern
+Measure first. ObjectPool provides clear benefits when allocation is in the hot path, object sizes are uniform, allocation rates exceed 1000/sec, or memory fragmentation is causing problems. If none of these apply, standard allocation may be simpler and fast enough.
 
 ---
 
 ## Summary
+
+C-style pooling trades safety for performance. Free lists are fast, but they offer no protection against double-free, wrong-pool release, or memory leaks. Every pool bug is silent corruption that manifests far from its cause.
+
+ObjectPool provides the same performance—O(1) acquire and release—with type safety and debug assertions. The type system ensures you can only release objects of the correct type. Debug builds catch double-frees and leaks at the point of error. The RAII wrapper eliminates manual release calls entirely.
 
 | Aspect | C Pattern | ObjectPool |
 |--------|-----------|------------|
@@ -1035,10 +1072,7 @@ delete obj;
 | Growth | Manual | Automatic blocks |
 | RAII | None | PooledObject wrapper |
 
-**Migration ROI:**
-- **Immediate:** Eliminate double-free and use-after-free bugs
-- **Short-term:** Constructor/destructor called correctly
-- **Long-term:** Leak detection, statistics, maintainable code
+The migration pays off immediately when you eliminate the class of bugs that C pools can't catch. In the short term, proper constructor/destructor calls mean resources are initialized and cleaned up correctly. In the long term, the debug assertions, statistics, and RAII wrappers make pool code maintainable rather than a source of mysterious crashes.
 
 ---
 

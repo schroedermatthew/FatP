@@ -256,6 +256,23 @@ public:
         }
         return max_dist;
     }
+
+
+    static const uint8_t* ctrl_bytes(const MapType& map)
+    {
+        return map.ctrl_;
+    }
+
+    static size_t mask(const MapType& map)
+    {
+        return map.mask_;
+    }
+
+    template <typename K>
+    static size_t hash_key(const MapType& map, const K& key)
+    {
+        return map.hash_key(key);
+    }
 };
 
 // ============================================================================
@@ -375,8 +392,95 @@ TEST_CASE(clear)
 }
 
 // ============================================================================
+// Test 5b: Ctrl Tail Mirror + Wrap-Around Probe Termination
+// ============================================================================
+//
+// Regression tripwire: ctrl_[capacity_] must mirror ctrl_[0] so that a Group load
+// spanning the end of the table observes the correct state of slot 0.
+// If ctrl_[capacity_] is a sentinel, probes that should terminate on an empty
+// slot can fail to terminate (and may loop) when the only empty is slot 0.
+//
+
+TEST_CASE(ctrl_tail_wraparound_probe)
+{
+    struct IdentityHash
+    {
+        using is_avalanching = int;
+
+        size_t operator()(int k) const noexcept
+        {
+            return static_cast<size_t>(k);
+        }
+    };
+
+    using Map = StableHashMap<int, int, IdentityHash>;
+    Map map(64, 1.0f, IdentityHash());
+
+    const size_t cap = StableHashMapTester<Map>::capacity(map);
+    ASSERT_TRUE((cap & (cap - 1)) == 0, "Capacity must be power-of-two");
+    ASSERT_TRUE(cap >= stablehash_detail::Group::kWidth * 2,
+        "Capacity must be at least 2*GroupWidth");
+
+    // Fill every slot except slot 0 (leaving exactly one empty).
+    for (int k = 1; k < static_cast<int>(cap); ++k)
+    {
+        map.insert(k, k);
+    }
+
+    ASSERT_EQ(map.size(), cap - 1, "Expected to fill to cap-1 at load factor 1.0");
+    ASSERT_NULLPTR(map.find(0), "Slot 0 should remain empty");
+
+    const uint8_t* ctrl = StableHashMapTester<Map>::ctrl_bytes(map);
+    ASSERT_NOT_NULLPTR(ctrl, "Internal ctrl array must be allocated");
+
+    // Critical invariant: the tail byte at ctrl_[capacity_] mirrors ctrl_[0].
+    ASSERT_EQ(ctrl[0], stablehash_detail::kEmpty, "Slot 0 control byte must be kEmpty");
+    ASSERT_EQ(ctrl[cap], ctrl[0], "ctrl_[capacity] must mirror ctrl_[0] for wrap-around reads");
+
+    // Create a missing key whose probe starts at cap-4 so the first group read
+    // spans the end of the table and includes the mirrored slot 0 byte.
+    const size_t start_pos = cap - 4;
+    const int missing_key = static_cast<int>(cap + start_pos);
+
+    const size_t h = StableHashMapTester<Map>::hash_key(map, missing_key);
+    stablehash_detail::ProbeSequence seq(h, StableHashMapTester<Map>::mask(map));
+
+    bool saw_empty = false;
+    for (size_t step = 0; step < cap + stablehash_detail::Group::kWidth; ++step)
+    {
+        stablehash_detail::Group g(ctrl + seq.offset());
+        const auto empty = g.match_empty();
+
+        if (empty)
+        {
+            const uint32_t first = empty.lowest_set_bit();
+            const size_t idx = seq.offset(first);
+
+            ASSERT_EQ(first, uint32_t(4),
+                "Expected first empty bit to be the wrapped slot 0 (bit 4)");
+            ASSERT_EQ(idx, size_t(0),
+                "Probe must observe the empty slot 0 via wrap-around mirror");
+
+            saw_empty = true;
+            break;
+        }
+
+        seq.next();
+    }
+
+    ASSERT_TRUE(saw_empty,
+        "Probe sequence did not observe the only empty slot; wrap-around tail mirror broken");
+
+    // Now the real API call: must terminate and report miss.
+    ASSERT_NULLPTR(map.find(missing_key), "Missing key should not be found");
+
+    return true;
+}
+// ============================================================================
 // Test 6: Load Factor
 // ============================================================================
+
+
 
 TEST_CASE(load_factor)
 {
@@ -1867,6 +1971,7 @@ bool test_StableHashMap()
     RUN_TEST_NS(runner, stablehashmap, erase);
     RUN_TEST_NS(runner, stablehashmap, update_value);
     RUN_TEST_NS(runner, stablehashmap, clear);
+    RUN_TEST_NS(runner, stablehashmap, ctrl_tail_wraparound_probe);
     RUN_TEST_NS(runner, stablehashmap, load_factor);
     RUN_TEST_NS(runner, stablehashmap, collision_handling);
     RUN_TEST_NS(runner, stablehashmap, large_dataset);

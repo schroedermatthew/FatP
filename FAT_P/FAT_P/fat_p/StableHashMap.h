@@ -81,12 +81,21 @@ namespace stablehash_detail {
 // Control byte values
 static constexpr uint8_t kEmpty = 0b10000000;
 static constexpr uint8_t kDeleted = 0b11111110;
-static constexpr uint8_t kSentinel = 0b11111111;
+static constexpr uint8_t kSentinel = 0b11111111;  // Reserved but unused (see note below)
+
+// Note on kSentinel: This value is defined for compatibility but is intentionally
+// never written to the control array. The wrap-around tail region (ctrl_[capacity_]
+// through ctrl_[capacity_ + GroupWidth - 1]) mirrors ctrl_[0..GroupWidth-1] exactly,
+// which is necessary for correct SIMD group loads that span the table boundary.
+// Writing a sentinel at ctrl_[capacity_] would break wrap-around probe termination.
 
 inline bool is_full(uint8_t ctrl) { return ctrl < 0x80; }
 inline bool is_empty(uint8_t ctrl) { return ctrl == kEmpty; }
 inline bool is_deleted(uint8_t ctrl) { return ctrl == kDeleted; }
-inline bool is_empty_or_deleted(uint8_t ctrl) { return ctrl >= 0x80 && ctrl != kSentinel; }
+inline bool is_empty_or_deleted(uint8_t ctrl) { 
+    // Sentinel check retained for defensive coding even though sentinel is never written
+    return ctrl >= 0x80 && ctrl != kSentinel; 
+}
 
 // H2: Extract 7 bits from HIGH bits of hash for control byte matching.
 // CRITICAL: Using low bits would correlate with bucket index (hash & mask_),
@@ -218,8 +227,10 @@ struct Group {
     BitMask match_empty() const { return match(kEmpty); }
     
     BitMask match_empty_or_deleted() const {
-        uint8x16_t threshold = vdupq_n_u8(0x80);
-        uint8x16_t cmp = vcgeq_u8(ctrl, threshold);
+        // Match bytes >= 0x80 (Empty=0x80, Deleted=0xFE both have high bit set)
+        // Note: Sentinel (0xFF) is never written in this implementation,
+        // so no exclusion is needed.
+        uint8x16_t cmp = vcgeq_u8(ctrl, vdupq_n_u8(0x80));
         
         static const uint8_t kShift[] = {1, 2, 4, 8, 16, 32, 64, 128,
                                           1, 2, 4, 8, 16, 32, 64, 128};
@@ -236,16 +247,6 @@ struct Group {
         sum_hi = vpadd_u8(sum_hi, sum_hi);
         
         uint32_t mask = (vget_lane_u8(sum_hi, 0) << 8) | vget_lane_u8(sum_lo, 0);
-        uint8x16_t sentinel_mask = vceqq_u8(ctrl, vdupq_n_u8(kSentinel));
-        uint64_t sentinel_any = vgetq_lane_u64(vreinterpretq_u64_u8(sentinel_mask), 0) |
-                                vgetq_lane_u64(vreinterpretq_u64_u8(sentinel_mask), 1);
-        if (sentinel_any) {
-            for (int i = 0; i < 16; ++i) {
-                if (vgetq_lane_u8(ctrl, i) == kSentinel) {
-                    mask &= ~(1u << i);
-                }
-            }
-        }
         return BitMask(mask);
     }
     
@@ -270,15 +271,10 @@ struct Group {
     BitMask match_empty_or_deleted() const {
         // Abseil scheme: Full slots have h2 = 0-127 (bit 7 clear)
         // Empty (0x80) and Deleted (0xFE) have bit 7 set
-        // Just extract high bits directly
+        // Note: Sentinel (0xFF) is never written in this implementation,
+        // so no exclusion is needed.
         uint32_t mask = static_cast<uint32_t>(_mm256_movemask_epi8(ctrl));
-        
-        // Exclude sentinel (0xFF)
-        __m256i sentinel = _mm256_set1_epi8(static_cast<char>(kSentinel));
-        __m256i is_sentinel = _mm256_cmpeq_epi8(ctrl, sentinel);
-        uint32_t sentinel_mask = static_cast<uint32_t>(_mm256_movemask_epi8(is_sentinel));
-        
-        return BitMask(mask & ~sentinel_mask);
+        return BitMask(mask);
     }
     
     static const char* simd_name() { return "AVX2"; }
@@ -302,14 +298,10 @@ struct Group {
     BitMask match_empty_or_deleted() const {
         // Abseil scheme: Full slots have h2 = 0-127 (bit 7 clear)
         // Empty (0x80) and Deleted (0xFE) have bit 7 set
+        // Note: Sentinel (0xFF) is never written in this implementation,
+        // so no exclusion is needed.
         uint32_t mask = static_cast<uint32_t>(_mm_movemask_epi8(ctrl)) & 0xFFFF;
-        
-        // Exclude sentinel (0xFF)
-        __m128i sentinel = _mm_set1_epi8(static_cast<char>(kSentinel));
-        __m128i is_sentinel = _mm_cmpeq_epi8(ctrl, sentinel);
-        uint32_t sentinel_mask = static_cast<uint32_t>(_mm_movemask_epi8(is_sentinel));
-        
-        return BitMask(mask & ~sentinel_mask);
+        return BitMask(mask);
     }
     
     static const char* simd_name() { return "SSE2"; }
@@ -533,7 +525,6 @@ private:
             Group::kWidth, ctrl_size));
         if (!ctrl_) throw std::bad_alloc();
         std::memset(ctrl_, stablehash_detail::kEmpty, ctrl_size);
-        ctrl_[cap] = stablehash_detail::kSentinel;
         
         nodes_ = static_cast<Node**>(stablehash_detail::aligned_alloc(
             alignof(Node*), cap * sizeof(Node*)));
@@ -651,10 +642,24 @@ private:
         uint8_t* old_ctrl = ctrl_;
         Node** old_nodes = nodes_;
         size_t old_cap = capacity_;
+        size_t old_mask = mask_;
+        size_t old_growth = growth_threshold_;
         
         ctrl_ = nullptr;
         nodes_ = nullptr;
-        allocate(new_cap);
+        
+        try {
+            allocate(new_cap);
+        } catch (...) {
+            // Restore old state on allocation failure
+            ctrl_ = old_ctrl;
+            nodes_ = old_nodes;
+            capacity_ = old_cap;
+            mask_ = old_mask;
+            growth_threshold_ = old_growth;
+            throw;
+        }
+        
         size_ = 0;
         tombstones_ = 0;
         
@@ -802,9 +807,10 @@ public:
             allocate(other.capacity_);
             for (size_t i = 0; i < other.capacity_; ++i) {
                 if (stablehash_detail::is_full(other.ctrl_[i])) {
+                    // Compute hash BEFORE allocating node to prevent leak if hash throws
+                    size_t h = hash_key(other.nodes_[i]->key);
                     Node* new_node = allocator_.allocate(
                         other.nodes_[i]->key, other.nodes_[i]->value);
-                    size_t h = hash_key(new_node->key);
                     auto [idx, found, insert_slot] = find_or_prepare_insert(new_node->key, h);
                     set_ctrl(insert_slot, stablehash_detail::H2(h));
                     nodes_[insert_slot] = new_node;
@@ -992,7 +998,6 @@ public:
                 }
             }
             std::memset(ctrl_, stablehash_detail::kEmpty, capacity_ + Group::kWidth);
-            ctrl_[capacity_] = stablehash_detail::kSentinel;
         }
         size_ = 0;
         tombstones_ = 0;

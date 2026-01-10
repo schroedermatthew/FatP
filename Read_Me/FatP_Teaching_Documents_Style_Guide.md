@@ -1,5 +1,5 @@
 # FAT-P Teaching Documents Style Guide (Enhanced Edition)
-## Complete specifications for **Overviews**, **User Manuals**, **Companion Guides**, **Case Studies**, **Foundations**, **Handbooks**, **Pattern Guides**, **Design Notes**, and **Benchmark Results**
+## Complete specifications for **Overviews**, **User Manuals**, **Companion Guides**, **Case Studies**, **Foundations**, **Handbooks**, **Pattern Guides**, **Design Notes**, **Benchmark Results**, and **Migration Guides**
 *(Designed for humans **and** AI retrieval/reasoning clients.)*
 
 ---
@@ -36,6 +36,7 @@ Use this table to pick the correct document type.
 | **Foundations** | "What background do I need to reason about this?" | Semantics/history/mental models | Medium (citations encouraged) |
 | **Handbook** | "What discipline should teams adopt?" | Methods, invariants, checklists | Medium (frameworks + examples) |
 | **Pattern Guide** | "How do I apply this pattern?" | Reusable design/implementation recipe | Medium (reference implementation) |
+| **Migration Guide** | "How do I migrate X in a C codebase to Y in C++ safely?" | Converting an existing C pattern/API to a C++ abstraction; need compatibility, rollout steps, verification | Medium–High (semantic mapping + invariants + tests) |
 | **Design Note** | "What decision did we make, and why?" | Narrow decision record; precursor to later doc | Medium (options + decision) |
 | **Benchmark Results** | "How does this perform?" | Structured presentation of benchmark data | High (measured data) |
 
@@ -88,6 +89,9 @@ fatp_components: ["SmallVector"]
 topics: ["tensor indexing", "allocator overhead", "small buffer optimization", "cache locality"]
 constraints: ["heap allocation in hot loops", "memory hierarchy", "temporary containers"]
 cxx_standard: "C++17"
+std_equivalent: "std::inplace_vector"
+std_since: "C++26"
+boost_equivalent: "Boost.Container small_vector"
 build_modes: ["Debug", "Release"]
 last_verified: "2025-12-27"
 audience: ["C++ developers", "AI assistants"]
@@ -99,13 +103,16 @@ status: "reviewed"
 
 | Field | Required | Purpose | How to Choose Values |
 |-------|----------|---------|---------------------|
-| `doc_id` | Yes | Unique identifier for cross-referencing | Format: `{TYPE}-{COMPONENT}-{NNN}`. Types: OV (Overview), UM (User Manual), CG (Companion Guide), CS (Case Study), FN (Foundations), HB (Handbook), PG (Pattern Guide), DN (Design Note), BR (Benchmark Results) |
-| `doc_type` | Yes | Tells AI which template/expectations apply | Must match one of: "Overview", "User Manual", "Companion Guide", "Case Study", "Foundations", "Handbook", "Pattern Guide", "Design Note", "Benchmark Results" |
+| `doc_id` | Yes | Unique identifier for cross-referencing | Format: `{TYPE}-{COMPONENT}-{NNN}`. Types: OV (Overview), UM (User Manual), CG (Companion Guide), CS (Case Study), FN (Foundations), HB (Handbook), PG (Pattern Guide), DN (Design Note), BR (Benchmark Results), MG (Migration Guide) |
+| `doc_type` | Yes | Tells AI which template/expectations apply | One of: "Overview", "User Manual", "Companion Guide", "Case Study", "Foundations", "Handbook", "Pattern Guide", "Design Note", "Benchmark Results", "Migration Guide" |
 | `title` | Yes | Human-readable title for search results | Match the H1 title exactly (without markdown formatting) |
 | `fatp_components` | Yes | Links document to code | List FAT-P header names without `.h` extension. Use `[]` if no specific component |
 | `topics` | Yes | Semantic search keywords | 3-8 specific terms. Prefer noun phrases over verbs. Include both problem terms ("heap allocation") and solution terms ("small buffer optimization") |
 | `constraints` | Yes | Engineering constraints addressed | What hardware/language/design constraints does this document explain? Examples: "cache effects", "exception boundaries", "UB rules", "memory hierarchy" |
 | `cxx_standard` | Yes | Minimum C++ version | "C++17", "C++20", or "C++23" |
+| `std_equivalent` | If exists | Standard library equivalent | Component name (e.g., "std::expected", "std::flat_map"). Use `null` or omit if none exists |
+| `std_since` | If std_equivalent | C++ version that introduced std equivalent | "C++11", "C++14", "C++17", "C++20", "C++23", or "C++26" |
+| `boost_equivalent` | If exists | Boost library equivalent | Full component path (e.g., "Boost.Signals2", "Boost.Container flat_map"). Use `null` or omit if none exists |
 | `build_modes` | If relevant | Debug/Release behavior differences | Include if behavior changes under `NDEBUG`, sanitizers, or optimization levels |
 | `last_verified` | Yes | When code/claims were tested | ISO date format: YYYY-MM-DD. Update when re-validating code excerpts |
 | `audience` | Yes | Who should read this | Always include "AI assistants". Add specific roles: "C++ developers", "library maintainers", "performance engineers" |
@@ -138,6 +145,68 @@ constraints: ["malloc overhead in hot paths", "L1 cache line size", "temporary o
 ```yaml
 constraints: ["performance issues", "memory problems", "slow code"]
 ```
+
+#### Documenting Standard and Boost Alternatives
+
+Every component document must explicitly state whether std:: or Boost equivalents exist. This helps readers make informed decisions and understand FAT-P's positioning.
+
+##### Standard Library Equivalent Reference
+
+| FAT-P Component | std Equivalent | Since | Notes |
+|-----------------|----------------|-------|-------|
+| Expected | `std::expected` | C++23 | FAT-P adds policies, monadic extensions |
+| SmallVector | `std::inplace_vector` | C++26 | FAT-P supports heap fallback |
+| FlatMap | `std::flat_map` | C++23 | Similar API |
+| FlatSet | `std::flat_set` | C++23 | Similar API |
+| ScopeGuard | `std::scope_exit` | C++26 (Library Fundamentals TS v3) | FAT-P adds policies |
+| Signal | — | None | No std equivalent planned |
+| StrongId | — | None | No std equivalent |
+| ObjectPool | — | None | No std equivalent |
+| ThreadPool | `std::execution` | C++26 (partial) | Different model |
+| CircularBuffer | — | None | No std equivalent |
+| SlotMap | — | None | No std equivalent |
+| FastHashMap | — | None | `std::unordered_map` exists but different design |
+| StableHashMap | — | None | `std::unordered_map` lacks pointer stability |
+
+##### Boost Equivalent Reference
+
+| FAT-P Component | Boost Equivalent | Notes |
+|-----------------|------------------|-------|
+| Expected | Boost.Outcome | Different API, heavier |
+| SmallVector | Boost.Container `small_vector` | Very similar |
+| FlatMap | Boost.Container `flat_map` | Very similar |
+| Signal | Boost.Signals2 | Heavier, more features |
+| CircularBuffer | Boost.Circular_buffer | Similar |
+| ObjectPool | Boost.Pool | Different allocation strategy |
+| ThreadPool | Boost.Asio thread_pool | Tied to Asio |
+
+##### When to Mention Alternatives
+
+**Always mention:**
+1. If a std:: equivalent exists — state the C++ version
+2. If a Boost equivalent exists — state the library name
+3. If LLVM/Folly/Abseil has a well-known equivalent
+
+**Format for std equivalents:**
+```markdown
+**std equivalent:** `std::expected<T, E>` (C++23)
+```
+
+**Format when no equivalent exists:**
+```markdown
+**std equivalent:** None. No standard equivalent exists or is planned.
+```
+
+##### C++ Version Quick Reference
+
+| Version | Year | Key Additions Relevant to FAT-P |
+|---------|------|--------------------------------|
+| C++11 | 2011 | `unique_ptr`, `shared_ptr`, `thread`, `mutex`, `function` |
+| C++14 | 2014 | `make_unique`, generic lambdas |
+| C++17 | 2017 | `optional`, `variant`, `string_view`, `any`, structured bindings |
+| C++20 | 2020 | Concepts, `span`, coroutines, `jthread`, `atomic_ref` |
+| C++23 | 2023 | `expected`, `flat_map`, `flat_set`, `mdspan`, `print` |
+| C++26 | 2026 | `inplace_vector`, contracts, `scope_exit` (planned) |
 
 ---
 
@@ -195,7 +264,9 @@ Each document type has a **Card** — a quick-reference summary in a consistent 
 **When to use:** [Conditions favoring this component]  
 **When NOT to use:** [Conditions favoring alternatives]  
 **Key guarantee:** [Primary invariant or property]  
-**Alternatives:** [std:: equivalent, competitors]  
+**std equivalent:** [std::component_name (C++XX) or "None"]  
+**Boost equivalent:** [Boost.Library component or "None"]  
+**Other alternatives:** [LLVM, Folly, Abseil, etc.]  
 **Read next:** [Suggested follow-up documents]
 ```
 
@@ -222,6 +293,24 @@ Each document type has a **Card** — a quick-reference summary in a consistent 
 **Key insight:** [The non-obvious thing that makes it work]
 ```
 
+##### Migration Guide Card
+```markdown
+## Migration Guide Card
+**From:** [C pattern / API / idiom]  
+**To:** [C++ abstraction / FAT-P component / std alternative]  
+**Why migrate:** [Constraint-driven reason, not “safer/faster”]  
+**Compatibility strategy:** [wrapper / dual-stack / feature flag / phased rollout]  
+**Mechanical steps:** [Short enumerated steps]  
+**Behavioral equivalence:** [What must remain identical]  
+**Intentional differences:** [What changes and why]  
+**Failure model:** [return codes vs exceptions vs Expected vs terminate]  
+**Threading model:** [unchanged / stronger / different]  
+**Lifetime model:** [ownership & teardown rules]  
+**Alternatives:** [std/Boost/other libraries]  
+**Verification:** [tests/sanitizers/bench checks required]  
+**Rollback plan:** [how to revert safely]
+```
+
 ##### Foundations Card
 ```markdown
 ## Foundations Card
@@ -240,6 +329,8 @@ Each document type has a **Card** — a quick-reference summary in a consistent 
 **Primary use case:** [Most common scenario]  
 **Integration pattern:** [How to add to existing code]  
 **Key API:** [Most important functions/types]  
+**std equivalent:** [std::name (C++XX) or "None"]  
+**Migration from std:** [Key differences if migrating from std::]  
 **Common mistakes:** [What to avoid]  
 **Performance notes:** [What to know about performance]
 ```
@@ -468,6 +559,117 @@ Readers (and AIs) trust the doc only if code excerpts are labeled precisely.
 - **Annotated excerpt**: label as annotated; editorial notes clearly marked
 - **Pseudocode**: label as pseudocode; never use it to justify forensic conclusions
 
+### Prose-Code Discipline
+
+Teaching documents are **prose with code illustrations**, not **code with prose annotations**. Every code block must be earned by the prose that precedes it.
+
+#### The Motivation Rule
+
+Before any code block appears, prose must establish:
+1. **What problem** this code addresses
+2. **Why** the reader should care
+3. **What to notice** when reading it
+
+Code blocks illustrate points already made. They do not introduce new concepts.
+
+**Wrong:**
+
+```cpp
+void fire_event(System* sys, int event) {
+    for (int i = 0; i < sys->count; i++) {
+        sys->callbacks[i](sys->contexts[i], event);
+    }
+}
+```
+
+**Problems:**
+- Not reentrant
+- No thread safety
+- Manual lifetime management
+
+**Right:**
+
+The real danger is reentrancy. What happens when a callback tries to modify the listener list during iteration? The loop is walking through an array that changes underneath it—some implementations crash, others skip callbacks or call them twice:
+
+```cpp
+void fire_event(System* sys, int event) {
+    for (int i = 0; i < sys->count; i++) {
+        // If callbacks[i] calls remove_listener(), this loop corrupts
+        sys->callbacks[i](sys->contexts[i], event);
+    }
+}
+```
+
+#### No Orphan Code
+
+A code block should never appear without surrounding narrative context. The following are **not** sufficient motivation:
+- "Here's an example:"
+- "Consider this code:"
+- "The pattern looks like:"
+- Section headings alone
+
+#### Bullet Lists Are Not Explanation
+
+Bullet lists after code blocks ("**Problems:** - X, - Y, - Z") are a sign of incomplete thinking. If you can list the problems, you can explain them in prose *before* showing the code. The code then demonstrates what you've already taught.
+
+**Anti-pattern to avoid:**
+
+```
+[code block]
+
+**Problems:**
+- Problem A
+- Problem B  
+- Problem C
+```
+
+**Correct pattern:**
+
+```
+[prose explaining the situation and what can go wrong]
+
+[code block demonstrating the problem]
+
+[prose explaining implications or transition to solution]
+```
+#### Migration Guide Exception: Mapping Tables and Equivalence/Differences Lists
+
+Migration Guides often require concise “C → C++ mapping” tables and explicit “equivalence vs intentional differences” lists. These are allowed as primary structure **only if** they are preceded by prose that states:
+
+- the invariant or behavioral contract being preserved, and
+- the risk being mitigated (lifetime, ABI, threading, error model, or performance).
+
+Tables and lists may summarize; the surrounding narrative must still teach.
+
+
+#### Tables Are Reference, Not Teaching
+
+Comparison tables belong in reference sections, quick-reference cards, or appendices. The main narrative should explain differences in prose.
+
+**When tables are appropriate:**
+- API reference summaries
+- Quick-reference cards at document start
+- Feature matrices in "Choosing Your Path" sections
+- Benchmark data presentation
+
+**When tables are NOT appropriate:**
+- Replacing prose explanation of tradeoffs
+- Listing problems with code (use prose instead)
+- As the primary vehicle for teaching concepts
+
+#### The Readability Test
+
+Before finalizing any section, ask: **Would a human want to read this paragraph by paragraph, or would they skim looking for code?**
+
+If the answer is "skim for code," the prose isn't doing its job. Rewrite until the prose itself is valuable—the code should feel like helpful illustration, not the only thing worth reading.
+
+#### Code Density Guidelines
+
+- Aim for **2-4 paragraphs of prose per code block** in teaching sections
+- Code-heavy reference sections (API examples) may have higher density
+- If you have 3+ code blocks in a row without substantial prose between them, restructure
+- A section that's mostly code should probably be an appendix or separate file
+
 ---
 
 # Document Type Specifications
@@ -553,13 +755,68 @@ Numbered subsections with code examples. Each feature must answer:
 
 ### 5. Why Not Alternatives? (Critical Section)
 
-Structure as exclusionary criteria:
+This section must address std::, Boost, and other library alternatives with specific, defensible claims.
+
+#### Structure for std:: Comparison
+
+When a std:: equivalent exists:
+
+```markdown
+## Why Not std::expected? (C++23)
+
+| Aspect | std::expected | FAT-P Expected |
+|--------|---------------|----------------|
+| **Availability** | C++23 only | C++17+ |
+| **Policies** | None | ThrowOnError, TerminateOnError, LogOnError |
+| **Monadic ops** | Basic | Extended (map, and_then, or_else, transform_error) |
+| **EXPECTED_TRY** | No | Yes (error propagation macro) |
+
+**When to use std::expected:** You're on C++23+, need only basic functionality, and want zero dependencies.
+
+**When to use FAT-P Expected:** You need C++17 compatibility, policy-based error handling, or extended monadic operations.
+```
+
+#### Structure for Boost Comparison
+
+```markdown
+## Why Not Boost.Signals2?
+
+| Aspect | Boost.Signals2 | FAT-P Signal |
+|--------|----------------|--------------|
+| **Header weight** | ~50 headers | Single header |
+| **Compile time** | Slow | Fast |
+| **Heap allocation** | Always | Only when >N slots |
+| **Thread model** | Always locked | Policy-based |
+| **Dependencies** | Boost ecosystem | None |
+
+**When to use Boost.Signals2:** You're already using Boost, need `trackable` mixin, or need combiner patterns.
+
+**When to use FAT-P Signal:** You want minimal dependencies, faster compilation, or zero-allocation for small slot counts.
+```
+
+#### Structure for "No Alternative" Components
+
+```markdown
+## Why Not std::? 
+
+**No standard equivalent exists.** The C++ standard library does not provide:
+- Type-safe handles with generation tracking (SlotMap)
+- Policy-based service location (ServiceLocator)
+- Strongly-typed ID wrappers (StrongId)
+
+FAT-P fills gaps in the standard library for patterns that are common in game engines, embedded systems, and high-performance computing.
+```
+
+#### Exclusionary Criteria Table
+
+Structure as exclusionary criteria when multiple alternatives exist:
 
 | If You Need... | Why Not [Alternative] | FAT-P Advantage |
 |----------------|----------------------|-----------------|
 | Zero dependencies | LLVM SmallVector requires LLVM headers | Single header, STL only |
 | Standard allocators | Boost.Container uses custom allocator model | std::allocator compatible |
 | No metaprogramming | Folly uses heavy template machinery | Minimal template instantiation |
+| C++17 compatibility | std::expected requires C++23 | Works on C++17 |
 
 **Key insight:** Position FAT-P as the ONLY option when combining multiple requirements.
 
@@ -630,6 +887,9 @@ fatp_components: ["[Component]"]
 topics: ["..."]
 constraints: ["..."]
 cxx_standard: "C++17"
+std_equivalent: "[std::name or null]"
+std_since: "[C++XX or null]"
+boost_equivalent: "[Boost.Library name or null]"
 last_verified: "YYYY-MM-DD"
 audience: ["C++ developers", "AI assistants"]
 status: "draft"
@@ -640,6 +900,20 @@ status: "draft"
 ## Executive Summary
 
 [Component] is [what it is in one clause] that [architectural advantage]. Unlike [standard/naive approach], it [key mechanism]. This [quantified benefit or architectural distinction].
+
+---
+
+## Overview Card
+
+**Component:** [Name]  
+**Problem solved:** [One sentence]  
+**When to use:** [Conditions favoring this component]  
+**When NOT to use:** [Conditions favoring alternatives]  
+**Key guarantee:** [Primary invariant or property]  
+**std equivalent:** [std::name (C++XX) or "None"]  
+**Boost equivalent:** [Boost.Library name or "None"]  
+**Other alternatives:** [LLVM, Folly, Abseil components or "None"]  
+**Read next:** [User Manual, Companion Guide]
 
 ---
 
@@ -659,7 +933,7 @@ status: "draft"
 
 ### The Standard's Limitation
 
-[Why std:: or C++2x doesn't solve this permanently]
+[Why std:: or C++2x doesn't solve this permanently. If std:: equivalent exists, explain what FAT-P adds.]
 
 ---
 
@@ -743,18 +1017,27 @@ status: "draft"
 
 ## Overview Checklist
 
-- [ ] YAML header present
+### Content Requirements
+- [ ] YAML header present with std_equivalent and boost_equivalent fields
 - [ ] H1 matches filename prefix
+- [ ] Overview Card includes std/Boost/other alternatives
 - [ ] No instances of "polyfill" or "backport"
 - [ ] Executive summary states mechanism, not just benefit
 - [ ] Three-Note Checklist (Permanence, Specialization, Control) addressed
-- [ ] "Why Not Alternatives?" section uses exclusionary criteria
+- [ ] "Why Not Alternatives?" section compares to std:: (with C++ version)
+- [ ] "Why Not Alternatives?" section compares to Boost (if equivalent exists)
 - [ ] Performance section acknowledges where FAT-P loses
 - [ ] Compiler lock-in reality acknowledged
 - [ ] Integration points documented
-- [ ] Code examples show WHY, not just syntax
 - [ ] Active voice throughout
 - [ ] Specific numbers where possible (not "fast" but "2-10x")
+
+### Prose-Code Discipline
+- [ ] Every code block is preceded by prose explaining what to notice
+- [ ] No bullet lists immediately after code blocks (explain in prose instead)
+- [ ] Tables used for reference only, not as primary teaching vehicle
+- [ ] Code examples show WHY, not just syntax
+- [ ] Would pass the "would a human read this paragraph by paragraph?" test
 
 ## Common Failure Mode
 
@@ -908,26 +1191,92 @@ Explicit guidance. Don't make the reader guess.
 - You need SIMD-accelerated lookups (use FastHashMap)
 ```
 
-### 8. Migration Guide
+### 8. Migration (Manual Chapter)
 
-Side-by-side comparison with std:: equivalent. Call out every semantic difference.
+Side-by-side comparison with std:: and Boost equivalents. Call out every semantic difference.
+
+**Rule:** A **User Manual** may include a *Migration chapter* for migrating from std::/Boost usage **into the component**. A standalone **Migration Guide** document is used when migrating an existing **C codebase pattern/API** to a C++ abstraction, and must include compatibility, rollout steps, verification, and a rollback plan.
+
+#### Alternatives Section (Required)
+
+Every Migration chapter (in a User Manual) and every standalone Migration Guide must include an **Alternatives** section immediately after the Migration Card. This is a simple bullet list of other libraries that solve the same problem, helping readers make informed choices:
 
 ```markdown
-## Migration from std::unordered_map
+## Alternatives
+
+- **std::expected** (C++23) — The standard library version
+- **Boost.Outcome** — Mature, feature-rich, heavier
+- **llvm::Expected** — LLVM's implementation, similar API
+- **tl::expected** — Single-header C++11/14/17 implementation
+```
+
+List 4-8 alternatives. Include the standard library version (with C++ version) if one exists. Don't editorialize heavily—just name, brief description.
+
+#### Migration from std:: Equivalent
+
+If a std:: equivalent exists, document:
+1. **API differences** — Changed function names, signatures
+2. **Semantic differences** — Different behavior for same operations
+3. **Feature additions** — What FAT-P adds beyond std::
+4. **Feature subtractions** — What std:: has that FAT-P doesn't
+
+```markdown
+## Migration from std::expected (C++23)
+
+### API Compatibility
+
+| Operation | std::expected | FAT-P Expected | Notes |
+|-----------|---------------|----------------|-------|
+| Construction | `std::expected<T,E>` | `Expected<T,E>` | Same |
+| Value access | `.value()` | `.value()` | Same |
+| Error access | `.error()` | `.error()` | Same |
+| Monadic and_then | `.and_then()` | `.and_then()` | Same |
+| **Policy support** | ❌ | ✅ | FAT-P only |
+| **EXPECTED_TRY** | ❌ | ✅ | FAT-P only |
 
 ### Critical Differences
 
-**1. emplace() overwrites existing values**
+**1. Policy-based error handling (FAT-P only)**
 
 ```cpp
-// std::unordered_map: emplace ignores duplicate
-std_map.emplace(1, "first");
-std_map.emplace(1, "second");  // IGNORED
+// std::expected: must check manually
+auto result = might_fail();
+if (!result) { /* handle */ }
 
-// StableHashMap: emplace OVERWRITES
-stable_map.emplace(1, "first");
-stable_map.emplace(1, "second");  // OVERWRITES!
+// FAT-P Expected with ThrowOnError policy
+Expected<int, Error, ThrowOnError> result = might_fail();
+result.value();  // Throws automatically if error
 ```
+```
+
+#### Migration from Boost Equivalent
+
+```markdown
+## Migration from Boost.Signals2
+
+### API Mapping
+
+| Boost.Signals2 | FAT-P Signal | Notes |
+|----------------|--------------|-------|
+| `boost::signals2::signal<void(int)>` | `Signal<void(int)>` | Same signature syntax |
+| `sig.connect(slot)` | `sig.connect(slot)` | Returns connection handle |
+| `boost::signals2::scoped_connection` | Connection RAII | Automatic in FAT-P |
+| `sig()` | `sig.emit()` or `sig()` | Both supported |
+| **trackable mixin** | ❌ | Use connection handles |
+| **combiners** | ❌ | Not supported |
+
+### What You Lose
+
+- `trackable` mixin for automatic disconnect on object destruction
+- Combiner patterns for collecting return values
+- Slot groups with ordering
+
+### What You Gain
+
+- Single-header, no Boost dependency
+- Small-object optimization (no heap for ≤N slots)
+- Faster compilation
+- Policy-based thread safety
 ```
 
 ### 9. Troubleshooting
@@ -1129,6 +1478,10 @@ status: "draft"
 - [ ] Performance rules of thumb included
 - [ ] "When to use / When not to use" section
 - [ ] Migration guide with side-by-side code
+- [ ] **Alternatives section** listing other libraries that solve the same problem
+- [ ] Migration from std:: equivalent documented (if exists)
+- [ ] Migration from Boost equivalent documented (if exists)
+- [ ] API differences table (FAT-P vs std:: vs Boost)
 - [ ] Troubleshooting organized by symptom
 - [ ] API reference at the end, not the beginning
 
@@ -1138,6 +1491,13 @@ status: "draft"
 - [ ] Every semantic difference from std:: is called out
 - [ ] Every common mistake is documented with fix
 - [ ] Diagrams where memory layout or flow matters
+
+### Prose-Code Discipline
+- [ ] Every code block is preceded by prose explaining what to notice
+- [ ] No bullet lists immediately after code blocks (explain in prose instead)
+- [ ] Tables used for reference only, not as primary teaching vehicle
+- [ ] 2-4 paragraphs of prose per code block in teaching sections
+- [ ] Would pass the "would a human read this paragraph by paragraph?" test
 
 ### Tone
 - [ ] Teaching, not just documenting
@@ -1470,6 +1830,13 @@ Chapter M described [problem]. [Component] addresses this by [mechanism].
 - [ ] No syntax-only examples
 - [ ] Allocation counts, complexity, thread-safety annotated
 
+### Prose-Code Discipline
+- [ ] Every code block is preceded by prose explaining what to notice
+- [ ] No bullet lists immediately after code blocks (explain in prose instead)
+- [ ] Tables used for reference only, not as primary teaching vehicle
+- [ ] 2-4 paragraphs of prose per code block in teaching sections
+- [ ] Would pass the "would a human read this paragraph by paragraph?" test
+
 ## Common Failure Mode
 
 Becoming a reference manual. Companion Guides explain "why," not every API detail.
@@ -1685,6 +2052,8 @@ Use consistent headings across documents:
 - "What To Do Now"
 - "Mechanical Audit Checklist"
 - "Glossary"
+- "Mapping: From → To"
+- "Rollback plan"
 
 ### 2. Define terms once, then reuse the same label
 If you define "control-flow barrier," keep using that phrase, not five synonyms.
@@ -1870,6 +2239,12 @@ status: "draft"
 - [ ] Debug vs release behavior called out where relevant
 - [ ] Verbatim/excerpt/pseudocode labeling consistent
 - [ ] No invented benchmarks, test outcomes, or compilation claims
+
+### Prose-Code Discipline
+- [ ] Every code block is preceded by prose explaining what to notice
+- [ ] No bullet lists immediately after code blocks (explain in prose instead)
+- [ ] Evidence code blocks labeled (verbatim/excerpt/pseudocode)
+- [ ] Would pass the "would a human read this paragraph by paragraph?" test
 
 ### AI Legibility
 - [ ] Stable headings used
@@ -2099,6 +2474,7 @@ status: "draft"
 
 ## Foundations Checklist
 
+### Content
 - [ ] YAML header present
 - [ ] Scope + Not covered + prerequisites
 - [ ] Key concepts explained from first principles
@@ -2109,6 +2485,12 @@ status: "draft"
 - [ ] Further reading provided (optional)
 - [ ] No API details (that's the Manual)
 - [ ] No extended case studies (that's Case Study)
+
+### Prose-Code Discipline
+- [ ] Every code block is preceded by prose explaining what to notice
+- [ ] No bullet lists immediately after code blocks (explain in prose instead)
+- [ ] Code illustrates concepts already explained in prose
+- [ ] Would pass the "would a human read this paragraph by paragraph?" test
 
 ## Common Failure Mode
 
@@ -2371,6 +2753,7 @@ status: "draft"
 
 ## Handbook Checklist
 
+### Content
 - [ ] YAML header present
 - [ ] Principles section establishes philosophy
 - [ ] Hard rules vs. rules of thumb distinguished
@@ -2379,6 +2762,12 @@ status: "draft"
 - [ ] At least one worked example
 - [ ] Adoption plan for teams
 - [ ] No component-specific API details (that's the Manual)
+
+### Prose-Code Discipline
+- [ ] Every code block is preceded by prose explaining what to notice
+- [ ] No bullet lists immediately after code blocks (explain in prose instead)
+- [ ] Examples show the principle being taught, not just syntax
+- [ ] Would pass the "would a human read this paragraph by paragraph?" test
 
 ## Common Failure Mode
 
@@ -2717,6 +3106,7 @@ status: "draft"
 
 ## Pattern Guide Checklist
 
+### Content
 - [ ] YAML header present
 - [ ] Intent section with clear benefits
 - [ ] Non-goals section
@@ -2726,6 +3116,12 @@ status: "draft"
 - [ ] Reference implementation (link or inline)
 - [ ] Pitfalls section
 - [ ] FAQ
+
+### Prose-Code Discipline
+- [ ] Every code block is preceded by prose explaining what to notice
+- [ ] No bullet lists immediately after code blocks (explain in prose instead)
+- [ ] Recipe steps explain WHY before showing code
+- [ ] Would pass the "would a human read this paragraph by paragraph?" test
 
 ## Common Failure Mode
 
@@ -2975,6 +3371,7 @@ status: "final"
 
 ## Design Note Checklist
 
+### Content
 - [ ] YAML header present
 - [ ] Status clearly stated (draft/final/obsolete)
 - [ ] Decision stated in one sentence
@@ -2983,6 +3380,11 @@ status: "final"
 - [ ] At least 2-3 options considered with pros/cons
 - [ ] Decision rationale explains why this option
 - [ ] Consequences section with positive, negative, and obligations
+
+### Prose-Code Discipline
+- [ ] Code examples (if any) are preceded by prose explaining their purpose
+- [ ] Options comparison uses prose explanation, not just bullet lists
+- [ ] Would pass the "would a human read this paragraph by paragraph?" test
 
 ## Common Failure Mode
 
@@ -3183,6 +3585,11 @@ status: "draft"
 - [ ] Notes explain non-obvious results
 - [ ] Caveats section lists limitations
 
+### Prose-Code Discipline (Benchmark-Specific)
+- [ ] Each benchmark section has prose explaining what is being measured
+- [ ] Notes sections use prose, not just bullet points
+- [ ] Tables are appropriate here (this is reference data, not teaching)
+
 ## What NOT to Include
 
 | Avoid | Why |
@@ -3199,6 +3606,116 @@ Including too much explanation. Benchmark Results are data presentations. If you
 
 ---
 
+# 10. MIGRATION GUIDE
+
+Migration Guides explain how to migrate an existing **C** pattern/API/codebase usage to an equivalent (or intentionally improved) **C++17+** design. They are operational documents: they must specify compatibility boundaries, verification, and rollback.
+
+## Migration Guide Required Sections
+
+A Migration Guide must include, in this order:
+
+1. **Scope**
+2. **Not covered**
+3. **Prerequisites**
+4. **Migration Guide Card**
+5. **Alternatives** (required immediately after the card)
+6. **Mapping: From → To** (API + semantic mapping; tables allowed)
+7. **Step-by-step migration plan** (mechanical edits; staged rollout if needed)
+8. **Compatibility and ABI boundaries** (especially any C ABI or plugin boundary)
+9. **Lifetime and ownership model** (who owns what; teardown ordering)
+10. **Thread-safety and reentrancy** (what is guaranteed; what is forbidden)
+11. **Error and failure model** (C return codes → C++ behavior)
+12. **Verification plan** (tests/sanitizers/bench sanity checks)
+13. **Rollback plan** (how to revert safely)
+
+## Migration Guide YAML (Recommended)
+
+Migration Guides use the common YAML core (doc_id/doc_type/title/fatp_components/topics/constraints/cxx_standard/last_verified/audience/status), plus optional migration-specific fields:
+
+```yaml
+---
+doc_id: MG-0000
+doc_type: "Migration Guide"
+title: "[From] to [To]"
+fatp_components: ["..."]
+topics: ["c-to-cpp", "migration", "..."]
+constraints: ["ABI", "lifetime", "thread-safety"]
+cxx_standard: "C++17"
+audience: ["C developers", "C++ developers", "AI assistants"]
+status: "draft"
+last_verified: 2026-01-09
+
+from_language: "C"
+to_language: "C++"
+to_standard: "C++17"
+from_pattern: ["callbacks", "manual lifetime"]
+to_component: ["Signal"]
+compatibility: ["C ABI", "plugin boundary"]
+rollout: ["dual-stack", "feature flag"]
+---
+```
+
+## Migration Guide Template
+
+```markdown
+---
+doc_id: MG-0000
+doc_type: "Migration Guide"
+title: "[From] to [To]"
+fatp_components: ["..."]
+topics: ["..."]
+constraints: ["..."]
+cxx_standard: "C++17"
+audience: ["...", "AI assistants"]
+status: "draft"
+last_verified: 2026-01-09
+---
+
+# Migration Guide - [Title]
+
+## Scope
+
+## Not covered
+
+## Prerequisites
+
+## Migration Guide Card
+
+## Alternatives
+
+## Mapping: From → To
+
+## Step-by-step migration plan
+
+## Compatibility and ABI boundaries
+
+## Lifetime and ownership model
+
+## Thread-safety and reentrancy
+
+## Error and failure model
+
+## Verification plan
+
+## Rollback plan
+```
+
+## Migration Guide Checklist
+
+- [ ] YAML header present; `doc_type: "Migration Guide"`; `doc_id` uses MG- prefix
+- [ ] H1 title matches filename prefix (`# Migration Guide - <Title>`)
+- [ ] Scope + Not covered + Prerequisites are explicit
+- [ ] Migration Guide Card present
+- [ ] Alternatives section present immediately after the card
+- [ ] Equivalence vs intentional differences are stated explicitly
+- [ ] ABI/compatibility boundaries are explicit (if any C boundary exists)
+- [ ] Lifetime + teardown ordering rules are explicit
+- [ ] Threading/reentrancy guarantees and non-guarantees are explicit
+- [ ] Verification steps are concrete and runnable
+- [ ] Rollback plan is concrete (what to revert, what can remain)
+
+---
+
 # Cross-Document Interoperability Rules
 
 Because AI is a primary client, cross-doc consistency matters.
@@ -3209,6 +3726,7 @@ Prefer linking to documents by **filename** (type-prefixed) and, when possible, 
 
 ```markdown
 See [Case Study - The Slow Miss](CS-HASHMAP-001) for the full investigation.
+See [Migration Guide - Callbacks to Signal](MG-SIGNAL-001) for a C → C++ migration recipe.
 ```
 
 ## 2. Use Stable Section Headings for Retrieval
@@ -3251,6 +3769,8 @@ Use explicit labels:
 ## All Documents
 
 - [ ] YAML header present and accurate
+- [ ] YAML includes std_equivalent and boost_equivalent (if component doc)
+- [ ] YAML std_since is correct C++ version (if std_equivalent exists)
 - [ ] H1 title matches filename prefix (`# <Doc Type> - <Title>`)
 - [ ] Scope + Not covered + Prerequisites
 - [ ] Facts vs Hypotheses labeled
@@ -3260,9 +3780,12 @@ Use explicit labels:
 - [ ] No banned vocabulary in prose
 - [ ] Active voice throughout
 
-## Document-Specific Additions
+## Component Documents (Overviews, User Manuals)
 
-See individual checklist sections above.
+- [ ] std:: equivalent documented with C++ version (or "None" stated)
+- [ ] Boost equivalent documented (or "None" stated)
+- [ ] "Why Not Alternatives?" section present with comparison tables
+- [ ] Migration path from std::/Boost documented (if equivalents exist)
 
 ---
 
@@ -3278,4 +3801,8 @@ Prefer many small, high-signal docs over one mega-doc.
 
 ---
 
-*FAT-P Teaching Documents Style Guide (Enhanced Edition) v1.0 — December 2025*
+*FAT-P Teaching Documents Style Guide (Enhanced Edition) v1.4 — January 2026*
+*v1.4: Added Migration Guide as a first-class doc type (MG prefix), with card, template, YAML guidance, and checklist*
+*v1.3: Added Alternatives section requirement for Migration Guides*
+*v1.2: Added Prose-Code Discipline section and checklist items*
+*v1.1: Added std_equivalent, std_since, boost_equivalent YAML fields; Alternative comparison requirements*

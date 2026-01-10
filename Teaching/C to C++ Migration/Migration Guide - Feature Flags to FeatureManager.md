@@ -6,9 +6,12 @@ from_pattern: "#ifdef chains, global booleans, bitfield flags"
 to_component: "FeatureManager"
 fatp_version: "1.0"
 cxx_standard: "C++17"
+std_equivalent: null
+std_since: null
+boost_equivalent: null
 migration_complexity: "Medium"
 breaking_changes: true
-last_verified: "2025-01-08"
+last_verified: "2025-01-09"
 ---
 
 # Migration Guide - Preprocessor Flags to Managed Feature Dependencies
@@ -32,6 +35,19 @@ last_verified: "2025-01-08"
 
 ---
 
+## Alternatives
+
+No standard library or Boost equivalent exists for feature flag management with dependency tracking. Common alternatives:
+
+- **CMake options** — Compile-time only, no dependency validation
+- **#ifdef chains** — What this guide migrates away from
+- **gflags** (Google) — Command-line flags, no dependency graphs
+- **CLI11** — Argument parsing, no feature relationships
+- **libconfig** — Configuration files, no validation logic
+- **Custom implementations** — Most codebases roll their own
+
+---
+
 ## Table of Contents
 
 1. [The Problem with Feature Flags](#the-problem-with-feature-flags)
@@ -43,6 +59,7 @@ last_verified: "2025-01-08"
 7. [Advanced Patterns](#advanced-patterns)
 8. [Verification](#verification)
 9. [When FeatureManager Loses](#when-featuremanager-loses)
+10. [Summary](#summary)
 
 ---
 
@@ -139,7 +156,11 @@ Mozilla's Firefox has thousands of `about:config` preferences with undocumented 
 
 ## The C Patterns
 
+Before migrating, we need to recognize the patterns we're replacing. Feature flag implementations in C evolved in predictable ways, each solving one problem while creating new ones.
+
 ### Pattern 1: Preprocessor `#ifdef` Chains
+
+The most common pattern is nested preprocessor conditionals. You define flags in a header, and scattered throughout the codebase are `#ifdef` blocks that check combinations of those flags:
 
 ```c
 /* feature_config.h */
@@ -166,16 +187,13 @@ Mozilla's Firefox has thousands of `about:config` preferences with undocumented 
 #endif
 ```
 
-**Problems:**
-- Dependencies expressed as nested `#ifdef` (hard to audit)
-- Conflicts caught by `#error` (if remembered)
-- No compile-time completeness check
-- Changes require recompilation
+The dependencies between flags are expressed through the nesting structure, which makes them hard to audit. You have to trace through every `#ifdef` block in the codebase to understand what combinations are valid. When someone adds a new flag, they have to manually update every relevant conditional. Conflicts are caught by `#error` directives—if someone remembered to add one. And any change requires full recompilation.
 
 ### Pattern 2: Global Boolean Flags
 
+When compile-time flags aren't flexible enough, the next step is runtime booleans. Each feature gets a global variable, and enable functions set them:
+
 ```c
-/* Runtime feature toggles */
 static bool g_feature_logging = false;
 static bool g_feature_encryption = false;
 static bool g_feature_compression = false;
@@ -198,16 +216,13 @@ bool check_features(void) {
 }
 ```
 
-**Problems:**
-- No enforced dependencies
-- Validation is manual and scattered
-- Easy to forget checks
-- No notification when features change
+The enable functions have no enforcement of dependencies. The `check_features` function validates some combinations, but it's manual and inevitably incomplete. When a developer adds a new feature, they might update `check_features`—or they might forget. There's no notification mechanism when features change, so other code can't react to state changes.
 
 ### Pattern 3: Bitfield Feature Masks
 
+When you have many features, individual booleans become unwieldy. Bitfields pack everything into a single integer, with macros defining which bit means what:
+
 ```c
-/* Compact but opaque */
 #define FEAT_LOGGING     (1u << 0)
 #define FEAT_ENCRYPTION  (1u << 1)
 #define FEAT_COMPRESSION (1u << 2)
@@ -228,9 +243,7 @@ bool has_feature(uint32_t mask) {
     return (g_features & mask) == mask;
 }
 
-/* Dependency check is manual */
 bool validate_features(void) {
-    /* Must remember every dependency */
     if ((g_features & FEAT_ENCRYPTION) && !(g_features & FEAT_LOGGING)) {
         return false;  /* Encryption requires logging */
     }
@@ -242,13 +255,11 @@ bool validate_features(void) {
 }
 ```
 
-**Problems:**
-- Limited to 32/64 features
-- Dependencies in validation function (not with definition)
-- Easy to add feature, forget validation rule
-- No automatic resolution
+This pattern is compact and efficient, but it inherits all the problems of global booleans. You're limited to 32 or 64 features. Dependencies live in the validation function, not with the feature definitions. Adding a feature is easy—adding its validation rules consistently is where bugs creep in.
 
 ### Pattern 4: Configuration Struct with Manual Validation
+
+The most structured C approach bundles flags into a config struct with a validation function:
 
 ```c
 struct Config {
@@ -283,19 +294,15 @@ int apply_config(struct Config* cfg) {
 }
 ```
 
-**Problems:**
-- Validation separate from feature definition
-- Order of initialization is manual
-- No dependency graph—just scattered checks
-- Adding features requires updating multiple places
+This is better organized, but the validation is still separate from the feature definition. The rules about which features require or conflict with which other features are scattered across `validate_config` (and probably other validation functions elsewhere). When you add a feature, you must update the struct, the validation, and the application function. Miss any one, and you have a bug.
 
 ---
 
 ## The FeatureManager Solution
 
-### Core Concept
+The fundamental insight behind `FeatureManager` is that feature dependencies form a graph. Features are nodes; relationships are edges. Once you have a graph, you can traverse it automatically—checking that all required nodes are enabled, detecting conflicts, and resolving implications without manual code.
 
-`FeatureManager` represents features and their relationships as a **directed graph** with automatic validation, resolution, and observation:
+Instead of scattering dependency logic across validation functions, you declare relationships once, at the same place you declare the features themselves. The graph is the single source of truth. When you call `enable()`, the manager walks the graph and either succeeds (all dependencies satisfied, no conflicts) or fails with an explanation of exactly what's wrong.
 
 ```cpp
 #include "FeatureManager.h"
@@ -325,20 +332,11 @@ auto bad = features.enable("compression");
 // bad.error() == "Feature 'compression' conflicts with 'network'"
 ```
 
-### Key Features
-
-| Feature | Benefit |
-|---------|---------|
-| **Explicit relationships** | Dependencies documented in code, not comments |
-| **Automatic validation** | Conflicts and missing dependencies caught immediately |
-| **Implies resolution** | Enabling A can auto-enable B |
-| **Cycle detection** | Circular dependencies caught at add_relationship time |
-| **Thread safety** | Policy-based locking |
-| **Observers** | React to feature state changes |
-| **Custom checks** | Runtime validation (license, hardware, etc.) |
-| **Serialization** | JSON import/export, GraphViz DOT visualization |
+The relationships that were buried in comments or scattered across validation functions now live with the feature definitions. Anyone reading the code sees immediately that encryption requires logging, that network and compression conflict.
 
 ### Relationship Types
+
+The graph supports four kinds of edges, covering the relationships that appear in real systems:
 
 ```cpp
 enum class FeatureRelationship {
@@ -349,54 +347,23 @@ enum class FeatureRelationship {
 };
 ```
 
-### API Overview
+`Requires` is a hard dependency—you can't have A without B. `Conflicts` is symmetric; if A conflicts with B, then B conflicts with A. `Implies` is automatic propagation—enabling A silently enables B as well. `MutuallyExclusive` is a constraint on a group: enabling any one of them disables the others (or prevents enabling if another is already on).
 
-```cpp
-template <typename SyncPolicy = SingleThreadedPolicy>
-class FeatureManager {
-public:
-    // Feature management
-    Expected<void, std::string> add_feature(const std::string& name);
-    Expected<void, std::string> add_feature(const std::string& name, bool initial_state);
-    Expected<void, std::string> remove_feature(const std::string& name);
-    
-    // Relationships
-    Expected<void, std::string> add_relationship(
-        const std::string& from,
-        FeatureRelationship type,
-        const std::string& to);
-    
-    // State management
-    Expected<void, std::string> enable(const std::string& name);
-    Expected<void, std::string> disable(const std::string& name);
-    bool is_enabled(const std::string& name) const;
-    
-    // Validation
-    Expected<void, std::string> validate() const;
-    void add_check(const std::string& feature, FeatureCheck check);
-    
-    // Observation
-    ObserverId add_observer(FeatureObserver observer, int priority = 0);
-    void remove_observer(ObserverId id);
-    
-    // Groups
-    template <typename StatePolicy>
-    void add_group(const std::string& name, std::vector<std::string> features);
-    
-    // Serialization
-    JsonValue to_json() const;
-    static Expected<FeatureManager, std::string> from_json(const JsonValue& json);
-    std::string to_dot() const;  // GraphViz format
-};
-```
+### Beyond Simple Flags
+
+The graph structure enables capabilities that scattered validation can't match. Cycle detection catches circular dependencies at the moment you add them, not when you hit an infinite loop at runtime. Observers let other code react to feature state changes—update a UI toggle, log the change, trigger initialization. Custom checks add runtime validation: does the hardware support this feature? Is the license valid?
+
+And because the graph is data, you can serialize it to JSON for configuration files, or export it to GraphViz DOT format for visualization. When you have 50 features and can't keep the dependencies straight, a generated diagram shows the structure immediately.
 
 ---
 
 ## Migration Steps
 
+Migration requires excavating the dependency knowledge that's currently scattered across comments, documentation, and developers' heads. The process is archaeological: you're reconstructing a graph that already exists implicitly in the codebase.
+
 ### Step 1: Inventory Existing Feature Flags
 
-Find all feature flags in your codebase:
+Before you can migrate, you need a complete list of what you're migrating from. Feature flags hide in preprocessor defines, global booleans, bitfield masks, and configuration structs. Search for all of them:
 
 ```bash
 # Compile-time flags
@@ -410,15 +377,11 @@ grep -rn "bool.*enable\|bool.*feature\|g_feature" src/
 grep -rn "(1.*<<\|1u.*<<" src/include/
 ```
 
-Document each flag with:
-- Name
-- Purpose
-- Known dependencies (from comments, docs, tribal knowledge)
-- Known conflicts
+For each flag, document what you know: name, purpose, and any dependencies or conflicts mentioned in comments, documentation, or team knowledge. This is the raw material for your dependency graph.
 
 ### Step 2: Map Dependencies
 
-Create a dependency diagram (FeatureManager can export DOT format for visualization):
+Draw the relationships you discovered. Even a rough sketch clarifies the structure. FeatureManager can export GraphViz DOT format, but at this stage a whiteboard works fine:
 
 ```
 logging ←─requires─ encryption
@@ -427,7 +390,11 @@ network ──conflicts── compression
 threading_single ══mutually_exclusive══ threading_multi
 ```
 
+Pay attention to implied relationships. If enabling feature A always requires manually enabling B and C, that's a `Requires` relationship. If the documentation warns "don't enable X and Y together," that's a `Conflicts` relationship.
+
 ### Step 3: Create FeatureManager Configuration
+
+Translate your inventory and diagram into code. One function creates and configures the manager with all features and relationships:
 
 ```cpp
 // feature_config.cpp
@@ -459,10 +426,14 @@ Expected<FeatureManager<>, std::string> create_feature_manager() {
 }
 ```
 
+This function is the single source of truth for feature relationships. All the rules that were scattered across the codebase now live here.
+
 ### Step 4: Replace Flag Checks
 
-**Before:**
+With the manager in place, replace existing flag checks with `is_enabled()` calls. The compile-time `#ifdef` checks become runtime checks, and the global booleans go away:
+
 ```cpp
+// Before
 void do_work() {
     #ifdef ENABLE_ENCRYPTION
         encrypt_data();
@@ -472,10 +443,8 @@ void do_work() {
         log_operation();
     }
 }
-```
 
-**After:**
-```cpp
+// After
 void do_work(FeatureManager<>& features) {
     if (features.is_enabled("encryption")) {
         encrypt_data();
@@ -487,12 +456,13 @@ void do_work(FeatureManager<>& features) {
 }
 ```
 
+Pass the FeatureManager by reference or use a singleton pattern. The checks are now uniform and the manager enforces consistency.
+
 ### Step 5: Add Runtime Validation Checks
 
-For features that need runtime validation (not just dependency relationships):
+Some features can't be enabled based on graph relationships alone. A premium feature needs a valid license. A GPU feature needs compatible hardware. Runtime checks handle these cases:
 
 ```cpp
-// License check for premium feature
 fm.add_check("premium_analytics", []() -> Expected<void, std::string> {
     if (!license_manager::has_premium()) {
         return make_unexpected("Premium license required for analytics");
@@ -500,7 +470,6 @@ fm.add_check("premium_analytics", []() -> Expected<void, std::string> {
     return {};
 });
 
-// Hardware check for GPU features
 fm.add_check("gpu_acceleration", []() -> Expected<void, std::string> {
     if (!gpu::is_available()) {
         return make_unexpected("No compatible GPU detected");
@@ -509,7 +478,11 @@ fm.add_check("gpu_acceleration", []() -> Expected<void, std::string> {
 });
 ```
 
+The check runs when someone tries to enable the feature. If it fails, the feature stays disabled with a clear error message.
+
 ### Step 6: Add Observers for State Change Reactions
+
+Code that needs to react to feature changes—UI toggles, logging, initialization—registers as an observer:
 
 ```cpp
 // Update UI when features change
@@ -526,13 +499,18 @@ fm.add_observer([](const std::string& feature, bool enabled, bool success) {
 }, 100);  // High priority - runs first
 ```
 
+Observers decouple the code that controls features from the code that reacts to feature state. The manager handles notification; you don't need manual callback management.
+
 ---
 
 ## Before/After Examples
 
+These examples show complete transformations of realistic C feature flag patterns to FeatureManager.
+
 ### Example 1: SQLite-Style Compile Options
 
-**Before (SQLite pattern):**
+SQLite's compile options are the canonical example of feature flag complexity. Over 200 options with relationships documented in prose, enforced (when at all) by scattered `#ifdef` blocks. The FTS3 option implies FTS4. The OMIT_LOAD_EXTENSION option conflicts with ENABLE_LOAD_EXTENSION. These rules are buried in 200 lines of preprocessor logic:
+
 ```c
 /* sqlite_options.h */
 // #define SQLITE_ENABLE_FTS3
@@ -561,7 +539,8 @@ fm.add_observer([](const std::string& feature, bool enabled, bool success) {
 #endif
 ```
 
-**After (FeatureManager):**
+With FeatureManager, the same relationships become explicit declarations. The `Implies` relationship handles the FTS3→FTS4 propagation. The `Conflicts` relationship catches the OMIT/ENABLE contradiction:
+
 ```cpp
 FeatureManager<> sqlite_features;
 
@@ -591,7 +570,8 @@ auto result = sqlite_features.enable("load_extension");
 
 ### Example 2: Threading Mode Selection
 
-**Before (bitfield):**
+Many systems offer mutually exclusive threading modes: single-threaded, multi-threaded, or serialized access. The C pattern uses a bitfield with manual counting to ensure exactly one mode is selected:
+
 ```c
 #define THREAD_SINGLE    (1 << 0)
 #define THREAD_MULTI     (1 << 1)
@@ -615,7 +595,8 @@ int set_threading(uint32_t mode) {
 }
 ```
 
-**After (FeatureManager with groups):**
+The FeatureManager version declares the mutual exclusion directly. The manager enforces that enabling one mode prevents enabling the others:
+
 ```cpp
 FeatureManager<> config;
 
@@ -644,7 +625,8 @@ auto state = config.group_state<FeatureGroupState>("threading");
 
 ### Example 3: Complex Dependency Chain
 
-**Before (scattered validation):**
+Features with multiple dependencies create cascading validation problems. The analytics feature requires premium licensing, network connectivity, and database access. In C, each enable function must check all dependencies manually:
+
 ```c
 bool g_enable_analytics = false;
 bool g_enable_premium = false;
@@ -670,7 +652,8 @@ int enable_analytics() {
 }
 ```
 
-**After (declarative):**
+With FeatureManager, dependencies are declared once. The manager checks all of them automatically and reports exactly what's missing:
+
 ```cpp
 FeatureManager<> features;
 
@@ -697,8 +680,9 @@ auto result = features.enable("analytics");
 
 ### Example 4: Configuration from JSON
 
+For systems that load configuration at startup, FeatureManager can parse the entire feature graph from JSON. This separates feature definitions from code, enabling configuration-driven deployments:
+
 ```cpp
-// features.json
 const char* config_json = R"({
     "features": {
         "logging": { "enabled": true },
@@ -735,11 +719,17 @@ dot << features.to_dot();
 // Then: dot -Tpng features.dot -o features.png
 ```
 
+The same graph that's defined in JSON can be exported to GraphViz for documentation. Configuration and visualization use the same source of truth.
+
 ---
 
 ## Advanced Patterns
 
+Once you've migrated basic features, these patterns help with more complex scenarios.
+
 ### Pattern: Feature Checks for Runtime Conditions
+
+Some features can't be validated by graph relationships alone. You need to check hardware capabilities, license validity, or resource availability at the moment of enabling. Runtime checks handle these dynamic conditions:
 
 ```cpp
 // Hardware capability check
@@ -778,7 +768,11 @@ features.add_check("gpu_compute", []() -> Expected<void, std::string> {
 });
 ```
 
+These checks run when `enable()` is called. The feature stays disabled if the check fails, with a clear error message explaining why.
+
 ### Pattern: Scoped Feature Override for Testing
+
+Tests often need to temporarily enable features that would normally be unavailable (premium features, hardware-dependent features). A scoped guard enables the feature for the test and restores the original state on exit:
 
 ```cpp
 void test_premium_features() {
@@ -798,7 +792,11 @@ void test_premium_features() {
 }
 ```
 
+This pattern prevents tests from polluting each other's state and ensures cleanup even if the test throws an exception.
+
 ### Pattern: Observer for Dynamic UI
+
+Settings panels need to update when features change—enabling a toggle, graying out conflicting options, showing error messages. An observer reacts to all state changes:
 
 ```cpp
 class FeatureSettingsPanel {
@@ -826,10 +824,13 @@ public:
 };
 ```
 
+The destructor removes the observer, preventing dangling callbacks when the panel is destroyed.
+
 ### Pattern: Thread-Safe Global Configuration
 
+Applications often need a single global FeatureManager accessible from any thread. The `SharedMutexPolicy` template parameter provides concurrent read access with exclusive write access:
+
 ```cpp
-// Singleton with thread-safe FeatureManager
 class AppConfig {
     static FeatureManager<SharedMutexPolicy>& instance() {
         static FeatureManager<SharedMutexPolicy> fm = [] {
@@ -856,13 +857,17 @@ if (AppConfig::is_enabled("logging")) {
 }
 ```
 
+Multiple threads can call `is_enabled()` simultaneously. Only `enable()` and `disable()` require exclusive access.
+
 ---
 
 ## Verification
 
-### Compile-Time Verification
+Unlike C patterns where validation is scattered and incomplete, FeatureManager validation is centralized and explicit.
 
-FeatureManager validates the graph at runtime, but you can verify at startup:
+### Startup Validation
+
+The manager can validate the entire feature graph at startup, catching configuration errors before the application runs:
 
 ```cpp
 auto result = features.validate();
@@ -872,7 +877,11 @@ if (!result) {
 }
 ```
 
+This catches issues like cycles in the dependency graph or invalid relationship definitions.
+
 ### Unit Tests
+
+Unit tests verify that the relationship types work as documented. The requires relationship should prevent enabling a feature when its dependency is disabled:
 
 ```cpp
 TEST(FeatureManager, RequiresDependency) {
@@ -891,7 +900,11 @@ TEST(FeatureManager, RequiresDependency) {
     result = fm.enable("dependent");
     EXPECT_TRUE(result.has_value());
 }
+```
 
+The conflicts relationship should prevent enabling mutually incompatible features:
+
+```cpp
 TEST(FeatureManager, ConflictDetection) {
     FeatureManager<> fm;
     fm.add_feature("feature_a");
@@ -904,7 +917,11 @@ TEST(FeatureManager, ConflictDetection) {
     EXPECT_FALSE(result.has_value());
     EXPECT_THAT(result.error(), HasSubstr("conflicts"));
 }
+```
 
+The implies relationship should auto-enable dependencies:
+
+```cpp
 TEST(FeatureManager, ImpliesAutoEnable) {
     FeatureManager<> fm;
     fm.add_feature("trigger");
@@ -918,7 +935,11 @@ TEST(FeatureManager, ImpliesAutoEnable) {
     EXPECT_TRUE(fm.is_enabled("trigger"));
     EXPECT_TRUE(fm.is_enabled("implied"));  // Auto-enabled
 }
+```
 
+And cycles in the dependency graph should be caught when the relationship is added, not when enabling fails mysteriously:
+
+```cpp
 TEST(FeatureManager, CycleDetection) {
     FeatureManager<> fm;
     fm.add_feature("a");
@@ -936,14 +957,14 @@ TEST(FeatureManager, CycleDetection) {
 
 ### Visualization
 
-Export the feature graph to verify relationships:
+When the feature graph becomes too complex to hold in your head, export it to GraphViz for a visual overview:
 
 ```cpp
-// Generate DOT file
 std::cout << fm.to_dot();
 ```
 
-Output:
+The output is a DOT file that any GraphViz tool can render:
+
 ```dot
 digraph FeatureGraph {
     rankdir=LR;
@@ -955,13 +976,17 @@ digraph FeatureGraph {
 }
 ```
 
+The colors show enabled (green) versus disabled (gray) features. The edges show relationships.
+
 ---
 
 ## When FeatureManager Loses
 
+FeatureManager handles the common case well, but some situations call for different approaches.
+
 ### 1. Pure Compile-Time Flags
 
-If features are truly compile-time only and you need zero runtime overhead:
+FeatureManager is a runtime system. If you need zero runtime overhead—not even a branch—preprocessor flags eliminate the code entirely:
 
 ```cpp
 #ifdef ENABLE_FEATURE_X
@@ -975,11 +1000,11 @@ if (features.is_enabled("x")) {
 }
 ```
 
-**Mitigation:** Use both—FeatureManager for validation and documentation, `#ifdef` for final code elimination.
+For features that are truly build-time decisions (debug vs release, platform-specific code), preprocessor flags are still appropriate. You can use both: FeatureManager for validation and documentation, `#ifdef` for final code elimination in the build.
 
 ### 2. Extremely High-Frequency Checks
 
-Millions of checks per second in hot loop:
+Inside a tight loop processing millions of items, even an O(log n) lookup adds up:
 
 ```cpp
 for (auto& item : million_items) {
@@ -989,7 +1014,7 @@ for (auto& item : million_items) {
 }
 ```
 
-**Mitigation:** Cache the result:
+The fix is simple: cache the result before the loop:
 
 ```cpp
 bool logging_enabled = features.is_enabled("logging");
@@ -1000,21 +1025,27 @@ for (auto& item : million_items) {
 }
 ```
 
+This is a micro-optimization. Profile first to see if it matters.
+
 ### 3. Hundreds of Independent Features
 
-If you have 500+ features with no relationships, the graph overhead isn't justified.
+If you have 500+ features with no relationships between them, the graph overhead isn't justified. The value of FeatureManager comes from tracking dependencies and conflicts. For truly independent flags, a simple hash map of booleans is sufficient.
 
-**Mitigation:** Use FeatureManager for the subset with relationships; use simple flags for truly independent features.
+Consider using FeatureManager for the subset of features that have relationships, and simple flags for the rest.
 
 ### 4. Cross-Process Feature State
 
-FeatureManager is per-process. If you need features shared across processes:
+FeatureManager is per-process. If you need features shared across multiple processes—a distributed system where all nodes should have the same configuration—you need external storage.
 
-**Mitigation:** Serialize to JSON/database, load in each process.
+Serialize the feature state to JSON or a database, then load it in each process. FeatureManager's JSON serialization makes this straightforward, but the synchronization is your responsibility.
 
 ---
 
 ## Summary
+
+C-style feature flags scatter dependency knowledge across comments, documentation, and developers' memories. When a developer enables a flag, they have to know—or discover through crashes—which other flags it requires or conflicts with. Adding a feature means updating the definition, the validation function, and the initialization code. Miss any one, and you have a bug that won't show up until runtime.
+
+FeatureManager centralizes this knowledge as a graph. Features are nodes; relationships are edges. When you enable a feature, the manager walks the graph and either succeeds or explains exactly what's wrong. Dependencies, conflicts, and implications are declared once, at feature definition time, and the system enforces them automatically.
 
 | Aspect | C Patterns | FeatureManager |
 |--------|-----------|----------------|
@@ -1028,10 +1059,7 @@ FeatureManager is per-process. If you need features shared across processes:
 | Runtime checks | Manual | FeatureCheck callbacks |
 | Change notification | None | Observer pattern |
 
-**Migration ROI:**
-- **Immediate:** Catch conflicts and missing dependencies at enable-time
-- **Short-term:** Documentation of dependencies in code, not comments
-- **Long-term:** Safe refactoring, configuration-driven features
+The migration pays off immediately when invalid feature combinations are caught at enable-time instead of crashing at runtime. In the short term, you get documentation of dependencies in code rather than prose. In the long term, you can safely refactor the feature set because the graph makes all relationships explicit and testable.
 
 ---
 
