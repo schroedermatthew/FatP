@@ -38,7 +38,7 @@ FATP_META:
 namespace fat_p::testing::simdvector
 {
 
-TEST_CASE(construction)
+FATP_TEST_CASE(construction)
 {
     SimdVectorF vec_scalar(5.0f);
 
@@ -53,20 +53,20 @@ TEST_CASE(construction)
     vec_scalar.store_aligned(result);
 
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
-        ASSERT_EQ(result[i], 5.0f, "Scalar broadcast should fill all lanes");
+        FATP_ASSERT_EQ(result[i], 5.0f, "Scalar broadcast should fill all lanes");
     }
 
     // Test that loaded vector contains expected values
     alignas(SimdVectorF::alignment) float loaded_result[SimdVectorF::width];
     vec_loaded.store_aligned(loaded_result);
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
-        ASSERT_EQ(loaded_result[i], static_cast<float>(i), "Loaded vector should contain original data");
+        FATP_ASSERT_EQ(loaded_result[i], static_cast<float>(i), "Loaded vector should contain original data");
     }
 
     return true;
 }
 
-TEST_CASE(arithmetic)
+FATP_TEST_CASE(arithmetic)
 {
     SimdVectorF a(2.0f);
     SimdVectorF b(3.0f);
@@ -80,28 +80,28 @@ TEST_CASE(arithmetic)
 
     sum.store_aligned(result);
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
-        ASSERT_LT(std::abs(result[i] - 5.0f), 1e-6f, "Addition should work");
+        FATP_ASSERT_LT(std::abs(result[i] - 5.0f), 1e-6f, "Addition should work");
     }
 
     diff.store_aligned(result);
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
-        ASSERT_LT(std::abs(result[i] - (-1.0f)), 1e-6f, "Subtraction should work");
+        FATP_ASSERT_LT(std::abs(result[i] - (-1.0f)), 1e-6f, "Subtraction should work");
     }
 
     prod.store_aligned(result);
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
-        ASSERT_LT(std::abs(result[i] - 6.0f), 1e-6f, "Multiplication should work");
+        FATP_ASSERT_LT(std::abs(result[i] - 6.0f), 1e-6f, "Multiplication should work");
     }
 
     quot.store_aligned(result);
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
-        ASSERT_LT(std::abs(result[i] - (2.0f / 3.0f)), 1e-6f, "Division should work");
+        FATP_ASSERT_LT(std::abs(result[i] - (2.0f / 3.0f)), 1e-6f, "Division should work");
     }
 
     return true;
 }
 
-TEST_CASE(fma)
+FATP_TEST_CASE(fma)
 {
     SimdVectorF a(2.0f);
     SimdVectorF b(3.0f);
@@ -114,14 +114,14 @@ TEST_CASE(fma)
 
     float expected = 2.0f * 3.0f + 4.0f; // 10.0
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
-        ASSERT_LT(std::abs(result[i] - expected), 1e-6f, "FMA should compute a*b+c");
+        FATP_ASSERT_LT(std::abs(result[i] - expected), 1e-6f, "FMA should compute a*b+c");
     }
 
     return true;
 }
 
 // P0-3 Regression Test: NEON FMS was returning c-a*b instead of a*b-c
-TEST_CASE(fms)
+FATP_TEST_CASE(fms)
 {
     SimdVectorF a(2.0f);
     SimdVectorF b(3.0f);
@@ -136,7 +136,7 @@ TEST_CASE(fms)
     // Bug was returning c - a*b = 1 - 6 = -5.0
     float expected = 2.0f * 3.0f - 1.0f; // 5.0
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
-        ASSERT_LT(std::abs(result[i] - expected), 1e-6f, 
+        FATP_ASSERT_LT(std::abs(result[i] - expected), 1e-6f, 
                       "FMS should compute a*b-c, not c-a*b");
     }
 
@@ -151,14 +151,14 @@ TEST_CASE(fms)
     
     float expected2 = 5.0f * 4.0f - 3.0f; // 17.0
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
-        ASSERT_LT(std::abs(result2[i] - expected2), 1e-6f, 
+        FATP_ASSERT_LT(std::abs(result2[i] - expected2), 1e-6f, 
                       "FMS(5,4,3) should be 17, not -17");
     }
 
     return true;
 }
 
-TEST_CASE(horizontal_ops)
+FATP_TEST_CASE(horizontal_ops)
 {
     alignas(SimdVectorF::alignment) float data[SimdVectorF::width];
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
@@ -173,19 +173,19 @@ TEST_CASE(horizontal_ops)
         expected_sum += data[i];
     }
 
-    ASSERT_LT(std::abs(sum - expected_sum), 1e-5f, "Horizontal sum should be correct");
+    FATP_ASSERT_LT(std::abs(sum - expected_sum), 1e-5f, "Horizontal sum should be correct");
 
     float max_val = vec.horizontal_max();
-    ASSERT_LT(std::abs(max_val - static_cast<float>(SimdVectorF::width)), 1e-6f,
+    FATP_ASSERT_LT(std::abs(max_val - static_cast<float>(SimdVectorF::width)), 1e-6f,
                   "Horizontal max should be width");
 
     float min_val = vec.horizontal_min();
-    ASSERT_LT(std::abs(min_val - 1.0f), 1e-6f, "Horizontal min should be 1.0");
+    FATP_ASSERT_LT(std::abs(min_val - 1.0f), 1e-6f, "Horizontal min should be 1.0");
 
     return true;
 }
 
-TEST_CASE(sqrt)
+FATP_TEST_CASE(sqrt)
 {
     alignas(SimdVectorF::alignment) float data[SimdVectorF::width];
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
@@ -200,13 +200,13 @@ TEST_CASE(sqrt)
 
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
         float expected = static_cast<float>(i + 1);
-        ASSERT_LT(std::abs(result[i] - expected), 1e-5f, "Square root should be correct");
+        FATP_ASSERT_LT(std::abs(result[i] - expected), 1e-5f, "Square root should be correct");
     }
 
     return true;
 }
 
-TEST_CASE(min_max)
+FATP_TEST_CASE(min_max)
 {
     SimdVectorF a(2.0f);
     SimdVectorF b(5.0f);
@@ -221,14 +221,14 @@ TEST_CASE(min_max)
     max_vec.store_aligned(max_result);
 
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
-        ASSERT_LT(std::abs(min_result[i] - 2.0f), 1e-6f, "Min should be 2.0");
-        ASSERT_LT(std::abs(max_result[i] - 5.0f), 1e-6f, "Max should be 5.0");
+        FATP_ASSERT_LT(std::abs(min_result[i] - 2.0f), 1e-6f, "Min should be 2.0");
+        FATP_ASSERT_LT(std::abs(max_result[i] - 5.0f), 1e-6f, "Max should be 5.0");
     }
 
     return true;
 }
 
-TEST_CASE(unaligned_loads)
+FATP_TEST_CASE(unaligned_loads)
 {
     // Create unaligned buffer
     std::vector<float> buffer(SimdVectorF::width + 1);
@@ -243,14 +243,14 @@ TEST_CASE(unaligned_loads)
     vec.store_aligned(result);
 
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
-        ASSERT_LT(std::abs(result[i] - static_cast<float>(i + 1)), 1e-6f,
+        FATP_ASSERT_LT(std::abs(result[i] - static_cast<float>(i + 1)), 1e-6f,
                       "Unaligned load should work correctly");
     }
 
     return true;
 }
 
-TEST_CASE(double_precision)
+FATP_TEST_CASE(double_precision)
 {
     SimdVectorD a(2.0);
     SimdVectorD b(3.0);
@@ -262,19 +262,19 @@ TEST_CASE(double_precision)
 
     sum.store_aligned(result);
     for (size_t i = 0; i < SimdVectorD::width; ++i) {
-        ASSERT_LT(std::abs(result[i] - 5.0), 1e-12, "Double precision addition should work");
+        FATP_ASSERT_LT(std::abs(result[i] - 5.0), 1e-12, "Double precision addition should work");
     }
 
     prod.store_aligned(result);
     for (size_t i = 0; i < SimdVectorD::width; ++i) {
-        ASSERT_LT(std::abs(result[i] - 6.0), 1e-12,
+        FATP_ASSERT_LT(std::abs(result[i] - 6.0), 1e-12,
                       "Double precision multiplication should work");
     }
 
     return true;
 }
 
-TEST_CASE(mask_operations)
+FATP_TEST_CASE(mask_operations)
 {
     SimdVectorF a(2.0f);
     SimdVectorF b(3.0f);
@@ -284,22 +284,22 @@ TEST_CASE(mask_operations)
     auto mask_eq = a == a;
 
     // a < b should be all true
-    ASSERT_TRUE(mask_lt.all(), "2.0 < 3.0 should be true for all lanes");
+    FATP_ASSERT_TRUE(mask_lt.all(), "2.0 < 3.0 should be true for all lanes");
 
     // a > b should be all false
-    ASSERT_TRUE(mask_gt.none(), "2.0 > 3.0 should be false for all lanes");
+    FATP_ASSERT_TRUE(mask_gt.none(), "2.0 > 3.0 should be false for all lanes");
 
     // a == a should be all true
-    ASSERT_TRUE(mask_eq.all(), "a == a should be true for all lanes");
+    FATP_ASSERT_TRUE(mask_eq.all(), "a == a should be true for all lanes");
 
     // Test popcount
-    ASSERT_EQ(mask_lt.popcount(), SimdVectorF::width, "All-true mask popcount");
-    ASSERT_EQ(mask_gt.popcount(), 0, "All-false mask popcount");
+    FATP_ASSERT_EQ(mask_lt.popcount(), SimdVectorF::width, "All-true mask popcount");
+    FATP_ASSERT_EQ(mask_gt.popcount(), 0, "All-false mask popcount");
 
     return true;
 }
 
-TEST_CASE(select_blend)
+FATP_TEST_CASE(select_blend)
 {
     SimdVectorF a(2.0f);
     SimdVectorF b(5.0f);
@@ -312,7 +312,7 @@ TEST_CASE(select_blend)
     selected.store_aligned(result);
 
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
-        ASSERT_LT(std::abs(result[i] - 2.0f), 1e-6f,
+        FATP_ASSERT_LT(std::abs(result[i] - 2.0f), 1e-6f,
                       "Select with all-true mask should return first operand");
     }
 
@@ -324,7 +324,7 @@ TEST_CASE(select_blend)
 // ============================================================================
 
 // Tests mixed true/false mask lanes - not just all-true or all-false
-TEST_CASE(partial_mask_select)
+FATP_TEST_CASE(partial_mask_select)
 {
     // A "partial" mask (some true, some false) requires at least 2 lanes.
     // In scalar mode (width=1), skip this test since partial masks are impossible.
@@ -337,8 +337,8 @@ TEST_CASE(partial_mask_select)
         auto all_true_mask = (a > b);  // 42 > -1 → true
         auto all_false_mask = (a < b); // 42 < -1 → false
         
-        ASSERT_TRUE(all_true_mask.all(), "partial_mask_select: scalar all-true mask");
-        ASSERT_TRUE(all_false_mask.none(), "partial_mask_select: scalar all-false mask");
+        FATP_ASSERT_TRUE(all_true_mask.all(), "partial_mask_select: scalar all-true mask");
+        FATP_ASSERT_TRUE(all_false_mask.none(), "partial_mask_select: scalar all-false mask");
         
         auto sel_true = SimdVectorF::select(all_true_mask, a, b);
         auto sel_false = SimdVectorF::select(all_false_mask, a, b);
@@ -348,9 +348,9 @@ TEST_CASE(partial_mask_select)
         sel_true.store_aligned(r1);
         sel_false.store_aligned(r2);
         
-        ASSERT_LT(std::abs(r1[0] - 42.0f), 1e-6f, 
+        FATP_ASSERT_LT(std::abs(r1[0] - 42.0f), 1e-6f, 
                       "partial_mask_select: scalar select with true mask");
-        ASSERT_LT(std::abs(r2[0] - (-1.0f)), 1e-6f, 
+        FATP_ASSERT_LT(std::abs(r2[0] - (-1.0f)), 1e-6f, 
                       "partial_mask_select: scalar select with false mask");
         
         return true;
@@ -392,23 +392,23 @@ TEST_CASE(partial_mask_select)
             ++expected_true;
         }
 
-        ASSERT_LT(std::abs(result[i] - expected), 1e-6f,
+        FATP_ASSERT_LT(std::abs(result[i] - expected), 1e-6f,
                       "partial_mask_select: lane value mismatch");
     }
 
     // Also verify popcount reflects number of true lanes
-    ASSERT_EQ(mask.popcount(), expected_true,
+    FATP_ASSERT_EQ(mask.popcount(), expected_true,
                   "partial_mask_select: mask popcount should match true lanes");
 
     // Sanity check: mask should be neither all() nor none()
-    ASSERT_FALSE(mask.all(), "partial_mask_select: mask should not be all()");
-    ASSERT_FALSE(mask.none(), "partial_mask_select: mask should not be none()");
+    FATP_ASSERT_FALSE(mask.all(), "partial_mask_select: mask should not be all()");
+    FATP_ASSERT_FALSE(mask.none(), "partial_mask_select: mask should not be none()");
 
     return true;
 }
 
 // Tests NaN propagation - NaN in one lane should not corrupt others
-TEST_CASE(nan_propagation)
+FATP_TEST_CASE(nan_propagation)
 {
     // Construct a vector where exactly one lane is NaN and others are finite
     alignas(SimdVectorF::alignment) float data_a[SimdVectorF::width];
@@ -438,17 +438,17 @@ TEST_CASE(nan_propagation)
 
     for (size_t i = 0; i < SimdVectorF::width; ++i) {
         if (i == nan_lane) {
-            ASSERT_TRUE(std::isnan(sum_result[i]),
+            FATP_ASSERT_TRUE(std::isnan(sum_result[i]),
                           "nan_propagation: sum lane with NaN should be NaN");
-            ASSERT_TRUE(std::isnan(prod_result[i]),
+            FATP_ASSERT_TRUE(std::isnan(prod_result[i]),
                           "nan_propagation: prod lane with NaN should be NaN");
         } else {
             const float expected_sum = data_a[i] + data_b[i];
             const float expected_prod = data_a[i] * data_b[i];
 
-            ASSERT_LT(std::abs(sum_result[i] - expected_sum), 1e-5f,
+            FATP_ASSERT_LT(std::abs(sum_result[i] - expected_sum), 1e-5f,
                           "nan_propagation: finite sum mismatch");
-            ASSERT_LT(std::abs(prod_result[i] - expected_prod), 1e-5f,
+            FATP_ASSERT_LT(std::abs(prod_result[i] - expected_prod), 1e-5f,
                           "nan_propagation: finite prod mismatch");
         }
     }
@@ -457,7 +457,7 @@ TEST_CASE(nan_propagation)
 }
 
 // P1-1 Regression Test: vmvnq_s64 doesn't exist, verify mask NOT works
-TEST_CASE(mask_not_operator)
+FATP_TEST_CASE(mask_not_operator)
 {
     SimdVectorF a(2.0f);
     SimdVectorF b(3.0f);
@@ -465,9 +465,9 @@ TEST_CASE(mask_not_operator)
     auto mask = a < b;      // All true
     auto not_mask = ~mask;  // All false (tests the vmvnq fix)
 
-    ASSERT_TRUE(mask.all(), "Original mask should be all true");
-    ASSERT_TRUE(not_mask.none(), "NOT of all-true should be all-false");
-    ASSERT_EQ(not_mask.popcount(), 0, "NOT mask popcount should be 0");
+    FATP_ASSERT_TRUE(mask.all(), "Original mask should be all true");
+    FATP_ASSERT_TRUE(not_mask.none(), "NOT of all-true should be all-false");
+    FATP_ASSERT_EQ(not_mask.popcount(), 0, "NOT mask popcount should be 0");
 
     // Test with partial mask
     alignas(SimdVectorF::alignment) float data[SimdVectorF::width];
@@ -482,7 +482,7 @@ TEST_CASE(mask_not_operator)
     size_t original_count = partial.popcount();
     size_t flipped_count = not_partial.popcount();
     
-    ASSERT_EQ(original_count + flipped_count, SimdVectorF::width,
+    FATP_ASSERT_EQ(original_count + flipped_count, SimdVectorF::width,
                   "NOT should flip all bits");
 
     return true;
@@ -552,26 +552,26 @@ namespace fat_p::testing
 
 bool test_SimdVector()
 {
-    PRINT_HEADER(SIMD VECTOR)
+    FATP_PRINT_HEADER(SIMD VECTOR)
 
     TestRunner runner;
 
-    RUN_TEST_NS(runner, simdvector, construction);
-    RUN_TEST_NS(runner, simdvector, arithmetic);
-    RUN_TEST_NS(runner, simdvector, fma);
-    RUN_TEST_NS(runner, simdvector, fms);  // P0-3 regression test
-    RUN_TEST_NS(runner, simdvector, horizontal_ops);
-    RUN_TEST_NS(runner, simdvector, sqrt);
-    RUN_TEST_NS(runner, simdvector, min_max);
-    RUN_TEST_NS(runner, simdvector, unaligned_loads);
-    RUN_TEST_NS(runner, simdvector, double_precision);
-    RUN_TEST_NS(runner, simdvector, mask_operations);
-    RUN_TEST_NS(runner, simdvector, select_blend);
+    FATP_RUN_TEST_NS(runner, simdvector, construction);
+    FATP_RUN_TEST_NS(runner, simdvector, arithmetic);
+    FATP_RUN_TEST_NS(runner, simdvector, fma);
+    FATP_RUN_TEST_NS(runner, simdvector, fms);  // P0-3 regression test
+    FATP_RUN_TEST_NS(runner, simdvector, horizontal_ops);
+    FATP_RUN_TEST_NS(runner, simdvector, sqrt);
+    FATP_RUN_TEST_NS(runner, simdvector, min_max);
+    FATP_RUN_TEST_NS(runner, simdvector, unaligned_loads);
+    FATP_RUN_TEST_NS(runner, simdvector, double_precision);
+    FATP_RUN_TEST_NS(runner, simdvector, mask_operations);
+    FATP_RUN_TEST_NS(runner, simdvector, select_blend);
     
     // Adversarial tests (from four-AI analysis)
-    RUN_TEST_NS(runner, simdvector, partial_mask_select);
-    RUN_TEST_NS(runner, simdvector, nan_propagation);
-    RUN_TEST_NS(runner, simdvector, mask_not_operator);  // P1-1 regression test
+    FATP_RUN_TEST_NS(runner, simdvector, partial_mask_select);
+    FATP_RUN_TEST_NS(runner, simdvector, nan_propagation);
+    FATP_RUN_TEST_NS(runner, simdvector, mask_not_operator);  // P1-1 regression test
 
     simdvector::benchmark_simd_vector();
 

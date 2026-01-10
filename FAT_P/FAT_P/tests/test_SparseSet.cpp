@@ -8,7 +8,7 @@ FATP_META:
   component: SparseSet
   file_role: test
   path: tests/test_SparseSet.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::sparseset
   summary: "Unit tests for SparseSet."
   related:
     docs_search: "SparseSet"
@@ -32,22 +32,22 @@ FATP_META:
 #include "SparseSet.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing
+namespace fat_p::testing::sparseset
 {
 
-bool test_sparse_set_basic_operations() {
+FATP_TEST_CASE(sparse_set_basic_operations) {
     SparseSet<uint32_t> set;
     
-    ASSERT_TRUE(set.empty(), "Should start empty");
-    ASSERT_TRUE(set.insert(100), "Should insert");
-    ASSERT_TRUE(!set.empty(), "Should not be empty");
-    ASSERT_TRUE(set.contains(100), "Should contain inserted element");
-    ASSERT_TRUE(!set.contains(99), "Should not contain non-inserted element");
+    FATP_ASSERT_TRUE(set.empty(), "Should start empty");
+    FATP_ASSERT_TRUE(set.insert(100), "Should insert");
+    FATP_ASSERT_TRUE(!set.empty(), "Should not be empty");
+    FATP_ASSERT_TRUE(set.contains(100), "Should contain inserted element");
+    FATP_ASSERT_TRUE(!set.contains(99), "Should not contain non-inserted element");
     
     return true;
 }
 
-bool test_sparse_set_sparse_indices() {
+FATP_TEST_CASE(sparse_set_sparse_indices) {
     SparseSet<uint32_t> set;
     
     // Insert sparse indices
@@ -55,30 +55,30 @@ bool test_sparse_set_sparse_indices() {
     set.insert(1000);
     set.insert(100000);
     
-    ASSERT_TRUE(set.size() == 3, "Should have 3 elements");
-    ASSERT_TRUE(set.contains(10), "Should contain 10");
-    ASSERT_TRUE(set.contains(1000), "Should contain 1000");
-    ASSERT_TRUE(set.contains(100000), "Should contain 100000");
+    FATP_ASSERT_TRUE(set.size() == 3, "Should have 3 elements");
+    FATP_ASSERT_TRUE(set.contains(10), "Should contain 10");
+    FATP_ASSERT_TRUE(set.contains(1000), "Should contain 1000");
+    FATP_ASSERT_TRUE(set.contains(100000), "Should contain 100000");
     
     return true;
 }
 
-bool test_sparse_set_erase() {
+FATP_TEST_CASE(sparse_set_erase) {
     SparseSet<uint32_t> set;
     
     set.insert(1);
     set.insert(2);
     set.insert(3);
     
-    ASSERT_TRUE(set.erase(2), "Should erase existing element");
-    ASSERT_TRUE(!set.contains(2), "Should not contain erased element");
-    ASSERT_TRUE(set.size() == 2, "Size should decrease");
-    ASSERT_TRUE(!set.erase(2), "Should not erase non-existent element");
+    FATP_ASSERT_TRUE(set.erase(2), "Should erase existing element");
+    FATP_ASSERT_TRUE(!set.contains(2), "Should not contain erased element");
+    FATP_ASSERT_TRUE(set.size() == 2, "Size should decrease");
+    FATP_ASSERT_TRUE(!set.erase(2), "Should not erase non-existent element");
     
     return true;
 }
 
-bool test_sparse_set_iteration() {
+FATP_TEST_CASE(sparse_set_iteration) {
     SparseSet<uint32_t> set;
     
     set.insert(100);
@@ -90,29 +90,29 @@ bool test_sparse_set_iteration() {
         values.push_back(val);
     }
     
-    ASSERT_TRUE(values.size() == 3, "Should iterate over all elements");
-    ASSERT_TRUE(std::find(values.begin(), values.end(), 100) != values.end(), "Should find 100");
-    ASSERT_TRUE(std::find(values.begin(), values.end(), 200) != values.end(), "Should find 200");
-    ASSERT_TRUE(std::find(values.begin(), values.end(), 300) != values.end(), "Should find 300");
+    FATP_ASSERT_TRUE(values.size() == 3, "Should iterate over all elements");
+    FATP_ASSERT_TRUE(std::find(values.begin(), values.end(), 100) != values.end(), "Should find 100");
+    FATP_ASSERT_TRUE(std::find(values.begin(), values.end(), 200) != values.end(), "Should find 200");
+    FATP_ASSERT_TRUE(std::find(values.begin(), values.end(), 300) != values.end(), "Should find 300");
     
     return true;
 }
 
-bool test_sparse_set_with_data() {
+FATP_TEST_CASE(sparse_set_with_data) {
     SparseSetWithData<uint32_t, std::string> set;
     
     set.insert(1, "one");
     set.insert(2, "two");
     set.insert(3, "three");
     
-    ASSERT_TRUE(set.get(1) == "one", "Should retrieve correct data");
-    ASSERT_TRUE(set.get(2) == "two", "Should retrieve correct data");
-    ASSERT_TRUE(set.get(3) == "three", "Should retrieve correct data");
+    FATP_ASSERT_TRUE(set.get(1) == "one", "Should retrieve correct data");
+    FATP_ASSERT_TRUE(set.get(2) == "two", "Should retrieve correct data");
+    FATP_ASSERT_TRUE(set.get(3) == "three", "Should retrieve correct data");
     
     set.erase(2);
-    ASSERT_TRUE(!set.contains(2), "Should not contain erased element");
-    ASSERT_TRUE(set.get(1) == "one", "Other data should remain valid");
-    ASSERT_TRUE(set.get(3) == "three", "Other data should remain valid");
+    FATP_ASSERT_TRUE(!set.contains(2), "Should not contain erased element");
+    FATP_ASSERT_TRUE(set.get(1) == "one", "Other data should remain valid");
+    FATP_ASSERT_TRUE(set.get(3) == "three", "Other data should remain valid");
     
     return true;
 }
@@ -144,19 +144,24 @@ void benchmark_sparse_set() {
     std::cout << "Erase: " << format_time(erase_time) << "\n";
 }
 
+} // namespace fat_p::testing::sparseset
+
+namespace fat_p::testing
+{
+
 bool test_SparseSet() {
 
-    PRINT_HEADER(SPARSE SET)
+    FATP_PRINT_HEADER(SPARSE SET)
 
     TestRunner runner;
 
-    RUN_TEST(runner, sparse_set_basic_operations);
-    RUN_TEST(runner, sparse_set_sparse_indices);
-    RUN_TEST(runner, sparse_set_erase);
-    RUN_TEST(runner, sparse_set_iteration);
-    RUN_TEST(runner, sparse_set_with_data);
+    FATP_RUN_TEST_NS(runner, sparseset, sparse_set_basic_operations);
+    FATP_RUN_TEST_NS(runner, sparseset, sparse_set_sparse_indices);
+    FATP_RUN_TEST_NS(runner, sparseset, sparse_set_erase);
+    FATP_RUN_TEST_NS(runner, sparseset, sparse_set_iteration);
+    FATP_RUN_TEST_NS(runner, sparseset, sparse_set_with_data);
 
-    benchmark_sparse_set();
+    sparseset::benchmark_sparse_set();
 
     return 0 == runner.print_summary();
 

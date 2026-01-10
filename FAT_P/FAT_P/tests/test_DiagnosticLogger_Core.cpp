@@ -8,7 +8,7 @@ FATP_META:
   component: DiagnosticLogger_Core
   file_role: test
   path: tests/test_DiagnosticLogger_Core.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::diagnosticlogger_core
   summary: "Unit tests for DiagnosticLogger_Core."
   related:
     docs_search: "DiagnosticLogger_Core"
@@ -38,7 +38,7 @@ FATP_META:
 #include "DiagnosticLogger_Sinks.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing
+namespace fat_p::testing::diagnosticlogger_core
 {
 
 using namespace fat_p::diagnostic;
@@ -106,59 +106,59 @@ public:
 namespace
 {
 
-bool test_log_level_enum()
+FATP_TEST_CASE(log_level_enum)
 {
-    ASSERT_TRUE(LogLevel::Trace < LogLevel::Debug, "Trace < Debug");
-    ASSERT_TRUE(LogLevel::Debug < LogLevel::Info, "Debug < Info");
-    ASSERT_TRUE(LogLevel::Info < LogLevel::Warning, "Info < Warning");
-    ASSERT_TRUE(LogLevel::Warning < LogLevel::Error, "Warning < Error");
-    ASSERT_TRUE(LogLevel::Error < LogLevel::Fatal, "Error < Fatal");
-    ASSERT_TRUE(LogLevel::Fatal < LogLevel::Off, "Fatal < Off");
+    FATP_ASSERT_TRUE(LogLevel::Trace < LogLevel::Debug, "Trace < Debug");
+    FATP_ASSERT_TRUE(LogLevel::Debug < LogLevel::Info, "Debug < Info");
+    FATP_ASSERT_TRUE(LogLevel::Info < LogLevel::Warning, "Info < Warning");
+    FATP_ASSERT_TRUE(LogLevel::Warning < LogLevel::Error, "Warning < Error");
+    FATP_ASSERT_TRUE(LogLevel::Error < LogLevel::Fatal, "Error < Fatal");
+    FATP_ASSERT_TRUE(LogLevel::Fatal < LogLevel::Off, "Fatal < Off");
 
-    ASSERT_TRUE(logLevelToString(LogLevel::Trace) == "TRACE", "Trace string");
-    ASSERT_TRUE(logLevelToString(LogLevel::Debug) == "DEBUG", "Debug string");
-    ASSERT_TRUE(logLevelToString(LogLevel::Info) == "INFO", "Info string");
-    ASSERT_TRUE(logLevelToString(LogLevel::Warning) == "WARN", "Warning string");
-    ASSERT_TRUE(logLevelToString(LogLevel::Error) == "ERROR", "Error string");
-    ASSERT_TRUE(logLevelToString(LogLevel::Fatal) == "FATAL", "Fatal string");
-    ASSERT_TRUE(logLevelToString(LogLevel::Off) == "OFF", "Off string");
+    FATP_ASSERT_TRUE(logLevelToString(LogLevel::Trace) == "TRACE", "Trace string");
+    FATP_ASSERT_TRUE(logLevelToString(LogLevel::Debug) == "DEBUG", "Debug string");
+    FATP_ASSERT_TRUE(logLevelToString(LogLevel::Info) == "INFO", "Info string");
+    FATP_ASSERT_TRUE(logLevelToString(LogLevel::Warning) == "WARN", "Warning string");
+    FATP_ASSERT_TRUE(logLevelToString(LogLevel::Error) == "ERROR", "Error string");
+    FATP_ASSERT_TRUE(logLevelToString(LogLevel::Fatal) == "FATAL", "Fatal string");
+    FATP_ASSERT_TRUE(logLevelToString(LogLevel::Off) == "OFF", "Off string");
 
     return true;
 }
 
-bool test_source_location()
+FATP_TEST_CASE(source_location)
 {
     auto loc = FATP_SOURCE_LOCATION();
 
-    ASSERT_TRUE(loc.file != nullptr, "File is not null");
-    ASSERT_TRUE(loc.line > 0, "Line is positive");
-    ASSERT_TRUE(loc.function != nullptr, "Function is not null");
-    ASSERT_TRUE(std::string(loc.function).find("test_source_location") != std::string::npos,
+    FATP_ASSERT_TRUE(loc.file != nullptr, "File is not null");
+    FATP_ASSERT_TRUE(loc.line > 0, "Line is positive");
+    FATP_ASSERT_TRUE(loc.function != nullptr, "Function is not null");
+    FATP_ASSERT_TRUE(std::string(loc.function).find("test_source_location") != std::string::npos,
                   "Function name captured");
 
     return true;
 }
 
-bool test_log_record_construction()
+FATP_TEST_CASE(log_record_construction)
 {
     auto loc = FATP_SOURCE_LOCATION();
     LogRecord record(LogLevel::Info, "Test message", loc, "metadata");
 
-    ASSERT_TRUE(record.level == LogLevel::Info, "Level set correctly");
-    ASSERT_TRUE(record.message == "Test message", "Message set correctly");
-    ASSERT_TRUE(record.metadata == "metadata", "Metadata set correctly");
-    ASSERT_TRUE(record.location.file != nullptr, "Location file set");
-    ASSERT_TRUE(record.location.line > 0, "Location line set");
+    FATP_ASSERT_TRUE(record.level == LogLevel::Info, "Level set correctly");
+    FATP_ASSERT_TRUE(record.message == "Test message", "Message set correctly");
+    FATP_ASSERT_TRUE(record.metadata == "metadata", "Metadata set correctly");
+    FATP_ASSERT_TRUE(record.location.file != nullptr, "Location file set");
+    FATP_ASSERT_TRUE(record.location.line > 0, "Location line set");
 
     LogRecord default_record;
-    ASSERT_TRUE(default_record.level == LogLevel::Info, "Default level is Info");
-    ASSERT_TRUE(default_record.message.empty(), "Default message is empty");
-    ASSERT_TRUE(default_record.metadata.empty(), "Default metadata is empty");
+    FATP_ASSERT_TRUE(default_record.level == LogLevel::Info, "Default level is Info");
+    FATP_ASSERT_TRUE(default_record.message.empty(), "Default message is empty");
+    FATP_ASSERT_TRUE(default_record.metadata.empty(), "Default metadata is empty");
 
     return true;
 }
 
-bool test_default_formatter()
+FATP_TEST_CASE(default_formatter)
 {
     DefaultFormatter formatter;
     auto loc = FATP_SOURCE_LOCATION();
@@ -166,16 +166,16 @@ bool test_default_formatter()
 
     std::string formatted = formatter.format(record);
 
-    ASSERT_TRUE(!formatted.empty(), "Formatted string not empty");
-    ASSERT_TRUE(formatted.find("WARN") != std::string::npos, "Contains log level");
-    ASSERT_TRUE(formatted.find("Test warning") != std::string::npos, "Contains message");
-    ASSERT_TRUE(formatted.find("extra data") != std::string::npos, "Contains metadata");
-    ASSERT_TRUE(formatted.find("0x") != std::string::npos, "Contains thread ID");
+    FATP_ASSERT_TRUE(!formatted.empty(), "Formatted string not empty");
+    FATP_ASSERT_TRUE(formatted.find("WARN") != std::string::npos, "Contains log level");
+    FATP_ASSERT_TRUE(formatted.find("Test warning") != std::string::npos, "Contains message");
+    FATP_ASSERT_TRUE(formatted.find("extra data") != std::string::npos, "Contains metadata");
+    FATP_ASSERT_TRUE(formatted.find("0x") != std::string::npos, "Contains thread ID");
 
     return true;
 }
 
-bool test_console_sink()
+FATP_TEST_CASE(console_sink)
 {
     std::ostringstream capturedOutput;
     std::streambuf* oldCoutBuf = std::cout.rdbuf();
@@ -190,12 +190,12 @@ bool test_console_sink()
     std::cout.rdbuf(oldCoutBuf);
 
     std::string output = capturedOutput.str();
-    ASSERT_TRUE(output.find("Console test") != std::string::npos, "Message in console output");
+    FATP_ASSERT_TRUE(output.find("Console test") != std::string::npos, "Message in console output");
 
     return true;
 }
 
-bool test_stderr_sink()
+FATP_TEST_CASE(stderr_sink)
 {
     std::ostringstream capturedOutput;
     std::streambuf* oldCerrBuf = std::cerr.rdbuf();
@@ -210,36 +210,36 @@ bool test_stderr_sink()
     std::cerr.rdbuf(oldCerrBuf);
 
     std::string output = capturedOutput.str();
-    ASSERT_TRUE(output.find("Stderr test") != std::string::npos, "Message in stderr output");
+    FATP_ASSERT_TRUE(output.find("Stderr test") != std::string::npos, "Message in stderr output");
 
     return true;
 }
 
-bool test_logger_enable_disable()
+FATP_TEST_CASE(logger_enable_disable)
 {
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
     logger.addSink(testSink);
 
     logger.setEnabled(true);
-    ASSERT_TRUE(logger.isEnabled(), "Logger reports enabled");
+    FATP_ASSERT_TRUE(logger.isEnabled(), "Logger reports enabled");
 
     logger.log(LogLevel::Info, "Enabled message", FATP_SOURCE_LOCATION());
-    ASSERT_TRUE(testSink->count() == 1, "Message logged when enabled");
+    FATP_ASSERT_TRUE(testSink->count() == 1, "Message logged when enabled");
 
     testSink->clear();
     logger.setEnabled(false);
-    ASSERT_TRUE(!logger.isEnabled(), "Logger reports disabled");
+    FATP_ASSERT_TRUE(!logger.isEnabled(), "Logger reports disabled");
 
     logger.log(LogLevel::Info, "Disabled message", FATP_SOURCE_LOCATION());
-    ASSERT_TRUE(testSink->count() == 0, "No message logged when disabled");
+    FATP_ASSERT_TRUE(testSink->count() == 0, "No message logged when disabled");
 
     logger.setEnabled(true);
 
     return true;
 }
 
-bool test_logger_level_filtering()
+FATP_TEST_CASE(logger_level_filtering)
 {
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
@@ -250,22 +250,22 @@ bool test_logger_level_filtering()
     logger.log(LogLevel::Trace, "Trace msg", FATP_SOURCE_LOCATION());
     logger.log(LogLevel::Debug, "Debug msg", FATP_SOURCE_LOCATION());
     logger.log(LogLevel::Info, "Info msg", FATP_SOURCE_LOCATION());
-    ASSERT_TRUE(testSink->count() == 0, "Lower levels filtered out");
+    FATP_ASSERT_TRUE(testSink->count() == 0, "Lower levels filtered out");
 
     logger.log(LogLevel::Warning, "Warning msg", FATP_SOURCE_LOCATION());
     logger.log(LogLevel::Error, "Error msg", FATP_SOURCE_LOCATION());
     logger.log(LogLevel::Fatal, "Fatal msg", FATP_SOURCE_LOCATION());
-    ASSERT_TRUE(testSink->count() == 3, "Higher or equal levels logged");
+    FATP_ASSERT_TRUE(testSink->count() == 3, "Higher or equal levels logged");
 
     auto records = testSink->getRecords();
-    ASSERT_TRUE(records[0].message == "Warning msg", "Warning message correct");
-    ASSERT_TRUE(records[1].message == "Error msg", "Error message correct");
-    ASSERT_TRUE(records[2].message == "Fatal msg", "Fatal message correct");
+    FATP_ASSERT_TRUE(records[0].message == "Warning msg", "Warning message correct");
+    FATP_ASSERT_TRUE(records[1].message == "Error msg", "Error message correct");
+    FATP_ASSERT_TRUE(records[2].message == "Fatal msg", "Fatal message correct");
 
     return true;
 }
 
-bool test_logger_multiple_sinks()
+FATP_TEST_CASE(logger_multiple_sinks)
 {
     Logger logger;
     auto sink1 = std::make_shared<TestSink>();
@@ -278,54 +278,54 @@ bool test_logger_multiple_sinks()
 
     logger.log(LogLevel::Info, "Multi-sink test", FATP_SOURCE_LOCATION());
 
-    ASSERT_TRUE(sink1->count() == 1, "First sink received message");
-    ASSERT_TRUE(sink2->count() == 1, "Second sink received message");
-    ASSERT_TRUE(sink3->count() == 1, "Third sink received message");
+    FATP_ASSERT_TRUE(sink1->count() == 1, "First sink received message");
+    FATP_ASSERT_TRUE(sink2->count() == 1, "Second sink received message");
+    FATP_ASSERT_TRUE(sink3->count() == 1, "Third sink received message");
 
     return true;
 }
 
-bool test_logger_has_sinks()
+FATP_TEST_CASE(logger_has_sinks)
 {
     Logger logger;
-    ASSERT_TRUE(!logger.hasSinks(), "No sinks initially");
-    ASSERT_TRUE(logger.sinkCount() == 0, "Sink count is 0");
+    FATP_ASSERT_TRUE(!logger.hasSinks(), "No sinks initially");
+    FATP_ASSERT_TRUE(logger.sinkCount() == 0, "Sink count is 0");
 
     auto sink1 = std::make_shared<TestSink>();
     logger.addSink(sink1);
-    ASSERT_TRUE(logger.hasSinks(), "Has sinks after add");
-    ASSERT_TRUE(logger.sinkCount() == 1, "Sink count is 1");
+    FATP_ASSERT_TRUE(logger.hasSinks(), "Has sinks after add");
+    FATP_ASSERT_TRUE(logger.sinkCount() == 1, "Sink count is 1");
 
     auto sink2 = std::make_shared<TestSink>();
     logger.addSink(sink2);
-    ASSERT_TRUE(logger.sinkCount() == 2, "Sink count is 2");
+    FATP_ASSERT_TRUE(logger.sinkCount() == 2, "Sink count is 2");
 
     logger.clearSinks();
-    ASSERT_TRUE(!logger.hasSinks(), "No sinks after clear");
-    ASSERT_TRUE(logger.sinkCount() == 0, "Sink count is 0 after clear");
+    FATP_ASSERT_TRUE(!logger.hasSinks(), "No sinks after clear");
+    FATP_ASSERT_TRUE(logger.sinkCount() == 0, "Sink count is 0 after clear");
 
     return true;
 }
 
-bool test_logger_clear_sinks()
+FATP_TEST_CASE(logger_clear_sinks)
 {
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
     logger.addSink(testSink);
 
     logger.log(LogLevel::Info, "Before clear", FATP_SOURCE_LOCATION());
-    ASSERT_TRUE(testSink->count() == 1, "Sink receives message before clear");
+    FATP_ASSERT_TRUE(testSink->count() == 1, "Sink receives message before clear");
 
     logger.clearSinks();
     testSink->clear();
 
     logger.log(LogLevel::Info, "After clear", FATP_SOURCE_LOCATION());
-    ASSERT_TRUE(testSink->count() == 0, "Sink doesn't receive message after clear");
+    FATP_ASSERT_TRUE(testSink->count() == 0, "Sink doesn't receive message after clear");
 
     return true;
 }
 
-bool test_logger_string_message()
+FATP_TEST_CASE(logger_string_message)
 {
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
@@ -335,13 +335,13 @@ bool test_logger_string_message()
     logger.log(LogLevel::Info, msg, FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
-    ASSERT_TRUE(records.size() == 1, "One record logged");
-    ASSERT_TRUE(records[0].message == "String message", "String message logged correctly");
+    FATP_ASSERT_TRUE(records.size() == 1, "One record logged");
+    FATP_ASSERT_TRUE(records[0].message == "String message", "String message logged correctly");
 
     return true;
 }
 
-bool test_logger_lambda_message()
+FATP_TEST_CASE(logger_lambda_message)
 {
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
@@ -353,13 +353,13 @@ bool test_logger_lambda_message()
                FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
-    ASSERT_TRUE(records.size() == 1, "One record logged");
-    ASSERT_TRUE(records[0].message == "Value is 42", "Lambda message evaluated correctly");
+    FATP_ASSERT_TRUE(records.size() == 1, "One record logged");
+    FATP_ASSERT_TRUE(records[0].message == "Value is 42", "Lambda message evaluated correctly");
 
     return true;
 }
 
-bool test_logger_stream_message()
+FATP_TEST_CASE(logger_stream_message)
 {
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
@@ -375,13 +375,13 @@ bool test_logger_stream_message()
                FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
-    ASSERT_TRUE(records.size() == 1, "One record logged");
-    ASSERT_TRUE(records[0].message == "Number: 123", "Stream message correct");
+    FATP_ASSERT_TRUE(records.size() == 1, "One record logged");
+    FATP_ASSERT_TRUE(records[0].message == "Number: 123", "Stream message correct");
 
     return true;
 }
 
-bool test_logger_metadata()
+FATP_TEST_CASE(logger_metadata)
 {
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
@@ -390,13 +390,13 @@ bool test_logger_metadata()
     logger.log(LogLevel::Info, "Test message", FATP_SOURCE_LOCATION(), "key=value");
 
     auto records = testSink->getRecords();
-    ASSERT_TRUE(records.size() == 1, "One record logged");
-    ASSERT_TRUE(records[0].metadata == "key=value", "Metadata set correctly");
+    FATP_ASSERT_TRUE(records.size() == 1, "One record logged");
+    FATP_ASSERT_TRUE(records[0].metadata == "key=value", "Metadata set correctly");
 
     return true;
 }
 
-bool test_logger_convenience_methods()
+FATP_TEST_CASE(logger_convenience_methods)
 {
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
@@ -410,19 +410,19 @@ bool test_logger_convenience_methods()
     logger.fatal("Fatal", FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
-    ASSERT_TRUE(records.size() == 6, "Six records logged");
+    FATP_ASSERT_TRUE(records.size() == 6, "Six records logged");
 
-    ASSERT_TRUE(records[0].level == LogLevel::Trace, "Trace level");
-    ASSERT_TRUE(records[1].level == LogLevel::Debug, "Debug level");
-    ASSERT_TRUE(records[2].level == LogLevel::Info, "Info level");
-    ASSERT_TRUE(records[3].level == LogLevel::Warning, "Warning level");
-    ASSERT_TRUE(records[4].level == LogLevel::Error, "Error level");
-    ASSERT_TRUE(records[5].level == LogLevel::Fatal, "Fatal level");
+    FATP_ASSERT_TRUE(records[0].level == LogLevel::Trace, "Trace level");
+    FATP_ASSERT_TRUE(records[1].level == LogLevel::Debug, "Debug level");
+    FATP_ASSERT_TRUE(records[2].level == LogLevel::Info, "Info level");
+    FATP_ASSERT_TRUE(records[3].level == LogLevel::Warning, "Warning level");
+    FATP_ASSERT_TRUE(records[4].level == LogLevel::Error, "Error level");
+    FATP_ASSERT_TRUE(records[5].level == LogLevel::Fatal, "Fatal level");
 
     return true;
 }
 
-bool test_logger_thread_safety()
+FATP_TEST_CASE(logger_thread_safety)
 {
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
@@ -449,13 +449,13 @@ bool test_logger_thread_safety()
         t.join();
     }
 
-    ASSERT_TRUE(testSink->count() == static_cast<size_t>(numThreads * messagesPerThread),
+    FATP_ASSERT_TRUE(testSink->count() == static_cast<size_t>(numThreads * messagesPerThread),
                   "All messages from all threads logged");
 
     return true;
 }
 
-bool test_logger_sink_copy_on_write()
+FATP_TEST_CASE(logger_sink_copy_on_write)
 {
     Logger logger;
     auto sink1 = std::make_shared<TestSink>();
@@ -468,13 +468,13 @@ bool test_logger_sink_copy_on_write()
 
     logger.log(LogLevel::Info, "Message 2", FATP_SOURCE_LOCATION());
 
-    ASSERT_TRUE(sink1->count() == 2, "First sink received both messages");
-    ASSERT_TRUE(sink2->count() == 1, "Second sink only received message after being added");
+    FATP_ASSERT_TRUE(sink1->count() == 2, "First sink received both messages");
+    FATP_ASSERT_TRUE(sink2->count() == 1, "Second sink only received message after being added");
 
     return true;
 }
 
-bool test_logger_error_auto_flush()
+FATP_TEST_CASE(logger_error_auto_flush)
 {
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
@@ -484,12 +484,12 @@ bool test_logger_error_auto_flush()
     logger.log(LogLevel::Error, "Error message", FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
-    ASSERT_TRUE(records.size() == 2, "Both messages logged");
+    FATP_ASSERT_TRUE(records.size() == 2, "Both messages logged");
 
     return true;
 }
 
-bool test_log_macros()
+FATP_TEST_CASE(log_macros)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -507,19 +507,19 @@ bool test_log_macros()
     FATP_LOG_FATAL("Fatal macro");
 
     auto records = testSink->getRecords();
-    ASSERT_TRUE(records.size() == 6, "All macro messages logged");
+    FATP_ASSERT_TRUE(records.size() == 6, "All macro messages logged");
 
-    ASSERT_TRUE(records[0].message == "Trace macro", "Trace macro message");
-    ASSERT_TRUE(records[1].message == "Debug macro", "Debug macro message");
-    ASSERT_TRUE(records[2].message == "Info macro", "Info macro message");
-    ASSERT_TRUE(records[3].message == "Warning macro", "Warning macro message");
-    ASSERT_TRUE(records[4].message == "Error macro", "Error macro message");
-    ASSERT_TRUE(records[5].message == "Fatal macro", "Fatal macro message");
+    FATP_ASSERT_TRUE(records[0].message == "Trace macro", "Trace macro message");
+    FATP_ASSERT_TRUE(records[1].message == "Debug macro", "Debug macro message");
+    FATP_ASSERT_TRUE(records[2].message == "Info macro", "Info macro message");
+    FATP_ASSERT_TRUE(records[3].message == "Warning macro", "Warning macro message");
+    FATP_ASSERT_TRUE(records[4].message == "Error macro", "Error macro message");
+    FATP_ASSERT_TRUE(records[5].message == "Fatal macro", "Fatal macro message");
 
     return true;
 }
 
-bool test_log_macro_with_stream()
+FATP_TEST_CASE(log_macro_with_stream)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -535,30 +535,30 @@ bool test_log_macro_with_stream()
     FATP_LOG_INFO("Value: " << value << ", Text: " << text);
 
     auto records = testSink->getRecords();
-    ASSERT_TRUE(records.size() == 1, "One log record");
-    ASSERT_TRUE(records[0].message == "Value: 42, Text: test", "Stream operator works in macro");
+    FATP_ASSERT_TRUE(records.size() == 1, "One log record");
+    FATP_ASSERT_TRUE(records[0].message == "Value: 42, Text: test", "Stream operator works in macro");
 
     return true;
 }
 
-bool test_should_log_performance()
+FATP_TEST_CASE(should_log_performance)
 {
     Logger logger;
     logger.setLevel(LogLevel::Error);
 
     bool shouldLog = logger.shouldLog(LogLevel::Info);
-    ASSERT_TRUE(!shouldLog, "Should not log Info when level is Error");
+    FATP_ASSERT_TRUE(!shouldLog, "Should not log Info when level is Error");
 
     shouldLog = logger.shouldLog(LogLevel::Error);
-    ASSERT_TRUE(shouldLog, "Should log Error when level is Error");
+    FATP_ASSERT_TRUE(shouldLog, "Should log Error when level is Error");
 
     shouldLog = logger.shouldLog(LogLevel::Fatal);
-    ASSERT_TRUE(shouldLog, "Should log Fatal when level is Error");
+    FATP_ASSERT_TRUE(shouldLog, "Should log Fatal when level is Error");
 
     return true;
 }
 
-bool test_empty_message()
+FATP_TEST_CASE(empty_message)
 {
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
@@ -567,13 +567,13 @@ bool test_empty_message()
     logger.log(LogLevel::Info, "", FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
-    ASSERT_TRUE(records.size() == 1, "Empty message logged");
-    ASSERT_TRUE(records[0].message.empty(), "Message is empty");
+    FATP_ASSERT_TRUE(records.size() == 1, "Empty message logged");
+    FATP_ASSERT_TRUE(records[0].message.empty(), "Message is empty");
 
     return true;
 }
 
-bool test_long_message()
+FATP_TEST_CASE(long_message)
 {
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
@@ -583,13 +583,13 @@ bool test_long_message()
     logger.log(LogLevel::Info, longMsg, FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
-    ASSERT_TRUE(records.size() == 1, "Long message logged");
-    ASSERT_TRUE(records[0].message.size() == 10000, "Long message size correct");
+    FATP_ASSERT_TRUE(records.size() == 1, "Long message logged");
+    FATP_ASSERT_TRUE(records[0].message.size() == 10000, "Long message size correct");
 
     return true;
 }
 
-bool test_special_characters()
+FATP_TEST_CASE(special_characters)
 {
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
@@ -599,28 +599,28 @@ bool test_special_characters()
     logger.log(LogLevel::Info, specialChars, FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
-    ASSERT_TRUE(records.size() == 1, "Special chars message logged");
-    ASSERT_TRUE(records[0].message == specialChars, "Special chars preserved");
+    FATP_ASSERT_TRUE(records.size() == 1, "Special chars message logged");
+    FATP_ASSERT_TRUE(records[0].message == specialChars, "Special chars preserved");
 
     return true;
 }
 
-bool test_unicode_characters()
+FATP_TEST_CASE(unicode_characters)
 {
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
     logger.addSink(testSink);
 
     // Use raw UTF-8 byte sequences to avoid C4566 warnings on Windows
-    // \u00E9 (é) = 0xC3 0xA9, \u00F1 (ñ) = 0xC3 0xB1, \u00FC (ü) = 0xC3 0xBC
-    // \u4E2D\u6587 (中文) = 0xE4 0xB8 0xAD 0xE6 0x96 0x87
-    // \U0001F600 (😀) = 0xF0 0x9F 0x98 0x80
+    // \u00E9 (Ã©) = 0xC3 0xA9, \u00F1 (Ã±) = 0xC3 0xB1, \u00FC (Ã¼) = 0xC3 0xBC
+    // \u4E2D\u6587 (ä¸­æ–‡) = 0xE4 0xB8 0xAD 0xE6 0x96 0x87
+    // \U0001F600 (ðŸ˜€) = 0xF0 0x9F 0x98 0x80
     std::string unicode = "Unicode: \xC3\xA9\xC3\xB1\xC3\xBC \xE4\xB8\xAD\xE6\x96\x87 \xF0\x9F\x98\x80";
     logger.log(LogLevel::Info, unicode, FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
-    ASSERT_TRUE(records.size() == 1, "Unicode message logged");
-    ASSERT_TRUE(records[0].message == unicode, "Unicode preserved");
+    FATP_ASSERT_TRUE(records.size() == 1, "Unicode message logged");
+    FATP_ASSERT_TRUE(records[0].message == unicode, "Unicode preserved");
 
     return true;
 }
@@ -629,45 +629,45 @@ bool test_unicode_characters()
 // Named Loggers Tests
 // ============================================================================
 
-bool test_logger_registry_singleton()
+FATP_TEST_CASE(logger_registry_singleton)
 {
     LoggerRegistry& reg1 = LoggerRegistry::instance();
     LoggerRegistry& reg2 = LoggerRegistry::instance();
 
-    ASSERT_TRUE(&reg1 == &reg2, "Registry is a singleton");
+    FATP_ASSERT_TRUE(&reg1 == &reg2, "Registry is a singleton");
 
     return true;
 }
 
-bool test_logger_registry_get_creates()
+FATP_TEST_CASE(logger_registry_get_creates)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
 
-    ASSERT_TRUE(LoggerRegistry::instance().count() == 0, "Empty after dropAll");
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().count() == 0, "Empty after dropAll");
 
     Logger& log = LoggerRegistry::instance().get("test1");
     (void)log;
 
-    ASSERT_TRUE(LoggerRegistry::instance().count() == 1, "One logger created");
-    ASSERT_TRUE(LoggerRegistry::instance().exists("test1"), "test1 exists");
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().count() == 1, "One logger created");
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().exists("test1"), "test1 exists");
 
     return true;
 }
 
-bool test_logger_registry_get_returns_same()
+FATP_TEST_CASE(logger_registry_get_returns_same)
 {
     LoggerRegistry::instance().dropAll();
 
     Logger& log1 = LoggerRegistry::instance().get("same");
     Logger& log2 = LoggerRegistry::instance().get("same");
 
-    ASSERT_TRUE(&log1 == &log2, "Same logger returned");
+    FATP_ASSERT_TRUE(&log1 == &log2, "Same logger returned");
 
     return true;
 }
 
-bool test_logger_registry_multiple_loggers()
+FATP_TEST_CASE(logger_registry_multiple_loggers)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -676,16 +676,16 @@ bool test_logger_registry_multiple_loggers()
     getLogger("database");
     getLogger("ui");
 
-    ASSERT_TRUE(LoggerRegistry::instance().count() == 3, "Three loggers created");
-    ASSERT_TRUE(LoggerRegistry::instance().exists("network"), "network exists");
-    ASSERT_TRUE(LoggerRegistry::instance().exists("database"), "database exists");
-    ASSERT_TRUE(LoggerRegistry::instance().exists("ui"), "ui exists");
-    ASSERT_TRUE(!LoggerRegistry::instance().exists("audio"), "audio does not exist");
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().count() == 3, "Three loggers created");
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().exists("network"), "network exists");
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().exists("database"), "database exists");
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().exists("ui"), "ui exists");
+    FATP_ASSERT_TRUE(!LoggerRegistry::instance().exists("audio"), "audio does not exist");
 
     return true;
 }
 
-bool test_logger_registry_names()
+FATP_TEST_CASE(logger_registry_names)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -695,7 +695,7 @@ bool test_logger_registry_names()
     getLogger("gamma");
 
     auto names = LoggerRegistry::instance().names();
-    ASSERT_TRUE(names.size() == 3, "Three names returned");
+    FATP_ASSERT_TRUE(names.size() == 3, "Three names returned");
 
     bool hasAlpha = false, hasBeta = false, hasGamma = false;
     for (const auto& name : names)
@@ -714,12 +714,12 @@ bool test_logger_registry_names()
         }
     }
 
-    ASSERT_TRUE(hasAlpha && hasBeta && hasGamma, "All names present");
+    FATP_ASSERT_TRUE(hasAlpha && hasBeta && hasGamma, "All names present");
 
     return true;
 }
 
-bool test_logger_registry_drop()
+FATP_TEST_CASE(logger_registry_drop)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -727,21 +727,21 @@ bool test_logger_registry_drop()
     getLogger("keep");
     getLogger("remove");
 
-    ASSERT_TRUE(LoggerRegistry::instance().count() == 2, "Two loggers");
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().count() == 2, "Two loggers");
 
     bool dropped = LoggerRegistry::instance().drop("remove");
-    ASSERT_TRUE(dropped, "drop returned true");
-    ASSERT_TRUE(LoggerRegistry::instance().count() == 1, "One logger after drop");
-    ASSERT_TRUE(LoggerRegistry::instance().exists("keep"), "keep still exists");
-    ASSERT_TRUE(!LoggerRegistry::instance().exists("remove"), "remove does not exist");
+    FATP_ASSERT_TRUE(dropped, "drop returned true");
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().count() == 1, "One logger after drop");
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().exists("keep"), "keep still exists");
+    FATP_ASSERT_TRUE(!LoggerRegistry::instance().exists("remove"), "remove does not exist");
 
     dropped = LoggerRegistry::instance().drop("nonexistent");
-    ASSERT_TRUE(!dropped, "drop returned false for nonexistent");
+    FATP_ASSERT_TRUE(!dropped, "drop returned false for nonexistent");
 
     return true;
 }
 
-bool test_logger_registry_drop_all()
+FATP_TEST_CASE(logger_registry_drop_all)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -750,27 +750,27 @@ bool test_logger_registry_drop_all()
     getLogger("two");
     getLogger("three");
 
-    ASSERT_TRUE(LoggerRegistry::instance().count() == 3, "Three loggers");
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().count() == 3, "Three loggers");
 
     LoggerRegistry::instance().dropAll();
-    ASSERT_TRUE(LoggerRegistry::instance().count() == 0, "Zero loggers after dropAll");
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().count() == 0, "Zero loggers after dropAll");
 
     return true;
 }
 
-bool test_logger_registry_default_level()
+FATP_TEST_CASE(logger_registry_default_level)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Warning);
 
     Logger& log = getLogger("with_default_level");
 
-    ASSERT_TRUE(log.getLevel() == LogLevel::Warning, "Inherits default level");
+    FATP_ASSERT_TRUE(log.getLevel() == LogLevel::Warning, "Inherits default level");
 
     return true;
 }
 
-bool test_logger_registry_default_sinks()
+FATP_TEST_CASE(logger_registry_default_sinks)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().clearDefaultSinks();
@@ -783,15 +783,15 @@ bool test_logger_registry_default_sinks()
 
     log.info("Test message", FATP_SOURCE_LOCATION());
 
-    ASSERT_TRUE(defaultSink->count() == 1, "Default sink received message");
-    ASSERT_TRUE(defaultSink->containsMessage("Test message"), "Correct message");
+    FATP_ASSERT_TRUE(defaultSink->count() == 1, "Default sink received message");
+    FATP_ASSERT_TRUE(defaultSink->containsMessage("Test message"), "Correct message");
 
     LoggerRegistry::instance().clearDefaultSinks();
 
     return true;
 }
 
-bool test_logger_registry_set_all_levels()
+FATP_TEST_CASE(logger_registry_set_all_levels)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -802,14 +802,14 @@ bool test_logger_registry_set_all_levels()
 
     LoggerRegistry::instance().setAllLevels(LogLevel::Error);
 
-    ASSERT_TRUE(getLogger("a").getLevel() == LogLevel::Error, "a level set");
-    ASSERT_TRUE(getLogger("b").getLevel() == LogLevel::Error, "b level set");
-    ASSERT_TRUE(getLogger("c").getLevel() == LogLevel::Error, "c level set");
+    FATP_ASSERT_TRUE(getLogger("a").getLevel() == LogLevel::Error, "a level set");
+    FATP_ASSERT_TRUE(getLogger("b").getLevel() == LogLevel::Error, "b level set");
+    FATP_ASSERT_TRUE(getLogger("c").getLevel() == LogLevel::Error, "c level set");
 
     return true;
 }
 
-bool test_logger_registry_add_sink_to_all()
+FATP_TEST_CASE(logger_registry_add_sink_to_all)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().clearDefaultSinks();
@@ -826,13 +826,13 @@ bool test_logger_registry_add_sink_to_all()
     getLogger("x").info("Message from x", FATP_SOURCE_LOCATION());
     getLogger("y").info("Message from y", FATP_SOURCE_LOCATION());
 
-    ASSERT_TRUE(sink1->count() == 2, "sink1 received both messages");
-    ASSERT_TRUE(sink2->count() == 2, "sink2 received both messages");
+    FATP_ASSERT_TRUE(sink1->count() == 2, "sink1 received both messages");
+    FATP_ASSERT_TRUE(sink2->count() == 2, "sink2 received both messages");
 
     return true;
 }
 
-bool test_logger_registry_get_shared()
+FATP_TEST_CASE(logger_registry_get_shared)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -840,14 +840,14 @@ bool test_logger_registry_get_shared()
     auto ptr1 = LoggerRegistry::instance().getShared("shared_test");
     auto ptr2 = LoggerRegistry::instance().getShared("shared_test");
 
-    ASSERT_TRUE(ptr1 != nullptr, "First pointer not null");
-    ASSERT_TRUE(ptr2 != nullptr, "Second pointer not null");
-    ASSERT_TRUE(ptr1.get() == ptr2.get(), "Same logger instance");
+    FATP_ASSERT_TRUE(ptr1 != nullptr, "First pointer not null");
+    FATP_ASSERT_TRUE(ptr2 != nullptr, "Second pointer not null");
+    FATP_ASSERT_TRUE(ptr1.get() == ptr2.get(), "Same logger instance");
 
     return true;
 }
 
-bool test_get_logger_convenience()
+FATP_TEST_CASE(get_logger_convenience)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -858,12 +858,12 @@ bool test_get_logger_convenience()
 
     log.info("Convenience test", FATP_SOURCE_LOCATION());
 
-    ASSERT_TRUE(testSink->count() == 1, "Message logged via getLogger");
+    FATP_ASSERT_TRUE(testSink->count() == 1, "Message logged via getLogger");
 
     return true;
 }
 
-bool test_get_global_logger_is_empty_name()
+FATP_TEST_CASE(get_global_logger_is_empty_name)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -871,12 +871,12 @@ bool test_get_global_logger_is_empty_name()
     Logger& global1 = getGlobalLogger();
     Logger& global2 = getLogger("");
 
-    ASSERT_TRUE(&global1 == &global2, "getGlobalLogger() == getLogger(\"\")");
+    FATP_ASSERT_TRUE(&global1 == &global2, "getGlobalLogger() == getLogger(\"\")");
 
     return true;
 }
 
-bool test_named_logger_independent_levels()
+FATP_TEST_CASE(named_logger_independent_levels)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -900,8 +900,8 @@ bool test_named_logger_independent_levels()
     dbLog.info("DB info", FATP_SOURCE_LOCATION());
     dbLog.error("DB error", FATP_SOURCE_LOCATION());
 
-    ASSERT_TRUE(networkSink->count() == 2, "Network logged debug and info");
-    ASSERT_TRUE(dbSink->count() == 1, "DB only logged error");
+    FATP_ASSERT_TRUE(networkSink->count() == 2, "Network logged debug and info");
+    FATP_ASSERT_TRUE(dbSink->count() == 1, "DB only logged error");
 
     return true;
 }
@@ -910,7 +910,7 @@ bool test_named_logger_independent_levels()
 // Named Logger Macros Tests
 // ============================================================================
 
-bool test_log_to_macros()
+FATP_TEST_CASE(log_to_macros)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -925,18 +925,18 @@ bool test_log_to_macros()
     FATP_LOG_ERROR_TO("macro_test", "Error to named");
     FATP_LOG_FATAL_TO("macro_test", "Fatal to named");
 
-    ASSERT_TRUE(sink->count() == 6, "All six messages logged");
-    ASSERT_TRUE(sink->countLevel(LogLevel::Trace) == 1, "One trace");
-    ASSERT_TRUE(sink->countLevel(LogLevel::Debug) == 1, "One debug");
-    ASSERT_TRUE(sink->countLevel(LogLevel::Info) == 1, "One info");
-    ASSERT_TRUE(sink->countLevel(LogLevel::Warning) == 1, "One warning");
-    ASSERT_TRUE(sink->countLevel(LogLevel::Error) == 1, "One error");
-    ASSERT_TRUE(sink->countLevel(LogLevel::Fatal) == 1, "One fatal");
+    FATP_ASSERT_TRUE(sink->count() == 6, "All six messages logged");
+    FATP_ASSERT_TRUE(sink->countLevel(LogLevel::Trace) == 1, "One trace");
+    FATP_ASSERT_TRUE(sink->countLevel(LogLevel::Debug) == 1, "One debug");
+    FATP_ASSERT_TRUE(sink->countLevel(LogLevel::Info) == 1, "One info");
+    FATP_ASSERT_TRUE(sink->countLevel(LogLevel::Warning) == 1, "One warning");
+    FATP_ASSERT_TRUE(sink->countLevel(LogLevel::Error) == 1, "One error");
+    FATP_ASSERT_TRUE(sink->countLevel(LogLevel::Fatal) == 1, "One fatal");
 
     return true;
 }
 
-bool test_log_to_macro_with_stream()
+FATP_TEST_CASE(log_to_macro_with_stream)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -949,14 +949,14 @@ bool test_log_to_macro_with_stream()
 
     FATP_LOG_INFO_TO("stream_test", "User " << name << " has value " << value);
 
-    ASSERT_TRUE(sink->count() == 1, "One message logged");
-    ASSERT_TRUE(sink->containsMessage("User Alice has value 99"),
+    FATP_ASSERT_TRUE(sink->count() == 1, "One message logged");
+    FATP_ASSERT_TRUE(sink->containsMessage("User Alice has value 99"),
                   "Stream formatting correct");
 
     return true;
 }
 
-bool test_log_to_macro_static_caching()
+FATP_TEST_CASE(log_to_macro_static_caching)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -969,7 +969,7 @@ bool test_log_to_macro_static_caching()
         FATP_LOG_INFO_TO("cached", "Iteration " << i);
     }
 
-    ASSERT_TRUE(sink->count() == 100, "All 100 messages logged");
+    FATP_ASSERT_TRUE(sink->count() == 100, "All 100 messages logged");
 
     return true;
 }
@@ -978,7 +978,7 @@ bool test_log_to_macro_static_caching()
 // Lazy Initialization Tests
 // ============================================================================
 
-bool test_lazy_init_auto_creates_sink()
+FATP_TEST_CASE(lazy_init_auto_creates_sink)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -992,15 +992,15 @@ bool test_lazy_init_auto_creates_sink()
     std::cout.rdbuf(oldCoutBuf);
 
     std::string output = capturedOutput.str();
-    ASSERT_TRUE(output.find("Auto-init test message") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("Auto-init test message") != std::string::npos,
                   "Message appeared in console (auto-initialized)");
 
-    ASSERT_TRUE(getGlobalLogger().hasSinks(), "Global logger has sinks after auto-init");
+    FATP_ASSERT_TRUE(getGlobalLogger().hasSinks(), "Global logger has sinks after auto-init");
 
     return true;
 }
 
-bool test_lazy_init_disabled_by_add_sink()
+FATP_TEST_CASE(lazy_init_disabled_by_add_sink)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -1011,13 +1011,13 @@ bool test_lazy_init_disabled_by_add_sink()
 
     FATP_LOG_INFO("Custom sink message");
 
-    ASSERT_TRUE(customSink->count() == 1, "Custom sink received message");
-    ASSERT_TRUE(getGlobalLogger().sinkCount() == 1, "Only one sink (no auto-init)");
+    FATP_ASSERT_TRUE(customSink->count() == 1, "Custom sink received message");
+    FATP_ASSERT_TRUE(getGlobalLogger().sinkCount() == 1, "Only one sink (no auto-init)");
 
     return true;
 }
 
-bool test_lazy_init_disabled_by_clear_sinks()
+FATP_TEST_CASE(lazy_init_disabled_by_clear_sinks)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -1034,12 +1034,12 @@ bool test_lazy_init_disabled_by_clear_sinks()
 
     std::cout.rdbuf(oldCoutBuf);
 
-    ASSERT_TRUE(!getGlobalLogger().hasSinks(), "No sinks after clearSinks");
+    FATP_ASSERT_TRUE(!getGlobalLogger().hasSinks(), "No sinks after clearSinks");
 
     return true;
 }
 
-bool test_lazy_init_disable_auto_init()
+FATP_TEST_CASE(lazy_init_disable_auto_init)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -1055,7 +1055,7 @@ bool test_lazy_init_disable_auto_init()
 
     std::cout.rdbuf(oldCoutBuf);
 
-    ASSERT_TRUE(!log.hasSinks(), "No sinks after disableAutoInit");
+    FATP_ASSERT_TRUE(!log.hasSinks(), "No sinks after disableAutoInit");
 
     return true;
 }
@@ -1064,33 +1064,33 @@ bool test_lazy_init_disable_auto_init()
 // Initialization Function Tests
 // ============================================================================
 
-bool test_initialize_default_logger()
+FATP_TEST_CASE(initialize_default_logger)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
 
     getGlobalLogger().clearSinks();
-    ASSERT_TRUE(!getGlobalLogger().hasSinks(), "No sinks before init");
+    FATP_ASSERT_TRUE(!getGlobalLogger().hasSinks(), "No sinks before init");
 
     initializeDefaultLogger();
-    ASSERT_TRUE(getGlobalLogger().hasSinks(), "Has sinks after initializeDefaultLogger");
+    FATP_ASSERT_TRUE(getGlobalLogger().hasSinks(), "Has sinks after initializeDefaultLogger");
 
     return true;
 }
 
-bool test_initialize_logger()
+FATP_TEST_CASE(initialize_logger)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
 
     initializeLogger("custom_init");
 
-    ASSERT_TRUE(getLogger("custom_init").hasSinks(), "Named logger has sink");
+    FATP_ASSERT_TRUE(getLogger("custom_init").hasSinks(), "Named logger has sink");
 
     return true;
 }
 
-bool test_initialize_default_sinks()
+FATP_TEST_CASE(initialize_default_sinks)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().clearDefaultSinks();
@@ -1099,7 +1099,7 @@ bool test_initialize_default_sinks()
     initializeDefaultSinks();
 
     Logger& newLogger = getLogger("after_default_sinks");
-    ASSERT_TRUE(newLogger.hasSinks(), "New logger inherits default sink");
+    FATP_ASSERT_TRUE(newLogger.hasSinks(), "New logger inherits default sink");
 
     LoggerRegistry::instance().clearDefaultSinks();
 
@@ -1110,7 +1110,7 @@ bool test_initialize_default_sinks()
 // Thread Safety Tests for Registry
 // ============================================================================
 
-bool test_registry_thread_safety()
+FATP_TEST_CASE(registry_thread_safety)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -1140,17 +1140,17 @@ bool test_registry_thread_safety()
         t.join();
     }
 
-    ASSERT_TRUE(successCount == numThreads * loggersPerThread,
+    FATP_ASSERT_TRUE(successCount == numThreads * loggersPerThread,
                   "All loggers created successfully");
 
-    ASSERT_TRUE(LoggerRegistry::instance().count() ==
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().count() ==
                       static_cast<size_t>(numThreads * loggersPerThread),
                   "Correct total count");
 
     return true;
 }
 
-bool test_registry_concurrent_get_same_logger()
+FATP_TEST_CASE(registry_concurrent_get_same_logger)
 {
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -1171,10 +1171,10 @@ bool test_registry_concurrent_get_same_logger()
 
     for (int i = 1; i < numThreads; ++i)
     {
-        ASSERT_TRUE(loggerPtrs[i] == loggerPtrs[0], "All threads got same logger instance");
+        FATP_ASSERT_TRUE(loggerPtrs[i] == loggerPtrs[0], "All threads got same logger instance");
     }
 
-    ASSERT_TRUE(LoggerRegistry::instance().count() == 1, "Only one logger created");
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().count() == 1, "Only one logger created");
 
     return true;
 }
@@ -1249,79 +1249,84 @@ void benchmark_named_loggers()
 
 } // anonymous namespace
 
+} // namespace fat_p::testing::diagnosticlogger_core
+
+namespace fat_p::testing
+{
+
 bool test_DiagnosticLogger_Core()
 {
-    PRINT_HEADER(DIAGNOSTIC LOGGER CORE)
+    FATP_PRINT_HEADER(DIAGNOSTIC LOGGER CORE)
 
     TestRunner runner;
 
     // Basic tests
-    RUN_TEST(runner, log_level_enum);
-    RUN_TEST(runner, source_location);
-    RUN_TEST(runner, log_record_construction);
-    RUN_TEST(runner, default_formatter);
-    RUN_TEST(runner, console_sink);
-    RUN_TEST(runner, stderr_sink);
-    RUN_TEST(runner, logger_enable_disable);
-    RUN_TEST(runner, logger_level_filtering);
-    RUN_TEST(runner, logger_multiple_sinks);
-    RUN_TEST(runner, logger_has_sinks);
-    RUN_TEST(runner, logger_clear_sinks);
-    RUN_TEST(runner, logger_string_message);
-    RUN_TEST(runner, logger_lambda_message);
-    RUN_TEST(runner, logger_stream_message);
-    RUN_TEST(runner, logger_metadata);
-    RUN_TEST(runner, logger_convenience_methods);
-    RUN_TEST(runner, logger_thread_safety);
-    RUN_TEST(runner, logger_sink_copy_on_write);
-    RUN_TEST(runner, logger_error_auto_flush);
-    RUN_TEST(runner, log_macros);
-    RUN_TEST(runner, log_macro_with_stream);
-    RUN_TEST(runner, should_log_performance);
-    RUN_TEST(runner, empty_message);
-    RUN_TEST(runner, long_message);
-    RUN_TEST(runner, special_characters);
-    RUN_TEST(runner, unicode_characters);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, log_level_enum);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, source_location);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, log_record_construction);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, default_formatter);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, console_sink);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, stderr_sink);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_enable_disable);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_level_filtering);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_multiple_sinks);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_has_sinks);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_clear_sinks);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_string_message);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_lambda_message);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_stream_message);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_metadata);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_convenience_methods);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_thread_safety);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_sink_copy_on_write);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_error_auto_flush);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, log_macros);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, log_macro_with_stream);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, should_log_performance);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, empty_message);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, long_message);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, special_characters);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, unicode_characters);
 
     // Named loggers tests
-    RUN_TEST(runner, logger_registry_singleton);
-    RUN_TEST(runner, logger_registry_get_creates);
-    RUN_TEST(runner, logger_registry_get_returns_same);
-    RUN_TEST(runner, logger_registry_multiple_loggers);
-    RUN_TEST(runner, logger_registry_names);
-    RUN_TEST(runner, logger_registry_drop);
-    RUN_TEST(runner, logger_registry_drop_all);
-    RUN_TEST(runner, logger_registry_default_level);
-    RUN_TEST(runner, logger_registry_default_sinks);
-    RUN_TEST(runner, logger_registry_set_all_levels);
-    RUN_TEST(runner, logger_registry_add_sink_to_all);
-    RUN_TEST(runner, logger_registry_get_shared);
-    RUN_TEST(runner, get_logger_convenience);
-    RUN_TEST(runner, get_global_logger_is_empty_name);
-    RUN_TEST(runner, named_logger_independent_levels);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_registry_singleton);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_registry_get_creates);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_registry_get_returns_same);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_registry_multiple_loggers);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_registry_names);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_registry_drop);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_registry_drop_all);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_registry_default_level);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_registry_default_sinks);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_registry_set_all_levels);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_registry_add_sink_to_all);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, logger_registry_get_shared);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, get_logger_convenience);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, get_global_logger_is_empty_name);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, named_logger_independent_levels);
 
     // Named logger macros tests
-    RUN_TEST(runner, log_to_macros);
-    RUN_TEST(runner, log_to_macro_with_stream);
-    RUN_TEST(runner, log_to_macro_static_caching);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, log_to_macros);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, log_to_macro_with_stream);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, log_to_macro_static_caching);
 
     // Lazy initialization tests
-    RUN_TEST(runner, lazy_init_auto_creates_sink);
-    RUN_TEST(runner, lazy_init_disabled_by_add_sink);
-    RUN_TEST(runner, lazy_init_disabled_by_clear_sinks);
-    RUN_TEST(runner, lazy_init_disable_auto_init);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, lazy_init_auto_creates_sink);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, lazy_init_disabled_by_add_sink);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, lazy_init_disabled_by_clear_sinks);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, lazy_init_disable_auto_init);
 
     // Initialization function tests
-    RUN_TEST(runner, initialize_default_logger);
-    RUN_TEST(runner, initialize_logger);
-    RUN_TEST(runner, initialize_default_sinks);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, initialize_default_logger);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, initialize_logger);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, initialize_default_sinks);
 
     // Thread safety tests
-    RUN_TEST(runner, registry_thread_safety);
-    RUN_TEST(runner, registry_concurrent_get_same_logger);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, registry_thread_safety);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_core, registry_concurrent_get_same_logger);
 
-    benchmark_logger();
-    benchmark_named_loggers();
+    diagnosticlogger_core::benchmark_logger();
+    diagnosticlogger_core::benchmark_named_loggers();
 
     return 0 == runner.print_summary();
 }

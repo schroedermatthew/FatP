@@ -620,7 +620,7 @@ namespace fat_p
 
 				if (getAnyDefaultRegistry().hasType(fallbackKey))
 				{
-					LOG_WARNING(std::string("Policy '") + policyType.name() +
+					FATP_LOG_WARNING(std::string("Policy '") + policyType.name() +
 						"' not registered for type '" + valueType.name() +
 						"'; falling back to StandardComparisonPolicy.");
 					return getAnyDefaultRegistry().create(fallbackKey, a, b);
@@ -703,7 +703,7 @@ namespace fat_p
 
 				if (getAnyExplicitRegistry().hasType(fallbackKey))
 				{
-					LOG_WARNING(std::string("Policy '") + policyType.name() +
+					FATP_LOG_WARNING(std::string("Policy '") + policyType.name() +
 						"' not registered for type '" + valueType.name() +
 						"'; falling back to StandardComparisonPolicy.");
 					return getAnyExplicitRegistry().create(fallbackKey, a, b, relEps, absEps);

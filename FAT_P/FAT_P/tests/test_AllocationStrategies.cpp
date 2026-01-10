@@ -144,19 +144,19 @@ struct alignas(64) CacheAligned
 // Test Suite 1: NewDeleteAllocator
 // ============================================================================
 
-TEST_CASE(newdelete_basic)
+FATP_TEST_CASE(newdelete_basic)
 {
     NewDeleteAllocator<int> alloc;
 
     int* ptr = alloc.allocate(42);
-    ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
-    ASSERT_EQ(*ptr, 42, "Value should be constructed in-place");
+    FATP_ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
+    FATP_ASSERT_EQ(*ptr, 42, "Value should be constructed in-place");
 
     alloc.deallocate(ptr);
     return true;
 }
 
-TEST_CASE(newdelete_multiple_allocations)
+FATP_TEST_CASE(newdelete_multiple_allocations)
 {
     NewDeleteAllocator<int> alloc;
     std::vector<int*> ptrs;
@@ -165,8 +165,8 @@ TEST_CASE(newdelete_multiple_allocations)
     for (int i = 0; i < kCount; ++i)
     {
         int* ptr = alloc.allocate(i * 10);
-        ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
-        ASSERT_EQ(*ptr, i * 10, "Value should match");
+        FATP_ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
+        FATP_ASSERT_EQ(*ptr, i * 10, "Value should match");
         ptrs.push_back(ptr);
     }
 
@@ -178,51 +178,51 @@ TEST_CASE(newdelete_multiple_allocations)
     return true;
 }
 
-TEST_CASE(newdelete_lifecycle_tracking)
+FATP_TEST_CASE(newdelete_lifecycle_tracking)
 {
     LifecycleTracker::reset();
 
     NewDeleteAllocator<LifecycleTracker> alloc;
 
     LifecycleTracker* ptr = alloc.allocate(42);
-    ASSERT_EQ(LifecycleTracker::sConstructCount.load(), 1, "One construction");
-    ASSERT_EQ(ptr->mValue, 42, "Value should be set");
+    FATP_ASSERT_EQ(LifecycleTracker::sConstructCount.load(), 1, "One construction");
+    FATP_ASSERT_EQ(ptr->mValue, 42, "Value should be set");
 
     alloc.deallocate(ptr);
-    ASSERT_EQ(LifecycleTracker::sDestructCount.load(), 1, "One destruction");
+    FATP_ASSERT_EQ(LifecycleTracker::sDestructCount.load(), 1, "One destruction");
 
     return true;
 }
 
-TEST_CASE(newdelete_over_aligned)
+FATP_TEST_CASE(newdelete_over_aligned)
 {
     NewDeleteAllocator<CacheAligned> alloc;
 
     CacheAligned* ptr = alloc.allocate('X');
-    ASSERT_NOT_NULLPTR(ptr, "Aligned allocation should succeed");
+    FATP_ASSERT_NOT_NULLPTR(ptr, "Aligned allocation should succeed");
 
     uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
-    ASSERT_EQ(addr % 64, size_t(0), "Should be 64-byte aligned");
-    ASSERT_EQ(ptr->mData[0], 'X', "Value should be constructed");
+    FATP_ASSERT_EQ(addr % 64, size_t(0), "Should be 64-byte aligned");
+    FATP_ASSERT_EQ(ptr->mData[0], 'X', "Value should be constructed");
 
     alloc.deallocate(ptr);
     return true;
 }
 
-TEST_CASE(newdelete_copy_move)
+FATP_TEST_CASE(newdelete_copy_move)
 {
     NewDeleteAllocator<int> alloc1;
 
     // Copy construction
     NewDeleteAllocator<int> alloc2(alloc1);
     int* ptr = alloc2.allocate(123);
-    ASSERT_EQ(*ptr, 123, "Copied allocator should work");
+    FATP_ASSERT_EQ(*ptr, 123, "Copied allocator should work");
     alloc2.deallocate(ptr);
 
     // Move construction
     NewDeleteAllocator<int> alloc3(std::move(alloc1));
     ptr = alloc3.allocate(456);
-    ASSERT_EQ(*ptr, 456, "Moved allocator should work");
+    FATP_ASSERT_EQ(*ptr, 456, "Moved allocator should work");
     alloc3.deallocate(ptr);
 
     return true;
@@ -232,23 +232,23 @@ TEST_CASE(newdelete_copy_move)
 // Test Suite 2: BlockAllocator
 // ============================================================================
 
-TEST_CASE(block_basic)
+FATP_TEST_CASE(block_basic)
 {
     BlockAllocator<LifecycleTracker> alloc;
     LifecycleTracker::reset();
 
     LifecycleTracker* ptr = alloc.allocate(42);
-    ASSERT_NOT_NULLPTR(ptr, "Block allocation should succeed");
-    ASSERT_EQ(ptr->mValue, 42, "Value should be constructed");
-    ASSERT_EQ(LifecycleTracker::sConstructCount.load(), 1, "One construction");
+    FATP_ASSERT_NOT_NULLPTR(ptr, "Block allocation should succeed");
+    FATP_ASSERT_EQ(ptr->mValue, 42, "Value should be constructed");
+    FATP_ASSERT_EQ(LifecycleTracker::sConstructCount.load(), 1, "One construction");
 
     alloc.deallocate(ptr);
-    ASSERT_EQ(LifecycleTracker::sDestructCount.load(), 1, "One destruction");
+    FATP_ASSERT_EQ(LifecycleTracker::sDestructCount.load(), 1, "One destruction");
 
     return true;
 }
 
-TEST_CASE(block_multiple_allocations)
+FATP_TEST_CASE(block_multiple_allocations)
 {
     BlockAllocator<LifecycleTracker> alloc;
     LifecycleTracker::reset();
@@ -259,24 +259,24 @@ TEST_CASE(block_multiple_allocations)
     for (int i = 0; i < kCount; ++i)
     {
         LifecycleTracker* ptr = alloc.allocate(i);
-        ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
-        ASSERT_EQ(ptr->mValue, i, "Value should match");
+        FATP_ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
+        FATP_ASSERT_EQ(ptr->mValue, i, "Value should match");
         ptrs.push_back(ptr);
     }
 
-    ASSERT_EQ(LifecycleTracker::sConstructCount.load(), kCount, "All constructions");
+    FATP_ASSERT_EQ(LifecycleTracker::sConstructCount.load(), kCount, "All constructions");
 
     for (auto ptr : ptrs)
     {
         alloc.deallocate(ptr);
     }
 
-    ASSERT_EQ(LifecycleTracker::sDestructCount.load(), kCount, "All destructions");
+    FATP_ASSERT_EQ(LifecycleTracker::sDestructCount.load(), kCount, "All destructions");
 
     return true;
 }
 
-TEST_CASE(block_free_list_reuse)
+FATP_TEST_CASE(block_free_list_reuse)
 {
     BlockAllocator<LifecycleTracker> alloc;
     LifecycleTracker::reset();
@@ -291,44 +291,44 @@ TEST_CASE(block_free_list_reuse)
     LifecycleTracker* ptr2 = alloc.allocate(2);
 
     // Due to LIFO free list, should get same memory back
-    ASSERT_EQ(ptr1, ptr2, "Should reuse deallocated memory");
-    ASSERT_EQ(ptr2->mValue, 2, "Value should be newly constructed");
+    FATP_ASSERT_EQ(ptr1, ptr2, "Should reuse deallocated memory");
+    FATP_ASSERT_EQ(ptr2->mValue, 2, "Value should be newly constructed");
 
     alloc.deallocate(ptr2);
     return true;
 }
 
-TEST_CASE(block_move_semantics)
+FATP_TEST_CASE(block_move_semantics)
 {
     BlockAllocator<LifecycleTracker> alloc1;
     LifecycleTracker::reset();
 
     // Allocate from first allocator
     LifecycleTracker* ptr = alloc1.allocate(42);
-    ASSERT_EQ(ptr->mValue, 42, "Initial allocation");
+    FATP_ASSERT_EQ(ptr->mValue, 42, "Initial allocation");
 
     // Move construct - transfers ownership
     BlockAllocator<LifecycleTracker> alloc2(std::move(alloc1));
 
     // Can still use the pointer through moved allocator
-    ASSERT_EQ(ptr->mValue, 42, "Value preserved after move");
+    FATP_ASSERT_EQ(ptr->mValue, 42, "Value preserved after move");
 
     // Deallocate through new owner
     alloc2.deallocate(ptr);
-    ASSERT_EQ(LifecycleTracker::sDestructCount.load(), 1, "Destruction via new owner");
+    FATP_ASSERT_EQ(LifecycleTracker::sDestructCount.load(), 1, "Destruction via new owner");
 
     return true;
 }
 
-TEST_CASE(block_alignment)
+FATP_TEST_CASE(block_alignment)
 {
     BlockAllocator<CacheAligned> alloc;
 
     CacheAligned* ptr = alloc.allocate('A');
-    ASSERT_NOT_NULLPTR(ptr, "Aligned allocation should succeed");
+    FATP_ASSERT_NOT_NULLPTR(ptr, "Aligned allocation should succeed");
 
     uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
-    ASSERT_EQ(addr % 64, size_t(0), "Should be 64-byte aligned");
+    FATP_ASSERT_EQ(addr % 64, size_t(0), "Should be 64-byte aligned");
 
     alloc.deallocate(ptr);
     return true;
@@ -338,30 +338,30 @@ TEST_CASE(block_alignment)
 // Test Suite 3: PoolAllocator
 // ============================================================================
 
-TEST_CASE(pool_basic)
+FATP_TEST_CASE(pool_basic)
 {
     PoolAllocator<100>::Allocator<TrivialNode> alloc;
 
-    ASSERT_EQ(alloc.capacity(), size_t(100), "Capacity should match template");
-    ASSERT_EQ(alloc.allocated(), size_t(0), "Initially none allocated");
-    ASSERT_EQ(alloc.available(), size_t(100), "All available initially");
-    ASSERT_FALSE(alloc.full(), "Should not be full");
+    FATP_ASSERT_EQ(alloc.capacity(), size_t(100), "Capacity should match template");
+    FATP_ASSERT_EQ(alloc.allocated(), size_t(0), "Initially none allocated");
+    FATP_ASSERT_EQ(alloc.available(), size_t(100), "All available initially");
+    FATP_ASSERT_FALSE(alloc.full(), "Should not be full");
 
     TrivialNode* ptr = alloc.allocate(1, 100);
-    ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
-    ASSERT_EQ(ptr->mKey, 1, "Key should match");
-    ASSERT_EQ(ptr->mValue, 100, "Value should match");
+    FATP_ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
+    FATP_ASSERT_EQ(ptr->mKey, 1, "Key should match");
+    FATP_ASSERT_EQ(ptr->mValue, 100, "Value should match");
 
-    ASSERT_EQ(alloc.allocated(), size_t(1), "One allocated");
-    ASSERT_EQ(alloc.available(), size_t(99), "99 remaining");
+    FATP_ASSERT_EQ(alloc.allocated(), size_t(1), "One allocated");
+    FATP_ASSERT_EQ(alloc.available(), size_t(99), "99 remaining");
 
     alloc.deallocate(ptr);
-    ASSERT_EQ(alloc.allocated(), size_t(0), "None allocated after dealloc");
+    FATP_ASSERT_EQ(alloc.allocated(), size_t(0), "None allocated after dealloc");
 
     return true;
 }
 
-TEST_CASE(pool_free_list_reuse)
+FATP_TEST_CASE(pool_free_list_reuse)
 {
     PoolAllocator<10>::Allocator<TrivialNode> alloc;
 
@@ -371,14 +371,14 @@ TEST_CASE(pool_free_list_reuse)
     TrivialNode* ptr2 = alloc.allocate(2, 20);
 
     // Free list LIFO: should get same memory back
-    ASSERT_EQ(ptr1, ptr2, "Should reuse deallocated slot");
-    ASSERT_EQ(ptr2->mKey, 2, "New value constructed");
+    FATP_ASSERT_EQ(ptr1, ptr2, "Should reuse deallocated slot");
+    FATP_ASSERT_EQ(ptr2->mKey, 2, "New value constructed");
 
     alloc.deallocate(ptr2);
     return true;
 }
 
-TEST_CASE(pool_exhaustion)
+FATP_TEST_CASE(pool_exhaustion)
 {
     PoolAllocator<5>::Allocator<TrivialNode> alloc;
     std::vector<TrivialNode*> ptrs;
@@ -387,12 +387,12 @@ TEST_CASE(pool_exhaustion)
     for (int i = 0; i < 5; ++i)
     {
         TrivialNode* ptr = alloc.allocate(i, i * 10);
-        ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed while pool has space");
+        FATP_ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed while pool has space");
         ptrs.push_back(ptr);
     }
 
-    ASSERT_TRUE(alloc.full(), "Pool should be full");
-    ASSERT_EQ(alloc.available(), size_t(0), "No slots available");
+    FATP_ASSERT_TRUE(alloc.full(), "Pool should be full");
+    FATP_ASSERT_EQ(alloc.available(), size_t(0), "No slots available");
 
     // Next allocation should throw
     bool threw = false;
@@ -404,7 +404,7 @@ TEST_CASE(pool_exhaustion)
     {
         threw = true;
     }
-    ASSERT_TRUE(threw, "Should throw std::bad_alloc when exhausted");
+    FATP_ASSERT_TRUE(threw, "Should throw std::bad_alloc when exhausted");
 
     // Cleanup
     for (auto ptr : ptrs)
@@ -412,12 +412,12 @@ TEST_CASE(pool_exhaustion)
         alloc.deallocate(ptr);
     }
 
-    ASSERT_FALSE(alloc.full(), "Pool no longer full after deallocation");
+    FATP_ASSERT_FALSE(alloc.full(), "Pool no longer full after deallocation");
 
     return true;
 }
 
-TEST_CASE(pool_full_capacity_cycle)
+FATP_TEST_CASE(pool_full_capacity_cycle)
 {
     PoolAllocator<100>::Allocator<TrivialNode> alloc;
     std::vector<TrivialNode*> ptrs;
@@ -427,21 +427,21 @@ TEST_CASE(pool_full_capacity_cycle)
     {
         ptrs.push_back(alloc.allocate(i, i));
     }
-    ASSERT_EQ(alloc.allocated(), size_t(100), "All allocated");
+    FATP_ASSERT_EQ(alloc.allocated(), size_t(100), "All allocated");
 
     // Empty the pool
     for (auto ptr : ptrs)
     {
         alloc.deallocate(ptr);
     }
-    ASSERT_EQ(alloc.allocated(), size_t(0), "All deallocated");
+    FATP_ASSERT_EQ(alloc.allocated(), size_t(0), "All deallocated");
 
     // Refill - should work with free list
     ptrs.clear();
     for (int i = 0; i < 100; ++i)
     {
         TrivialNode* ptr = alloc.allocate(i + 100, i + 100);
-        ASSERT_NOT_NULLPTR(ptr, "Re-allocation should succeed");
+        FATP_ASSERT_NOT_NULLPTR(ptr, "Re-allocation should succeed");
         ptrs.push_back(ptr);
     }
 
@@ -453,27 +453,27 @@ TEST_CASE(pool_full_capacity_cycle)
     return true;
 }
 
-TEST_CASE(pool_move_semantics)
+FATP_TEST_CASE(pool_move_semantics)
 {
     PoolAllocator<10>::Allocator<TrivialNode> alloc1;
 
     // Allocate from first
     TrivialNode* ptr1 = alloc1.allocate(1, 10);
     TrivialNode* ptr2 = alloc1.allocate(2, 20);
-    ASSERT_EQ(alloc1.allocated(), size_t(2), "Two allocated");
+    FATP_ASSERT_EQ(alloc1.allocated(), size_t(2), "Two allocated");
 
     // Move construct
     PoolAllocator<10>::Allocator<TrivialNode> alloc2(std::move(alloc1));
 
     // State transferred
-    ASSERT_EQ(alloc2.allocated(), size_t(2), "Allocation count transferred");
+    FATP_ASSERT_EQ(alloc2.allocated(), size_t(2), "Allocation count transferred");
 
     // Source should be reset
-    ASSERT_EQ(alloc1.allocated(), size_t(0), "Source reset after move");
+    FATP_ASSERT_EQ(alloc1.allocated(), size_t(0), "Source reset after move");
 
     // Can continue using moved allocator
     TrivialNode* ptr3 = alloc2.allocate(3, 30);
-    ASSERT_EQ(ptr3->mKey, 3, "New allocation works");
+    FATP_ASSERT_EQ(ptr3->mKey, 3, "New allocation works");
 
     alloc2.deallocate(ptr3);
     alloc2.deallocate(ptr2);
@@ -486,7 +486,7 @@ TEST_CASE(pool_move_semantics)
 // Test Suite 4: Edge Cases
 // ============================================================================
 
-TEST_CASE(edge_default_construction)
+FATP_TEST_CASE(edge_default_construction)
 {
     // All allocators should be default constructible
     NewDeleteAllocator<int> nda;
@@ -507,7 +507,7 @@ TEST_CASE(edge_default_construction)
     return true;
 }
 
-TEST_CASE(edge_single_element_type)
+FATP_TEST_CASE(edge_single_element_type)
 {
     // Smallest valid type that can hold a pointer
     struct SmallType
@@ -521,14 +521,14 @@ TEST_CASE(edge_single_element_type)
     BlockAllocator<SmallType> alloc;
 
     SmallType* ptr = alloc.allocate(nullptr);
-    ASSERT_NOT_NULLPTR(ptr, "Should allocate small type");
-    ASSERT_NULLPTR(ptr->mData, "Value should be default");
+    FATP_ASSERT_NOT_NULLPTR(ptr, "Should allocate small type");
+    FATP_ASSERT_NULLPTR(ptr->mData, "Value should be default");
 
     alloc.deallocate(ptr);
     return true;
 }
 
-TEST_CASE(edge_destructor_cleanup)
+FATP_TEST_CASE(edge_destructor_cleanup)
 {
     LifecycleTracker::reset();
 
@@ -541,7 +541,7 @@ TEST_CASE(edge_destructor_cleanup)
             alloc.allocate(i);
         }
 
-        ASSERT_EQ(LifecycleTracker::sConstructCount.load(), 10, "All constructed");
+        FATP_ASSERT_EQ(LifecycleTracker::sConstructCount.load(), 10, "All constructed");
         // Note: We intentionally don't deallocate - allocator destructor
         // will free the blocks but not call destructors on live objects
         // This is by design - allocator manages memory, not object lifetime
@@ -557,7 +557,7 @@ TEST_CASE(edge_destructor_cleanup)
 // Test Suite 5: Stress/Fuzz Tests
 // ============================================================================
 
-TEST_CASE(stress_block_random_operations)
+FATP_TEST_CASE(stress_block_random_operations)
 {
     BlockAllocator<LifecycleTracker> alloc;
     LifecycleTracker::reset();
@@ -585,7 +585,7 @@ TEST_CASE(stress_block_random_operations)
     // Verify remaining pointers are valid by accessing values
     for (auto* ptr : live)
     {
-        ASSERT_GE(ptr->mValue, 0, "Values should be valid");
+        FATP_ASSERT_GE(ptr->mValue, 0, "Values should be valid");
     }
 
     // Cleanup
@@ -597,12 +597,12 @@ TEST_CASE(stress_block_random_operations)
     // Verify lifecycle counts
     int constructs = LifecycleTracker::sConstructCount.load();
     int destructs = LifecycleTracker::sDestructCount.load();
-    ASSERT_EQ(constructs, destructs, "All constructions should have matching destructions");
+    FATP_ASSERT_EQ(constructs, destructs, "All constructions should have matching destructions");
 
     return true;
 }
 
-TEST_CASE(stress_pool_fill_empty_cycles)
+FATP_TEST_CASE(stress_pool_fill_empty_cycles)
 {
     constexpr size_t kPoolSize = 100;
     constexpr size_t kCycles = 50;
@@ -618,19 +618,19 @@ TEST_CASE(stress_pool_fill_empty_cycles)
             int key = static_cast<int>(cycle * kPoolSize + i);
             int value = static_cast<int>(i);
             TrivialNode* ptr = alloc.allocate(key, value);
-            ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
+            FATP_ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
             ptrs.push_back(ptr);
         }
 
-        ASSERT_TRUE(alloc.full(), "Pool should be full");
+        FATP_ASSERT_TRUE(alloc.full(), "Pool should be full");
 
         // Verify all values
         for (size_t i = 0; i < kPoolSize; ++i)
         {
             int expectedKey = static_cast<int>(cycle * kPoolSize + i);
             int expectedValue = static_cast<int>(i);
-            ASSERT_EQ(ptrs[i]->mKey, expectedKey, "Key should match");
-            ASSERT_EQ(ptrs[i]->mValue, expectedValue, "Value should match");
+            FATP_ASSERT_EQ(ptrs[i]->mKey, expectedKey, "Key should match");
+            FATP_ASSERT_EQ(ptrs[i]->mValue, expectedValue, "Value should match");
         }
 
         // Empty pool in random order
@@ -641,13 +641,13 @@ TEST_CASE(stress_pool_fill_empty_cycles)
             alloc.deallocate(ptr);
         }
 
-        ASSERT_EQ(alloc.allocated(), size_t(0), "Pool should be empty");
+        FATP_ASSERT_EQ(alloc.allocated(), size_t(0), "Pool should be empty");
     }
 
     return true;
 }
 
-TEST_CASE(stress_newdelete_interleaved)
+FATP_TEST_CASE(stress_newdelete_interleaved)
 {
     NewDeleteAllocator<LifecycleTracker> alloc;
     LifecycleTracker::reset();
@@ -676,7 +676,7 @@ TEST_CASE(stress_newdelete_interleaved)
         alloc.deallocate(ptr);
     }
 
-    ASSERT_EQ(LifecycleTracker::sConstructCount.load(),
+    FATP_ASSERT_EQ(LifecycleTracker::sConstructCount.load(),
               LifecycleTracker::sDestructCount.load(),
               "All allocations should be freed");
 
@@ -869,46 +869,46 @@ namespace fat_p::testing
 
 bool test_AllocationStrategies()
 {
-    PRINT_HEADER(ALLOCATION STRATEGIES)
+    FATP_PRINT_HEADER(ALLOCATION STRATEGIES)
 
     TestRunner runner;
     auto& out = *get_test_config().output;
 
     // Test Suite 1: NewDeleteAllocator
     out << colors::blue() << "--- NewDeleteAllocator ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, allocationns, newdelete_basic);
-    RUN_TEST_NS(runner, allocationns, newdelete_multiple_allocations);
-    RUN_TEST_NS(runner, allocationns, newdelete_lifecycle_tracking);
-    RUN_TEST_NS(runner, allocationns, newdelete_over_aligned);
-    RUN_TEST_NS(runner, allocationns, newdelete_copy_move);
+    FATP_RUN_TEST_NS(runner, allocationns, newdelete_basic);
+    FATP_RUN_TEST_NS(runner, allocationns, newdelete_multiple_allocations);
+    FATP_RUN_TEST_NS(runner, allocationns, newdelete_lifecycle_tracking);
+    FATP_RUN_TEST_NS(runner, allocationns, newdelete_over_aligned);
+    FATP_RUN_TEST_NS(runner, allocationns, newdelete_copy_move);
 
     // Test Suite 2: BlockAllocator
     out << "\n" << colors::blue() << "--- BlockAllocator ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, allocationns, block_basic);
-    RUN_TEST_NS(runner, allocationns, block_multiple_allocations);
-    RUN_TEST_NS(runner, allocationns, block_free_list_reuse);
-    RUN_TEST_NS(runner, allocationns, block_move_semantics);
-    RUN_TEST_NS(runner, allocationns, block_alignment);
+    FATP_RUN_TEST_NS(runner, allocationns, block_basic);
+    FATP_RUN_TEST_NS(runner, allocationns, block_multiple_allocations);
+    FATP_RUN_TEST_NS(runner, allocationns, block_free_list_reuse);
+    FATP_RUN_TEST_NS(runner, allocationns, block_move_semantics);
+    FATP_RUN_TEST_NS(runner, allocationns, block_alignment);
 
     // Test Suite 3: PoolAllocator
     out << "\n" << colors::blue() << "--- PoolAllocator ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, allocationns, pool_basic);
-    RUN_TEST_NS(runner, allocationns, pool_free_list_reuse);
-    RUN_TEST_NS(runner, allocationns, pool_exhaustion);
-    RUN_TEST_NS(runner, allocationns, pool_full_capacity_cycle);
-    RUN_TEST_NS(runner, allocationns, pool_move_semantics);
+    FATP_RUN_TEST_NS(runner, allocationns, pool_basic);
+    FATP_RUN_TEST_NS(runner, allocationns, pool_free_list_reuse);
+    FATP_RUN_TEST_NS(runner, allocationns, pool_exhaustion);
+    FATP_RUN_TEST_NS(runner, allocationns, pool_full_capacity_cycle);
+    FATP_RUN_TEST_NS(runner, allocationns, pool_move_semantics);
 
     // Test Suite 4: Edge Cases
     out << "\n" << colors::blue() << "--- Edge Cases ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, allocationns, edge_default_construction);
-    RUN_TEST_NS(runner, allocationns, edge_single_element_type);
-    RUN_TEST_NS(runner, allocationns, edge_destructor_cleanup);
+    FATP_RUN_TEST_NS(runner, allocationns, edge_default_construction);
+    FATP_RUN_TEST_NS(runner, allocationns, edge_single_element_type);
+    FATP_RUN_TEST_NS(runner, allocationns, edge_destructor_cleanup);
 
     // Test Suite 5: Stress Tests
     out << "\n" << colors::blue() << "--- Stress Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, allocationns, stress_block_random_operations);
-    RUN_TEST_NS(runner, allocationns, stress_pool_fill_empty_cycles);
-    RUN_TEST_NS(runner, allocationns, stress_newdelete_interleaved);
+    FATP_RUN_TEST_NS(runner, allocationns, stress_block_random_operations);
+    FATP_RUN_TEST_NS(runner, allocationns, stress_pool_fill_empty_cycles);
+    FATP_RUN_TEST_NS(runner, allocationns, stress_newdelete_interleaved);
 
     // Benchmarks
 #ifndef NDEBUG

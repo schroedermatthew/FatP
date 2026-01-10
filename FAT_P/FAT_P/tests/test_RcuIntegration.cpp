@@ -15,7 +15,7 @@ FATP_META:
   component: RcuIntegration
   file_role: test
   path: tests/test_RcuIntegration.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::rcuintegration
   summary: "Unit tests for RcuIntegration."
   related:
     docs_search: "RcuIntegration"
@@ -45,7 +45,8 @@ FATP_META:
 #include "Tensor.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing {
+namespace fat_p::testing::rcuintegration
+{
 
 using namespace std::chrono_literals;
 
@@ -53,7 +54,7 @@ using namespace std::chrono_literals;
 // Test 1: RCU with Tensor - Basic Operations
 // =============================================================================
 
-bool test_rcu_tensor_basic() {
+FATP_TEST_CASE(tensor_basic) {
     std::cout << colors::cyan() << "\n[TEST] RCU with Tensor - Basic Operations"
               << colors::reset() << std::endl;
     
@@ -76,17 +77,17 @@ bool test_rcu_tensor_basic() {
     {
         auto read_guard = rcu_tensor.read();
         const auto& tensor = *read_guard;
-        ASSERT_TRUE(tensor[0] == 0.0, "First element should be 0");
-        ASSERT_TRUE(tensor[50] == 50.0, "Middle element should be 50");
-        ASSERT_TRUE(tensor[99] == 99.0, "Last element should be 99");
+        FATP_ASSERT_TRUE(tensor[0] == 0.0, "First element should be 0");
+        FATP_ASSERT_TRUE(tensor[50] == 50.0, "Middle element should be 50");
+        FATP_ASSERT_TRUE(tensor[99] == 99.0, "Last element should be 99");
     }
     
-    std::cout << colors::green() << "✓ Basic RCU tensor operations passed"
+    std::cout << colors::green() << "âœ“ Basic RCU tensor operations passed"
               << colors::reset() << std::endl;
     return true;
     
     #else
-    std::cout << colors::yellow() << "⚠ RCU not available (requires atomics and shared_mutex)"
+    std::cout << colors::yellow() << "âš  RCU not available (requires atomics and shared_mutex)"
               << colors::reset() << std::endl;
     return true;
     #endif
@@ -96,7 +97,7 @@ bool test_rcu_tensor_basic() {
 // Test 2: High-Frequency Readers with Occasional Writers
 // =============================================================================
 
-bool test_rcu_concurrent_readers_writers() {
+FATP_TEST_CASE(concurrent_readers_writers) {
     std::cout << colors::cyan() << "\n[TEST] RCU - Concurrent Readers/Writers"
               << colors::reset() << std::endl;
     
@@ -156,15 +157,15 @@ bool test_rcu_concurrent_readers_writers() {
               << ", Writes: " << write_count.load()
               << colors::reset() << std::endl;
     
-    ASSERT_TRUE(read_count.load() > 1000, "Should have many reads");
-    ASSERT_TRUE(write_count.load() == 100, "Should have 100 writes (50*2)");
+    FATP_ASSERT_TRUE(read_count.load() > 1000, "Should have many reads");
+    FATP_ASSERT_TRUE(write_count.load() == 100, "Should have 100 writes (50*2)");
     
-    std::cout << colors::green() << "✓ Concurrent RCU operations passed"
+    std::cout << colors::green() << "âœ“ Concurrent RCU operations passed"
               << colors::reset() << std::endl;
     return true;
     
     #else
-    std::cout << colors::yellow() << "⚠ RCU not available"
+    std::cout << colors::yellow() << "âš  RCU not available"
               << colors::reset() << std::endl;
     return true;
     #endif
@@ -174,7 +175,7 @@ bool test_rcu_concurrent_readers_writers() {
 // Test 3: RCU Performance - Lock-Free Reads
 // =============================================================================
 
-bool test_rcu_performance() {
+FATP_TEST_CASE(performance) {
     std::cout << colors::cyan() << "\n[TEST] RCU Performance - Lock-Free Reads"
               << colors::reset() << std::endl;
     
@@ -211,14 +212,14 @@ bool test_rcu_performance() {
               << colors::reset() << std::endl;
     
     // RCU reads should be very fast (typically < 100ns)
-    ASSERT_TRUE(ns_per_read < 500.0, "RCU reads should be fast");
+    FATP_ASSERT_TRUE(ns_per_read < 500.0, "RCU reads should be fast");
     
-    std::cout << colors::green() << "✓ RCU performance acceptable"
+    std::cout << colors::green() << "âœ“ RCU performance acceptable"
               << colors::reset() << std::endl;
     return true;
     
     #else
-    std::cout << colors::yellow() << "⚠ RCU not available"
+    std::cout << colors::yellow() << "âš  RCU not available"
               << colors::reset() << std::endl;
     return true;
     #endif
@@ -228,7 +229,7 @@ bool test_rcu_performance() {
 // Test 4: RCU with Complex Updates
 // =============================================================================
 
-bool test_rcu_complex_updates() {
+FATP_TEST_CASE(complex_updates) {
     std::cout << colors::cyan() << "\n[TEST] RCU - Complex Tensor Updates"
               << colors::reset() << std::endl;
     
@@ -251,10 +252,10 @@ bool test_rcu_complex_updates() {
     {
         auto guard = rcu_tensor.read();
         const auto& tensor = *guard;
-        ASSERT_TRUE(tensor.shape().size() == 2, "Should be 2D");
-        ASSERT_TRUE(tensor.shape()[0] == 100, "First dim should be 100");
-        ASSERT_TRUE(tensor.shape()[1] == 100, "Second dim should be 100");
-        ASSERT_TRUE(tensor.size() == 10000, "Total size should be 10000");
+        FATP_ASSERT_TRUE(tensor.shape().size() == 2, "Should be 2D");
+        FATP_ASSERT_TRUE(tensor.shape()[0] == 100, "First dim should be 100");
+        FATP_ASSERT_TRUE(tensor.shape()[1] == 100, "Second dim should be 100");
+        FATP_ASSERT_TRUE(tensor.size() == 10000, "Total size should be 10000");
     }
     
     // Perform arithmetic update
@@ -271,16 +272,16 @@ bool test_rcu_complex_updates() {
     {
         auto guard = rcu_tensor.read();
         const auto& tensor = *guard;
-        ASSERT_TRUE(tensor[0] == 0.0, "First should be 0");
-        ASSERT_TRUE(tensor[50] == 100.0, "Element 50 should be 100");
+        FATP_ASSERT_TRUE(tensor[0] == 0.0, "First should be 0");
+        FATP_ASSERT_TRUE(tensor[50] == 100.0, "Element 50 should be 100");
     }
     
-    std::cout << colors::green() << "✓ Complex RCU updates passed"
+    std::cout << colors::green() << "âœ“ Complex RCU updates passed"
               << colors::reset() << std::endl;
     return true;
     
     #else
-    std::cout << colors::yellow() << "⚠ RCU not available"
+    std::cout << colors::yellow() << "âš  RCU not available"
               << colors::reset() << std::endl;
     return true;
     #endif
@@ -290,15 +291,20 @@ bool test_rcu_complex_updates() {
 // Test Runner
 // =============================================================================
 
-bool test_RCU_integration() {
-    PRINT_HEADER(RCU INTEGRATION)
+} // namespace fat_p::testing::rcuintegration
+
+namespace fat_p::testing
+{
+
+bool test_RcuIntegration() {
+    FATP_PRINT_HEADER(RCU INTEGRATION)
     
     TestRunner runner;
     
-    RUN_TEST(runner, rcu_tensor_basic);
-    RUN_TEST(runner, rcu_concurrent_readers_writers);
-    RUN_TEST(runner, rcu_performance);
-    RUN_TEST(runner, rcu_complex_updates);
+    FATP_RUN_TEST_NS(runner, rcuintegration, tensor_basic);
+    FATP_RUN_TEST_NS(runner, rcuintegration, concurrent_readers_writers);
+    FATP_RUN_TEST_NS(runner, rcuintegration, performance);
+    FATP_RUN_TEST_NS(runner, rcuintegration, complex_updates);
     
     return 0 == runner.print_summary();
 }
@@ -311,6 +317,6 @@ bool test_RCU_integration() {
 #ifdef ENABLE_TEST_APPLICATION
 int main()
 {
-    return fat_p::testing::test_RCU_integration() ? 0 : 1;
+    return fat_p::testing::test_RcuIntegration() ? 0 : 1;
 }
 #endif

@@ -14,7 +14,7 @@ FATP_META:
   component: FatPTest
   file_role: test
   path: tests/test_FatPTest.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::fatptest
   summary: "Unit tests for FatPTest."
   related:
     docs_search: "FatPTest"
@@ -45,7 +45,7 @@ FATP_META:
 
 #include "FatPTest.h"
 
-namespace fat_p::testing
+namespace fat_p::testing::fatptest
 {
 
 static int g_tests_run = 0;
@@ -97,7 +97,7 @@ struct OutputCapture
     std::string get_error() { return captured_error.str(); }
 };
 
-void test_primitive_comparison()
+void primitive_comparison()
 {
     TEST_SECTION("Primitive Floating-Point Comparison");
     
@@ -123,7 +123,7 @@ void test_primitive_comparison()
     VERIFY(primitive::are_close(1.0, 1.05, 0.1, 0.1), "Custom epsilon works");
 }
 
-void test_configuration()
+void configuration()
 {
     TEST_SECTION("Configuration & Colors");
     
@@ -154,7 +154,7 @@ void test_configuration()
     config.colored_output = old_color;
 }
 
-void test_string_utilities()
+void string_utilities()
 {
     TEST_SECTION("String Utilities");
     
@@ -209,7 +209,7 @@ void test_string_utilities()
     VERIFY(truncated.find("300 chars") != std::string::npos, "truncate: shows length");
 }
 
-void test_auto_calibration()
+void auto_calibration()
 {
     TEST_SECTION("Auto-Calibration");
     
@@ -239,7 +239,7 @@ void test_auto_calibration()
     VERIFY(stats.mean_ms <= stats.max_ms, "stats auto: mean <= max");
 }
 
-void test_benchmark_context()
+void benchmark_context()
 {
     TEST_SECTION("Benchmark Context");
     
@@ -260,85 +260,85 @@ void test_benchmark_context()
            output.size() > 50, "context: has CPU info or reasonable output");
 }
 
-void test_assert_macros_basic()
+void assert_macros_basic()
 {
     TEST_SECTION("ASSERT Macros - Basic");
     
     OutputCapture capture;
     
     bool result = []() -> bool {
-        ASSERT_TRUE(true, "Should pass");
+        FATP_ASSERT_TRUE(true, "Should pass");
         return true;
     }();
-    VERIFY(result, "SIMPLE_ASSERT passes");
+    VERIFY(result, "FATP_SIMPLE_ASSERT passes");
     
     result = []() -> bool {
-        ASSERT_TRUE(false, "Should fail");
+        FATP_ASSERT_TRUE(false, "Should fail");
         return true;
     }();
-    VERIFY(!result, "SIMPLE_ASSERT fails");
+    VERIFY(!result, "FATP_SIMPLE_ASSERT fails");
     
     result = []() -> bool {
         int a = 42, b = 42;
-        ASSERT_EQ(a, b, "Equal values");
+        FATP_ASSERT_EQ(a, b, "Equal values");
         return true;
     }();
-    VERIFY(result, "ASSERT_EQ passes");
+    VERIFY(result, "FATP_ASSERT_EQ passes");
     
     result = []() -> bool {
         int a = 42, b = 43;
-        ASSERT_EQ(a, b, "Unequal values");
+        FATP_ASSERT_EQ(a, b, "Unequal values");
         return true;
     }();
-    VERIFY(!result, "ASSERT_EQ fails");
+    VERIFY(!result, "FATP_ASSERT_EQ fails");
     
     result = []() -> bool {
         int a = 42, b = 43;
-        ASSERT_NE(a, b, "Not equal");
+        FATP_ASSERT_NE(a, b, "Not equal");
         return true;
     }();
-    VERIFY(result, "ASSERT_NE passes");
+    VERIFY(result, "FATP_ASSERT_NE passes");
     
     result = []() -> bool {
-        ASSERT_TRUE(true, "True test");
-        ASSERT_FALSE(false, "False test");
+        FATP_ASSERT_TRUE(true, "True test");
+        FATP_ASSERT_FALSE(false, "False test");
         return true;
     }();
-    VERIFY(result, "ASSERT_TRUE/FALSE pass");
+    VERIFY(result, "FATP_ASSERT_TRUE/FALSE pass");
 }
 
-void test_assert_macros_comparison()
+void assert_macros_comparison()
 {
     TEST_SECTION("ASSERT Macros - Comparison");
     
     OutputCapture capture;
     
     bool result = []() -> bool {
-        ASSERT_LT(5, 10, "5 < 10");
+        FATP_ASSERT_LT(5, 10, "5 < 10");
         return true;
     }();
-    VERIFY(result, "ASSERT_LT passes");
+    VERIFY(result, "FATP_ASSERT_LT passes");
     
     result = []() -> bool {
-        ASSERT_LE(5, 5, "5 <= 5");
+        FATP_ASSERT_LE(5, 5, "5 <= 5");
         return true;
     }();
-    VERIFY(result, "ASSERT_LE passes");
+    VERIFY(result, "FATP_ASSERT_LE passes");
     
     result = []() -> bool {
-        ASSERT_GT(10, 5, "10 > 5");
+        FATP_ASSERT_GT(10, 5, "10 > 5");
         return true;
     }();
-    VERIFY(result, "ASSERT_GT passes");
+    VERIFY(result, "FATP_ASSERT_GT passes");
     
     result = []() -> bool {
-        ASSERT_GE(10, 10, "10 >= 10");
+        FATP_ASSERT_GE(10, 10, "10 >= 10");
         return true;
     }();
-    VERIFY(result, "ASSERT_GE passes");
+    VERIFY(result, "FATP_ASSERT_GE passes");
 }
 
-void test_assert_macros_pointers()
+void assert_macros_pointers()
 {
     TEST_SECTION("ASSERT Macros - Pointers");
     
@@ -346,21 +346,21 @@ void test_assert_macros_pointers()
     
     bool result = []() -> bool {
         int* ptr = nullptr;
-        ASSERT_NULLPTR(ptr, "Null pointer");
+        FATP_ASSERT_NULLPTR(ptr, "Null pointer");
         return true;
     }();
-    VERIFY(result, "ASSERT_NULLPTR passes");
+    VERIFY(result, "FATP_ASSERT_NULLPTR passes");
     
     result = []() -> bool {
         int value = 42;
         int* ptr = &value;
-        ASSERT_NOT_NULLPTR(ptr, "Valid pointer");
+        FATP_ASSERT_NOT_NULLPTR(ptr, "Valid pointer");
         return true;
     }();
-    VERIFY(result, "ASSERT_NOT_NULLPTR passes");
+    VERIFY(result, "FATP_ASSERT_NOT_NULLPTR passes");
 }
 
-void test_assert_macros_float()
+void assert_macros_float()
 {
     TEST_SECTION("ASSERT Macros - Floating-Point");
     
@@ -369,54 +369,54 @@ void test_assert_macros_float()
     bool result = []() -> bool {
         double a = 0.1 + 0.2;
         double b = 0.3;
-        ASSERT_CLOSE(a, b, "0.1 + 0.2 ~ 0.3");
+        FATP_ASSERT_CLOSE(a, b, "0.1 + 0.2 ~ 0.3");
         return true;
     }();
-    VERIFY(result, "ASSERT_CLOSE passes");
+    VERIFY(result, "FATP_ASSERT_CLOSE passes");
     
     result = []() -> bool {
         double a = 1.0;
         double b = 1.001;
-        ASSERT_CLOSE_EPS(a, b, 0.01, "Custom epsilon");
+        FATP_ASSERT_CLOSE_EPS(a, b, 0.01, "Custom epsilon");
         return true;
     }();
-    VERIFY(result, "ASSERT_CLOSE_EPS passes");
+    VERIFY(result, "FATP_ASSERT_CLOSE_EPS passes");
     
     result = []() -> bool {
         double a = 1000.0;
         double b = 1001.0;
-        ASSERT_CLOSE_REL_ABS(a, b, 0.01, 0.01, "Rel/abs epsilon");
+        FATP_ASSERT_CLOSE_REL_ABS(a, b, 0.01, 0.01, "Rel/abs epsilon");
         return true;
     }();
-    VERIFY(result, "ASSERT_CLOSE_REL_ABS passes");
+    VERIFY(result, "FATP_ASSERT_CLOSE_REL_ABS passes");
 }
 
-bool test_assert_throws_pass()
+FATP_TEST_CASE(assert_throws_pass)
 {
-    ASSERT_THROWS(throw std::runtime_error("test"), std::runtime_error, "Correct exception");
+    FATP_ASSERT_THROWS(throw std::runtime_error("test"), std::runtime_error, "Correct exception");
     return true;
 }
 
-bool test_assert_no_throw_pass()
+FATP_TEST_CASE(assert_no_throw_pass)
 {
-    ASSERT_NO_THROW([]() { int x = 42; (void)x; }(), "No exception");
+    FATP_ASSERT_NO_THROW([]() { int x = 42; (void)x; }(), "No exception");
     return true;
 }
 
-void test_assert_macros_exceptions()
+void assert_macros_exceptions()
 {
     TEST_SECTION("ASSERT Macros - Exceptions");
     
     OutputCapture capture;
     
     bool result = test_assert_throws_pass();
-    VERIFY(result, "ASSERT_THROWS passes");
+    VERIFY(result, "FATP_ASSERT_THROWS passes");
     
     result = test_assert_no_throw_pass();
-    VERIFY(result, "ASSERT_NO_THROW passes");
+    VERIFY(result, "FATP_ASSERT_NO_THROW passes");
 }
 
-void test_assert_macros_strings()
+void assert_macros_strings()
 {
     TEST_SECTION("ASSERT Macros - Strings");
     
@@ -424,47 +424,47 @@ void test_assert_macros_strings()
     
     bool result = []() -> bool {
         std::string str = "hello world";
-        ASSERT_CONTAINS(str, "world", "Contains substring");
+        FATP_ASSERT_CONTAINS(str, "world", "Contains substring");
         return true;
     }();
-    VERIFY(result, "ASSERT_CONTAINS passes");
+    VERIFY(result, "FATP_ASSERT_CONTAINS passes");
     
     result = []() -> bool {
         std::string str = "hello world";
-        ASSERT_NOT_CONTAINS(str, "xyz", "Does not contain");
+        FATP_ASSERT_NOT_CONTAINS(str, "xyz", "Does not contain");
         return true;
     }();
-    VERIFY(result, "ASSERT_NOT_CONTAINS passes");
+    VERIFY(result, "FATP_ASSERT_NOT_CONTAINS passes");
     
     result = []() -> bool {
         std::string str = "hello world";
-        ASSERT_STARTS_WITH(str, "hello", "Starts with");
+        FATP_ASSERT_STARTS_WITH(str, "hello", "Starts with");
         return true;
     }();
-    VERIFY(result, "ASSERT_STARTS_WITH passes");
+    VERIFY(result, "FATP_ASSERT_STARTS_WITH passes");
     
     result = []() -> bool {
         std::string str = "hello world";
-        ASSERT_ENDS_WITH(str, "world", "Ends with");
+        FATP_ASSERT_ENDS_WITH(str, "world", "Ends with");
         return true;
     }();
-    VERIFY(result, "ASSERT_ENDS_WITH passes");
+    VERIFY(result, "FATP_ASSERT_ENDS_WITH passes");
     
     result = []() -> bool {
         std::string str = "test123";
-        ASSERT_MATCHES(str, "test\\d+", "Regex match");
+        FATP_ASSERT_MATCHES(str, "test\\d+", "Regex match");
         return true;
     }();
-    VERIFY(result, "ASSERT_MATCHES passes");
+    VERIFY(result, "FATP_ASSERT_MATCHES passes");
     
     result = []() -> bool {
-        ASSERT_STR_EQ_IGNORE_CASE("Hello", "HELLO", "Case insensitive");
+        FATP_ASSERT_STR_EQ_IGNORE_CASE("Hello", "HELLO", "Case insensitive");
         return true;
     }();
-    VERIFY(result, "ASSERT_STR_EQ_IGNORE_CASE passes");
+    VERIFY(result, "FATP_ASSERT_STR_EQ_IGNORE_CASE passes");
 }
 
-void test_assert_macros_ranges()
+void assert_macros_ranges()
 {
     TEST_SECTION("ASSERT Macros - Ranges");
     
@@ -473,21 +473,21 @@ void test_assert_macros_ranges()
     bool result = []() -> bool {
         std::vector<int> v1 = {1, 2, 3};
         std::vector<int> v2 = {1, 2, 3};
-        ASSERT_RANGE_EQ(v1, v2, "Equal ranges");
+        FATP_ASSERT_RANGE_EQ(v1, v2, "Equal ranges");
         return true;
     }();
-    VERIFY(result, "ASSERT_RANGE_EQ passes");
+    VERIFY(result, "FATP_ASSERT_RANGE_EQ passes");
     
     result = []() -> bool {
         std::vector<double> v1 = {1.0, 2.0, 3.0};
         std::vector<double> v2 = {1.001, 2.001, 3.001};
-        ASSERT_RANGE_CLOSE(v1, v2, 0.01, "Close ranges");
+        FATP_ASSERT_RANGE_CLOSE(v1, v2, 0.01, "Close ranges");
         return true;
     }();
-    VERIFY(result, "ASSERT_RANGE_CLOSE passes");
+    VERIFY(result, "FATP_ASSERT_RANGE_CLOSE passes");
 }
 
-void test_performance_measurement()
+void performance_measurement()
 {
     TEST_SECTION("Performance Measurement");
     
@@ -515,7 +515,7 @@ void test_performance_measurement()
     VERIFY(stats.mean_ns() >= 0, "stats: mean_ns conversion");
 }
 
-void test_benchmarking()
+void benchmarking()
 {
     TEST_SECTION("Benchmarking");
     
@@ -555,7 +555,7 @@ void test_benchmarking()
     VERIFY(std::abs(change - 10.0) < 0.1, "Baseline comparison correct");
 }
 
-void test_fixtures()
+void fixtures()
 {
     TEST_SECTION("Test Fixtures");
     
@@ -595,7 +595,7 @@ void test_fixtures()
     VERIFY(runner.results()[0].passed, "Fixture test passed");
 }
 
-void test_test_runner()
+void test_runner()
 {
     TEST_SECTION("Test Runner");
     
@@ -630,7 +630,7 @@ void test_test_runner()
     VERIFY(failed == 1, "Summary returns failure count");
 }
 
-void test_test_runner_advanced()
+void test_runner_advanced()
 {
     TEST_SECTION("Test Runner - Advanced");
     
@@ -662,7 +662,7 @@ void test_test_runner_advanced()
     VERIFY(failed_at == 6, "Failed on 6th iteration");
 }
 
-void test_parameterized_tests()
+void parameterized_tests()
 {
     TEST_SECTION("Parameterized Tests");
     
@@ -684,7 +684,7 @@ void test_parameterized_tests()
     VERIFY(result, "Parameterized test passed");
 }
 
-void test_subtest_tracking()
+void subtest_tracking()
 {
     TEST_SECTION("Subtest Tracking");
     
@@ -693,17 +693,17 @@ void test_subtest_tracking()
     bool result = []() -> bool {
         get_subtest_tracker().clear();
         
-        SUBTEST("part1") {
+        FATP_SUBTEST("part1") {
             int x = 1 + 1;
             if (x != 2) throw std::runtime_error("Math broken");
         }
-        END_SUBTEST
+        FATP_END_SUBTEST
         
-        SUBTEST("part2") {
+        FATP_SUBTEST("part2") {
             int y = 2 + 2;
             if (y != 4) throw std::runtime_error("Math broken");
         }
-        END_SUBTEST
+        FATP_END_SUBTEST
         
         return get_subtest_tracker().all_passed();
     }();
@@ -714,16 +714,16 @@ void test_subtest_tracking()
     result = []() -> bool {
         get_subtest_tracker().clear();
         
-        SUBTEST("passing") {
+        FATP_SUBTEST("passing") {
             int x = 1;
             (void)x;
         }
-        END_SUBTEST
+        FATP_END_SUBTEST
         
-        SUBTEST("failing") {
+        FATP_SUBTEST("failing") {
             throw std::runtime_error("Intentional failure");
         }
-        END_SUBTEST
+        FATP_END_SUBTEST
         
         return get_subtest_tracker().all_passed();
     }();
@@ -733,7 +733,7 @@ void test_subtest_tracking()
     VERIFY(!get_subtest_tracker().get_results()[1].passed, "Second subtest failed");
 }
 
-void test_junit_xml()
+void junit_xml()
 {
     TEST_SECTION("JUnit XML Export");
     
@@ -774,7 +774,7 @@ void test_junit_xml()
     std::remove("runner_output.xml");
 }
 
-void test_non_copyable_types()
+void non_copyable_types()
 {
     TEST_SECTION("Non-Copyable Types");
     
@@ -782,36 +782,41 @@ void test_non_copyable_types()
     
     bool result = []() -> bool {
         std::atomic<int> counter{42};
-        ASSERT_EQ(counter.load(), 42, "Atomic value");
+        FATP_ASSERT_EQ(counter.load(), 42, "Atomic value");
         return true;
     }();
-    VERIFY(result, "ASSERT_EQ works with atomic");
+    VERIFY(result, "FATP_ASSERT_EQ works with atomic");
     
     result = []() -> bool {
         std::unique_ptr<int> ptr = std::make_unique<int>(42);
-        ASSERT_NOT_NULLPTR(ptr.get(), "unique_ptr valid");
+        FATP_ASSERT_NOT_NULLPTR(ptr.get(), "unique_ptr valid");
         return true;
     }();
-    VERIFY(result, "ASSERT_NOT_NULLPTR works with unique_ptr");
+    VERIFY(result, "FATP_ASSERT_NOT_NULLPTR works with unique_ptr");
 }
 
-void test_assert_with_handler()
+void assert_with_handler()
 {
-    TEST_SECTION("ASSERT_WITH_HANDLER");
+    TEST_SECTION("FATP_ASSERT_WITH_HANDLER");
     
     OutputCapture capture;
     
     bool handler_called = false;
     bool result = [&]() -> bool {
-        ASSERT_WITH_HANDLER(false, "Should fail", {
+        FATP_ASSERT_WITH_HANDLER(false, "Should fail", {
             handler_called = true;
         });
         return true;
     }();
     
-    VERIFY(!result, "ASSERT_WITH_HANDLER fails");
+    VERIFY(!result, "FATP_ASSERT_WITH_HANDLER fails");
     VERIFY(handler_called, "Handler was called");
 }
+
+} // namespace fat_p::testing::fatptest
+
+namespace fat_p::testing
+{
 
 bool test_FatPTest()
 {
@@ -820,41 +825,41 @@ bool test_FatPTest()
     std::cout << "  COMPREHENSIVE TEST SUITE FOR FatPTest.h        \n";
     std::cout << "==================================================================\n";
 
-    test_primitive_comparison();
-    test_configuration();
-    test_string_utilities();
-    test_auto_calibration();
-    test_benchmark_context();
-    test_assert_macros_basic();
-    test_assert_macros_comparison();
-    test_assert_macros_pointers();
-    test_assert_macros_float();
-    test_assert_macros_exceptions();
-    test_assert_macros_strings();
-    test_assert_macros_ranges();
-    test_performance_measurement();
-    test_benchmarking();
-    test_fixtures();
-    test_test_runner();
-    test_test_runner_advanced();
-    test_parameterized_tests();
-    test_subtest_tracking();
-    test_junit_xml();
-    test_non_copyable_types();
-    test_assert_with_handler();
+    fatptest::primitive_comparison();
+    fatptest::configuration();
+    fatptest::string_utilities();
+    fatptest::auto_calibration();
+    fatptest::benchmark_context();
+    fatptest::assert_macros_basic();
+    fatptest::assert_macros_comparison();
+    fatptest::assert_macros_pointers();
+    fatptest::assert_macros_float();
+    fatptest::assert_macros_exceptions();
+    fatptest::assert_macros_strings();
+    fatptest::assert_macros_ranges();
+    fatptest::performance_measurement();
+    fatptest::benchmarking();
+    fatptest::fixtures();
+    fatptest::test_runner();
+    fatptest::test_runner_advanced();
+    fatptest::parameterized_tests();
+    fatptest::subtest_tracking();
+    fatptest::junit_xml();
+    fatptest::non_copyable_types();
+    fatptest::assert_with_handler();
     
     std::cout << "\n\n";
     std::cout << "==================================================================\n";
     std::cout << "  TEST RESULTS                                                    \n";
     std::cout << "==================================================================\n";
-    std::cout << "  Sections:     " << g_sections_run << "\n";
-    std::cout << "  Total Tests:  " << g_tests_run << "\n";
-    std::cout << "  Passed:       " << g_tests_passed << " (" 
-              << (100.0 * g_tests_passed / g_tests_run) << "%)\n";
-    std::cout << "  Failed:       " << (g_tests_run - g_tests_passed) << "\n";
+    std::cout << "  Sections:     " << fatptest::g_sections_run << "\n";
+    std::cout << "  Total Tests:  " << fatptest::g_tests_run << "\n";
+    std::cout << "  Passed:       " << fatptest::g_tests_passed << " (" 
+              << (100.0 * fatptest::g_tests_passed / fatptest::g_tests_run) << "%)\n";
+    std::cout << "  Failed:       " << (fatptest::g_tests_run - fatptest::g_tests_passed) << "\n";
     std::cout << "\n";
     
-    if (g_tests_passed == g_tests_run)
+    if (fatptest::g_tests_passed == fatptest::g_tests_run)
     {
         std::cout << " ALL TESTS PASSED - 100% SUCCESS!\n";
         std::cout << "\n  Your FatPTest.h is fully validated!\n\n";

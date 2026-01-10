@@ -136,16 +136,16 @@ NetworkState network_state_computer(const std::set<std::string>& group_flags,
     return NetworkState::Connected;
 }
 
-TEST_CASE(basic_operations)
+FATP_TEST_CASE(basic_operations)
 {
     // Test basic flag addition
     {
         FeatureManager<> graph;
         auto res = graph.add_feature("FeatureA");
-        ASSERT_TRUE(res.has_value(), "Should add flag successfully");
+        FATP_ASSERT_TRUE(res.has_value(), "Should add flag successfully");
         
         auto dup_res = graph.add_feature("FeatureA");
-        ASSERT_FALSE(dup_res.has_value(), "Should fail to add duplicate flag");
+        FATP_ASSERT_FALSE(dup_res.has_value(), "Should fail to add duplicate flag");
     }
 
     // Test flag enable/disable
@@ -153,15 +153,15 @@ TEST_CASE(basic_operations)
         FeatureManager<> graph;
         (void)graph.add_feature("FeatureA");
         
-        ASSERT_FALSE(graph.is_enabled("FeatureA"), "Flag should be disabled initially");
+        FATP_ASSERT_FALSE(graph.is_enabled("FeatureA"), "Flag should be disabled initially");
         
         auto enable_res = graph.enable("FeatureA");
-        ASSERT_TRUE(enable_res.has_value(), "Should enable flag");
-        ASSERT_TRUE(graph.is_enabled("FeatureA"), "Flag should be enabled");
+        FATP_ASSERT_TRUE(enable_res.has_value(), "Should enable flag");
+        FATP_ASSERT_TRUE(graph.is_enabled("FeatureA"), "Flag should be enabled");
         
         auto disable_res = graph.disable("FeatureA");
-        ASSERT_TRUE(disable_res.has_value(), "Should disable flag");
-        ASSERT_FALSE(graph.is_enabled("FeatureA"), "Flag should be disabled");
+        FATP_ASSERT_TRUE(disable_res.has_value(), "Should disable flag");
+        FATP_ASSERT_FALSE(graph.is_enabled("FeatureA"), "Flag should be disabled");
     }
 
     // Test get_enabled
@@ -175,16 +175,16 @@ TEST_CASE(basic_operations)
         (void)graph.enable("C");
         
         auto enabled = graph.get_enabled();
-        ASSERT_EQ(enabled.size(), 2u, "Should have 2 enabled flags");
-        ASSERT_TRUE(std::find(enabled.begin(), enabled.end(), "A") != enabled.end(),
+        FATP_ASSERT_EQ(enabled.size(), 2u, "Should have 2 enabled flags");
+        FATP_ASSERT_TRUE(std::find(enabled.begin(), enabled.end(), "A") != enabled.end(),
                     "A should be enabled");
-        ASSERT_TRUE(std::find(enabled.begin(), enabled.end(), "C") != enabled.end(),
+        FATP_ASSERT_TRUE(std::find(enabled.begin(), enabled.end(), "C") != enabled.end(),
                     "C should be enabled");
     }
     return true;
 }
 
-TEST_CASE(interactions)
+FATP_TEST_CASE(interactions)
 {
     // Test Requires interaction
     {
@@ -195,9 +195,9 @@ TEST_CASE(interactions)
         
         // Should auto-enable GPU when enabling HighRes
         auto res = graph.enable("HighRes");
-        ASSERT_TRUE(res.has_value(), "Should auto-enable GPU");
-        ASSERT_TRUE(graph.is_enabled("GPU"), "GPU should be auto-enabled");
-        ASSERT_TRUE(graph.is_enabled("HighRes"), "HighRes should be enabled");
+        FATP_ASSERT_TRUE(res.has_value(), "Should auto-enable GPU");
+        FATP_ASSERT_TRUE(graph.is_enabled("GPU"), "GPU should be auto-enabled");
+        FATP_ASSERT_TRUE(graph.is_enabled("HighRes"), "HighRes should be enabled");
     }
 
     // Test Conflicts interaction
@@ -209,12 +209,12 @@ TEST_CASE(interactions)
         
         (void)graph.enable("HighQuality");
         auto res = graph.enable("LowLatency");
-        ASSERT_FALSE(res.has_value(), "Should fail: flags conflict");
+        FATP_ASSERT_FALSE(res.has_value(), "Should fail: flags conflict");
         
         // Disable HighQuality, then LowLatency should work
         (void)graph.disable("HighQuality");
         res = graph.enable("LowLatency");
-        ASSERT_TRUE(res.has_value(), "Should succeed: no conflict");
+        FATP_ASSERT_TRUE(res.has_value(), "Should succeed: no conflict");
     }
 
     // Test Implies interaction (automatic propagation)
@@ -227,7 +227,7 @@ TEST_CASE(interactions)
                                      "BasicGraphics");
         
         (void)graph.enable("AdvancedGraphics");
-        ASSERT_TRUE(graph.is_enabled("BasicGraphics"),
+        FATP_ASSERT_TRUE(graph.is_enabled("BasicGraphics"),
                     "BasicGraphics should be auto-enabled by Implies");
     }
 
@@ -242,7 +242,7 @@ TEST_CASE(interactions)
         
         (void)graph.enable("ModeA");
         auto res = graph.enable("ModeB");
-        ASSERT_FALSE(res.has_value(), "Should fail: mutually exclusive");
+        FATP_ASSERT_FALSE(res.has_value(), "Should fail: mutually exclusive");
     }
 
     // Test self-referential prevention
@@ -252,12 +252,12 @@ TEST_CASE(interactions)
         auto res = graph.add_relationship("SelfRef",
                                           FeatureRelationship::Requires,
                                           "SelfRef");
-        ASSERT_FALSE(res.has_value(), "Should prevent self-referential interaction");
+        FATP_ASSERT_FALSE(res.has_value(), "Should prevent self-referential interaction");
     }
     return true;
 }
 
-TEST_CASE(validation_and_cycles)
+FATP_TEST_CASE(validation_and_cycles)
 {
     // Test custom check function
     {
@@ -274,12 +274,12 @@ TEST_CASE(validation_and_cycles)
         
         check_pass = true;
         auto res = graph.enable("Checked");
-        ASSERT_TRUE(res.has_value(), "Should pass when check succeeds");
+        FATP_ASSERT_TRUE(res.has_value(), "Should pass when check succeeds");
         
         (void)graph.disable("Checked");
         check_pass = false;
         res = graph.enable("Checked");
-        ASSERT_FALSE(res.has_value(), "Should fail when check fails");
+        FATP_ASSERT_FALSE(res.has_value(), "Should fail when check fails");
     }
 
     // Test cycle detection
@@ -296,9 +296,9 @@ TEST_CASE(validation_and_cycles)
         
         // Attempt to enable A should fail due to cycle detection
         auto res = graph.enable("A");
-        ASSERT_FALSE(res.has_value(), "Should detect cycle and prevent enable");
+        FATP_ASSERT_FALSE(res.has_value(), "Should detect cycle and prevent enable");
         
-        ASSERT_TRUE(res.error().find("Circular") != std::string::npos || 
+        FATP_ASSERT_TRUE(res.error().find("Circular") != std::string::npos || 
                     res.error().find("depth") != std::string::npos, 
                     "Error should mention cycle or depth limit");
     }
@@ -318,11 +318,11 @@ TEST_CASE(validation_and_cycles)
         (void)graph.add_relationship("Banana", FeatureRelationship::Requires, "Zebra");
         
         auto res = graph.enable("Zebra");
-        ASSERT_FALSE(res.has_value(), "Should detect cycle");
+        FATP_ASSERT_FALSE(res.has_value(), "Should detect cycle");
         
         // The path should start with "Zebra" (the entry point), not "Apple" (alphabetically first)
         std::string err = res.error();
-        ASSERT_TRUE(err.find("Zebra -> Apple -> Banana -> Zebra") != std::string::npos,
+        FATP_ASSERT_TRUE(err.find("Zebra -> Apple -> Banana -> Zebra") != std::string::npos,
                     "Cycle path should be in traversal order: " + err);
     }
 
@@ -342,14 +342,14 @@ TEST_CASE(validation_and_cycles)
         }
         
         auto res = graph.enable("Flag0");
-        ASSERT_FALSE(res.has_value(), "Should hit depth limit");
-        ASSERT_TRUE(res.error().find("depth") != std::string::npos, 
+        FATP_ASSERT_FALSE(res.has_value(), "Should hit depth limit");
+        FATP_ASSERT_TRUE(res.error().find("depth") != std::string::npos, 
                     "Error should mention depth limit");
     }
     return true;
 }
 
-TEST_CASE(groups)
+FATP_TEST_CASE(groups)
 {
     // Test basic group with default FeatureGroupState
     {
@@ -359,20 +359,20 @@ TEST_CASE(groups)
         (void)graph.add_feature("LogDebug");
         
         auto res = graph.add_group("Logging", {"LogBasic", "LogVerbose", "LogDebug"});
-        ASSERT_TRUE(res.has_value(), "Should add group");
+        FATP_ASSERT_TRUE(res.has_value(), "Should add group");
         
         auto state = graph.get_group_state("Logging");
-        ASSERT_TRUE(state.has_value(), "Should get group state");
-        ASSERT_TRUE(*state == FeatureGroupState::Inactive, "Group should be inactive");
+        FATP_ASSERT_TRUE(state.has_value(), "Should get group state");
+        FATP_ASSERT_TRUE(*state == FeatureGroupState::Inactive, "Group should be inactive");
         
         (void)graph.enable("LogBasic");
         state = graph.get_group_state("Logging");
-        ASSERT_TRUE(*state == FeatureGroupState::Partial, "Group should be partial");
+        FATP_ASSERT_TRUE(*state == FeatureGroupState::Partial, "Group should be partial");
         
         (void)graph.enable("LogVerbose");
         (void)graph.enable("LogDebug");
         state = graph.get_group_state("Logging");
-        ASSERT_TRUE(*state == FeatureGroupState::Active, "Group should be active");
+        FATP_ASSERT_TRUE(*state == FeatureGroupState::Active, "Group should be active");
     }
 
     // Test custom state enum
@@ -384,19 +384,19 @@ TEST_CASE(groups)
         auto res = graph.add_group<NetworkState>("Network",
                                                   {"WiFi", "Bluetooth"},
                                                   network_state_computer);
-        ASSERT_TRUE(res.has_value(), "Should add group with custom state");
+        FATP_ASSERT_TRUE(res.has_value(), "Should add group with custom state");
         
         auto state = graph.get_group_state<NetworkState>("Network");
-        ASSERT_TRUE(state.has_value(), "Should get custom state");
-        ASSERT_TRUE(*state == NetworkState::Disconnected, "Should be disconnected");
+        FATP_ASSERT_TRUE(state.has_value(), "Should get custom state");
+        FATP_ASSERT_TRUE(*state == NetworkState::Disconnected, "Should be disconnected");
         
         (void)graph.enable("WiFi");
         state = graph.get_group_state<NetworkState>("Network");
-        ASSERT_TRUE(*state == NetworkState::Connecting, "Should be connecting");
+        FATP_ASSERT_TRUE(*state == NetworkState::Connecting, "Should be connecting");
         
         (void)graph.enable("Bluetooth");
         state = graph.get_group_state<NetworkState>("Network");
-        ASSERT_TRUE(*state == NetworkState::Connected, "Should be connected");
+        FATP_ASSERT_TRUE(*state == NetworkState::Connected, "Should be connected");
     }
 
     // Test mutually exclusive group
@@ -407,16 +407,16 @@ TEST_CASE(groups)
         (void)graph.add_feature("Blue");
         
         auto res = graph.add_mutually_exclusive_group("Color", {"Red", "Green", "Blue"});
-        ASSERT_TRUE(res.has_value(), "Should add mutually exclusive group");
+        FATP_ASSERT_TRUE(res.has_value(), "Should add mutually exclusive group");
         
         (void)graph.enable("Red");
         auto enable_res = graph.enable("Green");
-        ASSERT_FALSE(enable_res.has_value(), "Should fail: mutually exclusive");
+        FATP_ASSERT_FALSE(enable_res.has_value(), "Should fail: mutually exclusive");
     }
     return true;
 }
 
-TEST_CASE(complex_scenario)
+FATP_TEST_CASE(complex_scenario)
 {
     // Test realistic game graphics configuration
     FeatureManager<> graph;
@@ -442,29 +442,29 @@ TEST_CASE(complex_scenario)
     
     // Enable DX12
     auto res = graph.enable("DX12");
-    ASSERT_TRUE(res.has_value(), "Should enable DX12");
+    FATP_ASSERT_TRUE(res.has_value(), "Should enable DX12");
     
     // Enable RayTracing (requires DX12, which is enabled)
     res = graph.enable("RayTracing");
-    ASSERT_TRUE(res.has_value(), "Should enable RayTracing with DX12");
+    FATP_ASSERT_TRUE(res.has_value(), "Should enable RayTracing with DX12");
     
     // Try to enable Vulkan (should fail, mutually exclusive with DX12)
     res = graph.enable("Vulkan");
-    ASSERT_FALSE(res.has_value(), "Should fail: mutually exclusive with DX12");
+    FATP_ASSERT_FALSE(res.has_value(), "Should fail: mutually exclusive with DX12");
     
     // Enable HighRes (should auto-enable MSAA via Implies)
     res = graph.enable("HighRes");
-    ASSERT_TRUE(res.has_value(), "Should enable HighRes");
-    ASSERT_TRUE(graph.is_enabled("MSAA"), "MSAA should be auto-enabled");
+    FATP_ASSERT_TRUE(res.has_value(), "Should enable HighRes");
+    FATP_ASSERT_TRUE(graph.is_enabled("MSAA"), "MSAA should be auto-enabled");
     
     // Check group state
     auto state = graph.get_group_state("AdvancedGraphics");
-    ASSERT_TRUE(*state == FeatureGroupState::Active, "All advanced features should be active");
+    FATP_ASSERT_TRUE(*state == FeatureGroupState::Active, "All advanced features should be active");
 
     return true;
 }
 
-TEST_CASE(thread_safety)
+FATP_TEST_CASE(thread_safety)
 {
     FeatureManager<MutexSynchronizationPolicy> graph;
     (void)graph.add_feature("SharedFlag");
@@ -492,11 +492,11 @@ TEST_CASE(thread_safety)
         t.join();
     }
     
-    ASSERT_TRUE(success_count > 0, "Should have some successful operations");
+    FATP_ASSERT_TRUE(success_count > 0, "Should have some successful operations");
     return true;
 }
 
-TEST_CASE(observers)
+FATP_TEST_CASE(observers)
 {
     FeatureManager<> graph;
     (void)graph.add_feature("Observed");
@@ -515,18 +515,18 @@ TEST_CASE(observers)
     graph.add_observer(cb, 0);
     
     (void)graph.enable("Observed");
-    ASSERT_EQ(call_count, 1, "Should call observer on enable");
-    ASSERT_TRUE(last_state, "Should be enabled");
-    ASSERT_TRUE(last_success, "Should be successful");
+    FATP_ASSERT_EQ(call_count, 1, "Should call observer on enable");
+    FATP_ASSERT_TRUE(last_state, "Should be enabled");
+    FATP_ASSERT_TRUE(last_success, "Should be successful");
     
     (void)graph.disable("Observed");
-    ASSERT_EQ(call_count, 2, "Should call observer on disable");
-    ASSERT_FALSE(last_state, "Should be disabled");
+    FATP_ASSERT_EQ(call_count, 2, "Should call observer on disable");
+    FATP_ASSERT_FALSE(last_state, "Should be disabled");
 
     return true;
 }
 
-TEST_CASE(dot_export)
+FATP_TEST_CASE(dot_export)
 {
     FeatureManager<> graph;
     (void)graph.add_feature("NodeA");
@@ -537,17 +537,17 @@ TEST_CASE(dot_export)
     (void)graph.add_group("TestGroup", {"NodeA", "NodeB"});
     
     std::string dot = graph.to_dot();
-    ASSERT_FALSE(dot.empty(), "DOT output should not be empty");
-    ASSERT_TRUE(dot.find("digraph") != std::string::npos,
+    FATP_ASSERT_FALSE(dot.empty(), "DOT output should not be empty");
+    FATP_ASSERT_TRUE(dot.find("digraph") != std::string::npos,
                 "Should contain digraph declaration");
-    ASSERT_TRUE(dot.find("NodeA") != std::string::npos, "Should contain NodeA");
-    ASSERT_TRUE(dot.find("Requires") != std::string::npos,
+    FATP_ASSERT_TRUE(dot.find("NodeA") != std::string::npos, "Should contain NodeA");
+    FATP_ASSERT_TRUE(dot.find("Requires") != std::string::npos,
                 "Should contain interaction label");
     
     return true;
 }
 
-TEST_CASE(batch_disable)
+FATP_TEST_CASE(batch_disable)
 {
     // Basic batch disable
     {
@@ -561,10 +561,10 @@ TEST_CASE(batch_disable)
         (void)manager.enable("C");
         
         auto result = manager.batch_disable({"A", "B"});
-        ASSERT_TRUE(result.has_value(), "Should disable A and B");
-        ASSERT_FALSE(manager.is_enabled("A"), "A should be disabled");
-        ASSERT_FALSE(manager.is_enabled("B"), "B should be disabled");
-        ASSERT_TRUE(manager.is_enabled("C"), "C should still be enabled");
+        FATP_ASSERT_TRUE(result.has_value(), "Should disable A and B");
+        FATP_ASSERT_FALSE(manager.is_enabled("A"), "A should be disabled");
+        FATP_ASSERT_FALSE(manager.is_enabled("B"), "B should be disabled");
+        FATP_ASSERT_TRUE(manager.is_enabled("C"), "C should still be enabled");
     }
     
     // Batch disable with dependency violation (rollback)
@@ -577,9 +577,9 @@ TEST_CASE(batch_disable)
         (void)manager.enable("Dependent");  // Also enables Base
         
         auto result = manager.batch_disable({"Base"});
-        ASSERT_FALSE(result.has_value(), "Should fail: Dependent requires Base");
-        ASSERT_TRUE(manager.is_enabled("Base"), "Base should still be enabled (rollback)");
-        ASSERT_TRUE(manager.is_enabled("Dependent"), "Dependent should still be enabled");
+        FATP_ASSERT_FALSE(result.has_value(), "Should fail: Dependent requires Base");
+        FATP_ASSERT_TRUE(manager.is_enabled("Base"), "Base should still be enabled (rollback)");
+        FATP_ASSERT_TRUE(manager.is_enabled("Dependent"), "Dependent should still be enabled");
     }
     
     // Non-existent feature
@@ -588,14 +588,14 @@ TEST_CASE(batch_disable)
         (void)manager.add_feature("A");
         
         auto result = manager.batch_disable({"A", "NonExistent"});
-        ASSERT_FALSE(result.has_value(), "Should fail for non-existent feature");
+        FATP_ASSERT_FALSE(result.has_value(), "Should fail for non-existent feature");
     }
     
     // Empty batch
     {
         FeatureManager<> manager;
         auto result = manager.batch_disable({});
-        ASSERT_TRUE(result.has_value(), "Empty batch should succeed");
+        FATP_ASSERT_TRUE(result.has_value(), "Empty batch should succeed");
     }
     
     // Batch disable with duplicate entries must still rollback correctly
@@ -606,20 +606,20 @@ TEST_CASE(batch_disable)
         (void)manager.add_relationship("Dependent", FeatureRelationship::Requires, "Base");
 
         (void)manager.enable("Dependent");  // Also enables Base
-        ASSERT_TRUE(manager.is_enabled("Base"), "Base should be enabled");
-        ASSERT_TRUE(manager.is_enabled("Dependent"), "Dependent should be enabled");
+        FATP_ASSERT_TRUE(manager.is_enabled("Base"), "Base should be enabled");
+        FATP_ASSERT_TRUE(manager.is_enabled("Dependent"), "Dependent should be enabled");
 
         // Try to disable Base twice in same batch - should fail and rollback correctly
         auto result = manager.batch_disable({"Base", "Base"});
-        ASSERT_FALSE(result.has_value(), "Should fail: Dependent requires Base (with duplicates)");
-        ASSERT_TRUE(manager.is_enabled("Base"), "Base should still be enabled after rollback");
-        ASSERT_TRUE(manager.is_enabled("Dependent"), "Dependent should still be enabled");
+        FATP_ASSERT_FALSE(result.has_value(), "Should fail: Dependent requires Base (with duplicates)");
+        FATP_ASSERT_TRUE(manager.is_enabled("Base"), "Base should still be enabled after rollback");
+        FATP_ASSERT_TRUE(manager.is_enabled("Dependent"), "Dependent should still be enabled");
     }
     
     return true;
 }
 
-TEST_CASE(batch_enable_rollback)
+FATP_TEST_CASE(batch_enable_rollback)
 {
     // Test that implicit dependencies are rolled back on failure
     {
@@ -643,11 +643,11 @@ TEST_CASE(batch_enable_rollback)
         // Both A and B should be rolled back
         auto result = manager.batch_enable({"A", "C"});
         
-        ASSERT_FALSE(result.has_value(), "Should fail due to conflict");
-        ASSERT_FALSE(manager.is_enabled("A"), "A should be rolled back");
-        ASSERT_FALSE(manager.is_enabled("B"), "B (implicit) should be rolled back");
-        ASSERT_FALSE(manager.is_enabled("C"), "C should not be enabled");
-        ASSERT_TRUE(manager.is_enabled("Conflict"), "Conflict should remain enabled");
+        FATP_ASSERT_FALSE(result.has_value(), "Should fail due to conflict");
+        FATP_ASSERT_FALSE(manager.is_enabled("A"), "A should be rolled back");
+        FATP_ASSERT_FALSE(manager.is_enabled("B"), "B (implicit) should be rolled back");
+        FATP_ASSERT_FALSE(manager.is_enabled("C"), "C should not be enabled");
+        FATP_ASSERT_TRUE(manager.is_enabled("Conflict"), "Conflict should remain enabled");
     }
     
     // Test rollback with deeper dependency chain
@@ -670,10 +670,10 @@ TEST_CASE(batch_enable_rollback)
         // Try to enable L1 (will enable L2, L3) and Fail (will fail)
         auto result = manager.batch_enable({"L1", "Fail"});
         
-        ASSERT_FALSE(result.has_value(), "Should fail");
-        ASSERT_FALSE(manager.is_enabled("L1"), "L1 should be rolled back");
-        ASSERT_FALSE(manager.is_enabled("L2"), "L2 should be rolled back");
-        ASSERT_FALSE(manager.is_enabled("L3"), "L3 should be rolled back");
+        FATP_ASSERT_FALSE(result.has_value(), "Should fail");
+        FATP_ASSERT_FALSE(manager.is_enabled("L1"), "L1 should be rolled back");
+        FATP_ASSERT_FALSE(manager.is_enabled("L2"), "L2 should be rolled back");
+        FATP_ASSERT_FALSE(manager.is_enabled("L3"), "L3 should be rolled back");
     }
     
     return true;
@@ -681,7 +681,7 @@ TEST_CASE(batch_enable_rollback)
 
 // Test that single enable() has full transactional semantics
 // (Regression test for dirty state bug where dependencies were left enabled on failure)
-TEST_CASE(enable_transactional)
+FATP_TEST_CASE(enable_transactional)
 {
     // Test: A requires B and C, C conflicts with D (which is enabled)
     // When enable(A) fails, B should NOT be left enabled
@@ -702,11 +702,11 @@ TEST_CASE(enable_transactional)
         // Try to enable A - should fail because C conflicts with D
         auto result = manager.enable("A");
         
-        ASSERT_FALSE(result.has_value(), "enable(A) should fail due to C/D conflict");
-        ASSERT_FALSE(manager.is_enabled("A"), "A should not be enabled");
-        ASSERT_FALSE(manager.is_enabled("B"), "B should NOT be left enabled (transactional rollback)");
-        ASSERT_FALSE(manager.is_enabled("C"), "C should not be enabled");
-        ASSERT_TRUE(manager.is_enabled("D"), "D should remain enabled");
+        FATP_ASSERT_FALSE(result.has_value(), "enable(A) should fail due to C/D conflict");
+        FATP_ASSERT_FALSE(manager.is_enabled("A"), "A should not be enabled");
+        FATP_ASSERT_FALSE(manager.is_enabled("B"), "B should NOT be left enabled (transactional rollback)");
+        FATP_ASSERT_FALSE(manager.is_enabled("C"), "C should not be enabled");
+        FATP_ASSERT_TRUE(manager.is_enabled("D"), "D should remain enabled");
     }
     
     // Test with deeper chain: X requires Y requires Z, Z conflicts with Blocker
@@ -725,11 +725,11 @@ TEST_CASE(enable_transactional)
         
         auto result = manager.enable("X");
         
-        ASSERT_FALSE(result.has_value(), "enable(X) should fail");
-        ASSERT_FALSE(manager.is_enabled("X"), "X should not be enabled");
-        ASSERT_FALSE(manager.is_enabled("Y"), "Y should be rolled back");
-        ASSERT_FALSE(manager.is_enabled("Z"), "Z should not be enabled");
-        ASSERT_TRUE(manager.is_enabled("Blocker"), "Blocker should remain");
+        FATP_ASSERT_FALSE(result.has_value(), "enable(X) should fail");
+        FATP_ASSERT_FALSE(manager.is_enabled("X"), "X should not be enabled");
+        FATP_ASSERT_FALSE(manager.is_enabled("Y"), "Y should be rolled back");
+        FATP_ASSERT_FALSE(manager.is_enabled("Z"), "Z should not be enabled");
+        FATP_ASSERT_TRUE(manager.is_enabled("Blocker"), "Blocker should remain");
     }
     
     // Test successful enable still works
@@ -741,15 +741,15 @@ TEST_CASE(enable_transactional)
         
         auto result = manager.enable("A");
         
-        ASSERT_TRUE(result.has_value(), "enable(A) should succeed");
-        ASSERT_TRUE(manager.is_enabled("A"), "A should be enabled");
-        ASSERT_TRUE(manager.is_enabled("B"), "B should be enabled (dependency)");
+        FATP_ASSERT_TRUE(result.has_value(), "enable(A) should succeed");
+        FATP_ASSERT_TRUE(manager.is_enabled("A"), "A should be enabled");
+        FATP_ASSERT_TRUE(manager.is_enabled("B"), "B should be enabled (dependency)");
     }
     
     return true;
 }
 
-TEST_CASE(remove_observer)
+FATP_TEST_CASE(remove_observer)
 {
     // Test basic add and remove
     {
@@ -762,20 +762,20 @@ TEST_CASE(remove_observer)
         });
         
         (void)manager.enable("A");
-        ASSERT_EQ(call_count, 1, "Observer should be called once");
+        FATP_ASSERT_EQ(call_count, 1, "Observer should be called once");
         
         bool removed = manager.remove_observer(id);
-        ASSERT_TRUE(removed, "Should remove existing observer");
+        FATP_ASSERT_TRUE(removed, "Should remove existing observer");
         
         (void)manager.disable("A");
-        ASSERT_EQ(call_count, 1, "Observer should not be called after removal");
+        FATP_ASSERT_EQ(call_count, 1, "Observer should not be called after removal");
     }
     
     // Test remove non-existent
     {
         FeatureManager<> manager;
         bool removed = manager.remove_observer(999);
-        ASSERT_FALSE(removed, "Should return false for non-existent ID");
+        FATP_ASSERT_FALSE(removed, "Should return false for non-existent ID");
     }
     
     // Test multiple observers with removal
@@ -788,14 +788,14 @@ TEST_CASE(remove_observer)
         ObserverId id2 = manager.add_observer([&](auto, auto, auto) { ++count2; });
         
         (void)manager.enable("A");
-        ASSERT_EQ(count1, 1, "Observer 1 called");
-        ASSERT_EQ(count2, 1, "Observer 2 called");
+        FATP_ASSERT_EQ(count1, 1, "Observer 1 called");
+        FATP_ASSERT_EQ(count2, 1, "Observer 2 called");
         
         (void)manager.remove_observer(id1);
         (void)manager.disable("A");
         
-        ASSERT_EQ(count1, 1, "Observer 1 not called after removal");
-        ASSERT_EQ(count2, 2, "Observer 2 still called");
+        FATP_ASSERT_EQ(count1, 1, "Observer 1 not called after removal");
+        FATP_ASSERT_EQ(count2, 2, "Observer 2 still called");
         
         (void)manager.remove_observer(id2);
     }
@@ -812,13 +812,13 @@ TEST_CASE(remove_observer)
         manager.clear_observers();
         
         (void)manager.enable("A");
-        ASSERT_EQ(count, 0, "No observers should be called after clear");
+        FATP_ASSERT_EQ(count, 0, "No observers should be called after clear");
     }
     
     return true;
 }
 
-TEST_CASE(scoped_observer)
+FATP_TEST_CASE(scoped_observer)
 {
     // Test basic RAII semantics
     {
@@ -831,11 +831,11 @@ TEST_CASE(scoped_observer)
                 [&](auto, auto, auto) { ++call_count; });
             
             (void)manager.enable("A");
-            ASSERT_EQ(call_count, 1, "Observer called while in scope");
+            FATP_ASSERT_EQ(call_count, 1, "Observer called while in scope");
         }
         
         (void)manager.disable("A");
-        ASSERT_EQ(call_count, 1, "Observer not called after scope ends");
+        FATP_ASSERT_EQ(call_count, 1, "Observer not called after scope ends");
     }
     
     // Test move semantics
@@ -853,11 +853,11 @@ TEST_CASE(scoped_observer)
         }
         
         (void)manager.enable("A");
-        ASSERT_EQ(call_count, 1, "Observer still active after move");
+        FATP_ASSERT_EQ(call_count, 1, "Observer still active after move");
         
         holder.reset();
         (void)manager.disable("A");
-        ASSERT_EQ(call_count, 1, "Observer removed when holder destroyed");
+        FATP_ASSERT_EQ(call_count, 1, "Observer removed when holder destroyed");
     }
     
     // Test release()
@@ -874,7 +874,7 @@ TEST_CASE(scoped_observer)
         }
         
         (void)manager.enable("A");
-        ASSERT_EQ(call_count, 1, "Observer still active after release");
+        FATP_ASSERT_EQ(call_count, 1, "Observer still active after release");
         
         // Manual cleanup
         (void)manager.remove_observer(released_id);
@@ -883,7 +883,7 @@ TEST_CASE(scoped_observer)
     return true;
 }
 
-TEST_CASE(batch_observer)
+FATP_TEST_CASE(batch_observer)
 {
     // Test batch observer receives all changed features
     {
@@ -909,18 +909,18 @@ TEST_CASE(batch_observer)
         // Enable Module1 - should also enable Core
         (void)manager.enable("Module1");
         
-        ASSERT_EQ(requested, "Module1", "Requested feature should be Module1");
-        ASSERT_TRUE(was_enabled, "Should be enable operation");
-        ASSERT_TRUE(was_success, "Should succeed");
-        ASSERT_TRUE(all_changed.size() >= 2, "Should have at least 2 changed features");
+        FATP_ASSERT_EQ(requested, "Module1", "Requested feature should be Module1");
+        FATP_ASSERT_TRUE(was_enabled, "Should be enable operation");
+        FATP_ASSERT_TRUE(was_success, "Should succeed");
+        FATP_ASSERT_TRUE(all_changed.size() >= 2, "Should have at least 2 changed features");
         
         // Check that both Core and Module1 are in the changed list
         bool has_core = std::find(all_changed.begin(), all_changed.end(), "Core") 
                         != all_changed.end();
         bool has_module1 = std::find(all_changed.begin(), all_changed.end(), "Module1") 
                            != all_changed.end();
-        ASSERT_TRUE(has_core, "Core should be in changed list");
-        ASSERT_TRUE(has_module1, "Module1 should be in changed list");
+        FATP_ASSERT_TRUE(has_core, "Core should be in changed list");
+        FATP_ASSERT_TRUE(has_module1, "Module1 should be in changed list");
     }
     
     // Test ScopedBatchObserver
@@ -934,17 +934,17 @@ TEST_CASE(batch_observer)
                 [&](auto, auto, auto, auto) { ++call_count; });
             
             (void)manager.enable("A");
-            ASSERT_EQ(call_count, 1, "Batch observer called while in scope");
+            FATP_ASSERT_EQ(call_count, 1, "Batch observer called while in scope");
         }
         
         (void)manager.disable("A");
-        ASSERT_EQ(call_count, 1, "Batch observer not called after scope ends");
+        FATP_ASSERT_EQ(call_count, 1, "Batch observer not called after scope ends");
     }
     
     return true;
 }
 
-TEST_CASE(implicit_notifications)
+FATP_TEST_CASE(implicit_notifications)
 {
     // Test that individual observers are notified for ALL changed features
     {
@@ -965,7 +965,7 @@ TEST_CASE(implicit_notifications)
         // Enable Dependent - should trigger notifications for Base1, Base2, and Dependent
         (void)manager.enable("Dependent");
         
-        ASSERT_EQ(notified_features.size(), 3u, "Should notify 3 features");
+        FATP_ASSERT_EQ(notified_features.size(), 3u, "Should notify 3 features");
         
         bool has_base1 = std::find(notified_features.begin(), notified_features.end(), "Base1")
                          != notified_features.end();
@@ -974,9 +974,9 @@ TEST_CASE(implicit_notifications)
         bool has_dependent = std::find(notified_features.begin(), notified_features.end(), 
                                         "Dependent") != notified_features.end();
         
-        ASSERT_TRUE(has_base1, "Base1 should be notified");
-        ASSERT_TRUE(has_base2, "Base2 should be notified");
-        ASSERT_TRUE(has_dependent, "Dependent should be notified");
+        FATP_ASSERT_TRUE(has_base1, "Base1 should be notified");
+        FATP_ASSERT_TRUE(has_base2, "Base2 should be notified");
+        FATP_ASSERT_TRUE(has_dependent, "Dependent should be notified");
     }
     
     // Test Implies relationships also trigger notifications
@@ -995,21 +995,21 @@ TEST_CASE(implicit_notifications)
         
         (void)manager.enable("Premium");
         
-        ASSERT_EQ(notified.size(), 2u, "Should notify both Premium and AllFeatures");
+        FATP_ASSERT_EQ(notified.size(), 2u, "Should notify both Premium and AllFeatures");
         
         bool has_premium = std::find(notified.begin(), notified.end(), "Premium") 
                            != notified.end();
         bool has_all = std::find(notified.begin(), notified.end(), "AllFeatures") 
                        != notified.end();
         
-        ASSERT_TRUE(has_premium, "Premium should be notified");
-        ASSERT_TRUE(has_all, "AllFeatures should be notified");
+        FATP_ASSERT_TRUE(has_premium, "Premium should be notified");
+        FATP_ASSERT_TRUE(has_all, "AllFeatures should be notified");
     }
     
     return true;
 }
 
-TEST_CASE(batch_disable_implies)
+FATP_TEST_CASE(batch_disable_implies)
 {
     // Test that batch_disable checks Implies relationships
     {
@@ -1020,15 +1020,15 @@ TEST_CASE(batch_disable_implies)
         
         // Enable Premium (which implies AllFeatures)
         (void)manager.enable("Premium");
-        ASSERT_TRUE(manager.is_enabled("Premium"), "Premium should be enabled");
-        ASSERT_TRUE(manager.is_enabled("AllFeatures"), "AllFeatures should be enabled");
+        FATP_ASSERT_TRUE(manager.is_enabled("Premium"), "Premium should be enabled");
+        FATP_ASSERT_TRUE(manager.is_enabled("AllFeatures"), "AllFeatures should be enabled");
         
         // Try to disable AllFeatures while Premium is still enabled
         auto result = manager.batch_disable({"AllFeatures"});
         
-        ASSERT_FALSE(result.has_value(), "Should fail: Premium implies AllFeatures");
-        ASSERT_TRUE(manager.is_enabled("AllFeatures"), "AllFeatures should remain enabled");
-        ASSERT_TRUE(manager.is_enabled("Premium"), "Premium should remain enabled");
+        FATP_ASSERT_FALSE(result.has_value(), "Should fail: Premium implies AllFeatures");
+        FATP_ASSERT_TRUE(manager.is_enabled("AllFeatures"), "AllFeatures should remain enabled");
+        FATP_ASSERT_TRUE(manager.is_enabled("Premium"), "Premium should remain enabled");
     }
     
     // Test that disabling the implier first allows disabling the implied
@@ -1042,12 +1042,12 @@ TEST_CASE(batch_disable_implies)
         
         // Disable A first (the implier)
         auto result1 = manager.disable("A");
-        ASSERT_TRUE(result1.has_value(), "Should succeed to disable A");
+        FATP_ASSERT_TRUE(result1.has_value(), "Should succeed to disable A");
         
         // Now B can be disabled
         auto result2 = manager.batch_disable({"B"});
-        ASSERT_TRUE(result2.has_value(), "Should succeed to disable B now");
-        ASSERT_FALSE(manager.is_enabled("B"), "B should be disabled");
+        FATP_ASSERT_TRUE(result2.has_value(), "Should succeed to disable B now");
+        FATP_ASSERT_FALSE(manager.is_enabled("B"), "B should be disabled");
     }
     
     // Test complex Implies chain
@@ -1063,47 +1063,47 @@ TEST_CASE(batch_disable_implies)
         
         // Cannot disable Bottom while Middle is enabled (which implies it)
         auto r1 = manager.batch_disable({"Bottom"});
-        ASSERT_FALSE(r1.has_value(), "Cannot disable Bottom: Middle implies it");
+        FATP_ASSERT_FALSE(r1.has_value(), "Cannot disable Bottom: Middle implies it");
         
         // Cannot disable Middle while Top is enabled (which implies it)
         auto r2 = manager.batch_disable({"Middle"});
-        ASSERT_FALSE(r2.has_value(), "Cannot disable Middle: Top implies it");
+        FATP_ASSERT_FALSE(r2.has_value(), "Cannot disable Middle: Top implies it");
         
         // Can disable Top
         auto r3 = manager.disable("Top");
-        ASSERT_TRUE(r3.has_value(), "Can disable Top");
+        FATP_ASSERT_TRUE(r3.has_value(), "Can disable Top");
         
         // Now can disable Middle
         auto r4 = manager.batch_disable({"Middle"});
-        ASSERT_TRUE(r4.has_value(), "Can now disable Middle");
+        FATP_ASSERT_TRUE(r4.has_value(), "Can now disable Middle");
         
         // Now can disable Bottom
         auto r5 = manager.batch_disable({"Bottom"});
-        ASSERT_TRUE(r5.has_value(), "Can now disable Bottom");
+        FATP_ASSERT_TRUE(r5.has_value(), "Can now disable Bottom");
     }
     
     return true;
 }
 
 
-TEST_CASE(dot_roundtrip_parses_requires_and_ignores_global_attributes)
+FATP_TEST_CASE(dot_roundtrip_parses_requires_and_ignores_global_attributes)
 {
     FeatureManager<> manager;
-    ASSERT_TRUE(manager.add_feature("A").has_value(), "Should add A");
-    ASSERT_TRUE(manager.add_feature("B").has_value(), "Should add B");
-    ASSERT_TRUE(manager.add_relationship("A", FeatureRelationship::Requires, "B").has_value(),
+    FATP_ASSERT_TRUE(manager.add_feature("A").has_value(), "Should add A");
+    FATP_ASSERT_TRUE(manager.add_feature("B").has_value(), "Should add B");
+    FATP_ASSERT_TRUE(manager.add_relationship("A", FeatureRelationship::Requires, "B").has_value(),
                 "Should add Requires relationship");
 
     const std::string dot = manager.to_dot();
     auto parsed_res = FeatureManager<>::from_dot(dot);
-    ASSERT_TRUE(parsed_res.has_value(), "from_dot should parse to_dot output");
+    FATP_ASSERT_TRUE(parsed_res.has_value(), "from_dot should parse to_dot output");
 
     auto& parsed = *parsed_res;
-    ASSERT_TRUE(parsed.enable("A").has_value(), "Enabling A should succeed");
-    ASSERT_TRUE(parsed.is_enabled("B"), "B should be enabled via Requires relationship");
+    FATP_ASSERT_TRUE(parsed.enable("A").has_value(), "Enabling A should succeed");
+    FATP_ASSERT_TRUE(parsed.is_enabled("B"), "B should be enabled via Requires relationship");
 
     const auto all = parsed.get_all_features();
-    ASSERT_FALSE(std::find(all.begin(), all.end(), "node") != all.end(),
+    FATP_ASSERT_FALSE(std::find(all.begin(), all.end(), "node") != all.end(),
                  "from_dot should not create spurious 'node' feature");
 
     return true;
@@ -1149,7 +1149,7 @@ namespace module_b {
 
 // --- Actual Tests ---
 
-TEST_CASE(basic_factory_registration)
+FATP_TEST_CASE(basic_factory_registration)
 {
     auto& factory = get_feature_check_factory();
     factory.clear();
@@ -1157,28 +1157,28 @@ TEST_CASE(basic_factory_registration)
     bool registered = factory.registerType("test.simple", []() -> FeatureCheck {
         return []() -> Expected<void, std::string> { return {}; };
     });
-    ASSERT_TRUE(registered, "Should register new check");
+    FATP_ASSERT_TRUE(registered, "Should register new check");
     
     bool registered_again = factory.registerType("test.simple", []() -> FeatureCheck {
         return []() -> Expected<void, std::string> { return unexpected("No"); };
     });
-    ASSERT_FALSE(registered_again, "Should not allow duplicate registration");
+    FATP_ASSERT_FALSE(registered_again, "Should not allow duplicate registration");
     
     auto check_result = factory.make("test.simple");
-    ASSERT_TRUE(check_result.has_value(), "Should find registered check");
+    FATP_ASSERT_TRUE(check_result.has_value(), "Should find registered check");
     
     auto check = *check_result;
     auto result = check();
-    ASSERT_TRUE(result.has_value(), "Check should pass");
+    FATP_ASSERT_TRUE(result.has_value(), "Check should pass");
     
     auto missing_result = factory.make("test.missing");
-    ASSERT_FALSE(missing_result.has_value(), "Should not find non-existent check");
+    FATP_ASSERT_FALSE(missing_result.has_value(), "Should not find non-existent check");
     
     factory.clear();
     return true;
 }
 
-TEST_CASE(json_serialization_roundtrip)
+FATP_TEST_CASE(json_serialization_roundtrip)
 {
     auto& factory = get_feature_check_factory();
     factory.clear();
@@ -1204,23 +1204,23 @@ TEST_CASE(json_serialization_roundtrip)
     (void)manager.enable("GPUAcceleration");
     
     std::string json = manager.to_json();
-    ASSERT_TRUE(!json.empty(), "Should produce JSON");
-    ASSERT_TRUE(json.find("hardware.gpu") != std::string::npos,
+    FATP_ASSERT_TRUE(!json.empty(), "Should produce JSON");
+    FATP_ASSERT_TRUE(json.find("hardware.gpu") != std::string::npos,
                 "Should contain check key");
     
     auto restored_result = FeatureManager<>::from_json(json);
-    ASSERT_TRUE(restored_result.has_value(), "Should deserialize successfully");
+    FATP_ASSERT_TRUE(restored_result.has_value(), "Should deserialize successfully");
     
     auto& restored = *restored_result;
-    ASSERT_TRUE(restored.is_enabled("GPUAcceleration"), "GPUAcceleration should be enabled");
-    ASSERT_TRUE(restored.is_enabled("BasicFeature"), "BasicFeature should be enabled");
-    ASSERT_FALSE(restored.is_enabled("PremiumFeature"), "PremiumFeature should not be enabled");
+    FATP_ASSERT_TRUE(restored.is_enabled("GPUAcceleration"), "GPUAcceleration should be enabled");
+    FATP_ASSERT_TRUE(restored.is_enabled("BasicFeature"), "BasicFeature should be enabled");
+    FATP_ASSERT_FALSE(restored.is_enabled("PremiumFeature"), "PremiumFeature should not be enabled");
     
     factory.clear();
     return true;
 }
 
-TEST_CASE(raii_registration)
+FATP_TEST_CASE(raii_registration)
 {
     auto& factory = get_feature_check_factory();
     factory.clear();
@@ -1229,19 +1229,19 @@ TEST_CASE(raii_registration)
         FeatureCheckRegistration reg1("test.raii1", []() -> FeatureCheck {
             return []() -> Expected<void, std::string> { return {}; };
         });
-        ASSERT_TRUE(factory.hasType("test.raii1"), "Should be registered");
+        FATP_ASSERT_TRUE(factory.hasType("test.raii1"), "Should be registered");
         
         FeatureManager<> manager;
         auto add_result = manager.add_feature("Feature1", "test.raii1");
-        ASSERT_TRUE(add_result.has_value(), "Should add feature");
+        FATP_ASSERT_TRUE(add_result.has_value(), "Should add feature");
     }
     
-    ASSERT_FALSE(factory.hasType("test.raii1"), "Should be unregistered");
+    FATP_ASSERT_FALSE(factory.hasType("test.raii1"), "Should be unregistered");
     factory.clear();
     return true;
 }
 
-TEST_CASE(module_independence)
+FATP_TEST_CASE(module_independence)
 {
     auto& factory = get_feature_check_factory();
     factory.clear();
@@ -1257,18 +1257,18 @@ TEST_CASE(module_independence)
     module_b::license_check_call_count = 0;
     
     (void)manager.enable("HardwareFeature");
-    ASSERT_EQ(module_a::hardware_check_call_count, 1, "Should call module A check");
-    ASSERT_EQ(module_b::license_check_call_count, 0, "Should not call module B check");
+    FATP_ASSERT_EQ(module_a::hardware_check_call_count, 1, "Should call module A check");
+    FATP_ASSERT_EQ(module_b::license_check_call_count, 0, "Should not call module B check");
     
     (void)manager.enable("LicenseFeature");
-    ASSERT_EQ(module_a::hardware_check_call_count, 1, "Should not call module A check again");
-    ASSERT_EQ(module_b::license_check_call_count, 1, "Should call module B check");
+    FATP_ASSERT_EQ(module_a::hardware_check_call_count, 1, "Should not call module A check again");
+    FATP_ASSERT_EQ(module_b::license_check_call_count, 1, "Should call module B check");
     
     factory.clear();
     return true;
 }
 
-TEST_CASE(complex_graph_serialization)
+FATP_TEST_CASE(complex_graph_serialization)
 {
     auto& factory = get_feature_check_factory();
     factory.clear();
@@ -1297,22 +1297,22 @@ TEST_CASE(complex_graph_serialization)
     
     std::string json = manager.to_json();
     auto restored_result = FeatureManager<>::from_json(json);
-    ASSERT_TRUE(restored_result.has_value(), "Should deserialize complex graph");
+    FATP_ASSERT_TRUE(restored_result.has_value(), "Should deserialize complex graph");
     
     auto& restored = *restored_result;
-    ASSERT_TRUE(restored.is_enabled("A"), "A should be enabled");
-    ASSERT_TRUE(restored.is_enabled("B"), "B should be enabled");
-    ASSERT_FALSE(restored.is_enabled("C"), "C should not be enabled");
+    FATP_ASSERT_TRUE(restored.is_enabled("A"), "A should be enabled");
+    FATP_ASSERT_TRUE(restored.is_enabled("B"), "B should be enabled");
+    FATP_ASSERT_FALSE(restored.is_enabled("C"), "C should not be enabled");
     
     auto enable_d = restored.enable("D");
-    ASSERT_FALSE(enable_d.has_value(), "Should not enable D due to conflict");
+    FATP_ASSERT_FALSE(enable_d.has_value(), "Should not enable D due to conflict");
     
     factory.clear();
     return true;
 }
 
 
-TEST_CASE(raii_duplicate_registration_does_not_unregister_original)
+FATP_TEST_CASE(raii_duplicate_registration_does_not_unregister_original)
 {
     auto& factory = get_feature_check_factory();
     factory.clear();
@@ -1322,7 +1322,7 @@ TEST_CASE(raii_duplicate_registration_does_not_unregister_original)
             return []() -> Expected<void, std::string> { return {}; };
         });
 
-        ASSERT_TRUE(factory.hasType("dup_test"), "Original registration should exist");
+        FATP_ASSERT_TRUE(factory.hasType("dup_test"), "Original registration should exist");
 
         {
             // Duplicate registration should fail; destructor must NOT unregister original.
@@ -1331,17 +1331,17 @@ TEST_CASE(raii_duplicate_registration_does_not_unregister_original)
             });
         }
 
-        ASSERT_TRUE(factory.hasType("dup_test"),
+        FATP_ASSERT_TRUE(factory.hasType("dup_test"),
                     "Original registration must remain after failed duplicate registration");
     }
 
-    ASSERT_FALSE(factory.hasType("dup_test"),
+    FATP_ASSERT_FALSE(factory.hasType("dup_test"),
                  "Original registration should be removed once owning registration is destroyed");
     factory.clear();
     return true;
 }
 
-TEST_CASE(json_deserialize_unknown_check_key_fails)
+FATP_TEST_CASE(json_deserialize_unknown_check_key_fails)
 {
     auto& factory = get_feature_check_factory();
     factory.clear();
@@ -1356,15 +1356,15 @@ TEST_CASE(json_deserialize_unknown_check_key_fails)
     })";
 
     auto fm_res = FeatureManager<>::from_json(json);
-    ASSERT_FALSE(fm_res.has_value(), "from_json should fail when check_key is unknown");
-    ASSERT_TRUE(fm_res.error().find("not found") != std::string::npos,
+    FATP_ASSERT_FALSE(fm_res.has_value(), "from_json should fail when check_key is unknown");
+    FATP_ASSERT_TRUE(fm_res.error().find("not found") != std::string::npos,
                 "Error should mention missing check_key");
 
     factory.clear();
     return true;
 }
 
-TEST_CASE(json_deserialize_group_with_missing_feature_fails)
+FATP_TEST_CASE(json_deserialize_group_with_missing_feature_fails)
 {
     auto& factory = get_feature_check_factory();
     factory.clear();
@@ -1379,15 +1379,15 @@ TEST_CASE(json_deserialize_group_with_missing_feature_fails)
     })";
 
     auto fm_res = FeatureManager<>::from_json(json);
-    ASSERT_FALSE(fm_res.has_value(), "from_json should fail when a group references a missing feature");
-    ASSERT_TRUE(fm_res.error().find("references missing feature") != std::string::npos,
+    FATP_ASSERT_FALSE(fm_res.has_value(), "from_json should fail when a group references a missing feature");
+    FATP_ASSERT_TRUE(fm_res.error().find("references missing feature") != std::string::npos,
                 "Error should mention missing group feature");
 
     factory.clear();
     return true;
 }
 
-TEST_CASE(json_deserialize_relationship_to_missing_feature_fails)
+FATP_TEST_CASE(json_deserialize_relationship_to_missing_feature_fails)
 {
     auto& factory = get_feature_check_factory();
     factory.clear();
@@ -1402,16 +1402,16 @@ TEST_CASE(json_deserialize_relationship_to_missing_feature_fails)
     })";
 
     auto fm_res = FeatureManager<>::from_json(json);
-    ASSERT_FALSE(fm_res.has_value(),
+    FATP_ASSERT_FALSE(fm_res.has_value(),
                  "from_json should fail when relationships reference missing target features");
-    ASSERT_TRUE(fm_res.error().find("to missing feature") != std::string::npos,
+    FATP_ASSERT_TRUE(fm_res.error().find("to missing feature") != std::string::npos,
                 "Error should mention missing relationship target");
 
     factory.clear();
     return true;
 }
 
-TEST_CASE(json_deserialize_symmetrizes_conflicts)
+FATP_TEST_CASE(json_deserialize_symmetrizes_conflicts)
 {
     auto& factory = get_feature_check_factory();
     factory.clear();
@@ -1430,22 +1430,22 @@ TEST_CASE(json_deserialize_symmetrizes_conflicts)
     })";
 
     auto fm_res = FeatureManager<>::from_json(json);
-    ASSERT_TRUE(fm_res.has_value(), "from_json should succeed with asymmetric conflicts");
+    FATP_ASSERT_TRUE(fm_res.has_value(), "from_json should succeed with asymmetric conflicts");
     
     auto& fm = *fm_res;
     
     // Enable A first
-    ASSERT_TRUE(fm.enable("A").has_value(), "Should enable A");
+    FATP_ASSERT_TRUE(fm.enable("A").has_value(), "Should enable A");
     
     // Try to enable B - should fail because from_json symmetrized the conflict
     auto b_res = fm.enable("B");
-    ASSERT_FALSE(b_res.has_value(), "B should conflict with A after symmetrization");
+    FATP_ASSERT_FALSE(b_res.has_value(), "B should conflict with A after symmetrization");
 
     factory.clear();
     return true;
 }
 
-TEST_CASE(json_deserialize_symmetrizes_mutually_exclusive)
+FATP_TEST_CASE(json_deserialize_symmetrizes_mutually_exclusive)
 {
     auto& factory = get_feature_check_factory();
     factory.clear();
@@ -1464,22 +1464,22 @@ TEST_CASE(json_deserialize_symmetrizes_mutually_exclusive)
     })";
 
     auto fm_res = FeatureManager<>::from_json(json);
-    ASSERT_TRUE(fm_res.has_value(), "from_json should succeed");
+    FATP_ASSERT_TRUE(fm_res.has_value(), "from_json should succeed");
     
     auto& fm = *fm_res;
     
     // Enable A first
-    ASSERT_TRUE(fm.enable("A").has_value(), "Should enable A");
+    FATP_ASSERT_TRUE(fm.enable("A").has_value(), "Should enable A");
     
     // Try to enable B - should fail because from_json symmetrized
     auto b_res = fm.enable("B");
-    ASSERT_FALSE(b_res.has_value(), "B should be mutually exclusive with A after symmetrization");
+    FATP_ASSERT_FALSE(b_res.has_value(), "B should be mutually exclusive with A after symmetrization");
 
     factory.clear();
     return true;
 }
 
-TEST_CASE(json_deserialize_detects_cycles)
+FATP_TEST_CASE(json_deserialize_detects_cycles)
 {
     auto& factory = get_feature_check_factory();
     factory.clear();
@@ -1499,8 +1499,8 @@ TEST_CASE(json_deserialize_detects_cycles)
     })";
 
     auto fm_res = FeatureManager<>::from_json(json);
-    ASSERT_FALSE(fm_res.has_value(), "from_json should fail when graph contains cycles");
-    ASSERT_TRUE(fm_res.error().find("Circular") != std::string::npos ||
+    FATP_ASSERT_FALSE(fm_res.has_value(), "from_json should fail when graph contains cycles");
+    FATP_ASSERT_TRUE(fm_res.error().find("Circular") != std::string::npos ||
                 fm_res.error().find("cycle") != std::string::npos ||
                 fm_res.error().find("validation") != std::string::npos,
                 "Error should mention cycle or validation failure");
@@ -1509,7 +1509,7 @@ TEST_CASE(json_deserialize_detects_cycles)
     return true;
 }
 
-TEST_CASE(json_deserialize_validates_enabled_state_invariants)
+FATP_TEST_CASE(json_deserialize_validates_enabled_state_invariants)
 {
     auto& factory = get_feature_check_factory();
     factory.clear();
@@ -1528,8 +1528,8 @@ TEST_CASE(json_deserialize_validates_enabled_state_invariants)
     })";
 
     auto fm_res = FeatureManager<>::from_json(json);
-    ASSERT_FALSE(fm_res.has_value(), "from_json should fail when enabled state violates Requires");
-    ASSERT_TRUE(fm_res.error().find("validation") != std::string::npos ||
+    FATP_ASSERT_FALSE(fm_res.has_value(), "from_json should fail when enabled state violates Requires");
+    FATP_ASSERT_TRUE(fm_res.error().find("validation") != std::string::npos ||
                 fm_res.error().find("requires") != std::string::npos,
                 "Error should mention validation failure");
 
@@ -1659,25 +1659,25 @@ bool test_FeatureManager()
     // ------------------------------------------------------------------------
     // 1. Run Logic Tests
     // ------------------------------------------------------------------------
-    PRINT_HEADER(LOGIC LAYER TESTS);
+    FATP_PRINT_HEADER(LOGIC LAYER TESTS);
 
-    RUN_TEST_NS(runner, logic, basic_operations);
-    RUN_TEST_NS(runner, logic, interactions);
-    RUN_TEST_NS(runner, logic, validation_and_cycles);
-    RUN_TEST_NS(runner, logic, groups);
-    RUN_TEST_NS(runner, logic, complex_scenario);
-    RUN_TEST_NS(runner, logic, thread_safety);
-    RUN_TEST_NS(runner, logic, observers);
-    RUN_TEST_NS(runner, logic, dot_export);
-    RUN_TEST_NS(runner, logic, dot_roundtrip_parses_requires_and_ignores_global_attributes);
-    RUN_TEST_NS(runner, logic, batch_disable);
-    RUN_TEST_NS(runner, logic, batch_enable_rollback);
-    RUN_TEST_NS(runner, logic, enable_transactional);
-    RUN_TEST_NS(runner, logic, remove_observer);
-    RUN_TEST_NS(runner, logic, scoped_observer);
-    RUN_TEST_NS(runner, logic, batch_observer);
-    RUN_TEST_NS(runner, logic, implicit_notifications);
-    RUN_TEST_NS(runner, logic, batch_disable_implies);
+    FATP_RUN_TEST_NS(runner, logic, basic_operations);
+    FATP_RUN_TEST_NS(runner, logic, interactions);
+    FATP_RUN_TEST_NS(runner, logic, validation_and_cycles);
+    FATP_RUN_TEST_NS(runner, logic, groups);
+    FATP_RUN_TEST_NS(runner, logic, complex_scenario);
+    FATP_RUN_TEST_NS(runner, logic, thread_safety);
+    FATP_RUN_TEST_NS(runner, logic, observers);
+    FATP_RUN_TEST_NS(runner, logic, dot_export);
+    FATP_RUN_TEST_NS(runner, logic, dot_roundtrip_parses_requires_and_ignores_global_attributes);
+    FATP_RUN_TEST_NS(runner, logic, batch_disable);
+    FATP_RUN_TEST_NS(runner, logic, batch_enable_rollback);
+    FATP_RUN_TEST_NS(runner, logic, enable_transactional);
+    FATP_RUN_TEST_NS(runner, logic, remove_observer);
+    FATP_RUN_TEST_NS(runner, logic, scoped_observer);
+    FATP_RUN_TEST_NS(runner, logic, batch_observer);
+    FATP_RUN_TEST_NS(runner, logic, implicit_notifications);
+    FATP_RUN_TEST_NS(runner, logic, batch_disable_implies);
 
     if (runner.print_summary() > 0) {
         all_passed = false;
@@ -1687,21 +1687,21 @@ bool test_FeatureManager()
     // ------------------------------------------------------------------------
     // 2. Run Factory/Serialization Tests
     // ------------------------------------------------------------------------
-    PRINT_HEADER(FACTORY & SERIALIZATION TESTS);
+    FATP_PRINT_HEADER(FACTORY & SERIALIZATION TESTS);
 
-    RUN_TEST_NS(runner, factory, basic_factory_registration);
-    RUN_TEST_NS(runner, factory, json_serialization_roundtrip);
-    RUN_TEST_NS(runner, factory, raii_registration);
-    RUN_TEST_NS(runner, factory, raii_duplicate_registration_does_not_unregister_original);
-    RUN_TEST_NS(runner, factory, json_deserialize_unknown_check_key_fails);
-    RUN_TEST_NS(runner, factory, json_deserialize_group_with_missing_feature_fails);
-    RUN_TEST_NS(runner, factory, json_deserialize_relationship_to_missing_feature_fails);
-    RUN_TEST_NS(runner, factory, json_deserialize_symmetrizes_conflicts);
-    RUN_TEST_NS(runner, factory, json_deserialize_symmetrizes_mutually_exclusive);
-    RUN_TEST_NS(runner, factory, json_deserialize_detects_cycles);
-    RUN_TEST_NS(runner, factory, json_deserialize_validates_enabled_state_invariants);
-    RUN_TEST_NS(runner, factory, module_independence);
-    RUN_TEST_NS(runner, factory, complex_graph_serialization);
+    FATP_RUN_TEST_NS(runner, factory, basic_factory_registration);
+    FATP_RUN_TEST_NS(runner, factory, json_serialization_roundtrip);
+    FATP_RUN_TEST_NS(runner, factory, raii_registration);
+    FATP_RUN_TEST_NS(runner, factory, raii_duplicate_registration_does_not_unregister_original);
+    FATP_RUN_TEST_NS(runner, factory, json_deserialize_unknown_check_key_fails);
+    FATP_RUN_TEST_NS(runner, factory, json_deserialize_group_with_missing_feature_fails);
+    FATP_RUN_TEST_NS(runner, factory, json_deserialize_relationship_to_missing_feature_fails);
+    FATP_RUN_TEST_NS(runner, factory, json_deserialize_symmetrizes_conflicts);
+    FATP_RUN_TEST_NS(runner, factory, json_deserialize_symmetrizes_mutually_exclusive);
+    FATP_RUN_TEST_NS(runner, factory, json_deserialize_detects_cycles);
+    FATP_RUN_TEST_NS(runner, factory, json_deserialize_validates_enabled_state_invariants);
+    FATP_RUN_TEST_NS(runner, factory, module_independence);
+    FATP_RUN_TEST_NS(runner, factory, complex_graph_serialization);
 
     if (runner.print_summary() > 0) {
         all_passed = false;
@@ -1711,7 +1711,7 @@ bool test_FeatureManager()
     // 3. Run Benchmarks
     // ------------------------------------------------------------------------
     if (all_passed) {
-        PRINT_HEADER(PERFORMANCE BENCHMARKS);
+        FATP_PRINT_HEADER(PERFORMANCE BENCHMARKS);
         std::cout << fat_p::testing::colors::yellow()
             << "Note: Benchmarks include outliers and P99 stats."
             << fat_p::testing::colors::reset() << "\n\n";

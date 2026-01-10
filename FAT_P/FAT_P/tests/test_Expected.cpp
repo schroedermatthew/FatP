@@ -8,7 +8,7 @@ FATP_META:
   component: Expected
   file_role: test
   path: tests/test_Expected.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::expected
   summary: "Unit tests for Expected."
   related:
     docs_search: "Expected"
@@ -38,7 +38,7 @@ FATP_META:
 #include "Expected.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing
+namespace fat_p::testing::expected
 {
 
 // ============================================================================
@@ -79,109 +79,109 @@ Expected<void, std::string> validate_age(int age)
 // Unit Tests
 // ============================================================================
 
-bool test_expected_basic_construction()
+FATP_TEST_CASE(basic_construction)
 {
     Expected<int, std::string> v(42);
-    ASSERT_TRUE(v.has_value(), "Expected should have value");
-    ASSERT_TRUE(*v == 42, "Value should be 42");
+    FATP_ASSERT_TRUE(v.has_value(), "Expected should have value");
+    FATP_ASSERT_TRUE(*v == 42, "Value should be 42");
 
     Expected<int, std::string> e(unexpected{"error"});
-    ASSERT_TRUE(!e.has_value(), "Expected should have error");
-    ASSERT_TRUE(e.error() == "error", "Error should be 'error'");
+    FATP_ASSERT_TRUE(!e.has_value(), "Expected should have error");
+    FATP_ASSERT_TRUE(e.error() == "error", "Error should be 'error'");
 
     return true;
 }
 
-bool test_expected_copy_construction()
+FATP_TEST_CASE(copy_construction)
 {
     Expected<int, std::string> v1(42);
     Expected<int, std::string> v2(v1);
-    ASSERT_TRUE(*v2 == 42, "Copy construction should preserve value");
+    FATP_ASSERT_TRUE(*v2 == 42, "Copy construction should preserve value");
 
     Expected<std::string, int> s1("hello");
     Expected<std::string, int> s2(s1);
-    ASSERT_TRUE(*s2 == "hello", "Copy construction should preserve string");
+    FATP_ASSERT_TRUE(*s2 == "hello", "Copy construction should preserve string");
 
     return true;
 }
 
-bool test_expected_move_construction()
+FATP_TEST_CASE(move_construction)
 {
     Expected<std::string, int> v1("hello");
     Expected<std::string, int> v2(std::move(v1));
-    ASSERT_TRUE(*v2 == "hello", "Move construction should transfer value");
+    FATP_ASSERT_TRUE(*v2 == "hello", "Move construction should transfer value");
 
     return true;
 }
 
-bool test_expected_copy_assignment()
+FATP_TEST_CASE(copy_assignment)
 {
     Expected<int, std::string> v1(42);
     Expected<int, std::string> v2(100);
     v1 = v2;
-    ASSERT_TRUE(*v1 == 100, "Value should be 100 after assignment");
+    FATP_ASSERT_TRUE(*v1 == 100, "Value should be 100 after assignment");
 
     Expected<int, std::string> v3(42);
     v3 = v3;
-    ASSERT_TRUE(*v3 == 42, "Self-assignment should work");
+    FATP_ASSERT_TRUE(*v3 == 42, "Self-assignment should work");
 
     return true;
 }
 
-bool test_expected_move_assignment()
+FATP_TEST_CASE(move_assignment)
 {
     Expected<std::string, int> v1("hello");
     Expected<std::string, int> v2("world");
     v2 = std::move(v1);
-    ASSERT_TRUE(*v2 == "hello", "Move assignment should transfer value");
+    FATP_ASSERT_TRUE(*v2 == "hello", "Move assignment should transfer value");
 
     return true;
 }
 
-bool test_expected_value_access()
+FATP_TEST_CASE(value_access)
 {
     Expected<int, std::string> v(42);
-    ASSERT_TRUE(v.value() == 42, "value() should return 42");
-    ASSERT_TRUE(*v == 42, "operator* should return 42");
-    ASSERT_TRUE(v.value_or(0) == 42, "value_or should return 42");
+    FATP_ASSERT_TRUE(v.value() == 42, "value() should return 42");
+    FATP_ASSERT_TRUE(*v == 42, "operator* should return 42");
+    FATP_ASSERT_TRUE(v.value_or(0) == 42, "value_or should return 42");
 
     Expected<int, std::string> e(unexpected{"error"});
-    ASSERT_TRUE(e.value_or(0) == 0, "value_or should return default");
+    FATP_ASSERT_TRUE(e.value_or(0) == 0, "value_or should return default");
 
     return true;
 }
 
-bool test_expected_error_access()
+FATP_TEST_CASE(error_access)
 {
     Expected<int, std::string> e(unexpected{"error"});
-    ASSERT_TRUE(e.error() == "error", "error() should return 'error'");
-    ASSERT_TRUE(e.error_or("default") == "error", "error_or should return error");
+    FATP_ASSERT_TRUE(e.error() == "error", "error() should return 'error'");
+    FATP_ASSERT_TRUE(e.error_or("default") == "error", "error_or should return error");
 
     Expected<int, std::string> v(42);
-    ASSERT_TRUE(v.error_or("default") == "default", "error_or should return default");
+    FATP_ASSERT_TRUE(v.error_or("default") == "default", "error_or should return default");
 
     return true;
 }
 
-bool test_expected_has_error()
+FATP_TEST_CASE(has_error)
 {
     Expected<int, std::string> v(42);
-    ASSERT_TRUE(!v.has_error(), "has_error should be false for value");
-    ASSERT_TRUE(v.has_value() != v.has_error(), "has_value and has_error are opposites");
+    FATP_ASSERT_TRUE(!v.has_error(), "has_error should be false for value");
+    FATP_ASSERT_TRUE(v.has_value() != v.has_error(), "has_value and has_error are opposites");
 
     Expected<int, std::string> e(unexpected{"error"});
-    ASSERT_TRUE(e.has_error(), "has_error should be true for error");
+    FATP_ASSERT_TRUE(e.has_error(), "has_error should be true for error");
 
     Expected<void, std::string> void_v;
-    ASSERT_TRUE(!void_v.has_error(), "void has_error should be false for value");
+    FATP_ASSERT_TRUE(!void_v.has_error(), "void has_error should be false for value");
 
     Expected<void, std::string> void_e(unexpected{"error"});
-    ASSERT_TRUE(void_e.has_error(), "void has_error should be true for error");
+    FATP_ASSERT_TRUE(void_e.has_error(), "void has_error should be true for error");
 
     return true;
 }
 
-bool test_expected_error_or_else()
+FATP_TEST_CASE(error_or_else)
 {
     int call_count = 0;
     auto factory = [&]()
@@ -192,215 +192,215 @@ bool test_expected_error_or_else()
 
     Expected<int, std::string> v(42);
     std::string e1 = v.error_or_else(factory);
-    ASSERT_TRUE(e1 == "computed", "error_or_else computes for value");
-    ASSERT_TRUE(call_count == 1, "error_or_else calls factory for value");
+    FATP_ASSERT_TRUE(e1 == "computed", "error_or_else computes for value");
+    FATP_ASSERT_TRUE(call_count == 1, "error_or_else calls factory for value");
 
     call_count = 0;
     Expected<int, std::string> e(unexpected{"actual"});
     std::string e2 = e.error_or_else(factory);
-    ASSERT_TRUE(e2 == "actual", "error_or_else returns error");
-    ASSERT_TRUE(call_count == 0, "error_or_else skips factory for error");
+    FATP_ASSERT_TRUE(e2 == "actual", "error_or_else returns error");
+    FATP_ASSERT_TRUE(call_count == 0, "error_or_else skips factory for error");
 
     return true;
 }
 
-bool test_expected_map()
+FATP_TEST_CASE(map)
 {
     auto result = Expected<int, std::string>(10).map([](int x) { return x * 2; });
-    ASSERT_TRUE(*result == 20, "Map should double the value");
+    FATP_ASSERT_TRUE(*result == 20, "Map should double the value");
 
     auto err_result = Expected<int, std::string>(unexpected{"error"})
         .map([](int x) { return x * 2; });
-    ASSERT_TRUE(!err_result.has_value(), "Error should propagate through map");
-    ASSERT_TRUE(err_result.error() == "error", "Error should be preserved");
+    FATP_ASSERT_TRUE(!err_result.has_value(), "Error should propagate through map");
+    FATP_ASSERT_TRUE(err_result.error() == "error", "Error should be preserved");
 
     return true;
 }
 
-bool test_expected_and_then()
+FATP_TEST_CASE(and_then)
 {
     auto result = Expected<int, std::string>(10)
         .and_then([](int x) -> Expected<int, std::string> { return x * 2; });
-    ASSERT_TRUE(*result == 20, "and_then should double the value");
+    FATP_ASSERT_TRUE(*result == 20, "and_then should double the value");
 
     auto err_result = Expected<int, std::string>(unexpected{"error"})
         .and_then([](int x) -> Expected<int, std::string> { return x * 2; });
-    ASSERT_TRUE(!err_result.has_value(), "Error should propagate through and_then");
+    FATP_ASSERT_TRUE(!err_result.has_value(), "Error should propagate through and_then");
 
     return true;
 }
 
-bool test_expected_or_else()
+FATP_TEST_CASE(or_else)
 {
     auto result = Expected<int, std::string>(unexpected{"error"})
         .or_else([](const std::string&) -> Expected<int, std::string> { return 42; });
-    ASSERT_TRUE(*result == 42, "or_else should recover with 42");
+    FATP_ASSERT_TRUE(*result == 42, "or_else should recover with 42");
 
     auto val_result = Expected<int, std::string>(10)
         .or_else([](const std::string&) -> Expected<int, std::string> { return 42; });
-    ASSERT_TRUE(*val_result == 10, "or_else should not affect values");
+    FATP_ASSERT_TRUE(*val_result == 10, "or_else should not affect values");
 
     return true;
 }
 
-bool test_expected_transform_error()
+FATP_TEST_CASE(transform_error)
 {
     auto result = Expected<int, std::string>(unexpected{"error"})
         .transform_error([](const std::string& e) { return e + "_transformed"; });
-    ASSERT_TRUE(result.error() == "error_transformed", "transform_error should transform");
+    FATP_ASSERT_TRUE(result.error() == "error_transformed", "transform_error should transform");
 
     return true;
 }
 
-bool test_expected_inspect()
+FATP_TEST_CASE(inspect)
 {
     int inspected_value = 0;
     Expected<int, std::string>(42).inspect([&](int x) { inspected_value = x; });
-    ASSERT_TRUE(inspected_value == 42, "inspect should observe value");
+    FATP_ASSERT_TRUE(inspected_value == 42, "inspect should observe value");
 
     std::string inspected_error;
     Expected<int, std::string>(unexpected{"error"})
         .inspect_error([&](const std::string& e) { inspected_error = e; });
-    ASSERT_TRUE(inspected_error == "error", "inspect_error should observe error");
+    FATP_ASSERT_TRUE(inspected_error == "error", "inspect_error should observe error");
 
     return true;
 }
 
-bool test_expected_void_specialization()
+FATP_TEST_CASE(void_specialization)
 {
     Expected<void, std::string> v;
-    ASSERT_TRUE(v.has_value(), "Void Expected should have value");
+    FATP_ASSERT_TRUE(v.has_value(), "Void Expected should have value");
 
     Expected<void, std::string> e(unexpected{"error"});
-    ASSERT_TRUE(!e.has_value(), "Void Expected should have error");
-    ASSERT_TRUE(e.error() == "error", "Void Expected error should be accessible");
+    FATP_ASSERT_TRUE(!e.has_value(), "Void Expected should have error");
+    FATP_ASSERT_TRUE(e.error() == "error", "Void Expected error should be accessible");
 
     // Test map returning non-void
     auto mapped = v.map([]() { return 42; });
-    ASSERT_TRUE(mapped.has_value() && *mapped == 42, "Void map to int works");
+    FATP_ASSERT_TRUE(mapped.has_value() && *mapped == 42, "Void map to int works");
 
     // Test map returning void (void -> void)
     int side_effect = 0;
     auto void_mapped = v.map([&]() { side_effect = 100; });
-    ASSERT_TRUE(void_mapped.has_value(), "Void map to void works");
-    ASSERT_TRUE(side_effect == 100, "Void map side effect executed");
+    FATP_ASSERT_TRUE(void_mapped.has_value(), "Void map to void works");
+    FATP_ASSERT_TRUE(side_effect == 100, "Void map side effect executed");
 
     // Test map on error state (should not invoke)
     side_effect = 0;
     auto err_mapped = e.map([&]() { side_effect = 999; });
-    ASSERT_TRUE(!err_mapped.has_value(), "Error propagates through void map");
-    ASSERT_TRUE(side_effect == 0, "Void map not invoked on error");
+    FATP_ASSERT_TRUE(!err_mapped.has_value(), "Error propagates through void map");
+    FATP_ASSERT_TRUE(side_effect == 0, "Void map not invoked on error");
 
     return true;
 }
 
-bool test_expected_emplace()
+FATP_TEST_CASE(emplace)
 {
     Expected<std::string, int> exp(unexpected{42});
     exp.emplace("emplaced");
-    ASSERT_TRUE(*exp == "emplaced", "Emplace should construct value");
+    FATP_ASSERT_TRUE(*exp == "emplaced", "Emplace should construct value");
 
     return true;
 }
 
-bool test_expected_swap()
+FATP_TEST_CASE(swap)
 {
     Expected<int, std::string> v1(42);
     Expected<int, std::string> v2(100);
     v1.swap(v2);
-    ASSERT_TRUE(*v1 == 100 && *v2 == 42, "Swap should exchange values");
+    FATP_ASSERT_TRUE(*v1 == 100 && *v2 == 42, "Swap should exchange values");
 
     Expected<int, std::string> v(42);
     Expected<int, std::string> e(unexpected{"error"});
     v.swap(e);
-    ASSERT_TRUE(!v.has_value() && e.has_value(), "Cross-state swap should work");
-    ASSERT_TRUE(v.error() == "error" && *e == 42, "Cross-state swap data correct");
+    FATP_ASSERT_TRUE(!v.has_value() && e.has_value(), "Cross-state swap should work");
+    FATP_ASSERT_TRUE(v.error() == "error" && *e == 42, "Cross-state swap data correct");
 
     return true;
 }
 
-bool test_expected_comparisons()
+FATP_TEST_CASE(comparisons)
 {
     Expected<int, std::string> v1(42);
     Expected<int, std::string> v2(42);
-    ASSERT_TRUE(v1 == v2, "Equal Expected should compare equal");
-    ASSERT_TRUE(v1 == 42, "Expected should compare equal to value");
+    FATP_ASSERT_TRUE(v1 == v2, "Equal Expected should compare equal");
+    FATP_ASSERT_TRUE(v1 == 42, "Expected should compare equal to value");
 
     Expected<int, std::string> e(unexpected{"error"});
-    ASSERT_TRUE(e == unexpected{"error"}, "Expected should compare equal to unexpected");
+    FATP_ASSERT_TRUE(e == unexpected{"error"}, "Expected should compare equal to unexpected");
 
     return true;
 }
 
-bool test_expected_ordering()
+FATP_TEST_CASE(ordering)
 {
     Expected<int, std::string> v1(5);
     Expected<int, std::string> v2(10);
     const Expected<int, std::string> v3(15);
 
-    ASSERT_TRUE(v1 < v2, "operator< works");
-    ASSERT_TRUE(v1 <= v2, "operator<= works");
-    ASSERT_TRUE(v2 > v1, "operator> works");
-    ASSERT_TRUE(v2 >= v1, "operator>= works");
+    FATP_ASSERT_TRUE(v1 < v2, "operator< works");
+    FATP_ASSERT_TRUE(v1 <= v2, "operator<= works");
+    FATP_ASSERT_TRUE(v2 > v1, "operator> works");
+    FATP_ASSERT_TRUE(v2 >= v1, "operator>= works");
 
-    ASSERT_TRUE(v1 < v3, "operator< with const rhs");
-    ASSERT_TRUE(v1 <= v3, "operator<= with const rhs");
-    ASSERT_TRUE(v3 > v1, "operator> with const lhs");
-    ASSERT_TRUE(v3 >= v1, "operator>= with const lhs");
+    FATP_ASSERT_TRUE(v1 < v3, "operator< with const rhs");
+    FATP_ASSERT_TRUE(v1 <= v3, "operator<= with const rhs");
+    FATP_ASSERT_TRUE(v3 > v1, "operator> with const lhs");
+    FATP_ASSERT_TRUE(v3 >= v1, "operator>= with const lhs");
 
     return true;
 }
 
-bool test_expected_hash()
+FATP_TEST_CASE(hash)
 {
     Expected<int, std::string> v1(42);
     Expected<int, std::string> v2(42);
     std::hash<Expected<int, std::string>> hasher;
 
-    ASSERT_TRUE(hasher(v1) == hasher(v2), "Same values should have same hash");
+    FATP_ASSERT_TRUE(hasher(v1) == hasher(v2), "Same values should have same hash");
 
     return true;
 }
 
-bool test_expected_make_expected()
+FATP_TEST_CASE(make_expected)
 {
     auto v1 = make_expected<std::string>(42);
-    ASSERT_TRUE(v1.has_value() && *v1 == 42, "make_expected works");
+    FATP_ASSERT_TRUE(v1.has_value() && *v1 == 42, "make_expected works");
 
     auto v2 = make_expected<int>(std::string("hello"));
-    ASSERT_TRUE(*v2 == "hello", "make_expected different error type");
+    FATP_ASSERT_TRUE(*v2 == "hello", "make_expected different error type");
 
     return true;
 }
 
-bool test_expected_result_status_aliases()
+FATP_TEST_CASE(result_status_aliases)
 {
     Result<int> r = 42;
-    ASSERT_TRUE(r.has_value() && *r == 42, "Result alias works");
+    FATP_ASSERT_TRUE(r.has_value() && *r == 42, "Result alias works");
 
     Status s;
-    ASSERT_TRUE(s.has_value(), "Status default is success");
+    FATP_ASSERT_TRUE(s.has_value(), "Status default is success");
 
     Status s_err = unexpected{"failed"};
-    ASSERT_TRUE(s_err.has_error(), "Status holds error");
+    FATP_ASSERT_TRUE(s_err.has_error(), "Status holds error");
 
     return true;
 }
 
-bool test_expected_storage_policy()
+FATP_TEST_CASE(storage_policy)
 {
     ExpectedUnion<int, std::string> v(42);
-    ASSERT_TRUE(v.has_value(), "ExpectedUnion should have value");
-    ASSERT_TRUE(*v == 42, "ExpectedUnion value should be 42");
+    FATP_ASSERT_TRUE(v.has_value(), "ExpectedUnion should have value");
+    FATP_ASSERT_TRUE(*v == 42, "ExpectedUnion value should be 42");
 
     Expected<int, std::string> v2(100);
-    ASSERT_TRUE(v2.has_value(), "Expected should have value");
-    ASSERT_TRUE(*v2 == 100, "Expected value should be 100");
+    FATP_ASSERT_TRUE(v2.has_value(), "Expected should have value");
+    FATP_ASSERT_TRUE(*v2 == 100, "Expected value should be 100");
 
     return true;
 }
 
-bool test_expected_rebind()
+FATP_TEST_CASE(rebind)
 {
     using IntExpected = Expected<int, std::string>;
     using DoubleExpected = IntExpected::rebind<double>;
@@ -415,13 +415,13 @@ bool test_expected_rebind()
 
     Expected<int, std::string> int_exp(42);
     auto double_exp = to_double(int_exp);
-    ASSERT_TRUE(double_exp.has_value(), "Rebind conversion works");
-    ASSERT_TRUE(*double_exp == 42.0, "Rebind value correct");
+    FATP_ASSERT_TRUE(double_exp.has_value(), "Rebind conversion works");
+    FATP_ASSERT_TRUE(*double_exp == 42.0, "Rebind value correct");
 
     return true;
 }
 
-bool test_expected_non_default_constructible()
+FATP_TEST_CASE(non_default_constructible)
 {
     struct NoDefault
     {
@@ -431,16 +431,16 @@ bool test_expected_non_default_constructible()
     };
 
     Expected<NoDefault, std::string> exp(std::in_place, 42);
-    ASSERT_TRUE(exp.has_value(), "NoDefault construction works");
-    ASSERT_TRUE(exp->value == 42, "NoDefault value correct");
+    FATP_ASSERT_TRUE(exp.has_value(), "NoDefault construction works");
+    FATP_ASSERT_TRUE(exp->value == 42, "NoDefault value correct");
 
     Expected<NoDefault, std::string> err(unexpected{"error"});
-    ASSERT_TRUE(!err.has_value(), "NoDefault error state works");
+    FATP_ASSERT_TRUE(!err.has_value(), "NoDefault error state works");
 
     return true;
 }
 
-bool test_expected_large_objects()
+FATP_TEST_CASE(large_objects)
 {
     struct LargeObject
     {
@@ -449,16 +449,16 @@ bool test_expected_large_objects()
     };
 
     Expected<LargeObject, std::string> exp(std::in_place);
-    ASSERT_TRUE(exp.has_value(), "Large object construction");
-    ASSERT_TRUE(exp->data[0] == 42, "Large object value correct");
+    FATP_ASSERT_TRUE(exp.has_value(), "Large object construction");
+    FATP_ASSERT_TRUE(exp->data[0] == 42, "Large object value correct");
 
     auto moved = std::move(exp);
-    ASSERT_TRUE(moved.has_value(), "Large object moved");
+    FATP_ASSERT_TRUE(moved.has_value(), "Large object moved");
 
     return true;
 }
 
-bool test_expected_concurrent_read()
+FATP_TEST_CASE(concurrent_read)
 {
     Expected<int, std::string> shared_exp(42);
     std::atomic<int> sum{0};
@@ -483,83 +483,83 @@ bool test_expected_concurrent_read()
         t.join();
     }
 
-    ASSERT_TRUE(sum == 42 * 400, "Concurrent reads safe");
+    FATP_ASSERT_TRUE(sum == 42 * 400, "Concurrent reads safe");
 
     return true;
 }
 
-bool test_expected_monadic_chaining()
+FATP_TEST_CASE(monadic_chaining)
 {
     auto result = safe_stoi("10")
         .and_then([](int x) { return divide(100, x); })
         .map([](int x) { return x * 2; });
 
-    ASSERT_TRUE(result.has_value(), "Chained operations succeed");
-    ASSERT_TRUE(*result == 20, "Chained result correct");
+    FATP_ASSERT_TRUE(result.has_value(), "Chained operations succeed");
+    FATP_ASSERT_TRUE(*result == 20, "Chained result correct");
 
     auto err_result = safe_stoi("not_a_number")
         .and_then([](int x) { return divide(100, x); })
         .map([](int x) { return x * 2; });
 
-    ASSERT_TRUE(!err_result.has_value(), "Error propagates through chain");
+    FATP_ASSERT_TRUE(!err_result.has_value(), "Error propagates through chain");
 
     return true;
 }
 
-bool test_expected_fold()
+FATP_TEST_CASE(fold)
 {
     auto v = Expected<int, std::string>(42);
     int result = v.fold(
         [](int x) { return x * 2; },
         [](const std::string&) { return -1; }
     );
-    ASSERT_TRUE(result == 84, "fold with value");
+    FATP_ASSERT_TRUE(result == 84, "fold with value");
 
     auto e = Expected<int, std::string>(unexpected{"error"});
     int err_result = e.fold(
         [](int x) { return x * 2; },
         [](const std::string&) { return -1; }
     );
-    ASSERT_TRUE(err_result == -1, "fold with error");
+    FATP_ASSERT_TRUE(err_result == -1, "fold with error");
 
     return true;
 }
 
-bool test_expected_value_unchecked()
+FATP_TEST_CASE(value_unchecked)
 {
     Expected<int, std::string> v(42);
-    ASSERT_TRUE(v.value_unchecked() == 42, "value_unchecked returns value");
+    FATP_ASSERT_TRUE(v.value_unchecked() == 42, "value_unchecked returns value");
 
     v.value_unchecked() = 100;
-    ASSERT_TRUE(*v == 100, "value_unchecked can modify");
+    FATP_ASSERT_TRUE(*v == 100, "value_unchecked can modify");
 
     const Expected<int, std::string> cv(200);
-    ASSERT_TRUE(cv.value_unchecked() == 200, "const value_unchecked works");
+    FATP_ASSERT_TRUE(cv.value_unchecked() == 200, "const value_unchecked works");
 
     Expected<std::string, int> sv("hello");
-    ASSERT_TRUE(sv.value_unchecked() == "hello", "value_unchecked with string");
+    FATP_ASSERT_TRUE(sv.value_unchecked() == "hello", "value_unchecked with string");
 
     return true;
 }
 
-bool test_expected_trivial_storage()
+FATP_TEST_CASE(trivial_storage)
 {
     enum class ErrorCode : int { None = 0, NotFound = 1, Invalid = 2 };
     using TrivExp = fat_p::ExpectedImpl<int, ErrorCode, fat_p::TrivialStorage>;
 
     TrivExp v(42);
-    ASSERT_TRUE(v.has_value(), "TrivialExpected has value");
-    ASSERT_TRUE(*v == 42, "TrivialExpected value correct");
+    FATP_ASSERT_TRUE(v.has_value(), "TrivialExpected has value");
+    FATP_ASSERT_TRUE(*v == 42, "TrivialExpected value correct");
 
     TrivExp e(fat_p::unexpect, ErrorCode::NotFound);
-    ASSERT_TRUE(!e.has_value(), "TrivialExpected has error");
-    ASSERT_TRUE(e.error() == ErrorCode::NotFound, "TrivialExpected error correct");
+    FATP_ASSERT_TRUE(!e.has_value(), "TrivialExpected has error");
+    FATP_ASSERT_TRUE(e.error() == ErrorCode::NotFound, "TrivialExpected error correct");
 
     TrivExp copy = v;
-    ASSERT_TRUE(*copy == 42, "TrivialExpected copy works");
+    FATP_ASSERT_TRUE(*copy == 42, "TrivialExpected copy works");
 
     TrivExp moved = std::move(copy);
-    ASSERT_TRUE(*moved == 42, "TrivialExpected move works");
+    FATP_ASSERT_TRUE(*moved == 42, "TrivialExpected move works");
 
     static_assert(std::is_trivially_copyable_v<fat_p::TrivialStorage<int, ErrorCode>>,
         "TrivialStorage should be trivially copyable");
@@ -568,15 +568,15 @@ bool test_expected_trivial_storage()
         "TrivialExpected should be trivially copyable for register passing");
 
     v.swap(e);
-    ASSERT_TRUE(!v.has_value() && e.has_value(), "TrivialExpected swap works");
+    FATP_ASSERT_TRUE(!v.has_value() && e.has_value(), "TrivialExpected swap works");
 
     auto mapped = e.map([](int x) { return x * 2; });
-    ASSERT_TRUE(*mapped == 84, "TrivialExpected map works");
+    FATP_ASSERT_TRUE(*mapped == 84, "TrivialExpected map works");
 
     return true;
 }
 
-bool test_expected_assign_or_return()
+FATP_TEST_CASE(assign_or_return)
 {
     auto success_fn = []() -> Expected<int, std::string> { return 42; };
     auto fail_fn = []() -> Expected<int, std::string> { return unexpected{"fail"}; };
@@ -596,16 +596,16 @@ bool test_expected_assign_or_return()
     };
 
     auto res1 = wrapper_success();
-    ASSERT_TRUE(res1.has_value() && *res1 == 84, "ASSIGN_OR_RETURN success path");
+    FATP_ASSERT_TRUE(res1.has_value() && *res1 == 84, "ASSIGN_OR_RETURN success path");
 
     auto res2 = wrapper_fail();
-    ASSERT_TRUE(!res2.has_value() && res2.error() == "fail", "ASSIGN_OR_RETURN error propagation");
+    FATP_ASSERT_TRUE(!res2.has_value() && res2.error() == "fail", "ASSIGN_OR_RETURN error propagation");
 
     return true;
 }
 
 #if defined(__cpp_lib_three_way_comparison) && __cpp_lib_three_way_comparison >= 201907L
-bool test_expected_three_way_comparison()
+FATP_TEST_CASE(three_way_comparison)
 {
     Expected<int, std::string> v1(42);
     Expected<int, std::string> v2(43);
@@ -613,41 +613,41 @@ bool test_expected_three_way_comparison()
     Expected<int, std::string> err1(unexpected{"error1"});
     Expected<int, std::string> err2(unexpected{"error2"});
 
-    ASSERT_TRUE((v1 <=> v2) == std::strong_ordering::less, "42 < 43");
-    ASSERT_TRUE((v2 <=> v1) == std::strong_ordering::greater, "43 > 42");
-    ASSERT_TRUE((v1 <=> v3) == std::strong_ordering::equal, "42 == 42");
-    ASSERT_TRUE((err1 <=> v1) == std::strong_ordering::less, "error < value");
-    ASSERT_TRUE((v1 <=> err1) == std::strong_ordering::greater, "value > error");
-    ASSERT_TRUE((err1 <=> err2) == std::strong_ordering::less, "error1 < error2");
+    FATP_ASSERT_TRUE((v1 <=> v2) == std::strong_ordering::less, "42 < 43");
+    FATP_ASSERT_TRUE((v2 <=> v1) == std::strong_ordering::greater, "43 > 42");
+    FATP_ASSERT_TRUE((v1 <=> v3) == std::strong_ordering::equal, "42 == 42");
+    FATP_ASSERT_TRUE((err1 <=> v1) == std::strong_ordering::less, "error < value");
+    FATP_ASSERT_TRUE((v1 <=> err1) == std::strong_ordering::greater, "value > error");
+    FATP_ASSERT_TRUE((err1 <=> err2) == std::strong_ordering::less, "error1 < error2");
 
     return true;
 }
 #endif
 
 #if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
-bool test_expected_std_expected_integration()
+FATP_TEST_CASE(std_expected_integration)
 {
     Expected<int, std::string> custom(42);
     auto std_exp = to_std_expected(custom);
 
-    ASSERT_TRUE(std_exp.has_value(), "Converted value state");
-    ASSERT_TRUE(*std_exp == 42, "Converted value correct");
+    FATP_ASSERT_TRUE(std_exp.has_value(), "Converted value state");
+    FATP_ASSERT_TRUE(*std_exp == 42, "Converted value correct");
 
     Expected<int, std::string> custom_err(unexpected{"error"});
     auto std_exp_err = to_std_expected(custom_err);
 
-    ASSERT_TRUE(!std_exp_err.has_value(), "Converted error state");
-    ASSERT_TRUE(std_exp_err.error() == "error", "Converted error correct");
+    FATP_ASSERT_TRUE(!std_exp_err.has_value(), "Converted error state");
+    FATP_ASSERT_TRUE(std_exp_err.error() == "error", "Converted error correct");
 
     std::expected<int, std::string> std_v(42);
     auto back = from_std_expected(std_v);
 
-    ASSERT_TRUE(back.has_value(), "Converted back value state");
-    ASSERT_TRUE(*back == 42, "Converted back value correct");
+    FATP_ASSERT_TRUE(back.has_value(), "Converted back value state");
+    FATP_ASSERT_TRUE(*back == 42, "Converted back value correct");
 
     Expected<void, std::string> custom_void;
     auto std_void = to_std_expected(custom_void);
-    ASSERT_TRUE(std_void.has_value(), "Void conversion works");
+    FATP_ASSERT_TRUE(std_void.has_value(), "Void conversion works");
 
     return true;
 }
@@ -814,54 +814,59 @@ void benchmark_expected()
 // Main Test Runner
 // ============================================================================
 
+} // namespace fat_p::testing::expected
+
+namespace fat_p::testing
+{
+
 bool test_Expected()
 {
-    PRINT_HEADER(EXPECTED)
+    FATP_PRINT_HEADER(EXPECTED)
 
     TestRunner runner;
 
-    RUN_TEST(runner, expected_basic_construction);
-    RUN_TEST(runner, expected_copy_construction);
-    RUN_TEST(runner, expected_move_construction);
-    RUN_TEST(runner, expected_copy_assignment);
-    RUN_TEST(runner, expected_move_assignment);
-    RUN_TEST(runner, expected_value_access);
-    RUN_TEST(runner, expected_error_access);
-    RUN_TEST(runner, expected_has_error);
-    RUN_TEST(runner, expected_error_or_else);
-    RUN_TEST(runner, expected_map);
-    RUN_TEST(runner, expected_and_then);
-    RUN_TEST(runner, expected_or_else);
-    RUN_TEST(runner, expected_transform_error);
-    RUN_TEST(runner, expected_inspect);
-    RUN_TEST(runner, expected_void_specialization);
-    RUN_TEST(runner, expected_emplace);
-    RUN_TEST(runner, expected_swap);
-    RUN_TEST(runner, expected_comparisons);
-    RUN_TEST(runner, expected_ordering);
-    RUN_TEST(runner, expected_hash);
-    RUN_TEST(runner, expected_make_expected);
-    RUN_TEST(runner, expected_result_status_aliases);
-    RUN_TEST(runner, expected_storage_policy);
-    RUN_TEST(runner, expected_rebind);
-    RUN_TEST(runner, expected_non_default_constructible);
-    RUN_TEST(runner, expected_large_objects);
-    RUN_TEST(runner, expected_concurrent_read);
-    RUN_TEST(runner, expected_monadic_chaining);
-    RUN_TEST(runner, expected_fold);
-    RUN_TEST(runner, expected_value_unchecked);
-    RUN_TEST(runner, expected_trivial_storage);
-    RUN_TEST(runner, expected_assign_or_return);
+    FATP_RUN_TEST_NS(runner, expected, basic_construction);
+    FATP_RUN_TEST_NS(runner, expected, copy_construction);
+    FATP_RUN_TEST_NS(runner, expected, move_construction);
+    FATP_RUN_TEST_NS(runner, expected, copy_assignment);
+    FATP_RUN_TEST_NS(runner, expected, move_assignment);
+    FATP_RUN_TEST_NS(runner, expected, value_access);
+    FATP_RUN_TEST_NS(runner, expected, error_access);
+    FATP_RUN_TEST_NS(runner, expected, has_error);
+    FATP_RUN_TEST_NS(runner, expected, error_or_else);
+    FATP_RUN_TEST_NS(runner, expected, map);
+    FATP_RUN_TEST_NS(runner, expected, and_then);
+    FATP_RUN_TEST_NS(runner, expected, or_else);
+    FATP_RUN_TEST_NS(runner, expected, transform_error);
+    FATP_RUN_TEST_NS(runner, expected, inspect);
+    FATP_RUN_TEST_NS(runner, expected, void_specialization);
+    FATP_RUN_TEST_NS(runner, expected, emplace);
+    FATP_RUN_TEST_NS(runner, expected, swap);
+    FATP_RUN_TEST_NS(runner, expected, comparisons);
+    FATP_RUN_TEST_NS(runner, expected, ordering);
+    FATP_RUN_TEST_NS(runner, expected, hash);
+    FATP_RUN_TEST_NS(runner, expected, make_expected);
+    FATP_RUN_TEST_NS(runner, expected, result_status_aliases);
+    FATP_RUN_TEST_NS(runner, expected, storage_policy);
+    FATP_RUN_TEST_NS(runner, expected, rebind);
+    FATP_RUN_TEST_NS(runner, expected, non_default_constructible);
+    FATP_RUN_TEST_NS(runner, expected, large_objects);
+    FATP_RUN_TEST_NS(runner, expected, concurrent_read);
+    FATP_RUN_TEST_NS(runner, expected, monadic_chaining);
+    FATP_RUN_TEST_NS(runner, expected, fold);
+    FATP_RUN_TEST_NS(runner, expected, value_unchecked);
+    FATP_RUN_TEST_NS(runner, expected, trivial_storage);
+    FATP_RUN_TEST_NS(runner, expected, assign_or_return);
 
 #if defined(__cpp_lib_three_way_comparison) && __cpp_lib_three_way_comparison >= 201907L
-    RUN_TEST(runner, expected_three_way_comparison);
+    FATP_RUN_TEST_NS(runner, expected, three_way_comparison);
 #endif
 
 #if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
-    RUN_TEST(runner, expected_std_expected_integration);
+    FATP_RUN_TEST_NS(runner, expected, std_expected_integration);
 #endif
 
-    benchmark_expected();
+    expected::benchmark_expected();
 
     return 0 == runner.print_summary();
 }

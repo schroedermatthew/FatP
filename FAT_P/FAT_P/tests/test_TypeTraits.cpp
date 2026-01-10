@@ -378,7 +378,7 @@ struct ExtensionTestType
     int value;
 };
 
-TEST_CASE(detection_idiom)
+FATP_TEST_CASE(detection_idiom)
 {
     using namespace detail;
     static_assert(is_detected_v<op_value_type, std::vector<int>>, "vector has value_type");
@@ -394,7 +394,7 @@ TEST_CASE(detection_idiom)
     return true;
 }
 
-TEST_CASE(container_basic_traits)
+FATP_TEST_CASE(container_basic_traits)
 {
     static_assert(has_begin_v<std::vector<int>>, "vector has begin");
     static_assert(has_begin_v<std::array<int, 5>>, "array has begin");
@@ -417,7 +417,7 @@ TEST_CASE(container_basic_traits)
     return true;
 }
 
-TEST_CASE(reverse_iteration_traits)
+FATP_TEST_CASE(reverse_iteration_traits)
 {
     static_assert(has_rbegin_v<std::vector<int>>, "vector has rbegin");
     static_assert(has_rbegin_v<std::list<int>>, "list has rbegin");
@@ -431,7 +431,7 @@ TEST_CASE(reverse_iteration_traits)
     return true;
 }
 
-TEST_CASE(composite_container_traits)
+FATP_TEST_CASE(composite_container_traits)
 {
     static_assert(is_iterable_v<std::vector<int>>, "vector is iterable");
     static_assert(is_iterable_v<std::list<int>>, "list is iterable");
@@ -449,7 +449,7 @@ TEST_CASE(composite_container_traits)
     return true;
 }
 
-TEST_CASE(access_traits)
+FATP_TEST_CASE(access_traits)
 {
     static_assert(has_subscript_v<std::vector<int>>, "vector has subscript");
     static_assert(has_subscript_v<std::array<int, 5>>, "array has subscript");
@@ -464,7 +464,7 @@ TEST_CASE(access_traits)
     return true;
 }
 
-TEST_CASE(container_operations)
+FATP_TEST_CASE(container_operations)
 {
     static_assert(has_clear_v<std::vector<int>>, "vector has clear");
     static_assert(has_clear_v<ContainerWithClear>, "custom container has clear");
@@ -481,7 +481,7 @@ TEST_CASE(container_operations)
     return true;
 }
 
-TEST_CASE(contiguous_container)
+FATP_TEST_CASE(contiguous_container)
 {
     static_assert(is_contiguous_container_v<std::vector<int>>, "vector is contiguous");
     static_assert(is_contiguous_container_v<std::array<int, 5>>, "array is contiguous");
@@ -491,7 +491,7 @@ TEST_CASE(contiguous_container)
     return true;
 }
 
-TEST_CASE(map_like)
+FATP_TEST_CASE(map_like)
 {
     static_assert(is_map_like_v<std::map<int, int>>, "map is map-like");
     static_assert(is_map_like_v<std::unordered_map<int, int>>, "unordered_map is map-like");
@@ -500,7 +500,7 @@ TEST_CASE(map_like)
     return true;
 }
 
-TEST_CASE(comparison_traits)
+FATP_TEST_CASE(comparison_traits)
 {
     static_assert(is_hashable_v<int>, "int is hashable");
     static_assert(is_hashable_v<std::string>, "string is hashable");
@@ -521,7 +521,7 @@ TEST_CASE(comparison_traits)
     return true;
 }
 
-TEST_CASE(comparator_traits)
+FATP_TEST_CASE(comparator_traits)
 {
     static_assert(is_valid_comparator_v<std::less<int>, int>, "std::less is valid for int");
     static_assert(is_valid_comparator_v<TransparentComparator, int>, "transparent comparator valid");
@@ -533,7 +533,7 @@ TEST_CASE(comparator_traits)
     return true;
 }
 
-TEST_CASE(library_type_detection)
+FATP_TEST_CASE(library_type_detection)
 {
     static_assert(is_atomic_v<std::atomic<int>>, "atomic<int> detected");
     static_assert(is_atomic_v<std::atomic<bool>>, "atomic<bool> detected");
@@ -544,7 +544,7 @@ TEST_CASE(library_type_detection)
     return true;
 }
 
-TEST_CASE(serialization_traits)
+FATP_TEST_CASE(serialization_traits)
 {
     static_assert(has_serialize_v<Serializable>, "has serialize method");
     static_assert(!has_serialize_v<NonSerializable>, "lacks serialize method");
@@ -557,7 +557,7 @@ TEST_CASE(serialization_traits)
     return true;
 }
 
-TEST_CASE(allocator_traits)
+FATP_TEST_CASE(allocator_traits)
 {
     static_assert(has_allocator_type_v<std::vector<int>>, "vector has allocator_type");
     static_assert(has_allocator_type_v<std::string>, "string has allocator_type");
@@ -572,7 +572,7 @@ TEST_CASE(allocator_traits)
     return true;
 }
 
-TEST_CASE(callable_traits)
+FATP_TEST_CASE(callable_traits)
 {
     auto lambda = [](int x)
     {
@@ -592,7 +592,7 @@ TEST_CASE(callable_traits)
     return true;
 }
 
-TEST_CASE(nothrow_invocable)
+FATP_TEST_CASE(nothrow_invocable)
 {
     // Test noexcept lambdas
     auto noexcept_lambda = [](int x) noexcept
@@ -628,7 +628,7 @@ TEST_CASE(nothrow_invocable)
     return true;
 }
 
-TEST_CASE(range_traits)
+FATP_TEST_CASE(range_traits)
 {
     // is_range_v is an alias for is_iterable_v
     static_assert(is_range_v<std::vector<int>>, "vector is a range");
@@ -652,7 +652,7 @@ TEST_CASE(range_traits)
     return true;
 }
 
-TEST_CASE(policy_detection)
+FATP_TEST_CASE(policy_detection)
 {
     // Test has_validate
     static_assert(has_validate_v<PolicyWithValidate>, "policy has validate method");
@@ -672,7 +672,7 @@ TEST_CASE(policy_detection)
     return true;
 }
 
-TEST_CASE(extension_points)
+FATP_TEST_CASE(extension_points)
 {
     // Test that custom_traits can be specialized
     // The default custom_traits is an empty struct
@@ -687,7 +687,7 @@ TEST_CASE(extension_points)
 }
 
 #if FATP_HAS_CPP20
-TEST_CASE(three_way_comparable)
+FATP_TEST_CASE(three_way_comparable)
 {
     // Standard types with operator<=>
     static_assert(is_three_way_comparable_v<int>, "int has operator<=>");
@@ -712,7 +712,7 @@ TEST_CASE(three_way_comparable)
 }
 #endif
 
-TEST_CASE(aggregate_and_array_traits)
+FATP_TEST_CASE(aggregate_and_array_traits)
 {
     static_assert(is_aggregate_v<AggregateStruct>, "struct is aggregate");
     static_assert(!is_aggregate_v<NonAggregateStruct>, "non-aggregate has constructor");
@@ -725,7 +725,7 @@ TEST_CASE(aggregate_and_array_traits)
     return true;
 }
 
-TEST_CASE(tuple_traits)
+FATP_TEST_CASE(tuple_traits)
 {
     static_assert(has_tuple_size_v<std::tuple<int, double>>, "tuple has tuple_size");
     static_assert(has_tuple_size_v<std::pair<int, double>>, "pair has tuple_size");
@@ -744,7 +744,7 @@ TEST_CASE(tuple_traits)
     return true;
 }
 
-TEST_CASE(iterator_traits)
+FATP_TEST_CASE(iterator_traits)
 {
     static_assert(has_iterator_category_v<std::vector<int>::iterator>,
         "vector iterator has category");
@@ -754,7 +754,7 @@ TEST_CASE(iterator_traits)
     return true;
 }
 
-TEST_CASE(string_traits)
+FATP_TEST_CASE(string_traits)
 {
     static_assert(has_c_str_v<std::string>, "string has c_str");
     static_assert(!has_c_str_v<std::vector<char>>, "vector<char> has no c_str");
@@ -764,7 +764,7 @@ TEST_CASE(string_traits)
     return true;
 }
 
-TEST_CASE(optional_variant_traits)
+FATP_TEST_CASE(optional_variant_traits)
 {
     static_assert(has_has_value_v<std::optional<int>>, "optional has has_value");
     static_assert(has_has_value_v<WithHasValue>, "custom type has has_value");
@@ -779,7 +779,7 @@ TEST_CASE(optional_variant_traits)
     return true;
 }
 
-TEST_CASE(trivially_relocatable)
+FATP_TEST_CASE(trivially_relocatable)
 {
     static_assert(is_trivially_relocatable_v<int>, "int is trivially relocatable");
     static_assert(is_trivially_relocatable_v<TriviallyRelocatable>,
@@ -790,7 +790,7 @@ TEST_CASE(trivially_relocatable)
     return true;
 }
 
-TEST_CASE(trait_composition)
+FATP_TEST_CASE(trait_composition)
 {
     using namespace trait_ops;
     static_assert(all_of_v<std::vector<int>, is_iterable, is_sized, has_reserve>,
@@ -806,7 +806,7 @@ TEST_CASE(trait_composition)
     return true;
 }
 
-TEST_CASE(is_detected_pattern)
+FATP_TEST_CASE(is_detected_pattern)
 {
     static_assert(has_custom_value_v<WithCustomMember>, "is_detected pattern detected member");
     static_assert(!has_custom_value_v<int>, "int has no custom member");
@@ -815,11 +815,11 @@ TEST_CASE(is_detected_pattern)
     return true;
 }
 
-TEST_CASE(diagnostics)
+FATP_TEST_CASE(diagnostics)
 {
     using namespace diagnostics;
     const char* reason = diagnose_container<int>();
-    ASSERT_NOT_NULLPTR(reason, "diagnostic returns reason");
+    FATP_ASSERT_NOT_NULLPTR(reason, "diagnostic returns reason");
     static_assert(why_not_container<std::vector<int>>::reason != nullptr,
         "vector diagnostic exists");
     static_assert(why_not_hashable<int>::reason != nullptr, "int hashable diagnostic exists");
@@ -829,7 +829,7 @@ TEST_CASE(diagnostics)
     return true;
 }
 
-TEST_CASE(dbc_helpers)
+FATP_TEST_CASE(dbc_helpers)
 {
     requires_iterable<std::vector<int>>();
     requires_sized<std::string>();
@@ -843,7 +843,7 @@ TEST_CASE(dbc_helpers)
     return true;
 }
 
-TEST_CASE(value_type_detection)
+FATP_TEST_CASE(value_type_detection)
 {
     static_assert(is_detected_v<detail::op_value_type, std::vector<int>>,
         "vector has value_type");
@@ -852,14 +852,14 @@ TEST_CASE(value_type_detection)
     return true;
 }
 
-TEST_CASE(constexpr_evaluation)
+FATP_TEST_CASE(constexpr_evaluation)
 {
     constexpr bool is_vec_iterable = is_iterable_v<std::vector<int>>;
     constexpr bool is_int_hashable = is_hashable_v<int>;
     constexpr bool is_string_sized = is_sized_v<std::string>;
-    ASSERT_TRUE(is_vec_iterable, "constexpr evaluation works");
-    ASSERT_TRUE(is_int_hashable, "constexpr hashable check");
-    ASSERT_TRUE(is_string_sized, "constexpr sized check");
+    FATP_ASSERT_TRUE(is_vec_iterable, "constexpr evaluation works");
+    FATP_ASSERT_TRUE(is_int_hashable, "constexpr hashable check");
+    FATP_ASSERT_TRUE(is_string_sized, "constexpr sized check");
     return true;
 }
 
@@ -903,42 +903,42 @@ namespace fat_p::testing
 
 bool test_TypeTraits()
 {
-    PRINT_HEADER(TYPE TRAITS)
+    FATP_PRINT_HEADER(TYPE TRAITS)
     TestRunner runner;
     
-    RUN_TEST_NS(runner, typetraits, detection_idiom);
-    RUN_TEST_NS(runner, typetraits, container_basic_traits);
-    RUN_TEST_NS(runner, typetraits, reverse_iteration_traits);
-    RUN_TEST_NS(runner, typetraits, composite_container_traits);
-    RUN_TEST_NS(runner, typetraits, access_traits);
-    RUN_TEST_NS(runner, typetraits, container_operations);
-    RUN_TEST_NS(runner, typetraits, contiguous_container);
-    RUN_TEST_NS(runner, typetraits, map_like);
-    RUN_TEST_NS(runner, typetraits, comparison_traits);
-    RUN_TEST_NS(runner, typetraits, comparator_traits);
-    RUN_TEST_NS(runner, typetraits, library_type_detection);
-    RUN_TEST_NS(runner, typetraits, serialization_traits);
-    RUN_TEST_NS(runner, typetraits, allocator_traits);
-    RUN_TEST_NS(runner, typetraits, callable_traits);
-    RUN_TEST_NS(runner, typetraits, nothrow_invocable);
-    RUN_TEST_NS(runner, typetraits, range_traits);
-    RUN_TEST_NS(runner, typetraits, policy_detection);
-    RUN_TEST_NS(runner, typetraits, extension_points);
+    FATP_RUN_TEST_NS(runner, typetraits, detection_idiom);
+    FATP_RUN_TEST_NS(runner, typetraits, container_basic_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, reverse_iteration_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, composite_container_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, access_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, container_operations);
+    FATP_RUN_TEST_NS(runner, typetraits, contiguous_container);
+    FATP_RUN_TEST_NS(runner, typetraits, map_like);
+    FATP_RUN_TEST_NS(runner, typetraits, comparison_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, comparator_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, library_type_detection);
+    FATP_RUN_TEST_NS(runner, typetraits, serialization_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, allocator_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, callable_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, nothrow_invocable);
+    FATP_RUN_TEST_NS(runner, typetraits, range_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, policy_detection);
+    FATP_RUN_TEST_NS(runner, typetraits, extension_points);
 #if FATP_HAS_CPP20
-    RUN_TEST_NS(runner, typetraits, three_way_comparable);
+    FATP_RUN_TEST_NS(runner, typetraits, three_way_comparable);
 #endif
-    RUN_TEST_NS(runner, typetraits, aggregate_and_array_traits);
-    RUN_TEST_NS(runner, typetraits, tuple_traits);
-    RUN_TEST_NS(runner, typetraits, iterator_traits);
-    RUN_TEST_NS(runner, typetraits, string_traits);
-    RUN_TEST_NS(runner, typetraits, optional_variant_traits);
-    RUN_TEST_NS(runner, typetraits, trivially_relocatable);
-    RUN_TEST_NS(runner, typetraits, trait_composition);
-    RUN_TEST_NS(runner, typetraits, is_detected_pattern);
-    RUN_TEST_NS(runner, typetraits, diagnostics);
-    RUN_TEST_NS(runner, typetraits, dbc_helpers);
-    RUN_TEST_NS(runner, typetraits, value_type_detection);
-    RUN_TEST_NS(runner, typetraits, constexpr_evaluation);
+    FATP_RUN_TEST_NS(runner, typetraits, aggregate_and_array_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, tuple_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, iterator_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, string_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, optional_variant_traits);
+    FATP_RUN_TEST_NS(runner, typetraits, trivially_relocatable);
+    FATP_RUN_TEST_NS(runner, typetraits, trait_composition);
+    FATP_RUN_TEST_NS(runner, typetraits, is_detected_pattern);
+    FATP_RUN_TEST_NS(runner, typetraits, diagnostics);
+    FATP_RUN_TEST_NS(runner, typetraits, dbc_helpers);
+    FATP_RUN_TEST_NS(runner, typetraits, value_type_detection);
+    FATP_RUN_TEST_NS(runner, typetraits, constexpr_evaluation);
     
     typetraits::run_benchmarks();
     

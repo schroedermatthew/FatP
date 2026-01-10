@@ -58,7 +58,6 @@ namespace fat_p::testing
 	bool test_Expected();
 	bool test_Factory();
 	bool test_FastHashMap();
-	bool test_FastHashMap();
 	bool test_FatPBenchmarkRunner();
 	bool test_FatPBinary();
 	bool test_FatPCbor();
@@ -83,7 +82,7 @@ namespace fat_p::testing
 	bool test_PipeOperator();
 	bool test_PolicyIterator();
 	bool test_RateLimiter();
-	bool test_RCU_integration();
+	bool test_RcuIntegration();
 	bool test_Reflection();
 	bool test_ScopeGuard();
 	bool test_ScopeGuardExpected();

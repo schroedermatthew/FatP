@@ -103,7 +103,7 @@ public:
     }
 };
 
-TEST_CASE(basic) {
+FATP_TEST_CASE(basic) {
     std::cout << colors::cyan() << "\nTesting Basic ScopeGuard Functionality..."
               << colors::reset() << std::endl;
     
@@ -117,9 +117,9 @@ TEST_CASE(basic) {
             auto guard = makeScopeGuard([&cleanup_count]() {
                 ++cleanup_count;
             });
-            ASSERT_EQ(cleanup_count, 0, "Cleanup should not run yet");
+            FATP_ASSERT_EQ(cleanup_count, 0, "Cleanup should not run yet");
         }
-        ASSERT_EQ(cleanup_count, 1, "Cleanup should have run once");
+        FATP_ASSERT_EQ(cleanup_count, 1, "Cleanup should have run once");
     }
     
     // Test 2: Resource cleanup
@@ -135,9 +135,9 @@ TEST_CASE(basic) {
                 delete resource;
             });
         }
-        ASSERT_EQ(TestResource::construction_count, 1, "Should construct once");
-        ASSERT_EQ(TestResource::destruction_count, 1, "Should destruct once");
-        ASSERT_EQ(TestResource::cleanup_count, 1, "Should cleanup once");
+        FATP_ASSERT_EQ(TestResource::construction_count, 1, "Should construct once");
+        FATP_ASSERT_EQ(TestResource::destruction_count, 1, "Should destruct once");
+        FATP_ASSERT_EQ(TestResource::cleanup_count, 1, "Should cleanup once");
     }
     
     // Test 3: Multiple guards in scope
@@ -152,9 +152,9 @@ TEST_CASE(basic) {
             auto guard3 = makeScopeGuard([&count3]() { ++count3; });
         }
         // Guards execute in reverse order of construction (stack unwinding)
-        ASSERT_EQ(count1, 1, "Guard1 should execute");
-        ASSERT_EQ(count2, 1, "Guard2 should execute");
-        ASSERT_EQ(count3, 1, "Guard3 should execute");
+        FATP_ASSERT_EQ(count1, 1, "Guard1 should execute");
+        FATP_ASSERT_EQ(count2, 1, "Guard2 should execute");
+        FATP_ASSERT_EQ(count3, 1, "Guard3 should execute");
     }
     
     // Test 4: Nested scopes
@@ -165,15 +165,15 @@ TEST_CASE(basic) {
         int outer = 0, inner = 0;
         {
             auto outer_guard = makeScopeGuard([&outer]() { ++outer; });
-            ASSERT_EQ(outer, 0, "Outer guard not executed yet");
+            FATP_ASSERT_EQ(outer, 0, "Outer guard not executed yet");
             {
                 auto inner_guard = makeScopeGuard([&inner]() { ++inner; });
-                ASSERT_EQ(inner, 0, "Inner guard not executed yet");
+                FATP_ASSERT_EQ(inner, 0, "Inner guard not executed yet");
             }
-            ASSERT_EQ(inner, 1, "Inner guard should have executed");
-            ASSERT_EQ(outer, 0, "Outer guard still not executed");
+            FATP_ASSERT_EQ(inner, 1, "Inner guard should have executed");
+            FATP_ASSERT_EQ(outer, 0, "Outer guard still not executed");
         }
-        ASSERT_EQ(outer, 1, "Outer guard should have executed");
+        FATP_ASSERT_EQ(outer, 1, "Outer guard should have executed");
     }
     
     std::cout << colors::green() << "Basic ScopeGuard: Tests passed."
@@ -185,7 +185,7 @@ TEST_CASE(basic) {
 // II. Dismiss Functionality Tests
 // =============================================================================
 
-TEST_CASE(dismiss) {
+FATP_TEST_CASE(dismiss) {
     std::cout << colors::cyan() << "\nTesting Dismiss Functionality..."
               << colors::reset() << std::endl;
     
@@ -197,11 +197,11 @@ TEST_CASE(dismiss) {
         int cleanup_count = 0;
         {
             auto guard = makeScopeGuard([&cleanup_count]() { ++cleanup_count; });
-            ASSERT_TRUE(guard.is_active(), "Guard should be active");
+            FATP_ASSERT_TRUE(guard.is_active(), "Guard should be active");
             guard.dismiss();
-            ASSERT_FALSE(guard.is_active(), "Guard should be dismissed");
+            FATP_ASSERT_FALSE(guard.is_active(), "Guard should be dismissed");
         }
-        ASSERT_EQ(cleanup_count, 0, "Dismissed guard should not execute");
+        FATP_ASSERT_EQ(cleanup_count, 0, "Dismissed guard should not execute");
     }
     
     // Test 2: Conditional dismiss (true)
@@ -215,7 +215,7 @@ TEST_CASE(dismiss) {
             auto guard = makeScopeGuard([&cleanup_count]() { ++cleanup_count; });
             guard.dismiss_if(success);
         }
-        ASSERT_EQ(cleanup_count, 0, "Should not execute when dismissed");
+        FATP_ASSERT_EQ(cleanup_count, 0, "Should not execute when dismissed");
     }
     
     // Test 3: Conditional dismiss (false)
@@ -229,7 +229,7 @@ TEST_CASE(dismiss) {
             auto guard = makeScopeGuard([&cleanup_count]() { ++cleanup_count; });
             guard.dismiss_if(success);
         }
-        ASSERT_EQ(cleanup_count, 1, "Should execute when not dismissed");
+        FATP_ASSERT_EQ(cleanup_count, 1, "Should execute when not dismissed");
     }
     
     // Test 4: Dismiss pattern for successful operations
@@ -257,8 +257,8 @@ TEST_CASE(dismiss) {
             }
         }
         
-        ASSERT_TRUE(operation_succeeded, "Operation should succeed");
-        ASSERT_EQ(TestResource::cleanup_count, 0, "Should not cleanup on success");
+        FATP_ASSERT_TRUE(operation_succeeded, "Operation should succeed");
+        FATP_ASSERT_EQ(TestResource::cleanup_count, 0, "Should not cleanup on success");
         
         // Manual cleanup
         delete resource;
@@ -273,7 +273,7 @@ TEST_CASE(dismiss) {
 // III. Move Semantics Tests
 // =============================================================================
 
-TEST_CASE(move_semantics) {
+FATP_TEST_CASE(move_semantics) {
     std::cout << colors::cyan() << "\nTesting Move Semantics..."
               << colors::reset() << std::endl;
     
@@ -285,13 +285,13 @@ TEST_CASE(move_semantics) {
         int cleanup_count = 0;
         {
             auto guard1 = makeScopeGuard([&cleanup_count]() { ++cleanup_count; });
-            ASSERT_TRUE(guard1.is_active(), "guard1 should be active");
+            FATP_ASSERT_TRUE(guard1.is_active(), "guard1 should be active");
             
             auto guard2 = std::move(guard1);
-            ASSERT_TRUE(guard2.is_active(), "guard2 should be active");
-            ASSERT_FALSE(guard1.is_active(), "guard1 should be inactive after move");
+            FATP_ASSERT_TRUE(guard2.is_active(), "guard2 should be active");
+            FATP_ASSERT_FALSE(guard1.is_active(), "guard1 should be inactive after move");
         }
-        ASSERT_EQ(cleanup_count, 1, "Cleanup should execute once from guard2");
+        FATP_ASSERT_EQ(cleanup_count, 1, "Cleanup should execute once from guard2");
     }
     
     // Test 2: Move assignment
@@ -311,12 +311,12 @@ TEST_CASE(move_semantics) {
             // guard2's original action should execute immediately
             guard2 = std::move(guard1);
             
-            ASSERT_EQ(cleanup2, 1, "guard2's original action should execute");
-            ASSERT_EQ(cleanup1, 0, "guard1's action not executed yet");
-            ASSERT_FALSE(guard1.is_active(), "guard1 should be inactive");
-            ASSERT_TRUE(guard2.is_active(), "guard2 should be active");
+            FATP_ASSERT_EQ(cleanup2, 1, "guard2's original action should execute");
+            FATP_ASSERT_EQ(cleanup1, 0, "guard1's action not executed yet");
+            FATP_ASSERT_FALSE(guard1.is_active(), "guard1 should be inactive");
+            FATP_ASSERT_TRUE(guard2.is_active(), "guard2 should be active");
         }
-        ASSERT_EQ(cleanup1, 1, "guard1's action should execute from guard2");
+        FATP_ASSERT_EQ(cleanup1, 1, "guard1's action should execute from guard2");
     }
     
     // Test 3: Moving into function and back
@@ -332,9 +332,9 @@ TEST_CASE(move_semantics) {
         
         {
             auto guard = create_guard();
-            ASSERT_TRUE(guard.is_active(), "Returned guard should be active");
+            FATP_ASSERT_TRUE(guard.is_active(), "Returned guard should be active");
         }
-        ASSERT_EQ(cleanup_count, 1, "Cleanup should execute");
+        FATP_ASSERT_EQ(cleanup_count, 1, "Cleanup should execute");
     }
     
     // Test 4: Storing in container (requires move)
@@ -354,9 +354,9 @@ TEST_CASE(move_semantics) {
             guards.push_back(ScopeGuard<std::function<void()>>(
                 std::function<void()>([&cleanup_count]() { ++cleanup_count; })));
             
-            ASSERT_EQ(cleanup_count, 0, "No cleanup yet");
+            FATP_ASSERT_EQ(cleanup_count, 0, "No cleanup yet");
         }
-        ASSERT_EQ(cleanup_count, 2, "All guards should execute");
+        FATP_ASSERT_EQ(cleanup_count, 2, "All guards should execute");
     }
     
     std::cout << colors::green() << "Move Semantics: Tests passed."
@@ -368,7 +368,7 @@ TEST_CASE(move_semantics) {
 // IV. Exception Policy Tests
 // =============================================================================
 
-TEST_CASE(nothrow_policy) {
+FATP_TEST_CASE(nothrow_policy) {
     std::cout << colors::cyan() << "\nTesting ScopeGuardNothrowPolicy..."
               << colors::reset() << std::endl;
     
@@ -382,7 +382,7 @@ TEST_CASE(nothrow_policy) {
             auto guard = makeScopeGuard<ScopeGuardNothrowPolicy>(
                 [&cleanup_count]() noexcept { ++cleanup_count; });
         }
-        ASSERT_EQ(cleanup_count, 1, "Cleanup should execute");
+        FATP_ASSERT_EQ(cleanup_count, 1, "Cleanup should execute");
     }
     
     // Note: We cannot test a throwing lambda with NothrowPolicy
@@ -393,7 +393,7 @@ TEST_CASE(nothrow_policy) {
     return true;
 }
 
-TEST_CASE(terminate_policy) {
+FATP_TEST_CASE(terminate_policy) {
     std::cout << colors::cyan() << "\nTesting ScopeGuardTerminatePolicy..."
               << colors::reset() << std::endl;
     
@@ -407,7 +407,7 @@ TEST_CASE(terminate_policy) {
             auto guard = makeScopeGuard<ScopeGuardTerminatePolicy>(
                 [&cleanup_count]() { ++cleanup_count; });
         }
-        ASSERT_EQ(cleanup_count, 1, "Cleanup should execute");
+        FATP_ASSERT_EQ(cleanup_count, 1, "Cleanup should execute");
     }
     
     // Test 2: Dismissed guard doesn't execute
@@ -421,7 +421,7 @@ TEST_CASE(terminate_policy) {
                 [&cleanup_count]() { ++cleanup_count; });
             guard.dismiss();
         }
-        ASSERT_EQ(cleanup_count, 0, "Dismissed guard should not execute");
+        FATP_ASSERT_EQ(cleanup_count, 0, "Dismissed guard should not execute");
     }
     
     // Note: We cannot directly test the terminate behavior in a unit test
@@ -437,7 +437,7 @@ TEST_CASE(terminate_policy) {
     return true;
 }
 
-TEST_CASE(log_and_swallow_policy) {
+FATP_TEST_CASE(log_and_swallow_policy) {
     std::cout << colors::cyan() << "\nTesting ScopeGuardLogAndSwallowPolicy..."
               << colors::reset() << std::endl;
     
@@ -451,7 +451,7 @@ TEST_CASE(log_and_swallow_policy) {
             auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>(
                 [&cleanup_count]() { ++cleanup_count; });
         }
-        ASSERT_EQ(cleanup_count, 1, "Cleanup should execute");
+        FATP_ASSERT_EQ(cleanup_count, 1, "Cleanup should execute");
     }
     
     // Test 2: Throwing action (exception swallowed)
@@ -472,7 +472,7 @@ TEST_CASE(log_and_swallow_policy) {
             exception_caught_outside = true;
         }
         
-        ASSERT_FALSE(exception_caught_outside, 
+        FATP_ASSERT_FALSE(exception_caught_outside, 
             "Exception should be swallowed, not propagated");
     }
     
@@ -487,9 +487,9 @@ TEST_CASE(log_and_swallow_policy) {
                     throw std::logic_error("Logic error in cleanup");
                 });
             }
-            ASSERT_TRUE(true, "Should reach here (exception swallowed)");
+            FATP_ASSERT_TRUE(true, "Should reach here (exception swallowed)");
         } catch (...) {
-            ASSERT_TRUE(false, "Exception should not propagate");
+            FATP_ASSERT_TRUE(false, "Exception should not propagate");
         }
     }
     
@@ -512,9 +512,9 @@ TEST_CASE(log_and_swallow_policy) {
         std::cerr.rdbuf(original_stderr);
         
         std::string output = captured.str();
-        ASSERT_NE(output.find("Captured error message"), std::string::npos,
+        FATP_ASSERT_NE(output.find("Captured error message"), std::string::npos,
             "Error message should be logged to stderr");
-        ASSERT_TRUE(output.find("ScopeGuard") != std::string::npos ||
+        FATP_ASSERT_TRUE(output.find("ScopeGuard") != std::string::npos ||
                       output.find("swallowed") != std::string::npos,
             "Log should indicate source and that exception was handled");
     }
@@ -530,7 +530,7 @@ TEST_CASE(log_and_swallow_policy) {
     return true;
 }
 
-TEST_CASE(rethrow_policy) {
+FATP_TEST_CASE(rethrow_policy) {
     std::cout << colors::cyan() << "\nTesting ScopeGuardRethrowPolicy..."
               << colors::reset() << std::endl;
     
@@ -544,7 +544,7 @@ TEST_CASE(rethrow_policy) {
             auto guard = makeScopeGuard<ScopeGuardRethrowPolicy>(
                 [&cleanup_count]() { ++cleanup_count; });
         }
-        ASSERT_EQ(cleanup_count, 1, "Cleanup should execute");
+        FATP_ASSERT_EQ(cleanup_count, 1, "Cleanup should execute");
     }
     
     // Test 2: Throwing action (exception propagates)
@@ -561,11 +561,11 @@ TEST_CASE(rethrow_policy) {
             }
         } catch (const std::runtime_error& e) {
             exception_caught = true;
-            ASSERT_EQ(std::string(e.what()), "Test exception", 
+            FATP_ASSERT_EQ(std::string(e.what()), "Test exception", 
                 "Should catch the correct exception");
         }
         
-        ASSERT_TRUE(exception_caught, "Exception should propagate");
+        FATP_ASSERT_TRUE(exception_caught, "Exception should propagate");
     }
     
     // Test 3: Different exception types
@@ -583,7 +583,7 @@ TEST_CASE(rethrow_policy) {
         } catch (const std::logic_error&) {
             caught_logic_error = true;
         }
-        ASSERT_TRUE(caught_logic_error, "Should catch logic_error");
+        FATP_ASSERT_TRUE(caught_logic_error, "Should catch logic_error");
     }
     
     std::cout << colors::yellow() 
@@ -599,7 +599,7 @@ TEST_CASE(rethrow_policy) {
 // V. Macro Convenience Tests
 // =============================================================================
 
-TEST_CASE(macro_convenience) {
+FATP_TEST_CASE(macro_convenience) {
     std::cout << colors::cyan() << "\nTesting Macro Convenience..."
               << colors::reset() << std::endl;
     
@@ -612,7 +612,7 @@ TEST_CASE(macro_convenience) {
         {
             SCOPE_GUARD { ++cleanup_count; };
         }
-        ASSERT_EQ(cleanup_count, 1, "SCOPE_GUARD should execute");
+        FATP_ASSERT_EQ(cleanup_count, 1, "SCOPE_GUARD should execute");
     }
     
     // Test 2: Multiple SCOPE_GUARD on same line (unique naming)
@@ -625,8 +625,8 @@ TEST_CASE(macro_convenience) {
             SCOPE_GUARD { ++count1; };
             SCOPE_GUARD { ++count2; };
         }
-        ASSERT_EQ(count1, 1, "First guard should execute");
-        ASSERT_EQ(count2, 1, "Second guard should execute");
+        FATP_ASSERT_EQ(count1, 1, "First guard should execute");
+        FATP_ASSERT_EQ(count2, 1, "Second guard should execute");
     }
     
     // Test 3: SCOPE_GUARD_EX with policy
@@ -641,7 +641,7 @@ TEST_CASE(macro_convenience) {
                 ++cleanup_count; 
             };
         }
-        ASSERT_EQ(cleanup_count, 1, "SCOPE_GUARD_EX should execute");
+        FATP_ASSERT_EQ(cleanup_count, 1, "SCOPE_GUARD_EX should execute");
     }
     
     // Test 4: Capturing local variables
@@ -653,7 +653,7 @@ TEST_CASE(macro_convenience) {
         {
             SCOPE_GUARD { value *= 2; };
         }
-        ASSERT_EQ(value, 20, "Should capture and modify local variable");
+        FATP_ASSERT_EQ(value, 20, "Should capture and modify local variable");
     }
     
     std::cout << colors::green() << "Macro Convenience: Tests passed."
@@ -665,7 +665,7 @@ TEST_CASE(macro_convenience) {
 // VI. Thread-Safety Tests
 // =============================================================================
 
-TEST_CASE(complex_resource_management) {
+FATP_TEST_CASE(complex_resource_management) {
     std::cout << colors::cyan() << "\nTesting Complex Resource Management..."
               << colors::reset() << std::endl;
     
@@ -693,7 +693,7 @@ TEST_CASE(complex_resource_management) {
         };
         
         simulate_file_operations();
-        ASSERT_TRUE(file_closed, "File should be closed");
+        FATP_ASSERT_TRUE(file_closed, "File should be closed");
     }
     
     // Test 2: Transaction rollback pattern
@@ -722,8 +722,8 @@ TEST_CASE(complex_resource_management) {
         };
         
         simulate_transaction();
-        ASSERT_TRUE(committed, "Transaction should commit");
-        ASSERT_FALSE(rolled_back, "Should not rollback on success");
+        FATP_ASSERT_TRUE(committed, "Transaction should commit");
+        FATP_ASSERT_FALSE(rolled_back, "Should not rollback on success");
     }
     
     // Test 3: Multiple resource cleanup
@@ -755,9 +755,9 @@ TEST_CASE(complex_resource_management) {
             // All resources will be cleaned up in reverse order
         }
         
-        ASSERT_EQ(cleanup1, 1, "Resource1 should be cleaned");
-        ASSERT_EQ(cleanup2, 1, "Resource2 should be cleaned");
-        ASSERT_EQ(cleanup3, 1, "Resource3 should be cleaned");
+        FATP_ASSERT_EQ(cleanup1, 1, "Resource1 should be cleaned");
+        FATP_ASSERT_EQ(cleanup2, 1, "Resource2 should be cleaned");
+        FATP_ASSERT_EQ(cleanup3, 1, "Resource3 should be cleaned");
     }
     
     std::cout << colors::green() << "Complex Resource Management: Tests passed."
@@ -869,7 +869,7 @@ void run_scope_guard_benchmarks() {
 // Type Trait Tests
 // =============================================================================
 
-TEST_CASE(type_traits)
+FATP_TEST_CASE(type_traits)
 {
     std::cout << colors::cyan() << "\nTesting Type Traits..."
               << colors::reset() << std::endl;
@@ -891,8 +891,8 @@ TEST_CASE(type_traits)
         static_assert(!is_scope_guard_v<std::function<void()>>, 
             "std::function should not be detected as ScopeGuard");
         
-        ASSERT_TRUE(is_scope_guard_v<BasicGuard>, "Runtime check: BasicGuard");
-        ASSERT_FALSE(is_scope_guard_v<double>, "Runtime check: double");
+        FATP_ASSERT_TRUE(is_scope_guard_v<BasicGuard>, "Runtime check: BasicGuard");
+        FATP_ASSERT_FALSE(is_scope_guard_v<double>, "Runtime check: double");
     }
     
     // Test 2: ScopeGuardOnFail detection
@@ -905,7 +905,7 @@ TEST_CASE(type_traits)
         static_assert(is_scope_guard_v<FailGuard>,
             "ScopeGuardOnFail should be detected as scope guard");
         
-        ASSERT_TRUE(is_scope_guard_v<FailGuard>, "Runtime check: FailGuard");
+        FATP_ASSERT_TRUE(is_scope_guard_v<FailGuard>, "Runtime check: FailGuard");
     }
     
     // Test 3: ScopeGuardOnSuccess detection
@@ -918,7 +918,7 @@ TEST_CASE(type_traits)
         static_assert(is_scope_guard_v<SuccessGuard>,
             "ScopeGuardOnSuccess should be detected as scope guard");
         
-        ASSERT_TRUE(is_scope_guard_v<SuccessGuard>, "Runtime check: SuccessGuard");
+        FATP_ASSERT_TRUE(is_scope_guard_v<SuccessGuard>, "Runtime check: SuccessGuard");
     }
     
     std::cout << colors::green() << "Type Traits: Tests passed."
@@ -930,7 +930,7 @@ TEST_CASE(type_traits)
 // SCOPE_FAIL / SCOPE_SUCCESS Tests
 // =============================================================================
 
-TEST_CASE(scope_fail)
+FATP_TEST_CASE(scope_fail)
 {
     std::cout << colors::cyan() << "\nTesting SCOPE_FAIL..."
               << colors::reset() << std::endl;
@@ -952,7 +952,7 @@ TEST_CASE(scope_fail)
             // Expected
         }
         
-        ASSERT_EQ(rollback_count, 1, "SCOPE_FAIL should execute on exception");
+        FATP_ASSERT_EQ(rollback_count, 1, "SCOPE_FAIL should execute on exception");
     }
     
     // Test 2: SCOPE_FAIL does NOT execute on normal exit
@@ -967,7 +967,7 @@ TEST_CASE(scope_fail)
             // Normal exit - no exception
         }
         
-        ASSERT_EQ(rollback_count, 0, "SCOPE_FAIL should not execute on normal exit");
+        FATP_ASSERT_EQ(rollback_count, 0, "SCOPE_FAIL should not execute on normal exit");
     }
     
     // Test 3: Multiple SCOPE_FAIL in same scope
@@ -987,8 +987,8 @@ TEST_CASE(scope_fail)
         {
         }
         
-        ASSERT_EQ(count1, 1, "First SCOPE_FAIL should execute");
-        ASSERT_EQ(count2, 1, "Second SCOPE_FAIL should execute");
+        FATP_ASSERT_EQ(count1, 1, "First SCOPE_FAIL should execute");
+        FATP_ASSERT_EQ(count2, 1, "Second SCOPE_FAIL should execute");
     }
     
     // Test 4: SCOPE_FAIL can be dismissed
@@ -1008,7 +1008,7 @@ TEST_CASE(scope_fail)
         {
         }
         
-        ASSERT_EQ(rollback_count, 0, "Dismissed SCOPE_FAIL should not execute");
+        FATP_ASSERT_EQ(rollback_count, 0, "Dismissed SCOPE_FAIL should not execute");
     }
     
     // Test 5: SCOPE_FAIL swallows exceptions from cleanup (doesn't call terminate)
@@ -1034,11 +1034,11 @@ TEST_CASE(scope_fail)
         }
         catch (...)
         {
-            ASSERT_TRUE(false, "Should not catch cleanup exception");
+            FATP_ASSERT_TRUE(false, "Should not catch cleanup exception");
         }
         
-        ASSERT_EQ(rollback_count, 1, "SCOPE_FAIL should have executed");
-        ASSERT_TRUE(outer_exception_caught, "Original exception should propagate");
+        FATP_ASSERT_EQ(rollback_count, 1, "SCOPE_FAIL should have executed");
+        FATP_ASSERT_TRUE(outer_exception_caught, "Original exception should propagate");
     }
     
     std::cout << colors::green() << "SCOPE_FAIL: Tests passed."
@@ -1046,7 +1046,7 @@ TEST_CASE(scope_fail)
     return true;
 }
 
-TEST_CASE(scope_success)
+FATP_TEST_CASE(scope_success)
 {
     std::cout << colors::cyan() << "\nTesting SCOPE_SUCCESS..."
               << colors::reset() << std::endl;
@@ -1063,7 +1063,7 @@ TEST_CASE(scope_success)
             // Normal exit
         }
         
-        ASSERT_EQ(commit_count, 1, "SCOPE_SUCCESS should execute on normal exit");
+        FATP_ASSERT_EQ(commit_count, 1, "SCOPE_SUCCESS should execute on normal exit");
     }
     
     // Test 2: SCOPE_SUCCESS does NOT execute on exception
@@ -1083,7 +1083,7 @@ TEST_CASE(scope_success)
             // Expected
         }
         
-        ASSERT_EQ(commit_count, 0, "SCOPE_SUCCESS should not execute on exception");
+        FATP_ASSERT_EQ(commit_count, 0, "SCOPE_SUCCESS should not execute on exception");
     }
     
     // Test 3: Combined SCOPE_SUCCESS and SCOPE_FAIL
@@ -1099,8 +1099,8 @@ TEST_CASE(scope_success)
             // Normal exit
         }
         
-        ASSERT_EQ(commits, 1, "SCOPE_SUCCESS should execute");
-        ASSERT_EQ(rollbacks, 0, "SCOPE_FAIL should not execute");
+        FATP_ASSERT_EQ(commits, 1, "SCOPE_SUCCESS should execute");
+        FATP_ASSERT_EQ(rollbacks, 0, "SCOPE_FAIL should not execute");
     }
     
     // Test 4: Combined SCOPE_SUCCESS and SCOPE_FAIL on exception
@@ -1120,8 +1120,8 @@ TEST_CASE(scope_success)
         {
         }
         
-        ASSERT_EQ(commits, 0, "SCOPE_SUCCESS should not execute on exception");
-        ASSERT_EQ(rollbacks, 1, "SCOPE_FAIL should execute on exception");
+        FATP_ASSERT_EQ(commits, 0, "SCOPE_SUCCESS should not execute on exception");
+        FATP_ASSERT_EQ(rollbacks, 1, "SCOPE_FAIL should execute on exception");
     }
     
     std::cout << colors::green() << "SCOPE_SUCCESS: Tests passed."
@@ -1133,7 +1133,7 @@ TEST_CASE(scope_success)
 // Conditional Guard Move Assignment Tests
 // =============================================================================
 
-TEST_CASE(conditional_move_assignment)
+FATP_TEST_CASE(conditional_move_assignment)
 {
     std::cout << colors::cyan() << "\nTesting Conditional Guard Move Assignment..."
               << colors::reset() << std::endl;
@@ -1165,8 +1165,8 @@ TEST_CASE(conditional_move_assignment)
         {
         }
         
-        ASSERT_EQ(count1, 1, "Moved action should execute on exception");
-        ASSERT_EQ(count2, 0, "Overwritten action should NOT execute (no exception when assigned)");
+        FATP_ASSERT_EQ(count1, 1, "Moved action should execute on exception");
+        FATP_ASSERT_EQ(count2, 0, "Overwritten action should NOT execute (no exception when assigned)");
     }
     
     // Test 2: ScopeGuardOnSuccess move assignment during normal operation
@@ -1189,8 +1189,8 @@ TEST_CASE(conditional_move_assignment)
             guard2 = std::move(guard1);
         }
         
-        ASSERT_EQ(count1, 1, "Moved action should execute on success");
-        ASSERT_EQ(count2, 1, "Overwritten action SHOULD execute (was in success state when assigned)");
+        FATP_ASSERT_EQ(count1, 1, "Moved action should execute on success");
+        FATP_ASSERT_EQ(count2, 1, "Overwritten action SHOULD execute (was in success state when assigned)");
     }
     
     // Test 3: ScopeGuardOnFail move assignment preserves baseline
@@ -1211,7 +1211,7 @@ TEST_CASE(conditional_move_assignment)
             // Normal exit - guard2 (with guard1's action) should NOT execute
         }
         
-        ASSERT_EQ(count, 0, "Moved OnFail guard should not execute on normal exit");
+        FATP_ASSERT_EQ(count, 0, "Moved OnFail guard should not execute on normal exit");
     }
     
     std::cout << colors::green() << "Conditional Guard Move Assignment: Tests passed."
@@ -1223,7 +1223,7 @@ TEST_CASE(conditional_move_assignment)
 // SCOPE_EXIT Alias Test
 // =============================================================================
 
-TEST_CASE(scope_exit_alias)
+FATP_TEST_CASE(scope_exit_alias)
 {
     std::cout << colors::cyan() << "\nTesting SCOPE_EXIT alias..."
               << colors::reset() << std::endl;
@@ -1237,7 +1237,7 @@ TEST_CASE(scope_exit_alias)
         {
             SCOPE_EXIT { ++cleanup_count; };
         }
-        ASSERT_EQ(cleanup_count, 1, "SCOPE_EXIT should execute on scope exit");
+        FATP_ASSERT_EQ(cleanup_count, 1, "SCOPE_EXIT should execute on scope exit");
     }
     
     // Test 2: SCOPE_EXIT executes on exception too
@@ -1254,7 +1254,7 @@ TEST_CASE(scope_exit_alias)
         catch (...)
         {
         }
-        ASSERT_EQ(cleanup_count, 1, "SCOPE_EXIT should execute on exception");
+        FATP_ASSERT_EQ(cleanup_count, 1, "SCOPE_EXIT should execute on exception");
     }
     
     std::cout << colors::green() << "SCOPE_EXIT: Tests passed."
@@ -1266,7 +1266,7 @@ TEST_CASE(scope_exit_alias)
 // Noexcept Propagation Tests
 // =============================================================================
 
-TEST_CASE(noexcept_propagation)
+FATP_TEST_CASE(noexcept_propagation)
 {
     std::cout << colors::cyan() << "\nTesting Noexcept Propagation..."
               << colors::reset() << std::endl;
@@ -1282,7 +1282,7 @@ TEST_CASE(noexcept_propagation)
         static_assert(std::is_nothrow_move_constructible_v<GuardType>,
             "Guard with noexcept action should be nothrow move constructible");
         
-        ASSERT_TRUE((std::is_nothrow_move_constructible_v<GuardType>),
+        FATP_ASSERT_TRUE((std::is_nothrow_move_constructible_v<GuardType>),
             "Runtime verification of noexcept move");
     }
     
@@ -1302,32 +1302,32 @@ namespace fat_p::testing
 
 bool test_ScopeGuard()
 {
-    PRINT_HEADER(SCOPE GUARD)
+    FATP_PRINT_HEADER(SCOPE GUARD)
 
     TestRunner runner;
     
     // Basic functionality
-    RUN_TEST_NS(runner, scopeguard, basic);
-    RUN_TEST_NS(runner, scopeguard, dismiss);
-    RUN_TEST_NS(runner, scopeguard, move_semantics);
+    FATP_RUN_TEST_NS(runner, scopeguard, basic);
+    FATP_RUN_TEST_NS(runner, scopeguard, dismiss);
+    FATP_RUN_TEST_NS(runner, scopeguard, move_semantics);
     
     // Policies
-    RUN_TEST_NS(runner, scopeguard, nothrow_policy);
-    RUN_TEST_NS(runner, scopeguard, terminate_policy);
-    RUN_TEST_NS(runner, scopeguard, log_and_swallow_policy);
-    RUN_TEST_NS(runner, scopeguard, rethrow_policy);
+    FATP_RUN_TEST_NS(runner, scopeguard, nothrow_policy);
+    FATP_RUN_TEST_NS(runner, scopeguard, terminate_policy);
+    FATP_RUN_TEST_NS(runner, scopeguard, log_and_swallow_policy);
+    FATP_RUN_TEST_NS(runner, scopeguard, rethrow_policy);
     
     // Macros
-    RUN_TEST_NS(runner, scopeguard, macro_convenience);
-    RUN_TEST_NS(runner, scopeguard, scope_exit_alias);
-    RUN_TEST_NS(runner, scopeguard, scope_fail);
-    RUN_TEST_NS(runner, scopeguard, scope_success);
-    RUN_TEST_NS(runner, scopeguard, conditional_move_assignment);
+    FATP_RUN_TEST_NS(runner, scopeguard, macro_convenience);
+    FATP_RUN_TEST_NS(runner, scopeguard, scope_exit_alias);
+    FATP_RUN_TEST_NS(runner, scopeguard, scope_fail);
+    FATP_RUN_TEST_NS(runner, scopeguard, scope_success);
+    FATP_RUN_TEST_NS(runner, scopeguard, conditional_move_assignment);
     
     // Advanced
-    RUN_TEST_NS(runner, scopeguard, complex_resource_management);
-    RUN_TEST_NS(runner, scopeguard, type_traits);
-    RUN_TEST_NS(runner, scopeguard, noexcept_propagation);
+    FATP_RUN_TEST_NS(runner, scopeguard, complex_resource_management);
+    FATP_RUN_TEST_NS(runner, scopeguard, type_traits);
+    FATP_RUN_TEST_NS(runner, scopeguard, noexcept_propagation);
     
     int failed = runner.print_summary();
     

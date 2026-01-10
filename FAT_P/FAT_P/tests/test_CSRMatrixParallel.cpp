@@ -159,40 +159,40 @@ fat_p::CSRMatrix<T, IndexType> generate_powerlaw_sparse(
 // Unit Tests
 // ============================================================================
 
-TEST_CASE(balanced_partitions_basic)
+FATP_TEST_CASE(balanced_partitions_basic)
 {
     std::vector<std::size_t> row_ptrs = {0, 10, 20, 30, 40};
     auto partitions = fat_p::detail::compute_balanced_partitions(row_ptrs.data(), 4, 2);
 
-    ASSERT_EQ(partitions.size(), 2u, "Should create 2 partitions");
-    ASSERT_EQ(partitions[0].first, 0u, "First partition starts at 0");
-    ASSERT_EQ(partitions[1].second, 4u, "Last partition ends at rows");
+    FATP_ASSERT_EQ(partitions.size(), 2u, "Should create 2 partitions");
+    FATP_ASSERT_EQ(partitions[0].first, 0u, "First partition starts at 0");
+    FATP_ASSERT_EQ(partitions[1].second, 4u, "Last partition ends at rows");
 
     return true;
 }
 
-TEST_CASE(balanced_partitions_uneven)
+FATP_TEST_CASE(balanced_partitions_uneven)
 {
     std::vector<std::size_t> row_ptrs = {0, 100, 110, 120, 130};
     auto partitions = fat_p::detail::compute_balanced_partitions(row_ptrs.data(), 4, 2);
 
-    ASSERT_GE(partitions.size(), 1u, "Should create at least 1 partition");
-    ASSERT_EQ(partitions.back().second, 4u, "Last partition ends at rows");
+    FATP_ASSERT_GE(partitions.size(), 1u, "Should create at least 1 partition");
+    FATP_ASSERT_EQ(partitions.back().second, 4u, "Last partition ends at rows");
 
     return true;
 }
 
-TEST_CASE(balanced_partitions_empty)
+FATP_TEST_CASE(balanced_partitions_empty)
 {
     std::vector<std::size_t> row_ptrs = {0};
     auto partitions = fat_p::detail::compute_balanced_partitions(row_ptrs.data(), 0, 4);
 
-    ASSERT_EQ(partitions.size(), 0u, "Empty matrix should have no partitions");
+    FATP_ASSERT_EQ(partitions.size(), 0u, "Empty matrix should have no partitions");
 
     return true;
 }
 
-TEST_CASE(matvec_correctness_uniform)
+FATP_TEST_CASE(matvec_correctness_uniform)
 {
     std::mt19937 rng(42);
     auto matrix = generate_random_sparse<double>(1000, 1000, 0.01, rng);
@@ -213,12 +213,12 @@ TEST_CASE(matvec_correctness_uniform)
     fat_p::matvec_threadpool(matrix, x.data(), y_parallel.data(), pool);
 
     double max_err = max_abs_diff(y_serial, y_parallel);
-    ASSERT_LT(max_err, 1e-10, "Parallel result should match serial");
+    FATP_ASSERT_LT(max_err, 1e-10, "Parallel result should match serial");
 
     return true;
 }
 
-TEST_CASE(matvec_correctness_powerlaw)
+FATP_TEST_CASE(matvec_correctness_powerlaw)
 {
     std::mt19937 rng(123);
     auto matrix = generate_powerlaw_sparse<double>(1000, 1000, 50000, 2.0, rng);
@@ -239,12 +239,12 @@ TEST_CASE(matvec_correctness_powerlaw)
     fat_p::matvec_threadpool(matrix, x.data(), y_parallel.data(), pool);
 
     double max_err = max_abs_diff(y_serial, y_parallel);
-    ASSERT_LT(max_err, 1e-10, "Parallel result should match serial for skewed matrix");
+    FATP_ASSERT_LT(max_err, 1e-10, "Parallel result should match serial for skewed matrix");
 
     return true;
 }
 
-TEST_CASE(matvec_alpha_beta)
+FATP_TEST_CASE(matvec_alpha_beta)
 {
     std::mt19937 rng(456);
     auto matrix = generate_random_sparse<double>(500, 500, 0.02, rng);
@@ -268,12 +268,12 @@ TEST_CASE(matvec_alpha_beta)
     fat_p::matvec_threadpool(matrix, alpha, x.data(), beta, y_parallel.data(), pool);
 
     double max_err = max_abs_diff(y_serial, y_parallel);
-    ASSERT_LT(max_err, 1e-10, "Alpha-beta parallel result should match serial");
+    FATP_ASSERT_LT(max_err, 1e-10, "Alpha-beta parallel result should match serial");
 
     return true;
 }
 
-TEST_CASE(matvec_batch_correctness)
+FATP_TEST_CASE(matvec_batch_correctness)
 {
     std::mt19937 rng(789);
     auto matrix = generate_random_sparse<double>(1000, 1000, 0.01, rng);
@@ -294,12 +294,12 @@ TEST_CASE(matvec_batch_correctness)
     fat_p::matvec_threadpool_batch(matrix, x.data(), y_batch.data(), pool);
 
     double max_err = max_abs_diff(y_serial, y_batch);
-    ASSERT_LT(max_err, 1e-10, "Batch parallel result should match serial");
+    FATP_ASSERT_LT(max_err, 1e-10, "Batch parallel result should match serial");
 
     return true;
 }
 
-TEST_CASE(matvec_empty_matrix)
+FATP_TEST_CASE(matvec_empty_matrix)
 {
     fat_p::CSRMatrix<double> matrix(100, 100);
     std::vector<double> x(100, 1.0);
@@ -310,13 +310,13 @@ TEST_CASE(matvec_empty_matrix)
 
     for (size_t i = 0; i < y.size(); ++i)
     {
-        ASSERT_EQ(y[i], 0.0, "Empty matrix should produce zero output");
+        FATP_ASSERT_EQ(y[i], 0.0, "Empty matrix should produce zero output");
     }
 
     return true;
 }
 
-TEST_CASE(matvec_vector_interface)
+FATP_TEST_CASE(matvec_vector_interface)
 {
     std::mt19937 rng(101);
     auto matrix = generate_random_sparse<double>(500, 500, 0.02, rng);
@@ -333,12 +333,12 @@ TEST_CASE(matvec_vector_interface)
     auto y_serial = matrix * x;
 
     double max_err = max_abs_diff(y_serial, y_parallel);
-    ASSERT_LT(max_err, 1e-10, "Vector interface should match serial");
+    FATP_ASSERT_LT(max_err, 1e-10, "Vector interface should match serial");
 
     return true;
 }
 
-TEST_CASE(transpose_parallel_correctness)
+FATP_TEST_CASE(transpose_parallel_correctness)
 {
     std::mt19937 rng(202);
     auto matrix = generate_random_sparse<double>(500, 600, 0.02, rng);
@@ -348,9 +348,9 @@ TEST_CASE(transpose_parallel_correctness)
     fat_p::ThreadPool pool(4);
     auto parallel_transpose = fat_p::transpose_parallel(matrix, pool);
 
-    ASSERT_EQ(serial_transpose.rows(), parallel_transpose.rows(), "Rows should match");
-    ASSERT_EQ(serial_transpose.cols(), parallel_transpose.cols(), "Cols should match");
-    ASSERT_EQ(serial_transpose.nnz(), parallel_transpose.nnz(), "NNZ should match");
+    FATP_ASSERT_EQ(serial_transpose.rows(), parallel_transpose.rows(), "Rows should match");
+    FATP_ASSERT_EQ(serial_transpose.cols(), parallel_transpose.cols(), "Cols should match");
+    FATP_ASSERT_EQ(serial_transpose.nnz(), parallel_transpose.nnz(), "NNZ should match");
 
     for (size_t i = 0; i < serial_transpose.rows(); ++i)
     {
@@ -358,7 +358,7 @@ TEST_CASE(transpose_parallel_correctness)
         {
             double s_val = serial_transpose(i, j);
             double p_val = parallel_transpose(i, j);
-            ASSERT_CLOSE_EPS(s_val, p_val, 1e-12, "Element values should match");
+            FATP_ASSERT_CLOSE_EPS(s_val, p_val, 1e-12, "Element values should match");
         }
     }
 
@@ -449,20 +449,20 @@ namespace fat_p::testing
 
 bool test_CSRMatrixParallel()
 {
-    PRINT_HEADER(CSRMATRIX PARALLEL)
+    FATP_PRINT_HEADER(CSRMATRIX PARALLEL)
 
     TestRunner runner;
 
-    RUN_TEST_NS(runner, csrmatrixparallel, balanced_partitions_basic);
-    RUN_TEST_NS(runner, csrmatrixparallel, balanced_partitions_uneven);
-    RUN_TEST_NS(runner, csrmatrixparallel, balanced_partitions_empty);
-    RUN_TEST_NS(runner, csrmatrixparallel, matvec_correctness_uniform);
-    RUN_TEST_NS(runner, csrmatrixparallel, matvec_correctness_powerlaw);
-    RUN_TEST_NS(runner, csrmatrixparallel, matvec_alpha_beta);
-    RUN_TEST_NS(runner, csrmatrixparallel, matvec_batch_correctness);
-    RUN_TEST_NS(runner, csrmatrixparallel, matvec_empty_matrix);
-    RUN_TEST_NS(runner, csrmatrixparallel, matvec_vector_interface);
-    RUN_TEST_NS(runner, csrmatrixparallel, transpose_parallel_correctness);
+    FATP_RUN_TEST_NS(runner, csrmatrixparallel, balanced_partitions_basic);
+    FATP_RUN_TEST_NS(runner, csrmatrixparallel, balanced_partitions_uneven);
+    FATP_RUN_TEST_NS(runner, csrmatrixparallel, balanced_partitions_empty);
+    FATP_RUN_TEST_NS(runner, csrmatrixparallel, matvec_correctness_uniform);
+    FATP_RUN_TEST_NS(runner, csrmatrixparallel, matvec_correctness_powerlaw);
+    FATP_RUN_TEST_NS(runner, csrmatrixparallel, matvec_alpha_beta);
+    FATP_RUN_TEST_NS(runner, csrmatrixparallel, matvec_batch_correctness);
+    FATP_RUN_TEST_NS(runner, csrmatrixparallel, matvec_empty_matrix);
+    FATP_RUN_TEST_NS(runner, csrmatrixparallel, matvec_vector_interface);
+    FATP_RUN_TEST_NS(runner, csrmatrixparallel, transpose_parallel_correctness);
 
     csrmatrixparallel::benchmark_spmv();
 

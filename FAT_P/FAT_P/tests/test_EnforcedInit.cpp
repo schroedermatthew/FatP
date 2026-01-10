@@ -8,7 +8,7 @@ FATP_META:
   component: EnforcedInit
   file_role: test
   path: tests/test_EnforcedInit.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::enforcedinit
   summary: "Unit tests for EnforcedInit."
   related:
     docs_search: "EnforcedInit"
@@ -74,7 +74,7 @@ FATP_META:
 using namespace fat_p;
 using namespace fat_p::testing;
 
-namespace fat_p::testing
+namespace fat_p::testing::enforcedinit
 {
     // ============================================================================
     // Constants - FIX #27: Named constants instead of magic numbers
@@ -239,99 +239,99 @@ namespace fat_p::testing
     void assert_init_and_get(EnforcedInit<T, Policies...>& obj, 
                             const T& init_val, const T& expected) {
         auto result = obj.init(init_val);
-        ASSERT_TRUE(result.has_value(), "Init succeeds");
-        ASSERT_EQ(obj.get(), expected, "Value matches");
+        FATP_ASSERT_TRUE(result.has_value(), "Init succeeds");
+        FATP_ASSERT_EQ(obj.get(), expected, "Value matches");
     }
 
     // ============================================================================
     // Test Suite 1: Basic Initialization and Access
     // ============================================================================
 
-    bool test_enforce_init_basic_initialization() {
+    FATP_TEST_CASE(enforce_init_basic_initialization) {
         // Test 1: Basic init and access
         {
             EnforcedInit<int> value;
-            ASSERT_FALSE(value.is_initialized(), "Initially not initialized");
+            FATP_ASSERT_FALSE(value.is_initialized(), "Initially not initialized");
 
             auto result = value.init(TEST_VALUE_DEFAULT);
-            ASSERT_TRUE(result.has_value(), "Initialization succeeds");  // FIX #9
-            ASSERT_TRUE(value.is_initialized(), "Now initialized");
-            ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Correct value");
+            FATP_ASSERT_TRUE(result.has_value(), "Initialization succeeds");  // FIX #9
+            FATP_ASSERT_TRUE(value.is_initialized(), "Now initialized");
+            FATP_ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Correct value");
         }
 
         // Test 2: Init with complex type
         {
             EnforcedInit<std::string> str;
             auto result = str.init("Hello, World!");
-            ASSERT_TRUE(result.has_value(), "String init succeeds");  // FIX #9
-            ASSERT_EQ(str.get(), "Hello, World!", "String initialization");
+            FATP_ASSERT_TRUE(result.has_value(), "String init succeeds");  // FIX #9
+            FATP_ASSERT_EQ(str.get(), "Hello, World!", "String initialization");
         }
 
         // Test 3: Init with multiple arguments
         {
             EnforcedInit<std::vector<int>> vec;
             auto result = vec.init({1, 2, 3, 4, 5});
-            ASSERT_TRUE(result.has_value(), "Vector init succeeds");  // FIX #9
-            ASSERT_EQ(vec.get().size(), 5u, "Vector initialized with initializer list");
-            ASSERT_EQ(vec.get()[0], 1, "Vector elements correct");
+            FATP_ASSERT_TRUE(result.has_value(), "Vector init succeeds");  // FIX #9
+            FATP_ASSERT_EQ(vec.get().size(), 5u, "Vector initialized with initializer list");
+            FATP_ASSERT_EQ(vec.get()[0], 1, "Vector elements correct");
         }
 
         // Test 4: Pointer access
         {
             EnforcedInit<std::string> str;
             (void)str.init("Test");
-            ASSERT_EQ(str->length(), 4u, "Arrow operator works");
-            ASSERT_EQ((*str).length(), 4u, "Dereference operator works");
+            FATP_ASSERT_EQ(str->length(), 4u, "Arrow operator works");
+            FATP_ASSERT_EQ((*str).length(), 4u, "Dereference operator works");
         }
         
         // Test 5: Zero/empty values are valid
         {
             EnforcedInit<int> zero;
             (void)zero.init(0);
-            ASSERT_EQ(zero.get(), 0, "Zero is valid value");
+            FATP_ASSERT_EQ(zero.get(), 0, "Zero is valid value");
             
             EnforcedInit<std::string> empty;
             (void)empty.init("");
-            ASSERT_EQ(empty->length(), 0u, "Empty string is valid");
+            FATP_ASSERT_EQ(empty->length(), 0u, "Empty string is valid");
         }
 
         return true;
     }
 
-    bool test_enforce_init_double_init_prevention() {
+    FATP_TEST_CASE(enforce_init_double_init_prevention) {
         // Test 1: Second init should fail with descriptive error - FIX #14
         {
             EnforcedInit<int> value;
             auto result1 = value.init(TEST_VALUE_SMALL);
-            ASSERT_TRUE(result1.has_value(), "First init succeeds");
+            FATP_ASSERT_TRUE(result1.has_value(), "First init succeeds");
             
             auto result2 = value.init(20);
-            ASSERT_FALSE(result2.has_value(), "Second init fails");
-            ASSERT_TRUE(result2.error().find("already initialized") != std::string::npos,
+            FATP_ASSERT_FALSE(result2.has_value(), "Second init fails");
+            FATP_ASSERT_TRUE(result2.error().find("already initialized") != std::string::npos,
                        "Error message is descriptive");
-            ASSERT_EQ(value.get(), TEST_VALUE_SMALL, "Original value unchanged");
+            FATP_ASSERT_EQ(value.get(), TEST_VALUE_SMALL, "Original value unchanged");
         }
 
         // Test 2: Multiple init attempts
         {
             EnforcedInit<std::string> str;
             auto result = str.init("First");
-            ASSERT_TRUE(result.has_value(), "First init succeeds");
+            FATP_ASSERT_TRUE(result.has_value(), "First init succeeds");
             
             for (int i = 0; i < 5; ++i) {
                 auto fail_result = str.init("Attempt " + std::to_string(i));
-                ASSERT_FALSE(fail_result.has_value(), "Repeated init fails");
+                FATP_ASSERT_FALSE(fail_result.has_value(), "Repeated init fails");
                 // FIX #14: Consistent error checking
-                ASSERT_TRUE(fail_result.error().find("already initialized") != std::string::npos,
+                FATP_ASSERT_TRUE(fail_result.error().find("already initialized") != std::string::npos,
                            "Consistent error message");
             }
-            ASSERT_EQ(str.get(), "First", "First value preserved");
+            FATP_ASSERT_EQ(str.get(), "First", "First value preserved");
         }
 
         return true;
     }
 
-    bool test_enforce_init_access_before_init() {
+    FATP_TEST_CASE(enforce_init_access_before_init) {
         // Test 1: Get before init should throw
         {
             EnforcedInit<int> value;
@@ -341,10 +341,10 @@ namespace fat_p::testing
                 [[maybe_unused]] int v = value.get();
             } catch (const std::exception& e) {
                 caught = true;
-                ASSERT_TRUE(std::string(e.what()).find("before init") != std::string::npos,
+                FATP_ASSERT_TRUE(std::string(e.what()).find("before init") != std::string::npos,
                            "Exception message mentions init requirement");
             }
-            ASSERT_TRUE(caught, "Access before init throws");
+            FATP_ASSERT_TRUE(caught, "Access before init throws");
         }
 
         // Test 2: Operators before init should throw
@@ -365,23 +365,23 @@ namespace fat_p::testing
                 caught_arrow = true;
             }
 
-            ASSERT_TRUE(caught_deref, "Dereference before init throws");
-            ASSERT_TRUE(caught_arrow, "Arrow before init throws");
+            FATP_ASSERT_TRUE(caught_deref, "Dereference before init throws");
+            FATP_ASSERT_TRUE(caught_arrow, "Arrow before init throws");
         }
 
         return true;
     }
 
-    bool test_enforce_init_is_initialized_query() {
+    FATP_TEST_CASE(enforce_init_is_initialized_query) {
         EnforcedInit<int> value;
-        ASSERT_FALSE(value.is_initialized(), "Not initialized initially");
+        FATP_ASSERT_FALSE(value.is_initialized(), "Not initialized initially");
 
         (void)value.init(TEST_VALUE_DEFAULT);
-        ASSERT_TRUE(value.is_initialized(), "Initialized after init()");
+        FATP_ASSERT_TRUE(value.is_initialized(), "Initialized after init()");
 
         // Should be safe to call multiple times
-        ASSERT_TRUE(value.is_initialized(), "is_initialized() is const and repeatable");
-        ASSERT_TRUE(value.is_initialized(), "Can call many times");
+        FATP_ASSERT_TRUE(value.is_initialized(), "is_initialized() is const and repeatable");
+        FATP_ASSERT_TRUE(value.is_initialized(), "Can call many times");
 
         return true;
     }
@@ -390,35 +390,35 @@ namespace fat_p::testing
     // Test Suite 2: Reset Policy Tests
     // ============================================================================
 
-    bool test_enforce_init_reset_not_allowed() {
+    FATP_TEST_CASE(enforce_init_reset_not_allowed) {
         // Test 1: Default policy disallows reset
         {
             EnforcedInit<int> value;
             (void)value.init(TEST_VALUE_DEFAULT);
             
             auto result = value.reset();
-            ASSERT_FALSE(result.has_value(), "Reset not allowed by default");
-            ASSERT_TRUE(result.error().find("not allowed") != std::string::npos,
+            FATP_ASSERT_FALSE(result.has_value(), "Reset not allowed by default");
+            FATP_ASSERT_TRUE(result.error().find("not allowed") != std::string::npos,
                        "Error message explains policy");
-            ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Value unchanged after failed reset");
+            FATP_ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Value unchanged after failed reset");
         }
 
         return true;
     }
 
-    bool test_enforce_init_reset_allowed() {
+    FATP_TEST_CASE(enforce_init_reset_allowed) {
         using ResettableInit = EnforcedInit<int, SingleThreadedPolicy, DefaultCheckPolicy, AllowResetPolicy>;
         
         // Test 1: AllowResetPolicy permits reset
         {
             ResettableInit value;
             auto init_result = value.init(TEST_VALUE_DEFAULT);
-            ASSERT_TRUE(init_result.has_value(), "Init succeeds");
-            ASSERT_TRUE(value.is_initialized(), "Initialized");
+            FATP_ASSERT_TRUE(init_result.has_value(), "Init succeeds");
+            FATP_ASSERT_TRUE(value.is_initialized(), "Initialized");
             
             auto reset_result = value.reset();
-            ASSERT_TRUE(reset_result.has_value(), "Reset succeeds with AllowResetPolicy");
-            ASSERT_FALSE(value.is_initialized(), "Not initialized after reset");
+            FATP_ASSERT_TRUE(reset_result.has_value(), "Reset succeeds with AllowResetPolicy");
+            FATP_ASSERT_FALSE(value.is_initialized(), "Not initialized after reset");
         }
 
         // Test 2: Re-init after reset
@@ -426,11 +426,11 @@ namespace fat_p::testing
             ResettableInit str;
             (void)str.init(50);
             auto reset_result = str.reset();
-            ASSERT_TRUE(reset_result.has_value(), "Reset succeeds");
+            FATP_ASSERT_TRUE(reset_result.has_value(), "Reset succeeds");
             
             auto reinit_result = str.init(75);
-            ASSERT_TRUE(reinit_result.has_value(), "Re-init after reset succeeds");
-            ASSERT_EQ(str.get(), 75, "New value correct");
+            FATP_ASSERT_TRUE(reinit_result.has_value(), "Re-init after reset succeeds");
+            FATP_ASSERT_EQ(str.get(), 75, "New value correct");
         }
 
         // Test 3: Multiple reset cycles
@@ -438,12 +438,12 @@ namespace fat_p::testing
             ResettableInit value;
             for (int i = 0; i < 5; ++i) {
                 auto init_result = value.init(i * TEST_VALUE_SMALL);
-                ASSERT_TRUE(init_result.has_value(), "Init cycle " + std::to_string(i));
-                ASSERT_EQ(value.get(), i * TEST_VALUE_SMALL, "Value correct in cycle " + std::to_string(i));
+                FATP_ASSERT_TRUE(init_result.has_value(), "Init cycle " + std::to_string(i));
+                FATP_ASSERT_EQ(value.get(), i * TEST_VALUE_SMALL, "Value correct in cycle " + std::to_string(i));
                 
                 auto reset_result = value.reset();
-                ASSERT_TRUE(reset_result.has_value(), "Reset cycle " + std::to_string(i));
-                ASSERT_FALSE(value.is_initialized(), "Uninitialized after reset " + std::to_string(i));
+                FATP_ASSERT_TRUE(reset_result.has_value(), "Reset cycle " + std::to_string(i));
+                FATP_ASSERT_FALSE(value.is_initialized(), "Uninitialized after reset " + std::to_string(i));
             }
         }
 
@@ -455,16 +455,16 @@ namespace fat_p::testing
             {
                 ResettableObj obj;
                 (void)obj.init(TEST_VALUE_DEFAULT);
-                ASSERT_EQ(TestObject::construct_count.load(), 1, "One construction");
+                FATP_ASSERT_EQ(TestObject::construct_count.load(), 1, "One construction");
                 
                 (void)obj.reset();
-                ASSERT_EQ(TestObject::destruct_count.load(), 1, "One destruction after reset");
+                FATP_ASSERT_EQ(TestObject::destruct_count.load(), 1, "One destruction after reset");
                 
                 // Re-init and let scope end
                 (void)obj.init(TEST_VALUE_ALTERNATE);
-                ASSERT_EQ(TestObject::construct_count.load(), 2, "Second construction");
+                FATP_ASSERT_EQ(TestObject::construct_count.load(), 2, "Second construction");
             }
-            ASSERT_EQ(TestObject::destruct_count.load(), 2, "Second destruction on scope exit");
+            FATP_ASSERT_EQ(TestObject::destruct_count.load(), 2, "Second destruction on scope exit");
         }
 
         return true;
@@ -474,7 +474,7 @@ namespace fat_p::testing
     // Test Suite 3: Custom Check Policies
     // ============================================================================
 
-    bool test_enforce_init_custom_check_policy() {
+    FATP_TEST_CASE(enforce_init_custom_check_policy) {
         using RangeEnforced = EnforcedInit<int, SingleThreadedPolicy, RangeCheckPolicy>;
         
         // Test 1: Pre-init check validation
@@ -482,8 +482,8 @@ namespace fat_p::testing
             RangeEnforced value;
             
             auto result = value.init(50);
-            ASSERT_TRUE(result.has_value(), "Valid value passes check");
-            ASSERT_EQ(value.get(), 50, "Value initialized");
+            FATP_ASSERT_TRUE(result.has_value(), "Valid value passes check");
+            FATP_ASSERT_EQ(value.get(), 50, "Value initialized");
         }
 
         // Test 2: Pre-init check failure - FIX #18
@@ -495,11 +495,11 @@ namespace fat_p::testing
                 (void)value.init(150);  // Out of range
             } catch (const std::invalid_argument& e) {
                 caught = true;
-                ASSERT_TRUE(std::string(e.what()).find("out of range") != std::string::npos,
+                FATP_ASSERT_TRUE(std::string(e.what()).find("out of range") != std::string::npos,
                            "Check policy throws appropriate exception");
             }
-            ASSERT_TRUE(caught, "Pre-init check throws on invalid value");
-            ASSERT_FALSE(value.is_initialized(), "Init fails, object remains uninitialized");
+            FATP_ASSERT_TRUE(caught, "Pre-init check throws on invalid value");
+            FATP_ASSERT_FALSE(value.is_initialized(), "Init fails, object remains uninitialized");
         }
         
         // Test 3: Negative value check
@@ -511,15 +511,15 @@ namespace fat_p::testing
             } catch (const std::invalid_argument&) {
                 caught = true;
             }
-            ASSERT_TRUE(caught, "Negative value rejected");
-            ASSERT_FALSE(value.is_initialized(), "Not initialized after exception");
+            FATP_ASSERT_TRUE(caught, "Negative value rejected");
+            FATP_ASSERT_FALSE(value.is_initialized(), "Not initialized after exception");
         }
 
         return true;
     }
     
     // FIX #17: Test PolicyPack composition
-    bool test_enforce_init_policy_pack_composition() {
+    FATP_TEST_CASE(enforce_init_policy_pack_composition) {
         // Multiple check policies composed - PositiveCheckPolicy defined at namespace level
         using MultiCheck = EnforcedInit<int, SingleThreadedPolicy, 
                                        PolicyPack<RangeCheckPolicy, PositiveCheckPolicy>>;
@@ -528,7 +528,7 @@ namespace fat_p::testing
         
         // Should pass both checks
         auto result1 = value.init(50);
-        ASSERT_TRUE(result1.has_value(), "Value passes both checks");
+        FATP_ASSERT_TRUE(result1.has_value(), "Value passes both checks");
         
         // FIX #25: Test configurable parameters
         MultiCheck value2;
@@ -538,7 +538,7 @@ namespace fat_p::testing
         } catch (const std::invalid_argument&) {
             caught = true;
         }
-        ASSERT_TRUE(caught, "Fails positive check");
+        FATP_ASSERT_TRUE(caught, "Fails positive check");
         
         return true;
     }
@@ -547,7 +547,7 @@ namespace fat_p::testing
     // Test Suite 4: Lazy Initialization
     // ============================================================================
 
-    bool test_enforce_init_lazy_init() {
+    FATP_TEST_CASE(enforce_init_lazy_init) {
         // Test 1: Basic lazy init
         {
             EnforcedInit<int> value;
@@ -558,9 +558,9 @@ namespace fat_p::testing
                 return TEST_VALUE_DEFAULT; 
             });
             
-            ASSERT_EQ(call_count, 1, "Lambda called once");
-            ASSERT_TRUE(value.is_initialized(), "Lazy init succeeds");
-            ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Correct value from lambda");
+            FATP_ASSERT_EQ(call_count, 1, "Lambda called once");
+            FATP_ASSERT_TRUE(value.is_initialized(), "Lazy init succeeds");
+            FATP_ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Correct value from lambda");
         }
 
         // Test 2: Lazy init is idempotent
@@ -577,8 +577,8 @@ namespace fat_p::testing
             value.lazy_init(lazy_fn);
             value.lazy_init(lazy_fn);
             
-            ASSERT_EQ(call_count, 1, "Lambda called only once despite multiple lazy_init calls");
-            ASSERT_EQ(value.get(), TEST_VALUE_ALTERNATE, "First value preserved");
+            FATP_ASSERT_EQ(call_count, 1, "Lambda called only once despite multiple lazy_init calls");
+            FATP_ASSERT_EQ(value.get(), TEST_VALUE_ALTERNATE, "First value preserved");
         }
 
         // Test 3: Lazy get with initialization - FIX #1: const overload removed
@@ -586,8 +586,8 @@ namespace fat_p::testing
             EnforcedInit<std::string> str;
             auto& result = str.get([]() { return std::string("Lazy initialized"); });
             
-            ASSERT_EQ(result, "Lazy initialized", "Lazy get initializes and returns");
-            ASSERT_TRUE(str.is_initialized(), "Object initialized by lazy get");
+            FATP_ASSERT_EQ(result, "Lazy initialized", "Lazy get initializes and returns");
+            FATP_ASSERT_TRUE(str.is_initialized(), "Object initialized by lazy get");
         }
 
         // Test 4: Lazy init with complex type
@@ -597,8 +597,8 @@ namespace fat_p::testing
                 return std::vector<int>{10, 20, 30}; 
             });
             
-            ASSERT_EQ(vec->size(), 3u, "Vector lazily initialized");
-            ASSERT_EQ((*vec)[0], 10, "Vector contents correct");
+            FATP_ASSERT_EQ(vec->size(), 3u, "Vector lazily initialized");
+            FATP_ASSERT_EQ((*vec)[0], 10, "Vector contents correct");
         }
 
         return true;
@@ -608,16 +608,16 @@ namespace fat_p::testing
     // Test Suite 5: Copy and Move Semantics - FIX #4 applied in header
     // ============================================================================
 
-    bool test_enforce_init_copy_semantics() {
+    FATP_TEST_CASE(enforce_init_copy_semantics) {
         // Test 1: Copy construction
         {
             EnforcedInit<int> original;
             (void)original.init(TEST_VALUE_DEFAULT);
             
             EnforcedInit<int> copy(original);
-            ASSERT_TRUE(copy.is_initialized(), "Copy is initialized");
-            ASSERT_EQ(copy.get(), TEST_VALUE_DEFAULT, "Copy has same value");
-            ASSERT_EQ(original.get(), TEST_VALUE_DEFAULT, "Original unchanged");
+            FATP_ASSERT_TRUE(copy.is_initialized(), "Copy is initialized");
+            FATP_ASSERT_EQ(copy.get(), TEST_VALUE_DEFAULT, "Copy has same value");
+            FATP_ASSERT_EQ(original.get(), TEST_VALUE_DEFAULT, "Original unchanged");
         }
 
         // Test 2: Copy assignment
@@ -628,8 +628,8 @@ namespace fat_p::testing
             EnforcedInit<std::string> copy;
             copy = original;
             
-            ASSERT_TRUE(copy.is_initialized(), "Copy assigned and initialized");
-            ASSERT_EQ(copy.get(), "Hello", "Copy has same value");
+            FATP_ASSERT_TRUE(copy.is_initialized(), "Copy assigned and initialized");
+            FATP_ASSERT_EQ(copy.get(), "Hello", "Copy has same value");
         }
 
         // Test 3: Copy uninitialized
@@ -637,7 +637,7 @@ namespace fat_p::testing
             EnforcedInit<int> original;
             EnforcedInit<int> copy(original);
             
-            ASSERT_FALSE(copy.is_initialized(), "Copy of uninitialized is uninitialized");
+            FATP_ASSERT_FALSE(copy.is_initialized(), "Copy of uninitialized is uninitialized");
         }
 
         // Test 4: Self-assignment
@@ -646,21 +646,21 @@ namespace fat_p::testing
             (void)value.init(TEST_VALUE_DEFAULT);
             
             value = value;
-            ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Self-assignment works");
+            FATP_ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Self-assignment works");
         }
 
         return true;
     }
 
-    bool test_enforce_init_move_semantics() {
+    FATP_TEST_CASE(enforce_init_move_semantics) {
         // Test 1: Move construction
         {
             EnforcedInit<std::string> original;
             (void)original.init("Move me");
             
             EnforcedInit<std::string> moved(std::move(original));
-            ASSERT_TRUE(moved.is_initialized(), "Moved object is initialized");
-            ASSERT_EQ(moved.get(), "Move me", "Moved value correct");
+            FATP_ASSERT_TRUE(moved.is_initialized(), "Moved object is initialized");
+            FATP_ASSERT_EQ(moved.get(), "Move me", "Moved value correct");
         }
 
         // Test 2: Move assignment
@@ -671,8 +671,8 @@ namespace fat_p::testing
             EnforcedInit<std::vector<int>> moved;
             moved = std::move(original);
             
-            ASSERT_TRUE(moved.is_initialized(), "Move assigned");
-            ASSERT_EQ(moved->size(), 5u, "Moved vector size correct");
+            FATP_ASSERT_TRUE(moved.is_initialized(), "Move assigned");
+            FATP_ASSERT_EQ(moved->size(), 5u, "Moved vector size correct");
         }
 
         // Test 3: Move-only type
@@ -681,15 +681,15 @@ namespace fat_p::testing
             (void)value.init(TEST_VALUE_ALTERNATE);
             
             EnforcedInit<MoveOnlyType> moved(std::move(value));
-            ASSERT_TRUE(moved.is_initialized(), "Move-only type moved");
-            ASSERT_EQ(moved->value, TEST_VALUE_ALTERNATE, "Move-only value correct");
+            FATP_ASSERT_TRUE(moved.is_initialized(), "Move-only type moved");
+            FATP_ASSERT_EQ(moved->value, TEST_VALUE_ALTERNATE, "Move-only value correct");
         }
 
         return true;
     }
     
     // FIX #4: Test thread-safe copy/move
-    bool test_enforce_init_copy_move_thread_safety() {
+    FATP_TEST_CASE(enforce_init_copy_move_thread_safety) {
         // Test concurrent copy operations with proper locking
         {
             EnforcedInit<int, MutexSynchronizationPolicy> original;
@@ -703,7 +703,7 @@ namespace fat_p::testing
             for (int i = 0; i < CONCURRENT_THREAD_COUNT; ++i) {
                 threads.emplace_back([&original, &copies, &exceptions, i]() {
                     try {
-                        copies[i] = original;  // ✅ Should be thread-safe now
+                        copies[i] = original;  // âœ… Should be thread-safe now
                         int val = copies[i].get();
                         if (val != TEST_VALUE_DEFAULT) {
                             exceptions.fetch_add(1, std::memory_order_relaxed);
@@ -718,12 +718,12 @@ namespace fat_p::testing
                 t.join();
             }
             
-            ASSERT_EQ(exceptions.load(), 0, "No exceptions during concurrent copy");
+            FATP_ASSERT_EQ(exceptions.load(), 0, "No exceptions during concurrent copy");
             
             // Verify all copies are correct
             for (const auto& copy : copies) {
-                ASSERT_TRUE(copy.is_initialized(), "Copy is initialized");
-                ASSERT_EQ(copy.get(), TEST_VALUE_DEFAULT, "Copy has correct value");
+                FATP_ASSERT_TRUE(copy.is_initialized(), "Copy is initialized");
+                FATP_ASSERT_EQ(copy.get(), TEST_VALUE_DEFAULT, "Copy has correct value");
             }
         }
         
@@ -734,31 +734,31 @@ namespace fat_p::testing
     // Test Suite 6: Thread-Safety with Concurrency Policies
     // ============================================================================
 
-    bool test_enforce_init_single_threaded_policy() {
+    FATP_TEST_CASE(enforce_init_single_threaded_policy) {
         // Test 1: Default policy is single-threaded (zero overhead)
         {
             EnforcedInit<int> value;
             (void)value.init(TEST_VALUE_DEFAULT);
-            ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Single-threaded policy works");
+            FATP_ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Single-threaded policy works");
         }
 
         // Test 2: Explicit single-threaded policy
         {
             EnforcedInit<int, SingleThreadedPolicy> value;
             (void)value.init(TEST_VALUE_ALTERNATE);
-            ASSERT_EQ(value.get(), TEST_VALUE_ALTERNATE, "Explicit single-threaded policy");
+            FATP_ASSERT_EQ(value.get(), TEST_VALUE_ALTERNATE, "Explicit single-threaded policy");
         }
 
         return true;
     }
 
-    bool test_enforce_init_mutex_synchronization_policy() {
+    FATP_TEST_CASE(enforce_init_mutex_synchronization_policy) {
         // Test 1: Basic mutex policy
         {
             EnforcedInit<int, MutexSynchronizationPolicy> value;
             auto result = value.init(TEST_VALUE_DEFAULT);
-            ASSERT_TRUE(result.has_value(), "Mutex policy init succeeds");
-            ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Mutex policy basic usage");
+            FATP_ASSERT_TRUE(result.has_value(), "Mutex policy init succeeds");
+            FATP_ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Mutex policy basic usage");
         }
 
         // Test 2: Concurrent initialization attempts (should be serialized)
@@ -783,9 +783,9 @@ namespace fat_p::testing
                 t.join();
             }
             
-            ASSERT_EQ(success_count.load(), 1, "Exactly one init succeeds");
-            ASSERT_EQ(failure_count.load(), CONCURRENT_THREAD_COUNT - 1, "Others fail");
-            ASSERT_TRUE(value.is_initialized(), "Value is initialized");
+            FATP_ASSERT_EQ(success_count.load(), 1, "Exactly one init succeeds");
+            FATP_ASSERT_EQ(failure_count.load(), CONCURRENT_THREAD_COUNT - 1, "Others fail");
+            FATP_ASSERT_TRUE(value.is_initialized(), "Value is initialized");
         }
 
         // Test 3: Concurrent access after init - FIX #2: Proper atomic operations
@@ -818,21 +818,21 @@ namespace fat_p::testing
                 t.join();
             }
             
-            ASSERT_EQ(exception_count.load(), 0, "No exceptions during concurrent access");
-            ASSERT_EQ(wrong_value_count.load(), 0, "No corrupted reads");  // FIX #10
-            ASSERT_EQ(sum.load(), static_cast<long long>(TEST_VALUE_DEFAULT) * CONCURRENT_THREAD_COUNT * CONCURRENT_ITERATIONS, 
+            FATP_ASSERT_EQ(exception_count.load(), 0, "No exceptions during concurrent access");
+            FATP_ASSERT_EQ(wrong_value_count.load(), 0, "No corrupted reads");  // FIX #10
+            FATP_ASSERT_EQ(sum.load(), static_cast<long long>(TEST_VALUE_DEFAULT) * CONCURRENT_THREAD_COUNT * CONCURRENT_ITERATIONS, 
                      "Concurrent reads produce correct sum");
         }
 
         return true;
     }
 
-    bool test_enforce_init_spinlock_synchronization_policy() {
+    FATP_TEST_CASE(enforce_init_spinlock_synchronization_policy) {
         // Test 1: Basic spinlock usage
         {
             EnforcedInit<int, SpinlockSynchronizationPolicy> value;
             (void)value.init(TEST_VALUE_ALTERNATE);
-            ASSERT_EQ(value.get(), TEST_VALUE_ALTERNATE, "Spinlock policy works");
+            FATP_ASSERT_EQ(value.get(), TEST_VALUE_ALTERNATE, "Spinlock policy works");
         }
 
         // Test 2: Concurrent access with spinlock
@@ -857,13 +857,13 @@ namespace fat_p::testing
                 t.join();
             }
             
-            ASSERT_EQ(read_count.load(), 5 * 100, "All reads successful with spinlock");
+            FATP_ASSERT_EQ(read_count.load(), 5 * 100, "All reads successful with spinlock");
         }
 
         return true;
     }
 
-    bool test_enforce_init_shared_mutex_policy() {
+    FATP_TEST_CASE(enforce_init_shared_mutex_policy) {
         // Test 1: Shared read-write lock
         {
             EnforcedInit<int, SharedMutexPolicy> value;
@@ -883,7 +883,7 @@ namespace fat_p::testing
                 t.join();
             }
             
-            ASSERT_EQ(read_sum.load(), static_cast<long long>(TEST_VALUE_DEFAULT) * CONCURRENT_THREAD_COUNT, 
+            FATP_ASSERT_EQ(read_sum.load(), static_cast<long long>(TEST_VALUE_DEFAULT) * CONCURRENT_THREAD_COUNT, 
                      "Shared reads work correctly");
         }
 
@@ -891,14 +891,14 @@ namespace fat_p::testing
     }
     
     // FIX #13: Add AtomicPolicy tests
-    bool test_enforce_init_atomic_policy() {
+    FATP_TEST_CASE(enforce_init_atomic_policy) {
 #if FATP_USE_ATOMIC
         // Test 1: Basic atomic policy usage
         {
             EnforcedInit<int, AtomicPolicy> value;
             auto result = value.init(TEST_VALUE_DEFAULT);
-            ASSERT_TRUE(result.has_value(), "Atomic policy init succeeds");
-            ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Atomic policy works");
+            FATP_ASSERT_TRUE(result.has_value(), "Atomic policy init succeeds");
+            FATP_ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Atomic policy works");
         }
         
         // Test 2: Concurrent initialization with atomic policy
@@ -919,8 +919,8 @@ namespace fat_p::testing
                 t.join();
             }
             
-            ASSERT_EQ(success.load(), 1, "Atomic policy allows exactly one init");
-            ASSERT_TRUE(value.is_initialized(), "Value initialized");
+            FATP_ASSERT_EQ(success.load(), 1, "Atomic policy allows exactly one init");
+            FATP_ASSERT_TRUE(value.is_initialized(), "Value initialized");
         }
         
         // Test 3: Concurrent access with atomic policy
@@ -945,14 +945,14 @@ namespace fat_p::testing
                 t.join();
             }
             
-            ASSERT_EQ(access_count.load(), 500, "All atomic accesses successful");
+            FATP_ASSERT_EQ(access_count.load(), 500, "All atomic accesses successful");
         }
 #endif
         return true;
     }
     
     // FIX #5: Add comprehensive ConditionVarPolicy tests
-    bool test_enforce_init_condition_variable_policy() {
+    FATP_TEST_CASE(enforce_init_condition_variable_policy) {
         using WaitableInit = EnforcedInit<int, ConditionVarPolicy>;
         
         // Test 1: Wait succeeds when value is initialized
@@ -974,12 +974,12 @@ namespace fat_p::testing
             
             // Initialize the value
             auto init_result = value.init(TEST_VALUE_DEFAULT);
-            ASSERT_TRUE(init_result.has_value(), "Initialization succeeds");
+            FATP_ASSERT_TRUE(init_result.has_value(), "Initialization succeeds");
             
             waiter.join();
             
-            ASSERT_TRUE(wait_result.load(), "Wait succeeds when init happens");
-            ASSERT_EQ(retrieved_value.load(), TEST_VALUE_DEFAULT, "Correct value after wait");
+            FATP_ASSERT_TRUE(wait_result.load(), "Wait succeeds when init happens");
+            FATP_ASSERT_EQ(retrieved_value.load(), TEST_VALUE_DEFAULT, "Correct value after wait");
         }
         
         // FIX #16: Test timeout behavior
@@ -990,8 +990,8 @@ namespace fat_p::testing
             bool result = value.wait_for_init(std::chrono::milliseconds(100));
             auto duration = std::chrono::steady_clock::now() - start;
             
-            ASSERT_FALSE(result, "Wait times out if not initialized");
-            ASSERT_TRUE(duration >= std::chrono::milliseconds(90),  // Allow some tolerance
+            FATP_ASSERT_FALSE(result, "Wait times out if not initialized");
+            FATP_ASSERT_TRUE(duration >= std::chrono::milliseconds(90),  // Allow some tolerance
                        "Timeout duration respected");
         }
         
@@ -1004,8 +1004,8 @@ namespace fat_p::testing
             bool result = value.wait_for_init(std::chrono::seconds(5));
             auto duration = std::chrono::steady_clock::now() - start;
             
-            ASSERT_TRUE(result, "Wait succeeds immediately if already initialized");
-            ASSERT_TRUE(duration < std::chrono::milliseconds(50), 
+            FATP_ASSERT_TRUE(result, "Wait succeeds immediately if already initialized");
+            FATP_ASSERT_TRUE(duration < std::chrono::milliseconds(50), 
                        "No significant delay when already initialized");
         }
         
@@ -1030,14 +1030,14 @@ namespace fat_p::testing
                 t.join();
             }
             
-            ASSERT_EQ(success_count.load(), 5, "All waiters notified");
+            FATP_ASSERT_EQ(success_count.load(), 5, "All waiters notified");
         }
         
         // FIX #16: Test short timeout
         {
             WaitableInit value;
             bool result = value.wait_for_init(std::chrono::milliseconds(10));
-            ASSERT_FALSE(result, "Short timeout works");
+            FATP_ASSERT_FALSE(result, "Short timeout works");
         }
         
         return true;
@@ -1047,12 +1047,12 @@ namespace fat_p::testing
     // Test Suite 7: Storage Policies
     // ============================================================================
 
-    bool test_enforce_init_optional_storage_policy() {
+    FATP_TEST_CASE(enforce_init_optional_storage_policy) {
         // Test 1: Default optional storage
         {
             EnforcedInit<int> value;
             (void)value.init(TEST_VALUE_DEFAULT);
-            ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Optional storage (default) works");
+            FATP_ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Optional storage (default) works");
         }
 
         // Test 2: Use explicit std::string construction
@@ -1071,7 +1071,7 @@ namespace fat_p::testing
         return true;
     }
 
-    bool test_enforce_init_union_storage_policy() {
+    FATP_TEST_CASE(enforce_init_union_storage_policy) {
         using UnionInit = EnforcedInit<int, SingleThreadedPolicy, DefaultCheckPolicy, 
                                       NoResetPolicy, UnionStoragePolicy>;
         using OptionalInit = EnforcedInit<int, SingleThreadedPolicy, DefaultCheckPolicy, 
@@ -1084,7 +1084,7 @@ namespace fat_p::testing
             std::cout << "    Optional storage: " << sizeof(OptionalInit) << " bytes\n";
             
             // Union should be smaller or equal for trivial types
-            ASSERT_TRUE(sizeof(UnionInit) <= sizeof(OptionalInit), 
+            FATP_ASSERT_TRUE(sizeof(UnionInit) <= sizeof(OptionalInit), 
                        "Union storage is not larger than optional");
         }
         
@@ -1092,7 +1092,7 @@ namespace fat_p::testing
         {
             UnionInit value;
             (void)value.init(TEST_VALUE_DEFAULT);
-            ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Union storage works");
+            FATP_ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Union storage works");
         }
 
         // Test 2: Destructor called with union storage
@@ -1103,9 +1103,9 @@ namespace fat_p::testing
             {
                 UnionObj obj;
                 (void)obj.init(99);
-                ASSERT_EQ(TestObject::construct_count.load(), 1, "Construction tracked");
+                FATP_ASSERT_EQ(TestObject::construct_count.load(), 1, "Construction tracked");
             }
-            ASSERT_EQ(TestObject::destruct_count.load(), 1, "Destruction tracked with union storage");
+            FATP_ASSERT_EQ(TestObject::destruct_count.load(), 1, "Destruction tracked with union storage");
         }
         
         // FIX #21: Test trivial type optimization
@@ -1115,7 +1115,7 @@ namespace fat_p::testing
             // Union storage should handle trivial types efficiently
             UnionInit trivial;
             (void)trivial.init(12345);
-            ASSERT_EQ(trivial.get(), 12345, "Trivial type in union storage");
+            FATP_ASSERT_EQ(trivial.get(), 12345, "Trivial type in union storage");
         }
 
         return true;
@@ -1125,17 +1125,17 @@ namespace fat_p::testing
     // Test Suite 8: Lifecycle and RAII
     // ============================================================================
 
-    bool test_enforce_init_lifecycle_tracking() {
+    FATP_TEST_CASE(enforce_init_lifecycle_tracking) {
         TestObject::reset_counts();
 
         // Test 1: Construction and destruction
         {
             EnforcedInit<TestObject> obj;
             (void)obj.init(TEST_VALUE_DEFAULT);
-            ASSERT_EQ(TestObject::construct_count.load(), 1, "One construction");
-            ASSERT_EQ(TestObject::destruct_count.load(), 0, "No destruction yet");
+            FATP_ASSERT_EQ(TestObject::construct_count.load(), 1, "One construction");
+            FATP_ASSERT_EQ(TestObject::destruct_count.load(), 0, "No destruction yet");
         }
-        ASSERT_EQ(TestObject::destruct_count.load(), 1, "Destruction on scope exit");
+        FATP_ASSERT_EQ(TestObject::destruct_count.load(), 1, "Destruction on scope exit");
 
         // Test 2: Copy tracking
         TestObject::reset_counts();
@@ -1144,8 +1144,8 @@ namespace fat_p::testing
             (void)obj1.init(TEST_VALUE_SMALL);
             
             EnforcedInit<TestObject> obj2(obj1);
-            ASSERT_EQ(TestObject::construct_count.load(), 1, "One direct construction");
-            ASSERT_EQ(TestObject::copy_count.load(), 1, "One copy operation");
+            FATP_ASSERT_EQ(TestObject::construct_count.load(), 1, "One direct construction");
+            FATP_ASSERT_EQ(TestObject::copy_count.load(), 1, "One copy operation");
         }
 
         // Test 3: Move tracking
@@ -1155,14 +1155,14 @@ namespace fat_p::testing
             (void)obj1.init(20);
             
             EnforcedInit<TestObject> obj2(std::move(obj1));
-            ASSERT_EQ(TestObject::construct_count.load(), 1, "One construction");
-            ASSERT_EQ(TestObject::move_count.load(), 1, "One move operation");
+            FATP_ASSERT_EQ(TestObject::construct_count.load(), 1, "One construction");
+            FATP_ASSERT_EQ(TestObject::move_count.load(), 1, "One move operation");
         }
 
         return true;
     }
 
-    bool test_enforce_init_exception_safety() {
+    FATP_TEST_CASE(enforce_init_exception_safety) {
         // Test 1: Exception during initialization doesn't leave object in bad state
         {
             struct ThrowOnConstruct {
@@ -1178,8 +1178,8 @@ namespace fat_p::testing
                 caught = true;
             }
             
-            ASSERT_TRUE(caught, "Exception propagated");
-            ASSERT_FALSE(obj.is_initialized(), "Object remains uninitialized after failed init");
+            FATP_ASSERT_TRUE(caught, "Exception propagated");
+            FATP_ASSERT_FALSE(obj.is_initialized(), "Object remains uninitialized after failed init");
         }
         
         // FIX #18: Test exception during pre_init_check
@@ -1194,12 +1194,12 @@ namespace fat_p::testing
                 caught = true;
             }
             
-            ASSERT_TRUE(caught, "Pre-check exception propagated");
-            ASSERT_FALSE(value.is_initialized(), "Not initialized after pre-check exception");
+            FATP_ASSERT_TRUE(caught, "Pre-check exception propagated");
+            FATP_ASSERT_FALSE(value.is_initialized(), "Not initialized after pre-check exception");
             
             // Should be able to init with valid value after exception
             auto result = value.init(50);
-            ASSERT_TRUE(result.has_value(), "Can init after previous exception");
+            FATP_ASSERT_TRUE(result.has_value(), "Can init after previous exception");
         }
         
         // FIX #24: Test lifecycle with exception path
@@ -1213,9 +1213,9 @@ namespace fat_p::testing
                 } catch (...) {
                     // Should not throw
                 }
-                ASSERT_EQ(TestObject::construct_count.load(), 1, "Constructed");
+                FATP_ASSERT_EQ(TestObject::construct_count.load(), 1, "Constructed");
             }
-            ASSERT_EQ(TestObject::destruct_count.load(), 1, "Destroyed even if exceptions possible");
+            FATP_ASSERT_EQ(TestObject::destruct_count.load(), 1, "Destroyed even if exceptions possible");
         }
 
         return true;
@@ -1225,14 +1225,14 @@ namespace fat_p::testing
     // Test Suite 9: Integration Patterns
     // ============================================================================
 
-    bool test_enforce_init_unique_ptr_variant() {
+    FATP_TEST_CASE(enforce_init_unique_ptr_variant) {
         // Test 1: EnforcedInitUnique with unique_ptr
         {
             EnforcedInitUnique<int> ptr;
             (void)ptr.init(std::make_unique<int>(TEST_VALUE_DEFAULT));
             
-            ASSERT_TRUE(ptr.is_initialized(), "Unique ptr variant initialized");
-            ASSERT_EQ(**ptr, TEST_VALUE_DEFAULT, "Dereferencing unique_ptr through EnforcedInit");
+            FATP_ASSERT_TRUE(ptr.is_initialized(), "Unique ptr variant initialized");
+            FATP_ASSERT_EQ(**ptr, TEST_VALUE_DEFAULT, "Dereferencing unique_ptr through EnforcedInit");
         }
 
         // Test 2: Ownership semantics preserved
@@ -1241,8 +1241,8 @@ namespace fat_p::testing
             (void)ptr.init(std::make_unique<std::string>("Hello"));
             
             auto& unique = *ptr;
-            ASSERT_TRUE(unique != nullptr, "Unique ptr is valid");
-            ASSERT_EQ(*unique, "Hello", "Value accessible through unique_ptr");
+            FATP_ASSERT_TRUE(unique != nullptr, "Unique ptr is valid");
+            FATP_ASSERT_EQ(*unique, "Hello", "Value accessible through unique_ptr");
         }
         
         // FIX #22: Test EnforcedInitUnique edge cases
@@ -1250,8 +1250,8 @@ namespace fat_p::testing
         {
             EnforcedInitUnique<int> ptr;
             (void)ptr.init(nullptr);
-            ASSERT_TRUE(ptr.is_initialized(), "Can init with nullptr");
-            ASSERT_TRUE(*ptr == nullptr, "nullptr preserved");
+            FATP_ASSERT_TRUE(ptr.is_initialized(), "Can init with nullptr");
+            FATP_ASSERT_TRUE(*ptr == nullptr, "nullptr preserved");
         }
         
         // Test 4: Move semantics with unique_ptr
@@ -1260,20 +1260,20 @@ namespace fat_p::testing
             (void)ptr1.init(std::make_unique<int>(99));
             
             EnforcedInitUnique<int> ptr2(std::move(ptr1));
-            ASSERT_TRUE(ptr2.is_initialized(), "Moved unique_ptr initialized");
-            ASSERT_EQ(**ptr2, 99, "Value preserved after move");
+            FATP_ASSERT_TRUE(ptr2.is_initialized(), "Moved unique_ptr initialized");
+            FATP_ASSERT_EQ(**ptr2, 99, "Value preserved after move");
         }
 
         return true;
     }
 
-    bool test_enforce_init_integration_with_expected() {
+    FATP_TEST_CASE(enforce_init_integration_with_expected) {
         // Test 1: init() returns Expected
         {
             EnforcedInit<int> value;
             auto result = value.init(TEST_VALUE_DEFAULT);
             
-            ASSERT_TRUE(result.has_value(), "Expected returned from init");
+            FATP_ASSERT_TRUE(result.has_value(), "Expected returned from init");
         }
 
         // Test 2: Error handling with Expected
@@ -1288,9 +1288,9 @@ namespace fat_p::testing
                 return err;
             });
             
-            ASSERT_TRUE(error_msg.find("already initialized") != std::string::npos,
+            FATP_ASSERT_TRUE(error_msg.find("already initialized") != std::string::npos,
                        "Error mapped through Expected interface");
-            ASSERT_FALSE(result.has_value(), "Second init returns error");
+            FATP_ASSERT_FALSE(result.has_value(), "Second init returns error");
         }
         
         // Test 3: Chaining with Expected
@@ -1301,23 +1301,23 @@ namespace fat_p::testing
                     return Expected<int, std::string>(value.get() * 2);
                 });
             
-            ASSERT_TRUE(result.has_value(), "Chaining succeeds");
-            ASSERT_EQ(*result, 100, "Chained value correct");
+            FATP_ASSERT_TRUE(result.has_value(), "Chaining succeeds");
+            FATP_ASSERT_EQ(*result, 100, "Chained value correct");
         }
 
         return true;
     }
     
     // FIX #20: Add const-correctness tests
-    bool test_enforce_init_const_correctness() {
+    FATP_TEST_CASE(enforce_init_const_correctness) {
         // Test 1: Const EnforcedInit allows const get()
         {
             EnforcedInit<int> value;
             (void)value.init(TEST_VALUE_DEFAULT);
             
             const EnforcedInit<int>& const_ref = value;
-            ASSERT_EQ(const_ref.get(), TEST_VALUE_DEFAULT, "Const get() works");
-            ASSERT_TRUE(const_ref.is_initialized(), "Const is_initialized() works");
+            FATP_ASSERT_EQ(const_ref.get(), TEST_VALUE_DEFAULT, "Const get() works");
+            FATP_ASSERT_TRUE(const_ref.is_initialized(), "Const is_initialized() works");
         }
         
         // Test 2: Const accessors
@@ -1326,8 +1326,8 @@ namespace fat_p::testing
             (void)str.init("test");
             
             const auto& const_str = str;
-            ASSERT_EQ((*const_str).length(), 4u, "Const deref works");
-            ASSERT_EQ(const_str->length(), 4u, "Const arrow works");
+            FATP_ASSERT_EQ((*const_str).length(), 4u, "Const deref works");
+            FATP_ASSERT_EQ(const_str->length(), 4u, "Const arrow works");
         }
         
         return true;
@@ -1337,20 +1337,20 @@ namespace fat_p::testing
     // Test Suite 10: Edge Cases and Stress Tests
     // ============================================================================
 
-    bool test_enforced_init_edge_cases() {
+    FATP_TEST_CASE(enforced_init_edge_cases) {
         // Test 1: Empty string initialization
         {
             EnforcedInit<std::string> str;
             (void)str.init("");
-            ASSERT_TRUE(str.is_initialized(), "Empty string is valid init");
-            ASSERT_EQ(str->length(), 0u, "Empty string has zero length");
+            FATP_ASSERT_TRUE(str.is_initialized(), "Empty string is valid init");
+            FATP_ASSERT_EQ(str->length(), 0u, "Empty string has zero length");
         }
 
         // Test 2: Zero initialization
         {
             EnforcedInit<int> value;
             (void)value.init(0);
-            ASSERT_EQ(value.get(), 0, "Zero is valid value");
+            FATP_ASSERT_EQ(value.get(), 0, "Zero is valid value");
         }
 
         // Test 3: Large object initialization
@@ -1360,8 +1360,8 @@ namespace fat_p::testing
             data.fill(TEST_VALUE_DEFAULT);
             (void)large.init(data);
             
-            ASSERT_EQ((*large)[0], TEST_VALUE_DEFAULT, "Large object initialized");
-            ASSERT_EQ((*large)[999], TEST_VALUE_DEFAULT, "Large object fully initialized");
+            FATP_ASSERT_EQ((*large)[0], TEST_VALUE_DEFAULT, "Large object initialized");
+            FATP_ASSERT_EQ((*large)[999], TEST_VALUE_DEFAULT, "Large object fully initialized");
         }
 
         // Test 4: Nested EnforcedInit
@@ -1371,27 +1371,27 @@ namespace fat_p::testing
             (void)inner.init(TEST_VALUE_DEFAULT);
             (void)nested.init(std::move(inner));
             
-            ASSERT_TRUE(nested.is_initialized(), "Outer initialized");
-            ASSERT_TRUE(nested->is_initialized(), "Inner initialized");
-            ASSERT_EQ(nested->get(), TEST_VALUE_DEFAULT, "Nested value accessible");
+            FATP_ASSERT_TRUE(nested.is_initialized(), "Outer initialized");
+            FATP_ASSERT_TRUE(nested->is_initialized(), "Inner initialized");
+            FATP_ASSERT_EQ(nested->get(), TEST_VALUE_DEFAULT, "Nested value accessible");
         }
         
         // Test 5: Boolean values (0 and 1 are both valid)
         {
             EnforcedInit<bool> flag;
             (void)flag.init(false);
-            ASSERT_EQ(flag.get(), false, "Boolean false is valid");
+            FATP_ASSERT_EQ(flag.get(), false, "Boolean false is valid");
             
             EnforcedInit<bool> flag2;
             (void)flag2.init(true);
-            ASSERT_EQ(flag2.get(), true, "Boolean true is valid");
+            FATP_ASSERT_EQ(flag2.get(), true, "Boolean true is valid");
         }
 
         return true;
     }
 
     // FIX #10 & #25: Strengthened stress test with configurable parameters
-    bool test_enforce_init_stress_concurrent_access() {
+    FATP_TEST_CASE(enforce_init_stress_concurrent_access) {
         // FIX #25: Use hardware concurrency if available
         const int num_threads = std::min(STRESS_THREAD_COUNT, 
                                         static_cast<int>(std::thread::hardware_concurrency()));
@@ -1427,17 +1427,17 @@ namespace fat_p::testing
             t.join();
         }
         
-        ASSERT_EQ(exception_count.load(), 0, "Stress test: no exceptions");
-        ASSERT_EQ(wrong_value_count.load(), 0, "Stress test: no corrupted reads");
-        ASSERT_EQ(completed_threads.load(), num_threads, "Stress test: all threads completed");
-        ASSERT_EQ(sum.load(), static_cast<long long>(num_threads * iterations), 
+        FATP_ASSERT_EQ(exception_count.load(), 0, "Stress test: no exceptions");
+        FATP_ASSERT_EQ(wrong_value_count.load(), 0, "Stress test: no corrupted reads");
+        FATP_ASSERT_EQ(completed_threads.load(), num_threads, "Stress test: all threads completed");
+        FATP_ASSERT_EQ(sum.load(), static_cast<long long>(num_threads * iterations), 
                  "Stress test: all concurrent reads successful");
         
         return true;
     }
     
     // FIX #26: Add fuzz testing
-    bool test_enforce_init_fuzz_initialization() {
+    FATP_TEST_CASE(enforce_init_fuzz_initialization) {
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<> dis(1, 1000);
@@ -1446,8 +1446,8 @@ namespace fat_p::testing
             EnforcedInit<int> value;
             int random_val = dis(gen);
             (void)value.init(random_val);
-            ASSERT_EQ(value.get(), random_val, "Fuzz: value stable");
-            ASSERT_EQ(value.get(), value.get(), "Fuzz: value consistent");
+            FATP_ASSERT_EQ(value.get(), random_val, "Fuzz: value stable");
+            FATP_ASSERT_EQ(value.get(), value.get(), "Fuzz: value consistent");
         }
         
         return true;
@@ -1629,9 +1629,14 @@ namespace fat_p::testing
     // Main Test Entry Point
     // ============================================================================
 
+} // namespace fat_p::testing::enforcedinit
+
+namespace fat_p::testing
+{
+
     bool test_EnforcedInit() {
 
-        PRINT_HEADER(ENFORCED INIT)
+        FATP_PRINT_HEADER(ENFORCED INIT)
 
         TestRunner runner;
         get_test_config().verbose = true;
@@ -1639,73 +1644,73 @@ namespace fat_p::testing
         // Test Suite 1: Basic Initialization and Access
         std::cout << "\n" << colors::cyan() << "Test Suite 1: Basic Initialization and Access" 
                   << colors::reset() << "\n";
-        runner.run_test("basic_initialization", test_enforce_init_basic_initialization);
-        runner.run_test("double_init_prevention", test_enforce_init_double_init_prevention);
-        runner.run_test("access_before_init", test_enforce_init_access_before_init);
-        runner.run_test("is_initialized_query", test_enforce_init_is_initialized_query);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_basic_initialization);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_double_init_prevention);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_access_before_init);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_is_initialized_query);
 
         // Test Suite 2: Reset Policy
         std::cout << "\n" << colors::cyan() << "Test Suite 2: Reset Policy" 
                   << colors::reset() << "\n";
-        runner.run_test("reset_not_allowed", test_enforce_init_reset_not_allowed);
-        runner.run_test("reset_allowed", test_enforce_init_reset_allowed);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_reset_not_allowed);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_reset_allowed);
 
         // Test Suite 3: Custom Check Policies
         std::cout << "\n" << colors::cyan() << "Test Suite 3: Custom Check Policies" 
                   << colors::reset() << "\n";
-        runner.run_test("custom_check_policy", test_enforce_init_custom_check_policy);
-        runner.run_test("policy_pack_composition", test_enforce_init_policy_pack_composition);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_custom_check_policy);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_policy_pack_composition);
 
         // Test Suite 4: Lazy Initialization
         std::cout << "\n" << colors::cyan() << "Test Suite 4: Lazy Initialization" 
                   << colors::reset() << "\n";
-        runner.run_test("lazy_init", test_enforce_init_lazy_init);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_lazy_init);
 
         // Test Suite 5: Copy and Move Semantics
         std::cout << "\n" << colors::cyan() << "Test Suite 5: Copy and Move Semantics" 
                   << colors::reset() << "\n";
-        runner.run_test("copy_semantics", test_enforce_init_copy_semantics);
-        runner.run_test("move_semantics", test_enforce_init_move_semantics);
-        runner.run_test("copy_move_thread_safety", test_enforce_init_copy_move_thread_safety);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_copy_semantics);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_move_semantics);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_copy_move_thread_safety);
 
         // Test Suite 6: Thread-Safety
         std::cout << "\n" << colors::cyan() << "Test Suite 6: Thread-Safety with Concurrency Policies" 
                   << colors::reset() << "\n";
-        runner.run_test("single_threaded_policy", test_enforce_init_single_threaded_policy);
-        runner.run_test("mutex_synchronization_policy", test_enforce_init_mutex_synchronization_policy);
-        runner.run_test("spinlock_synchronization_policy", test_enforce_init_spinlock_synchronization_policy);
-        runner.run_test("shared_mutex_policy", test_enforce_init_shared_mutex_policy);
-        runner.run_test("atomic_policy", test_enforce_init_atomic_policy);
-        runner.run_test("condition_variable_policy", test_enforce_init_condition_variable_policy);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_single_threaded_policy);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_mutex_synchronization_policy);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_spinlock_synchronization_policy);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_shared_mutex_policy);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_atomic_policy);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_condition_variable_policy);
 
         // Test Suite 7: Storage Policies
         std::cout << "\n" << colors::cyan() << "Test Suite 7: Storage Policies" 
                   << colors::reset() << "\n";
-        runner.run_test("optional_storage_policy", test_enforce_init_optional_storage_policy);
-        runner.run_test("union_storage_policy", test_enforce_init_union_storage_policy);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_optional_storage_policy);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_union_storage_policy);
 
         // Test Suite 8: Lifecycle and RAII
         std::cout << "\n" << colors::cyan() << "Test Suite 8: Lifecycle and RAII" 
                   << colors::reset() << "\n";
-        runner.run_test("lifecycle_tracking", test_enforce_init_lifecycle_tracking);
-        runner.run_test("exception_safety", test_enforce_init_exception_safety);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_lifecycle_tracking);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_exception_safety);
 
         // Test Suite 9: Integration Patterns
         std::cout << "\n" << colors::cyan() << "Test Suite 9: Integration Patterns" 
                   << colors::reset() << "\n";
-        runner.run_test("unique_ptr_variant", test_enforce_init_unique_ptr_variant);
-        runner.run_test("integration_with_expected", test_enforce_init_integration_with_expected);
-        runner.run_test("const_correctness", test_enforce_init_const_correctness);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_unique_ptr_variant);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_integration_with_expected);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_const_correctness);
 
         // Test Suite 10: Edge Cases
         std::cout << "\n" << colors::cyan() << "Test Suite 10: Edge Cases and Stress Tests" 
                   << colors::reset() << "\n";
-        runner.run_test("edge_cases", test_enforced_init_edge_cases);
-        runner.run_test("stress_concurrent_access", test_enforce_init_stress_concurrent_access);
-        runner.run_test("fuzz_initialization", test_enforce_init_fuzz_initialization);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforced_init_edge_cases);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_stress_concurrent_access);
+        FATP_RUN_TEST_NS(runner, enforcedinit, enforce_init_fuzz_initialization);
 
         // Performance Benchmarks
-        run_enforce_init_benchmarks();
+        enforcedinit::run_enforce_init_benchmarks();
 
         // Print summary
         int failed = runner.print_summary();

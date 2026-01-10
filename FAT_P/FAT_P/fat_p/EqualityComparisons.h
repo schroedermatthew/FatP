@@ -10,31 +10,31 @@
  */
 #pragma once
 
- /*
- FATP_META:
-   meta_version: 1
-   component: EqualityComparisons
-   file_role: public_header
-   path: fat_p/EqualityComparisons.h
-   namespace: fat_p
-   summary: "Public header for EqualityComparisons."
-   api_stability: in_work
-   related:
-	 docs_search: "EqualityComparisons"
-	 tests:
-	   - tests/test_EqualityComparisons.cpp
-	   - tests/test_TensorComparison.cpp
-   hygiene:
-	 pragma_once: true
-	 include_guard: false
-	 defines_total: 0
-	 defines_unprefixed: 0
-	 undefs_total: 0
-	 includes_windows_h: false
-   generated:
-	 by: fatp-meta-tool
-	 mode: autogen
- */
+/*
+FATP_META:
+  meta_version: 1
+  component: EqualityComparisons
+  file_role: public_header
+  path: fat_p/EqualityComparisons.h
+  namespace: fat_p
+  summary: "Public header for EqualityComparisons."
+  api_stability: in_work
+  related:
+    docs_search: "EqualityComparisons"
+    tests:
+      - tests/test_EqualityComparisons.cpp
+      - tests/test_TensorComparison.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 #include <cstddef>
 #include <functional>
 #include <iterator>
@@ -505,7 +505,7 @@ namespace fat_p
 			// === STRING FAST PATH ===
 			// Strings are iterable but operator== is more efficient than character-by-character
 			// recursive dispatch. This avoids per-character EqualDispatcher overhead and index tracking.
-			// No logging here — outer context (pair/tuple/container) provides structural info.
+			// No logging here â€” outer context (pair/tuple/container) provides structural info.
 			// Use decay_t to handle const std::string (e.g., map keys are std::pair<const K, V>).
 			else if constexpr (std::is_same_v<std::decay_t<T>, std::string>)
 			{

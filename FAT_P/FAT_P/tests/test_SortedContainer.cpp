@@ -140,7 +140,7 @@ inline std::ostream& operator<<(std::ostream& os, const TestObject& obj)
 // Bug Fix #1: Stability Test for AllowDuplicatesPolicy
 // ============================================================================
 
-TEST_CASE(allow_duplicates_stability)
+FATP_TEST_CASE(allow_duplicates_stability)
 {
     fat_p::SortedContainer<int, fat_p::AllowDuplicatesPolicy> sv;
     
@@ -149,8 +149,8 @@ TEST_CASE(allow_duplicates_stability)
     (void)sv.insert(5);
     
     auto vec = sv.toVector();
-    ASSERT_EQ(vec.size(), 3, "Should have 3 elements");
-    ASSERT_TRUE(std::all_of(vec.begin(), vec.end(), [](int v) { return v == 5; }),
+    FATP_ASSERT_EQ(vec.size(), 3, "Should have 3 elements");
+    FATP_ASSERT_TRUE(std::all_of(vec.begin(), vec.end(), [](int v) { return v == 5; }),
                "All elements should be 5");
     
     fat_p::SortedContainer<int, fat_p::AllowDuplicatesPolicy> sv2;
@@ -161,10 +161,10 @@ TEST_CASE(allow_duplicates_stability)
     (void)sv2.insert(2);
     
     vec = sv2.toVector();
-    ASSERT_EQ(vec.size(), 5, "Should have 5 elements");
-    ASSERT_TRUE(std::is_sorted(vec.begin(), vec.end()), "Should be sorted");
-    ASSERT_EQ(sv2.count(2), 2, "Should have 2 occurrences of 2");
-    ASSERT_EQ(sv2.count(3), 2, "Should have 2 occurrences of 3");
+    FATP_ASSERT_EQ(vec.size(), 5, "Should have 5 elements");
+    FATP_ASSERT_TRUE(std::is_sorted(vec.begin(), vec.end()), "Should be sorted");
+    FATP_ASSERT_EQ(sv2.count(2), 2, "Should have 2 occurrences of 2");
+    FATP_ASSERT_EQ(sv2.count(3), 2, "Should have 2 occurrences of 3");
     
     return true;
 }
@@ -173,30 +173,30 @@ TEST_CASE(allow_duplicates_stability)
 // Bug Fix #2 & #3: FuzzyUniquePolicy Detection and Improved Fuzzy Detection
 // ============================================================================
 
-TEST_CASE(fuzzy_unique_policy)
+FATP_TEST_CASE(fuzzy_unique_policy)
 {
     using FuzzySV = fat_p::SortedContainer<double, 
                                            fat_p::FuzzyUniquePolicy<fat_p::HybridComparisonPolicy, double>>;
     FuzzySV sv;
     
-    ASSERT_TRUE(fat_p::is_fuzzy_unique_policy<fat_p::FuzzyUniquePolicy<>>::value,
+    FATP_ASSERT_TRUE(fat_p::is_fuzzy_unique_policy<fat_p::FuzzyUniquePolicy<>>::value,
                "Trait should detect FuzzyUniquePolicy");
-    ASSERT_FALSE(fat_p::is_fuzzy_unique_policy<fat_p::OnlyUniquePolicy>::value,
+    FATP_ASSERT_FALSE(fat_p::is_fuzzy_unique_policy<fat_p::OnlyUniquePolicy>::value,
                "Trait should not detect OnlyUniquePolicy as fuzzy");
     
     auto result1 = sv.insert(1.0, FUZZY_EPSILON, FUZZY_EPSILON);
-    ASSERT_TRUE(result1.has_value() && result1.value(), "First insert should succeed");
+    FATP_ASSERT_TRUE(result1.has_value() && result1.value(), "First insert should succeed");
     
     auto result2 = sv.insert(1.005, FUZZY_EPSILON, FUZZY_EPSILON);
-    ASSERT_TRUE(result2.has_value() && !result2.value(), "Fuzzy duplicate should be rejected");
+    FATP_ASSERT_TRUE(result2.has_value() && !result2.value(), "Fuzzy duplicate should be rejected");
     
     auto result3 = sv.insert(1.02, FUZZY_EPSILON, FUZZY_EPSILON);
-    ASSERT_TRUE(result3.has_value() && result3.value(), "Non-duplicate should succeed");
+    FATP_ASSERT_TRUE(result3.has_value() && result3.value(), "Non-duplicate should succeed");
     
-    ASSERT_EQ(sv.size(), 2, "Should have 2 elements after fuzzy filtering");
+    FATP_ASSERT_EQ(sv.size(), 2, "Should have 2 elements after fuzzy filtering");
     
     auto result4 = sv.insert(0.995, FUZZY_EPSILON, FUZZY_EPSILON);
-    ASSERT_TRUE(result4.has_value() && !result4.value(), 
+    FATP_ASSERT_TRUE(result4.has_value() && !result4.value(), 
                   "Fuzzy duplicate before should be rejected");
     
     return true;
@@ -206,7 +206,7 @@ TEST_CASE(fuzzy_unique_policy)
 // Bug Fix #4: Epsilon Parameters in insertRange for Fuzzy
 // ============================================================================
 
-TEST_CASE(fuzzy_insert_range)
+FATP_TEST_CASE(fuzzy_insert_range)
 {
     using FuzzySV = fat_p::SortedContainer<double, 
                                            fat_p::FuzzyUniquePolicy<fat_p::HybridComparisonPolicy, double>>;
@@ -214,14 +214,14 @@ TEST_CASE(fuzzy_insert_range)
     
     std::vector<double> values = {1.0, 1.005, 1.02, 1.025, 2.0, 2.005};
     auto result = sv.insertRange(values.begin(), values.end(), FUZZY_EPSILON, FUZZY_EPSILON);
-    ASSERT_TRUE(result.has_value(), "insertRange should succeed");
+    FATP_ASSERT_TRUE(result.has_value(), "insertRange should succeed");
     
-    ASSERT_LT(sv.size(), values.size(), "Fuzzy duplicates should be filtered");
+    FATP_ASSERT_LT(sv.size(), values.size(), "Fuzzy duplicates should be filtered");
     
     auto vec = sv.toVector();
     for (size_t i = 0; i < vec.size() - 1; ++i)
     {
-        ASSERT_GT(std::abs(vec[i+1] - vec[i]), FUZZY_EPSILON,
+        FATP_ASSERT_GT(std::abs(vec[i+1] - vec[i]), FUZZY_EPSILON,
                    "No two elements should be within epsilon");
     }
     
@@ -232,7 +232,7 @@ TEST_CASE(fuzzy_insert_range)
 // Bug Fix #10: Non-Transitive Chain Handling in Fuzzy Uniqueness
 // ============================================================================
 
-TEST_CASE(fuzzy_chain_handling)
+FATP_TEST_CASE(fuzzy_chain_handling)
 {
     using FuzzySV = fat_p::SortedContainer<double, 
                                            fat_p::FuzzyUniquePolicy<fat_p::HybridComparisonPolicy, double>>;
@@ -242,21 +242,21 @@ TEST_CASE(fuzzy_chain_handling)
     std::vector<double> chain = {1.0, 1.003, 1.006, 1.009};
     
     auto result = sv.insertRange(chain.begin(), chain.end(), chain_eps, 0.0);
-    ASSERT_TRUE(result.has_value(), "insertRange should succeed");
+    FATP_ASSERT_TRUE(result.has_value(), "insertRange should succeed");
     
     auto vec = sv.toVector();
     
-    ASSERT_GE(vec.size(), 1, "Should keep at least one element");
-    ASSERT_LE(vec.size(), 3, "Should collapse some elements in chain");
+    FATP_ASSERT_GE(vec.size(), 1, "Should keep at least one element");
+    FATP_ASSERT_LE(vec.size(), 3, "Should collapse some elements in chain");
     
     for (size_t i = 0; i + 1 < vec.size(); ++i)
     {
         double diff = std::abs(vec[i+1] - vec[i]);
-        ASSERT_GE(diff, chain_eps,
+        FATP_ASSERT_GE(diff, chain_eps,
                    "Consecutive elements must be >= epsilon apart after dedup");
     }
     
-    ASSERT_LT(std::abs(vec[0] - 1.0), 1e-10, "First element should be 1.0");
+    FATP_ASSERT_LT(std::abs(vec[0] - 1.0), 1e-10, "First element should be 1.0");
     
     return true;
 }
@@ -265,28 +265,28 @@ TEST_CASE(fuzzy_chain_handling)
 // Improvement: Default Epsilon for FuzzyUniquePolicy
 // ============================================================================
 
-TEST_CASE(fuzzy_default_epsilon)
+FATP_TEST_CASE(fuzzy_default_epsilon)
 {
     using FuzzySV = fat_p::SortedContainer<double, fat_p::FuzzyUniquePolicy<fat_p::HybridComparisonPolicy>>;
     FuzzySV sv;
     
     auto result1 = sv.insert(1.0);
-    ASSERT_TRUE(result1.has_value() && result1.value(), "First insert should succeed");
+    FATP_ASSERT_TRUE(result1.has_value() && result1.value(), "First insert should succeed");
     
     auto result2 = sv.insert(1.0 + 1e-15);
-    ASSERT_TRUE(result2.has_value() && !result2.value(), 
+    FATP_ASSERT_TRUE(result2.has_value() && !result2.value(), 
                "Very close value should be rejected with default epsilon");
     
     auto result3 = sv.insert(2.0);
-    ASSERT_TRUE(result3.has_value() && result3.value(), "Different value should be accepted");
+    FATP_ASSERT_TRUE(result3.has_value() && result3.value(), "Different value should be accepted");
     
-    ASSERT_EQ(sv.size(), 2, "Should have 2 elements with default epsilon");
+    FATP_ASSERT_EQ(sv.size(), 2, "Should have 2 elements with default epsilon");
     
     FuzzySV sv2;
     std::vector<double> values = {1.0, 1.0 + 1e-15, 2.0, 2.0 + 1e-15};
     auto range_result = sv2.insertRange(values.begin(), values.end());
-    ASSERT_TRUE(range_result.has_value(), "insertRange should succeed");
-    ASSERT_EQ(sv2.size(), 2, "Should have 2 elements after insertRange with default epsilon");
+    FATP_ASSERT_TRUE(range_result.has_value(), "insertRange should succeed");
+    FATP_ASSERT_EQ(sv2.size(), 2, "Should have 2 elements after insertRange with default epsilon");
     
     return true;
 }
@@ -295,7 +295,7 @@ TEST_CASE(fuzzy_default_epsilon)
 // Bug Fix #5: Forwarding in LoggingUniquePolicy
 // ============================================================================
 
-TEST_CASE(logging_unique_policy_forwarding)
+FATP_TEST_CASE(logging_unique_policy_forwarding)
 {
     TestObject::reset_counts();
     
@@ -307,7 +307,7 @@ TEST_CASE(logging_unique_policy_forwarding)
     auto initial_moves = TestObject::move_count.load();
     (void)sv.insert(std::move(obj));
     
-    ASSERT_GT(TestObject::move_count.load(), initial_moves, 
+    FATP_ASSERT_GT(TestObject::move_count.load(), initial_moves, 
                "Move insert should trigger move operations");
     
     return true;
@@ -317,7 +317,7 @@ TEST_CASE(logging_unique_policy_forwarding)
 // Bug Fix #6: std::unique Equivalence for OnlyUniquePolicy
 // ============================================================================
 
-TEST_CASE(unique_equivalence)
+FATP_TEST_CASE(unique_equivalence)
 {
     fat_p::SortedContainer<int, fat_p::OnlyUniquePolicy> sv;
     
@@ -325,10 +325,10 @@ TEST_CASE(unique_equivalence)
     (void)sv.insertRange(values.begin(), values.end());
     
     auto vec = sv.toVector();
-    ASSERT_EQ(vec.size(), 5, "Should have 5 unique elements");
+    FATP_ASSERT_EQ(vec.size(), 5, "Should have 5 unique elements");
     
     std::vector<int> expected = {1, 2, 3, 4, 5};
-    ASSERT_TRUE(vec == expected, "Should match expected unique sequence");
+    FATP_ASSERT_TRUE(vec == expected, "Should match expected unique sequence");
     
     return true;
 }
@@ -337,7 +337,7 @@ TEST_CASE(unique_equivalence)
 // Improvement #7: Stable Sort for Large Batches
 // ============================================================================
 
-TEST_CASE(stable_sort_large_batch)
+FATP_TEST_CASE(stable_sort_large_batch)
 {
     fat_p::SortedContainer<int, fat_p::AllowDuplicatesPolicy> sv;
     
@@ -351,8 +351,8 @@ TEST_CASE(stable_sort_large_batch)
     (void)sv.insertRange(large_batch.begin(), large_batch.end());
     
     auto vec = sv.toVector();
-    ASSERT_EQ(vec.size(), 100, "Should have 100 elements");
-    ASSERT_TRUE(std::is_sorted(vec.begin(), vec.end()), "Should be sorted after large batch");
+    FATP_ASSERT_EQ(vec.size(), 100, "Should have 100 elements");
+    FATP_ASSERT_TRUE(std::is_sorted(vec.begin(), vec.end()), "Should be sorted after large batch");
     
     return true;
 }
@@ -361,19 +361,19 @@ TEST_CASE(stable_sort_large_batch)
 // Improvement #8: Reserve and Capacity Methods
 // ============================================================================
 
-TEST_CASE(reserve_and_capacity)
+FATP_TEST_CASE(reserve_and_capacity)
 {
     fat_p::SortedContainer<int> sv;
     
     sv.reserve(100);
-    ASSERT_GE(sv.capacity(), 100, "Capacity should be at least 100 after reserve");
+    FATP_ASSERT_GE(sv.capacity(), 100, "Capacity should be at least 100 after reserve");
     
     (void)sv.insert(1);
     (void)sv.insert(2);
     (void)sv.insert(3);
     
     auto cap_before = sv.capacity();
-    ASSERT_GE(cap_before, 100, "Capacity should persist after inserts");
+    FATP_ASSERT_GE(cap_before, 100, "Capacity should persist after inserts");
     
     return true;
 }
@@ -382,7 +382,7 @@ TEST_CASE(reserve_and_capacity)
 // Improvement #9: Clear Method
 // ============================================================================
 
-TEST_CASE(clear_method)
+FATP_TEST_CASE(clear_method)
 {
     fat_p::SortedContainer<int> sv;
     
@@ -390,15 +390,15 @@ TEST_CASE(clear_method)
     (void)sv.insert(2);
     (void)sv.insert(3);
     
-    ASSERT_EQ(sv.size(), 3, "Should have 3 elements before clear");
+    FATP_ASSERT_EQ(sv.size(), 3, "Should have 3 elements before clear");
     
     sv.clear();
     
-    ASSERT_EQ(sv.size(), 0, "Should have 0 elements after clear");
-    ASSERT_TRUE(sv.empty(), "Should be empty after clear");
+    FATP_ASSERT_EQ(sv.size(), 0, "Should have 0 elements after clear");
+    FATP_ASSERT_TRUE(sv.empty(), "Should be empty after clear");
     
     (void)sv.insert(5);
-    ASSERT_EQ(sv.size(), 1, "Should be able to insert after clear");
+    FATP_ASSERT_EQ(sv.size(), 1, "Should be able to insert after clear");
     
     return true;
 }
@@ -407,7 +407,7 @@ TEST_CASE(clear_method)
 // Basic Functionality Tests
 // ============================================================================
 
-TEST_CASE(basic_insert_and_find)
+FATP_TEST_CASE(basic_insert_and_find)
 {
     fat_p::SortedContainer<int> sv;
     
@@ -418,48 +418,48 @@ TEST_CASE(basic_insert_and_find)
     (void)sv.insert(9);
     
     auto vec = sv.toVector();
-    ASSERT_TRUE(std::is_sorted(vec.begin(), vec.end()), "Container should maintain sorted order");
+    FATP_ASSERT_TRUE(std::is_sorted(vec.begin(), vec.end()), "Container should maintain sorted order");
     
     std::vector<int> expected = {1, 3, 5, 7, 9};
-    ASSERT_TRUE(vec == expected, "Elements should be in sorted order");
+    FATP_ASSERT_TRUE(vec == expected, "Elements should be in sorted order");
     
     auto it = sv.find(5);
-    ASSERT_TRUE(it != sv.end(), "Should find existing element");
-    ASSERT_EQ(*it, 5, "Found element should be correct");
+    FATP_ASSERT_TRUE(it != sv.end(), "Should find existing element");
+    FATP_ASSERT_EQ(*it, 5, "Found element should be correct");
     
     auto it_not_found = sv.find(6);
-    ASSERT_TRUE(it_not_found == sv.end(), "Should not find non-existing element");
+    FATP_ASSERT_TRUE(it_not_found == sv.end(), "Should not find non-existing element");
     
     return true;
 }
 
-TEST_CASE(only_unique_policy_basic)
+FATP_TEST_CASE(only_unique_policy_basic)
 {
     fat_p::SortedContainer<int, fat_p::OnlyUniquePolicy> sv;
     
     auto r1 = sv.insert(5);
-    ASSERT_TRUE(r1.has_value() && r1.value(), "First insert should succeed");
+    FATP_ASSERT_TRUE(r1.has_value() && r1.value(), "First insert should succeed");
     
     auto r2 = sv.insert(5);
-    ASSERT_TRUE(r2.has_value() && !r2.value(), "Duplicate insert should be rejected");
+    FATP_ASSERT_TRUE(r2.has_value() && !r2.value(), "Duplicate insert should be rejected");
     
     auto r3 = sv.insert(3);
-    ASSERT_TRUE(r3.has_value() && r3.value(), "Different value should succeed");
+    FATP_ASSERT_TRUE(r3.has_value() && r3.value(), "Different value should succeed");
     
-    ASSERT_EQ(sv.size(), 2, "Should have 2 unique elements");
+    FATP_ASSERT_EQ(sv.size(), 2, "Should have 2 unique elements");
     
     return true;
 }
 
-TEST_CASE(range_constructor)
+FATP_TEST_CASE(range_constructor)
 {
     std::vector<int> source = {5, 3, 7, 1, 9};
     fat_p::SortedContainer<int> sv(source.begin(), source.end());
     
-    ASSERT_EQ(sv.size(), 5, "Should contain all source elements");
+    FATP_ASSERT_EQ(sv.size(), 5, "Should contain all source elements");
     
     auto vec = sv.toVector();
-    ASSERT_TRUE(std::is_sorted(vec.begin(), vec.end()), "Should be sorted");
+    FATP_ASSERT_TRUE(std::is_sorted(vec.begin(), vec.end()), "Should be sorted");
     
     return true;
 }
@@ -468,7 +468,7 @@ TEST_CASE(range_constructor)
 // Binary Search Methods
 // ============================================================================
 
-TEST_CASE(binary_search_methods)
+FATP_TEST_CASE(binary_search_methods)
 {
     fat_p::SortedContainer<int, fat_p::AllowDuplicatesPolicy> sv;
     
@@ -479,13 +479,13 @@ TEST_CASE(binary_search_methods)
     (void)sv.insert(7);
     
     auto lower = sv.lower_bound(3);
-    ASSERT_TRUE(lower != sv.end() && *lower == 3, "lower_bound should find first 3");
+    FATP_ASSERT_TRUE(lower != sv.end() && *lower == 3, "lower_bound should find first 3");
     
     auto upper = sv.upper_bound(3);
-    ASSERT_TRUE(upper != sv.end() && *upper == 5, "upper_bound should find element after 3s");
+    FATP_ASSERT_TRUE(upper != sv.end() && *upper == 5, "upper_bound should find element after 3s");
     
-    ASSERT_EQ(sv.count(3), 2, "Should have 2 occurrences of 3");
-    ASSERT_EQ(sv.count(4), 0, "Should have 0 occurrences of 4");
+    FATP_ASSERT_EQ(sv.count(3), 2, "Should have 2 occurrences of 3");
+    FATP_ASSERT_EQ(sv.count(4), 0, "Should have 0 occurrences of 4");
     
     return true;
 }
@@ -494,7 +494,7 @@ TEST_CASE(binary_search_methods)
 // Erase Support
 // ============================================================================
 
-TEST_CASE(erase_basic)
+FATP_TEST_CASE(erase_basic)
 {
     fat_p::SortedContainer<int> sv;
     
@@ -503,12 +503,12 @@ TEST_CASE(erase_basic)
     (void)sv.insert(5);
     
     auto result = sv.erase(3);
-    ASSERT_TRUE(result.has_value() && result.value(), "Erase should succeed for existing element");
-    ASSERT_EQ(sv.size(), 2, "Size should decrease after erase");
-    ASSERT_TRUE(sv.find(3) == sv.end(), "Element should no longer exist");
+    FATP_ASSERT_TRUE(result.has_value() && result.value(), "Erase should succeed for existing element");
+    FATP_ASSERT_EQ(sv.size(), 2, "Size should decrease after erase");
+    FATP_ASSERT_TRUE(sv.find(3) == sv.end(), "Element should no longer exist");
     
     auto result2 = sv.erase(99);
-    ASSERT_TRUE(result2.has_value() && !result2.value(), 
+    FATP_ASSERT_TRUE(result2.has_value() && !result2.value(), 
                   "Erase should return false for non-existing element");
     
     return true;
@@ -518,7 +518,7 @@ TEST_CASE(erase_basic)
 // Iterator Tests
 // ============================================================================
 
-TEST_CASE(iterators)
+FATP_TEST_CASE(iterators)
 {
     fat_p::SortedContainer<int> sv;
     
@@ -533,7 +533,7 @@ TEST_CASE(iterators)
     }
     
     std::vector<int> expected_forward = {1, 3, 5};
-    ASSERT_TRUE(forward_order == expected_forward, "Forward iteration should work");
+    FATP_ASSERT_TRUE(forward_order == expected_forward, "Forward iteration should work");
     
     std::vector<int> reverse_order;
     for (auto it = sv.rbegin(); it != sv.rend(); ++it)
@@ -542,7 +542,7 @@ TEST_CASE(iterators)
     }
     
     std::vector<int> expected_reverse = {5, 3, 1};
-    ASSERT_TRUE(reverse_order == expected_reverse, "Reverse iteration should work");
+    FATP_ASSERT_TRUE(reverse_order == expected_reverse, "Reverse iteration should work");
     
     return true;
 }
@@ -551,7 +551,7 @@ TEST_CASE(iterators)
 // Thread-Safety Tests
 // ============================================================================
 
-TEST_CASE(concurrent_inserts)
+FATP_TEST_CASE(concurrent_inserts)
 {
     fat_p::SortedContainer<int, fat_p::AllowDuplicatesPolicy, std::less<int>, 
                           std::allocator<int>, fat_p::MutexSynchronizationPolicy> sv;
@@ -579,13 +579,13 @@ TEST_CASE(concurrent_inserts)
     }
     
     int expected_total = CONCURRENT_THREAD_COUNT * CONCURRENT_ITERATIONS;
-    ASSERT_EQ(success_count.load(), expected_total, 
+    FATP_ASSERT_EQ(success_count.load(), expected_total, 
                "All inserts should succeed under concurrency");
-    ASSERT_EQ(sv.size(), static_cast<size_t>(expected_total), 
+    FATP_ASSERT_EQ(sv.size(), static_cast<size_t>(expected_total), 
                "Size should match insert count");
     
     auto vec = sv.toVector();
-    ASSERT_TRUE(std::is_sorted(vec.begin(), vec.end()), 
+    FATP_ASSERT_TRUE(std::is_sorted(vec.begin(), vec.end()), 
                "Should remain sorted after concurrent inserts");
     
     return true;
@@ -595,7 +595,7 @@ TEST_CASE(concurrent_inserts)
 // Large Dataset Test
 // ============================================================================
 
-TEST_CASE(large_dataset)
+FATP_TEST_CASE(large_dataset)
 {
     fat_p::SortedContainer<int> sv;
     
@@ -608,10 +608,10 @@ TEST_CASE(large_dataset)
     
     (void)sv.insertRange(large_data.begin(), large_data.end());
     
-    ASSERT_EQ(sv.size(), TEST_RANGE_SIZE, "Should contain all elements");
+    FATP_ASSERT_EQ(sv.size(), TEST_RANGE_SIZE, "Should contain all elements");
     
     auto vec = sv.toVector();
-    ASSERT_TRUE(std::is_sorted(vec.begin(), vec.end()), "Should be sorted");
+    FATP_ASSERT_TRUE(std::is_sorted(vec.begin(), vec.end()), "Should be sorted");
     
     return true;
 }
@@ -620,7 +620,7 @@ TEST_CASE(large_dataset)
 // WithInternalContainer Tests
 // ============================================================================
 
-TEST_CASE(with_internal_container_basic)
+FATP_TEST_CASE(with_internal_container_basic)
 {
     fat_p::SortedContainer<int> sv;
     (void)sv.insert(1);
@@ -631,18 +631,18 @@ TEST_CASE(with_internal_container_basic)
         return container.size();
     });
     
-    ASSERT_EQ(result, 3u, "withInternalContainer should return correct size");
+    FATP_ASSERT_EQ(result, 3u, "withInternalContainer should return correct size");
     
     auto sum = sv.withInternalContainer([](const auto& container) {
         return std::accumulate(container.begin(), container.end(), 0);
     });
     
-    ASSERT_EQ(sum, 6, "Sum should be 1+2+3=6");
+    FATP_ASSERT_EQ(sum, 6, "Sum should be 1+2+3=6");
     
     return true;
 }
 
-TEST_CASE(with_internal_container_thread_safety)
+FATP_TEST_CASE(with_internal_container_thread_safety)
 {
     fat_p::SortedContainer<int, fat_p::AllowDuplicatesPolicy, std::less<int>,
                           std::allocator<int>, fat_p::MutexSynchronizationPolicy> sv;
@@ -673,12 +673,12 @@ TEST_CASE(with_internal_container_thread_safety)
         thread.join();
     }
     
-    ASSERT_EQ(read_count.load(), 400, "All reads should complete");
+    FATP_ASSERT_EQ(read_count.load(), 400, "All reads should complete");
     
     return true;
 }
 
-TEST_CASE(with_internal_container_complex_return)
+FATP_TEST_CASE(with_internal_container_complex_return)
 {
     fat_p::SortedContainer<int> sv;
     (void)sv.insert(10);
@@ -695,15 +695,15 @@ TEST_CASE(with_internal_container_complex_return)
         return Stats{container.front(), container.back(), sum, container.size()};
     });
     
-    ASSERT_EQ(stats.min, 10, "Min should be 10");
-    ASSERT_EQ(stats.max, 30, "Max should be 30");
-    ASSERT_EQ(stats.sum, 60, "Sum should be 60");
-    ASSERT_EQ(stats.count, 3u, "Count should be 3");
+    FATP_ASSERT_EQ(stats.min, 10, "Min should be 10");
+    FATP_ASSERT_EQ(stats.max, 30, "Max should be 30");
+    FATP_ASSERT_EQ(stats.sum, 60, "Sum should be 60");
+    FATP_ASSERT_EQ(stats.count, 3u, "Count should be 3");
     
     return true;
 }
 
-TEST_CASE(with_internal_container_backend_agnostic)
+FATP_TEST_CASE(with_internal_container_backend_agnostic)
 {
     fat_p::SortedContainer<int, fat_p::AllowDuplicatesPolicy, std::less<int>,
                           std::allocator<int>, fat_p::SingleThreadedPolicy, 
@@ -717,12 +717,12 @@ TEST_CASE(with_internal_container_backend_agnostic)
         return std::accumulate(container.begin(), container.end(), 0);
     });
     
-    ASSERT_EQ(sum, 6, "Deque backend should also work with withInternalContainer");
+    FATP_ASSERT_EQ(sum, 6, "Deque backend should also work with withInternalContainer");
     
     return true;
 }
 
-TEST_CASE(vector_access_methods)
+FATP_TEST_CASE(vector_access_methods)
 {
     fat_p::SortedContainer<int> sv;
     (void)sv.insert(1);
@@ -730,17 +730,17 @@ TEST_CASE(vector_access_methods)
     (void)sv.insert(3);
     
     auto vec_copy = sv.toVector();
-    ASSERT_EQ(vec_copy.size(), 3u, "toVector should return copy with correct size");
+    FATP_ASSERT_EQ(vec_copy.size(), 3u, "toVector should return copy with correct size");
     
     vec_copy[0] = 999;
     auto original_first = sv.withInternalContainer([](const auto& c) { return c.front(); });
-    ASSERT_EQ(original_first, 1, "Modifying copy should not affect original");
+    FATP_ASSERT_EQ(original_first, 1, "Modifying copy should not affect original");
     
     int sum = sv.withInternalContainer([](const auto& container) {
         return std::accumulate(container.begin(), container.end(), 0);
     });
     
-    ASSERT_EQ(sum, 6, "Sum should be 1+2+3=6");
+    FATP_ASSERT_EQ(sum, 6, "Sum should be 1+2+3=6");
     
     return true;
 }
@@ -749,7 +749,7 @@ TEST_CASE(vector_access_methods)
 // Backend Policy Tests
 // ============================================================================
 
-TEST_CASE(deque_backend_policy)
+FATP_TEST_CASE(deque_backend_policy)
 {
     fat_p::SortedContainer<int, fat_p::AllowDuplicatesPolicy, std::less<int>,
                           std::allocator<int>, fat_p::SingleThreadedPolicy,
@@ -759,15 +759,15 @@ TEST_CASE(deque_backend_policy)
     (void)sv.insert(1);
     (void)sv.insert(2);
     
-    ASSERT_EQ(sv.size(), 3, "Deque backend should work");
+    FATP_ASSERT_EQ(sv.size(), 3, "Deque backend should work");
     
     auto cap = sv.capacity();
-    ASSERT_EQ(cap, sv.size(), "Deque capacity() returns size()");
+    FATP_ASSERT_EQ(cap, sv.size(), "Deque capacity() returns size()");
     
     sv.reserve(100);
     
     auto vec = sv.toVector();
-    ASSERT_TRUE(std::is_sorted(vec.begin(), vec.end()), "Should be sorted");
+    FATP_ASSERT_TRUE(std::is_sorted(vec.begin(), vec.end()), "Should be sorted");
     
     return true;
 }
@@ -847,34 +847,34 @@ namespace fat_p::testing
 
 bool test_SortedContainer()
 {
-    PRINT_HEADER(SORTED CONTAINER)
+    FATP_PRINT_HEADER(SORTED CONTAINER)
     
     TestRunner runner;
     
-    RUN_TEST_NS(runner, sortedcontainer, allow_duplicates_stability);
-    RUN_TEST_NS(runner, sortedcontainer, fuzzy_unique_policy);
-    RUN_TEST_NS(runner, sortedcontainer, fuzzy_insert_range);
-    RUN_TEST_NS(runner, sortedcontainer, fuzzy_chain_handling);
-    RUN_TEST_NS(runner, sortedcontainer, fuzzy_default_epsilon);
-    RUN_TEST_NS(runner, sortedcontainer, logging_unique_policy_forwarding);
-    RUN_TEST_NS(runner, sortedcontainer, unique_equivalence);
-    RUN_TEST_NS(runner, sortedcontainer, stable_sort_large_batch);
-    RUN_TEST_NS(runner, sortedcontainer, reserve_and_capacity);
-    RUN_TEST_NS(runner, sortedcontainer, clear_method);
-    RUN_TEST_NS(runner, sortedcontainer, basic_insert_and_find);
-    RUN_TEST_NS(runner, sortedcontainer, only_unique_policy_basic);
-    RUN_TEST_NS(runner, sortedcontainer, range_constructor);
-    RUN_TEST_NS(runner, sortedcontainer, binary_search_methods);
-    RUN_TEST_NS(runner, sortedcontainer, erase_basic);
-    RUN_TEST_NS(runner, sortedcontainer, iterators);
-    RUN_TEST_NS(runner, sortedcontainer, concurrent_inserts);
-    RUN_TEST_NS(runner, sortedcontainer, large_dataset);
-    RUN_TEST_NS(runner, sortedcontainer, with_internal_container_basic);
-    RUN_TEST_NS(runner, sortedcontainer, with_internal_container_thread_safety);
-    RUN_TEST_NS(runner, sortedcontainer, with_internal_container_complex_return);
-    RUN_TEST_NS(runner, sortedcontainer, with_internal_container_backend_agnostic);
-    RUN_TEST_NS(runner, sortedcontainer, vector_access_methods);
-    RUN_TEST_NS(runner, sortedcontainer, deque_backend_policy);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, allow_duplicates_stability);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, fuzzy_unique_policy);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, fuzzy_insert_range);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, fuzzy_chain_handling);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, fuzzy_default_epsilon);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, logging_unique_policy_forwarding);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, unique_equivalence);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, stable_sort_large_batch);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, reserve_and_capacity);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, clear_method);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, basic_insert_and_find);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, only_unique_policy_basic);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, range_constructor);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, binary_search_methods);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, erase_basic);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, iterators);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, concurrent_inserts);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, large_dataset);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, with_internal_container_basic);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, with_internal_container_thread_safety);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, with_internal_container_complex_return);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, with_internal_container_backend_agnostic);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, vector_access_methods);
+    FATP_RUN_TEST_NS(runner, sortedcontainer, deque_backend_policy);
     
     sortedcontainer::benchmark_component();
     

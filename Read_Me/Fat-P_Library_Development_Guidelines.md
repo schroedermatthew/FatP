@@ -234,35 +234,160 @@ Provide analysis as a prioritized list with:
 
 ### 4.2 Formatting Standards
 
-**Line width:** 100 columns maximum
+**Line width:**
+- **Target:** 100 columns (typical)
+- **Hard limit:** 120 columns (absolute maximum)
+
+The `ColumnLimit` is set to 120 with a high `PenaltyExcessCharacter` to discourage lines over 100 columns while still allowing up to 120 when necessary.
 
 **Style configuration (clang-format):**
 
 ```yaml
+# Fat-P Library .clang-format
+# Column policy: Target 100, Hard limit 120
+
+Language: Cpp
+Standard: c++17
+
 BasedOnStyle: LLVM
+
+# Indentation
 UseTab: Never
 IndentWidth: 4
 TabWidth: 4
-InsertBraces: true
-BreakBeforeBraces: Allman
-AllowShortLoopsOnASingleLine: false
-AllowShortIfStatementsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: None
-AllowAllParametersOfDeclarationOnNextLine: false
-BinPackParameters: false
-BinPackArguments: false
-BreakConstructorInitializers: BeforeComma
+ContinuationIndentWidth: 4
 ConstructorInitializerIndentWidth: 4
-IndentCaseLabels: true
-ColumnLimit: 100
 AccessModifierOffset: -4
+IndentCaseLabels: true
+IndentPPDirectives: None
 NamespaceIndentation: None
-FixNamespaceComments: true
-SortIncludes: CaseInsensitive
+
+# Braces - Allman style (opening brace on its own line)
+BreakBeforeBraces: Allman
+
+# Always use braces for control statements
+InsertBraces: true
+
+# Line length
+ColumnLimit: 120
+
+# Penalties to prefer breaking at 100 columns
+PenaltyExcessCharacter: 1000000
+PenaltyBreakBeforeFirstCallParameter: 19
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 1000
+PenaltyBreakTemplateDeclaration: 10
+PenaltyReturnTypeOnItsOwnLine: 60
+
+# No short forms - always use full brace blocks
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: Empty
+AllowShortLoopsOnASingleLine: false
+
+# Parameter/argument packing - one per line when wrapping
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+BinPackArguments: false
+BinPackParameters: false
+
+# Constructor initializers
+BreakConstructorInitializers: BeforeComma
+PackConstructorInitializers: Never
+
+# Function declarations/definitions
+AlwaysBreakAfterReturnType: None
+AlwaysBreakTemplateDeclarations: Yes
+
+# Alignment
+AlignAfterOpenBracket: Align
+AlignArrayOfStructures: None
+AlignConsecutiveAssignments: None
+AlignConsecutiveBitFields: None
+AlignConsecutiveDeclarations: None
+AlignConsecutiveMacros: None
+AlignEscapedNewlines: Left
+AlignOperands: Align
+AlignTrailingComments: true
+
+# Spacing
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: true
+SpaceAroundPointerQualifiers: Default
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon: false
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyBlock: false
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: Never
+SpacesInCStyleCastParentheses: false
+SpacesInConditionalStatement: false
+SpacesInContainerLiterals: true
 SpacesInLineCommentPrefix:
   Minimum: 1
   Maximum: 1
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# Pointer/reference alignment
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Includes
+SortIncludes: CaseInsensitive
+IncludeBlocks: Preserve
+
+# Namespace comments
+FixNamespaceComments: true
+ShortNamespaceLines: 0
+
+# Empty lines
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: LogicalBlock
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 2
+SeparateDefinitionBlocks: Leave
+
+# Misc
+BreakBeforeBinaryOperators: None
+BreakBeforeConceptDeclarations: true
+BreakBeforeTernaryOperators: true
+BreakStringLiterals: true
+CompactNamespaces: false
+Cpp11BracedListStyle: true
+IndentExternBlock: NoIndent
+IndentGotoLabels: false
+IndentWrappedFunctionNames: false
+InsertTrailingCommas: None
+LambdaBodyIndentation: Signature
+ReflowComments: true
+SortUsingDeclarations: true
 ```
+
+**Key formatting rules summary:**
+
+| Setting | Value | Effect |
+|---------|-------|--------|
+| `BreakBeforeBraces` | Allman | Opening braces on their own line |
+| `IndentWidth` | 4 | 4-space indentation |
+| `UseTab` | Never | Spaces only, no tabs |
+| `ColumnLimit` | 120 | Hard limit (target 100 via penalties) |
+| `InsertBraces` | true | Always use braces for `if`/`for`/`while` |
+| `BinPackParameters` | false | One parameter per line when wrapping |
+| `NamespaceIndentation` | None | No extra indent inside namespaces |
+| `PointerAlignment` | Left | `int* ptr` not `int *ptr` |
 
 ### 4.3 Naming Conventions
 
@@ -1668,6 +1793,13 @@ When multiple AI reviewers analyze the same code:
 
 ## Changelog
 
+### v2.8 (January 2026)
+- Expanded Section 4.2 Formatting Standards with complete clang-format configuration
+- Updated line width policy: 100 columns typical, 120 columns absolute maximum
+- Added PenaltyExcessCharacter mechanism to discourage lines over 100 columns
+- Added comprehensive clang-format options for all formatting aspects
+- Added key formatting rules summary table
+
 ### v2.7 (January 2025)
 - Added Systemic Hygiene Policy to governance document set (6 documents total, up from 4)
 - Added Benchmark Code Style Guide to governance table
@@ -1740,4 +1872,4 @@ When multiple AI reviewers analyze the same code:
 
 ---
 
-*Fat-P Library Development Guidelines v2.7 -- January 2025*
+*Fat-P Library Development Guidelines v2.8 -- January 2026*

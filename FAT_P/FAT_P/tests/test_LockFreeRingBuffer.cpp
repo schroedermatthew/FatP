@@ -8,7 +8,7 @@ FATP_META:
   component: LockFreeRingBuffer
   file_role: test
   path: tests/test_LockFreeRingBuffer.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::lockfreeringbuffer
   summary: "Unit tests for LockFreeRingBuffer."
   related:
     docs_search: "LockFreeRingBuffer"
@@ -35,109 +35,109 @@ FATP_META:
 #include "FatPTest.h"
 
 
-namespace fat_p::testing
+namespace fat_p::testing::lockfreeringbuffer
 {
 
-bool test_ring_buffer_basic() {
+FATP_TEST_CASE(ring_buffer_basic) {
     LockFreeRingBuffer<int> buffer(8);
     
-    ASSERT_TRUE(buffer.empty(), "Buffer should be empty");
-    ASSERT_TRUE(buffer.capacity() == 8, "Capacity should be 8");
+    FATP_ASSERT_TRUE(buffer.empty(), "Buffer should be empty");
+    FATP_ASSERT_TRUE(buffer.capacity() == 8, "Capacity should be 8");
     
-    ASSERT_TRUE(buffer.push(42), "Push should succeed");
-    ASSERT_TRUE(!buffer.empty(), "Buffer should not be empty");
+    FATP_ASSERT_TRUE(buffer.push(42), "Push should succeed");
+    FATP_ASSERT_TRUE(!buffer.empty(), "Buffer should not be empty");
     
     auto val = buffer.pop();
-    ASSERT_TRUE(val.has_value(), "Pop should return value");
-    ASSERT_TRUE(*val == 42, "Value should be 42");
-    ASSERT_TRUE(buffer.empty(), "Buffer should be empty after pop");
+    FATP_ASSERT_TRUE(val.has_value(), "Pop should return value");
+    FATP_ASSERT_TRUE(*val == 42, "Value should be 42");
+    FATP_ASSERT_TRUE(buffer.empty(), "Buffer should be empty after pop");
     
     return true;
 }
 
-bool test_ring_buffer_multiple() {
+FATP_TEST_CASE(ring_buffer_multiple) {
     LockFreeRingBuffer<int> buffer(8);
     
     for (int i = 0; i < 5; ++i) {
-        ASSERT_TRUE(buffer.push(i), "Push should succeed");
+        FATP_ASSERT_TRUE(buffer.push(i), "Push should succeed");
     }
     
     for (int i = 0; i < 5; ++i) {
         auto val = buffer.pop();
-        ASSERT_TRUE(val.has_value(), "Pop should return value");
-        ASSERT_TRUE(*val == i, "Value should match");
+        FATP_ASSERT_TRUE(val.has_value(), "Pop should return value");
+        FATP_ASSERT_TRUE(*val == i, "Value should match");
     }
     
-    ASSERT_TRUE(buffer.empty(), "Buffer should be empty");
+    FATP_ASSERT_TRUE(buffer.empty(), "Buffer should be empty");
     
     return true;
 }
 
-bool test_ring_buffer_full() {
+FATP_TEST_CASE(ring_buffer_full) {
     LockFreeRingBuffer<int> buffer(4);
     
     // Fill buffer
     for (int i = 0; i < 4; ++i) {
-        ASSERT_TRUE(buffer.push(i), "Push should succeed");
+        FATP_ASSERT_TRUE(buffer.push(i), "Push should succeed");
     }
     
-    ASSERT_TRUE(buffer.full(), "Buffer should be full");
-    ASSERT_TRUE(!buffer.push(99), "Push should fail when full");
+    FATP_ASSERT_TRUE(buffer.full(), "Buffer should be full");
+    FATP_ASSERT_TRUE(!buffer.push(99), "Push should fail when full");
     
     return true;
 }
 
-bool test_ring_buffer_wrap_around() {
+FATP_TEST_CASE(ring_buffer_wrap_around) {
     LockFreeRingBuffer<int> buffer(4);
     
     // Fill and empty multiple times
     for (int cycle = 0; cycle < 3; ++cycle) {
         for (int i = 0; i < 4; ++i) {
-            ASSERT_TRUE(buffer.push(i + cycle * 10), "Push should succeed");
+            FATP_ASSERT_TRUE(buffer.push(i + cycle * 10), "Push should succeed");
         }
         
         for (int i = 0; i < 4; ++i) {
             auto val = buffer.pop();
-            ASSERT_TRUE(val.has_value(), "Pop should return value");
-            ASSERT_TRUE(*val == i + cycle * 10, "Value should match");
+            FATP_ASSERT_TRUE(val.has_value(), "Pop should return value");
+            FATP_ASSERT_TRUE(*val == i + cycle * 10, "Value should match");
         }
     }
     
     return true;
 }
 
-bool test_ring_buffer_peek() {
+FATP_TEST_CASE(ring_buffer_peek) {
     LockFreeRingBuffer<int> buffer(4);
     
     (void)buffer.push(42);
     
     auto peeked = buffer.peek();
-    ASSERT_TRUE(peeked.has_value(), "Peek should return value");
-    ASSERT_TRUE(*peeked == 42, "Peeked value should be 42");
+    FATP_ASSERT_TRUE(peeked.has_value(), "Peek should return value");
+    FATP_ASSERT_TRUE(*peeked == 42, "Peeked value should be 42");
     
-    ASSERT_TRUE(!buffer.empty(), "Buffer should not be empty after peek");
+    FATP_ASSERT_TRUE(!buffer.empty(), "Buffer should not be empty after peek");
     
     auto popped = buffer.pop();
-    ASSERT_TRUE(*popped == 42, "Popped value should be 42");
+    FATP_ASSERT_TRUE(*popped == 42, "Popped value should be 42");
     
     return true;
 }
 
-bool test_ring_buffer_mpmc_basic() {
+FATP_TEST_CASE(ring_buffer_mpmc_basic) {
     LockFreeRingBufferMPMC<int> buffer(8);
     
-    ASSERT_TRUE(buffer.empty(), "Buffer should be empty");
+    FATP_ASSERT_TRUE(buffer.empty(), "Buffer should be empty");
     
-    ASSERT_TRUE(buffer.push(42), "Push should succeed");
+    FATP_ASSERT_TRUE(buffer.push(42), "Push should succeed");
     
     auto val = buffer.pop();
-    ASSERT_TRUE(val.has_value(), "Pop should return value");
-    ASSERT_TRUE(*val == 42, "Value should be 42");
+    FATP_ASSERT_TRUE(val.has_value(), "Pop should return value");
+    FATP_ASSERT_TRUE(*val == 42, "Value should be 42");
     
     return true;
 }
 
-bool test_ring_buffer_spsc_threaded() {
+FATP_TEST_CASE(ring_buffer_spsc_threaded) {
     LockFreeRingBuffer<int> buffer(1024);
     
     constexpr int NUM_ITEMS = 10000;
@@ -170,7 +170,7 @@ bool test_ring_buffer_spsc_threaded() {
     producer.join();
     consumer.join();
     
-    ASSERT_TRUE(buffer.empty(), "Buffer should be empty after threads finish");
+    FATP_ASSERT_TRUE(buffer.empty(), "Buffer should be empty after threads finish");
     
     return true;
 }
@@ -208,21 +208,26 @@ void benchmark_ring_buffer() {
     std::cout << "MPMC Push: " << format_time(mpmc_push_time) << "\n";
 }
 
+} // namespace fat_p::testing::lockfreeringbuffer
+
+namespace fat_p::testing
+{
+
 bool test_LockFreeRingBuffer() {
 
-    PRINT_HEADER(LOCK-FREE RING BUFFER)
+    FATP_PRINT_HEADER(LOCK-FREE RING BUFFER)
 
     TestRunner runner;
 
-    RUN_TEST(runner, ring_buffer_basic);
-    RUN_TEST(runner, ring_buffer_multiple);
-    RUN_TEST(runner, ring_buffer_full);
-    RUN_TEST(runner, ring_buffer_wrap_around);
-    RUN_TEST(runner, ring_buffer_peek);
-    RUN_TEST(runner, ring_buffer_mpmc_basic);
-    RUN_TEST(runner, ring_buffer_spsc_threaded);
+    FATP_RUN_TEST_NS(runner, lockfreeringbuffer, ring_buffer_basic);
+    FATP_RUN_TEST_NS(runner, lockfreeringbuffer, ring_buffer_multiple);
+    FATP_RUN_TEST_NS(runner, lockfreeringbuffer, ring_buffer_full);
+    FATP_RUN_TEST_NS(runner, lockfreeringbuffer, ring_buffer_wrap_around);
+    FATP_RUN_TEST_NS(runner, lockfreeringbuffer, ring_buffer_peek);
+    FATP_RUN_TEST_NS(runner, lockfreeringbuffer, ring_buffer_mpmc_basic);
+    FATP_RUN_TEST_NS(runner, lockfreeringbuffer, ring_buffer_spsc_threaded);
 
-    benchmark_ring_buffer();
+    lockfreeringbuffer::benchmark_ring_buffer();
 
     return 0 == runner.print_summary();
 }

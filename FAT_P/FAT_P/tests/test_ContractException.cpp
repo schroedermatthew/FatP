@@ -70,79 +70,79 @@ using namespace fat_p;
 // Test Suite 1: Basic Functionality
 // =============================================================================
 
-TEST_CASE(logic_contract_error_basic)
+FATP_TEST_CASE(logic_contract_error_basic)
 {
     try
     {
         throw LogicContractError("Test logic error");
-        ASSERT_TRUE(false, "Should have thrown LogicContractError");
+        FATP_ASSERT_TRUE(false, "Should have thrown LogicContractError");
     }
     catch (const LogicContractError& e)
     {
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("Contract Violation:") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("Contract Violation:") != std::string::npos,
                       "Message contains 'Contract Violation:' prefix");
-        ASSERT_TRUE(msg.find("Test logic error") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("Test logic error") != std::string::npos,
                       "Message contains user text");
     }
     return true;
 }
 
-TEST_CASE(runtime_contract_error_basic)
+FATP_TEST_CASE(runtime_contract_error_basic)
 {
     try
     {
         throw RuntimeContractError("Test runtime error");
-        ASSERT_TRUE(false, "Should have thrown RuntimeContractError");
+        FATP_ASSERT_TRUE(false, "Should have thrown RuntimeContractError");
     }
     catch (const RuntimeContractError& e)
     {
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("Contract Violation:") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("Contract Violation:") != std::string::npos,
                       "Message contains 'Contract Violation:' prefix");
-        ASSERT_TRUE(msg.find("Test runtime error") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("Test runtime error") != std::string::npos,
                       "Message contains user text");
     }
     return true;
 }
 
-TEST_CASE(alloc_contract_error_basic)
+FATP_TEST_CASE(alloc_contract_error_basic)
 {
     try
     {
         throw AllocContractError("Stack overflow detected");
-        ASSERT_TRUE(false, "Should have thrown AllocContractError");
+        FATP_ASSERT_TRUE(false, "Should have thrown AllocContractError");
     }
     catch (const AllocContractError& e)
     {
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("Contract Violation:") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("Contract Violation:") != std::string::npos,
                       "Message contains 'Contract Violation:' prefix");
-        ASSERT_TRUE(msg.find("Bad Allocation") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("Bad Allocation") != std::string::npos,
                       "Message contains 'Bad Allocation'");
-        ASSERT_TRUE(msg.find("Stack overflow detected") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("Stack overflow detected") != std::string::npos,
                       "Message contains user text");
 
         // Verify no double prefix
         std::string::size_type first_pos = msg.find("Contract Violation:");
         std::string::size_type second_pos = msg.find("Contract Violation:", first_pos + 1);
-        ASSERT_TRUE(second_pos == std::string::npos,
+        FATP_ASSERT_TRUE(second_pos == std::string::npos,
                       "Message should NOT contain duplicate 'Contract Violation:' prefix");
     }
     return true;
 }
 
-TEST_CASE(domain_contract_error)
+FATP_TEST_CASE(domain_contract_error)
 {
     try
     {
         throw DomainContractError("sqrt of negative number");
-        ASSERT_TRUE(false, "Should have thrown DomainContractError");
+        FATP_ASSERT_TRUE(false, "Should have thrown DomainContractError");
     }
     catch (const DomainContractError& e)
     {
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("sqrt of negative number") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("sqrt of negative number") != std::string::npos,
                       "Message contains user text");
     }
     catch (const std::domain_error&)
@@ -152,17 +152,17 @@ TEST_CASE(domain_contract_error)
     return true;
 }
 
-TEST_CASE(out_of_range_contract_error)
+FATP_TEST_CASE(out_of_range_contract_error)
 {
     try
     {
         throw OutOfRangeContractError("Index 10 out of bounds [0, 5)");
-        ASSERT_TRUE(false, "Should have thrown OutOfRangeContractError");
+        FATP_ASSERT_TRUE(false, "Should have thrown OutOfRangeContractError");
     }
     catch (const OutOfRangeContractError& e)
     {
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("Index 10") != std::string::npos, "Message contains index info");
+        FATP_ASSERT_TRUE(msg.find("Index 10") != std::string::npos, "Message contains index info");
     }
     catch (const std::out_of_range&)
     {
@@ -171,46 +171,46 @@ TEST_CASE(out_of_range_contract_error)
     return true;
 }
 
-TEST_CASE(overflow_underflow_contract_errors)
+FATP_TEST_CASE(overflow_underflow_contract_errors)
 {
     // Test OverflowContractError
     try
     {
         throw OverflowContractError("Integer overflow: INT_MAX + 1");
-        ASSERT_TRUE(false, "Should have thrown OverflowContractError");
+        FATP_ASSERT_TRUE(false, "Should have thrown OverflowContractError");
     }
     catch (const OverflowContractError& e)
     {
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("overflow") != std::string::npos, "Message contains 'overflow'");
+        FATP_ASSERT_TRUE(msg.find("overflow") != std::string::npos, "Message contains 'overflow'");
     }
 
     // Test UnderflowContractError
     try
     {
         throw UnderflowContractError("Integer underflow: INT_MIN - 1");
-        ASSERT_TRUE(false, "Should have thrown UnderflowContractError");
+        FATP_ASSERT_TRUE(false, "Should have thrown UnderflowContractError");
     }
     catch (const UnderflowContractError& e)
     {
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("underflow") != std::string::npos, "Message contains 'underflow'");
+        FATP_ASSERT_TRUE(msg.find("underflow") != std::string::npos, "Message contains 'underflow'");
     }
 
     return true;
 }
 
-TEST_CASE(invalid_argument_contract_error)
+FATP_TEST_CASE(invalid_argument_contract_error)
 {
     try
     {
         throw InvalidArgumentContractError("Null pointer argument");
-        ASSERT_TRUE(false, "Should have thrown InvalidArgumentContractError");
+        FATP_ASSERT_TRUE(false, "Should have thrown InvalidArgumentContractError");
     }
     catch (const InvalidArgumentContractError& e)
     {
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("Null pointer") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("Null pointer") != std::string::npos,
                       "Message contains error details");
     }
     catch (const std::invalid_argument&)
@@ -224,7 +224,7 @@ TEST_CASE(invalid_argument_contract_error)
 // Test Suite 2: Polymorphic Base Class
 // =============================================================================
 
-TEST_CASE(polymorphic_catch_base)
+FATP_TEST_CASE(polymorphic_catch_base)
 {
     bool caught_as_base = false;
 
@@ -235,15 +235,15 @@ TEST_CASE(polymorphic_catch_base)
     catch (const ContractViolationBase& e)
     {
         caught_as_base = true;
-        ASSERT_TRUE(std::string(e.message()).find("Logic error") != std::string::npos,
+        FATP_ASSERT_TRUE(std::string(e.message()).find("Logic error") != std::string::npos,
                       "Polymorphic catch preserves message");
     }
 
-    ASSERT_TRUE(caught_as_base, "Should have caught as ContractViolationBase");
+    FATP_ASSERT_TRUE(caught_as_base, "Should have caught as ContractViolationBase");
     return true;
 }
 
-TEST_CASE(polymorphic_catch_all_types)
+FATP_TEST_CASE(polymorphic_catch_all_types)
 {
     std::vector<std::string> categories_caught;
 
@@ -283,13 +283,13 @@ TEST_CASE(polymorphic_catch_all_types)
         categories_caught.push_back(e.category());
     }
 
-    ASSERT_TRUE(categories_caught.size() == 4,
+    FATP_ASSERT_TRUE(categories_caught.size() == 4,
                   "Should have caught all 4 exception types polymorphically");
 
     return true;
 }
 
-TEST_CASE(category_method)
+FATP_TEST_CASE(category_method)
 {
     // Test LogicContractError category
     try
@@ -298,7 +298,7 @@ TEST_CASE(category_method)
     }
     catch (const ContractViolationBase& e)
     {
-        ASSERT_TRUE(std::string(e.category()) == "Logic",
+        FATP_ASSERT_TRUE(std::string(e.category()) == "Logic",
                       "LogicContractError should return 'Logic' category");
     }
 
@@ -309,7 +309,7 @@ TEST_CASE(category_method)
     }
     catch (const ContractViolationBase& e)
     {
-        ASSERT_TRUE(std::string(e.category()) == "Runtime",
+        FATP_ASSERT_TRUE(std::string(e.category()) == "Runtime",
                       "RuntimeContractError should return 'Runtime' category");
     }
 
@@ -320,7 +320,7 @@ TEST_CASE(category_method)
     }
     catch (const ContractViolationBase& e)
     {
-        ASSERT_TRUE(std::string(e.category()) == "Allocation",
+        FATP_ASSERT_TRUE(std::string(e.category()) == "Allocation",
                       "AllocContractError should return 'Allocation' category");
     }
 
@@ -331,7 +331,7 @@ TEST_CASE(category_method)
 // Test Suite 3: Standard Exception Compatibility
 // =============================================================================
 
-TEST_CASE(logic_error_inheritance)
+FATP_TEST_CASE(logic_error_inheritance)
 {
     bool caught_as_logic_error = false;
 
@@ -342,16 +342,16 @@ TEST_CASE(logic_error_inheritance)
     catch (const std::logic_error& e)
     {
         caught_as_logic_error = true;
-        ASSERT_TRUE(std::string(e.what()).find("test") != std::string::npos,
+        FATP_ASSERT_TRUE(std::string(e.what()).find("test") != std::string::npos,
                       "Message preserved when caught as std::logic_error");
     }
 
-    ASSERT_TRUE(caught_as_logic_error,
+    FATP_ASSERT_TRUE(caught_as_logic_error,
                   "LogicContractError should be catchable as std::logic_error");
     return true;
 }
 
-TEST_CASE(runtime_error_inheritance)
+FATP_TEST_CASE(runtime_error_inheritance)
 {
     bool caught_as_runtime_error = false;
 
@@ -362,16 +362,16 @@ TEST_CASE(runtime_error_inheritance)
     catch (const std::runtime_error& e)
     {
         caught_as_runtime_error = true;
-        ASSERT_TRUE(std::string(e.what()).find("test") != std::string::npos,
+        FATP_ASSERT_TRUE(std::string(e.what()).find("test") != std::string::npos,
                       "Message preserved when caught as std::runtime_error");
     }
 
-    ASSERT_TRUE(caught_as_runtime_error,
+    FATP_ASSERT_TRUE(caught_as_runtime_error,
                   "RuntimeContractError should be catchable as std::runtime_error");
     return true;
 }
 
-TEST_CASE(bad_alloc_inheritance)
+FATP_TEST_CASE(bad_alloc_inheritance)
 {
     bool caught_as_bad_alloc = false;
 
@@ -383,16 +383,16 @@ TEST_CASE(bad_alloc_inheritance)
     {
         caught_as_bad_alloc = true;
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("allocation") != std::string::npos ||
+        FATP_ASSERT_TRUE(msg.find("allocation") != std::string::npos ||
                           msg.find("Allocation") != std::string::npos,
                       "Message should mention allocation when caught as std::bad_alloc");
     }
 
-    ASSERT_TRUE(caught_as_bad_alloc, "AllocContractError should be catchable as std::bad_alloc");
+    FATP_ASSERT_TRUE(caught_as_bad_alloc, "AllocContractError should be catchable as std::bad_alloc");
     return true;
 }
 
-TEST_CASE(exception_hierarchy)
+FATP_TEST_CASE(exception_hierarchy)
 {
     int exception_count = 0;
 
@@ -423,7 +423,7 @@ TEST_CASE(exception_hierarchy)
         ++exception_count;
     }
 
-    ASSERT_TRUE(exception_count == 3,
+    FATP_ASSERT_TRUE(exception_count == 3,
                   "All contract exceptions should be catchable as std::exception");
     return true;
 }
@@ -432,7 +432,7 @@ TEST_CASE(exception_hierarchy)
 // Test Suite 4: Message Formatting
 // =============================================================================
 
-TEST_CASE(message_with_variables)
+FATP_TEST_CASE(message_with_variables)
 {
     int value = 42;
     std::string var_name = "x";
@@ -446,14 +446,14 @@ TEST_CASE(message_with_variables)
     catch (const LogicContractError& e)
     {
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("42") != std::string::npos, "Message contains interpolated value");
-        ASSERT_TRUE(msg.find("x") != std::string::npos, "Message contains variable name");
+        FATP_ASSERT_TRUE(msg.find("42") != std::string::npos, "Message contains interpolated value");
+        FATP_ASSERT_TRUE(msg.find("x") != std::string::npos, "Message contains variable name");
     }
 
     return true;
 }
 
-TEST_CASE(message_with_special_characters)
+FATP_TEST_CASE(message_with_special_characters)
 {
     try
     {
@@ -462,18 +462,18 @@ TEST_CASE(message_with_special_characters)
     catch (const RuntimeContractError& e)
     {
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("/tmp/file") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("/tmp/file") != std::string::npos,
                       "Message handles path with slash");
-        ASSERT_TRUE(msg.find("Line:") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("Line:") != std::string::npos,
                       "Message handles newline in string");
-        ASSERT_TRUE(msg.find("Column:") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("Column:") != std::string::npos,
                       "Message handles tab in string");
     }
 
     return true;
 }
 
-TEST_CASE(long_message)
+FATP_TEST_CASE(long_message)
 {
     std::string long_msg(1000, 'x');
     try
@@ -483,14 +483,14 @@ TEST_CASE(long_message)
     catch (const LogicContractError& e)
     {
         std::string msg = e.what();
-        ASSERT_TRUE(msg.length() > 1000, "Long message preserved (with prefix)");
-        ASSERT_TRUE(msg.find('x') != std::string::npos, "Long message content preserved");
+        FATP_ASSERT_TRUE(msg.length() > 1000, "Long message preserved (with prefix)");
+        FATP_ASSERT_TRUE(msg.find('x') != std::string::npos, "Long message content preserved");
     }
 
     return true;
 }
 
-TEST_CASE(empty_message)
+FATP_TEST_CASE(empty_message)
 {
     try
     {
@@ -499,7 +499,7 @@ TEST_CASE(empty_message)
     catch (const LogicContractError& e)
     {
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("Contract Violation:") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("Contract Violation:") != std::string::npos,
                       "Empty message still gets prefix");
     }
 
@@ -510,7 +510,7 @@ TEST_CASE(empty_message)
 // Test Suite 5: Stream Operator
 // =============================================================================
 
-TEST_CASE(stream_operator_logic)
+FATP_TEST_CASE(stream_operator_logic)
 {
     LogicContractError e("precondition failed");
     std::ostringstream oss;
@@ -518,17 +518,17 @@ TEST_CASE(stream_operator_logic)
     oss << static_cast<const ContractViolationBase&>(e);
     std::string output = oss.str();
 
-    ASSERT_TRUE(output.find("[Logic]") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("[Logic]") != std::string::npos,
                   "Stream output contains category in brackets");
-    ASSERT_TRUE(output.find("Contract Violation:") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("Contract Violation:") != std::string::npos,
                   "Stream output contains message");
-    ASSERT_TRUE(output.find("precondition failed") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("precondition failed") != std::string::npos,
                   "Stream output contains user text");
 
     return true;
 }
 
-TEST_CASE(stream_operator_runtime)
+FATP_TEST_CASE(stream_operator_runtime)
 {
     RuntimeContractError e("connection timeout");
     std::ostringstream oss;
@@ -536,15 +536,15 @@ TEST_CASE(stream_operator_runtime)
     oss << static_cast<const ContractViolationBase&>(e);
     std::string output = oss.str();
 
-    ASSERT_TRUE(output.find("[Runtime]") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("[Runtime]") != std::string::npos,
                   "Stream output contains Runtime category");
-    ASSERT_TRUE(output.find("connection timeout") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("connection timeout") != std::string::npos,
                   "Stream output contains user text");
 
     return true;
 }
 
-TEST_CASE(stream_operator_alloc)
+FATP_TEST_CASE(stream_operator_alloc)
 {
     AllocContractError e("pool exhausted");
     std::ostringstream oss;
@@ -552,15 +552,15 @@ TEST_CASE(stream_operator_alloc)
     oss << static_cast<const ContractViolationBase&>(e);
     std::string output = oss.str();
 
-    ASSERT_TRUE(output.find("[Allocation]") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("[Allocation]") != std::string::npos,
                   "Stream output contains Allocation category");
-    ASSERT_TRUE(output.find("pool exhausted") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("pool exhausted") != std::string::npos,
                   "Stream output contains user text");
 
     return true;
 }
 
-TEST_CASE(stream_operator_all_types)
+FATP_TEST_CASE(stream_operator_all_types)
 {
     std::ostringstream oss;
 
@@ -584,10 +584,10 @@ TEST_CASE(stream_operator_all_types)
 
     std::string output = oss.str();
 
-    ASSERT_TRUE(output.find("[Logic]") != std::string::npos, "Output contains Logic category");
-    ASSERT_TRUE(output.find("[Runtime]") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("[Logic]") != std::string::npos, "Output contains Logic category");
+    FATP_ASSERT_TRUE(output.find("[Runtime]") != std::string::npos,
                   "Output contains Runtime category");
-    ASSERT_TRUE(output.find("[Allocation]") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("[Allocation]") != std::string::npos,
                   "Output contains Allocation category");
 
     return true;
@@ -597,74 +597,74 @@ TEST_CASE(stream_operator_all_types)
 // Test Suite 6: Move Semantics and noexcept
 // =============================================================================
 
-TEST_CASE(move_constructor_logic)
+FATP_TEST_CASE(move_constructor_logic)
 {
     LogicContractError e1("movable message");
     LogicContractError e2 = std::move(e1);
 
     std::string msg = e2.what();
-    ASSERT_TRUE(msg.find("movable message") != std::string::npos,
+    FATP_ASSERT_TRUE(msg.find("movable message") != std::string::npos,
                   "Move constructor preserves message");
 
     return true;
 }
 
-TEST_CASE(move_constructor_alloc)
+FATP_TEST_CASE(move_constructor_alloc)
 {
     AllocContractError e1("alloc movable");
     AllocContractError e2 = std::move(e1);
 
     std::string msg = e2.what();
-    ASSERT_TRUE(msg.find("alloc movable") != std::string::npos,
+    FATP_ASSERT_TRUE(msg.find("alloc movable") != std::string::npos,
                   "AllocContractError move constructor preserves message");
 
     return true;
 }
 
-TEST_CASE(move_noexcept_alloc)
+FATP_TEST_CASE(move_noexcept_alloc)
 {
-    ASSERT_TRUE(std::is_nothrow_move_constructible_v<AllocContractError>,
+    FATP_ASSERT_TRUE(std::is_nothrow_move_constructible_v<AllocContractError>,
                   "AllocContractError should be nothrow move constructible");
-    ASSERT_TRUE(std::is_nothrow_move_assignable_v<AllocContractError>,
+    FATP_ASSERT_TRUE(std::is_nothrow_move_assignable_v<AllocContractError>,
                   "AllocContractError should be nothrow move assignable");
 
     return true;
 }
 
-TEST_CASE(copy_semantics)
+FATP_TEST_CASE(copy_semantics)
 {
     LogicContractError e1("original");
     LogicContractError e2 = e1;
 
-    ASSERT_TRUE(std::string(e1.what()) == std::string(e2.what()),
+    FATP_ASSERT_TRUE(std::string(e1.what()) == std::string(e2.what()),
                   "Copy constructor produces identical message");
 
     AllocContractError a1("alloc original");
     AllocContractError a2 = a1;
 
-    ASSERT_TRUE(std::string(a1.what()) == std::string(a2.what()),
+    FATP_ASSERT_TRUE(std::string(a1.what()) == std::string(a2.what()),
                   "AllocContractError copy produces identical message");
 
     return true;
 }
 
-TEST_CASE(noexcept_methods)
+FATP_TEST_CASE(noexcept_methods)
 {
     LogicContractError e("test");
     AllocContractError ae("test");
 
     // Note: std::logic_error::what() noexcept specification varies by stdlib implementation.
     // We only test our own methods which are explicitly marked noexcept.
-    ASSERT_TRUE(noexcept(e.category()), "category() should be noexcept");
-    ASSERT_TRUE(noexcept(e.message()), "message() should be noexcept");
-    ASSERT_TRUE(noexcept(ae.what()), "AllocContractError::what() should be noexcept");
-    ASSERT_TRUE(noexcept(ae.category()), "AllocContractError::category() should be noexcept");
-    ASSERT_TRUE(noexcept(ae.message()), "AllocContractError::message() should be noexcept");
+    FATP_ASSERT_TRUE(noexcept(e.category()), "category() should be noexcept");
+    FATP_ASSERT_TRUE(noexcept(e.message()), "message() should be noexcept");
+    FATP_ASSERT_TRUE(noexcept(ae.what()), "AllocContractError::what() should be noexcept");
+    FATP_ASSERT_TRUE(noexcept(ae.category()), "AllocContractError::category() should be noexcept");
+    FATP_ASSERT_TRUE(noexcept(ae.message()), "AllocContractError::message() should be noexcept");
 
     return true;
 }
 
-TEST_CASE(rethrow_preserves_message)
+FATP_TEST_CASE(rethrow_preserves_message)
 {
     try
     {
@@ -679,7 +679,7 @@ TEST_CASE(rethrow_preserves_message)
     }
     catch (const ContractViolationBase& e)
     {
-        ASSERT_TRUE(std::string(e.message()).find("inner throw message") != std::string::npos,
+        FATP_ASSERT_TRUE(std::string(e.message()).find("inner throw message") != std::string::npos,
                       "Message preserved after rethrow");
     }
 
@@ -690,7 +690,7 @@ TEST_CASE(rethrow_preserves_message)
 // Test Suite 7: Thread Safety
 // =============================================================================
 
-TEST_CASE(concurrent_exception_throwing)
+FATP_TEST_CASE(concurrent_exception_throwing)
 {
     const int num_threads = 4;
     const int iterations = 1000;
@@ -749,11 +749,11 @@ TEST_CASE(concurrent_exception_throwing)
     int expected_runtime = num_threads * (base + (rem > 1 ? 1 : 0));
     int expected_alloc = num_threads * base;
 
-    ASSERT_TRUE(logic_count.load() == expected_logic,
+    FATP_ASSERT_TRUE(logic_count.load() == expected_logic,
                   "Logic exceptions counted correctly in concurrent test");
-    ASSERT_TRUE(runtime_count.load() == expected_runtime,
+    FATP_ASSERT_TRUE(runtime_count.load() == expected_runtime,
                   "Runtime exceptions counted correctly in concurrent test");
-    ASSERT_TRUE(alloc_count.load() == expected_alloc,
+    FATP_ASSERT_TRUE(alloc_count.load() == expected_alloc,
                   "Alloc exceptions counted correctly in concurrent test");
 
     return true;
@@ -763,7 +763,7 @@ TEST_CASE(concurrent_exception_throwing)
 // Test Suite 8: Integration Scenarios
 // =============================================================================
 
-TEST_CASE(factory_error_pattern)
+FATP_TEST_CASE(factory_error_pattern)
 {
     auto create_object = [](const std::string& key) {
         if (key.empty())
@@ -780,29 +780,29 @@ TEST_CASE(factory_error_pattern)
     try
     {
         create_object("");
-        ASSERT_TRUE(false, "Should have thrown InvalidArgumentContractError");
+        FATP_ASSERT_TRUE(false, "Should have thrown InvalidArgumentContractError");
     }
     catch (const InvalidArgumentContractError& e)
     {
-        ASSERT_TRUE(std::string(e.what()).find("empty") != std::string::npos,
+        FATP_ASSERT_TRUE(std::string(e.what()).find("empty") != std::string::npos,
                       "Factory error message is descriptive");
     }
 
     try
     {
         create_object("invalid");
-        ASSERT_TRUE(false, "Should have thrown RuntimeContractError");
+        FATP_ASSERT_TRUE(false, "Should have thrown RuntimeContractError");
     }
     catch (const RuntimeContractError& e)
     {
-        ASSERT_TRUE(std::string(e.what()).find("Unknown key") != std::string::npos,
+        FATP_ASSERT_TRUE(std::string(e.what()).find("Unknown key") != std::string::npos,
                       "Factory error message contains key info");
     }
 
     return true;
 }
 
-TEST_CASE(checked_arithmetic_pattern)
+FATP_TEST_CASE(checked_arithmetic_pattern)
 {
     auto checked_add = [](int a, int b) -> int {
         if (a > 0 && b > INT_MAX - a)
@@ -815,18 +815,18 @@ TEST_CASE(checked_arithmetic_pattern)
     try
     {
         checked_add(INT_MAX, 1);
-        ASSERT_TRUE(false, "Should have thrown OverflowContractError");
+        FATP_ASSERT_TRUE(false, "Should have thrown OverflowContractError");
     }
     catch (const OverflowContractError& e)
     {
-        ASSERT_TRUE(std::string(e.category()) == "Runtime",
+        FATP_ASSERT_TRUE(std::string(e.category()) == "Runtime",
                       "Overflow error has Runtime category");
     }
 
     return true;
 }
 
-TEST_CASE(allocator_pattern)
+FATP_TEST_CASE(allocator_pattern)
 {
     auto allocate = [](size_t size) -> void* {
         constexpr size_t MAX_SIZE = 1024 * 1024;
@@ -845,31 +845,31 @@ TEST_CASE(allocator_pattern)
     try
     {
         allocate(2 * 1024 * 1024);
-        ASSERT_TRUE(false, "Should have thrown AllocContractError for size limit");
+        FATP_ASSERT_TRUE(false, "Should have thrown AllocContractError for size limit");
     }
     catch (const std::bad_alloc& e)
     {
-        ASSERT_TRUE(std::string(e.what()).find("exceeds limit") != std::string::npos,
+        FATP_ASSERT_TRUE(std::string(e.what()).find("exceeds limit") != std::string::npos,
                       "Allocation error message is descriptive");
     }
 
     try
     {
         allocate(100);
-        ASSERT_TRUE(false, "Should have thrown AllocContractError for OOM");
+        FATP_ASSERT_TRUE(false, "Should have thrown AllocContractError for OOM");
     }
     catch (const AllocContractError& e)
     {
-        ASSERT_TRUE(std::string(e.what()).find("Out of memory") != std::string::npos,
+        FATP_ASSERT_TRUE(std::string(e.what()).find("Out of memory") != std::string::npos,
                       "OOM error message is clear");
-        ASSERT_TRUE(std::string(e.category()) == "Allocation",
+        FATP_ASSERT_TRUE(std::string(e.category()) == "Allocation",
                       "AllocContractError has Allocation category");
     }
 
     return true;
 }
 
-TEST_CASE(nested_exception_pattern)
+FATP_TEST_CASE(nested_exception_pattern)
 {
     try
     {
@@ -884,17 +884,17 @@ TEST_CASE(nested_exception_pattern)
     }
     catch (const std::exception& e)
     {
-        ASSERT_TRUE(std::string(e.what()).find("inner") != std::string::npos,
+        FATP_ASSERT_TRUE(std::string(e.what()).find("inner") != std::string::npos,
                       "Outer exception contains inner message");
 
         try
         {
             std::rethrow_if_nested(e);
-            ASSERT_TRUE(false, "Should have rethrown nested exception");
+            FATP_ASSERT_TRUE(false, "Should have rethrown nested exception");
         }
         catch (const ContractViolationBase& nested)
         {
-            ASSERT_TRUE(std::string(nested.message()).find("outer") != std::string::npos,
+            FATP_ASSERT_TRUE(std::string(nested.message()).find("outer") != std::string::npos,
                           "Nested exception preserved");
         }
     }
@@ -1049,74 +1049,74 @@ namespace fat_p::testing
 
 bool test_ContractException()
 {
-    PRINT_HEADER(CONTRACT EXCEPTION)
+    FATP_PRINT_HEADER(CONTRACT EXCEPTION)
 
     TestRunner runner;
 
     // Test Suite 1: Basic Functionality
     std::cout << colors::cyan() << "Test Suite 1: Basic Functionality" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, contractexception, logic_contract_error_basic);
-    RUN_TEST_NS(runner, contractexception, runtime_contract_error_basic);
-    RUN_TEST_NS(runner, contractexception, alloc_contract_error_basic);
-    RUN_TEST_NS(runner, contractexception, domain_contract_error);
-    RUN_TEST_NS(runner, contractexception, out_of_range_contract_error);
-    RUN_TEST_NS(runner, contractexception, overflow_underflow_contract_errors);
-    RUN_TEST_NS(runner, contractexception, invalid_argument_contract_error);
+    FATP_RUN_TEST_NS(runner, contractexception, logic_contract_error_basic);
+    FATP_RUN_TEST_NS(runner, contractexception, runtime_contract_error_basic);
+    FATP_RUN_TEST_NS(runner, contractexception, alloc_contract_error_basic);
+    FATP_RUN_TEST_NS(runner, contractexception, domain_contract_error);
+    FATP_RUN_TEST_NS(runner, contractexception, out_of_range_contract_error);
+    FATP_RUN_TEST_NS(runner, contractexception, overflow_underflow_contract_errors);
+    FATP_RUN_TEST_NS(runner, contractexception, invalid_argument_contract_error);
 
     // Test Suite 2: Polymorphic Base Class
     std::cout << "\n" << colors::cyan() << "Test Suite 2: Polymorphic Base Class" << colors::reset()
               << "\n";
-    RUN_TEST_NS(runner, contractexception, polymorphic_catch_base);
-    RUN_TEST_NS(runner, contractexception, polymorphic_catch_all_types);
-    RUN_TEST_NS(runner, contractexception, category_method);
+    FATP_RUN_TEST_NS(runner, contractexception, polymorphic_catch_base);
+    FATP_RUN_TEST_NS(runner, contractexception, polymorphic_catch_all_types);
+    FATP_RUN_TEST_NS(runner, contractexception, category_method);
 
     // Test Suite 3: Standard Exception Compatibility
     std::cout << "\n"
               << colors::cyan() << "Test Suite 3: Standard Exception Compatibility"
               << colors::reset() << "\n";
-    RUN_TEST_NS(runner, contractexception, logic_error_inheritance);
-    RUN_TEST_NS(runner, contractexception, runtime_error_inheritance);
-    RUN_TEST_NS(runner, contractexception, bad_alloc_inheritance);
-    RUN_TEST_NS(runner, contractexception, exception_hierarchy);
+    FATP_RUN_TEST_NS(runner, contractexception, logic_error_inheritance);
+    FATP_RUN_TEST_NS(runner, contractexception, runtime_error_inheritance);
+    FATP_RUN_TEST_NS(runner, contractexception, bad_alloc_inheritance);
+    FATP_RUN_TEST_NS(runner, contractexception, exception_hierarchy);
 
     // Test Suite 4: Message Formatting
     std::cout << "\n" << colors::cyan() << "Test Suite 4: Message Formatting" << colors::reset()
               << "\n";
-    RUN_TEST_NS(runner, contractexception, message_with_variables);
-    RUN_TEST_NS(runner, contractexception, message_with_special_characters);
-    RUN_TEST_NS(runner, contractexception, long_message);
-    RUN_TEST_NS(runner, contractexception, empty_message);
+    FATP_RUN_TEST_NS(runner, contractexception, message_with_variables);
+    FATP_RUN_TEST_NS(runner, contractexception, message_with_special_characters);
+    FATP_RUN_TEST_NS(runner, contractexception, long_message);
+    FATP_RUN_TEST_NS(runner, contractexception, empty_message);
 
     // Test Suite 5: Stream Operator
     std::cout << "\n" << colors::cyan() << "Test Suite 5: Stream Operator" << colors::reset()
               << "\n";
-    RUN_TEST_NS(runner, contractexception, stream_operator_logic);
-    RUN_TEST_NS(runner, contractexception, stream_operator_runtime);
-    RUN_TEST_NS(runner, contractexception, stream_operator_alloc);
-    RUN_TEST_NS(runner, contractexception, stream_operator_all_types);
+    FATP_RUN_TEST_NS(runner, contractexception, stream_operator_logic);
+    FATP_RUN_TEST_NS(runner, contractexception, stream_operator_runtime);
+    FATP_RUN_TEST_NS(runner, contractexception, stream_operator_alloc);
+    FATP_RUN_TEST_NS(runner, contractexception, stream_operator_all_types);
 
     // Test Suite 6: Move Semantics and noexcept
     std::cout << "\n"
               << colors::cyan() << "Test Suite 6: Move Semantics and noexcept" << colors::reset()
               << "\n";
-    RUN_TEST_NS(runner, contractexception, move_constructor_logic);
-    RUN_TEST_NS(runner, contractexception, move_constructor_alloc);
-    RUN_TEST_NS(runner, contractexception, move_noexcept_alloc);
-    RUN_TEST_NS(runner, contractexception, copy_semantics);
-    RUN_TEST_NS(runner, contractexception, noexcept_methods);
-    RUN_TEST_NS(runner, contractexception, rethrow_preserves_message);
+    FATP_RUN_TEST_NS(runner, contractexception, move_constructor_logic);
+    FATP_RUN_TEST_NS(runner, contractexception, move_constructor_alloc);
+    FATP_RUN_TEST_NS(runner, contractexception, move_noexcept_alloc);
+    FATP_RUN_TEST_NS(runner, contractexception, copy_semantics);
+    FATP_RUN_TEST_NS(runner, contractexception, noexcept_methods);
+    FATP_RUN_TEST_NS(runner, contractexception, rethrow_preserves_message);
 
     // Test Suite 7: Thread Safety
     std::cout << "\n" << colors::cyan() << "Test Suite 7: Thread Safety" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, contractexception, concurrent_exception_throwing);
+    FATP_RUN_TEST_NS(runner, contractexception, concurrent_exception_throwing);
 
     // Test Suite 8: Integration Scenarios
     std::cout << "\n" << colors::cyan() << "Test Suite 8: Integration Scenarios" << colors::reset()
               << "\n";
-    RUN_TEST_NS(runner, contractexception, factory_error_pattern);
-    RUN_TEST_NS(runner, contractexception, checked_arithmetic_pattern);
-    RUN_TEST_NS(runner, contractexception, allocator_pattern);
-    RUN_TEST_NS(runner, contractexception, nested_exception_pattern);
+    FATP_RUN_TEST_NS(runner, contractexception, factory_error_pattern);
+    FATP_RUN_TEST_NS(runner, contractexception, checked_arithmetic_pattern);
+    FATP_RUN_TEST_NS(runner, contractexception, allocator_pattern);
+    FATP_RUN_TEST_NS(runner, contractexception, nested_exception_pattern);
 
     contractexception::run_benchmarks();
 

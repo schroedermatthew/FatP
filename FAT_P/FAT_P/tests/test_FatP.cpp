@@ -125,7 +125,7 @@ int main() {
     RUN_AND_RECORD(test_PipeOperator);
     RUN_AND_RECORD(test_PolicyIterator);
     RUN_AND_RECORD(test_RateLimiter);
-    RUN_AND_RECORD(test_RCU_integration);
+    RUN_AND_RECORD(test_RcuIntegration);
     RUN_AND_RECORD(test_Reflection);
     RUN_AND_RECORD(test_ScopeGuard);
     RUN_AND_RECORD(test_ScopeGuardExpected);

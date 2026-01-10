@@ -64,29 +64,29 @@ struct Entity
 // Basic Operations
 // =============================================================================
 
-TEST_CASE(basic_insert_get)
+FATP_TEST_CASE(basic_insert_get)
 {
     SlotMap<Entity> map;
 
-    ASSERT_TRUE(map.empty(), "Map should start empty");
-    ASSERT_EQ(map.size(), 0u, "Map should have size 0");
+    FATP_ASSERT_TRUE(map.empty(), "Map should start empty");
+    FATP_ASSERT_EQ(map.size(), 0u, "Map should have size 0");
 
     auto handle = map.insert(Entity{1, "Alice", 100.0f});
 
-    ASSERT_FALSE(map.empty(), "Map should not be empty");
-    ASSERT_EQ(map.size(), 1u, "Map should have size 1");
-    ASSERT_TRUE(map.is_valid(handle), "Handle should be valid");
+    FATP_ASSERT_FALSE(map.empty(), "Map should not be empty");
+    FATP_ASSERT_EQ(map.size(), 1u, "Map should have size 1");
+    FATP_ASSERT_TRUE(map.is_valid(handle), "Handle should be valid");
 
     Entity* entity = map.get(handle);
-    ASSERT_NOT_NULLPTR(entity, "Should get valid pointer");
-    ASSERT_TRUE(entity->id == 1, "ID should match");
-    ASSERT_TRUE(entity->name == "Alice", "Name should match");
-    ASSERT_TRUE(entity->health == 100.0f, "Health should match");
+    FATP_ASSERT_NOT_NULLPTR(entity, "Should get valid pointer");
+    FATP_ASSERT_TRUE(entity->id == 1, "ID should match");
+    FATP_ASSERT_TRUE(entity->name == "Alice", "Name should match");
+    FATP_ASSERT_TRUE(entity->health == 100.0f, "Health should match");
 
     return true;
 }
 
-TEST_CASE(multiple_inserts)
+FATP_TEST_CASE(multiple_inserts)
 {
     SlotMap<Entity> map;
 
@@ -94,16 +94,16 @@ TEST_CASE(multiple_inserts)
     auto h2 = map.insert(Entity{2, "Bob", 80.0f});
     auto h3 = map.insert(Entity{3, "Charlie", 90.0f});
 
-    ASSERT_EQ(map.size(), 3u, "Map should have 3 elements");
+    FATP_ASSERT_EQ(map.size(), 3u, "Map should have 3 elements");
 
-    ASSERT_TRUE(map.get(h1)->id == 1, "First entity ID should be 1");
-    ASSERT_TRUE(map.get(h2)->id == 2, "Second entity ID should be 2");
-    ASSERT_TRUE(map.get(h3)->id == 3, "Third entity ID should be 3");
+    FATP_ASSERT_TRUE(map.get(h1)->id == 1, "First entity ID should be 1");
+    FATP_ASSERT_TRUE(map.get(h2)->id == 2, "Second entity ID should be 2");
+    FATP_ASSERT_TRUE(map.get(h3)->id == 3, "Third entity ID should be 3");
 
     return true;
 }
 
-TEST_CASE(in_place_construction)
+FATP_TEST_CASE(in_place_construction)
 {
     SlotMap<Entity> map;
 
@@ -111,15 +111,15 @@ TEST_CASE(in_place_construction)
     auto handle = map.insert(42, "InPlace", 75.0f);
 
     Entity* entity = map.get(handle);
-    ASSERT_NOT_NULLPTR(entity, "Should get valid pointer");
-    ASSERT_TRUE(entity->id == 42, "ID should be 42");
-    ASSERT_TRUE(entity->name == "InPlace", "Name should match");
-    ASSERT_TRUE(entity->health == 75.0f, "Health should match");
+    FATP_ASSERT_NOT_NULLPTR(entity, "Should get valid pointer");
+    FATP_ASSERT_TRUE(entity->id == 42, "ID should be 42");
+    FATP_ASSERT_TRUE(entity->name == "InPlace", "Name should match");
+    FATP_ASSERT_TRUE(entity->health == 75.0f, "Health should match");
 
     return true;
 }
 
-TEST_CASE(erase)
+FATP_TEST_CASE(erase)
 {
     SlotMap<Entity> map;
 
@@ -127,41 +127,41 @@ TEST_CASE(erase)
     auto h2 = map.insert(Entity{2, "Bob", 80.0f});
     auto h3 = map.insert(Entity{3, "Charlie", 90.0f});
 
-    ASSERT_EQ(map.size(), 3u, "Map should have 3 elements");
+    FATP_ASSERT_EQ(map.size(), 3u, "Map should have 3 elements");
 
     bool erased = map.erase(h2);
-    ASSERT_TRUE(erased, "Erase should succeed");
-    ASSERT_EQ(map.size(), 2u, "Map should have 2 elements after erase");
+    FATP_ASSERT_TRUE(erased, "Erase should succeed");
+    FATP_ASSERT_EQ(map.size(), 2u, "Map should have 2 elements after erase");
 
-    ASSERT_NULLPTR(map.get(h2), "Erased handle should return nullptr");
-    ASSERT_FALSE(map.is_valid(h2), "Erased handle should be invalid");
+    FATP_ASSERT_NULLPTR(map.get(h2), "Erased handle should return nullptr");
+    FATP_ASSERT_FALSE(map.is_valid(h2), "Erased handle should be invalid");
 
-    ASSERT_NOT_NULLPTR(map.get(h1), "Other handles should still be valid");
-    ASSERT_NOT_NULLPTR(map.get(h3), "Other handles should still be valid");
+    FATP_ASSERT_NOT_NULLPTR(map.get(h1), "Other handles should still be valid");
+    FATP_ASSERT_NOT_NULLPTR(map.get(h3), "Other handles should still be valid");
 
     return true;
 }
 
-TEST_CASE(erase_invalid_handle)
+FATP_TEST_CASE(erase_invalid_handle)
 {
     SlotMap<Entity> map;
 
     auto h1 = map.insert(Entity{1, "Alice", 100.0f});
 
     // Erase once (valid)
-    ASSERT_EQ(map.erase(h1), true, "First erase should succeed");
+    FATP_ASSERT_EQ(map.erase(h1), true, "First erase should succeed");
 
     // Erase again (invalid - already erased)
-    ASSERT_EQ(map.erase(h1), false, "Second erase should fail");
+    FATP_ASSERT_EQ(map.erase(h1), false, "Second erase should fail");
 
     // Erase default handle
     SlotMap<Entity>::Handle null_handle;
-    ASSERT_EQ(map.erase(null_handle), false, "Erasing null handle should fail");
+    FATP_ASSERT_EQ(map.erase(null_handle), false, "Erasing null handle should fail");
 
     return true;
 }
 
-TEST_CASE(clear)
+FATP_TEST_CASE(clear)
 {
     SlotMap<Entity> map;
 
@@ -169,17 +169,17 @@ TEST_CASE(clear)
     auto h2 = map.insert(Entity{2, "Bob", 80.0f});
     auto h3 = map.insert(Entity{3, "Charlie", 90.0f});
 
-    ASSERT_EQ(map.size(), 3u, "Map should have 3 elements");
+    FATP_ASSERT_EQ(map.size(), 3u, "Map should have 3 elements");
 
     map.clear();
 
-    ASSERT_TRUE(map.empty(), "Map should be empty after clear");
-    ASSERT_EQ(map.size(), 0u, "Map should have size 0 after clear");
+    FATP_ASSERT_TRUE(map.empty(), "Map should be empty after clear");
+    FATP_ASSERT_EQ(map.size(), 0u, "Map should have size 0 after clear");
 
     // Old handles should be invalid
-    ASSERT_FALSE(map.is_valid(h1), "Handle should be invalid after clear");
-    ASSERT_FALSE(map.is_valid(h2), "Handle should be invalid after clear");
-    ASSERT_FALSE(map.is_valid(h3), "Handle should be invalid after clear");
+    FATP_ASSERT_FALSE(map.is_valid(h1), "Handle should be invalid after clear");
+    FATP_ASSERT_FALSE(map.is_valid(h2), "Handle should be invalid after clear");
+    FATP_ASSERT_FALSE(map.is_valid(h3), "Handle should be invalid after clear");
 
     return true;
 }
@@ -188,38 +188,38 @@ TEST_CASE(clear)
 // Generational Safety (ABA Problem)
 // =============================================================================
 
-TEST_CASE(generational_safety)
+FATP_TEST_CASE(generational_safety)
 {
     SlotMap<Entity> map;
 
     // Insert and get handle
     auto handle1 = map.insert(Entity{1, "Alice", 100.0f});
-    ASSERT_TRUE(map.is_valid(handle1), "Handle should be valid");
+    FATP_ASSERT_TRUE(map.is_valid(handle1), "Handle should be valid");
 
     // Erase
     map.erase(handle1);
-    ASSERT_FALSE(map.is_valid(handle1), "Handle should be invalid after erase");
-    ASSERT_NULLPTR(map.get(handle1), "Should return nullptr for invalid handle");
+    FATP_ASSERT_FALSE(map.is_valid(handle1), "Handle should be invalid after erase");
+    FATP_ASSERT_NULLPTR(map.get(handle1), "Should return nullptr for invalid handle");
 
     // Insert new entity (reuses slot with new generation)
     auto handle2 = map.insert(Entity{2, "Bob", 80.0f});
 
     // Old handle should still be invalid (different generation)
-    ASSERT_FALSE(map.is_valid(handle1), "Old handle should still be invalid");
-    ASSERT_NULLPTR(map.get(handle1), "Old handle should return nullptr");
+    FATP_ASSERT_FALSE(map.is_valid(handle1), "Old handle should still be invalid");
+    FATP_ASSERT_NULLPTR(map.get(handle1), "Old handle should return nullptr");
 
     // New handle should be valid
-    ASSERT_TRUE(map.is_valid(handle2), "New handle should be valid");
-    ASSERT_TRUE(map.get(handle2)->id == 2, "New handle should access correct entity");
+    FATP_ASSERT_TRUE(map.is_valid(handle2), "New handle should be valid");
+    FATP_ASSERT_TRUE(map.get(handle2)->id == 2, "New handle should access correct entity");
 
     // Verify handles have same index but different generation
-    ASSERT_EQ(handle1.index, handle2.index, "Slot should be reused");
-    ASSERT_NE(handle1.generation, handle2.generation, "Generation should differ");
+    FATP_ASSERT_EQ(handle1.index, handle2.index, "Slot should be reused");
+    FATP_ASSERT_NE(handle1.generation, handle2.generation, "Generation should differ");
 
     return true;
 }
 
-TEST_CASE(aba_multiple_cycles)
+FATP_TEST_CASE(aba_multiple_cycles)
 {
     SlotMap<int> map;
 
@@ -239,13 +239,13 @@ TEST_CASE(aba_multiple_cycles)
     // All old handles should be invalid
     for (size_t i = 0; i < old_handles.size(); ++i)
     {
-        ASSERT_FALSE(map.is_valid(old_handles[i]), "Old handle should be invalid");
-        ASSERT_NULLPTR(map.get(old_handles[i]), "Old handle should return nullptr");
+        FATP_ASSERT_FALSE(map.is_valid(old_handles[i]), "Old handle should be invalid");
+        FATP_ASSERT_NULLPTR(map.get(old_handles[i]), "Old handle should return nullptr");
     }
 
     // Final handle should be valid
-    ASSERT_TRUE(map.is_valid(final_handle), "Final handle should be valid");
-    ASSERT_EQ(*map.get(final_handle), 999, "Final value should be 999");
+    FATP_ASSERT_TRUE(map.is_valid(final_handle), "Final handle should be valid");
+    FATP_ASSERT_EQ(*map.get(final_handle), 999, "Final value should be 999");
 
     return true;
 }
@@ -254,74 +254,74 @@ TEST_CASE(aba_multiple_cycles)
 // Handle Tests
 // =============================================================================
 
-TEST_CASE(handle_default_state)
+FATP_TEST_CASE(handle_default_state)
 {
     SlotMap<Entity>::Handle handle;
 
-    ASSERT_TRUE(handle.is_null(), "Default handle should be null");
-    ASSERT_FALSE(static_cast<bool>(handle), "Default handle should be falsy");
-    ASSERT_EQ(handle.index, 0u, "Default index should be 0");
-    ASSERT_EQ(handle.generation, 0u, "Default generation should be 0");
+    FATP_ASSERT_TRUE(handle.is_null(), "Default handle should be null");
+    FATP_ASSERT_FALSE(static_cast<bool>(handle), "Default handle should be falsy");
+    FATP_ASSERT_EQ(handle.index, 0u, "Default index should be 0");
+    FATP_ASSERT_EQ(handle.generation, 0u, "Default generation should be 0");
 
     return true;
 }
 
-TEST_CASE(handle_equality)
+FATP_TEST_CASE(handle_equality)
 {
     SlotMap<Entity> map;
 
     auto h1 = map.insert(Entity{1, "Alice", 100.0f});
     auto h2 = map.insert(Entity{2, "Bob", 80.0f});
 
-    ASSERT_TRUE(h1 == h1, "Handle should equal itself");
-    ASSERT_TRUE(h1 != h2, "Different handles should not be equal");
+    FATP_ASSERT_TRUE(h1 == h1, "Handle should equal itself");
+    FATP_ASSERT_TRUE(h1 != h2, "Different handles should not be equal");
 
     auto h1_copy = h1;
-    ASSERT_TRUE(h1 == h1_copy, "Copied handle should be equal");
+    FATP_ASSERT_TRUE(h1 == h1_copy, "Copied handle should be equal");
 
     // Handles with same index but different generation should not be equal
     map.erase(h1);
     auto h3 = map.insert(Entity{3, "Charlie", 90.0f});
-    ASSERT_EQ(h1.index, h3.index, "Should reuse same slot");
-    ASSERT_TRUE(h1 != h3, "Different generations should not be equal");
+    FATP_ASSERT_EQ(h1.index, h3.index, "Should reuse same slot");
+    FATP_ASSERT_TRUE(h1 != h3, "Different generations should not be equal");
 
     return true;
 }
 
-TEST_CASE(handle_is_null_vs_is_valid)
+FATP_TEST_CASE(handle_is_null_vs_is_valid)
 {
     SlotMap<Entity> map;
 
     // Default handle: is_null() = true, is_valid() = false
     SlotMap<Entity>::Handle null_handle;
-    ASSERT_TRUE(null_handle.is_null(), "Default handle is_null() should be true");
-    ASSERT_FALSE(map.is_valid(null_handle), "Default handle is_valid() should be false");
+    FATP_ASSERT_TRUE(null_handle.is_null(), "Default handle is_null() should be true");
+    FATP_ASSERT_FALSE(map.is_valid(null_handle), "Default handle is_valid() should be false");
 
     // Valid handle: is_null() = false, is_valid() = true
     auto valid_handle = map.insert(Entity{1, "Test", 100.0f});
-    ASSERT_FALSE(valid_handle.is_null(), "Valid handle is_null() should be false");
-    ASSERT_TRUE(map.is_valid(valid_handle), "Valid handle is_valid() should be true");
+    FATP_ASSERT_FALSE(valid_handle.is_null(), "Valid handle is_null() should be false");
+    FATP_ASSERT_TRUE(map.is_valid(valid_handle), "Valid handle is_valid() should be true");
 
     // Erased handle: is_null() = false, is_valid() = false
     map.erase(valid_handle);
-    ASSERT_FALSE(valid_handle.is_null(), "Erased handle is_null() should be false");
-    ASSERT_FALSE(map.is_valid(valid_handle), "Erased handle is_valid() should be false");
+    FATP_ASSERT_FALSE(valid_handle.is_null(), "Erased handle is_null() should be false");
+    FATP_ASSERT_FALSE(map.is_valid(valid_handle), "Erased handle is_valid() should be false");
 
     return true;
 }
 
-TEST_CASE(handle_operator_bool)
+FATP_TEST_CASE(handle_operator_bool)
 {
     SlotMap<Entity>::Handle null_handle;
-    ASSERT_FALSE(null_handle, "Null handle should be falsy");
+    FATP_ASSERT_FALSE(null_handle, "Null handle should be falsy");
 
     SlotMap<Entity> map;
     auto handle = map.insert(Entity{1, "Test", 100.0f});
-    ASSERT_TRUE(static_cast<bool>(handle), "Non-null handle should be truthy");
+    FATP_ASSERT_TRUE(static_cast<bool>(handle), "Non-null handle should be truthy");
 
     // Note: operator bool only checks is_null(), not is_valid()
     map.erase(handle);
-    ASSERT_TRUE(static_cast<bool>(handle), "Erased handle is still truthy (not null)");
+    FATP_ASSERT_TRUE(static_cast<bool>(handle), "Erased handle is still truthy (not null)");
 
     return true;
 }
@@ -330,7 +330,7 @@ TEST_CASE(handle_operator_bool)
 // Iteration Tests
 // =============================================================================
 
-TEST_CASE(iteration)
+FATP_TEST_CASE(iteration)
 {
     SlotMap<Entity> map;
 
@@ -347,13 +347,13 @@ TEST_CASE(iteration)
         sum_ids += entity.id;
     }
 
-    ASSERT_EQ(count, 3, "Should iterate over 3 entities");
-    ASSERT_EQ(sum_ids, 6, "Sum of IDs should be 6");
+    FATP_ASSERT_EQ(count, 3, "Should iterate over 3 entities");
+    FATP_ASSERT_EQ(sum_ids, 6, "Sum of IDs should be 6");
 
     return true;
 }
 
-TEST_CASE(iteration_empty)
+FATP_TEST_CASE(iteration_empty)
 {
     SlotMap<Entity> map;
 
@@ -364,12 +364,12 @@ TEST_CASE(iteration_empty)
         ++count;
     }
 
-    ASSERT_EQ(count, 0, "Empty map iteration should have 0 elements");
+    FATP_ASSERT_EQ(count, 0, "Empty map iteration should have 0 elements");
 
     return true;
 }
 
-TEST_CASE(iteration_after_erase)
+FATP_TEST_CASE(iteration_after_erase)
 {
     SlotMap<Entity> map;
 
@@ -386,21 +386,21 @@ TEST_CASE(iteration_after_erase)
         ids.push_back(entity.id);
     }
 
-    ASSERT_EQ(ids.size(), 2u, "Should iterate over 2 entities");
+    FATP_ASSERT_EQ(ids.size(), 2u, "Should iterate over 2 entities");
 
     // Should have entities 1 and 3 (order may vary due to swap-and-pop)
     bool has_1 = std::find(ids.begin(), ids.end(), 1) != ids.end();
     bool has_3 = std::find(ids.begin(), ids.end(), 3) != ids.end();
     bool has_2 = std::find(ids.begin(), ids.end(), 2) != ids.end();
 
-    ASSERT_TRUE(has_1, "Should have entity 1");
-    ASSERT_TRUE(has_3, "Should have entity 3");
-    ASSERT_FALSE(has_2, "Should not have entity 2");
+    FATP_ASSERT_TRUE(has_1, "Should have entity 1");
+    FATP_ASSERT_TRUE(has_3, "Should have entity 3");
+    FATP_ASSERT_FALSE(has_2, "Should not have entity 2");
 
     return true;
 }
 
-TEST_CASE(const_iteration)
+FATP_TEST_CASE(const_iteration)
 {
     SlotMap<Entity> map;
 
@@ -416,7 +416,7 @@ TEST_CASE(const_iteration)
         ++count;
     }
 
-    ASSERT_EQ(count, 2, "Const iteration should work");
+    FATP_ASSERT_EQ(count, 2, "Const iteration should work");
 
     // Test cbegin/cend
     count = 0;
@@ -425,12 +425,12 @@ TEST_CASE(const_iteration)
         ++count;
     }
 
-    ASSERT_EQ(count, 2, "cbegin/cend should work");
+    FATP_ASSERT_EQ(count, 2, "cbegin/cend should work");
 
     return true;
 }
 
-TEST_CASE(entries_iteration)
+FATP_TEST_CASE(entries_iteration)
 {
     SlotMap<Entity> map;
 
@@ -447,13 +447,13 @@ TEST_CASE(entries_iteration)
         ids.push_back(entry.value.id);
     }
 
-    ASSERT_EQ(handles.size(), 3u, "Should have 3 entries");
-    ASSERT_EQ(ids.size(), 3u, "Should have 3 IDs");
+    FATP_ASSERT_EQ(handles.size(), 3u, "Should have 3 entries");
+    FATP_ASSERT_EQ(ids.size(), 3u, "Should have 3 IDs");
 
     // All handles should be valid
     for (const auto& h : handles)
     {
-        ASSERT_TRUE(map.is_valid(h), "Handle from entries() should be valid");
+        FATP_ASSERT_TRUE(map.is_valid(h), "Handle from entries() should be valid");
     }
 
     // Should contain all our original handles
@@ -461,14 +461,14 @@ TEST_CASE(entries_iteration)
     bool found_h2 = std::find(handles.begin(), handles.end(), h2) != handles.end();
     bool found_h3 = std::find(handles.begin(), handles.end(), h3) != handles.end();
 
-    ASSERT_TRUE(found_h1, "Should find handle 1");
-    ASSERT_TRUE(found_h2, "Should find handle 2");
-    ASSERT_TRUE(found_h3, "Should find handle 3");
+    FATP_ASSERT_TRUE(found_h1, "Should find handle 1");
+    FATP_ASSERT_TRUE(found_h2, "Should find handle 2");
+    FATP_ASSERT_TRUE(found_h3, "Should find handle 3");
 
     return true;
 }
 
-TEST_CASE(entries_const_iteration)
+FATP_TEST_CASE(entries_const_iteration)
 {
     SlotMap<Entity> map;
 
@@ -480,16 +480,16 @@ TEST_CASE(entries_const_iteration)
     int count = 0;
     for (auto entry : const_map.entries())
     {
-        ASSERT_TRUE(const_map.is_valid(entry.handle), "Handle should be valid");
+        FATP_ASSERT_TRUE(const_map.is_valid(entry.handle), "Handle should be valid");
         ++count;
     }
 
-    ASSERT_EQ(count, 2, "Const entries iteration should work");
+    FATP_ASSERT_EQ(count, 2, "Const entries iteration should work");
 
     return true;
 }
 
-TEST_CASE(entries_empty)
+FATP_TEST_CASE(entries_empty)
 {
     SlotMap<Entity> map;
 
@@ -500,12 +500,12 @@ TEST_CASE(entries_empty)
         ++count;
     }
 
-    ASSERT_EQ(count, 0, "Empty entries iteration should have 0 elements");
+    FATP_ASSERT_EQ(count, 0, "Empty entries iteration should have 0 elements");
 
     return true;
 }
 
-TEST_CASE(entries_modification)
+FATP_TEST_CASE(entries_modification)
 {
     SlotMap<Entity> map;
 
@@ -521,7 +521,7 @@ TEST_CASE(entries_modification)
     // Verify modification
     for (const auto& entity : map)
     {
-        ASSERT_TRUE(entity.health == 110.0f || entity.health == 90.0f, "Health should be modified");
+        FATP_ASSERT_TRUE(entity.health == 110.0f || entity.health == 90.0f, "Health should be modified");
     }
 
     return true;
@@ -531,7 +531,7 @@ TEST_CASE(entries_modification)
 // Copy/Move Tests
 // =============================================================================
 
-TEST_CASE(copy_construction)
+FATP_TEST_CASE(copy_construction)
 {
     SlotMap<Entity> map1;
 
@@ -541,24 +541,24 @@ TEST_CASE(copy_construction)
     SlotMap<Entity> map2(map1);
 
     // Both maps should have same size
-    ASSERT_EQ(map2.size(), 2u, "Copied map should have 2 elements");
+    FATP_ASSERT_EQ(map2.size(), 2u, "Copied map should have 2 elements");
 
     // Handles from original should work in copy
-    ASSERT_TRUE(map2.is_valid(h1), "Handle should be valid in copy");
-    ASSERT_TRUE(map2.is_valid(h2), "Handle should be valid in copy");
+    FATP_ASSERT_TRUE(map2.is_valid(h1), "Handle should be valid in copy");
+    FATP_ASSERT_TRUE(map2.is_valid(h2), "Handle should be valid in copy");
 
-    ASSERT_TRUE(map2.get(h1)->id == 1, "Data should be copied correctly");
-    ASSERT_TRUE(map2.get(h2)->id == 2, "Data should be copied correctly");
+    FATP_ASSERT_TRUE(map2.get(h1)->id == 1, "Data should be copied correctly");
+    FATP_ASSERT_TRUE(map2.get(h2)->id == 2, "Data should be copied correctly");
 
     // Modifying copy should not affect original
     map2.get(h1)->health = 50.0f;
-    ASSERT_TRUE(map1.get(h1)->health == 100.0f, "Original should be unchanged");
-    ASSERT_TRUE(map2.get(h1)->health == 50.0f, "Copy should be modified");
+    FATP_ASSERT_TRUE(map1.get(h1)->health == 100.0f, "Original should be unchanged");
+    FATP_ASSERT_TRUE(map2.get(h1)->health == 50.0f, "Copy should be modified");
 
     return true;
 }
 
-TEST_CASE(copy_assignment)
+FATP_TEST_CASE(copy_assignment)
 {
     SlotMap<Entity> map1;
     auto h1 = map1.insert(Entity{1, "Alice", 100.0f});
@@ -568,31 +568,31 @@ TEST_CASE(copy_assignment)
 
     map2 = map1;
 
-    ASSERT_EQ(map2.size(), 1u, "Assigned map should have 1 element");
-    ASSERT_TRUE(map2.is_valid(h1), "Handle should be valid after assignment");
-    ASSERT_TRUE(map2.get(h1)->id == 1, "Data should be copied correctly");
+    FATP_ASSERT_EQ(map2.size(), 1u, "Assigned map should have 1 element");
+    FATP_ASSERT_TRUE(map2.is_valid(h1), "Handle should be valid after assignment");
+    FATP_ASSERT_TRUE(map2.get(h1)->id == 1, "Data should be copied correctly");
 
     return true;
 }
 
-TEST_CASE(move_construction)
+FATP_TEST_CASE(move_construction)
 {
     SlotMap<Entity> map1;
     auto h1 = map1.insert(Entity{1, "Alice", 100.0f});
 
     SlotMap<Entity> map2(std::move(map1));
 
-    ASSERT_EQ(map2.size(), 1u, "Moved-to map should have 1 element");
-    ASSERT_TRUE(map2.is_valid(h1), "Handle should be valid in moved-to map");
-    ASSERT_TRUE(map2.get(h1)->id == 1, "Data should be moved correctly");
+    FATP_ASSERT_EQ(map2.size(), 1u, "Moved-to map should have 1 element");
+    FATP_ASSERT_TRUE(map2.is_valid(h1), "Handle should be valid in moved-to map");
+    FATP_ASSERT_TRUE(map2.get(h1)->id == 1, "Data should be moved correctly");
 
     // Original should be empty (moved-from state)
-    ASSERT_TRUE(map1.empty(), "Moved-from map should be empty");
+    FATP_ASSERT_TRUE(map1.empty(), "Moved-from map should be empty");
 
     return true;
 }
 
-TEST_CASE(move_assignment)
+FATP_TEST_CASE(move_assignment)
 {
     SlotMap<Entity> map1;
     auto h1 = map1.insert(Entity{1, "Alice", 100.0f});
@@ -602,9 +602,9 @@ TEST_CASE(move_assignment)
 
     map2 = std::move(map1);
 
-    ASSERT_EQ(map2.size(), 1u, "Moved-to map should have 1 element");
-    ASSERT_TRUE(map2.is_valid(h1), "Handle should be valid after move assignment");
-    ASSERT_TRUE(map2.get(h1)->id == 1, "Data should be moved correctly");
+    FATP_ASSERT_EQ(map2.size(), 1u, "Moved-to map should have 1 element");
+    FATP_ASSERT_TRUE(map2.is_valid(h1), "Handle should be valid after move assignment");
+    FATP_ASSERT_TRUE(map2.get(h1)->id == 1, "Data should be moved correctly");
 
     return true;
 }
@@ -613,41 +613,41 @@ TEST_CASE(move_assignment)
 // Capacity Tests
 // =============================================================================
 
-TEST_CASE(reserve)
+FATP_TEST_CASE(reserve)
 {
     SlotMap<Entity> map;
 
     map.reserve(100);
-    ASSERT_TRUE(map.capacity() >= 100, "Capacity should be at least 100");
-    ASSERT_TRUE(map.empty(), "Map should still be empty after reserve");
+    FATP_ASSERT_TRUE(map.capacity() >= 100, "Capacity should be at least 100");
+    FATP_ASSERT_TRUE(map.empty(), "Map should still be empty after reserve");
 
     return true;
 }
 
-TEST_CASE(slot_count_tracking)
+FATP_TEST_CASE(slot_count_tracking)
 {
     SlotMap<Entity> map;
 
-    ASSERT_EQ(map.size(), 0u, "Initial slot count should be 0");
-    ASSERT_EQ(map.free_slot_count(), 0u, "Initial free slot count should be 0");
+    FATP_ASSERT_EQ(map.size(), 0u, "Initial slot count should be 0");
+    FATP_ASSERT_EQ(map.free_slot_count(), 0u, "Initial free slot count should be 0");
 
     auto h1 = map.insert(Entity{1, "Alice", 100.0f});
     (void)map.insert(Entity{2, "Bob", 80.0f});
 
-    ASSERT_EQ(map.size(), 2u, "Should have 2 slots");
-    ASSERT_EQ(map.free_slot_count(), 0u, "Should have 0 free slots");
+    FATP_ASSERT_EQ(map.size(), 2u, "Should have 2 slots");
+    FATP_ASSERT_EQ(map.free_slot_count(), 0u, "Should have 0 free slots");
 
     map.erase(h1);
 
-    ASSERT_EQ(map.slot_count(), 2u, "Slot count unchanged after erase");
-    ASSERT_EQ(map.free_slot_count(), 1u, "Should have 1 free slot");
+    FATP_ASSERT_EQ(map.slot_count(), 2u, "Slot count unchanged after erase");
+    FATP_ASSERT_EQ(map.free_slot_count(), 1u, "Should have 1 free slot");
 
     // Insert should reuse the free slot
     auto h3 = map.insert(Entity{3, "Charlie", 90.0f});
     (void)h3;
 
-    ASSERT_EQ(map.slot_count(), 2u, "Slot count should still be 2 (reused)");
-    ASSERT_EQ(map.free_slot_count(), 0u, "Should have 0 free slots");
+    FATP_ASSERT_EQ(map.slot_count(), 2u, "Slot count should still be 2 (reused)");
+    FATP_ASSERT_EQ(map.free_slot_count(), 0u, "Should have 0 free slots");
 
     return true;
 }
@@ -656,7 +656,7 @@ TEST_CASE(slot_count_tracking)
 // Unchecked Access Tests
 // =============================================================================
 
-TEST_CASE(get_unchecked_basic)
+FATP_TEST_CASE(get_unchecked_basic)
 {
     SlotMap<Entity> map;
 
@@ -665,22 +665,22 @@ TEST_CASE(get_unchecked_basic)
 
     // get_unchecked returns reference, not pointer
     Entity& e1 = map.get_unchecked(h1);
-    ASSERT_EQ(e1.id, 1, "Should access correct entity");
-    ASSERT_EQ(e1.name, "Alice", "Name should match");
+    FATP_ASSERT_EQ(e1.id, 1, "Should access correct entity");
+    FATP_ASSERT_EQ(e1.name, "Alice", "Name should match");
 
     // Modify through unchecked access
     e1.health = 50.0f;
-    ASSERT_TRUE(map.get(h1)->health == 50.0f, "Modification should persist");
+    FATP_ASSERT_TRUE(map.get(h1)->health == 50.0f, "Modification should persist");
 
     // Const version
     const SlotMap<Entity>& const_map = map;
     const Entity& e2 = const_map.get_unchecked(h2);
-    ASSERT_EQ(e2.id, 2, "Const access should work");
+    FATP_ASSERT_EQ(e2.id, 2, "Const access should work");
 
     return true;
 }
 
-TEST_CASE(get_unchecked_performance_pattern)
+FATP_TEST_CASE(get_unchecked_performance_pattern)
 {
     SlotMap<int> map;
     std::vector<SlotMap<int>::Handle> handles;
@@ -702,7 +702,7 @@ TEST_CASE(get_unchecked_performance_pattern)
         }
     }
 
-    ASSERT_EQ(sum, 49500, "Sum should be 0+10+20+...+990 = 49500");
+    FATP_ASSERT_EQ(sum, 49500, "Sum should be 0+10+20+...+990 = 49500");
 
     return true;
 }
@@ -711,7 +711,7 @@ TEST_CASE(get_unchecked_performance_pattern)
 // Stress Tests
 // =============================================================================
 
-TEST_CASE(stress_insert_erase)
+FATP_TEST_CASE(stress_insert_erase)
 {
     SlotMap<int> map;
     std::vector<SlotMap<int>::Handle> handles;
@@ -722,7 +722,7 @@ TEST_CASE(stress_insert_erase)
         handles.push_back(map.insert(i));
     }
 
-    ASSERT_EQ(map.size(), 1000u, "Map should have 1000 elements");
+    FATP_ASSERT_EQ(map.size(), 1000u, "Map should have 1000 elements");
 
     // Erase every other element
     for (size_t i = 0; i < handles.size(); i += 2)
@@ -730,26 +730,26 @@ TEST_CASE(stress_insert_erase)
         map.erase(handles[i]);
     }
 
-    ASSERT_EQ(map.size(), 500u, "Map should have 500 elements after erasure");
+    FATP_ASSERT_EQ(map.size(), 500u, "Map should have 500 elements after erasure");
 
     // Verify remaining elements
     for (size_t i = 1; i < handles.size(); i += 2)
     {
         int* val = map.get(handles[i]);
-        ASSERT_NOT_NULLPTR(val, "Handle should be valid");
-        ASSERT_EQ(*val, static_cast<int>(i), "Value should match");
+        FATP_ASSERT_NOT_NULLPTR(val, "Handle should be valid");
+        FATP_ASSERT_EQ(*val, static_cast<int>(i), "Value should match");
     }
 
     // Verify erased elements are invalid
     for (size_t i = 0; i < handles.size(); i += 2)
     {
-        ASSERT_NULLPTR(map.get(handles[i]), "Erased handle should be invalid");
+        FATP_ASSERT_NULLPTR(map.get(handles[i]), "Erased handle should be invalid");
     }
 
     return true;
 }
 
-TEST_CASE(stress_slot_reuse)
+FATP_TEST_CASE(stress_slot_reuse)
 {
     SlotMap<int> map;
 
@@ -770,9 +770,9 @@ TEST_CASE(stress_slot_reuse)
         }
     }
 
-    ASSERT_TRUE(map.empty(), "Map should be empty");
+    FATP_ASSERT_TRUE(map.empty(), "Map should be empty");
     // Slot count should be 10 (all reused)
-    ASSERT_EQ(map.slot_count(), 10u, "Only 10 slots should ever be allocated");
+    FATP_ASSERT_EQ(map.slot_count(), 10u, "Only 10 slots should ever be allocated");
 
     return true;
 }
@@ -784,15 +784,15 @@ TEST_CASE(stress_slot_reuse)
 // Test: clear() must not cause ABA violation
 // Bug: Original clear() wiped slots_, resetting generations to 0.
 // Fix: Increment generations on clear, don't reset them.
-TEST_CASE(clear_aba_fix)
+FATP_TEST_CASE(clear_aba_fix)
 {
     SlotMap<int> map;
     
     auto h1 = map.insert(42);
-    ASSERT_TRUE(map.is_valid(h1), "Handle should be valid before erase");
+    FATP_ASSERT_TRUE(map.is_valid(h1), "Handle should be valid before erase");
     
     map.erase(h1);
-    ASSERT_FALSE(map.is_valid(h1), "Handle should be invalid after erase");
+    FATP_ASSERT_FALSE(map.is_valid(h1), "Handle should be invalid after erase");
     
     map.clear();
     
@@ -800,11 +800,11 @@ TEST_CASE(clear_aba_fix)
     auto h2 = map.insert(99);
     
     // CRITICAL: Old handle h1 must NOT validate after clear!
-    ASSERT_FALSE(map.is_valid(h1), "Old handle must remain invalid after clear");
+    FATP_ASSERT_FALSE(map.is_valid(h1), "Old handle must remain invalid after clear");
     
     // New handle should work
-    ASSERT_TRUE(map.is_valid(h2), "New handle should be valid");
-    ASSERT_EQ(*map.get(h2), 99, "New handle should point to correct data");
+    FATP_ASSERT_TRUE(map.is_valid(h2), "New handle should be valid");
+    FATP_ASSERT_EQ(*map.get(h2), 99, "New handle should point to correct data");
     
     return true;
 }
@@ -812,7 +812,7 @@ TEST_CASE(clear_aba_fix)
 // Test: Generation wrap must skip 0 to preserve is_null() semantics
 // Bug: uint32_t wrap to 0 would make is_null() return true for valid handles
 // Fix: if (++generation == 0) generation = 1;
-TEST_CASE(generation_wrap_skips_zero)
+FATP_TEST_CASE(generation_wrap_skips_zero)
 {
     SlotMap<int> map;
     
@@ -826,8 +826,8 @@ TEST_CASE(generation_wrap_skips_zero)
     // All handles should have non-zero generation
     for (const auto& h : handles)
     {
-        ASSERT_FALSE(h.is_null(), "Valid handle should not be null");
-        ASSERT_NE(h.generation, 0u, "Valid handle generation should never be 0");
+        FATP_ASSERT_FALSE(h.is_null(), "Valid handle should not be null");
+        FATP_ASSERT_NE(h.generation, 0u, "Valid handle generation should never be 0");
     }
     
     // Erase and reinsert multiple times on same slots
@@ -842,8 +842,8 @@ TEST_CASE(generation_wrap_skips_zero)
         for (int i = 0; i < 100; ++i)
         {
             auto new_h = map.insert(i);
-            ASSERT_FALSE(new_h.is_null(), "New handle should not be null");
-            ASSERT_NE(new_h.generation, 0u, "New handle generation should never be 0");
+            FATP_ASSERT_FALSE(new_h.is_null(), "New handle should not be null");
+            FATP_ASSERT_NE(new_h.generation, 0u, "New handle generation should never be 0");
             handles.push_back(new_h);
         }
     }
@@ -856,13 +856,13 @@ TEST_CASE(generation_wrap_skips_zero)
 // =============================================================================
 
 // Test: at() throws on invalid handle
-TEST_CASE(at_throws_on_invalid)
+FATP_TEST_CASE(at_throws_on_invalid)
 {
     SlotMap<int> map;
     auto h = map.insert(42);
     
     // Valid handle works
-    ASSERT_EQ(map.at(h), 42, "at() should return correct value");
+    FATP_ASSERT_EQ(map.at(h), 42, "at() should return correct value");
     
     // Erase it
     map.erase(h);
@@ -877,45 +877,45 @@ TEST_CASE(at_throws_on_invalid)
     {
         threw = true;
     }
-    ASSERT_TRUE(threw, "at() should throw on invalid handle");
+    FATP_ASSERT_TRUE(threw, "at() should throw on invalid handle");
     
     return true;
 }
 
 // Test: contains() is alias for is_valid()
-TEST_CASE(contains_alias)
+FATP_TEST_CASE(contains_alias)
 {
     SlotMap<int> map;
     auto h = map.insert(42);
     
-    ASSERT_TRUE(map.contains(h), "contains() should return true for valid handle");
+    FATP_ASSERT_TRUE(map.contains(h), "contains() should return true for valid handle");
     
     map.erase(h);
     
-    ASSERT_FALSE(map.contains(h), "contains() should return false for erased handle");
+    FATP_ASSERT_FALSE(map.contains(h), "contains() should return false for erased handle");
     
     SlotMap<int>::Handle null_handle;
-    ASSERT_FALSE(map.contains(null_handle), "contains() should return false for null handle");
+    FATP_ASSERT_FALSE(map.contains(null_handle), "contains() should return false for null handle");
     
     return true;
 }
 
 // Test: emplace() is alias for insert()
-TEST_CASE(emplace_alias)
+FATP_TEST_CASE(emplace_alias)
 {
     SlotMap<Entity> map;
     
     auto h = map.emplace(42, "Emplaced", 100.0f);
     
-    ASSERT_TRUE(map.is_valid(h), "emplace() should return valid handle");
-    ASSERT_TRUE(map.get(h)->id == 42, "emplaced entity should have correct id");
-    ASSERT_TRUE(map.get(h)->name == "Emplaced", "emplaced entity should have correct name");
+    FATP_ASSERT_TRUE(map.is_valid(h), "emplace() should return valid handle");
+    FATP_ASSERT_TRUE(map.get(h)->id == 42, "emplaced entity should have correct id");
+    FATP_ASSERT_TRUE(map.get(h)->name == "Emplaced", "emplaced entity should have correct name");
     
     return true;
 }
 
 // Test: Handle can be used in std::unordered_map (requires std::hash)
-TEST_CASE(handle_hashable)
+FATP_TEST_CASE(handle_hashable)
 {
     SlotMap<int> map;
     
@@ -929,37 +929,37 @@ TEST_CASE(handle_hashable)
     lookup[h2] = "two";
     lookup[h3] = "three";
     
-    ASSERT_EQ(lookup[h1], "one", "Hash lookup should work for h1");
-    ASSERT_EQ(lookup[h2], "two", "Hash lookup should work for h2");
-    ASSERT_EQ(lookup[h3], "three", "Hash lookup should work for h3");
+    FATP_ASSERT_EQ(lookup[h1], "one", "Hash lookup should work for h1");
+    FATP_ASSERT_EQ(lookup[h2], "two", "Hash lookup should work for h2");
+    FATP_ASSERT_EQ(lookup[h3], "three", "Hash lookup should work for h3");
     
     return true;
 }
 
 // Test: Handle comparison operators for std::set/map
-TEST_CASE(handle_ordering)
+FATP_TEST_CASE(handle_ordering)
 {
     SlotMapHandle h1{0, 1};
     SlotMapHandle h2{0, 2};
     SlotMapHandle h3{1, 1};
     
     // Less-than comparison
-    ASSERT_TRUE(h1 < h2, "Same index, lower generation should be less");
-    ASSERT_TRUE(h1 < h3, "Lower index should be less");
-    ASSERT_FALSE((h2 < h1), "Higher generation should not be less");
+    FATP_ASSERT_TRUE(h1 < h2, "Same index, lower generation should be less");
+    FATP_ASSERT_TRUE(h1 < h3, "Lower index should be less");
+    FATP_ASSERT_FALSE((h2 < h1), "Higher generation should not be less");
     
     // Should work in std::set
     std::set<SlotMapHandle> handles;
     handles.insert(h1);
     handles.insert(h2);
     handles.insert(h3);
-    ASSERT_EQ(handles.size(), 3u, "Set should contain all 3 unique handles");
+    FATP_ASSERT_EQ(handles.size(), 3u, "Set should contain all 3 unique handles");
     
     return true;
 }
 
 // Test: swap() member function
-TEST_CASE(swap_member)
+FATP_TEST_CASE(swap_member)
 {
     SlotMap<int> map1;
     auto h1 = map1.insert(1);
@@ -970,23 +970,23 @@ TEST_CASE(swap_member)
     
     map1.swap(map2);
     
-    ASSERT_EQ(map1.size(), 1u, "map1 should have 1 element after swap");
-    ASSERT_EQ(map2.size(), 2u, "map2 should have 2 elements after swap");
+    FATP_ASSERT_EQ(map1.size(), 1u, "map1 should have 1 element after swap");
+    FATP_ASSERT_EQ(map2.size(), 2u, "map2 should have 2 elements after swap");
     
     // Handles track their original map's data
-    ASSERT_TRUE(map1.is_valid(h3), "h3 should be valid in map1 after swap");
-    ASSERT_TRUE(map2.is_valid(h1), "h1 should be valid in map2 after swap");
+    FATP_ASSERT_TRUE(map1.is_valid(h3), "h3 should be valid in map1 after swap");
+    FATP_ASSERT_TRUE(map2.is_valid(h1), "h1 should be valid in map2 after swap");
     
     return true;
 }
 
 // Test: shrink_to_fit() reduces memory
-TEST_CASE(shrink_to_fit)
+FATP_TEST_CASE(shrink_to_fit)
 {
     SlotMap<int> map;
     map.reserve(1000);
     
-    ASSERT_TRUE(map.capacity() >= 1000, "Capacity should be at least 1000 after reserve");
+    FATP_ASSERT_TRUE(map.capacity() >= 1000, "Capacity should be at least 1000 after reserve");
     
     (void)map.insert(1);
     (void)map.insert(2);
@@ -995,7 +995,7 @@ TEST_CASE(shrink_to_fit)
     
     // Capacity may still be >= 2, but should be reduced from 1000
     // (Implementation-defined, so we just verify it doesn't crash)
-    ASSERT_EQ(map.size(), 2u, "Size should still be 2 after shrink_to_fit");
+    FATP_ASSERT_EQ(map.size(), 2u, "Size should still be 2 after shrink_to_fit");
     
     return true;
 }
@@ -1142,68 +1142,68 @@ namespace fat_p::testing
 
 bool test_SlotMap()
 {
-    PRINT_HEADER(SLOT MAP)
+    FATP_PRINT_HEADER(SLOT MAP)
 
     TestRunner runner;
 
     // Basic operations
-    RUN_TEST_NS(runner, slotmap, basic_insert_get);
-    RUN_TEST_NS(runner, slotmap, multiple_inserts);
-    RUN_TEST_NS(runner, slotmap, in_place_construction);
-    RUN_TEST_NS(runner, slotmap, erase);
-    RUN_TEST_NS(runner, slotmap, erase_invalid_handle);
-    RUN_TEST_NS(runner, slotmap, clear);
+    FATP_RUN_TEST_NS(runner, slotmap, basic_insert_get);
+    FATP_RUN_TEST_NS(runner, slotmap, multiple_inserts);
+    FATP_RUN_TEST_NS(runner, slotmap, in_place_construction);
+    FATP_RUN_TEST_NS(runner, slotmap, erase);
+    FATP_RUN_TEST_NS(runner, slotmap, erase_invalid_handle);
+    FATP_RUN_TEST_NS(runner, slotmap, clear);
 
     // Generational safety
-    RUN_TEST_NS(runner, slotmap, generational_safety);
-    RUN_TEST_NS(runner, slotmap, aba_multiple_cycles);
+    FATP_RUN_TEST_NS(runner, slotmap, generational_safety);
+    FATP_RUN_TEST_NS(runner, slotmap, aba_multiple_cycles);
 
     // Handle tests
-    RUN_TEST_NS(runner, slotmap, handle_default_state);
-    RUN_TEST_NS(runner, slotmap, handle_equality);
-    RUN_TEST_NS(runner, slotmap, handle_is_null_vs_is_valid);
-    RUN_TEST_NS(runner, slotmap, handle_operator_bool);
+    FATP_RUN_TEST_NS(runner, slotmap, handle_default_state);
+    FATP_RUN_TEST_NS(runner, slotmap, handle_equality);
+    FATP_RUN_TEST_NS(runner, slotmap, handle_is_null_vs_is_valid);
+    FATP_RUN_TEST_NS(runner, slotmap, handle_operator_bool);
 
     // Iteration tests
-    RUN_TEST_NS(runner, slotmap, iteration);
-    RUN_TEST_NS(runner, slotmap, iteration_empty);
-    RUN_TEST_NS(runner, slotmap, iteration_after_erase);
-    RUN_TEST_NS(runner, slotmap, const_iteration);
-    RUN_TEST_NS(runner, slotmap, entries_iteration);
-    RUN_TEST_NS(runner, slotmap, entries_const_iteration);
-    RUN_TEST_NS(runner, slotmap, entries_empty);
-    RUN_TEST_NS(runner, slotmap, entries_modification);
+    FATP_RUN_TEST_NS(runner, slotmap, iteration);
+    FATP_RUN_TEST_NS(runner, slotmap, iteration_empty);
+    FATP_RUN_TEST_NS(runner, slotmap, iteration_after_erase);
+    FATP_RUN_TEST_NS(runner, slotmap, const_iteration);
+    FATP_RUN_TEST_NS(runner, slotmap, entries_iteration);
+    FATP_RUN_TEST_NS(runner, slotmap, entries_const_iteration);
+    FATP_RUN_TEST_NS(runner, slotmap, entries_empty);
+    FATP_RUN_TEST_NS(runner, slotmap, entries_modification);
 
     // Copy/move tests
-    RUN_TEST_NS(runner, slotmap, copy_construction);
-    RUN_TEST_NS(runner, slotmap, copy_assignment);
-    RUN_TEST_NS(runner, slotmap, move_construction);
-    RUN_TEST_NS(runner, slotmap, move_assignment);
+    FATP_RUN_TEST_NS(runner, slotmap, copy_construction);
+    FATP_RUN_TEST_NS(runner, slotmap, copy_assignment);
+    FATP_RUN_TEST_NS(runner, slotmap, move_construction);
+    FATP_RUN_TEST_NS(runner, slotmap, move_assignment);
 
     // Capacity tests
-    RUN_TEST_NS(runner, slotmap, reserve);
-    RUN_TEST_NS(runner, slotmap, slot_count_tracking);
+    FATP_RUN_TEST_NS(runner, slotmap, reserve);
+    FATP_RUN_TEST_NS(runner, slotmap, slot_count_tracking);
 
     // Unchecked access tests
-    RUN_TEST_NS(runner, slotmap, get_unchecked_basic);
-    RUN_TEST_NS(runner, slotmap, get_unchecked_performance_pattern);
+    FATP_RUN_TEST_NS(runner, slotmap, get_unchecked_basic);
+    FATP_RUN_TEST_NS(runner, slotmap, get_unchecked_performance_pattern);
 
     // Stress tests
-    RUN_TEST_NS(runner, slotmap, stress_insert_erase);
-    RUN_TEST_NS(runner, slotmap, stress_slot_reuse);
+    FATP_RUN_TEST_NS(runner, slotmap, stress_insert_erase);
+    FATP_RUN_TEST_NS(runner, slotmap, stress_slot_reuse);
 
     // Critical bug fix tests (Multi-AI Review)
-    RUN_TEST_NS(runner, slotmap, clear_aba_fix);
-    RUN_TEST_NS(runner, slotmap, generation_wrap_skips_zero);
+    FATP_RUN_TEST_NS(runner, slotmap, clear_aba_fix);
+    FATP_RUN_TEST_NS(runner, slotmap, generation_wrap_skips_zero);
 
     // New API tests
-    RUN_TEST_NS(runner, slotmap, at_throws_on_invalid);
-    RUN_TEST_NS(runner, slotmap, contains_alias);
-    RUN_TEST_NS(runner, slotmap, emplace_alias);
-    RUN_TEST_NS(runner, slotmap, handle_hashable);
-    RUN_TEST_NS(runner, slotmap, handle_ordering);
-    RUN_TEST_NS(runner, slotmap, swap_member);
-    RUN_TEST_NS(runner, slotmap, shrink_to_fit);
+    FATP_RUN_TEST_NS(runner, slotmap, at_throws_on_invalid);
+    FATP_RUN_TEST_NS(runner, slotmap, contains_alias);
+    FATP_RUN_TEST_NS(runner, slotmap, emplace_alias);
+    FATP_RUN_TEST_NS(runner, slotmap, handle_hashable);
+    FATP_RUN_TEST_NS(runner, slotmap, handle_ordering);
+    FATP_RUN_TEST_NS(runner, slotmap, swap_member);
+    FATP_RUN_TEST_NS(runner, slotmap, shrink_to_fit);
 
     slotmap::benchmark_slot_map();
 

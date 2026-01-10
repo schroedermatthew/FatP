@@ -8,7 +8,7 @@ FATP_META:
   component: Stacktrace
   file_role: test
   path: tests/test_Stacktrace.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::stacktrace
   summary: "Unit tests for Stacktrace."
   related:
     docs_search: "Stacktrace"
@@ -35,34 +35,34 @@ FATP_META:
 namespace fat_p::testing::stacktrace
 {
 
-TEST_CASE(current)
+FATP_TEST_CASE(current)
 {
     auto trace = Stacktrace::current();
     
-    ASSERT_FALSE(trace.frames().empty(), "Stacktrace should have frames");
+    FATP_ASSERT_FALSE(trace.frames().empty(), "Stacktrace should have frames");
     
     return true;
 }
 
-TEST_CASE(to_string)
+FATP_TEST_CASE(to_string)
 {
     auto trace = Stacktrace::current();
     std::string str = trace.to_string();
     
-    ASSERT_FALSE(str.empty(), "Stacktrace string should not be empty");
+    FATP_ASSERT_FALSE(str.empty(), "Stacktrace string should not be empty");
     
     return true;
 }
 
-TEST_CASE(frames)
+FATP_TEST_CASE(frames)
 {
     auto trace = Stacktrace::current();
     const auto& frames = trace.frames();
     
-    ASSERT_GT(frames.size(), 0u, "Should have at least one frame");
+    FATP_ASSERT_GT(frames.size(), 0u, "Should have at least one frame");
     
     const auto& frame = frames[0];
-    ASSERT_FALSE(frame.function.empty(), "Frame should have function name");
+    FATP_ASSERT_FALSE(frame.function.empty(), "Frame should have function name");
     
     return true;
 }
@@ -97,13 +97,13 @@ namespace fat_p::testing
 
 bool test_Stacktrace()
 {
-    PRINT_HEADER(STACK TRACE)
+    FATP_PRINT_HEADER(STACK TRACE)
 
     TestRunner runner;
 
-    RUN_TEST_NS(runner, stacktrace, current);
-    RUN_TEST_NS(runner, stacktrace, to_string);
-    RUN_TEST_NS(runner, stacktrace, frames);
+    FATP_RUN_TEST_NS(runner, stacktrace, current);
+    FATP_RUN_TEST_NS(runner, stacktrace, to_string);
+    FATP_RUN_TEST_NS(runner, stacktrace, frames);
 
     stacktrace::benchmark_stacktrace();
 

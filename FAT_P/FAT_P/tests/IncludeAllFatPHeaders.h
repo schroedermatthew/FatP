@@ -7,6 +7,7 @@
 //
 // Success criterion: this file compiles. No runtime assertions are required.
 
+#pragma once 
 /*
 FATP_META:
   meta_version: 1
@@ -128,7 +129,7 @@ FATP_META:
       - fat_p/enforce_raiser_selector.h
       - fat_p/enforce_raisers.h
   hygiene:
-    pragma_once: false
+    pragma_once: true
     include_guard: false
     defines_total: 0
     defines_unprefixed: 0

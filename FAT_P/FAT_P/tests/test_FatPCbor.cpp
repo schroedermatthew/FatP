@@ -66,13 +66,13 @@ static CborResult<T> roundtrip(const T& value)
 // Buffer Alignment
 // ============================================================================
 
-TEST_CASE(buffer_alignment)
+FATP_TEST_CASE(buffer_alignment)
 {
     CborBuffer buf;
     buf.reserve(64);
 
     const auto addr = reinterpret_cast<std::uintptr_t>(buf.data());
-    ASSERT_TRUE(addr % 64 == 0, "CborBuffer must be 64-byte aligned");
+    FATP_ASSERT_TRUE(addr % 64 == 0, "CborBuffer must be 64-byte aligned");
 
     return true;
 }
@@ -81,7 +81,7 @@ TEST_CASE(buffer_alignment)
 // Primitive Roundtrips via Traits
 // ============================================================================
 
-TEST_CASE(int_roundtrip)
+FATP_TEST_CASE(int_roundtrip)
 {
     const int values[] = {0, 1, -1, 123456, -987654,
                           std::numeric_limits<int>::min(),
@@ -90,14 +90,14 @@ TEST_CASE(int_roundtrip)
     for (int v : values)
     {
         auto r = roundtrip(v);
-        ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-        ASSERT_EQ(*r, v, "int roundtrip");
+        FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+        FATP_ASSERT_EQ(*r, v, "int roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(uint64_roundtrip)
+FATP_TEST_CASE(uint64_roundtrip)
 {
     const std::uint64_t values[] = {0ULL, 1ULL, 23ULL, 65535ULL, 123456789ULL,
                                     std::numeric_limits<std::uint64_t>::max()};
@@ -105,51 +105,51 @@ TEST_CASE(uint64_roundtrip)
     for (std::uint64_t v : values)
     {
         auto r = roundtrip(v);
-        ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-        ASSERT_EQ(*r, v, "uint64 roundtrip");
+        FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+        FATP_ASSERT_EQ(*r, v, "uint64 roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(bool_roundtrip)
+FATP_TEST_CASE(bool_roundtrip)
 {
     {
         auto r = roundtrip(true);
-        ASSERT_TRUE(r.has_value() && *r == true, "true roundtrip");
+        FATP_ASSERT_TRUE(r.has_value() && *r == true, "true roundtrip");
     }
 
     {
         auto r = roundtrip(false);
-        ASSERT_TRUE(r.has_value() && *r == false, "false roundtrip");
+        FATP_ASSERT_TRUE(r.has_value() && *r == false, "false roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(double_roundtrip)
+FATP_TEST_CASE(double_roundtrip)
 {
     const double values[] = {0.0, -0.0, 1.5, -2.75, 1e10, -3.14159265358979};
 
     for (double v : values)
     {
         auto r = roundtrip(v);
-        ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-        ASSERT_CLOSE_EPS(*r, v, 1e-12, "double roundtrip");
+        FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+        FATP_ASSERT_CLOSE_EPS(*r, v, 1e-12, "double roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(string_roundtrip)
+FATP_TEST_CASE(string_roundtrip)
 {
     const std::string values[] = {"", "a", "hello world", "UTF-8 \xC3\xA9"};
 
     for (const auto& s : values)
     {
         auto r = roundtrip(s);
-        ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-        ASSERT_EQ(*r, s, "string roundtrip");
+        FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+        FATP_ASSERT_EQ(*r, s, "string roundtrip");
     }
 
     return true;
@@ -159,43 +159,43 @@ TEST_CASE(string_roundtrip)
 // Vector Roundtrips
 // ============================================================================
 
-TEST_CASE(vector_int_roundtrip)
+FATP_TEST_CASE(vector_int_roundtrip)
 {
     std::vector<int> v = {1, 2, 3, 4, 5};
 
     auto r = roundtrip(v);
-    ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-    ASSERT_EQ(r->size(), v.size(), "vector size");
+    FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+    FATP_ASSERT_EQ(r->size(), v.size(), "vector size");
     for (std::size_t i = 0; i < v.size(); ++i)
     {
-        ASSERT_EQ((*r)[i], v[i], "vector element");
+        FATP_ASSERT_EQ((*r)[i], v[i], "vector element");
     }
 
     return true;
 }
 
-TEST_CASE(nested_vector_roundtrip)
+FATP_TEST_CASE(nested_vector_roundtrip)
 {
     std::vector<std::vector<int>> v = {{1, 2}, {3, 4, 5}, {}, {6}};
 
     auto r = roundtrip(v);
-    ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-    ASSERT_EQ(r->size(), v.size(), "outer vector size");
+    FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+    FATP_ASSERT_EQ(r->size(), v.size(), "outer vector size");
     for (std::size_t i = 0; i < v.size(); ++i)
     {
-        ASSERT_EQ((*r)[i].size(), v[i].size(), "inner vector size");
+        FATP_ASSERT_EQ((*r)[i].size(), v[i].size(), "inner vector size");
     }
 
     return true;
 }
 
-TEST_CASE(empty_vector_roundtrip)
+FATP_TEST_CASE(empty_vector_roundtrip)
 {
     std::vector<int> v = {};
 
     auto r = roundtrip(v);
-    ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-    ASSERT_TRUE(r->empty(), "empty vector roundtrip");
+    FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+    FATP_ASSERT_TRUE(r->empty(), "empty vector roundtrip");
 
     return true;
 }
@@ -204,20 +204,20 @@ TEST_CASE(empty_vector_roundtrip)
 // Map Roundtrips
 // ============================================================================
 
-TEST_CASE(map_roundtrip)
+FATP_TEST_CASE(map_roundtrip)
 {
     std::map<std::string, int> m{{"a", 1}, {"b", 2}, {"c", 3}};
 
     auto r = roundtrip(m);
-    ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-    ASSERT_EQ(r->size(), m.size(), "map size");
-    ASSERT_EQ(r->at("a"), 1, "map value a");
-    ASSERT_EQ(r->at("b"), 2, "map value b");
+    FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+    FATP_ASSERT_EQ(r->size(), m.size(), "map size");
+    FATP_ASSERT_EQ(r->at("a"), 1, "map value a");
+    FATP_ASSERT_EQ(r->at("b"), 2, "map value b");
 
     return true;
 }
 
-TEST_CASE(nested_map_roundtrip)
+FATP_TEST_CASE(nested_map_roundtrip)
 {
     std::map<std::string, std::map<int, std::string>> m{
         {"x", {{1, "a"}, {2, "b"}}},
@@ -225,19 +225,19 @@ TEST_CASE(nested_map_roundtrip)
     };
 
     auto r = roundtrip(m);
-    ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-    ASSERT_EQ(r->size(), m.size(), "outer map size");
+    FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+    FATP_ASSERT_EQ(r->size(), m.size(), "outer map size");
 
     return true;
 }
 
-TEST_CASE(empty_map_roundtrip)
+FATP_TEST_CASE(empty_map_roundtrip)
 {
     std::map<std::string, int> m{};
 
     auto r = roundtrip(m);
-    ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-    ASSERT_TRUE(r->empty(), "empty map roundtrip");
+    FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+    FATP_ASSERT_TRUE(r->empty(), "empty map roundtrip");
 
     return true;
 }
@@ -253,15 +253,15 @@ enum class TestEnum : std::int32_t
     Gamma = -1
 };
 
-TEST_CASE(enum_roundtrip)
+FATP_TEST_CASE(enum_roundtrip)
 {
     const TestEnum values[] = {TestEnum::Alpha, TestEnum::Beta, TestEnum::Gamma};
 
     for (TestEnum v : values)
     {
         auto r = roundtrip(v);
-        ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-        ASSERT_TRUE(*r == v, "enum roundtrip");
+        FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+        FATP_ASSERT_TRUE(*r == v, "enum roundtrip");
     }
 
     return true;
@@ -357,15 +357,15 @@ struct CborTraits<::fat_p::testing::fatpcbor::Complex>
 namespace fat_p::testing::fatpcbor
 {
 
-TEST_CASE(complex_struct_roundtrip)
+FATP_TEST_CASE(complex_struct_roundtrip)
 {
     Complex x{42, "hello", {1.1, 2.2, 3.3}};
 
     auto r = roundtrip(x);
-    ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-    ASSERT_EQ(r->a, x.a, "Complex.a");
-    ASSERT_EQ(r->b, x.b, "Complex.b");
-    ASSERT_EQ(r->c.size(), x.c.size(), "Complex.c size");
+    FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+    FATP_ASSERT_EQ(r->a, x.a, "Complex.a");
+    FATP_ASSERT_EQ(r->b, x.b, "Complex.b");
+    FATP_ASSERT_EQ(r->c.size(), x.c.size(), "Complex.c size");
 
     return true;
 }
@@ -374,19 +374,19 @@ TEST_CASE(complex_struct_roundtrip)
 // Cross-Container Compatibility
 // ============================================================================
 
-TEST_CASE(cross_container)
+FATP_TEST_CASE(cross_container)
 {
     CborBuffer hbuf;
     auto enc = cbor_encode_to(hbuf, std::string("test123"));
-    ASSERT_TRUE(enc.has_value(), "Encode failed");
+    FATP_ASSERT_TRUE(enc.has_value(), "Encode failed");
 
     std::vector<std::uint8_t> sbuf(hbuf.begin(), hbuf.end());
 
     auto r1 = cbor_decode_from<std::string>(hbuf);
-    ASSERT_TRUE(r1.has_value() && *r1 == "test123", "Decode from HpcVector");
+    FATP_ASSERT_TRUE(r1.has_value() && *r1 == "test123", "Decode from HpcVector");
 
     auto r2 = cbor_decode_from<std::string>(sbuf);
-    ASSERT_TRUE(r2.has_value() && *r2 == "test123", "Decode from std::vector");
+    FATP_ASSERT_TRUE(r2.has_value() && *r2 == "test123", "Decode from std::vector");
 
     return true;
 }
@@ -395,179 +395,179 @@ TEST_CASE(cross_container)
 // Malformed Input Tests
 // ============================================================================
 
-TEST_CASE(decode_invalid_initial_byte)
+FATP_TEST_CASE(decode_invalid_initial_byte)
 {
     std::vector<std::uint8_t> bad = {0xFFU};
 
     auto r_int = cbor_decode_from<int>(bad);
-    ASSERT_TRUE(!r_int.has_value(), "0xFF should not decode as int");
+    FATP_ASSERT_TRUE(!r_int.has_value(), "0xFF should not decode as int");
 
     auto r_str = cbor_decode_from<std::string>(bad);
-    ASSERT_TRUE(!r_str.has_value(), "0xFF should not decode as string");
+    FATP_ASSERT_TRUE(!r_str.has_value(), "0xFF should not decode as string");
 
     return true;
 }
 
-TEST_CASE(decode_truncated_string)
+FATP_TEST_CASE(decode_truncated_string)
 {
     const std::string s = "abcdef";
 
     CborBuffer buf;
     auto enc = cbor_encode_to(buf, s);
-    ASSERT_TRUE(enc.has_value(), "Encode failed");
+    FATP_ASSERT_TRUE(enc.has_value(), "Encode failed");
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
         auto r = cbor_decode_from<std::string>(truncated);
-        ASSERT_TRUE(!r.has_value(), "Truncated string should fail");
+        FATP_ASSERT_TRUE(!r.has_value(), "Truncated string should fail");
     }
 
     return true;
 }
 
-TEST_CASE(decode_truncated_vector)
+FATP_TEST_CASE(decode_truncated_vector)
 {
     std::vector<int> v = {1, 2, 3, 4, 5};
 
     CborBuffer buf;
     auto enc = cbor_encode_to(buf, v);
-    ASSERT_TRUE(enc.has_value(), "Encode failed");
+    FATP_ASSERT_TRUE(enc.has_value(), "Encode failed");
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
         auto r = cbor_decode_from<std::vector<int>>(truncated);
-        ASSERT_TRUE(!r.has_value(), "Truncated vector should fail");
+        FATP_ASSERT_TRUE(!r.has_value(), "Truncated vector should fail");
     }
 
     return true;
 }
 
-TEST_CASE(decode_impossible_length)
+FATP_TEST_CASE(decode_impossible_length)
 {
     const std::string s = "abcd";
 
     CborBuffer buf;
     auto enc = cbor_encode_to(buf, s);
-    ASSERT_TRUE(enc.has_value(), "Encode failed");
+    FATP_ASSERT_TRUE(enc.has_value(), "Encode failed");
 
     std::vector<std::uint8_t> mutated(buf.begin(), buf.end());
     mutated[0] = 0x6AU;
 
     auto r = cbor_decode_from<std::string>(mutated);
-    ASSERT_TRUE(!r.has_value(), "Impossible length should fail");
+    FATP_ASSERT_TRUE(!r.has_value(), "Impossible length should fail");
 
     return true;
 }
 
-TEST_CASE(decode_type_mismatch_string_as_int)
+FATP_TEST_CASE(decode_type_mismatch_string_as_int)
 {
     CborBuffer buf;
     auto enc = cbor_encode_to(buf, std::string("not an int"));
-    ASSERT_TRUE(enc.has_value(), "Encode string failed");
+    FATP_ASSERT_TRUE(enc.has_value(), "Encode string failed");
 
     auto r = cbor_decode_from<int>(buf);
-    ASSERT_TRUE(!r.has_value(), "Type mismatch should fail");
+    FATP_ASSERT_TRUE(!r.has_value(), "Type mismatch should fail");
 
     return true;
 }
 
-TEST_CASE(decode_type_mismatch_int_as_string)
+FATP_TEST_CASE(decode_type_mismatch_int_as_string)
 {
     CborBuffer buf;
     auto enc = cbor_encode_to(buf, 42);
-    ASSERT_TRUE(enc.has_value(), "Encode int failed");
+    FATP_ASSERT_TRUE(enc.has_value(), "Encode int failed");
 
     auto r = cbor_decode_from<std::string>(buf);
-    ASSERT_TRUE(!r.has_value(), "Type mismatch should fail");
+    FATP_ASSERT_TRUE(!r.has_value(), "Type mismatch should fail");
 
     return true;
 }
 
-TEST_CASE(decode_type_mismatch_double_as_bool)
+FATP_TEST_CASE(decode_type_mismatch_double_as_bool)
 {
     CborBuffer buf;
     auto enc = cbor_encode_to(buf, 3.14);
-    ASSERT_TRUE(enc.has_value(), "Encode double failed");
+    FATP_ASSERT_TRUE(enc.has_value(), "Encode double failed");
 
     auto r = cbor_decode_from<bool>(buf);
-    ASSERT_TRUE(!r.has_value(), "Type mismatch should fail");
+    FATP_ASSERT_TRUE(!r.has_value(), "Type mismatch should fail");
 
     return true;
 }
 
-TEST_CASE(decode_empty_buffer)
+FATP_TEST_CASE(decode_empty_buffer)
 {
     std::vector<std::uint8_t> empty;
 
     auto r_int = cbor_decode_from<int>(empty);
-    ASSERT_TRUE(!r_int.has_value(), "Empty buffer should fail for int");
+    FATP_ASSERT_TRUE(!r_int.has_value(), "Empty buffer should fail for int");
 
     auto r_str = cbor_decode_from<std::string>(empty);
-    ASSERT_TRUE(!r_str.has_value(), "Empty buffer should fail for string");
+    FATP_ASSERT_TRUE(!r_str.has_value(), "Empty buffer should fail for string");
 
     auto r_vec = cbor_decode_from<std::vector<int>>(empty);
-    ASSERT_TRUE(!r_vec.has_value(), "Empty buffer should fail for vector");
+    FATP_ASSERT_TRUE(!r_vec.has_value(), "Empty buffer should fail for vector");
 
     return true;
 }
 
-TEST_CASE(decode_partial_map)
+FATP_TEST_CASE(decode_partial_map)
 {
     std::map<std::string, int> m{{"a", 1}, {"b", 2}};
 
     CborBuffer buf;
     auto enc = cbor_encode_to(buf, m);
-    ASSERT_TRUE(enc.has_value(), "Encode failed");
+    FATP_ASSERT_TRUE(enc.has_value(), "Encode failed");
 
     std::size_t cut = buf.size() * 2 / 3;
     std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
 
     auto r = cbor_decode_from<std::map<std::string, int>>(truncated);
-    ASSERT_TRUE(!r.has_value(), "Partial map should fail");
+    FATP_ASSERT_TRUE(!r.has_value(), "Partial map should fail");
 
     return true;
 }
 
-TEST_CASE(decode_nested_truncation)
+FATP_TEST_CASE(decode_nested_truncation)
 {
     std::vector<std::vector<int>> nested = {{1, 2}, {3, 4, 5}, {6}};
 
     CborBuffer buf;
     auto enc = cbor_encode_to(buf, nested);
-    ASSERT_TRUE(enc.has_value(), "Encode failed");
+    FATP_ASSERT_TRUE(enc.has_value(), "Encode failed");
 
     std::size_t cut = buf.size() / 2;
     std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
 
     auto r = cbor_decode_from<std::vector<std::vector<int>>>(truncated);
-    ASSERT_TRUE(!r.has_value(), "Truncated nested should fail");
+    FATP_ASSERT_TRUE(!r.has_value(), "Truncated nested should fail");
 
     return true;
 }
 
-TEST_CASE(decode_trailing_garbage)
+FATP_TEST_CASE(decode_trailing_garbage)
 {
     const int value = 42;
 
     CborBuffer buf;
     auto enc = cbor_encode_to(buf, value);
-    ASSERT_TRUE(enc.has_value(), "Encode failed");
+    FATP_ASSERT_TRUE(enc.has_value(), "Encode failed");
 
     std::vector<std::uint8_t> mutated(buf.begin(), buf.end());
     mutated.push_back(0xFFU);
     mutated.push_back(0xFFU);
 
     auto r = cbor_decode_from<int>(mutated);
-    ASSERT_TRUE(r.has_value(), "Decode first value should succeed");
-    ASSERT_EQ(*r, value, "Decoded value");
+    FATP_ASSERT_TRUE(r.has_value(), "Decode first value should succeed");
+    FATP_ASSERT_EQ(*r, value, "Decoded value");
 
     CborReader reader(mutated);
     auto v1 = reader.read_int();
-    ASSERT_TRUE(v1.has_value(), "First read should succeed");
+    FATP_ASSERT_TRUE(v1.has_value(), "First read should succeed");
     auto v2 = reader.read_int();
-    ASSERT_TRUE(!v2.has_value(), "Second read should fail on garbage");
+    FATP_ASSERT_TRUE(!v2.has_value(), "Second read should fail on garbage");
 
     return true;
 }
@@ -576,7 +576,7 @@ TEST_CASE(decode_trailing_garbage)
 // Fuzz Tests
 // ============================================================================
 
-TEST_CASE(fuzz_ints)
+FATP_TEST_CASE(fuzz_ints)
 {
     std::mt19937_64 rng(0xFACB0A1C3D4E5F6AULL);
     std::uniform_int_distribution<int> dist(
@@ -588,14 +588,14 @@ TEST_CASE(fuzz_ints)
         const int v = dist(rng);
 
         auto r = roundtrip(v);
-        ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-        ASSERT_EQ(*r, v, "fuzz int");
+        FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+        FATP_ASSERT_EQ(*r, v, "fuzz int");
     }
 
     return true;
 }
 
-TEST_CASE(fuzz_doubles)
+FATP_TEST_CASE(fuzz_doubles)
 {
     std::mt19937_64 rng(0xFACB0A1C3D4E5F6BULL);
     std::uniform_real_distribution<double> dist(-1e6, 1e6);
@@ -605,14 +605,14 @@ TEST_CASE(fuzz_doubles)
         const double v = dist(rng);
 
         auto r = roundtrip(v);
-        ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-        ASSERT_CLOSE_EPS(*r, v, 1e-9, "fuzz double");
+        FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+        FATP_ASSERT_CLOSE_EPS(*r, v, 1e-9, "fuzz double");
     }
 
     return true;
 }
 
-TEST_CASE(fuzz_strings)
+FATP_TEST_CASE(fuzz_strings)
 {
     std::mt19937_64 rng(0xFACB0A1C3D4E5F6CULL);
     std::uniform_int_distribution<std::size_t> len_dist(0, 64);
@@ -629,14 +629,14 @@ TEST_CASE(fuzz_strings)
         }
 
         auto r = roundtrip(s);
-        ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-        ASSERT_EQ(*r, s, "fuzz string");
+        FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+        FATP_ASSERT_EQ(*r, s, "fuzz string");
     }
 
     return true;
 }
 
-TEST_CASE(fuzz_vector_int)
+FATP_TEST_CASE(fuzz_vector_int)
 {
     std::mt19937_64 rng(0xFACB0A1C3D4E5F6DULL);
     std::uniform_int_distribution<std::size_t> len_dist(0, 32);
@@ -653,18 +653,18 @@ TEST_CASE(fuzz_vector_int)
         }
 
         auto r = roundtrip(v);
-        ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-        ASSERT_EQ(r->size(), v.size(), "fuzz vector size");
+        FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+        FATP_ASSERT_EQ(r->size(), v.size(), "fuzz vector size");
         for (std::size_t i = 0; i < v.size(); ++i)
         {
-            ASSERT_EQ((*r)[i], v[i], "fuzz vector element");
+            FATP_ASSERT_EQ((*r)[i], v[i], "fuzz vector element");
         }
     }
 
     return true;
 }
 
-TEST_CASE(fuzz_map_string_int)
+FATP_TEST_CASE(fuzz_map_string_int)
 {
     std::mt19937_64 rng(0xFACB0A1C3D4E5F6EULL);
     std::uniform_int_distribution<std::size_t> len_dist(0, 16);
@@ -690,14 +690,14 @@ TEST_CASE(fuzz_map_string_int)
         }
 
         auto r = roundtrip(m);
-        ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-        ASSERT_EQ(r->size(), m.size(), "fuzz map size");
+        FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+        FATP_ASSERT_EQ(r->size(), m.size(), "fuzz map size");
     }
 
     return true;
 }
 
-TEST_CASE(fuzz_nested_structures)
+FATP_TEST_CASE(fuzz_nested_structures)
 {
     std::mt19937_64 rng(0xFACB0A1C3D4E5F6FULL);
     std::uniform_int_distribution<std::size_t> outer_dist(0, 8);
@@ -733,8 +733,8 @@ TEST_CASE(fuzz_nested_structures)
         }
 
         auto r = roundtrip(v);
-        ASSERT_TRUE(r.has_value(), r.error().message.c_str());
-        ASSERT_EQ(r->size(), v.size(), "fuzz nested outer size");
+        FATP_ASSERT_TRUE(r.has_value(), r.error().message.c_str());
+        FATP_ASSERT_EQ(r->size(), v.size(), "fuzz nested outer size");
     }
 
     return true;
@@ -846,49 +846,49 @@ namespace fat_p::testing
 
 bool test_FatPCbor()
 {
-    PRINT_HEADER(FATP CBOR)
+    FATP_PRINT_HEADER(FATP CBOR)
 
     TestRunner runner;
 
     // Buffer and primitives
-    RUN_TEST_NS(runner, fatpcbor, buffer_alignment);
-    RUN_TEST_NS(runner, fatpcbor, int_roundtrip);
-    RUN_TEST_NS(runner, fatpcbor, uint64_roundtrip);
-    RUN_TEST_NS(runner, fatpcbor, bool_roundtrip);
-    RUN_TEST_NS(runner, fatpcbor, double_roundtrip);
-    RUN_TEST_NS(runner, fatpcbor, string_roundtrip);
+    FATP_RUN_TEST_NS(runner, fatpcbor, buffer_alignment);
+    FATP_RUN_TEST_NS(runner, fatpcbor, int_roundtrip);
+    FATP_RUN_TEST_NS(runner, fatpcbor, uint64_roundtrip);
+    FATP_RUN_TEST_NS(runner, fatpcbor, bool_roundtrip);
+    FATP_RUN_TEST_NS(runner, fatpcbor, double_roundtrip);
+    FATP_RUN_TEST_NS(runner, fatpcbor, string_roundtrip);
 
     // Containers
-    RUN_TEST_NS(runner, fatpcbor, vector_int_roundtrip);
-    RUN_TEST_NS(runner, fatpcbor, nested_vector_roundtrip);
-    RUN_TEST_NS(runner, fatpcbor, empty_vector_roundtrip);
-    RUN_TEST_NS(runner, fatpcbor, map_roundtrip);
-    RUN_TEST_NS(runner, fatpcbor, nested_map_roundtrip);
-    RUN_TEST_NS(runner, fatpcbor, empty_map_roundtrip);
-    RUN_TEST_NS(runner, fatpcbor, enum_roundtrip);
-    RUN_TEST_NS(runner, fatpcbor, complex_struct_roundtrip);
-    RUN_TEST_NS(runner, fatpcbor, cross_container);
+    FATP_RUN_TEST_NS(runner, fatpcbor, vector_int_roundtrip);
+    FATP_RUN_TEST_NS(runner, fatpcbor, nested_vector_roundtrip);
+    FATP_RUN_TEST_NS(runner, fatpcbor, empty_vector_roundtrip);
+    FATP_RUN_TEST_NS(runner, fatpcbor, map_roundtrip);
+    FATP_RUN_TEST_NS(runner, fatpcbor, nested_map_roundtrip);
+    FATP_RUN_TEST_NS(runner, fatpcbor, empty_map_roundtrip);
+    FATP_RUN_TEST_NS(runner, fatpcbor, enum_roundtrip);
+    FATP_RUN_TEST_NS(runner, fatpcbor, complex_struct_roundtrip);
+    FATP_RUN_TEST_NS(runner, fatpcbor, cross_container);
 
     // Malformed input
-    RUN_TEST_NS(runner, fatpcbor, decode_invalid_initial_byte);
-    RUN_TEST_NS(runner, fatpcbor, decode_truncated_string);
-    RUN_TEST_NS(runner, fatpcbor, decode_truncated_vector);
-    RUN_TEST_NS(runner, fatpcbor, decode_impossible_length);
-    RUN_TEST_NS(runner, fatpcbor, decode_type_mismatch_string_as_int);
-    RUN_TEST_NS(runner, fatpcbor, decode_type_mismatch_int_as_string);
-    RUN_TEST_NS(runner, fatpcbor, decode_type_mismatch_double_as_bool);
-    RUN_TEST_NS(runner, fatpcbor, decode_empty_buffer);
-    RUN_TEST_NS(runner, fatpcbor, decode_partial_map);
-    RUN_TEST_NS(runner, fatpcbor, decode_nested_truncation);
-    RUN_TEST_NS(runner, fatpcbor, decode_trailing_garbage);
+    FATP_RUN_TEST_NS(runner, fatpcbor, decode_invalid_initial_byte);
+    FATP_RUN_TEST_NS(runner, fatpcbor, decode_truncated_string);
+    FATP_RUN_TEST_NS(runner, fatpcbor, decode_truncated_vector);
+    FATP_RUN_TEST_NS(runner, fatpcbor, decode_impossible_length);
+    FATP_RUN_TEST_NS(runner, fatpcbor, decode_type_mismatch_string_as_int);
+    FATP_RUN_TEST_NS(runner, fatpcbor, decode_type_mismatch_int_as_string);
+    FATP_RUN_TEST_NS(runner, fatpcbor, decode_type_mismatch_double_as_bool);
+    FATP_RUN_TEST_NS(runner, fatpcbor, decode_empty_buffer);
+    FATP_RUN_TEST_NS(runner, fatpcbor, decode_partial_map);
+    FATP_RUN_TEST_NS(runner, fatpcbor, decode_nested_truncation);
+    FATP_RUN_TEST_NS(runner, fatpcbor, decode_trailing_garbage);
 
     // Fuzz tests
-    RUN_TEST_NS(runner, fatpcbor, fuzz_ints);
-    RUN_TEST_NS(runner, fatpcbor, fuzz_doubles);
-    RUN_TEST_NS(runner, fatpcbor, fuzz_strings);
-    RUN_TEST_NS(runner, fatpcbor, fuzz_vector_int);
-    RUN_TEST_NS(runner, fatpcbor, fuzz_map_string_int);
-    RUN_TEST_NS(runner, fatpcbor, fuzz_nested_structures);
+    FATP_RUN_TEST_NS(runner, fatpcbor, fuzz_ints);
+    FATP_RUN_TEST_NS(runner, fatpcbor, fuzz_doubles);
+    FATP_RUN_TEST_NS(runner, fatpcbor, fuzz_strings);
+    FATP_RUN_TEST_NS(runner, fatpcbor, fuzz_vector_int);
+    FATP_RUN_TEST_NS(runner, fatpcbor, fuzz_map_string_int);
+    FATP_RUN_TEST_NS(runner, fatpcbor, fuzz_nested_structures);
 
     fatpcbor::benchmark_fatpcbor();
 

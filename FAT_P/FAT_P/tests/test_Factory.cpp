@@ -217,43 +217,43 @@ public:
 // Basic Functionality Tests
 // ============================================================================
 
-TEST_CASE(basic_registration) {
+FATP_TEST_CASE(basic_registration) {
     SimpleFactory<std::string, Widget> factory;
     
     bool registered = factory.registerType("widget1", [] { return Widget(42); });
-    ASSERT_TRUE(registered, "First registration should succeed");
+    FATP_ASSERT_TRUE(registered, "First registration should succeed");
     
-    ASSERT_TRUE(factory.hasType("widget1"), "Registered type should exist");
-    ASSERT_TRUE(!factory.hasType("nonexistent"), "Unregistered type should not exist");
+    FATP_ASSERT_TRUE(factory.hasType("widget1"), "Registered type should exist");
+    FATP_ASSERT_TRUE(!factory.hasType("nonexistent"), "Unregistered type should not exist");
     
-    ASSERT_EQ(factory.size(), 1u, "Factory should have 1 registration");
-    ASSERT_TRUE(!factory.empty(), "Factory should not be empty");
+    FATP_ASSERT_EQ(factory.size(), 1u, "Factory should have 1 registration");
+    FATP_ASSERT_TRUE(!factory.empty(), "Factory should not be empty");
     
     return true;
 }
 
-TEST_CASE(basic_make) {
+FATP_TEST_CASE(basic_make) {
     SimpleFactory<std::string, Widget> factory;
     (void)factory.registerType("widget1", [] { return Widget(42); });
     (void)factory.registerType("widget2", [] { return Widget(100); });
     
     auto result1 = factory.make("widget1");
-    ASSERT_TRUE(result1.has_value(), "Make should succeed for registered type");
-    ASSERT_EQ(result1->value_, 42, "Widget should have correct value");
+    FATP_ASSERT_TRUE(result1.has_value(), "Make should succeed for registered type");
+    FATP_ASSERT_EQ(result1->value_, 42, "Widget should have correct value");
     
     auto result2 = factory.make("widget2");
-    ASSERT_TRUE(result2.has_value(), "Second make should succeed");
-    ASSERT_EQ(result2->value_, 100, "Second widget should have correct value");
+    FATP_ASSERT_TRUE(result2.has_value(), "Second make should succeed");
+    FATP_ASSERT_EQ(result2->value_, 100, "Second widget should have correct value");
     
     auto result3 = factory.make("nonexistent");
-    ASSERT_TRUE(!result3.has_value(), "Make should fail for unregistered type");
-    ASSERT_EQ(result3.error().code, FactoryError::KeyNotFound, 
+    FATP_ASSERT_TRUE(!result3.has_value(), "Make should fail for unregistered type");
+    FATP_ASSERT_EQ(result3.error().code, FactoryError::KeyNotFound, 
               "Error code should be KeyNotFound");
     
     return true;
 }
 
-TEST_CASE(lambda_capture_parameters) {
+FATP_TEST_CASE(lambda_capture_parameters) {
     SimpleFactory<std::string, ConfiguredWidget> factory;
     
     std::string name1 = "widget1";
@@ -269,19 +269,19 @@ TEST_CASE(lambda_capture_parameters) {
     });
     
     auto result1 = factory.make("basic");
-    ASSERT_TRUE(result1.has_value(), "Should make with captured parameters");
-    ASSERT_EQ(result1->name_, std::string("widget1"), "Name should match captured");
-    ASSERT_EQ(result1->value_, 42, "Value should match captured");
+    FATP_ASSERT_TRUE(result1.has_value(), "Should make with captured parameters");
+    FATP_ASSERT_EQ(result1->name_, std::string("widget1"), "Name should match captured");
+    FATP_ASSERT_EQ(result1->value_, 42, "Value should match captured");
     
     auto result2 = factory.make("advanced");
-    ASSERT_TRUE(result2.has_value(), "Should make advanced");
-    ASSERT_EQ(result2->name_, std::string("widget2_advanced"), "Name should be modified");
-    ASSERT_EQ(result2->value_, 200, "Value should be doubled");
+    FATP_ASSERT_TRUE(result2.has_value(), "Should make advanced");
+    FATP_ASSERT_EQ(result2->name_, std::string("widget2_advanced"), "Name should be modified");
+    FATP_ASSERT_EQ(result2->value_, 200, "Value should be doubled");
     
     return true;
 }
 
-TEST_CASE(database_connection_lambda_capture) {
+FATP_TEST_CASE(database_connection_lambda_capture) {
     SimpleFactory<std::string, DatabaseConnection> db_factory;
     
     auto makeDbCreator = [](std::string type, std::string host, int port) {
@@ -298,80 +298,80 @@ TEST_CASE(database_connection_lambda_capture) {
         makeDbCreator("MySQL", "localhost", 3306));
     
     auto pg_dev = db_factory.make("postgres-dev");
-    ASSERT_TRUE(pg_dev.has_value(), "Should make postgres dev connection");
-    ASSERT_EQ(pg_dev->type_, std::string("PostgreSQL"), "Type should be PostgreSQL");
-    ASSERT_EQ(pg_dev->host_, std::string("localhost"), "Host should be localhost");
-    ASSERT_EQ(pg_dev->port_, 5432, "Port should match");
+    FATP_ASSERT_TRUE(pg_dev.has_value(), "Should make postgres dev connection");
+    FATP_ASSERT_EQ(pg_dev->type_, std::string("PostgreSQL"), "Type should be PostgreSQL");
+    FATP_ASSERT_EQ(pg_dev->host_, std::string("localhost"), "Host should be localhost");
+    FATP_ASSERT_EQ(pg_dev->port_, 5432, "Port should match");
     
     auto pg_prod = db_factory.make("postgres-prod");
-    ASSERT_TRUE(pg_prod.has_value(), "Should make postgres prod connection");
-    ASSERT_EQ(pg_prod->host_, std::string("prod-server"), "Prod host should differ");
+    FATP_ASSERT_TRUE(pg_prod.has_value(), "Should make postgres prod connection");
+    FATP_ASSERT_EQ(pg_prod->host_, std::string("prod-server"), "Prod host should differ");
     
     auto mysql = db_factory.make("mysql-dev");
-    ASSERT_TRUE(mysql.has_value(), "Should make mysql connection");
-    ASSERT_EQ(mysql->type_, std::string("MySQL"), "Type should be MySQL");
-    ASSERT_EQ(mysql->port_, 3306, "MySQL port should match");
+    FATP_ASSERT_TRUE(mysql.has_value(), "Should make mysql connection");
+    FATP_ASSERT_EQ(mysql->type_, std::string("MySQL"), "Type should be MySQL");
+    FATP_ASSERT_EQ(mysql->port_, 3306, "MySQL port should match");
     
     return true;
 }
 
-TEST_CASE(duplicate_registration) {
+FATP_TEST_CASE(duplicate_registration) {
     SimpleFactory<std::string, Widget> factory;
     
     bool first = factory.registerType("widget", [] { return Widget(1); });
-    ASSERT_TRUE(first, "First registration should succeed");
+    FATP_ASSERT_TRUE(first, "First registration should succeed");
     
     bool second = factory.registerType("widget", [] { return Widget(2); });
-    ASSERT_TRUE(!second, "Second registration should fail (prevent overwrite)");
+    FATP_ASSERT_TRUE(!second, "Second registration should fail (prevent overwrite)");
     
     auto result = factory.make("widget");
-    ASSERT_TRUE(result.has_value(), "Make should succeed");
-    ASSERT_EQ(result->value_, 1, "Should use first creator (not overwritten)");
+    FATP_ASSERT_TRUE(result.has_value(), "Make should succeed");
+    FATP_ASSERT_EQ(result->value_, 1, "Should use first creator (not overwritten)");
     
     return true;
 }
 
-TEST_CASE(unregister) {
+FATP_TEST_CASE(unregister) {
     SimpleFactory<std::string, Widget> factory;
     
     (void)factory.registerType("widget1", [] { return Widget(1); });
     (void)factory.registerType("widget2", [] { return Widget(2); });
     
-    ASSERT_EQ(factory.size(), 2u, "Should have 2 registrations");
+    FATP_ASSERT_EQ(factory.size(), 2u, "Should have 2 registrations");
     
     bool removed = factory.unregisterType("widget1");
-    ASSERT_TRUE(removed, "Unregister should succeed");
-    ASSERT_EQ(factory.size(), 1u, "Should have 1 registration after unregister");
-    ASSERT_TRUE(!factory.hasType("widget1"), "Unregistered type should not exist");
-    ASSERT_TRUE(factory.hasType("widget2"), "Other type should still exist");
+    FATP_ASSERT_TRUE(removed, "Unregister should succeed");
+    FATP_ASSERT_EQ(factory.size(), 1u, "Should have 1 registration after unregister");
+    FATP_ASSERT_TRUE(!factory.hasType("widget1"), "Unregistered type should not exist");
+    FATP_ASSERT_TRUE(factory.hasType("widget2"), "Other type should still exist");
     
     bool removed2 = factory.unregisterType("nonexistent");
-    ASSERT_TRUE(!removed2, "Unregister of nonexistent should fail");
+    FATP_ASSERT_TRUE(!removed2, "Unregister of nonexistent should fail");
     
     return true;
 }
 
-TEST_CASE(clear) {
+FATP_TEST_CASE(clear) {
     SimpleFactory<std::string, Widget> factory;
     
     (void)factory.registerType("widget1", [] { return Widget(1); });
     (void)factory.registerType("widget2", [] { return Widget(2); });
     
-    ASSERT_EQ(factory.size(), 2u, "Should have 2 registrations");
+    FATP_ASSERT_EQ(factory.size(), 2u, "Should have 2 registrations");
     
     factory.clear();
     
-    ASSERT_EQ(factory.size(), 0u, "Should have 0 registrations after clear");
-    ASSERT_TRUE(factory.empty(), "Factory should be empty");
-    ASSERT_TRUE(!factory.hasType("widget1"), "Cleared type should not exist");
+    FATP_ASSERT_EQ(factory.size(), 0u, "Should have 0 registrations after clear");
+    FATP_ASSERT_TRUE(factory.empty(), "Factory should be empty");
+    FATP_ASSERT_TRUE(!factory.hasType("widget1"), "Cleared type should not exist");
     
     auto stats = factory.getStats();
-    ASSERT_EQ(stats.registrations, 0u, "Stats should be reset");
+    FATP_ASSERT_EQ(stats.registrations, 0u, "Stats should be reset");
     
     return true;
 }
 
-TEST_CASE(get_registered_keys) {
+FATP_TEST_CASE(get_registered_keys) {
     SimpleFactory<std::string, Widget> factory;
     
     (void)factory.registerType("widget1", [] { return Widget(1); });
@@ -380,13 +380,13 @@ TEST_CASE(get_registered_keys) {
     
     auto keys = factory.getRegisteredKeys();
     
-    ASSERT_EQ(keys.size(), 3u, "Should return 3 keys");
+    FATP_ASSERT_EQ(keys.size(), 3u, "Should return 3 keys");
     
     bool has_widget1 = std::find(keys.begin(), keys.end(), "widget1") != keys.end();
     bool has_widget2 = std::find(keys.begin(), keys.end(), "widget2") != keys.end();
     bool has_widget3 = std::find(keys.begin(), keys.end(), "widget3") != keys.end();
     
-    ASSERT_TRUE(has_widget1 && has_widget2 && has_widget3, 
+    FATP_ASSERT_TRUE(has_widget1 && has_widget2 && has_widget3, 
                   "All keys should be present");
     
     return true;
@@ -396,22 +396,22 @@ TEST_CASE(get_registered_keys) {
 // Exception and Error Handling Tests
 // ============================================================================
 
-TEST_CASE(throwing_make) {
+FATP_TEST_CASE(throwing_make) {
     SimpleFactory<std::string, ThrowingWidget> factory;
     (void)factory.registerType("thrower", [] { return ThrowingWidget(); });
     
     ThrowingWidget::should_throw = false;
     auto ok_result = factory.make("thrower");
-    ASSERT_TRUE(ok_result.has_value(), "Make should succeed when not throwing");
+    FATP_ASSERT_TRUE(ok_result.has_value(), "Make should succeed when not throwing");
     
     ThrowingWidget::should_throw = true;
     auto fail_result = factory.make("thrower");
-    ASSERT_TRUE(!fail_result.has_value(), "Make should fail when throwing");
-    ASSERT_EQ(fail_result.error().code, FactoryError::CreationFailed,
+    FATP_ASSERT_TRUE(!fail_result.has_value(), "Make should fail when throwing");
+    FATP_ASSERT_EQ(fail_result.error().code, FactoryError::CreationFailed,
               "Error code should be CreationFailed");
     
     std::string msg = fail_result.error().full_message();
-    ASSERT_TRUE(msg.find("Construction failed") != std::string::npos,
+    FATP_ASSERT_TRUE(msg.find("Construction failed") != std::string::npos,
                   "Error should contain exception message");
     
     // Reset for other tests
@@ -420,7 +420,7 @@ TEST_CASE(throwing_make) {
     return true;
 }
 
-TEST_CASE(throwing_error_policy) {
+FATP_TEST_CASE(throwing_error_policy) {
     using ThrowingFactory = Factory<std::string, Widget,
         SingleThreadedPolicy,
         ThrowingErrorPolicy<Widget, std::string>,
@@ -434,7 +434,7 @@ TEST_CASE(throwing_error_policy) {
     
     // Success case
     Widget w = factory.make("widget");
-    ASSERT_EQ(w.value_, 42, "Should create widget");
+    FATP_ASSERT_EQ(w.value_, 42, "Should create widget");
     
     // Failure case - should throw
     bool threw = false;
@@ -442,15 +442,15 @@ TEST_CASE(throwing_error_policy) {
         (void)factory.make("nonexistent");
     } catch (const std::runtime_error& e) {
         threw = true;
-        ASSERT_TRUE(std::string(e.what()).find("not found") != std::string::npos,
+        FATP_ASSERT_TRUE(std::string(e.what()).find("not found") != std::string::npos,
                       "Exception message should mention 'not found'");
     }
-    ASSERT_TRUE(threw, "Should throw on missing key");
+    FATP_ASSERT_TRUE(threw, "Should throw on missing key");
     
     return true;
 }
 
-TEST_CASE(default_error_policy) {
+FATP_TEST_CASE(default_error_policy) {
     using DefaultFactory = Factory<std::string, Widget,
         SingleThreadedPolicy,
         DefaultErrorPolicy<Widget, std::string>,
@@ -464,11 +464,11 @@ TEST_CASE(default_error_policy) {
     
     // Success case
     Widget w1 = factory.make("widget");
-    ASSERT_EQ(w1.value_, 42, "Should create widget");
+    FATP_ASSERT_EQ(w1.value_, 42, "Should create widget");
     
     // Missing key returns default-constructed Widget
     Widget w2 = factory.make("nonexistent");
-    ASSERT_EQ(w2.value_, 0, "Should return default Widget");
+    FATP_ASSERT_EQ(w2.value_, 0, "Should return default Widget");
     
     return true;
 }
@@ -477,7 +477,7 @@ TEST_CASE(default_error_policy) {
 // Statistics Tests
 // ============================================================================
 
-TEST_CASE(statistics) {
+FATP_TEST_CASE(statistics) {
     SimpleFactory<std::string, Widget> factory;
     (void)factory.registerType("widget", [] { return Widget(42); });
     
@@ -487,15 +487,15 @@ TEST_CASE(statistics) {
     
     auto stats = factory.getStats();
     
-    ASSERT_EQ(stats.registrations, 1u, "Should have 1 registration");
-    ASSERT_EQ(stats.resolutions, 1u, "Should have 1 successful resolution");
-    ASSERT_EQ(stats.resolution_failures, 1u, "Should have 1 failed resolution");
-    ASSERT_EQ(stats.lookups, 3u, "Should have 3 lookups total");
+    FATP_ASSERT_EQ(stats.registrations, 1u, "Should have 1 registration");
+    FATP_ASSERT_EQ(stats.resolutions, 1u, "Should have 1 successful resolution");
+    FATP_ASSERT_EQ(stats.resolution_failures, 1u, "Should have 1 failed resolution");
+    FATP_ASSERT_EQ(stats.lookups, 3u, "Should have 3 lookups total");
     
     return true;
 }
 
-TEST_CASE(const_methods_update_stats) {
+FATP_TEST_CASE(const_methods_update_stats) {
     SimpleFactory<std::string, Widget> factory;
     (void)factory.registerType("widget", []{ return Widget(42); });
     factory.resetStats();
@@ -505,13 +505,13 @@ TEST_CASE(const_methods_update_stats) {
     (void)const_factory.hasType("widget");
     
     auto stats = factory.getStats();
-    ASSERT_EQ(stats.lookups, 1u, 
+    FATP_ASSERT_EQ(stats.lookups, 1u, 
               "Const hasType should increment lookups (mutable stats by design)");
     
     return true;
 }
 
-TEST_CASE(no_statistics_policy) {
+FATP_TEST_CASE(no_statistics_policy) {
     using NoStatsFactory = Factory<std::string, Widget,
         SingleThreadedPolicy,
         ExpectedErrorPolicy<Widget, std::string>,
@@ -529,15 +529,15 @@ TEST_CASE(no_statistics_policy) {
     auto stats = factory.getStats();
     
     // All stats should remain zero with NoStatisticsPolicy
-    ASSERT_EQ(stats.registrations, 0u, "NoStats should not track registrations");
-    ASSERT_EQ(stats.resolutions, 0u, "NoStats should not track resolutions");
-    ASSERT_EQ(stats.lookups, 0u, "NoStats should not track lookups");
-    ASSERT_EQ(stats.resolution_failures, 0u, "NoStats should not track failures");
+    FATP_ASSERT_EQ(stats.registrations, 0u, "NoStats should not track registrations");
+    FATP_ASSERT_EQ(stats.resolutions, 0u, "NoStats should not track resolutions");
+    FATP_ASSERT_EQ(stats.lookups, 0u, "NoStats should not track lookups");
+    FATP_ASSERT_EQ(stats.resolution_failures, 0u, "NoStats should not track failures");
     
     return true;
 }
 
-TEST_CASE(hpc_factory) {
+FATP_TEST_CASE(hpc_factory) {
     // HPCFactory combines: NoStatisticsPolicy + ThrowingErrorPolicy + UnorderedMapStoragePolicy
     HPCFactory<std::string, Widget> factory;
     
@@ -546,13 +546,13 @@ TEST_CASE(hpc_factory) {
     
     // Success case - returns Widget directly (ThrowingErrorPolicy)
     Widget w = factory.make("widget");
-    ASSERT_EQ(w.value_, 42, "Should create widget");
+    FATP_ASSERT_EQ(w.value_, 42, "Should create widget");
     
     Widget w2 = factory.make("another");
-    ASSERT_EQ(w2.value_, 99, "Should create another widget");
+    FATP_ASSERT_EQ(w2.value_, 99, "Should create another widget");
     
     // Verify size works
-    ASSERT_EQ(factory.size(), 2u, "Should have 2 registrations");
+    FATP_ASSERT_EQ(factory.size(), 2u, "Should have 2 registrations");
     
     // Failure case - should throw
     bool threw = false;
@@ -560,10 +560,10 @@ TEST_CASE(hpc_factory) {
         (void)factory.make("nonexistent");
     } catch (const std::runtime_error& e) {
         threw = true;
-        ASSERT_TRUE(std::string(e.what()).find("not found") != std::string::npos,
+        FATP_ASSERT_TRUE(std::string(e.what()).find("not found") != std::string::npos,
                       "Exception should mention 'not found'");
     }
-    ASSERT_TRUE(threw, "HPCFactory should throw on missing key");
+    FATP_ASSERT_TRUE(threw, "HPCFactory should throw on missing key");
     
     return true;
 }
@@ -572,7 +572,7 @@ TEST_CASE(hpc_factory) {
 // Policy Tests
 // ============================================================================
 
-TEST_CASE(overwrite_policy) {
+FATP_TEST_CASE(overwrite_policy) {
     using OverwriteFactory = Factory<std::string, Widget,
         SingleThreadedPolicy,
         ExpectedErrorPolicy<Widget, std::string>,
@@ -584,23 +584,23 @@ TEST_CASE(overwrite_policy) {
     OverwriteFactory factory;
     
     bool first = factory.registerType("widget", [] { return Widget(1); });
-    ASSERT_TRUE(first, "First registration should succeed");
+    FATP_ASSERT_TRUE(first, "First registration should succeed");
     
     auto result1 = factory.make("widget");
-    ASSERT_TRUE(result1.has_value(), "Should make widget");
-    ASSERT_EQ(result1->value_, 1, "Should use first creator");
+    FATP_ASSERT_TRUE(result1.has_value(), "Should make widget");
+    FATP_ASSERT_EQ(result1->value_, 1, "Should use first creator");
     
     bool second = factory.registerType("widget", [] { return Widget(2); });
-    ASSERT_TRUE(!second, "Returns false for overwrite");
+    FATP_ASSERT_TRUE(!second, "Returns false for overwrite");
     
     auto result2 = factory.make("widget");
-    ASSERT_TRUE(result2.has_value(), "Should still make widget");
-    ASSERT_EQ(result2->value_, 2, "Should use overwritten creator");
+    FATP_ASSERT_TRUE(result2.has_value(), "Should still make widget");
+    FATP_ASSERT_EQ(result2->value_, 2, "Should use overwritten creator");
     
     return true;
 }
 
-TEST_CASE(unordered_map_storage) {
+FATP_TEST_CASE(unordered_map_storage) {
     FastFactory<std::string, Widget> factory;
     
     for (int i = 0; i < 100; ++i) {
@@ -608,19 +608,19 @@ TEST_CASE(unordered_map_storage) {
                              [i] { return Widget(i); });
     }
     
-    ASSERT_EQ(factory.size(), 100u, "Should have 100 registrations");
+    FATP_ASSERT_EQ(factory.size(), 100u, "Should have 100 registrations");
     
     auto result = factory.make("widget42");
-    ASSERT_TRUE(result.has_value(), "Should make widget42");
-    ASSERT_EQ(result->value_, 42, "Should have correct value");
+    FATP_ASSERT_TRUE(result.has_value(), "Should make widget42");
+    FATP_ASSERT_EQ(result->value_, 42, "Should have correct value");
     
     auto keys = factory.getRegisteredKeys();
-    ASSERT_EQ(keys.size(), 100u, "Should return all keys");
+    FATP_ASSERT_EQ(keys.size(), 100u, "Should return all keys");
     
     return true;
 }
 
-TEST_CASE(singleton_lifetime_policy) {
+FATP_TEST_CASE(singleton_lifetime_policy) {
     using SingletonFactory = Factory<std::string, Widget,
         SingleThreadedPolicy,
         ExpectedErrorPolicy<Widget, std::string>,
@@ -632,10 +632,10 @@ TEST_CASE(singleton_lifetime_policy) {
     auto& factory1 = SingletonFactory::instance();
     auto& factory2 = SingletonFactory::instance();
     
-    ASSERT_TRUE(&factory1 == &factory2, "Should return same instance");
+    FATP_ASSERT_TRUE(&factory1 == &factory2, "Should return same instance");
     
     (void)factory1.registerType("singleton_test", []{ return Widget(123); });
-    ASSERT_TRUE(factory2.hasType("singleton_test"), 
+    FATP_ASSERT_TRUE(factory2.hasType("singleton_test"), 
                   "Registration should be visible on both references");
     
     // Cleanup for other tests
@@ -644,7 +644,7 @@ TEST_CASE(singleton_lifetime_policy) {
     return true;
 }
 
-TEST_CASE(variadic_parameters) {
+FATP_TEST_CASE(variadic_parameters) {
     using ParamFactory = Factory<std::string, ConfiguredWidget,
         SingleThreadedPolicy,
         ExpectedErrorPolicy<ConfiguredWidget, std::string>,
@@ -662,9 +662,9 @@ TEST_CASE(variadic_parameters) {
         });
     
     auto result = factory.make("configured", "test_name", 99);
-    ASSERT_TRUE(result.has_value(), "Should create with parameters");
-    ASSERT_EQ(result->name_, std::string("test_name"), "Name should match");
-    ASSERT_EQ(result->value_, 99, "Value should match");
+    FATP_ASSERT_TRUE(result.has_value(), "Should create with parameters");
+    FATP_ASSERT_EQ(result->name_, std::string("test_name"), "Name should match");
+    FATP_ASSERT_EQ(result->value_, 99, "Value should match");
     
     return true;
 }
@@ -673,7 +673,7 @@ TEST_CASE(variadic_parameters) {
 // Re-entrancy Test (validates Critical Issue #1 fix)
 // ============================================================================
 
-TEST_CASE(reentrant_factory_access) {
+FATP_TEST_CASE(reentrant_factory_access) {
     SimpleFactory<std::string, int> factory;
     
     (void)factory.registerType("child", []() { return 42; });
@@ -685,8 +685,8 @@ TEST_CASE(reentrant_factory_access) {
     
     // This would deadlock/UB before the snapshot pattern fix
     auto result = factory.make("parent");
-    ASSERT_TRUE(result.has_value(), "Re-entrant make should succeed");
-    ASSERT_EQ(*result, 43, "Should use child value + 1");
+    FATP_ASSERT_TRUE(result.has_value(), "Re-entrant make should succeed");
+    FATP_ASSERT_EQ(*result, 43, "Should use child value + 1");
     
     return true;
 }
@@ -695,20 +695,20 @@ TEST_CASE(reentrant_factory_access) {
 // SimpleVariadicFactory Tests (Legacy API)
 // ============================================================================
 
-TEST_CASE(simple_variadic_factory_basic) {
+FATP_TEST_CASE(simple_variadic_factory_basic) {
     auto& factory = SimpleVariadicFactory<std::string, Widget, false>::instance();
     
     bool registered = factory.registerType("legacy_widget", []{ return Widget(100); });
-    ASSERT_TRUE(registered, "Should register in legacy factory");
+    FATP_ASSERT_TRUE(registered, "Should register in legacy factory");
     
     Widget w = factory.create("legacy_widget");
-    ASSERT_EQ(w.value_, 100, "Should create via legacy API");
+    FATP_ASSERT_EQ(w.value_, 100, "Should create via legacy API");
     
     factory.clear();
     return true;
 }
 
-TEST_CASE(simple_variadic_factory_params) {
+FATP_TEST_CASE(simple_variadic_factory_params) {
     using ParamLegacyFactory = SimpleVariadicFactory<
         std::string, 
         ConfiguredWidget, 
@@ -724,14 +724,14 @@ TEST_CASE(simple_variadic_factory_params) {
         });
     
     ConfiguredWidget w = factory.create("param_widget", "legacy_name", 55);
-    ASSERT_EQ(w.name_, std::string("legacy_name"), "Name should match");
-    ASSERT_EQ(w.value_, 55, "Value should match");
+    FATP_ASSERT_EQ(w.name_, std::string("legacy_name"), "Name should match");
+    FATP_ASSERT_EQ(w.value_, 55, "Value should match");
     
     factory.clear();
     return true;
 }
 
-TEST_CASE(simple_variadic_factory_reentrant) {
+FATP_TEST_CASE(simple_variadic_factory_reentrant) {
     auto& factory = SimpleVariadicFactory<std::string, int, false>::instance();
     
     (void)factory.registerType("child", []() { return 10; });
@@ -741,7 +741,7 @@ TEST_CASE(simple_variadic_factory_reentrant) {
     });
     
     int result = factory.create("parent");
-    ASSERT_EQ(result, 20, "Re-entrant create should work");
+    FATP_ASSERT_EQ(result, 20, "Re-entrant create should work");
     
     factory.clear();
     return true;
@@ -751,7 +751,7 @@ TEST_CASE(simple_variadic_factory_reentrant) {
 // Concurrency Tests
 // ============================================================================
 
-TEST_CASE(concurrent_access) {
+FATP_TEST_CASE(concurrent_access) {
     ThreadSafeFactory<std::string, Widget> factory;
     
     std::atomic<int> success_count{0};
@@ -789,18 +789,18 @@ TEST_CASE(concurrent_access) {
     }
     
     size_t expected_registrations = NUM_THREADS * OPS_PER_THREAD;
-    ASSERT_EQ(factory.size(), expected_registrations, 
+    FATP_ASSERT_EQ(factory.size(), expected_registrations, 
               "All registrations should succeed without races");
     
-    ASSERT_EQ(success_count.load(), static_cast<int>(expected_registrations * 2),
+    FATP_ASSERT_EQ(success_count.load(), static_cast<int>(expected_registrations * 2),
               "All operations should succeed (register + make)");
     
-    ASSERT_EQ(failure_count.load(), 0, "No failures should occur");
+    FATP_ASSERT_EQ(failure_count.load(), 0, "No failures should occur");
     
     return true;
 }
 
-TEST_CASE(concurrent_read_write) {
+FATP_TEST_CASE(concurrent_read_write) {
     ThreadSafeFactory<int, Widget> factory;
     
     // Pre-register some types
@@ -860,16 +860,16 @@ TEST_CASE(concurrent_read_write) {
     stop.store(true, std::memory_order_release);
     for (auto& r : readers) r.join();
     
-    ASSERT_EQ(write_count.load(), NUM_WRITERS * WRITES_PER_WRITER,
+    FATP_ASSERT_EQ(write_count.load(), NUM_WRITERS * WRITES_PER_WRITER,
               "All writes should complete");
-    ASSERT_TRUE(read_count.load() > 100, "Should perform many reads");
-    ASSERT_TRUE(factory.size() >= 100 + NUM_WRITERS * WRITES_PER_WRITER,
+    FATP_ASSERT_TRUE(read_count.load() > 100, "Should perform many reads");
+    FATP_ASSERT_TRUE(factory.size() >= 100 + NUM_WRITERS * WRITES_PER_WRITER,
                   "Should have all registrations");
     
     return true;
 }
 
-TEST_CASE(shared_mutex_concurrency) {
+FATP_TEST_CASE(shared_mutex_concurrency) {
     // Use SharedMutexPolicy for better read concurrency
     using SharedFactory = Factory<int, Widget,
         SharedMutexPolicy,
@@ -919,13 +919,13 @@ TEST_CASE(shared_mutex_concurrency) {
     for (auto& r : readers) r.join();
     
     // With shared locks, concurrent reads should complete many operations
-    ASSERT_TRUE(read_count.load() > 100, 
+    FATP_ASSERT_TRUE(read_count.load() > 100, 
                   "SharedMutexPolicy should allow concurrent reads");
     
     return true;
 }
 
-TEST_CASE(transparent_lookup) {
+FATP_TEST_CASE(transparent_lookup) {
     FastFactory<std::string, Widget> factory;
     (void)factory.registerType("widget", []{ return Widget(42); });
     
@@ -936,17 +936,17 @@ TEST_CASE(transparent_lookup) {
     
     // Test with string literal (const char* -> std::string conversion)
     auto lit_result = factory.make("widget");
-    ASSERT_TRUE(lit_result.has_value(), "Should work with string literal");
-    ASSERT_EQ(lit_result->value_, 42, "Value should be correct");
+    FATP_ASSERT_TRUE(lit_result.has_value(), "Should work with string literal");
+    FATP_ASSERT_EQ(lit_result->value_, 42, "Value should be correct");
     
     // Test hasType with literal
-    ASSERT_TRUE(factory.hasType("widget"), "hasType should work with literal");
-    ASSERT_TRUE(!factory.hasType("nonexistent"), "hasType should return false for missing");
+    FATP_ASSERT_TRUE(factory.hasType("widget"), "hasType should work with literal");
+    FATP_ASSERT_TRUE(!factory.hasType("nonexistent"), "hasType should return false for missing");
     
     // Test with explicit std::string
     std::string key = "widget";
     auto str_result = factory.make(key);
-    ASSERT_TRUE(str_result.has_value(), "Should work with std::string");
+    FATP_ASSERT_TRUE(str_result.has_value(), "Should work with std::string");
     
     return true;
 }
@@ -955,7 +955,7 @@ TEST_CASE(transparent_lookup) {
 // Batch Operations
 // ============================================================================
 
-TEST_CASE(batch_registration) {
+FATP_TEST_CASE(batch_registration) {
     SimpleFactory<std::string, Widget> factory;
     
     size_t registered = factory.registerTypes({
@@ -964,19 +964,19 @@ TEST_CASE(batch_registration) {
         {"widget3", [] { return Widget(3); }}
     });
     
-    ASSERT_EQ(registered, 3u, "Should register 3 types");
-    ASSERT_EQ(factory.size(), 3u, "Factory should have 3 registrations");
+    FATP_ASSERT_EQ(registered, 3u, "Should register 3 types");
+    FATP_ASSERT_EQ(factory.size(), 3u, "Factory should have 3 registrations");
     
     auto r1 = factory.make("widget1");
     auto r2 = factory.make("widget2");
     auto r3 = factory.make("widget3");
     
-    ASSERT_TRUE(r1.has_value() && r2.has_value() && r3.has_value(),
+    FATP_ASSERT_TRUE(r1.has_value() && r2.has_value() && r3.has_value(),
                   "All should make successfully");
     
-    ASSERT_EQ(r1->value_, 1, "Widget1 value correct");
-    ASSERT_EQ(r2->value_, 2, "Widget2 value correct");
-    ASSERT_EQ(r3->value_, 3, "Widget3 value correct");
+    FATP_ASSERT_EQ(r1->value_, 1, "Widget1 value correct");
+    FATP_ASSERT_EQ(r2->value_, 2, "Widget2 value correct");
+    FATP_ASSERT_EQ(r3->value_, 3, "Widget3 value correct");
     
     return true;
 }
@@ -985,7 +985,7 @@ TEST_CASE(batch_registration) {
 // Advanced Features Tests
 // ============================================================================
 
-TEST_CASE(lambda_with_captures) {
+FATP_TEST_CASE(lambda_with_captures) {
     SimpleFactory<std::string, Widget> factory;
     
     int captured_value = 99;
@@ -994,29 +994,29 @@ TEST_CASE(lambda_with_captures) {
     });
     
     auto result = factory.make("captured");
-    ASSERT_TRUE(result.has_value(), "Should make captured lambda");
-    ASSERT_EQ(result->value_, 99, "Should use captured value");
+    FATP_ASSERT_TRUE(result.has_value(), "Should make captured lambda");
+    FATP_ASSERT_EQ(result->value_, 99, "Should use captured value");
     
     return true;
 }
 
-TEST_CASE(movable_only_types) {
+FATP_TEST_CASE(movable_only_types) {
     SimpleFactory<std::string, MovableWidget> factory;
     
     (void)factory.registerType("movable", [] { return MovableWidget(42); });
     
     auto result = factory.make("movable");
-    ASSERT_TRUE(result.has_value(), "Should make movable-only type");
-    ASSERT_EQ(result->value_, 42, "Value should be correct");
+    FATP_ASSERT_TRUE(result.has_value(), "Should make movable-only type");
+    FATP_ASSERT_EQ(result->value_, 42, "Value should be correct");
     
     MovableWidget moved = std::move(*result);
-    ASSERT_EQ(moved.value_, 42, "Moved value should be correct");
-    ASSERT_EQ(result->value_, -1, "Original should be moved-from");
+    FATP_ASSERT_EQ(moved.value_, 42, "Moved value should be correct");
+    FATP_ASSERT_EQ(result->value_, -1, "Original should be moved-from");
     
     return true;
 }
 
-TEST_CASE(unique_ptr_factory) {
+FATP_TEST_CASE(unique_ptr_factory) {
     SimpleFactory<std::string, std::unique_ptr<Widget>> factory;
     
     (void)factory.registerType("unique_widget", [] { 
@@ -1024,14 +1024,14 @@ TEST_CASE(unique_ptr_factory) {
     });
     
     auto result = factory.make("unique_widget");
-    ASSERT_TRUE(result.has_value(), "Should make unique_ptr");
-    ASSERT_TRUE(*result != nullptr, "unique_ptr should not be null");
-    ASSERT_EQ((*result)->value_, 42, "Widget value should be correct");
+    FATP_ASSERT_TRUE(result.has_value(), "Should make unique_ptr");
+    FATP_ASSERT_TRUE(*result != nullptr, "unique_ptr should not be null");
+    FATP_ASSERT_EQ((*result)->value_, 42, "Widget value should be correct");
     
     return true;
 }
 
-TEST_CASE(integer_keys) {
+FATP_TEST_CASE(integer_keys) {
     SimpleFactory<int, Widget> factory;
     
     (void)factory.registerType(1, [] { return Widget(10); });
@@ -1040,15 +1040,15 @@ TEST_CASE(integer_keys) {
     auto result1 = factory.make(1);
     auto result2 = factory.make(2);
     
-    ASSERT_TRUE(result1.has_value(), "Should make key 1");
-    ASSERT_TRUE(result2.has_value(), "Should make key 2");
-    ASSERT_EQ(result1->value_, 10, "Key 1 value correct");
-    ASSERT_EQ(result2->value_, 20, "Key 2 value correct");
+    FATP_ASSERT_TRUE(result1.has_value(), "Should make key 1");
+    FATP_ASSERT_TRUE(result2.has_value(), "Should make key 2");
+    FATP_ASSERT_EQ(result1->value_, 10, "Key 1 value correct");
+    FATP_ASSERT_EQ(result2->value_, 20, "Key 2 value correct");
     
     return true;
 }
 
-TEST_CASE(tracked_object_lifecycle) {
+FATP_TEST_CASE(tracked_object_lifecycle) {
     TrackedObject::reset_counts();
 
     {
@@ -1057,15 +1057,15 @@ TEST_CASE(tracked_object_lifecycle) {
 
         {
             auto result = factory.make("tracked");
-            ASSERT_TRUE(result.has_value(), "Should make tracked object");
+            FATP_ASSERT_TRUE(result.has_value(), "Should make tracked object");
 
             int constructions = TrackedObject::construction_count.load();
-            ASSERT_TRUE(constructions >= 1 && constructions <= 2,
+            FATP_ASSERT_TRUE(constructions >= 1 && constructions <= 2,
                 "Should have 1-2 constructions (depending on copy elision)");
         }
 
         int destructions = TrackedObject::destruction_count.load();
-        ASSERT_EQ(TrackedObject::construction_count.load(),
+        FATP_ASSERT_EQ(TrackedObject::construction_count.load(),
             destructions,
             "Construction and destruction counts should match");
     }
@@ -1077,16 +1077,16 @@ TEST_CASE(tracked_object_lifecycle) {
 // Edge Case Tests
 // ============================================================================
 
-TEST_CASE(empty_key) {
+FATP_TEST_CASE(empty_key) {
     SimpleFactory<std::string, Widget> factory;
     
     // Empty string is valid key
     bool registered = factory.registerType("", []{ return Widget(0); });
-    ASSERT_TRUE(registered, "Empty key should be valid");
+    FATP_ASSERT_TRUE(registered, "Empty key should be valid");
     
     auto result = factory.make("");
-    ASSERT_TRUE(result.has_value(), "Should make with empty key");
-    ASSERT_EQ(result->value_, 0, "Value should be correct");
+    FATP_ASSERT_TRUE(result.has_value(), "Should make with empty key");
+    FATP_ASSERT_EQ(result->value_, 0, "Value should be correct");
     
     return true;
 }
@@ -1277,7 +1277,7 @@ namespace fat_p::testing {
 
 bool test_Factory() {
 
-    PRINT_HEADER(FACTORY)
+    FATP_PRINT_HEADER(FACTORY)
 
     TestRunner runner;
     
@@ -1286,76 +1286,76 @@ bool test_Factory() {
     // Basic functionality
     out << "\n" << colors::bold() << "=== Basic Functionality Tests ===" 
         << colors::reset() << std::endl;
-    RUN_TEST_NS(runner, factory, basic_registration);
-    RUN_TEST_NS(runner, factory, basic_make);
-    RUN_TEST_NS(runner, factory, lambda_capture_parameters);
-    RUN_TEST_NS(runner, factory, database_connection_lambda_capture);
-    RUN_TEST_NS(runner, factory, duplicate_registration);
-    RUN_TEST_NS(runner, factory, unregister);
-    RUN_TEST_NS(runner, factory, clear);
-    RUN_TEST_NS(runner, factory, get_registered_keys);
+    FATP_RUN_TEST_NS(runner, factory, basic_registration);
+    FATP_RUN_TEST_NS(runner, factory, basic_make);
+    FATP_RUN_TEST_NS(runner, factory, lambda_capture_parameters);
+    FATP_RUN_TEST_NS(runner, factory, database_connection_lambda_capture);
+    FATP_RUN_TEST_NS(runner, factory, duplicate_registration);
+    FATP_RUN_TEST_NS(runner, factory, unregister);
+    FATP_RUN_TEST_NS(runner, factory, clear);
+    FATP_RUN_TEST_NS(runner, factory, get_registered_keys);
     
     // Exception and error handling
     out << "\n" << colors::bold() << "=== Exception & Error Handling Tests ===" 
         << colors::reset() << std::endl;
-    RUN_TEST_NS(runner, factory, throwing_make);
-    RUN_TEST_NS(runner, factory, throwing_error_policy);
-    RUN_TEST_NS(runner, factory, default_error_policy);
+    FATP_RUN_TEST_NS(runner, factory, throwing_make);
+    FATP_RUN_TEST_NS(runner, factory, throwing_error_policy);
+    FATP_RUN_TEST_NS(runner, factory, default_error_policy);
     
     // Statistics
     out << "\n" << colors::bold() << "=== Statistics Tests ===" 
         << colors::reset() << std::endl;
-    RUN_TEST_NS(runner, factory, statistics);
-    RUN_TEST_NS(runner, factory, const_methods_update_stats);
-    RUN_TEST_NS(runner, factory, no_statistics_policy);
-    RUN_TEST_NS(runner, factory, hpc_factory);
+    FATP_RUN_TEST_NS(runner, factory, statistics);
+    FATP_RUN_TEST_NS(runner, factory, const_methods_update_stats);
+    FATP_RUN_TEST_NS(runner, factory, no_statistics_policy);
+    FATP_RUN_TEST_NS(runner, factory, hpc_factory);
     
     // Policy tests
     out << "\n" << colors::bold() << "=== Policy Tests ===" 
         << colors::reset() << std::endl;
-    RUN_TEST_NS(runner, factory, overwrite_policy);
-    RUN_TEST_NS(runner, factory, unordered_map_storage);
-    RUN_TEST_NS(runner, factory, singleton_lifetime_policy);
-    RUN_TEST_NS(runner, factory, variadic_parameters);
+    FATP_RUN_TEST_NS(runner, factory, overwrite_policy);
+    FATP_RUN_TEST_NS(runner, factory, unordered_map_storage);
+    FATP_RUN_TEST_NS(runner, factory, singleton_lifetime_policy);
+    FATP_RUN_TEST_NS(runner, factory, variadic_parameters);
     
     // Re-entrancy test (Critical Issue #1)
     out << "\n" << colors::bold() << "=== Re-entrancy Tests ===" 
         << colors::reset() << std::endl;
-    RUN_TEST_NS(runner, factory, reentrant_factory_access);
+    FATP_RUN_TEST_NS(runner, factory, reentrant_factory_access);
     
     // SimpleVariadicFactory tests
     out << "\n" << colors::bold() << "=== SimpleVariadicFactory Tests ===" 
         << colors::reset() << std::endl;
-    RUN_TEST_NS(runner, factory, simple_variadic_factory_basic);
-    RUN_TEST_NS(runner, factory, simple_variadic_factory_params);
-    RUN_TEST_NS(runner, factory, simple_variadic_factory_reentrant);
+    FATP_RUN_TEST_NS(runner, factory, simple_variadic_factory_basic);
+    FATP_RUN_TEST_NS(runner, factory, simple_variadic_factory_params);
+    FATP_RUN_TEST_NS(runner, factory, simple_variadic_factory_reentrant);
     
     // Concurrency tests
     out << "\n" << colors::bold() << "=== Concurrency Tests ===" 
         << colors::reset() << std::endl;
-    RUN_TEST_NS(runner, factory, concurrent_access);
-    RUN_TEST_NS(runner, factory, concurrent_read_write);
-    RUN_TEST_NS(runner, factory, shared_mutex_concurrency);
-    RUN_TEST_NS(runner, factory, transparent_lookup);
+    FATP_RUN_TEST_NS(runner, factory, concurrent_access);
+    FATP_RUN_TEST_NS(runner, factory, concurrent_read_write);
+    FATP_RUN_TEST_NS(runner, factory, shared_mutex_concurrency);
+    FATP_RUN_TEST_NS(runner, factory, transparent_lookup);
     
     // Batch operations
     out << "\n" << colors::bold() << "=== Batch Operations ===" 
         << colors::reset() << std::endl;
-    RUN_TEST_NS(runner, factory, batch_registration);
+    FATP_RUN_TEST_NS(runner, factory, batch_registration);
     
     // Advanced features
     out << "\n" << colors::bold() << "=== Advanced Features Tests ===" 
         << colors::reset() << std::endl;
-    RUN_TEST_NS(runner, factory, lambda_with_captures);
-    RUN_TEST_NS(runner, factory, movable_only_types);
-    RUN_TEST_NS(runner, factory, unique_ptr_factory);
-    RUN_TEST_NS(runner, factory, integer_keys);
-    RUN_TEST_NS(runner, factory, tracked_object_lifecycle);
+    FATP_RUN_TEST_NS(runner, factory, lambda_with_captures);
+    FATP_RUN_TEST_NS(runner, factory, movable_only_types);
+    FATP_RUN_TEST_NS(runner, factory, unique_ptr_factory);
+    FATP_RUN_TEST_NS(runner, factory, integer_keys);
+    FATP_RUN_TEST_NS(runner, factory, tracked_object_lifecycle);
     
     // Edge cases
     out << "\n" << colors::bold() << "=== Edge Case Tests ===" 
         << colors::reset() << std::endl;
-    RUN_TEST_NS(runner, factory, empty_key);
+    FATP_RUN_TEST_NS(runner, factory, empty_key);
     
     int failed = runner.print_summary();
     

@@ -142,7 +142,7 @@ void create_large_test_file(const std::string& filename, size_t count)
 // I. Basic Functionality Tests
 // =============================================================================
 
-TEST_CASE(basic_open_close)
+FATP_TEST_CASE(basic_open_close)
 {
     const std::string filename = "test_basic.bin";
     const size_t element_count = 100;
@@ -152,18 +152,18 @@ TEST_CASE(basic_open_close)
     fat_p::SlidingFileWindow<DataPoint> window;
 
     auto open_result = window.open(filename, DataPoint::serialized_size(), 10);
-    ASSERT_TRUE(open_result.has_value(), "File open failed");
-    ASSERT_TRUE(window.is_open(), "Window should be open");
-    ASSERT_EQ(window.size(), element_count, "Incorrect file size");
-    ASSERT_EQ(window.window_size(), 10u, "Incorrect window size");
+    FATP_ASSERT_TRUE(open_result.has_value(), "File open failed");
+    FATP_ASSERT_TRUE(window.is_open(), "Window should be open");
+    FATP_ASSERT_EQ(window.size(), element_count, "Incorrect file size");
+    FATP_ASSERT_EQ(window.window_size(), 10u, "Incorrect window size");
 
     window.close();
-    ASSERT_TRUE(!window.is_open(), "Window should be closed");
+    FATP_ASSERT_TRUE(!window.is_open(), "Window should be closed");
 
     return true;
 }
 
-TEST_CASE(element_access)
+FATP_TEST_CASE(element_access)
 {
     const std::string filename = "test_access.bin";
     const size_t element_count = 50;
@@ -172,27 +172,27 @@ TEST_CASE(element_access)
 
     fat_p::SlidingFileWindow<DataPoint> window;
     auto open_result = window.open(filename, DataPoint::serialized_size(), 10);
-    ASSERT_TRUE(open_result.has_value(), "Failed to open file");
+    FATP_ASSERT_TRUE(open_result.has_value(), "Failed to open file");
 
     auto elem0 = window[0];
-    ASSERT_TRUE(elem0.has_value(), "Failed to access element 0");
-    ASSERT_CLOSE(elem0->get().value, 0.0, "Incorrect element 0 value");
-    ASSERT_EQ(elem0->get().id, 0u, "Incorrect element 0 id");
+    FATP_ASSERT_TRUE(elem0.has_value(), "Failed to access element 0");
+    FATP_ASSERT_CLOSE(elem0->get().value, 0.0, "Incorrect element 0 value");
+    FATP_ASSERT_EQ(elem0->get().id, 0u, "Incorrect element 0 id");
 
     auto elem5 = window[5];
-    ASSERT_TRUE(elem5.has_value(), "Failed to access element 5");
-    ASSERT_CLOSE(elem5->get().value, 7.5, "Incorrect element 5 value");
-    ASSERT_EQ(elem5->get().id, 5u, "Incorrect element 5 id");
+    FATP_ASSERT_TRUE(elem5.has_value(), "Failed to access element 5");
+    FATP_ASSERT_CLOSE(elem5->get().value, 7.5, "Incorrect element 5 value");
+    FATP_ASSERT_EQ(elem5->get().id, 5u, "Incorrect element 5 id");
 
     elem5->get().value = 999.0;
     auto elem5_again = window[5];
-    ASSERT_CLOSE(elem5_again->get().value, 999.0, "Element modification failed");
+    FATP_ASSERT_CLOSE(elem5_again->get().value, 999.0, "Element modification failed");
 
     window.close();
     return true;
 }
 
-TEST_CASE(window_shifting)
+FATP_TEST_CASE(window_shifting)
 {
     const std::string filename = "test_shift.bin";
     const size_t element_count = 100;
@@ -201,20 +201,20 @@ TEST_CASE(window_shifting)
 
     fat_p::SlidingFileWindow<DataPoint> window;
     auto open_result = window.open(filename, DataPoint::serialized_size(), 10);
-    ASSERT_TRUE(open_result.has_value(), "Failed to open file");
+    FATP_ASSERT_TRUE(open_result.has_value(), "Failed to open file");
 
     size_t initial_begin = window.begin_index();
-    ASSERT_EQ(initial_begin, 0u, "Initial begin should be 0");
+    FATP_ASSERT_EQ(initial_begin, 0u, "Initial begin should be 0");
 
     auto shift_result = window.shift_to_index(50);
-    ASSERT_TRUE(shift_result.has_value(), "Window shift failed");
+    FATP_ASSERT_TRUE(shift_result.has_value(), "Window shift failed");
 
-    ASSERT_TRUE(window.begin_index() <= 50, "Window should include index 50");
-    ASSERT_TRUE(window.end_index() > 50, "Window should include index 50");
+    FATP_ASSERT_TRUE(window.begin_index() <= 50, "Window should include index 50");
+    FATP_ASSERT_TRUE(window.end_index() > 50, "Window should include index 50");
 
     auto elem50 = window[50];
-    ASSERT_TRUE(elem50.has_value(), "Failed to access element after shift");
-    ASSERT_EQ(elem50->get().id, 50u, "Incorrect element after shift");
+    FATP_ASSERT_TRUE(elem50.has_value(), "Failed to access element after shift");
+    FATP_ASSERT_EQ(elem50->get().id, 50u, "Incorrect element after shift");
 
     window.close();
     return true;
@@ -224,7 +224,7 @@ TEST_CASE(window_shifting)
 // II. Serialization Policy Tests
 // =============================================================================
 
-TEST_CASE(binary_serialization)
+FATP_TEST_CASE(binary_serialization)
 {
     const std::string filename = "test_binary.bin";
     const size_t element_count = 50;
@@ -241,15 +241,15 @@ TEST_CASE(binary_serialization)
 
     fat_p::BinarySlidingWindow<SimpleInt> window;
     auto open_result = window.open(filename, sizeof(SimpleInt), 10);
-    ASSERT_TRUE(open_result.has_value(), "Binary window open failed");
+    FATP_ASSERT_TRUE(open_result.has_value(), "Binary window open failed");
 
     auto elem0 = window[0];
-    ASSERT_TRUE(elem0.has_value(), "Failed to access binary element");
-    ASSERT_EQ(elem0->get().value, 0, "Incorrect binary element value");
+    FATP_ASSERT_TRUE(elem0.has_value(), "Failed to access binary element");
+    FATP_ASSERT_EQ(elem0->get().value, 0, "Incorrect binary element value");
 
     auto elem25 = window[25];
-    ASSERT_TRUE(elem25.has_value(), "Failed to access element 25");
-    ASSERT_EQ(elem25->get().value, 250, "Incorrect binary element at 25");
+    FATP_ASSERT_TRUE(elem25.has_value(), "Failed to access element 25");
+    FATP_ASSERT_EQ(elem25->get().value, 250, "Incorrect binary element at 25");
 
     window.close();
     return true;
@@ -259,7 +259,7 @@ TEST_CASE(binary_serialization)
 // III. Large File Handling
 // =============================================================================
 
-TEST_CASE(large_file)
+FATP_TEST_CASE(large_file)
 {
     const std::string filename = "test_large.bin";
     const size_t element_count = 10000;
@@ -270,7 +270,7 @@ TEST_CASE(large_file)
 
     fat_p::SlidingFileWindow<DataPoint> window;
     auto open_result = window.open(filename, DataPoint::serialized_size(), window_size);
-    ASSERT_TRUE(open_result.has_value(), "Large file open failed");
+    FATP_ASSERT_TRUE(open_result.has_value(), "Large file open failed");
 
     std::mt19937_64 rng(42);
     std::uniform_int_distribution<size_t> dist(0, element_count - 1);
@@ -280,8 +280,8 @@ TEST_CASE(large_file)
     {
         size_t index = dist(rng);
         auto elem = window[index];
-        ASSERT_TRUE(elem.has_value(), "Failed random access in large file");
-        ASSERT_EQ(elem->get().id, static_cast<uint32_t>(index), "Incorrect element in large file");
+        FATP_ASSERT_TRUE(elem.has_value(), "Failed random access in large file");
+        FATP_ASSERT_EQ(elem->get().id, static_cast<uint32_t>(index), "Incorrect element in large file");
     }
 
     window.close();
@@ -292,24 +292,24 @@ TEST_CASE(large_file)
 // IV. Error Handling Tests
 // =============================================================================
 
-TEST_CASE(error_handling)
+FATP_TEST_CASE(error_handling)
 {
     fat_p::SlidingFileWindow<DataPoint> window;
 
     auto elem = window[0];
-    ASSERT_TRUE(!elem.has_value(), "Should fail to access closed window");
-    ASSERT_TRUE(elem.error() == fat_p::FileError::FileNotOpen, "Should report FileNotOpen error");
+    FATP_ASSERT_TRUE(!elem.has_value(), "Should fail to access closed window");
+    FATP_ASSERT_TRUE(elem.error() == fat_p::FileError::FileNotOpen, "Should report FileNotOpen error");
 
     const std::string filename = "test_error.bin";
     create_test_file(filename, 10);
     TempFile cleanup(filename);
 
     auto open_result = window.open(filename, DataPoint::serialized_size(), 5);
-    ASSERT_TRUE(open_result.has_value(), "Failed to open file");
+    FATP_ASSERT_TRUE(open_result.has_value(), "Failed to open file");
 
     auto out_of_bounds = window[1000];
-    ASSERT_TRUE(!out_of_bounds.has_value(), "Should fail out-of-bounds access");
-    ASSERT_TRUE(out_of_bounds.error() == fat_p::FileError::InvalidIndex,
+    FATP_ASSERT_TRUE(!out_of_bounds.has_value(), "Should fail out-of-bounds access");
+    FATP_ASSERT_TRUE(out_of_bounds.error() == fat_p::FileError::InvalidIndex,
                   "Should report InvalidIndex");
 
     window.close();
@@ -320,7 +320,7 @@ TEST_CASE(error_handling)
 // V. Thread Safety Tests
 // =============================================================================
 
-TEST_CASE(thread_safety)
+FATP_TEST_CASE(thread_safety)
 {
     const std::string filename = "test_threadsafe.bin";
     const size_t element_count = 1000;
@@ -329,7 +329,7 @@ TEST_CASE(thread_safety)
 
     fat_p::ThreadSafeSlidingWindow<DataPoint> window;
     auto open_result = window.open(filename, DataPoint::serialized_size(), 100);
-    ASSERT_TRUE(open_result.has_value(), "Failed to open file");
+    FATP_ASSERT_TRUE(open_result.has_value(), "Failed to open file");
 
     const size_t num_threads = 4;
     const size_t reads_per_thread = 100;
@@ -361,7 +361,7 @@ TEST_CASE(thread_safety)
         t.join();
     }
 
-    ASSERT_EQ(error_count.load(), 0u, "Thread-safety violations detected");
+    FATP_ASSERT_EQ(error_count.load(), 0u, "Thread-safety violations detected");
 
     window.close();
     return true;
@@ -371,7 +371,7 @@ TEST_CASE(thread_safety)
 // VI. Lag Offset Tests
 // =============================================================================
 
-TEST_CASE(lag_offset)
+FATP_TEST_CASE(lag_offset)
 {
     const std::string filename = "test_lag.bin";
     const size_t element_count = 100;
@@ -381,12 +381,12 @@ TEST_CASE(lag_offset)
     fat_p::SlidingFileWindow<DataPoint> window;
     auto open_result = window.open(filename, DataPoint::serialized_size(), 10, 20);
 
-    ASSERT_TRUE(open_result.has_value(), "Lag offset open failed");
-    ASSERT_EQ(window.begin_index(), 80u, "Incorrect lag offset start position");
+    FATP_ASSERT_TRUE(open_result.has_value(), "Lag offset open failed");
+    FATP_ASSERT_EQ(window.begin_index(), 80u, "Incorrect lag offset start position");
 
     auto elem85 = window[85];
-    ASSERT_TRUE(elem85.has_value(), "Failed to access lagged element");
-    ASSERT_EQ(elem85->get().id, 85u, "Incorrect lagged element");
+    FATP_ASSERT_TRUE(elem85.has_value(), "Failed to access lagged element");
+    FATP_ASSERT_EQ(elem85->get().id, 85u, "Incorrect lagged element");
 
     window.close();
     return true;
@@ -396,7 +396,7 @@ TEST_CASE(lag_offset)
 // VII. Persistence Tests
 // =============================================================================
 
-TEST_CASE(persistence)
+FATP_TEST_CASE(persistence)
 {
     const std::string filename = "test_persist.bin";
     const size_t element_count = 50;
@@ -406,7 +406,7 @@ TEST_CASE(persistence)
     {
         fat_p::SlidingFileWindow<DataPoint> window;
         auto open_result1 = window.open(filename, DataPoint::serialized_size(), 10);
-        ASSERT_TRUE(open_result1.has_value(), "Failed to open file for writing");
+        FATP_ASSERT_TRUE(open_result1.has_value(), "Failed to open file for writing");
 
         auto elem5 = window[5];
         elem5->get().value = 12345.67;
@@ -418,11 +418,11 @@ TEST_CASE(persistence)
     {
         fat_p::SlidingFileWindow<DataPoint> window;
         auto open_result2 = window.open(filename, DataPoint::serialized_size(), 10);
-        ASSERT_TRUE(open_result2.has_value(), "Failed to open file for reading");
+        FATP_ASSERT_TRUE(open_result2.has_value(), "Failed to open file for reading");
 
         auto elem5 = window[5];
-        ASSERT_CLOSE(elem5->get().value, 12345.67, "Modified value not persisted");
-        ASSERT_EQ(elem5->get().timestamp, 999999u, "Modified timestamp not persisted");
+        FATP_ASSERT_CLOSE(elem5->get().value, 12345.67, "Modified value not persisted");
+        FATP_ASSERT_EQ(elem5->get().timestamp, 999999u, "Modified timestamp not persisted");
 
         window.close();
     }
@@ -434,7 +434,7 @@ TEST_CASE(persistence)
 // VIII. Edge Cases
 // =============================================================================
 
-TEST_CASE(empty_file)
+FATP_TEST_CASE(empty_file)
 {
     const std::string filename = "test_empty.bin";
     {
@@ -445,15 +445,15 @@ TEST_CASE(empty_file)
     fat_p::SlidingFileWindow<DataPoint> window;
     auto result = window.open(filename, DataPoint::serialized_size(), 10);
 
-    ASSERT_TRUE(result.has_value(), "Should handle empty file");
-    ASSERT_EQ(window.size(), 0u, "Empty file should have size 0");
-    ASSERT_TRUE(window.empty(), "Empty file should report empty");
+    FATP_ASSERT_TRUE(result.has_value(), "Should handle empty file");
+    FATP_ASSERT_EQ(window.size(), 0u, "Empty file should have size 0");
+    FATP_ASSERT_TRUE(window.empty(), "Empty file should report empty");
 
     window.close();
     return true;
 }
 
-TEST_CASE(single_element)
+FATP_TEST_CASE(single_element)
 {
     const std::string filename = "test_single.bin";
     create_test_file(filename, 1);
@@ -461,19 +461,19 @@ TEST_CASE(single_element)
 
     fat_p::SlidingFileWindow<DataPoint> window;
     auto open_result = window.open(filename, DataPoint::serialized_size(), 10);
-    ASSERT_TRUE(open_result.has_value(), "Failed to open file");
+    FATP_ASSERT_TRUE(open_result.has_value(), "Failed to open file");
 
-    ASSERT_EQ(window.size(), 1u, "Single element file size incorrect");
+    FATP_ASSERT_EQ(window.size(), 1u, "Single element file size incorrect");
 
     auto elem = window[0];
-    ASSERT_TRUE(elem.has_value(), "Should access single element");
-    ASSERT_EQ(elem->get().id, 0u, "Single element has wrong data");
+    FATP_ASSERT_TRUE(elem.has_value(), "Should access single element");
+    FATP_ASSERT_EQ(elem->get().id, 0u, "Single element has wrong data");
 
     window.close();
     return true;
 }
 
-TEST_CASE(window_larger_than_file)
+FATP_TEST_CASE(window_larger_than_file)
 {
     const std::string filename = "test_small.bin";
     create_test_file(filename, 5);
@@ -481,9 +481,9 @@ TEST_CASE(window_larger_than_file)
 
     fat_p::SlidingFileWindow<DataPoint> window;
     auto open_result = window.open(filename, DataPoint::serialized_size(), 100);
-    ASSERT_TRUE(open_result.has_value(), "Failed to open file");
+    FATP_ASSERT_TRUE(open_result.has_value(), "Failed to open file");
 
-    ASSERT_EQ(window.window_size(), 5u, "Window should be clamped to file size");
+    FATP_ASSERT_EQ(window.window_size(), 5u, "Window should be clamped to file size");
 
     window.close();
     return true;
@@ -549,22 +549,22 @@ namespace fat_p::testing
 
 bool test_SlidingFileWindow()
 {
-    PRINT_HEADER(SLIDING FILE WINDOW)
+    FATP_PRINT_HEADER(SLIDING FILE WINDOW)
 
     TestRunner runner;
 
-    RUN_TEST_NS(runner, slidingfilewindow, basic_open_close);
-    RUN_TEST_NS(runner, slidingfilewindow, element_access);
-    RUN_TEST_NS(runner, slidingfilewindow, window_shifting);
-    RUN_TEST_NS(runner, slidingfilewindow, binary_serialization);
-    RUN_TEST_NS(runner, slidingfilewindow, large_file);
-    RUN_TEST_NS(runner, slidingfilewindow, error_handling);
-    RUN_TEST_NS(runner, slidingfilewindow, thread_safety);
-    RUN_TEST_NS(runner, slidingfilewindow, lag_offset);
-    RUN_TEST_NS(runner, slidingfilewindow, persistence);
-    RUN_TEST_NS(runner, slidingfilewindow, empty_file);
-    RUN_TEST_NS(runner, slidingfilewindow, single_element);
-    RUN_TEST_NS(runner, slidingfilewindow, window_larger_than_file);
+    FATP_RUN_TEST_NS(runner, slidingfilewindow, basic_open_close);
+    FATP_RUN_TEST_NS(runner, slidingfilewindow, element_access);
+    FATP_RUN_TEST_NS(runner, slidingfilewindow, window_shifting);
+    FATP_RUN_TEST_NS(runner, slidingfilewindow, binary_serialization);
+    FATP_RUN_TEST_NS(runner, slidingfilewindow, large_file);
+    FATP_RUN_TEST_NS(runner, slidingfilewindow, error_handling);
+    FATP_RUN_TEST_NS(runner, slidingfilewindow, thread_safety);
+    FATP_RUN_TEST_NS(runner, slidingfilewindow, lag_offset);
+    FATP_RUN_TEST_NS(runner, slidingfilewindow, persistence);
+    FATP_RUN_TEST_NS(runner, slidingfilewindow, empty_file);
+    FATP_RUN_TEST_NS(runner, slidingfilewindow, single_element);
+    FATP_RUN_TEST_NS(runner, slidingfilewindow, window_larger_than_file);
 
     slidingfilewindow::benchmark_slidingfilewindow();
 

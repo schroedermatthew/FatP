@@ -147,143 +147,143 @@ inline std::vector<uint8_t> encode_null()
 // Basic Type Tests
 // =============================================================================
 
-TEST_CASE(parse_unsigned_integers)
+FATP_TEST_CASE(parse_unsigned_integers)
 {
     CborStreamParser parser;
 
     // Tiny integer (0-23)
     auto data = encode_uint(0);
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse uint 0");
-    ASSERT_TRUE(parser.result().is_unsigned(), "Is unsigned");
-    ASSERT_TRUE(parser.result().as_unsigned() == 0, "Value 0");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse uint 0");
+    FATP_ASSERT_TRUE(parser.result().is_unsigned(), "Is unsigned");
+    FATP_ASSERT_TRUE(parser.result().as_unsigned() == 0, "Value 0");
 
     parser.reset();
     data = encode_uint(23);
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse uint 23");
-    ASSERT_TRUE(parser.result().as_unsigned() == 23, "Value 23");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse uint 23");
+    FATP_ASSERT_TRUE(parser.result().as_unsigned() == 23, "Value 23");
 
     // 1-byte integer
     parser.reset();
     data = encode_uint(100);
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse uint 100");
-    ASSERT_TRUE(parser.result().as_unsigned() == 100, "Value 100");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse uint 100");
+    FATP_ASSERT_TRUE(parser.result().as_unsigned() == 100, "Value 100");
 
     // 2-byte integer
     parser.reset();
     data = encode_uint(1000);
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse uint 1000");
-    ASSERT_TRUE(parser.result().as_unsigned() == 1000, "Value 1000");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse uint 1000");
+    FATP_ASSERT_TRUE(parser.result().as_unsigned() == 1000, "Value 1000");
 
     // 4-byte integer
     parser.reset();
     data = encode_uint(100000);
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse uint 100000");
-    ASSERT_TRUE(parser.result().as_unsigned() == 100000, "Value 100000");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse uint 100000");
+    FATP_ASSERT_TRUE(parser.result().as_unsigned() == 100000, "Value 100000");
 
     // 8-byte integer
     parser.reset();
     data = encode_uint(0x123456789ABCDEFULL);
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse uint large");
-    ASSERT_TRUE(parser.result().as_unsigned() == 0x123456789ABCDEFULL, "Value large");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse uint large");
+    FATP_ASSERT_TRUE(parser.result().as_unsigned() == 0x123456789ABCDEFULL, "Value large");
 
     return true;
 }
 
-TEST_CASE(parse_negative_integers)
+FATP_TEST_CASE(parse_negative_integers)
 {
     CborStreamParser parser;
 
     // -1 is encoded as negint(0)
     auto data = encode_negint(0);
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse -1");
-    ASSERT_TRUE(parser.result().is_signed(), "Is signed");
-    ASSERT_TRUE(parser.result().as_signed() == -1, "Value -1");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse -1");
+    FATP_ASSERT_TRUE(parser.result().is_signed(), "Is signed");
+    FATP_ASSERT_TRUE(parser.result().as_signed() == -1, "Value -1");
 
     // -100 is encoded as negint(99)
     parser.reset();
     data = encode_negint(99);
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse -100");
-    ASSERT_TRUE(parser.result().as_signed() == -100, "Value -100");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse -100");
+    FATP_ASSERT_TRUE(parser.result().as_signed() == -100, "Value -100");
 
     // -1000 is encoded as negint(999)
     parser.reset();
     data = encode_negint(999);
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse -1000");
-    ASSERT_TRUE(parser.result().as_signed() == -1000, "Value -1000");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse -1000");
+    FATP_ASSERT_TRUE(parser.result().as_signed() == -1000, "Value -1000");
 
     return true;
 }
 
-TEST_CASE(parse_byte_strings)
+FATP_TEST_CASE(parse_byte_strings)
 {
     CborStreamParser parser;
 
     // Empty byte string
     auto data = encode_bytes({});
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse empty bytes");
-    ASSERT_TRUE(parser.result().is_bytes(), "Is bytes");
-    ASSERT_TRUE(parser.result().as_bytes().empty(), "Empty bytes");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse empty bytes");
+    FATP_ASSERT_TRUE(parser.result().is_bytes(), "Is bytes");
+    FATP_ASSERT_TRUE(parser.result().as_bytes().empty(), "Empty bytes");
 
     // Short byte string
     parser.reset();
     data = encode_bytes({0x01, 0x02, 0x03, 0x04});
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse bytes");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse bytes");
     auto bytes = parser.result().as_bytes();
-    ASSERT_TRUE(bytes.size() == 4, "Bytes size");
-    ASSERT_TRUE(bytes[0] == 1 && bytes[3] == 4, "Bytes content");
+    FATP_ASSERT_TRUE(bytes.size() == 4, "Bytes size");
+    FATP_ASSERT_TRUE(bytes[0] == 1 && bytes[3] == 4, "Bytes content");
 
     return true;
 }
 
-TEST_CASE(parse_text_strings)
+FATP_TEST_CASE(parse_text_strings)
 {
     CborStreamParser parser;
 
     // Empty string
     auto data = encode_text("");
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse empty text");
-    ASSERT_TRUE(parser.result().is_string(), "Is string");
-    ASSERT_TRUE(parser.result().as_string().empty(), "Empty string");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse empty text");
+    FATP_ASSERT_TRUE(parser.result().is_string(), "Is string");
+    FATP_ASSERT_TRUE(parser.result().as_string().empty(), "Empty string");
 
     // Regular string
     parser.reset();
     data = encode_text("hello");
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse hello");
-    ASSERT_TRUE(parser.result().as_string() == "hello", "String content");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse hello");
+    FATP_ASSERT_TRUE(parser.result().as_string() == "hello", "String content");
 
     // Longer string
     parser.reset();
     std::string longstr(300, 'x');
     data = encode_text(longstr);
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse long string");
-    ASSERT_TRUE(parser.result().as_string() == longstr, "Long string content");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse long string");
+    FATP_ASSERT_TRUE(parser.result().as_string() == longstr, "Long string content");
 
     return true;
 }
 
-TEST_CASE(parse_simple_values)
+FATP_TEST_CASE(parse_simple_values)
 {
     CborStreamParser parser;
 
     // false
-    ASSERT_TRUE(parser.feed(encode_false()) == ParseStatus::Done, "Parse false");
-    ASSERT_TRUE(parser.result().is_bool(), "Is bool");
-    ASSERT_TRUE(parser.result().as_bool() == false, "Value false");
+    FATP_ASSERT_TRUE(parser.feed(encode_false()) == ParseStatus::Done, "Parse false");
+    FATP_ASSERT_TRUE(parser.result().is_bool(), "Is bool");
+    FATP_ASSERT_TRUE(parser.result().as_bool() == false, "Value false");
 
     // true
     parser.reset();
-    ASSERT_TRUE(parser.feed(encode_true()) == ParseStatus::Done, "Parse true");
-    ASSERT_TRUE(parser.result().as_bool() == true, "Value true");
+    FATP_ASSERT_TRUE(parser.feed(encode_true()) == ParseStatus::Done, "Parse true");
+    FATP_ASSERT_TRUE(parser.result().as_bool() == true, "Value true");
 
     // null
     parser.reset();
-    ASSERT_TRUE(parser.feed(encode_null()) == ParseStatus::Done, "Parse null");
-    ASSERT_TRUE(parser.result().is_null(), "Is null");
+    FATP_ASSERT_TRUE(parser.feed(encode_null()) == ParseStatus::Done, "Parse null");
+    FATP_ASSERT_TRUE(parser.result().is_null(), "Is null");
 
     return true;
 }
 
-TEST_CASE(parse_floats)
+FATP_TEST_CASE(parse_floats)
 {
     CborStreamParser parser;
 
@@ -297,9 +297,9 @@ TEST_CASE(parse_floats)
         data.push_back(static_cast<uint8_t>(bits >> (i * 8)));
     }
 
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse double");
-    ASSERT_TRUE(parser.result().is_float(), "Is float");
-    ASSERT_TRUE(std::fabs(parser.result().as_float() - pi) < 1e-15, "Double value");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse double");
+    FATP_ASSERT_TRUE(parser.result().is_float(), "Is float");
+    FATP_ASSERT_TRUE(std::fabs(parser.result().as_float() - pi) < 1e-15, "Double value");
 
     return true;
 }
@@ -308,15 +308,15 @@ TEST_CASE(parse_floats)
 // Container Tests
 // =============================================================================
 
-TEST_CASE(parse_arrays)
+FATP_TEST_CASE(parse_arrays)
 {
     CborStreamParser parser;
 
     // Empty array
     auto data = encode_array_header(0);
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse empty array");
-    ASSERT_TRUE(parser.result().is_array(), "Is array");
-    ASSERT_TRUE(parser.result().as_array().empty(), "Empty array");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse empty array");
+    FATP_ASSERT_TRUE(parser.result().is_array(), "Is array");
+    FATP_ASSERT_TRUE(parser.result().as_array().empty(), "Empty array");
 
     // Array of integers [1, 2, 3]
     parser.reset();
@@ -328,25 +328,25 @@ TEST_CASE(parse_arrays)
     data.insert(data.end(), d2.begin(), d2.end());
     data.insert(data.end(), d3.begin(), d3.end());
 
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse array [1,2,3]");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse array [1,2,3]");
     auto& arr = parser.result().as_array();
-    ASSERT_TRUE(arr.size() == 3, "Array size");
-    ASSERT_TRUE(arr[0].as_unsigned() == 1, "arr[0]");
-    ASSERT_TRUE(arr[1].as_unsigned() == 2, "arr[1]");
-    ASSERT_TRUE(arr[2].as_unsigned() == 3, "arr[2]");
+    FATP_ASSERT_TRUE(arr.size() == 3, "Array size");
+    FATP_ASSERT_TRUE(arr[0].as_unsigned() == 1, "arr[0]");
+    FATP_ASSERT_TRUE(arr[1].as_unsigned() == 2, "arr[1]");
+    FATP_ASSERT_TRUE(arr[2].as_unsigned() == 3, "arr[2]");
 
     return true;
 }
 
-TEST_CASE(parse_maps)
+FATP_TEST_CASE(parse_maps)
 {
     CborStreamParser parser;
 
     // Empty map
     auto data = encode_map_header(0);
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse empty map");
-    ASSERT_TRUE(parser.result().is_map(), "Is map");
-    ASSERT_TRUE(parser.result().as_map().empty(), "Empty map");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse empty map");
+    FATP_ASSERT_TRUE(parser.result().is_map(), "Is map");
+    FATP_ASSERT_TRUE(parser.result().as_map().empty(), "Empty map");
 
     // Map {"a": 1, "b": 2}
     parser.reset();
@@ -360,14 +360,14 @@ TEST_CASE(parse_maps)
     data.insert(data.end(), kb.begin(), kb.end());
     data.insert(data.end(), v2.begin(), v2.end());
 
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse map");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse map");
     auto& m = parser.result().as_map();
-    ASSERT_TRUE(m.size() == 2, "Map size");
+    FATP_ASSERT_TRUE(m.size() == 2, "Map size");
 
     return true;
 }
 
-TEST_CASE(parse_nested)
+FATP_TEST_CASE(parse_nested)
 {
     CborStreamParser parser;
 
@@ -391,13 +391,13 @@ TEST_CASE(parse_nested)
     data.insert(data.end(), inner1.begin(), inner1.end());
     data.insert(data.end(), inner2.begin(), inner2.end());
 
-    ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse nested");
+    FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse nested");
     auto& outer = parser.result().as_array();
-    ASSERT_TRUE(outer.size() == 2, "Outer size");
-    ASSERT_TRUE(outer[0].is_array(), "Inner 0 is array");
-    ASSERT_TRUE(outer[1].is_array(), "Inner 1 is array");
-    ASSERT_TRUE(outer[0].as_array()[0].as_unsigned() == 1, "[[1,_],[_,_]]");
-    ASSERT_TRUE(outer[1].as_array()[1].as_unsigned() == 4, "[[_,_],[_,4]]");
+    FATP_ASSERT_TRUE(outer.size() == 2, "Outer size");
+    FATP_ASSERT_TRUE(outer[0].is_array(), "Inner 0 is array");
+    FATP_ASSERT_TRUE(outer[1].is_array(), "Inner 1 is array");
+    FATP_ASSERT_TRUE(outer[0].as_array()[0].as_unsigned() == 1, "[[1,_],[_,_]]");
+    FATP_ASSERT_TRUE(outer[1].as_array()[1].as_unsigned() == 4, "[[_,_],[_,4]]");
 
     return true;
 }
@@ -406,7 +406,7 @@ TEST_CASE(parse_nested)
 // Chunked Input Tests (the key streaming feature)
 // =============================================================================
 
-TEST_CASE(chunked_input)
+FATP_TEST_CASE(chunked_input)
 {
     CborStreamParser parser;
 
@@ -423,24 +423,24 @@ TEST_CASE(chunked_input)
     for (size_t i = 0; i < data.size() - 1; ++i)
     {
         auto status = parser.feed(&data[i], 1);
-        ASSERT_TRUE(status == ParseStatus::NeedMoreData, "Need more data");
+        FATP_ASSERT_TRUE(status == ParseStatus::NeedMoreData, "Need more data");
     }
 
     // Last byte completes parsing
     auto status = parser.feed(&data.back(), 1);
-    ASSERT_TRUE(status == ParseStatus::Done, "Done on last byte");
+    FATP_ASSERT_TRUE(status == ParseStatus::Done, "Done on last byte");
 
     // Verify result
     auto& arr = parser.result().as_array();
-    ASSERT_TRUE(arr.size() == 3, "Array size");
-    ASSERT_TRUE(arr[0].as_string() == "hello", "First element");
-    ASSERT_TRUE(arr[1].as_unsigned() == 12345, "Second element");
-    ASSERT_TRUE(arr[2].as_bytes().size() == 4, "Third element size");
+    FATP_ASSERT_TRUE(arr.size() == 3, "Array size");
+    FATP_ASSERT_TRUE(arr[0].as_string() == "hello", "First element");
+    FATP_ASSERT_TRUE(arr[1].as_unsigned() == 12345, "Second element");
+    FATP_ASSERT_TRUE(arr[2].as_bytes().size() == 4, "Third element size");
 
     return true;
 }
 
-TEST_CASE(chunked_random_sizes)
+FATP_TEST_CASE(chunked_random_sizes)
 {
     CborStreamParser parser;
 
@@ -467,17 +467,17 @@ TEST_CASE(chunked_random_sizes)
 
         if (status == ParseStatus::Done)
         {
-            ASSERT_TRUE(pos + chunk_size == data.size(), "Done at end");
+            FATP_ASSERT_TRUE(pos + chunk_size == data.size(), "Done at end");
             break;
         }
-        ASSERT_TRUE(status == ParseStatus::NeedMoreData, "Need more");
+        FATP_ASSERT_TRUE(status == ParseStatus::NeedMoreData, "Need more");
 
         pos += chunk_size;
         ++chunk_idx;
     }
 
-    ASSERT_TRUE(parser.is_done(), "Parser done");
-    ASSERT_TRUE(parser.result().is_map(), "Result is map");
+    FATP_ASSERT_TRUE(parser.is_done(), "Parser done");
+    FATP_ASSERT_TRUE(parser.result().is_map(), "Result is map");
 
     return true;
 }
@@ -486,7 +486,7 @@ TEST_CASE(chunked_random_sizes)
 // Limit Tests
 // =============================================================================
 
-TEST_CASE(limit_max_depth)
+FATP_TEST_CASE(limit_max_depth)
 {
     CborStreamParser::Limits limits;
     limits.max_depth = 3;
@@ -503,13 +503,13 @@ TEST_CASE(limit_max_depth)
     data.insert(data.end(), val.begin(), val.end());
 
     auto status = parser.feed(data);
-    ASSERT_TRUE(status == ParseStatus::Error, "Depth exceeded");
-    ASSERT_TRUE(parser.error() == ParseError::MaxDepthExceeded, "Correct error");
+    FATP_ASSERT_TRUE(status == ParseStatus::Error, "Depth exceeded");
+    FATP_ASSERT_TRUE(parser.error() == ParseError::MaxDepthExceeded, "Correct error");
 
     return true;
 }
 
-TEST_CASE(limit_string_size)
+FATP_TEST_CASE(limit_string_size)
 {
     CborStreamParser::Limits limits;
     limits.max_string_bytes = 10;
@@ -519,13 +519,13 @@ TEST_CASE(limit_string_size)
     auto data = encode_text(std::string(100, 'x'));
 
     auto status = parser.feed(data);
-    ASSERT_TRUE(status == ParseStatus::Error, "String too large");
-    ASSERT_TRUE(parser.error() == ParseError::MaxStringSizeExceeded, "Correct error");
+    FATP_ASSERT_TRUE(status == ParseStatus::Error, "String too large");
+    FATP_ASSERT_TRUE(parser.error() == ParseError::MaxStringSizeExceeded, "Correct error");
 
     return true;
 }
 
-TEST_CASE(limit_total_size)
+FATP_TEST_CASE(limit_total_size)
 {
     CborStreamParser::Limits limits;
     limits.max_total_bytes = 20;
@@ -535,8 +535,8 @@ TEST_CASE(limit_total_size)
     auto data = encode_text(std::string(25, 'a'));
 
     auto status = parser.feed(data);
-    ASSERT_TRUE(status == ParseStatus::Error, "Total size exceeded");
-    ASSERT_TRUE(parser.error() == ParseError::MaxTotalSizeExceeded, "Correct error");
+    FATP_ASSERT_TRUE(status == ParseStatus::Error, "Total size exceeded");
+    FATP_ASSERT_TRUE(parser.error() == ParseError::MaxTotalSizeExceeded, "Correct error");
 
     return true;
 }
@@ -545,7 +545,7 @@ TEST_CASE(limit_total_size)
 // Error Handling Tests
 // =============================================================================
 
-TEST_CASE(error_truncated_input)
+FATP_TEST_CASE(error_truncated_input)
 {
     CborStreamParser parser;
 
@@ -553,13 +553,13 @@ TEST_CASE(error_truncated_input)
     std::vector<uint8_t> data = {0x19, 0x01};
 
     auto status = parser.feed(data);
-    ASSERT_TRUE(status == ParseStatus::NeedMoreData, "Waiting for more");
-    ASSERT_TRUE(!parser.is_done(), "Not done");
+    FATP_ASSERT_TRUE(status == ParseStatus::NeedMoreData, "Waiting for more");
+    FATP_ASSERT_TRUE(!parser.is_done(), "Not done");
 
     return true;
 }
 
-TEST_CASE(error_reserved_ai)
+FATP_TEST_CASE(error_reserved_ai)
 {
     CborStreamParser parser;
 
@@ -567,13 +567,13 @@ TEST_CASE(error_reserved_ai)
     std::vector<uint8_t> data = {0x1C};
 
     auto status = parser.feed(data);
-    ASSERT_TRUE(status == ParseStatus::Error, "Reserved AI");
-    ASSERT_TRUE(parser.error() == ParseError::ReservedAdditionalInfo, "Correct error");
+    FATP_ASSERT_TRUE(status == ParseStatus::Error, "Reserved AI");
+    FATP_ASSERT_TRUE(parser.error() == ParseError::ReservedAdditionalInfo, "Correct error");
 
     return true;
 }
 
-TEST_CASE(error_indefinite_length)
+FATP_TEST_CASE(error_indefinite_length)
 {
     CborStreamParser parser;
 
@@ -581,8 +581,8 @@ TEST_CASE(error_indefinite_length)
     std::vector<uint8_t> data = {0x9F};
 
     auto status = parser.feed(data);
-    ASSERT_TRUE(status == ParseStatus::Error, "Indefinite not supported");
-    ASSERT_TRUE(parser.error() == ParseError::IndefiniteLengthNotSupported, "Correct error");
+    FATP_ASSERT_TRUE(status == ParseStatus::Error, "Indefinite not supported");
+    FATP_ASSERT_TRUE(parser.error() == ParseError::IndefiniteLengthNotSupported, "Correct error");
 
     return true;
 }
@@ -591,7 +591,7 @@ TEST_CASE(error_indefinite_length)
 // Statistics Tests
 // =============================================================================
 
-TEST_CASE(statistics)
+FATP_TEST_CASE(statistics)
 {
     CborStreamParser parser;
 
@@ -609,9 +609,9 @@ TEST_CASE(statistics)
     parser.feed(data);
 
     auto stats = parser.stats();
-    ASSERT_TRUE(stats.bytes_consumed == data.size(), "Bytes consumed");
-    ASSERT_TRUE(stats.max_depth_seen == 2, "Max depth");
-    ASSERT_TRUE(stats.values_parsed >= 4, "Values parsed");
+    FATP_ASSERT_TRUE(stats.bytes_consumed == data.size(), "Bytes consumed");
+    FATP_ASSERT_TRUE(stats.max_depth_seen == 2, "Max depth");
+    FATP_ASSERT_TRUE(stats.values_parsed >= 4, "Values parsed");
 
     return true;
 }
@@ -620,7 +620,7 @@ TEST_CASE(statistics)
 // Convenience Function Tests
 // =============================================================================
 
-TEST_CASE(parse_cbor_convenience)
+FATP_TEST_CASE(parse_cbor_convenience)
 {
     auto data = encode_array_header(3);
     auto v1 = encode_uint(1);
@@ -631,8 +631,8 @@ TEST_CASE(parse_cbor_convenience)
     data.insert(data.end(), v3.begin(), v3.end());
 
     auto result = parse_cbor(data);
-    ASSERT_TRUE(result.is_array(), "Is array");
-    ASSERT_TRUE(result.as_array().size() == 3, "Size 3");
+    FATP_ASSERT_TRUE(result.is_array(), "Is array");
+    FATP_ASSERT_TRUE(result.as_array().size() == 3, "Size 3");
 
     return true;
 }
@@ -713,29 +713,29 @@ namespace fat_p::testing
 
 bool test_CborStreamLite()
 {
-    PRINT_HEADER(CBOR STREAM LITE)
+    FATP_PRINT_HEADER(CBOR STREAM LITE)
 
     TestRunner runner;
 
-    RUN_TEST_NS(runner, cborstreamlite, parse_unsigned_integers);
-    RUN_TEST_NS(runner, cborstreamlite, parse_negative_integers);
-    RUN_TEST_NS(runner, cborstreamlite, parse_byte_strings);
-    RUN_TEST_NS(runner, cborstreamlite, parse_text_strings);
-    RUN_TEST_NS(runner, cborstreamlite, parse_simple_values);
-    RUN_TEST_NS(runner, cborstreamlite, parse_floats);
-    RUN_TEST_NS(runner, cborstreamlite, parse_arrays);
-    RUN_TEST_NS(runner, cborstreamlite, parse_maps);
-    RUN_TEST_NS(runner, cborstreamlite, parse_nested);
-    RUN_TEST_NS(runner, cborstreamlite, chunked_input);
-    RUN_TEST_NS(runner, cborstreamlite, chunked_random_sizes);
-    RUN_TEST_NS(runner, cborstreamlite, limit_max_depth);
-    RUN_TEST_NS(runner, cborstreamlite, limit_string_size);
-    RUN_TEST_NS(runner, cborstreamlite, limit_total_size);
-    RUN_TEST_NS(runner, cborstreamlite, error_truncated_input);
-    RUN_TEST_NS(runner, cborstreamlite, error_reserved_ai);
-    RUN_TEST_NS(runner, cborstreamlite, error_indefinite_length);
-    RUN_TEST_NS(runner, cborstreamlite, statistics);
-    RUN_TEST_NS(runner, cborstreamlite, parse_cbor_convenience);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, parse_unsigned_integers);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, parse_negative_integers);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, parse_byte_strings);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, parse_text_strings);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, parse_simple_values);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, parse_floats);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, parse_arrays);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, parse_maps);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, parse_nested);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, chunked_input);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, chunked_random_sizes);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, limit_max_depth);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, limit_string_size);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, limit_total_size);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, error_truncated_input);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, error_reserved_ai);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, error_indefinite_length);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, statistics);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, parse_cbor_convenience);
 
     cborstreamlite::benchmark_streaming_parser();
 

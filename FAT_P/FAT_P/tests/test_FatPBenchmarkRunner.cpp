@@ -49,7 +49,7 @@ namespace fat_p::testing::benchmarkrunner
 // Timer Tests
 // ============================================================================
 
-TEST_CASE(timer_basic)
+FATP_TEST_CASE(timer_basic)
 {
     using namespace fat_p::bench;
 
@@ -66,12 +66,12 @@ TEST_CASE(timer_basic)
 
     double elapsed = timer.elapsedNs();
 
-    ASSERT_GT(elapsed, 0.0, "Elapsed time should be positive");
+    FATP_ASSERT_GT(elapsed, 0.0, "Elapsed time should be positive");
 
     return true;
 }
 
-TEST_CASE(timer_multiple_reads)
+FATP_TEST_CASE(timer_multiple_reads)
 {
     using namespace fat_p::bench;
 
@@ -84,8 +84,8 @@ TEST_CASE(timer_multiple_reads)
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     double t2 = timer.elapsedNs();
 
-    ASSERT_GT(t1, 0.0, "First read should be positive");
-    ASSERT_GT(t2, t1, "Second read should be greater than first");
+    FATP_ASSERT_GT(t1, 0.0, "First read should be positive");
+    FATP_ASSERT_GT(t2, t1, "Second read should be greater than first");
 
     return true;
 }
@@ -94,23 +94,23 @@ TEST_CASE(timer_multiple_reads)
 // Statistics Tests
 // ============================================================================
 
-TEST_CASE(statistics_basic)
+FATP_TEST_CASE(statistics_basic)
 {
     using namespace fat_p::bench;
 
     std::vector<double> samples = {1.0, 2.0, 3.0, 4.0, 5.0};
     Statistics stats = Statistics::compute(std::move(samples));
 
-    ASSERT_EQ(stats.samples, std::size_t(5), "Should have 5 samples");
-    ASSERT_CLOSE(stats.min, 1.0, "Min should be 1.0");
-    ASSERT_CLOSE(stats.max, 5.0, "Max should be 5.0");
-    ASSERT_CLOSE(stats.mean, 3.0, "Mean should be 3.0");
-    ASSERT_CLOSE(stats.median, 3.0, "Median should be 3.0");
+    FATP_ASSERT_EQ(stats.samples, std::size_t(5), "Should have 5 samples");
+    FATP_ASSERT_CLOSE(stats.min, 1.0, "Min should be 1.0");
+    FATP_ASSERT_CLOSE(stats.max, 5.0, "Max should be 5.0");
+    FATP_ASSERT_CLOSE(stats.mean, 3.0, "Mean should be 3.0");
+    FATP_ASSERT_CLOSE(stats.median, 3.0, "Median should be 3.0");
 
     return true;
 }
 
-TEST_CASE(statistics_median_even)
+FATP_TEST_CASE(statistics_median_even)
 {
     using namespace fat_p::bench;
 
@@ -118,12 +118,12 @@ TEST_CASE(statistics_median_even)
     Statistics stats = Statistics::compute(std::move(samples));
 
     // Median of [1, 2, 3, 4] = (2 + 3) / 2 = 2.5
-    ASSERT_CLOSE(stats.median, 2.5, "Median of even samples should be average of middle two");
+    FATP_ASSERT_CLOSE(stats.median, 2.5, "Median of even samples should be average of middle two");
 
     return true;
 }
 
-TEST_CASE(statistics_stddev)
+FATP_TEST_CASE(statistics_stddev)
 {
     using namespace fat_p::bench;
 
@@ -133,13 +133,13 @@ TEST_CASE(statistics_stddev)
     std::vector<double> samples = {2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0};
     Statistics stats = Statistics::compute(std::move(samples));
 
-    ASSERT_CLOSE(stats.mean, 5.0, "Mean should be 5.0");
-    ASSERT_CLOSE_EPS(stats.stddev, 2.138, 0.01, "StdDev should be ~2.138 (sample stddev)");
+    FATP_ASSERT_CLOSE(stats.mean, 5.0, "Mean should be 5.0");
+    FATP_ASSERT_CLOSE_EPS(stats.stddev, 2.138, 0.01, "StdDev should be ~2.138 (sample stddev)");
 
     return true;
 }
 
-TEST_CASE(statistics_percentiles)
+FATP_TEST_CASE(statistics_percentiles)
 {
     using namespace fat_p::bench;
 
@@ -153,15 +153,15 @@ TEST_CASE(statistics_percentiles)
     Statistics stats = Statistics::compute(std::move(samples));
 
     // P95 should be around 95, P99 around 99
-    ASSERT_GE(stats.p95, 94.0, "P95 should be >= 94");
-    ASSERT_LE(stats.p95, 96.0, "P95 should be <= 96");
-    ASSERT_GE(stats.p99, 98.0, "P99 should be >= 98");
-    ASSERT_LE(stats.p99, 100.0, "P99 should be <= 100");
+    FATP_ASSERT_GE(stats.p95, 94.0, "P95 should be >= 94");
+    FATP_ASSERT_LE(stats.p95, 96.0, "P95 should be <= 96");
+    FATP_ASSERT_GE(stats.p99, 98.0, "P99 should be >= 98");
+    FATP_ASSERT_LE(stats.p99, 100.0, "P99 should be <= 100");
 
     return true;
 }
 
-TEST_CASE(statistics_ci95)
+FATP_TEST_CASE(statistics_ci95)
 {
     using namespace fat_p::bench;
 
@@ -169,25 +169,25 @@ TEST_CASE(statistics_ci95)
     Statistics stats = Statistics::compute(std::move(samples));
 
     // With zero stddev, CI95 should equal the mean
-    ASSERT_CLOSE(stats.ci95Low, 100.0, "CI95 low should equal mean when stddev is 0");
-    ASSERT_CLOSE(stats.ci95High, 100.0, "CI95 high should equal mean when stddev is 0");
+    FATP_ASSERT_CLOSE(stats.ci95Low, 100.0, "CI95 low should equal mean when stddev is 0");
+    FATP_ASSERT_CLOSE(stats.ci95High, 100.0, "CI95 high should equal mean when stddev is 0");
 
     return true;
 }
 
-TEST_CASE(statistics_single_sample)
+FATP_TEST_CASE(statistics_single_sample)
 {
     using namespace fat_p::bench;
 
     std::vector<double> samples = {42.0};
     Statistics stats = Statistics::compute(std::move(samples));
 
-    ASSERT_EQ(stats.samples, std::size_t(1), "Should have 1 sample");
-    ASSERT_CLOSE(stats.min, 42.0, "Min should be 42.0");
-    ASSERT_CLOSE(stats.max, 42.0, "Max should be 42.0");
-    ASSERT_CLOSE(stats.mean, 42.0, "Mean should be 42.0");
-    ASSERT_CLOSE(stats.median, 42.0, "Median should be 42.0");
-    ASSERT_CLOSE(stats.stddev, 0.0, "StdDev should be 0.0 for single sample");
+    FATP_ASSERT_EQ(stats.samples, std::size_t(1), "Should have 1 sample");
+    FATP_ASSERT_CLOSE(stats.min, 42.0, "Min should be 42.0");
+    FATP_ASSERT_CLOSE(stats.max, 42.0, "Max should be 42.0");
+    FATP_ASSERT_CLOSE(stats.mean, 42.0, "Mean should be 42.0");
+    FATP_ASSERT_CLOSE(stats.median, 42.0, "Median should be 42.0");
+    FATP_ASSERT_CLOSE(stats.stddev, 0.0, "StdDev should be 0.0 for single sample");
 
     return true;
 }
@@ -196,7 +196,7 @@ TEST_CASE(statistics_single_sample)
 // BenchConfig Tests
 // ============================================================================
 
-TEST_CASE(config_defaults)
+FATP_TEST_CASE(config_defaults)
 {
     using namespace fat_p::bench;
 
@@ -213,8 +213,8 @@ TEST_CASE(config_defaults)
 
     BenchConfig cfg = BenchConfig::fromEnv();
 
-    ASSERT_EQ(cfg.warmupRuns, kDefaultWarmupRuns, "Warmup should match default");
-    ASSERT_EQ(cfg.seed, kDefaultSeed, "Seed should match default");
+    FATP_ASSERT_EQ(cfg.warmupRuns, kDefaultWarmupRuns, "Warmup should match default");
+    FATP_ASSERT_EQ(cfg.seed, kDefaultSeed, "Seed should match default");
 
     return true;
 }
@@ -223,7 +223,7 @@ TEST_CASE(config_defaults)
 // DoNotOptimize Tests
 // ============================================================================
 
-TEST_CASE(do_not_optimize_compiles)
+FATP_TEST_CASE(do_not_optimize_compiles)
 {
     using namespace fat_p::bench;
 
@@ -244,7 +244,7 @@ TEST_CASE(do_not_optimize_compiles)
     return true;
 }
 
-TEST_CASE(prevent_opt_compiles)
+FATP_TEST_CASE(prevent_opt_compiles)
 {
     using namespace fat_p::bench;
 
@@ -252,7 +252,7 @@ TEST_CASE(prevent_opt_compiles)
     preventOpt(checksum);
 
     // If we got here, it compiled
-    ASSERT_EQ(checksum, int64_t(12345), "Value should be unchanged");
+    FATP_ASSERT_EQ(checksum, int64_t(12345), "Value should be unchanged");
 
     return true;
 }
@@ -261,7 +261,7 @@ TEST_CASE(prevent_opt_compiles)
 // SpinBarrier Tests
 // ============================================================================
 
-TEST_CASE(spin_barrier_single_thread)
+FATP_TEST_CASE(spin_barrier_single_thread)
 {
     using namespace fat_p::bench;
 
@@ -273,7 +273,7 @@ TEST_CASE(spin_barrier_single_thread)
     return true;
 }
 
-TEST_CASE(spin_barrier_multi_thread)
+FATP_TEST_CASE(spin_barrier_multi_thread)
 {
     using namespace fat_p::bench;
 
@@ -303,13 +303,13 @@ TEST_CASE(spin_barrier_multi_thread)
         t.join();
     }
 
-    ASSERT_EQ(counter.load(), kNumThreads, "All threads should have incremented counter");
-    ASSERT_TRUE(allArrived.load(), "All threads should have arrived at barrier");
+    FATP_ASSERT_EQ(counter.load(), kNumThreads, "All threads should have incremented counter");
+    FATP_ASSERT_TRUE(allArrived.load(), "All threads should have arrived at barrier");
 
     return true;
 }
 
-TEST_CASE(spin_barrier_reuse)
+FATP_TEST_CASE(spin_barrier_reuse)
 {
     using namespace fat_p::bench;
 
@@ -339,7 +339,7 @@ TEST_CASE(spin_barrier_reuse)
     }
 
     // 2 threads * 2 phases = 4 increments
-    ASSERT_EQ(phase.load(), 4, "Barrier should be reusable across phases");
+    FATP_ASSERT_EQ(phase.load(), 4, "Barrier should be reusable across phases");
 
     return true;
 }
@@ -348,18 +348,18 @@ TEST_CASE(spin_barrier_reuse)
 // BenchmarkRunner Tests
 // ============================================================================
 
-TEST_CASE(runner_creation)
+FATP_TEST_CASE(runner_creation)
 {
     using namespace fat_p::bench;
 
     BenchmarkRunner runner = makeTestRunner("TestRunner");
 
-    ASSERT_EQ(runner.name(), std::string("TestRunner"), "Runner should have correct name");
+    FATP_ASSERT_EQ(runner.name(), std::string("TestRunner"), "Runner should have correct name");
 
     return true;
 }
 
-TEST_CASE(runner_section_and_contract)
+FATP_TEST_CASE(runner_section_and_contract)
 {
     using namespace fat_p::bench;
 
@@ -375,16 +375,16 @@ TEST_CASE(runner_section_and_contract)
     std::cout.rdbuf(oldBuf);
 
     std::string output = oss.str();
-    ASSERT_TRUE(output.find("TEST SECTION") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("TEST SECTION") != std::string::npos,
                 "Output should contain section name");
-    ASSERT_TRUE(output.find("Contract:") != std::string::npos ||
+    FATP_ASSERT_TRUE(output.find("Contract:") != std::string::npos ||
                 output.find("test contract") != std::string::npos,
                 "Output should contain contract");
 
     return true;
 }
 
-TEST_CASE(runner_add_benchmark)
+FATP_TEST_CASE(runner_add_benchmark)
 {
     using namespace fat_p::bench;
 
@@ -405,12 +405,12 @@ TEST_CASE(runner_add_benchmark)
 
     std::cout.rdbuf(oldBuf);
 
-    ASSERT_GT(callCount, 0, "Benchmark should have been called at least once");
+    FATP_ASSERT_GT(callCount, 0, "Benchmark should have been called at least once");
 
     return true;
 }
 
-TEST_CASE(runner_results)
+FATP_TEST_CASE(runner_results)
 {
     using namespace fat_p::bench;
 
@@ -431,9 +431,9 @@ TEST_CASE(runner_results)
     std::cout.rdbuf(oldBuf);
 
     const auto& results = runner.results();
-    ASSERT_EQ(results.size(), std::size_t(1), "Should have 1 result");
-    ASSERT_EQ(results[0].name, std::string("simple_add"), "Result should have correct name");
-    ASSERT_GT(results[0].stats.samples, std::size_t(0), "Should have samples");
+    FATP_ASSERT_EQ(results.size(), std::size_t(1), "Should have 1 result");
+    FATP_ASSERT_EQ(results[0].name, std::string("simple_add"), "Result should have correct name");
+    FATP_ASSERT_GT(results[0].stats.samples, std::size_t(0), "Should have samples");
 
     return true;
 }
@@ -442,44 +442,44 @@ TEST_CASE(runner_results)
 // Format Time Tests
 // ============================================================================
 
-TEST_CASE(format_time_nanoseconds)
+FATP_TEST_CASE(format_time_nanoseconds)
 {
     using namespace fat_p::bench;
 
     std::string result = formatTime(500.0);
-    ASSERT_TRUE(result.find("ns") != std::string::npos, "Should format as nanoseconds");
+    FATP_ASSERT_TRUE(result.find("ns") != std::string::npos, "Should format as nanoseconds");
 
     return true;
 }
 
-TEST_CASE(format_time_microseconds)
+FATP_TEST_CASE(format_time_microseconds)
 {
     using namespace fat_p::bench;
 
     std::string result = formatTime(5000.0);
-    ASSERT_TRUE(result.find("us") != std::string::npos ||
+    FATP_ASSERT_TRUE(result.find("us") != std::string::npos ||
                 result.find("µs") != std::string::npos,
                 "Should format as microseconds");
 
     return true;
 }
 
-TEST_CASE(format_time_milliseconds)
+FATP_TEST_CASE(format_time_milliseconds)
 {
     using namespace fat_p::bench;
 
     std::string result = formatTime(5000000.0);
-    ASSERT_TRUE(result.find("ms") != std::string::npos, "Should format as milliseconds");
+    FATP_ASSERT_TRUE(result.find("ms") != std::string::npos, "Should format as milliseconds");
 
     return true;
 }
 
-TEST_CASE(format_time_seconds)
+FATP_TEST_CASE(format_time_seconds)
 {
     using namespace fat_p::bench;
 
     std::string result = formatTime(5000000000.0);
-    ASSERT_TRUE(result.find("s") != std::string::npos, "Should format as seconds");
+    FATP_ASSERT_TRUE(result.find("s") != std::string::npos, "Should format as seconds");
 
     return true;
 }
@@ -488,22 +488,22 @@ TEST_CASE(format_time_seconds)
 // nsPerOp Tests
 // ============================================================================
 
-TEST_CASE(ns_per_op_basic)
+FATP_TEST_CASE(ns_per_op_basic)
 {
     using namespace fat_p::bench;
 
     double result = nsPerOp(1000.0, 10);
-    ASSERT_CLOSE(result, 100.0, "1000ns / 10 ops = 100 ns/op");
+    FATP_ASSERT_CLOSE(result, 100.0, "1000ns / 10 ops = 100 ns/op");
 
     return true;
 }
 
-TEST_CASE(ns_per_op_zero_ops)
+FATP_TEST_CASE(ns_per_op_zero_ops)
 {
     using namespace fat_p::bench;
 
     double result = nsPerOp(1000.0, 0);
-    ASSERT_CLOSE(result, 0.0, "Should return 0 for 0 ops (avoid divide by zero)");
+    FATP_ASSERT_CLOSE(result, 0.0, "Should return 0 for 0 ops (avoid divide by zero)");
 
     return true;
 }
@@ -512,7 +512,7 @@ TEST_CASE(ns_per_op_zero_ops)
 // IAdapter Tests
 // ============================================================================
 
-TEST_CASE(adapter_interface)
+FATP_TEST_CASE(adapter_interface)
 {
     using namespace fat_p::bench;
 
@@ -533,14 +533,14 @@ TEST_CASE(adapter_interface)
 
     TestAdapter adapter;
 
-    ASSERT_EQ(std::string(adapter.name()), std::string("TestAdapter"),
+    FATP_ASSERT_EQ(std::string(adapter.name()), std::string("TestAdapter"),
               "Adapter should return correct name");
 
     adapter.setup(100);
-    ASSERT_TRUE(adapter.wasSetupCalled(), "setup() should have been called");
+    FATP_ASSERT_TRUE(adapter.wasSetupCalled(), "setup() should have been called");
 
     adapter.teardown();
-    ASSERT_TRUE(adapter.wasTeardownCalled(), "teardown() should have been called");
+    FATP_ASSERT_TRUE(adapter.wasTeardownCalled(), "teardown() should have been called");
 
     return true;
 }
@@ -549,7 +549,7 @@ TEST_CASE(adapter_interface)
 // CPU Frequency Info Tests
 // ============================================================================
 
-TEST_CASE(cpu_freq_info_basic)
+FATP_TEST_CASE(cpu_freq_info_basic)
 {
     using namespace fat_p::bench;
 
@@ -566,7 +566,7 @@ TEST_CASE(cpu_freq_info_basic)
     return true;
 }
 
-TEST_CASE(cpu_freq_throttle_calculation)
+FATP_TEST_CASE(cpu_freq_throttle_calculation)
 {
     using namespace fat_p::bench;
 
@@ -577,7 +577,7 @@ TEST_CASE(cpu_freq_throttle_calculation)
     info.mCurrentIsEstimated = false;
 
     double throttle = info.throttle_percentage();
-    ASSERT_CLOSE_EPS(throttle, 20.0, 0.1, "Should be 20% throttled (2400/3000)");
+    FATP_ASSERT_CLOSE_EPS(throttle, 20.0, 0.1, "Should be 20% throttled (2400/3000)");
 
     return true;
 }
@@ -586,7 +586,7 @@ TEST_CASE(cpu_freq_throttle_calculation)
 // Output Format Tests
 // ============================================================================
 
-TEST_CASE(print_section_header)
+FATP_TEST_CASE(print_section_header)
 {
     using namespace fat_p::bench;
 
@@ -594,15 +594,15 @@ TEST_CASE(print_section_header)
     printSectionHeader(oss, "MY SECTION");
 
     std::string output = oss.str();
-    ASSERT_TRUE(output.find("MY SECTION") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("MY SECTION") != std::string::npos,
                 "Section header should contain section name");
-    ASSERT_TRUE(output.find("===") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("===") != std::string::npos,
                 "Section header should have separator lines");
 
     return true;
 }
 
-TEST_CASE(print_contract)
+FATP_TEST_CASE(print_contract)
 {
     using namespace fat_p::bench;
 
@@ -610,9 +610,9 @@ TEST_CASE(print_contract)
     printContract(oss, "Test contract message");
 
     std::string output = oss.str();
-    ASSERT_TRUE(output.find("Contract:") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("Contract:") != std::string::npos,
                 "Should contain Contract: label");
-    ASSERT_TRUE(output.find("Test contract message") != std::string::npos,
+    FATP_ASSERT_TRUE(output.find("Test contract message") != std::string::npos,
                 "Should contain the contract text");
 
     return true;
@@ -704,72 +704,72 @@ namespace fat_p::testing
 
 bool test_FatPBenchmarkRunner()
 {
-    PRINT_HEADER(BENCHMARK RUNNER)
+    FATP_PRINT_HEADER(BENCHMARK RUNNER)
 
     TestRunner runner;
     auto& out = *get_test_config().output;
 
     // Timer tests
     out << colors::blue() << "--- Timer Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, benchmarkrunner, timer_basic);
-    RUN_TEST_NS(runner, benchmarkrunner, timer_multiple_reads);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, timer_basic);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, timer_multiple_reads);
 
     // Statistics tests
     out << "\n" << colors::blue() << "--- Statistics Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, benchmarkrunner, statistics_basic);
-    RUN_TEST_NS(runner, benchmarkrunner, statistics_median_even);
-    RUN_TEST_NS(runner, benchmarkrunner, statistics_stddev);
-    RUN_TEST_NS(runner, benchmarkrunner, statistics_percentiles);
-    RUN_TEST_NS(runner, benchmarkrunner, statistics_ci95);
-    RUN_TEST_NS(runner, benchmarkrunner, statistics_single_sample);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, statistics_basic);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, statistics_median_even);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, statistics_stddev);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, statistics_percentiles);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, statistics_ci95);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, statistics_single_sample);
 
     // Config tests
     out << "\n" << colors::blue() << "--- BenchConfig Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, benchmarkrunner, config_defaults);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, config_defaults);
 
     // DoNotOptimize tests
     out << "\n" << colors::blue() << "--- DoNotOptimize Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, benchmarkrunner, do_not_optimize_compiles);
-    RUN_TEST_NS(runner, benchmarkrunner, prevent_opt_compiles);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, do_not_optimize_compiles);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, prevent_opt_compiles);
 
     // SpinBarrier tests
     out << "\n" << colors::blue() << "--- SpinBarrier Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, benchmarkrunner, spin_barrier_single_thread);
-    RUN_TEST_NS(runner, benchmarkrunner, spin_barrier_multi_thread);
-    RUN_TEST_NS(runner, benchmarkrunner, spin_barrier_reuse);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, spin_barrier_single_thread);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, spin_barrier_multi_thread);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, spin_barrier_reuse);
 
     // BenchmarkRunner tests
     out << "\n" << colors::blue() << "--- BenchmarkRunner Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, benchmarkrunner, runner_creation);
-    RUN_TEST_NS(runner, benchmarkrunner, runner_section_and_contract);
-    RUN_TEST_NS(runner, benchmarkrunner, runner_add_benchmark);
-    RUN_TEST_NS(runner, benchmarkrunner, runner_results);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, runner_creation);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, runner_section_and_contract);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, runner_add_benchmark);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, runner_results);
 
     // Format tests
     out << "\n" << colors::blue() << "--- Format Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, benchmarkrunner, format_time_nanoseconds);
-    RUN_TEST_NS(runner, benchmarkrunner, format_time_microseconds);
-    RUN_TEST_NS(runner, benchmarkrunner, format_time_milliseconds);
-    RUN_TEST_NS(runner, benchmarkrunner, format_time_seconds);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, format_time_nanoseconds);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, format_time_microseconds);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, format_time_milliseconds);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, format_time_seconds);
 
     // nsPerOp tests
     out << "\n" << colors::blue() << "--- nsPerOp Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, benchmarkrunner, ns_per_op_basic);
-    RUN_TEST_NS(runner, benchmarkrunner, ns_per_op_zero_ops);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, ns_per_op_basic);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, ns_per_op_zero_ops);
 
     // Adapter tests
     out << "\n" << colors::blue() << "--- IAdapter Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, benchmarkrunner, adapter_interface);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, adapter_interface);
 
     // CPU Frequency tests
     out << "\n" << colors::blue() << "--- CPU Frequency Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, benchmarkrunner, cpu_freq_info_basic);
-    RUN_TEST_NS(runner, benchmarkrunner, cpu_freq_throttle_calculation);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, cpu_freq_info_basic);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, cpu_freq_throttle_calculation);
 
     // Output format tests
     out << "\n" << colors::blue() << "--- Output Format Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, benchmarkrunner, print_section_header);
-    RUN_TEST_NS(runner, benchmarkrunner, print_contract);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, print_section_header);
+    FATP_RUN_TEST_NS(runner, benchmarkrunner, print_contract);
 
     // Run benchmarks in release builds
 #ifdef NDEBUG

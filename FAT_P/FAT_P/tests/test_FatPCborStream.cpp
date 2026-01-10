@@ -116,21 +116,21 @@ inline std::vector<uint8_t> encode_map_header(size_t n)
 // Basic Parsing Tests
 // =============================================================================
 
-TEST_CASE(default_parser_basic)
+FATP_TEST_CASE(default_parser_basic)
 {
     DefaultStreamParser parser;
 
     auto data = encode_uint(42);
     auto result = parser.parse(data);
 
-    ASSERT_TRUE(result.has_value(), "Parse succeeded");
-    ASSERT_TRUE(result->is_unsigned(), "Is unsigned");
-    ASSERT_TRUE(result->as_unsigned() == 42, "Value 42");
+    FATP_ASSERT_TRUE(result.has_value(), "Parse succeeded");
+    FATP_ASSERT_TRUE(result->is_unsigned(), "Is unsigned");
+    FATP_ASSERT_TRUE(result->as_unsigned() == 42, "Value 42");
 
     return true;
 }
 
-TEST_CASE(default_parser_array)
+FATP_TEST_CASE(default_parser_array)
 {
     DefaultStreamParser parser;
 
@@ -144,36 +144,36 @@ TEST_CASE(default_parser_array)
 
     auto result = parser.parse(data);
 
-    ASSERT_TRUE(result.has_value(), "Parse succeeded");
-    ASSERT_TRUE(result->is_array(), "Is array");
-    ASSERT_TRUE(result->as_array().size() == 3, "Array size");
+    FATP_ASSERT_TRUE(result.has_value(), "Parse succeeded");
+    FATP_ASSERT_TRUE(result->is_array(), "Is array");
+    FATP_ASSERT_TRUE(result->as_array().size() == 3, "Array size");
 
     return true;
 }
 
-TEST_CASE(strict_parser_basic)
+FATP_TEST_CASE(strict_parser_basic)
 {
     StrictStreamParser parser;
 
     auto data = encode_text("hello");
     auto result = parser.parse(data);
 
-    ASSERT_TRUE(result.has_value(), "Parse succeeded");
-    ASSERT_TRUE(result->is_string(), "Is string");
-    ASSERT_TRUE(result->as_string() == "hello", "Value hello");
+    FATP_ASSERT_TRUE(result.has_value(), "Parse succeeded");
+    FATP_ASSERT_TRUE(result->is_string(), "Is string");
+    FATP_ASSERT_TRUE(result->as_string() == "hello", "Value hello");
 
     return true;
 }
 
-TEST_CASE(relaxed_parser_basic)
+FATP_TEST_CASE(relaxed_parser_basic)
 {
     RelaxedStreamParser parser;
 
     auto data = encode_uint(12345);
     auto result = parser.parse(data);
 
-    ASSERT_TRUE(result.has_value(), "Parse succeeded");
-    ASSERT_TRUE(result->as_unsigned() == 12345, "Value 12345");
+    FATP_ASSERT_TRUE(result.has_value(), "Parse succeeded");
+    FATP_ASSERT_TRUE(result->as_unsigned() == 12345, "Value 12345");
 
     return true;
 }
@@ -182,29 +182,29 @@ TEST_CASE(relaxed_parser_basic)
 // Convenience Function Tests
 // =============================================================================
 
-TEST_CASE(stream_parse_convenience)
+FATP_TEST_CASE(stream_parse_convenience)
 {
     auto data = encode_uint(100);
     auto result = stream_parse(data);
 
-    ASSERT_TRUE(result.has_value(), "Parse succeeded");
-    ASSERT_TRUE(result->as_unsigned() == 100, "Value 100");
+    FATP_ASSERT_TRUE(result.has_value(), "Parse succeeded");
+    FATP_ASSERT_TRUE(result->as_unsigned() == 100, "Value 100");
 
     return true;
 }
 
-TEST_CASE(stream_parse_strict_convenience)
+FATP_TEST_CASE(stream_parse_strict_convenience)
 {
     auto data = encode_text("test");
     auto result = stream_parse_strict(data);
 
-    ASSERT_TRUE(result.has_value(), "Parse succeeded");
-    ASSERT_TRUE(result->as_string() == "test", "Value test");
+    FATP_ASSERT_TRUE(result.has_value(), "Parse succeeded");
+    FATP_ASSERT_TRUE(result->as_string() == "test", "Value test");
 
     return true;
 }
 
-TEST_CASE(stream_parse_limited_convenience)
+FATP_TEST_CASE(stream_parse_limited_convenience)
 {
     RuntimeLimitsPolicy limits;
     limits.max_depth = 4;
@@ -212,8 +212,8 @@ TEST_CASE(stream_parse_limited_convenience)
     auto data = encode_uint(999);
     auto result = stream_parse_limited(data, limits);
 
-    ASSERT_TRUE(result.has_value(), "Parse succeeded");
-    ASSERT_TRUE(result->as_unsigned() == 999, "Value 999");
+    FATP_ASSERT_TRUE(result.has_value(), "Parse succeeded");
+    FATP_ASSERT_TRUE(result->as_unsigned() == 999, "Value 999");
 
     return true;
 }
@@ -222,7 +222,7 @@ TEST_CASE(stream_parse_limited_convenience)
 // Policy Limit Tests
 // =============================================================================
 
-TEST_CASE(strict_limits_depth)
+FATP_TEST_CASE(strict_limits_depth)
 {
     StrictStreamParser parser;  // max_depth = 32
 
@@ -238,13 +238,13 @@ TEST_CASE(strict_limits_depth)
 
     auto result = parser.parse(data);
 
-    ASSERT_TRUE(!result.has_value(), "Parse failed");
-    ASSERT_TRUE(result.error().code == ParseError::MaxDepthExceeded, "Depth error");
+    FATP_ASSERT_TRUE(!result.has_value(), "Parse failed");
+    FATP_ASSERT_TRUE(result.error().code == ParseError::MaxDepthExceeded, "Depth error");
 
     return true;
 }
 
-TEST_CASE(strict_limits_string_size)
+FATP_TEST_CASE(strict_limits_string_size)
 {
     StrictStreamParser parser;  // max_string_bytes = 64KB
 
@@ -254,13 +254,13 @@ TEST_CASE(strict_limits_string_size)
 
     auto result = parser.parse(data);
 
-    ASSERT_TRUE(!result.has_value(), "Parse failed");
-    ASSERT_TRUE(result.error().code == ParseError::MaxStringSizeExceeded, "String size error");
+    FATP_ASSERT_TRUE(!result.has_value(), "Parse failed");
+    FATP_ASSERT_TRUE(result.error().code == ParseError::MaxStringSizeExceeded, "String size error");
 
     return true;
 }
 
-TEST_CASE(configurable_limits)
+FATP_TEST_CASE(configurable_limits)
 {
     RuntimeLimitsPolicy limits;
     limits.max_depth = 2;
@@ -279,8 +279,8 @@ TEST_CASE(configurable_limits)
 
     auto result = parser.parse(data);
 
-    ASSERT_TRUE(!result.has_value(), "Parse failed");
-    ASSERT_TRUE(result.error().code == ParseError::MaxDepthExceeded, "Depth error");
+    FATP_ASSERT_TRUE(!result.has_value(), "Parse failed");
+    FATP_ASSERT_TRUE(result.error().code == ParseError::MaxDepthExceeded, "Depth error");
 
     return true;
 }
@@ -289,45 +289,45 @@ TEST_CASE(configurable_limits)
 // UTF-8 Validation Tests
 // =============================================================================
 
-TEST_CASE(utf8_validation_valid)
+FATP_TEST_CASE(utf8_validation_valid)
 {
     ValidatingStreamParser parser;
 
     // Valid UTF-8: ASCII
     auto data = encode_text("Hello, World!");
     auto result = parser.parse(data);
-    ASSERT_TRUE(result.has_value(), "ASCII valid");
+    FATP_ASSERT_TRUE(result.has_value(), "ASCII valid");
 
     // Valid UTF-8: Multi-byte
     parser.reset();
     data = encode_text("Hello, \xC3\xA9\xC3\xA0\xC3\xBC");  // e-acute, a-grave, u-umlaut
     result = parser.parse(data);
-    ASSERT_TRUE(result.has_value(), "Multi-byte valid");
+    FATP_ASSERT_TRUE(result.has_value(), "Multi-byte valid");
 
     return true;
 }
 
-TEST_CASE(utf8_validation_invalid)
+FATP_TEST_CASE(utf8_validation_invalid)
 {
     ValidatingStreamParser parser;
 
     // Invalid UTF-8: Lone continuation byte
     auto data = encode_text("Hello\x80World");
     auto result = parser.parse(data);
-    ASSERT_TRUE(!result.has_value(), "Invalid UTF-8 rejected");
-    ASSERT_TRUE(result.error().code == ParseError::InvalidUtf8, "UTF-8 error");
+    FATP_ASSERT_TRUE(!result.has_value(), "Invalid UTF-8 rejected");
+    FATP_ASSERT_TRUE(result.error().code == ParseError::InvalidUtf8, "UTF-8 error");
 
     return true;
 }
 
-TEST_CASE(utf8_validation_overlong)
+FATP_TEST_CASE(utf8_validation_overlong)
 {
     ValidatingStreamParser parser;
 
     // Overlong encoding of '/' (should be 0x2F, not C0 AF)
     auto data = encode_text("test\xC0\xAF");
     auto result = parser.parse(data);
-    ASSERT_TRUE(!result.has_value(), "Overlong rejected");
+    FATP_ASSERT_TRUE(!result.has_value(), "Overlong rejected");
 
     return true;
 }
@@ -336,7 +336,7 @@ TEST_CASE(utf8_validation_overlong)
 // Chunked Feeding Tests
 // =============================================================================
 
-TEST_CASE(chunked_feeding)
+FATP_TEST_CASE(chunked_feeding)
 {
     DefaultStreamParser parser;
 
@@ -351,24 +351,24 @@ TEST_CASE(chunked_feeding)
     for (size_t i = 0; i < data.size() - 1; ++i)
     {
         auto status = parser.feed(&data[i], 1);
-        ASSERT_TRUE(status.has_value(), "Feed succeeded");
-        ASSERT_TRUE(*status == ParseStatus::NeedMoreData, "Need more data");
+        FATP_ASSERT_TRUE(status.has_value(), "Feed succeeded");
+        FATP_ASSERT_TRUE(*status == ParseStatus::NeedMoreData, "Need more data");
     }
 
     // Last byte
     auto status = parser.feed(&data.back(), 1);
-    ASSERT_TRUE(status.has_value(), "Final feed succeeded");
-    ASSERT_TRUE(*status == ParseStatus::Done, "Parsing done");
+    FATP_ASSERT_TRUE(status.has_value(), "Final feed succeeded");
+    FATP_ASSERT_TRUE(*status == ParseStatus::Done, "Parsing done");
 
     // Verify result
     const auto& result = parser.result();
-    ASSERT_TRUE(result.is_array(), "Is array");
-    ASSERT_TRUE(result.as_array().size() == 2, "Array size 2");
+    FATP_ASSERT_TRUE(result.is_array(), "Is array");
+    FATP_ASSERT_TRUE(result.as_array().size() == 2, "Array size 2");
 
     return true;
 }
 
-TEST_CASE(chunked_feeding_error)
+FATP_TEST_CASE(chunked_feeding_error)
 {
     StrictStreamParser parser;
 
@@ -388,12 +388,12 @@ TEST_CASE(chunked_feeding_error)
         if (!status.has_value())
         {
             got_error = true;
-            ASSERT_TRUE(status.error().code == ParseError::MaxDepthExceeded, "Depth error");
+            FATP_ASSERT_TRUE(status.error().code == ParseError::MaxDepthExceeded, "Depth error");
             break;
         }
     }
 
-    ASSERT_TRUE(got_error, "Error detected during chunked feed");
+    FATP_ASSERT_TRUE(got_error, "Error detected during chunked feed");
 
     return true;
 }
@@ -402,7 +402,7 @@ TEST_CASE(chunked_feeding_error)
 // Progress Callback Tests
 // =============================================================================
 
-TEST_CASE(progress_callback)
+FATP_TEST_CASE(progress_callback)
 {
     DefaultStreamParser parser;
 
@@ -427,9 +427,9 @@ TEST_CASE(progress_callback)
     }
 
     auto result = parser.parse(data);
-    ASSERT_TRUE(result.has_value(), "Parse succeeded");
-    ASSERT_TRUE(callback_count > 0, "Callbacks fired");
-    ASSERT_TRUE(last_bytes > 0, "Bytes reported");
+    FATP_ASSERT_TRUE(result.has_value(), "Parse succeeded");
+    FATP_ASSERT_TRUE(callback_count > 0, "Callbacks fired");
+    FATP_ASSERT_TRUE(last_bytes > 0, "Bytes reported");
 
     return true;
 }
@@ -438,7 +438,7 @@ TEST_CASE(progress_callback)
 // Error Information Tests
 // =============================================================================
 
-TEST_CASE(error_information)
+FATP_TEST_CASE(error_information)
 {
     StrictStreamParser parser;
 
@@ -451,20 +451,20 @@ TEST_CASE(error_information)
     }
 
     auto result = parser.parse(data);
-    ASSERT_TRUE(!result.has_value(), "Parse failed");
+    FATP_ASSERT_TRUE(!result.has_value(), "Parse failed");
 
     const auto& error = result.error();
-    ASSERT_TRUE(error.code == ParseError::MaxDepthExceeded, "Correct error code");
-    ASSERT_TRUE(error.byte_position > 0, "Position recorded");
-    ASSERT_TRUE(!error.message.empty(), "Message present");
+    FATP_ASSERT_TRUE(error.code == ParseError::MaxDepthExceeded, "Correct error code");
+    FATP_ASSERT_TRUE(error.byte_position > 0, "Position recorded");
+    FATP_ASSERT_TRUE(!error.message.empty(), "Message present");
 
     std::string error_str = error.to_string();
-    ASSERT_TRUE(error_str.find("depth") != std::string::npos, "Error string has context");
+    FATP_ASSERT_TRUE(error_str.find("depth") != std::string::npos, "Error string has context");
 
     return true;
 }
 
-TEST_CASE(incomplete_input_error)
+FATP_TEST_CASE(incomplete_input_error)
 {
     DefaultStreamParser parser;
 
@@ -473,8 +473,8 @@ TEST_CASE(incomplete_input_error)
     // Don't add the 3 elements
 
     auto result = parser.parse(data);
-    ASSERT_TRUE(!result.has_value(), "Parse failed");
-    ASSERT_TRUE(result.error().code == ParseError::UnexpectedEof, "EOF error");
+    FATP_ASSERT_TRUE(!result.has_value(), "Parse failed");
+    FATP_ASSERT_TRUE(result.error().code == ParseError::UnexpectedEof, "EOF error");
 
     return true;
 }
@@ -483,15 +483,15 @@ TEST_CASE(incomplete_input_error)
 // USING Macro Test
 // =============================================================================
 
-TEST_CASE(using_macro)
+FATP_TEST_CASE(using_macro)
 {
     USING_FATP_CBOR_STREAM();
 
     auto data = encode_uint(123);
     auto result = stream_parse(data);
 
-    ASSERT_TRUE(result.has_value(), "Parse with macro succeeded");
-    ASSERT_TRUE(result->as_unsigned() == 123, "Value 123");
+    FATP_ASSERT_TRUE(result.has_value(), "Parse with macro succeeded");
+    FATP_ASSERT_TRUE(result->as_unsigned() == 123, "Value 123");
 
     return true;
 }
@@ -592,29 +592,29 @@ namespace fat_p::testing
 
 bool test_FatPCborStream()
 {
-    PRINT_HEADER(FATP CBOR STREAM)
+    FATP_PRINT_HEADER(FATP CBOR STREAM)
 
     TestRunner runner;
 
-    RUN_TEST_NS(runner, fatpcborstream, default_parser_basic);
-    RUN_TEST_NS(runner, fatpcborstream, default_parser_array);
-    RUN_TEST_NS(runner, fatpcborstream, strict_parser_basic);
-    RUN_TEST_NS(runner, fatpcborstream, relaxed_parser_basic);
-    RUN_TEST_NS(runner, fatpcborstream, stream_parse_convenience);
-    RUN_TEST_NS(runner, fatpcborstream, stream_parse_strict_convenience);
-    RUN_TEST_NS(runner, fatpcborstream, stream_parse_limited_convenience);
-    RUN_TEST_NS(runner, fatpcborstream, strict_limits_depth);
-    RUN_TEST_NS(runner, fatpcborstream, strict_limits_string_size);
-    RUN_TEST_NS(runner, fatpcborstream, configurable_limits);
-    RUN_TEST_NS(runner, fatpcborstream, utf8_validation_valid);
-    RUN_TEST_NS(runner, fatpcborstream, utf8_validation_invalid);
-    RUN_TEST_NS(runner, fatpcborstream, utf8_validation_overlong);
-    RUN_TEST_NS(runner, fatpcborstream, chunked_feeding);
-    RUN_TEST_NS(runner, fatpcborstream, chunked_feeding_error);
-    RUN_TEST_NS(runner, fatpcborstream, progress_callback);
-    RUN_TEST_NS(runner, fatpcborstream, error_information);
-    RUN_TEST_NS(runner, fatpcborstream, incomplete_input_error);
-    RUN_TEST_NS(runner, fatpcborstream, using_macro);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, default_parser_basic);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, default_parser_array);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, strict_parser_basic);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, relaxed_parser_basic);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, stream_parse_convenience);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, stream_parse_strict_convenience);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, stream_parse_limited_convenience);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, strict_limits_depth);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, strict_limits_string_size);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, configurable_limits);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, utf8_validation_valid);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, utf8_validation_invalid);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, utf8_validation_overlong);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, chunked_feeding);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, chunked_feeding_error);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, progress_callback);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, error_information);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, incomplete_input_error);
+    FATP_RUN_TEST_NS(runner, fatpcborstream, using_macro);
 
     fatpcborstream::benchmark_policies();
 

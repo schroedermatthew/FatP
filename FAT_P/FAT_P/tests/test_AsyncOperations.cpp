@@ -8,7 +8,7 @@ FATP_META:
   component: AsyncOperations
   file_role: test
   path: tests/test_AsyncOperations.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::asyncoperations::testing::asyncoperations
   summary: "Unit tests for AsyncOperations."
   related:
     docs_search: "AsyncOperations"
@@ -37,22 +37,22 @@ FATP_META:
 #include "Expected.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing
+namespace fat_p::testing::asyncoperations
 {
 
-bool test_basic_task() {
+FATP_TEST_CASE(basic_task) {
     auto task = async_task([]() -> Expected<int, std::string> {
         return 42;
     });
     
     auto result = task.wait();
-    ASSERT_TRUE(result.has_value(), "Task should succeed");
-    ASSERT_TRUE(*result == 42, "Result should be 42");
+    FATP_ASSERT_TRUE(result.has_value(), "Task should succeed");
+    FATP_ASSERT_TRUE(*result == 42, "Result should be 42");
     
     return true;
 }
 
-bool test_continuation() {
+FATP_TEST_CASE(continuation) {
     auto task = async_task([]() -> Expected<int, std::string> {
         return 10;
     }).then([](int val) -> Expected<int, std::string> {
@@ -60,13 +60,13 @@ bool test_continuation() {
     });
     
     auto result = task.wait();
-    ASSERT_TRUE(result.has_value(), "Task should succeed");
-    ASSERT_TRUE(*result == 20, "Result should be 20");
+    FATP_ASSERT_TRUE(result.has_value(), "Task should succeed");
+    FATP_ASSERT_TRUE(*result == 20, "Result should be 20");
     
     return true;
 }
 
-bool test_error_handling() {
+FATP_TEST_CASE(error_handling) {
     bool error_called = false;
     
     auto task = async_task([]() -> Expected<int, std::string> {
@@ -76,13 +76,13 @@ bool test_error_handling() {
     });
     
     auto result = task.wait();
-    ASSERT_TRUE(!result.has_value(), "Task should fail");
-    ASSERT_TRUE(error_called, "Error handler should be called");
+    FATP_ASSERT_TRUE(!result.has_value(), "Task should fail");
+    FATP_ASSERT_TRUE(error_called, "Error handler should be called");
     
     return true;
 }
 
-bool test_chained_continuations() {
+FATP_TEST_CASE(chained_continuations) {
     auto task = async_task([]() -> Expected<int, std::string> {
         return 5;
     }).then([](int val) -> Expected<int, std::string> {
@@ -92,13 +92,13 @@ bool test_chained_continuations() {
     });
     
     auto result = task.wait();
-    ASSERT_TRUE(result.has_value(), "Task should succeed");
-    ASSERT_TRUE(*result == 30, "Result should be 30 ((5+10)*2)");
+    FATP_ASSERT_TRUE(result.has_value(), "Task should succeed");
+    FATP_ASSERT_TRUE(*result == 30, "Result should be 30 ((5+10)*2)");
     
     return true;
 }
 
-bool test_error_propagation() {
+FATP_TEST_CASE(error_propagation) {
     auto task = async_task([]() -> Expected<int, std::string> {
         return unexpected<std::string>("initial error");
     }).then([](int val) -> Expected<int, std::string> {
@@ -106,13 +106,13 @@ bool test_error_propagation() {
     });
     
     auto result = task.wait();
-    ASSERT_TRUE(!result.has_value(), "Task should fail");
-    ASSERT_TRUE(result.error() == "initial error", "Error should propagate");
+    FATP_ASSERT_TRUE(!result.has_value(), "Task should fail");
+    FATP_ASSERT_TRUE(result.error() == "initial error", "Error should propagate");
     
     return true;
 }
 
-bool test_poll() {
+FATP_TEST_CASE(poll) {
     auto task = async_task([]() -> Expected<int, std::string> {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         return 42;
@@ -122,17 +122,17 @@ bool test_poll() {
     // May or may not be ready depending on timing
     
     auto final_result = task.wait();
-    ASSERT_TRUE(final_result.has_value(), "Final wait should succeed");
+    FATP_ASSERT_TRUE(final_result.has_value(), "Final wait should succeed");
     
     return true;
 }
 
-bool test_valid() {
+FATP_TEST_CASE(valid) {
     auto task = async_task([]() -> Expected<int, std::string> {
         return 42;
     });
     
-    ASSERT_TRUE(task.valid(), "Task should be valid before wait");
+    FATP_ASSERT_TRUE(task.valid(), "Task should be valid before wait");
     
     (void)task.wait();
     
@@ -167,21 +167,26 @@ void benchmark_asyncoperations() {
     std::cout << "Task with continuation: " << format_time(chain_time) << "\n";
 }
 
+} // namespace fat_p::testing::asyncoperations
+
+namespace fat_p::testing
+{
+
 bool test_AsyncOperations() {
 
-    PRINT_HEADER(ASYNC OPERATIONS)
+    FATP_PRINT_HEADER(ASYNC OPERATIONS)
 
     TestRunner runner;
 
-    RUN_TEST(runner, basic_task);
-    RUN_TEST(runner, continuation);
-    RUN_TEST(runner, error_handling);
-    RUN_TEST(runner, chained_continuations);
-    RUN_TEST(runner, error_propagation);
-    RUN_TEST(runner, poll);
-    RUN_TEST(runner, valid);
+    FATP_RUN_TEST_NS(runner, asyncoperations, basic_task);
+    FATP_RUN_TEST_NS(runner, asyncoperations, continuation);
+    FATP_RUN_TEST_NS(runner, asyncoperations, error_handling);
+    FATP_RUN_TEST_NS(runner, asyncoperations, chained_continuations);
+    FATP_RUN_TEST_NS(runner, asyncoperations, error_propagation);
+    FATP_RUN_TEST_NS(runner, asyncoperations, poll);
+    FATP_RUN_TEST_NS(runner, asyncoperations, valid);
 
-    benchmark_asyncoperations();
+    asyncoperations::benchmark_asyncoperations();
 
     return 0 == runner.print_summary();
 }

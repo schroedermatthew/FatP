@@ -46,32 +46,32 @@ namespace fat_p::testing::tensorcomparison
 // Test Suite 1: operator== (Exact Comparison for STL Containers)
 // ============================================================================
 
-TEST_CASE(exact_equality_integers)
+FATP_TEST_CASE(exact_equality_integers)
 {
     Tensor<int> a({2, 3}, 42);
     Tensor<int> b({2, 3}, 42);
     Tensor<int> c({2, 3}, 43);
 
-    ASSERT_TRUE(a == b, "Equal integer tensors should match");
-    ASSERT_TRUE(a != c, "Different integer tensors should not match");
-    ASSERT_TRUE(a == a, "Self-equality should work");
+    FATP_ASSERT_TRUE(a == b, "Equal integer tensors should match");
+    FATP_ASSERT_TRUE(a != c, "Different integer tensors should not match");
+    FATP_ASSERT_TRUE(a == a, "Self-equality should work");
 
     return true;
 }
 
-TEST_CASE(exact_equality_floats)
+FATP_TEST_CASE(exact_equality_floats)
 {
     Tensor<float> a({2, 2}, 1.0f);
     Tensor<float> b({2, 2}, 1.0f);
     Tensor<float> c({2, 2}, 1.0f + 1e-7f);
 
-    ASSERT_TRUE(a == b, "Exact float match should work");
-    ASSERT_TRUE(a != c, "Even tiny differences should fail with operator==");
+    FATP_ASSERT_TRUE(a == b, "Exact float match should work");
+    FATP_ASSERT_TRUE(a != c, "Even tiny differences should fail with operator==");
 
     return true;
 }
 
-TEST_CASE(exact_equality_views)
+FATP_TEST_CASE(exact_equality_views)
 {
     Tensor<double> mat({3, 3}, 1.0);
     auto row1 = mat.row(0);
@@ -83,20 +83,20 @@ TEST_CASE(exact_equality_views)
         row3[i] = row1[i];
     }
 
-    ASSERT_TRUE(row1 == row2, "Same view should be equal");
-    ASSERT_TRUE(row1 == row3, "Views with same values should be equal");
+    FATP_ASSERT_TRUE(row1 == row2, "Same view should be equal");
+    FATP_ASSERT_TRUE(row1 == row3, "Views with same values should be equal");
 
     return true;
 }
 
-TEST_CASE(shape_mismatch)
+FATP_TEST_CASE(shape_mismatch)
 {
     Tensor<int> a({2, 3}, 1);
     Tensor<int> b({3, 2}, 1);
     Tensor<int> c({2, 3, 1}, 1);
 
-    ASSERT_TRUE(a != b, "Different shapes should not be equal");
-    ASSERT_TRUE(a != c, "Different ranks should not be equal");
+    FATP_ASSERT_TRUE(a != b, "Different shapes should not be equal");
+    FATP_ASSERT_TRUE(a != c, "Different ranks should not be equal");
 
     return true;
 }
@@ -105,42 +105,42 @@ TEST_CASE(shape_mismatch)
 // Test Suite 2: approx_equal (Epsilon-Based Floating-Point Comparison)
 // ============================================================================
 
-TEST_CASE(approx_equal_default_epsilon)
+FATP_TEST_CASE(approx_equal_default_epsilon)
 {
     Tensor<float> a({2, 2}, 1.0f);
     Tensor<float> b({2, 2}, 1.0f + 1e-7f);
     Tensor<float> c({2, 2}, 1.0f + 1e-5f);
 
-    ASSERT_TRUE(a.approx_equal(b), "Within default epsilon should pass");
-    ASSERT_TRUE(!a.approx_equal(c), "Beyond default epsilon should fail");
+    FATP_ASSERT_TRUE(a.approx_equal(b), "Within default epsilon should pass");
+    FATP_ASSERT_TRUE(!a.approx_equal(c), "Beyond default epsilon should fail");
 
     return true;
 }
 
-TEST_CASE(approx_equal_custom_epsilon)
+FATP_TEST_CASE(approx_equal_custom_epsilon)
 {
     Tensor<double> a({3, 3}, 1.0);
     Tensor<double> b({3, 3}, 1.0 + 1e-8);
     Tensor<double> c({3, 3}, 1.0 + 1e-4);
 
-    ASSERT_TRUE(!a.approx_equal(b), "Beyond default epsilon should fail");
-    ASSERT_TRUE(a.approx_equal(b, 1e-7), "Within custom epsilon should pass");
-    ASSERT_TRUE(a.approx_equal(c, 1e-3), "Within large custom epsilon should pass");
+    FATP_ASSERT_TRUE(!a.approx_equal(b), "Beyond default epsilon should fail");
+    FATP_ASSERT_TRUE(a.approx_equal(b, 1e-7), "Within custom epsilon should pass");
+    FATP_ASSERT_TRUE(a.approx_equal(c, 1e-3), "Within large custom epsilon should pass");
 
     return true;
 }
 
-TEST_CASE(approx_equal_relative_tolerance)
+FATP_TEST_CASE(approx_equal_relative_tolerance)
 {
     Tensor<float> a({2, 2}, 1e6f);
     Tensor<float> b({2, 2}, 1e6f + 1.0f);
 
-    ASSERT_TRUE(a.approx_equal(b, 1e-5f), "Relative tolerance for large values");
+    FATP_ASSERT_TRUE(a.approx_equal(b, 1e-5f), "Relative tolerance for large values");
 
     return true;
 }
 
-TEST_CASE(approx_equal_views)
+FATP_TEST_CASE(approx_equal_views)
 {
     Tensor<double> mat({3, 3}, 1.0);
 
@@ -153,19 +153,19 @@ TEST_CASE(approx_equal_views)
     auto row0 = mat.row(0);
     auto row1_view = mat.row(1);
 
-    ASSERT_TRUE(row0.approx_equal(row1_view, 1e-8), "Views should work with approx_equal");
+    FATP_ASSERT_TRUE(row0.approx_equal(row1_view, 1e-8), "Views should work with approx_equal");
 
     return true;
 }
 
-TEST_CASE(approx_equal_integers)
+FATP_TEST_CASE(approx_equal_integers)
 {
     Tensor<int> a({2, 2}, 42);
     Tensor<int> b({2, 2}, 42);
     Tensor<int> c({2, 2}, 43);
 
-    ASSERT_TRUE(a.approx_equal(b), "Equal integers should pass");
-    ASSERT_TRUE(!a.approx_equal(c), "Different integers should fail");
+    FATP_ASSERT_TRUE(a.approx_equal(b), "Equal integers should pass");
+    FATP_ASSERT_TRUE(!a.approx_equal(c), "Different integers should fail");
 
     return true;
 }
@@ -174,7 +174,7 @@ TEST_CASE(approx_equal_integers)
 // Test Suite 3: std::hash Support (Unordered Containers)
 // ============================================================================
 
-TEST_CASE(hash_consistency)
+FATP_TEST_CASE(hash_consistency)
 {
     Tensor<int> a({2, 2}, 42);
     Tensor<int> b({2, 2}, 42);
@@ -182,13 +182,13 @@ TEST_CASE(hash_consistency)
     std::size_t hash_a = std::hash<Tensor<int>>{}(a);
     std::size_t hash_b = std::hash<Tensor<int>>{}(b);
 
-    ASSERT_TRUE(a == b, "Tensors should be equal");
-    ASSERT_TRUE(hash_a == hash_b, "Equal tensors must have equal hashes");
+    FATP_ASSERT_TRUE(a == b, "Tensors should be equal");
+    FATP_ASSERT_TRUE(hash_a == hash_b, "Equal tensors must have equal hashes");
 
     return true;
 }
 
-TEST_CASE(unordered_map)
+FATP_TEST_CASE(unordered_map)
 {
     std::unordered_map<Tensor<int>, std::string> tensor_map;
 
@@ -199,14 +199,14 @@ TEST_CASE(unordered_map)
     tensor_map[key1] = "value1";
     tensor_map[key3] = "value3";
 
-    ASSERT_EQ(tensor_map.size(), 2, "Map should have 2 entries");
-    ASSERT_EQ(tensor_map.count(key2), 1, "Equal key should be found");
-    ASSERT_EQ(tensor_map[key2], "value1", "Should retrieve correct value");
+    FATP_ASSERT_EQ(tensor_map.size(), 2, "Map should have 2 entries");
+    FATP_ASSERT_EQ(tensor_map.count(key2), 1, "Equal key should be found");
+    FATP_ASSERT_EQ(tensor_map[key2], "value1", "Should retrieve correct value");
 
     return true;
 }
 
-TEST_CASE(unordered_set)
+FATP_TEST_CASE(unordered_set)
 {
     std::unordered_set<Tensor<float>> tensor_set;
 
@@ -218,14 +218,14 @@ TEST_CASE(unordered_set)
     tensor_set.insert(t2);
     tensor_set.insert(t3);
 
-    ASSERT_EQ(tensor_set.size(), 2, "Set should have 2 unique tensors");
-    ASSERT_EQ(tensor_set.count(t1), 1, "Should find t1");
-    ASSERT_EQ(tensor_set.count(t2), 1, "Should find t2 (equal to t1)");
+    FATP_ASSERT_EQ(tensor_set.size(), 2, "Set should have 2 unique tensors");
+    FATP_ASSERT_EQ(tensor_set.count(t1), 1, "Should find t1");
+    FATP_ASSERT_EQ(tensor_set.count(t2), 1, "Should find t2 (equal to t1)");
 
     return true;
 }
 
-TEST_CASE(hash_with_nan)
+FATP_TEST_CASE(hash_with_nan)
 {
     Tensor<float> a({2, 2}, std::nanf(""));
     Tensor<float> b({2, 2}, std::nanf(""));
@@ -233,12 +233,12 @@ TEST_CASE(hash_with_nan)
     std::size_t hash_a = std::hash<Tensor<float>>{}(a);
     std::size_t hash_b = std::hash<Tensor<float>>{}(b);
 
-    ASSERT_TRUE(hash_a == hash_b, "NaN tensors should have consistent hashes");
+    FATP_ASSERT_TRUE(hash_a == hash_b, "NaN tensors should have consistent hashes");
 
     return true;
 }
 
-TEST_CASE(hash_different_strides)
+FATP_TEST_CASE(hash_different_strides)
 {
     Tensor<int> a({4, 4}, 1);
     auto view = a.row(0);
@@ -246,7 +246,7 @@ TEST_CASE(hash_different_strides)
     std::size_t hash_full = std::hash<Tensor<int>>{}(a);
     std::size_t hash_view = std::hash<decltype(view)>{}(view);
 
-    ASSERT_TRUE(hash_full != hash_view, "Different shapes should have different hashes");
+    FATP_ASSERT_TRUE(hash_full != hash_view, "Different shapes should have different hashes");
 
     return true;
 }
@@ -255,24 +255,24 @@ TEST_CASE(hash_different_strides)
 // Test Suite 4: EqualDispatcher Integration (Policy-Based for Test Frameworks)
 // ============================================================================
 
-TEST_CASE(equal_dispatcher_basic)
+FATP_TEST_CASE(equal_dispatcher_basic)
 {
     Tensor<double> a({10, 10}, 1.0);
     Tensor<double> b({10, 10}, 1.0 + 1e-8);
 
     bool result = areEqual(a, b, 1e-7);
-    ASSERT_TRUE(result, "Policy-based comparison should work with epsilon");
+    FATP_ASSERT_TRUE(result, "Policy-based comparison should work with epsilon");
 
     return true;
 }
 
-TEST_CASE(equal_dispatcher_hybrid)
+FATP_TEST_CASE(equal_dispatcher_hybrid)
 {
     Tensor<float> a({5, 5}, 1.0f);
     Tensor<float> b({5, 5}, 1.0f + 1e-7f);
 
     bool result = areEqual<Tensor<float>, HybridComparisonPolicy>(a, b, 1e-6f, 1e-6f);
-    ASSERT_TRUE(result, "HybridPolicy should pass with appropriate tolerances");
+    FATP_ASSERT_TRUE(result, "HybridPolicy should pass with appropriate tolerances");
 
     return true;
 }
@@ -281,47 +281,47 @@ TEST_CASE(equal_dispatcher_hybrid)
 // Test Suite 5: Edge Cases and Special Values
 // ============================================================================
 
-TEST_CASE(equality_with_infinity)
+FATP_TEST_CASE(equality_with_infinity)
 {
     Tensor<double> a({2, 2}, std::numeric_limits<double>::infinity());
     Tensor<double> b({2, 2}, std::numeric_limits<double>::infinity());
     Tensor<double> c({2, 2}, -std::numeric_limits<double>::infinity());
 
-    ASSERT_TRUE(a == b, "Positive infinities should be equal");
-    ASSERT_TRUE(a != c, "Positive and negative infinities should differ");
+    FATP_ASSERT_TRUE(a == b, "Positive infinities should be equal");
+    FATP_ASSERT_TRUE(a != c, "Positive and negative infinities should differ");
 
     return true;
 }
 
-TEST_CASE(equality_with_zero)
+FATP_TEST_CASE(equality_with_zero)
 {
     Tensor<float> a({3, 3}, 0.0f);
     Tensor<float> b({3, 3}, -0.0f);
 
-    ASSERT_TRUE(a == b, "Positive and negative zero should be equal");
+    FATP_ASSERT_TRUE(a == b, "Positive and negative zero should be equal");
 
     return true;
 }
 
-TEST_CASE(empty_tensors)
+FATP_TEST_CASE(empty_tensors)
 {
     Tensor<int> a({0});
     Tensor<int> b({0});
 
-    ASSERT_TRUE(a == b, "Empty tensors should be equal");
-    ASSERT_TRUE(a.approx_equal(b), "Empty tensors should be approx_equal");
+    FATP_ASSERT_TRUE(a == b, "Empty tensors should be equal");
+    FATP_ASSERT_TRUE(a.approx_equal(b), "Empty tensors should be approx_equal");
 
     return true;
 }
 
-TEST_CASE(single_element)
+FATP_TEST_CASE(single_element)
 {
     Tensor<double> a({1}, 42.0);
     Tensor<double> b({1}, 42.0);
     Tensor<double> c({1}, 42.0 + 1e-9);
 
-    ASSERT_TRUE(a == b, "Single element tensors should be equal");
-    ASSERT_TRUE(a.approx_equal(c, 1e-8), "Single element approx_equal should work");
+    FATP_ASSERT_TRUE(a == b, "Single element tensors should be equal");
+    FATP_ASSERT_TRUE(a.approx_equal(c, 1e-8), "Single element approx_equal should work");
 
     return true;
 }
@@ -373,39 +373,39 @@ namespace fat_p::testing
 
 bool test_TensorComparison()
 {
-    PRINT_HEADER(TENSOR COMPARISON)
+    FATP_PRINT_HEADER(TENSOR COMPARISON)
 
     TestRunner runner;
 
     // Exact equality (operator==)
-    RUN_TEST_NS(runner, tensorcomparison, exact_equality_integers);
-    RUN_TEST_NS(runner, tensorcomparison, exact_equality_floats);
-    RUN_TEST_NS(runner, tensorcomparison, exact_equality_views);
-    RUN_TEST_NS(runner, tensorcomparison, shape_mismatch);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, exact_equality_integers);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, exact_equality_floats);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, exact_equality_views);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, shape_mismatch);
 
     // Approximate equality
-    RUN_TEST_NS(runner, tensorcomparison, approx_equal_default_epsilon);
-    RUN_TEST_NS(runner, tensorcomparison, approx_equal_custom_epsilon);
-    RUN_TEST_NS(runner, tensorcomparison, approx_equal_relative_tolerance);
-    RUN_TEST_NS(runner, tensorcomparison, approx_equal_views);
-    RUN_TEST_NS(runner, tensorcomparison, approx_equal_integers);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, approx_equal_default_epsilon);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, approx_equal_custom_epsilon);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, approx_equal_relative_tolerance);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, approx_equal_views);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, approx_equal_integers);
 
     // Hash support
-    RUN_TEST_NS(runner, tensorcomparison, hash_consistency);
-    RUN_TEST_NS(runner, tensorcomparison, unordered_map);
-    RUN_TEST_NS(runner, tensorcomparison, unordered_set);
-    RUN_TEST_NS(runner, tensorcomparison, hash_with_nan);
-    RUN_TEST_NS(runner, tensorcomparison, hash_different_strides);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, hash_consistency);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, unordered_map);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, unordered_set);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, hash_with_nan);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, hash_different_strides);
 
     // EqualDispatcher integration
-    RUN_TEST_NS(runner, tensorcomparison, equal_dispatcher_basic);
-    RUN_TEST_NS(runner, tensorcomparison, equal_dispatcher_hybrid);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, equal_dispatcher_basic);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, equal_dispatcher_hybrid);
 
     // Edge cases
-    RUN_TEST_NS(runner, tensorcomparison, equality_with_infinity);
-    RUN_TEST_NS(runner, tensorcomparison, equality_with_zero);
-    RUN_TEST_NS(runner, tensorcomparison, empty_tensors);
-    RUN_TEST_NS(runner, tensorcomparison, single_element);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, equality_with_infinity);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, equality_with_zero);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, empty_tensors);
+    FATP_RUN_TEST_NS(runner, tensorcomparison, single_element);
 
     tensorcomparison::benchmark_tensorcomparison();
 

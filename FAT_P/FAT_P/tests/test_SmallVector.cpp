@@ -8,7 +8,7 @@ FATP_META:
   component: SmallVector
   file_role: test
   path: tests/test_SmallVector.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::smallvector
   summary: "Unit tests for SmallVector."
   related:
     docs_search: "SmallVector"
@@ -38,7 +38,7 @@ FATP_META:
 #include "SmallVector.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing
+namespace fat_p::testing::smallvector
 {
 
 template<typename T>
@@ -151,131 +151,131 @@ bool is_using_inline_storage(const SmallVector<T, N, A>& v)
     return data_ptr >= obj_start && data_ptr < obj_end;
 }
 
-bool test_sv_basic_construction()
+FATP_TEST_CASE(basic_construction)
 {
     SmallVector<int, 4> v1;
-    ASSERT_TRUE(v1.size() == 0, "Default constructor creates empty vector");
-    ASSERT_TRUE(v1.empty(), "Default vector is empty");
-    ASSERT_TRUE(v1.capacity() == 4, "Default capacity equals InlineCapacity");
+    FATP_ASSERT_TRUE(v1.size() == 0, "Default constructor creates empty vector");
+    FATP_ASSERT_TRUE(v1.empty(), "Default vector is empty");
+    FATP_ASSERT_TRUE(v1.capacity() == 4, "Default capacity equals InlineCapacity");
 
     SmallVector<int, 4> v2(5);
-    ASSERT_TRUE(v2.size() == 5, "Count constructor creates vector with 5 elements");
-    ASSERT_TRUE(v2.capacity() >= 5, "Capacity accommodates 5 elements");
+    FATP_ASSERT_TRUE(v2.size() == 5, "Count constructor creates vector with 5 elements");
+    FATP_ASSERT_TRUE(v2.capacity() >= 5, "Capacity accommodates 5 elements");
 
     SmallVector<int, 4> v3(3, 42);
-    ASSERT_TRUE(v3.size() == 3, "Count-value constructor creates 3 elements");
-    ASSERT_TRUE(v3[0] == 42 && v3[1] == 42 && v3[2] == 42, "All elements equal 42");
+    FATP_ASSERT_TRUE(v3.size() == 3, "Count-value constructor creates 3 elements");
+    FATP_ASSERT_TRUE(v3[0] == 42 && v3[1] == 42 && v3[2] == 42, "All elements equal 42");
 
     std::vector<int> src = {1, 2, 3, 4, 5};
     SmallVector<int, 4> v4(src.begin(), src.end());
-    ASSERT_TRUE(v4.size() == 5, "Iterator constructor creates vector with 5 elements");
-    ASSERT_TRUE(std::equal(v4.begin(), v4.end(), src.begin()), "Elements match source");
+    FATP_ASSERT_TRUE(v4.size() == 5, "Iterator constructor creates vector with 5 elements");
+    FATP_ASSERT_TRUE(std::equal(v4.begin(), v4.end(), src.begin()), "Elements match source");
 
     SmallVector<int, 4> v5 = {10, 20, 30};
-    ASSERT_TRUE(v5.size() == 3, "Initializer list creates 3 elements");
-    ASSERT_TRUE(v5[0] == 10 && v5[1] == 20 && v5[2] == 30, "Elements match");
+    FATP_ASSERT_TRUE(v5.size() == 3, "Initializer list creates 3 elements");
+    FATP_ASSERT_TRUE(v5[0] == 10 && v5[1] == 20 && v5[2] == 30, "Elements match");
 
     return true;
 }
 
-bool test_sv_copy_construction()
+FATP_TEST_CASE(copy_construction)
 {
     SmallVector<int, 4> v1 = {1, 2, 3};
     SmallVector<int, 4> v2(v1);
 
-    ASSERT_TRUE(v2.size() == 3, "Copy has same size");
-    ASSERT_TRUE(v2[0] == 1 && v2[1] == 2 && v2[2] == 3, "Copy has same values");
-    ASSERT_TRUE(&v1[0] != &v2[0], "Copy is independent");
+    FATP_ASSERT_TRUE(v2.size() == 3, "Copy has same size");
+    FATP_ASSERT_TRUE(v2[0] == 1 && v2[1] == 2 && v2[2] == 3, "Copy has same values");
+    FATP_ASSERT_TRUE(&v1[0] != &v2[0], "Copy is independent");
 
     SmallVector<int, 2> v3 = {1, 2, 3, 4, 5};
     SmallVector<int, 2> v4(v3);
-    ASSERT_TRUE(v4.size() == 5, "Heap copy has same size");
-    ASSERT_TRUE(std::equal(v3.begin(), v3.end(), v4.begin()), "Heap copy has same values");
+    FATP_ASSERT_TRUE(v4.size() == 5, "Heap copy has same size");
+    FATP_ASSERT_TRUE(std::equal(v3.begin(), v3.end(), v4.begin()), "Heap copy has same values");
 
     return true;
 }
 
-bool test_sv_move_construction()
+FATP_TEST_CASE(move_construction)
 {
     SmallVector<int, 4> v1 = {1, 2, 3};
     SmallVector<int, 4> v2(std::move(v1));
 
-    ASSERT_TRUE(v2.size() == 3, "Move target has size 3");
-    ASSERT_TRUE(v2[0] == 1 && v2[1] == 2 && v2[2] == 3, "Move target has correct values");
-    ASSERT_TRUE(v1.size() == 0, "Move source is empty");
+    FATP_ASSERT_TRUE(v2.size() == 3, "Move target has size 3");
+    FATP_ASSERT_TRUE(v2[0] == 1 && v2[1] == 2 && v2[2] == 3, "Move target has correct values");
+    FATP_ASSERT_TRUE(v1.size() == 0, "Move source is empty");
 
     SmallVector<int, 2> v3 = {1, 2, 3, 4, 5};
     int* old_data = v3.data();
     SmallVector<int, 2> v4(std::move(v3));
 
-    ASSERT_TRUE(v4.size() == 5, "Heap move target has size 5");
-    ASSERT_TRUE(v4.data() == old_data, "Heap move steals pointer");
-    ASSERT_TRUE(v3.size() == 0, "Heap move source is empty");
+    FATP_ASSERT_TRUE(v4.size() == 5, "Heap move target has size 5");
+    FATP_ASSERT_TRUE(v4.data() == old_data, "Heap move steals pointer");
+    FATP_ASSERT_TRUE(v3.size() == 0, "Heap move source is empty");
 
     return true;
 }
 
-bool test_sv_copy_assignment()
+FATP_TEST_CASE(copy_assignment)
 {
     SmallVector<int, 4> v1 = {1, 2, 3};
     SmallVector<int, 4> v2;
     v2 = v1;
 
-    ASSERT_TRUE(v2.size() == 3, "Copy assignment sets size");
-    ASSERT_TRUE(v2[0] == 1 && v2[1] == 2 && v2[2] == 3, "Copy assignment copies values");
+    FATP_ASSERT_TRUE(v2.size() == 3, "Copy assignment sets size");
+    FATP_ASSERT_TRUE(v2[0] == 1 && v2[1] == 2 && v2[2] == 3, "Copy assignment copies values");
 
     SmallVector<int, 4> v3 = {10, 20};
     SmallVector<int, 4> v4 = {1, 2, 3, 4, 5};
     v4 = v3;
-    ASSERT_TRUE(v4.size() == 2, "Copy assignment from smaller vector");
-    ASSERT_TRUE(v4[0] == 10 && v4[1] == 20, "Values correct after copy assignment");
+    FATP_ASSERT_TRUE(v4.size() == 2, "Copy assignment from smaller vector");
+    FATP_ASSERT_TRUE(v4[0] == 10 && v4[1] == 20, "Values correct after copy assignment");
 
     SmallVector<int, 4> v5 = {1, 2, 3};
     v5 = v5;
-    ASSERT_TRUE(v5.size() == 3, "Self-assignment works");
-    ASSERT_TRUE(v5[0] == 1 && v5[1] == 2 && v5[2] == 3, "Self-assignment preserves values");
+    FATP_ASSERT_TRUE(v5.size() == 3, "Self-assignment works");
+    FATP_ASSERT_TRUE(v5[0] == 1 && v5[1] == 2 && v5[2] == 3, "Self-assignment preserves values");
 
     return true;
 }
 
-bool test_sv_move_assignment()
+FATP_TEST_CASE(move_assignment)
 {
     SmallVector<int, 4> v1 = {1, 2, 3};
     SmallVector<int, 4> v2;
     v2 = std::move(v1);
 
-    ASSERT_TRUE(v2.size() == 3, "Move assignment sets size");
-    ASSERT_TRUE(v2[0] == 1 && v2[1] == 2 && v2[2] == 3, "Move assignment transfers values");
-    ASSERT_TRUE(v1.size() == 0, "Move assignment empties source");
+    FATP_ASSERT_TRUE(v2.size() == 3, "Move assignment sets size");
+    FATP_ASSERT_TRUE(v2[0] == 1 && v2[1] == 2 && v2[2] == 3, "Move assignment transfers values");
+    FATP_ASSERT_TRUE(v1.size() == 0, "Move assignment empties source");
 
     SmallVector<int, 2> v3 = {1, 2, 3, 4, 5};
     int* old_data = v3.data();
     SmallVector<int, 2> v4;
     v4 = std::move(v3);
 
-    ASSERT_TRUE(v4.data() == old_data, "Heap move assignment steals pointer");
-    ASSERT_TRUE(v3.size() == 0, "Heap move assignment empties source");
+    FATP_ASSERT_TRUE(v4.data() == old_data, "Heap move assignment steals pointer");
+    FATP_ASSERT_TRUE(v3.size() == 0, "Heap move assignment empties source");
 
     SmallVector<int, 4> v5 = {1, 2, 3};
     auto& v5_ref = v5;  // Indirect reference to avoid -Wself-move
     v5 = std::move(v5_ref);
-    ASSERT_TRUE(v5.size() == 3, "Self-move assignment works");
+    FATP_ASSERT_TRUE(v5.size() == 3, "Self-move assignment works");
 
     return true;
 }
 
-bool test_sv_element_access()
+FATP_TEST_CASE(element_access)
 {
     SmallVector<int, 4> v = {10, 20, 30, 40};
 
-    ASSERT_TRUE(v[0] == 10, "operator[] reads first element");
-    ASSERT_TRUE(v[3] == 40, "operator[] reads last element");
+    FATP_ASSERT_TRUE(v[0] == 10, "operator[] reads first element");
+    FATP_ASSERT_TRUE(v[3] == 40, "operator[] reads last element");
 
     v[1] = 25;
-    ASSERT_TRUE(v[1] == 25, "operator[] writes element");
+    FATP_ASSERT_TRUE(v[1] == 25, "operator[] writes element");
 
-    ASSERT_TRUE(v.at(0) == 10, "at() reads first element");
-    ASSERT_TRUE(v.at(3) == 40, "at() reads last element");
+    FATP_ASSERT_TRUE(v.at(0) == 10, "at() reads first element");
+    FATP_ASSERT_TRUE(v.at(3) == 40, "at() reads last element");
 
     bool threw = false;
     try
@@ -286,20 +286,20 @@ bool test_sv_element_access()
     {
         threw = true;
     }
-    ASSERT_TRUE(threw, "at() throws on out of bounds");
+    FATP_ASSERT_TRUE(threw, "at() throws on out of bounds");
 
-    ASSERT_TRUE(v.front() == 10, "front() returns first element");
-    ASSERT_TRUE(v.back() == 40, "back() returns last element");
+    FATP_ASSERT_TRUE(v.front() == 10, "front() returns first element");
+    FATP_ASSERT_TRUE(v.back() == 40, "back() returns last element");
 
     v.front() = 15;
-    ASSERT_TRUE(v[0] == 15, "front() is writable");
+    FATP_ASSERT_TRUE(v[0] == 15, "front() is writable");
 
-    ASSERT_TRUE(v.data() == &v[0], "data() returns pointer to first element");
+    FATP_ASSERT_TRUE(v.data() == &v[0], "data() returns pointer to first element");
 
     return true;
 }
 
-bool test_sv_iterators()
+FATP_TEST_CASE(iterators)
 {
     SmallVector<int, 4> v = {1, 2, 3, 4};
 
@@ -308,213 +308,213 @@ bool test_sv_iterators()
     {
         sum += *it;
     }
-    ASSERT_TRUE(sum == 10, "Forward iteration works");
+    FATP_ASSERT_TRUE(sum == 10, "Forward iteration works");
 
     sum = 0;
     for (auto it = v.rbegin(); it != v.rend(); ++it)
     {
         sum += *it;
     }
-    ASSERT_TRUE(sum == 10, "Reverse iteration works");
+    FATP_ASSERT_TRUE(sum == 10, "Reverse iteration works");
 
     const SmallVector<int, 4>& cv = v;
-    ASSERT_TRUE(cv.begin() != nullptr, "Const begin works");
-    ASSERT_TRUE(cv.cbegin() != nullptr, "cbegin works");
+    FATP_ASSERT_TRUE(cv.begin() != nullptr, "Const begin works");
+    FATP_ASSERT_TRUE(cv.cbegin() != nullptr, "cbegin works");
 
     sum = 0;
     for (int x : v)
     {
         sum += x;
     }
-    ASSERT_TRUE(sum == 10, "Range-based for works");
+    FATP_ASSERT_TRUE(sum == 10, "Range-based for works");
 
     return true;
 }
 
-bool test_sv_capacity_operations()
+FATP_TEST_CASE(capacity_operations)
 {
     SmallVector<int, 4> v;
 
-    ASSERT_TRUE(v.capacity() == 4, "Initial capacity is InlineCapacity");
-    ASSERT_TRUE(v.empty(), "Empty vector is empty");
+    FATP_ASSERT_TRUE(v.capacity() == 4, "Initial capacity is InlineCapacity");
+    FATP_ASSERT_TRUE(v.empty(), "Empty vector is empty");
 
     v.reserve(10);
-    ASSERT_TRUE(v.capacity() >= 10, "Reserve increases capacity");
-    ASSERT_TRUE(v.size() == 0, "Reserve doesn't change size");
+    FATP_ASSERT_TRUE(v.capacity() >= 10, "Reserve increases capacity");
+    FATP_ASSERT_TRUE(v.size() == 0, "Reserve doesn't change size");
 
     v = {1, 2};
-    ASSERT_TRUE(v.size() == 2, "Size is 2");
+    FATP_ASSERT_TRUE(v.size() == 2, "Size is 2");
 
     v.resize(5);
-    ASSERT_TRUE(v.size() == 5, "Resize increases size");
-    ASSERT_TRUE(v[0] == 1 && v[1] == 2, "Existing elements preserved");
+    FATP_ASSERT_TRUE(v.size() == 5, "Resize increases size");
+    FATP_ASSERT_TRUE(v[0] == 1 && v[1] == 2, "Existing elements preserved");
 
     v.resize(3);
-    ASSERT_TRUE(v.size() == 3, "Resize decreases size");
+    FATP_ASSERT_TRUE(v.size() == 3, "Resize decreases size");
 
     v.resize(4, 99);
-    ASSERT_TRUE(v[3] == 99, "Resize with value works");
+    FATP_ASSERT_TRUE(v[3] == 99, "Resize with value works");
 
     v.clear();
-    ASSERT_TRUE(v.size() == 0, "Clear empties vector");
-    ASSERT_TRUE(v.capacity() >= 4, "Clear preserves capacity");
+    FATP_ASSERT_TRUE(v.size() == 0, "Clear empties vector");
+    FATP_ASSERT_TRUE(v.capacity() >= 4, "Clear preserves capacity");
 
     return true;
 }
 
-bool test_sv_push_back_emplace_back()
+FATP_TEST_CASE(push_back_emplace_back)
 {
     SmallVector<int, 4> v;
 
     v.push_back(1);
-    ASSERT_TRUE(v.size() == 1 && v[0] == 1, "push_back works");
+    FATP_ASSERT_TRUE(v.size() == 1 && v[0] == 1, "push_back works");
 
     v.push_back(2);
     v.push_back(3);
-    ASSERT_TRUE(v.size() == 3, "Multiple push_back works");
+    FATP_ASSERT_TRUE(v.size() == 3, "Multiple push_back works");
 
     int x = 4;
     v.push_back(x);
-    ASSERT_TRUE(v.size() == 4 && v[3] == 4, "push_back lvalue works");
+    FATP_ASSERT_TRUE(v.size() == 4 && v[3] == 4, "push_back lvalue works");
 
     v.push_back(5);
-    ASSERT_TRUE(v.size() == 5, "push_back triggers growth");
-    ASSERT_TRUE(v.capacity() > 4, "Capacity increased after growth");
+    FATP_ASSERT_TRUE(v.size() == 5, "push_back triggers growth");
+    FATP_ASSERT_TRUE(v.capacity() > 4, "Capacity increased after growth");
 
     SmallVector<std::string, 2> sv;
     sv.emplace_back("hello");
-    ASSERT_TRUE(sv.size() == 1 && sv[0] == "hello", "emplace_back constructs in place");
+    FATP_ASSERT_TRUE(sv.size() == 1 && sv[0] == "hello", "emplace_back constructs in place");
 
     sv.emplace_back(5, 'x');
-    ASSERT_TRUE(sv.size() == 2 && sv[1] == "xxxxx", "emplace_back forwards arguments");
+    FATP_ASSERT_TRUE(sv.size() == 2 && sv[1] == "xxxxx", "emplace_back forwards arguments");
 
     return true;
 }
 
-bool test_sv_pop_back()
+FATP_TEST_CASE(pop_back)
 {
     SmallVector<int, 4> v = {1, 2, 3, 4};
 
     v.pop_back();
-    ASSERT_TRUE(v.size() == 3, "pop_back decreases size");
-    ASSERT_TRUE(v.back() == 3, "Last element is now 3");
+    FATP_ASSERT_TRUE(v.size() == 3, "pop_back decreases size");
+    FATP_ASSERT_TRUE(v.back() == 3, "Last element is now 3");
 
     v.pop_back();
     v.pop_back();
     v.pop_back();
-    ASSERT_TRUE(v.empty(), "pop_back until empty");
+    FATP_ASSERT_TRUE(v.empty(), "pop_back until empty");
 
     return true;
 }
 
-bool test_sv_insert()
+FATP_TEST_CASE(insert)
 {
     SmallVector<int, 4> v = {1, 2, 5};
 
     auto it = v.insert(v.begin() + 2, 3);
-    ASSERT_TRUE(v.size() == 4, "Insert increases size");
-    ASSERT_TRUE(*it == 3, "Insert returns iterator to new element");
-    ASSERT_TRUE(v[2] == 3, "Element inserted at correct position");
+    FATP_ASSERT_TRUE(v.size() == 4, "Insert increases size");
+    FATP_ASSERT_TRUE(*it == 3, "Insert returns iterator to new element");
+    FATP_ASSERT_TRUE(v[2] == 3, "Element inserted at correct position");
 
     v = {1, 2};
     it = v.insert(v.end(), 3);
-    ASSERT_TRUE(v.size() == 3 && v[2] == 3, "Insert at end works");
+    FATP_ASSERT_TRUE(v.size() == 3 && v[2] == 3, "Insert at end works");
 
     v = {1, 4};
     it = v.insert(v.begin() + 1, 2, 99);
-    ASSERT_TRUE(v.size() == 4, "Insert count increases size");
-    ASSERT_TRUE(v[1] == 99 && v[2] == 99, "Multiple inserts work");
+    FATP_ASSERT_TRUE(v.size() == 4, "Insert count increases size");
+    FATP_ASSERT_TRUE(v[1] == 99 && v[2] == 99, "Multiple inserts work");
 
     v = {1, 5};
     std::vector<int> to_insert = {2, 3, 4};
     it = v.insert(v.begin() + 1, to_insert.begin(), to_insert.end());
-    ASSERT_TRUE(v.size() == 5, "Range insert works");
-    ASSERT_TRUE(v[1] == 2 && v[2] == 3 && v[3] == 4, "Range insert values correct");
+    FATP_ASSERT_TRUE(v.size() == 5, "Range insert works");
+    FATP_ASSERT_TRUE(v[1] == 2 && v[2] == 3 && v[3] == 4, "Range insert values correct");
 
     v = {1, 4};
     it = v.insert(v.begin() + 1, {2, 3});
-    ASSERT_TRUE(v.size() == 4, "Initializer list insert works");
-    ASSERT_TRUE(v[1] == 2 && v[2] == 3, "Initializer list values correct");
+    FATP_ASSERT_TRUE(v.size() == 4, "Initializer list insert works");
+    FATP_ASSERT_TRUE(v[1] == 2 && v[2] == 3, "Initializer list values correct");
 
     return true;
 }
 
-bool test_sv_emplace()
+FATP_TEST_CASE(emplace)
 {
     SmallVector<std::string, 4> v = {"a", "c"};
 
     auto it = v.emplace(v.begin() + 1, "b");
-    ASSERT_TRUE(v.size() == 3, "Emplace increases size");
-    ASSERT_TRUE(*it == "b", "Emplace returns iterator");
-    ASSERT_TRUE(v[1] == "b", "Emplace constructs at position");
+    FATP_ASSERT_TRUE(v.size() == 3, "Emplace increases size");
+    FATP_ASSERT_TRUE(*it == "b", "Emplace returns iterator");
+    FATP_ASSERT_TRUE(v[1] == "b", "Emplace constructs at position");
 
     v.emplace(v.begin(), 3, 'x');
-    ASSERT_TRUE(v[0] == "xxx", "Emplace forwards constructor arguments");
+    FATP_ASSERT_TRUE(v[0] == "xxx", "Emplace forwards constructor arguments");
 
     return true;
 }
 
-bool test_sv_erase()
+FATP_TEST_CASE(erase)
 {
     SmallVector<int, 4> v = {1, 2, 3, 4, 5};
 
     auto it = v.erase(v.begin() + 2);
-    ASSERT_TRUE(v.size() == 4, "Erase decreases size");
-    ASSERT_TRUE(*it == 4, "Erase returns iterator to next element");
-    ASSERT_TRUE(v[2] == 4, "Elements shifted after erase");
+    FATP_ASSERT_TRUE(v.size() == 4, "Erase decreases size");
+    FATP_ASSERT_TRUE(*it == 4, "Erase returns iterator to next element");
+    FATP_ASSERT_TRUE(v[2] == 4, "Elements shifted after erase");
 
     v = {1, 2, 3, 4, 5};
     it = v.erase(v.begin() + 1, v.begin() + 4);
-    ASSERT_TRUE(v.size() == 2, "Range erase works");
-    ASSERT_TRUE(v[0] == 1 && v[1] == 5, "Correct elements remain after range erase");
+    FATP_ASSERT_TRUE(v.size() == 2, "Range erase works");
+    FATP_ASSERT_TRUE(v[0] == 1 && v[1] == 5, "Correct elements remain after range erase");
 
     v = {1, 2, 3};
     it = v.erase(v.begin() + 2);
-    ASSERT_TRUE(v.size() == 2 && it == v.end(), "Erase last element");
+    FATP_ASSERT_TRUE(v.size() == 2 && it == v.end(), "Erase last element");
 
     return true;
 }
 
-bool test_sv_swap()
+FATP_TEST_CASE(swap)
 {
     SmallVector<int, 4> v1 = {1, 2, 3};
     SmallVector<int, 4> v2 = {4, 5};
 
     v1.swap(v2);
 
-    ASSERT_TRUE(v1.size() == 2, "Swap exchanges sizes");
-    ASSERT_TRUE(v1[0] == 4 && v1[1] == 5, "Swap exchanges elements v1");
-    ASSERT_TRUE(v2.size() == 3, "Swap exchanges sizes v2");
-    ASSERT_TRUE(v2[0] == 1 && v2[1] == 2 && v2[2] == 3, "Swap exchanges elements v2");
+    FATP_ASSERT_TRUE(v1.size() == 2, "Swap exchanges sizes");
+    FATP_ASSERT_TRUE(v1[0] == 4 && v1[1] == 5, "Swap exchanges elements v1");
+    FATP_ASSERT_TRUE(v2.size() == 3, "Swap exchanges sizes v2");
+    FATP_ASSERT_TRUE(v2[0] == 1 && v2[1] == 2 && v2[2] == 3, "Swap exchanges elements v2");
 
     SmallVector<int, 2> v3 = {1, 2, 3, 4, 5};
     SmallVector<int, 2> v4 = {6, 7};
 
     v3.swap(v4);
-    ASSERT_TRUE(v3.size() == 2 && v4.size() == 5, "Swap heap and inline");
+    FATP_ASSERT_TRUE(v3.size() == 2 && v4.size() == 5, "Swap heap and inline");
 
     return true;
 }
 
-bool test_sv_comparison_operators()
+FATP_TEST_CASE(comparison_operators)
 {
     SmallVector<int, 4> v1 = {1, 2, 3};
     SmallVector<int, 4> v2 = {1, 2, 3};
     SmallVector<int, 4> v3 = {1, 2, 4};
     SmallVector<int, 4> v4 = {1, 2};
 
-    ASSERT_TRUE(v1 == v2, "Equal vectors compare equal");
-    ASSERT_TRUE(v1 != v3, "Different vectors not equal");
-    ASSERT_TRUE(v1 < v3, "Lexicographical less than");
-    ASSERT_TRUE(v4 < v1, "Shorter vector less than longer");
-    ASSERT_TRUE(v1 <= v2, "Less or equal with equal");
-    ASSERT_TRUE(v3 > v1, "Greater than");
-    ASSERT_TRUE(v1 >= v2, "Greater or equal with equal");
+    FATP_ASSERT_TRUE(v1 == v2, "Equal vectors compare equal");
+    FATP_ASSERT_TRUE(v1 != v3, "Different vectors not equal");
+    FATP_ASSERT_TRUE(v1 < v3, "Lexicographical less than");
+    FATP_ASSERT_TRUE(v4 < v1, "Shorter vector less than longer");
+    FATP_ASSERT_TRUE(v1 <= v2, "Less or equal with equal");
+    FATP_ASSERT_TRUE(v3 > v1, "Greater than");
+    FATP_ASSERT_TRUE(v1 >= v2, "Greater or equal with equal");
 
     return true;
 }
 
-bool test_sv_inline_to_heap_transition()
+FATP_TEST_CASE(inline_to_heap_transition)
 {
     SmallVector<int, 4> v;
 
@@ -522,21 +522,21 @@ bool test_sv_inline_to_heap_transition()
     {
         v.push_back(i);
     }
-    ASSERT_TRUE(v.capacity() == 4, "Still inline at capacity");
+    FATP_ASSERT_TRUE(v.capacity() == 4, "Still inline at capacity");
 
     v.push_back(4);
-    ASSERT_TRUE(v.capacity() > 4, "Transitioned to heap");
-    ASSERT_TRUE(v.size() == 5, "Size correct after transition");
+    FATP_ASSERT_TRUE(v.capacity() > 4, "Transitioned to heap");
+    FATP_ASSERT_TRUE(v.size() == 5, "Size correct after transition");
 
     for (int i = 0; i < 5; ++i)
     {
-        ASSERT_TRUE(v[i] == i, "Values preserved after transition");
+        FATP_ASSERT_TRUE(v[i] == i, "Values preserved after transition");
     }
 
     return true;
 }
 
-bool test_sv_shrink_to_fit()
+FATP_TEST_CASE(shrink_to_fit)
 {
     SmallVector<int, 4> v;
     for (int i = 0; i < 10; ++i)
@@ -544,19 +544,19 @@ bool test_sv_shrink_to_fit()
         v.push_back(i);
     }
 
-    ASSERT_TRUE(v.capacity() > 4, "Grown to heap");
+    FATP_ASSERT_TRUE(v.capacity() > 4, "Grown to heap");
 
     v.resize(3);
     v.shrink_to_fit();
 
-    ASSERT_TRUE(v.capacity() == 4, "Shrunk back to inline");
-    ASSERT_TRUE(v.size() == 3, "Size preserved");
-    ASSERT_TRUE(v[0] == 0 && v[1] == 1 && v[2] == 2, "Values preserved");
+    FATP_ASSERT_TRUE(v.capacity() == 4, "Shrunk back to inline");
+    FATP_ASSERT_TRUE(v.size() == 3, "Size preserved");
+    FATP_ASSERT_TRUE(v[0] == 0 && v[1] == 1 && v[2] == 2, "Values preserved");
 
     return true;
 }
 
-bool test_sv_allocator_propagation_pocma()
+FATP_TEST_CASE(allocator_propagation_pocma)
 {
     using Vec = SmallVector<int, 4, TrackingAllocator<int>>;
 
@@ -573,13 +573,13 @@ bool test_sv_allocator_propagation_pocma()
 
     v2 = std::move(v1);
 
-    ASSERT_TRUE(v2.get_allocator().id == 1, "POCMA propagates allocator");
-    ASSERT_TRUE(v2.size() == 5, "Move assignment transfers elements");
+    FATP_ASSERT_TRUE(v2.get_allocator().id == 1, "POCMA propagates allocator");
+    FATP_ASSERT_TRUE(v2.size() == 5, "Move assignment transfers elements");
 
     return true;
 }
 
-bool test_sv_allocator_propagation_pocca()
+FATP_TEST_CASE(allocator_propagation_pocca)
 {
     using Vec = SmallVector<int, 4, TrackingAllocator<int>>;
 
@@ -594,13 +594,13 @@ bool test_sv_allocator_propagation_pocca()
 
     v2 = v1;
 
-    ASSERT_TRUE(v2.get_allocator().id == 1, "POCCA propagates allocator");
-    ASSERT_TRUE(v2.size() == 3, "Copy assignment copies elements");
+    FATP_ASSERT_TRUE(v2.get_allocator().id == 1, "POCCA propagates allocator");
+    FATP_ASSERT_TRUE(v2.size() == 3, "Copy assignment copies elements");
 
     return true;
 }
 
-bool test_sv_allocator_propagation_pocs()
+FATP_TEST_CASE(allocator_propagation_pocs)
 {
     using Vec = SmallVector<int, 4, TrackingAllocator<int>>;
 
@@ -615,14 +615,14 @@ bool test_sv_allocator_propagation_pocs()
 
     v1.swap(v2);
 
-    ASSERT_TRUE(v1.get_allocator().id == 2, "POCS swaps allocators");
-    ASSERT_TRUE(v2.get_allocator().id == 1, "POCS swaps allocators");
-    ASSERT_TRUE(v1.size() == 2, "Swap exchanges elements");
+    FATP_ASSERT_TRUE(v1.get_allocator().id == 2, "POCS swaps allocators");
+    FATP_ASSERT_TRUE(v2.get_allocator().id == 1, "POCS swaps allocators");
+    FATP_ASSERT_TRUE(v1.size() == 2, "Swap exchanges elements");
 
     return true;
 }
 
-bool test_sv_exception_safety_grow()
+FATP_TEST_CASE(exception_safety_grow)
 {
     SmallVector<ThrowOnCopy, 4> v;
 
@@ -644,16 +644,16 @@ bool test_sv_exception_safety_grow()
         threw = true;
     }
 
-    ASSERT_TRUE(threw, "Exception thrown during grow");
-    ASSERT_TRUE(v.size() == 4, "Size unchanged after exception");
-    ASSERT_TRUE(v[0].value == 0, "Original elements intact");
+    FATP_ASSERT_TRUE(threw, "Exception thrown during grow");
+    FATP_ASSERT_TRUE(v.size() == 4, "Size unchanged after exception");
+    FATP_ASSERT_TRUE(v[0].value == 0, "Original elements intact");
 
     ThrowOnCopy::reset();
 
     return true;
 }
 
-bool test_sv_exception_safety_insert()
+FATP_TEST_CASE(exception_safety_insert)
 {
     SmallVector<ThrowOnCopy, 4> v;
     v.emplace_back(1);
@@ -672,31 +672,31 @@ bool test_sv_exception_safety_insert()
         threw = true;
     }
 
-    ASSERT_TRUE(threw, "Exception thrown during insert");
-    ASSERT_TRUE(v.size() == 2, "Size unchanged after insert exception");
+    FATP_ASSERT_TRUE(threw, "Exception thrown during insert");
+    FATP_ASSERT_TRUE(v.size() == 2, "Size unchanged after insert exception");
 
     ThrowOnCopy::reset();
 
     return true;
 }
 
-bool test_sv_move_only_types()
+FATP_TEST_CASE(move_only_types)
 {
     SmallVector<std::unique_ptr<int>, 4> v;
 
     v.push_back(std::make_unique<int>(42));
-    ASSERT_TRUE(*v[0] == 42, "Move-only type stored");
+    FATP_ASSERT_TRUE(*v[0] == 42, "Move-only type stored");
 
     v.emplace_back(std::make_unique<int>(99));
-    ASSERT_TRUE(*v[1] == 99, "Move-only emplace works");
+    FATP_ASSERT_TRUE(*v[1] == 99, "Move-only emplace works");
 
     auto v2 = std::move(v);
-    ASSERT_TRUE(*v2[0] == 42, "Move-only vector moved");
+    FATP_ASSERT_TRUE(*v2[0] == 42, "Move-only vector moved");
 
     return true;
 }
 
-bool test_sv_large_objects()
+FATP_TEST_CASE(large_objects)
 {
     struct Large
     {
@@ -715,13 +715,13 @@ bool test_sv_large_objects()
     v.emplace_back();
     v.emplace_back();
 
-    ASSERT_TRUE(v.size() == 3, "Large objects stored");
-    ASSERT_TRUE(v[0].data[50] == 50, "Large object data intact");
+    FATP_ASSERT_TRUE(v.size() == 3, "Large objects stored");
+    FATP_ASSERT_TRUE(v[0].data[50] == 50, "Large object data intact");
 
     return true;
 }
 
-bool test_sv_non_trivial_types()
+FATP_TEST_CASE(non_trivial_types)
 {
     SmallVector<std::string, 4> v;
 
@@ -729,45 +729,45 @@ bool test_sv_non_trivial_types()
     v.push_back("world");
     v.emplace_back(10, 'x');
 
-    ASSERT_TRUE(v[0] == "hello", "String stored");
-    ASSERT_TRUE(v[2] == "xxxxxxxxxx", "String constructed in place");
+    FATP_ASSERT_TRUE(v[0] == "hello", "String stored");
+    FATP_ASSERT_TRUE(v[2] == "xxxxxxxxxx", "String constructed in place");
 
     v.erase(v.begin() + 1);
-    ASSERT_TRUE(v.size() == 2, "String erased");
+    FATP_ASSERT_TRUE(v.size() == 2, "String erased");
 
     return true;
 }
 
-bool test_sv_edge_case_empty_operations()
+FATP_TEST_CASE(edge_case_empty_operations)
 {
     SmallVector<int, 4> v;
 
-    ASSERT_TRUE(v.begin() == v.end(), "Empty iterators equal");
+    FATP_ASSERT_TRUE(v.begin() == v.end(), "Empty iterators equal");
 
     v.clear();
-    ASSERT_TRUE(v.empty(), "Clear on empty works");
+    FATP_ASSERT_TRUE(v.empty(), "Clear on empty works");
 
     auto it = v.erase(v.begin(), v.begin());
-    ASSERT_TRUE(it == v.begin(), "Empty range erase works");
+    FATP_ASSERT_TRUE(it == v.begin(), "Empty range erase works");
 
     return true;
 }
 
-bool test_sv_edge_case_single_element()
+FATP_TEST_CASE(edge_case_single_element)
 {
     SmallVector<int, 4> v;
     v.push_back(42);
 
-    ASSERT_TRUE(v.front() == v.back(), "Single element front equals back");
-    ASSERT_TRUE(v.size() == 1, "Size is 1");
+    FATP_ASSERT_TRUE(v.front() == v.back(), "Single element front equals back");
+    FATP_ASSERT_TRUE(v.size() == 1, "Size is 1");
 
     v.pop_back();
-    ASSERT_TRUE(v.empty(), "Pop single element empties");
+    FATP_ASSERT_TRUE(v.empty(), "Pop single element empties");
 
     return true;
 }
 
-bool test_sv_edge_case_exact_inline_capacity()
+FATP_TEST_CASE(edge_case_exact_inline_capacity)
 {
     SmallVector<int, 4> v;
     for (int i = 0; i < 4; ++i)
@@ -775,81 +775,81 @@ bool test_sv_edge_case_exact_inline_capacity()
         v.push_back(i);
     }
 
-    ASSERT_TRUE(v.size() == 4, "Exactly at inline capacity");
-    ASSERT_TRUE(v.capacity() == 4, "Capacity equals inline");
+    FATP_ASSERT_TRUE(v.size() == 4, "Exactly at inline capacity");
+    FATP_ASSERT_TRUE(v.capacity() == 4, "Capacity equals inline");
 
     v.resize(3);
-    ASSERT_TRUE(v.size() == 3, "Resize below capacity");
+    FATP_ASSERT_TRUE(v.size() == 3, "Resize below capacity");
 
     v.push_back(99);
-    ASSERT_TRUE(v.size() == 4, "Push back to capacity");
+    FATP_ASSERT_TRUE(v.size() == 4, "Push back to capacity");
 
     return true;
 }
 
-bool test_sv_assign_operations()
+FATP_TEST_CASE(assign_operations)
 {
     SmallVector<int, 4> v;
 
     v.assign(5, 42);
-    ASSERT_TRUE(v.size() == 5, "Assign count-value works");
-    ASSERT_TRUE(v[0] == 42 && v[4] == 42, "All values assigned");
+    FATP_ASSERT_TRUE(v.size() == 5, "Assign count-value works");
+    FATP_ASSERT_TRUE(v[0] == 42 && v[4] == 42, "All values assigned");
 
     std::vector<int> src = {1, 2, 3};
     v.assign(src.begin(), src.end());
-    ASSERT_TRUE(v.size() == 3, "Assign range works");
-    ASSERT_TRUE(v[0] == 1 && v[2] == 3, "Range values assigned");
+    FATP_ASSERT_TRUE(v.size() == 3, "Assign range works");
+    FATP_ASSERT_TRUE(v[0] == 1 && v[2] == 3, "Range values assigned");
 
     v.assign({10, 20});
-    ASSERT_TRUE(v.size() == 2, "Assign initializer list works");
-    ASSERT_TRUE(v[0] == 10 && v[1] == 20, "Initializer list values assigned");
+    FATP_ASSERT_TRUE(v.size() == 2, "Assign initializer list works");
+    FATP_ASSERT_TRUE(v[0] == 10 && v[1] == 20, "Initializer list values assigned");
 
     return true;
 }
 
-bool test_sv_max_size()
+FATP_TEST_CASE(max_size)
 {
     SmallVector<int, 4> v;
-    ASSERT_TRUE(v.max_size() > 0, "max_size returns positive value");
-    ASSERT_TRUE(v.max_size() >= v.capacity(), "max_size >= capacity");
+    FATP_ASSERT_TRUE(v.max_size() > 0, "max_size returns positive value");
+    FATP_ASSERT_TRUE(v.max_size() >= v.capacity(), "max_size >= capacity");
 
     return true;
 }
 
-bool test_sv_data_pointer()
+FATP_TEST_CASE(data_pointer)
 {
     SmallVector<int, 4> v = {1, 2, 3};
 
     int* p = v.data();
-    ASSERT_TRUE(p == &v[0], "data() points to first element");
+    FATP_ASSERT_TRUE(p == &v[0], "data() points to first element");
 
     *p = 99;
-    ASSERT_TRUE(v[0] == 99, "data() pointer is writable");
+    FATP_ASSERT_TRUE(v[0] == 99, "data() pointer is writable");
 
     const SmallVector<int, 4>& cv = v;
     const int* cp = cv.data();
-    ASSERT_TRUE(cp == &cv[0], "const data() works");
+    FATP_ASSERT_TRUE(cp == &cv[0], "const data() works");
 
     return true;
 }
 
-bool test_sv_get_allocator()
+FATP_TEST_CASE(get_allocator)
 {
     SmallVector<int, 4, TrackingAllocator<int>> v(TrackingAllocator<int>(42));
-    ASSERT_TRUE(v.get_allocator().id == 42, "get_allocator returns correct allocator");
+    FATP_ASSERT_TRUE(v.get_allocator().id == 42, "get_allocator returns correct allocator");
 
     return true;
 }
 
-bool test_sv_heterogeneous_inline_capacity()
+FATP_TEST_CASE(heterogeneous_inline_capacity)
 {
     SmallVector<int, 2> v2;
     SmallVector<int, 8> v8;
     SmallVector<int, 16> v16;
 
-    ASSERT_TRUE(v2.capacity() == 2, "InlineCapacity=2");
-    ASSERT_TRUE(v8.capacity() == 8, "InlineCapacity=8");
-    ASSERT_TRUE(v16.capacity() == 16, "InlineCapacity=16");
+    FATP_ASSERT_TRUE(v2.capacity() == 2, "InlineCapacity=2");
+    FATP_ASSERT_TRUE(v8.capacity() == 8, "InlineCapacity=8");
+    FATP_ASSERT_TRUE(v16.capacity() == 16, "InlineCapacity=16");
 
     return true;
 }
@@ -858,28 +858,28 @@ bool test_sv_heterogeneous_inline_capacity()
 // NEW TESTS: Pointer-based implementation specific tests
 // ==================================================================================
 
-bool test_sv_swap_mixed_mode()
+FATP_TEST_CASE(swap_mixed_mode)
 {
     // Test inline-heap swap
     {
         SmallVector<int, 4> inline_vec = {1, 2};              // inline (2 <= 4)
         SmallVector<int, 4> heap_vec = {10, 20, 30, 40, 50};  // heap (5 > 4)
         
-        ASSERT_TRUE(is_using_inline_storage(inline_vec), "inline_vec starts inline");
-        ASSERT_TRUE(!is_using_inline_storage(heap_vec), "heap_vec starts on heap");
+        FATP_ASSERT_TRUE(is_using_inline_storage(inline_vec), "inline_vec starts inline");
+        FATP_ASSERT_TRUE(!is_using_inline_storage(heap_vec), "heap_vec starts on heap");
         
         int* heap_ptr_before = heap_vec.data();
         
         inline_vec.swap(heap_vec);
         
         // After swap: inline_vec should have heap's data, heap_vec should be inline
-        ASSERT_TRUE(inline_vec.size() == 5, "inline_vec has 5 elements after swap");
-        ASSERT_TRUE(inline_vec.data() == heap_ptr_before, "inline_vec stole heap pointer");
-        ASSERT_TRUE(inline_vec[0] == 10 && inline_vec[4] == 50, "inline_vec has heap values");
+        FATP_ASSERT_TRUE(inline_vec.size() == 5, "inline_vec has 5 elements after swap");
+        FATP_ASSERT_TRUE(inline_vec.data() == heap_ptr_before, "inline_vec stole heap pointer");
+        FATP_ASSERT_TRUE(inline_vec[0] == 10 && inline_vec[4] == 50, "inline_vec has heap values");
         
-        ASSERT_TRUE(heap_vec.size() == 2, "heap_vec has 2 elements after swap");
-        ASSERT_TRUE(is_using_inline_storage(heap_vec), "heap_vec is now inline");
-        ASSERT_TRUE(heap_vec[0] == 1 && heap_vec[1] == 2, "heap_vec has inline values");
+        FATP_ASSERT_TRUE(heap_vec.size() == 2, "heap_vec has 2 elements after swap");
+        FATP_ASSERT_TRUE(is_using_inline_storage(heap_vec), "heap_vec is now inline");
+        FATP_ASSERT_TRUE(heap_vec[0] == 1 && heap_vec[1] == 2, "heap_vec has inline values");
     }
     
     // Test heap-inline swap (reverse direction)
@@ -891,16 +891,16 @@ bool test_sv_swap_mixed_mode()
         
         heap_vec.swap(inline_vec);
         
-        ASSERT_TRUE(inline_vec.size() == 5, "inline_vec has 5 elements");
-        ASSERT_TRUE(inline_vec.data() == heap_ptr_before, "inline_vec stole heap pointer");
-        ASSERT_TRUE(heap_vec.size() == 2, "heap_vec has 2 elements");
-        ASSERT_TRUE(is_using_inline_storage(heap_vec), "heap_vec is now inline");
+        FATP_ASSERT_TRUE(inline_vec.size() == 5, "inline_vec has 5 elements");
+        FATP_ASSERT_TRUE(inline_vec.data() == heap_ptr_before, "inline_vec stole heap pointer");
+        FATP_ASSERT_TRUE(heap_vec.size() == 2, "heap_vec has 2 elements");
+        FATP_ASSERT_TRUE(is_using_inline_storage(heap_vec), "heap_vec is now inline");
     }
     
     return true;
 }
 
-bool test_sv_move_pointer_steal()
+FATP_TEST_CASE(move_pointer_steal)
 {
     // Verify move construction steals heap pointer (O(1) operation)
     {
@@ -909,10 +909,10 @@ bool test_sv_move_pointer_steal()
         
         SmallVector<int, 2> v2(std::move(v1));
         
-        ASSERT_TRUE(v2.data() == original_ptr, "Move construction stole heap pointer");
-        ASSERT_TRUE(v2.size() == 5, "Moved vector has correct size");
-        ASSERT_TRUE(v1.size() == 0, "Source vector is empty");
-        ASSERT_TRUE(is_using_inline_storage(v1), "Source reverted to inline storage");
+        FATP_ASSERT_TRUE(v2.data() == original_ptr, "Move construction stole heap pointer");
+        FATP_ASSERT_TRUE(v2.size() == 5, "Moved vector has correct size");
+        FATP_ASSERT_TRUE(v1.size() == 0, "Source vector is empty");
+        FATP_ASSERT_TRUE(is_using_inline_storage(v1), "Source reverted to inline storage");
     }
     
     // Verify move assignment steals heap pointer
@@ -923,9 +923,9 @@ bool test_sv_move_pointer_steal()
         SmallVector<int, 2> v2;
         v2 = std::move(v1);
         
-        ASSERT_TRUE(v2.data() == original_ptr, "Move assignment stole heap pointer");
-        ASSERT_TRUE(v2.size() == 5, "Moved vector has correct size");
-        ASSERT_TRUE(v1.size() == 0, "Source vector is empty");
+        FATP_ASSERT_TRUE(v2.data() == original_ptr, "Move assignment stole heap pointer");
+        FATP_ASSERT_TRUE(v2.size() == 5, "Moved vector has correct size");
+        FATP_ASSERT_TRUE(v1.size() == 0, "Source vector is empty");
     }
     
     // Verify inline move doesn't steal (copies elements)
@@ -936,16 +936,16 @@ bool test_sv_move_pointer_steal()
         SmallVector<int, 4> v2(std::move(v1));
         
         // Inline data is not stolen - it's copied to v2's inline buffer
-        ASSERT_TRUE(v2.data() != original_ptr, "Inline move did NOT steal pointer");
-        ASSERT_TRUE(is_using_inline_storage(v2), "v2 uses inline storage");
-        ASSERT_TRUE(v2.size() == 3, "v2 has correct size");
-        ASSERT_TRUE(v2[0] == 1 && v2[2] == 3, "v2 has correct values");
+        FATP_ASSERT_TRUE(v2.data() != original_ptr, "Inline move did NOT steal pointer");
+        FATP_ASSERT_TRUE(is_using_inline_storage(v2), "v2 uses inline storage");
+        FATP_ASSERT_TRUE(v2.size() == 3, "v2 has correct size");
+        FATP_ASSERT_TRUE(v2[0] == 1 && v2[2] == 3, "v2 has correct values");
     }
     
     return true;
 }
 
-bool test_sv_shrink_to_fit_pointer_change()
+FATP_TEST_CASE(shrink_to_fit_pointer_change)
 {
     SmallVector<int, 4> v;
     
@@ -955,26 +955,26 @@ bool test_sv_shrink_to_fit_pointer_change()
         v.push_back(i);
     }
     
-    ASSERT_TRUE(!is_using_inline_storage(v), "Vector is on heap");
+    FATP_ASSERT_TRUE(!is_using_inline_storage(v), "Vector is on heap");
     int* heap_ptr = v.data();
     
     // Shrink to inline-compatible size
     v.resize(3);
-    ASSERT_TRUE(v.data() == heap_ptr, "Still on heap after resize");
+    FATP_ASSERT_TRUE(v.data() == heap_ptr, "Still on heap after resize");
     
     // shrink_to_fit should move back to inline
     v.shrink_to_fit();
     
-    ASSERT_TRUE(is_using_inline_storage(v), "Vector is now inline after shrink_to_fit");
-    ASSERT_TRUE(v.data() != heap_ptr, "Pointer changed to inline buffer");
-    ASSERT_TRUE(v.capacity() == 4, "Capacity is InlineCapacity");
-    ASSERT_TRUE(v.size() == 3, "Size preserved");
-    ASSERT_TRUE(v[0] == 0 && v[1] == 1 && v[2] == 2, "Values preserved");
+    FATP_ASSERT_TRUE(is_using_inline_storage(v), "Vector is now inline after shrink_to_fit");
+    FATP_ASSERT_TRUE(v.data() != heap_ptr, "Pointer changed to inline buffer");
+    FATP_ASSERT_TRUE(v.capacity() == 4, "Capacity is InlineCapacity");
+    FATP_ASSERT_TRUE(v.size() == 3, "Size preserved");
+    FATP_ASSERT_TRUE(v[0] == 0 && v[1] == 1 && v[2] == 2, "Values preserved");
     
     return true;
 }
 
-bool test_sv_iterator_invalidation()
+FATP_TEST_CASE(iterator_invalidation)
 {
     SmallVector<int, 4> v = {1, 2, 3, 4};
     
@@ -983,8 +983,8 @@ bool test_sv_iterator_invalidation()
     int* ptr = &v[2];
     
     v[0] = 10;  // Modification doesn't invalidate
-    ASSERT_TRUE(*it == 3, "Iterator valid after element modification");
-    ASSERT_TRUE(*ptr == 3, "Pointer valid after element modification");
+    FATP_ASSERT_TRUE(*it == 3, "Iterator valid after element modification");
+    FATP_ASSERT_TRUE(*ptr == 3, "Pointer valid after element modification");
     
     // push_back that triggers reallocation invalidates iterators
     v.push_back(5);  // This grows from inline to heap
@@ -992,37 +992,37 @@ bool test_sv_iterator_invalidation()
     
     // Get new iterators after reallocation
     auto new_it = v.begin();
-    ASSERT_TRUE(*new_it == 10, "New iterator works after reallocation");
-    ASSERT_TRUE(v.size() == 5, "Size correct after growth");
+    FATP_ASSERT_TRUE(*new_it == 10, "New iterator works after reallocation");
+    FATP_ASSERT_TRUE(v.size() == 5, "Size correct after growth");
     
     // Reserve doesn't invalidate if no reallocation needed
     v.reserve(v.capacity());  // No-op
     auto it2 = v.begin();
-    ASSERT_TRUE(*it2 == 10, "Iterator valid after no-op reserve");
+    FATP_ASSERT_TRUE(*it2 == 10, "Iterator valid after no-op reserve");
     
     // Erase invalidates iterators at and after erased position
     v.erase(v.begin());
-    ASSERT_TRUE(v[0] == 2, "First element after erase");
+    FATP_ASSERT_TRUE(v[0] == 2, "First element after erase");
     
     return true;
 }
 
-bool test_sv_reserve_edge_cases()
+FATP_TEST_CASE(reserve_edge_cases)
 {
     // reserve(0) on empty vector
     {
         SmallVector<int, 4> v;
         v.reserve(0);
-        ASSERT_TRUE(v.capacity() == 4, "reserve(0) keeps InlineCapacity");
-        ASSERT_TRUE(v.empty(), "reserve(0) keeps empty");
+        FATP_ASSERT_TRUE(v.capacity() == 4, "reserve(0) keeps InlineCapacity");
+        FATP_ASSERT_TRUE(v.empty(), "reserve(0) keeps empty");
     }
     
     // reserve(0) on non-empty vector
     {
         SmallVector<int, 4> v = {1, 2, 3};
         v.reserve(0);
-        ASSERT_TRUE(v.capacity() == 4, "reserve(0) doesn't shrink");
-        ASSERT_TRUE(v.size() == 3, "reserve(0) keeps elements");
+        FATP_ASSERT_TRUE(v.capacity() == 4, "reserve(0) doesn't shrink");
+        FATP_ASSERT_TRUE(v.size() == 3, "reserve(0) keeps elements");
     }
     
     // reserve less than current capacity
@@ -1031,78 +1031,78 @@ bool test_sv_reserve_edge_cases()
         v.reserve(10);
         size_t cap = v.capacity();
         v.reserve(5);
-        ASSERT_TRUE(v.capacity() == cap, "reserve less than capacity is no-op");
+        FATP_ASSERT_TRUE(v.capacity() == cap, "reserve less than capacity is no-op");
     }
     
     // reserve exact InlineCapacity
     {
         SmallVector<int, 4> v;
         v.reserve(4);
-        ASSERT_TRUE(v.capacity() == 4, "reserve(InlineCapacity) stays inline");
-        ASSERT_TRUE(is_using_inline_storage(v), "Still inline after reserve(InlineCapacity)");
+        FATP_ASSERT_TRUE(v.capacity() == 4, "reserve(InlineCapacity) stays inline");
+        FATP_ASSERT_TRUE(is_using_inline_storage(v), "Still inline after reserve(InlineCapacity)");
     }
     
     // reserve InlineCapacity + 1 forces heap
     {
         SmallVector<int, 4> v;
         v.reserve(5);
-        ASSERT_TRUE(v.capacity() >= 5, "reserve(5) increases capacity");
-        ASSERT_TRUE(!is_using_inline_storage(v), "Moved to heap after reserve(5)");
+        FATP_ASSERT_TRUE(v.capacity() >= 5, "reserve(5) increases capacity");
+        FATP_ASSERT_TRUE(!is_using_inline_storage(v), "Moved to heap after reserve(5)");
     }
     
     return true;
 }
 
-bool test_sv_insert_boundaries()
+FATP_TEST_CASE(insert_boundaries)
 {
     // Insert at begin
     {
         SmallVector<int, 4> v = {2, 3, 4};
         auto it = v.insert(v.begin(), 1);
-        ASSERT_TRUE(*it == 1, "Insert at begin returns correct iterator");
-        ASSERT_TRUE(v[0] == 1, "Element at begin");
-        ASSERT_TRUE(v.size() == 4, "Size increased");
+        FATP_ASSERT_TRUE(*it == 1, "Insert at begin returns correct iterator");
+        FATP_ASSERT_TRUE(v[0] == 1, "Element at begin");
+        FATP_ASSERT_TRUE(v.size() == 4, "Size increased");
     }
     
     // Insert at end
     {
         SmallVector<int, 4> v = {1, 2, 3};
         auto it = v.insert(v.end(), 4);
-        ASSERT_TRUE(*it == 4, "Insert at end returns correct iterator");
-        ASSERT_TRUE(v.back() == 4, "Element at end");
-        ASSERT_TRUE(v.size() == 4, "Size increased");
+        FATP_ASSERT_TRUE(*it == 4, "Insert at end returns correct iterator");
+        FATP_ASSERT_TRUE(v.back() == 4, "Element at end");
+        FATP_ASSERT_TRUE(v.size() == 4, "Size increased");
     }
     
     // Insert multiple at begin
     {
         SmallVector<int, 8> v = {3, 4};
         auto it = v.insert(v.begin(), {1, 2});
-        ASSERT_TRUE(*it == 1, "Insert multiple at begin");
-        ASSERT_TRUE(v[0] == 1 && v[1] == 2 && v[2] == 3, "Elements correct");
+        FATP_ASSERT_TRUE(*it == 1, "Insert multiple at begin");
+        FATP_ASSERT_TRUE(v[0] == 1 && v[1] == 2 && v[2] == 3, "Elements correct");
     }
     
     // Insert multiple at end
     {
         SmallVector<int, 8> v = {1, 2};
         auto it = v.insert(v.end(), {3, 4});
-        ASSERT_TRUE(*it == 3, "Insert multiple at end");
-        ASSERT_TRUE(v[2] == 3 && v[3] == 4, "Elements correct");
+        FATP_ASSERT_TRUE(*it == 3, "Insert multiple at end");
+        FATP_ASSERT_TRUE(v[2] == 3 && v[3] == 4, "Elements correct");
     }
     
     // Insert 0 elements (no-op)
     {
         SmallVector<int, 4> v = {1, 2, 3};
         auto it = v.insert(v.begin() + 1, 0, 99);
-        ASSERT_TRUE(it == v.begin() + 1, "Insert 0 returns position");
-        ASSERT_TRUE(v.size() == 3, "Size unchanged");
+        FATP_ASSERT_TRUE(it == v.begin() + 1, "Insert 0 returns position");
+        FATP_ASSERT_TRUE(v.size() == 3, "Size unchanged");
     }
     
     // Insert into empty vector
     {
         SmallVector<int, 4> v;
         auto it = v.insert(v.begin(), 42);
-        ASSERT_TRUE(*it == 42, "Insert into empty");
-        ASSERT_TRUE(v.size() == 1, "Size is 1");
+        FATP_ASSERT_TRUE(*it == 42, "Insert into empty");
+        FATP_ASSERT_TRUE(v.size() == 1, "Size is 1");
     }
     
     return true;
@@ -1114,7 +1114,7 @@ bool test_sv_insert_boundaries()
 // in-place forward-iterator path.
 // =============================================================================
 
-bool test_sv_insert_self_range_stress_int()
+FATP_TEST_CASE(insert_self_range_stress_int)
 {
     // Exhaustive test: all combinations of (initial_size, pos, first, last)
     // Compares against std::vector as reference implementation
@@ -1141,14 +1141,14 @@ bool test_sv_insert_self_range_stress_int()
                              v.begin() + first,
                              v.begin() + last);
 
-                    ASSERT_TRUE(v.size() == ref_vec.size(), 
+                    FATP_ASSERT_TRUE(v.size() == ref_vec.size(), 
                         "Size mismatch in self-range insert");
 
                     bool values_match = true;
                     for (size_t i = 0; i < v.size() && values_match; ++i) {
                         values_match = (v[i] == ref_vec[i]);
                     }
-                    ASSERT_TRUE(values_match, "Value mismatch in self-range insert");
+                    FATP_ASSERT_TRUE(values_match, "Value mismatch in self-range insert");
                 }
             }
         }
@@ -1156,7 +1156,7 @@ bool test_sv_insert_self_range_stress_int()
     return true;
 }
 
-bool test_sv_insert_self_range_stress_move_only()
+FATP_TEST_CASE(insert_self_range_stress_move_only)
 {
     // Verify move-only types work with insert from external source
     // Note: Self-insert with move iterators is not well-defined (moves invalidate source)
@@ -1191,12 +1191,12 @@ bool test_sv_insert_self_range_stress_move_only()
                  std::make_move_iterator(src.begin()),
                  std::make_move_iterator(src.end()));
 
-        ASSERT_TRUE(v.size() == 7, "Move insert: size");
-        ASSERT_TRUE(v[0].value == 0, "Move insert: original[0]");
-        ASSERT_TRUE(v[2].value == 10, "Move insert: inserted[0]");
-        ASSERT_TRUE(v[3].value == 20, "Move insert: inserted[1]");
-        ASSERT_TRUE(v[4].value == 30, "Move insert: inserted[2]");
-        ASSERT_TRUE(v[5].value == 2, "Move insert: original[2]");
+        FATP_ASSERT_TRUE(v.size() == 7, "Move insert: size");
+        FATP_ASSERT_TRUE(v[0].value == 0, "Move insert: original[0]");
+        FATP_ASSERT_TRUE(v[2].value == 10, "Move insert: inserted[0]");
+        FATP_ASSERT_TRUE(v[3].value == 20, "Move insert: inserted[1]");
+        FATP_ASSERT_TRUE(v[4].value == 30, "Move insert: inserted[2]");
+        FATP_ASSERT_TRUE(v[5].value == 2, "Move insert: original[2]");
     }
 
     // Test insert triggering reallocation with move-only type
@@ -1212,14 +1212,14 @@ bool test_sv_insert_self_range_stress_move_only()
                  std::make_move_iterator(src.begin()),
                  std::make_move_iterator(src.end()));
 
-        ASSERT_TRUE(v.size() == 9, "Move insert realloc: size");
-        ASSERT_TRUE(v[4].value == 100, "Move insert realloc: inserted value");
+        FATP_ASSERT_TRUE(v.size() == 9, "Move insert realloc: size");
+        FATP_ASSERT_TRUE(v[4].value == 100, "Move insert realloc: inserted value");
     }
 
     return true;
 }
 
-bool test_sv_insert_self_range_throwing_copy()
+FATP_TEST_CASE(insert_self_range_throwing_copy)
 {
     // Verify basic exception guarantee during temp materialization
     using Vec = SmallVector<ThrowOnCopy, 8>;
@@ -1250,7 +1250,7 @@ bool test_sv_insert_self_range_throwing_copy()
     // Either it succeeded or threw - either way, container should be valid
     // If it threw, we have basic guarantee (valid but unspecified state)
     // Just verify we can still use the container
-    ASSERT_TRUE(v.size() > 0 || threw, "Container should be usable after exception");
+    FATP_ASSERT_TRUE(v.size() > 0 || threw, "Container should be usable after exception");
     
     // Verify we can iterate without crashing
     size_t count = 0;
@@ -1258,12 +1258,12 @@ bool test_sv_insert_self_range_throwing_copy()
         (void)e.value;
         ++count;
     }
-    ASSERT_TRUE(count == v.size(), "Iteration count matches size");
+    FATP_ASSERT_TRUE(count == v.size(), "Iteration count matches size");
 
     return true;
 }
 
-bool test_sv_insert_self_range_specific_cases()
+FATP_TEST_CASE(insert_self_range_specific_cases)
 {
     // Specific regression cases for self-range insertion
     using Vec = SmallVector<int, 16>;
@@ -1274,8 +1274,8 @@ bool test_sv_insert_self_range_specific_cases()
         v.reserve(16);
         v.insert(v.begin() + 1, v.begin() + 3, v.begin() + 5);  // Insert [4,5] at pos 1
         // Expected: {1, 4, 5, 2, 3, 4, 5, 6}
-        ASSERT_TRUE(v.size() == 8, "Case 1: size");
-        ASSERT_TRUE(v[0] == 1 && v[1] == 4 && v[2] == 5 && v[3] == 2, "Case 1: values");
+        FATP_ASSERT_TRUE(v.size() == 8, "Case 1: size");
+        FATP_ASSERT_TRUE(v[0] == 1 && v[1] == 4 && v[2] == 5 && v[3] == 2, "Case 1: values");
     }
 
     // Case 2: Insert after source range (in-place, no realloc)
@@ -1284,8 +1284,8 @@ bool test_sv_insert_self_range_specific_cases()
         v.reserve(16);
         v.insert(v.begin() + 5, v.begin(), v.begin() + 2);  // Insert [1,2] at pos 5
         // Expected: {1, 2, 3, 4, 5, 1, 2, 6}
-        ASSERT_TRUE(v.size() == 8, "Case 2: size");
-        ASSERT_TRUE(v[5] == 1 && v[6] == 2 && v[7] == 6, "Case 2: values");
+        FATP_ASSERT_TRUE(v.size() == 8, "Case 2: size");
+        FATP_ASSERT_TRUE(v[5] == 1 && v[6] == 2 && v[7] == 6, "Case 2: values");
     }
 
     // Case 3: Overlapping insert (source overlaps insertion point)
@@ -1294,8 +1294,8 @@ bool test_sv_insert_self_range_specific_cases()
         v.reserve(16);
         v.insert(v.begin() + 2, v.begin() + 1, v.begin() + 4);  // Insert [2,3,4] at pos 2
         // Expected: {1, 2, 2, 3, 4, 3, 4, 5, 6}
-        ASSERT_TRUE(v.size() == 9, "Case 3: size");
-        ASSERT_TRUE(v[2] == 2 && v[3] == 3 && v[4] == 4, "Case 3: inserted values");
+        FATP_ASSERT_TRUE(v.size() == 9, "Case 3: size");
+        FATP_ASSERT_TRUE(v[2] == 2 && v[3] == 3 && v[4] == 4, "Case 3: inserted values");
     }
 
     // Case 4: Insert with reallocation (already handled correctly)
@@ -1304,8 +1304,8 @@ bool test_sv_insert_self_range_specific_cases()
         // Don't reserve - force reallocation
         v.insert(v.begin() + 2, v.begin(), v.begin() + 2);  // Insert [1,2] at pos 2
         // Expected: {1, 2, 1, 2, 3, 4}
-        ASSERT_TRUE(v.size() == 6, "Case 4: size");
-        ASSERT_TRUE(v[0] == 1 && v[2] == 1 && v[3] == 2 && v[4] == 3, "Case 4: values");
+        FATP_ASSERT_TRUE(v.size() == 6, "Case 4: size");
+        FATP_ASSERT_TRUE(v[0] == 1 && v[2] == 1 && v[3] == 2 && v[4] == 3, "Case 4: values");
     }
 
     // Case 5: Insert entire vector into itself
@@ -1314,21 +1314,21 @@ bool test_sv_insert_self_range_specific_cases()
         v.reserve(16);
         v.insert(v.begin() + 1, v.begin(), v.end());  // Insert [1,2,3] at pos 1
         // Expected: {1, 1, 2, 3, 2, 3}
-        ASSERT_TRUE(v.size() == 6, "Case 5: size");
-        ASSERT_TRUE(v[0] == 1 && v[1] == 1 && v[2] == 2 && v[3] == 3, "Case 5: values");
+        FATP_ASSERT_TRUE(v.size() == 6, "Case 5: size");
+        FATP_ASSERT_TRUE(v[0] == 1 && v[1] == 1 && v[2] == 2 && v[3] == 3, "Case 5: values");
     }
 
     return true;
 }
 
-bool test_sv_swap_edge_cases()
+FATP_TEST_CASE(swap_edge_cases)
 {
     // Self-swap
     {
         SmallVector<int, 4> v = {1, 2, 3};
         v.swap(v);
-        ASSERT_TRUE(v.size() == 3, "Self-swap preserves size");
-        ASSERT_TRUE(v[0] == 1 && v[2] == 3, "Self-swap preserves values");
+        FATP_ASSERT_TRUE(v.size() == 3, "Self-swap preserves size");
+        FATP_ASSERT_TRUE(v[0] == 1 && v[2] == 3, "Self-swap preserves values");
     }
     
     // Swap with empty (inline-inline, one empty)
@@ -1338,9 +1338,9 @@ bool test_sv_swap_edge_cases()
         
         v1.swap(v2);
         
-        ASSERT_TRUE(v1.empty(), "v1 is now empty");
-        ASSERT_TRUE(v2.size() == 3, "v2 has elements");
-        ASSERT_TRUE(v2[0] == 1, "v2 has correct values");
+        FATP_ASSERT_TRUE(v1.empty(), "v1 is now empty");
+        FATP_ASSERT_TRUE(v2.size() == 3, "v2 has elements");
+        FATP_ASSERT_TRUE(v2[0] == 1, "v2 has correct values");
     }
     
     // Swap two empty vectors
@@ -1350,7 +1350,7 @@ bool test_sv_swap_edge_cases()
         
         v1.swap(v2);
         
-        ASSERT_TRUE(v1.empty() && v2.empty(), "Both still empty");
+        FATP_ASSERT_TRUE(v1.empty() && v2.empty(), "Both still empty");
     }
     
     // Swap heap with empty
@@ -1362,10 +1362,10 @@ bool test_sv_swap_edge_cases()
         
         v1.swap(v2);
         
-        ASSERT_TRUE(v1.empty(), "v1 is empty");
-        ASSERT_TRUE(is_using_inline_storage(v1), "v1 is inline");
-        ASSERT_TRUE(v2.size() == 5, "v2 has 5 elements");
-        ASSERT_TRUE(v2.data() == heap_ptr, "v2 stole heap");
+        FATP_ASSERT_TRUE(v1.empty(), "v1 is empty");
+        FATP_ASSERT_TRUE(is_using_inline_storage(v1), "v1 is inline");
+        FATP_ASSERT_TRUE(v2.size() == 5, "v2 has 5 elements");
+        FATP_ASSERT_TRUE(v2.data() == heap_ptr, "v2 stole heap");
     }
     
     return true;
@@ -1402,7 +1402,7 @@ struct FuzzRNG
  * and std::vector, comparing results after each operation. If they ever
  * diverge, reports the seed for reproduction.
  */
-bool test_sv_fuzz_operations()
+FATP_TEST_CASE(fuzz_operations)
 {
     constexpr int Seeds = 100;
     constexpr int Steps = 100;
@@ -1547,7 +1547,7 @@ bool test_sv_fuzz_operations()
 }
 
 // Test over-aligned types to catch subtle inline-storage alignment bugs
-bool test_sv_over_aligned_types()
+FATP_TEST_CASE(over_aligned_types)
 {
     struct alignas(64) Aligned64
     {
@@ -1564,7 +1564,7 @@ bool test_sv_over_aligned_types()
     
     // Test inline storage alignment
     v.push_back(Aligned64(1));
-    ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[0]) % 64 == 0, 
+    FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[0]) % 64 == 0, 
                   "Inline storage must respect alignment");
     
     v.push_back(Aligned64(2));
@@ -1574,37 +1574,37 @@ bool test_sv_over_aligned_types()
     // All elements must be properly aligned
     for (size_t i = 0; i < v.size(); ++i)
     {
-        ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[i]) % 64 == 0,
+        FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[i]) % 64 == 0,
                       "Each inline element must be aligned");
     }
     
     // Force transition to heap
     v.push_back(Aligned64(5));
-    ASSERT_TRUE(v.size() == 5, "Transitioned to heap storage");
+    FATP_ASSERT_TRUE(v.size() == 5, "Transitioned to heap storage");
     
     // Heap storage must also be aligned
     for (size_t i = 0; i < v.size(); ++i)
     {
-        ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[i]) % 64 == 0,
+        FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[i]) % 64 == 0,
                       "Each heap element must be aligned");
     }
     
     // Test copy
     auto v2 = v;
-    ASSERT_TRUE(v2.size() == 5, "Copy preserves size");
+    FATP_ASSERT_TRUE(v2.size() == 5, "Copy preserves size");
     for (size_t i = 0; i < v2.size(); ++i)
     {
-        ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v2[i]) % 64 == 0,
+        FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v2[i]) % 64 == 0,
                       "Copied elements must be aligned");
     }
     
     // Test move back to inline via shrink_to_fit
     v.resize(2);
     v.shrink_to_fit();
-    ASSERT_TRUE(v.capacity() == 4, "Shrunk back to inline");
+    FATP_ASSERT_TRUE(v.capacity() == 4, "Shrunk back to inline");
     for (size_t i = 0; i < v.size(); ++i)
     {
-        ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[i]) % 64 == 0,
+        FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[i]) % 64 == 0,
                       "Shrunk elements must be aligned");
     }
     
@@ -1612,7 +1612,7 @@ bool test_sv_over_aligned_types()
 }
 
 // Test mixed swap (inline <-> heap) with throwing move to verify rollback invariants
-bool test_sv_swap_throw_rollback()
+FATP_TEST_CASE(swap_throw_rollback)
 {
     // Test 1: Successful mixed swap (baseline)
     {
@@ -1633,10 +1633,10 @@ bool test_sv_swap_throw_rollback()
         // Swap inline <-> heap without throwing
         inline_vec.swap(heap_vec);
         
-        ASSERT_TRUE(inline_vec.size() == 8, "Inline now has heap contents");
-        ASSERT_TRUE(heap_vec.size() == 2, "Heap now has inline contents");
-        ASSERT_TRUE(inline_vec[0].value == 100, "Values swapped correctly");
-        ASSERT_TRUE(heap_vec[0].value == 1, "Values swapped correctly");
+        FATP_ASSERT_TRUE(inline_vec.size() == 8, "Inline now has heap contents");
+        FATP_ASSERT_TRUE(heap_vec.size() == 2, "Heap now has inline contents");
+        FATP_ASSERT_TRUE(inline_vec[0].value == 100, "Values swapped correctly");
+        FATP_ASSERT_TRUE(heap_vec[0].value == 1, "Values swapped correctly");
     }
     
     // Test 2: Swap with throw - verify both containers remain valid
@@ -1690,8 +1690,8 @@ bool test_sv_swap_throw_rollback()
         inline_vec.clear();
         heap_vec.clear();
         
-        ASSERT_TRUE(inline_vec.empty(), "inline_vec cleared");
-        ASSERT_TRUE(heap_vec.empty(), "heap_vec cleared");
+        FATP_ASSERT_TRUE(inline_vec.empty(), "inline_vec cleared");
+        FATP_ASSERT_TRUE(heap_vec.empty(), "heap_vec cleared");
         
         // Note: We don't assert threw==true because move_if_noexcept may use copy
         // The important thing is no crash/leak regardless
@@ -1706,30 +1706,30 @@ bool test_sv_swap_throw_rollback()
 // ==================================================================================
 
 #if FATP_HAS_CPP20
-bool test_sv_contains()
+FATP_TEST_CASE(contains)
 {
     SmallVector<int, 4> v = {1, 2, 3, 4};
     
-    ASSERT_TRUE(v.contains(1), "contains finds first element");
-    ASSERT_TRUE(v.contains(4), "contains finds last element");
-    ASSERT_TRUE(v.contains(2), "contains finds middle element");
-    ASSERT_TRUE(!v.contains(0), "contains returns false for missing element");
-    ASSERT_TRUE(!v.contains(5), "contains returns false for value not in range");
-    ASSERT_TRUE(!v.contains(-1), "contains returns false for negative value");
+    FATP_ASSERT_TRUE(v.contains(1), "contains finds first element");
+    FATP_ASSERT_TRUE(v.contains(4), "contains finds last element");
+    FATP_ASSERT_TRUE(v.contains(2), "contains finds middle element");
+    FATP_ASSERT_TRUE(!v.contains(0), "contains returns false for missing element");
+    FATP_ASSERT_TRUE(!v.contains(5), "contains returns false for value not in range");
+    FATP_ASSERT_TRUE(!v.contains(-1), "contains returns false for negative value");
     
     // Test with empty vector
     SmallVector<int, 4> empty;
-    ASSERT_TRUE(!empty.contains(1), "contains returns false for empty vector");
+    FATP_ASSERT_TRUE(!empty.contains(1), "contains returns false for empty vector");
     
     // Test with strings
     SmallVector<std::string, 4> sv = {"hello", "world"};
-    ASSERT_TRUE(sv.contains("hello"), "contains works with strings");
-    ASSERT_TRUE(!sv.contains("foo"), "contains returns false for missing string");
+    FATP_ASSERT_TRUE(sv.contains("hello"), "contains works with strings");
+    FATP_ASSERT_TRUE(!sv.contains("foo"), "contains returns false for missing string");
     
     return true;
 }
 
-bool test_sv_spaceship_operator()
+FATP_TEST_CASE(spaceship_operator)
 {
     SmallVector<int, 4> v1 = {1, 2, 3};
     SmallVector<int, 4> v2 = {1, 2, 3};
@@ -1737,20 +1737,20 @@ bool test_sv_spaceship_operator()
     SmallVector<int, 4> v4 = {1, 2};
     
     // Test strong ordering results
-    ASSERT_TRUE((v1 <=> v2) == std::strong_ordering::equal, "Equal vectors compare equal");
-    ASSERT_TRUE((v1 <=> v3) == std::strong_ordering::less, "Lexicographically less");
-    ASSERT_TRUE((v3 <=> v1) == std::strong_ordering::greater, "Lexicographically greater");
-    ASSERT_TRUE((v4 <=> v1) == std::strong_ordering::less, "Shorter vector is less");
-    ASSERT_TRUE((v1 <=> v4) == std::strong_ordering::greater, "Longer vector is greater");
+    FATP_ASSERT_TRUE((v1 <=> v2) == std::strong_ordering::equal, "Equal vectors compare equal");
+    FATP_ASSERT_TRUE((v1 <=> v3) == std::strong_ordering::less, "Lexicographically less");
+    FATP_ASSERT_TRUE((v3 <=> v1) == std::strong_ordering::greater, "Lexicographically greater");
+    FATP_ASSERT_TRUE((v4 <=> v1) == std::strong_ordering::less, "Shorter vector is less");
+    FATP_ASSERT_TRUE((v1 <=> v4) == std::strong_ordering::greater, "Longer vector is greater");
     
     // Cross-capacity comparison
     SmallVector<int, 8> v5 = {1, 2, 3};
-    ASSERT_TRUE((v1 <=> v5) == std::strong_ordering::equal, "Cross-capacity equal");
+    FATP_ASSERT_TRUE((v1 <=> v5) == std::strong_ordering::equal, "Cross-capacity equal");
     
     // Empty vectors
     SmallVector<int, 4> empty1, empty2;
-    ASSERT_TRUE((empty1 <=> empty2) == std::strong_ordering::equal, "Empty vectors equal");
-    ASSERT_TRUE((empty1 <=> v1) == std::strong_ordering::less, "Empty less than non-empty");
+    FATP_ASSERT_TRUE((empty1 <=> empty2) == std::strong_ordering::equal, "Empty vectors equal");
+    FATP_ASSERT_TRUE((empty1 <=> v1) == std::strong_ordering::less, "Empty less than non-empty");
     
     return true;
 }
@@ -2208,77 +2208,82 @@ void benchmark_small_vector()
     }, N);
 }
 
+} // namespace fat_p::testing::smallvector
+
+namespace fat_p::testing
+{
+
 bool test_SmallVector()
 {
-    PRINT_HEADER(SMALL VECTOR)
+    FATP_PRINT_HEADER(SMALL VECTOR)
 
     TestRunner runner;
 
     // Original tests
-    RUN_TEST(runner, sv_basic_construction);
-    RUN_TEST(runner, sv_copy_construction);
-    RUN_TEST(runner, sv_move_construction);
-    RUN_TEST(runner, sv_copy_assignment);
-    RUN_TEST(runner, sv_move_assignment);
-    RUN_TEST(runner, sv_element_access);
-    RUN_TEST(runner, sv_iterators);
-    RUN_TEST(runner, sv_capacity_operations);
-    RUN_TEST(runner, sv_push_back_emplace_back);
-    RUN_TEST(runner, sv_pop_back);
-    RUN_TEST(runner, sv_insert);
-    RUN_TEST(runner, sv_emplace);
-    RUN_TEST(runner, sv_erase);
-    RUN_TEST(runner, sv_swap);
-    RUN_TEST(runner, sv_comparison_operators);
-    RUN_TEST(runner, sv_inline_to_heap_transition);
-    RUN_TEST(runner, sv_shrink_to_fit);
-    RUN_TEST(runner, sv_allocator_propagation_pocma);
-    RUN_TEST(runner, sv_allocator_propagation_pocca);
-    RUN_TEST(runner, sv_allocator_propagation_pocs);
-    RUN_TEST(runner, sv_exception_safety_grow);
-    RUN_TEST(runner, sv_exception_safety_insert);
-    RUN_TEST(runner, sv_move_only_types);
-    RUN_TEST(runner, sv_large_objects);
-    RUN_TEST(runner, sv_non_trivial_types);
-    RUN_TEST(runner, sv_edge_case_empty_operations);
-    RUN_TEST(runner, sv_edge_case_single_element);
-    RUN_TEST(runner, sv_edge_case_exact_inline_capacity);
-    RUN_TEST(runner, sv_assign_operations);
-    RUN_TEST(runner, sv_max_size);
-    RUN_TEST(runner, sv_data_pointer);
-    RUN_TEST(runner, sv_get_allocator);
-    RUN_TEST(runner, sv_heterogeneous_inline_capacity);
+    FATP_RUN_TEST_NS(runner, smallvector, basic_construction);
+    FATP_RUN_TEST_NS(runner, smallvector, copy_construction);
+    FATP_RUN_TEST_NS(runner, smallvector, move_construction);
+    FATP_RUN_TEST_NS(runner, smallvector, copy_assignment);
+    FATP_RUN_TEST_NS(runner, smallvector, move_assignment);
+    FATP_RUN_TEST_NS(runner, smallvector, element_access);
+    FATP_RUN_TEST_NS(runner, smallvector, iterators);
+    FATP_RUN_TEST_NS(runner, smallvector, capacity_operations);
+    FATP_RUN_TEST_NS(runner, smallvector, push_back_emplace_back);
+    FATP_RUN_TEST_NS(runner, smallvector, pop_back);
+    FATP_RUN_TEST_NS(runner, smallvector, insert);
+    FATP_RUN_TEST_NS(runner, smallvector, emplace);
+    FATP_RUN_TEST_NS(runner, smallvector, erase);
+    FATP_RUN_TEST_NS(runner, smallvector, swap);
+    FATP_RUN_TEST_NS(runner, smallvector, comparison_operators);
+    FATP_RUN_TEST_NS(runner, smallvector, inline_to_heap_transition);
+    FATP_RUN_TEST_NS(runner, smallvector, shrink_to_fit);
+    FATP_RUN_TEST_NS(runner, smallvector, allocator_propagation_pocma);
+    FATP_RUN_TEST_NS(runner, smallvector, allocator_propagation_pocca);
+    FATP_RUN_TEST_NS(runner, smallvector, allocator_propagation_pocs);
+    FATP_RUN_TEST_NS(runner, smallvector, exception_safety_grow);
+    FATP_RUN_TEST_NS(runner, smallvector, exception_safety_insert);
+    FATP_RUN_TEST_NS(runner, smallvector, move_only_types);
+    FATP_RUN_TEST_NS(runner, smallvector, large_objects);
+    FATP_RUN_TEST_NS(runner, smallvector, non_trivial_types);
+    FATP_RUN_TEST_NS(runner, smallvector, edge_case_empty_operations);
+    FATP_RUN_TEST_NS(runner, smallvector, edge_case_single_element);
+    FATP_RUN_TEST_NS(runner, smallvector, edge_case_exact_inline_capacity);
+    FATP_RUN_TEST_NS(runner, smallvector, assign_operations);
+    FATP_RUN_TEST_NS(runner, smallvector, max_size);
+    FATP_RUN_TEST_NS(runner, smallvector, data_pointer);
+    FATP_RUN_TEST_NS(runner, smallvector, get_allocator);
+    FATP_RUN_TEST_NS(runner, smallvector, heterogeneous_inline_capacity);
 
     // NEW TESTS for pointer-based implementation
-    RUN_TEST(runner, sv_swap_mixed_mode);
-    RUN_TEST(runner, sv_move_pointer_steal);
-    RUN_TEST(runner, sv_shrink_to_fit_pointer_change);
-    RUN_TEST(runner, sv_iterator_invalidation);
-    RUN_TEST(runner, sv_reserve_edge_cases);
-    RUN_TEST(runner, sv_insert_boundaries);
+    FATP_RUN_TEST_NS(runner, smallvector, swap_mixed_mode);
+    FATP_RUN_TEST_NS(runner, smallvector, move_pointer_steal);
+    FATP_RUN_TEST_NS(runner, smallvector, shrink_to_fit_pointer_change);
+    FATP_RUN_TEST_NS(runner, smallvector, iterator_invalidation);
+    FATP_RUN_TEST_NS(runner, smallvector, reserve_edge_cases);
+    FATP_RUN_TEST_NS(runner, smallvector, insert_boundaries);
     
     // Self-range insertion stress tests (P0 fix verification)
-    RUN_TEST(runner, sv_insert_self_range_stress_int);
-    RUN_TEST(runner, sv_insert_self_range_stress_move_only);
-    RUN_TEST(runner, sv_insert_self_range_throwing_copy);
-    RUN_TEST(runner, sv_insert_self_range_specific_cases);
+    FATP_RUN_TEST_NS(runner, smallvector, insert_self_range_stress_int);
+    FATP_RUN_TEST_NS(runner, smallvector, insert_self_range_stress_move_only);
+    FATP_RUN_TEST_NS(runner, smallvector, insert_self_range_throwing_copy);
+    FATP_RUN_TEST_NS(runner, smallvector, insert_self_range_specific_cases);
     
-    RUN_TEST(runner, sv_swap_edge_cases);
+    FATP_RUN_TEST_NS(runner, smallvector, swap_edge_cases);
 
     // Additional edge case tests
-    RUN_TEST(runner, sv_over_aligned_types);
-    RUN_TEST(runner, sv_swap_throw_rollback);
+    FATP_RUN_TEST_NS(runner, smallvector, over_aligned_types);
+    FATP_RUN_TEST_NS(runner, smallvector, swap_throw_rollback);
 
     // Fuzzer test - runs deterministic random sequences
-    RUN_TEST(runner, sv_fuzz_operations);
+    FATP_RUN_TEST_NS(runner, smallvector, fuzz_operations);
 
     // C++20 feature tests
 #if FATP_HAS_CPP20
-    RUN_TEST(runner, sv_contains);
-    RUN_TEST(runner, sv_spaceship_operator);
+    FATP_RUN_TEST_NS(runner, smallvector, contains);
+    FATP_RUN_TEST_NS(runner, smallvector, spaceship_operator);
 #endif
 
-    benchmark_small_vector();
+    smallvector::benchmark_small_vector();
 
     return 0 == runner.print_summary();
 }

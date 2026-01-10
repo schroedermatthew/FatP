@@ -17,7 +17,7 @@ FATP_META:
   component: HpcVector
   file_role: test
   path: tests/test_HpcVector.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::hpcvector
   summary: "Unit tests for HpcVector."
   related:
     docs_search: "HpcVector"
@@ -48,7 +48,8 @@ FATP_META:
 #include "HpcVector.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing {
+namespace fat_p::testing::hpcvector
+{
 
 // =============================================================================
 // Test Helpers
@@ -64,7 +65,7 @@ bool is_aligned(const T* ptr, std::size_t alignment) noexcept {
 // NumaAlignedAllocator Tests
 // =============================================================================
 
-bool test_hpc_allocator_basic()
+FATP_TEST_CASE(allocator_basic)
 {
     std::cout << colors::cyan() << "\n[HpcVector] NumaAlignedAllocator basic test..."
               << colors::reset() << std::endl;
@@ -73,8 +74,8 @@ bool test_hpc_allocator_basic()
     
     // Allocate
     int* ptr = alloc.allocate(16);
-    ASSERT_TRUE(ptr != nullptr, "Allocation should succeed");
-    ASSERT_TRUE(is_aligned(ptr, 64), "Pointer should be 64-byte aligned");
+    FATP_ASSERT_TRUE(ptr != nullptr, "Allocation should succeed");
+    FATP_ASSERT_TRUE(is_aligned(ptr, 64), "Pointer should be 64-byte aligned");
     
     // Use memory
     for (int i = 0; i < 16; ++i) {
@@ -82,7 +83,7 @@ bool test_hpc_allocator_basic()
     }
     
     for (int i = 0; i < 16; ++i) {
-        ASSERT_EQ(ptr[i], i * 10, "Value should match");
+        FATP_ASSERT_EQ(ptr[i], i * 10, "Value should match");
     }
     
     // Deallocate
@@ -93,7 +94,7 @@ bool test_hpc_allocator_basic()
     return true;
 }
 
-bool test_hpc_allocator_numa_info()
+FATP_TEST_CASE(allocator_numa_info)
 {
     std::cout << colors::cyan() << "\n[HpcVector] NUMA info query..."
               << colors::reset() << std::endl;
@@ -107,8 +108,8 @@ bool test_hpc_allocator_numa_info()
     std::cout << "  Current node: " << current_node << "\n";
 
     // Sanity checks
-    ASSERT_TRUE(num_nodes >= 1, "Should have at least 1 node");
-    ASSERT_TRUE(current_node >= 0 && current_node < num_nodes, 
+    FATP_ASSERT_TRUE(num_nodes >= 1, "Should have at least 1 node");
+    FATP_ASSERT_TRUE(current_node >= 0 && current_node < num_nodes, 
                   "Current node should be valid");
 
     std::cout << colors::green() << "  NUMA info: PASSED" 
@@ -116,7 +117,7 @@ bool test_hpc_allocator_numa_info()
     return true;
 }
 
-bool test_hpc_allocator_policies()
+FATP_TEST_CASE(allocator_policies)
 {
     std::cout << colors::cyan() << "\n[HpcVector] Allocator policies..."
               << colors::reset() << std::endl;
@@ -125,7 +126,7 @@ bool test_hpc_allocator_policies()
     {
         memory::NumaLocalAllocator<double, 64> alloc;
         double* ptr = alloc.allocate(8);
-        ASSERT_TRUE(is_aligned(ptr, 64), "Local alloc should be aligned");
+        FATP_ASSERT_TRUE(is_aligned(ptr, 64), "Local alloc should be aligned");
         alloc.deallocate(ptr, 8);
     }
 
@@ -134,7 +135,7 @@ bool test_hpc_allocator_policies()
         memory::NumaPreferredAllocator<double, 64> alloc(
             memory::NumaPreferredPolicy{0});
         double* ptr = alloc.allocate(8);
-        ASSERT_TRUE(is_aligned(ptr, 64), "Preferred alloc should be aligned");
+        FATP_ASSERT_TRUE(is_aligned(ptr, 64), "Preferred alloc should be aligned");
         alloc.deallocate(ptr, 8);
     }
 
@@ -142,7 +143,7 @@ bool test_hpc_allocator_policies()
     {
         memory::NumaInterleavedAllocator<double, 64> alloc;
         double* ptr = alloc.allocate(8);
-        ASSERT_TRUE(is_aligned(ptr, 64), "Interleaved alloc should be aligned");
+        FATP_ASSERT_TRUE(is_aligned(ptr, 64), "Interleaved alloc should be aligned");
         alloc.deallocate(ptr, 8);
     }
 
@@ -155,7 +156,7 @@ bool test_hpc_allocator_policies()
 // HpcVector Basic Tests
 // =============================================================================
 
-bool test_hpc_vector_construction()
+FATP_TEST_CASE(vector_construction)
 {
     std::cout << colors::cyan() << "\n[HpcVector] Construction tests..."
               << colors::reset() << std::endl;
@@ -163,42 +164,42 @@ bool test_hpc_vector_construction()
     // Default construction
     {
         HpcVector<int> v;
-        ASSERT_EQ(v.size(), 0u, "Default should be empty");
-        ASSERT_EQ(v.capacity(), 0u, "Default should have no capacity");
-        ASSERT_TRUE(v.is_aligned(), "Empty vector should be aligned");
+        FATP_ASSERT_EQ(v.size(), 0u, "Default should be empty");
+        FATP_ASSERT_EQ(v.capacity(), 0u, "Default should have no capacity");
+        FATP_ASSERT_TRUE(v.is_aligned(), "Empty vector should be aligned");
     }
 
     // Size construction
     {
         HpcVector<int> v(100);
-        ASSERT_EQ(v.size(), 100u, "Should have 100 elements");
-        ASSERT_TRUE(v.is_aligned(), "Should be aligned");
+        FATP_ASSERT_EQ(v.size(), 100u, "Should have 100 elements");
+        FATP_ASSERT_TRUE(v.is_aligned(), "Should be aligned");
     }
 
     // Size + value construction
     {
         HpcVector<int> v(50, 42);
-        ASSERT_EQ(v.size(), 50u, "Should have 50 elements");
+        FATP_ASSERT_EQ(v.size(), 50u, "Should have 50 elements");
         for (size_t i = 0; i < v.size(); ++i) {
-            ASSERT_EQ(v[i], 42, "All elements should be 42");
+            FATP_ASSERT_EQ(v[i], 42, "All elements should be 42");
         }
     }
 
     // Initializer list
     {
         HpcVector<int> v{1, 2, 3, 4, 5};
-        ASSERT_EQ(v.size(), 5u, "Should have 5 elements");
-        ASSERT_EQ(v[0], 1, "First element should be 1");
-        ASSERT_EQ(v[4], 5, "Last element should be 5");
+        FATP_ASSERT_EQ(v.size(), 5u, "Should have 5 elements");
+        FATP_ASSERT_EQ(v[0], 1, "First element should be 1");
+        FATP_ASSERT_EQ(v[4], 5, "Last element should be 5");
     }
 
     // Iterator construction
     {
         std::vector<int> src{10, 20, 30, 40};
         HpcVector<int> v(src.begin(), src.end());
-        ASSERT_EQ(v.size(), src.size(), "Should match source size");
+        FATP_ASSERT_EQ(v.size(), src.size(), "Should match source size");
         for (size_t i = 0; i < v.size(); ++i) {
-            ASSERT_EQ(v[i], src[i], "Elements should match");
+            FATP_ASSERT_EQ(v[i], src[i], "Elements should match");
         }
     }
 
@@ -207,7 +208,7 @@ bool test_hpc_vector_construction()
     return true;
 }
 
-bool test_hpc_vector_alignment()
+FATP_TEST_CASE(vector_alignment)
 {
     std::cout << colors::cyan() << "\n[HpcVector] Alignment verification..."
               << colors::reset() << std::endl;
@@ -216,16 +217,16 @@ bool test_hpc_vector_alignment()
     for (size_t n : {1, 7, 16, 63, 64, 65, 100, 1000, 10000}) {
         HpcVector<float, 64> v(n);
         
-        ASSERT_TRUE(v.is_aligned(), "Vector should be aligned");
+        FATP_ASSERT_TRUE(v.is_aligned(), "Vector should be aligned");
         
         std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(v.data());
-        ASSERT_TRUE(addr % 64 == 0, "Address should be 64-byte aligned");
+        FATP_ASSERT_TRUE(addr % 64 == 0, "Address should be 64-byte aligned");
     }
 
     // Test different alignments
     {
         HpcVector<double, 32> v32(100);
-        ASSERT_TRUE(reinterpret_cast<std::uintptr_t>(v32.data()) % 32 == 0,
+        FATP_ASSERT_TRUE(reinterpret_cast<std::uintptr_t>(v32.data()) % 32 == 0,
                       "Should be 32-byte aligned");
     }
 
@@ -234,7 +235,7 @@ bool test_hpc_vector_alignment()
     return true;
 }
 
-bool test_hpc_vector_assume_aligned()
+FATP_TEST_CASE(vector_assume_aligned)
 {
     std::cout << colors::cyan() << "\n[HpcVector] assume_aligned() test..."
               << colors::reset() << std::endl;
@@ -245,8 +246,8 @@ bool test_hpc_vector_assume_aligned()
     float* ptr = v.assume_aligned();
     const float* cptr = std::as_const(v).assume_aligned();
     
-    ASSERT_TRUE(ptr == v.data(), "assume_aligned should return data()");
-    ASSERT_TRUE(cptr == v.data(), "const assume_aligned should return data()");
+    FATP_ASSERT_TRUE(ptr == v.data(), "assume_aligned should return data()");
+    FATP_ASSERT_TRUE(cptr == v.data(), "const assume_aligned should return data()");
     
     // Use it in a loop (compiler should be able to optimize)
     float sum = 0.0f;
@@ -254,14 +255,14 @@ bool test_hpc_vector_assume_aligned()
         sum += ptr[i];
     }
     
-    ASSERT_TRUE(std::abs(sum - 256.0f) < 0.001f, "Sum should be 256");
+    FATP_ASSERT_TRUE(std::abs(sum - 256.0f) < 0.001f, "Sum should be 256");
 
     std::cout << colors::green() << "  assume_aligned(): PASSED" 
               << colors::reset() << std::endl;
     return true;
 }
 
-bool test_hpc_vector_copy_move()
+FATP_TEST_CASE(vector_copy_move)
 {
     std::cout << colors::cyan() << "\n[HpcVector] Copy/move semantics..."
               << colors::reset() << std::endl;
@@ -271,11 +272,11 @@ bool test_hpc_vector_copy_move()
         HpcVector<int> orig{1, 2, 3, 4, 5};
         HpcVector<int> copy(orig);
         
-        ASSERT_EQ(copy.size(), orig.size(), "Copy should have same size");
+        FATP_ASSERT_EQ(copy.size(), orig.size(), "Copy should have same size");
         for (size_t i = 0; i < orig.size(); ++i) {
-            ASSERT_EQ(copy[i], orig[i], "Elements should match");
+            FATP_ASSERT_EQ(copy[i], orig[i], "Elements should match");
         }
-        ASSERT_TRUE(copy.data() != orig.data(), "Should be separate memory");
+        FATP_ASSERT_TRUE(copy.data() != orig.data(), "Should be separate memory");
     }
 
     // Move construction
@@ -284,9 +285,9 @@ bool test_hpc_vector_copy_move()
         int* orig_data = orig.data();
         HpcVector<int> moved(std::move(orig));
         
-        ASSERT_EQ(moved.size(), 3u, "Moved should have elements");
-        ASSERT_EQ(moved.data(), orig_data, "Should take ownership");
-        ASSERT_EQ(orig.size(), 0u, "Original should be empty");
+        FATP_ASSERT_EQ(moved.size(), 3u, "Moved should have elements");
+        FATP_ASSERT_EQ(moved.data(), orig_data, "Should take ownership");
+        FATP_ASSERT_EQ(orig.size(), 0u, "Original should be empty");
     }
 
     // Copy assignment
@@ -295,8 +296,8 @@ bool test_hpc_vector_copy_move()
         HpcVector<int> b{4, 5};
         b = a;
         
-        ASSERT_EQ(b.size(), a.size(), "Should have same size");
-        ASSERT_TRUE(b.data() != a.data(), "Should be separate memory");
+        FATP_ASSERT_EQ(b.size(), a.size(), "Should have same size");
+        FATP_ASSERT_TRUE(b.data() != a.data(), "Should be separate memory");
     }
 
     // Move assignment
@@ -306,7 +307,7 @@ bool test_hpc_vector_copy_move()
         int* a_data = a.data();
         b = std::move(a);
         
-        ASSERT_EQ(b.data(), a_data, "Should take ownership");
+        FATP_ASSERT_EQ(b.data(), a_data, "Should take ownership");
     }
 
     std::cout << colors::green() << "  Copy/move semantics: PASSED" 
@@ -314,7 +315,7 @@ bool test_hpc_vector_copy_move()
     return true;
 }
 
-bool test_hpc_vector_modifiers()
+FATP_TEST_CASE(vector_modifiers)
 {
     std::cout << colors::cyan() << "\n[HpcVector] Modifiers..."
               << colors::reset() << std::endl;
@@ -325,36 +326,36 @@ bool test_hpc_vector_modifiers()
     for (int i = 0; i < 100; ++i) {
         v.push_back(i);
     }
-    ASSERT_EQ(v.size(), 100u, "Should have 100 elements");
+    FATP_ASSERT_EQ(v.size(), 100u, "Should have 100 elements");
     
     // Verify alignment maintained after growth
-    ASSERT_TRUE(v.is_aligned(), "Should remain aligned after push_back");
+    FATP_ASSERT_TRUE(v.is_aligned(), "Should remain aligned after push_back");
 
     // pop_back
     v.pop_back();
-    ASSERT_EQ(v.size(), 99u, "Should have 99 elements");
-    ASSERT_EQ(v.back(), 98, "Last element should be 98");
+    FATP_ASSERT_EQ(v.size(), 99u, "Should have 99 elements");
+    FATP_ASSERT_EQ(v.back(), 98, "Last element should be 98");
 
     // clear
     v.clear();
-    ASSERT_EQ(v.size(), 0u, "Should be empty after clear");
-    ASSERT_TRUE(v.capacity() > 0, "Capacity should remain");
+    FATP_ASSERT_EQ(v.size(), 0u, "Should be empty after clear");
+    FATP_ASSERT_TRUE(v.capacity() > 0, "Capacity should remain");
 
     // resize
     v.resize(50, 7);
-    ASSERT_EQ(v.size(), 50u, "Should have 50 elements");
-    ASSERT_EQ(v[25], 7, "Elements should be 7");
+    FATP_ASSERT_EQ(v.size(), 50u, "Should have 50 elements");
+    FATP_ASSERT_EQ(v[25], 7, "Elements should be 7");
 
     // emplace_back
     v.emplace_back(999);
-    ASSERT_EQ(v.back(), 999, "Last element should be 999");
+    FATP_ASSERT_EQ(v.back(), 999, "Last element should be 999");
 
     std::cout << colors::green() << "  Modifiers: PASSED" 
               << colors::reset() << std::endl;
     return true;
 }
 
-bool test_hpc_vector_iterators()
+FATP_TEST_CASE(vector_iterators)
 {
     std::cout << colors::cyan() << "\n[HpcVector] Iterators..."
               << colors::reset() << std::endl;
@@ -366,22 +367,22 @@ bool test_hpc_vector_iterators()
     for (int x : v) {
         sum += x;
     }
-    ASSERT_EQ(sum, 15, "Sum should be 15");
+    FATP_ASSERT_EQ(sum, 15, "Sum should be 15");
 
     // std::accumulate
     sum = 0;
     for (auto it = v.begin(); it != v.end(); ++it) {
         sum += *it;
     }
-    ASSERT_EQ(sum, 15, "Iterator sum should be 15");
+    FATP_ASSERT_EQ(sum, 15, "Iterator sum should be 15");
 
     // Reverse iteration
     std::vector<int> reversed;
     for (auto it = v.rbegin(); it != v.rend(); ++it) {
         reversed.push_back(*it);
     }
-    ASSERT_EQ(reversed[0], 5, "First reversed should be 5");
-    ASSERT_EQ(reversed[4], 1, "Last reversed should be 1");
+    FATP_ASSERT_EQ(reversed[0], 5, "First reversed should be 5");
+    FATP_ASSERT_EQ(reversed[4], 1, "Last reversed should be 1");
 
     std::cout << colors::green() << "  Iterators: PASSED" 
               << colors::reset() << std::endl;
@@ -392,7 +393,7 @@ bool test_hpc_vector_iterators()
 // SIMD Integration Tests
 // =============================================================================
 
-bool test_hpc_vector_simd_compatibility()
+FATP_TEST_CASE(vector_simd_compatibility)
 {
     std::cout << colors::cyan() << "\n[HpcVector] SIMD compatibility..."
               << colors::reset() << std::endl;
@@ -418,7 +419,7 @@ bool test_hpc_vector_simd_compatibility()
     // Verify
     for (size_t i = 0; i < n; ++i) {
         float expected = static_cast<float>(i) + static_cast<float>(i * 2);
-        ASSERT_TRUE(std::abs(c[i] - expected) < 0.001f, 
+        FATP_ASSERT_TRUE(std::abs(c[i] - expected) < 0.001f, 
                       "SIMD result should match");
     }
 
@@ -523,35 +524,40 @@ void register_hpc_vector_tests(TestRunner& runner)
     
     out << "\n" << colors::blue() << "--- NumaAlignedAllocator Tests ---" 
         << colors::reset() << "\n";
-    RUN_TEST(runner, hpc_allocator_basic);
-    RUN_TEST(runner, hpc_allocator_numa_info);
-    RUN_TEST(runner, hpc_allocator_policies);
+    FATP_RUN_TEST_NS(runner, hpcvector, allocator_basic);
+    FATP_RUN_TEST_NS(runner, hpcvector, allocator_numa_info);
+    FATP_RUN_TEST_NS(runner, hpcvector, allocator_policies);
     
     out << "\n" << colors::blue() << "--- HpcVector Basic Tests ---" 
         << colors::reset() << "\n";
-    RUN_TEST(runner, hpc_vector_construction);
-    RUN_TEST(runner, hpc_vector_alignment);
-    RUN_TEST(runner, hpc_vector_assume_aligned);
-    RUN_TEST(runner, hpc_vector_copy_move);
-    RUN_TEST(runner, hpc_vector_modifiers);
-    RUN_TEST(runner, hpc_vector_iterators);
+    FATP_RUN_TEST_NS(runner, hpcvector, vector_construction);
+    FATP_RUN_TEST_NS(runner, hpcvector, vector_alignment);
+    FATP_RUN_TEST_NS(runner, hpcvector, vector_assume_aligned);
+    FATP_RUN_TEST_NS(runner, hpcvector, vector_copy_move);
+    FATP_RUN_TEST_NS(runner, hpcvector, vector_modifiers);
+    FATP_RUN_TEST_NS(runner, hpcvector, vector_iterators);
     
     out << "\n" << colors::blue() << "--- HpcVector SIMD Integration ---" 
         << colors::reset() << "\n";
-    RUN_TEST(runner, hpc_vector_simd_compatibility);
+    FATP_RUN_TEST_NS(runner, hpcvector, vector_simd_compatibility);
 }
 
 // =============================================================================
 // Main Test Entry Point
 // =============================================================================
 
+} // namespace fat_p::testing::hpcvector
+
+namespace fat_p::testing
+{
+
 bool test_HpcVector()
 {
-    PRINT_HEADER(HPC VECTOR)
+    FATP_PRINT_HEADER(HPC VECTOR)
 
     TestRunner runner;
-    register_hpc_vector_tests(runner);
-    run_hpc_vector_benchmarks();
+    hpcvector::register_hpc_vector_tests(runner);
+    hpcvector::run_hpc_vector_benchmarks();
 
     return 0 == runner.print_summary();
 }

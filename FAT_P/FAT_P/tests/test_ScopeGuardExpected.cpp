@@ -52,7 +52,7 @@ namespace fat_p::testing::scopeguardexpected
 // make_rollback_guard Tests
 // =============================================================================
 
-TEST_CASE(make_rollback_guard)
+FATP_TEST_CASE(make_rollback_guard)
 {
     std::cout << colors::cyan() << "\nTesting make_rollback_guard..."
               << colors::reset() << std::endl;
@@ -67,7 +67,7 @@ TEST_CASE(make_rollback_guard)
             Expected<int, std::string> result = make_unexpected(std::string("error"));
             auto guard = make_rollback_guard(result, [&] { ++rollback_count; });
         }
-        ASSERT_EQ(rollback_count, 1, "Rollback should execute on error");
+        FATP_ASSERT_EQ(rollback_count, 1, "Rollback should execute on error");
     }
     
     // Test 2: Rollback skipped on success
@@ -80,7 +80,7 @@ TEST_CASE(make_rollback_guard)
             Expected<int, std::string> result = 42;
             auto guard = make_rollback_guard(result, [&] { ++rollback_count; });
         }
-        ASSERT_EQ(rollback_count, 0, "Rollback should not execute on success");
+        FATP_ASSERT_EQ(rollback_count, 0, "Rollback should not execute on success");
     }
     
     // Test 3: Rollback with void Expected
@@ -93,7 +93,7 @@ TEST_CASE(make_rollback_guard)
             Expected<void, std::string> result = make_unexpected(std::string("failed"));
             auto guard = make_rollback_guard(result, [&] { ++rollback_count; });
         }
-        ASSERT_EQ(rollback_count, 1, "Rollback should execute on void error");
+        FATP_ASSERT_EQ(rollback_count, 1, "Rollback should execute on void error");
     }
     
     // Test 4: Rollback can be dismissed
@@ -107,7 +107,7 @@ TEST_CASE(make_rollback_guard)
             auto guard = make_rollback_guard(result, [&] { ++rollback_count; });
             guard.dismiss();
         }
-        ASSERT_EQ(rollback_count, 0, "Dismissed rollback should not execute");
+        FATP_ASSERT_EQ(rollback_count, 0, "Dismissed rollback should not execute");
     }
     
     std::cout << colors::green() << "make_rollback_guard: Tests passed."
@@ -119,7 +119,7 @@ TEST_CASE(make_rollback_guard)
 // make_success_guard Tests
 // =============================================================================
 
-TEST_CASE(make_success_guard)
+FATP_TEST_CASE(make_success_guard)
 {
     std::cout << colors::cyan() << "\nTesting make_success_guard..."
               << colors::reset() << std::endl;
@@ -134,7 +134,7 @@ TEST_CASE(make_success_guard)
             Expected<int, std::string> result = 42;
             auto guard = make_success_guard(result, [&] { ++commit_count; });
         }
-        ASSERT_EQ(commit_count, 1, "Success action should execute on value");
+        FATP_ASSERT_EQ(commit_count, 1, "Success action should execute on value");
     }
     
     // Test 2: Success action skipped on error
@@ -147,7 +147,7 @@ TEST_CASE(make_success_guard)
             Expected<int, std::string> result = make_unexpected(std::string("error"));
             auto guard = make_success_guard(result, [&] { ++commit_count; });
         }
-        ASSERT_EQ(commit_count, 0, "Success action should not execute on error");
+        FATP_ASSERT_EQ(commit_count, 0, "Success action should not execute on error");
     }
     
     // Test 3: Success with void Expected
@@ -160,7 +160,7 @@ TEST_CASE(make_success_guard)
             Expected<void, std::string> result;  // Default constructs as success
             auto guard = make_success_guard(result, [&] { ++commit_count; });
         }
-        ASSERT_EQ(commit_count, 1, "Success action should execute on void success");
+        FATP_ASSERT_EQ(commit_count, 1, "Success action should execute on void success");
     }
     
     std::cout << colors::green() << "make_success_guard: Tests passed."
@@ -172,7 +172,7 @@ TEST_CASE(make_success_guard)
 // Transaction Pattern Tests
 // =============================================================================
 
-TEST_CASE(transaction_pattern)
+FATP_TEST_CASE(transaction_pattern)
 {
     std::cout << colors::cyan() << "\nTesting Transaction Pattern..."
               << colors::reset() << std::endl;
@@ -194,8 +194,8 @@ TEST_CASE(transaction_pattern)
             result = Expected<void, std::string>{};
         }
         
-        ASSERT_EQ(commits, 1, "Should commit on success");
-        ASSERT_EQ(rollbacks, 0, "Should not rollback on success");
+        FATP_ASSERT_EQ(commits, 1, "Should commit on success");
+        FATP_ASSERT_EQ(rollbacks, 0, "Should not rollback on success");
     }
     
     // Test 2: Combined commit/rollback on failure
@@ -215,8 +215,8 @@ TEST_CASE(transaction_pattern)
             result = make_unexpected(std::string("operation failed"));
         }
         
-        ASSERT_EQ(commits, 0, "Should not commit on failure");
-        ASSERT_EQ(rollbacks, 1, "Should rollback on failure");
+        FATP_ASSERT_EQ(commits, 0, "Should not commit on failure");
+        FATP_ASSERT_EQ(rollbacks, 1, "Should rollback on failure");
     }
     
     // Test 3: Multi-step transaction
@@ -255,10 +255,10 @@ TEST_CASE(transaction_pattern)
         
         // All steps succeed
         auto r1 = do_transaction(true, true);
-        ASSERT_TRUE(r1.has_value(), "Full success should return value");
-        ASSERT_EQ(final_commit, 1, "Should commit");
-        ASSERT_EQ(step1_rollback, 0, "Should not rollback step1");
-        ASSERT_EQ(step2_rollback, 0, "Should not rollback step2");
+        FATP_ASSERT_TRUE(r1.has_value(), "Full success should return value");
+        FATP_ASSERT_EQ(final_commit, 1, "Should commit");
+        FATP_ASSERT_EQ(step1_rollback, 0, "Should not rollback step1");
+        FATP_ASSERT_EQ(step2_rollback, 0, "Should not rollback step2");
         
         // Reset and test failure
         step1_rollback = 0;
@@ -266,8 +266,8 @@ TEST_CASE(transaction_pattern)
         final_commit = 0;
         
         auto r2 = do_transaction(true, false);
-        ASSERT_FALSE(r2.has_value(), "Step2 failure should return error");
-        ASSERT_EQ(final_commit, 0, "Should not commit on failure");
+        FATP_ASSERT_FALSE(r2.has_value(), "Step2 failure should return error");
+        FATP_ASSERT_EQ(final_commit, 0, "Should not commit on failure");
     }
     
     std::cout << colors::green() << "Transaction Pattern: Tests passed."
@@ -279,7 +279,7 @@ TEST_CASE(transaction_pattern)
 // with_resource Tests
 // =============================================================================
 
-TEST_CASE(with_resource)
+FATP_TEST_CASE(with_resource)
 {
     std::cout << colors::cyan() << "\nTesting with_resource..."
               << colors::reset() << std::endl;
@@ -296,9 +296,9 @@ TEST_CASE(with_resource)
             [&](int&) { cleaned_up = true; }
         );
         
-        ASSERT_TRUE(result.has_value(), "Should succeed");
-        ASSERT_EQ(*result, 20, "Should return correct value");
-        ASSERT_TRUE(cleaned_up, "Should cleanup");
+        FATP_ASSERT_TRUE(result.has_value(), "Should succeed");
+        FATP_ASSERT_EQ(*result, 20, "Should return correct value");
+        FATP_ASSERT_TRUE(cleaned_up, "Should cleanup");
     }
     
     // Test 2: Exception during action
@@ -313,9 +313,9 @@ TEST_CASE(with_resource)
             [&](int&) { cleaned_up = true; }
         );
         
-        ASSERT_FALSE(result.has_value(), "Should fail");
-        ASSERT_TRUE(cleaned_up, "Should still cleanup on exception");
-        ASSERT_NE(result.error().find("action failed"), std::string::npos,
+        FATP_ASSERT_FALSE(result.has_value(), "Should fail");
+        FATP_ASSERT_TRUE(cleaned_up, "Should still cleanup on exception");
+        FATP_ASSERT_NE(result.error().find("action failed"), std::string::npos,
             "Error should contain exception message");
     }
     
@@ -333,9 +333,9 @@ TEST_CASE(with_resource)
             [&](int&) { cleaned_up = true; }
         );
         
-        ASSERT_TRUE(result.has_value(), "Should succeed");
-        ASSERT_TRUE(action_ran, "Action should run with resource");
-        ASSERT_TRUE(cleaned_up, "Should cleanup");
+        FATP_ASSERT_TRUE(result.has_value(), "Should succeed");
+        FATP_ASSERT_TRUE(action_ran, "Action should run with resource");
+        FATP_ASSERT_TRUE(cleaned_up, "Should cleanup");
     }
     
     // Test 4: Unknown exception
@@ -350,9 +350,9 @@ TEST_CASE(with_resource)
             [&](int&) { cleaned_up = true; }
         );
         
-        ASSERT_FALSE(result.has_value(), "Should fail");
-        ASSERT_TRUE(cleaned_up, "Should cleanup on unknown exception");
-        ASSERT_EQ(result.error(), "Unknown exception", "Should report unknown exception");
+        FATP_ASSERT_FALSE(result.has_value(), "Should fail");
+        FATP_ASSERT_TRUE(cleaned_up, "Should cleanup on unknown exception");
+        FATP_ASSERT_EQ(result.error(), "Unknown exception", "Should report unknown exception");
     }
     
     // Test 5: Double exception safety (action throws AND cleanup throws)
@@ -373,9 +373,9 @@ TEST_CASE(with_resource)
             }
         );
         
-        ASSERT_TRUE(cleanup_ran, "Cleanup should have run");
-        ASSERT_FALSE(result.has_value(), "Result should be error");
-        ASSERT_EQ(result.error(), "Primary Error", 
+        FATP_ASSERT_TRUE(cleanup_ran, "Cleanup should have run");
+        FATP_ASSERT_FALSE(result.has_value(), "Result should be error");
+        FATP_ASSERT_EQ(result.error(), "Primary Error", 
             "Should return the PRIMARY exception, not the cleanup exception");
     }
     
@@ -388,7 +388,7 @@ TEST_CASE(with_resource)
 // with_expected_resource Tests
 // =============================================================================
 
-TEST_CASE(with_expected_resource)
+FATP_TEST_CASE(with_expected_resource)
 {
     std::cout << colors::cyan() << "\nTesting with_expected_resource..."
               << colors::reset() << std::endl;
@@ -407,9 +407,9 @@ TEST_CASE(with_expected_resource)
             [&](int&) { cleaned_up = true; }
         );
         
-        ASSERT_TRUE(result.has_value(), "Should succeed");
-        ASSERT_EQ(*result, 30, "Should return correct value");
-        ASSERT_TRUE(cleaned_up, "Should cleanup");
+        FATP_ASSERT_TRUE(result.has_value(), "Should succeed");
+        FATP_ASSERT_EQ(*result, 30, "Should return correct value");
+        FATP_ASSERT_TRUE(cleaned_up, "Should cleanup");
     }
     
     // Test 2: Failed resource acquisition
@@ -431,10 +431,10 @@ TEST_CASE(with_expected_resource)
             [&](int&) { cleaned_up = true; }
         );
         
-        ASSERT_FALSE(result.has_value(), "Should fail");
-        ASSERT_FALSE(action_ran, "Action should not run if acquisition failed");
-        ASSERT_FALSE(cleaned_up, "Should not cleanup if resource not acquired");
-        ASSERT_EQ(result.error(), "acquisition failed", "Should propagate acquisition error");
+        FATP_ASSERT_FALSE(result.has_value(), "Should fail");
+        FATP_ASSERT_FALSE(action_ran, "Action should not run if acquisition failed");
+        FATP_ASSERT_FALSE(cleaned_up, "Should not cleanup if resource not acquired");
+        FATP_ASSERT_EQ(result.error(), "acquisition failed", "Should propagate acquisition error");
     }
     
     // Test 3: Action returns error
@@ -453,9 +453,9 @@ TEST_CASE(with_expected_resource)
             [&](int&) { cleaned_up = true; }
         );
         
-        ASSERT_FALSE(result.has_value(), "Should fail");
-        ASSERT_TRUE(cleaned_up, "Should still cleanup even on action error");
-        ASSERT_EQ(result.error(), "action error", "Should return action error");
+        FATP_ASSERT_FALSE(result.has_value(), "Should fail");
+        FATP_ASSERT_TRUE(cleaned_up, "Should still cleanup even on action error");
+        FATP_ASSERT_EQ(result.error(), "action error", "Should return action error");
     }
     
     std::cout << colors::green() << "with_expected_resource: Tests passed."
@@ -467,7 +467,7 @@ TEST_CASE(with_expected_resource)
 // make_capturing_guard Tests
 // =============================================================================
 
-TEST_CASE(make_capturing_guard)
+FATP_TEST_CASE(make_capturing_guard)
 {
     std::cout << colors::cyan() << "\nTesting make_capturing_guard..."
               << colors::reset() << std::endl;
@@ -486,8 +486,8 @@ TEST_CASE(make_capturing_guard)
             });
         }
         
-        ASSERT_TRUE(cleanup_ran, "Cleanup should run");
-        ASSERT_TRUE(cleanup_result.has_value(), "Should indicate success");
+        FATP_ASSERT_TRUE(cleanup_ran, "Cleanup should run");
+        FATP_ASSERT_TRUE(cleanup_result.has_value(), "Should indicate success");
     }
     
     // Test 2: Exception during cleanup is captured (no stderr logging)
@@ -505,8 +505,8 @@ TEST_CASE(make_capturing_guard)
             });
         }
         
-        ASSERT_FALSE(cleanup_result.has_value(), "Should indicate failure");
-        ASSERT_NE(cleanup_result.error().find("cleanup failed"), std::string::npos,
+        FATP_ASSERT_FALSE(cleanup_result.has_value(), "Should indicate failure");
+        FATP_ASSERT_NE(cleanup_result.error().find("cleanup failed"), std::string::npos,
             "Should capture exception message");
     }
     
@@ -523,8 +523,8 @@ TEST_CASE(make_capturing_guard)
             });
         }
         
-        ASSERT_FALSE(cleanup_result.has_value(), "Should indicate failure");
-        ASSERT_NE(cleanup_result.error().find("Unknown"), std::string::npos,
+        FATP_ASSERT_FALSE(cleanup_result.has_value(), "Should indicate failure");
+        FATP_ASSERT_NE(cleanup_result.error().find("Unknown"), std::string::npos,
             "Should capture unknown exception message");
     }
     
@@ -544,16 +544,16 @@ namespace fat_p::testing
 
 bool test_ScopeGuardExpected()
 {
-    PRINT_HEADER(SCOPE GUARD EXPECTED BRIDGE)
+    FATP_PRINT_HEADER(SCOPE GUARD EXPECTED BRIDGE)
     
     TestRunner runner;
     
-    RUN_TEST_NS(runner, scopeguardexpected, make_rollback_guard);
-    RUN_TEST_NS(runner, scopeguardexpected, make_success_guard);
-    RUN_TEST_NS(runner, scopeguardexpected, transaction_pattern);
-    RUN_TEST_NS(runner, scopeguardexpected, with_resource);
-    RUN_TEST_NS(runner, scopeguardexpected, with_expected_resource);
-    RUN_TEST_NS(runner, scopeguardexpected, make_capturing_guard);
+    FATP_RUN_TEST_NS(runner, scopeguardexpected, make_rollback_guard);
+    FATP_RUN_TEST_NS(runner, scopeguardexpected, make_success_guard);
+    FATP_RUN_TEST_NS(runner, scopeguardexpected, transaction_pattern);
+    FATP_RUN_TEST_NS(runner, scopeguardexpected, with_resource);
+    FATP_RUN_TEST_NS(runner, scopeguardexpected, with_expected_resource);
+    FATP_RUN_TEST_NS(runner, scopeguardexpected, make_capturing_guard);
     
     return 0 == runner.print_summary();
 }

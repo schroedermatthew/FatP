@@ -8,7 +8,7 @@ FATP_META:
   component: LockFreeQueue
   file_role: test
   path: tests/test_LockFreeQueue.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::lockfreequeue
   summary: "Unit tests for LockFreeQueue."
   related:
     docs_search: "LockFreeQueue"
@@ -35,81 +35,81 @@ FATP_META:
 #include "LockFreeQueue.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing
+namespace fat_p::testing::lockfreequeue
 {
 
 // Test 1: Basic enqueue/dequeue
-bool test_lock_free_queue_basic_operations() {
+FATP_TEST_CASE(lock_free_queue_basic_operations) {
     LockFreeQueue<int, 16> queue;
     
-    ASSERT_TRUE(queue.empty(), "Queue should start empty");
-    ASSERT_TRUE(queue.enqueue(42), "Should enqueue");
-    ASSERT_TRUE(!queue.empty(), "Queue should not be empty");
+    FATP_ASSERT_TRUE(queue.empty(), "Queue should start empty");
+    FATP_ASSERT_TRUE(queue.enqueue(42), "Should enqueue");
+    FATP_ASSERT_TRUE(!queue.empty(), "Queue should not be empty");
     
     int value = 0;
-    ASSERT_TRUE(queue.dequeue(value), "Should dequeue");
-    ASSERT_TRUE(value == 42, "Value should match");
-    ASSERT_TRUE(queue.empty(), "Queue should be empty");
+    FATP_ASSERT_TRUE(queue.dequeue(value), "Should dequeue");
+    FATP_ASSERT_TRUE(value == 42, "Value should match");
+    FATP_ASSERT_TRUE(queue.empty(), "Queue should be empty");
     
     return true;
 }
 
 // Test 2: FIFO ordering
-bool test_lock_free_queue_fifo_ordering() {
+FATP_TEST_CASE(lock_free_queue_fifo_ordering) {
     LockFreeQueue<int, 128> queue;
     
     for (int i = 0; i < 10; ++i) {
-        ASSERT_TRUE(queue.enqueue(i), "Should enqueue");
+        FATP_ASSERT_TRUE(queue.enqueue(i), "Should enqueue");
     }
     
     for (int i = 0; i < 10; ++i) {
         int value = -1;
-        ASSERT_TRUE(queue.dequeue(value), "Should dequeue");
-        ASSERT_TRUE(value == i, "Values should be in FIFO order");
+        FATP_ASSERT_TRUE(queue.dequeue(value), "Should dequeue");
+        FATP_ASSERT_TRUE(value == i, "Values should be in FIFO order");
     }
     
     return true;
 }
 
 // Test 3: Queue full behavior
-bool test_lock_free_queue_queue_full() {
+FATP_TEST_CASE(lock_free_queue_queue_full) {
     LockFreeQueue<int, 4> queue;
     
     // Fill queue
     for (int i = 0; i < 4; ++i) {
-        ASSERT_TRUE(queue.enqueue(i), "Should enqueue");
+        FATP_ASSERT_TRUE(queue.enqueue(i), "Should enqueue");
     }
     
     // Queue should be full
-    ASSERT_TRUE(!queue.enqueue(999), "Should fail when full");
+    FATP_ASSERT_TRUE(!queue.enqueue(999), "Should fail when full");
     
     // Dequeue one
     int value;
-    ASSERT_TRUE(queue.dequeue(value), "Should dequeue");
+    FATP_ASSERT_TRUE(queue.dequeue(value), "Should dequeue");
     
     // Can enqueue again
-    ASSERT_TRUE(queue.enqueue(999), "Should enqueue after dequeue");
+    FATP_ASSERT_TRUE(queue.enqueue(999), "Should enqueue after dequeue");
     
     return true;
 }
 
 // Test 4: Queue empty behavior
-bool test_lock_free_queue_queue_empty() {
+FATP_TEST_CASE(lock_free_queue_queue_empty) {
     LockFreeQueue<int, 16> queue;
     
     int value = 0;
-    ASSERT_TRUE(!queue.dequeue(value), "Should fail when empty");
+    FATP_ASSERT_TRUE(!queue.dequeue(value), "Should fail when empty");
     
     queue.enqueue(42);
     queue.dequeue(value);
     
-    ASSERT_TRUE(!queue.dequeue(value), "Should fail when empty again");
+    FATP_ASSERT_TRUE(!queue.dequeue(value), "Should fail when empty again");
     
     return true;
 }
 
 // Test 5: Multi-threaded producer-consumer
-bool test_lock_free_queue_mpmc() {
+FATP_TEST_CASE(lock_free_queue_mpmc) {
     LockFreeQueue<int, 1024> queue;
     constexpr int NUM_PRODUCERS = 4;
     constexpr int NUM_CONSUMERS = 4;
@@ -150,15 +150,15 @@ bool test_lock_free_queue_mpmc() {
     }
     
     int expected = NUM_PRODUCERS * ITEMS_PER_PRODUCER;
-    ASSERT_TRUE(total_produced.load() == expected, "All items should be produced");
-    ASSERT_TRUE(total_consumed.load() == expected, "All items should be consumed");
-    ASSERT_TRUE(queue.empty(), "Queue should be empty");
+    FATP_ASSERT_TRUE(total_produced.load() == expected, "All items should be produced");
+    FATP_ASSERT_TRUE(total_consumed.load() == expected, "All items should be consumed");
+    FATP_ASSERT_TRUE(queue.empty(), "Queue should be empty");
     
     return true;
 }
 
 // Test 6: Statistics tracking
-bool test_lock_free_queue_statistics() {
+FATP_TEST_CASE(lock_free_queue_statistics) {
     LockFreeQueue<int, 64> queue;
     
     // Enqueue some items
@@ -180,9 +180,9 @@ bool test_lock_free_queue_statistics() {
     
     auto stats = queue.stats();
     
-    ASSERT_TRUE(stats.total_enqueues > 0, "Should track enqueues");
-    ASSERT_TRUE(stats.total_dequeues == 5, "Should track dequeues");
-    ASSERT_TRUE(stats.current_size == queue.size(), "Size should match");
+    FATP_ASSERT_TRUE(stats.total_enqueues > 0, "Should track enqueues");
+    FATP_ASSERT_TRUE(stats.total_dequeues == 5, "Should track dequeues");
+    FATP_ASSERT_TRUE(stats.current_size == queue.size(), "Size should match");
     
     return true;
 }
@@ -246,20 +246,25 @@ void benchmark_lock_free_queue() {
     }
 }
 
+} // namespace fat_p::testing::lockfreequeue
+
+namespace fat_p::testing
+{
+
 bool test_LockFreeQueue() {
 
-    PRINT_HEADER(LOCK-FREE QUEUE)
+    FATP_PRINT_HEADER(LOCK-FREE QUEUE)
 
     TestRunner runner;
 
-    RUN_TEST(runner, lock_free_queue_basic_operations);
-    RUN_TEST(runner, lock_free_queue_fifo_ordering);
-    RUN_TEST(runner, lock_free_queue_queue_full);
-    RUN_TEST(runner, lock_free_queue_queue_empty);
-    RUN_TEST(runner, lock_free_queue_mpmc);
-    RUN_TEST(runner, lock_free_queue_statistics);
+    FATP_RUN_TEST_NS(runner, lockfreequeue, lock_free_queue_basic_operations);
+    FATP_RUN_TEST_NS(runner, lockfreequeue, lock_free_queue_fifo_ordering);
+    FATP_RUN_TEST_NS(runner, lockfreequeue, lock_free_queue_queue_full);
+    FATP_RUN_TEST_NS(runner, lockfreequeue, lock_free_queue_queue_empty);
+    FATP_RUN_TEST_NS(runner, lockfreequeue, lock_free_queue_mpmc);
+    FATP_RUN_TEST_NS(runner, lockfreequeue, lock_free_queue_statistics);
 
-    benchmark_lock_free_queue();
+    lockfreequeue::benchmark_lock_free_queue();
 
     return 0 == runner.print_summary();
 

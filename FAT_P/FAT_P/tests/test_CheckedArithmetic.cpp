@@ -78,32 +78,32 @@ bool test_throws(const char* operation_name, Func func)
 
 namespace checkedarithmetic {
 
-TEST_CASE(mul_type_mismatch)
+FATP_TEST_CASE(mul_type_mismatch)
 {
     std::cout << colors::cyan() << "\n[CRITICAL FIX TEST] Testing checked_mul type mismatch fix..."
               << colors::reset() << std::endl;
 
     {
         auto result1 = checked_mul<ReturnExpectedPolicy>(5, 0);
-        ASSERT_TRUE(result1.has_value(), "5 * 0 should compile and succeed");
-        ASSERT_EQ(*result1, 0, "5 * 0 should equal 0");
+        FATP_ASSERT_TRUE(result1.has_value(), "5 * 0 should compile and succeed");
+        FATP_ASSERT_EQ(*result1, 0, "5 * 0 should equal 0");
 
         auto result2 = checked_mul<ReturnExpectedPolicy>(0, 5);
-        ASSERT_TRUE(result2.has_value(), "0 * 5 should compile and succeed");
-        ASSERT_EQ(*result2, 0, "0 * 5 should equal 0");
+        FATP_ASSERT_TRUE(result2.has_value(), "0 * 5 should compile and succeed");
+        FATP_ASSERT_EQ(*result2, 0, "0 * 5 should equal 0");
 
         auto result3 = checked_mul<ReturnExpectedPolicy>(0, 0);
-        ASSERT_TRUE(result3.has_value(), "0 * 0 should compile and succeed");
-        ASSERT_EQ(*result3, 0, "0 * 0 should equal 0");
+        FATP_ASSERT_TRUE(result3.has_value(), "0 * 0 should compile and succeed");
+        FATP_ASSERT_EQ(*result3, 0, "0 * 0 should equal 0");
 
         auto result4 = checked_mul<ReturnExpectedPolicy>(1000000, 0);
-        ASSERT_TRUE(result4.has_value(), "1000000 * 0 should succeed");
-        ASSERT_EQ(*result4, 0, "1000000 * 0 should equal 0");
+        FATP_ASSERT_TRUE(result4.has_value(), "1000000 * 0 should succeed");
+        FATP_ASSERT_EQ(*result4, 0, "1000000 * 0 should equal 0");
     }
 
     {
         auto result = checked_mul<SaturatingPolicy>(5, 0);
-        ASSERT_EQ(result, 0, "Saturating policy should also work");
+        FATP_ASSERT_EQ(result, 0, "Saturating policy should also work");
     }
 
     std::cout << colors::green() << "[CRITICAL FIX] checked_mul type mismatch: FIXED"
@@ -111,39 +111,39 @@ TEST_CASE(mul_type_mismatch)
     return true;
 }
 
-TEST_CASE(div_sign_aware_saturation)
+FATP_TEST_CASE(div_sign_aware_saturation)
 {
     std::cout << colors::cyan() << "\n[CRITICAL FIX TEST] Testing sign-aware saturation..."
               << colors::reset() << std::endl;
 
     {
         auto pos_result = checked_div<SaturatingPolicy>(100, 0);
-        ASSERT_EQ(pos_result, std::numeric_limits<int>::max(),
+        FATP_ASSERT_EQ(pos_result, std::numeric_limits<int>::max(),
                   "Positive / 0 should saturate to max");
 
         auto neg_result = checked_div<SaturatingPolicy>(-100, 0);
-        ASSERT_EQ(neg_result, std::numeric_limits<int>::min(),
+        FATP_ASSERT_EQ(neg_result, std::numeric_limits<int>::min(),
                   "Negative / 0 should saturate to min");
 
         auto zero_result = checked_div<SaturatingPolicy>(0, 0);
-        ASSERT_EQ(zero_result, 0, "0 / 0 should return 0");
+        FATP_ASSERT_EQ(zero_result, 0, "0 / 0 should return 0");
     }
 
     {
         auto pos_result = checked_div_fp<SaturatingPolicy>(5.0, 0.0);
-        ASSERT_EQ(pos_result, std::numeric_limits<double>::max(),
+        FATP_ASSERT_EQ(pos_result, std::numeric_limits<double>::max(),
                   "Positive / 0.0 should saturate to max");
 
         auto neg_result = checked_div_fp<SaturatingPolicy>(-5.0, 0.0);
-        ASSERT_EQ(neg_result, std::numeric_limits<double>::lowest(),
+        FATP_ASSERT_EQ(neg_result, std::numeric_limits<double>::lowest(),
                   "Negative / 0.0 should saturate to lowest (most negative)");
 
         auto small_pos = checked_div_fp<SaturatingPolicy>(1e-100, 0.0);
-        ASSERT_EQ(small_pos, std::numeric_limits<double>::max(),
+        FATP_ASSERT_EQ(small_pos, std::numeric_limits<double>::max(),
                   "Small positive / 0.0 should saturate to max");
 
         auto small_neg = checked_div_fp<SaturatingPolicy>(-1e-100, 0.0);
-        ASSERT_EQ(small_neg, std::numeric_limits<double>::lowest(),
+        FATP_ASSERT_EQ(small_neg, std::numeric_limits<double>::lowest(),
                   "Small negative / 0.0 should saturate to lowest");
     }
 
@@ -152,7 +152,7 @@ TEST_CASE(div_sign_aware_saturation)
     return true;
 }
 
-TEST_CASE(fp_input_validation)
+FATP_TEST_CASE(fp_input_validation)
 {
     std::cout << colors::cyan() << "\n[CRITICAL FIX TEST] Testing FP input validation..."
               << colors::reset() << std::endl;
@@ -161,79 +161,79 @@ TEST_CASE(fp_input_validation)
     double inf_val = std::numeric_limits<double>::infinity();
 
     {
-        ASSERT_TRUE(test_throws("NaN + 1", [&]() {
+        FATP_ASSERT_TRUE(test_throws("NaN + 1", [&]() {
             (void)checked_add_fp<ThrowOnErrorPolicy>(nan_val, 1.0);
         }), "Should throw on NaN input in addition");
 
         auto result = checked_add_fp<ReturnExpectedPolicy>(nan_val, 1.0);
-        ASSERT_TRUE(!result.has_value(), "Should fail on NaN input");
-        ASSERT_EQ(result.error(), MathError::NaN, "Should return NaN error");
+        FATP_ASSERT_TRUE(!result.has_value(), "Should fail on NaN input");
+        FATP_ASSERT_EQ(result.error(), MathError::NaN, "Should return NaN error");
 
         auto sat_result = checked_add_fp<SaturatingPolicy>(nan_val, 1.0);
-        ASSERT_TRUE(std::isnan(sat_result), "Should return NaN for saturating policy");
+        FATP_ASSERT_TRUE(std::isnan(sat_result), "Should return NaN for saturating policy");
     }
 
     {
-        ASSERT_TRUE(test_throws("1 - NaN", [&]() {
+        FATP_ASSERT_TRUE(test_throws("1 - NaN", [&]() {
             (void)checked_sub_fp<ThrowOnErrorPolicy>(1.0, nan_val);
         }), "Should throw on NaN input in subtraction");
     }
 
     {
-        ASSERT_TRUE(test_throws("NaN * 2", [&]() {
+        FATP_ASSERT_TRUE(test_throws("NaN * 2", [&]() {
             (void)checked_mul_fp<ThrowOnErrorPolicy>(nan_val, 2.0);
         }), "Should throw on NaN input in multiplication");
     }
 
     {
-        ASSERT_TRUE(test_throws("NaN / 5", [&]() {
+        FATP_ASSERT_TRUE(test_throws("NaN / 5", [&]() {
             (void)checked_div_fp<ThrowOnErrorPolicy>(nan_val, 5.0);
         }), "Should throw on NaN input in division");
     }
 
     {
-        ASSERT_TRUE(test_throws("Inf - Inf", [&]() {
+        FATP_ASSERT_TRUE(test_throws("Inf - Inf", [&]() {
             (void)checked_sub_fp<ThrowOnErrorPolicy>(inf_val, inf_val);
         }), "Should throw on Inf - Inf");
 
         auto result = checked_sub_fp<ReturnExpectedPolicy>(inf_val, inf_val);
-        ASSERT_TRUE(!result.has_value(), "Inf - Inf should fail");
-        ASSERT_EQ(result.error(), MathError::NaN, "Should return NaN error for Inf - Inf");
+        FATP_ASSERT_TRUE(!result.has_value(), "Inf - Inf should fail");
+        FATP_ASSERT_EQ(result.error(), MathError::NaN, "Should return NaN error for Inf - Inf");
     }
 
     {
-        ASSERT_TRUE(test_throws("-Inf + Inf", [&]() {
+        FATP_ASSERT_TRUE(test_throws("-Inf + Inf", [&]() {
             (void)checked_add_fp<ThrowOnErrorPolicy>(-inf_val, inf_val);
         }), "Should throw on -Inf + Inf");
     }
 
     {
         auto result1 = checked_add_fp<ThrowOnErrorPolicy>(inf_val, 1.0);
-        ASSERT_TRUE(std::isinf(result1) && result1 > 0, "Inf + 1.0 should succeed");
+        FATP_ASSERT_TRUE(std::isinf(result1) && result1 > 0, "Inf + 1.0 should succeed");
 
         auto result2 = checked_add_fp<ThrowOnErrorPolicy>(inf_val, inf_val);
-        ASSERT_TRUE(std::isinf(result2) && result2 > 0, "Inf + Inf should succeed");
+        FATP_ASSERT_TRUE(std::isinf(result2) && result2 > 0, "Inf + Inf should succeed");
 
         auto result3 = checked_mul_fp<ThrowOnErrorPolicy>(inf_val, 2.0);
-        ASSERT_TRUE(std::isinf(result3) && result3 > 0, "Inf * 2.0 should succeed");
+        FATP_ASSERT_TRUE(std::isinf(result3) && result3 > 0, "Inf * 2.0 should succeed");
 
         auto result4 = checked_div_fp<ThrowOnErrorPolicy>(inf_val, 2.0);
-        ASSERT_TRUE(std::isinf(result4) && result4 > 0, "Inf / 2.0 should succeed");
+        FATP_ASSERT_TRUE(std::isinf(result4) && result4 > 0, "Inf / 2.0 should succeed");
 
         auto result5 = checked_div_fp<ThrowOnErrorPolicy>(2.0, inf_val);
-        ASSERT_TRUE(result5 == 0.0, "2.0 / Inf should return 0");
+        FATP_ASSERT_TRUE(result5 == 0.0, "2.0 / Inf should return 0");
     }
 
     {
         double large = std::numeric_limits<double>::max();
 
-        ASSERT_TRUE(test_throws("Overflow: max * 2", [&]() {
+        FATP_ASSERT_TRUE(test_throws("Overflow: max * 2", [&]() {
             (void)checked_mul_fp<ThrowOnErrorPolicy>(large, 2.0);
         }), "Should detect overflow (finite * finite -> Inf)");
 
         auto result = checked_mul_fp<ReturnExpectedPolicy>(large, 2.0);
-        ASSERT_TRUE(!result.has_value(), "Overflow should be detected");
-        ASSERT_EQ(result.error(), MathError::Inf, "Should return Inf error for overflow");
+        FATP_ASSERT_TRUE(!result.has_value(), "Overflow should be detected");
+        FATP_ASSERT_EQ(result.error(), MathError::Inf, "Should return Inf error for overflow");
     }
 
     std::cout << colors::green() << "[CRITICAL FIX] FP input validation: FIXED"
@@ -245,7 +245,7 @@ TEST_CASE(fp_input_validation)
 // ENHANCED FUNCTIONALITY TESTS
 // =============================================================================
 
-TEST_CASE(noexcept_specifications)
+FATP_TEST_CASE(noexcept_specifications)
 {
     std::cout << colors::cyan() << "\n[ENHANCEMENT TEST] Testing noexcept specifications..."
               << colors::reset() << std::endl;
@@ -267,7 +267,7 @@ TEST_CASE(noexcept_specifications)
     return true;
 }
 
-TEST_CASE(type_safe_shifts)
+FATP_TEST_CASE(type_safe_shifts)
 {
     std::cout << colors::cyan() << "\n[ENHANCEMENT TEST] Testing type-safe shift operations..."
               << colors::reset() << std::endl;
@@ -275,27 +275,27 @@ TEST_CASE(type_safe_shifts)
     {
         int value = 5;
         auto result1 = checked_left_shift<ThrowOnErrorPolicy>(value, 2);
-        ASSERT_EQ(result1, 20, "5 << 2 should equal 20");
+        FATP_ASSERT_EQ(result1, 20, "5 << 2 should equal 20");
 
         auto result2 = checked_left_shift<ThrowOnErrorPolicy>(value, 2u);
-        ASSERT_EQ(result2, 20, "Should work with unsigned shift");
+        FATP_ASSERT_EQ(result2, 20, "Should work with unsigned shift");
 
         auto result3 = checked_left_shift<ThrowOnErrorPolicy>(value, static_cast<size_t>(2));
-        ASSERT_EQ(result3, 20, "Should work with size_t shift");
+        FATP_ASSERT_EQ(result3, 20, "Should work with size_t shift");
     }
 
     {
-        ASSERT_TRUE(test_throws("Negative left shift", []() {
+        FATP_ASSERT_TRUE(test_throws("Negative left shift", []() {
             (void)checked_left_shift<ThrowOnErrorPolicy>(5, -1);
         }), "Should throw on negative left shift");
 
         auto result = checked_left_shift<ReturnExpectedPolicy>(5, -1);
-        ASSERT_TRUE(!result.has_value(), "Should fail on negative shift");
-        ASSERT_EQ(result.error(), MathError::InvalidArgument, "Should return InvalidArgument");
+        FATP_ASSERT_TRUE(!result.has_value(), "Should fail on negative shift");
+        FATP_ASSERT_EQ(result.error(), MathError::InvalidArgument, "Should return InvalidArgument");
     }
 
     {
-        ASSERT_TRUE(test_throws("Shift >= bitwidth", []() {
+        FATP_ASSERT_TRUE(test_throws("Shift >= bitwidth", []() {
             (void)checked_left_shift<ThrowOnErrorPolicy>(5, 32);
         }), "Should throw on shift >= bitwidth");
     }
@@ -305,20 +305,20 @@ TEST_CASE(type_safe_shifts)
     return true;
 }
 
-TEST_CASE(static_math_mod)
+FATP_TEST_CASE(static_math_mod)
 {
     std::cout << colors::cyan() << "\n[ENHANCEMENT TEST] Testing static_math::mod..."
               << colors::reset() << std::endl;
 
     {
         constexpr int result1 = static_math::mod<int, 10, 3>();
-        ASSERT_EQ(result1, 1, "10 % 3 should equal 1");
+        FATP_ASSERT_EQ(result1, 1, "10 % 3 should equal 1");
 
         constexpr int result2 = static_math::mod<int, 17, 5>();
-        ASSERT_EQ(result2, 2, "17 % 5 should equal 2");
+        FATP_ASSERT_EQ(result2, 2, "17 % 5 should equal 2");
 
         constexpr int result3 = static_math::mod<int, -10, 3>();
-        ASSERT_EQ(result3, -1, "-10 % 3 should equal -1");
+        FATP_ASSERT_EQ(result3, -1, "-10 % 3 should equal -1");
     }
 
     std::cout << colors::green() << "[ENHANCEMENT] static_math::mod: WORKING"
@@ -326,7 +326,7 @@ TEST_CASE(static_math_mod)
     return true;
 }
 
-TEST_CASE(checked_abs)
+FATP_TEST_CASE(checked_abs)
 {
     std::cout << colors::cyan() << "\n[NEW FEATURE TEST] Testing checked_abs for integers..."
               << colors::reset() << std::endl;
@@ -334,32 +334,32 @@ TEST_CASE(checked_abs)
     // Normal values
     {
         auto result = checked_abs<ThrowOnErrorPolicy>(5);
-        ASSERT_EQ(result, 5, "abs(5) should equal 5");
+        FATP_ASSERT_EQ(result, 5, "abs(5) should equal 5");
 
         result = checked_abs<ThrowOnErrorPolicy>(-5);
-        ASSERT_EQ(result, 5, "abs(-5) should equal 5");
+        FATP_ASSERT_EQ(result, 5, "abs(-5) should equal 5");
 
         result = checked_abs<ThrowOnErrorPolicy>(0);
-        ASSERT_EQ(result, 0, "abs(0) should equal 0");
+        FATP_ASSERT_EQ(result, 0, "abs(0) should equal 0");
     }
 
     // Unsigned types (should be no-op)
     {
         auto result = checked_abs<ThrowOnErrorPolicy>(5u);
-        ASSERT_EQ(result, 5u, "abs(5u) should equal 5u (unsigned no-op)");
+        FATP_ASSERT_EQ(result, 5u, "abs(5u) should equal 5u (unsigned no-op)");
 
         result = checked_abs<SaturatingPolicy>(std::numeric_limits<unsigned>::max());
-        ASSERT_EQ(result, std::numeric_limits<unsigned>::max(), 
+        FATP_ASSERT_EQ(result, std::numeric_limits<unsigned>::max(), 
                   "abs(UINT_MAX) should equal UINT_MAX");
     }
 
     // MIN overflow - ThrowOnErrorPolicy
     {
-        ASSERT_TRUE(test_throws("abs(INT_MIN)", []() {
+        FATP_ASSERT_TRUE(test_throws("abs(INT_MIN)", []() {
             (void)checked_abs<ThrowOnErrorPolicy>(std::numeric_limits<int>::min());
         }), "abs(INT_MIN) should throw");
 
-        ASSERT_TRUE(test_throws("abs(LLONG_MIN)", []() {
+        FATP_ASSERT_TRUE(test_throws("abs(LLONG_MIN)", []() {
             (void)checked_abs<ThrowOnErrorPolicy>(std::numeric_limits<long long>::min());
         }), "abs(LLONG_MIN) should throw");
     }
@@ -367,38 +367,38 @@ TEST_CASE(checked_abs)
     // MIN overflow - ReturnExpectedPolicy
     {
         auto result = checked_abs<ReturnExpectedPolicy>(std::numeric_limits<int>::min());
-        ASSERT_TRUE(!result.has_value(), "abs(INT_MIN) should fail with Expected");
-        ASSERT_EQ(result.error(), MathError::Overflow, "Should return Overflow error");
+        FATP_ASSERT_TRUE(!result.has_value(), "abs(INT_MIN) should fail with Expected");
+        FATP_ASSERT_EQ(result.error(), MathError::Overflow, "Should return Overflow error");
 
         auto result64 = checked_abs<ReturnExpectedPolicy>(std::numeric_limits<int64_t>::min());
-        ASSERT_TRUE(!result64.has_value(), "abs(INT64_MIN) should fail with Expected");
+        FATP_ASSERT_TRUE(!result64.has_value(), "abs(INT64_MIN) should fail with Expected");
     }
 
     // MIN overflow - SaturatingPolicy
     {
         auto result = checked_abs<SaturatingPolicy>(std::numeric_limits<int>::min());
-        ASSERT_EQ(result, std::numeric_limits<int>::max(), 
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::max(), 
                   "abs(INT_MIN) should saturate to INT_MAX");
 
         auto result64 = checked_abs<SaturatingPolicy>(std::numeric_limits<int64_t>::min());
-        ASSERT_EQ(result64, std::numeric_limits<int64_t>::max(),
+        FATP_ASSERT_EQ(result64, std::numeric_limits<int64_t>::max(),
                   "abs(INT64_MIN) should saturate to INT64_MAX");
     }
 
     // MIN overflow - InfTolerantPolicy
     {
         auto result = checked_abs<InfTolerantPolicy>(std::numeric_limits<int>::min());
-        ASSERT_EQ(result, std::numeric_limits<int>::max(),
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::max(),
                   "abs(INT_MIN) with InfTolerant should saturate to INT_MAX");
     }
 
     // Various signed types
     {
         auto r8 = checked_abs<SaturatingPolicy>(static_cast<int8_t>(-128));
-        ASSERT_EQ(r8, static_cast<int8_t>(127), "abs(INT8_MIN) should saturate to 127");
+        FATP_ASSERT_EQ(r8, static_cast<int8_t>(127), "abs(INT8_MIN) should saturate to 127");
 
         auto r16 = checked_abs<SaturatingPolicy>(static_cast<int16_t>(-32768));
-        ASSERT_EQ(r16, static_cast<int16_t>(32767), "abs(INT16_MIN) should saturate to 32767");
+        FATP_ASSERT_EQ(r16, static_cast<int16_t>(32767), "abs(INT16_MIN) should saturate to 32767");
     }
 
     std::cout << colors::green() << "[NEW FEATURE] checked_abs: PASSED"
@@ -406,7 +406,7 @@ TEST_CASE(checked_abs)
     return true;
 }
 
-TEST_CASE(shift_inf_tolerant)
+FATP_TEST_CASE(shift_inf_tolerant)
 {
     std::cout << colors::cyan() << "\n[NEW FEATURE TEST] Testing InfTolerantPolicy on shifts..."
               << colors::reset() << std::endl;
@@ -414,49 +414,49 @@ TEST_CASE(shift_inf_tolerant)
     // Invalid left shift - negative amount
     {
         auto result = checked_left_shift<InfTolerantPolicy>(5, -1);
-        ASSERT_EQ(result, 0, "left_shift with negative amount should return 0");
+        FATP_ASSERT_EQ(result, 0, "left_shift with negative amount should return 0");
 
         result = checked_left_shift<InfTolerantPolicy>(100, -10);
-        ASSERT_EQ(result, 0, "left_shift with large negative should return 0");
+        FATP_ASSERT_EQ(result, 0, "left_shift with large negative should return 0");
     }
 
     // Invalid left shift - amount >= bitwidth
     {
         auto result = checked_left_shift<InfTolerantPolicy>(5, 32);
-        ASSERT_EQ(result, 0, "left_shift by 32 (int32) should return 0");
+        FATP_ASSERT_EQ(result, 0, "left_shift by 32 (int32) should return 0");
 
         result = checked_left_shift<InfTolerantPolicy>(5, 64);
-        ASSERT_EQ(result, 0, "left_shift by 64 should return 0");
+        FATP_ASSERT_EQ(result, 0, "left_shift by 64 should return 0");
 
         auto result64 = checked_left_shift<InfTolerantPolicy>(5LL, 64);
-        ASSERT_EQ(result64, 0LL, "left_shift int64 by 64 should return 0");
+        FATP_ASSERT_EQ(result64, 0LL, "left_shift int64 by 64 should return 0");
     }
 
     // Invalid right shift - negative amount (unsigned)
     {
         auto result = checked_right_shift<InfTolerantPolicy>(100u, -1);
-        ASSERT_EQ(result, 0u, "unsigned right_shift with negative should return 0");
+        FATP_ASSERT_EQ(result, 0u, "unsigned right_shift with negative should return 0");
     }
 
     // Invalid right shift - signed preserves sign
     {
         auto result = checked_right_shift<InfTolerantPolicy>(-5, 64);
-        ASSERT_EQ(result, -1, "signed right_shift with invalid amount should return -1");
+        FATP_ASSERT_EQ(result, -1, "signed right_shift with invalid amount should return -1");
 
         result = checked_right_shift<InfTolerantPolicy>(-100, 32);
-        ASSERT_EQ(result, -1, "negative value right_shift by 32 should return -1");
+        FATP_ASSERT_EQ(result, -1, "negative value right_shift by 32 should return -1");
 
         result = checked_right_shift<InfTolerantPolicy>(100, 32);
-        ASSERT_EQ(result, 0, "positive value right_shift by 32 should return 0");
+        FATP_ASSERT_EQ(result, 0, "positive value right_shift by 32 should return 0");
     }
 
     // Valid shifts should work normally
     {
         auto result = checked_left_shift<InfTolerantPolicy>(5, 2);
-        ASSERT_EQ(result, 20, "5 << 2 should equal 20");
+        FATP_ASSERT_EQ(result, 20, "5 << 2 should equal 20");
 
         result = checked_right_shift<InfTolerantPolicy>(20, 2);
-        ASSERT_EQ(result, 5, "20 >> 2 should equal 5");
+        FATP_ASSERT_EQ(result, 5, "20 >> 2 should equal 5");
     }
 
     std::cout << colors::green() << "[NEW FEATURE] InfTolerantPolicy shifts: PASSED"
@@ -464,7 +464,7 @@ TEST_CASE(shift_inf_tolerant)
     return true;
 }
 
-TEST_CASE(scalar_int_inf_tolerant)
+FATP_TEST_CASE(scalar_int_inf_tolerant)
 {
     std::cout << colors::cyan() << "\n[NEW FEATURE TEST] Testing InfTolerantPolicy on scalar integers..."
               << colors::reset() << std::endl;
@@ -472,88 +472,88 @@ TEST_CASE(scalar_int_inf_tolerant)
     // checked_add overflow - should saturate like SaturatingPolicy
     {
         auto result = checked_add<InfTolerantPolicy>(std::numeric_limits<int>::max(), 1);
-        ASSERT_EQ(result, std::numeric_limits<int>::max(), 
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::max(), 
                   "InfTolerant add overflow should saturate to max");
 
         result = checked_add<InfTolerantPolicy>(std::numeric_limits<int>::min(), -1);
-        ASSERT_EQ(result, std::numeric_limits<int>::lowest(),
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::lowest(),
                   "InfTolerant add underflow should saturate to min");
 
         auto uresult = checked_add<InfTolerantPolicy>(std::numeric_limits<unsigned>::max(), 1u);
-        ASSERT_EQ(uresult, std::numeric_limits<unsigned>::max(),
+        FATP_ASSERT_EQ(uresult, std::numeric_limits<unsigned>::max(),
                   "InfTolerant unsigned add overflow should saturate to max");
     }
 
     // checked_sub overflow
     {
         auto result = checked_sub<InfTolerantPolicy>(std::numeric_limits<int>::min(), 1);
-        ASSERT_EQ(result, std::numeric_limits<int>::lowest(),
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::lowest(),
                   "InfTolerant sub underflow should saturate to min");
 
         result = checked_sub<InfTolerantPolicy>(std::numeric_limits<int>::max(), -1);
-        ASSERT_EQ(result, std::numeric_limits<int>::max(),
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::max(),
                   "InfTolerant sub overflow should saturate to max");
 
         auto uresult = checked_sub<InfTolerantPolicy>(0u, 1u);
-        ASSERT_EQ(uresult, std::numeric_limits<unsigned>::lowest(),
+        FATP_ASSERT_EQ(uresult, std::numeric_limits<unsigned>::lowest(),
                   "InfTolerant unsigned sub underflow should saturate to 0");
     }
 
     // checked_mul overflow
     {
         auto result = checked_mul<InfTolerantPolicy>(std::numeric_limits<int>::max(), 2);
-        ASSERT_EQ(result, std::numeric_limits<int>::max(),
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::max(),
                   "InfTolerant mul overflow should saturate to max");
 
         result = checked_mul<InfTolerantPolicy>(std::numeric_limits<int>::min(), 2);
-        ASSERT_EQ(result, std::numeric_limits<int>::lowest(),
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::lowest(),
                   "InfTolerant mul underflow should saturate to min");
 
         result = checked_mul<InfTolerantPolicy>(std::numeric_limits<int>::max(), -2);
-        ASSERT_EQ(result, std::numeric_limits<int>::lowest(),
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::lowest(),
                   "InfTolerant mul negative overflow should saturate to min");
     }
 
     // checked_div by zero
     {
         auto result = checked_div<InfTolerantPolicy>(100, 0);
-        ASSERT_EQ(result, std::numeric_limits<int>::max(),
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::max(),
                   "InfTolerant div by zero (positive) should saturate to max");
 
         result = checked_div<InfTolerantPolicy>(-100, 0);
-        ASSERT_EQ(result, std::numeric_limits<int>::lowest(),
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::lowest(),
                   "InfTolerant div by zero (negative) should saturate to min");
 
         result = checked_div<InfTolerantPolicy>(0, 0);
-        ASSERT_EQ(result, 0, "InfTolerant 0/0 should return 0");
+        FATP_ASSERT_EQ(result, 0, "InfTolerant 0/0 should return 0");
     }
 
     // checked_div MIN/-1 overflow
     {
         auto result = checked_div<InfTolerantPolicy>(std::numeric_limits<int>::min(), -1);
-        ASSERT_EQ(result, std::numeric_limits<int>::max(),
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::max(),
                   "InfTolerant MIN/-1 should saturate to max");
     }
 
     // checked_mod by zero
     {
         auto result = checked_mod<InfTolerantPolicy>(100, 0);
-        ASSERT_EQ(result, 0, "InfTolerant mod by zero should return 0");
+        FATP_ASSERT_EQ(result, 0, "InfTolerant mod by zero should return 0");
     }
 
     // checked_mod MIN%-1 overflow
     {
         auto result = checked_mod<InfTolerantPolicy>(std::numeric_limits<int>::min(), -1);
-        ASSERT_EQ(result, 0, "InfTolerant MIN%-1 should return 0");
+        FATP_ASSERT_EQ(result, 0, "InfTolerant MIN%-1 should return 0");
     }
 
     // Normal operations should work correctly
     {
-        ASSERT_EQ(checked_add<InfTolerantPolicy>(5, 3), 8, "5+3 should equal 8");
-        ASSERT_EQ(checked_sub<InfTolerantPolicy>(10, 3), 7, "10-3 should equal 7");
-        ASSERT_EQ(checked_mul<InfTolerantPolicy>(6, 7), 42, "6*7 should equal 42");
-        ASSERT_EQ(checked_div<InfTolerantPolicy>(20, 4), 5, "20/4 should equal 5");
-        ASSERT_EQ(checked_mod<InfTolerantPolicy>(17, 5), 2, "17%5 should equal 2");
+        FATP_ASSERT_EQ(checked_add<InfTolerantPolicy>(5, 3), 8, "5+3 should equal 8");
+        FATP_ASSERT_EQ(checked_sub<InfTolerantPolicy>(10, 3), 7, "10-3 should equal 7");
+        FATP_ASSERT_EQ(checked_mul<InfTolerantPolicy>(6, 7), 42, "6*7 should equal 42");
+        FATP_ASSERT_EQ(checked_div<InfTolerantPolicy>(20, 4), 5, "20/4 should equal 5");
+        FATP_ASSERT_EQ(checked_mod<InfTolerantPolicy>(17, 5), 2, "17%5 should equal 2");
     }
 
     std::cout << colors::green() << "[NEW FEATURE] InfTolerantPolicy scalar integers: PASSED"
@@ -565,7 +565,7 @@ TEST_CASE(scalar_int_inf_tolerant)
 // INFTOLERANTPOLICY FLOATING-POINT TESTS (BUG FIX VERIFICATION)
 // =============================================================================
 
-TEST_CASE(inf_tolerant_fp_nan_handling)
+FATP_TEST_CASE(inf_tolerant_fp_nan_handling)
 {
     std::cout << colors::cyan() << "\n[BUG FIX TEST] Testing InfTolerantPolicy NaN handling (noexcept compliance)..."
               << colors::reset() << std::endl;
@@ -580,31 +580,31 @@ TEST_CASE(inf_tolerant_fp_nan_handling)
     // NaN inputs - should return NaN, not throw
     {
         auto r1 = checked_add_fp<InfTolerantPolicy>(nan_val, 1.0);
-        ASSERT_TRUE(std::isnan(r1), "InfTolerantPolicy should return NaN for NaN + 1.0");
+        FATP_ASSERT_TRUE(std::isnan(r1), "InfTolerantPolicy should return NaN for NaN + 1.0");
         
         auto r2 = checked_sub_fp<InfTolerantPolicy>(1.0, nan_val);
-        ASSERT_TRUE(std::isnan(r2), "InfTolerantPolicy should return NaN for 1.0 - NaN");
+        FATP_ASSERT_TRUE(std::isnan(r2), "InfTolerantPolicy should return NaN for 1.0 - NaN");
         
         auto r3 = checked_mul_fp<InfTolerantPolicy>(nan_val, 2.0);
-        ASSERT_TRUE(std::isnan(r3), "InfTolerantPolicy should return NaN for NaN * 2.0");
+        FATP_ASSERT_TRUE(std::isnan(r3), "InfTolerantPolicy should return NaN for NaN * 2.0");
         
         auto r4 = checked_div_fp<InfTolerantPolicy>(nan_val, 2.0);
-        ASSERT_TRUE(std::isnan(r4), "InfTolerantPolicy should return NaN for NaN / 2.0");
+        FATP_ASSERT_TRUE(std::isnan(r4), "InfTolerantPolicy should return NaN for NaN / 2.0");
         
         auto r5 = checked_div_fp<InfTolerantPolicy>(2.0, nan_val);
-        ASSERT_TRUE(std::isnan(r5), "InfTolerantPolicy should return NaN for 2.0 / NaN");
+        FATP_ASSERT_TRUE(std::isnan(r5), "InfTolerantPolicy should return NaN for 2.0 / NaN");
     }
     
     // Inf-Inf undefined cases - should return NaN, not throw
     {
         auto r1 = checked_add_fp<InfTolerantPolicy>(pos_inf, neg_inf);
-        ASSERT_TRUE(std::isnan(r1), "InfTolerantPolicy should return NaN for Inf + (-Inf)");
+        FATP_ASSERT_TRUE(std::isnan(r1), "InfTolerantPolicy should return NaN for Inf + (-Inf)");
         
         auto r2 = checked_sub_fp<InfTolerantPolicy>(pos_inf, pos_inf);
-        ASSERT_TRUE(std::isnan(r2), "InfTolerantPolicy should return NaN for Inf - Inf");
+        FATP_ASSERT_TRUE(std::isnan(r2), "InfTolerantPolicy should return NaN for Inf - Inf");
         
         auto r3 = checked_sub_fp<InfTolerantPolicy>(neg_inf, neg_inf);
-        ASSERT_TRUE(std::isnan(r3), "InfTolerantPolicy should return NaN for -Inf - (-Inf)");
+        FATP_ASSERT_TRUE(std::isnan(r3), "InfTolerantPolicy should return NaN for -Inf - (-Inf)");
     }
     
     // Overflow to Inf - should return Inf (that's the whole point of InfTolerant)
@@ -612,56 +612,56 @@ TEST_CASE(inf_tolerant_fp_nan_handling)
         double big = std::numeric_limits<double>::max();
         
         auto r1 = checked_add_fp<InfTolerantPolicy>(big, big);
-        ASSERT_TRUE(std::isinf(r1) && r1 > 0, "InfTolerantPolicy should allow +Inf from overflow");
+        FATP_ASSERT_TRUE(std::isinf(r1) && r1 > 0, "InfTolerantPolicy should allow +Inf from overflow");
         
         auto r2 = checked_mul_fp<InfTolerantPolicy>(big, 2.0);
-        ASSERT_TRUE(std::isinf(r2) && r2 > 0, "InfTolerantPolicy should allow +Inf from mul overflow");
+        FATP_ASSERT_TRUE(std::isinf(r2) && r2 > 0, "InfTolerantPolicy should allow +Inf from mul overflow");
         
         auto r3 = checked_mul_fp<InfTolerantPolicy>(-big, 2.0);
-        ASSERT_TRUE(std::isinf(r3) && r3 < 0, "InfTolerantPolicy should allow -Inf from mul overflow");
+        FATP_ASSERT_TRUE(std::isinf(r3) && r3 < 0, "InfTolerantPolicy should allow -Inf from mul overflow");
     }
     
     // Division by zero - should return Inf (or NaN for 0/0)
     {
         auto r1 = checked_div_fp<InfTolerantPolicy>(1.0, 0.0);
-        ASSERT_TRUE(std::isinf(r1) && r1 > 0, "InfTolerantPolicy should return +Inf for 1/0");
+        FATP_ASSERT_TRUE(std::isinf(r1) && r1 > 0, "InfTolerantPolicy should return +Inf for 1/0");
         
         auto r2 = checked_div_fp<InfTolerantPolicy>(-1.0, 0.0);
-        ASSERT_TRUE(std::isinf(r2) && r2 < 0, "InfTolerantPolicy should return -Inf for -1/0");
+        FATP_ASSERT_TRUE(std::isinf(r2) && r2 < 0, "InfTolerantPolicy should return -Inf for -1/0");
         
         auto r3 = checked_div_fp<InfTolerantPolicy>(0.0, 0.0);
-        ASSERT_TRUE(std::isnan(r3), "InfTolerantPolicy should return NaN for 0/0");
+        FATP_ASSERT_TRUE(std::isnan(r3), "InfTolerantPolicy should return NaN for 0/0");
     }
     
     // Valid Inf operations - should work normally
     {
         auto r1 = checked_add_fp<InfTolerantPolicy>(pos_inf, 1.0);
-        ASSERT_TRUE(std::isinf(r1) && r1 > 0, "Inf + 1.0 should return Inf");
+        FATP_ASSERT_TRUE(std::isinf(r1) && r1 > 0, "Inf + 1.0 should return Inf");
         
         auto r2 = checked_add_fp<InfTolerantPolicy>(pos_inf, pos_inf);
-        ASSERT_TRUE(std::isinf(r2) && r2 > 0, "Inf + Inf should return Inf");
+        FATP_ASSERT_TRUE(std::isinf(r2) && r2 > 0, "Inf + Inf should return Inf");
         
         auto r3 = checked_mul_fp<InfTolerantPolicy>(pos_inf, 2.0);
-        ASSERT_TRUE(std::isinf(r3) && r3 > 0, "Inf * 2.0 should return Inf");
+        FATP_ASSERT_TRUE(std::isinf(r3) && r3 > 0, "Inf * 2.0 should return Inf");
         
         auto r4 = checked_div_fp<InfTolerantPolicy>(pos_inf, 2.0);
-        ASSERT_TRUE(std::isinf(r4) && r4 > 0, "Inf / 2.0 should return Inf");
+        FATP_ASSERT_TRUE(std::isinf(r4) && r4 > 0, "Inf / 2.0 should return Inf");
         
         auto r5 = checked_div_fp<InfTolerantPolicy>(2.0, pos_inf);
-        ASSERT_TRUE(r5 == 0.0, "2.0 / Inf should return 0");
+        FATP_ASSERT_TRUE(r5 == 0.0, "2.0 / Inf should return 0");
     }
     
     // checked_cast with InfTolerantPolicy
     {
         auto r1 = checked_cast<int, InfTolerantPolicy>(nan_val);
-        ASSERT_EQ(r1, 0, "InfTolerantPolicy checked_cast of NaN to int should return 0");
+        FATP_ASSERT_EQ(r1, 0, "InfTolerantPolicy checked_cast of NaN to int should return 0");
         
         auto r2 = checked_cast<int, InfTolerantPolicy>(pos_inf);
-        ASSERT_EQ(r2, std::numeric_limits<int>::max(),
+        FATP_ASSERT_EQ(r2, std::numeric_limits<int>::max(),
                   "InfTolerantPolicy checked_cast of +Inf to int should saturate to max");
         
         auto r3 = checked_cast<int, InfTolerantPolicy>(neg_inf);
-        ASSERT_EQ(r3, std::numeric_limits<int>::lowest(),
+        FATP_ASSERT_EQ(r3, std::numeric_limits<int>::lowest(),
                   "InfTolerantPolicy checked_cast of -Inf to int should saturate to min");
     }
     
@@ -670,7 +670,7 @@ TEST_CASE(inf_tolerant_fp_nan_handling)
     return true;
 }
 
-TEST_CASE(scalar_fp_inf_tolerant)
+FATP_TEST_CASE(scalar_fp_inf_tolerant)
 {
     std::cout << colors::cyan() << "\n[NEW FEATURE TEST] Testing InfTolerantPolicy on scalar FP..."
               << colors::reset() << std::endl;
@@ -682,78 +682,78 @@ TEST_CASE(scalar_fp_inf_tolerant)
     // NaN input - should return NaN, not throw
     {
         auto r1 = checked_add_fp<InfTolerantPolicy>(nan_val, 1.0);
-        ASSERT_TRUE(std::isnan(r1), "InfTolerant add(NaN, 1) should return NaN");
+        FATP_ASSERT_TRUE(std::isnan(r1), "InfTolerant add(NaN, 1) should return NaN");
 
         auto r2 = checked_sub_fp<InfTolerantPolicy>(1.0, nan_val);
-        ASSERT_TRUE(std::isnan(r2), "InfTolerant sub(1, NaN) should return NaN");
+        FATP_ASSERT_TRUE(std::isnan(r2), "InfTolerant sub(1, NaN) should return NaN");
 
         auto r3 = checked_mul_fp<InfTolerantPolicy>(nan_val, 2.0);
-        ASSERT_TRUE(std::isnan(r3), "InfTolerant mul(NaN, 2) should return NaN");
+        FATP_ASSERT_TRUE(std::isnan(r3), "InfTolerant mul(NaN, 2) should return NaN");
 
         auto r4 = checked_div_fp<InfTolerantPolicy>(nan_val, 2.0);
-        ASSERT_TRUE(std::isnan(r4), "InfTolerant div(NaN, 2) should return NaN");
+        FATP_ASSERT_TRUE(std::isnan(r4), "InfTolerant div(NaN, 2) should return NaN");
 
         auto r5 = checked_mod_fp<InfTolerantPolicy>(nan_val, 2.0);
-        ASSERT_TRUE(std::isnan(r5), "InfTolerant mod(NaN, 2) should return NaN");
+        FATP_ASSERT_TRUE(std::isnan(r5), "InfTolerant mod(NaN, 2) should return NaN");
     }
 
     // Inf-Inf undefined cases - should return NaN, not throw
     {
         auto r1 = checked_add_fp<InfTolerantPolicy>(inf_val, -inf_val);
-        ASSERT_TRUE(std::isnan(r1), "InfTolerant add(Inf, -Inf) should return NaN");
+        FATP_ASSERT_TRUE(std::isnan(r1), "InfTolerant add(Inf, -Inf) should return NaN");
 
         auto r2 = checked_sub_fp<InfTolerantPolicy>(inf_val, inf_val);
-        ASSERT_TRUE(std::isnan(r2), "InfTolerant sub(Inf, Inf) should return NaN");
+        FATP_ASSERT_TRUE(std::isnan(r2), "InfTolerant sub(Inf, Inf) should return NaN");
     }
 
     // Overflow to Inf - should return Inf (tolerate it)
     {
         auto r1 = checked_add_fp<InfTolerantPolicy>(big, big);
-        ASSERT_TRUE(std::isinf(r1) && r1 > 0, "InfTolerant add overflow should return +Inf");
+        FATP_ASSERT_TRUE(std::isinf(r1) && r1 > 0, "InfTolerant add overflow should return +Inf");
 
         auto r2 = checked_mul_fp<InfTolerantPolicy>(big, 2.0);
-        ASSERT_TRUE(std::isinf(r2) && r2 > 0, "InfTolerant mul overflow should return +Inf");
+        FATP_ASSERT_TRUE(std::isinf(r2) && r2 > 0, "InfTolerant mul overflow should return +Inf");
 
         auto r3 = checked_mul_fp<InfTolerantPolicy>(-big, 2.0);
-        ASSERT_TRUE(std::isinf(r3) && r3 < 0, "InfTolerant mul underflow should return -Inf");
+        FATP_ASSERT_TRUE(std::isinf(r3) && r3 < 0, "InfTolerant mul underflow should return -Inf");
     }
 
     // Division by zero - should return Inf
     {
         auto r1 = checked_div_fp<InfTolerantPolicy>(1.0, 0.0);
-        ASSERT_TRUE(std::isinf(r1) && r1 > 0, "InfTolerant div(1, 0) should return +Inf");
+        FATP_ASSERT_TRUE(std::isinf(r1) && r1 > 0, "InfTolerant div(1, 0) should return +Inf");
 
         auto r2 = checked_div_fp<InfTolerantPolicy>(-1.0, 0.0);
-        ASSERT_TRUE(std::isinf(r2) && r2 < 0, "InfTolerant div(-1, 0) should return -Inf");
+        FATP_ASSERT_TRUE(std::isinf(r2) && r2 < 0, "InfTolerant div(-1, 0) should return -Inf");
 
         auto r3 = checked_div_fp<InfTolerantPolicy>(0.0, 0.0);
-        ASSERT_TRUE(std::isnan(r3), "InfTolerant div(0, 0) should return NaN");
+        FATP_ASSERT_TRUE(std::isnan(r3), "InfTolerant div(0, 0) should return NaN");
     }
 
     // checked_cast with InfTolerantPolicy
     {
         auto r1 = checked_cast<int, InfTolerantPolicy>(nan_val);
-        ASSERT_EQ(r1, 0, "InfTolerant cast NaN to int should return 0");
+        FATP_ASSERT_EQ(r1, 0, "InfTolerant cast NaN to int should return 0");
 
         auto r2 = checked_cast<int, InfTolerantPolicy>(inf_val);
-        ASSERT_EQ(r2, std::numeric_limits<int>::max(),
+        FATP_ASSERT_EQ(r2, std::numeric_limits<int>::max(),
                   "InfTolerant cast +Inf to int should saturate to max");
 
         auto r3 = checked_cast<int, InfTolerantPolicy>(-inf_val);
-        ASSERT_EQ(r3, std::numeric_limits<int>::lowest(),
+        FATP_ASSERT_EQ(r3, std::numeric_limits<int>::lowest(),
                   "InfTolerant cast -Inf to int should saturate to min");
 
         auto r4 = checked_cast<double, InfTolerantPolicy>(nan_val);
-        ASSERT_TRUE(std::isnan(r4), "InfTolerant cast NaN to double should return NaN");
+        FATP_ASSERT_TRUE(std::isnan(r4), "InfTolerant cast NaN to double should return NaN");
     }
 
     // Normal operations should work correctly
     {
         auto r1 = checked_add_fp<InfTolerantPolicy>(1.5, 2.5);
-        ASSERT_TRUE(std::abs(r1 - 4.0) < 1e-10, "1.5 + 2.5 should equal 4.0");
+        FATP_ASSERT_TRUE(std::abs(r1 - 4.0) < 1e-10, "1.5 + 2.5 should equal 4.0");
 
         auto r2 = checked_mul_fp<InfTolerantPolicy>(3.0, 4.0);
-        ASSERT_TRUE(std::abs(r2 - 12.0) < 1e-10, "3.0 * 4.0 should equal 12.0");
+        FATP_ASSERT_TRUE(std::abs(r2 - 12.0) < 1e-10, "3.0 * 4.0 should equal 12.0");
     }
 
     std::cout << colors::green() << "[NEW FEATURE] InfTolerantPolicy scalar FP: PASSED"
@@ -765,7 +765,7 @@ TEST_CASE(scalar_fp_inf_tolerant)
 // EXPANDED EDGE CASE TESTS
 // =============================================================================
 
-TEST_CASE(fp_denormals)
+FATP_TEST_CASE(fp_denormals)
 {
     std::cout << colors::cyan() << "\n[EDGE CASE TEST] Testing denormal handling..."
               << colors::reset() << std::endl;
@@ -774,19 +774,19 @@ TEST_CASE(fp_denormals)
 
     {
         auto result = checked_add_fp<ThrowOnErrorPolicy>(denorm, denorm);
-        ASSERT_TRUE(std::abs(result - 2.0 * denorm) < 1e-320 || result == 2.0 * denorm,
+        FATP_ASSERT_TRUE(std::abs(result - 2.0 * denorm) < 1e-320 || result == 2.0 * denorm,
                      "Should handle denormal addition");
     }
 
     {
         auto result = checked_mul_fp<ThrowOnErrorPolicy>(denorm, 2.0);
-        ASSERT_TRUE(result > 0 && std::isfinite(result),
+        FATP_ASSERT_TRUE(result > 0 && std::isfinite(result),
                      "Should handle denormal multiplication");
     }
 
     {
         auto result = checked_div_fp<ThrowOnErrorPolicy>(denorm, 2.0);
-        ASSERT_TRUE(result >= 0 && std::isfinite(result),
+        FATP_ASSERT_TRUE(result >= 0 && std::isfinite(result),
                      "Should handle division producing denormal or underflow to zero");
     }
 
@@ -795,7 +795,7 @@ TEST_CASE(fp_denormals)
     return true;
 }
 
-TEST_CASE(unsigned_overflow)
+FATP_TEST_CASE(unsigned_overflow)
 {
     std::cout << colors::cyan() << "\n[EDGE CASE TEST] Testing unsigned overflow patterns..."
               << colors::reset() << std::endl;
@@ -804,23 +804,23 @@ TEST_CASE(unsigned_overflow)
 
     {
         auto result = checked_add<ReturnExpectedPolicy>(max_uint, 1u);
-        ASSERT_TRUE(!result.has_value(), "unsigned max + 1 should overflow");
+        FATP_ASSERT_TRUE(!result.has_value(), "unsigned max + 1 should overflow");
 
         auto sat_result = checked_add<SaturatingPolicy>(max_uint, 1u);
-        ASSERT_EQ(sat_result, max_uint, "Should saturate to max");
+        FATP_ASSERT_EQ(sat_result, max_uint, "Should saturate to max");
     }
 
     {
         auto result = checked_sub<ReturnExpectedPolicy>(0u, 1u);
-        ASSERT_TRUE(!result.has_value(), "0u - 1u should underflow");
+        FATP_ASSERT_TRUE(!result.has_value(), "0u - 1u should underflow");
 
         auto sat_result = checked_sub<SaturatingPolicy>(0u, 1u);
-        ASSERT_EQ(sat_result, 0u, "Should saturate to 0");
+        FATP_ASSERT_EQ(sat_result, 0u, "Should saturate to 0");
     }
 
     {
         auto result = checked_mul<ReturnExpectedPolicy>(max_uint, 2u);
-        ASSERT_TRUE(!result.has_value(), "unsigned max * 2 should overflow");
+        FATP_ASSERT_TRUE(!result.has_value(), "unsigned max * 2 should overflow");
     }
 
     std::cout << colors::green() << "[EDGE CASE] Unsigned overflow: PASSED"
@@ -828,29 +828,29 @@ TEST_CASE(unsigned_overflow)
     return true;
 }
 
-TEST_CASE(mixed_sign_operations)
+FATP_TEST_CASE(mixed_sign_operations)
 {
     std::cout << colors::cyan() << "\n[EDGE CASE TEST] Testing mixed-sign operations..."
               << colors::reset() << std::endl;
 
     {
         auto result = checked_mul<SaturatingPolicy>(-100, 100000000);
-        ASSERT_EQ(result, std::numeric_limits<int>::min(),
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::min(),
                  "Negative result should saturate to min");
 
         result = checked_mul<SaturatingPolicy>(100, -100000000);
-        ASSERT_EQ(result, std::numeric_limits<int>::min(),
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::min(),
                  "Mixed-sign overflow should saturate correctly");
     }
 
     {
         int near_max = std::numeric_limits<int>::max() - 10;
         auto result = checked_add<ThrowOnErrorPolicy>(near_max, -5);
-        ASSERT_EQ(result, near_max - 5, "Should handle mixed-sign addition near max");
+        FATP_ASSERT_EQ(result, near_max - 5, "Should handle mixed-sign addition near max");
 
         int near_min = std::numeric_limits<int>::min() + 10;
         result = checked_add<ThrowOnErrorPolicy>(near_min, 5);
-        ASSERT_EQ(result, near_min + 5, "Should handle mixed-sign addition near min");
+        FATP_ASSERT_EQ(result, near_min + 5, "Should handle mixed-sign addition near min");
     }
 
     std::cout << colors::green() << "[EDGE CASE] Mixed-sign operations: PASSED"
@@ -862,7 +862,7 @@ TEST_CASE(mixed_sign_operations)
 // SIMD VALIDATION TESTS
 // =============================================================================
 
-TEST_CASE(simd_int32_correctness)
+FATP_TEST_CASE(simd_int32_correctness)
 {
     std::cout << colors::cyan() << "\n[SIMD TEST] Testing int32 vector operations..."
               << colors::reset() << std::endl;
@@ -881,12 +881,12 @@ TEST_CASE(simd_int32_correctness)
         }
 
         auto result = checked_add_vec<ThrowOnErrorPolicy>(vec_a, vec_b);
-        ASSERT_EQ(result.size(), size, "Result size should match input");
+        FATP_ASSERT_EQ(result.size(), size, "Result size should match input");
 
         for (size_t i = 0; i < size; ++i)
         {
             int32_t expected = vec_a[i] + vec_b[i];
-            ASSERT_EQ(result[i], expected, "SIMD result should match scalar");
+            FATP_ASSERT_EQ(result[i], expected, "SIMD result should match scalar");
         }
     }
 
@@ -901,7 +901,7 @@ TEST_CASE(simd_int32_correctness)
     return true;
 }
 
-TEST_CASE(simd_overflow_detection)
+FATP_TEST_CASE(simd_overflow_detection)
 {
     std::cout << colors::cyan() << "\n[SIMD TEST] Testing SIMD overflow detection..."
               << colors::reset() << std::endl;
@@ -909,13 +909,13 @@ TEST_CASE(simd_overflow_detection)
     std::vector<int32_t> vec_a = {1, 2, std::numeric_limits<int32_t>::max(), 4, 5};
     std::vector<int32_t> vec_b = {1, 2, 1, 4, 5};
 
-    ASSERT_TRUE(test_throws("Vector addition overflow", [&]() {
+    FATP_ASSERT_TRUE(test_throws("Vector addition overflow", [&]() {
         (void)checked_add_vec<ThrowOnErrorPolicy>(vec_a, vec_b);
     }), "Should detect overflow in vector operation");
 
     auto result = checked_add_vec<SaturatingPolicy>(vec_a, vec_b);
-    ASSERT_EQ(result[0], 2, "Non-overflow elements should be correct");
-    ASSERT_EQ(result[2], std::numeric_limits<int32_t>::max(),
+    FATP_ASSERT_EQ(result[0], 2, "Non-overflow elements should be correct");
+    FATP_ASSERT_EQ(result[2], std::numeric_limits<int32_t>::max(),
              "Overflow element should saturate");
 
     std::cout << colors::green() << "[SIMD] Overflow detection: PASSED"
@@ -927,7 +927,7 @@ TEST_CASE(simd_overflow_detection)
 // FP VECTOR OPERATIONS TESTS
 // =============================================================================
 
-TEST_CASE(fp_vec_sub_nan_detection)
+FATP_TEST_CASE(fp_vec_sub_nan_detection)
 {
     std::cout << colors::cyan() << "\n[FP VEC SUB] Testing NaN detection..."
               << colors::reset() << std::endl;
@@ -935,20 +935,20 @@ TEST_CASE(fp_vec_sub_nan_detection)
     std::vector<double> vec_a = {1.0, 2.0, std::numeric_limits<double>::quiet_NaN(), 4.0};
     std::vector<double> vec_b = {1.0, 2.0, 3.0, 4.0};
 
-    ASSERT_TRUE(test_throws("Vector sub with NaN", [&]() {
+    FATP_ASSERT_TRUE(test_throws("Vector sub with NaN", [&]() {
         (void)checked_sub_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
     }), "Should detect NaN in subtraction");
 
     auto result = checked_sub_vec_fp<ReturnExpectedPolicy>(vec_a, vec_b);
-    ASSERT_TRUE(!result.has_value(), "ReturnExpected should return error for NaN");
-    ASSERT_EQ(result.error(), MathError::NaN, "Error should be MathError::NaN");
+    FATP_ASSERT_TRUE(!result.has_value(), "ReturnExpected should return error for NaN");
+    FATP_ASSERT_EQ(result.error(), MathError::NaN, "Error should be MathError::NaN");
 
     std::cout << colors::green() << "[FP VEC SUB] NaN detection: PASSED"
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(fp_vec_sub_inf_overflow)
+FATP_TEST_CASE(fp_vec_sub_inf_overflow)
 {
     std::cout << colors::cyan() << "\n[FP VEC SUB] Testing Inf overflow detection..."
               << colors::reset() << std::endl;
@@ -956,24 +956,24 @@ TEST_CASE(fp_vec_sub_inf_overflow)
     std::vector<double> vec_a = {1.0, std::numeric_limits<double>::max(), 3.0};
     std::vector<double> vec_b = {1.0, -std::numeric_limits<double>::max(), 3.0};
 
-    ASSERT_TRUE(test_throws("Vector sub overflow to Inf", [&]() {
+    FATP_ASSERT_TRUE(test_throws("Vector sub overflow to Inf", [&]() {
         (void)checked_sub_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
     }), "Should detect Inf overflow from finite inputs");
 
     auto result = checked_sub_vec_fp<ReturnExpectedPolicy>(vec_a, vec_b);
-    ASSERT_TRUE(!result.has_value(), "ReturnExpected should return error for Inf overflow");
-    ASSERT_EQ(result.error(), MathError::Inf, "Error should be MathError::Inf");
+    FATP_ASSERT_TRUE(!result.has_value(), "ReturnExpected should return error for Inf overflow");
+    FATP_ASSERT_EQ(result.error(), MathError::Inf, "Error should be MathError::Inf");
 
     auto saturated = checked_sub_vec_fp<SaturatingPolicy>(vec_a, vec_b);
-    ASSERT_EQ(saturated[0], 0.0, "Non-overflow elements should compute correctly");
-    ASSERT_EQ(saturated[1], std::numeric_limits<double>::max(), "Overflow should saturate");
+    FATP_ASSERT_EQ(saturated[0], 0.0, "Non-overflow elements should compute correctly");
+    FATP_ASSERT_EQ(saturated[1], std::numeric_limits<double>::max(), "Overflow should saturate");
 
     std::cout << colors::green() << "[FP VEC SUB] Inf overflow: PASSED"
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(fp_vec_sub_inf_tolerant)
+FATP_TEST_CASE(fp_vec_sub_inf_tolerant)
 {
     std::cout << colors::cyan() << "\n[FP VEC SUB] Testing InfTolerant policy..."
               << colors::reset() << std::endl;
@@ -982,16 +982,16 @@ TEST_CASE(fp_vec_sub_inf_tolerant)
     std::vector<double> vec_b = {1.0, -std::numeric_limits<double>::max(), 3.0};
 
     auto result = checked_sub_vec_fp<InfTolerantPolicy>(vec_a, vec_b);
-    ASSERT_EQ(result[0], 0.0, "Normal elements should compute correctly");
-    ASSERT_TRUE(std::isinf(result[1]), "InfTolerant should allow Inf results");
-    ASSERT_EQ(result[2], 0.0, "Normal elements should compute correctly");
+    FATP_ASSERT_EQ(result[0], 0.0, "Normal elements should compute correctly");
+    FATP_ASSERT_TRUE(std::isinf(result[1]), "InfTolerant should allow Inf results");
+    FATP_ASSERT_EQ(result[2], 0.0, "Normal elements should compute correctly");
 
     std::cout << colors::green() << "[FP VEC SUB] InfTolerant: PASSED"
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(fp_vec_mul_nan_detection)
+FATP_TEST_CASE(fp_vec_mul_nan_detection)
 {
     std::cout << colors::cyan() << "\n[FP VEC MUL] Testing NaN detection..."
               << colors::reset() << std::endl;
@@ -999,19 +999,19 @@ TEST_CASE(fp_vec_mul_nan_detection)
     std::vector<double> vec_a = {1.0, 2.0, 0.0, 4.0};
     std::vector<double> vec_b = {1.0, 2.0, std::numeric_limits<double>::infinity(), 4.0};
 
-    ASSERT_TRUE(test_throws("Vector mul with 0 * Inf -> NaN", [&]() {
+    FATP_ASSERT_TRUE(test_throws("Vector mul with 0 * Inf -> NaN", [&]() {
         (void)checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
     }), "Should detect NaN from 0 * Inf");
 
     auto result = checked_mul_vec_fp<ReturnExpectedPolicy>(vec_a, vec_b);
-    ASSERT_TRUE(!result.has_value(), "ReturnExpected should return error for NaN");
+    FATP_ASSERT_TRUE(!result.has_value(), "ReturnExpected should return error for NaN");
 
     std::cout << colors::green() << "[FP VEC MUL] NaN detection: PASSED"
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(fp_vec_mul_inf_overflow)
+FATP_TEST_CASE(fp_vec_mul_inf_overflow)
 {
     std::cout << colors::cyan() << "\n[FP VEC MUL] Testing Inf overflow detection..."
               << colors::reset() << std::endl;
@@ -1020,24 +1020,24 @@ TEST_CASE(fp_vec_mul_inf_overflow)
     std::vector<double> vec_a = {1.0, large_val, 3.0};
     std::vector<double> vec_b = {1.0, 3.0, 3.0};
 
-    ASSERT_TRUE(test_throws("Vector mul overflow to Inf", [&]() {
+    FATP_ASSERT_TRUE(test_throws("Vector mul overflow to Inf", [&]() {
         (void)checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
     }), "Should detect Inf overflow from finite multiplication");
 
     auto result = checked_mul_vec_fp<ReturnExpectedPolicy>(vec_a, vec_b);
-    ASSERT_TRUE(!result.has_value(), "ReturnExpected should return error for Inf overflow");
-    ASSERT_EQ(result.error(), MathError::Inf, "Error should be MathError::Inf");
+    FATP_ASSERT_TRUE(!result.has_value(), "ReturnExpected should return error for Inf overflow");
+    FATP_ASSERT_EQ(result.error(), MathError::Inf, "Error should be MathError::Inf");
 
     auto saturated = checked_mul_vec_fp<SaturatingPolicy>(vec_a, vec_b);
-    ASSERT_EQ(saturated[0], 1.0, "Non-overflow elements should compute correctly");
-    ASSERT_EQ(saturated[1], std::numeric_limits<double>::max(), "Overflow should saturate");
+    FATP_ASSERT_EQ(saturated[0], 1.0, "Non-overflow elements should compute correctly");
+    FATP_ASSERT_EQ(saturated[1], std::numeric_limits<double>::max(), "Overflow should saturate");
 
     std::cout << colors::green() << "[FP VEC MUL] Inf overflow: PASSED"
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(fp_vec_mul_mixed_overflow)
+FATP_TEST_CASE(fp_vec_mul_mixed_overflow)
 {
     std::cout << colors::cyan() << "\n[FP VEC MUL] Testing mixed overflow in vector..."
               << colors::reset() << std::endl;
@@ -1046,23 +1046,23 @@ TEST_CASE(fp_vec_mul_mixed_overflow)
     std::vector<double> vec_a = {1.0, 2.0, large_val, 4.0, 5.0};
     std::vector<double> vec_b = {2.0, 3.0, 10.0, 6.0, 7.0};
 
-    ASSERT_TRUE(test_throws("Mixed overflow detection", [&]() {
+    FATP_ASSERT_TRUE(test_throws("Mixed overflow detection", [&]() {
         (void)checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
     }), "Should detect overflow in middle of vector");
 
     auto saturated = checked_mul_vec_fp<SaturatingPolicy>(vec_a, vec_b);
-    ASSERT_EQ(saturated[0], 2.0, "Element 0 should be correct");
-    ASSERT_EQ(saturated[1], 6.0, "Element 1 should be correct");
-    ASSERT_EQ(saturated[2], std::numeric_limits<double>::max(), "Element 2 should saturate");
-    ASSERT_EQ(saturated[3], 24.0, "Element 3 should be correct");
-    ASSERT_EQ(saturated[4], 35.0, "Element 4 should be correct");
+    FATP_ASSERT_EQ(saturated[0], 2.0, "Element 0 should be correct");
+    FATP_ASSERT_EQ(saturated[1], 6.0, "Element 1 should be correct");
+    FATP_ASSERT_EQ(saturated[2], std::numeric_limits<double>::max(), "Element 2 should saturate");
+    FATP_ASSERT_EQ(saturated[3], 24.0, "Element 3 should be correct");
+    FATP_ASSERT_EQ(saturated[4], 35.0, "Element 4 should be correct");
 
     std::cout << colors::green() << "[FP VEC MUL] Mixed overflow: PASSED"
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(fp_vec_mul_inf_tolerant)
+FATP_TEST_CASE(fp_vec_mul_inf_tolerant)
 {
     std::cout << colors::cyan() << "\n[FP VEC MUL] Testing InfTolerant policy..."
               << colors::reset() << std::endl;
@@ -1072,15 +1072,15 @@ TEST_CASE(fp_vec_mul_inf_tolerant)
     std::vector<double> vec_b = {2.0, 10.0};
 
     auto result = checked_mul_vec_fp<InfTolerantPolicy>(vec_a, vec_b);
-    ASSERT_EQ(result[0], 2.0, "Normal element should compute correctly");
-    ASSERT_TRUE(std::isinf(result[1]), "InfTolerant should allow Inf results");
+    FATP_ASSERT_EQ(result[0], 2.0, "Normal element should compute correctly");
+    FATP_ASSERT_TRUE(std::isinf(result[1]), "InfTolerant should allow Inf results");
 
     std::cout << colors::green() << "[FP VEC MUL] InfTolerant: PASSED"
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(fp_vec_div_nan_detection)
+FATP_TEST_CASE(fp_vec_div_nan_detection)
 {
     std::cout << colors::cyan() << "\n[FP VEC DIV] Testing NaN detection..."
               << colors::reset() << std::endl;
@@ -1088,19 +1088,19 @@ TEST_CASE(fp_vec_div_nan_detection)
     std::vector<double> vec_a = {1.0, std::numeric_limits<double>::infinity(), 3.0};
     std::vector<double> vec_b = {2.0, std::numeric_limits<double>::infinity(), 3.0};
 
-    ASSERT_TRUE(test_throws("Vector div with Inf / Inf -> NaN", [&]() {
+    FATP_ASSERT_TRUE(test_throws("Vector div with Inf / Inf -> NaN", [&]() {
         (void)checked_div_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
     }), "Should detect NaN from Inf / Inf");
 
     auto result = checked_div_vec_fp<ReturnExpectedPolicy>(vec_a, vec_b);
-    ASSERT_TRUE(!result.has_value(), "ReturnExpected should return error for NaN");
+    FATP_ASSERT_TRUE(!result.has_value(), "ReturnExpected should return error for NaN");
 
     std::cout << colors::green() << "[FP VEC DIV] NaN detection: PASSED"
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(fp_vec_div_inf_overflow)
+FATP_TEST_CASE(fp_vec_div_inf_overflow)
 {
     std::cout << colors::cyan() << "\n[FP VEC DIV] Testing Inf overflow detection..."
               << colors::reset() << std::endl;
@@ -1109,24 +1109,24 @@ TEST_CASE(fp_vec_div_inf_overflow)
     std::vector<double> vec_a = {1.0, std::numeric_limits<double>::max(), 3.0};
     std::vector<double> vec_b = {2.0, small_val, 3.0};
 
-    ASSERT_TRUE(test_throws("Vector div overflow to Inf", [&]() {
+    FATP_ASSERT_TRUE(test_throws("Vector div overflow to Inf", [&]() {
         (void)checked_div_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
     }), "Should detect Inf overflow from division");
 
     auto result = checked_div_vec_fp<ReturnExpectedPolicy>(vec_a, vec_b);
-    ASSERT_TRUE(!result.has_value(), "ReturnExpected should return error for Inf overflow");
-    ASSERT_EQ(result.error(), MathError::Inf, "Error should be MathError::Inf");
+    FATP_ASSERT_TRUE(!result.has_value(), "ReturnExpected should return error for Inf overflow");
+    FATP_ASSERT_EQ(result.error(), MathError::Inf, "Error should be MathError::Inf");
 
     auto saturated = checked_div_vec_fp<SaturatingPolicy>(vec_a, vec_b);
-    ASSERT_EQ(saturated[0], 0.5, "Non-overflow elements should compute correctly");
-    ASSERT_EQ(saturated[1], std::numeric_limits<double>::max(), "Overflow should saturate");
+    FATP_ASSERT_EQ(saturated[0], 0.5, "Non-overflow elements should compute correctly");
+    FATP_ASSERT_EQ(saturated[1], std::numeric_limits<double>::max(), "Overflow should saturate");
 
     std::cout << colors::green() << "[FP VEC DIV] Inf overflow: PASSED"
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(fp_vec_div_by_zero)
+FATP_TEST_CASE(fp_vec_div_by_zero)
 {
     std::cout << colors::cyan() << "\n[FP VEC DIV] Testing division by zero..."
               << colors::reset() << std::endl;
@@ -1134,20 +1134,20 @@ TEST_CASE(fp_vec_div_by_zero)
     std::vector<double> vec_a = {1.0, 2.0, 3.0};
     std::vector<double> vec_b = {2.0, 0.0, 3.0};
 
-    ASSERT_TRUE(test_throws("Vector div by zero", [&]() {
+    FATP_ASSERT_TRUE(test_throws("Vector div by zero", [&]() {
         (void)checked_div_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
     }), "Should detect division by zero");
 
     auto result = checked_div_vec_fp<ReturnExpectedPolicy>(vec_a, vec_b);
-    ASSERT_TRUE(!result.has_value(), "ReturnExpected should return error for div by zero");
-    ASSERT_EQ(result.error(), MathError::DivByZero, "Error should be DivByZero");
+    FATP_ASSERT_TRUE(!result.has_value(), "ReturnExpected should return error for div by zero");
+    FATP_ASSERT_EQ(result.error(), MathError::DivByZero, "Error should be DivByZero");
 
     std::cout << colors::green() << "[FP VEC DIV] Division by zero: PASSED"
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(fp_vec_div_inf_tolerant)
+FATP_TEST_CASE(fp_vec_div_inf_tolerant)
 {
     std::cout << colors::cyan() << "\n[FP VEC DIV] Testing InfTolerant policy..."
               << colors::reset() << std::endl;
@@ -1157,20 +1157,20 @@ TEST_CASE(fp_vec_div_inf_tolerant)
     std::vector<double> vec_b = {2.0, small_val};
 
     auto result = checked_div_vec_fp<InfTolerantPolicy>(vec_a, vec_b);
-    ASSERT_EQ(result[0], 0.5, "Normal element should compute correctly");
-    ASSERT_TRUE(std::isinf(result[1]), "InfTolerant should allow Inf results");
+    FATP_ASSERT_EQ(result[0], 0.5, "Normal element should compute correctly");
+    FATP_ASSERT_TRUE(std::isinf(result[1]), "InfTolerant should allow Inf results");
 
     std::vector<double> vec_c = {1.0, 2.0};
     std::vector<double> vec_d = {2.0, 0.0};
     auto result2 = checked_div_vec_fp<InfTolerantPolicy>(vec_c, vec_d);
-    ASSERT_TRUE(std::isinf(result2[1]), "InfTolerant should produce Inf for div by zero");
+    FATP_ASSERT_TRUE(std::isinf(result2[1]), "InfTolerant should produce Inf for div by zero");
 
     std::cout << colors::green() << "[FP VEC DIV] InfTolerant: PASSED"
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(fp_vec_simd_consistency)
+FATP_TEST_CASE(fp_vec_simd_consistency)
 {
     std::cout << colors::cyan() << "\n[FP VEC SIMD] Testing SIMD path consistency..."
               << colors::reset() << std::endl;
@@ -1189,13 +1189,13 @@ TEST_CASE(fp_vec_simd_consistency)
         }
 
         auto sub_result = checked_sub_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
-        ASSERT_EQ(sub_result.size(), size, "Sub result size should match");
+        FATP_ASSERT_EQ(sub_result.size(), size, "Sub result size should match");
 
         auto mul_result = checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
-        ASSERT_EQ(mul_result.size(), size, "Mul result size should match");
+        FATP_ASSERT_EQ(mul_result.size(), size, "Mul result size should match");
 
         auto div_result = checked_div_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
-        ASSERT_EQ(div_result.size(), size, "Div result size should match");
+        FATP_ASSERT_EQ(div_result.size(), size, "Div result size should match");
 
         for (size_t i = 0; i < size; ++i)
         {
@@ -1203,9 +1203,9 @@ TEST_CASE(fp_vec_simd_consistency)
             double expected_mul = vec_a[i] * vec_b[i];
             double expected_div = vec_a[i] / vec_b[i];
 
-            ASSERT_EQ(sub_result[i], expected_sub, "SIMD sub should match scalar");
-            ASSERT_EQ(mul_result[i], expected_mul, "SIMD mul should match scalar");
-            ASSERT_EQ(div_result[i], expected_div, "SIMD div should match scalar");
+            FATP_ASSERT_EQ(sub_result[i], expected_sub, "SIMD sub should match scalar");
+            FATP_ASSERT_EQ(mul_result[i], expected_mul, "SIMD mul should match scalar");
+            FATP_ASSERT_EQ(div_result[i], expected_div, "SIMD div should match scalar");
         }
     }
 
@@ -1220,7 +1220,7 @@ TEST_CASE(fp_vec_simd_consistency)
     return true;
 }
 
-TEST_CASE(fp_vec_boundary_detection)
+FATP_TEST_CASE(fp_vec_boundary_detection)
 {
     std::cout << colors::cyan() << "\n[FP VEC EDGE] Testing boundary overflow detection..."
               << colors::reset() << std::endl;
@@ -1232,7 +1232,7 @@ TEST_CASE(fp_vec_boundary_detection)
         std::vector<double> vec_a = {max_val, max_val};
         std::vector<double> vec_b = {max_val, 2.0};
 
-        ASSERT_TRUE(test_throws("Mul overflow at DBL_MAX", [&]() {
+        FATP_ASSERT_TRUE(test_throws("Mul overflow at DBL_MAX", [&]() {
             (void)checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
         }), "Should detect DBL_MAX overflow");
     }
@@ -1241,7 +1241,7 @@ TEST_CASE(fp_vec_boundary_detection)
         std::vector<double> vec_a = {max_val, 1.0};
         std::vector<double> vec_b = {min_val, 1.0};
 
-        ASSERT_TRUE(test_throws("Div overflow DBL_MAX/DBL_MIN", [&]() {
+        FATP_ASSERT_TRUE(test_throws("Div overflow DBL_MAX/DBL_MIN", [&]() {
             (void)checked_div_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
         }), "Should detect division overflow");
     }
@@ -1250,7 +1250,7 @@ TEST_CASE(fp_vec_boundary_detection)
         std::vector<double> vec_a = {max_val, 1.0};
         std::vector<double> vec_b = {-max_val, 1.0};
 
-        ASSERT_TRUE(test_throws("Sub overflow to Inf", [&]() {
+        FATP_ASSERT_TRUE(test_throws("Sub overflow to Inf", [&]() {
             (void)checked_sub_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
         }), "Should detect subtraction overflow");
     }
@@ -1267,7 +1267,7 @@ TEST_CASE(fp_vec_boundary_detection)
 /**
  * @brief Verify SimdVector width detection works correctly
  */
-TEST_CASE(simd_width_detection)
+FATP_TEST_CASE(simd_width_detection)
 {
     std::cout << colors::cyan() << "\n[SIMD INTEGRATION] Testing SimdVector width detection..."
               << colors::reset() << std::endl;
@@ -1276,8 +1276,8 @@ TEST_CASE(simd_width_detection)
     std::cout << "  Double width: " << SimdVectorD::width << std::endl;
     std::cout << "  Architecture: " << SimdArchitecture::name << std::endl;
     
-    ASSERT_TRUE(SimdVectorF::width > 0, "Float width must be positive");
-    ASSERT_TRUE(SimdVectorD::width > 0, "Double width must be positive");
+    FATP_ASSERT_TRUE(SimdVectorF::width > 0, "Float width must be positive");
+    FATP_ASSERT_TRUE(SimdVectorD::width > 0, "Double width must be positive");
     
     std::cout << colors::green() << "[SIMD INTEGRATION] Width detection: PASSED"
               << colors::reset() << std::endl;
@@ -1287,7 +1287,7 @@ TEST_CASE(simd_width_detection)
 /**
  * @brief Test tail processing for non-aligned vector sizes
  */
-TEST_CASE(simd_tail_processing)
+FATP_TEST_CASE(simd_tail_processing)
 {
     std::cout << colors::cyan() << "\n[SIMD INTEGRATION] Testing tail processing..."
               << colors::reset() << std::endl;
@@ -1303,13 +1303,13 @@ TEST_CASE(simd_tail_processing)
     
     auto result = checked_add_vec_fp<ReturnExpectedPolicy>(a, b);
     
-    ASSERT_TRUE(result.has_value(), "Tail processing should succeed");
-    ASSERT_TRUE(result.value().size() == odd_size, "Result size should match");
+    FATP_ASSERT_TRUE(result.has_value(), "Tail processing should succeed");
+    FATP_ASSERT_TRUE(result.value().size() == odd_size, "Result size should match");
     
     // Verify all elements
     for (size_t i = 0; i < odd_size; ++i) {
         double expected = a[i] + b[i];
-        ASSERT_TRUE(std::abs(result.value()[i] - expected) < 1e-10, 
+        FATP_ASSERT_TRUE(std::abs(result.value()[i] - expected) < 1e-10, 
                       "Element mismatch in tail processing");
     }
     
@@ -1321,7 +1321,7 @@ TEST_CASE(simd_tail_processing)
 /**
  * @brief Test IEEE-754 Inf handling (Inf inputs are allowed)
  */
-TEST_CASE(simd_inf_handling)
+FATP_TEST_CASE(simd_inf_handling)
 {
     std::cout << colors::cyan() << "\n[SIMD INTEGRATION] Testing IEEE-754 Inf handling..."
               << colors::reset() << std::endl;
@@ -1333,10 +1333,10 @@ TEST_CASE(simd_inf_handling)
     // Inf + 20 = Inf, which is expected behavior not an error
     auto result = checked_add_vec_fp<ReturnExpectedPolicy>(a, b);
     
-    ASSERT_TRUE(result.has_value(), "Inf input should be allowed (IEEE-754)");
-    ASSERT_TRUE(std::isinf(result.value()[1]), "Inf + 20 = Inf");
-    ASSERT_TRUE(result.value()[0] == 11.0, "Normal element 1+10=11");
-    ASSERT_TRUE(result.value()[2] == 33.0, "Normal element 3+30=33");
+    FATP_ASSERT_TRUE(result.has_value(), "Inf input should be allowed (IEEE-754)");
+    FATP_ASSERT_TRUE(std::isinf(result.value()[1]), "Inf + 20 = Inf");
+    FATP_ASSERT_TRUE(result.value()[0] == 11.0, "Normal element 1+10=11");
+    FATP_ASSERT_TRUE(result.value()[2] == 33.0, "Normal element 3+30=33");
     
     std::cout << colors::green() << "[SIMD INTEGRATION] Inf handling: PASSED"
               << colors::reset() << std::endl;
@@ -1346,7 +1346,7 @@ TEST_CASE(simd_inf_handling)
 /**
  * @brief Test overflow detection (finite inputs -> Inf result)
  */
-TEST_CASE(simd_overflow_to_inf)
+FATP_TEST_CASE(simd_overflow_to_inf)
 {
     std::cout << colors::cyan() << "\n[SIMD INTEGRATION] Testing overflow detection..."
               << colors::reset() << std::endl;
@@ -1357,8 +1357,8 @@ TEST_CASE(simd_overflow_to_inf)
     auto result = checked_mul_vec_fp<ReturnExpectedPolicy>(huge, mult);
     
     // Large * 2 overflows to Inf - should fail
-    ASSERT_TRUE(!result.has_value(), "Overflow should fail");
-    ASSERT_TRUE(result.error() == MathError::Inf, "Error should be Inf (overflow)");
+    FATP_ASSERT_TRUE(!result.has_value(), "Overflow should fail");
+    FATP_ASSERT_TRUE(result.error() == MathError::Inf, "Error should be Inf (overflow)");
     
     std::cout << colors::green() << "[SIMD INTEGRATION] Overflow detection: PASSED"
               << colors::reset() << std::endl;
@@ -1368,7 +1368,7 @@ TEST_CASE(simd_overflow_to_inf)
 /**
  * @brief Test float type uses SimdVector<float>
  */
-TEST_CASE(simd_float_type)
+FATP_TEST_CASE(simd_float_type)
 {
     std::cout << colors::cyan() << "\n[SIMD INTEGRATION] Testing float SIMD path..."
               << colors::reset() << std::endl;
@@ -1378,9 +1378,9 @@ TEST_CASE(simd_float_type)
     
     auto result = checked_add_vec_fp<ReturnExpectedPolicy>(a, b);
     
-    ASSERT_TRUE(result.has_value(), "Float vec add should succeed");
-    ASSERT_TRUE(result.value()[0] == 11.0f, "1 + 10 = 11");
-    ASSERT_TRUE(result.value()[7] == 88.0f, "8 + 80 = 88");
+    FATP_ASSERT_TRUE(result.has_value(), "Float vec add should succeed");
+    FATP_ASSERT_TRUE(result.value()[0] == 11.0f, "1 + 10 = 11");
+    FATP_ASSERT_TRUE(result.value()[7] == 88.0f, "8 + 80 = 88");
     
     std::cout << colors::green() << "[SIMD INTEGRATION] Float path: PASSED"
               << colors::reset() << std::endl;
@@ -1390,7 +1390,7 @@ TEST_CASE(simd_float_type)
 /**
  * @brief Test all four FP vector operations with basic values
  */
-TEST_CASE(simd_all_ops)
+FATP_TEST_CASE(simd_all_ops)
 {
     std::cout << colors::cyan() << "\n[SIMD INTEGRATION] Testing all FP vector ops..."
               << colors::reset() << std::endl;
@@ -1400,23 +1400,23 @@ TEST_CASE(simd_all_ops)
     
     // Add
     auto add_result = checked_add_vec_fp<ReturnExpectedPolicy>(a, b);
-    ASSERT_TRUE(add_result.has_value(), "Add should succeed");
-    ASSERT_TRUE(add_result.value()[0] == 12.0, "10+2=12");
+    FATP_ASSERT_TRUE(add_result.has_value(), "Add should succeed");
+    FATP_ASSERT_TRUE(add_result.value()[0] == 12.0, "10+2=12");
     
     // Sub
     auto sub_result = checked_sub_vec_fp<ReturnExpectedPolicy>(a, b);
-    ASSERT_TRUE(sub_result.has_value(), "Sub should succeed");
-    ASSERT_TRUE(sub_result.value()[0] == 8.0, "10-2=8");
+    FATP_ASSERT_TRUE(sub_result.has_value(), "Sub should succeed");
+    FATP_ASSERT_TRUE(sub_result.value()[0] == 8.0, "10-2=8");
     
     // Mul
     auto mul_result = checked_mul_vec_fp<ReturnExpectedPolicy>(a, b);
-    ASSERT_TRUE(mul_result.has_value(), "Mul should succeed");
-    ASSERT_TRUE(mul_result.value()[0] == 20.0, "10*2=20");
+    FATP_ASSERT_TRUE(mul_result.has_value(), "Mul should succeed");
+    FATP_ASSERT_TRUE(mul_result.value()[0] == 20.0, "10*2=20");
     
     // Div
     auto div_result = checked_div_vec_fp<ReturnExpectedPolicy>(a, b);
-    ASSERT_TRUE(div_result.has_value(), "Div should succeed");
-    ASSERT_TRUE(div_result.value()[0] == 5.0, "10/2=5");
+    FATP_ASSERT_TRUE(div_result.has_value(), "Div should succeed");
+    FATP_ASSERT_TRUE(div_result.value()[0] == 5.0, "10/2=5");
     
     std::cout << colors::green() << "[SIMD INTEGRATION] All ops: PASSED"
               << colors::reset() << std::endl;
@@ -1430,7 +1430,7 @@ TEST_CASE(simd_all_ops)
 /**
  * @brief Test that ThrowOnError policy throws on finite→Inf overflow
  */
-TEST_CASE(fp_vec_throw_on_overflow)
+FATP_TEST_CASE(fp_vec_throw_on_overflow)
 {
     std::cout << colors::cyan() << "\n[FP VEC ERROR] Testing ThrowOnError overflow..."
               << colors::reset() << std::endl;
@@ -1439,7 +1439,7 @@ TEST_CASE(fp_vec_throw_on_overflow)
     std::vector<double> mult = {2.0, 1.0, 1.0, 1.0};
     
     // First lane overflows: 1e308 * 2 = Inf
-    ASSERT_TRUE(test_throws("Finite->Inf overflow", [&]() {
+    FATP_ASSERT_TRUE(test_throws("Finite->Inf overflow", [&]() {
         (void)checked_mul_vec_fp<ThrowOnErrorPolicy>(huge, mult);
     }), "Should throw on finite->Inf overflow");
     
@@ -1455,7 +1455,7 @@ TEST_CASE(fp_vec_throw_on_overflow)
  * should detect this via has_nan() and fall back to scalar processing
  * for proper error classification.
  */
-TEST_CASE(fp_vec_inf_inf_fallback)
+FATP_TEST_CASE(fp_vec_inf_inf_fallback)
 {
     std::cout << colors::cyan() << "\n[FP VEC ERROR] Testing Inf+(-Inf) fallback..."
               << colors::reset() << std::endl;
@@ -1470,11 +1470,11 @@ TEST_CASE(fp_vec_inf_inf_fallback)
     // +Inf + -Inf is undefined → should produce error (NaN result)
     auto result = checked_add_vec_fp<ReturnExpectedPolicy>(a, b);
     
-    ASSERT_TRUE(!result.has_value(), "Inf + (-Inf) should fail");
-    ASSERT_TRUE(result.error() == MathError::NaN, "Error should be NaN");
+    FATP_ASSERT_TRUE(!result.has_value(), "Inf + (-Inf) should fail");
+    FATP_ASSERT_TRUE(result.error() == MathError::NaN, "Error should be NaN");
     
     // Also test with ThrowOnError
-    ASSERT_TRUE(test_throws("Inf + (-Inf)", [&]() {
+    FATP_ASSERT_TRUE(test_throws("Inf + (-Inf)", [&]() {
         (void)checked_add_vec_fp<ThrowOnErrorPolicy>(a, b);
     }), "Should throw on Inf + (-Inf)");
     
@@ -1486,7 +1486,7 @@ TEST_CASE(fp_vec_inf_inf_fallback)
 /**
  * @brief Test InfTolerant policy allows finite→Inf at vector level
  */
-TEST_CASE(fp_vec_inf_tolerant_overflow)
+FATP_TEST_CASE(fp_vec_inf_tolerant_overflow)
 {
     std::cout << colors::cyan() << "\n[FP VEC ERROR] Testing InfTolerant overflow..."
               << colors::reset() << std::endl;
@@ -1497,10 +1497,10 @@ TEST_CASE(fp_vec_inf_tolerant_overflow)
     // InfTolerant should allow finite→Inf (returns Inf, not error)
     auto result = checked_mul_vec_fp<InfTolerantPolicy>(huge, mult);
     
-    ASSERT_TRUE(result.size() == 4, "InfTolerant should return result");
-    ASSERT_TRUE(std::isinf(result[0]), "First lane should be Inf");
-    ASSERT_TRUE(result[1] == 1.0, "Second lane should be 1.0");
-    ASSERT_TRUE(result[2] == 2.0, "Third lane should be 2.0");
+    FATP_ASSERT_TRUE(result.size() == 4, "InfTolerant should return result");
+    FATP_ASSERT_TRUE(std::isinf(result[0]), "First lane should be Inf");
+    FATP_ASSERT_TRUE(result[1] == 1.0, "Second lane should be 1.0");
+    FATP_ASSERT_TRUE(result[2] == 2.0, "Third lane should be 2.0");
     
     std::cout << colors::green() << "[FP VEC ERROR] InfTolerant overflow: PASSED"
               << colors::reset() << std::endl;
@@ -1510,7 +1510,7 @@ TEST_CASE(fp_vec_inf_tolerant_overflow)
 /**
  * @brief Test InfTolerant propagates NaN correctly in vectors
  */
-TEST_CASE(fp_vec_inf_tolerant_nan)
+FATP_TEST_CASE(fp_vec_inf_tolerant_nan)
 {
     std::cout << colors::cyan() << "\n[FP VEC ERROR] Testing InfTolerant NaN handling..."
               << colors::reset() << std::endl;
@@ -1524,10 +1524,10 @@ TEST_CASE(fp_vec_inf_tolerant_nan)
     auto result = checked_add_vec_fp<InfTolerantPolicy>(a, b);
     
     // InfTolerant returns NaN for NaN inputs (doesn't error)
-    ASSERT_TRUE(result.size() == 4, "InfTolerant should return result");
-    ASSERT_TRUE(result[0] == 11.0, "First lane: 1+10=11");
-    ASSERT_TRUE(std::isnan(result[1]), "Second lane should be NaN");
-    ASSERT_TRUE(result[2] == 33.0, "Third lane: 3+30=33");
+    FATP_ASSERT_TRUE(result.size() == 4, "InfTolerant should return result");
+    FATP_ASSERT_TRUE(result[0] == 11.0, "First lane: 1+10=11");
+    FATP_ASSERT_TRUE(std::isnan(result[1]), "Second lane should be NaN");
+    FATP_ASSERT_TRUE(result[2] == 33.0, "Third lane: 3+30=33");
     
     std::cout << colors::green() << "[FP VEC ERROR] InfTolerant NaN: PASSED"
               << colors::reset() << std::endl;
@@ -1537,7 +1537,7 @@ TEST_CASE(fp_vec_inf_tolerant_nan)
 /**
  * @brief Test Inf-Inf subtraction in vector with InfTolerant (still produces NaN)
  */
-TEST_CASE(fp_vec_inf_tolerant_inf_minus_inf)
+FATP_TEST_CASE(fp_vec_inf_tolerant_inf_minus_inf)
 {
     std::cout << colors::cyan() << "\n[FP VEC ERROR] Testing InfTolerant Inf-Inf..."
               << colors::reset() << std::endl;
@@ -1550,10 +1550,10 @@ TEST_CASE(fp_vec_inf_tolerant_inf_minus_inf)
     
     auto result = checked_sub_vec_fp<InfTolerantPolicy>(a, b);
     
-    ASSERT_TRUE(result.size() == 4, "InfTolerant should return result");
-    ASSERT_TRUE(result[0] == -9.0, "First lane: 1-10=-9");
-    ASSERT_TRUE(std::isnan(result[1]), "Second lane: Inf-Inf=NaN");
-    ASSERT_TRUE(result[2] == -27.0, "Third lane: 3-30=-27");
+    FATP_ASSERT_TRUE(result.size() == 4, "InfTolerant should return result");
+    FATP_ASSERT_TRUE(result[0] == -9.0, "First lane: 1-10=-9");
+    FATP_ASSERT_TRUE(std::isnan(result[1]), "Second lane: Inf-Inf=NaN");
+    FATP_ASSERT_TRUE(result[2] == -27.0, "Third lane: 3-30=-27");
     
     std::cout << colors::green() << "[FP VEC ERROR] InfTolerant Inf-Inf: PASSED"
               << colors::reset() << std::endl;
@@ -1564,7 +1564,7 @@ TEST_CASE(fp_vec_inf_tolerant_inf_minus_inf)
 // PERFORMANCE VALIDATION TESTS
 // =============================================================================
 
-TEST_CASE(performance_benchmarks)
+FATP_TEST_CASE(performance_benchmarks)
 {
     std::cout << colors::cyan() << "\n[PERFORMANCE TEST] Running benchmarks..."
               << colors::reset() << std::endl;
@@ -1584,7 +1584,7 @@ TEST_CASE(performance_benchmarks)
         double avg_ns = static_cast<double>(duration.count()) / ITERATIONS;
 
         std::cout << "  Scalar checked_add: " << avg_ns << " ns/op" << std::endl;
-        ASSERT_TRUE(avg_ns < 50.0, "Scalar addition should be fast (< 50ns)");
+        FATP_ASSERT_TRUE(avg_ns < 50.0, "Scalar addition should be fast (< 50ns)");
     }
 
     {
@@ -1604,7 +1604,7 @@ TEST_CASE(performance_benchmarks)
         std::cout << "  Vector checked_add_vec (1K elems): " << avg_us << " us/op" << std::endl;
 
 #ifdef __AVX2__
-        ASSERT_TRUE(avg_us < 20.0, "SIMD vector addition should be reasonable (< 20us for 1K)");
+        FATP_ASSERT_TRUE(avg_us < 20.0, "SIMD vector addition should be reasonable (< 20us for 1K)");
         if (avg_us < 5.0)
         {
             std::cout << colors::green() << "  [AVX2 ENABLED] Excellent performance"
@@ -1635,61 +1635,61 @@ TEST_CASE(performance_benchmarks)
 // EXISTING CORE TESTS
 // =============================================================================
 
-TEST_CASE(checked_add)
+FATP_TEST_CASE(checked_add)
 {
     std::cout << colors::cyan() << "\nTesting checked_add..." << colors::reset() << std::endl;
 
     {
         auto result = checked_add<ThrowOnErrorPolicy>(10, 20);
-        ASSERT_EQ(result, 30, "10 + 20 should equal 30");
+        FATP_ASSERT_EQ(result, 30, "10 + 20 should equal 30");
 
         result = checked_add<ThrowOnErrorPolicy>(-10, -20);
-        ASSERT_EQ(result, -30, "-10 + -20 should equal -30");
+        FATP_ASSERT_EQ(result, -30, "-10 + -20 should equal -30");
     }
 
     {
-        ASSERT_TRUE(test_throws("INT_MAX + 1", []() {
+        FATP_ASSERT_TRUE(test_throws("INT_MAX + 1", []() {
             (void)checked_add<ThrowOnErrorPolicy>(std::numeric_limits<int>::max(), 1);
         }), "Should throw on overflow");
 
-        ASSERT_TRUE(test_throws("INT_MIN + (-1)", []() {
+        FATP_ASSERT_TRUE(test_throws("INT_MIN + (-1)", []() {
             (void)checked_add<ThrowOnErrorPolicy>(std::numeric_limits<int>::min(), -1);
         }), "Should throw on underflow");
     }
 
     {
         auto result = checked_add<ReturnExpectedPolicy>(10, 20);
-        ASSERT_TRUE(result.has_value(), "Should have value");
-        ASSERT_EQ(*result, 30, "10 + 20 should equal 30");
+        FATP_ASSERT_TRUE(result.has_value(), "Should have value");
+        FATP_ASSERT_EQ(*result, 30, "10 + 20 should equal 30");
 
         result = checked_add<ReturnExpectedPolicy>(std::numeric_limits<int>::max(), 1);
-        ASSERT_TRUE(!result.has_value(), "Should not have value on overflow");
-        ASSERT_EQ(result.error(), MathError::Overflow, "Should return Overflow error");
+        FATP_ASSERT_TRUE(!result.has_value(), "Should not have value on overflow");
+        FATP_ASSERT_EQ(result.error(), MathError::Overflow, "Should return Overflow error");
     }
 
     {
         auto result = checked_add<SaturatingPolicy>(std::numeric_limits<int>::max(), 1);
-        ASSERT_EQ(result, std::numeric_limits<int>::max(), "Should saturate to max");
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::max(), "Should saturate to max");
 
         result = checked_add<SaturatingPolicy>(std::numeric_limits<int>::min(), -1);
-        ASSERT_EQ(result, std::numeric_limits<int>::min(), "Should saturate to min");
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::min(), "Should saturate to min");
     }
 
     std::cout << colors::green() << "checked_add: Tests passed." << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(checked_sub)
+FATP_TEST_CASE(checked_sub)
 {
     std::cout << colors::cyan() << "\nTesting checked_sub..." << colors::reset() << std::endl;
 
     {
         auto result = checked_sub<ThrowOnErrorPolicy>(20, 10);
-        ASSERT_EQ(result, 10, "20 - 10 should equal 10");
+        FATP_ASSERT_EQ(result, 10, "20 - 10 should equal 10");
     }
 
     {
-        ASSERT_TRUE(test_throws("INT_MIN - 1", []() {
+        FATP_ASSERT_TRUE(test_throws("INT_MIN - 1", []() {
             (void)checked_sub<ThrowOnErrorPolicy>(std::numeric_limits<int>::min(), 1);
         }), "Should throw on underflow");
     }
@@ -1698,25 +1698,25 @@ TEST_CASE(checked_sub)
     return true;
 }
 
-TEST_CASE(checked_mul)
+FATP_TEST_CASE(checked_mul)
 {
     std::cout << colors::cyan() << "\nTesting checked_mul..." << colors::reset() << std::endl;
 
     {
         auto result = checked_mul<ThrowOnErrorPolicy>(5, 6);
-        ASSERT_EQ(result, 30, "5 * 6 should equal 30");
+        FATP_ASSERT_EQ(result, 30, "5 * 6 should equal 30");
     }
 
     {
         auto result = checked_mul<ThrowOnErrorPolicy>(0, 100);
-        ASSERT_EQ(result, 0, "0 * 100 should equal 0");
+        FATP_ASSERT_EQ(result, 0, "0 * 100 should equal 0");
 
         result = checked_mul<ThrowOnErrorPolicy>(100, 0);
-        ASSERT_EQ(result, 0, "100 * 0 should equal 0");
+        FATP_ASSERT_EQ(result, 0, "100 * 0 should equal 0");
     }
 
     {
-        ASSERT_TRUE(test_throws("Large mul", []() {
+        FATP_ASSERT_TRUE(test_throws("Large mul", []() {
             (void)checked_mul<ThrowOnErrorPolicy>(100000, 100000);
         }), "Should throw on overflow");
     }
@@ -1725,29 +1725,29 @@ TEST_CASE(checked_mul)
     return true;
 }
 
-TEST_CASE(checked_div)
+FATP_TEST_CASE(checked_div)
 {
     std::cout << colors::cyan() << "\nTesting checked_div..." << colors::reset() << std::endl;
 
     {
         auto result = checked_div<ThrowOnErrorPolicy>(20, 5);
-        ASSERT_EQ(result, 4, "20 / 5 should equal 4");
+        FATP_ASSERT_EQ(result, 4, "20 / 5 should equal 4");
     }
 
     {
-        ASSERT_TRUE(test_throws("Div by zero", []() {
+        FATP_ASSERT_TRUE(test_throws("Div by zero", []() {
             (void)checked_div<ThrowOnErrorPolicy>(10, 0);
         }), "Should throw on div by zero");
 
         auto pos_result = checked_div<SaturatingPolicy>(10, 0);
-        ASSERT_EQ(pos_result, std::numeric_limits<int>::max(), "Positive div zero saturates");
+        FATP_ASSERT_EQ(pos_result, std::numeric_limits<int>::max(), "Positive div zero saturates");
 
         auto neg_result = checked_div<SaturatingPolicy>(-10, 0);
-        ASSERT_EQ(neg_result, std::numeric_limits<int>::min(), "Negative div zero saturates");
+        FATP_ASSERT_EQ(neg_result, std::numeric_limits<int>::min(), "Negative div zero saturates");
     }
 
     {
-        ASSERT_TRUE(test_throws("INT_MIN / -1", []() {
+        FATP_ASSERT_TRUE(test_throws("INT_MIN / -1", []() {
             (void)checked_div<ThrowOnErrorPolicy>(std::numeric_limits<int>::min(), -1);
         }), "Should throw on min/-1 overflow");
     }
@@ -1756,30 +1756,30 @@ TEST_CASE(checked_div)
     return true;
 }
 
-TEST_CASE(checked_fp_operations)
+FATP_TEST_CASE(checked_fp_operations)
 {
     std::cout << colors::cyan() << "\nTesting FP operations..." << colors::reset() << std::endl;
 
     {
         auto result = checked_add_fp<ThrowOnErrorPolicy>(1.5, 2.5);
-        ASSERT_EQ(result, 4.0, "1.5 + 2.5 should equal 4.0");
+        FATP_ASSERT_EQ(result, 4.0, "1.5 + 2.5 should equal 4.0");
     }
 
     {
         double nan_val = std::numeric_limits<double>::quiet_NaN();
 
-        ASSERT_TRUE(test_throws("NaN + 1", [&]() {
+        FATP_ASSERT_TRUE(test_throws("NaN + 1", [&]() {
             (void)checked_add_fp<ThrowOnErrorPolicy>(nan_val, 1.0);
         }), "Should throw on NaN input");
     }
 
     {
         auto pos_result = checked_div_fp<SaturatingPolicy>(5.0, 0.0);
-        ASSERT_EQ(pos_result, std::numeric_limits<double>::max(),
+        FATP_ASSERT_EQ(pos_result, std::numeric_limits<double>::max(),
                  "Positive FP div by zero saturates to max");
 
         auto neg_result = checked_div_fp<SaturatingPolicy>(-5.0, 0.0);
-        ASSERT_EQ(neg_result, std::numeric_limits<double>::lowest(),
+        FATP_ASSERT_EQ(neg_result, std::numeric_limits<double>::lowest(),
                  "Negative FP div by zero saturates to lowest");
     }
 
@@ -1787,20 +1787,20 @@ TEST_CASE(checked_fp_operations)
     return true;
 }
 
-TEST_CASE(checked_mod)
+FATP_TEST_CASE(checked_mod)
 {
     std::cout << colors::cyan() << "\nTesting checked_mod..." << colors::reset() << std::endl;
 
     {
         auto result = checked_mod<ThrowOnErrorPolicy>(17, 5);
-        ASSERT_EQ(result, 2, "17 % 5 should equal 2");
+        FATP_ASSERT_EQ(result, 2, "17 % 5 should equal 2");
 
         result = checked_mod<ThrowOnErrorPolicy>(-17, 5);
-        ASSERT_EQ(result, -2, "-17 % 5 should equal -2");
+        FATP_ASSERT_EQ(result, -2, "-17 % 5 should equal -2");
     }
 
     {
-        ASSERT_TRUE(test_throws("Mod by zero", []() {
+        FATP_ASSERT_TRUE(test_throws("Mod by zero", []() {
             (void)checked_mod<ThrowOnErrorPolicy>(10, 0);
         }), "Should throw on mod by zero");
     }
@@ -1809,51 +1809,51 @@ TEST_CASE(checked_mod)
     return true;
 }
 
-TEST_CASE(checked_negate)
+FATP_TEST_CASE(checked_negate)
 {
     std::cout << colors::cyan() << "\nTesting checked_negate..."
               << colors::reset() << std::endl;
 
     {
         auto result = checked_negate<ThrowOnErrorPolicy>(10);
-        ASSERT_EQ(result, -10, "Negation of positive should work");
+        FATP_ASSERT_EQ(result, -10, "Negation of positive should work");
     }
 
     {
         auto result = checked_negate<ThrowOnErrorPolicy>(-42);
-        ASSERT_EQ(result, 42, "Negation of negative should work");
+        FATP_ASSERT_EQ(result, 42, "Negation of negative should work");
     }
 
     {
         auto result = checked_negate<ThrowOnErrorPolicy>(0);
-        ASSERT_EQ(result, 0, "Negation of zero should be zero");
+        FATP_ASSERT_EQ(result, 0, "Negation of zero should be zero");
     }
 
     {
-        ASSERT_TRUE(test_throws("Negate INT_MIN", []() {
+        FATP_ASSERT_TRUE(test_throws("Negate INT_MIN", []() {
             (void)checked_negate<ThrowOnErrorPolicy>(std::numeric_limits<int>::min());
         }), "Should throw on INT_MIN negation (overflow)");
     }
 
     {
         auto result = checked_negate<ReturnExpectedPolicy>(std::numeric_limits<int>::min());
-        ASSERT_TRUE(!result.has_value(), "Should fail on INT_MIN negation");
-        ASSERT_EQ(result.error(), MathError::Overflow, "Should return Overflow error");
+        FATP_ASSERT_TRUE(!result.has_value(), "Should fail on INT_MIN negation");
+        FATP_ASSERT_EQ(result.error(), MathError::Overflow, "Should return Overflow error");
     }
 
     {
         auto result = checked_negate<SaturatingPolicy>(std::numeric_limits<int>::min());
-        ASSERT_EQ(result, std::numeric_limits<int>::max(),
+        FATP_ASSERT_EQ(result, std::numeric_limits<int>::max(),
                   "INT_MIN negation should saturate to INT_MAX");
     }
 
     {
         auto result = checked_negate<ThrowOnErrorPolicy>(int64_t{-1000000000000LL});
-        ASSERT_EQ(result, 1000000000000LL, "int64 negation should work");
+        FATP_ASSERT_EQ(result, 1000000000000LL, "int64 negation should work");
     }
 
     {
-        ASSERT_TRUE(test_throws("Negate INT64_MIN", []() {
+        FATP_ASSERT_TRUE(test_throws("Negate INT64_MIN", []() {
             (void)checked_negate<ThrowOnErrorPolicy>(std::numeric_limits<int64_t>::min());
         }), "Should throw on INT64_MIN negation");
     }
@@ -1863,27 +1863,27 @@ TEST_CASE(checked_negate)
     return true;
 }
 
-TEST_CASE(bitwise_operations)
+FATP_TEST_CASE(bitwise_operations)
 {
     std::cout << colors::cyan() << "\nTesting bitwise operations..." << colors::reset() << std::endl;
 
     {
         auto result = checked_and<ThrowOnErrorPolicy>(0b1100, 0b1010);
-        ASSERT_EQ(result, 0b1000, "AND operation should work");
+        FATP_ASSERT_EQ(result, 0b1000, "AND operation should work");
 
         result = checked_or<ThrowOnErrorPolicy>(0b1100, 0b1010);
-        ASSERT_EQ(result, 0b1110, "OR operation should work");
+        FATP_ASSERT_EQ(result, 0b1110, "OR operation should work");
 
         result = checked_xor<ThrowOnErrorPolicy>(0b1100, 0b1010);
-        ASSERT_EQ(result, 0b0110, "XOR operation should work");
+        FATP_ASSERT_EQ(result, 0b0110, "XOR operation should work");
     }
 
     {
         auto result = checked_left_shift<ThrowOnErrorPolicy>(1, 4);
-        ASSERT_EQ(result, 16, "1 << 4 should equal 16");
+        FATP_ASSERT_EQ(result, 16, "1 << 4 should equal 16");
 
         result = checked_right_shift<ThrowOnErrorPolicy>(16, 2);
-        ASSERT_EQ(result, 4, "16 >> 2 should equal 4");
+        FATP_ASSERT_EQ(result, 4, "16 >> 2 should equal 4");
     }
 
     std::cout << colors::green() << "Bitwise operations: Tests passed."
@@ -1891,28 +1891,28 @@ TEST_CASE(bitwise_operations)
     return true;
 }
 
-TEST_CASE(clamp_and_range)
+FATP_TEST_CASE(clamp_and_range)
 {
     std::cout << colors::cyan() << "\nTesting clamp and range operations..."
               << colors::reset() << std::endl;
 
     {
         auto result = checked_clamp<ThrowOnErrorPolicy>(5, 0, 10);
-        ASSERT_EQ(result, 5, "Value within range should be unchanged");
+        FATP_ASSERT_EQ(result, 5, "Value within range should be unchanged");
 
         result = checked_clamp<ThrowOnErrorPolicy>(-5, 0, 10);
-        ASSERT_EQ(result, 0, "Value below range should clamp to min");
+        FATP_ASSERT_EQ(result, 0, "Value below range should clamp to min");
 
         result = checked_clamp<ThrowOnErrorPolicy>(15, 0, 10);
-        ASSERT_EQ(result, 10, "Value above range should clamp to max");
+        FATP_ASSERT_EQ(result, 10, "Value above range should clamp to max");
     }
 
     {
         auto result = checked_in_range<ReturnExpectedPolicy>(5, 0, 10);
-        ASSERT_TRUE(result.has_value() && *result == true, "5 should be in range [0,10]");
+        FATP_ASSERT_TRUE(result.has_value() && *result == true, "5 should be in range [0,10]");
 
         result = checked_in_range<ReturnExpectedPolicy>(15, 0, 10);
-        ASSERT_TRUE(result.has_value() && *result == false, "15 should not be in range [0,10]");
+        FATP_ASSERT_TRUE(result.has_value() && *result == false, "15 should not be in range [0,10]");
     }
 
     std::cout << colors::green() << "Clamp and range: Tests passed."
@@ -1924,7 +1924,7 @@ TEST_CASE(clamp_and_range)
 // CHECKED CAST TESTS
 // =============================================================================
 
-TEST_CASE(checked_cast_basic)
+FATP_TEST_CASE(checked_cast_basic)
 {
     std::cout << colors::cyan() << "\nTesting checked_cast basic conversions..."
               << colors::reset() << std::endl;
@@ -1932,25 +1932,25 @@ TEST_CASE(checked_cast_basic)
     {
         int32_t small = 100;
         auto result = checked_cast<int64_t, ThrowOnErrorPolicy>(small);
-        ASSERT_EQ(result, 100LL, "int32 -> int64 should work");
+        FATP_ASSERT_EQ(result, 100LL, "int32 -> int64 should work");
     }
 
     {
         int16_t small = 1000;
         auto result = checked_cast<int32_t, ThrowOnErrorPolicy>(small);
-        ASSERT_EQ(result, 1000, "int16 -> int32 should work");
+        FATP_ASSERT_EQ(result, 1000, "int16 -> int32 should work");
     }
 
     {
         uint32_t u = 100;
         auto result = checked_cast<uint64_t, ThrowOnErrorPolicy>(u);
-        ASSERT_EQ(result, 100ULL, "uint32 -> uint64 should work");
+        FATP_ASSERT_EQ(result, 100ULL, "uint32 -> uint64 should work");
     }
 
     {
         int32_t positive = 100;
         auto result = checked_cast<uint32_t, ThrowOnErrorPolicy>(positive);
-        ASSERT_EQ(result, 100U, "positive int32 -> uint32 should work");
+        FATP_ASSERT_EQ(result, 100U, "positive int32 -> uint32 should work");
     }
 
     std::cout << colors::green() << "checked_cast basic: Tests passed."
@@ -1958,14 +1958,14 @@ TEST_CASE(checked_cast_basic)
     return true;
 }
 
-TEST_CASE(checked_cast_narrowing)
+FATP_TEST_CASE(checked_cast_narrowing)
 {
     std::cout << colors::cyan() << "\nTesting checked_cast narrowing overflow..."
               << colors::reset() << std::endl;
 
     {
         int64_t big = 1000000000000LL;
-        ASSERT_TRUE(test_throws("int64 -> int32 overflow", [&]() {
+        FATP_ASSERT_TRUE(test_throws("int64 -> int32 overflow", [&]() {
             (void)checked_cast<int32_t, ThrowOnErrorPolicy>(big);
         }), "Should throw on narrowing overflow");
     }
@@ -1973,20 +1973,20 @@ TEST_CASE(checked_cast_narrowing)
     {
         int64_t big = 1000000000000LL;
         auto result = checked_cast<int32_t, ReturnExpectedPolicy>(big);
-        ASSERT_TRUE(!result.has_value(), "Should fail on narrowing overflow");
-        ASSERT_EQ(result.error(), MathError::Overflow, "Should return Overflow error");
+        FATP_ASSERT_TRUE(!result.has_value(), "Should fail on narrowing overflow");
+        FATP_ASSERT_EQ(result.error(), MathError::Overflow, "Should return Overflow error");
     }
 
     {
         int64_t big = 1000000000000LL;
         auto result = checked_cast<int32_t, SaturatingPolicy>(big);
-        ASSERT_EQ(result, std::numeric_limits<int32_t>::max(), "Should saturate to max");
+        FATP_ASSERT_EQ(result, std::numeric_limits<int32_t>::max(), "Should saturate to max");
     }
 
     {
         int64_t neg_big = -1000000000000LL;
         auto result = checked_cast<int32_t, SaturatingPolicy>(neg_big);
-        ASSERT_EQ(result, std::numeric_limits<int32_t>::min(), "Should saturate to min");
+        FATP_ASSERT_EQ(result, std::numeric_limits<int32_t>::min(), "Should saturate to min");
     }
 
     std::cout << colors::green() << "checked_cast narrowing: Tests passed."
@@ -1994,14 +1994,14 @@ TEST_CASE(checked_cast_narrowing)
     return true;
 }
 
-TEST_CASE(checked_cast_sign_conversion)
+FATP_TEST_CASE(checked_cast_sign_conversion)
 {
     std::cout << colors::cyan() << "\nTesting checked_cast sign conversions..."
               << colors::reset() << std::endl;
 
     {
         int32_t negative = -100;
-        ASSERT_TRUE(test_throws("negative int -> unsigned", [&]() {
+        FATP_ASSERT_TRUE(test_throws("negative int -> unsigned", [&]() {
             (void)checked_cast<uint32_t, ThrowOnErrorPolicy>(negative);
         }), "Should throw on negative to unsigned");
     }
@@ -2009,19 +2009,19 @@ TEST_CASE(checked_cast_sign_conversion)
     {
         int32_t negative = -100;
         auto result = checked_cast<uint32_t, ReturnExpectedPolicy>(negative);
-        ASSERT_TRUE(!result.has_value(), "Should fail on negative to unsigned");
-        ASSERT_EQ(result.error(), MathError::Underflow, "Should return Underflow error");
+        FATP_ASSERT_TRUE(!result.has_value(), "Should fail on negative to unsigned");
+        FATP_ASSERT_EQ(result.error(), MathError::Underflow, "Should return Underflow error");
     }
 
     {
         int32_t negative = -100;
         auto result = checked_cast<uint32_t, SaturatingPolicy>(negative);
-        ASSERT_EQ(result, 0U, "Negative should saturate to 0 for unsigned");
+        FATP_ASSERT_EQ(result, 0U, "Negative should saturate to 0 for unsigned");
     }
 
     {
         uint64_t big_unsigned = static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1;
-        ASSERT_TRUE(test_throws("large unsigned -> signed", [&]() {
+        FATP_ASSERT_TRUE(test_throws("large unsigned -> signed", [&]() {
             (void)checked_cast<int64_t, ThrowOnErrorPolicy>(big_unsigned);
         }), "Should throw on unsigned overflow to signed");
     }
@@ -2031,7 +2031,7 @@ TEST_CASE(checked_cast_sign_conversion)
     return true;
 }
 
-TEST_CASE(checked_cast_fp_to_int)
+FATP_TEST_CASE(checked_cast_fp_to_int)
 {
     std::cout << colors::cyan() << "\nTesting checked_cast FP to integer..."
               << colors::reset() << std::endl;
@@ -2039,26 +2039,26 @@ TEST_CASE(checked_cast_fp_to_int)
     {
         double d = 100.5;
         auto result = checked_cast<int32_t, ThrowOnErrorPolicy>(d);
-        ASSERT_EQ(result, 100, "double -> int32 should truncate");
+        FATP_ASSERT_EQ(result, 100, "double -> int32 should truncate");
     }
 
     {
         double big = 1e15;
-        ASSERT_TRUE(test_throws("large double -> int32", [&]() {
+        FATP_ASSERT_TRUE(test_throws("large double -> int32", [&]() {
             (void)checked_cast<int32_t, ThrowOnErrorPolicy>(big);
         }), "Should throw on FP overflow");
     }
 
     {
         double nan = std::numeric_limits<double>::quiet_NaN();
-        ASSERT_TRUE(test_throws("NaN -> int", [&]() {
+        FATP_ASSERT_TRUE(test_throws("NaN -> int", [&]() {
             (void)checked_cast<int32_t, ThrowOnErrorPolicy>(nan);
         }), "Should throw on NaN");
     }
 
     {
         double inf = std::numeric_limits<double>::infinity();
-        ASSERT_TRUE(test_throws("Inf -> int", [&]() {
+        FATP_ASSERT_TRUE(test_throws("Inf -> int", [&]() {
             (void)checked_cast<int32_t, ThrowOnErrorPolicy>(inf);
         }), "Should throw on Inf");
     }
@@ -2066,11 +2066,11 @@ TEST_CASE(checked_cast_fp_to_int)
     {
         double inf = std::numeric_limits<double>::infinity();
         auto result = checked_cast<int32_t, SaturatingPolicy>(inf);
-        ASSERT_EQ(result, std::numeric_limits<int32_t>::max(), "Inf should saturate to max");
+        FATP_ASSERT_EQ(result, std::numeric_limits<int32_t>::max(), "Inf should saturate to max");
 
         double neg_inf = -std::numeric_limits<double>::infinity();
         auto neg_result = checked_cast<int32_t, SaturatingPolicy>(neg_inf);
-        ASSERT_EQ(neg_result, std::numeric_limits<int32_t>::min(), "-Inf should saturate to min");
+        FATP_ASSERT_EQ(neg_result, std::numeric_limits<int32_t>::min(), "-Inf should saturate to min");
     }
 
     std::cout << colors::green() << "checked_cast FP to int: Tests passed."
@@ -2078,7 +2078,7 @@ TEST_CASE(checked_cast_fp_to_int)
     return true;
 }
 
-TEST_CASE(checked_cast_fp_to_fp)
+FATP_TEST_CASE(checked_cast_fp_to_fp)
 {
     std::cout << colors::cyan() << "\nTesting checked_cast FP to FP..."
               << colors::reset() << std::endl;
@@ -2086,19 +2086,19 @@ TEST_CASE(checked_cast_fp_to_fp)
     {
         double d = 3.14159;
         auto result = checked_cast<float, ThrowOnErrorPolicy>(d);
-        ASSERT_TRUE(std::abs(result - 3.14159f) < 0.0001f, "double -> float should work");
+        FATP_ASSERT_TRUE(std::abs(result - 3.14159f) < 0.0001f, "double -> float should work");
     }
 
     {
         float f = 2.71828f;
         auto result = checked_cast<double, ThrowOnErrorPolicy>(f);
-        ASSERT_TRUE(std::abs(result - 2.71828) < 0.0001, "float -> double should work");
+        FATP_ASSERT_TRUE(std::abs(result - 2.71828) < 0.0001, "float -> double should work");
     }
 
     {
         double nan = std::numeric_limits<double>::quiet_NaN();
         auto result = checked_cast<float, SaturatingPolicy>(nan);
-        ASSERT_TRUE(std::isnan(result), "NaN should convert to NaN with Saturating");
+        FATP_ASSERT_TRUE(std::isnan(result), "NaN should convert to NaN with Saturating");
     }
 
     std::cout << colors::green() << "checked_cast FP to FP: Tests passed."
@@ -2106,24 +2106,24 @@ TEST_CASE(checked_cast_fp_to_fp)
     return true;
 }
 
-TEST_CASE(static_checked_cast)
+FATP_TEST_CASE(static_checked_cast)
 {
     std::cout << colors::cyan() << "\nTesting static_checked_cast (compile-time)..."
               << colors::reset() << std::endl;
 
     {
         constexpr int32_t result = static_checked_cast<int32_t, int64_t, 100LL>();
-        ASSERT_EQ(result, 100, "Compile-time cast should work");
+        FATP_ASSERT_EQ(result, 100, "Compile-time cast should work");
     }
 
     {
         constexpr int16_t result = static_checked_cast<int16_t, int32_t, 1000>();
-        ASSERT_EQ(result, 1000, "Compile-time narrowing should work when in range");
+        FATP_ASSERT_EQ(result, 1000, "Compile-time narrowing should work when in range");
     }
 
     {
         constexpr uint32_t result = static_checked_cast<uint32_t, int32_t, 500>();
-        ASSERT_EQ(result, 500U, "Compile-time sign conversion should work when positive");
+        FATP_ASSERT_EQ(result, 500U, "Compile-time sign conversion should work when positive");
     }
 
     std::cout << colors::green() << "static_checked_cast: Tests passed."
@@ -2135,7 +2135,7 @@ TEST_CASE(static_checked_cast)
 // INTEGER SIMD ACCELERATION TESTS
 // =============================================================================
 
-TEST_CASE(intsimd_architecture)
+FATP_TEST_CASE(intsimd_architecture)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Architecture detection..."
               << colors::reset() << std::endl;
@@ -2146,15 +2146,15 @@ TEST_CASE(intsimd_architecture)
     std::cout << "  saturating hw: " 
               << (int_simd::IntSimdInfo::has_saturating_hardware() ? "yes" : "no") << "\n";
     
-    ASSERT_TRUE(int_simd::IntSimdInfo::int32_width() >= 1, "int32 width must be >= 1");
-    ASSERT_TRUE(int_simd::IntSimdInfo::int64_width() >= 1, "int64 width must be >= 1");
+    FATP_ASSERT_TRUE(int_simd::IntSimdInfo::int32_width() >= 1, "int32 width must be >= 1");
+    FATP_ASSERT_TRUE(int_simd::IntSimdInfo::int64_width() >= 1, "int64 width must be >= 1");
 
     std::cout << colors::green() << "  Architecture detection: PASSED" 
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(intsimd_basic_add_i32)
+FATP_TEST_CASE(intsimd_basic_add_i32)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Basic add int32..."
               << colors::reset() << std::endl;
@@ -2164,10 +2164,10 @@ TEST_CASE(intsimd_basic_add_i32)
     
     auto result = checked_add_vec<ThrowOnErrorPolicy>(a, b);
     
-    ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
+    FATP_ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
     for (size_t i = 0; i < a.size(); ++i)
     {
-        ASSERT_EQ(result[i], a[i] + b[i], "Element mismatch at index");
+        FATP_ASSERT_EQ(result[i], a[i] + b[i], "Element mismatch at index");
     }
 
     std::cout << colors::green() << "  Basic add int32: PASSED" 
@@ -2175,7 +2175,7 @@ TEST_CASE(intsimd_basic_add_i32)
     return true;
 }
 
-TEST_CASE(intsimd_overflow_detection_i32)
+FATP_TEST_CASE(intsimd_overflow_detection_i32)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Overflow detection int32..."
               << colors::reset() << std::endl;
@@ -2185,15 +2185,15 @@ TEST_CASE(intsimd_overflow_detection_i32)
 
     auto result = checked_add_vec<ReturnExpectedPolicy>(a, b);
     
-    ASSERT_TRUE(!result.has_value(), "Should detect overflow");
-    ASSERT_EQ(result.error(), MathError::Overflow, "Should be overflow error");
+    FATP_ASSERT_TRUE(!result.has_value(), "Should detect overflow");
+    FATP_ASSERT_EQ(result.error(), MathError::Overflow, "Should be overflow error");
 
     std::cout << colors::green() << "  Overflow detection int32: PASSED" 
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(intsimd_saturating_add_i32)
+FATP_TEST_CASE(intsimd_saturating_add_i32)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Saturating add int32..."
               << colors::reset() << std::endl;
@@ -2203,17 +2203,17 @@ TEST_CASE(intsimd_saturating_add_i32)
 
     auto result = checked_add_vec<SaturatingPolicy>(a, b);
     
-    ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
-    ASSERT_EQ(result[0], 11, "Normal add should work");
-    ASSERT_EQ(result[1], std::numeric_limits<int32_t>::max(), "Overflow should saturate");
-    ASSERT_EQ(result[2], 33, "Normal add should work");
+    FATP_ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
+    FATP_ASSERT_EQ(result[0], 11, "Normal add should work");
+    FATP_ASSERT_EQ(result[1], std::numeric_limits<int32_t>::max(), "Overflow should saturate");
+    FATP_ASSERT_EQ(result[2], 33, "Normal add should work");
 
     std::cout << colors::green() << "  Saturating add int32: PASSED" 
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(intsimd_unsigned_add_u32)
+FATP_TEST_CASE(intsimd_unsigned_add_u32)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Unsigned add uint32..."
               << colors::reset() << std::endl;
@@ -2223,10 +2223,10 @@ TEST_CASE(intsimd_unsigned_add_u32)
     
     auto result = checked_add_vec<ThrowOnErrorPolicy>(a, b);
     
-    ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
+    FATP_ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
     for (size_t i = 0; i < a.size(); ++i)
     {
-        ASSERT_EQ(result[i], a[i] + b[i], "Element mismatch at index");
+        FATP_ASSERT_EQ(result[i], a[i] + b[i], "Element mismatch at index");
     }
 
     std::cout << colors::green() << "  Unsigned add uint32: PASSED" 
@@ -2234,7 +2234,7 @@ TEST_CASE(intsimd_unsigned_add_u32)
     return true;
 }
 
-TEST_CASE(intsimd_unsigned_overflow_u32)
+FATP_TEST_CASE(intsimd_unsigned_overflow_u32)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Unsigned overflow uint32..."
               << colors::reset() << std::endl;
@@ -2244,15 +2244,15 @@ TEST_CASE(intsimd_unsigned_overflow_u32)
 
     auto result = checked_add_vec<ReturnExpectedPolicy>(a, b);
     
-    ASSERT_TRUE(!result.has_value(), "Should detect overflow");
-    ASSERT_EQ(result.error(), MathError::Overflow, "Should be overflow error");
+    FATP_ASSERT_TRUE(!result.has_value(), "Should detect overflow");
+    FATP_ASSERT_EQ(result.error(), MathError::Overflow, "Should be overflow error");
 
     std::cout << colors::green() << "  Unsigned overflow uint32: PASSED" 
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(intsimd_tail_processing)
+FATP_TEST_CASE(intsimd_tail_processing)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Tail processing..."
               << colors::reset() << std::endl;
@@ -2263,24 +2263,24 @@ TEST_CASE(intsimd_tail_processing)
     
     auto result = checked_add_vec<ThrowOnErrorPolicy>(a, b);
     
-    ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
+    FATP_ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
     for (size_t i = 0; i < a.size(); ++i)
     {
-        ASSERT_EQ(result[i], a[i] + b[i], "Element mismatch at index");
+        FATP_ASSERT_EQ(result[i], a[i] + b[i], "Element mismatch at index");
     }
 
     // Also test size 1 (pure scalar)
     std::vector<int32_t> a1 = {42};
     std::vector<int32_t> b1 = {58};
     auto result1 = checked_add_vec<ThrowOnErrorPolicy>(a1, b1);
-    ASSERT_EQ(result1[0], 100, "Size 1 should work");
+    FATP_ASSERT_EQ(result1[0], 100, "Size 1 should work");
 
     std::cout << colors::green() << "  Tail processing: PASSED" 
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(intsimd_sub_i32)
+FATP_TEST_CASE(intsimd_sub_i32)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Subtraction int32..."
               << colors::reset() << std::endl;
@@ -2290,10 +2290,10 @@ TEST_CASE(intsimd_sub_i32)
     
     auto result = checked_sub_vec<ThrowOnErrorPolicy>(a, b);
     
-    ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
+    FATP_ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
     for (size_t i = 0; i < a.size(); ++i)
     {
-        ASSERT_EQ(result[i], a[i] - b[i], "Element mismatch at index");
+        FATP_ASSERT_EQ(result[i], a[i] - b[i], "Element mismatch at index");
     }
 
     // Test underflow detection
@@ -2301,15 +2301,15 @@ TEST_CASE(intsimd_sub_i32)
     std::vector<int32_t> d = {10, 1, 30, 40};  // Second element underflows
 
     auto underflow_result = checked_sub_vec<ReturnExpectedPolicy>(c, d);
-    ASSERT_TRUE(!underflow_result.has_value(), "Should detect underflow");
-    ASSERT_EQ(underflow_result.error(), MathError::Underflow, "Should be underflow error");
+    FATP_ASSERT_TRUE(!underflow_result.has_value(), "Should detect underflow");
+    FATP_ASSERT_EQ(underflow_result.error(), MathError::Underflow, "Should be underflow error");
 
     std::cout << colors::green() << "  Subtraction int32: PASSED" 
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(intsimd_large_vectors)
+FATP_TEST_CASE(intsimd_large_vectors)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Large vectors..."
               << colors::reset() << std::endl;
@@ -2327,10 +2327,10 @@ TEST_CASE(intsimd_large_vectors)
     
     auto result = checked_add_vec<ThrowOnErrorPolicy>(a, b);
     
-    ASSERT_EQ(result.size(), n, "Result size mismatch");
+    FATP_ASSERT_EQ(result.size(), n, "Result size mismatch");
     for (size_t i = 0; i < n; ++i)
     {
-        ASSERT_EQ(result[i], static_cast<int32_t>(i * 3), "Element mismatch at index");
+        FATP_ASSERT_EQ(result[i], static_cast<int32_t>(i * 3), "Element mismatch at index");
     }
 
     std::cout << colors::green() << "  Large vectors: PASSED" 
@@ -2338,7 +2338,7 @@ TEST_CASE(intsimd_large_vectors)
     return true;
 }
 
-TEST_CASE(intsimd_mul_basic_i32)
+FATP_TEST_CASE(intsimd_mul_basic_i32)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Mul basic int32..."
               << colors::reset() << std::endl;
@@ -2348,10 +2348,10 @@ TEST_CASE(intsimd_mul_basic_i32)
     
     auto result = checked_mul_vec<ThrowOnErrorPolicy>(a, b);
     
-    ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
+    FATP_ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
     for (size_t i = 0; i < a.size(); ++i)
     {
-        ASSERT_EQ(result[i], a[i] * b[i], "Element mismatch at index");
+        FATP_ASSERT_EQ(result[i], a[i] * b[i], "Element mismatch at index");
     }
 
     std::cout << colors::green() << "  Mul basic int32: PASSED" 
@@ -2359,7 +2359,7 @@ TEST_CASE(intsimd_mul_basic_i32)
     return true;
 }
 
-TEST_CASE(intsimd_mul_overflow_i32)
+FATP_TEST_CASE(intsimd_mul_overflow_i32)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Mul overflow int32..."
               << colors::reset() << std::endl;
@@ -2370,15 +2370,15 @@ TEST_CASE(intsimd_mul_overflow_i32)
 
     auto result = checked_mul_vec<ReturnExpectedPolicy>(a, b);
     
-    ASSERT_TRUE(!result.has_value(), "Should detect overflow");
-    ASSERT_EQ(result.error(), MathError::Overflow, "Should be overflow error");
+    FATP_ASSERT_TRUE(!result.has_value(), "Should detect overflow");
+    FATP_ASSERT_EQ(result.error(), MathError::Overflow, "Should be overflow error");
 
     std::cout << colors::green() << "  Mul overflow int32: PASSED" 
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(intsimd_mul_saturating_i32)
+FATP_TEST_CASE(intsimd_mul_saturating_i32)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Mul saturating int32..."
               << colors::reset() << std::endl;
@@ -2388,18 +2388,18 @@ TEST_CASE(intsimd_mul_saturating_i32)
 
     auto result = checked_mul_vec<SaturatingPolicy>(a, b);
     
-    ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
-    ASSERT_EQ(result[0], 6, "Normal mul should work");
-    ASSERT_EQ(result[1], std::numeric_limits<int32_t>::max(), "Positive overflow should saturate to max");
-    ASSERT_EQ(result[2], 12, "Normal mul should work");
-    ASSERT_EQ(result[3], std::numeric_limits<int32_t>::min(), "Negative overflow should saturate to min");
+    FATP_ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
+    FATP_ASSERT_EQ(result[0], 6, "Normal mul should work");
+    FATP_ASSERT_EQ(result[1], std::numeric_limits<int32_t>::max(), "Positive overflow should saturate to max");
+    FATP_ASSERT_EQ(result[2], 12, "Normal mul should work");
+    FATP_ASSERT_EQ(result[3], std::numeric_limits<int32_t>::min(), "Negative overflow should saturate to min");
 
     std::cout << colors::green() << "  Mul saturating int32: PASSED" 
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(intsimd_mul_unsigned_u32)
+FATP_TEST_CASE(intsimd_mul_unsigned_u32)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Mul unsigned uint32..."
               << colors::reset() << std::endl;
@@ -2409,10 +2409,10 @@ TEST_CASE(intsimd_mul_unsigned_u32)
     
     auto result = checked_mul_vec<ThrowOnErrorPolicy>(a, b);
     
-    ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
+    FATP_ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
     for (size_t i = 0; i < a.size(); ++i)
     {
-        ASSERT_EQ(result[i], a[i] * b[i], "Element mismatch at index");
+        FATP_ASSERT_EQ(result[i], a[i] * b[i], "Element mismatch at index");
     }
 
     std::cout << colors::green() << "  Mul unsigned uint32: PASSED" 
@@ -2420,7 +2420,7 @@ TEST_CASE(intsimd_mul_unsigned_u32)
     return true;
 }
 
-TEST_CASE(intsimd_mul_unsigned_overflow_u32)
+FATP_TEST_CASE(intsimd_mul_unsigned_overflow_u32)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Mul unsigned overflow uint32..."
               << colors::reset() << std::endl;
@@ -2431,15 +2431,15 @@ TEST_CASE(intsimd_mul_unsigned_overflow_u32)
 
     auto result = checked_mul_vec<ReturnExpectedPolicy>(a, b);
     
-    ASSERT_TRUE(!result.has_value(), "Should detect overflow");
-    ASSERT_EQ(result.error(), MathError::Overflow, "Should be overflow error");
+    FATP_ASSERT_TRUE(!result.has_value(), "Should detect overflow");
+    FATP_ASSERT_EQ(result.error(), MathError::Overflow, "Should be overflow error");
 
     std::cout << colors::green() << "  Mul unsigned overflow uint32: PASSED" 
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(intsimd_mul_large_vectors)
+FATP_TEST_CASE(intsimd_mul_large_vectors)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Mul large vectors..."
               << colors::reset() << std::endl;
@@ -2456,10 +2456,10 @@ TEST_CASE(intsimd_mul_large_vectors)
     
     auto result = checked_mul_vec<ThrowOnErrorPolicy>(a, b);
     
-    ASSERT_EQ(result.size(), n, "Result size mismatch");
+    FATP_ASSERT_EQ(result.size(), n, "Result size mismatch");
     for (size_t i = 0; i < n; ++i)
     {
-        ASSERT_EQ(result[i], static_cast<int32_t>((i + 1) * 2), "Element mismatch at index");
+        FATP_ASSERT_EQ(result[i], static_cast<int32_t>((i + 1) * 2), "Element mismatch at index");
     }
 
     std::cout << colors::green() << "  Mul large vectors: PASSED" 
@@ -2471,7 +2471,7 @@ TEST_CASE(intsimd_mul_large_vectors)
 // TEST EXTENSIONS: int64 SIMD, Edge Cases, Consistency Tests
 // =============================================================================
 
-TEST_CASE(intsimd_add_i64)
+FATP_TEST_CASE(intsimd_add_i64)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Add int64 (AVX2/NEON path)..."
               << colors::reset() << std::endl;
@@ -2481,10 +2481,10 @@ TEST_CASE(intsimd_add_i64)
     
     auto result = checked_add_vec<ThrowOnErrorPolicy>(a, b);
     
-    ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
+    FATP_ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
     for (size_t i = 0; i < a.size(); ++i)
     {
-        ASSERT_EQ(result[i], a[i] + b[i], "Element mismatch at index");
+        FATP_ASSERT_EQ(result[i], a[i] + b[i], "Element mismatch at index");
     }
 
     // Test overflow detection
@@ -2492,15 +2492,15 @@ TEST_CASE(intsimd_add_i64)
     std::vector<int64_t> d = {10, 1, 30, 40};
 
     auto overflow_result = checked_add_vec<ReturnExpectedPolicy>(c, d);
-    ASSERT_TRUE(!overflow_result.has_value(), "Should detect int64 overflow");
-    ASSERT_EQ(overflow_result.error(), MathError::Overflow, "Should be overflow error");
+    FATP_ASSERT_TRUE(!overflow_result.has_value(), "Should detect int64 overflow");
+    FATP_ASSERT_EQ(overflow_result.error(), MathError::Overflow, "Should be overflow error");
 
     std::cout << colors::green() << "  Add int64: PASSED" 
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(intsimd_sub_i64)
+FATP_TEST_CASE(intsimd_sub_i64)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Sub int64 (AVX2/NEON path)..."
               << colors::reset() << std::endl;
@@ -2510,10 +2510,10 @@ TEST_CASE(intsimd_sub_i64)
     
     auto result = checked_sub_vec<ThrowOnErrorPolicy>(a, b);
     
-    ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
+    FATP_ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
     for (size_t i = 0; i < a.size(); ++i)
     {
-        ASSERT_EQ(result[i], a[i] - b[i], "Element mismatch at index");
+        FATP_ASSERT_EQ(result[i], a[i] - b[i], "Element mismatch at index");
     }
 
     // Test underflow detection
@@ -2521,15 +2521,15 @@ TEST_CASE(intsimd_sub_i64)
     std::vector<int64_t> d = {10, 1, 30, 40};
 
     auto underflow_result = checked_sub_vec<ReturnExpectedPolicy>(c, d);
-    ASSERT_TRUE(!underflow_result.has_value(), "Should detect int64 underflow");
-    ASSERT_EQ(underflow_result.error(), MathError::Underflow, "Should be underflow error");
+    FATP_ASSERT_TRUE(!underflow_result.has_value(), "Should detect int64 underflow");
+    FATP_ASSERT_EQ(underflow_result.error(), MathError::Underflow, "Should be underflow error");
 
     std::cout << colors::green() << "  Sub int64: PASSED" 
               << colors::reset() << std::endl;
     return true;
 }
 
-TEST_CASE(intsimd_mul_i64_scalar)
+FATP_TEST_CASE(intsimd_mul_i64_scalar)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Mul int64 (scalar fallback)..."
               << colors::reset() << std::endl;
@@ -2540,10 +2540,10 @@ TEST_CASE(intsimd_mul_i64_scalar)
     
     auto result = checked_mul_vec<ThrowOnErrorPolicy>(a, b);
     
-    ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
+    FATP_ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
     for (size_t i = 0; i < a.size(); ++i)
     {
-        ASSERT_EQ(result[i], a[i] * b[i], "Element mismatch at index");
+        FATP_ASSERT_EQ(result[i], a[i] * b[i], "Element mismatch at index");
     }
 
     // Test overflow detection: sqrt(INT64_MAX) ≈ 3e9, so 4e9 * 4e9 overflows
@@ -2551,13 +2551,13 @@ TEST_CASE(intsimd_mul_i64_scalar)
     std::vector<int64_t> d = {10, 4000000000LL, 30, 40};
 
     auto overflow_result = checked_mul_vec<ReturnExpectedPolicy>(c, d);
-    ASSERT_TRUE(!overflow_result.has_value(), "Should detect int64 overflow");
-    ASSERT_EQ(overflow_result.error(), MathError::Overflow, "Should be overflow error");
+    FATP_ASSERT_TRUE(!overflow_result.has_value(), "Should detect int64 overflow");
+    FATP_ASSERT_EQ(overflow_result.error(), MathError::Overflow, "Should be overflow error");
 
     // Saturating policy
     auto sat_result = checked_mul_vec<SaturatingPolicy>(c, d);
-    ASSERT_EQ(sat_result[0], 10LL, "Normal element should be correct");
-    ASSERT_EQ(sat_result[1], std::numeric_limits<int64_t>::max(), 
+    FATP_ASSERT_EQ(sat_result[0], 10LL, "Normal element should be correct");
+    FATP_ASSERT_EQ(sat_result[1], std::numeric_limits<int64_t>::max(), 
               "Overflow should saturate to max");
 
     std::cout << colors::green() << "  Mul int64 (scalar): PASSED" 
@@ -2565,7 +2565,7 @@ TEST_CASE(intsimd_mul_i64_scalar)
     return true;
 }
 
-TEST_CASE(intsimd_mul_edge_cases)
+FATP_TEST_CASE(intsimd_mul_edge_cases)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Mul edge cases (INT_MIN * -1, etc.)..."
               << colors::reset() << std::endl;
@@ -2576,8 +2576,8 @@ TEST_CASE(intsimd_mul_edge_cases)
         std::vector<int32_t> b = {2, -1, 6, 8, 10, 12, 14, 16};
 
         auto result = checked_mul_vec<ReturnExpectedPolicy>(a, b);
-        ASSERT_TRUE(!result.has_value(), "INT_MIN * -1 should overflow");
-        ASSERT_EQ(result.error(), MathError::Overflow, "Should be overflow error");
+        FATP_ASSERT_TRUE(!result.has_value(), "INT_MIN * -1 should overflow");
+        FATP_ASSERT_EQ(result.error(), MathError::Overflow, "Should be overflow error");
     }
 
     // INT_MAX * 2 = overflow
@@ -2586,7 +2586,7 @@ TEST_CASE(intsimd_mul_edge_cases)
         std::vector<int32_t> b = {2, 1, 2, 3};
 
         auto result = checked_mul_vec<ReturnExpectedPolicy>(a, b);
-        ASSERT_TRUE(!result.has_value(), "INT_MAX * 2 should overflow");
+        FATP_ASSERT_TRUE(!result.has_value(), "INT_MAX * 2 should overflow");
     }
 
     // Mixed signs: large negative * large positive
@@ -2597,8 +2597,8 @@ TEST_CASE(intsimd_mul_edge_cases)
         std::vector<int32_t> b = {2, 50000, 6, 8, 10, 12, 14, 16};
 
         auto result = checked_mul_vec<ReturnExpectedPolicy>(a, b);
-        ASSERT_TRUE(!result.has_value(), "-50000 * 50000 should overflow");
-        ASSERT_EQ(result.error(), MathError::Overflow, "Mul overflow is always Overflow");
+        FATP_ASSERT_TRUE(!result.has_value(), "-50000 * 50000 should overflow");
+        FATP_ASSERT_EQ(result.error(), MathError::Overflow, "Mul overflow is always Overflow");
     }
 
     // Zero multiplication (should never overflow)
@@ -2609,10 +2609,10 @@ TEST_CASE(intsimd_mul_edge_cases)
                                   std::numeric_limits<int32_t>::min(), 0};
 
         auto result = checked_mul_vec<ThrowOnErrorPolicy>(a, b);
-        ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
+        FATP_ASSERT_EQ(result.size(), a.size(), "Result size mismatch");
         for (size_t i = 0; i < a.size(); ++i)
         {
-            ASSERT_EQ(result[i], 0, "Zero * anything should be 0");
+            FATP_ASSERT_EQ(result[i], 0, "Zero * anything should be 0");
         }
     }
 
@@ -2624,13 +2624,13 @@ TEST_CASE(intsimd_mul_edge_cases)
         std::vector<int32_t> b = {-1, 2, 50000, 50000};
 
         auto result = checked_mul_vec<SaturatingPolicy>(a, b);
-        ASSERT_EQ(result[0], std::numeric_limits<int32_t>::max(), 
+        FATP_ASSERT_EQ(result[0], std::numeric_limits<int32_t>::max(), 
                   "INT_MIN * -1 saturates to max");
-        ASSERT_EQ(result[1], std::numeric_limits<int32_t>::max(), 
+        FATP_ASSERT_EQ(result[1], std::numeric_limits<int32_t>::max(), 
                   "INT_MAX * 2 saturates to max");
-        ASSERT_EQ(result[2], std::numeric_limits<int32_t>::min(), 
+        FATP_ASSERT_EQ(result[2], std::numeric_limits<int32_t>::min(), 
                   "-50000 * 50000 saturates to min");
-        ASSERT_EQ(result[3], std::numeric_limits<int32_t>::max(), 
+        FATP_ASSERT_EQ(result[3], std::numeric_limits<int32_t>::max(), 
                   "50000 * 50000 saturates to max");
     }
 
@@ -2639,7 +2639,7 @@ TEST_CASE(intsimd_mul_edge_cases)
     return true;
 }
 
-TEST_CASE(intsimd_unsigned_mul_patterns)
+FATP_TEST_CASE(intsimd_unsigned_mul_patterns)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] Unsigned mul overflow patterns..."
               << colors::reset() << std::endl;
@@ -2651,8 +2651,8 @@ TEST_CASE(intsimd_unsigned_mul_patterns)
         std::vector<uint32_t> b = {2, 3, 6, 8, 10, 12, 14, 16};
 
         auto result = checked_mul_vec<ReturnExpectedPolicy>(a, b);
-        ASSERT_TRUE(!result.has_value(), "UINT_MAX/2 * 3 should overflow");
-        ASSERT_EQ(result.error(), MathError::Overflow, "Should be overflow error");
+        FATP_ASSERT_TRUE(!result.has_value(), "UINT_MAX/2 * 3 should overflow");
+        FATP_ASSERT_EQ(result.error(), MathError::Overflow, "Should be overflow error");
     }
 
     // Boundary: exactly UINT32_MAX (no overflow)
@@ -2662,7 +2662,7 @@ TEST_CASE(intsimd_unsigned_mul_patterns)
         std::vector<uint32_t> b = {65537, 1, 2, 3};
 
         auto result = checked_mul_vec<ThrowOnErrorPolicy>(a, b);
-        ASSERT_EQ(result[0], std::numeric_limits<uint32_t>::max(), 
+        FATP_ASSERT_EQ(result[0], std::numeric_limits<uint32_t>::max(), 
                   "65535 * 65537 should equal UINT32_MAX");
     }
 
@@ -2673,7 +2673,7 @@ TEST_CASE(intsimd_unsigned_mul_patterns)
         std::vector<uint32_t> b = {2, 65536, 6, 8};
 
         auto result = checked_mul_vec<ReturnExpectedPolicy>(a, b);
-        ASSERT_TRUE(!result.has_value(), "65536 * 65536 should overflow");
+        FATP_ASSERT_TRUE(!result.has_value(), "65536 * 65536 should overflow");
     }
 
     // Saturating policy
@@ -2682,9 +2682,9 @@ TEST_CASE(intsimd_unsigned_mul_patterns)
         std::vector<uint32_t> b = {65536, 2};
 
         auto result = checked_mul_vec<SaturatingPolicy>(a, b);
-        ASSERT_EQ(result[0], std::numeric_limits<uint32_t>::max(), 
+        FATP_ASSERT_EQ(result[0], std::numeric_limits<uint32_t>::max(), 
                   "Unsigned overflow saturates to max");
-        ASSERT_EQ(result[1], std::numeric_limits<uint32_t>::max(), 
+        FATP_ASSERT_EQ(result[1], std::numeric_limits<uint32_t>::max(), 
                   "UINT_MAX * 2 saturates to max");
     }
 
@@ -2693,7 +2693,7 @@ TEST_CASE(intsimd_unsigned_mul_patterns)
     return true;
 }
 
-TEST_CASE(intsimd_scalar_consistency)
+FATP_TEST_CASE(intsimd_scalar_consistency)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] SIMD vs Scalar consistency..."
               << colors::reset() << std::endl;
@@ -2723,7 +2723,7 @@ TEST_CASE(intsimd_scalar_consistency)
         for (size_t i = 0; i < a_i32.size(); ++i)
         {
             auto scalar_result = checked_add<SaturatingPolicy>(a_i32[i], b_i32[i]);
-            ASSERT_EQ(vec_result[i], scalar_result, "Add: SIMD/scalar mismatch at index");
+            FATP_ASSERT_EQ(vec_result[i], scalar_result, "Add: SIMD/scalar mismatch at index");
         }
     }
 
@@ -2734,7 +2734,7 @@ TEST_CASE(intsimd_scalar_consistency)
         for (size_t i = 0; i < a_i32.size(); ++i)
         {
             auto scalar_result = checked_sub<SaturatingPolicy>(a_i32[i], b_i32[i]);
-            ASSERT_EQ(vec_result[i], scalar_result, "Sub: SIMD/scalar mismatch at index");
+            FATP_ASSERT_EQ(vec_result[i], scalar_result, "Sub: SIMD/scalar mismatch at index");
         }
     }
 
@@ -2756,7 +2756,7 @@ TEST_CASE(intsimd_scalar_consistency)
         for (size_t i = 0; i < a_small.size(); ++i)
         {
             auto scalar_result = checked_mul<SaturatingPolicy>(a_small[i], b_small[i]);
-            ASSERT_EQ(vec_result[i], scalar_result, "Mul: SIMD/scalar mismatch at index");
+            FATP_ASSERT_EQ(vec_result[i], scalar_result, "Mul: SIMD/scalar mismatch at index");
         }
     }
 
@@ -2766,7 +2766,7 @@ TEST_CASE(intsimd_scalar_consistency)
         std::vector<int32_t> b_err = {1, 1, 1, 1, 1, 1, 1, 1};
         
         auto vec_result = checked_add_vec<ReturnExpectedPolicy>(a_err, b_err);
-        ASSERT_TRUE(!vec_result.has_value(), "Vector should detect overflow");
+        FATP_ASSERT_TRUE(!vec_result.has_value(), "Vector should detect overflow");
         
         // Find which element overflows in scalar
         MathError expected_error = MathError::Overflow;
@@ -2779,7 +2779,7 @@ TEST_CASE(intsimd_scalar_consistency)
                 break;
             }
         }
-        ASSERT_EQ(vec_result.error(), expected_error, "Error type should match scalar");
+        FATP_ASSERT_EQ(vec_result.error(), expected_error, "Error type should match scalar");
     }
 
     std::cout << colors::green() << "  SIMD vs Scalar consistency: PASSED" 
@@ -2787,7 +2787,7 @@ TEST_CASE(intsimd_scalar_consistency)
     return true;
 }
 
-TEST_CASE(intsimd_all_policies_consistency)
+FATP_TEST_CASE(intsimd_all_policies_consistency)
 {
     std::cout << colors::cyan() << "\n[Integer SIMD] All policies produce consistent results..."
               << colors::reset() << std::endl;
@@ -2802,13 +2802,13 @@ TEST_CASE(intsimd_all_policies_consistency)
         auto expected_result = checked_add_vec<ReturnExpectedPolicy>(a, b);
         auto saturating_result = checked_add_vec<SaturatingPolicy>(a, b);
         
-        ASSERT_TRUE(expected_result.has_value(), "Expected should succeed");
+        FATP_ASSERT_TRUE(expected_result.has_value(), "Expected should succeed");
         
         for (size_t i = 0; i < a.size(); ++i)
         {
-            ASSERT_EQ(throw_result[i], expected_result.value()[i], 
+            FATP_ASSERT_EQ(throw_result[i], expected_result.value()[i], 
                       "Throw vs Expected mismatch");
-            ASSERT_EQ(throw_result[i], saturating_result[i], 
+            FATP_ASSERT_EQ(throw_result[i], saturating_result[i], 
                       "Throw vs Saturating mismatch");
         }
     }
@@ -2821,8 +2821,8 @@ TEST_CASE(intsimd_all_policies_consistency)
         auto expected_result = checked_add_vec<ReturnExpectedPolicy>(a, b);
         auto saturating_result = checked_add_vec<SaturatingPolicy>(a, b);
         
-        ASSERT_TRUE(!expected_result.has_value(), "Expected should fail on overflow");
-        ASSERT_EQ(saturating_result[1], std::numeric_limits<int32_t>::max(), 
+        FATP_ASSERT_TRUE(!expected_result.has_value(), "Expected should fail on overflow");
+        FATP_ASSERT_EQ(saturating_result[1], std::numeric_limits<int32_t>::max(), 
                   "Saturating should clamp to max");
     }
 
@@ -3375,7 +3375,7 @@ void run_vector_scaling_benchmarks()
 
 bool test_CheckedArithmetic()
 {
-    PRINT_HEADER(CHECKED ARITHMETIC)
+    FATP_PRINT_HEADER(CHECKED ARITHMETIC)
 
     TestRunner runner;
 
@@ -3386,123 +3386,123 @@ bool test_CheckedArithmetic()
 
     // Critical fix tests
     out << colors::blue() << "--- Critical Fix Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, checkedarithmetic, mul_type_mismatch);
-    RUN_TEST_NS(runner, checkedarithmetic, div_sign_aware_saturation);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_input_validation);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, mul_type_mismatch);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, div_sign_aware_saturation);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_input_validation);
 
     // Enhancement tests
     out << "\n" << colors::blue() << "--- Enhancement Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, checkedarithmetic, noexcept_specifications);
-    RUN_TEST_NS(runner, checkedarithmetic, type_safe_shifts);
-    RUN_TEST_NS(runner, checkedarithmetic, static_math_mod);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, noexcept_specifications);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, type_safe_shifts);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, static_math_mod);
 
     // New feature tests
     out << "\n" << colors::blue() << "--- New Feature Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, checkedarithmetic, checked_abs);
-    RUN_TEST_NS(runner, checkedarithmetic, shift_inf_tolerant);
-    RUN_TEST_NS(runner, checkedarithmetic, scalar_int_inf_tolerant);
-    RUN_TEST_NS(runner, checkedarithmetic, inf_tolerant_fp_nan_handling);
-    RUN_TEST_NS(runner, checkedarithmetic, scalar_fp_inf_tolerant);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_abs);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, shift_inf_tolerant);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, scalar_int_inf_tolerant);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, inf_tolerant_fp_nan_handling);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, scalar_fp_inf_tolerant);
 
     // Edge case tests
     out << "\n" << colors::blue() << "--- Edge Case Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, checkedarithmetic, fp_denormals);
-    RUN_TEST_NS(runner, checkedarithmetic, unsigned_overflow);
-    RUN_TEST_NS(runner, checkedarithmetic, mixed_sign_operations);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_denormals);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, unsigned_overflow);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, mixed_sign_operations);
 
     // SIMD tests
     out << "\n" << colors::blue() << "--- SIMD Validation Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, checkedarithmetic, simd_int32_correctness);
-    RUN_TEST_NS(runner, checkedarithmetic, simd_overflow_detection);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, simd_int32_correctness);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, simd_overflow_detection);
 
     // FP vector tests
     out << "\n" << colors::blue() << "--- FP Vector Operation Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_sub_nan_detection);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_sub_inf_overflow);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_sub_inf_tolerant);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_mul_nan_detection);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_mul_inf_overflow);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_mul_mixed_overflow);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_mul_inf_tolerant);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_div_nan_detection);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_div_inf_overflow);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_div_by_zero);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_div_inf_tolerant);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_simd_consistency);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_boundary_detection);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_sub_nan_detection);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_sub_inf_overflow);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_sub_inf_tolerant);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_mul_nan_detection);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_mul_inf_overflow);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_mul_mixed_overflow);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_mul_inf_tolerant);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_div_nan_detection);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_div_inf_overflow);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_div_by_zero);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_div_inf_tolerant);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_simd_consistency);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_boundary_detection);
 
     // SimdVector integration tests
     out << "\n" << colors::blue() << "--- SimdVector Integration Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, checkedarithmetic, simd_width_detection);
-    RUN_TEST_NS(runner, checkedarithmetic, simd_tail_processing);
-    RUN_TEST_NS(runner, checkedarithmetic, simd_inf_handling);
-    RUN_TEST_NS(runner, checkedarithmetic, simd_overflow_to_inf);
-    RUN_TEST_NS(runner, checkedarithmetic, simd_float_type);
-    RUN_TEST_NS(runner, checkedarithmetic, simd_all_ops);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, simd_width_detection);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, simd_tail_processing);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, simd_inf_handling);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, simd_overflow_to_inf);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, simd_float_type);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, simd_all_ops);
 
     // FP vector error path tests
     out << "\n" << colors::blue() << "--- FP Vector Error Path Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_throw_on_overflow);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_inf_inf_fallback);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_inf_tolerant_overflow);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_inf_tolerant_nan);
-    RUN_TEST_NS(runner, checkedarithmetic, fp_vec_inf_tolerant_inf_minus_inf);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_throw_on_overflow);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_inf_inf_fallback);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_inf_tolerant_overflow);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_inf_tolerant_nan);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_inf_tolerant_inf_minus_inf);
 
     // Performance validation test
     out << "\n" << colors::blue() << "--- Performance Validation Test ---"
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, checkedarithmetic, performance_benchmarks);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, performance_benchmarks);
 
     // Core functionality tests
     out << "\n" << colors::blue() << "--- Core Functionality Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, checkedarithmetic, checked_add);
-    RUN_TEST_NS(runner, checkedarithmetic, checked_sub);
-    RUN_TEST_NS(runner, checkedarithmetic, checked_mul);
-    RUN_TEST_NS(runner, checkedarithmetic, checked_div);
-    RUN_TEST_NS(runner, checkedarithmetic, checked_fp_operations);
-    RUN_TEST_NS(runner, checkedarithmetic, checked_mod);
-    RUN_TEST_NS(runner, checkedarithmetic, checked_negate);
-    RUN_TEST_NS(runner, checkedarithmetic, bitwise_operations);
-    RUN_TEST_NS(runner, checkedarithmetic, clamp_and_range);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_add);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_sub);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_mul);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_div);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_fp_operations);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_mod);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_negate);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, bitwise_operations);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, clamp_and_range);
 
     // Checked cast tests
     out << "\n" << colors::blue() << "--- Checked Cast Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, checkedarithmetic, checked_cast_basic);
-    RUN_TEST_NS(runner, checkedarithmetic, checked_cast_narrowing);
-    RUN_TEST_NS(runner, checkedarithmetic, checked_cast_sign_conversion);
-    RUN_TEST_NS(runner, checkedarithmetic, checked_cast_fp_to_int);
-    RUN_TEST_NS(runner, checkedarithmetic, checked_cast_fp_to_fp);
-    RUN_TEST_NS(runner, checkedarithmetic, static_checked_cast);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_cast_basic);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_cast_narrowing);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_cast_sign_conversion);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_cast_fp_to_int);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_cast_fp_to_fp);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, static_checked_cast);
 
     // Integer SIMD acceleration tests
     out << "\n" << colors::blue() << "--- Integer SIMD Acceleration Tests ---" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_architecture);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_basic_add_i32);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_overflow_detection_i32);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_saturating_add_i32);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_unsigned_add_u32);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_unsigned_overflow_u32);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_tail_processing);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_sub_i32);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_large_vectors);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_basic_i32);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_overflow_i32);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_saturating_i32);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_unsigned_u32);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_unsigned_overflow_u32);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_large_vectors);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_architecture);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_basic_add_i32);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_overflow_detection_i32);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_saturating_add_i32);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_unsigned_add_u32);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_unsigned_overflow_u32);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_tail_processing);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_sub_i32);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_large_vectors);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_basic_i32);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_overflow_i32);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_saturating_i32);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_unsigned_u32);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_unsigned_overflow_u32);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_large_vectors);
 
     // Test Extensions: int64, edge cases, consistency
     out << "\n" << colors::blue() << "--- Integer SIMD Test Extensions ---" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_add_i64);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_sub_i64);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_i64_scalar);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_edge_cases);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_unsigned_mul_patterns);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_scalar_consistency);
-    RUN_TEST_NS(runner, checkedarithmetic, intsimd_all_policies_consistency);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_add_i64);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_sub_i64);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_i64_scalar);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_mul_edge_cases);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_unsigned_mul_patterns);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_scalar_consistency);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, intsimd_all_policies_consistency);
 
     // Comprehensive performance benchmarks (new)
     run_checked_arithmetic_benchmarks();

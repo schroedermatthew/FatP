@@ -2635,12 +2635,12 @@ inline BenchmarkRunner makeRunner(const std::string& name)
  * @return Configured BenchmarkRunner ready for testing
  *
  * @code
- * TEST_CASE(runner_basic)
+ * FATP_TEST_CASE(runner_basic)
  * {
  *     auto runner = makeTestRunner("TestRunner");
  *     runner.add("test_bench", []() { volatile int x = 1; });
  *     runner.run();
- *     ASSERT_GT(runner.results().size(), 0);
+ *     FATP_ASSERT_GT(runner.results().size(), 0);
  *     return true;
  * }
  * @endcode

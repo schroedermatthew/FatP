@@ -28,7 +28,7 @@ FATP_META:
   component: Enforce
   file_role: test
   path: tests/test_Enforce.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::enforce
   summary: "Unit tests for Enforce."
   related:
     docs_search: "Enforce"
@@ -70,7 +70,7 @@ FATP_META:
 #include "Expected.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing
+namespace fat_p::testing::enforce
 {
 
 using namespace std::chrono;
@@ -116,19 +116,19 @@ public:
 // Test Suite 1: Core Enforcement Macros
 // ============================================================================
 
-bool test_core_enforcement_basic() {
+FATP_TEST_CASE(core_enforcement_basic) {
     // Test 1.1: Basic enforce with passing condition (debug only)
     enforce(true, "Should not fail");
     
     return true;
 }
 
-bool test_core_enforcement_debug_behavior() {
+FATP_TEST_CASE(core_enforcement_debug_behavior) {
     // Test 1.2: Basic enforce with failing condition (debug only)
     #ifndef NDEBUG
     try {
         enforce(false, "Should fail");
-        ASSERT_TRUE(false, "enforce() should have thrown in debug");
+        FATP_ASSERT_TRUE(false, "enforce() should have thrown in debug");
     } catch (const fat_p::LogicContractError&) {
         // Expected
     }
@@ -140,14 +140,14 @@ bool test_core_enforcement_debug_behavior() {
     return true;
 }
 
-bool test_core_enforcement_always() {
+FATP_TEST_CASE(core_enforcement_always) {
     // Test 1.3: always_enforce with passing condition
     always_enforce(1 + 1 == 2, "Math should work");
     
     // Test 1.4: always_enforce with failing condition
     try {
         always_enforce(false, "This should always fail");
-        ASSERT_TRUE(false, "always_enforce() should have thrown");
+        FATP_ASSERT_TRUE(false, "always_enforce() should have thrown");
     } catch (const fat_p::LogicContractError&) {
         // Expected
     }
@@ -155,25 +155,25 @@ bool test_core_enforcement_always() {
     return true;
 }
 
-bool test_core_enforcement_warning() {
+FATP_TEST_CASE(core_enforcement_warning) {
     // Test 1.5: enforce_warn (should not throw)
     enforce_warn(false, "Warning only");
     return true;
 }
 
-bool test_core_enforcement_noexcept() {
+FATP_TEST_CASE(core_enforcement_noexcept) {
     // Test 1.6: noexcept_enforce (should not throw)
     noexcept_enforce(false, "No exception");
     return true;
 }
 
-bool test_core_enforcement_message_interpolation() {
+FATP_TEST_CASE(core_enforcement_message_interpolation) {
     // Test 1.7: Message interpolation
     int value = 42;
     std::string name = "test";
     try {
         always_enforce(false, "Value:", value, " Name:", name);
-        ASSERT_TRUE(false, "Message interpolation should have thrown");
+        FATP_ASSERT_TRUE(false, "Message interpolation should have thrown");
     } catch (const fat_p::LogicContractError&) {
         // Expected
     }
@@ -185,14 +185,14 @@ bool test_core_enforcement_message_interpolation() {
 // Test Suite 2: Predicate Tests
 // ============================================================================
 
-bool test_predicate_not_null() {
+FATP_TEST_CASE(predicate_not_null) {
     int* valid_ptr = new int(42);
     int* null_ptr = nullptr;
     
-    ASSERT_TRUE(fat_p::NotNullPredicate::check(valid_ptr),
+    FATP_ASSERT_TRUE(fat_p::NotNullPredicate::check(valid_ptr),
                   "NotNullPredicate with valid pointer");
     
-    ASSERT_TRUE(!fat_p::NotNullPredicate::check(null_ptr),
+    FATP_ASSERT_TRUE(!fat_p::NotNullPredicate::check(null_ptr),
                   "NotNullPredicate with null pointer");
     
     // Test with enforcement macro
@@ -201,7 +201,7 @@ bool test_predicate_not_null() {
     try {
         always_enforce_not_null(null_ptr, "Null pointer");
         delete valid_ptr;
-        ASSERT_TRUE(false, "always_enforce_not_null should have thrown");
+        FATP_ASSERT_TRUE(false, "always_enforce_not_null should have thrown");
     } catch (const fat_p::LogicContractError&) {
         // Expected
     }
@@ -210,197 +210,197 @@ bool test_predicate_not_null() {
     return true;
 }
 
-bool test_predicate_is_positive() {
-    ASSERT_TRUE(fat_p::IsPositivePredicate::check(42),
+FATP_TEST_CASE(predicate_is_positive) {
+    FATP_ASSERT_TRUE(fat_p::IsPositivePredicate::check(42),
                   "IsPositivePredicate with positive integer");
     
-    ASSERT_TRUE(fat_p::IsPositivePredicate::check(3.14),
+    FATP_ASSERT_TRUE(fat_p::IsPositivePredicate::check(3.14),
                   "IsPositivePredicate with positive double");
     
-    ASSERT_TRUE(!fat_p::IsPositivePredicate::check(0),
+    FATP_ASSERT_TRUE(!fat_p::IsPositivePredicate::check(0),
                   "IsPositivePredicate with zero");
     
-    ASSERT_TRUE(!fat_p::IsPositivePredicate::check(-5),
+    FATP_ASSERT_TRUE(!fat_p::IsPositivePredicate::check(-5),
                   "IsPositivePredicate with negative value");
     
     return true;
 }
 
-bool test_predicate_is_non_negative() {
-    ASSERT_TRUE(fat_p::IsNonNegativePredicate::check(0),
+FATP_TEST_CASE(predicate_is_non_negative) {
+    FATP_ASSERT_TRUE(fat_p::IsNonNegativePredicate::check(0),
                   "IsNonNegativePredicate with zero");
     
-    ASSERT_TRUE(fat_p::IsNonNegativePredicate::check(42),
+    FATP_ASSERT_TRUE(fat_p::IsNonNegativePredicate::check(42),
                   "IsNonNegativePredicate with positive value");
     
-    ASSERT_TRUE(!fat_p::IsNonNegativePredicate::check(-1),
+    FATP_ASSERT_TRUE(!fat_p::IsNonNegativePredicate::check(-1),
                   "IsNonNegativePredicate with negative value");
     
     return true;
 }
 
-bool test_predicate_not_empty() {
+FATP_TEST_CASE(predicate_not_empty) {
     std::vector<int> empty_vec;
     std::vector<int> filled_vec = {1, 2, 3};
     std::string empty_str = "";
     std::string filled_str = "hello";
     
-    ASSERT_TRUE(!fat_p::NotEmptyPredicate::check(empty_vec),
+    FATP_ASSERT_TRUE(!fat_p::NotEmptyPredicate::check(empty_vec),
                   "NotEmptyPredicate with empty vector");
     
-    ASSERT_TRUE(fat_p::NotEmptyPredicate::check(filled_vec),
+    FATP_ASSERT_TRUE(fat_p::NotEmptyPredicate::check(filled_vec),
                   "NotEmptyPredicate with filled vector");
     
-    ASSERT_TRUE(!fat_p::NotEmptyPredicate::check(empty_str),
+    FATP_ASSERT_TRUE(!fat_p::NotEmptyPredicate::check(empty_str),
                   "NotEmptyPredicate with empty string");
     
-    ASSERT_TRUE(fat_p::NotEmptyPredicate::check(filled_str),
+    FATP_ASSERT_TRUE(fat_p::NotEmptyPredicate::check(filled_str),
                   "NotEmptyPredicate with filled string");
     
     return true;
 }
 
-bool test_predicate_in_range() {
-    ASSERT_TRUE(fat_p::InRangePredicate::check(50, 0, 100),
+FATP_TEST_CASE(predicate_in_range) {
+    FATP_ASSERT_TRUE(fat_p::InRangePredicate::check(50, 0, 100),
                   "InRangePredicate with value in range");
     
-    ASSERT_TRUE(fat_p::InRangePredicate::check(0, 0, 100),
+    FATP_ASSERT_TRUE(fat_p::InRangePredicate::check(0, 0, 100),
                   "InRangePredicate with value at lower bound");
     
-    ASSERT_TRUE(fat_p::InRangePredicate::check(100, 0, 100),
+    FATP_ASSERT_TRUE(fat_p::InRangePredicate::check(100, 0, 100),
                   "InRangePredicate with value at upper bound");
     
-    ASSERT_TRUE(!fat_p::InRangePredicate::check(-1, 0, 100),
+    FATP_ASSERT_TRUE(!fat_p::InRangePredicate::check(-1, 0, 100),
                   "InRangePredicate with value below range");
     
-    ASSERT_TRUE(!fat_p::InRangePredicate::check(101, 0, 100),
+    FATP_ASSERT_TRUE(!fat_p::InRangePredicate::check(101, 0, 100),
                   "InRangePredicate with value above range");
     
     return true;
 }
 
-bool test_predicate_is_power_of_two() {
-    ASSERT_TRUE(fat_p::IsPowerOfTwoPredicate::check(1),
+FATP_TEST_CASE(predicate_is_power_of_two) {
+    FATP_ASSERT_TRUE(fat_p::IsPowerOfTwoPredicate::check(1),
                   "IsPowerOfTwoPredicate with 1");
     
-    ASSERT_TRUE(fat_p::IsPowerOfTwoPredicate::check(2),
+    FATP_ASSERT_TRUE(fat_p::IsPowerOfTwoPredicate::check(2),
                   "IsPowerOfTwoPredicate with 2");
     
-    ASSERT_TRUE(fat_p::IsPowerOfTwoPredicate::check(16),
+    FATP_ASSERT_TRUE(fat_p::IsPowerOfTwoPredicate::check(16),
                   "IsPowerOfTwoPredicate with 16");
     
-    ASSERT_TRUE(fat_p::IsPowerOfTwoPredicate::check(1024),
+    FATP_ASSERT_TRUE(fat_p::IsPowerOfTwoPredicate::check(1024),
                   "IsPowerOfTwoPredicate with 1024");
     
-    ASSERT_TRUE(!fat_p::IsPowerOfTwoPredicate::check(0),
+    FATP_ASSERT_TRUE(!fat_p::IsPowerOfTwoPredicate::check(0),
                   "IsPowerOfTwoPredicate with 0");
     
-    ASSERT_TRUE(!fat_p::IsPowerOfTwoPredicate::check(3),
+    FATP_ASSERT_TRUE(!fat_p::IsPowerOfTwoPredicate::check(3),
                   "IsPowerOfTwoPredicate with 3");
     
-    ASSERT_TRUE(!fat_p::IsPowerOfTwoPredicate::check(15),
+    FATP_ASSERT_TRUE(!fat_p::IsPowerOfTwoPredicate::check(15),
                   "IsPowerOfTwoPredicate with 15");
     
     return true;
 }
 
-bool test_predicate_is_sorted() {
+FATP_TEST_CASE(predicate_is_sorted) {
     std::vector<int> sorted_vec = {1, 2, 3, 4, 5};
     std::vector<int> unsorted_vec = {1, 3, 2, 5, 4};
     std::vector<int> single_elem = {42};
     std::vector<int> empty_sorted;
     
-    ASSERT_TRUE(fat_p::IsSortedPredicate::check(sorted_vec),
+    FATP_ASSERT_TRUE(fat_p::IsSortedPredicate::check(sorted_vec),
                   "IsSortedPredicate with sorted vector");
     
-    ASSERT_TRUE(!fat_p::IsSortedPredicate::check(unsorted_vec),
+    FATP_ASSERT_TRUE(!fat_p::IsSortedPredicate::check(unsorted_vec),
                   "IsSortedPredicate with unsorted vector");
     
-    ASSERT_TRUE(fat_p::IsSortedPredicate::check(single_elem),
+    FATP_ASSERT_TRUE(fat_p::IsSortedPredicate::check(single_elem),
                   "IsSortedPredicate with single element");
     
-    ASSERT_TRUE(fat_p::IsSortedPredicate::check(empty_sorted),
+    FATP_ASSERT_TRUE(fat_p::IsSortedPredicate::check(empty_sorted),
                   "IsSortedPredicate with empty vector");
     
     return true;
 }
 
-bool test_predicate_container_is_unique() {
+FATP_TEST_CASE(predicate_container_is_unique) {
     std::vector<int> unique_vec = {1, 2, 3, 4, 5};
     std::vector<int> duplicate_vec = {1, 2, 3, 2, 5};
     
-    ASSERT_TRUE(fat_p::ContainerIsUniquePredicate::check(unique_vec),
+    FATP_ASSERT_TRUE(fat_p::ContainerIsUniquePredicate::check(unique_vec),
                   "ContainerIsUniquePredicate with unique elements");
     
-    ASSERT_TRUE(!fat_p::ContainerIsUniquePredicate::check(duplicate_vec),
+    FATP_ASSERT_TRUE(!fat_p::ContainerIsUniquePredicate::check(duplicate_vec),
                   "ContainerIsUniquePredicate with duplicates");
     
     return true;
 }
 
-bool test_predicate_has_size() {
+FATP_TEST_CASE(predicate_has_size) {
     std::vector<int> vec_size_5 = {1, 2, 3, 4, 5};
     
-    ASSERT_TRUE(fat_p::HasSizePredicate::check(5, vec_size_5),
+    FATP_ASSERT_TRUE(fat_p::HasSizePredicate::check(5, vec_size_5),
                   "HasSizePredicate with correct size");
     
-    ASSERT_TRUE(!fat_p::HasSizePredicate::check(3, vec_size_5),
+    FATP_ASSERT_TRUE(!fat_p::HasSizePredicate::check(3, vec_size_5),
                   "HasSizePredicate with incorrect size");
     
     return true;
 }
 
-bool test_predicate_approx_equal() {
+FATP_TEST_CASE(predicate_approx_equal) {
     double a = 1.0;
     double b = 1.0000001;
     double c = 1.1;
     
-    ASSERT_TRUE(fat_p::ApproxEqualPredicate::check(0.001, a, b),
+    FATP_ASSERT_TRUE(fat_p::ApproxEqualPredicate::check(0.001, a, b),
                   "ApproxEqualPredicate with close values");
     
-    ASSERT_TRUE(!fat_p::ApproxEqualPredicate::check(0.001, a, c),
+    FATP_ASSERT_TRUE(!fat_p::ApproxEqualPredicate::check(0.001, a, c),
                   "ApproxEqualPredicate with distant values");
     
     return true;
 }
 
-bool test_predicate_comparisons() {
-    ASSERT_TRUE(fat_p::IsLessThanPredicate::check(5, 10),
+FATP_TEST_CASE(predicate_comparisons) {
+    FATP_ASSERT_TRUE(fat_p::IsLessThanPredicate::check(5, 10),
                   "IsLessThanPredicate with 5 < 10");
     
-    ASSERT_TRUE(!fat_p::IsLessThanPredicate::check(10, 5),
+    FATP_ASSERT_TRUE(!fat_p::IsLessThanPredicate::check(10, 5),
                   "IsLessThanPredicate with 10 < 5");
     
-    ASSERT_TRUE(fat_p::IsGreaterThanPredicate::check(10, 5),
+    FATP_ASSERT_TRUE(fat_p::IsGreaterThanPredicate::check(10, 5),
                   "IsGreaterThanPredicate with 10 > 5");
     
-    ASSERT_TRUE(!fat_p::IsGreaterThanPredicate::check(5, 10),
+    FATP_ASSERT_TRUE(!fat_p::IsGreaterThanPredicate::check(5, 10),
                   "IsGreaterThanPredicate with 5 > 10");
     
     return true;
 }
 
 
-bool test_predicate_container_unique_noexcept() {
+FATP_TEST_CASE(predicate_container_unique_noexcept) {
     // Test 1: Hashable types (int, string) - should work correctly
     {
         std::vector<int> vec_unique = {1, 2, 3, 4, 5};
-        ASSERT_TRUE(fat_p::ContainerIsUniquePredicate::check(vec_unique),
+        FATP_ASSERT_TRUE(fat_p::ContainerIsUniquePredicate::check(vec_unique),
                       "ContainerIsUniquePredicate with unique ints");
         
         std::vector<int> vec_duplicate = {1, 2, 3, 2, 5};
-        ASSERT_TRUE(!fat_p::ContainerIsUniquePredicate::check(vec_duplicate),
+        FATP_ASSERT_TRUE(!fat_p::ContainerIsUniquePredicate::check(vec_duplicate),
                       "ContainerIsUniquePredicate with duplicate ints");
     }
     
     // Test 2: String containers (hashable)
     {
         std::vector<std::string> vec_unique = {"a", "b", "c"};
-        ASSERT_TRUE(fat_p::ContainerIsUniquePredicate::check(vec_unique),
+        FATP_ASSERT_TRUE(fat_p::ContainerIsUniquePredicate::check(vec_unique),
                       "ContainerIsUniquePredicate with unique strings");
         
         std::vector<std::string> vec_duplicate = {"a", "b", "a"};
-        ASSERT_TRUE(!fat_p::ContainerIsUniquePredicate::check(vec_duplicate),
+        FATP_ASSERT_TRUE(!fat_p::ContainerIsUniquePredicate::check(vec_duplicate),
                       "ContainerIsUniquePredicate with duplicate strings");
     }
     
@@ -414,26 +414,26 @@ bool test_predicate_container_unique_noexcept() {
         
         // The function should NOT be noexcept for hashable types
         // (because std::unordered_set can throw std::bad_alloc)
-        ASSERT_TRUE(is_noexcept_int == false, 
+        FATP_ASSERT_TRUE(is_noexcept_int == false, 
                       "ContainerIsUniquePredicate should be noexcept(false) for hashable types");
     }
     
-    std::cout << "    â†’ Conditional noexcept working correctly\n";
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Conditional noexcept working correctly\n";
     return true;
 }
 
-bool test_predicate_noexcept_correctness() {
+FATP_TEST_CASE(predicate_noexcept_correctness) {
     // Test 1: IsSortedPredicate with throwing comparator
     {
         std::vector<int> vec = {1, 2, 3, 4, 5};
         
         // Normal comparator should work
-        ASSERT_TRUE(fat_p::IsSortedPredicate::check(vec),
+        FATP_ASSERT_TRUE(fat_p::IsSortedPredicate::check(vec),
                       "IsSortedPredicate with sorted vector");
         
         // Test with custom comparator
         auto custom_less = [](int a, int b) { return a < b; };
-        ASSERT_TRUE(fat_p::IsSortedPredicate::check(vec, custom_less),
+        FATP_ASSERT_TRUE(fat_p::IsSortedPredicate::check(vec, custom_less),
                       "IsSortedPredicate with custom comparator");
     }
     
@@ -442,11 +442,11 @@ bool test_predicate_noexcept_correctness() {
         std::vector<int> vec = {2, 4, 6, 8};
         auto is_even = [](int x) { return x % 2 == 0; };
         
-        ASSERT_TRUE(fat_p::AllSatisfyPredicate::check(is_even, vec),
+        FATP_ASSERT_TRUE(fat_p::AllSatisfyPredicate::check(is_even, vec),
                       "AllSatisfyPredicate with all even numbers");
         
         std::vector<int> vec2 = {2, 4, 5, 8};
-        ASSERT_TRUE(!fat_p::AllSatisfyPredicate::check(is_even, vec2),
+        FATP_ASSERT_TRUE(!fat_p::AllSatisfyPredicate::check(is_even, vec2),
                       "AllSatisfyPredicate with mixed numbers");
     }
     
@@ -455,15 +455,15 @@ bool test_predicate_noexcept_correctness() {
         std::vector<int> vec = {1, 3, 5, 7};
         auto is_even = [](int x) { return x % 2 == 0; };
         
-        ASSERT_TRUE(!fat_p::AnySatisfyPredicate::check(is_even, vec),
+        FATP_ASSERT_TRUE(!fat_p::AnySatisfyPredicate::check(is_even, vec),
                       "AnySatisfyPredicate with no even numbers");
         
         std::vector<int> vec2 = {1, 3, 4, 7};
-        ASSERT_TRUE(fat_p::AnySatisfyPredicate::check(is_even, vec2),
+        FATP_ASSERT_TRUE(fat_p::AnySatisfyPredicate::check(is_even, vec2),
                       "AnySatisfyPredicate with one even number");
     }
     
-    std::cout << "    â†’ Predicates correctly allow exceptions to propagate\n";
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Predicates correctly allow exceptions to propagate\n";
     return true;
 }
 
@@ -472,10 +472,10 @@ bool test_predicate_noexcept_correctness() {
 // Test Suite 3: Raiser Tests
 // ============================================================================
 
-bool test_raiser_logic_error() {
+FATP_TEST_CASE(raiser_logic_error) {
     try {
         always_enforce(false, "Logic error");
-        ASSERT_TRUE(false, "LogicRaiser should throw LogicContractError");
+        FATP_ASSERT_TRUE(false, "LogicRaiser should throw LogicContractError");
     } catch (const fat_p::LogicContractError&) {
         // Expected
     }
@@ -483,10 +483,10 @@ bool test_raiser_logic_error() {
     return true;
 }
 
-bool test_raiser_out_of_range() {
+FATP_TEST_CASE(raiser_out_of_range) {
     try {
         always_enforce_in_range(0, 100, 150, "Out of range");
-        ASSERT_TRUE(false, "Should have thrown exception");
+        FATP_ASSERT_TRUE(false, "Should have thrown exception");
     } catch (const fat_p::LogicContractError&) {
         // Expected - always_enforce_in_range uses AlwaysEnforcePolicy -> LogicRaiser
     }
@@ -494,30 +494,30 @@ bool test_raiser_out_of_range() {
     return true;
 }
 
-bool test_raiser_message_content() {
+FATP_TEST_CASE(raiser_message_content) {
     try {
         always_enforce(false, "Custom error message");
-        ASSERT_TRUE(false, "Exception should have been thrown");
+        FATP_ASSERT_TRUE(false, "Exception should have been thrown");
     } catch (const std::exception& e) {
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("Custom error message") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("Custom error message") != std::string::npos,
                       "Exception message contains user message");
-        ASSERT_TRUE(msg.find("Contract Violation") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("Contract Violation") != std::string::npos,
                       "Exception message contains 'Contract Violation'");
     }
     
     return true;
 }
 
-bool test_raiser_locus() {
+FATP_TEST_CASE(raiser_locus) {
     try {
         always_enforce(false, "Test locus");
-        ASSERT_TRUE(false, "Exception should have been thrown");
+        FATP_ASSERT_TRUE(false, "Exception should have been thrown");
     } catch (const std::exception& e) {
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("Locus:") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("Locus:") != std::string::npos,
                       "Exception message contains locus label");
-        ASSERT_TRUE(msg.find(".cpp") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find(".cpp") != std::string::npos,
                       "Exception message contains file name");
     }
     
@@ -528,14 +528,14 @@ bool test_raiser_locus() {
 // Test Suite 4: Policy Tests
 // ============================================================================
 
-bool test_policy_debug_only() {
+FATP_TEST_CASE(policy_debug_only) {
     #ifdef NDEBUG
     // In release, should be optimized away
     enforce(false, "Should be optimized away in release");
     #else
     try {
         enforce(false, "Should throw in debug");
-        ASSERT_TRUE(false, "DebugOnlyPolicy should throw in debug");
+        FATP_ASSERT_TRUE(false, "DebugOnlyPolicy should throw in debug");
     } catch (const fat_p::LogicContractError&) {
         // Expected
     }
@@ -544,10 +544,10 @@ bool test_policy_debug_only() {
     return true;
 }
 
-bool test_policy_always_enforce() {
+FATP_TEST_CASE(policy_always_enforce) {
     try {
         always_enforce(false, "Always enforced");
-        ASSERT_TRUE(false, "AlwaysEnforcePolicy should always throw");
+        FATP_ASSERT_TRUE(false, "AlwaysEnforcePolicy should always throw");
     } catch (const fat_p::LogicContractError&) {
         // Expected
     }
@@ -557,7 +557,7 @@ bool test_policy_always_enforce() {
     return true;
 }
 
-bool test_policy_warning() {
+FATP_TEST_CASE(policy_warning) {
     // WarningPolicy should not throw
     enforce_warn(false, "This is just a warning");
     enforce_warn(true, "Warning for true condition");
@@ -565,7 +565,7 @@ bool test_policy_warning() {
     return true;
 }
 
-bool test_policy_no_throw() {
+FATP_TEST_CASE(policy_no_throw) {
     // NoThrowPolicy should not throw
     noexcept_enforce(false, "No exception should be thrown");
     noexcept_enforce(true, "NoThrow with true condition");
@@ -672,7 +672,7 @@ void throwing_abort_less_than(int a, int b)
 
 } // namespace contextual_test_helpers
 
-bool test_contextual_throwing_function() {
+FATP_TEST_CASE(contextual_throwing_function) {
     using namespace contextual_test_helpers;
     reset_flags();
     set_violation_handler(test_handler);
@@ -681,12 +681,12 @@ bool test_contextual_throwing_function() {
     try
     {
         throwing_check_condition(true);
-        ASSERT_TRUE(!g_called_handler, "Handler should not be called on success");
+        FATP_ASSERT_TRUE(!g_called_handler, "Handler should not be called on success");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Should not throw with true condition");
+        FATP_ASSERT_TRUE(false, "Should not throw with true condition");
     }
     
     // Test 2: Throwing function with failing condition - should throw
@@ -695,16 +695,16 @@ bool test_contextual_throwing_function() {
     {
         throwing_check_condition(false);
         reset_violation_handler();
-        ASSERT_TRUE(false, "Should have thrown with false condition");
+        FATP_ASSERT_TRUE(false, "Should have thrown with false condition");
     }
     catch (const fat_p::LogicContractError&)
     {
-        ASSERT_TRUE(!g_called_handler, "Handler not called - exception thrown instead");
+        FATP_ASSERT_TRUE(!g_called_handler, "Handler not called - exception thrown instead");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Wrong exception type thrown");
+        FATP_ASSERT_TRUE(false, "Wrong exception type thrown");
     }
     
     // Test 3: Throwing function with valid pointer
@@ -714,12 +714,12 @@ bool test_contextual_throwing_function() {
     try
     {
         throwing_check_not_null(valid_ptr);
-        ASSERT_TRUE(!g_called_handler, "Handler not called with valid pointer");
+        FATP_ASSERT_TRUE(!g_called_handler, "Handler not called with valid pointer");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Should not throw with valid pointer");
+        FATP_ASSERT_TRUE(false, "Should not throw with valid pointer");
     }
     
     // Test 4: Throwing function with null pointer - should throw
@@ -728,16 +728,16 @@ bool test_contextual_throwing_function() {
     {
         throwing_check_not_null(nullptr);
         reset_violation_handler();
-        ASSERT_TRUE(false, "Should have thrown with null pointer");
+        FATP_ASSERT_TRUE(false, "Should have thrown with null pointer");
     }
     catch (const fat_p::LogicContractError&)
     {
-        ASSERT_TRUE(!g_called_handler, "Handler not called - exception thrown");
+        FATP_ASSERT_TRUE(!g_called_handler, "Handler not called - exception thrown");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Wrong exception type for null pointer");
+        FATP_ASSERT_TRUE(false, "Wrong exception type for null pointer");
     }
     
     // Test 5: Throwing function with positive value
@@ -745,12 +745,12 @@ bool test_contextual_throwing_function() {
     try
     {
         throwing_check_positive(10);
-        ASSERT_TRUE(!g_called_handler, "Handler not called with positive");
+        FATP_ASSERT_TRUE(!g_called_handler, "Handler not called with positive");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Should not throw with positive value");
+        FATP_ASSERT_TRUE(false, "Should not throw with positive value");
     }
     
     // Test 6: Throwing function with negative value - should throw
@@ -759,30 +759,30 @@ bool test_contextual_throwing_function() {
     {
         throwing_check_positive(-5);
         reset_violation_handler();
-        ASSERT_TRUE(false, "Should have thrown with negative value");
+        FATP_ASSERT_TRUE(false, "Should have thrown with negative value");
     }
     catch (const fat_p::LogicContractError&)
     {
-        ASSERT_TRUE(!g_called_handler, "Handler not called - exception thrown");
+        FATP_ASSERT_TRUE(!g_called_handler, "Handler not called - exception thrown");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Wrong exception type for negative value");
+        FATP_ASSERT_TRUE(false, "Wrong exception type for negative value");
     }
     
     reset_violation_handler();
     return true;
 }
 
-bool test_contextual_noexcept_function() {
+FATP_TEST_CASE(contextual_noexcept_function) {
     using namespace contextual_test_helpers;
     reset_flags();
     set_violation_handler(test_handler);
     
     // Test 1: Noexcept function with passing condition - no handler call
     noexcept_check_condition(true);
-    ASSERT_TRUE(!g_called_handler, "Handler not called on success");
+    FATP_ASSERT_TRUE(!g_called_handler, "Handler not called on success");
     
     // Test 2: Noexcept function with failing condition - should call handler, not throw
     reset_flags();
@@ -795,9 +795,9 @@ bool test_contextual_noexcept_function() {
     {
         did_throw = true;
     }
-    ASSERT_TRUE(!did_throw, "Noexcept function must not throw");
-    ASSERT_TRUE(g_called_handler, "Handler called for noexcept violation");
-    ASSERT_TRUE(g_handler_message.find("Condition") != std::string::npos,
+    FATP_ASSERT_TRUE(!did_throw, "Noexcept function must not throw");
+    FATP_ASSERT_TRUE(g_called_handler, "Handler called for noexcept violation");
+    FATP_ASSERT_TRUE(g_handler_message.find("Condition") != std::string::npos,
                   "Handler received message");
     
     // Test 3: Noexcept function with valid pointer - no handler call
@@ -805,7 +805,7 @@ bool test_contextual_noexcept_function() {
     int value = 42;
     int* valid_ptr = &value;
     noexcept_check_not_null(valid_ptr);
-    ASSERT_TRUE(!g_called_handler, "Handler not called with valid pointer");
+    FATP_ASSERT_TRUE(!g_called_handler, "Handler not called with valid pointer");
     
     // Test 4: Noexcept function with null pointer - should call handler
     reset_flags();
@@ -818,13 +818,13 @@ bool test_contextual_noexcept_function() {
     {
         did_throw = true;
     }
-    ASSERT_TRUE(!did_throw, "Noexcept null check must not throw");
-    ASSERT_TRUE(g_called_handler, "Handler called for null pointer");
+    FATP_ASSERT_TRUE(!did_throw, "Noexcept null check must not throw");
+    FATP_ASSERT_TRUE(g_called_handler, "Handler called for null pointer");
     
     // Test 5: Noexcept function with positive value - no handler call
     reset_flags();
     noexcept_check_positive(10);
-    ASSERT_TRUE(!g_called_handler, "Handler not called with positive");
+    FATP_ASSERT_TRUE(!g_called_handler, "Handler not called with positive");
     
     // Test 6: Noexcept function with negative value - should call handler
     reset_flags();
@@ -837,37 +837,37 @@ bool test_contextual_noexcept_function() {
     {
         did_throw = true;
     }
-    ASSERT_TRUE(!did_throw, "Noexcept positive check must not throw");
-    ASSERT_TRUE(g_called_handler, "Handler called for negative value");
+    FATP_ASSERT_TRUE(!did_throw, "Noexcept positive check must not throw");
+    FATP_ASSERT_TRUE(g_called_handler, "Handler called for negative value");
     
     reset_violation_handler();
     return true;
 }
 
-bool test_contextual_raiser_selection() {
+FATP_TEST_CASE(contextual_raiser_selection) {
     // Verify the noexcept detection at compile time
     using namespace contextual_test_helpers;
     
     // Non-noexcept functions can throw
-    ASSERT_TRUE(!noexcept(throwing_check_condition(true)),
+    FATP_ASSERT_TRUE(!noexcept(throwing_check_condition(true)),
                   "throwing_check_condition is not noexcept");
-    ASSERT_TRUE(!noexcept(throwing_check_not_null(nullptr)),
+    FATP_ASSERT_TRUE(!noexcept(throwing_check_not_null(nullptr)),
                   "throwing_check_not_null is not noexcept");
-    ASSERT_TRUE(!noexcept(throwing_check_positive(1)),
+    FATP_ASSERT_TRUE(!noexcept(throwing_check_positive(1)),
                   "throwing_check_positive is not noexcept");
     
     // Noexcept functions cannot throw
-    ASSERT_TRUE(noexcept(noexcept_check_condition(true)),
+    FATP_ASSERT_TRUE(noexcept(noexcept_check_condition(true)),
                   "noexcept_check_condition is noexcept");
-    ASSERT_TRUE(noexcept(noexcept_check_not_null(nullptr)),
+    FATP_ASSERT_TRUE(noexcept(noexcept_check_not_null(nullptr)),
                   "noexcept_check_not_null is noexcept");
-    ASSERT_TRUE(noexcept(noexcept_check_positive(1)),
+    FATP_ASSERT_TRUE(noexcept(noexcept_check_positive(1)),
                   "noexcept_check_positive is noexcept");
     
     return true;
 }
 
-bool test_contextual_expected_integration() {
+FATP_TEST_CASE(contextual_expected_integration) {
     using namespace contextual_test_helpers;
     reset_flags();
     set_violation_handler(test_handler);
@@ -875,13 +875,13 @@ bool test_contextual_expected_integration() {
     // Test contextual_enforce_expected with passing condition
     auto result1 = contextual_enforce_expected(&test_contextual_expected_integration,
                                                 true, "Should pass");
-    ASSERT_TRUE(result1.has_value(), "Expected succeeds with true");
+    FATP_ASSERT_TRUE(result1.has_value(), "Expected succeeds with true");
     
     // Test contextual_enforce_expected with failing condition
     auto result2 = contextual_enforce_expected(&test_contextual_expected_integration,
                                                 false, "Should fail");
-    ASSERT_TRUE(!result2.has_value(), "Expected fails with false");
-    ASSERT_TRUE(result2.error().find("Should fail") != std::string::npos,
+    FATP_ASSERT_TRUE(!result2.has_value(), "Expected fails with false");
+    FATP_ASSERT_TRUE(result2.error().find("Should fail") != std::string::npos,
                   "Error message preserved");
     
     reset_violation_handler();
@@ -892,7 +892,7 @@ bool test_contextual_expected_integration() {
 // Test: Multi-Argument Contextual Predicates (comma-operator bug regression)
 // ============================================================================
 
-bool test_contextual_multi_arg_throwing() {
+FATP_TEST_CASE(contextual_multi_arg_throwing) {
     using namespace contextual_test_helpers;
     reset_flags();
     set_violation_handler(test_handler);
@@ -904,12 +904,12 @@ bool test_contextual_multi_arg_throwing() {
     try
     {
         throwing_check_in_range(50, 0, 100);  // 50 is in [0, 100]
-        ASSERT_TRUE(!g_called_handler, "Handler not called for in-range value");
+        FATP_ASSERT_TRUE(!g_called_handler, "Handler not called for in-range value");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Should not throw for in-range value");
+        FATP_ASSERT_TRUE(false, "Should not throw for in-range value");
     }
     
     // Test 2: InRangePredicate (3 args) - failing case (below range)
@@ -919,16 +919,16 @@ bool test_contextual_multi_arg_throwing() {
     {
         throwing_check_in_range(-5, 0, 100);  // -5 is NOT in [0, 100]
         reset_violation_handler();
-        ASSERT_TRUE(false, "Should have thrown for below-range value");
+        FATP_ASSERT_TRUE(false, "Should have thrown for below-range value");
     }
     catch (const std::out_of_range&)
     {
-        ASSERT_TRUE(!g_called_handler, "Exception thrown, not handler");
+        FATP_ASSERT_TRUE(!g_called_handler, "Exception thrown, not handler");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Wrong exception type");
+        FATP_ASSERT_TRUE(false, "Wrong exception type");
     }
     
     // Test 3: InRangePredicate (3 args) - failing case (above range)
@@ -937,16 +937,16 @@ bool test_contextual_multi_arg_throwing() {
     {
         throwing_check_in_range(150, 0, 100);  // 150 is NOT in [0, 100]
         reset_violation_handler();
-        ASSERT_TRUE(false, "Should have thrown for above-range value");
+        FATP_ASSERT_TRUE(false, "Should have thrown for above-range value");
     }
     catch (const std::out_of_range&)
     {
-        ASSERT_TRUE(!g_called_handler, "Exception thrown, not handler");
+        FATP_ASSERT_TRUE(!g_called_handler, "Exception thrown, not handler");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Wrong exception type");
+        FATP_ASSERT_TRUE(false, "Wrong exception type");
     }
     
     // Test 4: LessThanPredicate (2 args) - passing case
@@ -954,12 +954,12 @@ bool test_contextual_multi_arg_throwing() {
     try
     {
         throwing_check_less_than(5, 10);  // 5 < 10
-        ASSERT_TRUE(!g_called_handler, "Handler not called for valid comparison");
+        FATP_ASSERT_TRUE(!g_called_handler, "Handler not called for valid comparison");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Should not throw for valid less-than");
+        FATP_ASSERT_TRUE(false, "Should not throw for valid less-than");
     }
     
     // Test 5: LessThanPredicate (2 args) - failing case
@@ -968,16 +968,16 @@ bool test_contextual_multi_arg_throwing() {
     {
         throwing_check_less_than(10, 5);  // 10 is NOT < 5
         reset_violation_handler();
-        ASSERT_TRUE(false, "Should have thrown for invalid less-than");
+        FATP_ASSERT_TRUE(false, "Should have thrown for invalid less-than");
     }
     catch (const fat_p::LogicContractError&)
     {
-        ASSERT_TRUE(!g_called_handler, "Exception thrown, not handler");
+        FATP_ASSERT_TRUE(!g_called_handler, "Exception thrown, not handler");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Wrong exception type");
+        FATP_ASSERT_TRUE(false, "Wrong exception type");
     }
     
     // Test 6: LessThanPredicate (2 args) - failing case (equal values)
@@ -986,59 +986,59 @@ bool test_contextual_multi_arg_throwing() {
     {
         throwing_check_less_than(7, 7);  // 7 is NOT < 7
         reset_violation_handler();
-        ASSERT_TRUE(false, "Should have thrown for equal values");
+        FATP_ASSERT_TRUE(false, "Should have thrown for equal values");
     }
     catch (const fat_p::LogicContractError&)
     {
-        ASSERT_TRUE(!g_called_handler, "Exception thrown, not handler");
+        FATP_ASSERT_TRUE(!g_called_handler, "Exception thrown, not handler");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Wrong exception type");
+        FATP_ASSERT_TRUE(false, "Wrong exception type");
     }
     
     reset_violation_handler();
-    std::cout << "    → Multi-arg throwing predicates working correctly\n";
+    std::cout << "    Ã¢â€ â€™ Multi-arg throwing predicates working correctly\n";
     return true;
 }
 
-bool test_contextual_multi_arg_noexcept() {
+FATP_TEST_CASE(contextual_multi_arg_noexcept) {
     using namespace contextual_test_helpers;
     reset_flags();
     set_violation_handler(test_handler);
     
     // Test 1: InRangePredicate (3 args) in noexcept function - passing
     noexcept_check_in_range(50, 0, 100);
-    ASSERT_TRUE(!g_called_handler, "Handler not called for in-range value");
+    FATP_ASSERT_TRUE(!g_called_handler, "Handler not called for in-range value");
     
     // Test 2: InRangePredicate (3 args) in noexcept function - failing
     reset_flags();
     noexcept_check_in_range(-5, 0, 100);
-    ASSERT_TRUE(g_called_handler, "Handler called for out-of-range value");
+    FATP_ASSERT_TRUE(g_called_handler, "Handler called for out-of-range value");
     
     // Test 3: LessThanPredicate (2 args) in noexcept function - passing
     reset_flags();
     noexcept_check_less_than(3, 7);
-    ASSERT_TRUE(!g_called_handler, "Handler not called for valid less-than");
+    FATP_ASSERT_TRUE(!g_called_handler, "Handler not called for valid less-than");
     
     // Test 4: LessThanPredicate (2 args) in noexcept function - failing
     reset_flags();
     noexcept_check_less_than(10, 5);
-    ASSERT_TRUE(g_called_handler, "Handler called for invalid less-than");
+    FATP_ASSERT_TRUE(g_called_handler, "Handler called for invalid less-than");
     
     // Verify noexcept-ness
-    ASSERT_TRUE(noexcept(noexcept_check_in_range(50, 0, 100)),
+    FATP_ASSERT_TRUE(noexcept(noexcept_check_in_range(50, 0, 100)),
                   "noexcept_check_in_range is noexcept");
-    ASSERT_TRUE(noexcept(noexcept_check_less_than(1, 2)),
+    FATP_ASSERT_TRUE(noexcept(noexcept_check_less_than(1, 2)),
                   "noexcept_check_less_than is noexcept");
     
     reset_violation_handler();
-    std::cout << "    → Multi-arg noexcept predicates working correctly\n";
+    std::cout << "    Ã¢â€ â€™ Multi-arg noexcept predicates working correctly\n";
     return true;
 }
 
-bool test_contextual_multi_arg_abort() {
+FATP_TEST_CASE(contextual_multi_arg_abort) {
     using namespace contextual_test_helpers;
     reset_flags();
     set_violation_handler(test_handler);
@@ -1048,12 +1048,12 @@ bool test_contextual_multi_arg_abort() {
     try
     {
         throwing_abort_in_range(50, 0, 100);  // Should pass
-        ASSERT_TRUE(!g_called_handler, "Handler not called for valid range");
+        FATP_ASSERT_TRUE(!g_called_handler, "Handler not called for valid range");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Should not throw for valid range with abort policy");
+        FATP_ASSERT_TRUE(false, "Should not throw for valid range with abort policy");
     }
     
     // Test 2: contextual_abort_2 with LessThanPredicate - passing case
@@ -1061,20 +1061,20 @@ bool test_contextual_multi_arg_abort() {
     try
     {
         throwing_abort_less_than(3, 10);  // Should pass
-        ASSERT_TRUE(!g_called_handler, "Handler not called for valid comparison");
+        FATP_ASSERT_TRUE(!g_called_handler, "Handler not called for valid comparison");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Should not throw for valid comparison with abort policy");
+        FATP_ASSERT_TRUE(false, "Should not throw for valid comparison with abort policy");
     }
     
     reset_violation_handler();
-    std::cout << "    → Multi-arg abort predicates working correctly (passing cases)\n";
+    std::cout << "    Ã¢â€ â€™ Multi-arg abort predicates working correctly (passing cases)\n";
     return true;
 }
 
-bool test_contextual_multi_arg_boundary() {
+FATP_TEST_CASE(contextual_multi_arg_boundary) {
     using namespace contextual_test_helpers;
     reset_flags();
     set_violation_handler(test_handler);
@@ -1087,12 +1087,12 @@ bool test_contextual_multi_arg_boundary() {
     try
     {
         throwing_check_in_range(0, 0, 100);
-        ASSERT_TRUE(!g_called_handler, "Lower bound should be in range");
+        FATP_ASSERT_TRUE(!g_called_handler, "Lower bound should be in range");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Lower bound value should not throw");
+        FATP_ASSERT_TRUE(false, "Lower bound value should not throw");
     }
     
     // Test 2: Value exactly at upper bound (should pass)
@@ -1100,12 +1100,12 @@ bool test_contextual_multi_arg_boundary() {
     try
     {
         throwing_check_in_range(100, 0, 100);
-        ASSERT_TRUE(!g_called_handler, "Upper bound should be in range");
+        FATP_ASSERT_TRUE(!g_called_handler, "Upper bound should be in range");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Upper bound value should not throw");
+        FATP_ASSERT_TRUE(false, "Upper bound value should not throw");
     }
     
     // Test 3: Value one below lower bound (should fail)
@@ -1115,7 +1115,7 @@ bool test_contextual_multi_arg_boundary() {
     {
         throwing_check_in_range(-1, 0, 100);
         reset_violation_handler();
-        ASSERT_TRUE(false, "One below lower bound should throw");
+        FATP_ASSERT_TRUE(false, "One below lower bound should throw");
     }
     catch (const std::out_of_range&)
     {
@@ -1128,7 +1128,7 @@ bool test_contextual_multi_arg_boundary() {
     {
         throwing_check_in_range(101, 0, 100);
         reset_violation_handler();
-        ASSERT_TRUE(false, "One above upper bound should throw");
+        FATP_ASSERT_TRUE(false, "One above upper bound should throw");
     }
     catch (const std::out_of_range&)
     {
@@ -1140,16 +1140,16 @@ bool test_contextual_multi_arg_boundary() {
     try
     {
         throwing_check_in_range(-50, -100, -10);  // -50 in [-100, -10]
-        ASSERT_TRUE(!g_called_handler, "Negative range should work");
+        FATP_ASSERT_TRUE(!g_called_handler, "Negative range should work");
     }
     catch (...)
     {
         reset_violation_handler();
-        ASSERT_TRUE(false, "Negative range value should not throw");
+        FATP_ASSERT_TRUE(false, "Negative range value should not throw");
     }
     
     reset_violation_handler();
-    std::cout << "    → Multi-arg boundary conditions working correctly\n";
+    std::cout << "    Ã¢â€ â€™ Multi-arg boundary conditions working correctly\n";
     return true;
 }
 
@@ -1158,34 +1158,34 @@ bool test_contextual_multi_arg_boundary() {
 // ============================================================================
 
 
-bool test_expected_passing_condition() {
+FATP_TEST_CASE(expected_passing_condition) {
     auto result = enforce_expected(true, "Should succeed");
-    ASSERT_TRUE(result.has_value(), "enforce_expected returns success for true condition");
+    FATP_ASSERT_TRUE(result.has_value(), "enforce_expected returns success for true condition");
     
     return true;
 }
 
-bool test_expected_failing_condition() {
+FATP_TEST_CASE(expected_failing_condition) {
     auto result = enforce_expected(false, "Should fail");
-    ASSERT_TRUE(!result.has_value(), "enforce_expected returns error for false condition");
+    FATP_ASSERT_TRUE(!result.has_value(), "enforce_expected returns error for false condition");
     
     if (!result) {
-        ASSERT_TRUE(!result.error().empty(), "enforce_expected error message is not empty");
+        FATP_ASSERT_TRUE(!result.error().empty(), "enforce_expected error message is not empty");
     }
     
     return true;
 }
 
-bool test_expected_with_predicate() {
+FATP_TEST_CASE(expected_with_predicate) {
     int value = 42;
     int* ptr = &value;
     auto result = enforce_predicate_expected(NotNullPredicate, ptr, "Pointer check");
-    ASSERT_TRUE(result.has_value(), "enforce_predicate_expected succeeds with valid pointer");
+    FATP_ASSERT_TRUE(result.has_value(), "enforce_predicate_expected succeeds with valid pointer");
     
     return true;
 }
 
-bool test_expected_chaining() {
+FATP_TEST_CASE(expected_chaining) {
     auto divide = [](int a, int b) -> Expected<int, std::string> {
         auto check = enforce_expected(b != 0, "Division by zero");
         if (!check) return make_unexpected(check.error());
@@ -1193,41 +1193,41 @@ bool test_expected_chaining() {
     };
     
     auto result1 = divide(10, 2);
-    ASSERT_TRUE(result1.has_value() && result1.value() == 5,
+    FATP_ASSERT_TRUE(result1.has_value() && result1.value() == 5,
                   "Expected integration with division success");
     
     auto result2 = divide(10, 0);
-    ASSERT_TRUE(!result2.has_value(), "Expected integration with division by zero");
+    FATP_ASSERT_TRUE(!result2.has_value(), "Expected integration with division by zero");
     
     return true;
 }
 
 
-bool test_expected_no_exceptions() {
+FATP_TEST_CASE(expected_no_exceptions) {
     // Test 1: enforce_expected with passing condition
     {
         auto result = enforce_expected(true, "Should pass");
-        ASSERT_TRUE(result.has_value(), 
+        FATP_ASSERT_TRUE(result.has_value(), 
                       "enforce_expected should return Ok for true condition");
     }
     
     // Test 2: enforce_expected with failing condition
     {
         auto result = enforce_expected(false, "Should fail");
-        ASSERT_TRUE(!result.has_value(), 
+        FATP_ASSERT_TRUE(!result.has_value(), 
                       "enforce_expected should return Err for false condition");
-        ASSERT_TRUE(result.error().find("Should fail") != std::string::npos,
+        FATP_ASSERT_TRUE(result.error().find("Should fail") != std::string::npos,
                       "enforce_expected error message should contain user message");
     }
     
     // Test 3: always_enforce_expected
     {
         auto result_pass = always_enforce_expected(true, "Pass");
-        ASSERT_TRUE(result_pass.has_value(), 
+        FATP_ASSERT_TRUE(result_pass.has_value(), 
                       "always_enforce_expected should return Ok for true");
         
         auto result_fail = always_enforce_expected(false, "Fail");
-        ASSERT_TRUE(!result_fail.has_value(), 
+        FATP_ASSERT_TRUE(!result_fail.has_value(), 
                       "always_enforce_expected should return Err for false");
     }
     
@@ -1236,17 +1236,17 @@ bool test_expected_no_exceptions() {
         int positive = 42;
         auto result = enforce_predicate_expected(fat_p::IsPositivePredicate, 
                                                  positive, "Should be positive");
-        ASSERT_TRUE(result.has_value(), 
+        FATP_ASSERT_TRUE(result.has_value(), 
                       "enforce_predicate_expected should return Ok for positive value");
-        ASSERT_TRUE(result.value() == true, 
+        FATP_ASSERT_TRUE(result.value() == true, 
                       "enforce_predicate_expected should return true for passing predicate");
     }
     
-    std::cout << "    â†’ Expected integration using direct checks (no RAII)\n";
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Expected integration using direct checks (no RAII)\n";
     return true;
 }
 
-bool test_expected_contextual_noexcept() {
+FATP_TEST_CASE(expected_contextual_noexcept) {
     // Define a noexcept function that uses contextual_enforce_expected
     auto noexcept_func = []() noexcept -> Expected<void, std::string> {
         // This should compile and work correctly in noexcept context
@@ -1259,7 +1259,7 @@ bool test_expected_contextual_noexcept() {
     
     // Test 1: Call the noexcept function (should succeed)
     auto result = noexcept_func();
-    ASSERT_TRUE(result.has_value(), 
+    FATP_ASSERT_TRUE(result.has_value(), 
                   "contextual_enforce_expected in noexcept function should work");
     
     // Test 2: Test with failing condition in noexcept context
@@ -1268,16 +1268,16 @@ bool test_expected_contextual_noexcept() {
     };
     
     auto result_fail = noexcept_fail();
-    ASSERT_TRUE(!result_fail.has_value(), 
+    FATP_ASSERT_TRUE(!result_fail.has_value(), 
                   "contextual_enforce_expected should return Err in noexcept function");
-    ASSERT_TRUE(result_fail.error().find("Failed") != std::string::npos,
+    FATP_ASSERT_TRUE(result_fail.error().find("Failed") != std::string::npos,
                   "Error message should be preserved");
     
-    std::cout << "    â†’ Contextual Expected works correctly in noexcept functions\n";
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Contextual Expected works correctly in noexcept functions\n";
     return true;
 }
 
-bool test_expected_predicate_variants() {
+FATP_TEST_CASE(expected_predicate_variants) {
     // Test 1: contextual_enforce_expected_1 (single argument predicate)
     {
         int value = 42;
@@ -1288,9 +1288,9 @@ bool test_expected_predicate_variants() {
         };
         
         auto result = test_func();
-        ASSERT_TRUE(result.has_value(), 
+        FATP_ASSERT_TRUE(result.has_value(), 
                       "contextual_enforce_expected_1 should return Ok");
-        ASSERT_TRUE(result.value() == true,
+        FATP_ASSERT_TRUE(result.value() == true,
                       "contextual_enforce_expected_1 should return predicate result");
     }
     
@@ -1304,9 +1304,9 @@ bool test_expected_predicate_variants() {
         };
         
         auto result = test_func();
-        ASSERT_TRUE(result.has_value(),
+        FATP_ASSERT_TRUE(result.has_value(),
                       "contextual_enforce_expected_2 should return Ok");
-        ASSERT_TRUE(result.value() == true,
+        FATP_ASSERT_TRUE(result.value() == true,
                       "contextual_enforce_expected_2 should return predicate result");
     }
     
@@ -1321,17 +1321,17 @@ bool test_expected_predicate_variants() {
         };
         
         auto result = test_func();
-        ASSERT_TRUE(result.has_value(),
+        FATP_ASSERT_TRUE(result.has_value(),
                       "contextual_enforce_expected_3 should return Ok");
-        ASSERT_TRUE(result.value() == true,
+        FATP_ASSERT_TRUE(result.value() == true,
                       "contextual_enforce_expected_3 should return predicate result");
     }
     
-    std::cout << "    â†’ All Expected arity variants (1-3) working correctly\n";
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ All Expected arity variants (1-3) working correctly\n";
     return true;
 }
 
-bool test_expected_error_propagation() {
+FATP_TEST_CASE(expected_error_propagation) {
     // Test 1: Early return pattern
     auto func_with_checks = []() -> Expected<int, std::string> {
         auto check1 = enforce_expected(true, "Check 1");
@@ -1344,8 +1344,8 @@ bool test_expected_error_propagation() {
     };
     
     auto result = func_with_checks();
-    ASSERT_TRUE(result.has_value(), "Error propagation with early return");
-    ASSERT_TRUE(result.value() == 42, "Correct value returned");
+    FATP_ASSERT_TRUE(result.has_value(), "Error propagation with early return");
+    FATP_ASSERT_TRUE(result.value() == 42, "Correct value returned");
     
     // Test 2: Error at first check
     auto func_fail_early = []() -> Expected<int, std::string> {
@@ -1359,11 +1359,11 @@ bool test_expected_error_propagation() {
     };
     
     auto result_fail = func_fail_early();
-    ASSERT_TRUE(!result_fail.has_value(), "Should fail at first check");
-    ASSERT_TRUE(result_fail.error().find("First check failed") != std::string::npos,
+    FATP_ASSERT_TRUE(!result_fail.has_value(), "Should fail at first check");
+    FATP_ASSERT_TRUE(result_fail.error().find("First check failed") != std::string::npos,
                   "Error message from first check");
     
-    std::cout << "    â†’ Expected error propagation patterns working correctly\n";
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Expected error propagation patterns working correctly\n";
     return true;
 }
 
@@ -1372,7 +1372,7 @@ bool test_expected_error_propagation() {
 // Test Suite 7: Performance Tests
 // ============================================================================
 
-bool test_performance_enforce_overhead() {
+FATP_TEST_CASE(performance_enforce_overhead) {
     const int iterations = 1000000;
     
     // Warm up
@@ -1390,17 +1390,17 @@ bool test_performance_enforce_overhead() {
     double ns_per_call = static_cast<double>(duration) / iterations;
     
     #ifdef NDEBUG
-    ASSERT_TRUE(ns_per_call < 10.0, "enforce() has minimal overhead in release build");
-    std::cout << "    â†’ enforce() overhead: " << ns_per_call << " ns/call (release)\n";
+    FATP_ASSERT_TRUE(ns_per_call < 10.0, "enforce() has minimal overhead in release build");
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ enforce() overhead: " << ns_per_call << " ns/call (release)\n";
     #else
-    ASSERT_TRUE(ns_per_call < 500.0, "enforce() overhead acceptable in debug build");
-    std::cout << "    â†’ enforce() overhead: " << ns_per_call << " ns/call (debug)\n";
+    FATP_ASSERT_TRUE(ns_per_call < 500.0, "enforce() overhead acceptable in debug build");
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ enforce() overhead: " << ns_per_call << " ns/call (debug)\n";
     #endif
     
     return true;
 }
 
-bool test_performance_always_enforce_overhead() {
+FATP_TEST_CASE(performance_always_enforce_overhead) {
     const int iterations = 1000000;
     
     auto start = high_resolution_clock::now();
@@ -1412,13 +1412,13 @@ bool test_performance_always_enforce_overhead() {
     
     double ns_per_call = static_cast<double>(duration) / iterations;
     
-    ASSERT_TRUE(ns_per_call < 500.0, "always_enforce() overhead is reasonable");
-    std::cout << "    â†’ always_enforce() overhead: " << ns_per_call << " ns/call\n";
+    FATP_ASSERT_TRUE(ns_per_call < 500.0, "always_enforce() overhead is reasonable");
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ always_enforce() overhead: " << ns_per_call << " ns/call\n";
     
     return true;
 }
 
-bool test_performance_predicate_overhead() {
+FATP_TEST_CASE(performance_predicate_overhead) {
     const int iterations = 1000000;
     int* ptr = new int(42);
     
@@ -1432,8 +1432,8 @@ bool test_performance_predicate_overhead() {
     
     double ns_per_call = static_cast<double>(duration) / iterations;
     
-    ASSERT_TRUE(ns_per_call < 10.0, "Predicate check overhead is minimal");
-    std::cout << "    â†’ NotNullPredicate::check() overhead: " << ns_per_call << " ns/call\n";
+    FATP_ASSERT_TRUE(ns_per_call < 10.0, "Predicate check overhead is minimal");
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ NotNullPredicate::check() overhead: " << ns_per_call << " ns/call\n";
     
     delete ptr;
     return true;
@@ -1443,7 +1443,7 @@ bool test_performance_predicate_overhead() {
 // Test Suite 8: Thread Safety
 // ============================================================================
 
-bool test_thread_safety_concurrent_enforcement() {
+FATP_TEST_CASE(thread_safety_concurrent_enforcement) {
     // Suppress the 20,000+ exception messages during stress test
     // Using thread-safe NullBuffer to prevent crashes from concurrent writes
     ErrorOutputSuppressor suppress;
@@ -1480,13 +1480,13 @@ bool test_thread_safety_concurrent_enforcement() {
     int expected_success = num_threads * (iterations_per_thread / 2);
     int expected_failure = num_threads * (iterations_per_thread / 2);
     
-    ASSERT_TRUE(success_count.load() == expected_success,
+    FATP_ASSERT_TRUE(success_count.load() == expected_success,
                   "Concurrent enforcement success count correct");
     
-    ASSERT_TRUE(failure_count.load() == expected_failure,
+    FATP_ASSERT_TRUE(failure_count.load() == expected_failure,
                   "Concurrent enforcement failure count correct");
     
-    std::cout << "    â†’ Processed " << (num_threads * iterations_per_thread)
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Processed " << (num_threads * iterations_per_thread)
               << " enforcement calls across " << num_threads << " threads\n";
     
     return true;
@@ -1496,16 +1496,16 @@ bool test_thread_safety_concurrent_enforcement() {
 // Test Suite 9: Edge Cases
 // ============================================================================
 
-bool test_edge_case_empty_message() {
+FATP_TEST_CASE(edge_case_empty_message) {
     always_enforce(true);
     return true;
 }
 
-bool test_edge_case_long_message() {
+FATP_TEST_CASE(edge_case_long_message) {
     std::string long_msg(1000, 'x');
     try {
         always_enforce(false, long_msg);
-        ASSERT_TRUE(false, "Should have thrown with long message");
+        FATP_ASSERT_TRUE(false, "Should have thrown with long message");
     } catch (const fat_p::LogicContractError&) {
         // Expected
     }
@@ -1513,10 +1513,10 @@ bool test_edge_case_long_message() {
     return true;
 }
 
-bool test_edge_case_special_characters() {
+FATP_TEST_CASE(edge_case_special_characters) {
     try {
         always_enforce(false, "Special chars: \n\t\"\'\\");
-        ASSERT_TRUE(false, "Should have thrown with special characters");
+        FATP_ASSERT_TRUE(false, "Should have thrown with special characters");
     } catch (const fat_p::LogicContractError&) {
         // Expected
     }
@@ -1524,11 +1524,11 @@ bool test_edge_case_special_characters() {
     return true;
 }
 
-bool test_edge_case_multiple_types() {
+FATP_TEST_CASE(edge_case_multiple_types) {
     try {
         always_enforce(false, "Int:", 42, " Double:", 3.14, 
                        " String:", "test", " Bool:", true);
-        ASSERT_TRUE(false, "Should have thrown with multiple types");
+        FATP_ASSERT_TRUE(false, "Should have thrown with multiple types");
     } catch (const fat_p::LogicContractError&) {
         // Expected
     }
@@ -1536,8 +1536,8 @@ bool test_edge_case_multiple_types() {
     return true;
 }
 
-bool test_edge_case_numeric_limits() {
-    ASSERT_TRUE(fat_p::InRangePredicate::check(
+FATP_TEST_CASE(edge_case_numeric_limits) {
+    FATP_ASSERT_TRUE(fat_p::InRangePredicate::check(
         std::numeric_limits<int>::max(),
         std::numeric_limits<int>::min(),
         std::numeric_limits<int>::max()
@@ -1546,36 +1546,36 @@ bool test_edge_case_numeric_limits() {
     return true;
 }
 
-bool test_edge_case_empty_containers() {
+FATP_TEST_CASE(edge_case_empty_containers) {
     std::vector<int> empty;
     
-    ASSERT_TRUE(fat_p::IsSortedPredicate::check(empty),
+    FATP_ASSERT_TRUE(fat_p::IsSortedPredicate::check(empty),
                   "IsSortedPredicate with empty container");
     
-    ASSERT_TRUE(fat_p::ContainerIsUniquePredicate::check(empty),
+    FATP_ASSERT_TRUE(fat_p::ContainerIsUniquePredicate::check(empty),
                   "ContainerIsUniquePredicate with empty container");
     
     return true;
 }
 
-bool test_edge_case_single_element() {
+FATP_TEST_CASE(edge_case_single_element) {
     std::vector<int> single = {42};
     
-    ASSERT_TRUE(fat_p::IsSortedPredicate::check(single),
+    FATP_ASSERT_TRUE(fat_p::IsSortedPredicate::check(single),
                   "IsSortedPredicate with single element");
     
-    ASSERT_TRUE(fat_p::ContainerIsUniquePredicate::check(single),
+    FATP_ASSERT_TRUE(fat_p::ContainerIsUniquePredicate::check(single),
                   "ContainerIsUniquePredicate with single element");
     
     return true;
 }
 
-bool test_edge_case_floating_point() {
-    ASSERT_TRUE(fat_p::ApproxEqualPredicate::check(1e-10, 0.0, 1e-11),
+FATP_TEST_CASE(edge_case_floating_point) {
+    FATP_ASSERT_TRUE(fat_p::ApproxEqualPredicate::check(1e-10, 0.0, 1e-11),
                   "ApproxEqualPredicate with very small values");
     
     double inf = std::numeric_limits<double>::infinity();
-    ASSERT_TRUE(!fat_p::ApproxEqualPredicate::check(0.001, inf, 1.0),
+    FATP_ASSERT_TRUE(!fat_p::ApproxEqualPredicate::check(0.001, inf, 1.0),
                   "ApproxEqualPredicate with infinity");
     
     return true;
@@ -1585,23 +1585,23 @@ bool test_edge_case_floating_point() {
 // Test Suite 10: Compile-Time Tests
 // ============================================================================
 
-bool test_compile_time_constexpr() {
+FATP_TEST_CASE(compile_time_constexpr) {
     constexpr bool null_check = fat_p::NotNullPredicate::check((int*)nullptr);
-    ASSERT_TRUE(!null_check, "constexpr null check");
+    FATP_ASSERT_TRUE(!null_check, "constexpr null check");
     
     constexpr bool positive_check = fat_p::IsPositivePredicate::check(42);
-    ASSERT_TRUE(positive_check, "constexpr positive check");
+    FATP_ASSERT_TRUE(positive_check, "constexpr positive check");
     
     constexpr bool range_check = fat_p::InRangePredicate::check(50, 0, 100);
-    ASSERT_TRUE(range_check, "constexpr range check");
+    FATP_ASSERT_TRUE(range_check, "constexpr range check");
     
     constexpr bool power_of_two = fat_p::IsPowerOfTwoPredicate::check(16);
-    ASSERT_TRUE(power_of_two, "constexpr power of two check");
+    FATP_ASSERT_TRUE(power_of_two, "constexpr power of two check");
     
     return true;
 }
 
-bool test_compile_time_static_assertions() {
+FATP_TEST_CASE(compile_time_static_assertions) {
     // Static assertions (compile-time only)
     static_assert(fat_p::IsPositivePredicate::check(1), 
                   "Static positive check");
@@ -1610,13 +1610,13 @@ bool test_compile_time_static_assertions() {
     static_assert(fat_p::IsPowerOfTwoPredicate::check(1024), 
                   "Static power of two");
     
-    std::cout << "    â†’ All constexpr checks evaluated at compile-time\n";
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ All constexpr checks evaluated at compile-time\n";
     
     return true;
 }
 
 
-bool test_compile_time_noexcept_detection() {
+FATP_TEST_CASE(compile_time_noexcept_detection) {
     // Test struct with various member function signatures
     struct TestClass {
         void normal() noexcept {}
@@ -1663,12 +1663,12 @@ bool test_compile_time_noexcept_detection() {
                       decltype(&TestClass::throwing)>::value,
                   "Should detect non-noexcept");
     
-    std::cout << "    â†’ All 8 cv-ref qualifier combinations detected correctly\n";
-    std::cout << "    â†’ is_noexcept_function_ptr trait complete\n";
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ All 8 cv-ref qualifier combinations detected correctly\n";
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ is_noexcept_function_ptr trait complete\n";
     return true;
 }
 
-bool test_compile_time_predicate_noexcept() {
+FATP_TEST_CASE(compile_time_predicate_noexcept) {
     // Test that ContainerIsUniquePredicate has conditional noexcept
     {
         std::vector<int> vec_int;
@@ -1691,7 +1691,7 @@ bool test_compile_time_predicate_noexcept() {
                       "Hashable string should have noexcept(false)");
     }
     
-    std::cout << "    â†’ Conditional noexcept evaluated at compile-time\n";
+    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Conditional noexcept evaluated at compile-time\n";
     return true;
 }
 
@@ -1700,20 +1700,23 @@ bool test_compile_time_predicate_noexcept() {
 // Main Test Runner
 // ============================================================================
 
-namespace
+} // namespace fat_p::testing::enforce
+
+namespace fat_p::testing
 {
 
+namespace
+{
 // Handler that doesn't abort - just logs to a discard buffer
 void test_global_handler(const std::string&)
 {
     // Do nothing - prevents abort during tests
 }
-
 } // anonymous namespace
 
 bool test_Enforce() {
 
-    PRINT_HEADER(ENFORCE LIBRARY)
+    FATP_PRINT_HEADER(ENFORCE LIBRARY)
 
     TestRunner runner;
     
@@ -1721,115 +1724,115 @@ bool test_Enforce() {
     get_test_config().verbose = true;
     
     // Set a non-aborting handler for all tests
-    set_violation_handler(test_global_handler);
+    fat_p::set_violation_handler(test_global_handler);
     
     try {
         // Test Suite 1: Core Enforcement
         std::cout << colors::cyan() << "Test Suite 1: Core Enforcement Macros" << colors::reset() << "\n";
-        runner.run_test("core_enforcement_basic", test_core_enforcement_basic);
-        runner.run_test("core_enforcement_debug_behavior", test_core_enforcement_debug_behavior);
-        runner.run_test("core_enforcement_always", test_core_enforcement_always);
-        runner.run_test("core_enforcement_warning", test_core_enforcement_warning);
-        runner.run_test("core_enforcement_noexcept", test_core_enforcement_noexcept);
-        runner.run_test("core_enforcement_message_interpolation", test_core_enforcement_message_interpolation);
+        FATP_RUN_TEST_NS(runner, enforce, core_enforcement_basic);
+        FATP_RUN_TEST_NS(runner, enforce, core_enforcement_debug_behavior);
+        FATP_RUN_TEST_NS(runner, enforce, core_enforcement_always);
+        FATP_RUN_TEST_NS(runner, enforce, core_enforcement_warning);
+        FATP_RUN_TEST_NS(runner, enforce, core_enforcement_noexcept);
+        FATP_RUN_TEST_NS(runner, enforce, core_enforcement_message_interpolation);
         
         // Test Suite 2: Predicates
         std::cout << "\n" << colors::cyan() << "Test Suite 2: Predicate Validation" << colors::reset() << "\n";
-        runner.run_test("predicate_not_null", test_predicate_not_null);
-        runner.run_test("predicate_is_positive", test_predicate_is_positive);
-        runner.run_test("predicate_is_non_negative", test_predicate_is_non_negative);
-        runner.run_test("predicate_not_empty", test_predicate_not_empty);
-        runner.run_test("predicate_in_range", test_predicate_in_range);
-        runner.run_test("predicate_is_power_of_two", test_predicate_is_power_of_two);
-        runner.run_test("predicate_is_sorted", test_predicate_is_sorted);
-        runner.run_test("predicate_container_is_unique", test_predicate_container_is_unique);
-        runner.run_test("predicate_has_size", test_predicate_has_size);
-        runner.run_test("predicate_approx_equal", test_predicate_approx_equal);
-        runner.run_test("predicate_comparisons", test_predicate_comparisons);
-        runner.run_test("predicate_container_unique_noexcept", test_predicate_container_unique_noexcept);
-        runner.run_test("predicate_noexcept_correctness", test_predicate_noexcept_correctness);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_not_null);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_is_positive);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_is_non_negative);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_not_empty);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_in_range);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_is_power_of_two);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_is_sorted);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_container_is_unique);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_has_size);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_approx_equal);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_comparisons);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_container_unique_noexcept);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_noexcept_correctness);
         
         // Test Suite 3: Raisers
         std::cout << "\n" << colors::cyan() << "Test Suite 3: Raiser Functionality" << colors::reset() << "\n";
-        runner.run_test("raiser_logic_error", test_raiser_logic_error);
-        runner.run_test("raiser_out_of_range", test_raiser_out_of_range);
-        runner.run_test("raiser_message_content", test_raiser_message_content);
-        runner.run_test("raiser_locus", test_raiser_locus);
+        FATP_RUN_TEST_NS(runner, enforce, raiser_logic_error);
+        FATP_RUN_TEST_NS(runner, enforce, raiser_out_of_range);
+        FATP_RUN_TEST_NS(runner, enforce, raiser_message_content);
+        FATP_RUN_TEST_NS(runner, enforce, raiser_locus);
         
         // Test Suite 4: Policies
         std::cout << "\n" << colors::cyan() << "Test Suite 4: Policy Behavior" << colors::reset() << "\n";
-        runner.run_test("policy_debug_only", test_policy_debug_only);
-        runner.run_test("policy_always_enforce", test_policy_always_enforce);
-        runner.run_test("policy_warning", test_policy_warning);
-        runner.run_test("policy_no_throw", test_policy_no_throw);
+        FATP_RUN_TEST_NS(runner, enforce, policy_debug_only);
+        FATP_RUN_TEST_NS(runner, enforce, policy_always_enforce);
+        FATP_RUN_TEST_NS(runner, enforce, policy_warning);
+        FATP_RUN_TEST_NS(runner, enforce, policy_no_throw);
         
         // Test Suite 5: Contextual Enforcement
         std::cout << "\n" << colors::cyan() << "Test Suite 5: Contextual Enforcement" << colors::reset() << "\n";
-        runner.run_test("contextual_throwing_function", test_contextual_throwing_function);
-        runner.run_test("contextual_noexcept_function", test_contextual_noexcept_function);
-        runner.run_test("contextual_raiser_selection", test_contextual_raiser_selection);
-        runner.run_test("contextual_expected_integration", test_contextual_expected_integration);
-        runner.run_test("contextual_multi_arg_throwing", test_contextual_multi_arg_throwing);
-        runner.run_test("contextual_multi_arg_noexcept", test_contextual_multi_arg_noexcept);
-        runner.run_test("contextual_multi_arg_abort", test_contextual_multi_arg_abort);
-        runner.run_test("contextual_multi_arg_boundary", test_contextual_multi_arg_boundary);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_throwing_function);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_noexcept_function);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_raiser_selection);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_expected_integration);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_multi_arg_throwing);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_multi_arg_noexcept);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_multi_arg_abort);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_multi_arg_boundary);
         
         // Test Suite 6: Expected Integration
         std::cout << "\n" << colors::cyan() << "Test Suite 6: Expected Integration" << colors::reset() << "\n";
-        runner.run_test("expected_passing_condition", test_expected_passing_condition);
-        runner.run_test("expected_failing_condition", test_expected_failing_condition);
-        runner.run_test("expected_with_predicate", test_expected_with_predicate);
-        runner.run_test("expected_chaining", test_expected_chaining);
-        runner.run_test("expected_no_exceptions", test_expected_no_exceptions);
-        runner.run_test("expected_contextual_noexcept", test_expected_contextual_noexcept);
-        runner.run_test("expected_predicate_variants", test_expected_predicate_variants);
-        runner.run_test("expected_error_propagation", test_expected_error_propagation);
+        FATP_RUN_TEST_NS(runner, enforce, expected_passing_condition);
+        FATP_RUN_TEST_NS(runner, enforce, expected_failing_condition);
+        FATP_RUN_TEST_NS(runner, enforce, expected_with_predicate);
+        FATP_RUN_TEST_NS(runner, enforce, expected_chaining);
+        FATP_RUN_TEST_NS(runner, enforce, expected_no_exceptions);
+        FATP_RUN_TEST_NS(runner, enforce, expected_contextual_noexcept);
+        FATP_RUN_TEST_NS(runner, enforce, expected_predicate_variants);
+        FATP_RUN_TEST_NS(runner, enforce, expected_error_propagation);
         
         // Test Suite 7: Performance
         std::cout << "\n" << colors::cyan() << "Test Suite 7: Performance Characteristics" << colors::reset() << "\n";
-        runner.run_test("performance_enforce_overhead", test_performance_enforce_overhead);
-        runner.run_test("performance_always_enforce_overhead", test_performance_always_enforce_overhead);
-        runner.run_test("performance_predicate_overhead", test_performance_predicate_overhead);
+        FATP_RUN_TEST_NS(runner, enforce, performance_enforce_overhead);
+        FATP_RUN_TEST_NS(runner, enforce, performance_always_enforce_overhead);
+        FATP_RUN_TEST_NS(runner, enforce, performance_predicate_overhead);
         
         // Test Suite 8: Thread Safety
         std::cout << "\n" << colors::cyan() << "Test Suite 8: Thread Safety" << colors::reset() << "\n";
-        runner.run_test("thread_safety_concurrent_enforcement", test_thread_safety_concurrent_enforcement);
+        FATP_RUN_TEST_NS(runner, enforce, thread_safety_concurrent_enforcement);
         
         // Test Suite 9: Edge Cases
         std::cout << "\n" << colors::cyan() << "Test Suite 9: Edge Cases" << colors::reset() << "\n";
-        runner.run_test("edge_case_empty_message", test_edge_case_empty_message);
-        runner.run_test("edge_case_long_message", test_edge_case_long_message);
-        runner.run_test("edge_case_special_characters", test_edge_case_special_characters);
-        runner.run_test("edge_case_multiple_types", test_edge_case_multiple_types);
-        runner.run_test("edge_case_numeric_limits", test_edge_case_numeric_limits);
-        runner.run_test("edge_case_empty_containers", test_edge_case_empty_containers);
-        runner.run_test("edge_case_single_element", test_edge_case_single_element);
-        runner.run_test("edge_case_floating_point", test_edge_case_floating_point);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_empty_message);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_long_message);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_special_characters);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_multiple_types);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_numeric_limits);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_empty_containers);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_single_element);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_floating_point);
         
         // Test Suite 10: Compile-Time Features
         std::cout << "\n" << colors::cyan() << "Test Suite 10: Compile-Time Features" << colors::reset() << "\n";
-        runner.run_test("compile_time_constexpr", test_compile_time_constexpr);
-        runner.run_test("compile_time_static_assertions", test_compile_time_static_assertions);
-        runner.run_test("compile_time_noexcept_detection", test_compile_time_noexcept_detection);
-        runner.run_test("compile_time_predicate_noexcept", test_compile_time_predicate_noexcept);
+        FATP_RUN_TEST_NS(runner, enforce, compile_time_constexpr);
+        FATP_RUN_TEST_NS(runner, enforce, compile_time_static_assertions);
+        FATP_RUN_TEST_NS(runner, enforce, compile_time_noexcept_detection);
+        FATP_RUN_TEST_NS(runner, enforce, compile_time_predicate_noexcept);
         
         // Print summary
         int failed = runner.print_summary();
         
         // Reset handler
-        reset_violation_handler();
+        fat_p::reset_violation_handler();
         
         return (failed == 0);
         
     } catch (const std::exception& e) {
-        reset_violation_handler();
+        fat_p::reset_violation_handler();
         std::cerr << "\n" << colors::red() << colors::bold() 
                   << "FATAL ERROR : Uncaught exception in test suite!" 
                   << colors::reset() << "\n";
         std::cerr << "   " << e.what() << "\n\n";
         return false;
     } catch (...) {
-        reset_violation_handler();
+        fat_p::reset_violation_handler();
         std::cerr << "\n" << colors::red() << colors::bold() 
                   << "FATAL ERROR: Unknown exception in test suite!" 
                   << colors::reset() << "\n\n";

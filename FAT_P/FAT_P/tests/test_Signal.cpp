@@ -39,7 +39,7 @@ FATP_META:
 namespace fat_p::testing::signal
 {
 
-TEST_CASE(basic_connection)
+FATP_TEST_CASE(basic_connection)
 {
     Signal<void(int)> sig;
     int receivedValue = 0;
@@ -47,12 +47,12 @@ TEST_CASE(basic_connection)
     auto conn = sig.connect([&](int v) { receivedValue = v; });
 
     sig.emit(42);
-    ASSERT_EQ(receivedValue, 42, "Should receive emitted value");
+    FATP_ASSERT_EQ(receivedValue, 42, "Should receive emitted value");
 
     return true;
 }
 
-TEST_CASE(multiple_connections)
+FATP_TEST_CASE(multiple_connections)
 {
     Signal<void(int)> sig;
     std::vector<int> values;
@@ -63,15 +63,15 @@ TEST_CASE(multiple_connections)
 
     sig.emit(10);
 
-    ASSERT_EQ(values.size(), 3, "Should have 3 values");
-    ASSERT_EQ(values[0], 10, "First slot receives 10");
-    ASSERT_EQ(values[1], 20, "Second slot receives 20");
-    ASSERT_EQ(values[2], 30, "Third slot receives 30");
+    FATP_ASSERT_EQ(values.size(), 3, "Should have 3 values");
+    FATP_ASSERT_EQ(values[0], 10, "First slot receives 10");
+    FATP_ASSERT_EQ(values[1], 20, "Second slot receives 20");
+    FATP_ASSERT_EQ(values[2], 30, "Third slot receives 30");
 
     return true;
 }
 
-TEST_CASE(manual_connect_disconnect)
+FATP_TEST_CASE(manual_connect_disconnect)
 {
     Signal<void(int)> sig;
     int count = 0;
@@ -79,18 +79,18 @@ TEST_CASE(manual_connect_disconnect)
     ConnectionId id = sig.connectManual([&](int) { ++count; });
 
     sig.emit(1);
-    ASSERT_EQ(count, 1, "Should be called once");
+    FATP_ASSERT_EQ(count, 1, "Should be called once");
 
     bool disconnected = sig.disconnect(id);
-    ASSERT_TRUE(disconnected, "Should return true on disconnect");
+    FATP_ASSERT_TRUE(disconnected, "Should return true on disconnect");
 
     sig.emit(1);
-    ASSERT_EQ(count, 1, "Should not be called after disconnect");
+    FATP_ASSERT_EQ(count, 1, "Should not be called after disconnect");
 
     return true;
 }
 
-TEST_CASE(call_operator)
+FATP_TEST_CASE(call_operator)
 {
     Signal<void(int, int)> sig;
     int sum = 0;
@@ -98,12 +98,12 @@ TEST_CASE(call_operator)
     auto conn = sig.connect([&](int a, int b) { sum = a + b; });
 
     sig(3, 4);
-    ASSERT_EQ(sum, 7, "operator() should emit");
+    FATP_ASSERT_EQ(sum, 7, "operator() should emit");
 
     return true;
 }
 
-TEST_CASE(scoped_connection_raii)
+FATP_TEST_CASE(scoped_connection_raii)
 {
     Signal<void()> sig;
     int callCount = 0;
@@ -111,16 +111,16 @@ TEST_CASE(scoped_connection_raii)
     {
         auto conn = sig.connect([&]() { ++callCount; });
         sig.emit();
-        ASSERT_EQ(callCount, 1, "Should be called once");
+        FATP_ASSERT_EQ(callCount, 1, "Should be called once");
     }
 
     sig.emit();
-    ASSERT_EQ(callCount, 1, "Should not be called after scope exit");
+    FATP_ASSERT_EQ(callCount, 1, "Should not be called after scope exit");
 
     return true;
 }
 
-TEST_CASE(scoped_connection_move)
+FATP_TEST_CASE(scoped_connection_move)
 {
     Signal<void()> sig;
     int callCount = 0;
@@ -129,21 +129,21 @@ TEST_CASE(scoped_connection_move)
     {
         auto conn2 = sig.connect([&]() { ++callCount; });
         conn1 = std::move(conn2);
-        ASSERT_FALSE(conn2.isConnected(), "Moved-from should be disconnected");
-        ASSERT_TRUE(conn1.isConnected(), "Moved-to should be connected");
+        FATP_ASSERT_FALSE(conn2.isConnected(), "Moved-from should be disconnected");
+        FATP_ASSERT_TRUE(conn1.isConnected(), "Moved-to should be connected");
     }
 
     sig.emit();
-    ASSERT_EQ(callCount, 1, "Should still be connected via conn1");
+    FATP_ASSERT_EQ(callCount, 1, "Should still be connected via conn1");
 
     conn1.disconnect();
     sig.emit();
-    ASSERT_EQ(callCount, 1, "Should be disconnected now");
+    FATP_ASSERT_EQ(callCount, 1, "Should be disconnected now");
 
     return true;
 }
 
-TEST_CASE(scoped_connection_release)
+FATP_TEST_CASE(scoped_connection_release)
 {
     Signal<void()> sig;
     int callCount = 0;
@@ -151,16 +151,16 @@ TEST_CASE(scoped_connection_release)
     {
         auto conn = sig.connect([&]() { ++callCount; });
         conn.release();
-        ASSERT_FALSE(conn.isConnected(), "Should be released");
+        FATP_ASSERT_FALSE(conn.isConnected(), "Should be released");
     }
 
     sig.emit();
-    ASSERT_EQ(callCount, 1, "Connection should still be active after release");
+    FATP_ASSERT_EQ(callCount, 1, "Connection should still be active after release");
 
     return true;
 }
 
-TEST_CASE(priority_ordering)
+FATP_TEST_CASE(priority_ordering)
 {
     Signal<void(std::vector<int>&)> sig;
 
@@ -172,16 +172,16 @@ TEST_CASE(priority_ordering)
     std::vector<int> order;
     sig.emit(order);
 
-    ASSERT_EQ(order.size(), 4, "Should have 4 elements");
-    ASSERT_EQ(order[0], 1, "Priority 10 first");
-    ASSERT_EQ(order[1], 3, "Priority 5 second");
-    ASSERT_EQ(order[2], 4, "Priority 0 third");
-    ASSERT_EQ(order[3], 2, "Priority -5 last");
+    FATP_ASSERT_EQ(order.size(), 4, "Should have 4 elements");
+    FATP_ASSERT_EQ(order[0], 1, "Priority 10 first");
+    FATP_ASSERT_EQ(order[1], 3, "Priority 5 second");
+    FATP_ASSERT_EQ(order[2], 4, "Priority 0 third");
+    FATP_ASSERT_EQ(order[3], 2, "Priority -5 last");
 
     return true;
 }
 
-TEST_CASE(disconnect_during_emission)
+FATP_TEST_CASE(disconnect_during_emission)
 {
     Signal<void()> sig;
     int callCount = 0;
@@ -193,15 +193,15 @@ TEST_CASE(disconnect_during_emission)
     });
 
     sig.emit();
-    ASSERT_EQ(callCount, 1, "Should be called once");
+    FATP_ASSERT_EQ(callCount, 1, "Should be called once");
 
     sig.emit();
-    ASSERT_EQ(callCount, 1, "Should not be called after self-disconnect");
+    FATP_ASSERT_EQ(callCount, 1, "Should not be called after self-disconnect");
 
     return true;
 }
 
-TEST_CASE(connect_during_emission)
+FATP_TEST_CASE(connect_during_emission)
 {
     Signal<void()> sig;
     int originalCount = 0;
@@ -217,16 +217,16 @@ TEST_CASE(connect_during_emission)
     });
 
     sig.emit();
-    ASSERT_EQ(originalCount, 1, "Original called once");
+    FATP_ASSERT_EQ(originalCount, 1, "Original called once");
 
     sig.emit();
-    ASSERT_EQ(originalCount, 2, "Original called twice");
-    ASSERT_EQ(newCount, 1, "New slot called on second emission");
+    FATP_ASSERT_EQ(originalCount, 2, "Original called twice");
+    FATP_ASSERT_EQ(newCount, 1, "New slot called on second emission");
 
     return true;
 }
 
-TEST_CASE(nested_emission)
+FATP_TEST_CASE(nested_emission)
 {
     Signal<void(int)> sig;
     std::vector<int> calls;
@@ -241,52 +241,52 @@ TEST_CASE(nested_emission)
 
     sig.emit(3);
 
-    ASSERT_EQ(calls.size(), 4, "Should have 4 nested calls");
-    ASSERT_EQ(calls[0], 3, "First call depth 3");
-    ASSERT_EQ(calls[1], 2, "Second call depth 2");
-    ASSERT_EQ(calls[2], 1, "Third call depth 1");
-    ASSERT_EQ(calls[3], 0, "Fourth call depth 0");
+    FATP_ASSERT_EQ(calls.size(), 4, "Should have 4 nested calls");
+    FATP_ASSERT_EQ(calls[0], 3, "First call depth 3");
+    FATP_ASSERT_EQ(calls[1], 2, "Second call depth 2");
+    FATP_ASSERT_EQ(calls[2], 1, "Third call depth 1");
+    FATP_ASSERT_EQ(calls[3], 0, "Fourth call depth 0");
 
     return true;
 }
 
-TEST_CASE(slot_count)
+FATP_TEST_CASE(slot_count)
 {
     Signal<void()> sig;
 
-    ASSERT_EQ(sig.slotCount(), 0, "Should start empty");
-    ASSERT_FALSE(sig.hasConnections(), "Should have no connections");
+    FATP_ASSERT_EQ(sig.slotCount(), 0, "Should start empty");
+    FATP_ASSERT_FALSE(sig.hasConnections(), "Should have no connections");
 
     auto c1 = sig.connect([]() {});
-    ASSERT_EQ(sig.slotCount(), 1, "Should have 1 slot");
-    ASSERT_TRUE(sig.hasConnections(), "Should have connections");
+    FATP_ASSERT_EQ(sig.slotCount(), 1, "Should have 1 slot");
+    FATP_ASSERT_TRUE(sig.hasConnections(), "Should have connections");
 
     auto c2 = sig.connect([]() {});
     auto c3 = sig.connect([]() {});
-    ASSERT_EQ(sig.slotCount(), 3, "Should have 3 slots");
+    FATP_ASSERT_EQ(sig.slotCount(), 3, "Should have 3 slots");
 
     c2.disconnect();
-    ASSERT_EQ(sig.activeSlotCount(), 2, "Should have 2 active slots");
+    FATP_ASSERT_EQ(sig.activeSlotCount(), 2, "Should have 2 active slots");
 
     return true;
 }
 
-TEST_CASE(is_connected)
+FATP_TEST_CASE(is_connected)
 {
     Signal<void()> sig;
 
     ConnectionId id = sig.connectManual([]() {});
-    ASSERT_TRUE(sig.isConnected(id), "Should be connected");
+    FATP_ASSERT_TRUE(sig.isConnected(id), "Should be connected");
 
     sig.disconnect(id);
-    ASSERT_FALSE(sig.isConnected(id), "Should not be connected after disconnect");
+    FATP_ASSERT_FALSE(sig.isConnected(id), "Should not be connected after disconnect");
 
-    ASSERT_FALSE(sig.isConnected(InvalidConnectionId), "Invalid ID should not be connected");
+    FATP_ASSERT_FALSE(sig.isConnected(InvalidConnectionId), "Invalid ID should not be connected");
 
     return true;
 }
 
-TEST_CASE(disconnect_all)
+FATP_TEST_CASE(disconnect_all)
 {
     Signal<void()> sig;
     int count = 0;
@@ -296,11 +296,11 @@ TEST_CASE(disconnect_all)
     auto c3 = sig.connect([&]() { ++count; });
 
     sig.emit();
-    ASSERT_EQ(count, 3, "Should call all 3 slots");
+    FATP_ASSERT_EQ(count, 3, "Should call all 3 slots");
 
     sig.disconnectAll();
     sig.emit();
-    ASSERT_EQ(count, 3, "Should not call after disconnectAll");
+    FATP_ASSERT_EQ(count, 3, "Should not call after disconnectAll");
 
     return true;
 }
@@ -318,7 +318,7 @@ public:
     }
 };
 
-TEST_CASE(member_function_connection)
+FATP_TEST_CASE(member_function_connection)
 {
     Signal<void(int)> sig;
     EventHandler handler;
@@ -326,17 +326,17 @@ TEST_CASE(member_function_connection)
     auto conn = sig.connect(&handler, &EventHandler::onValue);
 
     sig.emit(123);
-    ASSERT_EQ(handler.lastValue, 123, "Should receive 123");
-    ASSERT_EQ(handler.callCount, 1, "Should be called once");
+    FATP_ASSERT_EQ(handler.lastValue, 123, "Should receive 123");
+    FATP_ASSERT_EQ(handler.callCount, 1, "Should be called once");
 
     sig.emit(456);
-    ASSERT_EQ(handler.lastValue, 456, "Should receive 456");
-    ASSERT_EQ(handler.callCount, 2, "Should be called twice");
+    FATP_ASSERT_EQ(handler.lastValue, 456, "Should receive 456");
+    FATP_ASSERT_EQ(handler.callCount, 2, "Should be called twice");
 
     return true;
 }
 
-TEST_CASE(catch_and_ignore_policy)
+FATP_TEST_CASE(catch_and_ignore_policy)
 {
     Signal<void(), SingleThreadedPolicy, CatchAndIgnorePolicy> sig;
     int count = 0;
@@ -347,12 +347,12 @@ TEST_CASE(catch_and_ignore_policy)
 
     sig.emit();
 
-    ASSERT_EQ(count, 2, "Both non-throwing slots should be called");
+    FATP_ASSERT_EQ(count, 2, "Both non-throwing slots should be called");
 
     return true;
 }
 
-TEST_CASE(propagate_exception_policy)
+FATP_TEST_CASE(propagate_exception_policy)
 {
     Signal<void(), SingleThreadedPolicy, PropagateExceptionPolicy> sig;
     int count = 0;
@@ -369,17 +369,17 @@ TEST_CASE(propagate_exception_policy)
     catch (const std::runtime_error& e)
     {
         caught = true;
-        ASSERT_NE(std::string(e.what()).find("Expected"), std::string::npos,
+        FATP_ASSERT_NE(std::string(e.what()).find("Expected"), std::string::npos,
                       "Should catch expected exception");
     }
 
-    ASSERT_TRUE(caught, "Exception should propagate");
-    ASSERT_EQ(count, 1, "Only first slot should be called");
+    FATP_ASSERT_TRUE(caught, "Exception should propagate");
+    FATP_ASSERT_EQ(count, 1, "Only first slot should be called");
 
     return true;
 }
 
-TEST_CASE(emit_collect)
+FATP_TEST_CASE(emit_collect)
 {
     Signal<int(int), SingleThreadedPolicy, CatchAndIgnorePolicy> sig;
 
@@ -389,15 +389,15 @@ TEST_CASE(emit_collect)
 
     auto results = sig.emitCollect(10);
 
-    ASSERT_EQ(results.size(), 3, "Should have 3 results");
-    ASSERT_EQ(results[0], 10, "First result is 10");
-    ASSERT_EQ(results[1], 20, "Second result is 20");
-    ASSERT_EQ(results[2], 30, "Third result is 30");
+    FATP_ASSERT_EQ(results.size(), 3, "Should have 3 results");
+    FATP_ASSERT_EQ(results[0], 10, "First result is 10");
+    FATP_ASSERT_EQ(results[1], 20, "Second result is 20");
+    FATP_ASSERT_EQ(results[2], 30, "Third result is 30");
 
     return true;
 }
 
-TEST_CASE(emit_collect_with_exceptions)
+FATP_TEST_CASE(emit_collect_with_exceptions)
 {
     Signal<int(int), SingleThreadedPolicy, CatchAndIgnorePolicy> sig;
 
@@ -407,14 +407,14 @@ TEST_CASE(emit_collect_with_exceptions)
 
     auto results = sig.emitCollect(10);
 
-    ASSERT_EQ(results.size(), 2, "Should have 2 results (one skipped)");
-    ASSERT_EQ(results[0], 10, "First result is 10");
-    ASSERT_EQ(results[1], 30, "Second result is 30 (third slot)");
+    FATP_ASSERT_EQ(results.size(), 2, "Should have 2 results (one skipped)");
+    FATP_ASSERT_EQ(results[0], 10, "First result is 10");
+    FATP_ASSERT_EQ(results[1], 30, "Second result is 30 (third slot)");
 
     return true;
 }
 
-TEST_CASE(emit_collect_propagate_exception)
+FATP_TEST_CASE(emit_collect_propagate_exception)
 {
     Signal<int(int), SingleThreadedPolicy, PropagateExceptionPolicy> sig;
     int callCount = 0;
@@ -427,7 +427,7 @@ TEST_CASE(emit_collect_propagate_exception)
     try
     {
         auto results = sig.emitCollect(10);
-        ASSERT_TRUE(false, "Should have thrown exception");
+        FATP_ASSERT_TRUE(false, "Should have thrown exception");
         (void)results;
     }
     catch (const std::runtime_error&)
@@ -435,13 +435,13 @@ TEST_CASE(emit_collect_propagate_exception)
         caught = true;
     }
 
-    ASSERT_TRUE(caught, "Exception should propagate from emitCollect");
-    ASSERT_EQ(callCount, 2, "Only slots before and including throw should be called");
+    FATP_ASSERT_TRUE(caught, "Exception should propagate from emitCollect");
+    FATP_ASSERT_EQ(callCount, 2, "Only slots before and including throw should be called");
 
     return true;
 }
 
-TEST_CASE(emit_until)
+FATP_TEST_CASE(emit_until)
 {
     Signal<bool(int), SingleThreadedPolicy, CatchAndIgnorePolicy> sig;
     int callCount = 0;
@@ -452,13 +452,13 @@ TEST_CASE(emit_until)
 
     bool result = sig.emitUntil(7);
 
-    ASSERT_TRUE(result, "Should return true (second slot)");
-    ASSERT_EQ(callCount, 2, "Third slot should not be called");
+    FATP_ASSERT_TRUE(result, "Should return true (second slot)");
+    FATP_ASSERT_EQ(callCount, 2, "Third slot should not be called");
 
     return true;
 }
 
-TEST_CASE(emit_until_with_exceptions)
+FATP_TEST_CASE(emit_until_with_exceptions)
 {
     Signal<bool(int), SingleThreadedPolicy, CatchAndIgnorePolicy> sig;
     int callCount = 0;
@@ -468,13 +468,13 @@ TEST_CASE(emit_until_with_exceptions)
 
     bool result = sig.emitUntil(5);
 
-    ASSERT_TRUE(result, "Should return true from second slot");
-    ASSERT_EQ(callCount, 2, "Both slots attempted");
+    FATP_ASSERT_TRUE(result, "Should return true from second slot");
+    FATP_ASSERT_EQ(callCount, 2, "Both slots attempted");
 
     return true;
 }
 
-TEST_CASE(thread_safe_emission)
+FATP_TEST_CASE(thread_safe_emission)
 {
     ThreadSafeSignal<void(int)> sig;
     std::atomic<int> total{0};
@@ -502,13 +502,13 @@ TEST_CASE(thread_safe_emission)
         t.join();
     }
 
-    ASSERT_EQ(total.load(), numThreads * emitsPerThread,
+    FATP_ASSERT_EQ(total.load(), numThreads * emitsPerThread,
                   "All emissions should be counted");
 
     return true;
 }
 
-TEST_CASE(concurrent_connect_disconnect)
+FATP_TEST_CASE(concurrent_connect_disconnect)
 {
     ThreadSafeSignal<void()> sig;
     std::atomic<bool> running{true};
@@ -534,12 +534,12 @@ TEST_CASE(concurrent_connect_disconnect)
     running.store(false);
     emitter.join();
 
-    ASSERT_GT(emitCount.load(), 0, "Should have emitted");
+    FATP_ASSERT_GT(emitCount.load(), 0, "Should have emitted");
 
     return true;
 }
 
-TEST_CASE(thread_safe_disconnect_during_emission)
+FATP_TEST_CASE(thread_safe_disconnect_during_emission)
 {
     ThreadSafeSignal<void()> sig;
     std::atomic<int> callCount{0};
@@ -551,15 +551,15 @@ TEST_CASE(thread_safe_disconnect_during_emission)
     });
 
     sig.emit();
-    ASSERT_EQ(callCount.load(), 1, "Should be called once");
+    FATP_ASSERT_EQ(callCount.load(), 1, "Should be called once");
 
     sig.emit();
-    ASSERT_EQ(callCount.load(), 1, "Should not be called after disconnect");
+    FATP_ASSERT_EQ(callCount.load(), 1, "Should not be called after disconnect");
 
     return true;
 }
 
-TEST_CASE(inline_storage_efficiency)
+FATP_TEST_CASE(inline_storage_efficiency)
 {
     Signal<void()> sig;
 
@@ -568,38 +568,38 @@ TEST_CASE(inline_storage_efficiency)
     auto c3 = sig.connect([]() {});
     auto c4 = sig.connect([]() {});
 
-    ASSERT_EQ(sig.slotCount(), 4, "Should have 4 slots");
+    FATP_ASSERT_EQ(sig.slotCount(), 4, "Should have 4 slots");
 
     auto c5 = sig.connect([]() {});
-    ASSERT_EQ(sig.slotCount(), 5, "Should have 5 slots");
+    FATP_ASSERT_EQ(sig.slotCount(), 5, "Should have 5 slots");
 
     int count = 0;
     auto verifier = sig.connect([&]() { ++count; });
     sig.emit();
-    ASSERT_EQ(count, 1, "Verifier should be called");
+    FATP_ASSERT_EQ(count, 1, "Verifier should be called");
 
     return true;
 }
 
-TEST_CASE(custom_inline_capacity_small)
+FATP_TEST_CASE(custom_inline_capacity_small)
 {
     Signal<void(), SingleThreadedPolicy, CatchAndIgnorePolicy, 1> sig;
     int count = 0;
 
     auto c1 = sig.connect([&]() { ++count; });
-    ASSERT_EQ(sig.slotCount(), 1, "Should have 1 slot");
+    FATP_ASSERT_EQ(sig.slotCount(), 1, "Should have 1 slot");
 
     auto c2 = sig.connect([&]() { ++count; });
     auto c3 = sig.connect([&]() { ++count; });
-    ASSERT_EQ(sig.slotCount(), 3, "Should have 3 slots after overflow");
+    FATP_ASSERT_EQ(sig.slotCount(), 3, "Should have 3 slots after overflow");
 
     sig.emit();
-    ASSERT_EQ(count, 3, "All 3 slots called");
+    FATP_ASSERT_EQ(count, 3, "All 3 slots called");
 
     return true;
 }
 
-TEST_CASE(custom_inline_capacity_large)
+FATP_TEST_CASE(custom_inline_capacity_large)
 {
     Signal<void(), SingleThreadedPolicy, CatchAndIgnorePolicy, 8> sig;
     int count = 0;
@@ -609,15 +609,15 @@ TEST_CASE(custom_inline_capacity_large)
     {
         conns.push_back(sig.connect([&]() { ++count; }));
     }
-    ASSERT_EQ(sig.slotCount(), 8, "Should have 8 slots");
+    FATP_ASSERT_EQ(sig.slotCount(), 8, "Should have 8 slots");
 
     sig.emit();
-    ASSERT_EQ(count, 8, "All 8 slots called");
+    FATP_ASSERT_EQ(count, 8, "All 8 slots called");
 
     return true;
 }
 
-TEST_CASE(spinlock_signal)
+FATP_TEST_CASE(spinlock_signal)
 {
     SpinlockSignal<void(int)> sig;
     std::atomic<int> total{0};
@@ -642,12 +642,12 @@ TEST_CASE(spinlock_signal)
         t.join();
     }
 
-    ASSERT_EQ(total.load(), 400, "All emissions counted");
+    FATP_ASSERT_EQ(total.load(), 400, "All emissions counted");
 
     return true;
 }
 
-TEST_CASE(local_signal_alias)
+FATP_TEST_CASE(local_signal_alias)
 {
     LocalSignal<void(int)> sig;
     int value = 0;
@@ -655,33 +655,33 @@ TEST_CASE(local_signal_alias)
     auto conn = sig.connect([&](int v) { value = v; });
     sig.emit(42);
 
-    ASSERT_EQ(value, 42, "LocalSignal should work");
+    FATP_ASSERT_EQ(value, 42, "LocalSignal should work");
 
     return true;
 }
 
-TEST_CASE(empty_signal_emission)
+FATP_TEST_CASE(empty_signal_emission)
 {
     Signal<void()> sig;
     sig.emit();
-    ASSERT_EQ(sig.slotCount(), 0, "Should still be empty");
+    FATP_ASSERT_EQ(sig.slotCount(), 0, "Should still be empty");
 
     return true;
 }
 
-TEST_CASE(double_disconnect)
+FATP_TEST_CASE(double_disconnect)
 {
     Signal<void()> sig;
 
     ConnectionId id = sig.connectManual([]() {});
 
-    ASSERT_TRUE(sig.disconnect(id), "First disconnect should succeed");
-    ASSERT_FALSE(sig.disconnect(id), "Second disconnect should fail");
+    FATP_ASSERT_TRUE(sig.disconnect(id), "First disconnect should succeed");
+    FATP_ASSERT_FALSE(sig.disconnect(id), "Second disconnect should fail");
 
     return true;
 }
 
-TEST_CASE(double_disconnect_during_emission)
+FATP_TEST_CASE(double_disconnect_during_emission)
 {
     Signal<void()> sig;
     ConnectionId targetId;
@@ -704,38 +704,38 @@ TEST_CASE(double_disconnect_during_emission)
     });
 
     sig.emit();
-    ASSERT_EQ(disconnectCount, 1, "Only one disconnect should succeed");
+    FATP_ASSERT_EQ(disconnectCount, 1, "Only one disconnect should succeed");
 
     return true;
 }
 
-TEST_CASE(invalid_connection_id)
+FATP_TEST_CASE(invalid_connection_id)
 {
     Signal<void()> sig;
 
-    ASSERT_FALSE(sig.disconnect(InvalidConnectionId), "Should return false");
-    ASSERT_FALSE(sig.isConnected(InvalidConnectionId), "Should not be connected");
+    FATP_ASSERT_FALSE(sig.disconnect(InvalidConnectionId), "Should return false");
+    FATP_ASSERT_FALSE(sig.isConnected(InvalidConnectionId), "Should not be connected");
 
     return true;
 }
 
-TEST_CASE(move_signal)
+FATP_TEST_CASE(move_signal)
 {
     Signal<void()> sig1;
     int count = 0;
 
     auto conn = sig1.connect([&]() { ++count; });
     sig1.emit();
-    ASSERT_EQ(count, 1, "Should be called once");
+    FATP_ASSERT_EQ(count, 1, "Should be called once");
 
     Signal<void()> sig2 = std::move(sig1);
     sig2.emit();
-    ASSERT_EQ(count, 2, "Should be called after move");
+    FATP_ASSERT_EQ(count, 2, "Should be called after move");
 
     return true;
 }
 
-TEST_CASE(move_assignment)
+FATP_TEST_CASE(move_assignment)
 {
     Signal<void()> sig1;
     Signal<void()> sig2;
@@ -747,31 +747,31 @@ TEST_CASE(move_assignment)
 
     sig1.emit();
     sig2.emit();
-    ASSERT_EQ(count1, 1, "sig1 called");
-    ASSERT_EQ(count2, 1, "sig2 called");
+    FATP_ASSERT_EQ(count1, 1, "sig1 called");
+    FATP_ASSERT_EQ(count2, 1, "sig2 called");
 
     sig2 = std::move(sig1);
     sig2.emit();
-    ASSERT_EQ(count1, 2, "sig1's slot called via sig2");
+    FATP_ASSERT_EQ(count1, 2, "sig1's slot called via sig2");
 
     return true;
 }
 
-TEST_CASE(is_signal_trait)
+FATP_TEST_CASE(is_signal_trait)
 {
-    ASSERT_TRUE(is_signal_v<Signal<void()>>, "Signal<void()> is a signal");
-    ASSERT_TRUE(is_signal_v<Signal<int(float, double)>>, "Signal<int(float,double)> is a signal");
-    ASSERT_TRUE(is_signal_v<ThreadSafeSignal<void()>>, "ThreadSafeSignal is a signal");
-    ASSERT_TRUE(is_signal_v<SpinlockSignal<void()>>, "SpinlockSignal is a signal");
-    ASSERT_TRUE(is_signal_v<LocalSignal<void()>>, "LocalSignal is a signal");
+    FATP_ASSERT_TRUE(is_signal_v<Signal<void()>>, "Signal<void()> is a signal");
+    FATP_ASSERT_TRUE(is_signal_v<Signal<int(float, double)>>, "Signal<int(float,double)> is a signal");
+    FATP_ASSERT_TRUE(is_signal_v<ThreadSafeSignal<void()>>, "ThreadSafeSignal is a signal");
+    FATP_ASSERT_TRUE(is_signal_v<SpinlockSignal<void()>>, "SpinlockSignal is a signal");
+    FATP_ASSERT_TRUE(is_signal_v<LocalSignal<void()>>, "LocalSignal is a signal");
 
-    ASSERT_FALSE(is_signal_v<int>, "int is not a signal");
-    ASSERT_FALSE(is_signal_v<std::function<void()>>, "std::function is not a signal");
+    FATP_ASSERT_FALSE(is_signal_v<int>, "int is not a signal");
+    FATP_ASSERT_FALSE(is_signal_v<std::function<void()>>, "std::function is not a signal");
 
     return true;
 }
 
-TEST_CASE(many_slots_performance)
+FATP_TEST_CASE(many_slots_performance)
 {
     Signal<void()> sig;
     int count = 0;
@@ -784,10 +784,10 @@ TEST_CASE(many_slots_performance)
         connections.push_back(sig.connect([&]() { ++count; }));
     }
 
-    ASSERT_EQ(sig.slotCount(), 100, "Should have 100 slots");
+    FATP_ASSERT_EQ(sig.slotCount(), 100, "Should have 100 slots");
 
     sig.emit();
-    ASSERT_EQ(count, 100, "All 100 slots called");
+    FATP_ASSERT_EQ(count, 100, "All 100 slots called");
 
     return true;
 }
@@ -857,48 +857,48 @@ namespace fat_p::testing
 
 bool test_Signal()
 {
-    PRINT_HEADER(SIGNAL)
+    FATP_PRINT_HEADER(SIGNAL)
 
     TestRunner runner;
 
-    RUN_TEST_NS(runner, signal, basic_connection);
-    RUN_TEST_NS(runner, signal, multiple_connections);
-    RUN_TEST_NS(runner, signal, manual_connect_disconnect);
-    RUN_TEST_NS(runner, signal, call_operator);
-    RUN_TEST_NS(runner, signal, scoped_connection_raii);
-    RUN_TEST_NS(runner, signal, scoped_connection_move);
-    RUN_TEST_NS(runner, signal, scoped_connection_release);
-    RUN_TEST_NS(runner, signal, priority_ordering);
-    RUN_TEST_NS(runner, signal, disconnect_during_emission);
-    RUN_TEST_NS(runner, signal, connect_during_emission);
-    RUN_TEST_NS(runner, signal, nested_emission);
-    RUN_TEST_NS(runner, signal, slot_count);
-    RUN_TEST_NS(runner, signal, is_connected);
-    RUN_TEST_NS(runner, signal, disconnect_all);
-    RUN_TEST_NS(runner, signal, member_function_connection);
-    RUN_TEST_NS(runner, signal, catch_and_ignore_policy);
-    RUN_TEST_NS(runner, signal, propagate_exception_policy);
-    RUN_TEST_NS(runner, signal, emit_collect);
-    RUN_TEST_NS(runner, signal, emit_collect_with_exceptions);
-    RUN_TEST_NS(runner, signal, emit_collect_propagate_exception);
-    RUN_TEST_NS(runner, signal, emit_until);
-    RUN_TEST_NS(runner, signal, emit_until_with_exceptions);
-    RUN_TEST_NS(runner, signal, thread_safe_emission);
-    RUN_TEST_NS(runner, signal, concurrent_connect_disconnect);
-    RUN_TEST_NS(runner, signal, thread_safe_disconnect_during_emission);
-    RUN_TEST_NS(runner, signal, inline_storage_efficiency);
-    RUN_TEST_NS(runner, signal, custom_inline_capacity_small);
-    RUN_TEST_NS(runner, signal, custom_inline_capacity_large);
-    RUN_TEST_NS(runner, signal, spinlock_signal);
-    RUN_TEST_NS(runner, signal, local_signal_alias);
-    RUN_TEST_NS(runner, signal, empty_signal_emission);
-    RUN_TEST_NS(runner, signal, double_disconnect);
-    RUN_TEST_NS(runner, signal, double_disconnect_during_emission);
-    RUN_TEST_NS(runner, signal, invalid_connection_id);
-    RUN_TEST_NS(runner, signal, move_signal);
-    RUN_TEST_NS(runner, signal, move_assignment);
-    RUN_TEST_NS(runner, signal, is_signal_trait);
-    RUN_TEST_NS(runner, signal, many_slots_performance);
+    FATP_RUN_TEST_NS(runner, signal, basic_connection);
+    FATP_RUN_TEST_NS(runner, signal, multiple_connections);
+    FATP_RUN_TEST_NS(runner, signal, manual_connect_disconnect);
+    FATP_RUN_TEST_NS(runner, signal, call_operator);
+    FATP_RUN_TEST_NS(runner, signal, scoped_connection_raii);
+    FATP_RUN_TEST_NS(runner, signal, scoped_connection_move);
+    FATP_RUN_TEST_NS(runner, signal, scoped_connection_release);
+    FATP_RUN_TEST_NS(runner, signal, priority_ordering);
+    FATP_RUN_TEST_NS(runner, signal, disconnect_during_emission);
+    FATP_RUN_TEST_NS(runner, signal, connect_during_emission);
+    FATP_RUN_TEST_NS(runner, signal, nested_emission);
+    FATP_RUN_TEST_NS(runner, signal, slot_count);
+    FATP_RUN_TEST_NS(runner, signal, is_connected);
+    FATP_RUN_TEST_NS(runner, signal, disconnect_all);
+    FATP_RUN_TEST_NS(runner, signal, member_function_connection);
+    FATP_RUN_TEST_NS(runner, signal, catch_and_ignore_policy);
+    FATP_RUN_TEST_NS(runner, signal, propagate_exception_policy);
+    FATP_RUN_TEST_NS(runner, signal, emit_collect);
+    FATP_RUN_TEST_NS(runner, signal, emit_collect_with_exceptions);
+    FATP_RUN_TEST_NS(runner, signal, emit_collect_propagate_exception);
+    FATP_RUN_TEST_NS(runner, signal, emit_until);
+    FATP_RUN_TEST_NS(runner, signal, emit_until_with_exceptions);
+    FATP_RUN_TEST_NS(runner, signal, thread_safe_emission);
+    FATP_RUN_TEST_NS(runner, signal, concurrent_connect_disconnect);
+    FATP_RUN_TEST_NS(runner, signal, thread_safe_disconnect_during_emission);
+    FATP_RUN_TEST_NS(runner, signal, inline_storage_efficiency);
+    FATP_RUN_TEST_NS(runner, signal, custom_inline_capacity_small);
+    FATP_RUN_TEST_NS(runner, signal, custom_inline_capacity_large);
+    FATP_RUN_TEST_NS(runner, signal, spinlock_signal);
+    FATP_RUN_TEST_NS(runner, signal, local_signal_alias);
+    FATP_RUN_TEST_NS(runner, signal, empty_signal_emission);
+    FATP_RUN_TEST_NS(runner, signal, double_disconnect);
+    FATP_RUN_TEST_NS(runner, signal, double_disconnect_during_emission);
+    FATP_RUN_TEST_NS(runner, signal, invalid_connection_id);
+    FATP_RUN_TEST_NS(runner, signal, move_signal);
+    FATP_RUN_TEST_NS(runner, signal, move_assignment);
+    FATP_RUN_TEST_NS(runner, signal, is_signal_trait);
+    FATP_RUN_TEST_NS(runner, signal, many_slots_performance);
 
     signal::benchmark_signal();
 

@@ -60,9 +60,9 @@ struct Point { int x; int y; };
 
 template <typename T>
 bool check_sequence(const std::vector<T>& actual, const std::vector<T>& expected, const char* msg) {
-    ASSERT_EQ(actual.size(), expected.size(), msg);
+    FATP_ASSERT_EQ(actual.size(), expected.size(), msg);
     for (size_t i = 0; i < actual.size(); ++i) {
-        ASSERT_EQ(actual[i], expected[i], (std::string(msg) + " at index " + std::to_string(i)).c_str());
+        FATP_ASSERT_EQ(actual[i], expected[i], (std::string(msg) + " at index " + std::to_string(i)).c_str());
     }
     return true;
 }
@@ -85,7 +85,7 @@ public:
 // 1. Standard Policy Tests
 // ============================================================================
 
-TEST_CASE(standard_policy_basic) {
+FATP_TEST_CASE(standard_policy_basic) {
     std::vector<int> data = {1, 2, 3, 4, 5};
     
     auto begin = PolicyIterator<int>::begin(data.data(), data.data() + data.size());
@@ -100,7 +100,7 @@ TEST_CASE(standard_policy_basic) {
     return check_sequence(result, expected, "Standard policy iteration");
 }
 
-TEST_CASE(standard_policy_bidirectional) {
+FATP_TEST_CASE(standard_policy_bidirectional) {
     std::vector<int> data = {10, 20, 30, 40, 50};
     
     auto it = PolicyIterator<int>::begin(data.data(), data.data() + data.size());
@@ -128,7 +128,7 @@ TEST_CASE(standard_policy_bidirectional) {
 // 2. Stride Policy Tests
 // ============================================================================
 
-TEST_CASE(stride_policy_basic) {
+FATP_TEST_CASE(stride_policy_basic) {
     std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     
     using Iter = PolicyIterator<int, StridePolicy<int, 2>>;
@@ -144,7 +144,7 @@ TEST_CASE(stride_policy_basic) {
     return check_sequence(result, expected, "Stride-2 iteration");
 }
 
-TEST_CASE(stride_policy_stride4) {
+FATP_TEST_CASE(stride_policy_stride4) {
     std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     
     using Iter = PolicyIterator<int, StridePolicy<int, 4>>;
@@ -160,13 +160,13 @@ TEST_CASE(stride_policy_stride4) {
     return check_sequence(result, expected, "Stride-4 iteration");
 }
 
-TEST_CASE(stride_size_query) {
+FATP_TEST_CASE(stride_size_query) {
     std::vector<int> data = {1, 2, 3};
     
     using Iter = PolicyIterator<int, StridePolicy<int, 3>>;
     auto it = Iter::begin(data.data(), data.data() + data.size());
     
-    ASSERT_EQ(it.strideSize(), 3, "Stride size should be queryable");
+    FATP_ASSERT_EQ(it.strideSize(), 3, "Stride size should be queryable");
     return true;
 }
 
@@ -174,7 +174,7 @@ TEST_CASE(stride_size_query) {
 // 3. Filter Policy Tests
 // ============================================================================
 
-TEST_CASE(filtering_policy_even) {
+FATP_TEST_CASE(filtering_policy_even) {
     std::vector<int> data = {1, 2, 3, 4, 5, 6, 7, 8};
     
     auto is_even = [](const int& v) { return v % 2 == 0; };
@@ -194,7 +194,7 @@ TEST_CASE(filtering_policy_even) {
     return check_sequence(result, expected, "Filter even numbers");
 }
 
-TEST_CASE(filtering_policy_positive) {
+FATP_TEST_CASE(filtering_policy_positive) {
     std::vector<int> data = {-3, -2, -1, 0, 1, 2, 3};
     
     auto is_positive = [](const int& v) { return v > 0; };
@@ -218,7 +218,7 @@ TEST_CASE(filtering_policy_positive) {
 // 4. Transform Policy Tests
 // ============================================================================
 
-TEST_CASE(transform_policy_double) {
+FATP_TEST_CASE(transform_policy_double) {
     std::vector<int> data = {1, 2, 3, 4, 5};
     
     auto doubler = [](const int& v) -> int { return v * 2; };
@@ -238,7 +238,7 @@ TEST_CASE(transform_policy_double) {
     return check_sequence(result, expected, "Transform doubles values");
 }
 
-TEST_CASE(transform_bidirectional) {
+FATP_TEST_CASE(transform_bidirectional) {
     std::vector<int> data = {1, 2, 3, 4, 5};
     
     auto doubler = [](const int& v) -> int { return v * 2; };
@@ -252,16 +252,16 @@ TEST_CASE(transform_bidirectional) {
     ++it; // at 4
     ++it; // at 5
     
-    ASSERT_EQ(*it, 10, "Transform at last element");
+    FATP_ASSERT_EQ(*it, 10, "Transform at last element");
     --it;
-    ASSERT_EQ(*it, 8, "Transform after decrement");
+    FATP_ASSERT_EQ(*it, 8, "Transform after decrement");
     --it;
-    ASSERT_EQ(*it, 6, "Transform after second decrement");
+    FATP_ASSERT_EQ(*it, 6, "Transform after second decrement");
     
     return true;
 }
 
-TEST_CASE(transform_type_conversion) {
+FATP_TEST_CASE(transform_type_conversion) {
     std::vector<int> data = {1, 2, 3};
     
     auto to_double = [](const int& v) -> double { return v * 1.5; };
@@ -277,10 +277,10 @@ TEST_CASE(transform_type_conversion) {
         result.push_back(*it);
     }
     
-    ASSERT_EQ(result.size(), 3u, "Result size");
-    ASSERT_TRUE(std::abs(result[0] - 1.5) < 0.001, "Transform to double [0]");
-    ASSERT_TRUE(std::abs(result[1] - 3.0) < 0.001, "Transform to double [1]");
-    ASSERT_TRUE(std::abs(result[2] - 4.5) < 0.001, "Transform to double [2]");
+    FATP_ASSERT_EQ(result.size(), 3u, "Result size");
+    FATP_ASSERT_TRUE(std::abs(result[0] - 1.5) < 0.001, "Transform to double [0]");
+    FATP_ASSERT_TRUE(std::abs(result[1] - 3.0) < 0.001, "Transform to double [1]");
+    FATP_ASSERT_TRUE(std::abs(result[2] - 4.5) < 0.001, "Transform to double [2]");
     
     return true;
 }
@@ -289,7 +289,7 @@ TEST_CASE(transform_type_conversion) {
 // 5. TensorStridePolicy Tests
 // ============================================================================
 
-TEST_CASE(tensor_stride_policy) {
+FATP_TEST_CASE(tensor_stride_policy) {
     // 2x3 matrix in row-major order
     std::vector<int> data = {1, 2, 3, 4, 5, 6};
     
@@ -309,28 +309,28 @@ TEST_CASE(tensor_stride_policy) {
     return check_sequence(result, expected, "Tensor iteration row-major");
 }
 
-TEST_CASE(tensor_stride_dims) {
+FATP_TEST_CASE(tensor_stride_dims) {
     TensorStridePolicy<int> policy({10, 20, 30});
     
-    ASSERT_EQ(policy.dims(), 3u, "dims()");
-    ASSERT_EQ(policy.shape(0), 10u, "shape(0)");
-    ASSERT_EQ(policy.shape(1), 20u, "shape(1)");
-    ASSERT_EQ(policy.shape(2), 30u, "shape(2)");
+    FATP_ASSERT_EQ(policy.dims(), 3u, "dims()");
+    FATP_ASSERT_EQ(policy.shape(0), 10u, "shape(0)");
+    FATP_ASSERT_EQ(policy.shape(1), 20u, "shape(1)");
+    FATP_ASSERT_EQ(policy.shape(2), 30u, "shape(2)");
     
     // Row-major strides: stride[i] = product of dimensions after i
     // stride[0] = 20 * 30 = 600
     // stride[1] = 30
     // stride[2] = 1
-    ASSERT_EQ(policy.stride(0), 600, "stride(0) outer dim");
-    ASSERT_EQ(policy.stride(1), 30, "stride(1) middle dim");
-    ASSERT_EQ(policy.stride(2), 1, "stride(2) inner dim");
+    FATP_ASSERT_EQ(policy.stride(0), 600, "stride(0) outer dim");
+    FATP_ASSERT_EQ(policy.stride(1), 30, "stride(1) middle dim");
+    FATP_ASSERT_EQ(policy.stride(2), 1, "stride(2) inner dim");
     
-    ASSERT_EQ(policy.total(), 6000u, "total elements");
+    FATP_ASSERT_EQ(policy.total(), 6000u, "total elements");
     
     return true;
 }
 
-TEST_CASE(tensor_retreat) {
+FATP_TEST_CASE(tensor_retreat) {
     std::vector<int> data(12);
     std::iota(data.begin(), data.end(), 0);
     
@@ -341,18 +341,18 @@ TEST_CASE(tensor_retreat) {
     
     // Advance to middle
     for (int i = 0; i < 6; ++i) ++it;  // Now at position 6
-    ASSERT_EQ(*it, 6, "After 6 advances");
+    FATP_ASSERT_EQ(*it, 6, "After 6 advances");
     
     // Retreat back
     --it;
-    ASSERT_EQ(*it, 5, "After retreat");
+    FATP_ASSERT_EQ(*it, 5, "After retreat");
     --it;
-    ASSERT_EQ(*it, 4, "After second retreat");
+    FATP_ASSERT_EQ(*it, 4, "After second retreat");
     
     return true;
 }
 
-TEST_CASE(tensor_row_stride) {
+FATP_TEST_CASE(tensor_row_stride) {
     // Test non-contiguous memory: 3x2 matrix stored with row stride of 4
     // Memory: [0, 1, -, -, 2, 3, -, -, 4, 5, -, -]
     std::vector<int> data = {0, 1, 99, 99, 2, 3, 99, 99, 4, 5, 99, 99};
@@ -374,7 +374,7 @@ TEST_CASE(tensor_row_stride) {
     return check_sequence(result, expected, "Non-contiguous row-major");
 }
 
-TEST_CASE(tensor_column_major) {
+FATP_TEST_CASE(tensor_column_major) {
     // Column-major 2x3 matrix
     // Logical view:  | 0 2 4 |
     //                | 1 3 5 |
@@ -398,22 +398,22 @@ TEST_CASE(tensor_column_major) {
     return check_sequence(result, expected, "Column-major storage iteration");
 }
 
-TEST_CASE(tensor_indices) {
+FATP_TEST_CASE(tensor_indices) {
     TensorStridePolicy<int> policy({3, 4, 5});  // 3D tensor
     
     // Position 0 -> indices [0,0,0]
     auto idx = policy.currentIndices();
-    ASSERT_EQ(idx[0], 0u, "Initial index[0]");
-    ASSERT_EQ(idx[1], 0u, "Initial index[1]");
-    ASSERT_EQ(idx[2], 0u, "Initial index[2]");
+    FATP_ASSERT_EQ(idx[0], 0u, "Initial index[0]");
+    FATP_ASSERT_EQ(idx[1], 0u, "Initial index[1]");
+    FATP_ASSERT_EQ(idx[2], 0u, "Initial index[2]");
     
     // Advance 7 positions: in 3x4x5, position 7 = [0, 1, 2]
     // (0*20 + 1*5 + 2 = 7)
     for (int i = 0; i < 7; ++i) policy.advance();
     idx = policy.currentIndices();
-    ASSERT_EQ(idx[0], 0u, "After 7: index[0]");
-    ASSERT_EQ(idx[1], 1u, "After 7: index[1]");
-    ASSERT_EQ(idx[2], 2u, "After 7: index[2]");
+    FATP_ASSERT_EQ(idx[0], 0u, "After 7: index[0]");
+    FATP_ASSERT_EQ(idx[1], 1u, "After 7: index[1]");
+    FATP_ASSERT_EQ(idx[2], 2u, "After 7: index[2]");
     
     return true;
 }
@@ -422,57 +422,57 @@ TEST_CASE(tensor_indices) {
 // 6. Operators and Methods Tests
 // ============================================================================
 
-TEST_CASE(post_increment) {
+FATP_TEST_CASE(post_increment) {
     std::vector<int> data = {10, 20, 30};
     
     auto it = PolicyIterator<int>::begin(data.data(), data.data() + data.size());
-    ASSERT_EQ(*it, 10, "Initial value");
+    FATP_ASSERT_EQ(*it, 10, "Initial value");
     
     auto copy = it++;
-    ASSERT_EQ(*copy, 10, "Post-increment should return copy");
-    ASSERT_EQ(*it, 20, "Original iterator should be incremented");
+    FATP_ASSERT_EQ(*copy, 10, "Post-increment should return copy");
+    FATP_ASSERT_EQ(*it, 20, "Original iterator should be incremented");
     
     return true;
 }
 
-TEST_CASE(post_decrement) {
+FATP_TEST_CASE(post_decrement) {
     std::vector<int> data = {10, 20, 30};
     
     auto it = PolicyIterator<int>::begin(data.data(), data.data() + data.size());
     ++it; // at 20
     ++it; // at 30
-    ASSERT_EQ(*it, 30, "At last element");
+    FATP_ASSERT_EQ(*it, 30, "At last element");
     
     auto copy = it--;
-    ASSERT_EQ(*copy, 30, "Post-decrement should return copy");
-    ASSERT_EQ(*it, 20, "Original iterator should be decremented");
+    FATP_ASSERT_EQ(*copy, 30, "Post-decrement should return copy");
+    FATP_ASSERT_EQ(*it, 20, "Original iterator should be decremented");
     
     return true;
 }
 
-TEST_CASE(operator_arrow) {
+FATP_TEST_CASE(operator_arrow) {
     std::vector<Point> data = {{1, 2}, {3, 4}, {5, 6}};
     
     auto it = PolicyIterator<Point>::begin(data.data(), data.data() + data.size());
     
-    ASSERT_EQ(it->x, 1, "Arrow operator x");
-    ASSERT_EQ(it->y, 2, "Arrow operator y");
+    FATP_ASSERT_EQ(it->x, 1, "Arrow operator x");
+    FATP_ASSERT_EQ(it->y, 2, "Arrow operator y");
     
     ++it;
-    ASSERT_EQ(it->x, 3, "Arrow after increment x");
-    ASSERT_EQ(it->y, 4, "Arrow after increment y");
+    FATP_ASSERT_EQ(it->x, 3, "Arrow after increment x");
+    FATP_ASSERT_EQ(it->y, 4, "Arrow after increment y");
     
     return true;
 }
 
-TEST_CASE(get_method) {
+FATP_TEST_CASE(get_method) {
     std::vector<int> data = {1, 2, 3};
     
     auto it = PolicyIterator<int>::begin(data.data(), data.data() + data.size());
     
-    ASSERT_EQ(it.get(), data.data(), "get() returns underlying pointer");
+    FATP_ASSERT_EQ(it.get(), data.data(), "get() returns underlying pointer");
     ++it;
-    ASSERT_EQ(it.get(), data.data() + 1, "get() after increment");
+    FATP_ASSERT_EQ(it.get(), data.data() + 1, "get() after increment");
     
     return true;
 }
@@ -481,39 +481,39 @@ TEST_CASE(get_method) {
 // 7. Edge Cases
 // ============================================================================
 
-TEST_CASE(empty_range) {
+FATP_TEST_CASE(empty_range) {
     std::vector<int> data;
     
     auto begin = PolicyIterator<int>::begin(data.data(), data.data());
     auto end = PolicyIterator<int>::end(data.data(), data.data());
     
-    ASSERT_TRUE(begin == end, "Empty range: begin == end");
+    FATP_ASSERT_TRUE(begin == end, "Empty range: begin == end");
     
     int count = 0;
     for (auto it = begin; it != end; ++it) {
         ++count;
     }
-    ASSERT_EQ(count, 0, "Empty range should iterate zero times");
+    FATP_ASSERT_EQ(count, 0, "Empty range should iterate zero times");
     
     return true;
 }
 
-TEST_CASE(single_element) {
+FATP_TEST_CASE(single_element) {
     std::vector<int> data = {42};
     
     auto begin = PolicyIterator<int>::begin(data.data(), data.data() + data.size());
     auto end = PolicyIterator<int>::end(data.data(), data.data() + data.size());
     
-    ASSERT_EQ(*begin, 42, "Single element value");
+    FATP_ASSERT_EQ(*begin, 42, "Single element value");
     
     auto it = begin;
     ++it;
-    ASSERT_TRUE(it == end, "After increment should equal end");
+    FATP_ASSERT_TRUE(it == end, "After increment should equal end");
     
     return true;
 }
 
-TEST_CASE(stride_exceeds_size) {
+FATP_TEST_CASE(stride_exceeds_size) {
     std::vector<int> data = {1, 2};  // Size 2, stride 5
     
     using Iter = PolicyIterator<int, StridePolicy<int, 5>>;
@@ -530,7 +530,7 @@ TEST_CASE(stride_exceeds_size) {
     return check_sequence(result, expected, "Stride exceeds size");
 }
 
-TEST_CASE(filter_matches_none) {
+FATP_TEST_CASE(filter_matches_none) {
     std::vector<int> data = {1, 3, 5, 7};
     
     auto is_even = [](const int& v) { return v % 2 == 0; };
@@ -546,11 +546,11 @@ TEST_CASE(filter_matches_none) {
         ++count;
     }
     
-    ASSERT_EQ(count, 0, "Filter matching nothing should iterate zero times");
+    FATP_ASSERT_EQ(count, 0, "Filter matching nothing should iterate zero times");
     return true;
 }
 
-TEST_CASE(filter_matches_all) {
+FATP_TEST_CASE(filter_matches_all) {
     std::vector<int> data = {2, 4, 6, 8};
     
     auto is_even = [](const int& v) { return v % 2 == 0; };
@@ -570,18 +570,18 @@ TEST_CASE(filter_matches_all) {
     return check_sequence(result, expected, "Filter matching all");
 }
 
-TEST_CASE(self_comparison) {
+FATP_TEST_CASE(self_comparison) {
     std::vector<int> data = {1, 2, 3};
     
     auto it = PolicyIterator<int>::begin(data.data(), data.data() + data.size());
     
-    ASSERT_TRUE(it == it, "Iterator should equal itself");
-    ASSERT_FALSE(it != it, "Iterator should not not-equal itself");
+    FATP_ASSERT_TRUE(it == it, "Iterator should equal itself");
+    FATP_ASSERT_FALSE(it != it, "Iterator should not not-equal itself");
     
     return true;
 }
 
-TEST_CASE(const_data) {
+FATP_TEST_CASE(const_data) {
     const std::vector<int> data = {1, 2, 3};
     
     auto begin = PolicyIterator<const int>::begin(data.data(), data.data() + data.size());
@@ -600,7 +600,7 @@ TEST_CASE(const_data) {
 // 8a. STL Algorithm Compatibility
 // ============================================================================
 
-TEST_CASE(stl_iterator_category_standard) {
+FATP_TEST_CASE(stl_iterator_category_standard) {
     // Verify StandardPolicy claims bidirectional
     using Category = PolicyIterator<int>::iterator_category;
     static_assert(std::is_same_v<Category, std::bidirectional_iterator_tag>,
@@ -608,7 +608,7 @@ TEST_CASE(stl_iterator_category_standard) {
     return true;
 }
 
-TEST_CASE(stl_iterator_category_stride) {
+FATP_TEST_CASE(stl_iterator_category_stride) {
     // Verify StridePolicy is forward-only (not bidirectional)
     using Category = PolicyIterator<int, StridePolicy<int, 2>>::iterator_category;
     static_assert(std::is_same_v<Category, std::forward_iterator_tag>,
@@ -616,7 +616,7 @@ TEST_CASE(stl_iterator_category_stride) {
     return true;
 }
 
-TEST_CASE(stl_iterator_category_filter) {
+FATP_TEST_CASE(stl_iterator_category_filter) {
     auto pred = [](const int&) { return true; };
     using Policy = FilterPolicy<int, decltype(pred)>;
     using Category = PolicyIterator<int, Policy>::iterator_category;
@@ -625,26 +625,26 @@ TEST_CASE(stl_iterator_category_filter) {
     return true;
 }
 
-TEST_CASE(stl_iterator_category_tensor) {
+FATP_TEST_CASE(stl_iterator_category_tensor) {
     using Category = PolicyIterator<int, TensorStridePolicy<int>>::iterator_category;
     static_assert(std::is_same_v<Category, std::bidirectional_iterator_tag>,
                   "TensorStridePolicy should be bidirectional");
     return true;
 }
 
-TEST_CASE(stl_distance_standard) {
+FATP_TEST_CASE(stl_distance_standard) {
     std::vector<int> data = {1, 2, 3, 4, 5};
     
     auto begin = PolicyIterator<int>::begin(data.data(), data.data() + data.size());
     auto end = PolicyIterator<int>::end(data.data(), data.data() + data.size());
     
     auto dist = std::distance(begin, end);
-    ASSERT_EQ(dist, 5, "std::distance should return 5");
+    FATP_ASSERT_EQ(dist, 5, "std::distance should return 5");
     
     return true;
 }
 
-TEST_CASE(stl_distance_stride) {
+FATP_TEST_CASE(stl_distance_stride) {
     // Verify std::distance works with StridePolicy (forward-only)
     std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     
@@ -653,12 +653,12 @@ TEST_CASE(stl_distance_stride) {
     auto end = Iter::end(data.data(), data.data() + data.size());
     
     auto dist = std::distance(begin, end);
-    ASSERT_EQ(dist, 5, "std::distance should return 5 for stride-2 over 10 elements");
+    FATP_ASSERT_EQ(dist, 5, "std::distance should return 5 for stride-2 over 10 elements");
     
     return true;
 }
 
-TEST_CASE(stl_distance_tensor) {
+FATP_TEST_CASE(stl_distance_tensor) {
     // Verify std::distance works with TensorStridePolicy (bidirectional)
     std::vector<int> data(12);
     std::iota(data.begin(), data.end(), 0);
@@ -671,7 +671,7 @@ TEST_CASE(stl_distance_tensor) {
         data.data(), data.data() + data.size(), policy);
     
     auto dist = std::distance(begin, end);
-    ASSERT_EQ(dist, 12, "std::distance should return 12 for 3x4 tensor");
+    FATP_ASSERT_EQ(dist, 12, "std::distance should return 12 for 3x4 tensor");
     
     return true;
 }
@@ -680,20 +680,20 @@ TEST_CASE(stl_distance_tensor) {
 // 8b. Spec Anchor Tests (Prevent Regression)
 // ============================================================================
 
-TEST_CASE(constructibility_standard_uses_factories) {
+FATP_TEST_CASE(constructibility_standard_uses_factories) {
     // Verify StandardPolicy iterators are constructed via factories
     std::vector<int> data = {1, 2, 3};
     
     auto begin = PolicyIterator<int>::begin(data.data(), data.data() + data.size());
     auto end = PolicyIterator<int>::end(data.data(), data.data() + data.size());
     
-    ASSERT_EQ(*begin, 1, "begin() points to first element");
-    ASSERT_TRUE(begin != end, "begin != end for non-empty range");
+    FATP_ASSERT_EQ(*begin, 1, "begin() points to first element");
+    FATP_ASSERT_TRUE(begin != end, "begin != end for non-empty range");
     
     return true;
 }
 
-TEST_CASE(constructibility_filter_uses_factories) {
+FATP_TEST_CASE(constructibility_filter_uses_factories) {
     // FilterPolicy iterators are constructed via factories with functor
     std::vector<int> data = {1, 2, 3, 4, 5};
     
@@ -705,13 +705,13 @@ TEST_CASE(constructibility_filter_uses_factories) {
     auto end = PolicyIterator<int, Policy>::end(
         data.data(), data.data() + data.size(), Policy{}, pred);
     
-    ASSERT_EQ(*begin, 3, "Filter begin points to first matching element");
-    ASSERT_TRUE(begin != end, "Filter begin != end");
+    FATP_ASSERT_EQ(*begin, 3, "Filter begin points to first matching element");
+    FATP_ASSERT_TRUE(begin != end, "Filter begin != end");
     
     return true;
 }
 
-TEST_CASE(constructibility_transform_uses_factories) {
+FATP_TEST_CASE(constructibility_transform_uses_factories) {
     // TransformPolicy iterators are constructed via factories with functor
     std::vector<int> data = {1, 2, 3};
     
@@ -723,13 +723,13 @@ TEST_CASE(constructibility_transform_uses_factories) {
     auto end = PolicyIterator<int, Policy>::end(
         data.data(), data.data() + data.size(), Policy{}, xform);
     
-    ASSERT_EQ(*begin, 10, "Transform begin returns transformed value");
-    ASSERT_TRUE(begin != end, "Transform begin != end");
+    FATP_ASSERT_EQ(*begin, 10, "Transform begin returns transformed value");
+    FATP_ASSERT_TRUE(begin != end, "Transform begin != end");
     
     return true;
 }
 
-TEST_CASE(constructibility_tensor_uses_factories) {
+FATP_TEST_CASE(constructibility_tensor_uses_factories) {
     // TensorStridePolicy iterators are constructed via factories
     std::vector<int> data = {1, 2, 3, 4, 5, 6};
     
@@ -740,13 +740,13 @@ TEST_CASE(constructibility_tensor_uses_factories) {
     auto end = PolicyIterator<int, TensorStridePolicy<int>>::end(
         data.data(), data.data() + data.size(), policy);
     
-    ASSERT_EQ(*begin, 1, "Tensor begin points to first element");
-    ASSERT_TRUE(begin != end, "Tensor begin != end");
+    FATP_ASSERT_EQ(*begin, 1, "Tensor begin points to first element");
+    FATP_ASSERT_TRUE(begin != end, "Tensor begin != end");
     
     return true;
 }
 
-TEST_CASE(tensor_decrement_end_yields_last) {
+FATP_TEST_CASE(tensor_decrement_end_yields_last) {
     // --end should yield the last valid element (standard bidirectional expectation)
     std::vector<int> data = {10, 20, 30, 40, 50};
     
@@ -756,36 +756,36 @@ TEST_CASE(tensor_decrement_end_yields_last) {
         data.data(), data.data() + data.size(), policy);
     
     --end;
-    ASSERT_EQ(*end, 50, "Decrementing end should yield last element");
+    FATP_ASSERT_EQ(*end, 50, "Decrementing end should yield last element");
     
     --end;
-    ASSERT_EQ(*end, 40, "Decrementing again should yield second-to-last");
+    FATP_ASSERT_EQ(*end, 40, "Decrementing again should yield second-to-last");
     
     return true;
 }
 
-TEST_CASE(tensor_makeRowMajor_helper) {
+FATP_TEST_CASE(tensor_makeRowMajor_helper) {
     auto policy = makeRowMajor<int>({3, 4, 5});
     
-    ASSERT_EQ(policy.dims(), 3u, "3D tensor");
-    ASSERT_EQ(policy.shape(0), 3u, "shape[0] = 3");
-    ASSERT_EQ(policy.shape(1), 4u, "shape[1] = 4");
-    ASSERT_EQ(policy.shape(2), 5u, "shape[2] = 5");
+    FATP_ASSERT_EQ(policy.dims(), 3u, "3D tensor");
+    FATP_ASSERT_EQ(policy.shape(0), 3u, "shape[0] = 3");
+    FATP_ASSERT_EQ(policy.shape(1), 4u, "shape[1] = 4");
+    FATP_ASSERT_EQ(policy.shape(2), 5u, "shape[2] = 5");
     
     // Row-major strides for 3x4x5:
     // stride[2] = 1
     // stride[1] = 5
     // stride[0] = 4*5 = 20
-    ASSERT_EQ(policy.stride(0), 20, "stride[0] = 4*5 = 20");
-    ASSERT_EQ(policy.stride(1), 5, "stride[1] = 5");
-    ASSERT_EQ(policy.stride(2), 1, "stride[2] = 1");
+    FATP_ASSERT_EQ(policy.stride(0), 20, "stride[0] = 4*5 = 20");
+    FATP_ASSERT_EQ(policy.stride(1), 5, "stride[1] = 5");
+    FATP_ASSERT_EQ(policy.stride(2), 1, "stride[2] = 1");
     
-    ASSERT_EQ(policy.total(), 60u, "total = 3*4*5 = 60");
+    FATP_ASSERT_EQ(policy.total(), 60u, "total = 3*4*5 = 60");
     
     return true;
 }
 
-TEST_CASE(tensor_padded_layout) {
+FATP_TEST_CASE(tensor_padded_layout) {
     // Test padded/pitched layout: 3x4 matrix with row stride 8 (4 padding elements per row)
     std::vector<int> data(24, -1);  // Full allocated span
     
@@ -811,7 +811,7 @@ TEST_CASE(tensor_padded_layout) {
     
     // Should read exactly the 12 logical elements in row-major order
     std::vector<int> expected = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
-    ASSERT_EQ(result.size(), 12u, "Should iterate 12 logical elements");
+    FATP_ASSERT_EQ(result.size(), 12u, "Should iterate 12 logical elements");
     return check_sequence(result, expected, "Padded layout iteration");
 }
 
@@ -819,7 +819,7 @@ TEST_CASE(tensor_padded_layout) {
 // Stride1DPolicy Tests (Lightweight 1D Specialization)
 // ============================================================================
 
-TEST_CASE(stride1d_basic) {
+FATP_TEST_CASE(stride1d_basic) {
     // Basic 1D strided iteration
     // Contract: end must equal base + count*stride
     // So buffer must be at least count*stride = 4*3 = 12 elements
@@ -844,7 +844,7 @@ TEST_CASE(stride1d_basic) {
     return check_sequence(result, expected, "Stride1D basic iteration");
 }
 
-TEST_CASE(stride1d_column_sum) {
+FATP_TEST_CASE(stride1d_column_sum) {
     // Simulate column iteration of a row-major matrix
     std::vector<int64_t> data(1000);
     std::iota(data.begin(), data.end(), 0);
@@ -866,11 +866,11 @@ TEST_CASE(stride1d_column_sum) {
     
     // Expected: 0 + 100 + 200 + ... + 900 = 100 * (0 + 9) / 2 * 10 = 4500
     int64_t expected = 4500;
-    ASSERT_EQ(sum, expected, "Stride1D column sum should match manual calculation");
+    FATP_ASSERT_EQ(sum, expected, "Stride1D column sum should match manual calculation");
     return true;
 }
 
-TEST_CASE(stride1d_bidirectional) {
+FATP_TEST_CASE(stride1d_bidirectional) {
     // Contract: end must equal base + count*stride
     std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     
@@ -883,13 +883,13 @@ TEST_CASE(stride1d_bidirectional) {
     
     // Forward to end
     ++it; ++it; ++it; ++it;
-    ASSERT_TRUE(it == endIt, "Should be at end after 4 increments");
+    FATP_ASSERT_TRUE(it == endIt, "Should be at end after 4 increments");
     
     // Backward
     --it;
-    ASSERT_EQ(*it, 9, "Last element should be 9");
+    FATP_ASSERT_EQ(*it, 9, "Last element should be 9");
     --it;
-    ASSERT_EQ(*it, 6, "Second-to-last should be 6");
+    FATP_ASSERT_EQ(*it, 6, "Second-to-last should be 6");
     
     return true;
 }
@@ -898,7 +898,7 @@ TEST_CASE(stride1d_bidirectional) {
 // Stride2DPolicy Tests (Lightweight 2D Specialization)
 // ============================================================================
 
-TEST_CASE(stride2d_basic) {
+FATP_TEST_CASE(stride2d_basic) {
     // 3x4 matrix, row-major
     std::vector<int> data = {
         0, 1, 2, 3,
@@ -921,7 +921,7 @@ TEST_CASE(stride2d_basic) {
     return check_sequence(result, expected, "Stride2D row-major iteration");
 }
 
-TEST_CASE(tensor_column_major_traversal_correct) {
+FATP_TEST_CASE(tensor_column_major_traversal_correct) {
     // 3x4 matrix stored row-major, but traverse column-major
     // This demonstrates the CORRECT way to do column-major traversal:
     // Use TensorStridePolicy with permuted shape and strides.
@@ -956,7 +956,7 @@ TEST_CASE(tensor_column_major_traversal_correct) {
     return check_sequence(result, expected, "TensorStridePolicy column-major traversal");
 }
 
-TEST_CASE(stride2d_single_column) {
+FATP_TEST_CASE(stride2d_single_column) {
     // Iterate just one column of a matrix
     std::vector<int> data = {
         0, 1, 2, 3,
@@ -980,7 +980,7 @@ TEST_CASE(stride2d_single_column) {
     return check_sequence(result, expected, "Stride2D single column");
 }
 
-TEST_CASE(stride2d_bidirectional) {
+FATP_TEST_CASE(stride2d_bidirectional) {
     std::vector<int> data = {0, 1, 2, 3, 4, 5};  // 2x3 matrix
     
     Stride2DPolicy<int> policy(2, 3);
@@ -991,15 +991,15 @@ TEST_CASE(stride2d_bidirectional) {
     
     // Go to end
     for (int i = 0; i < 6; ++i) ++it;
-    ASSERT_TRUE(it == end, "Should be at end");
+    FATP_ASSERT_TRUE(it == end, "Should be at end");
     
     // Walk back
     --it;
-    ASSERT_EQ(*it, 5, "Last element");
+    FATP_ASSERT_EQ(*it, 5, "Last element");
     --it;
-    ASSERT_EQ(*it, 4, "Second-to-last");
+    FATP_ASSERT_EQ(*it, 4, "Second-to-last");
     --it;
-    ASSERT_EQ(*it, 3, "Wrapped to previous row's last element");
+    FATP_ASSERT_EQ(*it, 3, "Wrapped to previous row's last element");
     
     return true;
 }
@@ -1008,7 +1008,7 @@ TEST_CASE(stride2d_bidirectional) {
 // Stride1D/Stride2D Spec Anchor Tests
 // ============================================================================
 
-TEST_CASE(stride1d_decrement_end_yields_last) {
+FATP_TEST_CASE(stride1d_decrement_end_yields_last) {
     // --end should yield the last visited element (bidirectional requirement)
     std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     
@@ -1019,15 +1019,15 @@ TEST_CASE(stride1d_decrement_end_yields_last) {
     auto end = Iter::end(data.data(), data.data() + data.size(), policy);
     
     --end;
-    ASSERT_EQ(*end, 9, "Stride1D --end yields last visited element");
+    FATP_ASSERT_EQ(*end, 9, "Stride1D --end yields last visited element");
     
     --end;
-    ASSERT_EQ(*end, 6, "Second --end yields second-to-last");
+    FATP_ASSERT_EQ(*end, 6, "Second --end yields second-to-last");
     
     return true;
 }
 
-TEST_CASE(stride2d_decrement_end_yields_last) {
+FATP_TEST_CASE(stride2d_decrement_end_yields_last) {
     // --end should yield the last element (bidirectional requirement)
     std::vector<int> data = {0, 1, 2, 3, 4, 5};  // 2x3 matrix
     
@@ -1037,15 +1037,15 @@ TEST_CASE(stride2d_decrement_end_yields_last) {
     auto end = Iter::end(data.data(), data.data() + data.size(), policy);
     
     --end;
-    ASSERT_EQ(*end, 5, "Stride2D --end yields last element");
+    FATP_ASSERT_EQ(*end, 5, "Stride2D --end yields last element");
     
     --end;
-    ASSERT_EQ(*end, 4, "Second --end yields second-to-last");
+    FATP_ASSERT_EQ(*end, 4, "Second --end yields second-to-last");
     
     return true;
 }
 
-TEST_CASE(reverse_iterator_stride1d) {
+FATP_TEST_CASE(reverse_iterator_stride1d) {
     // std::reverse_iterator must work correctly with Stride1DPolicy
     std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     
@@ -1066,7 +1066,7 @@ TEST_CASE(reverse_iterator_stride1d) {
     return check_sequence(result, expected, "Stride1D reverse iteration");
 }
 
-TEST_CASE(reverse_iterator_stride2d) {
+FATP_TEST_CASE(reverse_iterator_stride2d) {
     // std::reverse_iterator must work correctly with Stride2DPolicy
     std::vector<int> data = {0, 1, 2, 3, 4, 5};  // 2x3 matrix
     
@@ -1086,22 +1086,22 @@ TEST_CASE(reverse_iterator_stride2d) {
     return check_sequence(result, expected, "Stride2D reverse iteration");
 }
 
-TEST_CASE(standard_decrement_end_yields_last) {
+FATP_TEST_CASE(standard_decrement_end_yields_last) {
     // --end should yield the last valid element (bidirectional requirement)
     std::vector<int> data = {10, 20, 30, 40, 50};
     
     auto end = PolicyIterator<int>::end(data.data(), data.data() + data.size());
     
     --end;
-    ASSERT_EQ(*end, 50, "Decrementing end should yield last element");
+    FATP_ASSERT_EQ(*end, 50, "Decrementing end should yield last element");
     
     --end;
-    ASSERT_EQ(*end, 40, "Decrementing again should yield second-to-last");
+    FATP_ASSERT_EQ(*end, 40, "Decrementing again should yield second-to-last");
     
     return true;
 }
 
-TEST_CASE(transform_decrement_end_yields_last) {
+FATP_TEST_CASE(transform_decrement_end_yields_last) {
     // --end should yield the last valid element (bidirectional requirement)
     std::vector<int> data = {10, 20, 30, 40, 50};
     
@@ -1112,15 +1112,15 @@ TEST_CASE(transform_decrement_end_yields_last) {
         data.data(), data.data() + data.size(), Policy{}, doubler);
     
     --end;
-    ASSERT_EQ(*end, 100, "Decrementing end should yield last element (doubled)");
+    FATP_ASSERT_EQ(*end, 100, "Decrementing end should yield last element (doubled)");
     
     --end;
-    ASSERT_EQ(*end, 80, "Decrementing again should yield second-to-last (doubled)");
+    FATP_ASSERT_EQ(*end, 80, "Decrementing again should yield second-to-last (doubled)");
     
     return true;
 }
 
-TEST_CASE(reverse_iterator_standard) {
+FATP_TEST_CASE(reverse_iterator_standard) {
     // std::reverse_iterator must work with bidirectional StandardPolicy
     std::vector<int> data = {1, 2, 3, 4, 5};
     
@@ -1139,7 +1139,7 @@ TEST_CASE(reverse_iterator_standard) {
     return check_sequence(result, expected, "Reverse iteration via std::reverse_iterator");
 }
 
-TEST_CASE(reverse_iterator_transform) {
+FATP_TEST_CASE(reverse_iterator_transform) {
     // std::reverse_iterator must work with bidirectional TransformPolicy
     std::vector<int> data = {1, 2, 3, 4, 5};
     
@@ -1167,29 +1167,29 @@ TEST_CASE(reverse_iterator_transform) {
 // TensorIteration.h Composition Helper Tests
 // ============================================================================
 
-TEST_CASE(iterate_nd_1d_basic) {
+FATP_TEST_CASE(iterate_nd_1d_basic) {
     // 1D iteration should work and use Stride1DPolicy internally
     std::vector<int> data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     
     int64_t sum = 0;
     iterateND(data.data(), {10}, {1}, [&](int v) { sum += v; });
     
-    ASSERT_EQ(sum, 55, "1D iterateND sum");
+    FATP_ASSERT_EQ(sum, 55, "1D iterateND sum");
     return true;
 }
 
-TEST_CASE(iterate_nd_1d_strided) {
+FATP_TEST_CASE(iterate_nd_1d_strided) {
     // 1D with stride > 1
     std::vector<int> data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     
     int64_t sum = 0;
     iterateND(data.data(), {5}, {2}, [&](int v) { sum += v; });  // 1,3,5,7,9
     
-    ASSERT_EQ(sum, 25, "1D strided iterateND sum");
+    FATP_ASSERT_EQ(sum, 25, "1D strided iterateND sum");
     return true;
 }
 
-TEST_CASE(iterate_nd_2d_basic) {
+FATP_TEST_CASE(iterate_nd_2d_basic) {
     // 2D iteration should work and use Stride2DPolicy internally
     std::vector<int> data = {
         1, 2, 3,
@@ -1199,11 +1199,11 @@ TEST_CASE(iterate_nd_2d_basic) {
     int64_t sum = 0;
     iterateND(data.data(), {2, 3}, {3, 1}, [&](int v) { sum += v; });
     
-    ASSERT_EQ(sum, 21, "2D iterateND sum");
+    FATP_ASSERT_EQ(sum, 21, "2D iterateND sum");
     return true;
 }
 
-TEST_CASE(iterate_nd_2d_contiguous) {
+FATP_TEST_CASE(iterate_nd_2d_contiguous) {
     // 2D with automatic stride computation
     std::vector<int> data(100);
     std::iota(data.begin(), data.end(), 1);  // 1..100
@@ -1211,11 +1211,11 @@ TEST_CASE(iterate_nd_2d_contiguous) {
     int64_t sum = 0;
     iterateND(data.data(), {10, 10}, [&](int v) { sum += v; });
     
-    ASSERT_EQ(sum, 5050, "2D contiguous iterateND sum");
+    FATP_ASSERT_EQ(sum, 5050, "2D contiguous iterateND sum");
     return true;
 }
 
-TEST_CASE(iterate_nd_3d_basic) {
+FATP_TEST_CASE(iterate_nd_3d_basic) {
     // 3D iteration: outer loop + Stride2DPolicy for inner 2D
     std::vector<int> data(2 * 3 * 4);
     std::iota(data.begin(), data.end(), 1);  // 1..24
@@ -1223,11 +1223,11 @@ TEST_CASE(iterate_nd_3d_basic) {
     int64_t sum = 0;
     iterateND(data.data(), {2, 3, 4}, {12, 4, 1}, [&](int v) { sum += v; });
     
-    ASSERT_EQ(sum, 300, "3D iterateND sum (1+2+...+24 = 300)");
+    FATP_ASSERT_EQ(sum, 300, "3D iterateND sum (1+2+...+24 = 300)");
     return true;
 }
 
-TEST_CASE(iterate_nd_3d_contiguous) {
+FATP_TEST_CASE(iterate_nd_3d_contiguous) {
     // 3D with automatic strides
     std::vector<int> data(2 * 3 * 4);
     std::iota(data.begin(), data.end(), 1);
@@ -1235,11 +1235,11 @@ TEST_CASE(iterate_nd_3d_contiguous) {
     int64_t sum = 0;
     iterateND(data.data(), {2, 3, 4}, [&](int v) { sum += v; });
     
-    ASSERT_EQ(sum, 300, "3D contiguous iterateND sum");
+    FATP_ASSERT_EQ(sum, 300, "3D contiguous iterateND sum");
     return true;
 }
 
-TEST_CASE(iterate_nd_4d_basic) {
+FATP_TEST_CASE(iterate_nd_4d_basic) {
     // 4D iteration: 2 outer loops + Stride2DPolicy for inner 2D
     std::vector<int> data(2 * 2 * 3 * 4);
     std::iota(data.begin(), data.end(), 1);  // 1..48
@@ -1248,11 +1248,11 @@ TEST_CASE(iterate_nd_4d_basic) {
     iterateND(data.data(), {2, 2, 3, 4}, [&](int v) { sum += v; });
     
     // Sum of 1..48 = 48*49/2 = 1176
-    ASSERT_EQ(sum, 1176, "4D iterateND sum");
+    FATP_ASSERT_EQ(sum, 1176, "4D iterateND sum");
     return true;
 }
 
-TEST_CASE(iterate_nd_5d_basic) {
+FATP_TEST_CASE(iterate_nd_5d_basic) {
     // 5D to verify deep recursion works
     std::vector<int> data(2 * 2 * 2 * 3 * 4);
     std::iota(data.begin(), data.end(), 1);  // 1..96
@@ -1261,11 +1261,11 @@ TEST_CASE(iterate_nd_5d_basic) {
     iterateND(data.data(), {2, 2, 2, 3, 4}, [&](int v) { sum += v; });
     
     // Sum of 1..96 = 96*97/2 = 4656
-    ASSERT_EQ(sum, 4656, "5D iterateND sum");
+    FATP_ASSERT_EQ(sum, 4656, "5D iterateND sum");
     return true;
 }
 
-TEST_CASE(iterate_nd_mutation) {
+FATP_TEST_CASE(iterate_nd_mutation) {
     // Verify elements can be mutated
     std::vector<int> data = {1, 2, 3, 4, 5, 6};
     
@@ -1275,18 +1275,18 @@ TEST_CASE(iterate_nd_mutation) {
     return check_sequence(data, expected, "iterateND mutation");
 }
 
-TEST_CASE(reduce_nd_sum) {
+FATP_TEST_CASE(reduce_nd_sum) {
     // Basic reduction
     std::vector<int> data(100);
     std::iota(data.begin(), data.end(), 1);
     
     auto sum = reduceND(data.data(), {10, 10}, int64_t{0}, std::plus<>{});
     
-    ASSERT_EQ(sum, 5050, "reduceND sum");
+    FATP_ASSERT_EQ(sum, 5050, "reduceND sum");
     return true;
 }
 
-TEST_CASE(reduce_nd_max) {
+FATP_TEST_CASE(reduce_nd_max) {
     // Max reduction
     std::vector<int> data = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8};
     
@@ -1294,21 +1294,21 @@ TEST_CASE(reduce_nd_max) {
                            std::numeric_limits<int>::min(),
                            [](int a, int b) { return std::max(a, b); });
     
-    ASSERT_EQ(maxVal, 9, "reduceND max");
+    FATP_ASSERT_EQ(maxVal, 9, "reduceND max");
     return true;
 }
 
-TEST_CASE(reduce_nd_product) {
+FATP_TEST_CASE(reduce_nd_product) {
     // Product reduction
     std::vector<int> data = {1, 2, 3, 4};
     
     auto product = reduceND(data.data(), {2, 2}, 1, std::multiplies<>{});
     
-    ASSERT_EQ(product, 24, "reduceND product");
+    FATP_ASSERT_EQ(product, 24, "reduceND product");
     return true;
 }
 
-TEST_CASE(reduce_nd_3d_strided) {
+FATP_TEST_CASE(reduce_nd_3d_strided) {
     // 3D reduction with explicit strides (padded layout)
     // 2x3x4 logical, but rows padded to 8
     std::vector<int> data(2 * 3 * 8, 0);
@@ -1323,11 +1323,11 @@ TEST_CASE(reduce_nd_3d_strided) {
     
     auto sum = reduceND(data.data(), {2, 3, 4}, {24, 8, 1}, int64_t{0}, std::plus<>{});
     
-    ASSERT_EQ(sum, 300, "reduceND 3D strided sum (1..24)");
+    FATP_ASSERT_EQ(sum, 300, "reduceND 3D strided sum (1..24)");
     return true;
 }
 
-TEST_CASE(transform_nd_negate) {
+FATP_TEST_CASE(transform_nd_negate) {
     // Transform all elements
     std::vector<int> data = {1, 2, 3, 4, 5, 6};
     
@@ -1337,20 +1337,20 @@ TEST_CASE(transform_nd_negate) {
     return check_sequence(data, expected, "transformND negate");
 }
 
-TEST_CASE(transform_nd_scale) {
+FATP_TEST_CASE(transform_nd_scale) {
     // Scale by constant
     std::vector<double> data = {1.0, 2.0, 3.0, 4.0};
     
     transformND(data.data(), {2, 2}, [](double v) { return v * 2.5; });
     
-    ASSERT_EQ(data[0], 2.5, "transformND scale [0]");
-    ASSERT_EQ(data[1], 5.0, "transformND scale [1]");
-    ASSERT_EQ(data[2], 7.5, "transformND scale [2]");
-    ASSERT_EQ(data[3], 10.0, "transformND scale [3]");
+    FATP_ASSERT_EQ(data[0], 2.5, "transformND scale [0]");
+    FATP_ASSERT_EQ(data[1], 5.0, "transformND scale [1]");
+    FATP_ASSERT_EQ(data[2], 7.5, "transformND scale [2]");
+    FATP_ASSERT_EQ(data[3], 10.0, "transformND scale [3]");
     return true;
 }
 
-TEST_CASE(for_each_slice_basic) {
+FATP_TEST_CASE(for_each_slice_basic) {
     // Process each slice of a 3D array
     std::vector<int> data(3 * 4 * 5);
     std::iota(data.begin(), data.end(), 1);  // 1..60
@@ -1362,18 +1362,18 @@ TEST_CASE(for_each_slice_basic) {
             sliceSums.push_back(sum);
         });
     
-    ASSERT_EQ(sliceSums.size(), 3u, "forEachSlice count");
+    FATP_ASSERT_EQ(sliceSums.size(), 3u, "forEachSlice count");
     // Slice 0: 1..20, sum = 210
     // Slice 1: 21..40, sum = 610
     // Slice 2: 41..60, sum = 1010
-    ASSERT_EQ(sliceSums[0], 210, "Slice 0 sum");
-    ASSERT_EQ(sliceSums[1], 610, "Slice 1 sum");
-    ASSERT_EQ(sliceSums[2], 1010, "Slice 2 sum");
+    FATP_ASSERT_EQ(sliceSums[0], 210, "Slice 0 sum");
+    FATP_ASSERT_EQ(sliceSums[1], 610, "Slice 1 sum");
+    FATP_ASSERT_EQ(sliceSums[2], 1010, "Slice 2 sum");
     return true;
 }
 
 #ifndef NDEBUG
-TEST_CASE(iterate_nd_empty_contract) {
+FATP_TEST_CASE(iterate_nd_empty_contract) {
     // Verify empty shape is rejected
     std::vector<int> data = {1};
     
@@ -1384,11 +1384,11 @@ TEST_CASE(iterate_nd_empty_contract) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Empty shape should throw");
+    FATP_ASSERT_TRUE(caught, "Empty shape should throw");
     return true;
 }
 
-TEST_CASE(iterate_nd_mismatch_contract) {
+FATP_TEST_CASE(iterate_nd_mismatch_contract) {
     // Verify shape/stride mismatch is rejected
     std::vector<int> data = {1, 2, 3, 4};
     
@@ -1399,11 +1399,11 @@ TEST_CASE(iterate_nd_mismatch_contract) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Shape/stride mismatch should throw");
+    FATP_ASSERT_TRUE(caught, "Shape/stride mismatch should throw");
     return true;
 }
 
-TEST_CASE(iterate_nd_zero_stride_contract) {
+FATP_TEST_CASE(iterate_nd_zero_stride_contract) {
     // Verify zero stride is rejected (prevents UB in pointer arithmetic)
     std::vector<int> data = {1, 2, 3, 4};
     
@@ -1414,11 +1414,11 @@ TEST_CASE(iterate_nd_zero_stride_contract) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Zero stride should throw");
+    FATP_ASSERT_TRUE(caught, "Zero stride should throw");
     return true;
 }
 
-TEST_CASE(iterate_nd_zero_dim_contract) {
+FATP_TEST_CASE(iterate_nd_zero_dim_contract) {
     // Verify zero dimension is rejected
     std::vector<int> data = {1, 2, 3, 4};
     
@@ -1429,11 +1429,11 @@ TEST_CASE(iterate_nd_zero_dim_contract) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Zero dimension should throw");
+    FATP_ASSERT_TRUE(caught, "Zero dimension should throw");
     return true;
 }
 
-TEST_CASE(for_each_slice_zero_stride_contract) {
+FATP_TEST_CASE(for_each_slice_zero_stride_contract) {
     // Verify forEachSlice rejects zero outer stride
     std::vector<int> data(60);
     
@@ -1445,7 +1445,7 @@ TEST_CASE(for_each_slice_zero_stride_contract) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "forEachSlice with zero stride should throw");
+    FATP_ASSERT_TRUE(caught, "forEachSlice with zero stride should throw");
     return true;
 }
 #endif
@@ -1457,7 +1457,7 @@ TEST_CASE(for_each_slice_zero_stride_contract) {
 // In release builds (NDEBUG), enforce is a no-op, so these tests are skipped.
 
 #ifndef NDEBUG
-TEST_CASE(contract_tensor_advance_past_end) {
+FATP_TEST_CASE(contract_tensor_advance_past_end) {
     // Verify: advancing past end triggers enforce
     std::vector<int> data = {1, 2, 3};
     TensorStridePolicy<int> policy({3});
@@ -1472,11 +1472,11 @@ TEST_CASE(contract_tensor_advance_past_end) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Advancing past end should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Advancing past end should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_tensor_retreat_before_begin) {
+FATP_TEST_CASE(contract_tensor_retreat_before_begin) {
     // Verify: retreating before begin triggers enforce
     std::vector<int> data = {1, 2, 3};
     TensorStridePolicy<int> policy({3});
@@ -1491,11 +1491,11 @@ TEST_CASE(contract_tensor_retreat_before_begin) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Retreating before begin should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Retreating before begin should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_tensor_deref_end) {
+FATP_TEST_CASE(contract_tensor_deref_end) {
     // Verify: dereferencing end iterator triggers enforce
     std::vector<int> data = {1, 2, 3};
     TensorStridePolicy<int> policy({3});
@@ -1510,11 +1510,11 @@ TEST_CASE(contract_tensor_deref_end) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Dereferencing end should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Dereferencing end should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_tensor_offset_at_end) {
+FATP_TEST_CASE(contract_tensor_offset_at_end) {
     // Verify: querying offset at end triggers enforce
     TensorStridePolicy<int> policy({3});
     policy.setToEnd();
@@ -1526,11 +1526,11 @@ TEST_CASE(contract_tensor_offset_at_end) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Offset at end should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Offset at end should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_tensor_indices_at_end) {
+FATP_TEST_CASE(contract_tensor_indices_at_end) {
     // Verify: querying indices at end triggers enforce
     TensorStridePolicy<int> policy({3});
     policy.setToEnd();
@@ -1542,11 +1542,11 @@ TEST_CASE(contract_tensor_indices_at_end) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Indices at end should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Indices at end should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_tensor_empty_shape) {
+FATP_TEST_CASE(contract_tensor_empty_shape) {
     // Verify: empty shape triggers enforce
     bool caught = false;
     try {
@@ -1555,11 +1555,11 @@ TEST_CASE(contract_tensor_empty_shape) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Empty shape should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Empty shape should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_tensor_zero_dimension) {
+FATP_TEST_CASE(contract_tensor_zero_dimension) {
     // Verify: zero dimension triggers enforce
     bool caught = false;
     try {
@@ -1568,11 +1568,11 @@ TEST_CASE(contract_tensor_zero_dimension) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Zero dimension should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Zero dimension should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_tensor_shape_stride_mismatch) {
+FATP_TEST_CASE(contract_tensor_shape_stride_mismatch) {
     // Verify: shape/strides size mismatch triggers enforce
     bool caught = false;
     try {
@@ -1581,11 +1581,11 @@ TEST_CASE(contract_tensor_shape_stride_mismatch) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Shape/stride mismatch should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Shape/stride mismatch should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_stride1d_negative_stride) {
+FATP_TEST_CASE(contract_stride1d_negative_stride) {
     // Verify: negative stride triggers enforce (not supported)
     bool caught = false;
     try {
@@ -1594,11 +1594,11 @@ TEST_CASE(contract_stride1d_negative_stride) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Stride1D negative stride should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Stride1D negative stride should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_stride1d_zero_stride) {
+FATP_TEST_CASE(contract_stride1d_zero_stride) {
     // Verify: zero stride triggers enforce
     bool caught = false;
     try {
@@ -1607,11 +1607,11 @@ TEST_CASE(contract_stride1d_zero_stride) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Stride1D zero stride should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Stride1D zero stride should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_stride2d_negative_stride) {
+FATP_TEST_CASE(contract_stride2d_negative_stride) {
     // Verify: negative stride triggers enforce (not supported)
     bool caught = false;
     try {
@@ -1620,11 +1620,11 @@ TEST_CASE(contract_stride2d_negative_stride) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Stride2D negative stride should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Stride2D negative stride should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_stride2d_non_monotonic) {
+FATP_TEST_CASE(contract_stride2d_non_monotonic) {
     // Verify: non-monotonic stride layout triggers enforce
     // rowStride < cols * colStride means wrapping could revisit addresses
     bool caught = false;
@@ -1634,11 +1634,11 @@ TEST_CASE(contract_stride2d_non_monotonic) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Stride2D non-monotonic layout should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Stride2D non-monotonic layout should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_stride1d_span_mismatch) {
+FATP_TEST_CASE(contract_stride1d_span_mismatch) {
     // Verify: end - base must equal count * stride
     std::vector<int> data(10);  // Span = 10
     
@@ -1655,11 +1655,11 @@ TEST_CASE(contract_stride1d_span_mismatch) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Stride1D span mismatch should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Stride1D span mismatch should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_stride2d_span_mismatch) {
+FATP_TEST_CASE(contract_stride2d_span_mismatch) {
     // Verify: end - base must equal rows * rowStride
     std::vector<int> data(10);  // Span = 10
     
@@ -1676,11 +1676,11 @@ TEST_CASE(contract_stride2d_span_mismatch) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Stride2D span mismatch should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Stride2D span mismatch should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_standard_increment_past_end) {
+FATP_TEST_CASE(contract_standard_increment_past_end) {
     // Verify: standard iterator increment past end triggers enforce
     std::vector<int> data = {1};
     auto it = PolicyIterator<int>::end(data.data(), data.data() + data.size());
@@ -1692,11 +1692,11 @@ TEST_CASE(contract_standard_increment_past_end) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Standard increment past end should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Standard increment past end should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_standard_decrement_before_begin) {
+FATP_TEST_CASE(contract_standard_decrement_before_begin) {
     // Verify: standard iterator decrement before begin triggers enforce
     std::vector<int> data = {1, 2, 3};
     auto it = PolicyIterator<int>::begin(data.data(), data.data() + data.size());
@@ -1708,11 +1708,11 @@ TEST_CASE(contract_standard_decrement_before_begin) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Standard decrement before begin should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Standard decrement before begin should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_standard_deref_end) {
+FATP_TEST_CASE(contract_standard_deref_end) {
     // Verify: dereferencing end iterator triggers enforce
     std::vector<int> data = {1, 2, 3};
     auto it = PolicyIterator<int>::end(data.data(), data.data() + data.size());
@@ -1724,11 +1724,11 @@ TEST_CASE(contract_standard_deref_end) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Standard deref end should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Standard deref end should throw in debug");
     return true;
 }
 
-TEST_CASE(contract_transform_deref_end) {
+FATP_TEST_CASE(contract_transform_deref_end) {
     // Verify: dereferencing transform end iterator triggers enforce
     std::vector<int> data = {1, 2, 3};
     auto doubler = [](const int& x) -> int { return x * 2; };
@@ -1744,7 +1744,7 @@ TEST_CASE(contract_transform_deref_end) {
         caught = true;
     }
     
-    ASSERT_TRUE(caught, "Transform deref end should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Transform deref end should throw in debug");
     return true;
 }
 #endif // NDEBUG
@@ -1753,7 +1753,7 @@ TEST_CASE(contract_transform_deref_end) {
 // 9. Exception Safety Tests
 // ============================================================================
 
-TEST_CASE(throwing_predicate) {
+FATP_TEST_CASE(throwing_predicate) {
     std::vector<int> data = {1, 2, 3, 4, 5};
     
     int call_count = 0;
@@ -1777,15 +1777,15 @@ TEST_CASE(throwing_predicate) {
         }
     } catch (const std::runtime_error& e) {
         caught = true;
-        ASSERT_TRUE(std::string(e.what()).find("Predicate threw") != std::string::npos,
+        FATP_ASSERT_TRUE(std::string(e.what()).find("Predicate threw") != std::string::npos,
                     "Should catch predicate exception");
     }
     
-    ASSERT_TRUE(caught, "Exception should propagate from predicate");
+    FATP_ASSERT_TRUE(caught, "Exception should propagate from predicate");
     return true;
 }
 
-TEST_CASE(throwing_transformer) {
+FATP_TEST_CASE(throwing_transformer) {
     std::vector<int> data = {1, 2, 3};
     
     auto throwing_xform = [](const int& v) -> int {
@@ -1807,11 +1807,11 @@ TEST_CASE(throwing_transformer) {
         }
     } catch (const std::runtime_error& e) {
         caught = true;
-        ASSERT_TRUE(std::string(e.what()).find("Transformer threw") != std::string::npos,
+        FATP_ASSERT_TRUE(std::string(e.what()).find("Transformer threw") != std::string::npos,
                     "Should catch transformer exception");
     }
     
-    ASSERT_TRUE(caught, "Exception should propagate from transformer");
+    FATP_ASSERT_TRUE(caught, "Exception should propagate from transformer");
     return true;
 }
 
@@ -1819,7 +1819,7 @@ TEST_CASE(throwing_transformer) {
 // 10. Fuzz Tests
 // ============================================================================
 
-TEST_CASE(fuzz_standard_iteration) {
+FATP_TEST_CASE(fuzz_standard_iteration) {
     SimpleRng rng(42);
     
     for (int trial = 0; trial < 100; ++trial) {
@@ -1832,16 +1832,16 @@ TEST_CASE(fuzz_standard_iteration) {
         
         int count = 0;
         for (auto it = begin; it != end; ++it) {
-            ASSERT_EQ(*it, count, "Fuzz standard iteration value mismatch");
+            FATP_ASSERT_EQ(*it, count, "Fuzz standard iteration value mismatch");
             ++count;
         }
-        ASSERT_EQ(count, size, "Fuzz standard iteration count mismatch");
+        FATP_ASSERT_EQ(count, size, "Fuzz standard iteration count mismatch");
     }
     
     return true;
 }
 
-TEST_CASE(fuzz_stride_iteration) {
+FATP_TEST_CASE(fuzz_stride_iteration) {
     SimpleRng rng(43);
     
     for (int trial = 0; trial < 100; ++trial) {
@@ -1855,7 +1855,7 @@ TEST_CASE(fuzz_stride_iteration) {
         
         int expected_idx = 0;
         for (auto it = begin; it != end; ++it) {
-            ASSERT_EQ(*it, expected_idx, "Fuzz stride iteration value mismatch");
+            FATP_ASSERT_EQ(*it, expected_idx, "Fuzz stride iteration value mismatch");
             expected_idx += 3;
         }
     }
@@ -1863,7 +1863,7 @@ TEST_CASE(fuzz_stride_iteration) {
     return true;
 }
 
-TEST_CASE(fuzz_filter_iteration) {
+FATP_TEST_CASE(fuzz_filter_iteration) {
     SimpleRng rng(44);
     
     for (int trial = 0; trial < 100; ++trial) {
@@ -1881,7 +1881,7 @@ TEST_CASE(fuzz_filter_iteration) {
         
         int next_expected = 0;
         for (auto it = begin; it != end; ++it) {
-            ASSERT_EQ(*it, next_expected, "Fuzz filter iteration value mismatch");
+            FATP_ASSERT_EQ(*it, next_expected, "Fuzz filter iteration value mismatch");
             next_expected += 2;
         }
     }
@@ -1964,147 +1964,147 @@ bool test_PolicyIterator() {
     
     // Standard Policy
     std::cout << "\n" << colors::blue() << "--- Standard Policy ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, policyiterator, standard_policy_basic);
-    RUN_TEST_NS(runner, policyiterator, standard_policy_bidirectional);
+    FATP_RUN_TEST_NS(runner, policyiterator, standard_policy_basic);
+    FATP_RUN_TEST_NS(runner, policyiterator, standard_policy_bidirectional);
     
     // Stride Policy
     std::cout << "\n" << colors::blue() << "--- Stride Policy ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, policyiterator, stride_policy_basic);
-    RUN_TEST_NS(runner, policyiterator, stride_policy_stride4);
-    RUN_TEST_NS(runner, policyiterator, stride_size_query);
+    FATP_RUN_TEST_NS(runner, policyiterator, stride_policy_basic);
+    FATP_RUN_TEST_NS(runner, policyiterator, stride_policy_stride4);
+    FATP_RUN_TEST_NS(runner, policyiterator, stride_size_query);
     
     // Filter Policy
     std::cout << "\n" << colors::blue() << "--- Filter Policy ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, policyiterator, filtering_policy_even);
-    RUN_TEST_NS(runner, policyiterator, filtering_policy_positive);
+    FATP_RUN_TEST_NS(runner, policyiterator, filtering_policy_even);
+    FATP_RUN_TEST_NS(runner, policyiterator, filtering_policy_positive);
     
     // Transform Policy
     std::cout << "\n" << colors::blue() << "--- Transform Policy ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, policyiterator, transform_policy_double);
-    RUN_TEST_NS(runner, policyiterator, transform_bidirectional);
-    RUN_TEST_NS(runner, policyiterator, transform_type_conversion);
+    FATP_RUN_TEST_NS(runner, policyiterator, transform_policy_double);
+    FATP_RUN_TEST_NS(runner, policyiterator, transform_bidirectional);
+    FATP_RUN_TEST_NS(runner, policyiterator, transform_type_conversion);
     
     // Tensor Stride Policy
     std::cout << "\n" << colors::blue() << "--- Tensor Stride Policy ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, policyiterator, tensor_stride_policy);
-    RUN_TEST_NS(runner, policyiterator, tensor_stride_dims);
-    RUN_TEST_NS(runner, policyiterator, tensor_retreat);
-    RUN_TEST_NS(runner, policyiterator, tensor_row_stride);
-    RUN_TEST_NS(runner, policyiterator, tensor_column_major);
-    RUN_TEST_NS(runner, policyiterator, tensor_indices);
+    FATP_RUN_TEST_NS(runner, policyiterator, tensor_stride_policy);
+    FATP_RUN_TEST_NS(runner, policyiterator, tensor_stride_dims);
+    FATP_RUN_TEST_NS(runner, policyiterator, tensor_retreat);
+    FATP_RUN_TEST_NS(runner, policyiterator, tensor_row_stride);
+    FATP_RUN_TEST_NS(runner, policyiterator, tensor_column_major);
+    FATP_RUN_TEST_NS(runner, policyiterator, tensor_indices);
     
     // Stride1D/Stride2D Policies (Lightweight Specializations)
     std::cout << "\n" << colors::blue() << "--- Stride1D/Stride2D Policies ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, policyiterator, stride1d_basic);
-    RUN_TEST_NS(runner, policyiterator, stride1d_column_sum);
-    RUN_TEST_NS(runner, policyiterator, stride1d_bidirectional);
-    RUN_TEST_NS(runner, policyiterator, stride2d_basic);
-    RUN_TEST_NS(runner, policyiterator, stride2d_single_column);
-    RUN_TEST_NS(runner, policyiterator, stride2d_bidirectional);
-    RUN_TEST_NS(runner, policyiterator, tensor_column_major_traversal_correct);
+    FATP_RUN_TEST_NS(runner, policyiterator, stride1d_basic);
+    FATP_RUN_TEST_NS(runner, policyiterator, stride1d_column_sum);
+    FATP_RUN_TEST_NS(runner, policyiterator, stride1d_bidirectional);
+    FATP_RUN_TEST_NS(runner, policyiterator, stride2d_basic);
+    FATP_RUN_TEST_NS(runner, policyiterator, stride2d_single_column);
+    FATP_RUN_TEST_NS(runner, policyiterator, stride2d_bidirectional);
+    FATP_RUN_TEST_NS(runner, policyiterator, tensor_column_major_traversal_correct);
     
     // Operators and Methods
     std::cout << "\n" << colors::blue() << "--- Operators & Methods ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, policyiterator, post_increment);
-    RUN_TEST_NS(runner, policyiterator, post_decrement);
-    RUN_TEST_NS(runner, policyiterator, operator_arrow);
-    RUN_TEST_NS(runner, policyiterator, get_method);
+    FATP_RUN_TEST_NS(runner, policyiterator, post_increment);
+    FATP_RUN_TEST_NS(runner, policyiterator, post_decrement);
+    FATP_RUN_TEST_NS(runner, policyiterator, operator_arrow);
+    FATP_RUN_TEST_NS(runner, policyiterator, get_method);
     
     // Edge Cases
     std::cout << "\n" << colors::blue() << "--- Edge Cases ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, policyiterator, empty_range);
-    RUN_TEST_NS(runner, policyiterator, single_element);
-    RUN_TEST_NS(runner, policyiterator, stride_exceeds_size);
-    RUN_TEST_NS(runner, policyiterator, filter_matches_none);
-    RUN_TEST_NS(runner, policyiterator, filter_matches_all);
-    RUN_TEST_NS(runner, policyiterator, self_comparison);
-    RUN_TEST_NS(runner, policyiterator, const_data);
+    FATP_RUN_TEST_NS(runner, policyiterator, empty_range);
+    FATP_RUN_TEST_NS(runner, policyiterator, single_element);
+    FATP_RUN_TEST_NS(runner, policyiterator, stride_exceeds_size);
+    FATP_RUN_TEST_NS(runner, policyiterator, filter_matches_none);
+    FATP_RUN_TEST_NS(runner, policyiterator, filter_matches_all);
+    FATP_RUN_TEST_NS(runner, policyiterator, self_comparison);
+    FATP_RUN_TEST_NS(runner, policyiterator, const_data);
     
     // STL Algorithm Compatibility
     std::cout << "\n" << colors::blue() << "--- STL Algorithm Compatibility ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, policyiterator, stl_iterator_category_standard);
-    RUN_TEST_NS(runner, policyiterator, stl_iterator_category_stride);
-    RUN_TEST_NS(runner, policyiterator, stl_iterator_category_filter);
-    RUN_TEST_NS(runner, policyiterator, stl_iterator_category_tensor);
-    RUN_TEST_NS(runner, policyiterator, stl_distance_standard);
-    RUN_TEST_NS(runner, policyiterator, stl_distance_stride);
-    RUN_TEST_NS(runner, policyiterator, stl_distance_tensor);
+    FATP_RUN_TEST_NS(runner, policyiterator, stl_iterator_category_standard);
+    FATP_RUN_TEST_NS(runner, policyiterator, stl_iterator_category_stride);
+    FATP_RUN_TEST_NS(runner, policyiterator, stl_iterator_category_filter);
+    FATP_RUN_TEST_NS(runner, policyiterator, stl_iterator_category_tensor);
+    FATP_RUN_TEST_NS(runner, policyiterator, stl_distance_standard);
+    FATP_RUN_TEST_NS(runner, policyiterator, stl_distance_stride);
+    FATP_RUN_TEST_NS(runner, policyiterator, stl_distance_tensor);
     
     // Spec Anchor Tests
     std::cout << "\n" << colors::blue() << "--- Spec Anchor Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, policyiterator, constructibility_standard_uses_factories);
-    RUN_TEST_NS(runner, policyiterator, constructibility_filter_uses_factories);
-    RUN_TEST_NS(runner, policyiterator, constructibility_transform_uses_factories);
-    RUN_TEST_NS(runner, policyiterator, constructibility_tensor_uses_factories);
-    RUN_TEST_NS(runner, policyiterator, tensor_decrement_end_yields_last);
-    RUN_TEST_NS(runner, policyiterator, tensor_makeRowMajor_helper);
-    RUN_TEST_NS(runner, policyiterator, tensor_padded_layout);
-    RUN_TEST_NS(runner, policyiterator, standard_decrement_end_yields_last);
-    RUN_TEST_NS(runner, policyiterator, transform_decrement_end_yields_last);
-    RUN_TEST_NS(runner, policyiterator, reverse_iterator_standard);
-    RUN_TEST_NS(runner, policyiterator, reverse_iterator_transform);
-    RUN_TEST_NS(runner, policyiterator, stride1d_decrement_end_yields_last);
-    RUN_TEST_NS(runner, policyiterator, stride2d_decrement_end_yields_last);
-    RUN_TEST_NS(runner, policyiterator, reverse_iterator_stride1d);
-    RUN_TEST_NS(runner, policyiterator, reverse_iterator_stride2d);
+    FATP_RUN_TEST_NS(runner, policyiterator, constructibility_standard_uses_factories);
+    FATP_RUN_TEST_NS(runner, policyiterator, constructibility_filter_uses_factories);
+    FATP_RUN_TEST_NS(runner, policyiterator, constructibility_transform_uses_factories);
+    FATP_RUN_TEST_NS(runner, policyiterator, constructibility_tensor_uses_factories);
+    FATP_RUN_TEST_NS(runner, policyiterator, tensor_decrement_end_yields_last);
+    FATP_RUN_TEST_NS(runner, policyiterator, tensor_makeRowMajor_helper);
+    FATP_RUN_TEST_NS(runner, policyiterator, tensor_padded_layout);
+    FATP_RUN_TEST_NS(runner, policyiterator, standard_decrement_end_yields_last);
+    FATP_RUN_TEST_NS(runner, policyiterator, transform_decrement_end_yields_last);
+    FATP_RUN_TEST_NS(runner, policyiterator, reverse_iterator_standard);
+    FATP_RUN_TEST_NS(runner, policyiterator, reverse_iterator_transform);
+    FATP_RUN_TEST_NS(runner, policyiterator, stride1d_decrement_end_yields_last);
+    FATP_RUN_TEST_NS(runner, policyiterator, stride2d_decrement_end_yields_last);
+    FATP_RUN_TEST_NS(runner, policyiterator, reverse_iterator_stride1d);
+    FATP_RUN_TEST_NS(runner, policyiterator, reverse_iterator_stride2d);
     
     // TensorIteration Composition Helpers
     std::cout << "\n" << colors::blue() << "--- TensorIteration Composition Helpers ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, policyiterator, iterate_nd_1d_basic);
-    RUN_TEST_NS(runner, policyiterator, iterate_nd_1d_strided);
-    RUN_TEST_NS(runner, policyiterator, iterate_nd_2d_basic);
-    RUN_TEST_NS(runner, policyiterator, iterate_nd_2d_contiguous);
-    RUN_TEST_NS(runner, policyiterator, iterate_nd_3d_basic);
-    RUN_TEST_NS(runner, policyiterator, iterate_nd_3d_contiguous);
-    RUN_TEST_NS(runner, policyiterator, iterate_nd_4d_basic);
-    RUN_TEST_NS(runner, policyiterator, iterate_nd_5d_basic);
-    RUN_TEST_NS(runner, policyiterator, iterate_nd_mutation);
-    RUN_TEST_NS(runner, policyiterator, reduce_nd_sum);
-    RUN_TEST_NS(runner, policyiterator, reduce_nd_max);
-    RUN_TEST_NS(runner, policyiterator, reduce_nd_product);
-    RUN_TEST_NS(runner, policyiterator, reduce_nd_3d_strided);
-    RUN_TEST_NS(runner, policyiterator, transform_nd_negate);
-    RUN_TEST_NS(runner, policyiterator, transform_nd_scale);
-    RUN_TEST_NS(runner, policyiterator, for_each_slice_basic);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_1d_basic);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_1d_strided);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_2d_basic);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_2d_contiguous);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_3d_basic);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_3d_contiguous);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_4d_basic);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_5d_basic);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_mutation);
+    FATP_RUN_TEST_NS(runner, policyiterator, reduce_nd_sum);
+    FATP_RUN_TEST_NS(runner, policyiterator, reduce_nd_max);
+    FATP_RUN_TEST_NS(runner, policyiterator, reduce_nd_product);
+    FATP_RUN_TEST_NS(runner, policyiterator, reduce_nd_3d_strided);
+    FATP_RUN_TEST_NS(runner, policyiterator, transform_nd_negate);
+    FATP_RUN_TEST_NS(runner, policyiterator, transform_nd_scale);
+    FATP_RUN_TEST_NS(runner, policyiterator, for_each_slice_basic);
     
 #ifndef NDEBUG
     // Contract Violation Tests (debug-only)
     std::cout << "\n" << colors::blue() << "--- Contract Violation Tests (Debug) ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, policyiterator, iterate_nd_empty_contract);
-    RUN_TEST_NS(runner, policyiterator, iterate_nd_mismatch_contract);
-    RUN_TEST_NS(runner, policyiterator, iterate_nd_zero_stride_contract);
-    RUN_TEST_NS(runner, policyiterator, iterate_nd_zero_dim_contract);
-    RUN_TEST_NS(runner, policyiterator, for_each_slice_zero_stride_contract);
-    RUN_TEST_NS(runner, policyiterator, contract_tensor_advance_past_end);
-    RUN_TEST_NS(runner, policyiterator, contract_tensor_retreat_before_begin);
-    RUN_TEST_NS(runner, policyiterator, contract_tensor_deref_end);
-    RUN_TEST_NS(runner, policyiterator, contract_tensor_offset_at_end);
-    RUN_TEST_NS(runner, policyiterator, contract_tensor_indices_at_end);
-    RUN_TEST_NS(runner, policyiterator, contract_tensor_empty_shape);
-    RUN_TEST_NS(runner, policyiterator, contract_tensor_zero_dimension);
-    RUN_TEST_NS(runner, policyiterator, contract_tensor_shape_stride_mismatch);
-    RUN_TEST_NS(runner, policyiterator, contract_stride1d_negative_stride);
-    RUN_TEST_NS(runner, policyiterator, contract_stride1d_zero_stride);
-    RUN_TEST_NS(runner, policyiterator, contract_stride2d_negative_stride);
-    RUN_TEST_NS(runner, policyiterator, contract_stride2d_non_monotonic);
-    RUN_TEST_NS(runner, policyiterator, contract_stride1d_span_mismatch);
-    RUN_TEST_NS(runner, policyiterator, contract_stride2d_span_mismatch);
-    RUN_TEST_NS(runner, policyiterator, contract_standard_increment_past_end);
-    RUN_TEST_NS(runner, policyiterator, contract_standard_decrement_before_begin);
-    RUN_TEST_NS(runner, policyiterator, contract_standard_deref_end);
-    RUN_TEST_NS(runner, policyiterator, contract_transform_deref_end);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_empty_contract);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_mismatch_contract);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_zero_stride_contract);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_zero_dim_contract);
+    FATP_RUN_TEST_NS(runner, policyiterator, for_each_slice_zero_stride_contract);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_tensor_advance_past_end);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_tensor_retreat_before_begin);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_tensor_deref_end);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_tensor_offset_at_end);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_tensor_indices_at_end);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_tensor_empty_shape);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_tensor_zero_dimension);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_tensor_shape_stride_mismatch);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_stride1d_negative_stride);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_stride1d_zero_stride);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_stride2d_negative_stride);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_stride2d_non_monotonic);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_stride1d_span_mismatch);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_stride2d_span_mismatch);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_standard_increment_past_end);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_standard_decrement_before_begin);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_standard_deref_end);
+    FATP_RUN_TEST_NS(runner, policyiterator, contract_transform_deref_end);
 #endif
     
     // Exception Safety
     std::cout << "\n" << colors::blue() << "--- Exception Safety ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, policyiterator, throwing_predicate);
-    RUN_TEST_NS(runner, policyiterator, throwing_transformer);
+    FATP_RUN_TEST_NS(runner, policyiterator, throwing_predicate);
+    FATP_RUN_TEST_NS(runner, policyiterator, throwing_transformer);
     
     // Fuzz Tests
     std::cout << "\n" << colors::blue() << "--- Fuzz Tests ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, policyiterator, fuzz_standard_iteration);
-    RUN_TEST_NS(runner, policyiterator, fuzz_stride_iteration);
-    RUN_TEST_NS(runner, policyiterator, fuzz_filter_iteration);
+    FATP_RUN_TEST_NS(runner, policyiterator, fuzz_standard_iteration);
+    FATP_RUN_TEST_NS(runner, policyiterator, fuzz_stride_iteration);
+    FATP_RUN_TEST_NS(runner, policyiterator, fuzz_filter_iteration);
     
     // Benchmarks
     policyiterator::run_benchmarks();

@@ -43,31 +43,31 @@ namespace fat_p::testing::tensorstorage
 // Basic Tests
 // =============================================================================
 
-TEST_CASE(construction) {
+FATP_TEST_CASE(construction) {
     using Alloc = AlignedAllocator<float, 64>;
     Alloc alloc;
     
     // Default construction
     TensorStorage<float, Alloc> storage1;
-    ASSERT_NULLPTR(storage1.get(), "Default storage should be null");
-    ASSERT_EQ(storage1.use_count(), 0L, "Default storage should have 0 ref count");
-    ASSERT_FALSE(static_cast<bool>(storage1), "Default storage should be falsy");
+    FATP_ASSERT_NULLPTR(storage1.get(), "Default storage should be null");
+    FATP_ASSERT_EQ(storage1.use_count(), 0L, "Default storage should have 0 ref count");
+    FATP_ASSERT_FALSE(static_cast<bool>(storage1), "Default storage should be falsy");
     
     // Construction with data
     float* data = alloc.allocate(10);
     for (int i = 0; i < 10; ++i) data[i] = static_cast<float>(i);
     
     TensorStorage<float, Alloc> storage2(data, 10, alloc);
-    ASSERT_NOT_NULLPTR(storage2.get(), "Storage should not be null");
-    ASSERT_EQ(storage2.use_count(), 1L, "Initial ref count should be 1");
-    ASSERT_TRUE(static_cast<bool>(storage2), "Storage should be truthy");
-    ASSERT_EQ(storage2[0], 0.0f, "First element should be 0");
-    ASSERT_EQ(storage2[9], 9.0f, "Last element should be 9");
+    FATP_ASSERT_NOT_NULLPTR(storage2.get(), "Storage should not be null");
+    FATP_ASSERT_EQ(storage2.use_count(), 1L, "Initial ref count should be 1");
+    FATP_ASSERT_TRUE(static_cast<bool>(storage2), "Storage should be truthy");
+    FATP_ASSERT_EQ(storage2[0], 0.0f, "First element should be 0");
+    FATP_ASSERT_EQ(storage2[9], 9.0f, "Last element should be 9");
     
     return true;
 }
 
-TEST_CASE(copy) {
+FATP_TEST_CASE(copy) {
     using Alloc = AlignedAllocator<double, 64>;
     Alloc alloc;
     
@@ -75,30 +75,30 @@ TEST_CASE(copy) {
     for (int i = 0; i < 5; ++i) data[i] = i * 2.0;
     
     TensorStorage<double, Alloc> storage1(data, 5, alloc);
-    ASSERT_EQ(storage1.use_count(), 1L, "Initial ref count should be 1");
+    FATP_ASSERT_EQ(storage1.use_count(), 1L, "Initial ref count should be 1");
     
     // Copy construction
     TensorStorage<double, Alloc> storage2(storage1);
-    ASSERT_EQ(storage1.use_count(), 2L, "Ref count should be 2 after copy");
-    ASSERT_EQ(storage2.use_count(), 2L, "Copy should share ref count");
-    ASSERT_EQ(storage1.get(), storage2.get(), "Pointers should be same");
-    ASSERT_FALSE(storage1.unique(), "Storage1 should not be unique");
-    ASSERT_FALSE(storage2.unique(), "Storage2 should not be unique");
+    FATP_ASSERT_EQ(storage1.use_count(), 2L, "Ref count should be 2 after copy");
+    FATP_ASSERT_EQ(storage2.use_count(), 2L, "Copy should share ref count");
+    FATP_ASSERT_EQ(storage1.get(), storage2.get(), "Pointers should be same");
+    FATP_ASSERT_FALSE(storage1.unique(), "Storage1 should not be unique");
+    FATP_ASSERT_FALSE(storage2.unique(), "Storage2 should not be unique");
     
     // Copy assignment
     TensorStorage<double, Alloc> storage3;
     storage3 = storage1;
-    ASSERT_EQ(storage1.use_count(), 3L, "Ref count should be 3 after assignment");
-    ASSERT_EQ(storage3.get(), storage1.get(), "Pointers should match");
+    FATP_ASSERT_EQ(storage1.use_count(), 3L, "Ref count should be 3 after assignment");
+    FATP_ASSERT_EQ(storage3.get(), storage1.get(), "Pointers should match");
     
     // Verify data integrity
-    ASSERT_EQ(storage2[2], 4.0, "Data should be accessible through all copies");
-    ASSERT_EQ(storage3[4], 8.0, "Data should be accessible through all copies");
+    FATP_ASSERT_EQ(storage2[2], 4.0, "Data should be accessible through all copies");
+    FATP_ASSERT_EQ(storage3[4], 8.0, "Data should be accessible through all copies");
     
     return true;
 }
 
-TEST_CASE(move) {
+FATP_TEST_CASE(move) {
     using Alloc = AlignedAllocator<int, 32>;
     Alloc alloc;
     
@@ -109,27 +109,27 @@ TEST_CASE(move) {
     
     TensorStorage<int, Alloc> storage1(data, 3, alloc);
     int* original_ptr = storage1.get();
-    ASSERT_EQ(storage1.use_count(), 1L, "Initial ref count should be 1");
+    FATP_ASSERT_EQ(storage1.use_count(), 1L, "Initial ref count should be 1");
     
     // Move construction
     TensorStorage<int, Alloc> storage2(std::move(storage1));
-    ASSERT_NULLPTR(storage1.get(), "Moved-from storage should be null");
-    ASSERT_EQ(storage1.use_count(), 0L, "Moved-from should have 0 ref count");
-    ASSERT_EQ(storage2.get(), original_ptr, "Moved-to should have original pointer");
-    ASSERT_EQ(storage2.use_count(), 1L, "Moved-to should have ref count 1");
-    ASSERT_TRUE(storage2.unique(), "Moved-to should be unique");
+    FATP_ASSERT_NULLPTR(storage1.get(), "Moved-from storage should be null");
+    FATP_ASSERT_EQ(storage1.use_count(), 0L, "Moved-from should have 0 ref count");
+    FATP_ASSERT_EQ(storage2.get(), original_ptr, "Moved-to should have original pointer");
+    FATP_ASSERT_EQ(storage2.use_count(), 1L, "Moved-to should have ref count 1");
+    FATP_ASSERT_TRUE(storage2.unique(), "Moved-to should be unique");
     
     // Move assignment
     TensorStorage<int, Alloc> storage3;
     storage3 = std::move(storage2);
-    ASSERT_NULLPTR(storage2.get(), "Moved-from storage should be null");
-    ASSERT_EQ(storage3.get(), original_ptr, "Moved-to should have original pointer");
-    ASSERT_EQ(storage3[1], 200, "Data should be intact after move");
+    FATP_ASSERT_NULLPTR(storage2.get(), "Moved-from storage should be null");
+    FATP_ASSERT_EQ(storage3.get(), original_ptr, "Moved-to should have original pointer");
+    FATP_ASSERT_EQ(storage3[1], 200, "Data should be intact after move");
     
     return true;
 }
 
-TEST_CASE(reset) {
+FATP_TEST_CASE(reset) {
     using Alloc = AlignedAllocator<float, 64>;
     Alloc alloc;
     
@@ -137,12 +137,12 @@ TEST_CASE(reset) {
     for (int i = 0; i < 4; ++i) data1[i] = static_cast<float>(i);
     
     TensorStorage<float, Alloc> storage(data1, 4, alloc);
-    ASSERT_EQ(storage.use_count(), 1L, "Initial ref count should be 1");
+    FATP_ASSERT_EQ(storage.use_count(), 1L, "Initial ref count should be 1");
     
     // Reset to null
     storage.reset();
-    ASSERT_NULLPTR(storage.get(), "Reset should null the pointer");
-    ASSERT_EQ(storage.use_count(), 0L, "Reset should have 0 ref count");
+    FATP_ASSERT_NULLPTR(storage.get(), "Reset should null the pointer");
+    FATP_ASSERT_EQ(storage.use_count(), 0L, "Reset should have 0 ref count");
     
     // Reset with new data
     float* data2 = alloc.allocate(3);
@@ -151,14 +151,14 @@ TEST_CASE(reset) {
     data2[2] = 30.0f;
     
     storage.reset(data2, 3, alloc);
-    ASSERT_NOT_NULLPTR(storage.get(), "Reset with data should set pointer");
-    ASSERT_EQ(storage.use_count(), 1L, "Reset should have ref count 1");
-    ASSERT_EQ(storage[1], 20.0f, "New data should be accessible");
+    FATP_ASSERT_NOT_NULLPTR(storage.get(), "Reset with data should set pointer");
+    FATP_ASSERT_EQ(storage.use_count(), 1L, "Reset should have ref count 1");
+    FATP_ASSERT_EQ(storage[1], 20.0f, "New data should be accessible");
     
     return true;
 }
 
-TEST_CASE(unique) {
+FATP_TEST_CASE(unique) {
     using Alloc = AlignedAllocator<double, 64>;
     Alloc alloc;
     
@@ -167,14 +167,14 @@ TEST_CASE(unique) {
     data[1] = 2.5;
     
     TensorStorage<double, Alloc> storage1(data, 2, alloc);
-    ASSERT_TRUE(storage1.unique(), "Single owner should be unique");
+    FATP_ASSERT_TRUE(storage1.unique(), "Single owner should be unique");
     
     TensorStorage<double, Alloc> storage2 = storage1;
-    ASSERT_FALSE(storage1.unique(), "Multiple owners should not be unique");
-    ASSERT_FALSE(storage2.unique(), "Multiple owners should not be unique");
+    FATP_ASSERT_FALSE(storage1.unique(), "Multiple owners should not be unique");
+    FATP_ASSERT_FALSE(storage2.unique(), "Multiple owners should not be unique");
     
     storage2.reset();
-    ASSERT_TRUE(storage1.unique(), "After release, should be unique again");
+    FATP_ASSERT_TRUE(storage1.unique(), "After release, should be unique again");
     
     return true;
 }
@@ -183,7 +183,7 @@ TEST_CASE(unique) {
 // Multi-threaded Tests
 // =============================================================================
 
-TEST_CASE(concurrent_copy) {
+FATP_TEST_CASE(concurrent_copy) {
     using Alloc = AlignedAllocator<int, 64>;
     Alloc alloc;
     
@@ -222,17 +222,17 @@ TEST_CASE(concurrent_copy) {
     }
     
     int expected = num_threads * copies_per_thread;
-    ASSERT_EQ(success_count.load(), expected, 
+    FATP_ASSERT_EQ(success_count.load(), expected, 
                  "All concurrent copies should succeed");
     
     // Original should still be valid
-    ASSERT_EQ(original.use_count(), 1L, "Original should be sole owner after threads finish");
-    ASSERT_EQ(original[999], 999, "Original data should be intact");
+    FATP_ASSERT_EQ(original.use_count(), 1L, "Original should be sole owner after threads finish");
+    FATP_ASSERT_EQ(original[999], 999, "Original data should be intact");
     
     return true;
 }
 
-TEST_CASE(concurrent_mixed_ops) {
+FATP_TEST_CASE(concurrent_mixed_ops) {
     using Alloc = AlignedAllocator<float, 64>;
     Alloc alloc;
     
@@ -275,8 +275,8 @@ TEST_CASE(concurrent_mixed_ops) {
         thread.join();
     }
     
-    ASSERT_FALSE(error_flag.load(), "No data corruption should occur");
-    ASSERT_EQ(shared.use_count(), 1L, "Shared should be sole owner after test");
+    FATP_ASSERT_FALSE(error_flag.load(), "No data corruption should occur");
+    FATP_ASSERT_EQ(shared.use_count(), 1L, "Shared should be sole owner after test");
     
     return true;
 }
@@ -348,19 +348,19 @@ namespace fat_p::testing
 {
 
 bool test_TensorStorage() {
-    PRINT_HEADER(TENSOR STORAGE)
+    FATP_PRINT_HEADER(TENSOR STORAGE)
     
     TestRunner runner;
     
-    RUN_TEST_NS(runner, tensorstorage, construction);
-    RUN_TEST_NS(runner, tensorstorage, copy);
-    RUN_TEST_NS(runner, tensorstorage, move);
-    RUN_TEST_NS(runner, tensorstorage, reset);
-    RUN_TEST_NS(runner, tensorstorage, unique);
+    FATP_RUN_TEST_NS(runner, tensorstorage, construction);
+    FATP_RUN_TEST_NS(runner, tensorstorage, copy);
+    FATP_RUN_TEST_NS(runner, tensorstorage, move);
+    FATP_RUN_TEST_NS(runner, tensorstorage, reset);
+    FATP_RUN_TEST_NS(runner, tensorstorage, unique);
     
     // Multi-threaded tests
-    RUN_TEST_NS(runner, tensorstorage, concurrent_copy);
-    RUN_TEST_NS(runner, tensorstorage, concurrent_mixed_ops);
+    FATP_RUN_TEST_NS(runner, tensorstorage, concurrent_copy);
+    FATP_RUN_TEST_NS(runner, tensorstorage, concurrent_mixed_ops);
     
     tensorstorage::benchmark_tensor_storage();
     

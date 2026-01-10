@@ -8,7 +8,7 @@ FATP_META:
   component: RateLimiter
   file_role: test
   path: tests/test_RateLimiter.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::ratelimiter
   summary: "Unit tests for RateLimiter."
   related:
     docs_search: "RateLimiter"
@@ -33,24 +33,24 @@ FATP_META:
 #include "RateLimiter.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing
+namespace fat_p::testing::ratelimiter
 {
 
-bool test_token_bucket_basic() {
+FATP_TEST_CASE(token_bucket_basic) {
     TokenBucketRateLimiter limiter(10.0, 10.0);  // 10 tokens/sec, capacity 10
     
     // Should have initial tokens
     for (int i = 0; i < 10; ++i) {
-        ASSERT_TRUE(limiter.try_acquire(), "Should acquire initial tokens");
+        FATP_ASSERT_TRUE(limiter.try_acquire(), "Should acquire initial tokens");
     }
     
     // Should be exhausted
-    ASSERT_TRUE(!limiter.try_acquire(), "Should be rate limited");
+    FATP_ASSERT_TRUE(!limiter.try_acquire(), "Should be rate limited");
     
     return true;
 }
 
-bool test_token_bucket_refill() {
+FATP_TEST_CASE(token_bucket_refill) {
     TokenBucketRateLimiter limiter(100.0, 10.0);  // Fast refill
     
     // Exhaust tokens
@@ -62,47 +62,47 @@ bool test_token_bucket_refill() {
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // Should have refilled
-    ASSERT_TRUE(limiter.try_acquire(), "Should refill over time");
+    FATP_ASSERT_TRUE(limiter.try_acquire(), "Should refill over time");
     
     return true;
 }
 
-bool test_sliding_window() {
+FATP_TEST_CASE(sliding_window) {
     SlidingWindowRateLimiter limiter(5, std::chrono::seconds(1));
     
     // Should allow up to 5 requests
     for (int i = 0; i < 5; ++i) {
-        ASSERT_TRUE(limiter.try_acquire(), "Should allow requests up to limit");
+        FATP_ASSERT_TRUE(limiter.try_acquire(), "Should allow requests up to limit");
     }
     
     // Should deny 6th request
-    ASSERT_TRUE(!limiter.try_acquire(), "Should deny beyond limit");
+    FATP_ASSERT_TRUE(!limiter.try_acquire(), "Should deny beyond limit");
     
     // Wait for window to slide
     std::this_thread::sleep_for(std::chrono::milliseconds(1100));
     
     // Should allow new requests
-    ASSERT_TRUE(limiter.try_acquire(), "Should allow after window slides");
+    FATP_ASSERT_TRUE(limiter.try_acquire(), "Should allow after window slides");
     
     return true;
 }
 
-bool test_leaky_bucket() {
+FATP_TEST_CASE(leaky_bucket) {
     LeakyBucketRateLimiter limiter(10.0, 10);  // 10 req/sec, capacity 10
     
     // Fill bucket
     for (int i = 0; i < 10; ++i) {
-        ASSERT_TRUE(limiter.try_acquire(), "Should fill bucket");
+        FATP_ASSERT_TRUE(limiter.try_acquire(), "Should fill bucket");
     }
     
     // Should be full
-    ASSERT_TRUE(!limiter.try_acquire(), "Bucket should be full");
+    FATP_ASSERT_TRUE(!limiter.try_acquire(), "Bucket should be full");
     
     // Wait for leak
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // Should have space now
-    ASSERT_TRUE(limiter.try_acquire(), "Bucket should have leaked");
+    FATP_ASSERT_TRUE(limiter.try_acquire(), "Bucket should have leaked");
     
     return true;
 }
@@ -129,18 +129,23 @@ void benchmark_rate_limiters() {
     }
 }
 
+} // namespace fat_p::testing::ratelimiter
+
+namespace fat_p::testing
+{
+
 bool test_RateLimiter() {
 
-    PRINT_HEADER(RATE LIMITER)
+    FATP_PRINT_HEADER(RATE LIMITER)
 
     TestRunner runner;
 
-    RUN_TEST(runner, token_bucket_basic);
-    RUN_TEST(runner, token_bucket_refill);
-    RUN_TEST(runner, sliding_window);
-    RUN_TEST(runner, leaky_bucket);
+    FATP_RUN_TEST_NS(runner, ratelimiter, token_bucket_basic);
+    FATP_RUN_TEST_NS(runner, ratelimiter, token_bucket_refill);
+    FATP_RUN_TEST_NS(runner, ratelimiter, sliding_window);
+    FATP_RUN_TEST_NS(runner, ratelimiter, leaky_bucket);
 
-    benchmark_rate_limiters();
+    ratelimiter::benchmark_rate_limiters();
 
     return 0 == runner.print_summary();
 }

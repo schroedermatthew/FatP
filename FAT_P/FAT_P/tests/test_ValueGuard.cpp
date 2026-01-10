@@ -215,49 +215,49 @@ public:
 // Test Suite 1: Basic Functionality - Copy Policy
 // =============================================================================
 
-TEST_CASE(basic_copy_restoration) {
+FATP_TEST_CASE(basic_copy_restoration) {
     int value = 42;
     
     {
         ValueGuard guard(value, 100);
-        ASSERT_EQ(value, 100, "Value changed to new value");
+        FATP_ASSERT_EQ(value, 100, "Value changed to new value");
     }
     
-    ASSERT_EQ(value, 42, "Value restored to original");
+    FATP_ASSERT_EQ(value, 42, "Value restored to original");
     return true;
 }
 
-TEST_CASE(basic_copy_with_string) {
+FATP_TEST_CASE(basic_copy_with_string) {
     std::string str = "original";
     
     {
         ValueGuard guard(str, std::string("temporary"));
-        ASSERT_EQ(str, "temporary", "String changed to new value");
+        FATP_ASSERT_EQ(str, "temporary", "String changed to new value");
     }
     
-    ASSERT_EQ(str, "original", "String restored to original");
+    FATP_ASSERT_EQ(str, "original", "String restored to original");
     return true;
 }
 
-TEST_CASE(copy_policy_explicit) {
+FATP_TEST_CASE(copy_policy_explicit) {
     double value = 3.14;
     
     {
         ValueGuard<double, ValueGuardCopyPolicy<double>> guard(value, 2.71);
-        ASSERT_EQ(value, 2.71, "Value changed");
+        FATP_ASSERT_EQ(value, 2.71, "Value changed");
     }
     
-    ASSERT_EQ(value, 3.14, "Value restored");
+    FATP_ASSERT_EQ(value, 3.14, "Value restored");
     return true;
 }
 
-TEST_CASE(introspection_original) {
+FATP_TEST_CASE(introspection_original) {
     int value = 42;
     
     ValueGuard guard(value, 100);
-    ASSERT_EQ(guard.original(), 42, "Original value accessible");
-    ASSERT_EQ(guard.current(), 100, "Current value accessible");
-    ASSERT_TRUE(guard.is_active(), "Guard is active");
+    FATP_ASSERT_EQ(guard.original(), 42, "Original value accessible");
+    FATP_ASSERT_EQ(guard.current(), 100, "Current value accessible");
+    FATP_ASSERT_TRUE(guard.is_active(), "Guard is active");
     
     return true;
 }
@@ -266,19 +266,19 @@ TEST_CASE(introspection_original) {
 // Test Suite 2: Move Policy
 // =============================================================================
 
-TEST_CASE(basic_move_restoration) {
+FATP_TEST_CASE(basic_move_restoration) {
     std::string str = "original";
     
     {
         ValueGuard guard(str, std::string("temporary"));
-        ASSERT_EQ(str, "temporary", "Value moved to new value");
+        FATP_ASSERT_EQ(str, "temporary", "Value moved to new value");
     }
     
-    ASSERT_EQ(str, "original", "Value restored");
+    FATP_ASSERT_EQ(str, "original", "Value restored");
     return true;
 }
 
-TEST_CASE(move_policy_explicit) {
+FATP_TEST_CASE(move_policy_explicit) {
     std::unique_ptr<int> ptr = std::make_unique<int>(42);
     int* original_addr = ptr.get();
     
@@ -286,19 +286,19 @@ TEST_CASE(move_policy_explicit) {
         ValueGuard<std::unique_ptr<int>, ValueGuardMovePolicy<std::unique_ptr<int>>> 
             guard(ptr, std::make_unique<int>(100));
         
-        ASSERT_TRUE(ptr != nullptr, "Ptr has new value");
-        ASSERT_EQ(*ptr, 100, "New value is 100");
-        ASSERT_NE(ptr.get(), original_addr, "Pointer changed");
+        FATP_ASSERT_TRUE(ptr != nullptr, "Ptr has new value");
+        FATP_ASSERT_EQ(*ptr, 100, "New value is 100");
+        FATP_ASSERT_NE(ptr.get(), original_addr, "Pointer changed");
     }
     
-    ASSERT_TRUE(ptr != nullptr, "Ptr restored");
-    ASSERT_EQ(ptr.get(), original_addr, "Original pointer restored");
-    ASSERT_EQ(*ptr, 42, "Original value restored");
+    FATP_ASSERT_TRUE(ptr != nullptr, "Ptr restored");
+    FATP_ASSERT_EQ(ptr.get(), original_addr, "Original pointer restored");
+    FATP_ASSERT_EQ(*ptr, 42, "Original value restored");
     
     return true;
 }
 
-TEST_CASE(move_only_type) {
+FATP_TEST_CASE(move_only_type) {
     MoveOnly::reset_counters();
     
     MoveOnly obj(42);
@@ -307,22 +307,22 @@ TEST_CASE(move_only_type) {
         ValueGuard<MoveOnly, ValueGuardMovePolicy<MoveOnly>> 
             guard(obj, MoveOnly(100));
         
-        ASSERT_EQ(obj.value, 100, "Value changed");
+        FATP_ASSERT_EQ(obj.value, 100, "Value changed");
     }
     
-    ASSERT_EQ(obj.value, 42, "Value restored for move-only type");
+    FATP_ASSERT_EQ(obj.value, 42, "Value restored for move-only type");
     return true;
 }
 
-TEST_CASE(factory_move) {
+FATP_TEST_CASE(factory_move) {
     std::string str = "original";
     
     {
         auto guard = make_value_guard_move(str, std::string("temporary"));
-        ASSERT_EQ(str, "temporary", "Value moved to new value");
+        FATP_ASSERT_EQ(str, "temporary", "Value moved to new value");
     }
     
-    ASSERT_EQ(str, "original", "Value restored");
+    FATP_ASSERT_EQ(str, "original", "Value restored");
     return true;
 }
 
@@ -330,27 +330,27 @@ TEST_CASE(factory_move) {
 // Test Suite 3: NoRestore Policy
 // =============================================================================
 
-TEST_CASE(no_restore_policy) {
+FATP_TEST_CASE(no_restore_policy) {
     int value = 42;
     
     {
         ValueGuard<int, ValueGuardNoRestorePolicy<int>> guard(value, 100);
-        ASSERT_EQ(value, 100, "Value changed");
+        FATP_ASSERT_EQ(value, 100, "Value changed");
     }
     
-    ASSERT_EQ(value, 100, "Value NOT restored (NoRestore policy)");
+    FATP_ASSERT_EQ(value, 100, "Value NOT restored (NoRestore policy)");
     return true;
 }
 
-TEST_CASE(no_restore_factory) {
+FATP_TEST_CASE(no_restore_factory) {
     int value = 42;
     
     {
         auto guard = make_value_guard_no_restore(value, 100);
-        ASSERT_EQ(value, 100, "Value changed");
+        FATP_ASSERT_EQ(value, 100, "Value changed");
     }
     
-    ASSERT_EQ(value, 100, "Value NOT restored (NoRestore policy via factory)");
+    FATP_ASSERT_EQ(value, 100, "Value NOT restored (NoRestore policy via factory)");
     return true;
 }
 
@@ -358,44 +358,44 @@ TEST_CASE(no_restore_factory) {
 // Test Suite 4: Conditional Policy
 // =============================================================================
 
-TEST_CASE(conditional_restore_true) {
+FATP_TEST_CASE(conditional_restore_true) {
     int value = 42;
     
     {
         auto guard = make_value_guard_conditional(value, 100, []() { return true; });
-        ASSERT_EQ(value, 100, "Value changed");
+        FATP_ASSERT_EQ(value, 100, "Value changed");
     }
     
-    ASSERT_EQ(value, 42, "Value restored (condition true)");
+    FATP_ASSERT_EQ(value, 42, "Value restored (condition true)");
     return true;
 }
 
-TEST_CASE(conditional_restore_false) {
+FATP_TEST_CASE(conditional_restore_false) {
     int value = 42;
     
     {
         auto guard = make_value_guard_conditional(value, 100, []() { return false; });
-        ASSERT_EQ(value, 100, "Value changed");
+        FATP_ASSERT_EQ(value, 100, "Value changed");
     }
     
-    ASSERT_EQ(value, 100, "Value NOT restored (condition false)");
+    FATP_ASSERT_EQ(value, 100, "Value NOT restored (condition false)");
     return true;
 }
 
-TEST_CASE(conditional_dynamic_decision) {
+FATP_TEST_CASE(conditional_dynamic_decision) {
     int value = 42;
     bool should_restore = true;
     
     {
         auto guard = make_value_guard_conditional(value, 100, 
             [&should_restore]() { return should_restore; });
-        ASSERT_EQ(value, 100, "Value changed");
+        FATP_ASSERT_EQ(value, 100, "Value changed");
         
         // Decide not to restore mid-scope
         should_restore = false;
     }
     
-    ASSERT_EQ(value, 100, "Value NOT restored (dynamic decision)");
+    FATP_ASSERT_EQ(value, 100, "Value NOT restored (dynamic decision)");
     return true;
 }
 
@@ -403,7 +403,7 @@ TEST_CASE(conditional_dynamic_decision) {
 // Test Suite 5: Custom Policy
 // =============================================================================
 
-TEST_CASE(custom_restorer) {
+FATP_TEST_CASE(custom_restorer) {
     int value = 42;
     bool restorer_called = false;
     
@@ -413,15 +413,15 @@ TEST_CASE(custom_restorer) {
                 restorer_called = true;
                 target = original + 1;  // Custom logic: restore + 1
             });
-        ASSERT_EQ(value, 100, "Value changed");
+        FATP_ASSERT_EQ(value, 100, "Value changed");
     }
     
-    ASSERT_TRUE(restorer_called, "Custom restorer was called");
-    ASSERT_EQ(value, 43, "Value restored with custom logic (+1)");
+    FATP_ASSERT_TRUE(restorer_called, "Custom restorer was called");
+    FATP_ASSERT_EQ(value, 43, "Value restored with custom logic (+1)");
     return true;
 }
 
-TEST_CASE(custom_restorer_with_logging) {
+FATP_TEST_CASE(custom_restorer_with_logging) {
     std::string value = "original";
     std::vector<std::string> log;
     
@@ -431,16 +431,16 @@ TEST_CASE(custom_restorer_with_logging) {
                 log.push_back("Restoring from '" + target + "' to '" + original + "'");
                 target = std::move(original);
             });
-        ASSERT_EQ(value, "temporary", "Value changed");
+        FATP_ASSERT_EQ(value, "temporary", "Value changed");
     }
     
-    ASSERT_EQ(value, "original", "Value restored");
-    ASSERT_EQ(log.size(), 1u, "One log entry");
-    ASSERT_TRUE(log[0].find("Restoring from") != std::string::npos, "Log entry correct");
+    FATP_ASSERT_EQ(value, "original", "Value restored");
+    FATP_ASSERT_EQ(log.size(), 1u, "One log entry");
+    FATP_ASSERT_TRUE(log[0].find("Restoring from") != std::string::npos, "Log entry correct");
     return true;
 }
 
-TEST_CASE(custom_restorer_incremental) {
+FATP_TEST_CASE(custom_restorer_incremental) {
     int counter = 0;
     
     {
@@ -448,10 +448,10 @@ TEST_CASE(custom_restorer_incremental) {
             [](int& target, int&& /*original*/) {
                 target--;  // Decrement instead of full restore
             });
-        ASSERT_EQ(counter, 10, "Counter set to 10");
+        FATP_ASSERT_EQ(counter, 10, "Counter set to 10");
     }
     
-    ASSERT_EQ(counter, 9, "Counter decremented by custom restorer");
+    FATP_ASSERT_EQ(counter, 9, "Counter decremented by custom restorer");
     return true;
 }
 
@@ -459,28 +459,28 @@ TEST_CASE(custom_restorer_incremental) {
 // Test Suite 6: Early Release
 // =============================================================================
 
-TEST_CASE(release_basic) {
+FATP_TEST_CASE(release_basic) {
     int value = 42;
     
     {
         ValueGuard guard(value, 100);
-        ASSERT_EQ(value, 100, "Value changed");
+        FATP_ASSERT_EQ(value, 100, "Value changed");
         
         guard.release();
-        ASSERT_FALSE(guard.is_active(), "Guard released");
+        FATP_ASSERT_FALSE(guard.is_active(), "Guard released");
     }
     
-    ASSERT_EQ(value, 100, "Value NOT restored (released)");
+    FATP_ASSERT_EQ(value, 100, "Value NOT restored (released)");
     return true;
 }
 
-TEST_CASE(release_conditional) {
+FATP_TEST_CASE(release_conditional) {
     int value = 42;
     bool operation_succeeded = false;
     
     {
         ValueGuard guard(value, 100);
-        ASSERT_EQ(value, 100, "Value changed");
+        FATP_ASSERT_EQ(value, 100, "Value changed");
         
         // Simulate successful operation
         operation_succeeded = true;
@@ -490,7 +490,7 @@ TEST_CASE(release_conditional) {
         }
     }
     
-    ASSERT_EQ(value, 100, "Value kept (operation succeeded, released)");
+    FATP_ASSERT_EQ(value, 100, "Value kept (operation succeeded, released)");
     return true;
 }
 
@@ -498,22 +498,22 @@ TEST_CASE(release_conditional) {
 // Test Suite 7: Move Semantics of Guard
 // =============================================================================
 
-TEST_CASE(guard_move_constructor) {
+FATP_TEST_CASE(guard_move_constructor) {
     int value = 42;
     
     {
         ValueGuard guard1(value, 100);
-        ASSERT_EQ(value, 100, "Value changed");
+        FATP_ASSERT_EQ(value, 100, "Value changed");
         
         ValueGuard guard2(std::move(guard1));
         
-        ASSERT_FALSE(guard1.is_active(), "Guard1 inactive after move");
-        ASSERT_TRUE(guard2.is_active(), "Guard2 active after move");
+        FATP_ASSERT_FALSE(guard1.is_active(), "Guard1 inactive after move");
+        FATP_ASSERT_TRUE(guard2.is_active(), "Guard2 active after move");
         
-        ASSERT_EQ(value, 100, "Value still changed");
+        FATP_ASSERT_EQ(value, 100, "Value still changed");
     }
     
-    ASSERT_EQ(value, 42, "Value restored by moved guard");
+    FATP_ASSERT_EQ(value, 42, "Value restored by moved guard");
     return true;
 }
 
@@ -528,7 +528,7 @@ TEST_CASE(guard_move_constructor) {
  * - Then guard2 takes ownership of value1
  * - On scope exit, guard2 restores value1 to 42
  */
-TEST_CASE(guard_move_assignment) {
+FATP_TEST_CASE(guard_move_assignment) {
     int value1 = 42;
     int value2 = 99;
     
@@ -539,16 +539,16 @@ TEST_CASE(guard_move_assignment) {
         // CRITICAL: This must restore value2 to 99 before taking value1
         guard2 = std::move(guard1);
         
-        ASSERT_FALSE(guard1.is_active(), "Guard1 inactive after move assign");
-        ASSERT_TRUE(guard2.is_active(), "Guard2 active after move assign");
+        FATP_ASSERT_FALSE(guard1.is_active(), "Guard1 inactive after move assign");
+        FATP_ASSERT_TRUE(guard2.is_active(), "Guard2 active after move assign");
         
         // value2 should be IMMEDIATELY restored when guard2 is reassigned
-        ASSERT_EQ(value2, 99, "value2 restored immediately on reassignment");
+        FATP_ASSERT_EQ(value2, 99, "value2 restored immediately on reassignment");
     }
     
     // Final state: value1 restored by guard2, value2 already restored
-    ASSERT_EQ(value1, 42, "value1 restored by guard2");
-    ASSERT_EQ(value2, 99, "value2 was restored during reassignment");
+    FATP_ASSERT_EQ(value1, 42, "value1 restored by guard2");
+    FATP_ASSERT_EQ(value2, 99, "value2 was restored during reassignment");
     
     return true;
 }
@@ -556,25 +556,25 @@ TEST_CASE(guard_move_assignment) {
 /**
  * @brief Tests that self-move-assignment is a no-op
  */
-TEST_CASE(self_move_assignment) {
+FATP_TEST_CASE(self_move_assignment) {
     int value = 42;
     
     {
         ValueGuard guard(value, 100);
-        ASSERT_EQ(value, 100, "Value changed");
+        FATP_ASSERT_EQ(value, 100, "Value changed");
         
         // Self-move-assignment should be a no-op
         guard = std::move(guard);
         
-        ASSERT_TRUE(guard.is_active(), "Guard still active after self-move");
-        ASSERT_EQ(value, 100, "Value unchanged after self-move");
+        FATP_ASSERT_TRUE(guard.is_active(), "Guard still active after self-move");
+        FATP_ASSERT_EQ(value, 100, "Value unchanged after self-move");
     }
     
-    ASSERT_EQ(value, 42, "Value restored normally");
+    FATP_ASSERT_EQ(value, 42, "Value restored normally");
     return true;
 }
 
-TEST_CASE(guard_in_vector) {
+FATP_TEST_CASE(guard_in_vector) {
     int value = 42;
     
     std::vector<ValueGuard<int, ValueGuardCopyPolicy<int>>> guards;
@@ -582,17 +582,17 @@ TEST_CASE(guard_in_vector) {
     
     {
         ValueGuard<int, ValueGuardCopyPolicy<int>> guard(value, 100);
-        ASSERT_EQ(value, 100, "Value changed");
+        FATP_ASSERT_EQ(value, 100, "Value changed");
         
         guards.push_back(std::move(guard));
-        ASSERT_FALSE(guard.is_active(), "Original guard inactive");
+        FATP_ASSERT_FALSE(guard.is_active(), "Original guard inactive");
     }
     
-    ASSERT_EQ(value, 100, "Value still changed (guard in vector)");
+    FATP_ASSERT_EQ(value, 100, "Value still changed (guard in vector)");
     
     guards.clear();
     
-    ASSERT_EQ(value, 42, "Value restored after vector cleared");
+    FATP_ASSERT_EQ(value, 42, "Value restored after vector cleared");
     return true;
 }
 
@@ -600,7 +600,7 @@ TEST_CASE(guard_in_vector) {
 // Test Suite 8: Swap Operations
 // =============================================================================
 
-TEST_CASE(swap_member) {
+FATP_TEST_CASE(swap_member) {
     int value1 = 42;
     int value2 = 99;
     
@@ -610,18 +610,18 @@ TEST_CASE(swap_member) {
         
         guard1.swap(guard2);
         
-        ASSERT_EQ(value1, 100, "Value1 still modified");
-        ASSERT_EQ(value2, 200, "Value2 still modified");
+        FATP_ASSERT_EQ(value1, 100, "Value1 still modified");
+        FATP_ASSERT_EQ(value2, 200, "Value2 still modified");
     }
     
     // After swap: guard1 manages value2 (restores to 99), guard2 manages value1 (restores to 42)
-    ASSERT_EQ(value1, 42, "Value1 restored by swapped guard2");
-    ASSERT_EQ(value2, 99, "Value2 restored by swapped guard1");
+    FATP_ASSERT_EQ(value1, 42, "Value1 restored by swapped guard2");
+    FATP_ASSERT_EQ(value2, 99, "Value2 restored by swapped guard1");
     
     return true;
 }
 
-TEST_CASE(swap_std) {
+FATP_TEST_CASE(swap_std) {
     int value1 = 42;
     int value2 = 99;
     
@@ -632,12 +632,12 @@ TEST_CASE(swap_std) {
         using std::swap;
         swap(guard1, guard2);
         
-        ASSERT_EQ(value1, 100, "Value1 still modified");
-        ASSERT_EQ(value2, 200, "Value2 still modified");
+        FATP_ASSERT_EQ(value1, 100, "Value1 still modified");
+        FATP_ASSERT_EQ(value2, 200, "Value2 still modified");
     }
     
-    ASSERT_EQ(value1, 42, "Value1 restored by swapped guard");
-    ASSERT_EQ(value2, 99, "Value2 restored by swapped guard");
+    FATP_ASSERT_EQ(value1, 42, "Value1 restored by swapped guard");
+    FATP_ASSERT_EQ(value2, 99, "Value2 restored by swapped guard");
     
     return true;
 }
@@ -650,7 +650,7 @@ TEST_CASE(swap_std) {
  * - g1 (originally active for b) becomes inactive (was g2's state)
  * - g2 (originally inactive) becomes active for a
  */
-TEST_CASE(swap_with_released) {
+FATP_TEST_CASE(swap_with_released) {
     int a = 10;
     int b = 20;
     
@@ -659,21 +659,21 @@ TEST_CASE(swap_with_released) {
         ValueGuard g2(b, 200);   // b: 20 -> 200, active
         
         g2.release();           // g2 now inactive
-        ASSERT_FALSE(g2.is_active(), "g2 released");
+        FATP_ASSERT_FALSE(g2.is_active(), "g2 released");
         
         g1.swap(g2);            // Exchange ALL state
         
         // After swap:
         // g1: manages b, but is now INACTIVE (was g2's state)
         // g2: manages a, and is ACTIVE (was g1's state)
-        ASSERT_FALSE(g1.is_active(), "g1 inactive after swap (was g2's state)");
-        ASSERT_TRUE(g2.is_active(), "g2 active after swap (was g1's state)");
+        FATP_ASSERT_FALSE(g1.is_active(), "g1 inactive after swap (was g2's state)");
+        FATP_ASSERT_TRUE(g2.is_active(), "g2 active after swap (was g1's state)");
     }
     
     // g1 destructs: inactive, no restore -> b stays at 200
     // g2 destructs: active, restores a -> a = 10
-    ASSERT_EQ(a, 10, "a restored (g2 was active after swap)");
-    ASSERT_EQ(b, 200, "b NOT restored (g1 was inactive after swap)");
+    FATP_ASSERT_EQ(a, 10, "a restored (g2 was active after swap)");
+    FATP_ASSERT_EQ(b, 200, "b NOT restored (g1 was inactive after swap)");
     
     return true;
 }
@@ -682,40 +682,40 @@ TEST_CASE(swap_with_released) {
 // Test Suite 9: Exception Safety
 // =============================================================================
 
-TEST_CASE(exception_during_mutation) {
+FATP_TEST_CASE(exception_during_mutation) {
     int value = 42;
     bool exception_caught = false;
     
     try {
         ValueGuard guard(value, 100);
-        ASSERT_EQ(value, 100, "Value changed");
+        FATP_ASSERT_EQ(value, 100, "Value changed");
         
         throw std::runtime_error("Test exception");
     } catch (const std::exception&) {
         exception_caught = true;
     }
     
-    ASSERT_TRUE(exception_caught, "Exception caught");
-    ASSERT_EQ(value, 42, "Value restored despite exception");
+    FATP_ASSERT_TRUE(exception_caught, "Exception caught");
+    FATP_ASSERT_EQ(value, 42, "Value restored despite exception");
     
     return true;
 }
 
-TEST_CASE(exception_safety_with_move) {
+FATP_TEST_CASE(exception_safety_with_move) {
     std::string str = "original";
     bool exception_caught = false;
     
     try {
         ValueGuard guard(str, std::string("temporary"));
-        ASSERT_EQ(str, "temporary", "String changed");
+        FATP_ASSERT_EQ(str, "temporary", "String changed");
         
         throw std::runtime_error("Test exception");
     } catch (const std::exception&) {
         exception_caught = true;
     }
     
-    ASSERT_TRUE(exception_caught, "Exception caught");
-    ASSERT_EQ(str, "original", "String restored despite exception");
+    FATP_ASSERT_TRUE(exception_caught, "Exception caught");
+    FATP_ASSERT_EQ(str, "original", "String restored despite exception");
     
     return true;
 }
@@ -726,7 +726,7 @@ TEST_CASE(exception_safety_with_move) {
  * If assignment to target throws during construction, the target
  * should be restored to its original state (not left moved-from).
  */
-TEST_CASE(constructor_exception_safety) {
+FATP_TEST_CASE(constructor_exception_safety) {
     // throw_countdown=1: throws on first assignment, allows recovery assignment
     ThrowOnAssign target(42, 1);
     bool exception_caught = false;
@@ -737,26 +737,26 @@ TEST_CASE(constructor_exception_safety) {
         ValueGuard<ThrowOnAssign, ValueGuardMovePolicy<ThrowOnAssign>> 
             guard(target, ThrowOnAssign(100, 0));
         
-        ASSERT_TRUE(false, "Should have thrown");
+        FATP_ASSERT_TRUE(false, "Should have thrown");
     } catch (const std::runtime_error&) {
         exception_caught = true;
     }
     
-    ASSERT_TRUE(exception_caught, "Exception caught from constructor");
+    FATP_ASSERT_TRUE(exception_caught, "Exception caught from constructor");
     // Target should be restored, not left in moved-from state
-    ASSERT_EQ(target.value, 42, "Target restored after constructor exception");
+    FATP_ASSERT_EQ(target.value, 42, "Target restored after constructor exception");
     
     return true;
 }
 
-TEST_CASE(no_throw_guarantee_copy) {
+FATP_TEST_CASE(no_throw_guarantee_copy) {
     // CopyPolicy with nothrow copy-assignable type
     static_assert(ValueGuardCopyPolicy<int>::is_nothrow_restore,
                   "CopyPolicy<int> should be nothrow");
     return true;
 }
 
-TEST_CASE(no_throw_guarantee_move) {
+FATP_TEST_CASE(no_throw_guarantee_move) {
     // MovePolicy with nothrow move-assignable type
     static_assert(ValueGuardMovePolicy<int>::is_nothrow_restore,
                   "MovePolicy<int> should be nothrow");
@@ -767,41 +767,41 @@ TEST_CASE(no_throw_guarantee_move) {
 // Test Suite 10: Deduction Guides
 // =============================================================================
 
-TEST_CASE(deduction_guide_copy) {
+FATP_TEST_CASE(deduction_guide_copy) {
     int value = 42;
     const int new_val = 100;
     
     {
         ValueGuard guard(value, new_val);  // Should use CopyPolicy
-        ASSERT_EQ(value, 100, "Value changed");
+        FATP_ASSERT_EQ(value, 100, "Value changed");
     }
     
-    ASSERT_EQ(value, 42, "Value restored");
+    FATP_ASSERT_EQ(value, 42, "Value restored");
     return true;
 }
 
-TEST_CASE(deduction_guide_move) {
+FATP_TEST_CASE(deduction_guide_move) {
     std::string str = "original";
     
     {
         ValueGuard guard(str, std::string("temporary"));  // Should use MovePolicy
-        ASSERT_EQ(str, "temporary", "String changed");
+        FATP_ASSERT_EQ(str, "temporary", "String changed");
     }
     
-    ASSERT_EQ(str, "original", "String restored");
+    FATP_ASSERT_EQ(str, "original", "String restored");
     return true;
 }
 
-TEST_CASE(deduction_guide_custom) {
+FATP_TEST_CASE(deduction_guide_custom) {
     int value = 42;
     
     {
         // 2-arg callable -> CustomPolicy (NOT ConditionalPolicy)
         ValueGuard guard(value, 100, [](int& t, int&& o) { t = o; });
-        ASSERT_EQ(value, 100, "Value changed");
+        FATP_ASSERT_EQ(value, 100, "Value changed");
     }
     
-    ASSERT_EQ(value, 42, "Value restored");
+    FATP_ASSERT_EQ(value, 42, "Value restored");
     return true;
 }
 
@@ -812,7 +812,7 @@ TEST_CASE(deduction_guide_custom) {
  * - 2-arg callable (T&, T&&) -> CustomPolicy
  * - 0-arg callable () -> bool -> ConditionalPolicy
  */
-TEST_CASE(deduction_guide_disambiguation) {
+FATP_TEST_CASE(deduction_guide_disambiguation) {
     int value = 42;
     
     // Test 1: 2-arg callable should select CustomPolicy
@@ -820,9 +820,9 @@ TEST_CASE(deduction_guide_disambiguation) {
         ValueGuard guard1(value, 100, [](int& target, int&& original) {
             target = original + 1;  // Custom restore logic
         });
-        ASSERT_EQ(value, 100, "Custom: value changed");
+        FATP_ASSERT_EQ(value, 100, "Custom: value changed");
     }
-    ASSERT_EQ(value, 43, "Custom: restored with +1");
+    FATP_ASSERT_EQ(value, 43, "Custom: restored with +1");
     
     // Reset
     value = 42;
@@ -831,9 +831,9 @@ TEST_CASE(deduction_guide_disambiguation) {
     {
         bool do_restore = true;
         ValueGuard guard2(value, 100, [&do_restore]() { return do_restore; });
-        ASSERT_EQ(value, 100, "Conditional: value changed");
+        FATP_ASSERT_EQ(value, 100, "Conditional: value changed");
     }
-    ASSERT_EQ(value, 42, "Conditional: restored (condition true)");
+    FATP_ASSERT_EQ(value, 42, "Conditional: restored (condition true)");
     
     return true;
 }
@@ -842,63 +842,63 @@ TEST_CASE(deduction_guide_disambiguation) {
 // Test Suite 11: Integration Patterns
 // =============================================================================
 
-TEST_CASE(nested_guards) {
+FATP_TEST_CASE(nested_guards) {
     int outer = 1;
     int inner = 2;
     
     {
         ValueGuard guard_outer(outer, 10);
-        ASSERT_EQ(outer, 10, "Outer changed");
+        FATP_ASSERT_EQ(outer, 10, "Outer changed");
         
         {
             ValueGuard guard_inner(inner, 20);
-            ASSERT_EQ(inner, 20, "Inner changed");
+            FATP_ASSERT_EQ(inner, 20, "Inner changed");
         }
         
-        ASSERT_EQ(inner, 2, "Inner restored");
-        ASSERT_EQ(outer, 10, "Outer still changed");
+        FATP_ASSERT_EQ(inner, 2, "Inner restored");
+        FATP_ASSERT_EQ(outer, 10, "Outer still changed");
     }
     
-    ASSERT_EQ(outer, 1, "Outer restored");
-    ASSERT_EQ(inner, 2, "Inner still restored");
+    FATP_ASSERT_EQ(outer, 1, "Outer restored");
+    FATP_ASSERT_EQ(inner, 2, "Inner still restored");
     
     return true;
 }
 
-TEST_CASE(multiple_guards_same_value) {
+FATP_TEST_CASE(multiple_guards_same_value) {
     int value = 1;
     
     {
         ValueGuard guard1(value, 10);  // 1 -> 10, will restore to 1
-        ASSERT_EQ(value, 10, "First guard changed");
+        FATP_ASSERT_EQ(value, 10, "First guard changed");
         
         {
             ValueGuard guard2(value, 100);  // 10 -> 100, will restore to 10
-            ASSERT_EQ(value, 100, "Second guard changed");
+            FATP_ASSERT_EQ(value, 100, "Second guard changed");
         }
         
-        ASSERT_EQ(value, 10, "Second guard restored to 10");
+        FATP_ASSERT_EQ(value, 10, "Second guard restored to 10");
     }
     
-    ASSERT_EQ(value, 1, "First guard restored to 1");
+    FATP_ASSERT_EQ(value, 1, "First guard restored to 1");
     return true;
 }
 
-TEST_CASE(guard_with_flag_toggle) {
+FATP_TEST_CASE(guard_with_flag_toggle) {
     bool debug_mode = false;
     
     {
         ValueGuard guard(debug_mode, true);
-        ASSERT_TRUE(debug_mode, "Debug mode enabled");
+        FATP_ASSERT_TRUE(debug_mode, "Debug mode enabled");
         
         // ... do debug work ...
     }
     
-    ASSERT_FALSE(debug_mode, "Debug mode disabled");
+    FATP_ASSERT_FALSE(debug_mode, "Debug mode disabled");
     return true;
 }
 
-TEST_CASE(guard_with_counter) {
+FATP_TEST_CASE(guard_with_counter) {
     int recursion_depth = 0;
     
     auto recursive_func = [&recursion_depth](auto& self, int n) -> int {
@@ -910,24 +910,24 @@ TEST_CASE(guard_with_counter) {
     
     int result = recursive_func(recursive_func, 5);
     
-    ASSERT_EQ(result, 120, "Factorial calculated correctly");
-    ASSERT_EQ(recursion_depth, 0, "Recursion depth restored");
+    FATP_ASSERT_EQ(result, 120, "Factorial calculated correctly");
+    FATP_ASSERT_EQ(recursion_depth, 0, "Recursion depth restored");
     
     return true;
 }
 
-TEST_CASE(raii_pattern_file_mode) {
+FATP_TEST_CASE(raii_pattern_file_mode) {
     enum class FileMode { Read, Write, Append };
     FileMode mode = FileMode::Read;
     
     {
         ValueGuard guard(mode, FileMode::Write);
-        ASSERT_TRUE(mode == FileMode::Write, "Mode changed to Write");
+        FATP_ASSERT_TRUE(mode == FileMode::Write, "Mode changed to Write");
         
         // ... write operations ...
     }
     
-    ASSERT_TRUE(mode == FileMode::Read, "Mode restored to Read");
+    FATP_ASSERT_TRUE(mode == FileMode::Read, "Mode restored to Read");
     return true;
 }
 
@@ -935,7 +935,7 @@ TEST_CASE(raii_pattern_file_mode) {
 // Test Suite 12: Edge Cases
 // =============================================================================
 
-TEST_CASE(self_assignment_prevention) {
+FATP_TEST_CASE(self_assignment_prevention) {
     int value = 42;
     
     {
@@ -944,45 +944,45 @@ TEST_CASE(self_assignment_prevention) {
         // Self-assignment should be a no-op
         guard = std::move(guard);
         
-        ASSERT_TRUE(guard.is_active(), "Guard still active");
-        ASSERT_EQ(value, 100, "Value unchanged");
+        FATP_ASSERT_TRUE(guard.is_active(), "Guard still active");
+        FATP_ASSERT_EQ(value, 100, "Value unchanged");
     }
     
-    ASSERT_EQ(value, 42, "Value restored");
+    FATP_ASSERT_EQ(value, 42, "Value restored");
     return true;
 }
 
-TEST_CASE(multiple_release_calls) {
+FATP_TEST_CASE(multiple_release_calls) {
     int value = 42;
     
     {
         ValueGuard guard(value, 100);
         
         guard.release();
-        ASSERT_FALSE(guard.is_active(), "Guard inactive");
+        FATP_ASSERT_FALSE(guard.is_active(), "Guard inactive");
         
         guard.release();  // Should be safe to call again
-        ASSERT_FALSE(guard.is_active(), "Guard still inactive");
+        FATP_ASSERT_FALSE(guard.is_active(), "Guard still inactive");
     }
     
-    ASSERT_EQ(value, 100, "Value not restored (released)");
+    FATP_ASSERT_EQ(value, 100, "Value not restored (released)");
     return true;
 }
 
 struct EmptyStruct {};
 
-TEST_CASE(zero_sized_type) {
+FATP_TEST_CASE(zero_sized_type) {
     EmptyStruct obj;
     
     {
         ValueGuard<EmptyStruct, ValueGuardCopyPolicy<EmptyStruct>> guard(obj, EmptyStruct{});
-        ASSERT_TRUE(guard.is_active(), "Guard active for empty struct");
+        FATP_ASSERT_TRUE(guard.is_active(), "Guard active for empty struct");
     }
     
     return true;
 }
 
-TEST_CASE(large_type) {
+FATP_TEST_CASE(large_type) {
     std::array<int, 1000> large_array;
     large_array.fill(42);
     
@@ -991,12 +991,12 @@ TEST_CASE(large_type) {
         new_array.fill(100);
         
         ValueGuard guard(large_array, new_array);
-        ASSERT_EQ(large_array[0], 100, "Large array changed");
-        ASSERT_EQ(large_array[999], 100, "Large array end changed");
+        FATP_ASSERT_EQ(large_array[0], 100, "Large array changed");
+        FATP_ASSERT_EQ(large_array[999], 100, "Large array end changed");
     }
     
-    ASSERT_EQ(large_array[0], 42, "Large array restored");
-    ASSERT_EQ(large_array[999], 42, "Large array end restored");
+    FATP_ASSERT_EQ(large_array[0], 42, "Large array restored");
+    FATP_ASSERT_EQ(large_array[999], 42, "Large array end restored");
     
     return true;
 }
@@ -1005,7 +1005,7 @@ TEST_CASE(large_type) {
 // Test Suite 13: Lifecycle Tracking
 // =============================================================================
 
-TEST_CASE(lifecycle_copy_counts) {
+FATP_TEST_CASE(lifecycle_copy_counts) {
     LifecycleTracker::reset_counters();
     
     LifecycleTracker obj(42);
@@ -1013,21 +1013,21 @@ TEST_CASE(lifecycle_copy_counts) {
     
     {
         ValueGuard guard(obj, new_val);
-        ASSERT_EQ(obj.value, 100, "Value changed");
+        FATP_ASSERT_EQ(obj.value, 100, "Value changed");
     }
     
-    ASSERT_EQ(obj.value, 42, "Value restored");
+    FATP_ASSERT_EQ(obj.value, 42, "Value restored");
     
     // Verify lifecycle events
-    ASSERT_TRUE(LifecycleTracker::copy_construct_count > 0, 
+    FATP_ASSERT_TRUE(LifecycleTracker::copy_construct_count > 0, 
                 "Copy construction occurred");
-    ASSERT_TRUE(LifecycleTracker::copy_assign_count > 0, 
+    FATP_ASSERT_TRUE(LifecycleTracker::copy_assign_count > 0, 
                 "Copy assignment occurred");
     
     return true;
 }
 
-TEST_CASE(lifecycle_move_counts) {
+FATP_TEST_CASE(lifecycle_move_counts) {
     LifecycleTracker::reset_counters();
     
     LifecycleTracker obj(42);
@@ -1035,13 +1035,13 @@ TEST_CASE(lifecycle_move_counts) {
     {
         ValueGuard<LifecycleTracker, ValueGuardMovePolicy<LifecycleTracker>> 
             guard(obj, LifecycleTracker(100));
-        ASSERT_EQ(obj.value, 100, "Value changed");
+        FATP_ASSERT_EQ(obj.value, 100, "Value changed");
     }
     
-    ASSERT_EQ(obj.value, 42, "Value restored");
+    FATP_ASSERT_EQ(obj.value, 42, "Value restored");
     
     // Verify move operations were used
-    ASSERT_TRUE(LifecycleTracker::move_assign_count > 0, 
+    FATP_ASSERT_TRUE(LifecycleTracker::move_assign_count > 0, 
                 "Move assignment occurred");
     
     return true;
@@ -1146,7 +1146,7 @@ void benchmark_value_guard() {
 // Performance Tests (validation, not benchmarking)
 // =============================================================================
 
-TEST_CASE(performance_copy_policy) {
+FATP_TEST_CASE(performance_copy_policy) {
     int value = 42;
     constexpr int ITERATIONS = 10000;
     
@@ -1155,11 +1155,11 @@ TEST_CASE(performance_copy_policy) {
         DoNotOptimize(value);
     }
     
-    ASSERT_EQ(value, 42, "Value restored after many iterations");
+    FATP_ASSERT_EQ(value, 42, "Value restored after many iterations");
     return true;
 }
 
-TEST_CASE(performance_move_policy) {
+FATP_TEST_CASE(performance_move_policy) {
     std::string str = "original";
     constexpr int ITERATIONS = 10000;
     
@@ -1168,11 +1168,11 @@ TEST_CASE(performance_move_policy) {
         DoNotOptimize(str);
     }
     
-    ASSERT_EQ(str, "original", "String restored after many iterations");
+    FATP_ASSERT_EQ(str, "original", "String restored after many iterations");
     return true;
 }
 
-TEST_CASE(performance_custom_policy) {
+FATP_TEST_CASE(performance_custom_policy) {
     int value = 42;
     constexpr int ITERATIONS = 10000;
     
@@ -1182,7 +1182,7 @@ TEST_CASE(performance_custom_policy) {
         DoNotOptimize(value);
     }
     
-    ASSERT_EQ(value, 42, "Value restored after many custom iterations");
+    FATP_ASSERT_EQ(value, 42, "Value restored after many custom iterations");
     return true;
 }
 
@@ -1196,7 +1196,7 @@ namespace fat_p::testing {
 
 bool test_ValueGuard() {
 
-    PRINT_HEADER(VALUE GUARD v2.4)
+    FATP_PRINT_HEADER(VALUE GUARD v2.4)
 
     TestRunner runner;
     auto& out = *get_test_config().output; 
@@ -1204,106 +1204,106 @@ bool test_ValueGuard() {
     // Test Suite 1: Basic Copy Policy
     out << colors::bold() << "=== Test Suite 1: Basic Copy Policy ===" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, value_guard, basic_copy_restoration);
-    RUN_TEST_NS(runner, value_guard, basic_copy_with_string);
-    RUN_TEST_NS(runner, value_guard, copy_policy_explicit);
-    RUN_TEST_NS(runner, value_guard, introspection_original);
+    FATP_RUN_TEST_NS(runner, value_guard, basic_copy_restoration);
+    FATP_RUN_TEST_NS(runner, value_guard, basic_copy_with_string);
+    FATP_RUN_TEST_NS(runner, value_guard, copy_policy_explicit);
+    FATP_RUN_TEST_NS(runner, value_guard, introspection_original);
     
     // Test Suite 2: Move Policy
     out << "\n" << colors::bold() << "=== Test Suite 2: Move Policy ===" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, value_guard, basic_move_restoration);
-    RUN_TEST_NS(runner, value_guard, move_policy_explicit);
-    RUN_TEST_NS(runner, value_guard, move_only_type);
-    RUN_TEST_NS(runner, value_guard, factory_move);
+    FATP_RUN_TEST_NS(runner, value_guard, basic_move_restoration);
+    FATP_RUN_TEST_NS(runner, value_guard, move_policy_explicit);
+    FATP_RUN_TEST_NS(runner, value_guard, move_only_type);
+    FATP_RUN_TEST_NS(runner, value_guard, factory_move);
     
     // Test Suite 3: NoRestore Policy
     out << "\n" << colors::bold() << "=== Test Suite 3: NoRestore Policy ===" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, value_guard, no_restore_policy);
-    RUN_TEST_NS(runner, value_guard, no_restore_factory);
+    FATP_RUN_TEST_NS(runner, value_guard, no_restore_policy);
+    FATP_RUN_TEST_NS(runner, value_guard, no_restore_factory);
     
     // Test Suite 4: Conditional Policy
     out << "\n" << colors::bold() << "=== Test Suite 4: Conditional Policy ===" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, value_guard, conditional_restore_true);
-    RUN_TEST_NS(runner, value_guard, conditional_restore_false);
-    RUN_TEST_NS(runner, value_guard, conditional_dynamic_decision);
+    FATP_RUN_TEST_NS(runner, value_guard, conditional_restore_true);
+    FATP_RUN_TEST_NS(runner, value_guard, conditional_restore_false);
+    FATP_RUN_TEST_NS(runner, value_guard, conditional_dynamic_decision);
     
     // Test Suite 5: Custom Policy
     out << "\n" << colors::bold() << "=== Test Suite 5: Custom Policy ===" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, value_guard, custom_restorer);
-    RUN_TEST_NS(runner, value_guard, custom_restorer_with_logging);
-    RUN_TEST_NS(runner, value_guard, custom_restorer_incremental);
+    FATP_RUN_TEST_NS(runner, value_guard, custom_restorer);
+    FATP_RUN_TEST_NS(runner, value_guard, custom_restorer_with_logging);
+    FATP_RUN_TEST_NS(runner, value_guard, custom_restorer_incremental);
     
     // Test Suite 6: Early Release
     out << "\n" << colors::bold() << "=== Test Suite 6: Early Release ===" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, value_guard, release_basic);
-    RUN_TEST_NS(runner, value_guard, release_conditional);
+    FATP_RUN_TEST_NS(runner, value_guard, release_basic);
+    FATP_RUN_TEST_NS(runner, value_guard, release_conditional);
     
     // Test Suite 7: Move Semantics of Guard
     out << "\n" << colors::bold() << "=== Test Suite 7: Guard Move Semantics ===" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, value_guard, guard_move_constructor);
-    RUN_TEST_NS(runner, value_guard, guard_move_assignment);
-    RUN_TEST_NS(runner, value_guard, self_move_assignment);
-    RUN_TEST_NS(runner, value_guard, guard_in_vector);
+    FATP_RUN_TEST_NS(runner, value_guard, guard_move_constructor);
+    FATP_RUN_TEST_NS(runner, value_guard, guard_move_assignment);
+    FATP_RUN_TEST_NS(runner, value_guard, self_move_assignment);
+    FATP_RUN_TEST_NS(runner, value_guard, guard_in_vector);
     
     // Test Suite 8: Swap Operations
     out << "\n" << colors::bold() << "=== Test Suite 8: Swap Operations ===" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, value_guard, swap_member);
-    RUN_TEST_NS(runner, value_guard, swap_std);
-    RUN_TEST_NS(runner, value_guard, swap_with_released);
+    FATP_RUN_TEST_NS(runner, value_guard, swap_member);
+    FATP_RUN_TEST_NS(runner, value_guard, swap_std);
+    FATP_RUN_TEST_NS(runner, value_guard, swap_with_released);
     
     // Test Suite 9: Exception Safety
     out << "\n" << colors::bold() << "=== Test Suite 9: Exception Safety ===" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, value_guard, exception_during_mutation);
-    RUN_TEST_NS(runner, value_guard, exception_safety_with_move);
-    RUN_TEST_NS(runner, value_guard, constructor_exception_safety);
-    RUN_TEST_NS(runner, value_guard, no_throw_guarantee_copy);
-    RUN_TEST_NS(runner, value_guard, no_throw_guarantee_move);
+    FATP_RUN_TEST_NS(runner, value_guard, exception_during_mutation);
+    FATP_RUN_TEST_NS(runner, value_guard, exception_safety_with_move);
+    FATP_RUN_TEST_NS(runner, value_guard, constructor_exception_safety);
+    FATP_RUN_TEST_NS(runner, value_guard, no_throw_guarantee_copy);
+    FATP_RUN_TEST_NS(runner, value_guard, no_throw_guarantee_move);
     
     // Test Suite 10: Deduction Guides
     out << "\n" << colors::bold() << "=== Test Suite 10: Deduction Guides ===" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, value_guard, deduction_guide_copy);
-    RUN_TEST_NS(runner, value_guard, deduction_guide_move);
-    RUN_TEST_NS(runner, value_guard, deduction_guide_custom);
-    RUN_TEST_NS(runner, value_guard, deduction_guide_disambiguation);
+    FATP_RUN_TEST_NS(runner, value_guard, deduction_guide_copy);
+    FATP_RUN_TEST_NS(runner, value_guard, deduction_guide_move);
+    FATP_RUN_TEST_NS(runner, value_guard, deduction_guide_custom);
+    FATP_RUN_TEST_NS(runner, value_guard, deduction_guide_disambiguation);
     
     // Test Suite 11: Integration Patterns
     out << "\n" << colors::bold() << "=== Test Suite 11: Integration Patterns ===" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, value_guard, nested_guards);
-    RUN_TEST_NS(runner, value_guard, multiple_guards_same_value);
-    RUN_TEST_NS(runner, value_guard, guard_with_flag_toggle);
-    RUN_TEST_NS(runner, value_guard, guard_with_counter);
-    RUN_TEST_NS(runner, value_guard, raii_pattern_file_mode);
+    FATP_RUN_TEST_NS(runner, value_guard, nested_guards);
+    FATP_RUN_TEST_NS(runner, value_guard, multiple_guards_same_value);
+    FATP_RUN_TEST_NS(runner, value_guard, guard_with_flag_toggle);
+    FATP_RUN_TEST_NS(runner, value_guard, guard_with_counter);
+    FATP_RUN_TEST_NS(runner, value_guard, raii_pattern_file_mode);
     
     // Test Suite 12: Edge Cases
     out << "\n" << colors::bold() << "=== Test Suite 12: Edge Cases ===" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, value_guard, self_assignment_prevention);
-    RUN_TEST_NS(runner, value_guard, multiple_release_calls);
-    RUN_TEST_NS(runner, value_guard, zero_sized_type);
-    RUN_TEST_NS(runner, value_guard, large_type);
+    FATP_RUN_TEST_NS(runner, value_guard, self_assignment_prevention);
+    FATP_RUN_TEST_NS(runner, value_guard, multiple_release_calls);
+    FATP_RUN_TEST_NS(runner, value_guard, zero_sized_type);
+    FATP_RUN_TEST_NS(runner, value_guard, large_type);
     
     // Test Suite 13: Lifecycle Tracking
     out << "\n" << colors::bold() << "=== Test Suite 13: Lifecycle Tracking ===" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, value_guard, lifecycle_copy_counts);
-    RUN_TEST_NS(runner, value_guard, lifecycle_move_counts);
+    FATP_RUN_TEST_NS(runner, value_guard, lifecycle_copy_counts);
+    FATP_RUN_TEST_NS(runner, value_guard, lifecycle_move_counts);
     
     // Test Suite 14: Performance Validation
     out << "\n" << colors::bold() << "=== Test Suite 14: Performance Validation ===" 
         << colors::reset() << "\n";
-    RUN_TEST_NS(runner, value_guard, performance_copy_policy);
-    RUN_TEST_NS(runner, value_guard, performance_move_policy);
-    RUN_TEST_NS(runner, value_guard, performance_custom_policy);
+    FATP_RUN_TEST_NS(runner, value_guard, performance_copy_policy);
+    FATP_RUN_TEST_NS(runner, value_guard, performance_move_policy);
+    FATP_RUN_TEST_NS(runner, value_guard, performance_custom_policy);
     
     // Optionally run benchmarks
 #ifndef NDEBUG

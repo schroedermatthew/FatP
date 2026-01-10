@@ -18,7 +18,7 @@ FATP_META:
   component: ObjectPool
   file_role: test
   path: tests/test_ObjectPool.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::objectpool
   summary: "Unit tests for ObjectPool."
   related:
     docs_search: "ObjectPool"
@@ -47,7 +47,7 @@ FATP_META:
 #include "ObjectPool.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing
+namespace fat_p::testing::objectpool
 {
 
 // ============================================================================
@@ -109,20 +109,20 @@ static_assert(std::is_trivially_destructible_v<TrivialObject>);
 // Core Operation Tests
 // ============================================================================
 
-bool test_object_pool_basic_acquire_release()
+FATP_TEST_CASE(basic_acquire_release)
 {
     ObjectPool<TestObject> pool(4);
 
     TestObject* obj = pool.acquire(42);
-    ASSERT_TRUE(obj != nullptr, "Should acquire object");
-    ASSERT_TRUE(obj->value == 42, "Object should be initialized with value");
+    FATP_ASSERT_TRUE(obj != nullptr, "Should acquire object");
+    FATP_ASSERT_TRUE(obj->value == 42, "Object should be initialized with value");
 
     pool.release(obj);
 
     return true;
 }
 
-bool test_object_pool_reuse()
+FATP_TEST_CASE(reuse)
 {
     TestObject::reset();
 
@@ -135,12 +135,12 @@ bool test_object_pool_reuse()
     pool.release(obj2);
 
     // Should reuse memory (same address)
-    ASSERT_TRUE(obj1 == obj2, "Should reuse released object memory");
+    FATP_ASSERT_TRUE(obj1 == obj2, "Should reuse released object memory");
 
     return true;
 }
 
-bool test_object_pool_multiple_acquire()
+FATP_TEST_CASE(multiple_acquire)
 {
     ObjectPool<TestObject> pool(4);
 
@@ -150,8 +150,8 @@ bool test_object_pool_multiple_acquire()
         objects.push_back(pool.acquire(i));
     }
 
-    ASSERT_TRUE(objects.size() == 10, "Should acquire 10 objects");
-    ASSERT_TRUE(pool.num_blocks() >= 2, "Should allocate multiple blocks");
+    FATP_ASSERT_TRUE(objects.size() == 10, "Should acquire 10 objects");
+    FATP_ASSERT_TRUE(pool.num_blocks() >= 2, "Should allocate multiple blocks");
 
     for (auto* obj : objects)
     {
@@ -161,12 +161,12 @@ bool test_object_pool_multiple_acquire()
     return true;
 }
 
-bool test_object_pool_block_growth()
+FATP_TEST_CASE(block_growth)
 {
     ObjectPool<TestObject> pool(4);
 
-    ASSERT_TRUE(pool.num_blocks() == 1, "Should start with 1 block");
-    ASSERT_TRUE(pool.capacity() == 4, "Initial capacity should be block_size");
+    FATP_ASSERT_TRUE(pool.num_blocks() == 1, "Should start with 1 block");
+    FATP_ASSERT_TRUE(pool.capacity() == 4, "Initial capacity should be block_size");
 
     std::vector<TestObject*> objects;
     for (int i = 0; i < 10; ++i)
@@ -174,8 +174,8 @@ bool test_object_pool_block_growth()
         objects.push_back(pool.acquire(i));
     }
 
-    ASSERT_TRUE(pool.num_blocks() >= 3, "Should grow to multiple blocks");
-    ASSERT_TRUE(pool.capacity() >= 12, "Capacity should grow with blocks");
+    FATP_ASSERT_TRUE(pool.num_blocks() >= 3, "Should grow to multiple blocks");
+    FATP_ASSERT_TRUE(pool.capacity() >= 12, "Capacity should grow with blocks");
 
     for (auto* obj : objects)
     {
@@ -185,12 +185,12 @@ bool test_object_pool_block_growth()
     return true;
 }
 
-bool test_object_pool_constructor_args()
+FATP_TEST_CASE(constructor_args)
 {
     ObjectPool<ComplexObject> pool(4);
 
     ComplexObject* obj = pool.acquire(10, 20, "test");
-    ASSERT_TRUE(obj->a == 10 && obj->b == 20 && obj->str == "test",
+    FATP_ASSERT_TRUE(obj->a == 10 && obj->b == 20 && obj->str == "test",
                   "Constructor args should be forwarded correctly");
 
     pool.release(obj);
@@ -202,7 +202,7 @@ bool test_object_pool_constructor_args()
 // New API Tests (v3.2)
 // ============================================================================
 
-bool test_object_pool_try_acquire()
+FATP_TEST_CASE(try_acquire)
 {
     ObjectPool<TestObject> pool(2);
 
@@ -218,8 +218,8 @@ bool test_object_pool_try_acquire()
     // Release and test try_acquire succeeds
     pool.release(obj1);
     TestObject* obj3 = pool.try_acquire(3);
-    ASSERT_TRUE(obj3 != nullptr, "try_acquire should succeed when pool has free nodes");
-    ASSERT_TRUE(obj3->value == 3, "try_acquire should construct object");
+    FATP_ASSERT_TRUE(obj3 != nullptr, "try_acquire should succeed when pool has free nodes");
+    FATP_ASSERT_TRUE(obj3->value == 3, "try_acquire should construct object");
 
     pool.release(obj2);
     pool.release(obj3);
@@ -227,16 +227,16 @@ bool test_object_pool_try_acquire()
     return true;
 }
 
-bool test_object_pool_reserve_blocks()
+FATP_TEST_CASE(reserve_blocks)
 {
     ObjectPool<TestObject> pool(4);
 
-    ASSERT_TRUE(pool.num_blocks() == 1, "Should start with 1 block");
+    FATP_ASSERT_TRUE(pool.num_blocks() == 1, "Should start with 1 block");
 
     pool.reserve_blocks(5);
 
-    ASSERT_TRUE(pool.num_blocks() == 5, "Should have 5 blocks after reserve");
-    ASSERT_TRUE(pool.capacity() == 20, "Capacity should be 5 * 4 = 20");
+    FATP_ASSERT_TRUE(pool.num_blocks() == 5, "Should have 5 blocks after reserve");
+    FATP_ASSERT_TRUE(pool.capacity() == 20, "Capacity should be 5 * 4 = 20");
 
     // Acquire should not need to allocate new blocks
     std::vector<TestObject*> objects;
@@ -245,7 +245,7 @@ bool test_object_pool_reserve_blocks()
         objects.push_back(pool.acquire(i));
     }
 
-    ASSERT_TRUE(pool.num_blocks() == 5, "Should still have 5 blocks");
+    FATP_ASSERT_TRUE(pool.num_blocks() == 5, "Should still have 5 blocks");
 
     for (auto* obj : objects)
     {
@@ -255,75 +255,75 @@ bool test_object_pool_reserve_blocks()
     return true;
 }
 
-bool test_object_pool_stats()
+FATP_TEST_CASE(stats)
 {
     ObjectPool<TestObject> pool(4);
 
     auto stats1 = pool.stats();
-    ASSERT_TRUE(stats1.total_capacity == 4, "Initial capacity should be 4");
-    ASSERT_TRUE(stats1.available == 4, "All 4 should be available initially");
-    ASSERT_TRUE(stats1.acquired == 0, "None should be acquired initially");
-    ASSERT_TRUE(stats1.num_blocks == 1, "Should have 1 block");
-    ASSERT_TRUE(stats1.block_size == 4, "Block size should be 4");
+    FATP_ASSERT_TRUE(stats1.total_capacity == 4, "Initial capacity should be 4");
+    FATP_ASSERT_TRUE(stats1.available == 4, "All 4 should be available initially");
+    FATP_ASSERT_TRUE(stats1.acquired == 0, "None should be acquired initially");
+    FATP_ASSERT_TRUE(stats1.num_blocks == 1, "Should have 1 block");
+    FATP_ASSERT_TRUE(stats1.block_size == 4, "Block size should be 4");
 
     TestObject* obj1 = pool.acquire(1);
     TestObject* obj2 = pool.acquire(2);
 
     auto stats2 = pool.stats();
-    ASSERT_TRUE(stats2.available == 2, "2 should be available after acquiring 2");
-    ASSERT_TRUE(stats2.acquired == 2, "2 should be acquired");
+    FATP_ASSERT_TRUE(stats2.available == 2, "2 should be available after acquiring 2");
+    FATP_ASSERT_TRUE(stats2.acquired == 2, "2 should be acquired");
 
     pool.release(obj1);
 
     auto stats3 = pool.stats();
-    ASSERT_TRUE(stats3.available == 3, "3 should be available after releasing 1");
-    ASSERT_TRUE(stats3.acquired == 1, "1 should still be acquired");
+    FATP_ASSERT_TRUE(stats3.available == 3, "3 should be available after releasing 1");
+    FATP_ASSERT_TRUE(stats3.acquired == 1, "1 should still be acquired");
 
     pool.release(obj2);
 
     return true;
 }
 
-bool test_object_pool_capacity_and_available()
+FATP_TEST_CASE(capacity_and_available)
 {
     ObjectPool<TestObject> pool(4);
 
-    ASSERT_TRUE(pool.capacity() == 4, "Initial capacity should be 4");
-    ASSERT_TRUE(pool.available() == 4, "All 4 should be available");
+    FATP_ASSERT_TRUE(pool.capacity() == 4, "Initial capacity should be 4");
+    FATP_ASSERT_TRUE(pool.available() == 4, "All 4 should be available");
 
     TestObject* obj = pool.acquire(42);
 
-    ASSERT_TRUE(pool.capacity() == 4, "Capacity unchanged after acquire");
-    ASSERT_TRUE(pool.available() == 3, "3 available after acquiring 1");
+    FATP_ASSERT_TRUE(pool.capacity() == 4, "Capacity unchanged after acquire");
+    FATP_ASSERT_TRUE(pool.available() == 3, "3 available after acquiring 1");
 
     pool.release(obj);
 
-    ASSERT_TRUE(pool.available() == 4, "4 available after release");
+    FATP_ASSERT_TRUE(pool.available() == 4, "4 available after release");
 
     return true;
 }
 
-bool test_object_pool_active_count()
+FATP_TEST_CASE(active_count)
 {
     ObjectPool<TestObject> pool(4);
 
 #ifndef NDEBUG
-    ASSERT_TRUE(pool.active_count() == 0, "Initially 0 active");
+    FATP_ASSERT_TRUE(pool.active_count() == 0, "Initially 0 active");
 
     TestObject* obj1 = pool.acquire(1);
-    ASSERT_TRUE(pool.active_count() == 1, "1 active after acquire");
+    FATP_ASSERT_TRUE(pool.active_count() == 1, "1 active after acquire");
 
     TestObject* obj2 = pool.acquire(2);
-    ASSERT_TRUE(pool.active_count() == 2, "2 active after second acquire");
+    FATP_ASSERT_TRUE(pool.active_count() == 2, "2 active after second acquire");
 
     pool.release(obj1);
-    ASSERT_TRUE(pool.active_count() == 1, "1 active after release");
+    FATP_ASSERT_TRUE(pool.active_count() == 1, "1 active after release");
 
     pool.release(obj2);
-    ASSERT_TRUE(pool.active_count() == 0, "0 active after all released");
+    FATP_ASSERT_TRUE(pool.active_count() == 0, "0 active after all released");
 #else
     // In release mode, active_count() returns 0
-    ASSERT_TRUE(pool.active_count() == 0, "active_count returns 0 in release mode");
+    FATP_ASSERT_TRUE(pool.active_count() == 0, "active_count returns 0 in release mode");
     TestObject* obj = pool.acquire(42);
     pool.release(obj);
 #endif
@@ -335,34 +335,34 @@ bool test_object_pool_active_count()
 // Specialized Acquire Tests (Gemini contribution)
 // ============================================================================
 
-bool test_object_pool_acquire_uninitialized()
+FATP_TEST_CASE(acquire_uninitialized)
 {
     ObjectPool<TrivialObject> pool(4);
 
     TrivialObject* obj = pool.acquire_uninitialized();
-    ASSERT_TRUE(obj != nullptr, "acquire_uninitialized should return pointer");
+    FATP_ASSERT_TRUE(obj != nullptr, "acquire_uninitialized should return pointer");
 
     // Manually initialize
     obj->x = 10;
     obj->y = 20;
     obj->z = 3.14;
 
-    ASSERT_TRUE(obj->x == 10 && obj->y == 20, "Should be able to use memory");
+    FATP_ASSERT_TRUE(obj->x == 10 && obj->y == 20, "Should be able to use memory");
 
     pool.release(obj);
 
     return true;
 }
 
-bool test_object_pool_acquire_zeroed()
+FATP_TEST_CASE(acquire_zeroed)
 {
     ObjectPool<TrivialObject> pool(4);
 
     TrivialObject* obj = pool.acquire_zeroed();
-    ASSERT_TRUE(obj != nullptr, "acquire_zeroed should return pointer");
+    FATP_ASSERT_TRUE(obj != nullptr, "acquire_zeroed should return pointer");
 
     // Memory should be zeroed
-    ASSERT_TRUE(obj->x == 0 && obj->y == 0, "Memory should be zero-initialized");
+    FATP_ASSERT_TRUE(obj->x == 0 && obj->y == 0, "Memory should be zero-initialized");
 
     pool.release(obj);
 
@@ -373,7 +373,7 @@ bool test_object_pool_acquire_zeroed()
 // RAII Wrapper Tests
 // ============================================================================
 
-bool test_object_pool_pooled_object_raii()
+FATP_TEST_CASE(pooled_object_raii)
 {
     TestObject::reset();
 
@@ -382,23 +382,23 @@ bool test_object_pool_pooled_object_raii()
 
         {
             auto pooled = make_pooled(pool, 42);
-            ASSERT_TRUE(pooled.get() != nullptr, "PooledObject should hold object");
-            ASSERT_TRUE(pooled->value == 42, "PooledObject should access object");
-            ASSERT_TRUE((*pooled).value == 42, "operator* should work");
+            FATP_ASSERT_TRUE(pooled.get() != nullptr, "PooledObject should hold object");
+            FATP_ASSERT_TRUE(pooled->value == 42, "PooledObject should access object");
+            FATP_ASSERT_TRUE((*pooled).value == 42, "operator* should work");
 
             auto stats = pool.stats();
-            ASSERT_TRUE(stats.acquired == 1, "1 should be acquired via PooledObject");
+            FATP_ASSERT_TRUE(stats.acquired == 1, "1 should be acquired via PooledObject");
         }
         // PooledObject destroyed, should release back to pool
 
         auto stats = pool.stats();
-        ASSERT_TRUE(stats.acquired == 0, "0 should be acquired after PooledObject destroyed");
+        FATP_ASSERT_TRUE(stats.acquired == 0, "0 should be acquired after PooledObject destroyed");
     }
 
     return true;
 }
 
-bool test_object_pool_pooled_object_move()
+FATP_TEST_CASE(pooled_object_move)
 {
     ObjectPool<TestObject> pool(4);
 
@@ -408,80 +408,80 @@ bool test_object_pool_pooled_object_move()
     // Move construction
     PooledObject<TestObject> pooled2(std::move(pooled1));
 
-    ASSERT_TRUE(pooled1.get() == nullptr, "Moved-from should be null");
-    ASSERT_TRUE(pooled2.get() == raw_ptr, "Moved-to should hold original pointer");
-    ASSERT_TRUE(pooled2->value == 100, "Value should be preserved");
+    FATP_ASSERT_TRUE(pooled1.get() == nullptr, "Moved-from should be null");
+    FATP_ASSERT_TRUE(pooled2.get() == raw_ptr, "Moved-to should hold original pointer");
+    FATP_ASSERT_TRUE(pooled2->value == 100, "Value should be preserved");
 
     // Move assignment
     auto pooled3 = make_pooled(pool, 200);
     pooled3 = std::move(pooled2);
 
-    ASSERT_TRUE(pooled2.get() == nullptr, "Moved-from should be null");
-    ASSERT_TRUE(pooled3.get() == raw_ptr, "Move-assigned should hold pointer");
+    FATP_ASSERT_TRUE(pooled2.get() == nullptr, "Moved-from should be null");
+    FATP_ASSERT_TRUE(pooled3.get() == raw_ptr, "Move-assigned should hold pointer");
 
     return true;
 }
 
-bool test_object_pool_pooled_object_reset()
+FATP_TEST_CASE(pooled_object_reset)
 {
     ObjectPool<TestObject> pool(4);
 
     auto pooled = make_pooled(pool, 42);
-    ASSERT_TRUE(pool.stats().acquired == 1, "1 acquired");
+    FATP_ASSERT_TRUE(pool.stats().acquired == 1, "1 acquired");
 
     pooled.reset();
 
-    ASSERT_TRUE(pooled.get() == nullptr, "reset() should clear pointer");
-    ASSERT_TRUE(pool.stats().acquired == 0, "reset() should release to pool");
+    FATP_ASSERT_TRUE(pooled.get() == nullptr, "reset() should clear pointer");
+    FATP_ASSERT_TRUE(pool.stats().acquired == 0, "reset() should release to pool");
 
     return true;
 }
 
-bool test_object_pool_pooled_object_release()
+FATP_TEST_CASE(pooled_object_release)
 {
     ObjectPool<TestObject> pool(4);
 
     auto pooled = make_pooled(pool, 42);
     TestObject* raw = pooled.release();
 
-    ASSERT_TRUE(pooled.get() == nullptr, "release() should clear pointer");
-    ASSERT_TRUE(raw != nullptr, "release() should return raw pointer");
-    ASSERT_TRUE(raw->value == 42, "Raw pointer should still be valid");
+    FATP_ASSERT_TRUE(pooled.get() == nullptr, "release() should clear pointer");
+    FATP_ASSERT_TRUE(raw != nullptr, "release() should return raw pointer");
+    FATP_ASSERT_TRUE(raw->value == 42, "Raw pointer should still be valid");
 
     // Object is still acquired - we own it now
-    ASSERT_TRUE(pool.stats().acquired == 1, "Object still acquired after release()");
+    FATP_ASSERT_TRUE(pool.stats().acquired == 1, "Object still acquired after release()");
 
     // Must manually release
     pool.release(raw);
 
-    ASSERT_TRUE(pool.stats().acquired == 0, "Manual release should work");
+    FATP_ASSERT_TRUE(pool.stats().acquired == 0, "Manual release should work");
 
     return true;
 }
 
-bool test_object_pool_pooled_object_get_pool()
+FATP_TEST_CASE(pooled_object_get_pool)
 {
     ObjectPool<TestObject> pool(4);
 
     auto pooled = make_pooled(pool, 42);
 
-    ASSERT_TRUE(pooled.get_pool() == &pool, "get_pool() should return owning pool");
+    FATP_ASSERT_TRUE(pooled.get_pool() == &pool, "get_pool() should return owning pool");
 
     return true;
 }
 
-bool test_object_pool_pooled_object_bool_conversion()
+FATP_TEST_CASE(pooled_object_bool_conversion)
 {
     ObjectPool<TestObject> pool(4);
 
     PooledObject<TestObject> empty;
-    ASSERT_TRUE(!empty, "Default PooledObject should be falsy");
+    FATP_ASSERT_TRUE(!empty, "Default PooledObject should be falsy");
 
     auto pooled = make_pooled(pool, 42);
-    ASSERT_TRUE(static_cast<bool>(pooled), "Valid PooledObject should be truthy");
+    FATP_ASSERT_TRUE(static_cast<bool>(pooled), "Valid PooledObject should be truthy");
 
     pooled.reset();
-    ASSERT_TRUE(!pooled, "Reset PooledObject should be falsy");
+    FATP_ASSERT_TRUE(!pooled, "Reset PooledObject should be falsy");
 
     return true;
 }
@@ -490,7 +490,7 @@ bool test_object_pool_pooled_object_bool_conversion()
 // Exception Safety Tests
 // ============================================================================
 
-bool test_object_pool_constructor_exception_safety()
+FATP_TEST_CASE(constructor_exception_safety)
 {
     ObjectPool<ThrowingObject> pool(4);
 
@@ -498,8 +498,8 @@ bool test_object_pool_constructor_exception_safety()
 
     // Normal acquisition should work
     ThrowingObject* obj1 = pool.acquire(1);
-    ASSERT_TRUE(obj1 != nullptr, "Normal acquire should succeed");
-    ASSERT_TRUE(obj1->value == 1, "Value should be set");
+    FATP_ASSERT_TRUE(obj1 != nullptr, "Normal acquire should succeed");
+    FATP_ASSERT_TRUE(obj1->value == 1, "Value should be set");
 
     auto stats_before = pool.stats();
     size_t available_before = stats_before.available;
@@ -517,17 +517,17 @@ bool test_object_pool_constructor_exception_safety()
         caught = true;
     }
 
-    ASSERT_TRUE(caught, "Exception should be thrown");
+    FATP_ASSERT_TRUE(caught, "Exception should be thrown");
 
     auto stats_after = pool.stats();
-    ASSERT_TRUE(stats_after.available == available_before,
+    FATP_ASSERT_TRUE(stats_after.available == available_before,
                   "Node should be restored to free list after constructor throws");
 
     // Disable throwing and verify pool still works
     ThrowingObject::should_throw = false;
 
     ThrowingObject* obj2 = pool.acquire(3);
-    ASSERT_TRUE(obj2 != nullptr, "Pool should still work after exception");
+    FATP_ASSERT_TRUE(obj2 != nullptr, "Pool should still work after exception");
 
     pool.release(obj1);
     pool.release(obj2);
@@ -539,7 +539,7 @@ bool test_object_pool_constructor_exception_safety()
 // Thread Safety Tests
 // ============================================================================
 
-bool test_object_pool_thread_safety()
+FATP_TEST_CASE(thread_safety)
 {
     ObjectPool<TestObject, MutexSynchronizationPolicy> pool(16);
 
@@ -563,13 +563,13 @@ bool test_object_pool_thread_safety()
         t.join();
     }
 
-    ASSERT_TRUE(total_ops == 400, "All operations should complete");
-    ASSERT_TRUE(pool.stats().acquired == 0, "All objects should be released");
+    FATP_ASSERT_TRUE(total_ops == 400, "All operations should complete");
+    FATP_ASSERT_TRUE(pool.stats().acquired == 0, "All objects should be released");
 
     return true;
 }
 
-bool test_object_pool_thread_safe_alias()
+FATP_TEST_CASE(thread_safe_alias)
 {
     ThreadSafeObjectPool<TestObject> pool(8);
 
@@ -597,13 +597,13 @@ bool test_object_pool_thread_safe_alias()
 // Type Alias Tests
 // ============================================================================
 
-bool test_object_pool_simple_alias()
+FATP_TEST_CASE(simple_alias)
 {
     SimpleObjectPool<TestObject> pool(4);
 
     TestObject* obj = pool.acquire(42);
-    ASSERT_TRUE(obj != nullptr, "SimpleObjectPool should work");
-    ASSERT_TRUE(obj->value == 42, "Value should be correct");
+    FATP_ASSERT_TRUE(obj != nullptr, "SimpleObjectPool should work");
+    FATP_ASSERT_TRUE(obj->value == 42, "Value should be correct");
 
     pool.release(obj);
 
@@ -614,7 +614,7 @@ bool test_object_pool_simple_alias()
 // Edge Case Tests
 // ============================================================================
 
-bool test_object_pool_null_release()
+FATP_TEST_CASE(null_release)
 {
     ObjectPool<TestObject> pool(4);
 
@@ -624,7 +624,7 @@ bool test_object_pool_null_release()
     return true;
 }
 
-bool test_object_pool_exhaust_and_grow()
+FATP_TEST_CASE(exhaust_and_grow)
 {
     ObjectPool<TestObject> pool(2);
 
@@ -632,8 +632,8 @@ bool test_object_pool_exhaust_and_grow()
     TestObject* obj2 = pool.acquire();
     TestObject* obj3 = pool.acquire();  // Should trigger new block
 
-    ASSERT_TRUE(obj1 && obj2 && obj3, "Should handle pool exhaustion by growing");
-    ASSERT_TRUE(pool.num_blocks() >= 2, "Should have allocated new block");
+    FATP_ASSERT_TRUE(obj1 && obj2 && obj3, "Should handle pool exhaustion by growing");
+    FATP_ASSERT_TRUE(pool.num_blocks() >= 2, "Should have allocated new block");
 
     pool.release(obj1);
     pool.release(obj2);
@@ -642,11 +642,11 @@ bool test_object_pool_exhaust_and_grow()
     return true;
 }
 
-bool test_object_pool_block_size_accessor()
+FATP_TEST_CASE(block_size_accessor)
 {
     ObjectPool<TestObject> pool(32);
 
-    ASSERT_TRUE(pool.block_size() == 32, "block_size() should return configured size");
+    FATP_ASSERT_TRUE(pool.block_size() == 32, "block_size() should return configured size");
 
     return true;
 }
@@ -700,54 +700,59 @@ void benchmark_objectpool()
 // Main Test Runner
 // ============================================================================
 
+} // namespace fat_p::testing::objectpool
+
+namespace fat_p::testing
+{
+
 bool test_ObjectPool()
 {
-    PRINT_HEADER(OBJECT POOL v3.2)
+    FATP_PRINT_HEADER(OBJECT POOL v3.2)
 
     TestRunner runner;
 
     // Core operations
-    RUN_TEST(runner, object_pool_basic_acquire_release);
-    RUN_TEST(runner, object_pool_reuse);
-    RUN_TEST(runner, object_pool_multiple_acquire);
-    RUN_TEST(runner, object_pool_block_growth);
-    RUN_TEST(runner, object_pool_constructor_args);
+    FATP_RUN_TEST_NS(runner, objectpool, basic_acquire_release);
+    FATP_RUN_TEST_NS(runner, objectpool, reuse);
+    FATP_RUN_TEST_NS(runner, objectpool, multiple_acquire);
+    FATP_RUN_TEST_NS(runner, objectpool, block_growth);
+    FATP_RUN_TEST_NS(runner, objectpool, constructor_args);
 
     // New v3.2 APIs
-    RUN_TEST(runner, object_pool_try_acquire);
-    RUN_TEST(runner, object_pool_reserve_blocks);
-    RUN_TEST(runner, object_pool_stats);
-    RUN_TEST(runner, object_pool_capacity_and_available);
-    RUN_TEST(runner, object_pool_active_count);
+    FATP_RUN_TEST_NS(runner, objectpool, try_acquire);
+    FATP_RUN_TEST_NS(runner, objectpool, reserve_blocks);
+    FATP_RUN_TEST_NS(runner, objectpool, stats);
+    FATP_RUN_TEST_NS(runner, objectpool, capacity_and_available);
+    FATP_RUN_TEST_NS(runner, objectpool, active_count);
 
     // Specialized acquire (trivial types)
-    RUN_TEST(runner, object_pool_acquire_uninitialized);
-    RUN_TEST(runner, object_pool_acquire_zeroed);
+    FATP_RUN_TEST_NS(runner, objectpool, acquire_uninitialized);
+    FATP_RUN_TEST_NS(runner, objectpool, acquire_zeroed);
 
     // RAII wrapper
-    RUN_TEST(runner, object_pool_pooled_object_raii);
-    RUN_TEST(runner, object_pool_pooled_object_move);
-    RUN_TEST(runner, object_pool_pooled_object_reset);
-    RUN_TEST(runner, object_pool_pooled_object_release);
-    RUN_TEST(runner, object_pool_pooled_object_get_pool);
-    RUN_TEST(runner, object_pool_pooled_object_bool_conversion);
+    FATP_RUN_TEST_NS(runner, objectpool, pooled_object_raii);
+    FATP_RUN_TEST_NS(runner, objectpool, pooled_object_move);
+    FATP_RUN_TEST_NS(runner, objectpool, pooled_object_reset);
+    FATP_RUN_TEST_NS(runner, objectpool, pooled_object_release);
+    FATP_RUN_TEST_NS(runner, objectpool, pooled_object_get_pool);
+    FATP_RUN_TEST_NS(runner, objectpool, pooled_object_bool_conversion);
 
     // Exception safety
-    RUN_TEST(runner, object_pool_constructor_exception_safety);
+    FATP_RUN_TEST_NS(runner, objectpool, constructor_exception_safety);
 
     // Thread safety
-    RUN_TEST(runner, object_pool_thread_safety);
-    RUN_TEST(runner, object_pool_thread_safe_alias);
+    FATP_RUN_TEST_NS(runner, objectpool, thread_safety);
+    FATP_RUN_TEST_NS(runner, objectpool, thread_safe_alias);
 
     // Type aliases
-    RUN_TEST(runner, object_pool_simple_alias);
+    FATP_RUN_TEST_NS(runner, objectpool, simple_alias);
 
     // Edge cases
-    RUN_TEST(runner, object_pool_null_release);
-    RUN_TEST(runner, object_pool_exhaust_and_grow);
-    RUN_TEST(runner, object_pool_block_size_accessor);
+    FATP_RUN_TEST_NS(runner, objectpool, null_release);
+    FATP_RUN_TEST_NS(runner, objectpool, exhaust_and_grow);
+    FATP_RUN_TEST_NS(runner, objectpool, block_size_accessor);
 
-    benchmark_objectpool();
+    objectpool::benchmark_objectpool();
 
     return 0 == runner.print_summary();
 }

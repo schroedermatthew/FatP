@@ -42,7 +42,7 @@ namespace fat_p::testing::csrmatrix_hpc
 // Structural Tests
 // =============================================================================
 
-TEST_CASE(is_symmetric_structural_check)
+FATP_TEST_CASE(is_symmetric_structural_check)
 {
     // Gemini's bug case: Matrix where A(0,1)=5, A(1,0)=0
     // Values arrays would be identical [5], but structure differs
@@ -57,7 +57,7 @@ TEST_CASE(is_symmetric_structural_check)
     Matrix A(2, 2, rows_a, cols_a, vals_a);
 
     // A is NOT symmetric (A(1,0) = 0, A(0,1) = 5)
-    ASSERT_TRUE(!A.is_symmetric(), "Non-symmetric matrix identified as symmetric");
+    FATP_ASSERT_TRUE(!A.is_symmetric(), "Non-symmetric matrix identified as symmetric");
 
     // Build symmetric matrix
     std::vector<int32_t> rows_b = {0, 1};
@@ -65,12 +65,12 @@ TEST_CASE(is_symmetric_structural_check)
     std::vector<double> vals_b = {5.0, 5.0};
     Matrix B(2, 2, rows_b, cols_b, vals_b);
 
-    ASSERT_TRUE(B.is_symmetric(), "Symmetric matrix not recognized");
+    FATP_ASSERT_TRUE(B.is_symmetric(), "Symmetric matrix not recognized");
 
     return true;
 }
 
-TEST_CASE(is_symmetric_diagonal)
+FATP_TEST_CASE(is_symmetric_diagonal)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -80,17 +80,17 @@ TEST_CASE(is_symmetric_diagonal)
     std::vector<double> vals = {1.0, 2.0, 3.0};
     Matrix D(3, 3, rows, cols, vals);
 
-    ASSERT_TRUE(D.is_symmetric(), "Diagonal matrix should be symmetric");
+    FATP_ASSERT_TRUE(D.is_symmetric(), "Diagonal matrix should be symmetric");
 
     return true;
 }
 
-TEST_CASE(is_symmetric_empty)
+FATP_TEST_CASE(is_symmetric_empty)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
     Matrix E(5, 5);
-    ASSERT_TRUE(E.is_symmetric(), "Empty matrix should be symmetric");
+    FATP_ASSERT_TRUE(E.is_symmetric(), "Empty matrix should be symmetric");
 
     return true;
 }
@@ -99,7 +99,7 @@ TEST_CASE(is_symmetric_empty)
 // SpMV Tests
 // =============================================================================
 
-TEST_CASE(matvec_basic)
+FATP_TEST_CASE(matvec_basic)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -120,14 +120,14 @@ TEST_CASE(matvec_basic)
     // y[0] = 1*1 = 1
     // y[1] = 2*2 = 4
     // y[2] = 3*1 + 4*3 = 15
-    ASSERT_CLOSE(y[0], 1.0, "y[0] should be 1.0");
-    ASSERT_CLOSE(y[1], 4.0, "y[1] should be 4.0");
-    ASSERT_CLOSE(y[2], 15.0, "y[2] should be 15.0");
+    FATP_ASSERT_CLOSE(y[0], 1.0, "y[0] should be 1.0");
+    FATP_ASSERT_CLOSE(y[1], 4.0, "y[1] should be 4.0");
+    FATP_ASSERT_CLOSE(y[2], 15.0, "y[2] should be 15.0");
 
     return true;
 }
 
-TEST_CASE(matvec_alpha_beta)
+FATP_TEST_CASE(matvec_alpha_beta)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -145,14 +145,14 @@ TEST_CASE(matvec_alpha_beta)
     // y[0] = 2*1 + 3*10 = 32
     // y[1] = 2*4 + 3*10 = 38
     // y[2] = 2*15 + 3*10 = 60
-    ASSERT_CLOSE(y[0], 32.0, "y[0] should be 32.0");
-    ASSERT_CLOSE(y[1], 38.0, "y[1] should be 38.0");
-    ASSERT_CLOSE(y[2], 60.0, "y[2] should be 60.0");
+    FATP_ASSERT_CLOSE(y[0], 32.0, "y[0] should be 32.0");
+    FATP_ASSERT_CLOSE(y[1], 38.0, "y[1] should be 38.0");
+    FATP_ASSERT_CLOSE(y[2], 60.0, "y[2] should be 60.0");
 
     return true;
 }
 
-TEST_CASE(matvec_empty_rows)
+FATP_TEST_CASE(matvec_empty_rows)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -170,14 +170,14 @@ TEST_CASE(matvec_empty_rows)
 
     A.matvec(x, y);
 
-    ASSERT_CLOSE(y[0], 3.0, "y[0] should be 3.0");
-    ASSERT_CLOSE(y[1], 0.0, "y[1] should be 0.0");
-    ASSERT_CLOSE(y[2], 8.0, "y[2] should be 8.0");
+    FATP_ASSERT_CLOSE(y[0], 3.0, "y[0] should be 3.0");
+    FATP_ASSERT_CLOSE(y[1], 0.0, "y[1] should be 0.0");
+    FATP_ASSERT_CLOSE(y[2], 8.0, "y[2] should be 8.0");
 
     return true;
 }
 
-TEST_CASE(matvec_single_element)
+FATP_TEST_CASE(matvec_single_element)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -191,12 +191,12 @@ TEST_CASE(matvec_single_element)
 
     A.matvec(x, y);
 
-    ASSERT_CLOSE(y[0], 21.0, "y[0] should be 21.0");
+    FATP_ASSERT_CLOSE(y[0], 21.0, "y[0] should be 21.0");
 
     return true;
 }
 
-TEST_CASE(matvec_prefetch_toggle)
+FATP_TEST_CASE(matvec_prefetch_toggle)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -231,7 +231,7 @@ TEST_CASE(matvec_prefetch_toggle)
 
     for (std::size_t i = 0; i < N; ++i)
     {
-        ASSERT_CLOSE(y_prefetch[i], y_no_prefetch[i],
+        FATP_ASSERT_CLOSE(y_prefetch[i], y_no_prefetch[i],
                      "Prefetch toggle should not affect correctness");
     }
 
@@ -244,7 +244,7 @@ TEST_CASE(matvec_prefetch_toggle)
 
     for (std::size_t i = 0; i < N; ++i)
     {
-        ASSERT_CLOSE(y1[i], y2[i],
+        FATP_ASSERT_CLOSE(y1[i], y2[i],
                      "Prefetch toggle should not affect alpha/beta correctness");
     }
 
@@ -255,7 +255,7 @@ TEST_CASE(matvec_prefetch_toggle)
 // Matrix Operations Tests
 // =============================================================================
 
-TEST_CASE(transpose_basic)
+FATP_TEST_CASE(transpose_basic)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -266,31 +266,31 @@ TEST_CASE(transpose_basic)
 
     auto AT = A.transpose();
 
-    ASSERT_CLOSE(AT(0, 0), 1.0, "AT(0,0) should be 1.0");
-    ASSERT_CLOSE(AT(2, 0), 2.0, "AT(2,0) should be 2.0");
-    ASSERT_CLOSE(AT(1, 1), 3.0, "AT(1,1) should be 3.0");
-    ASSERT_CLOSE(AT(0, 2), 4.0, "AT(0,2) should be 4.0");
-    ASSERT_EQ(AT.rows(), A.cols(), "Transposed rows should equal original cols");
-    ASSERT_EQ(AT.cols(), A.rows(), "Transposed cols should equal original rows");
+    FATP_ASSERT_CLOSE(AT(0, 0), 1.0, "AT(0,0) should be 1.0");
+    FATP_ASSERT_CLOSE(AT(2, 0), 2.0, "AT(2,0) should be 2.0");
+    FATP_ASSERT_CLOSE(AT(1, 1), 3.0, "AT(1,1) should be 3.0");
+    FATP_ASSERT_CLOSE(AT(0, 2), 4.0, "AT(0,2) should be 4.0");
+    FATP_ASSERT_EQ(AT.rows(), A.cols(), "Transposed rows should equal original cols");
+    FATP_ASSERT_EQ(AT.cols(), A.rows(), "Transposed cols should equal original rows");
 
     return true;
 }
 
-TEST_CASE(transpose_empty)
+FATP_TEST_CASE(transpose_empty)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
     Matrix E(3, 5);
     auto ET = E.transpose();
 
-    ASSERT_EQ(ET.rows(), static_cast<std::size_t>(5), "Transposed rows");
-    ASSERT_EQ(ET.cols(), static_cast<std::size_t>(3), "Transposed cols");
-    ASSERT_EQ(ET.nnz(), static_cast<std::size_t>(0), "Transposed nnz");
+    FATP_ASSERT_EQ(ET.rows(), static_cast<std::size_t>(5), "Transposed rows");
+    FATP_ASSERT_EQ(ET.cols(), static_cast<std::size_t>(3), "Transposed cols");
+    FATP_ASSERT_EQ(ET.nnz(), static_cast<std::size_t>(0), "Transposed nnz");
 
     return true;
 }
 
-TEST_CASE(matmul_identity)
+FATP_TEST_CASE(matmul_identity)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -307,15 +307,15 @@ TEST_CASE(matmul_identity)
 
     auto C = I.matmul(A);
 
-    ASSERT_CLOSE(C(0, 1), 5.0, "C(0,1) should be 5.0");
-    ASSERT_CLOSE(C(1, 2), 7.0, "C(1,2) should be 7.0");
-    ASSERT_CLOSE(C(2, 0), 3.0, "C(2,0) should be 3.0");
-    ASSERT_EQ(C.nnz(), A.nnz(), "I*A should have same nnz as A");
+    FATP_ASSERT_CLOSE(C(0, 1), 5.0, "C(0,1) should be 5.0");
+    FATP_ASSERT_CLOSE(C(1, 2), 7.0, "C(1,2) should be 7.0");
+    FATP_ASSERT_CLOSE(C(2, 0), 3.0, "C(2,0) should be 3.0");
+    FATP_ASSERT_EQ(C.nnz(), A.nnz(), "I*A should have same nnz as A");
 
     return true;
 }
 
-TEST_CASE(addition_basic)
+FATP_TEST_CASE(addition_basic)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -331,15 +331,15 @@ TEST_CASE(addition_basic)
 
     auto C = A + B;
 
-    ASSERT_CLOSE(C(0, 0), 1.0, "C(0,0) should be 1.0");
-    ASSERT_CLOSE(C(0, 1), 3.0, "C(0,1) should be 3.0");
-    ASSERT_CLOSE(C(1, 0), 4.0, "C(1,0) should be 4.0");
-    ASSERT_CLOSE(C(1, 1), 2.0, "C(1,1) should be 2.0");
+    FATP_ASSERT_CLOSE(C(0, 0), 1.0, "C(0,0) should be 1.0");
+    FATP_ASSERT_CLOSE(C(0, 1), 3.0, "C(0,1) should be 3.0");
+    FATP_ASSERT_CLOSE(C(1, 0), 4.0, "C(1,0) should be 4.0");
+    FATP_ASSERT_CLOSE(C(1, 1), 2.0, "C(1,1) should be 2.0");
 
     return true;
 }
 
-TEST_CASE(subtraction_basic)
+FATP_TEST_CASE(subtraction_basic)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -350,12 +350,12 @@ TEST_CASE(subtraction_basic)
 
     auto C = A - A;
 
-    ASSERT_EQ(C.nnz(), static_cast<std::size_t>(0), "A-A should have zero nnz");
+    FATP_ASSERT_EQ(C.nnz(), static_cast<std::size_t>(0), "A-A should have zero nnz");
 
     return true;
 }
 
-TEST_CASE(scalar_multiply)
+FATP_TEST_CASE(scalar_multiply)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -366,8 +366,8 @@ TEST_CASE(scalar_multiply)
 
     auto B = A * 4.0;
 
-    ASSERT_CLOSE(B(0, 0), 8.0, "B(0,0) should be 8.0");
-    ASSERT_CLOSE(B(1, 1), 12.0, "B(1,1) should be 12.0");
+    FATP_ASSERT_CLOSE(B(0, 0), 8.0, "B(0,0) should be 8.0");
+    FATP_ASSERT_CLOSE(B(1, 1), 12.0, "B(1,1) should be 12.0");
 
     return true;
 }
@@ -376,7 +376,7 @@ TEST_CASE(scalar_multiply)
 // HPC Feature Tests
 // =============================================================================
 
-TEST_CASE(numa_api)
+FATP_TEST_CASE(numa_api)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -388,7 +388,7 @@ TEST_CASE(numa_api)
     return true;
 }
 
-TEST_CASE(aligned_accessors)
+FATP_TEST_CASE(aligned_accessors)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -401,19 +401,19 @@ TEST_CASE(aligned_accessors)
     // Non-const access
     double* v = A.values_aligned();
     int32_t* c = A.col_indices_aligned();
-    ASSERT_TRUE(v != nullptr, "values_aligned() returned null");
-    ASSERT_TRUE(c != nullptr, "col_indices_aligned() returned null");
+    FATP_ASSERT_TRUE(v != nullptr, "values_aligned() returned null");
+    FATP_ASSERT_TRUE(c != nullptr, "col_indices_aligned() returned null");
 
     // Const access
     const double* vals_c = A_const.values_aligned();
     const int32_t* cols_c = A_const.col_indices_aligned();
-    ASSERT_TRUE(vals_c != nullptr, "const values_aligned() returned null");
-    ASSERT_TRUE(cols_c != nullptr, "const col_indices_aligned() returned null");
+    FATP_ASSERT_TRUE(vals_c != nullptr, "const values_aligned() returned null");
+    FATP_ASSERT_TRUE(cols_c != nullptr, "const col_indices_aligned() returned null");
 
     return true;
 }
 
-TEST_CASE(from_dense)
+FATP_TEST_CASE(from_dense)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -425,17 +425,17 @@ TEST_CASE(from_dense)
 
     auto A = Matrix::from_dense(dense.data(), 3, 3);
 
-    ASSERT_EQ(A.nnz(), static_cast<std::size_t>(5), "nnz should be 5");
-    ASSERT_CLOSE(A(0, 0), 1.0, "A(0,0) should be 1.0");
-    ASSERT_CLOSE(A(0, 2), 2.0, "A(0,2) should be 2.0");
-    ASSERT_CLOSE(A(1, 1), 3.0, "A(1,1) should be 3.0");
-    ASSERT_CLOSE(A(2, 0), 4.0, "A(2,0) should be 4.0");
-    ASSERT_CLOSE(A(2, 2), 5.0, "A(2,2) should be 5.0");
+    FATP_ASSERT_EQ(A.nnz(), static_cast<std::size_t>(5), "nnz should be 5");
+    FATP_ASSERT_CLOSE(A(0, 0), 1.0, "A(0,0) should be 1.0");
+    FATP_ASSERT_CLOSE(A(0, 2), 2.0, "A(0,2) should be 2.0");
+    FATP_ASSERT_CLOSE(A(1, 1), 3.0, "A(1,1) should be 3.0");
+    FATP_ASSERT_CLOSE(A(2, 0), 4.0, "A(2,0) should be 4.0");
+    FATP_ASSERT_CLOSE(A(2, 2), 5.0, "A(2,2) should be 5.0");
 
     return true;
 }
 
-TEST_CASE(to_dense)
+FATP_TEST_CASE(to_dense)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -446,15 +446,15 @@ TEST_CASE(to_dense)
 
     auto dense = A.to_dense();
 
-    ASSERT_EQ(dense.size(), static_cast<std::size_t>(9), "dense size should be 9");
-    ASSERT_CLOSE(dense[0], 1.0, "dense[0] should be 1.0");
-    ASSERT_CLOSE(dense[4], 2.0, "dense[4] should be 2.0");
-    ASSERT_CLOSE(dense[8], 3.0, "dense[8] should be 3.0");
+    FATP_ASSERT_EQ(dense.size(), static_cast<std::size_t>(9), "dense size should be 9");
+    FATP_ASSERT_CLOSE(dense[0], 1.0, "dense[0] should be 1.0");
+    FATP_ASSERT_CLOSE(dense[4], 2.0, "dense[4] should be 2.0");
+    FATP_ASSERT_CLOSE(dense[8], 3.0, "dense[8] should be 3.0");
 
     return true;
 }
 
-TEST_CASE(density_sparsity)
+FATP_TEST_CASE(density_sparsity)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
@@ -463,8 +463,8 @@ TEST_CASE(density_sparsity)
     std::vector<double> vals = {1.0, 2.0};
     Matrix A(4, 4, rows, cols, vals);
 
-    ASSERT_CLOSE(A.density(), 2.0 / 16.0, "density should be 2/16");
-    ASSERT_CLOSE(A.sparsity(), 14.0 / 16.0, "sparsity should be 14/16");
+    FATP_ASSERT_CLOSE(A.density(), 2.0 / 16.0, "density should be 2/16");
+    FATP_ASSERT_CLOSE(A.sparsity(), 14.0 / 16.0, "sparsity should be 14/16");
 
     return true;
 }
@@ -582,7 +582,7 @@ namespace fat_p::testing
 
 bool test_CSRMatrix_HPC()
 {
-    PRINT_HEADER(HpcCSRMatrix)
+    FATP_PRINT_HEADER(HpcCSRMatrix)
 
     auto& config = get_test_config();
     config.verbose = true;
@@ -590,31 +590,31 @@ bool test_CSRMatrix_HPC()
     TestRunner runner;
 
     // Structural tests
-    RUN_TEST_NS(runner, csrmatrix_hpc, is_symmetric_structural_check);
-    RUN_TEST_NS(runner, csrmatrix_hpc, is_symmetric_diagonal);
-    RUN_TEST_NS(runner, csrmatrix_hpc, is_symmetric_empty);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, is_symmetric_structural_check);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, is_symmetric_diagonal);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, is_symmetric_empty);
 
     // SpMV tests
-    RUN_TEST_NS(runner, csrmatrix_hpc, matvec_basic);
-    RUN_TEST_NS(runner, csrmatrix_hpc, matvec_alpha_beta);
-    RUN_TEST_NS(runner, csrmatrix_hpc, matvec_empty_rows);
-    RUN_TEST_NS(runner, csrmatrix_hpc, matvec_single_element);
-    RUN_TEST_NS(runner, csrmatrix_hpc, matvec_prefetch_toggle);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, matvec_basic);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, matvec_alpha_beta);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, matvec_empty_rows);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, matvec_single_element);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, matvec_prefetch_toggle);
 
     // Matrix operation tests
-    RUN_TEST_NS(runner, csrmatrix_hpc, transpose_basic);
-    RUN_TEST_NS(runner, csrmatrix_hpc, transpose_empty);
-    RUN_TEST_NS(runner, csrmatrix_hpc, matmul_identity);
-    RUN_TEST_NS(runner, csrmatrix_hpc, addition_basic);
-    RUN_TEST_NS(runner, csrmatrix_hpc, subtraction_basic);
-    RUN_TEST_NS(runner, csrmatrix_hpc, scalar_multiply);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, transpose_basic);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, transpose_empty);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, matmul_identity);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, addition_basic);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, subtraction_basic);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, scalar_multiply);
 
     // HPC feature tests
-    RUN_TEST_NS(runner, csrmatrix_hpc, numa_api);
-    RUN_TEST_NS(runner, csrmatrix_hpc, aligned_accessors);
-    RUN_TEST_NS(runner, csrmatrix_hpc, from_dense);
-    RUN_TEST_NS(runner, csrmatrix_hpc, to_dense);
-    RUN_TEST_NS(runner, csrmatrix_hpc, density_sparsity);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, numa_api);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, aligned_accessors);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, from_dense);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, to_dense);
+    FATP_RUN_TEST_NS(runner, csrmatrix_hpc, density_sparsity);
 
     // Benchmarks
     csrmatrix_hpc::benchmark_spmv();

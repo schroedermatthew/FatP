@@ -13,7 +13,7 @@ FATP_META:
   component: DiagnosticLogger_ScopeGuard
   file_role: test
   path: tests/test_DiagnosticLogger_ScopeGuard.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::diagnosticlogger_scopeguard
   summary: "Unit tests for DiagnosticLogger_ScopeGuard."
   related:
     docs_search: "DiagnosticLogger_ScopeGuard"
@@ -41,7 +41,7 @@ FATP_META:
 #include "DiagnosticLogger_IO.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing
+namespace fat_p::testing::diagnosticlogger_scopeguard
 {
 
 using namespace fat_p::diagnostic;
@@ -92,8 +92,8 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
         cleanupTestFiles(filename);
 
         auto sink = makeRotatingFileSink(filename, 200, 3);
-        ASSERT_TRUE(sink != nullptr, "RotatingFileSink created");
-        ASSERT_TRUE(sink->is_valid(), "Initial validity");
+        FATP_ASSERT_TRUE(sink != nullptr, "RotatingFileSink created");
+        FATP_ASSERT_TRUE(sink->is_valid(), "Initial validity");
 
         auto loc = FATP_SOURCE_LOCATION();
 
@@ -105,7 +105,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
         }
 
         // Critical test: sink must still be valid after rotation
-        ASSERT_TRUE(sink->is_valid(), "Valid after rotation - ScopeGuard worked");
+        FATP_ASSERT_TRUE(sink->is_valid(), "Valid after rotation - ScopeGuard worked");
 
         // Verify we can continue writing
         LogRecord postRotation(LogLevel::Info, "Post-rotation", loc);
@@ -113,7 +113,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
         sink->flush();
 
         std::string contents = readFileContents(filename);
-        ASSERT_TRUE(contents.find("Post-rotation") != std::string::npos,
+        FATP_ASSERT_TRUE(contents.find("Post-rotation") != std::string::npos,
             "Post-rotation write succeeded");
 
         cleanupTestFiles(filename);
@@ -140,21 +140,21 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
             // Verify validity after each write
             if (!sink->is_valid())
             {
-                ASSERT_TRUE(false, "Sink became invalid during rotations");
+                FATP_ASSERT_TRUE(false, "Sink became invalid during rotations");
                 cleanupTestFiles(filename);
                 return false;
             }
         }
 
         // Final verification
-        ASSERT_TRUE(sink->is_valid(), "Valid after all rotations");
+        FATP_ASSERT_TRUE(sink->is_valid(), "Valid after all rotations");
 
         LogRecord final(LogLevel::Info, "FINAL_MESSAGE", loc);
         sink->write(final);
         sink->flush();
 
         std::string contents = readFileContents(filename);
-        ASSERT_TRUE(contents.find("FINAL_MESSAGE") != std::string::npos,
+        FATP_ASSERT_TRUE(contents.find("FINAL_MESSAGE") != std::string::npos,
             "Final message written successfully");
 
         cleanupTestFiles(filename);
@@ -181,7 +181,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
         }
 
         // Sink should still be operational
-        ASSERT_TRUE(sink->is_valid(), "Sink survived stress test");
+        FATP_ASSERT_TRUE(sink->is_valid(), "Sink survived stress test");
 
         sink->flush();
 
@@ -195,7 +195,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
                 break;
             }
         }
-        ASSERT_TRUE(rotationOccurred, "Rotation occurred during stress test");
+        FATP_ASSERT_TRUE(rotationOccurred, "Rotation occurred during stress test");
 
         cleanupTestFiles(filename);
         return true;
@@ -245,23 +245,23 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
         // First write succeeds
         LogRecord record1(LogLevel::Info, "Message1", loc);
         resilient->write(record1);
-        ASSERT_TRUE(primary->writeCount == 1, "Primary succeeded first time");
+        FATP_ASSERT_TRUE(primary->writeCount == 1, "Primary succeeded first time");
 
         // Second write fails, ScopeGuard marks primary as failed
         LogRecord record2(LogLevel::Info, "Message2", loc);
         resilient->write(record2);
-        ASSERT_TRUE(primary->writeCount == 2, "Primary attempted second time");
+        FATP_ASSERT_TRUE(primary->writeCount == 2, "Primary attempted second time");
 
         // Third write should skip primary (it's marked as failed)
         LogRecord record3(LogLevel::Info, "Message3", loc);
         resilient->write(record3);
-        ASSERT_TRUE(primary->writeCount == 2, "Primary not attempted after failure");
+        FATP_ASSERT_TRUE(primary->writeCount == 2, "Primary not attempted after failure");
 
         resilient->flush();
 
         std::string contents = readFileContents(fallbackFile);
-        ASSERT_TRUE(contents.find("Message2") != std::string::npos, "Fallback has Message2");
-        ASSERT_TRUE(contents.find("Message3") != std::string::npos, "Fallback has Message3");
+        FATP_ASSERT_TRUE(contents.find("Message2") != std::string::npos, "Fallback has Message2");
+        FATP_ASSERT_TRUE(contents.find("Message3") != std::string::npos, "Fallback has Message3");
 
         if (fs::exists(fallbackFile))
         {
@@ -303,11 +303,11 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
 
         // Verify primary has the message
         std::string primaryContents = readFileContents(primaryFile);
-        ASSERT_TRUE(primaryContents.find("Primary success") != std::string::npos,
+        FATP_ASSERT_TRUE(primaryContents.find("Primary success") != std::string::npos,
             "Primary received message");
 
         std::string fallbackContents = readFileContents(fallbackFile);
-        ASSERT_TRUE(fallbackContents.empty(), "Fallback not used on success");
+        FATP_ASSERT_TRUE(fallbackContents.empty(), "Fallback not used on success");
 
         if (fs::exists(primaryFile))
         {
@@ -361,10 +361,10 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
 
         {
             LogLevelGuard guard(logger, LogLevel::Trace);
-            ASSERT_TRUE(logger.getLevel() == LogLevel::Trace, "Level changed to Trace");
+            FATP_ASSERT_TRUE(logger.getLevel() == LogLevel::Trace, "Level changed to Trace");
         }
 
-        ASSERT_TRUE(logger.getLevel() == original, "Level restored after guard");
+        FATP_ASSERT_TRUE(logger.getLevel() == original, "Level restored after guard");
 
         return true;
     }
@@ -380,7 +380,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
         try
         {
             LogLevelGuard guard(logger, LogLevel::Fatal);
-            ASSERT_TRUE(logger.getLevel() == LogLevel::Fatal, "Level changed");
+            FATP_ASSERT_TRUE(logger.getLevel() == LogLevel::Fatal, "Level changed");
 
             // Simulate exception in test code
             throw std::runtime_error("Test exception");
@@ -390,7 +390,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
             // Guard destructor should have run
         }
 
-        ASSERT_TRUE(logger.getLevel() == original, "Level restored despite exception");
+        FATP_ASSERT_TRUE(logger.getLevel() == original, "Level restored despite exception");
 
         return true;
     }
@@ -405,17 +405,17 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
 
         {
             LogLevelGuard guard1(logger, LogLevel::Debug);
-            ASSERT_TRUE(logger.getLevel() == LogLevel::Debug, "First guard applied");
+            FATP_ASSERT_TRUE(logger.getLevel() == LogLevel::Debug, "First guard applied");
 
             {
                 LogLevelGuard guard2(logger, LogLevel::Error);
-                ASSERT_TRUE(logger.getLevel() == LogLevel::Error, "Second guard applied");
+                FATP_ASSERT_TRUE(logger.getLevel() == LogLevel::Error, "Second guard applied");
             }
 
-            ASSERT_TRUE(logger.getLevel() == LogLevel::Debug, "First guard restored");
+            FATP_ASSERT_TRUE(logger.getLevel() == LogLevel::Debug, "First guard restored");
         }
 
-        ASSERT_TRUE(logger.getLevel() == original, "Original level restored");
+        FATP_ASSERT_TRUE(logger.getLevel() == original, "Original level restored");
 
         return true;
     }
@@ -451,8 +451,8 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
         resilient->flush();
 
         // Both sinks should be valid after rotations
-        ASSERT_TRUE(primary->is_valid(), "Primary valid after rotations");
-        ASSERT_TRUE(fallback->is_valid(), "Fallback valid after rotations");
+        FATP_ASSERT_TRUE(primary->is_valid(), "Primary valid after rotations");
+        FATP_ASSERT_TRUE(fallback->is_valid(), "Fallback valid after rotations");
 
         cleanupTestFiles(primaryFile);
         cleanupTestFiles(fallbackFile);
@@ -494,13 +494,13 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
             }
 
             // Sink should still be valid
-            ASSERT_TRUE(sink->is_valid(), "Sink valid throughout");
+            FATP_ASSERT_TRUE(sink->is_valid(), "Sink valid throughout");
 
             // cleanupLogger will execute, logger will restore
         }
 
         // Level should be restored
-        ASSERT_TRUE(logger.getLevel() == originalLevel, "Level restored");
+        FATP_ASSERT_TRUE(logger.getLevel() == originalLevel, "Level restored");
 
         cleanupTestFiles(filename);
         return true;
@@ -512,29 +512,34 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
 // Test Runner
 // ============================================================================
 
+} // namespace fat_p::testing::diagnosticlogger_scopeguard
+
+namespace fat_p::testing
+{
+
 bool test_DiagnosticLogger_ScopeGuard()
 {
-    PRINT_HEADER(DIAGNOSTIC LOGGER SCOPEGUARD)
+    FATP_PRINT_HEADER(DIAGNOSTIC LOGGER SCOPEGUARD)
     
     TestRunner runner;
     
     // RotatingFileSink ScopeGuard tests
-    RUN_TEST(runner, rotating_file_guaranteed_reopen);
-    RUN_TEST(runner, rotating_file_multiple_rotations_stability);
-    RUN_TEST(runner, rotating_file_rapid_rotation_stress);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_scopeguard, rotating_file_guaranteed_reopen);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_scopeguard, rotating_file_multiple_rotations_stability);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_scopeguard, rotating_file_rapid_rotation_stress);
     
     // ResilientSink ScopeGuard tests
-    RUN_TEST(runner, resilient_sink_automatic_failure_marking);
-    RUN_TEST(runner, resilient_sink_early_return_path);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_scopeguard, resilient_sink_automatic_failure_marking);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_scopeguard, resilient_sink_early_return_path);
     
     // Test utility tests
-    RUN_TEST(runner, log_level_guard_basic);
-    RUN_TEST(runner, log_level_guard_exception_safety);
-    RUN_TEST(runner, log_level_guard_nesting);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_scopeguard, log_level_guard_basic);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_scopeguard, log_level_guard_exception_safety);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_scopeguard, log_level_guard_nesting);
     
     // Integration tests
-    RUN_TEST(runner, resilient_with_rotating_integration);
-    RUN_TEST(runner, scope_guard_comprehensive_demo);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_scopeguard, resilient_with_rotating_integration);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_scopeguard, scope_guard_comprehensive_demo);
     
     return 0 == runner.print_summary();
 }

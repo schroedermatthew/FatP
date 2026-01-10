@@ -8,7 +8,7 @@ FATP_META:
   component: ConcurrencyPolicies
   file_role: test
   path: tests/test_ConcurrencyPolicies.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::concurrencypolicies
   summary: "Unit tests for ConcurrencyPolicies."
   related:
     docs_search: "ConcurrencyPolicies"
@@ -42,7 +42,7 @@ FATP_META:
 using namespace fat_p::testing;
 using namespace fat_p;
 
-namespace fat_p::testing
+namespace fat_p::testing::concurrencypolicies
 {
 
 // =============================================================================
@@ -80,7 +80,7 @@ void run_concurrent_increment(Policy& policy, std::atomic<int>& counter, int ops
 // Trait Tests
 // =============================================================================
 
-bool test_policy_traits()
+FATP_TEST_CASE(policy_traits)
 {
     std::cout << colors::cyan() << "\nTesting Policy Traits..." << colors::reset() << std::endl;
 
@@ -142,7 +142,7 @@ bool test_policy_traits()
 // SingleThreadedPolicy Tests
 // =============================================================================
 
-bool test_SingleThreadedPolicy()
+FATP_TEST_CASE(SingleThreadedPolicy)
 {
     std::cout << colors::cyan() << "\nTesting SingleThreadedPolicy..."
               << colors::reset() << std::endl;
@@ -153,18 +153,18 @@ bool test_SingleThreadedPolicy()
     {
         auto guard = policy.lock();
         value = 42;
-        ASSERT_EQ(value, 42, "Value should be 42");
+        FATP_ASSERT_EQ(value, 42, "Value should be 42");
     }
 
     {
         auto guard = policy.lock_shared();
-        ASSERT_EQ(value, 42, "Shared read should work");
+        FATP_ASSERT_EQ(value, 42, "Shared read should work");
     }
 
     {
         auto& static_lock = SingleThreadedPolicy::getStaticLock();
         SingleThreadedPolicy::LockGuard guard(static_lock);
-        ASSERT_TRUE(true, "Static lock should work");
+        FATP_ASSERT_TRUE(true, "Static lock should work");
     }
 
     std::cout << colors::green() << "SingleThreadedPolicy: Tests passed."
@@ -177,7 +177,7 @@ bool test_SingleThreadedPolicy()
 // =============================================================================
 
 #if FATP_USE_MUTEX
-bool test_MutexSynchronizationPolicy()
+FATP_TEST_CASE(MutexSynchronizationPolicy)
 {
     std::cout << colors::cyan() << "\nTesting MutexSynchronizationPolicy..."
               << colors::reset() << std::endl;
@@ -188,7 +188,7 @@ bool test_MutexSynchronizationPolicy()
     const int ops_per_thread = 10000;
 
     policy.reset_contention();
-    ASSERT_EQ(policy.get_contention(), 0u, "Contention should reset to 0");
+    FATP_ASSERT_EQ(policy.get_contention(), 0u, "Contention should reset to 0");
 
     std::vector<std::thread> threads;
     for (int i = 0; i < num_threads; ++i)
@@ -204,17 +204,17 @@ bool test_MutexSynchronizationPolicy()
         t.join();
     }
 
-    ASSERT_EQ(counter.load(), num_threads * ops_per_thread, "All increments counted");
+    FATP_ASSERT_EQ(counter.load(), num_threads * ops_per_thread, "All increments counted");
 
     uint64_t contention = policy.get_contention();
     std::cout << colors::blue() << "  [INFO] Contention count: " << contention
               << colors::reset() << std::endl;
-    ASSERT_TRUE(contention > 0, "Should have tracked contention");
+    FATP_ASSERT_TRUE(contention > 0, "Should have tracked contention");
 
     {
         auto& static_lock = MutexSynchronizationPolicy::getStaticLock();
         MutexSynchronizationPolicy::LockGuard guard(static_lock);
-        ASSERT_TRUE(true, "Static lock works");
+        FATP_ASSERT_TRUE(true, "Static lock works");
     }
 
     std::cout << colors::green() << "MutexSynchronizationPolicy: Tests passed."
@@ -228,7 +228,7 @@ bool test_MutexSynchronizationPolicy()
 // =============================================================================
 
 #if FATP_USE_SHARED_MUTEX
-bool test_SharedMutexPolicy()
+FATP_TEST_CASE(SharedMutexPolicy)
 {
     std::cout << colors::cyan() << "\nTesting SharedMutexPolicy..."
               << colors::reset() << std::endl;
@@ -262,12 +262,12 @@ bool test_SharedMutexPolicy()
         t.join();
     }
 
-    ASSERT_EQ(read_sum.load(), num_readers * 1000 * 100, "All reads correct");
+    FATP_ASSERT_EQ(read_sum.load(), num_readers * 1000 * 100, "All reads correct");
 
     {
         auto& static_lock = SharedMutexPolicy::getStaticLock();
         SharedMutexPolicy::LockGuard guard(static_lock);
-        ASSERT_TRUE(true, "Static lock works");
+        FATP_ASSERT_TRUE(true, "Static lock works");
     }
 
     std::cout << colors::green() << "SharedMutexPolicy: Tests passed."
@@ -281,7 +281,7 @@ bool test_SharedMutexPolicy()
 // =============================================================================
 
 #if FATP_USE_SHARED_MUTEX
-bool test_UniqueRWLockPolicy()
+FATP_TEST_CASE(UniqueRWLockPolicy)
 {
     std::cout << colors::cyan() << "\nTesting UniqueRWLockPolicy..."
               << colors::reset() << std::endl;
@@ -296,7 +296,7 @@ bool test_UniqueRWLockPolicy()
 
     {
         auto guard = policy.lock_shared();
-        ASSERT_EQ(counter.load(), 42, "Read should work");
+        FATP_ASSERT_EQ(counter.load(), 42, "Read should work");
     }
 
     UniqueRWLockPolicy policy2 = std::move(policy);
@@ -304,7 +304,7 @@ bool test_UniqueRWLockPolicy()
         auto guard = policy2.lock();
         counter.store(100, std::memory_order_relaxed);
     }
-    ASSERT_EQ(counter.load(), 100, "Move should work");
+    FATP_ASSERT_EQ(counter.load(), 100, "Move should work");
 
     std::cout << colors::green() << "UniqueRWLockPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -317,7 +317,7 @@ bool test_UniqueRWLockPolicy()
 // =============================================================================
 
 #if FATP_USE_ATOMIC
-bool test_SpinlockSynchronizationPolicy()
+FATP_TEST_CASE(SpinlockSynchronizationPolicy)
 {
     std::cout << colors::cyan() << "\nTesting SpinlockSynchronizationPolicy..."
               << colors::reset() << std::endl;
@@ -343,7 +343,7 @@ bool test_SpinlockSynchronizationPolicy()
         t.join();
     }
 
-    ASSERT_EQ(counter.load(), num_threads * ops_per_thread, "All increments counted");
+    FATP_ASSERT_EQ(counter.load(), num_threads * ops_per_thread, "All increments counted");
 
     uint64_t contention = policy.get_contention();
     std::cout << colors::blue() << "  [INFO] Spin contention: " << contention
@@ -361,7 +361,7 @@ bool test_SpinlockSynchronizationPolicy()
 // =============================================================================
 
 #if FATP_USE_ATOMIC
-bool test_LockFreeSynchronizationPolicy()
+FATP_TEST_CASE(LockFreeSynchronizationPolicy)
 {
     std::cout << colors::cyan() << "\nTesting LockFreeSynchronizationPolicy..."
               << colors::reset() << std::endl;
@@ -370,12 +370,12 @@ bool test_LockFreeSynchronizationPolicy()
 
     {
         auto guard = policy.lock();
-        ASSERT_TRUE(true, "Lock guard construction works");
+        FATP_ASSERT_TRUE(true, "Lock guard construction works");
     }
 
     {
         auto guard = policy.lock_shared();
-        ASSERT_TRUE(true, "Shared guard construction works");
+        FATP_ASSERT_TRUE(true, "Shared guard construction works");
     }
 
     std::cout << colors::green() << "LockFreeSynchronizationPolicy: Tests passed."
@@ -389,7 +389,7 @@ bool test_LockFreeSynchronizationPolicy()
 // =============================================================================
 
 #if FATP_USE_ATOMIC && FATP_USE_MUTEX
-bool test_LockFreeWithFallbackPolicy()
+FATP_TEST_CASE(LockFreeWithFallbackPolicy)
 {
     std::cout << colors::cyan() << "\nTesting LockFreeWithFallbackPolicy..."
               << colors::reset() << std::endl;
@@ -420,8 +420,8 @@ bool test_LockFreeWithFallbackPolicy()
         t.join();
     }
 
-    ASSERT_EQ(counter.load(), 4000, "Debug mode uses mutex fallback");
-    ASSERT_TRUE(policy.get_contention() > 0, "Should track contention in debug");
+    FATP_ASSERT_EQ(counter.load(), 4000, "Debug mode uses mutex fallback");
+    FATP_ASSERT_TRUE(policy.get_contention() > 0, "Should track contention in debug");
 #else
     std::cout << colors::blue()
               << "  [INFO] Release mode - no-op (lock-free)"
@@ -432,11 +432,11 @@ bool test_LockFreeWithFallbackPolicy()
         auto guard = policy.lock();
         counter.fetch_add(1, std::memory_order_relaxed);
     }
-    ASSERT_EQ(counter.load(), 1000, "Release mode is no-op");
-    ASSERT_EQ(policy.get_contention(), 0u, "No contention tracking in release");
+    FATP_ASSERT_EQ(counter.load(), 1000, "Release mode is no-op");
+    FATP_ASSERT_EQ(policy.get_contention(), 0u, "No contention tracking in release");
 #endif
 
-    ASSERT_TRUE(policy.try_lock(), "try_lock should work");
+    FATP_ASSERT_TRUE(policy.try_lock(), "try_lock should work");
 
     std::cout << colors::green() << "LockFreeWithFallbackPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -449,7 +449,7 @@ bool test_LockFreeWithFallbackPolicy()
 // =============================================================================
 
 #if FATP_USE_MUTEX && FATP_USE_CONDITION_VARIABLE
-bool test_WaitableSynchronizationPolicy()
+FATP_TEST_CASE(WaitableSynchronizationPolicy)
 {
     std::cout << colors::cyan() << "\nTesting WaitableSynchronizationPolicy..."
               << colors::reset() << std::endl;
@@ -476,12 +476,12 @@ bool test_WaitableSynchronizationPolicy()
     producer.join();
     consumer.join();
 
-    ASSERT_TRUE(ready && processed, "Producer/consumer should synchronize");
+    FATP_ASSERT_TRUE(ready && processed, "Producer/consumer should synchronize");
 
     {
         auto guard = policy.lock();
-        ASSERT_TRUE(guard.owns_lock(), "Should own lock");
-        ASSERT_TRUE(guard.mutex() != nullptr, "Should have mutex pointer");
+        FATP_ASSERT_TRUE(guard.owns_lock(), "Should own lock");
+        FATP_ASSERT_TRUE(guard.mutex() != nullptr, "Should have mutex pointer");
     }
 
     std::cout << colors::green() << "WaitableSynchronizationPolicy: Tests passed."
@@ -495,7 +495,7 @@ bool test_WaitableSynchronizationPolicy()
 // =============================================================================
 
 #if FATP_USE_ATOMIC
-bool test_SeqLockPolicy()
+FATP_TEST_CASE(SeqLockPolicy)
 {
     std::cout << colors::cyan() << "\nTesting SeqLockPolicy..."
               << colors::reset() << std::endl;
@@ -511,8 +511,8 @@ bool test_SeqLockPolicy()
     {
         auto guard = policy.lock_shared();
         int value = test_data;
-        ASSERT_TRUE(guard.is_valid(), "Read should be valid");
-        ASSERT_EQ(value, 42, "Read value should match");
+        FATP_ASSERT_TRUE(guard.is_valid(), "Read should be valid");
+        FATP_ASSERT_EQ(value, 42, "Read value should match");
     }
 
     uint64_t seq1 = policy.get_sequence();
@@ -521,7 +521,7 @@ bool test_SeqLockPolicy()
         test_data = 100;
     }
     uint64_t seq2 = policy.get_sequence();
-    ASSERT_TRUE(seq2 > seq1, "Sequence should increment");
+    FATP_ASSERT_TRUE(seq2 > seq1, "Sequence should increment");
 
     std::atomic<int> successful_reads{0};
     std::atomic<int> failed_reads{0};
@@ -571,12 +571,12 @@ bool test_SeqLockPolicy()
         r.join();
     }
 
-    ASSERT_EQ(test_data, 1000, "All writes should complete");
+    FATP_ASSERT_EQ(test_data, 1000, "All writes should complete");
     std::cout << colors::blue()
               << "  [INFO] Successful reads: " << successful_reads.load()
               << ", Failed: " << failed_reads.load()
               << colors::reset() << std::endl;
-    ASSERT_TRUE(successful_reads.load() > 100, "Should have successful reads");
+    FATP_ASSERT_TRUE(successful_reads.load() > 100, "Should have successful reads");
 
     std::cout << colors::green() << "SeqLockPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -589,7 +589,7 @@ bool test_SeqLockPolicy()
 // =============================================================================
 
 #if FATP_USE_ATOMIC
-bool test_TicketLockPolicy()
+FATP_TEST_CASE(TicketLockPolicy)
 {
     std::cout << colors::cyan() << "\nTesting TicketLockPolicy..."
               << colors::reset() << std::endl;
@@ -617,8 +617,8 @@ bool test_TicketLockPolicy()
         t.join();
     }
 
-    ASSERT_EQ(counter.load(), num_threads * ops, "All increments counted");
-    ASSERT_EQ(policy.get_queue_length(), 0u, "Queue should be empty");
+    FATP_ASSERT_EQ(counter.load(), num_threads * ops, "All increments counted");
+    FATP_ASSERT_EQ(policy.get_queue_length(), 0u, "Queue should be empty");
 
     std::cout << colors::green() << "TicketLockPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -631,7 +631,7 @@ bool test_TicketLockPolicy()
 // =============================================================================
 
 #if FATP_USE_ATOMIC
-bool test_MCSLockPolicy()
+FATP_TEST_CASE(MCSLockPolicy)
 {
     std::cout << colors::cyan() << "\nTesting MCSLockPolicy..."
               << colors::reset() << std::endl;
@@ -659,7 +659,7 @@ bool test_MCSLockPolicy()
         t.join();
     }
 
-    ASSERT_EQ(counter.load(), num_threads * ops, "All increments counted");
+    FATP_ASSERT_EQ(counter.load(), num_threads * ops, "All increments counted");
 
     std::cout << colors::green() << "MCSLockPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -672,7 +672,7 @@ bool test_MCSLockPolicy()
 // =============================================================================
 
 #if FATP_USE_ATOMIC && FATP_USE_SHARED_MUTEX
-bool test_RCUPolicy()
+FATP_TEST_CASE(RCUPolicy)
 {
     std::cout << colors::cyan() << "\nTesting RCUPolicy..."
               << colors::reset() << std::endl;
@@ -681,7 +681,7 @@ bool test_RCUPolicy()
 
     {
         auto guard = rcu.read();
-        ASSERT_EQ(*guard, 42, "Initial read should work");
+        FATP_ASSERT_EQ(*guard, 42, "Initial read should work");
     }
 
     {
@@ -691,7 +691,7 @@ bool test_RCUPolicy()
 
     {
         auto guard = rcu.read();
-        ASSERT_EQ(*guard, 100, "Updated value should be visible");
+        FATP_ASSERT_EQ(*guard, 100, "Updated value should be visible");
     }
 
     std::atomic<int> read_count{0};
@@ -717,7 +717,7 @@ bool test_RCUPolicy()
         r.join();
     }
 
-    ASSERT_EQ(read_count.load(), 4000, "All reads should see updated value");
+    FATP_ASSERT_EQ(read_count.load(), 4000, "All reads should see updated value");
 
     std::cout << colors::blue()
               << "  [INFO] RCU is_lock_free: " << (RCUPolicy<int>::is_lock_free() ? "yes" : "no")
@@ -734,7 +734,7 @@ bool test_RCUPolicy()
 // =============================================================================
 
 #if FATP_USE_ATOMIC
-bool test_HazardPointerPolicy()
+FATP_TEST_CASE(HazardPointerPolicy)
 {
     std::cout << colors::cyan() << "\nTesting HazardPointerPolicy..."
               << colors::reset() << std::endl;
@@ -745,12 +745,12 @@ bool test_HazardPointerPolicy()
     {
         auto guard = hp.acquire();
         int* protected_ptr = guard.protect(ptr);
-        ASSERT_EQ(*protected_ptr, 42, "Protected read should work");
+        FATP_ASSERT_EQ(*protected_ptr, 42, "Protected read should work");
     }
 
     int* old_ptr = ptr.exchange(new int(100));
     hp.retire(old_ptr);
-    ASSERT_TRUE(true, "Retire should work");
+    FATP_ASSERT_TRUE(true, "Retire should work");
 
     std::atomic<int*> shared_ptr(new int(0));
     std::atomic<int> sum{0};
@@ -810,7 +810,7 @@ bool test_HazardPointerPolicy()
 // =============================================================================
 
 #if FATP_USE_ATOMIC && FATP_USE_MUTEX
-bool test_AdaptiveLockPolicy()
+FATP_TEST_CASE(AdaptiveLockPolicy)
 {
     std::cout << colors::cyan() << "\nTesting AdaptiveLockPolicy..."
               << colors::reset() << std::endl;
@@ -823,7 +823,7 @@ bool test_AdaptiveLockPolicy()
         auto guard = policy.lock();
         counter.fetch_add(1, std::memory_order_relaxed);
     }
-    ASSERT_EQ(counter.load(), 100, "Low contention should work");
+    FATP_ASSERT_EQ(counter.load(), 100, "Low contention should work");
 
     bool initial_mode = policy.is_using_mutex();
     std::cout << colors::blue()
@@ -851,7 +851,7 @@ bool test_AdaptiveLockPolicy()
         t.join();
     }
 
-    ASSERT_EQ(counter.load(), 16000, "High contention should work");
+    FATP_ASSERT_EQ(counter.load(), 16000, "High contention should work");
     std::cout << colors::blue()
               << "  [INFO] Final mode (mutex): " << policy.is_using_mutex()
               << ", Contention: " << policy.get_contention()
@@ -868,7 +868,7 @@ bool test_AdaptiveLockPolicy()
 // =============================================================================
 
 #if FATP_USE_MUTEX
-bool test_PriorityInheritanceLockPolicy()
+FATP_TEST_CASE(PriorityInheritanceLockPolicy)
 {
     std::cout << colors::cyan() << "\nTesting PriorityInheritanceLockPolicy..."
               << colors::reset() << std::endl;
@@ -894,7 +894,7 @@ bool test_PriorityInheritanceLockPolicy()
         t.join();
     }
 
-    ASSERT_EQ(counter.load(), 20000, "All increments counted");
+    FATP_ASSERT_EQ(counter.load(), 20000, "All increments counted");
 
 #if FATP_HAS_PTHREAD_PRIO_INHERIT
     std::cout << colors::blue()
@@ -921,7 +921,7 @@ bool test_PriorityInheritanceLockPolicy()
 // =============================================================================
 
 #if FATP_USE_ATOMIC
-bool test_VersionedLockPolicy()
+FATP_TEST_CASE(VersionedLockPolicy)
 {
     std::cout << colors::cyan() << "\nTesting VersionedLockPolicy..."
               << colors::reset() << std::endl;
@@ -935,24 +935,24 @@ bool test_VersionedLockPolicy()
         test_data = 42;
     }
     uint64_t v2 = policy.get_version();
-    ASSERT_TRUE(v2 > v1, "Version should increment after write");
+    FATP_ASSERT_TRUE(v2 > v1, "Version should increment after write");
 
     {
         auto guard = policy.lock_shared();
         int value = test_data;
-        ASSERT_TRUE(guard.validate(), "Version should be valid");
-        ASSERT_EQ(value, 42, "Read value should match");
-        ASSERT_EQ(guard.get_version(), v2, "Guard version should match");
+        FATP_ASSERT_TRUE(guard.validate(), "Version should be valid");
+        FATP_ASSERT_EQ(value, 42, "Read value should match");
+        FATP_ASSERT_EQ(guard.get_version(), v2, "Guard version should match");
     }
 
     {
         auto guard = policy.lock();
         test_data = 100;
-        ASSERT_EQ(guard.get_version(), v2, "Write guard has old version");
+        FATP_ASSERT_EQ(guard.get_version(), v2, "Write guard has old version");
         guard.commit();
     }
     uint64_t v3 = policy.get_version();
-    ASSERT_TRUE(v3 > v2, "Explicit commit should increment version");
+    FATP_ASSERT_TRUE(v3 > v2, "Explicit commit should increment version");
 
     std::cout << colors::green() << "VersionedLockPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -965,7 +965,7 @@ bool test_VersionedLockPolicy()
 // =============================================================================
 
 #if FATP_USE_MUTEX
-bool test_RecursiveMutexPolicy()
+FATP_TEST_CASE(RecursiveMutexPolicy)
 {
     std::cout << colors::cyan() << "\nTesting RecursiveMutexPolicy..."
               << colors::reset() << std::endl;
@@ -985,7 +985,7 @@ bool test_RecursiveMutexPolicy()
             }
         }
     }
-    ASSERT_EQ(counter.load(), 3, "Recursive locks should work");
+    FATP_ASSERT_EQ(counter.load(), 3, "Recursive locks should work");
 
     counter.store(0);
     std::vector<std::thread> threads;
@@ -1006,7 +1006,7 @@ bool test_RecursiveMutexPolicy()
         t.join();
     }
 
-    ASSERT_EQ(counter.load(), 20000, "Concurrent access should work");
+    FATP_ASSERT_EQ(counter.load(), 20000, "Concurrent access should work");
 
     std::cout << colors::green() << "RecursiveMutexPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -1019,7 +1019,7 @@ bool test_RecursiveMutexPolicy()
 // =============================================================================
 
 #if FATP_USE_MUTEX
-bool test_TimedMutexPolicy()
+FATP_TEST_CASE(TimedMutexPolicy)
 {
     std::cout << colors::cyan() << "\nTesting TimedMutexPolicy..."
               << colors::reset() << std::endl;
@@ -1028,15 +1028,15 @@ bool test_TimedMutexPolicy()
 
     {
         auto guard = policy.lock();
-        ASSERT_TRUE(guard.owns_lock(), "Should acquire lock");
+        FATP_ASSERT_TRUE(guard.owns_lock(), "Should acquire lock");
     }
 
     {
         auto guard = policy.lock_deferred();
-        ASSERT_TRUE(!guard.owns_lock(), "Deferred should not own lock");
+        FATP_ASSERT_TRUE(!guard.owns_lock(), "Deferred should not own lock");
         bool acquired = guard.try_lock_for(std::chrono::milliseconds(10));
-        ASSERT_TRUE(acquired, "Should acquire uncontended lock");
-        ASSERT_TRUE(guard.owns_lock(), "Should own lock after try_lock_for");
+        FATP_ASSERT_TRUE(acquired, "Should acquire uncontended lock");
+        FATP_ASSERT_TRUE(guard.owns_lock(), "Should own lock after try_lock_for");
     }
 
     TimedMutexPolicy policy2;
@@ -1057,7 +1057,7 @@ bool test_TimedMutexPolicy()
     {
         auto guard = policy2.lock_deferred();
         bool acquired = guard.try_lock_for(std::chrono::milliseconds(10));
-        ASSERT_TRUE(!acquired, "Should timeout on contended lock");
+        FATP_ASSERT_TRUE(!acquired, "Should timeout on contended lock");
     }
 
     holder.join();
@@ -1073,7 +1073,7 @@ bool test_TimedMutexPolicy()
 // =============================================================================
 
 #if FATP_USE_SHARED_MUTEX
-bool test_SharedTimedMutexPolicy()
+FATP_TEST_CASE(SharedTimedMutexPolicy)
 {
     std::cout << colors::cyan() << "\nTesting SharedTimedMutexPolicy..."
               << colors::reset() << std::endl;
@@ -1106,7 +1106,7 @@ bool test_SharedTimedMutexPolicy()
         r.join();
     }
 
-    ASSERT_EQ(read_sum.load(), 8 * 1000 * 42, "All shared reads correct");
+    FATP_ASSERT_EQ(read_sum.load(), 8 * 1000 * 42, "All shared reads correct");
 
     std::cout << colors::green() << "SharedTimedMutexPolicy: Tests passed."
               << colors::reset() << std::endl;
@@ -1307,69 +1307,74 @@ void run_contended_benchmarks()
 // Main Test Function
 // =============================================================================
 
+} // namespace fat_p::testing::concurrencypolicies
+
+namespace fat_p::testing
+{
+
 bool test_ConcurrencyPolicies()
 {
-    PRINT_HEADER(CONCURRENCY POLICIES)
+    FATP_PRINT_HEADER(CONCURRENCY POLICIES)
 
     TestRunner runner;
 
-    runner.run_test("policy_traits", test_policy_traits);
-    runner.run_test("SingleThreadedPolicy", test_SingleThreadedPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, policy_traits);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, SingleThreadedPolicy);
 
 #if FATP_USE_MUTEX
-    runner.run_test("MutexSynchronizationPolicy", test_MutexSynchronizationPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, MutexSynchronizationPolicy);
 #endif
 
 #if FATP_USE_SHARED_MUTEX
-    runner.run_test("SharedMutexPolicy", test_SharedMutexPolicy);
-    runner.run_test("UniqueRWLockPolicy", test_UniqueRWLockPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, SharedMutexPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, UniqueRWLockPolicy);
 #endif
 
 #if FATP_USE_ATOMIC
-    runner.run_test("SpinlockSynchronizationPolicy", test_SpinlockSynchronizationPolicy);
-    runner.run_test("LockFreeSynchronizationPolicy", test_LockFreeSynchronizationPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, SpinlockSynchronizationPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, LockFreeSynchronizationPolicy);
 #endif
 
 #if FATP_USE_ATOMIC && FATP_USE_MUTEX
-    runner.run_test("LockFreeWithFallbackPolicy", test_LockFreeWithFallbackPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, LockFreeWithFallbackPolicy);
 #endif
 
 #if FATP_USE_MUTEX && FATP_USE_CONDITION_VARIABLE
-    runner.run_test("WaitableSynchronizationPolicy", test_WaitableSynchronizationPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, WaitableSynchronizationPolicy);
 #endif
 
 #if FATP_USE_ATOMIC
-    runner.run_test("SeqLockPolicy", test_SeqLockPolicy);
-    runner.run_test("TicketLockPolicy", test_TicketLockPolicy);
-    runner.run_test("MCSLockPolicy", test_MCSLockPolicy);
-    runner.run_test("HazardPointerPolicy", test_HazardPointerPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, SeqLockPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, TicketLockPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, MCSLockPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, HazardPointerPolicy);
 #endif
 
 #if FATP_USE_ATOMIC && FATP_USE_SHARED_MUTEX
-    runner.run_test("RCUPolicy", test_RCUPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, RCUPolicy);
 #endif
 
 #if FATP_USE_ATOMIC && FATP_USE_MUTEX
-    runner.run_test("AdaptiveLockPolicy", test_AdaptiveLockPolicy);
-    runner.run_test("VersionedLockPolicy", test_VersionedLockPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, AdaptiveLockPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, VersionedLockPolicy);
 #endif
 
 #if FATP_USE_MUTEX
-    runner.run_test("PriorityInheritanceLockPolicy", test_PriorityInheritanceLockPolicy);
-    runner.run_test("RecursiveMutexPolicy", test_RecursiveMutexPolicy);
-    runner.run_test("TimedMutexPolicy", test_TimedMutexPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, PriorityInheritanceLockPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, RecursiveMutexPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, TimedMutexPolicy);
 #endif
 
 #if FATP_USE_SHARED_MUTEX
-    runner.run_test("SharedTimedMutexPolicy", test_SharedTimedMutexPolicy);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, SharedTimedMutexPolicy);
 #endif
 
     int failed = runner.print_summary();
 
     if (failed == 0)
     {
-        run_performance_benchmarks();
-        run_contended_benchmarks();
+        concurrencypolicies::run_performance_benchmarks();
+        concurrencypolicies::run_contended_benchmarks();
     }
 
     return failed == 0;

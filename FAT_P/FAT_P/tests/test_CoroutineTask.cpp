@@ -22,7 +22,7 @@ FATP_META:
   component: CoroutineTask
   file_role: test
   path: tests/test_CoroutineTask.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::coroutinetask
   summary: "Unit tests for CoroutineTask."
   related:
     docs_search: "CoroutineTask"
@@ -55,14 +55,10 @@ FATP_META:
 #include <string>
 #include <numeric>
 
-namespace fat_p::testing
+namespace fat_p::testing::coroutinetask
 {
 
-// =============================================================================
-// Basic Coroutine Tests
-// =============================================================================
-
-TEST_CASE(simple_coroutine) {
+FATP_TEST_CASE(simple_coroutine) {
     // Simple coroutine that returns a value
     auto simple_task = []() -> CoroutineTask<int> {
         co_return 42;
@@ -71,12 +67,12 @@ TEST_CASE(simple_coroutine) {
     auto task = simple_task();
     auto result = task.await();
     
-    ASSERT_TRUE(result.has_value(), "Coroutine should return expected value");
-    ASSERT_EQ(result.value(), 42, "Coroutine should return correct value");
+    FATP_ASSERT_TRUE(result.has_value(), "Coroutine should return expected value");
+    FATP_ASSERT_EQ(result.value(), 42, "Coroutine should return correct value");
     return true;
 }
 
-TEST_CASE(coroutine_with_computation) {
+FATP_TEST_CASE(coroutine_with_computation) {
     // Coroutine that performs computation
     auto compute_sum = [](int a, int b) -> CoroutineTask<int> {
         int result = a + b;
@@ -86,12 +82,12 @@ TEST_CASE(coroutine_with_computation) {
     auto task = compute_sum(10, 20);
     auto result = task.await();
     
-    ASSERT_TRUE(result.has_value(), "Computation coroutine should succeed");
-    ASSERT_EQ(result.value(), 30, "Computation result should be correct");
+    FATP_ASSERT_TRUE(result.has_value(), "Computation coroutine should succeed");
+    FATP_ASSERT_EQ(result.value(), 30, "Computation result should be correct");
     return true;
 }
 
-TEST_CASE(coroutine_with_string) {
+FATP_TEST_CASE(coroutine_with_string) {
     // Coroutine that returns string
     auto get_message = []() -> CoroutineTask<std::string> {
         co_return "Hello from coroutine";
@@ -100,12 +96,12 @@ TEST_CASE(coroutine_with_string) {
     auto task = get_message();
     auto result = task.await();
     
-    ASSERT_TRUE(result.has_value(), "String coroutine should succeed");
-    ASSERT_EQ(result.value(), "Hello from coroutine", "String value should be correct");
+    FATP_ASSERT_TRUE(result.has_value(), "String coroutine should succeed");
+    FATP_ASSERT_EQ(result.value(), "Hello from coroutine", "String value should be correct");
     return true;
 }
 
-TEST_CASE(coroutine_with_complex_type) {
+FATP_TEST_CASE(coroutine_with_complex_type) {
     struct Data {
         int x;
         double y;
@@ -124,10 +120,10 @@ TEST_CASE(coroutine_with_complex_type) {
     auto task = create_data();
     auto result = task.await();
     
-    ASSERT_TRUE(result.has_value(), "Complex type coroutine should succeed");
-    ASSERT_EQ(result.value().x, 42, "Complex type field x");
-    ASSERT_TRUE(std::abs(result.value().y - 3.14) < 1e-6, "Complex type field y");
-    ASSERT_EQ(result.value().z, "test", "Complex type field z");
+    FATP_ASSERT_TRUE(result.has_value(), "Complex type coroutine should succeed");
+    FATP_ASSERT_EQ(result.value().x, 42, "Complex type field x");
+    FATP_ASSERT_TRUE(std::abs(result.value().y - 3.14) < 1e-6, "Complex type field y");
+    FATP_ASSERT_EQ(result.value().z, "test", "Complex type field z");
     return true;
 }
 
@@ -135,7 +131,7 @@ TEST_CASE(coroutine_with_complex_type) {
 // Error Handling Tests
 // =============================================================================
 
-TEST_CASE(coroutine_exception_handling) {
+FATP_TEST_CASE(coroutine_exception_handling) {
     // Coroutine that throws an exception
     auto throwing_task = []() -> CoroutineTask<int> {
         throw std::runtime_error("Test exception");
@@ -145,15 +141,15 @@ TEST_CASE(coroutine_exception_handling) {
     auto task = throwing_task();
     auto result = task.await();
     
-    ASSERT_FALSE(result.has_value(), "Exception should result in error");
+    FATP_ASSERT_FALSE(result.has_value(), "Exception should result in error");
     return true;
 }
 
-TEST_CASE(invalid_handle_error) {
+FATP_TEST_CASE(invalid_handle_error) {
     CoroutineTask<int> task{nullptr};
     auto result = task.await();
     
-    ASSERT_FALSE(result.has_value(), "Invalid handle should produce error");
+    FATP_ASSERT_FALSE(result.has_value(), "Invalid handle should produce error");
     return true;
 }
 
@@ -161,7 +157,7 @@ TEST_CASE(invalid_handle_error) {
 // Eager Task Tests
 // =============================================================================
 
-TEST_CASE(eager_task_executes_immediately) {
+FATP_TEST_CASE(eager_task_executes_immediately) {
     int executed = 0;
     
     auto eager = [&executed]() -> EagerTask<int> {
@@ -170,16 +166,16 @@ TEST_CASE(eager_task_executes_immediately) {
     }();
     
     // Should already be executed
-    ASSERT_TRUE(eager.done(), "Eager task should be done immediately");
-    ASSERT_EQ(executed, 42, "Eager task should have executed");
+    FATP_ASSERT_TRUE(eager.done(), "Eager task should be done immediately");
+    FATP_ASSERT_EQ(executed, 42, "Eager task should have executed");
     
     auto result = eager.result();
-    ASSERT_TRUE(result.has_value(), "Eager task result should be valid");
-    ASSERT_EQ(result.value(), 42, "Eager task result value");
+    FATP_ASSERT_TRUE(result.has_value(), "Eager task result should be valid");
+    FATP_ASSERT_EQ(result.value(), 42, "Eager task result value");
     return true;
 }
 
-TEST_CASE(lazy_task_waits_for_await) {
+FATP_TEST_CASE(lazy_task_waits_for_await) {
     int executed = 0;
     
     auto lazy = [&executed]() -> CoroutineTask<int> {
@@ -188,14 +184,14 @@ TEST_CASE(lazy_task_waits_for_await) {
     }();
     
     // Should not be executed yet
-    ASSERT_EQ(executed, 0, "Lazy task should not have executed yet");
+    FATP_ASSERT_EQ(executed, 0, "Lazy task should not have executed yet");
     
     auto result = lazy.await();
     
     // Now should be executed
-    ASSERT_EQ(executed, 42, "Lazy task should execute on await");
-    ASSERT_TRUE(result.has_value(), "Lazy task result should be valid");
-    ASSERT_EQ(result.value(), 42, "Lazy task result value");
+    FATP_ASSERT_EQ(executed, 42, "Lazy task should execute on await");
+    FATP_ASSERT_TRUE(result.has_value(), "Lazy task result should be valid");
+    FATP_ASSERT_EQ(result.value(), 42, "Lazy task result value");
     return true;
 }
 
@@ -203,7 +199,7 @@ TEST_CASE(lazy_task_waits_for_await) {
 // Generator Tests
 // =============================================================================
 
-TEST_CASE(generator_simple_sequence) {
+FATP_TEST_CASE(generator_simple_sequence) {
     auto range = [](int n) -> Generator<int> {
         for (int i = 0; i < n; ++i) {
             co_yield i;
@@ -217,13 +213,13 @@ TEST_CASE(generator_simple_sequence) {
         values.push_back(val);
     }
     
-    ASSERT_EQ(values.size(), 5u, "Generator should produce 5 values");
-    ASSERT_EQ(values[0], 0, "First value");
-    ASSERT_EQ(values[4], 4, "Last value");
+    FATP_ASSERT_EQ(values.size(), 5u, "Generator should produce 5 values");
+    FATP_ASSERT_EQ(values[0], 0, "First value");
+    FATP_ASSERT_EQ(values[4], 4, "Last value");
     return true;
 }
 
-TEST_CASE(generator_fibonacci) {
+FATP_TEST_CASE(generator_fibonacci) {
     auto fibonacci = [](int n) -> Generator<int> {
         int a = 0, b = 1;
         for (int i = 0; i < n; ++i) {
@@ -241,17 +237,17 @@ TEST_CASE(generator_fibonacci) {
         fib_sequence.push_back(val);
     }
     
-    ASSERT_EQ(fib_sequence.size(), 6u, "Should generate 6 fibonacci numbers");
-    ASSERT_EQ(fib_sequence[0], 0, "fib[0]");
-    ASSERT_EQ(fib_sequence[1], 1, "fib[1]");
-    ASSERT_EQ(fib_sequence[2], 1, "fib[2]");
-    ASSERT_EQ(fib_sequence[3], 2, "fib[3]");
-    ASSERT_EQ(fib_sequence[4], 3, "fib[4]");
-    ASSERT_EQ(fib_sequence[5], 5, "fib[5]");
+    FATP_ASSERT_EQ(fib_sequence.size(), 6u, "Should generate 6 fibonacci numbers");
+    FATP_ASSERT_EQ(fib_sequence[0], 0, "fib[0]");
+    FATP_ASSERT_EQ(fib_sequence[1], 1, "fib[1]");
+    FATP_ASSERT_EQ(fib_sequence[2], 1, "fib[2]");
+    FATP_ASSERT_EQ(fib_sequence[3], 2, "fib[3]");
+    FATP_ASSERT_EQ(fib_sequence[4], 3, "fib[4]");
+    FATP_ASSERT_EQ(fib_sequence[5], 5, "fib[5]");
     return true;
 }
 
-TEST_CASE(generator_string_values) {
+FATP_TEST_CASE(generator_string_values) {
     auto string_gen = []() -> Generator<std::string> {
         co_yield "first";
         co_yield "second";
@@ -265,10 +261,10 @@ TEST_CASE(generator_string_values) {
         strings.push_back(str);
     }
     
-    ASSERT_EQ(strings.size(), 3u, "Should generate 3 strings");
-    ASSERT_EQ(strings[0], "first", "First string");
-    ASSERT_EQ(strings[1], "second", "Second string");
-    ASSERT_EQ(strings[2], "third", "Third string");
+    FATP_ASSERT_EQ(strings.size(), 3u, "Should generate 3 strings");
+    FATP_ASSERT_EQ(strings[0], "first", "First string");
+    FATP_ASSERT_EQ(strings[1], "second", "Second string");
+    FATP_ASSERT_EQ(strings[2], "third", "Third string");
     return true;
 }
 
@@ -276,7 +272,7 @@ TEST_CASE(generator_string_values) {
 // Task Composition Tests
 // =============================================================================
 
-TEST_CASE(when_all_success) {
+FATP_TEST_CASE(when_all_success) {
     std::vector<CoroutineTask<int>> tasks;
     
     for (int i = 0; i < 3; ++i) {
@@ -287,15 +283,15 @@ TEST_CASE(when_all_success) {
     
     auto result = when_all(tasks);
     
-    ASSERT_TRUE(result.has_value(), "when_all should succeed");
-    ASSERT_EQ(result.value().size(), 3u, "Should have 3 results");
-    ASSERT_EQ(result.value()[0], 0, "First result");
-    ASSERT_EQ(result.value()[1], 10, "Second result");
-    ASSERT_EQ(result.value()[2], 20, "Third result");
+    FATP_ASSERT_TRUE(result.has_value(), "when_all should succeed");
+    FATP_ASSERT_EQ(result.value().size(), 3u, "Should have 3 results");
+    FATP_ASSERT_EQ(result.value()[0], 0, "First result");
+    FATP_ASSERT_EQ(result.value()[1], 10, "Second result");
+    FATP_ASSERT_EQ(result.value()[2], 20, "Third result");
     return true;
 }
 
-TEST_CASE(when_all_failure) {
+FATP_TEST_CASE(when_all_failure) {
     std::vector<CoroutineTask<int>> tasks;
     
     tasks.push_back([]() -> CoroutineTask<int> {
@@ -313,11 +309,11 @@ TEST_CASE(when_all_failure) {
     
     auto result = when_all(tasks);
     
-    ASSERT_FALSE(result.has_value(), "when_all should fail if any task fails");
+    FATP_ASSERT_FALSE(result.has_value(), "when_all should fail if any task fails");
     return true;
 }
 
-TEST_CASE(when_any_first_succeeds) {
+FATP_TEST_CASE(when_any_first_succeeds) {
     std::vector<CoroutineTask<int>> tasks;
     
     tasks.push_back([]() -> CoroutineTask<int> {
@@ -330,12 +326,12 @@ TEST_CASE(when_any_first_succeeds) {
     
     auto result = when_any(tasks);
     
-    ASSERT_TRUE(result.has_value(), "when_any should succeed");
-    ASSERT_EQ(result.value(), 42, "Should return first successful result");
+    FATP_ASSERT_TRUE(result.has_value(), "when_any should succeed");
+    FATP_ASSERT_EQ(result.value(), 42, "Should return first successful result");
     return true;
 }
 
-TEST_CASE(when_any_all_fail) {
+FATP_TEST_CASE(when_any_all_fail) {
     std::vector<CoroutineTask<int>> tasks;
     
     for (int i = 0; i < 3; ++i) {
@@ -347,7 +343,7 @@ TEST_CASE(when_any_all_fail) {
     
     auto result = when_any(tasks);
     
-    ASSERT_FALSE(result.has_value(), "when_any should fail if all tasks fail");
+    FATP_ASSERT_FALSE(result.has_value(), "when_any should fail if all tasks fail");
     return true;
 }
 
@@ -355,25 +351,25 @@ TEST_CASE(when_any_all_fail) {
 // Move Semantics Tests
 // =============================================================================
 
-TEST_CASE(coroutine_task_move_constructor) {
+FATP_TEST_CASE(coroutine_task_move_constructor) {
     auto make_task = []() -> CoroutineTask<int> {
         co_return 42;
     };
     
     auto task1 = make_task();
-    ASSERT_TRUE(task1.valid(), "Original task should be valid");
+    FATP_ASSERT_TRUE(task1.valid(), "Original task should be valid");
     
     auto task2 = std::move(task1);
-    ASSERT_FALSE(task1.valid(), "Moved-from task should be invalid");
-    ASSERT_TRUE(task2.valid(), "Moved-to task should be valid");
+    FATP_ASSERT_FALSE(task1.valid(), "Moved-from task should be invalid");
+    FATP_ASSERT_TRUE(task2.valid(), "Moved-to task should be valid");
     
     auto result = task2.await();
-    ASSERT_TRUE(result.has_value(), "Moved task should work");
-    ASSERT_EQ(result.value(), 42, "Moved task result");
+    FATP_ASSERT_TRUE(result.has_value(), "Moved task should work");
+    FATP_ASSERT_EQ(result.value(), 42, "Moved task result");
     return true;
 }
 
-TEST_CASE(coroutine_task_move_assignment) {
+FATP_TEST_CASE(coroutine_task_move_assignment) {
     auto make_task = [](int val) -> CoroutineTask<int> {
         co_return val;
     };
@@ -384,12 +380,12 @@ TEST_CASE(coroutine_task_move_assignment) {
     task2 = std::move(task1);
     
     auto result = task2.await();
-    ASSERT_TRUE(result.has_value(), "Move-assigned task should work");
-    ASSERT_EQ(result.value(), 10, "Move-assigned task result");
+    FATP_ASSERT_TRUE(result.has_value(), "Move-assigned task should work");
+    FATP_ASSERT_EQ(result.value(), 10, "Move-assigned task result");
     return true;
 }
 
-TEST_CASE(generator_move_semantics) {
+FATP_TEST_CASE(generator_move_semantics) {
     auto make_gen = []() -> Generator<int> {
         for (int i = 0; i < 3; ++i) {
             co_yield i;
@@ -404,7 +400,7 @@ TEST_CASE(generator_move_semantics) {
         values.push_back(val);
     }
     
-    ASSERT_EQ(values.size(), 3u, "Moved generator should work");
+    FATP_ASSERT_EQ(values.size(), 3u, "Moved generator should work");
     return true;
 }
 
@@ -412,31 +408,31 @@ TEST_CASE(generator_move_semantics) {
 // State and Validity Tests
 // =============================================================================
 
-TEST_CASE(task_done_state) {
+FATP_TEST_CASE(task_done_state) {
     auto task = []() -> CoroutineTask<int> {
         co_return 42;
     }();
     
-    ASSERT_FALSE(task.done(), "Task should not be done before await");
+    FATP_ASSERT_FALSE(task.done(), "Task should not be done before await");
     
     auto result = task.await();
     
-    ASSERT_TRUE(task.done(), "Task should be done after await");
-    ASSERT_TRUE(result.has_value(), "Result should be valid");
+    FATP_ASSERT_TRUE(task.done(), "Task should be done after await");
+    FATP_ASSERT_TRUE(result.has_value(), "Result should be valid");
     return true;
 }
 
-TEST_CASE(task_validity_check) {
+FATP_TEST_CASE(task_validity_check) {
     auto task = []() -> CoroutineTask<int> {
         co_return 42;
     }();
     
-    ASSERT_TRUE(task.valid(), "Newly created task should be valid");
+    FATP_ASSERT_TRUE(task.valid(), "Newly created task should be valid");
     
     auto moved = std::move(task);
     
-    ASSERT_FALSE(task.valid(), "Moved-from task should be invalid");
-    ASSERT_TRUE(moved.valid(), "Moved-to task should be valid");
+    FATP_ASSERT_FALSE(task.valid(), "Moved-from task should be invalid");
+    FATP_ASSERT_TRUE(moved.valid(), "Moved-to task should be valid");
     return true;
 }
 
@@ -505,9 +501,14 @@ void run_coroutine_benchmarks() {
 // Main Test Driver
 // =============================================================================
 
+} // namespace fat_p::testing::coroutinetask
+
+namespace fat_p::testing
+{
+
 bool test_CoroutineTask() {
 
-    PRINT_HEADER(COROUTINE TASK)
+    FATP_PRINT_HEADER(COROUTINE TASK)
 
     TestRunner runner;
     
@@ -520,47 +521,47 @@ bool test_CoroutineTask() {
     
     // Basic Coroutine Tests
     out << colors::blue() << "--- Basic Coroutine Tests ---" << colors::reset() << "\n";
-    RUN_TEST(runner, simple_coroutine);
-    RUN_TEST(runner, coroutine_with_computation);
-    RUN_TEST(runner, coroutine_with_string);
-    RUN_TEST(runner, coroutine_with_complex_type);
+    FATP_RUN_TEST_NS(runner, coroutinetask, simple_coroutine);
+    FATP_RUN_TEST_NS(runner, coroutinetask, coroutine_with_computation);
+    FATP_RUN_TEST_NS(runner, coroutinetask, coroutine_with_string);
+    FATP_RUN_TEST_NS(runner, coroutinetask, coroutine_with_complex_type);
     
     // Error Handling
     out << "\n" << colors::blue() << "--- Error Handling ---" << colors::reset() << "\n";
-    RUN_TEST(runner, coroutine_exception_handling);
-    RUN_TEST(runner, invalid_handle_error);
+    FATP_RUN_TEST_NS(runner, coroutinetask, coroutine_exception_handling);
+    FATP_RUN_TEST_NS(runner, coroutinetask, invalid_handle_error);
     
     // Eager vs Lazy
     out << "\n" << colors::blue() << "--- Eager vs Lazy Execution ---" << colors::reset() << "\n";
-    RUN_TEST(runner, eager_task_executes_immediately);
-    RUN_TEST(runner, lazy_task_waits_for_await);
+    FATP_RUN_TEST_NS(runner, coroutinetask, eager_task_executes_immediately);
+    FATP_RUN_TEST_NS(runner, coroutinetask, lazy_task_waits_for_await);
     
     // Generator Tests
     out << "\n" << colors::blue() << "--- Generator Tests ---" << colors::reset() << "\n";
-    RUN_TEST(runner, generator_simple_sequence);
-    RUN_TEST(runner, generator_fibonacci);
-    RUN_TEST(runner, generator_string_values);
+    FATP_RUN_TEST_NS(runner, coroutinetask, generator_simple_sequence);
+    FATP_RUN_TEST_NS(runner, coroutinetask, generator_fibonacci);
+    FATP_RUN_TEST_NS(runner, coroutinetask, generator_string_values);
     
     // Task Composition
     out << "\n" << colors::blue() << "--- Task Composition ---" << colors::reset() << "\n";
-    RUN_TEST(runner, when_all_success);
-    RUN_TEST(runner, when_all_failure);
-    RUN_TEST(runner, when_any_first_succeeds);
-    RUN_TEST(runner, when_any_all_fail);
+    FATP_RUN_TEST_NS(runner, coroutinetask, when_all_success);
+    FATP_RUN_TEST_NS(runner, coroutinetask, when_all_failure);
+    FATP_RUN_TEST_NS(runner, coroutinetask, when_any_first_succeeds);
+    FATP_RUN_TEST_NS(runner, coroutinetask, when_any_all_fail);
     
     // Move Semantics
     out << "\n" << colors::blue() << "--- Move Semantics ---" << colors::reset() << "\n";
-    RUN_TEST(runner, coroutine_task_move_constructor);
-    RUN_TEST(runner, coroutine_task_move_assignment);
-    RUN_TEST(runner, generator_move_semantics);
+    FATP_RUN_TEST_NS(runner, coroutinetask, coroutine_task_move_constructor);
+    FATP_RUN_TEST_NS(runner, coroutinetask, coroutine_task_move_assignment);
+    FATP_RUN_TEST_NS(runner, coroutinetask, generator_move_semantics);
     
     // State and Validity
     out << "\n" << colors::blue() << "--- State and Validity ---" << colors::reset() << "\n";
-    RUN_TEST(runner, task_done_state);
-    RUN_TEST(runner, task_validity_check);
+    FATP_RUN_TEST_NS(runner, coroutinetask, task_done_state);
+    FATP_RUN_TEST_NS(runner, coroutinetask, task_validity_check);
     
     // Performance Benchmarks
-    run_coroutine_benchmarks();
+    coroutinetask::run_coroutine_benchmarks();
     
     // Summary
     return 0 == runner.print_summary();
@@ -575,7 +576,7 @@ namespace fat_p::testing
 
 bool test_CoroutineTask() {
 
-    PRINT_HEADER(COROUTINE TASK)
+    FATP_PRINT_HEADER(COROUTINE TASK)
 
     auto& out = *get_test_config().output;
     out << colors::yellow() << colors::bold() 

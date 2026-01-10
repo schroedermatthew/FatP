@@ -8,7 +8,7 @@ FATP_META:
   component: EnhancedBoundsChecking
   file_role: test
   path: tests/test_EnhancedBoundsChecking.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::enhancedboundschecking
   summary: "Unit tests for EnhancedBoundsChecking."
   related:
     docs_search: "EnhancedBoundsChecking"
@@ -34,23 +34,24 @@ FATP_META:
 #include "EnhancedBoundsChecking.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing {
+namespace fat_p::testing::enhancedboundschecking
+{
 
 // =============================================================================
 // Test 1: Basic Bounds Checking
 // =============================================================================
 
-bool test_basic_bounds_checking() {
+FATP_TEST_CASE(basic_bounds_checking) {
     std::cout << colors::cyan() << "\n[TEST] Basic Bounds Checking"
               << colors::reset() << std::endl;
     
     // Valid index should not throw
     try {
         bounds_check(5, 0, 10, "Test index");
-        std::cout << colors::green() << "✓ Valid index passed"
+        std::cout << colors::green() << "âœ“ Valid index passed"
                   << colors::reset() << std::endl;
     } catch (...) {
-        ASSERT_TRUE(false, "Valid index should not throw");
+        FATP_ASSERT_TRUE(false, "Valid index should not throw");
     }
     
     // Invalid index should throw
@@ -60,16 +61,16 @@ bool test_basic_bounds_checking() {
     } catch (const std::out_of_range& e) {
         threw = true;
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("Test index") != std::string::npos, 
+        FATP_ASSERT_TRUE(msg.find("Test index") != std::string::npos, 
                      "Error message should contain context");
-        ASSERT_TRUE(msg.find("15") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("15") != std::string::npos,
                      "Error message should contain index");
         std::cout << colors::blue() << "  Error message: " << e.what()
                   << colors::reset() << std::endl;
     }
-    ASSERT_TRUE(threw, "Out of bounds index should throw");
+    FATP_ASSERT_TRUE(threw, "Out of bounds index should throw");
     
-    std::cout << colors::green() << "✓ Basic bounds checking passed"
+    std::cout << colors::green() << "âœ“ Basic bounds checking passed"
               << colors::reset() << std::endl;
     return true;
 }
@@ -78,7 +79,7 @@ bool test_basic_bounds_checking() {
 // Test 2: Debug-Only Bounds Checking
 // =============================================================================
 
-bool test_debug_only_bounds_checking() {
+FATP_TEST_CASE(debug_only_bounds_checking) {
     std::cout << colors::cyan() << "\n[TEST] Debug-Only Bounds Checking"
               << colors::reset() << std::endl;
     
@@ -89,7 +90,7 @@ bool test_debug_only_bounds_checking() {
         std::cout << colors::blue() << "  Release build: check compiled out"
                   << colors::reset() << std::endl;
     } catch (...) {
-        ASSERT_TRUE(false, "Debug check should be compiled out in release");
+        FATP_ASSERT_TRUE(false, "Debug check should be compiled out in release");
     }
     #else
     // In debug mode, should throw
@@ -99,12 +100,12 @@ bool test_debug_only_bounds_checking() {
     } catch (const std::out_of_range&) {
         threw = true;
     }
-    ASSERT_TRUE(threw, "Debug build should throw on invalid index");
+    FATP_ASSERT_TRUE(threw, "Debug build should throw on invalid index");
     std::cout << colors::blue() << "  Debug build: check active"
               << colors::reset() << std::endl;
     #endif
     
-    std::cout << colors::green() << "✓ Debug-only bounds checking passed"
+    std::cout << colors::green() << "âœ“ Debug-only bounds checking passed"
               << colors::reset() << std::endl;
     return true;
 }
@@ -113,7 +114,7 @@ bool test_debug_only_bounds_checking() {
 // Test 3: Container Bounds Checking
 // =============================================================================
 
-bool test_container_bounds_checking() {
+FATP_TEST_CASE(container_bounds_checking) {
     std::cout << colors::cyan() << "\n[TEST] Container Bounds Checking"
               << colors::reset() << std::endl;
     
@@ -122,10 +123,10 @@ bool test_container_bounds_checking() {
     // Valid access
     try {
         check_container_bounds(vec, 2, "Vector access");
-        std::cout << colors::green() << "✓ Valid container access passed"
+        std::cout << colors::green() << "âœ“ Valid container access passed"
                   << colors::reset() << std::endl;
     } catch (...) {
-        ASSERT_TRUE(false, "Valid container access should not throw");
+        FATP_ASSERT_TRUE(false, "Valid container access should not throw");
     }
     
     // Invalid access
@@ -137,9 +138,9 @@ bool test_container_bounds_checking() {
         std::cout << colors::blue() << "  Error: " << e.what()
                   << colors::reset() << std::endl;
     }
-    ASSERT_TRUE(threw, "Invalid container access should throw");
+    FATP_ASSERT_TRUE(threw, "Invalid container access should throw");
     
-    std::cout << colors::green() << "✓ Container bounds checking passed"
+    std::cout << colors::green() << "âœ“ Container bounds checking passed"
               << colors::reset() << std::endl;
     return true;
 }
@@ -148,7 +149,7 @@ bool test_container_bounds_checking() {
 // Test 4: 2D Bounds Checking
 // =============================================================================
 
-bool test_2d_bounds_checking() {
+FATP_TEST_CASE(2d_bounds_checking) {
     std::cout << colors::cyan() << "\n[TEST] 2D Bounds Checking"
               << colors::reset() << std::endl;
     
@@ -158,10 +159,10 @@ bool test_2d_bounds_checking() {
     // Valid 2D access
     try {
         bounds_check_2d(5, 10, rows, cols, "Matrix access");
-        std::cout << colors::green() << "✓ Valid 2D access passed"
+        std::cout << colors::green() << "âœ“ Valid 2D access passed"
                   << colors::reset() << std::endl;
     } catch (...) {
-        ASSERT_TRUE(false, "Valid 2D access should not throw");
+        FATP_ASSERT_TRUE(false, "Valid 2D access should not throw");
     }
     
     // Invalid row
@@ -171,12 +172,12 @@ bool test_2d_bounds_checking() {
     } catch (const std::out_of_range& e) {
         threw = true;
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("(15, 10)") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("(15, 10)") != std::string::npos,
                      "Error should show indices");
-        ASSERT_TRUE(msg.find("(10, 20)") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("(10, 20)") != std::string::npos,
                      "Error should show shape");
     }
-    ASSERT_TRUE(threw, "Invalid row should throw");
+    FATP_ASSERT_TRUE(threw, "Invalid row should throw");
     
     // Invalid column
     threw = false;
@@ -185,9 +186,9 @@ bool test_2d_bounds_checking() {
     } catch (const std::out_of_range&) {
         threw = true;
     }
-    ASSERT_TRUE(threw, "Invalid column should throw");
+    FATP_ASSERT_TRUE(threw, "Invalid column should throw");
     
-    std::cout << colors::green() << "✓ 2D bounds checking passed"
+    std::cout << colors::green() << "âœ“ 2D bounds checking passed"
               << colors::reset() << std::endl;
     return true;
 }
@@ -196,7 +197,7 @@ bool test_2d_bounds_checking() {
 // Test 5: N-Dimensional Bounds Checking
 // =============================================================================
 
-bool test_nd_bounds_checking() {
+FATP_TEST_CASE(nd_bounds_checking) {
     std::cout << colors::cyan() << "\n[TEST] N-Dimensional Bounds Checking"
               << colors::reset() << std::endl;
     
@@ -206,10 +207,10 @@ bool test_nd_bounds_checking() {
     try {
         std::vector<size_t> indices = {5, 10, 15};
         bounds_check_nd(indices, shape, "Tensor access");
-        std::cout << colors::green() << "✓ Valid ND access passed"
+        std::cout << colors::green() << "âœ“ Valid ND access passed"
                   << colors::reset() << std::endl;
     } catch (...) {
-        ASSERT_TRUE(false, "Valid ND access should not throw");
+        FATP_ASSERT_TRUE(false, "Valid ND access should not throw");
     }
     
     // Dimension mismatch
@@ -220,10 +221,10 @@ bool test_nd_bounds_checking() {
     } catch (const std::invalid_argument& e) {
         threw = true;
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("dimension mismatch") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("dimension mismatch") != std::string::npos,
                      "Error should mention dimension mismatch");
     }
-    ASSERT_TRUE(threw, "Dimension mismatch should throw");
+    FATP_ASSERT_TRUE(threw, "Dimension mismatch should throw");
     
     // Out of bounds index
     threw = false;
@@ -233,12 +234,12 @@ bool test_nd_bounds_checking() {
     } catch (const std::out_of_range& e) {
         threw = true;
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("dimension 1") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("dimension 1") != std::string::npos,
                      "Error should identify problematic dimension");
     }
-    ASSERT_TRUE(threw, "Out of bounds index should throw");
+    FATP_ASSERT_TRUE(threw, "Out of bounds index should throw");
     
-    std::cout << colors::green() << "✓ ND bounds checking passed"
+    std::cout << colors::green() << "âœ“ ND bounds checking passed"
               << colors::reset() << std::endl;
     return true;
 }
@@ -247,7 +248,7 @@ bool test_nd_bounds_checking() {
 // Test 6: Range Validation
 // =============================================================================
 
-bool test_range_validation() {
+FATP_TEST_CASE(range_validation) {
     std::cout << colors::cyan() << "\n[TEST] Range Validation"
               << colors::reset() << std::endl;
     
@@ -256,10 +257,10 @@ bool test_range_validation() {
     // Valid range
     try {
         validate_range(10, 50, size, "Array slice");
-        std::cout << colors::green() << "✓ Valid range passed"
+        std::cout << colors::green() << "âœ“ Valid range passed"
                   << colors::reset() << std::endl;
     } catch (...) {
-        ASSERT_TRUE(false, "Valid range should not throw");
+        FATP_ASSERT_TRUE(false, "Valid range should not throw");
     }
     
     // Invalid: start > end
@@ -269,7 +270,7 @@ bool test_range_validation() {
     } catch (const std::out_of_range&) {
         threw = true;
     }
-    ASSERT_TRUE(threw, "start > end should throw");
+    FATP_ASSERT_TRUE(threw, "start > end should throw");
     
     // Invalid: end > size
     threw = false;
@@ -278,9 +279,9 @@ bool test_range_validation() {
     } catch (const std::out_of_range&) {
         threw = true;
     }
-    ASSERT_TRUE(threw, "end > size should throw");
+    FATP_ASSERT_TRUE(threw, "end > size should throw");
     
-    std::cout << colors::green() << "✓ Range validation passed"
+    std::cout << colors::green() << "âœ“ Range validation passed"
               << colors::reset() << std::endl;
     return true;
 }
@@ -289,7 +290,7 @@ bool test_range_validation() {
 // Test 7: Slice Validation
 // =============================================================================
 
-bool test_slice_validation() {
+FATP_TEST_CASE(slice_validation) {
     std::cout << colors::cyan() << "\n[TEST] Slice Validation"
               << colors::reset() << std::endl;
     
@@ -298,10 +299,10 @@ bool test_slice_validation() {
     // Valid slice
     try {
         validate_slice(10, 50, 2, size, "Array slice");
-        std::cout << colors::green() << "✓ Valid slice passed"
+        std::cout << colors::green() << "âœ“ Valid slice passed"
                   << colors::reset() << std::endl;
     } catch (...) {
-        ASSERT_TRUE(false, "Valid slice should not throw");
+        FATP_ASSERT_TRUE(false, "Valid slice should not throw");
     }
     
     // Invalid: step = 0
@@ -311,7 +312,7 @@ bool test_slice_validation() {
     } catch (const std::invalid_argument&) {
         threw = true;
     }
-    ASSERT_TRUE(threw, "step = 0 should throw");
+    FATP_ASSERT_TRUE(threw, "step = 0 should throw");
     
     // Invalid: start out of bounds
     threw = false;
@@ -320,9 +321,9 @@ bool test_slice_validation() {
     } catch (const std::out_of_range&) {
         threw = true;
     }
-    ASSERT_TRUE(threw, "start out of bounds should throw");
+    FATP_ASSERT_TRUE(threw, "start out of bounds should throw");
     
-    std::cout << colors::green() << "✓ Slice validation passed"
+    std::cout << colors::green() << "âœ“ Slice validation passed"
               << colors::reset() << std::endl;
     return true;
 }
@@ -331,17 +332,17 @@ bool test_slice_validation() {
 // Test 8: Enforce-Based Bounds Checking
 // =============================================================================
 
-bool test_enforce_based_bounds() {
+FATP_TEST_CASE(enforce_based_bounds) {
     std::cout << colors::cyan() << "\n[TEST] Enforce-Based Bounds Checking"
               << colors::reset() << std::endl;
     
     // Valid bounds with enforce
     try {
         enforce_bounds(5, 0, 10, "Enforce test");
-        std::cout << colors::green() << "✓ Valid enforce bounds passed"
+        std::cout << colors::green() << "âœ“ Valid enforce bounds passed"
                   << colors::reset() << std::endl;
     } catch (...) {
-        ASSERT_TRUE(false, "Valid bounds should not throw");
+        FATP_ASSERT_TRUE(false, "Valid bounds should not throw");
     }
     
     // Invalid bounds should throw
@@ -353,9 +354,9 @@ bool test_enforce_based_bounds() {
         std::cout << colors::blue() << "  Enforce error: " << e.what()
                   << colors::reset() << std::endl;
     }
-    ASSERT_TRUE(threw, "Enforce should throw on invalid bounds");
+    FATP_ASSERT_TRUE(threw, "Enforce should throw on invalid bounds");
     
-    std::cout << colors::green() << "✓ Enforce-based bounds checking passed"
+    std::cout << colors::green() << "âœ“ Enforce-based bounds checking passed"
               << colors::reset() << std::endl;
     return true;
 }
@@ -364,19 +365,24 @@ bool test_enforce_based_bounds() {
 // Test Runner
 // =============================================================================
 
+} // namespace fat_p::testing::enhancedboundschecking
+
+namespace fat_p::testing
+{
+
 bool test_EnhancedBoundsChecking() {
-    PRINT_HEADER(ENHANCED BOUNDS CHECKING)
+    FATP_PRINT_HEADER(ENHANCED BOUNDS CHECKING)
     
     TestRunner runner;
     
-    RUN_TEST(runner, basic_bounds_checking);
-    RUN_TEST(runner, debug_only_bounds_checking);
-    RUN_TEST(runner, container_bounds_checking);
-    RUN_TEST(runner, 2d_bounds_checking);
-    RUN_TEST(runner, nd_bounds_checking);
-    RUN_TEST(runner, range_validation);
-    RUN_TEST(runner, slice_validation);
-    RUN_TEST(runner, enforce_based_bounds);
+    FATP_RUN_TEST_NS(runner, enhancedboundschecking, basic_bounds_checking);
+    FATP_RUN_TEST_NS(runner, enhancedboundschecking, debug_only_bounds_checking);
+    FATP_RUN_TEST_NS(runner, enhancedboundschecking, container_bounds_checking);
+    FATP_RUN_TEST_NS(runner, enhancedboundschecking, 2d_bounds_checking);
+    FATP_RUN_TEST_NS(runner, enhancedboundschecking, nd_bounds_checking);
+    FATP_RUN_TEST_NS(runner, enhancedboundschecking, range_validation);
+    FATP_RUN_TEST_NS(runner, enhancedboundschecking, slice_validation);
+    FATP_RUN_TEST_NS(runner, enhancedboundschecking, enforce_based_bounds);
     
     return 0 == runner.print_summary();
 }

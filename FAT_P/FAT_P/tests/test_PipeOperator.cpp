@@ -8,7 +8,7 @@ FATP_META:
   component: PipeOperator
   file_role: test
   path: tests/test_PipeOperator.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::pipeoperator
   summary: "Unit tests for PipeOperator."
   related:
     docs_search: "PipeOperator"
@@ -35,21 +35,21 @@ FATP_META:
 #include "PipeOperator.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing
+namespace fat_p::testing::pipeoperator
 {
 
-bool test_basic_pipe() {
+FATP_TEST_CASE(basic_pipe) {
     auto add_ten = [](int x) { return x + 10; };
     auto multiply_two = [](int x) { return x * 2; };
     
     int result = 5 | add_ten | multiply_two;
     
-    ASSERT_TRUE(result == 30, "Result should be 30 ((5+10)*2)");
+    FATP_ASSERT_TRUE(result == 30, "Result should be 30 ((5+10)*2)");
     
     return true;
 }
 
-bool test_string_pipe() {
+FATP_TEST_CASE(string_pipe) {
     auto to_upper = [](std::string s) {
         for (auto& c : s) c = std::toupper(c);
         return s;
@@ -58,24 +58,24 @@ bool test_string_pipe() {
     
     std::string result = std::string("hello") | to_upper | add_exclamation;
     
-    ASSERT_TRUE(result == "HELLO!", "Result should be 'HELLO!'");
+    FATP_ASSERT_TRUE(result == "HELLO!", "Result should be 'HELLO!'");
     
     return true;
 }
 
-bool test_expected_success() {
+FATP_TEST_CASE(expected_success) {
     auto add_ten = [](int x) -> Expected<int, std::string> { return x + 10; };
     auto multiply_two = [](int x) -> Expected<int, std::string> { return x * 2; };
     
     auto result = Expected<int, std::string>(5) | add_ten | multiply_two;
     
-    ASSERT_TRUE(result.has_value(), "Result should have value");
-    ASSERT_TRUE(*result == 30, "Result should be 30");
+    FATP_ASSERT_TRUE(result.has_value(), "Result should have value");
+    FATP_ASSERT_TRUE(*result == 30, "Result should be 30");
     
     return true;
 }
 
-bool test_expected_error() {
+FATP_TEST_CASE(expected_error) {
     auto add_ten = [](int x) -> Expected<int, std::string> { return x + 10; };
     auto fail = [](int) -> Expected<int, std::string> { 
         return unexpected<std::string>("error occurred");
@@ -84,73 +84,73 @@ bool test_expected_error() {
     
     auto result = Expected<int, std::string>(5) | add_ten | fail | multiply_two;
     
-    ASSERT_TRUE(!result.has_value(), "Result should be error");
-    ASSERT_TRUE(result.error() == "error occurred", "Error message should be preserved");
+    FATP_ASSERT_TRUE(!result.has_value(), "Result should be error");
+    FATP_ASSERT_TRUE(result.error() == "error occurred", "Error message should be preserved");
     
     return true;
 }
 
-bool test_type_conversion() {
+FATP_TEST_CASE(type_conversion) {
     auto int_to_string = [](int x) { return std::to_string(x); };
     auto append_text = [](std::string s) { return s + " units"; };
     
     std::string result = 42 | int_to_string | append_text;
     
-    ASSERT_TRUE(result == "42 units", "Result should be '42 units'");
+    FATP_ASSERT_TRUE(result == "42 units", "Result should be '42 units'");
     
     return true;
 }
 
-bool test_complex_chain() {
+FATP_TEST_CASE(complex_chain) {
     auto step1 = [](int x) -> Expected<int, std::string> { return x * 2; };
     auto step2 = [](int x) -> Expected<int, std::string> { return x + 5; };
     auto step3 = [](int x) -> Expected<int, std::string> { return x - 3; };
     
     auto result = Expected<int, std::string>(10) | step1 | step2 | step3;
     
-    ASSERT_TRUE(result.has_value(), "Result should have value");
-    ASSERT_TRUE(*result == 22, "Result should be 22 ((10*2)+5-3)");
+    FATP_ASSERT_TRUE(result.has_value(), "Result should have value");
+    FATP_ASSERT_TRUE(*result == 22, "Result should be 22 ((10*2)+5-3)");
     
     return true;
 }
 
-bool test_void_to_value() {
+FATP_TEST_CASE(void_to_value) {
     // Expected<void> success -> value producing function
     Expected<void, std::string> success;
     auto produce_int = []() { return 42; };
     
     auto result = std::move(success) | produce_int;
     
-    ASSERT_TRUE(result.has_value(), "Void-to-value should succeed");
-    ASSERT_TRUE(*result == 42, "Should contain 42");
+    FATP_ASSERT_TRUE(result.has_value(), "Void-to-value should succeed");
+    FATP_ASSERT_TRUE(*result == 42, "Should contain 42");
     return true;
 }
 
-bool test_void_to_expected() {
+FATP_TEST_CASE(void_to_expected) {
     // Expected<void> success -> Expected producing function
     Expected<void, std::string> success;
     auto produce_expected = []() -> Expected<int, std::string> { return 100; };
     
     auto result = std::move(success) | produce_expected;
     
-    ASSERT_TRUE(result.has_value(), "Void-to-expected should succeed");
-    ASSERT_TRUE(*result == 100, "Should contain 100");
+    FATP_ASSERT_TRUE(result.has_value(), "Void-to-expected should succeed");
+    FATP_ASSERT_TRUE(*result == 100, "Should contain 100");
     return true;
 }
 
-bool test_void_error_propagation() {
+FATP_TEST_CASE(void_error_propagation) {
     // Expected<void> error -> any function (should propagate error)
     Expected<void, std::string> failure(unexpected<std::string>("void error"));
     auto produce_int = []() { return 42; };
     
     auto result = std::move(failure) | produce_int;
     
-    ASSERT_TRUE(!result.has_value(), "Error should propagate");
-    ASSERT_TRUE(result.error() == "void error", "Error message preserved");
+    FATP_ASSERT_TRUE(!result.has_value(), "Error should propagate");
+    FATP_ASSERT_TRUE(result.error() == "void error", "Error message preserved");
     return true;
 }
 
-bool test_void_chain() {
+FATP_TEST_CASE(void_chain) {
     // Chain: void -> void -> value
     int side_effect = 0;
     Expected<void, std::string> start;
@@ -161,13 +161,13 @@ bool test_void_chain() {
     
     auto result = std::move(start) | step1 | step2 | step3;
     
-    ASSERT_TRUE(result.has_value(), "Chain should succeed");
-    ASSERT_TRUE(*result == 22, "Should be (1+10)*2 = 22");
-    ASSERT_TRUE(side_effect == 11, "Side effects should have run");
+    FATP_ASSERT_TRUE(result.has_value(), "Chain should succeed");
+    FATP_ASSERT_TRUE(*result == 22, "Should be (1+10)*2 = 22");
+    FATP_ASSERT_TRUE(side_effect == 11, "Side effects should have run");
     return true;
 }
 
-bool test_void_to_void() {
+FATP_TEST_CASE(void_to_void) {
     // Expected<void> -> void function -> Expected<void>
     int counter = 0;
     Expected<void, std::string> start;
@@ -176,27 +176,27 @@ bool test_void_to_void() {
     
     auto result = std::move(start) | increment;
     
-    ASSERT_TRUE(result.has_value(), "Void-to-void should succeed");
-    ASSERT_TRUE(counter == 1, "Side effect should have run");
+    FATP_ASSERT_TRUE(result.has_value(), "Void-to-void should succeed");
+    FATP_ASSERT_TRUE(counter == 1, "Side effect should have run");
     return true;
 }
 
-bool test_const_void_pipe() {
+FATP_TEST_CASE(const_void_pipe) {
     // Const lvalue void piping
     const Expected<void, std::string> success;
     auto produce = []() { return 99; };
     
     auto result = success | produce;
     
-    ASSERT_TRUE(result.has_value(), "Const void pipe should work");
-    ASSERT_TRUE(*result == 99, "Should contain 99");
+    FATP_ASSERT_TRUE(result.has_value(), "Const void pipe should work");
+    FATP_ASSERT_TRUE(*result == 99, "Should contain 99");
     return true;
 }
 
 // Simple error code enum for tests where string error would cause T==E
 enum class TestError { None, Invalid, NotFound };
 
-bool test_mixed_pipeline() {
+FATP_TEST_CASE(mixed_pipeline) {
     // Real-world scenario: status -> config -> validation
     auto init = []() -> Expected<void, TestError> { return {}; };
     auto get_config = []() -> Expected<int, TestError> { return 42; };
@@ -208,20 +208,20 @@ bool test_mixed_pipeline() {
     
     auto result = init() | get_config | validate | format;
     
-    ASSERT_TRUE(result.has_value(), "Mixed pipeline should succeed");
-    ASSERT_TRUE(*result == "84 units", "Should be formatted result");
+    FATP_ASSERT_TRUE(result.has_value(), "Mixed pipeline should succeed");
+    FATP_ASSERT_TRUE(*result == "84 units", "Should be formatted result");
     return true;
 }
 
-bool test_pipe_wrapper() {
+FATP_TEST_CASE(wrapper) {
     // Test explicit pipe() wrapper for disambiguation
     Expected<int, std::string> exp(5);
     auto double_it = [](int x) { return x * 2; };
     
     auto result = pipe(std::move(exp)) | double_it;
     
-    ASSERT_TRUE(result.has_value(), "Pipe wrapper should work");
-    ASSERT_TRUE(*result == 10, "Should be 10");
+    FATP_ASSERT_TRUE(result.has_value(), "Pipe wrapper should work");
+    FATP_ASSERT_TRUE(*result == 10, "Should be 10");
     return true;
 }
 
@@ -251,28 +251,33 @@ void benchmark_pipeoperator() {
     std::cout << "Expected pipe: " << format_time(exp_time) << "\n";
 }
 
+} // namespace fat_p::testing::pipeoperator
+
+namespace fat_p::testing
+{
+
 bool test_PipeOperator() {
 
-    PRINT_HEADER(PIPE OPERATOR)
+    FATP_PRINT_HEADER(PIPE OPERATOR)
 
     TestRunner runner;
 
-    RUN_TEST(runner, basic_pipe);
-    RUN_TEST(runner, string_pipe);
-    RUN_TEST(runner, expected_success);
-    RUN_TEST(runner, expected_error);
-    RUN_TEST(runner, type_conversion);
-    RUN_TEST(runner, complex_chain);
-    RUN_TEST(runner, void_to_value);
-    RUN_TEST(runner, void_to_expected);
-    RUN_TEST(runner, void_error_propagation);
-    RUN_TEST(runner, void_chain);
-    RUN_TEST(runner, void_to_void);
-    RUN_TEST(runner, const_void_pipe);
-    RUN_TEST(runner, mixed_pipeline);
-    RUN_TEST(runner, pipe_wrapper);
+    FATP_RUN_TEST_NS(runner, pipeoperator, basic_pipe);
+    FATP_RUN_TEST_NS(runner, pipeoperator, string_pipe);
+    FATP_RUN_TEST_NS(runner, pipeoperator, expected_success);
+    FATP_RUN_TEST_NS(runner, pipeoperator, expected_error);
+    FATP_RUN_TEST_NS(runner, pipeoperator, type_conversion);
+    FATP_RUN_TEST_NS(runner, pipeoperator, complex_chain);
+    FATP_RUN_TEST_NS(runner, pipeoperator, void_to_value);
+    FATP_RUN_TEST_NS(runner, pipeoperator, void_to_expected);
+    FATP_RUN_TEST_NS(runner, pipeoperator, void_error_propagation);
+    FATP_RUN_TEST_NS(runner, pipeoperator, void_chain);
+    FATP_RUN_TEST_NS(runner, pipeoperator, void_to_void);
+    FATP_RUN_TEST_NS(runner, pipeoperator, const_void_pipe);
+    FATP_RUN_TEST_NS(runner, pipeoperator, mixed_pipeline);
+    FATP_RUN_TEST_NS(runner, pipeoperator, wrapper);
 
-    benchmark_pipeoperator();
+    pipeoperator::benchmark_pipeoperator();
 
     return 0 == runner.print_summary();
 }

@@ -44,7 +44,7 @@ namespace fat_p::testing::tensorserializer
 // Type Roundtrips
 // ============================================================================
 
-TEST_CASE(int8_roundtrip)
+FATP_TEST_CASE(int8_roundtrip)
 {
     Tensor<std::int8_t> t({3, 4});
     std::int8_t val = -128;
@@ -54,22 +54,22 @@ TEST_CASE(int8_roundtrip)
     }
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<std::int8_t>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
-    ASSERT_EQ(deserialized->ndim(), t.ndim(), "ndim mismatch");
-    ASSERT_EQ(deserialized->size(), t.size(), "size mismatch");
+    FATP_ASSERT_EQ(deserialized->ndim(), t.ndim(), "ndim mismatch");
+    FATP_ASSERT_EQ(deserialized->size(), t.size(), "size mismatch");
     for (std::size_t i = 0; i < t.size(); ++i)
     {
-        ASSERT_EQ(deserialized->data()[i], t.data()[i], "int8 element mismatch");
+        FATP_ASSERT_EQ(deserialized->data()[i], t.data()[i], "int8 element mismatch");
     }
 
     return true;
 }
 
-TEST_CASE(uint8_roundtrip)
+FATP_TEST_CASE(uint8_roundtrip)
 {
     Tensor<std::uint8_t> t({2, 3, 4});
     for (std::size_t i = 0; i < t.size(); ++i)
@@ -78,21 +78,21 @@ TEST_CASE(uint8_roundtrip)
     }
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<std::uint8_t>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
-    ASSERT_EQ(deserialized->size(), t.size(), "size mismatch");
+    FATP_ASSERT_EQ(deserialized->size(), t.size(), "size mismatch");
     for (std::size_t i = 0; i < t.size(); ++i)
     {
-        ASSERT_EQ(deserialized->data()[i], t.data()[i], "uint8 element mismatch");
+        FATP_ASSERT_EQ(deserialized->data()[i], t.data()[i], "uint8 element mismatch");
     }
 
     return true;
 }
 
-TEST_CASE(int16_roundtrip)
+FATP_TEST_CASE(int16_roundtrip)
 {
     Tensor<std::int16_t> t({5, 5});
     for (std::size_t i = 0; i < t.size(); ++i)
@@ -101,20 +101,20 @@ TEST_CASE(int16_roundtrip)
     }
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<std::int16_t>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
     for (std::size_t i = 0; i < t.size(); ++i)
     {
-        ASSERT_EQ(deserialized->data()[i], t.data()[i], "int16 element mismatch");
+        FATP_ASSERT_EQ(deserialized->data()[i], t.data()[i], "int16 element mismatch");
     }
 
     return true;
 }
 
-TEST_CASE(uint16_roundtrip)
+FATP_TEST_CASE(uint16_roundtrip)
 {
     Tensor<std::uint16_t> t({10});
     for (std::size_t i = 0; i < t.size(); ++i)
@@ -123,20 +123,20 @@ TEST_CASE(uint16_roundtrip)
     }
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<std::uint16_t>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
     for (std::size_t i = 0; i < t.size(); ++i)
     {
-        ASSERT_EQ(deserialized->data()[i], t.data()[i], "uint16 element mismatch");
+        FATP_ASSERT_EQ(deserialized->data()[i], t.data()[i], "uint16 element mismatch");
     }
 
     return true;
 }
 
-TEST_CASE(int32_roundtrip)
+FATP_TEST_CASE(int32_roundtrip)
 {
     Tensor<std::int32_t> t({4, 4});
     for (std::size_t i = 0; i < t.size(); ++i)
@@ -145,20 +145,20 @@ TEST_CASE(int32_roundtrip)
     }
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<std::int32_t>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
     for (std::size_t i = 0; i < t.size(); ++i)
     {
-        ASSERT_EQ(deserialized->data()[i], t.data()[i], "int32 element mismatch");
+        FATP_ASSERT_EQ(deserialized->data()[i], t.data()[i], "int32 element mismatch");
     }
 
     return true;
 }
 
-TEST_CASE(uint32_roundtrip)
+FATP_TEST_CASE(uint32_roundtrip)
 {
     Tensor<std::uint32_t> t({3, 3, 3});
     for (std::size_t i = 0; i < t.size(); ++i)
@@ -167,20 +167,20 @@ TEST_CASE(uint32_roundtrip)
     }
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<std::uint32_t>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
     for (std::size_t i = 0; i < t.size(); ++i)
     {
-        ASSERT_EQ(deserialized->data()[i], t.data()[i], "uint32 element mismatch");
+        FATP_ASSERT_EQ(deserialized->data()[i], t.data()[i], "uint32 element mismatch");
     }
 
     return true;
 }
 
-TEST_CASE(int64_roundtrip)
+FATP_TEST_CASE(int64_roundtrip)
 {
     Tensor<std::int64_t> t({2, 5});
     for (std::size_t i = 0; i < t.size(); ++i)
@@ -190,20 +190,20 @@ TEST_CASE(int64_roundtrip)
     }
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<std::int64_t>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
     for (std::size_t i = 0; i < t.size(); ++i)
     {
-        ASSERT_EQ(deserialized->data()[i], t.data()[i], "int64 element mismatch");
+        FATP_ASSERT_EQ(deserialized->data()[i], t.data()[i], "int64 element mismatch");
     }
 
     return true;
 }
 
-TEST_CASE(uint64_roundtrip)
+FATP_TEST_CASE(uint64_roundtrip)
 {
     Tensor<std::uint64_t> t({6});
     for (std::size_t i = 0; i < t.size(); ++i)
@@ -212,20 +212,20 @@ TEST_CASE(uint64_roundtrip)
     }
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<std::uint64_t>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
     for (std::size_t i = 0; i < t.size(); ++i)
     {
-        ASSERT_EQ(deserialized->data()[i], t.data()[i], "uint64 element mismatch");
+        FATP_ASSERT_EQ(deserialized->data()[i], t.data()[i], "uint64 element mismatch");
     }
 
     return true;
 }
 
-TEST_CASE(float_roundtrip)
+FATP_TEST_CASE(float_roundtrip)
 {
     Tensor<float> t({4, 4});
     for (std::size_t i = 0; i < t.size(); ++i)
@@ -234,20 +234,20 @@ TEST_CASE(float_roundtrip)
     }
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<float>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
     for (std::size_t i = 0; i < t.size(); ++i)
     {
-        ASSERT_EQ(deserialized->data()[i], t.data()[i], "float element mismatch");
+        FATP_ASSERT_EQ(deserialized->data()[i], t.data()[i], "float element mismatch");
     }
 
     return true;
 }
 
-TEST_CASE(double_roundtrip)
+FATP_TEST_CASE(double_roundtrip)
 {
     Tensor<double> t({3, 3});
     for (std::size_t i = 0; i < t.size(); ++i)
@@ -256,14 +256,14 @@ TEST_CASE(double_roundtrip)
     }
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<double>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
     for (std::size_t i = 0; i < t.size(); ++i)
     {
-        ASSERT_EQ(deserialized->data()[i], t.data()[i], "double element mismatch");
+        FATP_ASSERT_EQ(deserialized->data()[i], t.data()[i], "double element mismatch");
     }
 
     return true;
@@ -273,7 +273,7 @@ TEST_CASE(double_roundtrip)
 // Shape Tests
 // ============================================================================
 
-TEST_CASE(shape_1d)
+FATP_TEST_CASE(shape_1d)
 {
     Tensor<int> t({100});
     for (std::size_t i = 0; i < t.size(); ++i)
@@ -282,18 +282,18 @@ TEST_CASE(shape_1d)
     }
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<int>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
-    ASSERT_EQ(deserialized->ndim(), 1U, "should be 1D");
-    ASSERT_EQ(deserialized->shape()[0], 100U, "dim 0 should be 100");
+    FATP_ASSERT_EQ(deserialized->ndim(), 1U, "should be 1D");
+    FATP_ASSERT_EQ(deserialized->shape()[0], 100U, "dim 0 should be 100");
 
     return true;
 }
 
-TEST_CASE(shape_2d)
+FATP_TEST_CASE(shape_2d)
 {
     Tensor<int> t({10, 20});
     for (std::size_t i = 0; i < t.size(); ++i)
@@ -302,19 +302,19 @@ TEST_CASE(shape_2d)
     }
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<int>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
-    ASSERT_EQ(deserialized->ndim(), 2U, "should be 2D");
-    ASSERT_EQ(deserialized->shape()[0], 10U, "dim 0");
-    ASSERT_EQ(deserialized->shape()[1], 20U, "dim 1");
+    FATP_ASSERT_EQ(deserialized->ndim(), 2U, "should be 2D");
+    FATP_ASSERT_EQ(deserialized->shape()[0], 10U, "dim 0");
+    FATP_ASSERT_EQ(deserialized->shape()[1], 20U, "dim 1");
 
     return true;
 }
 
-TEST_CASE(shape_3d)
+FATP_TEST_CASE(shape_3d)
 {
     Tensor<float> t({2, 3, 4});
     for (std::size_t i = 0; i < t.size(); ++i)
@@ -323,20 +323,20 @@ TEST_CASE(shape_3d)
     }
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<float>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
-    ASSERT_EQ(deserialized->ndim(), 3U, "should be 3D");
-    ASSERT_EQ(deserialized->shape()[0], 2U, "dim 0");
-    ASSERT_EQ(deserialized->shape()[1], 3U, "dim 1");
-    ASSERT_EQ(deserialized->shape()[2], 4U, "dim 2");
+    FATP_ASSERT_EQ(deserialized->ndim(), 3U, "should be 3D");
+    FATP_ASSERT_EQ(deserialized->shape()[0], 2U, "dim 0");
+    FATP_ASSERT_EQ(deserialized->shape()[1], 3U, "dim 1");
+    FATP_ASSERT_EQ(deserialized->shape()[2], 4U, "dim 2");
 
     return true;
 }
 
-TEST_CASE(shape_4d)
+FATP_TEST_CASE(shape_4d)
 {
     Tensor<double> t({2, 2, 2, 2});
     for (std::size_t i = 0; i < t.size(); ++i)
@@ -345,30 +345,30 @@ TEST_CASE(shape_4d)
     }
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<double>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
-    ASSERT_EQ(deserialized->ndim(), 4U, "should be 4D");
-    ASSERT_EQ(deserialized->size(), 16U, "total size should be 16");
+    FATP_ASSERT_EQ(deserialized->ndim(), 4U, "should be 4D");
+    FATP_ASSERT_EQ(deserialized->size(), 16U, "total size should be 16");
 
     return true;
 }
 
-TEST_CASE(single_element)
+FATP_TEST_CASE(single_element)
 {
     Tensor<double> t({1});
     t.data()[0] = 42.5;
 
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
+    FATP_ASSERT_TRUE(serialized.has_value(), serialized.error().message.c_str());
 
     auto deserialized = deserialize_tensor<double>(*serialized);
-    ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
+    FATP_ASSERT_TRUE(deserialized.has_value(), deserialized.error().message.c_str());
 
-    ASSERT_EQ(deserialized->size(), 1U, "single element");
-    ASSERT_EQ(deserialized->data()[0], 42.5, "value preserved");
+    FATP_ASSERT_EQ(deserialized->size(), 1U, "single element");
+    FATP_ASSERT_EQ(deserialized->data()[0], 42.5, "value preserved");
 
     return true;
 }
@@ -377,106 +377,106 @@ TEST_CASE(single_element)
 // Malformed Input Tests
 // ============================================================================
 
-TEST_CASE(truncated_header)
+FATP_TEST_CASE(truncated_header)
 {
     std::vector<std::uint8_t> truncated = {0x54, 0x4E, 0x53};
 
     auto result = deserialize_tensor<int>(truncated);
-    ASSERT_TRUE(!result.has_value(), "Truncated header should fail");
+    FATP_ASSERT_TRUE(!result.has_value(), "Truncated header should fail");
 
     return true;
 }
 
-TEST_CASE(wrong_magic)
+FATP_TEST_CASE(wrong_magic)
 {
     Tensor<int> t({2, 2});
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), "Serialize should succeed");
+    FATP_ASSERT_TRUE(serialized.has_value(), "Serialize should succeed");
 
     (*serialized)[0] = 0x00;
 
     auto result = deserialize_tensor<int>(*serialized);
-    ASSERT_TRUE(!result.has_value(), "Wrong magic should fail");
+    FATP_ASSERT_TRUE(!result.has_value(), "Wrong magic should fail");
 
     return true;
 }
 
-TEST_CASE(wrong_version)
+FATP_TEST_CASE(wrong_version)
 {
     Tensor<int> t({2, 2});
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), "Serialize should succeed");
+    FATP_ASSERT_TRUE(serialized.has_value(), "Serialize should succeed");
 
     (*serialized)[4] = 99;
 
     auto result = deserialize_tensor<int>(*serialized);
-    ASSERT_TRUE(!result.has_value(), "Wrong version should fail");
+    FATP_ASSERT_TRUE(!result.has_value(), "Wrong version should fail");
 
     return true;
 }
 
-TEST_CASE(type_mismatch)
+FATP_TEST_CASE(type_mismatch)
 {
     Tensor<float> t({3, 3});
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), "Serialize should succeed");
+    FATP_ASSERT_TRUE(serialized.has_value(), "Serialize should succeed");
 
     auto result = deserialize_tensor<double>(*serialized);
-    ASSERT_TRUE(!result.has_value(), "Type mismatch should fail");
+    FATP_ASSERT_TRUE(!result.has_value(), "Type mismatch should fail");
 
     return true;
 }
 
-TEST_CASE(invalid_ndim_zero)
+FATP_TEST_CASE(invalid_ndim_zero)
 {
     Tensor<int> t({2, 2});
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), "Serialize should succeed");
+    FATP_ASSERT_TRUE(serialized.has_value(), "Serialize should succeed");
 
     (*serialized)[6] = 0;
     (*serialized)[7] = 0;
 
     auto result = deserialize_tensor<int>(*serialized);
-    ASSERT_TRUE(!result.has_value(), "Zero ndim should fail");
+    FATP_ASSERT_TRUE(!result.has_value(), "Zero ndim should fail");
 
     return true;
 }
 
-TEST_CASE(invalid_ndim_too_large)
+FATP_TEST_CASE(invalid_ndim_too_large)
 {
     Tensor<int> t({2, 2});
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), "Serialize should succeed");
+    FATP_ASSERT_TRUE(serialized.has_value(), "Serialize should succeed");
 
     (*serialized)[6] = 0;
     (*serialized)[7] = 100;
 
     auto result = deserialize_tensor<int>(*serialized);
-    ASSERT_TRUE(!result.has_value(), "ndim > 32 should fail");
+    FATP_ASSERT_TRUE(!result.has_value(), "ndim > 32 should fail");
 
     return true;
 }
 
-TEST_CASE(truncated_data)
+FATP_TEST_CASE(truncated_data)
 {
     Tensor<double> t({10, 10});
     auto serialized = serialize_tensor(t);
-    ASSERT_TRUE(serialized.has_value(), "Serialize should succeed");
+    FATP_ASSERT_TRUE(serialized.has_value(), "Serialize should succeed");
 
     serialized->resize(serialized->size() / 2);
 
     auto result = deserialize_tensor<double>(*serialized);
-    ASSERT_TRUE(!result.has_value(), "Truncated data should fail");
+    FATP_ASSERT_TRUE(!result.has_value(), "Truncated data should fail");
 
     return true;
 }
 
-TEST_CASE(empty_buffer)
+FATP_TEST_CASE(empty_buffer)
 {
     std::vector<std::uint8_t> empty;
 
     auto result = deserialize_tensor<int>(empty);
-    ASSERT_TRUE(!result.has_value(), "Empty buffer should fail");
+    FATP_ASSERT_TRUE(!result.has_value(), "Empty buffer should fail");
 
     return true;
 }
@@ -485,7 +485,7 @@ TEST_CASE(empty_buffer)
 // Fuzz Tests
 // ============================================================================
 
-TEST_CASE(fuzz_float_2d)
+FATP_TEST_CASE(fuzz_float_2d)
 {
     std::mt19937_64 rng(0x7E50A1B2C3D4E5F6ULL);
     std::uniform_real_distribution<float> dist(-1e6f, 1e6f);
@@ -503,22 +503,22 @@ TEST_CASE(fuzz_float_2d)
         }
 
         auto serialized = serialize_tensor(t);
-        ASSERT_TRUE(serialized.has_value(), "Fuzz serialize failed");
+        FATP_ASSERT_TRUE(serialized.has_value(), "Fuzz serialize failed");
 
         auto deserialized = deserialize_tensor<float>(*serialized);
-        ASSERT_TRUE(deserialized.has_value(), "Fuzz deserialize failed");
+        FATP_ASSERT_TRUE(deserialized.has_value(), "Fuzz deserialize failed");
 
-        ASSERT_EQ(deserialized->size(), t.size(), "Fuzz size mismatch");
+        FATP_ASSERT_EQ(deserialized->size(), t.size(), "Fuzz size mismatch");
         for (std::size_t i = 0; i < t.size(); ++i)
         {
-            ASSERT_EQ(deserialized->data()[i], t.data()[i], "Fuzz element mismatch");
+            FATP_ASSERT_EQ(deserialized->data()[i], t.data()[i], "Fuzz element mismatch");
         }
     }
 
     return true;
 }
 
-TEST_CASE(fuzz_double_3d)
+FATP_TEST_CASE(fuzz_double_3d)
 {
     std::mt19937_64 rng(0x7E50A1B2C3D4E5F7ULL);
     std::uniform_real_distribution<double> dist(-1e10, 1e10);
@@ -537,21 +537,21 @@ TEST_CASE(fuzz_double_3d)
         }
 
         auto serialized = serialize_tensor(t);
-        ASSERT_TRUE(serialized.has_value(), "Fuzz serialize failed");
+        FATP_ASSERT_TRUE(serialized.has_value(), "Fuzz serialize failed");
 
         auto deserialized = deserialize_tensor<double>(*serialized);
-        ASSERT_TRUE(deserialized.has_value(), "Fuzz deserialize failed");
+        FATP_ASSERT_TRUE(deserialized.has_value(), "Fuzz deserialize failed");
 
         for (std::size_t i = 0; i < t.size(); ++i)
         {
-            ASSERT_EQ(deserialized->data()[i], t.data()[i], "Fuzz element mismatch");
+            FATP_ASSERT_EQ(deserialized->data()[i], t.data()[i], "Fuzz element mismatch");
         }
     }
 
     return true;
 }
 
-TEST_CASE(fuzz_int32_various_shapes)
+FATP_TEST_CASE(fuzz_int32_various_shapes)
 {
     std::mt19937_64 rng(0x7E50A1B2C3D4E5F8ULL);
     std::uniform_int_distribution<std::int32_t> val_dist(
@@ -577,15 +577,15 @@ TEST_CASE(fuzz_int32_various_shapes)
         }
 
         auto serialized = serialize_tensor(t);
-        ASSERT_TRUE(serialized.has_value(), "Fuzz serialize failed");
+        FATP_ASSERT_TRUE(serialized.has_value(), "Fuzz serialize failed");
 
         auto deserialized = deserialize_tensor<std::int32_t>(*serialized);
-        ASSERT_TRUE(deserialized.has_value(), "Fuzz deserialize failed");
+        FATP_ASSERT_TRUE(deserialized.has_value(), "Fuzz deserialize failed");
 
-        ASSERT_EQ(deserialized->ndim(), t.ndim(), "Fuzz ndim mismatch");
+        FATP_ASSERT_EQ(deserialized->ndim(), t.ndim(), "Fuzz ndim mismatch");
         for (std::size_t i = 0; i < t.size(); ++i)
         {
-            ASSERT_EQ(deserialized->data()[i], t.data()[i], "Fuzz element mismatch");
+            FATP_ASSERT_EQ(deserialized->data()[i], t.data()[i], "Fuzz element mismatch");
         }
     }
 
@@ -678,43 +678,43 @@ namespace fat_p::testing
 
 bool test_TensorSerializer()
 {
-    PRINT_HEADER(TENSOR SERIALIZER)
+    FATP_PRINT_HEADER(TENSOR SERIALIZER)
 
     TestRunner runner;
 
     // Type roundtrips
-    RUN_TEST_NS(runner, tensorserializer, int8_roundtrip);
-    RUN_TEST_NS(runner, tensorserializer, uint8_roundtrip);
-    RUN_TEST_NS(runner, tensorserializer, int16_roundtrip);
-    RUN_TEST_NS(runner, tensorserializer, uint16_roundtrip);
-    RUN_TEST_NS(runner, tensorserializer, int32_roundtrip);
-    RUN_TEST_NS(runner, tensorserializer, uint32_roundtrip);
-    RUN_TEST_NS(runner, tensorserializer, int64_roundtrip);
-    RUN_TEST_NS(runner, tensorserializer, uint64_roundtrip);
-    RUN_TEST_NS(runner, tensorserializer, float_roundtrip);
-    RUN_TEST_NS(runner, tensorserializer, double_roundtrip);
+    FATP_RUN_TEST_NS(runner, tensorserializer, int8_roundtrip);
+    FATP_RUN_TEST_NS(runner, tensorserializer, uint8_roundtrip);
+    FATP_RUN_TEST_NS(runner, tensorserializer, int16_roundtrip);
+    FATP_RUN_TEST_NS(runner, tensorserializer, uint16_roundtrip);
+    FATP_RUN_TEST_NS(runner, tensorserializer, int32_roundtrip);
+    FATP_RUN_TEST_NS(runner, tensorserializer, uint32_roundtrip);
+    FATP_RUN_TEST_NS(runner, tensorserializer, int64_roundtrip);
+    FATP_RUN_TEST_NS(runner, tensorserializer, uint64_roundtrip);
+    FATP_RUN_TEST_NS(runner, tensorserializer, float_roundtrip);
+    FATP_RUN_TEST_NS(runner, tensorserializer, double_roundtrip);
 
     // Shape tests
-    RUN_TEST_NS(runner, tensorserializer, shape_1d);
-    RUN_TEST_NS(runner, tensorserializer, shape_2d);
-    RUN_TEST_NS(runner, tensorserializer, shape_3d);
-    RUN_TEST_NS(runner, tensorserializer, shape_4d);
-    RUN_TEST_NS(runner, tensorserializer, single_element);
+    FATP_RUN_TEST_NS(runner, tensorserializer, shape_1d);
+    FATP_RUN_TEST_NS(runner, tensorserializer, shape_2d);
+    FATP_RUN_TEST_NS(runner, tensorserializer, shape_3d);
+    FATP_RUN_TEST_NS(runner, tensorserializer, shape_4d);
+    FATP_RUN_TEST_NS(runner, tensorserializer, single_element);
 
     // Malformed input
-    RUN_TEST_NS(runner, tensorserializer, truncated_header);
-    RUN_TEST_NS(runner, tensorserializer, wrong_magic);
-    RUN_TEST_NS(runner, tensorserializer, wrong_version);
-    RUN_TEST_NS(runner, tensorserializer, type_mismatch);
-    RUN_TEST_NS(runner, tensorserializer, invalid_ndim_zero);
-    RUN_TEST_NS(runner, tensorserializer, invalid_ndim_too_large);
-    RUN_TEST_NS(runner, tensorserializer, truncated_data);
-    RUN_TEST_NS(runner, tensorserializer, empty_buffer);
+    FATP_RUN_TEST_NS(runner, tensorserializer, truncated_header);
+    FATP_RUN_TEST_NS(runner, tensorserializer, wrong_magic);
+    FATP_RUN_TEST_NS(runner, tensorserializer, wrong_version);
+    FATP_RUN_TEST_NS(runner, tensorserializer, type_mismatch);
+    FATP_RUN_TEST_NS(runner, tensorserializer, invalid_ndim_zero);
+    FATP_RUN_TEST_NS(runner, tensorserializer, invalid_ndim_too_large);
+    FATP_RUN_TEST_NS(runner, tensorserializer, truncated_data);
+    FATP_RUN_TEST_NS(runner, tensorserializer, empty_buffer);
 
     // Fuzz tests
-    RUN_TEST_NS(runner, tensorserializer, fuzz_float_2d);
-    RUN_TEST_NS(runner, tensorserializer, fuzz_double_3d);
-    RUN_TEST_NS(runner, tensorserializer, fuzz_int32_various_shapes);
+    FATP_RUN_TEST_NS(runner, tensorserializer, fuzz_float_2d);
+    FATP_RUN_TEST_NS(runner, tensorserializer, fuzz_double_3d);
+    FATP_RUN_TEST_NS(runner, tensorserializer, fuzz_int32_various_shapes);
 
     tensorserializer::benchmark_tensorserializer();
 

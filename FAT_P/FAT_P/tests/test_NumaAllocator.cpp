@@ -42,30 +42,30 @@ namespace fat_p::testing::numaallocator
 
 using namespace fat_p::memory;
 
-TEST_CASE(numa_info)
+FATP_TEST_CASE(numa_info)
 {
     std::cout << "NUMA available: " << (NumaInfo::is_available() ? "Yes" : "No") << "\n";
     std::cout << "NUMA nodes: " << NumaInfo::num_nodes() << "\n";
     std::cout << "Current NUMA node: " << NumaInfo::current_node() << "\n";
 
-    ASSERT_TRUE(NumaInfo::num_nodes() >= 1, "Should have at least 1 NUMA node");
-    ASSERT_TRUE(NumaInfo::current_node() >= 0, "Current node should be non-negative");
-    ASSERT_TRUE(NumaInfo::current_node() < NumaInfo::num_nodes(),
+    FATP_ASSERT_TRUE(NumaInfo::num_nodes() >= 1, "Should have at least 1 NUMA node");
+    FATP_ASSERT_TRUE(NumaInfo::current_node() >= 0, "Current node should be non-negative");
+    FATP_ASSERT_TRUE(NumaInfo::current_node() < NumaInfo::num_nodes(),
                   "Current node should be within range");
 
     int cpus = NumaInfo::cpus_on_node(0);
-    ASSERT_TRUE(cpus >= 0, "CPUs on node 0 should be non-negative");
+    FATP_ASSERT_TRUE(cpus >= 0, "CPUs on node 0 should be non-negative");
     std::cout << "CPUs on node 0: " << cpus << "\n";
 
     return true;
 }
 
-TEST_CASE(numa_local_allocator)
+FATP_TEST_CASE(numa_local_allocator)
 {
     NumaAllocator<int, NumaLocalPolicy> alloc;
 
     int* ptr = alloc.allocate(100);
-    ASSERT_TRUE(ptr != nullptr, "Allocation should succeed");
+    FATP_ASSERT_TRUE(ptr != nullptr, "Allocation should succeed");
 
     for (int i = 0; i < 100; ++i)
     {
@@ -74,7 +74,7 @@ TEST_CASE(numa_local_allocator)
 
     for (int i = 0; i < 100; ++i)
     {
-        ASSERT_TRUE(ptr[i] == i, "Memory should be accessible and correct");
+        FATP_ASSERT_TRUE(ptr[i] == i, "Memory should be accessible and correct");
     }
 
 #if defined(__linux__) && FATP_HAS_NUMA_SUPPORT
@@ -84,7 +84,7 @@ TEST_CASE(numa_local_allocator)
         int expected_node = NumaInfo::current_node();
         if (alloc_node >= 0)
         {
-            ASSERT_EQ(alloc_node, expected_node, "Memory should be on local NUMA node");
+            FATP_ASSERT_EQ(alloc_node, expected_node, "Memory should be on local NUMA node");
         }
     }
 #endif
@@ -94,12 +94,12 @@ TEST_CASE(numa_local_allocator)
     return true;
 }
 
-TEST_CASE(numa_interleaved_allocator)
+FATP_TEST_CASE(numa_interleaved_allocator)
 {
     NumaAllocator<double, NumaInterleavedPolicy> alloc;
 
     double* ptr = alloc.allocate(1000);
-    ASSERT_TRUE(ptr != nullptr, "Interleaved allocation should succeed");
+    FATP_ASSERT_TRUE(ptr != nullptr, "Interleaved allocation should succeed");
 
     for (int i = 0; i < 1000; ++i)
     {
@@ -112,20 +112,20 @@ TEST_CASE(numa_interleaved_allocator)
         sum += ptr[i];
     }
 
-    ASSERT_TRUE(sum > 0.0, "Memory should be usable");
+    FATP_ASSERT_TRUE(sum > 0.0, "Memory should be usable");
 
     alloc.deallocate(ptr, 1000);
 
     return true;
 }
 
-TEST_CASE(numa_preferred_allocator)
+FATP_TEST_CASE(numa_preferred_allocator)
 {
     int preferred_node = 0;
     NumaAllocator<float, NumaPreferredPolicy> alloc(NumaPreferredPolicy{preferred_node});
 
     float* ptr = alloc.allocate(500);
-    ASSERT_TRUE(ptr != nullptr, "Preferred node allocation should succeed");
+    FATP_ASSERT_TRUE(ptr != nullptr, "Preferred node allocation should succeed");
 
     for (int i = 0; i < 500; ++i)
     {
@@ -138,7 +138,7 @@ TEST_CASE(numa_preferred_allocator)
         int alloc_node = get_memory_node(ptr);
         if (alloc_node >= 0)
         {
-            ASSERT_EQ(alloc_node, preferred_node, "Memory should be on preferred NUMA node");
+            FATP_ASSERT_EQ(alloc_node, preferred_node, "Memory should be on preferred NUMA node");
         }
     }
 #endif
@@ -148,63 +148,63 @@ TEST_CASE(numa_preferred_allocator)
     return true;
 }
 
-TEST_CASE(allocator_zero_size)
+FATP_TEST_CASE(allocator_zero_size)
 {
     NumaAllocator<int, NumaLocalPolicy> alloc;
 
     int* ptr = alloc.allocate(0);
     // Implementation defined: Current implementation returns nullptr
-    ASSERT_TRUE(ptr == nullptr, "allocate(0) should return nullptr");
+    FATP_ASSERT_TRUE(ptr == nullptr, "allocate(0) should return nullptr");
 
     alloc.deallocate(nullptr, 0);
 
     return true;
 }
 
-TEST_CASE(allocator_equality)
+FATP_TEST_CASE(allocator_equality)
 {
     NumaAllocator<int, NumaLocalPolicy> local1;
     NumaAllocator<int, NumaLocalPolicy> local2;
-    ASSERT_TRUE(local1 == local2, "NumaLocalPolicy allocators should be equal");
+    FATP_ASSERT_TRUE(local1 == local2, "NumaLocalPolicy allocators should be equal");
 
     NumaAllocator<int, NumaInterleavedPolicy> interleaved1;
     NumaAllocator<int, NumaInterleavedPolicy> interleaved2;
-    ASSERT_TRUE(interleaved1 == interleaved2, "NumaInterleavedPolicy allocators should be equal");
+    FATP_ASSERT_TRUE(interleaved1 == interleaved2, "NumaInterleavedPolicy allocators should be equal");
 
-    ASSERT_TRUE(!(local1 == interleaved1), "Different policy types should not be equal");
+    FATP_ASSERT_TRUE(!(local1 == interleaved1), "Different policy types should not be equal");
 
     NumaAllocator<int, NumaPreferredPolicy> pref0(NumaPreferredPolicy{0});
     NumaAllocator<int, NumaPreferredPolicy> pref0_copy(NumaPreferredPolicy{0});
-    ASSERT_TRUE(pref0 == pref0_copy, "Same node preferred allocators should be equal");
+    FATP_ASSERT_TRUE(pref0 == pref0_copy, "Same node preferred allocators should be equal");
 
     if (NumaInfo::num_nodes() > 1)
     {
         NumaAllocator<int, NumaPreferredPolicy> pref1(NumaPreferredPolicy{1});
-        ASSERT_TRUE(pref0 != pref1, "Different node preferred allocators should not be equal");
+        FATP_ASSERT_TRUE(pref0 != pref1, "Different node preferred allocators should not be equal");
     }
 
     return true;
 }
 
-TEST_CASE(allocator_rebind)
+FATP_TEST_CASE(allocator_rebind)
 {
     NumaAllocator<int, NumaPreferredPolicy> int_alloc(NumaPreferredPolicy{0});
 
     using ReboundAlloc = typename NumaAllocator<int, NumaPreferredPolicy>::template rebind<double>::other;
     ReboundAlloc double_alloc(int_alloc);
 
-    ASSERT_EQ(double_alloc.get_policy().node,
+    FATP_ASSERT_EQ(double_alloc.get_policy().node,
               int_alloc.get_policy().node,
               "Rebound allocator should preserve policy state");
 
     double* ptr = double_alloc.allocate(10);
-    ASSERT_TRUE(ptr != nullptr, "Rebound allocator should work");
+    FATP_ASSERT_TRUE(ptr != nullptr, "Rebound allocator should work");
     double_alloc.deallocate(ptr, 10);
 
     return true;
 }
 
-TEST_CASE(numa_local_vector)
+FATP_TEST_CASE(numa_local_vector)
 {
     NumaLocalVector<int> vec;
 
@@ -213,26 +213,26 @@ TEST_CASE(numa_local_vector)
         vec.push_back(i);
     }
 
-    ASSERT_EQ(vec.size(), static_cast<size_t>(100), "Vector should have 100 elements");
+    FATP_ASSERT_EQ(vec.size(), static_cast<size_t>(100), "Vector should have 100 elements");
 
     int sum = std::accumulate(vec.begin(), vec.end(), 0);
-    ASSERT_EQ(sum, 4950, "Sum should be correct (0+1+...+99 = 4950)");
+    FATP_ASSERT_EQ(sum, 4950, "Sum should be correct (0+1+...+99 = 4950)");
 
     return true;
 }
 
-TEST_CASE(numa_interleaved_vector)
+FATP_TEST_CASE(numa_interleaved_vector)
 {
     NumaInterleavedVector<double> vec(1000, 1.5);
 
-    ASSERT_EQ(vec.size(), static_cast<size_t>(1000), "Vector should have 1000 elements");
-    ASSERT_CLOSE(vec[0], 1.5, "Elements should be initialized");
-    ASSERT_CLOSE(vec[999], 1.5, "Last element should be initialized");
+    FATP_ASSERT_EQ(vec.size(), static_cast<size_t>(1000), "Vector should have 1000 elements");
+    FATP_ASSERT_CLOSE(vec[0], 1.5, "Elements should be initialized");
+    FATP_ASSERT_CLOSE(vec[999], 1.5, "Last element should be initialized");
 
     return true;
 }
 
-TEST_CASE(numa_preferred_vector)
+FATP_TEST_CASE(numa_preferred_vector)
 {
     int node = 0;
     auto vec = make_preferred_vector<int>(node);
@@ -240,17 +240,17 @@ TEST_CASE(numa_preferred_vector)
     vec.resize(100);
     std::iota(vec.begin(), vec.end(), 0);
 
-    ASSERT_EQ(vec.size(), static_cast<size_t>(100), "Vector should have 100 elements");
-    ASSERT_EQ(vec[50], 50, "Elements should be correct");
+    FATP_ASSERT_EQ(vec.size(), static_cast<size_t>(100), "Vector should have 100 elements");
+    FATP_ASSERT_EQ(vec[50], 50, "Elements should be correct");
 
     auto vec2 = make_preferred_vector<double>(node, 50, 3.14);
-    ASSERT_EQ(vec2.size(), static_cast<size_t>(50), "Vector should have 50 elements");
-    ASSERT_CLOSE(vec2[0], 3.14, "Elements should be initialized with value");
+    FATP_ASSERT_EQ(vec2.size(), static_cast<size_t>(50), "Vector should have 50 elements");
+    FATP_ASSERT_CLOSE(vec2[0], 3.14, "Elements should be initialized with value");
 
     return true;
 }
 
-TEST_CASE(vector_copy_move)
+FATP_TEST_CASE(vector_copy_move)
 {
     NumaLocalVector<int> vec1;
     for (int i = 0; i < 50; ++i)
@@ -259,17 +259,17 @@ TEST_CASE(vector_copy_move)
     }
 
     NumaLocalVector<int> vec2 = vec1;
-    ASSERT_EQ(vec2.size(), vec1.size(), "Copied vector should have same size");
-    ASSERT_EQ(vec2[25], 25, "Copied vector should have correct content");
+    FATP_ASSERT_EQ(vec2.size(), vec1.size(), "Copied vector should have same size");
+    FATP_ASSERT_EQ(vec2[25], 25, "Copied vector should have correct content");
 
     NumaLocalVector<int> vec3 = std::move(vec1);
-    ASSERT_EQ(vec3.size(), static_cast<size_t>(50), "Moved vector should have correct size");
-    ASSERT_EQ(vec3[25], 25, "Moved vector should have correct content");
+    FATP_ASSERT_EQ(vec3.size(), static_cast<size_t>(50), "Moved vector should have correct size");
+    FATP_ASSERT_EQ(vec3[25], 25, "Moved vector should have correct content");
 
     return true;
 }
 
-TEST_CASE(numa_memory_stats)
+FATP_TEST_CASE(numa_memory_stats)
 {
     bool found_valid_stats = false;
 
@@ -286,11 +286,11 @@ TEST_CASE(numa_memory_stats)
             found_valid_stats = true;
             if (stats.has_total)
             {
-                ASSERT_TRUE(stats.total_bytes >= stats.free_bytes,
+                FATP_ASSERT_TRUE(stats.total_bytes >= stats.free_bytes,
                               "Total should be >= free");
 #if defined(__linux__)
-                ASSERT_TRUE(stats.total_bytes > 0, "Total bytes should be positive on Linux");
-                ASSERT_EQ(stats.used_bytes,
+                FATP_ASSERT_TRUE(stats.total_bytes > 0, "Total bytes should be positive on Linux");
+                FATP_ASSERT_EQ(stats.used_bytes,
                           stats.total_bytes - stats.free_bytes,
                           "Used should equal total - free");
 #endif
@@ -313,18 +313,18 @@ TEST_CASE(numa_memory_stats)
     }
 
     auto invalid_stats = get_node_memory_stats(-1);
-    ASSERT_TRUE(!invalid_stats.valid, "Invalid node should return invalid stats");
+    FATP_ASSERT_TRUE(!invalid_stats.valid, "Invalid node should return invalid stats");
 
     auto out_of_range_stats = get_node_memory_stats(1000);
-    ASSERT_TRUE(!out_of_range_stats.valid, "Out of range node should return invalid stats");
+    FATP_ASSERT_TRUE(!out_of_range_stats.valid, "Out of range node should return invalid stats");
 
     return true;
 }
 
-TEST_CASE(thread_local_numa_pool_basic)
+FATP_TEST_CASE(thread_local_numa_pool_basic)
 {
     int* ptr1 = ThreadLocalNumaPool<int>::allocate(10);
-    ASSERT_TRUE(ptr1 != nullptr, "Pool allocation should succeed");
+    FATP_ASSERT_TRUE(ptr1 != nullptr, "Pool allocation should succeed");
 
     for (int i = 0; i < 10; ++i)
     {
@@ -332,18 +332,18 @@ TEST_CASE(thread_local_numa_pool_basic)
     }
 
     int node = ThreadLocalNumaPool<int>::numa_node();
-    ASSERT_TRUE(node >= 0, "NUMA node should be valid");
+    FATP_ASSERT_TRUE(node >= 0, "NUMA node should be valid");
 
     size_t used_before = ThreadLocalNumaPool<int>::used();
     // Use > 0 check because exact counting now involves alignment overheads which may vary
-    ASSERT_TRUE(used_before > 0, "Used should reflect allocation");
+    FATP_ASSERT_TRUE(used_before > 0, "Used should reflect allocation");
 
     int* ptr2 = ThreadLocalNumaPool<int>::allocate(5);
-    ASSERT_TRUE(ptr2 != nullptr, "Second allocation should succeed");
+    FATP_ASSERT_TRUE(ptr2 != nullptr, "Second allocation should succeed");
 
     // Note: Sequential allocations may NOT be contiguous in payload address anymore due to headers/padding
     // We check they are distinct and valid.
-    ASSERT_TRUE(ptr2 != ptr1, "Pointers from separate allocations should be distinct");
+    FATP_ASSERT_TRUE(ptr2 != ptr1, "Pointers from separate allocations should be distinct");
 
     ThreadLocalNumaPool<int>::deallocate(ptr1, 10);
     ThreadLocalNumaPool<int>::deallocate(ptr2, 5);
@@ -351,13 +351,13 @@ TEST_CASE(thread_local_numa_pool_basic)
     return true;
 }
 
-TEST_CASE(thread_local_numa_pool_large)
+FATP_TEST_CASE(thread_local_numa_pool_large)
 {
     // Force a large allocation that bypasses the pool and uses direct allocation
     size_t huge_count = 2000; // > default 1024
 
     int* large_ptr = ThreadLocalNumaPool<int>::allocate(huge_count);
-    ASSERT_TRUE(large_ptr != nullptr, "Large allocation should succeed");
+    FATP_ASSERT_TRUE(large_ptr != nullptr, "Large allocation should succeed");
 
     for (size_t i = 0; i < huge_count; ++i)
     {
@@ -369,23 +369,23 @@ TEST_CASE(thread_local_numa_pool_large)
     return true;
 }
 
-TEST_CASE(thread_local_numa_pool_reset)
+FATP_TEST_CASE(thread_local_numa_pool_reset)
 {
     ThreadLocalNumaPool<double>::reset();
     size_t initial_used = ThreadLocalNumaPool<double>::used();
-    ASSERT_EQ(initial_used, static_cast<size_t>(0), "Used should be 0 after reset");
+    FATP_ASSERT_EQ(initial_used, static_cast<size_t>(0), "Used should be 0 after reset");
 
     double* ptr = ThreadLocalNumaPool<double>::allocate(10);
-    ASSERT_TRUE(ptr != nullptr, "Allocation after reset should succeed");
+    FATP_ASSERT_TRUE(ptr != nullptr, "Allocation after reset should succeed");
 
     ThreadLocalNumaPool<double>::reset();
     size_t after_reset = ThreadLocalNumaPool<double>::used();
-    ASSERT_EQ(after_reset, static_cast<size_t>(0), "Used should be 0 after second reset");
+    FATP_ASSERT_EQ(after_reset, static_cast<size_t>(0), "Used should be 0 after second reset");
 
     // After reset, the implementation may reuse memory or allocate new.
     // Address reuse is an optimization detail, not part of the contract.
     double* ptr2 = ThreadLocalNumaPool<double>::allocate(10);
-    ASSERT_TRUE(ptr2 != nullptr, "Allocation after reset should succeed");
+    FATP_ASSERT_TRUE(ptr2 != nullptr, "Allocation after reset should succeed");
 
     // Verify we can write to the new allocation without crashing
     for (int i = 0; i < 10; ++i)
@@ -396,7 +396,7 @@ TEST_CASE(thread_local_numa_pool_reset)
     return true;
 }
 
-TEST_CASE(thread_local_numa_pool_multithread)
+FATP_TEST_CASE(thread_local_numa_pool_multithread)
 {
     std::atomic<bool> success{true};
 
@@ -442,12 +442,12 @@ TEST_CASE(thread_local_numa_pool_multithread)
         t.join();
     }
 
-    ASSERT_TRUE(success.load(), "All threads should succeed");
+    FATP_ASSERT_TRUE(success.load(), "All threads should succeed");
 
     return true;
 }
 
-TEST_CASE(thread_local_numa_pool_cross_thread_dealloc)
+FATP_TEST_CASE(thread_local_numa_pool_cross_thread_dealloc)
 {
     // Cross-thread deallocation test.
     //
@@ -507,12 +507,12 @@ TEST_CASE(thread_local_numa_pool_cross_thread_dealloc)
     producer.join();
     consumer.join();
 
-    ASSERT_TRUE(consumer_done.load(), "Consumer should complete successfully with valid data");
+    FATP_ASSERT_TRUE(consumer_done.load(), "Consumer should complete successfully with valid data");
 
     return true;
 }
 
-TEST_CASE(thread_local_numa_pool_aligned_types)
+FATP_TEST_CASE(thread_local_numa_pool_aligned_types)
 {
     // Test with over-aligned type (e.g., AVX-512 vector simulation)
     struct alignas(64) AlignedData
@@ -522,17 +522,17 @@ TEST_CASE(thread_local_numa_pool_aligned_types)
     static_assert(alignof(AlignedData) == 64, "Test requires 64-byte alignment");
 
     AlignedData* ptr = ThreadLocalNumaPool<AlignedData>::allocate(10);
-    ASSERT_TRUE(ptr != nullptr, "Aligned allocation should succeed");
+    FATP_ASSERT_TRUE(ptr != nullptr, "Aligned allocation should succeed");
 
     // Verify alignment
     std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(ptr);
-    ASSERT_TRUE(addr % 64 == 0, "Pointer must be 64-byte aligned");
+    FATP_ASSERT_TRUE(addr % 64 == 0, "Pointer must be 64-byte aligned");
 
     // Verify each element is aligned
     for (int i = 0; i < 10; ++i)
     {
         std::uintptr_t elem_addr = reinterpret_cast<std::uintptr_t>(&ptr[i]);
-        ASSERT_TRUE(elem_addr % 64 == 0, "Each element must be 64-byte aligned");
+        FATP_ASSERT_TRUE(elem_addr % 64 == 0, "Each element must be 64-byte aligned");
     }
 
     ThreadLocalNumaPool<AlignedData>::deallocate(ptr, 10);
@@ -540,7 +540,7 @@ TEST_CASE(thread_local_numa_pool_aligned_types)
     return true;
 }
 
-TEST_CASE(numa_allocator_aligned_types)
+FATP_TEST_CASE(numa_allocator_aligned_types)
 {
     // Test NumaAllocator with over-aligned type to verify fallback path alignment
     struct alignas(64) AlignedData
@@ -551,25 +551,25 @@ TEST_CASE(numa_allocator_aligned_types)
 
     NumaAllocator<AlignedData, NumaLocalPolicy> local_alloc;
     AlignedData* local_ptr = local_alloc.allocate(5);
-    ASSERT_TRUE(local_ptr != nullptr, "Local policy aligned allocation should succeed");
+    FATP_ASSERT_TRUE(local_ptr != nullptr, "Local policy aligned allocation should succeed");
 
     std::uintptr_t local_addr = reinterpret_cast<std::uintptr_t>(local_ptr);
-    ASSERT_TRUE(local_addr % 64 == 0, "NumaLocalPolicy must return 64-byte aligned pointer");
+    FATP_ASSERT_TRUE(local_addr % 64 == 0, "NumaLocalPolicy must return 64-byte aligned pointer");
 
     for (int i = 0; i < 5; ++i)
     {
         std::uintptr_t elem_addr = reinterpret_cast<std::uintptr_t>(&local_ptr[i]);
-        ASSERT_TRUE(elem_addr % 64 == 0, "Each element must be 64-byte aligned");
+        FATP_ASSERT_TRUE(elem_addr % 64 == 0, "Each element must be 64-byte aligned");
     }
 
     local_alloc.deallocate(local_ptr, 5);
 
     NumaAllocator<AlignedData, NumaInterleavedPolicy> interleaved_alloc;
     AlignedData* interleaved_ptr = interleaved_alloc.allocate(5);
-    ASSERT_TRUE(interleaved_ptr != nullptr, "Interleaved policy aligned allocation should succeed");
+    FATP_ASSERT_TRUE(interleaved_ptr != nullptr, "Interleaved policy aligned allocation should succeed");
 
     std::uintptr_t interleaved_addr = reinterpret_cast<std::uintptr_t>(interleaved_ptr);
-    ASSERT_TRUE(interleaved_addr % 64 == 0,
+    FATP_ASSERT_TRUE(interleaved_addr % 64 == 0,
                   "NumaInterleavedPolicy must return 64-byte aligned pointer");
 
     interleaved_alloc.deallocate(interleaved_ptr, 5);
@@ -577,13 +577,13 @@ TEST_CASE(numa_allocator_aligned_types)
     return true;
 }
 
-TEST_CASE(bind_thread_to_node_validation)
+FATP_TEST_CASE(bind_thread_to_node_validation)
 {
     bool result_invalid = bind_thread_to_node(-1);
-    ASSERT_TRUE(!result_invalid, "Binding to invalid node should fail");
+    FATP_ASSERT_TRUE(!result_invalid, "Binding to invalid node should fail");
 
     bool result_out_of_range = bind_thread_to_node(1000);
-    ASSERT_TRUE(!result_out_of_range, "Binding to out-of-range node should fail");
+    FATP_ASSERT_TRUE(!result_out_of_range, "Binding to out-of-range node should fail");
 
     if (NumaInfo::is_available() && NumaInfo::num_nodes() > 0)
     {
@@ -594,7 +594,7 @@ TEST_CASE(bind_thread_to_node_validation)
     return true;
 }
 
-TEST_CASE(allocator_exception_safety)
+FATP_TEST_CASE(allocator_exception_safety)
 {
     NumaAllocator<int, NumaLocalPolicy> alloc;
 
@@ -608,7 +608,7 @@ TEST_CASE(allocator_exception_safety)
     {
         threw = true;
     }
-    ASSERT_TRUE(threw, "Oversized allocation should throw bad_alloc");
+    FATP_ASSERT_TRUE(threw, "Oversized allocation should throw bad_alloc");
 
     return true;
 }
@@ -743,31 +743,31 @@ namespace fat_p::testing
 
 bool test_NumaAllocator()
 {
-    PRINT_HEADER(NUMA ALLOCATOR)
+    FATP_PRINT_HEADER(NUMA ALLOCATOR)
 
     TestRunner runner;
 
-    RUN_TEST_NS(runner, numaallocator, numa_info);
-    RUN_TEST_NS(runner, numaallocator, numa_local_allocator);
-    RUN_TEST_NS(runner, numaallocator, numa_interleaved_allocator);
-    RUN_TEST_NS(runner, numaallocator, numa_preferred_allocator);
-    RUN_TEST_NS(runner, numaallocator, allocator_zero_size);
-    RUN_TEST_NS(runner, numaallocator, allocator_equality);
-    RUN_TEST_NS(runner, numaallocator, allocator_rebind);
-    RUN_TEST_NS(runner, numaallocator, numa_local_vector);
-    RUN_TEST_NS(runner, numaallocator, numa_interleaved_vector);
-    RUN_TEST_NS(runner, numaallocator, numa_preferred_vector);
-    RUN_TEST_NS(runner, numaallocator, vector_copy_move);
-    RUN_TEST_NS(runner, numaallocator, numa_memory_stats);
-    RUN_TEST_NS(runner, numaallocator, thread_local_numa_pool_basic);
-    RUN_TEST_NS(runner, numaallocator, thread_local_numa_pool_large);
-    RUN_TEST_NS(runner, numaallocator, thread_local_numa_pool_reset);
-    RUN_TEST_NS(runner, numaallocator, thread_local_numa_pool_multithread);
-    RUN_TEST_NS(runner, numaallocator, thread_local_numa_pool_cross_thread_dealloc);
-    RUN_TEST_NS(runner, numaallocator, thread_local_numa_pool_aligned_types);
-    RUN_TEST_NS(runner, numaallocator, numa_allocator_aligned_types);
-    RUN_TEST_NS(runner, numaallocator, bind_thread_to_node_validation);
-    RUN_TEST_NS(runner, numaallocator, allocator_exception_safety);
+    FATP_RUN_TEST_NS(runner, numaallocator, numa_info);
+    FATP_RUN_TEST_NS(runner, numaallocator, numa_local_allocator);
+    FATP_RUN_TEST_NS(runner, numaallocator, numa_interleaved_allocator);
+    FATP_RUN_TEST_NS(runner, numaallocator, numa_preferred_allocator);
+    FATP_RUN_TEST_NS(runner, numaallocator, allocator_zero_size);
+    FATP_RUN_TEST_NS(runner, numaallocator, allocator_equality);
+    FATP_RUN_TEST_NS(runner, numaallocator, allocator_rebind);
+    FATP_RUN_TEST_NS(runner, numaallocator, numa_local_vector);
+    FATP_RUN_TEST_NS(runner, numaallocator, numa_interleaved_vector);
+    FATP_RUN_TEST_NS(runner, numaallocator, numa_preferred_vector);
+    FATP_RUN_TEST_NS(runner, numaallocator, vector_copy_move);
+    FATP_RUN_TEST_NS(runner, numaallocator, numa_memory_stats);
+    FATP_RUN_TEST_NS(runner, numaallocator, thread_local_numa_pool_basic);
+    FATP_RUN_TEST_NS(runner, numaallocator, thread_local_numa_pool_large);
+    FATP_RUN_TEST_NS(runner, numaallocator, thread_local_numa_pool_reset);
+    FATP_RUN_TEST_NS(runner, numaallocator, thread_local_numa_pool_multithread);
+    FATP_RUN_TEST_NS(runner, numaallocator, thread_local_numa_pool_cross_thread_dealloc);
+    FATP_RUN_TEST_NS(runner, numaallocator, thread_local_numa_pool_aligned_types);
+    FATP_RUN_TEST_NS(runner, numaallocator, numa_allocator_aligned_types);
+    FATP_RUN_TEST_NS(runner, numaallocator, bind_thread_to_node_validation);
+    FATP_RUN_TEST_NS(runner, numaallocator, allocator_exception_safety);
 
     numaallocator::benchmark_numa_allocator();
 

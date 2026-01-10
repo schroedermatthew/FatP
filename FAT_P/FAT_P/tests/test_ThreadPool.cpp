@@ -60,7 +60,7 @@ namespace fat_p::testing::thread_pool
 // ----------------------------------------------------------------------------
 // Test: Basic task submission and execution
 // ----------------------------------------------------------------------------
-TEST_CASE(basic_submission)
+FATP_TEST_CASE(basic_submission)
 {
     ThreadPool pool(4);
     std::atomic<int> counter{0};
@@ -74,14 +74,14 @@ TEST_CASE(basic_submission)
 
     pool.wait_idle();
 
-    ASSERT_EQ(counter.load(), 100, "All 100 tasks should execute");
+    FATP_ASSERT_EQ(counter.load(), 100, "All 100 tasks should execute");
     return true;
 }
 
 // ----------------------------------------------------------------------------
 // Test: Future return values
 // ----------------------------------------------------------------------------
-TEST_CASE(future_returns)
+FATP_TEST_CASE(future_returns)
 {
     ThreadPool pool(2);
 
@@ -89,9 +89,9 @@ TEST_CASE(future_returns)
     auto future2 = pool.submit([]() { return std::string("hello"); });
     auto future3 = pool.submit([](int a, int b) { return a + b; }, 10, 20);
 
-    ASSERT_EQ(future1.get(), 42, "Integer return should work");
-    ASSERT_EQ(future2.get(), "hello", "String return should work");
-    ASSERT_EQ(future3.get(), 30, "Arguments should be forwarded");
+    FATP_ASSERT_EQ(future1.get(), 42, "Integer return should work");
+    FATP_ASSERT_EQ(future2.get(), "hello", "String return should work");
+    FATP_ASSERT_EQ(future3.get(), 30, "Arguments should be forwarded");
 
     return true;
 }
@@ -99,7 +99,7 @@ TEST_CASE(future_returns)
 // ----------------------------------------------------------------------------
 // Test: Exception propagation through futures
 // ----------------------------------------------------------------------------
-TEST_CASE(exception_handling)
+FATP_TEST_CASE(exception_handling)
 {
     ThreadPool pool(2);
 
@@ -115,15 +115,15 @@ TEST_CASE(exception_handling)
     catch (const std::runtime_error& e)
     {
         caught = true;
-        ASSERT_EQ(std::string(e.what()), std::string("Test exception"),
+        FATP_ASSERT_EQ(std::string(e.what()), std::string("Test exception"),
                       "Exception message should propagate");
     }
 
-    ASSERT_TRUE(caught, "Exception should propagate through future.get()");
+    FATP_ASSERT_TRUE(caught, "Exception should propagate through future.get()");
 
     // Pool should remain healthy after exception
     auto recovery_future = pool.submit([]() { return 123; });
-    ASSERT_EQ(recovery_future.get(), 123, "Pool should recover from exception");
+    FATP_ASSERT_EQ(recovery_future.get(), 123, "Pool should recover from exception");
 
     return true;
 }
@@ -131,7 +131,7 @@ TEST_CASE(exception_handling)
 // ----------------------------------------------------------------------------
 // Test: Priority scheduling order verification
 // ----------------------------------------------------------------------------
-TEST_CASE(priority_scheduling)
+FATP_TEST_CASE(priority_scheduling)
 {
     // Single thread to force deterministic scheduling decisions
     ThreadPool pool(1);
@@ -173,16 +173,16 @@ TEST_CASE(priority_scheduling)
     release_blocker.store(true, std::memory_order_release);
     pool.wait_idle();
 
-    ASSERT_EQ(results.size(), 3u, "All 3 tasks should complete");
+    FATP_ASSERT_EQ(results.size(), 3u, "All 3 tasks should complete");
 
     // Critical (200) should be first
-    ASSERT_EQ(results[0], 200,
+    FATP_ASSERT_EQ(results[0], 200,
                   "Critical priority task should execute first");
 
     // High priority tasks should follow in FIFO order (100, then 101)
-    ASSERT_EQ(results[1], 100,
+    FATP_ASSERT_EQ(results[1], 100,
                   "First High priority task should execute second");
-    ASSERT_EQ(results[2], 101,
+    FATP_ASSERT_EQ(results[2], 101,
                   "Second High priority task should execute third");
 
     return true;
@@ -191,7 +191,7 @@ TEST_CASE(priority_scheduling)
 // ----------------------------------------------------------------------------
 // Test: Batch submission with single notification
 // ----------------------------------------------------------------------------
-TEST_CASE(batch_submission)
+FATP_TEST_CASE(batch_submission)
 {
     ThreadPool pool(4);
     std::atomic<int> counter{0};
@@ -207,7 +207,7 @@ TEST_CASE(batch_submission)
     pool.submit_batch(tasks);
     pool.wait_idle();
 
-    ASSERT_EQ(counter.load(), 100, "All batched tasks should execute");
+    FATP_ASSERT_EQ(counter.load(), 100, "All batched tasks should execute");
 
     return true;
 }
@@ -215,7 +215,7 @@ TEST_CASE(batch_submission)
 // ----------------------------------------------------------------------------
 // Test: Stress test with many tasks
 // ----------------------------------------------------------------------------
-TEST_CASE(stress_many_tasks)
+FATP_TEST_CASE(stress_many_tasks)
 {
     ThreadPool pool(8);
     std::atomic<uint64_t> sum{0};
@@ -231,7 +231,7 @@ TEST_CASE(stress_many_tasks)
     pool.wait_idle();
 
     uint64_t expected = static_cast<uint64_t>(NUM_TASKS) * (NUM_TASKS - 1) / 2;
-    ASSERT_EQ(sum.load(), expected, "Sum should match expected value");
+    FATP_ASSERT_EQ(sum.load(), expected, "Sum should match expected value");
 
     return true;
 }
@@ -239,7 +239,7 @@ TEST_CASE(stress_many_tasks)
 // ----------------------------------------------------------------------------
 // Test: Work stealing distribution
 // ----------------------------------------------------------------------------
-TEST_CASE(work_stealing)
+FATP_TEST_CASE(work_stealing)
 {
     ThreadPool pool(4);
     std::atomic<int> counter{0};
@@ -255,7 +255,7 @@ TEST_CASE(work_stealing)
 
     pool.wait_idle();
 
-    ASSERT_EQ(counter.load(), 100, "All tasks should complete via work stealing");
+    FATP_ASSERT_EQ(counter.load(), 100, "All tasks should complete via work stealing");
 
     return true;
 }
@@ -263,7 +263,7 @@ TEST_CASE(work_stealing)
 // ----------------------------------------------------------------------------
 // Test: Shutdown behavior waits for pending tasks
 // ----------------------------------------------------------------------------
-TEST_CASE(shutdown_behavior)
+FATP_TEST_CASE(shutdown_behavior)
 {
     std::atomic<int> completed{0};
 
@@ -282,7 +282,7 @@ TEST_CASE(shutdown_behavior)
         // Destructor calls shutdown(), which should wait for all tasks
     }
 
-    ASSERT_EQ(completed.load(), 20,
+    FATP_ASSERT_EQ(completed.load(), 20,
                   "Shutdown should wait for all tasks to complete");
 
     return true;
@@ -291,7 +291,7 @@ TEST_CASE(shutdown_behavior)
 // ----------------------------------------------------------------------------
 // Test: Spin configuration works correctly
 // ----------------------------------------------------------------------------
-TEST_CASE(spin_configuration)
+FATP_TEST_CASE(spin_configuration)
 {
     // Test with no spinning
     {
@@ -306,7 +306,7 @@ TEST_CASE(spin_configuration)
         }
 
         pool_nospin.wait_idle();
-        ASSERT_EQ(counter.load(), 50, "Pool with no spinning should work");
+        FATP_ASSERT_EQ(counter.load(), 50, "Pool with no spinning should work");
     }
 
     // Test with extended spinning
@@ -322,7 +322,7 @@ TEST_CASE(spin_configuration)
         }
 
         pool_spin.wait_idle();
-        ASSERT_EQ(counter.load(), 50, "Pool with 5ms spinning should work");
+        FATP_ASSERT_EQ(counter.load(), 50, "Pool with 5ms spinning should work");
     }
 
     return true;
@@ -331,12 +331,12 @@ TEST_CASE(spin_configuration)
 // ----------------------------------------------------------------------------
 // Test: Thread count auto-detection
 // ----------------------------------------------------------------------------
-TEST_CASE(auto_thread_count)
+FATP_TEST_CASE(auto_thread_count)
 {
     ThreadPool pool(0); // Should use hardware_concurrency
 
-    ASSERT_GT(pool.thread_count(), 0u, "Should auto-detect thread count");
-    ASSERT_TRUE(pool.thread_count() <= std::thread::hardware_concurrency() ||
+    FATP_ASSERT_GT(pool.thread_count(), 0u, "Should auto-detect thread count");
+    FATP_ASSERT_TRUE(pool.thread_count() <= std::thread::hardware_concurrency() ||
                   pool.thread_count() == 2, // Fallback if hardware_concurrency returns 0
                   "Thread count should be reasonable");
 
@@ -346,14 +346,14 @@ TEST_CASE(auto_thread_count)
 // ----------------------------------------------------------------------------
 // Test: Pending and active task counters
 // ----------------------------------------------------------------------------
-TEST_CASE(task_counters)
+FATP_TEST_CASE(task_counters)
 {
     ThreadPool pool(2);
     std::atomic<bool> release{false};
 
     // Initially no tasks
-    ASSERT_EQ(pool.pending_tasks(), 0, "Initially no pending tasks");
-    ASSERT_EQ(pool.active_tasks(), 0, "Initially no active tasks");
+    FATP_ASSERT_EQ(pool.pending_tasks(), 0, "Initially no pending tasks");
+    FATP_ASSERT_EQ(pool.active_tasks(), 0, "Initially no active tasks");
 
     // Submit blocking task
     (void)pool.submit([&release]() {
@@ -367,7 +367,7 @@ TEST_CASE(task_counters)
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     // Should have 1 active task
-    ASSERT_GE(pool.active_tasks(), 1, "Should have active task");
+    FATP_ASSERT_GE(pool.active_tasks(), 1, "Should have active task");
 
     // Submit more tasks that will be pending
     for (int i = 0; i < 10; ++i)
@@ -377,18 +377,18 @@ TEST_CASE(task_counters)
         });
     }
 
-    ASSERT_GE(pool.pending_tasks(), 1, "Should have pending tasks");
+    FATP_ASSERT_GE(pool.pending_tasks(), 1, "Should have pending tasks");
 
     release.store(true, std::memory_order_release);
     pool.wait_idle();
 
-    ASSERT_EQ(pool.pending_tasks(), 0, "No pending tasks after idle");
-    ASSERT_EQ(pool.active_tasks(), 0, "No active tasks after idle");
+    FATP_ASSERT_EQ(pool.pending_tasks(), 0, "No pending tasks after idle");
+    FATP_ASSERT_EQ(pool.active_tasks(), 0, "No active tasks after idle");
 
     return true;
 }
 
-TEST_CASE(wait_idle_stress)
+FATP_TEST_CASE(wait_idle_stress)
 {
     // This test specifically targets the counter ordering race condition:
     // If pending is decremented BEFORE active is incremented, there's a window
@@ -421,7 +421,7 @@ TEST_CASE(wait_idle_stress)
         }
     }
 
-    ASSERT_EQ(completed.load(), iterations,
+    FATP_ASSERT_EQ(completed.load(), iterations,
                   "All tasks should complete");
 
     return true;
@@ -525,22 +525,22 @@ namespace fat_p::testing
 
 bool test_ThreadPool()
 {
-    PRINT_HEADER(THREAD POOL)
+    FATP_PRINT_HEADER(THREAD POOL)
 
     TestRunner runner;
 
-    RUN_TEST_NS(runner, thread_pool, basic_submission);
-    RUN_TEST_NS(runner, thread_pool, future_returns);
-    RUN_TEST_NS(runner, thread_pool, exception_handling);
-    RUN_TEST_NS(runner, thread_pool, priority_scheduling);
-    RUN_TEST_NS(runner, thread_pool, batch_submission);
-    RUN_TEST_NS(runner, thread_pool, stress_many_tasks);
-    RUN_TEST_NS(runner, thread_pool, work_stealing);
-    RUN_TEST_NS(runner, thread_pool, shutdown_behavior);
-    RUN_TEST_NS(runner, thread_pool, spin_configuration);
-    RUN_TEST_NS(runner, thread_pool, auto_thread_count);
-    RUN_TEST_NS(runner, thread_pool, task_counters);
-    RUN_TEST_NS(runner, thread_pool, wait_idle_stress);
+    FATP_RUN_TEST_NS(runner, thread_pool, basic_submission);
+    FATP_RUN_TEST_NS(runner, thread_pool, future_returns);
+    FATP_RUN_TEST_NS(runner, thread_pool, exception_handling);
+    FATP_RUN_TEST_NS(runner, thread_pool, priority_scheduling);
+    FATP_RUN_TEST_NS(runner, thread_pool, batch_submission);
+    FATP_RUN_TEST_NS(runner, thread_pool, stress_many_tasks);
+    FATP_RUN_TEST_NS(runner, thread_pool, work_stealing);
+    FATP_RUN_TEST_NS(runner, thread_pool, shutdown_behavior);
+    FATP_RUN_TEST_NS(runner, thread_pool, spin_configuration);
+    FATP_RUN_TEST_NS(runner, thread_pool, auto_thread_count);
+    FATP_RUN_TEST_NS(runner, thread_pool, task_counters);
+    FATP_RUN_TEST_NS(runner, thread_pool, wait_idle_stress);
 
     thread_pool::benchmark_thread_pool();
 

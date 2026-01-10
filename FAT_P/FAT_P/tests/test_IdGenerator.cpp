@@ -58,60 +58,60 @@ namespace fat_p::testing::idgenerator
 // I. Basic Functionality Tests
 // =============================================================================
 
-TEST_CASE(basic_sequential)
+FATP_TEST_CASE(basic_sequential)
 {
     SimpleIdGenerator<uint64_t> gen(100);
 
     // Generate first ID
     auto id1 = gen.generate();
-    ASSERT_TRUE(id1.has_value(), "First ID generation failed");
-    ASSERT_EQ(id1.value(), uint64_t(100), "First ID should be base (100)");
-    ASSERT_EQ(gen.active_count(), size_t(1), "Active count should be 1");
+    FATP_ASSERT_TRUE(id1.has_value(), "First ID generation failed");
+    FATP_ASSERT_EQ(id1.value(), uint64_t(100), "First ID should be base (100)");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(1), "Active count should be 1");
 
     // Generate second ID
     auto id2 = gen.generate();
-    ASSERT_TRUE(id2.has_value(), "Second ID generation failed");
-    ASSERT_EQ(id2.value(), uint64_t(101), "Second ID should be 101");
-    ASSERT_EQ(gen.active_count(), size_t(2), "Active count should be 2");
+    FATP_ASSERT_TRUE(id2.has_value(), "Second ID generation failed");
+    FATP_ASSERT_EQ(id2.value(), uint64_t(101), "Second ID should be 101");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(2), "Active count should be 2");
 
     // Release first ID
     auto release_result = gen.release(id1.value());
-    ASSERT_TRUE(release_result.has_value(), "ID release failed");
-    ASSERT_EQ(gen.active_count(), size_t(1), "Active count should be 1 after release");
-    ASSERT_EQ(gen.recycled_count(), size_t(1), "Recycled count should be 1");
+    FATP_ASSERT_TRUE(release_result.has_value(), "ID release failed");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(1), "Active count should be 1 after release");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(1), "Recycled count should be 1");
 
     // Next generation should reuse recycled ID
     auto id3 = gen.generate();
-    ASSERT_TRUE(id3.has_value(), "Recycled ID generation failed");
-    ASSERT_EQ(id3.value(), uint64_t(100), "Should reuse first ID");
-    ASSERT_EQ(gen.recycled_count(), size_t(0), "Recycled count should be 0");
+    FATP_ASSERT_TRUE(id3.has_value(), "Recycled ID generation failed");
+    FATP_ASSERT_EQ(id3.value(), uint64_t(100), "Should reuse first ID");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(0), "Recycled count should be 0");
 
     return true;
 }
 
-TEST_CASE(strong_id_integration)
+FATP_TEST_CASE(strong_id_integration)
 {
     using UserId = StrongId<uint64_t, struct UserTag>;
     IdGenerator<UserId> user_gen(1000);
 
     auto id1 = user_gen.generate();
-    ASSERT_TRUE(id1.has_value(), "StrongId generation failed");
-    ASSERT_EQ(id1.value().get(), uint64_t(1000), "StrongId value should be 1000");
+    FATP_ASSERT_TRUE(id1.has_value(), "StrongId generation failed");
+    FATP_ASSERT_EQ(id1.value().get(), uint64_t(1000), "StrongId value should be 1000");
 
     auto id2 = user_gen.generate();
-    ASSERT_EQ(id2.value().get(), uint64_t(1001), "Second StrongId should be 1001");
+    FATP_ASSERT_EQ(id2.value().get(), uint64_t(1001), "Second StrongId should be 1001");
 
     // Release and reuse
     auto release_result = user_gen.release(id1.value());
-    ASSERT_TRUE(release_result.has_value(), "Release should succeed");
+    FATP_ASSERT_TRUE(release_result.has_value(), "Release should succeed");
 
     auto id3 = user_gen.generate();
-    ASSERT_EQ(id3.value().get(), uint64_t(1000), "Should reuse released StrongId");
+    FATP_ASSERT_EQ(id3.value().get(), uint64_t(1000), "Should reuse released StrongId");
 
     return true;
 }
 
-TEST_CASE(error_handling)
+FATP_TEST_CASE(error_handling)
 {
     SimpleIdGenerator<uint8_t> small_gen(250);
 
@@ -122,19 +122,19 @@ TEST_CASE(error_handling)
         auto id = small_gen.generate();
         if (!id.has_value())
         {
-            ASSERT_TRUE(id.error() == IdError::Overflow, "Should get overflow error");
+            FATP_ASSERT_TRUE(id.error() == IdError::Overflow, "Should get overflow error");
             break;
         }
         ids.push_back(id.value());
     }
 
     // Should generate exactly 6 IDs: 250, 251, 252, 253, 254, 255
-    ASSERT_EQ(ids.size(), size_t(6), "Should generate 6 IDs (250-255)");
+    FATP_ASSERT_EQ(ids.size(), size_t(6), "Should generate 6 IDs (250-255)");
 
     // Try invalid release
     auto release_result = small_gen.release(200); // Not in use
-    ASSERT_TRUE(!release_result.has_value(), "Should fail to release invalid ID");
-    ASSERT_TRUE(release_result.error() == IdError::InvalidRelease,
+    FATP_ASSERT_TRUE(!release_result.has_value(), "Should fail to release invalid ID");
+    FATP_ASSERT_TRUE(release_result.error() == IdError::InvalidRelease,
                   "Should get InvalidRelease error");
 
     return true;
@@ -144,30 +144,30 @@ TEST_CASE(error_handling)
 // II. RAII IdGuard Tests
 // =============================================================================
 
-TEST_CASE(raii_guard)
+FATP_TEST_CASE(raii_guard)
 {
     SimpleIdGenerator<uint64_t> gen(1);
 
     {
         auto guard_result = gen.scoped_id();
-        ASSERT_TRUE(guard_result.has_value(), "Scoped ID generation failed");
+        FATP_ASSERT_TRUE(guard_result.has_value(), "Scoped ID generation failed");
 
         auto& guard = guard_result.value();
-        ASSERT_EQ(guard.get(), uint64_t(1), "Guard should hold ID 1");
-        ASSERT_EQ(gen.active_count(), size_t(1), "Active count should be 1");
+        FATP_ASSERT_EQ(guard.get(), uint64_t(1), "Guard should hold ID 1");
+        FATP_ASSERT_EQ(gen.active_count(), size_t(1), "Active count should be 1");
     }
 
-    ASSERT_EQ(gen.active_count(), size_t(0), "ID should be released after guard destroyed");
-    ASSERT_EQ(gen.recycled_count(), size_t(1), "ID should be recycled");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(0), "ID should be released after guard destroyed");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(1), "ID should be recycled");
 
     // Next generation should reuse
     auto next_id = gen.generate();
-    ASSERT_EQ(next_id.value(), uint64_t(1), "Should reuse ID from guard");
+    FATP_ASSERT_EQ(next_id.value(), uint64_t(1), "Should reuse ID from guard");
 
     return true;
 }
 
-TEST_CASE(guard_move_semantics)
+FATP_TEST_CASE(guard_move_semantics)
 {
     SimpleIdGenerator<uint64_t> gen(100);
 
@@ -178,23 +178,23 @@ TEST_CASE(guard_move_semantics)
 
     {
         auto guard = create_guard();
-        ASSERT_EQ(guard.get(), uint64_t(100), "Moved guard should hold ID");
-        ASSERT_EQ(gen.active_count(), size_t(1), "Active count should be 1");
+        FATP_ASSERT_EQ(guard.get(), uint64_t(100), "Moved guard should hold ID");
+        FATP_ASSERT_EQ(gen.active_count(), size_t(1), "Active count should be 1");
     }
 
-    ASSERT_EQ(gen.active_count(), size_t(0), "ID released after moved guard destroyed");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(0), "ID released after moved guard destroyed");
 
     return true;
 }
 
-TEST_CASE(guard_default_ctor)
+FATP_TEST_CASE(guard_default_ctor)
 {
     // Test IdGuard default constructor creates invalid guard
     SimpleIdGenerator<uint64_t> gen(1);
     using Guard = typename SimpleIdGenerator<uint64_t>::IdGuard;
     
     Guard default_guard;
-    ASSERT_TRUE(!default_guard, "Default guard should be invalid (operator bool)");
+    FATP_ASSERT_TRUE(!default_guard, "Default guard should be invalid (operator bool)");
     
     // Default guard destruction should be safe (no-op)
     // This is implicitly tested by the guard going out of scope
@@ -202,20 +202,20 @@ TEST_CASE(guard_default_ctor)
     // Move assignment from valid guard
     {
         auto scoped = gen.scoped_id();
-        ASSERT_TRUE(scoped.has_value(), "scoped_id should succeed");
+        FATP_ASSERT_TRUE(scoped.has_value(), "scoped_id should succeed");
         
         default_guard = std::move(scoped.value());
-        ASSERT_TRUE(static_cast<bool>(default_guard), "Guard should be valid after move");
-        ASSERT_EQ(default_guard.get(), uint64_t(1), "Should hold ID 1");
+        FATP_ASSERT_TRUE(static_cast<bool>(default_guard), "Guard should be valid after move");
+        FATP_ASSERT_EQ(default_guard.get(), uint64_t(1), "Should hold ID 1");
     }
     
-    ASSERT_EQ(gen.active_count(), size_t(1), "ID still active (guard holds it)");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(1), "ID still active (guard holds it)");
     
     default_guard.release_ownership();
-    ASSERT_TRUE(!default_guard, "Guard should be invalid after release_ownership");
+    FATP_ASSERT_TRUE(!default_guard, "Guard should be invalid after release_ownership");
     
     // ID is now leaked (intentionally) - verify it's still tracked
-    ASSERT_EQ(gen.active_count(), size_t(1), "ID still tracked after ownership release");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(1), "ID still tracked after ownership release");
     
     return true;
 }
@@ -224,7 +224,7 @@ TEST_CASE(guard_default_ctor)
 // III. Random Allocation Policy Tests
 // =============================================================================
 
-TEST_CASE(random_allocation)
+FATP_TEST_CASE(random_allocation)
 {
     RandomIdGenerator<uint64_t> random_gen;
 
@@ -234,20 +234,20 @@ TEST_CASE(random_allocation)
     for (size_t i = 0; i < test_count; ++i)
     {
         auto id = random_gen.generate();
-        ASSERT_TRUE(id.has_value(), "Random ID generation failed");
+        FATP_ASSERT_TRUE(id.has_value(), "Random ID generation failed");
 
         // Check for collisions (should be extremely rare with uint64_t)
-        ASSERT_TRUE(generated_ids.find(id.value()) == generated_ids.end(),
+        FATP_ASSERT_TRUE(generated_ids.find(id.value()) == generated_ids.end(),
                       "Random ID collision detected!");
         generated_ids.insert(id.value());
     }
 
-    ASSERT_EQ(generated_ids.size(), test_count, "Should generate unique random IDs");
+    FATP_ASSERT_EQ(generated_ids.size(), test_count, "Should generate unique random IDs");
 
     return true;
 }
 
-TEST_CASE(random_small_type)
+FATP_TEST_CASE(random_small_type)
 {
     // Test that RandomAllocationPolicy works correctly with uint8_t
     // This validates the fix for UB with std::uniform_int_distribution
@@ -267,7 +267,7 @@ TEST_CASE(random_small_type)
             if (generated_ids.find(id.value()) != generated_ids.end())
             {
                 // This would indicate a bug - generator returned dup without error
-                ASSERT_TRUE(false, "Generator returned duplicate ID without error");
+                FATP_ASSERT_TRUE(false, "Generator returned duplicate ID without error");
             }
             generated_ids.insert(id.value());
             ++success_count;
@@ -275,19 +275,19 @@ TEST_CASE(random_small_type)
         else
         {
             // Collision should return AlreadyInUse error
-            ASSERT_TRUE(id.error() == IdError::AlreadyInUse,
+            FATP_ASSERT_TRUE(id.error() == IdError::AlreadyInUse,
                           "Collision should return AlreadyInUse error");
             ++collision_error_count;
         }
     }
 
     // Should have generated at least some unique IDs
-    ASSERT_TRUE(success_count > 0, "Should generate at least some unique IDs");
+    FATP_ASSERT_TRUE(success_count > 0, "Should generate at least some unique IDs");
 
     return true;
 }
 
-TEST_CASE(random_seed_reproducibility)
+FATP_TEST_CASE(random_seed_reproducibility)
 {
     // Test that seeded random generator produces reproducible sequences
     constexpr uint64_t kTestSeed = 12345;
@@ -302,28 +302,28 @@ TEST_CASE(random_seed_reproducibility)
     {
         auto id1 = policy1.next_id(0, true);
         auto id2 = policy2.next_id(0, true);
-        ASSERT_TRUE(id1.has_value() && id2.has_value(), "Generation should succeed");
+        FATP_ASSERT_TRUE(id1.has_value() && id2.has_value(), "Generation should succeed");
         seq1.push_back(*id1);
         seq2.push_back(*id2);
     }
 
     // Sequences should be identical
-    ASSERT_EQ(seq1.size(), seq2.size(), "Sequences should have same length");
+    FATP_ASSERT_EQ(seq1.size(), seq2.size(), "Sequences should have same length");
     for (size_t i = 0; i < seq1.size(); ++i)
     {
-        ASSERT_EQ(seq1[i], seq2[i], "Seeded sequences should be identical");
+        FATP_ASSERT_EQ(seq1[i], seq2[i], "Seeded sequences should be identical");
     }
 
     // Reset with different seed should produce different sequence
     policy1.reset_with_seed(99999);
     auto different = policy1.next_id(0, true);
-    ASSERT_TRUE(different.has_value(), "Generation should succeed");
-    ASSERT_TRUE(*different != seq1[0], "Different seed should produce different sequence");
+    FATP_ASSERT_TRUE(different.has_value(), "Generation should succeed");
+    FATP_ASSERT_TRUE(*different != seq1[0], "Different seed should produce different sequence");
 
     return true;
 }
 
-TEST_CASE(random_idgenerator_seeded)
+FATP_TEST_CASE(random_idgenerator_seeded)
 {
     // Test that seeded IdGenerator produces reproducible sequences
     // This validates the SFINAE-enabled seeded constructor
@@ -339,7 +339,7 @@ TEST_CASE(random_idgenerator_seeded)
     {
         auto id1 = gen1.generate();
         auto id2 = gen2.generate();
-        ASSERT_TRUE(id1.has_value() && id2.has_value(), "Seeded generation should succeed");
+        FATP_ASSERT_TRUE(id1.has_value() && id2.has_value(), "Seeded generation should succeed");
         seq1.push_back(*id1);
         seq2.push_back(*id2);
     }
@@ -347,14 +347,14 @@ TEST_CASE(random_idgenerator_seeded)
     // Sequences should be identical
     for (size_t i = 0; i < seq1.size(); ++i)
     {
-        ASSERT_EQ(seq1[i], seq2[i], "Seeded IdGenerators should produce identical sequences");
+        FATP_ASSERT_EQ(seq1[i], seq2[i], "Seeded IdGenerators should produce identical sequences");
     }
 
     // Different seed should produce different sequence
     RandomIdGenerator<uint64_t> gen3(seed_tag, 99999);
     auto different = gen3.generate();
-    ASSERT_TRUE(different.has_value(), "Generation should succeed");
-    ASSERT_TRUE(*different != seq1[0], "Different seed should produce different first ID");
+    FATP_ASSERT_TRUE(different.has_value(), "Generation should succeed");
+    FATP_ASSERT_TRUE(*different != seq1[0], "Different seed should produce different first ID");
 
     return true;
 }
@@ -363,7 +363,7 @@ TEST_CASE(random_idgenerator_seeded)
 // IV. Thread Safety Tests
 // =============================================================================
 
-TEST_CASE(thread_safety)
+FATP_TEST_CASE(thread_safety)
 {
     ThreadSafeIdGenerator<uint64_t> safe_gen(1);
 
@@ -404,14 +404,14 @@ TEST_CASE(thread_safety)
     {
         for (uint64_t id : thread_set)
         {
-            ASSERT_TRUE(all_ids.find(id) == all_ids.end(),
+            FATP_ASSERT_TRUE(all_ids.find(id) == all_ids.end(),
                           "Thread-safety violation: duplicate ID");
             all_ids.insert(id);
         }
     }
 
     size_t total_expected = num_threads * ids_per_thread;
-    ASSERT_EQ(all_ids.size(), total_expected, "Should generate correct number of unique IDs");
+    FATP_ASSERT_EQ(all_ids.size(), total_expected, "Should generate correct number of unique IDs");
 
     std::cout << "Generated " << all_ids.size() << " unique IDs across " << num_threads
               << " threads in " << duration.count() << " ms\n";
@@ -419,7 +419,7 @@ TEST_CASE(thread_safety)
     return true;
 }
 
-TEST_CASE(concurrent_queries)
+FATP_TEST_CASE(concurrent_queries)
 {
     // Test concurrent reads (is_active, active_count) alongside writes (generate, release)
     // Validates shared locking correctness for reader-writer scenarios
@@ -494,11 +494,11 @@ TEST_CASE(concurrent_queries)
     }
 
     // Verify consistency after concurrent operations
-    ASSERT_TRUE(query_count > 0, "Query threads should have executed");
-    ASSERT_TRUE(generate_count > 0, "Generate threads should have executed");
+    FATP_ASSERT_TRUE(query_count > 0, "Query threads should have executed");
+    FATP_ASSERT_TRUE(generate_count > 0, "Generate threads should have executed");
 
     // Final state should be consistent (all cleanup completed)
-    ASSERT_EQ(gen.active_count(), size_t(0), "All IDs should be released after cleanup");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(0), "All IDs should be released after cleanup");
 
     return true;
 }
@@ -507,7 +507,7 @@ TEST_CASE(concurrent_queries)
 // V. Recycling Policy Tests
 // =============================================================================
 
-TEST_CASE(no_recycling)
+FATP_TEST_CASE(no_recycling)
 {
     using NoRecycleGen =
         IdGenerator<uint64_t, SequentialAllocationPolicy<uint64_t>, NoRecyclingPolicy<uint64_t>>;
@@ -518,15 +518,15 @@ TEST_CASE(no_recycling)
     auto id2 = gen.generate();
 
     (void)gen.release(id1.value());
-    ASSERT_EQ(gen.recycled_count(), size_t(0), "No recycling policy should not store IDs");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(0), "No recycling policy should not store IDs");
 
     auto id3 = gen.generate();
-    ASSERT_EQ(id3.value(), uint64_t(3), "Should continue sequence without recycling");
+    FATP_ASSERT_EQ(id3.value(), uint64_t(3), "Should continue sequence without recycling");
 
     return true;
 }
 
-TEST_CASE(recycling_order)
+FATP_TEST_CASE(recycling_order)
 {
     SimpleIdGenerator<uint64_t> gen(1);
 
@@ -541,19 +541,19 @@ TEST_CASE(recycling_order)
 
     // Should get back in FIFO order (first released = first reused)
     auto recycled1 = gen.generate();
-    ASSERT_EQ(recycled1.value(), uint64_t(2), "First recycled should be 2 (FIFO)");
+    FATP_ASSERT_EQ(recycled1.value(), uint64_t(2), "First recycled should be 2 (FIFO)");
 
     auto recycled2 = gen.generate();
-    ASSERT_EQ(recycled2.value(), uint64_t(1), "Second recycled should be 1 (FIFO)");
+    FATP_ASSERT_EQ(recycled2.value(), uint64_t(1), "Second recycled should be 1 (FIFO)");
 
     // Next should be fresh
     auto fresh = gen.generate();
-    ASSERT_EQ(fresh.value(), uint64_t(4), "Should get fresh ID after recycled exhausted");
+    FATP_ASSERT_EQ(fresh.value(), uint64_t(4), "Should get fresh ID after recycled exhausted");
 
     return true;
 }
 
-TEST_CASE(min_recycling_policy)
+FATP_TEST_CASE(min_recycling_policy)
 {
     // Test MinRecyclingPolicy - should recycle smallest ID first
     using MinGen = IdGenerator<uint64_t,
@@ -572,18 +572,18 @@ TEST_CASE(min_recycling_policy)
 
     // Should get back in sorted order: 1, 2, 3 (smallest first)
     auto r1 = gen.generate();
-    ASSERT_EQ(r1.value(), uint64_t(1), "Should recycle smallest (1) first");
+    FATP_ASSERT_EQ(r1.value(), uint64_t(1), "Should recycle smallest (1) first");
 
     auto r2 = gen.generate();
-    ASSERT_EQ(r2.value(), uint64_t(2), "Should recycle next smallest (2)");
+    FATP_ASSERT_EQ(r2.value(), uint64_t(2), "Should recycle next smallest (2)");
 
     auto r3 = gen.generate();
-    ASSERT_EQ(r3.value(), uint64_t(3), "Should recycle next smallest (3)");
+    FATP_ASSERT_EQ(r3.value(), uint64_t(3), "Should recycle next smallest (3)");
 
     return true;
 }
 
-TEST_CASE(dense_id_generator_alias)
+FATP_TEST_CASE(dense_id_generator_alias)
 {
     // Verify DenseIdGenerator alias compiles and uses MinRecyclingPolicy
     DenseIdGenerator<uint64_t> gen(0);
@@ -598,12 +598,12 @@ TEST_CASE(dense_id_generator_alias)
 
     // Should get 0 first (smallest)
     auto recycled = gen.generate();
-    ASSERT_EQ(recycled.value(), uint64_t(0), "DenseIdGenerator should recycle smallest first");
+    FATP_ASSERT_EQ(recycled.value(), uint64_t(0), "DenseIdGenerator should recycle smallest first");
 
     return true;
 }
 
-TEST_CASE(retry_logic_collision)
+FATP_TEST_CASE(retry_logic_collision)
 {
     // Test that retry loop handles collisions in RandomAllocationPolicy
     // Use small type to increase collision probability
@@ -620,7 +620,7 @@ TEST_CASE(retry_logic_collision)
         if (id.has_value())
         {
             // Verify no duplicates
-            ASSERT_TRUE(generated.find(id.value()) == generated.end(),
+            FATP_ASSERT_TRUE(generated.find(id.value()) == generated.end(),
                           "Retry logic should prevent duplicate returns");
             generated.insert(id.value());
             ++success_count;
@@ -628,40 +628,40 @@ TEST_CASE(retry_logic_collision)
     }
 
     // Should have generated a reasonable number of unique IDs
-    ASSERT_TRUE(success_count >= 20, "Retry loop should allow multiple successful generations");
+    FATP_ASSERT_TRUE(success_count >= 20, "Retry loop should allow multiple successful generations");
 
     return true;
 }
 
-TEST_CASE(basic_batch_generation)
+FATP_TEST_CASE(basic_batch_generation)
 {
     SimpleIdGenerator<uint64_t> gen(1);
 
     // Generate batch of 10 IDs
     auto batch = gen.generate_batch(10);
-    ASSERT_TRUE(batch.has_value(), "Batch generation should succeed");
-    ASSERT_EQ(batch.value().size(), size_t(10), "Should generate 10 IDs");
+    FATP_ASSERT_TRUE(batch.has_value(), "Batch generation should succeed");
+    FATP_ASSERT_EQ(batch.value().size(), size_t(10), "Should generate 10 IDs");
 
     // Verify all IDs are unique and sequential
     std::set<uint64_t> unique_ids(batch.value().begin(), batch.value().end());
-    ASSERT_EQ(unique_ids.size(), size_t(10), "All batch IDs should be unique");
+    FATP_ASSERT_EQ(unique_ids.size(), size_t(10), "All batch IDs should be unique");
 
     // Verify sequential: should be 1-10
-    ASSERT_EQ(batch.value()[0], uint64_t(1), "First ID should be 1");
-    ASSERT_EQ(batch.value()[9], uint64_t(10), "Last ID should be 10");
+    FATP_ASSERT_EQ(batch.value()[0], uint64_t(1), "First ID should be 1");
+    FATP_ASSERT_EQ(batch.value()[9], uint64_t(10), "Last ID should be 10");
 
     // Verify active count
-    ASSERT_EQ(gen.active_count(), size_t(10), "All 10 IDs should be active");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(10), "All 10 IDs should be active");
 
     // Empty batch should succeed
     auto empty_batch = gen.generate_batch(0);
-    ASSERT_TRUE(empty_batch.has_value(), "Empty batch should succeed");
-    ASSERT_EQ(empty_batch.value().size(), size_t(0), "Empty batch should have 0 IDs");
+    FATP_ASSERT_TRUE(empty_batch.has_value(), "Empty batch should succeed");
+    FATP_ASSERT_EQ(empty_batch.value().size(), size_t(0), "Empty batch should have 0 IDs");
 
     return true;
 }
 
-TEST_CASE(batch_with_recycling)
+FATP_TEST_CASE(batch_with_recycling)
 {
     SimpleIdGenerator<uint64_t> gen(1);
 
@@ -675,18 +675,18 @@ TEST_CASE(batch_with_recycling)
 
     // Batch should use recycled IDs first (FIFO: 2, then 1)
     auto batch = gen.generate_batch(3);
-    ASSERT_TRUE(batch.has_value(), "Batch with recycling should succeed");
-    ASSERT_EQ(batch.value().size(), size_t(3), "Should generate 3 IDs");
+    FATP_ASSERT_TRUE(batch.has_value(), "Batch with recycling should succeed");
+    FATP_ASSERT_EQ(batch.value().size(), size_t(3), "Should generate 3 IDs");
 
     // First two should be recycled (2, 1), third should be fresh (4)
-    ASSERT_EQ(batch.value()[0], uint64_t(2), "First should be recycled 2");
-    ASSERT_EQ(batch.value()[1], uint64_t(1), "Second should be recycled 1");
-    ASSERT_EQ(batch.value()[2], uint64_t(4), "Third should be fresh 4");
+    FATP_ASSERT_EQ(batch.value()[0], uint64_t(2), "First should be recycled 2");
+    FATP_ASSERT_EQ(batch.value()[1], uint64_t(1), "Second should be recycled 1");
+    FATP_ASSERT_EQ(batch.value()[2], uint64_t(4), "Third should be fresh 4");
 
     return true;
 }
 
-TEST_CASE(threadsafe_batch_generation)
+FATP_TEST_CASE(threadsafe_batch_generation)
 {
     ThreadSafeIdGenerator<uint64_t> gen(1);
 
@@ -716,58 +716,58 @@ TEST_CASE(threadsafe_batch_generation)
     std::set<uint64_t> all_ids;
     for (const auto& ids : thread_ids)
     {
-        ASSERT_EQ(ids.size(), batch_size, "Each thread should get full batch");
+        FATP_ASSERT_EQ(ids.size(), batch_size, "Each thread should get full batch");
         for (uint64_t id : ids)
         {
-            ASSERT_TRUE(all_ids.find(id) == all_ids.end(),
+            FATP_ASSERT_TRUE(all_ids.find(id) == all_ids.end(),
                           "Batch generation should produce unique IDs across threads");
             all_ids.insert(id);
         }
     }
 
-    ASSERT_EQ(all_ids.size(), num_threads * batch_size,
+    FATP_ASSERT_EQ(all_ids.size(), num_threads * batch_size,
               "Total unique IDs should equal threads * batch_size");
 
     return true;
 }
 
-TEST_CASE(batch_overflow_rollback)
+FATP_TEST_CASE(batch_overflow_rollback)
 {
     // Use small type to test overflow and rollback
     SimpleIdGenerator<uint8_t> gen(250);
 
     // Generate 5 IDs: 250, 251, 252, 253, 254
     auto batch1 = gen.generate_batch(5);
-    ASSERT_TRUE(batch1.has_value(), "First batch should succeed");
-    ASSERT_EQ(batch1.value().size(), size_t(5), "Should have 5 IDs");
+    FATP_ASSERT_TRUE(batch1.has_value(), "First batch should succeed");
+    FATP_ASSERT_EQ(batch1.value().size(), size_t(5), "Should have 5 IDs");
 
     // Only 255 left. Requesting 3 should fail (overflow after 1)
     // and rollback any partial success
     auto batch2 = gen.generate_batch(3);
-    ASSERT_TRUE(!batch2.has_value(), "Batch exceeding space should fail");
-    ASSERT_TRUE(batch2.error() == IdError::Overflow, "Error should be Overflow");
+    FATP_ASSERT_TRUE(!batch2.has_value(), "Batch exceeding space should fail");
+    FATP_ASSERT_TRUE(batch2.error() == IdError::Overflow, "Error should be Overflow");
 
     // Enhanced verification: Check individual ID states after rollback
     for (uint8_t id : {250, 251, 252, 253, 254})
     {
-        ASSERT_TRUE(gen.is_active(id), "Original IDs should remain active after rollback");
+        FATP_ASSERT_TRUE(gen.is_active(id), "Original IDs should remain active after rollback");
     }
 
     // Active count should still be 5 (rollback worked)
-    ASSERT_EQ(gen.active_count(), size_t(5), "Rollback should restore state");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(5), "Rollback should restore state");
 
     // No IDs should be in recycle pool (rollback discards high IDs)
-    ASSERT_EQ(gen.recycled_count(), size_t(0), "No partial IDs should be recycled after rollback");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(0), "No partial IDs should be recycled after rollback");
 
     // Can still generate the remaining ID
     auto last = gen.generate();
-    ASSERT_TRUE(last.has_value(), "Should still generate remaining ID");
-    ASSERT_EQ(last.value(), uint8_t(255), "Last ID should be 255");
+    FATP_ASSERT_TRUE(last.has_value(), "Should still generate remaining ID");
+    FATP_ASSERT_EQ(last.value(), uint8_t(255), "Last ID should be 255");
 
     return true;
 }
 
-TEST_CASE(batch_rollback_preserves_density)
+FATP_TEST_CASE(batch_rollback_preserves_density)
 {
     // Test that rollback preserves density for MinRecyclingPolicy
     // Only recycled IDs (below pre-batch max) should be returned to pool
@@ -776,13 +776,13 @@ TEST_CASE(batch_rollback_preserves_density)
 
     // Generate 5 IDs: 250, 251, 252, 253, 254
     auto batch1 = gen.generate_batch(5);
-    ASSERT_TRUE(batch1.has_value(), "First batch should succeed");
-    ASSERT_EQ(batch1->size(), size_t(5), "Should have 5 IDs");
+    FATP_ASSERT_TRUE(batch1.has_value(), "First batch should succeed");
+    FATP_ASSERT_EQ(batch1->size(), size_t(5), "Should have 5 IDs");
 
     // Release 251 and 253 to create recycled IDs
     (void)gen.release(uint8_t(251));
     (void)gen.release(uint8_t(253));
-    ASSERT_EQ(gen.recycled_count(), size_t(2), "Should have 2 recycled IDs");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(2), "Should have 2 recycled IDs");
 
     // Current state: Active {250, 252, 254}, Recycled {251, 253} (min-sorted)
     // Pre-batch max is 254
@@ -792,51 +792,51 @@ TEST_CASE(batch_rollback_preserves_density)
     // Then try fresh ID 255, which succeeds
     // Then overflow on next ID
     auto batch2 = gen.generate_batch(4);
-    ASSERT_TRUE(!batch2.has_value(), "Batch exceeding space should fail");
-    ASSERT_TRUE(batch2.error() == IdError::Overflow, "Error should be Overflow");
+    FATP_ASSERT_TRUE(!batch2.has_value(), "Batch exceeding space should fail");
+    FATP_ASSERT_TRUE(batch2.error() == IdError::Overflow, "Error should be Overflow");
 
     // Verify rollback preserved density:
     // - IDs 251, 253 were recycled (below pre-batch max 254), should be back in pool
     // - ID 255 was new (above pre-batch max 254), should be DISCARDED, not recycled
-    ASSERT_EQ(gen.recycled_count(), size_t(2), "Only pre-existing recycled IDs (251, 253) should return");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(2), "Only pre-existing recycled IDs (251, 253) should return");
 
     // Verify the recycled IDs are the original ones (251, 253)
     // Generate to consume from recycle pool
     auto id1 = gen.generate();
-    ASSERT_TRUE(id1.has_value(), "Should get recycled ID");
-    ASSERT_EQ(id1.value(), uint8_t(251), "MinRecyclingPolicy should return smallest first");
+    FATP_ASSERT_TRUE(id1.has_value(), "Should get recycled ID");
+    FATP_ASSERT_EQ(id1.value(), uint8_t(251), "MinRecyclingPolicy should return smallest first");
 
     auto id2 = gen.generate();
-    ASSERT_TRUE(id2.has_value(), "Should get recycled ID");
-    ASSERT_EQ(id2.value(), uint8_t(253), "Should return next smallest");
+    FATP_ASSERT_TRUE(id2.has_value(), "Should get recycled ID");
+    FATP_ASSERT_EQ(id2.value(), uint8_t(253), "Should return next smallest");
 
     // Now recycle pool is empty, next should be fresh ID 255
     auto id3 = gen.generate();
-    ASSERT_TRUE(id3.has_value(), "Should get fresh ID");
-    ASSERT_EQ(id3.value(), uint8_t(255), "Fresh ID should be 255");
+    FATP_ASSERT_TRUE(id3.has_value(), "Should get fresh ID");
+    FATP_ASSERT_EQ(id3.value(), uint8_t(255), "Fresh ID should be 255");
 
     return true;
 }
 
-TEST_CASE(release_batch_basic)
+FATP_TEST_CASE(release_batch_basic)
 {
     SimpleIdGenerator<uint64_t> gen(1);
 
     // Generate a batch
     auto batch = gen.generate_batch(10);
-    ASSERT_TRUE(batch.has_value(), "Batch generation should succeed");
-    ASSERT_EQ(gen.active_count(), size_t(10), "Should have 10 active IDs");
+    FATP_ASSERT_TRUE(batch.has_value(), "Batch generation should succeed");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(10), "Should have 10 active IDs");
 
     // Release them all in one call
     auto result = gen.release_batch(batch.value());
-    ASSERT_TRUE(result.has_value(), "Batch release should succeed");
-    ASSERT_EQ(gen.active_count(), size_t(0), "All IDs should be released");
-    ASSERT_EQ(gen.recycled_count(), size_t(10), "All IDs should be recycled");
+    FATP_ASSERT_TRUE(result.has_value(), "Batch release should succeed");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(0), "All IDs should be released");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(10), "All IDs should be recycled");
 
     return true;
 }
 
-TEST_CASE(release_batch_error_handling)
+FATP_TEST_CASE(release_batch_error_handling)
 {
     SimpleIdGenerator<uint64_t> gen(1);
 
@@ -850,13 +850,13 @@ TEST_CASE(release_batch_error_handling)
     auto result = gen.release_batch(to_release);
 
     // Should fail on the invalid ID
-    ASSERT_TRUE(!result.has_value(), "Should fail on invalid ID");
-    ASSERT_TRUE(result.error() == IdError::InvalidRelease, "Error should be InvalidRelease");
+    FATP_ASSERT_TRUE(!result.has_value(), "Should fail on invalid ID");
+    FATP_ASSERT_TRUE(result.error() == IdError::InvalidRelease, "Error should be InvalidRelease");
 
     // First ID should be released, but second and third not processed
-    ASSERT_TRUE(!gen.is_active(id1.value()), "First ID should be released before error");
-    ASSERT_TRUE(gen.is_active(id2.value()), "Second ID should still be active");
-    ASSERT_TRUE(gen.is_active(id3.value()), "Third ID should still be active (not processed)");
+    FATP_ASSERT_TRUE(!gen.is_active(id1.value()), "First ID should be released before error");
+    FATP_ASSERT_TRUE(gen.is_active(id2.value()), "Second ID should still be active");
+    FATP_ASSERT_TRUE(gen.is_active(id3.value()), "Third ID should still be active (not processed)");
 
     return true;
 }
@@ -865,52 +865,52 @@ TEST_CASE(release_batch_error_handling)
 // VI. Edge Cases
 // =============================================================================
 
-TEST_CASE(edge_cases)
+FATP_TEST_CASE(edge_cases)
 {
     // Test with base_id at 0
     SimpleIdGenerator<uint64_t> gen_zero(0);
     auto id_zero = gen_zero.generate();
-    ASSERT_EQ(id_zero.value(), uint64_t(0), "Should handle base_id of 0");
+    FATP_ASSERT_EQ(id_zero.value(), uint64_t(0), "Should handle base_id of 0");
 
     // Test reset functionality
     SimpleIdGenerator<uint64_t> gen(100);
     (void)gen.generate();
     (void)gen.generate();
-    ASSERT_EQ(gen.active_count(), size_t(2), "Should have 2 active IDs");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(2), "Should have 2 active IDs");
 
     gen.reset();
-    ASSERT_EQ(gen.active_count(), size_t(0), "Reset should clear active IDs");
-    ASSERT_EQ(gen.recycled_count(), size_t(0), "Reset should clear recycled IDs");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(0), "Reset should clear active IDs");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(0), "Reset should clear recycled IDs");
 
     auto id_after_reset = gen.generate();
-    ASSERT_EQ(id_after_reset.value(), uint64_t(100), "Should restart from base after reset");
+    FATP_ASSERT_EQ(id_after_reset.value(), uint64_t(100), "Should restart from base after reset");
 
     // Test is_active query
-    ASSERT_TRUE(gen.is_active(id_after_reset.value()), "Should report ID as active");
+    FATP_ASSERT_TRUE(gen.is_active(id_after_reset.value()), "Should report ID as active");
     (void)gen.release(id_after_reset.value());
-    ASSERT_TRUE(!gen.is_active(id_after_reset.value()), "Should report ID as inactive");
+    FATP_ASSERT_TRUE(!gen.is_active(id_after_reset.value()), "Should report ID as inactive");
 
     return true;
 }
 
-TEST_CASE(double_release)
+FATP_TEST_CASE(double_release)
 {
     SimpleIdGenerator<uint64_t> gen(1);
 
     auto id = gen.generate();
-    ASSERT_TRUE(id.has_value(), "Generation should succeed");
+    FATP_ASSERT_TRUE(id.has_value(), "Generation should succeed");
 
     auto release1 = gen.release(id.value());
-    ASSERT_TRUE(release1.has_value(), "First release should succeed");
+    FATP_ASSERT_TRUE(release1.has_value(), "First release should succeed");
 
     auto release2 = gen.release(id.value());
-    ASSERT_TRUE(!release2.has_value(), "Second release should fail");
-    ASSERT_TRUE(release2.error() == IdError::InvalidRelease, "Should get InvalidRelease");
+    FATP_ASSERT_TRUE(!release2.has_value(), "Second release should fail");
+    FATP_ASSERT_TRUE(release2.error() == IdError::InvalidRelease, "Should get InvalidRelease");
 
     return true;
 }
 
-TEST_CASE(overflow_boundary)
+FATP_TEST_CASE(overflow_boundary)
 {
     // Test near overflow boundary with small type
     SimpleIdGenerator<uint8_t> gen(253);
@@ -919,24 +919,24 @@ TEST_CASE(overflow_boundary)
     auto id2 = gen.generate(); // 254
     auto id3 = gen.generate(); // 255
 
-    ASSERT_EQ(id1.value(), uint8_t(253), "Should get 253");
-    ASSERT_EQ(id2.value(), uint8_t(254), "Should get 254");
-    ASSERT_EQ(id3.value(), uint8_t(255), "Should get 255 (max)");
+    FATP_ASSERT_EQ(id1.value(), uint8_t(253), "Should get 253");
+    FATP_ASSERT_EQ(id2.value(), uint8_t(254), "Should get 254");
+    FATP_ASSERT_EQ(id3.value(), uint8_t(255), "Should get 255 (max)");
 
     // Next should overflow
     auto id4 = gen.generate();
-    ASSERT_TRUE(!id4.has_value(), "Should fail on overflow");
-    ASSERT_TRUE(id4.error() == IdError::Overflow, "Should get Overflow error");
+    FATP_ASSERT_TRUE(!id4.has_value(), "Should fail on overflow");
+    FATP_ASSERT_TRUE(id4.error() == IdError::Overflow, "Should get Overflow error");
 
     // But recycling should still work
     (void)gen.release(id2.value());
     auto recycled = gen.generate();
-    ASSERT_EQ(recycled.value(), uint8_t(254), "Should be able to reuse recycled ID");
+    FATP_ASSERT_EQ(recycled.value(), uint8_t(254), "Should be able to reuse recycled ID");
 
     return true;
 }
 
-TEST_CASE(overflow_exhaustion_tracking)
+FATP_TEST_CASE(overflow_exhaustion_tracking)
 {
     // Test that once we reach max, subsequent calls correctly return Overflow
     // This validates the exhausted_ flag in SequentialAllocationPolicy
@@ -945,32 +945,32 @@ TEST_CASE(overflow_exhaustion_tracking)
     auto id254 = gen.generate(); // 254
     auto id255 = gen.generate(); // 255 (max)
 
-    ASSERT_EQ(id254.value(), uint8_t(254), "Should get 254");
-    ASSERT_EQ(id255.value(), uint8_t(255), "Should get 255 (max)");
+    FATP_ASSERT_EQ(id254.value(), uint8_t(254), "Should get 254");
+    FATP_ASSERT_EQ(id255.value(), uint8_t(255), "Should get 255 (max)");
 
     // Multiple overflow attempts should all return Overflow (not AlreadyInUse)
     for (int i = 0; i < 5; ++i)
     {
         auto overflow = gen.generate();
-        ASSERT_TRUE(!overflow.has_value(), "Should fail on overflow");
-        ASSERT_TRUE(overflow.error() == IdError::Overflow, 
+        FATP_ASSERT_TRUE(!overflow.has_value(), "Should fail on overflow");
+        FATP_ASSERT_TRUE(overflow.error() == IdError::Overflow, 
                       "Should get Overflow error, not AlreadyInUse");
     }
 
     // After release and recycle, should still work
     (void)gen.release(id254.value());
     auto recycled = gen.generate();
-    ASSERT_EQ(recycled.value(), uint8_t(254), "Should recycle 254");
+    FATP_ASSERT_EQ(recycled.value(), uint8_t(254), "Should recycle 254");
 
     // Fresh generation should still fail
     auto overflow2 = gen.generate();
-    ASSERT_TRUE(!overflow2.has_value(), "Should still fail on overflow");
-    ASSERT_TRUE(overflow2.error() == IdError::Overflow, "Should be Overflow");
+    FATP_ASSERT_TRUE(!overflow2.has_value(), "Should still fail on overflow");
+    FATP_ASSERT_TRUE(overflow2.error() == IdError::Overflow, "Should be Overflow");
 
     return true;
 }
 
-TEST_CASE(batch_rollback_reverts_counter)
+FATP_TEST_CASE(batch_rollback_reverts_counter)
 {
     // Test that batch rollback properly reverts the allocation policy counter
     // to prevent sequence gaps in sequential generation
@@ -979,8 +979,8 @@ TEST_CASE(batch_rollback_reverts_counter)
     // Generate some IDs
     auto id250 = gen.generate();
     auto id251 = gen.generate();
-    ASSERT_EQ(id250.value(), uint8_t(250), "Should get 250");
-    ASSERT_EQ(id251.value(), uint8_t(251), "Should get 251");
+    FATP_ASSERT_EQ(id250.value(), uint8_t(250), "Should get 250");
+    FATP_ASSERT_EQ(id251.value(), uint8_t(251), "Should get 251");
 
     // Release 251 to recycle pool
     (void)gen.release(id251.value());
@@ -991,18 +991,18 @@ TEST_CASE(batch_rollback_reverts_counter)
     auto batch = gen.generate_batch(10);
 
     // The batch should fail (only 5 IDs available: 251 recycled + 252,253,254,255)
-    ASSERT_TRUE(!batch.has_value(), "Batch should fail");
-    ASSERT_TRUE(batch.error() == IdError::Overflow, "Should be overflow");
+    FATP_ASSERT_TRUE(!batch.has_value(), "Batch should fail");
+    FATP_ASSERT_TRUE(batch.error() == IdError::Overflow, "Should be overflow");
 
     // After rollback, we should be able to generate the IDs we failed to batch
     // The counter should have been reverted
     auto id251_retry = gen.generate();
-    ASSERT_TRUE(id251_retry.has_value(), "Should get recycled 251");
-    ASSERT_EQ(id251_retry.value(), uint8_t(251), "Should be 251");
+    FATP_ASSERT_TRUE(id251_retry.has_value(), "Should get recycled 251");
+    FATP_ASSERT_EQ(id251_retry.value(), uint8_t(251), "Should be 251");
 
     auto id252 = gen.generate();
-    ASSERT_TRUE(id252.has_value(), "Should get 252");
-    ASSERT_EQ(id252.value(), uint8_t(252), "Should be 252");
+    FATP_ASSERT_TRUE(id252.has_value(), "Should get 252");
+    FATP_ASSERT_EQ(id252.value(), uint8_t(252), "Should be 252");
 
     return true;
 }
@@ -1011,7 +1011,7 @@ TEST_CASE(batch_rollback_reverts_counter)
 // VII. Custom Policy Tests
 // =============================================================================
 
-TEST_CASE(custom_allocation_policy)
+FATP_TEST_CASE(custom_allocation_policy)
 {
     // Custom policy that only generates even IDs
     struct EvenOnlyPolicy
@@ -1036,19 +1036,19 @@ TEST_CASE(custom_allocation_policy)
     auto id2 = gen.generate();
     auto id3 = gen.generate();
 
-    ASSERT_TRUE(id1.has_value(), "Custom policy generation should succeed");
-    ASSERT_TRUE((id1.value() % 2) == 0, "ID should be even");
-    ASSERT_TRUE((id2.value() % 2) == 0, "ID should be even");
-    ASSERT_TRUE((id3.value() % 2) == 0, "ID should be even");
+    FATP_ASSERT_TRUE(id1.has_value(), "Custom policy generation should succeed");
+    FATP_ASSERT_TRUE((id1.value() % 2) == 0, "ID should be even");
+    FATP_ASSERT_TRUE((id2.value() % 2) == 0, "ID should be even");
+    FATP_ASSERT_TRUE((id3.value() % 2) == 0, "ID should be even");
 
     // Verify sequential even numbers
-    ASSERT_EQ(id2.value(), id1.value() + 2, "IDs should be consecutive even numbers");
-    ASSERT_EQ(id3.value(), id2.value() + 2, "IDs should be consecutive even numbers");
+    FATP_ASSERT_EQ(id2.value(), id1.value() + 2, "IDs should be consecutive even numbers");
+    FATP_ASSERT_EQ(id3.value(), id2.value() + 2, "IDs should be consecutive even numbers");
 
     return true;
 }
 
-TEST_CASE(bounded_allocation)
+FATP_TEST_CASE(bounded_allocation)
 {
     // Test BoundedSequentialAllocationPolicy for custom ID ranges
     // Use the policy directly since IdGenerator's constructor only passes base_id
@@ -1067,20 +1067,20 @@ TEST_CASE(bounded_allocation)
         ids.push_back(*id);
     }
 
-    ASSERT_EQ(ids.size(), size_t(4), "Should generate 4 IDs (250-253)");
-    ASSERT_EQ(ids[0], uint8_t(250), "First ID should be 250");
-    ASSERT_EQ(ids[1], uint8_t(251), "Second ID should be 251");
-    ASSERT_EQ(ids[2], uint8_t(252), "Third ID should be 252");
-    ASSERT_EQ(ids[3], uint8_t(253), "Fourth ID should be 253 (max bound)");
+    FATP_ASSERT_EQ(ids.size(), size_t(4), "Should generate 4 IDs (250-253)");
+    FATP_ASSERT_EQ(ids[0], uint8_t(250), "First ID should be 250");
+    FATP_ASSERT_EQ(ids[1], uint8_t(251), "Second ID should be 251");
+    FATP_ASSERT_EQ(ids[2], uint8_t(252), "Third ID should be 252");
+    FATP_ASSERT_EQ(ids[3], uint8_t(253), "Fourth ID should be 253 (max bound)");
 
     // Verify overflow after bound
     auto overflow = policy.next_id(253, false);
-    ASSERT_TRUE(!overflow.has_value(), "Should overflow after max bound");
+    FATP_ASSERT_TRUE(!overflow.has_value(), "Should overflow after max bound");
 
     return true;
 }
 
-TEST_CASE(dirty_max_smaller_id)
+FATP_TEST_CASE(dirty_max_smaller_id)
 {
     // Test the specific Gemini bug: inserting smaller ID when max is invalid.
     // Uses custom policy to generate IDs: 20, 10, 5 (decreasing order).
@@ -1104,39 +1104,39 @@ TEST_CASE(dirty_max_smaller_id)
     
     // Generate 20 - Active: {20}, max=20
     auto id20 = gen.generate();
-    ASSERT_TRUE(id20.has_value(), "Generate should succeed");
-    ASSERT_EQ(id20.value(), uint64_t(20), "First ID is 20");
+    FATP_ASSERT_TRUE(id20.has_value(), "Generate should succeed");
+    FATP_ASSERT_EQ(id20.value(), uint64_t(20), "First ID is 20");
     
     // Generate 10 - Active: {10, 20}, max=20 (10 < 20, no update)
     auto id10 = gen.generate();
-    ASSERT_TRUE(id10.has_value(), "Generate should succeed");
-    ASSERT_EQ(id10.value(), uint64_t(10), "Second ID is 10");
+    FATP_ASSERT_TRUE(id10.has_value(), "Generate should succeed");
+    FATP_ASSERT_EQ(id10.value(), uint64_t(10), "Second ID is 10");
     
     // Release 20 (the max) - Active: {10}, max_valid_=false
     (void)gen.release(id20.value());
-    ASSERT_EQ(gen.active_count(), size_t(1), "Should have 1 active ID");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(1), "Should have 1 active ID");
     
     // Generate 5 - With OLD bug: max would become 5 (WRONG!)
     // With fix: max_valid_ stays false, insert(5) doesn't touch max_
     auto id5 = gen.generate();
-    ASSERT_TRUE(id5.has_value(), "Generate should succeed");
-    ASSERT_EQ(id5.value(), uint64_t(5), "Third ID is 5");
+    FATP_ASSERT_TRUE(id5.has_value(), "Generate should succeed");
+    FATP_ASSERT_EQ(id5.value(), uint64_t(5), "Third ID is 5");
     
     // Active: {5, 10}, max should be 10 (not 5!)
-    ASSERT_EQ(gen.active_count(), size_t(2), "Should have 2 active IDs");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(2), "Should have 2 active IDs");
     
     // Generate 25 - max_element() must recompute, find max=10, return it
     // Then policy gives us 25, we insert it, and since 25 > 10 and max was just
     // validated, max becomes 25
     auto id25 = gen.generate();
-    ASSERT_TRUE(id25.has_value(), "Generate should succeed");
-    ASSERT_EQ(id25.value(), uint64_t(25), "Fourth ID is 25");
+    FATP_ASSERT_TRUE(id25.has_value(), "Generate should succeed");
+    FATP_ASSERT_EQ(id25.value(), uint64_t(25), "Fourth ID is 25");
     
     // Final state: {5, 10, 25}
-    ASSERT_EQ(gen.active_count(), size_t(3), "Should have 3 active IDs");
-    ASSERT_TRUE(gen.is_active(5), "5 should be active");
-    ASSERT_TRUE(gen.is_active(10), "10 should be active");
-    ASSERT_TRUE(gen.is_active(25), "25 should be active");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(3), "Should have 3 active IDs");
+    FATP_ASSERT_TRUE(gen.is_active(5), "5 should be active");
+    FATP_ASSERT_TRUE(gen.is_active(10), "10 should be active");
+    FATP_ASSERT_TRUE(gen.is_active(25), "25 should be active");
     
     return true;
 }
@@ -1145,7 +1145,7 @@ TEST_CASE(dirty_max_smaller_id)
 // VIII. Active ID Tracking Tests
 // =============================================================================
 
-TEST_CASE(active_id_tracking)
+FATP_TEST_CASE(active_id_tracking)
 {
     // Test the ActiveIdTracker (unordered_set with lazy max)
     SimpleIdGenerator<uint64_t> gen(1);
@@ -1154,10 +1154,10 @@ TEST_CASE(active_id_tracking)
     auto id2 = gen.generate();
     auto id3 = gen.generate();
 
-    ASSERT_TRUE(id1.has_value() && id2.has_value() && id3.has_value(), "Generation should succeed");
-    ASSERT_EQ(id1.value(), uint64_t(1), "First ID should be 1");
-    ASSERT_EQ(id2.value(), uint64_t(2), "Second ID should be 2");
-    ASSERT_EQ(id3.value(), uint64_t(3), "Third ID should be 3");
+    FATP_ASSERT_TRUE(id1.has_value() && id2.has_value() && id3.has_value(), "Generation should succeed");
+    FATP_ASSERT_EQ(id1.value(), uint64_t(1), "First ID should be 1");
+    FATP_ASSERT_EQ(id2.value(), uint64_t(2), "Second ID should be 2");
+    FATP_ASSERT_EQ(id3.value(), uint64_t(3), "Third ID should be 3");
 
     // Release max (id3) - should trigger lazy max recomputation
     (void)gen.release(id3.value());
@@ -1165,13 +1165,13 @@ TEST_CASE(active_id_tracking)
     // Generate new ID - with ImmediateRecyclingPolicy, recycled IDs are
     // returned first, so we should get 3 (the recycled ID), not 4
     auto id4 = gen.generate();
-    ASSERT_TRUE(id4.has_value(), "Generation after max release should succeed");
-    ASSERT_EQ(id4.value(), uint64_t(3), "Should get recycled ID (3) with ImmediateRecyclingPolicy");
+    FATP_ASSERT_TRUE(id4.has_value(), "Generation after max release should succeed");
+    FATP_ASSERT_EQ(id4.value(), uint64_t(3), "Should get recycled ID (3) with ImmediateRecyclingPolicy");
 
     return true;
 }
 
-TEST_CASE(lazy_max_recompute)
+FATP_TEST_CASE(lazy_max_recompute)
 {
     // Test lazy max recomputation in ActiveIdTracker
     SimpleIdGenerator<uint64_t> gen(1);
@@ -1181,7 +1181,7 @@ TEST_CASE(lazy_max_recompute)
     for (int i = 0; i < 5; ++i)
     {
         auto id = gen.generate();
-        ASSERT_TRUE(id.has_value(), "Generation should succeed");
+        FATP_ASSERT_TRUE(id.has_value(), "Generation should succeed");
         ids.push_back(id.value());
     }
 
@@ -1195,15 +1195,15 @@ TEST_CASE(lazy_max_recompute)
     // Now generate - should recompute max from remaining {1, 2}
     // Recycling should give us back one of 3, 4, 5 first
     auto new_id = gen.generate();
-    ASSERT_TRUE(new_id.has_value(), "Generation should succeed");
+    FATP_ASSERT_TRUE(new_id.has_value(), "Generation should succeed");
 
     // The recycled ID should be 5 (FIFO - first released)
-    ASSERT_EQ(new_id.value(), uint64_t(5), "Should get first recycled ID (FIFO)");
+    FATP_ASSERT_EQ(new_id.value(), uint64_t(5), "Should get first recycled ID (FIFO)");
 
     return true;
 }
 
-TEST_CASE(dirty_max_insert)
+FATP_TEST_CASE(dirty_max_insert)
 {
     // Test that inserting when max is invalid doesn't corrupt max tracking.
     // The key scenario: after releasing max, the next max_element() call should
@@ -1224,20 +1224,20 @@ TEST_CASE(dirty_max_insert)
     auto id10 = gen.generate();
     auto id11 = gen.generate();
     auto id12 = gen.generate();
-    ASSERT_TRUE(id10.has_value() && id11.has_value() && id12.has_value(), "Generate should succeed");
-    ASSERT_EQ(id10.value(), uint64_t(10), "First ID");
-    ASSERT_EQ(id11.value(), uint64_t(11), "Second ID");
-    ASSERT_EQ(id12.value(), uint64_t(12), "Third ID (max)");
+    FATP_ASSERT_TRUE(id10.has_value() && id11.has_value() && id12.has_value(), "Generate should succeed");
+    FATP_ASSERT_EQ(id10.value(), uint64_t(10), "First ID");
+    FATP_ASSERT_EQ(id11.value(), uint64_t(11), "Second ID");
+    FATP_ASSERT_EQ(id12.value(), uint64_t(12), "Third ID (max)");
     
     // Release max (12) - invalidates cached max. Active: {10, 11}
     auto rel = gen.release(id12.value());
-    ASSERT_TRUE(rel.has_value(), "Release should succeed");
+    FATP_ASSERT_TRUE(rel.has_value(), "Release should succeed");
     
     // Generate next - policy's internal counter is at 13, max_element()=11
     // Policy returns max(13, 11+1) = 13
     auto id13 = gen.generate();
-    ASSERT_TRUE(id13.has_value(), "Generate should succeed");
-    ASSERT_EQ(id13.value(), uint64_t(13), "Sequential policy advances past released IDs");
+    FATP_ASSERT_TRUE(id13.has_value(), "Generate should succeed");
+    FATP_ASSERT_EQ(id13.value(), uint64_t(13), "Sequential policy advances past released IDs");
     
     // Now test max tracking after dirty insert:
     // Active: {10, 11, 13}, max should be 13
@@ -1250,16 +1250,16 @@ TEST_CASE(dirty_max_insert)
     // Generate - max_element() should scan {10}, find max=10
     // Policy returns max(14, 10+1) = 14
     auto id14 = gen.generate();
-    ASSERT_TRUE(id14.has_value(), "Generate should succeed");
-    ASSERT_EQ(id14.value(), uint64_t(14), "Policy continues advancing");
+    FATP_ASSERT_TRUE(id14.has_value(), "Generate should succeed");
+    FATP_ASSERT_EQ(id14.value(), uint64_t(14), "Policy continues advancing");
     
     // Verify correct tracking - should have {10, 14}
-    ASSERT_EQ(gen.active_count(), size_t(2), "Should have 2 active IDs");
-    ASSERT_TRUE(gen.is_active(10), "ID 10 should be active");
-    ASSERT_TRUE(gen.is_active(14), "ID 14 should be active");
-    ASSERT_TRUE(!gen.is_active(11), "ID 11 should not be active");
-    ASSERT_TRUE(!gen.is_active(12), "ID 12 should not be active");
-    ASSERT_TRUE(!gen.is_active(13), "ID 13 should not be active");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(2), "Should have 2 active IDs");
+    FATP_ASSERT_TRUE(gen.is_active(10), "ID 10 should be active");
+    FATP_ASSERT_TRUE(gen.is_active(14), "ID 14 should be active");
+    FATP_ASSERT_TRUE(!gen.is_active(11), "ID 11 should not be active");
+    FATP_ASSERT_TRUE(!gen.is_active(12), "ID 12 should not be active");
+    FATP_ASSERT_TRUE(!gen.is_active(13), "ID 13 should not be active");
     
     return true;
 }
@@ -1487,62 +1487,62 @@ namespace fat_p::testing
 
 bool test_IdGenerator()
 {
-    PRINT_HEADER(ID GENERATOR)
+    FATP_PRINT_HEADER(ID GENERATOR)
 
     TestRunner runner;
 
     // Basic functionality
-    RUN_TEST_NS(runner, idgenerator, basic_sequential);
-    RUN_TEST_NS(runner, idgenerator, strong_id_integration);
-    RUN_TEST_NS(runner, idgenerator, error_handling);
+    FATP_RUN_TEST_NS(runner, idgenerator, basic_sequential);
+    FATP_RUN_TEST_NS(runner, idgenerator, strong_id_integration);
+    FATP_RUN_TEST_NS(runner, idgenerator, error_handling);
 
     // RAII guards
-    RUN_TEST_NS(runner, idgenerator, raii_guard);
-    RUN_TEST_NS(runner, idgenerator, guard_move_semantics);
-    RUN_TEST_NS(runner, idgenerator, guard_default_ctor);
+    FATP_RUN_TEST_NS(runner, idgenerator, raii_guard);
+    FATP_RUN_TEST_NS(runner, idgenerator, guard_move_semantics);
+    FATP_RUN_TEST_NS(runner, idgenerator, guard_default_ctor);
 
     // Random allocation
-    RUN_TEST_NS(runner, idgenerator, random_allocation);
-    RUN_TEST_NS(runner, idgenerator, random_small_type);
-    RUN_TEST_NS(runner, idgenerator, random_seed_reproducibility);
-    RUN_TEST_NS(runner, idgenerator, random_idgenerator_seeded);
+    FATP_RUN_TEST_NS(runner, idgenerator, random_allocation);
+    FATP_RUN_TEST_NS(runner, idgenerator, random_small_type);
+    FATP_RUN_TEST_NS(runner, idgenerator, random_seed_reproducibility);
+    FATP_RUN_TEST_NS(runner, idgenerator, random_idgenerator_seeded);
 
     // Thread safety
-    RUN_TEST_NS(runner, idgenerator, thread_safety);
-    RUN_TEST_NS(runner, idgenerator, concurrent_queries);
+    FATP_RUN_TEST_NS(runner, idgenerator, thread_safety);
+    FATP_RUN_TEST_NS(runner, idgenerator, concurrent_queries);
 
     // Recycling
-    RUN_TEST_NS(runner, idgenerator, no_recycling);
-    RUN_TEST_NS(runner, idgenerator, recycling_order);
-    RUN_TEST_NS(runner, idgenerator, min_recycling_policy);
-    RUN_TEST_NS(runner, idgenerator, dense_id_generator_alias);
-    RUN_TEST_NS(runner, idgenerator, retry_logic_collision);
+    FATP_RUN_TEST_NS(runner, idgenerator, no_recycling);
+    FATP_RUN_TEST_NS(runner, idgenerator, recycling_order);
+    FATP_RUN_TEST_NS(runner, idgenerator, min_recycling_policy);
+    FATP_RUN_TEST_NS(runner, idgenerator, dense_id_generator_alias);
+    FATP_RUN_TEST_NS(runner, idgenerator, retry_logic_collision);
 
     // Batch generation
-    RUN_TEST_NS(runner, idgenerator, basic_batch_generation);
-    RUN_TEST_NS(runner, idgenerator, batch_with_recycling);
-    RUN_TEST_NS(runner, idgenerator, threadsafe_batch_generation);
-    RUN_TEST_NS(runner, idgenerator, batch_overflow_rollback);
-    RUN_TEST_NS(runner, idgenerator, batch_rollback_preserves_density);
-    RUN_TEST_NS(runner, idgenerator, release_batch_basic);
-    RUN_TEST_NS(runner, idgenerator, release_batch_error_handling);
+    FATP_RUN_TEST_NS(runner, idgenerator, basic_batch_generation);
+    FATP_RUN_TEST_NS(runner, idgenerator, batch_with_recycling);
+    FATP_RUN_TEST_NS(runner, idgenerator, threadsafe_batch_generation);
+    FATP_RUN_TEST_NS(runner, idgenerator, batch_overflow_rollback);
+    FATP_RUN_TEST_NS(runner, idgenerator, batch_rollback_preserves_density);
+    FATP_RUN_TEST_NS(runner, idgenerator, release_batch_basic);
+    FATP_RUN_TEST_NS(runner, idgenerator, release_batch_error_handling);
 
     // Edge cases
-    RUN_TEST_NS(runner, idgenerator, edge_cases);
-    RUN_TEST_NS(runner, idgenerator, double_release);
-    RUN_TEST_NS(runner, idgenerator, overflow_boundary);
-    RUN_TEST_NS(runner, idgenerator, overflow_exhaustion_tracking);
-    RUN_TEST_NS(runner, idgenerator, batch_rollback_reverts_counter);
+    FATP_RUN_TEST_NS(runner, idgenerator, edge_cases);
+    FATP_RUN_TEST_NS(runner, idgenerator, double_release);
+    FATP_RUN_TEST_NS(runner, idgenerator, overflow_boundary);
+    FATP_RUN_TEST_NS(runner, idgenerator, overflow_exhaustion_tracking);
+    FATP_RUN_TEST_NS(runner, idgenerator, batch_rollback_reverts_counter);
 
     // Custom policies
-    RUN_TEST_NS(runner, idgenerator, custom_allocation_policy);
-    RUN_TEST_NS(runner, idgenerator, bounded_allocation);
-    RUN_TEST_NS(runner, idgenerator, dirty_max_smaller_id);
+    FATP_RUN_TEST_NS(runner, idgenerator, custom_allocation_policy);
+    FATP_RUN_TEST_NS(runner, idgenerator, bounded_allocation);
+    FATP_RUN_TEST_NS(runner, idgenerator, dirty_max_smaller_id);
 
     // Active ID tracking (unordered_set with lazy max)
-    RUN_TEST_NS(runner, idgenerator, active_id_tracking);
-    RUN_TEST_NS(runner, idgenerator, lazy_max_recompute);
-    RUN_TEST_NS(runner, idgenerator, dirty_max_insert);
+    FATP_RUN_TEST_NS(runner, idgenerator, active_id_tracking);
+    FATP_RUN_TEST_NS(runner, idgenerator, lazy_max_recompute);
+    FATP_RUN_TEST_NS(runner, idgenerator, dirty_max_insert);
 
     idgenerator::benchmark_idgenerator();
 

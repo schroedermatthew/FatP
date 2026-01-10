@@ -398,12 +398,12 @@ public:
 // Test 1: Basic Construction
 // ============================================================================
 
-TEST_CASE(basic_construction)
+FATP_TEST_CASE(basic_construction)
 {
     StableHashMap<int, std::string> map;
 
-    ASSERT_TRUE(map.empty(), "New map should be empty");
-    ASSERT_EQ(map.size(), size_t(0), "Size should be 0");
+    FATP_ASSERT_TRUE(map.empty(), "New map should be empty");
+    FATP_ASSERT_EQ(map.size(), size_t(0), "Size should be 0");
 
     return true;
 }
@@ -412,7 +412,7 @@ TEST_CASE(basic_construction)
 // Test 2: Insert and Find
 // ============================================================================
 
-TEST_CASE(insert_find)
+FATP_TEST_CASE(insert_find)
 {
     StableHashMap<std::string, int> map;
 
@@ -420,18 +420,18 @@ TEST_CASE(insert_find)
     map.insert("two", 2);
     map.insert("three", 3);
 
-    ASSERT_EQ(map.size(), size_t(3), "Size should be 3");
+    FATP_ASSERT_EQ(map.size(), size_t(3), "Size should be 3");
 
     int* val = map.find("one");
-    ASSERT_NOT_NULLPTR(val, "Should find 'one'");
-    ASSERT_EQ(*val, 1, "Value should be 1");
+    FATP_ASSERT_NOT_NULLPTR(val, "Should find 'one'");
+    FATP_ASSERT_EQ(*val, 1, "Value should be 1");
 
     val = map.find("two");
-    ASSERT_NOT_NULLPTR(val, "Should find 'two'");
-    ASSERT_EQ(*val, 2, "Value should be 2");
+    FATP_ASSERT_NOT_NULLPTR(val, "Should find 'two'");
+    FATP_ASSERT_EQ(*val, 2, "Value should be 2");
 
     val = map.find("nonexistent");
-    ASSERT_NULLPTR(val, "Should not find nonexistent key");
+    FATP_ASSERT_NULLPTR(val, "Should not find nonexistent key");
 
     return true;
 }
@@ -440,7 +440,7 @@ TEST_CASE(insert_find)
 // Test 3: Erase
 // ============================================================================
 
-TEST_CASE(erase)
+FATP_TEST_CASE(erase)
 {
     StableHashMap<int, std::string> map;
 
@@ -448,17 +448,17 @@ TEST_CASE(erase)
     map.insert(2, "two");
     map.insert(3, "three");
 
-    ASSERT_EQ(map.size(), size_t(3), "Size should be 3");
+    FATP_ASSERT_EQ(map.size(), size_t(3), "Size should be 3");
 
     bool erased = map.erase(2);
-    ASSERT_TRUE(erased, "Should successfully erase key 2");
-    ASSERT_EQ(map.size(), size_t(2), "Size should be 2 after erase");
+    FATP_ASSERT_TRUE(erased, "Should successfully erase key 2");
+    FATP_ASSERT_EQ(map.size(), size_t(2), "Size should be 2 after erase");
 
     auto* val = map.find(2);
-    ASSERT_NULLPTR(val, "Should not find erased key");
+    FATP_ASSERT_NULLPTR(val, "Should not find erased key");
 
     erased = map.erase(999);
-    ASSERT_FALSE(erased, "Should fail to erase nonexistent key");
+    FATP_ASSERT_FALSE(erased, "Should fail to erase nonexistent key");
 
     return true;
 }
@@ -467,20 +467,20 @@ TEST_CASE(erase)
 // Test 4: Update Existing Value
 // ============================================================================
 
-TEST_CASE(update_value)
+FATP_TEST_CASE(update_value)
 {
     StableHashMap<std::string, int> map;
 
     map.insert("key", 10);
 
     int* val = map.find("key");
-    ASSERT_NOT_NULLPTR(val, "Should find key");
-    ASSERT_EQ(*val, 10, "Initial value should be 10");
+    FATP_ASSERT_NOT_NULLPTR(val, "Should find key");
+    FATP_ASSERT_EQ(*val, 10, "Initial value should be 10");
 
     *val = 20;
 
     val = map.find("key");
-    ASSERT_EQ(*val, 20, "Updated value should be 20");
+    FATP_ASSERT_EQ(*val, 20, "Updated value should be 20");
 
     return true;
 }
@@ -489,7 +489,7 @@ TEST_CASE(update_value)
 // Test 5: Clear
 // ============================================================================
 
-TEST_CASE(clear)
+FATP_TEST_CASE(clear)
 {
     StableHashMap<int, std::string> map;
 
@@ -498,14 +498,14 @@ TEST_CASE(clear)
         map.insert(i, "value");
     }
 
-    ASSERT_EQ(map.size(), size_t(100), "Size should be 100");
+    FATP_ASSERT_EQ(map.size(), size_t(100), "Size should be 100");
 
     map.clear();
-    ASSERT_EQ(map.size(), size_t(0), "Size should be 0 after clear");
-    ASSERT_TRUE(map.empty(), "Map should be empty after clear");
+    FATP_ASSERT_EQ(map.size(), size_t(0), "Size should be 0 after clear");
+    FATP_ASSERT_TRUE(map.empty(), "Map should be empty after clear");
 
     map.insert(1, "one");
-    ASSERT_EQ(map.size(), size_t(1), "Should be able to insert after clear");
+    FATP_ASSERT_EQ(map.size(), size_t(1), "Should be able to insert after clear");
 
     return true;
 }
@@ -520,7 +520,7 @@ TEST_CASE(clear)
 // slot can fail to terminate (and may loop) when the only empty is slot 0.
 //
 
-TEST_CASE(ctrl_tail_wraparound_probe)
+FATP_TEST_CASE(ctrl_tail_wraparound_probe)
 {
     struct IdentityHash
     {
@@ -536,8 +536,8 @@ TEST_CASE(ctrl_tail_wraparound_probe)
     Map map(64, 1.0f, IdentityHash());
 
     const size_t cap = StableHashMapTester<Map>::capacity(map);
-    ASSERT_TRUE((cap & (cap - 1)) == 0, "Capacity must be power-of-two");
-    ASSERT_TRUE(cap >= stablehash_detail::Group::kWidth * 2,
+    FATP_ASSERT_TRUE((cap & (cap - 1)) == 0, "Capacity must be power-of-two");
+    FATP_ASSERT_TRUE(cap >= stablehash_detail::Group::kWidth * 2,
         "Capacity must be at least 2*GroupWidth");
 
     // Fill every slot except slot 0 (leaving exactly one empty).
@@ -546,15 +546,15 @@ TEST_CASE(ctrl_tail_wraparound_probe)
         map.insert(k, k);
     }
 
-    ASSERT_EQ(map.size(), cap - 1, "Expected to fill to cap-1 at load factor 1.0");
-    ASSERT_NULLPTR(map.find(0), "Slot 0 should remain empty");
+    FATP_ASSERT_EQ(map.size(), cap - 1, "Expected to fill to cap-1 at load factor 1.0");
+    FATP_ASSERT_NULLPTR(map.find(0), "Slot 0 should remain empty");
 
     const uint8_t* ctrl = StableHashMapTester<Map>::ctrl_bytes(map);
-    ASSERT_NOT_NULLPTR(ctrl, "Internal ctrl array must be allocated");
+    FATP_ASSERT_NOT_NULLPTR(ctrl, "Internal ctrl array must be allocated");
 
     // Critical invariant: the tail byte at ctrl_[capacity_] mirrors ctrl_[0].
-    ASSERT_EQ(ctrl[0], stablehash_detail::kEmpty, "Slot 0 control byte must be kEmpty");
-    ASSERT_EQ(ctrl[cap], ctrl[0], "ctrl_[capacity] must mirror ctrl_[0] for wrap-around reads");
+    FATP_ASSERT_EQ(ctrl[0], stablehash_detail::kEmpty, "Slot 0 control byte must be kEmpty");
+    FATP_ASSERT_EQ(ctrl[cap], ctrl[0], "ctrl_[capacity] must mirror ctrl_[0] for wrap-around reads");
 
     // Create a missing key whose probe starts at cap-4 so the first group read
     // spans the end of the table and includes the mirrored slot 0 byte.
@@ -575,9 +575,9 @@ TEST_CASE(ctrl_tail_wraparound_probe)
             const uint32_t first = empty.lowest_set_bit();
             const size_t idx = seq.offset(first);
 
-            ASSERT_EQ(first, uint32_t(4),
+            FATP_ASSERT_EQ(first, uint32_t(4),
                 "Expected first empty bit to be the wrapped slot 0 (bit 4)");
-            ASSERT_EQ(idx, size_t(0),
+            FATP_ASSERT_EQ(idx, size_t(0),
                 "Probe must observe the empty slot 0 via wrap-around mirror");
 
             saw_empty = true;
@@ -587,11 +587,11 @@ TEST_CASE(ctrl_tail_wraparound_probe)
         seq.next();
     }
 
-    ASSERT_TRUE(saw_empty,
+    FATP_ASSERT_TRUE(saw_empty,
         "Probe sequence did not observe the only empty slot; wrap-around tail mirror broken");
 
     // Now the real API call: must terminate and report miss.
-    ASSERT_NULLPTR(map.find(missing_key), "Missing key should not be found");
+    FATP_ASSERT_NULLPTR(map.find(missing_key), "Missing key should not be found");
 
     return true;
 }
@@ -601,7 +601,7 @@ TEST_CASE(ctrl_tail_wraparound_probe)
 
 
 
-TEST_CASE(load_factor)
+FATP_TEST_CASE(load_factor)
 {
     StableHashMap<int, int> map;
 
@@ -611,8 +611,8 @@ TEST_CASE(load_factor)
     }
 
     float load = map.load_factor();
-    ASSERT_TRUE(load >= 0.0f && load <= 1.0f, "Load factor should be between 0 and 1");
-        ASSERT_TRUE(load <= map.max_load_factor(),
+    FATP_ASSERT_TRUE(load >= 0.0f && load <= 1.0f, "Load factor should be between 0 and 1");
+        FATP_ASSERT_TRUE(load <= map.max_load_factor(),
         "Load factor should not exceed max_load_factor()");
     return true;
 }
@@ -621,7 +621,7 @@ TEST_CASE(load_factor)
 // Test 7: Collision Handling
 // ============================================================================
 
-TEST_CASE(collision_handling)
+FATP_TEST_CASE(collision_handling)
 {
     StableHashMap<int, int> map;
 
@@ -633,8 +633,8 @@ TEST_CASE(collision_handling)
     for (int i = 0; i < 100; ++i)
     {
         int* val = map.find(i);
-        ASSERT_NOT_NULLPTR(val, "Should find all keys despite collisions");
-        ASSERT_EQ(*val, i * 10, "Values should be correct");
+        FATP_ASSERT_NOT_NULLPTR(val, "Should find all keys despite collisions");
+        FATP_ASSERT_EQ(*val, i * 10, "Values should be correct");
     }
 
     return true;
@@ -644,7 +644,7 @@ TEST_CASE(collision_handling)
 // Test 8: Large Dataset
 // ============================================================================
 
-TEST_CASE(large_dataset)
+FATP_TEST_CASE(large_dataset)
 {
     StableHashMap<int, int> map;
 
@@ -653,11 +653,11 @@ TEST_CASE(large_dataset)
         map.insert(i, i * 2);
     }
 
-    ASSERT_EQ(map.size(), size_t(LARGE_SIZE), "Size should match inserted count");
+    FATP_ASSERT_EQ(map.size(), size_t(LARGE_SIZE), "Size should match inserted count");
 
     int* val = map.find(LARGE_SIZE / 2);
-    ASSERT_NOT_NULLPTR(val, "Should find middle element");
-    ASSERT_EQ(*val, (LARGE_SIZE / 2) * 2, "Value should be correct");
+    FATP_ASSERT_NOT_NULLPTR(val, "Should find middle element");
+    FATP_ASSERT_EQ(*val, (LARGE_SIZE / 2) * 2, "Value should be correct");
 
     return true;
 }
@@ -666,7 +666,7 @@ TEST_CASE(large_dataset)
 // Test 9: String Keys
 // ============================================================================
 
-TEST_CASE(string_keys)
+FATP_TEST_CASE(string_keys)
 {
     StableHashMap<std::string, int> map;
 
@@ -676,11 +676,11 @@ TEST_CASE(string_keys)
     map.insert("date", 4);
     map.insert("elderberry", 5);
 
-    ASSERT_EQ(map.size(), size_t(5), "Size should be 5");
+    FATP_ASSERT_EQ(map.size(), size_t(5), "Size should be 5");
 
     int* val = map.find("cherry");
-    ASSERT_NOT_NULLPTR(val, "Should find 'cherry'");
-    ASSERT_EQ(*val, 3, "Value should be 3");
+    FATP_ASSERT_NOT_NULLPTR(val, "Should find 'cherry'");
+    FATP_ASSERT_EQ(*val, 3, "Value should be 3");
 
     return true;
 }
@@ -689,7 +689,7 @@ TEST_CASE(string_keys)
 // Test 10: Erase and Reinsert
 // ============================================================================
 
-TEST_CASE(erase_reinsert)
+FATP_TEST_CASE(erase_reinsert)
 {
     StableHashMap<int, std::string> map;
 
@@ -698,12 +698,12 @@ TEST_CASE(erase_reinsert)
     map.insert(3, "three");
 
     map.erase(2);
-    ASSERT_NULLPTR(map.find(2), "Key 2 should not be found after erase");
+    FATP_ASSERT_NULLPTR(map.find(2), "Key 2 should not be found after erase");
 
     map.insert(2, "TWO");
     auto* val = map.find(2);
-    ASSERT_NOT_NULLPTR(val, "Key 2 should be found after reinsertion");
-    ASSERT_EQ(*val, "TWO", "Value should be updated");
+    FATP_ASSERT_NOT_NULLPTR(val, "Key 2 should be found after reinsertion");
+    FATP_ASSERT_EQ(*val, "TWO", "Value should be updated");
 
     return true;
 }
@@ -712,7 +712,7 @@ TEST_CASE(erase_reinsert)
 // Test 11: Empty Key/Value Edge Cases
 // ============================================================================
 
-TEST_CASE(empty_values)
+FATP_TEST_CASE(empty_values)
 {
     StableHashMap<std::string, std::string> map;
 
@@ -720,12 +720,12 @@ TEST_CASE(empty_values)
     map.insert("", "empty_key");
 
     auto* val1 = map.find("empty");
-    ASSERT_NOT_NULLPTR(val1, "Should find key with empty value");
-    ASSERT_TRUE(val1->empty(), "Value should be empty string");
+    FATP_ASSERT_NOT_NULLPTR(val1, "Should find key with empty value");
+    FATP_ASSERT_TRUE(val1->empty(), "Value should be empty string");
 
     auto* val2 = map.find("");
-    ASSERT_NOT_NULLPTR(val2, "Should find empty key");
-    ASSERT_EQ(*val2, "empty_key", "Value for empty key should be correct");
+    FATP_ASSERT_NOT_NULLPTR(val2, "Should find empty key");
+    FATP_ASSERT_EQ(*val2, "empty_key", "Value for empty key should be correct");
 
     return true;
 }
@@ -734,7 +734,7 @@ TEST_CASE(empty_values)
 // Test 12: Const Correctness
 // ============================================================================
 
-TEST_CASE(const_correctness)
+FATP_TEST_CASE(const_correctness)
 {
     StableHashMap<int, std::string> map;
     map.insert(1, "one");
@@ -743,8 +743,8 @@ TEST_CASE(const_correctness)
     const StableHashMap<int, std::string>& cmap = map;
 
     const std::string* val = cmap.find(1);
-    ASSERT_NOT_NULLPTR(val, "Const find should work");
-    ASSERT_EQ(*val, "one", "Const value should be correct");
+    FATP_ASSERT_NOT_NULLPTR(val, "Const find should work");
+    FATP_ASSERT_EQ(*val, "one", "Const value should be correct");
 
     return true;
 }
@@ -753,18 +753,18 @@ TEST_CASE(const_correctness)
 // Test 13: Bracket Operator
 // ============================================================================
 
-TEST_CASE(bracket_operator)
+FATP_TEST_CASE(bracket_operator)
 {
     StableHashMap<std::string, int> map;
 
     map["key1"] = 100;
     map["key2"] = 200;
 
-    ASSERT_EQ(map.size(), size_t(2), "Size should be 2");
-    ASSERT_EQ(map["key1"], 100, "Should get correct value");
+    FATP_ASSERT_EQ(map.size(), size_t(2), "Size should be 2");
+    FATP_ASSERT_EQ(map["key1"], 100, "Should get correct value");
 
     map["key1"] = 150;
-    ASSERT_EQ(map["key1"], 150, "Should update via bracket");
+    FATP_ASSERT_EQ(map["key1"], 150, "Should update via bracket");
 
     return true;
 }
@@ -773,7 +773,7 @@ TEST_CASE(bracket_operator)
 // Test 14: Move Semantics
 // ============================================================================
 
-TEST_CASE(move_semantics)
+FATP_TEST_CASE(move_semantics)
 {
     // Test move construction
     StableHashMap<int, std::string> map1;
@@ -782,8 +782,8 @@ TEST_CASE(move_semantics)
 
     StableHashMap<int, std::string> map2 = std::move(map1);
 
-    ASSERT_EQ(map2.size(), size_t(2), "Moved-to map should have elements");
-    ASSERT_EQ(*map2.find(1), "one", "Moved-to map should have values");
+    FATP_ASSERT_EQ(map2.size(), size_t(2), "Moved-to map should have elements");
+    FATP_ASSERT_EQ(*map2.find(1), "one", "Moved-to map should have values");
 
     // Test move assignment
     StableHashMap<int, std::string> map3;
@@ -796,16 +796,16 @@ TEST_CASE(move_semantics)
     
     map4 = std::move(map3);
     
-    ASSERT_EQ(map4.size(), size_t(3), "Move-assigned map should have source elements");
-    ASSERT_EQ(*map4.find(10), "ten", "Move-assigned map should have correct values");
-    ASSERT_EQ(*map4.find(20), "twenty", "Move-assigned map should have correct values");
-    ASSERT_NULLPTR(map4.find(100), "Move-assigned map should not have old elements");
+    FATP_ASSERT_EQ(map4.size(), size_t(3), "Move-assigned map should have source elements");
+    FATP_ASSERT_EQ(*map4.find(10), "ten", "Move-assigned map should have correct values");
+    FATP_ASSERT_EQ(*map4.find(20), "twenty", "Move-assigned map should have correct values");
+    FATP_ASSERT_NULLPTR(map4.find(100), "Move-assigned map should not have old elements");
 
     // Test that moved-from map can be safely reused
     // (insert triggers rehash which resets internal state)
     map3.insert(999, "reused");
-    ASSERT_NOT_NULLPTR(map3.find(999), "Moved-from map should be reusable after insert");
-    ASSERT_EQ(*map3.find(999), "reused", "Reused map should have correct value");
+    FATP_ASSERT_NOT_NULLPTR(map3.find(999), "Moved-from map should be reusable after insert");
+    FATP_ASSERT_EQ(*map3.find(999), "reused", "Reused map should have correct value");
 
     return true;
 }
@@ -814,7 +814,7 @@ TEST_CASE(move_semantics)
 // Test 15: Copy Semantics
 // ============================================================================
 
-TEST_CASE(copy_semantics)
+FATP_TEST_CASE(copy_semantics)
 {
     StableHashMap<int, std::string> map1;
     map1.insert(1, "one");
@@ -822,12 +822,12 @@ TEST_CASE(copy_semantics)
 
     StableHashMap<int, std::string> map2 = map1;
 
-    ASSERT_EQ(map2.size(), size_t(2), "Copied map should have same size");
-    ASSERT_EQ(*map2.find(1), "one", "Copied map should have same values");
+    FATP_ASSERT_EQ(map2.size(), size_t(2), "Copied map should have same size");
+    FATP_ASSERT_EQ(*map2.find(1), "one", "Copied map should have same values");
 
     map1.insert(3, "three");
-    ASSERT_EQ(map1.size(), size_t(3), "Original should be modified");
-    ASSERT_EQ(map2.size(), size_t(2), "Copy should be independent");
+    FATP_ASSERT_EQ(map1.size(), size_t(3), "Original should be modified");
+    FATP_ASSERT_EQ(map2.size(), size_t(2), "Copy should be independent");
 
     return true;
 }
@@ -836,7 +836,7 @@ TEST_CASE(copy_semantics)
 // Test 16: Tombstone Deletion (Swiss Table)
 // ============================================================================
 
-TEST_CASE(backward_shift_deletion)
+FATP_TEST_CASE(backward_shift_deletion)
 {
     // Use ZeroHash to force collisions - tests deletion with H2 filtering
     StableHashMap<int, int, ZeroHash> map(16, 0.9f);
@@ -855,12 +855,12 @@ TEST_CASE(backward_shift_deletion)
         int* val = map.find(i);
         if (i == 3 || i == 5 || i == 7)
         {
-            ASSERT_NULLPTR(val, "Erased key should not be found");
+            FATP_ASSERT_NULLPTR(val, "Erased key should not be found");
         }
         else
         {
-            ASSERT_NOT_NULLPTR(val, "Non-erased key should be found");
-            ASSERT_EQ(*val, i * 100, "Value should be correct");
+            FATP_ASSERT_NOT_NULLPTR(val, "Non-erased key should be found");
+            FATP_ASSERT_EQ(*val, i * 100, "Value should be correct");
         }
     }
 
@@ -871,61 +871,61 @@ TEST_CASE(backward_shift_deletion)
 // Test 17: Equality Operators
 // ============================================================================
 
-TEST_CASE(equality_operators)
+FATP_TEST_CASE(equality_operators)
 {
     // Empty maps are equal
     StableHashMap<int, int> empty1;
     StableHashMap<int, int> empty2;
-    ASSERT_TRUE(empty1 == empty2, "Empty maps should be equal");
-    ASSERT_FALSE(empty1 != empty2, "Empty maps should not be unequal");
+    FATP_ASSERT_TRUE(empty1 == empty2, "Empty maps should be equal");
+    FATP_ASSERT_FALSE(empty1 != empty2, "Empty maps should not be unequal");
 
     // Map equals itself
     StableHashMap<int, int> map1;
     map1.insert(1, 100);
     map1.insert(2, 200);
     map1.insert(3, 300);
-    ASSERT_TRUE(map1 == map1, "Map should equal itself");
+    FATP_ASSERT_TRUE(map1 == map1, "Map should equal itself");
 
     // Maps with same content are equal
     StableHashMap<int, int> map2;
     map2.insert(1, 100);
     map2.insert(2, 200);
     map2.insert(3, 300);
-    ASSERT_TRUE(map1 == map2, "Maps with same content should be equal");
-    ASSERT_FALSE(map1 != map2, "Maps with same content should not be unequal");
+    FATP_ASSERT_TRUE(map1 == map2, "Maps with same content should be equal");
+    FATP_ASSERT_FALSE(map1 != map2, "Maps with same content should not be unequal");
 
     // Order of insertion doesn't matter
     StableHashMap<int, int> map3;
     map3.insert(3, 300);
     map3.insert(1, 100);
     map3.insert(2, 200);
-    ASSERT_TRUE(map1 == map3, "Maps should be equal regardless of insertion order");
+    FATP_ASSERT_TRUE(map1 == map3, "Maps should be equal regardless of insertion order");
 
     // Different sizes are unequal
     StableHashMap<int, int> map4;
     map4.insert(1, 100);
     map4.insert(2, 200);
-    ASSERT_FALSE(map1 == map4, "Maps with different sizes should not be equal");
-    ASSERT_TRUE(map1 != map4, "Maps with different sizes should be unequal");
+    FATP_ASSERT_FALSE(map1 == map4, "Maps with different sizes should not be equal");
+    FATP_ASSERT_TRUE(map1 != map4, "Maps with different sizes should be unequal");
 
     // Same keys, different values are unequal
     StableHashMap<int, int> map5;
     map5.insert(1, 100);
     map5.insert(2, 200);
     map5.insert(3, 999);  // Different value
-    ASSERT_FALSE(map1 == map5, "Maps with different values should not be equal");
-    ASSERT_TRUE(map1 != map5, "Maps with different values should be unequal");
+    FATP_ASSERT_FALSE(map1 == map5, "Maps with different values should not be equal");
+    FATP_ASSERT_TRUE(map1 != map5, "Maps with different values should be unequal");
 
     // Different keys are unequal
     StableHashMap<int, int> map6;
     map6.insert(1, 100);
     map6.insert(2, 200);
     map6.insert(999, 300);  // Different key
-    ASSERT_FALSE(map1 == map6, "Maps with different keys should not be equal");
+    FATP_ASSERT_FALSE(map1 == map6, "Maps with different keys should not be equal");
 
     // Empty vs non-empty
-    ASSERT_FALSE(empty1 == map1, "Empty map should not equal non-empty map");
-    ASSERT_TRUE(empty1 != map1, "Empty map should be unequal to non-empty map");
+    FATP_ASSERT_FALSE(empty1 == map1, "Empty map should not equal non-empty map");
+    FATP_ASSERT_TRUE(empty1 != map1, "Empty map should be unequal to non-empty map");
 
     return true;
 }
@@ -934,7 +934,7 @@ TEST_CASE(equality_operators)
 // Test 18: Stress Test Random Operations
 // ============================================================================
 
-TEST_CASE(stress_random)
+FATP_TEST_CASE(stress_random)
 {
     StableHashMap<int, int> map;
     std::unordered_map<int, int> reference;
@@ -960,22 +960,22 @@ TEST_CASE(stress_random)
 
             if (it == reference.end())
             {
-                ASSERT_NULLPTR(ptr, "Find should return null for missing key");
+                FATP_ASSERT_NULLPTR(ptr, "Find should return null for missing key");
             }
             else
             {
-                ASSERT_NOT_NULLPTR(ptr, "Find should return non-null for existing key");
+                FATP_ASSERT_NOT_NULLPTR(ptr, "Find should return non-null for existing key");
             }
         }
         else
         {
             bool erased = map.erase(key);
             size_t ref_erased = reference.erase(key);
-            ASSERT_EQ(erased, ref_erased > 0, "Erase should match reference");
+            FATP_ASSERT_EQ(erased, ref_erased > 0, "Erase should match reference");
         }
     }
 
-    ASSERT_EQ(map.size(), reference.size(), "Size should match reference");
+    FATP_ASSERT_EQ(map.size(), reference.size(), "Size should match reference");
 
     return true;
 }
@@ -984,7 +984,7 @@ TEST_CASE(stress_random)
 // Test 19: RAII Erase Correctness (from Gemini review)
 // ============================================================================
 
-TEST_CASE(raii_erase_correctness)
+FATP_TEST_CASE(raii_erase_correctness)
 {
     TrackedRAII::reset();
 
@@ -1001,11 +1001,11 @@ TEST_CASE(raii_erase_correctness)
         map.erase(N / 2);
         map.erase(N - 1);
 
-        ASSERT_EQ(map.size(), size_t(N - 3), "Size should decrease by 3");
+        FATP_ASSERT_EQ(map.size(), size_t(N - 3), "Size should decrease by 3");
     }
 
-    ASSERT_EQ(TrackedRAII::live_count, 0, "All RAII objects should be destroyed");
-    ASSERT_EQ(TrackedRAII::ctor_count, TrackedRAII::dtor_count, 
+    FATP_ASSERT_EQ(TrackedRAII::live_count, 0, "All RAII objects should be destroyed");
+    FATP_ASSERT_EQ(TrackedRAII::ctor_count, TrackedRAII::dtor_count, 
               "Ctor/dtor count should match");
 
     return true;
@@ -1015,7 +1015,7 @@ TEST_CASE(raii_erase_correctness)
 // Test 20: HeapBox Sanitizer Stress (from Gemini review)
 // ============================================================================
 
-TEST_CASE(heapbox_stress)
+FATP_TEST_CASE(heapbox_stress)
 {
     StableHashMap<int, HeapBox, ZeroHash> map(8, 0.9f);
 
@@ -1032,12 +1032,12 @@ TEST_CASE(heapbox_stress)
     for (int i = 1; i < 200; i += 4)
     {
         HeapBox* val = map.find(i);
-        ASSERT_NOT_NULLPTR(val, "Non-erased key should be found");
-        ASSERT_EQ(val->value(), i * 11, "Value should be correct");
+        FATP_ASSERT_NOT_NULLPTR(val, "Non-erased key should be found");
+        FATP_ASSERT_EQ(val->value(), i * 11, "Value should be correct");
     }
 
     map.clear();
-    ASSERT_TRUE(map.empty(), "Map should be empty after clear");
+    FATP_ASSERT_TRUE(map.empty(), "Map should be empty after clear");
 
     return true;
 }
@@ -1046,7 +1046,7 @@ TEST_CASE(heapbox_stress)
 // Test 21: Rehash Stress (from Gemini review)
 // ============================================================================
 
-TEST_CASE(rehash_stress)
+FATP_TEST_CASE(rehash_stress)
 {
     StableHashMap<int, HeapBox, ZeroHash> map(4, 0.5f);
 
@@ -1064,7 +1064,7 @@ TEST_CASE(rehash_stress)
 
         for (int i = 1; i < 100; i += 2)
         {
-            ASSERT_NOT_NULLPTR(map.find(i), "Odd keys should still exist");
+            FATP_ASSERT_NOT_NULLPTR(map.find(i), "Odd keys should still exist");
         }
 
         map.clear();
@@ -1077,7 +1077,7 @@ TEST_CASE(rehash_stress)
 // Test 22: Heavy Collision Chain
 // ============================================================================
 
-TEST_CASE(heavy_collision_chain)
+FATP_TEST_CASE(heavy_collision_chain)
 {
     StableHashMap<int, int, ZeroHash> map(16, 0.9f);
 
@@ -1089,8 +1089,8 @@ TEST_CASE(heavy_collision_chain)
     for (int i = 0; i < 12; ++i)
     {
         int* val = map.find(i);
-        ASSERT_NOT_NULLPTR(val, "Should find all keys in collision chain");
-        ASSERT_EQ(*val, i * 100, "Value should be correct");
+        FATP_ASSERT_NOT_NULLPTR(val, "Should find all keys in collision chain");
+        FATP_ASSERT_EQ(*val, i * 100, "Value should be correct");
     }
 
     for (int i = 5; i >= 0; --i)
@@ -1101,8 +1101,8 @@ TEST_CASE(heavy_collision_chain)
     for (int i = 6; i < 12; ++i)
     {
         int* val = map.find(i);
-        ASSERT_NOT_NULLPTR(val, "Should find remaining keys");
-        ASSERT_EQ(*val, i * 100, "Value should be correct");
+        FATP_ASSERT_NOT_NULLPTR(val, "Should find remaining keys");
+        FATP_ASSERT_EQ(*val, i * 100, "Value should be correct");
     }
 
     return true;
@@ -1112,7 +1112,7 @@ TEST_CASE(heavy_collision_chain)
 // Test 23: Insert Duplicate Key
 // ============================================================================
 
-TEST_CASE(insert_duplicate_key)
+FATP_TEST_CASE(insert_duplicate_key)
 {
     StableHashMap<int, std::string> map;
 
@@ -1120,21 +1120,21 @@ TEST_CASE(insert_duplicate_key)
     auto [ptr1, inserted1] = map.insert(1, "first");
     auto [ptr2, inserted2] = map.insert(1, "second");  // Should fail, key exists
 
-    ASSERT_EQ(map.size(), size_t(1), "Size should be 1 (no duplicate)");
-    ASSERT_TRUE(inserted1, "First insert should succeed");
-    ASSERT_TRUE(!inserted2, "Second insert should return false (key exists)");
+    FATP_ASSERT_EQ(map.size(), size_t(1), "Size should be 1 (no duplicate)");
+    FATP_ASSERT_TRUE(inserted1, "First insert should succeed");
+    FATP_ASSERT_TRUE(!inserted2, "Second insert should return false (key exists)");
 
     auto* val = map.find(1);
-    ASSERT_NOT_NULLPTR(val, "Should find key");
-    ASSERT_EQ(*val, "first", "Value should remain 'first' (insert doesn't overwrite)");
+    FATP_ASSERT_NOT_NULLPTR(val, "Should find key");
+    FATP_ASSERT_EQ(*val, "first", "Value should remain 'first' (insert doesn't overwrite)");
 
     // Test insert_or_assign() - DOES overwrite
     auto [ptr, was_inserted] = map.insert_or_assign(1, "third");
-    ASSERT_TRUE(!was_inserted, "insert_or_assign should return false (updated existing)");
-    ASSERT_EQ(*ptr, "third", "Value should be updated to 'third'");
+    FATP_ASSERT_TRUE(!was_inserted, "insert_or_assign should return false (updated existing)");
+    FATP_ASSERT_EQ(*ptr, "third", "Value should be updated to 'third'");
     
     val = map.find(1);
-    ASSERT_EQ(*val, "third", "Value should be 'third' after insert_or_assign");
+    FATP_ASSERT_EQ(*val, "third", "Value should be 'third' after insert_or_assign");
 
     return true;
 }
@@ -1143,7 +1143,7 @@ TEST_CASE(insert_duplicate_key)
 // Test 24: Move-Only Values
 // ============================================================================
 
-TEST_CASE(move_only_values)
+FATP_TEST_CASE(move_only_values)
 {
     StableHashMap<int, std::unique_ptr<int>> map;
 
@@ -1154,15 +1154,15 @@ TEST_CASE(move_only_values)
     map.insert(2, std::move(p2));
 
     auto* val1 = map.find(1);
-    ASSERT_NOT_NULLPTR(val1, "Should find key 1");
-    ASSERT_EQ(**val1, 100, "Value should be 100");
+    FATP_ASSERT_NOT_NULLPTR(val1, "Should find key 1");
+    FATP_ASSERT_EQ(**val1, 100, "Value should be 100");
 
     map.erase(1);
-    ASSERT_NULLPTR(map.find(1), "Erased key should not be found");
+    FATP_ASSERT_NULLPTR(map.find(1), "Erased key should not be found");
 
     auto* val2 = map.find(2);
-    ASSERT_NOT_NULLPTR(val2, "Should find key 2");
-    ASSERT_EQ(**val2, 200, "Value should be 200");
+    FATP_ASSERT_NOT_NULLPTR(val2, "Should find key 2");
+    FATP_ASSERT_EQ(**val2, 200, "Value should be 200");
 
     return true;
 }
@@ -1174,15 +1174,15 @@ TEST_CASE(move_only_values)
 // values remain valid across insert, reserve, and rehash operations.
 // This is what distinguishes it from flat hash maps.
 
-TEST_CASE(reference_stability_across_insert)
+FATP_TEST_CASE(reference_stability_across_insert)
 {
     StableHashMap<int, std::string> map;
     
     // Insert initial element and get pointer
     map.insert(1, "one");
     std::string* ptr1 = map.find(1);
-    ASSERT_NOT_NULLPTR(ptr1, "Should find key 1");
-    ASSERT_EQ(*ptr1, "one", "Value should be 'one'");
+    FATP_ASSERT_NOT_NULLPTR(ptr1, "Should find key 1");
+    FATP_ASSERT_EQ(*ptr1, "one", "Value should be 'one'");
     
     // Store the pointer address for later comparison
     const void* addr1 = static_cast<const void*>(ptr1);
@@ -1195,20 +1195,20 @@ TEST_CASE(reference_stability_across_insert)
     
     // Original pointer should STILL be valid (this is the key invariant!)
     std::string* ptr1_after = map.find(1);
-    ASSERT_NOT_NULLPTR(ptr1_after, "Should still find key 1 after rehash");
-    ASSERT_TRUE(static_cast<const void*>(ptr1_after) == addr1, 
+    FATP_ASSERT_NOT_NULLPTR(ptr1_after, "Should still find key 1 after rehash");
+    FATP_ASSERT_TRUE(static_cast<const void*>(ptr1_after) == addr1, 
                 "Pointer address should be unchanged after rehash");
-    ASSERT_EQ(*ptr1, "one", "Original pointer should still be dereferenceable");
-    ASSERT_EQ(*ptr1_after, "one", "Value should still be 'one'");
+    FATP_ASSERT_EQ(*ptr1, "one", "Original pointer should still be dereferenceable");
+    FATP_ASSERT_EQ(*ptr1_after, "one", "Value should still be 'one'");
     
     // Mutate through original pointer
     *ptr1 = "ONE_MODIFIED";
-    ASSERT_EQ(*map.find(1), "ONE_MODIFIED", "Mutation through old pointer should work");
+    FATP_ASSERT_EQ(*map.find(1), "ONE_MODIFIED", "Mutation through old pointer should work");
     
     return true;
 }
 
-TEST_CASE(reference_stability_across_reserve)
+FATP_TEST_CASE(reference_stability_across_reserve)
 {
     StableHashMap<int, int> map;
     
@@ -1225,7 +1225,7 @@ TEST_CASE(reference_stability_across_reserve)
     {
         ptrs[i] = map.find(i);
         addrs[i] = static_cast<const void*>(ptrs[i]);
-        ASSERT_NOT_NULLPTR(ptrs[i], "Should find all keys");
+        FATP_ASSERT_NOT_NULLPTR(ptrs[i], "Should find all keys");
     }
     
     // Force a large reserve (will definitely rehash)
@@ -1235,16 +1235,16 @@ TEST_CASE(reference_stability_across_reserve)
     for (int i = 0; i < 100; ++i)
     {
         int* ptr_after = map.find(i);
-        ASSERT_NOT_NULLPTR(ptr_after, "Key should still exist after reserve");
-        ASSERT_TRUE(static_cast<const void*>(ptr_after) == addrs[i],
+        FATP_ASSERT_NOT_NULLPTR(ptr_after, "Key should still exist after reserve");
+        FATP_ASSERT_TRUE(static_cast<const void*>(ptr_after) == addrs[i],
                     "Pointer address should be unchanged after reserve");
-        ASSERT_EQ(*ptrs[i], i * 10, "Original pointer should still work");
+        FATP_ASSERT_EQ(*ptrs[i], i * 10, "Original pointer should still work");
     }
     
     return true;
 }
 
-TEST_CASE(reference_stability_across_erase)
+FATP_TEST_CASE(reference_stability_across_erase)
 {
     StableHashMap<int, std::string> map;
     
@@ -1273,21 +1273,21 @@ TEST_CASE(reference_stability_across_erase)
     }
     
     // Our pointers should still be valid
-    ASSERT_TRUE(static_cast<const void*>(map.find(10)) == addr_10,
+    FATP_ASSERT_TRUE(static_cast<const void*>(map.find(10)) == addr_10,
                 "Pointer to 10 should be stable after erasing others");
-    ASSERT_TRUE(static_cast<const void*>(map.find(50)) == addr_50,
+    FATP_ASSERT_TRUE(static_cast<const void*>(map.find(50)) == addr_50,
                 "Pointer to 50 should be stable after erasing others");
-    ASSERT_TRUE(static_cast<const void*>(map.find(90)) == addr_90,
+    FATP_ASSERT_TRUE(static_cast<const void*>(map.find(90)) == addr_90,
                 "Pointer to 90 should be stable after erasing others");
     
-    ASSERT_EQ(*ptr_10, "value_10", "Value at 10 should be correct");
-    ASSERT_EQ(*ptr_50, "value_50", "Value at 50 should be correct");
-    ASSERT_EQ(*ptr_90, "value_90", "Value at 90 should be correct");
+    FATP_ASSERT_EQ(*ptr_10, "value_10", "Value at 10 should be correct");
+    FATP_ASSERT_EQ(*ptr_50, "value_50", "Value at 50 should be correct");
+    FATP_ASSERT_EQ(*ptr_90, "value_90", "Value at 90 should be correct");
     
     return true;
 }
 
-TEST_CASE(reference_stability_mixed_operations)
+FATP_TEST_CASE(reference_stability_mixed_operations)
 {
     // Comprehensive test: mix of insert, erase, reserve while holding pointers
     StableHashMap<int, int> map;
@@ -1320,9 +1320,9 @@ TEST_CASE(reference_stability_mixed_operations)
     // Verify stable pointers
     for (size_t j = 0; j < stable_ptrs.size(); ++j)
     {
-        ASSERT_TRUE(static_cast<const void*>(map.find(stable_keys[j])) == stable_addrs[j],
+        FATP_ASSERT_TRUE(static_cast<const void*>(map.find(stable_keys[j])) == stable_addrs[j],
                     "Pointer should be stable after erase phase");
-        ASSERT_EQ(*stable_ptrs[j], stable_keys[j] * 100,
+        FATP_ASSERT_EQ(*stable_ptrs[j], stable_keys[j] * 100,
                     "Value should be correct through stable pointer");
     }
     
@@ -1335,9 +1335,9 @@ TEST_CASE(reference_stability_mixed_operations)
     // Verify stable pointers AGAIN
     for (size_t j = 0; j < stable_ptrs.size(); ++j)
     {
-        ASSERT_TRUE(static_cast<const void*>(map.find(stable_keys[j])) == stable_addrs[j],
+        FATP_ASSERT_TRUE(static_cast<const void*>(map.find(stable_keys[j])) == stable_addrs[j],
                     "Pointer should be stable after insert phase");
-        ASSERT_EQ(*stable_ptrs[j], stable_keys[j] * 100,
+        FATP_ASSERT_EQ(*stable_ptrs[j], stable_keys[j] * 100,
                     "Value should be correct through stable pointer");
     }
     
@@ -1347,20 +1347,20 @@ TEST_CASE(reference_stability_mixed_operations)
     // Verify stable pointers ONE MORE TIME
     for (size_t j = 0; j < stable_ptrs.size(); ++j)
     {
-        ASSERT_TRUE(static_cast<const void*>(map.find(stable_keys[j])) == stable_addrs[j],
+        FATP_ASSERT_TRUE(static_cast<const void*>(map.find(stable_keys[j])) == stable_addrs[j],
                     "Pointer should be stable after reserve");
-        ASSERT_EQ(*stable_ptrs[j], stable_keys[j] * 100,
+        FATP_ASSERT_EQ(*stable_ptrs[j], stable_keys[j] * 100,
                     "Value should be correct through stable pointer");
         
         // Mutate through stable pointer
         *stable_ptrs[j] = 999;
-        ASSERT_EQ(*map.find(stable_keys[j]), 999, "Mutation should work");
+        FATP_ASSERT_EQ(*map.find(stable_keys[j]), 999, "Mutation should work");
     }
     
     return true;
 }
 
-TEST_CASE(reference_stability_with_strings)
+FATP_TEST_CASE(reference_stability_with_strings)
 {
     // Test with heap-allocated values (std::string) to catch memory issues
     StableHashMap<std::string, std::string> map;
@@ -1373,8 +1373,8 @@ TEST_CASE(reference_stability_with_strings)
     std::string* ptr = map.find(long_key);
     const void* addr = static_cast<const void*>(ptr);
     
-    ASSERT_NOT_NULLPTR(ptr, "Should find long key");
-    ASSERT_EQ(*ptr, long_val, "Value should match");
+    FATP_ASSERT_NOT_NULLPTR(ptr, "Should find long key");
+    FATP_ASSERT_EQ(*ptr, long_val, "Value should match");
     
     // Insert many more long strings
     for (int i = 0; i < 1000; ++i)
@@ -1385,9 +1385,9 @@ TEST_CASE(reference_stability_with_strings)
     }
     
     // Original pointer should still work
-    ASSERT_TRUE(static_cast<const void*>(map.find(long_key)) == addr,
+    FATP_ASSERT_TRUE(static_cast<const void*>(map.find(long_key)) == addr,
                 "Pointer should be stable");
-    ASSERT_EQ(*ptr, long_val, "Value through pointer should be correct");
+    FATP_ASSERT_EQ(*ptr, long_val, "Value through pointer should be correct");
     
     return true;
 }
@@ -1505,7 +1505,7 @@ struct SplitMix64Hash
     }
 };
 
-TEST_CASE(heterogeneous_lookup)
+FATP_TEST_CASE(heterogeneous_lookup)
 {
     // Test with transparent hash/equal using separate template params
     using TransparentMap = StableHashMap<std::string, int, 
@@ -1519,45 +1519,45 @@ TEST_CASE(heterogeneous_lookup)
     
     // find() with const char*
     int* val = map.find("hello");
-    ASSERT_NOT_NULLPTR(val, "find(const char*) should work");
-    ASSERT_EQ(*val, 1, "Value should be 1");
+    FATP_ASSERT_NOT_NULLPTR(val, "find(const char*) should work");
+    FATP_ASSERT_EQ(*val, 1, "Value should be 1");
     
     val = map.find("missing");
-    ASSERT_NULLPTR(val, "find() should return nullptr for missing key");
+    FATP_ASSERT_NULLPTR(val, "find() should return nullptr for missing key");
     
     // find() with string_view
     std::string_view sv = "world";
     val = map.find(sv);
-    ASSERT_NOT_NULLPTR(val, "find(string_view) should work");
-    ASSERT_EQ(*val, 2, "Value should be 2");
+    FATP_ASSERT_NOT_NULLPTR(val, "find(string_view) should work");
+    FATP_ASSERT_EQ(*val, 2, "Value should be 2");
     
     // contains() with const char*
-    ASSERT_TRUE(map.contains("hello"), "contains(const char*) should work");
-    ASSERT_TRUE(!map.contains("missing"), "contains() should return false for missing");
+    FATP_ASSERT_TRUE(map.contains("hello"), "contains(const char*) should work");
+    FATP_ASSERT_TRUE(!map.contains("missing"), "contains() should return false for missing");
     
     // contains() with string_view
-    ASSERT_TRUE(map.contains(sv), "contains(string_view) should work");
+    FATP_ASSERT_TRUE(map.contains(sv), "contains(string_view) should work");
     
     // erase() with const char*
-    ASSERT_TRUE(map.erase("test"), "erase(const char*) should work");
-    ASSERT_TRUE(!map.contains("test"), "Key should be erased");
-    ASSERT_EQ(map.size(), 2u, "Size should be 2 after erase");
+    FATP_ASSERT_TRUE(map.erase("test"), "erase(const char*) should work");
+    FATP_ASSERT_TRUE(!map.contains("test"), "Key should be erased");
+    FATP_ASSERT_EQ(map.size(), 2u, "Size should be 2 after erase");
     
     // erase() with string_view
     std::string_view sv_hello = "hello";
-    ASSERT_TRUE(map.erase(sv_hello), "erase(string_view) should work");
-    ASSERT_TRUE(!map.contains("hello"), "Key should be erased");
+    FATP_ASSERT_TRUE(map.erase(sv_hello), "erase(string_view) should work");
+    FATP_ASSERT_TRUE(!map.contains("hello"), "Key should be erased");
     
     // const correctness
     const TransparentMap& cmap = map;
     const int* cval = cmap.find("world");
-    ASSERT_NOT_NULLPTR(cval, "const find() should work");
-    ASSERT_EQ(*cval, 2, "Value should be 2");
+    FATP_ASSERT_NOT_NULLPTR(cval, "const find() should work");
+    FATP_ASSERT_EQ(*cval, 2, "Value should be 2");
     
     return true;
 }
 
-TEST_CASE(heterogeneous_lookup_non_transparent)
+FATP_TEST_CASE(heterogeneous_lookup_non_transparent)
 {
     // Without transparent hash/equal, heterogeneous lookup is disabled
     StableHashMap<std::string, int> map;
@@ -1566,16 +1566,16 @@ TEST_CASE(heterogeneous_lookup_non_transparent)
     
     // Must use std::string for lookup (const char* would create temporary)
     int* val = map.find(std::string("hello"));
-    ASSERT_NOT_NULLPTR(val, "Regular find should work");
-    ASSERT_EQ(*val, 1, "Value should be 1");
+    FATP_ASSERT_NOT_NULLPTR(val, "Regular find should work");
+    FATP_ASSERT_EQ(*val, 1, "Value should be 1");
     
-    ASSERT_TRUE(map.contains(std::string("world")), "Regular contains should work");
-    ASSERT_TRUE(map.erase(std::string("hello")), "Regular erase should work");
+    FATP_ASSERT_TRUE(map.contains(std::string("world")), "Regular contains should work");
+    FATP_ASSERT_TRUE(map.erase(std::string("hello")), "Regular erase should work");
     
     return true;
 }
 
-TEST_CASE(heterogeneous_try_emplace_rvalue)
+FATP_TEST_CASE(heterogeneous_try_emplace_rvalue)
 {
     // Test heterogeneous try_emplace with rvalue keys
     // This tests the fix for the use-after-move bug
@@ -1590,15 +1590,15 @@ TEST_CASE(heterogeneous_try_emplace_rvalue)
     auto make_key = []() { return std::string("rvalue_key"); };
     auto [ptr1, inserted1] = map.try_emplace(make_key(), 42);
     
-    ASSERT_TRUE(inserted1, "Should insert new key");
-    ASSERT_NOT_NULLPTR(ptr1, "Should return valid pointer");
-    ASSERT_EQ(*ptr1, 42, "Value should be 42");
-    ASSERT_TRUE(map.contains("rvalue_key"), "Key should exist in map");
+    FATP_ASSERT_TRUE(inserted1, "Should insert new key");
+    FATP_ASSERT_NOT_NULLPTR(ptr1, "Should return valid pointer");
+    FATP_ASSERT_EQ(*ptr1, 42, "Value should be 42");
+    FATP_ASSERT_TRUE(map.contains("rvalue_key"), "Key should exist in map");
     
     // Try again with same key (should not insert)
     auto [ptr2, inserted2] = map.try_emplace(make_key(), 100);
-    ASSERT_FALSE(inserted2, "Should not insert duplicate");
-    ASSERT_EQ(*ptr2, 42, "Value should still be 42");
+    FATP_ASSERT_FALSE(inserted2, "Should not insert duplicate");
+    FATP_ASSERT_EQ(*ptr2, 42, "Value should still be 42");
     
     // Test with longer rvalue string to ensure no SSO interference
     auto make_long_key = []() { 
@@ -1606,10 +1606,10 @@ TEST_CASE(heterogeneous_try_emplace_rvalue)
     };
     auto [ptr3, inserted3] = map.try_emplace(make_long_key(), 999);
     
-    ASSERT_TRUE(inserted3, "Should insert long key");
-    ASSERT_NOT_NULLPTR(ptr3, "Should return valid pointer for long key");
-    ASSERT_EQ(*ptr3, 999, "Value should be 999");
-    ASSERT_TRUE(map.contains("this_is_a_very_long_key_that_exceeds_sso_buffer_size_on_most_implementations"), 
+    FATP_ASSERT_TRUE(inserted3, "Should insert long key");
+    FATP_ASSERT_NOT_NULLPTR(ptr3, "Should return valid pointer for long key");
+    FATP_ASSERT_EQ(*ptr3, 999, "Value should be 999");
+    FATP_ASSERT_TRUE(map.contains("this_is_a_very_long_key_that_exceeds_sso_buffer_size_on_most_implementations"), 
                 "Long key should exist");
     
     return true;
@@ -1622,7 +1622,7 @@ TEST_CASE(heterogeneous_try_emplace_rvalue)
 // probe sequences to continue past deleted entries.
 // ============================================================================
 
-TEST_CASE(safepolicy_erase_basic_guarantee)
+FATP_TEST_CASE(safepolicy_erase_basic_guarantee)
 {
     // This test verifies Swiss Table tombstone-based erase behavior:
     // 
@@ -1643,41 +1643,41 @@ TEST_CASE(safepolicy_erase_basic_guarantee)
         map.insert(i, i * 100);
     }
     
-    ASSERT_EQ(map.size(), 10u, "Should have 10 entries");
+    FATP_ASSERT_EQ(map.size(), 10u, "Should have 10 entries");
     
     // Erase entries
     bool erased = map.erase(5);
-    ASSERT_TRUE(erased, "Should erase key 5");
-    ASSERT_EQ(map.size(), 9u, "Size should be 9 after erase");
+    FATP_ASSERT_TRUE(erased, "Should erase key 5");
+    FATP_ASSERT_EQ(map.size(), 9u, "Size should be 9 after erase");
     
     // Verify the erased key is not findable
-    ASSERT_NULLPTR(map.find(5), "Erased key should not be found");
+    FATP_ASSERT_NULLPTR(map.find(5), "Erased key should not be found");
     
     // Verify other keys are still accessible
     for (int i = 0; i < 10; ++i)
     {
         if (i == 5) continue;
         int* val = map.find(i);
-        ASSERT_NOT_NULLPTR(val, "Non-erased key should be found");
-        ASSERT_EQ(*val, i * 100, "Value should be correct");
+        FATP_ASSERT_NOT_NULLPTR(val, "Non-erased key should be found");
+        FATP_ASSERT_EQ(*val, i * 100, "Value should be correct");
     }
     
     // Verify we can reinsert into the erased slot (tombstone reuse)
     map.insert(5, 555);
-    ASSERT_EQ(map.size(), 10u, "Size should be 10 after reinsert");
+    FATP_ASSERT_EQ(map.size(), 10u, "Size should be 10 after reinsert");
     int* reinserted = map.find(5);
-    ASSERT_NOT_NULLPTR(reinserted, "Reinserted key should be found");
-    ASSERT_EQ(*reinserted, 555, "Reinserted value should be correct");
+    FATP_ASSERT_NOT_NULLPTR(reinserted, "Reinserted key should be found");
+    FATP_ASSERT_EQ(*reinserted, 555, "Reinserted value should be correct");
     
     // Test clear()
     map.clear();
-    ASSERT_TRUE(map.empty(), "Map should be empty after clear");
-    ASSERT_EQ(map.size(), 0u, "Size should be 0 after clear");
+    FATP_ASSERT_TRUE(map.empty(), "Map should be empty after clear");
+    FATP_ASSERT_EQ(map.size(), 0u, "Size should be 0 after clear");
     
     // Verify map is still usable after clear
     map.insert(42, 4200);
-    ASSERT_EQ(map.size(), 1u, "Should have 1 entry after reinsert");
-    ASSERT_NOT_NULLPTR(map.find(42), "Should find reinserted key");
+    FATP_ASSERT_EQ(map.size(), 1u, "Should have 1 entry after reinsert");
+    FATP_ASSERT_NOT_NULLPTR(map.find(42), "Should find reinserted key");
     
     return true;
 }
@@ -1689,7 +1689,7 @@ TEST_CASE(safepolicy_erase_basic_guarantee)
 // probe distance structure should remain stable. Swiss Table uses tombstones
 // that are cleaned up during rehash, so performance should remain good.
 
-TEST_CASE(churn_probe_distance_stability)
+FATP_TEST_CASE(churn_probe_distance_stability)
 {
     using Map = StableHashMap<int, int>;
     using Tester = StableHashMapTester<Map>;
@@ -1761,11 +1761,11 @@ TEST_CASE(churn_probe_distance_stability)
     // Swiss Table with tombstones may have slightly higher probe distances
     // but should not degrade catastrophically
     double avg_delta = std::abs(aged_avg - baseline_avg);
-    ASSERT_TRUE(avg_delta < 3.0,
+    FATP_ASSERT_TRUE(avg_delta < 3.0,
         "Average probe distance degraded significantly");
 
     // Max probe can vary more due to key distribution luck
-    ASSERT_TRUE(aged_max < baseline_max + 25,
+    FATP_ASSERT_TRUE(aged_max < baseline_max + 25,
         "Maximum probe distance grew excessively");
 
     return true;
@@ -1778,7 +1778,7 @@ TEST_CASE(churn_probe_distance_stability)
 // After churn, full_slots == size() and tombstones are tracked.
 // Tombstones are cleaned up when rehash occurs.
 
-TEST_CASE(churn_no_ghost_slots)
+FATP_TEST_CASE(churn_no_ghost_slots)
 {
     using Map = StableHashMap<int, int>;
     using Tester = StableHashMapTester<Map>;
@@ -1815,7 +1815,7 @@ TEST_CASE(churn_no_ghost_slots)
         int key_to_erase = keys[idx];
 
         bool erased = map.erase(key_to_erase);
-        ASSERT_TRUE(erased, "Should successfully erase tracked key");
+        FATP_ASSERT_TRUE(erased, "Should successfully erase tracked key");
 
         keys[idx] = keys.back();
         keys.pop_back();
@@ -1832,7 +1832,7 @@ TEST_CASE(churn_no_ghost_slots)
 
     // Verify: full slots == size()
     size_t full_slots = Tester::count_full_slots(map);
-    ASSERT_EQ(full_slots, map.size(),
+    FATP_ASSERT_EQ(full_slots, map.size(),
         "Full slots should equal size()");
 
     // Verify: iteration count matches size()
@@ -1841,13 +1841,13 @@ TEST_CASE(churn_no_ghost_slots)
     {
         ++manual_count;
     }
-    ASSERT_EQ(manual_count, map.size(),
+    FATP_ASSERT_EQ(manual_count, map.size(),
         "Iteration count should match size()");
 
     // Verify: all tracked keys are findable
     for (int k : keys)
     {
-        ASSERT_NOT_NULLPTR(map.find(k), "All tracked keys should be findable");
+        FATP_ASSERT_NOT_NULLPTR(map.find(k), "All tracked keys should be findable");
     }
 
     // Output tombstone count for diagnostics
@@ -1868,7 +1868,7 @@ TEST_CASE(churn_no_ghost_slots)
 // Swiss Table with tombstones may show slight degradation, but should
 // not be catastrophic like pure tombstone maps (1.5-3.0x).
 
-TEST_CASE(churn_latency_stability)
+FATP_TEST_CASE(churn_latency_stability)
 {
     using Map = StableHashMap<int, int>;
 
@@ -1957,7 +1957,7 @@ TEST_CASE(churn_latency_stability)
     // Use sink to prevent optimization
     (void)sink;
 
-    ASSERT_TRUE(ratio < 1.50,
+    FATP_ASSERT_TRUE(ratio < 1.50,
         "Lookup performance degraded excessively after churn");
 
     return true;
@@ -2048,54 +2048,54 @@ namespace fat_p::testing
 
 bool test_StableHashMap()
 {
-    PRINT_HEADER(STABLE HASH MAP)
+    FATP_PRINT_HEADER(STABLE HASH MAP)
 
     TestRunner runner;
 
     // Core functionality tests (1-18)
-    RUN_TEST_NS(runner, stablehashmap, basic_construction);
-    RUN_TEST_NS(runner, stablehashmap, insert_find);
-    RUN_TEST_NS(runner, stablehashmap, erase);
-    RUN_TEST_NS(runner, stablehashmap, update_value);
-    RUN_TEST_NS(runner, stablehashmap, clear);
-    RUN_TEST_NS(runner, stablehashmap, ctrl_tail_wraparound_probe);
-    RUN_TEST_NS(runner, stablehashmap, load_factor);
-    RUN_TEST_NS(runner, stablehashmap, collision_handling);
-    RUN_TEST_NS(runner, stablehashmap, large_dataset);
-    RUN_TEST_NS(runner, stablehashmap, string_keys);
-    RUN_TEST_NS(runner, stablehashmap, erase_reinsert);
-    RUN_TEST_NS(runner, stablehashmap, empty_values);
-    RUN_TEST_NS(runner, stablehashmap, const_correctness);
-    RUN_TEST_NS(runner, stablehashmap, bracket_operator);
-    RUN_TEST_NS(runner, stablehashmap, move_semantics);
-    RUN_TEST_NS(runner, stablehashmap, copy_semantics);
-    RUN_TEST_NS(runner, stablehashmap, backward_shift_deletion);
-    RUN_TEST_NS(runner, stablehashmap, equality_operators);
-    RUN_TEST_NS(runner, stablehashmap, stress_random);
+    FATP_RUN_TEST_NS(runner, stablehashmap, basic_construction);
+    FATP_RUN_TEST_NS(runner, stablehashmap, insert_find);
+    FATP_RUN_TEST_NS(runner, stablehashmap, erase);
+    FATP_RUN_TEST_NS(runner, stablehashmap, update_value);
+    FATP_RUN_TEST_NS(runner, stablehashmap, clear);
+    FATP_RUN_TEST_NS(runner, stablehashmap, ctrl_tail_wraparound_probe);
+    FATP_RUN_TEST_NS(runner, stablehashmap, load_factor);
+    FATP_RUN_TEST_NS(runner, stablehashmap, collision_handling);
+    FATP_RUN_TEST_NS(runner, stablehashmap, large_dataset);
+    FATP_RUN_TEST_NS(runner, stablehashmap, string_keys);
+    FATP_RUN_TEST_NS(runner, stablehashmap, erase_reinsert);
+    FATP_RUN_TEST_NS(runner, stablehashmap, empty_values);
+    FATP_RUN_TEST_NS(runner, stablehashmap, const_correctness);
+    FATP_RUN_TEST_NS(runner, stablehashmap, bracket_operator);
+    FATP_RUN_TEST_NS(runner, stablehashmap, move_semantics);
+    FATP_RUN_TEST_NS(runner, stablehashmap, copy_semantics);
+    FATP_RUN_TEST_NS(runner, stablehashmap, backward_shift_deletion);
+    FATP_RUN_TEST_NS(runner, stablehashmap, equality_operators);
+    FATP_RUN_TEST_NS(runner, stablehashmap, stress_random);
 
     // RAII and memory safety tests (19-24)
-    RUN_TEST_NS(runner, stablehashmap, raii_erase_correctness);
-    RUN_TEST_NS(runner, stablehashmap, heapbox_stress);
-    RUN_TEST_NS(runner, stablehashmap, rehash_stress);
-    RUN_TEST_NS(runner, stablehashmap, heavy_collision_chain);
-    RUN_TEST_NS(runner, stablehashmap, insert_duplicate_key);
-    RUN_TEST_NS(runner, stablehashmap, move_only_values);
+    FATP_RUN_TEST_NS(runner, stablehashmap, raii_erase_correctness);
+    FATP_RUN_TEST_NS(runner, stablehashmap, heapbox_stress);
+    FATP_RUN_TEST_NS(runner, stablehashmap, rehash_stress);
+    FATP_RUN_TEST_NS(runner, stablehashmap, heavy_collision_chain);
+    FATP_RUN_TEST_NS(runner, stablehashmap, insert_duplicate_key);
+    FATP_RUN_TEST_NS(runner, stablehashmap, move_only_values);
     
     // Reference stability tests (core feature)
-    RUN_TEST_NS(runner, stablehashmap, reference_stability_across_insert);
-    RUN_TEST_NS(runner, stablehashmap, reference_stability_across_reserve);
-    RUN_TEST_NS(runner, stablehashmap, reference_stability_across_erase);
-    RUN_TEST_NS(runner, stablehashmap, reference_stability_mixed_operations);
-    RUN_TEST_NS(runner, stablehashmap, reference_stability_with_strings);
-    RUN_TEST_NS(runner, stablehashmap, heterogeneous_lookup);
-    RUN_TEST_NS(runner, stablehashmap, heterogeneous_lookup_non_transparent);
-    RUN_TEST_NS(runner, stablehashmap, heterogeneous_try_emplace_rvalue);
-    RUN_TEST_NS(runner, stablehashmap, safepolicy_erase_basic_guarantee);
+    FATP_RUN_TEST_NS(runner, stablehashmap, reference_stability_across_insert);
+    FATP_RUN_TEST_NS(runner, stablehashmap, reference_stability_across_reserve);
+    FATP_RUN_TEST_NS(runner, stablehashmap, reference_stability_across_erase);
+    FATP_RUN_TEST_NS(runner, stablehashmap, reference_stability_mixed_operations);
+    FATP_RUN_TEST_NS(runner, stablehashmap, reference_stability_with_strings);
+    FATP_RUN_TEST_NS(runner, stablehashmap, heterogeneous_lookup);
+    FATP_RUN_TEST_NS(runner, stablehashmap, heterogeneous_lookup_non_transparent);
+    FATP_RUN_TEST_NS(runner, stablehashmap, heterogeneous_try_emplace_rvalue);
+    FATP_RUN_TEST_NS(runner, stablehashmap, safepolicy_erase_basic_guarantee);
 
     // Churn stability tests (verify no-tombstone invariant)
-    RUN_TEST_NS(runner, stablehashmap, churn_probe_distance_stability);
-    RUN_TEST_NS(runner, stablehashmap, churn_no_ghost_slots);
-    RUN_TEST_NS(runner, stablehashmap, churn_latency_stability);
+    FATP_RUN_TEST_NS(runner, stablehashmap, churn_probe_distance_stability);
+    FATP_RUN_TEST_NS(runner, stablehashmap, churn_no_ghost_slots);
+    FATP_RUN_TEST_NS(runner, stablehashmap, churn_latency_stability);
 
     stablehashmap::benchmark_stablehashmap();
 

@@ -8,7 +8,7 @@ FATP_META:
   component: DiagnosticLogger_Json
   file_role: test
   path: tests/test_DiagnosticLogger_Json.cpp
-  namespace: fat_p
+  namespace: fat_p::testing::diagnosticlogger_json
   summary: "Unit tests for DiagnosticLogger_Json."
   related:
     docs_search: "DiagnosticLogger_Json"
@@ -106,7 +106,7 @@ namespace fat_p
 // DiagnosticLogger_Json.h can now see DiagnosticLoggerJsonTestData and its functions
 #include "DiagnosticLogger_Json.h"
 
-namespace fat_p::testing
+namespace fat_p::testing::diagnosticlogger_json
 {
 
 using namespace fat_p::diagnostic;
@@ -151,7 +151,7 @@ public:
     }
 };
 
-bool test_json_formatter_basic()
+FATP_TEST_CASE(json_formatter_basic)
 {
     JsonFormatter formatter;
     auto loc = FATP_SOURCE_LOCATION();
@@ -159,27 +159,27 @@ bool test_json_formatter_basic()
     
     std::string formatted = formatter.format(record);
     
-    ASSERT_TRUE(!formatted.empty(), "Formatted string not empty");
+    FATP_ASSERT_TRUE(!formatted.empty(), "Formatted string not empty");
     
     auto parsed = parse_json(formatted);
-    ASSERT_TRUE(std::holds_alternative<JsonObject>(parsed), "Parsed as JSON object");
+    FATP_ASSERT_TRUE(std::holds_alternative<JsonObject>(parsed), "Parsed as JSON object");
     
     const auto& obj = std::get<JsonObject>(parsed);
-    ASSERT_TRUE(obj.count("timestamp"), "Contains timestamp");
-    ASSERT_TRUE(obj.count("level"), "Contains level");
-    ASSERT_TRUE(obj.count("message"), "Contains message");
-    ASSERT_TRUE(obj.count("thread_id"), "Contains thread_id");
+    FATP_ASSERT_TRUE(obj.count("timestamp"), "Contains timestamp");
+    FATP_ASSERT_TRUE(obj.count("level"), "Contains level");
+    FATP_ASSERT_TRUE(obj.count("message"), "Contains message");
+    FATP_ASSERT_TRUE(obj.count("thread_id"), "Contains thread_id");
     
     std::string message = std::get<std::string>(obj.at("message"));
-    ASSERT_TRUE(message == "Test message", "Message correct");
+    FATP_ASSERT_TRUE(message == "Test message", "Message correct");
     
     std::string level = std::get<std::string>(obj.at("level"));
-    ASSERT_TRUE(level == "INFO", "Level correct");
+    FATP_ASSERT_TRUE(level == "INFO", "Level correct");
     
     return true;
 }
 
-bool test_json_formatter_with_metadata()
+FATP_TEST_CASE(json_formatter_with_metadata)
 {
     JsonFormatter formatter;
     auto loc = FATP_SOURCE_LOCATION();
@@ -195,19 +195,19 @@ bool test_json_formatter_with_metadata()
     auto parsed = parse_json(formatted);
     const auto& obj = std::get<JsonObject>(parsed);
     
-    ASSERT_TRUE(obj.count("data"), "Contains data field");
+    FATP_ASSERT_TRUE(obj.count("data"), "Contains data field");
     
     const auto& dataObj = std::get<JsonObject>(obj.at("data"));
     std::string key = std::get<std::string>(dataObj.at("key"));
     int64_t count = std::get<int64_t>(dataObj.at("count"));
     
-    ASSERT_TRUE(key == "value", "Metadata key correct");
-    ASSERT_TRUE(count == 42, "Metadata count correct");
+    FATP_ASSERT_TRUE(key == "value", "Metadata key correct");
+    FATP_ASSERT_TRUE(count == 42, "Metadata count correct");
     
     return true;
 }
 
-bool test_json_formatter_invalid_metadata()
+FATP_TEST_CASE(json_formatter_invalid_metadata)
 {
     JsonFormatter formatter;
     auto loc = FATP_SOURCE_LOCATION();
@@ -218,15 +218,15 @@ bool test_json_formatter_invalid_metadata()
     auto parsed = parse_json(formatted);
     const auto& obj = std::get<JsonObject>(parsed);
     
-    ASSERT_TRUE(obj.count("data_payload"), "Contains data_payload for invalid JSON");
+    FATP_ASSERT_TRUE(obj.count("data_payload"), "Contains data_payload for invalid JSON");
     
     std::string payload = std::get<std::string>(obj.at("data_payload"));
-    ASSERT_TRUE(payload == "not valid json", "Invalid JSON stored as string");
+    FATP_ASSERT_TRUE(payload == "not valid json", "Invalid JSON stored as string");
     
     return true;
 }
 
-bool test_json_formatter_location_info()
+FATP_TEST_CASE(json_formatter_location_info)
 {
     JsonFormatter formatter;
     auto loc = FATP_SOURCE_LOCATION();
@@ -236,19 +236,19 @@ bool test_json_formatter_location_info()
     auto parsed = parse_json(formatted);
     const auto& obj = std::get<JsonObject>(parsed);
     
-    ASSERT_TRUE(obj.count("file"), "Contains file");
-    ASSERT_TRUE(obj.count("line"), "Contains line");
+    FATP_ASSERT_TRUE(obj.count("file"), "Contains file");
+    FATP_ASSERT_TRUE(obj.count("line"), "Contains line");
     
     std::string file = std::get<std::string>(obj.at("file"));
     int64_t line = std::get<int64_t>(obj.at("line"));
     
-    ASSERT_TRUE(!file.empty(), "File not empty");
-    ASSERT_TRUE(line > 0, "Line is positive");
+    FATP_ASSERT_TRUE(!file.empty(), "File not empty");
+    FATP_ASSERT_TRUE(line > 0, "Line is positive");
     
     return true;
 }
 
-bool test_log_json_simple_types()
+FATP_TEST_CASE(log_json_simple_types)
 {
     getGlobalLogger().clearSinks();
     auto sink = std::make_shared<StringSink>();
@@ -256,18 +256,18 @@ bool test_log_json_simple_types()
     
     FATP_LOG_INFO_JSON(42);
     
-    ASSERT_TRUE(sink->count() == 1, "One message logged");
+    FATP_ASSERT_TRUE(sink->count() == 1, "One message logged");
     
     std::string output = sink->getLast();
     auto parsed = parse_json(output);
     const auto& obj = std::get<JsonObject>(parsed);
     
-    ASSERT_TRUE(obj.count("data"), "Contains data");
+    FATP_ASSERT_TRUE(obj.count("data"), "Contains data");
     
     return true;
 }
 
-bool test_log_json_vector()
+FATP_TEST_CASE(log_json_vector)
 {
     getGlobalLogger().clearSinks();
     auto sink = std::make_shared<StringSink>();
@@ -281,14 +281,14 @@ bool test_log_json_vector()
     const auto& obj = std::get<JsonObject>(parsed);
     const auto& dataArray = std::get<JsonArray>(obj.at("data"));
     
-    ASSERT_TRUE(dataArray.size() == 5, "Array has 5 elements");
-    ASSERT_TRUE(std::get<int64_t>(dataArray[0]) == 1, "First element correct");
-    ASSERT_TRUE(std::get<int64_t>(dataArray[4]) == 5, "Last element correct");
+    FATP_ASSERT_TRUE(dataArray.size() == 5, "Array has 5 elements");
+    FATP_ASSERT_TRUE(std::get<int64_t>(dataArray[0]) == 1, "First element correct");
+    FATP_ASSERT_TRUE(std::get<int64_t>(dataArray[4]) == 5, "Last element correct");
     
     return true;
 }
 
-bool test_log_json_map()
+FATP_TEST_CASE(log_json_map)
 {
     getGlobalLogger().clearSinks();
     auto sink = std::make_shared<StringSink>();
@@ -302,15 +302,15 @@ bool test_log_json_map()
     const auto& obj = std::get<JsonObject>(parsed);
     const auto& dataObj = std::get<JsonObject>(obj.at("data"));
     
-    ASSERT_TRUE(dataObj.size() == 3, "Object has 3 fields");
-    ASSERT_TRUE(std::get<int64_t>(dataObj.at("a")) == 1, "Field a correct");
-    ASSERT_TRUE(std::get<int64_t>(dataObj.at("b")) == 2, "Field b correct");
-    ASSERT_TRUE(std::get<int64_t>(dataObj.at("c")) == 3, "Field c correct");
+    FATP_ASSERT_TRUE(dataObj.size() == 3, "Object has 3 fields");
+    FATP_ASSERT_TRUE(std::get<int64_t>(dataObj.at("a")) == 1, "Field a correct");
+    FATP_ASSERT_TRUE(std::get<int64_t>(dataObj.at("b")) == 2, "Field b correct");
+    FATP_ASSERT_TRUE(std::get<int64_t>(dataObj.at("c")) == 3, "Field c correct");
     
     return true;
 }
 
-bool test_log_json_custom_struct()
+FATP_TEST_CASE(log_json_custom_struct)
 {
     getGlobalLogger().clearSinks();
     auto sink = std::make_shared<StringSink>();
@@ -324,14 +324,14 @@ bool test_log_json_custom_struct()
     const auto& obj = std::get<JsonObject>(parsed);
     const auto& dataObj = std::get<JsonObject>(obj.at("data"));
     
-    ASSERT_TRUE(std::get<std::string>(dataObj.at("name")) == "test", "Name correct");
-    ASSERT_TRUE(std::get<int64_t>(dataObj.at("value")) == 42, "Value correct");
-    ASSERT_TRUE(std::abs(std::get<double>(dataObj.at("score")) - 3.14) < 0.01, "Score correct");
+    FATP_ASSERT_TRUE(std::get<std::string>(dataObj.at("name")) == "test", "Name correct");
+    FATP_ASSERT_TRUE(std::get<int64_t>(dataObj.at("value")) == 42, "Value correct");
+    FATP_ASSERT_TRUE(std::abs(std::get<double>(dataObj.at("score")) - 3.14) < 0.01, "Score correct");
     
     return true;
 }
 
-bool test_log_with_data_string_message()
+FATP_TEST_CASE(log_with_data_string_message)
 {
     getGlobalLogger().clearSinks();
     auto sink = std::make_shared<StringSink>();
@@ -344,15 +344,15 @@ bool test_log_with_data_string_message()
     auto parsed = parse_json(output);
     const auto& obj = std::get<JsonObject>(parsed);
     
-    ASSERT_TRUE(std::get<std::string>(obj.at("message")) == "Array data", "Message correct");
+    FATP_ASSERT_TRUE(std::get<std::string>(obj.at("message")) == "Array data", "Message correct");
     
     const auto& dataArray = std::get<JsonArray>(obj.at("data"));
-    ASSERT_TRUE(dataArray.size() == 3, "Data array has 3 elements");
+    FATP_ASSERT_TRUE(dataArray.size() == 3, "Data array has 3 elements");
     
     return true;
 }
 
-bool test_log_json_all_levels()
+FATP_TEST_CASE(log_json_all_levels)
 {
     getGlobalLogger().clearSinks();
     auto sink = std::make_shared<StringSink>();
@@ -367,7 +367,7 @@ bool test_log_json_all_levels()
     FATP_LOG_ERROR_JSON(value);
     FATP_LOG_FATAL_JSON(value);
     
-    ASSERT_TRUE(sink->count() == 6, "All log levels recorded");
+    FATP_ASSERT_TRUE(sink->count() == 6, "All log levels recorded");
     
     auto messages = sink->getMessages();
     
@@ -377,17 +377,17 @@ bool test_log_json_all_levels()
         return std::get<std::string>(obj.at("level")) == expectedLevel;
     };
     
-    ASSERT_TRUE(checkLevel(messages[0], "TRACE"), "Trace level correct");
-    ASSERT_TRUE(checkLevel(messages[1], "DEBUG"), "Debug level correct");
-    ASSERT_TRUE(checkLevel(messages[2], "INFO"), "Info level correct");
-    ASSERT_TRUE(checkLevel(messages[3], "WARN"), "Warning level correct");
-    ASSERT_TRUE(checkLevel(messages[4], "ERROR"), "Error level correct");
-    ASSERT_TRUE(checkLevel(messages[5], "FATAL"), "Fatal level correct");
+    FATP_ASSERT_TRUE(checkLevel(messages[0], "TRACE"), "Trace level correct");
+    FATP_ASSERT_TRUE(checkLevel(messages[1], "DEBUG"), "Debug level correct");
+    FATP_ASSERT_TRUE(checkLevel(messages[2], "INFO"), "Info level correct");
+    FATP_ASSERT_TRUE(checkLevel(messages[3], "WARN"), "Warning level correct");
+    FATP_ASSERT_TRUE(checkLevel(messages[4], "ERROR"), "Error level correct");
+    FATP_ASSERT_TRUE(checkLevel(messages[5], "FATAL"), "Fatal level correct");
     
     return true;
 }
 
-bool test_log_with_data_all_levels()
+FATP_TEST_CASE(log_with_data_all_levels)
 {
     getGlobalLogger().clearSinks();
     auto sink = std::make_shared<StringSink>();
@@ -402,12 +402,12 @@ bool test_log_with_data_all_levels()
     FATP_LOG_ERROR_WITH_DATA("Error msg", data);
     FATP_LOG_FATAL_WITH_DATA("Fatal msg", data);
     
-    ASSERT_TRUE(sink->count() == 6, "All log levels with data recorded");
+    FATP_ASSERT_TRUE(sink->count() == 6, "All log levels with data recorded");
     
     return true;
 }
 
-bool test_log_json_nested_structures()
+FATP_TEST_CASE(log_json_nested_structures)
 {
     getGlobalLogger().clearSinks();
     auto sink = std::make_shared<StringSink>();
@@ -425,15 +425,15 @@ bool test_log_json_nested_structures()
     const auto& dataObj = std::get<JsonObject>(obj.at("data"));
     
     const auto& firstArray = std::get<JsonArray>(dataObj.at("first"));
-    ASSERT_TRUE(firstArray.size() == 3, "First array has 3 elements");
+    FATP_ASSERT_TRUE(firstArray.size() == 3, "First array has 3 elements");
     
     const auto& secondArray = std::get<JsonArray>(dataObj.at("second"));
-    ASSERT_TRUE(secondArray.size() == 3, "Second array has 3 elements");
+    FATP_ASSERT_TRUE(secondArray.size() == 3, "Second array has 3 elements");
     
     return true;
 }
 
-bool test_log_json_empty_containers()
+FATP_TEST_CASE(log_json_empty_containers)
 {
     getGlobalLogger().clearSinks();
     auto sink = std::make_shared<StringSink>();
@@ -447,7 +447,7 @@ bool test_log_json_empty_containers()
     const auto& obj = std::get<JsonObject>(parsed);
     const auto& dataArray = std::get<JsonArray>(obj.at("data"));
     
-    ASSERT_TRUE(dataArray.empty(), "Empty vector logged as empty array");
+    FATP_ASSERT_TRUE(dataArray.empty(), "Empty vector logged as empty array");
     
     sink->clear();
     
@@ -459,13 +459,13 @@ bool test_log_json_empty_containers()
     const auto& obj2 = std::get<JsonObject>(parsed);
     const auto& dataObj = std::get<JsonObject>(obj2.at("data"));
     
-    ASSERT_TRUE(dataObj.empty(), "Empty map logged as empty object");
+    FATP_ASSERT_TRUE(dataObj.empty(), "Empty map logged as empty object");
     
     return true;
 }
 
 
-bool test_log_json_special_characters()
+FATP_TEST_CASE(log_json_special_characters)
 {
     getGlobalLogger().clearSinks();
     auto sink = std::make_shared<StringSink>();
@@ -483,12 +483,12 @@ bool test_log_json_special_characters()
     const auto& obj = std::get<JsonObject>(parsed);
     const auto& dataObj = std::get<JsonObject>(obj.at("data"));
     
-    ASSERT_TRUE(dataObj.size() == 3, "All special char fields present");
+    FATP_ASSERT_TRUE(dataObj.size() == 3, "All special char fields present");
     
     return true;
 }
 
-bool test_log_json_unicode()
+FATP_TEST_CASE(log_json_unicode)
 {
     getGlobalLogger().clearSinks();
     auto sink = std::make_shared<StringSink>();
@@ -496,8 +496,8 @@ bool test_log_json_unicode()
     
     std::map<std::string, std::string> data;
     // Use raw UTF-8 byte sequences to avoid C4566 warnings on Windows
-    // \u4E2D\u6587 (中文) = 0xE4 0xB8 0xAD 0xE6 0x96 0x87
-    // \U0001F600 (😀) = 0xF0 0x9F 0x98 0x80
+    // \u4E2D\u6587 (ä¸­æ–‡) = 0xE4 0xB8 0xAD 0xE6 0x96 0x87
+    // \U0001F600 (ðŸ˜€) = 0xF0 0x9F 0x98 0x80
     data["chinese"] = "\xE4\xB8\xAD\xE6\x96\x87";
     data["emoji"] = "\xF0\x9F\x98\x80";
     
@@ -506,12 +506,12 @@ bool test_log_json_unicode()
     std::string output = sink->getLast();
     auto parsed = parse_json(output);
     
-    ASSERT_TRUE(std::holds_alternative<JsonObject>(parsed), "Unicode JSON parsed correctly");
+    FATP_ASSERT_TRUE(std::holds_alternative<JsonObject>(parsed), "Unicode JSON parsed correctly");
     
     return true;
 }
 
-bool test_log_json_large_data()
+FATP_TEST_CASE(log_json_large_data)
 {
     getGlobalLogger().clearSinks();
     auto sink = std::make_shared<StringSink>();
@@ -530,12 +530,12 @@ bool test_log_json_large_data()
     const auto& obj = std::get<JsonObject>(parsed);
     const auto& dataArray = std::get<JsonArray>(obj.at("data"));
     
-    ASSERT_TRUE(dataArray.size() == 1000, "Large array logged correctly");
+    FATP_ASSERT_TRUE(dataArray.size() == 1000, "Large array logged correctly");
     
     return true;
 }
 
-bool test_log_json_filtering()
+FATP_TEST_CASE(log_json_filtering)
 {
     getGlobalLogger().clearSinks();
     auto sink = std::make_shared<StringSink>();
@@ -545,11 +545,11 @@ bool test_log_json_filtering()
     FATP_LOG_TRACE_JSON(1);
     FATP_LOG_DEBUG_JSON(2);
     FATP_LOG_INFO_JSON(3);
-    ASSERT_TRUE(sink->count() == 0, "Lower levels filtered");
+    FATP_ASSERT_TRUE(sink->count() == 0, "Lower levels filtered");
     
     FATP_LOG_WARNING_JSON(4);
     FATP_LOG_ERROR_JSON(5);
-    ASSERT_TRUE(sink->count() == 2, "Higher levels logged");
+    FATP_ASSERT_TRUE(sink->count() == 2, "Higher levels logged");
     
     getGlobalLogger().setLevel(LogLevel::Trace);
     
@@ -588,31 +588,36 @@ void benchmark_json_logging()
     std::cout << "With data logging: " << format_time(with_data_time) << "\n";
 }
 
+} // namespace fat_p::testing::diagnosticlogger_json
+
+namespace fat_p::testing
+{
+
 bool test_DiagnosticLogger_Json()
 {
-    PRINT_HEADER(DIAGNOSTIC LOGGER JSON)
+    FATP_PRINT_HEADER(DIAGNOSTIC LOGGER JSON)
     
     TestRunner runner;
     
-    RUN_TEST(runner, json_formatter_basic);
-    RUN_TEST(runner, json_formatter_with_metadata);
-    RUN_TEST(runner, json_formatter_invalid_metadata);
-    RUN_TEST(runner, json_formatter_location_info);
-    RUN_TEST(runner, log_json_simple_types);
-    RUN_TEST(runner, log_json_vector);
-    RUN_TEST(runner, log_json_map);
-    RUN_TEST(runner, log_json_custom_struct);
-    RUN_TEST(runner, log_with_data_string_message);
-    RUN_TEST(runner, log_json_all_levels);
-    RUN_TEST(runner, log_with_data_all_levels);
-    RUN_TEST(runner, log_json_nested_structures);
-    RUN_TEST(runner, log_json_empty_containers);
-    RUN_TEST(runner, log_json_special_characters);
-    RUN_TEST(runner, log_json_unicode);
-    RUN_TEST(runner, log_json_large_data);
-    RUN_TEST(runner, log_json_filtering);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, json_formatter_basic);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, json_formatter_with_metadata);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, json_formatter_invalid_metadata);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, json_formatter_location_info);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, log_json_simple_types);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, log_json_vector);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, log_json_map);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, log_json_custom_struct);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, log_with_data_string_message);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, log_json_all_levels);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, log_with_data_all_levels);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, log_json_nested_structures);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, log_json_empty_containers);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, log_json_special_characters);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, log_json_unicode);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, log_json_large_data);
+    FATP_RUN_TEST_NS(runner, diagnosticlogger_json, log_json_filtering);
     
-    benchmark_json_logging();
+    diagnosticlogger_json::benchmark_json_logging();
     
     return 0 == runner.print_summary();
 }

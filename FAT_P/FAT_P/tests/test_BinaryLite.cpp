@@ -47,7 +47,7 @@ using fat_p::binary::TypeTag;
 // Primitive Roundtrips
 // ============================================================================
 
-TEST_CASE(uint8_roundtrip)
+FATP_TEST_CASE(uint8_roundtrip)
 {
     const std::uint8_t values[] = {0U, 1U, 127U, 255U};
 
@@ -58,13 +58,13 @@ TEST_CASE(uint8_roundtrip)
         enc.write_uint8(v);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_uint8(), v, "uint8 roundtrip");
+        FATP_ASSERT_EQ(dec.read_uint8(), v, "uint8 roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(uint16_roundtrip)
+FATP_TEST_CASE(uint16_roundtrip)
 {
     const std::uint16_t values[] = {0U, 1U, 255U, 256U, 65535U};
 
@@ -75,13 +75,13 @@ TEST_CASE(uint16_roundtrip)
         enc.write_uint16(v);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_uint16(), v, "uint16 roundtrip");
+        FATP_ASSERT_EQ(dec.read_uint16(), v, "uint16 roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(uint32_roundtrip)
+FATP_TEST_CASE(uint32_roundtrip)
 {
     const std::uint32_t values[] = {0U, 1U, 65535U, 65536U, 0xDEADBEEFU};
 
@@ -92,13 +92,13 @@ TEST_CASE(uint32_roundtrip)
         enc.write_uint32(v);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_uint32(), v, "uint32 roundtrip");
+        FATP_ASSERT_EQ(dec.read_uint32(), v, "uint32 roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(uint64_roundtrip)
+FATP_TEST_CASE(uint64_roundtrip)
 {
     const std::uint64_t values[] = {0ULL, 1ULL, 255ULL, 256ULL, 65535ULL,
                                     0xDEADBEEFCAFEBABEULL,
@@ -111,13 +111,13 @@ TEST_CASE(uint64_roundtrip)
         enc.write_uint64(v);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_uint64(), v, "uint64 roundtrip");
+        FATP_ASSERT_EQ(dec.read_uint64(), v, "uint64 roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(int8_roundtrip)
+FATP_TEST_CASE(int8_roundtrip)
 {
     const std::int8_t values[] = {0, 1, -1, 127, -128};
 
@@ -128,13 +128,13 @@ TEST_CASE(int8_roundtrip)
         enc.write_int8(v);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_int8(), v, "int8 roundtrip");
+        FATP_ASSERT_EQ(dec.read_int8(), v, "int8 roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(int16_roundtrip)
+FATP_TEST_CASE(int16_roundtrip)
 {
     const std::int16_t values[] = {0, 1, -1, 32767, -32768};
 
@@ -145,13 +145,13 @@ TEST_CASE(int16_roundtrip)
         enc.write_int16(v);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_int16(), v, "int16 roundtrip");
+        FATP_ASSERT_EQ(dec.read_int16(), v, "int16 roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(int32_roundtrip)
+FATP_TEST_CASE(int32_roundtrip)
 {
     const std::int32_t values[] = {0, 1, -1, 1234567, -9876543,
                                    std::numeric_limits<std::int32_t>::min(),
@@ -164,13 +164,13 @@ TEST_CASE(int32_roundtrip)
         enc.write_int32(v);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_int32(), v, "int32 roundtrip");
+        FATP_ASSERT_EQ(dec.read_int32(), v, "int32 roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(int64_roundtrip)
+FATP_TEST_CASE(int64_roundtrip)
 {
     const std::int64_t values[] = {0, 1, -1, 1234567, -9876543,
                                    std::numeric_limits<std::int64_t>::min(),
@@ -183,13 +183,13 @@ TEST_CASE(int64_roundtrip)
         enc.write_int64(v);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_int64(), v, "int64 roundtrip");
+        FATP_ASSERT_EQ(dec.read_int64(), v, "int64 roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(bool_roundtrip)
+FATP_TEST_CASE(bool_roundtrip)
 {
     std::vector<std::uint8_t> buf;
     Encoder enc(buf);
@@ -197,13 +197,13 @@ TEST_CASE(bool_roundtrip)
     enc.write_bool(true);
 
     Decoder dec(buf);
-    ASSERT_TRUE(!dec.read_bool(), "false roundtrip");
-    ASSERT_TRUE(dec.read_bool(), "true roundtrip");
+    FATP_ASSERT_TRUE(!dec.read_bool(), "false roundtrip");
+    FATP_ASSERT_TRUE(dec.read_bool(), "true roundtrip");
 
     return true;
 }
 
-TEST_CASE(float_roundtrip)
+FATP_TEST_CASE(float_roundtrip)
 {
     const float values[] = {0.0f, -0.0f, 1.5f, -2.75f, 3.14159f};
 
@@ -214,13 +214,13 @@ TEST_CASE(float_roundtrip)
         enc.write_float(v);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_float(), v, "float roundtrip");
+        FATP_ASSERT_EQ(dec.read_float(), v, "float roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(double_roundtrip)
+FATP_TEST_CASE(double_roundtrip)
 {
     const double values[] = {0.0, -0.0, 1.5, -2.75, 1e10, -3.14159265358979};
 
@@ -231,13 +231,13 @@ TEST_CASE(double_roundtrip)
         enc.write_double(v);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_double(), v, "double roundtrip");
+        FATP_ASSERT_EQ(dec.read_double(), v, "double roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(string_roundtrip)
+FATP_TEST_CASE(string_roundtrip)
 {
     const std::string values[] = {"", "a", "hello", "UTF-8 \xC3\xA9\xC3\xA0"};
 
@@ -248,13 +248,13 @@ TEST_CASE(string_roundtrip)
         enc.write_string(s);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_string(), s, "string roundtrip");
+        FATP_ASSERT_EQ(dec.read_string(), s, "string roundtrip");
     }
 
     return true;
 }
 
-TEST_CASE(bytes_roundtrip)
+FATP_TEST_CASE(bytes_roundtrip)
 {
     const std::vector<std::uint8_t> payload = {1U, 2U, 3U, 4U, 5U, 0U, 255U};
 
@@ -264,40 +264,40 @@ TEST_CASE(bytes_roundtrip)
 
     Decoder dec(buf);
     const auto result = dec.read_bytes();
-    ASSERT_EQ(result.size(), payload.size(), "bytes size");
+    FATP_ASSERT_EQ(result.size(), payload.size(), "bytes size");
     for (std::size_t i = 0; i < payload.size(); ++i)
     {
-        ASSERT_EQ(result[i], payload[i], "bytes element");
+        FATP_ASSERT_EQ(result[i], payload[i], "bytes element");
     }
 
     return true;
 }
 
-TEST_CASE(array_header)
+FATP_TEST_CASE(array_header)
 {
     std::vector<std::uint8_t> buf;
     Encoder enc(buf);
     enc.begin_array(5U);
 
     Decoder dec(buf);
-    ASSERT_EQ(dec.read_array_length(), 5U, "array length");
+    FATP_ASSERT_EQ(dec.read_array_length(), 5U, "array length");
 
     return true;
 }
 
-TEST_CASE(map_header)
+FATP_TEST_CASE(map_header)
 {
     std::vector<std::uint8_t> buf;
     Encoder enc(buf);
     enc.begin_map(3U);
 
     Decoder dec(buf);
-    ASSERT_EQ(dec.read_map_length(), 3U, "map length");
+    FATP_ASSERT_EQ(dec.read_map_length(), 3U, "map length");
 
     return true;
 }
 
-TEST_CASE(peek_type)
+FATP_TEST_CASE(peek_type)
 {
     std::vector<std::uint8_t> buf;
     Encoder enc(buf);
@@ -307,21 +307,21 @@ TEST_CASE(peek_type)
 
     Decoder dec(buf);
 
-    ASSERT_TRUE(dec.peek_type() == TypeTag::Uint32, "peek uint32");
+    FATP_ASSERT_TRUE(dec.peek_type() == TypeTag::Uint32, "peek uint32");
     (void)dec.read_uint32();
 
-    ASSERT_TRUE(dec.peek_type() == TypeTag::String, "peek string");
+    FATP_ASSERT_TRUE(dec.peek_type() == TypeTag::String, "peek string");
     (void)dec.read_string();
 
-    ASSERT_TRUE(dec.peek_type() == TypeTag::Bool, "peek bool");
+    FATP_ASSERT_TRUE(dec.peek_type() == TypeTag::Bool, "peek bool");
     (void)dec.read_bool();
 
-    ASSERT_TRUE(dec.eof(), "should be at EOF");
+    FATP_ASSERT_TRUE(dec.eof(), "should be at EOF");
 
     return true;
 }
 
-TEST_CASE(multiple_values)
+FATP_TEST_CASE(multiple_values)
 {
     std::vector<std::uint8_t> buf;
     Encoder enc(buf);
@@ -334,12 +334,12 @@ TEST_CASE(multiple_values)
 
     Decoder dec(buf);
 
-    ASSERT_EQ(dec.read_uint32(), 42U, "uint32");
-    ASSERT_EQ(dec.read_int64(), -123456789LL, "int64");
-    ASSERT_EQ(dec.read_string(), "test", "string");
-    ASSERT_EQ(dec.read_double(), 3.14159, "double");
-    ASSERT_TRUE(dec.read_bool(), "bool");
-    ASSERT_TRUE(dec.eof(), "should be at EOF");
+    FATP_ASSERT_EQ(dec.read_uint32(), 42U, "uint32");
+    FATP_ASSERT_EQ(dec.read_int64(), -123456789LL, "int64");
+    FATP_ASSERT_EQ(dec.read_string(), "test", "string");
+    FATP_ASSERT_EQ(dec.read_double(), 3.14159, "double");
+    FATP_ASSERT_TRUE(dec.read_bool(), "bool");
+    FATP_ASSERT_TRUE(dec.eof(), "should be at EOF");
 
     return true;
 }
@@ -348,18 +348,18 @@ TEST_CASE(multiple_values)
 // Malformed Input Tests
 // ============================================================================
 
-TEST_CASE(truncated_uint64)
+FATP_TEST_CASE(truncated_uint64)
 {
     std::vector<std::uint8_t> buf;
     Encoder enc(buf);
     enc.write_uint64(0xDEADBEEFCAFEBABEULL);
 
-    ASSERT_EQ(buf.size(), 9U, "uint64 should be 1 tag + 8 bytes");
+    FATP_ASSERT_EQ(buf.size(), 9U, "uint64 should be 1 tag + 8 bytes");
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
-        ASSERT_THROWS(
+        FATP_ASSERT_THROWS(
             ([&] {
                 Decoder dec(truncated);
                 (void)dec.read_uint64();
@@ -371,18 +371,18 @@ TEST_CASE(truncated_uint64)
     return true;
 }
 
-TEST_CASE(truncated_uint32)
+FATP_TEST_CASE(truncated_uint32)
 {
     std::vector<std::uint8_t> buf;
     Encoder enc(buf);
     enc.write_uint32(0xDEADBEEFU);
 
-    ASSERT_EQ(buf.size(), 5U, "uint32 should be 1 tag + 4 bytes");
+    FATP_ASSERT_EQ(buf.size(), 5U, "uint32 should be 1 tag + 4 bytes");
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
-        ASSERT_THROWS(
+        FATP_ASSERT_THROWS(
             ([&] {
                 Decoder dec(truncated);
                 (void)dec.read_uint32();
@@ -394,7 +394,7 @@ TEST_CASE(truncated_uint32)
     return true;
 }
 
-TEST_CASE(truncated_string)
+FATP_TEST_CASE(truncated_string)
 {
     std::vector<std::uint8_t> buf;
     Encoder enc(buf);
@@ -403,7 +403,7 @@ TEST_CASE(truncated_string)
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
-        ASSERT_THROWS(
+        FATP_ASSERT_THROWS(
             ([&] {
                 Decoder dec(truncated);
                 (void)dec.read_string();
@@ -415,7 +415,7 @@ TEST_CASE(truncated_string)
     return true;
 }
 
-TEST_CASE(truncated_bytes)
+FATP_TEST_CASE(truncated_bytes)
 {
     const std::vector<std::uint8_t> payload = {1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U};
 
@@ -426,7 +426,7 @@ TEST_CASE(truncated_bytes)
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
-        ASSERT_THROWS(
+        FATP_ASSERT_THROWS(
             ([&] {
                 Decoder dec(truncated);
                 (void)dec.read_bytes();
@@ -438,18 +438,18 @@ TEST_CASE(truncated_bytes)
     return true;
 }
 
-TEST_CASE(truncated_double)
+FATP_TEST_CASE(truncated_double)
 {
     std::vector<std::uint8_t> buf;
     Encoder enc(buf);
     enc.write_double(3.14159265358979);
 
-    ASSERT_EQ(buf.size(), 9U, "double should be 1 tag + 8 bytes");
+    FATP_ASSERT_EQ(buf.size(), 9U, "double should be 1 tag + 8 bytes");
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
-        ASSERT_THROWS(
+        FATP_ASSERT_THROWS(
             ([&] {
                 Decoder dec(truncated);
                 (void)dec.read_double();
@@ -461,13 +461,13 @@ TEST_CASE(truncated_double)
     return true;
 }
 
-TEST_CASE(wrong_type_uint_from_string)
+FATP_TEST_CASE(wrong_type_uint_from_string)
 {
     std::vector<std::uint8_t> buf;
     Encoder enc(buf);
     enc.write_string("not a number");
 
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         ([&] {
             Decoder dec(buf);
             (void)dec.read_uint64();
@@ -478,13 +478,13 @@ TEST_CASE(wrong_type_uint_from_string)
     return true;
 }
 
-TEST_CASE(wrong_type_string_from_uint)
+FATP_TEST_CASE(wrong_type_string_from_uint)
 {
     std::vector<std::uint8_t> buf;
     Encoder enc(buf);
     enc.write_uint64(12345ULL);
 
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         ([&] {
             Decoder dec(buf);
             (void)dec.read_string();
@@ -495,13 +495,13 @@ TEST_CASE(wrong_type_string_from_uint)
     return true;
 }
 
-TEST_CASE(wrong_type_bool_from_double)
+FATP_TEST_CASE(wrong_type_bool_from_double)
 {
     std::vector<std::uint8_t> buf;
     Encoder enc(buf);
     enc.write_double(1.0);
 
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         ([&] {
             Decoder dec(buf);
             (void)dec.read_bool();
@@ -512,13 +512,13 @@ TEST_CASE(wrong_type_bool_from_double)
     return true;
 }
 
-TEST_CASE(wrong_type_int32_from_int64)
+FATP_TEST_CASE(wrong_type_int32_from_int64)
 {
     std::vector<std::uint8_t> buf;
     Encoder enc(buf);
     enc.write_int64(12345LL);
 
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         ([&] {
             Decoder dec(buf);
             (void)dec.read_int32();
@@ -529,11 +529,11 @@ TEST_CASE(wrong_type_int32_from_int64)
     return true;
 }
 
-TEST_CASE(empty_buffer)
+FATP_TEST_CASE(empty_buffer)
 {
     std::vector<std::uint8_t> empty;
 
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         ([&] {
             Decoder dec(empty);
             (void)dec.read_uint64();
@@ -541,7 +541,7 @@ TEST_CASE(empty_buffer)
         std::runtime_error,
         "empty buffer uint64 should throw");
 
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         ([&] {
             Decoder dec(empty);
             (void)dec.read_string();
@@ -549,7 +549,7 @@ TEST_CASE(empty_buffer)
         std::runtime_error,
         "empty buffer string should throw");
 
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         ([&] {
             Decoder dec(empty);
             (void)dec.peek_type();
@@ -560,11 +560,11 @@ TEST_CASE(empty_buffer)
     return true;
 }
 
-TEST_CASE(invalid_type_tag)
+FATP_TEST_CASE(invalid_type_tag)
 {
     std::vector<std::uint8_t> bad = {15U, 0U, 0U, 0U, 0U};
 
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         ([&] {
             Decoder dec(bad);
             (void)dec.read_uint32();
@@ -575,7 +575,7 @@ TEST_CASE(invalid_type_tag)
     return true;
 }
 
-TEST_CASE(impossible_string_length)
+FATP_TEST_CASE(impossible_string_length)
 {
     std::vector<std::uint8_t> buf;
     buf.push_back(static_cast<std::uint8_t>(TypeTag::String));
@@ -588,7 +588,7 @@ TEST_CASE(impossible_string_length)
     buf.push_back('b');
     buf.push_back('c');
 
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         ([&] {
             Decoder dec(buf);
             (void)dec.read_string();
@@ -599,7 +599,7 @@ TEST_CASE(impossible_string_length)
     return true;
 }
 
-TEST_CASE(read_past_eof)
+FATP_TEST_CASE(read_past_eof)
 {
     std::vector<std::uint8_t> buf;
     Encoder enc(buf);
@@ -608,9 +608,9 @@ TEST_CASE(read_past_eof)
     Decoder dec(buf);
     (void)dec.read_uint32();
 
-    ASSERT_TRUE(dec.eof(), "should be at EOF");
+    FATP_ASSERT_TRUE(dec.eof(), "should be at EOF");
 
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         ([&] {
             (void)dec.read_uint32();
         }()),
@@ -624,7 +624,7 @@ TEST_CASE(read_past_eof)
 // Fuzz Tests
 // ============================================================================
 
-TEST_CASE(fuzz_uint64)
+FATP_TEST_CASE(fuzz_uint64)
 {
     std::mt19937_64 rng(0xB1A2B3C4D5E6F7A8ULL);
 
@@ -637,13 +637,13 @@ TEST_CASE(fuzz_uint64)
         enc.write_uint64(v);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_uint64(), v, "fuzz uint64");
+        FATP_ASSERT_EQ(dec.read_uint64(), v, "fuzz uint64");
     }
 
     return true;
 }
 
-TEST_CASE(fuzz_int64)
+FATP_TEST_CASE(fuzz_int64)
 {
     std::mt19937_64 rng(0xB1A2B3C4D5E6F7A9ULL);
     std::uniform_int_distribution<std::int64_t> dist(
@@ -659,13 +659,13 @@ TEST_CASE(fuzz_int64)
         enc.write_int64(v);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_int64(), v, "fuzz int64");
+        FATP_ASSERT_EQ(dec.read_int64(), v, "fuzz int64");
     }
 
     return true;
 }
 
-TEST_CASE(fuzz_double)
+FATP_TEST_CASE(fuzz_double)
 {
     std::mt19937_64 rng(0xB1A2B3C4D5E6F7AAULL);
     std::uniform_real_distribution<double> dist(-1e15, 1e15);
@@ -679,13 +679,13 @@ TEST_CASE(fuzz_double)
         enc.write_double(v);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_double(), v, "fuzz double");
+        FATP_ASSERT_EQ(dec.read_double(), v, "fuzz double");
     }
 
     return true;
 }
 
-TEST_CASE(fuzz_string)
+FATP_TEST_CASE(fuzz_string)
 {
     std::mt19937_64 rng(0xB1A2B3C4D5E6F7ABULL);
     std::uniform_int_distribution<std::size_t> len_dist(0, 128);
@@ -706,13 +706,13 @@ TEST_CASE(fuzz_string)
         enc.write_string(s);
 
         Decoder dec(buf);
-        ASSERT_EQ(dec.read_string(), s, "fuzz string");
+        FATP_ASSERT_EQ(dec.read_string(), s, "fuzz string");
     }
 
     return true;
 }
 
-TEST_CASE(fuzz_bytes)
+FATP_TEST_CASE(fuzz_bytes)
 {
     std::mt19937_64 rng(0xB1A2B3C4D5E6F7ACULL);
     std::uniform_int_distribution<std::size_t> len_dist(0, 256);
@@ -734,17 +734,17 @@ TEST_CASE(fuzz_bytes)
 
         Decoder dec(buf);
         const auto result = dec.read_bytes();
-        ASSERT_EQ(result.size(), payload.size(), "fuzz bytes size");
+        FATP_ASSERT_EQ(result.size(), payload.size(), "fuzz bytes size");
         for (std::size_t j = 0; j < payload.size(); ++j)
         {
-            ASSERT_EQ(result[j], payload[j], "fuzz bytes element");
+            FATP_ASSERT_EQ(result[j], payload[j], "fuzz bytes element");
         }
     }
 
     return true;
 }
 
-TEST_CASE(fuzz_multiple_values)
+FATP_TEST_CASE(fuzz_multiple_values)
 {
     std::mt19937_64 rng(0xB1A2B3C4D5E6F7ADULL);
     std::uniform_int_distribution<std::int64_t> val_dist(-1000000, 1000000);
@@ -769,15 +769,15 @@ TEST_CASE(fuzz_multiple_values)
         Decoder dec(buf);
         for (std::size_t i = 0; i < count; ++i)
         {
-            ASSERT_EQ(dec.read_int64(), values[i], "fuzz multiple values");
+            FATP_ASSERT_EQ(dec.read_int64(), values[i], "fuzz multiple values");
         }
-        ASSERT_TRUE(dec.eof(), "should be at EOF");
+        FATP_ASSERT_TRUE(dec.eof(), "should be at EOF");
     }
 
     return true;
 }
 
-TEST_CASE(fuzz_mixed_types)
+FATP_TEST_CASE(fuzz_mixed_types)
 {
     std::mt19937_64 rng(0xB1A2B3C4D5E6F7AEULL);
     std::uniform_int_distribution<int> type_dist(0, 5);
@@ -802,7 +802,7 @@ TEST_CASE(fuzz_mixed_types)
             const auto v = static_cast<std::uint64_t>(rng());
             enc.write_uint64(v);
             Decoder dec(buf);
-            ASSERT_EQ(dec.read_uint64(), v, "mixed uint64");
+            FATP_ASSERT_EQ(dec.read_uint64(), v, "mixed uint64");
             break;
         }
         case 1:
@@ -810,7 +810,7 @@ TEST_CASE(fuzz_mixed_types)
             const auto v = int_dist(rng);
             enc.write_int64(v);
             Decoder dec(buf);
-            ASSERT_EQ(dec.read_int64(), v, "mixed int64");
+            FATP_ASSERT_EQ(dec.read_int64(), v, "mixed int64");
             break;
         }
         case 2:
@@ -818,7 +818,7 @@ TEST_CASE(fuzz_mixed_types)
             const double v = dbl_dist(rng);
             enc.write_double(v);
             Decoder dec(buf);
-            ASSERT_EQ(dec.read_double(), v, "mixed double");
+            FATP_ASSERT_EQ(dec.read_double(), v, "mixed double");
             break;
         }
         case 3:
@@ -831,7 +831,7 @@ TEST_CASE(fuzz_mixed_types)
             }
             enc.write_string(s);
             Decoder dec(buf);
-            ASSERT_EQ(dec.read_string(), s, "mixed string");
+            FATP_ASSERT_EQ(dec.read_string(), s, "mixed string");
             break;
         }
         case 4:
@@ -839,7 +839,7 @@ TEST_CASE(fuzz_mixed_types)
             const bool v = (rng() % 2) == 1;
             enc.write_bool(v);
             Decoder dec(buf);
-            ASSERT_EQ(dec.read_bool(), v, "mixed bool");
+            FATP_ASSERT_EQ(dec.read_bool(), v, "mixed bool");
             break;
         }
         case 5:
@@ -848,7 +848,7 @@ TEST_CASE(fuzz_mixed_types)
             const float v = flt_dist(rng);
             enc.write_float(v);
             Decoder dec(buf);
-            ASSERT_EQ(dec.read_float(), v, "mixed float");
+            FATP_ASSERT_EQ(dec.read_float(), v, "mixed float");
             break;
         }
         default:
@@ -963,52 +963,52 @@ namespace fat_p::testing
 
 bool test_BinaryLite()
 {
-    PRINT_HEADER(BINARY LITE)
+    FATP_PRINT_HEADER(BINARY LITE)
 
     TestRunner runner;
 
     // Primitive roundtrips
-    RUN_TEST_NS(runner, binarylite, uint8_roundtrip);
-    RUN_TEST_NS(runner, binarylite, uint16_roundtrip);
-    RUN_TEST_NS(runner, binarylite, uint32_roundtrip);
-    RUN_TEST_NS(runner, binarylite, uint64_roundtrip);
-    RUN_TEST_NS(runner, binarylite, int8_roundtrip);
-    RUN_TEST_NS(runner, binarylite, int16_roundtrip);
-    RUN_TEST_NS(runner, binarylite, int32_roundtrip);
-    RUN_TEST_NS(runner, binarylite, int64_roundtrip);
-    RUN_TEST_NS(runner, binarylite, bool_roundtrip);
-    RUN_TEST_NS(runner, binarylite, float_roundtrip);
-    RUN_TEST_NS(runner, binarylite, double_roundtrip);
-    RUN_TEST_NS(runner, binarylite, string_roundtrip);
-    RUN_TEST_NS(runner, binarylite, bytes_roundtrip);
-    RUN_TEST_NS(runner, binarylite, array_header);
-    RUN_TEST_NS(runner, binarylite, map_header);
-    RUN_TEST_NS(runner, binarylite, peek_type);
-    RUN_TEST_NS(runner, binarylite, multiple_values);
+    FATP_RUN_TEST_NS(runner, binarylite, uint8_roundtrip);
+    FATP_RUN_TEST_NS(runner, binarylite, uint16_roundtrip);
+    FATP_RUN_TEST_NS(runner, binarylite, uint32_roundtrip);
+    FATP_RUN_TEST_NS(runner, binarylite, uint64_roundtrip);
+    FATP_RUN_TEST_NS(runner, binarylite, int8_roundtrip);
+    FATP_RUN_TEST_NS(runner, binarylite, int16_roundtrip);
+    FATP_RUN_TEST_NS(runner, binarylite, int32_roundtrip);
+    FATP_RUN_TEST_NS(runner, binarylite, int64_roundtrip);
+    FATP_RUN_TEST_NS(runner, binarylite, bool_roundtrip);
+    FATP_RUN_TEST_NS(runner, binarylite, float_roundtrip);
+    FATP_RUN_TEST_NS(runner, binarylite, double_roundtrip);
+    FATP_RUN_TEST_NS(runner, binarylite, string_roundtrip);
+    FATP_RUN_TEST_NS(runner, binarylite, bytes_roundtrip);
+    FATP_RUN_TEST_NS(runner, binarylite, array_header);
+    FATP_RUN_TEST_NS(runner, binarylite, map_header);
+    FATP_RUN_TEST_NS(runner, binarylite, peek_type);
+    FATP_RUN_TEST_NS(runner, binarylite, multiple_values);
 
     // Malformed input tests
-    RUN_TEST_NS(runner, binarylite, truncated_uint64);
-    RUN_TEST_NS(runner, binarylite, truncated_uint32);
-    RUN_TEST_NS(runner, binarylite, truncated_string);
-    RUN_TEST_NS(runner, binarylite, truncated_bytes);
-    RUN_TEST_NS(runner, binarylite, truncated_double);
-    RUN_TEST_NS(runner, binarylite, wrong_type_uint_from_string);
-    RUN_TEST_NS(runner, binarylite, wrong_type_string_from_uint);
-    RUN_TEST_NS(runner, binarylite, wrong_type_bool_from_double);
-    RUN_TEST_NS(runner, binarylite, wrong_type_int32_from_int64);
-    RUN_TEST_NS(runner, binarylite, empty_buffer);
-    RUN_TEST_NS(runner, binarylite, invalid_type_tag);
-    RUN_TEST_NS(runner, binarylite, impossible_string_length);
-    RUN_TEST_NS(runner, binarylite, read_past_eof);
+    FATP_RUN_TEST_NS(runner, binarylite, truncated_uint64);
+    FATP_RUN_TEST_NS(runner, binarylite, truncated_uint32);
+    FATP_RUN_TEST_NS(runner, binarylite, truncated_string);
+    FATP_RUN_TEST_NS(runner, binarylite, truncated_bytes);
+    FATP_RUN_TEST_NS(runner, binarylite, truncated_double);
+    FATP_RUN_TEST_NS(runner, binarylite, wrong_type_uint_from_string);
+    FATP_RUN_TEST_NS(runner, binarylite, wrong_type_string_from_uint);
+    FATP_RUN_TEST_NS(runner, binarylite, wrong_type_bool_from_double);
+    FATP_RUN_TEST_NS(runner, binarylite, wrong_type_int32_from_int64);
+    FATP_RUN_TEST_NS(runner, binarylite, empty_buffer);
+    FATP_RUN_TEST_NS(runner, binarylite, invalid_type_tag);
+    FATP_RUN_TEST_NS(runner, binarylite, impossible_string_length);
+    FATP_RUN_TEST_NS(runner, binarylite, read_past_eof);
 
     // Fuzz tests
-    RUN_TEST_NS(runner, binarylite, fuzz_uint64);
-    RUN_TEST_NS(runner, binarylite, fuzz_int64);
-    RUN_TEST_NS(runner, binarylite, fuzz_double);
-    RUN_TEST_NS(runner, binarylite, fuzz_string);
-    RUN_TEST_NS(runner, binarylite, fuzz_bytes);
-    RUN_TEST_NS(runner, binarylite, fuzz_multiple_values);
-    RUN_TEST_NS(runner, binarylite, fuzz_mixed_types);
+    FATP_RUN_TEST_NS(runner, binarylite, fuzz_uint64);
+    FATP_RUN_TEST_NS(runner, binarylite, fuzz_int64);
+    FATP_RUN_TEST_NS(runner, binarylite, fuzz_double);
+    FATP_RUN_TEST_NS(runner, binarylite, fuzz_string);
+    FATP_RUN_TEST_NS(runner, binarylite, fuzz_bytes);
+    FATP_RUN_TEST_NS(runner, binarylite, fuzz_multiple_values);
+    FATP_RUN_TEST_NS(runner, binarylite, fuzz_mixed_types);
 
     binarylite::benchmark_binarylite();
 

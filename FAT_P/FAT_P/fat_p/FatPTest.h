@@ -32,7 +32,7 @@
  * intentionally simple and obviously correct by inspection.
  *
  * - For production code: Use FloatingPointComparison.h
- * - For test code: Use the ASSERT_CLOSE* macros provided here
+ * - For test code: Use the FATP_ASSERT_CLOSE* macros provided here
  *
  * The primitive comparison is NOT production-quality. It exists solely to enable
  * independent testing of FloatingPointComparison.h and other components without
@@ -50,118 +50,118 @@
 
 #pragma once
 
- /*
- FATP_META:
-   meta_version: 1
-   component: FatPTest
-   file_role: public_header
-   path: fat_p/FatPTest.h
-   namespace: fat_p
-   summary: "Public header for FatPTest."
-   api_stability: in_work
-   related:
-	 docs_search: "FatPTest"
-	 tests:
-	   - tests/test_AlignedVector.cpp
-	   - tests/test_AllocationStrategies.cpp
-	   - tests/test_AsyncOperations.cpp
-	   - tests/test_AtomicSharedPtr.cpp
-	   - tests/test_BinaryLite.cpp
-	   - tests/test_BitSet.cpp
-	   - tests/test_CacheUtilities.cpp
-	   - tests/test_CborLite.cpp
-	   - tests/test_CborStreamLite.cpp
-	   - tests/test_CheckedArithmetic.cpp
-	   - tests/test_CircularBuffer.cpp
-	   - tests/test_ConcurrencyPolicies.cpp
-	   - tests/test_ConstexprUtilities.cpp
-	   - tests/test_ContractException.cpp
-	   - tests/test_CoroutineTask.cpp
-	   - tests/test_CSRMatrix.cpp
-	   - tests/test_CSRMatrixParallel.cpp
-	   - tests/test_CSRMatrix_HPC.cpp
-	   - tests/test_CSRMatrix_HPC_Parallel.cpp
-	   - tests/test_DebugOnly.cpp
-	   - tests/test_DiagnosticLogger_Core.cpp
-	   - tests/test_DiagnosticLogger_IO.cpp
-	   - tests/test_DiagnosticLogger_Json.cpp
-	   - tests/test_DiagnosticLogger_ScopeGuard.cpp
-	   - tests/test_Enforce.cpp
-	   - tests/test_EnforcedInit.cpp
-	   - tests/test_EnhancedBoundsChecking.cpp
-	   - tests/test_EnumPlus.cpp
-	   - tests/test_EqualityAny.cpp
-	   - tests/test_EqualityComparisons.cpp
-	   - tests/test_Expected.cpp
-	   - tests/test_Factory.cpp
-	   - tests/test_FastHashMap.cpp
-	   - tests/test_FatP.cpp
-	   - tests/test_FatPBenchmarkRunner.cpp
-	   - tests/test_FatPBinary.cpp
-	   - tests/test_FatPCbor.cpp
-	   - tests/test_FatPCborStream.cpp
-	   - tests/test_FatPJson.cpp
-	   - tests/test_FatPJsonStream.cpp
-	   - tests/test_FatPTest.cpp
-	   - tests/test_FatPTypeTraits.cpp
-	   - tests/test_FeatureManager.cpp
-	   - tests/test_FlatMap.cpp
-	   - tests/test_FlatSet.cpp
-	   - tests/test_FloatingPointComparison.cpp
-	   - tests/test_HpcVector.cpp
-	   - tests/test_IdGenerator.cpp
-	   - tests/test_IntrusiveList.cpp
-	   - tests/test_JsonLite.cpp
-	   - tests/test_JsonStreamLite.cpp
-	   - tests/test_LockFreeQueue.cpp
-	   - tests/test_LockFreeRingBuffer.cpp
-	   - tests/test_MemoryMappedFile.cpp
-	   - tests/test_NumaAllocator.cpp
-	   - tests/test_ObjectPool.cpp
-	   - tests/test_PipeOperator.cpp
-	   - tests/test_PolicyIterator.cpp
-	   - tests/test_RateLimiter.cpp
-	   - tests/test_RcuIntegration.cpp
-	   - tests/test_Reflection.cpp
-	   - tests/test_ScopeGuard.cpp
-	   - tests/test_ScopeGuardExpected.cpp
-	   - tests/test_ServiceLocator.cpp
-	   - tests/test_Signal.cpp
-	   - tests/test_SimdVector.cpp
-	   - tests/test_SlidingFileWindow.cpp
-	   - tests/test_SlotMap.cpp
-	   - tests/test_SmallVector.cpp
-	   - tests/test_SortedContainer.cpp
-	   - tests/test_SparseSet.cpp
-	   - tests/test_StableHashMap.cpp
-	   - tests/test_Stacktrace.cpp
-	   - tests/test_StateMachine.cpp
-	   - tests/test_Stringify.cpp
-	   - tests/test_StringPool.cpp
-	   - tests/test_StrongId.cpp
-	   - tests/test_Tensor.cpp
-	   - tests/test_TensorComparison.cpp
-	   - tests/test_TensorEinsum.cpp
-	   - tests/test_TensorMath.cpp
-	   - tests/test_TensorSerializer.cpp
-	   - tests/test_TensorStorage.cpp
-	   - tests/test_ThreadPool.cpp
-	   - tests/test_TypeTraits.cpp
-	   - tests/test_ValueGuard.cpp
-	   - tests/test_ViewLifetimeTracking.cpp
-	 benchmarks:
-	   - benchmarks/benchmark_EqualityComparisonsAny.cpp
-   hygiene:
-	 pragma_once: true
-	 include_guard: false
-	 defines_total: 36
-	 defines_unprefixed: 35
-	 undefs_total: 0
-	 includes_windows_h: false
-   generated:
-	 by: fatp-meta-tool
-	 mode: autogen
- */
+/*
+FATP_META:
+  meta_version: 1
+  component: FatPTest
+  file_role: public_header
+  path: fat_p/FatPTest.h
+  namespace: fat_p
+  summary: "Public header for FatPTest."
+  api_stability: in_work
+  related:
+    docs_search: "FatPTest"
+    tests:
+      - tests/test_AlignedVector.cpp
+      - tests/test_AllocationStrategies.cpp
+      - tests/test_AsyncOperations.cpp
+      - tests/test_AtomicSharedPtr.cpp
+      - tests/test_BinaryLite.cpp
+      - tests/test_BitSet.cpp
+      - tests/test_CacheUtilities.cpp
+      - tests/test_CborLite.cpp
+      - tests/test_CborStreamLite.cpp
+      - tests/test_CheckedArithmetic.cpp
+      - tests/test_CircularBuffer.cpp
+      - tests/test_ConcurrencyPolicies.cpp
+      - tests/test_ConstexprUtilities.cpp
+      - tests/test_ContractException.cpp
+      - tests/test_CoroutineTask.cpp
+      - tests/test_CSRMatrix.cpp
+      - tests/test_CSRMatrixParallel.cpp
+      - tests/test_CSRMatrix_HPC.cpp
+      - tests/test_CSRMatrix_HPC_Parallel.cpp
+      - tests/test_DebugOnly.cpp
+      - tests/test_DiagnosticLogger_Core.cpp
+      - tests/test_DiagnosticLogger_IO.cpp
+      - tests/test_DiagnosticLogger_Json.cpp
+      - tests/test_DiagnosticLogger_ScopeGuard.cpp
+      - tests/test_Enforce.cpp
+      - tests/test_EnforcedInit.cpp
+      - tests/test_EnhancedBoundsChecking.cpp
+      - tests/test_EnumPlus.cpp
+      - tests/test_EqualityAny.cpp
+      - tests/test_EqualityComparisons.cpp
+      - tests/test_Expected.cpp
+      - tests/test_Factory.cpp
+      - tests/test_FastHashMap.cpp
+      - tests/test_FatP.cpp
+      - tests/test_FatPBenchmarkRunner.cpp
+      - tests/test_FatPBinary.cpp
+      - tests/test_FatPCbor.cpp
+      - tests/test_FatPCborStream.cpp
+      - tests/test_FatPJson.cpp
+      - tests/test_FatPJsonStream.cpp
+      - tests/test_FatPTest.cpp
+      - tests/test_FatPTypeTraits.cpp
+      - tests/test_FeatureManager.cpp
+      - tests/test_FlatMap.cpp
+      - tests/test_FlatSet.cpp
+      - tests/test_FloatingPointComparison.cpp
+      - tests/test_HpcVector.cpp
+      - tests/test_IdGenerator.cpp
+      - tests/test_IntrusiveList.cpp
+      - tests/test_JsonLite.cpp
+      - tests/test_JsonStreamLite.cpp
+      - tests/test_LockFreeQueue.cpp
+      - tests/test_LockFreeRingBuffer.cpp
+      - tests/test_MemoryMappedFile.cpp
+      - tests/test_NumaAllocator.cpp
+      - tests/test_ObjectPool.cpp
+      - tests/test_PipeOperator.cpp
+      - tests/test_PolicyIterator.cpp
+      - tests/test_RateLimiter.cpp
+      - tests/test_RcuIntegration.cpp
+      - tests/test_Reflection.cpp
+      - tests/test_ScopeGuard.cpp
+      - tests/test_ScopeGuardExpected.cpp
+      - tests/test_ServiceLocator.cpp
+      - tests/test_Signal.cpp
+      - tests/test_SimdVector.cpp
+      - tests/test_SlidingFileWindow.cpp
+      - tests/test_SlotMap.cpp
+      - tests/test_SmallVector.cpp
+      - tests/test_SortedContainer.cpp
+      - tests/test_SparseSet.cpp
+      - tests/test_StableHashMap.cpp
+      - tests/test_Stacktrace.cpp
+      - tests/test_StateMachine.cpp
+      - tests/test_Stringify.cpp
+      - tests/test_StringPool.cpp
+      - tests/test_StrongId.cpp
+      - tests/test_Tensor.cpp
+      - tests/test_TensorComparison.cpp
+      - tests/test_TensorEinsum.cpp
+      - tests/test_TensorMath.cpp
+      - tests/test_TensorSerializer.cpp
+      - tests/test_TensorStorage.cpp
+      - tests/test_ThreadPool.cpp
+      - tests/test_TypeTraits.cpp
+      - tests/test_ValueGuard.cpp
+      - tests/test_ViewLifetimeTracking.cpp
+    benchmarks:
+      - benchmarks/benchmark_EqualityComparisonsAny.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 36
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
 
 #include <chrono>
 #include <iostream>
@@ -217,20 +217,20 @@ namespace fat_p
 		 * ALGORITHM: Hybrid absolute + relative tolerance comparison
 		 * 1. NaN handling: NaN never equals anything (including itself) - IEEE 754 compliant
 		 * 2. Infinity handling: Same-sign infinities are equal, mixed signs are not
-		 * 3. Exact equality: Catches ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±0 equality and identical values (optimization)
+		 * 3. Exact equality: Catches ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±0 equality and identical values (optimization)
 		 * 4. Absolute tolerance: Handles comparisons near zero
 		 * 5. Relative tolerance: Handles comparisons at large magnitudes
 		 *
 		 * DEFAULT EPSILON VALUES:
-		 * - Relative epsilon: 100 ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â machine epsilon (standard practice)
-		 * - Absolute epsilon: 1 ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â machine epsilon (100ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â tighter for near-zero values)
+		 * - Relative epsilon: 100 ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â machine epsilon (standard practice)
+		 * - Absolute epsilon: 1 ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â machine epsilon (100ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â tighter for near-zero values)
 		 *
 		 * This is NOT for production use - it's intentionally simplified for test
 		 * infrastructure. Production code should use FloatingPointComparison.h which
 		 * provides additional features like ULP comparison, configurable policies,
 		 * and diagnostic logging.
 		 *
-		 * @note The 100ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â scaling factor for relative epsilon is a widely-accepted
+		 * @note The 100ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â scaling factor for relative epsilon is a widely-accepted
 		 *       default that balances precision with practical tolerance for rounding
 		 *       errors in typical floating-point calculations.
 		 */
@@ -519,12 +519,12 @@ namespace fat_p
 		 * @brief Simple assert macro for tests (no dependency on testing framework)
 		 *
 		 * Usage:
-		 *   SIMPLE_ASSERT(condition, "error message");
+		 *   FATP_SIMPLE_ASSERT(condition, "error message");
 		 *
 		 * If the condition is false, prints error message and returns false from the
 		 * calling function. The calling function must return bool.
 		 */
-#define SIMPLE_ASSERT(condition, msg) \
+#define FATP_SIMPLE_ASSERT(condition, msg) \
     if (!(condition)) { \
         *fat_p::testing::get_test_config().error \
             << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
@@ -546,11 +546,11 @@ namespace fat_p
 		  * @brief Assert with custom failure handler
 		  *
 		  * Usage:
-		  *   ASSERT_WITH_HANDLER(x == 42, "x should be 42", {
+		  *   FATP_ASSERT_WITH_HANDLER(x == 42, "x should be 42", {
 		  *       cleanup_resources();
 		  *   });
 		  */
-#define ASSERT_WITH_HANDLER(condition, msg, handler) \
+#define FATP_ASSERT_WITH_HANDLER(condition, msg, handler) \
     if (!(condition)) { \
         *fat_p::testing::get_test_config().error \
             << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
@@ -573,14 +573,14 @@ namespace fat_p
 		   * without copying. Binds lvalues as lvalue references and extends lifetime
 		   * of rvalues. Works with non-copyable types like std::atomic.
 		   */
-#define ASSERT_EQ(actual, expected, msg) \
+#define FATP_ASSERT_EQ(actual, expected, msg) \
     { \
         auto&& actual_val = (actual); \
         auto&& expected_val = (expected); \
         if (!(actual_val == expected_val)) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_EQ FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_EQ FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  Expected: " << expected_val \
                 << "\n  Actual:   " << actual_val \
@@ -604,14 +604,14 @@ namespace fat_p
 			* without copying. Binds lvalues as lvalue references and extends lifetime
 			* of rvalues. Works with non-copyable types like std::atomic.
 			*/
-#define ASSERT_NE(actual, expected, msg) \
+#define FATP_ASSERT_NE(actual, expected, msg) \
     { \
         auto&& actual_val = (actual); \
         auto&& expected_val = (expected); \
         if (actual_val == expected_val) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_NE FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_NE FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  Should not equal: " << expected_val \
                 << "\n  at " << __FILE__ << ":" << __LINE__ \
@@ -634,14 +634,14 @@ namespace fat_p
 			 * without copying. Binds lvalues as lvalue references and extends lifetime
 			 * of rvalues.
 			 */
-#define ASSERT_LT(actual, expected, msg) \
+#define FATP_ASSERT_LT(actual, expected, msg) \
     { \
         auto&& actual_val = (actual); \
         auto&& expected_val = (expected); \
         if (!(actual_val < expected_val)) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_LT FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_LT FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  Expected: " << actual_val << " < " << expected_val \
                 << "\n  at " << __FILE__ << ":" << __LINE__ \
@@ -664,14 +664,14 @@ namespace fat_p
 			  * without copying. Binds lvalues as lvalue references and extends lifetime
 			  * of rvalues.
 			  */
-#define ASSERT_LE(actual, expected, msg) \
+#define FATP_ASSERT_LE(actual, expected, msg) \
     { \
         auto&& actual_val = (actual); \
         auto&& expected_val = (expected); \
         if (!(actual_val <= expected_val)) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_LE FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_LE FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  Expected: " << actual_val << " <= " << expected_val \
                 << "\n  at " << __FILE__ << ":" << __LINE__ \
@@ -694,14 +694,14 @@ namespace fat_p
 			   * without copying. Binds lvalues as lvalue references and extends lifetime
 			   * of rvalues.
 			   */
-#define ASSERT_GT(actual, expected, msg) \
+#define FATP_ASSERT_GT(actual, expected, msg) \
     { \
         auto&& actual_val = (actual); \
         auto&& expected_val = (expected); \
         if (!(actual_val > expected_val)) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_GT FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_GT FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  Expected: " << actual_val << " > " << expected_val \
                 << "\n  at " << __FILE__ << ":" << __LINE__ \
@@ -724,14 +724,14 @@ namespace fat_p
 				* without copying. Binds lvalues as lvalue references and extends lifetime
 				* of rvalues.
 				*/
-#define ASSERT_GE(actual, expected, msg) \
+#define FATP_ASSERT_GE(actual, expected, msg) \
     { \
         auto&& actual_val = (actual); \
         auto&& expected_val = (expected); \
         if (!(actual_val >= expected_val)) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_GE FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_GE FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  Expected: " << actual_val << " >= " << expected_val \
                 << "\n  at " << __FILE__ << ":" << __LINE__ \
@@ -750,11 +750,11 @@ namespace fat_p
 				/**
 				 * @brief Assert true
 				 */
-#define ASSERT_TRUE(condition, msg) \
+#define FATP_ASSERT_TRUE(condition, msg) \
     if (!(condition)) { \
         *fat_p::testing::get_test_config().error \
             << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-            << "ASSERT_TRUE FAILED: " << fat_p::testing::colors::reset() \
+            << "FATP_ASSERT_TRUE FAILED: " << fat_p::testing::colors::reset() \
             << fat_p::testing::colors::red() << msg \
             << "\n  at " << __FILE__ << ":" << __LINE__ \
             << fat_p::testing::colors::reset() << std::endl; \
@@ -771,11 +771,11 @@ namespace fat_p
 				 /**
 				  * @brief Assert false
 				  */
-#define ASSERT_FALSE(condition, msg) \
+#define FATP_ASSERT_FALSE(condition, msg) \
     if ((condition)) { \
         *fat_p::testing::get_test_config().error \
             << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-            << "ASSERT_FALSE FAILED: " << fat_p::testing::colors::reset() \
+            << "FATP_ASSERT_FALSE FAILED: " << fat_p::testing::colors::reset() \
             << fat_p::testing::colors::red() << msg \
             << "\n  at " << __FILE__ << ":" << __LINE__ \
             << fat_p::testing::colors::reset() << std::endl; \
@@ -792,13 +792,13 @@ namespace fat_p
 				  /**
 				   * @brief Assert pointer is nullptr
 				   */
-#define ASSERT_NULLPTR(ptr, msg) \
+#define FATP_ASSERT_NULLPTR(ptr, msg) \
     { \
         auto&& ptr_val = (ptr); \
         if (ptr_val != nullptr) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_NULLPTR FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_NULLPTR FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  Expected: nullptr" \
                 << "\n  Actual:   " << static_cast<const void*>(ptr_val) \
@@ -818,13 +818,13 @@ namespace fat_p
 				   /**
 					* @brief Assert pointer is not nullptr
 					*/
-#define ASSERT_NOT_NULLPTR(ptr, msg) \
+#define FATP_ASSERT_NOT_NULLPTR(ptr, msg) \
     { \
         auto&& ptr_val = (ptr); \
         if (ptr_val == nullptr) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_NOT_NULLPTR FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_NOT_NULLPTR FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  Expected: non-null pointer" \
                 << "\n  Actual:   nullptr" \
@@ -849,14 +849,14 @@ namespace fat_p
 					 * without copying. Binds lvalues as lvalue references and extends lifetime
 					 * of rvalues.
 					 */
-#define ASSERT_CLOSE(actual, expected, msg) \
+#define FATP_ASSERT_CLOSE(actual, expected, msg) \
     { \
         auto&& actual_val = (actual); \
         auto&& expected_val = (expected); \
         if (!fat_p::testing::primitive::are_close(actual_val, expected_val)) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_CLOSE FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_CLOSE FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  Expected: " << expected_val \
                 << "\n  Actual:   " << actual_val \
@@ -882,7 +882,7 @@ namespace fat_p
 					  * without copying. Binds lvalues as lvalue references and extends lifetime
 					  * of rvalues.
 					  */
-#define ASSERT_CLOSE_EPS(actual, expected, epsilon, msg) \
+#define FATP_ASSERT_CLOSE_EPS(actual, expected, epsilon, msg) \
     { \
         auto&& actual_val = (actual); \
         auto&& expected_val = (expected); \
@@ -890,7 +890,7 @@ namespace fat_p
         if (!fat_p::testing::primitive::are_close(actual_val, expected_val, epsilon_val, epsilon_val)) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_CLOSE_EPS FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_CLOSE_EPS FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  Expected: " << expected_val \
                 << "\n  Actual:   " << actual_val \
@@ -917,7 +917,7 @@ namespace fat_p
 					   * without copying. Binds lvalues as lvalue references and extends lifetime
 					   * of rvalues.
 					   */
-#define ASSERT_CLOSE_REL_ABS(actual, expected, rel_eps, abs_eps, msg) \
+#define FATP_ASSERT_CLOSE_REL_ABS(actual, expected, rel_eps, abs_eps, msg) \
     { \
         auto&& actual_val = (actual); \
         auto&& expected_val = (expected); \
@@ -926,7 +926,7 @@ namespace fat_p
         if (!fat_p::testing::primitive::are_close(actual_val, expected_val, rel_eps_val, abs_eps_val)) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_CLOSE_REL_ABS FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_CLOSE_REL_ABS FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  Expected: " << expected_val \
                 << "\n  Actual:   " << actual_val \
@@ -954,7 +954,7 @@ namespace fat_p
 						* exception was actually thrown and displays its message if available.
 						*
 						* Usage:
-						*   ASSERT_THROWS(my_function(), std::runtime_error, "Should throw runtime_error");
+						*   FATP_ASSERT_THROWS(my_function(), std::runtime_error, "Should throw runtime_error");
 						*
 						* If the expression does not throw the expected exception type, prints error
 						* message and returns false from the calling function.
@@ -963,7 +963,7 @@ namespace fat_p
 						* @param exception_type Expected exception type
 						* @param msg Error message to display on failure
 						*/
-#define ASSERT_THROWS(expression, exception_type, msg) \
+#define FATP_ASSERT_THROWS(expression, exception_type, msg) \
     { \
         bool threw_correct = false; \
         bool threw_wrong = false; \
@@ -982,7 +982,7 @@ namespace fat_p
         if (!threw_correct) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_THROWS FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_THROWS FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg; \
             if (threw_wrong) { \
                 *fat_p::testing::get_test_config().error \
@@ -1016,7 +1016,7 @@ namespace fat_p
 						 * If an exception is thrown, it displays the exception message if available.
 						 *
 						 * Usage:
-						 *   ASSERT_NO_THROW(my_function(), "Should not throw");
+						 *   FATP_ASSERT_NO_THROW(my_function(), "Should not throw");
 						 *
 						 * If the expression throws any exception, prints error message and returns
 						 * false from the calling function.
@@ -1024,7 +1024,7 @@ namespace fat_p
 						 * @param expression Expression to evaluate (should not throw)
 						 * @param msg Error message to display on failure
 						 */
-#define ASSERT_NO_THROW(expression, msg) \
+#define FATP_ASSERT_NO_THROW(expression, msg) \
     { \
         bool threw = false; \
         std::string exception_msg; \
@@ -1040,7 +1040,7 @@ namespace fat_p
         if (threw) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_NO_THROW FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_NO_THROW FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  Unexpected exception: " << exception_msg \
                 << "\n  at " << __FILE__ << ":" << __LINE__ \
@@ -1064,18 +1064,18 @@ namespace fat_p
 						  * @brief Assert that a string contains a substring
 						  *
 						  * Usage:
-						  *   ASSERT_CONTAINS("hello world", "world", "Should contain world");
+						  *   FATP_ASSERT_CONTAINS("hello world", "world", "Should contain world");
 						  *
 						  * Long strings are truncated in error output for readability.
 						  */
-#define ASSERT_CONTAINS(str, substr, msg) \
+#define FATP_ASSERT_CONTAINS(str, substr, msg) \
     { \
         auto&& str_val = (str); \
         auto&& substr_val = (substr); \
         if (!fat_p::testing::string_utils::contains(str_val, substr_val)) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_CONTAINS FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_CONTAINS FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  String:    \"" \
                 << fat_p::testing::string_utils::truncate_for_display(str_val) << "\"" \
@@ -1098,14 +1098,14 @@ namespace fat_p
 						   *
 						   * Long strings are truncated in error output for readability.
 						   */
-#define ASSERT_NOT_CONTAINS(str, substr, msg) \
+#define FATP_ASSERT_NOT_CONTAINS(str, substr, msg) \
     { \
         auto&& str_val = (str); \
         auto&& substr_val = (substr); \
         if (fat_p::testing::string_utils::contains(str_val, substr_val)) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_NOT_CONTAINS FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_NOT_CONTAINS FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  String:    \"" \
                 << fat_p::testing::string_utils::truncate_for_display(str_val) << "\"" \
@@ -1128,14 +1128,14 @@ namespace fat_p
 							*
 							* Long strings are truncated in error output for readability.
 							*/
-#define ASSERT_STARTS_WITH(str, prefix, msg) \
+#define FATP_ASSERT_STARTS_WITH(str, prefix, msg) \
     { \
         auto&& str_val = (str); \
         auto&& prefix_val = (prefix); \
         if (!fat_p::testing::string_utils::starts_with(str_val, prefix_val)) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_STARTS_WITH FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_STARTS_WITH FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  String: \"" \
                 << fat_p::testing::string_utils::truncate_for_display(str_val) << "\"" \
@@ -1158,14 +1158,14 @@ namespace fat_p
 							 *
 							 * Long strings are truncated in error output for readability.
 							 */
-#define ASSERT_ENDS_WITH(str, suffix, msg) \
+#define FATP_ASSERT_ENDS_WITH(str, suffix, msg) \
     { \
         auto&& str_val = (str); \
         auto&& suffix_val = (suffix); \
         if (!fat_p::testing::string_utils::ends_with(str_val, suffix_val)) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_ENDS_WITH FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_ENDS_WITH FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  String: \"" \
                 << fat_p::testing::string_utils::truncate_for_display(str_val) << "\"" \
@@ -1186,7 +1186,7 @@ namespace fat_p
 							 /**
 							  * @brief Assert that a string matches a regular expression
 							  */
-#define ASSERT_MATCHES(str, pattern, msg) \
+#define FATP_ASSERT_MATCHES(str, pattern, msg) \
     { \
         auto&& str_val = (str); \
         auto&& pattern_val = (pattern); \
@@ -1195,7 +1195,7 @@ namespace fat_p
             if (!std::regex_match(str_val, regex_pattern)) { \
                 *fat_p::testing::get_test_config().error \
                     << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                    << "ASSERT_MATCHES FAILED: " << fat_p::testing::colors::reset() \
+                    << "FATP_ASSERT_MATCHES FAILED: " << fat_p::testing::colors::reset() \
                     << fat_p::testing::colors::red() << msg \
                     << "\n  String:  \"" << str_val << "\"" \
                     << "\n  Pattern: \"" << pattern_val << "\" (no match)" \
@@ -1213,7 +1213,7 @@ namespace fat_p
         } catch (const std::regex_error& e) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_MATCHES ERROR: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_MATCHES ERROR: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  Invalid regex pattern: \"" << pattern_val << "\"" \
                 << "\n  Error: " << e.what() \
@@ -1235,7 +1235,7 @@ namespace fat_p
 							   *
 							   * Long strings are truncated in error output for readability.
 							   */
-#define ASSERT_STR_EQ_IGNORE_CASE(str1, str2, msg) \
+#define FATP_ASSERT_STR_EQ_IGNORE_CASE(str1, str2, msg) \
     { \
         auto&& str1_val = (str1); \
         auto&& str2_val = (str2); \
@@ -1244,7 +1244,7 @@ namespace fat_p
         if (lower1 != lower2) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_STR_EQ_IGNORE_CASE FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_STR_EQ_IGNORE_CASE FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << "\n  Expected: \"" \
                 << fat_p::testing::string_utils::truncate_for_display(str2_val) << "\"" \
@@ -1272,7 +1272,7 @@ namespace fat_p
 								*
 								* Provides detailed output showing which elements differ
 								*/
-#define ASSERT_RANGE_EQ(actual, expected, msg) \
+#define FATP_ASSERT_RANGE_EQ(actual, expected, msg) \
     { \
         auto&& actual_val = (actual); \
         auto&& expected_val = (expected); \
@@ -1308,7 +1308,7 @@ namespace fat_p
         if (!ranges_equal) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_RANGE_EQ FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_RANGE_EQ FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << diff_output.str() \
                 << "\n  at " << __FILE__ << ":" << __LINE__ \
@@ -1327,7 +1327,7 @@ namespace fat_p
 								/**
 								 * @brief Assert that two floating-point containers have approximately equal elements
 								 */
-#define ASSERT_RANGE_CLOSE(actual, expected, epsilon, msg) \
+#define FATP_ASSERT_RANGE_CLOSE(actual, expected, epsilon, msg) \
     { \
         auto&& actual_val = (actual); \
         auto&& expected_val = (expected); \
@@ -1365,7 +1365,7 @@ namespace fat_p
         if (!ranges_equal) { \
             *fat_p::testing::get_test_config().error \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold() \
-                << "ASSERT_RANGE_CLOSE FAILED: " << fat_p::testing::colors::reset() \
+                << "FATP_ASSERT_RANGE_CLOSE FAILED: " << fat_p::testing::colors::reset() \
                 << fat_p::testing::colors::red() << msg \
                 << diff_output.str() \
                 << "\n  Epsilon: " << epsilon_val \
@@ -2674,7 +2674,7 @@ namespace fat_p
 				}
 				else
 				{
-					out << "  Baseline: ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  (within 5%)\n";
+					out << "  Baseline: ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  (within 5%)\n";
 				}
 			}
 
@@ -3553,7 +3553,7 @@ namespace fat_p
 					if (!passed)
 					{
 						out << "\n" << colors::red() << colors::bold()
-							<< "  ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Failed on run " << (i + 1) << "/" << max_runs
+							<< "  ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Failed on run " << (i + 1) << "/" << max_runs
 							<< colors::reset() << "\n\n";
 						return i + 1;
 					}
@@ -3569,7 +3569,7 @@ namespace fat_p
 				}
 
 				out << "\n" << colors::green() << colors::bold()
-					<< "  ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ Test passed all " << max_runs << " runs!"
+					<< "  ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ Test passed all " << max_runs << " runs!"
 					<< colors::reset() << "\n\n";
 
 				return 0;
@@ -3591,7 +3591,7 @@ namespace fat_p
 		 *   };
 		 *
 		 *   run_parameterized_test("addition", cases, [](const auto& tc) {
-		 *       ASSERT_EQ(add(std::get<0>(tc.inputs), std::get<1>(tc.inputs)),
+		 *       FATP_ASSERT_EQ(add(std::get<0>(tc.inputs), std::get<1>(tc.inputs)),
 		 *                 std::get<2>(tc.inputs), tc.description);
 		 *       return true;
 		 *   });
@@ -3796,55 +3796,55 @@ namespace fat_p
 		 * @brief Define a test function
 		 *
 		 * Usage:
-		 *   TEST_CASE("my test")
+		 *   FATP_TEST_CASE("my test")
 		 *   {
-		 *       ASSERT_EQ(1 + 1, 2, "Math works");
+		 *       FATP_ASSERT_EQ(1 + 1, 2, "Math works");
 		 *       return true;
 		 *   }
 		 */
-#define TEST_CASE(name) \
+#define FATP_TEST_CASE(name) \
     bool test_##name()
 
 		 /**
 		  * @brief Define a test function with fixture
 		  *
 		  * Usage:
-		  *   TEST_CASE_F(MyFixture, "my test")
+		  *   FATP_TEST_CASE_F(MyFixture, "my test")
 		  *   {
-		  *       ASSERT_NOT_NULLPTR(fixture.db, "Database initialized");
+		  *       FATP_ASSERT_NOT_NULLPTR(fixture.db, "Database initialized");
 		  *       return true;
 		  *   }
 		  */
-#define TEST_CASE_F(fixture_type, name) \
+#define FATP_TEST_CASE_F(fixture_type, name) \
     bool test_##name(fixture_type& fixture)
 
 		  /**
 		   * @brief Run a test case with test runner
 		   *
 		   * Usage:
-		   *   RUN_TEST(runner, my_test);
+		   *   FATP_RUN_TEST(runner, my_test);
 		   */
-#define RUN_TEST(runner, test_name) \
+#define FATP_RUN_TEST(runner, test_name) \
     runner.run_test(#test_name, test_##test_name)
 
 		   /**
 			* @brief Run a test case from a specific namespace
 			*
 			* Usage:
-			*   RUN_TEST_NS(runner, strongid, my_test);
+			*   FATP_RUN_TEST_NS(runner, strongid, my_test);
 			*
 			* Expands to: runner.run_test("my_test", strongid::test_my_test)
 			*/
-#define RUN_TEST_NS(runner, ns, test_name) \
+#define FATP_RUN_TEST_NS(runner, ns, test_name) \
     runner.run_test(#test_name, ns::test_##test_name)
 
 			/**
 			 * @brief Run a test case with fixture
 			 *
 			 * Usage:
-			 *   RUN_TEST_F(runner, MyFixture, my_test);
+			 *   FATP_RUN_TEST_F(runner, MyFixture, my_test);
 			 */
-#define RUN_TEST_F(runner, fixture_type, test_name) \
+#define FATP_RUN_TEST_F(runner, fixture_type, test_name) \
     runner.run_test_with_fixture<fixture_type>(#test_name, test_##test_name)
 
 			 /**
@@ -3856,12 +3856,12 @@ namespace fat_p
 			  *
 			  * Usage example:
 			  * \code
-			  * PRINT_HEADER(CONTRACT EXCEPTION);
+			  * FATP_PRINT_HEADER(CONTRACT EXCEPTION);
 			  * \endcode
 			  *
 			  * @param section The name of the section (e.g., CONTRACT EXCEPTION). It will be stringified.
 			  */
-#define PRINT_HEADER(section) \
+#define FATP_PRINT_HEADER(section) \
     *fat_p::testing::get_test_config().output \
         << "\n==========================================================\n" \
         << #section << " UNIT TESTS\n" \
@@ -3874,31 +3874,31 @@ namespace fat_p
 			   * subsequent subtests will still run. At the end, the overall test passes only
 			   * if all subtests passed.
 			   *
-			   * IMPORTANT: SUBTEST and END_SUBTEST must be paired. The SUBTEST macro begins
-			   * a try block and END_SUBTEST closes it. Forgetting END_SUBTEST will result
+			   * IMPORTANT: FATP_SUBTEST and FATP_END_SUBTEST must be paired. The FATP_SUBTEST macro begins
+			   * a try block and FATP_END_SUBTEST closes it. Forgetting FATP_END_SUBTEST will result
 			   * in a compilation error.
 			   *
-			   * BEHAVIOR: Exceptions thrown inside SUBTEST blocks are caught and recorded as
-			   * failures. Assertion macros (ASSERT_*) also work correctly within SUBTEST blocks,
+			   * BEHAVIOR: Exceptions thrown inside FATP_SUBTEST blocks are caught and recorded as
+			   * failures. Assertion macros (ASSERT_*) also work correctly within FATP_SUBTEST blocks,
 			   * recording failures without exiting the test function.
 			   *
 			   * Usage:
 			   *   bool test_complex()
 			   *   {
-			   *       SUBTEST("initialization") {
-			   *           ASSERT_EQ(init(), 0, "Init succeeds");
+			   *       FATP_SUBTEST("initialization") {
+			   *           FATP_ASSERT_EQ(init(), 0, "Init succeeds");
 			   *       }
-			   *       END_SUBTEST
+			   *       FATP_END_SUBTEST
 			   *
-			   *       SUBTEST("processing") {
-			   *           ASSERT_EQ(process(), 0, "Process succeeds");
+			   *       FATP_SUBTEST("processing") {
+			   *           FATP_ASSERT_EQ(process(), 0, "Process succeeds");
 			   *       }
-			   *       END_SUBTEST
+			   *       FATP_END_SUBTEST
 			   *
 			   *       return fat_p::testing::get_subtest_tracker().all_passed();
 			   *   }
 			   */
-#define SUBTEST(name) \
+#define FATP_SUBTEST(name) \
     if (fat_p::testing::get_subtest_tracker().get_results().empty()) { \
         *fat_p::testing::get_test_config().output << "\n"; \
     } \
@@ -3908,7 +3908,7 @@ namespace fat_p
     fat_p::testing::get_test_config().output->flush(); \
     try
 
-#define END_SUBTEST \
+#define FATP_END_SUBTEST \
     catch (const std::exception& e) { \
         fat_p::testing::get_subtest_tracker().fail_current_subtest(e.what()); \
         *fat_p::testing::get_test_config().output << fat_p::testing::colors::red() \

@@ -194,7 +194,7 @@ struct NormalState {
 // Test Suite 1: Basic State Machine Construction and Initialization
 // ============================================================================
 
-TEST_CASE(state_machine_construction) {
+FATP_TEST_CASE(state_machine_construction) {
     TestContext ctx;
     
     using TransitionList = std::tuple<
@@ -206,15 +206,15 @@ TEST_CASE(state_machine_construction) {
                  NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
     
     // Should start in StateA (index 0) and call its on_entry
-    ASSERT_EQ(sm.current_state_index(), 0, "Should start in first state (StateA)");
-    ASSERT_EQ(ctx.log, std::string("A_entry;"), "Should have called StateA on_entry");
-    ASSERT_EQ(ctx.counter, 1, "Counter should be 1 after StateA entry");
-    ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
+    FATP_ASSERT_EQ(sm.current_state_index(), 0, "Should start in first state (StateA)");
+    FATP_ASSERT_EQ(ctx.log, std::string("A_entry;"), "Should have called StateA on_entry");
+    FATP_ASSERT_EQ(ctx.counter, 1, "Counter should be 1 after StateA entry");
+    FATP_ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
     
     return true;
 }
 
-TEST_CASE(state_machine_default_policy) {
+FATP_TEST_CASE(state_machine_default_policy) {
     TestContext ctx;
     
     // AnyToAnyTransitionPolicy with empty transition list
@@ -223,15 +223,15 @@ TEST_CASE(state_machine_default_policy) {
     StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
                  NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
     
-    ASSERT_EQ(sm.current_state_index(), 0, "Should start in first state");
-    ASSERT_EQ(ctx.log, std::string("A_entry;"), "Should have called StateA on_entry");
-    ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
-    ASSERT_FALSE(sm.is_in_state<StateB>(), "Should not be in StateB");
+    FATP_ASSERT_EQ(sm.current_state_index(), 0, "Should start in first state");
+    FATP_ASSERT_EQ(ctx.log, std::string("A_entry;"), "Should have called StateA on_entry");
+    FATP_ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
+    FATP_ASSERT_FALSE(sm.is_in_state<StateB>(), "Should not be in StateB");
     
     return true;
 }
 
-TEST_CASE(state_machine_custom_initial_state) {
+FATP_TEST_CASE(state_machine_custom_initial_state) {
     TestContext ctx;
     
     using TransitionList = std::tuple<>;
@@ -240,19 +240,19 @@ TEST_CASE(state_machine_custom_initial_state) {
     StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
                  NoExceptActionPolicy, 1, StateA, StateB, StateC> sm(ctx);
     
-    ASSERT_EQ(sm.current_state_index(), 1, "Should start in StateB (index 1)");
-    ASSERT_EQ(ctx.log, std::string("B_entry;"), "Should have called StateB on_entry");
-    ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
-    ASSERT_FALSE(sm.is_in_state<StateA>(), "Should not be in StateA");
+    FATP_ASSERT_EQ(sm.current_state_index(), 1, "Should start in StateB (index 1)");
+    FATP_ASSERT_EQ(ctx.log, std::string("B_entry;"), "Should have called StateB on_entry");
+    FATP_ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
+    FATP_ASSERT_FALSE(sm.is_in_state<StateA>(), "Should not be in StateA");
     
     // Start at index 2 (StateC)
     ctx.reset();
     StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
                  NoExceptActionPolicy, 2, StateA, StateB, StateC> sm2(ctx);
     
-    ASSERT_EQ(sm2.current_state_index(), 2, "Should start in StateC (index 2)");
-    ASSERT_EQ(ctx.log, std::string("C_entry;"), "Should have called StateC on_entry");
-    ASSERT_TRUE(sm2.is_in_state<StateC>(), "Should be in StateC");
+    FATP_ASSERT_EQ(sm2.current_state_index(), 2, "Should start in StateC (index 2)");
+    FATP_ASSERT_EQ(ctx.log, std::string("C_entry;"), "Should have called StateC on_entry");
+    FATP_ASSERT_TRUE(sm2.is_in_state<StateC>(), "Should be in StateC");
     
     return true;
 }
@@ -261,7 +261,7 @@ TEST_CASE(state_machine_custom_initial_state) {
 // Test Suite 2: Basic State Transitions
 // ============================================================================
 
-TEST_CASE(simple_transition) {
+FATP_TEST_CASE(simple_transition) {
     TestContext ctx;
     
     using TransitionList = std::tuple<
@@ -275,15 +275,15 @@ TEST_CASE(simple_transition) {
     ctx.log.clear();
     sm.transition<StateB>();
     
-    ASSERT_EQ(sm.current_state_index(), 1, "Should now be in StateB (index 1)");
-    ASSERT_EQ(ctx.log, std::string("A_exit;B_entry;"), "Should exit A and enter B");
-    ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
-    ASSERT_FALSE(sm.is_in_state<StateA>(), "Should not be in StateA");
+    FATP_ASSERT_EQ(sm.current_state_index(), 1, "Should now be in StateB (index 1)");
+    FATP_ASSERT_EQ(ctx.log, std::string("A_exit;B_entry;"), "Should exit A and enter B");
+    FATP_ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
+    FATP_ASSERT_FALSE(sm.is_in_state<StateA>(), "Should not be in StateA");
     
     return true;
 }
 
-TEST_CASE(chained_transitions) {
+FATP_TEST_CASE(chained_transitions) {
     TestContext ctx;
     
     using TransitionList = std::tuple<
@@ -299,26 +299,26 @@ TEST_CASE(chained_transitions) {
     ctx.counter = 0;
     
     sm.transition<StateB>();
-    ASSERT_EQ(sm.current_state_index(), 1, "Should be in StateB");
-    ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
+    FATP_ASSERT_EQ(sm.current_state_index(), 1, "Should be in StateB");
+    FATP_ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
     
     sm.transition<StateC>();
-    ASSERT_EQ(sm.current_state_index(), 2, "Should be in StateC");
-    ASSERT_TRUE(sm.is_in_state<StateC>(), "Should be in StateC");
+    FATP_ASSERT_EQ(sm.current_state_index(), 2, "Should be in StateC");
+    FATP_ASSERT_TRUE(sm.is_in_state<StateC>(), "Should be in StateC");
     
     sm.transition<StateA>();
-    ASSERT_EQ(sm.current_state_index(), 0, "Should be back in StateA");
-    ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
+    FATP_ASSERT_EQ(sm.current_state_index(), 0, "Should be back in StateA");
+    FATP_ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
     
     // Should have: A_exit, B_entry, B_exit, C_entry, C_exit, A_entry
-    ASSERT_EQ(ctx.counter, 6, "Should have 6 action calls");
-    ASSERT_EQ(ctx.log, std::string("A_exit;B_entry;B_exit;C_entry;C_exit;A_entry;"),
+    FATP_ASSERT_EQ(ctx.counter, 6, "Should have 6 action calls");
+    FATP_ASSERT_EQ(ctx.log, std::string("A_exit;B_entry;B_exit;C_entry;C_exit;A_entry;"),
               "Transition sequence should be correct");
     
     return true;
 }
 
-TEST_CASE(self_transition_is_noop) {
+FATP_TEST_CASE(self_transition_is_noop) {
     TestContext ctx;
     
     using TransitionList = std::tuple<
@@ -334,15 +334,15 @@ TEST_CASE(self_transition_is_noop) {
     
     sm.transition<StateA>();  // Transition to self
     
-    ASSERT_EQ(sm.current_state_index(), 0, "Should remain in StateA");
-    ASSERT_EQ(ctx.log, std::string(""), "Self-transition should not call actions");
-    ASSERT_EQ(ctx.counter, 0, "Counter should not change");
-    ASSERT_TRUE(sm.is_in_state<StateA>(), "Should still be in StateA");
+    FATP_ASSERT_EQ(sm.current_state_index(), 0, "Should remain in StateA");
+    FATP_ASSERT_EQ(ctx.log, std::string(""), "Self-transition should not call actions");
+    FATP_ASSERT_EQ(ctx.counter, 0, "Counter should not change");
+    FATP_ASSERT_TRUE(sm.is_in_state<StateA>(), "Should still be in StateA");
     
     return true;
 }
 
-TEST_CASE(multiple_transitions_same_state) {
+FATP_TEST_CASE(multiple_transitions_same_state) {
     TestContext ctx;
     
     using TransitionList = std::tuple<
@@ -361,8 +361,8 @@ TEST_CASE(multiple_transitions_same_state) {
     sm.transition<StateB>();
     sm.transition<StateA>();
     
-    ASSERT_EQ(sm.current_state_index(), 0, "Should be in StateA");
-    ASSERT_TRUE(ctx.log.find("A_exit;B_entry;B_exit;A_entry;A_exit;B_entry;B_exit;A_entry;") != std::string::npos,
+    FATP_ASSERT_EQ(sm.current_state_index(), 0, "Should be in StateA");
+    FATP_ASSERT_TRUE(ctx.log.find("A_exit;B_entry;B_exit;A_entry;A_exit;B_entry;B_exit;A_entry;") != std::string::npos,
                "Should have multiple back-and-forth transitions");
     
     return true;
@@ -372,7 +372,7 @@ TEST_CASE(multiple_transitions_same_state) {
 // Test Suite 3: StrictTransitionPolicy Validation
 // ============================================================================
 
-TEST_CASE(strict_policy_valid_transitions) {
+FATP_TEST_CASE(strict_policy_valid_transitions) {
     TestContext ctx;
     
     using TransitionList = std::tuple<
@@ -391,19 +391,19 @@ TEST_CASE(strict_policy_valid_transitions) {
     
     // Valid transitions
     sm.transition<ProcessingState>();
-    ASSERT_EQ(ctx.flag, true, "Flag should be set in ProcessingState");
-    ASSERT_EQ(ctx.counter, 10, "Counter should be 10");
+    FATP_ASSERT_EQ(ctx.flag, true, "Flag should be set in ProcessingState");
+    FATP_ASSERT_EQ(ctx.counter, 10, "Counter should be 10");
     
     sm.transition<CompletedState>();
-    ASSERT_EQ(ctx.counter, 110, "Counter should be 110 after completion");
+    FATP_ASSERT_EQ(ctx.counter, 110, "Counter should be 110 after completion");
     
     sm.transition<IdleState>();
-    ASSERT_EQ(ctx.flag, false, "Flag should be cleared in IdleState");
+    FATP_ASSERT_EQ(ctx.flag, false, "Flag should be cleared in IdleState");
     
     return true;
 }
 
-TEST_CASE(strict_policy_invalid_transition_throws) {
+FATP_TEST_CASE(strict_policy_invalid_transition_throws) {
     TestContext ctx;
     
     using TransitionList = std::tuple<
@@ -420,18 +420,18 @@ TEST_CASE(strict_policy_invalid_transition_throws) {
     } catch (const std::runtime_error& e) {
         exception_thrown = true;
         std::string msg = e.what();
-        ASSERT_TRUE(msg.find("not valid") != std::string::npos,
+        FATP_ASSERT_TRUE(msg.find("not valid") != std::string::npos,
                    "Exception message should mention invalid transition");
     }
     
-    ASSERT_TRUE(exception_thrown, "Should throw on invalid transition");
-    ASSERT_EQ(sm.current_state_index(), 0, "Should remain in original state after failed transition");
-    ASSERT_TRUE(sm.is_in_state<StateA>(), "Should still be in StateA");
+    FATP_ASSERT_TRUE(exception_thrown, "Should throw on invalid transition");
+    FATP_ASSERT_EQ(sm.current_state_index(), 0, "Should remain in original state after failed transition");
+    FATP_ASSERT_TRUE(sm.is_in_state<StateA>(), "Should still be in StateA");
     
     return true;
 }
 
-TEST_CASE(strict_policy_complex_graph) {
+FATP_TEST_CASE(strict_policy_complex_graph) {
     TestContext ctx;
     
     // Complex state graph: Idle -> Processing -> {Completed, Error}
@@ -453,13 +453,13 @@ TEST_CASE(strict_policy_complex_graph) {
     ctx.reset();
     sm.transition<ProcessingState>();
     sm.transition<ErrorState>();
-    ASSERT_EQ(ctx.counter, -1, "Error state should set counter to -1");
-    ASSERT_TRUE(sm.is_in_state<ErrorState>(), "Should be in ErrorState");
+    FATP_ASSERT_EQ(ctx.counter, -1, "Error state should set counter to -1");
+    FATP_ASSERT_TRUE(sm.is_in_state<ErrorState>(), "Should be in ErrorState");
     
     // Recover from error
     sm.transition<IdleState>();
-    ASSERT_EQ(ctx.flag, false, "Should be back in idle state");
-    ASSERT_TRUE(sm.is_in_state<IdleState>(), "Should be in IdleState");
+    FATP_ASSERT_EQ(ctx.flag, false, "Should be back in idle state");
+    FATP_ASSERT_TRUE(sm.is_in_state<IdleState>(), "Should be in IdleState");
     
     return true;
 }
@@ -483,8 +483,8 @@ TEST_CASE(strict_policy_complex_graph) {
             caught = true;
         }
         
-        ASSERT_TRUE(caught, "Should not allow shortcut transitions");
-        ASSERT_TRUE(sm.is_in_state<IdleState>(), "Should remain in IdleState");
+        FATP_ASSERT_TRUE(caught, "Should not allow shortcut transitions");
+        FATP_ASSERT_TRUE(sm.is_in_state<IdleState>(), "Should remain in IdleState");
         
         return true;
     }
@@ -504,16 +504,16 @@ TEST_CASE(strict_policy_complex_graph) {
         // Any transition should work
         ctx.log.clear();
         sm.transition<StateC>();  // A -> C (would be invalid in strict)
-        ASSERT_EQ(sm.current_state_index(), 2, "Should be in StateC");
-        ASSERT_TRUE(sm.is_in_state<StateC>(), "Should be in StateC");
+        FATP_ASSERT_EQ(sm.current_state_index(), 2, "Should be in StateC");
+        FATP_ASSERT_TRUE(sm.is_in_state<StateC>(), "Should be in StateC");
         
         sm.transition<StateA>();  // C -> A
-        ASSERT_EQ(sm.current_state_index(), 0, "Should be back in StateA");
-        ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
+        FATP_ASSERT_EQ(sm.current_state_index(), 0, "Should be back in StateA");
+        FATP_ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
         
         sm.transition<StateB>();  // A -> B
-        ASSERT_EQ(sm.current_state_index(), 1, "Should be in StateB");
-        ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
+        FATP_ASSERT_EQ(sm.current_state_index(), 1, "Should be in StateB");
+        FATP_ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
         
         return true;
     }
@@ -529,18 +529,18 @@ TEST_CASE(strict_policy_complex_graph) {
         
         // Jump directly from Idle to Completed (not typical but allowed)
         sm.transition<CompletedState>();
-        ASSERT_EQ(ctx.counter, 100, "Should have Completed counter value");
-        ASSERT_TRUE(sm.is_in_state<CompletedState>(), "Should be in CompletedState");
+        FATP_ASSERT_EQ(ctx.counter, 100, "Should have Completed counter value");
+        FATP_ASSERT_TRUE(sm.is_in_state<CompletedState>(), "Should be in CompletedState");
         
         // Jump to Error from Completed
         sm.transition<ErrorState>();
-        ASSERT_EQ(ctx.counter, -1, "Should have Error counter value");
-        ASSERT_TRUE(sm.is_in_state<ErrorState>(), "Should be in ErrorState");
+        FATP_ASSERT_EQ(ctx.counter, -1, "Should have Error counter value");
+        FATP_ASSERT_TRUE(sm.is_in_state<ErrorState>(), "Should be in ErrorState");
         
         // Any transition is valid
         sm.transition<ProcessingState>();
-        ASSERT_EQ(ctx.flag, true, "Should be processing");
-        ASSERT_TRUE(sm.is_in_state<ProcessingState>(), "Should be in ProcessingState");
+        FATP_ASSERT_EQ(ctx.flag, true, "Should be processing");
+        FATP_ASSERT_TRUE(sm.is_in_state<ProcessingState>(), "Should be in ProcessingState");
         
         return true;
     }
@@ -555,14 +555,14 @@ TEST_CASE(strict_policy_complex_graph) {
         
         // Test all permutations work
         sm.transition<StateD>();
-        ASSERT_TRUE(sm.is_in_state<StateD>(), "Should be in StateD");
-        ASSERT_EQ(ctx.counter, 12, "Counter should reflect StateD entry");  // 1 from A init + 1 from A exit + 10 from D entry
+        FATP_ASSERT_TRUE(sm.is_in_state<StateD>(), "Should be in StateD");
+        FATP_ASSERT_EQ(ctx.counter, 12, "Counter should reflect StateD entry");  // 1 from A init + 1 from A exit + 10 from D entry
         
         sm.transition<StateB>();
-        ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
+        FATP_ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
         
         sm.transition<StateA>();
-        ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
+        FATP_ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
         
         return true;
     }
@@ -609,11 +609,11 @@ TEST_CASE(strict_policy_complex_graph) {
             sm.transition<ThrowingEntryState>();
         } catch (const std::runtime_error& e) {
             exception_caught = true;
-            ASSERT_TRUE(std::string(e.what()).find("Entry action failed") != std::string::npos,
+            FATP_ASSERT_TRUE(std::string(e.what()).find("Entry action failed") != std::string::npos,
                        "Should catch entry action exception");
         }
         
-        ASSERT_TRUE(exception_caught, "Exception should be thrown and caught");
+        FATP_ASSERT_TRUE(exception_caught, "Exception should be thrown and caught");
         
         return true;
     }
@@ -632,11 +632,11 @@ TEST_CASE(strict_policy_complex_graph) {
             sm.transition<NormalState>();
         } catch (const std::runtime_error& e) {
             exception_caught = true;
-            ASSERT_TRUE(std::string(e.what()).find("Exit action failed") != std::string::npos,
+            FATP_ASSERT_TRUE(std::string(e.what()).find("Exit action failed") != std::string::npos,
                        "Should catch exit action exception");
         }
         
-        ASSERT_TRUE(exception_caught, "Exit exception should be thrown and caught");
+        FATP_ASSERT_TRUE(exception_caught, "Exit exception should be thrown and caught");
         
         return true;
     }
@@ -658,15 +658,15 @@ TEST_CASE(strict_policy_complex_graph) {
         StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
                      NoExceptActionPolicy, 0, IdleState, ProcessingState, CompletedState> sm(ctx);
         
-        ASSERT_EQ(ctx.flag, false, "Initial flag should be false");
-        ASSERT_EQ(ctx.counter, 0, "Initial counter should be 0");
+        FATP_ASSERT_EQ(ctx.flag, false, "Initial flag should be false");
+        FATP_ASSERT_EQ(ctx.counter, 0, "Initial counter should be 0");
         
         sm.transition<ProcessingState>();
-        ASSERT_EQ(ctx.flag, true, "Processing should set flag");
-        ASSERT_EQ(ctx.counter, 10, "Processing should increment counter");
+        FATP_ASSERT_EQ(ctx.flag, true, "Processing should set flag");
+        FATP_ASSERT_EQ(ctx.counter, 10, "Processing should increment counter");
         
         sm.transition<CompletedState>();
-        ASSERT_EQ(ctx.counter, 110, "Completed should add to counter");
+        FATP_ASSERT_EQ(ctx.counter, 110, "Completed should add to counter");
         
         return true;
     }
@@ -688,8 +688,8 @@ TEST_CASE(strict_policy_complex_graph) {
         
         // Log should contain initial entry plus all transitions
         std::string expected = "A_entry;A_exit;B_entry;B_exit;C_entry;C_exit;A_entry;A_exit;B_entry;";
-        ASSERT_EQ(ctx.log, expected, "Context log should persist and accumulate");
-        ASSERT_EQ(ctx.counter, 9, "Counter should reflect all actions");  // 1 initial + 8 from transitions
+        FATP_ASSERT_EQ(ctx.log, expected, "Context log should persist and accumulate");
+        FATP_ASSERT_EQ(ctx.counter, 9, "Counter should reflect all actions");  // 1 initial + 8 from transitions
         
         return true;
     }
@@ -704,12 +704,12 @@ TEST_CASE(strict_policy_complex_graph) {
                      NoExceptActionPolicy, 0, StateA, StateB> sm(ctx);
         
         // Initial state entry should modify context
-        ASSERT_EQ(ctx.counter, 101, "Initial state should have incremented counter");
+        FATP_ASSERT_EQ(ctx.counter, 101, "Initial state should have incremented counter");
         
         // External modification should be visible
         ctx.counter = 50;
         sm.transition<StateB>();
-        ASSERT_EQ(ctx.counter, 52, "External modifications should be visible");  // 50 + 1 (A exit) + 1 (B entry)
+        FATP_ASSERT_EQ(ctx.counter, 52, "External modifications should be visible");  // 50 + 1 (A exit) + 1 (B entry)
         
         return true;
     }
@@ -726,16 +726,16 @@ TEST_CASE(strict_policy_complex_graph) {
         StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
                      NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
         
-        ASSERT_EQ(sm.current_state_index(), 0, "Should start at index 0");
+        FATP_ASSERT_EQ(sm.current_state_index(), 0, "Should start at index 0");
         
         sm.transition<StateB>();
-        ASSERT_EQ(sm.current_state_index(), 1, "Should be at index 1");
+        FATP_ASSERT_EQ(sm.current_state_index(), 1, "Should be at index 1");
         
         sm.transition<StateC>();
-        ASSERT_EQ(sm.current_state_index(), 2, "Should be at index 2");
+        FATP_ASSERT_EQ(sm.current_state_index(), 2, "Should be at index 2");
         
         sm.transition<StateA>();
-        ASSERT_EQ(sm.current_state_index(), 0, "Should be back at index 0");
+        FATP_ASSERT_EQ(sm.current_state_index(), 0, "Should be back at index 0");
         
         return true;
     }
@@ -748,19 +748,19 @@ TEST_CASE(strict_policy_complex_graph) {
         StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
                      NoExceptActionPolicy, 0, StateA, StateB, StateC> sm(ctx);
         
-        ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
-        ASSERT_FALSE(sm.is_in_state<StateB>(), "Should not be in StateB");
-        ASSERT_FALSE(sm.is_in_state<StateC>(), "Should not be in StateC");
+        FATP_ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
+        FATP_ASSERT_FALSE(sm.is_in_state<StateB>(), "Should not be in StateB");
+        FATP_ASSERT_FALSE(sm.is_in_state<StateC>(), "Should not be in StateC");
         
         sm.transition<StateB>();
-        ASSERT_FALSE(sm.is_in_state<StateA>(), "Should not be in StateA");
-        ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
-        ASSERT_FALSE(sm.is_in_state<StateC>(), "Should not be in StateC");
+        FATP_ASSERT_FALSE(sm.is_in_state<StateA>(), "Should not be in StateA");
+        FATP_ASSERT_TRUE(sm.is_in_state<StateB>(), "Should be in StateB");
+        FATP_ASSERT_FALSE(sm.is_in_state<StateC>(), "Should not be in StateC");
         
         sm.transition<StateC>();
-        ASSERT_FALSE(sm.is_in_state<StateA>(), "Should not be in StateA");
-        ASSERT_FALSE(sm.is_in_state<StateB>(), "Should not be in StateB");
-        ASSERT_TRUE(sm.is_in_state<StateC>(), "Should be in StateC");
+        FATP_ASSERT_FALSE(sm.is_in_state<StateA>(), "Should not be in StateA");
+        FATP_ASSERT_FALSE(sm.is_in_state<StateB>(), "Should not be in StateB");
+        FATP_ASSERT_TRUE(sm.is_in_state<StateC>(), "Should be in StateC");
         
         return true;
     }
@@ -774,16 +774,16 @@ TEST_CASE(strict_policy_complex_graph) {
                      NoExceptActionPolicy, 0, IdleState, ProcessingState, CompletedState, ErrorState> sm(ctx);
         
         // is_in_state should match current_state_index
-        ASSERT_EQ(sm.current_state_index(), 0, "Index should be 0");
-        ASSERT_TRUE(sm.is_in_state<IdleState>(), "Should be in IdleState");
+        FATP_ASSERT_EQ(sm.current_state_index(), 0, "Index should be 0");
+        FATP_ASSERT_TRUE(sm.is_in_state<IdleState>(), "Should be in IdleState");
         
         sm.transition<ProcessingState>();
-        ASSERT_EQ(sm.current_state_index(), 1, "Index should be 1");
-        ASSERT_TRUE(sm.is_in_state<ProcessingState>(), "Should be in ProcessingState");
+        FATP_ASSERT_EQ(sm.current_state_index(), 1, "Index should be 1");
+        FATP_ASSERT_TRUE(sm.is_in_state<ProcessingState>(), "Should be in ProcessingState");
         
         sm.transition<ErrorState>();
-        ASSERT_EQ(sm.current_state_index(), 3, "Index should be 3");
-        ASSERT_TRUE(sm.is_in_state<ErrorState>(), "Should be in ErrorState");
+        FATP_ASSERT_EQ(sm.current_state_index(), 3, "Index should be 3");
+        FATP_ASSERT_TRUE(sm.is_in_state<ErrorState>(), "Should be in ErrorState");
         
         return true;
     }
@@ -800,14 +800,14 @@ TEST_CASE(strict_policy_complex_graph) {
         StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
                      NoExceptActionPolicy, 0, StateA> sm(ctx);
         
-        ASSERT_EQ(sm.current_state_index(), 0, "Should be at index 0");
-        ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
-        ASSERT_EQ(ctx.log, std::string("A_entry;"), "Should have called entry");
+        FATP_ASSERT_EQ(sm.current_state_index(), 0, "Should be at index 0");
+        FATP_ASSERT_TRUE(sm.is_in_state<StateA>(), "Should be in StateA");
+        FATP_ASSERT_EQ(ctx.log, std::string("A_entry;"), "Should have called entry");
         
         // Self-transition should be no-op
         ctx.log.clear();
         sm.transition<StateA>();
-        ASSERT_EQ(ctx.log, std::string(""), "Self-transition should be no-op");
+        FATP_ASSERT_EQ(ctx.log, std::string(""), "Self-transition should be no-op");
         
         return true;
     }
@@ -821,14 +821,14 @@ TEST_CASE(strict_policy_complex_graph) {
         StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
                      NoExceptActionPolicy, 0, StateA, StateB, StateC, StateD> sm(ctx);
         
-        ASSERT_EQ(sm.current_state_index(), 0, "Should start at index 0");
+        FATP_ASSERT_EQ(sm.current_state_index(), 0, "Should start at index 0");
         
         sm.transition<StateD>();
-        ASSERT_EQ(sm.current_state_index(), 3, "Should be at index 3");
-        ASSERT_TRUE(sm.is_in_state<StateD>(), "Should be in StateD");
+        FATP_ASSERT_EQ(sm.current_state_index(), 3, "Should be at index 3");
+        FATP_ASSERT_TRUE(sm.is_in_state<StateD>(), "Should be in StateD");
         
         sm.transition<StateB>();
-        ASSERT_EQ(sm.current_state_index(), 1, "Should be at index 1");
+        FATP_ASSERT_EQ(sm.current_state_index(), 1, "Should be at index 1");
         
         return true;
     }
@@ -846,10 +846,10 @@ TEST_CASE(strict_policy_complex_graph) {
         StateMachine<TestContext, TransitionList, AnyToAnyTransitionPolicy,
                      NoExceptActionPolicy, 0, QuietState, StateA> sm(ctx);
         
-        ASSERT_EQ(ctx.log, std::string(""), "Quiet state should not log");
+        FATP_ASSERT_EQ(ctx.log, std::string(""), "Quiet state should not log");
         
         sm.transition<StateA>();
-        ASSERT_EQ(ctx.log, std::string("A_entry;"), "Only StateA should log");
+        FATP_ASSERT_EQ(ctx.log, std::string("A_entry;"), "Only StateA should log");
         
         return true;
     }
@@ -863,8 +863,8 @@ TEST_CASE(strict_policy_complex_graph) {
                      NoExceptActionPolicy, 0, StateA, StateB> sm(ctx);
         
         // Initial entry should have been called exactly once
-        ASSERT_EQ(ctx.counter, 1, "Entry should be called once on construction");
-        ASSERT_EQ(ctx.log, std::string("A_entry;"), "Should have one entry log");
+        FATP_ASSERT_EQ(ctx.counter, 1, "Entry should be called once on construction");
+        FATP_ASSERT_EQ(ctx.log, std::string("A_entry;"), "Should have one entry log");
         
         return true;
     }
@@ -935,28 +935,28 @@ TEST_CASE(strict_policy_complex_graph) {
                      CompletedState, ErrorState> sm(ctx);
         
         // Happy path
-        ASSERT_TRUE(sm.is_in_state<IdleState>(), "Start in Idle");
+        FATP_ASSERT_TRUE(sm.is_in_state<IdleState>(), "Start in Idle");
         
         sm.transition<ProcessingState>();
-        ASSERT_TRUE(sm.is_in_state<ProcessingState>(), "Move to Processing");
-        ASSERT_EQ(ctx.counter, 10, "Processing increments counter");
+        FATP_ASSERT_TRUE(sm.is_in_state<ProcessingState>(), "Move to Processing");
+        FATP_ASSERT_EQ(ctx.counter, 10, "Processing increments counter");
         
         sm.transition<CompletedState>();
-        ASSERT_TRUE(sm.is_in_state<CompletedState>(), "Move to Completed");
-        ASSERT_EQ(ctx.counter, 110, "Completed adds to counter");
+        FATP_ASSERT_TRUE(sm.is_in_state<CompletedState>(), "Move to Completed");
+        FATP_ASSERT_EQ(ctx.counter, 110, "Completed adds to counter");
         
         sm.transition<IdleState>();
-        ASSERT_TRUE(sm.is_in_state<IdleState>(), "Back to Idle");
+        FATP_ASSERT_TRUE(sm.is_in_state<IdleState>(), "Back to Idle");
         
         // Error path
         ctx.counter = 0;
         sm.transition<ProcessingState>();
         sm.transition<ErrorState>();
-        ASSERT_TRUE(sm.is_in_state<ErrorState>(), "Error state reached");
-        ASSERT_EQ(ctx.counter, -1, "Error resets counter");
+        FATP_ASSERT_TRUE(sm.is_in_state<ErrorState>(), "Error state reached");
+        FATP_ASSERT_EQ(ctx.counter, -1, "Error resets counter");
         
         sm.transition<IdleState>();
-        ASSERT_TRUE(sm.is_in_state<IdleState>(), "Recovered to Idle");
+        FATP_ASSERT_TRUE(sm.is_in_state<IdleState>(), "Recovered to Idle");
         
         return true;
     }
@@ -982,8 +982,8 @@ TEST_CASE(strict_policy_complex_graph) {
             sm.transition<StateA>();
         }
         
-        ASSERT_TRUE(sm.is_in_state<StateA>(), "Should end in StateA");
-        ASSERT_EQ(ctx.counter, 18, "Should have 6 actions per cycle * 3 cycles");
+        FATP_ASSERT_TRUE(sm.is_in_state<StateA>(), "Should end in StateA");
+        FATP_ASSERT_EQ(ctx.counter, 18, "Should have 6 actions per cycle * 3 cycles");
         
         return true;
     }
@@ -1001,16 +1001,16 @@ TEST_CASE(strict_policy_complex_graph) {
         StateMachine<TestContext, TransitionList, StrictTransitionPolicy,
                      NoExceptActionPolicy, 1, IdleState, ProcessingState, CompletedState> sm(ctx);
         
-        ASSERT_TRUE(sm.is_in_state<ProcessingState>(), "Should start in ProcessingState");
-        ASSERT_EQ(ctx.counter, 10, "Should have Processing initial counter");
-        ASSERT_EQ(ctx.flag, true, "Processing should set flag");
+        FATP_ASSERT_TRUE(sm.is_in_state<ProcessingState>(), "Should start in ProcessingState");
+        FATP_ASSERT_EQ(ctx.counter, 10, "Should have Processing initial counter");
+        FATP_ASSERT_EQ(ctx.flag, true, "Processing should set flag");
         
         // Complete workflow from processing
         sm.transition<CompletedState>();
         sm.transition<IdleState>();
         
-        ASSERT_TRUE(sm.is_in_state<IdleState>(), "Should reach IdleState");
-        ASSERT_EQ(ctx.flag, false, "Idle should clear flag");
+        FATP_ASSERT_TRUE(sm.is_in_state<IdleState>(), "Should reach IdleState");
+        FATP_ASSERT_EQ(ctx.flag, false, "Idle should clear flag");
         
         return true;
     }
@@ -1027,71 +1027,71 @@ namespace fat_p::testing
 
 bool test_StateMachine() {
     
-    PRINT_HEADER(STATE MACHINE)
+    FATP_PRINT_HEADER(STATE MACHINE)
 
     TestRunner runner;
 
     // Suite 1: Construction
     std::cout << "Suite 1: Construction and Initialization\n";
-    RUN_TEST_NS(runner, statemachine, state_machine_construction);
-    RUN_TEST_NS(runner, statemachine, state_machine_default_policy);
-    RUN_TEST_NS(runner, statemachine, state_machine_custom_initial_state);
+    FATP_RUN_TEST_NS(runner, statemachine, state_machine_construction);
+    FATP_RUN_TEST_NS(runner, statemachine, state_machine_default_policy);
+    FATP_RUN_TEST_NS(runner, statemachine, state_machine_custom_initial_state);
     
     // Suite 2: Basic Transitions
     std::cout << "\nSuite 2: Basic State Transitions\n";
-    RUN_TEST_NS(runner, statemachine, simple_transition);
-    RUN_TEST_NS(runner, statemachine, chained_transitions);
-    RUN_TEST_NS(runner, statemachine, self_transition_is_noop);
-    RUN_TEST_NS(runner, statemachine, multiple_transitions_same_state);
+    FATP_RUN_TEST_NS(runner, statemachine, simple_transition);
+    FATP_RUN_TEST_NS(runner, statemachine, chained_transitions);
+    FATP_RUN_TEST_NS(runner, statemachine, self_transition_is_noop);
+    FATP_RUN_TEST_NS(runner, statemachine, multiple_transitions_same_state);
     
     // Suite 3: Strict Policy
     std::cout << "\nSuite 3: StrictTransitionPolicy\n";
-    RUN_TEST_NS(runner, statemachine, strict_policy_valid_transitions);
-    RUN_TEST_NS(runner, statemachine, strict_policy_invalid_transition_throws);
-    RUN_TEST_NS(runner, statemachine, strict_policy_complex_graph);
-    RUN_TEST_NS(runner, statemachine, strict_policy_prevents_shortcut);
+    FATP_RUN_TEST_NS(runner, statemachine, strict_policy_valid_transitions);
+    FATP_RUN_TEST_NS(runner, statemachine, strict_policy_invalid_transition_throws);
+    FATP_RUN_TEST_NS(runner, statemachine, strict_policy_complex_graph);
+    FATP_RUN_TEST_NS(runner, statemachine, strict_policy_prevents_shortcut);
     
     // Suite 4: AnyToAny Policy
     std::cout << "\nSuite 4: AnyToAnyTransitionPolicy\n";
-    RUN_TEST_NS(runner, statemachine, any_to_any_policy_all_transitions);
-    RUN_TEST_NS(runner, statemachine, any_to_any_with_complex_states);
-    RUN_TEST_NS(runner, statemachine, any_to_any_with_four_states);
+    FATP_RUN_TEST_NS(runner, statemachine, any_to_any_policy_all_transitions);
+    FATP_RUN_TEST_NS(runner, statemachine, any_to_any_with_complex_states);
+    FATP_RUN_TEST_NS(runner, statemachine, any_to_any_with_four_states);
     
     // Suite 5: Action Policies
     std::cout << "\nSuite 5: Action Policies\n";
-    RUN_TEST_NS(runner, statemachine, noexcept_policy_compiles);
-    RUN_TEST_NS(runner, statemachine, throwing_policy_allows_exceptions);
-    RUN_TEST_NS(runner, statemachine, throwing_exit_action);
+    FATP_RUN_TEST_NS(runner, statemachine, noexcept_policy_compiles);
+    FATP_RUN_TEST_NS(runner, statemachine, throwing_policy_allows_exceptions);
+    FATP_RUN_TEST_NS(runner, statemachine, throwing_exit_action);
     
     // Suite 6: Context Sharing
     std::cout << "\nSuite 6: Context Sharing\n";
-    RUN_TEST_NS(runner, statemachine, context_shared_between_states);
-    RUN_TEST_NS(runner, statemachine, context_persistence_across_transitions);
-    RUN_TEST_NS(runner, statemachine, context_modification_visible);
+    FATP_RUN_TEST_NS(runner, statemachine, context_shared_between_states);
+    FATP_RUN_TEST_NS(runner, statemachine, context_persistence_across_transitions);
+    FATP_RUN_TEST_NS(runner, statemachine, context_modification_visible);
     
     // Suite 7: State Queries
     std::cout << "\nSuite 7: State Query Operations\n";
-    RUN_TEST_NS(runner, statemachine, current_state_index);
-    RUN_TEST_NS(runner, statemachine, is_in_state);
-    RUN_TEST_NS(runner, statemachine, query_operations_consistency);
+    FATP_RUN_TEST_NS(runner, statemachine, current_state_index);
+    FATP_RUN_TEST_NS(runner, statemachine, is_in_state);
+    FATP_RUN_TEST_NS(runner, statemachine, query_operations_consistency);
     
     // Suite 8: Edge Cases
     std::cout << "\nSuite 8: Edge Cases\n";
-    RUN_TEST_NS(runner, statemachine, single_state_machine);
-    RUN_TEST_NS(runner, statemachine, large_state_machine);
-    RUN_TEST_NS(runner, statemachine, empty_log_accumulation);
-    RUN_TEST_NS(runner, statemachine, initial_state_action_called_once);
+    FATP_RUN_TEST_NS(runner, statemachine, single_state_machine);
+    FATP_RUN_TEST_NS(runner, statemachine, large_state_machine);
+    FATP_RUN_TEST_NS(runner, statemachine, empty_log_accumulation);
+    FATP_RUN_TEST_NS(runner, statemachine, initial_state_action_called_once);
     
     // Suite 9: Compile-Time Validation
     std::cout << "\nSuite 9: Compile-Time Validation\n";
-    RUN_TEST_NS(runner, statemachine, compile_time_state_validation);
-    RUN_TEST_NS(runner, statemachine, noexcept_specification);
+    FATP_RUN_TEST_NS(runner, statemachine, compile_time_state_validation);
+    FATP_RUN_TEST_NS(runner, statemachine, noexcept_specification);
     
     // Suite 10: Complex Scenarios
     std::cout << "\nSuite 10: Complex Scenarios\n";
-    RUN_TEST_NS(runner, statemachine, workflow_simulation);
-    RUN_TEST_NS(runner, statemachine, cyclic_transitions);
-    RUN_TEST_NS(runner, statemachine, state_machine_with_custom_initial);
+    FATP_RUN_TEST_NS(runner, statemachine, workflow_simulation);
+    FATP_RUN_TEST_NS(runner, statemachine, cyclic_transitions);
+    FATP_RUN_TEST_NS(runner, statemachine, state_machine_with_custom_initial);
     
     return 0 == runner.print_summary();
 }

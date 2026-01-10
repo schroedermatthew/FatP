@@ -44,7 +44,7 @@ namespace fat_p::testing::viewlifetimetracking
 // Test 1: Basic Lifetime Tracking
 // =============================================================================
 
-TEST_CASE(basic_lifetime_tracking)
+FATP_TEST_CASE(basic_lifetime_tracking)
 {
     std::cout << colors::cyan() << "\n[TEST] Basic Lifetime Tracking"
               << colors::reset() << std::endl;
@@ -55,8 +55,8 @@ TEST_CASE(basic_lifetime_tracking)
         LifetimeTracker<std::vector<int>> tracker(data, "test_vector");
         
         auto view = tracker.create_view();
-        ASSERT_TRUE(view.is_valid(), "View should be valid");
-        ASSERT_EQ(view->size(), 5, "View should access data");
+        FATP_ASSERT_TRUE(view.is_valid(), "View should be valid");
+        FATP_ASSERT_EQ(view->size(), 5, "View should access data");
         
         std::cout << colors::green() << "[OK] Basic tracking works in debug mode"
                   << colors::reset() << std::endl;
@@ -73,7 +73,7 @@ TEST_CASE(basic_lifetime_tracking)
 // Test 2: Dangling Reference Detection
 // =============================================================================
 
-TEST_CASE(dangling_reference_detection)
+FATP_TEST_CASE(dangling_reference_detection)
 {
     std::cout << colors::cyan() << "\n[TEST] Dangling Reference Detection"
               << colors::reset() << std::endl;
@@ -87,11 +87,11 @@ TEST_CASE(dangling_reference_detection)
         LifetimeTracker<std::vector<int>> tracker(data, "temporary_vector");
         view = tracker.create_view();
         
-        ASSERT_TRUE(view->is_valid(), "View should be valid while object exists");
+        FATP_ASSERT_TRUE(view->is_valid(), "View should be valid while object exists");
     }
     // data and tracker destroyed here
     
-    ASSERT_FALSE(view->is_valid(), "View should be invalid after object destroyed");
+    FATP_ASSERT_FALSE(view->is_valid(), "View should be invalid after object destroyed");
     
     // Attempt to use invalid view
     bool threw = false;
@@ -100,12 +100,12 @@ TEST_CASE(dangling_reference_detection)
     } catch (const DanglingReferenceError& e) {
         threw = true;
         std::string msg = e.what();
-        ASSERT_NE(msg.find("Dangling reference"), std::string::npos,
+        FATP_ASSERT_NE(msg.find("Dangling reference"), std::string::npos,
                      "Error should mention dangling reference");
         std::cout << colors::blue() << "  Caught error: " << e.what()
                   << colors::reset() << std::endl;
     }
-    ASSERT_TRUE(threw, "Should throw on dangling reference access");
+    FATP_ASSERT_TRUE(threw, "Should throw on dangling reference access");
     
     std::cout << colors::green() << "[OK] Dangling reference detection works"
               << colors::reset() << std::endl;
@@ -121,7 +121,7 @@ TEST_CASE(dangling_reference_detection)
 // Test 3: Multiple Views
 // =============================================================================
 
-TEST_CASE(multiple_views)
+FATP_TEST_CASE(multiple_views)
 {
     std::cout << colors::cyan() << "\n[TEST] Multiple Views"
               << colors::reset() << std::endl;
@@ -134,13 +134,13 @@ TEST_CASE(multiple_views)
     auto view2 = tracker.create_view();
     auto view3 = tracker.create_view();
     
-    ASSERT_TRUE(view1.is_valid(), "View 1 should be valid");
-    ASSERT_TRUE(view2.is_valid(), "View 2 should be valid");
-    ASSERT_TRUE(view3.is_valid(), "View 3 should be valid");
+    FATP_ASSERT_TRUE(view1.is_valid(), "View 1 should be valid");
+    FATP_ASSERT_TRUE(view2.is_valid(), "View 2 should be valid");
+    FATP_ASSERT_TRUE(view3.is_valid(), "View 3 should be valid");
     
-    ASSERT_EQ((*view1)[0], 10, "View 1 should access data");
-    ASSERT_EQ((*view2)[1], 20, "View 2 should access data");
-    ASSERT_EQ((*view3)[2], 30, "View 3 should access data");
+    FATP_ASSERT_EQ((*view1)[0], 10, "View 1 should access data");
+    FATP_ASSERT_EQ((*view2)[1], 20, "View 2 should access data");
+    FATP_ASSERT_EQ((*view3)[2], 30, "View 3 should access data");
     
     std::cout << colors::green() << "[OK] Multiple views work correctly"
               << colors::reset() << std::endl;
@@ -156,7 +156,7 @@ TEST_CASE(multiple_views)
 // Test 4: Weak Pointer Utilities
 // =============================================================================
 
-TEST_CASE(weak_pointer_utilities)
+FATP_TEST_CASE(weak_pointer_utilities)
 {
     std::cout << colors::cyan() << "\n[TEST] Weak Pointer Utilities"
               << colors::reset() << std::endl;
@@ -169,7 +169,7 @@ TEST_CASE(weak_pointer_utilities)
         
         // Valid weak pointer
         auto locked = checked_lock(weak, "test_int");
-        ASSERT_EQ(*locked, 42, "Locked pointer should have correct value");
+        FATP_ASSERT_EQ(*locked, 42, "Locked pointer should have correct value");
     }
     // shared destroyed here
     
@@ -186,11 +186,11 @@ TEST_CASE(weak_pointer_utilities)
         std::cout << colors::blue() << "  Caught runtime_error (release build)"
                   << colors::reset() << std::endl;
     }
-    ASSERT_TRUE(threw, "Expired weak pointer should throw");
+    FATP_ASSERT_TRUE(threw, "Expired weak pointer should throw");
     
     // safe_lock should not throw
     auto result = safe_lock(weak);
-    ASSERT_EQ(result, nullptr, "safe_lock should return nullptr");
+    FATP_ASSERT_EQ(result, nullptr, "safe_lock should return nullptr");
     
     std::cout << colors::green() << "[OK] Weak pointer utilities work"
               << colors::reset() << std::endl;
@@ -201,7 +201,7 @@ TEST_CASE(weak_pointer_utilities)
 // Test 5: View Guard
 // =============================================================================
 
-TEST_CASE(view_guard)
+FATP_TEST_CASE(view_guard)
 {
     std::cout << colors::cyan() << "\n[TEST] View Guard"
               << colors::reset() << std::endl;
@@ -213,11 +213,11 @@ TEST_CASE(view_guard)
     
     {
         ViewGuard guard(view, "test_scope");
-        ASSERT_TRUE(view.is_valid(), "View should be valid in guard scope");
+        FATP_ASSERT_TRUE(view.is_valid(), "View should be valid in guard scope");
     }
     // Guard destroyed, but view still valid since data still exists
     
-    ASSERT_TRUE(view.is_valid(), "View should still be valid");
+    FATP_ASSERT_TRUE(view.is_valid(), "View should still be valid");
     
     std::cout << colors::green() << "[OK] View guard works"
               << colors::reset() << std::endl;
@@ -233,7 +233,7 @@ TEST_CASE(view_guard)
 // Test 6: Macro Convenience
 // =============================================================================
 
-TEST_CASE(macro_convenience)
+FATP_TEST_CASE(macro_convenience)
 {
     std::cout << colors::cyan() << "\n[TEST] Macro Convenience"
               << colors::reset() << std::endl;
@@ -243,8 +243,8 @@ TEST_CASE(macro_convenience)
     auto tracker = TRACKED_VIEW(my_data);
     auto view = tracker.create_view();
     
-    ASSERT_TRUE(view.is_valid(), "Macro-created tracker should work");
-    ASSERT_EQ((*view)[1], 200, "Should access correct data");
+    FATP_ASSERT_TRUE(view.is_valid(), "Macro-created tracker should work");
+    FATP_ASSERT_EQ((*view)[1], 200, "Should access correct data");
     
     std::cout << colors::green() << "[OK] Macro convenience works"
               << colors::reset() << std::endl;
@@ -260,7 +260,7 @@ TEST_CASE(macro_convenience)
 // Test 7: Thread Safety
 // =============================================================================
 
-TEST_CASE(thread_safety)
+FATP_TEST_CASE(thread_safety)
 {
     std::cout << colors::cyan() << "\n[TEST] Thread Safety"
               << colors::reset() << std::endl;
@@ -290,7 +290,7 @@ TEST_CASE(thread_safety)
     
     for (auto& t : threads) t.join();
     
-    ASSERT_EQ(success_count, 10, "All threads should succeed");
+    FATP_ASSERT_EQ(success_count, 10, "All threads should succeed");
     
     std::cout << colors::green() << "[OK] Thread safety works"
               << colors::reset() << std::endl;
@@ -306,7 +306,7 @@ TEST_CASE(thread_safety)
 // Test 8: Zero Overhead in Release
 // =============================================================================
 
-TEST_CASE(zero_overhead_release)
+FATP_TEST_CASE(zero_overhead_release)
 {
     std::cout << colors::cyan() << "\n[TEST] Zero Overhead in Release"
               << colors::reset() << std::endl;
@@ -318,7 +318,7 @@ TEST_CASE(zero_overhead_release)
               << " bytes (should be just a pointer)"
               << colors::reset() << std::endl;
     
-    ASSERT_EQ(sizeof(TrackerType), sizeof(void*), 
+    FATP_ASSERT_EQ(sizeof(TrackerType), sizeof(void*), 
                  "Release tracker should be pointer-sized");
     
     std::cout << colors::green() << "[OK] Release build has zero overhead"
@@ -342,18 +342,18 @@ namespace fat_p::testing
 
 bool test_ViewLifetimeTracking()
 {
-    PRINT_HEADER(VIEW LIFETIME TRACKING)
+    FATP_PRINT_HEADER(VIEW LIFETIME TRACKING)
     
     TestRunner runner;
     
-    RUN_TEST_NS(runner, viewlifetimetracking, basic_lifetime_tracking);
-    RUN_TEST_NS(runner, viewlifetimetracking, dangling_reference_detection);
-    RUN_TEST_NS(runner, viewlifetimetracking, multiple_views);
-    RUN_TEST_NS(runner, viewlifetimetracking, weak_pointer_utilities);
-    RUN_TEST_NS(runner, viewlifetimetracking, view_guard);
-    RUN_TEST_NS(runner, viewlifetimetracking, macro_convenience);
-    RUN_TEST_NS(runner, viewlifetimetracking, thread_safety);
-    RUN_TEST_NS(runner, viewlifetimetracking, zero_overhead_release);
+    FATP_RUN_TEST_NS(runner, viewlifetimetracking, basic_lifetime_tracking);
+    FATP_RUN_TEST_NS(runner, viewlifetimetracking, dangling_reference_detection);
+    FATP_RUN_TEST_NS(runner, viewlifetimetracking, multiple_views);
+    FATP_RUN_TEST_NS(runner, viewlifetimetracking, weak_pointer_utilities);
+    FATP_RUN_TEST_NS(runner, viewlifetimetracking, view_guard);
+    FATP_RUN_TEST_NS(runner, viewlifetimetracking, macro_convenience);
+    FATP_RUN_TEST_NS(runner, viewlifetimetracking, thread_safety);
+    FATP_RUN_TEST_NS(runner, viewlifetimetracking, zero_overhead_release);
     
     return 0 == runner.print_summary();
 }

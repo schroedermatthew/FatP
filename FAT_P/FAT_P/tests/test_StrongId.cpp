@@ -73,26 +73,26 @@ using AtomicUserId = AtomicStrongId<int, UserIdTag>;
 // Basic Functionality Tests
 // =============================================================================
 
-TEST_CASE(default_constructor) {
+FATP_TEST_CASE(default_constructor) {
     UserId id;
-    ASSERT_EQ(id.get(), 0, "Default constructor should initialize to 0");
+    FATP_ASSERT_EQ(id.get(), 0, "Default constructor should initialize to 0");
     return true;
 }
 
-TEST_CASE(explicit_constructor) {
+FATP_TEST_CASE(explicit_constructor) {
     UserId id(42);
-    ASSERT_EQ(id.get(), 42, "Explicit constructor should set value");
+    FATP_ASSERT_EQ(id.get(), 42, "Explicit constructor should set value");
     return true;
 }
 
-TEST_CASE(default_constructor_with_check_policy) {
+FATP_TEST_CASE(default_constructor_with_check_policy) {
     // Default PositiveCheckPolicy allows 0
     ProductId id;
-    ASSERT_EQ(id.get(), 0, "Default constructor should work with check policy");
+    FATP_ASSERT_EQ(id.get(), 0, "Default constructor should work with check policy");
     return true;
 }
 
-TEST_CASE(type_safety) {
+FATP_TEST_CASE(type_safety) {
     UserId user_id(100);
     TransactionId trans_id(100);
     
@@ -102,26 +102,26 @@ TEST_CASE(type_safety) {
     
     // But same type comparisons work:
     UserId another_user(100);
-    ASSERT_TRUE(user_id == another_user, "Same type comparison should work");
+    FATP_ASSERT_TRUE(user_id == another_user, "Same type comparison should work");
     return true;
 }
 
-TEST_CASE(get_accessor) {
+FATP_TEST_CASE(get_accessor) {
     UserId id(123);
-    ASSERT_EQ(id.get(), 123, "get() should return underlying value");
+    FATP_ASSERT_EQ(id.get(), 123, "get() should return underlying value");
     return true;
 }
 
-TEST_CASE(value_accessor) {
+FATP_TEST_CASE(value_accessor) {
     UserId id(456);
-    ASSERT_EQ(id.value(), 456, "value() should return underlying value");
+    FATP_ASSERT_EQ(id.value(), 456, "value() should return underlying value");
     return true;
 }
 
-TEST_CASE(explicit_cast) {
+FATP_TEST_CASE(explicit_cast) {
     UserId id(456);
     int value = static_cast<int>(id);
-    ASSERT_EQ(value, 456, "Explicit cast should work");
+    FATP_ASSERT_EQ(value, 456, "Explicit cast should work");
     return true;
 }
 
@@ -129,56 +129,56 @@ TEST_CASE(explicit_cast) {
 // Comparison Operator Tests
 // =============================================================================
 
-TEST_CASE(equality_comparison) {
+FATP_TEST_CASE(equality_comparison) {
     UserId id1(100);
     UserId id2(100);
     UserId id3(200);
     
-    ASSERT_TRUE(id1 == id2, "Equal IDs should compare equal");
-    ASSERT_FALSE(id1 == id3, "Unequal IDs should not compare equal");
+    FATP_ASSERT_TRUE(id1 == id2, "Equal IDs should compare equal");
+    FATP_ASSERT_FALSE(id1 == id3, "Unequal IDs should not compare equal");
     return true;
 }
 
-TEST_CASE(inequality_comparison) {
+FATP_TEST_CASE(inequality_comparison) {
     UserId id1(100);
     UserId id2(200);
     
-    ASSERT_TRUE(id1 != id2, "Unequal IDs should compare not equal");
-    ASSERT_FALSE(id1 != id1, "Same ID should not compare not equal");
+    FATP_ASSERT_TRUE(id1 != id2, "Unequal IDs should compare not equal");
+    FATP_ASSERT_FALSE(id1 != id1, "Same ID should not compare not equal");
     return true;
 }
 
-TEST_CASE(less_than_comparison) {
+FATP_TEST_CASE(less_than_comparison) {
     UserId id1(100);
     UserId id2(200);
     
-    ASSERT_TRUE(id1 < id2, "Smaller ID should be less than larger");
-    ASSERT_FALSE(id2 < id1, "Larger ID should not be less than smaller");
-    ASSERT_FALSE(id1 < id1, "ID should not be less than itself");
+    FATP_ASSERT_TRUE(id1 < id2, "Smaller ID should be less than larger");
+    FATP_ASSERT_FALSE(id2 < id1, "Larger ID should not be less than smaller");
+    FATP_ASSERT_FALSE(id1 < id1, "ID should not be less than itself");
     return true;
 }
 
-TEST_CASE(all_relational_operators) {
+FATP_TEST_CASE(all_relational_operators) {
     UserId id1(100);
     UserId id2(200);
     
-    ASSERT_TRUE(id1 <= id2, "Less-or-equal should work");
-    ASSERT_TRUE(id1 <= id1, "Equal IDs should satisfy <=");
-    ASSERT_TRUE(id2 > id1, "Greater should work");
-    ASSERT_TRUE(id2 >= id1, "Greater-or-equal should work");
-    ASSERT_TRUE(id1 >= id1, "Equal IDs should satisfy >=");
+    FATP_ASSERT_TRUE(id1 <= id2, "Less-or-equal should work");
+    FATP_ASSERT_TRUE(id1 <= id1, "Equal IDs should satisfy <=");
+    FATP_ASSERT_TRUE(id2 > id1, "Greater should work");
+    FATP_ASSERT_TRUE(id2 >= id1, "Greater-or-equal should work");
+    FATP_ASSERT_TRUE(id1 >= id1, "Equal IDs should satisfy >=");
     return true;
 }
 
 #if FATP_HAS_CPP20
-TEST_CASE(spaceship_operator) {
+FATP_TEST_CASE(spaceship_operator) {
     UserId id1(100);
     UserId id2(200);
     UserId id3(100);
     
-    ASSERT_TRUE((id1 <=> id2) < 0, "Spaceship operator: less than");
-    ASSERT_TRUE((id2 <=> id1) > 0, "Spaceship operator: greater than");
-    ASSERT_TRUE((id1 <=> id3) == 0, "Spaceship operator: equal");
+    FATP_ASSERT_TRUE((id1 <=> id2) < 0, "Spaceship operator: less than");
+    FATP_ASSERT_TRUE((id2 <=> id1) > 0, "Spaceship operator: greater than");
+    FATP_ASSERT_TRUE((id1 <=> id3) == 0, "Spaceship operator: equal");
     return true;
 }
 #endif
@@ -187,115 +187,115 @@ TEST_CASE(spaceship_operator) {
 // Arithmetic Operator Tests
 // =============================================================================
 
-TEST_CASE(increment_operators) {
+FATP_TEST_CASE(increment_operators) {
     UserId id(10);
     
     ++id;
-    ASSERT_EQ(id.get(), 11, "Pre-increment should work");
+    FATP_ASSERT_EQ(id.get(), 11, "Pre-increment should work");
     
     UserId id2 = id++;
-    ASSERT_EQ(id.get(), 12, "Post-increment should increment");
-    ASSERT_EQ(id2.get(), 11, "Post-increment should return old value");
+    FATP_ASSERT_EQ(id.get(), 12, "Post-increment should increment");
+    FATP_ASSERT_EQ(id2.get(), 11, "Post-increment should return old value");
     return true;
 }
 
-TEST_CASE(decrement_operators) {
+FATP_TEST_CASE(decrement_operators) {
     UserId id(10);
     
     --id;
-    ASSERT_EQ(id.get(), 9, "Pre-decrement should work");
+    FATP_ASSERT_EQ(id.get(), 9, "Pre-decrement should work");
     
     UserId id2 = id--;
-    ASSERT_EQ(id.get(), 8, "Post-decrement should decrement");
-    ASSERT_EQ(id2.get(), 9, "Post-decrement should return old value");
+    FATP_ASSERT_EQ(id.get(), 8, "Post-decrement should decrement");
+    FATP_ASSERT_EQ(id2.get(), 9, "Post-decrement should return old value");
     return true;
 }
 
-TEST_CASE(addition_operators) {
+FATP_TEST_CASE(addition_operators) {
     UserId id1(100);
     
     id1 += 50;
-    ASSERT_EQ(id1.get(), 150, "Compound addition should work");
+    FATP_ASSERT_EQ(id1.get(), 150, "Compound addition should work");
     
     UserId id2 = id1 + 25;
-    ASSERT_EQ(id2.get(), 175, "Binary addition with scalar should work");
-    ASSERT_EQ(id1.get(), 150, "Original should be unchanged");
+    FATP_ASSERT_EQ(id2.get(), 175, "Binary addition with scalar should work");
+    FATP_ASSERT_EQ(id1.get(), 150, "Original should be unchanged");
     
     UserId id3(50);
     UserId id4 = id1 + id3;
-    ASSERT_EQ(id4.get(), 200, "Binary addition with StrongId should work");
+    FATP_ASSERT_EQ(id4.get(), 200, "Binary addition with StrongId should work");
     return true;
 }
 
-TEST_CASE(subtraction_operators) {
+FATP_TEST_CASE(subtraction_operators) {
     UserId id1(200);
     
     id1 -= 50;
-    ASSERT_EQ(id1.get(), 150, "Compound subtraction should work");
+    FATP_ASSERT_EQ(id1.get(), 150, "Compound subtraction should work");
     
     UserId id2 = id1 - 25;
-    ASSERT_EQ(id2.get(), 125, "Binary subtraction with scalar should work");
+    FATP_ASSERT_EQ(id2.get(), 125, "Binary subtraction with scalar should work");
     
     UserId id3(50);
     UserId id4 = id1 - id3;
-    ASSERT_EQ(id4.get(), 100, "Binary subtraction with StrongId should work");
+    FATP_ASSERT_EQ(id4.get(), 100, "Binary subtraction with StrongId should work");
     return true;
 }
 
-TEST_CASE(multiplication_operators) {
+FATP_TEST_CASE(multiplication_operators) {
     UserId id1(10);
     
     id1 *= 5;
-    ASSERT_EQ(id1.get(), 50, "Compound multiplication should work");
+    FATP_ASSERT_EQ(id1.get(), 50, "Compound multiplication should work");
     
     UserId id2 = id1 * 2;
-    ASSERT_EQ(id2.get(), 100, "Binary multiplication with scalar should work");
+    FATP_ASSERT_EQ(id2.get(), 100, "Binary multiplication with scalar should work");
     
     UserId id3(3);
     UserId id4 = id1 * id3;
-    ASSERT_EQ(id4.get(), 150, "Binary multiplication with StrongId should work");
+    FATP_ASSERT_EQ(id4.get(), 150, "Binary multiplication with StrongId should work");
     return true;
 }
 
-TEST_CASE(division_operators) {
+FATP_TEST_CASE(division_operators) {
     UserId id1(100);
     
     id1 /= 5;
-    ASSERT_EQ(id1.get(), 20, "Compound division should work");
+    FATP_ASSERT_EQ(id1.get(), 20, "Compound division should work");
     
     UserId id2 = id1 / 2;
-    ASSERT_EQ(id2.get(), 10, "Binary division with scalar should work");
+    FATP_ASSERT_EQ(id2.get(), 10, "Binary division with scalar should work");
     
     UserId id3(2);
     UserId id4 = id1 / id3;
-    ASSERT_EQ(id4.get(), 10, "Binary division with StrongId should work");
+    FATP_ASSERT_EQ(id4.get(), 10, "Binary division with StrongId should work");
     return true;
 }
 
-TEST_CASE(modulo_operators) {
+FATP_TEST_CASE(modulo_operators) {
     UserId id1(17);
     
     id1 %= 5;
-    ASSERT_EQ(id1.get(), 2, "Compound modulo should work");
+    FATP_ASSERT_EQ(id1.get(), 2, "Compound modulo should work");
     
     UserId id2(17);
     UserId id3 = id2 % 5;
-    ASSERT_EQ(id3.get(), 2, "Binary modulo with scalar should work");
+    FATP_ASSERT_EQ(id3.get(), 2, "Binary modulo with scalar should work");
     
     UserId id4(17);
     UserId id5(5);
     UserId id6 = id4 % id5;
-    ASSERT_EQ(id6.get(), 2, "Binary modulo with StrongId should work");
+    FATP_ASSERT_EQ(id6.get(), 2, "Binary modulo with StrongId should work");
     return true;
 }
 
-TEST_CASE(unary_operators) {
+FATP_TEST_CASE(unary_operators) {
     UserId id1(42);
     UserId id2 = -id1;
-    ASSERT_EQ(id2.get(), -42, "Unary negation should work");
+    FATP_ASSERT_EQ(id2.get(), -42, "Unary negation should work");
     
     UserId id3 = +id1;
-    ASSERT_EQ(id3.get(), 42, "Unary plus should return copy");
+    FATP_ASSERT_EQ(id3.get(), 42, "Unary plus should return copy");
     return true;
 }
 
@@ -303,62 +303,62 @@ TEST_CASE(unary_operators) {
 // Bitwise Operator Tests
 // =============================================================================
 
-TEST_CASE(bitwise_and) {
+FATP_TEST_CASE(bitwise_and) {
     UserId id(0b1100);
     id &= 0b1010;
-    ASSERT_EQ(id.get(), 0b1000, "Bitwise AND should work");
+    FATP_ASSERT_EQ(id.get(), 0b1000, "Bitwise AND should work");
     
     UserId id2(0b1100);
     UserId id3 = id2 & 0b1010;
-    ASSERT_EQ(id3.get(), 0b1000, "Binary bitwise AND should work");
+    FATP_ASSERT_EQ(id3.get(), 0b1000, "Binary bitwise AND should work");
     return true;
 }
 
-TEST_CASE(bitwise_or) {
+FATP_TEST_CASE(bitwise_or) {
     UserId id(0b1100);
     id |= 0b0011;
-    ASSERT_EQ(id.get(), 0b1111, "Bitwise OR should work");
+    FATP_ASSERT_EQ(id.get(), 0b1111, "Bitwise OR should work");
     
     UserId id2(0b1100);
     UserId id3 = id2 | 0b0011;
-    ASSERT_EQ(id3.get(), 0b1111, "Binary bitwise OR should work");
+    FATP_ASSERT_EQ(id3.get(), 0b1111, "Binary bitwise OR should work");
     return true;
 }
 
-TEST_CASE(bitwise_xor) {
+FATP_TEST_CASE(bitwise_xor) {
     UserId id(0b1100);
     id ^= 0b1010;
-    ASSERT_EQ(id.get(), 0b0110, "Bitwise XOR should work");
+    FATP_ASSERT_EQ(id.get(), 0b0110, "Bitwise XOR should work");
     
     UserId id2(0b1100);
     UserId id3 = id2 ^ 0b1010;
-    ASSERT_EQ(id3.get(), 0b0110, "Binary bitwise XOR should work");
+    FATP_ASSERT_EQ(id3.get(), 0b0110, "Binary bitwise XOR should work");
     return true;
 }
 
-TEST_CASE(bitwise_not) {
+FATP_TEST_CASE(bitwise_not) {
     UserId id(0);
     UserId id2 = ~id;
-    ASSERT_EQ(id2.get(), ~0, "Bitwise NOT should work");
+    FATP_ASSERT_EQ(id2.get(), ~0, "Bitwise NOT should work");
     return true;
 }
 
-TEST_CASE(bit_shifts) {
+FATP_TEST_CASE(bit_shifts) {
     UserId id(1);
     id <<= 4;
-    ASSERT_EQ(id.get(), 16, "Left shift should work");
+    FATP_ASSERT_EQ(id.get(), 16, "Left shift should work");
     
     UserId id2(16);
     id2 >>= 2;
-    ASSERT_EQ(id2.get(), 4, "Right shift should work");
+    FATP_ASSERT_EQ(id2.get(), 4, "Right shift should work");
     
     UserId id3(1);
     UserId id4 = id3 << 3;
-    ASSERT_EQ(id4.get(), 8, "Binary left shift should work");
+    FATP_ASSERT_EQ(id4.get(), 8, "Binary left shift should work");
     
     UserId id5(16);
     UserId id6 = id5 >> 2;
-    ASSERT_EQ(id6.get(), 4, "Binary right shift should work");
+    FATP_ASSERT_EQ(id6.get(), 4, "Binary right shift should work");
     return true;
 }
 
@@ -366,13 +366,13 @@ TEST_CASE(bit_shifts) {
 // CheckPolicy Tests
 // =============================================================================
 
-TEST_CASE(positive_check_policy_valid) {
+FATP_TEST_CASE(positive_check_policy_valid) {
     ProductId id(42);
-    ASSERT_EQ(id.get(), 42, "Positive value should be allowed");
+    FATP_ASSERT_EQ(id.get(), 42, "Positive value should be allowed");
     return true;
 }
 
-TEST_CASE(positive_check_policy_invalid) {
+FATP_TEST_CASE(positive_check_policy_invalid) {
     bool caught = false;
     try {
         ProductId id(-1);
@@ -380,14 +380,14 @@ TEST_CASE(positive_check_policy_invalid) {
     catch (const std::invalid_argument&) {
         caught = true;
     }
-    ASSERT_TRUE(caught, "Negative value should throw");
+    FATP_ASSERT_TRUE(caught, "Negative value should throw");
     return true;
 }
 
-TEST_CASE(check_policy_in_default_constructor) {
+FATP_TEST_CASE(check_policy_in_default_constructor) {
     // Default value (0) should pass PositiveCheckPolicy
     ProductId id;
-    ASSERT_EQ(id.get(), 0, "Default value 0 should pass positive check");
+    FATP_ASSERT_EQ(id.get(), 0, "Default value 0 should pass positive check");
     return true;
 }
 
@@ -395,16 +395,16 @@ TEST_CASE(check_policy_in_default_constructor) {
 // Expected-Based Safe Creation Tests
 // =============================================================================
 
-TEST_CASE(expected_create_success) {
+FATP_TEST_CASE(expected_create_success) {
     auto result = ProductId::create(42);
-    ASSERT_TRUE(result.has_value(), "Valid value should succeed");
-    ASSERT_EQ(result.value().get(), 42, "Created ID should have correct value");
+    FATP_ASSERT_TRUE(result.has_value(), "Valid value should succeed");
+    FATP_ASSERT_EQ(result.value().get(), 42, "Created ID should have correct value");
     return true;
 }
 
-TEST_CASE(expected_create_failure) {
+FATP_TEST_CASE(expected_create_failure) {
     auto result = ProductId::create(-1);
-    ASSERT_FALSE(result.has_value(), "Invalid value should fail");
+    FATP_ASSERT_FALSE(result.has_value(), "Invalid value should fail");
     return true;
 }
 
@@ -412,27 +412,27 @@ TEST_CASE(expected_create_failure) {
 // Assignment Operator Tests
 // =============================================================================
 
-TEST_CASE(copy_assignment) {
+FATP_TEST_CASE(copy_assignment) {
     UserId id1(100);
     UserId id2(200);
     id2 = id1;
-    ASSERT_EQ(id2.get(), 100, "Copy assignment should work");
-    ASSERT_EQ(id1.get(), 100, "Original should be unchanged");
+    FATP_ASSERT_EQ(id2.get(), 100, "Copy assignment should work");
+    FATP_ASSERT_EQ(id1.get(), 100, "Original should be unchanged");
     return true;
 }
 
-TEST_CASE(move_assignment) {
+FATP_TEST_CASE(move_assignment) {
     UserId id1(100);
     UserId id2(200);
     id2 = std::move(id1);
-    ASSERT_EQ(id2.get(), 100, "Move assignment should work");
+    FATP_ASSERT_EQ(id2.get(), 100, "Move assignment should work");
     return true;
 }
 
-TEST_CASE(self_assignment) {
+FATP_TEST_CASE(self_assignment) {
     UserId id(100);
     id = id;
-    ASSERT_EQ(id.get(), 100, "Self-assignment should be safe");
+    FATP_ASSERT_EQ(id.get(), 100, "Self-assignment should be safe");
     return true;
 }
 
@@ -440,21 +440,21 @@ TEST_CASE(self_assignment) {
 // Swap Tests
 // =============================================================================
 
-TEST_CASE(member_swap) {
+FATP_TEST_CASE(member_swap) {
     UserId id1(100);
     UserId id2(200);
     id1.swap(id2);
-    ASSERT_EQ(id1.get(), 200, "Member swap should work (id1)");
-    ASSERT_EQ(id2.get(), 100, "Member swap should work (id2)");
+    FATP_ASSERT_EQ(id1.get(), 200, "Member swap should work (id1)");
+    FATP_ASSERT_EQ(id2.get(), 100, "Member swap should work (id2)");
     return true;
 }
 
-TEST_CASE(adl_swap) {
+FATP_TEST_CASE(adl_swap) {
     UserId id1(100);
     UserId id2(200);
     swap(id1, id2);
-    ASSERT_EQ(id1.get(), 200, "ADL swap should work (id1)");
-    ASSERT_EQ(id2.get(), 100, "ADL swap should work (id2)");
+    FATP_ASSERT_EQ(id1.get(), 200, "ADL swap should work (id1)");
+    FATP_ASSERT_EQ(id2.get(), 100, "ADL swap should work (id2)");
     return true;
 }
 
@@ -462,33 +462,33 @@ TEST_CASE(adl_swap) {
 // Hash and Container Tests
 // =============================================================================
 
-TEST_CASE(hash_function) {
+FATP_TEST_CASE(hash_function) {
     UserId id1(100);
     UserId id2(100);
     UserId id3(200);
     
     std::hash<UserId> hasher;
-    ASSERT_EQ(hasher(id1), hasher(id2), "Equal IDs should have equal hashes");
+    FATP_ASSERT_EQ(hasher(id1), hasher(id2), "Equal IDs should have equal hashes");
     // Note: hash collision possible, but unlikely for these values
-    ASSERT_TRUE(hasher(id1) != hasher(id3) || id1.get() == id3.get(), 
+    FATP_ASSERT_TRUE(hasher(id1) != hasher(id3) || id1.get() == id3.get(), 
                 "Different IDs typically have different hashes");
     return true;
 }
 
-TEST_CASE(unordered_map_usage) {
+FATP_TEST_CASE(unordered_map_usage) {
     std::unordered_map<UserId, std::string> user_names;
     
     user_names[UserId(1)] = "Alice";
     user_names[UserId(2)] = "Bob";
     user_names[UserId(3)] = "Charlie";
     
-    ASSERT_EQ(user_names[UserId(1)], "Alice", "Lookup should work");
-    ASSERT_EQ(user_names[UserId(2)], "Bob", "Lookup should work");
-    ASSERT_EQ(user_names.size(), 3u, "Size should be 3");
+    FATP_ASSERT_EQ(user_names[UserId(1)], "Alice", "Lookup should work");
+    FATP_ASSERT_EQ(user_names[UserId(2)], "Bob", "Lookup should work");
+    FATP_ASSERT_EQ(user_names.size(), 3u, "Size should be 3");
     
     user_names[UserId(1)] = "Alicia";
-    ASSERT_EQ(user_names[UserId(1)], "Alicia", "Update should work");
-    ASSERT_EQ(user_names.size(), 3u, "Size should remain 3 after update");
+    FATP_ASSERT_EQ(user_names[UserId(1)], "Alicia", "Update should work");
+    FATP_ASSERT_EQ(user_names.size(), 3u, "Size should remain 3 after update");
     return true;
 }
 
@@ -496,43 +496,43 @@ TEST_CASE(unordered_map_usage) {
 // Atomic StrongId Tests (Thread-Safety via std::atomic)
 // =============================================================================
 
-TEST_CASE(atomic_basic_operations) {
+FATP_TEST_CASE(atomic_basic_operations) {
     AtomicUserId atomic_id(UserId(42));
     
     UserId loaded = atomic_id.load();
-    ASSERT_EQ(loaded.get(), 42, "Atomic load should work");
+    FATP_ASSERT_EQ(loaded.get(), 42, "Atomic load should work");
     
     atomic_id.store(UserId(100));
-    ASSERT_EQ(atomic_id.load().get(), 100, "Atomic store should work");
+    FATP_ASSERT_EQ(atomic_id.load().get(), 100, "Atomic store should work");
     return true;
 }
 
-TEST_CASE(atomic_exchange) {
+FATP_TEST_CASE(atomic_exchange) {
     AtomicUserId atomic_id(UserId(42));
     
     UserId old = atomic_id.exchange(UserId(100));
-    ASSERT_EQ(old.get(), 42, "Exchange should return old value");
-    ASSERT_EQ(atomic_id.load().get(), 100, "Exchange should set new value");
+    FATP_ASSERT_EQ(old.get(), 42, "Exchange should return old value");
+    FATP_ASSERT_EQ(atomic_id.load().get(), 100, "Exchange should set new value");
     return true;
 }
 
-TEST_CASE(atomic_compare_exchange) {
+FATP_TEST_CASE(atomic_compare_exchange) {
     AtomicUserId atomic_id(UserId(42));
     
     UserId expected(42);
     bool success = atomic_id.compare_exchange_strong(expected, UserId(100));
-    ASSERT_TRUE(success, "CAS should succeed when expected matches");
-    ASSERT_EQ(atomic_id.load().get(), 100, "CAS should set new value");
+    FATP_ASSERT_TRUE(success, "CAS should succeed when expected matches");
+    FATP_ASSERT_EQ(atomic_id.load().get(), 100, "CAS should set new value");
     
     expected = UserId(42);  // Wrong expected value now
     success = atomic_id.compare_exchange_strong(expected, UserId(200));
-    ASSERT_FALSE(success, "CAS should fail when expected doesn't match");
-    ASSERT_EQ(expected.get(), 100, "Failed CAS should update expected");
-    ASSERT_EQ(atomic_id.load().get(), 100, "Failed CAS should not change value");
+    FATP_ASSERT_FALSE(success, "CAS should fail when expected doesn't match");
+    FATP_ASSERT_EQ(expected.get(), 100, "Failed CAS should update expected");
+    FATP_ASSERT_EQ(atomic_id.load().get(), 100, "Failed CAS should not change value");
     return true;
 }
 
-TEST_CASE(atomic_concurrent_reads) {
+FATP_TEST_CASE(atomic_concurrent_reads) {
     AtomicUserId atomic_id(UserId(42));
     std::vector<std::thread> threads;
     std::atomic<int> errors{0};
@@ -552,11 +552,11 @@ TEST_CASE(atomic_concurrent_reads) {
         t.join();
     }
     
-    ASSERT_EQ(errors.load(), 0, "Concurrent reads should be safe");
+    FATP_ASSERT_EQ(errors.load(), 0, "Concurrent reads should be safe");
     return true;
 }
 
-TEST_CASE(atomic_concurrent_increments) {
+FATP_TEST_CASE(atomic_concurrent_increments) {
     // Since StrongId doesn't have atomic increment, we use CAS loop
     AtomicUserId atomic_id(UserId(0));
     std::vector<std::thread> threads;
@@ -579,7 +579,7 @@ TEST_CASE(atomic_concurrent_increments) {
         t.join();
     }
     
-    ASSERT_EQ(atomic_id.load().get(), num_threads * iterations_per_thread, 
+    FATP_ASSERT_EQ(atomic_id.load().get(), num_threads * iterations_per_thread, 
               "Concurrent increments should all be counted");
     return true;
 }
@@ -588,7 +588,7 @@ TEST_CASE(atomic_concurrent_increments) {
 // Type Trait Tests
 // =============================================================================
 
-TEST_CASE(is_strong_id_trait) {
+FATP_TEST_CASE(is_strong_id_trait) {
     static_assert(is_strong_id_v<UserId>, "UserId should be detected as StrongId");
     static_assert(is_strong_id_v<ProductId>, "ProductId should be detected as StrongId");
     static_assert(!is_strong_id_v<int>, "int should not be detected as StrongId");
@@ -880,7 +880,7 @@ namespace fat_p::testing
 
 bool test_StrongId() {
 
-    PRINT_HEADER(STRONG ID)
+    FATP_PRINT_HEADER(STRONG ID)
 
     TestRunner runner;
     
@@ -890,81 +890,81 @@ bool test_StrongId() {
     auto& out = *config.output;    
     // Basic Functionality
     out << colors::blue() << "--- Basic Functionality ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, strongid, default_constructor);
-    RUN_TEST_NS(runner, strongid, explicit_constructor);
-    RUN_TEST_NS(runner, strongid, default_constructor_with_check_policy);
-    RUN_TEST_NS(runner, strongid, type_safety);
-    RUN_TEST_NS(runner, strongid, get_accessor);
-    RUN_TEST_NS(runner, strongid, value_accessor);
-    RUN_TEST_NS(runner, strongid, explicit_cast);
+    FATP_RUN_TEST_NS(runner, strongid, default_constructor);
+    FATP_RUN_TEST_NS(runner, strongid, explicit_constructor);
+    FATP_RUN_TEST_NS(runner, strongid, default_constructor_with_check_policy);
+    FATP_RUN_TEST_NS(runner, strongid, type_safety);
+    FATP_RUN_TEST_NS(runner, strongid, get_accessor);
+    FATP_RUN_TEST_NS(runner, strongid, value_accessor);
+    FATP_RUN_TEST_NS(runner, strongid, explicit_cast);
     
     // Comparison Operators
     out << "\n" << colors::blue() << "--- Comparison Operators ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, strongid, equality_comparison);
-    RUN_TEST_NS(runner, strongid, inequality_comparison);
-    RUN_TEST_NS(runner, strongid, less_than_comparison);
-    RUN_TEST_NS(runner, strongid, all_relational_operators);
+    FATP_RUN_TEST_NS(runner, strongid, equality_comparison);
+    FATP_RUN_TEST_NS(runner, strongid, inequality_comparison);
+    FATP_RUN_TEST_NS(runner, strongid, less_than_comparison);
+    FATP_RUN_TEST_NS(runner, strongid, all_relational_operators);
 #if FATP_HAS_CPP20
-    RUN_TEST_NS(runner, strongid, spaceship_operator);
+    FATP_RUN_TEST_NS(runner, strongid, spaceship_operator);
 #endif
     
     // Arithmetic Operators
     out << "\n" << colors::blue() << "--- Arithmetic Operators ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, strongid, increment_operators);
-    RUN_TEST_NS(runner, strongid, decrement_operators);
-    RUN_TEST_NS(runner, strongid, addition_operators);
-    RUN_TEST_NS(runner, strongid, subtraction_operators);
-    RUN_TEST_NS(runner, strongid, multiplication_operators);
-    RUN_TEST_NS(runner, strongid, division_operators);
-    RUN_TEST_NS(runner, strongid, modulo_operators);
-    RUN_TEST_NS(runner, strongid, unary_operators);
+    FATP_RUN_TEST_NS(runner, strongid, increment_operators);
+    FATP_RUN_TEST_NS(runner, strongid, decrement_operators);
+    FATP_RUN_TEST_NS(runner, strongid, addition_operators);
+    FATP_RUN_TEST_NS(runner, strongid, subtraction_operators);
+    FATP_RUN_TEST_NS(runner, strongid, multiplication_operators);
+    FATP_RUN_TEST_NS(runner, strongid, division_operators);
+    FATP_RUN_TEST_NS(runner, strongid, modulo_operators);
+    FATP_RUN_TEST_NS(runner, strongid, unary_operators);
     
     // Bitwise Operators
     out << "\n" << colors::blue() << "--- Bitwise Operators ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, strongid, bitwise_and);
-    RUN_TEST_NS(runner, strongid, bitwise_or);
-    RUN_TEST_NS(runner, strongid, bitwise_xor);
-    RUN_TEST_NS(runner, strongid, bitwise_not);
-    RUN_TEST_NS(runner, strongid, bit_shifts);
+    FATP_RUN_TEST_NS(runner, strongid, bitwise_and);
+    FATP_RUN_TEST_NS(runner, strongid, bitwise_or);
+    FATP_RUN_TEST_NS(runner, strongid, bitwise_xor);
+    FATP_RUN_TEST_NS(runner, strongid, bitwise_not);
+    FATP_RUN_TEST_NS(runner, strongid, bit_shifts);
     
     // CheckPolicy
     out << "\n" << colors::blue() << "--- CheckPolicy Validation ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, strongid, positive_check_policy_valid);
-    RUN_TEST_NS(runner, strongid, positive_check_policy_invalid);
-    RUN_TEST_NS(runner, strongid, check_policy_in_default_constructor);
+    FATP_RUN_TEST_NS(runner, strongid, positive_check_policy_valid);
+    FATP_RUN_TEST_NS(runner, strongid, positive_check_policy_invalid);
+    FATP_RUN_TEST_NS(runner, strongid, check_policy_in_default_constructor);
     
     // Expected
     out << "\n" << colors::blue() << "--- Expected-Based Safe Creation ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, strongid, expected_create_success);
-    RUN_TEST_NS(runner, strongid, expected_create_failure);
+    FATP_RUN_TEST_NS(runner, strongid, expected_create_success);
+    FATP_RUN_TEST_NS(runner, strongid, expected_create_failure);
     
     // Assignment
     out << "\n" << colors::blue() << "--- Assignment Operators ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, strongid, copy_assignment);
-    RUN_TEST_NS(runner, strongid, move_assignment);
-    RUN_TEST_NS(runner, strongid, self_assignment);
+    FATP_RUN_TEST_NS(runner, strongid, copy_assignment);
+    FATP_RUN_TEST_NS(runner, strongid, move_assignment);
+    FATP_RUN_TEST_NS(runner, strongid, self_assignment);
     
     // Swap
     out << "\n" << colors::blue() << "--- Swap Functionality ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, strongid, member_swap);
-    RUN_TEST_NS(runner, strongid, adl_swap);
+    FATP_RUN_TEST_NS(runner, strongid, member_swap);
+    FATP_RUN_TEST_NS(runner, strongid, adl_swap);
     
     // Hash and Containers
     out << "\n" << colors::blue() << "--- Hash and Containers ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, strongid, hash_function);
-    RUN_TEST_NS(runner, strongid, unordered_map_usage);
+    FATP_RUN_TEST_NS(runner, strongid, hash_function);
+    FATP_RUN_TEST_NS(runner, strongid, unordered_map_usage);
     
     // Atomic Operations
     out << "\n" << colors::blue() << "--- Atomic StrongId (Thread-Safety) ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, strongid, atomic_basic_operations);
-    RUN_TEST_NS(runner, strongid, atomic_exchange);
-    RUN_TEST_NS(runner, strongid, atomic_compare_exchange);
-    RUN_TEST_NS(runner, strongid, atomic_concurrent_reads);
-    RUN_TEST_NS(runner, strongid, atomic_concurrent_increments);
+    FATP_RUN_TEST_NS(runner, strongid, atomic_basic_operations);
+    FATP_RUN_TEST_NS(runner, strongid, atomic_exchange);
+    FATP_RUN_TEST_NS(runner, strongid, atomic_compare_exchange);
+    FATP_RUN_TEST_NS(runner, strongid, atomic_concurrent_reads);
+    FATP_RUN_TEST_NS(runner, strongid, atomic_concurrent_increments);
     
     // Type Traits
     out << "\n" << colors::blue() << "--- Type Traits ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, strongid, is_strong_id_trait);
+    FATP_RUN_TEST_NS(runner, strongid, is_strong_id_trait);
     
     // Performance Benchmarks
     strongid::run_strong_id_benchmarks();
