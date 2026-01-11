@@ -1,9 +1,15 @@
 ---
-doc_id: stablehashmap-companion-guide
-doc_type: companion_guide
-status: candidate
-fatp_components: [StableHashMap]
-last_updated: 2026-01-09
+doc_id: CG-STABLEHASHMAP-001
+doc_type: "Companion Guide"
+title: "StableHashMap"
+fatp_components: ["StableHashMap"]
+topics: ["hash table design tradeoffs", "Swiss tables", "SIMD metadata", "reference stability", "node allocation", "hash quality"]
+constraints: ["pointer invalidation on growth", "bucket chain cache misses", "malloc overhead in hot paths", "SIMD instruction availability", "weak hash clustering"]
+cxx_standard: "C++17"
+build_modes: ["Debug", "Release"]
+last_verified: "2026-01-09"
+audience: ["C++ developers", "library maintainers", "performance engineers", "AI assistants"]
+status: "reviewed"
 ---
 
 # **The Stable Table**

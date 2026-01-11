@@ -29,7 +29,7 @@
  * - SaturatingPolicy on NEON: Zero overhead via hardware vqadd/vqsub
  *
  * Why int8/int16 SIMD is NOT implemented:
- * - Wide-multiply explosion (int8*int8Ã¢â€ â€™int16 requires unpack/repack)
+ * - Wide-multiply explosion (int8*int8->int16 requires unpack/repack)
  * - No _mm256_mul_epi8 intrinsic exists
  * - C++ promotes int8*int8 to int (overflow on narrowing, not operation)
  * - Image/audio usually wants saturation, not error detection
@@ -1120,7 +1120,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
 /**
  * @brief SIMD-accelerated checked vector multiplication for integers
  *
- * Uses wide-multiply technique: int32*int32Ã¢â€ â€™int64 with bounds check.
+ * Uses wide-multiply technique: int32*int32->int64 with bounds check.
  * Only available for int32_t/uint32_t (int64 would need int128).
  */
 template <typename Policy = ThrowOnErrorPolicy, typename T>

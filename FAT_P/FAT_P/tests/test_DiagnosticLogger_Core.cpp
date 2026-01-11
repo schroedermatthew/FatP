@@ -612,9 +612,9 @@ FATP_TEST_CASE(unicode_characters)
     logger.addSink(testSink);
 
     // Use raw UTF-8 byte sequences to avoid C4566 warnings on Windows
-    // \u00E9 (Ã©) = 0xC3 0xA9, \u00F1 (Ã±) = 0xC3 0xB1, \u00FC (Ã¼) = 0xC3 0xBC
-    // \u4E2D\u6587 (ä¸­æ–‡) = 0xE4 0xB8 0xAD 0xE6 0x96 0x87
-    // \U0001F600 (ðŸ˜€) = 0xF0 0x9F 0x98 0x80
+    // \u00E9 (e-acute) = 0xC3 0xA9, \u00F1 (n-tilde) = 0xC3 0xB1, \u00FC (u-umlaut) = 0xC3 0xBC
+    // \u4E2D\u6587 ("Chinese: Zhong Wen") = 0xE4 0xB8 0xAD 0xE6 0x96 0x87
+    // \U0001F600 ("grinning face") = 0xF0 0x9F 0x98 0x80
     std::string unicode = "Unicode: \xC3\xA9\xC3\xB1\xC3\xBC \xE4\xB8\xAD\xE6\x96\x87 \xF0\x9F\x98\x80";
     logger.log(LogLevel::Info, unicode, FATP_SOURCE_LOCATION());
 

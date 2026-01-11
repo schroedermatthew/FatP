@@ -294,7 +294,7 @@ FATP_TEST_CASE(outer_product) {
     auto result = outer(a, b);
     
     // [1]         [1*3  1*4]   [3  4]
-    // [2] ⊗ [3 4] [2*3  2*4] = [6  8]
+    // [2] otimes [3 4] [2*3  2*4] = [6  8]
     
     FATP_ASSERT_EQ(result.at(0, 0), 3.0f, "Outer product (0,0)");
     FATP_ASSERT_EQ(result.at(0, 1), 4.0f, "Outer product (0,1)");
@@ -628,9 +628,9 @@ bool test_TensorMath() {
     FATP_RUN_TEST_NS(runner, tensormath, simd_addition);
     FATP_RUN_TEST_NS(runner, tensormath, simd_multiplication);
     FATP_RUN_TEST_NS(runner, tensormath, simd_dot_product);
-    out << "\n" << colors::green() << "âœ“ SIMD support detected and tested" << colors::reset() << "\n";
+    out << "\n" << colors::green() << "[OK] SIMD support detected and tested" << colors::reset() << "\n";
 #else
-    out << "\n" << colors::yellow() << "âš  SIMD tests skipped (no AVX2 support)" << colors::reset() << "\n";
+    out << "\n" << colors::yellow() << "[WARN] SIMD tests skipped (no AVX2 support)" << colors::reset() << "\n";
 #endif
     
     // Higher-Order Tensors

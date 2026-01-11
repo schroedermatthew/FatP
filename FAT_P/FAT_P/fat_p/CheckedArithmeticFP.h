@@ -124,7 +124,7 @@ namespace fat_p {
 /**
  * @brief Checked floating-point addition
  *
- * Validates inputs and detects overflow (finiteâ†’infinite).
+ * Validates inputs and detects overflow (finite->infinite).
  */
 template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_add_fp(T a, T b)
@@ -606,7 +606,7 @@ template <typename Policy, typename T>
         return true;
     }
     
-    // For non-InfTolerant policies, check for overflow (finiteâ†’Inf)
+    // For non-InfTolerant policies, check for overflow (finite->Inf)
     if constexpr (!std::is_same_v<Policy, InfTolerantPolicy>)
     {
         if (vr.has_inf())

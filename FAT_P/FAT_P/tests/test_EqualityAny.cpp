@@ -248,7 +248,7 @@ FATP_TEST_CASE(deeply_nested_any)
 
 FATP_TEST_CASE(depth_limit_safe)
 {
-    // 8 levels of nesting â†’ 9 areEqual calls â†’ depth reaches 9 â†’ valid
+    // 8 levels of nesting -> 9 areEqual calls -> depth reaches 9 -> valid
     constexpr size_t safeNesting = kMaxAnyRecursionDepth - 2;
     std::any current1 = 42;
     std::any current2 = 42;
@@ -270,7 +270,7 @@ FATP_TEST_CASE(depth_limit_safe)
 
 FATP_TEST_CASE(depth_limit_boundary)
 {
-    // 9 levels of nesting â†’ 10 areEqual calls â†’ depth reaches 10 â†’ valid (last valid)
+    // 9 levels of nesting -> 10 areEqual calls -> depth reaches 10 -> valid (last valid)
     constexpr size_t boundaryNesting = kMaxAnyRecursionDepth - 1;
     std::any current1 = 42;
     std::any current2 = 42;
@@ -292,7 +292,7 @@ FATP_TEST_CASE(depth_limit_boundary)
 
 FATP_TEST_CASE(depth_limit_exceeded)
 {
-    // 10 levels of nesting â†’ 11 areEqual calls â†’ depth reaches 11 â†’ FAILS
+    // 10 levels of nesting -> 11 areEqual calls -> depth reaches 11 -> FAILS
     constexpr size_t excessiveNesting = kMaxAnyRecursionDepth;
     std::any current1 = 42;
     std::any current2 = 42;

@@ -54,8 +54,18 @@ struct DataPoint
     uint64_t timestamp;
     uint32_t id;
 
-    DataPoint() : value(0.0), timestamp(0), id(0) {}
-    DataPoint(double v, uint64_t t, uint32_t i) : value(v), timestamp(t), id(i) {}
+    DataPoint()
+        : value(0.0)
+        , timestamp(0)
+        , id(0)
+    {
+    }
+    DataPoint(double v, uint64_t t, uint32_t i)
+        : value(v)
+        , timestamp(t)
+        , id(i)
+    {
+    }
 
     void Read(std::istream& is)
     {
@@ -75,8 +85,8 @@ struct DataPoint
     {
         return value == other.value && timestamp == other.timestamp && id == other.id;
     }
-    
-    static constexpr size_t serialized_size() 
+
+    static constexpr size_t serialized_size()
     {
         return sizeof(double) + sizeof(uint64_t) + sizeof(uint32_t);
     }
@@ -86,10 +96,19 @@ struct SimpleInt
 {
     int32_t value;
 
-    SimpleInt() : value(0) {}
-    explicit SimpleInt(int32_t v) : value(v) {}
+    SimpleInt()
+        : value(0)
+    {
+    }
+    explicit SimpleInt(int32_t v)
+        : value(v)
+    {
+    }
 
-    bool operator==(const SimpleInt& other) const { return value == other.value; }
+    bool operator==(const SimpleInt& other) const
+    {
+        return value == other.value;
+    }
 };
 
 // =============================================================================
@@ -99,7 +118,10 @@ struct SimpleInt
 class TempFile
 {
 public:
-    explicit TempFile(const std::string& name) : path_(name) {}
+    explicit TempFile(const std::string& name)
+        : path_(name)
+    {
+    }
 
     ~TempFile()
     {
@@ -107,7 +129,10 @@ public:
         fs::remove(path_, ec);
     }
 
-    const std::string& path() const { return path_; }
+    const std::string& path() const
+    {
+        return path_;
+    }
 
 private:
     std::string path_;
@@ -309,13 +334,11 @@ FATP_TEST_CASE(error_handling)
 
     auto out_of_bounds = window[1000];
     FATP_ASSERT_TRUE(!out_of_bounds.has_value(), "Should fail out-of-bounds access");
-    FATP_ASSERT_TRUE(out_of_bounds.error() == fat_p::FileError::InvalidIndex,
-                  "Should report InvalidIndex");
+    FATP_ASSERT_TRUE(out_of_bounds.error() == fat_p::FileError::InvalidIndex, "Should report InvalidIndex");
 
     window.close();
     return true;
 }
-
 // =============================================================================
 // V. Thread Safety Tests
 // =============================================================================
@@ -335,7 +358,8 @@ FATP_TEST_CASE(thread_safety)
     const size_t reads_per_thread = 100;
     std::atomic<size_t> error_count{0};
 
-    auto reader = [&](size_t thread_id) {
+    auto reader = [&](size_t thread_id)
+    {
         std::mt19937_64 rng(thread_id);
         std::uniform_int_distribution<size_t> dist(0, element_count - 1);
 
@@ -343,7 +367,9 @@ FATP_TEST_CASE(thread_safety)
         {
             size_t index = dist(rng);
             auto elem = window[index];
-            if (!elem || elem->get().id != static_cast<uint32_t>(index))
+            // elem-> instead of elem->get() because ThreadSafeSlidingWindow
+            // now returns Expected<DataPoint> (copy) not Expected<reference_wrapper>
+            if (!elem || elem->id != static_cast<uint32_t>(index))
             {
                 ++error_count;
             }
@@ -366,6 +392,7 @@ FATP_TEST_CASE(thread_safety)
     window.close();
     return true;
 }
+
 
 // =============================================================================
 // VI. Lag Offset Tests
@@ -495,8 +522,7 @@ FATP_TEST_CASE(window_larger_than_file)
 
 void benchmark_slidingfilewindow()
 {
-    std::cout << "\n" << colors::cyan() << "SlidingFileWindow Benchmarks:" << colors::reset()
-              << "\n\n";
+    std::cout << "\n" << colors::cyan() << "SlidingFileWindow Benchmarks:" << colors::reset() << "\n\n";
 
     const std::string filename = "bench_sliding.bin";
     const size_t element_count = 100000;
@@ -511,7 +537,8 @@ void benchmark_slidingfilewindow()
     const size_t iterations = 10000;
 
     double seq_time = measure_perf(
-        [&]() {
+        [&]()
+        {
             for (size_t i = 0; i < window_size; ++i)
             {
                 auto elem = window[i];
@@ -528,7 +555,8 @@ void benchmark_slidingfilewindow()
     std::uniform_int_distribution<size_t> dist(0, element_count - 1);
 
     double rand_time = measure_perf(
-        [&]() {
+        [&]()
+        {
             size_t index = dist(rng);
             auto elem = window[index];
             DoNotOptimize(elem);

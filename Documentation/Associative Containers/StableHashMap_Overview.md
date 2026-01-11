@@ -1,9 +1,14 @@
 ---
-doc_id: stablehashmap-overview
-doc_type: overview
-status: candidate
-fatp_components: [StableHashMap]
-last_updated: 2026-01-09
+doc_id: OV-STABLEHASHMAP-001
+doc_type: "Overview"
+title: "StableHashMap"
+fatp_components: ["StableHashMap"]
+topics: ["Swiss table", "SIMD probing", "hash map reference stability", "control bytes", "block allocator", "heterogeneous lookup"]
+constraints: ["pointer stability across rehash", "bucket chain pointer chasing", "malloc overhead per node", "weak hash clustering", "SIMD instruction availability"]
+cxx_standard: "C++17"
+last_verified: "2026-01-09"
+audience: ["C++ developers", "library maintainers", "performance engineers", "AI assistants"]
+status: "reviewed"
 ---
 
 # StableHashMap: A Fat-P Library Showcase

@@ -610,23 +610,23 @@ FATP_TEST_CASE(unordered_multimap_epsilon_pairing)
     // when epsilon equality is non-transitive.
     //
     // Example: A = {1.0, 2.0}, B = {1.5, 2.0} with eps = 0.6
-    //   - 1.0 matches 1.5 (diff = 0.5 < 0.6) âœ“
-    //   - 1.0 matches 2.0 (diff = 1.0 > 0.6) âœ—
-    //   - 2.0 matches 1.5 (diff = 0.5 < 0.6) âœ“
-    //   - 2.0 matches 2.0 (diff = 0.0 < 0.6) âœ“
+    //   - 1.0 matches 1.5 (diff = 0.5 < 0.6) [OK]
+    //   - 1.0 matches 2.0 (diff = 1.0 > 0.6) [X]
+    //   - 2.0 matches 1.5 (diff = 0.5 < 0.6) [OK]
+    //   - 2.0 matches 2.0 (diff = 0.0 < 0.6) [OK]
     //
-    // Perfect matching exists: (1.0â†”1.5, 2.0â†”2.0)
-    // But greedy may pick: 1.0â†”2.0? No. 1.0â†”1.5, then 2.0 has no match? No, 2.0â†”2.0 works.
+    // Perfect matching exists: (1.0<->1.5, 2.0<->2.0)
+    // But greedy may pick: 1.0<->2.0? No. 1.0<->1.5, then 2.0 has no match? No, 2.0<->2.0 works.
     // Actually this case works. Let's construct a real adversarial case:
     //
     // A = {1.0, 1.4}, B = {1.5, 1.1} with eps such that:
     //   - 1.0 matches 1.1 (diff=0.1) and 1.5 (diff=0.5 if eps>0.5)
     //   - 1.4 matches 1.5 (diff=0.1) and 1.1 (diff=0.3)
-    // With eps=0.2: 1.0â†”1.1 only, 1.4â†”1.5 only â€” unique, greedy works
-    // With eps=0.5: 1.0â†”{1.1,1.5}, 1.4â†”{1.5,1.1} â€” ambiguous
+    // With eps=0.2: 1.0<->1.1 only, 1.4<->1.5 only -- unique, greedy works
+    // With eps=0.5: 1.0<->{1.1,1.5}, 1.4<->{1.5,1.1} -- ambiguous
     //   Greedy iteration order dependent. If we check 1.0 first and it grabs 1.5,
-    //   then 1.4 can only match 1.1 (diff=0.3<0.5) â€” works!
-    //   But if 1.0 grabs 1.1, then 1.4 grabs 1.5 â€” also works!
+    //   then 1.4 can only match 1.1 (diff=0.3<0.5) -- works!
+    //   But if 1.0 grabs 1.1, then 1.4 grabs 1.5 -- also works!
     //
     // This is actually hard to break with our algorithm because equal_range
     // groups by key, and within a key bucket we do first-available matching.
@@ -638,7 +638,7 @@ FATP_TEST_CASE(unordered_multimap_epsilon_pairing)
     std::unordered_multimap<int, double> umm1 = {{1, 1.0}, {1, 1.4}};
     std::unordered_multimap<int, double> umm2 = {{1, 1.1}, {1, 1.5}};
     
-    // With eps=0.2, unique matching exists: 1.0â†”1.1, 1.4â†”1.5
+    // With eps=0.2, unique matching exists: 1.0<->1.1, 1.4<->1.5
     bool result = areEqual(umm1, umm2, 0.2);
     FATP_ASSERT_TRUE(result, "Greedy match should find valid pairing with tight epsilon");
 

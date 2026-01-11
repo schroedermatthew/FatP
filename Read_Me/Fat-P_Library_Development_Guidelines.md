@@ -434,22 +434,22 @@ private:
 **Constants Convention Rationale:**
 
 The dual convention distinguishes preprocessor definitions from type-safe constants:
-- `SCREAMING_SNAKE` signals "this is a macro" â€” preprocessor text substitution with no type safety
-- `kPrefix` signals "this is a `constexpr` value" â€” type-safe, scoped, debugger-visible
+- `SCREAMING_SNAKE` signals "this is a macro" -- preprocessor text substitution with no type safety
+- `kPrefix` signals "this is a `constexpr` value" -- type-safe, scoped, debugger-visible
 
 This distinction helps readers immediately understand whether they're dealing with textual substitution or a proper C++ constant:
 
 ```cpp
-// Preprocessor â€” SCREAMING_SNAKE
+// Preprocessor -- SCREAMING_SNAKE
 #define FATP_CACHE_LINE_SIZE 64       // Macro: no type, no scope
 
-// Compile-time constants â€” kPrefix
+// Compile-time constants -- kPrefix
 static constexpr size_t kCacheLineSize = 64;           // Typed, scoped
 static constexpr float kDefaultLoadFactor = 0.875f;    // Typed, scoped
 inline constexpr std::string_view kVersionString = "1.0.0";
 ```
 
-**Exception:** Template parameters that represent compile-time values (e.g., `template <size_t N>`) do not use `k` prefix â€” they follow the PascalCase template parameter convention.
+**Exception:** Template parameters that represent compile-time values (e.g., `template <size_t N>`) do not use `k` prefix -- they follow the PascalCase template parameter convention.
 
 **Function names are descriptive:**
 
@@ -565,14 +565,14 @@ namespace {
 **Examples:**
 
 ```cpp
-// CORRECT â€” justified compile-time constant
+// CORRECT -- justified compile-time constant
 // Anonymous namespace: compile-time constant, no mutable state
 namespace {
     constexpr size_t kBufferSize = 1024;
     constexpr std::array<int, 4> kMagicNumbers = {1, 2, 3, 4};
 }
 
-// CORRECT â€” justified stateless trait
+// CORRECT -- justified stateless trait
 // Anonymous namespace: stateless type trait for SFINAE, no ODR concern
 namespace {
     template <typename T, typename = void>
@@ -582,12 +582,12 @@ namespace {
     struct HasValueType<T, std::void_t<typename T::value_type>> : std::true_type {};
 }
 
-// WRONG â€” no justification
+// WRONG -- no justification
 namespace {
     constexpr int kTimeout = 30;  // Missing justification comment!
 }
 
-// WRONG â€” mutable state (never acceptable in headers)
+// WRONG -- mutable state (never acceptable in headers)
 // Anonymous namespace: ??? (no valid justification exists)
 namespace {
     int gCounter = 0;  // REJECTED: mutable state creates per-TU copies
@@ -1595,18 +1595,18 @@ Where `N` is the number of **repo-relative** files actually modified.
 
 Each entry must include:
 - the repo-relative path (`include/Foo.h`, `tests/test_Foo.cpp`, etc.),
-- a one-sentence intent (“what changed and why”),
+- a one-sentence intent ("what changed and why"),
 - optionally: the primary symbols touched (for fast review).
 
 ##### 2) Links Must Match the Manifest (MUST)
 - Provide download links **only** for the files in the manifest.
-- Do **not** attach unchanged “context” or “dependency” files. If context is needed, quote a small snippet inline instead.
+- Do **not** attach unchanged "context" or "dependency" files. If context is needed, quote a small snippet inline instead.
 - If the user requested a `.zip`, it must contain **only** the files in the manifest and preserve their repo-relative paths.
 - If the user requested a `.patch`, it must apply cleanly to the stated base revision; still include the manifest.
 
 ##### 3) Zero-Change Case (MUST)
 If no files were modified:
-- explicitly say **“No files were modified.”**
+- explicitly say **"No files were modified."**
 - provide **no** download links.
 
 ##### 4) Consistency Rule (MUST)
@@ -1616,9 +1616,9 @@ If no files were modified:
 ##### Example (correct)
 ```text
 Modified Files (3)
-1) include/FatPJson.h — Fix 32-bit length narrowing in read_string().
-2) tests/test_FatPJson.cpp — Add regression test for oversized length field.
-3) docs/FatPJson_User_Manual.md — Document the new error behavior.
+1) include/FatPJson.h -- Fix 32-bit length narrowing in read_string().
+2) tests/test_FatPJson.cpp -- Add regression test for oversized length field.
+3) docs/FatPJson_User_Manual.md -- Document the new error behavior.
 
 Downloads (modified files only)
 - [include/FatPJson.h](<link>)
@@ -1628,7 +1628,7 @@ Downloads (modified files only)
 
 ##### Example (incorrect)
 - Providing a `.zip` containing 200 files when only 3 were modified.
-- Providing links to unchanged files “for completeness”.
+- Providing links to unchanged files "for completeness".
 
 #### Compilation and Execution Honesty
 
@@ -1728,7 +1728,7 @@ Findings are classified into two categories:
 
 Before asserting a missing include or layer violation:
 
-1. **Show the include chain** -- If claiming a transitive include is missing, demonstrate the actual chain (e.g., `A.h` → `B.h` → `C.h`)
+1. **Show the include chain** -- If claiming a transitive include is missing, demonstrate the actual chain (e.g., `A.h` -> `B.h` -> `C.h`)
 2. **Check `@layer` tags** -- Use the header's declared layer, not assumptions based on naming
 3. **Quote the violation** -- Show the specific `#include` line that violates the layer hierarchy
 

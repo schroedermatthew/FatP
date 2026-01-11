@@ -1775,7 +1775,7 @@ FATP_TEST_CASE(insert_single_throwing_move_assign)
         const int aliveBefore = ThrowOnMoveAssign::alive;
 
         // Set to throw on 3rd move assignment (0-indexed: call #2)
-        // Insert at pos 1 with 5 elements does: tail construct, then shifts [4]â†’[3]â†’[2]â†’[1]
+        // Insert at pos 1 with 5 elements does: tail construct, then shifts [4]->[3]->[2]->[1]
         // Throwing mid-shift tests the leak fix for the already-constructed tail element
         ThrowOnMoveAssign::throwAfter = 2;
         ThrowOnMoveAssign::moveAssignCount = 0;

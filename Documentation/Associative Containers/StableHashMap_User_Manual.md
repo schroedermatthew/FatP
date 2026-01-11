@@ -1,9 +1,15 @@
 ---
-doc_id: stablehashmap-user-manual
-doc_type: user_manual
-status: candidate
-fatp_components: [StableHashMap]
-last_updated: 2026-01-09
+doc_id: UM-STABLEHASHMAP-001
+doc_type: "User Manual"
+title: "StableHashMap"
+fatp_components: ["StableHashMap"]
+topics: ["hash map API", "insert methods", "heterogeneous lookup", "load factor tuning", "block allocator", "hash mixing", "migration from std::unordered_map"]
+constraints: ["reference stability requirements", "rehash costs", "allocator strategy", "exception boundaries", "debug-mode enforcement"]
+cxx_standard: "C++17"
+build_modes: ["Debug", "Release"]
+last_verified: "2026-01-09"
+audience: ["C++ developers", "library maintainers", "performance engineers", "AI assistants"]
+status: "reviewed"
 ---
 
 # StableHashMap User Manual

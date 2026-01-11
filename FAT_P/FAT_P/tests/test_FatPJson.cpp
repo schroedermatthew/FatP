@@ -1184,7 +1184,7 @@ FATP_TEST_CASE(jsonc_comments) {
 
 FATP_TEST_CASE(utf8_handling) {
     FATP_SUBTEST("European chars escaped") {
-        std::string text = "cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©";
+        std::string text = "caf\xC3\xA9";
         std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
         
         FATP_ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should escape European chars");
@@ -1196,7 +1196,7 @@ FATP_TEST_CASE(utf8_handling) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("Asian chars escaped") {
-        std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢";
+        std::string text = "\xE4\xB8\x96\xE7\x95\x8C";
         std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
         
         FATP_ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should escape Asian chars");
@@ -1207,7 +1207,7 @@ FATP_TEST_CASE(utf8_handling) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("Emoji with surrogate pairs") {
-        std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Â¹Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬";
+        std::string text = "\xF0\x9F\x98\x80";
         std::string json = to_json_string<std::string, StandardJsonPolicy>(text);
         
         FATP_ASSERT_TRUE(json.find("\\u") != std::string::npos, "Should escape emoji");
@@ -1218,7 +1218,7 @@ FATP_TEST_CASE(utf8_handling) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("Raw UTF-8 with CompatJsonPolicy") {
-        std::string text = "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Â¹Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬";
+        std::string text = "\xE4\xB8\x96\xE7\x95\x8C caf\xC3\xA9 \xF0\x9F\x98\x80";
         std::string json = to_json_string<std::string, CompatJsonPolicy>(text);
         
         FATP_ASSERT_TRUE(json.find("\\u") == std::string::npos, "CompatPolicy should not escape");

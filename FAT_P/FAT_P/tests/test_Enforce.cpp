@@ -418,7 +418,7 @@ FATP_TEST_CASE(predicate_container_unique_noexcept) {
                       "ContainerIsUniquePredicate should be noexcept(false) for hashable types");
     }
     
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Conditional noexcept working correctly\n";
+    std::cout << "    -> Conditional noexcept working correctly\n";
     return true;
 }
 
@@ -463,7 +463,7 @@ FATP_TEST_CASE(predicate_noexcept_correctness) {
                       "AnySatisfyPredicate with one even number");
     }
     
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Predicates correctly allow exceptions to propagate\n";
+    std::cout << "    -> Predicates correctly allow exceptions to propagate\n";
     return true;
 }
 
@@ -999,7 +999,7 @@ FATP_TEST_CASE(contextual_multi_arg_throwing) {
     }
     
     reset_violation_handler();
-    std::cout << "    Ã¢â€ â€™ Multi-arg throwing predicates working correctly\n";
+    std::cout << "    -> Multi-arg throwing predicates working correctly\n";
     return true;
 }
 
@@ -1034,7 +1034,7 @@ FATP_TEST_CASE(contextual_multi_arg_noexcept) {
                   "noexcept_check_less_than is noexcept");
     
     reset_violation_handler();
-    std::cout << "    Ã¢â€ â€™ Multi-arg noexcept predicates working correctly\n";
+    std::cout << "    -> Multi-arg noexcept predicates working correctly\n";
     return true;
 }
 
@@ -1070,7 +1070,7 @@ FATP_TEST_CASE(contextual_multi_arg_abort) {
     }
     
     reset_violation_handler();
-    std::cout << "    Ã¢â€ â€™ Multi-arg abort predicates working correctly (passing cases)\n";
+    std::cout << "    -> Multi-arg abort predicates working correctly (passing cases)\n";
     return true;
 }
 
@@ -1149,7 +1149,7 @@ FATP_TEST_CASE(contextual_multi_arg_boundary) {
     }
     
     reset_violation_handler();
-    std::cout << "    Ã¢â€ â€™ Multi-arg boundary conditions working correctly\n";
+    std::cout << "    -> Multi-arg boundary conditions working correctly\n";
     return true;
 }
 
@@ -1242,7 +1242,7 @@ FATP_TEST_CASE(expected_no_exceptions) {
                       "enforce_predicate_expected should return true for passing predicate");
     }
     
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Expected integration using direct checks (no RAII)\n";
+    std::cout << "    -> Expected integration using direct checks (no RAII)\n";
     return true;
 }
 
@@ -1273,7 +1273,7 @@ FATP_TEST_CASE(expected_contextual_noexcept) {
     FATP_ASSERT_TRUE(result_fail.error().find("Failed") != std::string::npos,
                   "Error message should be preserved");
     
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Contextual Expected works correctly in noexcept functions\n";
+    std::cout << "    -> Contextual Expected works correctly in noexcept functions\n";
     return true;
 }
 
@@ -1327,7 +1327,7 @@ FATP_TEST_CASE(expected_predicate_variants) {
                       "contextual_enforce_expected_3 should return predicate result");
     }
     
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ All Expected arity variants (1-3) working correctly\n";
+    std::cout << "    -> All Expected arity variants (1-3) working correctly\n";
     return true;
 }
 
@@ -1363,7 +1363,7 @@ FATP_TEST_CASE(expected_error_propagation) {
     FATP_ASSERT_TRUE(result_fail.error().find("First check failed") != std::string::npos,
                   "Error message from first check");
     
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Expected error propagation patterns working correctly\n";
+    std::cout << "    -> Expected error propagation patterns working correctly\n";
     return true;
 }
 
@@ -1391,10 +1391,10 @@ FATP_TEST_CASE(performance_enforce_overhead) {
     
     #ifdef NDEBUG
     FATP_ASSERT_TRUE(ns_per_call < 10.0, "enforce() has minimal overhead in release build");
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ enforce() overhead: " << ns_per_call << " ns/call (release)\n";
+    std::cout << "    -> enforce() overhead: " << ns_per_call << " ns/call (release)\n";
     #else
     FATP_ASSERT_TRUE(ns_per_call < 500.0, "enforce() overhead acceptable in debug build");
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ enforce() overhead: " << ns_per_call << " ns/call (debug)\n";
+    std::cout << "    -> enforce() overhead: " << ns_per_call << " ns/call (debug)\n";
     #endif
     
     return true;
@@ -1413,7 +1413,7 @@ FATP_TEST_CASE(performance_always_enforce_overhead) {
     double ns_per_call = static_cast<double>(duration) / iterations;
     
     FATP_ASSERT_TRUE(ns_per_call < 500.0, "always_enforce() overhead is reasonable");
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ always_enforce() overhead: " << ns_per_call << " ns/call\n";
+    std::cout << "    -> always_enforce() overhead: " << ns_per_call << " ns/call\n";
     
     return true;
 }
@@ -1433,7 +1433,7 @@ FATP_TEST_CASE(performance_predicate_overhead) {
     double ns_per_call = static_cast<double>(duration) / iterations;
     
     FATP_ASSERT_TRUE(ns_per_call < 10.0, "Predicate check overhead is minimal");
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ NotNullPredicate::check() overhead: " << ns_per_call << " ns/call\n";
+    std::cout << "    -> NotNullPredicate::check() overhead: " << ns_per_call << " ns/call\n";
     
     delete ptr;
     return true;
@@ -1486,7 +1486,7 @@ FATP_TEST_CASE(thread_safety_concurrent_enforcement) {
     FATP_ASSERT_TRUE(failure_count.load() == expected_failure,
                   "Concurrent enforcement failure count correct");
     
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Processed " << (num_threads * iterations_per_thread)
+    std::cout << "    -> Processed " << (num_threads * iterations_per_thread)
               << " enforcement calls across " << num_threads << " threads\n";
     
     return true;
@@ -1610,7 +1610,7 @@ FATP_TEST_CASE(compile_time_static_assertions) {
     static_assert(fat_p::IsPowerOfTwoPredicate::check(1024), 
                   "Static power of two");
     
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ All constexpr checks evaluated at compile-time\n";
+    std::cout << "    -> All constexpr checks evaluated at compile-time\n";
     
     return true;
 }
@@ -1663,8 +1663,8 @@ FATP_TEST_CASE(compile_time_noexcept_detection) {
                       decltype(&TestClass::throwing)>::value,
                   "Should detect non-noexcept");
     
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ All 8 cv-ref qualifier combinations detected correctly\n";
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ is_noexcept_function_ptr trait complete\n";
+    std::cout << "    -> All 8 cv-ref qualifier combinations detected correctly\n";
+    std::cout << "    -> is_noexcept_function_ptr trait complete\n";
     return true;
 }
 
@@ -1691,7 +1691,7 @@ FATP_TEST_CASE(compile_time_predicate_noexcept) {
                       "Hashable string should have noexcept(false)");
     }
     
-    std::cout << "    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Conditional noexcept evaluated at compile-time\n";
+    std::cout << "    -> Conditional noexcept evaluated at compile-time\n";
     return true;
 }
 

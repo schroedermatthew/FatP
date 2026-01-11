@@ -12,7 +12,7 @@ The canonical reference implementation is `test_StableHashMap.cpp`.
 
 ### Implementation File (`test_Component.cpp`)
 
-All tests use a **named nested namespace** with `TEST_CASE` macro:
+All tests use a **named nested namespace** with `FATP_TEST_CASE` macro:
 
 ```cpp
 /**
@@ -40,19 +40,19 @@ namespace fat_p::testing::componentns
 // Tests
 // ============================================================================
 
-TEST_CASE(basic_operations)
+FATP_TEST_CASE(basic_operations)
 {
     Component<int> c;
-    ASSERT_TRUE(c.empty(), "Should start empty");
-    ASSERT_EQ(c.size(), size_t(0), "Size should be 0");
+    FATP_ASSERT_TRUE(c.empty(), "Should start empty");
+    FATP_ASSERT_EQ(c.size(), size_t(0), "Size should be 0");
     return true;
 }
 
-TEST_CASE(insert)
+FATP_TEST_CASE(insert)
 {
     Component<int> c;
     c.insert(42);
-    ASSERT_EQ(c.size(), size_t(1), "Size should be 1");
+    FATP_ASSERT_EQ(c.size(), size_t(1), "Size should be 1");
     return true;
 }
 
@@ -77,12 +77,12 @@ namespace fat_p::testing
 
 bool test_Component()
 {
-    PRINT_HEADER(COMPONENT NAME)
+    FATP_PRINT_HEADER(COMPONENT NAME)
     
     TestRunner runner;
     
-    RUN_TEST_NS(runner, componentns, basic_operations);
-    RUN_TEST_NS(runner, componentns, insert);
+    FATP_RUN_TEST_NS(runner, componentns, basic_operations);
+    FATP_RUN_TEST_NS(runner, componentns, insert);
     // ...
     
     componentns::run_benchmarks();
@@ -105,8 +105,8 @@ int main()
 | Element | Requirement |
 |---------|-------------|
 | Namespace | `fat_p::testing::componentns` (nested, not anonymous) |
-| Test definition | `TEST_CASE(name)` macro |
-| Test execution | `RUN_TEST_NS(runner, componentns, name)` macro |
+| Test definition | `FATP_TEST_CASE(name)` macro |
+| Test execution | `FATP_RUN_TEST_NS(runner, componentns, name)` macro |
 | Return value | Every test returns `bool` (`return true;` on success) |
 
 ---
@@ -129,21 +129,21 @@ Test suites should cover these areas (as applicable to the component):
 ### Basic Operations
 
 ```cpp
-TEST_CASE(basic_insert_get)
+FATP_TEST_CASE(basic_insert_get)
 {
     SlotMap<Entity> map;
     
-    ASSERT_TRUE(map.empty(), "Map should start empty");
-    ASSERT_EQ(map.size(), size_t(0), "Map should have size 0");
+    FATP_ASSERT_TRUE(map.empty(), "Map should start empty");
+    FATP_ASSERT_EQ(map.size(), size_t(0), "Map should have size 0");
     
     auto handle = map.insert(Entity{1, "Alice", 100.0f});
     
-    ASSERT_FALSE(map.empty(), "Map should not be empty");
-    ASSERT_EQ(map.size(), size_t(1), "Map should have size 1");
+    FATP_ASSERT_FALSE(map.empty(), "Map should not be empty");
+    FATP_ASSERT_EQ(map.size(), size_t(1), "Map should have size 1");
     
     Entity* entity = map.get(handle);
-    ASSERT_NOT_NULLPTR(entity, "Should get valid pointer");
-    ASSERT_EQ(entity->id, 1, "ID should match");
+    FATP_ASSERT_NOT_NULLPTR(entity, "Should get valid pointer");
+    FATP_ASSERT_EQ(entity->id, 1, "ID should match");
     
     return true;
 }
@@ -152,15 +152,15 @@ TEST_CASE(basic_insert_get)
 ### Edge Cases
 
 ```cpp
-TEST_CASE(empty_operations)
+FATP_TEST_CASE(empty_operations)
 {
     FlatMap<int, std::string> map;
     
-    ASSERT_TRUE(map.find(42) == map.end(), "Find on empty returns end");
-    ASSERT_EQ(map.erase(42), size_t(0), "Erase on empty returns 0");
+    FATP_ASSERT_TRUE(map.find(42) == map.end(), "Find on empty returns end");
+    FATP_ASSERT_EQ(map.erase(42), size_t(0), "Erase on empty returns 0");
     
     map.clear();  // Clear empty container should be safe
-    ASSERT_TRUE(map.empty(), "Still empty after clear");
+    FATP_ASSERT_TRUE(map.empty(), "Still empty after clear");
     
     return true;
 }
@@ -169,7 +169,7 @@ TEST_CASE(empty_operations)
 ### Exception Safety
 
 ```cpp
-TEST_CASE(exception_safety_insert)
+FATP_TEST_CASE(exception_safety_insert)
 {
     SmallVector<ThrowOnCopy, 4> v;
     v.push_back(ThrowOnCopy(1));
@@ -190,8 +190,8 @@ TEST_CASE(exception_safety_insert)
         threw = true;
     }
     
-    ASSERT_TRUE(threw, "Should have thrown");
-    ASSERT_EQ(v.size(), old_size, "Size unchanged (strong guarantee)");
+    FATP_ASSERT_TRUE(threw, "Should have thrown");
+    FATP_ASSERT_EQ(v.size(), old_size, "Size unchanged (strong guarantee)");
     
     return true;
 }
@@ -200,7 +200,7 @@ TEST_CASE(exception_safety_insert)
 ### Fuzz Testing
 
 ```cpp
-TEST_CASE(stress_random)
+FATP_TEST_CASE(stress_random)
 {
     Container<int, int> container;
     std::map<int, int> reference;
@@ -223,17 +223,17 @@ TEST_CASE(stress_random)
         {
             bool ours = container.find(key) != container.end();
             bool theirs = reference.find(key) != reference.end();
-            ASSERT_EQ(ours, theirs, "Find results should match");
+            FATP_ASSERT_EQ(ours, theirs, "Find results should match");
         }
         else
         {
             size_t ours = container.erase(key);
             size_t theirs = reference.erase(key);
-            ASSERT_EQ(ours, theirs, "Erase results should match");
+            FATP_ASSERT_EQ(ours, theirs, "Erase results should match");
         }
     }
     
-    ASSERT_EQ(container.size(), reference.size(), "Final size should match");
+    FATP_ASSERT_EQ(container.size(), reference.size(), "Final size should match");
     return true;
 }
 ```
@@ -246,24 +246,24 @@ Use FatPTest.h assertions consistently. **Choose the macro that makes the test's
 
 | Macro | When to Use |
 |-------|-------------|
-| `ASSERT_TRUE(cond, msg)` | Boolean conditions expected to be true |
-| `ASSERT_FALSE(cond, msg)` | Boolean conditions expected to be false |
-| `ASSERT_EQ(a, b, msg)` | Value equality — produces better diagnostics than `ASSERT_TRUE(a == b)` |
-| `ASSERT_NE(a, b, msg)` | Value inequality |
-| `ASSERT_LT(a, b, msg)` | Less than comparison |
-| `ASSERT_LE(a, b, msg)` | Less than or equal |
-| `ASSERT_GT(a, b, msg)` | Greater than comparison |
-| `ASSERT_GE(a, b, msg)` | Greater than or equal |
-| `ASSERT_CLOSE(a, b, msg)` | Floating-point with default tolerance |
-| `ASSERT_CLOSE_EPS(a, b, eps, msg)` | Floating-point with custom tolerance |
-| `ASSERT_NULLPTR(ptr, msg)` | Pointer should be null |
-| `ASSERT_NOT_NULLPTR(ptr, msg)` | Pointer should not be null |
-| `ASSERT_THROWS(expr, type, msg)` | Expression should throw specific exception |
-| `ASSERT_NO_THROW(expr, msg)` | Expression should not throw |
-| `ASSERT_CONTAINS(str, sub, msg)` | String contains substring |
-| `ASSERT_STARTS_WITH(str, pre, msg)` | String starts with prefix |
-| `ASSERT_ENDS_WITH(str, suf, msg)` | String ends with suffix |
-| `SIMPLE_ASSERT(cond, msg)` | Legacy alias for `ASSERT_TRUE` |
+| `FATP_ASSERT_TRUE(cond, msg)` | Boolean conditions expected to be true |
+| `FATP_ASSERT_FALSE(cond, msg)` | Boolean conditions expected to be false |
+| `FATP_ASSERT_EQ(a, b, msg)` | Value equality — produces better diagnostics than `FATP_ASSERT_TRUE(a == b)` |
+| `FATP_ASSERT_NE(a, b, msg)` | Value inequality |
+| `FATP_ASSERT_LT(a, b, msg)` | Less than comparison |
+| `FATP_ASSERT_LE(a, b, msg)` | Less than or equal |
+| `FATP_ASSERT_GT(a, b, msg)` | Greater than comparison |
+| `FATP_ASSERT_GE(a, b, msg)` | Greater than or equal |
+| `FATP_ASSERT_CLOSE(a, b, msg)` | Floating-point with default tolerance |
+| `FATP_ASSERT_CLOSE_EPS(a, b, eps, msg)` | Floating-point with custom tolerance |
+| `FATP_ASSERT_NULLPTR(ptr, msg)` | Pointer should be null |
+| `FATP_ASSERT_NOT_NULLPTR(ptr, msg)` | Pointer should not be null |
+| `FATP_ASSERT_THROWS(expr, type, msg)` | Expression should throw specific exception |
+| `FATP_ASSERT_NO_THROW(expr, msg)` | Expression should not throw |
+| `FATP_ASSERT_CONTAINS(str, sub, msg)` | String contains substring |
+| `FATP_ASSERT_STARTS_WITH(str, pre, msg)` | String starts with prefix |
+| `FATP_ASSERT_ENDS_WITH(str, suf, msg)` | String ends with suffix |
+| `FATP_SIMPLE_ASSERT(cond, msg)` | Legacy alias for `FATP_ASSERT_TRUE` |
 
 ### Principle: Intention Over Mechanism
 
@@ -271,27 +271,27 @@ The assertion macro name should communicate **what** you're testing:
 
 ```cpp
 // Good: The macro name describes the check
-ASSERT_EQ(map.size(), size_t(3), "Size should be 3 after 3 inserts");
-ASSERT_TRUE(map.empty(), "Map should be empty after clear");
-ASSERT_CLOSE(result, expected, "Computed value should match");
-ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
+FATP_ASSERT_EQ(map.size(), size_t(3), "Size should be 3 after 3 inserts");
+FATP_ASSERT_TRUE(map.empty(), "Map should be empty after clear");
+FATP_ASSERT_CLOSE(result, expected, "Computed value should match");
+FATP_ASSERT_NOT_NULLPTR(ptr, "Allocation should succeed");
 
 // Less clear: Generic boolean hides the actual check
-ASSERT_TRUE(map.size() == 3, "Size should be 3");
-ASSERT_TRUE(ptr != nullptr, "Allocation should succeed");
+FATP_ASSERT_TRUE(map.size() == 3, "Size should be 3");
+FATP_ASSERT_TRUE(ptr != nullptr, "Allocation should succeed");
 ```
 
 ### Better Diagnostics
 
-`ASSERT_EQ` produces richer failure output than `ASSERT_TRUE`:
+`FATP_ASSERT_EQ` produces richer failure output than `FATP_ASSERT_TRUE`:
 
 ```
-// ASSERT_TRUE failure:
-ASSERT_TRUE FAILED: Size should be 3
+// FATP_ASSERT_TRUE failure:
+FATP_ASSERT_TRUE FAILED: Size should be 3
   at test_Component.cpp:42
 
-// ASSERT_EQ failure:
-ASSERT_EQ FAILED: Size should be 3
+// FATP_ASSERT_EQ failure:
+FATP_ASSERT_EQ FAILED: Size should be 3
   Expected: 3
   Actual:   2
   at test_Component.cpp:42
@@ -301,10 +301,10 @@ ASSERT_EQ FAILED: Size should be 3
 
 ```cpp
 // Good
-ASSERT_EQ(map.size(), size_t(3), "Size should be 3 after 3 inserts");
+FATP_ASSERT_EQ(map.size(), size_t(3), "Size should be 3 after 3 inserts");
 
 // Bad - no diagnostic value
-ASSERT_EQ(map.size(), size_t(3), "");
+FATP_ASSERT_EQ(map.size(), size_t(3), "");
 ```
 
 ---
@@ -507,9 +507,9 @@ From FatPTest.h:
 
 | Macro | Purpose |
 |-------|---------|
-| `TEST_CASE(name)` | Defines test function `test_##name()` |
-| `RUN_TEST_NS(runner, ns, name)` | Runs `ns::test_##name()` |
-| `PRINT_HEADER(SECTION)` | Prints formatted section header |
+| `FATP_TEST_CASE(name)` | Defines test function `test_##name()` |
+| `FATP_RUN_TEST_NS(runner, ns, name)` | Runs `ns::test_##name()` |
+| `FATP_PRINT_HEADER(SECTION)` | Prints formatted section header |
 
 ### Running Tests
 
@@ -519,14 +519,14 @@ namespace fat_p::testing
 
 bool test_Component()
 {
-    PRINT_HEADER(COMPONENT NAME)
+    FATP_PRINT_HEADER(COMPONENT NAME)
     
     TestRunner runner;
     
-    // All tests use RUN_TEST_NS with the component's namespace
-    RUN_TEST_NS(runner, componentns, basic_operations);
-    RUN_TEST_NS(runner, componentns, insert);
-    RUN_TEST_NS(runner, componentns, erase);
+    // All tests use FATP_RUN_TEST_NS with the component's namespace
+    FATP_RUN_TEST_NS(runner, componentns, basic_operations);
+    FATP_RUN_TEST_NS(runner, componentns, insert);
+    FATP_RUN_TEST_NS(runner, componentns, erase);
     
     // Benchmarks run after tests
     componentns::run_benchmarks();
@@ -544,21 +544,21 @@ For larger test suites, group related tests with section headers:
 ```cpp
 bool test_StrongId()
 {
-    PRINT_HEADER(STRONG ID)
+    FATP_PRINT_HEADER(STRONG ID)
     
     TestRunner runner;
     auto& out = *get_test_config().output;
     
     // Basic Functionality
     out << colors::blue() << "--- Basic Functionality ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, strongid, default_constructor);
-    RUN_TEST_NS(runner, strongid, explicit_constructor);
-    RUN_TEST_NS(runner, strongid, type_safety);
+    FATP_RUN_TEST_NS(runner, strongid, default_constructor);
+    FATP_RUN_TEST_NS(runner, strongid, explicit_constructor);
+    FATP_RUN_TEST_NS(runner, strongid, type_safety);
     
     // Comparison Operators
     out << "\n" << colors::blue() << "--- Comparison Operators ---" << colors::reset() << "\n";
-    RUN_TEST_NS(runner, strongid, equality_comparison);
-    RUN_TEST_NS(runner, strongid, less_than_comparison);
+    FATP_RUN_TEST_NS(runner, strongid, equality_comparison);
+    FATP_RUN_TEST_NS(runner, strongid, less_than_comparison);
     
     // Benchmarks
     strongid::run_benchmarks();
@@ -587,8 +587,8 @@ Compile standalone: `g++ -std=c++17 -O2 -DENABLE_TEST_APPLICATION test_Component
 ### Structure
 - [ ] File has documentation header (`@file`, `@brief`)
 - [ ] Implementation uses named nested namespace `fat_p::testing::componentns`
-- [ ] Tests defined with `TEST_CASE(name)` macro
-- [ ] Tests executed with `RUN_TEST_NS(runner, componentns, name)` macro
+- [ ] Tests defined with `FATP_TEST_CASE(name)` macro
+- [ ] Tests executed with `FATP_RUN_TEST_NS(runner, componentns, name)` macro
 - [ ] Helper types defined within the component's namespace
 - [ ] Public interface in separate `fat_p::testing` namespace block
 - [ ] `main()` guarded by `ENABLE_TEST_APPLICATION`
@@ -606,9 +606,9 @@ Compile standalone: `g++ -std=c++17 -O2 -DENABLE_TEST_APPLICATION test_Component
 ### Assertions
 - [ ] Every assertion has a descriptive message
 - [ ] Assertion macro matches the check being performed (intention over mechanism)
-- [ ] Use `ASSERT_EQ`/`ASSERT_NE` for value comparisons (better diagnostics)
-- [ ] Use `ASSERT_TRUE`/`ASSERT_FALSE` for boolean conditions
-- [ ] Use `ASSERT_CLOSE`/`ASSERT_CLOSE_EPS` for floating-point comparisons
+- [ ] Use `FATP_ASSERT_EQ`/`FATP_ASSERT_NE` for value comparisons (better diagnostics)
+- [ ] Use `FATP_ASSERT_TRUE`/`FATP_ASSERT_FALSE` for boolean conditions
+- [ ] Use `FATP_ASSERT_CLOSE`/`FATP_ASSERT_CLOSE_EPS` for floating-point comparisons
 
 ### Benchmarks
 - [ ] Compare against std:: equivalent (when one exists)

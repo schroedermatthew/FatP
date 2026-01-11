@@ -703,7 +703,7 @@ namespace fat_p::testing::enforcedinit
             for (int i = 0; i < CONCURRENT_THREAD_COUNT; ++i) {
                 threads.emplace_back([&original, &copies, &exceptions, i]() {
                     try {
-                        copies[i] = original;  // âœ… Should be thread-safe now
+                        copies[i] = original;  // [OK] Should be thread-safe now
                         int val = copies[i].get();
                         if (val != TEST_VALUE_DEFAULT) {
                             exceptions.fetch_add(1, std::memory_order_relaxed);

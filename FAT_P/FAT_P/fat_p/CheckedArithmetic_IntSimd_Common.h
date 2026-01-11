@@ -6,7 +6,7 @@
  * This provides the foundational infrastructure for checked integer SIMD
  * operations across SSE2, AVX2, and NEON architectures.
  * 
- * Design: detect â†’ scalar fallback
+ * Design: detect -> scalar fallback
  * - Perform SIMD arithmetic (fast path)
  * - Check for overflow using architecture-specific masks
  * - If overflow detected, fall back to scalar checked_* for proper error handling

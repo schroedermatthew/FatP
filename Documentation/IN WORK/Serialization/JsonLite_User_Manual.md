@@ -115,7 +115,7 @@
 
 ### The Problem JSON Solves
 
-In 2001, Douglas Crockford faced a common problem: how do you send structured data between a web server and a browser? XML was the standard answer, but XML is verbose, complex, and painful to parse in JavaScript. Crockford noticed that JavaScript already had a built-in way to represent dataâ€”object literalsâ€”and that this syntax was simple enough to use as a data format.
+In 2001, Douglas Crockford faced a common problem: how do you send structured data between a web server and a browser? XML was the standard answer, but XML is verbose, complex, and painful to parse in JavaScript. Crockford noticed that JavaScript already had a built-in way to represent data--object literals--and that this syntax was simple enough to use as a data format.
 
 He called it JSON: JavaScript Object Notation.
 
@@ -155,19 +155,19 @@ A JSON document is built from just six types:
 | **array** | `[1, 2, 3]` | `std::vector<T>` |
 | **object** | `{"key": "value"}` | `std::map<std::string, T>` |
 
-That's the entire data model. Objects and arrays can nest arbitrarily deep, giving you trees of any complexityâ€”but the building blocks remain simple.
+That's the entire data model. Objects and arrays can nest arbitrarily deep, giving you trees of any complexity--but the building blocks remain simple.
 
 ### The C++ JSON Challenge
 
 C++ didn't get a standard JSON library. The language committee has discussed it, but as of C++23, you still need a third-party library. This means choosing from dozens of options, each with different trade-offs:
 
-**nlohmann/json** is the most popular choiceâ€”intuitive API, great documentation, feels like using a scripting language. But it uses implicit conversions that can hide bugs, and it's a 25,000-line header.
+**nlohmann/json** is the most popular choice--intuitive API, great documentation, feels like using a scripting language. But it uses implicit conversions that can hide bugs, and it's a 25,000-line header.
 
-**RapidJSON** is the speed championâ€”400-1000 MB/s parsing, custom allocators, SAX and DOM modes. But the API is verbose and C-style, requiring manual memory management in some cases.
+**RapidJSON** is the speed champion--400-1000 MB/s parsing, custom allocators, SAX and DOM modes. But the API is verbose and C-style, requiring manual memory management in some cases.
 
-**simdjson** is the research breakthroughâ€”2-4 GB/s parsing using SIMD instructions, literally faster than `memcpy` on some systems. But it's read-only (can't modify or generate JSON) and requires specific CPU features.
+**simdjson** is the research breakthrough--2-4 GB/s parsing using SIMD instructions, literally faster than `memcpy` on some systems. But it's read-only (can't modify or generate JSON) and requires specific CPU features.
 
-**Boost.PropertyTree** comes with Boost and handles multiple formats (JSON, XML, INI). But it predates modern JSON libraries and doesn't provide true JSON semanticsâ€”arrays are awkward, and everything is stringly-typed.
+**Boost.PropertyTree** comes with Boost and handles multiple formats (JSON, XML, INI). But it predates modern JSON libraries and doesn't provide true JSON semantics--arrays are awkward, and everything is stringly-typed.
 
 ### Where JsonLite Fits
 
@@ -278,12 +278,12 @@ class JsonValue {
 
 **Problems:**
 - Manual memory management for strings/arrays/objects
-- No compile-time enforcementâ€”runtime checks everywhere
+- No compile-time enforcement--runtime checks everywhere
 - Easy to access the wrong union member (undefined behavior)
 
 ### Approach 3: The std::variant (JsonLite, modern libraries)
 
-C++17 introduced `std::variant`â€”a type-safe tagged union that the compiler manages for you:
+C++17 introduced `std::variant`--a type-safe tagged union that the compiler manages for you:
 
 ```cpp
 using JsonValue = std::variant<
@@ -298,9 +298,9 @@ using JsonValue = std::variant<
 ```
 
 **Why this is better:**
-- **Type-safe**: `std::get<int64_t>(value)` throws if value isn't an integerâ€”no undefined behavior
+- **Type-safe**: `std::get<int64_t>(value)` throws if value isn't an integer--no undefined behavior
 - **Value semantics**: Copy a `JsonValue`, get a deep copy. No shared state surprises.
-- **Small-value optimization**: `bool`, `int64_t`, `double`, and `nullptr_t` are stored inlineâ€”no heap allocation
+- **Small-value optimization**: `bool`, `int64_t`, `double`, and `nullptr_t` are stored inline--no heap allocation
 - **Pattern matching**: `std::visit` lets you handle all cases exhaustively
 
 **The trade-off:** More verbose access than implicit-conversion libraries:
@@ -328,14 +328,14 @@ How do you store a JSON number so that round-tripping preserves the value?
 
 ```cpp
 // All of these become int64_t internally
-to_json(42);           // int â†’ int64_t
-to_json(42L);          // long â†’ int64_t  
-to_json(42LL);         // long long â†’ int64_t
-to_json(uint16_t(42)); // uint16_t â†’ int64_t
+to_json(42);           // int -> int64_t
+to_json(42L);          // long -> int64_t  
+to_json(42LL);         // long long -> int64_t
+to_json(uint16_t(42)); // uint16_t -> int64_t
 
 // All of these become double internally
-to_json(3.14f);        // float â†’ double
-to_json(3.14);         // double â†’ double
+to_json(3.14f);        // float -> double
+to_json(3.14);         // double -> double
 ```
 
 When you deserialize, JsonLite checks that the value actually fits:
@@ -360,7 +360,7 @@ Understanding the memory layout helps you reason about performance:
 // - 32 bytes: largest alternative (std::string with SSO, or container)
 // Total: ~40 bytes on 64-bit systems
 
-// Small values (null, bool, int64_t, double) are stored inlineâ€”no heap
+// Small values (null, bool, int64_t, double) are stored inline--no heap
 JsonValue b = to_json(true);     // No allocation
 JsonValue n = to_json(42);       // No allocation
 JsonValue d = to_json(3.14);     // No allocation
@@ -390,7 +390,7 @@ json config = load("config.json");
 int timeout = config["timeout"];  // What if timeout is "30" (a string)?
 ```
 
-With implicit conversions, you might get 0, or an exception, or undefined behaviorâ€”depending on the library. With JsonLite, you write `from_json<int>(...)` and get a clear error: "expected integer but got string."
+With implicit conversions, you might get 0, or an exception, or undefined behavior--depending on the library. With JsonLite, you write `from_json<int>(...)` and get a clear error: "expected integer but got string."
 
 **Why exceptions?**
 
@@ -400,7 +400,7 @@ Configuration loading is a "parse once, use forever" operation. If the config is
 
 JSON objects are conceptually unordered, but `std::map` gives you:
 - Deterministic iteration order (alphabetical by key)
-- Deterministic serialization output (same input â†’ same output)
+- Deterministic serialization output (same input -> same output)
 - Easier debugging (keys in predictable order)
 
 The performance difference is negligible for configuration-sized objects.
@@ -703,7 +703,7 @@ inline void from_json(const JsonValue& j, Circle& c)
 
 ### What is Serialization?
 
-**Serialization** is the process of converting C++ objects into a format that can be stored or transmittedâ€”in this case, JSON text. The reverse process (**deserialization**) reconstructs C++ objects from JSON text.
+**Serialization** is the process of converting C++ objects into a format that can be stored or transmitted--in this case, JSON text. The reverse process (**deserialization**) reconstructs C++ objects from JSON text.
 
 ```mermaid
 graph LR
@@ -871,7 +871,7 @@ The challenge is that JSON and C++ have different type systems:
 | `[1, 2, 3]` | `std::vector`, `std::array`, `std::list`? |
 | `null` | `std::optional`, `nullptr`, empty string? |
 
-JsonLite solves this with **explicit type specification**â€”you tell it exactly what C++ type you want, and it either converts safely or throws an error. No silent data loss, no implicit conversions.
+JsonLite solves this with **explicit type specification**--you tell it exactly what C++ type you want, and it either converts safely or throws an error. No silent data loss, no implicit conversions.
 
 ### Why Two API Styles?
 
@@ -951,9 +951,9 @@ unsigned int u = from_json<unsigned int>(j_neg);  // ERROR: "Cannot convert nega
 
 **What gets checked:**
 - Integer overflow (value too large for target type)
-- Fractional loss (double â†’ int when fractional part exists)
-- Sign loss (negative â†’ unsigned)
-- Type mismatch (string â†’ int)
+- Fractional loss (double -> int when fractional part exists)
+- Sign loss (negative -> unsigned)
+- Type mismatch (string -> int)
 
 This strictness catches bugs at development time rather than causing silent data corruption in production.
 
@@ -1055,15 +1055,15 @@ const auto email = obj.count("email")
 
 ### The Two Halves of JSON Processing
 
-So far we've discussed **serialization** (C++ â†’ JsonValue) and **deserialization** (JsonValue â†’ C++). But there's another dimension: converting between `JsonValue` objects and actual JSON text strings.
+So far we've discussed **serialization** (C++ -> JsonValue) and **deserialization** (JsonValue -> C++). But there's another dimension: converting between `JsonValue` objects and actual JSON text strings.
 
 ```
               to_json()              to_json_string()
-C++ Object  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€>  JsonValue  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€>  JSON String
+C++ Object  ------------>  JsonValue  ------------------>  JSON String
             serialization               formatting
 
               from_json()              parse_json()
-C++ Object  <â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€  JsonValue  <â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€  JSON String
+C++ Object  ------------>  JsonValue  ------------------>  JSON String
             deserialization            parsing
 ```
 
@@ -1720,10 +1720,10 @@ std::string config = to_json_string<ConfigJsonPolicy>(value);     // Comments al
 
 | Policy | Output Style | NaN/Inf | Comments | Use For |
 |--------|--------------|---------|----------|---------|
-| `StandardJsonPolicy` | Compact | âŒ Reject | âŒ No | APIs, data exchange |
-| `PrettyJsonPolicy` | Indented | âŒ Reject | âŒ No | Human-readable output |
-| `CompatJsonPolicy` | Compact | âœ… Allow | âŒ No | Scientific computing |
-| `ConfigJsonPolicy` | Compact | âŒ Reject | âœ… Parse | Configuration files |
+| `StandardJsonPolicy` | Compact | [X] Reject | [X] No | APIs, data exchange |
+| `PrettyJsonPolicy` | Indented | [X] Reject | [X] No | Human-readable output |
+| `CompatJsonPolicy` | Compact | [OK] Allow | [X] No | Scientific computing |
+| `ConfigJsonPolicy` | Compact | [X] Reject | [OK] Parse | Configuration files |
 
 ### StandardJsonPolicy
 
@@ -1919,7 +1919,7 @@ struct Policy
 JsonLite uses exceptions for error handling rather than error codes or `std::expected`. This is a deliberate choice:
 
 **Advantages of exceptions for JSON:**
-- **Rare errors**: Parse errors and type mismatches are exceptionalâ€”most JSON is valid
+- **Rare errors**: Parse errors and type mismatches are exceptional--most JSON is valid
 - **Natural propagation**: Errors bubble up to the appropriate handler
 - **Clean API**: Functions return values, not error codes
 
@@ -1962,34 +1962,34 @@ catch (const std::runtime_error& e)
 
 JsonLite error messages are designed to help you find and fix problems quickly:
 
-**Parse errors** â€” show position, context, and what was expected:
+**Parse errors** -- show position, context, and what was expected:
 ```
 JSON parse error at position 15: expected ':' but got ','
 Context: "name": "Alice", "age"
                         ^
 ```
 
-**Type errors** â€” show expected type, actual type, and field path:
+**Type errors** -- show expected type, actual type, and field path:
 ```
 Type mismatch: expected integer but got string at field 'port'
 ```
 
-**Range errors** â€” show the value and the valid range:
+**Range errors** -- show the value and the valid range:
 ```
 Numeric cast overflow: value 999999 exceeds maximum for int8_t (127)
 ```
 
-**Missing field errors** â€” show which field is missing:
+**Missing field errors** -- show which field is missing:
 ```
 Required field 'name' missing in JSON object
 ```
 
-**File errors** â€” show the operation and filename:
+**File errors** -- show the operation and filename:
 ```
 File error: Failed to open file 'config.json' for reading
 ```
 
-**JSON Pointer errors** â€” show the full pointer path and where it failed:
+**JSON Pointer errors** -- show the full pointer path and where it failed:
 ```
 JSON Pointer error: Key 'database' not found in JSON object at pointer '/database/port'
 ```
@@ -2090,7 +2090,7 @@ JSON has six types. C++ has hundreds. This section documents exactly how JsonLit
 | `int8_t`, `int16_t`, `int32_t` | integer | Stored as `int64_t` |
 | `int64_t`, `int`, `long` | integer | Native representation |
 | `uint8_t`, `uint16_t`, `uint32_t` | integer | Converted to `int64_t` |
-| `uint64_t`, `unsigned long long` | integer/number | Values â‰¤ INT64_MAX stored as `int64_t`; larger values become `double` |
+| `uint64_t`, `unsigned long long` | integer/number | Values <= INT64_MAX stored as `int64_t`; larger values become `double` |
 | `float` | number | Converted to `double` |
 | `double` | number | Native representation |
 | `std::string` | string | UTF-8 encoded |
@@ -2115,7 +2115,7 @@ JSON has six types. C++ has hundreds. This section documents exactly how JsonLit
 | `std::unordered_set<T>` | array | Unordered |
 | `std::map<std::string, T>` | object | Ordered by key |
 | `std::unordered_map<std::string, T>` | object | Hash-based |
-| `std::optional<T>` | T or null | `nullopt` â†’ `null` |
+| `std::optional<T>` | T or null | `nullopt` -> `null` |
 | `std::pair<T, U>` | array | 2-element array |
 | `std::tuple<Ts...>` | array | N-element array |
 
@@ -2125,19 +2125,19 @@ JSON has six types. C++ has hundreds. This section documents exactly how JsonLit
 
 | Key Type | Serialize | Deserialize | Round-Trip |
 |----------|-----------|-------------|------------|
-| `std::string` | ✓ | ✓ | ✓ |
-| Arithmetic (`int`, `double`, etc.) | ✓ | ✓ | ✓ |
-| `const char*` | ✓ | ✗ | ✗ |
-| Custom type with `operator<<` | ✓ | ✗ | ✗ |
+| `std::string` | [OK] | [OK] | [OK] |
+| Arithmetic (`int`, `double`, etc.) | [OK] | [OK] | [OK] |
+| `const char*` | [OK] | [X] | [X] |
+| Custom type with `operator<<` | [OK] | [X] | [X] |
 
 ```cpp
-std::map<std::string, int> ok;      // ✓ Full round-trip support
-std::map<int, std::string> also_ok; // ✓ Arithmetic keys work
-std::map<MyType, int> one_way;      // ⚠️ Serializes via operator<<, can't deserialize
+std::map<std::string, int> ok;      // [OK] Full round-trip support
+std::map<int, std::string> also_ok; // [OK] Arithmetic keys work
+std::map<MyType, int> one_way;      // [WARN] Serializes via operator<<, can't deserialize
 ```
 
 > **Warning:** Custom key types with `operator<<` serialize successfully but **cannot be 
-> deserialized**—JsonLite has no way to parse the string back into your custom type.
+> deserialized**--JsonLite has no way to parse the string back into your custom type.
 > Additionally, `operator<<` uses the global locale, which may produce invalid JSON
 > if a non-C locale is active (e.g., `3,14` instead of `3.14` for German locale).
 
@@ -2154,9 +2154,9 @@ Use `std::map` when deterministic output order matters.
 **Nested containers work** to any depth:
 
 ```cpp
-std::vector<std::vector<int>> matrix;  // ✓ OK
-std::map<std::string, std::vector<int>> data;  // ✓ OK
-std::vector<std::map<std::string, double>> records;  // ✓ OK
+std::vector<std::vector<int>> matrix;  // [OK] OK
+std::map<std::string, std::vector<int>> data;  // [OK] OK
+std::vector<std::map<std::string, double>> records;  // [OK] OK
 ```
 
 **Use `std::optional` for nullable fields:**
@@ -2179,18 +2179,18 @@ The macro system handles the common case: structs with public fields that map di
 
 | Situation | Solution |
 |-----------|----------|
-| Nested structs (Address inside Person) | Macros workâ€”define both types |
+| Nested structs (Address inside Person) | Macros work--define both types |
 | Mixed-type arrays (`[1, "hello", true]`) | Use `JsonValue` directly |
-| Computed fields (area = width Ã— height) | Custom `to_json()` |
+| Computed fields (area = width x height) | Custom `to_json()` |
 | Different JSON key than field name | Custom `to_json()` / `from_json()` |
-| Polymorphism (Shape â†’ Circle, Rectangle) | Type tag + factory pattern |
+| Polymorphism (Shape -> Circle, Rectangle) | Type tag + factory pattern |
 | Validation during deserialization | Custom `from_json()` |
 
 This section covers patterns for these advanced cases.
 
 ### Nested Structures
 
-Complex nested types work automatically with macrosâ€”just define `to_json`/`from_json` for each type in dependency order (inner types first):
+Complex nested types work automatically with macros--just define `to_json`/`from_json` for each type in dependency order (inner types first):
 
 ```cpp
 struct Address
@@ -2422,7 +2422,7 @@ Before comparing features, it helps to understand where each library comes from 
 
 **RapidJSON** was developed by Milo Yip at TencentGame starting in 2011, designed for maximum parsing speed. It uses a SAX-style (event-driven) parser alongside DOM, supports custom memory allocators, and achieves 400-1000 MB/s parsing throughput. The API is more verbose than nlohmann/json, using pointer-based access patterns reminiscent of C. Choose it when parsing large files or when every microsecond counts.
 
-**simdjson** is a research project from Daniel Lemire and Geoff Langdale (2019) that uses SIMD instructions (AVX2, SSE4) to parse JSON at 2-4 GB/sâ€”faster than memcpy on some systems. It's read-only (cannot modify or generate JSON) and requires modern CPUs with SIMD support. Use it for high-throughput parsing of large, read-only datasets.
+**simdjson** is a research project from Daniel Lemire and Geoff Langdale (2019) that uses SIMD instructions (AVX2, SSE4) to parse JSON at 2-4 GB/s--faster than memcpy on some systems. It's read-only (cannot modify or generate JSON) and requires modern CPUs with SIMD support. Use it for high-throughput parsing of large, read-only datasets.
 
 **Boost.PropertyTree** is part of the Boost C++ Libraries, providing a tree data structure that can read and write JSON, XML, and INI files. It predates modern JSON libraries and doesn't provide true JSON semantics (arrays are awkward, types are stringly-typed). Use it only if you're already deeply committed to Boost and need multi-format support.
 
@@ -2438,11 +2438,11 @@ Before comparing features, it helps to understand where each library comes from 
 | **Numeric Checking** | Overflow detection | No checking |
 | **Parsing Speed** | Moderate | Moderate |
 | **Memory Usage** | std containers | std containers |
-| **JSON Pointer** | âœ… RFC 6901 | âœ… RFC 6901 + JSON Patch |
-| **Struct Macros** | ✅ Intrusive/non-intrusive/optional | ✅ Intrusive/non-intrusive |
+| **JSON Pointer** | [OK] RFC 6901 | [OK] RFC 6901 + JSON Patch |
+| **Struct Macros** | [OK] Intrusive/non-intrusive/optional | [OK] Intrusive/non-intrusive |
 | **Error Messages** | Detailed with position | Good |
 | **Special Values** | Policy-based (NaN/Inf) | Configurable |
-| **Comments** | âœ… Via ConfigJsonPolicy | âŒ |
+| **Comments** | [OK] Via ConfigJsonPolicy | [X] |
 
 **Choose nlohmann/json if:**
 - Need C++11 compatibility
@@ -2464,8 +2464,8 @@ Before comparing features, it helps to understand where each library comes from 
 | **Parsing Speed** | ~150 MB/s | ~400-1000 MB/s |
 | **API Style** | Modern (variant) | Classic (pointers) |
 | **Memory** | std allocator | Custom allocators |
-| **SAX Parser** | âŒ | âœ… |
-| **JSON Pointer** | âœ… | âœ… |
+| **SAX Parser** | [X] | [OK] |
+| **JSON Pointer** | [OK] | [OK] |
 | **Safety** | High (overflow checks) | Lower (manual) |
 | **Ease of Use** | High | Moderate |
 
@@ -2488,7 +2488,7 @@ Before comparing features, it helps to understand where each library comes from 
 | **Parsing Speed** | ~150 MB/s | ~2-4 GB/s |
 | **API** | Read/Write | Read-only |
 | **SIMD** | No | Yes (AVX2, SSE4) |
-| **Modification** | âœ… Can modify | âŒ Read-only |
+| **Modification** | [OK] Can modify | [X] Read-only |
 | **Use Case** | General purpose | High-throughput parsing |
 
 **Choose simdjson if:**
@@ -2532,7 +2532,7 @@ Before comparing features, it helps to understand where each library comes from 
 | **Memory** | Standard | Optimized (30-50% savings) |
 | **Large Files** | Standard I/O | Memory-mapped I/O |
 | **Binary Size** | Smaller | Larger (+20-30%) |
-| **JSON Pointer** | âœ… Exception-based | âœ… Expected-based |
+| **JSON Pointer** | [OK] Exception-based | [OK] Expected-based |
 
 **Choose FatPJsonLite if:**
 - Need exception-free code
@@ -3415,7 +3415,7 @@ This section documents important limitations and edge cases discovered through c
 
 **Problem:** JSON has no native 64-bit unsigned integer type. JsonLite stores integers internally as `int64_t`. When serializing `uint64_t` values larger than `INT64_MAX`, they are converted to `double`.
 
-**This causes silent data corruption** for values exceeding 2⁵³ (9,007,199,254,740,992).
+**This causes silent data corruption** for values exceeding 2^5^3 (9,007,199,254,740,992).
 
 ```mermaid
 flowchart LR
@@ -3428,7 +3428,7 @@ flowchart LR
     end
     
     subgraph Output
-        C["Retrieved value<br/>18446744073709551616<br/>⚠️ WRONG"]
+        C["Retrieved value<br/>18446744073709551616<br/>[WARN] WRONG"]
     end
     
     A -->|"Serialize"| B
@@ -3439,8 +3439,8 @@ flowchart LR
 
 | Range | Behavior |
 |-------|----------|
-| 0 to 9,007,199,254,740,992 | ✓ Exact round-trip |
-| 9,007,199,254,740,993 to 18,446,744,073,709,551,615 | ⚠️ Rounds to nearest representable value |
+| 0 to 9,007,199,254,740,992 | [OK] Exact round-trip |
+| 9,007,199,254,740,993 to 18,446,744,073,709,551,615 | [WARN] Rounds to nearest representable value |
 
 **Workarounds:**
 
@@ -3456,15 +3456,15 @@ obj["id_low"] = static_cast<int64_t>(value & 0xFFFFFFFF);
 
 ### Map Key Round-Trip Asymmetry
 
-Custom key types with `operator<<` serialize successfully but **cannot be deserialized**—JsonLite has no mechanism to parse the string back into your custom type.
+Custom key types with `operator<<` serialize successfully but **cannot be deserialized**--JsonLite has no mechanism to parse the string back into your custom type.
 
 ```mermaid
 flowchart LR
-    subgraph Serialize["Serialization ✓"]
+    subgraph Serialize["Serialization [OK]"]
         S1["UserID{123}"] --> S2["operator<<"] --> S3["\"User:123\""]
     end
     
-    subgraph Deserialize["Deserialization ✗"]
+    subgraph Deserialize["Deserialization [X]"]
         D1["\"User:123\""] --> D2["???"] -.-> D3["UserID{123}"]
     end
     
@@ -3519,7 +3519,7 @@ std::rename("config.json.tmp", "config.json");  // Atomic on POSIX
 
 | Limitation | Impact | Workaround |
 |------------|--------|------------|
-| uint64 > 2⁵³ precision loss | Silent data corruption | Store as string |
+| uint64 > 2^5^3 precision loss | Silent data corruption | Store as string |
 | Custom map keys one-way | Can't deserialize | Use string/arithmetic keys |
 | Locale affects operator<< | Invalid JSON possible | Use C locale or string keys |
 | unordered_map non-deterministic | Diff/test failures | Use std::map |

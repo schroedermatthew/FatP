@@ -20,18 +20,18 @@ FATP_META:
   meta_version: 1
   component: StableHashMap
   file_role: test
-  path: tests/tests/test_StableHashMap.cpp
+  path: tests/test_StableHashMap.cpp
   namespace: "fat_p::testing::stablehashmap"
   layer: tests.containers.associative
   summary: Unit and regression tests for StableHashMap API, probing invariants, and reference stability.
   api_stability: candidate
   related:
     docs:
-      - "Documentation/Documentation/Associative Containers/StableHashMap_User_Manual.md"
-      - "Documentation/Documentation/Associative Containers/StableHashMap_Overview.md"
-      - "Documentation/Documentation/Associative Containers/Companion Guide - StableHashMap.md"
+      - "Documentation/Associative Containers/StableHashMap_User_Manual.md"
+      - "Documentation/Associative Containers/StableHashMap_Overview.md"
+      - "Documentation/Associative Containers/Companion Guide - StableHashMap.md"
     benchmarks:
-      - benchmarks/benchmarks/benchmark_FatPHashMap.cpp
+      - benchmarks/benchmark_FatPHashMap.cpp
   hygiene:
     pragma_once: false
     include_guard: false

@@ -46,22 +46,22 @@ FATP_META:
     - FastHashMap
     - StableHashMap
   file_role: benchmark
-  path: benchmarks/benchmarks/benchmark_FatPHashMap.cpp
+  path: benchmarks/benchmark_FatPHashMap.cpp
   namespace: fat_p::bench
   layer: benchmarks.containers.associative
   summary: Round-robin competitor benchmarks for FastHashMap and StableHashMap.
   api_stability: candidate
   related:
     docs:
-      - Documentation/Documentation/Associative Containers/StableHashMap_Overview.md
-      - Documentation/Documentation/Associative Containers/StableHashMap_User_Manual.md
-      - Documentation/Documentation/Associative Containers/Companion Guide - StableHashMap.md
+      - Documentation/Associative Containers/StableHashMap_Overview.md
+      - Documentation/Associative Containers/StableHashMap_User_Manual.md
+      - Documentation/Associative Containers/Companion Guide - StableHashMap.md
     tests:
-      - tests/tests/test_StableHashMap.cpp
+      - tests/test_StableHashMap.cpp
     headers:
-      - fat_p/fat_p/FastHashMap.h
-      - fat_p/fat_p/StableHashMap.h
-      - fat_p/fat_p/FatPBenchmarkRunner.h
+      - fat_p/FastHashMap.h
+      - fat_p/StableHashMap.h
+      - fat_p/FatPBenchmarkRunner.h
   hygiene:
     pragma_once: false
     include_guard: false

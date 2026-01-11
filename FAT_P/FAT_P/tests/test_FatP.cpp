@@ -25,22 +25,22 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
-#include <chrono> // For performance timing
-#include <iostream> // For output
-#include <stdexcept> // For expected exceptions
-#include <string> // For strings in tests
-#include <limits> // For numeric_limits (Inf/NaN, min/max)
-#include <vector> // For containers
-#include <array> // For fixed-size
-#include <tuple> // For tuples
-#include <any> // For EqualityAny
-#include <mutex> // For synchronized
-#include <algorithm> // For sort/unique
-#include <memory> // For share_ptr
-#include <numeric> // For std::iota
-#include <random> // For rand() in perf tests
+#include <algorithm>     // For sort/unique
+#include <any>           // For EqualityAny
+#include <array>         // For fixed-size
+#include <chrono>        // For performance timing
+#include <iostream>      // For output
+#include <limits>        // For numeric_limits (Inf/NaN, min/max)
+#include <memory>        // For share_ptr
+#include <mutex>         // For synchronized
+#include <numeric>       // For std::iota
+#include <random>        // For rand() in perf tests
+#include <stdexcept>     // For expected exceptions
+#include <string>        // For strings in tests
+#include <thread>        // For multi-thread test
+#include <tuple>         // For tuples
 #include <unordered_map> // For map tests
-#include <thread> // For multi-thread test
+#include <vector>        // For containers
 
 #include "IncludeAllFatPHeaders.h"
 
@@ -50,13 +50,15 @@ FATP_META:
 #include "FatPTest.h"
 #include "test_FatPTest.h"
 
-int main() {
+int main()
+{
     using namespace fat_p::testing;
 
     std::cout << "Starting expanded tests for cpp_utilities..." << std::endl;
 
     // Structure to hold test results
-    struct TestResult {
+    struct TestResult
+    {
         const char* name;
         bool passed;
     };
@@ -64,8 +66,7 @@ int main() {
     std::vector<TestResult> results;
 
     // Helper macro to run and record tests
-#define RUN_AND_RECORD(test_func) \
-        results.push_back({#test_func, test_func()})
+#define RUN_AND_RECORD(test_func) results.push_back({#test_func, test_func()})
 
     // Run all tests
     RUN_AND_RECORD(test_AlignedVector);
@@ -155,7 +156,7 @@ int main() {
     RUN_AND_RECORD(test_ViewLifetimeTracking);
 
     //// Test of the test suite itself
-    RUN_AND_RECORD(test_FatPTest);   
+    RUN_AND_RECORD(test_FatPTest);
 
 
 #undef RUN_AND_RECORD
@@ -165,38 +166,38 @@ int main() {
     int failed = 0;
     std::vector<const char*> failed_tests;
 
-    for (const auto& result : results) {
-        if (result.passed) {
+    for (const auto& result : results)
+    {
+        if (result.passed)
+        {
             ++passed;
         }
-        else {
+        else
+        {
             ++failed;
             failed_tests.push_back(result.name);
         }
     }
 
     // Print summary
-    std::cout << "\n" << colors::bold() << "========================================"
-        << colors::reset() << "\n";
+    std::cout << "\n" << colors::bold() << "========================================" << colors::reset() << "\n";
     std::cout << colors::bold() << "OVERALL TEST SUMMARY" << colors::reset() << "\n";
-    std::cout << colors::bold() << "========================================"
-        << colors::reset() << "\n";
+    std::cout << colors::bold() << "========================================" << colors::reset() << "\n";
     std::cout << colors::green() << "Passed: " << passed << colors::reset() << "\n";
-    std::cout << (failed > 0 ? colors::red() : "") << "Failed: " << failed
-        << colors::reset() << "\n";
+    std::cout << (failed > 0 ? colors::red() : "") << "Failed: " << failed << colors::reset() << "\n";
     std::cout << "Total:  " << (passed + failed) << "\n";
 
-    if (failed > 0) {
-        std::cout << "\n" << colors::red() << colors::bold()
-            << "FAILED TESTS:" << colors::reset() << "\n";
-        for (const auto* name : failed_tests) {
-            std::cout << "  " << colors::red() << name
-                << colors::reset() << "\n";
+    if (failed > 0)
+    {
+        std::cout << "\n" << colors::red() << colors::bold() << "FAILED TESTS:" << colors::reset() << "\n";
+        for (const auto* name : failed_tests)
+        {
+            std::cout << "  " << colors::red() << name << colors::reset() << "\n";
         }
     }
-    else {
-        std::cout << "\n" << colors::green() << colors::bold()
-            << "ALL TESTS PASSED!" << colors::reset() << "\n";
+    else
+    {
+        std::cout << "\n" << colors::green() << colors::bold() << "ALL TESTS PASSED!" << colors::reset() << "\n";
     }
 
     return failed > 0 ? 1 : 0;

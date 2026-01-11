@@ -505,7 +505,7 @@ namespace fat_p
 			// === STRING FAST PATH ===
 			// Strings are iterable but operator== is more efficient than character-by-character
 			// recursive dispatch. This avoids per-character EqualDispatcher overhead and index tracking.
-			// No logging here â€” outer context (pair/tuple/container) provides structural info.
+			// No logging here -- outer context (pair/tuple/container) provides structural info.
 			// Use decay_t to handle const std::string (e.g., map keys are std::pair<const K, V>).
 			else if constexpr (std::is_same_v<std::decay_t<T>, std::string>)
 			{

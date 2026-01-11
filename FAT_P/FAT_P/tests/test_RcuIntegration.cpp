@@ -82,12 +82,12 @@ FATP_TEST_CASE(tensor_basic) {
         FATP_ASSERT_TRUE(tensor[99] == 99.0, "Last element should be 99");
     }
     
-    std::cout << colors::green() << "âœ“ Basic RCU tensor operations passed"
+    std::cout << colors::green() << "[OK] Basic RCU tensor operations passed"
               << colors::reset() << std::endl;
     return true;
     
     #else
-    std::cout << colors::yellow() << "âš  RCU not available (requires atomics and shared_mutex)"
+    std::cout << colors::yellow() << "[WARN] RCU not available (requires atomics and shared_mutex)"
               << colors::reset() << std::endl;
     return true;
     #endif
@@ -160,12 +160,12 @@ FATP_TEST_CASE(concurrent_readers_writers) {
     FATP_ASSERT_TRUE(read_count.load() > 1000, "Should have many reads");
     FATP_ASSERT_TRUE(write_count.load() == 100, "Should have 100 writes (50*2)");
     
-    std::cout << colors::green() << "âœ“ Concurrent RCU operations passed"
+    std::cout << colors::green() << "[OK] Concurrent RCU operations passed"
               << colors::reset() << std::endl;
     return true;
     
     #else
-    std::cout << colors::yellow() << "âš  RCU not available"
+    std::cout << colors::yellow() << "[WARN] RCU not available"
               << colors::reset() << std::endl;
     return true;
     #endif
@@ -214,12 +214,12 @@ FATP_TEST_CASE(performance) {
     // RCU reads should be very fast (typically < 100ns)
     FATP_ASSERT_TRUE(ns_per_read < 500.0, "RCU reads should be fast");
     
-    std::cout << colors::green() << "âœ“ RCU performance acceptable"
+    std::cout << colors::green() << "[OK] RCU performance acceptable"
               << colors::reset() << std::endl;
     return true;
     
     #else
-    std::cout << colors::yellow() << "âš  RCU not available"
+    std::cout << colors::yellow() << "[WARN] RCU not available"
               << colors::reset() << std::endl;
     return true;
     #endif
@@ -276,12 +276,12 @@ FATP_TEST_CASE(complex_updates) {
         FATP_ASSERT_TRUE(tensor[50] == 100.0, "Element 50 should be 100");
     }
     
-    std::cout << colors::green() << "âœ“ Complex RCU updates passed"
+    std::cout << colors::green() << "[OK] Complex RCU updates passed"
               << colors::reset() << std::endl;
     return true;
     
     #else
-    std::cout << colors::yellow() << "âš  RCU not available"
+    std::cout << colors::yellow() << "[WARN] RCU not available"
               << colors::reset() << std::endl;
     return true;
     #endif

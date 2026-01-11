@@ -43,20 +43,20 @@ FATP_META:
   meta_version: 1
   component: StableHashMap
   file_role: public_header
-  path: fat_p/fat_p/StableHashMap.h
+  path: fat_p/StableHashMap.h
   namespace: fat_p
   layer: containers.associative
   summary: Reference-stable hash map with SIMD control-byte probing and configurable node allocation.
   api_stability: candidate
   related:
     docs:
-      - "Documentation/Documentation/Associative Containers/StableHashMap_User_Manual.md"
-      - "Documentation/Documentation/Associative Containers/StableHashMap_Overview.md"
-      - "Documentation/Documentation/Associative Containers/Companion Guide - StableHashMap.md"
+      - "Documentation/Associative Containers/StableHashMap_User_Manual.md"
+      - "Documentation/Associative Containers/StableHashMap_Overview.md"
+      - "Documentation/Associative Containers/Companion Guide - StableHashMap.md"
     tests:
-      - tests/tests/test_StableHashMap.cpp
+      - tests/test_StableHashMap.cpp
     benchmarks:
-      - benchmarks/benchmarks/benchmark_FatPHashMap.cpp
+      - benchmarks/benchmark_FatPHashMap.cpp
   hygiene:
     pragma_once: true
     include_guard: false

@@ -23,7 +23,7 @@
  *
  * @performance
  * - Vector operations: 0.3-1.0 ns per element (SIMD)
- * - Matrix multiply (NxN): ~O(NÂ³) with SIMD acceleration
+ * - Matrix multiply (NxN): ~O(N^3) with SIMD acceleration
  * - Checked policy: +2-5 ns overhead per operation
  *
  * Requires: C++17, CheckedArithmetic.h (for checked policies)
@@ -468,7 +468,7 @@ constexpr T dot(const StaticTensor<T, Vector<N>, P>& a, const StaticTensor<T, Ve
 
 /**
  * @brief Matrix-vector multiplication
- * @details (MÃ—N) @ (NÃ—1) â†’ (MÃ—1)
+ * @details (MxN) @ (Nx1) -> (Mx1)
  */
 template<typename T, size_t M, size_t N, typename P>
 constexpr StaticTensor<T, Vector<M>, P> 
@@ -486,7 +486,7 @@ matvec(const StaticTensor<T, Matrix<M, N>, P>& mat, const StaticTensor<T, Vector
 
 /**
  * @brief Matrix-matrix multiplication
- * @details (MÃ—K) @ (KÃ—N) â†’ (MÃ—N)
+ * @details (MxK) @ (KxN) -> (MxN)
  */
 template<typename T, size_t M, size_t K, size_t N, typename P>
 constexpr StaticTensor<T, Matrix<M, N>, P> 
@@ -520,7 +520,7 @@ constexpr StaticTensor<T, Matrix<N, M>, P> transpose(const StaticTensor<T, Matri
 
 /**
  * @brief Outer product (tensor product) of two vectors
- * @details (MÃ—1) âŠ— (NÃ—1) â†’ (MÃ—N)
+ * @details (Mx1) otimes (Nx1) -> (MxN)
  */
 template<typename T, size_t M, size_t N, typename P>
 constexpr StaticTensor<T, Matrix<M, N>, P> 

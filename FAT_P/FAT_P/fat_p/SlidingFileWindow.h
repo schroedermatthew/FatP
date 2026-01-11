@@ -373,6 +373,24 @@ public:
 };
 
 // =============================================================================
+// Thread-Safety Policy Trait
+// =============================================================================
+
+/**
+ * @brief Trait to detect if a ConcurrencyPolicy requires thread-safe return semantics
+ * 
+ * Thread-safe policies must return copies (not references) from operator[] because
+ * the lock is released before the caller uses the returned value. Returning a
+ * reference would create a race condition where concurrent window shifts could
+ * invalidate the reference.
+ */
+template<typename Policy>
+struct is_threadsafe_policy : std::bool_constant<!std::is_same_v<Policy, SingleThreadedPolicy>> {};
+
+template<typename Policy>
+inline constexpr bool is_threadsafe_policy_v = is_threadsafe_policy<Policy>::value;
+
+// =============================================================================
 // SlidingFileWindow - Main class with policy composition
 // =============================================================================
 
@@ -383,6 +401,11 @@ public:
  * @tparam SerializationPolicy How elements are serialized
  * @tparam ErrorPolicy How errors are reported
  * @tparam ConcurrencyPolicy Thread-safety policy
+ * 
+ * @note For thread-safe variants (ConcurrencyPolicy != SingleThreadedPolicy),
+ *       operator[] returns element copies rather than references. This prevents
+ *       race conditions where a returned reference could be invalidated by
+ *       concurrent window shifts.
  */
 template<typename ElementType,
          typename SerializationPolicy = CustomSerializationPolicy<ElementType>,
@@ -391,8 +414,28 @@ template<typename ElementType,
 class SlidingFileWindow : private SerializationPolicy
 {
 public:
+    // =============================================================================
+    // Type Traits and Definitions
+    // =============================================================================
+    
+    static constexpr bool is_threadsafe = is_threadsafe_policy_v<ConcurrencyPolicy>;
+    
     using element_type = ElementType;
-    using result_type = typename ErrorPolicy::result_type;
+    
+    // Single-threaded: use provided ErrorPolicy (typically returns reference)
+    // Thread-safe: always return by value to prevent reference-outlives-lock bugs
+    using result_type = std::conditional_t<
+        is_threadsafe,
+        Expected<ElementType, FileError>,
+        typename ErrorPolicy::result_type
+    >;
+    
+    using const_result_type = std::conditional_t<
+        is_threadsafe,
+        Expected<ElementType, FileError>,
+        Expected<std::reference_wrapper<const ElementType>, FileError>
+    >;
+    
     using void_result_type = typename ErrorPolicy::void_result_type;
 
     // =============================================================================
@@ -515,13 +558,16 @@ public:
     // =============================================================================
 
     /**
-     * @brief Access element at index (may trigger I/O for out-of-window)
+     * @brief Access element at index
      * 
-     * For in-window elements, returns reference to cached element.
-     * For out-of-window elements, loads element into fail-safe buffer.
+     * For single-threaded mode: returns reference to cached element (zero-copy).
+     * For thread-safe mode: returns copy of element (prevents reference-outlives-lock).
+     * 
+     * Thread-safe mode automatically shifts the window if the index is out of range,
+     * keeping the lock held throughout the operation.
      * 
      * @param index Element index in file
-     * @return Result containing element reference or error
+     * @return Result containing element (reference or copy depending on ConcurrencyPolicy)
      */
     result_type operator[](size_t index)
     {
@@ -529,54 +575,100 @@ public:
 
         if (!file_.is_open())
         {
-            return ErrorPolicy::report_error(FileError::FileNotOpen);
+            if constexpr (is_threadsafe)
+            {
+                return make_unexpected(FileError::FileNotOpen);
+            }
+            else
+            {
+                return ErrorPolicy::report_error(FileError::FileNotOpen);
+            }
         }
 
         if (index >= file_size_)
         {
-            return ErrorPolicy::report_error(FileError::InvalidIndex);
+            if constexpr (is_threadsafe)
+            {
+                return make_unexpected(FileError::InvalidIndex);
+            }
+            else
+            {
+                return ErrorPolicy::report_error(FileError::InvalidIndex);
+            }
         }
 
         // Fast path: entire file in window
         if (window_size_ == file_size_)
         {
-            return ErrorPolicy::report_success(std::ref(window_[index]));
+            if constexpr (is_threadsafe)
+            {
+                // Return COPY - lock released after return, reference would be unsafe
+                return result_type(window_[index]);
+            }
+            else
+            {
+                return ErrorPolicy::report_success(std::ref(window_[index]));
+            }
         }
 
         // Check if index is in current window
         auto window_index = get_window_index(index);
-        if (window_index)
+        
+        if constexpr (is_threadsafe)
         {
-            return ErrorPolicy::report_success(std::ref(window_[*window_index]));
-        }
-
-        // Fail-safe: direct I/O for out-of-window access
-        // Write back current element if dirty
-        if (current_index_ < file_size_)
-        {
-            file_.seekp(current_index_ * element_size_, std::ios::beg);
-            if (!SerializationPolicy::write(file_, current_element_))
+            // Thread-safe: auto-shift window if needed (lock held throughout)
+            if (!window_index)
             {
-                return ErrorPolicy::report_error(FileError::WriteFailure);
+                shift_to_index_impl(index);
+                window_index = get_window_index(index);
             }
+            
+            if (window_index)
+            {
+                // Return COPY - lock released after return
+                return result_type(window_[*window_index]);
+            }
+            
+            return make_unexpected(FileError::CorruptedState);
         }
-
-        // Read new element
-        current_index_ = index;
-        file_.seekg(current_index_ * element_size_, std::ios::beg);
-        if (!SerializationPolicy::read(file_, current_element_))
+        else
         {
-            return ErrorPolicy::report_error(FileError::ReadFailure);
-        }
+            // Single-threaded: use fail-safe buffer for out-of-window access
+            if (window_index)
+            {
+                return ErrorPolicy::report_success(std::ref(window_[*window_index]));
+            }
 
-        return ErrorPolicy::report_success(std::ref(current_element_));
+            // Fail-safe: direct I/O for out-of-window access
+            // Write back current element if dirty
+            if (current_index_ < file_size_)
+            {
+                file_.seekp(current_index_ * element_size_, std::ios::beg);
+                if (!SerializationPolicy::write(file_, current_element_))
+                {
+                    return ErrorPolicy::report_error(FileError::WriteFailure);
+                }
+            }
+
+            // Read new element
+            current_index_ = index;
+            file_.seekg(current_index_ * element_size_, std::ios::beg);
+            if (!SerializationPolicy::read(file_, current_element_))
+            {
+                return ErrorPolicy::report_error(FileError::ReadFailure);
+            }
+
+            return ErrorPolicy::report_success(std::ref(current_element_));
+        }
     }
 
     /**
-     * @brief Const access to element (in-window only)
+     * @brief Const access to element
+     * 
+     * For single-threaded mode: returns const reference (in-window only).
+     * For thread-safe mode: returns copy with auto-shift.
      */
-    Expected<std::reference_wrapper<const ElementType>, FileError>
-    operator[](size_t index) const
+    const_result_type operator[](size_t index) const
     {
         auto guard = mutex_.lock_shared();
 
@@ -592,13 +684,27 @@ public:
 
         if (window_size_ == file_size_)
         {
-            return std::cref(window_[index]);
+            if constexpr (is_threadsafe)
+            {
+                return const_result_type(window_[index]);
+            }
+            else
+            {
+                return std::cref(window_[index]);
+            }
         }
 
         auto window_index = get_window_index(index);
         if (window_index)
         {
-            return std::cref(window_[*window_index]);
+            if constexpr (is_threadsafe)
+            {
+                return const_result_type(window_[*window_index]);
+            }
+            else
+            {
+                return std::cref(window_[*window_index]);
+            }
         }
 
         return make_unexpected(FileError::InvalidIndex);
@@ -627,37 +733,7 @@ public:
             return ErrorPolicy::report_void_error(FileError::InvalidIndex);
         }
 
-        // Check if already in window
-        if (target_index >= begin_index_ && target_index < end_index_)
-        {
-            return ErrorPolicy::report_void_success();
-        }
-
-        // Calculate shift direction and distance
-        if (target_index >= end_index_)
-        {
-            // Shift forward
-            size_t shift_count = target_index - end_index_ + 1;
-            for (size_t i = 0; i < shift_count && end_index_ < file_size_; ++i)
-            {
-                if (!shift_forward_one())
-                {
-                    return ErrorPolicy::report_void_error(FileError::WriteFailure);
-                }
-            }
-        }
-        else if (target_index < begin_index_)
-        {
-            // Shift backward
-            size_t shift_count = begin_index_ - target_index;
-            for (size_t i = 0; i < shift_count && begin_index_ > 0; ++i)
-            {
-                if (!shift_backward_one())
-                {
-                    return ErrorPolicy::report_void_error(FileError::WriteFailure);
-                }
-            }
-        }
+        shift_to_index_impl(target_index);
 
         return ErrorPolicy::report_void_success();
     }
@@ -703,6 +779,39 @@ public:
     }
 
 private:
+    // =============================================================================
+    // Internal Shift Implementation (caller must hold lock)
+    // =============================================================================
+    
+    void shift_to_index_impl(size_t target_index) noexcept
+    {
+        // Check if already in window
+        if (target_index >= begin_index_ && target_index < end_index_)
+        {
+            return;
+        }
+
+        // Calculate shift direction and distance
+        if (target_index >= end_index_)
+        {
+            // Shift forward
+            size_t shift_count = target_index - end_index_ + 1;
+            for (size_t i = 0; i < shift_count && end_index_ < file_size_; ++i)
+            {
+                shift_forward_one();
+            }
+        }
+        else if (target_index < begin_index_)
+        {
+            // Shift backward
+            size_t shift_count = begin_index_ - target_index;
+            for (size_t i = 0; i < shift_count && begin_index_ > 0; ++i)
+            {
+                shift_backward_one();
+            }
+        }
+    }
+
     // =============================================================================
     // Internal Helpers
     // =============================================================================
@@ -826,7 +935,7 @@ private:
     mutable std::fstream file_;
     std::deque<ElementType> window_;
 
-    // Fail-safe direct access buffer
+    // Fail-safe direct access buffer (single-threaded mode only)
     ElementType current_element_{};
     size_t current_index_ = std::numeric_limits<size_t>::max();
 
@@ -844,13 +953,20 @@ template<typename ElementType>
 using SimpleSlidingWindow = SlidingFileWindow<ElementType>;
 
 /**
- * @brief Thread-safe sliding window
+ * @brief Thread-safe sliding window (returns element copies, auto-shifts window)
+ * 
+ * Unlike the single-threaded variant, operator[] returns copies of elements
+ * rather than references. This prevents race conditions where concurrent
+ * window shifts could invalidate references held by other threads.
+ * 
+ * operator[] also auto-shifts the window if the requested index is out of
+ * range, keeping the lock held throughout the entire operation.
  */
 template<typename ElementType>
 using ThreadSafeSlidingWindow =
     SlidingFileWindow<ElementType,
                       CustomSerializationPolicy<ElementType>,
-                      ExpectedFileErrorPolicy<ElementType&, FileError>,
+                      ExpectedFileErrorPolicy<ElementType, FileError>,
                       MutexSynchronizationPolicy>;
 
 /**

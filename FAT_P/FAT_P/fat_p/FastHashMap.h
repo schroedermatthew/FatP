@@ -6,7 +6,7 @@
 // Version: December 22, 2025 (4-AI Review Round 3)
 // Fixes applied:
 //   - P0 Critical: Control byte prefix mirroring (fixes probing hang)
-//   - P0 Critical: Guaranteed â‰¥1 empty slot (probe termination)
+//   - P0 Critical: Guaranteed >=1 empty slot (probe termination)
 //   - P0 Critical: FixedAllocator alignment fix (align address, not offset)
 //   - P0 Critical: FixedHashMap non-movable/non-swappable (prevents dangling pointers)
 //   - P1: 32-bit portable hash finalizer (SplitMix64/MurmurHash3)
