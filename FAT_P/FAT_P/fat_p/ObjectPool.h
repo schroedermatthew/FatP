@@ -2,6 +2,10 @@
  * @file ObjectPool.h
  * @brief High-performance object pool with concurrency policy support
  *
+ * 
+ *
+ * @layer Domain
+ *
  * @details Object pool that integrates with fat_p concurrency infrastructure.
  *
  * Multi-reviewer validated implementation incorporating findings from:
@@ -30,6 +34,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/ObjectPool.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for ObjectPool."
   api_stability: in_work
   related:

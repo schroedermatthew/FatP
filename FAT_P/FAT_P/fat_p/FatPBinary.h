@@ -1,19 +1,22 @@
-// FatPBinary.h
-// Fat-P integrated binary serialization with Expected-based error handling,
-// HpcVector-backed buffers, and native fat_p type support.
-//
-// This is the FAT-P INTEGRATION layer built on top of BinaryLite.h.
-// For standalone binary serialization without fat_p dependencies, use BinaryLite.h.
-//
-// Features:
-// - BinaryResult<T> = Expected<T, BinaryError> for explicit error handling
-// - BinaryBuffer = HpcVector<uint8_t, 64> for SIMD-aligned storage
-// - BinaryTraits<T> for extensible type serialization
-// - Native support for fat_p types (Expected, SmallVector, StrongId, EnumPlus)
-// - Little-endian format optimized for internal data exchange
-//
-// C++17, header-only
-
+/**
+ * @file FatPBinary.h
+ * @brief FAT-P binary serialization format
+ *
+ * @layer Domain
+ *
+ * @details
+ * Fat-P integrated binary serialization with Expected-based error handling,
+ * HpcVector-backed buffers, and native fat_p type support.
+ * This is the FAT-P INTEGRATION layer built on top of BinaryLite.h.
+ * For standalone binary serialization without fat_p dependencies, use BinaryLite.h.
+ * Features:
+ * - BinaryResult<T> = Expected<T, BinaryError> for explicit error handling
+ * - BinaryBuffer = HpcVector<uint8_t, 64> for SIMD-aligned storage
+ * - BinaryTraits<T> for extensible type serialization
+ * - Native support for fat_p types (Expected, SmallVector, StrongId, EnumPlus)
+ * - Little-endian format optimized for internal data exchange
+ * C++17, header-only
+ */
 #pragma once
 /*
 FATP_META:
@@ -22,6 +25,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/FatPBinary.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for FatPBinary."
   api_stability: in_work
   related:

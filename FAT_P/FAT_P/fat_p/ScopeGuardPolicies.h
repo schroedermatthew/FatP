@@ -2,6 +2,10 @@
  * @file ScopeGuardPolicies.h
  * @brief Defines policies governing the exception-handling behavior of ScopeGuard destructors.
  *
+ * 
+ *
+ * @layer Foundation
+ *
  * @details This file provides a set of policy tags and their corresponding executor 
  * specializations. Each policy dictates how exceptions from the cleanup action are 
  * managed in the ScopeGuard destructor. The policies ensure compliance with C++'s 
@@ -29,6 +33,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/ScopeGuardPolicies.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for ScopeGuardPolicies."
   api_stability: in_work
   related:

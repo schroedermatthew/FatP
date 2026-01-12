@@ -1,3 +1,9 @@
+/**
+ * @file EnhancedBoundsChecking.h
+ * @brief Enhanced bounds checking with detailed diagnostics
+ *
+ * @layer Foundation
+ */
 #pragma once
 /*
 FATP_META:
@@ -6,6 +12,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/EnhancedBoundsChecking.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for EnhancedBoundsChecking."
   api_stability: in_work
   related:

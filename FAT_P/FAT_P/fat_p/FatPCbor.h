@@ -1,3 +1,9 @@
+/**
+ * @file FatPCbor.h
+ * @brief FAT-P CBOR serialization adapters
+ *
+ * @layer Domain
+ */
 #pragma once
 
 /*
@@ -7,6 +13,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/FatPCbor.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for FatPCbor."
   api_stability: in_work
   related:

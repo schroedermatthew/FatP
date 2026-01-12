@@ -1,3 +1,9 @@
+/**
+ * @file FatPCborStream.h
+ * @brief FAT-P streaming CBOR serialization
+ *
+ * @layer Domain
+ */
 #pragma once
 
 /*
@@ -7,6 +13,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/FatPCborStream.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for FatPCborStream."
   api_stability: in_work
   related:

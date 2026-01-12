@@ -2,6 +2,10 @@
  * @file SlidingFileWindow.h
  * @brief Policy-based sliding window access to large binary files with on-demand paging.
  *
+ * 
+ *
+ * @layer Domain
+ *
  * @details Provides efficient deque-like access to large binary files that don't fit in memory.
  * Uses a sliding window mechanism with configurable size and automatic paging. Elements are
  * loaded on-demand and written back when the window shifts.
@@ -83,6 +87,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/SlidingFileWindow.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for SlidingFileWindow."
   api_stability: in_work
   related:

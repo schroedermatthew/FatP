@@ -1,3 +1,15 @@
+---
+doc_id: UM-FASTHASHMAP-001
+doc_type: "User Manual"
+title: "FastHashMap User Manual"
+fatp_components: ["FastHashMap"]
+topics: ["hash map", "SIMD probing", "Swiss Table"]
+constraints: ["cache efficiency", "probe sequences"]
+cxx_standard: "C++17"
+last_verified: "2026-01-11"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 # FastHashMap User Manual
 
 *Fat-P Library — December 2025*

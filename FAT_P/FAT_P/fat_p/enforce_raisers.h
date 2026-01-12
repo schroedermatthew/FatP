@@ -3,6 +3,10 @@
  * @brief Defines the policy classes that determine how a contract failure
  * is handled (e.g., throw exception, log warning, abort, or ignore).
  *
+ * 
+ *
+ * @layer Foundation
+ *
  * @details This system centralizes error consequence definition using
  * policy classes (Raisers), allowing enforcement macros to maintain a
  * clean, consistent interface while providing flexible failure handling
@@ -17,6 +21,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/enforce_raisers.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for enforce_raisers."
   api_stability: in_work
   related:
@@ -393,7 +398,7 @@ struct SystemErrorRaiser
  * @param ExceptionType The custom exception type (e.g., MyCustomError).
  * @param prefix A string literal for the message prefix (e.g., "My Error: ").
  */
-#define DEFINE_CUSTOM_RAISER(CustomRaiserName, ExceptionType, prefix)                              \
+#define FATP_DEFINE_CUSTOM_RAISER(CustomRaiserName, ExceptionType, prefix)                              \
     struct CustomRaiserName                                                                        \
     {                                                                                              \
         static_assert(std::is_base_of_v<std::exception, ExceptionType>,                            \
@@ -438,3 +443,8 @@ struct ExpectedRaiser
 };
 
 } // namespace fat_p
+
+// Backwards compatibility alias
+#ifndef FATP_NO_LEGACY_MACROS
+#define DEFINE_CUSTOM_RAISER FATP_DEFINE_CUSTOM_RAISER
+#endif

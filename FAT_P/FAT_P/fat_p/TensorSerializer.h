@@ -1,10 +1,15 @@
-// TensorSerializer.h
-// Big-endian serialization for cross-platform tensor storage
-// Always serializes in big-endian (network byte order) for guaranteed portability.
-// Uses compile-time fixed type IDs and portable byte-swap intrinsics.
-//
-// Requires: C++17, Tensor.h, Expected.h
-
+/**
+ * @file TensorSerializer.h
+ * @brief Tensor serialization and deserialization
+ *
+ * @layer Domain
+ *
+ * @details
+ * Big-endian serialization for cross-platform tensor storage
+ * Always serializes in big-endian (network byte order) for guaranteed portability.
+ * Uses compile-time fixed type IDs and portable byte-swap intrinsics.
+ * Requires: C++17, Tensor.h, Expected.h
+ */
 #pragma once
 /*
 FATP_META:
@@ -13,6 +18,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/TensorSerializer.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for TensorSerializer."
   api_stability: in_work
   related:

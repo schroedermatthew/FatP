@@ -1,3 +1,9 @@
+/**
+ * @file CSRMatrixPartitioning.h
+ * @brief Partitioning utilities for CSRMatrix parallel operations
+ *
+ * @layer Domain
+ */
 #pragma once
 
 /*
@@ -7,6 +13,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CSRMatrixPartitioning.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for CSRMatrixPartitioning."
   api_stability: in_work
   related:

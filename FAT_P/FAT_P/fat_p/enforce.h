@@ -3,6 +3,10 @@
  * @brief Provides macro implementations for contract enforcement using
  * predefined and generic predicates with various policies.
  * 
+ * 
+ *
+ * @layer Foundation
+ *
  * @section zero_cost_guarantee Zero-Cost Guarantee
  * 
  * All `FATP_DEBUG_ENFORCE*` and `FATP_ENFORCE` macros are GUARANTEED to generate zero code
@@ -19,6 +23,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/enforce.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for enforce."
   api_stability: in_work
   related:

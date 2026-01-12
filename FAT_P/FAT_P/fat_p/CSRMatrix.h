@@ -22,6 +22,8 @@
  * - Enforces sparse semantics: explicit zeros are removed automatically
  * - DuplicatePolicy::Keep stores multiple entries per position; linear operations
  *   (matvec, to_dense) sum them, and operator() also sums for consistency
+ *
+ * @layer Domain
  */
 
 #pragma once
@@ -33,6 +35,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CSRMatrix.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for CSRMatrix."
   api_stability: in_work
   related:

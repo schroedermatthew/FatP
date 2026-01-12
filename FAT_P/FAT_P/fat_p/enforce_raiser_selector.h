@@ -3,6 +3,10 @@
  * @brief Defines the policy-to-raiser mapping and meta-logic required for the
  * policy-based contract system, including contextual enforcement.
  *
+ * 
+ *
+ * @layer Foundation
+ *
  * @details This header is central to the system, providing three key roles:
  * 1. Mapping explicit Policy tags (e.g., AbortPolicy) to concrete Raisers.
  * 2. Mapping Predicates to their default exception Raisers (e.g.,
@@ -19,6 +23,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/enforce_raiser_selector.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for enforce_raiser_selector."
   api_stability: in_work
   related:

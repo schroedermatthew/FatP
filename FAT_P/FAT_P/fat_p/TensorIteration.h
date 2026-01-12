@@ -2,7 +2,7 @@
  * @file TensorIteration.h
  * @brief Composition helpers for efficient N-dimensional tensor iteration.
  *
- * @layer Policy
+ * @layer Domain
  *
  * This file provides convenient functions for iterating over N-dimensional
  * tensors using composition of optimized Stride1D/Stride2D policies.
@@ -31,6 +31,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/TensorIteration.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for TensorIteration."
   api_stability: in_work
   related:

@@ -1,6 +1,13 @@
-// ConstexprUtilities.h
-// Compile-time utilities for hashing, arithmetic, and string operations
-// C++17 header-only library
+/**
+ * @file ConstexprUtilities.h
+ * @brief Compile-time utility functions and metaprogramming helpers
+ *
+ * @layer Foundation
+ *
+ * @details
+ * Compile-time utilities for hashing, arithmetic, and string operations
+ * C++17 header-only library
+ */
 #pragma once
 
 /*
@@ -10,6 +17,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/ConstexprUtilities.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for ConstexprUtilities."
   api_stability: in_work
   related:
@@ -27,6 +35,8 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+#include "CppStandardDetection.h"
+
 #include <cmath>
 #include <cstdint>
 #include <iosfwd>
@@ -43,7 +53,7 @@ namespace fat_p
 // C++20 Detection and Macros
 // =============================================================================
 
-#if __cplusplus >= 202002L
+#if FATP_CPP20_OR_LATER
     #define FATP_CONSTEVAL consteval
 #else
     #define FATP_CONSTEVAL constexpr

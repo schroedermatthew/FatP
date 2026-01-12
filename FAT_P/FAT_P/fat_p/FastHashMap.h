@@ -1,81 +1,73 @@
-// FastHashMap.h - High-performance SIMD hash map
-//
-// A single-header Swiss table implementation with configurable deletion policy
-// and allocator support. 3-5x faster than std::unordered_map for most workloads.
-//
-// Version: December 22, 2025 (4-AI Review Round 3)
-// Fixes applied:
-//   - P0 Critical: Control byte prefix mirroring (fixes probing hang)
-//   - P0 Critical: Guaranteed >=1 empty slot (probe termination)
-//   - P0 Critical: FixedAllocator alignment fix (align address, not offset)
-//   - P0 Critical: FixedHashMap non-movable/non-swappable (prevents dangling pointers)
-//   - P1: 32-bit portable hash finalizer (SplitMix64/MurmurHash3)
-//   - P1: Conditional noexcept on move/swap (Hash/KeyEqual may throw)
-//   - P1: SFINAE-gated heterogeneous lookup (no hard-error on incompatible K)
-//   - P1: Proper freeze semantics (guarded + propagated)
-//   - P2: Checked allocations (throws std::bad_alloc)
-//   - P2: Allocation-before-rehash ordering (cleaner first-insert path)
-//
-// Features:
-//   - SIMD-accelerated probing (SSE2/AVX2/AVX512/NEON)
-//   - Built-in hash finalizer (SplitMix64) for robust distribution
-//   - Configurable deletion policy (Tombstone or BackwardShift)
-//   - Configurable allocator policy (Heap or Fixed-buffer)
-//   - Heterogeneous lookup support (find with string_view for string keys)
-//   - ~1200 lines, no dependencies beyond FatPSimdDetection.h
-//
-// Deletion Policies:
-//   - TombstoneDeletion (default): Fast erase, best overall performance
-//   - BackwardShiftDeletion: No tombstones, slightly better miss detection
-//
-// Allocator Policies:
-//   - HeapAllocator (default): Standard aligned heap allocation
-//   - FixedAllocator<N>: Stack-allocated buffer for embedded/real-time use
-//     NOTE: FixedHashMap is NON-MOVABLE and NON-SWAPPABLE (pointers would dangle)
-//
-// Usage:
-//   fat_p::FastHashMap<K, V> map;           // Default: Tombstone + Heap
-//   fat_p::FastHashMapBS<K, V> map_bs;      // BackwardShift + Heap
-//   fat_p::FastHashMapTS<K, V> map_ts;      // Tombstone + Heap (explicit)
-//   fat_p::FixedHashMap<K, V, 8192> fixed;  // Tombstone + 8KB fixed buffer (non-movable!)
-//
-// Hash Finalizer (SplitMix64):
-//   By default, a SplitMix64 finalizer is applied to all hashes to protect
-//   against poor hash functions (e.g., std::hash<int> is identity on many platforms).
-//   
-//   To disable the finalizer for hash functions that already have good avalanche
-//   properties (e.g., absl::Hash, wyhash), define `is_avalanching` in your hash:
-//   
-//   struct MyGoodHash {
-//       using is_avalanching = void;  // Opt-out of built-in mixer
-//       size_t operator()(int64_t x) const { return wyhash(&x, sizeof(x), 0, _wyp); }
-//   };
-//   fat_p::FastHashMap<int64_t, int64_t, MyGoodHash> map;  // No double-mixing
-//
-// Heterogeneous Lookup:
-//   // Enable transparent lookup with custom hash/equal:
-//   struct StringHash { using is_transparent = void; 
-//     size_t operator()(std::string_view s) const { return std::hash<std::string_view>{}(s); }};
-//   struct StringEqual { using is_transparent = void;
-//     bool operator()(std::string_view a, std::string_view b) const { return a == b; }};
-//   fat_p::FastHashMap<std::string, int, StringHash, StringEqual> map;
-//   map.find("key");  // No allocation! Uses string_view internally
-//
-// Performance (vs std::unordered_map at N=1M):
-//   - Insert: 3-5x faster
-//   - Find:   1.5-2x faster  
-//   - Erase:  7-10x faster (with TombstoneDeletion)
-//
-// For maximum performance, consider boost::unordered_flat_map.
-// FastHashMap trades some speed for simplicity (single header, C++17).
-//
-// SIMD Detection:
-//   - Compile-time: AVX512/AVX2/SSE2/NEON selected based on compiler flags
-//   - Runtime: CPUID detection reports optimization status
-//
-// Compiler flags for AVX2:
-//   - MSVC:      /arch:AVX2
-//   - GCC/Clang: -mavx2 or -march=native
+/**
+ * @file FastHashMap.h
+ * @brief High-performance hash map optimized for speed over stability
+ *
+ * @layer Containers
+ *
+ * @details
+ * A single-header Swiss table implementation with configurable deletion policy
+ * and allocator support. 3-5x faster than std::unordered_map for most workloads.
+ * Version: December 22, 2025 (4-AI Review Round 3)
+ * Fixes applied:
+ * - P0 Critical: Control byte prefix mirroring (fixes probing hang)
+ * - P0 Critical: Guaranteed >=1 empty slot (probe termination)
+ * - P0 Critical: FixedAllocator alignment fix (align address, not offset)
+ * - P0 Critical: FixedHashMap non-movable/non-swappable (prevents dangling pointers)
+ * - P1: 32-bit portable hash finalizer (SplitMix64/MurmurHash3)
+ * - P1: Conditional noexcept on move/swap (Hash/KeyEqual may throw)
+ * - P1: SFINAE-gated heterogeneous lookup (no hard-error on incompatible K)
+ * - P1: Proper freeze semantics (guarded + propagated)
+ * - P2: Checked allocations (throws std::bad_alloc)
+ * - P2: Allocation-before-rehash ordering (cleaner first-insert path)
+ * Features:
+ * - SIMD-accelerated probing (SSE2/AVX2/AVX512/NEON)
+ * - Built-in hash finalizer (SplitMix64) for robust distribution
+ * - Configurable deletion policy (Tombstone or BackwardShift)
+ * - Configurable allocator policy (Heap or Fixed-buffer)
+ * - Heterogeneous lookup support (find with string_view for string keys)
+ * - ~1200 lines, no dependencies beyond FatPSimdDetection.h
+ * Deletion Policies:
+ * - TombstoneDeletion (default): Fast erase, best overall performance
+ * - BackwardShiftDeletion: No tombstones, slightly better miss detection
+ * Allocator Policies:
+ * - HeapAllocator (default): Standard aligned heap allocation
+ * - FixedAllocator<N>: Stack-allocated buffer for embedded/real-time use
+ * NOTE: FixedHashMap is NON-MOVABLE and NON-SWAPPABLE (pointers would dangle)
+ * Usage:
+ * fat_p::FastHashMap<K, V> map;           // Default: Tombstone + Heap
+ * fat_p::FastHashMapBS<K, V> map_bs;      // BackwardShift + Heap
+ * fat_p::FastHashMapTS<K, V> map_ts;      // Tombstone + Heap (explicit)
+ * fat_p::FixedHashMap<K, V, 8192> fixed;  // Tombstone + 8KB fixed buffer (non-movable!)
+ * Hash Finalizer (SplitMix64):
+ * By default, a SplitMix64 finalizer is applied to all hashes to protect
+ * against poor hash functions (e.g., std::hash<int> is identity on many platforms).
+ * To disable the finalizer for hash functions that already have good avalanche
+ * properties (e.g., absl::Hash, wyhash), define `is_avalanching` in your hash:
+ * struct MyGoodHash {
+ * using is_avalanching = void;  // Opt-out of built-in mixer
+ * size_t operator()(int64_t x) const { return wyhash(&x, sizeof(x), 0, _wyp); }
+ * };
+ * fat_p::FastHashMap<int64_t, int64_t, MyGoodHash> map;  // No double-mixing
+ * Heterogeneous Lookup:
+ * // Enable transparent lookup with custom hash/equal:
+ * struct StringHash { using is_transparent = void;
+ * size_t operator()(std::string_view s) const { return std::hash<std::string_view>{}(s); }};
+ * struct StringEqual { using is_transparent = void;
+ * bool operator()(std::string_view a, std::string_view b) const { return a == b; }};
+ * fat_p::FastHashMap<std::string, int, StringHash, StringEqual> map;
+ * map.find("key");  // No allocation! Uses string_view internally
+ * Performance (vs std::unordered_map at N=1M):
+ * - Insert: 3-5x faster
+ * - Find:   1.5-2x faster
+ * - Erase:  7-10x faster (with TombstoneDeletion)
+ * For maximum performance, consider boost::unordered_flat_map.
+ * SIMD Detection:
+ * - Compile-time: AVX512/AVX2/SSE2/NEON selected based on compiler flags
+ * - Runtime: CPUID detection reports optimization status
+ * Compiler flags for AVX2:
+ * - MSVC:      /arch:AVX2
+ * - GCC/Clang: -mavx2 or -march=native
+ */
 #pragma once
 
 /*
@@ -85,6 +77,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/FastHashMap.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for FastHashMap."
   api_stability: in_work
   related:

@@ -2,6 +2,10 @@
  * @file ScopeGuard.h
  * @brief Provides the ScopeGuard class for general-purpose RAII scope-exit cleanup.
  *
+ * 
+ *
+ * @layer Foundation
+ *
  * @details This RAII utility executes a user-provided cleanup action upon scope exit, 
  * with customizable exception handling via policies. It supports move semantics for 
  * transfer, early dismiss to disable execution, and in-place construction for complex 
@@ -49,6 +53,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/ScopeGuard.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for ScopeGuard."
   api_stability: in_work
   related:
@@ -331,11 +336,11 @@ template <typename Policy, typename Fn>
     return ScopeGuard<std::decay_t<Fn>, Policy>(std::forward<Fn>(fn));
 }
 
-#define GET_NOEXCEPT_ScopeGuardNothrowPolicy noexcept
-#define GET_NOEXCEPT_ScopeGuardTerminatePolicy
-#define GET_NOEXCEPT_ScopeGuardLogAndSwallowPolicy
-#define GET_NOEXCEPT_ScopeGuardRethrowPolicy
-#define GET_NOEXCEPT(PolicyTag) GET_NOEXCEPT_##PolicyTag
+#define FATP_GET_NOEXCEPT_ScopeGuardNothrowPolicy noexcept
+#define FATP_GET_NOEXCEPT_ScopeGuardTerminatePolicy
+#define FATP_GET_NOEXCEPT_ScopeGuardLogAndSwallowPolicy
+#define FATP_GET_NOEXCEPT_ScopeGuardRethrowPolicy
+#define FATP_GET_NOEXCEPT(PolicyTag) FATP_GET_NOEXCEPT_##PolicyTag
 
 #if defined(__COUNTER__)
     #define FATP_SCOPE_GUARD_UNIQUE(prefix) FATP_SCOPE_GUARD_CONCAT_IMPL(prefix, __COUNTER__)
@@ -360,7 +365,7 @@ template <typename Policy, typename Fn>
  * SCOPE_GUARD { delete ptr; };
  * @endcode
  */
-#define SCOPE_GUARD auto FATP_SCOPE_GUARD_UNIQUE(scope_guard_) = ::fat_p::MakeScopeGuard() + [&]()
+#define FATP_SCOPE_GUARD auto FATP_SCOPE_GUARD_UNIQUE(scope_guard_) = ::fat_p::MakeScopeGuard() + [&]()
 
 /**
  * @brief Factory macro to create a ScopeGuard with an explicit policy.
@@ -379,7 +384,7 @@ template <typename Policy, typename Fn>
  * };
  * @endcode
  */
-#define SCOPE_GUARD_EX(PolicyTag) auto FATP_SCOPE_GUARD_UNIQUE(scope_guard_) = ::fat_p::MakeScopeGuard<PolicyTag>() + [&]() GET_NOEXCEPT(PolicyTag)
+#define FATP_SCOPE_GUARD_EX(PolicyTag) auto FATP_SCOPE_GUARD_UNIQUE(scope_guard_) = ::fat_p::MakeScopeGuard<PolicyTag>() + [&]() FATP_GET_NOEXCEPT(PolicyTag)
 
 /**
  * @brief Alias for SCOPE_GUARD - executes on any scope exit.
@@ -396,7 +401,7 @@ template <typename Policy, typename Fn>
  * SCOPE_EXIT { if (f) fclose(f); };
  * @endcode
  */
-#define SCOPE_EXIT SCOPE_GUARD
+#define FATP_SCOPE_EXIT FATP_SCOPE_GUARD
 
 // =============================================================================
 // Exception-Aware Scope Guards (C++17 std::uncaught_exceptions)
@@ -655,7 +660,7 @@ template <typename Fn>
  * internal try-catch will swallow the exception (we're already unwinding due to another
  * exception, so throwing would call std::terminate anyway).
  */
-#define SCOPE_FAIL \
+#define FATP_SCOPE_FAIL \
     auto FATP_SCOPE_GUARD_UNIQUE(scope_fail_) = ::fat_p::MakeScopeGuardOnFail() + [&]()
 
 /**
@@ -669,7 +674,7 @@ template <typename Fn>
  * @note The lambda is intentionally NOT noexcept. If the cleanup throws, the destructor's
  * internal try-catch will swallow the exception to maintain destructor noexcept guarantee.
  */
-#define SCOPE_SUCCESS \
+#define FATP_SCOPE_SUCCESS \
     auto FATP_SCOPE_GUARD_UNIQUE(scope_success_) = ::fat_p::MakeScopeGuardOnSuccess() + [&]()
 
 // =============================================================================
@@ -686,3 +691,17 @@ template <typename F>
 struct is_scope_guard<ScopeGuardOnSuccess<F>> : std::true_type {};
 
 }
+
+// =============================================================================
+// Backwards Compatibility Aliases
+// =============================================================================
+// Define FATP_NO_LEGACY_MACROS before including this header to disable these
+// short-form aliases if they conflict with your codebase.
+
+#ifndef FATP_NO_LEGACY_MACROS
+#define SCOPE_GUARD FATP_SCOPE_GUARD
+#define SCOPE_GUARD_EX FATP_SCOPE_GUARD_EX
+#define SCOPE_EXIT FATP_SCOPE_EXIT
+#define SCOPE_FAIL FATP_SCOPE_FAIL
+#define SCOPE_SUCCESS FATP_SCOPE_SUCCESS
+#endif

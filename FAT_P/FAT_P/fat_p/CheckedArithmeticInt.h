@@ -1,7 +1,7 @@
 /**
  * @file CheckedArithmeticInt.h
  * @brief Checked arithmetic operations for integer types
- * @layer CoreUtility
+ * @layer Foundation
  *
  * This header provides overflow-checked arithmetic operations for integers:
  *
@@ -52,6 +52,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CheckedArithmeticInt.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for CheckedArithmeticInt."
   api_stability: in_work
   related:

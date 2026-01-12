@@ -2,7 +2,7 @@
  * @file EqualityComparisons.h
  * @brief Recursive equality comparison framework for containers and nested types.
  *
- * @layer Application
+ * @layer Domain
  *
  * Builds on FloatingPointComparison.h to provide recursive comparison for
  * containers, pairs, tuples, and user-defined types. Includes diagnostic
@@ -17,6 +17,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/EqualityComparisons.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for EqualityComparisons."
   api_stability: in_work
   related:

@@ -1,3 +1,15 @@
+---
+doc_id: CG-SLOTMAP-001
+doc_type: "Companion Guide"
+title: "SlotMap Design"
+fatp_components: ["SlotMap"]
+topics: ["slot map", "handle stability", "generation counters"]
+constraints: ["ABA safety", "dense storage"]
+cxx_standard: "C++17"
+last_verified: "2026-01-11"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 # **The Dangling Pointer Must Die**
 
 ### *A Companion Guide to FAT-P's SlotMap*

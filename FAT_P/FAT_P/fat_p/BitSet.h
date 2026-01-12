@@ -16,6 +16,8 @@
  * Compilation: Requires C++17
  * - g++ -std=c++17 -O3 -mpopcnt your_code.cpp
  * - cl /std:c++17 /O2 your_code.cpp
+ *
+ * @layer Containers
  */
 
 #pragma once
@@ -27,6 +29,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/BitSet.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for BitSet."
   api_stability: in_work
   related:

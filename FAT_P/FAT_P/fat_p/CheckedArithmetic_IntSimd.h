@@ -1,6 +1,10 @@
 /**
  * @file CheckedArithmetic_IntSimd.h
  * @brief Unified integer SIMD dispatch for checked arithmetic operations
+ * 
+ *
+ * @layer Foundation
+ *
  * @version 1.2 (Added uint64_t dispatch, fixed documentation)
  *
  * This header provides the unified API for integer SIMD acceleration.
@@ -51,6 +55,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CheckedArithmetic_IntSimd.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for CheckedArithmetic_IntSimd."
   api_stability: in_work
   related:

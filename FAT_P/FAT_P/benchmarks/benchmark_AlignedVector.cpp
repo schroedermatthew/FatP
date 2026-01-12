@@ -548,7 +548,7 @@ void benchmark_sequential_iteration(const std::vector<size_t>& sizes)
         // Round-robin execution
         std::vector<size_t> order(results.size());
         std::iota(order.begin(), order.end(), 0);
-        std::mt19937 rng(g_config.seed);
+        std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
 
         for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
         {
@@ -666,7 +666,7 @@ void benchmark_random_access(const std::vector<size_t>& sizes)
 
         std::vector<size_t> order(results.size());
         std::iota(order.begin(), order.end(), 0);
-        std::mt19937 rng(g_config.seed);
+        std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
 
         for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
         {
@@ -776,7 +776,7 @@ void benchmark_push_back(const std::vector<size_t>& sizes)
 
         std::vector<size_t> order(results.size());
         std::iota(order.begin(), order.end(), 0);
-        std::mt19937 rng(g_config.seed);
+        std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
 
         for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
         {
@@ -875,7 +875,7 @@ void benchmark_insert(const std::vector<size_t>& sizes)
 
         std::vector<size_t> order(results.size());
         std::iota(order.begin(), order.end(), 0);
-        std::mt19937 rng(g_config.seed);
+        std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
 
         for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
         {
@@ -1083,7 +1083,7 @@ void benchmark_shift_memmove(const std::vector<size_t>& sizes)
 
             std::vector<size_t> order(results.size());
             std::iota(order.begin(), order.end(), 0);
-            std::mt19937 rng(g_config.seed);
+            std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
 
             for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
             {
@@ -1130,7 +1130,7 @@ void benchmark_shift_memmove(const std::vector<size_t>& sizes)
 
             std::vector<size_t> order(results.size());
             std::iota(order.begin(), order.end(), 0);
-            std::mt19937 rng(g_config.seed);
+            std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
 
             for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
             {
@@ -1355,7 +1355,7 @@ void benchmark_copy_move(const std::vector<size_t>& sizes)
 
         std::vector<size_t> order(results.size());
         std::iota(order.begin(), order.end(), 0);
-        std::mt19937 rng(g_config.seed);
+        std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
 
         for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
         {
@@ -1504,7 +1504,7 @@ void benchmark_simd_dot_product(const std::vector<size_t>& sizes)
 
         std::vector<size_t> order(results.size());
         std::iota(order.begin(), order.end(), 0);
-        std::mt19937 rng(g_config.seed);
+        std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
 
         for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
         {
@@ -1677,7 +1677,7 @@ void benchmark_simd_saxpy_explicit(const std::vector<size_t>& sizes)
 
         std::vector<size_t> order(results.size());
         std::iota(order.begin(), order.end(), 0);
-        std::mt19937 rng(g_config.seed);
+        std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
 
         for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
         {
@@ -1799,7 +1799,7 @@ void benchmark_corner_cases()
         results.push_back({"std::vector empty begin/end", {}});
         results.push_back({"AlignedVector empty begin/end", {}});
 
-        std::mt19937 rng(g_config.seed);
+        std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
         std::vector<size_t> order = {0, 1};
 
         for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
@@ -1856,7 +1856,7 @@ void benchmark_corner_cases()
         results.push_back({"std::vector push/pop", {}});
         results.push_back({"AlignedVector push/pop", {}});
 
-        std::mt19937 rng(g_config.seed);
+        std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
         std::vector<size_t> order = {0, 1};
 
         for (size_t run = 0; run < WARMUP_RUNS() + MEASURED_RUNS(); ++run)
@@ -1915,7 +1915,7 @@ void benchmark_corner_cases()
         results.push_back({"std::vector realloc", {}});
         results.push_back({"AlignedVector realloc", {}});
 
-        std::mt19937 rng(g_config.seed);
+        std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
         std::vector<size_t> order = {0, 1};
         constexpr size_t CAP_TARGET = 1000;
         constexpr size_t BATCH = 512; // reallocation events per timed sample

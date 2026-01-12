@@ -2,6 +2,10 @@
  * @file SmallVector.h
  * @brief Small-size optimized vector with inline storage for zero-allocation small collections
  *
+ * 
+ *
+ * @layer Containers
+ *
  * @details
  * SmallVector optimizes the common case of small collections by storing up to InlineCapacity
  * elements directly within the object, avoiding heap allocations entirely. When the size exceeds
@@ -126,6 +130,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/SmallVector.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for SmallVector."
   api_stability: in_work
   related:

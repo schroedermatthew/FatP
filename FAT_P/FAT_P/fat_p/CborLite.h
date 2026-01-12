@@ -1,3 +1,9 @@
+/**
+ * @file CborLite.h
+ * @brief Lightweight CBOR encoding and decoding
+ *
+ * @layer Foundation
+ */
 #pragma once
 
 /*
@@ -7,6 +13,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CborLite.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for CborLite."
   api_stability: in_work
   related:

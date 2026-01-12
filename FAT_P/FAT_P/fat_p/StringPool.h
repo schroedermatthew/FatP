@@ -2,6 +2,10 @@
  * @file StringPool.h
  * @brief High-performance string interning pool with policy-based thread safety
  *
+ * 
+ *
+ * @layer Domain
+ *
  * @details String pooling (interning) for memory-efficient string storage.
  * Deduplicates identical strings, returning references to single canonical copy.
  *
@@ -69,6 +73,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/StringPool.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for StringPool."
   api_stability: in_work
   related:
@@ -86,6 +91,8 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+#include "CppStandardDetection.h"
+
 #include <atomic>
 #include <cstring>
 #include <functional>
@@ -118,10 +125,9 @@ namespace detail
 {
 
 // P0919R3: Heterogeneous lookup for unordered containers, adopted in C++20
-#if defined(__cpp_lib_generic_unordered_lookup) && \
-    __cpp_lib_generic_unordered_lookup >= 201811L
+#if FATP_HAS_GENERIC_UNORDERED_LOOKUP
 #define FATP_USE_TRANSPARENT_LOOKUP 1
-#elif __cplusplus >= 202002L
+#elif FATP_CPP20_OR_LATER
 #define FATP_USE_TRANSPARENT_LOOKUP 1
 #else
 #define FATP_USE_TRANSPARENT_LOOKUP 0

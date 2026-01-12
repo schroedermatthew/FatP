@@ -2,7 +2,7 @@
  * @file FlatSet.h
  * @brief Sorted vector-backed set container with contiguous storage
  *
- * @layer Enforcement
+ * @layer Containers
  *
  * FlatSet provides an ordered set container backed by a sorted vector,
  * offering cache-friendly iteration and O(log n) lookup. Suitable for small
@@ -20,6 +20,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/FlatSet.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for FlatSet."
   api_stability: in_work
   related:

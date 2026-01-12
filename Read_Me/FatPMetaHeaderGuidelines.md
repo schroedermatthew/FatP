@@ -77,7 +77,7 @@ If you need a “hint” that would normally be written as a recursive glob, use
 
 ### Formatting constraints
 
-- **Indentation:** 2 spaces, no tabs.
+- **Indentation:** 2 spaces preferred. The parser tolerates tabs (converted to 2 spaces) and small indentation errors on top-level keys.
 - **Encoding:** ASCII or UTF-8.
 - **Line length:** ≤ 100 columns.
 - **Key order:** follow the canonical key order below to reduce merge conflicts.
@@ -99,7 +99,7 @@ If you need a “hint” that would normally be written as a recursive glob, use
 | Key | Type | Meaning |
 |---|---|---|
 | `namespace` | string or list[string] | Primary namespaces defined or used (`fat_p`, `fat_p::detail`, …). |
-| `layer` | string | Logical layer label (`containers.associative`, `core.contracts`, …). |
+| `layer` | string | Logical layer label (`Foundation`, `Containers`, `Concurrency`, `Domain`, `Integration`, `Testing`). |
 | `api_stability` | enum | Stability classification for the public surface. |
 | `related` | map | Links to docs/tests/benchmarks relevant to this file. |
 | `hygiene` | map | Machine-derived signals (macro counts, platform includes). |
@@ -277,7 +277,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/fat_p/StableHashMap.h
   namespace: fat_p
-  layer: containers.associative
+  layer: Containers
   summary: Reference-stable hash map with SwissTable-style control-byte probing.
   api_stability: candidate
   related:
@@ -327,6 +327,39 @@ FATP_META:
     mode: autogen
 */
 ```
+
+## Tooling
+
+The parser and validation scripts live at:
+
+```
+tools/fatp_meta_parser.py    # Parse and validate FATP_META blocks
+tools/validate_layers.py     # Validate layer dependency hierarchy
+```
+
+**FATP_META Parser:**
+
+```bash
+# Validate all headers
+python tools/fatp_meta_parser.py --validate fat_p/
+
+# Dump parsed metadata as JSON
+python tools/fatp_meta_parser.py --dump fat_p/StableHashMap.h
+
+# Quiet mode (errors only)
+python tools/fatp_meta_parser.py --validate -q fat_p/
+```
+
+The parser tolerates common whitespace issues (tabs, small indentation errors on top-level keys) to avoid CI failures from minor formatting drift.
+
+**Layer Validator:**
+
+```bash
+# Check that no header includes from a higher layer
+python tools/validate_layers.py
+```
+
+Reports any header that `#include`s a file from a layer above its own declared `@layer`.
 
 ## Common mistakes
 

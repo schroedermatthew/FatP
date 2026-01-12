@@ -3,6 +3,10 @@
  * @brief Provides the StrongId template for creating strong, type-safe ID
  * wrappers with zero runtime overhead.
  *
+ * 
+ *
+ * @layer Foundation
+ *
  * @details The StrongId template wraps an underlying integral type (T) and
  * uses a unique Tag struct to create a distinct, compile-time type.
  *
@@ -18,6 +22,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/StrongId.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for StrongId."
   api_stability: in_work
   related:

@@ -2,7 +2,7 @@
  * @file Factory.h
  * @brief Policy-based factory with compile-time customization.
  *
- * @layer Policy
+ * @layer Domain
  *
  * Provides two implementations:
  * 1. Factory - Modern policy-based factory with full customization
@@ -22,6 +22,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/Factory.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for Factory."
   api_stability: in_work
   related:

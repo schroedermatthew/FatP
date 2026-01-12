@@ -2,6 +2,10 @@
  * @file FatPJson.h
  * @brief Enhanced JSON library leveraging the fat_p ecosystem
  *
+ * 
+ *
+ * @layer Domain
+ *
  * @section overview Overview
  * FatPJson extends JsonLite with powerful fat_p components for:
  * - Expected-based error handling (no exceptions)
@@ -70,6 +74,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/FatPJson.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for FatPJson."
   api_stability: in_work
   related:

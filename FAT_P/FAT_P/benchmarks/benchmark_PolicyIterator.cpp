@@ -123,7 +123,14 @@ FATP_META:
 
 // Boost.MultiArray
 #if __has_include(<boost/multi_array.hpp>)
+#ifdef _MSC_VER
+    #pragma warning(push)
+    #pragma warning(disable: 4996)  // Suppress deprecated 'assign' warning in Boost.MultiArray
+#endif
 #include <boost/multi_array.hpp>
+#ifdef _MSC_VER
+    #pragma warning(pop)
+#endif
 #define HAS_BOOST_MULTIARRAY 1
 #else
 #define HAS_BOOST_MULTIARRAY 0

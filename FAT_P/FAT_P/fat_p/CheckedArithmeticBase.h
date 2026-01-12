@@ -1,6 +1,10 @@
 /**
  * @file CheckedArithmeticBase.h
  * @brief Core types, enums, and detection traits for checked arithmetic
+ * 
+ *
+ * @layer Foundation
+ *
  * @version 3.1
  *
  * This is the foundational header of the CheckedArithmetic module.
@@ -54,6 +58,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CheckedArithmeticBase.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for CheckedArithmeticBase."
   api_stability: in_work
   related:

@@ -3,6 +3,10 @@
  * @brief Defines the core RAII object used by all contract enforcement
  * macros, specializing on the chosen Raiser policy for failure handling.
  *
+ * 
+ *
+ * @layer Foundation
+ *
  * @details This file contains the primary Enforcer class and the factory
  * functions necessary to implement the fluent contract syntax:
  * `enforce(cond)("msg", value, ...).`
@@ -15,6 +19,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/enforce_enforcers.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for enforce_enforcers."
   api_stability: in_work
   related:
@@ -30,6 +35,8 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+#include "CppStandardDetection.h"
+
 #include <exception>
 #include <sstream>
 #include <stdexcept>
@@ -55,7 +62,7 @@ FATP_META:
 #endif
 
 // FATP_UNLIKELY_COND: Branch hint (C++20 [[unlikely]] where available, otherwise no-op)
-#if defined(__cpp_lib_expected) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L) || __cplusplus >= 202002L
+#if FATP_HAS_EXPECTED || FATP_CPP20_OR_LATER
     #define FATP_UNLIKELY_IF(cond) if (cond) [[unlikely]]
 #else
     #define FATP_UNLIKELY_IF(cond) if (cond)

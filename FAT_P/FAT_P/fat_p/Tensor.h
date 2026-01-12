@@ -1,6 +1,10 @@
 /**
  * @file Tensor.h
  * @brief High-performance N-dimensional tensor with policy-based iterators
+ * 
+ *
+ * @layer Domain
+ *
  * @version 5.1 - Enhanced Safety Features: Bounds Checking, View Lifetime Tracking, RCU Integration
  * 
  * @details Production-ready tensor implementation for HPC optimization and scientific computing.
@@ -57,6 +61,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/Tensor.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for Tensor."
   api_stability: in_work
   related:

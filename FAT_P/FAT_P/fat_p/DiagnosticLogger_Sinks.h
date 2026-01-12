@@ -2,6 +2,10 @@
  * @file DiagnosticLogger_Sinks.h
  * @brief Standard sink implementations for the diagnostic logging system.
  *
+ * 
+ *
+ * @layer Domain
+ *
  * @details This header provides concrete sink implementations including
  * ConsoleSink for stdout output and initialization utilities. Separated
  * from DiagnosticLogger_Core.h to allow lightweight inclusion of the
@@ -28,6 +32,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/DiagnosticLogger_Sinks.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for DiagnosticLogger_Sinks."
   api_stability: in_work
   related:

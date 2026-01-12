@@ -2,6 +2,10 @@
  * @file CSRMatrixParallel.h
  * @brief ThreadPool-based parallel operations for CSRMatrix
  *
+ * 
+ *
+ * @layer Domain
+ *
  * @details Extends CSRMatrix with work-balanced parallel algorithms using
  * fat_p::ThreadPool instead of OpenMP. Key advantages:
  * - Work stealing automatically balances irregular row lengths
@@ -25,6 +29,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CSRMatrixParallel.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for CSRMatrixParallel."
   api_stability: in_work
   related:

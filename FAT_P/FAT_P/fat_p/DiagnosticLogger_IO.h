@@ -1,6 +1,10 @@
 /**
  * @file DiagnosticLogger_IO.h
  * @brief Extension for File I/O, Rotation, Ring Buffers, Async Logging, and Resilience.
+ * 
+ *
+ * @layer Domain
+ *
  * @dependencies <filesystem>, <fstream>, CircularBuffer, LockFreeQueue, ThreadPool, ScopeGuard
  * 
  * FIXES APPLIED (v2.0):
@@ -26,6 +30,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/DiagnosticLogger_IO.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for DiagnosticLogger_IO."
   api_stability: in_work
   related:

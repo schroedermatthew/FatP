@@ -2,7 +2,7 @@
  * @file FatPBenchmarkRunner.h
  * @brief Unified benchmark infrastructure for Fat-P components.
  *
- * @layer Application
+ * @layer Testing
  *
  * @details
  * Comprehensive benchmarking toolkit that consolidates all Fat-P benchmark
@@ -77,6 +77,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/FatPBenchmarkRunner.h
   namespace: fat_p
+  layer: Testing
   summary: "Public header for FatPBenchmarkRunner."
   api_stability: in_work
   related:
@@ -111,7 +112,9 @@ FATP_META:
 #ifdef _MSC_VER
     #ifndef _CRT_SECURE_NO_WARNINGS
         #define _CRT_SECURE_NO_WARNINGS 1
+        #define FATP_DEFINED_CRT_SECURE_NO_WARNINGS_BENCH
     #endif
+    #pragma warning(push)
     #pragma warning(disable: 4996)  // deprecated functions
     #pragma warning(disable: 4267)  // size_t to unsigned int
     #pragma warning(disable: 4244)  // possible loss of data
@@ -119,6 +122,7 @@ FATP_META:
 
 #ifndef NOMINMAX
     #define NOMINMAX
+    #define FATP_DEFINED_NOMINMAX_BENCH
 #endif
 
 // ============================================================================
@@ -151,7 +155,8 @@ FATP_META:
 
 #if defined(_WIN32) || defined(_WIN64)
 #ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
+    #define WIN32_LEAN_AND_MEAN
+    #define FATP_DEFINED_WIN32_LEAN_AND_MEAN_BENCH
 #endif
 #include <windows.h>
 #include <winreg.h>
@@ -2659,3 +2664,22 @@ inline BenchmarkRunner makeTestRunner(const std::string& name, bool quiet = fals
 
 }  // namespace bench
 }  // namespace fat_p
+
+// ============================================================================
+// Cleanup - restore macros we may have defined
+// ============================================================================
+#ifdef FATP_DEFINED_NOMINMAX_BENCH
+    #undef NOMINMAX
+    #undef FATP_DEFINED_NOMINMAX_BENCH
+#endif
+#ifdef FATP_DEFINED_WIN32_LEAN_AND_MEAN_BENCH
+    #undef WIN32_LEAN_AND_MEAN
+    #undef FATP_DEFINED_WIN32_LEAN_AND_MEAN_BENCH
+#endif
+#ifdef FATP_DEFINED_CRT_SECURE_NO_WARNINGS_BENCH
+    #undef _CRT_SECURE_NO_WARNINGS
+    #undef FATP_DEFINED_CRT_SECURE_NO_WARNINGS_BENCH
+#endif
+#ifdef _MSC_VER
+    #pragma warning(pop)
+#endif

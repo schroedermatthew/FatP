@@ -28,12 +28,12 @@ FATP_META:
   component: Enforce
   file_role: test
   path: tests/test_Enforce.cpp
-  namespace: fat_p::testing::FATP_ENFORCE
+  namespace: fat_p::testing::enforce
   summary: "Unit tests for Enforce."
   related:
     docs_search: "Enforce"
     headers:
-      - fat_p/FATP_ENFORCE.h
+      - fat_p/enforce.h
       - fat_p/enforce_contextual.h
       - fat_p/ContractException.h
       - fat_p/Expected.h
@@ -70,7 +70,7 @@ FATP_META:
 #include "Expected.h"
 #include "FatPTest.h"
 
-namespace fat_p::testing::FATP_ENFORCE
+namespace fat_p::testing::enforce
 {
 
 using namespace std::chrono;
@@ -1701,7 +1701,7 @@ FATP_TEST_CASE(compile_time_predicate_noexcept) {
 // Main Test Runner
 // ============================================================================
 
-} // namespace fat_p::testing::FATP_ENFORCE
+} // namespace fat_p::testing::enforce
 
 namespace fat_p::testing
 {
@@ -1730,92 +1730,92 @@ bool test_Enforce() {
     try {
         // Test Suite 1: Core Enforcement
         std::cout << colors::cyan() << "Test Suite 1: Core Enforcement Macros" << colors::reset() << "\n";
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, core_enforcement_basic);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, core_enforcement_debug_behavior);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, core_enforcement_always);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, core_enforcement_warning);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, core_enforcement_noexcept);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, core_enforcement_message_interpolation);
+        FATP_RUN_TEST_NS(runner, enforce, core_enforcement_basic);
+        FATP_RUN_TEST_NS(runner, enforce, core_enforcement_debug_behavior);
+        FATP_RUN_TEST_NS(runner, enforce, core_enforcement_always);
+        FATP_RUN_TEST_NS(runner, enforce, core_enforcement_warning);
+        FATP_RUN_TEST_NS(runner, enforce, core_enforcement_noexcept);
+        FATP_RUN_TEST_NS(runner, enforce, core_enforcement_message_interpolation);
         
         // Test Suite 2: Predicates
         std::cout << "\n" << colors::cyan() << "Test Suite 2: Predicate Validation" << colors::reset() << "\n";
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, predicate_not_null);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, predicate_is_positive);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, predicate_is_non_negative);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, predicate_not_empty);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, predicate_in_range);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, predicate_is_power_of_two);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, predicate_is_sorted);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, predicate_container_is_unique);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, predicate_has_size);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, predicate_approx_equal);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, predicate_comparisons);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, predicate_container_unique_noexcept);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, predicate_noexcept_correctness);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_not_null);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_is_positive);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_is_non_negative);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_not_empty);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_in_range);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_is_power_of_two);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_is_sorted);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_container_is_unique);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_has_size);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_approx_equal);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_comparisons);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_container_unique_noexcept);
+        FATP_RUN_TEST_NS(runner, enforce, predicate_noexcept_correctness);
         
         // Test Suite 3: Raisers
         std::cout << "\n" << colors::cyan() << "Test Suite 3: Raiser Functionality" << colors::reset() << "\n";
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, raiser_logic_error);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, raiser_out_of_range);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, raiser_message_content);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, raiser_locus);
+        FATP_RUN_TEST_NS(runner, enforce, raiser_logic_error);
+        FATP_RUN_TEST_NS(runner, enforce, raiser_out_of_range);
+        FATP_RUN_TEST_NS(runner, enforce, raiser_message_content);
+        FATP_RUN_TEST_NS(runner, enforce, raiser_locus);
         
         // Test Suite 4: Policies
         std::cout << "\n" << colors::cyan() << "Test Suite 4: Policy Behavior" << colors::reset() << "\n";
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, policy_debug_only);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, policy_always_enforce);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, policy_warning);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, policy_no_throw);
+        FATP_RUN_TEST_NS(runner, enforce, policy_debug_only);
+        FATP_RUN_TEST_NS(runner, enforce, policy_always_enforce);
+        FATP_RUN_TEST_NS(runner, enforce, policy_warning);
+        FATP_RUN_TEST_NS(runner, enforce, policy_no_throw);
         
         // Test Suite 5: Contextual Enforcement
         std::cout << "\n" << colors::cyan() << "Test Suite 5: Contextual Enforcement" << colors::reset() << "\n";
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, contextual_throwing_function);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, contextual_noexcept_function);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, contextual_raiser_selection);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, contextual_expected_integration);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, contextual_multi_arg_throwing);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, contextual_multi_arg_noexcept);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, contextual_multi_arg_abort);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, contextual_multi_arg_boundary);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_throwing_function);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_noexcept_function);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_raiser_selection);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_expected_integration);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_multi_arg_throwing);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_multi_arg_noexcept);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_multi_arg_abort);
+        FATP_RUN_TEST_NS(runner, enforce, contextual_multi_arg_boundary);
         
         // Test Suite 6: Expected Integration
         std::cout << "\n" << colors::cyan() << "Test Suite 6: Expected Integration" << colors::reset() << "\n";
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, expected_passing_condition);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, expected_failing_condition);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, expected_with_predicate);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, expected_chaining);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, expected_no_exceptions);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, expected_contextual_noexcept);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, expected_predicate_variants);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, expected_error_propagation);
+        FATP_RUN_TEST_NS(runner, enforce, expected_passing_condition);
+        FATP_RUN_TEST_NS(runner, enforce, expected_failing_condition);
+        FATP_RUN_TEST_NS(runner, enforce, expected_with_predicate);
+        FATP_RUN_TEST_NS(runner, enforce, expected_chaining);
+        FATP_RUN_TEST_NS(runner, enforce, expected_no_exceptions);
+        FATP_RUN_TEST_NS(runner, enforce, expected_contextual_noexcept);
+        FATP_RUN_TEST_NS(runner, enforce, expected_predicate_variants);
+        FATP_RUN_TEST_NS(runner, enforce, expected_error_propagation);
         
         // Test Suite 7: Performance
         std::cout << "\n" << colors::cyan() << "Test Suite 7: Performance Characteristics" << colors::reset() << "\n";
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, performance_enforce_overhead);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, performance_always_enforce_overhead);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, performance_predicate_overhead);
+        FATP_RUN_TEST_NS(runner, enforce, performance_enforce_overhead);
+        FATP_RUN_TEST_NS(runner, enforce, performance_always_enforce_overhead);
+        FATP_RUN_TEST_NS(runner, enforce, performance_predicate_overhead);
         
         // Test Suite 8: Thread Safety
         std::cout << "\n" << colors::cyan() << "Test Suite 8: Thread Safety" << colors::reset() << "\n";
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, thread_safety_concurrent_enforcement);
+        FATP_RUN_TEST_NS(runner, enforce, thread_safety_concurrent_enforcement);
         
         // Test Suite 9: Edge Cases
         std::cout << "\n" << colors::cyan() << "Test Suite 9: Edge Cases" << colors::reset() << "\n";
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, edge_case_empty_message);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, edge_case_long_message);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, edge_case_special_characters);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, edge_case_multiple_types);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, edge_case_numeric_limits);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, edge_case_empty_containers);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, edge_case_single_element);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, edge_case_floating_point);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_empty_message);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_long_message);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_special_characters);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_multiple_types);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_numeric_limits);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_empty_containers);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_single_element);
+        FATP_RUN_TEST_NS(runner, enforce, edge_case_floating_point);
         
         // Test Suite 10: Compile-Time Features
         std::cout << "\n" << colors::cyan() << "Test Suite 10: Compile-Time Features" << colors::reset() << "\n";
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, compile_time_constexpr);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, compile_time_static_assertions);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, compile_time_noexcept_detection);
-        FATP_RUN_TEST_NS(runner, FATP_ENFORCE, compile_time_predicate_noexcept);
+        FATP_RUN_TEST_NS(runner, enforce, compile_time_constexpr);
+        FATP_RUN_TEST_NS(runner, enforce, compile_time_static_assertions);
+        FATP_RUN_TEST_NS(runner, enforce, compile_time_noexcept_detection);
+        FATP_RUN_TEST_NS(runner, enforce, compile_time_predicate_noexcept);
         
         // Print summary
         int failed = runner.print_summary();

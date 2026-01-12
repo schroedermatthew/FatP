@@ -1,6 +1,10 @@
 /**
  * @file Reflection.h
  * @brief Advanced compile-time reflection system with unified C++17/C++20 macro syntax
+ * 
+ *
+ * @layer Domain
+ *
  * @version 3.0.1 - Unified REFLECT_REGISTER for both C++17 and C++20 (MSVC-compatible)
  *
  * C++20: NTTP-based field names, compile-time strings
@@ -36,6 +40,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/Reflection.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for Reflection."
   api_stability: in_work
   related:
@@ -71,7 +76,7 @@ namespace fat_p {
     // C++ Version Detection
     // ============================================================================
 
-#if defined(__cpp_lib_reflection) && __cpp_lib_reflection >= 202502L
+#if FATP_HAS_REFLECTION
 #define FATP_HAS_CPP26_REFLECTION 1
 #elif FATP_HAS_CPP20
 #define FATP_HAS_CPP26_REFLECTION 0

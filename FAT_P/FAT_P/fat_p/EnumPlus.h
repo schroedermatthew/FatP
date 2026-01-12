@@ -1,3 +1,9 @@
+/**
+ * @file EnumPlus.h
+ * @brief Enhanced enum utilities with string conversion and iteration
+ *
+ * @layer Domain
+ */
 #pragma once
 /*
 FATP_META:
@@ -6,6 +12,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/EnumPlus.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for EnumPlus."
   api_stability: in_work
   related:

@@ -17,6 +17,31 @@
 
 #pragma once
 
+/*
+FATP_META:
+  meta_version: 1
+  component: CppStandardDetection
+  file_role: public_header
+  path: fat_p/CppStandardDetection.h
+  namespace: fat_p
+  layer: Foundation
+  summary: Centralized C++ standard and feature detection macros.
+  api_stability: stable
+  related:
+    docs_search: "CppStandardDetection"
+    tests: []
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 25
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 // Library feature-test macros (e.g., __cpp_lib_span) are centrally provided via <version>.
 // This avoids false negatives across standard library implementations.
 #include <version>
@@ -243,6 +268,68 @@
     #define FATP_HAS_FILESYSTEM 1
 #else
     #define FATP_HAS_FILESYSTEM 0
+#endif
+
+// =============================================================================
+// C++20 Additional Library Features
+// =============================================================================
+
+// std::atomic<std::shared_ptr> (C++20)
+#if defined(__cpp_lib_atomic_shared_ptr) && __cpp_lib_atomic_shared_ptr >= 201711L
+    #define FATP_HAS_ATOMIC_SHARED_PTR 1
+#else
+    #define FATP_HAS_ATOMIC_SHARED_PTR 0
+#endif
+
+// Library three-way comparison (<compare> header)
+#if defined(__cpp_lib_three_way_comparison) && __cpp_lib_three_way_comparison >= 201907L
+    #define FATP_HAS_LIB_THREE_WAY_COMPARISON 1
+#else
+    #define FATP_HAS_LIB_THREE_WAY_COMPARISON 0
+#endif
+
+// Heterogeneous lookup in unordered containers (C++20)
+#if defined(__cpp_lib_generic_unordered_lookup) && __cpp_lib_generic_unordered_lookup >= 201811L
+    #define FATP_HAS_GENERIC_UNORDERED_LOOKUP 1
+#else
+    #define FATP_HAS_GENERIC_UNORDERED_LOOKUP 0
+#endif
+
+// =============================================================================
+// C++23 Library Feature Detection
+// =============================================================================
+
+// std::expected (C++23)
+#if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
+    #define FATP_HAS_EXPECTED 1
+#else
+    #define FATP_HAS_EXPECTED 0
+#endif
+
+// =============================================================================
+// C++26 Library Feature Detection
+// =============================================================================
+
+// Static reflection (C++26)
+#if defined(__cpp_lib_reflection) && __cpp_lib_reflection >= 202502L
+    #define FATP_HAS_REFLECTION 1
+#else
+    #define FATP_HAS_REFLECTION 0
+#endif
+
+// =============================================================================
+// Platform-Specific Feature Detection
+// =============================================================================
+
+// NUMA support (Linux libnuma)
+#if defined(__has_include)
+    #if __has_include(<numa.h>)
+        #define FATP_HAS_NUMA 1
+    #else
+        #define FATP_HAS_NUMA 0
+    #endif
+#else
+    #define FATP_HAS_NUMA 0
 #endif
 
 // =============================================================================

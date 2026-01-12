@@ -1,6 +1,10 @@
 /**
  * @file SimdVector.h
  * @brief Universal SIMD wrapper for vectorized HPC operations
+ * 
+ *
+ * @layer Foundation
+ *
  * @version 1.2.2
  * 
  * @details Portable SIMD abstraction layer supporting SSE, AVX, AVX-512, and NEON.
@@ -37,6 +41,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/SimdVector.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for SimdVector."
   api_stability: in_work
   related:
@@ -71,7 +76,7 @@ FATP_META:
 // =============================================================================
 
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86)
-    #define SIMD_X86
+    #define FATP_SIMD_X86
     #if defined(_MSC_VER)
         #include <intrin.h>  // For __popcnt on MSVC
     #endif
@@ -98,12 +103,12 @@ FATP_META:
         #include <emmintrin.h>
     #endif
 #elif defined(__aarch64__)
-    #define SIMD_NEON
-    #define SIMD_NEON_AARCH64 1
+    #define FATP_SIMD_NEON
+    #define FATP_SIMD_NEON_AARCH64 1
     #include <arm_neon.h>
 #elif defined(__ARM_NEON)
-    #define SIMD_NEON
-    #define SIMD_NEON_AARCH64 0
+    #define FATP_SIMD_NEON
+    #define FATP_SIMD_NEON_AARCH64 0
     #include <arm_neon.h>
 #endif
 
@@ -117,9 +122,9 @@ FATP_META:
         static_assert(true, "SimdVector: AVX detected");
     #elif defined(SIMD_SSE2)
         static_assert(true, "SimdVector: SSE2 detected");
-    #elif defined(SIMD_NEON) && SIMD_NEON_AARCH64
+    #elif defined(FATP_SIMD_NEON) && FATP_SIMD_NEON_AARCH64
         static_assert(true, "SimdVector: NEON AArch64 detected");
-    #elif defined(SIMD_NEON)
+    #elif defined(FATP_SIMD_NEON)
         static_assert(true, "SimdVector: NEON ARM32 detected (double=scalar)");
     #else
         static_assert(true, "SimdVector: Scalar fallback");
@@ -260,14 +265,14 @@ struct SimdArchitecture {
     static constexpr bool has_neon = false;
     static constexpr size_t preferred_alignment = 16;
     static constexpr const char* name = "SSE2";
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
     static constexpr bool has_avx512 = false;
     static constexpr bool has_avx2 = false;
     static constexpr bool has_avx = false;
     static constexpr bool has_sse = false;
     static constexpr bool has_neon = true;
     static constexpr size_t preferred_alignment = 16;
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
     static constexpr const char* name = "NEON-AArch64";
 #else
     static constexpr const char* name = "NEON-ARM32";
@@ -320,13 +325,13 @@ template<> struct SimdTraits<double> {
     static constexpr size_t width = 2; 
     static constexpr size_t alignment = 16;
 };
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
 template<> struct SimdTraits<float> { 
     static constexpr size_t width = 4; 
     static constexpr size_t alignment = 16;
 };
 template<> struct SimdTraits<double> { 
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
     static constexpr size_t width = 2; 
     static constexpr size_t alignment = 16;
 #else
@@ -369,11 +374,11 @@ using storage_type = typename std::conditional_t<std::is_same_v<T, float>, stora
 struct storage_float { using type = __m128; };
 struct storage_double { using type = __m128d; };
 using storage_type = typename std::conditional_t<std::is_same_v<T, float>, storage_float, storage_double>::type;
-#elif defined(SIMD_NEON) && SIMD_NEON_AARCH64
+#elif defined(FATP_SIMD_NEON) && FATP_SIMD_NEON_AARCH64
 struct storage_float { using type = uint32x4_t; };
 struct storage_double { using type = uint64x2_t; };
 using storage_type = typename std::conditional_t<std::is_same_v<T, float>, storage_float, storage_double>::type;
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
     // ARM32: float uses NEON, double uses scalar bool
 struct storage_float { using type = uint32x4_t; };
 struct storage_double { using type = bool; };
@@ -404,7 +409,7 @@ using storage_type = typename std::conditional_t<std::is_same_v<T, float>, stora
             return _mm_movemask_ps(data_) != 0;
         else
             return _mm_movemask_pd(data_) != 0;
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) {
             // Robust: explicit lane OR for any()
             return (vgetq_lane_u32(data_, 0) |
@@ -412,7 +417,7 @@ using storage_type = typename std::conditional_t<std::is_same_v<T, float>, stora
                     vgetq_lane_u32(data_, 2) |
                     vgetq_lane_u32(data_, 3)) != 0;
         } else {
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
             return (vgetq_lane_u64(data_, 0) | vgetq_lane_u64(data_, 1)) != 0;
 #else
             return data_;  // ARM32 double: scalar bool
@@ -444,7 +449,7 @@ using storage_type = typename std::conditional_t<std::is_same_v<T, float>, stora
             return _mm_movemask_ps(data_) == 0xF;
         else
             return _mm_movemask_pd(data_) == 0x3;
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) {
             // Robust: explicit lane AND for all()
             return (vgetq_lane_u32(data_, 0) &
@@ -452,7 +457,7 @@ using storage_type = typename std::conditional_t<std::is_same_v<T, float>, stora
                     vgetq_lane_u32(data_, 2) &
                     vgetq_lane_u32(data_, 3)) != 0;
         } else {
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
             return (vgetq_lane_u64(data_, 0) & vgetq_lane_u64(data_, 1)) != 0;
 #else
             return data_;  // ARM32 double: scalar bool
@@ -495,7 +500,7 @@ using storage_type = typename std::conditional_t<std::is_same_v<T, float>, stora
             return detail::portable_popcount(static_cast<unsigned>(_mm_movemask_ps(data_)));
         else
             return detail::portable_popcount(static_cast<unsigned>(_mm_movemask_pd(data_)));
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) {
             size_t cnt = 0;
             if (vgetq_lane_u32(data_, 0)) ++cnt;
@@ -504,7 +509,7 @@ using storage_type = typename std::conditional_t<std::is_same_v<T, float>, stora
             if (vgetq_lane_u32(data_, 3)) ++cnt;
             return cnt;
         } else {
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
             size_t cnt = 0;
             if (vgetq_lane_u64(data_, 0)) ++cnt;
             if (vgetq_lane_u64(data_, 1)) ++cnt;
@@ -536,10 +541,10 @@ using storage_type = typename std::conditional_t<std::is_same_v<T, float>, stora
             return SimdMask(_mm_and_ps(data_, other.data_));
         else
             return SimdMask(_mm_and_pd(data_, other.data_));
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
             return SimdMask(vandq_u32(data_, other.data_));
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else
             return SimdMask(vandq_u64(data_, other.data_));
 #else
@@ -566,10 +571,10 @@ using storage_type = typename std::conditional_t<std::is_same_v<T, float>, stora
             return SimdMask(_mm_or_ps(data_, other.data_));
         else
             return SimdMask(_mm_or_pd(data_, other.data_));
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
             return SimdMask(vorrq_u32(data_, other.data_));
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else
             return SimdMask(vorrq_u64(data_, other.data_));
 #else
@@ -602,10 +607,10 @@ using storage_type = typename std::conditional_t<std::is_same_v<T, float>, stora
             __m128d all_ones = _mm_castsi128_pd(_mm_set1_epi64x(-1));
             return SimdMask(_mm_xor_pd(data_, all_ones));
         }
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
             return SimdMask(vmvnq_u32(data_));
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         // Note: vmvnq_s64 does not exist in NEON; use XOR with all-ones instead
         else
             return SimdMask(veorq_u64(data_, vdupq_n_u64(~0ULL)));
@@ -657,11 +662,11 @@ using storage_type = typename std::conditional_t<std::is_same_v<T, float>, stora
 struct storage_float { using type = __m128; };
 struct storage_double { using type = __m128d; };
 using storage_type = typename std::conditional_t<std::is_same_v<T, float>, storage_float, storage_double>::type;
-#elif defined(SIMD_NEON) && SIMD_NEON_AARCH64
+#elif defined(FATP_SIMD_NEON) && FATP_SIMD_NEON_AARCH64
 struct storage_float { using type = float32x4_t; };
 struct storage_double { using type = float64x2_t; };
 using storage_type = typename std::conditional_t<std::is_same_v<T, float>, storage_float, storage_double>::type;
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
     // ARM32: float uses NEON, double uses scalar
 struct storage_float { using type = float32x4_t; };
 struct storage_double { using type = double; };
@@ -694,9 +699,9 @@ public:
 #elif defined(SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>) data_ = _mm_set1_ps(scalar);
         else data_ = _mm_set1_pd(scalar);
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) data_ = vdupq_n_f32(scalar);
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else data_ = vdupq_n_f64(scalar);
 #else
         else data_ = scalar;  // ARM32 double: scalar
@@ -743,9 +748,9 @@ public:
 #elif defined(SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>) result.data_ = _mm_load_ps(ptr);
         else result.data_ = _mm_load_pd(ptr);
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) result.data_ = vld1q_f32(ptr);
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else result.data_ = vld1q_f64(ptr);
 #else
         else result.data_ = *ptr;
@@ -770,9 +775,9 @@ public:
 #elif defined(SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>) result.data_ = _mm_loadu_ps(ptr);
         else result.data_ = _mm_loadu_pd(ptr);
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) result.data_ = vld1q_f32(ptr);
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else result.data_ = vld1q_f64(ptr);
 #else
         else result.data_ = *ptr;
@@ -825,9 +830,9 @@ public:
 #elif defined(SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>) _mm_store_ps(ptr, data_);
         else _mm_store_pd(ptr, data_);
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) vst1q_f32(ptr, data_);
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else vst1q_f64(ptr, data_);
 #else
         else *ptr = data_;
@@ -850,9 +855,9 @@ public:
 #elif defined(SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>) _mm_storeu_ps(ptr, data_);
         else _mm_storeu_pd(ptr, data_);
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) vst1q_f32(ptr, data_);
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else vst1q_f64(ptr, data_);
 #else
         else *ptr = data_;
@@ -902,9 +907,9 @@ public:
 #elif defined(SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>) return SimdVector(_mm_add_ps(data_, rhs.data_));
         else return SimdVector(_mm_add_pd(data_, rhs.data_));
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) return SimdVector(vaddq_f32(data_, rhs.data_));
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else return SimdVector(vaddq_f64(data_, rhs.data_));
 #else
         else return SimdVector(data_ + rhs.data_);
@@ -926,9 +931,9 @@ public:
 #elif defined(SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>) return SimdVector(_mm_sub_ps(data_, rhs.data_));
         else return SimdVector(_mm_sub_pd(data_, rhs.data_));
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) return SimdVector(vsubq_f32(data_, rhs.data_));
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else return SimdVector(vsubq_f64(data_, rhs.data_));
 #else
         else return SimdVector(data_ - rhs.data_);
@@ -948,9 +953,9 @@ public:
 #elif defined(SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>) return SimdVector(_mm_mul_ps(data_, rhs.data_));
         else return SimdVector(_mm_mul_pd(data_, rhs.data_));
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) return SimdVector(vmulq_f32(data_, rhs.data_));
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else return SimdVector(vmulq_f64(data_, rhs.data_));
 #else
         else return SimdVector(data_ * rhs.data_);
@@ -970,9 +975,9 @@ public:
 #elif defined(SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>) return SimdVector(_mm_div_ps(data_, rhs.data_));
         else return SimdVector(_mm_div_pd(data_, rhs.data_));
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) return SimdVector(vdivq_f32(data_, rhs.data_));
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else return SimdVector(vdivq_f64(data_, rhs.data_));
 #else
         else return SimdVector(data_ / rhs.data_);
@@ -1002,9 +1007,9 @@ public:
 #elif defined(SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>) return SimdMask<T>(_mm_cmpeq_ps(data_, rhs.data_));
         else return SimdMask<T>(_mm_cmpeq_pd(data_, rhs.data_));
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) return SimdMask<T>(vceqq_f32(data_, rhs.data_));
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else return SimdMask<T>(vceqq_f64(data_, rhs.data_));
 #else
         else return SimdMask<T>(data_ == rhs.data_);
@@ -1026,9 +1031,9 @@ public:
 #elif defined(SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>) return SimdMask<T>(_mm_cmpgt_ps(data_, rhs.data_));
         else return SimdMask<T>(_mm_cmpgt_pd(data_, rhs.data_));
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) return SimdMask<T>(vcgtq_f32(data_, rhs.data_));
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else return SimdMask<T>(vcgtq_f64(data_, rhs.data_));
 #else
         else return SimdMask<T>(data_ > rhs.data_);
@@ -1067,9 +1072,9 @@ public:
             return SimdVector(_mm_or_ps(_mm_and_ps(mask.data_, if_true.data_), _mm_andnot_ps(mask.data_, if_false.data_)));
         else 
             return SimdVector(_mm_or_pd(_mm_and_pd(mask.data_, if_true.data_), _mm_andnot_pd(mask.data_, if_false.data_)));
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) return SimdVector(vbslq_f32(mask.data_, if_true.data_, if_false.data_));
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else return SimdVector(vbslq_f64(mask.data_, if_true.data_, if_false.data_));
 #else
         else return mask.data_ ? if_true : if_false;
@@ -1095,9 +1100,9 @@ public:
 #elif defined(SIMD_AVX2) && defined(__FMA__)
         if constexpr (std::is_same_v<T, float>) return SimdVector(_mm256_fmadd_ps(a.data_, b.data_, c.data_));
         else return SimdVector(_mm256_fmadd_pd(a.data_, b.data_, c.data_));
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) return SimdVector(vfmaq_f32(c.data_, a.data_, b.data_));
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else return SimdVector(vfmaq_f64(c.data_, a.data_, b.data_));
 #else
         else return SimdVector(a.data_ * b.data_ + c.data_);
@@ -1120,11 +1125,11 @@ public:
 #elif defined(SIMD_AVX2) && defined(__FMA__)
         if constexpr (std::is_same_v<T, float>) return SimdVector(_mm256_fmsub_ps(a.data_, b.data_, c.data_));
         else return SimdVector(_mm256_fmsub_pd(a.data_, b.data_, c.data_));
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         // vfmsq_f32(a,b,c) = a - b*c, but we want a*b - c
         // Use vfmaq with negated c: vfmaq(-c, a, b) = -c + a*b = a*b - c
         if constexpr (std::is_same_v<T, float>) return SimdVector(vfmaq_f32(vnegq_f32(c.data_), a.data_, b.data_));
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else return SimdVector(vfmaq_f64(vnegq_f64(c.data_), a.data_, b.data_));
 #else
         else return SimdVector(a.data_ * b.data_ - c.data_);
@@ -1144,9 +1149,9 @@ public:
 #elif defined(SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>) return SimdVector(_mm_sqrt_ps(data_));
         else return SimdVector(_mm_sqrt_pd(data_));
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) return SimdVector(vsqrtq_f32(data_));
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else return SimdVector(vsqrtq_f64(data_));
 #else
         else return SimdVector(std::sqrt(data_));
@@ -1196,9 +1201,9 @@ public:
             __m128d sh = _mm_shuffle_pd(data_, data_, 1);
             return _mm_cvtsd_f64(_mm_add_pd(data_, sh));
         }
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) return vaddvq_f32(data_);
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else return vaddvq_f64(data_);
 #else
         else return data_;
@@ -1212,9 +1217,9 @@ public:
 #if defined(SIMD_AVX512)
         if constexpr (std::is_same_v<T, float>) return _mm512_reduce_max_ps(data_);
         else return _mm512_reduce_max_pd(data_);
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) return vmaxvq_f32(data_);
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else return vmaxvq_f64(data_);
 #else
         else return data_;
@@ -1230,9 +1235,9 @@ public:
 #if defined(SIMD_AVX512)
         if constexpr (std::is_same_v<T, float>) return _mm512_reduce_min_ps(data_);
         else return _mm512_reduce_min_pd(data_);
-#elif defined(SIMD_NEON)
+#elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>) return vminvq_f32(data_);
-#if SIMD_NEON_AARCH64
+#if FATP_SIMD_NEON_AARCH64
         else return vminvq_f64(data_);
 #else
         else return data_;

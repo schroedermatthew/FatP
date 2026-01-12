@@ -1,7 +1,7 @@
 /**
  * @file SlotMap.h
  * @brief Generational index container providing stable handles and O(1) access.
- * @layer Infrastructure
+ * @layer Containers
  *
  * @details A container that provides stable handles even after element removal.
  * Uses generational counters to detect stale/dangling handles (ABA safety).
@@ -54,6 +54,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/SlotMap.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for SlotMap."
   api_stability: in_work
   related:

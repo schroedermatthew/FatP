@@ -3,6 +3,10 @@
  * @brief Defines type traits and policy tags essential for contextual contract
  * enforcement.
  *
+ * 
+ *
+ * @layer Foundation
+ *
  * @details The core component is the is_noexcept_function_ptr trait, which
  * detects the 'noexcept' specification on function and method pointers at
  * compile time. This information is used to select the correct Raiser
@@ -16,6 +20,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/enforce_contextual_policies.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for enforce_contextual_policies."
   api_stability: in_work
   related:

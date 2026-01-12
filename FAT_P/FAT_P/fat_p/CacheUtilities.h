@@ -1,6 +1,10 @@
 /**
  * @file CacheUtilities.h
  * @brief Cache control, prefetching, and cache-aware programming utilities
+ * 
+ *
+ * @layer Domain
+ *
  * @version 1.1
  * 
  * Version History:
@@ -52,6 +56,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CacheUtilities.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for CacheUtilities."
   api_stability: in_work
   related:
@@ -83,16 +88,16 @@ FATP_META:
 // Architecture-specific headers
 #if defined(__x86_64__) || defined(_M_X64)
     #include <immintrin.h>
-    #define CACHE_X86
-    #define CACHE_X86_64
+    #define FATP_CACHE_X86
+    #define FATP_CACHE_X86_64
 #elif defined(__i386) || defined(_M_IX86)
     #include <immintrin.h>
-    #define CACHE_X86
-    #define CACHE_X86_32
+    #define FATP_CACHE_X86
+    #define FATP_CACHE_X86_32
 #elif defined(__ARM_NEON) || defined(__aarch64__)
     // Use __builtin_prefetch for better portability (Apple Silicon, Android, Linux ARM)
     // arm_acle.h has inconsistent support across compilers
-    #define CACHE_ARM
+    #define FATP_CACHE_ARM
 #endif
 
 namespace fat_p {
@@ -114,11 +119,11 @@ namespace cache_constants {
  * @brief L1 cache line size in bytes
  */
 inline constexpr size_t l1_line_size_v = 
-#if defined(CACHE_X86)
+#if defined(FATP_CACHE_X86)
     64  // Standard for all x86/x64
 #elif defined(__APPLE__) && defined(__aarch64__)
     128 // Apple Silicon (M1/M2/M3) uses 128-byte lines
-#elif defined(CACHE_ARM)
+#elif defined(FATP_CACHE_ARM)
     64  // Most ARM processors (Cortex-A series)
 #else
     64  // Conservative default
@@ -203,7 +208,7 @@ enum class PrefetchOp {
 template<PrefetchLocality Locality = PrefetchLocality::High,
          PrefetchOp Op = PrefetchOp::Read>
 inline void prefetch(const void* addr) noexcept {
-#if defined(CACHE_X86)
+#if defined(FATP_CACHE_X86)
     if constexpr (Op == PrefetchOp::Read) {
         // Prefetch to cache levels based on locality hint
         if constexpr (Locality == PrefetchLocality::None) {
@@ -284,9 +289,9 @@ inline void prefetch_ahead(const T* base, size_t index, size_t stride = 1, size_
  * @param addr Address to flush
  */
 inline void flush_cache_line(const void* addr) noexcept {
-#if defined(CACHE_X86)
+#if defined(FATP_CACHE_X86)
     _mm_clflush(addr);
-#elif defined(CACHE_ARM) && defined(__aarch64__)
+#elif defined(FATP_CACHE_ARM) && defined(__aarch64__)
     __asm__ __volatile__("dc cvac, %0" : : "r"(addr) : "memory");
 #else
     // No portable way to flush - use compiler memory barrier
@@ -320,11 +325,11 @@ inline void flush_cache_range(const void* addr, size_t size) noexcept {
  * @param addr Address to flush and invalidate
  */
 inline void flush_invalidate(const void* addr) noexcept {
-#if defined(CACHE_X86) && defined(__CLFLUSHOPT__)
+#if defined(FATP_CACHE_X86) && defined(__CLFLUSHOPT__)
     _mm_clflushopt(const_cast<void*>(addr));
-#elif defined(CACHE_X86)
+#elif defined(FATP_CACHE_X86)
     _mm_clflush(addr);
-#elif defined(CACHE_ARM) && defined(__aarch64__)
+#elif defined(FATP_CACHE_ARM) && defined(__aarch64__)
     __asm__ __volatile__("dc civac, %0" : : "r"(addr) : "memory");
 #else
     flush_cache_line(addr);
@@ -353,7 +358,7 @@ template<typename T>
 inline void stream_store(T* dest, const T& value) noexcept {
     static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable");
     
-#if defined(CACHE_X86)
+#if defined(FATP_CACHE_X86)
     if constexpr (sizeof(T) == 4) {
         // 4-byte stream - use memcpy to avoid strict-aliasing UB
         if (is_aligned(dest, 4)) {
@@ -367,7 +372,7 @@ inline void stream_store(T* dest, const T& value) noexcept {
     } 
     else if constexpr (sizeof(T) == 8) {
         // 8-byte stream - use memcpy to avoid strict-aliasing UB
-        #if defined(CACHE_X86_64)
+        #if defined(FATP_CACHE_X86_64)
         if (is_aligned(dest, 8)) {
             long long tmp;
             std::memcpy(&tmp, &value, sizeof(T));
@@ -425,7 +430,7 @@ inline void stream_store(T* dest, const T& value) noexcept {
 inline void stream_copy(void* dest, const void* src, size_t size) noexcept {
     if (size == 0) return;
     
-#if defined(CACHE_X86) && defined(__AVX__)
+#if defined(FATP_CACHE_X86) && defined(__AVX__)
     // _mm256_stream_si256 requires 32-byte aligned destination
     if (!is_aligned(dest, 32)) {
         std::memcpy(dest, src, size);
@@ -574,9 +579,9 @@ struct alignas(cache_constants::destructive_interference_size_v) CacheLinePadded
  * @brief Full memory barrier (serializes all memory operations)
  */
 inline void memory_barrier() noexcept {
-#if defined(CACHE_X86)
+#if defined(FATP_CACHE_X86)
     _mm_mfence();
-#elif defined(CACHE_ARM)
+#elif defined(FATP_CACHE_ARM)
     __asm__ __volatile__("dmb sy" : : : "memory");
 #else
     std::atomic_thread_fence(std::memory_order_seq_cst);
@@ -587,9 +592,9 @@ inline void memory_barrier() noexcept {
  * @brief Store fence (ensure all stores before this complete before any after)
  */
 inline void store_fence() noexcept {
-#if defined(CACHE_X86)
+#if defined(FATP_CACHE_X86)
     _mm_sfence();
-#elif defined(CACHE_ARM)
+#elif defined(FATP_CACHE_ARM)
     __asm__ __volatile__("dmb st" : : : "memory");
 #else
     std::atomic_thread_fence(std::memory_order_release);
@@ -600,9 +605,9 @@ inline void store_fence() noexcept {
  * @brief Load fence (ensure all loads after this see stores completed before)
  */
 inline void load_fence() noexcept {
-#if defined(CACHE_X86)
+#if defined(FATP_CACHE_X86)
     _mm_lfence();
-#elif defined(CACHE_ARM)
+#elif defined(FATP_CACHE_ARM)
     __asm__ __volatile__("dmb ld" : : : "memory");
 #else
     std::atomic_thread_fence(std::memory_order_acquire);

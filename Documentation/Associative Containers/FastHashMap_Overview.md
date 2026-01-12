@@ -1,3 +1,15 @@
+---
+doc_id: OV-FASTHASHMAP-001
+doc_type: "Overview"
+title: "FastHashMap Overview"
+fatp_components: ["FastHashMap"]
+topics: ["hash map", "SIMD probing", "Swiss Table"]
+constraints: ["cache efficiency", "probe sequences"]
+cxx_standard: "C++17"
+last_verified: "2026-01-11"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 # FastHashMap: Maximum Throughput Hash Table
 
 *Fat-P Library — December 2025*

@@ -1,3 +1,9 @@
+/**
+ * @file IntrusiveList.h
+ * @brief Intrusive doubly-linked list with zero allocation overhead
+ *
+ * @layer Containers
+ */
 #pragma once
 
 /*
@@ -7,6 +13,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/IntrusiveList.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for IntrusiveList."
   api_stability: in_work
   related:

@@ -8,6 +8,10 @@
  * (std::logic_error, std::runtime_error, std::bad_alloc) based on the context
  * of the failure.
  *
+ * 
+ *
+ * @layer Foundation
+ *
  * @section usage Usage Examples:
  * @code
  * // Throwing specific contract errors:
@@ -56,6 +60,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/ContractException.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for ContractException."
   api_stability: in_work
   related:

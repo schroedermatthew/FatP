@@ -2,6 +2,10 @@
  * @file ThreadPool.h
  * @brief Production-ready thread pool with work stealing, priority queues, and hybrid idle strategy
  *
+ * 
+ *
+ * @layer Concurrency
+ *
  * @details High-performance thread pool implementation featuring:
  * - Work stealing for load balancing (mutex-protected deques)
  * - Priority-based task scheduling (global priority queue + local queues)
@@ -34,6 +38,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/ThreadPool.h
   namespace: fat_p
+  layer: Concurrency
   summary: "Public header for ThreadPool."
   api_stability: in_work
   related:

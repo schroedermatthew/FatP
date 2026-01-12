@@ -2,7 +2,7 @@
  * @file enforce_contextual.h
  * @brief Defines macros and template functions for contextual contract enforcement that
  * automatically adapt failure behavior based on the function's noexcept specification.
- * @layer CoreUtility
+ * @layer Foundation
  *
  * @details This system uses the FATP_CONTEXTUAL_RESOLVER metafunction to select the
  * appropriate raiser: NoThrowRaiser if the function is noexcept, or the default throwing
@@ -17,6 +17,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/enforce_contextual.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for enforce_contextual."
   api_stability: in_work
   related:

@@ -2,6 +2,10 @@
  * @file FatPTypeTraits.h
  * @brief Library-specific type traits for fat_penelope components
  *
+ * 
+ *
+ * @layer Foundation
+ *
  * @details Provides comprehensive type traits for detecting and classifying fat_penelope
  * library types. Uses forward declarations to avoid circular dependencies. Component headers
  * specialize their corresponding traits at the end of the header file.
@@ -44,6 +48,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/FatPTypeTraits.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for FatPTypeTraits."
   api_stability: in_work
   related:

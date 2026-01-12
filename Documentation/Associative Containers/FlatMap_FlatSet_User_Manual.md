@@ -1,3 +1,15 @@
+---
+doc_id: UM-FLATMAP-001
+doc_type: "User Manual"
+title: "FlatMap and FlatSet User Manual"
+fatp_components: ["FlatMap", "FlatSet"]
+topics: ["flat map", "sorted vector", "cache locality"]
+constraints: ["contiguous storage", "binary search"]
+cxx_standard: "C++17"
+last_verified: "2026-01-11"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 # FlatMap and FlatSet User Manual
 
 **Library:** fat_p C++ Utilities  
@@ -315,8 +327,8 @@ graph LR
 
 **Trade-off summary:**
 
-- Node-based containers: Fast insertion, slow iteration, high memory
-- Flat containers: Slow insertion, fast iteration, low memory
+- Node-based containers: O(N) amortized insertion, slow iteration, high memory
+- Flat containers: O(N) insertion, cache-local iteration, low memory
 - Hash containers: Fastest lookup, no ordering, variable memory
 
 ### Where FlatMap/FlatSet Fit
@@ -1525,7 +1537,7 @@ if (it != map.end())
 
 ### Performance Issues
 
-**Slow insertions in large container**
+**O(N) insertions in large container**
 
 If inserting many elements into a large container:
 

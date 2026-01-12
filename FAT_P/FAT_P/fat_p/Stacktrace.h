@@ -1,5 +1,9 @@
-// Stacktrace.h
-
+/**
+ * @file Stacktrace.h
+ * @brief Portable stack trace capture utilities
+ *
+ * @layer Domain
+ */
 #pragma once
 /*
 FATP_META:
@@ -8,6 +12,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/Stacktrace.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for Stacktrace."
   api_stability: in_work
   related:

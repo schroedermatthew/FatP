@@ -1,3 +1,15 @@
+---
+doc_id: OV-FLATMAP-001
+doc_type: "Overview"
+title: "FlatMap and FlatSet Overview"
+fatp_components: ["FlatMap", "FlatSet"]
+topics: ["flat map", "sorted vector", "cache locality"]
+constraints: ["contiguous storage", "binary search"]
+cxx_standard: "C++17"
+last_verified: "2026-01-11"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 # FlatMap & FlatSet: A Fat-P Library Showcase
 
 ## Executive Summary

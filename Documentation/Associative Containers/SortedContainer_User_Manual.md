@@ -1,3 +1,15 @@
+---
+doc_id: UM-SORTEDCONTAINER-001
+doc_type: "User Manual"
+title: "SortedContainer User Manual"
+fatp_components: ["SortedContainer"]
+topics: ["sorted container", "invariant enforcement", "fuzzy equality"]
+constraints: ["sort order maintenance", "duplicate detection"]
+cxx_standard: "C++17"
+last_verified: "2026-01-11"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 # SortedContainer User Manual
 
 *Updated December 2025*
@@ -791,7 +803,7 @@ This catches mistakes where you insert an element but forget to check whether it
 
 SortedContainer's operations have the following time complexity.
 
-Lookup operations (`find`, `contains`, `count`, `lower_bound`, `upper_bound`) are O(log N). Binary search on contiguous storage is cache-friendly and fast.
+Lookup operations (`find`, `contains`, `count`, `lower_bound`, `upper_bound`) are O(log N). Binary search on contiguous storage is cache-friendly with O(log N) complexity.
 
 Single insertion is O(N). Finding the insertion point is O(log N), but shifting elements to make room is O(N). This is the fundamental limitation of sorted vectors.
 
@@ -1006,11 +1018,11 @@ void withInternalContainer(Function f) const;
 
 SortedContainer is a policy-based sorted vector that enforces the sorting invariant through its type system. You cannot break the invariant because the API doesn't permit operations that would break it.
 
-The container trades write performance (O(N) insertion) for read performance (cache-friendly O(log N) lookup, extremely fast iteration). It's designed for workloads where data is written infrequently and read frequently--a common pattern in scientific computing, configuration management, and lookup tables.
+The container trades write performance (O(N) insertion) for read performance (cache-friendly O(log N) lookup, contiguous-memory iteration). It's designed for workloads where data is written infrequently and read frequently--a common pattern in scientific computing, configuration management, and lookup tables.
 
 Six template parameters allow compile-time customization of uniqueness behavior, comparison logic, thread safety, memory allocation, and storage backend. All parameters except the element type have sensible defaults; the simplest usage is just `SortedContainer<int>`.
 
-Use SortedContainer when correctness matters more than write performance, when you've been burned by sorted-vector invariant violations before, or when you need fuzzy duplicate detection for floating-point data. Use `std::set` when you need fast insertion or iterator stability across modifications.
+Use SortedContainer when correctness matters more than write performance, when you've been burned by sorted-vector invariant violations before, or when you need fuzzy duplicate detection for floating-point data. Use `std::set` when you need O(log N) insertion or iterator stability across modifications.
 
 ---
 

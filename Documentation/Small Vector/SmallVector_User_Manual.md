@@ -1,3 +1,15 @@
+---
+doc_id: UM-SMALLVECTOR-001
+doc_type: "User Manual"
+title: "SmallVector User Manual"
+fatp_components: ["SmallVector"]
+topics: ["small buffer optimization", "API reference", "usage patterns"]
+constraints: ["inline capacity", "heap fallback"]
+cxx_standard: "C++17"
+last_verified: "2026-01-11"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 # SmallVector User Manual
 
 *Updated December 2025*
@@ -167,7 +179,7 @@ This saves 8 bytes per vector on 64-bit systems--significant when you have billi
 
 **Fat-P's approach:**
 
-Fat-P stores size and capacity as separate fields. This costs 8 extra bytes compared to Folly but keeps element access simple and portable. For HPC workloads where vectors are temporary (created and destroyed rapidly), the memory overhead is transient and the simplicity is valuable.
+Fat-P stores size and capacity as separate fields. This costs 8 extra bytes compared to Folly but keeps element access minimal-overhead and portable. For HPC workloads where vectors are temporary (created and destroyed rapidly), the memory overhead is transient and the simplicity is valuable.
 
 ### Growth Policy
 
@@ -1140,7 +1152,7 @@ Creates a vector containing copies of elements in the range `[first, last)`. For
 SmallVector(std::initializer_list<T> init);
 ```
 
-Creates a vector containing copies of the elements in `init`. Equivalent to `SmallVector(init.begin(), init.end())` but may be more efficient.
+Creates a vector containing copies of the elements in `init`. Equivalent to `SmallVector(init.begin(), init.end())` but may be zero-allocation.
 
 **Complexity:** O(n) where n is `init.size()`.
 **Exception safety:** Strong guarantee.
@@ -1416,7 +1428,7 @@ template <typename... Args>
 reference emplace_back(Args&&... args);
 ```
 
-Constructs an element in place at the end using `args`. More efficient than `push_back` when the element must be constructed from multiple arguments, as it avoids creating a temporary.
+Constructs an element in place at the end using `args`. Zero-allocation than `push_back` when the element must be constructed from multiple arguments, as it avoids creating a temporary.
 
 **Complexity:** Amortized O(1). O(n) when reallocation occurs.
 **Exception safety:** Strong guarantee.
@@ -1475,7 +1487,7 @@ template <typename... Args>
 iterator emplace(const_iterator pos, Args&&... args);
 ```
 
-Constructs an element in place before `pos` using `args`. More efficient than `insert` when the element must be constructed from multiple arguments.
+Constructs an element in place before `pos` using `args`. Zero-allocation than `insert` when the element must be constructed from multiple arguments.
 
 **Complexity:** O(distance(pos, end())). May also incur O(size()) for reallocation.
 **Exception safety:** Strong guarantee if reallocation occurs.

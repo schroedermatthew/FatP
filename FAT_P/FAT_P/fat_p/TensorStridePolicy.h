@@ -2,7 +2,7 @@
  * @file TensorStridePolicy.h
  * @brief Multi-dimensional tensor iterator policy for PolicyIterator.
  *
- * @layer Policy
+ * @layer Domain
  *
  * Provides true N-dimensional tensor iteration with configurable shape and strides.
  * Uses SmallVector for zero-allocation storage of typical tensor dimensions (â‰¤8D).
@@ -92,6 +92,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/TensorStridePolicy.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for TensorStridePolicy."
   api_stability: in_work
   related:

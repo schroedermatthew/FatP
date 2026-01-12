@@ -12,6 +12,8 @@
  *   - Trace: "ii->"
  *   - Sum reductions: "ij->i", "ij->j", "ij->"
  *   - Element-wise: "ij,ij->ij"
+ *
+ * @layer Domain
  */
 
 #pragma once
@@ -23,6 +25,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/TensorEinsum.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for TensorEinsum."
   api_stability: in_work
   related:

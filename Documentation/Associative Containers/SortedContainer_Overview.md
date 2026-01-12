@@ -1,3 +1,15 @@
+---
+doc_id: OV-SORTEDCONTAINER-001
+doc_type: "Overview"
+title: "SortedContainer Overview"
+fatp_components: ["SortedContainer"]
+topics: ["sorted container", "invariant enforcement", "fuzzy equality"]
+constraints: ["sort order maintenance", "duplicate detection"]
+cxx_standard: "C++17"
+last_verified: "2026-01-11"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 # SortedContainer Overview
 
 *Updated December 2025*

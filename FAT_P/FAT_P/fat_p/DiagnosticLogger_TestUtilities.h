@@ -4,6 +4,8 @@
  * 
  * This file provides RAII-based utilities for temporarily changing logger state
  * during tests, ensuring automatic restoration even in the presence of exceptions.
+ *
+ * @layer Testing
  */
 #pragma once
 
@@ -14,6 +16,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/DiagnosticLogger_TestUtilities.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for DiagnosticLogger_TestUtilities."
   api_stability: in_work
   related:

@@ -1,4 +1,9 @@
-// LockFreeRingBuffer.h
+/**
+ * @file LockFreeRingBuffer.h
+ * @brief Lock-free single-producer single-consumer ring buffer
+ *
+ * @layer Concurrency
+ */
 #pragma once
 
 /*
@@ -8,6 +13,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/LockFreeRingBuffer.h
   namespace: fat_p
+  layer: Concurrency
   summary: "Public header for LockFreeRingBuffer."
   api_stability: in_work
   related:

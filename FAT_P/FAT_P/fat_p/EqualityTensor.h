@@ -1,6 +1,10 @@
 /**
  * @file Tensor_EqualityComparisons.h
  * @brief EqualityComparisons.h integration for Tensor
+ * 
+ *
+ * @layer Domain
+ *
  * @version 1.0
  * 
  * @details Provides EqualDispatcher specialization for Tensor to enable
@@ -43,6 +47,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/EqualityTensor.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for EqualityTensor."
   api_stability: in_work
   related:

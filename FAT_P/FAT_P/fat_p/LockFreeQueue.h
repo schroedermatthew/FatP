@@ -2,6 +2,10 @@
  * @file LockFreeQueue.h
  * @brief High-performance lock-free MPMC queue implementation
  * 
+ * 
+ *
+ * @layer Concurrency
+ *
  * @details Lock-free multi-producer multi-consumer queue using atomic operations.
  * Complements CircularBuffer with true lock-free semantics for high contention scenarios.
  * 
@@ -53,6 +57,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/LockFreeQueue.h
   namespace: fat_p
+  layer: Concurrency
   summary: "Public header for LockFreeQueue."
   api_stability: in_work
   related:

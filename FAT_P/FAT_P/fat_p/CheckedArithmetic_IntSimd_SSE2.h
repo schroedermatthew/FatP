@@ -1,6 +1,10 @@
 /**
  * @file CheckedArithmetic_IntSimd_SSE2.h
  * @brief SSE2 (128-bit) integer SIMD acceleration for checked arithmetic
+ * 
+ *
+ * @layer Foundation
+ *
  * @version 1.1 (Fixed brace style)
  *
  * Provides 4-wide int32 and 2-wide int64 acceleration for add/sub operations.
@@ -20,6 +24,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CheckedArithmetic_IntSimd_SSE2.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for CheckedArithmetic_IntSimd_SSE2."
   api_stability: in_work
   related:

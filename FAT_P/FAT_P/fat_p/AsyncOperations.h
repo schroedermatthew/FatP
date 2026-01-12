@@ -1,4 +1,9 @@
-// AsyncOperations.h
+/**
+ * @file AsyncOperations.h
+ * @brief Asynchronous operation utilities with Expected integration
+ *
+ * @layer Concurrency
+ */
 #pragma once
 
 /*
@@ -8,6 +13,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/AsyncOperations.h
   namespace: fat_p
+  layer: Concurrency
   summary: "Public header for AsyncOperations."
   api_stability: in_work
   related:

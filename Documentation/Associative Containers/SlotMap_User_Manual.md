@@ -1,3 +1,15 @@
+---
+doc_id: UM-SLOTMAP-001
+doc_type: "User Manual"
+title: "SlotMap User Manual"
+fatp_components: ["SlotMap"]
+topics: ["slot map", "handle stability", "generation counters"]
+constraints: ["ABA safety", "dense storage"]
+cxx_standard: "C++17"
+last_verified: "2026-01-11"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 # SlotMap User Manual
 
 *Fat-P Library — December 2025*

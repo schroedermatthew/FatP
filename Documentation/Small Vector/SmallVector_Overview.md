@@ -1,3 +1,15 @@
+---
+doc_id: OV-SMALLVECTOR-001
+doc_type: "Overview"
+title: "SmallVector Overview"
+fatp_components: ["SmallVector"]
+topics: ["small buffer optimization", "inline storage", "stack allocation"]
+constraints: ["heap allocation avoidance", "cache locality"]
+cxx_standard: "C++17"
+last_verified: "2026-01-11"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 # SmallVector Overview
 
 *Updated December 2025 -- Benchmarks: AMD Ryzen 9 5900X, GCC 12.2, -O3*

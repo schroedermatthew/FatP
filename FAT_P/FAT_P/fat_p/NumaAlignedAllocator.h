@@ -1,6 +1,10 @@
 /**
  * @file NumaAlignedAllocator.h
  * @brief Combined NUMA-aware + cache-aligned allocator for HPC workloads
+ * 
+ *
+ * @layer Domain
+ *
  * @version 1.2
  *
  * Version History:
@@ -46,6 +50,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/NumaAlignedAllocator.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for NumaAlignedAllocator."
   api_stability: in_work
   related:

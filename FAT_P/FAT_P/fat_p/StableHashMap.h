@@ -1,42 +1,41 @@
-// StableHashMap.h - High-performance reference-stable hash map
-//
-// Features:
-//   - Reference stability: pointers/references valid across insert/reserve/rehash
-//   - SIMD-accelerated probing (SSE2/AVX2/NEON)
-//   - Configurable allocator policy (NewDelete, Block, Pool)
-//   - Fused find-or-insert optimization
-//   - Built-in hash finalizer (robust against bad user hashes)
-//   - Heterogeneous lookup support
-//   - Single header, C++17, minimal dependencies
-//
-// Usage:
-//   fat_p::StableHashMap<std::string, MyObject> map;
-//   auto [ptr, inserted] = map.insert("key", MyObject{});
-//   MyObject* stable_ptr = ptr;  // ptr remains valid forever (until erase)
-//   
-//   map.insert("other", MyObject{});  // stable_ptr still valid!
-//   map.reserve(1000000);             // stable_ptr still valid!
-//   map.erase("other");               // stable_ptr still valid!
-//   
-//   *stable_ptr = MyObject{...};      // OK - can mutate through pointer
-//   map.erase("key");                 // NOW stable_ptr is invalid
-//
-// Allocator Policies (see NodeAllocators.h):
-//   NewDeleteAllocator (default) - Best for lookup-heavy workloads
-//   BlockAllocator               - Best for insert/erase-heavy workloads
-//   PoolAllocator<N>             - Best for fixed-size, max performance
-//
-// Example with BlockAllocator for insert-heavy workload:
-//   fat_p::StableHashMap<K, V, std::hash<K>, std::equal_to<K>,
-//                        fat_p::BlockAllocator> map;
-//
-// Performance vs std::unordered_map (N=1M, AVX2, NewDeleteAllocator):
-//   Insert: 2.3x faster
-//   Find:   1.8x faster  
-//   Miss:   11x faster
-//   Erase:  4.6x faster
-//
-// Compiler flags for AVX2: -mavx2 or -march=native (GCC/Clang), /arch:AVX2 (MSVC)
+/**
+ * @file StableHashMap.h
+ * @brief Reference-stable hash map with SIMD-accelerated probing
+ *
+ * @layer Containers
+ *
+ * @details
+ * Features:
+ * - Reference stability: pointers/references valid across insert/reserve/rehash
+ * - SIMD-accelerated probing (SSE2/AVX2/NEON)
+ * - Configurable allocator policy (NewDelete, Block, Pool)
+ * - Fused find-or-insert optimization
+ * - Built-in hash finalizer (robust against bad user hashes)
+ * - Heterogeneous lookup support
+ * - Single header, C++17, minimal dependencies
+ * Usage:
+ * fat_p::StableHashMap<std::string, MyObject> map;
+ * auto [ptr, inserted] = map.insert("key", MyObject{});
+ * MyObject* stable_ptr = ptr;  // ptr remains valid forever (until erase)
+ * map.insert("other", MyObject{});  // stable_ptr still valid!
+ * map.reserve(1000000);             // stable_ptr still valid!
+ * map.erase("other");               // stable_ptr still valid!
+ * *stable_ptr = MyObject{...};      // OK - can mutate through pointer
+ * map.erase("key");                 // NOW stable_ptr is invalid
+ * Allocator Policies (see NodeAllocators.h):
+ * NewDeleteAllocator (default) - Best for lookup-heavy workloads
+ * BlockAllocator               - Best for insert/erase-heavy workloads
+ * PoolAllocator<N>             - Best for fixed-size, max performance
+ * Example with BlockAllocator for insert-heavy workload:
+ * fat_p::StableHashMap<K, V, std::hash<K>, std::equal_to<K>,
+ * fat_p::BlockAllocator> map;
+ * Performance vs std::unordered_map (N=1M, AVX2, NewDeleteAllocator):
+ * Insert: 2.3x faster
+ * Find:   1.8x faster
+ * Miss:   11x faster
+ * Erase:  4.6x faster
+ * Compiler flags for AVX2: -mavx2 or -march=native (GCC/Clang), /arch:AVX2 (MSVC)
+ */
 #pragma once
 /*
 FATP_META:
@@ -45,7 +44,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/StableHashMap.h
   namespace: fat_p
-  layer: containers.associative
+  layer: Containers
   summary: Reference-stable hash map with SIMD control-byte probing and configurable node allocation.
   api_stability: candidate
   related:

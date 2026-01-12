@@ -86,7 +86,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
      * This test verifies that the SCOPE_GUARD in rotate() ensures the file
      * is always reopened, even if rotation fails.
      */
-    bool test_rotating_file_guaranteed_reopen()
+    FATP_TEST_CASE(rotating_file_guaranteed_reopen)
     {
         std::string filename = "test_guard_reopen.log";
         cleanupTestFiles(filename);
@@ -123,7 +123,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
     /**
      * @brief Test multiple rotation cycles to ensure consistent behavior
      */
-    bool test_rotating_file_multiple_rotations_stability()
+    FATP_TEST_CASE(rotating_file_multiple_rotations_stability)
     {
         std::string filename = "test_guard_multi_rotate.log";
         cleanupTestFiles(filename);
@@ -164,7 +164,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
     /**
      * @brief Stress test: rapid writes that trigger many rotations
      */
-    bool test_rotating_file_rapid_rotation_stress()
+    FATP_TEST_CASE(rotating_file_rapid_rotation_stress)
     {
         std::string filename = "test_guard_stress.log";
         cleanupTestFiles(filename);
@@ -208,7 +208,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
     /**
      * @brief Test that failure state is correctly managed with ScopeGuard
      */
-    bool test_resilient_sink_automatic_failure_marking()
+    FATP_TEST_CASE(resilient_sink_automatic_failure_marking)
     {
         // Custom sink that fails after N writes
         class ConditionallyFailingSink : public ISink
@@ -274,7 +274,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
     /**
      * @brief Test that ResilientSink handles primary returning early correctly
      */
-    bool test_resilient_sink_early_return_path()
+    FATP_TEST_CASE(resilient_sink_early_return_path)
     {
         std::string primaryFile = "test_resilient_primary_early.log";
         std::string fallbackFile = "test_resilient_fallback_early.log";
@@ -354,7 +354,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
     /**
      * @brief Test that LogLevelGuard restores level correctly
      */
-    bool test_log_level_guard_basic()
+    FATP_TEST_CASE(log_level_guard_basic)
     {
         auto& logger = getGlobalLogger();
         LogLevel original = logger.getLevel();
@@ -372,7 +372,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
     /**
      * @brief Test that LogLevelGuard restores even with exceptions
      */
-    bool test_log_level_guard_exception_safety()
+    FATP_TEST_CASE(log_level_guard_exception_safety)
     {
         auto& logger = getGlobalLogger();
         LogLevel original = logger.getLevel();
@@ -398,7 +398,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
     /**
      * @brief Test nested log level guards
      */
-    bool test_log_level_guard_nesting()
+    FATP_TEST_CASE(log_level_guard_nesting)
     {
         auto& logger = getGlobalLogger();
         LogLevel original = logger.getLevel();
@@ -427,7 +427,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
     /**
      * @brief Integration test: ResilientSink with RotatingFileSink
      */
-    bool test_resilient_with_rotating_integration()
+    FATP_TEST_CASE(resilient_with_rotating_integration)
     {
         std::string primaryFile = "test_integ_primary.log";
         std::string fallbackFile = "test_integ_fallback.log";
@@ -462,7 +462,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
     /**
      * @brief Test that demonstrates all ScopeGuard benefits together
      */
-    bool test_scope_guard_comprehensive_demo()
+    FATP_TEST_CASE(scope_guard_comprehensive_demo)
     {
         auto& logger = getGlobalLogger();
         std::string filename = "test_comprehensive.log";

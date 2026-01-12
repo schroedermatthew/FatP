@@ -2,7 +2,7 @@
  * @file AllocationStrategies.h
  * @brief Lightweight allocator policies for Fat-P containers.
  *
- * @layer Infrastructure
+ * @layer Foundation
  *
  * Provides three allocator policies for use with policy-based containers
  * like StableHashMap:
@@ -35,6 +35,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/AllocationStrategies.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for AllocationStrategies."
   api_stability: in_work
   related:

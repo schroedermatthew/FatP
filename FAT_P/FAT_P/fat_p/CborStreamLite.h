@@ -1,3 +1,9 @@
+/**
+ * @file CborStreamLite.h
+ * @brief Streaming CBOR parser with incremental processing
+ *
+ * @layer Foundation
+ */
 #pragma once
 
 /*
@@ -7,6 +13,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CborStreamLite.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for CborStreamLite."
   api_stability: in_work
   related:
@@ -1235,7 +1242,7 @@ inline CborValue parse_cbor_limited(const std::uint8_t* data,
  * local scope without polluting the fat_p root namespace. Safe to use in .cpp
  * files. Avoid using in public headers.
  */
-#define USING_CBOR_STREAM_LITE()                          \
+#define FATP_USING_CBOR_STREAM_LITE()                          \
     using fat_p::cbor_stream::CborStreamParser;           \
     using fat_p::cbor_stream::CborValue;                  \
     using fat_p::cbor_stream::CborArray;                  \
@@ -1250,3 +1257,8 @@ inline CborValue parse_cbor_limited(const std::uint8_t* data,
     using fat_p::cbor_stream::error_to_string
 
 } // namespace fat_p
+
+// Backwards compatibility alias
+#ifndef FATP_NO_LEGACY_MACROS
+#define USING_CBOR_STREAM_LITE FATP_USING_CBOR_STREAM_LITE
+#endif

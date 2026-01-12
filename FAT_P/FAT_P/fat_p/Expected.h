@@ -2,6 +2,10 @@
  * @file Expected.h
  * @brief Production-ready Expected<T,E> with complete monadic operations
  *
+ * 
+ *
+ * @layer Foundation
+ *
  * @section features Key Features
  * - Complete monadic interface (map, and_then, or_else, transform_error)
  * - value_or_else() for lazy defaults
@@ -67,6 +71,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/Expected.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for Expected."
   api_stability: in_work
   related:
@@ -90,6 +95,8 @@ FATP_META:
     mode: autogen
 */
 
+#include "CppStandardDetection.h"
+
 #include <utility>      // For std::move, std::forward, etc.
 #include <string>       // Default error type
 #include <type_traits>  // For std::enable_if, std::is_constructible, etc.
@@ -105,12 +112,12 @@ FATP_META:
 #endif
 
  // C++20 three-way comparison support
-#if defined(__cpp_lib_three_way_comparison) && __cpp_lib_three_way_comparison >= 201907L
+#if FATP_HAS_LIB_THREE_WAY_COMPARISON
 #include <compare>      // For std::strong_ordering, std::weak_ordering
 #endif
 
 // C++23 std::expected integration
-#if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
+#if FATP_HAS_EXPECTED
 #include <expected>     // For std::expected interoperability
 #endif
 
@@ -173,14 +180,14 @@ FATP_META:
 #endif
 
 // Three-way comparison (C++20, conditionally available)
-#if defined(__cpp_lib_three_way_comparison) && __cpp_lib_three_way_comparison >= 201907L
+#if FATP_HAS_LIB_THREE_WAY_COMPARISON
 #ifndef FATP_EXPECTED_SPACESHIP
 #define FATP_EXPECTED_SPACESHIP 202411L
 #endif
 #endif
 
 // std::expected integration (C++23, conditionally available)
-#if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
+#if FATP_HAS_EXPECTED
 #ifndef FATP_EXPECTED_STD_INTEGRATION
 #define FATP_EXPECTED_STD_INTEGRATION 202411L
 #endif
@@ -3132,7 +3139,7 @@ namespace fat_p {
     // Three-Way Comparison (C++20)
     // =============================================================================
 
-#if defined(__cpp_lib_three_way_comparison) && __cpp_lib_three_way_comparison >= 201907L
+#if FATP_HAS_LIB_THREE_WAY_COMPARISON
 
 /**
  * @brief Three-way comparison operator for Expected (C++20+)
@@ -3204,7 +3211,7 @@ namespace fat_p {
         return lhs.error() <=> rhs.error();
     }
 
-#endif // __cpp_lib_three_way_comparison
+#endif // FATP_HAS_LIB_THREE_WAY_COMPARISON
 
 
 
@@ -3212,7 +3219,7 @@ namespace fat_p {
     // Integration with std::expected (C++23)
     // =============================================================================
 
-#if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
+#if FATP_HAS_EXPECTED
 
 /**
  * @section std_expected_integration Integration with std::expected
@@ -3374,7 +3381,7 @@ namespace fat_p {
         }
     }
 
-#endif // __cpp_lib_expected
+#endif // FATP_HAS_EXPECTED
 
 // Specialize type traits for ExpectedImpl
 template <typename T, typename E, template <typename, typename> class SP>
@@ -3384,7 +3391,7 @@ template <typename T, typename E, template <typename, typename> class SP>
 struct is_expected_like<ExpectedImpl<T, E, SP>> : std::true_type {};
 
 // Specialize traits for std::expected compatibility (C++23)
-#if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
+#if FATP_HAS_EXPECTED
 template <typename V, typename Err>
 struct is_expected_compatible<std::expected<V, Err>, Err> : std::true_type {};
 

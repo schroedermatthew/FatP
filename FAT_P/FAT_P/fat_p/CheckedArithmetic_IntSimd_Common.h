@@ -1,6 +1,10 @@
 /**
  * @file CheckedArithmetic_IntSimd_Common.h
  * @brief Common traits and helpers for integer SIMD acceleration
+ * 
+ *
+ * @layer Foundation
+ *
  * @version 1.0
  * 
  * This provides the foundational infrastructure for checked integer SIMD
@@ -21,6 +25,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CheckedArithmetic_IntSimd_Common.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for CheckedArithmetic_IntSimd_Common."
   api_stability: in_work
   related:

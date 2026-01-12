@@ -2,7 +2,7 @@
  * @file PolicyIterator.h
  * @brief Policy-based iterator with customizable traversal strategies.
  *
- * @layer Policy
+ * @layer Domain
  *
  * Provides a compile-time configurable iterator that delegates advancing and
  * dereferencing to policy classes. Supports standard, stride, filtering,
@@ -23,6 +23,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/PolicyIterator.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for PolicyIterator."
   api_stability: in_work
   related:

@@ -319,7 +319,7 @@ void benchmark_single_allocation()
     // Round-robin execution order
     std::vector<int> order(LIB_COUNT);
     std::iota(order.begin(), order.end(), 0);
-    std::mt19937 rng(g_config.seed);
+    std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
 
     Timer timer;
 
@@ -528,7 +528,7 @@ void benchmark_burst_allocation()
 
     std::vector<int> order(LIB_COUNT);
     std::iota(order.begin(), order.end(), 0);
-    std::mt19937 rng(g_config.seed);
+    std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
 
     Timer timer;
 
@@ -767,7 +767,7 @@ void benchmark_churn_pattern()
 
     std::vector<int> order(LIB_COUNT);
     std::iota(order.begin(), order.end(), 0);
-    std::mt19937 rng(g_config.seed);
+    std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
 
     Timer timer;
 
@@ -875,7 +875,7 @@ void benchmark_size_scaling()
 
         std::vector<int> order(LIB_COUNT);
         std::iota(order.begin(), order.end(), 0);
-        std::mt19937 rng(g_config.seed);
+        std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
 
         Timer timer;
 

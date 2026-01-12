@@ -47,6 +47,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/FatPSimdDetection.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for FatPSimdDetection."
   api_stability: in_work
   related:

@@ -1,8 +1,13 @@
-// FatPConfig.h
-// Central configuration + portability macros for the Fat-P header-only library.
-//
-// Systemic Hygiene Policy Rule F: single source of truth for configuration macros.
-
+/**
+ * @file FatPConfig.h
+ * @brief Central configuration macros for FAT-P library
+ *
+ * @layer Foundation
+ *
+ * @details
+ * Central configuration + portability macros for the Fat-P header-only library.
+ * Systemic Hygiene Policy Rule F: single source of truth for configuration macros.
+ */
 #pragma once
 
 /*
@@ -12,6 +17,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/FatPConfig.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for FatPConfig."
   api_stability: in_work
   related:

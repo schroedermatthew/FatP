@@ -1,3 +1,9 @@
+/**
+ * @file Stringify.h
+ * @brief Type-to-string conversion utilities
+ *
+ * @layer Foundation
+ */
 #pragma once
 
 /*
@@ -7,6 +13,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/Stringify.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for Stringify."
   api_stability: in_work
   related:
@@ -24,6 +31,8 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+#include "CppStandardDetection.h"
+
 #include <string>
 #include <string_view>
 #include <sstream>
@@ -40,11 +49,11 @@ FATP_META:
 #include <iostream>
 
 // Check for C++17 optional support (MSVC uses _MSVC_LANG instead of __cplusplus)
-#if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
-#define STRINGIFY_HAS_OPTIONAL 1
+#if FATP_CPP17_OR_LATER
+#define FATP_STRINGIFY_HAS_OPTIONAL 1
 #include <optional>
 #else
-#define STRINGIFY_HAS_OPTIONAL 0
+#define FATP_STRINGIFY_HAS_OPTIONAL 0
 #endif
 
 #include "TypeTraits.h"
@@ -52,21 +61,20 @@ FATP_META:
 // Check if TypeTraits.h detected C++20 features
 #if FATP_HAS_CPP20
     // Robust guard: only include <format> if it actually exists in the stdlib
-    #if defined(__has_include)
-        #if __has_include(<format>)
+    // Format detection handled by CppStandardDetection.h
+        #if FATP_HAS_FORMAT
             #include <format>
-            #define STRINGIFY_HAS_STD_FORMAT 1
+            #define FATP_STRINGIFY_HAS_STD_FORMAT 1
         #endif
-    #endif
 #endif
-#ifndef STRINGIFY_HAS_STD_FORMAT
-    #define STRINGIFY_HAS_STD_FORMAT 0
+#ifndef FATP_STRINGIFY_HAS_STD_FORMAT
+    #define FATP_STRINGIFY_HAS_STD_FORMAT 0
 #endif
 
 /**
  * @file Stringify.h
  * @brief Utility library for robust and flexible type-to-string conversion in C++17/20.
- * @layer CoreUtility
+ * @layer Foundation
  *
  * Provides functions to convert various types (built-in, streamable, containers,
  * custom types with specific member functions) into std::string, with support
@@ -207,7 +215,7 @@ namespace detail {
     template <typename T>
     using op_tuple_size = decltype(std::tuple_size<T>::value);
     
-#if STRINGIFY_HAS_OPTIONAL
+#if FATP_STRINGIFY_HAS_OPTIONAL
     template <typename T>
     using op_has_value = decltype(std::declval<const T&>().has_value());
 
@@ -633,7 +641,7 @@ template <typename T>
         return detail::stringify_tuple_impl(value, opts,
                                             std::make_index_sequence<std::tuple_size_v<PlainT>>{});
     }
-#if STRINGIFY_HAS_OPTIONAL
+#if FATP_STRINGIFY_HAS_OPTIONAL
     else if constexpr (detail::kIsOptionalLike<PlainT>) {
         // std::optional detected (has both has_value() and operator*)
         return value.has_value() ? toString(*value, opts) : "nullopt";
@@ -796,7 +804,7 @@ inline constexpr bool is_stringifiable_v =
     detail::has_to_string_snake_method<T>::value ||
     is_detected_v<detail::op_first_type, T> ||
     is_detected_v<detail::op_tuple_size, T> ||
-    #if STRINGIFY_HAS_OPTIONAL
+    #if FATP_STRINGIFY_HAS_OPTIONAL
     detail::kIsOptionalLike<T> ||
     #endif
     #if FATP_HAS_CPP20

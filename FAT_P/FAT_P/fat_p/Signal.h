@@ -2,6 +2,10 @@
  * @file Signal.h
  * @brief High-performance Signal/Slot implementation for the fat_p library
  *
+ * 
+ *
+ * @layer Domain
+ *
  * @details A cache-friendly, policy-based signal-slot system that integrates
  * with the fat_p ecosystem. Designed to solve three hard problems without
  * heap allocation for the common case (1-4 listeners):
@@ -75,6 +79,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/Signal.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for Signal."
   api_stability: in_work
   related:

@@ -1,3 +1,15 @@
+---
+doc_id: CG-SMALLVECTOR-001
+doc_type: "Companion Guide"
+title: "SmallVector Design and Implementation"
+fatp_components: ["SmallVector"]
+topics: ["design rationale", "implementation details", "performance tradeoffs"]
+constraints: ["memory layout", "move semantics"]
+cxx_standard: "C++17"
+last_verified: "2026-01-11"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 # **The Inline Buffer**
 
 ### *A Companion Guide to FAT-P's SmallVector*

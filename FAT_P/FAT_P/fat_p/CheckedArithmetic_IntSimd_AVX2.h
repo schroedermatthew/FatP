@@ -1,6 +1,10 @@
 /**
  * @file CheckedArithmetic_IntSimd_AVX2.h
  * @brief AVX2 (256-bit) integer SIMD acceleration for checked arithmetic
+ * 
+ *
+ * @layer Foundation
+ *
  * @version 1.2 (Added uint64_t add, fixed brace style)
  *
  * Provides 8-wide int32 and 4-wide int64 acceleration for add/sub/mul operations.
@@ -21,6 +25,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CheckedArithmetic_IntSimd_AVX2.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for CheckedArithmetic_IntSimd_AVX2."
   api_stability: in_work
   related:

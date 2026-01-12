@@ -1,6 +1,10 @@
 /**
  * @file CheckedArithmetic.h
  * @brief Unified checked arithmetic operations for integers and floating-point
+ * 
+ *
+ * @layer Foundation
+ *
  * @version 3.1 (Fixed static_math::mul for unsigned types)
  *
  * @details This is the umbrella header that provides the complete checked
@@ -49,6 +53,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CheckedArithmetic.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for CheckedArithmetic."
   api_stability: in_work
   related:

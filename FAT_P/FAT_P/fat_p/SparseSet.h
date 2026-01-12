@@ -2,6 +2,10 @@
  * @file SparseSet.h
  * @brief High-performance sparse set data structure for ECS and games
  * 
+ * 
+ *
+ * @layer Containers
+ *
  * @details Sparse set provides O(1) insertion, deletion, and lookup with dense iteration.
  * Perfect for Entity Component Systems (ECS) where entities are sparse but iteration is common.
  * 
@@ -65,6 +69,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/SparseSet.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for SparseSet."
   api_stability: in_work
   related:

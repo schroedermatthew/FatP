@@ -1,4 +1,9 @@
-// StateMachine.h
+/**
+ * @file StateMachine.h
+ * @brief Type-safe finite state machine with compile-time validation
+ *
+ * @layer Domain
+ */
 #pragma once
 /*
 FATP_META:
@@ -7,6 +12,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/StateMachine.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for StateMachine."
   api_stability: in_work
   related:

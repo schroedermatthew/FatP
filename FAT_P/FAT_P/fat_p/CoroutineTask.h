@@ -1,6 +1,10 @@
 /**
  * @file CoroutineTask.h
  * @brief C++20 coroutine support with Expected-based error handling
+ * 
+ *
+ * @layer Domain
+ *
  * @version 2.0
  *
  * @details Provides lightweight coroutine task types for asynchronous operations
@@ -36,6 +40,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CoroutineTask.h
   namespace: fat_p
+  layer: Concurrency
   summary: "Public header for CoroutineTask."
   api_stability: in_work
   related:

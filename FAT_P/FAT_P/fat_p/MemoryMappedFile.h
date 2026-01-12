@@ -2,6 +2,10 @@
  * @file MemoryMappedFile.h
  * @brief Cross-platform memory-mapped file I/O for high-performance file access
  * 
+ * 
+ *
+ * @layer Domain
+ *
  * @details Memory-mapped files provide OS-level file caching and zero-copy I/O.
  * Significantly faster than traditional read/write for large files or random access.
  * 
@@ -59,6 +63,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/MemoryMappedFile.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for MemoryMappedFile."
   api_stability: in_work
   related:
@@ -93,8 +98,13 @@ FATP_META:
 #if FATP_PLATFORM_WINDOWS
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
+        #define FATP_DEFINED_WIN32_LEAN_AND_MEAN_MMF
     #endif
     #include <windows.h>
+    #ifdef FATP_DEFINED_WIN32_LEAN_AND_MEAN_MMF
+        #undef WIN32_LEAN_AND_MEAN
+        #undef FATP_DEFINED_WIN32_LEAN_AND_MEAN_MMF
+    #endif
 #else
     #include <sys/mman.h>
     #include <sys/stat.h>
@@ -330,7 +340,7 @@ private:
     void* m_data;
     size_t m_size;
     
-#ifdef FATP_PLATFORM_WINDOWS
+#if FATP_PLATFORM_WINDOWS
     HANDLE m_file_handle;
     HANDLE m_map_handle;
 #else
@@ -345,7 +355,7 @@ private:
 inline MemoryMappedFile::MemoryMappedFile() noexcept
     : m_data(nullptr)
     , m_size(0)
-#ifdef FATP_PLATFORM_WINDOWS
+#if FATP_PLATFORM_WINDOWS
     , m_file_handle(INVALID_HANDLE_VALUE)
     , m_map_handle(nullptr)
 #else
@@ -367,7 +377,7 @@ inline MemoryMappedFile::~MemoryMappedFile() {
 inline MemoryMappedFile::MemoryMappedFile(MemoryMappedFile&& other) noexcept
     : m_data(other.m_data)
     , m_size(other.m_size)
-#ifdef FATP_PLATFORM_WINDOWS
+#if FATP_PLATFORM_WINDOWS
     , m_file_handle(other.m_file_handle)
     , m_map_handle(other.m_map_handle)
 #else
@@ -376,7 +386,7 @@ inline MemoryMappedFile::MemoryMappedFile(MemoryMappedFile&& other) noexcept
 {
     other.m_data = nullptr;
     other.m_size = 0;
-#ifdef FATP_PLATFORM_WINDOWS
+#if FATP_PLATFORM_WINDOWS
     other.m_file_handle = INVALID_HANDLE_VALUE;
     other.m_map_handle = nullptr;
 #else
@@ -390,7 +400,7 @@ inline MemoryMappedFile& MemoryMappedFile::operator=(MemoryMappedFile&& other) n
         
         m_data = other.m_data;
         m_size = other.m_size;
-#ifdef FATP_PLATFORM_WINDOWS
+#if FATP_PLATFORM_WINDOWS
         m_file_handle = other.m_file_handle;
         m_map_handle = other.m_map_handle;
 #else
@@ -399,7 +409,7 @@ inline MemoryMappedFile& MemoryMappedFile::operator=(MemoryMappedFile&& other) n
         
         other.m_data = nullptr;
         other.m_size = 0;
-#ifdef FATP_PLATFORM_WINDOWS
+#if FATP_PLATFORM_WINDOWS
         other.m_file_handle = INVALID_HANDLE_VALUE;
         other.m_map_handle = nullptr;
 #else
@@ -413,7 +423,7 @@ inline bool MemoryMappedFile::open(const std::string& filename, Mode mode) {
     close();  // Close any existing mapping
     
     try {
-#ifdef FATP_PLATFORM_WINDOWS
+#if FATP_PLATFORM_WINDOWS
         return open_windows(filename, mode);
 #else
         return open_posix(filename, mode);
@@ -426,7 +436,7 @@ inline bool MemoryMappedFile::open(const std::string& filename, Mode mode) {
 
 inline void MemoryMappedFile::close() noexcept {
     if (m_data) {
-#ifdef FATP_PLATFORM_WINDOWS
+#if FATP_PLATFORM_WINDOWS
         UnmapViewOfFile(m_data);
 #else
         munmap(m_data, m_size);
@@ -436,7 +446,7 @@ inline void MemoryMappedFile::close() noexcept {
     
     m_size = 0;
     
-#ifdef FATP_PLATFORM_WINDOWS
+#if FATP_PLATFORM_WINDOWS
     if (m_map_handle) {
         CloseHandle(m_map_handle);
         m_map_handle = nullptr;
@@ -454,7 +464,7 @@ inline void MemoryMappedFile::close() noexcept {
 }
 
 inline bool MemoryMappedFile::is_open() const noexcept {
-#ifdef FATP_PLATFORM_WINDOWS
+#if FATP_PLATFORM_WINDOWS
     return m_file_handle != INVALID_HANDLE_VALUE;
 #else
     return m_file_descriptor >= 0;
@@ -486,7 +496,7 @@ inline fat_p::span<const T> MemoryMappedFile::get_span() const noexcept {
 inline void MemoryMappedFile::prefetch() const {
     if (!m_data) return;
     
-#ifdef FATP_PLATFORM_WINDOWS
+#if FATP_PLATFORM_WINDOWS
     WIN32_MEMORY_RANGE_ENTRY entry;
     entry.VirtualAddress = m_data;
     entry.NumberOfBytes = m_size;
@@ -499,7 +509,7 @@ inline void MemoryMappedFile::prefetch() const {
 inline void MemoryMappedFile::flush(bool async) {
     if (!m_data) return;
     
-#ifdef FATP_PLATFORM_WINDOWS
+#if FATP_PLATFORM_WINDOWS
     FlushViewOfFile(m_data, m_size);
     if (!async) {
         FlushFileBuffers(m_file_handle);
@@ -509,7 +519,7 @@ inline void MemoryMappedFile::flush(bool async) {
 #endif
 }
 
-#ifdef FATP_PLATFORM_WINDOWS
+#if FATP_PLATFORM_WINDOWS
 inline bool MemoryMappedFile::open_windows(const std::string& filename, Mode mode) {
     // Open file
     DWORD access = (mode == Mode::ReadOnly) ? GENERIC_READ : (GENERIC_READ | GENERIC_WRITE);

@@ -2,6 +2,10 @@
  * @file JsonLite.h
  * @brief Lightweight JSON library for C++ configuration and parameter management
  * 
+ * 
+ *
+ * @layer Foundation
+ *
  * @section overview Overview
  * JsonLite is a modern C++17 header-only JSON library designed specifically for
  * application configuration files, parameter persistence, and structured data
@@ -69,6 +73,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/JsonLite.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for JsonLite."
   api_stability: in_work
   related:
@@ -148,7 +153,7 @@ namespace json_detail {
      * Used by fatp_json_enforce macro to provide detailed error messages with context.
      * 
      * @see fatp_json_enforce
-     * @see JSON_LOCUS
+     * @see FATP_JSON_LOCUS
      */
     struct SourceLocation 
     {
@@ -158,21 +163,21 @@ namespace json_detail {
     };
     
     /**
-     * @def JSON_LOCUS
+     * @def FATP_JSON_LOCUS
      * @brief Macro to capture current source location
      * 
      * @details Expands to a SourceLocation structure initialized with the current
      * file, line, and function. Used internally by fatp_json_enforce for error reporting.
      * 
      * @code{.cpp}
-     * SourceLocation loc = JSON_LOCUS;
+     * SourceLocation loc = FATP_JSON_LOCUS;
      * std::cout << "Error at " << loc.file << ":" << loc.line << std::endl;
      * @endcode
      * 
      * @see SourceLocation
      * @see fatp_json_enforce
      */
-    #define JSON_LOCUS ::fat_p::json_detail::SourceLocation{__FILE__, __LINE__, __func__}
+    #define FATP_JSON_LOCUS ::fat_p::json_detail::SourceLocation{__FILE__, __LINE__, __func__}
     
     /**
      * @brief Appends a single value to an output string stream
@@ -298,13 +303,13 @@ namespace json_detail {
  // Implementation notes:
  // - do-while(0) wrapper ensures safe use in all control flow contexts (if/else, etc.)
  // - Condition is stringified (#condition) and included in error message
- // - JSON_LOCUS captures __FILE__, __LINE__, __func__ at the call site
+ // - FATP_JSON_LOCUS captures __FILE__, __LINE__, __func__ at the call site
  // - ##__VA_ARGS__ handles the zero-args case (GCC/Clang extension, C++20 standard)
  // - No ODR issues: macro expands inline, fatp_json_enforce_impl is in detail namespace
 #define fatp_json_enforce(condition, ...) \
     do { \
         if (!(condition)) { \
-            ::fat_p::json_detail::fatp_json_enforce_impl(false, JSON_LOCUS, \
+            ::fat_p::json_detail::fatp_json_enforce_impl(false, FATP_JSON_LOCUS, \
                 "condition: ", #condition, ##__VA_ARGS__); \
         } \
     } while(0)
@@ -953,8 +958,8 @@ enum class NumberFormat {
  * - **indent_step**: Spaces per indentation level (default: 4)
  * - **allow_nan_inf**: Allow NaN and Infinity values (default: false, strict JSON)
  * - **escape_unicode**: Escape Unicode characters above ASCII (default: true)
- * - **max_parse_depth**: Maximum nesting depth during parsing (default: 512)
- * - **max_dump_depth**: Maximum nesting depth during serialization (default: 512)
+ * - **max_parse_depth**: Maximum nesting depth during parsing (default: 64)
+ * - **max_dump_depth**: Maximum nesting depth during serialization (default: 64)
  * - **number_format**: Numeric formatting style (default: Auto)
  * 
  * @code{.cpp}
@@ -979,8 +984,8 @@ struct StandardJsonPolicy {
     static constexpr bool allow_nan_inf = false;            ///< Allow non-standard NaN/Infinity
     static constexpr bool escape_unicode = true;            ///< Escape non-ASCII characters
     static constexpr bool allow_comments = false;           ///< Allow C-style comments (// and /* */)
-    static constexpr size_t max_parse_depth = 512;          ///< Max parsing recursion depth
-    static constexpr size_t max_dump_depth = 512;           ///< Max serialization recursion depth
+    static constexpr size_t max_parse_depth = 64;           ///< Max parsing recursion depth (conservative for stack safety)
+    static constexpr size_t max_dump_depth = 64;            ///< Max serialization recursion depth
     static constexpr NumberFormat number_format = NumberFormat::Auto;  ///< Number output format
 };
 

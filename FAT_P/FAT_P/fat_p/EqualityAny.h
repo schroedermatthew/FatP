@@ -2,7 +2,7 @@
  * @file EqualityAny.h
  * @brief Runtime equality comparison for std::any via type registry.
  *
- * @layer Application
+ * @layer Domain
  *
  * Extends EqualityComparisons.h to support runtime type comparison of std::any
  * values using a thread-safe registry of comparison functions.
@@ -20,6 +20,7 @@ FATP_META:
  file_role: public_header
  path: fat_p/EqualityAny.h
  namespace: fat_p
+  layer: Foundation
  summary: "Public header for EqualityAny."
  api_stability: in_work
  related:

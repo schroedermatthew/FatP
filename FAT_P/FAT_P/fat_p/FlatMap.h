@@ -2,7 +2,7 @@
  * @file FlatMap.h
  * @brief Sorted vector-backed associative container with contiguous storage
  *
- * @layer Enforcement
+ * @layer Containers
  *
  * FlatMap provides an ordered key-value container backed by a sorted vector,
  * offering cache-friendly iteration and O(log n) lookup. Suitable for small
@@ -20,6 +20,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/FlatMap.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for FlatMap."
   api_stability: in_work
   related:

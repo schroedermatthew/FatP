@@ -1,4 +1,9 @@
-// CircularBuffer.h
+/**
+ * @file CircularBuffer.h
+ * @brief Fixed-capacity circular buffer with O(1) push/pop operations
+ *
+ * @layer Containers
+ */
 #pragma once
 
 /*
@@ -8,6 +13,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CircularBuffer.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for CircularBuffer."
   api_stability: in_work
   related:
@@ -26,6 +32,8 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+#include "CppStandardDetection.h"
+
 #include <atomic>
 #include <cstddef>
 #include <memory>
@@ -182,7 +190,7 @@ public:
      *       written before being read.
      */
     CircularBuffer()
-#if __cplusplus >= 202002L
+#if FATP_CPP20_OR_LATER
         : buffer_(std::make_unique_for_overwrite<T[]>(BUFFER_SIZE))
 #else
         : buffer_(std::make_unique<T[]>(BUFFER_SIZE))

@@ -1,3 +1,9 @@
+/**
+ * @file JsonStreamLite.h
+ * @brief Streaming JSON parser with incremental processing
+ *
+ * @layer Foundation
+ */
 #pragma once
 
 /*
@@ -7,6 +13,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/JsonStreamLite.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for JsonStreamLite."
   api_stability: in_work
   related:
@@ -1317,7 +1324,7 @@ namespace js = json_stream;
 /**
  * @brief Macro to bring JsonStreamLite types into local scope
  */
-#define USING_JSON_STREAM_LITE()                          \
+#define FATP_USING_JSON_STREAM_LITE()                          \
     using fat_p::json_stream::JsonValue;                  \
     using fat_p::json_stream::JsonArray;                  \
     using fat_p::json_stream::JsonObject;                 \
@@ -1328,3 +1335,8 @@ namespace js = json_stream;
     using fat_p::json_stream::error_to_string
 
 } // namespace fat_p
+
+// Backwards compatibility alias
+#ifndef FATP_NO_LEGACY_MACROS
+#define USING_JSON_STREAM_LITE FATP_USING_JSON_STREAM_LITE
+#endif

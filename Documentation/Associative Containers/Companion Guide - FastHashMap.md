@@ -1,3 +1,15 @@
+---
+doc_id: CG-FASTHASHMAP-001
+doc_type: "Companion Guide"
+title: "FastHashMap Design History"
+fatp_components: ["FastHashMap"]
+topics: ["hash map", "SIMD probing", "Swiss Table"]
+constraints: ["cache efficiency", "probe sequences"]
+cxx_standard: "C++17"
+last_verified: "2026-01-11"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 # **The Pointer Chase Must Die**
 
 ### *A Companion Guide to FastHashMap*

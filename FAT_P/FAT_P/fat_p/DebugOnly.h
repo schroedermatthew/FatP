@@ -1,9 +1,14 @@
-// DebugOnly.h
-// Zero-overhead debug-only storage for C++17/20
-//
-// Stores values in debug builds, compiles to nothing in release.
-// Use for debug labels, performance counters, creation tracking, and invariant checks.
-
+/**
+ * @file DebugOnly.h
+ * @brief Debug-only utilities that compile to nothing in release builds
+ *
+ * @layer Foundation
+ *
+ * @details
+ * Zero-overhead debug-only storage for C++17/20
+ * Stores values in debug builds, compiles to nothing in release.
+ * Use for debug labels, performance counters, creation tracking, and invariant checks.
+ */
 #pragma once
 /*
 FATP_META:
@@ -12,6 +17,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/DebugOnly.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for DebugOnly."
   api_stability: in_work
   related:

@@ -1,25 +1,27 @@
-// FeatureManager.h - Type-safe feature flag management with dependency resolution
-//
-// A modern C++17 header-only library for managing feature flags with complex dependencies,
-// relationships, and validation. Designed for scenarios where features have interdependencies
-// (Requires, Implies, Conflicts, MutuallyExclusive) and need automatic resolution.
-//
-// Key features:
-// - Cycle detection with detailed error messages showing full dependency path
-// - Pluggable thread-safety policies (single-threaded, mutex, spinlock, shared_mutex)
-// - Type-safe group states with custom enums
-// - Observer pattern with priority ordering and RAII lifetime management
-// - JSON and GraphViz DOT serialization
-// - RAII helpers for scoped state changes
-// - Optimized with SortedContainer for relationship storage (cache-friendly)
-//
-// Performance characteristics:
-// - Add feature: O(log n)
-// - Enable/disable: O(d x log n) where d = dependency depth (limited to MAX_VALIDATION_DEPTH)
-// - Validate: O(n x d x log n)
-// - Memory: ~550 bytes per feature with 5 relationships (using SortedContainer)
-//
-
+/**
+ * @file FeatureManager.h
+ * @brief Runtime feature flag management with compile-time optimization
+ *
+ * @layer Domain
+ *
+ * @details
+ * A modern C++17 header-only library for managing feature flags with complex dependencies,
+ * relationships, and validation. Designed for scenarios where features have interdependencies
+ * (Requires, Implies, Conflicts, MutuallyExclusive) and need automatic resolution.
+ * Key features:
+ * - Cycle detection with detailed error messages showing full dependency path
+ * - Pluggable thread-safety policies (single-threaded, mutex, spinlock, shared_mutex)
+ * - Type-safe group states with custom enums
+ * - Observer pattern with priority ordering and RAII lifetime management
+ * - JSON and GraphViz DOT serialization
+ * - RAII helpers for scoped state changes
+ * - Optimized with SortedContainer for relationship storage (cache-friendly)
+ * Performance characteristics:
+ * - Add feature: O(log n)
+ * - Enable/disable: O(d x log n) where d = dependency depth (limited to MAX_VALIDATION_DEPTH)
+ * - Validate: O(n x d x log n)
+ * - Memory: ~550 bytes per feature with 5 relationships (using SortedContainer)
+ */
 #pragma once
 
 /*
@@ -29,6 +31,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/FeatureManager.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for FeatureManager."
   api_stability: in_work
   related:

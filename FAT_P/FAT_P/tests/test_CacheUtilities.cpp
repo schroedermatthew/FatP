@@ -8,7 +8,7 @@ FATP_META:
   component: CacheUtilities
   file_role: test
   path: tests/test_CacheUtilities.cpp
-  namespace: fat_p::testing::cacheutilities::testing::cacheutilities
+  namespace: fat_p::testing::cacheutilities
   summary: "Unit tests for CacheUtilities."
   related:
     docs_search: "CacheUtilities"

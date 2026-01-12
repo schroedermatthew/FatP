@@ -2,6 +2,10 @@
  * @file IdGenerator.h
  * @brief Policy-based unique identifier generator with type-safe IDs and recycling.
  *
+ * 
+ *
+ * @layer Domain
+ *
  * @details Provides a flexible ID generation system with:
  *   - Sequential, bounded, or random allocation strategies
  *   - Configurable recycling policies (FIFO, Min-First, None)
@@ -25,6 +29,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/IdGenerator.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for IdGenerator."
   api_stability: in_work
   related:

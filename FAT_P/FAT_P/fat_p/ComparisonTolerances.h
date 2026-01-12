@@ -1,4 +1,9 @@
-// ComparisonTolerances.h
+/**
+ * @file ComparisonTolerances.h
+ * @brief Tolerance definitions for floating-point comparisons
+ *
+ * @layer Foundation
+ */
 #pragma once
 
 /*
@@ -8,6 +13,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/ComparisonTolerances.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for ComparisonTolerances."
   api_stability: in_work
   related:

@@ -1,6 +1,10 @@
 /**
  * @file CheckedArithmeticPolicies.h
  * @brief Policy classes and type traits for checked arithmetic
+ * 
+ *
+ * @layer Foundation
+ *
  * @version 3.1
  *
  * This header defines the error handling policies that control how
@@ -58,6 +62,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CheckedArithmeticPolicies.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for CheckedArithmeticPolicies."
   api_stability: in_work
   related:

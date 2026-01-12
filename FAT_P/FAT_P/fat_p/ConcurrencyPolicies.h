@@ -3,6 +3,10 @@
  * @brief Defines various synchronization policies for use with a policy-based
  * design, such as ScopeGuard, Enforcer, or smart resource handles.
  *
+ * 
+ *
+ * @layer Concurrency
+ *
  * @details This header provides a comprehensive set of concurrency primitives ranging from
  * zero-cost (single-threaded) to advanced lock-free synchronization (RCU, hazard pointers,
  * SeqLock), all exposing a consistent policy interface.
@@ -55,6 +59,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/ConcurrencyPolicies.h
   namespace: fat_p
+  layer: Concurrency
   summary: "Public header for ConcurrencyPolicies."
   api_stability: in_work
   related:
@@ -102,14 +107,14 @@ FATP_META:
 #endif
 
 // C++23 jthread feature detection
-#if FATP_HAS_CPP23 || (defined(__cpp_lib_jthread) && __cpp_lib_jthread >= 201911L)
+#if FATP_HAS_CPP23 || FATP_HAS_JTHREAD
 #define FATP_HAS_JTHREAD 1
 #else
 #define FATP_HAS_JTHREAD 0
 #endif
 
 // C++20 atomic<shared_ptr> detection - use internal flag
-#if defined(__cpp_lib_atomic_shared_ptr) && __cpp_lib_atomic_shared_ptr >= 201711L
+#if FATP_HAS_ATOMIC_SHARED_PTR
 #define FATP_HAS_ATOMIC_SHARED_PTR 1
 #elif FATP_HAS_CPP20 && \
     ((defined(__GNUC__) && __GNUC__ >= 11) || \
@@ -155,12 +160,23 @@ FATP_META:
 #define FATP_HAS_PTHREAD_PRIO_INHERIT 1
 #elif defined(_WIN32)
 #ifndef NOMINMAX
-#define NOMINMAX
+    #define NOMINMAX
+    #define FATP_DEFINED_NOMINMAX_CONC
 #endif
 #ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
+    #define WIN32_LEAN_AND_MEAN
+    #define FATP_DEFINED_WIN32_LEAN_AND_MEAN_CONC
 #endif
 #include <windows.h>
+// Clean up Windows macros we defined
+#ifdef FATP_DEFINED_NOMINMAX_CONC
+    #undef NOMINMAX
+    #undef FATP_DEFINED_NOMINMAX_CONC
+#endif
+#ifdef FATP_DEFINED_WIN32_LEAN_AND_MEAN_CONC
+    #undef WIN32_LEAN_AND_MEAN
+    #undef FATP_DEFINED_WIN32_LEAN_AND_MEAN_CONC
+#endif
 #define FATP_HAS_WIN32_CRITICAL_SECTION 1
 #else
 #define FATP_HAS_PTHREAD_PRIO_INHERIT 0

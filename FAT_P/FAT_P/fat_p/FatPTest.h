@@ -43,6 +43,10 @@
  * single-threaded context. Do not run multiple test runners concurrently or
  * execute tests from multiple threads simultaneously.
  *
+ * 
+ *
+ * @layer Testing
+ *
  * @note This infrastructure provides: assertions, benchmarking, colored output,
  *       floating-point comparison, exception testing, and test runners - all
  *       with zero external dependencies beyond the C++ standard library.
@@ -57,6 +61,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/FatPTest.h
   namespace: fat_p
+  layer: Testing
   summary: "Public header for FatPTest."
   api_stability: in_work
   related:
@@ -184,16 +189,28 @@ FATP_META:
 #include <thread>
 
 #if defined(_WIN32) || defined(_WIN64)
+// Track whether we defined these macros so we can clean up after ourselves
 #ifndef NOMINMAX
-#define NOMINMAX
+    #define NOMINMAX
+    #define FATP_DEFINED_NOMINMAX_FATPTEST
 #endif
 #ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
+    #define WIN32_LEAN_AND_MEAN
+    #define FATP_DEFINED_WIN32_LEAN_AND_MEAN_FATPTEST
 #endif
 #ifndef FATP_ENABLE_PDH_STATS
-#define FATP_ENABLE_PDH_STATS
+    #define FATP_ENABLE_PDH_STATS
 #endif
 #include <Windows.h>
+// Clean up macros we defined to avoid polluting user's compile environment
+#ifdef FATP_DEFINED_NOMINMAX_FATPTEST
+    #undef NOMINMAX
+    #undef FATP_DEFINED_NOMINMAX_FATPTEST
+#endif
+#ifdef FATP_DEFINED_WIN32_LEAN_AND_MEAN_FATPTEST
+    #undef WIN32_LEAN_AND_MEAN
+    #undef FATP_DEFINED_WIN32_LEAN_AND_MEAN_FATPTEST
+#endif
 #else
 #include <unistd.h>  // For isatty()
 #endif
@@ -2674,7 +2691,7 @@ namespace fat_p
 				}
 				else
 				{
-					out << "  Baseline: (within 5%)\n";
+					out << "  Baseline:ï¿½(within 5%)\n";
 				}
 			}
 

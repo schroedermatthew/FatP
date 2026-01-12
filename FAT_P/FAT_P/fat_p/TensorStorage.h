@@ -1,6 +1,10 @@
 /**
  * @file TensorStorage.h
  * @brief Lock-free reference-counted storage for Tensor data
+ * 
+ *
+ * @layer Domain
+ *
  * @version 2.0
  * 
  * @details Provides custom reference-counted storage with atomic operations
@@ -34,6 +38,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/TensorStorage.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for TensorStorage."
   api_stability: in_work
   related:

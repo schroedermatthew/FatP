@@ -1,6 +1,10 @@
 /**
  * @file CheckedArithmeticFP.h
  * @brief Checked arithmetic operations for floating-point types
+ * 
+ *
+ * @layer Foundation
+ *
  * @version 3.0
  *
  * This header provides validated arithmetic operations for float/double:
@@ -45,6 +49,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CheckedArithmeticFP.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for CheckedArithmeticFP."
   api_stability: in_work
   related:
@@ -86,7 +91,7 @@ namespace fat_p {
  *
  * Must be followed by the actual operation.
  */
-#define VALIDATE_FP_INPUTS(a, b, op_name)                                              \
+#define FATP_VALIDATE_FP_INPUTS(a, b, op_name)                                              \
     do {                                                                               \
         if (std::isnan(a) || std::isnan(b)) {                                          \
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>) {                \
@@ -130,7 +135,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_add_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
-    VALIDATE_FP_INPUTS(a, b, "+");
+    FATP_VALIDATE_FP_INPUTS(a, b, "+");
     
     T result = a + b;
     bool is_nan = std::isnan(result);
@@ -170,7 +175,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_sub_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
-    VALIDATE_FP_INPUTS(a, b, "-");
+    FATP_VALIDATE_FP_INPUTS(a, b, "-");
     
     T result = a - b;
     bool is_nan = std::isnan(result);
@@ -210,7 +215,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_mul_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
-    VALIDATE_FP_INPUTS(a, b, "*");
+    FATP_VALIDATE_FP_INPUTS(a, b, "*");
     
     T result = a * b;
     bool is_nan = std::isnan(result);
@@ -252,7 +257,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_div_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
-    VALIDATE_FP_INPUTS(a, b, "/");
+    FATP_VALIDATE_FP_INPUTS(a, b, "/");
     
     if (b == T{0})
     {
@@ -316,7 +321,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 [[nodiscard]] PolicyReturnType<Policy, T> checked_mod_fp(T a, T b)
     noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
-    VALIDATE_FP_INPUTS(a, b, "%");
+    FATP_VALIDATE_FP_INPUTS(a, b, "%");
     
     if (b == T{0})
     {
@@ -1411,6 +1416,6 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
 // Macro Cleanup
 // =============================================================================
 
-#undef VALIDATE_FP_INPUTS
+#undef FATP_VALIDATE_FP_INPUTS
 
 } // namespace fat_p

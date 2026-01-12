@@ -2,7 +2,7 @@
  * @file AlignedVector.h
  * @brief Cache-aware aligned vector container for HPC workloads
  *
- * @layer Infrastructure
+ * @layer Containers
  *
  * @details Drop-in replacement for std::vector with explicit memory alignment control.
  * Optimized for SIMD operations and cache-line awareness to prevent false sharing.
@@ -31,6 +31,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/AlignedVector.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for AlignedVector."
   api_stability: in_work
   related:

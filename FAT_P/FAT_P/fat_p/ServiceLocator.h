@@ -2,7 +2,7 @@
  * @file ServiceLocator.h
  * @brief Policy-based service locator with scoped overrides.
  *
- * @layer Policy
+ * @layer Domain
  *
  * A ServiceLocator provides type-safe registration and resolution of services.
  * It supports:
@@ -57,6 +57,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/ServiceLocator.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for ServiceLocator."
   api_stability: in_work
   related:

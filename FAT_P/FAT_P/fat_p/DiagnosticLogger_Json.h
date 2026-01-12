@@ -1,6 +1,10 @@
 /**
  * @file DiagnosticLogger_Json.h
  * @brief Extension for Structured JSON Logging.
+ * 
+ *
+ * @layer Domain
+ *
  * @dependencies DiagnosticLogger_Core.h, JsonLite.h
  * 
  * FIXES APPLIED (v2.1):
@@ -16,6 +20,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/DiagnosticLogger_Json.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for DiagnosticLogger_Json."
   api_stability: in_work
   related:

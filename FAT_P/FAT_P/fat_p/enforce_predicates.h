@@ -4,6 +4,10 @@
  * perform specialized, type-safe checks on various C++ types (pointers,
  * containers, arithmetic values).
  *
+ * 
+ *
+ * @layer Foundation
+ *
  * @details Each predicate provides a static `check` method that returns a
  * boolean result. They are heavily templated, using SFINAE and C++17
  * `if constexpr` to offer zero-overhead checks whenever possible.
@@ -16,6 +20,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/enforce_predicates.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for enforce_predicates."
   api_stability: in_work
   related:

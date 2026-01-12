@@ -1,3 +1,15 @@
+---
+doc_id: CG-FLATMAP-001
+doc_type: "Companion Guide"
+title: "FlatMap and FlatSet Design"
+fatp_components: ["FlatMap", "FlatSet"]
+topics: ["flat map", "sorted vector", "cache locality"]
+constraints: ["contiguous storage", "binary search"]
+cxx_standard: "C++17"
+last_verified: "2026-01-11"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 # **The Tree That Ate Your Cache**
 
 ### *A Companion Guide to FlatMap and FlatSet*

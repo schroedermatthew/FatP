@@ -1,6 +1,10 @@
 /**
  * @file ViewLifetimeTracking.h
  * @brief Debug-only lifetime tracking for views and references
+ * 
+ *
+ * @layer Domain
+ *
  * @version 1.0
  * 
  * Provides compile-time-configurable lifetime tracking to detect:
@@ -30,6 +34,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/ViewLifetimeTracking.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for ViewLifetimeTracking."
   api_stability: in_work
   related:
@@ -314,13 +319,13 @@ public:
 /**
  * @brief Create tracked view with automatic naming
  */
-#define TRACKED_VIEW(obj) \
+#define FATP_TRACKED_VIEW(obj) \
     fat_p::LifetimeTracker<std::decay_t<decltype(obj)>>(obj, #obj)
 
 /**
  * @brief Create view guard with scope name
  */
-#define VIEW_GUARD(view) \
+#define FATP_VIEW_GUARD(view) \
     fat_p::ViewGuard<std::decay_t<decltype(view)>> \
     FATP_CONCAT(view_guard_, __LINE__)(view, __func__)
 
@@ -329,9 +334,14 @@ public:
 #define FATP_CONCAT(x, y) FATP_CONCAT_IMPL(x, y)
 
 #else
-#define TRACKED_VIEW(obj) (obj)
-#define VIEW_GUARD(view) ((void)0)
+#define FATP_TRACKED_VIEW(obj) (obj)
+#define FATP_VIEW_GUARD(view) ((void)0)
 #endif
 
 } // namespace fat_p
 
+// Backwards compatibility aliases
+#ifndef FATP_NO_LEGACY_MACROS
+#define TRACKED_VIEW FATP_TRACKED_VIEW
+#define VIEW_GUARD FATP_VIEW_GUARD
+#endif

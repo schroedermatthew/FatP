@@ -1,6 +1,10 @@
 /**
  * @file TensorMath.h
  * @brief General N-dimensional tensor arithmetic with SIMD optimization
+ * 
+ *
+ * @layer Domain
+ *
  * @version 1.1 - Fixed SaturatingPolicy namespace issue
  *
  * @details Provides compile-time fixed-size tensors (scalars, vectors, matrices,
@@ -37,6 +41,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/TensorMath.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for TensorMath."
   api_stability: in_work
   related:

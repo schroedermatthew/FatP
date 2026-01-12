@@ -33,6 +33,8 @@
  * Thread Safety:
  * Pipe operations are thread-safe for distinct Expected objects.
  * Concurrent piping of the same Expected requires external synchronization.
+ *
+ * @layer Domain
  */
 
 #pragma once
@@ -44,6 +46,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/PipeOperator.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for PipeOperator."
   api_stability: in_work
   related:

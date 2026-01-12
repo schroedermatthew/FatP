@@ -2,6 +2,10 @@
  * @file NumaAllocator.h
  * @brief NUMA-aware memory allocator for many-core HPC systems
  *
+ * 
+ *
+ * @layer Domain
+ *
  * @details Optimized memory allocation for Non-Uniform Memory Access (NUMA) architectures.
  * Reduces inter-node memory latency by allocating on local NUMA nodes.
  *
@@ -39,6 +43,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/NumaAllocator.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for NumaAllocator."
   api_stability: in_work
   related:
@@ -56,6 +61,8 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+#include "CppStandardDetection.h"
+
 #include <algorithm>
 #include <atomic>
 #include <cassert>
@@ -75,7 +82,7 @@ FATP_META:
 // Following FATP_HAS_* pattern with explicit 0/1 values for safer #if checks.
 
 #if defined(__linux__)
-    #if __has_include(<numa.h>)
+    #if FATP_HAS_NUMA
         #include <numa.h>
         #include <numaif.h>
         #include <sched.h>
@@ -124,7 +131,7 @@ inline void* aligned_alloc_portable(size_t alignment, size_t size) noexcept
     size_t aligned_size = align_size(size, alignment);
 
 #if defined(__linux__)
-    #if __cplusplus >= 201703L
+    #if FATP_CPP17_OR_LATER
     return std::aligned_alloc(alignment, aligned_size);
     #else
     void* ptr = nullptr;

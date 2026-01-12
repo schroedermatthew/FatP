@@ -1,6 +1,10 @@
 /**
  * @file CSRMatrix_HPC.h
  * @brief High-Performance CSR Matrix with NUMA locality, cache prefetching, and contract enforcement
+ * 
+ *
+ * @layer Domain
+ *
  * @version 1.1
  *
  * Enhanced version of CSRMatrix optimized for HPC workloads using Fat-P components:
@@ -58,6 +62,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CSRMatrix_HPC.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for CSRMatrix_HPC."
   api_stability: in_work
   related:

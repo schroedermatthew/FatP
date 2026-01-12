@@ -1,7 +1,7 @@
 /**
  * @file TypeTraits.h
  * @brief Comprehensive type trait utilities for C++17/20/23
- * @layer CoreUtility
+ * @layer Foundation
  * 
  * @details Provides extensive compile-time type introspection including:
  * - Detection idiom (is_detected, detected_or, detected_t)
@@ -75,6 +75,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/TypeTraits.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for TypeTraits."
   api_stability: in_work
   related:

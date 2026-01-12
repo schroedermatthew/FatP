@@ -3,6 +3,10 @@
  * @brief Provides the EnforcedInit<T> wrapper to enforce that an object is
  * explicitly initialized exactly once before it can be accessed.
  *
+ * 
+ *
+ * @layer Domain
+ *
  * @details This utility leverages C++17's **std::optional<T>** for safe,
  * standardized memory management and lifecycle control. The library's
  * **contextual contract system** is used to enforce the core contract:
@@ -32,6 +36,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/EnforcedInit.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for EnforcedInit."
   api_stability: in_work
   related:

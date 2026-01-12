@@ -1,6 +1,6 @@
 /**
  * @file SortedContainer.h
- * @layer Enforcement
+ * @layer Domain
  * @brief A policy-based sorted vector container that maintains order on inserts.
  *
  * @details Uses Policy-Based Design for uniqueness, comparison, allocation, 
@@ -67,6 +67,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/SortedContainer.h
   namespace: fat_p
+  layer: Containers
   summary: "Public header for SortedContainer."
   api_stability: in_work
   related:

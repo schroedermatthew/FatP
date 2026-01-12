@@ -3,6 +3,10 @@
  * @brief Provides the ValueGuard<T, Policy> class for temporary value
  * mutation with policy-driven restoration.
  *
+ * 
+ *
+ * @layer Domain
+ *
  * @details This RAII utility temporarily assigns a new value to a target
  * variable and restores the original upon scope exit, with support for
  * custom restoration logic and exception safety. Policies control
@@ -41,6 +45,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/ValueGuard.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for ValueGuard."
   api_stability: in_work
   related:

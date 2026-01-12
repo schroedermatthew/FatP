@@ -2,6 +2,10 @@
  * @file ScopeGuardExpected.h
  * @brief Bridge utilities for combining ScopeGuard with Expected error handling.
  *
+ * 
+ *
+ * @layer Foundation
+ *
  * @details This optional header provides convenience functions for common patterns
  * where RAII cleanup interacts with Expected-based error propagation. Include this
  * header only when you need both ScopeGuard and Expected in the same translation unit.
@@ -35,6 +39,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/ScopeGuardExpected.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for ScopeGuardExpected."
   api_stability: in_work
   related:

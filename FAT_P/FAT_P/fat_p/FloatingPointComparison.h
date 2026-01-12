@@ -2,7 +2,7 @@
  * @file FloatingPointComparison.h
  * @brief Robust floating-point comparison utilities.
  *
- * @layer CoreUtility
+ * @layer Foundation
  *
  * Provides policy-based floating-point comparison with support for absolute,
  * relative, ULP, and hybrid tolerance strategies. Handles special cases
@@ -24,6 +24,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/FloatingPointComparison.h
   namespace: fat_p
+  layer: Foundation
   summary: "Public header for FloatingPointComparison."
   api_stability: in_work
   related:
@@ -43,6 +44,8 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+#include "CppStandardDetection.h"
+
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -56,7 +59,7 @@ FATP_META:
 #include <optional>  // For std::optional in detail::handleSpecialValues
 
  // For C++20 support for type-punning without UB
-#if (__cplusplus >= 202002L) || (defined(_MSVC_LANG) && (_MSVC_LANG >= 202002L))
+#if FATP_CPP20_OR_LATER
 #include <bit>
 #define FATP_FPC_HAS_BIT_CAST 1
 #else

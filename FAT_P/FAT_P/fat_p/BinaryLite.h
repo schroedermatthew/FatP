@@ -1,12 +1,17 @@
-// BinaryLite.h
-// Lightweight binary serialization library - standalone with minimal dependencies
-// Simple little-endian format optimized for speed and simplicity
-// C++17, header-only
-//
-// This is the STANDALONE version with minimal external dependencies.
-// For fat_p component integration (Expected-based API, HpcVector buffers,
-// fat_p type serialization), use FatPBinary.h instead.
-
+/**
+ * @file BinaryLite.h
+ * @brief Lightweight binary serialization for FAT-P types
+ *
+ * @layer Foundation
+ *
+ * @details
+ * Lightweight binary serialization library - standalone with minimal dependencies
+ * Simple little-endian format optimized for speed and simplicity
+ * C++17, header-only
+ * This is the STANDALONE version with minimal external dependencies.
+ * For fat_p component integration (Expected-based API, HpcVector buffers,
+ * fat_p type serialization), use FatPBinary.h instead.
+ */
 #pragma once
 /*
 FATP_META:
@@ -15,6 +20,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/BinaryLite.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for BinaryLite."
   api_stability: in_work
   related:

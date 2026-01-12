@@ -2,6 +2,10 @@
  * @file RateLimiter.h
  * @brief Token bucket and sliding window rate limiters for API throttling
  * 
+ * 
+ *
+ * @layer Concurrency
+ *
  * @details Multiple rate limiting algorithms for controlling request rates.
  * Integrates with CheckedArithmetic for overflow-safe calculations.
  * 
@@ -57,6 +61,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/RateLimiter.h
   namespace: fat_p
+  layer: Concurrency
   summary: "Public header for RateLimiter."
   api_stability: in_work
   related:

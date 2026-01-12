@@ -1,7 +1,7 @@
 /**
  * @file DiagnosticLogger_Core.h
  * @brief Core high-performance logging infrastructure.
- * @layer CoreUtility
+ * @layer Foundation
  *
  * PHILOSOPHY: "The Race Car"
  * - Zero overhead when disabled (<5ns).
@@ -29,6 +29,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/DiagnosticLogger_Core.h
   namespace: fat_p
+  layer: Domain
   summary: "Public header for DiagnosticLogger_Core."
   api_stability: in_work
   related:

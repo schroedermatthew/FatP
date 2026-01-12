@@ -2,6 +2,10 @@
  * @file AtomicSharedPtr.h
  * @brief Minimal thread-safe atomic wrapper for std::shared_ptr.
  *
+ * 
+ *
+ * @layer Concurrency
+ *
  * @details Thin wrapper providing atomic operations on shared_ptr<T>.
  * Uses std::atomic<shared_ptr> on C++20, free functions on C++17.
  *
@@ -22,6 +26,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/AtomicSharedPtr.h
   namespace: fat_p
+  layer: Concurrency
   summary: "Public header for AtomicSharedPtr."
   api_stability: in_work
   related:
@@ -39,6 +44,8 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+#include "CppStandardDetection.h"
+
 #include <atomic>
 #include <memory>
 #include <stdexcept>
@@ -47,7 +54,7 @@ FATP_META:
 // A compiler might support C++20 syntax but the stdlib might not have
 // std::atomic<shared_ptr> yet. __cpp_lib_atomic_shared_ptr is authoritative.
 // Note: The macro is defined by <memory> when the feature is available.
-#if defined(__cpp_lib_atomic_shared_ptr) && __cpp_lib_atomic_shared_ptr >= 201711L
+#if FATP_HAS_ATOMIC_SHARED_PTR
 #define FATP_HAS_CPP20_ATOMIC_SHARED_PTR 1
 #else
 #define FATP_HAS_CPP20_ATOMIC_SHARED_PTR 0
