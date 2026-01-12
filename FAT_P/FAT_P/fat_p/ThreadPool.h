@@ -109,14 +109,14 @@ enum class Priority : int
  * Tasks are ordered by priority (higher first), then by submission order (FIFO).
  * The ordering is designed for use with std::priority_queue (max-heap).
  */
-class Task
+class ThreadPoolTask
 {
 public:
     using TaskFunction = std::function<void()>;
 
-    Task() = default;
+    ThreadPoolTask() = default;
 
-    Task(TaskFunction func, Priority pri = Priority::Normal)
+    ThreadPoolTask(TaskFunction func, Priority pri = Priority::Normal)
         : m_func(std::move(func))
         , m_priority(pri)
         , m_id(s_next_id.fetch_add(1, std::memory_order_relaxed))
@@ -142,7 +142,7 @@ public:
      * - Higher Priority enum value = higher priority = should be at top
      * - For equal priority: lower ID (older) = higher priority = should be at top
      */
-    bool operator<(const Task& other) const noexcept
+    bool operator<(const ThreadPoolTask& other) const noexcept
     {
         if (m_priority != other.m_priority)
         {
@@ -164,7 +164,7 @@ private:
     static std::atomic<uint64_t> s_next_id;
 };
 
-inline std::atomic<uint64_t> Task::s_next_id{0};
+inline std::atomic<uint64_t> ThreadPoolTask::s_next_id{0};
 
 // ============================================================================
 // Work Stealing Queue
@@ -211,7 +211,7 @@ public:
     /**
      * @brief Push task to bottom (owner operation, LIFO)
      */
-    void push(Task task)
+    void push(ThreadPoolTask task)
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         m_tasks.push_back(std::move(task));
@@ -221,7 +221,7 @@ public:
      * @brief Pop task from bottom (owner operation, LIFO)
      * @return true if task was retrieved, false if queue empty
      */
-    bool pop(Task& task)
+    bool pop(ThreadPoolTask& task)
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         if (m_tasks.empty())
@@ -239,7 +239,7 @@ public:
      * Uses try_to_lock to avoid blocking if owner is active.
      * @return true if task was stolen, false if queue empty or locked
      */
-    bool steal(Task& task)
+    bool steal(ThreadPoolTask& task)
     {
         std::unique_lock<std::mutex> lock(m_mutex, std::try_to_lock);
         if (!lock.owns_lock() || m_tasks.empty())
@@ -272,7 +272,7 @@ public:
     }
 
 private:
-    std::deque<Task> m_tasks;
+    std::deque<ThreadPoolTask> m_tasks;
     mutable std::mutex m_mutex;
 };
 
@@ -397,7 +397,7 @@ public:
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(std::move(bound_task));
         std::future<ReturnType> result = task->get_future();
 
-        Task wrapped([task]() { (*task)(); }, priority);
+        ThreadPoolTask wrapped([task]() { (*task)(); }, priority);
 
         enqueue_task(std::move(wrapped), priority, /*notify=*/true);
 
@@ -532,7 +532,7 @@ private:
     /**
      * @brief Internal task enqueue with optional notification
      */
-    void enqueue_task(Task task, Priority priority, bool notify)
+    void enqueue_task(ThreadPoolTask task, Priority priority, bool notify)
     {
         m_pending_tasks.fetch_add(1, std::memory_order_relaxed);
 
@@ -573,7 +573,7 @@ private:
      */
     void worker_thread(size_t thread_idx)
     {
-        Task task;
+        ThreadPoolTask task;
 
         while (true)
         {
@@ -670,10 +670,10 @@ private:
     /**
      * @brief Try to pop from global priority queue
      *
-     * Uses const_cast move pattern to avoid copying Task.
+     * Uses const_cast move pattern to avoid copying ThreadPoolTask.
      * Safe because we immediately pop() after moving.
      */
-    bool try_pop_global(Task& task)
+    bool try_pop_global(ThreadPoolTask& task)
     {
         std::lock_guard<std::mutex> lock(m_global_mutex);
         if (m_global_queue.empty())
@@ -683,7 +683,7 @@ private:
 
         // Move from top() - safe because we pop immediately
         // std::priority_queue::top() returns const&, but we own the container
-        task = std::move(const_cast<Task&>(m_global_queue.top()));
+        task = std::move(const_cast<ThreadPoolTask&>(m_global_queue.top()));
         m_global_queue.pop();
         return true;
     }
@@ -694,7 +694,7 @@ private:
      * Uses Fisher-Yates shuffle to ensure every queue is checked exactly once,
      * preventing starvation of any particular queue.
      */
-    bool try_steal(Task& task, size_t my_idx)
+    bool try_steal(ThreadPoolTask& task, size_t my_idx)
     {
         // Thread-local state for victim selection (no static - supports multiple pools)
         thread_local std::vector<size_t> victims;
@@ -750,7 +750,7 @@ private:
     std::vector<AlignedQueue> m_worker_queues;
 
     // Global priority queue for High/Critical tasks
-    std::priority_queue<Task> m_global_queue;
+    std::priority_queue<ThreadPoolTask> m_global_queue;
     mutable std::mutex m_global_mutex;
     std::condition_variable m_global_cv;
 

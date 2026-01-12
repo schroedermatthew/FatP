@@ -929,7 +929,8 @@ namespace fat_p {
         static_assert(!std::is_same_v<E, std::in_place_t> &&
             !std::is_same_v<E, unexpect_tag_t>,
             "E must not be in_place_t or unexpect_tag_t");
-        static_assert(!std::is_same_v<T, E>, "T and E must be distinct types");
+        // Note: T == E is allowed (e.g., Expected<int, int> for HPC register passing).
+        // Constructor ambiguity is avoided via unexpected<E> wrapper for errors.
 
     public:
         using value_type = T;
@@ -2749,7 +2750,7 @@ namespace fat_p {
      */
     template <typename T, typename E>
     class [[nodiscard]] ExpectedImpl<T, E, TrivialStorage> {
-        static_assert(!std::is_same_v<T, E>, "T and E must be distinct types");
+        // Note: T == E is allowed (e.g., TrivialExpected<int, int> for register passing)
         static_assert(!std::is_void_v<T>, "Use ExpectedImpl<void, E> for void success");
 
     private:

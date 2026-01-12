@@ -102,7 +102,7 @@ semantics, queue bounds, or idle behavior. These are inherently application-spec
 class ThreadPool
 {
     // Global priority queue: High/Critical tasks visible to ALL workers
-    std::priority_queue<Task, std::vector<Task>, std::less<Task>> m_global_queue;
+    std::priority_queue<ThreadPoolTask, std::vector<ThreadPoolTask>, std::less<ThreadPoolTask>> m_global_queue;
     std::mutex m_global_mutex;
     
     // Per-thread local queues: Normal/Low tasks with cache locality
@@ -163,7 +163,7 @@ if (priority >= Priority::High)
 {
     // High/Critical: Global queue for immediate visibility
     std::lock_guard<std::mutex> lock(m_global_mutex);
-    m_global_queue.push(Task{priority, std::move(wrapper)});
+    m_global_queue.push(ThreadPoolTask{priority, std::move(wrapper)});
 }
 else
 {

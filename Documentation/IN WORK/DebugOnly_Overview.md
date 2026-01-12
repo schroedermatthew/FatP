@@ -288,6 +288,7 @@ DebugOnly provides debug-only storage permanently—a pattern the language canno
 ```
 DebugOnly.h
     ↓ uses
+TypeTraits.h            (is_hashable, is_streamable, is_equality_comparable, is_less_comparable)
 CppStandardDetection.h  ([[no_unique_address]] detection)
     ↓ used by
 SmallVector.h           (debug capacity tracking)

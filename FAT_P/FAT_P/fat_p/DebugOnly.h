@@ -37,6 +37,7 @@ FATP_META:
 */
 
 #include "FatPConfig.h"
+#include "TypeTraits.h"
 
 #include <functional>
 #include <ostream>
@@ -50,53 +51,9 @@ namespace fat_p {
 template <typename T>
 struct DebugOnly;
 
-namespace detail {
-
-// Helper to detect if T is streamable
-template <typename T, typename = void>
-struct is_streamable : std::false_type {};
-
-template <typename T>
-struct is_streamable<T, std::void_t<decltype(std::declval<std::ostream&>() << std::declval<T>())>>
-    : std::true_type {};
-
-template <typename T>
-inline constexpr bool is_streamable_v = is_streamable<T>::value;
-
-// Helper to detect if T is hashable
-template <typename T, typename = void>
-struct is_hashable : std::false_type {};
-
-template <typename T>
-struct is_hashable<T, std::void_t<decltype(std::hash<T>{}(std::declval<T>()))>>
-    : std::true_type {};
-
-template <typename T>
-inline constexpr bool is_hashable_v = is_hashable<T>::value;
-
-// Helper to detect if T is equality comparable
-template <typename T, typename = void>
-struct is_equality_comparable : std::false_type {};
-
-template <typename T>
-struct is_equality_comparable<T, std::void_t<decltype(std::declval<T>() == std::declval<T>())>>
-    : std::true_type {};
-
-template <typename T>
-inline constexpr bool is_equality_comparable_v = is_equality_comparable<T>::value;
-
-// Helper to detect if T is less-than comparable
-template <typename T, typename = void>
-struct is_less_comparable : std::false_type {};
-
-template <typename T>
-struct is_less_comparable<T, std::void_t<decltype(std::declval<T>() < std::declval<T>())>>
-    : std::true_type {};
-
-template <typename T>
-inline constexpr bool is_less_comparable_v = is_less_comparable<T>::value;
-
-} // namespace detail
+// NOTE: Type traits (is_streamable, is_hashable, is_equality_comparable, is_less_comparable)
+// are provided by TypeTraits.h. DebugOnly uses fat_p::is_*_v<T> traits from that header
+// to avoid duplication and ensure composability per Systemic Hygiene Policy.
 
 
 // ============================================================================
@@ -296,7 +253,7 @@ public:
     template <typename U = T>
     [[nodiscard]] constexpr auto operator==(const DebugOnly& other) const
         noexcept(noexcept(std::declval<U>() == std::declval<U>()))
-        -> std::enable_if_t<detail::is_equality_comparable_v<U>, bool>
+        -> std::enable_if_t<is_equality_comparable_v<U>, bool>
     {
         return value_ == other.value_;
     }
@@ -304,7 +261,7 @@ public:
     template <typename U = T>
     [[nodiscard]] constexpr auto operator!=(const DebugOnly& other) const
         noexcept(noexcept(std::declval<U>() == std::declval<U>()))
-        -> std::enable_if_t<detail::is_equality_comparable_v<U>, bool>
+        -> std::enable_if_t<is_equality_comparable_v<U>, bool>
     {
         return value_ != other.value_;
     }
@@ -312,7 +269,7 @@ public:
     template <typename U = T>
     [[nodiscard]] constexpr auto operator<(const DebugOnly& other) const
         noexcept(noexcept(std::declval<U>() < std::declval<U>()))
-        -> std::enable_if_t<detail::is_less_comparable_v<U>, bool>
+        -> std::enable_if_t<is_less_comparable_v<U>, bool>
     {
         return value_ < other.value_;
     }
@@ -320,7 +277,7 @@ public:
     template <typename U = T>
     [[nodiscard]] constexpr auto operator<=(const DebugOnly& other) const
         noexcept(noexcept(std::declval<U>() < std::declval<U>()))
-        -> std::enable_if_t<detail::is_less_comparable_v<U>, bool>
+        -> std::enable_if_t<is_less_comparable_v<U>, bool>
     {
         return value_ <= other.value_;
     }
@@ -328,7 +285,7 @@ public:
     template <typename U = T>
     [[nodiscard]] constexpr auto operator>(const DebugOnly& other) const
         noexcept(noexcept(std::declval<U>() < std::declval<U>()))
-        -> std::enable_if_t<detail::is_less_comparable_v<U>, bool>
+        -> std::enable_if_t<is_less_comparable_v<U>, bool>
     {
         return value_ > other.value_;
     }
@@ -336,7 +293,7 @@ public:
     template <typename U = T>
     [[nodiscard]] constexpr auto operator>=(const DebugOnly& other) const
         noexcept(noexcept(std::declval<U>() < std::declval<U>()))
-        -> std::enable_if_t<detail::is_less_comparable_v<U>, bool>
+        -> std::enable_if_t<is_less_comparable_v<U>, bool>
     {
         return value_ >= other.value_;
     }
@@ -345,7 +302,7 @@ public:
     template <typename U = T>
     [[nodiscard]] constexpr auto operator==(const T& other) const
         noexcept(noexcept(std::declval<U>() == std::declval<U>()))
-        -> std::enable_if_t<detail::is_equality_comparable_v<U>, bool>
+        -> std::enable_if_t<is_equality_comparable_v<U>, bool>
     {
         return value_ == other;
     }
@@ -353,7 +310,7 @@ public:
     template <typename U = T>
     [[nodiscard]] constexpr auto operator!=(const T& other) const
         noexcept(noexcept(std::declval<U>() == std::declval<U>()))
-        -> std::enable_if_t<detail::is_equality_comparable_v<U>, bool>
+        -> std::enable_if_t<is_equality_comparable_v<U>, bool>
     {
         return value_ != other;
     }
@@ -431,7 +388,7 @@ public:
 // Stream output (debug mode)
 template <typename T>
 auto operator<<(std::ostream& os, const DebugOnly<T>& val)
-    -> std::enable_if_t<detail::is_streamable_v<T>, std::ostream&>
+    -> std::enable_if_t<is_streamable_v<T>, std::ostream&>
 {
     return os << val.get();
 }
@@ -646,7 +603,7 @@ struct hash<fat_p::DebugOnly<T>>
         noexcept(noexcept(std::hash<T>{}(std::declval<T>())))
     {
 #ifndef NDEBUG
-        if constexpr (fat_p::detail::is_hashable_v<T>)
+        if constexpr (fat_p::is_hashable_v<T>)
         {
             return std::hash<T>{}(val.get());
         }

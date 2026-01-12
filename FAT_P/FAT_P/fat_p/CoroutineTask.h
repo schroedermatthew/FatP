@@ -436,6 +436,10 @@ SyncAwaitable<T> make_ready(T value) {
 // =============================================================================
 // CONVENIENT ALIASES
 // =============================================================================
+// Aliases are in fat_p::coroutine namespace to avoid collision with other Task types
+// (e.g., ThreadPoolTask in ThreadPool.h)
+
+namespace coroutine {
 
 // Common task types
 template<typename T> using Task = CoroutineTask<T, std::string>;
@@ -443,6 +447,8 @@ template<typename T> using TaskResult = Expected<T, std::string>;
 
 // Void task (no return value)
 using VoidTask = CoroutineTask<std::monostate, std::string>;
+
+} // namespace coroutine
 
 } // namespace fat_p
 

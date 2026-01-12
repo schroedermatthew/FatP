@@ -176,18 +176,21 @@ FATP_TEST_CASE(utf8_strings)
 {
     StringPool<> pool;
 
-    const char* s1 = pool.intern(u8"Hello World");
-    const char* s2 = pool.intern(u8"Hello World");
-    const char* s3 = pool.intern(u8"Bonjour le monde");
-    const char* s4 = pool.intern(u8"Hallo Welt");
+    // Note: Using regular string literals here. In C++20, u8"..." returns
+    // const char8_t* which is incompatible with const char*/string_view.
+    // These ASCII strings work correctly with UTF-8 encoding regardless.
+    const char* s1 = pool.intern("Hello World");
+    const char* s2 = pool.intern("Hello World");
+    const char* s3 = pool.intern("Bonjour le monde");
+    const char* s4 = pool.intern("Hallo Welt");
 
     FATP_ASSERT_EQ(s1, s2, "UTF-8 strings should be deduplicated");
     FATP_ASSERT_NE(s1, s3, "Different UTF-8 strings should differ");
     FATP_ASSERT_NE(s1, s4, "Different UTF-8 strings should differ");
 
-    FATP_ASSERT_EQ(std::string_view(s1), std::string_view(u8"Hello World"),
+    FATP_ASSERT_EQ(std::string_view(s1), std::string_view("Hello World"),
               "UTF-8 content should be preserved");
-    FATP_ASSERT_EQ(std::string_view(s3), std::string_view(u8"Bonjour le monde"),
+    FATP_ASSERT_EQ(std::string_view(s3), std::string_view("Bonjour le monde"),
               "UTF-8 content should be preserved");
 
     return true;

@@ -1936,6 +1936,7 @@ struct MyClass
 
 | Component | Relationship |
 |-----------|-------------|
+| `TypeTraits.h` | Provides type traits (`is_hashable_v`, `is_streamable_v`, etc.) used internally |
 | `CppStandardDetection.h` | Provides `FATP_HAS_CPP20` for `[[no_unique_address]]` |
 | `enforce.h` | Debug assertions that can use DebugOnly data |
 | `DiagnosticLogger.h` | Logging utilities for debug output |

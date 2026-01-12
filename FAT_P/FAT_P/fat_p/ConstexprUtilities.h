@@ -140,7 +140,7 @@ namespace fat_p
  *   constexpr auto h = hash_values("namespace", "class", "method");
  */
 template <typename... Args>
-[[nodiscard]] constexpr uint64_t hash_values(const Args&... args) noexcept
+[[nodiscard]] FATP_CONSTEVAL uint64_t hash_values(const Args&... args) noexcept
 {
     uint64_t seed = 0;
     ((seed = hash_combine(seed, constexpr_hash64(args))), ...);

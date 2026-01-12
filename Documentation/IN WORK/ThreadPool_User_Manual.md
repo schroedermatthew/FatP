@@ -548,7 +548,7 @@ auto submit_priority(Priority priority, F&& f, Args&&... args)
     {
         // High/Critical: Global queue for immediate visibility
         std::lock_guard<std::mutex> lock(m_global_mutex);
-        m_global_queue.push(Task{priority, std::move(wrapper)});
+        m_global_queue.push(ThreadPoolTask{priority, std::move(wrapper)});
     }
     else
     {
