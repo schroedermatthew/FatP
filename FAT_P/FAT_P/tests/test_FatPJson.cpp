@@ -78,13 +78,13 @@ FATP_META:
 
 #include "FatPJson.h"
 #include "FatPTest.h"
+#include "test_FatP.h"
 
 namespace fat_p::testing 
 {
 
-USING_FATP_JSON()
-
 using namespace std::chrono;
+using fat_p::testing::artifact_file;
 
 constexpr size_t BENCHMARK_ITERATIONS = 1000;
 constexpr size_t LARGE_OBJECT_SIZE = 1000;
@@ -124,6 +124,33 @@ enum class Color {
     Blue = 2,
     Yellow = 3
 };
+
+// Using declarations for JsonLite/FatPJson functionality - placed after struct definitions
+using fat_p::JsonValue;
+using fat_p::JsonObject;
+using fat_p::JsonArray;
+using fat_p::to_json;
+using fat_p::from_json;
+using fat_p::json_encode;
+using fat_p::json_decode;
+using fat_p::save_params;
+using fat_p::load_params;
+using fat_p::parse_json;
+using fat_p::to_json_string;
+using fat_p::from_json_string;
+using fat_p::try_parse_json;
+using fat_p::try_load_json;
+using fat_p::load_json_mmap;
+using fat_p::try_save_json;
+using fat_p::try_save_atomic;
+using fat_p::safe_from_json;
+using fat_p::safe_from_json_numeric;
+using fat_p::ConfigJsonPolicy;
+using fat_p::FatPJsonArray;
+using fat_p::FatPJsonObject;
+using fat_p::JsonError;
+using fat_p::JsonErrorCode;
+using fat_p::JsonResult;
 
 }
 
@@ -202,8 +229,6 @@ struct EnumStringPolicy<testing::Color> {
 
 namespace fat_p::testing::fatpjson {
 
-USING_FATP_JSON()
-
 using namespace std::chrono;
 
 struct Task {
@@ -227,6 +252,33 @@ struct DatabaseConfig {
     std::optional<int> timeout;
 };
 FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(DatabaseConfig, host, port, timeout)
+
+// Using declarations for JsonLite/FatPJson functionality - placed after struct definitions
+using fat_p::JsonValue;
+using fat_p::JsonObject;
+using fat_p::JsonArray;
+using fat_p::to_json;
+using fat_p::from_json;
+using fat_p::json_encode;
+using fat_p::json_decode;
+using fat_p::save_params;
+using fat_p::load_params;
+using fat_p::parse_json;
+using fat_p::to_json_string;
+using fat_p::from_json_string;
+using fat_p::try_parse_json;
+using fat_p::try_load_json;
+using fat_p::load_json_mmap;
+using fat_p::try_save_json;
+using fat_p::try_save_atomic;
+using fat_p::safe_from_json;
+using fat_p::safe_from_json_numeric;
+using fat_p::ConfigJsonPolicy;
+using fat_p::FatPJsonArray;
+using fat_p::FatPJsonObject;
+using fat_p::JsonError;
+using fat_p::JsonErrorCode;
+using fat_p::JsonResult;
 
 std::string generate_large_json_object(size_t num_keys) {
     std::ostringstream oss;
@@ -733,15 +785,15 @@ FATP_TEST_CASE(safe_generic_conversions) {
 FATP_TEST_CASE(file_operations) {
     FATP_SUBTEST("try_load_json success") {
         {
-            std::ofstream ofs("test_fpjl_load.json");
+            std::ofstream ofs(artifact_file("test_fpjl_load.json"));
             ofs << R"({"test":42})";
         }
         
-        auto result = try_load_json("test_fpjl_load.json");
+        auto result = try_load_json(artifact_file("test_fpjl_load.json"));
         FATP_ASSERT_TRUE(result.has_value(), "Should load successfully");
         FATP_ASSERT_TRUE(result->is_object(), "Should be object");
         
-        std::remove("test_fpjl_load.json");
+        std::remove(artifact_file("test_fpjl_load.json").c_str());
     }
     FATP_END_SUBTEST
     
@@ -754,12 +806,12 @@ FATP_TEST_CASE(file_operations) {
     
     FATP_SUBTEST("try_save_json success") {
         JsonValue j = static_cast<int64_t>(42);
-        auto result = try_save_json("test_fpjl_save.json", j);
+        auto result = try_save_json(artifact_file("test_fpjl_save.json"), j);
         
         FATP_ASSERT_TRUE(result.has_value(), "Should save successfully");
-        FATP_ASSERT_TRUE(std::ifstream("test_fpjl_save.json").good(), "File should exist");
+        FATP_ASSERT_TRUE(std::ifstream(artifact_file("test_fpjl_save.json")).good(), "File should exist");
         
-        std::remove("test_fpjl_save.json");
+        std::remove(artifact_file("test_fpjl_save.json").c_str());
     }
     FATP_END_SUBTEST
     
@@ -769,19 +821,19 @@ FATP_TEST_CASE(file_operations) {
         obj["key2"] = 2;
         JsonValue j = obj;
         
-        auto result = try_save_json<PrettyJsonPolicy>("test_fpjl_pretty.json", j, true);
+        auto result = try_save_json<PrettyJsonPolicy>(artifact_file("test_fpjl_pretty.json"), j, true);
         FATP_ASSERT_TRUE(result.has_value(), "Should save with pretty print");
         
-        std::ifstream ifs("test_fpjl_pretty.json");
+        std::ifstream ifs(artifact_file("test_fpjl_pretty.json"));
         std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
         FATP_ASSERT_TRUE(content.find("\n") != std::string::npos, "Should have newlines");
         
-        std::remove("test_fpjl_pretty.json");
+        std::remove(artifact_file("test_fpjl_pretty.json").c_str());
     }
     FATP_END_SUBTEST
     
     FATP_SUBTEST("try_load_json with ConfigJsonPolicy (line comments)") {
-        const std::string filename = "test_jsonc_load.jsonc";
+        const std::string filename = artifact_file("test_jsonc_load.jsonc");
         {
             std::ofstream ofs(filename);
             ofs << "{\n"
@@ -803,7 +855,7 @@ FATP_TEST_CASE(file_operations) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("try_load_json with ConfigJsonPolicy (block comments)") {
-        const std::string filename = "test_jsonc_block.jsonc";
+        const std::string filename = artifact_file("test_jsonc_block.jsonc");
         {
             std::ofstream ofs(filename);
             ofs << "{\n"
@@ -824,7 +876,7 @@ FATP_TEST_CASE(file_operations) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("StandardJsonPolicy rejects JSONC file") {
-        const std::string filename = "test_jsonc_reject.jsonc";
+        const std::string filename = artifact_file("test_jsonc_reject.jsonc");
         {
             std::ofstream ofs(filename);
             ofs << "{\n"
@@ -846,18 +898,18 @@ FATP_TEST_CASE(file_operations) {
 FATP_TEST_CASE(memory_mapped_io) {
     FATP_SUBTEST("load_json_mmap small file") {
         {
-            std::ofstream ofs("test_fpjl_mmap.json");
+            std::ofstream ofs(artifact_file("test_fpjl_mmap.json"));
             ofs << R"({"name":"Alice","age":30,"active":true})";
         }
         
-        auto result = load_json_mmap("test_fpjl_mmap.json");
+        auto result = load_json_mmap(artifact_file("test_fpjl_mmap.json"));
         FATP_ASSERT_TRUE(result.has_value(), "Should load via mmap");
         FATP_ASSERT_TRUE(result->is_object(), "Should be object");
         
         const auto& obj = std::get<JsonObject>(*result);
         FATP_ASSERT_TRUE(obj.count("name") > 0, "Should have name field");
         
-        std::remove("test_fpjl_mmap.json");
+        std::remove(artifact_file("test_fpjl_mmap.json").c_str());
     }
     FATP_END_SUBTEST
     
@@ -870,20 +922,20 @@ FATP_TEST_CASE(memory_mapped_io) {
     
     FATP_SUBTEST("load_json_mmap large file") {
         {
-            std::ofstream ofs("test_fpjl_large.json");
+            std::ofstream ofs(artifact_file("test_fpjl_large.json"));
             ofs << generate_large_json_array(5000);
         }
         
-        auto result = load_json_mmap("test_fpjl_large.json");
+        auto result = load_json_mmap(artifact_file("test_fpjl_large.json"));
         FATP_ASSERT_TRUE(result.has_value(), "Should load large file");
         FATP_ASSERT_TRUE(result->is_array(), "Should be array");
         
-        std::remove("test_fpjl_large.json");
+        std::remove(artifact_file("test_fpjl_large.json").c_str());
     }
     FATP_END_SUBTEST
     
     FATP_SUBTEST("load_json_mmap with ConfigJsonPolicy") {
-        const std::string filename = "test_mmap_jsonc.jsonc";
+        const std::string filename = artifact_file("test_mmap_jsonc.jsonc");
         {
             std::ofstream ofs(filename);
             ofs << "{\n"
@@ -907,7 +959,7 @@ FATP_TEST_CASE(memory_mapped_io) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("load_json_mmap invalid JSON") {
-        const std::string filename = "test_mmap_invalid.json";
+        const std::string filename = artifact_file("test_mmap_invalid.json");
         {
             std::ofstream ofs(filename);
             ofs << "{invalid json content}";
@@ -927,7 +979,7 @@ FATP_TEST_CASE(json_array) {
     FATP_SUBTEST("FatPJsonArray creation") {
         FatPJsonArray arr;
         for (int i = 0; i < 5; ++i) {
-            arr.push_back(to_json(i));
+            arr.push_back(json_encode(i));
         }
         
         FATP_ASSERT_EQ(arr.size(), 5U, "Should have 5 elements");
@@ -938,7 +990,7 @@ FATP_TEST_CASE(json_array) {
     FATP_SUBTEST("FatPJsonArray inline storage benefit") {
         FatPJsonArray small_arr;
         for (int i = 0; i < 7; ++i) {
-            small_arr.push_back(to_json(i));
+            small_arr.push_back(json_encode(i));
         }
         
         FATP_ASSERT_EQ(small_arr.size(), 7U, "Should have 7 elements");
@@ -948,9 +1000,9 @@ FATP_TEST_CASE(json_array) {
     
     FATP_SUBTEST("to_json_array conversion") {
         FatPJsonArray fatp_arr;
-        fatp_arr.push_back(to_json(1));
-        fatp_arr.push_back(to_json(2));
-        fatp_arr.push_back(to_json(3));
+        fatp_arr.push_back(json_encode(1));
+        fatp_arr.push_back(json_encode(2));
+        fatp_arr.push_back(json_encode(3));
         
         JsonArray std_arr = to_json_array(fatp_arr);
         FATP_ASSERT_EQ(std_arr.size(), 3U, "Should convert size correctly");
@@ -959,9 +1011,9 @@ FATP_TEST_CASE(json_array) {
     
     FATP_SUBTEST("from_json_array conversion") {
         JsonArray std_arr;
-        std_arr.push_back(to_json("a"));
-        std_arr.push_back(to_json("b"));
-        std_arr.push_back(to_json("c"));
+        std_arr.push_back(json_encode("a"));
+        std_arr.push_back(json_encode("b"));
+        std_arr.push_back(json_encode("c"));
         
         FatPJsonArray fatp_arr = from_json_array(std_arr);
         FATP_ASSERT_EQ(fatp_arr.size(), 3U, "Should convert size correctly");
@@ -974,9 +1026,9 @@ FATP_TEST_CASE(json_array) {
 FATP_TEST_CASE(json_object) {
     FATP_SUBTEST("FatPJsonObject creation") {
         FatPJsonObject<> obj;
-        obj["key1"] = to_json(1);
-        obj["key2"] = to_json(2);
-        obj["key3"] = to_json(3);
+        obj["key1"] = json_encode(1);
+        obj["key2"] = json_encode(2);
+        obj["key3"] = json_encode(3);
         
         FATP_ASSERT_EQ(obj.size(), 3U, "Should have 3 keys");
         FATP_ASSERT_TRUE(obj["key1"].is_int(), "Value should be int");
@@ -985,7 +1037,7 @@ FATP_TEST_CASE(json_object) {
     
     FATP_SUBTEST("FatPJsonObject find operations") {
         FatPJsonObject<> obj;
-        obj["exists"] = to_json(42);
+        obj["exists"] = json_encode(42);
         
         FATP_ASSERT_TRUE(obj.find("exists") != obj.end(), "Should find existing key");
         FATP_ASSERT_TRUE(obj.find("missing") == obj.end(), "Should not find missing key");
@@ -994,8 +1046,8 @@ FATP_TEST_CASE(json_object) {
     
     FATP_SUBTEST("to_json_object conversion") {
         FatPJsonObject<> fatp_obj;
-        fatp_obj["a"] = to_json(1);
-        fatp_obj["b"] = to_json(2);
+        fatp_obj["a"] = json_encode(1);
+        fatp_obj["b"] = json_encode(2);
         
         JsonObject std_obj = to_json_object(fatp_obj);
         FATP_ASSERT_EQ(std_obj.size(), 2U, "Should convert size correctly");
@@ -1005,8 +1057,8 @@ FATP_TEST_CASE(json_object) {
     
     FATP_SUBTEST("from_json_object conversion") {
         JsonObject std_obj;
-        std_obj["x"] = to_json(10);
-        std_obj["y"] = to_json(20);
+        std_obj["x"] = json_encode(10);
+        std_obj["y"] = json_encode(20);
         
         FatPJsonObject<> fatp_obj = from_json_object(std_obj);
         FATP_ASSERT_EQ(fatp_obj.size(), 2U, "Should convert size correctly");
@@ -1022,8 +1074,8 @@ FATP_TEST_CASE(pooled_json_object) {
         StringPool<SingleThreadedPolicy> pool;
         PooledJsonObject pooled(pool);
         
-        pooled.insert("name", to_json("Alice"));
-        pooled.insert("age", to_json(30));
+        pooled.insert("name", json_encode("Alice"));
+        pooled.insert("age", json_encode(30));
         
         FATP_ASSERT_EQ(pooled.size(), 2U, "Should have 2 entries");
         FATP_ASSERT_TRUE(pooled.find("name") != nullptr, "Should find 'name'");
@@ -1034,13 +1086,13 @@ FATP_TEST_CASE(pooled_json_object) {
         StringPool<SingleThreadedPolicy> pool;
         
         PooledJsonObject obj1(pool);
-        obj1.insert("repeated_key", to_json(1));
+        obj1.insert("repeated_key", json_encode(1));
         
         PooledJsonObject obj2(pool);
-        obj2.insert("repeated_key", to_json(2));
+        obj2.insert("repeated_key", json_encode(2));
         
         PooledJsonObject obj3(pool);
-        obj3.insert("repeated_key", to_json(3));
+        obj3.insert("repeated_key", json_encode(3));
         
         FATP_ASSERT_TRUE(pool.size() <= 2U, "Pool should deduplicate strings");
     }
@@ -1049,8 +1101,8 @@ FATP_TEST_CASE(pooled_json_object) {
     FATP_SUBTEST("PooledJsonObject to JsonObject") {
         StringPool<SingleThreadedPolicy> pool;
         PooledJsonObject pooled(pool);
-        pooled.insert("key1", to_json("value1"));
-        pooled.insert("key2", to_json("value2"));
+        pooled.insert("key1", json_encode("value1"));
+        pooled.insert("key2", json_encode("value2"));
         
         JsonObject std_obj = pooled.to_json_object();
         FATP_ASSERT_EQ(std_obj.size(), 2U, "Should convert correctly");
@@ -1061,8 +1113,8 @@ FATP_TEST_CASE(pooled_json_object) {
     FATP_SUBTEST("PooledJsonObject from JsonObject") {
         StringPool<SingleThreadedPolicy> pool;
         JsonObject std_obj;
-        std_obj["a"] = to_json(1);
-        std_obj["b"] = to_json(2);
+        std_obj["a"] = json_encode(1);
+        std_obj["b"] = json_encode(2);
         
         auto pooled = PooledJsonObject<SingleThreadedPolicy>::from_json_object(pool, std_obj);
         FATP_ASSERT_EQ(pooled.size(), 2U, "Should create from JsonObject");
@@ -1072,7 +1124,7 @@ FATP_TEST_CASE(pooled_json_object) {
     FATP_SUBTEST("PooledJsonObject clear") {
         StringPool<SingleThreadedPolicy> pool;
         PooledJsonObject pooled(pool);
-        pooled.insert("key", to_json(42));
+        pooled.insert("key", json_encode(42));
         
         FATP_ASSERT_FALSE(pooled.empty(), "Should not be empty");
         pooled.clear();
@@ -1458,7 +1510,7 @@ FATP_TEST_CASE(locale_independence) {
 FATP_TEST_CASE(enum_integration_basic) {
     FATP_SUBTEST("Enum to JSON string") {
         TaskStatus status = TaskStatus::Running;
-        JsonValue j = to_json(status);
+        JsonValue j = json_encode(status);
         
         FATP_ASSERT_TRUE(j.is_string(), "Should be string");
         FATP_ASSERT_EQ(std::get<std::string>(j), "Running", "Should be 'Running'");
@@ -1466,7 +1518,7 @@ FATP_TEST_CASE(enum_integration_basic) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("JSON string to enum") {
-        JsonValue j = to_json(std::string("Completed"));
+        JsonValue j = json_encode(std::string("Completed"));
         TaskStatus status;
         from_json(j, status);
         
@@ -1480,7 +1532,7 @@ FATP_TEST_CASE(enum_integration_basic) {
         };
         
         for (const auto& orig : statuses) {
-            JsonValue j = to_json(orig);
+            JsonValue j = json_encode(orig);
             TaskStatus loaded;
             from_json(j, loaded);
             FATP_ASSERT_EQ(loaded, orig, "Should roundtrip correctly");
@@ -1490,7 +1542,7 @@ FATP_TEST_CASE(enum_integration_basic) {
     
     FATP_SUBTEST("Priority enum serialization") {
         Priority p = Priority::High;
-        JsonValue j = to_json(p);
+        JsonValue j = json_encode(p);
         
         FATP_ASSERT_TRUE(j.is_string(), "Should be string");
         FATP_ASSERT_EQ(std::get<std::string>(j), "High", "Should be 'High'");
@@ -1499,7 +1551,7 @@ FATP_TEST_CASE(enum_integration_basic) {
     
     FATP_SUBTEST("Color enum serialization") {
         Color c = Color::Blue;
-        JsonValue j = to_json(c);
+        JsonValue j = json_encode(c);
         
         FATP_ASSERT_TRUE(j.is_string(), "Should be string");
         FATP_ASSERT_EQ(std::get<std::string>(j), "Blue", "Should be 'Blue'");
@@ -1512,7 +1564,7 @@ FATP_TEST_CASE(enum_integration_basic) {
 FATP_TEST_CASE(enum_integration_structs) {
     FATP_SUBTEST("Struct with enum fields") {
         Task task{"Build System", TaskStatus::Running, Priority::High, 75};
-        JsonValue j = to_json(task);
+        JsonValue j = json_encode(task);
         
         FATP_ASSERT_TRUE(j.is_object(), "Should be object");
         const auto& obj = std::get<JsonObject>(j);
@@ -1527,7 +1579,7 @@ FATP_TEST_CASE(enum_integration_structs) {
     
     FATP_SUBTEST("Struct roundtrip with enums") {
         Task original{"Test Task", TaskStatus::Completed, Priority::Medium, 100};
-        JsonValue j = to_json(original);
+        JsonValue j = json_encode(original);
         
         Task loaded = from_json<Task>(j);
         
@@ -1540,7 +1592,7 @@ FATP_TEST_CASE(enum_integration_structs) {
     
     FATP_SUBTEST("ColoredObject roundtrip") {
         ColoredObject obj{"Sky", Color::Blue, 0.75};
-        JsonValue j = to_json(obj);
+        JsonValue j = json_encode(obj);
         
         ColoredObject loaded = from_json<ColoredObject>(j);
         
@@ -1569,7 +1621,7 @@ FATP_TEST_CASE(enum_integration_structs) {
 
 FATP_TEST_CASE(enum_integration_errors) {
     FATP_SUBTEST("Invalid enum string throws") {
-        JsonValue j = to_json(std::string("InvalidStatus"));
+        JsonValue j = json_encode(std::string("InvalidStatus"));
         TaskStatus status;
         
         bool threw = false;
@@ -1584,7 +1636,7 @@ FATP_TEST_CASE(enum_integration_errors) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("Type mismatch throws") {
-        JsonValue j = to_json(42);
+        JsonValue j = json_encode(42);
         TaskStatus status;
         
         bool threw = false;
@@ -1599,7 +1651,7 @@ FATP_TEST_CASE(enum_integration_errors) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("safe_from_json_enum with valid value") {
-        JsonValue j = to_json(TaskStatus::Completed);
+        JsonValue j = json_encode(TaskStatus::Completed);
         auto result = safe_from_json_enum<TaskStatus>(j);
         
         FATP_ASSERT_TRUE(result.has_value(), "Should succeed");
@@ -1608,7 +1660,7 @@ FATP_TEST_CASE(enum_integration_errors) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("safe_from_json_enum with invalid string") {
-        JsonValue j = to_json(std::string("InvalidStatus"));
+        JsonValue j = json_encode(std::string("InvalidStatus"));
         auto result = safe_from_json_enum<TaskStatus>(j);
         
         FATP_ASSERT_FALSE(result.has_value(), "Should fail");
@@ -1618,7 +1670,7 @@ FATP_TEST_CASE(enum_integration_errors) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("safe_from_json_enum with wrong type") {
-        JsonValue j = to_json(42);
+        JsonValue j = json_encode(42);
         auto result = safe_from_json_enum<TaskStatus>(j);
         
         FATP_ASSERT_FALSE(result.has_value(), "Should fail");
@@ -1632,7 +1684,7 @@ FATP_TEST_CASE(enum_integration_errors) {
         };
         
         for (const auto& p : priorities) {
-            JsonValue j = to_json(p);
+            JsonValue j = json_encode(p);
             auto result = safe_from_json_enum<Priority>(j);
             FATP_ASSERT_TRUE(result.has_value(), "Should succeed for valid enum");
             FATP_ASSERT_EQ(*result, p, "Should match original");
@@ -1645,8 +1697,8 @@ FATP_TEST_CASE(enum_integration_errors) {
 
 FATP_TEST_CASE(atomic_save_basic) {
     FATP_SUBTEST("Atomic save creates file") {
-        const std::string filename = "test_atomic_basic.json";
-        JsonValue j = to_json(42);
+        const std::string filename = artifact_file("test_atomic_basic.json");
+        JsonValue j = json_encode(42);
         
         auto result = try_save_atomic(filename, j);
         
@@ -1659,9 +1711,9 @@ FATP_TEST_CASE(atomic_save_basic) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("Atomic save roundtrip") {
-        const std::string filename = "test_atomic_roundtrip.json";
+        const std::string filename = artifact_file("test_atomic_roundtrip.json");
         Task original{"Deploy", TaskStatus::Running, Priority::High, 85};
-        JsonValue j = to_json(original);
+        JsonValue j = json_encode(original);
         
         auto save_result = try_save_atomic(filename, j, true);
         FATP_ASSERT_TRUE(save_result.has_value(), "Should save");
@@ -1682,10 +1734,10 @@ FATP_TEST_CASE(atomic_save_basic) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("Atomic save with pretty print") {
-        const std::string filename = "test_atomic_pretty.json";
+        const std::string filename = artifact_file("test_atomic_pretty.json");
         JsonObject obj;
-        obj["name"] = to_json(std::string("Test"));
-        obj["value"] = to_json(123);
+        obj["name"] = json_encode(std::string("Test"));
+        obj["value"] = json_encode(123);
         JsonValue j = std::move(obj);
         
         auto result = try_save_atomic(filename, j, true);
@@ -1702,10 +1754,10 @@ FATP_TEST_CASE(atomic_save_basic) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("Atomic save without pretty print") {
-        const std::string filename = "test_atomic_compact.json";
+        const std::string filename = artifact_file("test_atomic_compact.json");
         JsonObject obj;
-        obj["a"] = to_json(1);
-        obj["b"] = to_json(2);
+        obj["a"] = json_encode(1);
+        obj["b"] = json_encode(2);
         JsonValue j = std::move(obj);
         
         auto result = try_save_atomic(filename, j, false);
@@ -1728,7 +1780,7 @@ FATP_TEST_CASE(atomic_save_basic) {
 FATP_TEST_CASE(atomic_save_safety) {
     FATP_SUBTEST("Atomic save to invalid path") {
         const std::string filename = "/invalid/path/test.json";
-        JsonValue j = to_json(42);
+        JsonValue j = json_encode(42);
         
         auto result = try_save_atomic(filename, j);
         
@@ -1739,7 +1791,7 @@ FATP_TEST_CASE(atomic_save_safety) {
     
     FATP_SUBTEST("Atomic save cleans up temp file on error") {
         const std::string filename = "/invalid/path/test.json";
-        JsonValue j = to_json(42);
+        JsonValue j = json_encode(42);
         
         auto result = try_save_atomic(filename, j);
         FATP_ASSERT_FALSE(result.has_value(), "Should fail");
@@ -1757,13 +1809,13 @@ FATP_TEST_CASE(atomic_save_safety) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("Atomic save overwrites existing file") {
-        const std::string filename = "test_atomic_overwrite.json";
+        const std::string filename = artifact_file("test_atomic_overwrite.json");
         
-        JsonValue j1 = to_json(42);
+        JsonValue j1 = json_encode(42);
         auto result1 = try_save_atomic(filename, j1);
         FATP_ASSERT_TRUE(result1.has_value(), "First save should succeed");
         
-        JsonValue j2 = to_json(99);
+        JsonValue j2 = json_encode(99);
         auto result2 = try_save_atomic(filename, j2);
         FATP_ASSERT_TRUE(result2.has_value(), "Second save should succeed");
         
@@ -1777,7 +1829,7 @@ FATP_TEST_CASE(atomic_save_safety) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("Atomic save with large data") {
-        const std::string filename = "test_atomic_large.json";
+        const std::string filename = artifact_file("test_atomic_large.json");
         std::string large_json = generate_large_json_array(1000);
         auto parsed = try_parse_json(large_json);
         FATP_ASSERT_TRUE(parsed.has_value(), "Should parse large data");
@@ -1801,11 +1853,11 @@ FATP_TEST_CASE(atomic_save_safety) {
 
 FATP_TEST_CASE(atomic_save_vs_regular) {
     FATP_SUBTEST("Compare atomic and regular save output") {
-        const std::string atomic_file = "test_compare_atomic.json";
-        const std::string regular_file = "test_compare_regular.json";
+        const std::string atomic_file = artifact_file("test_compare_atomic.json");
+        const std::string regular_file = artifact_file("test_compare_regular.json");
         
         Task task{"Compare", TaskStatus::Completed, Priority::Medium, 100};
-        JsonValue j = to_json(task);
+        JsonValue j = json_encode(task);
         
         auto atomic_result = try_save_atomic(atomic_file, j, true);
         FATP_ASSERT_TRUE(atomic_result.has_value(), "Atomic save should succeed");
@@ -1830,9 +1882,9 @@ FATP_TEST_CASE(atomic_save_vs_regular) {
     FATP_END_SUBTEST
     
     FATP_SUBTEST("Atomic save temp file uniqueness") {
-        const std::string filename = "test_atomic_unique.json";
-        JsonValue j1 = to_json(1);
-        JsonValue j2 = to_json(2);
+        const std::string filename = artifact_file("test_atomic_unique.json");
+        JsonValue j1 = json_encode(1);
+        JsonValue j2 = json_encode(2);
         
         auto result1 = try_save_atomic(filename, j1);
         FATP_ASSERT_TRUE(result1.has_value(), "First save should succeed");
@@ -1860,7 +1912,7 @@ FATP_TEST_CASE(atomic_save_vs_regular) {
                 for (int i = 0; i < SAVES_PER_THREAD; ++i) {
                     std::string filename = base_filename + std::to_string(t) + "_" + 
                                           std::to_string(i) + ".json";
-                    JsonValue j = to_json(t * 100 + i);
+                    JsonValue j = json_encode(t * 100 + i);
                     auto result = try_save_atomic(filename, j);
                     if (result.has_value()) {
                         success_count.fetch_add(1, std::memory_order_relaxed);
@@ -1888,7 +1940,7 @@ FATP_TEST_CASE(atomic_save_vs_regular) {
         // Most should succeed; final file should contain valid JSON from one of them.
         // Note: On Windows, rename() can fail under heavy contention even with retries.
         // This is expected behavior - atomic save prevents corruption, not contention failures.
-        const std::string filename = "test_atomic_same_file.json";
+        const std::string filename = artifact_file("test_atomic_same_file.json");
         constexpr int NUM_THREADS = 8;
         constexpr int SAVES_PER_THREAD = 10;
         constexpr int TOTAL_SAVES = NUM_THREADS * SAVES_PER_THREAD;
@@ -1901,7 +1953,7 @@ FATP_TEST_CASE(atomic_save_vs_regular) {
             threads.emplace_back([&, t]() {
                 for (int i = 0; i < SAVES_PER_THREAD; ++i) {
                     // Each thread writes its ID so we can verify valid content
-                    JsonValue j = to_json(t * 1000 + i);
+                    JsonValue j = json_encode(t * 1000 + i);
                     auto result = try_save_atomic(filename, j);
                     if (result.has_value()) {
                         success_count.fetch_add(1, std::memory_order_relaxed);
@@ -1990,7 +2042,7 @@ void benchmark_array_operations() {
     double std_time = measure_perf([]() {
         JsonArray arr;
         for (int j = 0; j < 5; ++j) {
-            arr.push_back(to_json(j));
+            arr.push_back(json_encode(j));
         }
         DoNotOptimize(arr);
     }, BENCHMARK_ITERATIONS, 100);
@@ -1998,7 +2050,7 @@ void benchmark_array_operations() {
     double fatp_time = measure_perf([]() {
         FatPJsonArray arr;
         for (int j = 0; j < 5; ++j) {
-            arr.push_back(to_json(j));
+            arr.push_back(json_encode(j));
         }
         DoNotOptimize(arr);
     }, BENCHMARK_ITERATIONS, 100);
@@ -2018,7 +2070,7 @@ void benchmark_object_operations() {
     double std_time = measure_perf([]() {
         JsonObject obj;
         for (int j = 0; j < 10; ++j) {
-            obj["key_" + std::to_string(j)] = to_json(j);
+            obj["key_" + std::to_string(j)] = json_encode(j);
         }
         DoNotOptimize(obj);
     }, BENCHMARK_ITERATIONS, 100);
@@ -2026,7 +2078,7 @@ void benchmark_object_operations() {
     double fatp_time = measure_perf([]() {
         FatPJsonObject<> obj;
         for (int j = 0; j < 10; ++j) {
-            obj["key_" + std::to_string(j)] = to_json(j);
+            obj["key_" + std::to_string(j)] = json_encode(j);
         }
         DoNotOptimize(obj);
     }, BENCHMARK_ITERATIONS, 100);
@@ -2117,7 +2169,7 @@ void benchmark_memory_mapped_io() {
                                << colors::reset() << "\n\n";
     
     {
-        std::ofstream ofs("test_mmap_bench.json");
+        std::ofstream ofs(artifact_file("test_mmap_bench.json"));
         ofs << generate_large_json_array(50000);
     }
     
@@ -2127,7 +2179,7 @@ void benchmark_memory_mapped_io() {
     }, 10, 1);
     
     double mmap_time = measure_perf([]() {
-        auto result = load_json_mmap("test_mmap_bench.json");
+        auto result = load_json_mmap(artifact_file("test_mmap_bench.json"));
         DoNotOptimize(result);
     }, 10, 1);
     
@@ -2138,7 +2190,7 @@ void benchmark_memory_mapped_io() {
     *get_test_config().output << "  Speedup:      " << std::fixed << std::setprecision(2) 
                                << speedup << "x faster\n\n";
     
-    std::remove("test_mmap_bench.json");
+    std::remove(artifact_file("test_mmap_bench.json").c_str());
 }
 
 FATP_TEST_CASE(json_pointer_basic) {

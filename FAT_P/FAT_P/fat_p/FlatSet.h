@@ -190,7 +190,7 @@ public:
         , mComp(comp)
     {
         // Trust caller - no sort, no dedup
-        enforce(std::is_sorted(mData.begin(), mData.end(), mComp),
+        FATP_ENFORCE(std::is_sorted(mData.begin(), mData.end(), mComp),
                 "FlatSet: ordered_unique_range input was not sorted");
     }
 
@@ -209,7 +209,7 @@ public:
         , mComp(comp)
     {
         // Trust caller on sorting - only dedup
-        enforce(std::is_sorted(mData.begin(), mData.end(), mComp),
+        FATP_ENFORCE(std::is_sorted(mData.begin(), mData.end(), mComp),
                 "FlatSet: ordered_range input was not sorted");
         auto lastUnique =
             std::unique(mData.begin(), mData.end(), [this](const T& a, const T& b) {
@@ -432,7 +432,7 @@ public:
         auto mid = mData.begin() + static_cast<difference_type>(oldSize);
         
         // Debug check: verify input was actually sorted
-        enforce(std::is_sorted(mid, mData.end(), mComp),
+        FATP_ENFORCE(std::is_sorted(mid, mData.end(), mComp),
                 "FlatSet::insert(ordered_unique_range): input was not sorted");
 
         // Skip sorting new elements - just merge
@@ -475,17 +475,17 @@ public:
 
     iterator erase(const_iterator pos)
     {
-        enforce(pos >= mData.cbegin() && pos < mData.cend(), "FlatSet::erase: invalid iterator");
+        FATP_ENFORCE(pos >= mData.cbegin() && pos < mData.cend(), "FlatSet::erase: invalid iterator");
         return mData.erase(toInternal(pos));
     }
 
     iterator erase(const_iterator first, const_iterator last)
     {
-        enforce(first >= mData.cbegin() && first <= mData.cend(),
+        FATP_ENFORCE(first >= mData.cbegin() && first <= mData.cend(),
                 "FlatSet::erase: invalid first iterator");
-        enforce(last >= mData.cbegin() && last <= mData.cend(),
+        FATP_ENFORCE(last >= mData.cbegin() && last <= mData.cend(),
                 "FlatSet::erase: invalid last iterator");
-        enforce(first <= last, "FlatSet::erase: invalid iterator range");
+        FATP_ENFORCE(first <= last, "FlatSet::erase: invalid iterator range");
         return mData.erase(toInternal(first), toInternal(last));
     }
 
@@ -506,7 +506,7 @@ public:
     /// @note The element is removed from the container after extraction
     value_type extract(const_iterator pos)
     {
-        enforce(pos >= cbegin() && pos < cend(), "FlatSet::extract: invalid iterator");
+        FATP_ENFORCE(pos >= cbegin() && pos < cend(), "FlatSet::extract: invalid iterator");
         auto internalIt = toInternal(pos);
         value_type result(std::move(*internalIt));
         mData.erase(internalIt);

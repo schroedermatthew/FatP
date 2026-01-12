@@ -625,7 +625,7 @@ public:
         auto expected = resolveExpected<T>(name);
         if (!expected.has_value())
         {
-            always_enforce(
+            FATP_ALWAYS_ENFORCE(
                 false,
                 "ServiceLocator::resolve failed: {}",
                 expected.error().fullMessage());
@@ -690,7 +690,7 @@ public:
         auto expected = createExpected<T>(name);
         if (!expected.has_value())
         {
-            always_enforce(
+            FATP_ALWAYS_ENFORCE(
                 false,
                 "ServiceLocator::create failed: {}",
                 expected.error().fullMessage());

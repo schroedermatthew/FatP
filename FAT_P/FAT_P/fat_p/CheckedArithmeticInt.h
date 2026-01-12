@@ -88,7 +88,7 @@ namespace fat_p {
 // Internal Helper: Non-constexpr Error Path
 // =============================================================================
 // Rationale: C++17 constexpr functions may not contain non-literal locals.
-// always_enforce() constructs an RAII enforcer (non-literal type), so we route
+// FATP_ALWAYS_ENFORCE() constructs an RAII enforcer (non-literal type), so we route
 // the failure path through a non-constexpr helper while preserving the caller's
 // FATP_LOCUS for accurate error reporting.
 //

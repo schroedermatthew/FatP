@@ -395,14 +395,14 @@ namespace fat_p {
     template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
     T& EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::get() {
         typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
-        always_enforce(static_cast<bool>(m_value), "Attempted to access EnforcedInit before init()");
+        FATP_ALWAYS_ENFORCE(static_cast<bool>(m_value), "Attempted to access EnforcedInit before init()");
         return m_value.value();
     }
 
     template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
     const T& EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::get() const {
         typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
-        always_enforce(static_cast<bool>(m_value), "Attempted to access EnforcedInit before init()");
+        FATP_ALWAYS_ENFORCE(static_cast<bool>(m_value), "Attempted to access EnforcedInit before init()");
         return m_value.value();
     }
 

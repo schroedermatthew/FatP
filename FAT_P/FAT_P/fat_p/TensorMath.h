@@ -240,7 +240,7 @@ public:
     }
     
     constexpr StaticTensor(std::initializer_list<T> init) {
-        always_enforce(init.size() == size, "Initializer size mismatch");
+        FATP_ALWAYS_ENFORCE(init.size() == size, "Initializer size mismatch");
         std::copy(init.begin(), init.end(), data_.begin());
     }
     

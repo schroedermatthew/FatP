@@ -45,6 +45,15 @@ namespace fs = std::filesystem;
 namespace
 {
 
+// Creates path to artifact file in Artifacts subdirectory
+std::string artifact_path(const std::string& filename)
+{
+    fs::path artifacts_dir = fs::current_path() / "Artifacts";
+    std::error_code ec;
+    fs::create_directories(artifacts_dir, ec);
+    return (artifacts_dir / filename).string();
+}
+
 std::string readFileContents(const std::string& filename)
 {
     std::ifstream file(filename);
@@ -80,7 +89,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
 
 FATP_TEST_CASE(file_sink_basic)
 {
-    std::string filename = "test_file_sink.log";
+    std::string filename = artifact_path("test_file_sink.log");
     if (fs::exists(filename))
     {
         std::error_code ec;
@@ -109,7 +118,7 @@ FATP_TEST_CASE(file_sink_basic)
 
 FATP_TEST_CASE(file_sink_multiple_writes)
 {
-    std::string filename = "test_file_sink_multi.log";
+    std::string filename = artifact_path("test_file_sink_multi.log");
     if (fs::exists(filename))
     {
         std::error_code ec;
@@ -138,7 +147,7 @@ FATP_TEST_CASE(file_sink_multiple_writes)
 
 FATP_TEST_CASE(file_sink_append_mode)
 {
-    std::string filename = "test_file_sink_append.log";
+    std::string filename = artifact_path("test_file_sink_append.log");
     if (fs::exists(filename))
     {
         std::error_code ec;
@@ -188,7 +197,7 @@ FATP_TEST_CASE(ring_buffer_sink)
         rbSink.write(record);
     }
     
-    std::string filename = "test_ring_buffer_dump.log";
+    std::string filename = artifact_path("test_ring_buffer_dump.log");
     if (fs::exists(filename))
     {
         std::error_code ec;
@@ -219,7 +228,7 @@ FATP_TEST_CASE(ring_buffer_overflow)
         rbSink.write(record);
     }
     
-    std::string filename = "test_ring_buffer_overflow.log";
+    std::string filename = artifact_path("test_ring_buffer_overflow.log");
     if (fs::exists(filename))
     {
         std::error_code ec;
@@ -241,7 +250,7 @@ FATP_TEST_CASE(ring_buffer_overflow)
 
 FATP_TEST_CASE(rotating_file_sink_basic)
 {
-    std::string filename = "test_rotate.log";
+    std::string filename = artifact_path("test_rotate.log");
     cleanupTestFiles(filename);
     
     {
@@ -266,7 +275,7 @@ FATP_TEST_CASE(rotating_file_sink_basic)
 
 FATP_TEST_CASE(rotating_file_sink_rotation)
 {
-    std::string filename = "test_rotate_check.log";
+    std::string filename = artifact_path("test_rotate_check.log");
     cleanupTestFiles(filename);
     
     {
@@ -299,8 +308,8 @@ FATP_TEST_CASE(rotating_file_sink_rotation)
 
 FATP_TEST_CASE(resilient_sink_primary_works)
 {
-    std::string filename = "test_resilient_primary.log";
-    std::string fallbackFile = "test_resilient_fallback.log";
+    std::string filename = artifact_path("test_resilient_primary.log");
+    std::string fallbackFile = artifact_path("test_resilient_fallback.log");
     
     if (fs::exists(filename))
     {
@@ -335,7 +344,7 @@ FATP_TEST_CASE(resilient_sink_primary_works)
 
 FATP_TEST_CASE(async_sink)
 {
-    std::string filename = "test_async.log";
+    std::string filename = artifact_path("test_async.log");
     if (fs::exists(filename))
     {
         std::error_code ec;
@@ -367,7 +376,7 @@ FATP_TEST_CASE(async_sink)
 
 FATP_TEST_CASE(async_sink_high_load)
 {
-    std::string filename = "test_async_load.log";
+    std::string filename = artifact_path("test_async_load.log");
     if (fs::exists(filename))
     {
         std::error_code ec;
@@ -411,7 +420,7 @@ FATP_TEST_CASE(async_sink_high_load)
 
 FATP_TEST_CASE(rate_limiting_sink)
 {
-    std::string filename = "test_rate_limit.log";
+    std::string filename = artifact_path("test_rate_limit.log");
     if (fs::exists(filename))
     {
         std::error_code ec;
@@ -442,7 +451,7 @@ FATP_TEST_CASE(rate_limiting_sink)
 
 FATP_TEST_CASE(rate_limiting_burst)
 {
-    std::string filename = "test_rate_burst.log";
+    std::string filename = artifact_path("test_rate_burst.log");
     if (fs::exists(filename))
     {
         std::error_code ec;
@@ -472,7 +481,7 @@ FATP_TEST_CASE(rate_limiting_burst)
 
 FATP_TEST_CASE(filtering_sink)
 {
-    std::string filename = "test_filter.log";
+    std::string filename = artifact_path("test_filter.log");
     if (fs::exists(filename))
     {
         std::error_code ec;
@@ -516,7 +525,7 @@ FATP_TEST_CASE(filtering_sink)
 
 FATP_TEST_CASE(filtering_sink_custom_filter)
 {
-    std::string filename = "test_filter_custom.log";
+    std::string filename = artifact_path("test_filter_custom.log");
     if (fs::exists(filename))
     {
         std::error_code ec;
@@ -551,7 +560,7 @@ FATP_TEST_CASE(filtering_sink_custom_filter)
 
 FATP_TEST_CASE(initialize_rotating_logger)
 {
-    std::string filename = "test_init_rotate.log";
+    std::string filename = artifact_path("test_init_rotate.log");
     cleanupTestFiles(filename);
     
     getGlobalLogger().clearSinks();
@@ -569,8 +578,8 @@ FATP_TEST_CASE(initialize_rotating_logger)
 
 FATP_TEST_CASE(combined_sinks)
 {
-    std::string file1 = "test_combined1.log";
-    std::string file2 = "test_combined2.log";
+    std::string file1 = artifact_path("test_combined1.log");
+    std::string file2 = artifact_path("test_combined2.log");
     
     if (fs::exists(file1))
     {
@@ -618,7 +627,7 @@ FATP_TEST_CASE(combined_sinks)
 
 FATP_TEST_CASE(async_sink_flush_consistency)
 {
-    std::string filename = "test_async_flush.log";
+    std::string filename = artifact_path("test_async_flush.log");
     cleanupTestFiles(filename);
 
     {
@@ -644,7 +653,7 @@ FATP_TEST_CASE(async_sink_flush_consistency)
 
 FATP_TEST_CASE(async_with_filtering)
 {
-    std::string filename = "test_async_filter.log";
+    std::string filename = artifact_path("test_async_filter.log");
     if (fs::exists(filename))
     {
         std::error_code ec;
@@ -680,7 +689,7 @@ void benchmark_io_sinks()
 {
     std::cout << "\n" << colors::cyan() << "DiagnosticLogger IO Benchmarks:" << colors::reset() << "\n\n";
     
-    std::string filename = "benchmark.log";
+    std::string filename = artifact_path("benchmark.log");
     if (fs::exists(filename))
     {
         std::error_code ec;
@@ -723,7 +732,7 @@ void benchmark_io_sinks()
 
 FATP_TEST_CASE(rotating_file_sink_scope_guard_safety)
 {
-    std::string filename = "test_rotate_guard.log";
+    std::string filename = artifact_path("test_rotate_guard.log");
     cleanupTestFiles(filename);
     
     {
@@ -813,7 +822,7 @@ FATP_TEST_CASE(resilient_sink_scope_guard_state_management)
         void flush() override {}
     };
     
-    std::string fallbackFile = "test_resilient_fallback_guard.log";
+    std::string fallbackFile = artifact_path("test_resilient_fallback_guard.log");
     if (fs::exists(fallbackFile))
     {
         std::error_code ec;
@@ -855,7 +864,7 @@ FATP_TEST_CASE(resilient_sink_scope_guard_state_management)
 
 FATP_TEST_CASE(rotating_file_sink_multiple_rotations_with_guard)
 {
-    std::string filename = "test_rotate_multi_guard.log";
+    std::string filename = artifact_path("test_rotate_multi_guard.log");
     cleanupTestFiles(filename);
     
     {

@@ -562,7 +562,7 @@ public:
     [[nodiscard]] bool registerType(const K& key, Callable&& creator) {
         typename ConcurrencyPolicy::LockGuard lock(this->getLock());
         if constexpr (std::is_pointer_v<K>) {
-            debug_enforce(key != nullptr, "Factory: null key");
+            FATP_DEBUG_ENFORCE(key != nullptr, "Factory: null key");
         }
         return RegistrationPolicy::insert(
             registry_, key, CreatorFunction(std::forward<Callable>(creator)), stats_);

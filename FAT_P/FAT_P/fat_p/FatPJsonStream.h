@@ -405,7 +405,7 @@ public:
 
     const JsonValue& result() const
     {
-        enforce(parser_.is_done(), "parsing not complete");
+        FATP_ENFORCE(parser_.is_done(), "parsing not complete");
         return parser_.result();
     }
 

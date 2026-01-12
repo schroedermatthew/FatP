@@ -90,7 +90,7 @@ namespace fat_p {
  * @brief Policy that throws exceptions on arithmetic errors
  *
  * This is the default policy. When an error is detected (overflow, etc.),
- * the operation throws an exception via always_enforce().
+ * the operation throws an exception via FATP_ALWAYS_ENFORCE().
  *
  * Use this when:
  * - Arithmetic errors are truly exceptional

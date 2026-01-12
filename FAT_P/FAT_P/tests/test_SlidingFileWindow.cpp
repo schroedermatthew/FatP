@@ -38,9 +38,12 @@ FATP_META:
 
 #include "FatPTest.h"
 #include "SlidingFileWindow.h"
+#include "test_FatP.h"
 
 namespace fat_p::testing::slidingfilewindow
 {
+
+using fat_p::testing::artifact_file;
 
 namespace fs = std::filesystem;
 
@@ -169,7 +172,7 @@ void create_large_test_file(const std::string& filename, size_t count)
 
 FATP_TEST_CASE(basic_open_close)
 {
-    const std::string filename = "test_basic.bin";
+    const std::string filename = artifact_file("test_basic.bin");
     const size_t element_count = 100;
     create_test_file(filename, element_count);
     TempFile cleanup(filename);
@@ -190,7 +193,7 @@ FATP_TEST_CASE(basic_open_close)
 
 FATP_TEST_CASE(element_access)
 {
-    const std::string filename = "test_access.bin";
+    const std::string filename = artifact_file("test_access.bin");
     const size_t element_count = 50;
     create_test_file(filename, element_count);
     TempFile cleanup(filename);
@@ -219,7 +222,7 @@ FATP_TEST_CASE(element_access)
 
 FATP_TEST_CASE(window_shifting)
 {
-    const std::string filename = "test_shift.bin";
+    const std::string filename = artifact_file("test_shift.bin");
     const size_t element_count = 100;
     create_test_file(filename, element_count);
     TempFile cleanup(filename);
@@ -251,7 +254,7 @@ FATP_TEST_CASE(window_shifting)
 
 FATP_TEST_CASE(binary_serialization)
 {
-    const std::string filename = "test_binary.bin";
+    const std::string filename = artifact_file("test_binary.bin");
     const size_t element_count = 50;
 
     {
@@ -286,7 +289,7 @@ FATP_TEST_CASE(binary_serialization)
 
 FATP_TEST_CASE(large_file)
 {
-    const std::string filename = "test_large.bin";
+    const std::string filename = artifact_file("test_large.bin");
     const size_t element_count = 10000;
     const size_t window_size = 100;
 
@@ -325,7 +328,7 @@ FATP_TEST_CASE(error_handling)
     FATP_ASSERT_TRUE(!elem.has_value(), "Should fail to access closed window");
     FATP_ASSERT_TRUE(elem.error() == fat_p::FileError::FileNotOpen, "Should report FileNotOpen error");
 
-    const std::string filename = "test_error.bin";
+    const std::string filename = artifact_file("test_error.bin");
     create_test_file(filename, 10);
     TempFile cleanup(filename);
 
@@ -345,7 +348,7 @@ FATP_TEST_CASE(error_handling)
 
 FATP_TEST_CASE(thread_safety)
 {
-    const std::string filename = "test_threadsafe.bin";
+    const std::string filename = artifact_file("test_threadsafe.bin");
     const size_t element_count = 1000;
     create_test_file(filename, element_count);
     TempFile cleanup(filename);
@@ -400,7 +403,7 @@ FATP_TEST_CASE(thread_safety)
 
 FATP_TEST_CASE(lag_offset)
 {
-    const std::string filename = "test_lag.bin";
+    const std::string filename = artifact_file("test_lag.bin");
     const size_t element_count = 100;
     create_test_file(filename, element_count);
     TempFile cleanup(filename);
@@ -425,7 +428,7 @@ FATP_TEST_CASE(lag_offset)
 
 FATP_TEST_CASE(persistence)
 {
-    const std::string filename = "test_persist.bin";
+    const std::string filename = artifact_file("test_persist.bin");
     const size_t element_count = 50;
     create_test_file(filename, element_count);
     TempFile cleanup(filename);
@@ -463,7 +466,7 @@ FATP_TEST_CASE(persistence)
 
 FATP_TEST_CASE(empty_file)
 {
-    const std::string filename = "test_empty.bin";
+    const std::string filename = artifact_file("test_empty.bin");
     {
         std::ofstream empty_file(filename, std::ios::binary);
     }
@@ -482,7 +485,7 @@ FATP_TEST_CASE(empty_file)
 
 FATP_TEST_CASE(single_element)
 {
-    const std::string filename = "test_single.bin";
+    const std::string filename = artifact_file("test_single.bin");
     create_test_file(filename, 1);
     TempFile cleanup(filename);
 
@@ -502,7 +505,7 @@ FATP_TEST_CASE(single_element)
 
 FATP_TEST_CASE(window_larger_than_file)
 {
-    const std::string filename = "test_small.bin";
+    const std::string filename = artifact_file("test_small.bin");
     create_test_file(filename, 5);
     TempFile cleanup(filename);
 
@@ -524,7 +527,7 @@ void benchmark_slidingfilewindow()
 {
     std::cout << "\n" << colors::cyan() << "SlidingFileWindow Benchmarks:" << colors::reset() << "\n\n";
 
-    const std::string filename = "bench_sliding.bin";
+    const std::string filename = artifact_file("bench_sliding.bin");
     const size_t element_count = 100000;
     const size_t window_size = 1000;
 

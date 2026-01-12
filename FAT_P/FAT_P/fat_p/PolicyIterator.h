@@ -288,11 +288,11 @@ private:
             } else {
                 auto offset = mPolicy.currentOffset();
                 // Compute span as integer - NO pointer arithmetic yet
-                // [[maybe_unused]] because enforce() compiles out in release
+                // [[maybe_unused]] because FATP_ENFORCE() compiles out in release
                 [[maybe_unused]] auto span = mEnd - mBase;
                 // Integer comparisons - safe, no UB possible
-                enforce(offset >= 0, "Tensor offset cannot be negative");
-                enforce(offset < span, "Tensor offset exceeds buffer bounds");
+                FATP_ENFORCE(offset >= 0, "Tensor offset cannot be negative");
+                FATP_ENFORCE(offset < span, "Tensor offset exceeds buffer bounds");
                 // NOW safe to form pointer
                 mPtr = mBase + offset;
             }
@@ -426,26 +426,26 @@ public:
 
     [[nodiscard]] reference operator*() const {
         if constexpr (detail::has_transformer<Policy>::value) {
-            enforce(mTransformer.has_value(), "Transformer not initialized");
-            enforce(mPtr < mEnd, "Cannot dereference end iterator");
+            FATP_ENFORCE(mTransformer.has_value(), "Transformer not initialized");
+            FATP_ENFORCE(mPtr < mEnd, "Cannot dereference end iterator");
             return mPolicy.dereference(mPtr, *mTransformer);
         }
         else if constexpr (detail::is_tensor_policy<Policy>::value) {
-            enforce(!mPolicy.atEnd(), "Cannot dereference end iterator");
+            FATP_ENFORCE(!mPolicy.atEnd(), "Cannot dereference end iterator");
             return *mPtr;
         }
         else {
-            enforce(mPtr < mEnd, "Cannot dereference end iterator");
+            FATP_ENFORCE(mPtr < mEnd, "Cannot dereference end iterator");
             return *mPtr;
         }
     }
 
     [[nodiscard]] pointer operator->() const { 
         if constexpr (detail::is_tensor_policy<Policy>::value) {
-            enforce(!mPolicy.atEnd(), "Cannot dereference end iterator");
+            FATP_ENFORCE(!mPolicy.atEnd(), "Cannot dereference end iterator");
         }
         else {
-            enforce(mPtr < mEnd, "Cannot dereference end iterator");
+            FATP_ENFORCE(mPtr < mEnd, "Cannot dereference end iterator");
         }
         return mPtr; 
     }
@@ -456,14 +456,14 @@ public:
 
     PolicyIterator& operator++() {
         if constexpr (detail::is_tensor_policy<Policy>::value) {
-            enforce(!mPolicy.atEnd(), "Iterator past end");
+            FATP_ENFORCE(!mPolicy.atEnd(), "Iterator past end");
             mPolicy.advance();
             syncPtrFromTensor();
         }
         else {
-            enforce(mPtr < mEnd, "Iterator past end");
+            FATP_ENFORCE(mPtr < mEnd, "Iterator past end");
             if constexpr (detail::has_predicate<Policy>::value) {
-                enforce(mPredicate.has_value(), "Predicate not initialized");
+                FATP_ENFORCE(mPredicate.has_value(), "Predicate not initialized");
                 mPolicy.advance(mPtr, mEnd, *mPredicate);
             }
             else if constexpr (detail::has_stride<Policy>::value || detail::needs_end_clamp<Policy>::value) {
@@ -490,7 +490,7 @@ public:
             syncPtrFromTensor();
         }
         else {
-            enforce(mPtr > mBase, "Cannot retreat before begin");
+            FATP_ENFORCE(mPtr > mBase, "Cannot retreat before begin");
             mPolicy.retreat(mPtr);
         }
         return *this;

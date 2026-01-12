@@ -313,18 +313,20 @@ jobs:
           echo "  - Boost (boost/align/aligned_allocator)"
           echo "  - Eigen3 (Eigen::aligned_allocator)"
 
-      - name: Check AVX2 support
+      - name: Detect AVX2 support
         run: |
           if grep -q avx2 /proc/cpuinfo; then
-            echo "✓ AVX2 supported"
+            echo "AVX_FLAGS=-mavx2 -mfma" >> "$GITHUB_ENV"
+            echo "✓ AVX2 supported (building with -mavx2 -mfma)"
           else
-            echo "⚠ AVX2 not supported on this runner"
+            echo "AVX_FLAGS=" >> "$GITHUB_ENV"
+            echo "⚠ AVX2 not supported on this runner (building without AVX2 flags)"
           fi
 
       - name: Build benchmark
         run: |
           g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
-            -O3 -DNDEBUG -mavx2 -mfma \
+            -O3 -DNDEBUG $AVX_FLAGS \
             -I./FAT_P/FAT_P/fat_p \
             -I/usr/include/eigen3 \
             FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp -o bench_av
@@ -386,18 +388,20 @@ jobs:
           echo "  - Boost (boost/align/aligned_allocator)"
           echo "  - Eigen3 (Eigen::aligned_allocator)"
 
-      - name: Check AVX2 support
+      - name: Detect AVX2 support
         run: |
           if grep -q avx2 /proc/cpuinfo; then
-            echo "✓ AVX2 supported"
+            echo "AVX_FLAGS=-mavx2 -mfma" >> "$GITHUB_ENV"
+            echo "✓ AVX2 supported (building with -mavx2 -mfma)"
           else
-            echo "⚠ AVX2 not supported on this runner"
+            echo "AVX_FLAGS=" >> "$GITHUB_ENV"
+            echo "⚠ AVX2 not supported on this runner (building without AVX2 flags)"
           fi
 
       - name: Build benchmark
         run: |
           clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
-            -O3 -DNDEBUG -mavx2 -mfma \
+            -O3 -DNDEBUG $AVX_FLAGS \
             -I./FAT_P/FAT_P/fat_p \
             -I/usr/include/eigen3 \
             FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp -o bench_av

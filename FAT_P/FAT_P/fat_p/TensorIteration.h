@@ -191,7 +191,7 @@ inline void computeRowMajorStrides(const std::size_t* shape,
  * @pre All shape dimensions > 0
  * @pre All strides > 0
  *
- * Iteration order: dim[0] (slowest) → dim[1] → ... → dim[N-1] (fastest)
+ * Iteration order: dim[0] (slowest) â†’ dim[1] â†’ ... â†’ dim[N-1] (fastest)
  *
  * @par Performance
  * Equivalent to hand-written nested loops. The innermost 2 dimensions
@@ -223,17 +223,17 @@ void iterateND(T* base,
                std::initializer_list<std::size_t> shape,
                std::initializer_list<std::ptrdiff_t> strides,
                Func&& fn) {
-    enforce(shape.size() == strides.size(), "Shape and strides must have same size");
-    enforce(shape.size() >= 1, "At least 1 dimension required");
+    FATP_ENFORCE(shape.size() == strides.size(), "Shape and strides must have same size");
+    FATP_ENFORCE(shape.size() >= 1, "At least 1 dimension required");
     
-    // Use SmallVector to avoid heap allocation for typical tensor ranks (≤8D)
+    // Use SmallVector to avoid heap allocation for typical tensor ranks (â‰¤8D)
     SmallVector<std::size_t, 8> shapeVec(shape);
     SmallVector<std::ptrdiff_t, 8> strideVec(strides);
     
     // Contract enforcement (debug): prevent UB from negative/zero strides before pointer arithmetic
     for (std::size_t i = 0; i < shapeVec.size(); ++i) {
-        enforce(shapeVec[i] > 0, "All dimensions must be > 0");
-        enforce(strideVec[i] > 0, "All strides must be > 0");
+        FATP_ENFORCE(shapeVec[i] > 0, "All dimensions must be > 0");
+        FATP_ENFORCE(strideVec[i] > 0, "All strides must be > 0");
     }
     
     detail::iterateNDImpl(base, shapeVec.data(), strideVec.data(),
@@ -260,14 +260,14 @@ template <typename T, typename Func>
 void iterateND(T* base,
                std::initializer_list<std::size_t> shape,
                Func&& fn) {
-    enforce(shape.size() >= 1, "At least 1 dimension required");
+    FATP_ENFORCE(shape.size() >= 1, "At least 1 dimension required");
     
     SmallVector<std::size_t, 8> shapeVec(shape);
     SmallVector<std::ptrdiff_t, 8> strideVec(shape.size());
     
     // Contract enforcement (debug): dimensions must be non-zero for row-major traversal
     for (std::size_t i = 0; i < shapeVec.size(); ++i) {
-        enforce(shapeVec[i] > 0, "All dimensions must be > 0");
+        FATP_ENFORCE(shapeVec[i] > 0, "All dimensions must be > 0");
     }
     
     detail::computeRowMajorStrides(shapeVec.data(), strideVec.data(), shapeVec.size());
@@ -430,16 +430,16 @@ void forEachSlice(T* base,
                   std::initializer_list<std::size_t> shape,
                   std::initializer_list<std::ptrdiff_t> strides,
                   SliceFunc&& fn) {
-    enforce(shape.size() >= 2, "forEachSlice requires at least 2 dimensions");
-    enforce(shape.size() == strides.size(), "Shape and strides must have same size");
+    FATP_ENFORCE(shape.size() >= 2, "forEachSlice requires at least 2 dimensions");
+    FATP_ENFORCE(shape.size() == strides.size(), "Shape and strides must have same size");
     
     SmallVector<std::size_t, 8> shapeVec(shape);
     SmallVector<std::ptrdiff_t, 8> strideVec(strides);
     
     // Contract enforcement (debug): prevent UB from negative/zero strides before pointer arithmetic
     for (std::size_t i = 0; i < shapeVec.size(); ++i) {
-        enforce(shapeVec[i] > 0, "All dimensions must be > 0");
-        enforce(strideVec[i] > 0, "All strides must be > 0");
+        FATP_ENFORCE(shapeVec[i] > 0, "All dimensions must be > 0");
+        FATP_ENFORCE(strideVec[i] > 0, "All strides must be > 0");
     }
     
     for (std::size_t i = 0; i < shapeVec[0]; ++i) {
@@ -455,14 +455,14 @@ template <typename T, typename SliceFunc>
 void forEachSlice(T* base,
                   std::initializer_list<std::size_t> shape,
                   SliceFunc&& fn) {
-    enforce(shape.size() >= 2, "forEachSlice requires at least 2 dimensions");
+    FATP_ENFORCE(shape.size() >= 2, "forEachSlice requires at least 2 dimensions");
     
     SmallVector<std::size_t, 8> shapeVec(shape);
     SmallVector<std::ptrdiff_t, 8> strideVec(shape.size());
     
     // Contract enforcement (debug): dimensions must be non-zero for row-major traversal
     for (std::size_t i = 0; i < shapeVec.size(); ++i) {
-        enforce(shapeVec[i] > 0, "All dimensions must be > 0");
+        FATP_ENFORCE(shapeVec[i] > 0, "All dimensions must be > 0");
     }
     
     detail::computeRowMajorStrides(shapeVec.data(), strideVec.data(), shapeVec.size());

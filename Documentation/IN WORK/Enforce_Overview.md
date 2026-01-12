@@ -163,11 +163,11 @@ enforce<my_predicate>(value);              // my_predicate::check(value)
 ### 2. Raiser Options
 
 ```cpp
-// always_enforce: Always enabled, throws
-always_enforce(condition, "Message");
+// FATP_ALWAYS_ENFORCE: Always enabled, throws
+FATP_ALWAYS_ENFORCE(condition, "Message");
 
-// debug_enforce: Enabled in debug, disabled in release
-debug_enforce(condition, "Debug-only check");
+// FATP_DEBUG_ENFORCE: Enabled in debug, disabled in release
+FATP_DEBUG_ENFORCE(condition, "Debug-only check");
 
 // Custom raiser
 enforce<predicate, log_and_continue>(value);
@@ -217,11 +217,11 @@ enforce_any<has_value, has_default>(optional, default_value);
 
 | If You Need... | Why Not assert() | Why Not if/throw | Why Not Boost.Assert | Fat-P Advantage |
 |----------------|------------------|------------------|---------------------|-----------------|
-| Release builds | ❌ Disabled by NDEBUG | ✅ Works | ✅ Works | ✅ always_enforce |
-| Policy selection | ❌ Fixed abort | ❌ Fixed throw | Limited | ✅ Raiser + Context |
-| Predicate composition | ❌ Manual | ❌ Manual | ❌ Manual | ✅ Composable |
-| Zero-overhead disable | ✅ Compiled out | ❌ Always present | ✅ Compiled out | ✅ if constexpr |
-| Expression capture | ❌ No | ❌ Manual | Partial | ✅ enforce_that |
+| Release builds | âŒ Disabled by NDEBUG | âœ… Works | âœ… Works | âœ… FATP_ALWAYS_ENFORCE |
+| Policy selection | âŒ Fixed abort | âŒ Fixed throw | Limited | âœ… Raiser + Context |
+| Predicate composition | âŒ Manual | âŒ Manual | âŒ Manual | âœ… Composable |
+| Zero-overhead disable | âœ… Compiled out | âŒ Always present | âœ… Compiled out | âœ… if constexpr |
+| Expression capture | âŒ No | âŒ Manual | Partial | âœ… enforce_that |
 
 **The Sweet Spot:** Enforce is the only option combining predicate composition, raiser customization, contextual policies, and zero-overhead disabling.
 
@@ -251,15 +251,15 @@ Enforce provides contracts **today** with architectural flexibility the standard
 ```cpp
 // assert (NDEBUG undefined)
 assert(ptr != nullptr);
-// → if (!ptr) { __assert_fail(...); }
+// â†’ if (!ptr) { __assert_fail(...); }
 
 // Enforce (always enabled)
-always_enforce(ptr != nullptr, "...");
-// → if (!ptr) { throw contract_violation(...); }
+FATP_ALWAYS_ENFORCE(ptr != nullptr, "...");
+// â†’ if (!ptr) { throw contract_violation(...); }
 
 // Enforce (disabled)
-debug_enforce<my_policy>(ptr != nullptr, "...");
-// → (nothing - entire check eliminated)
+FATP_DEBUG_ENFORCE<my_policy>(ptr != nullptr, "...");
+// â†’ (nothing - entire check eliminated)
 ```
 
 ### Where Fat-P Wins
@@ -268,9 +268,9 @@ debug_enforce<my_policy>(ptr != nullptr, "...");
 - Debug/release builds needing different violation behavior
 
 ### Where Fat-P Loses (Honesty Builds Trust)
-- Simple debugging → `assert()` is more familiar
-- No customization needed → `if/throw` is simpler
-- Contract expressions only → wait for standard contracts
+- Simple debugging â†’ `assert()` is more familiar
+- No customization needed â†’ `if/throw` is simpler
+- Contract expressions only â†’ wait for standard contracts
 
 ---
 
@@ -278,12 +278,12 @@ debug_enforce<my_policy>(ptr != nullptr, "...");
 
 ```
 enforce.h
-    ↓ components
+    â†“ components
 enforce_predicates.h     (not_null, positive, in_range, ...)
 enforce_raisers.h        (throw_raiser, abort_raiser, log_raiser)
 enforce_contextual.h     (policy contexts)
 enforce_contextual_policies.h (debug_policy, release_policy)
-    ↓ used by
+    â†“ used by
 SmallVector.h            (bounds checking)
 CheckedArithmetic.h      (ThrowOnErrorPolicy)
 Expected.h               (bad_expected_access)
@@ -309,4 +309,4 @@ You choose what to check (predicate), how to report (raiser), and where policies
 
 ---
 
-*enforce.h — Fat-P Library*
+*enforce.h â€” Fat-P Library*

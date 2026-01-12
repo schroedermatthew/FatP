@@ -161,7 +161,7 @@ void process(const Data& data)
 {
     // If data.is_valid() is false, the caller has a bug.
     // This is not a runtime condition; it is a programming error.
-    always_enforce(data.is_valid(), "Invalid data passed to process()");
+    FATP_ALWAYS_ENFORCE(data.is_valid(), "Invalid data passed to process()");
     // ...
 }
 ```
@@ -238,7 +238,7 @@ When a policy specifies no action (like `DebugOnlyPolicy` in release builds), th
 ```mermaid
 flowchart TB
     subgraph UserCode["User Code"]
-        UC["enforce(ptr != nullptr, 'pointer is null')"]
+        UC["FATP_ENFORCE(ptr != nullptr, 'pointer is null')"]
     end
     
     subgraph Macros["enforce.h Macros"]
@@ -247,7 +247,7 @@ flowchart TB
     
     UserCode --> Macros
     
-    Macros --> RS["RaiserSelector<br/>Policy to Raiser mapping<br/>DebugOnly → NoOp<br/>Always → Logic<br/>Warning → Cerr"]
+    Macros --> RS["RaiserSelector<br/>Policy to Raiser mapping<br/>DebugOnly â†’ NoOp<br/>Always â†’ Logic<br/>Warning â†’ Cerr"]
     Macros --> ENF["Enforcer<br/>RAII object that<br/>calls Raiser on<br/>destruction if<br/>condition failed"]
     Macros --> MB["MessageBuilder<br/>Builds formatted<br/>error message from<br/>variadic args"]
     
@@ -269,11 +269,11 @@ The central insight is that the *consequence* of a contract violation should be 
 ```cpp
 // The same logical check with different consequences:
 
-enforce(ptr != nullptr, "...");        // Debug: throw, Release: nothing
-always_enforce(ptr != nullptr, "..."); // Always throw
-enforce_warn(ptr != nullptr, "...");   // Log and continue
-noexcept_enforce(ptr != nullptr, "...");// Call handler, never throw
-abort_enforce(ptr != nullptr, "...");  // Immediate termination
+FATP_ENFORCE(ptr != nullptr, "...");        // Debug: throw, Release: nothing
+FATP_ALWAYS_ENFORCE(ptr != nullptr, "..."); // Always throw
+FATP_ENFORCE_WARN(ptr != nullptr, "...");   // Log and continue
+FATP_NOEXCEPT_ENFORCE(ptr != nullptr, "...");// Call handler, never throw
+FATP_ABORT_ENFORCE(ptr != nullptr, "...");  // Immediate termination
 ```
 
 This is implemented through the `RaiserSelector` template, which maps policies to raisers at compile time:
@@ -357,7 +357,7 @@ For contextual enforcement (noexcept-aware):
 double safe_divide(double numerator, double denominator)
 {
     // Precondition: denominator must not be zero
-    always_enforce(denominator != 0.0, "Division by zero: denominator=", denominator);
+    FATP_ALWAYS_ENFORCE(denominator != 0.0, "Division by zero: denominator=", denominator);
     
     return numerator / denominator;
 }
@@ -366,7 +366,7 @@ double safe_divide(double numerator, double denominator)
 void process_data(const std::vector<int>& data, size_t index)
 {
     // Debug-only bounds check (zero overhead in release)
-    enforce(index < data.size(), 
+    FATP_ENFORCE(index < data.size(), 
             "Index out of bounds: index=", index, " size=", data.size());
     
     // Use the data...
@@ -413,29 +413,29 @@ g++ -std=c++17 -O2 -DNDEBUG example.cpp -o example_release
 
 | Macro | Active In | On Failure |
 |-------|-----------|------------|
-| `enforce(cond, ...)` | Debug only | Throws `LogicContractError` |
-| `always_enforce(cond, ...)` | Always | Throws `LogicContractError` |
-| `enforce_warn(cond, ...)` | Always | Logs to stderr, continues |
-| `noexcept_enforce(cond, ...)` | Always | Calls violation handler, no throw |
-| `abort_enforce(cond, ...)` | Always | Calls `std::abort()` |
+| `FATP_ENFORCE(cond, ...)` | Debug only | Throws `LogicContractError` |
+| `FATP_ALWAYS_ENFORCE(cond, ...)` | Always | Throws `LogicContractError` |
+| `FATP_ENFORCE_WARN(cond, ...)` | Always | Logs to stderr, continues |
+| `FATP_NOEXCEPT_ENFORCE(cond, ...)` | Always | Calls violation handler, no throw |
+| `FATP_ABORT_ENFORCE(cond, ...)` | Always | Calls `std::abort()` |
 
 ```cpp
 void example(int* ptr, int count)
 {
     // Debug-only check - zero overhead in release
-    enforce(ptr != nullptr, "Null pointer");
+    FATP_ENFORCE(ptr != nullptr, "Null pointer");
     
     // Always checked - for public API boundaries
-    always_enforce(count > 0, "Count must be positive, got: ", count);
+    FATP_ALWAYS_ENFORCE(count > 0, "Count must be positive, got: ", count);
     
     // Warning only - log and continue
-    enforce_warn(count < 1000, "Large count may be slow: ", count);
+    FATP_ENFORCE_WARN(count < 1000, "Large count may be slow: ", count);
     
     // For noexcept functions and destructors
-    noexcept_enforce(is_valid_state(), "Invalid state");
+    FATP_NOEXCEPT_ENFORCE(is_valid_state(), "Invalid state");
     
     // For unrecoverable errors
-    abort_enforce(googole_connection_ok(), "Lost connection");
+    FATP_ABORT_ENFORCE(googole_connection_ok(), "Lost connection");
 }
 ```
 
@@ -445,14 +445,14 @@ These macros return `Expected<void, std::string>` instead of throwing:
 
 | Macro | Returns |
 |-------|---------|
-| `enforce_expected(cond, ...)` | `Expected<void, std::string>` |
-| `always_enforce_expected(cond, ...)` | `Expected<void, std::string>` |
-| `enforce_predicate_expected(Pred, target, ...)` | `Expected<bool, std::string>` |
+| `FATP_ENFORCE_EXPECTED(cond, ...)` | `Expected<void, std::string>` |
+| `FATP_ALWAYS_ENFORCE_EXPECTED(cond, ...)` | `Expected<void, std::string>` |
+| `FATP_ENFORCE_PREDICATE_EXPECTED(Pred, target, ...)` | `Expected<bool, std::string>` |
 
 ```cpp
 fat_p::Expected<int, std::string> parse_positive(const std::string& s)
 {
-    auto check = enforce_expected(!s.empty(), "Empty input string");
+    auto check = FATP_ENFORCE_EXPECTED(!s.empty(), "Empty input string");
     if (!check)
     {
         return fat_p::unexpected(check.error());
@@ -460,7 +460,7 @@ fat_p::Expected<int, std::string> parse_positive(const std::string& s)
     
     int value = std::stoi(s);
     
-    check = enforce_expected(value > 0, "Value must be positive, got: ", value);
+    check = FATP_ENFORCE_EXPECTED(value > 0, "Value must be positive, got: ", value);
     if (!check)
     {
         return fat_p::unexpected(check.error());
@@ -476,38 +476,38 @@ Generic predicate macros work with any predicate type:
 
 ```cpp
 // Single argument predicates
-always_enforce_1(NotNullPredicate, ptr, "Pointer is null");
-enforce_1(IsPositivePredicate, count, "Count must be positive");
+FATP_ALWAYS_ENFORCE_1(NotNullPredicate, ptr, "Pointer is null");
+FATP_ENFORCE_1(IsPositivePredicate, count, "Count must be positive");
 
 // Two argument predicates
-always_enforce_2(ValidIndexPredicate, idx, container, "Index out of bounds");
-always_enforce_2(HasSizePredicate, expected, container, "Wrong size");
+FATP_ALWAYS_ENFORCE_2(ValidIndexPredicate, idx, container, "Index out of bounds");
+FATP_ALWAYS_ENFORCE_2(HasSizePredicate, expected, container, "Wrong size");
 
 // Three argument predicates
-always_enforce_3(InRangePredicate, value, min, max, "Value out of range");
-always_enforce_3(ApproxEqualPredicate, epsilon, a, b, "Values not equal");
+FATP_ALWAYS_ENFORCE_3(InRangePredicate, value, min, max, "Value out of range");
+FATP_ALWAYS_ENFORCE_3(ApproxEqualPredicate, epsilon, a, b, "Values not equal");
 ```
 
 Convenience macros for common predicates:
 
 ```cpp
 // Null checks
-always_enforce_not_null(ptr, "Null pointer");
-debug_enforce_not_null(ptr, "Debug null check");
+FATP_ALWAYS_ENFORCE_NOT_NULL(ptr, "Null pointer");
+FATP_DEBUG_ENFORCE_NOT_NULL(ptr, "Debug null check");
 
 // Numeric checks
-always_enforce_is_positive(count, "Must be positive");
-always_enforce_is_non_negative(offset, "Must be non-negative");
-always_enforce_in_range(0, 100, value, "Value out of range");
+FATP_ALWAYS_ENFORCE_IS_POSITIVE(count, "Must be positive");
+FATP_ALWAYS_ENFORCE_IS_NON_NEGATIVE(offset, "Must be non-negative");
+FATP_ALWAYS_ENFORCE_IN_RANGE(0, 100, value, "Value out of range");
 
 // Container checks
-always_enforce_not_empty(container, "Container is empty");
-always_enforce_is_sorted(container, "Container must be sorted");
-always_enforce_valid_index(idx, container, "Invalid index");
+FATP_ALWAYS_ENFORCE_NOT_EMPTY(container, "Container is empty");
+FATP_ALWAYS_ENFORCE_IS_SORTED(container, "Container must be sorted");
+FATP_ALWAYS_ENFORCE_VALID_INDEX(idx, container, "Invalid index");
 
 // Floating-point checks
-always_enforce_is_finite(result, "Result is NaN or Inf");
-always_enforce_approx_equal(0.001, expected, actual, "Values differ");
+FATP_ALWAYS_ENFORCE_IS_FINITE(result, "Result is NaN or Inf");
+FATP_ALWAYS_ENFORCE_APPROX_EQUAL(0.001, expected, actual, "Values differ");
 ```
 
 ---
@@ -520,7 +520,7 @@ Active only in debug builds (when `NDEBUG` is not defined). Compiles to zero ins
 
 ```cpp
 // Only checked in debug builds
-enforce(index < size, "Index out of bounds");
+FATP_ENFORCE(index < size, "Index out of bounds");
 ```
 
 Use for internal invariants that should never fail if the code is correct, but are too expensive to check in production.
@@ -531,7 +531,7 @@ Active in all builds. Throws `LogicContractError` on failure.
 
 ```cpp
 // Always checked, even in release
-always_enforce(user_input > 0, "Invalid input: ", user_input);
+FATP_ALWAYS_ENFORCE(user_input > 0, "Invalid input: ", user_input);
 ```
 
 Use for public API preconditions where callers might pass invalid arguments.
@@ -542,7 +542,7 @@ Logs the violation to stderr but continues execution.
 
 ```cpp
 // Logs warning but continues
-enforce_warn(cache.size() < 10000, "Cache growing large: ", cache.size());
+FATP_ENFORCE_WARN(cache.size() < 10000, "Cache growing large: ", cache.size());
 ```
 
 Use for non-critical conditions where you want visibility without stopping execution.
@@ -554,7 +554,7 @@ Calls the global violation handler but never throws. Safe for `noexcept` functio
 ```cpp
 ~Resource() noexcept
 {
-    noexcept_enforce(handle_ != INVALID_HANDLE, "Invalid handle in destructor");
+    FATP_NOEXCEPT_ENFORCE(handle_ != INVALID_HANDLE, "Invalid handle in destructor");
     release(handle_);
 }
 ```
@@ -571,7 +571,7 @@ Immediately terminates the program with `std::abort()`.
 
 ```cpp
 // No recovery possible - terminate immediately
-abort_enforce(googole_connection_ok(), "Critical: lost connection");
+FATP_ABORT_ENFORCE(googole_connection_ok(), "Critical: lost connection");
 ```
 
 Use for truly unrecoverable situations where continuing would cause data corruption or security vulnerabilities.
@@ -645,10 +645,10 @@ Predicates are reusable condition checks that provide semantic meaning and type 
 Error messages support variadic arguments that are automatically converted to strings:
 
 ```cpp
-always_enforce(count > 0, "Count must be positive, got: ", count);
+FATP_ALWAYS_ENFORCE(count > 0, "Count must be positive, got: ", count);
 // Output: "Count must be positive, got: -5"
 
-always_enforce(index < size, 
+FATP_ALWAYS_ENFORCE(index < size, 
                "Index ", index, " out of bounds for size ", size);
 // Output: "Index 42 out of bounds for size 10"
 ```
@@ -680,7 +680,7 @@ struct Point
 };
 
 Point p{10, 20};
-always_enforce(p.x >= 0, "Invalid point: ", p);
+FATP_ALWAYS_ENFORCE(p.x >= 0, "Invalid point: ", p);
 // Message: "Invalid point: (10, 20)"
 ```
 
@@ -695,13 +695,13 @@ The Expected macros return `Expected<void, std::string>` instead of throwing, en
 ```cpp
 fat_p::Expected<void, std::string> validate_config(const Config& cfg)
 {
-    auto check = enforce_expected(cfg.port > 0, "Invalid port: ", cfg.port);
+    auto check = FATP_ENFORCE_EXPECTED(cfg.port > 0, "Invalid port: ", cfg.port);
     if (!check)
     {
         return fat_p::unexpected(check.error());
     }
     
-    check = enforce_expected(cfg.max_connections > 0, "Invalid max_connections");
+    check = FATP_ENFORCE_EXPECTED(cfg.max_connections > 0, "Invalid max_connections");
     if (!check)
     {
         return fat_p::unexpected(check.error());
@@ -761,9 +761,9 @@ The `noexcept` specifier is not just documentation; it is a contract with the co
 void dangerous_function() noexcept
 {
     // This looks innocent...
-    always_enforce(some_condition(), "Condition failed");
+    FATP_ALWAYS_ENFORCE(some_condition(), "Condition failed");
     
-    // But if some_condition() returns false, always_enforce throws,
+    // But if some_condition() returns false, FATP_ALWAYS_ENFORCE throws,
     // and since we are in a noexcept function, the program calls
     // std::terminate() - an immediate, unrecoverable crash with
     // no stack unwinding and no cleanup.
@@ -778,7 +778,7 @@ The contextual enforcement system solves this by automatically detecting the `no
 void safe_function() noexcept
 {
     // Contextual enforcement detects noexcept and uses NoThrowRaiser
-    contextual_enforce(&safe_function, some_condition(), "Condition failed");
+    FATP_CONTEXTUAL_ENFORCE(&safe_function, some_condition(), "Condition failed");
     
     // If condition fails:
     // 1. The violation is logged
@@ -815,9 +815,9 @@ When your class has invariants that you want to enforce in the move constructor,
 Widget::Widget(Widget&& other) noexcept
     : data_(std::exchange(other.data_, nullptr))
 {
-    // Cannot use always_enforce - it throws
-    // Must use noexcept_enforce or contextual_enforce
-    noexcept_enforce(data_ != nullptr, "Moved-from widget was empty");
+    // Cannot use FATP_ALWAYS_ENFORCE - it throws
+    // Must use FATP_NOEXCEPT_ENFORCE or FATP_CONTEXTUAL_ENFORCE
+    FATP_NOEXCEPT_ENFORCE(data_ != nullptr, "Moved-from widget was empty");
 }
 ```
 
@@ -836,7 +836,7 @@ public:
 // In widget.cpp
 void Widget::validate() const
 {
-    always_enforce(is_valid(), "Invalid widget");  // This throws!
+    FATP_ALWAYS_ENFORCE(is_valid(), "Invalid widget");  // This throws!
 }
 
 // In user.cpp
@@ -853,7 +853,7 @@ The contextual enforcement system makes the intent explicit and ensures safety:
 void process(const Widget& w) noexcept
 {
     // Explicitly non-throwing validation
-    contextual_enforce(&process, w.is_valid(), "Invalid widget");
+    FATP_CONTEXTUAL_ENFORCE(&process, w.is_valid(), "Invalid widget");
 }
 ```
 
@@ -865,13 +865,13 @@ The contextual macros require a function pointer as the first argument. This poi
 void throwing_function(int* ptr)
 {
     // In a throwing function, uses LogicRaiser (throws on failure)
-    contextual_enforce(&throwing_function, ptr != nullptr, "Null pointer");
+    FATP_CONTEXTUAL_ENFORCE(&throwing_function, ptr != nullptr, "Null pointer");
 }
 
 void noexcept_function(int* ptr) noexcept
 {
     // In a noexcept function, uses NoThrowRaiser (calls handler, never throws)
-    contextual_enforce(&noexcept_function, ptr != nullptr, "Null pointer");
+    FATP_CONTEXTUAL_ENFORCE(&noexcept_function, ptr != nullptr, "Null pointer");
 }
 ```
 
@@ -887,7 +887,7 @@ The raiser selection happens at compile time based on the function pointer's typ
 **Basic Contextual Macros:**
 
 ```cpp
-contextual_enforce(func_ptr, condition, msg...)
+FATP_CONTEXTUAL_ENFORCE(func_ptr, condition, msg...)
 contextual_abort(func_ptr, condition, msg...)
 contextual_debug(func_ptr, condition, msg...)
 ```
@@ -903,7 +903,7 @@ contextual_enforce_3(func_ptr, Predicate, arg1, arg2, arg3, msg...)
 **Convenience Predicates:**
 
 ```cpp
-contextual_enforce_not_null(func_ptr, ptr, msg...)
+FATP_CONTEXTUAL_ENFORCE_NOT_NULL(func_ptr, ptr, msg...)
 contextual_enforce_is_positive(func_ptr, value, msg...)
 contextual_enforce_is_non_negative(func_ptr, value, msg...)
 contextual_enforce_in_range(func_ptr, value, min, max, msg...)
@@ -946,7 +946,7 @@ struct EvenNumberPredicate
 };
 
 // Usage:
-always_enforce_1(EvenNumberPredicate, count, "Count must be even");
+FATP_ALWAYS_ENFORCE_1(EvenNumberPredicate, count, "Count must be even");
 ```
 
 For predicates with multiple arguments:
@@ -962,7 +962,7 @@ struct DivisibleByPredicate
 };
 
 // Usage:
-always_enforce_2(DivisibleByPredicate, value, 3, "Value must be divisible by 3");
+FATP_ALWAYS_ENFORCE_2(DivisibleByPredicate, value, 3, "Value must be divisible by 3");
 ```
 
 ### Custom Raisers
@@ -989,7 +989,7 @@ enforce_policy<MyAppRaiser>(condition, "message");
 
 ### Custom Violation Handler
 
-The global violation handler is called by `noexcept_enforce` and can be customized:
+The global violation handler is called by `FATP_NOEXCEPT_ENFORCE` and can be customized:
 
 ```cpp
 void my_violation_handler(const std::string& message)
@@ -1038,30 +1038,30 @@ fat_p::reset_violation_handler();
 
 | Operation | Time (ns) | Notes |
 |-----------|-----------|-------|
-| `enforce()` (release) | 0 | Compiled out entirely |
-| `enforce()` (debug, passing) | 2-5 | Condition evaluation only |
-| `always_enforce()` (passing) | 2-5 | Condition evaluation only |
-| `always_enforce()` (failing) | 500-2000 | Exception construction |
-| `noexcept_enforce()` (passing) | 2-5 | No handler call if passes |
-| `noexcept_enforce()` (failing) | 100-500 | Handler call overhead |
-| `enforce_warn()` (passing) | 2-5 | No stderr write if passes |
-| `enforce_warn()` (failing) | 5000+ | Stderr I/O dominates |
+| `FATP_ENFORCE()` (release) | 0 | Compiled out entirely |
+| `FATP_ENFORCE()` (debug, passing) | 2-5 | Condition evaluation only |
+| `FATP_ALWAYS_ENFORCE()` (passing) | 2-5 | Condition evaluation only |
+| `FATP_ALWAYS_ENFORCE()` (failing) | 500-2000 | Exception construction |
+| `FATP_NOEXCEPT_ENFORCE()` (passing) | 2-5 | No handler call if passes |
+| `FATP_NOEXCEPT_ENFORCE()` (failing) | 100-500 | Handler call overhead |
+| `FATP_ENFORCE_WARN()` (passing) | 2-5 | No stderr write if passes |
+| `FATP_ENFORCE_WARN()` (failing) | 5000+ | Stderr I/O dominates |
 | Predicate check | 1-3 | Inlined by compiler |
 
 ### Optimization Guidelines
 
-1. **Use `enforce()` for internal invariants** - Zero overhead in release
-2. **Use `always_enforce()` at API boundaries** - Low overhead for passing conditions
+1. **Use `FATP_ENFORCE()` for internal invariants** - Zero overhead in release
+2. **Use `FATP_ALWAYS_ENFORCE()` at API boundaries** - Low overhead for passing conditions
 3. **Avoid string operations in conditions** - Build message only on failure
 4. **Predicates are inlined** - No function call overhead for simple predicates
 
 ```cpp
 // Good: message built only on failure
-always_enforce(ptr != nullptr, "Null pointer at index ", index);
+FATP_ALWAYS_ENFORCE(ptr != nullptr, "Null pointer at index ", index);
 
 // Avoid: string concatenation happens unconditionally
 std::string msg = "Null pointer at index " + std::to_string(index);
-always_enforce(ptr != nullptr, msg);
+FATP_ALWAYS_ENFORCE(ptr != nullptr, msg);
 ```
 
 ---
@@ -1072,16 +1072,16 @@ always_enforce(ptr != nullptr, msg);
 
 | Feature | Enforce | assert() | GSL | Boost.Contract |
 |---------|---------|----------|-----|----------------|
-| Debug-only checks | ✓ | ✓ | ✗ | ✓ |
-| Always-on checks | ✓ | ✗ | ✓ | ✓ |
-| Throws exception | ✓ | ✗ | ✗ | ✓ |
-| Non-throwing option | ✓ | ✗ | ✗ | ✗ |
-| Expected integration | ✓ | ✗ | ✗ | ✗ |
-| Custom predicates | ✓ | ✗ | ✗ | ✓ |
-| Detailed diagnostics | ✓ | Limited | Limited | ✓ |
-| Header-only | ✓ | ✓ | ✓ | ✗ |
-| No dependencies | ✓ | ✓ | ✗ | ✗ |
-| Noexcept-aware | ✓ | ✗ | ✗ | ✗ |
+| Debug-only checks | âœ“ | âœ“ | âœ— | âœ“ |
+| Always-on checks | âœ“ | âœ— | âœ“ | âœ“ |
+| Throws exception | âœ“ | âœ— | âœ— | âœ“ |
+| Non-throwing option | âœ“ | âœ— | âœ— | âœ— |
+| Expected integration | âœ“ | âœ— | âœ— | âœ— |
+| Custom predicates | âœ“ | âœ— | âœ— | âœ“ |
+| Detailed diagnostics | âœ“ | Limited | Limited | âœ“ |
+| Header-only | âœ“ | âœ“ | âœ“ | âœ— |
+| No dependencies | âœ“ | âœ“ | âœ— | âœ— |
+| Noexcept-aware | âœ“ | âœ— | âœ— | âœ— |
 
 ### Code Comparison
 
@@ -1103,9 +1103,9 @@ void process(int* data, size_t size)
 ```cpp
 void process(int* data, size_t size)
 {
-    always_enforce_not_null(data, "data parameter");
-    always_enforce_is_positive(size, "size parameter");
-    always_enforce(size <= MAX_SIZE, "size ", size, " exceeds max ", MAX_SIZE);
+    FATP_ALWAYS_ENFORCE_NOT_NULL(data, "data parameter");
+    FATP_ALWAYS_ENFORCE_IS_POSITIVE(size, "size parameter");
+    FATP_ALWAYS_ENFORCE(size <= MAX_SIZE, "size ", size, " exceeds max ", MAX_SIZE);
     // Throws catchable exception
     // Detailed diagnostics
     // Works in release
@@ -1122,10 +1122,10 @@ Replace `assert()` calls based on their intent:
 
 | Original | Intent | Replacement |
 |----------|--------|-------------|
-| `assert(ptr)` | Debug check | `enforce(ptr != nullptr, "...")` |
-| `assert(ptr)` | Always check | `always_enforce_not_null(ptr, "...")` |
-| `assert(x > 0)` | Debug check | `enforce(x > 0, "...")` |
-| `assert(x > 0)` | Always check | `always_enforce_is_positive(x, "...")` |
+| `assert(ptr)` | Debug check | `FATP_ENFORCE(ptr != nullptr, "...")` |
+| `assert(ptr)` | Always check | `FATP_ALWAYS_ENFORCE_NOT_NULL(ptr, "...")` |
+| `assert(x > 0)` | Debug check | `FATP_ENFORCE(x > 0, "...")` |
+| `assert(x > 0)` | Always check | `FATP_ALWAYS_ENFORCE_IS_POSITIVE(x, "...")` |
 
 ### From Manual if-throw
 
@@ -1137,7 +1137,7 @@ if (ptr == nullptr)
 }
 
 // After
-always_enforce_not_null(ptr, "ptr parameter");
+FATP_ALWAYS_ENFORCE_NOT_NULL(ptr, "ptr parameter");
 ```
 
 ```cpp
@@ -1148,31 +1148,31 @@ if (index >= container.size())
 }
 
 // After
-always_enforce_valid_index(index, container, "index");
+FATP_ALWAYS_ENFORCE_VALID_INDEX(index, container, "index");
 ```
 
 ---
 
 ## Best Practices
 
-1. **Use `enforce()` for internal invariants** that should never fail if the code is correct.
+1. **Use `FATP_ENFORCE()` for internal invariants** that should never fail if the code is correct.
 
-2. **Use `always_enforce()` for public API preconditions** where callers might pass invalid arguments.
+2. **Use `FATP_ALWAYS_ENFORCE()` for public API preconditions** where callers might pass invalid arguments.
 
-3. **Use `noexcept_enforce()` in destructors and noexcept functions** to avoid `std::terminate`.
+3. **Use `FATP_NOEXCEPT_ENFORCE()` in destructors and noexcept functions** to avoid `std::terminate`.
 
 4. **Use predicates for semantic clarity**:
    ```cpp
    // Clear intent
-   always_enforce_is_positive(count, "count");
+   FATP_ALWAYS_ENFORCE_IS_POSITIVE(count, "count");
    
    // Less clear
-   always_enforce(count > 0, "count must be positive");
+   FATP_ALWAYS_ENFORCE(count > 0, "count must be positive");
    ```
 
 5. **Include relevant values in error messages**:
    ```cpp
-   always_enforce(index < size, "Index ", index, " >= size ", size);
+   FATP_ALWAYS_ENFORCE(index < size, "Index ", index, " >= size ", size);
    ```
 
 6. **Set violation handler at program startup**:
@@ -1189,7 +1189,7 @@ always_enforce_valid_index(index, container, "index");
    template <typename Func>
    void wrapper(Func&& f)
    {
-       contextual_enforce(&wrapper<Func>, precondition(), "...");
+       FATP_CONTEXTUAL_ENFORCE(&wrapper<Func>, precondition(), "...");
        f();
    }
    ```
@@ -1200,24 +1200,24 @@ always_enforce_valid_index(index, container, "index");
 
 ### Compilation Errors
 
-**Issue: "No matching function for call to enforce_1"**
+**Issue: "No matching function for call to FATP_ENFORCE_1"**
 
 ```cpp
 // Problem: Wrong number of predicate arguments
-always_enforce_1(InRangePredicate, value, "Out of range");
+FATP_ALWAYS_ENFORCE_1(InRangePredicate, value, "Out of range");
 
 // Solution: InRangePredicate takes 3 arguments
-always_enforce_3(InRangePredicate, value, min, max, "Out of range");
+FATP_ALWAYS_ENFORCE_3(InRangePredicate, value, min, max, "Out of range");
 ```
 
 **Issue: "static_assert failed: Predicate check requires numeric type"**
 
 ```cpp
 // Problem: Using numeric predicate with non-numeric type
-always_enforce_is_positive(ptr, "Must be positive");
+FATP_ALWAYS_ENFORCE_IS_POSITIVE(ptr, "Must be positive");
 
 // Solution: Use appropriate predicate
-always_enforce_not_null(ptr, "Must not be null");
+FATP_ALWAYS_ENFORCE_NOT_NULL(ptr, "Must not be null");
 ```
 
 ### Runtime Issues
@@ -1228,24 +1228,24 @@ always_enforce_not_null(ptr, "Must not be null");
 // Problem:
 void my_func() noexcept
 {
-    always_enforce(condition, "msg");  // Throws! Calls std::terminate
+    FATP_ALWAYS_ENFORCE(condition, "msg");  // Throws! Calls std::terminate
 }
 
-// Solution: Use noexcept_enforce in noexcept functions
+// Solution: Use FATP_NOEXCEPT_ENFORCE in noexcept functions
 void my_func() noexcept
 {
-    noexcept_enforce(condition, "msg");  // Safe
+    FATP_NOEXCEPT_ENFORCE(condition, "msg");  // Safe
 }
 ```
 
 **Issue: Checks not running in release build**
 
 ```cpp
-// Problem: Defined NDEBUG, enforce() compiled out
-enforce(critical_check(), "Must pass");  // Silent in release
+// Problem: Defined NDEBUG, FATP_ENFORCE() compiled out
+FATP_ENFORCE(critical_check(), "Must pass");  // Silent in release
 
-// Solution: Use always_enforce for checks that must run
-always_enforce(critical_check(), "Must pass");  // Always runs
+// Solution: Use FATP_ALWAYS_ENFORCE for checks that must run
+FATP_ALWAYS_ENFORCE(critical_check(), "Must pass");  // Always runs
 ```
 
 **Issue: Custom handler not being called**
@@ -1281,16 +1281,16 @@ int main()
 
 | Need | Macro |
 |------|-------|
-| Debug-only check | `enforce(cond, msg...)` |
-| Always check | `always_enforce(cond, msg...)` |
-| Warning only | `enforce_warn(cond, msg...)` |
-| No throw | `noexcept_enforce(cond, msg...)` |
-| Abort | `abort_enforce(cond, msg...)` |
-| Return Expected | `enforce_expected(cond, msg...)` |
-| Null check | `always_enforce_not_null(ptr, msg...)` |
-| Range check | `always_enforce_in_range(min, max, val, msg...)` |
-| Index check | `always_enforce_valid_index(idx, container, msg...)` |
-| Contextual | `contextual_enforce(func_ptr, cond, msg...)` |
+| Debug-only check | `FATP_ENFORCE(cond, msg...)` |
+| Always check | `FATP_ALWAYS_ENFORCE(cond, msg...)` |
+| Warning only | `FATP_ENFORCE_WARN(cond, msg...)` |
+| No throw | `FATP_NOEXCEPT_ENFORCE(cond, msg...)` |
+| Abort | `FATP_ABORT_ENFORCE(cond, msg...)` |
+| Return Expected | `FATP_ENFORCE_EXPECTED(cond, msg...)` |
+| Null check | `FATP_ALWAYS_ENFORCE_NOT_NULL(ptr, msg...)` |
+| Range check | `FATP_ALWAYS_ENFORCE_IN_RANGE(min, max, val, msg...)` |
+| Index check | `FATP_ALWAYS_ENFORCE_VALID_INDEX(idx, container, msg...)` |
+| Contextual | `FATP_CONTEXTUAL_ENFORCE(func_ptr, cond, msg...)` |
 
 ### Quick Start
 
@@ -1300,12 +1300,12 @@ int main()
 void process(int* data, size_t size)
 {
     // Public API preconditions (always checked)
-    always_enforce_not_null(data, "data parameter");
-    always_enforce_is_positive(size, "size parameter");
-    always_enforce(size <= MAX_SIZE, "size ", size, " exceeds max");
+    FATP_ALWAYS_ENFORCE_NOT_NULL(data, "data parameter");
+    FATP_ALWAYS_ENFORCE_IS_POSITIVE(size, "size parameter");
+    FATP_ALWAYS_ENFORCE(size <= MAX_SIZE, "size ", size, " exceeds max");
     
     // Internal invariants (debug only)
-    enforce(is_aligned(data), "data not aligned");
+    FATP_ENFORCE(is_aligned(data), "data not aligned");
     
     // Implementation...
 }
@@ -1322,7 +1322,7 @@ classDiagram
     class std_out_of_range["std::out_of_range"]
     class std_bad_alloc["std::bad_alloc"]
     
-    class LogicContractError["fat_p::LogicContractError<br/>enforce, always_enforce"]
+    class LogicContractError["fat_p::LogicContractError<br/>enforce, FATP_ALWAYS_ENFORCE"]
     class RuntimeContractError["fat_p::RuntimeContractError<br/>runtime checks"]
     class DomainContractError["fat_p::DomainContractError<br/>math domain errors"]
     class OutOfRangeContractError["fat_p::OutOfRangeContractError<br/>index/bounds errors"]
@@ -1346,7 +1346,7 @@ classDiagram
 | Component | Purpose |
 |-----------|---------|
 | `ContractException.h` | Exception class hierarchy |
-| `Expected.h` | Used by enforce_expected macros |
+| `Expected.h` | Used by FATP_ENFORCE_EXPECTED macros |
 | `Stringify.h` | Type-to-string conversion for messages |
 | `ConcurrencyPolicies.h` | Thread-safe violation handlers |
 

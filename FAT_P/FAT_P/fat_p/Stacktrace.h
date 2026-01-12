@@ -63,6 +63,6 @@ public:
     }
 };
 
-// Integration with enforce: e.g., enforce(condition) << Stacktrace::current();
+// Integration with enforce: e.g., FATP_ENFORCE(condition) << Stacktrace::current();
 
 }  // namespace fat_p

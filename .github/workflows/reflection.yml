@@ -1,0 +1,205 @@
+# =============================================================================
+# .github/workflows/scope-guard.yml
+# =============================================================================
+# CI workflow for ScopeGuard component
+#
+# C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
+#
+# Directory structure:
+#   Headers:    FAT_P/FAT_P/fat_p/ScopeGuard.h
+#   Tests:      FAT_P/FAT_P/tests/test_ScopeGuard.cpp
+# =============================================================================
+
+name: ScopeGuard CI
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'FAT_P/FAT_P/fat_p/ScopeGuard.h'
+      - 'FAT_P/FAT_P/tests/test_ScopeGuard.cpp'
+      - '.github/workflows/scope-guard.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'FAT_P/FAT_P/fat_p/ScopeGuard.h'
+      - 'FAT_P/FAT_P/tests/test_ScopeGuard.cpp'
+      - '.github/workflows/scope-guard.yml'
+  workflow_dispatch:
+
+env:
+  HEADER: ScopeGuard.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_ScopeGuard.cpp
+
+jobs:
+  # ===========================================================================
+  # Linux GCC Build (C++20)
+  # ===========================================================================
+  linux-gcc:
+    name: Linux GCC-13 C++20
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-13
+
+      - name: Build tests
+        run: |
+          g++-13 -std=c++20 \
+            -Wall -Wextra -Wpedantic -Werror \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run tests
+        run: ./test_bin
+
+  # ===========================================================================
+  # Linux Clang Build (C++20)
+  # ===========================================================================
+  linux-clang:
+    name: Linux Clang-16 C++20
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 16
+
+      - name: Build tests
+        run: |
+          clang++-16 -std=c++20 \
+            -Wall -Wextra -Wpedantic -Werror \
+            -Wno-gnu-zero-variadic-macro-arguments \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run tests
+        run: ./test_bin
+
+  # ===========================================================================
+  # Windows MSVC Build (C++20)
+  # ===========================================================================
+  windows-msvc:
+    name: Windows MSVC C++20
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build tests
+        run: |
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_ScopeGuard.cpp /Fe:test_bin.exe /link advapi32.lib
+
+      - name: Run tests
+        run: .\test_bin.exe
+
+  # ===========================================================================
+  # Sanitizers (C++20)
+  # ===========================================================================
+  sanitizer-asan:
+    name: AddressSanitizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with ASan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=address -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run with ASan
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+        run: ./test_bin
+
+  sanitizer-ubsan:
+    name: UndefinedBehaviorSanitizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with UBSan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=undefined -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./FAT_P/FAT_P/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run with UBSan
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ./test_bin
+
+  # ===========================================================================
+  # Header Self-Containment (C++20)
+  # ===========================================================================
+  header-check:
+    name: Header Self-Containment
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test header compiles standalone
+        run: |
+          echo '#include "${{ env.HEADER }}"' > test_include.cpp
+          echo 'int main() { return 0; }' >> test_include.cpp
+          
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+            -I./FAT_P/FAT_P/fat_p \
+            -c test_include.cpp -o /dev/null
+          
+          echo "✓ Header is self-contained"
+
+  # ===========================================================================
+  # Strict Warnings (C++20)
+  # ===========================================================================
+  strict-warnings:
+    name: Strict Warnings
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile with strict warnings
+        run: |
+          g++-13 -std=c++20 \
+              -Wall -Wextra -Wpedantic \
+              -Wconversion -Wsign-conversion \
+              -Wshadow -Wformat=2 \
+              -Werror \
+              -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
+              -o test_strict ${{ env.TEST_SRC }}
+          echo "✓ No warnings"
+
+  # ===========================================================================
+  # CI Gate
+  # ===========================================================================
+  ci-success:
+    name: CI Success
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.linux-gcc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.linux-clang.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
+          echo "✓ All checks passed"

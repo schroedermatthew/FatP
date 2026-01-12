@@ -36,9 +36,12 @@ FATP_META:
 
 #include "MemoryMappedFile.h"
 #include "FatPTest.h"
+#include "test_FatP.h"
 
 namespace fat_p::testing::memorymappedfile
 {
+
+using fat_p::testing::artifact_file;
 
 // Helper: Create test file
 void create_test_file(const std::string& filename, const std::string& content) {
@@ -52,7 +55,7 @@ void remove_test_file(const std::string& filename) {
 }
 
 FATP_TEST_CASE(memory_mapped_file_read_only_mapping) {
-    const std::string filename = "test_mmap_ro.txt";
+    const std::string filename = artifact_file("test_mmap_ro.txt");
     const std::string content = "Hello, Memory Mapped File!";
     
     create_test_file(filename, content);
@@ -71,7 +74,7 @@ FATP_TEST_CASE(memory_mapped_file_read_only_mapping) {
 }
 
 FATP_TEST_CASE(memory_mapped_file_read_write_mapping) {
-    const std::string filename = "test_mmap_rw.txt";
+    const std::string filename = artifact_file("test_mmap_rw.txt");
     const std::string content = "Original Content";
     
     create_test_file(filename, content);
@@ -101,7 +104,7 @@ FATP_TEST_CASE(memory_mapped_file_read_write_mapping) {
 }
 
 FATP_TEST_CASE(memory_mapped_file_large_file) {
-    const std::string filename = "test_mmap_large.bin";
+    const std::string filename = artifact_file("test_mmap_large.bin");
     constexpr size_t SIZE = 10 * 1024 * 1024;  // 10MB
     
     // Create large file
@@ -126,7 +129,7 @@ FATP_TEST_CASE(memory_mapped_file_large_file) {
 }
 
 FATP_TEST_CASE(memory_mapped_file_move_semantics) {
-    const std::string filename = "test_mmap_move.txt";
+    const std::string filename = artifact_file("test_mmap_move.txt");
     create_test_file(filename, "Move Test");
     
     MemoryMappedFile file1(filename);
@@ -141,7 +144,7 @@ FATP_TEST_CASE(memory_mapped_file_move_semantics) {
 }
 
 FATP_TEST_CASE(memory_mapped_file_empty_file) {
-    const std::string filename = "test_mmap_empty.txt";
+    const std::string filename = artifact_file("test_mmap_empty.txt");
     create_test_file(filename, "");
     
     MemoryMappedFile file(filename);
@@ -158,7 +161,7 @@ FATP_TEST_CASE(memory_mapped_file_empty_file) {
 }
 
 FATP_TEST_CASE(memory_mapped_file_span_operations) {
-    const std::string filename = "test_mmap_span.txt";
+    const std::string filename = artifact_file("test_mmap_span.txt");
     const std::string content = "0123456789";
     
     create_test_file(filename, content);
@@ -200,7 +203,7 @@ FATP_TEST_CASE(memory_mapped_file_span_operations) {
 void benchmark_memory_mapped_file() {
     std::cout << "\n" << colors::cyan() << "MemoryMappedFile Benchmarks:" << colors::reset() << "\n\n";
     
-    const std::string filename = "benchmark_mmap.bin";
+    const std::string filename = artifact_file("benchmark_mmap.bin");
     constexpr size_t SIZE = 1024 * 1024;  // 1MB
     
     // Create file

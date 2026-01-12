@@ -485,7 +485,7 @@ public:
      */
     SortedContainer() {
         auto init_res = mInternalContainer.init();
-        always_enforce(static_cast<bool>(init_res), "Failed to initialize container");
+        FATP_ALWAYS_ENFORCE(static_cast<bool>(init_res), "Failed to initialize container");
     }
     
     /**
@@ -503,10 +503,10 @@ public:
     template <typename InputIt, typename... EpsParams>
     SortedContainer(InputIt first, InputIt last, EpsParams... eps) {
         auto init_res = mInternalContainer.init();
-        always_enforce(static_cast<bool>(init_res), "Failed to initialize container");
+        FATP_ALWAYS_ENFORCE(static_cast<bool>(init_res), "Failed to initialize container");
         auto insert_res = insertRange(first, last, eps...);
         if (!insert_res.has_value()) {
-            always_enforce(false, "Failed to insert range: " + insert_res.error());
+            FATP_ALWAYS_ENFORCE(false, "Failed to insert range: " + insert_res.error());
         }
     }
     
@@ -1172,7 +1172,7 @@ private:
      * @warning Caller MUST hold appropriate lock before calling.
      */
     void validateInvariant_unlocked() const {
-        enforce(std::is_sorted(
+        FATP_ENFORCE(std::is_sorted(
             mInternalContainer.get().begin(), 
             mInternalContainer.get().end(), 
             mCompare),

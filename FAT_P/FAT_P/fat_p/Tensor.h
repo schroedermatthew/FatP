@@ -203,13 +203,13 @@ public:
     
     difference_type operator-(const StrideIterator& other) const {
         #ifndef NDEBUG
-        always_enforce(stride_ != 0, "Iterator has zero stride");
+        FATP_ALWAYS_ENFORCE(stride_ != 0, "Iterator has zero stride");
         #endif
         
         ptrdiff_t ptr_diff = ptr_ - other.ptr_;
         
         #ifndef NDEBUG
-        always_enforce(ptr_diff % stride_ == 0, 
+        FATP_ALWAYS_ENFORCE(ptr_diff % stride_ == 0, 
             "Iterator distance not a multiple of stride - "
             "iterators may be from different views or incompatible");
         #endif
@@ -1042,12 +1042,12 @@ public:
      * @brief Create view of tensor slice
      */
     Tensor view(std::vector<size_t> start, std::vector<size_t> end) const {
-        enforce(start.size() == shape_.size() && end.size() == shape_.size(),
+        FATP_ENFORCE(start.size() == shape_.size() && end.size() == shape_.size(),
                 "View dimensions must match tensor dimensions (expected ", shape_.size(), 
                 ", got start:", start.size(), ", end:", end.size(), ")");
         
         for (size_t i = 0; i < start.size(); ++i) {
-            enforce(start[i] < end[i] && end[i] <= shape_[i],
+            FATP_ENFORCE(start[i] < end[i] && end[i] <= shape_[i],
                     "Invalid view range at dimension ", i, 
                     " (start:", start[i], ", end:", end[i], ", max:", shape_[i], ")");
         }
@@ -1065,8 +1065,8 @@ public:
      * @brief Get row view (2D tensors)
      */
     Tensor row(size_t index) const {
-        enforce(shape_.size() == 2, "row() requires 2D tensor, got ", shape_.size(), "D");
-        enforce(index < shape_[0], "Row index out of bounds: ", index, " >= ", shape_[0]);
+        FATP_ENFORCE(shape_.size() == 2, "row() requires 2D tensor, got ", shape_.size(), "D");
+        FATP_ENFORCE(index < shape_[0], "Row index out of bounds: ", index, " >= ", shape_[0]);
         return view({index, 0}, {index + 1, shape_[1]});
     }
     
@@ -1074,8 +1074,8 @@ public:
      * @brief Get column view (2D tensors)
      */
     Tensor col(size_t index) const {
-        enforce(shape_.size() == 2, "col() requires 2D tensor, got ", shape_.size(), "D");
-        enforce(index < shape_[1], "Column index out of bounds: ", index, " >= ", shape_[1]);
+        FATP_ENFORCE(shape_.size() == 2, "col() requires 2D tensor, got ", shape_.size(), "D");
+        FATP_ENFORCE(index < shape_[1], "Column index out of bounds: ", index, " >= ", shape_[1]);
         return view({0, index}, {shape_[0], index + 1});
     }
     
@@ -1083,7 +1083,7 @@ public:
      * @brief Transpose (2D tensors)
      */
     Tensor transpose() const {
-        enforce(shape_.size() == 2, "transpose() requires 2D tensor, got ", shape_.size(), "D");
+        FATP_ENFORCE(shape_.size() == 2, "transpose() requires 2D tensor, got ", shape_.size(), "D");
         
         std::vector<size_t> new_shape = {shape_[1], shape_[0]};
         std::vector<ptrdiff_t> new_strides = {strides_[1], strides_[0]};
@@ -1096,7 +1096,7 @@ public:
      */
     Tensor reshape(std::vector<size_t> new_shape) const {
         size_t new_size = compute_size(new_shape);
-        enforce(new_size == size_, 
+        FATP_ENFORCE(new_size == size_, 
                 "Reshape size mismatch: current=", size_, ", requested=", new_size);
         
         std::vector<ptrdiff_t> new_strides = compute_strides(new_shape);
@@ -2042,7 +2042,7 @@ public:
      * @brief Scalar division
      */
     Tensor operator/(const T& scalar) const {
-        enforce(scalar != T{0}, "Division by zero in tensor scalar division");
+        FATP_ENFORCE(scalar != T{0}, "Division by zero in tensor scalar division");
         Tensor result(shape_);
         simd_scalar_mul(data_, T{1} / scalar, result.data_, size_);
         return result;
@@ -2304,7 +2304,7 @@ private:
         }
         
         // Offset should be non-negative for valid indices
-        always_enforce(offset >= 0, "Computed offset is negative - invalid indices");
+        FATP_ALWAYS_ENFORCE(offset >= 0, "Computed offset is negative - invalid indices");
         return static_cast<size_t>(offset);
     }
     
@@ -2320,7 +2320,7 @@ private:
         }
         
         // Offset should be non-negative for valid indices
-        always_enforce(offset >= 0, "Computed offset is negative - invalid indices");
+        FATP_ALWAYS_ENFORCE(offset >= 0, "Computed offset is negative - invalid indices");
         return static_cast<size_t>(offset);
     }
     

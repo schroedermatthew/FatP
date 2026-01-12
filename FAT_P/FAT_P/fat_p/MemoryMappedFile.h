@@ -84,18 +84,18 @@ FATP_META:
 #include <stdexcept>
 #include <type_traits>
 
-// C++20 detection
-#if FATP_HAS_CPP20
+// Include std::span if available (detected in CppStandardDetection.h)
+#if FATP_HAS_STD_SPAN
     #include <span>
-    #define FATP_HAS_STD_SPAN
 #endif
 
-// Platform detection
-#ifdef _WIN32
-    #define FATP_PLATFORM_WINDOWS
+// Platform-specific includes (detection already done in CppStandardDetection.h)
+#if FATP_PLATFORM_WINDOWS
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif
     #include <windows.h>
 #else
-    #define FATP_PLATFORM_POSIX
     #include <sys/mman.h>
     #include <sys/stat.h>
     #include <fcntl.h>
@@ -104,7 +104,7 @@ FATP_META:
 
 namespace fat_p {
 
-#ifndef FATP_HAS_STD_SPAN
+#if !FATP_HAS_STD_SPAN
 // ============================================================================
 // Lightweight span implementation for C++17
 // ============================================================================
@@ -211,7 +211,7 @@ private:
 #else
 // Use std::span for C++20 and later
 using std::span;
-#endif // FATP_HAS_STD_SPAN
+#endif // !FATP_HAS_STD_SPAN
 
 // ============================================================================
 // Memory Mapped File

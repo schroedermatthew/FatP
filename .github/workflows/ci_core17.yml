@@ -1,0 +1,188 @@
+# =============================================================================
+# .github/workflows/ci_core17.yml
+# =============================================================================
+# C++17 compile gate for core layers (Foundation/Containers/Concurrency)
+# Per Fat-P Guidelines §1.1.1: These layers must compile under C++17
+# =============================================================================
+
+name: C++17 Core Compile Gate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  # ===========================================================================
+  # GCC C++17 Core Compile
+  # ===========================================================================
+  compile-core-gcc:
+    name: C++17 Core (GCC-${{ matrix.version }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 11
+            runner: ubuntu-22.04
+          - version: 12
+            runner: ubuntu-22.04
+          - version: 13
+            runner: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
+
+      - name: Compile Foundation/Containers/Concurrency headers
+        run: |
+          echo "Compiling core layer headers under C++17..."
+          
+          HEADER_DIR="FAT_P/FAT_P/fat_p"
+          if [ ! -d "$HEADER_DIR" ]; then
+            echo "❌ Missing header directory: $HEADER_DIR"
+            exit 1
+          fi
+          shopt -s nullglob
+          all_headers=("$HEADER_DIR"/*.h)
+          if [ ${#all_headers[@]} -eq 0 ]; then
+            echo "❌ No headers found in $HEADER_DIR"
+            exit 1
+          fi
+
+          # List of core layer headers
+          # New layer names: Foundation, Containers, Concurrency
+          # Legacy names: Infrastructure, CoreUtility, Enforcement
+          CORE_HEADERS=$(grep -l '@layer Foundation\|@layer Containers\|@layer Concurrency\|@layer Infrastructure\|@layer CoreUtility\|@layer Enforcement' "${all_headers[@]}" 2>/dev/null || true)
+          
+          if [ -z "$CORE_HEADERS" ]; then
+            echo "⚠ No core layer headers found with @layer tags"
+            echo "Checking all headers as fallback..."
+            CORE_HEADERS="${all_headers[*]}"
+          fi
+          
+          success=0
+          failed=0
+          
+          for header in $CORE_HEADERS; do
+            basename=$(basename "$header")
+            cat > test_compile.cpp << EOF
+          #include "$basename"
+          int main() { return 0; }
+          EOF
+            if g++-${{ matrix.version }} -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+              -I./FAT_P/FAT_P/fat_p -I./FAT_P/FAT_P -c test_compile.cpp -o /dev/null 2>/dev/null; then
+              echo "✓ $basename"
+              success=$((success + 1))
+            else
+              echo "✗ $basename (C++17 compile failed)"
+              failed=$((failed + 1))
+            fi
+          done
+          
+          echo ""
+          echo "Results: $success passed, $failed failed"
+          
+          if [ $failed -gt 0 ]; then
+            echo "❌ Some core layer headers failed C++17 compilation"
+            exit 1
+          fi
+          
+          echo "✓ All core layer headers compile under C++17"
+
+  # ===========================================================================
+  # Clang C++17 Core Compile
+  # ===========================================================================
+  compile-core-clang:
+    name: C++17 Core (Clang-${{ matrix.version }})
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [14, 15, 16]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.version }}
+
+      - name: Compile Foundation/Containers/Concurrency headers
+        run: |
+          echo "Compiling core layer headers under C++17..."
+          
+          HEADER_DIR="FAT_P/FAT_P/fat_p"
+          if [ ! -d "$HEADER_DIR" ]; then
+            echo "❌ Missing header directory: $HEADER_DIR"
+            exit 1
+          fi
+          shopt -s nullglob
+          all_headers=("$HEADER_DIR"/*.h)
+          if [ ${#all_headers[@]} -eq 0 ]; then
+            echo "❌ No headers found in $HEADER_DIR"
+            exit 1
+          fi
+
+          CORE_HEADERS=$(grep -l '@layer Foundation\|@layer Containers\|@layer Concurrency\|@layer Infrastructure\|@layer CoreUtility\|@layer Enforcement' "${all_headers[@]}" 2>/dev/null || true)
+          
+          if [ -z "$CORE_HEADERS" ]; then
+            echo "⚠ No core layer headers found with @layer tags"
+            CORE_HEADERS="${all_headers[*]}"
+          fi
+          
+          success=0
+          failed=0
+          
+          for header in $CORE_HEADERS; do
+            basename=$(basename "$header")
+            cat > test_compile.cpp << EOF
+          #include "$basename"
+          int main() { return 0; }
+          EOF
+            if clang++-${{ matrix.version }} -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+              -Wno-gnu-zero-variadic-macro-arguments \
+              -I./FAT_P/FAT_P/fat_p -I./FAT_P/FAT_P -c test_compile.cpp -o /dev/null 2>/dev/null; then
+              echo "✓ $basename"
+              success=$((success + 1))
+            else
+              echo "✗ $basename (C++17 compile failed)"
+              failed=$((failed + 1))
+            fi
+          done
+          
+          echo ""
+          echo "Results: $success passed, $failed failed"
+          
+          if [ $failed -gt 0 ]; then
+            echo "❌ Some core layer headers failed C++17 compilation"
+            exit 1
+          fi
+          
+          echo "✓ All core layer headers compile under C++17"
+
+  # ===========================================================================
+  # Gate Job
+  # ===========================================================================
+  core17-success:
+    name: C++17 Core Gate Success
+    needs: [compile-core-gcc, compile-core-clang]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.compile-core-gcc.result }}" != "success" ]]; then
+            echo "❌ GCC C++17 core compile failed"
+            exit 1
+          fi
+          if [[ "${{ needs.compile-core-clang.result }}" != "success" ]]; then
+            echo "❌ Clang C++17 core compile failed"
+            exit 1
+          fi
+          echo "✓ C++17 core compile gate passed"

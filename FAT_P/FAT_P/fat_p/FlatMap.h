@@ -565,7 +565,7 @@ public:
             mData.emplace_back(first->first, first->second);
         }
         // Trust caller - no sort, no dedup
-        enforce(std::is_sorted(mData.begin(), mData.end(), keyValueComp()),
+        FATP_ENFORCE(std::is_sorted(mData.begin(), mData.end(), keyValueComp()),
                 "FlatMap: ordered_unique_range input was not sorted");
     }
 
@@ -588,7 +588,7 @@ public:
             mData.emplace_back(first->first, first->second);
         }
         // Trust caller on sorting - only dedup
-        enforce(std::is_sorted(mData.begin(), mData.end(), keyValueComp()),
+        FATP_ENFORCE(std::is_sorted(mData.begin(), mData.end(), keyValueComp()),
                 "FlatMap: ordered_range input was not sorted");
         auto lastUnique = std::unique(mData.begin(),
                                       mData.end(),
@@ -859,7 +859,7 @@ public:
         auto mid = mData.begin() + static_cast<difference_type>(oldSize);
         
         // Debug check: verify input was actually sorted
-        enforce(std::is_sorted(mid, mData.end(), keyValueComp()),
+        FATP_ENFORCE(std::is_sorted(mid, mData.end(), keyValueComp()),
                 "FlatMap::insert(ordered_unique_range): input was not sorted");
 
         // Skip sorting new elements - just merge
@@ -965,25 +965,25 @@ public:
 
     iterator erase(iterator pos)
     {
-        enforce(pos.base() >= mData.begin() && pos.base() < mData.end(),
+        FATP_ENFORCE(pos.base() >= mData.begin() && pos.base() < mData.end(),
                 "FlatMap::erase: invalid iterator");
         return iterator(mData.erase(pos.base()));
     }
 
     iterator erase(const_iterator pos)
     {
-        enforce(pos.base() >= mData.cbegin() && pos.base() < mData.cend(),
+        FATP_ENFORCE(pos.base() >= mData.cbegin() && pos.base() < mData.cend(),
                 "FlatMap::erase: invalid iterator");
         return iterator(mData.erase(pos.base()));
     }
 
     iterator erase(const_iterator first, const_iterator last)
     {
-        enforce(first.base() >= mData.cbegin() && first.base() <= mData.cend(),
+        FATP_ENFORCE(first.base() >= mData.cbegin() && first.base() <= mData.cend(),
                 "FlatMap::erase: invalid first iterator");
-        enforce(last.base() >= mData.cbegin() && last.base() <= mData.cend(),
+        FATP_ENFORCE(last.base() >= mData.cbegin() && last.base() <= mData.cend(),
                 "FlatMap::erase: invalid last iterator");
-        enforce(first.base() <= last.base(), "FlatMap::erase: invalid iterator range");
+        FATP_ENFORCE(first.base() <= last.base(), "FlatMap::erase: invalid iterator range");
         return iterator(mData.erase(first.base(), last.base()));
     }
 
@@ -1004,7 +1004,7 @@ public:
     /// @note The element is removed from the container after extraction
     value_type extract(const_iterator pos)
     {
-        enforce(pos >= cbegin() && pos < cend(), "FlatMap::extract: invalid iterator");
+        FATP_ENFORCE(pos >= cbegin() && pos < cend(), "FlatMap::extract: invalid iterator");
         auto internalIt = mData.begin() + (pos.base() - mData.cbegin());
         value_type result(std::move(internalIt->first), std::move(internalIt->second));
         mData.erase(internalIt);

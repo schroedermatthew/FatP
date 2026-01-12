@@ -4,7 +4,7 @@
 [Rr]elease/
 [Bb]in/
 [Oo]bj/
-.vs/        # Visual Studio 2022 hidden folder
+**/.vs/     # Visual Studio 2022 hidden folder (in any subdirectory)
 *.VC.db
 *.VC.opendb
 *.aps

@@ -214,7 +214,7 @@ private:
 
     void write_major_type(std::uint8_t major_type, std::uint64_t arg)
     {
-        enforce(major_type <= 7U, "Invalid CBOR major type");
+        FATP_ENFORCE(major_type <= 7U, "Invalid CBOR major type");
 
         if (arg < 24U)
         {

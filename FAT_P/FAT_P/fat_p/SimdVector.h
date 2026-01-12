@@ -728,10 +728,10 @@ public:
     /**
      * @brief Load from aligned memory
      * @param ptr Pointer aligned to SimdVector::alignment bytes
-     * @note Uses enforce() for debug-mode alignment check (Fat-P consistency)
+     * @note Uses FATP_ENFORCE() for debug-mode alignment check (Fat-P consistency)
      */
     static SimdVector load_aligned(const T* ptr) {
-        enforce(is_aligned(ptr), "SimdVector::load_aligned: misaligned pointer, required alignment=", alignment);
+        FATP_ENFORCE(is_aligned(ptr), "SimdVector::load_aligned: misaligned pointer, required alignment=", alignment);
         
         SimdVector result;
 #if defined(SIMD_AVX512)
@@ -814,7 +814,7 @@ public:
      * @param ptr Pointer aligned to SimdVector::alignment bytes
      */
     void store_aligned(T* ptr) const {
-        enforce(is_aligned(ptr), "SimdVector::store_aligned: misaligned pointer, required alignment=", alignment);
+        FATP_ENFORCE(is_aligned(ptr), "SimdVector::store_aligned: misaligned pointer, required alignment=", alignment);
         
 #if defined(SIMD_AVX512)
         if constexpr (std::is_same_v<T, float>) _mm512_store_ps(ptr, data_);

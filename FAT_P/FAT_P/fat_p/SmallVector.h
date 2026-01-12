@@ -257,13 +257,13 @@ private:
      */
     void assert_invariants() const noexcept {
 #ifndef NDEBUG
-        enforce(data_ != nullptr, "data_ is null");
-        enforce(size_ <= capacity_, "size_ > capacity_");
+        FATP_ENFORCE(data_ != nullptr, "data_ is null");
+        FATP_ENFORCE(size_ <= capacity_, "size_ > capacity_");
         if (data_ == inline_ptr()) {
-            enforce(capacity_ == InlineCapacity, 
+            FATP_ENFORCE(capacity_ == InlineCapacity, 
                     "inline storage but capacity != InlineCapacity");
         } else {
-            enforce(capacity_ > InlineCapacity, 
+            FATP_ENFORCE(capacity_ > InlineCapacity, 
                     "heap storage but capacity <= InlineCapacity");
         }
 #endif
@@ -302,7 +302,7 @@ private:
     void debug_check_self_ref_push_back([[maybe_unused]] const T* value_ptr) const {
 #ifndef NDEBUG
         if (size_ == capacity_ && aliases_this(value_ptr)) {
-            enforce(false,
+            FATP_ENFORCE(false,
                 "push_back: argument aliases this container and reallocation may occur "
                 "(debug diagnostic; behavior is QoI, not guaranteed by standard)");
         }
@@ -335,14 +335,14 @@ private:
 
         // Case 1: Reallocation might occur
         if (size_ == capacity_) {
-            enforce(false,
+            FATP_ENFORCE(false,
                 "insert: argument aliases this container and reallocation may occur "
                 "(debug diagnostic; behavior is QoI, not guaranteed by standard)");
         }
 
         // Case 2: Insertion at/before source element shifts it before value is consumed
         if (idx <= src) {
-            enforce(false,
+            FATP_ENFORCE(false,
                 "insert: argument aliases element at/after insertion point; "
                 "shifting may invalidate the reference (debug diagnostic)");
         }
@@ -377,7 +377,7 @@ private:
             new_cap = std::max(min_capacity, *new_cap_result);
         } else {
             new_cap = min_capacity;
-            always_enforce(new_cap <= max_size(), "Requested capacity exceeds max_size");
+            FATP_ALWAYS_ENFORCE(new_cap <= max_size(), "Requested capacity exceeds max_size");
         }
         
         // Defensive: ensure non-zero capacity even if overflow arithmetic produces 0
@@ -689,7 +689,7 @@ public:
             // Forward+ iterators: can compute distance and traverse twice
             clear();
             auto dist = std::distance(first, last);
-            enforce(dist >= 0, "Negative iterator distance");
+            FATP_ENFORCE(dist >= 0, "Negative iterator distance");
             size_t count = static_cast<size_t>(dist);
             if (count > capacity_) {
                 reserve(count);
@@ -858,53 +858,53 @@ public:
      * @throws always_enforce exception if pos >= size()
      */
     [[nodiscard]] reference at(size_type pos) {
-        always_enforce(pos < size_, "Index ", pos, " out of bounds (size=", size_, ")");
+        FATP_ALWAYS_ENFORCE(pos < size_, "Index ", pos, " out of bounds (size=", size_, ")");
         return data_[pos];
     }
 
     /** @brief Access element with bounds checking (const) */
     [[nodiscard]] const_reference at(size_type pos) const {
-        always_enforce(pos < size_, "Index ", pos, " out of bounds (size=", size_, ")");
+        FATP_ALWAYS_ENFORCE(pos < size_, "Index ", pos, " out of bounds (size=", size_, ")");
         return data_[pos];
     }
 
     /**
      * @brief Access element without bounds checking
      * @warning Undefined behavior if pos >= size() in release builds
-     * @note Debug builds check bounds via enforce()
+     * @note Debug builds check bounds via FATP_ENFORCE()
      */
     [[nodiscard]] reference operator[](size_type pos) {
-        enforce(pos < size_, "Index out of bounds");
+        FATP_ENFORCE(pos < size_, "Index out of bounds");
         return data_[pos];
     }
 
     /** @brief Access element without bounds checking (const) */
     [[nodiscard]] const_reference operator[](size_type pos) const {
-        enforce(pos < size_, "Index out of bounds");
+        FATP_ENFORCE(pos < size_, "Index out of bounds");
         return data_[pos];
     }
 
     /** @brief Access first element */
     [[nodiscard]] reference front() {
-        enforce(size_ > 0, "Cannot access front of empty vector");
+        FATP_ENFORCE(size_ > 0, "Cannot access front of empty vector");
         return data_[0];
     }
 
     /** @brief Access first element (const) */
     [[nodiscard]] const_reference front() const {
-        enforce(size_ > 0, "Cannot access front of empty vector");
+        FATP_ENFORCE(size_ > 0, "Cannot access front of empty vector");
         return data_[0];
     }
 
     /** @brief Access last element */
     [[nodiscard]] reference back() {
-        enforce(size_ > 0, "Cannot access back of empty vector");
+        FATP_ENFORCE(size_ > 0, "Cannot access back of empty vector");
         return data_[size_ - 1];
     }
 
     /** @brief Access last element (const) */
     [[nodiscard]] const_reference back() const {
-        enforce(size_ > 0, "Cannot access back of empty vector");
+        FATP_ENFORCE(size_ > 0, "Cannot access back of empty vector");
         return data_[size_ - 1];
     }
 
@@ -955,7 +955,7 @@ public:
      */
     iterator insert(const_iterator pos, size_type count, const T& value) {
         size_t idx = pos - data_;
-        enforce(idx <= size_, "Insert position out of range");
+        FATP_ENFORCE(idx <= size_, "Insert position out of range");
         debug_check_self_ref_insert(idx, std::addressof(value));
         
         if (count == 0) {
@@ -964,7 +964,7 @@ public:
         
         // Verify new size won't overflow
         auto new_size_result = checked_add<ReturnExpectedPolicy>(size_, count);
-        always_enforce(new_size_result.has_value(), "Insert would exceed max_size");
+        FATP_ALWAYS_ENFORCE(new_size_result.has_value(), "Insert would exceed max_size");
         size_t new_size = *new_size_result;
         
         if (new_size > capacity_) {
@@ -1110,7 +1110,7 @@ public:
     template <class InputIt, std::enable_if_t<!std::is_integral_v<InputIt>, int> = 0>
     iterator insert(const_iterator pos, InputIt first, InputIt last) {
         size_t idx = pos - data_;
-        enforce(idx <= size_, "Insert position out of range");
+        FATP_ENFORCE(idx <= size_, "Insert position out of range");
         
         using IterCategory = typename std::iterator_traits<InputIt>::iterator_category;
         return insert_range_impl(idx, first, last, IterCategory{});
@@ -1157,14 +1157,14 @@ private:
                                ForwardIt last,
                                std::forward_iterator_tag) {
         auto dist = std::distance(first, last);
-        enforce(dist >= 0, "Negative iterator distance");
+        FATP_ENFORCE(dist >= 0, "Negative iterator distance");
         size_t count = static_cast<size_t>(dist);
         if (count == 0) {
             return data_ + idx;
         }
         
         auto new_size_result = checked_add<ReturnExpectedPolicy>(size_, count);
-        always_enforce(new_size_result.has_value(), "Insert would exceed max_size");
+        FATP_ALWAYS_ENFORCE(new_size_result.has_value(), "Insert would exceed max_size");
         size_t new_size = *new_size_result;
         
         if (new_size > capacity_) {
@@ -1366,7 +1366,7 @@ public:
     template <class... Args>
     iterator emplace(const_iterator pos, Args&&... args) {
         size_t idx = pos - data_;
-        enforce(idx <= size_, "Emplace position out of range");
+        FATP_ENFORCE(idx <= size_, "Emplace position out of range");
         
         if (size_ >= capacity_) {
             // Growth path with strong exception safety
@@ -1376,7 +1376,7 @@ public:
                 new_cap = std::max(size_ + 1, *new_cap_result);
             } else {
                 new_cap = size_ + 1;
-                always_enforce(new_cap <= max_size(), "Capacity overflow");
+                FATP_ALWAYS_ENFORCE(new_cap <= max_size(), "Capacity overflow");
             }
             // Defensive: ensure non-zero capacity even if overflow arithmetic produces 0
             if (new_cap == 0) {
@@ -1485,7 +1485,7 @@ public:
      */
     iterator erase(const_iterator pos) {
         size_t idx = pos - data_;
-        enforce(idx < size_, "Erase position out of range");
+        FATP_ENFORCE(idx < size_, "Erase position out of range");
         
         iterator it = data_ + idx;
         std::move(it + 1, end(), it);
@@ -1506,7 +1506,7 @@ public:
         
         size_t first_idx = first - data_;
         size_t last_idx = last - data_;
-        enforce(first_idx <= last_idx && last_idx <= size_, "Erase range invalid");
+        FATP_ENFORCE(first_idx <= last_idx && last_idx <= size_, "Erase range invalid");
         
         iterator f = data_ + first_idx;
         iterator l = data_ + last_idx;
@@ -1556,7 +1556,7 @@ public:
             new_cap = std::max(size_ + 1, *new_cap_result);
         } else {
             new_cap = size_ + 1;
-            always_enforce(new_cap <= max_size(), "Capacity overflow");
+            FATP_ALWAYS_ENFORCE(new_cap <= max_size(), "Capacity overflow");
         }
         // Defensive: ensure non-zero capacity even if overflow arithmetic produces 0
         if (new_cap == 0) {
@@ -1607,7 +1607,7 @@ public:
 
     /** @brief Removes last element */
     void pop_back() {
-        always_enforce(size_ > 0, "Cannot pop from empty vector");
+        FATP_ALWAYS_ENFORCE(size_ > 0, "Cannot pop from empty vector");
         --size_;
         std::destroy_at(data_ + size_);
         assert_invariants();
@@ -1699,7 +1699,7 @@ public:
             using std::swap;
             swap(allocator_, other.allocator_);
         } else {
-            always_enforce(allocator_ == other.allocator_, 
+            FATP_ALWAYS_ENFORCE(allocator_ == other.allocator_, 
                           "Cannot swap containers with unequal allocators when POCS is false");
         }
         

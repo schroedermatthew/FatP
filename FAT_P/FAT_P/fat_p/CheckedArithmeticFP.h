@@ -90,7 +90,7 @@ namespace fat_p {
     do {                                                                               \
         if (std::isnan(a) || std::isnan(b)) {                                          \
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>) {                \
-                always_enforce(false, "FP input contains NaN:", a, op_name, b);        \
+                FATP_ALWAYS_ENFORCE(false, "FP input contains NaN:", a, op_name, b);        \
             } else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>) {       \
                 return Expected<T, MathError>(unexpect, MathError::NaN);               \
             } else if constexpr (std::is_same_v<Policy, SaturatingPolicy>) {           \
@@ -105,7 +105,7 @@ namespace fat_p {
             if ((!same_sign && op_name[0] == '+') ||                                   \
                 (same_sign && is_subtraction)) {                                       \
                 if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>) {            \
-                    always_enforce(false, "FP Inf-Inf undefined:", a, op_name, b);     \
+                    FATP_ALWAYS_ENFORCE(false, "FP Inf-Inf undefined:", a, op_name, b);     \
                 } else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>) {   \
                     return Expected<T, MathError>(unexpect, MathError::NaN);           \
                 } else if constexpr (std::is_same_v<Policy, SaturatingPolicy>) {       \
@@ -146,7 +146,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
         }
         else if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Addition error (NaN/Inf):", a, "+", b);
+            FATP_ALWAYS_ENFORCE(false, "Addition error (NaN/Inf):", a, "+", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -186,7 +186,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
         }
         else if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Subtraction error (NaN/Inf):", a, "-", b);
+            FATP_ALWAYS_ENFORCE(false, "Subtraction error (NaN/Inf):", a, "-", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -226,7 +226,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
         }
         else if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Multiplication error (NaN/Inf):", a, "*", b);
+            FATP_ALWAYS_ENFORCE(false, "Multiplication error (NaN/Inf):", a, "*", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -258,7 +258,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Division by zero in div_fp:", a, "/", b);
+            FATP_ALWAYS_ENFORCE(false, "Division by zero in div_fp:", a, "/", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -292,7 +292,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
         }
         else if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Division error (NaN/Inf):", a, "/", b);
+            FATP_ALWAYS_ENFORCE(false, "Division error (NaN/Inf):", a, "/", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -322,7 +322,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Division by zero in mod_fp:", a, "%", b);
+            FATP_ALWAYS_ENFORCE(false, "Division by zero in mod_fp:", a, "%", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -344,7 +344,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Modulo error (NaN):", a, "%", b);
+            FATP_ALWAYS_ENFORCE(false, "Modulo error (NaN):", a, "%", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -370,7 +370,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "NaN input in abs_fp:", a);
+            FATP_ALWAYS_ENFORCE(false, "NaN input in abs_fp:", a);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -398,7 +398,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "NaN input in sqrt_fp:", a);
+            FATP_ALWAYS_ENFORCE(false, "NaN input in sqrt_fp:", a);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -414,7 +414,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Negative input in sqrt_fp:", a);
+            FATP_ALWAYS_ENFORCE(false, "Negative input in sqrt_fp:", a);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -444,7 +444,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "NaN input in floor_fp:", a);
+            FATP_ALWAYS_ENFORCE(false, "NaN input in floor_fp:", a);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -470,7 +470,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "NaN input in ceil_fp:", a);
+            FATP_ALWAYS_ENFORCE(false, "NaN input in ceil_fp:", a);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -496,7 +496,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "NaN input in trunc_fp:", a);
+            FATP_ALWAYS_ENFORCE(false, "NaN input in trunc_fp:", a);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -522,7 +522,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "NaN input in round_fp:", a);
+            FATP_ALWAYS_ENFORCE(false, "NaN input in round_fp:", a);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -643,7 +643,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Vector size mismatch in FP addition");
+            FATP_ALWAYS_ENFORCE(false, "Vector size mismatch in FP addition");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -734,7 +734,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Vector size mismatch in FP subtraction");
+            FATP_ALWAYS_ENFORCE(false, "Vector size mismatch in FP subtraction");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -822,7 +822,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Vector size mismatch in FP multiplication");
+            FATP_ALWAYS_ENFORCE(false, "Vector size mismatch in FP multiplication");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -910,7 +910,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Vector size mismatch in FP division");
+            FATP_ALWAYS_ENFORCE(false, "Vector size mismatch in FP division");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -1027,7 +1027,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Vector size mismatch in FP addition");
+            FATP_ALWAYS_ENFORCE(false, "Vector size mismatch in FP addition");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -1130,7 +1130,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Vector size mismatch in FP subtraction");
+            FATP_ALWAYS_ENFORCE(false, "Vector size mismatch in FP subtraction");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -1228,7 +1228,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Vector size mismatch in FP multiplication");
+            FATP_ALWAYS_ENFORCE(false, "Vector size mismatch in FP multiplication");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -1326,7 +1326,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            always_enforce(false, "Vector size mismatch in FP division");
+            FATP_ALWAYS_ENFORCE(false, "Vector size mismatch in FP division");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {

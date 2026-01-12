@@ -21,7 +21,95 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+#include <string>
+#include <cstdlib>
+
 #ifndef ENABLE_TEST_APPLICATION
+
+// ============================================================================
+// Test Artifacts Path Utilities
+// ============================================================================
+//
+// All test-generated non-code files (logs, data files, temporary outputs) should
+// be written to the Artifacts/ subdirectory to keep the tests/ directory clean.
+//
+// Usage:
+//   const std::string filename = fat_p::testing::artifact_file("test_output.log");
+//   std::ofstream file(filename);
+
+namespace fat_p::testing
+{
+
+namespace detail
+{
+
+// Cross-platform safe getenv wrapper
+inline const char* safe_getenv(const char* name)
+{
+#if defined(_MSC_VER)
+	// MSVC: use _dupenv_s to avoid deprecation warning
+	char* buffer = nullptr;
+	size_t size = 0;
+	if (_dupenv_s(&buffer, &size, name) == 0 && buffer != nullptr)
+	{
+		// Note: This leaks memory, but it's acceptable for test configuration
+		// that's read once at startup. A more complex solution would use
+		// a static string to hold the value.
+		return buffer;
+	}
+	return nullptr;
+#else
+	return std::getenv(name);
+#endif
+}
+
+} // namespace detail
+
+/**
+ * @brief Get the base artifacts directory path
+ *
+ * Returns the path to the Artifacts/ subdirectory. This can be configured
+ * via the FATP_TEST_ARTIFACTS_DIR environment variable.
+ *
+ * @return Path to artifacts directory (with trailing separator)
+ */
+inline std::string artifact_path()
+{
+	const char* env_path = detail::safe_getenv("FATP_TEST_ARTIFACTS_DIR");
+	if (env_path && env_path[0] != '\0')
+	{
+		std::string path = env_path;
+		// Ensure trailing separator
+		if (!path.empty() && path.back() != '/' && path.back() != '\\')
+		{
+			path += '/';
+		}
+		return path;
+	}
+	return "Artifacts/";
+}
+
+/**
+ * @brief Get the full path for a file in the artifacts directory
+ *
+ * Combines the artifacts base path with the given filename.
+ *
+ * @param filename The filename (without path) to place in artifacts
+ * @return Full path to the file in the artifacts directory
+ *
+ * @example
+ *   const std::string path = artifact_file("test_output.log");
+ *   // Returns "Artifacts/test_output.log" (or custom path if env var set)
+ */
+inline std::string artifact_file(const std::string& filename)
+{
+	return artifact_path() + filename;
+}
+
+} // namespace fat_p::testing
+
+// Forward declarations for test functions
 namespace fat_p::testing
 {
 

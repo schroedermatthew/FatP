@@ -300,7 +300,7 @@ public:
     {
         validate_dimensions(rows, cols);
 
-        always_enforce(row_indices.size() == col_indices.size() &&
+        FATP_ALWAYS_ENFORCE(row_indices.size() == col_indices.size() &&
                        col_indices.size() == values.size(),
                        "HpcCSRMatrix: COO arrays must have same size");
 
@@ -328,9 +328,9 @@ public:
         {
             auto r = row_indices[perm[i]];
             auto c = col_indices[perm[i]];
-            always_enforce(r >= 0 && static_cast<size_type>(r) < rows,
+            FATP_ALWAYS_ENFORCE(r >= 0 && static_cast<size_type>(r) < rows,
                            "HpcCSRMatrix: row index out of range");
-            always_enforce(c >= 0 && static_cast<size_type>(c) < cols,
+            FATP_ALWAYS_ENFORCE(c >= 0 && static_cast<size_type>(c) < cols,
                            "HpcCSRMatrix: column index out of range");
         }
 
@@ -413,7 +413,7 @@ public:
                                                   size_type cols,
                                                   T epsilon = T{0})
     {
-        always_enforce(dense != nullptr || (rows == 0 || cols == 0),
+        FATP_ALWAYS_ENFORCE(dense != nullptr || (rows == 0 || cols == 0),
                        "HpcCSRMatrix: null pointer to dense matrix");
 
         validate_dimensions(rows, cols);
@@ -526,8 +526,8 @@ public:
      */
     [[nodiscard]] T operator()(size_type row, size_type col) const
     {
-        always_enforce(row < rows_, "HpcCSRMatrix: row index out of range: ", row, " >= ", rows_);
-        always_enforce(col < cols_, "HpcCSRMatrix: col index out of range: ", col, " >= ", cols_);
+        FATP_ALWAYS_ENFORCE(row < rows_, "HpcCSRMatrix: row index out of range: ", row, " >= ", rows_);
+        FATP_ALWAYS_ENFORCE(col < cols_, "HpcCSRMatrix: col index out of range: ", col, " >= ", cols_);
 
         ptr_type start = row_ptrs_[row];
         ptr_type end = row_ptrs_[row + 1];
@@ -565,9 +565,9 @@ public:
      */
     void matvec(const T* x, T* y, bool use_prefetch = true) const
     {
-        enforce(x != nullptr, "HpcCSRMatrix::matvec: x pointer is null");
-        enforce(y != nullptr, "HpcCSRMatrix::matvec: y pointer is null");
-        enforce(x != y, "HpcCSRMatrix::matvec: x and y must not alias (use separate buffers)");
+        FATP_ENFORCE(x != nullptr, "HpcCSRMatrix::matvec: x pointer is null");
+        FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec: y pointer is null");
+        FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec: x and y must not alias (use separate buffers)");
 
         const T* vals = values_.data();
         const IndexType* cols = col_indices_.data();
@@ -618,9 +618,9 @@ public:
      */
     void matvec(T alpha, const T* x, T beta, T* y, bool use_prefetch = true) const
     {
-        enforce(x != nullptr, "HpcCSRMatrix::matvec: x pointer is null");
-        enforce(y != nullptr, "HpcCSRMatrix::matvec: y pointer is null");
-        enforce(x != y, "HpcCSRMatrix::matvec: x and y must not alias (use separate buffers)");
+        FATP_ENFORCE(x != nullptr, "HpcCSRMatrix::matvec: x pointer is null");
+        FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec: y pointer is null");
+        FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec: x and y must not alias (use separate buffers)");
 
         const T* vals = values_.data();
         const IndexType* cols = col_indices_.data();
@@ -671,8 +671,8 @@ public:
     void matvec(T alpha, const std::vector<T>& x, T beta, std::vector<T>& y,
                 bool use_prefetch = true) const
     {
-        always_enforce(x.size() == cols_, "HpcCSRMatrix: x size mismatch");
-        always_enforce(y.size() == rows_, "HpcCSRMatrix: y size mismatch");
+        FATP_ALWAYS_ENFORCE(x.size() == cols_, "HpcCSRMatrix: x size mismatch");
+        FATP_ALWAYS_ENFORCE(y.size() == rows_, "HpcCSRMatrix: y size mismatch");
         matvec(alpha, x.data(), beta, y.data(), use_prefetch);
     }
 
@@ -681,7 +681,7 @@ public:
      */
     [[nodiscard]] std::vector<T> operator*(const std::vector<T>& x) const
     {
-        always_enforce(x.size() == cols_, "HpcCSRMatrix: vector size mismatch");
+        FATP_ALWAYS_ENFORCE(x.size() == cols_, "HpcCSRMatrix: vector size mismatch");
         std::vector<T> y(rows_);
         matvec(x.data(), y.data());
         return y;
@@ -713,9 +713,9 @@ public:
         ThreadPool& pool,
         const HpcParallelConfig& config = {}) const
     {
-        enforce(x != nullptr, "HpcCSRMatrix::matvec_parallel: x pointer is null");
-        enforce(y != nullptr, "HpcCSRMatrix::matvec_parallel: y pointer is null");
-        enforce(x != y, "HpcCSRMatrix::matvec_parallel: x and y must not alias");
+        FATP_ENFORCE(x != nullptr, "HpcCSRMatrix::matvec_parallel: x pointer is null");
+        FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec_parallel: y pointer is null");
+        FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec_parallel: x and y must not alias");
 
         const size_type n_rows = rows_;
         const size_type n_nnz = nnz();
@@ -809,9 +809,9 @@ public:
         ThreadPool& pool,
         const HpcParallelConfig& config = {}) const
     {
-        enforce(x != nullptr, "HpcCSRMatrix::matvec_parallel: x pointer is null");
-        enforce(y != nullptr, "HpcCSRMatrix::matvec_parallel: y pointer is null");
-        enforce(x != y, "HpcCSRMatrix::matvec_parallel: x and y must not alias");
+        FATP_ENFORCE(x != nullptr, "HpcCSRMatrix::matvec_parallel: x pointer is null");
+        FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec_parallel: y pointer is null");
+        FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec_parallel: x and y must not alias");
 
         const size_type n_rows = rows_;
         const size_type n_nnz = nnz();
@@ -930,9 +930,9 @@ public:
         ThreadPool& pool,
         const HpcParallelConfig& config = {}) const
     {
-        enforce(x != nullptr, "HpcCSRMatrix::matvec_parallel_batch: x pointer is null");
-        enforce(y != nullptr, "HpcCSRMatrix::matvec_parallel_batch: y pointer is null");
-        enforce(x != y, "HpcCSRMatrix::matvec_parallel_batch: x and y must not alias");
+        FATP_ENFORCE(x != nullptr, "HpcCSRMatrix::matvec_parallel_batch: x pointer is null");
+        FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec_parallel_batch: y pointer is null");
+        FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec_parallel_batch: x and y must not alias");
 
         const size_type n_rows = rows_;
         const size_type n_nnz = nnz();
@@ -1298,7 +1298,7 @@ public:
      */
     [[nodiscard]] HpcCSRMatrix operator+(const HpcCSRMatrix& other) const
     {
-        always_enforce(rows_ == other.rows_ && cols_ == other.cols_,
+        FATP_ALWAYS_ENFORCE(rows_ == other.rows_ && cols_ == other.cols_,
                        "HpcCSRMatrix: dimension mismatch for addition");
 
         HpcCSRMatrix result(rows_, cols_);
@@ -1352,7 +1352,7 @@ public:
      */
     [[nodiscard]] HpcCSRMatrix operator-(const HpcCSRMatrix& other) const
     {
-        always_enforce(rows_ == other.rows_ && cols_ == other.cols_,
+        FATP_ALWAYS_ENFORCE(rows_ == other.rows_ && cols_ == other.cols_,
                        "HpcCSRMatrix: dimension mismatch for subtraction");
 
         HpcCSRMatrix result(rows_, cols_);
@@ -1457,7 +1457,7 @@ public:
      */
     [[nodiscard]] HpcCSRMatrix matmul(const HpcCSRMatrix& B) const
     {
-        always_enforce(cols_ == B.rows_,
+        FATP_ALWAYS_ENFORCE(cols_ == B.rows_,
                        "HpcCSRMatrix: incompatible dimensions for matmul");
 
         HpcCSRMatrix result(rows_, B.cols_);

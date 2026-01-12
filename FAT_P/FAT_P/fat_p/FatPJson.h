@@ -37,21 +37,20 @@
  * @section usage Basic Usage
  * @code{.cpp}
  * #include "FatPJson.h"
- * USING_FATP_JSON()
  *
  * // Expected-based parsing (no exceptions)
- * auto result = try_parse_json(json_str);
+ * auto result = fat_p::try_parse_json(json_str);
  * if (!result) {
  *     std::cerr << "Parse error: " << result.error().message << "\n";
  *     return;
  * }
  *
  * // Optimized data structures
- * FatPJsonObject obj;  // Uses FlatMap instead of std::map
- * FatPJsonArray arr;   // Uses SmallVector with inline storage
+ * fat_p::FatPJsonObject obj;  // Uses FlatMap instead of std::map
+ * fat_p::FatPJsonArray arr;   // Uses SmallVector with inline storage
  *
  * // Memory-mapped file I/O
- * auto loaded = load_json_mmap("large_file.json");
+ * auto loaded = fat_p::load_json_mmap("large_file.json");
  * if (!loaded) {
  *     std::cerr << "Failed to load: " << loaded.error().message << "\n";
  * }
@@ -80,8 +79,8 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: false
-    defines_total: 3
-    defines_unprefixed: 1
+    defines_total: 2
+    defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
   generated:
@@ -1204,35 +1203,29 @@ namespace fat_p {
     // =============================================================================
 
 /**
- * @brief Convenience macro for using FatPJson
- *
- * @details Brings common FatPJson symbols into scope. Expands to:
- * - FATP_USING_JSON_LITE() (from JsonLite.h)
- * - using declarations for all try_* and safe_* functions
- * - ConfigJsonPolicy for JSONC support
+ * @section using_fatpjson Bringing FatPJson Symbols Into Scope
+ * 
+ * @details In your .cpp files (NEVER in headers), you can add selective using
+ * declarations for commonly needed FatPJson functionality:
+ * 
+ * @code{.cpp}
+ * // Core JSON types (from JsonLite.h)
+ * using fat_p::JsonValue;
+ * using fat_p::JsonObject;
+ * using fat_p::JsonArray;
+ * using fat_p::save_params;
+ * using fat_p::load_params;
+ * 
+ * // FatPJson extensions
+ * using fat_p::try_parse_json;
+ * using fat_p::try_load_json;
+ * using fat_p::try_save_json;
+ * using fat_p::safe_from_json;
+ * using fat_p::ConfigJsonPolicy;
+ * @endcode
+ * 
+ * Or use explicit fat_p:: qualification throughout your code.
  */
-#define USING_FATP_JSON()              \
-    FATP_USING_JSON_LITE();                  \
-    using fat_p::try_parse_json;            \
-    using fat_p::try_load_json;             \
-    using fat_p::load_json_mmap;            \
-    using fat_p::try_save_json;             \
-    using fat_p::try_save_atomic;           \
-    using fat_p::safe_from_json;            \
-    using fat_p::safe_from_json_numeric;    \
-    using fat_p::safe_from_json_enum;       \
-    using fat_p::try_query_json_pointer;    \
-    using fat_p::try_query_json_as;         \
-    using fat_p::query_json_as_or;          \
-    using fat_p::json_encode_to;            \
-    using fat_p::json_decode_from;          \
-    using fat_p::ConfigJsonPolicy;          \
-    using fat_p::FatPJsonArray;             \
-    using fat_p::FatPJsonObject;            \
-    using fat_p::JsonError;                 \
-    using fat_p::JsonErrorCode;             \
-    using fat_p::JsonResult;                \
-    using fat_p::JsonStats;
 
     // =============================================================================
     // Conversion Utilities

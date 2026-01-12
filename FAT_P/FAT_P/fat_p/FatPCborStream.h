@@ -472,7 +472,7 @@ public:
 
     const CborValue& result() const
     {
-        enforce(parser_.is_done(), "parsing not complete");
+        FATP_ENFORCE(parser_.is_done(), "parsing not complete");
         return parser_.result();
     }
 

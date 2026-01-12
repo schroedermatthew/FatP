@@ -1,0 +1,240 @@
+# =============================================================================
+# .github/workflows/ci_verify.yml
+# =============================================================================
+# Verifies @layer tags match actual #include dependencies and no forbidden deps
+# Per Fat-P Guidelines §2.2: Layer mismatches are Critical violations
+# Per Fat-P Guidelines §1.6: No third-party libraries
+# =============================================================================
+
+name: Layer & Dependency Verification
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  # ===========================================================================
+  # Layer Tag Verification
+  # ===========================================================================
+  verify-layers:
+    name: Verify Layer Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check @layer tags present
+        run: |
+          echo "Checking all headers have @layer tags..."
+          
+          found=0
+          missing=0
+          for header in FAT_P/FAT_P/fat_p/*.h; do
+            if [ ! -f "$header" ]; then
+              continue
+            fi
+            found=$((found + 1))
+            if ! grep -q '@layer' "$header"; then
+              echo "❌ Missing @layer tag: $header"
+              missing=$((missing + 1))
+            fi
+          done
+
+          if [ $found -eq 0 ]; then
+            echo "❌ No headers found under FAT_P/FAT_P/fat_p/*.h"
+            exit 1
+          fi
+          
+          if [ $missing -gt 0 ]; then
+            echo ""
+            echo "❌ $missing headers missing @layer tags"
+            echo "Add @layer tag to file header per Guidelines §2.2"
+            exit 1
+          fi
+          
+          echo "✓ All headers have @layer tags"
+
+      - name: Verify layer dependencies
+        run: |
+          echo "Verifying layer dependency order..."
+          
+          # Layer order (lower = can be included by higher)
+          # Foundation(0) < Containers(1) < Concurrency(2) < Domain(3) < Integration(4) < Testing(5)
+          
+          get_layer_level() {
+            case "$1" in
+              Foundation|CoreUtility|Enforcement) echo 0 ;;
+              Containers|Infrastructure) echo 1 ;;
+              Concurrency) echo 2 ;;
+              Domain|Policy|Application|Serialization) echo 3 ;;
+              Integration) echo 4 ;;
+              Testing) echo 5 ;;
+              *) echo 99 ;;
+            esac
+          }
+          
+          violations=0
+          found=0
+          
+          for header in FAT_P/FAT_P/fat_p/*.h; do
+            if [ ! -f "$header" ]; then
+              continue
+            fi
+            found=$((found + 1))
+            
+            basename=$(basename "$header")
+            
+            # Extract @layer tag
+            layer=$(grep -oP '@layer\s+\K\w+' "$header" 2>/dev/null | head -1 || echo "MISSING")
+            
+            if [ "$layer" = "MISSING" ]; then
+              continue  # Already reported above
+            fi
+            
+            layer_level=$(get_layer_level "$layer")
+            
+            if [ "$layer_level" = "99" ]; then
+              echo "❌ $basename: Unknown layer '$layer'"
+              violations=$((violations + 1))
+              continue
+            fi
+            
+            # Check internal includes
+            while IFS= read -r inc; do
+              inc_file=$(echo "$inc" | grep -oP '"[^"]+"' | tr -d '"')
+              # Normalize includes like "fat_p/Foo.h" to "Foo.h"
+              inc_file=$(basename "$inc_file")
+              inc_path="FAT_P/FAT_P/fat_p/$inc_file"
+              
+              if [ ! -f "$inc_path" ]; then
+                continue  # External include
+              fi
+              
+              inc_layer=$(grep -oP '@layer\s+\K\w+' "$inc_path" 2>/dev/null | head -1 || echo "MISSING")
+              inc_level=$(get_layer_level "$inc_layer")
+              
+              if [ "$inc_level" -gt "$layer_level" ]; then
+                echo "❌ LAYER VIOLATION: $basename (@layer $layer, level $layer_level)"
+                echo "   includes $inc_file (@layer $inc_layer, level $inc_level)"
+                violations=$((violations + 1))
+              fi
+            done < <(grep -E '^[[:space:]]*#include[[:space:]]*"' "$header" || true)
+          done
+
+          if [ $found -eq 0 ]; then
+            echo "❌ No headers found under FAT_P/FAT_P/fat_p/*.h"
+            exit 1
+          fi
+          
+          if [ $violations -gt 0 ]; then
+            echo ""
+            echo "❌ $violations layer violations found"
+            echo "Components may only include headers from lower or equal layers"
+            exit 1
+          fi
+          
+          echo "✓ All layer dependencies valid"
+
+  # ===========================================================================
+  # Forbidden Dependency Scan
+  # ===========================================================================
+  scan-forbidden-deps:
+    name: Scan Forbidden Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for forbidden includes
+        run: |
+          echo "Scanning for forbidden third-party includes..."
+          echo "Per Guidelines §1.6: No third-party libraries"
+          echo ""
+          
+          violations=0
+          
+          # Check for Boost
+          matches=$(grep -rn '#include.*[<"]boost/' FAT_P/FAT_P/fat_p/ 2>/dev/null || true)
+          if [ -n "$matches" ]; then
+            echo "❌ Forbidden: Boost"
+            echo "$matches"
+            violations=$((violations + 1))
+          fi
+          
+          # Check for Abseil
+          matches=$(grep -rn '#include.*[<"]absl/' FAT_P/FAT_P/fat_p/ 2>/dev/null || true)
+          if [ -n "$matches" ]; then
+            echo "❌ Forbidden: Abseil"
+            echo "$matches"
+            violations=$((violations + 1))
+          fi
+          
+          # Check for fmt
+          matches=$(grep -rn '#include.*[<"]fmt/' FAT_P/FAT_P/fat_p/ 2>/dev/null || true)
+          if [ -n "$matches" ]; then
+            echo "❌ Forbidden: fmt"
+            echo "$matches"
+            violations=$((violations + 1))
+          fi
+          
+          # Check for Eigen
+          matches=$(grep -rn '#include.*[<"]Eigen/' FAT_P/FAT_P/fat_p/ 2>/dev/null || true)
+          if [ -n "$matches" ]; then
+            echo "❌ Forbidden: Eigen"
+            echo "$matches"
+            violations=$((violations + 1))
+          fi
+          
+          # Check for nlohmann/json
+          matches=$(grep -rn '#include.*[<"]nlohmann/' FAT_P/FAT_P/fat_p/ 2>/dev/null || true)
+          if [ -n "$matches" ]; then
+            echo "❌ Forbidden: nlohmann/json"
+            echo "$matches"
+            violations=$((violations + 1))
+          fi
+          
+          # Check for spdlog
+          matches=$(grep -rn '#include.*[<"]spdlog/' FAT_P/FAT_P/fat_p/ 2>/dev/null || true)
+          if [ -n "$matches" ]; then
+            echo "❌ Forbidden: spdlog"
+            echo "$matches"
+            violations=$((violations + 1))
+          fi
+          
+          # Check for catch2/gtest/doctest (in main headers, not tests)
+          matches=$(grep -rn '#include.*[<"]catch2/\|#include.*[<"]gtest/\|#include.*[<"]doctest/' FAT_P/FAT_P/fat_p/ 2>/dev/null || true)
+          if [ -n "$matches" ]; then
+            echo "❌ Forbidden: Test frameworks in library headers"
+            echo "$matches"
+            violations=$((violations + 1))
+          fi
+          
+          if [ $violations -gt 0 ]; then
+            echo ""
+            echo "❌ $violations forbidden dependency violations found"
+            echo "Fat-P must not depend on third-party libraries"
+            exit 1
+          fi
+          
+          echo "✓ No forbidden dependencies found"
+
+  # ===========================================================================
+  # Gate Job
+  # ===========================================================================
+  verify-success:
+    name: Verification Success
+    needs: [verify-layers, scan-forbidden-deps]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.verify-layers.result }}" != "success" ]]; then
+            echo "❌ Layer verification failed"
+            exit 1
+          fi
+          if [[ "${{ needs.scan-forbidden-deps.result }}" != "success" ]]; then
+            echo "❌ Forbidden dependency scan failed"
+            exit 1
+          fi
+          echo "✓ All verification checks passed"

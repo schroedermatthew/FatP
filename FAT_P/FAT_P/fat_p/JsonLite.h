@@ -26,7 +26,6 @@
  * @section example Basic Example
  * @code{.cpp}
  * #include "JsonLite.h"
- * FATP_USING_JSON_LITE()
  *
  * struct Config {
  *     int port;
@@ -37,9 +36,9 @@
  * 
  * int main() {
  *     Config cfg{8080, "localhost", 30};
- *     save_params("config.json", cfg);
+ *     fat_p::save_params("config.json", cfg);
  *     
- *     auto loaded = load_params<Config>("config.json");
+ *     auto loaded = fat_p::load_params<Config>("config.json");
  *     return 0;
  * }
  * @endcode
@@ -80,7 +79,7 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: false
-    defines_total: 66
+    defines_total: 64
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
@@ -1913,114 +1912,6 @@ inline JsonValue to_json(const JsonValue& value)
     return value;
 }
 
-/**
- * @def FATP_USING_JSON_LITE
- * @brief Convenience macro to bring JsonLite symbols into scope
- * 
- * @details This macro provides a clean way to import all necessary JsonLite functionality
- * into your namespace. It expands to:
- * - `using namespace fat_p` - Imports JsonValue, JsonObject, JsonArray, etc.
- * - `using fat_p::to_json` - Makes to_json available for ADL
- * - `using fat_p::from_json` - Makes from_json available for ADL
- * 
- * @section usage Recommended Usage
- * Place at the top of your implementation files after including JsonLite.h:
- * @code{.cpp}
- * #include "JsonLite.h"
- * FATP_USING_JSON_LITE()
- * 
- * struct Config {
- *     int port;
- *     std::string host;
- * };
- * FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host)
- * 
- * int main() {
- *     Config cfg{8080, "localhost"};
- *     save_params("config.json", cfg);  // Functions now in scope
- * }
- * @endcode
- * 
- * @section alternatives Alternatives
- * If you prefer explicit qualification or want to avoid namespace pollution:
- * @code{.cpp}
- * #include "JsonLite.h"
- * // Don't use FATP_USING_JSON_LITE()
- * 
- * // Use explicit qualification
- * fat_p::save_params("config.json", cfg);
- * 
- * // Or selective using declarations
- * using fat_p::JsonValue;
- * using fat_p::save_params;
- * using fat_p::load_params;
- * @endcode
- * 
- * @note This macro is safe to use in .cpp files but avoid in header files
- * @note It enables ADL for to_json/from_json, which is required for the macros to work
- * 
- * @see FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE
- * @see to_json
- * @see from_json
- */
-#define FATP_USING_JSON_LITE() \
-    using namespace fat_p; \
-    using fat_p::to_json; \
-    using fat_p::from_json;
-
-/**
- * @def FATP_JSONLITE_CONVENIENCE_USINGS
- * @brief Selective using declarations for JsonLite convenience functions
- * 
- * @details Brings only the commonly-used free functions into scope without
- * importing the entire fat_p namespace. This is a lighter alternative to
- * FATP_USING_JSON_LITE() for users who prefer minimal namespace pollution.
- * 
- * This macro imports:
- * - save_params / load_params - File I/O
- * - save_params_with_backup - Safe file saving
- * - parse_json - JSON string parsing
- * - to_json_string / from_json_string - String conversion
- * - query_json_as / query_json_pointer - JSON Pointer navigation
- * 
- * Safe to use in .cpp files. Avoid in headers.
- * 
- * @section usage Usage
- * @code{.cpp}
- * #include "JsonLite.h"
- * FATP_JSONLITE_CONVENIENCE_USINGS()
- * 
- * namespace my_app {
- *     struct Config { int port; std::string host; };
- *     FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host)
- * }
- * 
- * int main() {
- *     // Convenience functions work without fat_p:: prefix
- *     save_params("config.json", my_app::Config{8080, "localhost"});
- *     auto cfg = load_params<my_app::Config>("config.json");
- *     
- *     // But types still need qualification
- *     fat_p::JsonValue j;
- *     fat_p::JsonObject obj;
- * }
- * @endcode
- * 
- * @note For full namespace import including types, use FATP_USING_JSON_LITE() instead
- * 
- * @see FATP_USING_JSON_LITE
- * @see save_params
- * @see load_params
- */
-#define FATP_JSONLITE_CONVENIENCE_USINGS() \
-    using fat_p::save_params; \
-    using fat_p::load_params; \
-    using fat_p::parse_json; \
-    using fat_p::to_json_string; \
-    using fat_p::from_json_string; \
-    using fat_p::query_json_as; \
-    using fat_p::query_json_pointer; \
-    using fat_p::save_params_with_backup;
 
 #define FATP_JSON_EXPAND(x) x
 
@@ -2154,8 +2045,8 @@ inline JsonValue to_json(const JsonValue& value)
  * 
  * // Now you can:
  * Config cfg{8080, "localhost", true};
- * JsonValue j = to_json(cfg);           // Serialize
- * Config loaded = from_json<Config>(j);  // Deserialize
+ * JsonValue j = json_encode(cfg);           // Serialize
+ * Config loaded = json_decode<Config>(j);   // Deserialize
  * @endcode
  * 
  * @section behavior Behavior
@@ -2230,7 +2121,7 @@ inline JsonValue to_json(const JsonValue& value)
  * FATP_JSON_DEFINE_TYPE_OPTIONAL(Settings, port, host, debug)
  * 
  * // This JSON is valid (only some fields present)
- * Settings s = from_json<Settings>(parse_json(R"({"port": 9000})"));
+ * Settings s = json_decode<Settings>(parse_json(R"({"port": 9000})"));
  * // s.port == 9000, s.host == "localhost", s.debug == false
  * @endcode
  * 
@@ -2292,8 +2183,8 @@ inline JsonValue to_json(const JsonValue& value)
  * 
  * // Usage is the same
  * User user{"alice", "hash123", 42};
- * JsonValue j = to_json(user);
- * User loaded = from_json<User>(j);
+ * JsonValue j = json_encode(user);
+ * User loaded = json_decode<User>(j);
  * @endcode
  * 
  * @section friend_functions Friend Functions
@@ -3094,6 +2985,78 @@ inline JsonValue to_json(signed char value) noexcept { return static_cast<int64_
 inline JsonValue to_json(unsigned char value) noexcept { return static_cast<int64_t>(value); }
 inline JsonValue to_json(short value) noexcept { return static_cast<int64_t>(value); }
 inline JsonValue to_json(unsigned short value) noexcept { return static_cast<int64_t>(value); }
+/** @} */
+
+// ============================================================================
+// Value-Returning Convenience API (json_encode / json_decode)
+// ============================================================================
+
+/**
+ * @name json_encode / json_decode
+ * @brief Value-returning JSON conversion functions
+ *
+ * @details These functions provide convenient value-returning semantics for
+ * JSON serialization and deserialization. They use ADL internally to find
+ * the appropriate to_json/from_json overloads, avoiding C++ name hiding
+ * issues that can occur with using declarations.
+ *
+ * Unlike to_json/from_json which use output parameters, these return values
+ * directly, enabling more natural expression syntax:
+ *
+ * @code{.cpp}
+ * struct Config { int port; std::string host; };
+ * FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host)
+ *
+ * // Encoding (object -> JSON)
+ * Config cfg{8080, "localhost"};
+ * JsonValue j = json_encode(cfg);
+ *
+ * // Decoding (JSON -> object)
+ * Config cfg2 = json_decode<Config>(j);
+ *
+ * // Also works with primitives
+ * JsonValue num = json_encode(42);
+ * int val = json_decode<int>(num);
+ * @endcode
+ *
+ * @note These functions are the recommended API for value-returning conversions.
+ * The two-argument to_json/from_json remain available for cases where output
+ * parameters are preferred or for implementing custom serializers.
+ *
+ * @{
+ */
+
+/**
+ * @brief Encode a value to JSON (value-returning)
+ *
+ * @tparam T Type to encode (must have to_json overload via macro or custom)
+ * @param value The value to serialize
+ * @return JsonValue The JSON representation
+ */
+template <typename T>
+inline JsonValue json_encode(const T& value)
+{
+    JsonValue j;
+    to_json(j, value);  // ADL finds the correct overload
+    return j;
+}
+
+/**
+ * @brief Decode JSON to a value (value-returning)
+ *
+ * @tparam T Target type (must have from_json overload via macro or custom)
+ * @param j The JSON value to deserialize
+ * @return T The deserialized object
+ * @throws std::runtime_error on type mismatch or conversion failure
+ */
+template <typename T>
+inline T json_decode(const JsonValue& j)
+{
+    T result{};
+    from_json(j, result);  // ADL finds the correct overload
+    return result;
+}
+
 /** @} */
 
 // ============================================================================

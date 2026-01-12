@@ -5,7 +5,7 @@
  * @layer Policy
  *
  * Provides true N-dimensional tensor iteration with configurable shape and strides.
- * Uses SmallVector for zero-allocation storage of typical tensor dimensions (≤8D).
+ * Uses SmallVector for zero-allocation storage of typical tensor dimensions (â‰¤8D).
  *
  * @note **Performance guidance:** For hot 1D/2D row-major loops, prefer
  *       Stride1DPolicy / Stride2DPolicy (defined at the end of this file).
@@ -24,7 +24,7 @@
  * - advance()/retreat(): O(1) amortized, O(dims) worst case on rollover
  * - currentOffset(): O(1) - cached value
  * 
- * Memory: Zero heap allocation for ≤8 dimensions (MaxInlineDims).
+ * Memory: Zero heap allocation for â‰¤8 dimensions (MaxInlineDims).
  * 
  * CONTIGUOUS vs NON-CONTIGUOUS DETECTION:
  * @code
@@ -54,9 +54,9 @@
  *   Iteration: [0,0], [1,0], [2,0], [0,1], ... [2,3]
  *
  * MEMORY FOOTPRINT:
- * With default MaxInlineDims=8, sizeof(TensorStridePolicy) ≈ 296 bytes.
- * This is the tradeoff for zero heap allocation on ≤8 dimensions.
- * If memory is critical, reduce MaxInlineDims (e.g., MaxInlineDims=4 for ≈152 bytes).
+ * With default MaxInlineDims=8, sizeof(TensorStridePolicy) â‰ˆ 296 bytes.
+ * This is the tradeoff for zero heap allocation on â‰¤8 dimensions.
+ * If memory is critical, reduce MaxInlineDims (e.g., MaxInlineDims=4 for â‰ˆ152 bytes).
  *
  * MEMORY REQUIREMENTS:
  * The caller must ensure that ALL computed offsets lie within [0, end-base).
@@ -133,8 +133,8 @@ inline constexpr std::size_t kDefaultTensorDims = 8;
 // TensorStridePolicy is the "general correctness" option: it supports true N-dimensional
 // iteration with configurable shape + strides (including permuted axes and non-trivial layouts).
 //
-// This generality has an inherent cost. In tight microbenchmarks—especially for contiguous
-// traversal and simple reductions—the compiler is less likely to auto-vectorize/unroll an
+// This generality has an inherent cost. In tight microbenchmarksâ€”especially for contiguous
+// traversal and simple reductionsâ€”the compiler is less likely to auto-vectorize/unroll an
 // iterator-driven loop than a raw pointer loop. As a result, TensorStridePolicy can be
 // multiple times slower than hand-written loops or tuned libraries (e.g., Eigen) on contiguous
 // data.
@@ -219,11 +219,11 @@ public:
         , mTotal(1)
         , mIsContiguous(false)  // Computed below
     {
-        enforce(!mShape.empty(), "Shape cannot be empty");
-        enforce(mShape.size() == mStrides.size(), "Shape and strides must have same dimensions");
+        FATP_ENFORCE(!mShape.empty(), "Shape cannot be empty");
+        FATP_ENFORCE(mShape.size() == mStrides.size(), "Shape and strides must have same dimensions");
         
         for (std::size_t i = 0; i < mShape.size(); ++i) {
-            enforce(mShape[i] > 0, "All dimensions must be > 0");
+            FATP_ENFORCE(mShape[i] > 0, "All dimensions must be > 0");
             mTotal *= mShape[i];
         }
         mIsContiguous = computeIsContiguous();
@@ -246,14 +246,14 @@ public:
         , mTotal(1)
         , mIsContiguous(true)  // Row-major strides are always contiguous
     {
-        enforce(!mShape.empty(), "Shape cannot be empty");
+        FATP_ENFORCE(!mShape.empty(), "Shape cannot be empty");
         
         mStrides.resize(mShape.size());
         
         // Compute row-major strides: stride[i] = product of all dimensions after i
         std::ptrdiff_t stride = 1;
         for (std::size_t i = mShape.size(); i-- > 0; ) {
-            enforce(mShape[i] > 0, "All dimensions must be > 0");
+            FATP_ENFORCE(mShape[i] > 0, "All dimensions must be > 0");
             mStrides[i] = stride;
             stride *= static_cast<std::ptrdiff_t>(mShape[i]);
         }
@@ -272,7 +272,7 @@ public:
      * @note O(1) - returns cached value, no computation.
      */
     [[nodiscard]] std::ptrdiff_t currentOffset() const {
-        enforce(!atEnd(), "Cannot compute offset for end position");
+        FATP_ENFORCE(!atEnd(), "Cannot compute offset for end position");
         return mOffset;
     }
 
@@ -294,7 +294,7 @@ public:
      * @note O(dims) - computes from position for contiguous iteration.
      */
     [[nodiscard]] IndexVec currentIndices() const {
-        enforce(!atEnd(), "Cannot compute indices for end position");
+        FATP_ENFORCE(!atEnd(), "Cannot compute indices for end position");
         
         // For contiguous iteration, indices are not maintained incrementally
         // Compute them from linear position
@@ -319,7 +319,7 @@ public:
     /// @pre !atEnd() - cannot advance past end
     /// @note O(1) for contiguous iteration; O(1) amortized, O(dims) worst case otherwise
     void advance() {
-        enforce(!atEnd(), "Cannot advance past end");
+        FATP_ENFORCE(!atEnd(), "Cannot advance past end");
         ++mPosition;
         
         if (mPosition >= mTotal) {
@@ -366,7 +366,7 @@ public:
     /// @pre !atBegin() - cannot retreat before begin
     /// @note O(1) for contiguous iteration; O(1) amortized, O(dims) worst case otherwise
     void retreat() {
-        enforce(!atBegin(), "Cannot retreat before begin");
+        FATP_ENFORCE(!atBegin(), "Cannot retreat before begin");
         
         bool wasAtEnd = atEnd();
         --mPosition;
@@ -457,13 +457,13 @@ public:
 
     /// Get shape of specific dimension
     [[nodiscard]] std::size_t shape(std::size_t dim) const {
-        enforce(dim < mShape.size(), "Dimension out of range");
+        FATP_ENFORCE(dim < mShape.size(), "Dimension out of range");
         return mShape[dim];
     }
 
     /// Get stride of specific dimension
     [[nodiscard]] std::ptrdiff_t stride(std::size_t dim) const {
-        enforce(dim < mStrides.size(), "Dimension out of range");
+        FATP_ENFORCE(dim < mStrides.size(), "Dimension out of range");
         return mStrides[dim];
     }
 };
@@ -515,8 +515,8 @@ public:
      */
     explicit Stride1DPolicy(std::size_t count, std::ptrdiff_t stride = 1)
         : mCount(count), mStride(stride), mPosition(0) {
-        enforce(count > 0, "Count must be > 0");
-        enforce(stride > 0, "Stride must be > 0 (descending stride not supported)");
+        FATP_ENFORCE(count > 0, "Count must be > 0");
+        FATP_ENFORCE(stride > 0, "Stride must be > 0 (descending stride not supported)");
     }
 
     [[nodiscard]] bool atEnd() const noexcept { return mPosition >= mCount; }
@@ -526,13 +526,13 @@ public:
     [[nodiscard]] std::size_t position() const noexcept { return mPosition; }
 
     void advance(pointer& ptr) {
-        enforce(!atEnd(), "Cannot advance past end");
+        FATP_ENFORCE(!atEnd(), "Cannot advance past end");
         ptr += mStride;
         ++mPosition;
     }
 
     void retreat(pointer& ptr) {
-        enforce(!atBegin(), "Cannot retreat before begin");
+        FATP_ENFORCE(!atBegin(), "Cannot retreat before begin");
         ptr -= mStride;
         --mPosition;
     }
@@ -543,7 +543,7 @@ public:
 #ifndef NDEBUG
         auto span = bufferEnd - base;
         auto expected = static_cast<std::ptrdiff_t>(mCount) * mStride;
-        enforce(span == expected,
+        FATP_ENFORCE(span == expected,
                 "Stride1D: end must equal base + count*stride");
         (void)base;       // Used only in debug
         (void)bufferEnd;  // Used only in debug
@@ -634,10 +634,10 @@ public:
         , mRowStride(rowStride), mColStride(colStride)
         , mRow(0), mCol(0)
         , mTotal(rows * cols), mPosition(0) {
-        enforce(rows > 0 && cols > 0, "Dimensions must be > 0");
-        enforce(rowStride > 0 && colStride > 0, 
+        FATP_ENFORCE(rows > 0 && cols > 0, "Dimensions must be > 0");
+        FATP_ENFORCE(rowStride > 0 && colStride > 0, 
                 "Strides must be > 0 (descending strides not supported)");
-        enforce(rowStride >= static_cast<std::ptrdiff_t>(cols) * colStride,
+        FATP_ENFORCE(rowStride >= static_cast<std::ptrdiff_t>(cols) * colStride,
                 "rowStride must be >= cols * colStride for monotonic row-major traversal");
     }
 
@@ -653,7 +653,7 @@ public:
     [[nodiscard]] std::size_t col() const noexcept { return mCol; }
 
     void advance(pointer& ptr) {
-        enforce(!atEnd(), "Cannot advance past end");
+        FATP_ENFORCE(!atEnd(), "Cannot advance past end");
         ++mPosition;
         
         // Advance column (inner dimension)
@@ -670,7 +670,7 @@ public:
     }
 
     void retreat(pointer& ptr) {
-        enforce(!atBegin(), "Cannot retreat before begin");
+        FATP_ENFORCE(!atBegin(), "Cannot retreat before begin");
         --mPosition;
         
         if (mCol > 0) {
@@ -691,7 +691,7 @@ public:
 #ifndef NDEBUG
         auto span = bufferEnd - base;
         auto expected = static_cast<std::ptrdiff_t>(mRows) * mRowStride;
-        enforce(span == expected,
+        FATP_ENFORCE(span == expected,
                 "Stride2D: end must equal base + rows*rowStride");
         (void)base;       // Used only in debug
         (void)bufferEnd;  // Used only in debug

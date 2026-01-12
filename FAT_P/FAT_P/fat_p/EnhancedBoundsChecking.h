@@ -98,7 +98,7 @@ inline void enforce_bounds(T index, T min_val, T max_val, const char* context = 
     std::ostringstream oss;
     oss << context << " " << index << " must be in range [" 
         << min_val << ", " << max_val << ")";
-    always_enforce_in_range(min_val, max_val, index, oss.str());
+    FATP_ALWAYS_ENFORCE_IN_RANGE(min_val, max_val, index, oss.str());
 }
 
 /**
@@ -111,7 +111,7 @@ inline void debug_enforce_bounds(T index, T min_val, T max_val,
     std::ostringstream oss;
     oss << context << " " << index << " must be in range [" 
         << min_val << ", " << max_val << ")";
-    debug_enforce_in_range(min_val, max_val, index, oss.str());
+    FATP_DEBUG_ENFORCE_IN_RANGE(min_val, max_val, index, oss.str());
     #else
     (void)index; (void)min_val; (void)max_val; (void)context;
     #endif

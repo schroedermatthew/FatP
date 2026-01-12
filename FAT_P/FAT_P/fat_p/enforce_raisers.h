@@ -56,11 +56,42 @@ FATP_META:
 #include <string>
 #include <system_error>
 
-#include "ConcurrencyPolicies.h"
 #include "ContractException.h"
 #include "Expected.h"
 
 namespace fat_p {
+
+// ============================================================================
+// Local SingleThreadedPolicy stub (Foundation layer independence)
+// ============================================================================
+// This minimal policy avoids including ConcurrencyPolicies.h (Concurrency layer)
+// from this Foundation-layer header. Users needing thread-safe CustomRaiser
+// should include ConcurrencyPolicies.h and specify the policy explicitly:
+//   #include "ConcurrencyPolicies.h"
+//   using MyRaiser = CustomRaiser<MyException, fat_p::SingleThreadedPolicy>;
+//   // Or for thread-safe:
+//   using MyRaiser = CustomRaiser<MyException, fat_p::MutexSynchronizationPolicy>;
+// ============================================================================
+
+namespace detail {
+
+struct LocalNoOpLock {};
+
+struct LocalSingleThreadedPolicy {
+    using LockType = LocalNoOpLock;
+    
+    struct SharedGuard {
+        template <typename T>
+        explicit SharedGuard(T&) noexcept {}
+    };
+    
+    static LocalNoOpLock& getStaticLock() {
+        static LocalNoOpLock lock;
+        return lock;
+    }
+};
+
+} // namespace detail
 
 using ViolationHandlerFunction = std::function<void(const std::string&)>;
 
@@ -166,7 +197,7 @@ inline void reset_violation_handler()
  * and be constructible from `const std::string&`.
  * @tparam ConcurrencyPolicy Policy for thread-safety in raisers.
  */
-template <typename E, typename ConcurrencyPolicy = SingleThreadedPolicy>
+template <typename E, typename ConcurrencyPolicy = detail::LocalSingleThreadedPolicy>
 struct CustomRaiser : public ConcurrencyPolicy
 {
     static_assert(std::is_constructible<E, const std::string&>::value,
