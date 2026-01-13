@@ -641,10 +641,7 @@ FATP_TEST_CASE(size_characteristics)
     struct WithDebug
     {
         int data;
-#if FATP_HAS_CPP20
-        [[no_unique_address]]
-#endif
-        fat_p::DebugOnly<std::string> debug_info;
+        FATP_NO_UNIQUE_ADDRESS fat_p::DebugOnly<std::string> debug_info;
     };
 
 #ifdef NDEBUG
@@ -817,10 +814,7 @@ void benchmark_debugonly()
     struct WithDebug
     {
         int data;
-#if FATP_HAS_CPP20
-        [[no_unique_address]]
-#endif
-        fat_p::DebugOnly<std::string> debug_info;
+        FATP_NO_UNIQUE_ADDRESS fat_p::DebugOnly<std::string> debug_info;
     };
 
     std::cout << "\nSize Characteristics:\n";

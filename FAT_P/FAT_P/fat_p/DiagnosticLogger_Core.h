@@ -95,9 +95,7 @@ FATP_META:
 #endif
 #endif
 
-namespace fat_p
-{
-namespace diagnostic
+namespace fat_p::diagnostic
 {
 
 /**
@@ -1011,5 +1009,4 @@ inline Logger& getGlobalLogger()
 #define FATP_LOG_ERROR_TO(name, msg) FATP_LOG_TO_IMPL(name, Error, msg)
 #define FATP_LOG_FATAL_TO(name, msg) FATP_LOG_TO_IMPL(name, Fatal, msg)
 
-} // namespace diagnostic
-} // namespace fat_p
+} // namespace fat_p::diagnostic

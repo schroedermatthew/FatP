@@ -139,14 +139,10 @@ struct StringHash
 {
     using is_transparent = void;
 
+    // Single overload handles all string types via implicit conversion to string_view
     size_t operator()(std::string_view sv) const noexcept
     {
         return std::hash<std::string_view>{}(sv);
-    }
-
-    size_t operator()(const std::string& s) const noexcept
-    {
-        return std::hash<std::string>{}(s);
     }
 };
 
@@ -154,17 +150,13 @@ struct StringEqual
 {
     using is_transparent = void;
 
+    // Single overload handles all combinations via implicit conversion to string_view
+    // std::string implicitly converts to std::string_view, so this handles:
+    // - (string_view, string_view): direct
+    // - (string, string_view): lhs converts
+    // - (string_view, string): rhs converts
+    // - (string, string): both convert (unambiguous - only one overload)
     bool operator()(std::string_view lhs, std::string_view rhs) const noexcept
-    {
-        return lhs == rhs;
-    }
-
-    bool operator()(const std::string& lhs, std::string_view rhs) const noexcept
-    {
-        return lhs == rhs;
-    }
-
-    bool operator()(std::string_view lhs, const std::string& rhs) const noexcept
     {
         return lhs == rhs;
     }

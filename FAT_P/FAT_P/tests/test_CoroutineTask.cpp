@@ -272,13 +272,20 @@ FATP_TEST_CASE(generator_string_values) {
 // Task Composition Tests
 // =============================================================================
 
+// Helper function for task composition tests.
+// Note: Coroutine parameters are stored in the coroutine frame, but lambda
+// captures are stored in the lambda object which may be destroyed before
+// the coroutine completes. Always prefer function parameters over lambda
+// captures when creating coroutines in loops.
+static CoroutineTask<int> make_value_task(int value) {
+    co_return value;
+}
+
 FATP_TEST_CASE(when_all_success) {
     std::vector<CoroutineTask<int>> tasks;
     
     for (int i = 0; i < 3; ++i) {
-        tasks.push_back([i]() -> CoroutineTask<int> {
-            co_return i * 10;
-        }());
+        tasks.push_back(make_value_task(i * 10));
     }
     
     auto result = when_all(tasks);
@@ -334,11 +341,14 @@ FATP_TEST_CASE(when_any_first_succeeds) {
 FATP_TEST_CASE(when_any_all_fail) {
     std::vector<CoroutineTask<int>> tasks;
     
+    // Helper that always throws
+    auto make_failing_task = []() -> CoroutineTask<int> {
+        throw std::runtime_error("Task failed");
+        co_return 0;  // Unreachable, but required for coroutine return type
+    };
+    
     for (int i = 0; i < 3; ++i) {
-        tasks.push_back([i]() -> CoroutineTask<int> {
-            throw std::runtime_error("Task failed");
-            co_return i;
-        }());
+        tasks.push_back(make_failing_task());
     }
     
     auto result = when_any(tasks);
