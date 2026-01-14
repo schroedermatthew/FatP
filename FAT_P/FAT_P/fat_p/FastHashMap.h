@@ -690,7 +690,7 @@ private:
     
     // Compute growth threshold ensuring at least one empty slot remains
     static size_t compute_growth_threshold(size_t cap, float max_lf) noexcept {
-        size_t threshold = static_cast<size_t>(cap * max_lf);
+        size_t threshold = static_cast<size_t>(static_cast<float>(cap) * max_lf);
         // Must leave at least one empty slot for probe termination
         if (threshold >= cap) threshold = cap - 1;
         if (threshold < 1) threshold = 1;
@@ -1122,7 +1122,7 @@ public:
     size_t size() const noexcept { return size_; }
     size_t capacity() const noexcept { return mCapacity; }
     float load_factor() const noexcept {
-        return mCapacity ? static_cast<float>(size_) / mCapacity : 0.0f;
+        return mCapacity ? static_cast<float>(size_) / static_cast<float>(mCapacity) : 0.0f;
     }
     float max_load_factor() const noexcept { return max_load_factor_; }
     

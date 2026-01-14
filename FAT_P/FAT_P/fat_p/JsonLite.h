@@ -5422,7 +5422,9 @@ inline JsonObject parse_object(std::string_view s, size_t& pos, size_t depth)
         skip_whitespace<Policy>(s, pos);
 
         // Key must be a string
-        FATP_JSON_ENFORCE(pos < s.size() && s[pos] == '"', "JSON parse error: expected string mKey_LIT_1__position", pos);
+        FATP_JSON_ENFORCE(pos < s.size() && s[pos] == '"',
+                          "JSON parse error: expected string mKey_LIT_1__position",
+                          pos);
         std::string key = parse_string(s, pos);
 
         skip_whitespace<Policy>(s, pos);
