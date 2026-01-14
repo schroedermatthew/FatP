@@ -8,6 +8,13 @@
 # Directory structure:
 #   Headers:    FAT_P/FAT_P/fat_p/StableHashMap.h
 #   Tests:      FAT_P/FAT_P/tests/test_StableHashMap.cpp
+#   Benchmarks: FAT_P/FAT_P/benchmarks/benchmark_FatPHashMap.cpp
+#
+# Third-party libraries for benchmarks:
+#   - tsl::robin_map (Tessil/robin-map)
+#   - ankerl::unordered_dense (martinus/unordered_dense)
+#   - absl::flat_hash_map (abseil-cpp)
+#   - boost::unordered_flat_map (libboost-dev)
 # =============================================================================
 
 name: StableHashMap CI
@@ -18,12 +25,16 @@ on:
     paths:
       - 'FAT_P/FAT_P/fat_p/StableHashMap.h'
       - 'FAT_P/FAT_P/tests/test_StableHashMap.cpp'
+      - 'FAT_P/FAT_P/benchmarks/benchmark_FatPHashMap.cpp'
+      - 'FAT_P/FAT_P/fat_p/FatPBenchmarkRunner.h'
       - '.github/workflows/stable-hash-map.yml'
   pull_request:
     branches: [main, master]
     paths:
       - 'FAT_P/FAT_P/fat_p/StableHashMap.h'
       - 'FAT_P/FAT_P/tests/test_StableHashMap.cpp'
+      - 'FAT_P/FAT_P/benchmarks/benchmark_FatPHashMap.cpp'
+      - 'FAT_P/FAT_P/fat_p/FatPBenchmarkRunner.h'
       - '.github/workflows/stable-hash-map.yml'
   workflow_dispatch:
 
@@ -185,11 +196,92 @@ jobs:
           echo "✓ No warnings"
 
   # ===========================================================================
+  # Benchmarks with Third-Party Competitor Libraries
+  # ===========================================================================
+  benchmarks:
+    name: HashMap Benchmarks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-13 cmake ninja-build libboost-dev
+
+      - name: Cache third-party libraries
+        id: cache-thirdparty
+        uses: actions/cache@v4
+        with:
+          path: ~/thirdparty
+          key: hashmap-thirdparty-v2-${{ runner.os }}
+
+      - name: Install third-party hash map libraries
+        if: steps.cache-thirdparty.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/thirdparty
+
+          # tsl::robin_map (header-only)
+          git clone --depth 1 https://github.com/Tessil/robin-map.git ~/thirdparty/robin-map
+
+          # ankerl::unordered_dense (header-only)
+          git clone --depth 1 https://github.com/martinus/unordered_dense.git ~/thirdparty/unordered_dense
+
+          # abseil-cpp (needs build)
+          git clone --depth 1 https://github.com/abseil/abseil-cpp.git ~/thirdparty/abseil-cpp
+          cd ~/thirdparty/abseil-cpp
+          mkdir build && cd build
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_STANDARD=20 \
+            -DABSL_BUILD_TESTING=OFF \
+            -DABSL_USE_GOOGLETEST_HEAD=OFF \
+            -DCMAKE_INSTALL_PREFIX=~/thirdparty/abseil-install \
+            ..
+          ninja
+          ninja install
+
+      - name: Build benchmarks
+        run: |
+          g++-13 -std=c++20 -O3 -DNDEBUG -march=native \
+            -I./FAT_P/FAT_P/fat_p \
+            -I~/thirdparty/robin-map/include \
+            -I~/thirdparty/unordered_dense/include \
+            -I~/thirdparty/abseil-install/include \
+            -L~/thirdparty/abseil-install/lib \
+            FAT_P/FAT_P/benchmarks/benchmark_FatPHashMap.cpp \
+            -o bench_hashmap \
+            -labsl_hash -labsl_city -labsl_low_level_hash -labsl_raw_hash_set \
+            -Wl,-rpath,~/thirdparty/abseil-install/lib \
+            -pthread
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_BATCHES: 10
+          FATP_BENCH_WARMUP_RUNS: 2
+          FATP_BENCH_NO_STABILIZE: 1
+        run: |
+          echo "========================================"
+          echo "  HashMap Benchmark Results"
+          echo "========================================"
+          ./bench_hashmap
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results
+          path: |
+            *.csv
+            *.json
+          if-no-files-found: ignore
+
+  # ===========================================================================
   # CI Gate
   # ===========================================================================
   ci-success:
     name: CI Success
-    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings, benchmarks]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -202,4 +294,5 @@ jobs:
           if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.benchmarks.result }}" != "success" ]]; then exit 1; fi
           echo "✓ All checks passed"
