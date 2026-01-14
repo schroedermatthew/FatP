@@ -1,35 +1,35 @@
 # =============================================================================
-# .github/workflows/type-traits.yml
+# .github/workflows/tensor.yml
 # =============================================================================
-# CI workflow for TypeTraits component
+# CI workflow for Tensor component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/TypeTraits.h
-#   Tests:      FAT_P/FAT_P/tests/test_TypeTraits.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/Tensor.h
+#   Tests:      FAT_P/FAT_P/tests/test_Tensor.cpp
 # =============================================================================
 
-name: TypeTraits CI
+name: Tensor CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/TypeTraits.h'
-      - 'FAT_P/FAT_P/tests/test_TypeTraits.cpp'
-      - '.github/workflows/type-traits.yml'
+      - 'FAT_P/FAT_P/fat_p/Tensor.h'
+      - 'FAT_P/FAT_P/tests/test_Tensor.cpp'
+      - '.github/workflows/tensor.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/TypeTraits.h'
-      - 'FAT_P/FAT_P/tests/test_TypeTraits.cpp'
-      - '.github/workflows/type-traits.yml'
+      - 'FAT_P/FAT_P/fat_p/Tensor.h'
+      - 'FAT_P/FAT_P/tests/test_Tensor.cpp'
+      - '.github/workflows/tensor.yml'
   workflow_dispatch:
 
 env:
-  HEADER: TypeTraits.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_TypeTraits.cpp
+  HEADER: Tensor.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_Tensor.cpp
 
 jobs:
   # ===========================================================================
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_TypeTraits.cpp /Fe:test_bin.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_Tensor.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe

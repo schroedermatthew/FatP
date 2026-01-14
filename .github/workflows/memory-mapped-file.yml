@@ -1,35 +1,35 @@
 # =============================================================================
-# .github/workflows/object-pool.yml
+# .github/workflows/memory-mapped-file.yml
 # =============================================================================
-# CI workflow for ObjectPool component
+# CI workflow for MemoryMappedFile component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/ObjectPool.h
-#   Tests:      FAT_P/FAT_P/tests/test_ObjectPool.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/MemoryMappedFile.h
+#   Tests:      FAT_P/FAT_P/tests/test_MemoryMappedFile.cpp
 # =============================================================================
 
-name: ObjectPool CI
+name: MemoryMappedFile CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/ObjectPool.h'
-      - 'FAT_P/FAT_P/tests/test_ObjectPool.cpp'
-      - '.github/workflows/object-pool.yml'
+      - 'FAT_P/FAT_P/fat_p/MemoryMappedFile.h'
+      - 'FAT_P/FAT_P/tests/test_MemoryMappedFile.cpp'
+      - '.github/workflows/memory-mapped-file.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/ObjectPool.h'
-      - 'FAT_P/FAT_P/tests/test_ObjectPool.cpp'
-      - '.github/workflows/object-pool.yml'
+      - 'FAT_P/FAT_P/fat_p/MemoryMappedFile.h'
+      - 'FAT_P/FAT_P/tests/test_MemoryMappedFile.cpp'
+      - '.github/workflows/memory-mapped-file.yml'
   workflow_dispatch:
 
 env:
-  HEADER: ObjectPool.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_ObjectPool.cpp
+  HEADER: MemoryMappedFile.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_MemoryMappedFile.cpp
 
 jobs:
   # ===========================================================================
@@ -83,25 +83,6 @@ jobs:
 
       - name: Run tests
         run: ./test_bin
-
-  # ===========================================================================
-  # Windows MSVC Build (C++20)
-  # ===========================================================================
-  windows-msvc:
-    name: Windows MSVC C++20
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Build tests
-        run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_ObjectPool.cpp /Fe:test_bin.exe /link advapi32.lib
-
-      - name: Run tests
-        run: .\test_bin.exe
 
   # ===========================================================================
   # Sanitizers (C++20)
@@ -189,7 +170,7 @@ jobs:
   # ===========================================================================
   ci-success:
     name: CI Success
-    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
+    needs: [linux-gcc, linux-clang, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -197,7 +178,6 @@ jobs:
         run: |
           if [[ "${{ needs.linux-gcc.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.linux-clang.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi

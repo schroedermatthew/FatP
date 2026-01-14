@@ -1,35 +1,35 @@
 # =============================================================================
-# .github/workflows/simd-vector.yml
+# .github/workflows/service-locator.yml
 # =============================================================================
-# CI workflow for SimdVector component
+# CI workflow for ServiceLocator component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/SimdVector.h
-#   Tests:      FAT_P/FAT_P/tests/test_SimdVector.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/ServiceLocator.h
+#   Tests:      FAT_P/FAT_P/tests/test_ServiceLocator.cpp
 # =============================================================================
 
-name: SimdVector CI
+name: ServiceLocator CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/SimdVector.h'
-      - 'FAT_P/FAT_P/tests/test_SimdVector.cpp'
-      - '.github/workflows/simd-vector.yml'
+      - 'FAT_P/FAT_P/fat_p/ServiceLocator.h'
+      - 'FAT_P/FAT_P/tests/test_ServiceLocator.cpp'
+      - '.github/workflows/service-locator.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/SimdVector.h'
-      - 'FAT_P/FAT_P/tests/test_SimdVector.cpp'
-      - '.github/workflows/simd-vector.yml'
+      - 'FAT_P/FAT_P/fat_p/ServiceLocator.h'
+      - 'FAT_P/FAT_P/tests/test_ServiceLocator.cpp'
+      - '.github/workflows/service-locator.yml'
   workflow_dispatch:
 
 env:
-  HEADER: SimdVector.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_SimdVector.cpp
+  HEADER: ServiceLocator.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_ServiceLocator.cpp
 
 jobs:
   # ===========================================================================
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_SimdVector.cpp /Fe:test_bin.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_ServiceLocator.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe

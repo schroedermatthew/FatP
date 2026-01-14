@@ -1,35 +1,35 @@
 # =============================================================================
-# .github/workflows/memory-mapped-file.yml
+# .github/workflows/lock-free-queue.yml
 # =============================================================================
-# CI workflow for MemoryMappedFile component
+# CI workflow for LockFreeQueue component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/MemoryMappedFile.h
-#   Tests:      FAT_P/FAT_P/tests/test_MemoryMappedFile.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/LockFreeQueue.h
+#   Tests:      FAT_P/FAT_P/tests/test_LockFreeQueue.cpp
 # =============================================================================
 
-name: MemoryMappedFile CI
+name: LockFreeQueue CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/MemoryMappedFile.h'
-      - 'FAT_P/FAT_P/tests/test_MemoryMappedFile.cpp'
-      - '.github/workflows/memory-mapped-file.yml'
+      - 'FAT_P/FAT_P/fat_p/LockFreeQueue.h'
+      - 'FAT_P/FAT_P/tests/test_LockFreeQueue.cpp'
+      - '.github/workflows/lock-free-queue.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/MemoryMappedFile.h'
-      - 'FAT_P/FAT_P/tests/test_MemoryMappedFile.cpp'
-      - '.github/workflows/memory-mapped-file.yml'
+      - 'FAT_P/FAT_P/fat_p/LockFreeQueue.h'
+      - 'FAT_P/FAT_P/tests/test_LockFreeQueue.cpp'
+      - '.github/workflows/lock-free-queue.yml'
   workflow_dispatch:
 
 env:
-  HEADER: MemoryMappedFile.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_MemoryMappedFile.cpp
+  HEADER: LockFreeQueue.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_LockFreeQueue.cpp
 
 jobs:
   # ===========================================================================
@@ -83,6 +83,25 @@ jobs:
 
       - name: Run tests
         run: ./test_bin
+
+  # ===========================================================================
+  # Windows MSVC Build (C++20)
+  # ===========================================================================
+  windows-msvc:
+    name: Windows MSVC C++20
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build tests
+        run: |
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_LockFreeQueue.cpp /Fe:test_bin.exe /link advapi32.lib
+
+      - name: Run tests
+        run: .\test_bin.exe
 
   # ===========================================================================
   # Sanitizers (C++20)
@@ -170,7 +189,7 @@ jobs:
   # ===========================================================================
   ci-success:
     name: CI Success
-    needs: [linux-gcc, linux-clang, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -178,6 +197,7 @@ jobs:
         run: |
           if [[ "${{ needs.linux-gcc.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.linux-clang.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi

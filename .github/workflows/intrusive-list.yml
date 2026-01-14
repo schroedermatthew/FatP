@@ -1,35 +1,35 @@
 # =============================================================================
-# .github/workflows/json-stream-lite.yml
+# .github/workflows/intrusive-list.yml
 # =============================================================================
-# CI workflow for JsonStreamLite component
+# CI workflow for IntrusiveList component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/JsonStreamLite.h
-#   Tests:      FAT_P/FAT_P/tests/test_JsonStreamLite.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/IntrusiveList.h
+#   Tests:      FAT_P/FAT_P/tests/test_IntrusiveList.cpp
 # =============================================================================
 
-name: JsonStreamLite CI
+name: IntrusiveList CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/JsonStreamLite.h'
-      - 'FAT_P/FAT_P/tests/test_JsonStreamLite.cpp'
-      - '.github/workflows/json-stream-lite.yml'
+      - 'FAT_P/FAT_P/fat_p/IntrusiveList.h'
+      - 'FAT_P/FAT_P/tests/test_IntrusiveList.cpp'
+      - '.github/workflows/intrusive-list.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/JsonStreamLite.h'
-      - 'FAT_P/FAT_P/tests/test_JsonStreamLite.cpp'
-      - '.github/workflows/json-stream-lite.yml'
+      - 'FAT_P/FAT_P/fat_p/IntrusiveList.h'
+      - 'FAT_P/FAT_P/tests/test_IntrusiveList.cpp'
+      - '.github/workflows/intrusive-list.yml'
   workflow_dispatch:
 
 env:
-  HEADER: JsonStreamLite.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_JsonStreamLite.cpp
+  HEADER: IntrusiveList.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_IntrusiveList.cpp
 
 jobs:
   # ===========================================================================
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_JsonStreamLite.cpp /Fe:test_bin.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_IntrusiveList.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe

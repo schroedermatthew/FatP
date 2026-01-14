@@ -1,35 +1,35 @@
 # =============================================================================
-# .github/workflows/value-guard.yml
+# .github/workflows/thread-pool.yml
 # =============================================================================
-# CI workflow for ValueGuard component
+# CI workflow for ThreadPool component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/ValueGuard.h
-#   Tests:      FAT_P/FAT_P/tests/test_ValueGuard.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/ThreadPool.h
+#   Tests:      FAT_P/FAT_P/tests/test_ThreadPool.cpp
 # =============================================================================
 
-name: ValueGuard CI
+name: ThreadPool CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/ValueGuard.h'
-      - 'FAT_P/FAT_P/tests/test_ValueGuard.cpp'
-      - '.github/workflows/value-guard.yml'
+      - 'FAT_P/FAT_P/fat_p/ThreadPool.h'
+      - 'FAT_P/FAT_P/tests/test_ThreadPool.cpp'
+      - '.github/workflows/thread-pool.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/ValueGuard.h'
-      - 'FAT_P/FAT_P/tests/test_ValueGuard.cpp'
-      - '.github/workflows/value-guard.yml'
+      - 'FAT_P/FAT_P/fat_p/ThreadPool.h'
+      - 'FAT_P/FAT_P/tests/test_ThreadPool.cpp'
+      - '.github/workflows/thread-pool.yml'
   workflow_dispatch:
 
 env:
-  HEADER: ValueGuard.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_ValueGuard.cpp
+  HEADER: ThreadPool.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_ThreadPool.cpp
 
 jobs:
   # ===========================================================================
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_ValueGuard.cpp /Fe:test_bin.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_ThreadPool.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe

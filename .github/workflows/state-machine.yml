@@ -1,35 +1,35 @@
 # =============================================================================
-# .github/workflows/stringify.yml
+# .github/workflows/state-machine.yml
 # =============================================================================
-# CI workflow for Stringify component
+# CI workflow for StateMachine component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/Stringify.h
-#   Tests:      FAT_P/FAT_P/tests/test_Stringify.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/StateMachine.h
+#   Tests:      FAT_P/FAT_P/tests/test_StateMachine.cpp
 # =============================================================================
 
-name: Stringify CI
+name: StateMachine CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/Stringify.h'
-      - 'FAT_P/FAT_P/tests/test_Stringify.cpp'
-      - '.github/workflows/stringify.yml'
+      - 'FAT_P/FAT_P/fat_p/StateMachine.h'
+      - 'FAT_P/FAT_P/tests/test_StateMachine.cpp'
+      - '.github/workflows/state-machine.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/Stringify.h'
-      - 'FAT_P/FAT_P/tests/test_Stringify.cpp'
-      - '.github/workflows/stringify.yml'
+      - 'FAT_P/FAT_P/fat_p/StateMachine.h'
+      - 'FAT_P/FAT_P/tests/test_StateMachine.cpp'
+      - '.github/workflows/state-machine.yml'
   workflow_dispatch:
 
 env:
-  HEADER: Stringify.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_Stringify.cpp
+  HEADER: StateMachine.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_StateMachine.cpp
 
 jobs:
   # ===========================================================================
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_Stringify.cpp /Fe:test_bin.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_StateMachine.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe

@@ -1,46 +1,35 @@
 # =============================================================================
-# .github/workflows/small-vector.yml
+# .github/workflows/sliding-file-window.yml
 # =============================================================================
-# CI workflow for SmallVector component
+# CI workflow for SlidingFileWindow component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/SmallVector.h
-#   Tests:      FAT_P/FAT_P/tests/test_SmallVector.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/SlidingFileWindow.h
+#   Tests:      FAT_P/FAT_P/tests/test_SlidingFileWindow.cpp
 # =============================================================================
 
-name: SmallVector CI
+name: SlidingFileWindow CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/SmallVector.h'
-      - 'FAT_P/FAT_P/tests/test_SmallVector.cpp'
-      - 'FAT_P/FAT_P/benchmarks/benchmark_SmallVector.cpp'
-      - '.github/workflows/small-vector.yml'
+      - 'FAT_P/FAT_P/fat_p/SlidingFileWindow.h'
+      - 'FAT_P/FAT_P/tests/test_SlidingFileWindow.cpp'
+      - '.github/workflows/sliding-file-window.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/SmallVector.h'
-      - 'FAT_P/FAT_P/tests/test_SmallVector.cpp'
-      - 'FAT_P/FAT_P/benchmarks/benchmark_SmallVector.cpp'
-      - '.github/workflows/small-vector.yml'
-  schedule:
-    - cron: '0 2 * * 0'  # Weekly benchmarks
+      - 'FAT_P/FAT_P/fat_p/SlidingFileWindow.h'
+      - 'FAT_P/FAT_P/tests/test_SlidingFileWindow.cpp'
+      - '.github/workflows/sliding-file-window.yml'
   workflow_dispatch:
-    inputs:
-      run_benchmarks:
-        description: 'Run benchmarks'
-        required: false
-        default: 'false'
-        type: boolean
 
 env:
-  HEADER: SmallVector.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_SmallVector.cpp
-  BENCH_SRC: FAT_P/FAT_P/benchmarks/benchmark_SmallVector.cpp
+  HEADER: SlidingFileWindow.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_SlidingFileWindow.cpp
 
 jobs:
   # ===========================================================================
@@ -94,25 +83,6 @@ jobs:
 
       - name: Run tests
         run: ./test_bin
-
-  # ===========================================================================
-  # Windows MSVC Build (C++20)
-  # ===========================================================================
-  windows-msvc:
-    name: Windows MSVC C++20
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Build tests
-        run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_SmallVector.cpp /Fe:test_bin.exe /link advapi32.lib
-
-      - name: Run tests
-        run: .\test_bin.exe
 
   # ===========================================================================
   # Sanitizers (C++20)
@@ -196,53 +166,11 @@ jobs:
           echo "✓ No warnings"
 
   # ===========================================================================
-  # Benchmarks (Weekly/Manual)
-  # ===========================================================================
-  benchmarks:
-    name: Benchmark GCC-13 C++20
-    runs-on: ubuntu-24.04
-    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install GCC
-        run: sudo apt-get update && sudo apt-get install -y g++-13
-
-      - name: Detect AVX2 support
-        run: |
-          if grep -q avx2 /proc/cpuinfo; then
-            echo "AVX_FLAGS=-mavx2 -mfma" >> "$GITHUB_ENV"
-            echo "✓ AVX2 supported"
-          else
-            echo "AVX_FLAGS=" >> "$GITHUB_ENV"
-            echo "⚠ AVX2 not supported"
-          fi
-
-      - name: Build benchmark
-        run: |
-          g++-13 -std=c++20 -O3 -DNDEBUG $AVX_FLAGS \
-            -I./FAT_P/FAT_P/fat_p \
-            ${{ env.BENCH_SRC }} -o bench_bin
-
-      - name: Run benchmarks
-        env:
-          FATP_BENCH_WARMUP_RUNS: 3
-          FATP_BENCH_BATCHES: 20
-          FATP_BENCH_NO_STABILIZE: 1
-        run: ./bench_bin 2>&1 | tee benchmark.log
-
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: benchmark.log
-
-  # ===========================================================================
   # CI Gate
   # ===========================================================================
   ci-success:
     name: CI Success
-    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
+    needs: [linux-gcc, linux-clang, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -250,7 +178,6 @@ jobs:
         run: |
           if [[ "${{ needs.linux-gcc.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.linux-clang.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi

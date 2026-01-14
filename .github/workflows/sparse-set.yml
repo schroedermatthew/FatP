@@ -1,35 +1,35 @@
 # =============================================================================
-# .github/workflows/stacktrace.yml
+# .github/workflows/sparse-set.yml
 # =============================================================================
-# CI workflow for Stacktrace component
+# CI workflow for SparseSet component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/Stacktrace.h
-#   Tests:      FAT_P/FAT_P/tests/test_Stacktrace.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/SparseSet.h
+#   Tests:      FAT_P/FAT_P/tests/test_SparseSet.cpp
 # =============================================================================
 
-name: Stacktrace CI
+name: SparseSet CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/Stacktrace.h'
-      - 'FAT_P/FAT_P/tests/test_Stacktrace.cpp'
-      - '.github/workflows/stacktrace.yml'
+      - 'FAT_P/FAT_P/fat_p/SparseSet.h'
+      - 'FAT_P/FAT_P/tests/test_SparseSet.cpp'
+      - '.github/workflows/sparse-set.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/Stacktrace.h'
-      - 'FAT_P/FAT_P/tests/test_Stacktrace.cpp'
-      - '.github/workflows/stacktrace.yml'
+      - 'FAT_P/FAT_P/fat_p/SparseSet.h'
+      - 'FAT_P/FAT_P/tests/test_SparseSet.cpp'
+      - '.github/workflows/sparse-set.yml'
   workflow_dispatch:
 
 env:
-  HEADER: Stacktrace.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_Stacktrace.cpp
+  HEADER: SparseSet.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_SparseSet.cpp
 
 jobs:
   # ===========================================================================
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_Stacktrace.cpp /Fe:test_bin.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_SparseSet.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe

@@ -1,35 +1,35 @@
 # =============================================================================
-# .github/workflows/reflection.yml
+# .github/workflows/pipe-operator.yml
 # =============================================================================
-# CI workflow for Reflection component
+# CI workflow for PipeOperator component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/Reflection.h
-#   Tests:      FAT_P/FAT_P/tests/test_Reflection.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/PipeOperator.h
+#   Tests:      FAT_P/FAT_P/tests/test_PipeOperator.cpp
 # =============================================================================
 
-name: Reflection CI
+name: PipeOperator CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/Reflection.h'
-      - 'FAT_P/FAT_P/tests/test_Reflection.cpp'
-      - '.github/workflows/reflection.yml'
+      - 'FAT_P/FAT_P/fat_p/PipeOperator.h'
+      - 'FAT_P/FAT_P/tests/test_PipeOperator.cpp'
+      - '.github/workflows/pipe-operator.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/Reflection.h'
-      - 'FAT_P/FAT_P/tests/test_Reflection.cpp'
-      - '.github/workflows/reflection.yml'
+      - 'FAT_P/FAT_P/fat_p/PipeOperator.h'
+      - 'FAT_P/FAT_P/tests/test_PipeOperator.cpp'
+      - '.github/workflows/pipe-operator.yml'
   workflow_dispatch:
 
 env:
-  HEADER: Reflection.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_Reflection.cpp
+  HEADER: PipeOperator.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_PipeOperator.cpp
 
 jobs:
   # ===========================================================================
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_Reflection.cpp /Fe:test_bin.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_PipeOperator.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe

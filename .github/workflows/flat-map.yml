@@ -1,32 +1,32 @@
 # =============================================================================
-# .github/workflows/floating-point-comparison.yml
+# .github/workflows/flat-map.yml
 # =============================================================================
-# CI workflow for FloatingPointComparison component
+# CI workflow for FlatMap component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/FloatingPointComparison.h
-#   Tests:      FAT_P/FAT_P/tests/test_FloatingPointComparison.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/FlatMap.h
+#   Tests:      FAT_P/FAT_P/tests/test_FlatMap.cpp
 # =============================================================================
 
-name: FloatingPointComparison CI
+name: FlatMap CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/FloatingPointComparison.h'
-      - 'FAT_P/FAT_P/tests/test_FloatingPointComparison.cpp'
-      - 'FAT_P/FAT_P/benchmarks/benchmark_FloatingPointComparison.cpp'
-      - '.github/workflows/floating-point-comparison.yml'
+      - 'FAT_P/FAT_P/fat_p/FlatMap.h'
+      - 'FAT_P/FAT_P/tests/test_FlatMap.cpp'
+      - 'FAT_P/FAT_P/benchmarks/benchmark_FlatMapSet.cpp'
+      - '.github/workflows/flat-map.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/FloatingPointComparison.h'
-      - 'FAT_P/FAT_P/tests/test_FloatingPointComparison.cpp'
-      - 'FAT_P/FAT_P/benchmarks/benchmark_FloatingPointComparison.cpp'
-      - '.github/workflows/floating-point-comparison.yml'
+      - 'FAT_P/FAT_P/fat_p/FlatMap.h'
+      - 'FAT_P/FAT_P/tests/test_FlatMap.cpp'
+      - 'FAT_P/FAT_P/benchmarks/benchmark_FlatMapSet.cpp'
+      - '.github/workflows/flat-map.yml'
   schedule:
     - cron: '0 2 * * 0'  # Weekly benchmarks
   workflow_dispatch:
@@ -38,9 +38,9 @@ on:
         type: boolean
 
 env:
-  HEADER: FloatingPointComparison.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_FloatingPointComparison.cpp
-  BENCH_SRC: FAT_P/FAT_P/benchmarks/benchmark_FloatingPointComparison.cpp
+  HEADER: FlatMap.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_FlatMap.cpp
+  BENCH_SRC: FAT_P/FAT_P/benchmarks/benchmark_FlatMapSet.cpp
 
 jobs:
   # ===========================================================================
@@ -109,7 +109,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_FloatingPointComparison.cpp /Fe:test_bin.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_FlatMap.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe

@@ -1,35 +1,37 @@
 # =============================================================================
-# .github/workflows/fat-p-cbor.yml
+# .github/workflows/fatp-binary.yml
 # =============================================================================
-# CI workflow for FatPCbor component
+# CI workflow for FatPBinary component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/FatPCbor.h
-#   Tests:      FAT_P/FAT_P/tests/test_FatPCbor.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/FatPBinary.h
+#   Tests:      FAT_P/FAT_P/tests/test_FatPBinary.cpp
 # =============================================================================
 
-name: FatPCbor CI
+name: FatPBinary CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/FatPCbor.h'
-      - 'FAT_P/FAT_P/tests/test_FatPCbor.cpp'
-      - '.github/workflows/fat-p-cbor.yml'
+      - 'FAT_P/FAT_P/fat_p/FatPBinary.h'
+      - 'FAT_P/FAT_P/fat_p/BinaryLite.h'
+      - 'FAT_P/FAT_P/tests/test_FatPBinary.cpp'
+      - '.github/workflows/fatp-binary.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/FatPCbor.h'
-      - 'FAT_P/FAT_P/tests/test_FatPCbor.cpp'
-      - '.github/workflows/fat-p-cbor.yml'
+      - 'FAT_P/FAT_P/fat_p/FatPBinary.h'
+      - 'FAT_P/FAT_P/fat_p/BinaryLite.h'
+      - 'FAT_P/FAT_P/tests/test_FatPBinary.cpp'
+      - '.github/workflows/fatp-binary.yml'
   workflow_dispatch:
 
 env:
-  HEADER: FatPCbor.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_FatPCbor.cpp
+  HEADER: FatPBinary.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_FatPBinary.cpp
 
 jobs:
   # ===========================================================================
@@ -98,7 +100,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_FatPCbor.cpp /Fe:test_bin.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_FatPBinary.cpp /Fe:test_bin.exe
 
       - name: Run tests
         run: .\test_bin.exe

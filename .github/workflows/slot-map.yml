@@ -1,35 +1,46 @@
 # =============================================================================
-# .github/workflows/sorted-container.yml
+# .github/workflows/slot-map.yml
 # =============================================================================
-# CI workflow for SortedContainer component
+# CI workflow for SlotMap component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/SortedContainer.h
-#   Tests:      FAT_P/FAT_P/tests/test_SortedContainer.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/SlotMap.h
+#   Tests:      FAT_P/FAT_P/tests/test_SlotMap.cpp
 # =============================================================================
 
-name: SortedContainer CI
+name: SlotMap CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/SortedContainer.h'
-      - 'FAT_P/FAT_P/tests/test_SortedContainer.cpp'
-      - '.github/workflows/sorted-container.yml'
+      - 'FAT_P/FAT_P/fat_p/SlotMap.h'
+      - 'FAT_P/FAT_P/tests/test_SlotMap.cpp'
+      - 'FAT_P/FAT_P/benchmarks/benchmark_SlotMap.cpp'
+      - '.github/workflows/slot-map.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/SortedContainer.h'
-      - 'FAT_P/FAT_P/tests/test_SortedContainer.cpp'
-      - '.github/workflows/sorted-container.yml'
+      - 'FAT_P/FAT_P/fat_p/SlotMap.h'
+      - 'FAT_P/FAT_P/tests/test_SlotMap.cpp'
+      - 'FAT_P/FAT_P/benchmarks/benchmark_SlotMap.cpp'
+      - '.github/workflows/slot-map.yml'
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly benchmarks
   workflow_dispatch:
+    inputs:
+      run_benchmarks:
+        description: 'Run benchmarks'
+        required: false
+        default: 'false'
+        type: boolean
 
 env:
-  HEADER: SortedContainer.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_SortedContainer.cpp
+  HEADER: SlotMap.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_SlotMap.cpp
+  BENCH_SRC: FAT_P/FAT_P/benchmarks/benchmark_SlotMap.cpp
 
 jobs:
   # ===========================================================================
@@ -98,7 +109,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_SortedContainer.cpp /Fe:test_bin.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_SlotMap.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe
@@ -183,6 +194,48 @@ jobs:
               -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
               -o test_strict ${{ env.TEST_SRC }}
           echo "✓ No warnings"
+
+  # ===========================================================================
+  # Benchmarks (Weekly/Manual)
+  # ===========================================================================
+  benchmarks:
+    name: Benchmark GCC-13 C++20
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-13
+
+      - name: Detect AVX2 support
+        run: |
+          if grep -q avx2 /proc/cpuinfo; then
+            echo "AVX_FLAGS=-mavx2 -mfma" >> "$GITHUB_ENV"
+            echo "✓ AVX2 supported"
+          else
+            echo "AVX_FLAGS=" >> "$GITHUB_ENV"
+            echo "⚠ AVX2 not supported"
+          fi
+
+      - name: Build benchmark
+        run: |
+          g++-13 -std=c++20 -O3 -DNDEBUG $AVX_FLAGS \
+            -I./FAT_P/FAT_P/fat_p \
+            ${{ env.BENCH_SRC }} -o bench_bin
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: 1
+        run: ./bench_bin 2>&1 | tee benchmark.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark.log
 
   # ===========================================================================
   # CI Gate

@@ -1,35 +1,35 @@
 # =============================================================================
-# .github/workflows/stable-hash-map.yml
+# .github/workflows/sorted-container.yml
 # =============================================================================
-# CI workflow for StableHashMap component
+# CI workflow for SortedContainer component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/StableHashMap.h
-#   Tests:      FAT_P/FAT_P/tests/test_StableHashMap.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/SortedContainer.h
+#   Tests:      FAT_P/FAT_P/tests/test_SortedContainer.cpp
 # =============================================================================
 
-name: StableHashMap CI
+name: SortedContainer CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/StableHashMap.h'
-      - 'FAT_P/FAT_P/tests/test_StableHashMap.cpp'
-      - '.github/workflows/stable-hash-map.yml'
+      - 'FAT_P/FAT_P/fat_p/SortedContainer.h'
+      - 'FAT_P/FAT_P/tests/test_SortedContainer.cpp'
+      - '.github/workflows/sorted-container.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/StableHashMap.h'
-      - 'FAT_P/FAT_P/tests/test_StableHashMap.cpp'
-      - '.github/workflows/stable-hash-map.yml'
+      - 'FAT_P/FAT_P/fat_p/SortedContainer.h'
+      - 'FAT_P/FAT_P/tests/test_SortedContainer.cpp'
+      - '.github/workflows/sorted-container.yml'
   workflow_dispatch:
 
 env:
-  HEADER: StableHashMap.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_StableHashMap.cpp
+  HEADER: SortedContainer.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_SortedContainer.cpp
 
 jobs:
   # ===========================================================================
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_StableHashMap.cpp /Fe:test_bin.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_SortedContainer.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe

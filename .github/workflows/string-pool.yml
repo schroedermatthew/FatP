@@ -1,35 +1,35 @@
 # =============================================================================
-# .github/workflows/strong-id.yml
+# .github/workflows/string-pool.yml
 # =============================================================================
-# CI workflow for StrongId component
+# CI workflow for StringPool component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/StrongId.h
-#   Tests:      FAT_P/FAT_P/tests/test_StrongId.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/StringPool.h
+#   Tests:      FAT_P/FAT_P/tests/test_StringPool.cpp
 # =============================================================================
 
-name: StrongId CI
+name: StringPool CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/StrongId.h'
-      - 'FAT_P/FAT_P/tests/test_StrongId.cpp'
-      - '.github/workflows/strong-id.yml'
+      - 'FAT_P/FAT_P/fat_p/StringPool.h'
+      - 'FAT_P/FAT_P/tests/test_StringPool.cpp'
+      - '.github/workflows/string-pool.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/StrongId.h'
-      - 'FAT_P/FAT_P/tests/test_StrongId.cpp'
-      - '.github/workflows/strong-id.yml'
+      - 'FAT_P/FAT_P/fat_p/StringPool.h'
+      - 'FAT_P/FAT_P/tests/test_StringPool.cpp'
+      - '.github/workflows/string-pool.yml'
   workflow_dispatch:
 
 env:
-  HEADER: StrongId.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_StrongId.cpp
+  HEADER: StringPool.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_StringPool.cpp
 
 jobs:
   # ===========================================================================
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_StrongId.cpp /Fe:test_bin.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_StringPool.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe

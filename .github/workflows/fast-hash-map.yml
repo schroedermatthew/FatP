@@ -1,35 +1,35 @@
 # =============================================================================
-# .github/workflows/fat-p-cbor-stream.yml
+# .github/workflows/fast-hash-map.yml
 # =============================================================================
-# CI workflow for FatPCborStream component
+# CI workflow for FastHashMap component
 #
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/FatPCborStream.h
-#   Tests:      FAT_P/FAT_P/tests/test_FatPCborStream.cpp
+#   Headers:    FAT_P/FAT_P/fat_p/FastHashMap.h
+#   Tests:      FAT_P/FAT_P/tests/test_FastHashMap.cpp
 # =============================================================================
 
-name: FatPCborStream CI
+name: FastHashMap CI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/FatPCborStream.h'
-      - 'FAT_P/FAT_P/tests/test_FatPCborStream.cpp'
-      - '.github/workflows/fat-p-cbor-stream.yml'
+      - 'FAT_P/FAT_P/fat_p/FastHashMap.h'
+      - 'FAT_P/FAT_P/tests/test_FastHashMap.cpp'
+      - '.github/workflows/fast-hash-map.yml'
   pull_request:
     branches: [main, master]
     paths:
-      - 'FAT_P/FAT_P/fat_p/FatPCborStream.h'
-      - 'FAT_P/FAT_P/tests/test_FatPCborStream.cpp'
-      - '.github/workflows/fat-p-cbor-stream.yml'
+      - 'FAT_P/FAT_P/fat_p/FastHashMap.h'
+      - 'FAT_P/FAT_P/tests/test_FastHashMap.cpp'
+      - '.github/workflows/fast-hash-map.yml'
   workflow_dispatch:
 
 env:
-  HEADER: FatPCborStream.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_FatPCborStream.cpp
+  HEADER: FastHashMap.h
+  TEST_SRC: FAT_P/FAT_P/tests/test_FastHashMap.cpp
 
 jobs:
   # ===========================================================================
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_FatPCborStream.cpp /Fe:test_bin.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_FastHashMap.cpp /Fe:test_bin.exe
 
       - name: Run tests
         run: .\test_bin.exe
