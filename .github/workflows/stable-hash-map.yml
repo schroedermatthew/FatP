@@ -219,24 +219,24 @@ jobs:
       - name: Install third-party hash map libraries
         if: steps.cache-thirdparty.outputs.cache-hit != 'true'
         run: |
-          mkdir -p ~/thirdparty
+          mkdir -p $HOME/thirdparty
 
           # tsl::robin_map (header-only)
-          git clone --depth 1 https://github.com/Tessil/robin-map.git ~/thirdparty/robin-map
+          git clone --depth 1 https://github.com/Tessil/robin-map.git $HOME/thirdparty/robin-map
 
           # ankerl::unordered_dense (header-only)
-          git clone --depth 1 https://github.com/martinus/unordered_dense.git ~/thirdparty/unordered_dense
+          git clone --depth 1 https://github.com/martinus/unordered_dense.git $HOME/thirdparty/unordered_dense
 
           # abseil-cpp (needs build)
-          git clone --depth 1 https://github.com/abseil/abseil-cpp.git ~/thirdparty/abseil-cpp
-          cd ~/thirdparty/abseil-cpp
+          git clone --depth 1 https://github.com/abseil/abseil-cpp.git $HOME/thirdparty/abseil-cpp
+          cd $HOME/thirdparty/abseil-cpp
           mkdir build && cd build
           cmake -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_STANDARD=20 \
             -DABSL_BUILD_TESTING=OFF \
             -DABSL_USE_GOOGLETEST_HEAD=OFF \
-            -DCMAKE_INSTALL_PREFIX=~/thirdparty/abseil-install \
+            -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/abseil-install \
             ..
           ninja
           ninja install
@@ -245,14 +245,14 @@ jobs:
         run: |
           g++-13 -std=c++20 -O3 -DNDEBUG -march=native \
             -I./FAT_P/FAT_P/fat_p \
-            -I~/thirdparty/robin-map/include \
-            -I~/thirdparty/unordered_dense/include \
-            -I~/thirdparty/abseil-install/include \
-            -L~/thirdparty/abseil-install/lib \
+            -I$HOME/thirdparty/robin-map/include \
+            -I$HOME/thirdparty/unordered_dense/include \
+            -I$HOME/thirdparty/abseil-install/include \
+            -L$HOME/thirdparty/abseil-install/lib \
             FAT_P/FAT_P/benchmarks/benchmark_FatPHashMap.cpp \
             -o bench_hashmap \
             -labsl_hash -labsl_city -labsl_low_level_hash -labsl_raw_hash_set \
-            -Wl,-rpath,~/thirdparty/abseil-install/lib \
+            -Wl,-rpath,$HOME/thirdparty/abseil-install/lib \
             -pthread
 
       - name: Run benchmarks
