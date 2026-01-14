@@ -187,8 +187,8 @@ FATP_TEST_CASE(MutexSynchronizationPolicy)
     const int num_threads = 8;
     const int ops_per_thread = 10000;
 
-    policy.reset_contention();
-    FATP_ASSERT_EQ(policy.get_contention(), 0u, "Contention should reset to 0");
+    policy.resetContention();
+    FATP_ASSERT_EQ(policy.getContention(), 0u, "Contention should reset to 0");
 
     std::vector<std::thread> threads;
     for (int i = 0; i < num_threads; ++i)
@@ -206,7 +206,7 @@ FATP_TEST_CASE(MutexSynchronizationPolicy)
 
     FATP_ASSERT_EQ(counter.load(), num_threads * ops_per_thread, "All increments counted");
 
-    uint64_t contention = policy.get_contention();
+    uint64_t contention = policy.getContention();
     std::cout << colors::blue() << "  [INFO] Contention count: " << contention
               << colors::reset() << std::endl;
     FATP_ASSERT_TRUE(contention > 0, "Should have tracked contention");
@@ -327,7 +327,7 @@ FATP_TEST_CASE(SpinlockSynchronizationPolicy)
     const int num_threads = 8;
     const int ops_per_thread = 10000;
 
-    policy.reset_contention();
+    policy.resetContention();
 
     std::vector<std::thread> threads;
     for (int i = 0; i < num_threads; ++i)
@@ -345,7 +345,7 @@ FATP_TEST_CASE(SpinlockSynchronizationPolicy)
 
     FATP_ASSERT_EQ(counter.load(), num_threads * ops_per_thread, "All increments counted");
 
-    uint64_t contention = policy.get_contention();
+    uint64_t contention = policy.getContention();
     std::cout << colors::blue() << "  [INFO] Spin contention: " << contention
               << " (" << (double)contention / (num_threads * ops_per_thread) << "x)"
               << colors::reset() << std::endl;
@@ -421,7 +421,7 @@ FATP_TEST_CASE(LockFreeWithFallbackPolicy)
     }
 
     FATP_ASSERT_EQ(counter.load(), 4000, "Debug mode uses mutex fallback");
-    FATP_ASSERT_TRUE(policy.get_contention() > 0, "Should track contention in debug");
+    FATP_ASSERT_TRUE(policy.getContention() > 0, "Should track contention in debug");
 #else
     std::cout << colors::blue()
               << "  [INFO] Release mode - no-op (lock-free)"
@@ -433,7 +433,7 @@ FATP_TEST_CASE(LockFreeWithFallbackPolicy)
         counter.fetch_add(1, std::memory_order_relaxed);
     }
     FATP_ASSERT_EQ(counter.load(), 1000, "Release mode is no-op");
-    FATP_ASSERT_EQ(policy.get_contention(), 0u, "No contention tracking in release");
+    FATP_ASSERT_EQ(policy.getContention(), 0u, "No contention tracking in release");
 #endif
 
     FATP_ASSERT_TRUE(policy.try_lock(), "try_lock should work");
@@ -831,7 +831,7 @@ FATP_TEST_CASE(AdaptiveLockPolicy)
               << colors::reset() << std::endl;
 
     counter.store(0);
-    policy.reset_contention();
+    policy.resetContention();
 
     std::vector<std::thread> threads;
     for (int i = 0; i < 8; ++i)
@@ -854,7 +854,7 @@ FATP_TEST_CASE(AdaptiveLockPolicy)
     FATP_ASSERT_EQ(counter.load(), 16000, "High contention should work");
     std::cout << colors::blue()
               << "  [INFO] Final mode (mutex): " << policy.is_using_mutex()
-              << ", Contention: " << policy.get_contention()
+              << ", Contention: " << policy.getContention()
               << colors::reset() << std::endl;
 
     std::cout << colors::green() << "AdaptiveLockPolicy: Tests passed."
@@ -929,12 +929,12 @@ FATP_TEST_CASE(VersionedLockPolicy)
     VersionedLockPolicy policy;
     int test_data = 0;
 
-    uint64_t v1 = policy.get_version();
+    uint64_t v1 = policy.getVersion();
     {
         auto guard = policy.lock();
         test_data = 42;
     }
-    uint64_t v2 = policy.get_version();
+    uint64_t v2 = policy.getVersion();
     FATP_ASSERT_TRUE(v2 > v1, "Version should increment after write");
 
     {
@@ -942,16 +942,16 @@ FATP_TEST_CASE(VersionedLockPolicy)
         int value = test_data;
         FATP_ASSERT_TRUE(guard.validate(), "Version should be valid");
         FATP_ASSERT_EQ(value, 42, "Read value should match");
-        FATP_ASSERT_EQ(guard.get_version(), v2, "Guard version should match");
+        FATP_ASSERT_EQ(guard.getVersion(), v2, "Guard version should match");
     }
 
     {
         auto guard = policy.lock();
         test_data = 100;
-        FATP_ASSERT_EQ(guard.get_version(), v2, "Write guard has old version");
+        FATP_ASSERT_EQ(guard.getVersion(), v2, "Write guard has old version");
         guard.commit();
     }
-    uint64_t v3 = policy.get_version();
+    uint64_t v3 = policy.getVersion();
     FATP_ASSERT_TRUE(v3 > v2, "Explicit commit should increment version");
 
     std::cout << colors::green() << "VersionedLockPolicy: Tests passed."

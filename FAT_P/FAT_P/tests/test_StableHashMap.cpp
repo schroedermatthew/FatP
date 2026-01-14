@@ -75,46 +75,46 @@ namespace fat_p::stablehash_detail {
 struct StableHashMapTestingAccess
 {
     template <typename MapType>
-    static const uint8_t* ctrl_bytes(const MapType& map)
+    static const uint8_t* ctrlBytes(const MapType& map)
     {
-        return map.ctrl_;
+        return map.mCtrl;
     }
 
     template <typename MapType>
     static auto nodes(const MapType& map)
     {
-        return map.nodes_;
+        return map.mNodes;
     }
 
     template <typename MapType>
     static size_t capacity(const MapType& map)
     {
-        return map.capacity_;
+        return map.mCapacity;
     }
 
     template <typename MapType>
     static size_t tombstones(const MapType& map)
     {
-        return map.tombstones_;
+        return map.mTombstones;
     }
 
     template <typename MapType>
     static size_t growth_threshold(const MapType& map)
     {
-        return map.growth_threshold_;
+        return map.mGrowthThreshold;
     }
 
     template <typename MapType>
     static size_t mask(const MapType& map)
     {
-        return map.mask_;
+        return map.mMask;
     }
 
     template <typename MapType, typename K>
-    static size_t hash_key(const MapType& map, const K& key)
+    static size_t hashKey(const MapType& map, const K& key)
     {
-        // Call the map's internal hash_key which respects is_avalanching trait
-        return map.hash_key(key);
+        // Call the map's internal hashKey which respects is_avalanching trait
+        return map.hashKey(key);
     }
 };
 
@@ -274,7 +274,7 @@ public:
     // Count physically full slots (control byte < 0x80)
     static size_t count_full_slots(const MapType& map)
     {
-        const uint8_t* ctrl = Access::ctrl_bytes(map);
+        const uint8_t* ctrl = Access::ctrlBytes(map);
         if (ctrl == nullptr)
         {
             return 0;
@@ -316,7 +316,7 @@ public:
     // Note: Swiss Table uses triangular probing, so this is approximate
     static double average_probe_distance(const MapType& map)
     {
-        const uint8_t* ctrl = Access::ctrl_bytes(map);
+        const uint8_t* ctrl = Access::ctrlBytes(map);
         if (ctrl == nullptr || map.size() == 0)
         {
             return 0.0;
@@ -333,7 +333,7 @@ public:
             if (ctrl[i] < 0x80 && nodes[i] != nullptr)
             {
                 // Compute expected position from hash
-                size_t h = Access::hash_key(map, nodes[i]->key);
+                size_t h = Access::hashKey(map, nodes[i]->key);
                 size_t ideal = h & Access::mask(map);
                 size_t dist = (i >= ideal) ? (i - ideal)
                                            : (i + cap - ideal);
@@ -348,7 +348,7 @@ public:
     // Get maximum probe distance
     static size_t max_probe_distance(const MapType& map)
     {
-        const uint8_t* ctrl = Access::ctrl_bytes(map);
+        const uint8_t* ctrl = Access::ctrlBytes(map);
         if (ctrl == nullptr || map.size() == 0)
         {
             return 0;
@@ -363,7 +363,7 @@ public:
         {
             if (ctrl[i] < 0x80 && nodes[i] != nullptr)
             {
-                size_t h = Access::hash_key(map, nodes[i]->key);
+                size_t h = Access::hashKey(map, nodes[i]->key);
                 size_t ideal = h & Access::mask(map);
                 size_t dist = (i >= ideal) ? (i - ideal)
                                            : (i + cap - ideal);
@@ -377,9 +377,9 @@ public:
         return max_dist;
     }
 
-    static const uint8_t* ctrl_bytes(const MapType& map)
+    static const uint8_t* ctrlBytes(const MapType& map)
     {
-        return Access::ctrl_bytes(map);
+        return Access::ctrlBytes(map);
     }
 
     static size_t mask(const MapType& map)
@@ -388,9 +388,9 @@ public:
     }
 
     template <typename K>
-    static size_t hash_key(const MapType& map, const K& key)
+    static size_t hashKey(const MapType& map, const K& key)
     {
-        return Access::hash_key(map, key);
+        return Access::hashKey(map, key);
     }
 };
 
@@ -514,9 +514,9 @@ FATP_TEST_CASE(clear)
 // Test 5b: Ctrl Tail Mirror + Wrap-Around Probe Termination
 // ============================================================================
 //
-// Regression tripwire: ctrl_[capacity_] must mirror ctrl_[0] so that a Group load
+// Regression tripwire: mCtrl[mCapacity] must mirror mCtrl[0] so that a Group load
 // spanning the end of the table observes the correct state of slot 0.
-// If ctrl_[capacity_] is a sentinel, probes that should terminate on an empty
+// If mCtrl[mCapacity] is a sentinel, probes that should terminate on an empty
 // slot can fail to terminate (and may loop) when the only empty is slot 0.
 //
 
@@ -549,30 +549,30 @@ FATP_TEST_CASE(ctrl_tail_wraparound_probe)
     FATP_ASSERT_EQ(map.size(), cap - 1, "Expected to fill to cap-1 at load factor 1.0");
     FATP_ASSERT_NULLPTR(map.find(0), "Slot 0 should remain empty");
 
-    const uint8_t* ctrl = StableHashMapTester<Map>::ctrl_bytes(map);
+    const uint8_t* ctrl = StableHashMapTester<Map>::ctrlBytes(map);
     FATP_ASSERT_NOT_NULLPTR(ctrl, "Internal ctrl array must be allocated");
 
-    // Critical invariant: the tail byte at ctrl_[capacity_] mirrors ctrl_[0].
+    // Critical invariant: the tail byte at mCtrl[mCapacity] mirrors mCtrl[0].
     FATP_ASSERT_EQ(ctrl[0], stablehash_detail::kEmpty, "Slot 0 control byte must be kEmpty");
-    FATP_ASSERT_EQ(ctrl[cap], ctrl[0], "ctrl_[capacity] must mirror ctrl_[0] for wrap-around reads");
+    FATP_ASSERT_EQ(ctrl[cap], ctrl[0], "mCtrl[mCapacity] must mirror mCtrl[0] for wrap-around reads");
 
     // Create a missing key whose probe starts at cap-4 so the first group read
     // spans the end of the table and includes the mirrored slot 0 byte.
     const size_t start_pos = cap - 4;
     const int missing_key = static_cast<int>(cap + start_pos);
 
-    const size_t h = StableHashMapTester<Map>::hash_key(map, missing_key);
+    const size_t h = StableHashMapTester<Map>::hashKey(map, missing_key);
     stablehash_detail::ProbeSequence seq(h, StableHashMapTester<Map>::mask(map));
 
     bool saw_empty = false;
     for (size_t step = 0; step < cap + stablehash_detail::Group::kWidth; ++step)
     {
         stablehash_detail::Group g(ctrl + seq.offset());
-        const auto empty = g.match_empty();
+        const auto empty = g.matchEmpty();
 
         if (empty)
         {
-            const uint32_t first = empty.lowest_set_bit();
+            const uint32_t first = empty.lowestSetBit();
             const size_t idx = seq.offset(first);
 
             FATP_ASSERT_EQ(first, uint32_t(4),
@@ -1629,7 +1629,7 @@ FATP_TEST_CASE(safepolicy_erase_basic_guarantee)
     // erase() sequence:
     //   1. Mark control byte as kDeleted (0xFE)
     //   2. Delete the node
-    //   3. Set nodes_[idx] = nullptr
+    //   3. Set mNodes[idx] = nullptr
     //   4. Increment tombstone count
     //   5. Decrement size
     //

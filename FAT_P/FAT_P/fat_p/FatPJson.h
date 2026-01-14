@@ -654,7 +654,7 @@ namespace fat_p {
     std::enable_if_t<json_detail::has_enum_string_policy_v<E>, void>
     from_json(const JsonValue& j, E& value)
     {
-        fatp_json_enforce(j.is_string(),
+        FATP_JSON_ENFORCE(j.is_string(),
                      "Enum deserialization requires string",
                      "expected",
                      "string",
@@ -667,7 +667,7 @@ namespace fat_p {
         }
         catch (const std::exception& e)
         {
-            fatp_json_enforce(false,
+            FATP_JSON_ENFORCE(false,
                          "Invalid enum string value",
                          "value",
                          std::get<std::string>(j),

@@ -2246,7 +2246,7 @@ public:
         typename MapT::ProbeCounters pc{};
         for (int64_t k : miss_keys)
         {
-            (void)map_->diagnostic_find(k, pc);
+            (void)map_->diagnosticFind(k, pc);
         }
 
         s.mHasProbe = true;
@@ -2362,7 +2362,7 @@ public:
         typename MapT::ProbeCounters pc{};
         for (int64_t k : miss_keys)
         {
-            (void)map_->diagnostic_find(k, pc);
+            (void)map_->diagnosticFind(k, pc);
         }
 
         s.mHasProbe = true;
@@ -2709,8 +2709,8 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
     std::cout << "  - Round-robin execution with randomized order per run\n";
     std::cout << "  - All libraries observe same distribution of machine states\n";
     std::cout << "  - Primary metric: median (ns/op)\n";
-    std::cout << "  - FastHashMap SIMD backend: " << fat_p::FastHashMap<int, int>::simd_backend() << "\n";
-    std::cout << "  - StableHashMap SIMD backend: " << fat_p::StableHashMap<int, int>::simd_backend() << "\n";
+    std::cout << "  - FastHashMap SIMD backend: " << fat_p::FastHashMap<int, int>::simdBackend() << "\n";
+    std::cout << "  - StableHashMap SIMD backend: " << fat_p::StableHashMap<int, int>::simdBackend() << "\n";
     std::cout << "  - FastHashMap policies: BackwardShift (BS), Tombstone (TS)\n";
     std::cout << "  - StableHashMap: Reference-stable (pointers valid across insert/reserve)\n\n";
 

@@ -118,31 +118,31 @@ static constexpr uint8_t kDeleted = 0b11111110;
 static constexpr uint8_t kSentinel = 0b11111111; // Reserved but unused (see note below)
 
 // Note on kSentinel: This value is defined for compatibility but is intentionally
-// never written to the control array. The wrap-around tail region (ctrl_[capacity_]
-// through ctrl_[capacity_ + GroupWidth - 1]) mirrors ctrl_[0..GroupWidth-1] exactly,
+// never written to the control array. The wrap-around tail region (mCtrl[mCapacity]
+// through mCtrl[mCapacity + GroupWidth - 1]) mirrors mCtrl[0..GroupWidth-1] exactly,
 // which is necessary for correct SIMD group loads that span the table boundary.
-// Writing a sentinel at ctrl_[capacity_] would break wrap-around probe termination.
+// Writing a sentinel at mCtrl[mCapacity] would break wrap-around probe termination.
 
-inline bool is_full(uint8_t ctrl)
+inline bool isFull(uint8_t ctrl)
 {
     return ctrl < 0x80;
 }
-inline bool is_empty(uint8_t ctrl)
+inline bool isEmpty(uint8_t ctrl)
 {
     return ctrl == kEmpty;
 }
-inline bool is_deleted(uint8_t ctrl)
+inline bool isDeleted(uint8_t ctrl)
 {
     return ctrl == kDeleted;
 }
-inline bool is_empty_or_deleted(uint8_t ctrl)
+inline bool isEmptyOrDeleted(uint8_t ctrl)
 {
     // Sentinel check retained for defensive coding even though sentinel is never written
     return ctrl >= 0x80 && ctrl != kSentinel;
 }
 
 // H2: Extract 7 bits from HIGH bits of hash for control byte matching.
-// CRITICAL: Using low bits would correlate with bucket index (hash & mask_),
+// CRITICAL: Using low bits would correlate with bucket index (hash & mMask),
 // causing false-positive SIMD matches and degraded miss performance.
 // Fix identified by ChatGPT code review.
 inline uint8_t H2(size_t hash)
@@ -154,7 +154,7 @@ inline uint8_t H2(size_t hash)
 
 // Hash finalizer - makes the map robust against bad user hashes
 // (e.g., std::hash<int> is identity on many platforms)
-inline size_t mix_hash(size_t h)
+inline size_t mixHash(size_t h)
 {
     // SplitMix64 finalizer - excellent avalanche properties
     h ^= h >> 33;
@@ -166,7 +166,7 @@ inline size_t mix_hash(size_t h)
 }
 
 // Portable aligned allocation
-inline void* aligned_alloc(size_t alignment, size_t size)
+inline void* alignedAlloc(size_t alignment, size_t size)
 {
 #if defined(_MSC_VER)
     return _aligned_malloc(size, alignment);
@@ -180,7 +180,7 @@ inline void* aligned_alloc(size_t alignment, size_t size)
 #endif
 }
 
-inline void aligned_free(void* ptr)
+inline void alignedFree(void* ptr)
 {
 #if defined(_MSC_VER)
     _aligned_free(ptr);
@@ -203,7 +203,7 @@ struct BitMask
         return mask != 0;
     }
 
-    uint32_t lowest_set_bit() const
+    uint32_t lowestSetBit() const
     {
 #if defined(_MSC_VER)
         unsigned long idx;
@@ -222,7 +222,7 @@ struct BitMask
 
     uint32_t operator*() const
     {
-        return lowest_set_bit();
+        return lowestSetBit();
     }
 
     struct Iterator
@@ -307,12 +307,12 @@ struct Group
         return BitMask(mask);
     }
 
-    BitMask match_empty() const
+    BitMask matchEmpty() const
     {
         return match(kEmpty);
     }
 
-    BitMask match_empty_or_deleted() const
+    BitMask matchEmptyOrDeleted() const
     {
         // Match bytes >= 0x80 (Empty=0x80, Deleted=0xFE both have high bit set)
         // Note: Sentinel (0xFF) is never written in this implementation,
@@ -336,7 +336,7 @@ struct Group
         return BitMask(mask);
     }
 
-    static const char* simd_name()
+    static const char* simdName()
     {
         return "NEON";
     }
@@ -360,12 +360,12 @@ struct Group
         return BitMask(static_cast<uint32_t>(_mm256_movemask_epi8(_mm256_cmpeq_epi8(ctrl, needle))));
     }
 
-    BitMask match_empty() const
+    BitMask matchEmpty() const
     {
         return match(kEmpty);
     }
 
-    BitMask match_empty_or_deleted() const
+    BitMask matchEmptyOrDeleted() const
     {
         // Abseil scheme: Full slots have h2 = 0-127 (bit 7 clear)
         // Empty (0x80) and Deleted (0xFE) have bit 7 set
@@ -375,7 +375,7 @@ struct Group
         return BitMask(mask);
     }
 
-    static const char* simd_name()
+    static const char* simdName()
     {
         return "AVX2";
     }
@@ -399,12 +399,12 @@ struct Group
         return BitMask(static_cast<uint32_t>(_mm_movemask_epi8(_mm_cmpeq_epi8(ctrl, needle))));
     }
 
-    BitMask match_empty() const
+    BitMask matchEmpty() const
     {
         return match(kEmpty);
     }
 
-    BitMask match_empty_or_deleted() const
+    BitMask matchEmptyOrDeleted() const
     {
         // Abseil scheme: Full slots have h2 = 0-127 (bit 7 clear)
         // Empty (0x80) and Deleted (0xFE) have bit 7 set
@@ -414,7 +414,7 @@ struct Group
         return BitMask(mask);
     }
 
-    static const char* simd_name()
+    static const char* simdName()
     {
         return "SSE2";
     }
@@ -424,30 +424,30 @@ struct Group
 // Probe sequence using triangular numbers
 struct ProbeSequence
 {
-    size_t pos_;
-    size_t stride_;
-    size_t mask_;
+    size_t mPos;
+    size_t mStride;
+    size_t mMask;
 
     ProbeSequence(size_t hash, size_t mask)
-        : pos_(hash & mask)
-        , stride_(0)
-        , mask_(mask)
+        : mPos(hash & mask)
+        , mStride(0)
+        , mMask(mask)
     {
     }
 
     size_t offset() const
     {
-        return pos_;
+        return mPos;
     }
     size_t offset(size_t i) const
     {
-        return (pos_ + i) & mask_;
+        return (mPos + i) & mMask;
     }
 
     void next()
     {
-        stride_ += Group::kWidth;
-        pos_ = (pos_ + stride_) & mask_;
+        mStride += Group::kWidth;
+        mPos = (mPos + mStride) & mMask;
     }
 };
 
@@ -491,9 +491,9 @@ public:
     using hasher = Hash;
     using key_equal = KeyEqual;
 
-    static const char* simd_backend()
+    static const char* simdBackend()
     {
-        return stablehash_detail::Group::simd_name();
+        return stablehash_detail::Group::simdName();
     }
 
 #if defined(FATP_STABLEHASHMAP_DIAGNOSTICS)
@@ -523,25 +523,25 @@ public:
      * @note Intended for miss analysis. It performs additional work to compute occupancy
      *       and tag match counts. Do not use for normal lookups.
      */
-    bool diagnostic_find(const Key& key, ProbeCounters& out) const
+    bool diagnosticFind(const Key& key, ProbeCounters& out) const
     {
-        if (capacity_ == 0)
+        if (mCapacity == 0)
         {
             return false;
         }
 
-        const size_t h = hash_key(key);
+        const size_t h = hashKey(key);
         const uint8_t h2 = stablehash_detail::H2(h);
-        stablehash_detail::ProbeSequence seq(h, mask_);
+        stablehash_detail::ProbeSequence seq(h, mMask);
 
         while (true)
         {
-            stablehash_detail::Group g(ctrl_ + seq.offset());
+            stablehash_detail::Group g(mCtrl + seq.offset());
             out.mGroupsVisited++;
 
-            const stablehash_detail::BitMask empty = g.match_empty();
+            const stablehash_detail::BitMask empty = g.matchEmpty();
 
-            const uint32_t available_mask = g.match_empty_or_deleted().mask;
+            const uint32_t available_mask = g.matchEmptyOrDeleted().mask;
             const uint32_t full =
                 static_cast<uint32_t>(stablehash_detail::Group::kWidth) - stablehash_detail::popcount32(available_mask);
             out.mFullSlotsVisited += full;
@@ -558,7 +558,7 @@ public:
             for (uint32_t i : matches)
             {
                 size_t idx = seq.offset(i);
-                if (stablehash_detail::is_full(ctrl_[idx]) && key_equal_(nodes_[idx]->key, key))
+                if (stablehash_detail::isFull(mCtrl[idx]) && mKeyEqual(mNodes[idx]->key, key))
                 {
                     return true;
                 }
@@ -602,23 +602,23 @@ public:
     using allocator_type = NodeAllocator<Node>;
 
 private:
-    uint8_t* ctrl_ = nullptr;
-    Node** nodes_ = nullptr;
-    size_t size_ = 0;
-    size_t capacity_ = 0;
-    size_t mask_ = 0;
-    size_t growth_threshold_ = 0;
-    size_t tombstones_ = 0;
+    uint8_t* mCtrl = nullptr;
+    Node** mNodes = nullptr;
+    size_t mSize = 0;
+    size_t mCapacity = 0;
+    size_t mMask = 0;
+    size_t mGrowthThreshold = 0;
+    size_t mTombstones = 0;
 
-    float max_load_factor_ = 0.8f; // Lower than 0.875 for faster miss detection
-    Hash hasher_;
-    KeyEqual key_equal_;
-    allocator_type allocator_;
+    float mMaxLoadFactor = 0.8f; // Lower than 0.875 for faster miss detection
+    Hash mHasher;
+    KeyEqual mKeyEqual;
+    allocator_type mAllocator;
 
     static constexpr size_t kMinCapacity = Group::kWidth * 2;
 
 
-    static float validate_max_load_factor(float load_factor)
+    static float validateMaxLoadFactor(float load_factor)
     {
         // Requirements: 0 < lf <= 1.0f (reserve() arithmetic and termination guarantees)
         // Note: NaN fails ordered comparisons and is therefore rejected.
@@ -630,13 +630,13 @@ private:
     }
 
     // Set control byte with mirroring for group reads that wrap
-    void set_ctrl(size_t idx, uint8_t value)
+    void setCtrl(size_t idx, uint8_t value)
     {
-        ctrl_[idx] = value;
+        mCtrl[idx] = value;
         // Mirror first Group::kWidth slots to the end for wrap-around reads
         if (idx < Group::kWidth)
         {
-            ctrl_[capacity_ + idx] = value;
+            mCtrl[mCapacity + idx] = value;
         }
     }
 
@@ -664,67 +664,67 @@ private:
     // Note: hash value 0 is valid. With kEmpty=0x80 and H2 using high bits,
     // H2(0)=0 cannot be confused with empty slots.
     template <typename K>
-    size_t hash_key(const K& key) const
+    size_t hashKey(const K& key) const
     {
-        size_t h = hasher_(key);
+        size_t h = mHasher(key);
         if constexpr (has_avalanching<Hash>::value)
         {
             return h; // Trust user's hash as-is
         }
         else
         {
-            return stablehash_detail::mix_hash(h);
+            return stablehash_detail::mixHash(h);
         }
     }
 
     void allocate(size_t cap)
     {
-        capacity_ = cap;
-        mask_ = cap - 1;
+        mCapacity = cap;
+        mMask = cap - 1;
 
         size_t ctrl_size = cap + Group::kWidth;
-        ctrl_ = static_cast<uint8_t*>(stablehash_detail::aligned_alloc(Group::kWidth, ctrl_size));
-        if (!ctrl_)
+        mCtrl = static_cast<uint8_t*>(stablehash_detail::alignedAlloc(Group::kWidth, ctrl_size));
+        if (!mCtrl)
         {
             throw std::bad_alloc();
         }
-        std::memset(ctrl_, stablehash_detail::kEmpty, ctrl_size);
+        std::memset(mCtrl, stablehash_detail::kEmpty, ctrl_size);
 
-        nodes_ = static_cast<Node**>(stablehash_detail::aligned_alloc(alignof(Node*), cap * sizeof(Node*)));
-        if (!nodes_)
+        mNodes = static_cast<Node**>(stablehash_detail::alignedAlloc(alignof(Node*), cap * sizeof(Node*)));
+        if (!mNodes)
         {
-            stablehash_detail::aligned_free(ctrl_);
-            ctrl_ = nullptr;
+            stablehash_detail::alignedFree(mCtrl);
+            mCtrl = nullptr;
             throw std::bad_alloc();
         }
-        std::memset(nodes_, 0, cap * sizeof(Node*));
+        std::memset(mNodes, 0, cap * sizeof(Node*));
 
         // CRITICAL: Always keep at least 1 empty slot to prevent infinite loops
-        // in find_slot() and find_or_prepare_insert(). Fix identified by ChatGPT.
-        size_t threshold = static_cast<size_t>(cap * max_load_factor_);
-        growth_threshold_ = (threshold >= cap) ? cap - 1 : threshold;
-        if (growth_threshold_ == 0 && cap > 0)
+        // in findSlot() and findOrPrepareInsert(). Fix identified by ChatGPT.
+        size_t threshold = static_cast<size_t>(cap * mMaxLoadFactor);
+        mGrowthThreshold = (threshold >= cap) ? cap - 1 : threshold;
+        if (mGrowthThreshold == 0 && cap > 0)
         {
-            growth_threshold_ = 1;
+            mGrowthThreshold = 1;
         }
     }
 
     void deallocate()
     {
-        if (ctrl_)
+        if (mCtrl)
         {
-            // Nodes are owned by allocator_, which handles destruction
-            for (size_t i = 0; i < capacity_; ++i)
+            // Nodes are owned by mAllocator, which handles destruction
+            for (size_t i = 0; i < mCapacity; ++i)
             {
-                if (stablehash_detail::is_full(ctrl_[i]))
+                if (stablehash_detail::isFull(mCtrl[i]))
                 {
-                    allocator_.deallocate(nodes_[i]);
+                    mAllocator.deallocate(mNodes[i]);
                 }
             }
-            stablehash_detail::aligned_free(nodes_);
-            stablehash_detail::aligned_free(ctrl_);
-            ctrl_ = nullptr;
-            nodes_ = nullptr;
+            stablehash_detail::alignedFree(mNodes);
+            stablehash_detail::alignedFree(mCtrl);
+            mCtrl = nullptr;
+            mNodes = nullptr;
         }
     }
 
@@ -733,17 +733,17 @@ private:
     // - If found: index is the existing key's slot
     // - If not found: insert_slot is where to put the new node
     template <typename K>
-    std::tuple<size_t, bool, size_t> find_or_prepare_insert(const K& key, size_t h) const
+    std::tuple<size_t, bool, size_t> findOrPrepareInsert(const K& key, size_t h) const
     {
         uint8_t h2 = stablehash_detail::H2(h);
-        stablehash_detail::ProbeSequence seq(h, mask_);
+        stablehash_detail::ProbeSequence seq(h, mMask);
         size_t first_available = SIZE_MAX;
 
         while (true)
         {
-            stablehash_detail::Group g(ctrl_ + seq.offset());
+            stablehash_detail::Group g(mCtrl + seq.offset());
 
-            const auto empty = g.match_empty();
+            const auto empty = g.matchEmpty();
 
             // Check for tag matches, but ignore candidates after the first empty slot
             // in this group. Once we hit an empty, the probe sequence terminates.
@@ -761,7 +761,7 @@ private:
             for (uint32_t i : matches)
             {
                 size_t idx = seq.offset(i);
-                if (key_equal_(nodes_[idx]->key, key))
+                if (mKeyEqual(mNodes[idx]->key, key))
                 {
                     return {idx, true, SIZE_MAX}; // Found
                 }
@@ -770,10 +770,10 @@ private:
             // Track first available slot (empty or deleted)
             if (first_available == SIZE_MAX)
             {
-                auto available = g.match_empty_or_deleted();
+                auto available = g.matchEmptyOrDeleted();
                 if (available)
                 {
-                    first_available = seq.offset(available.lowest_set_bit());
+                    first_available = seq.offset(available.lowestSetBit());
                 }
             }
 
@@ -789,21 +789,21 @@ private:
 
     // Find slot only (for find/contains/erase)
     template <typename K>
-    std::pair<size_t, bool> find_slot(const K& key, size_t h) const
+    std::pair<size_t, bool> findSlot(const K& key, size_t h) const
     {
-        if (capacity_ == 0)
+        if (mCapacity == 0)
         {
             return {SIZE_MAX, false};
         }
 
         uint8_t h2 = stablehash_detail::H2(h);
-        stablehash_detail::ProbeSequence seq(h, mask_);
+        stablehash_detail::ProbeSequence seq(h, mMask);
 
         while (true)
         {
-            stablehash_detail::Group g(ctrl_ + seq.offset());
+            stablehash_detail::Group g(mCtrl + seq.offset());
 
-            const auto empty = g.match_empty();
+            const auto empty = g.matchEmpty();
             auto matches = g.match(h2);
             if (empty)
             {
@@ -814,7 +814,7 @@ private:
             for (uint32_t i : matches)
             {
                 size_t idx = seq.offset(i);
-                if (key_equal_(nodes_[idx]->key, key))
+                if (mKeyEqual(mNodes[idx]->key, key))
                 {
                     return {idx, true};
                 }
@@ -828,16 +828,16 @@ private:
         }
     }
 
-    void rehash_internal(size_t new_cap)
+    void rehashInternal(size_t new_cap)
     {
-        uint8_t* old_ctrl = ctrl_;
-        Node** old_nodes = nodes_;
-        size_t old_cap = capacity_;
-        size_t old_mask = mask_;
-        size_t old_growth = growth_threshold_;
+        uint8_t* old_ctrl = mCtrl;
+        Node** old_nodes = mNodes;
+        size_t old_cap = mCapacity;
+        size_t old_mask = mMask;
+        size_t old_growth = mGrowthThreshold;
 
-        ctrl_ = nullptr;
-        nodes_ = nullptr;
+        mCtrl = nullptr;
+        mNodes = nullptr;
 
         try
         {
@@ -846,63 +846,63 @@ private:
         catch (...)
         {
             // Restore old state on allocation failure
-            ctrl_ = old_ctrl;
-            nodes_ = old_nodes;
-            capacity_ = old_cap;
-            mask_ = old_mask;
-            growth_threshold_ = old_growth;
+            mCtrl = old_ctrl;
+            mNodes = old_nodes;
+            mCapacity = old_cap;
+            mMask = old_mask;
+            mGrowthThreshold = old_growth;
             throw;
         }
 
-        size_ = 0;
-        tombstones_ = 0;
+        mSize = 0;
+        mTombstones = 0;
 
         if (old_ctrl)
         {
             for (size_t i = 0; i < old_cap; ++i)
             {
-                if (stablehash_detail::is_full(old_ctrl[i]))
+                if (stablehash_detail::isFull(old_ctrl[i]))
                 {
                     Node* node = old_nodes[i];
-                    size_t h = hash_key(node->key);
+                    size_t h = hashKey(node->key);
 
                     // Find empty slot (no deleted slots in fresh table)
-                    stablehash_detail::ProbeSequence seq(h, mask_);
+                    stablehash_detail::ProbeSequence seq(h, mMask);
                     while (true)
                     {
-                        stablehash_detail::Group g(ctrl_ + seq.offset());
-                        auto empty = g.match_empty();
+                        stablehash_detail::Group g(mCtrl + seq.offset());
+                        auto empty = g.matchEmpty();
                         if (empty)
                         {
-                            size_t idx = seq.offset(empty.lowest_set_bit());
-                            set_ctrl(idx, stablehash_detail::H2(h));
-                            nodes_[idx] = node;
-                            ++size_;
+                            size_t idx = seq.offset(empty.lowestSetBit());
+                            setCtrl(idx, stablehash_detail::H2(h));
+                            mNodes[idx] = node;
+                            ++mSize;
                             break;
                         }
                         seq.next();
                     }
                 }
             }
-            stablehash_detail::aligned_free(old_nodes);
-            stablehash_detail::aligned_free(old_ctrl);
+            stablehash_detail::alignedFree(old_nodes);
+            stablehash_detail::alignedFree(old_ctrl);
         }
     }
 
-    void maybe_rehash()
+    void maybeRehash()
     {
-        if (size_ + tombstones_ >= growth_threshold_)
+        if (mSize + mTombstones >= mGrowthThreshold)
         {
-            size_t new_cap = capacity_;
-            if (tombstones_ > size_ / 4)
+            size_t new_cap = mCapacity;
+            if (mTombstones > mSize / 4)
             {
                 // Just clear tombstones by rehashing to same size
             }
             else
             {
-                new_cap = std::max(capacity_ * 2, kMinCapacity);
+                new_cap = std::max(mCapacity * 2, kMinCapacity);
             }
-            rehash_internal(new_cap);
+            rehashInternal(new_cap);
         }
     }
 
@@ -924,7 +924,7 @@ public:
 
     // Constructor with capacity and max load factor
     StableHashMap(size_t initial_capacity, float load_factor)
-        : max_load_factor_(validate_max_load_factor(load_factor))
+        : mMaxLoadFactor(validateMaxLoadFactor(load_factor))
     {
         if (initial_capacity > 0)
         {
@@ -939,8 +939,8 @@ public:
 
     // Constructor with capacity, load factor, and custom hash
     StableHashMap(size_t initial_capacity, float load_factor, const Hash& hash)
-        : max_load_factor_(validate_max_load_factor(load_factor))
-        , hasher_(hash)
+        : mMaxLoadFactor(validateMaxLoadFactor(load_factor))
+        , mHasher(hash)
     {
         if (initial_capacity > 0)
         {
@@ -955,9 +955,9 @@ public:
 
     // Constructor with capacity, load factor, hash, and key_equal
     StableHashMap(size_t initial_capacity, float load_factor, const Hash& hash, const KeyEqual& equal)
-        : max_load_factor_(validate_max_load_factor(load_factor))
-        , hasher_(hash)
-        , key_equal_(equal)
+        : mMaxLoadFactor(validateMaxLoadFactor(load_factor))
+        , mHasher(hash)
+        , mKeyEqual(equal)
     {
         if (initial_capacity > 0)
         {
@@ -986,22 +986,22 @@ public:
 
     // Move constructor (conditional noexcept based on member types)
     StableHashMap(StableHashMap&& other) noexcept(is_nothrow_move_constructible)
-        : ctrl_(other.ctrl_)
-        , nodes_(other.nodes_)
-        , size_(other.size_)
-        , capacity_(other.capacity_)
-        , mask_(other.mask_)
-        , growth_threshold_(other.growth_threshold_)
-        , tombstones_(other.tombstones_)
-        , max_load_factor_(other.max_load_factor_)
-        , hasher_(std::move(other.hasher_))
-        , key_equal_(std::move(other.key_equal_))
-        , allocator_(std::move(other.allocator_))
+        : mCtrl(other.mCtrl)
+        , mNodes(other.mNodes)
+        , mSize(other.mSize)
+        , mCapacity(other.mCapacity)
+        , mMask(other.mMask)
+        , mGrowthThreshold(other.mGrowthThreshold)
+        , mTombstones(other.mTombstones)
+        , mMaxLoadFactor(other.mMaxLoadFactor)
+        , mHasher(std::move(other.mHasher))
+        , mKeyEqual(std::move(other.mKeyEqual))
+        , mAllocator(std::move(other.mAllocator))
     {
-        other.ctrl_ = nullptr;
-        other.nodes_ = nullptr;
-        other.size_ = 0;
-        other.capacity_ = 0;
+        other.mCtrl = nullptr;
+        other.mNodes = nullptr;
+        other.mSize = 0;
+        other.mCapacity = 0;
     }
 
     // Move assignment (conditional noexcept based on member types)
@@ -1010,46 +1010,46 @@ public:
         if (this != &other)
         {
             deallocate();
-            ctrl_ = other.ctrl_;
-            nodes_ = other.nodes_;
-            size_ = other.size_;
-            capacity_ = other.capacity_;
-            mask_ = other.mask_;
-            growth_threshold_ = other.growth_threshold_;
-            tombstones_ = other.tombstones_;
-            max_load_factor_ = other.max_load_factor_;
-            hasher_ = std::move(other.hasher_);
-            key_equal_ = std::move(other.key_equal_);
-            allocator_ = std::move(other.allocator_);
+            mCtrl = other.mCtrl;
+            mNodes = other.mNodes;
+            mSize = other.mSize;
+            mCapacity = other.mCapacity;
+            mMask = other.mMask;
+            mGrowthThreshold = other.mGrowthThreshold;
+            mTombstones = other.mTombstones;
+            mMaxLoadFactor = other.mMaxLoadFactor;
+            mHasher = std::move(other.mHasher);
+            mKeyEqual = std::move(other.mKeyEqual);
+            mAllocator = std::move(other.mAllocator);
 
-            other.ctrl_ = nullptr;
-            other.nodes_ = nullptr;
-            other.size_ = 0;
-            other.capacity_ = 0;
+            other.mCtrl = nullptr;
+            other.mNodes = nullptr;
+            other.mSize = 0;
+            other.mCapacity = 0;
         }
         return *this;
     }
 
     // Copy constructor - preserves configuration and functor state
     StableHashMap(const StableHashMap& other)
-        : max_load_factor_(other.max_load_factor_)
-        , hasher_(other.hasher_)
-        , key_equal_(other.key_equal_)
+        : mMaxLoadFactor(other.mMaxLoadFactor)
+        , mHasher(other.mHasher)
+        , mKeyEqual(other.mKeyEqual)
     {
-        if (other.size_ > 0)
+        if (other.mSize > 0)
         {
-            allocate(other.capacity_);
-            for (size_t i = 0; i < other.capacity_; ++i)
+            allocate(other.mCapacity);
+            for (size_t i = 0; i < other.mCapacity; ++i)
             {
-                if (stablehash_detail::is_full(other.ctrl_[i]))
+                if (stablehash_detail::isFull(other.mCtrl[i]))
                 {
                     // Compute hash BEFORE allocating node to prevent leak if hash throws
-                    size_t h = hash_key(other.nodes_[i]->key);
-                    Node* new_node = allocator_.allocate(other.nodes_[i]->key, other.nodes_[i]->value);
-                    auto [idx, found, insert_slot] = find_or_prepare_insert(new_node->key, h);
-                    set_ctrl(insert_slot, stablehash_detail::H2(h));
-                    nodes_[insert_slot] = new_node;
-                    ++size_;
+                    size_t h = hashKey(other.mNodes[i]->key);
+                    Node* new_node = mAllocator.allocate(other.mNodes[i]->key, other.mNodes[i]->value);
+                    auto [idx, found, insert_slot] = findOrPrepareInsert(new_node->key, h);
+                    setCtrl(insert_slot, stablehash_detail::H2(h));
+                    mNodes[insert_slot] = new_node;
+                    ++mSize;
                 }
             }
         }
@@ -1073,32 +1073,32 @@ public:
     template <typename K, typename V>
     std::pair<Value*, bool> insert(K&& key, V&& value)
     {
-        if (capacity_ == 0)
+        if (mCapacity == 0)
         {
             allocate(kMinCapacity);
         }
-        maybe_rehash();
+        maybeRehash();
 
-        size_t h = hash_key(key);
-        auto [idx, found, insert_slot] = find_or_prepare_insert(key, h);
+        size_t h = hashKey(key);
+        auto [idx, found, insert_slot] = findOrPrepareInsert(key, h);
 
         if (found)
         {
-            return {&nodes_[idx]->value, false};
+            return {&mNodes[idx]->value, false};
         }
 
         // Allocate new node using block allocator
-        Node* node = allocator_.allocate(std::forward<K>(key), std::forward<V>(value));
+        Node* node = mAllocator.allocate(std::forward<K>(key), std::forward<V>(value));
 
-        uint8_t old_ctrl = ctrl_[insert_slot];
-        set_ctrl(insert_slot, stablehash_detail::H2(h));
-        nodes_[insert_slot] = node;
+        uint8_t old_ctrl = mCtrl[insert_slot];
+        setCtrl(insert_slot, stablehash_detail::H2(h));
+        mNodes[insert_slot] = node;
 
-        if (stablehash_detail::is_deleted(old_ctrl))
+        if (stablehash_detail::isDeleted(old_ctrl))
         {
-            --tombstones_;
+            --mTombstones;
         }
-        ++size_;
+        ++mSize;
 
         return {&node->value, true};
     }
@@ -1108,34 +1108,34 @@ public:
     template <typename K, typename V>
     std::pair<Value*, bool> insert_or_assign(K&& key, V&& value)
     {
-        if (capacity_ == 0)
+        if (mCapacity == 0)
         {
             allocate(kMinCapacity);
         }
-        maybe_rehash();
+        maybeRehash();
 
-        size_t h = hash_key(key);
-        auto [idx, found, insert_slot] = find_or_prepare_insert(key, h);
+        size_t h = hashKey(key);
+        auto [idx, found, insert_slot] = findOrPrepareInsert(key, h);
 
         if (found)
         {
             // Key exists - assign new value
-            nodes_[idx]->value = std::forward<V>(value);
-            return {&nodes_[idx]->value, false};
+            mNodes[idx]->value = std::forward<V>(value);
+            return {&mNodes[idx]->value, false};
         }
 
         // Key doesn't exist - insert
-        Node* node = allocator_.allocate(std::forward<K>(key), std::forward<V>(value));
+        Node* node = mAllocator.allocate(std::forward<K>(key), std::forward<V>(value));
 
-        uint8_t old_ctrl = ctrl_[insert_slot];
-        set_ctrl(insert_slot, stablehash_detail::H2(h));
-        nodes_[insert_slot] = node;
+        uint8_t old_ctrl = mCtrl[insert_slot];
+        setCtrl(insert_slot, stablehash_detail::H2(h));
+        mNodes[insert_slot] = node;
 
-        if (stablehash_detail::is_deleted(old_ctrl))
+        if (stablehash_detail::isDeleted(old_ctrl))
         {
-            --tombstones_;
+            --mTombstones;
         }
-        ++size_;
+        ++mSize;
 
         return {&node->value, true};
     }
@@ -1145,33 +1145,33 @@ public:
     template <typename K, typename... Args>
     std::pair<Value*, bool> try_emplace(K&& key, Args&&... args)
     {
-        if (capacity_ == 0)
+        if (mCapacity == 0)
         {
             allocate(kMinCapacity);
         }
-        maybe_rehash();
+        maybeRehash();
 
-        size_t h = hash_key(key);
-        auto [idx, found, insert_slot] = find_or_prepare_insert(key, h);
+        size_t h = hashKey(key);
+        auto [idx, found, insert_slot] = findOrPrepareInsert(key, h);
 
         if (found)
         {
             // Key already exists - don't construct value
-            return {&nodes_[idx]->value, false};
+            return {&mNodes[idx]->value, false};
         }
 
         // Key doesn't exist - construct value in-place
-        Node* node = allocator_.allocate(std::forward<K>(key), Value(std::forward<Args>(args)...));
+        Node* node = mAllocator.allocate(std::forward<K>(key), Value(std::forward<Args>(args)...));
 
-        uint8_t old_ctrl = ctrl_[insert_slot];
-        set_ctrl(insert_slot, stablehash_detail::H2(h));
-        nodes_[insert_slot] = node;
+        uint8_t old_ctrl = mCtrl[insert_slot];
+        setCtrl(insert_slot, stablehash_detail::H2(h));
+        mNodes[insert_slot] = node;
 
-        if (stablehash_detail::is_deleted(old_ctrl))
+        if (stablehash_detail::isDeleted(old_ctrl))
         {
-            --tombstones_;
+            --mTombstones;
         }
-        ++size_;
+        ++mSize;
 
         return {&node->value, true};
     }
@@ -1195,24 +1195,24 @@ public:
     template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
     Value* find(const K& key)
     {
-        size_t h = hash_key(key);
-        auto [idx, found] = find_slot(key, h);
-        return found ? &nodes_[idx]->value : nullptr;
+        size_t h = hashKey(key);
+        auto [idx, found] = findSlot(key, h);
+        return found ? &mNodes[idx]->value : nullptr;
     }
 
     template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
     const Value* find(const K& key) const
     {
-        size_t h = hash_key(key);
-        auto [idx, found] = find_slot(key, h);
-        return found ? &nodes_[idx]->value : nullptr;
+        size_t h = hashKey(key);
+        auto [idx, found] = findSlot(key, h);
+        return found ? &mNodes[idx]->value : nullptr;
     }
 
     template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
     bool contains(const K& key) const
     {
-        size_t h = hash_key(key);
-        auto [idx, found] = find_slot(key, h);
+        size_t h = hashKey(key);
+        auto [idx, found] = findSlot(key, h);
         return found;
     }
 
@@ -1226,16 +1226,16 @@ public:
     template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
     bool erase(const K& key)
     {
-        size_t h = hash_key(key);
-        auto [idx, found] = find_slot(key, h);
+        size_t h = hashKey(key);
+        auto [idx, found] = findSlot(key, h);
 
         if (found)
         {
-            allocator_.deallocate(nodes_[idx]);
-            nodes_[idx] = nullptr;
-            set_ctrl(idx, stablehash_detail::kDeleted);
-            --size_;
-            ++tombstones_;
+            mAllocator.deallocate(mNodes[idx]);
+            mNodes[idx] = nullptr;
+            setCtrl(idx, stablehash_detail::kDeleted);
+            --mSize;
+            ++mTombstones;
             return true;
         }
         return false;
@@ -1243,33 +1243,33 @@ public:
 
     void clear()
     {
-        if (ctrl_)
+        if (mCtrl)
         {
-            for (size_t i = 0; i < capacity_; ++i)
+            for (size_t i = 0; i < mCapacity; ++i)
             {
-                if (stablehash_detail::is_full(ctrl_[i]))
+                if (stablehash_detail::isFull(mCtrl[i]))
                 {
-                    allocator_.deallocate(nodes_[i]);
-                    nodes_[i] = nullptr;
+                    mAllocator.deallocate(mNodes[i]);
+                    mNodes[i] = nullptr;
                 }
             }
-            std::memset(ctrl_, stablehash_detail::kEmpty, capacity_ + Group::kWidth);
+            std::memset(mCtrl, stablehash_detail::kEmpty, mCapacity + Group::kWidth);
         }
-        size_ = 0;
-        tombstones_ = 0;
+        mSize = 0;
+        mTombstones = 0;
     }
 
     void reserve(size_t count)
     {
-        size_t required = static_cast<size_t>(count / max_load_factor_) + 1;
-        if (required > capacity_)
+        size_t required = static_cast<size_t>(count / mMaxLoadFactor) + 1;
+        if (required > mCapacity)
         {
             size_t new_cap = kMinCapacity;
             while (new_cap < required)
             {
                 new_cap *= 2;
             }
-            rehash_internal(new_cap);
+            rehashInternal(new_cap);
         }
     }
 
@@ -1277,32 +1277,32 @@ public:
 
     size_t size() const
     {
-        return size_;
+        return mSize;
     }
     bool empty() const
     {
-        return size_ == 0;
+        return mSize == 0;
     }
     size_t capacity() const
     {
-        return capacity_;
+        return mCapacity;
     }
     float max_load_factor() const noexcept
     {
-        return max_load_factor_;
+        return mMaxLoadFactor;
     }
     float load_factor() const
     {
-        return capacity_ > 0 ? static_cast<float>(size_) / capacity_ : 0.0f;
+        return mCapacity > 0 ? static_cast<float>(mSize) / mCapacity : 0.0f;
     }
     /// Get the allocator (for custom allocator inspection)
     allocator_type& get_allocator() noexcept
     {
-        return allocator_;
+        return mAllocator;
     }
     const allocator_type& get_allocator() const noexcept
     {
-        return allocator_;
+        return mAllocator;
     }
 
     // === Iterator ===
@@ -1317,39 +1317,39 @@ public:
         using reference = value_type;
 
         iterator()
-            : ctrl_(nullptr)
-            , nodes_(nullptr)
-            , idx_(0)
-            , cap_(0)
+            : mCtrl(nullptr)
+            , mNodes(nullptr)
+            , mIdx(0)
+            , mCap(0)
         {
         }
         iterator(const uint8_t* ctrl, Node** nodes, size_t idx, size_t cap)
-            : ctrl_(ctrl)
-            , nodes_(nodes)
-            , idx_(idx)
-            , cap_(cap)
+            : mCtrl(ctrl)
+            , mNodes(nodes)
+            , mIdx(idx)
+            , mCap(cap)
         {
-            skip_empty();
+            skipEmpty();
         }
 
         value_type operator*() const
         {
-            return {nodes_[idx_]->key, nodes_[idx_]->value};
+            return {mNodes[mIdx]->key, mNodes[mIdx]->value};
         }
 
         const Key& key() const
         {
-            return nodes_[idx_]->key;
+            return mNodes[mIdx]->key;
         }
         Value& value() const
         {
-            return nodes_[idx_]->value;
+            return mNodes[mIdx]->value;
         }
 
         iterator& operator++()
         {
-            ++idx_;
-            skip_empty();
+            ++mIdx;
+            skipEmpty();
             return *this;
         }
         iterator operator++(int)
@@ -1360,24 +1360,24 @@ public:
         }
         bool operator==(const iterator& o) const
         {
-            return idx_ == o.idx_;
+            return mIdx == o.mIdx;
         }
         bool operator!=(const iterator& o) const
         {
-            return idx_ != o.idx_;
+            return mIdx != o.mIdx;
         }
 
     private:
-        const uint8_t* ctrl_;
-        Node** nodes_;
-        size_t idx_;
-        size_t cap_;
+        const uint8_t* mCtrl;
+        Node** mNodes;
+        size_t mIdx;
+        size_t mCap;
 
-        void skip_empty()
+        void skipEmpty()
         {
-            while (idx_ < cap_ && !stablehash_detail::is_full(ctrl_[idx_]))
+            while (mIdx < mCap && !stablehash_detail::isFull(mCtrl[mIdx]))
             {
-                ++idx_;
+                ++mIdx;
             }
         }
     };
@@ -1392,46 +1392,46 @@ public:
         using reference = value_type;
 
         const_iterator()
-            : ctrl_(nullptr)
-            , nodes_(nullptr)
-            , idx_(0)
-            , cap_(0)
+            : mCtrl(nullptr)
+            , mNodes(nullptr)
+            , mIdx(0)
+            , mCap(0)
         {
         }
         const_iterator(const uint8_t* ctrl, Node* const* nodes, size_t idx, size_t cap)
-            : ctrl_(ctrl)
-            , nodes_(nodes)
-            , idx_(idx)
-            , cap_(cap)
+            : mCtrl(ctrl)
+            , mNodes(nodes)
+            , mIdx(idx)
+            , mCap(cap)
         {
-            skip_empty();
+            skipEmpty();
         }
         const_iterator(const iterator& it)
-            : ctrl_(it.ctrl_)
-            , nodes_(it.nodes_)
-            , idx_(it.idx_)
-            , cap_(it.cap_)
+            : mCtrl(it.mCtrl)
+            , mNodes(it.mNodes)
+            , mIdx(it.mIdx)
+            , mCap(it.mCap)
         {
         }
 
         value_type operator*() const
         {
-            return {nodes_[idx_]->key, nodes_[idx_]->value};
+            return {mNodes[mIdx]->key, mNodes[mIdx]->value};
         }
 
         const Key& key() const
         {
-            return nodes_[idx_]->key;
+            return mNodes[mIdx]->key;
         }
         const Value& value() const
         {
-            return nodes_[idx_]->value;
+            return mNodes[mIdx]->value;
         }
 
         const_iterator& operator++()
         {
-            ++idx_;
-            skip_empty();
+            ++mIdx;
+            skipEmpty();
             return *this;
         }
         const_iterator operator++(int)
@@ -1442,43 +1442,43 @@ public:
         }
         bool operator==(const const_iterator& o) const
         {
-            return idx_ == o.idx_;
+            return mIdx == o.mIdx;
         }
         bool operator!=(const const_iterator& o) const
         {
-            return idx_ != o.idx_;
+            return mIdx != o.mIdx;
         }
 
     private:
-        const uint8_t* ctrl_;
-        Node* const* nodes_;
-        size_t idx_;
-        size_t cap_;
+        const uint8_t* mCtrl;
+        Node* const* mNodes;
+        size_t mIdx;
+        size_t mCap;
 
-        void skip_empty()
+        void skipEmpty()
         {
-            while (idx_ < cap_ && !stablehash_detail::is_full(ctrl_[idx_]))
+            while (mIdx < mCap && !stablehash_detail::isFull(mCtrl[mIdx]))
             {
-                ++idx_;
+                ++mIdx;
             }
         }
     };
 
     iterator begin()
     {
-        return iterator(ctrl_, nodes_, 0, capacity_);
+        return iterator(mCtrl, mNodes, 0, mCapacity);
     }
     iterator end()
     {
-        return iterator(ctrl_, nodes_, capacity_, capacity_);
+        return iterator(mCtrl, mNodes, mCapacity, mCapacity);
     }
     const_iterator begin() const
     {
-        return const_iterator(ctrl_, nodes_, 0, capacity_);
+        return const_iterator(mCtrl, mNodes, 0, mCapacity);
     }
     const_iterator end() const
     {
-        return const_iterator(ctrl_, nodes_, capacity_, capacity_);
+        return const_iterator(mCtrl, mNodes, mCapacity, mCapacity);
     }
     const_iterator cbegin() const
     {
