@@ -1,5 +1,5 @@
 # =============================================================================
-# .github/workflows/fatp-binary.yml
+# .github/workflows/fat-p-binary.yml
 # =============================================================================
 # CI workflow for FatPBinary component
 #
@@ -17,16 +17,14 @@ on:
     branches: [main, master]
     paths:
       - 'FAT_P/FAT_P/fat_p/FatPBinary.h'
-      - 'FAT_P/FAT_P/fat_p/BinaryLite.h'
       - 'FAT_P/FAT_P/tests/test_FatPBinary.cpp'
-      - '.github/workflows/fatp-binary.yml'
+      - '.github/workflows/fat-p-binary.yml'
   pull_request:
     branches: [main, master]
     paths:
       - 'FAT_P/FAT_P/fat_p/FatPBinary.h'
-      - 'FAT_P/FAT_P/fat_p/BinaryLite.h'
       - 'FAT_P/FAT_P/tests/test_FatPBinary.cpp'
-      - '.github/workflows/fatp-binary.yml'
+      - '.github/workflows/fat-p-binary.yml'
   workflow_dispatch:
 
 env:
@@ -100,7 +98,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_FatPBinary.cpp /Fe:test_bin.exe
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_FatPBinary.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe
@@ -120,12 +118,10 @@ jobs:
             -fsanitize=address -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./FAT_P/FAT_P/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
+            ${{ env.TEST_SRC }} -o test_asan
 
-      - name: Run with ASan
-        env:
-          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
-        run: ./test_bin
+      - name: Run ASan tests
+        run: ./test_asan
 
   sanitizer-ubsan:
     name: UndefinedBehaviorSanitizer
@@ -139,15 +135,13 @@ jobs:
             -fsanitize=undefined -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./FAT_P/FAT_P/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
+            ${{ env.TEST_SRC }} -o test_ubsan
 
-      - name: Run with UBSan
-        env:
-          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
-        run: ./test_bin
+      - name: Run UBSan tests
+        run: ./test_ubsan
 
   # ===========================================================================
-  # Header Self-Containment (C++20)
+  # Header Self-Containment
   # ===========================================================================
   header-check:
     name: Header Self-Containment
@@ -159,11 +153,11 @@ jobs:
         run: |
           echo '#include "${{ env.HEADER }}"' > test_include.cpp
           echo 'int main() { return 0; }' >> test_include.cpp
-          
+
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I./FAT_P/FAT_P/fat_p \
             -c test_include.cpp -o /dev/null
-          
+
           echo "✓ Header is self-contained"
 
   # ===========================================================================
@@ -190,9 +184,9 @@ jobs:
   # CI Gate
   # ===========================================================================
   ci-success:
-    name: CI Success
+    name: CI Success Gate
+    runs-on: ubuntu-24.04
     needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
-    runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Check results
@@ -204,4 +198,5 @@ jobs:
           if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
-          echo "✓ All checks passed"
+
+          echo "✓ All CI checks passed"
