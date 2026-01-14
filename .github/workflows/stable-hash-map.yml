@@ -196,11 +196,12 @@ jobs:
           echo "✓ No warnings"
 
   # ===========================================================================
-  # Benchmarks with Third-Party Competitor Libraries
+  # Benchmarks with Third-Party Competitor Libraries (Manual only)
   # ===========================================================================
   benchmarks:
     name: HashMap Benchmarks
     runs-on: ubuntu-24.04
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
 
@@ -281,7 +282,7 @@ jobs:
   # ===========================================================================
   ci-success:
     name: CI Success
-    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings, benchmarks]
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -294,5 +295,4 @@ jobs:
           if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.benchmarks.result }}" != "success" ]]; then exit 1; fi
           echo "✓ All checks passed"
