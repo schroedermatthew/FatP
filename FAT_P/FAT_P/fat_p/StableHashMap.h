@@ -610,7 +610,7 @@ private:
     size_t growth_threshold_ = 0;
     size_t mTombstones = 0;
 
-    float max_load_factor_ = 0.8f; // Lower than 0.875 for faster miss detection
+    double max_load_factor_ = 0.8; // Lower than 0.875 for faster miss detection
     Hash mHasher;
     KeyEqual key_equal_;
     allocator_type mAllocator;
@@ -618,11 +618,11 @@ private:
     static constexpr size_t kMinCapacity = Group::kWidth * 2;
 
 
-    static float validate_max_load_factor(float load_factor)
+    static double validate_max_load_factor(double load_factor)
     {
-        // Requirements: 0 < lf <= 1.0f (reserve() arithmetic and termination guarantees)
+        // Requirements: 0 < lf <= 1.0 (reserve() arithmetic and termination guarantees)
         // Note: NaN fails ordered comparisons and is therefore rejected.
-        if (!(load_factor > 0.0f && load_factor <= 1.0f))
+        if (!(load_factor > 0.0 && load_factor <= 1.0))
         {
             throw std::invalid_argument("StableHashMap: load_factor must satisfy 0 < lf <= 1");
         }
@@ -701,7 +701,7 @@ private:
 
         // CRITICAL: Always keep at least 1 empty slot to prevent infinite loops
         // in find_slot() and find_or_prepare_insert(). Fix identified by ChatGPT.
-        size_t threshold = static_cast<size_t>(cap * max_load_factor_);
+        size_t threshold = static_cast<size_t>(static_cast<double>(cap) * max_load_factor_);
         growth_threshold_ = (threshold >= cap) ? cap - 1 : threshold;
         if (growth_threshold_ == 0 && cap > 0)
         {
@@ -923,7 +923,7 @@ public:
     }
 
     // Constructor with capacity and max load factor
-    StableHashMap(size_t initial_capacity, float load_factor)
+    StableHashMap(size_t initial_capacity, double load_factor)
         : max_load_factor_(validate_max_load_factor(load_factor))
     {
         if (initial_capacity > 0)
@@ -938,7 +938,7 @@ public:
     }
 
     // Constructor with capacity, load factor, and custom hash
-    StableHashMap(size_t initial_capacity, float load_factor, const Hash& hash)
+    StableHashMap(size_t initial_capacity, double load_factor, const Hash& hash)
         : max_load_factor_(validate_max_load_factor(load_factor))
         , mHasher(hash)
     {
@@ -954,7 +954,7 @@ public:
     }
 
     // Constructor with capacity, load factor, hash, and key_equal
-    StableHashMap(size_t initial_capacity, float load_factor, const Hash& hash, const KeyEqual& equal)
+    StableHashMap(size_t initial_capacity, double load_factor, const Hash& hash, const KeyEqual& equal)
         : max_load_factor_(validate_max_load_factor(load_factor))
         , mHasher(hash)
         , key_equal_(equal)
@@ -1261,7 +1261,7 @@ public:
 
     void reserve(size_t count)
     {
-        size_t required = static_cast<size_t>(count / max_load_factor_) + 1;
+        size_t required = static_cast<size_t>(static_cast<double>(count) / max_load_factor_) + 1;
         if (required > mCapacity)
         {
             size_t new_cap = kMinCapacity;
@@ -1287,13 +1287,13 @@ public:
     {
         return mCapacity;
     }
-    float max_load_factor() const noexcept
+    double max_load_factor() const noexcept
     {
         return max_load_factor_;
     }
-    float load_factor() const
+    double load_factor() const
     {
-        return mCapacity > 0 ? static_cast<float>(size_) / mCapacity : 0.0f;
+        return mCapacity > 0 ? static_cast<double>(size_) / static_cast<double>(mCapacity) : 0.0;
     }
     /// Get the allocator (for custom allocator inspection)
     allocator_type& get_allocator() noexcept

@@ -674,7 +674,7 @@ private:
     // Only used with TombstoneDeletion - zero overhead when unused
     FATP_NO_UNIQUE_ADDRESS std::conditional_t<uses_tombstones, size_t, EmptyMember> mTombstones{};
     
-    float max_load_factor_ = 0.875f;
+    double max_load_factor_ = 0.875;
     bool mFrozen = false;  // Read-only mode for high-density lookup tables
     FATP_NO_UNIQUE_ADDRESS Hash mHasher;
     FATP_NO_UNIQUE_ADDRESS KeyEqual key_equal_;
@@ -683,14 +683,14 @@ private:
     static constexpr size_t kMinCapacity = Group::kWidth * 2;
     
     // Validate and clamp max_load_factor to safe range (0, 1)
-    static constexpr float normalize_load_factor(float lf) noexcept {
-        if (lf <= 0.0f || lf >= 1.0f) return 0.875f;  // Default
+    static constexpr double normalize_load_factor(double lf) noexcept {
+        if (lf <= 0.0 || lf >= 1.0) return 0.875;  // Default
         return lf;
     }
     
     // Compute growth threshold ensuring at least one empty slot remains
-    static size_t compute_growth_threshold(size_t cap, float max_lf) noexcept {
-        size_t threshold = static_cast<size_t>(static_cast<float>(cap) * max_lf);
+    static size_t compute_growth_threshold(size_t cap, double max_lf) noexcept {
+        size_t threshold = static_cast<size_t>(static_cast<double>(cap) * max_lf);
         // Must leave at least one empty slot for probe termination
         if (threshold >= cap) threshold = cap - 1;
         if (threshold < 1) threshold = 1;
@@ -982,7 +982,7 @@ private:
 public:
     FastHashMap() = default;
     
-    explicit FastHashMap(size_t initial_capacity, float load_factor = 0.875f)
+    explicit FastHashMap(size_t initial_capacity, double load_factor = 0.875)
         : max_load_factor_(normalize_load_factor(load_factor)) {
         if (initial_capacity > 0) {
             size_t cap = kMinCapacity;
@@ -1121,10 +1121,10 @@ public:
     bool empty() const noexcept { return size_ == 0; }
     size_t size() const noexcept { return size_; }
     size_t capacity() const noexcept { return mCapacity; }
-    float load_factor() const noexcept {
-        return mCapacity ? static_cast<float>(size_) / static_cast<float>(mCapacity) : 0.0f;
+    double load_factor() const noexcept {
+        return mCapacity ? static_cast<double>(size_) / static_cast<double>(mCapacity) : 0.0;
     }
-    float max_load_factor() const noexcept { return max_load_factor_; }
+    double max_load_factor() const noexcept { return max_load_factor_; }
     
     /// Get allocator reference (for diagnostics/introspection)
     Allocator& get_allocator() noexcept { return mAllocator; }

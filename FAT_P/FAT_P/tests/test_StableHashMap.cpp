@@ -342,7 +342,7 @@ public:
             }
         }
 
-        return count > 0 ? static_cast<double>(total_dist) / count : 0.0;
+        return count > 0 ? static_cast<double>(total_dist) / static_cast<double>(count) : 0.0;
     }
 
     // Get maximum probe distance
@@ -533,7 +533,7 @@ FATP_TEST_CASE(ctrl_tail_wraparound_probe)
     };
 
     using Map = StableHashMap<int, int, IdentityHash>;
-    Map map(64, 1.0f, IdentityHash());
+    Map map(64, 1.0, IdentityHash());
 
     const size_t cap = StableHashMapTester<Map>::capacity(map);
     FATP_ASSERT_TRUE((cap & (cap - 1)) == 0, "Capacity must be power-of-two");
@@ -610,8 +610,8 @@ FATP_TEST_CASE(load_factor)
         map.insert(i, i * 2);
     }
 
-    float load = map.load_factor();
-    FATP_ASSERT_TRUE(load >= 0.0f && load <= 1.0f, "Load factor should be between 0 and 1");
+    double load = map.load_factor();
+    FATP_ASSERT_TRUE(load >= 0.0 && load <= 1.0, "Load factor should be between 0 and 1");
         FATP_ASSERT_TRUE(load <= map.max_load_factor(),
         "Load factor should not exceed max_load_factor()");
     return true;
@@ -1223,9 +1223,9 @@ FATP_TEST_CASE(reference_stability_across_reserve)
     std::vector<const void*> addrs(100);
     for (int i = 0; i < 100; ++i)
     {
-        ptrs[i] = map.find(i);
-        addrs[i] = static_cast<const void*>(ptrs[i]);
-        FATP_ASSERT_NOT_NULLPTR(ptrs[i], "Should find all keys");
+        ptrs[static_cast<size_t>(i)] = map.find(i);
+        addrs[static_cast<size_t>(i)] = static_cast<const void*>(ptrs[static_cast<size_t>(i)]);
+        FATP_ASSERT_NOT_NULLPTR(ptrs[static_cast<size_t>(i)], "Should find all keys");
     }
     
     // Force a large reserve (will definitely rehash)
@@ -1236,9 +1236,9 @@ FATP_TEST_CASE(reference_stability_across_reserve)
     {
         int* ptr_after = map.find(i);
         FATP_ASSERT_NOT_NULLPTR(ptr_after, "Key should still exist after reserve");
-        FATP_ASSERT_TRUE(static_cast<const void*>(ptr_after) == addrs[i],
+        FATP_ASSERT_TRUE(static_cast<const void*>(ptr_after) == addrs[static_cast<size_t>(i)],
                     "Pointer address should be unchanged after reserve");
-        FATP_ASSERT_EQ(*ptrs[i], i * 10, "Original pointer should still work");
+        FATP_ASSERT_EQ(*ptrs[static_cast<size_t>(i)], i * 10, "Original pointer should still work");
     }
     
     return true;
@@ -1948,7 +1948,7 @@ FATP_TEST_CASE(churn_latency_stability)
 
     // 5. Assert latency stability
     // Allow 50% tolerance for Swiss Table tombstone overhead + system noise
-    double ratio = static_cast<double>(aged_us) / fresh_us;
+    double ratio = static_cast<double>(aged_us) / static_cast<double>(fresh_us);
 
     // Diagnostic output
     std::cout << "  Latency: fresh=" << fresh_us << "us aged=" << aged_us 

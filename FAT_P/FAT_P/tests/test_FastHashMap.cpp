@@ -178,9 +178,9 @@ FATP_TEST_CASE(load_factor)
         map.insert(i, i * 2);
     }
 
-    float load = map.load_factor();
-    FATP_ASSERT_TRUE(load >= 0.0f && load <= 1.0f, "Load factor should be between 0 and 1");
-    FATP_ASSERT_TRUE(load <= 0.875f, "Load factor should not exceed 0.875");
+    double load = map.load_factor();
+    FATP_ASSERT_TRUE(load >= 0.0 && load <= 1.0, "Load factor should be between 0 and 1");
+    FATP_ASSERT_TRUE(load <= 0.875, "Load factor should not exceed 0.875");
 
     return true;
 }
