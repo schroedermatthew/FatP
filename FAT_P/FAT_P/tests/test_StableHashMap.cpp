@@ -524,7 +524,7 @@ FATP_TEST_CASE(ctrl_tail_wraparound_probe)
 {
     struct IdentityHash
     {
-                using is_avalanching = int;  // Opt-out marker: disable hash finalizer
+        using is_avalanching [[maybe_unused]] = int;  // Opt-out marker: disable hash finalizer
 
         size_t operator()(int k) const noexcept
         {
