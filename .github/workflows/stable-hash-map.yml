@@ -37,6 +37,12 @@ on:
       - 'FAT_P/FAT_P/fat_p/FatPBenchmarkRunner.h'
       - '.github/workflows/stable-hash-map.yml'
   workflow_dispatch:
+    inputs:
+      run_benchmarks:
+        description: 'Run benchmarks'
+        required: false
+        default: 'false'
+        type: boolean
 
 env:
   HEADER: StableHashMap.h
@@ -201,7 +207,7 @@ jobs:
   benchmarks:
     name: HashMap Benchmarks
     runs-on: ubuntu-24.04
-    if: github.event_name == 'workflow_dispatch'
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_benchmarks == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
