@@ -240,7 +240,7 @@ FATP_TEST_CASE(macro_convenience)
     
     #ifndef NDEBUG
     std::vector<int> my_data = {100, 200, 300};
-    auto tracker = TRACKED_VIEW(my_data);
+    auto tracker = FATP_TRACKED_VIEW(my_data);
     auto view = tracker.create_view();
     
     FATP_ASSERT_TRUE(view.is_valid(), "Macro-created tracker should work");

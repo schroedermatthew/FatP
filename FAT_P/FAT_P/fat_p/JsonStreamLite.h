@@ -1335,8 +1335,3 @@ namespace js = json_stream;
     using fat_p::json_stream::error_to_string
 
 } // namespace fat_p
-
-// Backwards compatibility alias
-#ifndef FATP_NO_LEGACY_MACROS
-#define USING_JSON_STREAM_LITE FATP_USING_JSON_STREAM_LITE
-#endif

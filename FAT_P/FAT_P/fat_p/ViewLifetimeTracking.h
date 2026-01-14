@@ -339,9 +339,3 @@ public:
 #endif
 
 } // namespace fat_p
-
-// Backwards compatibility aliases
-#ifndef FATP_NO_LEGACY_MACROS
-#define TRACKED_VIEW FATP_TRACKED_VIEW
-#define VIEW_GUARD FATP_VIEW_GUARD
-#endif

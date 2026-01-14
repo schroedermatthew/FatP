@@ -1,12 +1,12 @@
 /**
  * @file DiagnosticLogger_IO.h
  * @brief Extension for File I/O, Rotation, Ring Buffers, Async Logging, and Resilience.
- * 
+ *
  *
  * @layer Domain
  *
  * @dependencies <filesystem>, <fstream>, CircularBuffer, LockFreeQueue, ThreadPool, ScopeGuard
- * 
+ *
  * FIXES APPLIED (v2.0):
  * - P1.3: Fixed loop underflow in rotation
  * - P1.5: Fixed tellp() error handling
@@ -15,7 +15,7 @@
  * - P3.2: Added AsyncSink using LockFreeQueue + ThreadPool
  * - P3.3: Added RateLimitingSink
  * - P3.4: Added FilteringSink
- * 
+ *
  * IMPROVEMENTS (v2.1):
  * - Added ScopeGuard integration for safer resource management
  * - Enhanced RotatingFileSink::rotate() with guaranteed file reopening
@@ -51,13 +51,13 @@ FATP_META:
 */
 #include "DiagnosticLogger_Core.h"
 #include "LockFreeQueue.h"
-#include "ThreadPool.h"
 #include "ScopeGuard.h"
-#include <fstream>
+#include "ThreadPool.h"
+#include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <future>
 #include <vector>
-#include <chrono>
 
 namespace fat_p
 {
@@ -139,7 +139,8 @@ public:
     }
 };
 
-inline std::shared_ptr<FileSink> makeFileSink(const std::string& filename, std::unique_ptr<IFormatter> fmt = std::make_unique<DefaultFormatter>())
+inline std::shared_ptr<FileSink> makeFileSink(const std::string& filename,
+                                              std::unique_ptr<IFormatter> fmt = std::make_unique<DefaultFormatter>())
 {
     auto sink = std::make_shared<FileSink>(filename, std::move(fmt));
     return sink->is_valid() ? sink : nullptr;
@@ -220,7 +221,9 @@ public:
         return capacity_;
     }
 
-    void flush() override {}
+    void flush() override
+    {
+    }
 };
 
 class RotatingFileSink : public ISink
@@ -232,22 +235,35 @@ class RotatingFileSink : public ISink
     std::ofstream file_;
     std::mutex mutex_;
     bool is_valid_;
-    
+
 public:
-    RotatingFileSink(const std::string& fname, size_t maxBytes = 1024*1024*10, size_t maxFiles = 5, std::unique_ptr<IFormatter> fmt = std::make_unique<DefaultFormatter>())
-        : baseFilename_(fname), maxBytes_(maxBytes), maxFiles_(maxFiles), formatter_(std::move(fmt)), is_valid_(false)
+    RotatingFileSink(const std::string& fname,
+                     size_t maxBytes = 1024 * 1024 * 10,
+                     size_t maxFiles = 5,
+                     std::unique_ptr<IFormatter> fmt = std::make_unique<DefaultFormatter>())
+        : baseFilename_(fname)
+        , maxBytes_(maxBytes)
+        , maxFiles_(maxFiles)
+        , formatter_(std::move(fmt))
+        , is_valid_(false)
     {
         open();
     }
 
-    bool is_valid() const { return is_valid_; }
+    bool is_valid() const
+    {
+        return is_valid_;
+    }
 
     void write(const LogRecord& record) override
     {
-        if (!is_valid_) return;
+        if (!is_valid_)
+        {
+            return;
+        }
         std::lock_guard<std::mutex> lock(mutex_);
         std::string msg = formatter_->format(record) + '\n';
-        
+
         auto pos = file_.tellp();
         if (pos != std::streampos(-1) && static_cast<size_t>(pos) + msg.size() > maxBytes_)
         {
@@ -255,10 +271,13 @@ public:
         }
         file_ << msg;
     }
-    
+
     void flush() override
     {
-        if (!is_valid_) return;
+        if (!is_valid_)
+        {
+            return;
+        }
         std::lock_guard<std::mutex> lock(mutex_);
         file_.flush();
     }
@@ -273,33 +292,48 @@ private:
     void rotate()
     {
         file_.close();
-        
+
         // ScopeGuard ensures file reopening even if rotation fails catastrophically
-        SCOPE_GUARD { open(); };
-        
+        FATP_SCOPE_GUARD
+        {
+            open();
+        };
+
         namespace fs = std::filesystem;
         try
         {
             if (fs::exists(baseFilename_))
             {
                 std::string oldName = baseFilename_ + "." + std::to_string(maxFiles_);
-                if (fs::exists(oldName)) fs::remove(oldName);
-                
+                if (fs::exists(oldName))
+                {
+                    fs::remove(oldName);
+                }
+
                 for (int i = static_cast<int>(maxFiles_ - 1); i >= 1; --i)
                 {
                     std::string src = baseFilename_ + "." + std::to_string(i);
                     std::string dst = baseFilename_ + "." + std::to_string(i + 1);
-                    if (fs::exists(src)) fs::rename(src, dst);
+                    if (fs::exists(src))
+                    {
+                        fs::rename(src, dst);
+                    }
                 }
                 fs::rename(baseFilename_, baseFilename_ + ".1");
             }
         }
-        catch(...) {}
+        catch (...)
+        {
+        }
         // open() is guaranteed to be called by ScopeGuard on scope exit
     }
 };
 
-inline std::shared_ptr<RotatingFileSink> makeRotatingFileSink(const std::string& filename, size_t maxBytes = 1024*1024*10, size_t maxFiles = 5, std::unique_ptr<IFormatter> fmt = std::make_unique<DefaultFormatter>())
+inline std::shared_ptr<RotatingFileSink>
+makeRotatingFileSink(const std::string& filename,
+                     size_t maxBytes = 1024 * 1024 * 10,
+                     size_t maxFiles = 5,
+                     std::unique_ptr<IFormatter> fmt = std::make_unique<DefaultFormatter>())
 {
     auto sink = std::make_shared<RotatingFileSink>(filename, maxBytes, maxFiles, std::move(fmt));
     return sink->is_valid() ? sink : nullptr;
@@ -313,48 +347,78 @@ class ResilientSink : public ISink
 
 public:
     ResilientSink(std::shared_ptr<ISink> primary, std::shared_ptr<ISink> fallback)
-        : primary_(std::move(primary)), fallback_(std::move(fallback)) {}
+        : primary_(std::move(primary))
+        , fallback_(std::move(fallback))
+    {
+    }
 
     void write(const LogRecord& record) override
     {
         if (!primaryFailed_)
         {
             bool writeSucceeded = false;
-            
+
             // ScopeGuard manages failure state automatically
-            SCOPE_GUARD { 
-                if (!writeSucceeded) {
+            FATP_SCOPE_GUARD
+            {
+                if (!writeSucceeded)
+                {
                     primaryFailed_.store(true, std::memory_order_release);
                 }
             };
-            
+
             try
             {
                 primary_->write(record);
                 writeSucceeded = true;
-                return; 
+                return;
             }
-            catch (...) {}
+            catch (...)
+            {
+            }
             // Guard will set primaryFailed_ = true if writeSucceeded is still false
         }
-        
+
         if (fallback_)
         {
             try
             {
                 fallback_->write(record);
             }
-            catch (...) {}
+            catch (...)
+            {
+            }
         }
     }
 
     void flush() override
     {
-        if (!primaryFailed_) try { primary_->flush(); } catch(...) {}
-        if (fallback_) try { fallback_->flush(); } catch(...) {}
+        if (!primaryFailed_)
+        {
+            try
+            {
+                primary_->flush();
+            }
+            catch (...)
+            {
+            }
+        }
+        if (fallback_)
+        {
+            try
+            {
+                fallback_->flush();
+            }
+            catch (...)
+            {
+            }
+        }
     }
-    
-    void reset() { primaryFailed_ = false; }
+
+    void reset()
+    {
+        primaryFailed_ = false;
+    }
 };
 
 class AsyncSink : public ISink
@@ -362,27 +426,32 @@ class AsyncSink : public ISink
     LockFreeQueue<LogRecord, 4096> queue_;
     std::shared_ptr<ISink> target_;
     ThreadPool worker_;
-    std::atomic<bool> running_{ true };
-    std::atomic<uint64_t> dropped_{ 0 };
+    std::atomic<bool> running_{true};
+    std::atomic<uint64_t> dropped_{0};
 
     std::mutex flush_mutex_;
     std::condition_variable flush_cv_;
-    std::atomic<bool> processing_{ false };
-    
-    std::future<void> workerFuture_;  // Store the future for proper shutdown
+    std::atomic<bool> processing_{false};
+
+    std::future<void> workerFuture_; // Store the future for proper shutdown
 
 public:
     explicit AsyncSink(std::shared_ptr<ISink> target)
-        : target_(std::move(target)), worker_(1)
+        : target_(std::move(target))
+        , worker_(1)
     {
-        workerFuture_ = worker_.submit([this]() { processLoop(); });
+        workerFuture_ = worker_.submit(
+            [this]()
+            {
+                processLoop();
+            });
     }
 
     ~AsyncSink()
     {
         running_.store(false, std::memory_order_release);
         flush_cv_.notify_all();
-        
+
         // Wait for the worker to actually finish, not just the queue to drain
         if (workerFuture_.valid())
         {
@@ -401,13 +470,18 @@ public:
     void flush() override
     {
         std::unique_lock<std::mutex> lock(flush_mutex_);
-        flush_cv_.wait(lock, [this] {
-            return queue_.empty() && !processing_.load();
-            });
+        flush_cv_.wait(lock,
+                       [this]
+                       {
+                           return queue_.empty() && !processing_.load();
+                       });
         target_->flush();
     }
 
-    uint64_t dropped() const { return dropped_.load(std::memory_order_relaxed); }
+    uint64_t dropped() const
+    {
+        return dropped_.load(std::memory_order_relaxed);
+    }
 
 private:
     void processLoop()
@@ -443,11 +517,17 @@ class RateLimitingSink : public ISink
     const double rate_;
     const double burst_;
     std::mutex limiter_mutex_;
-    
+
 public:
     RateLimitingSink(std::shared_ptr<ISink> target, double rate_per_sec, double burst = 10.0)
-        : target_(std::move(target)), last_refill_(std::chrono::steady_clock::now()), tokens_(burst), rate_(rate_per_sec), burst_(burst) {}
-    
+        : target_(std::move(target))
+        , last_refill_(std::chrono::steady_clock::now())
+        , tokens_(burst)
+        , rate_(rate_per_sec)
+        , burst_(burst)
+    {
+    }
+
     void write(const LogRecord& record) override
     {
         if (try_acquire())
@@ -459,10 +539,16 @@ public:
             dropped_.fetch_add(1, std::memory_order_relaxed);
         }
     }
-    
-    void flush() override { target_->flush(); }
-    uint64_t dropped() const { return dropped_.load(std::memory_order_relaxed); }
-    
+
+    void flush() override
+    {
+        target_->flush();
+    }
+    uint64_t dropped() const
+    {
+        return dropped_.load(std::memory_order_relaxed);
+    }
+
 private:
     bool try_acquire()
     {
@@ -484,11 +570,14 @@ class FilteringSink : public ISink
 {
     std::shared_ptr<ISink> target_;
     std::function<bool(const LogRecord&)> filter_;
-    
+
 public:
     FilteringSink(std::shared_ptr<ISink> target, std::function<bool(const LogRecord&)> filter)
-        : target_(std::move(target)), filter_(std::move(filter)) {}
-    
+        : target_(std::move(target))
+        , filter_(std::move(filter))
+    {
+    }
+
     void write(const LogRecord& record) override
     {
         if (filter_(record))
@@ -496,8 +585,11 @@ public:
             target_->write(record);
         }
     }
-    
-    void flush() override { target_->flush(); }
+
+    void flush() override
+    {
+        target_->flush();
+    }
 };
 
 /**
@@ -517,8 +609,7 @@ public:
      * @param callback Function to call for each log record.
      * @param minLevel Minimum level to trigger the callback.
      */
-    CallbackSink(std::function<void(const LogRecord&)> callback,
-                 LogLevel minLevel = LogLevel::Trace)
+    CallbackSink(std::function<void(const LogRecord&)> callback, LogLevel minLevel = LogLevel::Trace)
         : callback_(std::move(callback))
         , minLevel_(minLevel)
     {
@@ -532,7 +623,9 @@ public:
         }
     }
 
-    void flush() override {}
+    void flush() override
+    {
+    }
 };
 
 inline void initializeRotatingLogger(const std::string& filename)

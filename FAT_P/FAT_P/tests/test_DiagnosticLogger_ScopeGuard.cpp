@@ -83,7 +83,7 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
     /**
      * @brief Test that file is guaranteed to reopen after rotation
      *
-     * This test verifies that the SCOPE_GUARD in rotate() ensures the file
+     * This test verifies that the FATP_SCOPE_GUARD in rotate() ensures the file
      * is always reopened, even if rotation fails.
      */
     FATP_TEST_CASE(rotating_file_guaranteed_reopen)

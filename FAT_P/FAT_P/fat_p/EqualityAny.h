@@ -15,30 +15,30 @@
 
 /*
 FATP_META:
- meta_version: 1
- component: EqualityAny
- file_role: public_header
- path: fat_p/EqualityAny.h
- namespace: fat_p
+  meta_version: 1
+  component: EqualityAny
+  file_role: public_header
+  path: fat_p/EqualityAny.h
+  namespace: fat_p
   layer: Foundation
- summary: "Public header for EqualityAny."
- api_stability: in_work
- related:
-   docs_search: "EqualityAny"
-   tests:
-     - tests/test_EqualityAny.cpp
-   benchmarks:
-     - benchmarks/benchmark_EqualityComparisonsAny.cpp
- hygiene:
-   pragma_once: true
-   include_guard: false
-   defines_total: 0
-   defines_unprefixed: 0
-   undefs_total: 0
-   includes_windows_h: false
- generated:
-   by: fatp-meta-tool
-   mode: autogen
+  summary: "Public header for EqualityAny."
+  api_stability: in_work
+  related:
+    docs_search: "EqualityAny"
+    tests:
+      - tests/test_EqualityAny.cpp
+    benchmarks:
+      - benchmarks/benchmark_EqualityComparisonsAny.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
 */
 #include <any>
 #include <array>

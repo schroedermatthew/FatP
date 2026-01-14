@@ -104,8 +104,8 @@ FATP_META:
 #include <immintrin.h>
 #endif
 
-#include "FatPBenchmarkRunner.h"
 #include "AlignedVector.h"
+#include "FatPBenchmarkRunner.h"
 
 // ============================================================================
 // Optional Competitor Detection
@@ -141,8 +141,14 @@ FATP_META:
 static fat_p::bench::BenchConfig g_config;
 
 // Accessors
-static size_t WARMUP_RUNS() { return g_config.warmupRuns; }
-static size_t MEASURED_RUNS() { return g_config.measuredRuns; }
+static size_t WARMUP_RUNS()
+{
+    return g_config.warmupRuns;
+}
+static size_t MEASURED_RUNS()
+{
+    return g_config.measuredRuns;
+}
 
 // Cooling delays between benchmark sections (milliseconds)
 static constexpr int COOLING_DELAY_SECTION_MS = 500;
@@ -179,7 +185,10 @@ struct Timer
     using clock = BenchClock;
     clock::time_point t0;
 
-    void start() { t0 = clock::now(); }
+    void start()
+    {
+        t0 = clock::now();
+    }
 
     [[nodiscard]] double elapsed_ns() const
     {
@@ -227,10 +236,10 @@ struct Statistics
         s.stddev = std::sqrt(sq_sum / static_cast<double>(data.size()));
 
         // CI95 (t-distribution approximation for small samples)
-        double t_value = 1.96;  // Approximate for n > 30
+        double t_value = 1.96; // Approximate for n > 30
         if (data.size() < 30)
         {
-            t_value = 2.0;  // Conservative for small samples
+            t_value = 2.0; // Conservative for small samples
         }
         double margin = t_value * s.stddev / std::sqrt(static_cast<double>(data.size()));
         s.ci95_low = s.mean - margin;
@@ -249,13 +258,13 @@ struct Statistics
 
 static volatile int64_t benchmark_sink = 0;
 
-template<typename T>
+template <typename T>
 static inline void prevent_opt(T value)
 {
     benchmark_sink ^= static_cast<int64_t>(value);
 }
 
-template<typename T>
+template <typename T>
 static inline void DoNotOptimize(T& value)
 {
 #if defined(__GNUC__) || defined(__clang__)
@@ -291,11 +300,10 @@ static void cooling_delay(int ms, const char* reason = nullptr)
     std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
-static bool wait_for_cpu_stable(
-    double max_variance_percent = 10.0,
-    int timeout_seconds = 30,
-    int check_interval_ms = 200,
-    bool verbose = true)
+static bool wait_for_cpu_stable(double max_variance_percent = 10.0,
+                                int timeout_seconds = 30,
+                                int check_interval_ms = 200,
+                                bool verbose = true)
 {
     if (g_config.noStabilize)
     {
@@ -341,9 +349,8 @@ static bool wait_for_cpu_stable(
             {
                 if (verbose)
                 {
-                    std::cout << "  [CPU stable at " << static_cast<int>(mean)
-                              << " MHz, variance " << std::fixed << std::setprecision(1)
-                              << variance_pct << "%]\n";
+                    std::cout << "  [CPU stable at " << static_cast<int>(mean) << " MHz, variance " << std::fixed
+                              << std::setprecision(1) << variance_pct << "%]\n";
                 }
                 return true;
             }
@@ -363,7 +370,7 @@ static bool wait_for_cpu_stable(
 // Data Generation
 // ============================================================================
 
-template<typename T>
+template <typename T>
 std::vector<T> generate_data(size_t n, uint64_t seed)
 {
     std::vector<T> data(n);
@@ -371,9 +378,7 @@ std::vector<T> generate_data(size_t n, uint64_t seed)
 
     if constexpr (std::is_integral_v<T>)
     {
-        std::uniform_int_distribution<T> dist(
-            std::numeric_limits<T>::min(),
-            std::numeric_limits<T>::max());
+        std::uniform_int_distribution<T> dist(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
         for (size_t i = 0; i < n; ++i)
         {
             data[i] = dist(rng);
@@ -425,21 +430,17 @@ void print_contract_note(const std::string& note)
 void print_result_table_header()
 {
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << std::setw(30) << "Container"
-              << std::setw(14) << "Median"
-              << std::setw(14) << "Mean"
-              << std::setw(12) << "Stddev"
+    std::cout << std::setw(30) << "Container" << std::setw(14) << "Median" << std::setw(14) << "Mean" << std::setw(12)
+              << "Stddev"
               << "  CI95\n";
     std::cout << std::string(79, '-') << "\n";
 }
 
 void print_result_row(const std::string& name, const Statistics& stats, const std::string& unit)
 {
-    std::cout << std::setw(30) << name
-              << std::setw(12) << stats.median << " " << unit
-              << std::setw(12) << stats.mean << " " << unit
-              << std::setw(10) << stats.stddev
-              << "  [" << stats.ci95_low << ", " << stats.ci95_high << "]\n";
+    std::cout << std::setw(30) << name << std::setw(12) << stats.median << " " << unit << std::setw(12) << stats.mean
+              << " " << unit << std::setw(10) << stats.stddev << "  [" << stats.ci95_low << ", " << stats.ci95_high
+              << "]\n";
 
     // Variance warning
     if (stats.stddev > stats.median && stats.median > 0)
@@ -464,7 +465,7 @@ struct BenchmarkResult
 // Tests raw sequential access performance where alignment provides
 // the most benefit for SIMD auto-vectorization.
 
-template<typename Container>
+template <typename Container>
 double bench_sequential_sum(Container& vec, size_t iterations)
 {
     using T = typename Container::value_type;
@@ -487,7 +488,7 @@ double bench_sequential_sum(Container& vec, size_t iterations)
     return elapsed / static_cast<double>(iterations * vec.size());
 }
 
-template<typename T, size_t Alignment>
+template <typename T, size_t Alignment>
 double bench_sequential_sum_assume_aligned(fat_p::AlignedVector<T, Alignment>& vec, size_t iterations)
 {
     T sum = T(0);
@@ -531,8 +532,7 @@ void benchmark_sequential_iteration(const std::vector<size_t>& sizes)
         fat_p::AlignedVector<float, 128> av128(data.begin(), data.end());
 
 #if HAS_BOOST_ALIGN
-        std::vector<float, boost::alignment::aligned_allocator<float, 64>> boost_vec(
-            data.begin(), data.end());
+        std::vector<float, boost::alignment::aligned_allocator<float, 64>> boost_vec(data.begin(), data.end());
 #endif
 
         // Results storage
@@ -618,7 +618,7 @@ void benchmark_sequential_iteration(const std::vector<size_t>& sizes)
 // ============================================================================
 // Tests cache behavior with non-sequential access patterns.
 
-template<typename Container>
+template <typename Container>
 double bench_random_access(Container& vec, const std::vector<size_t>& indices, size_t iterations)
 {
     using T = typename Container::value_type;
@@ -709,7 +709,7 @@ void benchmark_random_access(const std::vector<size_t>& sizes)
 // ============================================================================
 // Tests amortized insertion performance including reallocation.
 
-template<typename Container>
+template <typename Container>
 double bench_push_back(size_t count, size_t iterations)
 {
     using T = typename Container::value_type;
@@ -731,7 +731,7 @@ double bench_push_back(size_t count, size_t iterations)
     return elapsed / static_cast<double>(iterations * count);
 }
 
-template<typename Container>
+template <typename Container>
 double bench_push_back_reserved(size_t count, size_t iterations)
 {
     using T = typename Container::value_type;
@@ -827,7 +827,7 @@ void benchmark_push_back(const std::vector<size_t>& sizes)
 // ============================================================================
 // Tests O(n) insertion performance at various positions.
 
-template<typename Container>
+template <typename Container>
 double bench_insert_middle(size_t initial_size, size_t insert_count, size_t iterations)
 {
     using T = typename Container::value_type;
@@ -934,8 +934,14 @@ struct NonTrivialInt
 {
     int v;
 
-    NonTrivialInt() : v(0) {}
-    explicit NonTrivialInt(int x) : v(x) {}
+    NonTrivialInt()
+        : v(0)
+    {
+    }
+    explicit NonTrivialInt(int x)
+        : v(x)
+    {
+    }
 
     NonTrivialInt(const NonTrivialInt&) = default;
     NonTrivialInt(NonTrivialInt&&) noexcept = default;
@@ -953,13 +959,12 @@ struct NonTrivialInt
     }
 };
 
-static_assert(sizeof(NonTrivialInt) == sizeof(int),
-              "NonTrivialInt must match int size for a fair shift comparison.");
+static_assert(sizeof(NonTrivialInt) == sizeof(int), "NonTrivialInt must match int size for a fair shift comparison.");
 static_assert(!std::is_trivially_copyable_v<NonTrivialInt>,
               "NonTrivialInt must be non-trivially copyable to force the element-wise shift path.");
 } // namespace
 
-template<typename Container, typename PayloadVec>
+template <typename Container, typename PayloadVec>
 double bench_insert_range_middle(size_t initial_size, const PayloadVec& payload, size_t iterations)
 {
     using T = typename Container::value_type;
@@ -979,7 +984,7 @@ double bench_insert_range_middle(size_t initial_size, const PayloadVec& payload,
     for (size_t iter = 0; iter < iterations; ++iter)
     {
         Container vec(initial_size, T(0));
-        vec.reserve(initial_size + K);  // avoid reallocation (isolate shift + placement)
+        vec.reserve(initial_size + K); // avoid reallocation (isolate shift + placement)
 
         auto pos = vec.begin() + static_cast<ptrdiff_t>(index);
 
@@ -994,7 +999,7 @@ double bench_insert_range_middle(size_t initial_size, const PayloadVec& payload,
     return total_ns / static_cast<double>(iterations * shifted);
 }
 
-template<typename Container>
+template <typename Container>
 double bench_erase_range_middle(size_t initial_size, size_t erase_count, size_t iterations)
 {
     using T = typename Container::value_type;
@@ -1035,15 +1040,14 @@ double bench_erase_range_middle(size_t initial_size, size_t erase_count, size_t 
 void benchmark_shift_memmove(const std::vector<size_t>& sizes)
 {
     print_header("SHIFT MICROBENCH (memmove fast-path)");
-    print_contract_note(
-        "Isolates the cost of shifting elements during insert/erase range operations. "
-        "Compares a trivially copyable element type (int) that can use bulk memmove shifts "
-        "against an equivalent-size non-trivially copyable wrapper that forces element-wise moves. "
-        "Reported as ns per shifted element.");
+    print_contract_note("Isolates the cost of shifting elements during insert/erase range operations. "
+                        "Compares a trivially copyable element type (int) that can use bulk memmove shifts "
+                        "against an equivalent-size non-trivially copyable wrapper that forces element-wise moves. "
+                        "Reported as ns per shifted element.");
 
     print_cpu_context("Shift/memmove");
 
-    constexpr size_t K = 32;  // range length inserted/erased
+    constexpr size_t K = 32; // range length inserted/erased
 
     for (size_t N : sizes)
     {
@@ -1174,7 +1178,7 @@ void benchmark_shift_memmove(const std::vector<size_t>& sizes)
 // BENCHMARK: Copy and Move
 // ============================================================================
 
-template<typename Container>
+template <typename Container>
 double bench_copy(const Container& src, size_t iterations)
 {
     Timer timer;
@@ -1204,7 +1208,7 @@ double bench_copy(const Container& src, size_t iterations)
  *
  * Returns: nanoseconds per move-construction.
  */
-template<typename Container>
+template <typename Container>
 double bench_move_ctor_rotation(size_t size, size_t iterations)
 {
     using T = typename Container::value_type;
@@ -1226,15 +1230,15 @@ double bench_move_ctor_rotation(size_t size, size_t iterations)
     {
         // c = move_ctor(a); a becomes moved-from (empty)
         c = new (&storageC) Container(std::move(*a));
-        a->~Container();  // destroys moved-from (empty)
+        a->~Container(); // destroys moved-from (empty)
 
         // a = move_ctor(b); b becomes moved-from (empty)
         a = new (&storageA) Container(std::move(*b));
-        b->~Container();  // destroys moved-from (empty)
+        b->~Container(); // destroys moved-from (empty)
 
         // b = move_ctor(c); c becomes moved-from (empty)
         b = new (&storageB) Container(std::move(*c));
-        c->~Container();  // destroys moved-from (empty)
+        c->~Container(); // destroys moved-from (empty)
 
         // Observe alternating pointer value to prevent dead-code elimination.
         prevent_opt(static_cast<int64_t>(reinterpret_cast<intptr_t>(a->data())));
@@ -1259,7 +1263,7 @@ double bench_move_ctor_rotation(size_t size, size_t iterations)
  *
  * Returns: nanoseconds per move-assignment.
  */
-template<typename Container>
+template <typename Container>
 double bench_move_assign_rotation(size_t size, size_t iterations)
 {
     using T = typename Container::value_type;
@@ -1267,16 +1271,16 @@ double bench_move_assign_rotation(size_t size, size_t iterations)
     // Two distinct allocations created outside the timed region.
     Container a(size, T(42));
     Container b(size, T(7));
-    Container tmp;  // empty
+    Container tmp; // empty
 
     Timer timer;
     timer.start();
 
     for (size_t iter = 0; iter < iterations; ++iter)
     {
-        tmp = std::move(a);  // tmp empty -> steals buffer
-        a = std::move(b);    // a empty   -> steals buffer
-        b = std::move(tmp);  // b empty   -> steals buffer
+        tmp = std::move(a); // tmp empty -> steals buffer
+        a = std::move(b);   // a empty   -> steals buffer
+        b = std::move(tmp); // b empty   -> steals buffer
 
         prevent_opt(static_cast<int64_t>(reinterpret_cast<intptr_t>(a.data())));
     }
@@ -1295,7 +1299,7 @@ double bench_move_assign_rotation(size_t size, size_t iterations)
  *
  * Returns: nanoseconds per iteration of {construct+move}.
  */
-template<typename Container>
+template <typename Container>
 double bench_construct_and_move(size_t size, size_t iterations)
 {
     using T = typename Container::value_type;
@@ -1305,7 +1309,7 @@ double bench_construct_and_move(size_t size, size_t iterations)
 
     for (size_t iter = 0; iter < iterations; ++iter)
     {
-        Container src(size, T(42));   // O(n): allocation + fill/construct
+        Container src(size, T(42));    // O(n): allocation + fill/construct
         Container dst(std::move(src)); // O(1): move-ctor
         prevent_opt(static_cast<int64_t>(dst.size()));
     }
@@ -1317,13 +1321,12 @@ double bench_construct_and_move(size_t size, size_t iterations)
 void benchmark_copy_move(const std::vector<size_t>& sizes)
 {
     print_header("COPY AND MOVE OPERATIONS");
-    print_contract_note(
-        "Copy construction should be O(n). Move construction/assignment should be O(1). "
-        "This section reports:\n"
-        "  1) copy-ctor (bulk copy)\n"
-        "  2) move-ctor (rotation; no allocation)\n"
-        "  3) move-assign (rotation; no allocation)\n"
-        "  4) construct+move (includes allocation+fill; O(n), not a pure move test)");
+    print_contract_note("Copy construction should be O(n). Move construction/assignment should be O(1). "
+                        "This section reports:\n"
+                        "  1) copy-ctor (bulk copy)\n"
+                        "  2) move-ctor (rotation; no allocation)\n"
+                        "  3) move-assign (rotation; no allocation)\n"
+                        "  4) construct+move (includes allocation+fill; O(n), not a pure move test)");
 
     print_cpu_context("Copy/Move");
 
@@ -1422,7 +1425,7 @@ void benchmark_copy_move(const std::vector<size_t>& sizes)
 // ============================================================================
 // Explicitly tests SIMD-friendly operations where alignment matters most.
 
-template<typename Container>
+template <typename Container>
 double bench_dot_product(const Container& a, const Container& b, size_t iterations)
 {
     using T = typename Container::value_type;
@@ -1447,11 +1450,10 @@ double bench_dot_product(const Container& a, const Container& b, size_t iteratio
     return elapsed / static_cast<double>(iterations * a.size());
 }
 
-template<typename T, size_t Alignment>
-double bench_dot_product_assume_aligned(
-    const fat_p::AlignedVector<T, Alignment>& a,
-    const fat_p::AlignedVector<T, Alignment>& b,
-    size_t iterations)
+template <typename T, size_t Alignment>
+double bench_dot_product_assume_aligned(const fat_p::AlignedVector<T, Alignment>& a,
+                                        const fat_p::AlignedVector<T, Alignment>& b,
+                                        size_t iterations)
 {
     T result = T(0);
 
@@ -1547,7 +1549,6 @@ void benchmark_simd_dot_product(const std::vector<size_t>& sizes)
 }
 
 
-
 // ============================================================================
 // BENCHMARK: Explicit SIMD SAXPY (Alignment vs Misalignment)
 // ============================================================================
@@ -1579,7 +1580,10 @@ static double bench_saxpy_avx2_aligned(const float* x, float* y, float a, size_t
 {
     // Round down to multiple of 8 for AVX2 (8 floats per vector)
     n = n & ~size_t(7);
-    if (n == 0) return 0.0;
+    if (n == 0)
+    {
+        return 0.0;
+    }
 
     __m256 va = _mm256_set1_ps(a);
 
@@ -1606,7 +1610,10 @@ static double bench_saxpy_avx2_unaligned(const float* x, float* y, float a, size
 {
     // Round down to multiple of 8 for AVX2 (8 floats per vector)
     n = n & ~size_t(7);
-    if (n == 0) return 0.0;
+    if (n == 0)
+    {
+        return 0.0;
+    }
 
     __m256 va = _mm256_set1_ps(a);
 
@@ -1632,10 +1639,9 @@ static double bench_saxpy_avx2_unaligned(const float* x, float* y, float a, size
 void benchmark_simd_saxpy_explicit(const std::vector<size_t>& sizes)
 {
     print_header("SIMD SAXPY (Explicit AVX2)");
-    print_contract_note(
-        "Demonstrates alignment impact with explicit AVX2 loads/stores. "
-        "Includes a deliberately misaligned-pointer case to show a realistic downside of misalignment "
-        "without overstating typical wins.");
+    print_contract_note("Demonstrates alignment impact with explicit AVX2 loads/stores. "
+                        "Includes a deliberately misaligned-pointer case to show a realistic downside of misalignment "
+                        "without overstating typical wins.");
 
     print_cpu_context("SAXPY");
 
@@ -1772,7 +1778,8 @@ void benchmark_simd_saxpy_explicit(const std::vector<size_t>& sizes)
 void benchmark_simd_saxpy_explicit(const std::vector<size_t>&)
 {
     print_header("SIMD SAXPY (Explicit AVX2)");
-    print_contract_note("Skipped: AVX2 not enabled at compile time. Build with -mavx2 or -march=native (or /arch:AVX2 on MSVC). ");
+    print_contract_note(
+        "Skipped: AVX2 not enabled at compile time. Build with -mavx2 or -march=native (or /arch:AVX2 on MSVC). ");
 }
 
 #endif
@@ -1945,7 +1952,7 @@ void benchmark_corner_cases()
                     timer.start();
                     for (auto& vec : batch)
                     {
-                        vec.push_back(999);  // Triggers reallocation
+                        vec.push_back(999); // Triggers reallocation
                     }
                     double ns = timer.elapsed_ns() / static_cast<double>(BATCH);
 
@@ -1971,7 +1978,7 @@ void benchmark_corner_cases()
                     timer.start();
                     for (auto& vec : batch)
                     {
-                        vec.push_back(999);  // Triggers reallocation
+                        vec.push_back(999); // Triggers reallocation
                     }
                     double ns = timer.elapsed_ns() / static_cast<double>(BATCH);
 
@@ -2113,9 +2120,8 @@ int main(int argc, char* argv[])
 #else
     std::cout << "Linux";
 #endif
-    std::cout << " (warmup=" << WARMUP_RUNS()
-              << ", measured=" << MEASURED_RUNS()
-              << ", seed=" << g_config.seed << ")\n";
+    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << ", seed=" << g_config.seed
+              << ")\n";
 
     // Competitor detection
     std::cout << "\nCompetitor libraries: ";

@@ -1257,8 +1257,3 @@ inline CborValue parse_cbor_limited(const std::uint8_t* data,
     using fat_p::cbor_stream::error_to_string
 
 } // namespace fat_p
-
-// Backwards compatibility alias
-#ifndef FATP_NO_LEGACY_MACROS
-#define USING_CBOR_STREAM_LITE FATP_USING_CBOR_STREAM_LITE
-#endif

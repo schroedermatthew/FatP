@@ -443,8 +443,3 @@ struct ExpectedRaiser
 };
 
 } // namespace fat_p
-
-// Backwards compatibility alias
-#ifndef FATP_NO_LEGACY_MACROS
-#define DEFINE_CUSTOM_RAISER FATP_DEFINE_CUSTOM_RAISER
-#endif

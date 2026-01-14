@@ -453,7 +453,7 @@ FATP_TEST_CASE(parse_json_convenience)
 
 FATP_TEST_CASE(using_macro)
 {
-    USING_JSON_STREAM_LITE();
+    FATP_USING_JSON_STREAM_LITE();
 
     auto result = parse_json("[true, false]");
     FATP_ASSERT_TRUE(result.is_array(), "Is array");

@@ -34,7 +34,8 @@
  *   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_AllocationStrategies.cpp /link advapi32.lib
  *
  * Build (with Boost):
- *   g++ -std=c++17 -O3 -DNDEBUG -march=native -I/path/to/boost benchmark_AllocationStrategies.cpp -o bench_alloc -pthread
+ *   g++ -std=c++17 -O3 -DNDEBUG -march=native -I/path/to/boost benchmark_AllocationStrategies.cpp -o bench_alloc
+ * -pthread
  *
  * Environment Variables (all optional):
  *   FATP_BENCH_WARMUP_RUNS   - Warmup iterations (default: 3)
@@ -90,8 +91,8 @@ FATP_META:
 #include <string>
 #include <vector>
 
-#include "FatPBenchmarkRunner.h"
 #include "AllocationStrategies.h"
+#include "FatPBenchmarkRunner.h"
 
 // ============================================================================
 // Optional Competitor Detection
@@ -110,8 +111,14 @@ FATP_META:
 
 static fat_p::bench::BenchConfig g_config;
 
-static size_t WARMUP_RUNS() { return g_config.warmupRuns; }
-static size_t MEASURED_RUNS() { return g_config.measuredRuns; }
+static size_t WARMUP_RUNS()
+{
+    return g_config.warmupRuns;
+}
+static size_t MEASURED_RUNS()
+{
+    return g_config.measuredRuns;
+}
 
 // Cooling delays between benchmark sections (milliseconds)
 static constexpr int COOLING_DELAY_SECTION_MS = 200;
@@ -130,13 +137,13 @@ using Statistics = fat_p::bench::Statistics;
 
 static volatile int64_t benchmark_sink = 0;
 
-template<typename T>
+template <typename T>
 static inline void prevent_opt(T value)
 {
     benchmark_sink ^= static_cast<int64_t>(value);
 }
 
-template<typename T>
+template <typename T>
 static inline void DoNotOptimize(T& value)
 {
 #if defined(__GNUC__) || defined(__clang__)
@@ -173,8 +180,16 @@ struct TrivialNode
     int64_t mKey;
     int64_t mValue;
 
-    TrivialNode() : mKey(0), mValue(0) {}
-    TrivialNode(int64_t k, int64_t v) : mKey(k), mValue(v) {}
+    TrivialNode()
+        : mKey(0)
+        , mValue(0)
+    {
+    }
+    TrivialNode(int64_t k, int64_t v)
+        : mKey(k)
+        , mValue(v)
+    {
+    }
 };
 static_assert(std::is_trivially_copyable_v<TrivialNode>);
 
@@ -183,8 +198,14 @@ struct PointerSized
 {
     int64_t mValue;
 
-    PointerSized() : mValue(0) {}
-    explicit PointerSized(int64_t v) : mValue(v) {}
+    PointerSized()
+        : mValue(0)
+    {
+    }
+    explicit PointerSized(int64_t v)
+        : mValue(v)
+    {
+    }
 };
 static_assert(sizeof(PointerSized) >= sizeof(void*));
 
@@ -207,25 +228,17 @@ static void print_contract_note(const std::string& note)
 
 static void print_result_table_header()
 {
-    std::cout << std::left
-              << std::setw(30) << "Allocator"
-              << std::right
-              << std::setw(14) << "Median (ns)"
-              << std::setw(14) << "Mean (ns)"
-              << std::setw(12) << "Stddev"
-              << std::setw(20) << "CI95"
+    std::cout << std::left << std::setw(30) << "Allocator" << std::right << std::setw(14) << "Median (ns)"
+              << std::setw(14) << "Mean (ns)" << std::setw(12) << "Stddev" << std::setw(20) << "CI95"
               << "\n";
     std::cout << std::string(90, '-') << "\n";
 }
 
 static void print_result_row(const std::string& name, const Statistics& s)
 {
-    std::cout << std::left << std::setw(30) << name
-              << std::right << std::fixed << std::setprecision(2)
-              << std::setw(14) << s.median
-              << std::setw(14) << s.mean
-              << std::setw(12) << s.stddev
-              << "  [" << std::setw(7) << s.ci95Low << ", " << std::setw(7) << s.ci95High << "]"
+    std::cout << std::left << std::setw(30) << name << std::right << std::fixed << std::setprecision(2) << std::setw(14)
+              << s.median << std::setw(14) << s.mean << std::setw(12) << s.stddev << "  [" << std::setw(7) << s.ci95Low
+              << ", " << std::setw(7) << s.ci95High << "]"
               << "\n";
 
     if (s.stddev > s.median && s.median > 0)
@@ -307,9 +320,13 @@ void benchmark_single_allocation()
             poolPtrs.push_back(poolAlloc.allocate(i, i));
         }
         for (auto* p : blockPtrs)
+        {
             blockAlloc.deallocate(p);
+        }
         for (auto* p : poolPtrs)
+        {
             poolAlloc.deallocate(p);
+        }
     }
 
     // PMR buffer (heap allocated to avoid stack overflow)
@@ -334,120 +351,135 @@ void benchmark_single_allocation()
         {
             switch (idx)
             {
-            case LIB_NEWDELETE:
-            {
-                fat_p::NewDeleteAllocator<int> alloc;
-                timer.start();
-                for (size_t i = 0; i < ITERATIONS; ++i)
+                case LIB_NEWDELETE:
                 {
-                    int* p = alloc.allocate(42);
-                    DoNotOptimize(p);
-                    alloc.deallocate(p);
+                    fat_p::NewDeleteAllocator<int> alloc;
+                    timer.start();
+                    for (size_t i = 0; i < ITERATIONS; ++i)
+                    {
+                        int* p = alloc.allocate(42);
+                        DoNotOptimize(p);
+                        alloc.deallocate(p);
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
                 }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
-            case LIB_BLOCK:
-            {
-                timer.start();
-                for (size_t i = 0; i < ITERATIONS; ++i)
+                case LIB_BLOCK:
                 {
-                    PointerSized* p = blockAlloc.allocate(static_cast<int64_t>(i));
-                    DoNotOptimize(p);
-                    blockAlloc.deallocate(p);
+                    timer.start();
+                    for (size_t i = 0; i < ITERATIONS; ++i)
+                    {
+                        PointerSized* p = blockAlloc.allocate(static_cast<int64_t>(i));
+                        DoNotOptimize(p);
+                        blockAlloc.deallocate(p);
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
                 }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
-            case LIB_POOL:
-            {
-                timer.start();
-                for (size_t i = 0; i < ITERATIONS; ++i)
+                case LIB_POOL:
                 {
-                    TrivialNode* p = poolAlloc.allocate(static_cast<int64_t>(i),
-                                                        static_cast<int64_t>(i));
-                    DoNotOptimize(p);
-                    poolAlloc.deallocate(p);
+                    timer.start();
+                    for (size_t i = 0; i < ITERATIONS; ++i)
+                    {
+                        TrivialNode* p = poolAlloc.allocate(static_cast<int64_t>(i), static_cast<int64_t>(i));
+                        DoNotOptimize(p);
+                        poolAlloc.deallocate(p);
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
                 }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
-            case LIB_STD:
-            {
-                std::allocator<int> alloc;
-                timer.start();
-                for (size_t i = 0; i < ITERATIONS; ++i)
+                case LIB_STD:
                 {
-                    int* p = alloc.allocate(1);
-                    *p = 42;
-                    DoNotOptimize(p);
-                    alloc.deallocate(p, 1);
+                    std::allocator<int> alloc;
+                    timer.start();
+                    for (size_t i = 0; i < ITERATIONS; ++i)
+                    {
+                        int* p = alloc.allocate(1);
+                        *p = 42;
+                        DoNotOptimize(p);
+                        alloc.deallocate(p, 1);
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
                 }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
-            case LIB_PMR_MONO:
-            {
-                std::pmr::monotonic_buffer_resource mbr(pmrBuffer.get(), PMR_BUF_SIZE);
-                std::pmr::polymorphic_allocator<PointerSized> alloc(&mbr);
-                timer.start();
-                for (size_t i = 0; i < ITERATIONS; ++i)
+                case LIB_PMR_MONO:
                 {
-                    PointerSized* p = alloc.allocate(1);
-                    new (p) PointerSized(static_cast<int64_t>(i));
-                    DoNotOptimize(p);
-                    p->~PointerSized();
-                    alloc.deallocate(p, 1);
-                    if ((i + 1) % 10000 == 0)
-                        mbr.release();
+                    std::pmr::monotonic_buffer_resource mbr(pmrBuffer.get(), PMR_BUF_SIZE);
+                    std::pmr::polymorphic_allocator<PointerSized> alloc(&mbr);
+                    timer.start();
+                    for (size_t i = 0; i < ITERATIONS; ++i)
+                    {
+                        PointerSized* p = alloc.allocate(1);
+                        new (p) PointerSized(static_cast<int64_t>(i));
+                        DoNotOptimize(p);
+                        p->~PointerSized();
+                        alloc.deallocate(p, 1);
+                        if ((i + 1) % 10000 == 0)
+                        {
+                            mbr.release();
+                        }
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
                 }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
-            case LIB_PMR_UNSYNC:
-            {
-                std::pmr::unsynchronized_pool_resource pool;
-                std::pmr::polymorphic_allocator<PointerSized> alloc(&pool);
-                timer.start();
-                for (size_t i = 0; i < ITERATIONS; ++i)
+                case LIB_PMR_UNSYNC:
                 {
-                    PointerSized* p = alloc.allocate(1);
-                    new (p) PointerSized(static_cast<int64_t>(i));
-                    DoNotOptimize(p);
-                    p->~PointerSized();
-                    alloc.deallocate(p, 1);
+                    std::pmr::unsynchronized_pool_resource pool;
+                    std::pmr::polymorphic_allocator<PointerSized> alloc(&pool);
+                    timer.start();
+                    for (size_t i = 0; i < ITERATIONS; ++i)
+                    {
+                        PointerSized* p = alloc.allocate(1);
+                        new (p) PointerSized(static_cast<int64_t>(i));
+                        DoNotOptimize(p);
+                        p->~PointerSized();
+                        alloc.deallocate(p, 1);
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
                 }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
 #if HAS_BOOST_POOL
-            case LIB_BOOST:
-            {
-                boost::object_pool<PointerSized> pool;
-                timer.start();
-                for (size_t i = 0; i < ITERATIONS; ++i)
+                case LIB_BOOST:
                 {
-                    PointerSized* p = pool.construct(static_cast<int64_t>(i));
-                    DoNotOptimize(p);
-                    pool.destroy(p);
+                    boost::object_pool<PointerSized> pool;
+                    timer.start();
+                    for (size_t i = 0; i < ITERATIONS; ++i)
+                    {
+                        PointerSized* p = pool.construct(static_cast<int64_t>(i));
+                        DoNotOptimize(p);
+                        pool.destroy(p);
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
                 }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
 #endif
             }
         }
@@ -542,152 +574,184 @@ void benchmark_burst_allocation()
         {
             switch (idx)
             {
-            case LIB_NEWDELETE:
-            {
-                timer.start();
-                for (size_t iter = 0; iter < ITERATIONS; ++iter)
+                case LIB_NEWDELETE:
                 {
-                    fat_p::NewDeleteAllocator<int> alloc;
-                    std::array<int*, BURST_SIZE> ptrs;
-                    for (size_t i = 0; i < BURST_SIZE; ++i)
-                        ptrs[i] = alloc.allocate(static_cast<int>(i));
-                    prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
-                    for (auto p : ptrs)
-                        alloc.deallocate(p);
-                }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
-            case LIB_BLOCK:
-            {
-                timer.start();
-                for (size_t iter = 0; iter < ITERATIONS; ++iter)
-                {
-                    fat_p::BlockAllocator<PointerSized> alloc;
-                    std::array<PointerSized*, BURST_SIZE> ptrs;
-                    for (size_t i = 0; i < BURST_SIZE; ++i)
-                        ptrs[i] = alloc.allocate(static_cast<int64_t>(i));
-                    prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
-                    for (auto p : ptrs)
-                        alloc.deallocate(p);
-                }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
-            case LIB_POOL:
-            {
-                timer.start();
-                for (size_t iter = 0; iter < ITERATIONS; ++iter)
-                {
-                    fat_p::PoolAllocator<BURST_SIZE>::Allocator<TrivialNode> alloc;
-                    std::array<TrivialNode*, BURST_SIZE> ptrs;
-                    for (size_t i = 0; i < BURST_SIZE; ++i)
-                        ptrs[i] = alloc.allocate(static_cast<int64_t>(i), static_cast<int64_t>(i));
-                    prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
-                    for (auto p : ptrs)
-                        alloc.deallocate(p);
-                }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
-            case LIB_STD:
-            {
-                timer.start();
-                for (size_t iter = 0; iter < ITERATIONS; ++iter)
-                {
-                    std::allocator<int> alloc;
-                    std::array<int*, BURST_SIZE> ptrs;
-                    for (size_t i = 0; i < BURST_SIZE; ++i)
+                    timer.start();
+                    for (size_t iter = 0; iter < ITERATIONS; ++iter)
                     {
-                        ptrs[i] = alloc.allocate(1);
-                        *ptrs[i] = static_cast<int>(i);
+                        fat_p::NewDeleteAllocator<int> alloc;
+                        std::array<int*, BURST_SIZE> ptrs;
+                        for (size_t i = 0; i < BURST_SIZE; ++i)
+                        {
+                            ptrs[i] = alloc.allocate(static_cast<int>(i));
+                        }
+                        prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
+                        for (auto p : ptrs)
+                        {
+                            alloc.deallocate(p);
+                        }
                     }
-                    prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
-                    for (auto p : ptrs)
-                        alloc.deallocate(p, 1);
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
                 }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
-            case LIB_PMR_MONO:
-            {
-                timer.start();
-                for (size_t iter = 0; iter < ITERATIONS; ++iter)
+                case LIB_BLOCK:
                 {
-                    constexpr size_t BUF_SIZE = BURST_SIZE * sizeof(PointerSized) * 2;
-                    alignas(alignof(PointerSized)) char buffer[BUF_SIZE];
-                    std::pmr::monotonic_buffer_resource mbr(buffer, sizeof(buffer));
-                    std::pmr::polymorphic_allocator<PointerSized> alloc(&mbr);
-                    std::array<PointerSized*, BURST_SIZE> ptrs;
-                    for (size_t i = 0; i < BURST_SIZE; ++i)
+                    timer.start();
+                    for (size_t iter = 0; iter < ITERATIONS; ++iter)
                     {
-                        ptrs[i] = alloc.allocate(1);
-                        new (ptrs[i]) PointerSized(static_cast<int64_t>(i));
+                        fat_p::BlockAllocator<PointerSized> alloc;
+                        std::array<PointerSized*, BURST_SIZE> ptrs;
+                        for (size_t i = 0; i < BURST_SIZE; ++i)
+                        {
+                            ptrs[i] = alloc.allocate(static_cast<int64_t>(i));
+                        }
+                        prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
+                        for (auto p : ptrs)
+                        {
+                            alloc.deallocate(p);
+                        }
                     }
-                    prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
-                    for (auto p : ptrs)
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
                     {
-                        p->~PointerSized();
-                        alloc.deallocate(p, 1);
+                        results[idx].samples.push_back(ns);
                     }
+                    break;
                 }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
-            case LIB_PMR_UNSYNC:
-            {
-                timer.start();
-                for (size_t iter = 0; iter < ITERATIONS; ++iter)
+                case LIB_POOL:
                 {
-                    std::pmr::unsynchronized_pool_resource pool;
-                    std::pmr::polymorphic_allocator<PointerSized> alloc(&pool);
-                    std::array<PointerSized*, BURST_SIZE> ptrs;
-                    for (size_t i = 0; i < BURST_SIZE; ++i)
+                    timer.start();
+                    for (size_t iter = 0; iter < ITERATIONS; ++iter)
                     {
-                        ptrs[i] = alloc.allocate(1);
-                        new (ptrs[i]) PointerSized(static_cast<int64_t>(i));
+                        fat_p::PoolAllocator<BURST_SIZE>::Allocator<TrivialNode> alloc;
+                        std::array<TrivialNode*, BURST_SIZE> ptrs;
+                        for (size_t i = 0; i < BURST_SIZE; ++i)
+                        {
+                            ptrs[i] = alloc.allocate(static_cast<int64_t>(i), static_cast<int64_t>(i));
+                        }
+                        prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
+                        for (auto p : ptrs)
+                        {
+                            alloc.deallocate(p);
+                        }
                     }
-                    prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
-                    for (auto p : ptrs)
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
                     {
-                        p->~PointerSized();
-                        alloc.deallocate(p, 1);
+                        results[idx].samples.push_back(ns);
                     }
+                    break;
                 }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
+                case LIB_STD:
+                {
+                    timer.start();
+                    for (size_t iter = 0; iter < ITERATIONS; ++iter)
+                    {
+                        std::allocator<int> alloc;
+                        std::array<int*, BURST_SIZE> ptrs;
+                        for (size_t i = 0; i < BURST_SIZE; ++i)
+                        {
+                            ptrs[i] = alloc.allocate(1);
+                            *ptrs[i] = static_cast<int>(i);
+                        }
+                        prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
+                        for (auto p : ptrs)
+                        {
+                            alloc.deallocate(p, 1);
+                        }
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
+                }
+                case LIB_PMR_MONO:
+                {
+                    timer.start();
+                    for (size_t iter = 0; iter < ITERATIONS; ++iter)
+                    {
+                        constexpr size_t BUF_SIZE = BURST_SIZE * sizeof(PointerSized) * 2;
+                        alignas(alignof(PointerSized)) char buffer[BUF_SIZE];
+                        std::pmr::monotonic_buffer_resource mbr(buffer, sizeof(buffer));
+                        std::pmr::polymorphic_allocator<PointerSized> alloc(&mbr);
+                        std::array<PointerSized*, BURST_SIZE> ptrs;
+                        for (size_t i = 0; i < BURST_SIZE; ++i)
+                        {
+                            ptrs[i] = alloc.allocate(1);
+                            new (ptrs[i]) PointerSized(static_cast<int64_t>(i));
+                        }
+                        prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
+                        for (auto p : ptrs)
+                        {
+                            p->~PointerSized();
+                            alloc.deallocate(p, 1);
+                        }
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
+                }
+                case LIB_PMR_UNSYNC:
+                {
+                    timer.start();
+                    for (size_t iter = 0; iter < ITERATIONS; ++iter)
+                    {
+                        std::pmr::unsynchronized_pool_resource pool;
+                        std::pmr::polymorphic_allocator<PointerSized> alloc(&pool);
+                        std::array<PointerSized*, BURST_SIZE> ptrs;
+                        for (size_t i = 0; i < BURST_SIZE; ++i)
+                        {
+                            ptrs[i] = alloc.allocate(1);
+                            new (ptrs[i]) PointerSized(static_cast<int64_t>(i));
+                        }
+                        prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
+                        for (auto p : ptrs)
+                        {
+                            p->~PointerSized();
+                            alloc.deallocate(p, 1);
+                        }
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
+                }
 #if HAS_BOOST_POOL
-            case LIB_BOOST:
-            {
-                timer.start();
-                for (size_t iter = 0; iter < ITERATIONS; ++iter)
+                case LIB_BOOST:
                 {
-                    boost::object_pool<PointerSized> pool;
-                    std::array<PointerSized*, BURST_SIZE> ptrs;
-                    for (size_t i = 0; i < BURST_SIZE; ++i)
-                        ptrs[i] = pool.construct(static_cast<int64_t>(i));
-                    prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
-                    for (auto p : ptrs)
-                        pool.destroy(p);
+                    timer.start();
+                    for (size_t iter = 0; iter < ITERATIONS; ++iter)
+                    {
+                        boost::object_pool<PointerSized> pool;
+                        std::array<PointerSized*, BURST_SIZE> ptrs;
+                        for (size_t i = 0; i < BURST_SIZE; ++i)
+                        {
+                            ptrs[i] = pool.construct(static_cast<int64_t>(i));
+                        }
+                        prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
+                        for (auto p : ptrs)
+                        {
+                            pool.destroy(p);
+                        }
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
                 }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
 #endif
             }
         }
@@ -760,9 +824,13 @@ void benchmark_churn_pattern()
             poolPrimed.pop_back();
         }
         for (auto* p : blockPrimed)
+        {
             blockAlloc.deallocate(p);
+        }
         for (auto* p : poolPrimed)
+        {
             poolAlloc.deallocate(p);
+        }
     }
 
     std::vector<int> order(LIB_COUNT);
@@ -781,50 +849,55 @@ void benchmark_churn_pattern()
         {
             switch (idx)
             {
-            case LIB_NEWDELETE:
-            {
-                fat_p::NewDeleteAllocator<PointerSized> alloc;
-                timer.start();
-                for (size_t i = 0; i < ITERATIONS; ++i)
+                case LIB_NEWDELETE:
                 {
-                    PointerSized* p = alloc.allocate(static_cast<int64_t>(i));
-                    DoNotOptimize(p);
-                    alloc.deallocate(p);
+                    fat_p::NewDeleteAllocator<PointerSized> alloc;
+                    timer.start();
+                    for (size_t i = 0; i < ITERATIONS; ++i)
+                    {
+                        PointerSized* p = alloc.allocate(static_cast<int64_t>(i));
+                        DoNotOptimize(p);
+                        alloc.deallocate(p);
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
                 }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
-            case LIB_BLOCK:
-            {
-                timer.start();
-                for (size_t i = 0; i < ITERATIONS; ++i)
+                case LIB_BLOCK:
                 {
-                    PointerSized* p = blockAlloc.allocate(static_cast<int64_t>(i));
-                    DoNotOptimize(p);
-                    blockAlloc.deallocate(p);
+                    timer.start();
+                    for (size_t i = 0; i < ITERATIONS; ++i)
+                    {
+                        PointerSized* p = blockAlloc.allocate(static_cast<int64_t>(i));
+                        DoNotOptimize(p);
+                        blockAlloc.deallocate(p);
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
                 }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
-            case LIB_POOL:
-            {
-                timer.start();
-                for (size_t i = 0; i < ITERATIONS; ++i)
+                case LIB_POOL:
                 {
-                    TrivialNode* p = poolAlloc.allocate(static_cast<int64_t>(i),
-                                                        static_cast<int64_t>(i));
-                    DoNotOptimize(p);
-                    poolAlloc.deallocate(p);
+                    timer.start();
+                    for (size_t i = 0; i < ITERATIONS; ++i)
+                    {
+                        TrivialNode* p = poolAlloc.allocate(static_cast<int64_t>(i), static_cast<int64_t>(i));
+                        DoNotOptimize(p);
+                        poolAlloc.deallocate(p);
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
                 }
-                double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                if (!isWarmup)
-                    results[idx].samples.push_back(ns);
-                break;
-            }
             }
         }
     }
@@ -889,52 +962,64 @@ void benchmark_size_scaling()
             {
                 switch (idx)
                 {
-                case LIB_NEWDELETE:
-                {
-                    fat_p::NewDeleteAllocator<PointerSized> alloc;
-                    std::vector<PointerSized*> ptrs;
-                    ptrs.reserve(targetCount);
-                    for (size_t i = 0; i < targetCount; ++i)
-                        ptrs.push_back(alloc.allocate(static_cast<int64_t>(i)));
-
-                    timer.start();
-                    for (size_t i = 0; i < ITERATIONS; ++i)
+                    case LIB_NEWDELETE:
                     {
-                        PointerSized* p = alloc.allocate(static_cast<int64_t>(i));
-                        DoNotOptimize(p);
-                        alloc.deallocate(p);
+                        fat_p::NewDeleteAllocator<PointerSized> alloc;
+                        std::vector<PointerSized*> ptrs;
+                        ptrs.reserve(targetCount);
+                        for (size_t i = 0; i < targetCount; ++i)
+                        {
+                            ptrs.push_back(alloc.allocate(static_cast<int64_t>(i)));
+                        }
+
+                        timer.start();
+                        for (size_t i = 0; i < ITERATIONS; ++i)
+                        {
+                            PointerSized* p = alloc.allocate(static_cast<int64_t>(i));
+                            DoNotOptimize(p);
+                            alloc.deallocate(p);
+                        }
+                        double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                        if (!isWarmup)
+                        {
+                            results[idx].samples.push_back(ns);
+                        }
+
+                        for (auto* p : ptrs)
+                        {
+                            alloc.deallocate(p);
+                        }
+                        break;
                     }
-                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                    if (!isWarmup)
-                        results[idx].samples.push_back(ns);
-
-                    for (auto* p : ptrs)
-                        alloc.deallocate(p);
-                    break;
-                }
-                case LIB_BLOCK:
-                {
-                    fat_p::BlockAllocator<PointerSized> alloc;
-                    std::vector<PointerSized*> ptrs;
-                    ptrs.reserve(targetCount);
-                    for (size_t i = 0; i < targetCount; ++i)
-                        ptrs.push_back(alloc.allocate(static_cast<int64_t>(i)));
-
-                    timer.start();
-                    for (size_t i = 0; i < ITERATIONS; ++i)
+                    case LIB_BLOCK:
                     {
-                        PointerSized* p = alloc.allocate(static_cast<int64_t>(i));
-                        DoNotOptimize(p);
-                        alloc.deallocate(p);
-                    }
-                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
-                    if (!isWarmup)
-                        results[idx].samples.push_back(ns);
+                        fat_p::BlockAllocator<PointerSized> alloc;
+                        std::vector<PointerSized*> ptrs;
+                        ptrs.reserve(targetCount);
+                        for (size_t i = 0; i < targetCount; ++i)
+                        {
+                            ptrs.push_back(alloc.allocate(static_cast<int64_t>(i)));
+                        }
 
-                    for (auto* p : ptrs)
-                        alloc.deallocate(p);
-                    break;
-                }
+                        timer.start();
+                        for (size_t i = 0; i < ITERATIONS; ++i)
+                        {
+                            PointerSized* p = alloc.allocate(static_cast<int64_t>(i));
+                            DoNotOptimize(p);
+                            alloc.deallocate(p);
+                        }
+                        double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                        if (!isWarmup)
+                        {
+                            results[idx].samples.push_back(ns);
+                        }
+
+                        for (auto* p : ptrs)
+                        {
+                            alloc.deallocate(p);
+                        }
+                        break;
+                    }
                 }
             }
         }
@@ -978,9 +1063,8 @@ int main(int argc, char* argv[])
 #else
     std::cout << "Linux";
 #endif
-    std::cout << " (warmup=" << WARMUP_RUNS()
-              << ", measured=" << MEASURED_RUNS()
-              << ", seed=" << g_config.seed << ")\n";
+    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << ", seed=" << g_config.seed
+              << ")\n";
 
     // Competitor detection
     std::cout << "\nCompetitor libraries: std::pmr ";

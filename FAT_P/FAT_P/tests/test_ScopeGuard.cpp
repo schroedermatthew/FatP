@@ -7,7 +7,7 @@
  * - All 4 exception policies (Nothrow, Terminate, LogAndSwallow, Rethrow)
  * - Move semantics (construction and assignment)
  * - Dismiss functionality (dismiss, dismiss_if)
- * - Macro convenience helpers (SCOPE_GUARD, SCOPE_GUARD_EX)
+ * - Macro convenience helpers (FATP_SCOPE_GUARD, FATP_SCOPE_GUARD_EX)
  * - Resource management patterns
  * - Performance characteristics
  * 
@@ -603,45 +603,45 @@ FATP_TEST_CASE(macro_convenience) {
     std::cout << colors::cyan() << "\nTesting Macro Convenience..."
               << colors::reset() << std::endl;
     
-    // Test 1: SCOPE_GUARD macro
+    // Test 1: FATP_SCOPE_GUARD macro
     {
-        std::cout << colors::blue() << "  [TEST] SCOPE_GUARD macro"
+        std::cout << colors::blue() << "  [TEST] FATP_SCOPE_GUARD macro"
                   << colors::reset() << std::endl;
         
         int cleanup_count = 0;
         {
-            SCOPE_GUARD { ++cleanup_count; };
+            FATP_SCOPE_GUARD { ++cleanup_count; };
         }
-        FATP_ASSERT_EQ(cleanup_count, 1, "SCOPE_GUARD should execute");
+        FATP_ASSERT_EQ(cleanup_count, 1, "FATP_SCOPE_GUARD should execute");
     }
     
-    // Test 2: Multiple SCOPE_GUARD on same line (unique naming)
+    // Test 2: Multiple FATP_SCOPE_GUARD on same line (unique naming)
     {
-        std::cout << colors::blue() << "  [TEST] Multiple SCOPE_GUARD macros"
+        std::cout << colors::blue() << "  [TEST] Multiple FATP_SCOPE_GUARD macros"
                   << colors::reset() << std::endl;
         
         int count1 = 0, count2 = 0;
         {
-            SCOPE_GUARD { ++count1; };
-            SCOPE_GUARD { ++count2; };
+            FATP_SCOPE_GUARD { ++count1; };
+            FATP_SCOPE_GUARD { ++count2; };
         }
         FATP_ASSERT_EQ(count1, 1, "First guard should execute");
         FATP_ASSERT_EQ(count2, 1, "Second guard should execute");
     }
     
-    // Test 3: SCOPE_GUARD_EX with policy
+    // Test 3: FATP_SCOPE_GUARD_EX with policy
     {
-        std::cout << colors::blue() << "  [TEST] SCOPE_GUARD_EX macro"
+        std::cout << colors::blue() << "  [TEST] FATP_SCOPE_GUARD_EX macro"
                   << colors::reset() << std::endl;
         
         int cleanup_count = 0;
         {
             // Note: Don't add 'noexcept' - the macro already adds it for NothrowPolicy
-            SCOPE_GUARD_EX(ScopeGuardNothrowPolicy) { 
+            FATP_SCOPE_GUARD_EX(ScopeGuardNothrowPolicy) { 
                 ++cleanup_count; 
             };
         }
-        FATP_ASSERT_EQ(cleanup_count, 1, "SCOPE_GUARD_EX should execute");
+        FATP_ASSERT_EQ(cleanup_count, 1, "FATP_SCOPE_GUARD_EX should execute");
     }
     
     // Test 4: Capturing local variables
@@ -651,7 +651,7 @@ FATP_TEST_CASE(macro_convenience) {
         
         int value = 10;
         {
-            SCOPE_GUARD { value *= 2; };
+            FATP_SCOPE_GUARD { value *= 2; };
         }
         FATP_ASSERT_EQ(value, 20, "Should capture and modify local variable");
     }
@@ -927,24 +927,24 @@ FATP_TEST_CASE(type_traits)
 }
 
 // =============================================================================
-// SCOPE_FAIL / SCOPE_SUCCESS Tests
+// FATP_SCOPE_FAIL / FATP_SCOPE_SUCCESS Tests
 // =============================================================================
 
 FATP_TEST_CASE(scope_fail)
 {
-    std::cout << colors::cyan() << "\nTesting SCOPE_FAIL..."
+    std::cout << colors::cyan() << "\nTesting FATP_SCOPE_FAIL..."
               << colors::reset() << std::endl;
     
-    // Test 1: SCOPE_FAIL executes on exception
+    // Test 1: FATP_SCOPE_FAIL executes on exception
     {
-        std::cout << colors::blue() << "  [TEST] SCOPE_FAIL executes on exception"
+        std::cout << colors::blue() << "  [TEST] FATP_SCOPE_FAIL executes on exception"
                   << colors::reset() << std::endl;
         
         int rollback_count = 0;
         
         try
         {
-            SCOPE_FAIL { ++rollback_count; };
+            FATP_SCOPE_FAIL { ++rollback_count; };
             throw std::runtime_error("test exception");
         }
         catch (...)
@@ -952,48 +952,48 @@ FATP_TEST_CASE(scope_fail)
             // Expected
         }
         
-        FATP_ASSERT_EQ(rollback_count, 1, "SCOPE_FAIL should execute on exception");
+        FATP_ASSERT_EQ(rollback_count, 1, "FATP_SCOPE_FAIL should execute on exception");
     }
     
-    // Test 2: SCOPE_FAIL does NOT execute on normal exit
+    // Test 2: FATP_SCOPE_FAIL does NOT execute on normal exit
     {
-        std::cout << colors::blue() << "  [TEST] SCOPE_FAIL skipped on normal exit"
+        std::cout << colors::blue() << "  [TEST] FATP_SCOPE_FAIL skipped on normal exit"
                   << colors::reset() << std::endl;
         
         int rollback_count = 0;
         
         {
-            SCOPE_FAIL { ++rollback_count; };
+            FATP_SCOPE_FAIL { ++rollback_count; };
             // Normal exit - no exception
         }
         
-        FATP_ASSERT_EQ(rollback_count, 0, "SCOPE_FAIL should not execute on normal exit");
+        FATP_ASSERT_EQ(rollback_count, 0, "FATP_SCOPE_FAIL should not execute on normal exit");
     }
     
-    // Test 3: Multiple SCOPE_FAIL in same scope
+    // Test 3: Multiple FATP_SCOPE_FAIL in same scope
     {
-        std::cout << colors::blue() << "  [TEST] Multiple SCOPE_FAIL guards"
+        std::cout << colors::blue() << "  [TEST] Multiple FATP_SCOPE_FAIL guards"
                   << colors::reset() << std::endl;
         
         int count1 = 0, count2 = 0;
         
         try
         {
-            SCOPE_FAIL { ++count1; };
-            SCOPE_FAIL { ++count2; };
+            FATP_SCOPE_FAIL { ++count1; };
+            FATP_SCOPE_FAIL { ++count2; };
             throw std::runtime_error("test");
         }
         catch (...)
         {
         }
         
-        FATP_ASSERT_EQ(count1, 1, "First SCOPE_FAIL should execute");
-        FATP_ASSERT_EQ(count2, 1, "Second SCOPE_FAIL should execute");
+        FATP_ASSERT_EQ(count1, 1, "First FATP_SCOPE_FAIL should execute");
+        FATP_ASSERT_EQ(count2, 1, "Second FATP_SCOPE_FAIL should execute");
     }
     
-    // Test 4: SCOPE_FAIL can be dismissed
+    // Test 4: FATP_SCOPE_FAIL can be dismissed
     {
-        std::cout << colors::blue() << "  [TEST] SCOPE_FAIL dismiss"
+        std::cout << colors::blue() << "  [TEST] FATP_SCOPE_FAIL dismiss"
                   << colors::reset() << std::endl;
         
         int rollback_count = 0;
@@ -1008,12 +1008,12 @@ FATP_TEST_CASE(scope_fail)
         {
         }
         
-        FATP_ASSERT_EQ(rollback_count, 0, "Dismissed SCOPE_FAIL should not execute");
+        FATP_ASSERT_EQ(rollback_count, 0, "Dismissed FATP_SCOPE_FAIL should not execute");
     }
     
-    // Test 5: SCOPE_FAIL swallows exceptions from cleanup (doesn't call terminate)
+    // Test 5: FATP_SCOPE_FAIL swallows exceptions from cleanup (doesn't call terminate)
     {
-        std::cout << colors::blue() << "  [TEST] SCOPE_FAIL swallows cleanup exceptions"
+        std::cout << colors::blue() << "  [TEST] FATP_SCOPE_FAIL swallows cleanup exceptions"
                   << colors::reset() << std::endl;
         
         int rollback_count = 0;
@@ -1021,7 +1021,7 @@ FATP_TEST_CASE(scope_fail)
         
         try
         {
-            SCOPE_FAIL { 
+            FATP_SCOPE_FAIL { 
                 ++rollback_count;
                 throw std::logic_error("cleanup exception");  // This should be swallowed
             };
@@ -1037,45 +1037,45 @@ FATP_TEST_CASE(scope_fail)
             FATP_ASSERT_TRUE(false, "Should not catch cleanup exception");
         }
         
-        FATP_ASSERT_EQ(rollback_count, 1, "SCOPE_FAIL should have executed");
+        FATP_ASSERT_EQ(rollback_count, 1, "FATP_SCOPE_FAIL should have executed");
         FATP_ASSERT_TRUE(outer_exception_caught, "Original exception should propagate");
     }
     
-    std::cout << colors::green() << "SCOPE_FAIL: Tests passed."
+    std::cout << colors::green() << "FATP_SCOPE_FAIL: Tests passed."
               << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(scope_success)
 {
-    std::cout << colors::cyan() << "\nTesting SCOPE_SUCCESS..."
+    std::cout << colors::cyan() << "\nTesting FATP_SCOPE_SUCCESS..."
               << colors::reset() << std::endl;
     
-    // Test 1: SCOPE_SUCCESS executes on normal exit
+    // Test 1: FATP_SCOPE_SUCCESS executes on normal exit
     {
-        std::cout << colors::blue() << "  [TEST] SCOPE_SUCCESS executes on normal exit"
+        std::cout << colors::blue() << "  [TEST] FATP_SCOPE_SUCCESS executes on normal exit"
                   << colors::reset() << std::endl;
         
         int commit_count = 0;
         
         {
-            SCOPE_SUCCESS { ++commit_count; };
+            FATP_SCOPE_SUCCESS { ++commit_count; };
             // Normal exit
         }
         
-        FATP_ASSERT_EQ(commit_count, 1, "SCOPE_SUCCESS should execute on normal exit");
+        FATP_ASSERT_EQ(commit_count, 1, "FATP_SCOPE_SUCCESS should execute on normal exit");
     }
     
-    // Test 2: SCOPE_SUCCESS does NOT execute on exception
+    // Test 2: FATP_SCOPE_SUCCESS does NOT execute on exception
     {
-        std::cout << colors::blue() << "  [TEST] SCOPE_SUCCESS skipped on exception"
+        std::cout << colors::blue() << "  [TEST] FATP_SCOPE_SUCCESS skipped on exception"
                   << colors::reset() << std::endl;
         
         int commit_count = 0;
         
         try
         {
-            SCOPE_SUCCESS { ++commit_count; };
+            FATP_SCOPE_SUCCESS { ++commit_count; };
             throw std::runtime_error("test exception");
         }
         catch (...)
@@ -1083,10 +1083,10 @@ FATP_TEST_CASE(scope_success)
             // Expected
         }
         
-        FATP_ASSERT_EQ(commit_count, 0, "SCOPE_SUCCESS should not execute on exception");
+        FATP_ASSERT_EQ(commit_count, 0, "FATP_SCOPE_SUCCESS should not execute on exception");
     }
     
-    // Test 3: Combined SCOPE_SUCCESS and SCOPE_FAIL
+    // Test 3: Combined FATP_SCOPE_SUCCESS and FATP_SCOPE_FAIL
     {
         std::cout << colors::blue() << "  [TEST] Combined SUCCESS and FAIL - normal exit"
                   << colors::reset() << std::endl;
@@ -1094,16 +1094,16 @@ FATP_TEST_CASE(scope_success)
         int commits = 0, rollbacks = 0;
         
         {
-            SCOPE_SUCCESS { ++commits; };
-            SCOPE_FAIL { ++rollbacks; };
+            FATP_SCOPE_SUCCESS { ++commits; };
+            FATP_SCOPE_FAIL { ++rollbacks; };
             // Normal exit
         }
         
-        FATP_ASSERT_EQ(commits, 1, "SCOPE_SUCCESS should execute");
-        FATP_ASSERT_EQ(rollbacks, 0, "SCOPE_FAIL should not execute");
+        FATP_ASSERT_EQ(commits, 1, "FATP_SCOPE_SUCCESS should execute");
+        FATP_ASSERT_EQ(rollbacks, 0, "FATP_SCOPE_FAIL should not execute");
     }
     
-    // Test 4: Combined SCOPE_SUCCESS and SCOPE_FAIL on exception
+    // Test 4: Combined FATP_SCOPE_SUCCESS and FATP_SCOPE_FAIL on exception
     {
         std::cout << colors::blue() << "  [TEST] Combined SUCCESS and FAIL - exception"
                   << colors::reset() << std::endl;
@@ -1112,19 +1112,19 @@ FATP_TEST_CASE(scope_success)
         
         try
         {
-            SCOPE_SUCCESS { ++commits; };
-            SCOPE_FAIL { ++rollbacks; };
+            FATP_SCOPE_SUCCESS { ++commits; };
+            FATP_SCOPE_FAIL { ++rollbacks; };
             throw std::runtime_error("test");
         }
         catch (...)
         {
         }
         
-        FATP_ASSERT_EQ(commits, 0, "SCOPE_SUCCESS should not execute on exception");
-        FATP_ASSERT_EQ(rollbacks, 1, "SCOPE_FAIL should execute on exception");
+        FATP_ASSERT_EQ(commits, 0, "FATP_SCOPE_SUCCESS should not execute on exception");
+        FATP_ASSERT_EQ(rollbacks, 1, "FATP_SCOPE_FAIL should execute on exception");
     }
     
-    std::cout << colors::green() << "SCOPE_SUCCESS: Tests passed."
+    std::cout << colors::green() << "FATP_SCOPE_SUCCESS: Tests passed."
               << colors::reset() << std::endl;
     return true;
 }
@@ -1220,44 +1220,44 @@ FATP_TEST_CASE(conditional_move_assignment)
 }
 
 // =============================================================================
-// SCOPE_EXIT Alias Test
+// FATP_SCOPE_EXIT Alias Test
 // =============================================================================
 
 FATP_TEST_CASE(scope_exit_alias)
 {
-    std::cout << colors::cyan() << "\nTesting SCOPE_EXIT alias..."
+    std::cout << colors::cyan() << "\nTesting FATP_SCOPE_EXIT alias..."
               << colors::reset() << std::endl;
     
-    // Test 1: SCOPE_EXIT works same as SCOPE_GUARD
+    // Test 1: FATP_SCOPE_EXIT works same as FATP_SCOPE_GUARD
     {
-        std::cout << colors::blue() << "  [TEST] SCOPE_EXIT basic functionality"
+        std::cout << colors::blue() << "  [TEST] FATP_SCOPE_EXIT basic functionality"
                   << colors::reset() << std::endl;
         
         int cleanup_count = 0;
         {
-            SCOPE_EXIT { ++cleanup_count; };
+            FATP_SCOPE_EXIT { ++cleanup_count; };
         }
-        FATP_ASSERT_EQ(cleanup_count, 1, "SCOPE_EXIT should execute on scope exit");
+        FATP_ASSERT_EQ(cleanup_count, 1, "FATP_SCOPE_EXIT should execute on scope exit");
     }
     
-    // Test 2: SCOPE_EXIT executes on exception too
+    // Test 2: FATP_SCOPE_EXIT executes on exception too
     {
-        std::cout << colors::blue() << "  [TEST] SCOPE_EXIT on exception"
+        std::cout << colors::blue() << "  [TEST] FATP_SCOPE_EXIT on exception"
                   << colors::reset() << std::endl;
         
         int cleanup_count = 0;
         try
         {
-            SCOPE_EXIT { ++cleanup_count; };
+            FATP_SCOPE_EXIT { ++cleanup_count; };
             throw std::runtime_error("test");
         }
         catch (...)
         {
         }
-        FATP_ASSERT_EQ(cleanup_count, 1, "SCOPE_EXIT should execute on exception");
+        FATP_ASSERT_EQ(cleanup_count, 1, "FATP_SCOPE_EXIT should execute on exception");
     }
     
-    std::cout << colors::green() << "SCOPE_EXIT: Tests passed."
+    std::cout << colors::green() << "FATP_SCOPE_EXIT: Tests passed."
               << colors::reset() << std::endl;
     return true;
 }

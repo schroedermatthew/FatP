@@ -274,15 +274,18 @@ namespace fat_p {
 
     // --- Member Function Definitions ---
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
-    EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::EnforcedInit(const EnforcedInit& other) 
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
+    EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::
+        EnforcedInit(const EnforcedInit& other)
         : ConcurrencyPolicy() {  // Default-construct policy, don't copy it
         static_assert(std::is_copy_constructible_v<T>, "T must be copyable for copy ctor");
         typename ConcurrencyPolicy::SharedGuard guard(other.getLock());
         m_value = other.m_value;
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
     EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>& 
     EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::operator=(const EnforcedInit& other) {
         static_assert(std::is_copy_assignable_v<T>, "T must be copyable for copy assign");
@@ -302,9 +305,11 @@ namespace fat_p {
         return *this;
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
-    EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::EnforcedInit(EnforcedInit&& other) noexcept(
-        std::is_nothrow_move_constructible_v<typename StoragePolicy::template type<T>>)
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
+    EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::
+        EnforcedInit(EnforcedInit&& other) noexcept(
+            std::is_nothrow_move_constructible_v<typename StoragePolicy::template type<T>>)
         : ConcurrencyPolicy() {  // Default-construct policy, don't move it
         static_assert(std::is_move_constructible_v<T>, "T must be movable for move ctor");
         if constexpr (std::is_same_v<ConcurrencyPolicy, SingleThreadedPolicy>) {
@@ -315,10 +320,12 @@ namespace fat_p {
         }
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
-    EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>& 
-    EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::operator=(EnforcedInit&& other) noexcept(
-        std::is_nothrow_move_assignable_v<typename StoragePolicy::template type<T>>) {
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
+    EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>&
+    EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::
+        operator=(EnforcedInit&& other) noexcept(
+            std::is_nothrow_move_assignable_v<typename StoragePolicy::template type<T>>) {
         static_assert(std::is_move_assignable_v<T>, "T must be movable for move assign");
         if (this != &other) {
             if constexpr (std::is_same_v<ConcurrencyPolicy, SingleThreadedPolicy>) {
@@ -340,9 +347,13 @@ namespace fat_p {
         return *this;
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
     template <typename... Args>
-    Expected<void, std::string> EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::init(Args&&... args) {
+    Expected<void, std::string>
+    EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::
+        init(Args&&... args)
+    {
         typename ConcurrencyPolicy::LockGuard guard(this->getLock());
         if (m_value) {
             return make_unexpected("EnforcedInit object already initialized (init called twice)");
@@ -354,9 +365,13 @@ namespace fat_p {
         return {};
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
     template <typename U, typename>
-    Expected<void, std::string> EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::init(std::initializer_list<U> ilist) {
+    Expected<void, std::string>
+    EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::
+        init(std::initializer_list<U> ilist)
+    {
         typename ConcurrencyPolicy::LockGuard guard(this->getLock());
         if (m_value) {
             return make_unexpected("EnforcedInit object already initialized (init called twice)");
@@ -367,8 +382,12 @@ namespace fat_p {
         return {};
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
-    Expected<void, std::string> EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::reset() noexcept(std::is_same_v<ResetPolicy, AllowResetPolicy>) {
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
+    Expected<void, std::string>
+    EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::
+        reset() noexcept(std::is_same_v<ResetPolicy, AllowResetPolicy>)
+    {
         typename ConcurrencyPolicy::LockGuard guard(this->getLock());
         if constexpr (std::is_same_v<ResetPolicy, AllowResetPolicy>) {
             m_value.reset();
@@ -379,7 +398,8 @@ namespace fat_p {
         }
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
     template <typename F, typename>
     void EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::lazy_init(F&& f) {
         typename ConcurrencyPolicy::LockGuard guard(this->getLock());
@@ -390,56 +410,68 @@ namespace fat_p {
         }
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
     template <typename F, typename>
     T& EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::get(F&& f) {
         lazy_init(std::forward<F>(f));
         return get();
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
     T& EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::get() {
         typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
         FATP_ALWAYS_ENFORCE(static_cast<bool>(m_value), "Attempted to access EnforcedInit before init()");
         return m_value.value();
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
     const T& EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::get() const {
         typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
         FATP_ALWAYS_ENFORCE(static_cast<bool>(m_value), "Attempted to access EnforcedInit before init()");
         return m_value.value();
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
     T& EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::operator*() {
         return get();
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
     const T& EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::operator*() const {
         return get();
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
     T* EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::operator->() {
         return &get();
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
     const T* EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::operator->() const {
         return &get();
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
     bool EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::is_initialized() const noexcept {
         typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
         return static_cast<bool>(m_value);
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
     template <typename Duration>
-    bool EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::wait_for_init(const Duration& timeout) const {
+    bool
+    EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::
+        wait_for_init(const Duration& timeout) const
+    {
         if constexpr (std::is_base_of_v<ConditionVarPolicy, CheckPolicy>) {
             return static_cast<const ConditionVarPolicy*>(
                 static_cast<const CheckPolicy*>(this))->wait_for_init(timeout);
@@ -458,7 +490,8 @@ namespace fat_p {
         }
     }
 
-    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
+    template <typename T, typename ConcurrencyPolicy, typename CheckPolicy,
+              typename ResetPolicy, typename StoragePolicy>
     void EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::notify_init() noexcept {
         if constexpr (std::is_base_of_v<ConditionVarPolicy, CheckPolicy>) {
             static_cast<ConditionVarPolicy*>(

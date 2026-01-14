@@ -111,6 +111,98 @@ int main()
 
 ---
 
+## Special-Purpose Test Files
+
+Some test files serve architectural roles that exempt them from standard patterns. These files must still follow general Fat-P coding standards but use alternative patterns appropriate to their purpose.
+
+### Test Orchestrators
+
+**Example:** `test_FatP.cpp`
+
+Test orchestrators aggregate and run multiple test suites. They do not define individual tests.
+
+**Characteristics:**
+- Calls `test_ComponentName()` functions from other test files
+- Uses a simple aggregation pattern (e.g., `RUN_AND_RECORD` macro)
+- Reports overall pass/fail across all suites
+- Does NOT use `FATP_TEST_CASE` or `FATP_RUN_TEST_NS` (nothing to define/run)
+
+**Required:**
+- File header documentation (`@file`, `@brief`)
+- `ENABLE_TEST_APPLICATION` guarded `main()`
+- Clear pass/fail summary output
+
+**Example pattern:**
+```cpp
+#define RUN_AND_RECORD(test_func) results.push_back({#test_func, test_func()})
+
+int main()
+{
+    std::vector<TestResult> results;
+    
+    RUN_AND_RECORD(test_ComponentA);
+    RUN_AND_RECORD(test_ComponentB);
+    RUN_AND_RECORD(test_ComponentC);
+    
+    // Print summary and return appropriate exit code
+}
+```
+
+### Test Framework Self-Tests
+
+**Example:** `test_FatPTest.cpp`
+
+Tests for the test framework itself cannot use the framework being tested -- this would create circular dependencies and mask framework bugs.
+
+**Characteristics:**
+- Tests `FatPTest.h` functionality
+- Uses independent verification (custom `VERIFY` macro)
+- Maintains its own pass/fail counters
+- Still uses nested namespace (`fat_p::testing::fatptest`)
+
+**Required:**
+- File header documentation (`@file`, `@brief`)
+- Nested namespace for test helpers
+- `ENABLE_TEST_APPLICATION` guarded `main()`
+- Independent assertion mechanism (not `FATP_ASSERT_*`)
+
+**Example pattern:**
+```cpp
+namespace fat_p::testing::fatptest
+{
+
+static int g_tests_run = 0;
+static int g_tests_passed = 0;
+
+#define VERIFY(condition, message) \
+    do { \
+        ++g_tests_run; \
+        if (!(condition)) { \
+            std::cerr << "FAILED: " << message << std::endl; \
+        } else { \
+            ++g_tests_passed; \
+        } \
+    } while(0)
+
+void test_assert_macros()
+{
+    // Test FATP_ASSERT_EQ behavior
+    VERIFY(/* condition */, "FATP_ASSERT_EQ works correctly");
+}
+
+} // namespace fat_p::testing::fatptest
+```
+
+### Summary of Exemptions
+
+| File Type | Uses FATP_TEST_CASE | Uses FATP_RUN_TEST_NS | Uses FATP_ASSERT_* |
+|-----------|:------------------:|:--------------------:|:-----------------:|
+| Standard test | ✅ Required | ✅ Required | ✅ Required |
+| Test orchestrator | ❌ N/A | ❌ N/A | ❌ N/A |
+| Framework self-test | ❌ Prohibited | ❌ Prohibited | ❌ Prohibited |
+
+---
+
 ## Test Categories
 
 Test suites should cover these areas (as applicable to the component):
@@ -297,34 +389,18 @@ FATP_ASSERT_EQ FAILED: Size should be 3
   at test_Component.cpp:42
 ```
 
-**Every assertion needs a message** describing what went wrong:
-
-```cpp
-// Good
-FATP_ASSERT_EQ(map.size(), size_t(3), "Size should be 3 after 3 inserts");
-
-// Bad - no diagnostic value
-FATP_ASSERT_EQ(map.size(), size_t(3), "");
-```
-
 ---
 
-## Benchmark Structure
+## Benchmarking
 
-### Infrastructure
-
-Benchmarks use `measure_perf()` from FatPTest.h:
+### Basic Structure
 
 ```cpp
-void benchmark_component()
+void run_benchmarks()
 {
     std::cout << colors::cyan() << "Component Benchmarks:" << colors::reset() << "\n";
     
-    constexpr int N = 1000;
-    
-    // Use volatile or DoNotOptimize to prevent optimization
     volatile int accumulator = 0;
-    
     double time = measure_perf(
         [&accumulator]() {
             // Operation to measure
@@ -593,6 +669,10 @@ Compile standalone: `g++ -std=c++17 -O2 -DENABLE_TEST_APPLICATION test_Component
 - [ ] Public interface in separate `fat_p::testing` namespace block
 - [ ] `main()` guarded by `ENABLE_TEST_APPLICATION`
 
+### Special-Purpose Files (Exemptions)
+- [ ] Test orchestrators: Uses aggregation pattern, NOT `FATP_TEST_CASE`/`FATP_RUN_TEST_NS`
+- [ ] Framework self-tests: Uses independent `VERIFY` macro, NOT `FATP_ASSERT_*`
+
 ### Coverage
 - [ ] Basic construction/destruction
 - [ ] All public methods tested
@@ -621,4 +701,4 @@ Compile standalone: `g++ -std=c++17 -O2 -DENABLE_TEST_APPLICATION test_Component
 
 ---
 
-*Fat-P Test Suite Style Guide v2.1 -- December 2025*
+*Fat-P Test Suite Style Guide v2.2 -- January 2026*
