@@ -113,41 +113,41 @@ using namespace fat_p::diagnostic;
 
 class StringSink : public ISink
 {
-    std::vector<std::string> messages_;
-    mutable std::mutex mutex_;
+    std::vector<std::string> mMessages;
+    mutable std::mutex mMutex;
     
 public:
     void write(const LogRecord& record) override
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mMutex);
         JsonFormatter formatter;
-        messages_.push_back(formatter.format(record));
+        mMessages.push_back(formatter.format(record));
     }
     
     void flush() override {}
     
     std::vector<std::string> getMessages() const
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return messages_;
+        std::lock_guard<std::mutex> lock(mMutex);
+        return mMessages;
     }
     
     void clear()
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        messages_.clear();
+        std::lock_guard<std::mutex> lock(mMutex);
+        mMessages.clear();
     }
     
     size_t count() const
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return messages_.size();
+        std::lock_guard<std::mutex> lock(mMutex);
+        return mMessages.size();
     }
     
     std::string getLast() const
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return messages_.empty() ? "" : messages_.back();
+        std::lock_guard<std::mutex> lock(mMutex);
+        return mMessages.empty() ? "" : mMessages.back();
     }
 };
 

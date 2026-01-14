@@ -142,8 +142,8 @@ class StateMachine
     static_assert(are_unique<States...>::value, "State types must be unique in the variadic pack");
 
     // --- State Storage ---
-    Context& context_;
-    int currentStateIndex_ = InitialIndex;
+    Context& mContext;
+    int mCurrentStateIndex = InitialIndex;
 
     // --- Compile-Time Index Finder (Non-Recursive) ---
     template <typename TState, std::size_t... I>
@@ -174,7 +174,7 @@ class StateMachine
         {
             if (targetIndex == I)
             {
-                std::tuple_element_t<I, StateTuple>{}.on_exit(context_);
+                std::tuple_element_t<I, StateTuple>{}.on_exit(mContext);
             }
             dispatch_exit_rec<I + 1>(targetIndex);
         }
@@ -192,7 +192,7 @@ class StateMachine
         {
             if (targetIndex == I)
             {
-                std::tuple_element_t<I, StateTuple>{}.on_entry(context_);
+                std::tuple_element_t<I, StateTuple>{}.on_entry(mContext);
             }
             dispatch_entry_rec<I + 1>(targetIndex);
         }
@@ -205,8 +205,8 @@ class StateMachine
 
 public:
     StateMachine(Context& context)
-        : context_(context)
-        , currentStateIndex_(InitialIndex)
+        : mContext(context)
+        , mCurrentStateIndex(InitialIndex)
     {
         // Enforce action policies on all states at compile time
         (ActionPolicyEnforcer<TActionPolicy, States, Context>::validate(), ...);
@@ -224,7 +224,7 @@ public:
                                std::is_same_v<TTransitionPolicy, AnyToAnyTransitionPolicy>)
     {
         constexpr int nextIndex = get_state_index<TNextState>();
-        const int currentIndex = currentStateIndex_;
+        const int currentIndex = mCurrentStateIndex;
 
         static_assert(nextIndex != -1, "Target state type not found in the StateMachine definition");
 
@@ -238,7 +238,7 @@ public:
         dispatch_exit_action(currentIndex);
 
         // Update State
-        currentStateIndex_ = nextIndex;
+        mCurrentStateIndex = nextIndex;
 
         // Entry Action
         dispatch_entry_action(nextIndex);
@@ -247,7 +247,7 @@ public:
     /** @brief Gets the runtime index of the current state. */
     int current_state_index() const noexcept
     {
-        return currentStateIndex_;
+        return mCurrentStateIndex;
     }
 
     /** @brief Checks if the state machine is currently in the specified state type. */
@@ -255,7 +255,7 @@ public:
     bool is_in_state() const noexcept
     {
         static_assert(get_state_index<TState>() != -1, "Queried state type not found in StateMachine");
-        return currentStateIndex_ == get_state_index<TState>();
+        return mCurrentStateIndex == get_state_index<TState>();
     }
 };
 
@@ -280,8 +280,8 @@ class StateMachine<Context, TransitionList, StrictTransitionPolicy, TActionPolic
     static_assert(are_unique<States...>::value, "State types must be unique in the variadic pack");
 
     // --- State Storage ---
-    Context& context_;
-    int currentStateIndex_ = InitialIndex;
+    Context& mContext;
+    int mCurrentStateIndex = InitialIndex;
 
     // --- Compile-Time Index Finder ---
     template <typename TState, std::size_t... I>
@@ -331,7 +331,7 @@ class StateMachine<Context, TransitionList, StrictTransitionPolicy, TActionPolic
         {
             if (targetIndex == I)
             {
-                std::tuple_element_t<I, StateTuple>{}.on_exit(context_);
+                std::tuple_element_t<I, StateTuple>{}.on_exit(mContext);
             }
             dispatch_exit_rec<I + 1>(targetIndex);
         }
@@ -349,7 +349,7 @@ class StateMachine<Context, TransitionList, StrictTransitionPolicy, TActionPolic
         {
             if (targetIndex == I)
             {
-                std::tuple_element_t<I, StateTuple>{}.on_entry(context_);
+                std::tuple_element_t<I, StateTuple>{}.on_entry(mContext);
             }
             dispatch_entry_rec<I + 1>(targetIndex);
         }
@@ -362,8 +362,8 @@ class StateMachine<Context, TransitionList, StrictTransitionPolicy, TActionPolic
 
 public:
     StateMachine(Context& context)
-        : context_(context)
-        , currentStateIndex_(InitialIndex)
+        : mContext(context)
+        , mCurrentStateIndex(InitialIndex)
     {
         // Enforce action policies on all states at compile time
         (ActionPolicyEnforcer<TActionPolicy, States, Context>::validate(), ...);
@@ -381,7 +381,7 @@ public:
     void transition()
     {
         constexpr int nextIndex = get_state_index<TNextState>();
-        const int currentIndex = currentStateIndex_;
+        const int currentIndex = mCurrentStateIndex;
 
         static_assert(nextIndex != -1, "Target state type not found in the StateMachine definition");
 
@@ -401,7 +401,7 @@ public:
         dispatch_exit_action(currentIndex);
 
         // Update State
-        currentStateIndex_ = nextIndex;
+        mCurrentStateIndex = nextIndex;
 
         // Entry Action
         dispatch_entry_action(nextIndex);
@@ -410,7 +410,7 @@ public:
     /** @brief Gets the runtime index of the current state. */
     int current_state_index() const noexcept
     {
-        return currentStateIndex_;
+        return mCurrentStateIndex;
     }
 
     /** @brief Checks if the state machine is currently in the specified state type. */
@@ -418,7 +418,7 @@ public:
     bool is_in_state() const noexcept
     {
         static_assert(get_state_index<TState>() != -1, "Queried state type not found in StateMachine");
-        return currentStateIndex_ == get_state_index<TState>();
+        return mCurrentStateIndex == get_state_index<TState>();
     }
 };
 

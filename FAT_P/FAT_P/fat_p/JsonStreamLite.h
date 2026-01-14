@@ -385,9 +385,9 @@ public:
     };
 
     JsonStreamParser()
-        : state_(State::Initial)
-        , error_(ParseError::None)
-        , result_(nullptr)
+        : mState(State::Initial)
+        , mError(ParseError::None)
+        , mResult(nullptr)
     {
     }
 
@@ -397,27 +397,27 @@ public:
 
     void set_limits(const Limits& limits)
     {
-        limits_ = limits;
+        mLimits = limits;
     }
 
     void set_max_depth(std::size_t depth)
     {
-        limits_.max_depth = depth;
+        mLimits.max_depth = depth;
     }
 
     void set_max_string_size(std::size_t bytes)
     {
-        limits_.max_string_bytes = bytes;
+        mLimits.max_string_bytes = bytes;
     }
 
     void set_max_total_size(std::size_t bytes)
     {
-        limits_.max_total_bytes = bytes;
+        mLimits.max_total_bytes = bytes;
     }
 
     const Limits& limits() const noexcept
     {
-        return limits_;
+        return mLimits;
     }
 
     // -------------------------------------------------------------------------
@@ -432,13 +432,13 @@ public:
     {
         for (std::size_t i = 0; i < size; ++i)
         {
-            if (stats_.bytes_consumed >= limits_.max_total_bytes)
+            if (mStats.bytes_consumed >= mLimits.max_total_bytes)
             {
                 return set_error(ParseError::MaxTotalSizeExceeded);
             }
 
             char c = static_cast<char>(data[i]);
-            ++stats_.bytes_consumed;
+            ++mStats.bytes_consumed;
 
             auto status = process_char(c);
             if (status != ParseStatus::NeedMoreData)
@@ -461,48 +461,48 @@ public:
 
     bool is_done() const noexcept
     {
-        return state_ == State::Done;
+        return mState == State::Done;
     }
 
     bool has_error() const noexcept
     {
-        return state_ == State::Error;
+        return mState == State::Error;
     }
 
     ParseError error() const noexcept
     {
-        return error_;
+        return mError;
     }
 
     const char* error_message() const noexcept
     {
-        return error_to_string(error_);
+        return error_to_string(mError);
     }
 
     const Stats& stats() const noexcept
     {
-        return stats_;
+        return mStats;
     }
 
     const JsonValue& result() const
     {
-        return result_;
+        return mResult;
     }
 
     JsonValue take_result()
     {
-        return std::move(result_);
+        return std::move(mResult);
     }
 
     void reset()
     {
-        state_ = State::Initial;
-        error_ = ParseError::None;
-        result_ = JsonValue(nullptr);
-        stats_ = Stats{};
-        stack_.clear();
+        mState = State::Initial;
+        mError = ParseError::None;
+        mResult = JsonValue(nullptr);
+        mStats = Stats{};
+        mStack.clear();
         value_stack_.clear();
-        token_.clear();
+        mToken.clear();
         unicode_buffer_.clear();
         unicode_count_ = 0;
         number_has_dot_ = false;
@@ -511,15 +511,15 @@ public:
     }
 
 private:
-    Limits limits_;
-    Stats stats_;
-    State state_;
-    ParseError error_;
-    JsonValue result_;
+    Limits mLimits;
+    Stats mStats;
+    State mState;
+    ParseError mError;
+    JsonValue mResult;
 
-    std::vector<ContainerContext> stack_;
+    std::vector<ContainerContext> mStack;
     std::vector<JsonValue> value_stack_;
-    std::string token_;
+    std::string mToken;
     std::string unicode_buffer_;
     int unicode_count_ = 0;
     bool number_has_dot_ = false;
@@ -532,7 +532,7 @@ private:
 
     ParseStatus process_char(char c)
     {
-        switch (state_)
+        switch (mState)
         {
             case State::Initial:
                 return handle_initial(c);
@@ -597,8 +597,8 @@ private:
     {
         if (c == '"')
         {
-            state_ = State::InString;
-            token_.clear();
+            mState = State::InString;
+            mToken.clear();
             return ParseStatus::NeedMoreData;
         }
 
@@ -614,9 +614,9 @@ private:
 
         if (c == '-' || (c >= '0' && c <= '9'))
         {
-            state_ = State::InNumber;
-            token_.clear();
-            token_ += c;
+            mState = State::InNumber;
+            mToken.clear();
+            mToken += c;
             number_has_dot_ = false;
             number_has_exp_ = false;
             number_has_digit_ = (c >= '0' && c <= '9');
@@ -625,9 +625,9 @@ private:
 
         if (c == 't' || c == 'f' || c == 'n')
         {
-            state_ = State::InLiteral;
-            token_.clear();
-            token_ += c;
+            mState = State::InLiteral;
+            mToken.clear();
+            mToken += c;
             return ParseStatus::NeedMoreData;
         }
 
@@ -647,7 +647,7 @@ private:
 
         if (c == '\\')
         {
-            state_ = State::InStringEscape;
+            mState = State::InStringEscape;
             return ParseStatus::NeedMoreData;
         }
 
@@ -656,12 +656,12 @@ private:
             return set_error(ParseError::InvalidEscapeSequence);
         }
 
-        if (token_.size() >= limits_.max_string_bytes)
+        if (mToken.size() >= mLimits.max_string_bytes)
         {
             return set_error(ParseError::MaxStringSizeExceeded);
         }
 
-        token_ += c;
+        mToken += c;
         return ParseStatus::NeedMoreData;
     }
 
@@ -672,25 +672,25 @@ private:
             case '"':
             case '\\':
             case '/':
-                token_ += c;
+                mToken += c;
                 break;
             case 'b':
-                token_ += '\b';
+                mToken += '\b';
                 break;
             case 'f':
-                token_ += '\f';
+                mToken += '\f';
                 break;
             case 'n':
-                token_ += '\n';
+                mToken += '\n';
                 break;
             case 'r':
-                token_ += '\r';
+                mToken += '\r';
                 break;
             case 't':
-                token_ += '\t';
+                mToken += '\t';
                 break;
             case 'u':
-                state_ = State::InStringUnicode;
+                mState = State::InStringUnicode;
                 unicode_buffer_.clear();
                 unicode_count_ = 0;
                 return ParseStatus::NeedMoreData;
@@ -698,7 +698,7 @@ private:
                 return set_error(ParseError::InvalidEscapeSequence);
         }
 
-        state_ = State::InString;
+        mState = State::InString;
         return ParseStatus::NeedMoreData;
     }
 
@@ -734,35 +734,35 @@ private:
         // Encode to UTF-8
         if (codepoint < 0x80)
         {
-            token_ += static_cast<char>(codepoint);
+            mToken += static_cast<char>(codepoint);
         }
         else if (codepoint < 0x800)
         {
-            token_ += static_cast<char>(0xC0 | (codepoint >> 6));
-            token_ += static_cast<char>(0x80 | (codepoint & 0x3F));
+            mToken += static_cast<char>(0xC0 | (codepoint >> 6));
+            mToken += static_cast<char>(0x80 | (codepoint & 0x3F));
         }
         else if (codepoint < 0x10000)
         {
-            token_ += static_cast<char>(0xE0 | (codepoint >> 12));
-            token_ += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-            token_ += static_cast<char>(0x80 | (codepoint & 0x3F));
+            mToken += static_cast<char>(0xE0 | (codepoint >> 12));
+            mToken += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+            mToken += static_cast<char>(0x80 | (codepoint & 0x3F));
         }
         else
         {
-            token_ += static_cast<char>(0xF0 | (codepoint >> 18));
-            token_ += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
-            token_ += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-            token_ += static_cast<char>(0x80 | (codepoint & 0x3F));
+            mToken += static_cast<char>(0xF0 | (codepoint >> 18));
+            mToken += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
+            mToken += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+            mToken += static_cast<char>(0x80 | (codepoint & 0x3F));
         }
 
-        state_ = State::InString;
+        mState = State::InString;
         return ParseStatus::NeedMoreData;
     }
 
     ParseStatus complete_string()
     {
-        JsonValue value(std::move(token_));
-        token_.clear();
+        JsonValue value(std::move(mToken));
+        mToken.clear();
         return complete_value(std::move(value));
     }
 
@@ -780,28 +780,28 @@ private:
         if (is_num_char)
         {
             number_has_digit_ = true;
-            token_ += c;
+            mToken += c;
             return ParseStatus::NeedMoreData;
         }
 
         if (is_dot && !number_has_dot_ && !number_has_exp_)
         {
             number_has_dot_ = true;
-            token_ += c;
+            mToken += c;
             return ParseStatus::NeedMoreData;
         }
 
         if (is_exp && !number_has_exp_ && number_has_digit_)
         {
             number_has_exp_ = true;
-            token_ += c;
+            mToken += c;
             return ParseStatus::NeedMoreData;
         }
 
         if (is_sign && number_has_exp_ && 
-            (token_.back() == 'e' || token_.back() == 'E'))
+            (mToken.back() == 'e' || mToken.back() == 'E'))
         {
-            token_ += c;
+            mToken += c;
             return ParseStatus::NeedMoreData;
         }
 
@@ -818,7 +818,7 @@ private:
             return status;
         }
 
-        if (stack_.empty())
+        if (mStack.empty())
         {
             if (is_whitespace(c))
             {
@@ -838,22 +838,22 @@ private:
         }
 
         // Check for valid number format
-        if (token_.size() > 1 && token_[0] == '0' && 
-            token_[1] >= '0' && token_[1] <= '9')
+        if (mToken.size() > 1 && mToken[0] == '0' && 
+            mToken[1] >= '0' && mToken[1] <= '9')
         {
             return set_error(ParseError::InvalidNumber);
         }
 
-        if (token_[0] == '-' && token_.size() > 2 && 
-            token_[1] == '0' && token_[2] >= '0' && token_[2] <= '9')
+        if (mToken[0] == '-' && mToken.size() > 2 && 
+            mToken[1] == '0' && mToken[2] >= '0' && mToken[2] <= '9')
         {
             return set_error(ParseError::InvalidNumber);
         }
 
         // Check for trailing dot or exp
-        if (!token_.empty())
+        if (!mToken.empty())
         {
-            char last = token_.back();
+            char last = mToken.back();
             if (last == '.' || last == 'e' || last == 'E' ||
                 last == '+' || last == '-')
             {
@@ -869,8 +869,8 @@ private:
             try
             {
                 std::size_t pos = 0;
-                double d = std::stod(token_, &pos);
-                if (pos != token_.size())
+                double d = std::stod(mToken, &pos);
+                if (pos != mToken.size())
                 {
                     return set_error(ParseError::InvalidNumber);
                 }
@@ -887,8 +887,8 @@ private:
             try
             {
                 std::size_t pos = 0;
-                std::int64_t i = std::stoll(token_, &pos);
-                if (pos != token_.size())
+                std::int64_t i = std::stoll(mToken, &pos);
+                if (pos != mToken.size())
                 {
                     return set_error(ParseError::InvalidNumber);
                 }
@@ -900,7 +900,7 @@ private:
             }
         }
 
-        token_.clear();
+        mToken.clear();
         return complete_value(std::move(value));
     }
 
@@ -912,34 +912,34 @@ private:
     {
         if ((c >= 'a' && c <= 'z'))
         {
-            token_ += c;
+            mToken += c;
 
-            if (token_ == "true")
+            if (mToken == "true")
             {
                 return complete_value(JsonValue(true));
             }
-            if (token_ == "false")
+            if (mToken == "false")
             {
                 return complete_value(JsonValue(false));
             }
-            if (token_ == "null")
+            if (mToken == "null")
             {
                 return complete_value(JsonValue(nullptr));
             }
 
             // Check if we're on track
-            if (token_.size() <= 5)
+            if (mToken.size() <= 5)
             {
                 const char* true_str = "true";
                 const char* false_str = "false";
                 const char* null_str = "null";
 
-                bool matches_true = (token_.size() <= 4 && 
-                    std::strncmp(token_.c_str(), true_str, token_.size()) == 0);
-                bool matches_false = (token_.size() <= 5 && 
-                    std::strncmp(token_.c_str(), false_str, token_.size()) == 0);
-                bool matches_null = (token_.size() <= 4 && 
-                    std::strncmp(token_.c_str(), null_str, token_.size()) == 0);
+                bool matches_true = (mToken.size() <= 4 && 
+                    std::strncmp(mToken.c_str(), true_str, mToken.size()) == 0);
+                bool matches_false = (mToken.size() <= 5 && 
+                    std::strncmp(mToken.c_str(), false_str, mToken.size()) == 0);
+                bool matches_null = (mToken.size() <= 4 && 
+                    std::strncmp(mToken.c_str(), null_str, mToken.size()) == 0);
 
                 if (matches_true || matches_false || matches_null)
                 {
@@ -959,20 +959,20 @@ private:
 
     ParseStatus begin_array()
     {
-        if (stack_.size() >= limits_.max_depth)
+        if (mStack.size() >= mLimits.max_depth)
         {
             return set_error(ParseError::MaxDepthExceeded);
         }
 
-        stack_.push_back({ContainerContext::Type::Array, 0, "", true});
+        mStack.push_back({ContainerContext::Type::Array, 0, "", true});
         value_stack_.push_back(JsonArray{});
-        stats_.current_depth = stack_.size();
-        if (stats_.current_depth > stats_.max_depth_seen)
+        mStats.current_depth = mStack.size();
+        if (mStats.current_depth > mStats.max_depth_seen)
         {
-            stats_.max_depth_seen = stats_.current_depth;
+            mStats.max_depth_seen = mStats.current_depth;
         }
 
-        state_ = State::InArray;
+        mState = State::InArray;
         return ParseStatus::NeedMoreData;
     }
 
@@ -983,13 +983,13 @@ private:
             return ParseStatus::NeedMoreData;
         }
 
-        auto& ctx = stack_.back();
+        auto& ctx = mStack.back();
 
-        if (state_ == State::InArray || state_ == State::InArrayValue)
+        if (mState == State::InArray || mState == State::InArrayValue)
         {
             if (c == ']')
             {
-                if (state_ == State::InArrayValue && ctx.count > 0)
+                if (mState == State::InArrayValue && ctx.count > 0)
                 {
                     // Trailing comma
                     return set_error(ParseError::TrailingComma);
@@ -997,16 +997,16 @@ private:
                 return end_array();
             }
 
-            if (ctx.count >= limits_.max_array_elements)
+            if (ctx.count >= mLimits.max_array_elements)
             {
                 return set_error(ParseError::MaxArrayElementsExceeded);
             }
 
-            state_ = State::InArrayComma;
+            mState = State::InArrayComma;
             return start_value(c);
         }
 
-        if (state_ == State::InArrayComma)
+        if (mState == State::InArrayComma)
         {
             if (c == ']')
             {
@@ -1015,7 +1015,7 @@ private:
 
             if (c == ',')
             {
-                state_ = State::InArrayValue;
+                mState = State::InArrayValue;
                 return ParseStatus::NeedMoreData;
             }
 
@@ -1030,24 +1030,24 @@ private:
         // Pop the completed array
         JsonValue arr = std::move(value_stack_.back());
         value_stack_.pop_back();
-        stack_.pop_back();
-        stats_.current_depth = stack_.size();
-        ++stats_.values_parsed;
+        mStack.pop_back();
+        mStats.current_depth = mStack.size();
+        ++mStats.values_parsed;
 
-        if (stack_.empty())
+        if (mStack.empty())
         {
-            result_ = std::move(arr);
-            state_ = State::Done;
+            mResult = std::move(arr);
+            mState = State::Done;
             return ParseStatus::Done;
         }
 
         // Add to parent container
-        auto& parent_ctx = stack_.back();
+        auto& parent_ctx = mStack.back();
         if (parent_ctx.type == ContainerContext::Type::Array)
         {
             value_stack_.back().as_array().push_back(std::move(arr));
             ++parent_ctx.count;
-            state_ = State::InArrayComma;
+            mState = State::InArrayComma;
         }
         else
         {
@@ -1055,7 +1055,7 @@ private:
             value_stack_.back().as_object()[parent_ctx.pending_key] = std::move(arr);
             ++parent_ctx.count;
             parent_ctx.pending_key.clear();
-            state_ = State::InObjectComma;
+            mState = State::InObjectComma;
         }
 
         return ParseStatus::NeedMoreData;
@@ -1067,20 +1067,20 @@ private:
 
     ParseStatus begin_object()
     {
-        if (stack_.size() >= limits_.max_depth)
+        if (mStack.size() >= mLimits.max_depth)
         {
             return set_error(ParseError::MaxDepthExceeded);
         }
 
-        stack_.push_back({ContainerContext::Type::Object, 0, "", true});
+        mStack.push_back({ContainerContext::Type::Object, 0, "", true});
         value_stack_.push_back(JsonObject{});
-        stats_.current_depth = stack_.size();
-        if (stats_.current_depth > stats_.max_depth_seen)
+        mStats.current_depth = mStack.size();
+        if (mStats.current_depth > mStats.max_depth_seen)
         {
-            stats_.max_depth_seen = stats_.current_depth;
+            mStats.max_depth_seen = mStats.current_depth;
         }
 
-        state_ = State::InObject;
+        mState = State::InObject;
         return ParseStatus::NeedMoreData;
     }
 
@@ -1091,13 +1091,13 @@ private:
             return ParseStatus::NeedMoreData;
         }
 
-        auto& ctx = stack_.back();
+        auto& ctx = mStack.back();
 
-        if (state_ == State::InObject || state_ == State::InObjectKey)
+        if (mState == State::InObject || mState == State::InObjectKey)
         {
             if (c == '}')
             {
-                if (state_ == State::InObjectKey && ctx.count > 0)
+                if (mState == State::InObjectKey && ctx.count > 0)
                 {
                     return set_error(ParseError::TrailingComma);
                 }
@@ -1109,35 +1109,35 @@ private:
                 return set_error(ParseError::UnexpectedCharacter);
             }
 
-            if (ctx.count >= limits_.max_object_members)
+            if (ctx.count >= mLimits.max_object_members)
             {
                 return set_error(ParseError::MaxObjectMembersExceeded);
             }
 
-            state_ = State::InString;
-            token_.clear();
+            mState = State::InString;
+            mToken.clear();
             ctx.expect_value = false;  // We're parsing a key
             return ParseStatus::NeedMoreData;
         }
 
-        if (state_ == State::InObjectColon)
+        if (mState == State::InObjectColon)
         {
             if (c != ':')
             {
                 return set_error(ParseError::MissingColon);
             }
 
-            state_ = State::InObjectValue;
+            mState = State::InObjectValue;
             ctx.expect_value = true;
             return ParseStatus::NeedMoreData;
         }
 
-        if (state_ == State::InObjectValue)
+        if (mState == State::InObjectValue)
         {
             return start_value(c);
         }
 
-        if (state_ == State::InObjectComma)
+        if (mState == State::InObjectComma)
         {
             if (c == '}')
             {
@@ -1146,7 +1146,7 @@ private:
 
             if (c == ',')
             {
-                state_ = State::InObjectKey;
+                mState = State::InObjectKey;
                 return ParseStatus::NeedMoreData;
             }
 
@@ -1161,24 +1161,24 @@ private:
         // Pop the completed object
         JsonValue obj = std::move(value_stack_.back());
         value_stack_.pop_back();
-        stack_.pop_back();
-        stats_.current_depth = stack_.size();
-        ++stats_.values_parsed;
+        mStack.pop_back();
+        mStats.current_depth = mStack.size();
+        ++mStats.values_parsed;
 
-        if (stack_.empty())
+        if (mStack.empty())
         {
-            result_ = std::move(obj);
-            state_ = State::Done;
+            mResult = std::move(obj);
+            mState = State::Done;
             return ParseStatus::Done;
         }
 
         // Add to parent container
-        auto& parent_ctx = stack_.back();
+        auto& parent_ctx = mStack.back();
         if (parent_ctx.type == ContainerContext::Type::Array)
         {
             value_stack_.back().as_array().push_back(std::move(obj));
             ++parent_ctx.count;
-            state_ = State::InArrayComma;
+            mState = State::InArrayComma;
         }
         else
         {
@@ -1186,7 +1186,7 @@ private:
             value_stack_.back().as_object()[parent_ctx.pending_key] = std::move(obj);
             ++parent_ctx.count;
             parent_ctx.pending_key.clear();
-            state_ = State::InObjectComma;
+            mState = State::InObjectComma;
         }
 
         return ParseStatus::NeedMoreData;
@@ -1198,22 +1198,22 @@ private:
 
     ParseStatus complete_value(JsonValue&& value)
     {
-        ++stats_.values_parsed;
+        ++mStats.values_parsed;
 
-        if (stack_.empty())
+        if (mStack.empty())
         {
-            result_ = std::move(value);
-            state_ = State::Done;
+            mResult = std::move(value);
+            mState = State::Done;
             return ParseStatus::Done;
         }
 
-        auto& ctx = stack_.back();
+        auto& ctx = mStack.back();
 
         if (ctx.type == ContainerContext::Type::Array)
         {
             value_stack_.back().as_array().push_back(std::move(value));
             ++ctx.count;
-            state_ = State::InArrayComma;
+            mState = State::InArrayComma;
         }
         else
         {
@@ -1222,7 +1222,7 @@ private:
             {
                 // This is a key
                 ctx.pending_key = value.as_string();
-                state_ = State::InObjectColon;
+                mState = State::InObjectColon;
             }
             else
             {
@@ -1230,7 +1230,7 @@ private:
                 value_stack_.back().as_object()[ctx.pending_key] = std::move(value);
                 ++ctx.count;
                 ctx.pending_key.clear();
-                state_ = State::InObjectComma;
+                mState = State::InObjectComma;
             }
         }
 
@@ -1268,8 +1268,8 @@ private:
 
     ParseStatus set_error(ParseError e)
     {
-        error_ = e;
-        state_ = State::Error;
+        mError = e;
+        mState = State::Error;
         return ParseStatus::Error;
     }
 };

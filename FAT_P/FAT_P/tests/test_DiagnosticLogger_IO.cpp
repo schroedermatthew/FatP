@@ -790,20 +790,20 @@ FATP_TEST_CASE(rotating_file_sink_scope_guard_safety)
 
 class LogLevelTestGuard
 {
-    Logger& logger_;
-    LogLevel originalLevel_;
+    Logger& mLogger;
+    LogLevel mOriginalLevel;
 
 public:
     LogLevelTestGuard(Logger& logger, LogLevel tempLevel)
-        : logger_(logger)
-        , originalLevel_(logger.getLevel())
+        : mLogger(logger)
+        , mOriginalLevel(logger.getLevel())
     {
-        logger_.setLevel(tempLevel);
+        mLogger.setLevel(tempLevel);
     }
 
     ~LogLevelTestGuard()
     {
-        logger_.setLevel(originalLevel_);
+        mLogger.setLevel(mOriginalLevel);
     }
 
     LogLevelTestGuard(const LogLevelTestGuard&) = delete;

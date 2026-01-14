@@ -77,10 +77,10 @@ template <typename T, typename E = std::string>
 class AsyncTask
 {
 private:
-    std::future<Expected<T, E>> future_;
+    std::future<Expected<T, E>> mFuture;
 
     AsyncTask(std::future<Expected<T, E>> fut)
-        : future_(std::move(fut))
+        : mFuture(std::move(fut))
     {
     }
 
@@ -95,12 +95,12 @@ public:
 
     Expected<T, E> wait()
     {
-        return future_.get();
+        return mFuture.get();
     }
 
     bool valid() const
     {
-        return future_.valid();
+        return mFuture.valid();
     }
 
     template <typename Func>
@@ -110,7 +110,7 @@ public:
         using NewT = ExtractExpectedValue_t<ResultType>;
 
         return AsyncTask<NewT, E>::create(
-            [fut = std::move(future_), cont = std::forward<Func>(continuation)]() mutable -> Expected<NewT, E>
+            [fut = std::move(mFuture), cont = std::forward<Func>(continuation)]() mutable -> Expected<NewT, E>
             {
                 auto result = fut.get();
                 if (!result)
@@ -125,7 +125,7 @@ public:
     AsyncTask<T, E> error(Func&& error_handler)
     {
         return create(
-            [fut = std::move(future_), handler = std::forward<Func>(error_handler)]() mutable -> Expected<T, E>
+            [fut = std::move(mFuture), handler = std::forward<Func>(error_handler)]() mutable -> Expected<T, E>
             {
                 auto result = fut.get();
                 if (result)
@@ -140,9 +140,9 @@ public:
     // Poll method for non-blocking check
     Expected<T, E> poll()
     {
-        if (future_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+        if (mFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
         {
-            return future_.get();
+            return mFuture.get();
         }
         return unexpected(E("Not ready"));
     }

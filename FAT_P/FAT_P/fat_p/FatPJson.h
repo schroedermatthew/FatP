@@ -325,6 +325,189 @@ namespace fat_p {
             return JsonErrorCode::Unknown;
         }
 
+        // ---------------------------------------------------------------------
+        // JSON Pointer (RFC 6901) helpers
+        // ---------------------------------------------------------------------
+
+        [[nodiscard]] inline Expected<std::string, JsonError>
+        unescape_json_pointer_token(std::string_view token) noexcept
+        {
+            std::string out;
+            out.reserve(token.size());
+
+            for (size_t i = 0; i < token.size(); ++i)
+            {
+                const char c = token[i];
+                if (c != '~')
+                {
+                    out.push_back(c);
+                    continue;
+                }
+
+                if (i + 1 >= token.size())
+                {
+                    return unexpected(JsonError{JsonErrorCode::TypeError,
+                                               "JSON Pointer escape '~' must be followed by '0' or '1'",
+                                               0,
+                                               std::string(token)});
+                }
+
+                const char esc = token[i + 1];
+                if (esc == '0')
+                {
+                    out.push_back('~');
+                }
+                else if (esc == '1')
+                {
+                    out.push_back('/');
+                }
+                else
+                {
+                    return unexpected(JsonError{JsonErrorCode::TypeError,
+                                               "JSON Pointer escape must be '~0' or '~1'",
+                                               0,
+                                               std::string(token)});
+                }
+
+                ++i;
+            }
+
+            return out;
+        }
+
+        [[nodiscard]] inline Expected<size_t, JsonError>
+        parse_json_pointer_index(std::string_view token) noexcept
+        {
+            if (token.empty())
+            {
+                return unexpected(JsonError{JsonErrorCode::TypeError,
+                                           "JSON Pointer array index is empty",
+                                           0,
+                                           ""});
+            }
+
+            if (token == "-")
+            {
+                return unexpected(JsonError{JsonErrorCode::TypeError,
+                                           "JSON Pointer '-' index is not valid for queries",
+                                           0,
+                                           ""});
+            }
+
+            size_t index = 0;
+            const char* begin = token.data();
+            const char* end = token.data() + token.size();
+            const std::from_chars_result result = std::from_chars(begin, end, index);
+
+            if (result.ec != std::errc{} || result.ptr != end)
+            {
+                return unexpected(JsonError{JsonErrorCode::TypeError,
+                                           "JSON Pointer array index is not a valid non-negative integer",
+                                           0,
+                                           std::string(token)});
+            }
+
+            return index;
+        }
+
+        [[nodiscard]] inline Expected<const JsonValue*, JsonError>
+        query_json_pointer_noexcept(const JsonValue& root, std::string_view pointer) noexcept
+        {
+            if (pointer.empty())
+            {
+                return &root;
+            }
+
+            if (pointer[0] != '/')
+            {
+                return unexpected(JsonError{JsonErrorCode::TypeError,
+                                           "JSON Pointer must start with '/' or be empty",
+                                           0,
+                                           std::string(pointer)});
+            }
+
+            const JsonValue* current = &root;
+            size_t segment_begin = 1;
+
+            while (true)
+            {
+                const size_t slash = pointer.find('/', segment_begin);
+                const size_t segment_len =
+                    (slash == std::string_view::npos) ? (pointer.size() - segment_begin)
+                                                      : (slash - segment_begin);
+
+                const std::string_view raw_token = pointer.substr(segment_begin, segment_len);
+                auto token_result = unescape_json_pointer_token(raw_token);
+                if (!token_result)
+                {
+                    return unexpected(token_result.error());
+                }
+
+                const std::string& token = *token_result;
+
+                if (const auto* obj = std::get_if<JsonObject>(current))
+                {
+                    auto it = obj->find(token);
+                    if (it == obj->end())
+                    {
+                        return unexpected(JsonError{JsonErrorCode::TypeError,
+                                                   "JSON Pointer key not found",
+                                                   0,
+                                                   token});
+                    }
+                    current = &it->second;
+                }
+                else if (const auto* arr = std::get_if<JsonArray>(current))
+                {
+                    auto index_result = parse_json_pointer_index(token);
+                    if (!index_result)
+                    {
+                        return unexpected(index_result.error());
+                    }
+
+                    const size_t index = *index_result;
+                    if (index >= arr->size())
+                    {
+                        return unexpected(JsonError{JsonErrorCode::TypeError,
+                                                   "JSON Pointer array index out of bounds",
+                                                   0,
+                                                   token});
+                    }
+
+                    current = &(*arr)[index];
+                }
+                else
+                {
+                    return unexpected(JsonError{JsonErrorCode::TypeError,
+                                               "JSON Pointer cannot descend into a non-container value",
+                                               0,
+                                               token});
+                }
+
+                if (slash == std::string_view::npos)
+                {
+                    break;
+                }
+                segment_begin = slash + 1;
+            }
+
+            return current;
+        }
+
+        [[nodiscard]] inline Expected<JsonValue*, JsonError>
+        query_json_pointer_noexcept(JsonValue& root, std::string_view pointer) noexcept
+        {
+            auto const_result = query_json_pointer_noexcept(
+                static_cast<const JsonValue&>(root), pointer);
+
+            if (!const_result)
+            {
+                return unexpected(const_result.error());
+            }
+
+            return const_cast<JsonValue*>(*const_result);
+        }
+
     } // namespace json_detail
 
     // =============================================================================
@@ -741,8 +924,8 @@ namespace fat_p {
         using Storage = FlatMap<std::string_view, JsonValue>;
 
     private:
-        Pool& pool_;
-        Storage storage_;
+        Pool& mPool;
+        Storage mStorage;
 #ifndef NDEBUG
         // Debug-only: store pool address to detect obvious misuse
         const void* pool_addr_;
@@ -750,8 +933,8 @@ namespace fat_p {
 
     public:
         explicit PooledJsonObject(Pool& pool)
-            : pool_(pool)
-            , storage_()
+            : mPool(pool)
+            , mStorage()
 #ifndef NDEBUG
             , pool_addr_(&pool)
 #endif
@@ -765,7 +948,7 @@ namespace fat_p {
         [[nodiscard]] bool debug_check_pool_address() const noexcept
         {
 #ifndef NDEBUG
-            return pool_addr_ == &pool_;
+            return pool_addr_ == &mPool;
 #else
             return true;
 #endif
@@ -773,61 +956,61 @@ namespace fat_p {
 
         void insert(std::string_view key, JsonValue value)
         {
-            std::string_view interned = pool_.intern(key);
-            storage_[interned] = std::move(value);
+            std::string_view interned = mPool.intern(key);
+            mStorage[interned] = std::move(value);
         }
 
         [[nodiscard]] JsonValue* find(std::string_view key) noexcept
         {
-            auto it = storage_.find(key);
-            return (it != storage_.end()) ? &it->second : nullptr;
+            auto it = mStorage.find(key);
+            return (it != mStorage.end()) ? &it->second : nullptr;
         }
 
         [[nodiscard]] const JsonValue* find(std::string_view key) const noexcept
         {
-            auto it = storage_.find(key);
-            return (it != storage_.end()) ? &it->second : nullptr;
+            auto it = mStorage.find(key);
+            return (it != mStorage.end()) ? &it->second : nullptr;
         }
 
         [[nodiscard]] size_t size() const noexcept
         {
-            return storage_.size();
+            return mStorage.size();
         }
 
         [[nodiscard]] bool empty() const noexcept
         {
-            return storage_.empty();
+            return mStorage.empty();
         }
 
         void clear() noexcept
         {
-            storage_.clear();
+            mStorage.clear();
         }
 
         [[nodiscard]] auto begin() noexcept
         {
-            return storage_.begin();
+            return mStorage.begin();
         }
 
         [[nodiscard]] auto end() noexcept
         {
-            return storage_.end();
+            return mStorage.end();
         }
 
         [[nodiscard]] auto begin() const noexcept
         {
-            return storage_.begin();
+            return mStorage.begin();
         }
 
         [[nodiscard]] auto end() const noexcept
         {
-            return storage_.end();
+            return mStorage.end();
         }
 
         [[nodiscard]] JsonObject to_json_object() const
         {
             JsonObject result;
-            for (const auto& [key, value] : storage_)
+            for (const auto& [key, value] : mStorage)
             {
                 result[std::string(key)] = value;
             }
@@ -1313,9 +1496,9 @@ namespace fat_p {
     /**
      * @brief Exception-free JSON Pointer query (const version)
      *
-     * @details Wraps JsonLite's query_json_pointer with Expected for zero-overhead
-     * error handling without exceptions. All navigation errors are caught and converted
-     * to structured JsonError objects.
+     * @details Performs RFC 6901 JSON Pointer navigation and returns Expected for
+     * zero-overhead error handling without exceptions. All navigation errors are
+     * converted to structured JsonError objects.
      *
      * @param root The root JSON value to query
      * @param pointer JSON Pointer path (must start with '/' or be empty)
@@ -1329,8 +1512,15 @@ namespace fat_p {
     {
         try
         {
-            const JsonValue& result = query_json_pointer(root, pointer);
-            return &result;
+            auto result = json_detail::query_json_pointer_noexcept(root, pointer);
+            if (!result)
+            {
+                const JsonError inner = result.error();
+                return unexpected(
+                    JsonError{inner.code, "JSON Pointer query failed", inner.position, inner.message});
+            }
+
+            return *result;
         }
         catch (const std::exception& e)
         {
@@ -1368,8 +1558,15 @@ namespace fat_p {
     {
         try
         {
-            JsonValue& result = query_json_pointer(root, pointer);
-            return &result;
+            auto result = json_detail::query_json_pointer_noexcept(root, pointer);
+            if (!result)
+            {
+                const JsonError inner = result.error();
+                return unexpected(
+                    JsonError{inner.code, "JSON Pointer query failed", inner.position, inner.message});
+            }
+
+            return *result;
         }
         catch (const std::exception& e)
         {

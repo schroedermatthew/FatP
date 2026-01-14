@@ -47,21 +47,21 @@ struct StackFrame {
 
 class Stacktrace {
 private:
-    std::vector<StackFrame> frames_;
+    std::vector<StackFrame> mFrames;
 
 public:
     static Stacktrace current(size_t skip = 1) {
         Stacktrace st;
         // Emulate with __builtin_return_address or libunwind; simplified placeholder
-        st.frames_.push_back({"current_function", "file.cpp", 42});  // Replace with actual unwind
+        st.mFrames.push_back({"current_function", "file.cpp", 42});  // Replace with actual unwind
         return st;
     }
 
-    const std::vector<StackFrame>& frames() const { return frames_; }
+    const std::vector<StackFrame>& frames() const { return mFrames; }
 
     std::string to_string() const {
         std::string result;
-        for (const auto& f : frames_) {
+        for (const auto& f : mFrames) {
             result += f.file + ":" + std::to_string(f.line) + " in " + f.function + "\n";
         }
         return result;

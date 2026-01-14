@@ -260,8 +260,8 @@ FATP_TEST_CASE(inspect)
 
     std::string inspected_error;
     Expected<int, std::string>(unexpected{"error"})
-        .inspectError([&](const std::string& e) { inspected_error = e; });
-    FATP_ASSERT_TRUE(inspected_error == "error", "inspectError should observe error");
+        .inspect_error([&](const std::string& e) { inspected_error = e; });
+    FATP_ASSERT_TRUE(inspected_error == "error", "inspect_error should observe error");
 
     return true;
 }
@@ -525,19 +525,19 @@ FATP_TEST_CASE(fold)
     return true;
 }
 
-FATP_TEST_CASE(valueUnchecked)
+FATP_TEST_CASE(value_unchecked)
 {
     Expected<int, std::string> v(42);
-    FATP_ASSERT_TRUE(v.valueUnchecked() == 42, "valueUnchecked returns value");
+    FATP_ASSERT_TRUE(v.value_unchecked() == 42, "value_unchecked returns value");
 
-    v.valueUnchecked() = 100;
-    FATP_ASSERT_TRUE(*v == 100, "valueUnchecked can modify");
+    v.value_unchecked() = 100;
+    FATP_ASSERT_TRUE(*v == 100, "value_unchecked can modify");
 
     const Expected<int, std::string> cv(200);
-    FATP_ASSERT_TRUE(cv.valueUnchecked() == 200, "const valueUnchecked works");
+    FATP_ASSERT_TRUE(cv.value_unchecked() == 200, "const value_unchecked works");
 
     Expected<std::string, int> sv("hello");
-    FATP_ASSERT_TRUE(sv.valueUnchecked() == "hello", "valueUnchecked with string");
+    FATP_ASSERT_TRUE(sv.value_unchecked() == "hello", "value_unchecked with string");
 
     return true;
 }
@@ -854,7 +854,7 @@ bool test_Expected()
     FATP_RUN_TEST_NS(runner, expected, concurrent_read);
     FATP_RUN_TEST_NS(runner, expected, monadic_chaining);
     FATP_RUN_TEST_NS(runner, expected, fold);
-    FATP_RUN_TEST_NS(runner, expected, valueUnchecked);
+    FATP_RUN_TEST_NS(runner, expected, value_unchecked);
     FATP_RUN_TEST_NS(runner, expected, trivial_storage);
     FATP_RUN_TEST_NS(runner, expected, assign_or_return);
 

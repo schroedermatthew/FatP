@@ -899,7 +899,7 @@ FATP_TEST_CASE(extension_points)
         using DefaultTraits = extension_points::library_custom_traits<int>;
         static_assert(std::is_class_v<DefaultTraits>, 
                      "library_custom_traits should be a class");
-        // Note: We can't test if it's truly empty without specializing it
+        // Note: We mCan_LIT_0__s truly empty without specializing it
     }
     FATP_END_SUBTEST
     

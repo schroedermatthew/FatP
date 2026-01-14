@@ -1339,7 +1339,7 @@ class BenchmarkScope
 {
     DWORD old_priority_ = 0;
     DWORD_PTR old_affinity_ = 0;
-    bool active_ = false;
+    bool mActive = false;
 
 public:
     explicit BenchmarkScope(bool verbose = false)
@@ -1360,7 +1360,7 @@ public:
             target = pick & (~pick + 1);  // Lowest set bit
         }
         old_affinity_ = SetThreadAffinityMask(thread, target);
-        active_ = true;
+        mActive = true;
 
         if (verbose)
         {
@@ -1371,7 +1371,7 @@ public:
 
     ~BenchmarkScope()
     {
-        if (active_)
+        if (mActive)
         {
             HANDLE proc = GetCurrentProcess();
             SetPriorityClass(proc, old_priority_);
@@ -1412,27 +1412,27 @@ public:
  */
 class SpinBarrier
 {
-    std::atomic<unsigned int> count_;
-    std::atomic<unsigned int> generation_{0};
-    const unsigned int total_;
+    std::atomic<unsigned int> mCount;
+    std::atomic<unsigned int> mGeneration{0};
+    const unsigned int mTotal;
 
 public:
     explicit SpinBarrier(unsigned int count)
-        : count_(count)
-        , total_(count)
+        : mCount(count)
+        , mTotal(count)
     {}
 
     void wait()
     {
-        const unsigned int gen = generation_.load(std::memory_order_acquire);
-        if (count_.fetch_sub(1, std::memory_order_acq_rel) == 1)
+        const unsigned int gen = mGeneration.load(std::memory_order_acquire);
+        if (mCount.fetch_sub(1, std::memory_order_acq_rel) == 1)
         {
-            count_.store(total_, std::memory_order_release);
-            generation_.fetch_add(1, std::memory_order_release);
+            mCount.store(mTotal, std::memory_order_release);
+            mGeneration.fetch_add(1, std::memory_order_release);
         }
         else
         {
-            while (generation_.load(std::memory_order_acquire) == gen)
+            while (mGeneration.load(std::memory_order_acquire) == gen)
             {
                 std::this_thread::yield();
             }

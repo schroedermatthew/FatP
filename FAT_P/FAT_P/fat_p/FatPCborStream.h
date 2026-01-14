@@ -378,29 +378,29 @@ public:
      */
     StreamResult<ParseStatus> feed(const std::uint8_t* data, std::size_t size)
     {
-        std::size_t bytes_before = parser_.stats().bytes_consumed;
+        std::size_t bytes_before = mParser.stats().bytes_consumed;
 
         for (std::size_t i = 0; i < size; ++i)
         {
-            auto status = parser_.feed(&data[i], 1);
+            auto status = mParser.feed(&data[i], 1);
 
             if (status == ParseStatus::Error)
             {
                 return make_unexpected(StreamError(
-                    parser_.error(),
-                    parser_.stats().bytes_consumed,
-                    parser_.stats().current_depth));
+                    mParser.error(),
+                    mParser.stats().bytes_consumed,
+                    mParser.stats().current_depth));
             }
 
             // Progress callback
             if (progress_callback_ && progress_interval_ > 0)
             {
-                std::size_t consumed = parser_.stats().bytes_consumed;
+                std::size_t consumed = mParser.stats().bytes_consumed;
                 if (consumed / progress_interval_ != bytes_before / progress_interval_)
                 {
                     progress_callback_(consumed,
-                                       parser_.stats().current_depth,
-                                       parser_.stats().values_parsed);
+                                       mParser.stats().current_depth,
+                                       mParser.stats().values_parsed);
                 }
                 bytes_before = consumed;
             }
@@ -446,12 +446,12 @@ public:
         {
             return make_unexpected(StreamError(
                 ParseError::UnexpectedEof,
-                parser_.stats().bytes_consumed,
-                parser_.stats().current_depth,
+                mParser.stats().bytes_consumed,
+                mParser.stats().current_depth,
                 "incomplete CBOR input"));
         }
 
-        return parser_.take_result();
+        return mParser.take_result();
     }
 
     /**
@@ -469,41 +469,41 @@ public:
 
     bool is_done() const
     {
-        return parser_.is_done();
+        return mParser.is_done();
     }
 
     bool has_error() const
     {
-        return parser_.has_error();
+        return mParser.has_error();
     }
 
     const CborValue& result() const
     {
-        FATP_ENFORCE(parser_.is_done(), "parsing not complete");
-        return parser_.result();
+        FATP_ENFORCE(mParser.is_done(), "parsing not complete");
+        return mParser.result();
     }
 
     StreamResult<CborValue> take_result()
     {
-        if (!parser_.is_done())
+        if (!mParser.is_done())
         {
             return make_unexpected(StreamError("parsing not complete"));
         }
-        return parser_.take_result();
+        return mParser.take_result();
     }
 
     const CborStreamParser::Stats& stats() const
     {
-        return parser_.stats();
+        return mParser.stats();
     }
 
     void reset()
     {
-        parser_.reset();
+        mParser.reset();
     }
 
 private:
-    CborStreamParser parser_;
+    CborStreamParser mParser;
     RuntimeLimitsPolicy runtime_limits_;
     ProgressCallback progress_callback_;
     ValueCallback value_callback_;
@@ -530,7 +530,7 @@ private:
             limits.max_map_pairs = LimitsPolicy::max_map_pairs;
         }
 
-        parser_.set_limits(limits);
+        mParser.set_limits(limits);
     }
 
     StreamResult<void> validate_result()
@@ -541,7 +541,7 @@ private:
         }
         else
         {
-            return validate_value(parser_.result());
+            return validate_value(mParser.result());
         }
     }
 
@@ -553,8 +553,8 @@ private:
             {
                 return make_unexpected(StreamError(
                     ParseError::InvalidUtf8,
-                    parser_.stats().bytes_consumed,
-                    parser_.stats().current_depth,
+                    mParser.stats().bytes_consumed,
+                    mParser.stats().current_depth,
                     "invalid UTF-8 in text string"));
             }
         }
@@ -590,8 +590,8 @@ private:
                         {
                             return make_unexpected(StreamError(
                                 ParseError::InternalError,
-                                parser_.stats().bytes_consumed,
-                                parser_.stats().current_depth,
+                                mParser.stats().bytes_consumed,
+                                mParser.stats().current_depth,
                                 "map keys not in canonical order"));
                         }
                     }

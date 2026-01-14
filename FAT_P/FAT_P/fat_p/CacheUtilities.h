@@ -111,7 +111,7 @@ namespace perf {
  * @brief Compile-time cache line size constants
  * 
  * These are constexpr values that can be used in alignas() and template parameters.
- * For runtime detection, see CacheInfo::detect_*() functions (if implemented).
+ * For runtime detection, see CacheInfo::mDetect*() functions (if implemented).
  */
 namespace cache_constants {
 
@@ -513,12 +513,12 @@ struct CacheLinePaddedImpl {
                   "Use CacheAligned<T> for larger types.");
     
     T value;
-    char padding_[cache_line_size - sizeof(T)]{};  // Zero-initialize padding
+    char mPadding[cache_line_size - sizeof(T)]{};  // Zero-initialize padding
     
     CacheLinePaddedImpl() = default;
     
     template<typename... Args>
-    explicit CacheLinePaddedImpl(Args&&... args) : value(std::forward<Args>(args)...), padding_{} {}
+    explicit CacheLinePaddedImpl(Args&&... args) : value(std::forward<Args>(args)...), mPadding{} {}
     
     operator T&() noexcept { return value; }
     operator const T&() const noexcept { return value; }

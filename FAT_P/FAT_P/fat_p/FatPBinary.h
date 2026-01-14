@@ -148,7 +148,7 @@ public:
                   "Buffer must store uint8_t and provide data()/size()/push_back()");
 
     explicit BinaryWriter(Buffer& buffer) noexcept
-        : buffer_(buffer)
+        : mBuffer(buffer)
     {
     }
 
@@ -161,25 +161,25 @@ public:
 
     void write_uint8(std::uint8_t value)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::Uint8));
-        buffer_.push_back(value);
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Uint8));
+        mBuffer.push_back(value);
     }
 
     void write_uint16(std::uint16_t value)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::Uint16));
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Uint16));
         write_le(value);
     }
 
     void write_uint32(std::uint32_t value)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::Uint32));
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Uint32));
         write_le(value);
     }
 
     void write_uint64(std::uint64_t value)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::Uint64));
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Uint64));
         write_le(value);
     }
 
@@ -212,25 +212,25 @@ public:
 
     void write_int8(std::int8_t value)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::Int8));
-        buffer_.push_back(static_cast<std::uint8_t>(value));
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Int8));
+        mBuffer.push_back(static_cast<std::uint8_t>(value));
     }
 
     void write_int16(std::int16_t value)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::Int16));
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Int16));
         write_le(value);
     }
 
     void write_int32(std::int32_t value)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::Int32));
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Int32));
         write_le(value);
     }
 
     void write_int64(std::int64_t value)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::Int64));
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Int64));
         write_le(value);
     }
 
@@ -263,36 +263,36 @@ public:
 
     void write_float(float value)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::Float32));
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Float32));
         write_le(value);
     }
 
     void write_double(double value)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::Float64));
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Float64));
         write_le(value);
     }
 
     void write_bool(bool value)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::Bool));
-        buffer_.push_back(value ? 1U : 0U);
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Bool));
+        mBuffer.push_back(value ? 1U : 0U);
     }
 
     void write_string(const std::string& value)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::String));
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::String));
         write_le(static_cast<std::uint64_t>(value.size()));
 
         const auto* data = reinterpret_cast<const std::uint8_t*>(value.data());
-        buffer_.insert(buffer_.end(), data, data + value.size());
+        mBuffer.insert(mBuffer.end(), data, data + value.size());
     }
 
     void write_bytes(const std::uint8_t* data, std::size_t size)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::Bytes));
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Bytes));
         write_le(static_cast<std::uint64_t>(size));
-        buffer_.insert(buffer_.end(), data, data + size);
+        mBuffer.insert(mBuffer.end(), data, data + size);
     }
 
     template <typename ByteContainer>
@@ -305,23 +305,23 @@ public:
 
     void write_array_header(std::uint64_t size)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::Array));
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Array));
         write_le(size);
     }
 
     void write_map_header(std::uint64_t size)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(binary::TypeTag::Map));
+        mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Map));
         write_le(size);
     }
 
     std::size_t size() const noexcept
     {
-        return buffer_.size();
+        return mBuffer.size();
     }
 
 private:
-    Buffer& buffer_;
+    Buffer& mBuffer;
 
     template <typename T>
     void write_le(T value)
@@ -330,7 +330,7 @@ private:
                       "Type must be trivially copyable");
 
         const auto* bytes = reinterpret_cast<const std::uint8_t*>(&value);
-        buffer_.insert(buffer_.end(), bytes, bytes + sizeof(T));
+        mBuffer.insert(mBuffer.end(), bytes, bytes + sizeof(T));
     }
 };
 
@@ -344,7 +344,7 @@ public:
     BinaryReader(const std::uint8_t* data, std::size_t size) noexcept
         : data_(data)
         , size_(size)
-        , pos_(0)
+        , mPos(0)
     {
     }
 
@@ -358,7 +358,7 @@ public:
 
     std::size_t remaining() const noexcept
     {
-        return size_ - pos_;
+        return size_ - mPos;
     }
 
     bool empty() const noexcept
@@ -368,11 +368,11 @@ public:
 
     BinaryResult<binary::TypeTag> peek_type() const
     {
-        if (pos_ >= size_)
+        if (mPos >= size_)
         {
             return make_unexpected(BinaryError("Buffer underflow peeking type"));
         }
-        return static_cast<binary::TypeTag>(data_[pos_]);
+        return static_cast<binary::TypeTag>(data_[mPos]);
     }
 
     // ========================================================================
@@ -528,8 +528,8 @@ public:
                 BinaryError("Buffer underflow reading string"));
         }
 
-        std::string result(reinterpret_cast<const char*>(data_ + pos_), len);
-        pos_ += len;
+        std::string result(reinterpret_cast<const char*>(data_ + mPos), len);
+        mPos += len;
         return result;
     }
 
@@ -554,8 +554,8 @@ public:
                 BinaryError("Buffer underflow reading bytes"));
         }
 
-        std::vector<std::uint8_t> result(data_ + pos_, data_ + pos_ + len);
-        pos_ += len;
+        std::vector<std::uint8_t> result(data_ + mPos, data_ + mPos + len);
+        mPos += len;
         return result;
     }
 
@@ -582,15 +582,15 @@ public:
 private:
     const std::uint8_t* data_;
     std::size_t size_;
-    std::size_t pos_;
+    std::size_t mPos;
 
     BinaryResult<std::uint8_t> read_byte()
     {
-        if (pos_ >= size_)
+        if (mPos >= size_)
         {
             return make_unexpected(BinaryError("Buffer underflow reading byte"));
         }
-        return data_[pos_++];
+        return data_[mPos++];
     }
 
     template <typename T>
@@ -605,19 +605,19 @@ private:
         }
 
         T value;
-        std::memcpy(&value, data_ + pos_, sizeof(T));
-        pos_ += sizeof(T);
+        std::memcpy(&value, data_ + mPos, sizeof(T));
+        mPos += sizeof(T);
         return value;
     }
 
     BinaryResult<void> expect_tag(binary::TypeTag expected)
     {
-        if (pos_ >= size_)
+        if (mPos >= size_)
         {
             return make_unexpected(BinaryError("Buffer underflow reading tag"));
         }
 
-        const auto actual = static_cast<binary::TypeTag>(data_[pos_++]);
+        const auto actual = static_cast<binary::TypeTag>(data_[mPos++]);
         if (actual != expected)
         {
             return make_unexpected(BinaryError(

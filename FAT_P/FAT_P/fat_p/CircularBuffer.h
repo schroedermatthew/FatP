@@ -164,7 +164,7 @@ private:
     alignas(CACHE_LINE_SIZE) mutable size_t cached_read_idx_{0};   // Producer's cache of read_idx
     alignas(CACHE_LINE_SIZE) mutable size_t cached_write_idx_{0};  // Consumer's cache of write_idx
 
-    alignas(CACHE_LINE_SIZE) std::unique_ptr<T[]> buffer_;
+    alignas(CACHE_LINE_SIZE) std::unique_ptr<T[]> mBuffer;
 
     // Efficient index increment using bitwise AND (no division)
     static constexpr size_t next_index(size_t idx) noexcept
@@ -191,9 +191,9 @@ public:
      */
     CircularBuffer()
 #if FATP_CPP20_OR_LATER
-        : buffer_(std::make_unique_for_overwrite<T[]>(BUFFER_SIZE))
+        : mBuffer(std::make_unique_for_overwrite<T[]>(BUFFER_SIZE))
 #else
-        : buffer_(std::make_unique<T[]>(BUFFER_SIZE))
+        : mBuffer(std::make_unique<T[]>(BUFFER_SIZE))
 #endif
     {
     }
@@ -232,7 +232,7 @@ public:
             }
         }
 
-        buffer_[write] = value;
+        mBuffer[write] = value;
         write_idx_.store(next_index(write), std::memory_order_release);
         return true;
     }
@@ -261,7 +261,7 @@ public:
             }
         }
 
-        buffer_[write] = std::move(value);
+        mBuffer[write] = std::move(value);
         write_idx_.store(next_index(write), std::memory_order_release);
         return true;
     }
@@ -291,7 +291,7 @@ public:
             }
         }
 
-        buffer_[write] = T(std::forward<Args>(args)...);
+        mBuffer[write] = T(std::forward<Args>(args)...);
         write_idx_.store(next_index(write), std::memory_order_release);
         return true;
     }
@@ -320,7 +320,7 @@ public:
             }
         }
 
-        value = std::move(buffer_[read]);
+        value = std::move(mBuffer[read]);
         read_idx_.store(next_index(read), std::memory_order_release);
         return true;
     }
@@ -344,7 +344,7 @@ public:
             return nullptr;
         }
 
-        return &buffer_[read];
+        return &mBuffer[read];
     }
 
     /**

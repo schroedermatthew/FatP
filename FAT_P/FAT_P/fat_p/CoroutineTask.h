@@ -87,7 +87,7 @@ namespace fat_p {
 template <typename T, typename E = std::string>
 struct CoroutineTask {
     struct promise_type {
-        Expected<T, E> value_;
+        Expected<T, E> mValue;
         
         // Lazy evaluation - suspend at start
         std::suspend_always initial_suspend() noexcept { return {}; }
@@ -98,7 +98,7 @@ struct CoroutineTask {
         // Handle unhandled exceptions
         void unhandled_exception() noexcept {
             try {
-                value_ = unexpected<E>(E{"Unhandled exception"});
+                mValue = unexpected<E>(E{"Unhandled exception"});
             } catch (...) {
                 // If error construction fails, we're in trouble
                 std::terminate();
@@ -110,20 +110,20 @@ struct CoroutineTask {
         }
         
         void return_value(T val) {
-            value_ = std::move(val);
+            mValue = std::move(val);
         }
     };
 
-    std::coroutine_handle<promise_type> handle_;
+    std::coroutine_handle<promise_type> mHandle;
 
     // Constructor from handle
     explicit CoroutineTask(std::coroutine_handle<promise_type> h) 
-        : handle_(h) {}
+        : mHandle(h) {}
     
     // Destructor - destroy coroutine frame
     ~CoroutineTask() {
-        if (handle_) {
-            handle_.destroy();
+        if (mHandle) {
+            mHandle.destroy();
         }
     }
     
@@ -132,14 +132,14 @@ struct CoroutineTask {
     CoroutineTask& operator=(const CoroutineTask&) = delete;
     
     CoroutineTask(CoroutineTask&& other) noexcept 
-        : handle_(std::exchange(other.handle_, nullptr)) {}
+        : mHandle(std::exchange(other.mHandle, nullptr)) {}
     
     CoroutineTask& operator=(CoroutineTask&& other) noexcept {
         if (this != &other) {
-            if (handle_) {
-                handle_.destroy();
+            if (mHandle) {
+                mHandle.destroy();
             }
-            handle_ = std::exchange(other.handle_, nullptr);
+            mHandle = std::exchange(other.mHandle, nullptr);
         }
         return *this;
     }
@@ -149,29 +149,29 @@ struct CoroutineTask {
      * @return Expected<T, E> containing value or error
      */
     Expected<T, E> await() {
-        if (!handle_) {
+        if (!mHandle) {
             return unexpected<E>(E{"Invalid coroutine handle"});
         }
         
-        if (!handle_.done()) {
-            handle_.resume();
+        if (!mHandle.done()) {
+            mHandle.resume();
         }
         
-        return handle_.promise().value_;
+        return mHandle.promise().mValue;
     }
     
     /**
      * @brief Check if the coroutine has completed
      */
     bool done() const noexcept {
-        return handle_ && handle_.done();
+        return mHandle && mHandle.done();
     }
     
     /**
      * @brief Check if the coroutine handle is valid
      */
     bool valid() const noexcept {
-        return handle_ != nullptr;
+        return mHandle != nullptr;
     }
 };
 
@@ -186,7 +186,7 @@ struct CoroutineTask {
 template <typename T, typename E = std::string>
 struct EagerTask {
     struct promise_type {
-        Expected<T, E> value_;
+        Expected<T, E> mValue;
         
         // Eager evaluation - don't suspend at start
         std::suspend_never initial_suspend() noexcept { return {}; }
@@ -194,7 +194,7 @@ struct EagerTask {
         
         void unhandled_exception() noexcept {
             try {
-                value_ = unexpected<E>(E{"Unhandled exception"});
+                mValue = unexpected<E>(E{"Unhandled exception"});
             } catch (...) {
                 std::terminate();
             }
@@ -205,41 +205,41 @@ struct EagerTask {
         }
         
         void return_value(T val) {
-            value_ = std::move(val);
+            mValue = std::move(val);
         }
     };
 
-    std::coroutine_handle<promise_type> handle_;
+    std::coroutine_handle<promise_type> mHandle;
 
-    explicit EagerTask(std::coroutine_handle<promise_type> h) : handle_(h) {}
+    explicit EagerTask(std::coroutine_handle<promise_type> h) : mHandle(h) {}
     
     ~EagerTask() {
-        if (handle_) handle_.destroy();
+        if (mHandle) mHandle.destroy();
     }
     
     EagerTask(const EagerTask&) = delete;
     EagerTask& operator=(const EagerTask&) = delete;
     
     EagerTask(EagerTask&& other) noexcept 
-        : handle_(std::exchange(other.handle_, nullptr)) {}
+        : mHandle(std::exchange(other.mHandle, nullptr)) {}
     
     EagerTask& operator=(EagerTask&& other) noexcept {
         if (this != &other) {
-            if (handle_) handle_.destroy();
-            handle_ = std::exchange(other.handle_, nullptr);
+            if (mHandle) mHandle.destroy();
+            mHandle = std::exchange(other.mHandle, nullptr);
         }
         return *this;
     }
 
     Expected<T, E> result() {
-        if (!handle_) {
+        if (!mHandle) {
             return unexpected<E>(E{"Invalid coroutine handle"});
         }
-        return handle_.promise().value_;
+        return mHandle.promise().mValue;
     }
     
     bool done() const noexcept {
-        return handle_ && handle_.done();
+        return mHandle && mHandle.done();
     }
 };
 
@@ -259,7 +259,7 @@ class Generator {
 public:
     struct promise_type {
         T current_value_;
-        std::exception_ptr exception_;
+        std::exception_ptr mException;
 
         Generator get_return_object() {
             return Generator{std::coroutine_handle<promise_type>::from_promise(*this)};
@@ -276,17 +276,17 @@ public:
         void return_void() noexcept {}
 
         void unhandled_exception() noexcept {
-            exception_ = std::current_exception();
+            mException = std::current_exception();
         }
     };
 
     using handle_type = std::coroutine_handle<promise_type>;
 
-    explicit Generator(handle_type h) : handle_(h) {}
+    explicit Generator(handle_type h) : mHandle(h) {}
 
     ~Generator() {
-        if (handle_) {
-            handle_.destroy();
+        if (mHandle) {
+            mHandle.destroy();
         }
     }
 
@@ -294,12 +294,12 @@ public:
     Generator& operator=(const Generator&) = delete;
 
     Generator(Generator&& other) noexcept
-        : handle_(std::exchange(other.handle_, nullptr)) {}
+        : mHandle(std::exchange(other.mHandle, nullptr)) {}
 
     Generator& operator=(Generator&& other) noexcept {
         if (this != &other) {
-            if (handle_) handle_.destroy();
-            handle_ = std::exchange(other.handle_, nullptr);
+            if (mHandle) mHandle.destroy();
+            mHandle = std::exchange(other.mHandle, nullptr);
         }
         return *this;
     }
@@ -315,19 +315,19 @@ public:
 
         iterator() = default;
         
-        explicit iterator(handle_type h) : handle_(h) {
-            if (handle_) {
-                handle_.resume();
-                if (handle_.promise().exception_) {
-                    std::rethrow_exception(handle_.promise().exception_);
+        explicit iterator(handle_type h) : mHandle(h) {
+            if (mHandle) {
+                mHandle.resume();
+                if (mHandle.promise().mException) {
+                    std::rethrow_exception(mHandle.promise().mException);
                 }
             }
         }
 
         iterator& operator++() {
-            handle_.resume();
-            if (handle_.promise().exception_) {
-                std::rethrow_exception(handle_.promise().exception_);
+            mHandle.resume();
+            if (mHandle.promise().mException) {
+                std::rethrow_exception(mHandle.promise().mException);
             }
             return *this;
         }
@@ -335,15 +335,15 @@ public:
         void operator++(int) { ++*this; }
 
         T& operator*() const {
-            return handle_.promise().current_value_;
+            return mHandle.promise().current_value_;
         }
 
         T* operator->() const {
-            return &handle_.promise().current_value_;
+            return &mHandle.promise().current_value_;
         }
 
         bool operator==(const iterator& other) const {
-            return (!handle_ || handle_.done()) == (!other.handle_ || other.handle_.done());
+            return (!mHandle || mHandle.done()) == (!other.mHandle || other.mHandle.done());
         }
 
         bool operator!=(const iterator& other) const {
@@ -351,11 +351,11 @@ public:
         }
 
     private:
-        handle_type handle_;
+        handle_type mHandle;
     };
 
     iterator begin() {
-        return iterator{handle_};
+        return iterator{mHandle};
     }
 
     iterator end() {
@@ -363,7 +363,7 @@ public:
     }
 
 private:
-    handle_type handle_;
+    handle_type mHandle;
 };
 
 // =============================================================================
@@ -418,11 +418,11 @@ Expected<T, E> when_any(std::vector<CoroutineTask<T, E>>& tasks) {
  */
 template<typename T>
 struct SyncAwaitable {
-    T value_;
+    T mValue;
     
     bool await_ready() const noexcept { return true; }
     void await_suspend(std::coroutine_handle<>) noexcept {}
-    T await_resume() const { return value_; }
+    T await_resume() const { return mValue; }
 };
 
 /**

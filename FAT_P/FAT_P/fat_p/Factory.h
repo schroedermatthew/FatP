@@ -543,8 +543,8 @@ public:
     using StatsType = typename StatisticsPolicy::Stats;
     
 private:
-    StorageType registry_;
-    mutable StatsType stats_;
+    StorageType mRegistry;
+    mutable StatsType mStats;
     
     auto& getLockForConst() const {
         return const_cast<Factory*>(this)->ConcurrencyPolicy::getLock();
@@ -566,7 +566,7 @@ public:
             FATP_DEBUG_ENFORCE(key != nullptr, "Factory: null key");
         }
         return RegistrationPolicy::insert(
-            registry_, key, CreatorFunction(std::forward<Callable>(creator)), stats_);
+            mRegistry, key, CreatorFunction(std::forward<Callable>(creator)), mStats);
     }
     
     size_t registerTypes(std::initializer_list<std::pair<K, CreatorFunction>> registrations) {
@@ -574,7 +574,7 @@ public:
         
         size_t success_count = 0;
         for (const auto& [key, creator] : registrations) {
-            if (RegistrationPolicy::insert(registry_, key, creator, stats_)) {
+            if (RegistrationPolicy::insert(mRegistry, key, creator, mStats)) {
                 ++success_count;
             }
         }
@@ -583,9 +583,9 @@ public:
     
     [[nodiscard]] bool unregisterType(const K& key) {
         typename ConcurrencyPolicy::LockGuard lock(this->getLock());
-        size_t removed = registry_.erase(key);
+        size_t removed = mRegistry.erase(key);
         if (removed > 0) {
-            stats_.increment_unregistrations();
+            mStats.increment_unregistrations();
             return true;
         }
         return false;
@@ -603,19 +603,19 @@ public:
         {
             if constexpr (is_shared_policy<ConcurrencyPolicy>::value) {
                 typename ConcurrencyPolicy::SharedGuard lock(getLockForConst());
-                stats_.increment_lookups();
-                auto it = registry_.find(key);
-                if (it == registry_.end()) {
-                    stats_.increment_resolution_failures();
+                mStats.increment_lookups();
+                auto it = mRegistry.find(key);
+                if (it == mRegistry.end()) {
+                    mStats.increment_resolution_failures();
                     return ErrorHandlingPolicy::handle_not_found(key);
                 }
                 creator = it->second;
             } else {
                 typename ConcurrencyPolicy::LockGuard lock(getLockForConst());
-                stats_.increment_lookups();
-                auto it = registry_.find(key);
-                if (it == registry_.end()) {
-                    stats_.increment_resolution_failures();
+                mStats.increment_lookups();
+                auto it = mRegistry.find(key);
+                if (it == mRegistry.end()) {
+                    mStats.increment_resolution_failures();
                     return ErrorHandlingPolicy::handle_not_found(key);
                 }
                 creator = it->second;
@@ -626,10 +626,10 @@ public:
         // Phase 2: Execute outside lock
         try {
             auto result = creator(std::forward<Params>(params)...);
-            stats_.increment_resolutions();
+            mStats.increment_resolutions();
             return result;
         } catch (const std::exception& e) {
-            stats_.increment_resolution_failures();
+            mStats.increment_resolution_failures();
             if constexpr (std::is_same_v<ReturnType, T>) {
                 throw;
             } else {
@@ -646,22 +646,22 @@ public:
     [[nodiscard]] bool hasType(const K& key) const noexcept {
         if constexpr (is_shared_policy<ConcurrencyPolicy>::value) {
             typename ConcurrencyPolicy::SharedGuard lock(getLockForConst());
-            stats_.increment_lookups();
-            return registry_.count(key) > 0;
+            mStats.increment_lookups();
+            return mRegistry.count(key) > 0;
         } else {
             typename ConcurrencyPolicy::LockGuard lock(getLockForConst());
-            stats_.increment_lookups();
-            return registry_.count(key) > 0;
+            mStats.increment_lookups();
+            return mRegistry.count(key) > 0;
         }
     }
     
     [[nodiscard]] size_t size() const noexcept {
         if constexpr (is_shared_policy<ConcurrencyPolicy>::value) {
             typename ConcurrencyPolicy::SharedGuard lock(getLockForConst());
-            return registry_.size();
+            return mRegistry.size();
         } else {
             typename ConcurrencyPolicy::LockGuard lock(getLockForConst());
-            return registry_.size();
+            return mRegistry.size();
         }
     }
     
@@ -671,14 +671,14 @@ public:
         std::vector<K> keys;
         if constexpr (is_shared_policy<ConcurrencyPolicy>::value) {
             typename ConcurrencyPolicy::SharedGuard lock(getLockForConst());
-            keys.reserve(registry_.size());
-            for (const auto& [key, creator] : registry_) {
+            keys.reserve(mRegistry.size());
+            for (const auto& [key, creator] : mRegistry) {
                 keys.push_back(key);
             }
         } else {
             typename ConcurrencyPolicy::LockGuard lock(getLockForConst());
-            keys.reserve(registry_.size());
-            for (const auto& [key, creator] : registry_) {
+            keys.reserve(mRegistry.size());
+            for (const auto& [key, creator] : mRegistry) {
                 keys.push_back(key);
             }
         }
@@ -687,22 +687,22 @@ public:
     
     void resetStats() noexcept {
         typename ConcurrencyPolicy::LockGuard lock(this->getLock());
-        stats_.reset();
+        mStats.reset();
     }
     
     void clear() noexcept {
         typename ConcurrencyPolicy::LockGuard lock(this->getLock());
-        registry_.clear();
-        stats_.reset();
+        mRegistry.clear();
+        mStats.reset();
     }
     
     [[nodiscard]] typename StatsType::Snapshot getStats() const noexcept {
         if constexpr (is_shared_policy<ConcurrencyPolicy>::value) {
             typename ConcurrencyPolicy::SharedGuard lock(getLockForConst());
-            return stats_.snapshot();
+            return mStats.snapshot();
         } else {
             typename ConcurrencyPolicy::LockGuard lock(getLockForConst());
-            return stats_.snapshot();
+            return mStats.snapshot();
         }
     }
 };

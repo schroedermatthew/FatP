@@ -397,7 +397,7 @@ FATP_TEST_CASE(error_invalid_number)
 FATP_TEST_CASE(error_invalid_escape)
 {
     JsonStreamParser parser;
-    auto status = parser.feed(R"(["test\q"])", 10);
+    auto status = parser.feed(R"json(["test\q"])json", 10);
     FATP_ASSERT_TRUE(status == ParseStatus::Error, "Invalid escape");
     FATP_ASSERT_TRUE(parser.error() == ParseError::InvalidEscapeSequence, "Escape error");
 

@@ -27,7 +27,7 @@
  *
  * **Added Features:**
  * - Storage policies (UnionStorage, VariantStorage)
- * - inspect/inspectError for non-consuming observation
+ * - inspect/inspect_error for non-consuming observation
  * - value_or_else for lazy evaluation
  * - error_or_else for lazy error defaults
  * - Optimized same-state assignment (fast path)
@@ -164,7 +164,7 @@ FATP_META:
 #define FATP_EXPECTED_VALUE_OR_ELSE 202411L
 #endif
 
-// Inspection utilities (inspect, inspectError)
+// Inspection utilities (inspect, inspect_error)
 #ifndef FATP_EXPECTED_INSPECT
 #define FATP_EXPECTED_INSPECT 202411L
 #endif
@@ -393,7 +393,7 @@ namespace fat_p {
     template <typename T, typename E>
     struct UnionStorage {
     private:
-        bool mHasValue;      ///< Discriminator: true if value is active
+        bool has_value_;      ///< Discriminator: true if value is active
         bool mInitialized;    ///< True if union has been initialized (either value or error)
         union {
             char mDummy = '\0'; ///< Dummy member for default construction (initialized to avoid UB)
@@ -405,16 +405,16 @@ namespace fat_p {
         /**
          * @brief Default constructor: Creates uninitialized storage.
          * Always available, even when T is not default-constructible.
-         * Union members are NOT constructed until storeValue() or storeError() is called.
+         * Union members are NOT constructed until store_value() or store_error() is called.
          * Initializes mDummy member to satisfy C++ Core Guidelines.
          */
         UnionStorage() noexcept
-            : mHasValue(false)
+            : has_value_(false)
             , mInitialized(false)
             , mDummy()
         {
             // Union is intentionally left uninitialized (mValue and mError not constructed)
-            // Will be initialized by storeValue() or storeError()
+            // Will be initialized by store_value() or store_error()
         }
 
         /**
@@ -423,7 +423,7 @@ namespace fat_p {
          */
         ~UnionStorage() noexcept {
             if (mInitialized) {
-                if (mHasValue) {
+                if (has_value_) {
                     if constexpr (!std::is_trivially_destructible_v<T>) {
                         mValue.~T();
                     }
@@ -443,10 +443,10 @@ namespace fat_p {
          * @tparam Args Forwarded arguments for T's constructor.
          */
         template <typename... Args>
-        void storeValue(Args&&... args) {
+        void store_value(Args&&... args) {
             if (mInitialized) {
                 // Destroy existing member
-                if (mHasValue) {
+                if (has_value_) {
                     if constexpr (!std::is_trivially_destructible_v<T>) {
                         mValue.~T();
                     }
@@ -459,7 +459,7 @@ namespace fat_p {
             }
             // Construct new value (placement new required to start object lifetime)
             new (&mValue) T(std::forward<Args>(args)...);
-            mHasValue = true;
+            has_value_ = true;
             mInitialized = true;
         }
 
@@ -469,10 +469,10 @@ namespace fat_p {
          * @tparam Args Forwarded arguments for E's constructor.
          */
         template <typename... Args>
-        void storeError(Args&&... args) {
+        void store_error(Args&&... args) {
             if (mInitialized) {
                 // Destroy existing member
-                if (mHasValue) {
+                if (has_value_) {
                     if constexpr (!std::is_trivially_destructible_v<T>) {
                         mValue.~T();
                     }
@@ -485,7 +485,7 @@ namespace fat_p {
             }
             // Construct new error (placement new required to start object lifetime)
             new (&mError) E(std::forward<Args>(args)...);
-            mHasValue = false;
+            has_value_ = false;
             mInitialized = true;
         }
 
@@ -494,9 +494,9 @@ namespace fat_p {
          * Precondition: has_value() must be true AND initialized must be true.
          */
         template <typename Arg>
-        void assignValue(Arg&& arg) noexcept(std::is_nothrow_assignable_v<T&, Arg>) {
+        void assign_value(Arg&& arg) noexcept(std::is_nothrow_assignable_v<T&, Arg>) {
             if constexpr (!std::is_trivial_v<T>) {
-                assert(mHasValue && mInitialized);
+                assert(has_value_ && mInitialized);
             }
             mValue = std::forward<Arg>(arg);
         }
@@ -506,9 +506,9 @@ namespace fat_p {
          * Precondition: has_value() must be false AND initialized must be true.
          */
         template <typename Arg>
-        void assignError(Arg&& arg) noexcept(std::is_nothrow_assignable_v<E&, Arg>) {
+        void assign_error(Arg&& arg) noexcept(std::is_nothrow_assignable_v<E&, Arg>) {
             if constexpr (!std::is_trivial_v<E>) {
-                assert(!mHasValue && mInitialized);
+                assert(!has_value_ && mInitialized);
             }
             mError = std::forward<Arg>(arg);
         }
@@ -517,55 +517,55 @@ namespace fat_p {
          * @brief Checks if value is active.
          * @return bool True if in value state.
          */
-        constexpr bool has_value() const noexcept { return mHasValue && mInitialized; }
+        constexpr bool has_value() const noexcept { return has_value_ && mInitialized; }
 
         /**
          * @brief Checks if storage has been initialized.
          * @return bool True if either value or error has been constructed.
          */
-        constexpr bool isInitialized() const noexcept { return mInitialized; }
+        constexpr bool is_initialized() const noexcept { return mInitialized; }
 
         // --- Accessors (throw on uninitialized, assert on wrong state) ---
 
-        constexpr T& getValue() & {
+        constexpr T& get_value() & {
             if (!mInitialized) FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
-            assert(mHasValue);
+            assert(has_value_);
             return mValue;
         }
-        constexpr const T& getValue() const& {
+        constexpr const T& get_value() const& {
             if (!mInitialized) FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
-            assert(mHasValue);
+            assert(has_value_);
             return mValue;
         }
-        constexpr T&& getValue() && {
+        constexpr T&& get_value() && {
             if (!mInitialized) FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
-            assert(mHasValue);
+            assert(has_value_);
             return std::move(mValue);
         }
-        constexpr const T&& getValue() const&& {
+        constexpr const T&& get_value() const&& {
             if (!mInitialized) FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
-            assert(mHasValue);
+            assert(has_value_);
             return std::move(mValue);
         }
 
-        constexpr E& getError() & {
+        constexpr E& get_error() & {
             if (!mInitialized) FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
-            assert(!mHasValue);
+            assert(!has_value_);
             return mError;
         }
-        constexpr const E& getError() const& {
+        constexpr const E& get_error() const& {
             if (!mInitialized) FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
-            assert(!mHasValue);
+            assert(!has_value_);
             return mError;
         }
-        constexpr E&& getError() && {
+        constexpr E&& get_error() && {
             if (!mInitialized) FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
-            assert(!mHasValue);
+            assert(!has_value_);
             return std::move(mError);
         }
-        constexpr const E&& getError() const&& {
+        constexpr const E&& get_error() const&& {
             if (!mInitialized) FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
-            assert(!mHasValue);
+            assert(!has_value_);
             return std::move(mError);
         }
 
@@ -585,14 +585,14 @@ namespace fat_p {
 
             if (!mInitialized) {
                 // This is uninitialized, other is initialized - move from other to this
-                if (other.mHasValue) {
-                    storeValue(std::move(other.mValue));
+                if (other.has_value_) {
+                    store_value(std::move(other.mValue));
                     if constexpr (!std::is_trivially_destructible_v<T>) {
                         other.mValue.~T();
                     }
                 }
                 else {
-                    storeError(std::move(other.mError));
+                    store_error(std::move(other.mError));
                     if constexpr (!std::is_trivially_destructible_v<E>) {
                         other.mError.~E();
                     }
@@ -603,14 +603,14 @@ namespace fat_p {
 
             if (!other.mInitialized) {
                 // Other is uninitialized, this is initialized - move from this to other
-                if (mHasValue) {
-                    other.storeValue(std::move(mValue));
+                if (has_value_) {
+                    other.store_value(std::move(mValue));
                     if constexpr (!std::is_trivially_destructible_v<T>) {
                         mValue.~T();
                     }
                 }
                 else {
-                    other.storeError(std::move(mError));
+                    other.store_error(std::move(mError));
                     if constexpr (!std::is_trivially_destructible_v<E>) {
                         mError.~E();
                     }
@@ -620,20 +620,20 @@ namespace fat_p {
             }
 
             // Both initialized - normal swap logic
-            if (mHasValue && other.mHasValue) {
+            if (has_value_ && other.has_value_) {
                 // Both have values - simple swap
                 using std::swap;
                 swap(mValue, other.mValue);
             }
-            else if (!mHasValue && !other.mHasValue) {
+            else if (!has_value_ && !other.has_value_) {
                 // Both have errors - simple swap
                 using std::swap;
                 swap(mError, other.mError);
             }
             else {
                 // Different states - need to swap through temp
-                if (mHasValue) {
-                    T tempVal(std::move(mValue));
+                if (has_value_) {
+                    T temp_val(std::move(mValue));
                     if constexpr (!std::is_trivially_destructible_v<T>) {
                         mValue.~T();
                     }
@@ -641,12 +641,12 @@ namespace fat_p {
                     if constexpr (!std::is_trivially_destructible_v<E>) {
                         other.mError.~E();
                     }
-                    new (&other.mValue) T(std::move(tempVal));
-                    mHasValue = false;
-                    other.mHasValue = true;
+                    new (&other.mValue) T(std::move(temp_val));
+                    has_value_ = false;
+                    other.has_value_ = true;
                 }
                 else {
-                    E tempErr(std::move(mError));
+                    E temp_err(std::move(mError));
                     if constexpr (!std::is_trivially_destructible_v<E>) {
                         mError.~E();
                     }
@@ -654,9 +654,9 @@ namespace fat_p {
                     if constexpr (!std::is_trivially_destructible_v<T>) {
                         other.mValue.~T();
                     }
-                    new (&other.mError) E(std::move(tempErr));
-                    mHasValue = true;
-                    other.mHasValue = false;
+                    new (&other.mError) E(std::move(temp_err));
+                    has_value_ = true;
+                    other.has_value_ = false;
                 }
             }
         }
@@ -695,7 +695,7 @@ namespace fat_p {
             T mValue;
             E mError;
         };
-        bool mHasValue = true;  ///< Discriminator (default to value state)
+        bool has_value_ = true;  ///< Discriminator (default to value state)
 
     public:
         TrivialStorage() = default;
@@ -707,39 +707,39 @@ namespace fat_p {
 
         template <typename... Args>
         constexpr explicit TrivialStorage(std::in_place_t, Args&&... args)
-            : mValue(std::forward<Args>(args)...), mHasValue(true) {}
+            : mValue(std::forward<Args>(args)...), has_value_(true) {}
 
         template <typename... Args>
         constexpr explicit TrivialStorage(unexpect_tag_t, Args&&... args)
-            : mError(std::forward<Args>(args)...), mHasValue(false) {}
+            : mError(std::forward<Args>(args)...), has_value_(false) {}
 
-        constexpr bool has_value() const noexcept { return mHasValue; }
-        constexpr bool isInitialized() const noexcept { return true; }
+        constexpr bool has_value() const noexcept { return has_value_; }
+        constexpr bool is_initialized() const noexcept { return true; }
 
-        constexpr T& getValue() noexcept { return mValue; }
-        constexpr const T& getValue() const noexcept { return mValue; }
-        constexpr E& getError() noexcept { return mError; }
-        constexpr const E& getError() const noexcept { return mError; }
+        constexpr T& get_value() noexcept { return mValue; }
+        constexpr const T& get_value() const noexcept { return mValue; }
+        constexpr E& get_error() noexcept { return mError; }
+        constexpr const E& get_error() const noexcept { return mError; }
 
         template <typename... Args>
-        void storeValue(Args&&... args) {
+        void store_value(Args&&... args) {
             mValue = T(std::forward<Args>(args)...);
-            mHasValue = true;
+            has_value_ = true;
         }
 
         template <typename... Args>
-        void storeError(Args&&... args) {
+        void store_error(Args&&... args) {
             mError = E(std::forward<Args>(args)...);
-            mHasValue = false;
+            has_value_ = false;
         }
 
         template <typename Arg>
-        void assignValue(Arg&& arg) noexcept {
+        void assign_value(Arg&& arg) noexcept {
             mValue = std::forward<Arg>(arg);
         }
 
         template <typename Arg>
-        void assignError(Arg&& arg) noexcept {
+        void assign_error(Arg&& arg) noexcept {
             mError = std::forward<Arg>(arg);
         }
 
@@ -767,22 +767,22 @@ namespace fat_p {
     template <typename T, typename E>
     struct VariantStorage {
         using Unexpected = unexpected<E>;
-        std::variant<T, Unexpected> mData;  ///< Underlying variant storage
+        std::variant<T, Unexpected> data_;  ///< Underlying variant storage
 
         /**
          * @brief Default constructor: Initializes in value state with default T (if T is default-constructible).
          */
         template <typename Dummy = void,
             typename = std::enable_if_t<std::is_default_constructible_v<T>, Dummy>>
-            VariantStorage() : mData(T{}) {}
+            VariantStorage() : data_(T{}) {}
 
         /**
          * @brief Stores a value using emplace.
          * @tparam Args Forwarded arguments for T's constructor.
          */
         template <typename... Args>
-        void storeValue(Args&&... args) {
-            mData.template emplace<T>(std::forward<Args>(args)...);
+        void store_value(Args&&... args) {
+            data_.template emplace<T>(std::forward<Args>(args)...);
         }
 
         /**
@@ -790,74 +790,74 @@ namespace fat_p {
          * @tparam Args Forwarded arguments for E's constructor.
          */
         template <typename... Args>
-        void storeError(Args&&... args) {
-            mData.template emplace<Unexpected>(std::forward<Args>(args)...);
+        void store_error(Args&&... args) {
+            data_.template emplace<Unexpected>(std::forward<Args>(args)...);
         }
 
         /**
          * @brief Assigns value directly (without emplacing).
          */
         template <typename Arg>
-        void assignValue(Arg&& arg) {
-            assert(mData.index() == 0);
-            std::get<T>(mData) = std::forward<Arg>(arg);
+        void assign_value(Arg&& arg) {
+            assert(data_.index() == 0);
+            std::get<T>(data_) = std::forward<Arg>(arg);
         }
 
         /**
          * @brief Assigns error directly (without emplacing).
          */
         template <typename Arg>
-        void assignError(Arg&& arg) {
-            assert(mData.index() == 1);
-            std::get<Unexpected>(mData).mError = std::forward<Arg>(arg);
+        void assign_error(Arg&& arg) {
+            assert(data_.index() == 1);
+            std::get<Unexpected>(data_).mError = std::forward<Arg>(arg);
         }
 
         /**
          * @brief Checks if value (index 0) is active.
          * @return bool True if holding T.
          */
-        constexpr bool has_value() const noexcept { return mData.index() == 0; }
+        constexpr bool has_value() const noexcept { return data_.index() == 0; }
 
         /**
          * @brief Checks if storage has been initialized.
          * @return bool Always true for VariantStorage (always initialized).
          */
-        constexpr bool isInitialized() const noexcept { return true; }
+        constexpr bool is_initialized() const noexcept { return true; }
 
         // --- Accessors ---
 
-        T& getValue()& {
-            assert(mData.index() == 0);
-            return std::get<T>(mData);
+        T& get_value()& {
+            assert(data_.index() == 0);
+            return std::get<T>(data_);
         }
-        const T& getValue() const& {
-            assert(mData.index() == 0);
-            return std::get<T>(mData);
+        const T& get_value() const& {
+            assert(data_.index() == 0);
+            return std::get<T>(data_);
         }
-        T&& getValue()&& {
-            assert(mData.index() == 0);
-            return std::get<T>(std::move(mData));
+        T&& get_value()&& {
+            assert(data_.index() == 0);
+            return std::get<T>(std::move(data_));
         }
-        const T&& getValue() const&& {
-            assert(mData.index() == 0);
-            return std::get<T>(std::move(mData));
+        const T&& get_value() const&& {
+            assert(data_.index() == 0);
+            return std::get<T>(std::move(data_));
         }
 
-        E& getError()& {
-            assert(mData.index() == 1);
-            return std::get<Unexpected>(mData).mError;
+        E& get_error()& {
+            assert(data_.index() == 1);
+            return std::get<Unexpected>(data_).mError;
         }
-        const E& getError() const& {
-            assert(mData.index() == 1);
-            return std::get<Unexpected>(mData).mError;
+        const E& get_error() const& {
+            assert(data_.index() == 1);
+            return std::get<Unexpected>(data_).mError;
         }
-        E&& getError()&& {
-            assert(mData.index() == 1);
-            return std::get<Unexpected>(std::move(mData)).mError;
+        E&& get_error()&& {
+            assert(data_.index() == 1);
+            return std::get<Unexpected>(std::move(data_)).mError;
         }
-        const E&& getError() const&& {
-            assert(mData.index() == 1);
-            return std::get<Unexpected>(std::move(mData)).mError;
+        const E&& get_error() const&& {
+            assert(data_.index() == 1);
+            return std::get<Unexpected>(std::move(data_)).mError;
         }
 
         /**
@@ -865,7 +865,7 @@ namespace fat_p {
          * @param other The other storage to swap with.
          */
         void swap(VariantStorage& other) noexcept(std::is_nothrow_swappable_v<std::variant<T, Unexpected>>) {
-            mData.swap(other.mData);
+            data_.swap(other.data_);
         }
     };
 #endif
@@ -906,7 +906,7 @@ namespace fat_p {
      * Constructor ambiguity is resolved by requiring unexpected wrapper for errors.
      * Assignment operators use fast path for same-state assignments.
      * [[nodiscard]] attributes ensure error handling safety.
-     * inspect() and inspectError() provide non-consuming observation.
+     * inspect() and inspect_error() provide non-consuming observation.
      */
     template <typename T, typename E = std::string,
         template <typename, typename> class StoragePolicy = UnionStorage>
@@ -978,7 +978,7 @@ namespace fat_p {
         template <typename Dummy = void,
             typename = std::enable_if_t<std::is_default_constructible_v<T>, Dummy>>
             constexpr ExpectedImpl() noexcept(std::is_nothrow_default_constructible_v<T>) {
-            mStorage.storeValue();
+            mStorage.store_value();
         }
 
         constexpr ExpectedImpl(uninitialized_tag) noexcept : mStorage() {}
@@ -994,7 +994,7 @@ namespace fat_p {
             !std::is_same_v<std::decay_t<U>, ExpectedImpl>>>
             constexpr ExpectedImpl(const U& v)
             noexcept(std::is_nothrow_constructible_v<T, const U&>) {
-            mStorage.storeValue(v);
+            mStorage.store_value(v);
         }
 
         /**
@@ -1008,7 +1008,7 @@ namespace fat_p {
             !std::is_same_v<std::decay_t<U>, ExpectedImpl>>>
             constexpr ExpectedImpl(U&& v)
             noexcept(std::is_nothrow_constructible_v<T, U&&>) {
-            mStorage.storeValue(std::forward<U>(v));
+            mStorage.store_value(std::forward<U>(v));
         }
 
         /**
@@ -1019,7 +1019,7 @@ namespace fat_p {
             typename = std::enable_if_t<std::is_constructible_v<T, Args...>>>
         constexpr explicit ExpectedImpl(std::in_place_t, Args&&... args)
             noexcept(std::is_nothrow_constructible_v<T, Args...>) {
-            mStorage.storeValue(std::forward<Args>(args)...);
+            mStorage.store_value(std::forward<Args>(args)...);
         }
 
         /**
@@ -1029,7 +1029,7 @@ namespace fat_p {
             typename = std::enable_if_t<std::is_constructible_v<T, std::initializer_list<U>&, Args...>>>
         constexpr explicit ExpectedImpl(std::in_place_t, std::initializer_list<U> il, Args&&... args)
             noexcept(std::is_nothrow_constructible_v<T, std::initializer_list<U>&, Args...>) {
-            mStorage.storeValue(il, std::forward<Args>(args)...);
+            mStorage.store_value(il, std::forward<Args>(args)...);
         }
 
         /**
@@ -1042,7 +1042,7 @@ namespace fat_p {
             typename = std::enable_if_t<std::is_constructible_v<E, Args...>>>
         constexpr explicit ExpectedImpl(unexpect_tag_t, Args&&... args)
             noexcept(std::is_nothrow_constructible_v<E, Args...>) {
-            mStorage.storeError(std::forward<Args>(args)...);
+            mStorage.store_error(std::forward<Args>(args)...);
         }
 
         /**
@@ -1052,7 +1052,7 @@ namespace fat_p {
             typename = std::enable_if_t<std::is_constructible_v<E, std::initializer_list<U>&, Args...>>>
         constexpr explicit ExpectedImpl(unexpect_tag_t, std::initializer_list<U> il, Args&&... args)
             noexcept(std::is_nothrow_constructible_v<E, std::initializer_list<U>&, Args...>) {
-            mStorage.storeError(il, std::forward<Args>(args)...);
+            mStorage.store_error(il, std::forward<Args>(args)...);
         }
 
         /**
@@ -1066,7 +1066,7 @@ namespace fat_p {
             typename = std::enable_if_t<std::is_constructible_v<E, const G&>>>
         constexpr ExpectedImpl(const unexpected<G>& ue)
             noexcept(std::is_nothrow_constructible_v<E, const G&>) {
-            mStorage.storeError(ue.value());
+            mStorage.store_error(ue.value());
         }
 
         /**
@@ -1078,7 +1078,7 @@ namespace fat_p {
             typename = std::enable_if_t<std::is_constructible_v<E, G&&>>>
         constexpr ExpectedImpl(unexpected<G>&& ue)
             noexcept(std::is_nothrow_constructible_v<E, G&&>) {
-            mStorage.storeError(std::move(ue).value());
+            mStorage.store_error(std::move(ue).value());
         }
 
         // --- Copy/Move Constructors and Assignments ---
@@ -1091,10 +1091,10 @@ namespace fat_p {
             noexcept(std::is_nothrow_copy_constructible_v<T>&&
                 std::is_nothrow_copy_constructible_v<E>) {
             if (other.has_value()) {
-                mStorage.storeValue(other.mStorage.getValue());
+                mStorage.store_value(other.mStorage.get_value());
             }
             else {
-                mStorage.storeError(other.mStorage.getError());
+                mStorage.store_error(other.mStorage.get_error());
             }
         }
 
@@ -1106,10 +1106,10 @@ namespace fat_p {
             noexcept(std::is_nothrow_move_constructible_v<T>&&
                 std::is_nothrow_move_constructible_v<E>) {
             if (other.has_value()) {
-                mStorage.storeValue(std::move(other.mStorage.getValue()));
+                mStorage.store_value(std::move(other.mStorage.get_value()));
             }
             else {
-                mStorage.storeError(std::move(other.mStorage.getError()));
+                mStorage.store_error(std::move(other.mStorage.get_error()));
             }
         }
 
@@ -1132,10 +1132,10 @@ namespace fat_p {
             noexcept(std::is_nothrow_constructible_v<T, const U&>&&
                 std::is_nothrow_constructible_v<E, const G&>) {
             if (other.has_value()) {
-                mStorage.storeValue(other.mStorage.getValue());
+                mStorage.store_value(other.mStorage.get_value());
             }
             else {
-                mStorage.storeError(other.mStorage.getError());
+                mStorage.store_error(other.mStorage.get_error());
             }
         }
 
@@ -1158,10 +1158,10 @@ namespace fat_p {
             noexcept(std::is_nothrow_constructible_v<T, U&&>&&
                 std::is_nothrow_constructible_v<E, G&&>) {
             if (other.has_value()) {
-                mStorage.storeValue(std::move(other.mStorage.getValue()));
+                mStorage.store_value(std::move(other.mStorage.get_value()));
             }
             else {
-                mStorage.storeError(std::move(other.mStorage.getError()));
+                mStorage.store_error(std::move(other.mStorage.get_error()));
             }
         }
 
@@ -1178,25 +1178,25 @@ namespace fat_p {
                 std::is_nothrow_copy_assignable_v<T>&&
                 std::is_nothrow_copy_assignable_v<E>) {
             if (this != &other) {
-                const bool thisHasVal = has_value();
-                const bool otherHasVal = other.has_value();
+                const bool this_has_val = has_value();
+                const bool other_has_val = other.has_value();
 
-                if (thisHasVal == otherHasVal) {
+                if (this_has_val == other_has_val) {
                     // Fast path: Same state - direct assignment (no destructor calls)
-                    if (thisHasVal) {
-                        mStorage.assignValue(other.mStorage.getValue());
+                    if (this_has_val) {
+                        mStorage.assign_value(other.mStorage.get_value());
                     }
                     else {
-                        mStorage.assignError(other.mStorage.getError());
+                        mStorage.assign_error(other.mStorage.get_error());
                     }
                 }
                 else {
                     // Slow path: Different states - need destroy + construct
-                    if (otherHasVal) {
-                        mStorage.storeValue(other.mStorage.getValue());
+                    if (other_has_val) {
+                        mStorage.store_value(other.mStorage.get_value());
                     }
                     else {
-                        mStorage.storeError(other.mStorage.getError());
+                        mStorage.store_error(other.mStorage.get_error());
                     }
                 }
             }
@@ -1216,25 +1216,25 @@ namespace fat_p {
                 std::is_nothrow_move_assignable_v<T>&&
                 std::is_nothrow_move_assignable_v<E>) {
             if (this != &other) {
-                const bool thisHasVal = has_value();
-                const bool otherHasVal = other.has_value();
+                const bool this_has_val = has_value();
+                const bool other_has_val = other.has_value();
 
-                if (thisHasVal == otherHasVal) {
+                if (this_has_val == other_has_val) {
                     // Fast path: Same state - direct assignment (no destructor calls)
-                    if (thisHasVal) {
-                        mStorage.assignValue(std::move(other.mStorage.getValue()));
+                    if (this_has_val) {
+                        mStorage.assign_value(std::move(other.mStorage.get_value()));
                     }
                     else {
-                        mStorage.assignError(std::move(other.mStorage.getError()));
+                        mStorage.assign_error(std::move(other.mStorage.get_error()));
                     }
                 }
                 else {
                     // Slow path: Different states - need destroy + construct
-                    if (otherHasVal) {
-                        mStorage.storeValue(std::move(other.mStorage.getValue()));
+                    if (other_has_val) {
+                        mStorage.store_value(std::move(other.mStorage.get_value()));
                     }
                     else {
-                        mStorage.storeError(std::move(other.mStorage.getError()));
+                        mStorage.store_error(std::move(other.mStorage.get_error()));
                     }
                 }
             }
@@ -1255,10 +1255,10 @@ namespace fat_p {
             noexcept(std::is_nothrow_constructible_v<T, U>&&
                 std::is_nothrow_assignable_v<T&, U>) {
             if (has_value()) {
-                mStorage.assignValue(std::forward<U>(v));
+                mStorage.assign_value(std::forward<U>(v));
             }
             else {
-                mStorage.storeValue(std::forward<U>(v));
+                mStorage.store_value(std::forward<U>(v));
             }
             return *this;
         }
@@ -1274,10 +1274,10 @@ namespace fat_p {
             noexcept(std::is_nothrow_constructible_v<E, const G&>&&
                 std::is_nothrow_assignable_v<E&, const G&>) {
             if (has_value()) {
-                mStorage.storeError(ue.value());
+                mStorage.store_error(ue.value());
             }
             else {
-                mStorage.assignError(ue.value());
+                mStorage.assign_error(ue.value());
             }
             return *this;
         }
@@ -1287,10 +1287,10 @@ namespace fat_p {
             noexcept(std::is_nothrow_constructible_v<E, G&&>&&
                 std::is_nothrow_assignable_v<E&, G&&>) {
             if (has_value()) {
-                mStorage.storeError(std::move(ue).value());
+                mStorage.store_error(std::move(ue).value());
             }
             else {
-                mStorage.assignError(std::move(ue).value());
+                mStorage.assign_error(std::move(ue).value());
             }
             return *this;
         }
@@ -1304,15 +1304,15 @@ namespace fat_p {
          */
         template <typename... Args>
         T& emplace(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>) {
-            mStorage.storeValue(std::forward<Args>(args)...);
-            return mStorage.getValue();
+            mStorage.store_value(std::forward<Args>(args)...);
+            return mStorage.get_value();
         }
 
         template <typename U, typename... Args>
         T& emplace(std::initializer_list<U> il, Args&&... args)
             noexcept(std::is_nothrow_constructible_v<T, std::initializer_list<U>&, Args...>) {
-            mStorage.storeValue(il, std::forward<Args>(args)...);
-            return mStorage.getValue();
+            mStorage.store_value(il, std::forward<Args>(args)...);
+            return mStorage.get_value();
         }
 
         // --- Swap ---
@@ -1354,28 +1354,28 @@ namespace fat_p {
 
         constexpr T* operator->() noexcept {
             assert(has_value());
-            return &mStorage.getValue();
+            return &mStorage.get_value();
         }
         constexpr const T* operator->() const noexcept {
             assert(has_value());
-            return &mStorage.getValue();
+            return &mStorage.get_value();
         }
 
         constexpr T& operator*() & noexcept {
             assert(has_value());
-            return mStorage.getValue();
+            return mStorage.get_value();
         }
         constexpr const T& operator*() const& noexcept {
             assert(has_value());
-            return mStorage.getValue();
+            return mStorage.get_value();
         }
         constexpr T&& operator*() && noexcept {
             assert(has_value());
-            return std::move(mStorage.getValue());
+            return std::move(mStorage.get_value());
         }
         constexpr const T&& operator*() const&& noexcept {
             assert(has_value());
-            return std::move(mStorage.getValue());
+            return std::move(mStorage.get_value());
         }
 
         // --- Unchecked Value Accessors (for verified hot paths) ---
@@ -1388,63 +1388,63 @@ namespace fat_p {
          *
          * @warning Undefined behavior if !has_value()
          */
-        [[nodiscard]] constexpr T& valueUnchecked() & noexcept {
-            return mStorage.getValue();
+        [[nodiscard]] constexpr T& value_unchecked() & noexcept {
+            return mStorage.get_value();
         }
-        [[nodiscard]] constexpr const T& valueUnchecked() const& noexcept {
-            return mStorage.getValue();
+        [[nodiscard]] constexpr const T& value_unchecked() const& noexcept {
+            return mStorage.get_value();
         }
-        [[nodiscard]] constexpr T&& valueUnchecked() && noexcept {
-            return std::move(mStorage.getValue());
+        [[nodiscard]] constexpr T&& value_unchecked() && noexcept {
+            return std::move(mStorage.get_value());
         }
-        [[nodiscard]] constexpr const T&& valueUnchecked() const&& noexcept {
-            return std::move(mStorage.getValue());
+        [[nodiscard]] constexpr const T&& value_unchecked() const&& noexcept {
+            return std::move(mStorage.get_value());
         }
 
         // --- Throwing Value Accessors ---
 
         [[nodiscard]] constexpr T& value()& {
             if (!has_value()) {
-                FATP_EXPECTED_THROW(bad_expected_access<E>(mStorage.getError()));
+                FATP_EXPECTED_THROW(bad_expected_access<E>(mStorage.get_error()));
             }
-            return mStorage.getValue();
+            return mStorage.get_value();
         }
         [[nodiscard]] constexpr const T& value() const& {
             if (!has_value()) {
-                FATP_EXPECTED_THROW(bad_expected_access<E>(mStorage.getError()));
+                FATP_EXPECTED_THROW(bad_expected_access<E>(mStorage.get_error()));
             }
-            return mStorage.getValue();
+            return mStorage.get_value();
         }
         [[nodiscard]] constexpr T&& value()&& {
             if (!has_value()) {
-                FATP_EXPECTED_THROW(bad_expected_access<E>(std::move(mStorage.getError())));
+                FATP_EXPECTED_THROW(bad_expected_access<E>(std::move(mStorage.get_error())));
             }
-            return std::move(mStorage.getValue());
+            return std::move(mStorage.get_value());
         }
         [[nodiscard]] constexpr const T&& value() const&& {
             if (!has_value()) {
-                FATP_EXPECTED_THROW(bad_expected_access<E>(mStorage.getError()));
+                FATP_EXPECTED_THROW(bad_expected_access<E>(mStorage.get_error()));
             }
-            return std::move(mStorage.getValue());
+            return std::move(mStorage.get_value());
         }
 
         // --- Error Accessors (unchecked) ---
 
         constexpr E& error() & noexcept {
             assert(!has_value());
-            return mStorage.getError();
+            return mStorage.get_error();
         }
         constexpr const E& error() const& noexcept {
             assert(!has_value());
-            return mStorage.getError();
+            return mStorage.get_error();
         }
         constexpr E&& error() && noexcept {
             assert(!has_value());
-            return std::move(mStorage.getError());
+            return std::move(mStorage.get_error());
         }
         constexpr const E&& error() const&& noexcept {
             assert(!has_value());
-            return std::move(mStorage.getError());
+            return std::move(mStorage.get_error());
         }
 
         // --- Fallbacks ---
@@ -1457,12 +1457,12 @@ namespace fat_p {
          */
         template <typename U>
         [[nodiscard]] constexpr T value_or(U&& default_value) const& {
-            return has_value() ? mStorage.getValue() : static_cast<T>(std::forward<U>(default_value));
+            return has_value() ? mStorage.get_value() : static_cast<T>(std::forward<U>(default_value));
         }
 
         template <typename U>
         [[nodiscard]] constexpr T value_or(U&& default_value)&& {
-            return has_value() ? std::move(mStorage.getValue()) : static_cast<T>(std::forward<U>(default_value));
+            return has_value() ? std::move(mStorage.get_value()) : static_cast<T>(std::forward<U>(default_value));
         }
 
 
@@ -1488,12 +1488,12 @@ namespace fat_p {
          */
         template <typename G>
         [[nodiscard]] constexpr E error_or(G&& default_error) const& {
-            return has_value() ? static_cast<E>(std::forward<G>(default_error)) : mStorage.getError();
+            return has_value() ? static_cast<E>(std::forward<G>(default_error)) : mStorage.get_error();
         }
 
         template <typename G>
         [[nodiscard]] constexpr E error_or(G&& default_error)&& {
-            return has_value() ? static_cast<E>(std::forward<G>(default_error)) : std::move(mStorage.getError());
+            return has_value() ? static_cast<E>(std::forward<G>(default_error)) : std::move(mStorage.get_error());
         }
 
         /**
@@ -1505,12 +1505,12 @@ namespace fat_p {
          */
         template <typename F>
         [[nodiscard]] constexpr E error_or_else(F&& f) const& {
-            return has_value() ? std::forward<F>(f)() : mStorage.getError();
+            return has_value() ? std::forward<F>(f)() : mStorage.get_error();
         }
 
         template <typename F>
         [[nodiscard]] constexpr E error_or_else(F&& f)&& {
-            return has_value() ? std::forward<F>(f)() : std::move(mStorage.getError());
+            return has_value() ? std::forward<F>(f)() : std::move(mStorage.get_error());
         }
 
         // --- Monadic Functions (Success Path) ---
@@ -1526,10 +1526,10 @@ namespace fat_p {
             using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, T&>>>;
             if (has_value()) {
                 return ExpectedImpl<U, E, StoragePolicy>(
-                    std::in_place, std::invoke(std::forward<F>(f), mStorage.getValue())
+                    std::in_place, std::invoke(std::forward<F>(f), mStorage.get_value())
                 );
             }
-            return ExpectedImpl<U, E, StoragePolicy>(unexpect, mStorage.getError());
+            return ExpectedImpl<U, E, StoragePolicy>(unexpect, mStorage.get_error());
         }
 
         template <typename F>
@@ -1537,10 +1537,10 @@ namespace fat_p {
             using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T&>>>;
             if (has_value()) {
                 return ExpectedImpl<U, E, StoragePolicy>(
-                    std::in_place, std::invoke(std::forward<F>(f), mStorage.getValue())
+                    std::in_place, std::invoke(std::forward<F>(f), mStorage.get_value())
                 );
             }
-            return ExpectedImpl<U, E, StoragePolicy>(unexpect, mStorage.getError());
+            return ExpectedImpl<U, E, StoragePolicy>(unexpect, mStorage.get_error());
         }
 
         template <typename F>
@@ -1549,10 +1549,10 @@ namespace fat_p {
             static_assert(std::is_constructible_v<U, decltype(std::invoke(std::forward<F>(f), std::declval<T&&>()))>);
             if (has_value()) {
                 return ExpectedImpl<std::decay_t<U>, E, StoragePolicy>(
-                    std::in_place, std::invoke(std::forward<F>(f), std::move(mStorage.getValue()))
+                    std::in_place, std::invoke(std::forward<F>(f), std::move(mStorage.get_value()))
                 );
             }
-            return ExpectedImpl<std::decay_t<U>, E, StoragePolicy>(unexpect, std::move(mStorage.getError()));
+            return ExpectedImpl<std::decay_t<U>, E, StoragePolicy>(unexpect, std::move(mStorage.get_error()));
         }
 
         template <typename F>
@@ -1560,10 +1560,10 @@ namespace fat_p {
             using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T&&>>>;
             if (has_value()) {
                 return ExpectedImpl<U, E, StoragePolicy>(
-                    std::in_place, std::invoke(std::forward<F>(f), std::move(mStorage.getValue()))
+                    std::in_place, std::invoke(std::forward<F>(f), std::move(mStorage.get_value()))
                 );
             }
-            return ExpectedImpl<U, E, StoragePolicy>(unexpect, std::move(mStorage.getError()));
+            return ExpectedImpl<U, E, StoragePolicy>(unexpect, std::move(mStorage.get_error()));
         }
 
         template <typename F>
@@ -1595,9 +1595,9 @@ namespace fat_p {
             static_assert(is_expected_compatible<Result, E>::value,
                 "and_then must return ExpectedImpl<U, E> with same E");
             if (has_value()) {
-                return std::invoke(std::forward<F>(f), mStorage.getValue());
+                return std::invoke(std::forward<F>(f), mStorage.get_value());
             }
-            return Result(unexpect, mStorage.getError());
+            return Result(unexpect, mStorage.get_error());
         }
 
         template <typename F>
@@ -1606,9 +1606,9 @@ namespace fat_p {
             static_assert(is_expected_compatible<Result, E>::value,
                 "and_then must return ExpectedImpl<U, E> with same E");
             if (has_value()) {
-                return std::invoke(std::forward<F>(f), mStorage.getValue());
+                return std::invoke(std::forward<F>(f), mStorage.get_value());
             }
-            return Result(unexpect, mStorage.getError());
+            return Result(unexpect, mStorage.get_error());
         }
 
         template <typename F>
@@ -1617,9 +1617,9 @@ namespace fat_p {
             static_assert(is_expected_compatible<Result, E>::value,
                 "and_then must return ExpectedImpl<U, E> with same E");
             if (has_value()) {
-                return std::invoke(std::forward<F>(f), std::move(mStorage.getValue()));
+                return std::invoke(std::forward<F>(f), std::move(mStorage.get_value()));
             }
-            return Result(unexpect, std::move(mStorage.getError()));
+            return Result(unexpect, std::move(mStorage.get_error()));
         }
 
         template <typename F>
@@ -1628,9 +1628,9 @@ namespace fat_p {
             static_assert(is_expected_compatible<Result, E>::value,
                 "and_then must return ExpectedImpl<U, E> with same E");
             if (has_value()) {
-                return std::invoke(std::forward<F>(f), std::move(mStorage.getValue()));
+                return std::invoke(std::forward<F>(f), std::move(mStorage.get_value()));
             }
-            return Result(unexpect, std::move(mStorage.getError()));
+            return Result(unexpect, std::move(mStorage.get_error()));
         }
 
         template <typename F>
@@ -1663,10 +1663,10 @@ namespace fat_p {
             using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, E&>>>;
             if (!has_value()) {
                 return ExpectedImpl<T, G, StoragePolicy>(
-                    unexpect, std::invoke(std::forward<F>(f), mStorage.getError())
+                    unexpect, std::invoke(std::forward<F>(f), mStorage.get_error())
                 );
             }
-            return ExpectedImpl<T, G, StoragePolicy>(std::in_place, mStorage.getValue());
+            return ExpectedImpl<T, G, StoragePolicy>(std::in_place, mStorage.get_value());
         }
 
         template <typename F>
@@ -1674,10 +1674,10 @@ namespace fat_p {
             using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const E&>>>;
             if (!has_value()) {
                 return ExpectedImpl<T, G, StoragePolicy>(
-                    unexpect, std::invoke(std::forward<F>(f), mStorage.getError())
+                    unexpect, std::invoke(std::forward<F>(f), mStorage.get_error())
                 );
             }
-            return ExpectedImpl<T, G, StoragePolicy>(std::in_place, mStorage.getValue());
+            return ExpectedImpl<T, G, StoragePolicy>(std::in_place, mStorage.get_value());
         }
 
         template <typename F>
@@ -1685,10 +1685,10 @@ namespace fat_p {
             using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, E&&>>>;
             if (!has_value()) {
                 return ExpectedImpl<T, G, StoragePolicy>(
-                    unexpect, std::invoke(std::forward<F>(f), std::move(mStorage.getError()))
+                    unexpect, std::invoke(std::forward<F>(f), std::move(mStorage.get_error()))
                 );
             }
-            return ExpectedImpl<T, G, StoragePolicy>(std::in_place, std::move(mStorage.getValue()));
+            return ExpectedImpl<T, G, StoragePolicy>(std::in_place, std::move(mStorage.get_value()));
         }
 
         template <typename F>
@@ -1696,10 +1696,10 @@ namespace fat_p {
             using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const E&&>>>;
             if (!has_value()) {
                 return ExpectedImpl<T, G, StoragePolicy>(
-                    unexpect, std::invoke(std::forward<F>(f), std::move(mStorage.getError()))
+                    unexpect, std::invoke(std::forward<F>(f), std::move(mStorage.get_error()))
                 );
             }
-            return ExpectedImpl<T, G, StoragePolicy>(std::in_place, std::move(mStorage.getValue()));
+            return ExpectedImpl<T, G, StoragePolicy>(std::in_place, std::move(mStorage.get_value()));
         }
 
         template <typename F>
@@ -1731,9 +1731,9 @@ namespace fat_p {
             static_assert(is_expected_with_value<Result, T>::value,
                 "or_else must return ExpectedImpl<T, G> with same T");
             if (!has_value()) {
-                return std::invoke(std::forward<F>(f), mStorage.getError());
+                return std::invoke(std::forward<F>(f), mStorage.get_error());
             }
-            return Result(std::in_place, mStorage.getValue());
+            return Result(std::in_place, mStorage.get_value());
         }
 
         template <typename F>
@@ -1742,9 +1742,9 @@ namespace fat_p {
             static_assert(is_expected_with_value<Result, T>::value,
                 "or_else must return ExpectedImpl<T, G> with same T");
             if (!has_value()) {
-                return std::invoke(std::forward<F>(f), mStorage.getError());
+                return std::invoke(std::forward<F>(f), mStorage.get_error());
             }
-            return Result(std::in_place, mStorage.getValue());
+            return Result(std::in_place, mStorage.get_value());
         }
 
         template <typename F>
@@ -1753,9 +1753,9 @@ namespace fat_p {
             static_assert(is_expected_with_value<Result, T>::value,
                 "or_else must return ExpectedImpl<T, G> with same T");
             if (!has_value()) {
-                return std::invoke(std::forward<F>(f), std::move(mStorage.getError()));
+                return std::invoke(std::forward<F>(f), std::move(mStorage.get_error()));
             }
-            return Result(std::in_place, std::move(mStorage.getValue()));
+            return Result(std::in_place, std::move(mStorage.get_value()));
         }
 
         template <typename F>
@@ -1764,9 +1764,9 @@ namespace fat_p {
             static_assert(is_expected_with_value<Result, T>::value,
                 "or_else must return ExpectedImpl<T, G> with same T");
             if (!has_value()) {
-                return std::invoke(std::forward<F>(f), std::move(mStorage.getError()));
+                return std::invoke(std::forward<F>(f), std::move(mStorage.get_error()));
             }
-            return Result(std::in_place, std::move(mStorage.getValue()));
+            return Result(std::in_place, std::move(mStorage.get_value()));
         }
 
         // --- Inspection (Non-consuming observation) ---
@@ -1780,7 +1780,7 @@ namespace fat_p {
         template <typename F>
         constexpr const ExpectedImpl& inspect(F&& f) const& {
             if (has_value()) {
-                std::invoke(std::forward<F>(f), mStorage.getValue());
+                std::invoke(std::forward<F>(f), mStorage.get_value());
             }
             return *this;
         }
@@ -1788,7 +1788,7 @@ namespace fat_p {
         template <typename F>
         constexpr ExpectedImpl& inspect(F&& f)& {
             if (has_value()) {
-                std::invoke(std::forward<F>(f), mStorage.getValue());
+                std::invoke(std::forward<F>(f), mStorage.get_value());
             }
             return *this;
         }
@@ -1800,17 +1800,17 @@ namespace fat_p {
          * @return Reference to this (for chaining).
          */
         template <typename F>
-        constexpr const ExpectedImpl& inspectError(F&& f) const& {
+        constexpr const ExpectedImpl& inspect_error(F&& f) const& {
             if (!has_value()) {
-                std::invoke(std::forward<F>(f), mStorage.getError());
+                std::invoke(std::forward<F>(f), mStorage.get_error());
             }
             return *this;
         }
 
         template <typename F>
-        constexpr ExpectedImpl& inspectError(F&& f)& {
+        constexpr ExpectedImpl& inspect_error(F&& f)& {
             if (!has_value()) {
-                std::invoke(std::forward<F>(f), mStorage.getError());
+                std::invoke(std::forward<F>(f), mStorage.get_error());
             }
             return *this;
         }
@@ -1819,26 +1819,26 @@ namespace fat_p {
 
         template <typename ValF, typename ErrF>
         [[nodiscard]] constexpr auto fold(ValF&& val_f, ErrF&& err_f) const& {
-            if (has_value()) return std::invoke(std::forward<ValF>(val_f), mStorage.getValue());
-            return std::invoke(std::forward<ErrF>(err_f), mStorage.getError());
+            if (has_value()) return std::invoke(std::forward<ValF>(val_f), mStorage.get_value());
+            return std::invoke(std::forward<ErrF>(err_f), mStorage.get_error());
         }
 
         template <typename ValF, typename ErrF>
         [[nodiscard]] constexpr auto fold(ValF&& val_f, ErrF&& err_f)& {
-            if (has_value()) return std::invoke(std::forward<ValF>(val_f), mStorage.getValue());
-            return std::invoke(std::forward<ErrF>(err_f), mStorage.getError());
+            if (has_value()) return std::invoke(std::forward<ValF>(val_f), mStorage.get_value());
+            return std::invoke(std::forward<ErrF>(err_f), mStorage.get_error());
         }
 
         template <typename ValF, typename ErrF>
         [[nodiscard]] constexpr auto fold(ValF&& val_f, ErrF&& err_f)&& {
-            if (has_value()) return std::invoke(std::forward<ValF>(val_f), std::move(mStorage.getValue()));
-            return std::invoke(std::forward<ErrF>(err_f), std::move(mStorage.getError()));
+            if (has_value()) return std::invoke(std::forward<ValF>(val_f), std::move(mStorage.get_value()));
+            return std::invoke(std::forward<ErrF>(err_f), std::move(mStorage.get_error()));
         }
 
         template <typename ValF, typename ErrF>
         [[nodiscard]] constexpr auto fold(ValF&& val_f, ErrF&& err_f) const&& {
-            if (has_value()) return std::invoke(std::forward<ValF>(val_f), std::move(mStorage.getValue()));
-            return std::invoke(std::forward<ErrF>(err_f), std::move(mStorage.getError()));
+            if (has_value()) return std::invoke(std::forward<ValF>(val_f), std::move(mStorage.get_value()));
+            return std::invoke(std::forward<ErrF>(err_f), std::move(mStorage.get_error()));
         }
     };
 
@@ -1925,37 +1925,37 @@ namespace fat_p {
     template <typename E>
     struct UnionStorage<void, E> {
     private:
-        bool mHasValue;      ///< Discriminator (true for success)
+        bool has_value_;      ///< Discriminator (true for success)
         bool mInitialized;    ///< True if union has been initialized (either value or error)
         union {
             char mDummy = '\0'; ///< Dummy member for default construction (initialized to avoid UB)
-            E mError;           ///< Error storage (active when !mHasValue)
+            E mError;           ///< Error storage (active when !has_value_)
         };
 
     public:
-        UnionStorage() noexcept : mHasValue(true), mInitialized(true), mDummy() {}
+        UnionStorage() noexcept : has_value_(true), mInitialized(true), mDummy() {}
 
         ~UnionStorage() noexcept {
-            if (mInitialized && !mHasValue) {
+            if (mInitialized && !has_value_) {
                 if constexpr (!std::is_trivially_destructible_v<E>) {
                     mError.~E();
                 }
             }
         }
 
-        void storeValue() {
-            if (mInitialized && !mHasValue) {
+        void store_value() {
+            if (mInitialized && !has_value_) {
                 if constexpr (!std::is_trivially_destructible_v<E>) {
                     mError.~E();
                 }
             }
-            mHasValue = true;
+            has_value_ = true;
             mInitialized = true;
         }
 
         template <typename... Args>
-        void storeError(Args&&... args) {
-            if (mInitialized && mHasValue) {
+        void store_error(Args&&... args) {
+            if (mInitialized && has_value_) {
                 // No destructor for void
             }
             else if (mInitialized) {
@@ -1969,40 +1969,40 @@ namespace fat_p {
             else {
                 new (&mError) E(std::forward<Args>(args)...);
             }
-            mHasValue = false;
+            has_value_ = false;
             mInitialized = true;
         }
 
         template <typename Arg>
-        void assignError(Arg&& arg) noexcept(std::is_nothrow_assignable_v<E&, Arg>) {
-            assert(!mHasValue);
+        void assign_error(Arg&& arg) noexcept(std::is_nothrow_assignable_v<E&, Arg>) {
+            assert(!has_value_);
             mError = std::forward<Arg>(arg);
         }
 
-        constexpr bool has_value() const noexcept { return mHasValue && mInitialized; }
+        constexpr bool has_value() const noexcept { return has_value_ && mInitialized; }
 
-        constexpr bool isInitialized() const noexcept { return mInitialized; }
+        constexpr bool is_initialized() const noexcept { return mInitialized; }
 
-        // No getValue for void
+        // No get_value for void
 
-        constexpr E& getError() & {
+        constexpr E& get_error() & {
             if (!mInitialized) FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
-            assert(!mHasValue);
+            assert(!has_value_);
             return mError;
         }
-        constexpr const E& getError() const& {
+        constexpr const E& get_error() const& {
             if (!mInitialized) FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
-            assert(!mHasValue);
+            assert(!has_value_);
             return mError;
         }
-        constexpr E&& getError() && {
+        constexpr E&& get_error() && {
             if (!mInitialized) FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
-            assert(!mHasValue);
+            assert(!has_value_);
             return std::move(mError);
         }
-        constexpr const E&& getError() const&& {
+        constexpr const E&& get_error() const&& {
             if (!mInitialized) FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
-            assert(!mHasValue);
+            assert(!has_value_);
             return std::move(mError);
         }
 
@@ -2015,12 +2015,12 @@ namespace fat_p {
 
             if (!mInitialized) {
                 // This uninit, other init
-                if (other.mHasValue) {
-                    storeValue();
+                if (other.has_value_) {
+                    store_value();
                     other.mInitialized = false;
                 }
                 else {
-                    storeError(std::move(other.mError));
+                    store_error(std::move(other.mError));
                     if constexpr (!std::is_trivially_destructible_v<E>) {
                         other.mError.~E();
                     }
@@ -2031,12 +2031,12 @@ namespace fat_p {
 
             if (!other.mInitialized) {
                 // Other uninit, this init
-                if (mHasValue) {
-                    other.storeValue();
+                if (has_value_) {
+                    other.store_value();
                     mInitialized = false;
                 }
                 else {
-                    other.storeError(std::move(mError));
+                    other.store_error(std::move(mError));
                     if constexpr (!std::is_trivially_destructible_v<E>) {
                         mError.~E();
                     }
@@ -2046,29 +2046,29 @@ namespace fat_p {
             }
 
             // Both init
-            if (mHasValue == other.mHasValue) {
-                if (!mHasValue) {
+            if (has_value_ == other.has_value_) {
+                if (!has_value_) {
                     using std::swap;
                     swap(mError, other.mError);
                 }
                 // Both value: nothing
             }
             else {
-                if (mHasValue) {
+                if (has_value_) {
                     new (&mError) E(std::move(other.mError));
                     if constexpr (!std::is_trivially_destructible_v<E>) {
                         other.mError.~E();
                     }
-                    mHasValue = false;
-                    other.mHasValue = true;
+                    has_value_ = false;
+                    other.has_value_ = true;
                 }
                 else {
                     new (&other.mError) E(std::move(mError));
                     if constexpr (!std::is_trivially_destructible_v<E>) {
                         mError.~E();
                     }
-                    mHasValue = true;
-                    other.mHasValue = false;
+                    has_value_ = true;
+                    other.has_value_ = false;
                 }
             }
         }
@@ -2083,46 +2083,46 @@ namespace fat_p {
     template <typename E>
     struct VariantStorage<void, E> {
         using Unexpected = unexpected<E>;
-        std::variant<std::monostate, Unexpected> mData;  ///< monostate for void success
+        std::variant<std::monostate, Unexpected> data_;  ///< monostate for void success
 
         VariantStorage() = default;
 
-        void storeValue() { mData.template emplace<std::monostate>(); }
+        void store_value() { data_.template emplace<std::monostate>(); }
 
         template <typename... Args>
-        void storeError(Args&&... args) {
-            mData.template emplace<Unexpected>(std::forward<Args>(args)...);
+        void store_error(Args&&... args) {
+            data_.template emplace<Unexpected>(std::forward<Args>(args)...);
         }
 
         template <typename Arg>
-        void assignError(Arg&& arg) {
-            assert(mData.index() == 1);
-            std::get<Unexpected>(mData).mError = std::forward<Arg>(arg);
+        void assign_error(Arg&& arg) {
+            assert(data_.index() == 1);
+            std::get<Unexpected>(data_).mError = std::forward<Arg>(arg);
         }
 
-        constexpr bool has_value() const noexcept { return mData.index() == 0; }
+        constexpr bool has_value() const noexcept { return data_.index() == 0; }
 
-        // No getValue
+        // No get_value
 
-        E& getError()& {
-            assert(mData.index() == 1);
-            return std::get<Unexpected>(mData).mError;
+        E& get_error()& {
+            assert(data_.index() == 1);
+            return std::get<Unexpected>(data_).mError;
         }
-        const E& getError() const& {
-            assert(mData.index() == 1);
-            return std::get<Unexpected>(mData).mError;
+        const E& get_error() const& {
+            assert(data_.index() == 1);
+            return std::get<Unexpected>(data_).mError;
         }
-        E&& getError()&& {
-            assert(mData.index() == 1);
-            return std::get<Unexpected>(std::move(mData)).mError;
+        E&& get_error()&& {
+            assert(data_.index() == 1);
+            return std::get<Unexpected>(std::move(data_)).mError;
         }
-        const E&& getError() const&& {
-            assert(mData.index() == 1);
-            return std::get<Unexpected>(std::move(mData)).mError;
+        const E&& get_error() const&& {
+            assert(data_.index() == 1);
+            return std::get<Unexpected>(std::move(data_)).mError;
         }
 
-        void swap(VariantStorage& other) noexcept(std::is_nothrow_swappable_v<decltype(mData)>) {
-            mData.swap(other.mData);
+        void swap(VariantStorage& other) noexcept(std::is_nothrow_swappable_v<decltype(data_)>) {
+            data_.swap(other.data_);
         }
     };
 #endif
@@ -2164,38 +2164,38 @@ namespace fat_p {
         template <typename... Args>
         constexpr explicit ExpectedImpl(unexpect_tag_t, Args&&... args)
             noexcept(std::is_nothrow_constructible_v<E, Args...>) {
-            mStorage.storeError(std::forward<Args>(args)...);
+            mStorage.store_error(std::forward<Args>(args)...);
         }
 
         template <typename U, typename... Args>
         constexpr explicit ExpectedImpl(unexpect_tag_t, std::initializer_list<U> il, Args&&... args)
             noexcept(std::is_nothrow_constructible_v<E, std::initializer_list<U>&, Args...>) {
-            mStorage.storeError(il, std::forward<Args>(args)...);
+            mStorage.store_error(il, std::forward<Args>(args)...);
         }
 
         template <typename G>
         constexpr ExpectedImpl(const unexpected<G>& ue)
             noexcept(std::is_nothrow_constructible_v<E, const G&>) {
-            mStorage.storeError(ue.value());
+            mStorage.store_error(ue.value());
         }
 
         template <typename G>
         constexpr ExpectedImpl(unexpected<G>&& ue)
             noexcept(std::is_nothrow_constructible_v<E, G&&>) {
-            mStorage.storeError(std::move(ue).value());
+            mStorage.store_error(std::move(ue).value());
         }
 
         ExpectedImpl(const ExpectedImpl& other)
             noexcept(std::is_nothrow_copy_constructible_v<E>) {
             if (!other.has_value()) {
-                mStorage.storeError(other.mStorage.getError());
+                mStorage.store_error(other.mStorage.get_error());
             }
         }
 
         ExpectedImpl(ExpectedImpl&& other)
             noexcept(std::is_nothrow_move_constructible_v<E>) {
             if (!other.has_value()) {
-                mStorage.storeError(std::move(other.mStorage.getError()));
+                mStorage.store_error(std::move(other.mStorage.get_error()));
             }
         }
 
@@ -2203,20 +2203,20 @@ namespace fat_p {
             noexcept(std::is_nothrow_copy_constructible_v<E>&&
                 std::is_nothrow_copy_assignable_v<E>) {
             if (this != &other) {
-                const bool thisHasVal = has_value();
-                const bool otherHasVal = other.has_value();
+                const bool this_has_val = has_value();
+                const bool other_has_val = other.has_value();
 
-                if (!thisHasVal && !otherHasVal) {
+                if (!this_has_val && !other_has_val) {
                     // Both errors - direct assignment
-                    mStorage.assignError(other.mStorage.getError());
+                    mStorage.assign_error(other.mStorage.get_error());
                 }
-                else if (!otherHasVal) {
+                else if (!other_has_val) {
                     // this is value, other is error
-                    mStorage.storeError(other.mStorage.getError());
+                    mStorage.store_error(other.mStorage.get_error());
                 }
-                else if (!thisHasVal) {
+                else if (!this_has_val) {
                     // this is error, other is value
-                    mStorage.storeValue();
+                    mStorage.store_value();
                 }
                 // Both values: nothing to do
             }
@@ -2227,20 +2227,20 @@ namespace fat_p {
             noexcept(std::is_nothrow_move_constructible_v<E>&&
                 std::is_nothrow_move_assignable_v<E>) {
             if (this != &other) {
-                const bool thisHasVal = has_value();
-                const bool otherHasVal = other.has_value();
+                const bool this_has_val = has_value();
+                const bool other_has_val = other.has_value();
 
-                if (!thisHasVal && !otherHasVal) {
+                if (!this_has_val && !other_has_val) {
                     // Both errors - direct assignment
-                    mStorage.assignError(std::move(other.mStorage.getError()));
+                    mStorage.assign_error(std::move(other.mStorage.get_error()));
                 }
-                else if (!otherHasVal) {
+                else if (!other_has_val) {
                     // this is value, other is error
-                    mStorage.storeError(std::move(other.mStorage.getError()));
+                    mStorage.store_error(std::move(other.mStorage.get_error()));
                 }
-                else if (!thisHasVal) {
+                else if (!this_has_val) {
                     // this is error, other is value
-                    mStorage.storeValue();
+                    mStorage.store_value();
                 }
                 // Both values: nothing to do
             }
@@ -2252,10 +2252,10 @@ namespace fat_p {
             noexcept(std::is_nothrow_constructible_v<E, const G&>&&
                 std::is_nothrow_assignable_v<E&, const G&>) {
             if (has_value()) {
-                mStorage.storeError(ue.value());
+                mStorage.store_error(ue.value());
             }
             else {
-                mStorage.assignError(ue.value());
+                mStorage.assign_error(ue.value());
             }
             return *this;
         }
@@ -2265,17 +2265,17 @@ namespace fat_p {
             noexcept(std::is_nothrow_constructible_v<E, G&&>&&
                 std::is_nothrow_assignable_v<E&, G&&>) {
             if (has_value()) {
-                mStorage.storeError(std::move(ue).value());
+                mStorage.store_error(std::move(ue).value());
             }
             else {
-                mStorage.assignError(std::move(ue).value());
+                mStorage.assign_error(std::move(ue).value());
             }
             return *this;
         }
 
         // --- Emplace ---
 
-        void emplace() noexcept { mStorage.storeValue(); }
+        void emplace() noexcept { mStorage.store_value(); }
 
         // --- Swap ---
 
@@ -2303,45 +2303,45 @@ namespace fat_p {
 
         constexpr void value() const {
             if (!has_value()) {
-                FATP_EXPECTED_THROW(bad_expected_access<E>(mStorage.getError()));
+                FATP_EXPECTED_THROW(bad_expected_access<E>(mStorage.get_error()));
             }
         }
 
         constexpr E& error() & noexcept {
             assert(!has_value());
-            return mStorage.getError();
+            return mStorage.get_error();
         }
         constexpr const E& error() const& noexcept {
             assert(!has_value());
-            return mStorage.getError();
+            return mStorage.get_error();
         }
         constexpr E&& error() && noexcept {
             assert(!has_value());
-            return std::move(mStorage.getError());
+            return std::move(mStorage.get_error());
         }
         constexpr const E&& error() const&& noexcept {
             assert(!has_value());
-            return std::move(mStorage.getError());
+            return std::move(mStorage.get_error());
         }
 
         template <typename G>
         [[nodiscard]] constexpr E error_or(G&& default_error) const& {
-            return has_value() ? static_cast<E>(std::forward<G>(default_error)) : mStorage.getError();
+            return has_value() ? static_cast<E>(std::forward<G>(default_error)) : mStorage.get_error();
         }
 
         template <typename G>
         [[nodiscard]] constexpr E error_or(G&& default_error)&& {
-            return has_value() ? static_cast<E>(std::forward<G>(default_error)) : std::move(mStorage.getError());
+            return has_value() ? static_cast<E>(std::forward<G>(default_error)) : std::move(mStorage.get_error());
         }
 
         template <typename F>
         [[nodiscard]] constexpr E error_or_else(F&& f) const& {
-            return has_value() ? std::forward<F>(f)() : mStorage.getError();
+            return has_value() ? std::forward<F>(f)() : mStorage.get_error();
         }
 
         template <typename F>
         [[nodiscard]] constexpr E error_or_else(F&& f)&& {
-            return has_value() ? std::forward<F>(f)() : std::move(mStorage.getError());
+            return has_value() ? std::forward<F>(f)() : std::move(mStorage.get_error());
         }
 
         // --- Monadic Functions (Success Path) ---
@@ -2358,7 +2358,7 @@ namespace fat_p {
                         std::in_place, std::invoke(std::forward<F>(f)));
                 }
             }
-            return ExpectedImpl<U, E, StoragePolicy>(unexpect, mStorage.getError());
+            return ExpectedImpl<U, E, StoragePolicy>(unexpect, mStorage.get_error());
         }
 
         template <typename F>
@@ -2373,7 +2373,7 @@ namespace fat_p {
                         std::in_place, std::invoke(std::forward<F>(f)));
                 }
             }
-            return ExpectedImpl<U, E, StoragePolicy>(unexpect, mStorage.getError());
+            return ExpectedImpl<U, E, StoragePolicy>(unexpect, mStorage.get_error());
         }
 
         template <typename F>
@@ -2388,7 +2388,7 @@ namespace fat_p {
                         std::in_place, std::invoke(std::forward<F>(f)));
                 }
             }
-            return ExpectedImpl<U, E, StoragePolicy>(unexpect, std::move(mStorage.getError()));
+            return ExpectedImpl<U, E, StoragePolicy>(unexpect, std::move(mStorage.get_error()));
         }
 
         template <typename F>
@@ -2403,7 +2403,7 @@ namespace fat_p {
                         std::in_place, std::invoke(std::forward<F>(f)));
                 }
             }
-            return ExpectedImpl<U, E, StoragePolicy>(unexpect, std::move(mStorage.getError()));
+            return ExpectedImpl<U, E, StoragePolicy>(unexpect, std::move(mStorage.get_error()));
         }
 
         template <typename F>
@@ -2431,7 +2431,7 @@ namespace fat_p {
             if (has_value()) {
                 return std::invoke(std::forward<F>(f));
             }
-            return Result(unexpect, mStorage.getError());
+            return Result(unexpect, mStorage.get_error());
         }
 
         template <typename F>
@@ -2442,7 +2442,7 @@ namespace fat_p {
             if (has_value()) {
                 return std::invoke(std::forward<F>(f));
             }
-            return Result(unexpect, mStorage.getError());
+            return Result(unexpect, mStorage.get_error());
         }
 
         template <typename F>
@@ -2453,7 +2453,7 @@ namespace fat_p {
             if (has_value()) {
                 return std::invoke(std::forward<F>(f));
             }
-            return Result(unexpect, std::move(mStorage.getError()));
+            return Result(unexpect, std::move(mStorage.get_error()));
         }
 
         template <typename F>
@@ -2464,7 +2464,7 @@ namespace fat_p {
             if (has_value()) {
                 return std::invoke(std::forward<F>(f));
             }
-            return Result(unexpect, std::move(mStorage.getError()));
+            return Result(unexpect, std::move(mStorage.get_error()));
         }
 
         template <typename F>
@@ -2491,7 +2491,7 @@ namespace fat_p {
             using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, E&>>>;
             if (!has_value()) {
                 return ExpectedImpl<void, G, StoragePolicy>(
-                    unexpect, std::invoke(std::forward<F>(f), mStorage.getError())
+                    unexpect, std::invoke(std::forward<F>(f), mStorage.get_error())
                 );
             }
             return ExpectedImpl<void, G, StoragePolicy>();
@@ -2502,7 +2502,7 @@ namespace fat_p {
             using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const E&>>>;
             if (!has_value()) {
                 return ExpectedImpl<void, G, StoragePolicy>(
-                    unexpect, std::invoke(std::forward<F>(f), mStorage.getError())
+                    unexpect, std::invoke(std::forward<F>(f), mStorage.get_error())
                 );
             }
             return ExpectedImpl<void, G, StoragePolicy>();
@@ -2513,7 +2513,7 @@ namespace fat_p {
             using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, E&&>>>;
             if (!has_value()) {
                 return ExpectedImpl<void, G, StoragePolicy>(
-                    unexpect, std::invoke(std::forward<F>(f), std::move(mStorage.getError()))
+                    unexpect, std::invoke(std::forward<F>(f), std::move(mStorage.get_error()))
                 );
             }
             return ExpectedImpl<void, G, StoragePolicy>();
@@ -2524,7 +2524,7 @@ namespace fat_p {
             using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const E&&>>>;
             if (!has_value()) {
                 return ExpectedImpl<void, G, StoragePolicy>(
-                    unexpect, std::invoke(std::forward<F>(f), std::move(mStorage.getError()))
+                    unexpect, std::invoke(std::forward<F>(f), std::move(mStorage.get_error()))
                 );
             }
             return ExpectedImpl<void, G, StoragePolicy>();
@@ -2553,7 +2553,7 @@ namespace fat_p {
             static_assert(is_expected_with_value<Result, void>::value,
                 "or_else must return ExpectedImpl<void, G>");
             if (!has_value()) {
-                return std::invoke(std::forward<F>(f), mStorage.getError());
+                return std::invoke(std::forward<F>(f), mStorage.get_error());
             }
             return Result();
         }
@@ -2564,7 +2564,7 @@ namespace fat_p {
             static_assert(is_expected_with_value<Result, void>::value,
                 "or_else must return ExpectedImpl<void, G>");
             if (!has_value()) {
-                return std::invoke(std::forward<F>(f), mStorage.getError());
+                return std::invoke(std::forward<F>(f), mStorage.get_error());
             }
             return Result();
         }
@@ -2575,7 +2575,7 @@ namespace fat_p {
             static_assert(is_expected_with_value<Result, void>::value,
                 "or_else must return ExpectedImpl<void, G>");
             if (!has_value()) {
-                return std::invoke(std::forward<F>(f), std::move(mStorage.getError()));
+                return std::invoke(std::forward<F>(f), std::move(mStorage.get_error()));
             }
             return Result();
         }
@@ -2586,7 +2586,7 @@ namespace fat_p {
             static_assert(is_expected_with_value<Result, void>::value,
                 "or_else must return ExpectedImpl<void, G>");
             if (!has_value()) {
-                return std::invoke(std::forward<F>(f), std::move(mStorage.getError()));
+                return std::invoke(std::forward<F>(f), std::move(mStorage.get_error()));
             }
             return Result();
         }
@@ -2610,17 +2610,17 @@ namespace fat_p {
         }
 
         template <typename F>
-        constexpr const ExpectedImpl& inspectError(F&& f) const& {
+        constexpr const ExpectedImpl& inspect_error(F&& f) const& {
             if (!has_value()) {
-                std::invoke(std::forward<F>(f), mStorage.getError());
+                std::invoke(std::forward<F>(f), mStorage.get_error());
             }
             return *this;
         }
 
         template <typename F>
-        constexpr ExpectedImpl& inspectError(F&& f)& {
+        constexpr ExpectedImpl& inspect_error(F&& f)& {
             if (!has_value()) {
-                std::invoke(std::forward<F>(f), mStorage.getError());
+                std::invoke(std::forward<F>(f), mStorage.get_error());
             }
             return *this;
         }
@@ -2630,25 +2630,25 @@ namespace fat_p {
         template <typename ValF, typename ErrF>
         [[nodiscard]] constexpr auto fold(ValF&& val_f, ErrF&& err_f) const& {
             if (has_value()) return std::invoke(std::forward<ValF>(val_f));
-            return std::invoke(std::forward<ErrF>(err_f), mStorage.getError());
+            return std::invoke(std::forward<ErrF>(err_f), mStorage.get_error());
         }
 
         template <typename ValF, typename ErrF>
         [[nodiscard]] constexpr auto fold(ValF&& val_f, ErrF&& err_f)& {
             if (has_value()) return std::invoke(std::forward<ValF>(val_f));
-            return std::invoke(std::forward<ErrF>(err_f), mStorage.getError());
+            return std::invoke(std::forward<ErrF>(err_f), mStorage.get_error());
         }
 
         template <typename ValF, typename ErrF>
         [[nodiscard]] constexpr auto fold(ValF&& val_f, ErrF&& err_f)&& {
             if (has_value()) return std::invoke(std::forward<ValF>(val_f));
-            return std::invoke(std::forward<ErrF>(err_f), std::move(mStorage.getError()));
+            return std::invoke(std::forward<ErrF>(err_f), std::move(mStorage.get_error()));
         }
 
         template <typename ValF, typename ErrF>
         [[nodiscard]] constexpr auto fold(ValF&& val_f, ErrF&& err_f) const&& {
             if (has_value()) return std::invoke(std::forward<ValF>(val_f));
-            return std::invoke(std::forward<ErrF>(err_f), std::move(mStorage.getError()));
+            return std::invoke(std::forward<ErrF>(err_f), std::move(mStorage.get_error()));
         }
     };
 
@@ -2807,89 +2807,89 @@ namespace fat_p {
 
         [[nodiscard]] constexpr bool has_value() const noexcept { return mStorage.has_value(); }
         [[nodiscard]] constexpr bool has_error() const noexcept { return !mStorage.has_value(); }
-        [[nodiscard]] constexpr bool isInitialized() const noexcept { return true; }
+        [[nodiscard]] constexpr bool is_initialized() const noexcept { return true; }
         [[nodiscard]] constexpr explicit operator bool() const noexcept { return has_value(); }
 
         // --- Unchecked Accessors ---
 
-        constexpr T* operator->() noexcept { return &mStorage.getValue(); }
-        constexpr const T* operator->() const noexcept { return &mStorage.getValue(); }
+        constexpr T* operator->() noexcept { return &mStorage.get_value(); }
+        constexpr const T* operator->() const noexcept { return &mStorage.get_value(); }
 
-        constexpr T& operator*() & noexcept { return mStorage.getValue(); }
-        constexpr const T& operator*() const& noexcept { return mStorage.getValue(); }
-        constexpr T&& operator*() && noexcept { return std::move(mStorage.getValue()); }
+        constexpr T& operator*() & noexcept { return mStorage.get_value(); }
+        constexpr const T& operator*() const& noexcept { return mStorage.get_value(); }
+        constexpr T&& operator*() && noexcept { return std::move(mStorage.get_value()); }
         constexpr const T&& operator*() const&& noexcept {
-            return std::move(mStorage.getValue());
+            return std::move(mStorage.get_value());
         }
 
         // --- Unchecked Value Accessors (for verified hot paths) ---
 
-        [[nodiscard]] constexpr T& valueUnchecked() & noexcept {
-            return mStorage.getValue();
+        [[nodiscard]] constexpr T& value_unchecked() & noexcept {
+            return mStorage.get_value();
         }
-        [[nodiscard]] constexpr const T& valueUnchecked() const& noexcept {
-            return mStorage.getValue();
+        [[nodiscard]] constexpr const T& value_unchecked() const& noexcept {
+            return mStorage.get_value();
         }
-        [[nodiscard]] constexpr T&& valueUnchecked() && noexcept {
-            return std::move(mStorage.getValue());
+        [[nodiscard]] constexpr T&& value_unchecked() && noexcept {
+            return std::move(mStorage.get_value());
         }
-        [[nodiscard]] constexpr const T&& valueUnchecked() const&& noexcept {
-            return std::move(mStorage.getValue());
+        [[nodiscard]] constexpr const T&& value_unchecked() const&& noexcept {
+            return std::move(mStorage.get_value());
         }
 
         // --- Throwing Value Accessors ---
 
         [[nodiscard]] constexpr T& value() & {
             if (!has_value()) {
-                FATP_EXPECTED_THROW(bad_expected_access<E>(mStorage.getError()));
+                FATP_EXPECTED_THROW(bad_expected_access<E>(mStorage.get_error()));
             }
-            return mStorage.getValue();
+            return mStorage.get_value();
         }
         [[nodiscard]] constexpr const T& value() const& {
             if (!has_value()) {
-                FATP_EXPECTED_THROW(bad_expected_access<E>(mStorage.getError()));
+                FATP_EXPECTED_THROW(bad_expected_access<E>(mStorage.get_error()));
             }
-            return mStorage.getValue();
+            return mStorage.get_value();
         }
         [[nodiscard]] constexpr T&& value() && {
             if (!has_value()) {
-                FATP_EXPECTED_THROW(bad_expected_access<E>(std::move(mStorage.getError())));
+                FATP_EXPECTED_THROW(bad_expected_access<E>(std::move(mStorage.get_error())));
             }
-            return std::move(mStorage.getValue());
+            return std::move(mStorage.get_value());
         }
         [[nodiscard]] constexpr const T&& value() const&& {
             if (!has_value()) {
-                FATP_EXPECTED_THROW(bad_expected_access<E>(mStorage.getError()));
+                FATP_EXPECTED_THROW(bad_expected_access<E>(mStorage.get_error()));
             }
-            return std::move(mStorage.getValue());
+            return std::move(mStorage.get_value());
         }
 
         // --- Error Accessors ---
 
-        constexpr E& error() & noexcept { return mStorage.getError(); }
-        constexpr const E& error() const& noexcept { return mStorage.getError(); }
-        constexpr E&& error() && noexcept { return std::move(mStorage.getError()); }
+        constexpr E& error() & noexcept { return mStorage.get_error(); }
+        constexpr const E& error() const& noexcept { return mStorage.get_error(); }
+        constexpr E&& error() && noexcept { return std::move(mStorage.get_error()); }
         constexpr const E&& error() const&& noexcept {
-            return std::move(mStorage.getError());
+            return std::move(mStorage.get_error());
         }
 
         // --- value_or / error_or ---
 
         template <typename U>
         [[nodiscard]] constexpr T value_or(U&& default_val) const& {
-            return has_value() ? mStorage.getValue() : static_cast<T>(std::forward<U>(default_val));
+            return has_value() ? mStorage.get_value() : static_cast<T>(std::forward<U>(default_val));
         }
 
         template <typename U>
         [[nodiscard]] constexpr T value_or(U&& default_val) && {
-            return has_value() ? std::move(mStorage.getValue())
+            return has_value() ? std::move(mStorage.get_value())
                                : static_cast<T>(std::forward<U>(default_val));
         }
 
         template <typename U>
         [[nodiscard]] constexpr E error_or(U&& default_err) const& {
             return has_value() ? static_cast<E>(std::forward<U>(default_err))
-                               : mStorage.getError();
+                               : mStorage.get_error();
         }
 
         // --- Monadic Operations ---
@@ -2899,14 +2899,14 @@ namespace fat_p {
             using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T&>>>;
             if (has_value()) {
                 if constexpr (std::is_void_v<U>) {
-                    std::invoke(std::forward<F>(f), mStorage.getValue());
+                    std::invoke(std::forward<F>(f), mStorage.get_value());
                     return ExpectedImpl<void, E, UnionStorage>();
                 } else {
                     return ExpectedImpl<U, E, TrivialStorage>(
-                        std::in_place, std::invoke(std::forward<F>(f), mStorage.getValue()));
+                        std::in_place, std::invoke(std::forward<F>(f), mStorage.get_value()));
                 }
             }
-            return ExpectedImpl<U, E, TrivialStorage>(unexpect, mStorage.getError());
+            return ExpectedImpl<U, E, TrivialStorage>(unexpect, mStorage.get_error());
         }
 
         template <typename F>
@@ -2914,9 +2914,9 @@ namespace fat_p {
             using Result = std::remove_cv_t<std::remove_reference_t<
                 std::invoke_result_t<F, const T&>>>;
             if (has_value()) {
-                return std::invoke(std::forward<F>(f), mStorage.getValue());
+                return std::invoke(std::forward<F>(f), mStorage.get_value());
             }
-            return Result(unexpect, mStorage.getError());
+            return Result(unexpect, mStorage.get_error());
         }
 
         template <typename F>
@@ -2924,9 +2924,9 @@ namespace fat_p {
             using Result = std::remove_cv_t<std::remove_reference_t<
                 std::invoke_result_t<F, const E&>>>;
             if (has_value()) {
-                return Result(std::in_place, mStorage.getValue());
+                return Result(std::in_place, mStorage.get_value());
             }
-            return std::invoke(std::forward<F>(f), mStorage.getError());
+            return std::invoke(std::forward<F>(f), mStorage.get_error());
         }
 
         template <typename F>
@@ -2934,10 +2934,10 @@ namespace fat_p {
             using G = std::remove_cv_t<std::remove_reference_t<
                 std::invoke_result_t<F, const E&>>>;
             if (has_value()) {
-                return ExpectedImpl<T, G, TrivialStorage>(std::in_place, mStorage.getValue());
+                return ExpectedImpl<T, G, TrivialStorage>(std::in_place, mStorage.get_value());
             }
             return ExpectedImpl<T, G, TrivialStorage>(
-                unexpect, std::invoke(std::forward<F>(f), mStorage.getError()));
+                unexpect, std::invoke(std::forward<F>(f), mStorage.get_error()));
         }
 
         // --- Swap ---
@@ -2950,8 +2950,8 @@ namespace fat_p {
 
         template <typename... Args>
         T& emplace(Args&&... args) {
-            mStorage.storeValue(std::forward<Args>(args)...);
-            return mStorage.getValue();
+            mStorage.store_value(std::forward<Args>(args)...);
+            return mStorage.get_value();
         }
 
         // --- Comparison Operators ---

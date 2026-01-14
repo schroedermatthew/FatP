@@ -146,9 +146,9 @@ inline constexpr bool is_expected_raiser_v = is_expected_raiser<T>::value;
 template <typename Raiser>
 class Enforcer
 {
-    const bool passed_;
-    const char* const locus_;
-    const char* const expression_;
+    const bool mPassed;
+    const char* const mLocus;
+    const char* const mExpression;
     const char* user_message_ = nullptr;  // Points to static string or nullptr - NO allocation
 
 public:
@@ -159,9 +159,9 @@ public:
      * @param locus The file and line number of the contract call.
      */
     constexpr Enforcer(bool passed, const char* expression_str, const char* locus) noexcept
-        : passed_(passed)
-        , locus_(locus)
-        , expression_(expression_str)
+        : mPassed(passed)
+        , mLocus(locus)
+        , mExpression(expression_str)
     {
     }
 
@@ -175,7 +175,7 @@ public:
                          std::is_same_v<Raiser, WarningToCerrRaiser> ||
                          std::is_same_v<Raiser, NoOpRaiser>)
     {
-        FATP_UNLIKELY_IF(!passed_)
+        FATP_UNLIKELY_IF(!mPassed)
         {
             fail_impl();
         }
@@ -192,9 +192,9 @@ private:
     void fail_impl()
     {
         std::string full_message = "\n\tCondition: ";
-        full_message += expression_;
+        full_message += mExpression;
         full_message += "\n\tLocus: ";
-        full_message += locus_;
+        full_message += mLocus;
         if (user_message_) {
             full_message += "\n\tMessage: ";
             full_message += user_message_;
@@ -218,7 +218,7 @@ public:
      */
     void operator()(const char* msg) noexcept
     {
-        FATP_UNLIKELY_IF(!passed_)
+        FATP_UNLIKELY_IF(!mPassed)
         {
             user_message_ = msg;
         }
@@ -232,7 +232,7 @@ public:
     template <typename... Msgs>
     void operator()(Msgs&&... msgs)
     {
-        FATP_UNLIKELY_IF(!passed_)
+        FATP_UNLIKELY_IF(!mPassed)
         {
             // Build message on heap - only happens on failure
             static thread_local std::string formatted_message;

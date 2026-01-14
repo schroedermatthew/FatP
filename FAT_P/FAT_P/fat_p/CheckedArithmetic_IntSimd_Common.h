@@ -13,7 +13,7 @@
  * Design: detect -> scalar fallback
  * - Perform SIMD arithmetic (fast path)
  * - Check for overflow using architecture-specific masks
- * - If overflow detected, fall back to scalar checked_* for proper error handling
+ * - If overflow detected, fall back to scalar mChecked* for proper error handling
  */
 
 #pragma once

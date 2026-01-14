@@ -122,23 +122,23 @@ class TempFile
 {
 public:
     explicit TempFile(const std::string& name)
-        : path_(name)
+        : mPath(name)
     {
     }
 
     ~TempFile()
     {
         std::error_code ec;
-        fs::remove(path_, ec);
+        fs::remove(mPath, ec);
     }
 
     const std::string& path() const
     {
-        return path_;
+        return mPath;
     }
 
 private:
-    std::string path_;
+    std::string mPath;
 };
 
 void create_test_file(const std::string& filename, size_t count)

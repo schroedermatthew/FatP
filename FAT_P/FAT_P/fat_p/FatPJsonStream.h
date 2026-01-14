@@ -258,16 +258,16 @@ class FatPJsonStreamParser
 {
 public:
     FatPJsonStreamParser()
-        : line_(1)
-        , column_(1)
+        : mLine(1)
+        , mColumn(1)
     {
         apply_limits();
     }
 
     explicit FatPJsonStreamParser(const RuntimeLimitsPolicy& limits)
         : runtime_limits_(limits)
-        , line_(1)
-        , column_(1)
+        , mLine(1)
+        , mColumn(1)
     {
         apply_limits();
     }
@@ -295,44 +295,44 @@ public:
      */
     StreamResult<ParseStatus> feed(const char* data, std::size_t size)
     {
-        std::size_t bytes_before = parser_.stats().bytes_consumed;
+        std::size_t bytes_before = mParser.stats().bytes_consumed;
 
         for (std::size_t i = 0; i < size; ++i)
         {
             char c = data[i];
 
-            auto status = parser_.feed(&data[i], 1);
+            auto status = mParser.feed(&data[i], 1);
 
             // Track line/column
             if (c == '\n')
             {
-                ++line_;
-                column_ = 1;
+                ++mLine;
+                mColumn = 1;
             }
             else
             {
-                ++column_;
+                ++mColumn;
             }
 
             if (status == ParseStatus::Error)
             {
                 return make_unexpected(StreamError(
-                    parser_.error(),
-                    parser_.stats().bytes_consumed,
-                    line_,
-                    column_));
+                    mParser.error(),
+                    mParser.stats().bytes_consumed,
+                    mLine,
+                    mColumn));
             }
 
             // Progress callback
             if (progress_callback_ && progress_interval_ > 0)
             {
-                std::size_t consumed = parser_.stats().bytes_consumed;
+                std::size_t consumed = mParser.stats().bytes_consumed;
                 if (consumed / progress_interval_ !=
                     bytes_before / progress_interval_)
                 {
                     progress_callback_(consumed,
-                                       parser_.stats().current_depth,
-                                       parser_.stats().values_parsed);
+                                       mParser.stats().current_depth,
+                                       mParser.stats().values_parsed);
                 }
                 bytes_before = consumed;
             }
@@ -368,13 +368,13 @@ public:
         {
             return make_unexpected(StreamError(
                 ParseError::UnexpectedEof,
-                parser_.stats().bytes_consumed,
-                line_,
-                column_,
+                mParser.stats().bytes_consumed,
+                mLine,
+                mColumn,
                 "incomplete JSON input"));
         }
 
-        return parser_.take_result();
+        return mParser.take_result();
     }
 
     StreamResult<JsonValue> parse(const std::string& data)
@@ -402,58 +402,58 @@ public:
 
     bool is_done() const
     {
-        return parser_.is_done();
+        return mParser.is_done();
     }
 
     bool has_error() const
     {
-        return parser_.has_error();
+        return mParser.has_error();
     }
 
     const JsonValue& result() const
     {
-        FATP_ENFORCE(parser_.is_done(), "parsing not complete");
-        return parser_.result();
+        FATP_ENFORCE(mParser.is_done(), "parsing not complete");
+        return mParser.result();
     }
 
     StreamResult<JsonValue> take_result()
     {
-        if (!parser_.is_done())
+        if (!mParser.is_done())
         {
             return make_unexpected(StreamError("parsing not complete"));
         }
-        return parser_.take_result();
+        return mParser.take_result();
     }
 
     const json_stream::JsonStreamParser::Stats& stats() const
     {
-        return parser_.stats();
+        return mParser.stats();
     }
 
     std::size_t current_line() const noexcept
     {
-        return line_;
+        return mLine;
     }
 
     std::size_t current_column() const noexcept
     {
-        return column_;
+        return mColumn;
     }
 
     void reset()
     {
-        parser_.reset();
-        line_ = 1;
-        column_ = 1;
+        mParser.reset();
+        mLine = 1;
+        mColumn = 1;
     }
 
 private:
-    json_stream::JsonStreamParser parser_;
+    json_stream::JsonStreamParser mParser;
     RuntimeLimitsPolicy runtime_limits_;
     ProgressCallback progress_callback_;
     std::size_t progress_interval_ = 0;
-    std::size_t line_;
-    std::size_t column_;
+    std::size_t mLine;
+    std::size_t mColumn;
 
     void apply_limits()
     {
@@ -476,7 +476,7 @@ private:
             limits.max_object_members = LimitsPolicy::max_object_members;
         }
 
-        parser_.set_limits(limits);
+        mParser.set_limits(limits);
     }
 };
 

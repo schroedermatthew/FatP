@@ -206,18 +206,18 @@ class Encoder
 {
 public:
     explicit Encoder(buffer &out) noexcept
-        : out_(out)
+        : mOut(out)
     {
     }
 
     buffer &output() noexcept
     {
-        return out_;
+        return mOut;
     }
 
     void write_uint(std::uint64_t value)
     {
-        write_type_and_argument(out_, MajorType::UnsignedInt, value);
+        write_type_and_argument(mOut, MajorType::UnsignedInt, value);
     }
 
     void write_int(std::int64_t value)
@@ -232,7 +232,7 @@ public:
             // For negative integers, CBOR encodes -1-n where n is stored.
             // ~value == -value - 1 for two's complement, but without overflow.
             const auto n = static_cast<std::uint64_t>(~value);
-            write_type_and_argument(out_, MajorType::NegativeInt, n);
+            write_type_and_argument(mOut, MajorType::NegativeInt, n);
         }
     }
 
@@ -240,19 +240,19 @@ public:
     {
         const std::uint8_t base = 0xF4U; // false
         const std::uint8_t offset = value ? 1U : 0U;
-        out_.push_back(static_cast<byte>(base + offset));
+        mOut.push_back(static_cast<byte>(base + offset));
     }
 
     void write_null()
     {
-        out_.push_back(static_cast<byte>(0xF6U));
+        mOut.push_back(static_cast<byte>(0xF6U));
     }
 
     void write_bytes(const byte *data, std::size_t size)
     {
-        write_type_and_argument(out_, MajorType::ByteString,
+        write_type_and_argument(mOut, MajorType::ByteString,
                                 static_cast<std::uint64_t>(size));
-        out_.insert(out_.end(), data, data + size);
+        mOut.insert(mOut.end(), data, data + size);
     }
 
     void write_bytes(const buffer &b)
@@ -263,31 +263,31 @@ public:
         }
         else
         {
-            write_type_and_argument(out_, MajorType::ByteString, 0U);
+            write_type_and_argument(mOut, MajorType::ByteString, 0U);
         }
     }
 
     void write_text(const std::string &s)
     {
-        write_type_and_argument(out_, MajorType::TextString,
+        write_type_and_argument(mOut, MajorType::TextString,
                                 static_cast<std::uint64_t>(s.size()));
-        out_.insert(out_.end(), s.begin(), s.end());
+        mOut.insert(mOut.end(), s.begin(), s.end());
     }
 
     void begin_array(std::size_t size)
     {
-        write_type_and_argument(out_, MajorType::Array,
+        write_type_and_argument(mOut, MajorType::Array,
                                 static_cast<std::uint64_t>(size));
     }
 
     void begin_map(std::size_t size)
     {
-        write_type_and_argument(out_, MajorType::Map,
+        write_type_and_argument(mOut, MajorType::Map,
                                 static_cast<std::uint64_t>(size));
     }
 
 private:
-    buffer &out_;
+    buffer &mOut;
 };
 
 // ----------------------------------------------------------------------------
@@ -300,33 +300,33 @@ public:
     Decoder(const byte *data, std::size_t size) noexcept
         : data_(data)
         , size_(size)
-        , pos_(0)
+        , mPos(0)
     {
     }
 
     explicit Decoder(const buffer &b) noexcept
         : data_(b.data())
         , size_(b.size())
-        , pos_(0)
+        , mPos(0)
     {
     }
 
     bool eof() const noexcept
     {
-        return pos_ >= size_;
+        return mPos >= size_;
     }
 
     ItemHeader read_header()
     {
-        ensure_available(size_, pos_, 1U);
-        const std::uint8_t initial = data_[pos_++];
+        ensure_available(size_, mPos, 1U);
+        const std::uint8_t initial = data_[mPos++];
 
         const std::uint8_t major_bits = initial >> 5U;
         const std::uint8_t ai = initial & 0x1FU;
 
         ItemHeader header{};
         header.major = static_cast<MajorType>(major_bits);
-        header.argument = read_argument(data_, pos_, size_, ai);
+        header.argument = read_argument(data_, mPos, size_, ai);
         return header;
     }
 
@@ -372,8 +372,8 @@ public:
 
     bool read_bool()
     {
-        ensure_available(size_, pos_, 1U);
-        const std::uint8_t v = data_[pos_++];
+        ensure_available(size_, mPos, 1U);
+        const std::uint8_t v = data_[mPos++];
         if (v == 0xF4U)
         {
             return false;
@@ -387,8 +387,8 @@ public:
 
     void read_null()
     {
-        ensure_available(size_, pos_, 1U);
-        const std::uint8_t v = data_[pos_++];
+        ensure_available(size_, mPos, 1U);
+        const std::uint8_t v = data_[mPos++];
         if (v != 0xF6U)
         {
             throw std::runtime_error("CBOR: expected null");
@@ -404,11 +404,11 @@ public:
         }
 
         const auto len = safe_to_size_t(header.argument, "text string");
-        ensure_available(size_, pos_, len);
+        ensure_available(size_, mPos, len);
 
-        const char *begin = reinterpret_cast<const char *>(data_ + pos_);
+        const char *begin = reinterpret_cast<const char *>(data_ + mPos);
         std::string result(begin, begin + len);
-        pos_ += len;
+        mPos += len;
         return result;
     }
 
@@ -421,11 +421,11 @@ public:
         }
 
         const auto len = safe_to_size_t(header.argument, "byte string");
-        ensure_available(size_, pos_, len);
+        ensure_available(size_, mPos, len);
 
         buffer out;
-        out.insert(out.end(), data_ + pos_, data_ + pos_ + len);
-        pos_ += len;
+        out.insert(out.end(), data_ + mPos, data_ + mPos + len);
+        mPos += len;
         return out;
     }
 
@@ -452,7 +452,7 @@ public:
 private:
     const byte *data_;
     std::size_t size_;
-    std::size_t pos_;
+    std::size_t mPos;
 };
 
 } // namespace cbor

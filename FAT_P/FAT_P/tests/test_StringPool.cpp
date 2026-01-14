@@ -176,7 +176,7 @@ FATP_TEST_CASE(utf8_strings)
 {
     StringPool<> pool;
 
-    // Note: Using regular string literals here. In C++20, u8"..." returns
+    // Note: Using regular string literals here. In C++20, mU8_LIT_0__ returns
     // const char8_t* which is incompatible with const char*/string_view.
     // These ASCII strings work correctly with UTF-8 encoding regardless.
     const char* s1 = pool.intern("Hello World");

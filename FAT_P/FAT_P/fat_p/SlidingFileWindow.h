@@ -154,14 +154,14 @@ class FileWindowException : public std::runtime_error
 public:
     explicit FileWindowException(FileError error, const std::string& message = "")
         : std::runtime_error(format_message(error, message))
-        , error_(error)
+        , mError(error)
     {
     }
 
-    FileError error() const noexcept { return error_; }
+    FileError error() const noexcept { return mError; }
 
 private:
-    FileError error_;
+    FileError mError;
 
     static std::string format_message(FileError error, const std::string& msg)
     {
@@ -474,7 +474,7 @@ public:
                           size_t window_size = 5000,
                           size_t lag_offset = 0)
     {
-        auto guard = mutex_.lock();
+        auto guard = mMutex.lock();
 
         close_impl();
 
@@ -484,22 +484,22 @@ public:
         }
 
         element_size_ = element_size;
-        file_.open(filename, std::ios::in | std::ios::out | std::ios::binary);
+        mFile.open(filename, std::ios::in | std::ios::out | std::ios::binary);
 
-        if (!file_.is_open())
+        if (!mFile.is_open())
         {
             return ErrorPolicy::report_void_error(FileError::FileNotOpen);
         }
 
         // Determine file size
-        file_.seekg(0, std::ios::end);
-        if (!file_.good())
+        mFile.seekg(0, std::ios::end);
+        if (!mFile.good())
         {
-            file_.close();
+            mFile.close();
             return ErrorPolicy::report_void_error(FileError::SeekFailure);
         }
 
-        auto file_bytes = static_cast<size_t>(file_.tellg());
+        auto file_bytes = static_cast<size_t>(mFile.tellg());
         file_size_ = file_bytes / element_size_;
 
         if (file_size_ == 0)
@@ -531,19 +531,19 @@ public:
         }
 
         // Load initial window
-        window_.clear();
+        mWindow.clear();
 
-        file_.seekg(begin_index_ * element_size_, std::ios::beg);
+        mFile.seekg(begin_index_ * element_size_, std::ios::beg);
         for (size_t i = 0; i < window_size_; ++i)
         {
             ElementType elem;
-            if (!SerializationPolicy::read(file_, elem))
+            if (!SerializationPolicy::read(mFile, elem))
             {
-                file_.close();
-                window_.clear();
+                mFile.close();
+                mWindow.clear();
                 return ErrorPolicy::report_void_error(FileError::ReadFailure);
             }
-            window_.push_back(std::move(elem));
+            mWindow.push_back(std::move(elem));
         }
 
         return ErrorPolicy::report_void_success();
@@ -554,7 +554,7 @@ public:
      */
     void close()
     {
-        auto guard = mutex_.lock();
+        auto guard = mMutex.lock();
         close_impl();
     }
 
@@ -576,9 +576,9 @@ public:
      */
     result_type operator[](size_t index)
     {
-        auto guard = mutex_.lock();
+        auto guard = mMutex.lock();
 
-        if (!file_.is_open())
+        if (!mFile.is_open())
         {
             if constexpr (is_threadsafe)
             {
@@ -608,11 +608,11 @@ public:
             if constexpr (is_threadsafe)
             {
                 // Return COPY - lock released after return, reference would be unsafe
-                return result_type(window_[index]);
+                return result_type(mWindow[index]);
             }
             else
             {
-                return ErrorPolicy::report_success(std::ref(window_[index]));
+                return ErrorPolicy::report_success(std::ref(mWindow[index]));
             }
         }
 
@@ -631,7 +631,7 @@ public:
             if (window_index)
             {
                 // Return COPY - lock released after return
-                return result_type(window_[*window_index]);
+                return result_type(mWindow[*window_index]);
             }
             
             return make_unexpected(FileError::CorruptedState);
@@ -641,15 +641,15 @@ public:
             // Single-threaded: use fail-safe buffer for out-of-window access
             if (window_index)
             {
-                return ErrorPolicy::report_success(std::ref(window_[*window_index]));
+                return ErrorPolicy::report_success(std::ref(mWindow[*window_index]));
             }
 
             // Fail-safe: direct I/O for out-of-window access
             // Write back current element if dirty
             if (current_index_ < file_size_)
             {
-                file_.seekp(current_index_ * element_size_, std::ios::beg);
-                if (!SerializationPolicy::write(file_, current_element_))
+                mFile.seekp(current_index_ * element_size_, std::ios::beg);
+                if (!SerializationPolicy::write(mFile, current_element_))
                 {
                     return ErrorPolicy::report_error(FileError::WriteFailure);
                 }
@@ -657,8 +657,8 @@ public:
 
             // Read new element
             current_index_ = index;
-            file_.seekg(current_index_ * element_size_, std::ios::beg);
-            if (!SerializationPolicy::read(file_, current_element_))
+            mFile.seekg(current_index_ * element_size_, std::ios::beg);
+            if (!SerializationPolicy::read(mFile, current_element_))
             {
                 return ErrorPolicy::report_error(FileError::ReadFailure);
             }
@@ -675,9 +675,9 @@ public:
      */
     const_result_type operator[](size_t index) const
     {
-        auto guard = mutex_.lock_shared();
+        auto guard = mMutex.lock_shared();
 
-        if (!file_.is_open())
+        if (!mFile.is_open())
         {
             return make_unexpected(FileError::FileNotOpen);
         }
@@ -691,11 +691,11 @@ public:
         {
             if constexpr (is_threadsafe)
             {
-                return const_result_type(window_[index]);
+                return const_result_type(mWindow[index]);
             }
             else
             {
-                return std::cref(window_[index]);
+                return std::cref(mWindow[index]);
             }
         }
 
@@ -704,11 +704,11 @@ public:
         {
             if constexpr (is_threadsafe)
             {
-                return const_result_type(window_[*window_index]);
+                return const_result_type(mWindow[*window_index]);
             }
             else
             {
-                return std::cref(window_[*window_index]);
+                return std::cref(mWindow[*window_index]);
             }
         }
 
@@ -726,9 +726,9 @@ public:
      */
     void_result_type shift_to_index(size_t target_index)
     {
-        auto guard = mutex_.lock();
+        auto guard = mMutex.lock();
 
-        if (window_size_ == file_size_ || window_.empty())
+        if (window_size_ == file_size_ || mWindow.empty())
         {
             return ErrorPolicy::report_void_success();
         }
@@ -749,37 +749,37 @@ public:
 
     size_t size() const noexcept
     {
-        auto guard = mutex_.lock_shared();
+        auto guard = mMutex.lock_shared();
         return file_size_;
     }
 
     bool empty() const noexcept
     {
-        auto guard = mutex_.lock_shared();
+        auto guard = mMutex.lock_shared();
         return file_size_ == 0;
     }
 
     bool is_open() const noexcept
     {
-        auto guard = mutex_.lock_shared();
-        return file_.is_open();
+        auto guard = mMutex.lock_shared();
+        return mFile.is_open();
     }
 
     size_t window_size() const noexcept
     {
-        auto guard = mutex_.lock_shared();
+        auto guard = mMutex.lock_shared();
         return window_size_;
     }
 
     size_t begin_index() const noexcept
     {
-        auto guard = mutex_.lock_shared();
+        auto guard = mMutex.lock_shared();
         return begin_index_;
     }
 
     size_t end_index() const noexcept
     {
-        auto guard = mutex_.lock_shared();
+        auto guard = mMutex.lock_shared();
         return end_index_;
     }
 
@@ -823,10 +823,10 @@ private:
 
     void close_impl() noexcept
     {
-        if (file_.is_open())
+        if (mFile.is_open())
         {
             flush_window();
-            file_.close();
+            mFile.close();
 
             file_size_ = 0;
             window_size_ = 0;
@@ -834,54 +834,54 @@ private:
             end_index_ = 0;
             element_size_ = 0;
             current_index_ = std::numeric_limits<size_t>::max();
-            window_.clear();
+            mWindow.clear();
         }
     }
 
     void flush_window() noexcept
     {
-        if (window_.empty())
+        if (mWindow.empty())
         {
             return;
         }
 
         size_t write_index = begin_index_;
-        for (const auto& elem : window_)
+        for (const auto& elem : mWindow)
         {
-            file_.seekp(write_index * element_size_, std::ios::beg);
-            SerializationPolicy::write(file_, elem);
+            mFile.seekp(write_index * element_size_, std::ios::beg);
+            SerializationPolicy::write(mFile, elem);
             ++write_index;
         }
 
-        file_.flush();
+        mFile.flush();
     }
 
     bool shift_forward_one() noexcept
     {
-        if (window_.empty() || end_index_ >= file_size_)
+        if (mWindow.empty() || end_index_ >= file_size_)
         {
             return true;
         }
 
         // Write front element back to file
-        file_.seekp(begin_index_ * element_size_, std::ios::beg);
-        if (!SerializationPolicy::write(file_, window_.front()))
+        mFile.seekp(begin_index_ * element_size_, std::ios::beg);
+        if (!SerializationPolicy::write(mFile, mWindow.front()))
         {
             return false;
         }
 
-        window_.pop_front();
+        mWindow.pop_front();
         ++begin_index_;
 
         // Read new element at end
-        file_.seekg(end_index_ * element_size_, std::ios::beg);
+        mFile.seekg(end_index_ * element_size_, std::ios::beg);
         ElementType temp;
-        if (!SerializationPolicy::read(file_, temp))
+        if (!SerializationPolicy::read(mFile, temp))
         {
             return false;
         }
 
-        window_.push_back(std::move(temp));
+        mWindow.push_back(std::move(temp));
         ++end_index_;
 
         return true;
@@ -889,31 +889,31 @@ private:
 
     bool shift_backward_one() noexcept
     {
-        if (window_.empty() || begin_index_ == 0)
+        if (mWindow.empty() || begin_index_ == 0)
         {
             return true;
         }
 
         // Write back element back to file
-        file_.seekp((end_index_ - 1) * element_size_, std::ios::beg);
-        if (!SerializationPolicy::write(file_, window_.back()))
+        mFile.seekp((end_index_ - 1) * element_size_, std::ios::beg);
+        if (!SerializationPolicy::write(mFile, mWindow.back()))
         {
             return false;
         }
 
-        window_.pop_back();
+        mWindow.pop_back();
         --end_index_;
 
         // Read new element at front
         --begin_index_;
-        file_.seekg(begin_index_ * element_size_, std::ios::beg);
+        mFile.seekg(begin_index_ * element_size_, std::ios::beg);
         ElementType temp;
-        if (!SerializationPolicy::read(file_, temp))
+        if (!SerializationPolicy::read(mFile, temp))
         {
             return false;
         }
 
-        window_.push_front(std::move(temp));
+        mWindow.push_front(std::move(temp));
 
         return true;
     }
@@ -937,14 +937,14 @@ private:
     size_t begin_index_ = 0;
     size_t end_index_ = 0;
 
-    mutable std::fstream file_;
-    std::deque<ElementType> window_;
+    mutable std::fstream mFile;
+    std::deque<ElementType> mWindow;
 
     // Fail-safe direct access buffer (single-threaded mode only)
     ElementType current_element_{};
     size_t current_index_ = std::numeric_limits<size_t>::max();
 
-    mutable ConcurrencyPolicy mutex_;
+    mutable ConcurrencyPolicy mMutex;
 };
 
 // =============================================================================

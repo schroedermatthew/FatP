@@ -25,7 +25,7 @@
  *
  * Implementation Notes:
  * - Uses pointer-based storage discrimination (LLVM-style) for optimal hot-path performance
- * - mData pointer always valid - points to mInlineBuffer or heap allocation
+ * - data_ pointer always valid - points to inline_buffer_ or heap allocation
  * - begin()/data() are simple pointer returns with no branching
  *
  * @section contract_qoi Contract vs Quality-of-Implementation (QoI)
@@ -204,10 +204,10 @@ class SmallVector;
  * @tparam Allocator Allocator type for heap storage (default: std::allocator<T>).
  *                   Must satisfy alignment requirements for T per the C++ allocator model.
  *
- * @invariant mSize <= mCapacity
- * @invariant mData points to either mInlineBuffer or heap allocation
- * @invariant Elements in [mData, mData + mSize) are constructed
- * @invariant Elements in [mData + mSize, mData + mCapacity) are uninitialized
+ * @invariant size_ <= mCapacity
+ * @invariant data_ points to either inline_buffer_ or heap allocation
+ * @invariant Elements in [data_, data_ + size_) are constructed
+ * @invariant Elements in [data_ + size_, data_ + mCapacity) are uninitialized
  */
 template <typename T, size_t InlineCapacity = 8, typename Allocator = std::allocator<T>>
 class SmallVector {
@@ -219,14 +219,14 @@ private:
     using AllocTraits = std::allocator_traits<Allocator>;
     
     // Inline buffer for small element storage - no heap allocation needed
-    alignas(T) std::byte mInlineBuffer[InlineCapacity * sizeof(T)];
+    alignas(T) std::byte inline_buffer_[InlineCapacity * sizeof(T)];
     
     // Always-valid pointer to current storage (inline or heap)
     // Hot path optimization: begin()/data() just return this pointer
-    T* mData;
+    T* data_;
     
     // Current number of constructed elements
-    size_t mSize = 0;
+    size_t size_ = 0;
     
     // Current capacity (InlineCapacity when inline, heap capacity otherwise)
     size_t mCapacity = InlineCapacity;
@@ -240,18 +240,18 @@ private:
 #endif 
 
     // Returns pointer to inline buffer as T*
-    T* inlinePtr() noexcept {
-        return reinterpret_cast<T*>(mInlineBuffer);
+    T* inline_ptr() noexcept {
+        return reinterpret_cast<T*>(inline_buffer_);
     }
     
-    const T* inlinePtr() const noexcept {
-        return reinterpret_cast<const T*>(mInlineBuffer);
+    const T* inline_ptr() const noexcept {
+        return reinterpret_cast<const T*>(inline_buffer_);
     }
 
     // Runtime check for which storage mode is active
     // Simple pointer comparison - very fast
-    bool isInline() const noexcept {
-        return mData == inlinePtr();
+    bool is_inline() const noexcept {
+        return data_ == inline_ptr();
     }
 
     /**
@@ -260,11 +260,11 @@ private:
      * Validates internal consistency at mutation boundaries.
      * Zero cost in release builds.
      */
-    void assertInvariants() const noexcept {
+    void assert_invariants() const noexcept {
 #ifndef NDEBUG
-        FATP_ENFORCE(mData != nullptr, "mData is null");
-        FATP_ENFORCE(mSize <= mCapacity, "mSize > mCapacity");
-        if (mData == inlinePtr()) {
+        FATP_ENFORCE(data_ != nullptr, "data_ is null");
+        FATP_ENFORCE(size_ <= mCapacity, "size_ > capacity_");
+        if (data_ == inline_ptr()) {
             FATP_ENFORCE(mCapacity == InlineCapacity, 
                     "inline storage but capacity != InlineCapacity");
         } else {
@@ -282,16 +282,16 @@ private:
      * @brief Checks if pointer points into this container's data
      * @note Used by debug aliasing detection
      */
-    bool aliasesThis(const T* p) const noexcept {
-        return p >= mData && p < mData + mSize;
+    bool aliases_this(const T* p) const noexcept {
+        return p >= data_ && p < data_ + size_;
     }
 
     /**
      * @brief Returns index of pointer within container
-     * @pre aliasesThis(p) must be true
+     * @pre aliases_this(p) must be true
      */
-    size_t indexOfPtr(const T* p) const noexcept {
-        return static_cast<size_t>(p - mData);
+    size_t index_of_ptr(const T* p) const noexcept {
+        return static_cast<size_t>(p - data_);
     }
 
     /**
@@ -304,9 +304,9 @@ private:
      * @note This is a QoI check; the implementation handles aliasing safely,
      *       but users shouldn't rely on it.
      */
-    void debugCheckSelfRefPushBack([[maybe_unused]] const T* value_ptr) const {
+    void debug_check_self_ref_push_back([[maybe_unused]] const T* value_ptr) const {
 #ifndef NDEBUG
-        if (mSize == mCapacity && aliasesThis(value_ptr)) {
+        if (size_ == mCapacity && aliases_this(value_ptr)) {
             FATP_ENFORCE(false,
                 "push_back: argument aliases this container and reallocation may occur "
                 "(debug diagnostic; behavior is QoI, not guaranteed by standard)");
@@ -329,17 +329,17 @@ private:
      * @note Debug-only diagnostic. No-op in release builds.
      * @note This is a QoI check; users shouldn't rely on aliasing behavior.
      */
-    void debugCheckSelfRefInsert([[maybe_unused]] size_t idx,
+    void debug_check_self_ref_insert([[maybe_unused]] size_t idx,
                                      [[maybe_unused]] const T* value_ptr) const {
 #ifndef NDEBUG
-        if (!aliasesThis(value_ptr)) {
+        if (!aliases_this(value_ptr)) {
             return;
         }
 
-        const size_t src = indexOfPtr(value_ptr);
+        const size_t src = index_of_ptr(value_ptr);
 
         // Case 1: Reallocation might occur
-        if (mSize == mCapacity) {
+        if (size_ == mCapacity) {
             FATP_ENFORCE(false,
                 "insert: argument aliases this container and reallocation may occur "
                 "(debug diagnostic; behavior is QoI, not guaranteed by standard)");
@@ -407,8 +407,8 @@ private:
         // Move-construct elements using move_if_noexcept for strong exception safety.
         // If T's move ctor can throw and T is copyable, we copy instead to preserve
         // the original elements in case of exception.
-        for (size_t i = 0; i < mSize; ++i) {
-            AllocTraits::construct(mAllocator, new_data + i, std::move_if_noexcept(mData[i]));
+        for (size_t i = 0; i < size_; ++i) {
+            AllocTraits::construct(mAllocator, new_data + i, std::move_if_noexcept(data_[i]));
             ++constructed;
         }
         
@@ -417,17 +417,17 @@ private:
         cleanup_guard.dismiss();
         
         // Now safe to destroy old elements
-        std::destroy_n(mData, mSize);
+        std::destroy_n(data_, size_);
         
         // Deallocate old heap storage if not inline
-        if (!isInline()) {
-            AllocTraits::deallocate(mAllocator, mData, mCapacity);
+        if (!is_inline()) {
+            AllocTraits::deallocate(mAllocator, data_, mCapacity);
         }
         
         // Update to new heap storage
-        mData = new_data;
+        data_ = new_data;
         mCapacity = new_cap;
-        assertInvariants();
+        assert_invariants();
     }
 
 public:
@@ -451,14 +451,14 @@ public:
 
     /** @brief Default constructor creating empty vector with inline storage */
     SmallVector() noexcept 
-        : mData(inlinePtr()), mSize(0), mCapacity(InlineCapacity), mAllocator() {
-        assertInvariants();
+        : data_(inline_ptr()), size_(0), mCapacity(InlineCapacity), mAllocator() {
+        assert_invariants();
     }
 
     /** @brief Constructor with explicit allocator */
     explicit SmallVector(const Allocator& alloc) noexcept
-        : mData(inlinePtr()), mSize(0), mCapacity(InlineCapacity), mAllocator(alloc) {
-        assertInvariants();
+        : data_(inline_ptr()), size_(0), mCapacity(InlineCapacity), mAllocator(alloc) {
+        assert_invariants();
     }
 
     /** @brief Constructs vector with count default-constructed elements */
@@ -504,24 +504,24 @@ public:
      * @note noexcept only if T is nothrow move constructible (for inline path)
      */
     SmallVector(SmallVector&& other) noexcept(std::is_nothrow_move_constructible_v<T>)
-        : mData(inlinePtr()), mSize(0), mCapacity(InlineCapacity),
+        : data_(inline_ptr()), size_(0), mCapacity(InlineCapacity),
           mAllocator(std::move(other.mAllocator)) {
-        if (other.isInline()) {
+        if (other.is_inline()) {
             // Inline storage requires element-wise move
-            std::uninitialized_move_n(other.mData, other.mSize, mData);
-            mSize = other.mSize;
-            std::destroy_n(other.mData, other.mSize);
+            std::uninitialized_move_n(other.data_, other.size_, data_);
+            size_ = other.size_;
+            std::destroy_n(other.data_, other.size_);
         } else {
             // Heap storage: O(1) pointer steal
-            mData = other.mData;
-            mSize = other.mSize;
+            data_ = other.data_;
+            size_ = other.size_;
             mCapacity = other.mCapacity;
             // Reset other to inline state
-            other.mData = other.inlinePtr();
+            other.data_ = other.inline_ptr();
             other.mCapacity = InlineCapacity;
         }
-        other.mSize = 0;
-        assertInvariants();
+        other.size_ = 0;
+        assert_invariants();
     }
 
     /**
@@ -531,31 +531,31 @@ public:
     SmallVector(SmallVector&& other, const Allocator& alloc) : SmallVector(alloc) {
         if (mAllocator == other.mAllocator) {
             // Equal allocators: can steal resources
-            if (other.isInline()) {
-                std::uninitialized_move_n(other.mData, other.mSize, mData);
-                mSize = other.mSize;
-                std::destroy_n(other.mData, other.mSize);
+            if (other.is_inline()) {
+                std::uninitialized_move_n(other.data_, other.size_, data_);
+                size_ = other.size_;
+                std::destroy_n(other.data_, other.size_);
             } else {
-                mData = other.mData;
-                mSize = other.mSize;
+                data_ = other.data_;
+                size_ = other.size_;
                 mCapacity = other.mCapacity;
-                other.mData = other.inlinePtr();
+                other.data_ = other.inline_ptr();
                 other.mCapacity = InlineCapacity;
             }
-            other.mSize = 0;
+            other.size_ = 0;
         } else {
             // Unequal allocators: must perform element-wise move
             assign(std::make_move_iterator(other.begin()), 
                    std::make_move_iterator(other.end()));
         }
-        assertInvariants();
+        assert_invariants();
     }
 
     /** @brief Destructor */
     ~SmallVector() noexcept {
-        std::destroy_n(mData, mSize);
-        if (!isInline()) {
-            AllocTraits::deallocate(mAllocator, mData, mCapacity);
+        std::destroy_n(data_, size_);
+        if (!is_inline()) {
+            AllocTraits::deallocate(mAllocator, data_, mCapacity);
         }
     }
 
@@ -572,9 +572,9 @@ public:
             if (mAllocator != other.mAllocator) {
                 // Allocator will change - must deallocate with old allocator first
                 clear();
-                if (!isInline()) {
-                    AllocTraits::deallocate(mAllocator, mData, mCapacity);
-                    mData = inlinePtr();
+                if (!is_inline()) {
+                    AllocTraits::deallocate(mAllocator, data_, mCapacity);
+                    data_ = inline_ptr();
                     mCapacity = InlineCapacity;
                 }
                 mAllocator = other.mAllocator;
@@ -582,7 +582,7 @@ public:
         }
         
         assign(other.begin(), other.end());
-        assertInvariants();
+        assert_invariants();
         return *this;
     }
 
@@ -597,15 +597,15 @@ public:
         if (this == &other) return *this;
 
         // Clean up existing resources
-        std::destroy_n(mData, mSize);
-        if (!isInline()) {
-            AllocTraits::deallocate(mAllocator, mData, mCapacity);
+        std::destroy_n(data_, size_);
+        if (!is_inline()) {
+            AllocTraits::deallocate(mAllocator, data_, mCapacity);
         }
         
         // Reset to inline state
-        mData = inlinePtr();
+        data_ = inline_ptr();
         mCapacity = InlineCapacity;
-        mSize = 0;
+        size_ = 0;
 
         constexpr bool Pocma = AllocTraits::propagate_on_container_move_assignment::value;
 
@@ -617,27 +617,27 @@ public:
             assign(std::make_move_iterator(other.begin()), 
                    std::make_move_iterator(other.end()));
             other.clear();
-            assertInvariants();
+            assert_invariants();
             return *this;
         }
         // POCMA=false and allocators equal: can steal without propagation
 
         // Perform efficient resource transfer
-        if (other.isInline()) {
-            std::uninitialized_move_n(other.mData, other.mSize, mData);
-            std::destroy_n(other.mData, other.mSize);
+        if (other.is_inline()) {
+            std::uninitialized_move_n(other.data_, other.size_, data_);
+            std::destroy_n(other.data_, other.size_);
         } else {
-            mData = other.mData;
+            data_ = other.data_;
             mCapacity = other.mCapacity;
-            other.mData = other.inlinePtr();
+            other.data_ = other.inline_ptr();
             other.mCapacity = InlineCapacity;
         }
-        mSize = other.mSize;
+        size_ = other.size_;
 
         // Leave other in valid empty state
-        other.mSize = 0;
+        other.size_ = 0;
         
-        assertInvariants();
+        assert_invariants();
         return *this;
     }
 
@@ -667,18 +667,18 @@ public:
         // Exception-safe construction with guard
         size_t constructed = 0;
         auto guard = makeScopeGuard([&]() noexcept {
-            std::destroy_n(mData, constructed);
-            mSize = 0;
+            std::destroy_n(data_, constructed);
+            size_ = 0;
         });
         
         for (size_t i = 0; i < count; ++i) {
-            AllocTraits::construct(mAllocator, mData + i, stable_value);
+            AllocTraits::construct(mAllocator, data_ + i, stable_value);
             ++constructed;
         }
         
         guard.dismiss();
-        mSize = count;
-        assertInvariants();
+        size_ = count;
+        assert_invariants();
     }
 
     /**
@@ -703,25 +703,25 @@ public:
             // Exception-safe construction with guard
             size_t constructed = 0;
             auto guard = makeScopeGuard([&]() noexcept {
-                std::destroy_n(mData, constructed);
-                mSize = 0;
+                std::destroy_n(data_, constructed);
+                size_ = 0;
             });
             
             for (auto it = first; it != last; ++it) {
-                AllocTraits::construct(mAllocator, mData + constructed, *it);
+                AllocTraits::construct(mAllocator, data_ + constructed, *it);
                 ++constructed;
             }
             
             guard.dismiss();
-            mSize = count;
-            assertInvariants();
+            size_ = count;
+            assert_invariants();
         } else {
             // Input iterators: single-pass only, cannot call distance()
             clear();
             for (; first != last; ++first) {
                 emplace_back(*first);
             }
-            assertInvariants();
+            assert_invariants();
         }
     }
 
@@ -734,13 +734,13 @@ public:
     // Iterators - HOT PATH - Simple pointer returns, no branching
     // ==================================================================================
 
-    [[nodiscard]] iterator begin() noexcept { return mData; }
-    [[nodiscard]] const_iterator begin() const noexcept { return mData; }
-    [[nodiscard]] const_iterator cbegin() const noexcept { return mData; }
+    [[nodiscard]] iterator begin() noexcept { return data_; }
+    [[nodiscard]] const_iterator begin() const noexcept { return data_; }
+    [[nodiscard]] const_iterator cbegin() const noexcept { return data_; }
     
-    [[nodiscard]] iterator end() noexcept { return mData + mSize; }
-    [[nodiscard]] const_iterator end() const noexcept { return mData + mSize; }
-    [[nodiscard]] const_iterator cend() const noexcept { return mData + mSize; }
+    [[nodiscard]] iterator end() noexcept { return data_ + size_; }
+    [[nodiscard]] const_iterator end() const noexcept { return data_ + size_; }
+    [[nodiscard]] const_iterator cend() const noexcept { return data_ + size_; }
     
     [[nodiscard]] reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
     [[nodiscard]] const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
@@ -755,7 +755,7 @@ public:
     // ==================================================================================
 
     /** @brief Returns number of elements */
-    [[nodiscard]] size_type size() const noexcept { return mSize; }
+    [[nodiscard]] size_type size() const noexcept { return size_; }
 
     /** @brief Returns maximum possible number of elements */
     [[nodiscard]] size_type max_size() const noexcept {
@@ -769,7 +769,7 @@ public:
     [[nodiscard]] size_type capacity() const noexcept { return mCapacity; }
 
     /** @brief Checks if container is empty */
-    [[nodiscard]] bool empty() const noexcept { return mSize == 0; }
+    [[nodiscard]] bool empty() const noexcept { return size_ == 0; }
 
     /**
      * @brief Increases capacity to at least new_cap
@@ -790,26 +790,26 @@ public:
      * @note Provides Strong* exception safety (see class documentation)
      */
     void shrink_to_fit() {
-        if (isInline()) {
+        if (is_inline()) {
             return;
         }
         
-        if (mSize <= InlineCapacity) {
+        if (size_ <= InlineCapacity) {
             // Demote from heap to inline storage
-            T* old_data = mData;
+            T* old_data = data_;
             size_t old_capacity = mCapacity;
-            T* new_inline = inlinePtr();
+            T* new_inline = inline_ptr();
             
             // Track construction progress for exception rollback
             size_t constructed = 0;
             auto element_guard = makeScopeGuard([&]() noexcept {
                 // If we fail, destroy any partially constructed inline elements
                 std::destroy_n(new_inline, constructed);
-                // State unchanged: mData still points to heap, which is intact
+                // State unchanged: data_ still points to heap, which is intact
             });
             
             // Move elements to inline buffer (may throw)
-            for (size_t i = 0; i < mSize; ++i) {
+            for (size_t i = 0; i < size_; ++i) {
                 AllocTraits::construct(mAllocator, new_inline + i, 
                                        std::move_if_noexcept(old_data[i]));
                 ++constructed;
@@ -819,16 +819,16 @@ public:
             element_guard.dismiss();
             
             // Now safe to update state and cleanup
-            mData = new_inline;
+            data_ = new_inline;
             mCapacity = InlineCapacity;
-            std::destroy_n(old_data, mSize);
+            std::destroy_n(old_data, size_);
             AllocTraits::deallocate(mAllocator, old_data, old_capacity);
-        } else if (mSize < mCapacity) {
-            // Shrink heap allocation to exactly mSize
-            T* new_data = AllocTraits::allocate(mAllocator, mSize);
+        } else if (size_ < mCapacity) {
+            // Shrink heap allocation to exactly size_
+            T* new_data = AllocTraits::allocate(mAllocator, size_);
             
             auto cleanup_guard = makeScopeGuard([&]() noexcept {
-                AllocTraits::deallocate(mAllocator, new_data, mSize);
+                AllocTraits::deallocate(mAllocator, new_data, size_);
             });
             
             size_t constructed = 0;
@@ -836,22 +836,22 @@ public:
                 std::destroy_n(new_data, constructed);
             });
             
-            for (size_t i = 0; i < mSize; ++i) {
+            for (size_t i = 0; i < size_; ++i) {
                 AllocTraits::construct(mAllocator, new_data + i, 
-                                       std::move_if_noexcept(mData[i]));
+                                       std::move_if_noexcept(data_[i]));
                 ++constructed;
             }
             
             element_guard.dismiss();
             cleanup_guard.dismiss();
             
-            std::destroy_n(mData, mSize);
-            AllocTraits::deallocate(mAllocator, mData, mCapacity);
+            std::destroy_n(data_, size_);
+            AllocTraits::deallocate(mAllocator, data_, mCapacity);
             
-            mData = new_data;
-            mCapacity = mSize;
+            data_ = new_data;
+            mCapacity = size_;
         }
-        assertInvariants();
+        assert_invariants();
     }
 
     // ==================================================================================
@@ -863,14 +863,14 @@ public:
      * @throws always_enforce exception if pos >= size()
      */
     [[nodiscard]] reference at(size_type pos) {
-        FATP_ALWAYS_ENFORCE(pos < mSize, "Index ", pos, " out of bounds (size=", mSize, ")");
-        return mData[pos];
+        FATP_ALWAYS_ENFORCE(pos < size_, "Index ", pos, " out of bounds (size=", size_, ")");
+        return data_[pos];
     }
 
     /** @brief Access element with bounds checking (const) */
     [[nodiscard]] const_reference at(size_type pos) const {
-        FATP_ALWAYS_ENFORCE(pos < mSize, "Index ", pos, " out of bounds (size=", mSize, ")");
-        return mData[pos];
+        FATP_ALWAYS_ENFORCE(pos < size_, "Index ", pos, " out of bounds (size=", size_, ")");
+        return data_[pos];
     }
 
     /**
@@ -879,48 +879,48 @@ public:
      * @note Debug builds check bounds via FATP_ENFORCE()
      */
     [[nodiscard]] reference operator[](size_type pos) {
-        FATP_ENFORCE(pos < mSize, "Index out of bounds");
-        return mData[pos];
+        FATP_ENFORCE(pos < size_, "Index out of bounds");
+        return data_[pos];
     }
 
     /** @brief Access element without bounds checking (const) */
     [[nodiscard]] const_reference operator[](size_type pos) const {
-        FATP_ENFORCE(pos < mSize, "Index out of bounds");
-        return mData[pos];
+        FATP_ENFORCE(pos < size_, "Index out of bounds");
+        return data_[pos];
     }
 
     /** @brief Access first element */
     [[nodiscard]] reference front() {
-        FATP_ENFORCE(mSize > 0, "Cannot access front of empty vector");
-        return mData[0];
+        FATP_ENFORCE(size_ > 0, "Cannot access front of empty vector");
+        return data_[0];
     }
 
     /** @brief Access first element (const) */
     [[nodiscard]] const_reference front() const {
-        FATP_ENFORCE(mSize > 0, "Cannot access front of empty vector");
-        return mData[0];
+        FATP_ENFORCE(size_ > 0, "Cannot access front of empty vector");
+        return data_[0];
     }
 
     /** @brief Access last element */
     [[nodiscard]] reference back() {
-        FATP_ENFORCE(mSize > 0, "Cannot access back of empty vector");
-        return mData[mSize - 1];
+        FATP_ENFORCE(size_ > 0, "Cannot access back of empty vector");
+        return data_[size_ - 1];
     }
 
     /** @brief Access last element (const) */
     [[nodiscard]] const_reference back() const {
-        FATP_ENFORCE(mSize > 0, "Cannot access back of empty vector");
-        return mData[mSize - 1];
+        FATP_ENFORCE(size_ > 0, "Cannot access back of empty vector");
+        return data_[size_ - 1];
     }
 
     /**
      * @brief Returns pointer to underlying element storage
      * @note Pointer valid until reallocation. May point to inline or heap storage.
      */
-    [[nodiscard]] T* data() noexcept { return mData; }
+    [[nodiscard]] T* data() noexcept { return data_; }
 
     /** @brief Returns const pointer to underlying element storage */
-    [[nodiscard]] const T* data() const noexcept { return mData; }
+    [[nodiscard]] const T* data() const noexcept { return data_; }
     
     // ==================================================================================
     // Modifiers
@@ -931,22 +931,22 @@ public:
      * @note Preserves current capacity. Storage mode unchanged.
      */
     void clear() noexcept {
-        std::destroy_n(mData, mSize);
-        mSize = 0;
-        assertInvariants();
+        std::destroy_n(data_, size_);
+        size_ = 0;
+        assert_invariants();
     }
 
     /** @brief Inserts copy of value before pos */
     iterator insert(const_iterator pos, const T& value) {
-        size_t idx = static_cast<size_t>(pos - mData);
-        debugCheckSelfRefInsert(idx, std::addressof(value));
+        size_t idx = static_cast<size_t>(pos - data_);
+        debug_check_self_ref_insert(idx, std::addressof(value));
         return emplace(pos, value);
     }
 
     /** @brief Inserts value by move before pos */
     iterator insert(const_iterator pos, T&& value) {
-        size_t idx = static_cast<size_t>(pos - mData);
-        debugCheckSelfRefInsert(idx, std::addressof(value));
+        size_t idx = static_cast<size_t>(pos - data_);
+        debug_check_self_ref_insert(idx, std::addressof(value));
         return emplace(pos, std::move(value));
     }
 
@@ -959,16 +959,16 @@ public:
      * @throws std::bad_alloc or exception from T's copy constructor/assignment
      */
     iterator insert(const_iterator pos, size_type count, const T& value) {
-        size_t idx = pos - mData;
-        FATP_ENFORCE(idx <= mSize, "Insert position out of range");
-        debugCheckSelfRefInsert(idx, std::addressof(value));
+        size_t idx = pos - data_;
+        FATP_ENFORCE(idx <= size_, "Insert position out of range");
+        debug_check_self_ref_insert(idx, std::addressof(value));
         
         if (count == 0) {
-            return mData + idx;
+            return data_ + idx;
         }
         
         // Verify new size won't overflow
-        auto new_size_result = checked_add<ReturnExpectedPolicy>(mSize, count);
+        auto new_size_result = checked_add<ReturnExpectedPolicy>(size_, count);
         FATP_ALWAYS_ENFORCE(new_size_result.has_value(), "Insert would exceed max_size");
         size_t new_size = *new_size_result;
         
@@ -984,7 +984,7 @@ public:
                 AllocTraits::deallocate(mAllocator, new_data, new_cap);
             });
             
-            // Insert count copies FIRST while old mData is still valid
+            // Insert count copies FIRST while old data_ is still valid
             // This handles aliasing (e.g., v.insert(pos, 5, v[0])) - no stabilization
             // copy needed since all constructions from value complete before any moves
             size_t inserted_constructed = 0;
@@ -1005,19 +1005,19 @@ public:
             
             for (size_t i = 0; i < idx; ++i) {
                 AllocTraits::construct(mAllocator, new_data + i, 
-                                       std::move_if_noexcept(mData[i]));
+                                       std::move_if_noexcept(data_[i]));
                 ++prefix_constructed;
             }
             
-            // Move suffix [idx, mSize) to new_data[idx+count, ...)
+            // Move suffix [idx, size_) to new_data[idx+count, ...)
             size_t suffix_constructed = 0;
             auto suffix_guard = makeScopeGuard([&]() noexcept {
                 std::destroy_n(new_data + idx + count, suffix_constructed);
             });
             
-            for (size_t i = idx; i < mSize; ++i) {
+            for (size_t i = idx; i < size_; ++i) {
                 AllocTraits::construct(mAllocator, new_data + i + count, 
-                                       std::move_if_noexcept(mData[i]));
+                                       std::move_if_noexcept(data_[i]));
                 ++suffix_constructed;
             }
             
@@ -1028,25 +1028,25 @@ public:
             cleanup_guard.dismiss();
             
             // Clean up old storage and commit
-            std::destroy_n(mData, mSize);
-            if (!isInline()) {
-                AllocTraits::deallocate(mAllocator, mData, mCapacity);
+            std::destroy_n(data_, size_);
+            if (!is_inline()) {
+                AllocTraits::deallocate(mAllocator, data_, mCapacity);
             }
             
-            mData = new_data;
+            data_ = new_data;
             mCapacity = new_cap;
-            mSize = new_size;
-            assertInvariants();
-            return mData + idx;
+            size_ = new_size;
+            assert_invariants();
+            return data_ + idx;
         }
         
         // In-place insertion without reallocation
         // Stabilize value in case it aliases an element that will be moved
         T stable_value = value;
-        iterator insert_pos = mData + idx;
+        iterator insert_pos = data_ + idx;
         
-        if (idx < mSize) {
-            size_t tail = mSize - idx;
+        if (idx < size_) {
+            size_t tail = size_ - idx;
             // Two cases: tail fits entirely in uninit space, or tail extends beyond insertion
             if (tail <= count) {
                 // Move existing tail elements to their new positions (in uninitialized space)
@@ -1102,8 +1102,8 @@ public:
             fill_guard.dismiss();
         }
         
-        mSize = new_size;
-        assertInvariants();
+        size_ = new_size;
+        assert_invariants();
         return insert_pos;
     }
 
@@ -1114,8 +1114,8 @@ public:
      */
     template <class InputIt, std::enable_if_t<!std::is_integral_v<InputIt>, int> = 0>
     iterator insert(const_iterator pos, InputIt first, InputIt last) {
-        size_t idx = pos - mData;
-        FATP_ENFORCE(idx <= mSize, "Insert position out of range");
+        size_t idx = pos - data_;
+        FATP_ENFORCE(idx <= size_, "Insert position out of range");
         
         using IterCategory = typename std::iterator_traits<InputIt>::iterator_category;
         return insert_range_impl(idx, first, last, IterCategory{});
@@ -1129,12 +1129,12 @@ private:
     template <class InputIt>
     iterator insert_range_impl(size_t idx, InputIt first, InputIt last, std::input_iterator_tag) {
         if (first == last) {
-            return mData + idx;
+            return data_ + idx;
         }
         
         // For input iterators, we can't know count upfront.
         // Strategy: append all elements to end, then rotate into position.
-        size_t original_size = mSize;
+        size_t original_size = size_;
         
         // Append elements
         for (; first != last; ++first) {
@@ -1142,14 +1142,14 @@ private:
         }
         
         // Rotate the appended elements into position
-        // [0..idx)[idx..original_size)[original_size..mSize)
+        // [0..idx)[idx..original_size)[original_size..size_)
         //    ^           ^                    ^
         //  prefix    existing tail      newly inserted
         // After rotate: [0..idx)[newly inserted)[existing tail)
-        std::rotate(mData + idx, mData + original_size, mData + mSize);
+        std::rotate(data_ + idx, data_ + original_size, data_ + size_);
         
-        assertInvariants();
-        return mData + idx;
+        assert_invariants();
+        return data_ + idx;
     }
     
     /**
@@ -1165,10 +1165,10 @@ private:
         FATP_ENFORCE(dist >= 0, "Negative iterator distance");
         size_t count = static_cast<size_t>(dist);
         if (count == 0) {
-            return mData + idx;
+            return data_ + idx;
         }
         
-        auto new_size_result = checked_add<ReturnExpectedPolicy>(mSize, count);
+        auto new_size_result = checked_add<ReturnExpectedPolicy>(size_, count);
         FATP_ALWAYS_ENFORCE(new_size_result.has_value(), "Insert would exceed max_size");
         size_t new_size = *new_size_result;
         
@@ -1209,19 +1209,19 @@ private:
             
             for (size_t i = 0; i < idx; ++i) {
                 AllocTraits::construct(mAllocator, new_data + i, 
-                                       std::move_if_noexcept(mData[i]));
+                                       std::move_if_noexcept(data_[i]));
                 ++constructed_prefix;
             }
             
-            // 3. Move suffix [idx, mSize) to [idx + count, ...)
+            // 3. Move suffix [idx, size_) to [idx + count, ...)
             size_t constructed_suffix = 0;
             auto suffix_guard = makeScopeGuard([&]() noexcept {
                 std::destroy_n(new_data + idx + count, constructed_suffix);
             });
             
-            for (size_t i = idx; i < mSize; ++i) {
+            for (size_t i = idx; i < size_; ++i) {
                 AllocTraits::construct(mAllocator, new_data + i + count, 
-                                       std::move_if_noexcept(mData[i]));
+                                       std::move_if_noexcept(data_[i]));
                 ++constructed_suffix;
             }
             
@@ -1231,23 +1231,23 @@ private:
             inserted_guard.dismiss();
             cleanup_guard.dismiss();
             
-            std::destroy_n(mData, mSize);
-            if (!isInline()) {
-                AllocTraits::deallocate(mAllocator, mData, mCapacity);
+            std::destroy_n(data_, size_);
+            if (!is_inline()) {
+                AllocTraits::deallocate(mAllocator, data_, mCapacity);
             }
             
-            mData = new_data;
+            data_ = new_data;
             mCapacity = new_cap;
-            mSize = new_size;
-            assertInvariants();
-            return mData + idx;
+            size_ = new_size;
+            assert_invariants();
+            return data_ + idx;
         }
         
         // In-place insertion must handle self-referential ranges.
         // If [first, last) aliases this container, move_backward can mutate the
         // source range before std::copy reads from it. std::copy is not overlap-safe.
         // 
-        // Detection: Check if first's underlying pointer is within [mData, mData+mSize).
+        // Detection: Check if first's underlying pointer is within [data_, data_+size_).
         // This only applies to pointer-like iterators (raw pointers, our own iterator type).
         // For wrapped iterators like move_iterator, we can't reliably detect aliasing,
         // but that's acceptable since the user explicitly requested move semantics.
@@ -1258,9 +1258,9 @@ private:
                       std::is_same_v<ForwardIt, const_iterator>) {
             // Get the address of the first element (if range is non-empty)
             const T* first_addr = std::addressof(*first);
-            const bool aliasesThis = (first_addr >= mData) && (first_addr < mData + mSize);
+            const bool aliases_this = (first_addr >= data_) && (first_addr < data_ + size_);
             
-            if (aliasesThis) {
+            if (aliases_this) {
                 // Materialize to temp buffer to break aliasing
                 T* tmp = AllocTraits::allocate(mAllocator, count);
                 size_t constructed = 0;
@@ -1284,10 +1284,10 @@ private:
         }
         
         // In-place insertion (non-aliasing case)
-        iterator insert_pos = mData + idx;
+        iterator insert_pos = data_ + idx;
         
-        if (idx < mSize) {
-            size_t tail = mSize - idx;
+        if (idx < size_) {
+            size_t tail = size_ - idx;
             if (tail <= count) {
                 // Move existing tail elements to their new positions (in uninitialized space)
                 size_t moved_tail = 0;
@@ -1343,8 +1343,8 @@ private:
             copy_guard.dismiss();
         }
         
-        mSize = new_size;
-        assertInvariants();
+        size_ = new_size;
+        assert_invariants();
         return insert_pos;
     }
 
@@ -1370,17 +1370,17 @@ public:
      */
     template <class... Args>
     iterator emplace(const_iterator pos, Args&&... args) {
-        size_t idx = pos - mData;
-        FATP_ENFORCE(idx <= mSize, "Emplace position out of range");
+        size_t idx = pos - data_;
+        FATP_ENFORCE(idx <= size_, "Emplace position out of range");
         
-        if (mSize >= mCapacity) {
+        if (size_ >= mCapacity) {
             // Growth path with strong exception safety
             auto new_cap_result = checked_mul<ReturnExpectedPolicy>(mCapacity, size_t(2));
             size_t new_cap;
             if (new_cap_result.has_value()) {
-                new_cap = std::max(mSize + 1, *new_cap_result);
+                new_cap = std::max(size_ + 1, *new_cap_result);
             } else {
-                new_cap = mSize + 1;
+                new_cap = size_ + 1;
                 FATP_ALWAYS_ENFORCE(new_cap <= max_size(), "Capacity overflow");
             }
             // Defensive: ensure non-zero capacity even if overflow arithmetic produces 0
@@ -1394,7 +1394,7 @@ public:
                 AllocTraits::deallocate(mAllocator, new_data, new_cap);
             });
             
-            // Construct new element FIRST while old mData is still valid
+            // Construct new element FIRST while old data_ is still valid
             // This handles aliasing (e.g., v.emplace(pos, v[0]))
             AllocTraits::construct(mAllocator, new_data + idx, std::forward<Args>(args)...);
             
@@ -1410,19 +1410,19 @@ public:
             
             for (size_t i = 0; i < idx; ++i) {
                 AllocTraits::construct(mAllocator, new_data + i, 
-                                       std::move_if_noexcept(mData[i]));
+                                       std::move_if_noexcept(data_[i]));
                 ++prefix_constructed;
             }
             
-            // Move suffix [idx, mSize) to new_data[idx+1, mSize+1)
+            // Move suffix [idx, size_) to new_data[idx+1, size_+1)
             size_t suffix_constructed = 0;
             auto suffix_guard = makeScopeGuard([&]() noexcept {
                 std::destroy_n(new_data + idx + 1, suffix_constructed);
             });
             
-            for (size_t i = idx; i < mSize; ++i) {
+            for (size_t i = idx; i < size_; ++i) {
                 AllocTraits::construct(mAllocator, new_data + i + 1, 
-                                       std::move_if_noexcept(mData[i]));
+                                       std::move_if_noexcept(data_[i]));
                 ++suffix_constructed;
             }
             
@@ -1433,28 +1433,28 @@ public:
             cleanup_guard.dismiss();
             
             // Cleanup old storage
-            std::destroy_n(mData, mSize);
-            if (!isInline()) {
-                AllocTraits::deallocate(mAllocator, mData, mCapacity);
+            std::destroy_n(data_, size_);
+            if (!is_inline()) {
+                AllocTraits::deallocate(mAllocator, data_, mCapacity);
             }
             
-            mData = new_data;
+            data_ = new_data;
             mCapacity = new_cap;
-            ++mSize;
-            assertInvariants();
-            return mData + idx;
+            ++size_;
+            assert_invariants();
+            return data_ + idx;
         }
         
-        // Non-growing path: mSize < mCapacity
-        iterator insert_pos = mData + idx;
+        // Non-growing path: size_ < mCapacity
+        iterator insert_pos = data_ + idx;
         
-        if (idx < mSize) {
+        if (idx < size_) {
             // HPC optimization: use memmove for trivially copyable types
             // Note: is_trivially_copyable is the only portable, standard-blessed
             // condition that guarantees memcpy/memmove safety (implies trivial
             // copy/move ctors, assignment ops, and destructor)
             if constexpr (std::is_trivially_copyable_v<T>) {
-                size_t tail_len_bytes = (mSize - idx) * sizeof(T);
+                size_t tail_len_bytes = (size_ - idx) * sizeof(T);
                 std::memmove(insert_pos + 1, insert_pos, tail_len_bytes);
                 AllocTraits::construct(mAllocator, insert_pos, std::forward<Args>(args)...);
             } else {
@@ -1462,7 +1462,7 @@ public:
                 // Move last element into uninitialized space at end
                 AllocTraits::construct(mAllocator, end(), std::move(*(end() - 1)));
                 // Guard: if shifting or assignment throws, destroy the element we just
-                // constructed beyond mSize to maintain invariant
+                // constructed beyond size_ to maintain invariant
                 auto tail_guard = makeScopeGuard([&]() noexcept {
                     std::destroy_at(end());
                 });
@@ -1478,8 +1478,8 @@ public:
             AllocTraits::construct(mAllocator, insert_pos, std::forward<Args>(args)...);
         }
         
-        ++mSize;
-        assertInvariants();
+        ++size_;
+        assert_invariants();
         return insert_pos;
     }
 
@@ -1489,14 +1489,14 @@ public:
      * @return Iterator to element following erased element
      */
     iterator erase(const_iterator pos) {
-        size_t idx = pos - mData;
-        FATP_ENFORCE(idx < mSize, "Erase position out of range");
+        size_t idx = pos - data_;
+        FATP_ENFORCE(idx < size_, "Erase position out of range");
         
-        iterator it = mData + idx;
+        iterator it = data_ + idx;
         std::move(it + 1, end(), it);
         std::destroy_at(end() - 1);
-        --mSize;
-        assertInvariants();
+        --size_;
+        assert_invariants();
         return it;
     }
 
@@ -1509,29 +1509,29 @@ public:
             return const_cast<iterator>(first);
         }
         
-        size_t first_idx = first - mData;
-        size_t last_idx = last - mData;
-        FATP_ENFORCE(first_idx <= last_idx && last_idx <= mSize, "Erase range invalid");
+        size_t first_idx = first - data_;
+        size_t last_idx = last - data_;
+        FATP_ENFORCE(first_idx <= last_idx && last_idx <= size_, "Erase range invalid");
         
-        iterator f = mData + first_idx;
-        iterator l = mData + last_idx;
+        iterator f = data_ + first_idx;
+        iterator l = data_ + last_idx;
         std::move(l, end(), f);
         size_t count = last_idx - first_idx;
         std::destroy_n(end() - count, count);
-        mSize -= count;
-        assertInvariants();
+        size_ -= count;
+        assert_invariants();
         return f;
     }
 
     /** @brief Appends copy of value */
     void push_back(const T& value) {
-        debugCheckSelfRefPushBack(std::addressof(value));
+        debug_check_self_ref_push_back(std::addressof(value));
         (void)emplace_back(value);
     }
 
     /** @brief Appends value by move */
     void push_back(T&& value) {
-        debugCheckSelfRefPushBack(std::addressof(value));
+        debug_check_self_ref_push_back(std::addressof(value));
         (void)emplace_back(std::move(value));
     }
 
@@ -1544,12 +1544,12 @@ public:
      */
     template <class... Args>
     reference emplace_back(Args&&... args) {
-        if (FATP_LIKELY(mSize < mCapacity)) {
+        if (FATP_LIKELY(size_ < mCapacity)) {
             // Fast path: no reallocation needed
-            AllocTraits::construct(mAllocator, mData + mSize, std::forward<Args>(args)...);
-            ++mSize;
-            assertInvariants();
-            return mData[mSize - 1];
+            AllocTraits::construct(mAllocator, data_ + size_, std::forward<Args>(args)...);
+            ++size_;
+            assert_invariants();
+            return data_[size_ - 1];
         }
         
         // Slow path: reallocation required
@@ -1558,9 +1558,9 @@ public:
         auto new_cap_result = checked_mul<ReturnExpectedPolicy>(mCapacity, size_t(2));
         size_t new_cap;
         if (new_cap_result.has_value()) {
-            new_cap = std::max(mSize + 1, *new_cap_result);
+            new_cap = std::max(size_ + 1, *new_cap_result);
         } else {
-            new_cap = mSize + 1;
+            new_cap = size_ + 1;
             FATP_ALWAYS_ENFORCE(new_cap <= max_size(), "Capacity overflow");
         }
         // Defensive: ensure non-zero capacity even if overflow arithmetic produces 0
@@ -1574,11 +1574,11 @@ public:
             AllocTraits::deallocate(mAllocator, new_data, new_cap);
         });
         
-        // Construct new element FIRST while old mData is still valid
-        AllocTraits::construct(mAllocator, new_data + mSize, std::forward<Args>(args)...);
+        // Construct new element FIRST while old data_ is still valid
+        AllocTraits::construct(mAllocator, new_data + size_, std::forward<Args>(args)...);
         
         auto new_elem_guard = makeScopeGuard([&]() noexcept {
-            AllocTraits::destroy(mAllocator, new_data + mSize);
+            AllocTraits::destroy(mAllocator, new_data + size_);
         });
         
         // Now move existing elements
@@ -1587,9 +1587,9 @@ public:
             std::destroy_n(new_data, constructed);
         });
         
-        for (size_t i = 0; i < mSize; ++i) {
+        for (size_t i = 0; i < size_; ++i) {
             AllocTraits::construct(mAllocator, new_data + i, 
-                                   std::move_if_noexcept(mData[i]));
+                                   std::move_if_noexcept(data_[i]));
             ++constructed;
         }
         
@@ -1598,24 +1598,24 @@ public:
         new_elem_guard.dismiss();
         cleanup_guard.dismiss();
         
-        std::destroy_n(mData, mSize);
-        if (!isInline()) {
-            AllocTraits::deallocate(mAllocator, mData, mCapacity);
+        std::destroy_n(data_, size_);
+        if (!is_inline()) {
+            AllocTraits::deallocate(mAllocator, data_, mCapacity);
         }
         
-        mData = new_data;
+        data_ = new_data;
         mCapacity = new_cap;
-        ++mSize;
-        assertInvariants();
-        return mData[mSize - 1];
+        ++size_;
+        assert_invariants();
+        return data_[size_ - 1];
     }
 
     /** @brief Removes last element */
     void pop_back() {
-        FATP_ALWAYS_ENFORCE(mSize > 0, "Cannot pop from empty vector");
-        --mSize;
-        std::destroy_at(mData + mSize);
-        assertInvariants();
+        FATP_ALWAYS_ENFORCE(size_ > 0, "Cannot pop from empty vector");
+        --size_;
+        std::destroy_at(data_ + size_);
+        assert_invariants();
     }
 
     /**
@@ -1625,27 +1625,27 @@ public:
      * @note Strong* exception safety if reallocation needed (see class documentation)
      */
     void resize(size_type count) {
-        if (count < mSize) {
-            std::destroy_n(mData + count, mSize - count);
-        } else if (count > mSize) {
+        if (count < size_) {
+            std::destroy_n(data_ + count, size_ - count);
+        } else if (count > size_) {
             if (count > mCapacity) {
                 reserve(count);
             }
             // FIX #2: Guard partial construction to prevent leaks on exception
             size_t constructed = 0;
             auto guard = makeScopeGuard([&]() noexcept {
-                std::destroy_n(mData + mSize, constructed);
+                std::destroy_n(data_ + size_, constructed);
             });
             
-            for (size_t i = mSize; i < count; ++i) {
-                AllocTraits::construct(mAllocator, mData + i);
+            for (size_t i = size_; i < count; ++i) {
+                AllocTraits::construct(mAllocator, data_ + i);
                 ++constructed;
             }
             
             guard.dismiss();
         }
-        mSize = count;
-        assertInvariants();
+        size_ = count;
+        assert_invariants();
     }
 
     /** 
@@ -1654,11 +1654,11 @@ public:
      * @note Strong* exception safety if reallocation needed (see class documentation)
      */
     void resize(size_type count, const T& value) {
-        if (count < mSize) {
-            std::destroy_n(mData + count, mSize - count);
-            mSize = count;
-            assertInvariants();
-        } else if (count > mSize) {
+        if (count < size_) {
+            std::destroy_n(data_ + count, size_ - count);
+            size_ = count;
+            assert_invariants();
+        } else if (count > size_) {
             // Stabilize value before potential reallocation
             T stable_value = value;
             
@@ -1668,17 +1668,17 @@ public:
             // FIX #2: Guard partial construction to prevent leaks on exception
             size_t constructed = 0;
             auto guard = makeScopeGuard([&]() noexcept {
-                std::destroy_n(mData + mSize, constructed);
+                std::destroy_n(data_ + size_, constructed);
             });
             
-            for (size_t i = mSize; i < count; ++i) {
-                AllocTraits::construct(mAllocator, mData + i, stable_value);
+            for (size_t i = size_; i < count; ++i) {
+                AllocTraits::construct(mAllocator, data_ + i, stable_value);
                 ++constructed;
             }
             
             guard.dismiss();
-            mSize = count;
-            assertInvariants();
+            size_ = count;
+            assert_invariants();
         }
     }
 
@@ -1709,109 +1709,109 @@ public:
         }
         
         // Both inline: element-wise swap
-        if (isInline() && other.isInline()) {
-            size_t min_size = std::min(mSize, other.mSize);
+        if (is_inline() && other.is_inline()) {
+            size_t min_size = std::min(size_, other.size_);
             
             // Swap common elements
             for (size_t i = 0; i < min_size; ++i) {
                 using std::swap;
-                swap(mData[i], other.mData[i]);
+                swap(data_[i], other.data_[i]);
             }
             
             // Move excess elements
-            if (mSize > other.mSize) {
+            if (size_ > other.size_) {
                 size_t constructed = 0;
                 auto guard = makeScopeGuard([&]() noexcept {
-                    std::destroy_n(other.mData + min_size, constructed);
+                    std::destroy_n(other.data_ + min_size, constructed);
                 });
-                for (size_t i = 0; i < (mSize - min_size); ++i) {
+                for (size_t i = 0; i < (size_ - min_size); ++i) {
                     AllocTraits::construct(other.mAllocator,
-                                           other.mData + min_size + i,
-                                           std::move_if_noexcept(mData[min_size + i]));
+                                           other.data_ + min_size + i,
+                                           std::move_if_noexcept(data_[min_size + i]));
                     ++constructed;
                 }
                 guard.dismiss();
-                std::destroy_n(mData + min_size, mSize - min_size);
-            } else if (other.mSize > mSize) {
+                std::destroy_n(data_ + min_size, size_ - min_size);
+            } else if (other.size_ > size_) {
                 size_t constructed = 0;
                 auto guard = makeScopeGuard([&]() noexcept {
-                    std::destroy_n(mData + min_size, constructed);
+                    std::destroy_n(data_ + min_size, constructed);
                 });
-                for (size_t i = 0; i < (other.mSize - min_size); ++i) {
+                for (size_t i = 0; i < (other.size_ - min_size); ++i) {
                     AllocTraits::construct(mAllocator,
-                                           mData + min_size + i,
-                                           std::move_if_noexcept(other.mData[min_size + i]));
+                                           data_ + min_size + i,
+                                           std::move_if_noexcept(other.data_[min_size + i]));
                     ++constructed;
                 }
                 guard.dismiss();
-                std::destroy_n(other.mData + min_size, other.mSize - min_size);
+                std::destroy_n(other.data_ + min_size, other.size_ - min_size);
             }
             
             using std::swap;
-            swap(mSize, other.mSize);
-            assertInvariants();
-            other.assertInvariants();
+            swap(size_, other.size_);
+            assert_invariants();
+            other.assert_invariants();
             return;
         }
         
         // Both heap: just swap pointers
-        if (!isInline() && !other.isInline()) {
+        if (!is_inline() && !other.is_inline()) {
             using std::swap;
-            swap(mData, other.mData);
-            swap(mSize, other.mSize);
+            swap(data_, other.data_);
+            swap(size_, other.size_);
             swap(mCapacity, other.mCapacity);
-            assertInvariants();
-            other.assertInvariants();
+            assert_invariants();
+            other.assert_invariants();
             return;
         }
         
         // FIX #3: One inline, one heap - with proper exception safety
         // Previously: state was mutated before potentially-throwing move, causing
         // heap leak and corruption if move threw. Now: move first, then mutate state.
-        SmallVector* inline_vec = isInline() ? this : &other;
-        SmallVector* heap_vec = isInline() ? &other : this;
+        SmallVector* inline_vec = is_inline() ? this : &other;
+        SmallVector* heap_vec = is_inline() ? &other : this;
         
         // Save heap info
-        T* heap_data = heap_vec->mData;
-        size_t heap_size = heap_vec->mSize;
+        T* heap_data = heap_vec->data_;
+        size_t heap_size = heap_vec->size_;
         size_t heap_cap = heap_vec->mCapacity;
-        size_t inline_size = inline_vec->mSize;
+        size_t inline_size = inline_vec->size_;
         
         // Rollback guard restores heap_vec state if move throws
         auto rollback = makeScopeGuard([&]() noexcept {
-            heap_vec->mData = heap_data;
-            heap_vec->mSize = heap_size;
+            heap_vec->data_ = heap_data;
+            heap_vec->size_ = heap_size;
             heap_vec->mCapacity = heap_cap;
         });
         
         // Move inline elements to heap_vec's inline buffer FIRST (may throw).
-        // Must not leave partially-constructed elements beyond heap_vec->mSize on exception.
+        // Must not leave partially-constructed elements beyond heap_vec->size_ on exception.
         size_t constructed = 0;
         auto inline_construct_guard = makeScopeGuard([&]() noexcept {
-            std::destroy_n(heap_vec->inlinePtr(), constructed);
+            std::destroy_n(heap_vec->inline_ptr(), constructed);
         });
         for (size_t i = 0; i < inline_size; ++i) {
             AllocTraits::construct(heap_vec->mAllocator,
-                                   heap_vec->inlinePtr() + i,
-                                   std::move_if_noexcept(inline_vec->mData[i]));
+                                   heap_vec->inline_ptr() + i,
+                                   std::move_if_noexcept(inline_vec->data_[i]));
             ++constructed;
         }
         
         // Now safe to mutate state
-        heap_vec->mData = heap_vec->inlinePtr();
+        heap_vec->data_ = heap_vec->inline_ptr();
         heap_vec->mCapacity = InlineCapacity;
-        heap_vec->mSize = inline_size;
+        heap_vec->size_ = inline_size;
         inline_construct_guard.dismiss();
         
         // Destroy inline elements and give heap to inline_vec
-        std::destroy_n(inline_vec->mData, inline_vec->mSize);
-        inline_vec->mData = heap_data;
-        inline_vec->mSize = heap_size;
+        std::destroy_n(inline_vec->data_, inline_vec->size_);
+        inline_vec->data_ = heap_data;
+        inline_vec->size_ = heap_size;
         inline_vec->mCapacity = heap_cap;
         
         rollback.dismiss();
-        assertInvariants();
-        other.assertInvariants();
+        assert_invariants();
+        other.assert_invariants();
     }
 
     /** @brief Returns copy of allocator */

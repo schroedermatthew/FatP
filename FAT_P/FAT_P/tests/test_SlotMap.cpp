@@ -782,7 +782,7 @@ FATP_TEST_CASE(stress_slot_reuse)
 // =============================================================================
 
 // Test: clear() must not cause ABA violation
-// Bug: Original clear() wiped slots_, resetting generations to 0.
+// Bug: Original clear() wiped mSlots, resetting generations to 0.
 // Fix: Increment generations on clear, don't reset them.
 FATP_TEST_CASE(clear_aba_fix)
 {

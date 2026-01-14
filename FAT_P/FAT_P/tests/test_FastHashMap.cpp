@@ -488,9 +488,9 @@ FATP_TEST_CASE(empty_values)
 // Test 20: SIMD Backend Detection
 // ============================================================================
 
-FATP_TEST_CASE(simdBackend)
+FATP_TEST_CASE(simd_backend)
 {
-    const char* backend = FastHashMap<int, int>::simdBackend();
+    const char* backend = FastHashMap<int, int>::simd_backend();
     FATP_ASSERT_TRUE(backend != nullptr, "SIMD backend should not be null");
     FATP_ASSERT_TRUE(std::string(backend).length() > 0, "SIMD backend should have a name");
 
@@ -919,7 +919,7 @@ void benchmark_fasthashmap()
     std::cout << "\n" << colors::cyan() << "FastHashMap Benchmarks:"
               << colors::reset() << "\n\n";
 
-    std::cout << "SIMD Backend: " << FastHashMap<int, int>::simdBackend() << "\n\n";
+    std::cout << "SIMD Backend: " << FastHashMap<int, int>::simd_backend() << "\n\n";
 
     constexpr size_t N = 50000;
     constexpr size_t WARMUP = 1000;
@@ -1036,7 +1036,7 @@ bool test_FastHashMap()
     // --- Edge Cases ---
     out << "\n" << colors::blue() << "--- Edge Cases ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, fasthashmap, empty_values);
-    FATP_RUN_TEST_NS(runner, fasthashmap, simdBackend);
+    FATP_RUN_TEST_NS(runner, fasthashmap, simd_backend);
     FATP_RUN_TEST_NS(runner, fasthashmap, rehash);
 
     // --- Conditional noexcept & SFINAE (ChatGPT Round 2) ---

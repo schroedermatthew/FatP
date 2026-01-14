@@ -4854,19 +4854,19 @@ inline JsonValue to_json(const JsonValue& value)
  * @code{.cpp}
  * class User {
  * private:
- *     std::string username_;
+ *     std::string mUsername;
  *     std::string password_hash_;
  *     int user_id_;
  *
  * public:
  *     User() = default;
  *     User(std::string name, std::string hash, int id)
- *         : username_(std::move(name))
+ *         : mUsername(std::move(name))
  *         , password_hash_(std::move(hash))
  *         , user_id_(id) {}
  *
  *     // Define serialization with access to private members
- *     FATP_JSON_DEFINE_TYPE_INTRUSIVE(User, username_, password_hash_, user_id_)
+ *     FATP_JSON_DEFINE_TYPE_INTRUSIVE(User, mUsername, password_hash_, user_id_)
  * };
  *
  * // Usage is the same
@@ -4988,7 +4988,7 @@ inline void skip_whitespace(std::string_view s, size_t& pos) noexcept
  */
 inline std::string parse_string(std::string_view s, size_t& pos)
 {
-    FATP_JSON_ENFORCE(pos < s.size() && s[pos] == '"', "JSON parse error: expected string", "position", pos);
+    FATP_JSON_ENFORCE(pos < s.size() && s[pos] == '"', "JSON parse error: expected mString_LIT_1__position", pos);
     ++pos; // Skip opening quote
 
     std::string res;
@@ -5145,7 +5145,7 @@ inline std::string parse_string(std::string_view s, size_t& pos)
         ++pos;
     }
 
-    FATP_JSON_ENFORCE(pos < s.size() && s[pos] == '"', "JSON parse error: unterminated string", "position", pos);
+    FATP_JSON_ENFORCE(pos < s.size() && s[pos] == '"', "JSON parse error: unterminated mString_LIT_1__position", pos);
     ++pos; // Skip closing quote
     return res;
 }
@@ -5422,7 +5422,7 @@ inline JsonObject parse_object(std::string_view s, size_t& pos, size_t depth)
         skip_whitespace<Policy>(s, pos);
 
         // Key must be a string
-        FATP_JSON_ENFORCE(pos < s.size() && s[pos] == '"', "JSON parse error: expected string key", "position", pos);
+        FATP_JSON_ENFORCE(pos < s.size() && s[pos] == '"', "JSON parse error: expected string mKey_LIT_1__position", pos);
         std::string key = parse_string(s, pos);
 
         skip_whitespace<Policy>(s, pos);

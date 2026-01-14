@@ -681,7 +681,7 @@ struct IMapAdapter
 
 class StdUnorderedMapAdapter final : public IMapAdapter
 {
-    std::unique_ptr<std::unordered_map<int64_t, int64_t>> map_;
+    std::unique_ptr<std::unordered_map<int64_t, int64_t>> mMap;
 
 public:
     const char* name() const override
@@ -691,20 +691,20 @@ public:
 
     void setup(size_t N, const Inputs&) override
     {
-        map_ = std::make_unique<std::unordered_map<int64_t, int64_t>>();
-        map_->reserve(N);
+        mMap = std::make_unique<std::unordered_map<int64_t, int64_t>>();
+        mMap->reserve(N);
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t k : in.keys)
         {
-            map_->emplace(k, k);
+            mMap->emplace(k, k);
         }
     }
 
@@ -716,7 +716,7 @@ public:
             case Case::Insert:
                 for (int64_t k : in.keys)
                 {
-                    map_->emplace(k, k);
+                    mMap->emplace(k, k);
                     ++ops;
                 }
                 break;
@@ -724,8 +724,8 @@ public:
             case Case::FindHit:
                 for (int64_t k : in.keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -736,8 +736,8 @@ public:
             case Case::FindMiss:
                 for (int64_t k : in.miss_keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -748,7 +748,7 @@ public:
             case Case::Erase:
                 for (int64_t k : in.erase_subset)
                 {
-                    map_->erase(k);
+                    mMap->erase(k);
                     ++ops;
                 }
                 break;
@@ -756,8 +756,8 @@ public:
             case Case::Churn:
                 for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
                 {
-                    map_->erase(in.churn_erase_keys[i]);
-                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    mMap->erase(in.churn_erase_keys[i]);
+                    mMap->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
                     ops += 2;
                 }
                 break;
@@ -773,7 +773,7 @@ public:
 #if HAS_TSL
 class TslRobinMapAdapter final : public IMapAdapter
 {
-    std::unique_ptr<tsl::robin_map<int64_t, int64_t>> map_;
+    std::unique_ptr<tsl::robin_map<int64_t, int64_t>> mMap;
 
 public:
     const char* name() const override
@@ -783,20 +783,20 @@ public:
 
     void setup(size_t N, const Inputs&) override
     {
-        map_ = std::make_unique<tsl::robin_map<int64_t, int64_t>>();
-        map_->reserve(N);
+        mMap = std::make_unique<tsl::robin_map<int64_t, int64_t>>();
+        mMap->reserve(N);
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t k : in.keys)
         {
-            map_->insert({k, k});
+            mMap->insert({k, k});
         }
     }
 
@@ -808,7 +808,7 @@ public:
             case Case::Insert:
                 for (int64_t k : in.keys)
                 {
-                    map_->insert({k, k});
+                    mMap->insert({k, k});
                     ++ops;
                 }
                 break;
@@ -816,8 +816,8 @@ public:
             case Case::FindHit:
                 for (int64_t k : in.keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -828,8 +828,8 @@ public:
             case Case::FindMiss:
                 for (int64_t k : in.miss_keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -840,7 +840,7 @@ public:
             case Case::Erase:
                 for (int64_t k : in.erase_subset)
                 {
-                    map_->erase(k);
+                    mMap->erase(k);
                     ++ops;
                 }
                 break;
@@ -848,8 +848,8 @@ public:
             case Case::Churn:
                 for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
                 {
-                    map_->erase(in.churn_erase_keys[i]);
-                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    mMap->erase(in.churn_erase_keys[i]);
+                    mMap->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
                     ops += 2;
                 }
                 break;
@@ -866,7 +866,7 @@ public:
 #if HAS_ANKERL
 class AnkerlDenseMapAdapter final : public IMapAdapter
 {
-    std::unique_ptr<ankerl::unordered_dense::map<int64_t, int64_t>> map_;
+    std::unique_ptr<ankerl::unordered_dense::map<int64_t, int64_t>> mMap;
 
 public:
     const char* name() const override
@@ -876,20 +876,20 @@ public:
 
     void setup(size_t N, const Inputs&) override
     {
-        map_ = std::make_unique<ankerl::unordered_dense::map<int64_t, int64_t>>();
-        map_->reserve(N);
+        mMap = std::make_unique<ankerl::unordered_dense::map<int64_t, int64_t>>();
+        mMap->reserve(N);
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t k : in.keys)
         {
-            map_->insert({k, k});
+            mMap->insert({k, k});
         }
     }
 
@@ -901,7 +901,7 @@ public:
             case Case::Insert:
                 for (int64_t k : in.keys)
                 {
-                    map_->insert({k, k});
+                    mMap->insert({k, k});
                     ++ops;
                 }
                 break;
@@ -909,8 +909,8 @@ public:
             case Case::FindHit:
                 for (int64_t k : in.keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -921,8 +921,8 @@ public:
             case Case::FindMiss:
                 for (int64_t k : in.miss_keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -933,7 +933,7 @@ public:
             case Case::Erase:
                 for (int64_t k : in.erase_subset)
                 {
-                    map_->erase(k);
+                    mMap->erase(k);
                     ++ops;
                 }
                 break;
@@ -941,8 +941,8 @@ public:
             case Case::Churn:
                 for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
                 {
-                    map_->erase(in.churn_erase_keys[i]);
-                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    mMap->erase(in.churn_erase_keys[i]);
+                    mMap->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
                     ops += 2;
                 }
                 break;
@@ -959,7 +959,7 @@ public:
 #if HAS_ABSL
 class AbslFlatHashMapAdapter final : public IMapAdapter
 {
-    std::unique_ptr<absl::flat_hash_map<int64_t, int64_t>> map_;
+    std::unique_ptr<absl::flat_hash_map<int64_t, int64_t>> mMap;
 
 public:
     const char* name() const override
@@ -969,20 +969,20 @@ public:
 
     void setup(size_t N, const Inputs&) override
     {
-        map_ = std::make_unique<absl::flat_hash_map<int64_t, int64_t>>();
-        map_->reserve(N);
+        mMap = std::make_unique<absl::flat_hash_map<int64_t, int64_t>>();
+        mMap->reserve(N);
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t k : in.keys)
         {
-            map_->insert({k, k});
+            mMap->insert({k, k});
         }
     }
 
@@ -994,7 +994,7 @@ public:
             case Case::Insert:
                 for (int64_t k : in.keys)
                 {
-                    map_->insert({k, k});
+                    mMap->insert({k, k});
                     ++ops;
                 }
                 break;
@@ -1002,8 +1002,8 @@ public:
             case Case::FindHit:
                 for (int64_t k : in.keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -1014,8 +1014,8 @@ public:
             case Case::FindMiss:
                 for (int64_t k : in.miss_keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -1026,7 +1026,7 @@ public:
             case Case::Erase:
                 for (int64_t k : in.erase_subset)
                 {
-                    map_->erase(k);
+                    mMap->erase(k);
                     ++ops;
                 }
                 break;
@@ -1034,8 +1034,8 @@ public:
             case Case::Churn:
                 for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
                 {
-                    map_->erase(in.churn_erase_keys[i]);
-                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    mMap->erase(in.churn_erase_keys[i]);
+                    mMap->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
                     ops += 2;
                 }
                 break;
@@ -1050,7 +1050,7 @@ public:
 
 class AbslNodeHashMapAdapter final : public IMapAdapter
 {
-    std::unique_ptr<absl::node_hash_map<int64_t, int64_t>> map_;
+    std::unique_ptr<absl::node_hash_map<int64_t, int64_t>> mMap;
 
 public:
     const char* name() const override
@@ -1060,20 +1060,20 @@ public:
 
     void setup(size_t N, const Inputs&) override
     {
-        map_ = std::make_unique<absl::node_hash_map<int64_t, int64_t>>();
-        map_->reserve(N);
+        mMap = std::make_unique<absl::node_hash_map<int64_t, int64_t>>();
+        mMap->reserve(N);
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t k : in.keys)
         {
-            map_->insert({k, k});
+            mMap->insert({k, k});
         }
     }
 
@@ -1085,7 +1085,7 @@ public:
             case Case::Insert:
                 for (int64_t k : in.keys)
                 {
-                    map_->insert({k, k});
+                    mMap->insert({k, k});
                     ++ops;
                 }
                 break;
@@ -1093,8 +1093,8 @@ public:
             case Case::FindHit:
                 for (int64_t k : in.keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -1105,8 +1105,8 @@ public:
             case Case::FindMiss:
                 for (int64_t k : in.miss_keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -1117,7 +1117,7 @@ public:
             case Case::Erase:
                 for (int64_t k : in.erase_subset)
                 {
-                    map_->erase(k);
+                    mMap->erase(k);
                     ++ops;
                 }
                 break;
@@ -1125,8 +1125,8 @@ public:
             case Case::Churn:
                 for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
                 {
-                    map_->erase(in.churn_erase_keys[i]);
-                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    mMap->erase(in.churn_erase_keys[i]);
+                    mMap->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
                     ops += 2;
                 }
                 break;
@@ -1143,7 +1143,7 @@ public:
 #if HAS_BOOST_FLAT
 class BoostFlatMapAdapter final : public IMapAdapter
 {
-    std::unique_ptr<boost::unordered_flat_map<int64_t, int64_t>> map_;
+    std::unique_ptr<boost::unordered_flat_map<int64_t, int64_t>> mMap;
 
 public:
     const char* name() const override
@@ -1153,20 +1153,20 @@ public:
 
     void setup(size_t N, const Inputs&) override
     {
-        map_ = std::make_unique<boost::unordered_flat_map<int64_t, int64_t>>();
-        map_->reserve(N);
+        mMap = std::make_unique<boost::unordered_flat_map<int64_t, int64_t>>();
+        mMap->reserve(N);
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t k : in.keys)
         {
-            map_->insert({k, k});
+            mMap->insert({k, k});
         }
     }
 
@@ -1178,7 +1178,7 @@ public:
             case Case::Insert:
                 for (int64_t k : in.keys)
                 {
-                    map_->insert({k, k});
+                    mMap->insert({k, k});
                     ++ops;
                 }
                 break;
@@ -1186,8 +1186,8 @@ public:
             case Case::FindHit:
                 for (int64_t k : in.keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -1198,8 +1198,8 @@ public:
             case Case::FindMiss:
                 for (int64_t k : in.miss_keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -1210,7 +1210,7 @@ public:
             case Case::Erase:
                 for (int64_t k : in.erase_subset)
                 {
-                    map_->erase(k);
+                    mMap->erase(k);
                     ++ops;
                 }
                 break;
@@ -1218,8 +1218,8 @@ public:
             case Case::Churn:
                 for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
                 {
-                    map_->erase(in.churn_erase_keys[i]);
-                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    mMap->erase(in.churn_erase_keys[i]);
+                    mMap->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
                     ops += 2;
                 }
                 break;
@@ -1234,7 +1234,7 @@ public:
 
 class BoostNodeMapAdapter final : public IMapAdapter
 {
-    std::unique_ptr<boost::unordered_node_map<int64_t, int64_t>> map_;
+    std::unique_ptr<boost::unordered_node_map<int64_t, int64_t>> mMap;
 
 public:
     const char* name() const override
@@ -1244,20 +1244,20 @@ public:
 
     void setup(size_t N, const Inputs&) override
     {
-        map_ = std::make_unique<boost::unordered_node_map<int64_t, int64_t>>();
-        map_->reserve(N);
+        mMap = std::make_unique<boost::unordered_node_map<int64_t, int64_t>>();
+        mMap->reserve(N);
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t k : in.keys)
         {
-            map_->insert({k, k});
+            mMap->insert({k, k});
         }
     }
 
@@ -1269,7 +1269,7 @@ public:
             case Case::Insert:
                 for (int64_t k : in.keys)
                 {
-                    map_->insert({k, k});
+                    mMap->insert({k, k});
                     ++ops;
                 }
                 break;
@@ -1277,8 +1277,8 @@ public:
             case Case::FindHit:
                 for (int64_t k : in.keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -1289,8 +1289,8 @@ public:
             case Case::FindMiss:
                 for (int64_t k : in.miss_keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -1301,7 +1301,7 @@ public:
             case Case::Erase:
                 for (int64_t k : in.erase_subset)
                 {
-                    map_->erase(k);
+                    mMap->erase(k);
                     ++ops;
                 }
                 break;
@@ -1309,8 +1309,8 @@ public:
             case Case::Churn:
                 for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
                 {
-                    map_->erase(in.churn_erase_keys[i]);
-                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    mMap->erase(in.churn_erase_keys[i]);
+                    mMap->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
                     ops += 2;
                 }
                 break;
@@ -1327,7 +1327,7 @@ public:
 #if HAS_FOLLY
 class FollyF14MapAdapter final : public IMapAdapter
 {
-    std::unique_ptr<folly::F14FastMap<int64_t, int64_t>> map_;
+    std::unique_ptr<folly::F14FastMap<int64_t, int64_t>> mMap;
 
 public:
     const char* name() const override
@@ -1337,20 +1337,20 @@ public:
 
     void setup(size_t N, const Inputs&) override
     {
-        map_ = std::make_unique<folly::F14FastMap<int64_t, int64_t>>();
-        map_->reserve(N);
+        mMap = std::make_unique<folly::F14FastMap<int64_t, int64_t>>();
+        mMap->reserve(N);
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t k : in.keys)
         {
-            map_->insert({k, k});
+            mMap->insert({k, k});
         }
     }
 
@@ -1362,7 +1362,7 @@ public:
             case Case::Insert:
                 for (int64_t k : in.keys)
                 {
-                    map_->insert({k, k});
+                    mMap->insert({k, k});
                     ++ops;
                 }
                 break;
@@ -1370,8 +1370,8 @@ public:
             case Case::FindHit:
                 for (int64_t k : in.keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -1382,8 +1382,8 @@ public:
             case Case::FindMiss:
                 for (int64_t k : in.miss_keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -1394,7 +1394,7 @@ public:
             case Case::Erase:
                 for (int64_t k : in.erase_subset)
                 {
-                    map_->erase(k);
+                    mMap->erase(k);
                     ++ops;
                 }
                 break;
@@ -1402,8 +1402,8 @@ public:
             case Case::Churn:
                 for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
                 {
-                    map_->erase(in.churn_erase_keys[i]);
-                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    mMap->erase(in.churn_erase_keys[i]);
+                    mMap->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
                     ops += 2;
                 }
                 break;
@@ -1418,7 +1418,7 @@ public:
 
 class FollyF14NodeMapAdapter final : public IMapAdapter
 {
-    std::unique_ptr<folly::F14NodeMap<int64_t, int64_t>> map_;
+    std::unique_ptr<folly::F14NodeMap<int64_t, int64_t>> mMap;
 
 public:
     const char* name() const override
@@ -1428,20 +1428,20 @@ public:
 
     void setup(size_t N, const Inputs&) override
     {
-        map_ = std::make_unique<folly::F14NodeMap<int64_t, int64_t>>();
-        map_->reserve(N);
+        mMap = std::make_unique<folly::F14NodeMap<int64_t, int64_t>>();
+        mMap->reserve(N);
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t k : in.keys)
         {
-            map_->insert({k, k});
+            mMap->insert({k, k});
         }
     }
 
@@ -1453,7 +1453,7 @@ public:
             case Case::Insert:
                 for (int64_t k : in.keys)
                 {
-                    map_->insert({k, k});
+                    mMap->insert({k, k});
                     ++ops;
                 }
                 break;
@@ -1461,8 +1461,8 @@ public:
             case Case::FindHit:
                 for (int64_t k : in.keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -1473,8 +1473,8 @@ public:
             case Case::FindMiss:
                 for (int64_t k : in.miss_keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -1485,7 +1485,7 @@ public:
             case Case::Erase:
                 for (int64_t k : in.erase_subset)
                 {
-                    map_->erase(k);
+                    mMap->erase(k);
                     ++ops;
                 }
                 break;
@@ -1493,8 +1493,8 @@ public:
             case Case::Churn:
                 for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
                 {
-                    map_->erase(in.churn_erase_keys[i]);
-                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    mMap->erase(in.churn_erase_keys[i]);
+                    mMap->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
                     ops += 2;
                 }
                 break;
@@ -1511,7 +1511,7 @@ public:
 #if HAS_LLVM
 class LlvmDenseMapAdapter final : public IMapAdapter
 {
-    std::unique_ptr<llvm::DenseMap<int64_t, int64_t>> map_;
+    std::unique_ptr<llvm::DenseMap<int64_t, int64_t>> mMap;
 
 public:
     const char* name() const override
@@ -1521,20 +1521,20 @@ public:
 
     void setup(size_t N, const Inputs&) override
     {
-        map_ = std::make_unique<llvm::DenseMap<int64_t, int64_t>>();
-        map_->reserve(static_cast<unsigned>(N));
+        mMap = std::make_unique<llvm::DenseMap<int64_t, int64_t>>();
+        mMap->reserve(static_cast<unsigned>(N));
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t k : in.keys)
         {
-            map_->insert({k, k});
+            mMap->insert({k, k});
         }
     }
 
@@ -1546,7 +1546,7 @@ public:
             case Case::Insert:
                 for (int64_t k : in.keys)
                 {
-                    map_->insert({k, k});
+                    mMap->insert({k, k});
                     ++ops;
                 }
                 break;
@@ -1554,8 +1554,8 @@ public:
             case Case::FindHit:
                 for (int64_t k : in.keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -1566,8 +1566,8 @@ public:
             case Case::FindMiss:
                 for (int64_t k : in.miss_keys)
                 {
-                    auto it = map_->find(k);
-                    if (it != map_->end())
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->second;
                     }
@@ -1578,7 +1578,7 @@ public:
             case Case::Erase:
                 for (int64_t k : in.erase_subset)
                 {
-                    map_->erase(k);
+                    mMap->erase(k);
                     ++ops;
                 }
                 break;
@@ -1586,8 +1586,8 @@ public:
             case Case::Churn:
                 for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
                 {
-                    map_->erase(in.churn_erase_keys[i]);
-                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    mMap->erase(in.churn_erase_keys[i]);
+                    mMap->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
                     ops += 2;
                 }
                 break;
@@ -1606,36 +1606,36 @@ template <typename Hash = std::hash<int64_t>,
           typename DeletionPolicy = fat_p::BackwardShiftDeletion>
 class FastHashMapAdapter final : public IMapAdapter
 {
-    std::string name_;
-    std::unique_ptr<fat_p::FastHashMap<int64_t, int64_t, Hash, KeyEqual, DeletionPolicy>> map_;
+    std::string mName;
+    std::unique_ptr<fat_p::FastHashMap<int64_t, int64_t, Hash, KeyEqual, DeletionPolicy>> mMap;
 
 public:
     explicit FastHashMapAdapter(const char* name)
-        : name_(name)
+        : mName(name)
     {
     }
 
     const char* name() const override
     {
-        return name_.c_str();
+        return mName.c_str();
     }
 
     void setup(size_t N, const Inputs&) override
     {
-        map_ = std::make_unique<fat_p::FastHashMap<int64_t, int64_t, Hash, KeyEqual, DeletionPolicy>>();
-        map_->reserve(N);
+        mMap = std::make_unique<fat_p::FastHashMap<int64_t, int64_t, Hash, KeyEqual, DeletionPolicy>>();
+        mMap->reserve(N);
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t k : in.keys)
         {
-            map_->insert(k, k);
+            mMap->insert(k, k);
         }
     }
 
@@ -1647,7 +1647,7 @@ public:
             case Case::Insert:
                 for (int64_t k : in.keys)
                 {
-                    map_->insert(k, k);
+                    mMap->insert(k, k);
                     ++ops;
                 }
                 break;
@@ -1655,7 +1655,7 @@ public:
             case Case::FindHit:
                 for (int64_t k : in.keys)
                 {
-                    auto* v = map_->find(k);
+                    auto* v = mMap->find(k);
                     if (v)
                     {
                         benchmark_sink += *v;
@@ -1667,7 +1667,7 @@ public:
             case Case::FindMiss:
                 for (int64_t k : in.miss_keys)
                 {
-                    auto* v = map_->find(k);
+                    auto* v = mMap->find(k);
                     if (v)
                     {
                         benchmark_sink += *v;
@@ -1679,7 +1679,7 @@ public:
             case Case::Erase:
                 for (int64_t k : in.erase_subset)
                 {
-                    map_->erase(k);
+                    mMap->erase(k);
                     ++ops;
                 }
                 break;
@@ -1687,8 +1687,8 @@ public:
             case Case::Churn:
                 for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
                 {
-                    map_->erase(in.churn_erase_keys[i]);
-                    map_->insert(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    mMap->erase(in.churn_erase_keys[i]);
+                    mMap->insert(in.churn_insert_keys[i], in.churn_insert_keys[i]);
                     ops += 2;
                 }
                 break;
@@ -1712,36 +1712,36 @@ using FastHashMapTS_SM64 = FastHashMapAdapter<SplitMix64Hash, std::equal_to<int6
 template <typename Hash = std::hash<int64_t>, typename KeyEqual = std::equal_to<int64_t>>
 class StableHashMapAdapter final : public IMapAdapter
 {
-    std::string name_;
-    std::unique_ptr<fat_p::StableHashMap<int64_t, int64_t, Hash, KeyEqual>> map_;
+    std::string mName;
+    std::unique_ptr<fat_p::StableHashMap<int64_t, int64_t, Hash, KeyEqual>> mMap;
 
 public:
     explicit StableHashMapAdapter(const char* name)
-        : name_(name)
+        : mName(name)
     {
     }
 
     const char* name() const override
     {
-        return name_.c_str();
+        return mName.c_str();
     }
 
     void setup(size_t N, const Inputs&) override
     {
-        map_ = std::make_unique<fat_p::StableHashMap<int64_t, int64_t, Hash, KeyEqual>>();
-        map_->reserve(N);
+        mMap = std::make_unique<fat_p::StableHashMap<int64_t, int64_t, Hash, KeyEqual>>();
+        mMap->reserve(N);
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t k : in.keys)
         {
-            map_->insert(k, k);
+            mMap->insert(k, k);
         }
     }
 
@@ -1753,7 +1753,7 @@ public:
             case Case::Insert:
                 for (int64_t k : in.keys)
                 {
-                    map_->insert(k, k);
+                    mMap->insert(k, k);
                     ++ops;
                 }
                 break;
@@ -1761,7 +1761,7 @@ public:
             case Case::FindHit:
                 for (int64_t k : in.keys)
                 {
-                    auto* v = map_->find(k);
+                    auto* v = mMap->find(k);
                     if (v)
                     {
                         benchmark_sink += *v;
@@ -1773,7 +1773,7 @@ public:
             case Case::FindMiss:
                 for (int64_t k : in.miss_keys)
                 {
-                    auto* v = map_->find(k);
+                    auto* v = mMap->find(k);
                     if (v)
                     {
                         benchmark_sink += *v;
@@ -1785,7 +1785,7 @@ public:
             case Case::Erase:
                 for (int64_t k : in.erase_subset)
                 {
-                    map_->erase(k);
+                    mMap->erase(k);
                     ++ops;
                 }
                 break;
@@ -1793,8 +1793,8 @@ public:
             case Case::Churn:
                 for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
                 {
-                    map_->erase(in.churn_erase_keys[i]);
-                    map_->insert(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    mMap->erase(in.churn_erase_keys[i]);
+                    mMap->insert(in.churn_insert_keys[i], in.churn_insert_keys[i]);
                     ops += 2;
                 }
                 break;
@@ -1812,36 +1812,36 @@ using StableHashMapSM64 = StableHashMapAdapter<SplitMix64Hash, std::equal_to<int
 template <typename Hash = std::hash<int64_t>, typename KeyEqual = std::equal_to<int64_t>>
 class StableHashMapBlockAdapter final : public IMapAdapter
 {
-    std::string name_;
-    std::unique_ptr<fat_p::StableHashMap<int64_t, int64_t, Hash, KeyEqual, fat_p::BlockAllocator>> map_;
+    std::string mName;
+    std::unique_ptr<fat_p::StableHashMap<int64_t, int64_t, Hash, KeyEqual, fat_p::BlockAllocator>> mMap;
 
 public:
     explicit StableHashMapBlockAdapter(const char* name)
-        : name_(name)
+        : mName(name)
     {
     }
 
     const char* name() const override
     {
-        return name_.c_str();
+        return mName.c_str();
     }
 
     void setup(size_t N, const Inputs&) override
     {
-        map_ = std::make_unique<fat_p::StableHashMap<int64_t, int64_t, Hash, KeyEqual, fat_p::BlockAllocator>>();
-        map_->reserve(N);
+        mMap = std::make_unique<fat_p::StableHashMap<int64_t, int64_t, Hash, KeyEqual, fat_p::BlockAllocator>>();
+        mMap->reserve(N);
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t k : in.keys)
         {
-            map_->insert(k, k);
+            mMap->insert(k, k);
         }
     }
 
@@ -1853,7 +1853,7 @@ public:
             case Case::Insert:
                 for (int64_t k : in.keys)
                 {
-                    map_->insert(k, k);
+                    mMap->insert(k, k);
                     ++ops;
                 }
                 break;
@@ -1861,7 +1861,7 @@ public:
             case Case::FindHit:
                 for (int64_t k : in.keys)
                 {
-                    auto* v = map_->find(k);
+                    auto* v = mMap->find(k);
                     if (v)
                     {
                         benchmark_sink += *v;
@@ -1873,7 +1873,7 @@ public:
             case Case::FindMiss:
                 for (int64_t k : in.miss_keys)
                 {
-                    auto* v = map_->find(k);
+                    auto* v = mMap->find(k);
                     if (v)
                     {
                         benchmark_sink += *v;
@@ -1885,7 +1885,7 @@ public:
             case Case::Erase:
                 for (int64_t k : in.erase_subset)
                 {
-                    map_->erase(k);
+                    mMap->erase(k);
                     ++ops;
                 }
                 break;
@@ -1893,8 +1893,8 @@ public:
             case Case::Churn:
                 for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
                 {
-                    map_->erase(in.churn_erase_keys[i]);
-                    map_->insert(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    mMap->erase(in.churn_erase_keys[i]);
+                    mMap->insert(in.churn_insert_keys[i], in.churn_insert_keys[i]);
                     ops += 2;
                 }
                 break;
@@ -2145,7 +2145,7 @@ struct IMissDiagAdapter
 
 class StableHashMapMissDiagAdapter final : public IMissDiagAdapter
 {
-    std::string name_;
+    std::string mName;
 
     struct Hash
     {
@@ -2176,53 +2176,53 @@ class StableHashMapMissDiagAdapter final : public IMissDiagAdapter
         }
     };
 
-    std::unique_ptr<fat_p::StableHashMap<int64_t, int64_t, Hash, Eq>> map_;
-    uint64_t hashCalls_ = 0;
-    uint64_t eqCalls_ = 0;
+    std::unique_ptr<fat_p::StableHashMap<int64_t, int64_t, Hash, Eq>> mMap;
+    uint64_t mHashCalls = 0;
+    uint64_t mEqCalls = 0;
 
 public:
     explicit StableHashMapMissDiagAdapter(const char* name)
-        : name_(name)
+        : mName(name)
     {
     }
 
     const char* name() const override
     {
-        return name_.c_str();
+        return mName.c_str();
     }
 
     void setup(size_t reserveN, const Inputs& in) override
     {
-        hashCalls_ = 0;
-        eqCalls_ = 0;
-        Hash::sCalls = &hashCalls_;
-        Eq::sCalls = &eqCalls_;
+        mHashCalls = 0;
+        mEqCalls = 0;
+        Hash::sCalls = &mHashCalls;
+        Eq::sCalls = &mEqCalls;
 
-        map_ = std::make_unique<fat_p::StableHashMap<int64_t, int64_t, Hash, Eq>>();
-        map_->reserve(reserveN);
+        mMap = std::make_unique<fat_p::StableHashMap<int64_t, int64_t, Hash, Eq>>();
+        mMap->reserve(reserveN);
 
         for (int64_t k : in.keys)
         {
-            map_->insert(k, k);
+            mMap->insert(k, k);
         }
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     MissDiagSample run_find_miss(const std::vector<int64_t>& miss_keys) override
     {
-        hashCalls_ = 0;
-        eqCalls_ = 0;
+        mHashCalls = 0;
+        mEqCalls = 0;
 
         Timer t;
         t.start();
 
         for (int64_t k : miss_keys)
         {
-            auto* v = map_->find(k);
+            auto* v = mMap->find(k);
             if (v)
             {
                 benchmark_sink += *v; // should never hit, but prevents DCE
@@ -2234,19 +2234,19 @@ public:
 
         MissDiagSample s{};
         s.mNsPerMiss = (iters > 0.0) ? (elapsed / iters) : 0.0;
-        s.mHashCallsPerMiss = (iters > 0.0) ? (static_cast<double>(hashCalls_) / iters) : 0.0;
-        s.mEqCallsPerMiss = (iters > 0.0) ? (static_cast<double>(eqCalls_) / iters) : 0.0;
+        s.mHashCallsPerMiss = (iters > 0.0) ? (static_cast<double>(mHashCalls) / iters) : 0.0;
+        s.mEqCallsPerMiss = (iters > 0.0) ? (static_cast<double>(mEqCalls) / iters) : 0.0;
 
 #if defined(FATP_STABLEHASHMAP_DIAGNOSTICS)
         // Second pass: collect probe counters without perturbing timed path.
         Hash::sCalls = nullptr;
         Eq::sCalls = nullptr;
 
-        using MapT = std::remove_reference_t<decltype(*map_)>;
+        using MapT = std::remove_reference_t<decltype(*mMap)>;
         typename MapT::ProbeCounters pc{};
         for (int64_t k : miss_keys)
         {
-            (void)map_->diagnosticFind(k, pc);
+            (void)mMap->diagnostic_find(k, pc);
         }
 
         s.mHasProbe = true;
@@ -2261,7 +2261,7 @@ public:
 
 class StableHashMapBlockMissDiagAdapter final : public IMissDiagAdapter
 {
-    std::string name_;
+    std::string mName;
 
     struct Hash
     {
@@ -2292,53 +2292,53 @@ class StableHashMapBlockMissDiagAdapter final : public IMissDiagAdapter
         }
     };
 
-    std::unique_ptr<fat_p::StableHashMap<int64_t, int64_t, Hash, Eq, fat_p::BlockAllocator>> map_;
-    uint64_t hashCalls_ = 0;
-    uint64_t eqCalls_ = 0;
+    std::unique_ptr<fat_p::StableHashMap<int64_t, int64_t, Hash, Eq, fat_p::BlockAllocator>> mMap;
+    uint64_t mHashCalls = 0;
+    uint64_t mEqCalls = 0;
 
 public:
     explicit StableHashMapBlockMissDiagAdapter(const char* name)
-        : name_(name)
+        : mName(name)
     {
     }
 
     const char* name() const override
     {
-        return name_.c_str();
+        return mName.c_str();
     }
 
     void setup(size_t reserveN, const Inputs& in) override
     {
-        hashCalls_ = 0;
-        eqCalls_ = 0;
-        Hash::sCalls = &hashCalls_;
-        Eq::sCalls = &eqCalls_;
+        mHashCalls = 0;
+        mEqCalls = 0;
+        Hash::sCalls = &mHashCalls;
+        Eq::sCalls = &mEqCalls;
 
-        map_ = std::make_unique<fat_p::StableHashMap<int64_t, int64_t, Hash, Eq, fat_p::BlockAllocator>>();
-        map_->reserve(reserveN);
+        mMap = std::make_unique<fat_p::StableHashMap<int64_t, int64_t, Hash, Eq, fat_p::BlockAllocator>>();
+        mMap->reserve(reserveN);
 
         for (int64_t k : in.keys)
         {
-            map_->insert(k, k);
+            mMap->insert(k, k);
         }
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     MissDiagSample run_find_miss(const std::vector<int64_t>& miss_keys) override
     {
-        hashCalls_ = 0;
-        eqCalls_ = 0;
+        mHashCalls = 0;
+        mEqCalls = 0;
 
         Timer t;
         t.start();
 
         for (int64_t k : miss_keys)
         {
-            auto* v = map_->find(k);
+            auto* v = mMap->find(k);
             if (v)
             {
                 benchmark_sink += *v;
@@ -2350,19 +2350,19 @@ public:
 
         MissDiagSample s{};
         s.mNsPerMiss = (iters > 0.0) ? (elapsed / iters) : 0.0;
-        s.mHashCallsPerMiss = (iters > 0.0) ? (static_cast<double>(hashCalls_) / iters) : 0.0;
-        s.mEqCallsPerMiss = (iters > 0.0) ? (static_cast<double>(eqCalls_) / iters) : 0.0;
+        s.mHashCallsPerMiss = (iters > 0.0) ? (static_cast<double>(mHashCalls) / iters) : 0.0;
+        s.mEqCallsPerMiss = (iters > 0.0) ? (static_cast<double>(mEqCalls) / iters) : 0.0;
 
 #if defined(FATP_STABLEHASHMAP_DIAGNOSTICS)
         // Second pass: collect probe counters without perturbing timed path.
         Hash::sCalls = nullptr;
         Eq::sCalls = nullptr;
 
-        using MapT = std::remove_reference_t<decltype(*map_)>;
+        using MapT = std::remove_reference_t<decltype(*mMap)>;
         typename MapT::ProbeCounters pc{};
         for (int64_t k : miss_keys)
         {
-            (void)map_->diagnosticFind(k, pc);
+            (void)mMap->diagnostic_find(k, pc);
         }
 
         s.mHasProbe = true;
@@ -2382,7 +2382,7 @@ public:
 #if HAS_BOOST_FLAT
 class BoostNodeMapMissDiagAdapter final : public IMissDiagAdapter
 {
-    std::string name_;
+    std::string mName;
 
     struct Hash
     {
@@ -2413,54 +2413,54 @@ class BoostNodeMapMissDiagAdapter final : public IMissDiagAdapter
         }
     };
 
-    std::unique_ptr<boost::unordered_node_map<int64_t, int64_t, Hash, Eq>> map_;
-    uint64_t hashCalls_ = 0;
-    uint64_t eqCalls_ = 0;
+    std::unique_ptr<boost::unordered_node_map<int64_t, int64_t, Hash, Eq>> mMap;
+    uint64_t mHashCalls = 0;
+    uint64_t mEqCalls = 0;
 
 public:
     explicit BoostNodeMapMissDiagAdapter(const char* name)
-        : name_(name)
+        : mName(name)
     {
     }
 
     const char* name() const override
     {
-        return name_.c_str();
+        return mName.c_str();
     }
 
     void setup(size_t reserveN, const Inputs& in) override
     {
-        hashCalls_ = 0;
-        eqCalls_ = 0;
-        Hash::sCalls = &hashCalls_;
-        Eq::sCalls = &eqCalls_;
+        mHashCalls = 0;
+        mEqCalls = 0;
+        Hash::sCalls = &mHashCalls;
+        Eq::sCalls = &mEqCalls;
 
-        map_ = std::make_unique<boost::unordered_node_map<int64_t, int64_t, Hash, Eq>>();
-        map_->reserve(reserveN);
+        mMap = std::make_unique<boost::unordered_node_map<int64_t, int64_t, Hash, Eq>>();
+        mMap->reserve(reserveN);
 
         for (int64_t k : in.keys)
         {
-            map_->insert({k, k});
+            mMap->insert({k, k});
         }
     }
 
     void teardown() override
     {
-        map_.reset();
+        mMap.reset();
     }
 
     MissDiagSample run_find_miss(const std::vector<int64_t>& miss_keys) override
     {
-        hashCalls_ = 0;
-        eqCalls_ = 0;
+        mHashCalls = 0;
+        mEqCalls = 0;
 
         Timer t;
         t.start();
 
         for (int64_t k : miss_keys)
         {
-            auto it = map_->find(k);
-            if (it != map_->end())
+            auto it = mMap->find(k);
+            if (it != mMap->end())
             {
                 benchmark_sink += it->second;
             }
@@ -2471,8 +2471,8 @@ public:
 
         MissDiagSample s{};
         s.mNsPerMiss = (iters > 0.0) ? (elapsed / iters) : 0.0;
-        s.mHashCallsPerMiss = (iters > 0.0) ? (static_cast<double>(hashCalls_) / iters) : 0.0;
-        s.mEqCallsPerMiss = (iters > 0.0) ? (static_cast<double>(eqCalls_) / iters) : 0.0;
+        s.mHashCallsPerMiss = (iters > 0.0) ? (static_cast<double>(mHashCalls) / iters) : 0.0;
+        s.mEqCallsPerMiss = (iters > 0.0) ? (static_cast<double>(mEqCalls) / iters) : 0.0;
         return s;
     }
 };
@@ -2709,8 +2709,8 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
     std::cout << "  - Round-robin execution with randomized order per run\n";
     std::cout << "  - All libraries observe same distribution of machine states\n";
     std::cout << "  - Primary metric: median (ns/op)\n";
-    std::cout << "  - FastHashMap SIMD backend: " << fat_p::FastHashMap<int, int>::simdBackend() << "\n";
-    std::cout << "  - StableHashMap SIMD backend: " << fat_p::StableHashMap<int, int>::simdBackend() << "\n";
+    std::cout << "  - FastHashMap SIMD backend: " << fat_p::FastHashMap<int, int>::simd_backend() << "\n";
+    std::cout << "  - StableHashMap SIMD backend: " << fat_p::StableHashMap<int, int>::simd_backend() << "\n";
     std::cout << "  - FastHashMap policies: BackwardShift (BS), Tombstone (TS)\n";
     std::cout << "  - StableHashMap: Reference-stable (pointers valid across insert/reserve)\n\n";
 

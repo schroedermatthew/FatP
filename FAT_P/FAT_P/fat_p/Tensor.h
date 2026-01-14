@@ -164,28 +164,28 @@ public:
     using reference = T&;
 
     StrideIterator()
-        : ptr_(nullptr)
-        , stride_(1)
+        : mPtr(nullptr)
+        , mStride(1)
     {
     }
     StrideIterator(T* ptr, ptrdiff_t stride)
-        : ptr_(ptr)
-        , stride_(stride)
+        : mPtr(ptr)
+        , mStride(stride)
     {
     }
 
     reference operator*() const
     {
-        return *ptr_;
+        return *mPtr;
     }
     pointer operator->() const
     {
-        return ptr_;
+        return mPtr;
     }
 
     StrideIterator& operator++()
     {
-        ptr_ += stride_;
+        mPtr += mStride;
         return *this;
     }
 
@@ -198,7 +198,7 @@ public:
 
     StrideIterator& operator--()
     {
-        ptr_ -= stride_;
+        mPtr -= mStride;
         return *this;
     }
 
@@ -211,76 +211,76 @@ public:
 
     StrideIterator& operator+=(difference_type n)
     {
-        ptr_ += n * stride_;
+        mPtr += n * mStride;
         return *this;
     }
 
     StrideIterator& operator-=(difference_type n)
     {
-        ptr_ -= n * stride_;
+        mPtr -= n * mStride;
         return *this;
     }
 
     StrideIterator operator+(difference_type n) const
     {
-        return StrideIterator(ptr_ + n * stride_, stride_);
+        return StrideIterator(mPtr + n * mStride, mStride);
     }
 
     StrideIterator operator-(difference_type n) const
     {
-        return StrideIterator(ptr_ - n * stride_, stride_);
+        return StrideIterator(mPtr - n * mStride, mStride);
     }
 
     difference_type operator-(const StrideIterator& other) const
     {
 #ifndef NDEBUG
-        FATP_ALWAYS_ENFORCE(stride_ != 0, "Iterator has zero stride");
+        FATP_ALWAYS_ENFORCE(mStride != 0, "Iterator has zero stride");
 #endif
 
-        ptrdiff_t ptr_diff = ptr_ - other.ptr_;
+        ptrdiff_t ptr_diff = mPtr - other.mPtr;
 
 #ifndef NDEBUG
-        FATP_ALWAYS_ENFORCE(ptr_diff % stride_ == 0,
+        FATP_ALWAYS_ENFORCE(ptr_diff % mStride == 0,
                             "Iterator distance not a multiple of stride - "
                             "iterators may be from different views or incompatible");
 #endif
 
-        return ptr_diff / stride_;
+        return ptr_diff / mStride;
     }
 
     reference operator[](difference_type n) const
     {
-        return *(ptr_ + n * stride_);
+        return *(mPtr + n * mStride);
     }
 
     bool operator==(const StrideIterator& other) const
     {
-        return ptr_ == other.ptr_;
+        return mPtr == other.mPtr;
     }
     bool operator!=(const StrideIterator& other) const
     {
-        return ptr_ != other.ptr_;
+        return mPtr != other.mPtr;
     }
     bool operator<(const StrideIterator& other) const
     {
-        return ptr_ < other.ptr_;
+        return mPtr < other.mPtr;
     }
     bool operator<=(const StrideIterator& other) const
     {
-        return ptr_ <= other.ptr_;
+        return mPtr <= other.mPtr;
     }
     bool operator>(const StrideIterator& other) const
     {
-        return ptr_ > other.ptr_;
+        return mPtr > other.mPtr;
     }
     bool operator>=(const StrideIterator& other) const
     {
-        return ptr_ >= other.ptr_;
+        return mPtr >= other.mPtr;
     }
 
 private:
-    T* ptr_;
-    ptrdiff_t stride_;
+    T* mPtr;
+    ptrdiff_t mStride;
 };
 
 // =============================================================================
@@ -334,31 +334,31 @@ struct ColumnMajorPolicy
         using reference = T&;
 
         ColumnIterator(T* ptr, const std::vector<size_t>& shape, size_t row, size_t col)
-            : ptr_(ptr)
-            , shape_(shape)
+            : mPtr(ptr)
+            , mShape(shape)
             , current_row_(row)
             , current_col_(col)
         {
-            if (shape_.size() < 2)
+            if (mShape.size() < 2)
             {
-                shape_ = {1, shape_.empty() ? 0 : shape_[0]};
+                mShape = {1, mShape.empty() ? 0 : mShape[0]};
             }
         }
 
         reference operator*() const
         {
-            return ptr_[current_row_ * shape_[1] + current_col_];
+            return mPtr[current_row_ * mShape[1] + current_col_];
         }
 
         pointer operator->() const
         {
-            return &ptr_[current_row_ * shape_[1] + current_col_];
+            return &mPtr[current_row_ * mShape[1] + current_col_];
         }
 
         ColumnIterator& operator++()
         {
             ++current_row_;
-            if (current_row_ >= shape_[0])
+            if (current_row_ >= mShape[0])
             {
                 current_row_ = 0;
                 ++current_col_;
@@ -384,8 +384,8 @@ struct ColumnMajorPolicy
         }
 
     private:
-        T* ptr_;
-        std::vector<size_t> shape_;
+        T* mPtr;
+        std::vector<size_t> mShape;
         size_t current_row_;
         size_t current_col_;
     };
@@ -432,66 +432,66 @@ struct StridedPolicy
         using reference = T&;
 
         MultiDimIterator(T* data, const std::vector<size_t>& shape, const std::vector<ptrdiff_t>& strides)
-            : base_(data)
-            , shape_(shape)
-            , strides_(strides)
+            : mBase(data)
+            , mShape(shape)
+            , mStrides(strides)
         {
-            indices_.resize(shape.size(), 0);
+            mIndices.resize(shape.size(), 0);
             compute_ptr();
         }
 
         MultiDimIterator(T* data, const std::vector<size_t>& shape, const std::vector<ptrdiff_t>& strides, bool at_end)
-            : base_(data)
-            , shape_(shape)
-            , strides_(strides)
+            : mBase(data)
+            , mShape(shape)
+            , mStrides(strides)
         {
             if (at_end)
             {
-                indices_.resize(shape.size(), 0);
+                mIndices.resize(shape.size(), 0);
                 if (!shape.empty())
                 {
-                    indices_[0] = shape[0];
+                    mIndices[0] = shape[0];
                 }
             }
             else
             {
-                indices_.resize(shape.size(), 0);
+                mIndices.resize(shape.size(), 0);
             }
             compute_ptr();
         }
 
         reference operator*() const
         {
-            return *ptr_;
+            return *mPtr;
         }
         pointer operator->() const
         {
-            return ptr_;
+            return mPtr;
         }
 
         MultiDimIterator& operator++()
         {
             // Increment indices in row-major order
-            if (shape_.empty())
+            if (mShape.empty())
             {
                 return *this;
             }
 
-            for (size_t i = shape_.size(); i > 0; --i)
+            for (size_t i = mShape.size(); i > 0; --i)
             {
                 size_t idx = i - 1;
-                ++indices_[idx];
-                if (indices_[idx] < shape_[idx])
+                ++mIndices[idx];
+                if (mIndices[idx] < mShape[idx])
                 {
                     compute_ptr();
                     return *this;
                 }
-                indices_[idx] = 0;
+                mIndices[idx] = 0;
             }
             // Reached end
-            if (!shape_.empty())
+            if (!mShape.empty())
             {
-                indices_[0] = shape_[0];
+                mIndices[0] = mShape[0];
             }
             compute_ptr();
             return *this;
@@ -506,7 +506,7 @@ struct StridedPolicy
 
         bool operator==(const MultiDimIterator& other) const
         {
-            return indices_ == other.indices_;
+            return mIndices == other.mIndices;
         }
 
         bool operator!=(const MultiDimIterator& other) const
@@ -517,18 +517,18 @@ struct StridedPolicy
     private:
         void compute_ptr()
         {
-            ptr_ = base_;
-            for (size_t i = 0; i < indices_.size(); ++i)
+            mPtr = mBase;
+            for (size_t i = 0; i < mIndices.size(); ++i)
             {
-                ptr_ += indices_[i] * strides_[i];
+                mPtr += mIndices[i] * mStrides[i];
             }
         }
 
-        T* base_;
-        T* ptr_;
-        std::vector<size_t> shape_;
-        std::vector<ptrdiff_t> strides_;
-        std::vector<size_t> indices_;
+        T* mBase;
+        T* mPtr;
+        std::vector<size_t> mShape;
+        std::vector<ptrdiff_t> mStrides;
+        std::vector<size_t> mIndices;
     };
 
     template <typename T>
@@ -579,45 +579,45 @@ struct BlockedPolicy
                       size_t block_col,
                       size_t in_block_row,
                       size_t in_block_col)
-            : ptr_(ptr)
-            , shape_(shape)
+            : mPtr(ptr)
+            , mShape(shape)
             , block_row_(block_row)
             , block_col_(block_col)
             , in_block_row_(in_block_row)
             , in_block_col_(in_block_col)
         {
-            if (shape_.size() < 2)
+            if (mShape.size() < 2)
             {
-                shape_ = {1, shape_.empty() ? 0 : shape_[0]};
+                mShape = {1, mShape.empty() ? 0 : mShape[0]};
             }
         }
 
         reference operator*() const
         {
-            size_t global_row = std::min(block_row_ * BlockSize + in_block_row_, shape_[0] - 1);
-            size_t global_col = std::min(block_col_ * BlockSize + in_block_col_, shape_[1] - 1);
-            return ptr_[global_row * shape_[1] + global_col];
+            size_t global_row = std::min(block_row_ * BlockSize + in_block_row_, mShape[0] - 1);
+            size_t global_col = std::min(block_col_ * BlockSize + in_block_col_, mShape[1] - 1);
+            return mPtr[global_row * mShape[1] + global_col];
         }
 
         pointer operator->() const
         {
-            size_t global_row = std::min(block_row_ * BlockSize + in_block_row_, shape_[0] - 1);
-            size_t global_col = std::min(block_col_ * BlockSize + in_block_col_, shape_[1] - 1);
-            return &ptr_[global_row * shape_[1] + global_col];
+            size_t global_row = std::min(block_row_ * BlockSize + in_block_row_, mShape[0] - 1);
+            size_t global_col = std::min(block_col_ * BlockSize + in_block_col_, mShape[1] - 1);
+            return &mPtr[global_row * mShape[1] + global_col];
         }
 
         BlockIterator& operator++()
         {
             ++in_block_col_;
-            if (in_block_col_ >= BlockSize || block_col_ * BlockSize + in_block_col_ >= shape_[1])
+            if (in_block_col_ >= BlockSize || block_col_ * BlockSize + in_block_col_ >= mShape[1])
             {
                 in_block_col_ = 0;
                 ++in_block_row_;
-                if (in_block_row_ >= BlockSize || block_row_ * BlockSize + in_block_row_ >= shape_[0])
+                if (in_block_row_ >= BlockSize || block_row_ * BlockSize + in_block_row_ >= mShape[0])
                 {
                     in_block_row_ = 0;
                     ++block_col_;
-                    if (block_col_ * BlockSize >= shape_[1])
+                    if (block_col_ * BlockSize >= mShape[1])
                     {
                         block_col_ = 0;
                         ++block_row_;
@@ -646,8 +646,8 @@ struct BlockedPolicy
         }
 
     private:
-        T* ptr_;
-        std::vector<size_t> shape_;
+        T* mPtr;
+        std::vector<size_t> mShape;
         size_t block_row_, block_col_;
         size_t in_block_row_, in_block_col_;
     };
@@ -963,21 +963,21 @@ public:
      * @brief Construct tensor with given shape
      */
     explicit Tensor(std::vector<size_t> shape)
-        : shape_(std::move(shape))
-        , size_(compute_size(shape_))
+        : mShape(std::move(shape))
+        , size_(compute_size(mShape))
     {
         if (size_ > 0)
         {
-            T* raw = allocator_.allocate(size_);
+            T* raw = mAllocator.allocate(size_);
             shared_data_ = std::shared_ptr<T[]>(raw,
                                                 [this](T* p)
                                                 {
-                                                    allocator_.deallocate(p, size_);
+                                                    mAllocator.deallocate(p, size_);
                                                 });
             data_ = shared_data_.get();
             std::fill(data_, data_ + size_, T{});
         }
-        strides_ = compute_strides(shape_);
+        mStrides = compute_strides(mShape);
     }
 
     /**
@@ -993,17 +993,17 @@ public:
      * @brief Copy constructor (deep copy)
      */
     Tensor(const Tensor& other)
-        : shape_(other.shape_)
-        , strides_(other.strides_)
+        : mShape(other.mShape)
+        , mStrides(other.mStrides)
         , size_(other.size_)
     {
         if (size_ > 0)
         {
-            T* raw = allocator_.allocate(size_);
+            T* raw = mAllocator.allocate(size_);
             shared_data_ = std::shared_ptr<T[]>(raw,
                                                 [this](T* p)
                                                 {
-                                                    allocator_.deallocate(p, size_);
+                                                    mAllocator.deallocate(p, size_);
                                                 });
             data_ = shared_data_.get();
             std::copy(other.data_, other.data_ + size_, data_);
@@ -1016,8 +1016,8 @@ public:
     Tensor(Tensor&& other) noexcept
         : shared_data_(std::move(other.shared_data_))
         , data_(other.data_)
-        , shape_(std::move(other.shape_))
-        , strides_(std::move(other.strides_))
+        , mShape(std::move(other.mShape))
+        , mStrides(std::move(other.mStrides))
         , size_(other.size_)
     {
         other.data_ = nullptr;
@@ -1081,10 +1081,10 @@ public:
 
 // Validate index count matches tensor dimensions
 #ifndef NDEBUG
-        if (sizeof...(indices) != shape_.size())
+        if (sizeof...(indices) != mShape.size())
         {
             std::ostringstream oss;
-            oss << "Tensor::at index count mismatch: tensor has " << shape_.size() << " dimensions, but got "
+            oss << "Tensor::at index count mismatch: tensor has " << mShape.size() << " dimensions, but got "
                 << sizeof...(indices) << " indices";
             throw std::out_of_range(oss.str());
         }
@@ -1094,12 +1094,12 @@ public:
         std::vector<size_t> idx_vec = {static_cast<size_t>(indices)...};
 #ifndef NDEBUG
         // Debug build: enhanced error messages with dimension info
-        debug_bounds_check_nd(idx_vec, shape_, "Tensor::at");
+        debug_bounds_check_nd(idx_vec, mShape, "Tensor::at");
 #else
         // Release build: efficient bounds check that works for all layouts
         for (size_t i = 0; i < idx_vec.size(); ++i)
         {
-            if (idx_vec[i] >= shape_[i])
+            if (idx_vec[i] >= mShape[i])
             {
                 throw std::out_of_range("Tensor index out of bounds");
             }
@@ -1117,10 +1117,10 @@ public:
 
 // Validate index count matches tensor dimensions
 #ifndef NDEBUG
-        if (sizeof...(indices) != shape_.size())
+        if (sizeof...(indices) != mShape.size())
         {
             std::ostringstream oss;
-            oss << "Tensor::at index count mismatch: tensor has " << shape_.size() << " dimensions, but got "
+            oss << "Tensor::at index count mismatch: tensor has " << mShape.size() << " dimensions, but got "
                 << sizeof...(indices) << " indices";
             throw std::out_of_range(oss.str());
         }
@@ -1130,12 +1130,12 @@ public:
         std::vector<size_t> idx_vec = {static_cast<size_t>(indices)...};
 #ifndef NDEBUG
         // Debug build: enhanced error messages with dimension info
-        debug_bounds_check_nd(idx_vec, shape_, "Tensor::at");
+        debug_bounds_check_nd(idx_vec, mShape, "Tensor::at");
 #else
         // Release build: efficient bounds check that works for all layouts
         for (size_t i = 0; i < idx_vec.size(); ++i)
         {
-            if (idx_vec[i] >= shape_[i])
+            if (idx_vec[i] >= mShape[i])
             {
                 throw std::out_of_range("Tensor index out of bounds");
             }
@@ -1197,22 +1197,22 @@ public:
 
     iterator begin()
     {
-        return IteratorPolicy::template make_begin<T>(data_, shape_, strides_);
+        return IteratorPolicy::template make_begin<T>(data_, mShape, mStrides);
     }
 
     iterator end()
     {
-        return IteratorPolicy::template make_end<T>(data_, shape_, strides_, size_);
+        return IteratorPolicy::template make_end<T>(data_, mShape, mStrides, size_);
     }
 
     const_iterator begin() const
     {
-        return IteratorPolicy::template make_begin<const T>(data_, shape_, strides_);
+        return IteratorPolicy::template make_begin<const T>(data_, mShape, mStrides);
     }
 
     const_iterator end() const
     {
-        return IteratorPolicy::template make_end<const T>(data_, shape_, strides_, size_);
+        return IteratorPolicy::template make_end<const T>(data_, mShape, mStrides, size_);
     }
 
     const_iterator cbegin() const
@@ -1230,11 +1230,11 @@ public:
 
     const std::vector<size_t>& shape() const
     {
-        return shape_;
+        return mShape;
     }
     const std::vector<ptrdiff_t>& strides() const
     {
-        return strides_;
+        return mStrides;
     }
     size_t size() const
     {
@@ -1242,11 +1242,11 @@ public:
     }
     size_t ndim() const
     {
-        return shape_.size();
+        return mShape.size();
     }
     size_t dim(size_t axis) const
     {
-        return shape_.at(axis);
+        return mShape.at(axis);
     }
     bool empty() const
     {
@@ -1306,9 +1306,9 @@ public:
      */
     Tensor view(std::vector<size_t> start, std::vector<size_t> end) const
     {
-        FATP_ENFORCE(start.size() == shape_.size() && end.size() == shape_.size(),
+        FATP_ENFORCE(start.size() == mShape.size() && end.size() == mShape.size(),
                      "View dimensions must match tensor dimensions (expected ",
-                     shape_.size(),
+                     mShape.size(),
                      ", got start:",
                      start.size(),
                      ", end:",
@@ -1317,7 +1317,7 @@ public:
 
         for (size_t i = 0; i < start.size(); ++i)
         {
-            FATP_ENFORCE(start[i] < end[i] && end[i] <= shape_[i],
+            FATP_ENFORCE(start[i] < end[i] && end[i] <= mShape[i],
                          "Invalid view range at dimension ",
                          i,
                          " (start:",
@@ -1325,18 +1325,18 @@ public:
                          ", end:",
                          end[i],
                          ", max:",
-                         shape_[i],
+                         mShape[i],
                          ")");
         }
 
-        std::vector<size_t> new_shape(shape_.size());
-        for (size_t i = 0; i < shape_.size(); ++i)
+        std::vector<size_t> new_shape(mShape.size());
+        for (size_t i = 0; i < mShape.size(); ++i)
         {
             new_shape[i] = end[i] - start[i];
         }
 
         size_t offset = compute_offset_from_vector(start);
-        return Tensor(shared_data_, data_ + offset, new_shape, strides_);
+        return Tensor(shared_data_, data_ + offset, new_shape, mStrides);
     }
 
     /**
@@ -1344,9 +1344,9 @@ public:
      */
     Tensor row(size_t index) const
     {
-        FATP_ENFORCE(shape_.size() == 2, "row() requires 2D tensor, got ", shape_.size(), "D");
-        FATP_ENFORCE(index < shape_[0], "Row index out of bounds: ", index, " >= ", shape_[0]);
-        return view({index, 0}, {index + 1, shape_[1]});
+        FATP_ENFORCE(mShape.size() == 2, "row() requires 2D tensor, got ", mShape.size(), "D");
+        FATP_ENFORCE(index < mShape[0], "Row index out of bounds: ", index, " >= ", mShape[0]);
+        return view({index, 0}, {index + 1, mShape[1]});
     }
 
     /**
@@ -1354,9 +1354,9 @@ public:
      */
     Tensor col(size_t index) const
     {
-        FATP_ENFORCE(shape_.size() == 2, "col() requires 2D tensor, got ", shape_.size(), "D");
-        FATP_ENFORCE(index < shape_[1], "Column index out of bounds: ", index, " >= ", shape_[1]);
-        return view({0, index}, {shape_[0], index + 1});
+        FATP_ENFORCE(mShape.size() == 2, "col() requires 2D tensor, got ", mShape.size(), "D");
+        FATP_ENFORCE(index < mShape[1], "Column index out of bounds: ", index, " >= ", mShape[1]);
+        return view({0, index}, {mShape[0], index + 1});
     }
 
     /**
@@ -1364,10 +1364,10 @@ public:
      */
     Tensor transpose() const
     {
-        FATP_ENFORCE(shape_.size() == 2, "transpose() requires 2D tensor, got ", shape_.size(), "D");
+        FATP_ENFORCE(mShape.size() == 2, "transpose() requires 2D tensor, got ", mShape.size(), "D");
 
-        std::vector<size_t> new_shape = {shape_[1], shape_[0]};
-        std::vector<ptrdiff_t> new_strides = {strides_[1], strides_[0]};
+        std::vector<size_t> new_shape = {mShape[1], mShape[0]};
+        std::vector<ptrdiff_t> new_strides = {mStrides[1], mStrides[0]};
 
         return Tensor(shared_data_, data_, new_shape, new_strides);
     }
@@ -1426,7 +1426,7 @@ public:
         // Validate bounds with enhanced checking
         for (size_t i = 0; i < start.size(); ++i)
         {
-            debug_validate_slice(start[i], end[i], size_t{1}, shape_[i], "Tensor::create_tracked_slice");
+            debug_validate_slice(start[i], end[i], size_t{1}, mShape[i], "Tensor::create_tracked_slice");
         }
 
         Tensor slice_view = view(start, end);
@@ -1445,7 +1445,7 @@ public:
 #ifndef NDEBUG
     auto create_tracked_row(size_t index, const char* name = "TensorRow") const
     {
-        debug_bounds_check(index, size_t{0}, shape_[0], "Tensor::create_tracked_row");
+        debug_bounds_check(index, size_t{0}, mShape[0], "Tensor::create_tracked_row");
         Tensor row_view = row(index);
         return row_view.create_tracker(name);
     }
@@ -1462,7 +1462,7 @@ public:
 #ifndef NDEBUG
     auto create_tracked_col(size_t index, const char* name = "TensorColumn") const
     {
-        debug_bounds_check(index, size_t{0}, shape_[1], "Tensor::create_tracked_col");
+        debug_bounds_check(index, size_t{0}, mShape[1], "Tensor::create_tracked_col");
         Tensor col_view = col(index);
         return col_view.create_tracker(name);
     }
@@ -1595,15 +1595,15 @@ public:
      */
     bool is_broadcast_compatible(const Tensor& other) const
     {
-        if (shape_.size() != other.shape_.size())
+        if (mShape.size() != other.mShape.size())
         {
             return false;
         }
 
-        for (size_t i = 0; i < shape_.size(); ++i)
+        for (size_t i = 0; i < mShape.size(); ++i)
         {
             // Dimension must be 1 (broadcast) or match
-            if (shape_[i] != 1 && other.shape_[i] != 1 && shape_[i] != other.shape_[i])
+            if (mShape[i] != 1 && other.mShape[i] != 1 && mShape[i] != other.mShape[i])
             {
                 return false;
             }
@@ -1616,7 +1616,7 @@ public:
      */
     Tensor broadcast_add_scalar(const T& scalar) const
     {
-        Tensor result(shape_);
+        Tensor result(mShape);
 
 #ifdef __AVX512F__
         if constexpr (std::is_same_v<T, float>)
@@ -1718,15 +1718,15 @@ public:
     Tensor broadcast_add_vector(const Tensor& vec) const
     {
         // Only handle 2D + 1D broadcast for now
-        if (shape_.size() != 2 || vec.shape_.size() != 1)
+        if (mShape.size() != 2 || vec.mShape.size() != 1)
         {
             // Fall back to generic broadcast
             return *this + vec;
         }
 
-        Tensor result(shape_);
-        size_t rows = shape_[0];
-        size_t cols = shape_[1];
+        Tensor result(mShape);
+        size_t rows = mShape[0];
+        size_t cols = mShape[1];
 
         if (vec.size() == cols)
         {
@@ -1816,11 +1816,11 @@ private:
      */
     void check_shape_compatibility(const Tensor& other, const char* op) const
     {
-        if (shape_ != other.shape_)
+        if (mShape != other.mShape)
         {
             throw DomainContractError(std::string("Shape mismatch in ") + op + ": " +
-                                      "lhs=" + std::to_string(shape_.size()) + "D, " +
-                                      "rhs=" + std::to_string(other.shape_.size()) + "D");
+                                      "lhs=" + std::to_string(mShape.size()) + "D, " +
+                                      "rhs=" + std::to_string(other.mShape.size()) + "D");
         }
     }
 
@@ -2211,12 +2211,12 @@ public:
      */
     Expected<std::vector<size_t>, std::string> compute_broadcast_shape(const std::vector<size_t>& other_shape) const
     {
-        size_t max_rank = std::max(shape_.size(), other_shape.size());
+        size_t max_rank = std::max(mShape.size(), other_shape.size());
         std::vector<size_t> result(max_rank, 1);
 
         for (size_t i = 0; i < max_rank; ++i)
         {
-            size_t d1 = (i < shape_.size()) ? shape_[shape_.size() - i - 1] : 1;
+            size_t d1 = (i < mShape.size()) ? mShape[mShape.size() - i - 1] : 1;
             size_t d2 = (i < other_shape.size()) ? other_shape[other_shape.size() - i - 1] : 1;
 
             if (d1 != d2 && d1 != 1 && d2 != 1)
@@ -2270,11 +2270,11 @@ public:
             }
 
             // Map to input indices (broadcasting)
-            std::vector<size_t> in_indices(shape_.size());
-            for (size_t d = 0; d < shape_.size(); ++d)
+            std::vector<size_t> in_indices(mShape.size());
+            for (size_t d = 0; d < mShape.size(); ++d)
             {
-                size_t out_idx = out_indices[target_shape.size() - shape_.size() + d];
-                in_indices[d] = (shape_[d] == 1) ? 0 : out_idx;
+                size_t out_idx = out_indices[target_shape.size() - mShape.size() + d];
+                in_indices[d] = (mShape[d] == 1) ? 0 : out_idx;
             }
 
             output.data_[i] = data_[compute_offset_from_vector(in_indices)];
@@ -2291,7 +2291,7 @@ public:
     Tensor operator+(const Tensor& other) const
     {
         check_shape_compatibility(other, "addition");
-        Tensor result(shape_);
+        Tensor result(mShape);
         parallel_simd_add(data_, other.data_, result.data_, size_);
         return result;
     }
@@ -2302,16 +2302,16 @@ public:
      */
     Expected<Tensor, std::string> add_safe(const Tensor& other) const noexcept
     {
-        if (shape_ == other.shape_)
+        if (mShape == other.mShape)
         {
             // Fast path: same shape
-            Tensor result(shape_);
+            Tensor result(mShape);
             parallel_simd_add(data_, other.data_, result.data_, size_);
             return result;
         }
 
         // Try broadcasting
-        auto bcast_shape = compute_broadcast_shape(other.shape_);
+        auto bcast_shape = compute_broadcast_shape(other.mShape);
         if (!bcast_shape.has_value())
         {
             return make_unexpected(bcast_shape.error());
@@ -2341,7 +2341,7 @@ public:
     Tensor operator-(const Tensor& other) const
     {
         check_shape_compatibility(other, "subtraction");
-        Tensor result(shape_);
+        Tensor result(mShape);
         parallel_simd_sub(data_, other.data_, result.data_, size_);
         return result;
     }
@@ -2351,14 +2351,14 @@ public:
      */
     Expected<Tensor, std::string> sub_safe(const Tensor& other) const noexcept
     {
-        if (shape_ == other.shape_)
+        if (mShape == other.mShape)
         {
-            Tensor result(shape_);
+            Tensor result(mShape);
             parallel_simd_sub(data_, other.data_, result.data_, size_);
             return result;
         }
 
-        auto bcast_shape = compute_broadcast_shape(other.shape_);
+        auto bcast_shape = compute_broadcast_shape(other.mShape);
         if (!bcast_shape.has_value())
         {
             return make_unexpected(bcast_shape.error());
@@ -2387,7 +2387,7 @@ public:
     Tensor operator*(const Tensor& other) const
     {
         check_shape_compatibility(other, "multiplication");
-        Tensor result(shape_);
+        Tensor result(mShape);
         parallel_simd_mul(data_, other.data_, result.data_, size_);
         return result;
     }
@@ -2397,14 +2397,14 @@ public:
      */
     Expected<Tensor, std::string> mul_safe(const Tensor& other) const noexcept
     {
-        if (shape_ == other.shape_)
+        if (mShape == other.mShape)
         {
-            Tensor result(shape_);
+            Tensor result(mShape);
             parallel_simd_mul(data_, other.data_, result.data_, size_);
             return result;
         }
 
-        auto bcast_shape = compute_broadcast_shape(other.shape_);
+        auto bcast_shape = compute_broadcast_shape(other.mShape);
         if (!bcast_shape.has_value())
         {
             return make_unexpected(bcast_shape.error());
@@ -2434,7 +2434,7 @@ public:
     Expected<Tensor, std::string> view_safe(const std::vector<size_t>& start_indices,
                                             const std::vector<size_t>& end_indices) const noexcept
     {
-        if (start_indices.size() != shape_.size() || end_indices.size() != shape_.size())
+        if (start_indices.size() != mShape.size() || end_indices.size() != mShape.size())
         {
             return make_unexpected(std::string("Index dimensions must match tensor rank"));
         }
@@ -2445,7 +2445,7 @@ public:
             {
                 return make_unexpected(std::string("Start index must be less than end index"));
             }
-            if (end_indices[i] > shape_[i])
+            if (end_indices[i] > mShape[i])
             {
                 return make_unexpected(std::string("End index out of bounds"));
             }
@@ -2494,7 +2494,7 @@ public:
      */
     Tensor operator*(const T& scalar) const
     {
-        Tensor result(shape_);
+        Tensor result(mShape);
         simd_scalar_mul(data_, scalar, result.data_, size_);
         return result;
     }
@@ -2505,7 +2505,7 @@ public:
     Tensor operator/(const T& scalar) const
     {
         FATP_ENFORCE(scalar != T{0}, "Division by zero in tensor scalar division");
-        Tensor result(shape_);
+        Tensor result(mShape);
         simd_scalar_mul(data_, T{1} / scalar, result.data_, size_);
         return result;
     }
@@ -2521,7 +2521,7 @@ public:
     bool operator==(const Tensor& other) const
     {
         // Check shape match
-        if (shape_ != other.shape_)
+        if (mShape != other.mShape)
         {
             return false;
         }
@@ -2564,7 +2564,7 @@ public:
     bool approx_equal(const Tensor& other, T epsilon = default_epsilon()) const
     {
         // Check shape match
-        if (shape_ != other.shape_)
+        if (mShape != other.mShape)
         {
             return false;
         }
@@ -2634,18 +2634,18 @@ public:
     template <typename Expr>
     std::enable_if_t<is_tensor_expression<Expr>::value, Tensor&> operator=(const Expr& expr)
     {
-        if (shape_ != expr.shape())
+        if (mShape != expr.shape())
         {
             // Reallocate if shapes don't match
-            shape_ = expr.shape();
-            size_ = compute_size(shape_);
-            strides_ = compute_strides(shape_);
+            mShape = expr.shape();
+            size_ = compute_size(mShape);
+            mStrides = compute_strides(mShape);
 
-            T* raw = allocator_.allocate(size_);
+            T* raw = mAllocator.allocate(size_);
             shared_data_ = std::shared_ptr<T[]>(raw,
                                                 [this](T* p)
                                                 {
-                                                    allocator_.deallocate(p, size_);
+                                                    mAllocator.deallocate(p, size_);
                                                 });
             data_ = shared_data_.get();
         }
@@ -2755,8 +2755,8 @@ public:
     {
         std::swap(shared_data_, other.shared_data_);
         std::swap(data_, other.data_);
-        std::swap(shape_, other.shape_);
-        std::swap(strides_, other.strides_);
+        std::swap(mShape, other.mShape);
+        std::swap(mStrides, other.mStrides);
         std::swap(size_, other.size_);
     }
 
@@ -2765,9 +2765,9 @@ private:
     Tensor(std::shared_ptr<T[]> shared_data, T* data, std::vector<size_t> shape, std::vector<ptrdiff_t> strides)
         : shared_data_(std::move(shared_data))
         , data_(data)
-        , shape_(std::move(shape))
-        , strides_(std::move(strides))
-        , size_(compute_size(shape_))
+        , mShape(std::move(shape))
+        , mStrides(std::move(strides))
+        , size_(compute_size(mShape))
     {
     }
 
@@ -2822,7 +2822,7 @@ private:
         {
             // Compute with signed arithmetic to handle negative strides
             ptrdiff_t idx_signed = static_cast<ptrdiff_t>(idx_array[i]);
-            ptrdiff_t term = checked_mul<ThrowOnErrorPolicy>(idx_signed, strides_[i]);
+            ptrdiff_t term = checked_mul<ThrowOnErrorPolicy>(idx_signed, mStrides[i]);
             offset = checked_add<ThrowOnErrorPolicy>(offset, term);
         }
 
@@ -2840,7 +2840,7 @@ private:
         {
             // Compute with signed arithmetic to handle negative strides
             ptrdiff_t idx_signed = static_cast<ptrdiff_t>(indices[i]);
-            ptrdiff_t term = checked_mul<ThrowOnErrorPolicy>(idx_signed, strides_[i]);
+            ptrdiff_t term = checked_mul<ThrowOnErrorPolicy>(idx_signed, mStrides[i]);
             offset = checked_add<ThrowOnErrorPolicy>(offset, term);
         }
 
@@ -2856,19 +2856,19 @@ private:
      */
     bool is_contiguous() const
     {
-        if (shape_.empty())
+        if (mShape.empty())
         {
             return true;
         }
 
         ptrdiff_t expected_stride = 1;
-        for (size_t i = shape_.size(); i > 0; --i)
+        for (size_t i = mShape.size(); i > 0; --i)
         {
-            if (strides_[i - 1] != expected_stride)
+            if (mStrides[i - 1] != expected_stride)
             {
                 return false;
             }
-            expected_stride *= static_cast<ptrdiff_t>(shape_[i - 1]);
+            expected_stride *= static_cast<ptrdiff_t>(mShape[i - 1]);
         }
         return true;
     }
@@ -2876,10 +2876,10 @@ private:
     std::shared_ptr<T[]>
         shared_data_; // Using std::shared_ptr for now - consider TensorStorage for 10-20% performance gain
     T* data_;
-    std::vector<size_t> shape_;
-    std::vector<ptrdiff_t> strides_;
+    std::vector<size_t> mShape;
+    std::vector<ptrdiff_t> mStrides;
     size_t size_;
-    Allocator allocator_;
+    Allocator mAllocator;
 };
 
 // =============================================================================

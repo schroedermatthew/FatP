@@ -521,7 +521,7 @@ FATP_TEST_CASE(guard_move_constructor) {
  * @brief CRITICAL TEST: Verifies move assignment restores the current target
  * 
  * This test validates the fix for CRITICAL-1: Move assignment must restore
- * the current guard's target before taking ownership of the source's target.
+ * the current mGuard_LIT_0__s target.
  * 
  * Expected behavior (v2.4):
  * - guard2 = std::move(guard1) first restores value2 to 99
@@ -732,7 +732,7 @@ FATP_TEST_CASE(constructor_exception_safety) {
     bool exception_caught = false;
     
     try {
-        // This should throw during *target_ = std::move(new_value)
+        // This should throw during *mTarget = std::move(new_value)
         // The catch block should restore target to original state
         ValueGuard<ThrowOnAssign, ValueGuardMovePolicy<ThrowOnAssign>> 
             guard(target, ThrowOnAssign(100, 0));

@@ -68,8 +68,8 @@ namespace diagnostic
  */
 class ConsoleSink : public ISink
 {
-    std::unique_ptr<IFormatter> formatter_;
-    mutable std::mutex mutex_;
+    std::unique_ptr<IFormatter> mFormatter;
+    mutable std::mutex mMutex;
 
 public:
     /**
@@ -77,7 +77,7 @@ public:
      * @param fmt The formatter to use. Defaults to DefaultFormatter.
      */
     explicit ConsoleSink(std::unique_ptr<IFormatter> fmt = std::make_unique<DefaultFormatter>())
-        : formatter_(std::move(fmt))
+        : mFormatter(std::move(fmt))
     {
     }
 
@@ -89,14 +89,14 @@ public:
      */
     void write(const LogRecord& record) override
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mMutex);
         if (record.level >= LogLevel::Warning)
         {
-            std::cerr << formatter_->format(record) << '\n';
+            std::cerr << mFormatter->format(record) << '\n';
         }
         else
         {
-            std::cout << formatter_->format(record) << '\n';
+            std::cout << mFormatter->format(record) << '\n';
         }
     }
 
@@ -118,8 +118,8 @@ public:
  */
 class StderrSink : public ISink
 {
-    std::unique_ptr<IFormatter> formatter_;
-    mutable std::mutex mutex_;
+    std::unique_ptr<IFormatter> mFormatter;
+    mutable std::mutex mMutex;
 
 public:
     /**
@@ -127,7 +127,7 @@ public:
      * @param fmt The formatter to use. Defaults to DefaultFormatter.
      */
     explicit StderrSink(std::unique_ptr<IFormatter> fmt = std::make_unique<DefaultFormatter>())
-        : formatter_(std::move(fmt))
+        : mFormatter(std::move(fmt))
     {
     }
 
@@ -137,8 +137,8 @@ public:
      */
     void write(const LogRecord& record) override
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        std::cerr << formatter_->format(record) << '\n';
+        std::lock_guard<std::mutex> lock(mMutex);
+        std::cerr << mFormatter->format(record) << '\n';
     }
 
     /**

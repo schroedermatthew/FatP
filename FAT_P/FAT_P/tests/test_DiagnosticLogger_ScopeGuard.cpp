@@ -331,20 +331,20 @@ void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
      */
     class LogLevelGuard
     {
-        Logger& logger_;
-        LogLevel originalLevel_;
+        Logger& mLogger;
+        LogLevel mOriginalLevel;
 
     public:
         LogLevelGuard(Logger& logger, LogLevel tempLevel)
-            : logger_(logger)
-            , originalLevel_(logger.getLevel())
+            : mLogger(logger)
+            , mOriginalLevel(logger.getLevel())
         {
-            logger_.setLevel(tempLevel);
+            mLogger.setLevel(tempLevel);
         }
 
         ~LogLevelGuard()
         {
-            logger_.setLevel(originalLevel_);
+            mLogger.setLevel(mOriginalLevel);
         }
 
         LogLevelGuard(const LogLevelGuard&) = delete;

@@ -150,9 +150,9 @@ namespace fat_p {
         
         class LockGuard {
         public:
-            explicit LockGuard(std::atomic<bool>& flag) noexcept : flag_(flag) {
+            explicit LockGuard(std::atomic<bool>& flag) noexcept : mFlag(flag) {
                 bool expected = false;
-                while (!flag_.compare_exchange_weak(expected, true, 
+                while (!mFlag.compare_exchange_weak(expected, true, 
                        std::memory_order_acquire, std::memory_order_relaxed)) {
                     expected = false;
                     std::this_thread::yield();
@@ -160,14 +160,14 @@ namespace fat_p {
             }
             
             ~LockGuard() noexcept { 
-                flag_.store(false, std::memory_order_release); 
+                mFlag.store(false, std::memory_order_release); 
             }
             
             LockGuard(const LockGuard&) = delete;
             LockGuard& operator=(const LockGuard&) = delete;
             
         private:
-            std::atomic<bool>& flag_;
+            std::atomic<bool>& mFlag;
         };
         
         using SharedGuard = LockGuard;
@@ -178,7 +178,7 @@ namespace fat_p {
     
     struct ConditionVarPolicy {
         mutable std::mutex cv_mutex_;
-        mutable std::condition_variable cv_;
+        mutable std::condition_variable mCv;
         mutable std::atomic<bool> initialized_flag_{false};
         
         using LockGuard = std::lock_guard<std::mutex>;
@@ -191,7 +191,7 @@ namespace fat_p {
         template <typename Duration>
         bool wait_for_init(const Duration& timeout) const {
             std::unique_lock<std::mutex> lock(cv_mutex_);
-            return cv_.wait_for(lock, timeout, [this] { 
+            return mCv.wait_for(lock, timeout, [this] { 
                 return initialized_flag_.load(std::memory_order_acquire);
             });
         }
@@ -199,9 +199,9 @@ namespace fat_p {
         // Called while holding cv_mutex_ lock (from init())
         void notify_init() noexcept {
             initialized_flag_.store(true, std::memory_order_release);
-            // Note: cv_.notify_all() should be called AFTER releasing the lock
+            // Note: mCv.notify_all() should be called AFTER releasing the lock
             // We do it here because unlock happens when guard destructs
-            cv_.notify_all();
+            mCv.notify_all();
         }
         
         bool is_notification_initialized() const noexcept {

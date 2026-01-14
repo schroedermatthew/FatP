@@ -533,57 +533,57 @@ public:
     CborStreamParser() = default;
 
     explicit CborStreamParser(const Limits& limits)
-        : limits_(limits)
+        : mLimits(limits)
     {
     }
 
     void set_limits(const Limits& limits)
     {
-        limits_ = limits;
+        mLimits = limits;
     }
 
     const Limits& limits() const
     {
-        return limits_;
+        return mLimits;
     }
 
     void set_max_depth(std::size_t d)
     {
-        limits_.max_depth = d;
+        mLimits.max_depth = d;
     }
 
     void set_max_string_bytes(std::size_t s)
     {
-        limits_.max_string_bytes = s;
+        mLimits.max_string_bytes = s;
     }
 
     void set_max_total_bytes(std::size_t s)
     {
-        limits_.max_total_bytes = s;
+        mLimits.max_total_bytes = s;
     }
 
     void set_max_array_elements(std::size_t n)
     {
-        limits_.max_array_elements = n;
+        mLimits.max_array_elements = n;
     }
 
     void set_max_map_pairs(std::size_t n)
     {
-        limits_.max_map_pairs = n;
+        mLimits.max_map_pairs = n;
     }
 
     ParseStatus feed(const std::uint8_t* data, std::size_t size)
     {
         for (std::size_t i = 0; i < size; ++i)
         {
-            if (stats_.bytes_consumed >= limits_.max_total_bytes)
+            if (mStats.bytes_consumed >= mLimits.max_total_bytes)
             {
-                error_ = ParseError::MaxTotalSizeExceeded;
+                mError = ParseError::MaxTotalSizeExceeded;
                 return ParseStatus::Error;
             }
 
             auto status = process_byte(data[i]);
-            ++stats_.bytes_consumed;
+            ++mStats.bytes_consumed;
 
             if (status != ParseStatus::NeedMoreData)
             {
@@ -601,47 +601,47 @@ public:
 
     ParseError error() const
     {
-        return error_;
+        return mError;
     }
 
     const char* error_message() const
     {
-        return error_to_string(error_);
+        return error_to_string(mError);
     }
 
     const Stats& stats() const
     {
-        return stats_;
+        return mStats;
     }
 
     bool is_done() const
     {
-        return state_ == State::Done;
+        return mState == State::Done;
     }
 
     bool has_error() const
     {
-        return error_ != ParseError::None;
+        return mError != ParseError::None;
     }
 
     const CborValue& result() const
     {
-        return root_;
+        return mRoot;
     }
 
     CborValue take_result()
     {
-        return std::move(root_);
+        return std::move(mRoot);
     }
 
     void reset()
     {
-        state_ = State::Initial;
-        error_ = ParseError::None;
-        stats_ = Stats{};
-        root_ = CborValue{};
-        stack_.clear();
-        argument_ = 0;
+        mState = State::Initial;
+        mError = ParseError::None;
+        mStats = Stats{};
+        mRoot = CborValue{};
+        mStack.clear();
+        mArgument = 0;
         arg_bytes_needed_ = 0;
         arg_bytes_read_ = 0;
         content_remaining_ = 0;
@@ -681,7 +681,7 @@ private:
 
     ParseStatus process_byte(std::uint8_t byte)
     {
-        switch (state_)
+        switch (mState)
         {
             case State::Initial:
                 return process_initial_byte(byte);
@@ -693,9 +693,9 @@ private:
                 return process_text_content(byte);
             case State::Done:
             case State::Error:
-                return state_ == State::Done ? ParseStatus::Done : ParseStatus::Error;
+                return mState == State::Done ? ParseStatus::Done : ParseStatus::Error;
         }
-        error_ = ParseError::InternalError;
+        mError = ParseError::InternalError;
         return ParseStatus::Error;
     }
 
@@ -708,25 +708,25 @@ private:
         {
             if (current_major_ >= 2 && current_major_ <= 5)
             {
-                error_ = ParseError::IndefiniteLengthNotSupported;
+                mError = ParseError::IndefiniteLengthNotSupported;
                 return ParseStatus::Error;
             }
             if (current_major_ == 7)
             {
-                error_ = ParseError::InvalidInitialByte;
+                mError = ParseError::InvalidInitialByte;
                 return ParseStatus::Error;
             }
         }
 
         if (current_ai_ >= 28 && current_ai_ <= 30)
         {
-            error_ = ParseError::ReservedAdditionalInfo;
+            mError = ParseError::ReservedAdditionalInfo;
             return ParseStatus::Error;
         }
 
         if (current_ai_ < 24)
         {
-            argument_ = current_ai_;
+            mArgument = current_ai_;
             return process_complete_item();
         }
 
@@ -745,19 +745,19 @@ private:
                 arg_bytes_needed_ = 8;
                 break;
             default:
-                error_ = ParseError::InvalidAdditionalInfo;
+                mError = ParseError::InvalidAdditionalInfo;
                 return ParseStatus::Error;
         }
 
-        argument_ = 0;
+        mArgument = 0;
         arg_bytes_read_ = 0;
-        state_ = State::ReadingArgument;
+        mState = State::ReadingArgument;
         return ParseStatus::NeedMoreData;
     }
 
     ParseStatus process_argument_byte(std::uint8_t byte)
     {
-        argument_ = (argument_ << 8) | byte;
+        mArgument = (mArgument << 8) | byte;
         ++arg_bytes_read_;
 
         if (arg_bytes_read_ < arg_bytes_needed_)
@@ -773,58 +773,58 @@ private:
         switch (current_major_)
         {
             case 0:
-                return emit_value(CborValue(argument_));
+                return emit_value(CborValue(mArgument));
 
             case 1:
                 return emit_value(CborValue(static_cast<std::int64_t>(-1) -
-                                            static_cast<std::int64_t>(argument_)));
+                                            static_cast<std::int64_t>(mArgument)));
 
             case 2:
-                if (argument_ > limits_.max_string_bytes)
+                if (mArgument > mLimits.max_string_bytes)
                 {
-                    error_ = ParseError::MaxStringSizeExceeded;
+                    mError = ParseError::MaxStringSizeExceeded;
                     return ParseStatus::Error;
                 }
-                content_remaining_ = static_cast<std::size_t>(argument_);
+                content_remaining_ = static_cast<std::size_t>(mArgument);
                 byte_buffer_.clear();
                 byte_buffer_.reserve(content_remaining_);
                 if (content_remaining_ == 0)
                 {
                     return emit_value(CborValue(CborBytes{}));
                 }
-                state_ = State::ReadingBytes;
+                mState = State::ReadingBytes;
                 return ParseStatus::NeedMoreData;
 
             case 3:
-                if (argument_ > limits_.max_string_bytes)
+                if (mArgument > mLimits.max_string_bytes)
                 {
-                    error_ = ParseError::MaxStringSizeExceeded;
+                    mError = ParseError::MaxStringSizeExceeded;
                     return ParseStatus::Error;
                 }
-                content_remaining_ = static_cast<std::size_t>(argument_);
+                content_remaining_ = static_cast<std::size_t>(mArgument);
                 string_buffer_.clear();
                 string_buffer_.reserve(content_remaining_);
                 if (content_remaining_ == 0)
                 {
                     return emit_value(CborValue(std::string{}));
                 }
-                state_ = State::ReadingText;
+                mState = State::ReadingText;
                 return ParseStatus::NeedMoreData;
 
             case 4:
-                return begin_array(static_cast<std::size_t>(argument_));
+                return begin_array(static_cast<std::size_t>(mArgument));
 
             case 5:
-                return begin_map(static_cast<std::size_t>(argument_));
+                return begin_map(static_cast<std::size_t>(mArgument));
 
             case 6:
-                return begin_tag(argument_);
+                return begin_tag(mArgument);
 
             case 7:
                 return process_simple_or_float();
 
             default:
-                error_ = ParseError::InvalidInitialByte;
+                mError = ParseError::InvalidInitialByte;
                 return ParseStatus::Error;
         }
     }
@@ -863,23 +863,23 @@ private:
         switch (current_ai_)
         {
             case 24:
-                if (argument_ < 32)
+                if (mArgument < 32)
                 {
-                    error_ = ParseError::InvalidSimpleValue;
+                    mError = ParseError::InvalidSimpleValue;
                     return ParseStatus::Error;
                 }
-                return emit_simple_value(static_cast<std::uint8_t>(argument_));
+                return emit_simple_value(static_cast<std::uint8_t>(mArgument));
 
             case 25:
             {
-                double val = decode_half(static_cast<std::uint16_t>(argument_));
+                double val = decode_half(static_cast<std::uint16_t>(mArgument));
                 return emit_value(CborValue(val));
             }
 
             case 26:
             {
                 float f;
-                std::uint32_t bits = static_cast<std::uint32_t>(argument_);
+                std::uint32_t bits = static_cast<std::uint32_t>(mArgument);
                 std::memcpy(&f, &bits, sizeof(f));
                 return emit_value(CborValue(static_cast<double>(f)));
             }
@@ -887,12 +887,12 @@ private:
             case 27:
             {
                 double d;
-                std::memcpy(&d, &argument_, sizeof(d));
+                std::memcpy(&d, &mArgument, sizeof(d));
                 return emit_value(CborValue(d));
             }
 
             default:
-                error_ = ParseError::InvalidFloatEncoding;
+                mError = ParseError::InvalidFloatEncoding;
                 return ParseStatus::Error;
         }
     }
@@ -916,19 +916,19 @@ private:
 
     ParseStatus begin_array(std::size_t count)
     {
-        if (count > limits_.max_array_elements)
+        if (count > mLimits.max_array_elements)
         {
-            error_ = ParseError::MaxArraySizeExceeded;
+            mError = ParseError::MaxArraySizeExceeded;
             return ParseStatus::Error;
         }
 
-        if (stats_.current_depth >= limits_.max_depth)
+        if (mStats.current_depth >= mLimits.max_depth)
         {
-            error_ = ParseError::MaxDepthExceeded;
+            mError = ParseError::MaxDepthExceeded;
             return ParseStatus::Error;
         }
 
-        ++stats_.values_parsed;
+        ++mStats.values_parsed;
 
         CborValue arr(CborArray{});
         arr.as_array().reserve(count);
@@ -940,8 +940,8 @@ private:
         }
         else
         {
-            root_ = std::move(arr);
-            target = &root_;
+            mRoot = std::move(arr);
+            target = &mRoot;
         }
 
         if (count == 0)
@@ -949,32 +949,32 @@ private:
             return complete_value();
         }
 
-        stack_.emplace_back(target, count, false);
-        ++stats_.current_depth;
-        if (stats_.current_depth > stats_.max_depth_seen)
+        mStack.emplace_back(target, count, false);
+        ++mStats.current_depth;
+        if (mStats.current_depth > mStats.max_depth_seen)
         {
-            stats_.max_depth_seen = stats_.current_depth;
+            mStats.max_depth_seen = mStats.current_depth;
         }
 
-        state_ = State::Initial;
+        mState = State::Initial;
         return ParseStatus::NeedMoreData;
     }
 
     ParseStatus begin_map(std::size_t count)
     {
-        if (count > limits_.max_map_pairs)
+        if (count > mLimits.max_map_pairs)
         {
-            error_ = ParseError::MaxMapSizeExceeded;
+            mError = ParseError::MaxMapSizeExceeded;
             return ParseStatus::Error;
         }
 
-        if (stats_.current_depth >= limits_.max_depth)
+        if (mStats.current_depth >= mLimits.max_depth)
         {
-            error_ = ParseError::MaxDepthExceeded;
+            mError = ParseError::MaxDepthExceeded;
             return ParseStatus::Error;
         }
 
-        ++stats_.values_parsed;
+        ++mStats.values_parsed;
 
         CborValue m(CborMap{});
 
@@ -985,8 +985,8 @@ private:
         }
         else
         {
-            root_ = std::move(m);
-            target = &root_;
+            mRoot = std::move(m);
+            target = &mRoot;
         }
 
         if (count == 0)
@@ -994,26 +994,26 @@ private:
             return complete_value();
         }
 
-        stack_.emplace_back(target, count * 2, true);
-        ++stats_.current_depth;
-        if (stats_.current_depth > stats_.max_depth_seen)
+        mStack.emplace_back(target, count * 2, true);
+        ++mStats.current_depth;
+        if (mStats.current_depth > mStats.max_depth_seen)
         {
-            stats_.max_depth_seen = stats_.current_depth;
+            mStats.max_depth_seen = mStats.current_depth;
         }
 
-        state_ = State::Initial;
+        mState = State::Initial;
         return ParseStatus::NeedMoreData;
     }
 
     ParseStatus begin_tag(std::uint64_t tag)
     {
-        if (stats_.current_depth >= limits_.max_depth)
+        if (mStats.current_depth >= mLimits.max_depth)
         {
-            error_ = ParseError::MaxDepthExceeded;
+            mError = ParseError::MaxDepthExceeded;
             return ParseStatus::Error;
         }
 
-        ++stats_.values_parsed;
+        ++mStats.values_parsed;
 
         CborTagged tagged;
         tagged.tag = tag;
@@ -1028,29 +1028,29 @@ private:
         }
         else
         {
-            root_ = std::move(val);
-            target = &root_;
+            mRoot = std::move(val);
+            target = &mRoot;
         }
 
-        stack_.emplace_back(target, 1, false);
-        ++stats_.current_depth;
-        if (stats_.current_depth > stats_.max_depth_seen)
+        mStack.emplace_back(target, 1, false);
+        ++mStats.current_depth;
+        if (mStats.current_depth > mStats.max_depth_seen)
         {
-            stats_.max_depth_seen = stats_.current_depth;
+            mStats.max_depth_seen = mStats.current_depth;
         }
 
-        state_ = State::Initial;
+        mState = State::Initial;
         return ParseStatus::NeedMoreData;
     }
 
     CborValue* get_current_target()
     {
-        if (stack_.empty())
+        if (mStack.empty())
         {
             return nullptr;
         }
 
-        Frame& frame = stack_.back();
+        Frame& frame = mStack.back();
 
         if (frame.is_map)
         {
@@ -1073,16 +1073,16 @@ private:
 
     ParseStatus emit_value(CborValue value)
     {
-        ++stats_.values_parsed;
+        ++mStats.values_parsed;
 
-        if (stack_.empty())
+        if (mStack.empty())
         {
-            root_ = std::move(value);
-            state_ = State::Done;
+            mRoot = std::move(value);
+            mState = State::Done;
             return ParseStatus::Done;
         }
 
-        Frame& frame = stack_.back();
+        Frame& frame = mStack.back();
 
         if (frame.is_map)
         {
@@ -1091,7 +1091,7 @@ private:
                 pending_map_key_ = std::move(value);
                 frame.expecting_value = true;
                 --frame.remaining;
-                state_ = State::Initial;
+                mState = State::Initial;
                 return ParseStatus::NeedMoreData;
             }
             else
@@ -1119,24 +1119,24 @@ private:
 
     ParseStatus complete_value()
     {
-        while (!stack_.empty() && stack_.back().remaining == 0)
+        while (!mStack.empty() && mStack.back().remaining == 0)
         {
-            stack_.pop_back();
-            --stats_.current_depth;
+            mStack.pop_back();
+            --mStats.current_depth;
 
-            if (!stack_.empty())
+            if (!mStack.empty())
             {
-                --stack_.back().remaining;
+                --mStack.back().remaining;
             }
         }
 
-        if (stack_.empty())
+        if (mStack.empty())
         {
-            state_ = State::Done;
+            mState = State::Done;
             return ParseStatus::Done;
         }
 
-        state_ = State::Initial;
+        mState = State::Initial;
         return ParseStatus::NeedMoreData;
     }
 
@@ -1164,17 +1164,17 @@ private:
         return sign ? -val : val;
     }
 
-    Limits limits_;
-    Stats stats_;
-    State state_ = State::Initial;
-    ParseError error_ = ParseError::None;
+    Limits mLimits;
+    Stats mStats;
+    State mState = State::Initial;
+    ParseError mError = ParseError::None;
 
-    CborValue root_;
-    std::vector<Frame> stack_;
+    CborValue mRoot;
+    std::vector<Frame> mStack;
 
     std::uint8_t current_major_ = 0;
     std::uint8_t current_ai_ = 0;
-    std::uint64_t argument_ = 0;
+    std::uint64_t mArgument = 0;
     std::size_t arg_bytes_needed_ = 0;
     std::size_t arg_bytes_read_ = 0;
 

@@ -939,7 +939,7 @@ FATP_TEST_CASE(overflow_boundary)
 FATP_TEST_CASE(overflow_exhaustion_tracking)
 {
     // Test that once we reach max, subsequent calls correctly return Overflow
-    // This validates the exhausted_ flag in SequentialAllocationPolicy
+    // This validates the mExhausted flag in SequentialAllocationPolicy
     SimpleIdGenerator<uint8_t> gen(254);
 
     auto id254 = gen.generate(); // 254
@@ -1016,18 +1016,18 @@ FATP_TEST_CASE(custom_allocation_policy)
     // Custom policy that only generates even IDs
     struct EvenOnlyPolicy
     {
-        uint64_t next_ = 0;
+        uint64_t mNext = 0;
 
-        explicit EvenOnlyPolicy(uint64_t base = 0) : next_((base + 1) & ~uint64_t(1)) {}
+        explicit EvenOnlyPolicy(uint64_t base = 0) : mNext((base + 1) & ~uint64_t(1)) {}
 
         std::optional<uint64_t> next_id(uint64_t, bool) noexcept
         {
-            uint64_t result = next_;
-            next_ += 2;
+            uint64_t result = mNext;
+            mNext += 2;
             return result;
         }
 
-        void reset(uint64_t base = 0) noexcept { next_ = (base + 1) & ~uint64_t(1); }
+        void reset(uint64_t base = 0) noexcept { mNext = (base + 1) & ~uint64_t(1); }
     };
 
     IdGenerator<uint64_t, EvenOnlyPolicy> gen(0);
@@ -1088,15 +1088,15 @@ FATP_TEST_CASE(dirty_max_smaller_id)
     
     struct DecreasingPolicy
     {
-        std::vector<uint64_t> sequence_;
-        size_t index_ = 0;
+        std::vector<uint64_t> mSequence;
+        size_t mIndex = 0;
         
-        explicit DecreasingPolicy(uint64_t) : sequence_{20, 10, 5, 25} {}
+        explicit DecreasingPolicy(uint64_t) : mSequence{20, 10, 5, 25} {}
         
         std::optional<uint64_t> next_id(uint64_t, bool) noexcept
         {
-            if (index_ >= sequence_.size()) return std::nullopt;
-            return sequence_[index_++];
+            if (mIndex >= mSequence.size()) return std::nullopt;
+            return mSequence[mIndex++];
         }
     };
     
@@ -1117,7 +1117,7 @@ FATP_TEST_CASE(dirty_max_smaller_id)
     FATP_ASSERT_EQ(gen.active_count(), size_t(1), "Should have 1 active ID");
     
     // Generate 5 - With OLD bug: max would become 5 (WRONG!)
-    // With fix: max_valid_ stays false, insert(5) doesn't touch max_
+    // With fix: max_valid_ stays false, insert(5) doesn't touch mMax
     auto id5 = gen.generate();
     FATP_ASSERT_TRUE(id5.has_value(), "Generate should succeed");
     FATP_ASSERT_EQ(id5.value(), uint64_t(5), "Third ID is 5");

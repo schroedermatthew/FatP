@@ -555,7 +555,7 @@ FATP_TEST_CASE(cpu_freq_info_basic)
 
     CpuFreqInfo info = capture_cpu_frequency();
 
-    // We can't assert specific values since they're platform-dependent,
+    // We mCan_LIT_0__re platform-dependent,
     // but we can verify the struct is usable
     (void)info.throttle_percentage();
     (void)info.has_reliable_detection();

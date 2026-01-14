@@ -45,40 +45,40 @@ using namespace fat_p::diagnostic;
 
 class TestSink : public ISink
 {
-    std::vector<LogRecord> records_;
-    mutable std::mutex mutex_;
+    std::vector<LogRecord> mRecords;
+    mutable std::mutex mMutex;
 
 public:
     void write(const LogRecord& record) override
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        records_.push_back(record);
+        std::lock_guard<std::mutex> lock(mMutex);
+        mRecords.push_back(record);
     }
 
     void flush() override {}
 
     std::vector<LogRecord> getRecords() const
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return records_;
+        std::lock_guard<std::mutex> lock(mMutex);
+        return mRecords;
     }
 
     void clear()
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        records_.clear();
+        std::lock_guard<std::mutex> lock(mMutex);
+        mRecords.clear();
     }
 
     size_t count() const
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return records_.size();
+        std::lock_guard<std::mutex> lock(mMutex);
+        return mRecords.size();
     }
 
     bool containsMessage(const std::string& substr) const
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        for (const auto& rec : records_)
+        std::lock_guard<std::mutex> lock(mMutex);
+        for (const auto& rec : mRecords)
         {
             if (rec.message.find(substr) != std::string::npos)
             {
@@ -90,9 +90,9 @@ public:
 
     size_t countLevel(LogLevel level) const
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mMutex);
         size_t count = 0;
-        for (const auto& rec : records_)
+        for (const auto& rec : mRecords)
         {
             if (rec.level == level)
             {

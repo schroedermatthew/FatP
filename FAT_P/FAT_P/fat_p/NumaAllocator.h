@@ -370,7 +370,7 @@ public:
 private:
     static constexpr bool is_over_aligned = alignof(T) > alignof(std::max_align_t);
 
-    Policy policy_;
+    Policy mPolicy;
     bool numa_available_;
 
     void* allocate_on_node(size_t size, int node)
@@ -490,27 +490,27 @@ private:
     }
 
 public:
-    NumaAllocator() noexcept : policy_(), numa_available_(NumaInfo::is_available())
+    NumaAllocator() noexcept : mPolicy(), numa_available_(NumaInfo::is_available())
     {
     }
 
     explicit NumaAllocator(Policy policy) noexcept
-        : policy_(policy), numa_available_(NumaInfo::is_available())
+        : mPolicy(policy), numa_available_(NumaInfo::is_available())
     {
         if constexpr (std::is_same_v<Policy, NumaPreferredPolicy>)
         {
             int max_node = NumaInfo::num_nodes() - 1;
-            if (policy_.node < 0 || policy_.node > max_node)
+            if (mPolicy.node < 0 || mPolicy.node > max_node)
             {
                 assert(false && "NumaPreferredPolicy: node out of valid range");
-                policy_.node = std::clamp(policy_.node, 0, max_node);
+                mPolicy.node = std::clamp(mPolicy.node, 0, max_node);
             }
         }
     }
 
     template<typename U>
     NumaAllocator(const NumaAllocator<U, Policy>& other) noexcept
-        : policy_(other.get_policy()), numa_available_(other.is_numa_available())
+        : mPolicy(other.get_policy()), numa_available_(other.is_numa_available())
     {
     }
 
@@ -542,7 +542,7 @@ public:
         }
         else if constexpr (std::is_same_v<Policy, NumaPreferredPolicy>)
         {
-            ptr = allocate_on_node(size, policy_.node);
+            ptr = allocate_on_node(size, mPolicy.node);
         }
 
         if (!ptr)
@@ -570,7 +570,7 @@ public:
 
     const Policy& get_policy() const noexcept
     {
-        return policy_;
+        return mPolicy;
     }
 
     bool is_numa_available() const noexcept

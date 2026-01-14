@@ -55,20 +55,20 @@ namespace test_util {
  */
 class LogLevelGuard
 {
-    Logger& logger_;
-    LogLevel originalLevel_;
+    Logger& mLogger;
+    LogLevel mOriginalLevel;
     
 public:
     explicit LogLevelGuard(Logger& logger, LogLevel tempLevel)
-        : logger_(logger)
-        , originalLevel_(logger.getLevel())
+        : mLogger(logger)
+        , mOriginalLevel(logger.getLevel())
     {
-        logger_.setLevel(tempLevel);
+        mLogger.setLevel(tempLevel);
     }
     
     ~LogLevelGuard()
     {
-        logger_.setLevel(originalLevel_);
+        mLogger.setLevel(mOriginalLevel);
     }
     
     LogLevelGuard(const LogLevelGuard&) = delete;
@@ -79,7 +79,7 @@ public:
     /**
      * @brief Get the original log level that will be restored
      */
-    LogLevel originalLevel() const noexcept { return originalLevel_; }
+    LogLevel originalLevel() const noexcept { return mOriginalLevel; }
     
     /**
      * @brief Create a ScopeGuard-based log level guard
@@ -110,20 +110,20 @@ public:
  */
 class LoggerEnabledGuard
 {
-    Logger& logger_;
-    bool originalState_;
+    Logger& mLogger;
+    bool mOriginalState;
     
 public:
     explicit LoggerEnabledGuard(Logger& logger, bool enabled)
-        : logger_(logger)
-        , originalState_(logger.shouldLog(LogLevel::Trace)) // Check if currently enabled
+        : mLogger(logger)
+        , mOriginalState(logger.shouldLog(LogLevel::Trace)) // Check if currently enabled
     {
-        logger_.setEnabled(enabled);
+        mLogger.setEnabled(enabled);
     }
     
     ~LoggerEnabledGuard()
     {
-        logger_.setEnabled(originalState_);
+        mLogger.setEnabled(mOriginalState);
     }
     
     LoggerEnabledGuard(const LoggerEnabledGuard&) = delete;
@@ -147,24 +147,24 @@ public:
  */
 class SinkGuard
 {
-    Logger& logger_;
-    std::vector<std::shared_ptr<ISink>> originalSinks_;
+    Logger& mLogger;
+    std::vector<std::shared_ptr<ISink>> mOriginalSinks;
     
 public:
     explicit SinkGuard(Logger& logger, bool clearSinks = true)
-        : logger_(logger)
-        , originalSinks_(logger.getSinks())
+        : mLogger(logger)
+        , mOriginalSinks(logger.getSinks())
     {
         if (clearSinks)
         {
-            logger_.clearSinks();
+            mLogger.clearSinks();
         }
     }
     
     ~SinkGuard()
     {
         // Restore original sinks
-        logger_.setSinks(std::move(originalSinks_));
+        mLogger.setSinks(std::move(mOriginalSinks));
     }
     
     SinkGuard(const SinkGuard&) = delete;
@@ -180,11 +180,11 @@ class CapturingSink : public ISink
 {
 public:
     std::vector<LogRecord> records;
-    mutable std::mutex mutex_;
+    mutable std::mutex mMutex;
     
     void write(const LogRecord& record) override
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mMutex);
         records.push_back(record);
     }
     
@@ -195,7 +195,7 @@ public:
      */
     bool containsMessage(const std::string& substr) const
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mMutex);
         for (const auto& rec : records)
         {
             if (rec.message.find(substr) != std::string::npos)
@@ -211,7 +211,7 @@ public:
      */
     size_t countLevel(LogLevel level) const
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mMutex);
         return std::count_if(records.begin(), records.end(),
             [level](const LogRecord& rec) { return rec.level == level; });
     }
@@ -221,7 +221,7 @@ public:
      */
     void clear()
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mMutex);
         records.clear();
     }
     
@@ -230,7 +230,7 @@ public:
      */
     size_t count() const
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mMutex);
         return records.size();
     }
 };
@@ -254,21 +254,21 @@ public:
  */
 class TemporarySinkGuard
 {
-    Logger& logger_;
-    std::vector<std::shared_ptr<ISink>> originalSinks_;
+    Logger& mLogger;
+    std::vector<std::shared_ptr<ISink>> mOriginalSinks;
     
 public:
     TemporarySinkGuard(Logger& logger, std::shared_ptr<ISink> sink)
-        : logger_(logger)
-        , originalSinks_(logger.getSinks())
+        : mLogger(logger)
+        , mOriginalSinks(logger.getSinks())
     {
-        logger_.clearSinks();
-        logger_.addSink(std::move(sink));
+        mLogger.clearSinks();
+        mLogger.addSink(std::move(sink));
     }
     
     ~TemporarySinkGuard()
     {
-        logger_.setSinks(std::move(originalSinks_));
+        mLogger.setSinks(std::move(mOriginalSinks));
     }
     
     TemporarySinkGuard(const TemporarySinkGuard&) = delete;

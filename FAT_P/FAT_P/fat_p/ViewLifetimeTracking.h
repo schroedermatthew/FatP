@@ -86,7 +86,7 @@ public:
  */
 class LifetimeToken {
 public:
-    LifetimeToken() : valid_(true) {}
+    LifetimeToken() : mValid(true) {}
     
     ~LifetimeToken() {
         invalidate();
@@ -97,15 +97,15 @@ public:
     LifetimeToken& operator=(const LifetimeToken&) = delete;
     
     void invalidate() {
-        valid_.store(false, std::memory_order_release);
+        mValid.store(false, std::memory_order_release);
     }
     
     bool is_valid() const {
-        return valid_.load(std::memory_order_acquire);
+        return mValid.load(std::memory_order_acquire);
     }
     
 private:
-    std::atomic<bool> valid_;
+    std::atomic<bool> mValid;
 };
 
 /**
@@ -116,32 +116,32 @@ template<typename T>
 class LifetimeTracker {
 public:
     explicit LifetimeTracker(T& obj, const char* name = "Object")
-        : obj_(&obj)
-        , name_(name)
-        , token_(std::make_shared<LifetimeToken>())
+        : mObj(&obj)
+        , mName(name)
+        , mToken(std::make_shared<LifetimeToken>())
     {}
     
     ~LifetimeTracker() {
-        if (token_) {
-            token_->invalidate();
+        if (mToken) {
+            mToken->invalidate();
         }
     }
     
     // Movable but not copyable
     LifetimeTracker(LifetimeTracker&& other) noexcept
-        : obj_(other.obj_)
-        , name_(other.name_)
-        , token_(std::move(other.token_))
+        : mObj(other.mObj)
+        , mName(other.mName)
+        , mToken(std::move(other.mToken))
     {
-        other.obj_ = nullptr;
+        other.mObj = nullptr;
     }
     
     LifetimeTracker& operator=(LifetimeTracker&& other) noexcept {
         if (this != &other) {
-            obj_ = other.obj_;
-            name_ = other.name_;
-            token_ = std::move(other.token_);
-            other.obj_ = nullptr;
+            mObj = other.mObj;
+            mName = other.mName;
+            mToken = std::move(other.mToken);
+            other.mObj = nullptr;
         }
         return *this;
     }
@@ -156,12 +156,12 @@ public:
     class TrackedView {
     public:
         TrackedView(T* obj, std::shared_ptr<LifetimeToken> token, const char* name)
-            : obj_(obj), token_(std::move(token)), name_(name)
+            : mObj(obj), mToken(std::move(token)), mName(name)
         {}
         
         T* get() const {
             check_valid();
-            return obj_;
+            return mObj;
         }
         
         T& operator*() const {
@@ -173,36 +173,36 @@ public:
         }
         
         bool is_valid() const {
-            return token_ && token_->is_valid();
+            return mToken && mToken->is_valid();
         }
         
         void check_valid() const {
             if (!is_valid()) {
                 std::ostringstream oss;
-                oss << "Dangling reference: " << name_ 
+                oss << "Dangling reference: " << mName 
                     << " has been destroyed";
                 throw DanglingReferenceError(oss.str());
             }
         }
         
     private:
-        T* obj_;
-        std::shared_ptr<LifetimeToken> token_;
-        const char* name_;
+        T* mObj;
+        std::shared_ptr<LifetimeToken> mToken;
+        const char* mName;
     };
     
     TrackedView create_view() const {
-        return TrackedView(obj_, token_, name_);
+        return TrackedView(mObj, mToken, mName);
     }
     
-    T* get() const { return obj_; }
-    T& operator*() const { return *obj_; }
-    T* operator->() const { return obj_; }
+    T* get() const { return mObj; }
+    T& operator*() const { return *mObj; }
+    T* operator->() const { return mObj; }
     
 private:
-    T* obj_;
-    const char* name_;
-    std::shared_ptr<LifetimeToken> token_;
+    T* mObj;
+    const char* mName;
+    std::shared_ptr<LifetimeToken> mToken;
 };
 
 #else // NDEBUG - Release build
@@ -213,30 +213,30 @@ private:
 template<typename T>
 class LifetimeTracker {
 public:
-    explicit LifetimeTracker(T& obj, const char* = nullptr) : obj_(&obj) {}
+    explicit LifetimeTracker(T& obj, const char* = nullptr) : mObj(&obj) {}
     
     class TrackedView {
     public:
-        TrackedView(T* obj) : obj_(obj) {}
-        T* get() const { return obj_; }
-        T& operator*() const { return *obj_; }
-        T* operator->() const { return obj_; }
+        TrackedView(T* obj) : mObj(obj) {}
+        T* get() const { return mObj; }
+        T& operator*() const { return *mObj; }
+        T* operator->() const { return mObj; }
         bool is_valid() const { return true; }
         void check_valid() const { /* no-op */ }
     private:
-        T* obj_;
+        T* mObj;
     };
     
     TrackedView create_view() const {
-        return TrackedView(obj_);
+        return TrackedView(mObj);
     }
     
-    T* get() const { return obj_; }
-    T& operator*() const { return *obj_; }
-    T* operator->() const { return obj_; }
+    T* get() const { return mObj; }
+    T& operator*() const { return *mObj; }
+    T* operator->() const { return mObj; }
     
 private:
-    T* obj_;
+    T* mObj;
 };
 
 #endif // NDEBUG
@@ -287,21 +287,21 @@ template<typename ViewT>
 class ViewGuard {
 public:
     explicit ViewGuard(const ViewT& view, const char* scope = "Scope")
-        : view_(view), scope_(scope)
+        : mView(view), mScope(scope)
     {
-        view_.check_valid();
+        mView.check_valid();
     }
     
     ~ViewGuard() {
-        if (!view_.is_valid()) {
+        if (!mView.is_valid()) {
             // Can't throw in destructor, but can log
-            std::cerr << "WARNING: View became invalid during " << scope_ << std::endl;
+            std::cerr << "WARNING: View became invalid during " << mScope << std::endl;
         }
     }
     
 private:
-    const ViewT& view_;
-    const char* scope_;
+    const ViewT& mView;
+    const char* mScope;
 };
 #else
 template<typename ViewT>

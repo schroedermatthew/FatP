@@ -935,7 +935,7 @@ FATP_TEST_CASE(move_pointer_steal)
         
         SmallVector<int, 4> v2(std::move(v1));
         
-        // Inline data is not stolen - it's copied to v2's inline buffer
+        // Inline data is not stolen - mIt_LIT_0__s inline buffer
         FATP_ASSERT_TRUE(v2.data() != original_ptr, "Inline move did NOT steal pointer");
         FATP_ASSERT_TRUE(is_using_inline_storage(v2), "v2 uses inline storage");
         FATP_ASSERT_TRUE(v2.size() == 3, "v2 has correct size");

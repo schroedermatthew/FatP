@@ -74,18 +74,18 @@ class AtomicSharedPtr
 {
 private:
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
-    std::atomic<std::shared_ptr<T>> ptr_;
+    std::atomic<std::shared_ptr<T>> mPtr;
 #else
-    std::shared_ptr<T> ptr_;
+    std::shared_ptr<T> mPtr;
 #endif
 
 public:
     using value_type = T;
     using pointer_type = std::shared_ptr<T>;
 
-    AtomicSharedPtr() noexcept : ptr_(nullptr) {}
+    AtomicSharedPtr() noexcept : mPtr(nullptr) {}
 
-    explicit AtomicSharedPtr(std::shared_ptr<T> p) noexcept : ptr_(std::move(p)) {}
+    explicit AtomicSharedPtr(std::shared_ptr<T> p) noexcept : mPtr(std::move(p)) {}
 
     AtomicSharedPtr(const AtomicSharedPtr&) = delete;
     AtomicSharedPtr& operator=(const AtomicSharedPtr&) = delete;
@@ -100,9 +100,9 @@ public:
         std::memory_order order = std::memory_order_acquire) const
     {
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
-        auto result = ptr_.load(order);
+        auto result = mPtr.load(order);
 #else
-        auto result = std::atomic_load_explicit(&ptr_, order);
+        auto result = std::atomic_load_explicit(&mPtr, order);
 #endif
         if constexpr (ThrowOnNull)
         {
@@ -118,9 +118,9 @@ public:
         std::memory_order order = std::memory_order_acquire) const noexcept
     {
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
-        return ptr_.load(order);
+        return mPtr.load(order);
 #else
-        return std::atomic_load_explicit(&ptr_, order);
+        return std::atomic_load_explicit(&mPtr, order);
 #endif
     }
 
@@ -128,9 +128,9 @@ public:
                std::memory_order order = std::memory_order_release) noexcept
     {
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
-        ptr_.store(std::move(p), order);
+        mPtr.store(std::move(p), order);
 #else
-        std::atomic_store_explicit(&ptr_, std::move(p), order);
+        std::atomic_store_explicit(&mPtr, std::move(p), order);
 #endif
     }
 
@@ -139,9 +139,9 @@ public:
         std::memory_order order = std::memory_order_acq_rel) noexcept
     {
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
-        return ptr_.exchange(std::move(p), order);
+        return mPtr.exchange(std::move(p), order);
 #else
-        return std::atomic_exchange_explicit(&ptr_, std::move(p), order);
+        return std::atomic_exchange_explicit(&mPtr, std::move(p), order);
 #endif
     }
 
@@ -152,10 +152,10 @@ public:
         std::memory_order failure = std::memory_order_acquire) noexcept
     {
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
-        return ptr_.compare_exchange_weak(expected, std::move(desired), success, failure);
+        return mPtr.compare_exchange_weak(expected, std::move(desired), success, failure);
 #else
         return std::atomic_compare_exchange_weak_explicit(
-            &ptr_, &expected, std::move(desired), success, failure);
+            &mPtr, &expected, std::move(desired), success, failure);
 #endif
     }
 
@@ -166,10 +166,10 @@ public:
         std::memory_order failure = std::memory_order_acquire) noexcept
     {
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
-        return ptr_.compare_exchange_strong(expected, std::move(desired), success, failure);
+        return mPtr.compare_exchange_strong(expected, std::move(desired), success, failure);
 #else
         return std::atomic_compare_exchange_strong_explicit(
-            &ptr_, &expected, std::move(desired), success, failure);
+            &mPtr, &expected, std::move(desired), success, failure);
 #endif
     }
 
@@ -181,11 +181,11 @@ public:
     void wait(std::shared_ptr<T> old,
               std::memory_order order = std::memory_order_acquire) const
     {
-        ptr_.wait(std::move(old), order);
+        mPtr.wait(std::move(old), order);
     }
 
-    void notify_one() noexcept { ptr_.notify_one(); }
-    void notify_all() noexcept { ptr_.notify_all(); }
+    void notify_one() noexcept { mPtr.notify_one(); }
+    void notify_all() noexcept { mPtr.notify_all(); }
 #endif
 
     // ========================================================================
@@ -195,7 +195,7 @@ public:
     [[nodiscard]] bool is_lock_free() const noexcept
     {
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
-        return ptr_.is_lock_free();
+        return mPtr.is_lock_free();
 #else
         // The free-function shared_ptr atomics have no lock-free query.
         // They typically use a global lock table, so conservatively return false.

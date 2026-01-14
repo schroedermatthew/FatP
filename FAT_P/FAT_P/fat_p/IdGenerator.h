@@ -186,19 +186,19 @@ public:
      */
     bool insert(T id)
     {
-        auto [it, inserted] = container_.insert(id);
+        auto [it, inserted] = mContainer.insert(id);
         if (inserted)
         {
-            if (container_.size() == 1)
+            if (mContainer.size() == 1)
             {
                 // First element is always max
-                max_ = id;
+                mMax = id;
                 max_valid_ = true;
             }
-            else if (max_valid_ && id > max_)
+            else if (max_valid_ && id > mMax)
             {
                 // Extend known max
-                max_ = id;
+                mMax = id;
             }
             // If !max_valid_ and size > 1, leave invalid for lazy recompute
         }
@@ -207,19 +207,19 @@ public:
 
     size_t erase(T id)
     {
-        size_t result = container_.erase(id);
-        if (result > 0 && id == max_)
+        size_t result = mContainer.erase(id);
+        if (result > 0 && id == mMax)
         {
             max_valid_ = false; // Invalidate, recompute lazily
         }
         return result;
     }
 
-    size_t count(T id) const { return container_.count(id); }
+    size_t count(T id) const { return mContainer.count(id); }
 
-    bool empty() const noexcept { return container_.empty(); }
+    bool empty() const noexcept { return mContainer.empty(); }
 
-    size_t size() const noexcept { return container_.size(); }
+    size_t size() const noexcept { return mContainer.size(); }
 
     /**
      * @brief Get the maximum element in the tracker.
@@ -227,28 +227,28 @@ public:
      */
     std::optional<T> max_element()
     {
-        if (container_.empty())
+        if (mContainer.empty())
         {
             return std::nullopt;
         }
         if (!max_valid_)
         {
-            max_ = *std::max_element(container_.begin(), container_.end());
+            mMax = *std::max_element(mContainer.begin(), mContainer.end());
             max_valid_ = true;
         }
-        return max_;
+        return mMax;
     }
 
     void clear() noexcept
     {
-        container_.clear();
+        mContainer.clear();
         max_valid_ = false;
-        max_ = T{};
+        mMax = T{};
     }
 
 private:
-    std::unordered_set<T> container_;
-    T max_ = T{};
+    std::unordered_set<T> mContainer;
+    T mMax = T{};
     bool max_valid_ = false;
 };
 
@@ -266,14 +266,14 @@ public:
     explicit SequentialAllocationPolicy(IdType base_id = 0)
         : base_id_(base_id)
         , next_id_(base_id)
-        , exhausted_(false)
+        , mExhausted(false)
     {
     }
 
     std::optional<IdType> next_id(IdType max_id, bool first_call = false) noexcept
     {
-        // If we've previously exhausted the ID space, don't generate more
-        if (exhausted_)
+        // If mWe_LIT_0__t generate more
+        if (mExhausted)
         {
             return std::nullopt;
         }
@@ -292,7 +292,7 @@ public:
             // Check for overflow before computing max_id + 1
             if (max_id == std::numeric_limits<IdType>::max())
             {
-                exhausted_ = true;
+                mExhausted = true;
                 return std::nullopt;
             }
 
@@ -328,7 +328,7 @@ public:
         if (count == 0) return;
         
         // Clear exhausted flag since we're reverting
-        exhausted_ = false;
+        mExhausted = false;
         
         // Protect against underflow
         if (count > static_cast<size_t>(next_id_ - base_id_))
@@ -347,13 +347,13 @@ public:
     {
         base_id_ = base_id;
         next_id_ = base_id;
-        exhausted_ = false;
+        mExhausted = false;
     }
 
 private:
     IdType base_id_;
     IdType next_id_;
-    bool exhausted_;  // Track if we've hit the limit
+    bool mExhausted;  // Track if we've hit the limit
 };
 
 template <typename IdType = uint64_t>
@@ -369,8 +369,8 @@ class RandomAllocationPolicy
 public:
     /// @brief Construct with random seed from std::random_device
     explicit RandomAllocationPolicy(IdType = 0)
-        : rng_(std::random_device{}())
-        , dist_(static_cast<DistType>(0),
+        : mRng(std::random_device{}())
+        , mDist(static_cast<DistType>(0),
                 static_cast<DistType>(std::numeric_limits<IdType>::max()))
     {
     }
@@ -379,8 +379,8 @@ public:
     /// @param seed The seed value for the RNG
     /// @param ignored Disambiguator (use any value)
     RandomAllocationPolicy(uint64_t seed, int /*ignored*/)
-        : rng_(seed)
-        , dist_(static_cast<DistType>(0),
+        : mRng(seed)
+        , mDist(static_cast<DistType>(0),
                 static_cast<DistType>(std::numeric_limits<IdType>::max()))
     {
     }
@@ -388,17 +388,17 @@ public:
     std::optional<IdType> next_id(IdType, bool = false) noexcept
     {
         // No try-catch needed: uniform_int_distribution doesn't throw
-        return static_cast<IdType>(dist_(rng_));
+        return static_cast<IdType>(mDist(mRng));
     }
 
-    void reset(IdType = 0) noexcept { rng_.seed(std::random_device{}()); }
+    void reset(IdType = 0) noexcept { mRng.seed(std::random_device{}()); }
 
     /// @brief Reset with explicit seed for reproducible randomness
-    void reset_with_seed(uint64_t seed) noexcept { rng_.seed(seed); }
+    void reset_with_seed(uint64_t seed) noexcept { mRng.seed(seed); }
 
 private:
-    std::mt19937_64 rng_;
-    std::uniform_int_distribution<DistType> dist_;
+    std::mt19937_64 mRng;
+    std::uniform_int_distribution<DistType> mDist;
 };
 
 /**
@@ -545,23 +545,23 @@ class ImmediateRecyclingPolicy
 public:
     std::optional<IdType> get_recycled() noexcept
     {
-        if (recycled_.empty())
+        if (mRecycled.empty())
         {
             return std::nullopt;
         }
-        IdType id = recycled_.front();
-        recycled_.pop_front();
+        IdType id = mRecycled.front();
+        mRecycled.pop_front();
         return id;
     }
 
-    void add_recycled(IdType id) noexcept { recycled_.push_back(id); }
+    void add_recycled(IdType id) noexcept { mRecycled.push_back(id); }
 
-    size_t recycled_count() const noexcept { return recycled_.size(); }
+    size_t recycled_count() const noexcept { return mRecycled.size(); }
 
-    void clear() noexcept { recycled_.clear(); }
+    void clear() noexcept { mRecycled.clear(); }
 
 private:
-    std::deque<IdType> recycled_;
+    std::deque<IdType> mRecycled;
 };
 
 /**
@@ -577,24 +577,24 @@ class MinRecyclingPolicy
 public:
     std::optional<IdType> get_recycled() noexcept
     {
-        if (recycled_.empty())
+        if (mRecycled.empty())
         {
             return std::nullopt;
         }
-        auto it = recycled_.begin();
+        auto it = mRecycled.begin();
         IdType id = *it;
-        recycled_.erase(it);
+        mRecycled.erase(it);
         return id;
     }
 
-    void add_recycled(IdType id) noexcept { recycled_.insert(id); }
+    void add_recycled(IdType id) noexcept { mRecycled.insert(id); }
 
-    size_t recycled_count() const noexcept { return recycled_.size(); }
+    size_t recycled_count() const noexcept { return mRecycled.size(); }
 
-    void clear() noexcept { recycled_.clear(); }
+    void clear() noexcept { mRecycled.clear(); }
 
 private:
-    std::set<IdType> recycled_;
+    std::set<IdType> mRecycled;
 };
 
 template <typename IdType = uint64_t>
@@ -1071,20 +1071,20 @@ public:
     class IdGuard
     {
     public:
-        IdGuard() noexcept : generator_(nullptr), id_{}, valid_(false) {}
+        IdGuard() noexcept : mGenerator(nullptr), mId{}, mValid(false) {}
 
         IdGuard(IdGenerator& gen, IdType_ id) noexcept
-            : generator_(&gen)
-            , id_(id)
-            , valid_(true)
+            : mGenerator(&gen)
+            , mId(id)
+            , mValid(true)
         {
         }
 
         ~IdGuard()
         {
-            if (valid_ && generator_)
+            if (mValid && mGenerator)
             {
-                auto result = generator_->release(id_);
+                auto result = mGenerator->release(mId);
 #ifndef NDEBUG
                 // In debug builds, assert that release succeeded
                 // Failure indicates a bug: double-release or invalid ID
@@ -1100,44 +1100,44 @@ public:
         IdGuard& operator=(const IdGuard&) = delete;
 
         IdGuard(IdGuard&& other) noexcept
-            : generator_(other.generator_)
-            , id_(other.id_)
-            , valid_(other.valid_)
+            : mGenerator(other.mGenerator)
+            , mId(other.mId)
+            , mValid(other.mValid)
         {
-            other.valid_ = false;
+            other.mValid = false;
         }
 
         IdGuard& operator=(IdGuard&& other) noexcept
         {
             if (this != &other)
             {
-                if (valid_ && generator_)
+                if (mValid && mGenerator)
                 {
-                    auto result = generator_->release(id_);
+                    auto result = mGenerator->release(mId);
 #ifndef NDEBUG
                     assert(result.has_value() && "IdGuard: release failed in move assignment");
 #else
                     (void)result;
 #endif
                 }
-                generator_ = other.generator_;
-                id_ = other.id_;
-                valid_ = other.valid_;
-                other.valid_ = false;
+                mGenerator = other.mGenerator;
+                mId = other.mId;
+                mValid = other.mValid;
+                other.mValid = false;
             }
             return *this;
         }
 
-        IdType_ get() const noexcept { return id_; }
-        IdType_ operator*() const noexcept { return id_; }
-        explicit operator bool() const noexcept { return valid_; }
+        IdType_ get() const noexcept { return mId; }
+        IdType_ operator*() const noexcept { return mId; }
+        explicit operator bool() const noexcept { return mValid; }
 
-        void release_ownership() noexcept { valid_ = false; }
+        void release_ownership() noexcept { mValid = false; }
 
     private:
-        IdGenerator* generator_;
-        IdType_ id_;
-        bool valid_;
+        IdGenerator* mGenerator;
+        IdType_ mId;
+        bool mValid;
     };
 
     [[nodiscard]] Expected<IdGuard, IdError> scoped_id()

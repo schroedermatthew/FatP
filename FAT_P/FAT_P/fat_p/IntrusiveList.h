@@ -80,21 +80,21 @@ class IntrusiveListIterator;
 template<typename T>
 class IntrusiveListNode {
 public:
-    IntrusiveListNode() : prev_(nullptr), next_(nullptr) {}
+    IntrusiveListNode() : mPrev(nullptr), mNext(nullptr) {}
     
     // Non-copyable (nodes are unique in list structure)
     IntrusiveListNode(const IntrusiveListNode&) = delete;
     IntrusiveListNode& operator=(const IntrusiveListNode&) = delete;
     
     // Check if node is linked in a list
-    bool is_linked() const { return prev_ != nullptr || next_ != nullptr; }
+    bool is_linked() const { return mPrev != nullptr || mNext != nullptr; }
     
 protected:
     friend class IntrusiveList<T>;
     friend class IntrusiveListIterator<T>;
     
-    IntrusiveListNode* prev_;
-    IntrusiveListNode* next_;
+    IntrusiveListNode* mPrev;
+    IntrusiveListNode* mNext;
 };
 
 // ============================================================================
@@ -109,14 +109,14 @@ public:
     using pointer = T*;
     using reference = T&;
     
-    IntrusiveListIterator() : node_(nullptr) {}
-    explicit IntrusiveListIterator(IntrusiveListNode<T>* node) : node_(node) {}
+    IntrusiveListIterator() : mNode(nullptr) {}
+    explicit IntrusiveListIterator(IntrusiveListNode<T>* node) : mNode(node) {}
     
-    reference operator*() const { return *static_cast<T*>(node_); }
-    pointer operator->() const { return static_cast<T*>(node_); }
+    reference operator*() const { return *static_cast<T*>(mNode); }
+    pointer operator->() const { return static_cast<T*>(mNode); }
     
     IntrusiveListIterator& operator++() {
-        node_ = node_->next_;
+        mNode = mNode->mNext;
         return *this;
     }
     
@@ -127,7 +127,7 @@ public:
     }
     
     IntrusiveListIterator& operator--() {
-        node_ = node_->prev_;
+        mNode = mNode->mPrev;
         return *this;
     }
     
@@ -138,7 +138,7 @@ public:
     }
     
     bool operator==(const IntrusiveListIterator& other) const {
-        return node_ == other.node_;
+        return mNode == other.mNode;
     }
     
     bool operator!=(const IntrusiveListIterator& other) const {
@@ -147,7 +147,7 @@ public:
     
 private:
     friend class IntrusiveList<T>;
-    IntrusiveListNode<T>* node_;
+    IntrusiveListNode<T>* mNode;
 };
 
 // ============================================================================
@@ -162,15 +162,15 @@ public:
     using pointer = const T*;
     using reference = const T&;
     
-    IntrusiveListConstIterator() : node_(nullptr) {}
-    explicit IntrusiveListConstIterator(const IntrusiveListNode<T>* node) : node_(node) {}
-    IntrusiveListConstIterator(const IntrusiveListIterator<T>& it) : node_(it.node_) {}
+    IntrusiveListConstIterator() : mNode(nullptr) {}
+    explicit IntrusiveListConstIterator(const IntrusiveListNode<T>* node) : mNode(node) {}
+    IntrusiveListConstIterator(const IntrusiveListIterator<T>& it) : mNode(it.mNode) {}
     
-    reference operator*() const { return *static_cast<const T*>(node_); }
-    pointer operator->() const { return static_cast<const T*>(node_); }
+    reference operator*() const { return *static_cast<const T*>(mNode); }
+    pointer operator->() const { return static_cast<const T*>(mNode); }
     
     IntrusiveListConstIterator& operator++() {
-        node_ = node_->next_;
+        mNode = mNode->mNext;
         return *this;
     }
     
@@ -181,7 +181,7 @@ public:
     }
     
     IntrusiveListConstIterator& operator--() {
-        node_ = node_->prev_;
+        mNode = mNode->mPrev;
         return *this;
     }
     
@@ -192,7 +192,7 @@ public:
     }
     
     bool operator==(const IntrusiveListConstIterator& other) const {
-        return node_ == other.node_;
+        return mNode == other.mNode;
     }
     
     bool operator!=(const IntrusiveListConstIterator& other) const {
@@ -201,7 +201,7 @@ public:
     
 private:
     friend class IntrusiveList<T>;
-    const IntrusiveListNode<T>* node_;
+    const IntrusiveListNode<T>* mNode;
 };
 
 // ============================================================================
@@ -220,7 +220,7 @@ public:
     using const_iterator = IntrusiveListConstIterator<T>;
     using size_type = std::size_t;
     
-    IntrusiveList() : head_(nullptr), tail_(nullptr), size_(0) {}
+    IntrusiveList() : mHead(nullptr), mTail(nullptr), size_(0) {}
     
     ~IntrusiveList() { clear(); }
     
@@ -230,20 +230,20 @@ public:
     
     // Moveable
     IntrusiveList(IntrusiveList&& other) noexcept 
-        : head_(other.head_), tail_(other.tail_), size_(other.size_) {
-        other.head_ = nullptr;
-        other.tail_ = nullptr;
+        : mHead(other.mHead), mTail(other.mTail), size_(other.size_) {
+        other.mHead = nullptr;
+        other.mTail = nullptr;
         other.size_ = 0;
     }
     
     IntrusiveList& operator=(IntrusiveList&& other) noexcept {
         if (this != &other) {
             clear();
-            head_ = other.head_;
-            tail_ = other.tail_;
+            mHead = other.mHead;
+            mTail = other.mTail;
             size_ = other.size_;
-            other.head_ = nullptr;
-            other.tail_ = nullptr;
+            other.mHead = nullptr;
+            other.mTail = nullptr;
             other.size_ = 0;
         }
         return *this;
@@ -254,93 +254,93 @@ public:
     size_type size() const { return size_; }
     
     // Element access
-    reference front() { return *static_cast<T*>(head_); }
-    const_reference front() const { return *static_cast<const T*>(head_); }
+    reference front() { return *static_cast<T*>(mHead); }
+    const_reference front() const { return *static_cast<const T*>(mHead); }
     
-    reference back() { return *static_cast<T*>(tail_); }
-    const_reference back() const { return *static_cast<const T*>(tail_); }
+    reference back() { return *static_cast<T*>(mTail); }
+    const_reference back() const { return *static_cast<const T*>(mTail); }
     
     // Iterators
-    iterator begin() { return iterator(head_); }
+    iterator begin() { return iterator(mHead); }
     iterator end() { return iterator(nullptr); }
     
-    const_iterator begin() const { return const_iterator(head_); }
+    const_iterator begin() const { return const_iterator(mHead); }
     const_iterator end() const { return const_iterator(nullptr); }
     
-    const_iterator cbegin() const { return const_iterator(head_); }
+    const_iterator cbegin() const { return const_iterator(mHead); }
     const_iterator cend() const { return const_iterator(nullptr); }
     
     // Modifiers
     void push_front(T& node) {
         auto* n = static_cast<IntrusiveListNode<T>*>(&node);
         
-        n->prev_ = nullptr;
-        n->next_ = head_;
+        n->mPrev = nullptr;
+        n->mNext = mHead;
         
-        if (head_) {
-            head_->prev_ = n;
+        if (mHead) {
+            mHead->mPrev = n;
         } else {
-            tail_ = n;
+            mTail = n;
         }
         
-        head_ = n;
+        mHead = n;
         ++size_;
     }
     
     void push_back(T& node) {
         auto* n = static_cast<IntrusiveListNode<T>*>(&node);
         
-        n->prev_ = tail_;
-        n->next_ = nullptr;
+        n->mPrev = mTail;
+        n->mNext = nullptr;
         
-        if (tail_) {
-            tail_->next_ = n;
+        if (mTail) {
+            mTail->mNext = n;
         } else {
-            head_ = n;
+            mHead = n;
         }
         
-        tail_ = n;
+        mTail = n;
         ++size_;
     }
     
     void pop_front() {
-        if (!head_) return;
+        if (!mHead) return;
         
-        auto* node = head_;
-        head_ = head_->next_;
+        auto* node = mHead;
+        mHead = mHead->mNext;
         
-        if (head_) {
-            head_->prev_ = nullptr;
+        if (mHead) {
+            mHead->mPrev = nullptr;
         } else {
-            tail_ = nullptr;
+            mTail = nullptr;
         }
         
-        node->prev_ = nullptr;
-        node->next_ = nullptr;
+        node->mPrev = nullptr;
+        node->mNext = nullptr;
         --size_;
     }
     
     void pop_back() {
-        if (!tail_) return;
+        if (!mTail) return;
         
-        auto* node = tail_;
-        tail_ = tail_->prev_;
+        auto* node = mTail;
+        mTail = mTail->mPrev;
         
-        if (tail_) {
-            tail_->next_ = nullptr;
+        if (mTail) {
+            mTail->mNext = nullptr;
         } else {
-            head_ = nullptr;
+            mHead = nullptr;
         }
         
-        node->prev_ = nullptr;
-        node->next_ = nullptr;
+        node->mPrev = nullptr;
+        node->mNext = nullptr;
         --size_;
     }
     
     // Insert before position
     iterator insert(iterator pos, T& node) {
         auto* n = static_cast<IntrusiveListNode<T>*>(&node);
-        auto* pos_node = pos.node_;
+        auto* pos_node = pos.mNode;
         
         if (!pos_node) {
             // Insert at end
@@ -348,16 +348,16 @@ public:
             return iterator(n);
         }
         
-        n->next_ = pos_node;
-        n->prev_ = pos_node->prev_;
+        n->mNext = pos_node;
+        n->mPrev = pos_node->mPrev;
         
-        if (pos_node->prev_) {
-            pos_node->prev_->next_ = n;
+        if (pos_node->mPrev) {
+            pos_node->mPrev->mNext = n;
         } else {
-            head_ = n;
+            mHead = n;
         }
         
-        pos_node->prev_ = n;
+        pos_node->mPrev = n;
         ++size_;
         
         return iterator(n);
@@ -367,24 +367,24 @@ public:
     void remove(T& node) {
         auto* n = static_cast<IntrusiveListNode<T>*>(&node);
         
-        if (!n->is_linked() && n != head_ && n != tail_) {
+        if (!n->is_linked() && n != mHead && n != mTail) {
             return;  // Not in list
         }
         
-        if (n->prev_) {
-            n->prev_->next_ = n->next_;
+        if (n->mPrev) {
+            n->mPrev->mNext = n->mNext;
         } else {
-            head_ = n->next_;
+            mHead = n->mNext;
         }
         
-        if (n->next_) {
-            n->next_->prev_ = n->prev_;
+        if (n->mNext) {
+            n->mNext->mPrev = n->mPrev;
         } else {
-            tail_ = n->prev_;
+            mTail = n->mPrev;
         }
         
-        n->prev_ = nullptr;
-        n->next_ = nullptr;
+        n->mPrev = nullptr;
+        n->mNext = nullptr;
         --size_;
     }
     
@@ -392,8 +392,8 @@ public:
     iterator erase(iterator pos) {
         if (pos == end()) return end();
         
-        auto* node = pos.node_;
-        iterator next(node->next_);
+        auto* node = pos.mNode;
+        iterator next(node->mNext);
         
         remove(*static_cast<T*>(node));
         
@@ -402,15 +402,15 @@ public:
     
     // Clear list (unlinks all nodes)
     void clear() {
-        auto* node = head_;
+        auto* node = mHead;
         while (node) {
-            auto* next = node->next_;
-            node->prev_ = nullptr;
-            node->next_ = nullptr;
+            auto* next = node->mNext;
+            node->mPrev = nullptr;
+            node->mNext = nullptr;
             node = next;
         }
-        head_ = nullptr;
-        tail_ = nullptr;
+        mHead = nullptr;
+        mTail = nullptr;
         size_ = 0;
     }
     
@@ -418,41 +418,41 @@ public:
     void splice(iterator pos, IntrusiveList& other) {
         if (other.empty()) return;
         
-        if (pos.node_ == nullptr) {
+        if (pos.mNode == nullptr) {
             // Splice at end
-            if (tail_) {
-                tail_->next_ = other.head_;
-                other.head_->prev_ = tail_;
+            if (mTail) {
+                mTail->mNext = other.mHead;
+                other.mHead->mPrev = mTail;
             } else {
-                head_ = other.head_;
+                mHead = other.mHead;
             }
-            tail_ = other.tail_;
+            mTail = other.mTail;
         } else {
             // Splice before pos
-            auto* pos_node = pos.node_;
+            auto* pos_node = pos.mNode;
             
-            other.tail_->next_ = pos_node;
-            other.head_->prev_ = pos_node->prev_;
+            other.mTail->mNext = pos_node;
+            other.mHead->mPrev = pos_node->mPrev;
             
-            if (pos_node->prev_) {
-                pos_node->prev_->next_ = other.head_;
+            if (pos_node->mPrev) {
+                pos_node->mPrev->mNext = other.mHead;
             } else {
-                head_ = other.head_;
+                mHead = other.mHead;
             }
             
-            pos_node->prev_ = other.tail_;
+            pos_node->mPrev = other.mTail;
         }
         
         size_ += other.size_;
         
-        other.head_ = nullptr;
-        other.tail_ = nullptr;
+        other.mHead = nullptr;
+        other.mTail = nullptr;
         other.size_ = 0;
     }
     
 private:
-    IntrusiveListNode<T>* head_;
-    IntrusiveListNode<T>* tail_;
+    IntrusiveListNode<T>* mHead;
+    IntrusiveListNode<T>* mTail;
     size_type size_;
 };
 

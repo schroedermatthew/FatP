@@ -544,8 +544,8 @@ struct ISlotMapAdapter
 #if HAS_FATP_SLOTMAP
 class FatPSlotMapAdapter final : public ISlotMapAdapter
 {
-    std::unique_ptr<fat_p::SlotMap<TestValue>> map_;
-    std::vector<fat_p::SlotMapHandle> handles_;
+    std::unique_ptr<fat_p::SlotMap<TestValue>> mMap;
+    std::vector<fat_p::SlotMapHandle> mHandles;
     std::vector<fat_p::SlotMapHandle> invalid_handles_;
 
 public:
@@ -553,34 +553,34 @@ public:
 
     void setup(size_t N) override
     {
-        map_ = std::make_unique<fat_p::SlotMap<TestValue>>();
-        map_->reserve(static_cast<uint32_t>(N));
-        handles_.clear();
-        handles_.reserve(N);
+        mMap = std::make_unique<fat_p::SlotMap<TestValue>>();
+        mMap->reserve(static_cast<uint32_t>(N));
+        mHandles.clear();
+        mHandles.reserve(N);
         invalid_handles_.clear();
     }
 
     void teardown() override 
     { 
-        map_.reset(); 
-        handles_.clear();
+        mMap.reset(); 
+        mHandles.clear();
         invalid_handles_.clear();
     }
 
     void clear() override 
     { 
-        map_->clear(); 
-        handles_.clear();
+        mMap->clear(); 
+        mHandles.clear();
         invalid_handles_.clear();
     }
 
     void preload(const Inputs& in) override
     {
-        handles_.clear();
-        handles_.reserve(in.N);
+        mHandles.clear();
+        mHandles.reserve(in.N);
         for (int64_t v : in.values)
         {
-            handles_.push_back(map_->insert(TestValue(v)));
+            mHandles.push_back(mMap->insert(TestValue(v)));
         }
     }
 
@@ -592,10 +592,10 @@ public:
         switch (c)
         {
         case Case::SequentialInsert:
-            handles_.clear();
+            mHandles.clear();
             for (int64_t v : in.values)
             {
-                handles_.push_back(map_->insert(TestValue(v)));
+                mHandles.push_back(mMap->insert(TestValue(v)));
                 ++ops;
             }
             break;
@@ -603,9 +603,9 @@ public:
         case Case::RandomAccessValid:
             for (size_t idx : in.access_indices)
             {
-                if (idx < handles_.size())
+                if (idx < mHandles.size())
                 {
-                    if (auto* ptr = map_->get(handles_[idx]))
+                    if (auto* ptr = mMap->get(mHandles[idx]))
                     {
                         benchmark_sink += ptr->checksum();
                     }
@@ -618,16 +618,16 @@ public:
             // Create some invalid handles first
             if (invalid_handles_.empty())
             {
-                size_t to_invalidate = std::min<size_t>(in.N / 4, handles_.size());
+                size_t to_invalidate = std::min<size_t>(in.N / 4, mHandles.size());
                 for (size_t i = 0; i < to_invalidate; ++i)
                 {
-                    invalid_handles_.push_back(handles_[i]);
-                    map_->erase(handles_[i]);
+                    invalid_handles_.push_back(mHandles[i]);
+                    mMap->erase(mHandles[i]);
                 }
                 // Re-insert to reuse slots (handles now invalid)
                 for (size_t i = 0; i < to_invalidate; ++i)
                 {
-                    handles_[i] = map_->insert(TestValue(in.values[i] + 1000000));
+                    mHandles[i] = mMap->insert(TestValue(in.values[i] + 1000000));
                 }
             }
             
@@ -638,12 +638,12 @@ public:
                 if (i % 4 == 0 && idx < invalid_handles_.size())
                 {
                     // Try invalid handle (should return nullptr)
-                    auto* ptr = map_->get(invalid_handles_[idx]);
+                    auto* ptr = mMap->get(invalid_handles_[idx]);
                     if (ptr) benchmark_sink += ptr->checksum();
                 }
-                else if (idx < handles_.size())
+                else if (idx < mHandles.size())
                 {
-                    if (auto* ptr = map_->get(handles_[idx]))
+                    if (auto* ptr = mMap->get(mHandles[idx]))
                     {
                         benchmark_sink += ptr->checksum();
                     }
@@ -653,7 +653,7 @@ public:
             break;
 
         case Case::Iteration:
-            for (const auto& val : *map_)
+            for (const auto& val : *mMap)
             {
                 benchmark_sink += val.checksum();
                 ++ops;
@@ -663,21 +663,21 @@ public:
         case Case::Erase25Percent:
             for (size_t idx : in.erase_indices)
             {
-                if (idx < handles_.size())
+                if (idx < mHandles.size())
                 {
-                    map_->erase(handles_[idx]);
+                    mMap->erase(mHandles[idx]);
                 }
                 ++ops;
             }
             break;
 
         case Case::EraseAll:
-            for (auto& h : handles_)
+            for (auto& h : mHandles)
             {
-                map_->erase(h);
+                mMap->erase(h);
                 ++ops;
             }
-            handles_.clear();
+            mHandles.clear();
             break;
 
         case Case::MixedWorkload:
@@ -687,15 +687,15 @@ public:
             // Insert batch
             for (size_t i = 0; i < batch && i < in.values.size(); ++i)
             {
-                handles_.push_back(map_->insert(TestValue(in.values[i])));
+                mHandles.push_back(mMap->insert(TestValue(in.values[i])));
                 ++ops;
             }
             
             // Access batch
-            for (size_t i = 0; i < batch && i < handles_.size(); ++i)
+            for (size_t i = 0; i < batch && i < mHandles.size(); ++i)
             {
-                size_t idx = rng() % handles_.size();
-                if (auto* ptr = map_->get(handles_[idx]))
+                size_t idx = rng() % mHandles.size();
+                if (auto* ptr = mMap->get(mHandles[idx]))
                 {
                     benchmark_sink += ptr->checksum();
                 }
@@ -703,15 +703,15 @@ public:
             }
             
             // Erase half the batch
-            size_t erase_count = std::min(batch / 2, handles_.size());
+            size_t erase_count = std::min(batch / 2, mHandles.size());
             for (size_t i = 0; i < erase_count; ++i)
             {
-                if (!handles_.empty())
+                if (!mHandles.empty())
                 {
-                    size_t idx = rng() % handles_.size();
-                    map_->erase(handles_[idx]);
-                    handles_[idx] = handles_.back();
-                    handles_.pop_back();
+                    size_t idx = rng() % mHandles.size();
+                    mMap->erase(mHandles[idx]);
+                    mHandles[idx] = mHandles.back();
+                    mHandles.pop_back();
                 }
                 ++ops;
             }
@@ -724,24 +724,24 @@ public:
             size_t half = in.N / 2;
             
             // Insert all
-            handles_.clear();
+            mHandles.clear();
             for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
             {
-                handles_.push_back(map_->insert(TestValue(in.values[i])));
+                mHandles.push_back(mMap->insert(TestValue(in.values[i])));
                 ++ops;
             }
             
             // Erase first half
-            for (size_t i = 0; i < half && i < handles_.size(); ++i)
+            for (size_t i = 0; i < half && i < mHandles.size(); ++i)
             {
-                map_->erase(handles_[i]);
+                mMap->erase(mHandles[i]);
                 ++ops;
             }
             
             // Insert again (should reuse slots)
             for (size_t i = 0; i < half && i < in.values.size(); ++i)
             {
-                handles_.push_back(map_->insert(TestValue(in.values[i] + 1000000)));
+                mHandles.push_back(mMap->insert(TestValue(in.values[i] + 1000000)));
                 ++ops;
             }
             break;
@@ -760,41 +760,41 @@ public:
 class EnTTAdapter final : public ISlotMapAdapter
 {
     // EnTT uses entity IDs (uint32_t by default) with version bits for ABA protection
-    entt::basic_registry<entt::entity> registry_;
-    std::vector<entt::entity> entities_;
+    entt::basic_registry<entt::entity> mRegistry;
+    std::vector<entt::entity> mEntities;
 
 public:
     const char* name() const override { return "entt::registry"; }
 
     void setup(size_t N) override
     {
-        registry_ = entt::basic_registry<entt::entity>{};
+        mRegistry = entt::basic_registry<entt::entity>{};
         // EnTT doesn't have a direct reserve, but we can hint
-        entities_.clear();
-        entities_.reserve(N);
+        mEntities.clear();
+        mEntities.reserve(N);
     }
 
     void teardown() override 
     { 
-        registry_.clear();
-        entities_.clear();
+        mRegistry.clear();
+        mEntities.clear();
     }
 
     void clear() override 
     { 
-        registry_.clear();
-        entities_.clear();
+        mRegistry.clear();
+        mEntities.clear();
     }
 
     void preload(const Inputs& in) override
     {
-        entities_.clear();
-        entities_.reserve(in.N);
+        mEntities.clear();
+        mEntities.reserve(in.N);
         for (int64_t v : in.values)
         {
-            auto e = registry_.create();
-            registry_.emplace<TestValue>(e, TestValue(v));
-            entities_.push_back(e);
+            auto e = mRegistry.create();
+            mRegistry.emplace<TestValue>(e, TestValue(v));
+            mEntities.push_back(e);
         }
     }
 
@@ -806,12 +806,12 @@ public:
         switch (c)
         {
         case Case::SequentialInsert:
-            entities_.clear();
+            mEntities.clear();
             for (int64_t v : in.values)
             {
-                auto e = registry_.create();
-                registry_.emplace<TestValue>(e, TestValue(v));
-                entities_.push_back(e);
+                auto e = mRegistry.create();
+                mRegistry.emplace<TestValue>(e, TestValue(v));
+                mEntities.push_back(e);
                 ++ops;
             }
             break;
@@ -819,12 +819,12 @@ public:
         case Case::RandomAccessValid:
             for (size_t idx : in.access_indices)
             {
-                if (idx < entities_.size())
+                if (idx < mEntities.size())
                 {
-                    auto e = entities_[idx];
-                    if (registry_.valid(e))
+                    auto e = mEntities[idx];
+                    if (mRegistry.valid(e))
                     {
-                        auto* ptr = registry_.try_get<TestValue>(e);
+                        auto* ptr = mRegistry.try_get<TestValue>(e);
                         if (ptr) benchmark_sink += ptr->checksum();
                     }
                 }
@@ -836,13 +836,13 @@ public:
             // EnTT has built-in versioning for ABA protection
             for (size_t idx : in.access_indices)
             {
-                if (idx < entities_.size())
+                if (idx < mEntities.size())
                 {
-                    auto e = entities_[idx];
-                    // registry_.valid() checks version
-                    if (registry_.valid(e))
+                    auto e = mEntities[idx];
+                    // mRegistry.valid() checks version
+                    if (mRegistry.valid(e))
                     {
-                        auto* ptr = registry_.try_get<TestValue>(e);
+                        auto* ptr = mRegistry.try_get<TestValue>(e);
                         if (ptr) benchmark_sink += ptr->checksum();
                     }
                 }
@@ -852,7 +852,7 @@ public:
 
         case Case::Iteration:
         {
-            auto view = registry_.view<TestValue>();
+            auto view = mRegistry.view<TestValue>();
             for (auto e : view)
             {
                 auto& val = view.get<TestValue>(e);
@@ -865,12 +865,12 @@ public:
         case Case::Erase25Percent:
             for (size_t idx : in.erase_indices)
             {
-                if (idx < entities_.size())
+                if (idx < mEntities.size())
                 {
-                    auto e = entities_[idx];
-                    if (registry_.valid(e))
+                    auto e = mEntities[idx];
+                    if (mRegistry.valid(e))
                     {
-                        registry_.destroy(e);
+                        mRegistry.destroy(e);
                     }
                 }
                 ++ops;
@@ -878,15 +878,15 @@ public:
             break;
 
         case Case::EraseAll:
-            for (auto e : entities_)
+            for (auto e : mEntities)
             {
-                if (registry_.valid(e))
+                if (mRegistry.valid(e))
                 {
-                    registry_.destroy(e);
+                    mRegistry.destroy(e);
                 }
                 ++ops;
             }
-            entities_.clear();
+            mEntities.clear();
             break;
 
         case Case::MixedWorkload:
@@ -895,37 +895,37 @@ public:
             
             for (size_t i = 0; i < batch && i < in.values.size(); ++i)
             {
-                auto e = registry_.create();
-                registry_.emplace<TestValue>(e, TestValue(in.values[i]));
-                entities_.push_back(e);
+                auto e = mRegistry.create();
+                mRegistry.emplace<TestValue>(e, TestValue(in.values[i]));
+                mEntities.push_back(e);
                 ++ops;
             }
             
-            for (size_t i = 0; i < batch && i < entities_.size(); ++i)
+            for (size_t i = 0; i < batch && i < mEntities.size(); ++i)
             {
-                size_t idx = rng() % entities_.size();
-                auto e = entities_[idx];
-                if (registry_.valid(e))
+                size_t idx = rng() % mEntities.size();
+                auto e = mEntities[idx];
+                if (mRegistry.valid(e))
                 {
-                    auto* ptr = registry_.try_get<TestValue>(e);
+                    auto* ptr = mRegistry.try_get<TestValue>(e);
                     if (ptr) benchmark_sink += ptr->checksum();
                 }
                 ++ops;
             }
             
-            size_t erase_count = std::min(batch / 2, entities_.size());
+            size_t erase_count = std::min(batch / 2, mEntities.size());
             for (size_t i = 0; i < erase_count; ++i)
             {
-                if (!entities_.empty())
+                if (!mEntities.empty())
                 {
-                    size_t idx = rng() % entities_.size();
-                    auto e = entities_[idx];
-                    if (registry_.valid(e))
+                    size_t idx = rng() % mEntities.size();
+                    auto e = mEntities[idx];
+                    if (mRegistry.valid(e))
                     {
-                        registry_.destroy(e);
+                        mRegistry.destroy(e);
                     }
-                    entities_[idx] = entities_.back();
-                    entities_.pop_back();
+                    mEntities[idx] = mEntities.back();
+                    mEntities.pop_back();
                 }
                 ++ops;
             }
@@ -936,29 +936,29 @@ public:
         {
             size_t half = in.N / 2;
             
-            entities_.clear();
+            mEntities.clear();
             for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
             {
-                auto e = registry_.create();
-                registry_.emplace<TestValue>(e, TestValue(in.values[i]));
-                entities_.push_back(e);
+                auto e = mRegistry.create();
+                mRegistry.emplace<TestValue>(e, TestValue(in.values[i]));
+                mEntities.push_back(e);
                 ++ops;
             }
             
-            for (size_t i = 0; i < half && i < entities_.size(); ++i)
+            for (size_t i = 0; i < half && i < mEntities.size(); ++i)
             {
-                if (registry_.valid(entities_[i]))
+                if (mRegistry.valid(mEntities[i]))
                 {
-                    registry_.destroy(entities_[i]);
+                    mRegistry.destroy(mEntities[i]);
                 }
                 ++ops;
             }
             
             for (size_t i = 0; i < half && i < in.values.size(); ++i)
             {
-                auto e = registry_.create();
-                registry_.emplace<TestValue>(e, TestValue(in.values[i] + 1000000));
-                entities_.push_back(e);
+                auto e = mRegistry.create();
+                mRegistry.emplace<TestValue>(e, TestValue(in.values[i] + 1000000));
+                mEntities.push_back(e);
                 ++ops;
             }
             break;
@@ -976,42 +976,42 @@ public:
 #if HAS_PLF_HIVE
 class PlfHiveAdapter final : public ISlotMapAdapter
 {
-    std::unique_ptr<plf::hive<TestValue>> hive_;
+    std::unique_ptr<plf::hive<TestValue>> mHive;
     // plf::hive provides stable pointers but not random access by index
     // We store iterators for handle-like access (though this isn't idiomatic)
-    std::vector<plf::hive<TestValue>::iterator> iters_;
+    std::vector<plf::hive<TestValue>::iterator> mIters;
 
 public:
     const char* name() const override { return "plf::hive"; }
 
     void setup(size_t N) override
     {
-        hive_ = std::make_unique<plf::hive<TestValue>>();
-        hive_->reserve(N);
-        iters_.clear();
-        iters_.reserve(N);
+        mHive = std::make_unique<plf::hive<TestValue>>();
+        mHive->reserve(N);
+        mIters.clear();
+        mIters.reserve(N);
     }
 
     void teardown() override 
     { 
-        hive_.reset();
-        iters_.clear();
+        mHive.reset();
+        mIters.clear();
     }
 
     void clear() override 
     { 
-        hive_->clear();
-        iters_.clear();
+        mHive->clear();
+        mIters.clear();
     }
 
     void preload(const Inputs& in) override
     {
-        iters_.clear();
-        iters_.reserve(in.N);
+        mIters.clear();
+        mIters.reserve(in.N);
         for (int64_t v : in.values)
         {
-            auto it = hive_->insert(TestValue(v));
-            iters_.push_back(it);
+            auto it = mHive->insert(TestValue(v));
+            mIters.push_back(it);
         }
     }
 
@@ -1023,11 +1023,11 @@ public:
         switch (c)
         {
         case Case::SequentialInsert:
-            iters_.clear();
+            mIters.clear();
             for (int64_t v : in.values)
             {
-                auto it = hive_->insert(TestValue(v));
-                iters_.push_back(it);
+                auto it = mHive->insert(TestValue(v));
+                mIters.push_back(it);
                 ++ops;
             }
             break;
@@ -1037,18 +1037,18 @@ public:
             // plf::hive iterators remain valid after other erasures
             for (size_t idx : in.access_indices)
             {
-                if (idx < iters_.size())
+                if (idx < mIters.size())
                 {
                     // Note: No way to check if iterator is still valid in hive
                     // This demonstrates a key difference from SlotMap
-                    benchmark_sink += iters_[idx]->checksum();
+                    benchmark_sink += mIters[idx]->checksum();
                 }
                 ++ops;
             }
             break;
 
         case Case::Iteration:
-            for (const auto& val : *hive_)
+            for (const auto& val : *mHive)
             {
                 benchmark_sink += val.checksum();
                 ++ops;
@@ -1058,9 +1058,9 @@ public:
         case Case::Erase25Percent:
             for (size_t idx : in.erase_indices)
             {
-                if (idx < iters_.size())
+                if (idx < mIters.size())
                 {
-                    hive_->erase(iters_[idx]);
+                    mHive->erase(mIters[idx]);
                     // Mark as invalid (can't actually check in hive)
                 }
                 ++ops;
@@ -1068,8 +1068,8 @@ public:
             break;
 
         case Case::EraseAll:
-            hive_->clear();
-            iters_.clear();
+            mHive->clear();
+            mIters.clear();
             ops = in.N;
             break;
 
@@ -1079,27 +1079,27 @@ public:
             
             for (size_t i = 0; i < batch && i < in.values.size(); ++i)
             {
-                auto it = hive_->insert(TestValue(in.values[i]));
-                iters_.push_back(it);
+                auto it = mHive->insert(TestValue(in.values[i]));
+                mIters.push_back(it);
                 ++ops;
             }
             
-            for (size_t i = 0; i < batch && i < iters_.size(); ++i)
+            for (size_t i = 0; i < batch && i < mIters.size(); ++i)
             {
-                size_t idx = rng() % iters_.size();
-                benchmark_sink += iters_[idx]->checksum();
+                size_t idx = rng() % mIters.size();
+                benchmark_sink += mIters[idx]->checksum();
                 ++ops;
             }
             
-            size_t erase_count = std::min(batch / 2, iters_.size());
+            size_t erase_count = std::min(batch / 2, mIters.size());
             for (size_t i = 0; i < erase_count; ++i)
             {
-                if (!iters_.empty())
+                if (!mIters.empty())
                 {
-                    size_t idx = rng() % iters_.size();
-                    hive_->erase(iters_[idx]);
-                    iters_[idx] = iters_.back();
-                    iters_.pop_back();
+                    size_t idx = rng() % mIters.size();
+                    mHive->erase(mIters[idx]);
+                    mIters[idx] = mIters.back();
+                    mIters.pop_back();
                 }
                 ++ops;
             }
@@ -1110,24 +1110,24 @@ public:
         {
             size_t half = in.N / 2;
             
-            iters_.clear();
+            mIters.clear();
             for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
             {
-                auto it = hive_->insert(TestValue(in.values[i]));
-                iters_.push_back(it);
+                auto it = mHive->insert(TestValue(in.values[i]));
+                mIters.push_back(it);
                 ++ops;
             }
             
-            for (size_t i = 0; i < half && i < iters_.size(); ++i)
+            for (size_t i = 0; i < half && i < mIters.size(); ++i)
             {
-                hive_->erase(iters_[i]);
+                mHive->erase(mIters[i]);
                 ++ops;
             }
             
             for (size_t i = 0; i < half && i < in.values.size(); ++i)
             {
-                auto it = hive_->insert(TestValue(in.values[i] + 1000000));
-                iters_.push_back(it);
+                auto it = mHive->insert(TestValue(in.values[i] + 1000000));
+                mIters.push_back(it);
                 ++ops;
             }
             break;
@@ -1145,40 +1145,40 @@ public:
 #if HAS_SG14_SLOTMAP
 class SG14SlotMapAdapter final : public ISlotMapAdapter
 {
-    std::unique_ptr<stdext::slot_map<TestValue>> map_;
-    std::vector<stdext::slot_map<TestValue>::key_type> keys_;
+    std::unique_ptr<stdext::slot_map<TestValue>> mMap;
+    std::vector<stdext::slot_map<TestValue>::key_type> mKeys;
 
 public:
     const char* name() const override { return "sg14::slot_map"; }
 
     void setup(size_t N) override
     {
-        map_ = std::make_unique<stdext::slot_map<TestValue>>();
-        map_->reserve(N);
-        keys_.clear();
-        keys_.reserve(N);
+        mMap = std::make_unique<stdext::slot_map<TestValue>>();
+        mMap->reserve(N);
+        mKeys.clear();
+        mKeys.reserve(N);
     }
 
     void teardown() override 
     { 
-        map_.reset();
-        keys_.clear();
+        mMap.reset();
+        mKeys.clear();
     }
 
     void clear() override 
     { 
-        map_->clear();
-        keys_.clear();
+        mMap->clear();
+        mKeys.clear();
     }
 
     void preload(const Inputs& in) override
     {
-        keys_.clear();
-        keys_.reserve(in.N);
+        mKeys.clear();
+        mKeys.reserve(in.N);
         for (int64_t v : in.values)
         {
-            auto key = map_->insert(TestValue(v));
-            keys_.push_back(key);
+            auto key = mMap->insert(TestValue(v));
+            mKeys.push_back(key);
         }
     }
 
@@ -1190,11 +1190,11 @@ public:
         switch (c)
         {
         case Case::SequentialInsert:
-            keys_.clear();
+            mKeys.clear();
             for (int64_t v : in.values)
             {
-                auto key = map_->insert(TestValue(v));
-                keys_.push_back(key);
+                auto key = mMap->insert(TestValue(v));
+                mKeys.push_back(key);
                 ++ops;
             }
             break;
@@ -1202,10 +1202,10 @@ public:
         case Case::RandomAccessValid:
             for (size_t idx : in.access_indices)
             {
-                if (idx < keys_.size())
+                if (idx < mKeys.size())
                 {
-                    auto it = map_->find(keys_[idx]);
-                    if (it != map_->end())
+                    auto it = mMap->find(mKeys[idx]);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->checksum();
                     }
@@ -1218,10 +1218,10 @@ public:
             // SG14 slot_map has generational indices like fat_p::SlotMap
             for (size_t idx : in.access_indices)
             {
-                if (idx < keys_.size())
+                if (idx < mKeys.size())
                 {
-                    auto it = map_->find(keys_[idx]);
-                    if (it != map_->end())
+                    auto it = mMap->find(mKeys[idx]);
+                    if (it != mMap->end())
                     {
                         benchmark_sink += it->checksum();
                     }
@@ -1231,7 +1231,7 @@ public:
             break;
 
         case Case::Iteration:
-            for (const auto& val : *map_)
+            for (const auto& val : *mMap)
             {
                 benchmark_sink += val.checksum();
                 ++ops;
@@ -1241,21 +1241,21 @@ public:
         case Case::Erase25Percent:
             for (size_t idx : in.erase_indices)
             {
-                if (idx < keys_.size())
+                if (idx < mKeys.size())
                 {
-                    map_->erase(keys_[idx]);
+                    mMap->erase(mKeys[idx]);
                 }
                 ++ops;
             }
             break;
 
         case Case::EraseAll:
-            for (auto& k : keys_)
+            for (auto& k : mKeys)
             {
-                map_->erase(k);
+                mMap->erase(k);
                 ++ops;
             }
-            keys_.clear();
+            mKeys.clear();
             break;
 
         case Case::MixedWorkload:
@@ -1264,31 +1264,31 @@ public:
             
             for (size_t i = 0; i < batch && i < in.values.size(); ++i)
             {
-                auto key = map_->insert(TestValue(in.values[i]));
-                keys_.push_back(key);
+                auto key = mMap->insert(TestValue(in.values[i]));
+                mKeys.push_back(key);
                 ++ops;
             }
             
-            for (size_t i = 0; i < batch && i < keys_.size(); ++i)
+            for (size_t i = 0; i < batch && i < mKeys.size(); ++i)
             {
-                size_t idx = rng() % keys_.size();
-                auto it = map_->find(keys_[idx]);
-                if (it != map_->end())
+                size_t idx = rng() % mKeys.size();
+                auto it = mMap->find(mKeys[idx]);
+                if (it != mMap->end())
                 {
                     benchmark_sink += it->checksum();
                 }
                 ++ops;
             }
             
-            size_t erase_count = std::min(batch / 2, keys_.size());
+            size_t erase_count = std::min(batch / 2, mKeys.size());
             for (size_t i = 0; i < erase_count; ++i)
             {
-                if (!keys_.empty())
+                if (!mKeys.empty())
                 {
-                    size_t idx = rng() % keys_.size();
-                    map_->erase(keys_[idx]);
-                    keys_[idx] = keys_.back();
-                    keys_.pop_back();
+                    size_t idx = rng() % mKeys.size();
+                    mMap->erase(mKeys[idx]);
+                    mKeys[idx] = mKeys.back();
+                    mKeys.pop_back();
                 }
                 ++ops;
             }
@@ -1299,24 +1299,24 @@ public:
         {
             size_t half = in.N / 2;
             
-            keys_.clear();
+            mKeys.clear();
             for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
             {
-                auto key = map_->insert(TestValue(in.values[i]));
-                keys_.push_back(key);
+                auto key = mMap->insert(TestValue(in.values[i]));
+                mKeys.push_back(key);
                 ++ops;
             }
             
-            for (size_t i = 0; i < half && i < keys_.size(); ++i)
+            for (size_t i = 0; i < half && i < mKeys.size(); ++i)
             {
-                map_->erase(keys_[i]);
+                mMap->erase(mKeys[i]);
                 ++ops;
             }
             
             for (size_t i = 0; i < half && i < in.values.size(); ++i)
             {
-                auto key = map_->insert(TestValue(in.values[i] + 1000000));
-                keys_.push_back(key);
+                auto key = mMap->insert(TestValue(in.values[i] + 1000000));
+                mKeys.push_back(key);
                 ++ops;
             }
             break;
@@ -1333,8 +1333,8 @@ public:
 
 class UnorderedMapAdapter final : public ISlotMapAdapter
 {
-    std::unique_ptr<std::unordered_map<uint64_t, TestValue>> map_;
-    std::vector<uint64_t> keys_;
+    std::unique_ptr<std::unordered_map<uint64_t, TestValue>> mMap;
+    std::vector<uint64_t> mKeys;
     uint64_t next_key_ = 0;
 
 public:
@@ -1342,35 +1342,35 @@ public:
 
     void setup(size_t N) override
     {
-        map_ = std::make_unique<std::unordered_map<uint64_t, TestValue>>();
-        map_->reserve(N);
-        keys_.clear();
-        keys_.reserve(N);
+        mMap = std::make_unique<std::unordered_map<uint64_t, TestValue>>();
+        mMap->reserve(N);
+        mKeys.clear();
+        mKeys.reserve(N);
         next_key_ = 0;
     }
 
     void teardown() override 
     { 
-        map_.reset(); 
-        keys_.clear();
+        mMap.reset(); 
+        mKeys.clear();
     }
 
     void clear() override 
     { 
-        map_->clear(); 
-        keys_.clear();
+        mMap->clear(); 
+        mKeys.clear();
         next_key_ = 0;
     }
 
     void preload(const Inputs& in) override
     {
-        keys_.clear();
-        keys_.reserve(in.N);
+        mKeys.clear();
+        mKeys.reserve(in.N);
         for (int64_t v : in.values)
         {
             uint64_t key = next_key_++;
-            map_->emplace(key, TestValue(v));
-            keys_.push_back(key);
+            mMap->emplace(key, TestValue(v));
+            mKeys.push_back(key);
         }
     }
 
@@ -1382,12 +1382,12 @@ public:
         switch (c)
         {
         case Case::SequentialInsert:
-            keys_.clear();
+            mKeys.clear();
             for (int64_t v : in.values)
             {
                 uint64_t key = next_key_++;
-                map_->emplace(key, TestValue(v));
-                keys_.push_back(key);
+                mMap->emplace(key, TestValue(v));
+                mKeys.push_back(key);
                 ++ops;
             }
             break;
@@ -1396,17 +1396,17 @@ public:
         case Case::RandomAccessMixed:  // No ABA safety, so same as valid
             for (size_t idx : in.access_indices)
             {
-                if (idx < keys_.size())
+                if (idx < mKeys.size())
                 {
-                    auto it = map_->find(keys_[idx]);
-                    if (it != map_->end()) benchmark_sink += it->second.checksum();
+                    auto it = mMap->find(mKeys[idx]);
+                    if (it != mMap->end()) benchmark_sink += it->second.checksum();
                 }
                 ++ops;
             }
             break;
 
         case Case::Iteration:
-            for (const auto& [key, val] : *map_)
+            for (const auto& [key, val] : *mMap)
             {
                 benchmark_sink += val.checksum();
                 ++ops;
@@ -1416,21 +1416,21 @@ public:
         case Case::Erase25Percent:
             for (size_t idx : in.erase_indices)
             {
-                if (idx < keys_.size())
+                if (idx < mKeys.size())
                 {
-                    map_->erase(keys_[idx]);
+                    mMap->erase(mKeys[idx]);
                 }
                 ++ops;
             }
             break;
 
         case Case::EraseAll:
-            for (uint64_t k : keys_)
+            for (uint64_t k : mKeys)
             {
-                map_->erase(k);
+                mMap->erase(k);
                 ++ops;
             }
-            keys_.clear();
+            mKeys.clear();
             break;
 
         case Case::MixedWorkload:
@@ -1440,28 +1440,28 @@ public:
             for (size_t i = 0; i < batch && i < in.values.size(); ++i)
             {
                 uint64_t key = next_key_++;
-                map_->emplace(key, TestValue(in.values[i]));
-                keys_.push_back(key);
+                mMap->emplace(key, TestValue(in.values[i]));
+                mKeys.push_back(key);
                 ++ops;
             }
             
-            for (size_t i = 0; i < batch && i < keys_.size(); ++i)
+            for (size_t i = 0; i < batch && i < mKeys.size(); ++i)
             {
-                size_t idx = rng() % keys_.size();
-                auto it = map_->find(keys_[idx]);
-                if (it != map_->end()) benchmark_sink += it->second.checksum();
+                size_t idx = rng() % mKeys.size();
+                auto it = mMap->find(mKeys[idx]);
+                if (it != mMap->end()) benchmark_sink += it->second.checksum();
                 ++ops;
             }
             
-            size_t erase_count = std::min(batch / 2, keys_.size());
+            size_t erase_count = std::min(batch / 2, mKeys.size());
             for (size_t i = 0; i < erase_count; ++i)
             {
-                if (!keys_.empty())
+                if (!mKeys.empty())
                 {
-                    size_t idx = rng() % keys_.size();
-                    map_->erase(keys_[idx]);
-                    keys_[idx] = keys_.back();
-                    keys_.pop_back();
+                    size_t idx = rng() % mKeys.size();
+                    mMap->erase(mKeys[idx]);
+                    mKeys[idx] = mKeys.back();
+                    mKeys.pop_back();
                 }
                 ++ops;
             }
@@ -1472,26 +1472,26 @@ public:
         {
             size_t half = in.N / 2;
             
-            keys_.clear();
+            mKeys.clear();
             for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
             {
                 uint64_t key = next_key_++;
-                map_->emplace(key, TestValue(in.values[i]));
-                keys_.push_back(key);
+                mMap->emplace(key, TestValue(in.values[i]));
+                mKeys.push_back(key);
                 ++ops;
             }
             
-            for (size_t i = 0; i < half && i < keys_.size(); ++i)
+            for (size_t i = 0; i < half && i < mKeys.size(); ++i)
             {
-                map_->erase(keys_[i]);
+                mMap->erase(mKeys[i]);
                 ++ops;
             }
             
             for (size_t i = 0; i < half && i < in.values.size(); ++i)
             {
                 uint64_t key = next_key_++;
-                map_->emplace(key, TestValue(in.values[i] + 1000000));
-                keys_.push_back(key);
+                mMap->emplace(key, TestValue(in.values[i] + 1000000));
+                mKeys.push_back(key);
                 ++ops;
             }
             break;
@@ -1507,8 +1507,8 @@ public:
 
 class StdMapAdapter final : public ISlotMapAdapter
 {
-    std::unique_ptr<std::map<uint64_t, TestValue>> map_;
-    std::vector<uint64_t> keys_;
+    std::unique_ptr<std::map<uint64_t, TestValue>> mMap;
+    std::vector<uint64_t> mKeys;
     uint64_t next_key_ = 0;
 
 public:
@@ -1516,33 +1516,33 @@ public:
 
     void setup(size_t) override
     {
-        map_ = std::make_unique<std::map<uint64_t, TestValue>>();
-        keys_.clear();
+        mMap = std::make_unique<std::map<uint64_t, TestValue>>();
+        mKeys.clear();
         next_key_ = 0;
     }
 
     void teardown() override 
     { 
-        map_.reset(); 
-        keys_.clear();
+        mMap.reset(); 
+        mKeys.clear();
     }
 
     void clear() override 
     { 
-        map_->clear(); 
-        keys_.clear();
+        mMap->clear(); 
+        mKeys.clear();
         next_key_ = 0;
     }
 
     void preload(const Inputs& in) override
     {
-        keys_.clear();
-        keys_.reserve(in.N);
+        mKeys.clear();
+        mKeys.reserve(in.N);
         for (int64_t v : in.values)
         {
             uint64_t key = next_key_++;
-            map_->emplace(key, TestValue(v));
-            keys_.push_back(key);
+            mMap->emplace(key, TestValue(v));
+            mKeys.push_back(key);
         }
     }
 
@@ -1554,12 +1554,12 @@ public:
         switch (c)
         {
         case Case::SequentialInsert:
-            keys_.clear();
+            mKeys.clear();
             for (int64_t v : in.values)
             {
                 uint64_t key = next_key_++;
-                map_->emplace(key, TestValue(v));
-                keys_.push_back(key);
+                mMap->emplace(key, TestValue(v));
+                mKeys.push_back(key);
                 ++ops;
             }
             break;
@@ -1568,17 +1568,17 @@ public:
         case Case::RandomAccessMixed:
             for (size_t idx : in.access_indices)
             {
-                if (idx < keys_.size())
+                if (idx < mKeys.size())
                 {
-                    auto it = map_->find(keys_[idx]);
-                    if (it != map_->end()) benchmark_sink += it->second.checksum();
+                    auto it = mMap->find(mKeys[idx]);
+                    if (it != mMap->end()) benchmark_sink += it->second.checksum();
                 }
                 ++ops;
             }
             break;
 
         case Case::Iteration:
-            for (const auto& [key, val] : *map_)
+            for (const auto& [key, val] : *mMap)
             {
                 benchmark_sink += val.checksum();
                 ++ops;
@@ -1588,21 +1588,21 @@ public:
         case Case::Erase25Percent:
             for (size_t idx : in.erase_indices)
             {
-                if (idx < keys_.size())
+                if (idx < mKeys.size())
                 {
-                    map_->erase(keys_[idx]);
+                    mMap->erase(mKeys[idx]);
                 }
                 ++ops;
             }
             break;
 
         case Case::EraseAll:
-            for (uint64_t k : keys_)
+            for (uint64_t k : mKeys)
             {
-                map_->erase(k);
+                mMap->erase(k);
                 ++ops;
             }
-            keys_.clear();
+            mKeys.clear();
             break;
 
         case Case::MixedWorkload:
@@ -1612,28 +1612,28 @@ public:
             for (size_t i = 0; i < batch && i < in.values.size(); ++i)
             {
                 uint64_t key = next_key_++;
-                map_->emplace(key, TestValue(in.values[i]));
-                keys_.push_back(key);
+                mMap->emplace(key, TestValue(in.values[i]));
+                mKeys.push_back(key);
                 ++ops;
             }
             
-            for (size_t i = 0; i < batch && i < keys_.size(); ++i)
+            for (size_t i = 0; i < batch && i < mKeys.size(); ++i)
             {
-                size_t idx = rng() % keys_.size();
-                auto it = map_->find(keys_[idx]);
-                if (it != map_->end()) benchmark_sink += it->second.checksum();
+                size_t idx = rng() % mKeys.size();
+                auto it = mMap->find(mKeys[idx]);
+                if (it != mMap->end()) benchmark_sink += it->second.checksum();
                 ++ops;
             }
             
-            size_t erase_count = std::min(batch / 2, keys_.size());
+            size_t erase_count = std::min(batch / 2, mKeys.size());
             for (size_t i = 0; i < erase_count; ++i)
             {
-                if (!keys_.empty())
+                if (!mKeys.empty())
                 {
-                    size_t idx = rng() % keys_.size();
-                    map_->erase(keys_[idx]);
-                    keys_[idx] = keys_.back();
-                    keys_.pop_back();
+                    size_t idx = rng() % mKeys.size();
+                    mMap->erase(mKeys[idx]);
+                    mKeys[idx] = mKeys.back();
+                    mKeys.pop_back();
                 }
                 ++ops;
             }
@@ -1644,26 +1644,26 @@ public:
         {
             size_t half = in.N / 2;
             
-            keys_.clear();
+            mKeys.clear();
             for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
             {
                 uint64_t key = next_key_++;
-                map_->emplace(key, TestValue(in.values[i]));
-                keys_.push_back(key);
+                mMap->emplace(key, TestValue(in.values[i]));
+                mKeys.push_back(key);
                 ++ops;
             }
             
-            for (size_t i = 0; i < half && i < keys_.size(); ++i)
+            for (size_t i = 0; i < half && i < mKeys.size(); ++i)
             {
-                map_->erase(keys_[i]);
+                mMap->erase(mKeys[i]);
                 ++ops;
             }
             
             for (size_t i = 0; i < half && i < in.values.size(); ++i)
             {
                 uint64_t key = next_key_++;
-                map_->emplace(key, TestValue(in.values[i] + 1000000));
-                keys_.push_back(key);
+                mMap->emplace(key, TestValue(in.values[i] + 1000000));
+                mKeys.push_back(key);
                 ++ops;
             }
             break;
@@ -1679,40 +1679,40 @@ public:
 
 class VectorAdapter final : public ISlotMapAdapter
 {
-    std::unique_ptr<std::vector<TestValue>> vec_;
-    std::vector<bool> valid_;  // Track which slots are valid (simple free list)
+    std::unique_ptr<std::vector<TestValue>> mVec;
+    std::vector<bool> mValid;  // Track which slots are valid (simple free list)
 
 public:
     const char* name() const override { return "std::vector (raw)"; }
 
     void setup(size_t N) override
     {
-        vec_ = std::make_unique<std::vector<TestValue>>();
-        vec_->reserve(N);
-        valid_.clear();
-        valid_.reserve(N);
+        mVec = std::make_unique<std::vector<TestValue>>();
+        mVec->reserve(N);
+        mValid.clear();
+        mValid.reserve(N);
     }
 
     void teardown() override 
     { 
-        vec_.reset(); 
-        valid_.clear();
+        mVec.reset(); 
+        mValid.clear();
     }
 
     void clear() override 
     { 
-        vec_->clear(); 
-        valid_.clear();
+        mVec->clear(); 
+        mValid.clear();
     }
 
     void preload(const Inputs& in) override
     {
-        vec_->clear();
-        valid_.clear();
+        mVec->clear();
+        mValid.clear();
         for (int64_t v : in.values)
         {
-            vec_->emplace_back(TestValue(v));
-            valid_.push_back(true);
+            mVec->emplace_back(TestValue(v));
+            mValid.push_back(true);
         }
     }
 
@@ -1724,12 +1724,12 @@ public:
         switch (c)
         {
         case Case::SequentialInsert:
-            vec_->clear();
-            valid_.clear();
+            mVec->clear();
+            mValid.clear();
             for (int64_t v : in.values)
             {
-                vec_->emplace_back(TestValue(v));
-                valid_.push_back(true);
+                mVec->emplace_back(TestValue(v));
+                mValid.push_back(true);
                 ++ops;
             }
             break;
@@ -1738,20 +1738,20 @@ public:
         case Case::RandomAccessMixed:
             for (size_t idx : in.access_indices)
             {
-                if (idx < vec_->size() && valid_[idx])
+                if (idx < mVec->size() && mValid[idx])
                 {
-                    benchmark_sink += (*vec_)[idx].checksum();
+                    benchmark_sink += (*mVec)[idx].checksum();
                 }
                 ++ops;
             }
             break;
 
         case Case::Iteration:
-            for (size_t i = 0; i < vec_->size(); ++i)
+            for (size_t i = 0; i < mVec->size(); ++i)
             {
-                if (valid_[i])
+                if (mValid[i])
                 {
-                    benchmark_sink += (*vec_)[i].checksum();
+                    benchmark_sink += (*mVec)[i].checksum();
                 }
                 ++ops;
             }
@@ -1761,18 +1761,18 @@ public:
             // Just mark as invalid (no actual removal - demonstrates issue)
             for (size_t idx : in.erase_indices)
             {
-                if (idx < valid_.size())
+                if (idx < mValid.size())
                 {
-                    valid_[idx] = false;
+                    mValid[idx] = false;
                 }
                 ++ops;
             }
             break;
 
         case Case::EraseAll:
-            for (size_t i = 0; i < valid_.size(); ++i)
+            for (size_t i = 0; i < mValid.size(); ++i)
             {
-                valid_[i] = false;
+                mValid[i] = false;
                 ++ops;
             }
             break;
@@ -1783,28 +1783,28 @@ public:
             
             for (size_t i = 0; i < batch && i < in.values.size(); ++i)
             {
-                vec_->emplace_back(TestValue(in.values[i]));
-                valid_.push_back(true);
+                mVec->emplace_back(TestValue(in.values[i]));
+                mValid.push_back(true);
                 ++ops;
             }
             
-            for (size_t i = 0; i < batch && i < vec_->size(); ++i)
+            for (size_t i = 0; i < batch && i < mVec->size(); ++i)
             {
-                size_t idx = rng() % vec_->size();
-                if (valid_[idx])
+                size_t idx = rng() % mVec->size();
+                if (mValid[idx])
                 {
-                    benchmark_sink += (*vec_)[idx].checksum();
+                    benchmark_sink += (*mVec)[idx].checksum();
                 }
                 ++ops;
             }
             
-            size_t erase_count = std::min(batch / 2, vec_->size());
+            size_t erase_count = std::min(batch / 2, mVec->size());
             for (size_t i = 0; i < erase_count; ++i)
             {
-                if (!vec_->empty())
+                if (!mVec->empty())
                 {
-                    size_t idx = rng() % vec_->size();
-                    valid_[idx] = false;
+                    size_t idx = rng() % mVec->size();
+                    mValid[idx] = false;
                 }
                 ++ops;
             }
@@ -1815,25 +1815,25 @@ public:
         {
             size_t half = in.N / 2;
             
-            vec_->clear();
-            valid_.clear();
+            mVec->clear();
+            mValid.clear();
             for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
             {
-                vec_->emplace_back(TestValue(in.values[i]));
-                valid_.push_back(true);
+                mVec->emplace_back(TestValue(in.values[i]));
+                mValid.push_back(true);
                 ++ops;
             }
             
-            for (size_t i = 0; i < half && i < valid_.size(); ++i)
+            for (size_t i = 0; i < half && i < mValid.size(); ++i)
             {
-                valid_[i] = false;
+                mValid[i] = false;
                 ++ops;
             }
             
             for (size_t i = 0; i < half && i < in.values.size(); ++i)
             {
-                vec_->emplace_back(TestValue(in.values[i] + 1000000));
-                valid_.push_back(true);
+                mVec->emplace_back(TestValue(in.values[i] + 1000000));
+                mValid.push_back(true);
                 ++ops;
             }
             break;

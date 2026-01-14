@@ -385,30 +385,30 @@ struct IVectorAdapter
 template <size_t InlineCapacity>
 class SmallVectorAdapter final : public IVectorAdapter
 {
-    std::string name_;
-    std::unique_ptr<fat_p::SmallVector<int64_t, InlineCapacity>> vec_;
+    std::string mName;
+    std::unique_ptr<fat_p::SmallVector<int64_t, InlineCapacity>> mVec;
 
 public:
-    explicit SmallVectorAdapter(const char* name) : name_(name) {}
+    explicit SmallVectorAdapter(const char* name) : mName(name) {}
 
-    const char* name() const override { return name_.c_str(); }
+    const char* name() const override { return mName.c_str(); }
 
     void setup(size_t N) override
     {
-        vec_ = std::make_unique<fat_p::SmallVector<int64_t, InlineCapacity>>();
-        vec_->reserve(N);
+        mVec = std::make_unique<fat_p::SmallVector<int64_t, InlineCapacity>>();
+        mVec->reserve(N);
     }
 
     void teardown() override
     {
-        vec_.reset();
+        mVec.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t v : in.values)
         {
-            vec_->push_back(v);
+            mVec->push_back(v);
         }
     }
 
@@ -420,7 +420,7 @@ public:
         case Case::PushBack:
             for (int64_t v : in.values)
             {
-                vec_->push_back(v);
+                mVec->push_back(v);
                 ++ops;
             }
             break;
@@ -428,7 +428,7 @@ public:
         case Case::EmplaceBack:
             for (int64_t v : in.values)
             {
-                vec_->emplace_back(v);
+                mVec->emplace_back(v);
                 ++ops;
             }
             break;
@@ -436,13 +436,13 @@ public:
         case Case::RandomAccess:
             for (size_t idx : in.access_order)
             {
-                benchmark_sink += (*vec_)[idx];
+                benchmark_sink += (*mVec)[idx];
                 ++ops;
             }
             break;
 
         case Case::Iteration:
-            for (const auto& v : *vec_)
+            for (const auto& v : *mVec)
             {
                 benchmark_sink += v;
                 ++ops;
@@ -450,24 +450,24 @@ public:
             break;
 
         case Case::Clear:
-            vec_->clear();
-            ops = vec_->capacity();  // Report capacity as "work done"
+            mVec->clear();
+            ops = mVec->capacity();  // Report capacity as "work done"
             break;
 
         case Case::CopyConstruct:
             {
-                fat_p::SmallVector<int64_t, InlineCapacity> copy(*vec_);
+                fat_p::SmallVector<int64_t, InlineCapacity> copy(*mVec);
                 benchmark_sink += copy.size();
-                ops = vec_->size();
+                ops = mVec->size();
             }
             break;
 
         case Case::MoveConstruct:
             {
-                fat_p::SmallVector<int64_t, InlineCapacity> temp(*vec_);
+                fat_p::SmallVector<int64_t, InlineCapacity> temp(*mVec);
                 fat_p::SmallVector<int64_t, InlineCapacity> moved(std::move(temp));
                 benchmark_sink += moved.size();
-                ops = vec_->size();
+                ops = mVec->size();
             }
             break;
         }
@@ -481,27 +481,27 @@ public:
 
 class StdVectorAdapter final : public IVectorAdapter
 {
-    std::unique_ptr<std::vector<int64_t>> vec_;
+    std::unique_ptr<std::vector<int64_t>> mVec;
 
 public:
     const char* name() const override { return "std::vector"; }
 
     void setup(size_t N) override
     {
-        vec_ = std::make_unique<std::vector<int64_t>>();
-        vec_->reserve(N);
+        mVec = std::make_unique<std::vector<int64_t>>();
+        mVec->reserve(N);
     }
 
     void teardown() override
     {
-        vec_.reset();
+        mVec.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t v : in.values)
         {
-            vec_->push_back(v);
+            mVec->push_back(v);
         }
     }
 
@@ -513,7 +513,7 @@ public:
         case Case::PushBack:
             for (int64_t v : in.values)
             {
-                vec_->push_back(v);
+                mVec->push_back(v);
                 ++ops;
             }
             break;
@@ -521,7 +521,7 @@ public:
         case Case::EmplaceBack:
             for (int64_t v : in.values)
             {
-                vec_->emplace_back(v);
+                mVec->emplace_back(v);
                 ++ops;
             }
             break;
@@ -529,13 +529,13 @@ public:
         case Case::RandomAccess:
             for (size_t idx : in.access_order)
             {
-                benchmark_sink += (*vec_)[idx];
+                benchmark_sink += (*mVec)[idx];
                 ++ops;
             }
             break;
 
         case Case::Iteration:
-            for (const auto& v : *vec_)
+            for (const auto& v : *mVec)
             {
                 benchmark_sink += v;
                 ++ops;
@@ -543,24 +543,24 @@ public:
             break;
 
         case Case::Clear:
-            vec_->clear();
-            ops = vec_->capacity();
+            mVec->clear();
+            ops = mVec->capacity();
             break;
 
         case Case::CopyConstruct:
             {
-                std::vector<int64_t> copy(*vec_);
+                std::vector<int64_t> copy(*mVec);
                 benchmark_sink += copy.size();
-                ops = vec_->size();
+                ops = mVec->size();
             }
             break;
 
         case Case::MoveConstruct:
             {
-                std::vector<int64_t> temp(*vec_);
+                std::vector<int64_t> temp(*mVec);
                 std::vector<int64_t> moved(std::move(temp));
                 benchmark_sink += moved.size();
-                ops = vec_->size();
+                ops = mVec->size();
             }
             break;
         }
@@ -576,30 +576,30 @@ public:
 template <size_t InlineCapacity>
 class BoostSmallVectorAdapter final : public IVectorAdapter
 {
-    std::string name_;
-    std::unique_ptr<boost::container::small_vector<int64_t, InlineCapacity>> vec_;
+    std::string mName;
+    std::unique_ptr<boost::container::small_vector<int64_t, InlineCapacity>> mVec;
 
 public:
-    explicit BoostSmallVectorAdapter(const char* name) : name_(name) {}
+    explicit BoostSmallVectorAdapter(const char* name) : mName(name) {}
 
-    const char* name() const override { return name_.c_str(); }
+    const char* name() const override { return mName.c_str(); }
 
     void setup(size_t N) override
     {
-        vec_ = std::make_unique<boost::container::small_vector<int64_t, InlineCapacity>>();
-        vec_->reserve(N);
+        mVec = std::make_unique<boost::container::small_vector<int64_t, InlineCapacity>>();
+        mVec->reserve(N);
     }
 
     void teardown() override
     {
-        vec_.reset();
+        mVec.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t v : in.values)
         {
-            vec_->push_back(v);
+            mVec->push_back(v);
         }
     }
 
@@ -611,7 +611,7 @@ public:
         case Case::PushBack:
             for (int64_t v : in.values)
             {
-                vec_->push_back(v);
+                mVec->push_back(v);
                 ++ops;
             }
             break;
@@ -619,7 +619,7 @@ public:
         case Case::EmplaceBack:
             for (int64_t v : in.values)
             {
-                vec_->emplace_back(v);
+                mVec->emplace_back(v);
                 ++ops;
             }
             break;
@@ -627,13 +627,13 @@ public:
         case Case::RandomAccess:
             for (size_t idx : in.access_order)
             {
-                benchmark_sink += (*vec_)[idx];
+                benchmark_sink += (*mVec)[idx];
                 ++ops;
             }
             break;
 
         case Case::Iteration:
-            for (const auto& v : *vec_)
+            for (const auto& v : *mVec)
             {
                 benchmark_sink += v;
                 ++ops;
@@ -641,24 +641,24 @@ public:
             break;
 
         case Case::Clear:
-            vec_->clear();
-            ops = vec_->capacity();
+            mVec->clear();
+            ops = mVec->capacity();
             break;
 
         case Case::CopyConstruct:
             {
-                boost::container::small_vector<int64_t, InlineCapacity> copy(*vec_);
+                boost::container::small_vector<int64_t, InlineCapacity> copy(*mVec);
                 benchmark_sink += copy.size();
-                ops = vec_->size();
+                ops = mVec->size();
             }
             break;
 
         case Case::MoveConstruct:
             {
-                boost::container::small_vector<int64_t, InlineCapacity> temp(*vec_);
+                boost::container::small_vector<int64_t, InlineCapacity> temp(*mVec);
                 boost::container::small_vector<int64_t, InlineCapacity> moved(std::move(temp));
                 benchmark_sink += moved.size();
-                ops = vec_->size();
+                ops = mVec->size();
             }
             break;
         }
@@ -675,30 +675,30 @@ public:
 template <size_t InlineCapacity>
 class LLVMSmallVectorAdapter final : public IVectorAdapter
 {
-    std::string name_;
-    std::unique_ptr<llvm::SmallVector<int64_t, InlineCapacity>> vec_;
+    std::string mName;
+    std::unique_ptr<llvm::SmallVector<int64_t, InlineCapacity>> mVec;
 
 public:
-    explicit LLVMSmallVectorAdapter(const char* name) : name_(name) {}
+    explicit LLVMSmallVectorAdapter(const char* name) : mName(name) {}
 
-    const char* name() const override { return name_.c_str(); }
+    const char* name() const override { return mName.c_str(); }
 
     void setup(size_t N) override
     {
-        vec_ = std::make_unique<llvm::SmallVector<int64_t, InlineCapacity>>();
-        vec_->reserve(N);
+        mVec = std::make_unique<llvm::SmallVector<int64_t, InlineCapacity>>();
+        mVec->reserve(N);
     }
 
     void teardown() override
     {
-        vec_.reset();
+        mVec.reset();
     }
 
     void preload(const Inputs& in) override
     {
         for (int64_t v : in.values)
         {
-            vec_->push_back(v);
+            mVec->push_back(v);
         }
     }
 
@@ -710,7 +710,7 @@ public:
         case Case::PushBack:
             for (int64_t v : in.values)
             {
-                vec_->push_back(v);
+                mVec->push_back(v);
                 ++ops;
             }
             break;
@@ -718,7 +718,7 @@ public:
         case Case::EmplaceBack:
             for (int64_t v : in.values)
             {
-                vec_->emplace_back(v);
+                mVec->emplace_back(v);
                 ++ops;
             }
             break;
@@ -726,13 +726,13 @@ public:
         case Case::RandomAccess:
             for (size_t idx : in.access_order)
             {
-                benchmark_sink += (*vec_)[idx];
+                benchmark_sink += (*mVec)[idx];
                 ++ops;
             }
             break;
 
         case Case::Iteration:
-            for (const auto& v : *vec_)
+            for (const auto& v : *mVec)
             {
                 benchmark_sink += v;
                 ++ops;
@@ -740,24 +740,24 @@ public:
             break;
 
         case Case::Clear:
-            vec_->clear();
-            ops = vec_->capacity();
+            mVec->clear();
+            ops = mVec->capacity();
             break;
 
         case Case::CopyConstruct:
             {
-                llvm::SmallVector<int64_t, InlineCapacity> copy(*vec_);
+                llvm::SmallVector<int64_t, InlineCapacity> copy(*mVec);
                 benchmark_sink += copy.size();
-                ops = vec_->size();
+                ops = mVec->size();
             }
             break;
 
         case Case::MoveConstruct:
             {
-                llvm::SmallVector<int64_t, InlineCapacity> temp(*vec_);
+                llvm::SmallVector<int64_t, InlineCapacity> temp(*mVec);
                 llvm::SmallVector<int64_t, InlineCapacity> moved(std::move(temp));
                 benchmark_sink += moved.size();
-                ops = vec_->size();
+                ops = mVec->size();
             }
             break;
         }

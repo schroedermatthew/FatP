@@ -1523,22 +1523,22 @@ namespace fat_p
 		class BenchmarkBaseline
 		{
 		private:
-			std::map<std::string, BenchmarkStats> baselines_;
+			std::map<std::string, BenchmarkStats> mBaselines;
 
 		public:
 			void save(const std::string& name, const BenchmarkStats& stats)
 			{
-				baselines_[name] = stats;
+				mBaselines[name] = stats;
 			}
 
 			[[nodiscard]] bool has_baseline(const std::string& name) const
 			{
-				return baselines_.find(name) != baselines_.end();
+				return mBaselines.find(name) != mBaselines.end();
 			}
 
 			[[nodiscard]] const BenchmarkStats& get(const std::string& name) const
 			{
-				return baselines_.at(name);
+				return mBaselines.at(name);
 			}
 
 			[[nodiscard]] double compare(const std::string& name, const BenchmarkStats& current) const
@@ -1548,7 +1548,7 @@ namespace fat_p
 					return 0.0;
 				}
 
-				const auto& baseline = baselines_.at(name);
+				const auto& baseline = mBaselines.at(name);
 				return ((current.mean_ms - baseline.mean_ms) / baseline.mean_ms) * 100.0;
 			}
 		};
@@ -1692,60 +1692,60 @@ namespace fat_p
 			using PdhGetFormattedCounterValue_t = PDH_STATUS(WINAPI*)(PDH_HCOUNTER, DWORD, LPDWORD, PDH_FMT_COUNTERVALUE*);
 			using PdhCloseQuery_t = PDH_STATUS(WINAPI*)(PDH_HQUERY);
 
-			HMODULE hPdh_ = nullptr;
-			PDH_HQUERY hQuery_ = nullptr;
-			PDH_HCOUNTER hCounter_ = nullptr;
+			HMODULE mHPdh = nullptr;
+			PDH_HQUERY mHQuery = nullptr;
+			PDH_HCOUNTER mHCounter = nullptr;
 
 			// Function Pointers
-			PdhOpenQueryA_t pOpenQuery_ = nullptr;
-			PdhAddCounterA_t pAddCounter_ = nullptr;
-			PdhCollectQueryData_t pCollectData_ = nullptr;
-			PdhGetFormattedCounterValue_t pGetValue_ = nullptr;
-			PdhCloseQuery_t pCloseQuery_ = nullptr;
+			PdhOpenQueryA_t mPOpenQuery = nullptr;
+			PdhAddCounterA_t mPAddCounter = nullptr;
+			PdhCollectQueryData_t mPCollectData = nullptr;
+			PdhGetFormattedCounterValue_t mPGetValue = nullptr;
+			PdhCloseQuery_t mPCloseQuery = nullptr;
 
-			bool initialized_ = false;
+			bool mInitialized = false;
 
 		public:
 			PdhCpuMonitor()
 			{
 				// 1. Load DLL dynamically
-				hPdh_ = LoadLibraryA("pdh.dll");
-				if (!hPdh_) return;
+				mHPdh = LoadLibraryA("pdh.dll");
+				if (!mHPdh) return;
 
 				// 2. Resolve function pointers
-				pOpenQuery_ = reinterpret_cast<PdhOpenQueryA_t>(GetProcAddress(hPdh_, "PdhOpenQueryA"));
-				pAddCounter_ = reinterpret_cast<PdhAddCounterA_t>(GetProcAddress(hPdh_, "PdhAddCounterA"));
-				pCollectData_ = reinterpret_cast<PdhCollectQueryData_t>(GetProcAddress(hPdh_, "PdhCollectQueryData"));
-				pGetValue_ = reinterpret_cast<PdhGetFormattedCounterValue_t>(GetProcAddress(hPdh_, "PdhGetFormattedCounterValue"));
-				pCloseQuery_ = reinterpret_cast<PdhCloseQuery_t>(GetProcAddress(hPdh_, "PdhCloseQuery"));
+				mPOpenQuery = reinterpret_cast<PdhOpenQueryA_t>(GetProcAddress(mHPdh, "PdhOpenQueryA"));
+				mPAddCounter = reinterpret_cast<PdhAddCounterA_t>(GetProcAddress(mHPdh, "PdhAddCounterA"));
+				mPCollectData = reinterpret_cast<PdhCollectQueryData_t>(GetProcAddress(mHPdh, "PdhCollectQueryData"));
+				mPGetValue = reinterpret_cast<PdhGetFormattedCounterValue_t>(GetProcAddress(mHPdh, "PdhGetFormattedCounterValue"));
+				mPCloseQuery = reinterpret_cast<PdhCloseQuery_t>(GetProcAddress(mHPdh, "PdhCloseQuery"));
 
-				if (!pOpenQuery_ || !pAddCounter_ || !pCollectData_ || !pGetValue_ || !pCloseQuery_) return;
+				if (!mPOpenQuery || !mPAddCounter || !mPCollectData || !mPGetValue || !mPCloseQuery) return;
 
 				// 3. Open Query
-				if (pOpenQuery_(nullptr, 0, &hQuery_) != ERROR_SUCCESS_PDH) return;
+				if (mPOpenQuery(nullptr, 0, &mHQuery) != ERROR_SUCCESS_PDH) return;
 
 				// 4. Add Counter (ENGLISH WINDOWS ONLY)
 				// "Processor Information" supports >64 cores, unlike legacy "Processor"
 				const char* counterPath = "\\Processor Information(_Total)\\% of Maximum Frequency";
-				if (pAddCounter_(hQuery_, counterPath, 0, &hCounter_) != ERROR_SUCCESS_PDH)
+				if (mPAddCounter(mHQuery, counterPath, 0, &mHCounter) != ERROR_SUCCESS_PDH)
 				{
 					// Fallback for older Windows versions
 					counterPath = "\\Processor(_Total)\\% Processor Performance";
-					if (pAddCounter_(hQuery_, counterPath, 0, &hCounter_) != ERROR_SUCCESS_PDH)
+					if (mPAddCounter(mHQuery, counterPath, 0, &mHCounter) != ERROR_SUCCESS_PDH)
 					{
 						return;
 					}
 				}
 
 				// 5. Prime the counter (first read is always invalid for rate counters)
-				pCollectData_(hQuery_);
-				initialized_ = true;
+				mPCollectData(mHQuery);
+				mInitialized = true;
 			}
 
 			~PdhCpuMonitor()
 			{
-				if (hQuery_ && pCloseQuery_) pCloseQuery_(hQuery_);
-				if (hPdh_) FreeLibrary(hPdh_);
+				if (mHQuery && mPCloseQuery) mPCloseQuery(mHQuery);
+				if (mHPdh) FreeLibrary(mHPdh);
 			}
 
 			// Non-copyable
@@ -1764,13 +1764,13 @@ namespace fat_p
 			 */
 			[[nodiscard]] double get_frequency_percentage()
 			{
-				if (!initialized_) return 0.0;
+				if (!mInitialized) return 0.0;
 
 				// Collect new data sample
-				if (pCollectData_(hQuery_) != ERROR_SUCCESS_PDH) return 0.0;
+				if (mPCollectData(mHQuery) != ERROR_SUCCESS_PDH) return 0.0;
 
 				PDH_FMT_COUNTERVALUE value{};
-				if (pGetValue_(hCounter_, PDH_FMT_DOUBLE, nullptr, &value) == ERROR_SUCCESS_PDH)
+				if (mPGetValue(mHCounter, PDH_FMT_DOUBLE, nullptr, &value) == ERROR_SUCCESS_PDH)
 				{
 					return value.doubleValue;
 				}
@@ -1789,7 +1789,7 @@ namespace fat_p
 				return base_freq_mhz * (pct / 100.0);
 			}
 
-			[[nodiscard]] bool is_available() const { return initialized_; }
+			[[nodiscard]] bool is_available() const { return mInitialized; }
 		};
 
 #endif // FATP_ENABLE_PDH_STATS && Windows
@@ -2837,7 +2837,7 @@ namespace fat_p
 		class SubtestTracker
 		{
 		private:
-			std::vector<SubtestResult> subtests_;
+			std::vector<SubtestResult> mSubtests;
 			bool current_subtest_passed_;
 			std::string current_subtest_name_;
 			bool inside_subtest_;
@@ -2859,7 +2859,7 @@ namespace fat_p
 			void fail_current_subtest(const std::string& message)
 			{
 				current_subtest_passed_ = false;
-				subtests_.push_back({ current_subtest_name_, false, message });
+				mSubtests.push_back({ current_subtest_name_, false, message });
 			}
 
 			void end_subtest()
@@ -2867,19 +2867,19 @@ namespace fat_p
 				inside_subtest_ = false;
 				if (current_subtest_passed_)
 				{
-					subtests_.push_back({ current_subtest_name_, true, "" });
+					mSubtests.push_back({ current_subtest_name_, true, "" });
 				}
 				current_subtest_name_.clear();
 			}
 
 			[[nodiscard]] const std::vector<SubtestResult>& get_results() const
 			{
-				return subtests_;
+				return mSubtests;
 			}
 
 			void clear()
 			{
-				subtests_.clear();
+				mSubtests.clear();
 				current_subtest_passed_ = true;
 				current_subtest_name_.clear();
 				inside_subtest_ = false;
@@ -2887,7 +2887,7 @@ namespace fat_p
 
 			[[nodiscard]] bool all_passed() const
 			{
-				for (const auto& result : subtests_)
+				for (const auto& result : mSubtests)
 				{
 					if (!result.passed)
 					{
@@ -2916,7 +2916,7 @@ namespace fat_p
 		class TestRunner
 		{
 		private:
-			std::vector<TestResult> results_;
+			std::vector<TestResult> mResults;
 			std::string filter_pattern_;
 
 		public:
@@ -3047,7 +3047,7 @@ namespace fat_p
 				auto end = std::chrono::high_resolution_clock::now();
 				double duration = std::chrono::duration<double, std::milli>(end - start).count();
 
-				results_.push_back({ name, passed, duration });
+				mResults.push_back({ name, passed, duration });
 
 				get_subtest_tracker().clear();
 
@@ -3161,7 +3161,7 @@ namespace fat_p
 					out << colors::reset() << std::endl;
 					passed = false;
 				}
-				results_.push_back({ name, passed, duration });
+				mResults.push_back({ name, passed, duration });
 
 				if (get_test_config().verbose)
 				{
@@ -3263,7 +3263,7 @@ namespace fat_p
 					}
 				}
 
-				results_.push_back({ name, passed, duration });
+				mResults.push_back({ name, passed, duration });
 
 				if (get_test_config().verbose)
 				{
@@ -3304,7 +3304,7 @@ namespace fat_p
 				int passed = 0;
 				int failed = 0;
 
-				for (const auto& result : results_)
+				for (const auto& result : mResults)
 				{
 					if (result.passed)
 					{
@@ -3338,7 +3338,7 @@ namespace fat_p
 				if (failed > 0)
 				{
 					out << "\nFailed tests:\n";
-					for (const auto& result : results_)
+					for (const auto& result : mResults)
 					{
 						if (!result.passed)
 						{
@@ -3357,7 +3357,7 @@ namespace fat_p
 			 */
 			[[nodiscard]] const std::vector<TestResult>& results() const
 			{
-				return results_;
+				return mResults;
 			}
 
 			/**
@@ -3365,7 +3365,7 @@ namespace fat_p
 			 */
 			void clear()
 			{
-				results_.clear();
+				mResults.clear();
 				filter_pattern_.clear();
 			}
 
@@ -3807,7 +3807,7 @@ namespace fat_p
 		inline bool TestRunner::export_to_junit_xml(const std::string& filename,
 			const std::string& suite_name) const
 		{
-			return export_junit_xml(filename, results_, suite_name);
+			return export_junit_xml(filename, mResults, suite_name);
 		}
 
 		// ============================================================================

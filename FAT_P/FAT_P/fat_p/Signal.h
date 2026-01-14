@@ -196,10 +196,10 @@ class Signal;
  *
  * @code
  * class MyWidget {
- *     ScopedConnection connection_;
+ *     ScopedConnection mConnection;
  * public:
  *     void subscribe(Signal<void(int)>& signal) {
- *         connection_ = signal.connect([this](int v) { onValue(v); });
+ *         mConnection = signal.connect([this](int v) { onValue(v); });
  *     }
  *     // Connection automatically disconnected when MyWidget is destroyed
  * };
@@ -217,18 +217,18 @@ public:
      * @param disconnector Function to call on destruction
      */
     explicit ScopedConnection(std::function<void()> disconnector) noexcept
-        : disconnector_(std::move(disconnector))
-        , connected_(true)
+        : mDisconnector(std::move(disconnector))
+        , mConnected(true)
     {}
 
     /**
      * @brief Move constructor - transfers ownership
      */
     ScopedConnection(ScopedConnection&& other) noexcept
-        : disconnector_(std::move(other.disconnector_))
-        , connected_(other.connected_)
+        : mDisconnector(std::move(other.mDisconnector))
+        , mConnected(other.mConnected)
     {
-        other.connected_ = false;
+        other.mConnected = false;
     }
 
     /**
@@ -237,9 +237,9 @@ public:
     ScopedConnection& operator=(ScopedConnection&& other) noexcept {
         if (this != &other) {
             disconnect();
-            disconnector_ = std::move(other.disconnector_);
-            connected_ = other.connected_;
-            other.connected_ = false;
+            mDisconnector = std::move(other.mDisconnector);
+            mConnected = other.mConnected;
+            other.mConnected = false;
         }
         return *this;
     }
@@ -259,13 +259,13 @@ public:
      * @brief Manually disconnect (idempotent)
      */
     void disconnect() noexcept {
-        if (connected_ && disconnector_) {
+        if (mConnected && mDisconnector) {
             try {
-                disconnector_();
+                mDisconnector();
             } catch (...) {
                 // Swallow exceptions in destructor context
             }
-            connected_ = false;
+            mConnected = false;
         }
     }
 
@@ -275,23 +275,23 @@ public:
      * ScopedConnection no longer manages it.
      */
     void release() noexcept {
-        connected_ = false;
-        disconnector_ = nullptr;
+        mConnected = false;
+        mDisconnector = nullptr;
     }
 
     /**
      * @brief Check if this handle is connected
      */
-    [[nodiscard]] bool isConnected() const noexcept { return connected_; }
+    [[nodiscard]] bool isConnected() const noexcept { return mConnected; }
 
     /**
      * @brief Boolean conversion for connected state
      */
-    explicit operator bool() const noexcept { return connected_; }
+    explicit operator bool() const noexcept { return mConnected; }
 
 private:
-    std::function<void()> disconnector_;
-    bool connected_ = false;
+    std::function<void()> mDisconnector;
+    bool mConnected = false;
 };
 
 // =============================================================================
@@ -355,10 +355,10 @@ private:
     // Member Data
     // -------------------------------------------------------------------------
     
-    SlotList slots_;
-    std::atomic<size_t> nextId_{1};           // Monotonic ID generator
-    std::atomic<size_t> recursionDepth_{0};   // Emission reentrancy counter
-    std::atomic<bool> needsCleanup_{false};   // Deferred cleanup flag
+    SlotList mSlots;
+    std::atomic<size_t> mNextId{1};           // Monotonic ID generator
+    std::atomic<size_t> mRecursionDepth{0};   // Emission reentrancy counter
+    std::atomic<bool> mNeedsCleanup{false};   // Deferred cleanup flag
 
 public:
     // -------------------------------------------------------------------------
@@ -375,23 +375,23 @@ public:
     // Move semantics
     Signal(Signal&& other) noexcept
         : SyncPolicy()  // Default construct base (policies shouldn't have state to move)
-        , slots_(std::move(other.slots_))
-        , nextId_(other.nextId_.load(std::memory_order_relaxed))
-        , recursionDepth_(0)
-        , needsCleanup_(false)
+        , mSlots(std::move(other.mSlots))
+        , mNextId(other.mNextId.load(std::memory_order_relaxed))
+        , mRecursionDepth(0)
+        , mNeedsCleanup(false)
     {
-        other.nextId_.store(1, std::memory_order_relaxed);
+        other.mNextId.store(1, std::memory_order_relaxed);
     }
 
     Signal& operator=(Signal&& other) noexcept {
         if (this != &other) {
             typename SyncPolicy::LockGuard lock(this->getLock());
-            slots_ = std::move(other.slots_);
-            nextId_.store(other.nextId_.load(std::memory_order_relaxed),
+            mSlots = std::move(other.mSlots);
+            mNextId.store(other.mNextId.load(std::memory_order_relaxed),
                          std::memory_order_relaxed);
-            recursionDepth_.store(0, std::memory_order_relaxed);
-            needsCleanup_.store(false, std::memory_order_relaxed);
-            other.nextId_.store(1, std::memory_order_relaxed);
+            mRecursionDepth.store(0, std::memory_order_relaxed);
+            mNeedsCleanup.store(false, std::memory_order_relaxed);
+            other.mNextId.store(1, std::memory_order_relaxed);
         }
         return *this;
     }
@@ -431,17 +431,17 @@ public:
     ConnectionId connectManual(Callback callback, int priority = 0) {
         typename SyncPolicy::LockGuard lock(this->getLock());
         
-        ConnectionId id(nextId_.fetch_add(1, std::memory_order_relaxed));
+        ConnectionId id(mNextId.fetch_add(1, std::memory_order_relaxed));
         
         // Find insertion point to maintain priority order
         // Use upper_bound so equal priorities maintain insertion order (FIFO)
         auto it = std::upper_bound(
-            slots_.begin(), slots_.end(),
+            mSlots.begin(), mSlots.end(),
             priority,
             [](int prio, const Slot& slot) { return prio > slot.priority; }
         );
         
-        slots_.insert(it, Slot{id, std::move(callback), priority});
+        mSlots.insert(it, Slot{id, std::move(callback), priority});
         
         return id;
     }
@@ -484,15 +484,15 @@ public:
         // Check if we're currently emitting (from any thread)
         // During emission, we only need to soft-delete (set active=false)
         // which can be done with a read lock since it's just a flag flip
-        if (recursionDepth_.load(std::memory_order_acquire) > 0) {
+        if (mRecursionDepth.load(std::memory_order_acquire) > 0) {
             // We might be inside emit() on this or another thread
             // Use read lock for soft delete to avoid deadlock
             typename SyncPolicy::SharedGuard lock(this->getLock());
             
-            for (auto& slot : slots_) {
+            for (auto& slot : mSlots) {
                 if (slot.id == id && slot.active) {
                     slot.active = false;  // Soft delete
-                    needsCleanup_.store(true, std::memory_order_release);
+                    mNeedsCleanup.store(true, std::memory_order_release);
                     return true;
                 }
             }
@@ -503,12 +503,12 @@ public:
         typename SyncPolicy::LockGuard lock(this->getLock());
         
         // Re-check recursion depth under write lock
-        if (recursionDepth_.load(std::memory_order_acquire) > 0) {
+        if (mRecursionDepth.load(std::memory_order_acquire) > 0) {
             // Race: emission started between our checks
-            for (auto& slot : slots_) {
+            for (auto& slot : mSlots) {
                 if (slot.id == id && slot.active) {
                     slot.active = false;
-                    needsCleanup_.store(true, std::memory_order_release);
+                    mNeedsCleanup.store(true, std::memory_order_release);
                     return true;
                 }
             }
@@ -516,9 +516,9 @@ public:
         }
         
         // Safe to physically remove
-        for (auto it = slots_.begin(); it != slots_.end(); ++it) {
+        for (auto it = mSlots.begin(); it != mSlots.end(); ++it) {
             if (it->id == id) {
-                slots_.erase(it);
+                mSlots.erase(it);
                 return true;
             }
         }
@@ -529,26 +529,26 @@ public:
      * @brief Disconnect all slots
      */
     void disconnectAll() {
-        if (recursionDepth_.load(std::memory_order_acquire) > 0) {
+        if (mRecursionDepth.load(std::memory_order_acquire) > 0) {
             // During emission: soft delete with read lock
             typename SyncPolicy::SharedGuard lock(this->getLock());
-            for (auto& slot : slots_) {
+            for (auto& slot : mSlots) {
                 slot.active = false;
             }
-            needsCleanup_.store(true, std::memory_order_release);
+            mNeedsCleanup.store(true, std::memory_order_release);
             return;
         }
         
         typename SyncPolicy::LockGuard lock(this->getLock());
         
         // Re-check under write lock
-        if (recursionDepth_.load(std::memory_order_acquire) > 0) {
-            for (auto& slot : slots_) {
+        if (mRecursionDepth.load(std::memory_order_acquire) > 0) {
+            for (auto& slot : mSlots) {
                 slot.active = false;
             }
-            needsCleanup_.store(true, std::memory_order_release);
+            mNeedsCleanup.store(true, std::memory_order_release);
         } else {
-            slots_.clear();
+            mSlots.clear();
         }
     }
 
@@ -571,20 +571,20 @@ public:
             typename SyncPolicy::SharedGuard lock(this->getLock());
             
             // Enter emission context
-            recursionDepth_.fetch_add(1, std::memory_order_acquire);
+            mRecursionDepth.fetch_add(1, std::memory_order_acquire);
             
             // RAII guard for decrement on exit (exception-safe)
             auto depthGuard = makeScopeGuard([this, &shouldCleanup]() noexcept {
-                size_t depth = recursionDepth_.fetch_sub(1, std::memory_order_release);
+                size_t depth = mRecursionDepth.fetch_sub(1, std::memory_order_release);
                 
                 // Mark for cleanup if we're the outermost emission and cleanup is needed
-                if (depth == 1 && needsCleanup_.load(std::memory_order_acquire)) {
+                if (depth == 1 && mNeedsCleanup.load(std::memory_order_acquire)) {
                     shouldCleanup = true;
                 }
             });
             
             // Invoke all active slots
-            for (auto& slot : slots_) {
+            for (auto& slot : mSlots) {
                 if (slot.active) {
                     EmissionPolicy::invoke(slot.func, args...);
                 }
@@ -620,7 +620,7 @@ public:
     [[nodiscard]] size_t slotCount() const {
         typename SyncPolicy::SharedGuard lock(
             const_cast<Signal*>(this)->getLock());
-        return slots_.size();
+        return mSlots.size();
     }
 
     /**
@@ -629,7 +629,7 @@ public:
     [[nodiscard]] size_t activeSlotCount() const {
         typename SyncPolicy::SharedGuard lock(
             const_cast<Signal*>(this)->getLock());
-        return std::count_if(slots_.begin(), slots_.end(),
+        return std::count_if(mSlots.begin(), mSlots.end(),
                             [](const Slot& s) { return s.active; });
     }
 
@@ -644,7 +644,7 @@ public:
      * @brief Check if currently emitting (for debugging/diagnostics)
      */
     [[nodiscard]] bool isEmitting() const noexcept {
-        return recursionDepth_.load(std::memory_order_acquire) > 0;
+        return mRecursionDepth.load(std::memory_order_acquire) > 0;
     }
 
     /**
@@ -654,7 +654,7 @@ public:
         typename SyncPolicy::SharedGuard lock(
             const_cast<Signal*>(this)->getLock());
         
-        for (const auto& slot : slots_) {
+        for (const auto& slot : mSlots) {
             if (slot.id == id) {
                 return slot.active;
             }
@@ -685,18 +685,18 @@ public:
         {
             typename SyncPolicy::SharedGuard lock(this->getLock());
             
-            results.reserve(slots_.size());
+            results.reserve(mSlots.size());
             
-            recursionDepth_.fetch_add(1, std::memory_order_acquire);
+            mRecursionDepth.fetch_add(1, std::memory_order_acquire);
             
             auto depthGuard = makeScopeGuard([this, &shouldCleanup]() noexcept {
-                size_t depth = recursionDepth_.fetch_sub(1, std::memory_order_release);
-                if (depth == 1 && needsCleanup_.load(std::memory_order_acquire)) {
+                size_t depth = mRecursionDepth.fetch_sub(1, std::memory_order_release);
+                if (depth == 1 && mNeedsCleanup.load(std::memory_order_acquire)) {
                     shouldCleanup = true;
                 }
             });
             
-            for (auto& slot : slots_) {
+            for (auto& slot : mSlots) {
                 if (slot.active) {
                     try {
                         results.push_back(slot.func(args...));
@@ -735,16 +735,16 @@ public:
         {
             typename SyncPolicy::SharedGuard lock(this->getLock());
             
-            recursionDepth_.fetch_add(1, std::memory_order_acquire);
+            mRecursionDepth.fetch_add(1, std::memory_order_acquire);
             
             auto depthGuard = makeScopeGuard([this, &shouldCleanup]() noexcept {
-                size_t depth = recursionDepth_.fetch_sub(1, std::memory_order_release);
-                if (depth == 1 && needsCleanup_.load(std::memory_order_acquire)) {
+                size_t depth = mRecursionDepth.fetch_sub(1, std::memory_order_release);
+                if (depth == 1 && mNeedsCleanup.load(std::memory_order_acquire)) {
                     shouldCleanup = true;
                 }
             });
             
-            for (auto& slot : slots_) {
+            for (auto& slot : mSlots) {
                 if (slot.active) {
                     try {
                         Ret r = slot.func(args...);
@@ -783,13 +783,13 @@ private:
         typename SyncPolicy::LockGuard lock(this->getLock());
         
         // Only cleanup if no longer emitting
-        if (recursionDepth_.load(std::memory_order_acquire) == 0) {
-            slots_.erase(
-                std::remove_if(slots_.begin(), slots_.end(),
+        if (mRecursionDepth.load(std::memory_order_acquire) == 0) {
+            mSlots.erase(
+                std::remove_if(mSlots.begin(), mSlots.end(),
                               [](const Slot& s) { return !s.active; }),
-                slots_.end()
+                mSlots.end()
             );
-            needsCleanup_.store(false, std::memory_order_release);
+            mNeedsCleanup.store(false, std::memory_order_release);
         }
     }
 };

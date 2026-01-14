@@ -52,7 +52,7 @@ template <typename T>
 struct DebugOnly;
 
 // NOTE: Type traits (is_streamable, is_hashable, is_equality_comparable, is_less_comparable)
-// are provided by TypeTraits.h. DebugOnly uses fat_p::is_*_v<T> traits from that header
+// are provided by TypeTraits.h. DebugOnly uses fat_p::mIs*_v<T> traits from that header
 // to avoid duplication and ensure composability per Systemic Hygiene Policy.
 
 
@@ -76,53 +76,53 @@ struct DebugOnly
     static constexpr bool is_active = true;
 
 private:
-    T value_;
+    T mValue;
 
 public:
     // Default constructor - value-initializes T
     constexpr DebugOnly() noexcept(std::is_nothrow_default_constructible_v<T>)
-        : value_()
+        : mValue()
     {}
 
     // Value constructors
     constexpr DebugOnly(const T& val) noexcept(std::is_nothrow_copy_constructible_v<T>)
-        : value_(val)
+        : mValue(val)
     {}
 
     constexpr DebugOnly(T&& val) noexcept(std::is_nothrow_move_constructible_v<T>)
-        : value_(std::move(val))
+        : mValue(std::move(val))
     {}
 
     // In-place construction
     template <typename... Args>
     constexpr explicit DebugOnly(std::in_place_t, Args&&... args)
         noexcept(std::is_nothrow_constructible_v<T, Args...>)
-        : value_(std::forward<Args>(args)...)
+        : mValue(std::forward<Args>(args)...)
     {}
 
     // Copy/move constructors
     constexpr DebugOnly(const DebugOnly& other)
         noexcept(std::is_nothrow_copy_constructible_v<T>)
-        : value_(other.value_)
+        : mValue(other.mValue)
     {}
 
     constexpr DebugOnly(DebugOnly&& other)
         noexcept(std::is_nothrow_move_constructible_v<T>)
-        : value_(std::move(other.value_))
+        : mValue(std::move(other.mValue))
     {}
 
     // Assignment operators
     constexpr DebugOnly& operator=(const T& val)
         noexcept(std::is_nothrow_copy_assignable_v<T>)
     {
-        value_ = val;
+        mValue = val;
         return *this;
     }
 
     constexpr DebugOnly& operator=(T&& val)
         noexcept(std::is_nothrow_move_assignable_v<T>)
     {
-        value_ = std::move(val);
+        mValue = std::move(val);
         return *this;
     }
 
@@ -131,7 +131,7 @@ public:
     {
         if (this != &other)
         {
-            value_ = other.value_;
+            mValue = other.mValue;
         }
         return *this;
     }
@@ -141,7 +141,7 @@ public:
     {
         if (this != &other)
         {
-            value_ = std::move(other.value_);
+            mValue = std::move(other.mValue);
         }
         return *this;
     }
@@ -154,26 +154,26 @@ public:
     // for cross-mode compatible code.
     // ========================================================================
 
-    [[nodiscard]] constexpr T& get() & noexcept { return value_; }
-    [[nodiscard]] constexpr const T& get() const& noexcept { return value_; }
-    [[nodiscard]] constexpr T&& get() && noexcept { return std::move(value_); }
-    [[nodiscard]] constexpr const T&& get() const&& noexcept { return std::move(value_); }
+    [[nodiscard]] constexpr T& get() & noexcept { return mValue; }
+    [[nodiscard]] constexpr const T& get() const& noexcept { return mValue; }
+    [[nodiscard]] constexpr T&& get() && noexcept { return std::move(mValue); }
+    [[nodiscard]] constexpr const T&& get() const&& noexcept { return std::move(mValue); }
 
-    [[nodiscard]] constexpr T* operator->() noexcept { return &value_; }
-    [[nodiscard]] constexpr const T* operator->() const noexcept { return &value_; }
+    [[nodiscard]] constexpr T* operator->() noexcept { return &mValue; }
+    [[nodiscard]] constexpr const T* operator->() const noexcept { return &mValue; }
 
-    [[nodiscard]] constexpr T& operator*() & noexcept { return value_; }
-    [[nodiscard]] constexpr const T& operator*() const& noexcept { return value_; }
-    [[nodiscard]] constexpr T&& operator*() && noexcept { return std::move(value_); }
-    [[nodiscard]] constexpr const T&& operator*() const&& noexcept { return std::move(value_); }
+    [[nodiscard]] constexpr T& operator*() & noexcept { return mValue; }
+    [[nodiscard]] constexpr const T& operator*() const& noexcept { return mValue; }
+    [[nodiscard]] constexpr T&& operator*() && noexcept { return std::move(mValue); }
+    [[nodiscard]] constexpr const T&& operator*() const&& noexcept { return std::move(mValue); }
 
     // Implicit conversion to T& (convenient but be aware of accidental copies)
-    operator T&() & noexcept { return value_; }
-    operator const T&() const& noexcept { return value_; }
+    operator T&() & noexcept { return mValue; }
+    operator const T&() const& noexcept { return mValue; }
 
     // Raw pointer access
-    [[nodiscard]] constexpr T* data() noexcept { return &value_; }
-    [[nodiscard]] constexpr const T* data() const noexcept { return &value_; }
+    [[nodiscard]] constexpr T* data() noexcept { return &mValue; }
+    [[nodiscard]] constexpr const T* data() const noexcept { return &mValue; }
 
     // ========================================================================
     // Modifiers
@@ -184,15 +184,15 @@ public:
     constexpr T& emplace(Args&&... args)
         noexcept(std::is_nothrow_constructible_v<T, Args...>)
     {
-        value_.~T();
-        new (&value_) T(std::forward<Args>(args)...);
-        return value_;
+        mValue.~T();
+        new (&mValue) T(std::forward<Args>(args)...);
+        return mValue;
     }
 
     // Reset to default value
     constexpr void reset() noexcept(std::is_nothrow_default_constructible_v<T>)
     {
-        value_ = T();
+        mValue = T();
     }
 
     // Swap
@@ -200,7 +200,7 @@ public:
         noexcept(std::is_nothrow_swappable_v<T>)
     {
         using std::swap;
-        swap(value_, other.value_);
+        swap(mValue, other.mValue);
     }
 
     // ========================================================================
@@ -212,20 +212,20 @@ public:
     template <typename Func>
     [[nodiscard]] constexpr decltype(auto) if_debug(Func&& func)
     {
-        return std::forward<Func>(func)(value_);
+        return std::forward<Func>(func)(mValue);
     }
 
     template <typename Func>
     [[nodiscard]] constexpr decltype(auto) if_debug(Func&& func) const
     {
-        return std::forward<Func>(func)(value_);
+        return std::forward<Func>(func)(mValue);
     }
 
     // Modify value in-place with function
     template <typename Func>
     constexpr void modify(Func&& func)
     {
-        std::forward<Func>(func)(value_);
+        std::forward<Func>(func)(mValue);
     }
 
     // Get value or default (for cross-mode compatibility)
@@ -234,14 +234,14 @@ public:
     [[nodiscard]] constexpr T value_or(U&&) const&
         noexcept(std::is_nothrow_copy_constructible_v<T>)
     {
-        return value_;
+        return mValue;
     }
 
     template <typename U>
     [[nodiscard]] constexpr T value_or(U&&) &&
         noexcept(std::is_nothrow_move_constructible_v<T>)
     {
-        return std::move(value_);
+        return std::move(mValue);
     }
 
     // ========================================================================
@@ -255,7 +255,7 @@ public:
         noexcept(noexcept(std::declval<U>() == std::declval<U>()))
         -> std::enable_if_t<is_equality_comparable_v<U>, bool>
     {
-        return value_ == other.value_;
+        return mValue == other.mValue;
     }
 
     template <typename U = T>
@@ -263,7 +263,7 @@ public:
         noexcept(noexcept(std::declval<U>() == std::declval<U>()))
         -> std::enable_if_t<is_equality_comparable_v<U>, bool>
     {
-        return value_ != other.value_;
+        return mValue != other.mValue;
     }
 
     template <typename U = T>
@@ -271,7 +271,7 @@ public:
         noexcept(noexcept(std::declval<U>() < std::declval<U>()))
         -> std::enable_if_t<is_less_comparable_v<U>, bool>
     {
-        return value_ < other.value_;
+        return mValue < other.mValue;
     }
 
     template <typename U = T>
@@ -279,7 +279,7 @@ public:
         noexcept(noexcept(std::declval<U>() < std::declval<U>()))
         -> std::enable_if_t<is_less_comparable_v<U>, bool>
     {
-        return value_ <= other.value_;
+        return mValue <= other.mValue;
     }
 
     template <typename U = T>
@@ -287,7 +287,7 @@ public:
         noexcept(noexcept(std::declval<U>() < std::declval<U>()))
         -> std::enable_if_t<is_less_comparable_v<U>, bool>
     {
-        return value_ > other.value_;
+        return mValue > other.mValue;
     }
 
     template <typename U = T>
@@ -295,7 +295,7 @@ public:
         noexcept(noexcept(std::declval<U>() < std::declval<U>()))
         -> std::enable_if_t<is_less_comparable_v<U>, bool>
     {
-        return value_ >= other.value_;
+        return mValue >= other.mValue;
     }
 
     // Comparison with raw T (debug mode only - deleted in release)
@@ -304,7 +304,7 @@ public:
         noexcept(noexcept(std::declval<U>() == std::declval<U>()))
         -> std::enable_if_t<is_equality_comparable_v<U>, bool>
     {
-        return value_ == other;
+        return mValue == other;
     }
 
     template <typename U = T>
@@ -312,7 +312,7 @@ public:
         noexcept(noexcept(std::declval<U>() == std::declval<U>()))
         -> std::enable_if_t<is_equality_comparable_v<U>, bool>
     {
-        return value_ != other;
+        return mValue != other;
     }
 
     // ========================================================================
@@ -325,7 +325,7 @@ public:
     {
         if constexpr (std::is_integral_v<T>)
         {
-            ++value_;
+            ++mValue;
         }
         return *this;
     }
@@ -334,7 +334,7 @@ public:
     {
         if constexpr (std::is_integral_v<T>)
         {
-            return value_++;
+            return mValue++;
         }
         else
         {
@@ -346,7 +346,7 @@ public:
     {
         if constexpr (std::is_integral_v<T>)
         {
-            --value_;
+            --mValue;
         }
         return *this;
     }
@@ -355,7 +355,7 @@ public:
     {
         if constexpr (std::is_integral_v<T>)
         {
-            return value_--;
+            return mValue--;
         }
         else
         {
@@ -369,7 +369,7 @@ public:
     {
         if constexpr (std::is_arithmetic_v<T>)
         {
-            value_ += rhs;
+            mValue += rhs;
         }
         return *this;
     }
@@ -379,7 +379,7 @@ public:
     {
         if constexpr (std::is_arithmetic_v<T>)
         {
-            value_ -= rhs;
+            mValue -= rhs;
         }
         return *this;
     }

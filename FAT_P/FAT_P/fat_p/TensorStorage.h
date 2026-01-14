@@ -118,10 +118,10 @@ public:
      * @brief Construct control block with data pointer and allocator
      */
     TensorControlBlock(T* ptr, size_t size, const Allocator& alloc)
-        : ptr_(ptr)
+        : mPtr(ptr)
         , size_(size)
         , ref_count_(1)
-        , allocator_(alloc) {}
+        , mAllocator(alloc) {}
     
     /**
      * @brief Increment reference count (lock-free)
@@ -157,24 +157,24 @@ public:
      * @brief Get data pointer
      */
     T* get() const noexcept {
-        return ptr_;
+        return mPtr;
     }
     
     /**
      * @brief Deallocate data
      */
     void deallocate() {
-        if (ptr_) {
-            allocator_.deallocate(ptr_, size_);
-            ptr_ = nullptr;
+        if (mPtr) {
+            mAllocator.deallocate(mPtr, size_);
+            mPtr = nullptr;
         }
     }
     
 private:
-    T* ptr_;
+    T* mPtr;
     size_t size_;
     std::atomic<long> ref_count_;
-    Allocator allocator_;
+    Allocator mAllocator;
     
     // Non-copyable, non-movable
     TensorControlBlock(const TensorControlBlock&) = delete;
@@ -213,16 +213,16 @@ public:
      * @brief Default constructor (null storage)
      */
     TensorStorage() noexcept
-        : control_(nullptr) {}
+        : mControl(nullptr) {}
     
     /**
      * @brief Construct with data pointer, size, and allocator
      */
     TensorStorage(T* ptr, size_t size, const Allocator& alloc = Allocator())
-        : control_(nullptr) {
+        : mControl(nullptr) {
         if (ptr) {
             try {
-                control_ = new control_block_type(ptr, size, alloc);
+                mControl = new control_block_type(ptr, size, alloc);
             } catch (...) {
                 // Clean up the pointer if control block allocation fails
                 Allocator local_alloc = alloc;
@@ -236,9 +236,9 @@ public:
      * @brief Copy constructor (increments reference count)
      */
     TensorStorage(const TensorStorage& other) noexcept
-        : control_(other.control_) {
-        if (control_) {
-            control_->add_ref();
+        : mControl(other.mControl) {
+        if (mControl) {
+            mControl->add_ref();
         }
     }
     
@@ -246,8 +246,8 @@ public:
      * @brief Move constructor (transfers ownership)
      */
     TensorStorage(TensorStorage&& other) noexcept
-        : control_(other.control_) {
-        other.control_ = nullptr;
+        : mControl(other.mControl) {
+        other.mControl = nullptr;
     }
     
     /**
@@ -267,9 +267,9 @@ public:
     TensorStorage& operator=(const TensorStorage& other) noexcept {
         if (this != &other) {
             release();
-            control_ = other.control_;
-            if (control_) {
-                control_->add_ref();
+            mControl = other.mControl;
+            if (mControl) {
+                mControl->add_ref();
             }
         }
         return *this;
@@ -281,8 +281,8 @@ public:
     TensorStorage& operator=(TensorStorage&& other) noexcept {
         if (this != &other) {
             release();
-            control_ = other.control_;
-            other.control_ = nullptr;
+            mControl = other.mControl;
+            other.mControl = nullptr;
         }
         return *this;
     }
@@ -295,7 +295,7 @@ public:
      * @brief Get raw pointer
      */
     T* get() const noexcept {
-        return control_ ? control_->get() : nullptr;
+        return mControl ? mControl->get() : nullptr;
     }
     
     /**
@@ -323,14 +323,14 @@ public:
      * @brief Check if storage is null
      */
     explicit operator bool() const noexcept {
-        return control_ != nullptr;
+        return mControl != nullptr;
     }
     
     /**
      * @brief Get reference count
      */
     long use_count() const noexcept {
-        return control_ ? control_->use_count() : 0;
+        return mControl ? mControl->use_count() : 0;
     }
     
     /**
@@ -358,7 +358,7 @@ public:
         release();
         if (ptr) {
             try {
-                control_ = new control_block_type(ptr, size, alloc);
+                mControl = new control_block_type(ptr, size, alloc);
             } catch (...) {
                 // Clean up the pointer if control block allocation fails
                 Allocator local_alloc = alloc;
@@ -372,7 +372,7 @@ public:
      * @brief Swap with another storage
      */
     void swap(TensorStorage& other) noexcept {
-        std::swap(control_, other.control_);
+        std::swap(mControl, other.mControl);
     }
     
     // =========================================================================
@@ -408,14 +408,14 @@ private:
      * @brief Release reference (called by destructor and reset)
      */
     void release() noexcept {
-        if (control_ && control_->release_ref()) {
-            control_->deallocate();
-            delete control_;
+        if (mControl && mControl->release_ref()) {
+            mControl->deallocate();
+            delete mControl;
         }
-        control_ = nullptr;
+        mControl = nullptr;
     }
     
-    control_block_type* control_;
+    control_block_type* mControl;
 };
 
 // =============================================================================

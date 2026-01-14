@@ -97,38 +97,38 @@ public:
     using enum_type = E;
     using underlying_type = std::underlying_type_t<E>;
     
-    constexpr EnumPlusWrapper() noexcept : value_(static_cast<E>(0)) {}
-    constexpr explicit EnumPlusWrapper(E value) noexcept : value_(value) {}
+    constexpr EnumPlusWrapper() noexcept : mValue(static_cast<E>(0)) {}
+    constexpr explicit EnumPlusWrapper(E value) noexcept : mValue(value) {}
     
     // DELETE construction from underlying type — enforces strong typing
     EnumPlusWrapper(underlying_type) = delete;
     EnumPlusWrapper& operator=(underlying_type) = delete;
     
-    constexpr E value() const noexcept { return value_; }
+    constexpr E value() const noexcept { return mValue; }
     constexpr underlying_type underlying() const noexcept { 
-        return static_cast<underlying_type>(value_); 
+        return static_cast<underlying_type>(mValue); 
     }
     
-    constexpr operator E() const noexcept { return value_; }
+    constexpr operator E() const noexcept { return mValue; }
     
     constexpr bool operator==(const EnumPlusWrapper& other) const noexcept {
-        return value_ == other.value_;
+        return mValue == other.mValue;
     }
     
     constexpr bool operator!=(const EnumPlusWrapper& other) const noexcept {
-        return value_ != other.value_;
+        return mValue != other.mValue;
     }
     
     constexpr bool operator==(E other) const noexcept {
-        return value_ == other;
+        return mValue == other;
     }
     
     constexpr bool operator!=(E other) const noexcept {
-        return value_ != other;
+        return mValue != other;
     }
     
 private:
-    E value_;
+    E mValue;
 };
 
 // ============================================================================

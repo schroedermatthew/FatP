@@ -197,9 +197,9 @@ public:
     };
 
 private:
-    size_type rows_;
-    size_type cols_;
-    value_vector values_;
+    size_type mRows;
+    size_type mCols;
+    value_vector mValues;
     index_vector col_indices_;
     ptr_vector row_ptrs_;
 
@@ -270,7 +270,7 @@ public:
     // Constructors
     // =========================================================================
 
-    HpcCSRMatrix() : rows_(0), cols_(0)
+    HpcCSRMatrix() : mRows(0), mCols(0)
     {
         row_ptrs_.push_back(0);
     }
@@ -285,7 +285,7 @@ public:
      * @brief Construct empty matrix with given dimensions
      */
     explicit HpcCSRMatrix(size_type rows, size_type cols)
-        : rows_(rows), cols_(cols)
+        : mRows(rows), mCols(cols)
     {
         validate_dimensions(rows, cols);
         row_ptrs_.resize(rows + 1, 0);
@@ -301,7 +301,7 @@ public:
                  const ColContainer& col_indices,
                  const ValContainer& values,
                  DuplicatePolicy dup_policy = DuplicatePolicy::Sum)
-        : rows_(rows), cols_(cols)
+        : mRows(rows), mCols(cols)
     {
         validate_dimensions(rows, cols);
 
@@ -342,7 +342,7 @@ public:
         // Build CSR based on duplicate policy
         if (dup_policy == DuplicatePolicy::Keep)
         {
-            values_.reserve(nnz_input);
+            mValues.reserve(nnz_input);
             col_indices_.reserve(nnz_input);
 
             for (size_type i = 0; i < nnz_input; ++i)
@@ -353,7 +353,7 @@ public:
                 if (!is_effectively_zero(val))
                 {
                     size_type r = static_cast<size_type>(row_indices[idx]);
-                    values_.push_back(val);
+                    mValues.push_back(val);
                     col_indices_.push_back(static_cast<IndexType>(col_indices[idx]));
                     row_ptrs_[r + 1]++;
                 }
@@ -361,7 +361,7 @@ public:
         }
         else
         {
-            values_.reserve(nnz_input);
+            mValues.reserve(nnz_input);
             col_indices_.reserve(nnz_input);
 
             size_type i = 0;
@@ -394,7 +394,7 @@ public:
                 if (!is_effectively_zero(sum))
                 {
                     size_type r = static_cast<size_type>(cur_row);
-                    values_.push_back(sum);
+                    mValues.push_back(sum);
                     col_indices_.push_back(static_cast<IndexType>(cur_col));
                     row_ptrs_[r + 1]++;
                 }
@@ -404,7 +404,7 @@ public:
         }
 
         // Cumulative sum for row_ptrs_
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             row_ptrs_[i + 1] += row_ptrs_[i];
         }
@@ -425,7 +425,7 @@ public:
         validate_dense_size(rows, cols);
 
         HpcCSRMatrix result(rows, cols);
-        result.values_.reserve(rows * std::min(cols, size_type{16}));
+        result.mValues.reserve(rows * std::min(cols, size_type{16}));
         result.col_indices_.reserve(rows * std::min(cols, size_type{16}));
 
         using std::abs;
@@ -453,11 +453,11 @@ public:
 
                 if (is_nonzero)
                 {
-                    result.values_.push_back(val);
+                    result.mValues.push_back(val);
                     result.col_indices_.push_back(static_cast<IndexType>(j));
                 }
             }
-            result.row_ptrs_[i + 1] = result.values_.size();
+            result.row_ptrs_[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -467,12 +467,12 @@ public:
     // Accessors
     // =========================================================================
 
-    [[nodiscard]] size_type rows() const noexcept { return rows_; }
-    [[nodiscard]] size_type cols() const noexcept { return cols_; }
-    [[nodiscard]] size_type nnz() const noexcept { return values_.size(); }
-    [[nodiscard]] bool empty() const noexcept { return values_.empty(); }
+    [[nodiscard]] size_type rows() const noexcept { return mRows; }
+    [[nodiscard]] size_type cols() const noexcept { return mCols; }
+    [[nodiscard]] size_type nnz() const noexcept { return mValues.size(); }
+    [[nodiscard]] bool empty() const noexcept { return mValues.empty(); }
 
-    [[nodiscard]] const value_vector& values() const noexcept { return values_; }
+    [[nodiscard]] const value_vector& values() const noexcept { return mValues; }
     [[nodiscard]] const index_vector& col_indices() const noexcept { return col_indices_; }
     [[nodiscard]] const ptr_vector& row_ptrs() const noexcept { return row_ptrs_; }
 
@@ -489,7 +489,7 @@ public:
      */
     [[nodiscard]] bool is_numa_available() const noexcept
     {
-        return values_.is_numa_available();
+        return mValues.is_numa_available();
     }
 
     /**
@@ -498,13 +498,13 @@ public:
      */
     [[nodiscard]] T* values_aligned() noexcept
     {
-        return values_.assume_aligned();
+        return mValues.assume_aligned();
     }
 
     [[nodiscard]] const T* values_aligned() const noexcept
     {
         // Safe: assume_aligned() is logically const (returns pointer, no mutation)
-        return const_cast<value_vector&>(values_).assume_aligned();
+        return const_cast<value_vector&>(mValues).assume_aligned();
     }
 
     /**
@@ -531,8 +531,8 @@ public:
      */
     [[nodiscard]] T operator()(size_type row, size_type col) const
     {
-        FATP_ALWAYS_ENFORCE(row < rows_, "HpcCSRMatrix: row index out of range: ", row, " >= ", rows_);
-        FATP_ALWAYS_ENFORCE(col < cols_, "HpcCSRMatrix: col index out of range: ", col, " >= ", cols_);
+        FATP_ALWAYS_ENFORCE(row < mRows, "HpcCSRMatrix: row index out of range: ", row, " >= ", mRows);
+        FATP_ALWAYS_ENFORCE(col < mCols, "HpcCSRMatrix: col index out of range: ", col, " >= ", mCols);
 
         ptr_type start = row_ptrs_[row];
         ptr_type end = row_ptrs_[row + 1];
@@ -544,7 +544,7 @@ public:
         {
             if (col_indices_[j] == target_col)
             {
-                sum += values_[j];
+                sum += mValues[j];
             }
             else if (col_indices_[j] > target_col)
             {
@@ -574,18 +574,18 @@ public:
         FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec: y pointer is null");
         FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec: x and y must not alias (use separate buffers)");
 
-        const T* vals = values_.data();
+        const T* vals = mValues.data();
         const IndexType* cols = col_indices_.data();
         const ptr_type* ptrs = row_ptrs_.data();
 
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             T sum = T{0};
             ptr_type start = ptrs[i];
             ptr_type end = ptrs[i + 1];
 
             // Prefetch next row's data
-            if (use_prefetch && i + 1 < rows_)
+            if (use_prefetch && i + 1 < mRows)
             {
                 ptr_type next_start = ptrs[i + 1];
                 ptr_type next_end = ptrs[i + 2];
@@ -627,18 +627,18 @@ public:
         FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec: y pointer is null");
         FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec: x and y must not alias (use separate buffers)");
 
-        const T* vals = values_.data();
+        const T* vals = mValues.data();
         const IndexType* cols = col_indices_.data();
         const ptr_type* ptrs = row_ptrs_.data();
 
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             T sum = T{0};
             ptr_type start = ptrs[i];
             ptr_type end = ptrs[i + 1];
 
             // Prefetch next row's data
-            if (use_prefetch && i + 1 < rows_)
+            if (use_prefetch && i + 1 < mRows)
             {
                 ptr_type next_start = ptrs[i + 1];
                 ptr_type next_end = ptrs[i + 2];
@@ -676,8 +676,8 @@ public:
     void matvec(T alpha, const std::vector<T>& x, T beta, std::vector<T>& y,
                 bool use_prefetch = true) const
     {
-        FATP_ALWAYS_ENFORCE(x.size() == cols_, "HpcCSRMatrix: x size mismatch");
-        FATP_ALWAYS_ENFORCE(y.size() == rows_, "HpcCSRMatrix: y size mismatch");
+        FATP_ALWAYS_ENFORCE(x.size() == mCols, "HpcCSRMatrix: x size mismatch");
+        FATP_ALWAYS_ENFORCE(y.size() == mRows, "HpcCSRMatrix: y size mismatch");
         matvec(alpha, x.data(), beta, y.data(), use_prefetch);
     }
 
@@ -686,8 +686,8 @@ public:
      */
     [[nodiscard]] std::vector<T> operator*(const std::vector<T>& x) const
     {
-        FATP_ALWAYS_ENFORCE(x.size() == cols_, "HpcCSRMatrix: vector size mismatch");
-        std::vector<T> y(rows_);
+        FATP_ALWAYS_ENFORCE(x.size() == mCols, "HpcCSRMatrix: vector size mismatch");
+        std::vector<T> y(mRows);
         matvec(x.data(), y.data());
         return y;
     }
@@ -722,7 +722,7 @@ public:
         FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec_parallel: y pointer is null");
         FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec_parallel: x and y must not alias");
 
-        const size_type n_rows = rows_;
+        const size_type n_rows = mRows;
         const size_type n_nnz = nnz();
 
         if (n_rows == 0 || n_nnz == 0)
@@ -750,7 +750,7 @@ public:
         auto partitions = detail::compute_balanced_partitions(
             row_ptrs_.data(), n_rows, num_tasks);
 
-        const T* vals = values_.data();
+        const T* vals = mValues.data();
         const IndexType* cols = col_indices_.data();
         const ptr_type* ptrs = row_ptrs_.data();
         const bool do_prefetch = config.use_prefetch;
@@ -818,7 +818,7 @@ public:
         FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec_parallel: y pointer is null");
         FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec_parallel: x and y must not alias");
 
-        const size_type n_rows = rows_;
+        const size_type n_rows = mRows;
         const size_type n_nnz = nnz();
 
         if (n_rows == 0)
@@ -863,7 +863,7 @@ public:
         auto partitions = detail::compute_balanced_partitions(
             row_ptrs_.data(), n_rows, num_tasks);
 
-        const T* vals = values_.data();
+        const T* vals = mValues.data();
         const IndexType* cols = col_indices_.data();
         const ptr_type* ptrs = row_ptrs_.data();
         const bool do_prefetch = config.use_prefetch;
@@ -939,7 +939,7 @@ public:
         FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec_parallel_batch: y pointer is null");
         FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec_parallel_batch: x and y must not alias");
 
-        const size_type n_rows = rows_;
+        const size_type n_rows = mRows;
         const size_type n_nnz = nnz();
 
         if (n_rows == 0 || n_nnz == 0)
@@ -967,7 +967,7 @@ public:
         auto partitions = detail::compute_balanced_partitions(
             row_ptrs_.data(), n_rows, num_tasks);
 
-        const T* vals = values_.data();
+        const T* vals = mValues.data();
         const IndexType* cols = col_indices_.data();
         const ptr_type* ptrs = row_ptrs_.data();
         const bool do_prefetch = config.use_prefetch;
@@ -1028,15 +1028,15 @@ public:
      */
     [[nodiscard]] HpcCSRMatrix transpose_parallel(ThreadPool& pool) const
     {
-        HpcCSRMatrix result(cols_, rows_);
+        HpcCSRMatrix result(mCols, mRows);
 
         if (nnz() == 0)
         {
             return result;
         }
 
-        const size_type n_rows = rows_;
-        const size_type n_cols = cols_;
+        const size_type n_rows = mRows;
+        const size_type n_cols = mCols;
         const size_type n_nnz = nnz();
 
         size_t num_threads = pool.thread_count();
@@ -1099,7 +1099,7 @@ public:
             result.row_ptrs_[i] = col_counts[i];
         }
 
-        result.values_.resize(n_nnz);
+        result.mValues.resize(n_nnz);
         result.col_indices_.resize(n_nnz);
 
         // Phase 2: Scatter in parallel with atomic positions
@@ -1127,7 +1127,7 @@ public:
                             IndexType col = col_indices_[j];
                             ptr_type dest = write_pos[col].fetch_add(1, std::memory_order_relaxed);
 
-                            result.values_[dest] = values_[j];
+                            result.mValues[dest] = mValues[j];
                             result.col_indices_[dest] = static_cast<IndexType>(i);
                         }
                     }
@@ -1185,13 +1185,13 @@ public:
                         for (ptr_type k = 0; k < row_len; ++k)
                         {
                             sorted_cols[k] = result.col_indices_[row_start + perm[k]];
-                            sorted_vals[k] = result.values_[row_start + perm[k]];
+                            sorted_vals[k] = result.mValues[row_start + perm[k]];
                         }
 
                         for (ptr_type k = 0; k < row_len; ++k)
                         {
                             result.col_indices_[row_start + k] = sorted_cols[k];
-                            result.values_[row_start + k] = sorted_vals[k];
+                            result.mValues[row_start + k] = sorted_vals[k];
                         }
                     }
                 }));
@@ -1250,7 +1250,7 @@ public:
      */
     [[nodiscard]] HpcCSRMatrix transpose() const
     {
-        HpcCSRMatrix result(cols_, rows_);
+        HpcCSRMatrix result(mCols, mRows);
 
         if (nnz() == 0)
         {
@@ -1258,30 +1258,30 @@ public:
         }
 
         // Count entries per column (NUMA-local workspace)
-        memory::NumaLocalVector<ptr_type> col_counts(cols_ + 1, 0);
+        memory::NumaLocalVector<ptr_type> col_counts(mCols + 1, 0);
         for (size_type i = 0; i < col_indices_.size(); ++i)
         {
             col_counts[static_cast<size_type>(col_indices_[i]) + 1]++;
         }
 
         // Cumulative sum
-        for (size_type i = 0; i < cols_; ++i)
+        for (size_type i = 0; i < mCols; ++i)
         {
             col_counts[i + 1] += col_counts[i];
         }
 
         // Copy to result row_ptrs_
-        for (size_type i = 0; i <= cols_; ++i)
+        for (size_type i = 0; i <= mCols; ++i)
         {
             result.row_ptrs_[i] = col_counts[i];
         }
 
-        result.values_.resize(nnz());
+        result.mValues.resize(nnz());
         result.col_indices_.resize(nnz());
 
         // Fill transposed values (reuse col_counts as write positions)
         memory::NumaLocalVector<ptr_type> write_pos(col_counts.begin(), col_counts.end());
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             ptr_type start = row_ptrs_[i];
             ptr_type end = row_ptrs_[i + 1];
@@ -1290,7 +1290,7 @@ public:
             {
                 IndexType col = col_indices_[j];
                 ptr_type dest = write_pos[col]++;
-                result.values_[dest] = values_[j];
+                result.mValues[dest] = mValues[j];
                 result.col_indices_[dest] = static_cast<IndexType>(i);
             }
         }
@@ -1303,14 +1303,14 @@ public:
      */
     [[nodiscard]] HpcCSRMatrix operator+(const HpcCSRMatrix& other) const
     {
-        FATP_ALWAYS_ENFORCE(rows_ == other.rows_ && cols_ == other.cols_,
+        FATP_ALWAYS_ENFORCE(mRows == other.mRows && mCols == other.mCols,
                        "HpcCSRMatrix: dimension mismatch for addition");
 
-        HpcCSRMatrix result(rows_, cols_);
-        result.values_.reserve(nnz() + other.nnz());
+        HpcCSRMatrix result(mRows, mCols);
+        result.mValues.reserve(nnz() + other.nnz());
         result.col_indices_.reserve(nnz() + other.nnz());
 
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             ptr_type a_ptr = row_ptrs_[i];
             ptr_type a_end = row_ptrs_[i + 1];
@@ -1331,22 +1331,22 @@ public:
 
                 while (a_ptr < a_end && col_indices_[a_ptr] == cur_col)
                 {
-                    sum += values_[a_ptr++];
+                    sum += mValues[a_ptr++];
                 }
 
                 while (b_ptr < b_end && other.col_indices_[b_ptr] == cur_col)
                 {
-                    sum += other.values_[b_ptr++];
+                    sum += other.mValues[b_ptr++];
                 }
 
                 if (!is_effectively_zero(sum))
                 {
-                    result.values_.push_back(sum);
+                    result.mValues.push_back(sum);
                     result.col_indices_.push_back(cur_col);
                 }
             }
 
-            result.row_ptrs_[i + 1] = result.values_.size();
+            result.row_ptrs_[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -1357,14 +1357,14 @@ public:
      */
     [[nodiscard]] HpcCSRMatrix operator-(const HpcCSRMatrix& other) const
     {
-        FATP_ALWAYS_ENFORCE(rows_ == other.rows_ && cols_ == other.cols_,
+        FATP_ALWAYS_ENFORCE(mRows == other.mRows && mCols == other.mCols,
                        "HpcCSRMatrix: dimension mismatch for subtraction");
 
-        HpcCSRMatrix result(rows_, cols_);
-        result.values_.reserve(nnz() + other.nnz());
+        HpcCSRMatrix result(mRows, mCols);
+        result.mValues.reserve(nnz() + other.nnz());
         result.col_indices_.reserve(nnz() + other.nnz());
 
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             ptr_type a_ptr = row_ptrs_[i];
             ptr_type a_end = row_ptrs_[i + 1];
@@ -1385,22 +1385,22 @@ public:
 
                 while (a_ptr < a_end && col_indices_[a_ptr] == cur_col)
                 {
-                    diff += values_[a_ptr++];
+                    diff += mValues[a_ptr++];
                 }
 
                 while (b_ptr < b_end && other.col_indices_[b_ptr] == cur_col)
                 {
-                    diff -= other.values_[b_ptr++];
+                    diff -= other.mValues[b_ptr++];
                 }
 
                 if (!is_effectively_zero(diff))
                 {
-                    result.values_.push_back(diff);
+                    result.mValues.push_back(diff);
                     result.col_indices_.push_back(cur_col);
                 }
             }
 
-            result.row_ptrs_[i + 1] = result.values_.size();
+            result.row_ptrs_[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -1413,13 +1413,13 @@ public:
     {
         if (is_effectively_zero(alpha))
         {
-            return HpcCSRMatrix(rows_, cols_);
+            return HpcCSRMatrix(mRows, mCols);
         }
 
         HpcCSRMatrix result = *this;
-        for (size_type i = 0; i < result.values_.size(); ++i)
+        for (size_type i = 0; i < result.mValues.size(); ++i)
         {
-            result.values_[i] *= alpha;
+            result.mValues[i] *= alpha;
         }
         return result;
     }
@@ -1428,18 +1428,18 @@ public:
     {
         if (is_effectively_zero(alpha))
         {
-            values_.clear();
+            mValues.clear();
             col_indices_.clear();
-            for (size_type i = 0; i <= rows_; ++i)
+            for (size_type i = 0; i <= mRows; ++i)
             {
                 row_ptrs_[i] = 0;
             }
             return *this;
         }
 
-        for (size_type i = 0; i < values_.size(); ++i)
+        for (size_type i = 0; i < mValues.size(); ++i)
         {
-            values_[i] *= alpha;
+            mValues[i] *= alpha;
         }
         return *this;
     }
@@ -1462,20 +1462,20 @@ public:
      */
     [[nodiscard]] HpcCSRMatrix matmul(const HpcCSRMatrix& B) const
     {
-        FATP_ALWAYS_ENFORCE(cols_ == B.rows_,
+        FATP_ALWAYS_ENFORCE(mCols == B.mRows,
                        "HpcCSRMatrix: incompatible dimensions for matmul");
 
-        HpcCSRMatrix result(rows_, B.cols_);
-        result.values_.reserve(std::max(nnz(), B.nnz()));
+        HpcCSRMatrix result(mRows, B.mCols);
+        result.mValues.reserve(std::max(nnz(), B.nnz()));
         result.col_indices_.reserve(std::max(nnz(), B.nnz()));
 
         // Workspace (hoisted out of loop, NUMA-local for memory locality)
-        memory::NumaLocalVector<T> accumulator(B.cols_, T{0});
-        memory::NumaLocalVector<size_type> marker(B.cols_, static_cast<size_type>(-1));
+        memory::NumaLocalVector<T> accumulator(B.mCols, T{0});
+        memory::NumaLocalVector<size_type> marker(B.mCols, static_cast<size_type>(-1));
         std::vector<IndexType> touched_cols;  // Small, frequently cleared
-        touched_cols.reserve(std::min(B.cols_, size_type{256}));
+        touched_cols.reserve(std::min(B.mCols, size_type{256}));
 
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             touched_cols.clear();
 
@@ -1485,7 +1485,7 @@ public:
             for (ptr_type a_ptr = a_start; a_ptr < a_end; ++a_ptr)
             {
                 IndexType k = col_indices_[a_ptr];
-                T a_val = values_[a_ptr];
+                T a_val = mValues[a_ptr];
 
                 ptr_type b_start = B.row_ptrs_[k];
                 ptr_type b_end = B.row_ptrs_[k + 1];
@@ -1501,7 +1501,7 @@ public:
                         touched_cols.push_back(j_signed);
                     }
 
-                    accumulator[j] += a_val * B.values_[b_ptr];
+                    accumulator[j] += a_val * B.mValues[b_ptr];
                 }
             }
 
@@ -1513,13 +1513,13 @@ public:
                 T val = accumulator[j];
                 if (!is_effectively_zero(val))
                 {
-                    result.values_.push_back(val);
+                    result.mValues.push_back(val);
                     result.col_indices_.push_back(j_signed);
                 }
                 accumulator[j] = T{0};
             }
 
-            result.row_ptrs_[i + 1] = result.values_.size();
+            result.row_ptrs_[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -1534,18 +1534,18 @@ public:
      */
     [[nodiscard]] std::vector<T> to_dense() const
     {
-        validate_dense_size(rows_, cols_);
+        validate_dense_size(mRows, mCols);
 
-        std::vector<T> dense(rows_ * cols_, T{0});
+        std::vector<T> dense(mRows * mCols, T{0});
 
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             ptr_type start = row_ptrs_[i];
             ptr_type end = row_ptrs_[i + 1];
 
             for (ptr_type j = start; j < end; ++j)
             {
-                dense[i * cols_ + col_indices_[j]] += values_[j];
+                dense[i * mCols + col_indices_[j]] += mValues[j];
             }
         }
 
@@ -1557,12 +1557,12 @@ public:
      */
     [[nodiscard]] double density() const
     {
-        if (rows_ == 0 || cols_ == 0)
+        if (mRows == 0 || mCols == 0)
         {
             return 0.0;
         }
-        validate_dense_size(rows_, cols_);
-        return static_cast<double>(nnz()) / static_cast<double>(rows_ * cols_);
+        validate_dense_size(mRows, mCols);
+        return static_cast<double>(nnz()) / static_cast<double>(mRows * mCols);
     }
 
     [[nodiscard]] double sparsity() const
@@ -1577,7 +1577,7 @@ public:
      */
     [[nodiscard]] bool is_symmetric(T epsilon = default_epsilon()) const
     {
-        if (rows_ != cols_)
+        if (mRows != mCols)
         {
             return false;
         }
@@ -1591,7 +1591,7 @@ public:
         }
 
         // Check row pointers match
-        for (size_type i = 0; i <= rows_; ++i)
+        for (size_type i = 0; i <= mRows; ++i)
         {
             if (row_ptrs_[i] != trans.row_ptrs_[i])
             {
@@ -1609,9 +1609,9 @@ public:
         }
 
         // Check values match (within epsilon for floating-point)
-        for (size_type i = 0; i < values_.size(); ++i)
+        for (size_type i = 0; i < mValues.size(); ++i)
         {
-            T diff = values_[i] - trans.values_[i];
+            T diff = mValues[i] - trans.mValues[i];
             if constexpr (std::is_floating_point_v<T>)
             {
                 using std::abs;
@@ -1638,7 +1638,7 @@ public:
 
     [[nodiscard]] bool operator==(const HpcCSRMatrix& other) const
     {
-        if (rows_ != other.rows_ || cols_ != other.cols_)
+        if (mRows != other.mRows || mCols != other.mCols)
         {
             return false;
         }
@@ -1647,9 +1647,9 @@ public:
             return false;
         }
 
-        for (size_type i = 0; i < values_.size(); ++i)
+        for (size_type i = 0; i < mValues.size(); ++i)
         {
-            if (values_[i] != other.values_[i])
+            if (mValues[i] != other.mValues[i])
             {
                 return false;
             }
@@ -1683,7 +1683,7 @@ public:
 
     friend std::ostream& operator<<(std::ostream& os, const HpcCSRMatrix& m)
     {
-        os << "HpcCSRMatrix(" << m.rows_ << "x" << m.cols_ << ", nnz=" << m.nnz();
+        os << "HpcCSRMatrix(" << m.mRows << "x" << m.mCols << ", nnz=" << m.nnz();
         if (m.is_numa_available())
         {
             os << ", NUMA-enabled";

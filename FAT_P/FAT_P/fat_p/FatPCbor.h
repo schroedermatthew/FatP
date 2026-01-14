@@ -126,7 +126,7 @@ public:
                   "Buffer must store uint8_t and provide data()/size()/push_back()");
 
     explicit CborWriter(Buffer &buffer) noexcept
-        : buffer_(buffer)
+        : mBuffer(buffer)
     {
     }
 
@@ -159,18 +159,18 @@ public:
 
     void write_bool(bool value)
     {
-        buffer_.push_back(static_cast<std::uint8_t>(0xF4U + (value ? 1U : 0U)));
+        mBuffer.push_back(static_cast<std::uint8_t>(0xF4U + (value ? 1U : 0U)));
     }
 
     void write_null()
     {
-        buffer_.push_back(0xF6U);
+        mBuffer.push_back(0xF6U);
     }
 
     void write_double(double value)
     {
         const std::uint8_t header = static_cast<std::uint8_t>((7U << 5U) | 27U);
-        buffer_.push_back(header);
+        mBuffer.push_back(header);
 
         std::uint64_t bits = 0;
         static_assert(sizeof(bits) == sizeof(value), "Unexpected double size");
@@ -178,7 +178,7 @@ public:
 
         for (int i = 7; i >= 0; --i)
         {
-            buffer_.push_back(
+            mBuffer.push_back(
                 static_cast<std::uint8_t>((bits >> (8 * i)) & 0xFFU));
         }
     }
@@ -186,8 +186,8 @@ public:
     void write_string(const std::string &value)
     {
         write_major_type(3U, static_cast<std::uint64_t>(value.size()));
-        buffer_.insert(
-            buffer_.end(),
+        mBuffer.insert(
+            mBuffer.end(),
             reinterpret_cast<const std::uint8_t *>(value.data()),
             reinterpret_cast<const std::uint8_t *>(value.data()) + value.size());
     }
@@ -198,7 +198,7 @@ public:
         static_assert(detail::is_byte_container_v<BytesContainer>,
                       "BytesContainer must store uint8_t and provide data()/size()");
         write_major_type(2U, static_cast<std::uint64_t>(bytes.size()));
-        buffer_.insert(buffer_.end(), bytes.data(), bytes.data() + bytes.size());
+        mBuffer.insert(mBuffer.end(), bytes.data(), bytes.data() + bytes.size());
     }
 
     void write_array_header(std::uint64_t size)
@@ -213,11 +213,11 @@ public:
 
     std::size_t size() const noexcept
     {
-        return buffer_.size();
+        return mBuffer.size();
     }
 
 private:
-    Buffer &buffer_;
+    Buffer &mBuffer;
 
     void write_major_type(std::uint8_t major_type, std::uint64_t arg)
     {
@@ -226,45 +226,45 @@ private:
         if (arg < 24U)
         {
             const auto ai = static_cast<std::uint8_t>(arg);
-            buffer_.push_back(
+            mBuffer.push_back(
                 static_cast<std::uint8_t>((major_type << 5U) | ai));
             return;
         }
 
         if (arg <= std::numeric_limits<std::uint8_t>::max())
         {
-            buffer_.push_back(
+            mBuffer.push_back(
                 static_cast<std::uint8_t>((major_type << 5U) | 24U));
-            buffer_.push_back(static_cast<std::uint8_t>(arg));
+            mBuffer.push_back(static_cast<std::uint8_t>(arg));
             return;
         }
 
         if (arg <= std::numeric_limits<std::uint16_t>::max())
         {
-            buffer_.push_back(
+            mBuffer.push_back(
                 static_cast<std::uint8_t>((major_type << 5U) | 25U));
-            buffer_.push_back(static_cast<std::uint8_t>((arg >> 8) & 0xFFU));
-            buffer_.push_back(static_cast<std::uint8_t>(arg & 0xFFU));
+            mBuffer.push_back(static_cast<std::uint8_t>((arg >> 8) & 0xFFU));
+            mBuffer.push_back(static_cast<std::uint8_t>(arg & 0xFFU));
             return;
         }
 
         if (arg <= std::numeric_limits<std::uint32_t>::max())
         {
-            buffer_.push_back(
+            mBuffer.push_back(
                 static_cast<std::uint8_t>((major_type << 5U) | 26U));
             for (int i = 3; i >= 0; --i)
             {
-                buffer_.push_back(static_cast<std::uint8_t>(
+                mBuffer.push_back(static_cast<std::uint8_t>(
                     (arg >> (8 * i)) & 0xFFU));
             }
             return;
         }
 
-        buffer_.push_back(
+        mBuffer.push_back(
             static_cast<std::uint8_t>((major_type << 5U) | 27U));
         for (int i = 7; i >= 0; --i)
         {
-            buffer_.push_back(static_cast<std::uint8_t>(
+            mBuffer.push_back(static_cast<std::uint8_t>(
                 (arg >> (8 * i)) & 0xFFU));
         }
     }
@@ -280,7 +280,7 @@ public:
     CborReader(const std::uint8_t *data, std::size_t size) noexcept
         : data_(data)
         , size_(size)
-        , pos_(0)
+        , mPos(0)
     {
     }
 
@@ -293,7 +293,7 @@ public:
 
     std::size_t remaining() const noexcept
     {
-        return size_ - pos_;
+        return size_ - mPos;
     }
 
     bool empty() const noexcept
@@ -414,7 +414,7 @@ public:
         std::uint64_t bits = 0;
         for (int i = 7; i >= 0; --i)
         {
-            bits |= static_cast<std::uint64_t>(data_[pos_++]) << (8 * i);
+            bits |= static_cast<std::uint64_t>(data_[mPos++]) << (8 * i);
         }
 
         double value = 0.0;
@@ -458,9 +458,9 @@ public:
         std::string out;
         out.resize(static_cast<std::size_t>(len));
         std::memcpy(out.data(),
-                    data_ + pos_,
+                    data_ + mPos,
                     static_cast<std::size_t>(len));
-        pos_ += static_cast<std::size_t>(len);
+        mPos += static_cast<std::size_t>(len);
         return out;
     }
 
@@ -477,16 +477,16 @@ public:
 private:
     const std::uint8_t *data_;
     std::size_t size_;
-    std::size_t pos_;
+    std::size_t mPos;
 
     CborResult<std::uint8_t> read_byte()
     {
-        if (pos_ >= size_)
+        if (mPos >= size_)
         {
             return make_unexpected(
                 CborError("CBOR underflow reading byte"));
         }
-        return data_[pos_++];
+        return data_[mPos++];
     }
 
     CborResult<std::uint64_t> read_arg(std::uint8_t ai)
@@ -503,7 +503,7 @@ private:
 
         if (ai == 24U)
         {
-            return data_[pos_++];
+            return data_[mPos++];
         }
 
         if (ai == 25U)
@@ -513,9 +513,9 @@ private:
                 return make_unexpected(CborError("CBOR underflow"));
             }
             const std::uint64_t v =
-                (static_cast<std::uint64_t>(data_[pos_]) << 8U) |
-                static_cast<std::uint64_t>(data_[pos_ + 1U]);
-            pos_ += 2U;
+                (static_cast<std::uint64_t>(data_[mPos]) << 8U) |
+                static_cast<std::uint64_t>(data_[mPos + 1U]);
+            mPos += 2U;
             return v;
         }
 
@@ -529,7 +529,7 @@ private:
             std::uint64_t v = 0;
             for (int i = 3; i >= 0; --i)
             {
-                v |= static_cast<std::uint64_t>(data_[pos_++]) << (8 * i);
+                v |= static_cast<std::uint64_t>(data_[mPos++]) << (8 * i);
             }
             return v;
         }
@@ -544,7 +544,7 @@ private:
             std::uint64_t v = 0;
             for (int i = 7; i >= 0; --i)
             {
-                v |= static_cast<std::uint64_t>(data_[pos_++]) << (8 * i);
+                v |= static_cast<std::uint64_t>(data_[mPos++]) << (8 * i);
             }
             return v;
         }

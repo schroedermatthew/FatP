@@ -230,7 +230,7 @@ namespace fat_p
 	/**
 	 * @brief Trait to detect unordered *multi* associative containers.
 	 *
-	 * Distinguishes unordered_{set,map} (unique) from unordered_{multiset,multimap} (multi)
+	 * Distinguishes mUnordered{set,map} (unique) from mUnordered{multiset,multimap} (multi)
 	 * using the return type of insert(value_type):
 	 * - unique: std::pair<iterator, bool>
 	 * - multi:  iterator
@@ -765,7 +765,7 @@ namespace fat_p
 						return success;
 					}
 
-					// Unique unordered_{set,map}:
+					// Unique mUnordered{set,map}:
 					for (const auto& elemA : a)
 					{
 						// Handle maps (have mapped_type)

@@ -2748,39 +2748,39 @@ class FuzzRandom
 {
 public:
     explicit FuzzRandom(std::uint64_t seed) noexcept
-        : eng_(seed)
+        : mEng(seed)
     {
     }
 
     std::int64_t i64(std::int64_t lo, std::int64_t hi)
     {
         std::uniform_int_distribution<std::int64_t> d(lo, hi);
-        return d(eng_);
+        return d(mEng);
     }
 
     std::uint64_t u64(std::uint64_t lo, std::uint64_t hi)
     {
         std::uniform_int_distribution<std::uint64_t> d(lo, hi);
-        return d(eng_);
+        return d(mEng);
     }
 
     double dbl(double lo, double hi)
     {
         std::uniform_real_distribution<double> d(lo, hi);
-        return d(eng_);
+        return d(mEng);
     }
 
     std::string str(std::size_t max_len)
     {
         std::uniform_int_distribution<std::size_t> len_dist(0, max_len);
-        const std::size_t len = len_dist(eng_);
+        const std::size_t len = len_dist(mEng);
         std::uniform_int_distribution<int> ch_dist(32, 126);
 
         std::string s;
         s.reserve(len);
         for (std::size_t i = 0; i < len; ++i)
         {
-            char c = static_cast<char>(ch_dist(eng_));
+            char c = static_cast<char>(ch_dist(mEng));
             // Avoid characters that need escaping for simpler round-trip
             if (c == '"' || c == '\\')
             {
@@ -2792,7 +2792,7 @@ public:
     }
 
 private:
-    std::mt19937_64 eng_;
+    std::mt19937_64 mEng;
 };
 
 template <typename T>

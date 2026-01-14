@@ -313,95 +313,95 @@ public:
     using buffer = std::vector<std::uint8_t>;
 
     explicit Encoder(buffer& out) noexcept
-        : out_(out)
+        : mOut(out)
     {
     }
 
     buffer& output() noexcept
     {
-        return out_;
+        return mOut;
     }
 
     void write_uint8(std::uint8_t value)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::Uint8));
-        out_.push_back(value);
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::Uint8));
+        mOut.push_back(value);
     }
 
     void write_uint16(std::uint16_t value)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::Uint16));
-        write_le(out_, value);
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::Uint16));
+        write_le(mOut, value);
     }
 
     void write_uint32(std::uint32_t value)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::Uint32));
-        write_le(out_, value);
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::Uint32));
+        write_le(mOut, value);
     }
 
     void write_uint64(std::uint64_t value)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::Uint64));
-        write_le(out_, value);
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::Uint64));
+        write_le(mOut, value);
     }
 
     void write_int8(std::int8_t value)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::Int8));
-        out_.push_back(static_cast<std::uint8_t>(value));
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::Int8));
+        mOut.push_back(static_cast<std::uint8_t>(value));
     }
 
     void write_int16(std::int16_t value)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::Int16));
-        write_le(out_, value);
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::Int16));
+        write_le(mOut, value);
     }
 
     void write_int32(std::int32_t value)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::Int32));
-        write_le(out_, value);
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::Int32));
+        write_le(mOut, value);
     }
 
     void write_int64(std::int64_t value)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::Int64));
-        write_le(out_, value);
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::Int64));
+        write_le(mOut, value);
     }
 
     void write_float(float value)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::Float32));
-        write_le(out_, value);
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::Float32));
+        write_le(mOut, value);
     }
 
     void write_double(double value)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::Float64));
-        write_le(out_, value);
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::Float64));
+        write_le(mOut, value);
     }
 
     void write_bool(bool value)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::Bool));
-        out_.push_back(value ? 1U : 0U);
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::Bool));
+        mOut.push_back(value ? 1U : 0U);
     }
 
     void write_string(const std::string& value)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::String));
-        write_le(out_, static_cast<std::uint64_t>(value.size()));
-        copy_data(out_,
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::String));
+        write_le(mOut, static_cast<std::uint64_t>(value.size()));
+        copy_data(mOut,
                   reinterpret_cast<const std::uint8_t*>(value.data()),
                   value.size());
     }
 
     void write_bytes(const std::uint8_t* data, std::size_t size)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::Bytes));
-        write_le(out_, static_cast<std::uint64_t>(size));
-        copy_data(out_, data, size);
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::Bytes));
+        write_le(mOut, static_cast<std::uint64_t>(size));
+        copy_data(mOut, data, size);
     }
 
     void write_bytes(const std::vector<std::uint8_t>& data)
@@ -411,30 +411,30 @@ public:
 
     void begin_array(std::size_t size)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::Array));
-        write_le(out_, static_cast<std::uint64_t>(size));
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::Array));
+        write_le(mOut, static_cast<std::uint64_t>(size));
     }
 
     void begin_map(std::size_t size)
     {
-        out_.push_back(static_cast<std::uint8_t>(TypeTag::Map));
-        write_le(out_, static_cast<std::uint64_t>(size));
+        mOut.push_back(static_cast<std::uint8_t>(TypeTag::Map));
+        write_le(mOut, static_cast<std::uint64_t>(size));
     }
 
     // Untagged writes for when caller manages type information
     template <typename T>
     void write_raw(T value)
     {
-        write_le(out_, value);
+        write_le(mOut, value);
     }
 
     void write_raw_bytes(const std::uint8_t* data, std::size_t size)
     {
-        copy_data(out_, data, size);
+        copy_data(mOut, data, size);
     }
 
 private:
-    buffer& out_;
+    buffer& mOut;
 };
 
 // ============================================================================
@@ -447,7 +447,7 @@ public:
     Decoder(const std::uint8_t* data, std::size_t size) noexcept
         : data_(data)
         , size_(size)
-        , pos_(0)
+        , mPos(0)
     {
     }
 
@@ -458,127 +458,127 @@ public:
 
     bool eof() const noexcept
     {
-        return pos_ >= size_;
+        return mPos >= size_;
     }
 
     std::size_t remaining() const noexcept
     {
-        return size_ - pos_;
+        return size_ - mPos;
     }
 
     std::size_t position() const noexcept
     {
-        return pos_;
+        return mPos;
     }
 
     TypeTag peek_type() const
     {
-        ensure_available(size_, pos_, 1);
-        return static_cast<TypeTag>(data_[pos_]);
+        ensure_available(size_, mPos, 1);
+        return static_cast<TypeTag>(data_[mPos]);
     }
 
     std::uint8_t read_uint8()
     {
         expect_tag(TypeTag::Uint8);
-        return data_[pos_++];
+        return data_[mPos++];
     }
 
     std::uint16_t read_uint16()
     {
         expect_tag(TypeTag::Uint16);
-        return read_le<std::uint16_t>(data_, pos_, size_);
+        return read_le<std::uint16_t>(data_, mPos, size_);
     }
 
     std::uint32_t read_uint32()
     {
         expect_tag(TypeTag::Uint32);
-        return read_le<std::uint32_t>(data_, pos_, size_);
+        return read_le<std::uint32_t>(data_, mPos, size_);
     }
 
     std::uint64_t read_uint64()
     {
         expect_tag(TypeTag::Uint64);
-        return read_le<std::uint64_t>(data_, pos_, size_);
+        return read_le<std::uint64_t>(data_, mPos, size_);
     }
 
     std::int8_t read_int8()
     {
         expect_tag(TypeTag::Int8);
-        return static_cast<std::int8_t>(data_[pos_++]);
+        return static_cast<std::int8_t>(data_[mPos++]);
     }
 
     std::int16_t read_int16()
     {
         expect_tag(TypeTag::Int16);
-        return read_le<std::int16_t>(data_, pos_, size_);
+        return read_le<std::int16_t>(data_, mPos, size_);
     }
 
     std::int32_t read_int32()
     {
         expect_tag(TypeTag::Int32);
-        return read_le<std::int32_t>(data_, pos_, size_);
+        return read_le<std::int32_t>(data_, mPos, size_);
     }
 
     std::int64_t read_int64()
     {
         expect_tag(TypeTag::Int64);
-        return read_le<std::int64_t>(data_, pos_, size_);
+        return read_le<std::int64_t>(data_, mPos, size_);
     }
 
     float read_float()
     {
         expect_tag(TypeTag::Float32);
-        return read_le<float>(data_, pos_, size_);
+        return read_le<float>(data_, mPos, size_);
     }
 
     double read_double()
     {
         expect_tag(TypeTag::Float64);
-        return read_le<double>(data_, pos_, size_);
+        return read_le<double>(data_, mPos, size_);
     }
 
     bool read_bool()
     {
         expect_tag(TypeTag::Bool);
-        ensure_available(size_, pos_, 1);
-        return data_[pos_++] != 0;
+        ensure_available(size_, mPos, 1);
+        return data_[mPos++] != 0;
     }
 
     std::string read_string()
     {
         expect_tag(TypeTag::String);
-        const auto len64 = read_le<std::uint64_t>(data_, pos_, size_);
+        const auto len64 = read_le<std::uint64_t>(data_, mPos, size_);
         const auto len = safe_to_size_t(len64, "string");
-        ensure_available(size_, pos_, len);
+        ensure_available(size_, mPos, len);
 
-        std::string result(reinterpret_cast<const char*>(data_ + pos_), len);
-        pos_ += len;
+        std::string result(reinterpret_cast<const char*>(data_ + mPos), len);
+        mPos += len;
         return result;
     }
 
     std::vector<std::uint8_t> read_bytes()
     {
         expect_tag(TypeTag::Bytes);
-        const auto len64 = read_le<std::uint64_t>(data_, pos_, size_);
+        const auto len64 = read_le<std::uint64_t>(data_, mPos, size_);
         const auto len = safe_to_size_t(len64, "bytes");
-        ensure_available(size_, pos_, len);
+        ensure_available(size_, mPos, len);
 
-        std::vector<std::uint8_t> result(data_ + pos_, data_ + pos_ + len);
-        pos_ += len;
+        std::vector<std::uint8_t> result(data_ + mPos, data_ + mPos + len);
+        mPos += len;
         return result;
     }
 
     std::size_t read_array_length()
     {
         expect_tag(TypeTag::Array);
-        const auto len64 = read_le<std::uint64_t>(data_, pos_, size_);
+        const auto len64 = read_le<std::uint64_t>(data_, mPos, size_);
         return safe_to_size_t(len64, "array");
     }
 
     std::size_t read_map_length()
     {
         expect_tag(TypeTag::Map);
-        const auto len64 = read_le<std::uint64_t>(data_, pos_, size_);
+        const auto len64 = read_le<std::uint64_t>(data_, mPos, size_);
         return safe_to_size_t(len64, "map");
     }
 
@@ -586,25 +586,25 @@ public:
     template <typename T>
     T read_raw()
     {
-        return read_le<T>(data_, pos_, size_);
+        return read_le<T>(data_, mPos, size_);
     }
 
     void read_raw_bytes(std::uint8_t* dest, std::size_t len)
     {
-        ensure_available(size_, pos_, len);
-        std::memcpy(dest, data_ + pos_, len);
-        pos_ += len;
+        ensure_available(size_, mPos, len);
+        std::memcpy(dest, data_ + mPos, len);
+        mPos += len;
     }
 
 private:
     const std::uint8_t* data_;
     std::size_t size_;
-    std::size_t pos_;
+    std::size_t mPos;
 
     void expect_tag(TypeTag expected)
     {
-        ensure_available(size_, pos_, 1);
-        const auto actual = static_cast<TypeTag>(data_[pos_++]);
+        ensure_available(size_, mPos, 1);
+        const auto actual = static_cast<TypeTag>(data_[mPos++]);
         if (actual != expected)
         {
             throw std::runtime_error(
@@ -625,7 +625,7 @@ public:
     using is_loading = std::false_type;
 
     explicit OutputArchive(std::ostream& os)
-        : os_(os)
+        : mOs(os)
     {
         if (!os.good())
         {
@@ -648,31 +648,31 @@ public:
 
     bool good() const
     {
-        return os_.good();
+        return mOs.good();
     }
 
     void flush()
     {
-        os_.flush();
+        mOs.flush();
     }
 
 private:
-    std::ostream& os_;
+    std::ostream& mOs;
 
     template <typename T>
     void serialize_impl(const T& value)
     {
         if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>)
         {
-            os_.write(reinterpret_cast<const char*>(&value), sizeof(T));
+            mOs.write(reinterpret_cast<const char*>(&value), sizeof(T));
         }
         else if constexpr (std::is_same_v<T, std::string>)
         {
             const std::size_t len = value.size();
-            os_.write(reinterpret_cast<const char*>(&len), sizeof(len));
+            mOs.write(reinterpret_cast<const char*>(&len), sizeof(len));
             if (len > 0)
             {
-                os_.write(value.data(), static_cast<std::streamsize>(len));
+                mOs.write(value.data(), static_cast<std::streamsize>(len));
             }
         }
         else
@@ -681,7 +681,7 @@ private:
             const_cast<T&>(value).serialize(*this);
         }
 
-        if (!os_.good())
+        if (!mOs.good())
         {
             throw std::runtime_error("Binary: write failed");
         }
@@ -694,7 +694,7 @@ public:
     using is_loading = std::true_type;
 
     explicit InputArchive(std::istream& is)
-        : is_(is)
+        : mIs(is)
     {
         if (!is.good())
         {
@@ -717,11 +717,11 @@ public:
 
     bool good() const
     {
-        return is_.good();
+        return mIs.good();
     }
 
 private:
-    std::istream& is_;
+    std::istream& mIs;
 
     static constexpr std::size_t MAX_STRING_LENGTH = 16 * 1024 * 1024;  // 16MB default
 
@@ -730,14 +730,14 @@ private:
     {
         if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>)
         {
-            is_.read(reinterpret_cast<char*>(&value), sizeof(T));
+            mIs.read(reinterpret_cast<char*>(&value), sizeof(T));
         }
         else if constexpr (std::is_same_v<T, std::string>)
         {
             std::size_t len = 0;
-            is_.read(reinterpret_cast<char*>(&len), sizeof(len));
+            mIs.read(reinterpret_cast<char*>(&len), sizeof(len));
 
-            if (!is_.good())
+            if (!mIs.good())
             {
                 throw std::runtime_error("Binary: failed to read string length");
             }
@@ -750,7 +750,7 @@ private:
             value.resize(len);
             if (len > 0)
             {
-                is_.read(&value[0], static_cast<std::streamsize>(len));
+                mIs.read(&value[0], static_cast<std::streamsize>(len));
             }
         }
         else
@@ -759,7 +759,7 @@ private:
             value.serialize(*this);
         }
 
-        if (!is_.good())
+        if (!mIs.good())
         {
             throw std::runtime_error("Binary: read failed");
         }

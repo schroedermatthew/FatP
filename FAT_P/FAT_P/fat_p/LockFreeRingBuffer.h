@@ -87,24 +87,24 @@ public:
                   "T must be trivially copyable for lock-free operations");
     
     explicit LockFreeRingBuffer(size_t capacity)
-        : capacity_(round_up_power_of_two(capacity))
-        , mask_(capacity_ - 1)
-        , buffer_(allocate_aligned(capacity_))
+        : mCapacity(round_up_power_of_two(capacity))
+        , mMask(mCapacity - 1)
+        , mBuffer(allocate_aligned(mCapacity))
         , write_pos_(0)
         , read_pos_(0) {
     }
     
     // LockFreeRingBuffer.h (updated destructor)
     ~LockFreeRingBuffer() {
-        if (buffer_) {
+        if (mBuffer) {
 #ifdef _WIN32
             // Use _aligned_free for memory allocated with _aligned_malloc
-            _aligned_free(buffer_);
+            _aligned_free(mBuffer);
 #else
             // Use std::free for memory allocated with posix_memalign
             // Note: On POSIX systems, posix_memalign memory is freed with 'free', 
             // which is equivalent to std::free.
-            std::free(buffer_);
+            std::free(mBuffer);
 #endif
         }
     }
@@ -126,7 +126,7 @@ public:
             return false;
         }
         
-        buffer_[write & mask_] = value;
+        mBuffer[write & mMask] = value;
         
         // Release write to make data visible to consumer
         write_pos_.store(write + 1, std::memory_order_release);
@@ -143,7 +143,7 @@ public:
             return false;
         }
         
-        buffer_[write & mask_] = std::move(value);
+        mBuffer[write & mMask] = std::move(value);
         
         write_pos_.store(write + 1, std::memory_order_release);
         
@@ -160,7 +160,7 @@ public:
             return std::nullopt;
         }
         
-        T value = buffer_[read & mask_];
+        T value = mBuffer[read & mMask];
         
         // Release read to make space visible to producer
         read_pos_.store(read + 1, std::memory_order_release);
@@ -177,7 +177,7 @@ public:
             return std::nullopt;
         }
         
-        return buffer_[read & mask_];
+        return mBuffer[read & mMask];
     }
     
     // Check if empty (can be called by consumer)
@@ -203,7 +203,7 @@ public:
     
     // Capacity
     [[nodiscard]] size_t capacity() const {
-        return capacity_;
+        return mCapacity;
     }
     
 private:
@@ -242,12 +242,12 @@ private:
     }
     
     bool is_full(size_t write, size_t read) const {
-        return (write - read) >= capacity_;
+        return (write - read) >= mCapacity;
     }
     
-    const size_t capacity_;
-    const size_t mask_;
-    T* buffer_;
+    const size_t mCapacity;
+    const size_t mMask;
+    T* mBuffer;
     
     // Pad to separate cache lines to avoid false sharing
     alignas(CACHE_LINE_SIZE) std::atomic<size_t> write_pos_;
@@ -285,23 +285,23 @@ public:
                   "T must be trivially copyable for lock-free operations");
     
     explicit LockFreeRingBufferMPMC(size_t capacity)
-        : capacity_(round_up_power_of_two(capacity))
-        , mask_(capacity_ - 1)
-        , buffer_(allocate_aligned(capacity_))
+        : mCapacity(round_up_power_of_two(capacity))
+        , mMask(mCapacity - 1)
+        , mBuffer(allocate_aligned(mCapacity))
         , write_pos_(0)
         , read_pos_(0) {
     }
     
     ~LockFreeRingBufferMPMC() {
-        if (buffer_) {
+        if (mBuffer) {
 #ifdef _WIN32
             // Use _aligned_free for memory allocated with _aligned_malloc
-            _aligned_free(buffer_);
+            _aligned_free(mBuffer);
 #else
             // Use std::free for memory allocated with posix_memalign
             // Note: On POSIX systems, posix_memalign memory is freed with 'free', 
             // which is equivalent to std::free.
-            std::free(buffer_);
+            std::free(mBuffer);
 #endif
         }
     }
@@ -331,7 +331,7 @@ public:
                                                     std::memory_order_release,
                                                     std::memory_order_acquire));
         
-        buffer_[write & mask_] = value;
+        mBuffer[write & mMask] = value;
         
         return true;
     }
@@ -355,7 +355,7 @@ public:
                                                    std::memory_order_release,
                                                    std::memory_order_acquire));
         
-        return buffer_[read & mask_];
+        return mBuffer[read & mMask];
     }
     
     [[nodiscard]] bool empty() const {
@@ -377,7 +377,7 @@ public:
     }
     
     [[nodiscard]] size_t capacity() const {
-        return capacity_;
+        return mCapacity;
     }
     
 private:
@@ -414,12 +414,12 @@ private:
     }
     
     bool is_full(size_t write, size_t read) const {
-        return (write - read) >= capacity_;
+        return (write - read) >= mCapacity;
     }
     
-    const size_t capacity_;
-    const size_t mask_;
-    T* buffer_;
+    const size_t mCapacity;
+    const size_t mMask;
+    T* mBuffer;
     
     alignas(CACHE_LINE_SIZE) std::atomic<size_t> write_pos_;
     alignas(CACHE_LINE_SIZE) std::atomic<size_t> read_pos_;

@@ -101,31 +101,31 @@ FATP_JSON_DEFINE_TYPE_OPTIONAL(Config, timeout, host, port)
 class PrivateData
 {
 private:
-    int secret_;
-    std::string code_;
+    int mSecret;
+    std::string mCode;
 
 public:
     PrivateData()
-        : secret_(0)
-        , code_()
+        : mSecret(0)
+        , mCode()
     {
     }
     PrivateData(int s, std::string c)
-        : secret_(s)
-        , code_(std::move(c))
+        : mSecret(s)
+        , mCode(std::move(c))
     {
     }
 
     int secret() const
     {
-        return secret_;
+        return mSecret;
     }
     std::string code() const
     {
-        return code_;
+        return mCode;
     }
 
-    FATP_JSON_DEFINE_TYPE_INTRUSIVE(PrivateData, secret_, code_)
+    FATP_JSON_DEFINE_TYPE_INTRUSIVE(PrivateData, mSecret, mCode)
 };
 
 struct Nested
@@ -272,13 +272,13 @@ FATP_JSON_DEFINE_TYPE_OPTIONAL(OptConfig, port)
 
 class PrivateTest
 {
-    int secret_ = 99;
+    int mSecret = 99;
 
 public:
-    FATP_JSON_DEFINE_TYPE_INTRUSIVE(PrivateTest, secret_)
+    FATP_JSON_DEFINE_TYPE_INTRUSIVE(PrivateTest, mSecret)
     int get_secret() const
     {
-        return secret_;
+        return mSecret;
     }
 };
 
@@ -1185,8 +1185,8 @@ FATP_TEST_CASE(json_lite_optional)
         FATP_ASSERT_TRUE(j.is_int(), "Optional int should be int");
         std::optional<int> result;
         from_json(j, result);
-        FATP_ASSERT_TRUE(result.has_value(), "Result should have value");
-        FATP_ASSERT_EQ(result.value(), 42, "Value should be 42");
+#pragma warning(suppress : 26859) // MSVC false positive: analyzer cannot track that from_json populates the optional
+        FATP_ASSERT_TRUE(result.has_value() && *result == 42, "Result should have value 42");
     }
     FATP_END_SUBTEST
 
@@ -1210,8 +1210,8 @@ FATP_TEST_CASE(json_lite_optional_string)
     JsonValue j = json_encode(opt);
     std::optional<std::string> result;
     from_json(j, result);
-    FATP_ASSERT_TRUE(result.has_value(), "Result should have value");
-    FATP_ASSERT_EQ(result.value(), "hello", "Value should be hello");
+#pragma warning(suppress : 26859) // MSVC false positive: analyzer cannot track that from_json populates the optional
+    FATP_ASSERT_TRUE(result.has_value() && *result == "hello", "Result should have value hello");
 
     return true;
 }
@@ -1222,8 +1222,8 @@ FATP_TEST_CASE(json_lite_optional_vector)
     JsonValue j = json_encode(opt);
     std::optional<std::vector<int>> result;
     from_json(j, result);
-    FATP_ASSERT_TRUE(result.has_value(), "Result should have value");
-    FATP_ASSERT_EQ(result.value().size(), static_cast<size_t>(3), "Size should be 3");
+#pragma warning(suppress: 26859)  // MSVC false positive: analyzer cannot track that from_json populates the optional
+    FATP_ASSERT_TRUE(result.has_value() && (*result).size() == 3, "Result should have value with size 3");
 
     return true;
 }
@@ -4096,39 +4096,39 @@ class FuzzRandom
 {
 public:
     explicit FuzzRandom(std::uint64_t seed) noexcept
-        : eng_(seed)
+        : mEng(seed)
     {
     }
 
     std::int64_t i64(std::int64_t lo, std::int64_t hi)
     {
         std::uniform_int_distribution<std::int64_t> d(lo, hi);
-        return d(eng_);
+        return d(mEng);
     }
 
     std::uint64_t u64(std::uint64_t lo, std::uint64_t hi)
     {
         std::uniform_int_distribution<std::uint64_t> d(lo, hi);
-        return d(eng_);
+        return d(mEng);
     }
 
     double dbl(double lo, double hi)
     {
         std::uniform_real_distribution<double> d(lo, hi);
-        return d(eng_);
+        return d(mEng);
     }
 
     std::string str(std::size_t max_len)
     {
         std::uniform_int_distribution<std::size_t> len_dist(0, max_len);
-        const std::size_t len = len_dist(eng_);
+        const std::size_t len = len_dist(mEng);
         std::uniform_int_distribution<int> ch_dist(32, 126);
 
         std::string s;
         s.reserve(len);
         for (std::size_t i = 0; i < len; ++i)
         {
-            char c = static_cast<char>(ch_dist(eng_));
+            char c = static_cast<char>(ch_dist(mEng));
             // Avoid characters that need escaping for simpler round-trip
             if (c == '"' || c == '\\')
             {
@@ -4140,7 +4140,7 @@ public:
     }
 
 private:
-    std::mt19937_64 eng_;
+    std::mt19937_64 mEng;
 };
 
 template <typename T>

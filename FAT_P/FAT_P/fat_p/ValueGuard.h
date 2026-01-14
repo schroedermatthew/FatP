@@ -126,15 +126,15 @@ struct ValueGuardConditionalPolicy {
         std::is_nothrow_invocable_r_v<bool, Cond> &&
         std::is_nothrow_move_assignable_v<T>;
     
-    mutable Cond cond_;
+    mutable Cond mCond;
     
-    explicit ValueGuardConditionalPolicy(Cond&& cond) : cond_(std::move(cond)) {
+    explicit ValueGuardConditionalPolicy(Cond&& cond) : mCond(std::move(cond)) {
         static_assert(std::is_invocable_r_v<bool, Cond>,
                       "Cond must be invocable returning bool");
     }
     
     void execute(T& target, T&& original) noexcept(is_nothrow_restore) {
-        if (std::invoke(cond_)) {
+        if (std::invoke(mCond)) {
             target = std::move(original);
         }
     }
@@ -151,16 +151,16 @@ struct ValueGuardCustomPolicy {
     static constexpr bool is_nothrow_restore =
         noexcept(std::declval<F>()(std::declval<T&>(), std::declval<T&&>()));
     
-    F restorer_;
+    F mRestorer;
     
     explicit ValueGuardCustomPolicy(F&& restorer) 
-        : restorer_(std::forward<F>(restorer)) {
+        : mRestorer(std::forward<F>(restorer)) {
         static_assert(std::is_invocable_v<F, T&, T&&>,
                       "F must be invocable as F(T&, T&&)");
     }
     
     void execute(T& target, T&& original) noexcept(is_nothrow_restore) {
-        std::invoke(restorer_, target, std::move(original));
+        std::invoke(mRestorer, target, std::move(original));
     }
 };
 
@@ -200,12 +200,12 @@ public:
               std::enable_if_t<std::is_copy_constructible_v<U> && 
                                std::is_copy_assignable_v<U>, int> = 0>
     ValueGuard(T& target, const T& new_value)
-        : Policy(), target_(&target), original_(target), active_(true)
+        : Policy(), mTarget(&target), mOriginal(target), mActive(true)
     {
         try {
-            *target_ = new_value;
+            *mTarget = new_value;
         } catch (...) {
-            *target_ = std::move(original_);
+            *mTarget = std::move(mOriginal);
             throw;
         }
     }
@@ -217,14 +217,14 @@ public:
      */
     ValueGuard(T& target, T&& new_value)
         : Policy(), 
-          target_(&target), 
-          original_(std::move(target)),
-          active_(true)
+          mTarget(&target), 
+          mOriginal(std::move(target)),
+          mActive(true)
     {
         try {
-            *target_ = std::move(new_value);
+            *mTarget = std::move(new_value);
         } catch (...) {
-            *target_ = std::move(original_);
+            *mTarget = std::move(mOriginal);
             throw;
         }
     }
@@ -239,14 +239,14 @@ public:
               typename = std::enable_if_t<std::is_invocable_v<F, T&, T&&>>>
     ValueGuard(T& target, const T& new_value, F&& restorer)
         : Policy(std::forward<F>(restorer)), 
-          target_(&target), 
-          original_(target), 
-          active_(true)
+          mTarget(&target), 
+          mOriginal(target), 
+          mActive(true)
     {
         try {
-            *target_ = new_value;
+            *mTarget = new_value;
         } catch (...) {
-            *target_ = std::move(original_);
+            *mTarget = std::move(mOriginal);
             throw;
         }
     }
@@ -261,14 +261,14 @@ public:
               typename = std::enable_if_t<std::is_invocable_v<F, T&, T&&>>>
     ValueGuard(T& target, T&& new_value, F&& restorer)
         : Policy(std::forward<F>(restorer)), 
-          target_(&target), 
-          original_(std::move(target)), 
-          active_(true)
+          mTarget(&target), 
+          mOriginal(std::move(target)), 
+          mActive(true)
     {
         try {
-            *target_ = std::move(new_value);
+            *mTarget = std::move(new_value);
         } catch (...) {
-            *target_ = std::move(original_);
+            *mTarget = std::move(mOriginal);
             throw;
         }
     }
@@ -286,14 +286,14 @@ public:
                   std::is_invocable_r_v<bool, Cond>>>
     ValueGuard(T& target, T&& new_value, Cond&& condition)
         : Policy(std::forward<Cond>(condition)),
-          target_(&target),
-          original_(std::move(target)),
-          active_(true)
+          mTarget(&target),
+          mOriginal(std::move(target)),
+          mActive(true)
     {
         try {
-            *target_ = std::move(new_value);
+            *mTarget = std::move(new_value);
         } catch (...) {
-            *target_ = std::move(original_);
+            *mTarget = std::move(mOriginal);
             throw;
         }
     }
@@ -308,11 +308,11 @@ public:
         std::is_nothrow_move_constructible_v<T> &&
         std::is_nothrow_move_constructible_v<Policy>)
         : Policy(std::move(static_cast<Policy&>(other))), 
-          target_(other.target_), 
-          original_(std::move(other.original_)),
-          active_(other.active_)
+          mTarget(other.mTarget), 
+          mOriginal(std::move(other.mOriginal)),
+          mActive(other.mActive)
     {
-        other.active_ = false;
+        other.mActive = false;
     }
     
     /**
@@ -329,18 +329,18 @@ public:
         if (this == &other) return *this;  // Explicit no-op for self-move
         
         // 1. Clean up current state if active
-        if (active_) {
-            this->execute(*target_, std::move(original_));
+        if (mActive) {
+            this->execute(*mTarget, std::move(mOriginal));
         }
 
         // 2. Transfer state from other
         static_cast<Policy&>(*this) = std::move(static_cast<Policy&>(other));
-        target_ = other.target_;
-        original_ = std::move(other.original_);
-        active_ = other.active_;
+        mTarget = other.mTarget;
+        mOriginal = std::move(other.mOriginal);
+        mActive = other.mActive;
         
         // 3. Deactivate other
-        other.active_ = false;
+        other.mActive = false;
         
         return *this;
     }
@@ -355,8 +355,8 @@ public:
      * @brief Restores the target to its original value if active.
      */
     ~ValueGuard() noexcept(Policy::is_nothrow_restore) {
-        if (active_) {
-            this->execute(*target_, std::move(original_));
+        if (mActive) {
+            this->execute(*mTarget, std::move(mOriginal));
         }
     }
     
@@ -365,31 +365,31 @@ public:
     /**
      * @brief Disables automatic restoration, committing the mutation.
      */
-    void release() noexcept { active_ = false; }
+    void release() noexcept { mActive = false; }
     
     /**
      * @brief Checks if the guard is still active (restoration pending).
      */
-    [[nodiscard]] bool is_active() const noexcept { return active_; }
+    [[nodiscard]] bool is_active() const noexcept { return mActive; }
     
     /**
      * @brief Retrieves a const reference to the captured original value.
      */
-    [[nodiscard]] const T& original() const noexcept { return original_; }
+    [[nodiscard]] const T& original() const noexcept { return mOriginal; }
     
     /**
      * @brief Retrieves a reference to the current target value.
      */
-    [[nodiscard]] T& current() noexcept { return *target_; }
+    [[nodiscard]] T& current() noexcept { return *mTarget; }
     
     /**
      * @brief Retrieves a const reference to the current target value.
      */
-    [[nodiscard]] const T& current() const noexcept { return *target_; }
+    [[nodiscard]] const T& current() const noexcept { return *mTarget; }
     
     /**
      * @brief Swaps the complete state of this guard with another.
-     * @details Exchanges ALL member variables including original_ and active_.
+     * @details Exchanges ALL member variables including mOriginal and mActive.
      */
     void swap(ValueGuard& other) noexcept(
         std::is_nothrow_swappable_v<T> &&
@@ -397,9 +397,9 @@ public:
     {
         using std::swap;
         swap(static_cast<Policy&>(*this), static_cast<Policy&>(other));
-        swap(target_, other.target_);
-        swap(original_, other.original_);
-        swap(active_, other.active_);
+        swap(mTarget, other.mTarget);
+        swap(mOriginal, other.mOriginal);
+        swap(mActive, other.mActive);
     }
     
     friend void swap(ValueGuard& lhs, ValueGuard& rhs) noexcept(
@@ -410,9 +410,9 @@ public:
     }
 
 private:
-    T* target_;
-    OriginalType original_;
-    bool active_;
+    T* mTarget;
+    OriginalType mOriginal;
+    bool mActive;
 };
 
 // --- Deduction Guides (Constrained to remove ambiguity) ---

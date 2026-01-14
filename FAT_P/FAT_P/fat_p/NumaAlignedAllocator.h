@@ -198,18 +198,18 @@ public:
 
     // Constructors
     NumaAlignedAllocator() noexcept
-        : policy_()
+        : mPolicy()
         , numa_available_(NumaInfo::is_available())
     {}
 
     explicit NumaAlignedAllocator(const Policy& policy) noexcept
-        : policy_(policy)
+        : mPolicy(policy)
         , numa_available_(NumaInfo::is_available())
     {}
 
     template<typename U>
     NumaAlignedAllocator(const NumaAlignedAllocator<U, Alignment, Policy>& other) noexcept
-        : policy_(other.policy())
+        : mPolicy(other.policy())
         , numa_available_(other.numa_available())
     {}
 
@@ -247,7 +247,7 @@ public:
             if constexpr (std::is_same_v<Policy, NumaInterleavedPolicy>) {
                 ptr = detail::numa_alloc_interleaved_impl(bytes);
             } else if constexpr (std::is_same_v<Policy, NumaPreferredPolicy>) {
-                ptr = detail::numa_alloc_on_node_impl(bytes, policy_.node);
+                ptr = detail::numa_alloc_on_node_impl(bytes, mPolicy.node);
             } else {
                 // NumaLocalPolicy: allocate on current thread's node
                 ptr = detail::numa_alloc_on_node_impl(bytes, NumaInfo::current_node());
@@ -301,11 +301,11 @@ public:
     }
 
     // Accessors
-    [[nodiscard]] const Policy& policy() const noexcept { return policy_; }
+    [[nodiscard]] const Policy& policy() const noexcept { return mPolicy; }
     [[nodiscard]] bool numa_available() const noexcept { return numa_available_; }
 
 private:
-    Policy policy_;
+    Policy mPolicy;
     bool numa_available_;
 };
 

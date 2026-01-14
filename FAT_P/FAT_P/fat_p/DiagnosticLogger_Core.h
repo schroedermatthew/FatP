@@ -361,16 +361,16 @@ inline std::shared_ptr<ISink> createDefaultSink()
  */
 class Logger
 {
-    std::shared_ptr<std::vector<std::shared_ptr<ISink>>> sinks_;
-    mutable std::mutex sinkMutex_;
-    std::atomic<bool> enabled_{true};
-    std::atomic<LogLevel> runtimeMinLevel_{LogLevel::Trace};
-    std::once_flag autoInitFlag_;
-    std::atomic<bool> autoInitDisabled_{false};
+    std::shared_ptr<std::vector<std::shared_ptr<ISink>>> mSinks;
+    mutable std::mutex mSinkMutex;
+    std::atomic<bool> mEnabled{true};
+    std::atomic<LogLevel> mRuntimeMinLevel{LogLevel::Trace};
+    std::once_flag mAutoInitFlag;
+    std::atomic<bool> mAutoInitDisabled{false};
 
 public:
     Logger()
-        : sinks_(std::make_shared<std::vector<std::shared_ptr<ISink>>>())
+        : mSinks(std::make_shared<std::vector<std::shared_ptr<ISink>>>())
     {
     }
 
@@ -388,15 +388,15 @@ public:
      */
     void addSink(std::shared_ptr<ISink> sink)
     {
-        autoInitDisabled_.store(true, std::memory_order_release);
+        mAutoInitDisabled.store(true, std::memory_order_release);
         if (!sink)
         {
             return;
         }
-        std::lock_guard<std::mutex> lock(sinkMutex_);
-        auto new_sinks = std::make_shared<std::vector<std::shared_ptr<ISink>>>(*sinks_);
+        std::lock_guard<std::mutex> lock(mSinkMutex);
+        auto new_sinks = std::make_shared<std::vector<std::shared_ptr<ISink>>>(*mSinks);
         new_sinks->push_back(std::move(sink));
-        sinks_ = new_sinks;
+        mSinks = new_sinks;
     }
 
     /**
@@ -406,9 +406,9 @@ public:
      */
     void clearSinks()
     {
-        autoInitDisabled_.store(true, std::memory_order_release);
-        std::lock_guard<std::mutex> lock(sinkMutex_);
-        sinks_ = std::make_shared<std::vector<std::shared_ptr<ISink>>>();
+        mAutoInitDisabled.store(true, std::memory_order_release);
+        std::lock_guard<std::mutex> lock(mSinkMutex);
+        mSinks = std::make_shared<std::vector<std::shared_ptr<ISink>>>();
     }
 
     /**
@@ -417,9 +417,9 @@ public:
      */
     void setSinks(std::vector<std::shared_ptr<ISink>> newSinks)
     {
-        autoInitDisabled_.store(true, std::memory_order_release);
-        std::lock_guard<std::mutex> lock(sinkMutex_);
-        sinks_ = std::make_shared<std::vector<std::shared_ptr<ISink>>>(std::move(newSinks));
+        mAutoInitDisabled.store(true, std::memory_order_release);
+        std::lock_guard<std::mutex> lock(mSinkMutex);
+        mSinks = std::make_shared<std::vector<std::shared_ptr<ISink>>>(std::move(newSinks));
     }
 
     /**
@@ -428,8 +428,8 @@ public:
      */
     std::vector<std::shared_ptr<ISink>> getSinks() const
     {
-        std::lock_guard<std::mutex> lock(sinkMutex_);
-        return sinks_ ? *sinks_ : std::vector<std::shared_ptr<ISink>>{};
+        std::lock_guard<std::mutex> lock(mSinkMutex);
+        return mSinks ? *mSinks : std::vector<std::shared_ptr<ISink>>{};
     }
 
     /**
@@ -438,8 +438,8 @@ public:
      */
     bool hasSinks() const
     {
-        std::lock_guard<std::mutex> lock(sinkMutex_);
-        return sinks_ && !sinks_->empty();
+        std::lock_guard<std::mutex> lock(mSinkMutex);
+        return mSinks && !mSinks->empty();
     }
 
     /**
@@ -448,8 +448,8 @@ public:
      */
     size_t sinkCount() const
     {
-        std::lock_guard<std::mutex> lock(sinkMutex_);
-        return sinks_ ? sinks_->size() : 0;
+        std::lock_guard<std::mutex> lock(mSinkMutex);
+        return mSinks ? mSinks->size() : 0;
     }
 
     /**
@@ -460,7 +460,7 @@ public:
      */
     void disableAutoInit() noexcept
     {
-        autoInitDisabled_.store(true, std::memory_order_release);
+        mAutoInitDisabled.store(true, std::memory_order_release);
     }
 
     /**
@@ -469,7 +469,7 @@ public:
      */
     void setLevel(LogLevel level) noexcept
     {
-        runtimeMinLevel_.store(level, std::memory_order_release);
+        mRuntimeMinLevel.store(level, std::memory_order_release);
     }
 
     /**
@@ -487,7 +487,7 @@ public:
      */
     LogLevel getLevel() const noexcept
     {
-        return runtimeMinLevel_.load(std::memory_order_acquire);
+        return mRuntimeMinLevel.load(std::memory_order_acquire);
     }
 
     /**
@@ -505,7 +505,7 @@ public:
      */
     void setEnabled(bool e) noexcept
     {
-        enabled_.store(e, std::memory_order_release);
+        mEnabled.store(e, std::memory_order_release);
     }
 
     /**
@@ -514,7 +514,7 @@ public:
      */
     bool isEnabled() const noexcept
     {
-        return enabled_.load(std::memory_order_acquire);
+        return mEnabled.load(std::memory_order_acquire);
     }
 
     /**
@@ -524,8 +524,8 @@ public:
      */
     FATP_FORCE_INLINE bool shouldLog(LogLevel level) const noexcept
     {
-        return FATP_LIKELY(enabled_.load(std::memory_order_relaxed)) &&
-               FATP_LIKELY(level >= runtimeMinLevel_.load(std::memory_order_relaxed));
+        return FATP_LIKELY(mEnabled.load(std::memory_order_relaxed)) &&
+               FATP_LIKELY(level >= mRuntimeMinLevel.load(std::memory_order_relaxed));
     }
 
     /**
@@ -591,10 +591,10 @@ public:
      */
     void flush()
     {
-        std::lock_guard<std::mutex> lock(sinkMutex_);
-        if (sinks_)
+        std::lock_guard<std::mutex> lock(mSinkMutex);
+        if (mSinks)
         {
-            for (auto& sink : *sinks_)
+            for (auto& sink : *mSinks)
             {
                 sink->flush();
             }
@@ -604,27 +604,27 @@ public:
 private:
     void tryAutoInit()
     {
-        if (autoInitDisabled_.load(std::memory_order_acquire))
+        if (mAutoInitDisabled.load(std::memory_order_acquire))
         {
             return;
         }
 
-        std::call_once(autoInitFlag_, [this]() {
-            if (autoInitDisabled_.load(std::memory_order_acquire))
+        std::call_once(mAutoInitFlag, [this]() {
+            if (mAutoInitDisabled.load(std::memory_order_acquire))
             {
                 return;
             }
 
-            std::lock_guard<std::mutex> lock(sinkMutex_);
-            if (sinks_->empty())
+            std::lock_guard<std::mutex> lock(mSinkMutex);
+            if (mSinks->empty())
             {
                 auto sink = createDefaultSink();
                 if (sink)
                 {
                     auto newSinks =
-                        std::make_shared<std::vector<std::shared_ptr<ISink>>>(*sinks_);
+                        std::make_shared<std::vector<std::shared_ptr<ISink>>>(*mSinks);
                     newSinks->push_back(std::move(sink));
-                    sinks_ = newSinks;
+                    mSinks = newSinks;
                 }
             }
         });
@@ -640,8 +640,8 @@ private:
 
         std::shared_ptr<std::vector<std::shared_ptr<ISink>>> local_sinks;
         {
-            std::lock_guard<std::mutex> lock(sinkMutex_);
-            local_sinks = sinks_;
+            std::lock_guard<std::mutex> lock(mSinkMutex);
+            local_sinks = mSinks;
         }
 
         if (!shouldLog(level) || !local_sinks || local_sinks->empty())
@@ -732,42 +732,42 @@ public:
 
         // Fast path: read lock for existing logger
         {
-            std::shared_lock<std::shared_mutex> lock(mutex_);
-            auto it = loggers_.find(nameStr);
-            if (it != loggers_.end())
+            std::shared_lock<std::shared_mutex> lock(mMutex);
+            auto it = mLoggers.find(nameStr);
+            if (it != mLoggers.end())
             {
                 return *it->second;
             }
         }
 
         // Slow path: write lock for creation
-        std::unique_lock<std::shared_mutex> lock(mutex_);
+        std::unique_lock<std::shared_mutex> lock(mMutex);
 
         // Double-check after acquiring write lock
-        auto it = loggers_.find(nameStr);
-        if (it != loggers_.end())
+        auto it = mLoggers.find(nameStr);
+        if (it != mLoggers.end())
         {
             return *it->second;
         }
 
         // Create new logger
         auto logger = std::make_shared<Logger>();
-        logger->setLevel(defaultLevel_);
+        logger->setLevel(mDefaultLevel);
 
         // Apply default sinks if configured
-        for (const auto& sink : defaultSinks_)
+        for (const auto& sink : mDefaultSinks)
         {
             logger->addSink(sink);
         }
 
         // If user configured default sinks, disable auto-init for this logger
         // (they've taken control). Otherwise, leave auto-init enabled.
-        if (!defaultSinks_.empty())
+        if (!mDefaultSinks.empty())
         {
             logger->disableAutoInit();
         }
 
-        auto [inserted_it, success] = loggers_.emplace(std::move(nameStr), std::move(logger));
+        auto [inserted_it, success] = mLoggers.emplace(std::move(nameStr), std::move(logger));
         return *inserted_it->second;
     }
 
@@ -782,9 +782,9 @@ public:
         get(name);
 
         std::string nameStr(name);
-        std::shared_lock<std::shared_mutex> lock(mutex_);
-        auto it = loggers_.find(nameStr);
-        return it != loggers_.end() ? it->second : nullptr;
+        std::shared_lock<std::shared_mutex> lock(mMutex);
+        auto it = mLoggers.find(nameStr);
+        return it != mLoggers.end() ? it->second : nullptr;
     }
 
     /**
@@ -795,8 +795,8 @@ public:
     bool exists(std::string_view name) const
     {
         std::string nameStr(name);
-        std::shared_lock<std::shared_mutex> lock(mutex_);
-        return loggers_.find(nameStr) != loggers_.end();
+        std::shared_lock<std::shared_mutex> lock(mMutex);
+        return mLoggers.find(nameStr) != mLoggers.end();
     }
 
     /**
@@ -807,11 +807,11 @@ public:
     bool drop(std::string_view name)
     {
         std::string nameStr(name);
-        std::unique_lock<std::shared_mutex> lock(mutex_);
-        auto it = loggers_.find(nameStr);
-        if (it != loggers_.end())
+        std::unique_lock<std::shared_mutex> lock(mMutex);
+        auto it = mLoggers.find(nameStr);
+        if (it != mLoggers.end())
         {
-            loggers_.erase(it);
+            mLoggers.erase(it);
             return true;
         }
         return false;
@@ -822,8 +822,8 @@ public:
      */
     void dropAll()
     {
-        std::unique_lock<std::shared_mutex> lock(mutex_);
-        loggers_.clear();
+        std::unique_lock<std::shared_mutex> lock(mMutex);
+        mLoggers.clear();
     }
 
     /**
@@ -832,8 +832,8 @@ public:
      */
     void setDefaultLevel(LogLevel level)
     {
-        std::unique_lock<std::shared_mutex> lock(mutex_);
-        defaultLevel_ = level;
+        std::unique_lock<std::shared_mutex> lock(mMutex);
+        mDefaultLevel = level;
     }
 
     /**
@@ -842,8 +842,8 @@ public:
      */
     LogLevel getDefaultLevel() const
     {
-        std::shared_lock<std::shared_mutex> lock(mutex_);
-        return defaultLevel_;
+        std::shared_lock<std::shared_mutex> lock(mMutex);
+        return mDefaultLevel;
     }
 
     /**
@@ -856,8 +856,8 @@ public:
         {
             return;
         }
-        std::unique_lock<std::shared_mutex> lock(mutex_);
-        defaultSinks_.push_back(std::move(sink));
+        std::unique_lock<std::shared_mutex> lock(mMutex);
+        mDefaultSinks.push_back(std::move(sink));
     }
 
     /**
@@ -865,8 +865,8 @@ public:
      */
     void clearDefaultSinks()
     {
-        std::unique_lock<std::shared_mutex> lock(mutex_);
-        defaultSinks_.clear();
+        std::unique_lock<std::shared_mutex> lock(mMutex);
+        mDefaultSinks.clear();
     }
 
     /**
@@ -875,10 +875,10 @@ public:
      */
     std::vector<std::string> names() const
     {
-        std::shared_lock<std::shared_mutex> lock(mutex_);
+        std::shared_lock<std::shared_mutex> lock(mMutex);
         std::vector<std::string> result;
-        result.reserve(loggers_.size());
-        for (const auto& [name, logger] : loggers_)
+        result.reserve(mLoggers.size());
+        for (const auto& [name, logger] : mLoggers)
         {
             result.push_back(name);
         }
@@ -891,8 +891,8 @@ public:
      */
     size_t count() const
     {
-        std::shared_lock<std::shared_mutex> lock(mutex_);
-        return loggers_.size();
+        std::shared_lock<std::shared_mutex> lock(mMutex);
+        return mLoggers.size();
     }
 
     /**
@@ -901,8 +901,8 @@ public:
      */
     void setAllLevels(LogLevel level)
     {
-        std::shared_lock<std::shared_mutex> lock(mutex_);
-        for (auto& [name, logger] : loggers_)
+        std::shared_lock<std::shared_mutex> lock(mMutex);
+        for (auto& [name, logger] : mLoggers)
         {
             logger->setLevel(level);
         }
@@ -918,8 +918,8 @@ public:
         {
             return;
         }
-        std::shared_lock<std::shared_mutex> lock(mutex_);
-        for (auto& [name, logger] : loggers_)
+        std::shared_lock<std::shared_mutex> lock(mMutex);
+        for (auto& [name, logger] : mLoggers)
         {
             logger->addSink(sink);
         }
@@ -930,10 +930,10 @@ private:
     LoggerRegistry(const LoggerRegistry&) = delete;
     LoggerRegistry& operator=(const LoggerRegistry&) = delete;
 
-    mutable std::shared_mutex mutex_;
-    std::unordered_map<std::string, std::shared_ptr<Logger>> loggers_;
-    std::vector<std::shared_ptr<ISink>> defaultSinks_;
-    LogLevel defaultLevel_{LogLevel::Trace};
+    mutable std::shared_mutex mMutex;
+    std::unordered_map<std::string, std::shared_ptr<Logger>> mLoggers;
+    std::vector<std::shared_ptr<ISink>> mDefaultSinks;
+    LogLevel mDefaultLevel{LogLevel::Trace};
 };
 
 /**

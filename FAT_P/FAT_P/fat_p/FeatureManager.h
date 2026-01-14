@@ -244,19 +244,19 @@ public:
     //   take ownership of the key and will not unregister it on destruction.
     FeatureCheckRegistration(const std::string& key,
                              std::function<FeatureCheck()> creator)
-        : key_(key) {
-        registered_ = get_feature_check_factory().registerType(key_, std::move(creator));
-        if (!registered_) {
+        : mKey(key) {
+        mRegistered = get_feature_check_factory().registerType(mKey, std::move(creator));
+        if (!mRegistered) {
             // Do not claim ownership of an existing registration.
-            key_.clear();
+            mKey.clear();
         }
     }
 
     // Automatically unregister on destruction (only if we successfully registered)
     ~FeatureCheckRegistration() {
-        if (registered_ && !key_.empty()) {
+        if (mRegistered && !mKey.empty()) {
             [[maybe_unused]] bool unregistered =
-                get_feature_check_factory().unregisterType(key_);
+                get_feature_check_factory().unregisterType(mKey);
         }
     }
 
@@ -266,26 +266,26 @@ public:
 
     // Moveable
     FeatureCheckRegistration(FeatureCheckRegistration&& other) noexcept
-        : key_(std::move(other.key_))
-        , registered_(std::exchange(other.registered_, false)) {
-        other.key_.clear();
+        : mKey(std::move(other.mKey))
+        , mRegistered(std::exchange(other.mRegistered, false)) {
+        other.mKey.clear();
     }
 
     FeatureCheckRegistration& operator=(FeatureCheckRegistration&& other) noexcept {
         if (this != &other) {
-            if (registered_ && !key_.empty()) {
-                (void)get_feature_check_factory().unregisterType(key_);
+            if (mRegistered && !mKey.empty()) {
+                (void)get_feature_check_factory().unregisterType(mKey);
             }
-            key_ = std::move(other.key_);
-            registered_ = std::exchange(other.registered_, false);
-            other.key_.clear();
+            mKey = std::move(other.mKey);
+            mRegistered = std::exchange(other.mRegistered, false);
+            other.mKey.clear();
         }
         return *this;
     }
 
 private:
-    std::string key_;
-    bool registered_ = false;
+    std::string mKey;
+    bool mRegistered = false;
 };
 
 // ============================================================================
@@ -446,12 +446,12 @@ private:
         BatchObserver callback;
     };
 
-    std::map<std::string, FeatureNode> features_;
-    std::map<std::string, std::unique_ptr<FeatureGroupInfoBase>> groups_;
-    std::vector<ObserverEntry> observers_;
+    std::map<std::string, FeatureNode> mFeatures;
+    std::map<std::string, std::unique_ptr<FeatureGroupInfoBase>> mGroups;
+    std::vector<ObserverEntry> mObservers;
     std::vector<BatchObserverEntry> batch_observers_;
     ObserverId next_observer_id_ = 1;
-    mutable SyncPolicy sync_;
+    mutable SyncPolicy mSync;
     
     // Maximum dependency depth before aborting to prevent stack overflow
     //
@@ -474,16 +474,16 @@ private:
     static constexpr size_t MAX_VALIDATION_DEPTH = 100;
 
     Expected<FeatureNode*, std::string> get_node(const std::string& name) {
-        auto it = features_.find(name);
-        if (it == features_.end()) {
+        auto it = mFeatures.find(name);
+        if (it == mFeatures.end()) {
             return unexpected("Feature not found: " + name);
         }
         return &(it->second);
     }
 
     Expected<const FeatureNode*, std::string> get_node(const std::string& name) const {
-        auto it = features_.find(name);
-        if (it == features_.end()) {
+        auto it = mFeatures.find(name);
+        if (it == mFeatures.end()) {
             return unexpected("Feature not found: " + name);
         }
         return &(it->second);
@@ -559,10 +559,10 @@ private:
         enum class VisitState { Unvisited, Visiting, Visited };
 
         std::unordered_map<std::string, VisitState> state;
-        state.reserve(features_.size());
+        state.reserve(mFeatures.size());
 
         std::vector<std::string> stack;
-        stack.reserve(features_.size());
+        stack.reserve(mFeatures.size());
 
         auto dfs = [&](auto&& self,
                        const std::string& name,
@@ -585,8 +585,8 @@ private:
             state[name] = VisitState::Visiting;
             stack.push_back(name);
 
-            auto node_it = features_.find(name);
-            if (node_it == features_.end()) {
+            auto node_it = mFeatures.find(name);
+            if (node_it == mFeatures.end()) {
                 stack.pop_back();
                 state[name] = VisitState::Visited;
                 return unexpected("Feature not found: " + name);
@@ -631,7 +631,7 @@ private:
             return {};
         };
 
-        for (const auto& [name, _] : features_) {
+        for (const auto& [name, _] : mFeatures) {
             auto it = state.find(name);
             if (it == state.end() || it->second == VisitState::Unvisited) {
                 auto res = dfs(dfs, name, 0);
@@ -650,10 +650,10 @@ private:
         // --------------------------------------------------------------------
         // 1) Structural validation: every relationship target must exist.
         // --------------------------------------------------------------------
-        for (const auto& [name, node] : features_) {
+        for (const auto& [name, node] : mFeatures) {
             for (const auto& [rel, targets] : node.relationships) {
                 for (const auto& target : targets) {
-                    if (!features_.count(target)) {
+                    if (!mFeatures.count(target)) {
                         return unexpected("Feature '" + name + "' has relationship '" +
                                          std::string(EnumStringPolicy<FeatureRelationship>::to_string(rel)) +
                                          "' to missing feature '" + target + "'");
@@ -673,7 +673,7 @@ private:
         // --------------------------------------------------------------------
         // 3) Enabled-state validation: requires/implies/conflicts/checks.
         // --------------------------------------------------------------------
-        for (const auto& [name, node] : features_) {
+        for (const auto& [name, node] : mFeatures) {
             if (!node.enabled) {
                 continue;
             }
@@ -682,8 +682,8 @@ private:
             auto req_it = node.relationships.find(FeatureRelationship::Requires);
             if (req_it != node.relationships.end()) {
                 for (const auto& required : req_it->second) {
-                    auto it = features_.find(required);
-                    if (it == features_.end()) {
+                    auto it = mFeatures.find(required);
+                    if (it == mFeatures.end()) {
                         return unexpected("Required feature not found: " + required);
                     }
                     if (!it->second.enabled) {
@@ -697,8 +697,8 @@ private:
             auto impl_it = node.relationships.find(FeatureRelationship::Implies);
             if (impl_it != node.relationships.end()) {
                 for (const auto& implied : impl_it->second) {
-                    auto it = features_.find(implied);
-                    if (it == features_.end()) {
+                    auto it = mFeatures.find(implied);
+                    if (it == mFeatures.end()) {
                         return unexpected("Implied feature not found: " + implied);
                     }
                     if (!it->second.enabled) {
@@ -717,8 +717,8 @@ private:
                 }
 
                 for (const auto& other : rel_it->second) {
-                    auto it = features_.find(other);
-                    if (it == features_.end()) {
+                    auto it = mFeatures.find(other);
+                    if (it == mFeatures.end()) {
                         if (rel == FeatureRelationship::Conflicts) {
                             return unexpected("Conflicting feature not found: " + other);
                         }
@@ -933,8 +933,8 @@ Expected<void, std::string> enable_feature(const std::string& name,
     template <typename StateEnum>
     Expected<StateEnum, std::string> compute_group_state_impl(
         const std::string& group_name) const {
-        auto git = groups_.find(group_name);
-        if (git == groups_.end()) {
+        auto git = mGroups.find(group_name);
+        if (git == mGroups.end()) {
             return unexpected("Group not found: " + group_name);
         }
         auto* group_ptr = dynamic_cast<FeatureGroupInfo<StateEnum>*>(git->second.get());
@@ -998,22 +998,22 @@ public:
     FeatureManager() = default;
     
     FeatureManager(FeatureManager&& other) noexcept 
-        : features_(std::move(other.features_))
-        , groups_(std::move(other.groups_))
-        , observers_(std::move(other.observers_))
+        : mFeatures(std::move(other.mFeatures))
+        , mGroups(std::move(other.mGroups))
+        , mObservers(std::move(other.mObservers))
         , batch_observers_(std::move(other.batch_observers_))
         , next_observer_id_(other.next_observer_id_)
-        , sync_() {}
+        , mSync() {}
     
     FeatureManager& operator=(FeatureManager&& other) noexcept {
         if (this != &other) {
-            features_ = std::move(other.features_);
-            groups_ = std::move(other.groups_);
-            observers_ = std::move(other.observers_);
+            mFeatures = std::move(other.mFeatures);
+            mGroups = std::move(other.mGroups);
+            mObservers = std::move(other.mObservers);
             batch_observers_ = std::move(other.batch_observers_);
             next_observer_id_ = other.next_observer_id_;
-            // sync_ intentionally not assigned/moved: synchronization primitives (mutexes)
-            // are not safely movable. The target keeps its existing sync_ instance.
+            // mSync intentionally not assigned/moved: synchronization primitives (mutexes)
+            // are not safely movable. The target keeps its existing mSync instance.
         }
         return *this;
     }
@@ -1021,23 +1021,23 @@ public:
     // RAII helper for temporary feature changes
     class ScopedFeatureChange {
     private:
-        FeatureManager* manager_;
+        FeatureManager* mManager;
         std::string feature_name_;
         bool original_state_;
-        bool valid_;
+        bool mValid;
     public:
         ScopedFeatureChange(FeatureManager& manager,
                            const std::string& feature_name,
                            bool new_state)
-            : manager_(&manager)
+            : mManager(&manager)
             , feature_name_(feature_name)
-            , valid_(false) {
-            typename SyncPolicy::LockGuard guard(manager_->sync_.getLock());
-            auto node_res = manager_->get_node(feature_name);
+            , mValid(false) {
+            typename SyncPolicy::LockGuard guard(mManager->mSync.getLock());
+            auto node_res = mManager->get_node(feature_name);
             if (node_res) {
                 FeatureNode* node = *node_res;
                 original_state_ = node->enabled;
-                valid_ = true;
+                mValid = true;
                 if (new_state && !node->enabled) {
                     node->enabled = true;
                 } else if (!new_state && node->enabled) {
@@ -1047,17 +1047,17 @@ public:
         }
         
         ~ScopedFeatureChange() {
-            if (valid_) {
+            if (mValid) {
                 {
-                    typename SyncPolicy::LockGuard guard(manager_->sync_.getLock());
-                    auto node = manager_->get_node(feature_name_);
+                    typename SyncPolicy::LockGuard guard(mManager->mSync.getLock());
+                    auto node = mManager->get_node(feature_name_);
                     if (node) {
                         (*node)->enabled = original_state_;
                     }
                 }
                 // Best-effort validation during cleanup (cannot throw from destructor)
                 try {
-                    auto validate_res = manager_->validate();
+                    auto validate_res = mManager->validate();
                     (void)validate_res;
                 } catch (...) {
                     // Swallow all exceptions - destructors must not throw.
@@ -1075,17 +1075,17 @@ public:
     // Ensures observers are properly cleaned up when the scope ends
     class ScopedObserver {
     private:
-        FeatureManager* manager_;
-        ObserverId id_;
+        FeatureManager* mManager;
+        ObserverId mId;
         
     public:
         ScopedObserver(FeatureManager& manager, FeatureObserver callback, int priority = 0)
-            : manager_(&manager)
-            , id_(manager.add_observer(std::move(callback), priority)) {}
+            : mManager(&manager)
+            , mId(manager.add_observer(std::move(callback), priority)) {}
         
         ~ScopedObserver() {
-            if (manager_ && id_ != 0) {
-                manager_->remove_observer(id_);
+            if (mManager && mId != 0) {
+                mManager->remove_observer(mId);
             }
         }
         
@@ -1095,44 +1095,44 @@ public:
         
         // Moveable
         ScopedObserver(ScopedObserver&& other) noexcept
-            : manager_(std::exchange(other.manager_, nullptr))
-            , id_(std::exchange(other.id_, 0)) {}
+            : mManager(std::exchange(other.mManager, nullptr))
+            , mId(std::exchange(other.mId, 0)) {}
         
         ScopedObserver& operator=(ScopedObserver&& other) noexcept {
             if (this != &other) {
-                if (manager_ && id_ != 0) {
-                    manager_->remove_observer(id_);
+                if (mManager && mId != 0) {
+                    mManager->remove_observer(mId);
                 }
-                manager_ = std::exchange(other.manager_, nullptr);
-                id_ = std::exchange(other.id_, 0);
+                mManager = std::exchange(other.mManager, nullptr);
+                mId = std::exchange(other.mId, 0);
             }
             return *this;
         }
         
         // Get the observer ID (for manual removal if needed)
-        ObserverId id() const { return id_; }
+        ObserverId id() const { return mId; }
         
         // Release ownership without unregistering
         ObserverId release() {
-            manager_ = nullptr;
-            return std::exchange(id_, 0);
+            mManager = nullptr;
+            return std::exchange(mId, 0);
         }
     };
     
     // RAII helper for batch observers
     class ScopedBatchObserver {
     private:
-        FeatureManager* manager_;
-        ObserverId id_;
+        FeatureManager* mManager;
+        ObserverId mId;
         
     public:
         ScopedBatchObserver(FeatureManager& manager, BatchObserver callback, int priority = 0)
-            : manager_(&manager)
-            , id_(manager.add_batch_observer(std::move(callback), priority)) {}
+            : mManager(&manager)
+            , mId(manager.add_batch_observer(std::move(callback), priority)) {}
         
         ~ScopedBatchObserver() {
-            if (manager_ && id_ != 0) {
-                manager_->remove_observer(id_);
+            if (mManager && mId != 0) {
+                mManager->remove_observer(mId);
             }
         }
         
@@ -1140,39 +1140,39 @@ public:
         ScopedBatchObserver& operator=(const ScopedBatchObserver&) = delete;
         
         ScopedBatchObserver(ScopedBatchObserver&& other) noexcept
-            : manager_(std::exchange(other.manager_, nullptr))
-            , id_(std::exchange(other.id_, 0)) {}
+            : mManager(std::exchange(other.mManager, nullptr))
+            , mId(std::exchange(other.mId, 0)) {}
         
         ScopedBatchObserver& operator=(ScopedBatchObserver&& other) noexcept {
             if (this != &other) {
-                if (manager_ && id_ != 0) {
-                    manager_->remove_observer(id_);
+                if (mManager && mId != 0) {
+                    mManager->remove_observer(mId);
                 }
-                manager_ = std::exchange(other.manager_, nullptr);
-                id_ = std::exchange(other.id_, 0);
+                mManager = std::exchange(other.mManager, nullptr);
+                mId = std::exchange(other.mId, 0);
             }
             return *this;
         }
         
-        ObserverId id() const { return id_; }
+        ObserverId id() const { return mId; }
         ObserverId release() {
-            manager_ = nullptr;
-            return std::exchange(id_, 0);
+            mManager = nullptr;
+            return std::exchange(mId, 0);
         }
     };
 
     // Add a feature with an optional validation check
     [[nodiscard]] Expected<void, std::string> add_feature(const std::string& name,
                                             FeatureCheck check = nullptr) {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
-        if (features_.count(name)) {
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        if (mFeatures.count(name)) {
             return unexpected("Feature already exists: " + name);
         }
         FeatureNode node;
         node.enabled = false;
         node.check = check;
         node.check_key = "";  // No key when added directly with callback
-        features_[name] = std::move(node);
+        mFeatures[name] = std::move(node);
         return {};
     }
 
@@ -1180,8 +1180,8 @@ public:
     // This allows the feature to be fully serialized and deserialized
     [[nodiscard]] Expected<void, std::string> add_feature(const std::string& name,
                                             const std::string& check_key) {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
-        if (features_.count(name)) {
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        if (mFeatures.count(name)) {
             return unexpected("Feature already exists: " + name);
         }
         
@@ -1195,7 +1195,7 @@ public:
         node.enabled = false;
         node.check = *check_result;
         node.check_key = check_key;
-        features_[name] = std::move(node);
+        mFeatures[name] = std::move(node);
         return {};
     }
 
@@ -1203,7 +1203,7 @@ public:
     [[nodiscard]] Expected<void, std::string> add_relationship(const std::string& from,
                                                   FeatureRelationship type,
                                                   const std::string& to) {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
         return add_relationship_unlocked(from, type, to);
     }
 
@@ -1213,16 +1213,16 @@ public:
         const std::string& group_name,
         const std::vector<std::string>& feature_names,
         StateComputer<StateEnum> computer = FeatureGroupStatePolicy<StateEnum>::compute) {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
-        if (groups_.count(group_name)) {
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        if (mGroups.count(group_name)) {
             return unexpected("Group already exists: " + group_name);
         }
         for (const auto& feature_name : feature_names) {
-            if (!features_.count(feature_name)) {
+            if (!mFeatures.count(feature_name)) {
                 return unexpected("Feature not found: " + feature_name);
             }
         }
-        groups_[group_name] = std::make_unique<FeatureGroupInfo<StateEnum>>(
+        mGroups[group_name] = std::make_unique<FeatureGroupInfo<StateEnum>>(
             feature_names, computer);
         return {};
     }
@@ -1233,13 +1233,13 @@ public:
         const std::string& group_name,
         const std::vector<std::string>& feature_names,
         StateComputer<StateEnum> computer = FeatureGroupStatePolicy<StateEnum>::compute) {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
 
-        if (groups_.count(group_name)) {
+        if (mGroups.count(group_name)) {
             return unexpected("Group already exists: " + group_name);
         }
         for (const auto& feature_name : feature_names) {
-            if (!features_.count(feature_name)) {
+            if (!mFeatures.count(feature_name)) {
                 return unexpected("Feature not found: " + feature_name);
             }
         }
@@ -1256,7 +1256,7 @@ public:
             }
         }
 
-        groups_[group_name] = std::make_unique<FeatureGroupInfo<StateEnum>>(
+        mGroups[group_name] = std::make_unique<FeatureGroupInfo<StateEnum>>(
             feature_names, computer);
         return {};
     }
@@ -1264,16 +1264,16 @@ public:
     // Get group state with type safety
     template <typename StateEnum = FeatureGroupState>
     [[nodiscard]] Expected<StateEnum, std::string> get_group_state(const std::string& group_name) const {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
         return compute_group_state_impl<StateEnum>(group_name);
     }
 
     // Get features in a group
     [[nodiscard]] Expected<std::set<std::string>, std::string> get_group_features(
         const std::string& group_name) const {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
-        auto git = groups_.find(group_name);
-        if (git == groups_.end()) {
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto git = mGroups.find(group_name);
+        if (git == mGroups.end()) {
             return unexpected("Group not found: " + group_name);
         }
         return git->second->get_features();
@@ -1302,7 +1302,7 @@ public:
         std::vector<BatchObserverEntry> batch_observers_snapshot;
 
         { // Scope for LockGuard - Lock held only during state modification
-            typename SyncPolicy::LockGuard guard(sync_.getLock());
+            typename SyncPolicy::LockGuard guard(mSync.getLock());
 
             // Validate all features exist first
             for (const auto& name : names) {
@@ -1314,7 +1314,7 @@ public:
 
             // Snapshot ALL feature states before any modifications
             std::map<std::string, bool> original_states;
-            for (const auto& [name, node] : features_) {
+            for (const auto& [name, node] : mFeatures) {
                 original_states[name] = node.enabled;
             }
 
@@ -1324,7 +1324,7 @@ public:
                 auto res = enable_feature(name, chain, &all_changed);
                 if (!res) {
                     // Rollback ALL features to original states
-                    for (auto& [feature_name, node] : features_) {
+                    for (auto& [feature_name, node] : mFeatures) {
                         node.enabled = original_states[feature_name];
                     }
                     return res;
@@ -1335,7 +1335,7 @@ public:
             // This prevents data races and makes it safe for observers to add/remove observers
             // or call FeatureManager methods (reentrant use).
             if (!all_changed.empty()) {
-                observers_snapshot = observers_;
+                observers_snapshot = mObservers;
                 batch_observers_snapshot = batch_observers_;
             }
         } // Lock released here
@@ -1385,7 +1385,7 @@ public:
         }
 
         { // Scope for LockGuard - Lock held only during state modification
-            typename SyncPolicy::LockGuard guard(sync_.getLock());
+            typename SyncPolicy::LockGuard guard(mSync.getLock());
 
             // Validate all features exist first
             for (const auto& name : unique_names) {
@@ -1419,7 +1419,7 @@ public:
             };
 
             // Validate the resulting state
-            for (const auto& [feature_name, node] : features_) {
+            for (const auto& [feature_name, node] : mFeatures) {
                 if (!node.enabled) {
                     continue;
                 }
@@ -1459,7 +1459,7 @@ public:
             }
 
             if (!actually_changed.empty()) {
-                observers_snapshot = observers_;
+                observers_snapshot = mObservers;
                 batch_observers_snapshot = batch_observers_;
             }
         } // Lock released here
@@ -1487,7 +1487,7 @@ public:
 
     // Check if feature is enabled
     bool is_enabled(const std::string& name) const {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
         auto node_res = get_node(name);
         if (!node_res) {
             return false;
@@ -1497,7 +1497,7 @@ public:
 
     // Validate entire feature set
     [[nodiscard]] Expected<void, std::string> validate() {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
         return validate_unlocked();
     }
 
@@ -1525,9 +1525,9 @@ public:
     // operations fast.
     //
 ObserverId add_observer(FeatureObserver callback, int priority = 0) {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
         ObserverId id = next_observer_id_++;
-        observers_.push_back({id, priority, std::move(callback)});
+        mObservers.push_back({id, priority, std::move(callback)});
         return id;
     }
     
@@ -1550,7 +1550,7 @@ ObserverId add_observer(FeatureObserver callback, int priority = 0) {
     //
     // Returns: ObserverId that can be used to remove the observer later
     ObserverId add_batch_observer(BatchObserver callback, int priority = 0) {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
         ObserverId id = next_observer_id_++;
         batch_observers_.push_back({id, priority, std::move(callback)});
         return id;
@@ -1563,13 +1563,13 @@ ObserverId add_observer(FeatureObserver callback, int priority = 0) {
     //
     // Works for both regular and batch observers.
     bool remove_observer(ObserverId id) {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
         
         // Check regular observers
-        auto it = std::find_if(observers_.begin(), observers_.end(),
+        auto it = std::find_if(mObservers.begin(), mObservers.end(),
             [id](const ObserverEntry& entry) { return entry.id == id; });
-        if (it != observers_.end()) {
-            observers_.erase(it);
+        if (it != mObservers.end()) {
+            mObservers.erase(it);
             return true;
         }
         
@@ -1586,16 +1586,16 @@ ObserverId add_observer(FeatureObserver callback, int priority = 0) {
     
     // Remove all observers
     void clear_observers() {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
-        observers_.clear();
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        mObservers.clear();
         batch_observers_.clear();
     }
 
     // Get all enabled features
     std::vector<std::string> get_enabled() const {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
         std::vector<std::string> enabled;
-        for (const auto& [name, node] : features_) {
+        for (const auto& [name, node] : mFeatures) {
             if (node.enabled) {
                 enabled.push_back(name);
             }
@@ -1605,9 +1605,9 @@ ObserverId add_observer(FeatureObserver callback, int priority = 0) {
 
     // Get all feature names
     std::vector<std::string> get_all_features() const {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
         std::vector<std::string> all_features;
-        for (const auto& [name, _] : features_) {
+        for (const auto& [name, _] : mFeatures) {
             all_features.push_back(name);
         }
         return all_features;
@@ -1615,9 +1615,9 @@ ObserverId add_observer(FeatureObserver callback, int priority = 0) {
 
     // Get all group names
     std::vector<std::string> get_all_groups() const {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
         std::vector<std::string> all_groups;
-        for (const auto& [name, _] : groups_) {
+        for (const auto& [name, _] : mGroups) {
             all_groups.push_back(name);
         }
         return all_groups;
@@ -1625,15 +1625,15 @@ ObserverId add_observer(FeatureObserver callback, int priority = 0) {
 
     // Serialize to JSON
     std::string to_json() const {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
         JsonObject root;
         JsonObject features_json;
-        for (const auto& [name, node] : features_) {
+        for (const auto& [name, node] : mFeatures) {
             features_json[name] = node.to_json();
         }
         root["features"] = JsonValue{std::move(features_json)};
         JsonObject groups_json;
-        for (const auto& [name, group] : groups_) {
+        for (const auto& [name, group] : mGroups) {
             groups_json[name] = group->to_json();
         }
         root["groups"] = JsonValue{std::move(groups_json)};
@@ -1672,15 +1672,15 @@ ObserverId add_observer(FeatureObserver callback, int priority = 0) {
                     return unexpected("Error parsing feature '" + name + "': " + 
                                      node_res.error());
                 }
-                manager.features_[name] = std::move(*node_res);
+                manager.mFeatures[name] = std::move(*node_res);
             }
         }
         
         // Structural validation: all relationship targets must exist.
-        for (const auto& [name, node] : manager.features_) {
+        for (const auto& [name, node] : manager.mFeatures) {
             for (const auto& [rel, targets] : node.relationships) {
                 for (const auto& target : targets) {
-                    if (!manager.features_.count(target)) {
+                    if (!manager.mFeatures.count(target)) {
                         return unexpected("Feature '" + name + "' has relationship '" +
                                          std::string(EnumStringPolicy<FeatureRelationship>::to_string(rel)) +
                                          "' to missing feature '" + target + "'");
@@ -1691,7 +1691,7 @@ ObserverId add_observer(FeatureObserver callback, int priority = 0) {
         
         // Symmetrization: Ensure Conflicts and MutuallyExclusive relationships are bidirectional.
         // This handles hand-edited JSON where only one direction was specified.
-        for (auto& [from_name, from_node] : manager.features_) {
+        for (auto& [from_name, from_node] : manager.mFeatures) {
             for (auto rel : {FeatureRelationship::Conflicts, 
                              FeatureRelationship::MutuallyExclusive}) {
                 auto it = from_node.relationships.find(rel);
@@ -1700,7 +1700,7 @@ ObserverId add_observer(FeatureObserver callback, int priority = 0) {
                 }
                 for (const auto& to_name : it->second) {
                     // Add reverse relationship if not already present
-                    auto& to_node = manager.features_[to_name];
+                    auto& to_node = manager.mFeatures[to_name];
                     (void)to_node.relationships[rel].insert(from_name);
                 }
             }
@@ -1723,13 +1723,13 @@ ObserverId add_observer(FeatureObserver callback, int priority = 0) {
                         return unexpected("Group feature must be string");
                     }
                     auto feature_name = std::get<std::string>(elem);
-                    if (!manager.features_.count(feature_name)) {
+                    if (!manager.mFeatures.count(feature_name)) {
                         return unexpected("Group '" + name + "' references missing feature '" + 
                                          feature_name + "'");
                     }
                     feature_names.push_back(std::move(feature_name));
                 }
-                manager.groups_[name] = 
+                manager.mGroups[name] = 
                     std::make_unique<FeatureGroupInfo<FeatureGroupState>>(feature_names);
             }
         }
@@ -1746,16 +1746,16 @@ ObserverId add_observer(FeatureObserver callback, int priority = 0) {
 
     // Export to GraphViz DOT format
     std::string to_dot() const {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
         std::ostringstream ss;
         ss << "digraph FeatureGraph {\n";
         ss << "    rankdir=LR;\n";
         ss << "    node [shape=box];\n";
-        for (const auto& [name, node] : features_) {
+        for (const auto& [name, node] : mFeatures) {
             std::string color = node.enabled ? "green" : "gray";
             ss << "    \"" << name << "\" [style=filled, fillcolor=" << color << "];\n";
         }
-        for (const auto& [name, node] : features_) {
+        for (const auto& [name, node] : mFeatures) {
             for (const auto& [type, targets] : node.relationships) {
                 std::string style;
                 std::string arrow;
@@ -1804,7 +1804,7 @@ ObserverId add_observer(FeatureObserver callback, int priority = 0) {
             }
 
             auto res = manager.add_feature(node_name);
-            if (!res && !manager.features_.count(node_name)) {
+            if (!res && !manager.mFeatures.count(node_name)) {
                 return unexpected(res.error());
             }
         }
@@ -1823,11 +1823,11 @@ ObserverId add_observer(FeatureObserver callback, int priority = 0) {
                 continue;
             }
             auto from_add = manager.add_feature(from);
-            if (!from_add && !manager.features_.count(from)) {
+            if (!from_add && !manager.mFeatures.count(from)) {
                 return unexpected(from_add.error());
             }
             auto to_add = manager.add_feature(to);
-            if (!to_add && !manager.features_.count(to)) {
+            if (!to_add && !manager.mFeatures.count(to)) {
                 return unexpected(to_add.error());
             }
 
@@ -1841,10 +1841,10 @@ ObserverId add_observer(FeatureObserver callback, int priority = 0) {
 
     // Clear all features, groups, and observers
     void clear() {
-        typename SyncPolicy::LockGuard guard(sync_.getLock());
-        features_.clear();
-        groups_.clear();
-        observers_.clear();
+        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        mFeatures.clear();
+        mGroups.clear();
+        mObservers.clear();
         batch_observers_.clear();
     }
 };

@@ -117,7 +117,7 @@ private:
     // ========================================================================
 
     Node* free_list_ = nullptr;
-    std::vector<std::unique_ptr<Node[]>> blocks_;
+    std::vector<std::unique_ptr<Node[]>> mBlocks;
     size_t block_size_;
     mutable SyncPolicy sync_policy_;  // mutable for const methods (ALL FOUR agreed)
 
@@ -138,7 +138,7 @@ private:
 
         // CRITICAL-5 FIX: Exception safety - reserve before modifying free_list_
         // If reserve throws, unique_ptr cleans up block and free_list_ remains valid
-        blocks_.reserve(blocks_.size() + 1);
+        mBlocks.reserve(mBlocks.size() + 1);
 
         // Initialize nodes and weave into free list (no-throw after reserve)
         for (size_t i = 0; i < block_size_; ++i)
@@ -149,7 +149,7 @@ private:
         }
 
         // No-throw guarantee after reserve succeeded
-        blocks_.push_back(std::move(block));
+        mBlocks.push_back(std::move(block));
     }
 
 #ifndef NDEBUG
@@ -162,7 +162,7 @@ private:
         }
 
         const Node* node = reinterpret_cast<const Node*>(obj);
-        for (const auto& block : blocks_)
+        for (const auto& block : mBlocks)
         {
             const Node* begin = block.get();
             const Node* end = begin + block_size_;
@@ -423,7 +423,7 @@ public:
     {
         typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
 
-        while (blocks_.size() < n)
+        while (mBlocks.size() < n)
         {
             allocate_block();
         }
@@ -463,12 +463,12 @@ public:
             ++avail;
         }
 
-        size_t total = blocks_.size() * block_size_;
+        size_t total = mBlocks.size() * block_size_;
         return Stats{
             total,
             avail,
             total - avail,
-            blocks_.size(),
+            mBlocks.size(),
             block_size_
 #ifndef NDEBUG
             ,
@@ -488,14 +488,14 @@ public:
     size_t num_blocks() const
     {
         typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
-        return blocks_.size();
+        return mBlocks.size();
     }
 
     /// @brief Get total capacity of the pool
     size_t capacity() const
     {
         typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
-        return blocks_.size() * block_size_;
+        return mBlocks.size() * block_size_;
     }
 
     /**
@@ -549,8 +549,8 @@ public:
     using pool_type = ObjectPool<T, SyncPolicy>;
 
 private:
-    pool_type* pool_ = nullptr;
-    T* obj_ = nullptr;
+    pool_type* mPool = nullptr;
+    T* mObj = nullptr;
 
 public:
     /// @brief Default constructor - creates empty wrapper
@@ -562,8 +562,8 @@ public:
      * @param obj Object pointer (may be nullptr)
      */
     PooledObject(pool_type* pool, T* obj)
-        : pool_(pool)
-        , obj_(obj)
+        : mPool(pool)
+        , mObj(obj)
     {
     }
 
@@ -573,11 +573,11 @@ public:
 
     // Movable
     PooledObject(PooledObject&& other) noexcept
-        : pool_(other.pool_)
-        , obj_(other.obj_)
+        : mPool(other.mPool)
+        , mObj(other.mObj)
     {
-        other.pool_ = nullptr;
-        other.obj_ = nullptr;
+        other.mPool = nullptr;
+        other.mObj = nullptr;
     }
 
     PooledObject& operator=(PooledObject&& other) noexcept
@@ -585,10 +585,10 @@ public:
         if (this != &other)
         {
             reset();
-            pool_ = other.pool_;
-            obj_ = other.obj_;
-            other.pool_ = nullptr;
-            other.obj_ = nullptr;
+            mPool = other.mPool;
+            mObj = other.mObj;
+            other.mPool = nullptr;
+            other.mObj = nullptr;
         }
         return *this;
     }
@@ -602,12 +602,12 @@ public:
     /// @brief Release object back to pool and clear wrapper
     void reset()
     {
-        if (obj_ && pool_)
+        if (mObj && mPool)
         {
-            pool_->release(obj_);
+            mPool->release(mObj);
         }
-        obj_ = nullptr;
-        pool_ = nullptr;
+        mObj = nullptr;
+        mPool = nullptr;
     }
 
     /**
@@ -617,48 +617,48 @@ public:
      */
     [[nodiscard]] T* release()
     {
-        T* tmp = obj_;
-        obj_ = nullptr;
-        pool_ = nullptr;
+        T* tmp = mObj;
+        mObj = nullptr;
+        mPool = nullptr;
         return tmp;
     }
 
     // Accessors with null checks (Claude + Grok)
     T* operator->()
     {
-        assert(obj_ != nullptr && "Dereferencing null PooledObject");
-        return obj_;
+        assert(mObj != nullptr && "Dereferencing null PooledObject");
+        return mObj;
     }
 
     const T* operator->() const
     {
-        assert(obj_ != nullptr && "Dereferencing null PooledObject");
-        return obj_;
+        assert(mObj != nullptr && "Dereferencing null PooledObject");
+        return mObj;
     }
 
     T& operator*()
     {
-        assert(obj_ != nullptr && "Dereferencing null PooledObject");
-        return *obj_;
+        assert(mObj != nullptr && "Dereferencing null PooledObject");
+        return *mObj;
     }
 
     const T& operator*() const
     {
-        assert(obj_ != nullptr && "Dereferencing null PooledObject");
-        return *obj_;
+        assert(mObj != nullptr && "Dereferencing null PooledObject");
+        return *mObj;
     }
 
     /// @brief Get raw pointer (may be nullptr)
-    T* get() { return obj_; }
+    T* get() { return mObj; }
 
     /// @brief Get raw pointer (may be nullptr)
-    const T* get() const { return obj_; }
+    const T* get() const { return mObj; }
 
     /// @brief Check if wrapper holds a valid object
-    explicit operator bool() const { return obj_ != nullptr; }
+    explicit operator bool() const { return mObj != nullptr; }
 
     /// @brief Get owning pool (ChatGPT suggestion)
-    pool_type* get_pool() const { return pool_; }
+    pool_type* get_pool() const { return mPool; }
 };
 
 // ============================================================================

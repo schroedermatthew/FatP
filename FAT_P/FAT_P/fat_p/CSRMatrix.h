@@ -14,7 +14,7 @@
  * - Conversion from/to dense format
  *
  * CSR Format:
- * - values_: Non-zero values (size = nnz)
+ * - mValues: Non-zero values (size = nnz)
  * - col_indices_: Column index of each non-zero (size = nnz)
  * - row_ptrs_: Start of each row in values array (size = rows + 1)
  *
@@ -112,9 +112,9 @@ public:
     };
 
 private:
-    size_type rows_;
-    size_type cols_;
-    std::vector<T> values_;
+    size_type mRows;
+    size_type mCols;
+    std::vector<T> mValues;
     std::vector<IndexType> col_indices_;
     std::vector<ptr_type> row_ptrs_;
 
@@ -168,7 +168,7 @@ public:
     // Constructors
     // =========================================================================
 
-    CSRMatrix() : rows_(0), cols_(0)
+    CSRMatrix() : mRows(0), mCols(0)
     {
         row_ptrs_.push_back(0);
     }
@@ -180,7 +180,7 @@ public:
     CSRMatrix& operator=(CSRMatrix&&) noexcept = default;
     ~CSRMatrix() = default;
 
-    CSRMatrix(size_type rows, size_type cols) : rows_(rows), cols_(cols)
+    CSRMatrix(size_type rows, size_type cols) : mRows(rows), mCols(cols)
     {
         validate_dimensions(rows, cols);
         row_ptrs_.resize(rows + 1, 0);
@@ -204,7 +204,7 @@ public:
               const std::vector<IndexType>& col_indices,
               const std::vector<T>& values,
               DuplicatePolicy policy = DuplicatePolicy::Sum)
-        : rows_(rows), cols_(cols)
+        : mRows(rows), mCols(cols)
     {
         validate_dimensions(rows, cols);
 
@@ -298,7 +298,7 @@ public:
         }
 
         // Build CSR structure - always filter zeros for sparse semantics
-        values_.reserve(processed.size());
+        mValues.reserve(processed.size());
         col_indices_.reserve(processed.size());
         row_ptrs_.resize(rows + 1, 0);
 
@@ -307,7 +307,7 @@ public:
             // Always filter zeros regardless of policy (sparse invariant)
             if (!is_effectively_zero(val))
             {
-                values_.push_back(val);
+                mValues.push_back(val);
                 col_indices_.push_back(col);
                 row_ptrs_[static_cast<size_type>(row) + 1]++;
             }
@@ -349,7 +349,7 @@ public:
         }
 
         CSRMatrix result(rows, cols);
-        result.values_.reserve(rows * std::min(cols, size_type{16}));
+        result.mValues.reserve(rows * std::min(cols, size_type{16}));
         result.col_indices_.reserve(rows * std::min(cols, size_type{16}));
 
         using std::abs;
@@ -371,11 +371,11 @@ public:
 
                 if (is_nonzero)
                 {
-                    result.values_.push_back(val);
+                    result.mValues.push_back(val);
                     result.col_indices_.push_back(static_cast<IndexType>(j));
                 }
             }
-            result.row_ptrs_[i + 1] = result.values_.size();
+            result.row_ptrs_[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -385,12 +385,12 @@ public:
     // Accessors
     // =========================================================================
 
-    [[nodiscard]] size_type rows() const noexcept { return rows_; }
-    [[nodiscard]] size_type cols() const noexcept { return cols_; }
-    [[nodiscard]] size_type nnz() const noexcept { return values_.size(); }
-    [[nodiscard]] bool empty() const noexcept { return values_.empty(); }
+    [[nodiscard]] size_type rows() const noexcept { return mRows; }
+    [[nodiscard]] size_type cols() const noexcept { return mCols; }
+    [[nodiscard]] size_type nnz() const noexcept { return mValues.size(); }
+    [[nodiscard]] bool empty() const noexcept { return mValues.empty(); }
 
-    [[nodiscard]] const std::vector<T>& values() const noexcept { return values_; }
+    [[nodiscard]] const std::vector<T>& values() const noexcept { return mValues; }
     [[nodiscard]] const std::vector<IndexType>& col_indices() const noexcept
     {
         return col_indices_;
@@ -411,7 +411,7 @@ public:
      */
     [[nodiscard]] T operator()(size_type row, size_type col) const
     {
-        if (row >= rows_ || col >= cols_)
+        if (row >= mRows || col >= mCols)
         {
             throw std::out_of_range("CSRMatrix: index out of range");
         }
@@ -428,7 +428,7 @@ public:
         {
             if (col_indices_[j] == target_col)
             {
-                sum += values_[j];
+                sum += mValues[j];
             }
             else if (col_indices_[j] > target_col)
             {
@@ -443,7 +443,7 @@ public:
     /**
      * @brief Set element at (row, col)
      * @details O(nnz + rows) worst-case complexity: insertion/removal shifts all
-     *          subsequent elements in values_ and col_indices_, and updates row_ptrs_
+     *          subsequent elements in mValues and col_indices_, and updates row_ptrs_
      *          for all rows after the modified one. For bulk construction, use COO
      *          constructor instead. Setting to zero removes the entry to maintain
      *          sparse invariant.
@@ -458,7 +458,7 @@ public:
      */
     void set(size_type row, size_type col, T value)
     {
-        if (row >= rows_ || col >= cols_)
+        if (row >= mRows || col >= mCols)
         {
             throw std::out_of_range("CSRMatrix: index out of range");
         }
@@ -476,7 +476,7 @@ public:
             {
                 if (write_pos != i)
                 {
-                    values_[write_pos] = values_[i];
+                    mValues[write_pos] = mValues[i];
                     col_indices_[write_pos] = col_indices_[i];
                 }
                 ++write_pos;
@@ -491,18 +491,18 @@ public:
         if (removed_count > 0)
         {
             // Shift remaining elements using std::move for overlapping ranges
-            std::move(values_.begin() + static_cast<std::ptrdiff_t>(end),
-                      values_.end(),
-                      values_.begin() + static_cast<std::ptrdiff_t>(end - removed_count));
+            std::move(mValues.begin() + static_cast<std::ptrdiff_t>(end),
+                      mValues.end(),
+                      mValues.begin() + static_cast<std::ptrdiff_t>(end - removed_count));
             std::move(col_indices_.begin() + static_cast<std::ptrdiff_t>(end),
                       col_indices_.end(),
                       col_indices_.begin() + static_cast<std::ptrdiff_t>(end - removed_count));
 
-            values_.resize(values_.size() - removed_count);
+            mValues.resize(mValues.size() - removed_count);
             col_indices_.resize(col_indices_.size() - removed_count);
 
             // Update row pointers
-            for (size_type r = row + 1; r <= rows_; ++r)
+            for (size_type r = row + 1; r <= mRows; ++r)
             {
                 row_ptrs_[r] -= removed_count;
             }
@@ -524,10 +524,10 @@ public:
                 insert_pos = i + 1;
             }
 
-            values_.insert(values_.begin() + static_cast<std::ptrdiff_t>(insert_pos), value);
+            mValues.insert(mValues.begin() + static_cast<std::ptrdiff_t>(insert_pos), value);
             col_indices_.insert(col_indices_.begin() + static_cast<std::ptrdiff_t>(insert_pos),
                                 target_col);
-            for (size_type r = row + 1; r <= rows_; ++r)
+            for (size_type r = row + 1; r <= mRows; ++r)
             {
                 row_ptrs_[r]++;
             }
@@ -553,13 +553,13 @@ public:
             using pointer = const value_type*;
             using reference = value_type;
 
-            Iterator(const IndexType* col, const T* val) : col_(col), val_(val) {}
+            Iterator(const IndexType* col, const T* val) : mCol(col), mVal(val) {}
 
-            reference operator*() const { return {*col_, *val_}; }
+            reference operator*() const { return {*mCol, *mVal}; }
             Iterator& operator++()
             {
-                ++col_;
-                ++val_;
+                ++mCol;
+                ++mVal;
                 return *this;
             }
             Iterator operator++(int)
@@ -568,12 +568,12 @@ public:
                 ++(*this);
                 return tmp;
             }
-            bool operator==(const Iterator& other) const { return col_ == other.col_; }
-            bool operator!=(const Iterator& other) const { return col_ != other.col_; }
+            bool operator==(const Iterator& other) const { return mCol == other.mCol; }
+            bool operator!=(const Iterator& other) const { return mCol != other.mCol; }
 
         private:
-            const IndexType* col_;
-            const T* val_;
+            const IndexType* mCol;
+            const T* mVal;
         };
 
         RowView(const IndexType* col_begin,
@@ -612,7 +612,7 @@ public:
      */
     [[nodiscard]] RowView row(size_type row) const
     {
-        if (row >= rows_)
+        if (row >= mRows)
         {
             throw std::out_of_range("CSRMatrix: row index out of range");
         }
@@ -620,7 +620,7 @@ public:
         ptr_type end = row_ptrs_[row + 1];
         return RowView(col_indices_.data() + start,
                        col_indices_.data() + end,
-                       values_.data() + start);
+                       mValues.data() + start);
     }
 
     // =========================================================================
@@ -632,7 +632,7 @@ public:
      */
     void matvec(const T* x, T* y) const
     {
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             T sum = T{0};
             ptr_type start = row_ptrs_[i];
@@ -640,7 +640,7 @@ public:
 
             for (ptr_type j = start; j < end; ++j)
             {
-                sum += values_[j] * x[col_indices_[j]];
+                sum += mValues[j] * x[col_indices_[j]];
             }
             y[i] = sum;
         }
@@ -652,7 +652,7 @@ public:
      */
     void matvec(T alpha, const T* x, T beta, T* y) const
     {
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             T sum = T{0};
             ptr_type start = row_ptrs_[i];
@@ -660,7 +660,7 @@ public:
 
             for (ptr_type j = start; j < end; ++j)
             {
-                sum += values_[j] * x[col_indices_[j]];
+                sum += mValues[j] * x[col_indices_[j]];
             }
 
             // Safe overwrite when beta is zero to avoid NaN propagation
@@ -681,7 +681,7 @@ public:
      */
     void matvec(T alpha, const std::vector<T>& x, T beta, std::vector<T>& y) const
     {
-        if (x.size() != cols_ || y.size() != rows_)
+        if (x.size() != mCols || y.size() != mRows)
         {
             throw std::invalid_argument("CSRMatrix: vector size mismatch");
         }
@@ -693,12 +693,12 @@ public:
      */
     [[nodiscard]] std::vector<T> operator*(const std::vector<T>& x) const
     {
-        if (x.size() != cols_)
+        if (x.size() != mCols)
         {
             throw std::invalid_argument("CSRMatrix: vector size mismatch");
         }
 
-        std::vector<T> y(rows_);
+        std::vector<T> y(mRows);
         matvec(x.data(), y.data());
         return y;
     }
@@ -712,7 +712,7 @@ public:
     {
 #if defined(_OPENMP)
         #pragma omp parallel for schedule(static)
-        for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(rows_); ++i)
+        for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(mRows); ++i)
         {
             T sum = T{0};
             ptr_type start = row_ptrs_[i];
@@ -720,7 +720,7 @@ public:
 
             for (ptr_type j = start; j < end; ++j)
             {
-                sum += values_[j] * x[col_indices_[j]];
+                sum += mValues[j] * x[col_indices_[j]];
             }
             y[i] = sum;
         }
@@ -739,7 +739,7 @@ public:
     {
 #if defined(_OPENMP)
         #pragma omp parallel for schedule(static)
-        for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(rows_); ++i)
+        for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(mRows); ++i)
         {
             T sum = T{0};
             ptr_type start = row_ptrs_[i];
@@ -747,7 +747,7 @@ public:
 
             for (ptr_type j = start; j < end; ++j)
             {
-                sum += values_[j] * x[col_indices_[j]];
+                sum += mValues[j] * x[col_indices_[j]];
             }
 
             // Safe overwrite when beta is zero to avoid NaN propagation
@@ -775,7 +775,7 @@ public:
      */
     [[nodiscard]] CSRMatrix transpose() const
     {
-        CSRMatrix result(cols_, rows_);
+        CSRMatrix result(mCols, mRows);
 
         if (nnz() == 0)
         {
@@ -783,25 +783,25 @@ public:
         }
 
         // Count entries per column (rows in transposed)
-        std::vector<ptr_type> col_counts(cols_ + 1, 0);
+        std::vector<ptr_type> col_counts(mCols + 1, 0);
         for (IndexType col : col_indices_)
         {
             col_counts[static_cast<size_type>(col) + 1]++;
         }
 
         // Cumulative sum
-        for (size_type i = 0; i < cols_; ++i)
+        for (size_type i = 0; i < mCols; ++i)
         {
             col_counts[i + 1] += col_counts[i];
         }
 
         result.row_ptrs_ = col_counts;
-        result.values_.resize(nnz());
+        result.mValues.resize(nnz());
         result.col_indices_.resize(nnz());
 
         // Fill transposed values
         std::vector<ptr_type> write_pos = col_counts;
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             ptr_type start = row_ptrs_[i];
             ptr_type end = row_ptrs_[i + 1];
@@ -810,7 +810,7 @@ public:
             {
                 IndexType col = col_indices_[j];
                 ptr_type dest = write_pos[col]++;
-                result.values_[dest] = values_[j];
+                result.mValues[dest] = mValues[j];
                 result.col_indices_[dest] = static_cast<IndexType>(i);
             }
         }
@@ -825,16 +825,16 @@ public:
      */
     [[nodiscard]] CSRMatrix operator+(const CSRMatrix& other) const
     {
-        if (rows_ != other.rows_ || cols_ != other.cols_)
+        if (mRows != other.mRows || mCols != other.mCols)
         {
             throw std::invalid_argument("CSRMatrix: dimension mismatch for addition");
         }
 
-        CSRMatrix result(rows_, cols_);
-        result.values_.reserve(nnz() + other.nnz());
+        CSRMatrix result(mRows, mCols);
+        result.mValues.reserve(nnz() + other.nnz());
         result.col_indices_.reserve(nnz() + other.nnz());
 
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             ptr_type a_ptr = row_ptrs_[i];
             ptr_type a_end = row_ptrs_[i + 1];
@@ -858,24 +858,24 @@ public:
                 // Consume ALL entries at cur_col from A (handles duplicates)
                 while (a_ptr < a_end && col_indices_[a_ptr] == cur_col)
                 {
-                    sum += values_[a_ptr++];
+                    sum += mValues[a_ptr++];
                 }
 
                 // Consume ALL entries at cur_col from B (handles duplicates)
                 while (b_ptr < b_end && other.col_indices_[b_ptr] == cur_col)
                 {
-                    sum += other.values_[b_ptr++];
+                    sum += other.mValues[b_ptr++];
                 }
 
                 // Only store non-zero result
                 if (!is_effectively_zero(sum))
                 {
-                    result.values_.push_back(sum);
+                    result.mValues.push_back(sum);
                     result.col_indices_.push_back(cur_col);
                 }
             }
 
-            result.row_ptrs_[i + 1] = result.values_.size();
+            result.row_ptrs_[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -888,16 +888,16 @@ public:
      */
     [[nodiscard]] CSRMatrix operator-(const CSRMatrix& other) const
     {
-        if (rows_ != other.rows_ || cols_ != other.cols_)
+        if (mRows != other.mRows || mCols != other.mCols)
         {
             throw std::invalid_argument("CSRMatrix: dimension mismatch for subtraction");
         }
 
-        CSRMatrix result(rows_, cols_);
-        result.values_.reserve(nnz() + other.nnz());
+        CSRMatrix result(mRows, mCols);
+        result.mValues.reserve(nnz() + other.nnz());
         result.col_indices_.reserve(nnz() + other.nnz());
 
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             ptr_type a_ptr = row_ptrs_[i];
             ptr_type a_end = row_ptrs_[i + 1];
@@ -921,24 +921,24 @@ public:
                 // Consume ALL entries at cur_col from A (handles duplicates)
                 while (a_ptr < a_end && col_indices_[a_ptr] == cur_col)
                 {
-                    diff += values_[a_ptr++];
+                    diff += mValues[a_ptr++];
                 }
 
                 // Subtract ALL entries at cur_col from B (handles duplicates)
                 while (b_ptr < b_end && other.col_indices_[b_ptr] == cur_col)
                 {
-                    diff -= other.values_[b_ptr++];
+                    diff -= other.mValues[b_ptr++];
                 }
 
                 // Only store non-zero result
                 if (!is_effectively_zero(diff))
                 {
-                    result.values_.push_back(diff);
+                    result.mValues.push_back(diff);
                     result.col_indices_.push_back(cur_col);
                 }
             }
 
-            result.row_ptrs_[i + 1] = result.values_.size();
+            result.row_ptrs_[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -953,11 +953,11 @@ public:
         // Maintain sparse invariant: multiplication by zero yields empty matrix
         if (is_effectively_zero(alpha))
         {
-            return CSRMatrix(rows_, cols_);
+            return CSRMatrix(mRows, mCols);
         }
 
         CSRMatrix result = *this;
-        for (auto& val : result.values_)
+        for (auto& val : result.mValues)
         {
             val *= alpha;
         }
@@ -973,13 +973,13 @@ public:
         // Maintain sparse invariant: multiplication by zero clears the matrix
         if (is_effectively_zero(alpha))
         {
-            values_.clear();
+            mValues.clear();
             col_indices_.clear();
             std::fill(row_ptrs_.begin(), row_ptrs_.end(), ptr_type{0});
             return *this;
         }
 
-        for (auto& val : values_)
+        for (auto& val : mValues)
         {
             val *= alpha;
         }
@@ -1009,23 +1009,23 @@ public:
      */
     [[nodiscard]] CSRMatrix matmul(const CSRMatrix& B) const
     {
-        if (cols_ != B.rows_)
+        if (mCols != B.mRows)
         {
             throw std::invalid_argument("CSRMatrix: incompatible dimensions for matmul");
         }
 
-        CSRMatrix result(rows_, B.cols_);
-        result.values_.reserve(std::max(nnz(), B.nnz()));
+        CSRMatrix result(mRows, B.mCols);
+        result.mValues.reserve(std::max(nnz(), B.nnz()));
         result.col_indices_.reserve(std::max(nnz(), B.nnz()));
 
         // Workspace (hoisted out of loop for performance)
-        std::vector<T> accumulator(B.cols_, T{0});
-        // Use size_type for marker to avoid overflow when rows_ > IndexType::max
-        std::vector<size_type> marker(B.cols_, static_cast<size_type>(-1));
+        std::vector<T> accumulator(B.mCols, T{0});
+        // Use size_type for marker to avoid overflow when mRows > IndexType::max
+        std::vector<size_type> marker(B.mCols, static_cast<size_type>(-1));
         std::vector<IndexType> touched_cols;
-        touched_cols.reserve(std::min(B.cols_, size_type{256}));
+        touched_cols.reserve(std::min(B.mCols, size_type{256}));
 
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             touched_cols.clear();
 
@@ -1035,7 +1035,7 @@ public:
             for (ptr_type a_ptr = a_start; a_ptr < a_end; ++a_ptr)
             {
                 IndexType k = col_indices_[a_ptr];
-                T a_val = values_[a_ptr];
+                T a_val = mValues[a_ptr];
 
                 ptr_type b_start = B.row_ptrs_[k];
                 ptr_type b_end = B.row_ptrs_[k + 1];
@@ -1050,7 +1050,7 @@ public:
                         touched_cols.push_back(j);
                     }
 
-                    accumulator[j] += a_val * B.values_[b_ptr];
+                    accumulator[j] += a_val * B.mValues[b_ptr];
                 }
             }
 
@@ -1062,13 +1062,13 @@ public:
                 T val = accumulator[j];
                 if (!is_effectively_zero(val))
                 {
-                    result.values_.push_back(val);
+                    result.mValues.push_back(val);
                     result.col_indices_.push_back(j);
                 }
                 accumulator[j] = T{0};
             }
 
-            result.row_ptrs_[i + 1] = result.values_.size();
+            result.row_ptrs_[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -1087,13 +1087,13 @@ public:
      */
     [[nodiscard]] bool operator==(const CSRMatrix& other) const
     {
-        if (rows_ != other.rows_ || cols_ != other.cols_)
+        if (mRows != other.mRows || mCols != other.mCols)
         {
             return false;
         }
         return row_ptrs_ == other.row_ptrs_ &&
                col_indices_ == other.col_indices_ &&
-               values_ == other.values_;
+               mValues == other.mValues;
     }
 
     [[nodiscard]] bool operator!=(const CSRMatrix& other) const
@@ -1108,7 +1108,7 @@ public:
      */
     [[nodiscard]] bool equals(const CSRMatrix& other, T epsilon = default_epsilon<T>()) const
     {
-        if (rows_ != other.rows_ || cols_ != other.cols_)
+        if (mRows != other.mRows || mCols != other.mCols)
         {
             return false;
         }
@@ -1116,24 +1116,24 @@ public:
         {
             return false;
         }
-        if (values_.size() != other.values_.size())
+        if (mValues.size() != other.mValues.size())
         {
             return false;
         }
 
         using std::abs;
-        for (size_type i = 0; i < values_.size(); ++i)
+        for (size_type i = 0; i < mValues.size(); ++i)
         {
             if constexpr (std::is_floating_point_v<T>)
             {
-                if (abs(values_[i] - other.values_[i]) > epsilon)
+                if (abs(mValues[i] - other.mValues[i]) > epsilon)
                 {
                     return false;
                 }
             }
             else
             {
-                if (values_[i] != other.values_[i])
+                if (mValues[i] != other.mValues[i])
                 {
                     return false;
                 }
@@ -1154,15 +1154,15 @@ public:
      */
     [[nodiscard]] std::vector<T> to_dense() const
     {
-        if (rows_ > 0 && cols_ > 0 &&
-            rows_ > std::numeric_limits<size_type>::max() / cols_)
+        if (mRows > 0 && mCols > 0 &&
+            mRows > std::numeric_limits<size_type>::max() / mCols)
         {
             throw std::overflow_error("CSRMatrix: matrix too large for dense conversion");
         }
 
-        std::vector<T> dense(rows_ * cols_, T{0});
+        std::vector<T> dense(mRows * mCols, T{0});
 
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             ptr_type start = row_ptrs_[i];
             ptr_type end = row_ptrs_[i + 1];
@@ -1170,7 +1170,7 @@ public:
             for (ptr_type j = start; j < end; ++j)
             {
                 // Use += to sum duplicates (consistent with matvec/matmul semantics)
-                dense[i * cols_ + col_indices_[j]] += values_[j];
+                dense[i * mCols + col_indices_[j]] += mValues[j];
             }
         }
 
@@ -1183,15 +1183,15 @@ public:
      */
     [[nodiscard]] double density() const
     {
-        if (rows_ == 0 || cols_ == 0)
+        if (mRows == 0 || mCols == 0)
         {
             return 0.0;
         }
-        if (rows_ > std::numeric_limits<size_type>::max() / cols_)
+        if (mRows > std::numeric_limits<size_type>::max() / mCols)
         {
             throw std::overflow_error("CSRMatrix: matrix too large for density calculation");
         }
-        return static_cast<double>(nnz()) / static_cast<double>(rows_ * cols_);
+        return static_cast<double>(nnz()) / static_cast<double>(mRows * mCols);
     }
 
     /**
@@ -1211,7 +1211,7 @@ public:
      */
     [[nodiscard]] bool is_symmetric(T epsilon = default_epsilon<T>()) const
     {
-        if (rows_ != cols_)
+        if (mRows != mCols)
         {
             return false;
         }
@@ -1229,18 +1229,18 @@ public:
         }
 
         using std::abs;
-        for (size_type i = 0; i < values_.size(); ++i)
+        for (size_type i = 0; i < mValues.size(); ++i)
         {
             if constexpr (std::is_floating_point_v<T>)
             {
-                if (abs(values_[i] - AT.values_[i]) > epsilon)
+                if (abs(mValues[i] - AT.mValues[i]) > epsilon)
                 {
                     return false;
                 }
             }
             else
             {
-                if (values_[i] != AT.values_[i])
+                if (mValues[i] != AT.mValues[i])
                 {
                     return false;
                 }
@@ -1258,7 +1258,7 @@ public:
     {
         size_type write_pos = 0;
 
-        for (size_type i = 0; i < rows_; ++i)
+        for (size_type i = 0; i < mRows; ++i)
         {
             ptr_type read_start = row_ptrs_[i];
             row_ptrs_[i] = write_pos;
@@ -1271,24 +1271,24 @@ public:
 
                 if constexpr (std::is_floating_point_v<T>)
                 {
-                    is_nonzero = abs(values_[j]) > epsilon;
+                    is_nonzero = abs(mValues[j]) > epsilon;
                 }
                 else
                 {
-                    is_nonzero = values_[j] != T{0};
+                    is_nonzero = mValues[j] != T{0};
                 }
 
                 if (is_nonzero)
                 {
-                    values_[write_pos] = values_[j];
+                    mValues[write_pos] = mValues[j];
                     col_indices_[write_pos] = col_indices_[j];
                     ++write_pos;
                 }
             }
         }
 
-        row_ptrs_[rows_] = write_pos;
-        values_.resize(write_pos);
+        row_ptrs_[mRows] = write_pos;
+        mValues.resize(write_pos);
         col_indices_.resize(write_pos);
     }
 
@@ -1297,7 +1297,7 @@ public:
      */
     void shrink_to_fit()
     {
-        values_.shrink_to_fit();
+        mValues.shrink_to_fit();
         col_indices_.shrink_to_fit();
         row_ptrs_.shrink_to_fit();
     }
@@ -1307,7 +1307,7 @@ public:
      */
     [[nodiscard]] size_type row_nnz(size_type row) const
     {
-        if (row >= rows_)
+        if (row >= mRows)
         {
             throw std::out_of_range("CSRMatrix: row index out of range");
         }
@@ -1323,7 +1323,7 @@ public:
      */
     friend std::ostream& operator<<(std::ostream& os, const CSRMatrix& mat)
     {
-        os << "CSRMatrix(" << mat.rows_ << "x" << mat.cols_
+        os << "CSRMatrix(" << mat.mRows << "x" << mat.mCols
            << ", nnz=" << mat.nnz() << ")";
         return os;
     }

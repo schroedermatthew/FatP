@@ -83,17 +83,17 @@ using fat_p::ThrowingFallbackPolicy;
  */
 class Widget final {
 public:
-    int value_;
+    int mValue;
     
-    Widget() : value_(0) {}
-    explicit Widget(int v) : value_(v) {}
+    Widget() : mValue(0) {}
+    explicit Widget(int v) : mValue(v) {}
     
     bool operator==(const Widget& other) const {
-        return value_ == other.value_;
+        return mValue == other.mValue;
     }
     
     friend std::ostream& operator<<(std::ostream& os, const Widget& w) {
-        return os << "Widget(" << w.value_ << ")";
+        return os << "Widget(" << w.mValue << ")";
     }
 };
 
@@ -102,14 +102,14 @@ public:
  */
 class ConfiguredWidget final {
 public:
-    std::string name_;
-    int value_;
+    std::string mName;
+    int mValue;
     
     ConfiguredWidget(const std::string& name, int value) 
-        : name_(name), value_(value) {}
+        : mName(name), mValue(value) {}
     
     bool operator==(const ConfiguredWidget& other) const {
-        return name_ == other.name_ && value_ == other.value_;
+        return mName == other.mName && mValue == other.mValue;
     }
 };
 
@@ -118,12 +118,12 @@ public:
  */
 class DatabaseConnection final {
 public:
-    std::string type_;
-    std::string host_;
-    int port_;
+    std::string mType;
+    std::string mHost;
+    int mPort;
     
     DatabaseConnection(const std::string& type, const std::string& host, int port)
-        : type_(type), host_(host), port_(port) {}
+        : mType(type), mHost(host), mPort(port) {}
     
     bool connect() { return true; }
 };
@@ -136,10 +136,10 @@ public:
     static inline std::atomic<int> construction_count{ 0 };
     static inline std::atomic<int> destruction_count{ 0 };
 
-    int id_;
+    int mId;
     bool moved_from_ = false;
 
-    explicit TrackedObject(int id = 0) : id_(id) {
+    explicit TrackedObject(int id = 0) : mId(id) {
         ++construction_count;
     }
 
@@ -149,23 +149,23 @@ public:
         }
     }
 
-    TrackedObject(const TrackedObject& other) : id_(other.id_) {
+    TrackedObject(const TrackedObject& other) : mId(other.mId) {
         ++construction_count;
     }
 
-    TrackedObject(TrackedObject&& other) noexcept : id_(other.id_) {
+    TrackedObject(TrackedObject&& other) noexcept : mId(other.mId) {
         other.moved_from_ = true;
-        other.id_ = -1;
+        other.mId = -1;
     }
 
     TrackedObject& operator=(const TrackedObject&) = default;
 
     TrackedObject& operator=(TrackedObject&& other) noexcept {
         if (this != &other) {
-            id_ = other.id_;
+            mId = other.mId;
             moved_from_ = false;
             other.moved_from_ = true;
-            other.id_ = -1;
+            other.mId = -1;
         }
         return *this;
     }
@@ -195,20 +195,20 @@ public:
  */
 class MovableWidget final {
 public:
-    int value_;
+    int mValue;
     
-    explicit MovableWidget(int v) : value_(v) {}
+    explicit MovableWidget(int v) : mValue(v) {}
     
     MovableWidget(const MovableWidget&) = delete;
     MovableWidget& operator=(const MovableWidget&) = delete;
     
-    MovableWidget(MovableWidget&& other) noexcept : value_(other.value_) {
-        other.value_ = -1;
+    MovableWidget(MovableWidget&& other) noexcept : mValue(other.mValue) {
+        other.mValue = -1;
     }
     
     MovableWidget& operator=(MovableWidget&& other) noexcept {
-        value_ = other.value_;
-        other.value_ = -1;
+        mValue = other.mValue;
+        other.mValue = -1;
         return *this;
     }
 };
@@ -239,11 +239,11 @@ FATP_TEST_CASE(basic_make) {
     
     auto result1 = factory.make("widget1");
     FATP_ASSERT_TRUE(result1.has_value(), "Make should succeed for registered type");
-    FATP_ASSERT_EQ(result1->value_, 42, "Widget should have correct value");
+    FATP_ASSERT_EQ(result1->mValue, 42, "Widget should have correct value");
     
     auto result2 = factory.make("widget2");
     FATP_ASSERT_TRUE(result2.has_value(), "Second make should succeed");
-    FATP_ASSERT_EQ(result2->value_, 100, "Second widget should have correct value");
+    FATP_ASSERT_EQ(result2->mValue, 100, "Second widget should have correct value");
     
     auto result3 = factory.make("nonexistent");
     FATP_ASSERT_TRUE(!result3.has_value(), "Make should fail for unregistered type");
@@ -270,13 +270,13 @@ FATP_TEST_CASE(lambda_capture_parameters) {
     
     auto result1 = factory.make("basic");
     FATP_ASSERT_TRUE(result1.has_value(), "Should make with captured parameters");
-    FATP_ASSERT_EQ(result1->name_, std::string("widget1"), "Name should match captured");
-    FATP_ASSERT_EQ(result1->value_, 42, "Value should match captured");
+    FATP_ASSERT_EQ(result1->mName, std::string("widget1"), "Name should match captured");
+    FATP_ASSERT_EQ(result1->mValue, 42, "Value should match captured");
     
     auto result2 = factory.make("advanced");
     FATP_ASSERT_TRUE(result2.has_value(), "Should make advanced");
-    FATP_ASSERT_EQ(result2->name_, std::string("widget2_advanced"), "Name should be modified");
-    FATP_ASSERT_EQ(result2->value_, 200, "Value should be doubled");
+    FATP_ASSERT_EQ(result2->mName, std::string("widget2_advanced"), "Name should be modified");
+    FATP_ASSERT_EQ(result2->mValue, 200, "Value should be doubled");
     
     return true;
 }
@@ -299,18 +299,18 @@ FATP_TEST_CASE(database_connection_lambda_capture) {
     
     auto pg_dev = db_factory.make("postgres-dev");
     FATP_ASSERT_TRUE(pg_dev.has_value(), "Should make postgres dev connection");
-    FATP_ASSERT_EQ(pg_dev->type_, std::string("PostgreSQL"), "Type should be PostgreSQL");
-    FATP_ASSERT_EQ(pg_dev->host_, std::string("localhost"), "Host should be localhost");
-    FATP_ASSERT_EQ(pg_dev->port_, 5432, "Port should match");
+    FATP_ASSERT_EQ(pg_dev->mType, std::string("PostgreSQL"), "Type should be PostgreSQL");
+    FATP_ASSERT_EQ(pg_dev->mHost, std::string("localhost"), "Host should be localhost");
+    FATP_ASSERT_EQ(pg_dev->mPort, 5432, "Port should match");
     
     auto pg_prod = db_factory.make("postgres-prod");
     FATP_ASSERT_TRUE(pg_prod.has_value(), "Should make postgres prod connection");
-    FATP_ASSERT_EQ(pg_prod->host_, std::string("prod-server"), "Prod host should differ");
+    FATP_ASSERT_EQ(pg_prod->mHost, std::string("prod-server"), "Prod host should differ");
     
     auto mysql = db_factory.make("mysql-dev");
     FATP_ASSERT_TRUE(mysql.has_value(), "Should make mysql connection");
-    FATP_ASSERT_EQ(mysql->type_, std::string("MySQL"), "Type should be MySQL");
-    FATP_ASSERT_EQ(mysql->port_, 3306, "MySQL port should match");
+    FATP_ASSERT_EQ(mysql->mType, std::string("MySQL"), "Type should be MySQL");
+    FATP_ASSERT_EQ(mysql->mPort, 3306, "MySQL port should match");
     
     return true;
 }
@@ -326,7 +326,7 @@ FATP_TEST_CASE(duplicate_registration) {
     
     auto result = factory.make("widget");
     FATP_ASSERT_TRUE(result.has_value(), "Make should succeed");
-    FATP_ASSERT_EQ(result->value_, 1, "Should use first creator (not overwritten)");
+    FATP_ASSERT_EQ(result->mValue, 1, "Should use first creator (not overwritten)");
     
     return true;
 }
@@ -434,7 +434,7 @@ FATP_TEST_CASE(throwing_error_policy) {
     
     // Success case
     Widget w = factory.make("widget");
-    FATP_ASSERT_EQ(w.value_, 42, "Should create widget");
+    FATP_ASSERT_EQ(w.mValue, 42, "Should create widget");
     
     // Failure case - should throw
     bool threw = false;
@@ -464,11 +464,11 @@ FATP_TEST_CASE(default_error_policy) {
     
     // Success case
     Widget w1 = factory.make("widget");
-    FATP_ASSERT_EQ(w1.value_, 42, "Should create widget");
+    FATP_ASSERT_EQ(w1.mValue, 42, "Should create widget");
     
     // Missing key returns default-constructed Widget
     Widget w2 = factory.make("nonexistent");
-    FATP_ASSERT_EQ(w2.value_, 0, "Should return default Widget");
+    FATP_ASSERT_EQ(w2.mValue, 0, "Should return default Widget");
     
     return true;
 }
@@ -546,10 +546,10 @@ FATP_TEST_CASE(hpc_factory) {
     
     // Success case - returns Widget directly (ThrowingErrorPolicy)
     Widget w = factory.make("widget");
-    FATP_ASSERT_EQ(w.value_, 42, "Should create widget");
+    FATP_ASSERT_EQ(w.mValue, 42, "Should create widget");
     
     Widget w2 = factory.make("another");
-    FATP_ASSERT_EQ(w2.value_, 99, "Should create another widget");
+    FATP_ASSERT_EQ(w2.mValue, 99, "Should create another widget");
     
     // Verify size works
     FATP_ASSERT_EQ(factory.size(), 2u, "Should have 2 registrations");
@@ -588,14 +588,14 @@ FATP_TEST_CASE(overwrite_policy) {
     
     auto result1 = factory.make("widget");
     FATP_ASSERT_TRUE(result1.has_value(), "Should make widget");
-    FATP_ASSERT_EQ(result1->value_, 1, "Should use first creator");
+    FATP_ASSERT_EQ(result1->mValue, 1, "Should use first creator");
     
     bool second = factory.registerType("widget", [] { return Widget(2); });
     FATP_ASSERT_TRUE(!second, "Returns false for overwrite");
     
     auto result2 = factory.make("widget");
     FATP_ASSERT_TRUE(result2.has_value(), "Should still make widget");
-    FATP_ASSERT_EQ(result2->value_, 2, "Should use overwritten creator");
+    FATP_ASSERT_EQ(result2->mValue, 2, "Should use overwritten creator");
     
     return true;
 }
@@ -612,7 +612,7 @@ FATP_TEST_CASE(unordered_map_storage) {
     
     auto result = factory.make("widget42");
     FATP_ASSERT_TRUE(result.has_value(), "Should make widget42");
-    FATP_ASSERT_EQ(result->value_, 42, "Should have correct value");
+    FATP_ASSERT_EQ(result->mValue, 42, "Should have correct value");
     
     auto keys = factory.getRegisteredKeys();
     FATP_ASSERT_EQ(keys.size(), 100u, "Should return all keys");
@@ -663,8 +663,8 @@ FATP_TEST_CASE(variadic_parameters) {
     
     auto result = factory.make("configured", "test_name", 99);
     FATP_ASSERT_TRUE(result.has_value(), "Should create with parameters");
-    FATP_ASSERT_EQ(result->name_, std::string("test_name"), "Name should match");
-    FATP_ASSERT_EQ(result->value_, 99, "Value should match");
+    FATP_ASSERT_EQ(result->mName, std::string("test_name"), "Name should match");
+    FATP_ASSERT_EQ(result->mValue, 99, "Value should match");
     
     return true;
 }
@@ -702,7 +702,7 @@ FATP_TEST_CASE(simple_variadic_factory_basic) {
     FATP_ASSERT_TRUE(registered, "Should register in legacy factory");
     
     Widget w = factory.create("legacy_widget");
-    FATP_ASSERT_EQ(w.value_, 100, "Should create via legacy API");
+    FATP_ASSERT_EQ(w.mValue, 100, "Should create via legacy API");
     
     factory.clear();
     return true;
@@ -724,8 +724,8 @@ FATP_TEST_CASE(simple_variadic_factory_params) {
         });
     
     ConfiguredWidget w = factory.create("param_widget", "legacy_name", 55);
-    FATP_ASSERT_EQ(w.name_, std::string("legacy_name"), "Name should match");
-    FATP_ASSERT_EQ(w.value_, 55, "Value should match");
+    FATP_ASSERT_EQ(w.mName, std::string("legacy_name"), "Name should match");
+    FATP_ASSERT_EQ(w.mValue, 55, "Value should match");
     
     factory.clear();
     return true;
@@ -937,7 +937,7 @@ FATP_TEST_CASE(transparent_lookup) {
     // Test with string literal (const char* -> std::string conversion)
     auto lit_result = factory.make("widget");
     FATP_ASSERT_TRUE(lit_result.has_value(), "Should work with string literal");
-    FATP_ASSERT_EQ(lit_result->value_, 42, "Value should be correct");
+    FATP_ASSERT_EQ(lit_result->mValue, 42, "Value should be correct");
     
     // Test hasType with literal
     FATP_ASSERT_TRUE(factory.hasType("widget"), "hasType should work with literal");
@@ -974,9 +974,9 @@ FATP_TEST_CASE(batch_registration) {
     FATP_ASSERT_TRUE(r1.has_value() && r2.has_value() && r3.has_value(),
                   "All should make successfully");
     
-    FATP_ASSERT_EQ(r1->value_, 1, "Widget1 value correct");
-    FATP_ASSERT_EQ(r2->value_, 2, "Widget2 value correct");
-    FATP_ASSERT_EQ(r3->value_, 3, "Widget3 value correct");
+    FATP_ASSERT_EQ(r1->mValue, 1, "Widget1 value correct");
+    FATP_ASSERT_EQ(r2->mValue, 2, "Widget2 value correct");
+    FATP_ASSERT_EQ(r3->mValue, 3, "Widget3 value correct");
     
     return true;
 }
@@ -995,7 +995,7 @@ FATP_TEST_CASE(lambda_with_captures) {
     
     auto result = factory.make("captured");
     FATP_ASSERT_TRUE(result.has_value(), "Should make captured lambda");
-    FATP_ASSERT_EQ(result->value_, 99, "Should use captured value");
+    FATP_ASSERT_EQ(result->mValue, 99, "Should use captured value");
     
     return true;
 }
@@ -1007,11 +1007,11 @@ FATP_TEST_CASE(movable_only_types) {
     
     auto result = factory.make("movable");
     FATP_ASSERT_TRUE(result.has_value(), "Should make movable-only type");
-    FATP_ASSERT_EQ(result->value_, 42, "Value should be correct");
+    FATP_ASSERT_EQ(result->mValue, 42, "Value should be correct");
     
     MovableWidget moved = std::move(*result);
-    FATP_ASSERT_EQ(moved.value_, 42, "Moved value should be correct");
-    FATP_ASSERT_EQ(result->value_, -1, "Original should be moved-from");
+    FATP_ASSERT_EQ(moved.mValue, 42, "Moved value should be correct");
+    FATP_ASSERT_EQ(result->mValue, -1, "Original should be moved-from");
     
     return true;
 }
@@ -1026,7 +1026,7 @@ FATP_TEST_CASE(unique_ptr_factory) {
     auto result = factory.make("unique_widget");
     FATP_ASSERT_TRUE(result.has_value(), "Should make unique_ptr");
     FATP_ASSERT_TRUE(*result != nullptr, "unique_ptr should not be null");
-    FATP_ASSERT_EQ((*result)->value_, 42, "Widget value should be correct");
+    FATP_ASSERT_EQ((*result)->mValue, 42, "Widget value should be correct");
     
     return true;
 }
@@ -1042,8 +1042,8 @@ FATP_TEST_CASE(integer_keys) {
     
     FATP_ASSERT_TRUE(result1.has_value(), "Should make key 1");
     FATP_ASSERT_TRUE(result2.has_value(), "Should make key 2");
-    FATP_ASSERT_EQ(result1->value_, 10, "Key 1 value correct");
-    FATP_ASSERT_EQ(result2->value_, 20, "Key 2 value correct");
+    FATP_ASSERT_EQ(result1->mValue, 10, "Key 1 value correct");
+    FATP_ASSERT_EQ(result2->mValue, 20, "Key 2 value correct");
     
     return true;
 }
@@ -1086,7 +1086,7 @@ FATP_TEST_CASE(empty_key) {
     
     auto result = factory.make("");
     FATP_ASSERT_TRUE(result.has_value(), "Should make with empty key");
-    FATP_ASSERT_EQ(result->value_, 0, "Value should be correct");
+    FATP_ASSERT_EQ(result->mValue, 0, "Value should be correct");
     
     return true;
 }
