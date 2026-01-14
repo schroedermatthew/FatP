@@ -244,6 +244,18 @@ jobs:
 
       - name: Build benchmarks
         run: |
+          # List available abseil libraries
+          echo "Available abseil libraries:"
+          find $HOME/thirdparty/abseil-install/lib -name "libabsl_*.a" | xargs -n1 basename | sort | head -30
+          
+          # Build list of all abseil libraries for linking
+          ABSL_LIBS=""
+          for lib in $(find $HOME/thirdparty/abseil-install/lib -name "libabsl_*.a" | sort); do
+            libname=$(basename "$lib" .a | sed 's/^lib//')
+            ABSL_LIBS="$ABSL_LIBS -l$libname"
+          done
+          echo "Linking with:$ABSL_LIBS"
+          
           g++-13 -std=c++20 -O3 -DNDEBUG -march=native \
             -I./FAT_P/FAT_P/fat_p \
             -I$HOME/thirdparty/robin-map/include \
@@ -252,8 +264,7 @@ jobs:
             -L$HOME/thirdparty/abseil-install/lib \
             FAT_P/FAT_P/benchmarks/benchmark_FatPHashMap.cpp \
             -o bench_hashmap \
-            -labsl_hash -labsl_city -labsl_low_level_hash -labsl_raw_hash_set \
-            -Wl,-rpath,$HOME/thirdparty/abseil-install/lib \
+            -Wl,--start-group $ABSL_LIBS -Wl,--end-group \
             -pthread
 
       - name: Run benchmarks
