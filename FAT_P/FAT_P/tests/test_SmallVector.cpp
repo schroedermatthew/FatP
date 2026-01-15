@@ -231,7 +231,8 @@ FATP_TEST_CASE(copy_assignment)
     FATP_ASSERT_TRUE(v4[0] == 10 && v4[1] == 20, "Values correct after copy assignment");
 
     SmallVector<int, 4> v5 = {1, 2, 3};
-    v5 = v5;
+    auto& self_ref = v5;  // Use reference to avoid -Wself-assign-overloaded
+    v5 = self_ref;
     FATP_ASSERT_TRUE(v5.size() == 3, "Self-assignment works");
     FATP_ASSERT_TRUE(v5[0] == 1 && v5[1] == 2 && v5[2] == 3, "Self-assignment preserves values");
 
@@ -1549,6 +1550,10 @@ FATP_TEST_CASE(fuzz_operations)
 // Test over-aligned types to catch subtle inline-storage alignment bugs
 FATP_TEST_CASE(over_aligned_types)
 {
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4324)  // structure was padded due to alignment specifier
+#endif
     struct alignas(64) Aligned64
     {
         int x;
@@ -1556,6 +1561,9 @@ FATP_TEST_CASE(over_aligned_types)
         explicit Aligned64(int v) : x(v) {}
         bool operator==(const Aligned64& o) const { return x == o.x; }
     };
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
     
     // Verify alignment requirement
     static_assert(alignof(Aligned64) == 64, "Test type must be 64-byte aligned");
