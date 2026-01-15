@@ -959,7 +959,7 @@ public:
      * @throws std::bad_alloc or exception from T's copy constructor/assignment
      */
     iterator insert(const_iterator pos, size_type count, const T& value) {
-        size_t idx = pos - data_;
+        size_t idx = static_cast<size_t>(pos - data_);
         FATP_ENFORCE(idx <= size_, "Insert position out of range");
         debug_check_self_ref_insert(idx, std::addressof(value));
         
@@ -1114,7 +1114,7 @@ public:
      */
     template <class InputIt, std::enable_if_t<!std::is_integral_v<InputIt>, int> = 0>
     iterator insert(const_iterator pos, InputIt first, InputIt last) {
-        size_t idx = pos - data_;
+        size_t idx = static_cast<size_t>(pos - data_);
         FATP_ENFORCE(idx <= size_, "Insert position out of range");
         
         using IterCategory = typename std::iterator_traits<InputIt>::iterator_category;
@@ -1370,7 +1370,7 @@ public:
      */
     template <class... Args>
     iterator emplace(const_iterator pos, Args&&... args) {
-        size_t idx = pos - data_;
+        size_t idx = static_cast<size_t>(pos - data_);
         FATP_ENFORCE(idx <= size_, "Emplace position out of range");
         
         if (size_ >= mCapacity) {
@@ -1489,7 +1489,7 @@ public:
      * @return Iterator to element following erased element
      */
     iterator erase(const_iterator pos) {
-        size_t idx = pos - data_;
+        size_t idx = static_cast<size_t>(pos - data_);
         FATP_ENFORCE(idx < size_, "Erase position out of range");
         
         iterator it = data_ + idx;
@@ -1509,8 +1509,8 @@ public:
             return const_cast<iterator>(first);
         }
         
-        size_t first_idx = first - data_;
-        size_t last_idx = last - data_;
+        size_t first_idx = static_cast<size_t>(first - data_);
+        size_t last_idx = static_cast<size_t>(last - data_);
         FATP_ENFORCE(first_idx <= last_idx && last_idx <= size_, "Erase range invalid");
         
         iterator f = data_ + first_idx;

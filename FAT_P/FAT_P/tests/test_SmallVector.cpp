@@ -528,9 +528,9 @@ FATP_TEST_CASE(inline_to_heap_transition)
     FATP_ASSERT_TRUE(v.capacity() > 4, "Transitioned to heap");
     FATP_ASSERT_TRUE(v.size() == 5, "Size correct after transition");
 
-    for (int i = 0; i < 5; ++i)
+    for (size_t i = 0; i < 5; ++i)
     {
-        FATP_ASSERT_TRUE(v[i] == i, "Values preserved after transition");
+        FATP_ASSERT_TRUE(v[i] == static_cast<int>(i), "Values preserved after transition");
     }
 
     return true;

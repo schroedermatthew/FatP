@@ -2630,7 +2630,7 @@ namespace fat_p
             out << "  Average time per operation: " << colors::bold()
                 << format_time(avg_ms) << colors::reset() << "\n";
             out << "  Total for " << iterations << " iterations: "
-                << format_time(avg_ms * iterations) << "\n";
+                << format_time(avg_ms * static_cast<double>(iterations)) << "\n";
         }
 
         /**
