@@ -429,12 +429,12 @@ jobs:
           path: |
             ${{ env.VCPKG_INSTALLATION_ROOT }}/installed
             ${{ env.VCPKG_INSTALLATION_ROOT }}/packages
-          key: vcpkg-hashmap-${{ runner.os }}-v1
+          key: vcpkg-hashmap-static-${{ runner.os }}-v1
 
       - name: Install competitor libraries via vcpkg
         run: |
-          vcpkg install abseil:x64-windows
-          vcpkg install boost-unordered:x64-windows
+          vcpkg install abseil:x64-windows-static
+          vcpkg install boost-unordered:x64-windows-static
           
           echo "Installed competitor libraries via vcpkg"
 
@@ -459,14 +459,18 @@ jobs:
           $std = "${{ matrix.std }}"
           $stdFlag = if ($std -eq "23") { "/std:c++latest" } else { "/std:c++$std" }
           
-          cl /nologo $stdFlag /O2 /DNDEBUG /EHsc /permissive- `
+          # Collect all abseil static libraries
+          $abslLibs = Get-ChildItem "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static\lib\absl_*.lib" | ForEach-Object { $_.FullName }
+          $abslLibsStr = $abslLibs -join " "
+          
+          cl /nologo $stdFlag /O2 /DNDEBUG /EHsc /permissive- /MT `
             /I.\FAT_P\FAT_P\fat_p `
             /I.\thirdparty\robin-map\include `
             /I.\thirdparty\unordered_dense\include `
-            /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include" `
+            /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static\include" `
             FAT_P\FAT_P\benchmarks\benchmark_FatPHashMap.cpp `
             /Fe:bench_hashmap.exe `
-            /link /LIBPATH:"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\lib" advapi32.lib
+            /link /LIBPATH:"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static\lib" $abslLibsStr advapi32.lib
 
       - name: Run benchmarks
         shell: pwsh
