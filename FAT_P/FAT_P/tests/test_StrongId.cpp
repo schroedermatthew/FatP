@@ -196,9 +196,9 @@ FATP_TEST_CASE(spaceship_operator)
     UserId id2(200);
     UserId id3(100);
 
-    FATP_ASSERT_TRUE((id1 <= > id2) < 0, "Spaceship operator: less than");
-    FATP_ASSERT_TRUE((id2 <= > id1) > 0, "Spaceship operator: greater than");
-    FATP_ASSERT_TRUE((id1 <= > id3) == 0, "Spaceship operator: equal");
+    FATP_ASSERT_TRUE((id1 <=> id2) < 0, "Spaceship operator: less than");
+    FATP_ASSERT_TRUE((id2 <=> id1) > 0, "Spaceship operator: greater than");
+    FATP_ASSERT_TRUE((id1 <=> id3) == 0, "Spaceship operator: equal");
     return true;
 }
 #endif

@@ -3,7 +3,7 @@ doc_id: CS-SMALLVECTOR-002
 doc_type: "Case Study"
 title: "The Allocator Contract and the 10% Trap"
 fatp_components: ["SmallVector"]
-topics: ["allocator_traits", "construct bypass", "PMR", "polymorphic allocator", "benchmark-driven development", "microbenchmark trap"]
+topics: ["allocator_traits", "construct bypass", "PMR", "polymorphic allocator", "benchmark-driven development", "microbenchmark trap", "exception safety", "move_if_noexcept"]
 constraints: ["allocator contract", "polymorphic memory resources", "scoped_allocator_adaptor", "custom allocator instrumentation"]
 cxx_standard: "C++17"
 std_equivalent: "std::inplace_vector"
@@ -107,8 +107,8 @@ The benchmark shows 10% improvement. The production system silently corrupts sta
 - [Appendix B: The PMR Test](#appendix-b-the-pmr-test)
 - [Appendix C: Why PMR Exists](#appendix-c-why-pmr-exists)
 - [Appendix D: The Full Optimization History](#appendix-d-the-full-optimization-history)
+- [Appendix E: Other Performance-vs-Correctness Tradeoffs](#appendix-e-other-performance-vs-correctness-tradeoffs-in-c-libraries)
 - [References](#references)
-- [Appendix D: Full Optimization History](#appendix-d-full-optimization-history)
 
 ---
 
@@ -116,7 +116,7 @@ The benchmark shows 10% improvement. The production system silently corrupts sta
 
 ### The Obvious Approach
 
-SmallVector exists to solve a specific problem: avoid heap allocation for small, temporary collections. The benchmarks prove it works—5.7x to 17.6x faster than `std::vector` for small N. (For the full analysis of why allocation avoidance matters and the memory hierarchy effects at play, see *Case Study - SmallVector* [5].) But after achieving that primary goal, a natural question arises: *is the implementation as efficient as it could be?*
+SmallVector exists to solve a specific problem: avoid heap allocation for small, temporary collections. The benchmarks prove it works—5.7x to 17.6x faster than `std::vector` for small N. (For the full analysis of why allocation avoidance matters and the memory hierarchy effects at play, see *Case Study - SmallVector* [7].) But after achieving that primary goal, a natural question arises: *is the implementation as efficient as it could be?*
 
 During optimization work on SmallVector's `emplace_back` fast path (detailed in Part III), we implemented several improvements: separating fast and slow paths, reordering memory layout for cache efficiency, eliminating redundant loads. After all that work, we needed to measure the results. The standard benchmark comparing against allocating `std::vector` couldn't help—the allocation overhead difference would swamp any fast-path improvement.
 
@@ -504,7 +504,7 @@ Both the `construct()` bypass and the `memcpy` reallocation share a failure mode
 
 Before optimizing, ask: *does this benchmark measure the use case that justifies this container's existence?* If not, the optimization—however valid—is solving the wrong problem.
 
-For a systematic approach to identifying and validating the right performance metrics, see *Handbook - Performance Engineering Methodology* [4].
+For a systematic approach to identifying and validating the right performance metrics, see *Handbook - Performance Engineering Methodology* [6].
 
 ### The Real Performance Story
 
@@ -603,7 +603,7 @@ The fast-path throughput benchmark specifically measures:
 - 100,000 iterations per measurement
 - Interleaved SmallVector/std::vector execution to reduce systematic bias
 
-For comprehensive guidance on designing benchmarks that measure the right things, avoiding common pitfalls, and interpreting results correctly, see *Handbook - Performance Engineering Methodology* [4].
+For comprehensive guidance on designing benchmarks that measure the right things, avoiding common pitfalls, and interpreting results correctly, see *Handbook - Performance Engineering Methodology* [6].
 
 ## Appendix B: The PMR Test
 
@@ -823,123 +823,96 @@ The answer: parity with pre-reserved `std::vector`, but 10% slower than boost—
 
 The implemented optimizations achieved an estimated 15-25% improvement on tight loops within inline capacity, with zero behavioral changes and full allocator contract compliance.
 
-## Appendix D: Full Optimization History
+## Appendix E: Other Performance-vs-Correctness Tradeoffs in C++ Libraries
 
-This case study focused on one decision—the `allocator_traits::construct()` bypass. But that decision emerged from a broader optimization effort. This appendix documents the full history for completeness.
+The `construct()` bypass documented in this case study is not an isolated incident. The tension between benchmark performance and standards compliance appears throughout the C++ ecosystem. This appendix catalogs notable examples to illustrate the pattern.
 
-### The Optimization Pass
+### fat_p::SmallVector — Strong Exception Guarantee via move_if_noexcept
 
-After SmallVector achieved its primary goal (7-8x speedup for inline storage vs `std::vector`), a systematic optimization pass examined all potential improvements. Eight optimizations were considered:
-
-| # | Optimization | Decision | Rationale |
-|---|--------------|----------|-----------|
-| 1 | Fast/slow path split for `emplace_back` | ✅ Implemented | Pure refactor, better I-cache utilization |
-| 2 | Data member layout reorder | ✅ Implemented | Hot fields in first cache line |
-| 3 | Cache slot pointer before increment | ✅ Implemented | Saves 1-2 instructions per call |
-| 4 | Remove `assert_invariants()` from fast path | ✅ Implemented | No function call overhead in hot path |
-| 5 | `memcpy` for trivially copyable types | ❌ Rejected | Violates allocator contract |
-| 6 | Direct placement `new` instead of `AllocTraits::construct` | ❌ Rejected | Violates allocator contract |
-| 7 | Optimize pre-reserved heap performance | ❌ Dismissed | Wrong use case for SmallVector |
-| 8 | Optimize copy/move for large N | ❌ Dismissed | Wrong use case for SmallVector |
-
-### What Was Implemented
-
-**Optimization 1: Fast/Slow Path Split**
-
-The entire `emplace_back` function (~70 lines including reallocation logic) was split into:
-- `emplace_back()` — ~15 lines, `FATP_FORCEINLINE`, handles the common case
-- `emplace_back_slow()` — `FATP_NOINLINE`, handles reallocation
-
-The fast path compiles to ~60 bytes vs ~400 bytes combined, improving I-cache utilization in tight loops.
-
-**Optimization 2: Data Member Layout Reorder**
-
-Hot fields were moved to the front of the class:
+fat_p::SmallVector uses `std::move_if_noexcept` during reallocation:
 
 ```cpp
-// BEFORE: inline_buffer_ first
-alignas(T) std::byte inline_buffer_[InlineCapacity * sizeof(T)];  // offset 0
-T* mData;           // offset 128 — SECOND cache line
-size_t mSize;       // offset 136
-size_t mCapacity;   // offset 144
-
-// AFTER: hot fields first  
-T* mData;           // offset 0  — FIRST cache line
-size_t mSize;       // offset 8
-size_t mCapacity;   // offset 16
-Allocator mAllocator;  // offset 24 (often zero-size via EBO)
-alignas(T) std::byte inline_buffer_[...];  // offset 24+ (cold)
-```
-
-**Optimization 3: Cache Slot Pointer**
-
-```cpp
-// BEFORE
-AllocTraits::construct(mAllocator, mData + mSize, ...);
-++mSize;
-return mData[mSize - 1];  // Redundant recomputation
-
-// AFTER
-T* slot = mData + mSize;
-AllocTraits::construct(mAllocator, slot, ...);
-++mSize;
-return *slot;  // Reuse computed pointer
-```
-
-**Optimization 4: Remove Invariant Check from Fast Path**
-
-`assert_invariants()` was moved to the slow path only, eliminating function call overhead from the hot path.
-
-### What Was Rejected
-
-**Optimization 5: memcpy for Trivially Copyable Types**
-
-```cpp
-// REJECTED
-if constexpr (std::is_trivially_copyable_v<T>) {
-    std::memcpy(new_data, mData, mSize * sizeof(T));
-} else {
-    // element-wise copy/move
+// From SmallVector::grow()
+for (size_t i = 0; i < size_; ++i) {
+    AllocTraits::construct(mAllocator, new_data + i, std::move_if_noexcept(data_[i]));
+    ++constructed;
 }
 ```
 
-Rejected for two reasons:
-1. Bypasses `AllocTraits::construct()`, violating the allocator contract
-2. Optimizes for large N copies—a use case that contradicts SmallVector's purpose
+**The tradeoff:** When T has a throwing move constructor but is also copyable, `move_if_noexcept` falls back to copying. This preserves the strong exception guarantee (if reallocation fails partway through, the original vector is unchanged) but at a significant performance cost—copying is often 10-100x slower than moving for types like `std::string`.
 
-**Optimization 6: Direct Placement new**
+**Why we accept the cost:** The strong guarantee is what users expect from a vector. Code that catches exceptions during `push_back` assumes the vector is in its original state. Violating this silently changes program semantics.
 
-```cpp
-// REJECTED
-if constexpr (std::is_same_v<Allocator, std::allocator<T>>) {
-    ::new (static_cast<void*>(slot)) T(std::forward<Args>(args)...);
-} else {
-    AllocTraits::construct(mAllocator, slot, std::forward<Args>(args)...);
-}
-```
+**Alternative taken by boost::container::vector:** Boost explicitly documents that their vector "does not support the strong exception guarantees given by std::vector" and "trades off exception guarantees for an improved performance." They always move, accepting only basic guarantee.
 
-The original rejection noted: "modern compilers inline `AllocTraits::construct` for `std::allocator` anyway, so the benefit is marginal."
+### boost::container::vector — Exception Safety Tradeoff (Documented)
 
-This turned out to be incorrect. The fast-path benchmark (created later) revealed a measurable 10% gap. The decision was right, but the reasoning was incomplete—the real reason is allocator contract compliance, not "marginal benefit."
+From the Boost.Container documentation:
 
-**Optimizations 7-8: Large N Performance**
+> "vector does not support the strong exception guarantees given by std::vector in functions like insert, push_back, emplace, emplace_back, resize, reserve or shrink_to_fit for either copyable or no-throw moveable classes... vector always uses move constructors/assignments to rearrange elements in the vector and uses memory expansion mechanisms if the allocator supports them, while offering only basic safety guarantees."
 
-Benchmarks showed SmallVector was 2-3x slower than boost for pre-reserved N=10,000. These were dismissed as irrelevant:
+**The symptom:** Code that catches exceptions during vector operations and expects rollback will silently have incorrect behavior. The vector may be in a partially-modified state.
 
-> "If someone calls `reserve(10000)` on a SmallVector, they're using the wrong container."
+**Why boost made this choice:** The strong guarantee requires `move_if_noexcept`, which degrades moves to copies for types with throwing move constructors. Boost deemed this performance cost unacceptable for their target use cases.
 
-### The Sequence of Discovery
+**The pattern:** Like the `construct()` bypass, this is a documented, intentional deviation that trades correctness under specific conditions for performance in the common case.
 
-1. **Initial optimization pass** — Implemented #1-4, rejected #5-6 with incomplete reasoning
-2. **Benchmark gap observed** — After optimizations, noticed boost was still faster in some scenarios  
-3. **New benchmark created** — Fast-path throughput benchmark to isolate the effect
-4. **10% gap confirmed** — SmallVector at parity with `std::vector`, but boost 10% faster
-5. **Root cause identified** — boost bypasses `allocator_traits::construct()`
-6. **Decision validated** — The 10% cost is the price of allocator contract compliance
+### EASTL — Exception Handling Disabled by Default
 
-The case study narrative compresses this into a linear investigation, but the actual path involved discovering that an earlier decision was right for deeper reasons than originally understood.
+Electronic Arts' game-focused STL takes an even more aggressive stance. From their design documentation:
 
----
+> "The std STL solution (exception handling) is supported by EASTL but is not favored and is usually disabled."
+
+EASTL also uses a simplified allocator model that is intentionally incompatible with `std::allocator`. Their documentation states this is "the only incompatible difference with STL."
+
+**The symptom:** Code written against EASTL cannot be transparently moved to standard STL or vice versa. Allocation failures terminate rather than throwing.
+
+**Why EA made this choice:** Game development has extreme performance requirements and often runs on platforms where exception handling has significant overhead. EA decided the tradeoff was worth it for their domain.
+
+### std::vector<bool> — The Canonical Premature Optimization
+
+The C++ standard library itself contains the most famous example: `std::vector<bool>` is specialized to pack bits, breaking the container model.
+
+**What breaks:**
+- `operator[]` returns a proxy object, not a `bool&`
+- `iterator` is not a true random-access iterator
+- `&v[0]` doesn't give you a pointer to contiguous `bool` storage
+- Generic code that works with `vector<T>` may fail with `vector<bool>`
+
+**The symptom:** Code that assumes `vector` behaves uniformly across element types breaks silently or fails to compile.
+
+From Boost's documentation refusing to implement this specialization:
+
+> "vector<bool> is not a container and vector<bool>::iterator is not a random-access iterator (or even a forward or bidirectional iterator either, for that matter). This has already broken user code in the field in mysterious ways."
+
+**Why the committee made this choice:** Memory savings seemed attractive in 1998. The tradeoff was deemed acceptable before generic programming patterns became widespread.
+
+**The lesson:** This is now widely considered a mistake. Multiple papers have attempted to deprecate it. The committee's own members have called it "a specification disaster."
+
+### The Common Pattern
+
+All these cases share the same structure:
+
+| Library | Tradeoff | Benchmark Win | Silent Failure Mode |
+|---------|----------|---------------|---------------------|
+| boost::small_vector | Bypass `construct()` | ~10% | PMR allocator propagation broken |
+| boost::container::vector | Skip `move_if_noexcept` | Variable | Exception rollback broken |
+| EASTL | Disable exceptions | Significant | Allocation failures terminate |
+| std::vector<bool> | Bit packing | 8x memory | Iterator/reference semantics broken |
+| fat_p::SmallVector | None—honors all contracts | Accepts cost | N/A |
+
+**fat_p's position:** We accept the performance costs of standards compliance. The benchmarks that matter are the ones measuring real workloads, not isolated microbenchmarks that game specific optimizations. A 10% win in a microbenchmark is meaningless if it breaks PMR, exception safety, or allocator instrumentation in production.
+
+### When Performance Tradeoffs Are Appropriate
+
+This is not to say performance tradeoffs are always wrong. They are appropriate when:
+
+1. **The tradeoff is documented** — Users can make informed decisions
+2. **The failure mode is loud** — Compilation fails, not silent corruption
+3. **The affected use case is truly rare** — Not just "rare in the author's experience"
+4. **The performance gain is substantial** — 10% is not substantial; 10x might be
+
+The `construct()` bypass fails criteria #2 and #3. PMR is a first-class C++17 feature, and the failure is silent.
 
 ## References
 
@@ -949,9 +922,13 @@ The case study narrative compresses this into a linear investigation, but the ac
 
 3. **Boost.Container documentation.** "small_vector" and allocator handling. https://www.boost.org/doc/libs/release/doc/html/container.html
 
-4. **FAT-P Documentation.** *Handbook - Performance Engineering Methodology.* Guidelines for benchmark design and interpretation.
+4. **Boost.Container documentation.** "C++11/C++14/C++17 Conformance" — Exception safety tradeoffs. https://www.boost.org/doc/libs/release/doc/html/container/cpp_conformance.html
 
-5. **FAT-P Documentation.** *Case Study - SmallVector.* Analysis of allocation avoidance and memory hierarchy effects.
+5. **EASTL documentation.** "Design" — Exception handling and allocator model. https://github.com/electronicarts/EASTL/blob/master/doc/Design.md
+
+6. **FAT-P Documentation.** *Handbook - Performance Engineering Methodology.* Guidelines for benchmark design and interpretation.
+
+7. **FAT-P Documentation.** *Case Study - SmallVector.* Analysis of allocation avoidance and memory hierarchy effects.
 
 ---
 
