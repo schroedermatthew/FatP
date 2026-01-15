@@ -202,26 +202,41 @@ jobs:
           echo "✓ No warnings"
 
   # ===========================================================================
-  # Benchmarks with Third-Party Competitor Libraries (Manual only)
+  # Benchmarks - Linux GCC (Manual)
   # ===========================================================================
-  benchmarks:
-    name: HashMap Benchmarks
+  benchmarks-gcc:
+    name: Benchmark GCC-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-24.04
-    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 12
+            std: 17
+          - version: 12
+            std: 20
+          - version: 13
+            std: 17
+          - version: 13
+            std: 20
+          - version: 13
+            std: 23
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++-13 cmake ninja-build libboost-dev
+          sudo apt-get install -y g++-${{ matrix.version }} cmake ninja-build libboost-dev
 
       - name: Cache third-party libraries
         id: cache-thirdparty
         uses: actions/cache@v4
         with:
           path: ~/thirdparty
-          key: hashmap-thirdparty-v2-${{ runner.os }}
+          key: hashmap-thirdparty-v3-${{ runner.os }}-gcc${{ matrix.version }}
 
       - name: Install third-party hash map libraries
         if: steps.cache-thirdparty.outputs.cache-hit != 'true'
@@ -238,9 +253,9 @@ jobs:
           git clone --depth 1 https://github.com/abseil/abseil-cpp.git $HOME/thirdparty/abseil-cpp
           cd $HOME/thirdparty/abseil-cpp
           mkdir build && cd build
-          cmake -G Ninja \
+          CXX=g++-${{ matrix.version }} cmake -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_STANDARD=20 \
+            -DCMAKE_CXX_STANDARD=${{ matrix.std }} \
             -DABSL_BUILD_TESTING=OFF \
             -DABSL_USE_GOOGLETEST_HEAD=OFF \
             -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/abseil-install \
@@ -250,19 +265,14 @@ jobs:
 
       - name: Build benchmarks
         run: |
-          # List available abseil libraries
-          echo "Available abseil libraries:"
-          find $HOME/thirdparty/abseil-install/lib -name "libabsl_*.a" | xargs -n1 basename | sort | head -30
-          
           # Build list of all abseil libraries for linking
           ABSL_LIBS=""
           for lib in $(find $HOME/thirdparty/abseil-install/lib -name "libabsl_*.a" | sort); do
             libname=$(basename "$lib" .a | sed 's/^lib//')
             ABSL_LIBS="$ABSL_LIBS -l$libname"
           done
-          echo "Linking with:$ABSL_LIBS"
           
-          g++-13 -std=c++20 -O3 -DNDEBUG -march=native \
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} -O3 -DNDEBUG -march=native \
             -I./FAT_P/FAT_P/fat_p \
             -I$HOME/thirdparty/robin-map/include \
             -I$HOME/thirdparty/unordered_dense/include \
@@ -275,24 +285,248 @@ jobs:
 
       - name: Run benchmarks
         env:
-          FATP_BENCH_BATCHES: 10
-          FATP_BENCH_WARMUP_RUNS: 2
+          FATP_BENCH_BATCHES: 15
+          FATP_BENCH_WARMUP_RUNS: 3
           FATP_BENCH_NO_STABILIZE: 1
-        run: |
-          echo "========================================"
-          echo "  HashMap Benchmark Results"
-          echo "========================================"
-          ./bench_hashmap
+          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
+        run: ./bench_hashmap 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
 
-      - name: Upload benchmark results
+      - name: Upload results
         uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: benchmark-results
+          name: benchmark-gcc${{ matrix.version }}-cpp${{ matrix.std }}
           path: |
-            *.csv
-            *.json
-          if-no-files-found: ignore
+            results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
+            benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmarks - Linux Clang (Manual)
+  # ===========================================================================
+  benchmarks-clang:
+    name: Benchmark Clang-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-22.04
+    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 14
+            std: 17
+          - version: 15
+            std: 17
+          - version: 15
+            std: 20
+          - version: 16
+            std: 17
+          - version: 16
+            std: 20
+          - version: 17
+            std: 20
+          - version: 17
+            std: 23
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang and build tools
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.version }}
+          sudo apt-get install -y cmake ninja-build libboost-dev
+
+      - name: Cache third-party libraries
+        id: cache-thirdparty
+        uses: actions/cache@v4
+        with:
+          path: ~/thirdparty
+          key: hashmap-thirdparty-v3-${{ runner.os }}-clang${{ matrix.version }}
+
+      - name: Install third-party hash map libraries
+        if: steps.cache-thirdparty.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p $HOME/thirdparty
+
+          # tsl::robin_map (header-only)
+          git clone --depth 1 https://github.com/Tessil/robin-map.git $HOME/thirdparty/robin-map
+
+          # ankerl::unordered_dense (header-only)
+          git clone --depth 1 https://github.com/martinus/unordered_dense.git $HOME/thirdparty/unordered_dense
+
+          # abseil-cpp (needs build)
+          git clone --depth 1 https://github.com/abseil/abseil-cpp.git $HOME/thirdparty/abseil-cpp
+          cd $HOME/thirdparty/abseil-cpp
+          mkdir build && cd build
+          CXX=clang++-${{ matrix.version }} cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_STANDARD=${{ matrix.std }} \
+            -DABSL_BUILD_TESTING=OFF \
+            -DABSL_USE_GOOGLETEST_HEAD=OFF \
+            -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/abseil-install \
+            ..
+          ninja
+          ninja install
+
+      - name: Build benchmarks
+        run: |
+          # Build list of all abseil libraries for linking
+          ABSL_LIBS=""
+          for lib in $(find $HOME/thirdparty/abseil-install/lib -name "libabsl_*.a" | sort); do
+            libname=$(basename "$lib" .a | sed 's/^lib//')
+            ABSL_LIBS="$ABSL_LIBS -l$libname"
+          done
+          
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} -O3 -DNDEBUG -march=native \
+            -I./FAT_P/FAT_P/fat_p \
+            -I$HOME/thirdparty/robin-map/include \
+            -I$HOME/thirdparty/unordered_dense/include \
+            -I$HOME/thirdparty/abseil-install/include \
+            -L$HOME/thirdparty/abseil-install/lib \
+            FAT_P/FAT_P/benchmarks/benchmark_FatPHashMap.cpp \
+            -o bench_hashmap \
+            -Wl,--start-group $ABSL_LIBS -Wl,--end-group \
+            -pthread
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_BATCHES: 15
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
+        run: ./bench_hashmap 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-clang${{ matrix.version }}-cpp${{ matrix.std }}
+          path: |
+            results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
+            benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmarks - Windows MSVC (Manual)
+  # ===========================================================================
+  benchmarks-msvc:
+    name: Benchmark MSVC C++${{ matrix.std }}
+    runs-on: windows-latest
+    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [17, 20, 23]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Cache vcpkg packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.VCPKG_INSTALLATION_ROOT }}/installed
+            ${{ env.VCPKG_INSTALLATION_ROOT }}/packages
+          key: vcpkg-hashmap-${{ runner.os }}-v1
+
+      - name: Install competitor libraries via vcpkg
+        run: |
+          vcpkg install abseil:x64-windows
+          vcpkg install boost-unordered:x64-windows
+          
+          echo "Installed competitor libraries via vcpkg"
+
+      - name: Cache header-only libraries
+        id: cache-headeronly
+        uses: actions/cache@v4
+        with:
+          path: thirdparty
+          key: hashmap-headeronly-${{ runner.os }}-v1
+
+      - name: Install header-only libraries
+        if: steps.cache-headeronly.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path thirdparty
+          git clone --depth 1 https://github.com/Tessil/robin-map.git thirdparty/robin-map
+          git clone --depth 1 https://github.com/martinus/unordered_dense.git thirdparty/unordered_dense
+
+      - name: Build benchmarks
+        shell: pwsh
+        run: |
+          $std = "${{ matrix.std }}"
+          $stdFlag = if ($std -eq "23") { "/std:c++latest" } else { "/std:c++$std" }
+          
+          cl /nologo $stdFlag /O2 /DNDEBUG /EHsc /permissive- `
+            /I.\FAT_P\FAT_P\fat_p `
+            /I.\thirdparty\robin-map\include `
+            /I.\thirdparty\unordered_dense\include `
+            /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include" `
+            FAT_P\FAT_P\benchmarks\benchmark_FatPHashMap.cpp `
+            /Fe:bench_hashmap.exe `
+            /link /LIBPATH:"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\lib" advapi32.lib
+
+      - name: Run benchmarks
+        shell: pwsh
+        env:
+          FATP_BENCH_BATCHES: "15"
+          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp${{ matrix.std }}.csv
+        run: |
+          .\bench_hashmap.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-msvc-cpp${{ matrix.std }}
+          path: |
+            results_msvc_cpp${{ matrix.std }}.csv
+            benchmark_msvc_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmark Summary
+  # ===========================================================================
+  benchmark-summary:
+    name: Benchmark Summary
+    needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
+    runs-on: ubuntu-latest
+    if: ${{ always() && github.event.inputs.run_benchmarks == 'true' }}
+    steps:
+      - name: Download all benchmark artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: benchmark-*
+          path: all-benchmarks
+          merge-multiple: false
+
+      - name: Aggregate results
+        run: |
+          echo "# Benchmark Summary - HashMap" > summary.md
+          echo "" >> summary.md
+          echo "| Configuration | Status |" >> summary.md
+          echo "|---------------|--------|" >> summary.md
+          
+          for dir in all-benchmarks/benchmark-*/; do
+            name=$(basename "$dir")
+            if ls "$dir"/*.csv 1>/dev/null 2>&1; then
+              echo "| $name | ✓ |" >> summary.md
+            else
+              echo "| $name | ✗ |" >> summary.md
+            fi
+          done
+          
+          cat summary.md
+
+      - name: Upload combined results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-summary
+          path: |
+            all-benchmarks/
+            summary.md
 
   # ===========================================================================
   # CI Gate
