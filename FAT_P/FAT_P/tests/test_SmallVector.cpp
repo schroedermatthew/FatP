@@ -448,7 +448,7 @@ FATP_TEST_CASE(emplace)
     FATP_ASSERT_TRUE(*it == "b", "Emplace returns iterator");
     FATP_ASSERT_TRUE(v[1] == "b", "Emplace constructs at position");
 
-    v.emplace(v.begin(), 3, 'x');
+    v.emplace(v.begin(), size_t{3}, 'x');
     FATP_ASSERT_TRUE(v[0] == "xxx", "Emplace forwards constructor arguments");
 
     return true;
