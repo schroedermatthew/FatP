@@ -325,9 +325,9 @@ public:
     }
 
 #if FATP_HAS_CPP20
-    [[nodiscard]] friend constexpr auto operator<= > (const StrongId& lhs, const StrongId& rhs) noexcept
+    [[nodiscard]] friend constexpr auto operator<=> (const StrongId& lhs, const StrongId& rhs) noexcept
     {
-        return lhs.m_value <= > rhs.m_value;
+        return lhs.m_value <=> rhs.m_value;
     }
 #endif
 

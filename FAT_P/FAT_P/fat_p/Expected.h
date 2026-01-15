@@ -3723,7 +3723,7 @@ constexpr bool operator>=(const Expected<T1, E1>& lhs, const Expected<T2, E2>& r
  * @endcode
  */
 template <typename T1, typename E1, typename T2, typename E2>
-    constexpr auto operator<= >
+    constexpr auto operator<=>
     (const Expected<T1, E1>& lhs, const Expected<T2, E2>& rhs)
         requires std::three_way_comparable_with<T1, T2>&& std::three_way_comparable_with<E1, E2>
 {
@@ -3736,18 +3736,18 @@ template <typename T1, typename E1, typename T2, typename E2>
     // Both have value: compare values
     if (lhs.has_value())
     {
-        return *lhs <= > *rhs;
+        return *lhs <=> *rhs;
     }
 
     // Both have error: compare errors
-    return lhs.error() <= > rhs.error();
+    return lhs.error() <=> rhs.error();
 }
 
 /**
  * @brief Three-way comparison for void Expected specialization (C++20+)
  */
 template <typename E1, typename E2>
-    constexpr auto operator<= >
+    constexpr auto operator<=>
     (const Expected<void, E1>& lhs, const Expected<void, E2>& rhs)requires std::three_way_comparable_with<E1, E2>
 {
     // Error < Value ordering
@@ -3763,7 +3763,7 @@ template <typename E1, typename E2>
     }
 
     // Both have error: compare errors
-    return lhs.error() <= > rhs.error();
+    return lhs.error() <=> rhs.error();
 }
 
 #endif // FATP_HAS_LIB_THREE_WAY_COMPARISON

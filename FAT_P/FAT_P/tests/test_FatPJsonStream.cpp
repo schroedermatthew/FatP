@@ -345,22 +345,6 @@ FATP_TEST_CASE(incomplete_input_error)
 }
 
 // =============================================================================
-// USING Macro Test
-// =============================================================================
-
-FATP_TEST_CASE(using_macro)
-{
-    USING_FATP_JSON_STREAM();
-
-    auto result = stream_parse_json("[true, false]");
-
-    FATP_ASSERT_TRUE(result.has_value(), "Parse succeeded");
-    FATP_ASSERT_TRUE(result->as_array()[0].as_bool() == true, "True");
-
-    return true;
-}
-
-// =============================================================================
 // Nested Structure Tests
 // =============================================================================
 
@@ -494,7 +478,6 @@ bool test_FatPJsonStream()
     FATP_RUN_TEST_NS(runner, fatpjsonstream, error_information);
     FATP_RUN_TEST_NS(runner, fatpjsonstream, error_line_column);
     FATP_RUN_TEST_NS(runner, fatpjsonstream, incomplete_input_error);
-    FATP_RUN_TEST_NS(runner, fatpjsonstream, using_macro);
     FATP_RUN_TEST_NS(runner, fatpjsonstream, nested_objects);
     FATP_RUN_TEST_NS(runner, fatpjsonstream, mixed_nesting);
 

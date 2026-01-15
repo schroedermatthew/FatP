@@ -1041,18 +1041,3 @@ BinaryResult<T> binary_decode_from(const ByteContainer& buffer)
 
 } // namespace binary_fatp
 } // namespace fat_p
-
-
-// Local-scope convenience imports (does not pollute namespace fat_p)
-#define USING_FATP_BINARY()                        \
-    using fat_p::binary_fatp::BinaryError;         \
-    using fat_p::binary_fatp::BinaryResult;        \
-    using fat_p::binary_fatp::DefaultBinaryBuffer; \
-    using fat_p::binary_fatp::BinaryBuffer;        \
-    using fat_p::binary_fatp::BinaryWriter;        \
-    using fat_p::binary_fatp::BinaryReader;        \
-    using fat_p::binary_fatp::BinaryTraits;        \
-    using fat_p::binary_fatp::binary_encode;       \
-    using fat_p::binary_fatp::binary_decode;       \
-    using fat_p::binary_fatp::binary_encode_to;    \
-    using fat_p::binary_fatp::binary_decode_from;

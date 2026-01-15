@@ -495,10 +495,9 @@ namespace concepts
  * @tparam T The type to check
  */
 template <typename T>
-concept Iterable = requires(T val)
-{
-    {std::begin(val)}->std::input_or_output_iterator;
-    {std::end(val)}->std::input_or_output_iterator;
+concept Iterable = requires(T val) {
+    { std::begin(val) } -> std::input_or_output_iterator;
+    { std::end(val) } -> std::input_or_output_iterator;
 };
 
 /**
@@ -506,9 +505,8 @@ concept Iterable = requires(T val)
  * @tparam T The type to check
  */
 template <typename T>
-concept Sized = requires(T val)
-{
-    {val.size()}->std::integral;
+concept Sized = requires(T val) {
+    { val.size() } -> std::integral;
 };
 
 /**
@@ -523,10 +521,9 @@ concept Container = Iterable<T> && Sized<T>;
  * @tparam T The type to check
  */
 template <typename T>
-concept ReverseIterable = requires(T val)
-{
-    {std::rbegin(val)}->std::input_or_output_iterator;
-    {std::rend(val)}->std::input_or_output_iterator;
+concept ReverseIterable = requires(T val) {
+    { std::rbegin(val) } -> std::input_or_output_iterator;
+    { std::rend(val) } -> std::input_or_output_iterator;
 };
 
 /**
@@ -534,19 +531,15 @@ concept ReverseIterable = requires(T val)
  * @tparam T The type to check
  */
 template <typename T>
-concept Reservable = requires(T val)
-{
-    val.reserve(std::size_t{});
-};
+concept Reservable = requires(T val) { val.reserve(std::size_t{}); };
 
 /**
  * @brief C++20 concept: checks if T is a contiguous container
  * @tparam T The type to check
  */
 template <typename T>
-concept ContiguousContainer = Container<T> && requires(T val)
-{
-    {val.data()};
+concept ContiguousContainer = Container<T> && requires(T val) {
+    { val.data() };
 };
 
 /**
@@ -554,9 +547,8 @@ concept ContiguousContainer = Container<T> && requires(T val)
  * @tparam T The type to check
  */
 template <typename T>
-concept Hashable = requires(T val)
-{
-    {std::hash<std::remove_cv_t<T>>{}(val)}->std::convertible_to<std::size_t>;
+concept Hashable = requires(T val) {
+    { std::hash<std::remove_cv_t<T>>{}(val) } -> std::convertible_to<std::size_t>;
 };
 
 /**
@@ -564,9 +556,8 @@ concept Hashable = requires(T val)
  * @tparam T The type to check
  */
 template <typename T>
-concept EqualityComparable = requires(T a, T b)
-{
-    {a == b}->std::convertible_to<bool>;
+concept EqualityComparable = requires(T a, T b) {
+    { a == b } -> std::convertible_to<bool>;
 };
 
 /**
@@ -574,12 +565,11 @@ concept EqualityComparable = requires(T a, T b)
  * @tparam T The type to check
  */
 template <typename T>
-concept FullyOrdered = requires(T a, T b)
-{
-    {a < b}->std::convertible_to<bool>;
-    {a <= b}->std::convertible_to<bool>;
-    {a > b}->std::convertible_to<bool>;
-    {a >= b}->std::convertible_to<bool>;
+concept FullyOrdered = requires(T a, T b) {
+    { a < b } -> std::convertible_to<bool>;
+    { a <= b } -> std::convertible_to<bool>;
+    { a > b } -> std::convertible_to<bool>;
+    { a >= b } -> std::convertible_to<bool>;
 };
 
 } // namespace concepts
@@ -1019,7 +1009,7 @@ struct is_three_way_comparable : std::false_type
 };
 
 template <typename T>
-struct is_three_way_comparable<T, detail::void_t<decltype(std::declval<T>() <= > std::declval<T>())>> : std::true_type
+struct is_three_way_comparable<T, detail::void_t<decltype(std::declval<T>() <=> std::declval<T>())>> : std::true_type
 {
 };
 

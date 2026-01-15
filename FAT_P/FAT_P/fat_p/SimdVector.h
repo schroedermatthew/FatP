@@ -51,8 +51,8 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: false
-    defines_total: 12
-    defines_unprefixed: 12
+    defines_total: 0
+    defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
   generated:
@@ -71,56 +71,18 @@ FATP_META:
 // Fat-P internal leverage for consistent error handling
 #include "enforce.h"
 
-// =============================================================================
-// Architecture Detection & Verification
-// =============================================================================
-
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86)
-#define FATP_SIMD_X86
-#if defined(_MSC_VER)
-#include <intrin.h> // For __popcnt on MSVC
-#endif
-#if defined(__AVX512F__)
-#define SIMD_AVX512
-#include <immintrin.h>
-#elif defined(__AVX2__)
-#define SIMD_AVX2
-#include <immintrin.h>
-#elif defined(__AVX__)
-#define SIMD_AVX
-#include <immintrin.h>
-#elif defined(__SSE4_2__)
-#define SIMD_SSE4_2
-#include <nmmintrin.h>
-#elif defined(__SSE4_1__)
-#define SIMD_SSE4_1
-#include <smmintrin.h>
-#elif defined(__SSE3__)
-#define SIMD_SSE3
-#include <pmmintrin.h>
-#elif defined(__SSE2__)
-#define SIMD_SSE2
-#include <emmintrin.h>
-#endif
-#elif defined(__aarch64__)
-#define FATP_SIMD_NEON
-#define FATP_SIMD_NEON_AARCH64 1
-#include <arm_neon.h>
-#elif defined(__ARM_NEON)
-#define FATP_SIMD_NEON
-#define FATP_SIMD_NEON_AARCH64 0
-#include <arm_neon.h>
-#endif
+// Centralized SIMD detection - provides FATP_SIMD_* macros and intrinsic headers
+#include "FatPSimdDetection.h"
 
 // Compile-time architecture verification (for CI/testing)
-#if defined(SIMD_VERIFY_ARCHITECTURE)
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_VERIFY_ARCHITECTURE)
+#if defined(FATP_SIMD_AVX512F)
 static_assert(true, "SimdVector: AVX-512 detected");
-#elif defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX2)
 static_assert(true, "SimdVector: AVX2 detected");
-#elif defined(SIMD_AVX)
+#elif defined(FATP_SIMD_AVX)
 static_assert(true, "SimdVector: AVX detected");
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
 static_assert(true, "SimdVector: SSE2 detected");
 #elif defined(FATP_SIMD_NEON) && FATP_SIMD_NEON_AARCH64
 static_assert(true, "SimdVector: NEON AArch64 detected");
@@ -271,7 +233,7 @@ class SimdMask;
 
 struct SimdArchitecture
 {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
     static constexpr bool has_avx512 = true;
     static constexpr bool has_avx2 = true;
     static constexpr bool has_avx = true;
@@ -279,7 +241,7 @@ struct SimdArchitecture
     static constexpr bool has_neon = false;
     static constexpr size_t preferred_alignment = 64;
     static constexpr const char* name = "AVX-512";
-#elif defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX2)
     static constexpr bool has_avx512 = false;
     static constexpr bool has_avx2 = true;
     static constexpr bool has_avx = true;
@@ -287,7 +249,7 @@ struct SimdArchitecture
     static constexpr bool has_neon = false;
     static constexpr size_t preferred_alignment = 32;
     static constexpr const char* name = "AVX2";
-#elif defined(SIMD_AVX)
+#elif defined(FATP_SIMD_AVX)
     static constexpr bool has_avx512 = false;
     static constexpr bool has_avx2 = false;
     static constexpr bool has_avx = true;
@@ -295,7 +257,7 @@ struct SimdArchitecture
     static constexpr bool has_neon = false;
     static constexpr size_t preferred_alignment = 32;
     static constexpr const char* name = "AVX";
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
     static constexpr bool has_avx512 = false;
     static constexpr bool has_avx2 = false;
     static constexpr bool has_avx = false;
@@ -337,7 +299,7 @@ struct SimdTraits
     static constexpr size_t alignment = alignof(T);
 };
 
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
 template <>
 struct SimdTraits<float>
 {
@@ -350,7 +312,7 @@ struct SimdTraits<double>
     static constexpr size_t width = 8;
     static constexpr size_t alignment = 64;
 };
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
 template <>
 struct SimdTraits<float>
 {
@@ -363,7 +325,7 @@ struct SimdTraits<double>
     static constexpr size_t width = 4;
     static constexpr size_t alignment = 32;
 };
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
 template <>
 struct SimdTraits<float>
 {
@@ -420,9 +382,9 @@ class SimdMask
 public:
     static constexpr size_t width = SimdTraits<T>::width;
 
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
     using storage_type = std::conditional_t<std::is_same_v<T, float>, __mmask16, __mmask8>;
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
     struct storage_float
     {
         using type = __m256;
@@ -432,7 +394,7 @@ public:
         using type = __m256d;
     };
     using storage_type = typename std::conditional_t<std::is_same_v<T, float>, storage_float, storage_double>::type;
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
     struct storage_float
     {
         using type = __m128;
@@ -481,9 +443,9 @@ public:
      */
     bool any() const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         return data_ != 0;
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             return _mm256_movemask_ps(data_) != 0;
@@ -492,7 +454,7 @@ public:
         {
             return _mm256_movemask_pd(data_) != 0;
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             return _mm_movemask_ps(data_) != 0;
@@ -534,10 +496,10 @@ public:
      */
     bool all() const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         constexpr auto all_bits = std::is_same_v<T, float> ? __mmask16(0xFFFF) : __mmask8(0xFF);
         return (data_ & all_bits) == all_bits;
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             return _mm256_movemask_ps(data_) == 0xFF;
@@ -546,7 +508,7 @@ public:
         {
             return _mm256_movemask_pd(data_) == 0xF;
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             return _mm_movemask_ps(data_) == 0xF;
@@ -598,7 +560,7 @@ public:
      */
     size_t popcount() const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             return detail::portable_popcount(static_cast<unsigned>(data_ & 0xFFFF));
@@ -607,7 +569,7 @@ public:
         {
             return detail::portable_popcount(static_cast<unsigned>(data_ & 0xFF));
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             return detail::portable_popcount(static_cast<unsigned>(_mm256_movemask_ps(data_)));
@@ -616,7 +578,7 @@ public:
         {
             return detail::portable_popcount(static_cast<unsigned>(_mm256_movemask_pd(data_)));
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             return detail::portable_popcount(static_cast<unsigned>(_mm_movemask_ps(data_)));
@@ -680,9 +642,9 @@ public:
     // Logical operators (preserve mask invariant)
     SimdMask operator&(const SimdMask& other) const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         return SimdMask(data_ & other.data_);
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdMask(_mm256_and_ps(data_, other.data_));
@@ -691,7 +653,7 @@ public:
         {
             return SimdMask(_mm256_and_pd(data_, other.data_));
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdMask(_mm_and_ps(data_, other.data_));
@@ -728,9 +690,9 @@ public:
 
     SimdMask operator|(const SimdMask& other) const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         return SimdMask(data_ | other.data_);
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdMask(_mm256_or_ps(data_, other.data_));
@@ -739,7 +701,7 @@ public:
         {
             return SimdMask(_mm256_or_pd(data_, other.data_));
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdMask(_mm_or_ps(data_, other.data_));
@@ -776,9 +738,9 @@ public:
 
     SimdMask operator~() const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         return SimdMask(~data_);
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             __m256 all_ones = _mm256_castsi256_ps(_mm256_set1_epi32(-1));
@@ -789,7 +751,7 @@ public:
             __m256d all_ones = _mm256_castsi256_pd(_mm256_set1_epi64x(-1));
             return SimdMask(_mm256_xor_pd(data_, all_ones));
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             __m128 all_ones = _mm_castsi128_ps(_mm_set1_epi32(-1));
@@ -853,7 +815,7 @@ public:
     using value_type = T;
     using mask_type = SimdMask<T>;
 
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
     struct storage_float
     {
         using type = __m512;
@@ -863,7 +825,7 @@ public:
         using type = __m512d;
     };
     using storage_type = typename std::conditional_t<std::is_same_v<T, float>, storage_float, storage_double>::type;
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
     struct storage_float
     {
         using type = __m256;
@@ -873,7 +835,7 @@ public:
         using type = __m256d;
     };
     using storage_type = typename std::conditional_t<std::is_same_v<T, float>, storage_float, storage_double>::type;
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
     struct storage_float
     {
         using type = __m128;
@@ -928,7 +890,7 @@ public:
      */
     explicit SimdVector(T scalar) noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             data_ = _mm512_set1_ps(scalar);
@@ -937,7 +899,7 @@ public:
         {
             data_ = _mm512_set1_pd(scalar);
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             data_ = _mm256_set1_ps(scalar);
@@ -946,7 +908,7 @@ public:
         {
             data_ = _mm256_set1_pd(scalar);
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             data_ = _mm_set1_ps(scalar);
@@ -1013,7 +975,7 @@ public:
         FATP_ENFORCE(is_aligned(ptr), "SimdVector::load_aligned: misaligned pointer, required alignment=", alignment);
 
         SimdVector result;
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             result.data_ = _mm512_load_ps(ptr);
@@ -1022,7 +984,7 @@ public:
         {
             result.data_ = _mm512_load_pd(ptr);
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             result.data_ = _mm256_load_ps(ptr);
@@ -1031,7 +993,7 @@ public:
         {
             result.data_ = _mm256_load_pd(ptr);
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             result.data_ = _mm_load_ps(ptr);
@@ -1068,7 +1030,7 @@ public:
     static SimdVector load_unaligned(const T* ptr) noexcept
     {
         SimdVector result;
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             result.data_ = _mm512_loadu_ps(ptr);
@@ -1077,7 +1039,7 @@ public:
         {
             result.data_ = _mm512_loadu_pd(ptr);
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             result.data_ = _mm256_loadu_ps(ptr);
@@ -1086,7 +1048,7 @@ public:
         {
             result.data_ = _mm256_loadu_pd(ptr);
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             result.data_ = _mm_loadu_ps(ptr);
@@ -1130,7 +1092,7 @@ public:
             return load_unaligned(ptr);
         }
 
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         // Use masked load for efficiency on AVX-512
         if constexpr (std::is_same_v<T, float>)
         {
@@ -1161,7 +1123,7 @@ public:
     {
         FATP_ENFORCE(is_aligned(ptr), "SimdVector::store_aligned: misaligned pointer, required alignment=", alignment);
 
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             _mm512_store_ps(ptr, data_);
@@ -1170,7 +1132,7 @@ public:
         {
             _mm512_store_pd(ptr, data_);
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             _mm256_store_ps(ptr, data_);
@@ -1179,7 +1141,7 @@ public:
         {
             _mm256_store_pd(ptr, data_);
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             _mm_store_ps(ptr, data_);
@@ -1214,7 +1176,7 @@ public:
      */
     void store_unaligned(T* ptr) const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             _mm512_storeu_ps(ptr, data_);
@@ -1223,7 +1185,7 @@ public:
         {
             _mm512_storeu_pd(ptr, data_);
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             _mm256_storeu_ps(ptr, data_);
@@ -1232,7 +1194,7 @@ public:
         {
             _mm256_storeu_pd(ptr, data_);
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             _mm_storeu_ps(ptr, data_);
@@ -1276,7 +1238,7 @@ public:
             return;
         }
 
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         // Use masked store for efficiency on AVX-512
         if constexpr (std::is_same_v<T, float>)
         {
@@ -1305,7 +1267,7 @@ public:
 
     SimdVector operator+(const SimdVector& rhs) const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm512_add_ps(data_, rhs.data_));
@@ -1314,7 +1276,7 @@ public:
         {
             return SimdVector(_mm512_add_pd(data_, rhs.data_));
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm256_add_ps(data_, rhs.data_));
@@ -1323,7 +1285,7 @@ public:
         {
             return SimdVector(_mm256_add_pd(data_, rhs.data_));
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm_add_ps(data_, rhs.data_));
@@ -1365,7 +1327,7 @@ public:
 
     SimdVector operator-(const SimdVector& rhs) const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm512_sub_ps(data_, rhs.data_));
@@ -1374,7 +1336,7 @@ public:
         {
             return SimdVector(_mm512_sub_pd(data_, rhs.data_));
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm256_sub_ps(data_, rhs.data_));
@@ -1383,7 +1345,7 @@ public:
         {
             return SimdVector(_mm256_sub_pd(data_, rhs.data_));
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm_sub_ps(data_, rhs.data_));
@@ -1420,7 +1382,7 @@ public:
 
     SimdVector operator*(const SimdVector& rhs) const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm512_mul_ps(data_, rhs.data_));
@@ -1429,7 +1391,7 @@ public:
         {
             return SimdVector(_mm512_mul_pd(data_, rhs.data_));
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm256_mul_ps(data_, rhs.data_));
@@ -1438,7 +1400,7 @@ public:
         {
             return SimdVector(_mm256_mul_pd(data_, rhs.data_));
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm_mul_ps(data_, rhs.data_));
@@ -1475,7 +1437,7 @@ public:
 
     SimdVector operator/(const SimdVector& rhs) const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm512_div_ps(data_, rhs.data_));
@@ -1484,7 +1446,7 @@ public:
         {
             return SimdVector(_mm512_div_pd(data_, rhs.data_));
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm256_div_ps(data_, rhs.data_));
@@ -1493,7 +1455,7 @@ public:
         {
             return SimdVector(_mm256_div_pd(data_, rhs.data_));
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm_div_ps(data_, rhs.data_));
@@ -1556,7 +1518,7 @@ public:
 
     SimdMask<T> operator==(const SimdVector& rhs) const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdMask<T>(_mm512_cmp_ps_mask(data_, rhs.data_, _CMP_EQ_OQ));
@@ -1565,7 +1527,7 @@ public:
         {
             return SimdMask<T>(_mm512_cmp_pd_mask(data_, rhs.data_, _CMP_EQ_OQ));
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdMask<T>(_mm256_cmp_ps(data_, rhs.data_, _CMP_EQ_OQ));
@@ -1574,7 +1536,7 @@ public:
         {
             return SimdMask<T>(_mm256_cmp_pd(data_, rhs.data_, _CMP_EQ_OQ));
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdMask<T>(_mm_cmpeq_ps(data_, rhs.data_));
@@ -1616,7 +1578,7 @@ public:
 
     SimdMask<T> operator>(const SimdVector& rhs) const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdMask<T>(_mm512_cmp_ps_mask(data_, rhs.data_, _CMP_GT_OQ));
@@ -1625,7 +1587,7 @@ public:
         {
             return SimdMask<T>(_mm512_cmp_pd_mask(data_, rhs.data_, _CMP_GT_OQ));
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdMask<T>(_mm256_cmp_ps(data_, rhs.data_, _CMP_GT_OQ));
@@ -1634,7 +1596,7 @@ public:
         {
             return SimdMask<T>(_mm256_cmp_pd(data_, rhs.data_, _CMP_GT_OQ));
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdMask<T>(_mm_cmpgt_ps(data_, rhs.data_));
@@ -1693,7 +1655,7 @@ public:
      */
     static SimdVector select(const SimdMask<T>& mask, const SimdVector& if_true, const SimdVector& if_false) noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm512_mask_blend_ps(mask.data_, if_false.data_, if_true.data_));
@@ -1702,7 +1664,7 @@ public:
         {
             return SimdVector(_mm512_mask_blend_pd(mask.data_, if_false.data_, if_true.data_));
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm256_blendv_ps(if_false.data_, if_true.data_, mask.data_));
@@ -1711,7 +1673,7 @@ public:
         {
             return SimdVector(_mm256_blendv_pd(if_false.data_, if_true.data_, mask.data_));
         }
-#elif defined(SIMD_SSE4_1)
+#elif defined(FATP_SIMD_SSE4_1)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm_blendv_ps(if_false.data_, if_true.data_, mask.data_));
@@ -1720,7 +1682,7 @@ public:
         {
             return SimdVector(_mm_blendv_pd(if_false.data_, if_true.data_, mask.data_));
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         // SSE2 manual blend: (true & mask) | (false & ~mask)
         if constexpr (std::is_same_v<T, float>)
         {
@@ -1767,7 +1729,7 @@ public:
      */
     static SimdVector fma(const SimdVector& a, const SimdVector& b, const SimdVector& c) noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm512_fmadd_ps(a.data_, b.data_, c.data_));
@@ -1776,7 +1738,7 @@ public:
         {
             return SimdVector(_mm512_fmadd_pd(a.data_, b.data_, c.data_));
         }
-#elif defined(SIMD_AVX2) && defined(__FMA__)
+#elif defined(FATP_SIMD_AVX2) && defined(__FMA__)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm256_fmadd_ps(a.data_, b.data_, c.data_));
@@ -1814,7 +1776,7 @@ public:
      */
     static SimdVector fms(const SimdVector& a, const SimdVector& b, const SimdVector& c) noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm512_fmsub_ps(a.data_, b.data_, c.data_));
@@ -1823,7 +1785,7 @@ public:
         {
             return SimdVector(_mm512_fmsub_pd(a.data_, b.data_, c.data_));
         }
-#elif defined(SIMD_AVX2) && defined(__FMA__)
+#elif defined(FATP_SIMD_AVX2) && defined(__FMA__)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm256_fmsub_ps(a.data_, b.data_, c.data_));
@@ -1857,7 +1819,7 @@ public:
 
     SimdVector sqrt() const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm512_sqrt_ps(data_));
@@ -1866,7 +1828,7 @@ public:
         {
             return SimdVector(_mm512_sqrt_pd(data_));
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm256_sqrt_ps(data_));
@@ -1875,7 +1837,7 @@ public:
         {
             return SimdVector(_mm256_sqrt_pd(data_));
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(_mm_sqrt_ps(data_));
@@ -1933,7 +1895,7 @@ public:
 
     T horizontal_sum() const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             return _mm512_reduce_add_ps(data_);
@@ -1942,7 +1904,7 @@ public:
         {
             return _mm512_reduce_add_pd(data_);
         }
-#elif defined(SIMD_AVX) || defined(SIMD_AVX2)
+#elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             __m128 lo = _mm256_castps256_ps128(data_);
@@ -1961,7 +1923,7 @@ public:
             __m128d s = _mm_add_pd(lo, hi);
             return _mm_cvtsd_f64(_mm_add_sd(s, _mm_unpackhi_pd(s, s)));
         }
-#elif defined(SIMD_SSE2)
+#elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             // SSE2-compatible: use shuffles instead of SSE3 hadd
@@ -2003,7 +1965,7 @@ public:
 
     T horizontal_max() const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             return _mm512_reduce_max_ps(data_);
@@ -2037,7 +1999,7 @@ public:
 
     T horizontal_min() const noexcept
     {
-#if defined(SIMD_AVX512)
+#if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
             return _mm512_reduce_min_ps(data_);

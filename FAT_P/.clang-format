@@ -9,7 +9,7 @@
 # to discourage lines over 100 columns while still allowing up to 120.
 
 Language: Cpp
-Standard: c++17
+Standard: c++20
 
 BasedOnStyle: LLVM
 
@@ -25,26 +25,20 @@ IndentPPDirectives: None
 NamespaceIndentation: None
 
 # Braces - Allman style (opening brace on its own line)
-# Using Custom to ensure namespace braces are also on their own line
 BreakBeforeBraces: Custom
 BraceWrapping:
   AfterCaseLabel: true
   AfterClass: true
   AfterControlStatement: Always
   AfterEnum: true
-  AfterExternBlock: true
+  AfterExternBlock: false
   AfterFunction: true
   AfterNamespace: true
   AfterStruct: true
   AfterUnion: true
   BeforeCatch: true
   BeforeElse: true
-  BeforeLambdaBody: false
-  BeforeWhile: false
   IndentBraces: false
-  SplitEmptyFunction: true
-  SplitEmptyRecord: true
-  SplitEmptyNamespace: true
 
 # Always use braces for control statements
 InsertBraces: true

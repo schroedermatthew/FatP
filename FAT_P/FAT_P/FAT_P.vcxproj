@@ -200,6 +200,7 @@
     <ClInclude Include="fat_p\FatPConfig.h" />
     <ClInclude Include="fat_p\FatPJson.h" />
     <ClInclude Include="fat_p\FatPJsonStream.h" />
+    <ClInclude Include="fat_p\FatPSimdDetection.h" />
     <ClInclude Include="fat_p\FatPTest.h" />
     <ClInclude Include="fat_p\FatPTypeTraits.h" />
     <ClInclude Include="fat_p\FeatureManager.h" />

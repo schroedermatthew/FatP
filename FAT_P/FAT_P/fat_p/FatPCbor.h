@@ -825,17 +825,3 @@ CborResult<T> cbor_decode_from(const ByteContainer& buffer)
 
 } // namespace cbor_fatp
 } // namespace fat_p
-
-// Local-scope convenience imports (does not pollute namespace fat_p)
-#define USING_FATP_CBOR()                      \
-    using fat_p::cbor_fatp::CborError;         \
-    using fat_p::cbor_fatp::CborResult;        \
-    using fat_p::cbor_fatp::DefaultCborBuffer; \
-    using fat_p::cbor_fatp::CborBuffer;        \
-    using fat_p::cbor_fatp::CborWriter;        \
-    using fat_p::cbor_fatp::CborReader;        \
-    using fat_p::cbor_fatp::CborTraits;        \
-    using fat_p::cbor_fatp::cbor_encode;       \
-    using fat_p::cbor_fatp::cbor_decode;       \
-    using fat_p::cbor_fatp::cbor_encode_to;    \
-    using fat_p::cbor_fatp::cbor_decode_from;

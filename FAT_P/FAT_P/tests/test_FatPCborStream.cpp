@@ -479,23 +479,6 @@ FATP_TEST_CASE(incomplete_input_error)
 }
 
 // =============================================================================
-// USING Macro Test
-// =============================================================================
-
-FATP_TEST_CASE(using_macro)
-{
-    USING_FATP_CBOR_STREAM();
-
-    auto data = encode_uint(123);
-    auto result = stream_parse(data);
-
-    FATP_ASSERT_TRUE(result.has_value(), "Parse with macro succeeded");
-    FATP_ASSERT_TRUE(result->as_unsigned() == 123, "Value 123");
-
-    return true;
-}
-
-// =============================================================================
 // Benchmarks
 // =============================================================================
 
@@ -614,7 +597,6 @@ bool test_FatPCborStream()
     FATP_RUN_TEST_NS(runner, fatpcborstream, progress_callback);
     FATP_RUN_TEST_NS(runner, fatpcborstream, error_information);
     FATP_RUN_TEST_NS(runner, fatpcborstream, incomplete_input_error);
-    FATP_RUN_TEST_NS(runner, fatpcborstream, using_macro);
 
     fatpcborstream::benchmark_policies();
 

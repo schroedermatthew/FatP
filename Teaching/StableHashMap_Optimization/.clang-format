@@ -9,7 +9,7 @@
 # to discourage lines over 100 columns while still allowing up to 120.
 
 Language: Cpp
-Standard: c++17
+Standard: c++20
 
 BasedOnStyle: LLVM
 

@@ -681,34 +681,4 @@ inline StreamResult<CborValue> stream_parse_limited(const Container& data, const
 }
 
 } // namespace cbor_stream
-
-/**
- * @brief Macro to bring FatPCborStream types into local scope
- */
-#define USING_FATP_CBOR_STREAM()                        \
-    using fat_p::cbor_stream::StreamError;              \
-    using fat_p::cbor_stream::StreamResult;             \
-    using fat_p::cbor_stream::FatPStreamParser;         \
-    using fat_p::cbor_stream::DefaultStreamParser;      \
-    using fat_p::cbor_stream::StrictStreamParser;       \
-    using fat_p::cbor_stream::RelaxedStreamParser;      \
-    using fat_p::cbor_stream::ValidatingStreamParser;   \
-    using fat_p::cbor_stream::ConfigurableStreamParser; \
-    using fat_p::cbor_stream::DefaultLimitsPolicy;      \
-    using fat_p::cbor_stream::StrictLimitsPolicy;       \
-    using fat_p::cbor_stream::RelaxedLimitsPolicy;      \
-    using fat_p::cbor_stream::RuntimeLimitsPolicy;      \
-    using fat_p::cbor_stream::NoValidationPolicy;       \
-    using fat_p::cbor_stream::Utf8ValidationPolicy;     \
-    using fat_p::cbor_stream::StrictValidationPolicy;   \
-    using fat_p::cbor_stream::stream_parse;             \
-    using fat_p::cbor_stream::stream_parse_strict;      \
-    using fat_p::cbor_stream::stream_parse_limited;     \
-    using fat_p::cbor_stream::CborValue;                \
-    using fat_p::cbor_stream::CborArray;                \
-    using fat_p::cbor_stream::CborMap;                  \
-    using fat_p::cbor_stream::CborBytes;                \
-    using fat_p::cbor_stream::ParseStatus;              \
-    using fat_p::cbor_stream::ParseError
-
 } // namespace fat_p

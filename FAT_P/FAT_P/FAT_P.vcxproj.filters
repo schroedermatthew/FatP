@@ -328,5 +328,8 @@
     <ClInclude Include="fat_p\ServiceLocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="fat_p\FatPSimdDetection.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -1804,20 +1804,20 @@ FATP_TEST_CASE(spaceship_operator)
     SmallVector<int, 4> v4 = {1, 2};
 
     // Test strong ordering results
-    FATP_ASSERT_TRUE((v1 <= > v2) == std::strong_ordering::equal, "Equal vectors compare equal");
-    FATP_ASSERT_TRUE((v1 <= > v3) == std::strong_ordering::less, "Lexicographically less");
-    FATP_ASSERT_TRUE((v3 <= > v1) == std::strong_ordering::greater, "Lexicographically greater");
-    FATP_ASSERT_TRUE((v4 <= > v1) == std::strong_ordering::less, "Shorter vector is less");
-    FATP_ASSERT_TRUE((v1 <= > v4) == std::strong_ordering::greater, "Longer vector is greater");
+    FATP_ASSERT_TRUE((v1 <=> v2) == std::strong_ordering::equal, "Equal vectors compare equal");
+    FATP_ASSERT_TRUE((v1 <=> v3) == std::strong_ordering::less, "Lexicographically less");
+    FATP_ASSERT_TRUE((v3 <=> v1) == std::strong_ordering::greater, "Lexicographically greater");
+    FATP_ASSERT_TRUE((v4 <=> v1) == std::strong_ordering::less, "Shorter vector is less");
+    FATP_ASSERT_TRUE((v1 <=> v4) == std::strong_ordering::greater, "Longer vector is greater");
 
     // Cross-capacity comparison
     SmallVector<int, 8> v5 = {1, 2, 3};
-    FATP_ASSERT_TRUE((v1 <= > v5) == std::strong_ordering::equal, "Cross-capacity equal");
+    FATP_ASSERT_TRUE((v1 <=> v5) == std::strong_ordering::equal, "Cross-capacity equal");
 
     // Empty vectors
     SmallVector<int, 4> empty1, empty2;
-    FATP_ASSERT_TRUE((empty1 <= > empty2) == std::strong_ordering::equal, "Empty vectors equal");
-    FATP_ASSERT_TRUE((empty1 <= > v1) == std::strong_ordering::less, "Empty less than non-empty");
+    FATP_ASSERT_TRUE((empty1 <=> empty2) == std::strong_ordering::equal, "Empty vectors equal");
+    FATP_ASSERT_TRUE((empty1 <=> v1) == std::strong_ordering::less, "Empty less than non-empty");
 
     return true;
 }

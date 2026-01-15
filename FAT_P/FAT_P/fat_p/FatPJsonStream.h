@@ -552,31 +552,4 @@ inline StreamResult<JsonValue> stream_parse_json_limited(const std::string& data
 // Use fat_p::jsf::StreamError, fat_p::jsf::stream_parse_json, etc.
 namespace jsf = json_stream_fatp;
 
-/**
- * @brief Macro to bring FatPJsonStream types into local scope
- */
-#define USING_FATP_JSON_STREAM()                                 \
-    using fat_p::json_stream_fatp::StreamError;                  \
-    using fat_p::json_stream_fatp::StreamResult;                 \
-    using fat_p::json_stream_fatp::FatPJsonStreamParser;         \
-    using fat_p::json_stream_fatp::DefaultJsonStreamParser;      \
-    using fat_p::json_stream_fatp::StrictJsonStreamParser;       \
-    using fat_p::json_stream_fatp::RelaxedJsonStreamParser;      \
-    using fat_p::json_stream_fatp::ConfigurableJsonStreamParser; \
-    using fat_p::json_stream_fatp::DefaultLimitsPolicy;          \
-    using fat_p::json_stream_fatp::StrictLimitsPolicy;           \
-    using fat_p::json_stream_fatp::RelaxedLimitsPolicy;          \
-    using fat_p::json_stream_fatp::RuntimeLimitsPolicy;          \
-    using fat_p::json_stream_fatp::NoValidationPolicy;           \
-    using fat_p::json_stream_fatp::StrictValidationPolicy;       \
-    using fat_p::json_stream_fatp::RelaxedValidationPolicy;      \
-    using fat_p::json_stream_fatp::stream_parse_json;            \
-    using fat_p::json_stream_fatp::stream_parse_json_strict;     \
-    using fat_p::json_stream_fatp::stream_parse_json_limited;    \
-    using fat_p::json_stream_fatp::JsonValue;                    \
-    using fat_p::json_stream_fatp::JsonArray;                    \
-    using fat_p::json_stream_fatp::JsonObject;                   \
-    using fat_p::json_stream_fatp::ParseStatus;                  \
-    using fat_p::json_stream_fatp::ParseError
-
 } // namespace fat_p

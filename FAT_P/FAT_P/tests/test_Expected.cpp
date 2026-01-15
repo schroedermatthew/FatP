@@ -658,12 +658,12 @@ FATP_TEST_CASE(three_way_comparison)
     Expected<int, std::string> err1(unexpected{"error1"});
     Expected<int, std::string> err2(unexpected{"error2"});
 
-    FATP_ASSERT_TRUE((v1 <= > v2) == std::strong_ordering::less, "42 < 43");
-    FATP_ASSERT_TRUE((v2 <= > v1) == std::strong_ordering::greater, "43 > 42");
-    FATP_ASSERT_TRUE((v1 <= > v3) == std::strong_ordering::equal, "42 == 42");
-    FATP_ASSERT_TRUE((err1 <= > v1) == std::strong_ordering::less, "error < value");
-    FATP_ASSERT_TRUE((v1 <= > err1) == std::strong_ordering::greater, "value > error");
-    FATP_ASSERT_TRUE((err1 <= > err2) == std::strong_ordering::less, "error1 < error2");
+    FATP_ASSERT_TRUE((v1 <=> v2) == std::strong_ordering::less, "42 < 43");
+    FATP_ASSERT_TRUE((v2 <=> v1) == std::strong_ordering::greater, "43 > 42");
+    FATP_ASSERT_TRUE((v1 <=> v3) == std::strong_ordering::equal, "42 == 42");
+    FATP_ASSERT_TRUE((err1 <=> v1) == std::strong_ordering::less, "error < value");
+    FATP_ASSERT_TRUE((v1 <=> err1) == std::strong_ordering::greater, "value > error");
+    FATP_ASSERT_TRUE((err1 <=> err2) == std::strong_ordering::less, "error1 < error2");
 
     return true;
 }

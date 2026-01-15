@@ -2130,7 +2130,7 @@ bool operator>=(const SmallVector<T, N1, Alloc>& lhs, const SmallVector<T, N2, A
  * @note Cross-capacity: can compare SmallVector<T,N1> with SmallVector<T,N2>
  */
 template <class T, size_t N1, size_t N2, class Alloc>
-    auto operator<= > (const SmallVector<T, N1, Alloc>& lhs, const SmallVector<T, N2, Alloc>& rhs)
+    auto operator<=> (const SmallVector<T, N1, Alloc>& lhs, const SmallVector<T, N2, Alloc>& rhs)
 {
     return std::lexicographical_compare_three_way(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 }
