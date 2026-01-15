@@ -773,8 +773,7 @@ void benchmark_bitset()
     volatile uint64_t* ptr = bits.data();
 
     double set_time = measure_perf(
-        [&bits, ptr]()
-        {
+        [&bits, ptr]() {
             for (size_t i = 0; i < 1024; ++i)
             {
                 bits.set_unchecked(i);
@@ -786,8 +785,7 @@ void benchmark_bitset()
     std::cout << "Set 1024 bits (unchecked): " << format_time(set_time) << "\n";
 
     double test_time = measure_perf(
-        [&bits]()
-        {
+        [&bits]() {
             bool result = false;
             for (size_t i = 0; i < 1024; ++i)
             {
@@ -801,8 +799,7 @@ void benchmark_bitset()
 
     bits.set_all();
     double count_time = measure_perf(
-        [&bits]()
-        {
+        [&bits]() {
             size_t c = bits.count();
             DoNotOptimize(c);
         },
@@ -814,8 +811,7 @@ void benchmark_bitset()
     other.set_all();
     fat_p::BitSet<1024> result;
     double and_time = measure_perf(
-        [&bits, &other, &result]()
-        {
+        [&bits, &other, &result]() {
             result = bits & other;
             DoNotOptimize(*result.data());
         },
@@ -829,8 +825,7 @@ void benchmark_bitset()
         bits.set(i);
     }
     double iterate_time = measure_perf(
-        [&bits]()
-        {
+        [&bits]() {
             size_t sum = 0;
             for (size_t idx : bits)
             {
@@ -843,8 +838,7 @@ void benchmark_bitset()
     std::cout << "Iterate ~100 set bits: " << format_time(iterate_time) << "\n";
 
     double find_time = measure_perf(
-        [&bits]()
-        {
+        [&bits]() {
             size_t pos = bits.find_first();
             while (pos != 1024)
             {

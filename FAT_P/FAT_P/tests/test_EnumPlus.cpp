@@ -333,22 +333,18 @@ FATP_TEST_CASE(enum_plus_map_constructor_variants)
     FATP_ASSERT_EQ(init_list_map[Color::Red], 1, "Init list Red should be 1");
     FATP_ASSERT_EQ(init_list_map[Color::Yellow], 4, "Init list Yellow should be 4");
 
-    EnumPlusMap<Color, int> generated_map(
-        [](Color c)
-        {
-            return static_cast<int>(c) * 10;
-        });
+    EnumPlusMap<Color, int> generated_map([](Color c) {
+        return static_cast<int>(c) * 10;
+    });
     FATP_ASSERT_EQ(generated_map[Color::Red], 0, "Generated Red should be 0");
     FATP_ASSERT_EQ(generated_map[Color::Green], 10, "Generated Green should be 10");
     FATP_ASSERT_EQ(generated_map[Color::Blue], 20, "Generated Blue should be 20");
     FATP_ASSERT_EQ(generated_map[Color::Yellow], 30, "Generated Yellow should be 30");
 
     int sum = 0;
-    generated_map.for_each(
-        [&sum](int& val)
-        {
-            sum += val;
-        });
+    generated_map.for_each([&sum](int& val) {
+        sum += val;
+    });
     FATP_ASSERT_EQ(sum, 60, "Sum of generated values should be 60");
     return true;
 }
@@ -759,21 +755,17 @@ FATP_TEST_CASE(for_each_enum)
 {
     std::size_t count = 0;
     int sum = 0;
-    for_each_enum<Color>(
-        [&](Color c)
-        {
-            ++count;
-            sum += static_cast<int>(c);
-        });
+    for_each_enum<Color>([&](Color c) {
+        ++count;
+        sum += static_cast<int>(c);
+    });
     FATP_ASSERT_EQ(count, 4u, "for_each_enum should iterate 4 times");
     FATP_ASSERT_EQ(sum, 6, "Sum of Color indices should be 0+1+2+3=6");
 
     std::vector<Status> collected;
-    for_each_enum<Status>(
-        [&](Status s)
-        {
-            collected.push_back(s);
-        });
+    for_each_enum<Status>([&](Status s) {
+        collected.push_back(s);
+    });
     FATP_ASSERT_EQ(collected.size(), 4u, "Should collect 4 Status values");
     FATP_ASSERT_EQ(collected[0], Status::Idle, "First should be Idle");
     FATP_ASSERT_EQ(collected[3], Status::Failed, "Last should be Failed");

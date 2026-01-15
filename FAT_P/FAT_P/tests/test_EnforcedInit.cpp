@@ -612,12 +612,10 @@ FATP_TEST_CASE(enforce_init_lazy_init)
         EnforcedInit<int> value;
         int call_count = 0;
 
-        value.lazy_init(
-            [&call_count]()
-            {
-                ++call_count;
-                return TEST_VALUE_DEFAULT;
-            });
+        value.lazy_init([&call_count]() {
+            ++call_count;
+            return TEST_VALUE_DEFAULT;
+        });
 
         FATP_ASSERT_EQ(call_count, 1, "Lambda called once");
         FATP_ASSERT_TRUE(value.is_initialized(), "Lazy init succeeds");
@@ -629,8 +627,7 @@ FATP_TEST_CASE(enforce_init_lazy_init)
         EnforcedInit<int> value;
         int call_count = 0;
 
-        auto lazy_fn = [&call_count]()
-        {
+        auto lazy_fn = [&call_count]() {
             ++call_count;
             return TEST_VALUE_ALTERNATE;
         };
@@ -646,11 +643,9 @@ FATP_TEST_CASE(enforce_init_lazy_init)
     // Test 3: Lazy get with initialization - FIX #1: const overload removed
     {
         EnforcedInit<std::string> str;
-        auto& result = str.get(
-            []()
-            {
-                return std::string("Lazy initialized");
-            });
+        auto& result = str.get([]() {
+            return std::string("Lazy initialized");
+        });
 
         FATP_ASSERT_EQ(result, "Lazy initialized", "Lazy get initializes and returns");
         FATP_ASSERT_TRUE(str.is_initialized(), "Object initialized by lazy get");
@@ -659,11 +654,9 @@ FATP_TEST_CASE(enforce_init_lazy_init)
     // Test 4: Lazy init with complex type
     {
         EnforcedInit<std::vector<int>> vec;
-        vec.lazy_init(
-            []()
-            {
-                return std::vector<int>{10, 20, 30};
-            });
+        vec.lazy_init([]() {
+            return std::vector<int>{10, 20, 30};
+        });
 
         FATP_ASSERT_EQ(vec->size(), 3u, "Vector lazily initialized");
         FATP_ASSERT_EQ((*vec)[0], 10, "Vector contents correct");
@@ -773,23 +766,21 @@ FATP_TEST_CASE(enforce_init_copy_move_thread_safety)
         // Multiple threads copy simultaneously
         for (int i = 0; i < CONCURRENT_THREAD_COUNT; ++i)
         {
-            threads.emplace_back(
-                [&original, &copies, &exceptions, i]()
+            threads.emplace_back([&original, &copies, &exceptions, i]() {
+                try
                 {
-                    try
-                    {
-                        copies[i] = original; // [OK] Should be thread-safe now
-                        int val = copies[i].get();
-                        if (val != TEST_VALUE_DEFAULT)
-                        {
-                            exceptions.fetch_add(1, std::memory_order_relaxed);
-                        }
-                    }
-                    catch (...)
+                    copies[i] = original; // [OK] Should be thread-safe now
+                    int val = copies[i].get();
+                    if (val != TEST_VALUE_DEFAULT)
                     {
                         exceptions.fetch_add(1, std::memory_order_relaxed);
                     }
-                });
+                }
+                catch (...)
+                {
+                    exceptions.fetch_add(1, std::memory_order_relaxed);
+                }
+            });
         }
 
         for (auto& t : threads)
@@ -852,19 +843,17 @@ FATP_TEST_CASE(enforce_init_mutex_synchronization_policy)
         std::vector<std::thread> threads;
         for (int i = 0; i < CONCURRENT_THREAD_COUNT; ++i)
         {
-            threads.emplace_back(
-                [&value, &success_count, &failure_count, i]()
+            threads.emplace_back([&value, &success_count, &failure_count, i]() {
+                auto result = value.init(i);
+                if (result.has_value())
                 {
-                    auto result = value.init(i);
-                    if (result.has_value())
-                    {
-                        success_count.fetch_add(1, std::memory_order_relaxed); // FIX #2
-                    }
-                    else
-                    {
-                        failure_count.fetch_add(1, std::memory_order_relaxed); // FIX #2
-                    }
-                });
+                    success_count.fetch_add(1, std::memory_order_relaxed); // FIX #2
+                }
+                else
+                {
+                    failure_count.fetch_add(1, std::memory_order_relaxed); // FIX #2
+                }
+            });
         }
 
         for (auto& t : threads)
@@ -889,26 +878,24 @@ FATP_TEST_CASE(enforce_init_mutex_synchronization_policy)
 
         for (int i = 0; i < CONCURRENT_THREAD_COUNT; ++i)
         {
-            threads.emplace_back(
-                [&value, &sum, &exception_count, &wrong_value_count]()
+            threads.emplace_back([&value, &sum, &exception_count, &wrong_value_count]() {
+                try
                 {
-                    try
+                    for (int j = 0; j < CONCURRENT_ITERATIONS; ++j)
                     {
-                        for (int j = 0; j < CONCURRENT_ITERATIONS; ++j)
-                        {
-                            int val = value.get();
-                            if (val != TEST_VALUE_DEFAULT)
-                            { // FIX #10: Verify each read
-                                wrong_value_count.fetch_add(1, std::memory_order_relaxed);
-                            }
-                            sum.fetch_add(val, std::memory_order_relaxed); // FIX #2: Atomic fetch_add
+                        int val = value.get();
+                        if (val != TEST_VALUE_DEFAULT)
+                        { // FIX #10: Verify each read
+                            wrong_value_count.fetch_add(1, std::memory_order_relaxed);
                         }
+                        sum.fetch_add(val, std::memory_order_relaxed); // FIX #2: Atomic fetch_add
                     }
-                    catch (...)
-                    {
-                        exception_count.fetch_add(1, std::memory_order_relaxed);
-                    }
-                });
+                }
+                catch (...)
+                {
+                    exception_count.fetch_add(1, std::memory_order_relaxed);
+                }
+            });
         }
 
         for (auto& t : threads)
@@ -945,17 +932,15 @@ FATP_TEST_CASE(enforce_init_spinlock_synchronization_policy)
 
         for (int i = 0; i < 5; ++i)
         {
-            threads.emplace_back(
-                [&value, &read_count]()
+            threads.emplace_back([&value, &read_count]() {
+                for (int j = 0; j < 100; ++j)
                 {
-                    for (int j = 0; j < 100; ++j)
+                    if (value.get() == "Shared")
                     {
-                        if (value.get() == "Shared")
-                        {
-                            read_count.fetch_add(1, std::memory_order_relaxed);
-                        }
+                        read_count.fetch_add(1, std::memory_order_relaxed);
                     }
-                });
+                }
+            });
         }
 
         for (auto& t : threads)
@@ -982,11 +967,9 @@ FATP_TEST_CASE(enforce_init_shared_mutex_policy)
 
         for (int i = 0; i < CONCURRENT_THREAD_COUNT; ++i)
         {
-            readers.emplace_back(
-                [&value, &read_sum]()
-                {
-                    read_sum.fetch_add(value.get(), std::memory_order_relaxed);
-                });
+            readers.emplace_back([&value, &read_sum]() {
+                read_sum.fetch_add(value.get(), std::memory_order_relaxed);
+            });
         }
 
         for (auto& t : readers)
@@ -1022,14 +1005,12 @@ FATP_TEST_CASE(enforce_init_atomic_policy)
 
         for (int i = 0; i < CONCURRENT_THREAD_COUNT; ++i)
         {
-            threads.emplace_back(
-                [&value, &success, i]()
+            threads.emplace_back([&value, &success, i]() {
+                if (value.init(i).has_value())
                 {
-                    if (value.init(i).has_value())
-                    {
-                        success.fetch_add(1, std::memory_order_relaxed);
-                    }
-                });
+                    success.fetch_add(1, std::memory_order_relaxed);
+                }
+            });
         }
 
         for (auto& t : threads)
@@ -1051,17 +1032,15 @@ FATP_TEST_CASE(enforce_init_atomic_policy)
 
         for (int i = 0; i < 5; ++i)
         {
-            threads.emplace_back(
-                [&value, &access_count]()
+            threads.emplace_back([&value, &access_count]() {
+                for (int j = 0; j < 100; ++j)
                 {
-                    for (int j = 0; j < 100; ++j)
+                    if (value.get() == 99)
                     {
-                        if (value.get() == 99)
-                        {
-                            access_count.fetch_add(1, std::memory_order_relaxed);
-                        }
+                        access_count.fetch_add(1, std::memory_order_relaxed);
                     }
-                });
+                }
+            });
         }
 
         for (auto& t : threads)
@@ -1086,16 +1065,14 @@ FATP_TEST_CASE(enforce_init_condition_variable_policy)
         std::atomic<bool> wait_result{false};
         std::atomic<int> retrieved_value{0};
 
-        std::thread waiter(
-            [&value, &wait_result, &retrieved_value]()
+        std::thread waiter([&value, &wait_result, &retrieved_value]() {
+            bool success = value.wait_for_init(std::chrono::seconds(5));
+            wait_result.store(success, std::memory_order_relaxed);
+            if (success)
             {
-                bool success = value.wait_for_init(std::chrono::seconds(5));
-                wait_result.store(success, std::memory_order_relaxed);
-                if (success)
-                {
-                    retrieved_value.store(value.get(), std::memory_order_relaxed);
-                }
-            });
+                retrieved_value.store(value.get(), std::memory_order_relaxed);
+            }
+        });
 
         // Give waiter time to start waiting
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -1144,14 +1121,12 @@ FATP_TEST_CASE(enforce_init_condition_variable_policy)
 
         for (int i = 0; i < 5; ++i)
         {
-            waiters.emplace_back(
-                [&value, &success_count]()
+            waiters.emplace_back([&value, &success_count]() {
+                if (value.wait_for_init(std::chrono::seconds(5)))
                 {
-                    if (value.wait_for_init(std::chrono::seconds(5)))
-                    {
-                        success_count.fetch_add(1, std::memory_order_relaxed);
-                    }
-                });
+                    success_count.fetch_add(1, std::memory_order_relaxed);
+                }
+            });
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -1431,12 +1406,10 @@ FATP_TEST_CASE(enforce_init_integration_with_expected)
 
         auto result = value.init(20);
         std::string error_msg;
-        (void)result.map_error(
-            [&error_msg](const auto& err)
-            {
-                error_msg = err;
-                return err;
-            });
+        (void)result.map_error([&error_msg](const auto& err) {
+            error_msg = err;
+            return err;
+        });
 
         FATP_ASSERT_TRUE(error_msg.find("already initialized") != std::string::npos,
                          "Error mapped through Expected interface");
@@ -1446,11 +1419,9 @@ FATP_TEST_CASE(enforce_init_integration_with_expected)
     // Test 3: Chaining with Expected
     {
         EnforcedInit<int> value;
-        auto result = value.init(50).and_then(
-            [&value]()
-            {
-                return Expected<int, std::string>(value.get() * 2);
-            });
+        auto result = value.init(50).and_then([&value]() {
+            return Expected<int, std::string>(value.get() * 2);
+        });
 
         FATP_ASSERT_TRUE(result.has_value(), "Chaining succeeds");
         FATP_ASSERT_EQ(*result, 100, "Chained value correct");
@@ -1561,27 +1532,25 @@ FATP_TEST_CASE(enforce_init_stress_concurrent_access)
     std::vector<std::thread> threads;
     for (int i = 0; i < num_threads; ++i)
     {
-        threads.emplace_back(
-            [&]()
+        threads.emplace_back([&]() {
+            try
             {
-                try
+                for (int j = 0; j < iterations; ++j)
                 {
-                    for (int j = 0; j < iterations; ++j)
-                    {
-                        int val = value.get();
-                        if (val != 1)
-                        { // Expected value
-                            wrong_value_count.fetch_add(1, std::memory_order_relaxed);
-                        }
-                        sum.fetch_add(val, std::memory_order_relaxed);
+                    int val = value.get();
+                    if (val != 1)
+                    { // Expected value
+                        wrong_value_count.fetch_add(1, std::memory_order_relaxed);
                     }
-                    completed_threads.fetch_add(1, std::memory_order_relaxed);
+                    sum.fetch_add(val, std::memory_order_relaxed);
                 }
-                catch (...)
-                {
-                    exception_count.fetch_add(1, std::memory_order_relaxed);
-                }
-            });
+                completed_threads.fetch_add(1, std::memory_order_relaxed);
+            }
+            catch (...)
+            {
+                exception_count.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -1636,8 +1605,7 @@ void run_enforce_init_benchmarks()
         std::cout << colors::yellow() << "Benchmark 1: Init + Get (Single-threaded)" << colors::reset() << "\n";
 
         double raw_time = measure_perf(
-            []()
-            {
+            []() {
                 int x = TEST_VALUE_DEFAULT;
                 DoNotOptimize(x); // FIX #7: Prevent optimization
             },
@@ -1645,8 +1613,7 @@ void run_enforce_init_benchmarks()
             WARMUP_ITERATIONS);
 
         double enforced_time = measure_perf(
-            []()
-            {
+            []() {
                 EnforcedInit<int> x;
                 (void)x.init(TEST_VALUE_DEFAULT);
                 int val = x.get();
@@ -1671,22 +1638,18 @@ void run_enforce_init_benchmarks()
         EnforcedInit<int> direct_obj;
         EnforcedInit<int> lazy_obj;
 
-        auto direct_lambda = [&direct_obj]()
-        {
+        auto direct_lambda = [&direct_obj]() {
             EnforcedInit<int> x;
             (void)x.init(TEST_VALUE_DEFAULT);
             int val = x.get();
             DoNotOptimize(val);
         };
 
-        auto lazy_lambda = [&lazy_obj]()
-        {
+        auto lazy_lambda = [&lazy_obj]() {
             EnforcedInit<int> x;
-            x.lazy_init(
-                []()
-                {
-                    return TEST_VALUE_DEFAULT;
-                });
+            x.lazy_init([]() {
+                return TEST_VALUE_DEFAULT;
+            });
             int val = x.get();
             DoNotOptimize(val);
         };
@@ -1703,8 +1666,7 @@ void run_enforce_init_benchmarks()
         std::cout << "\n" << colors::yellow() << "Benchmark 3: Optional vs Union Storage" << colors::reset() << "\n";
 
         double optional_time = measure_perf(
-            []()
-            {
+            []() {
                 EnforcedInit<int, SingleThreadedPolicy, DefaultCheckPolicy, NoResetPolicy, OptionalStoragePolicy> x;
                 (void)x.init(TEST_VALUE_DEFAULT);
                 int val = x.get();
@@ -1714,8 +1676,7 @@ void run_enforce_init_benchmarks()
             WARMUP_ITERATIONS);
 
         double union_time = measure_perf(
-            []()
-            {
+            []() {
                 EnforcedInit<int, SingleThreadedPolicy, DefaultCheckPolicy, NoResetPolicy, UnionStoragePolicy> x;
                 (void)x.init(TEST_VALUE_DEFAULT);
                 int val = x.get();
@@ -1740,8 +1701,7 @@ void run_enforce_init_benchmarks()
         std::cout << "\n" << colors::yellow() << "Benchmark 4: Concurrency Policy Overhead" << colors::reset() << "\n";
 
         double single_time = measure_perf(
-            []()
-            {
+            []() {
                 EnforcedInit<int, SingleThreadedPolicy> x;
                 (void)x.init(TEST_VALUE_DEFAULT);
                 int val = x.get();
@@ -1751,8 +1711,7 @@ void run_enforce_init_benchmarks()
             WARMUP_ITERATIONS);
 
         double mutex_time = measure_perf(
-            []()
-            {
+            []() {
                 EnforcedInit<int, MutexSynchronizationPolicy> x;
                 (void)x.init(TEST_VALUE_DEFAULT);
                 int val = x.get();
@@ -1777,8 +1736,7 @@ void run_enforce_init_benchmarks()
         (void)str.init("Benchmark");
 
         double arrow_time = measure_perf(
-            [&str]()
-            {
+            [&str]() {
                 size_t len = str->length();
                 DoNotOptimize(len);
             },
@@ -1786,8 +1744,7 @@ void run_enforce_init_benchmarks()
             WARMUP_ITERATIONS);
 
         double get_time = measure_perf(
-            [&str]()
-            {
+            [&str]() {
                 size_t len = str.get().length();
                 DoNotOptimize(len);
             },

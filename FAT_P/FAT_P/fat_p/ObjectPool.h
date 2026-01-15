@@ -2,7 +2,7 @@
  * @file ObjectPool.h
  * @brief High-performance object pool with concurrency policy support
  *
- * 
+ *
  *
  * @layer Domain
  *
@@ -99,18 +99,14 @@ private:
 
     // CRITICAL-2 FIX: Compile-time layout verification
     // Ensures reinterpret_cast<Node*>(obj) is valid because storage is at offset 0
-    static_assert(offsetof(Node, storage) == 0,
-                  "Node layout assumption violated: storage must be at offset 0");
+    static_assert(offsetof(Node, storage) == 0, "Node layout assumption violated: storage must be at offset 0");
 
     // Compile-time alignment verification (ChatGPT contribution)
-    static_assert(alignof(Node) >= alignof(T),
-                  "Node alignment must be sufficient for T");
-    static_assert(offsetof(Node, storage) % alignof(T) == 0,
-                  "Storage must be correctly aligned for T");
+    static_assert(alignof(Node) >= alignof(T), "Node alignment must be sufficient for T");
+    static_assert(offsetof(Node, storage) % alignof(T) == 0, "Storage must be correctly aligned for T");
 
     // Compile-time type requirements
-    static_assert(std::is_destructible_v<T>,
-                  "T must be destructible");
+    static_assert(std::is_destructible_v<T>, "T must be destructible");
 
     // ========================================================================
     // Member Variables
@@ -119,11 +115,11 @@ private:
     Node* free_list_ = nullptr;
     std::vector<std::unique_ptr<Node[]>> mBlocks;
     size_t block_size_;
-    mutable SyncPolicy sync_policy_;  // mutable for const methods (ALL FOUR agreed)
+    mutable SyncPolicy sync_policy_; // mutable for const methods (ALL FOUR agreed)
 
 #ifndef NDEBUG
-    size_t acquired_count_ = 0;       // Debug tracking for leak detection
-    size_t total_acquires_ = 0;       // Lifetime statistics
+    size_t acquired_count_ = 0; // Debug tracking for leak detection
+    size_t total_acquires_ = 0; // Lifetime statistics
     size_t total_releases_ = 0;
 #endif
 
@@ -207,8 +203,7 @@ public:
     {
 #ifndef NDEBUG
         // CRITICAL-4 FIX: Debug assertion for unreleased objects
-        assert(acquired_count_ == 0 &&
-               "ObjectPool destroyed with unreleased objects - resource leak!");
+        assert(acquired_count_ == 0 && "ObjectPool destroyed with unreleased objects - resource leak!");
 #endif
         // unique_ptr handles block deallocation automatically
     }
@@ -230,7 +225,7 @@ public:
      * @note Return value MUST be released back to pool or wrapped in PooledObject
      */
     template <typename... Args>
-    [[nodiscard]] T* acquire(Args&&... args)  // CRITICAL-3 FIX: [[nodiscard]]
+    [[nodiscard]] T* acquire(Args&&... args) // CRITICAL-3 FIX: [[nodiscard]]
     {
         typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
 
@@ -279,7 +274,7 @@ public:
 
         if (!free_list_)
         {
-            return nullptr;  // Pool empty, don't allocate
+            return nullptr; // Pool empty, don't allocate
         }
 
         Node* node = free_list_;
@@ -323,8 +318,7 @@ public:
      * @note Only available for trivially destructible T (safety constraint)
      */
     template <typename U = T>
-    [[nodiscard]] std::enable_if_t<std::is_trivially_destructible_v<U>, T*>
-    acquire_uninitialized()
+    [[nodiscard]] std::enable_if_t<std::is_trivially_destructible_v<U>, T*> acquire_uninitialized()
     {
         typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
 
@@ -351,8 +345,7 @@ public:
      * @note Returns value-initialized memory, not a constructed object
      */
     template <typename U = T>
-    [[nodiscard]] std::enable_if_t<std::is_trivially_constructible_v<U>, T*>
-    acquire_zeroed()
+    [[nodiscard]] std::enable_if_t<std::is_trivially_constructible_v<U>, T*> acquire_zeroed()
     {
         typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
 
@@ -438,11 +431,11 @@ public:
      */
     struct Stats
     {
-        size_t total_capacity;    ///< Total objects pool can hold
-        size_t available;         ///< Objects currently in free list
-        size_t acquired;          ///< Objects currently in use
-        size_t num_blocks;        ///< Number of allocated blocks
-        size_t block_size;        ///< Objects per block
+        size_t total_capacity; ///< Total objects pool can hold
+        size_t available;      ///< Objects currently in free list
+        size_t acquired;       ///< Objects currently in use
+        size_t num_blocks;     ///< Number of allocated blocks
+        size_t block_size;     ///< Objects per block
 #ifndef NDEBUG
         size_t lifetime_acquires; ///< Total acquire() calls (debug only)
         size_t lifetime_releases; ///< Total release() calls (debug only)
@@ -464,16 +457,15 @@ public:
         }
 
         size_t total = mBlocks.size() * block_size_;
-        return Stats{
-            total,
-            avail,
-            total - avail,
-            mBlocks.size(),
-            block_size_
+        return Stats{total,
+                     avail,
+                     total - avail,
+                     mBlocks.size(),
+                     block_size_
 #ifndef NDEBUG
-            ,
-            total_acquires_,
-            total_releases_
+                     ,
+                     total_acquires_,
+                     total_releases_
 #endif
         };
     }
@@ -525,7 +517,7 @@ public:
         typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
         return acquired_count_;
 #else
-        return 0;  // Not tracked in release mode
+        return 0; // Not tracked in release mode
 #endif
     }
 };
@@ -649,16 +641,28 @@ public:
     }
 
     /// @brief Get raw pointer (may be nullptr)
-    T* get() { return mObj; }
+    T* get()
+    {
+        return mObj;
+    }
 
     /// @brief Get raw pointer (may be nullptr)
-    const T* get() const { return mObj; }
+    const T* get() const
+    {
+        return mObj;
+    }
 
     /// @brief Check if wrapper holds a valid object
-    explicit operator bool() const { return mObj != nullptr; }
+    explicit operator bool() const
+    {
+        return mObj != nullptr;
+    }
 
     /// @brief Get owning pool (ChatGPT suggestion)
-    pool_type* get_pool() const { return mPool; }
+    pool_type* get_pool() const
+    {
+        return mPool;
+    }
 };
 
 // ============================================================================
@@ -675,8 +679,7 @@ public:
  * @return RAII wrapper holding newly acquired object
  */
 template <typename T, typename SyncPolicy, typename... Args>
-[[nodiscard]] PooledObject<T, SyncPolicy>
-make_pooled(ObjectPool<T, SyncPolicy>& pool, Args&&... args)
+[[nodiscard]] PooledObject<T, SyncPolicy> make_pooled(ObjectPool<T, SyncPolicy>& pool, Args&&... args)
 {
     return PooledObject<T, SyncPolicy>(&pool, pool.acquire(std::forward<Args>(args)...));
 }

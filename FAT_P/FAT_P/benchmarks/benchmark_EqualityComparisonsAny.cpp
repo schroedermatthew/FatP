@@ -563,15 +563,13 @@ void benchVectorDouble(const BenchConfig& cfg)
         auto v = generateDoubles(n), v2 = v;
         std::size_t iters = computeIterations(n, cfg.targetWork);
         auto fatp = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(areEqual(v, v2, kEps));
             },
             iters,
             cfg.batches);
         auto base = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(manualVectorEpsilon(v, v2, kEps));
             },
             iters,
@@ -598,15 +596,13 @@ void benchVectorDoubleFatPSemanticsControl(const BenchConfig& cfg)
         auto v = generateDoubles(n), v2 = v;
         std::size_t iters = computeIterations(n, cfg.targetWork);
         auto fatp = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(areEqual(v, v2, kEps));
             },
             iters,
             cfg.batches);
         auto base = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(manualVectorFatPSemanticsEpsilon(v, v2, kEps));
             },
             iters,
@@ -633,15 +629,13 @@ void benchVectorDoubleVsStdEqual(const BenchConfig& cfg)
         auto v = generateDoubles(n), v2 = v;
         std::size_t iters = computeIterations(n, cfg.targetWork);
         auto fatp = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(areEqual(v, v2, kEps));
             },
             iters,
             cfg.batches);
         auto base = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(std::equal(v.begin(), v.end(), v2.begin()));
             },
             iters,
@@ -669,15 +663,13 @@ void benchMapNested(const BenchConfig& cfg)
         auto m = generateOrderedMap(keys, vals), m2 = m;
         std::size_t iters = computeIterations(keys * vals, cfg.targetWork);
         auto fatp = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(areEqual(m, m2, kEps));
             },
             iters,
             cfg.batches);
         auto base = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(manualMapNestedEpsilon(m, m2, kEps));
             },
             iters,
@@ -704,15 +696,13 @@ void benchUnorderedMapNested(const BenchConfig& cfg)
         auto m = generateUnorderedMap(keys, vals), m2 = m;
         std::size_t iters = computeIterations(keys * vals, cfg.targetWork);
         auto fatp = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(areEqual(m, m2, kEps));
             },
             iters,
             cfg.batches);
         auto base = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(manualUnorderedMapNestedEpsilon(m, m2, kEps));
             },
             iters,
@@ -739,15 +729,13 @@ void benchUnorderedMapScalar(const BenchConfig& cfg)
         auto m = generateUnorderedMapScalar(keys), m2 = m;
         std::size_t iters = computeIterations(keys, cfg.targetWork);
         auto fatp = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(areEqual(m, m2, kEps));
             },
             iters,
             cfg.batches);
         auto base = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(manualUnorderedMapScalarEpsilon(m, m2, kEps));
             },
             iters,
@@ -777,8 +765,7 @@ void benchTuple(const BenchConfig& cfg)
     std::size_t iters = cfg.targetWork / 3;
     volatile std::size_t idx = 0;
     auto fatp = measure(
-        [&]()
-        {
+        [&]() {
             std::size_t i = idx;
             DoNotOptimize(areEqual(tuplesA[i], tuplesB[(i + 32) % kCount], kEps));
             idx = (i + 1) % kCount;
@@ -787,8 +774,7 @@ void benchTuple(const BenchConfig& cfg)
         cfg.batches);
     idx = 0;
     auto base = measure(
-        [&]()
-        {
+        [&]() {
             std::size_t i = idx;
             DoNotOptimize(manualTupleEpsilon(tuplesA[i], tuplesB[(i + 32) % kCount], kEps));
             idx = (i + 1) % kCount;
@@ -819,8 +805,7 @@ void benchTupleFatPSemanticsControl(const BenchConfig& cfg)
     std::size_t iters = cfg.targetWork / 3;
     volatile std::size_t idx = 0;
     auto fatp = measure(
-        [&]()
-        {
+        [&]() {
             std::size_t i = idx;
             DoNotOptimize(areEqual(tuplesA[i], tuplesB[(i + 32) % kCount], kEps));
             idx = (i + 1) % kCount;
@@ -829,8 +814,7 @@ void benchTupleFatPSemanticsControl(const BenchConfig& cfg)
         cfg.batches);
     idx = 0;
     auto base = measure(
-        [&]()
-        {
+        [&]() {
             std::size_t i = idx;
             DoNotOptimize(manualTupleFatPSemanticsEpsilon(tuplesA[i], tuplesB[(i + 32) % kCount], kEps));
             idx = (i + 1) % kCount;
@@ -859,8 +843,7 @@ void benchPolicies(const BenchConfig& cfg)
     printTableHeaderStats();
 
     auto s1 = measure(
-        [&]()
-        {
+        [&]() {
             DoNotOptimize(areEqual<StandardComparisonPolicy>(v, v2, kEps));
         },
         iters,
@@ -868,8 +851,7 @@ void benchPolicies(const BenchConfig& cfg)
     printRowStats("Standard", s1);
 
     auto s2 = measure(
-        [&]()
-        {
+        [&]() {
             DoNotOptimize(areEqual<RelativeComparisonPolicy>(v, v2, kEps));
         },
         iters,
@@ -877,8 +859,7 @@ void benchPolicies(const BenchConfig& cfg)
     printRowStats("Relative", s2);
 
     auto s3 = measure(
-        [&]()
-        {
+        [&]() {
             DoNotOptimize(areEqual<HybridComparisonPolicy>(v, v2, kEps, kEps));
         },
         iters,
@@ -886,8 +867,7 @@ void benchPolicies(const BenchConfig& cfg)
     printRowStats("Hybrid", s3);
 
     auto s4 = measure(
-        [&]()
-        {
+        [&]() {
             DoNotOptimize(areEqual<UlpComparisonPolicy>(vf, vf2, 4.0f));
         },
         iters,
@@ -915,8 +895,7 @@ void benchMismatchDetection(const BenchConfig& cfg)
             std::size_t idx = static_cast<std::size_t>(pos * (N - 1));
             vMod[idx] += kEps * 1000;
             auto s = measure(
-                [&]()
-                {
+                [&]() {
                     DoNotOptimize(areEqual(vMod, v2, kEps));
                 },
                 iters,
@@ -943,15 +922,13 @@ void benchSizeScaling(const BenchConfig& cfg)
         auto v = generateDoubles(n), v2 = v;
         std::size_t iters = computeIterations(n, cfg.targetWork);
         auto base = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(manualVectorEpsilon(v, v2, kEps));
             },
             iters,
             cfg.batches);
         auto fatp = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(areEqual(v, v2, kEps));
             },
             iters,
@@ -982,8 +959,7 @@ void benchNestedContainers(const BenchConfig& cfg)
     {
         auto v = generateDoubles(kTotal), v2 = v;
         auto s = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(areEqual(v, v2, kEps));
             },
             iters,
@@ -1000,8 +976,7 @@ void benchNestedContainers(const BenchConfig& cfg)
         }
         auto vv2 = vv;
         auto s = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(areEqual(vv, vv2, kEps));
             },
             iters,
@@ -1022,8 +997,7 @@ void benchNestedContainers(const BenchConfig& cfg)
         }
         auto vvv2 = vvv;
         auto s = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(areEqual(vvv, vvv2, kEps));
             },
             iters,
@@ -1049,22 +1023,19 @@ void benchAnyScalar(const BenchConfig& cfg)
     std::size_t iters = cfg.targetWork;
 
     auto reg = measure(
-        [&]()
-        {
+        [&]() {
             DoNotOptimize(fat_p::areEqual(anyA, anyB, kEps));
         },
         iters,
         cfg.batches);
     auto typed = measure(
-        [&]()
-        {
+        [&]() {
             DoNotOptimize(areEqual(std::any_cast<double>(anyA), std::any_cast<double>(anyB), kEps));
         },
         iters,
         cfg.batches);
     auto direct = measure(
-        [&]()
-        {
+        [&]() {
             DoNotOptimize(areEqual(a, b, kEps));
         },
         iters,
@@ -1090,15 +1061,13 @@ void benchAnyVectorDouble(const BenchConfig& cfg)
         std::any anyV = v, anyV2 = v2;
         std::size_t iters = computeIterations(n, cfg.targetWork);
         auto any = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(fat_p::areEqual(anyV, anyV2, kEps));
             },
             iters,
             cfg.batches);
         auto direct = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(areEqual(v, v2, kEps));
             },
             iters,
@@ -1131,15 +1100,13 @@ void benchAnyVectorAny(const BenchConfig& cfg)
         std::any anyVa = va, anyVa2 = va2;
         std::size_t iters = computeIterations(n, cfg.targetWork);
         auto any = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(fat_p::areEqual(anyVa, anyVa2, kEps));
             },
             iters,
             cfg.batches);
         auto direct = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(fat_p::areEqual(va, va2, kEps));
             },
             iters,
@@ -1166,8 +1133,7 @@ void benchAnyEdgeCases(const BenchConfig& cfg)
     {
         std::any a, b;
         auto s = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(fat_p::areEqual(a, b, kEps));
             },
             iters,
@@ -1178,8 +1144,7 @@ void benchAnyEdgeCases(const BenchConfig& cfg)
     {
         std::any a = 1.0, b = 1;
         auto s = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(fat_p::areEqual(a, b, kEps));
             },
             iters,
@@ -1191,8 +1156,7 @@ void benchAnyEdgeCases(const BenchConfig& cfg)
         std::any inner = 42.0;
         std::any a = inner, b = inner;
         auto s = measure(
-            [&]()
-            {
+            [&]() {
                 DoNotOptimize(fat_p::areEqual(a, b, kEps));
             },
             iters,

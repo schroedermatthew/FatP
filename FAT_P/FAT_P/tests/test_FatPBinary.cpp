@@ -736,8 +736,7 @@ void benchmark_fatpbinary()
     }
 
     double enc_time = measure_perf(
-        [&vec]()
-        {
+        [&vec]() {
             BinaryBuffer buf;
             auto rc = binary_encode_to(buf, vec);
             DoNotOptimize(buf.data());
@@ -751,8 +750,7 @@ void benchmark_fatpbinary()
     (void)binary_encode_to(vec_buf, vec);
 
     double dec_time = measure_perf(
-        [&vec_buf]()
-        {
+        [&vec_buf]() {
             auto rc = binary_decode_from<std::vector<int>>(vec_buf);
             DoNotOptimize(rc);
             (void)rc;
@@ -769,8 +767,7 @@ void benchmark_fatpbinary()
     }
 
     double map_enc_time = measure_perf(
-        [&m]()
-        {
+        [&m]() {
             BinaryBuffer buf;
             auto rc = binary_encode_to(buf, m);
             DoNotOptimize(buf.data());
@@ -784,8 +781,7 @@ void benchmark_fatpbinary()
     (void)binary_encode_to(map_buf, m);
 
     double map_dec_time = measure_perf(
-        [&map_buf]()
-        {
+        [&map_buf]() {
             auto rc = binary_decode_from<std::map<std::string, int>>(map_buf);
             DoNotOptimize(rc);
             (void)rc;
@@ -808,8 +804,7 @@ void benchmark_fatpbinary()
     }
 
     double nested_enc_time = measure_perf(
-        [&nested]()
-        {
+        [&nested]() {
             BinaryBuffer buf;
             auto rc = binary_encode_to(buf, nested);
             DoNotOptimize(buf.data());
@@ -823,8 +818,7 @@ void benchmark_fatpbinary()
     (void)binary_encode_to(nested_buf, nested);
 
     double nested_dec_time = measure_perf(
-        [&nested_buf]()
-        {
+        [&nested_buf]() {
             auto rc = binary_decode_from<std::vector<std::map<std::string, int>>>(nested_buf);
             DoNotOptimize(rc);
             (void)rc;

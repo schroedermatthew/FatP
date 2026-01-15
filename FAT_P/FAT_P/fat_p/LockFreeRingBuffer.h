@@ -34,14 +34,15 @@ FATP_META:
 #include <atomic>
 #include <cstddef>
 #include <cstring>
+#include <malloc.h> // For _aligned_malloc and _aligned_free on Windows
 #include <memory>
 #include <optional>
 #include <type_traits>
-#include <malloc.h> // For _aligned_malloc and _aligned_free on Windows
 
 #include "FatPTypeTraits.h"
 
-namespace fat_p {
+namespace fat_p
+{
 
 // ============================================================================
 // LockFreeRingBuffer - Single Producer Single Consumer Queue
@@ -65,12 +66,13 @@ namespace fat_p {
 //
 // Example:
 //   LockFreeRingBuffer<int> buffer(1024);
-//   
+//
 //   // Producer thread
 //   buffer.push(42);
-//   
+//
 //   // Consumer thread
-//   if (auto val = buffer.pop()) {
+//   if (auto val = buffer.pop())
+//   {
 //       process(*val);
 //   }
 //
@@ -80,29 +82,32 @@ namespace fat_p {
 // - No locks, wait-free operations
 // ============================================================================
 
-template<typename T>
-class LockFreeRingBuffer {
+template <typename T>
+class LockFreeRingBuffer
+{
 public:
-    static_assert(std::is_trivially_copyable_v<T>, 
-                  "T must be trivially copyable for lock-free operations");
-    
+    static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable for lock-free operations");
+
     explicit LockFreeRingBuffer(size_t capacity)
         : mCapacity(round_up_power_of_two(capacity))
         , mMask(mCapacity - 1)
         , mBuffer(allocate_aligned(mCapacity))
         , write_pos_(0)
-        , read_pos_(0) {
+        , read_pos_(0)
+    {
     }
-    
+
     // LockFreeRingBuffer.h (updated destructor)
-    ~LockFreeRingBuffer() {
-        if (mBuffer) {
+    ~LockFreeRingBuffer()
+    {
+        if (mBuffer)
+        {
 #ifdef _WIN32
             // Use _aligned_free for memory allocated with _aligned_malloc
             _aligned_free(mBuffer);
 #else
             // Use std::free for memory allocated with posix_memalign
-            // Note: On POSIX systems, posix_memalign memory is freed with 'free', 
+            // Note: On POSIX systems, posix_memalign memory is freed with 'free',
             // which is equivalent to std::free.
             std::free(mBuffer);
 #endif
@@ -111,144 +116,165 @@ public:
     // Non-copyable
     LockFreeRingBuffer(const LockFreeRingBuffer&) = delete;
     LockFreeRingBuffer& operator=(const LockFreeRingBuffer&) = delete;
-    
+
     // Non-moveable (contains atomic members)
     LockFreeRingBuffer(LockFreeRingBuffer&&) = delete;
     LockFreeRingBuffer& operator=(LockFreeRingBuffer&&) = delete;
-    
+
     // Push element (producer only)
     // Returns false if buffer is full
-    [[nodiscard]] bool push(const T& value) {
+    [[nodiscard]] bool push(const T& value)
+    {
         const size_t write = write_pos_.load(std::memory_order_relaxed);
         const size_t read = read_pos_.load(std::memory_order_acquire);
-        
-        if (is_full(write, read)) {
+
+        if (is_full(write, read))
+        {
             return false;
         }
-        
+
         mBuffer[write & mMask] = value;
-        
+
         // Release write to make data visible to consumer
         write_pos_.store(write + 1, std::memory_order_release);
-        
+
         return true;
     }
-    
+
     // Move version
-    [[nodiscard]] bool push(T&& value) {
+    [[nodiscard]] bool push(T&& value)
+    {
         const size_t write = write_pos_.load(std::memory_order_relaxed);
         const size_t read = read_pos_.load(std::memory_order_acquire);
-        
-        if (is_full(write, read)) {
+
+        if (is_full(write, read))
+        {
             return false;
         }
-        
+
         mBuffer[write & mMask] = std::move(value);
-        
+
         write_pos_.store(write + 1, std::memory_order_release);
-        
+
         return true;
     }
-    
+
     // Pop element (consumer only)
     // Returns std::nullopt if buffer is empty
-    [[nodiscard]] std::optional<T> pop() {
+    [[nodiscard]] std::optional<T> pop()
+    {
         const size_t read = read_pos_.load(std::memory_order_relaxed);
         const size_t write = write_pos_.load(std::memory_order_acquire);
-        
-        if (is_empty(write, read)) {
+
+        if (is_empty(write, read))
+        {
             return std::nullopt;
         }
-        
+
         T value = mBuffer[read & mMask];
-        
+
         // Release read to make space visible to producer
         read_pos_.store(read + 1, std::memory_order_release);
-        
+
         return value;
     }
-    
+
     // Peek at front without removing (consumer only)
-    [[nodiscard]] std::optional<T> peek() const {
+    [[nodiscard]] std::optional<T> peek() const
+    {
         const size_t read = read_pos_.load(std::memory_order_relaxed);
         const size_t write = write_pos_.load(std::memory_order_acquire);
-        
-        if (is_empty(write, read)) {
+
+        if (is_empty(write, read))
+        {
             return std::nullopt;
         }
-        
+
         return mBuffer[read & mMask];
     }
-    
+
     // Check if empty (can be called by consumer)
-    [[nodiscard]] bool empty() const {
+    [[nodiscard]] bool empty() const
+    {
         const size_t read = read_pos_.load(std::memory_order_relaxed);
         const size_t write = write_pos_.load(std::memory_order_acquire);
         return is_empty(write, read);
     }
-    
+
     // Check if full (can be called by producer)
-    [[nodiscard]] bool full() const {
+    [[nodiscard]] bool full() const
+    {
         const size_t write = write_pos_.load(std::memory_order_relaxed);
         const size_t read = read_pos_.load(std::memory_order_acquire);
         return is_full(write, read);
     }
-    
+
     // Approximate size (may be stale)
-    [[nodiscard]] size_t size() const {
+    [[nodiscard]] size_t size() const
+    {
         const size_t write = write_pos_.load(std::memory_order_acquire);
         const size_t read = read_pos_.load(std::memory_order_acquire);
         return write - read;
     }
-    
+
     // Capacity
-    [[nodiscard]] size_t capacity() const {
+    [[nodiscard]] size_t capacity() const
+    {
         return mCapacity;
     }
-    
+
 private:
     static constexpr size_t CACHE_LINE_SIZE = 64;
-    
+
     // Round up to next power of two for efficient masking
-    static size_t round_up_power_of_two(size_t n) {
-        if (n == 0) return 1;
+    static size_t round_up_power_of_two(size_t n)
+    {
+        if (n == 0)
+        {
+            return 1;
+        }
         --n;
         n |= n >> 1;
         n |= n >> 2;
         n |= n >> 4;
         n |= n >> 8;
         n |= n >> 16;
-        if constexpr (sizeof(size_t) == 8) {
+        if constexpr (sizeof(size_t) == 8)
+        {
             n |= n >> 32;
         }
         return n + 1;
     }
-    
+
     // Allocate cache-line aligned memory
-    static T* allocate_aligned(size_t capacity) {
+    static T* allocate_aligned(size_t capacity)
+    {
         void* ptr = nullptr;
-        #ifdef _WIN32
+#ifdef _WIN32
         ptr = _aligned_malloc(capacity * sizeof(T), CACHE_LINE_SIZE);
-        #else
-        if (posix_memalign(&ptr, CACHE_LINE_SIZE, capacity * sizeof(T)) != 0) {
+#else
+        if (posix_memalign(&ptr, CACHE_LINE_SIZE, capacity * sizeof(T)) != 0)
+        {
             throw std::bad_alloc();
         }
-        #endif
+#endif
         return static_cast<T*>(ptr);
     }
-    
-    bool is_empty(size_t write, size_t read) const {
+
+    bool is_empty(size_t write, size_t read) const
+    {
         return write == read;
     }
-    
-    bool is_full(size_t write, size_t read) const {
+
+    bool is_full(size_t write, size_t read) const
+    {
         return (write - read) >= mCapacity;
     }
-    
+
     const size_t mCapacity;
     const size_t mMask;
     T* mBuffer;
-    
+
     // Pad to separate cache lines to avoid false sharing
     alignas(CACHE_LINE_SIZE) std::atomic<size_t> write_pos_;
     alignas(CACHE_LINE_SIZE) std::atomic<size_t> read_pos_;
@@ -268,38 +294,41 @@ private:
 //
 // Example:
 //   LockFreeRingBufferMPMC<int> buffer(1024);
-//   
+//
 //   // Any thread can push
 //   buffer.push(42);
-//   
+//
 //   // Any thread can pop
 //   if (auto val = buffer.pop()) {
 //       process(*val);
 //   }
 // ============================================================================
 
-template<typename T>
-class LockFreeRingBufferMPMC {
+template <typename T>
+class LockFreeRingBufferMPMC
+{
 public:
-    static_assert(std::is_trivially_copyable_v<T>, 
-                  "T must be trivially copyable for lock-free operations");
-    
+    static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable for lock-free operations");
+
     explicit LockFreeRingBufferMPMC(size_t capacity)
         : mCapacity(round_up_power_of_two(capacity))
         , mMask(mCapacity - 1)
         , mBuffer(allocate_aligned(mCapacity))
         , write_pos_(0)
-        , read_pos_(0) {
+        , read_pos_(0)
+    {
     }
-    
-    ~LockFreeRingBufferMPMC() {
-        if (mBuffer) {
+
+    ~LockFreeRingBufferMPMC()
+    {
+        if (mBuffer)
+        {
 #ifdef _WIN32
             // Use _aligned_free for memory allocated with _aligned_malloc
             _aligned_free(mBuffer);
 #else
             // Use std::free for memory allocated with posix_memalign
-            // Note: On POSIX systems, posix_memalign memory is freed with 'free', 
+            // Note: On POSIX systems, posix_memalign memory is freed with 'free',
             // which is equivalent to std::free.
             std::free(mBuffer);
 #endif
@@ -311,122 +340,141 @@ public:
     LockFreeRingBufferMPMC& operator=(const LockFreeRingBufferMPMC&) = delete;
     LockFreeRingBufferMPMC(LockFreeRingBufferMPMC&&) = delete;
     LockFreeRingBufferMPMC& operator=(LockFreeRingBufferMPMC&&) = delete;
-    
+
     // Push element (thread-safe for multiple producers)
-    [[nodiscard]] bool push(const T& value) {
+    [[nodiscard]] bool push(const T& value)
+    {
         size_t write;
         size_t next_write;
-        
-        do {
+
+        do
+        {
             write = write_pos_.load(std::memory_order_acquire);
             const size_t read = read_pos_.load(std::memory_order_acquire);
-            
-            if (is_full(write, read)) {
+
+            if (is_full(write, read))
+            {
                 return false;
             }
-            
+
             next_write = write + 1;
-            
-        } while (!write_pos_.compare_exchange_weak(write, next_write,
-                                                    std::memory_order_release,
-                                                    std::memory_order_acquire));
-        
+
+        } while (
+            !write_pos_.compare_exchange_weak(write, next_write, std::memory_order_release, std::memory_order_acquire));
+
         mBuffer[write & mMask] = value;
-        
+
         return true;
     }
-    
+
     // Pop element (thread-safe for multiple consumers)
-    [[nodiscard]] std::optional<T> pop() {
+    [[nodiscard]] std::optional<T> pop()
+    {
         size_t read;
         size_t next_read;
-        
-        do {
+
+        do
+        {
             read = read_pos_.load(std::memory_order_acquire);
             const size_t write = write_pos_.load(std::memory_order_acquire);
-            
-            if (is_empty(write, read)) {
+
+            if (is_empty(write, read))
+            {
                 return std::nullopt;
             }
-            
+
             next_read = read + 1;
-            
-        } while (!read_pos_.compare_exchange_weak(read, next_read,
-                                                   std::memory_order_release,
-                                                   std::memory_order_acquire));
-        
+
+        } while (
+            !read_pos_.compare_exchange_weak(read, next_read, std::memory_order_release, std::memory_order_acquire));
+
         return mBuffer[read & mMask];
     }
-    
-    [[nodiscard]] bool empty() const {
+
+    [[nodiscard]] bool empty() const
+    {
         const size_t read = read_pos_.load(std::memory_order_acquire);
         const size_t write = write_pos_.load(std::memory_order_acquire);
         return is_empty(write, read);
     }
-    
-    [[nodiscard]] bool full() const {
+
+    [[nodiscard]] bool full() const
+    {
         const size_t write = write_pos_.load(std::memory_order_acquire);
         const size_t read = read_pos_.load(std::memory_order_acquire);
         return is_full(write, read);
     }
-    
-    [[nodiscard]] size_t size() const {
+
+    [[nodiscard]] size_t size() const
+    {
         const size_t write = write_pos_.load(std::memory_order_acquire);
         const size_t read = read_pos_.load(std::memory_order_acquire);
         return write - read;
     }
-    
-    [[nodiscard]] size_t capacity() const {
+
+    [[nodiscard]] size_t capacity() const
+    {
         return mCapacity;
     }
-    
+
 private:
     static constexpr size_t CACHE_LINE_SIZE = 64;
-    
-    static size_t round_up_power_of_two(size_t n) {
-        if (n == 0) return 1;
+
+    static size_t round_up_power_of_two(size_t n)
+    {
+        if (n == 0)
+        {
+            return 1;
+        }
         --n;
         n |= n >> 1;
         n |= n >> 2;
         n |= n >> 4;
         n |= n >> 8;
         n |= n >> 16;
-        if constexpr (sizeof(size_t) == 8) {
+        if constexpr (sizeof(size_t) == 8)
+        {
             n |= n >> 32;
         }
         return n + 1;
     }
-    
-    static T* allocate_aligned(size_t capacity) {
+
+    static T* allocate_aligned(size_t capacity)
+    {
         void* ptr = nullptr;
-        #ifdef _WIN32
+#ifdef _WIN32
         ptr = _aligned_malloc(capacity * sizeof(T), CACHE_LINE_SIZE);
-        #else
-        if (posix_memalign(&ptr, CACHE_LINE_SIZE, capacity * sizeof(T)) != 0) {
+#else
+        if (posix_memalign(&ptr, CACHE_LINE_SIZE, capacity * sizeof(T)) != 0)
+        {
             throw std::bad_alloc();
         }
-        #endif
+#endif
         return static_cast<T*>(ptr);
     }
-    
-    bool is_empty(size_t write, size_t read) const {
+
+    bool is_empty(size_t write, size_t read) const
+    {
         return write == read;
     }
-    
-    bool is_full(size_t write, size_t read) const {
+
+    bool is_full(size_t write, size_t read) const
+    {
         return (write - read) >= mCapacity;
     }
-    
+
     const size_t mCapacity;
     const size_t mMask;
     T* mBuffer;
-    
+
     alignas(CACHE_LINE_SIZE) std::atomic<size_t> write_pos_;
     alignas(CACHE_LINE_SIZE) std::atomic<size_t> read_pos_;
 };
 
 
 template <typename T>
-struct is_lock_free_ring_buffer<LockFreeRingBuffer<T>> : std::true_type {};
+struct is_lock_free_ring_buffer<LockFreeRingBuffer<T>> : std::true_type
+{
+};
 
 } // namespace fat_p

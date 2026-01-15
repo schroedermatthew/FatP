@@ -45,7 +45,8 @@ FATP_META:
 #include <utility>
 
 
-namespace fat_p {
+namespace fat_p
+{
 
 // Forward declaration
 template <typename T>
@@ -82,52 +83,52 @@ public:
     // Default constructor - value-initializes T
     constexpr DebugOnly() noexcept(std::is_nothrow_default_constructible_v<T>)
         : mValue()
-    {}
+    {
+    }
 
     // Value constructors
     constexpr DebugOnly(const T& val) noexcept(std::is_nothrow_copy_constructible_v<T>)
         : mValue(val)
-    {}
+    {
+    }
 
     constexpr DebugOnly(T&& val) noexcept(std::is_nothrow_move_constructible_v<T>)
         : mValue(std::move(val))
-    {}
+    {
+    }
 
     // In-place construction
     template <typename... Args>
-    constexpr explicit DebugOnly(std::in_place_t, Args&&... args)
-        noexcept(std::is_nothrow_constructible_v<T, Args...>)
+    constexpr explicit DebugOnly(std::in_place_t, Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
         : mValue(std::forward<Args>(args)...)
-    {}
+    {
+    }
 
     // Copy/move constructors
-    constexpr DebugOnly(const DebugOnly& other)
-        noexcept(std::is_nothrow_copy_constructible_v<T>)
+    constexpr DebugOnly(const DebugOnly& other) noexcept(std::is_nothrow_copy_constructible_v<T>)
         : mValue(other.mValue)
-    {}
+    {
+    }
 
-    constexpr DebugOnly(DebugOnly&& other)
-        noexcept(std::is_nothrow_move_constructible_v<T>)
+    constexpr DebugOnly(DebugOnly&& other) noexcept(std::is_nothrow_move_constructible_v<T>)
         : mValue(std::move(other.mValue))
-    {}
+    {
+    }
 
     // Assignment operators
-    constexpr DebugOnly& operator=(const T& val)
-        noexcept(std::is_nothrow_copy_assignable_v<T>)
+    constexpr DebugOnly& operator=(const T& val) noexcept(std::is_nothrow_copy_assignable_v<T>)
     {
         mValue = val;
         return *this;
     }
 
-    constexpr DebugOnly& operator=(T&& val)
-        noexcept(std::is_nothrow_move_assignable_v<T>)
+    constexpr DebugOnly& operator=(T&& val) noexcept(std::is_nothrow_move_assignable_v<T>)
     {
         mValue = std::move(val);
         return *this;
     }
 
-    constexpr DebugOnly& operator=(const DebugOnly& other)
-        noexcept(std::is_nothrow_copy_assignable_v<T>)
+    constexpr DebugOnly& operator=(const DebugOnly& other) noexcept(std::is_nothrow_copy_assignable_v<T>)
     {
         if (this != &other)
         {
@@ -136,8 +137,7 @@ public:
         return *this;
     }
 
-    constexpr DebugOnly& operator=(DebugOnly&& other)
-        noexcept(std::is_nothrow_move_assignable_v<T>)
+    constexpr DebugOnly& operator=(DebugOnly&& other) noexcept(std::is_nothrow_move_assignable_v<T>)
     {
         if (this != &other)
         {
@@ -154,26 +154,68 @@ public:
     // for cross-mode compatible code.
     // ========================================================================
 
-    [[nodiscard]] constexpr T& get() & noexcept { return mValue; }
-    [[nodiscard]] constexpr const T& get() const& noexcept { return mValue; }
-    [[nodiscard]] constexpr T&& get() && noexcept { return std::move(mValue); }
-    [[nodiscard]] constexpr const T&& get() const&& noexcept { return std::move(mValue); }
+    [[nodiscard]] constexpr T& get() & noexcept
+    {
+        return mValue;
+    }
+    [[nodiscard]] constexpr const T& get() const& noexcept
+    {
+        return mValue;
+    }
+    [[nodiscard]] constexpr T&& get() && noexcept
+    {
+        return std::move(mValue);
+    }
+    [[nodiscard]] constexpr const T&& get() const&& noexcept
+    {
+        return std::move(mValue);
+    }
 
-    [[nodiscard]] constexpr T* operator->() noexcept { return &mValue; }
-    [[nodiscard]] constexpr const T* operator->() const noexcept { return &mValue; }
+    [[nodiscard]] constexpr T* operator->() noexcept
+    {
+        return &mValue;
+    }
+    [[nodiscard]] constexpr const T* operator->() const noexcept
+    {
+        return &mValue;
+    }
 
-    [[nodiscard]] constexpr T& operator*() & noexcept { return mValue; }
-    [[nodiscard]] constexpr const T& operator*() const& noexcept { return mValue; }
-    [[nodiscard]] constexpr T&& operator*() && noexcept { return std::move(mValue); }
-    [[nodiscard]] constexpr const T&& operator*() const&& noexcept { return std::move(mValue); }
+    [[nodiscard]] constexpr T& operator*() & noexcept
+    {
+        return mValue;
+    }
+    [[nodiscard]] constexpr const T& operator*() const& noexcept
+    {
+        return mValue;
+    }
+    [[nodiscard]] constexpr T&& operator*() && noexcept
+    {
+        return std::move(mValue);
+    }
+    [[nodiscard]] constexpr const T&& operator*() const&& noexcept
+    {
+        return std::move(mValue);
+    }
 
     // Implicit conversion to T& (convenient but be aware of accidental copies)
-    operator T&() & noexcept { return mValue; }
-    operator const T&() const& noexcept { return mValue; }
+    operator T&() & noexcept
+    {
+        return mValue;
+    }
+    operator const T&() const& noexcept
+    {
+        return mValue;
+    }
 
     // Raw pointer access
-    [[nodiscard]] constexpr T* data() noexcept { return &mValue; }
-    [[nodiscard]] constexpr const T* data() const noexcept { return &mValue; }
+    [[nodiscard]] constexpr T* data() noexcept
+    {
+        return &mValue;
+    }
+    [[nodiscard]] constexpr const T* data() const noexcept
+    {
+        return &mValue;
+    }
 
     // ========================================================================
     // Modifiers
@@ -181,8 +223,7 @@ public:
 
     // In-place construction of new value
     template <typename... Args>
-    constexpr T& emplace(Args&&... args)
-        noexcept(std::is_nothrow_constructible_v<T, Args...>)
+    constexpr T& emplace(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
     {
         mValue.~T();
         new (&mValue) T(std::forward<Args>(args)...);
@@ -196,8 +237,7 @@ public:
     }
 
     // Swap
-    constexpr void swap(DebugOnly& other)
-        noexcept(std::is_nothrow_swappable_v<T>)
+    constexpr void swap(DebugOnly& other) noexcept(std::is_nothrow_swappable_v<T>)
     {
         using std::swap;
         swap(mValue, other.mValue);
@@ -231,15 +271,13 @@ public:
     // Get value or default (for cross-mode compatibility)
     // Note: In debug mode, default_value is not evaluated to avoid side effects
     template <typename U>
-    [[nodiscard]] constexpr T value_or(U&&) const&
-        noexcept(std::is_nothrow_copy_constructible_v<T>)
+    [[nodiscard]] constexpr T value_or(U&&) const& noexcept(std::is_nothrow_copy_constructible_v<T>)
     {
         return mValue;
     }
 
     template <typename U>
-    [[nodiscard]] constexpr T value_or(U&&) &&
-        noexcept(std::is_nothrow_move_constructible_v<T>)
+    [[nodiscard]] constexpr T value_or(U&&) && noexcept(std::is_nothrow_move_constructible_v<T>)
     {
         return std::move(mValue);
     }
@@ -253,7 +291,7 @@ public:
     template <typename U = T>
     [[nodiscard]] constexpr auto operator==(const DebugOnly& other) const
         noexcept(noexcept(std::declval<U>() == std::declval<U>()))
-        -> std::enable_if_t<is_equality_comparable_v<U>, bool>
+            -> std::enable_if_t<is_equality_comparable_v<U>, bool>
     {
         return mValue == other.mValue;
     }
@@ -261,39 +299,35 @@ public:
     template <typename U = T>
     [[nodiscard]] constexpr auto operator!=(const DebugOnly& other) const
         noexcept(noexcept(std::declval<U>() == std::declval<U>()))
-        -> std::enable_if_t<is_equality_comparable_v<U>, bool>
+            -> std::enable_if_t<is_equality_comparable_v<U>, bool>
     {
         return mValue != other.mValue;
     }
 
     template <typename U = T>
     [[nodiscard]] constexpr auto operator<(const DebugOnly& other) const
-        noexcept(noexcept(std::declval<U>() < std::declval<U>()))
-        -> std::enable_if_t<is_less_comparable_v<U>, bool>
+        noexcept(noexcept(std::declval<U>() < std::declval<U>())) -> std::enable_if_t<is_less_comparable_v<U>, bool>
     {
         return mValue < other.mValue;
     }
 
     template <typename U = T>
     [[nodiscard]] constexpr auto operator<=(const DebugOnly& other) const
-        noexcept(noexcept(std::declval<U>() < std::declval<U>()))
-        -> std::enable_if_t<is_less_comparable_v<U>, bool>
+        noexcept(noexcept(std::declval<U>() < std::declval<U>())) -> std::enable_if_t<is_less_comparable_v<U>, bool>
     {
         return mValue <= other.mValue;
     }
 
     template <typename U = T>
     [[nodiscard]] constexpr auto operator>(const DebugOnly& other) const
-        noexcept(noexcept(std::declval<U>() < std::declval<U>()))
-        -> std::enable_if_t<is_less_comparable_v<U>, bool>
+        noexcept(noexcept(std::declval<U>() < std::declval<U>())) -> std::enable_if_t<is_less_comparable_v<U>, bool>
     {
         return mValue > other.mValue;
     }
 
     template <typename U = T>
     [[nodiscard]] constexpr auto operator>=(const DebugOnly& other) const
-        noexcept(noexcept(std::declval<U>() < std::declval<U>()))
-        -> std::enable_if_t<is_less_comparable_v<U>, bool>
+        noexcept(noexcept(std::declval<U>() < std::declval<U>())) -> std::enable_if_t<is_less_comparable_v<U>, bool>
     {
         return mValue >= other.mValue;
     }
@@ -302,7 +336,7 @@ public:
     template <typename U = T>
     [[nodiscard]] constexpr auto operator==(const T& other) const
         noexcept(noexcept(std::declval<U>() == std::declval<U>()))
-        -> std::enable_if_t<is_equality_comparable_v<U>, bool>
+            -> std::enable_if_t<is_equality_comparable_v<U>, bool>
     {
         return mValue == other;
     }
@@ -310,7 +344,7 @@ public:
     template <typename U = T>
     [[nodiscard]] constexpr auto operator!=(const T& other) const
         noexcept(noexcept(std::declval<U>() == std::declval<U>()))
-        -> std::enable_if_t<is_equality_comparable_v<U>, bool>
+            -> std::enable_if_t<is_equality_comparable_v<U>, bool>
     {
         return mValue != other;
     }
@@ -387,16 +421,14 @@ public:
 
 // Stream output (debug mode)
 template <typename T>
-auto operator<<(std::ostream& os, const DebugOnly<T>& val)
-    -> std::enable_if_t<is_streamable_v<T>, std::ostream&>
+auto operator<<(std::ostream& os, const DebugOnly<T>& val) -> std::enable_if_t<is_streamable_v<T>, std::ostream&>
 {
     return os << val.get();
 }
 
 // Free swap (debug mode)
 template <typename T>
-constexpr void swap(DebugOnly<T>& a, DebugOnly<T>& b)
-    noexcept(noexcept(a.swap(b)))
+constexpr void swap(DebugOnly<T>& a, DebugOnly<T>& b) noexcept(noexcept(a.swap(b)))
 {
     a.swap(b);
 }
@@ -422,18 +454,30 @@ struct DebugOnly
 
     // All constructors are no-ops
     constexpr DebugOnly() noexcept = default;
-    constexpr DebugOnly(const T&) noexcept {}
-    constexpr DebugOnly(T&&) noexcept {}
+    constexpr DebugOnly(const T&) noexcept
+    {
+    }
+    constexpr DebugOnly(T&&) noexcept
+    {
+    }
 
     template <typename... Args>
-    constexpr explicit DebugOnly(std::in_place_t, Args&&...) noexcept {}
+    constexpr explicit DebugOnly(std::in_place_t, Args&&...) noexcept
+    {
+    }
 
     constexpr DebugOnly(const DebugOnly&) noexcept = default;
     constexpr DebugOnly(DebugOnly&&) noexcept = default;
 
     // All assignments are no-ops
-    constexpr DebugOnly& operator=(const T&) noexcept { return *this; }
-    constexpr DebugOnly& operator=(T&&) noexcept { return *this; }
+    constexpr DebugOnly& operator=(const T&) noexcept
+    {
+        return *this;
+    }
+    constexpr DebugOnly& operator=(T&&) noexcept
+    {
+        return *this;
+    }
     constexpr DebugOnly& operator=(const DebugOnly&) noexcept = default;
     constexpr DebugOnly& operator=(DebugOnly&&) noexcept = default;
 
@@ -448,11 +492,17 @@ struct DebugOnly
 
     // Modifiers (all no-ops)
     template <typename... Args>
-    constexpr void emplace(Args&&...) noexcept {}
+    constexpr void emplace(Args&&...) noexcept
+    {
+    }
 
-    constexpr void reset() noexcept {}
+    constexpr void reset() noexcept
+    {
+    }
 
-    constexpr void swap(DebugOnly&) noexcept {}
+    constexpr void swap(DebugOnly&) noexcept
+    {
+    }
 
     // ========================================================================
     // Conditional Execution (release: does nothing)
@@ -460,16 +510,19 @@ struct DebugOnly
 
     // Execute function - does nothing in release
     template <typename Func>
-    constexpr void if_debug(Func&&) const noexcept {}
+    constexpr void if_debug(Func&&) const noexcept
+    {
+    }
 
     // Modify - does nothing in release
     template <typename Func>
-    constexpr void modify(Func&&) const noexcept {}
+    constexpr void modify(Func&&) const noexcept
+    {
+    }
 
     // Get value or default - always returns default in release
     template <typename U>
-    [[nodiscard]] constexpr T value_or(U&& default_value) const
-        noexcept(std::is_nothrow_constructible_v<T, U>)
+    [[nodiscard]] constexpr T value_or(U&& default_value) const noexcept(std::is_nothrow_constructible_v<T, U>)
     {
         return T(std::forward<U>(default_value));
     }
@@ -480,12 +533,30 @@ struct DebugOnly
     // DebugOnly-to-T comparisons are DELETED to prevent control flow bugs
     // ========================================================================
 
-    [[nodiscard]] constexpr bool operator==(const DebugOnly&) const noexcept { return true; }
-    [[nodiscard]] constexpr bool operator!=(const DebugOnly&) const noexcept { return false; }
-    [[nodiscard]] constexpr bool operator<(const DebugOnly&) const noexcept { return false; }
-    [[nodiscard]] constexpr bool operator<=(const DebugOnly&) const noexcept { return true; }
-    [[nodiscard]] constexpr bool operator>(const DebugOnly&) const noexcept { return false; }
-    [[nodiscard]] constexpr bool operator>=(const DebugOnly&) const noexcept { return true; }
+    [[nodiscard]] constexpr bool operator==(const DebugOnly&) const noexcept
+    {
+        return true;
+    }
+    [[nodiscard]] constexpr bool operator!=(const DebugOnly&) const noexcept
+    {
+        return false;
+    }
+    [[nodiscard]] constexpr bool operator<(const DebugOnly&) const noexcept
+    {
+        return false;
+    }
+    [[nodiscard]] constexpr bool operator<=(const DebugOnly&) const noexcept
+    {
+        return true;
+    }
+    [[nodiscard]] constexpr bool operator>(const DebugOnly&) const noexcept
+    {
+        return false;
+    }
+    [[nodiscard]] constexpr bool operator>=(const DebugOnly&) const noexcept
+    {
+        return true;
+    }
 
     // CRITICAL: Comparisons with raw T are DELETED in release mode
     // This prevents silent control flow changes between debug and release:
@@ -557,7 +628,9 @@ std::ostream& operator<<(std::ostream& os, const DebugOnly<T>&)
 
 // Free swap (release mode - no-op)
 template <typename T>
-constexpr void swap(DebugOnly<T>&, DebugOnly<T>&) noexcept {}
+constexpr void swap(DebugOnly<T>&, DebugOnly<T>&) noexcept
+{
+}
 
 #endif // NDEBUG
 
@@ -568,23 +641,31 @@ constexpr void swap(DebugOnly<T>&, DebugOnly<T>&) noexcept {}
 
 // Execute code only in debug mode
 #ifndef NDEBUG
-    #define FATP_DEBUG_ONLY_EXEC(code) do { code; } while(0)
+#define FATP_DEBUG_ONLY_EXEC(code) \
+    do                             \
+    {                              \
+        code;                      \
+    } while (0)
 #else
-    #define FATP_DEBUG_ONLY_EXEC(code) do { (void)0; } while(0)
+#define FATP_DEBUG_ONLY_EXEC(code) \
+    do                             \
+    {                              \
+        (void)0;                   \
+    } while (0)
 #endif
 
 // Increment a debug counter
 #ifndef NDEBUG
-    #define FATP_DEBUG_ONLY_INCREMENT(counter) ++(counter)
+#define FATP_DEBUG_ONLY_INCREMENT(counter) ++(counter)
 #else
-    #define FATP_DEBUG_ONLY_INCREMENT(counter) ((void)0)
+#define FATP_DEBUG_ONLY_INCREMENT(counter) ((void)0)
 #endif
 
 // Log with a debug value
 #ifndef NDEBUG
-    #define FATP_DEBUG_ONLY_LOG(stream, val) ((stream) << (val).get())
+#define FATP_DEBUG_ONLY_LOG(stream, val) ((stream) << (val).get())
 #else
-    #define FATP_DEBUG_ONLY_LOG(stream, val) ((void)0)
+#define FATP_DEBUG_ONLY_LOG(stream, val) ((void)0)
 #endif
 
 
@@ -594,7 +675,8 @@ constexpr void swap(DebugOnly<T>&, DebugOnly<T>&) noexcept {}
 
 } // namespace fat_p
 
-namespace std {
+namespace std
+{
 
 template <typename T>
 struct hash<fat_p::DebugOnly<T>>
@@ -613,10 +695,9 @@ struct hash<fat_p::DebugOnly<T>>
         }
 #else
         (void)val;
-        return 0;  // All release DebugOnly hash to same value
+        return 0; // All release DebugOnly hash to same value
 #endif
     }
 };
 
 } // namespace std
-

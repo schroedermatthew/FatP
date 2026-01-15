@@ -124,11 +124,9 @@ FATP_TEST_CASE(basic)
 
         int cleanup_count = 0;
         {
-            auto guard = makeScopeGuard(
-                [&cleanup_count]()
-                {
-                    ++cleanup_count;
-                });
+            auto guard = makeScopeGuard([&cleanup_count]() {
+                ++cleanup_count;
+            });
             FATP_ASSERT_EQ(cleanup_count, 0, "Cleanup should not run yet");
         }
         FATP_ASSERT_EQ(cleanup_count, 1, "Cleanup should have run once");
@@ -141,12 +139,10 @@ FATP_TEST_CASE(basic)
         TestResource::reset_counters();
         {
             auto* resource = new TestResource(42);
-            auto guard = makeScopeGuard(
-                [resource]()
-                {
-                    resource->cleanup();
-                    delete resource;
-                });
+            auto guard = makeScopeGuard([resource]() {
+                resource->cleanup();
+                delete resource;
+            });
         }
         FATP_ASSERT_EQ(TestResource::construction_count, 1, "Should construct once");
         FATP_ASSERT_EQ(TestResource::destruction_count, 1, "Should destruct once");
@@ -159,21 +155,15 @@ FATP_TEST_CASE(basic)
 
         int count1 = 0, count2 = 0, count3 = 0;
         {
-            auto guard1 = makeScopeGuard(
-                [&count1]()
-                {
-                    ++count1;
-                });
-            auto guard2 = makeScopeGuard(
-                [&count2]()
-                {
-                    ++count2;
-                });
-            auto guard3 = makeScopeGuard(
-                [&count3]()
-                {
-                    ++count3;
-                });
+            auto guard1 = makeScopeGuard([&count1]() {
+                ++count1;
+            });
+            auto guard2 = makeScopeGuard([&count2]() {
+                ++count2;
+            });
+            auto guard3 = makeScopeGuard([&count3]() {
+                ++count3;
+            });
         }
         // Guards execute in reverse order of construction (stack unwinding)
         FATP_ASSERT_EQ(count1, 1, "Guard1 should execute");
@@ -187,18 +177,14 @@ FATP_TEST_CASE(basic)
 
         int outer = 0, inner = 0;
         {
-            auto outer_guard = makeScopeGuard(
-                [&outer]()
-                {
-                    ++outer;
-                });
+            auto outer_guard = makeScopeGuard([&outer]() {
+                ++outer;
+            });
             FATP_ASSERT_EQ(outer, 0, "Outer guard not executed yet");
             {
-                auto inner_guard = makeScopeGuard(
-                    [&inner]()
-                    {
-                        ++inner;
-                    });
+                auto inner_guard = makeScopeGuard([&inner]() {
+                    ++inner;
+                });
                 FATP_ASSERT_EQ(inner, 0, "Inner guard not executed yet");
             }
             FATP_ASSERT_EQ(inner, 1, "Inner guard should have executed");
@@ -225,11 +211,9 @@ FATP_TEST_CASE(dismiss)
 
         int cleanup_count = 0;
         {
-            auto guard = makeScopeGuard(
-                [&cleanup_count]()
-                {
-                    ++cleanup_count;
-                });
+            auto guard = makeScopeGuard([&cleanup_count]() {
+                ++cleanup_count;
+            });
             FATP_ASSERT_TRUE(guard.is_active(), "Guard should be active");
             guard.dismiss();
             FATP_ASSERT_FALSE(guard.is_active(), "Guard should be dismissed");
@@ -244,11 +228,9 @@ FATP_TEST_CASE(dismiss)
         int cleanup_count = 0;
         bool success = true;
         {
-            auto guard = makeScopeGuard(
-                [&cleanup_count]()
-                {
-                    ++cleanup_count;
-                });
+            auto guard = makeScopeGuard([&cleanup_count]() {
+                ++cleanup_count;
+            });
             guard.dismiss_if(success);
         }
         FATP_ASSERT_EQ(cleanup_count, 0, "Should not execute when dismissed");
@@ -261,11 +243,9 @@ FATP_TEST_CASE(dismiss)
         int cleanup_count = 0;
         bool success = false;
         {
-            auto guard = makeScopeGuard(
-                [&cleanup_count]()
-                {
-                    ++cleanup_count;
-                });
+            auto guard = makeScopeGuard([&cleanup_count]() {
+                ++cleanup_count;
+            });
             guard.dismiss_if(success);
         }
         FATP_ASSERT_EQ(cleanup_count, 1, "Should execute when not dismissed");
@@ -281,12 +261,10 @@ FATP_TEST_CASE(dismiss)
         bool operation_succeeded = false;
 
         {
-            auto guard = makeScopeGuard(
-                [resource]()
-                {
-                    resource->cleanup();
-                    delete resource;
-                });
+            auto guard = makeScopeGuard([resource]() {
+                resource->cleanup();
+                delete resource;
+            });
 
             // Simulate an operation that might fail
             try
@@ -326,11 +304,9 @@ FATP_TEST_CASE(move_semantics)
 
         int cleanup_count = 0;
         {
-            auto guard1 = makeScopeGuard(
-                [&cleanup_count]()
-                {
-                    ++cleanup_count;
-                });
+            auto guard1 = makeScopeGuard([&cleanup_count]() {
+                ++cleanup_count;
+            });
             FATP_ASSERT_TRUE(guard1.is_active(), "guard1 should be active");
 
             auto guard2 = std::move(guard1);
@@ -347,16 +323,12 @@ FATP_TEST_CASE(move_semantics)
         int cleanup1 = 0, cleanup2 = 0;
         {
             // Use std::function to ensure same type for move assignment
-            ScopeGuard<std::function<void()>> guard1(std::function<void()>(
-                [&cleanup1]()
-                {
-                    ++cleanup1;
-                }));
-            ScopeGuard<std::function<void()>> guard2(std::function<void()>(
-                [&cleanup2]()
-                {
-                    ++cleanup2;
-                }));
+            ScopeGuard<std::function<void()>> guard1(std::function<void()>([&cleanup1]() {
+                ++cleanup1;
+            }));
+            ScopeGuard<std::function<void()>> guard2(std::function<void()>([&cleanup2]() {
+                ++cleanup2;
+            }));
 
             // Move assign guard1 to guard2
             // guard2's original action should execute immediately
@@ -376,13 +348,10 @@ FATP_TEST_CASE(move_semantics)
 
         int cleanup_count = 0;
 
-        auto create_guard = [&cleanup_count]()
-        {
-            return makeScopeGuard(
-                [&cleanup_count]()
-                {
-                    ++cleanup_count;
-                });
+        auto create_guard = [&cleanup_count]() {
+            return makeScopeGuard([&cleanup_count]() {
+                ++cleanup_count;
+            });
         };
 
         {
@@ -403,16 +372,12 @@ FATP_TEST_CASE(move_semantics)
             std::vector<ScopeGuard<std::function<void()>>> guards;
 
             // Create guards with std::function wrappers
-            guards.push_back(ScopeGuard<std::function<void()>>(std::function<void()>(
-                [&cleanup_count]()
-                {
-                    ++cleanup_count;
-                })));
-            guards.push_back(ScopeGuard<std::function<void()>>(std::function<void()>(
-                [&cleanup_count]()
-                {
-                    ++cleanup_count;
-                })));
+            guards.push_back(ScopeGuard<std::function<void()>>(std::function<void()>([&cleanup_count]() {
+                ++cleanup_count;
+            })));
+            guards.push_back(ScopeGuard<std::function<void()>>(std::function<void()>([&cleanup_count]() {
+                ++cleanup_count;
+            })));
 
             FATP_ASSERT_EQ(cleanup_count, 0, "No cleanup yet");
         }
@@ -437,11 +402,9 @@ FATP_TEST_CASE(nothrow_policy)
 
         int cleanup_count = 0;
         {
-            auto guard = makeScopeGuard<ScopeGuardNothrowPolicy>(
-                [&cleanup_count]() noexcept
-                {
-                    ++cleanup_count;
-                });
+            auto guard = makeScopeGuard<ScopeGuardNothrowPolicy>([&cleanup_count]() noexcept {
+                ++cleanup_count;
+            });
         }
         FATP_ASSERT_EQ(cleanup_count, 1, "Cleanup should execute");
     }
@@ -463,11 +426,9 @@ FATP_TEST_CASE(terminate_policy)
 
         int cleanup_count = 0;
         {
-            auto guard = makeScopeGuard<ScopeGuardTerminatePolicy>(
-                [&cleanup_count]()
-                {
-                    ++cleanup_count;
-                });
+            auto guard = makeScopeGuard<ScopeGuardTerminatePolicy>([&cleanup_count]() {
+                ++cleanup_count;
+            });
         }
         FATP_ASSERT_EQ(cleanup_count, 1, "Cleanup should execute");
     }
@@ -478,11 +439,9 @@ FATP_TEST_CASE(terminate_policy)
 
         int cleanup_count = 0;
         {
-            auto guard = makeScopeGuard<ScopeGuardTerminatePolicy>(
-                [&cleanup_count]()
-                {
-                    ++cleanup_count;
-                });
+            auto guard = makeScopeGuard<ScopeGuardTerminatePolicy>([&cleanup_count]() {
+                ++cleanup_count;
+            });
             guard.dismiss();
         }
         FATP_ASSERT_EQ(cleanup_count, 0, "Dismissed guard should not execute");
@@ -509,11 +468,9 @@ FATP_TEST_CASE(log_and_swallow_policy)
 
         int cleanup_count = 0;
         {
-            auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>(
-                [&cleanup_count]()
-                {
-                    ++cleanup_count;
-                });
+            auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>([&cleanup_count]() {
+                ++cleanup_count;
+            });
         }
         FATP_ASSERT_EQ(cleanup_count, 1, "Cleanup should execute");
     }
@@ -526,11 +483,9 @@ FATP_TEST_CASE(log_and_swallow_policy)
         try
         {
             {
-                auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>(
-                    []()
-                    {
-                        throw std::runtime_error("Test exception");
-                    });
+                auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>([]() {
+                    throw std::runtime_error("Test exception");
+                });
                 // Exception will be caught and logged in destructor
             }
             // We should reach here (exception was swallowed)
@@ -550,11 +505,9 @@ FATP_TEST_CASE(log_and_swallow_policy)
         try
         {
             {
-                auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>(
-                    []()
-                    {
-                        throw std::logic_error("Logic error in cleanup");
-                    });
+                auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>([]() {
+                    throw std::logic_error("Logic error in cleanup");
+                });
             }
             FATP_ASSERT_TRUE(true, "Should reach here (exception swallowed)");
         }
@@ -573,11 +526,9 @@ FATP_TEST_CASE(log_and_swallow_policy)
         std::streambuf* original_stderr = std::cerr.rdbuf(captured.rdbuf());
 
         {
-            auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>(
-                []()
-                {
-                    throw std::runtime_error("Captured error message");
-                });
+            auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>([]() {
+                throw std::runtime_error("Captured error message");
+            });
         }
 
         // Restore stderr
@@ -612,11 +563,9 @@ FATP_TEST_CASE(rethrow_policy)
 
         int cleanup_count = 0;
         {
-            auto guard = makeScopeGuard<ScopeGuardRethrowPolicy>(
-                [&cleanup_count]()
-                {
-                    ++cleanup_count;
-                });
+            auto guard = makeScopeGuard<ScopeGuardRethrowPolicy>([&cleanup_count]() {
+                ++cleanup_count;
+            });
         }
         FATP_ASSERT_EQ(cleanup_count, 1, "Cleanup should execute");
     }
@@ -630,11 +579,9 @@ FATP_TEST_CASE(rethrow_policy)
         try
         {
             {
-                auto guard = makeScopeGuard<ScopeGuardRethrowPolicy>(
-                    []()
-                    {
-                        throw std::runtime_error("Test exception");
-                    });
+                auto guard = makeScopeGuard<ScopeGuardRethrowPolicy>([]() {
+                    throw std::runtime_error("Test exception");
+                });
             }
         }
         catch (const std::runtime_error& e)
@@ -654,11 +601,9 @@ FATP_TEST_CASE(rethrow_policy)
         try
         {
             {
-                auto guard = makeScopeGuard<ScopeGuardRethrowPolicy>(
-                    []()
-                    {
-                        throw std::logic_error("Logic error");
-                    });
+                auto guard = makeScopeGuard<ScopeGuardRethrowPolicy>([]() {
+                    throw std::logic_error("Logic error");
+                });
             }
         }
         catch (const std::logic_error&)
@@ -764,20 +709,17 @@ FATP_TEST_CASE(complex_resource_management)
         bool file_closed = false;
 
         // Simulate file operations
-        auto simulate_file_operations = [&file_closed]()
-        {
+        auto simulate_file_operations = [&file_closed]() {
             // FILE* file = fopen("test.txt", "w");
             void* file = (void*)0x1234; // Simulated file handle
 
-            auto guard = makeScopeGuard(
-                [&file_closed, file]()
+            auto guard = makeScopeGuard([&file_closed, file]() {
+                if (file)
                 {
-                    if (file)
-                    {
-                        // fclose(file);
-                        file_closed = true;
-                    }
-                });
+                    // fclose(file);
+                    file_closed = true;
+                }
+            });
 
             // Do operations...
             // If exception thrown, file will be closed automatically
@@ -794,16 +736,13 @@ FATP_TEST_CASE(complex_resource_management)
         bool rolled_back = false;
         bool committed = false;
 
-        auto simulate_transaction = [&]()
-        {
+        auto simulate_transaction = [&]() {
             // Begin transaction
 
-            auto rollback_guard = makeScopeGuard(
-                [&rolled_back]()
-                {
-                    // Rollback on failure
-                    rolled_back = true;
-                });
+            auto rollback_guard = makeScopeGuard([&rolled_back]() {
+                // Rollback on failure
+                rolled_back = true;
+            });
 
             // Do transactional work...
             bool success = true;
@@ -828,28 +767,22 @@ FATP_TEST_CASE(complex_resource_management)
 
         {
             auto* resource1 = new int(1);
-            auto guard1 = makeScopeGuard(
-                [&cleanup1, resource1]()
-                {
-                    ++cleanup1;
-                    delete resource1;
-                });
+            auto guard1 = makeScopeGuard([&cleanup1, resource1]() {
+                ++cleanup1;
+                delete resource1;
+            });
 
             auto* resource2 = new int(2);
-            auto guard2 = makeScopeGuard(
-                [&cleanup2, resource2]()
-                {
-                    ++cleanup2;
-                    delete resource2;
-                });
+            auto guard2 = makeScopeGuard([&cleanup2, resource2]() {
+                ++cleanup2;
+                delete resource2;
+            });
 
             auto* resource3 = new int(3);
-            auto guard3 = makeScopeGuard(
-                [&cleanup3, resource3]()
-                {
-                    ++cleanup3;
-                    delete resource3;
-                });
+            auto guard3 = makeScopeGuard([&cleanup3, resource3]() {
+                ++cleanup3;
+                delete resource3;
+            });
 
             // All resources will be cleaned up in reverse order
         }
@@ -880,13 +813,10 @@ void run_scope_guard_benchmarks()
     // Benchmark 1: ScopeGuard overhead
     benchmark(
         "ScopeGuard creation and execution",
-        [&shared_counter]()
-        {
-            auto guard = makeScopeGuard(
-                [&shared_counter]()
-                {
-                    ++shared_counter;
-                });
+        [&shared_counter]() {
+            auto guard = makeScopeGuard([&shared_counter]() {
+                ++shared_counter;
+            });
             DoNotOptimize(guard);
         },
         ITERATIONS);
@@ -898,13 +828,10 @@ void run_scope_guard_benchmarks()
     // Benchmark 2: Dismissed guard overhead
     benchmark(
         "ScopeGuard with dismiss",
-        [&shared_counter]()
-        {
-            auto guard = makeScopeGuard(
-                [&shared_counter]()
-                {
-                    ++shared_counter;
-                });
+        [&shared_counter]() {
+            auto guard = makeScopeGuard([&shared_counter]() {
+                ++shared_counter;
+            });
             guard.dismiss();
             DoNotOptimize(guard);
         },
@@ -917,8 +844,7 @@ void run_scope_guard_benchmarks()
     // Benchmark 3: Manual cleanup (baseline)
     benchmark(
         "Manual cleanup (baseline)",
-        [&shared_counter]()
-        {
+        [&shared_counter]() {
             ++shared_counter;
             DoNotOptimize(shared_counter);
         },
@@ -930,13 +856,10 @@ void run_scope_guard_benchmarks()
     // Benchmark 4: Different policies
     benchmark(
         "ScopeGuardTerminatePolicy",
-        [&shared_counter]()
-        {
-            auto guard = makeScopeGuard<ScopeGuardTerminatePolicy>(
-                [&shared_counter]()
-                {
-                    ++shared_counter;
-                });
+        [&shared_counter]() {
+            auto guard = makeScopeGuard<ScopeGuardTerminatePolicy>([&shared_counter]() {
+                ++shared_counter;
+            });
             DoNotOptimize(guard);
         },
         ITERATIONS / 10);
@@ -946,13 +869,10 @@ void run_scope_guard_benchmarks()
 
     benchmark(
         "ScopeGuardLogAndSwallowPolicy",
-        [&shared_counter]()
-        {
-            auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>(
-                [&shared_counter]()
-                {
-                    ++shared_counter;
-                });
+        [&shared_counter]() {
+            auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>([&shared_counter]() {
+                ++shared_counter;
+            });
             DoNotOptimize(guard);
         },
         ITERATIONS / 10);
@@ -965,13 +885,10 @@ void run_scope_guard_benchmarks()
 
     benchmark(
         "NothrowPolicy (no try/catch)",
-        [&shared_counter]()
-        {
-            auto guard = makeScopeGuard<ScopeGuardNothrowPolicy>(
-                [&shared_counter]() noexcept
-                {
-                    ++shared_counter;
-                });
+        [&shared_counter]() {
+            auto guard = makeScopeGuard<ScopeGuardNothrowPolicy>([&shared_counter]() noexcept {
+                ++shared_counter;
+            });
             DoNotOptimize(guard);
         },
         ITERATIONS);
@@ -981,13 +898,10 @@ void run_scope_guard_benchmarks()
 
     benchmark(
         "TerminatePolicy (try/catch)",
-        [&shared_counter]()
-        {
-            auto guard = makeScopeGuard<ScopeGuardTerminatePolicy>(
-                [&shared_counter]() noexcept
-                {
-                    ++shared_counter;
-                });
+        [&shared_counter]() {
+            auto guard = makeScopeGuard<ScopeGuardTerminatePolicy>([&shared_counter]() noexcept {
+                ++shared_counter;
+            });
             DoNotOptimize(guard);
         },
         ITERATIONS);
@@ -997,13 +911,10 @@ void run_scope_guard_benchmarks()
 
     benchmark(
         "LogAndSwallowPolicy (try/catch)",
-        [&shared_counter]()
-        {
-            auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>(
-                [&shared_counter]() noexcept
-                {
-                    ++shared_counter;
-                });
+        [&shared_counter]() {
+            auto guard = makeScopeGuard<ScopeGuardLogAndSwallowPolicy>([&shared_counter]() noexcept {
+                ++shared_counter;
+            });
             DoNotOptimize(guard);
         },
         ITERATIONS);
@@ -1149,11 +1060,9 @@ FATP_TEST_CASE(scope_fail)
 
         try
         {
-            auto guard = makeScopeGuardOnFail(
-                [&]
-                {
-                    ++rollback_count;
-                });
+            auto guard = makeScopeGuardOnFail([&] {
+                ++rollback_count;
+            });
             guard.dismiss();
             throw std::runtime_error("test");
         }
@@ -1316,12 +1225,10 @@ FATP_TEST_CASE(conditional_move_assignment)
 
         try
         {
-            std::function<void()> action1 = [&]
-            {
+            std::function<void()> action1 = [&] {
                 ++count1;
             };
-            std::function<void()> action2 = [&]
-            {
+            std::function<void()> action2 = [&] {
                 ++count2;
             };
 
@@ -1351,12 +1258,10 @@ FATP_TEST_CASE(conditional_move_assignment)
         int count2 = 0;
 
         {
-            std::function<void()> action1 = [&]
-            {
+            std::function<void()> action1 = [&] {
                 ++count1;
             };
-            std::function<void()> action2 = [&]
-            {
+            std::function<void()> action2 = [&] {
                 ++count2;
             };
 
@@ -1380,8 +1285,7 @@ FATP_TEST_CASE(conditional_move_assignment)
         int count = 0;
 
         {
-            std::function<void()> action1 = [&]
-            {
+            std::function<void()> action1 = [&] {
                 ++count;
             };
             std::function<void()> action2 = [] {};

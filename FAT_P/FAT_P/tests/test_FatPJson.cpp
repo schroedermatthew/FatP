@@ -2150,26 +2150,24 @@ FATP_TEST_CASE(atomic_save_vs_regular)
 
         for (int t = 0; t < NUM_THREADS; ++t)
         {
-            threads.emplace_back(
-                [&, t]()
+            threads.emplace_back([&, t]() {
+                for (int i = 0; i < SAVES_PER_THREAD; ++i)
                 {
-                    for (int i = 0; i < SAVES_PER_THREAD; ++i)
+                    std::string filename = base_filename + std::to_string(t) + "_" + std::to_string(i) + ".json";
+                    JsonValue j = json_encode(t * 100 + i);
+                    auto result = try_save_atomic(filename, j);
+                    if (result.has_value())
                     {
-                        std::string filename = base_filename + std::to_string(t) + "_" + std::to_string(i) + ".json";
-                        JsonValue j = json_encode(t * 100 + i);
-                        auto result = try_save_atomic(filename, j);
-                        if (result.has_value())
-                        {
-                            success_count.fetch_add(1, std::memory_order_relaxed);
-                        }
-                        else
-                        {
-                            failure_count.fetch_add(1, std::memory_order_relaxed);
-                        }
-                        std::error_code ec;
-                        std::filesystem::remove(filename, ec);
+                        success_count.fetch_add(1, std::memory_order_relaxed);
                     }
-                });
+                    else
+                    {
+                        failure_count.fetch_add(1, std::memory_order_relaxed);
+                    }
+                    std::error_code ec;
+                    std::filesystem::remove(filename, ec);
+                }
+            });
         }
 
         for (auto& t : threads)
@@ -2199,24 +2197,22 @@ FATP_TEST_CASE(atomic_save_vs_regular)
 
         for (int t = 0; t < NUM_THREADS; ++t)
         {
-            threads.emplace_back(
-                [&, t]()
+            threads.emplace_back([&, t]() {
+                for (int i = 0; i < SAVES_PER_THREAD; ++i)
                 {
-                    for (int i = 0; i < SAVES_PER_THREAD; ++i)
+                    // Each thread writes its ID so we can verify valid content
+                    JsonValue j = json_encode(t * 1000 + i);
+                    auto result = try_save_atomic(filename, j);
+                    if (result.has_value())
                     {
-                        // Each thread writes its ID so we can verify valid content
-                        JsonValue j = json_encode(t * 1000 + i);
-                        auto result = try_save_atomic(filename, j);
-                        if (result.has_value())
-                        {
-                            success_count.fetch_add(1, std::memory_order_relaxed);
-                        }
-                        else
-                        {
-                            failure_count.fetch_add(1, std::memory_order_relaxed);
-                        }
+                        success_count.fetch_add(1, std::memory_order_relaxed);
                     }
-                });
+                    else
+                    {
+                        failure_count.fetch_add(1, std::memory_order_relaxed);
+                    }
+                }
+            });
         }
 
         for (auto& th : threads)
@@ -2250,8 +2246,7 @@ void benchmark_parse_small_json()
     std::string small_json = R"({"name":"Alice","age":30,"city":"NYC","active":true,"score":95.5})";
 
     double jsonlite_time = measure_perf(
-        [&small_json]()
-        {
+        [&small_json]() {
             auto val = parse_json(small_json);
             DoNotOptimize(val);
         },
@@ -2259,8 +2254,7 @@ void benchmark_parse_small_json()
         100);
 
     double fatp_time = measure_perf(
-        [&small_json]()
-        {
+        [&small_json]() {
             auto result = try_parse_json(small_json);
             DoNotOptimize(result);
         },
@@ -2281,8 +2275,7 @@ void benchmark_parse_large_array()
     std::string large_json = generate_large_json_array(10000);
 
     double jsonlite_time = measure_perf(
-        [&large_json]()
-        {
+        [&large_json]() {
             auto val = parse_json(large_json);
             DoNotOptimize(val);
         },
@@ -2290,8 +2283,7 @@ void benchmark_parse_large_array()
         10);
 
     double fatp_time = measure_perf(
-        [&large_json]()
-        {
+        [&large_json]() {
             auto result = try_parse_json(large_json);
             DoNotOptimize(result);
         },
@@ -2311,8 +2303,7 @@ void benchmark_array_operations()
                               << "\n\n";
 
     double std_time = measure_perf(
-        []()
-        {
+        []() {
             JsonArray arr;
             for (int j = 0; j < 5; ++j)
             {
@@ -2324,8 +2315,7 @@ void benchmark_array_operations()
         100);
 
     double fatp_time = measure_perf(
-        []()
-        {
+        []() {
             FatPJsonArray arr;
             for (int j = 0; j < 5; ++j)
             {
@@ -2349,8 +2339,7 @@ void benchmark_object_operations()
     *get_test_config().output << colors::cyan() << "Object Operations (FlatMap vs map):" << colors::reset() << "\n\n";
 
     double std_time = measure_perf(
-        []()
-        {
+        []() {
             JsonObject obj;
             for (int j = 0; j < 10; ++j)
             {
@@ -2362,8 +2351,7 @@ void benchmark_object_operations()
         100);
 
     double fatp_time = measure_perf(
-        []()
-        {
+        []() {
             FatPJsonObject<> obj;
             for (int j = 0; j < 10; ++j)
             {
@@ -2441,8 +2429,7 @@ void benchmark_error_handling()
     std::string bad_json = "{bad json}";
 
     double exception_time = measure_perf(
-        [&bad_json]()
-        {
+        [&bad_json]() {
             try
             {
                 auto val = parse_json(bad_json);
@@ -2456,8 +2443,7 @@ void benchmark_error_handling()
         10);
 
     double expected_time = measure_perf(
-        [&bad_json]()
-        {
+        [&bad_json]() {
             auto result = try_parse_json(bad_json);
             DoNotOptimize(result);
         },
@@ -2482,8 +2468,7 @@ void benchmark_memory_mapped_io()
     }
 
     double regular_time = measure_perf(
-        []()
-        {
+        []() {
             auto result = try_load_json("test_mmap_bench.json");
             DoNotOptimize(result);
         },
@@ -2491,8 +2476,7 @@ void benchmark_memory_mapped_io()
         1);
 
     double mmap_time = measure_perf(
-        []()
-        {
+        []() {
             auto result = load_json_mmap(artifact_file("test_mmap_bench.json"));
             DoNotOptimize(result);
         },
@@ -2841,12 +2825,9 @@ FATP_TEST_CASE(json_pointer_monadic)
 
         FATP_ASSERT_TRUE(result.has_value(), "Parse should succeed");
 
-        auto final_result = try_query_json_as<int>(*result, "/database/port")
-                                .map(
-                                    [](int port)
-                                    {
-                                        return port + 1000;
-                                    });
+        auto final_result = try_query_json_as<int>(*result, "/database/port").map([](int port) {
+            return port + 1000;
+        });
 
         FATP_ASSERT_TRUE(final_result.has_value(), "Chained operation should succeed");
         FATP_ASSERT_EQ(*final_result, 6432, "Mapped value should be correct");
@@ -2858,12 +2839,9 @@ FATP_TEST_CASE(json_pointer_monadic)
         auto result = try_parse_json(R"({"key": "value"})");
         FATP_ASSERT_TRUE(result.has_value(), "Parse should succeed");
 
-        auto final_result = try_query_json_as<int>(*result, "/nonexistent")
-                                .map(
-                                    [](int x)
-                                    {
-                                        return x + 1;
-                                    });
+        auto final_result = try_query_json_as<int>(*result, "/nonexistent").map([](int x) {
+            return x + 1;
+        });
 
         FATP_ASSERT_FALSE(final_result.has_value(), "Error should propagate");
     }
@@ -3335,8 +3313,7 @@ FATP_TEST_CASE(encode_decode_benchmark_vector_int)
     }
 
     const double enc_vec_ms = bench_time_ms(
-        [&]()
-        {
+        [&]() {
             std::string json;
             auto rc = json_encode_to(json, vec);
             (void)rc;
@@ -3347,8 +3324,7 @@ FATP_TEST_CASE(encode_decode_benchmark_vector_int)
     (void)json_encode_to(vec_json, vec);
 
     const double dec_vec_ms = bench_time_ms(
-        [&]()
-        {
+        [&]() {
             auto rc = json_decode_from<std::vector<int>>(vec_json);
             (void)rc;
         },
@@ -3369,8 +3345,7 @@ FATP_TEST_CASE(encode_decode_benchmark_map_string_int)
     }
 
     const double enc_map_ms = bench_time_ms(
-        [&]()
-        {
+        [&]() {
             std::string json;
             auto rc = json_encode_to(json, m);
             (void)rc;
@@ -3381,8 +3356,7 @@ FATP_TEST_CASE(encode_decode_benchmark_map_string_int)
     (void)json_encode_to(map_json, m);
 
     const double dec_map_ms = bench_time_ms(
-        [&]()
-        {
+        [&]() {
             auto rc = json_decode_from<std::map<std::string, int>>(map_json);
             (void)rc;
         },
@@ -3409,8 +3383,7 @@ FATP_TEST_CASE(encode_decode_benchmark_nested)
     }
 
     const double enc_nested_ms = bench_time_ms(
-        [&]()
-        {
+        [&]() {
             std::string json;
             auto rc = json_encode_to(json, nested);
             (void)rc;
@@ -3421,8 +3394,7 @@ FATP_TEST_CASE(encode_decode_benchmark_nested)
     (void)json_encode_to(nested_json, nested);
 
     const double dec_nested_ms = bench_time_ms(
-        [&]()
-        {
+        [&]() {
             auto rc = json_decode_from<std::vector<std::map<std::string, int>>>(nested_json);
             (void)rc;
         },

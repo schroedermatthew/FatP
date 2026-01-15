@@ -27,9 +27,9 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#include <intrin.h> // For __cpuid
 #include <windows.h>
 #include <winreg.h>
-#include <intrin.h>  // For __cpuid
 
 #ifndef FATP_ENABLE_PDH_STATS
 #define FATP_ENABLE_PDH_STATS
@@ -67,7 +67,7 @@ struct CpuFreqInfo
 
     // True if the reference is a turbo/max fallback rather than a base clock.
     bool mRefIsMax = false;
-    
+
     // True if the reference base was estimated (e.g., 70% of registry turbo)
     bool mRefIsEstimated = false;
 
@@ -91,7 +91,8 @@ struct CpuFreqInfo
     }
 
     /// Check if CPU is significantly throttled.
-    /// With estimated base, use slightly higher threshold (15%) to account for estimation error.
+    /// With estimated base, use slightly higher threshold (15%) to account for
+    /// estimation error.
     [[nodiscard]] bool is_throttled(double thresholdPct = 10.0) const
     {
         double effectiveThreshold = mRefIsEstimated ? std::max(thresholdPct, 15.0) : thresholdPct;
@@ -134,18 +135,10 @@ inline double read_registry_base_freq_mhz()
     DWORD size = sizeof(DWORD);
     HKEY hKey;
 
-    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,
-                      "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
-                      0,
-                      KEY_READ,
-                      &hKey) == ERROR_SUCCESS)
+    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hKey) ==
+        ERROR_SUCCESS)
     {
-        RegQueryValueExA(hKey,
-                         "~MHz",
-                         nullptr,
-                         nullptr,
-                         reinterpret_cast<LPBYTE>(&freq),
-                         &size);
+        RegQueryValueExA(hKey, "~MHz", nullptr, nullptr, reinterpret_cast<LPBYTE>(&freq), &size);
         RegCloseKey(hKey);
     }
 
@@ -168,16 +161,16 @@ inline double read_registry_base_freq_mhz()
  */
 struct CpuidFrequencies
 {
-    uint16_t mBaseMHz = 0;    ///< Processor Base Frequency (sustainable)
-    uint16_t mMaxMHz = 0;     ///< Maximum Frequency (turbo)
-    uint16_t mBusMHz = 0;     ///< Bus (Reference) Frequency
-    bool mSupported = false;  ///< True if CPUID 0x16 is available and valid
-    
+    uint16_t mBaseMHz = 0;   ///< Processor Base Frequency (sustainable)
+    uint16_t mMaxMHz = 0;    ///< Maximum Frequency (turbo)
+    uint16_t mBusMHz = 0;    ///< Bus (Reference) Frequency
+    bool mSupported = false; ///< True if CPUID 0x16 is available and valid
+
     // Diagnostic fields
-    int mMaxLeaf = 0;         ///< Maximum supported CPUID leaf
-    uint32_t mRawEAX = 0;     ///< Raw EAX from leaf 0x16
-    uint32_t mRawEBX = 0;     ///< Raw EBX from leaf 0x16
-    uint32_t mRawECX = 0;     ///< Raw ECX from leaf 0x16
+    int mMaxLeaf = 0;     ///< Maximum supported CPUID leaf
+    uint32_t mRawEAX = 0; ///< Raw EAX from leaf 0x16
+    uint32_t mRawEBX = 0; ///< Raw EBX from leaf 0x16
+    uint32_t mRawECX = 0; ///< Raw ECX from leaf 0x16
 };
 
 /**
@@ -196,35 +189,34 @@ struct CpuidFrequencies
 inline CpuidFrequencies query_cpuid_frequencies()
 {
     CpuidFrequencies result{};
-    
+
     int cpuInfo[4] = {0};
-    
+
     // Get maximum supported CPUID leaf
     __cpuid(cpuInfo, 0);
     result.mMaxLeaf = cpuInfo[0];
-    
+
     // Check if leaf 0x16 is supported
     if (result.mMaxLeaf < 0x16)
     {
-        return result;  // Not supported (AMD or older Intel)
+        return result; // Not supported (AMD or older Intel)
     }
-    
+
     // Query leaf 0x16: Processor Frequency Information
     __cpuid(cpuInfo, 0x16);
-    
+
     // Store raw values for diagnostics
     result.mRawEAX = static_cast<uint32_t>(cpuInfo[0]);
     result.mRawEBX = static_cast<uint32_t>(cpuInfo[1]);
     result.mRawECX = static_cast<uint32_t>(cpuInfo[2]);
-    
-    result.mBaseMHz = static_cast<uint16_t>(cpuInfo[0] & 0xFFFF);  // EAX[15:0]
-    result.mMaxMHz  = static_cast<uint16_t>(cpuInfo[1] & 0xFFFF);  // EBX[15:0]
-    result.mBusMHz  = static_cast<uint16_t>(cpuInfo[2] & 0xFFFF);  // ECX[15:0]
-    
+
+    result.mBaseMHz = static_cast<uint16_t>(cpuInfo[0] & 0xFFFF); // EAX[15:0]
+    result.mMaxMHz = static_cast<uint16_t>(cpuInfo[1] & 0xFFFF);  // EBX[15:0]
+    result.mBusMHz = static_cast<uint16_t>(cpuInfo[2] & 0xFFFF);  // ECX[15:0]
+
     // Validate - base should be non-zero and less than or equal to max
-    result.mSupported = (result.mBaseMHz > 0) && 
-                        (result.mMaxMHz == 0 || result.mBaseMHz <= result.mMaxMHz);
-    
+    result.mSupported = (result.mBaseMHz > 0) && (result.mMaxMHz == 0 || result.mBaseMHz <= result.mMaxMHz);
+
     return result;
 }
 
@@ -252,10 +244,10 @@ struct BaseFrequencyResult
 inline BaseFrequencyResult get_best_base_frequency()
 {
     BaseFrequencyResult result{};
-    
+
     // Try CPUID first (accurate on Intel Skylake through Raptor Lake)
     const CpuidFrequencies cpuid = query_cpuid_frequencies();
-    
+
     if (cpuid.mSupported)
     {
         result.mBaseMHz = static_cast<double>(cpuid.mBaseMHz);
@@ -264,7 +256,7 @@ inline BaseFrequencyResult get_best_base_frequency()
         result.mIsEstimated = false;
         return result;
     }
-    
+
     // CPUID failed - use registry value
     // On modern Intel (including Arrow Lake where CPUID 0x16 returns zeros),
     // the registry typically reports the P-core base frequency, not turbo.
@@ -272,10 +264,10 @@ inline BaseFrequencyResult get_best_base_frequency()
     // We use it directly as our reference - PDH will measure actual current.
     const double regMHz = read_registry_base_freq_mhz();
     result.mBaseMHz = regMHz;
-    result.mMaxMHz = regMHz;  // We don't know true max without CPUID
+    result.mMaxMHz = regMHz; // We don't know true max without CPUID
     result.mIsAccurate = false;
-    result.mIsEstimated = false;  // Using registry directly, not estimating
-    
+    result.mIsEstimated = false; // Using registry directly, not estimating
+
     return result;
 }
 
@@ -318,8 +310,7 @@ private:
     using PdhOpenQueryA_t = PDH_STATUS(WINAPI*)(LPCSTR, DWORD_PTR, PDH_HQUERY*);
     using PdhAddCounterA_t = PDH_STATUS(WINAPI*)(PDH_HQUERY, LPCSTR, DWORD_PTR, PDH_HCOUNTER*);
     using PdhCollectQueryData_t = PDH_STATUS(WINAPI*)(PDH_HQUERY);
-    using PdhGetFormattedCounterValue_t =
-        PDH_STATUS(WINAPI*)(PDH_HCOUNTER, DWORD, LPDWORD, PDH_FMT_COUNTERVALUE*);
+    using PdhGetFormattedCounterValue_t = PDH_STATUS(WINAPI*)(PDH_HCOUNTER, DWORD, LPDWORD, PDH_FMT_COUNTERVALUE*);
     using PdhCloseQuery_t = PDH_STATUS(WINAPI*)(PDH_HQUERY);
 
     HMODULE mPdh = nullptr;
@@ -345,10 +336,9 @@ public:
 
         mOpenQuery = reinterpret_cast<PdhOpenQueryA_t>(GetProcAddress(mPdh, "PdhOpenQueryA"));
         mAddCounter = reinterpret_cast<PdhAddCounterA_t>(GetProcAddress(mPdh, "PdhAddCounterA"));
-        mCollect =
-            reinterpret_cast<PdhCollectQueryData_t>(GetProcAddress(mPdh, "PdhCollectQueryData"));
-        mGetValue = reinterpret_cast<PdhGetFormattedCounterValue_t>(
-            GetProcAddress(mPdh, "PdhGetFormattedCounterValue"));
+        mCollect = reinterpret_cast<PdhCollectQueryData_t>(GetProcAddress(mPdh, "PdhCollectQueryData"));
+        mGetValue =
+            reinterpret_cast<PdhGetFormattedCounterValue_t>(GetProcAddress(mPdh, "PdhGetFormattedCounterValue"));
         mCloseQuery = reinterpret_cast<PdhCloseQuery_t>(GetProcAddress(mPdh, "PdhCloseQuery"));
 
         if (!mOpenQuery || !mAddCounter || !mCollect || !mGetValue || !mCloseQuery)
@@ -464,13 +454,15 @@ inline bool read_int64_from_file(const char* path, int64_t& outValue)
     CpuFreqInfo info;
 
 #if defined(_WIN32) || defined(_WIN64)
-    // Get best available base frequency (CPUID preferred, estimated from registry otherwise)
+    // Get best available base frequency (CPUID preferred, estimated from registry
+    // otherwise)
     const detail::BaseFrequencyResult baseInfo = detail::get_best_base_frequency();
-    
-    // Use base frequency (accurate from CPUID, or estimated as 70% of registry turbo)
+
+    // Use base frequency (accurate from CPUID, or estimated as 70% of registry
+    // turbo)
     info.mRefFreqMHz = baseInfo.mBaseMHz;
-    info.mRefIsMax = false;  // We're using base (actual or estimated), not max
-    info.mRefIsEstimated = baseInfo.mIsEstimated;  // Track if it's an estimate
+    info.mRefIsMax = false;                       // We're using base (actual or estimated), not max
+    info.mRefIsEstimated = baseInfo.mIsEstimated; // Track if it's an estimate
     info.mCurrentFreqMHz = baseInfo.mBaseMHz;
     info.mCurrentIsEstimated = true;
 
@@ -506,9 +498,7 @@ inline bool read_int64_from_file(const char* path, int64_t& outValue)
         info.mRefFreqMHz = static_cast<double>(khz) / 1000.0;
         info.mRefIsMax = false;
     }
-    else if (detail::read_int64_from_file(
-        "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq",
-        khz))
+    else if (detail::read_int64_from_file("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq", khz))
     {
         info.mRefFreqMHz = static_cast<double>(khz) / 1000.0;
         info.mRefIsMax = true;
@@ -529,7 +519,7 @@ inline bool read_int64_from_file(const char* path, int64_t& outValue)
 inline void print_cpu_detection_info(std::ostream& out)
 {
     out << "CPU Frequency Detection Diagnostics:\n";
-    
+
 #if defined(_WIN32) || defined(_WIN64)
     // Show CPUID results
     const detail::CpuidFrequencies cpuid = detail::query_cpuid_frequencies();
@@ -548,12 +538,12 @@ inline void print_cpu_detection_info(std::ostream& out)
         if (cpuid.mMaxLeaf >= 0x16)
         {
             // Leaf exists but validation failed - show raw values
-            out << "    Raw EAX:         0x" << std::hex << cpuid.mRawEAX << std::dec 
-                << " (base: " << cpuid.mBaseMHz << " MHz)\n";
-            out << "    Raw EBX:         0x" << std::hex << cpuid.mRawEBX << std::dec 
-                << " (max: " << cpuid.mMaxMHz << " MHz)\n";
-            out << "    Raw ECX:         0x" << std::hex << cpuid.mRawECX << std::dec 
-                << " (bus: " << cpuid.mBusMHz << " MHz)\n";
+            out << "    Raw EAX:         0x" << std::hex << cpuid.mRawEAX << std::dec << " (base: " << cpuid.mBaseMHz
+                << " MHz)\n";
+            out << "    Raw EBX:         0x" << std::hex << cpuid.mRawEBX << std::dec << " (max: " << cpuid.mMaxMHz
+                << " MHz)\n";
+            out << "    Raw ECX:         0x" << std::hex << cpuid.mRawECX << std::dec << " (bus: " << cpuid.mBusMHz
+                << " MHz)\n";
             // Explain why validation failed
             if (cpuid.mBaseMHz == 0)
             {
@@ -561,8 +551,7 @@ inline void print_cpu_detection_info(std::ostream& out)
             }
             else if (cpuid.mMaxMHz > 0 && cpuid.mBaseMHz > cpuid.mMaxMHz)
             {
-                out << "    Reason:          Base (" << cpuid.mBaseMHz 
-                    << ") > Max (" << cpuid.mMaxMHz << ")\n";
+                out << "    Reason:          Base (" << cpuid.mBaseMHz << ") > Max (" << cpuid.mMaxMHz << ")\n";
             }
         }
         else
@@ -570,7 +559,7 @@ inline void print_cpu_detection_info(std::ostream& out)
             out << "    Reason:          Leaf 0x16 not available (need >= 0x16)\n";
         }
     }
-    
+
     // Show registry value
     const double regMHz = detail::read_registry_base_freq_mhz();
     out << "  Registry ~MHz:    " << static_cast<int>(regMHz) << " MHz";
@@ -590,7 +579,7 @@ inline void print_cpu_detection_info(std::ostream& out)
         }
     }
     out << "\n";
-    
+
     // Show what we're using
     const detail::BaseFrequencyResult best = detail::get_best_base_frequency();
     out << "  Using:            ";
@@ -608,7 +597,7 @@ inline void print_cpu_detection_info(std::ostream& out)
         out << "Registry base (" << static_cast<int>(best.mBaseMHz) << " MHz) - "
             << "CPUID 0x16 unavailable, using registry directly\n";
     }
-    
+
 #if defined(FATP_ENABLE_PDH_STATS)
     // Show PDH availability
     static detail::PdhCpuMonitor sMonitor;
@@ -622,7 +611,7 @@ inline void print_cpu_detection_info(std::ostream& out)
     out << "  PDH Monitor:      DISABLED\n";
 #endif
 
-#else  // Linux
+#else // Linux
     out << "  Linux sysfs interface\n";
     int64_t khz = 0;
     if (detail::read_int64_from_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq", khz))
@@ -642,12 +631,10 @@ inline void print_cpu_detection_info(std::ostream& out)
     // Show final captured state
     const CpuFreqInfo info = capture_cpu_frequency();
     out << "  Captured state:\n";
-    out << "    Reference:      " << static_cast<int>(info.mRefFreqMHz) << " MHz (" 
-        << info.ref_label() << ")\n";
+    out << "    Reference:      " << static_cast<int>(info.mRefFreqMHz) << " MHz (" << info.ref_label() << ")\n";
     out << "    Current:        " << static_cast<int>(info.mCurrentFreqMHz) << " MHz"
         << (info.mCurrentIsEstimated ? " (estimated)" : " (measured)") << "\n";
-    out << "    Throttle %:     " << std::fixed << std::setprecision(1) 
-        << info.throttle_percentage() << "%\n";
+    out << "    Throttle %:     " << std::fixed << std::setprecision(1) << info.throttle_percentage() << "%\n";
     out << "    Reliable:       " << (info.has_reliable_detection() ? "YES" : "NO") << "\n";
 }
 
@@ -696,8 +683,9 @@ inline void print_cpu_context(std::ostream& out, const char* label = nullptr)
         {
             out << " [TURBO]";
         }
-        // Note: We don't show THROTTLED anymore because on hybrid CPUs (Arrow Lake, etc.)
-        // running below P-core base is normal (E-cores, efficiency modes, scheduler decisions)
+        // Note: We don't show THROTTLED anymore because on hybrid CPUs (Arrow Lake,
+        // etc.) running below P-core base is normal (E-cores, efficiency modes,
+        // scheduler decisions)
     }
 
     out.flags(oldFlags);
@@ -716,28 +704,32 @@ inline void print_cpu_context(std::ostream& out, const char* label = nullptr)
 struct CpuWaitConfig
 {
     /// If true, use fixed delays instead of waiting for throttle to clear.
-    /// Set this when throttle detection is unreliable (e.g., virtualized, BIOS settings).
+    /// Set this when throttle detection is unreliable (e.g., virtualized, BIOS
+    /// settings).
     bool mUseFixedDelays = false;
-    
+
     /// Maximum time to wait for CPU to stabilize (seconds). 0 = no limit.
     int mMaxWaitSeconds = 30;
-    
+
     /// Throttle threshold percentage. CPU is "stable" when below this.
     /// Set to 0 for auto-detection based on CPUID availability:
     ///   - With CPUID base freq: 10% (accurate detection)
     ///   - With registry (may be turbo): 50% (running at base isn't throttling)
-    double mThrottleThreshold = 0.0;  // 0 = auto
-    
+    double mThrottleThreshold = 0.0; // 0 = auto
+
     /// Poll interval while waiting (milliseconds).
     int mPollIntervalMs = 500;
-    
-    /// Fixed delay for section transitions (milliseconds). Used when mUseFixedDelays=true.
+
+    /// Fixed delay for section transitions (milliseconds). Used when
+    /// mUseFixedDelays=true.
     int mFixedSectionDelayMs = 2000;
-    
-    /// Fixed delay for size transitions (milliseconds). Used when mUseFixedDelays=true.
+
+    /// Fixed delay for size transitions (milliseconds). Used when
+    /// mUseFixedDelays=true.
     int mFixedSizeDelayMs = 1000;
-    
-    /// Fixed delay for case transitions (milliseconds). Used when mUseFixedDelays=true.
+
+    /// Fixed delay for case transitions (milliseconds). Used when
+    /// mUseFixedDelays=true.
     int mFixedCaseDelayMs = 300;
 };
 
@@ -746,10 +738,10 @@ struct CpuWaitConfig
  */
 struct CpuWaitResult
 {
-    bool mStabilized = false;      ///< True if CPU stabilized within timeout
-    bool mUsedFixedDelay = false;  ///< True if fixed delay was used instead of waiting
-    int mWaitedMs = 0;             ///< Actual time waited
-    CpuFreqInfo mFinalState;       ///< CPU state after wait
+    bool mStabilized = false;     ///< True if CPU stabilized within timeout
+    bool mUsedFixedDelay = false; ///< True if fixed delay was used instead of waiting
+    int mWaitedMs = 0;            ///< Actual time waited
+    CpuFreqInfo mFinalState;      ///< CPU state after wait
 };
 
 /**
@@ -768,18 +760,16 @@ struct CpuWaitResult
  *   - With CPUID base freq (accurate): 10% threshold
  *   - With registry fallback (may be turbo): 50% threshold
  *
- * @note On hybrid CPUs (Intel Arrow Lake, etc.), throttle-based detection may not
- *       work correctly because the CPU normally runs below P-core base (E-cores,
- *       efficiency modes). Consider using variance-based stability detection instead.
+ * @note On hybrid CPUs (Intel Arrow Lake, etc.), throttle-based detection may
+ * not work correctly because the CPU normally runs below P-core base (E-cores,
+ *       efficiency modes). Consider using variance-based stability detection
+ * instead.
  */
-inline CpuWaitResult wait_for_cpu_stable(
-    std::ostream* out,
-    const CpuWaitConfig& config,
-    int delayMs,
-    const char* label = nullptr)
+inline CpuWaitResult
+wait_for_cpu_stable(std::ostream* out, const CpuWaitConfig& config, int delayMs, const char* label = nullptr)
 {
     CpuWaitResult result;
-    
+
     if (config.mUseFixedDelays)
     {
         // Fixed delay mode - just sleep
@@ -792,49 +782,49 @@ inline CpuWaitResult wait_for_cpu_stable(
             }
             *out << "]\n";
         }
-        
+
         std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
-        
+
         result.mUsedFixedDelay = true;
         result.mStabilized = true;
         result.mWaitedMs = delayMs;
         result.mFinalState = capture_cpu_frequency();
         return result;
     }
-    
+
     // Dynamic wait mode - poll until stable or timeout
     const auto startTime = std::chrono::steady_clock::now();
     const int maxWaitMs = config.mMaxWaitSeconds * 1000;
-    
+
     while (true)
     {
         result.mFinalState = capture_cpu_frequency();
-        
+
         const auto elapsed = std::chrono::steady_clock::now() - startTime;
-        result.mWaitedMs = static_cast<int>(
-            std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
-        
+        result.mWaitedMs = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
+
         // Determine effective threshold
-        // - Auto (0): use 10% if CPUID worked (accurate base), 50% if registry (may be turbo)
+        // - Auto (0): use 10% if CPUID worked (accurate base), 50% if registry (may
+        // be turbo)
         // - Manual: use configured value
         double effectiveThreshold = config.mThrottleThreshold;
         if (effectiveThreshold <= 0.0)
         {
             effectiveThreshold = result.mFinalState.mRefIsMax ? 50.0 : 10.0;
         }
-        
+
         // Check if stable
         if (!result.mFinalState.has_reliable_detection() ||
             result.mFinalState.throttle_percentage() <= effectiveThreshold)
         {
             result.mStabilized = true;
-            
+
             if (out)
             {
-                *out << "[Ready: " << static_cast<int>(result.mFinalState.mCurrentFreqMHz)
-                     << "/" << static_cast<int>(result.mFinalState.mRefFreqMHz) << " MHz";
+                *out << "[Ready: " << static_cast<int>(result.mFinalState.mCurrentFreqMHz) << "/"
+                     << static_cast<int>(result.mFinalState.mRefFreqMHz) << " MHz";
                 const double pct = result.mFinalState.throttle_percentage();
-                if (pct > 5.0)  // Only show if noticeable
+                if (pct > 5.0) // Only show if noticeable
                 {
                     *out << " (" << std::fixed << std::setprecision(0) << pct << "% below "
                          << (result.mFinalState.mRefIsMax ? "max" : "base") << ")";
@@ -843,34 +833,32 @@ inline CpuWaitResult wait_for_cpu_stable(
             }
             return result;
         }
-        
+
         // Check timeout
         if (maxWaitMs > 0 && result.mWaitedMs >= maxWaitMs)
         {
             result.mStabilized = false;
-            
+
             if (out)
             {
                 *out << "[WARNING: CPU still " << std::fixed << std::setprecision(0)
                      << result.mFinalState.throttle_percentage() << "% below "
-                     << (result.mFinalState.mRefIsMax ? "max" : "base")
-                     << " after " << config.mMaxWaitSeconds << "s - "
-                     << static_cast<int>(result.mFinalState.mCurrentFreqMHz)
-                     << "/" << static_cast<int>(result.mFinalState.mRefFreqMHz) << " MHz]\n";
+                     << (result.mFinalState.mRefIsMax ? "max" : "base") << " after " << config.mMaxWaitSeconds << "s - "
+                     << static_cast<int>(result.mFinalState.mCurrentFreqMHz) << "/"
+                     << static_cast<int>(result.mFinalState.mRefFreqMHz) << " MHz]\n";
             }
             return result;
         }
-        
+
         // Print progress every 5 seconds
         if (out && (result.mWaitedMs % 5000) < config.mPollIntervalMs)
         {
-            *out << "[Waiting: " << static_cast<int>(result.mFinalState.mCurrentFreqMHz)
-                 << "/" << static_cast<int>(result.mFinalState.mRefFreqMHz)
-                 << " MHz (" << std::fixed << std::setprecision(0)
+            *out << "[Waiting: " << static_cast<int>(result.mFinalState.mCurrentFreqMHz) << "/"
+                 << static_cast<int>(result.mFinalState.mRefFreqMHz) << " MHz (" << std::fixed << std::setprecision(0)
                  << result.mFinalState.throttle_percentage() << "% below "
                  << (result.mFinalState.mRefIsMax ? "max" : "base") << ")]\n";
         }
-        
+
         std::this_thread::sleep_for(std::chrono::milliseconds(config.mPollIntervalMs));
     }
 }
@@ -916,8 +904,7 @@ inline bool parse_fixed_delay_flag(int argc, char** argv)
 {
     for (int i = 1; i < argc; ++i)
     {
-        if (std::string(argv[i]) == "--fixed-delays" ||
-            std::string(argv[i]) == "-f" ||
+        if (std::string(argv[i]) == "--fixed-delays" || std::string(argv[i]) == "-f" ||
             std::string(argv[i]) == "--fixed")
         {
             return true;

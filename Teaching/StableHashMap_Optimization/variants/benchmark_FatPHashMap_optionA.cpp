@@ -63,8 +63,8 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <ctime>
 #include <cstdlib>
+#include <ctime>
 #include <functional>
 #include <iomanip>
 #include <iostream>
@@ -119,8 +119,8 @@
 // These two are generating internal warnings
 #if defined(_MSC_VER)
 #pragma warning(push)
-#pragma warning(disable: 4244)  // conversion from 'uint64_t' to 'unsigned int'
-#pragma warning(disable: 4267)  // conversion from 'size_t' to 'uint16_t'
+#pragma warning(disable : 4244) // conversion from 'uint64_t' to 'unsigned int'
+#pragma warning(disable : 4267) // conversion from 'size_t' to 'uint16_t'
 #endif
 
 #if __has_include("llvm/ADT/DenseMap.h")
@@ -152,7 +152,7 @@
 #endif
 #include <intrin.h>
 #include <windows.h>
-#include <winreg.h>  // For RegOpenKeyExA, RegQueryValueExA, RegCloseKey
+#include <winreg.h> // For RegOpenKeyExA, RegQueryValueExA, RegCloseKey
 static constexpr size_t WARMUP_RUNS = 3;
 static constexpr size_t MEASURED_RUNS = 15;
 #else
@@ -189,7 +189,7 @@ public:
         SetPriorityClass(proc, HIGH_PRIORITY_CLASS);
 
         HANDLE thread = GetCurrentThread();
-        
+
         // Avoid Core 0: often OS/interrupt heavy on Windows
         DWORD_PTR proc_mask = 0, sys_mask = 0;
         DWORD_PTR target = 1;
@@ -203,8 +203,7 @@ public:
 
         if (verbose)
         {
-            std::cout << "[BenchmarkScope] High priority, CPU" 
-                      << (target > 1 ? "non-0" : "0") << " affinity\n";
+            std::cout << "[BenchmarkScope] High priority, CPU" << (target > 1 ? "non-0" : "0") << " affinity\n";
         }
     }
 
@@ -215,7 +214,7 @@ public:
             HANDLE proc = GetCurrentProcess();
             SetPriorityClass(proc, old_priority_);
             HANDLE thread = GetCurrentThread();
-            if (old_affinity_ != 0)  // Only restore if SetThreadAffinityMask succeeded
+            if (old_affinity_ != 0) // Only restore if SetThreadAffinityMask succeeded
             {
                 SetThreadAffinityMask(thread, old_affinity_);
             }
@@ -226,7 +225,9 @@ public:
 class BenchmarkScope
 {
 public:
-    explicit BenchmarkScope(bool = false) {}
+    explicit BenchmarkScope(bool = false)
+    {
+    }
 };
 #endif
 
@@ -249,7 +250,10 @@ struct Timer
     using clock = std::chrono::steady_clock;
     clock::time_point t0;
 
-    void start() { t0 = clock::now(); }
+    void start()
+    {
+        t0 = clock::now();
+    }
 
     double elapsed_ns() const
     {
@@ -282,103 +286,119 @@ static inline void cpu_warmup_burst(int milliseconds);
 
 // Wait until CPU frequency stabilizes (not actively changing)
 // Returns false if timeout reached while still unstable
-static bool wait_for_cpu_stable(
-    double max_variance_percent = 10.0,  // Frequency must stay within 10% variance
-    double min_freq_percent = 60.0,      // Frequency must be at least 60% of base
-    int timeout_seconds = 30,             // Give up after 30s
-    int check_interval_ms = 200,          // Check every 200ms
-    bool verbose = true)
+static bool wait_for_cpu_stable(double max_variance_percent = 10.0, // Frequency must stay within 10% variance
+                                double min_freq_percent = 60.0,     // Frequency must be at least 60% of base
+                                int timeout_seconds = 30,           // Give up after 30s
+                                int check_interval_ms = 200,        // Check every 200ms
+                                bool verbose = true)
 {
     auto start = std::chrono::steady_clock::now();
     auto timeout = std::chrono::seconds(timeout_seconds);
-    
+
     // First check if we have reliable frequency detection
     auto initial_info = fat_p::bench::capture_cpu_frequency();
-    if (!initial_info.has_reliable_detection()) {
-        if (verbose) {
+    if (!initial_info.has_reliable_detection())
+    {
+        if (verbose)
+        {
             std::cout << "[CPU frequency detection unavailable - using fixed cooling delay]\n";
         }
         // Fall back to a conservative fixed delay when detection unavailable
         std::this_thread::sleep_for(std::chrono::seconds(3));
-        return true;  // Assume stable after fixed wait
+        return true; // Assume stable after fixed wait
     }
-    
+
     double base_freq = initial_info.mRefFreqMHz;
     double min_required_freq = base_freq * (min_freq_percent / 100.0);
-    
+
     // Initial warmup to get CPU out of idle state
     cpu_warmup_burst(100);
-    
+
     // Collect recent frequency readings to detect stability
     std::vector<double> recent_readings;
     const size_t window_size = 5;  // Look at last 5 readings
-    const int required_stable = 3;  // Need 3 consecutive stable windows
+    const int required_stable = 3; // Need 3 consecutive stable windows
     int stable_count = 0;
-    
-    while (std::chrono::steady_clock::now() - start < timeout) {
+
+    while (std::chrono::steady_clock::now() - start < timeout)
+    {
         // Keep CPU busy between measurements to prevent idle frequency drops
         cpu_warmup_burst(50);
-        
+
         auto info = fat_p::bench::capture_cpu_frequency();
         recent_readings.push_back(info.mCurrentFreqMHz);
-        
+
         // Keep only the last window_size readings
-        if (recent_readings.size() > window_size) {
+        if (recent_readings.size() > window_size)
+        {
             recent_readings.erase(recent_readings.begin());
         }
-        
+
         // Check stability once we have enough readings
-        if (recent_readings.size() >= window_size) {
+        if (recent_readings.size() >= window_size)
+        {
             double min_freq = *std::min_element(recent_readings.begin(), recent_readings.end());
             double max_freq = *std::max_element(recent_readings.begin(), recent_readings.end());
             double avg_freq = 0;
-            for (double f : recent_readings) avg_freq += f;
+            for (double f : recent_readings)
+            {
+                avg_freq += f;
+            }
             avg_freq /= recent_readings.size();
-            
+
             // Variance as percentage of average
             double variance_pct = (max_freq - min_freq) / avg_freq * 100.0;
             bool variance_ok = variance_pct <= max_variance_percent;
             bool freq_floor_ok = avg_freq >= min_required_freq;
             bool is_stable = variance_ok && freq_floor_ok;
-            
-            if (is_stable) {
+
+            if (is_stable)
+            {
                 ++stable_count;
-                if (stable_count >= required_stable) {
-                    if (verbose) {
+                if (stable_count >= required_stable)
+                {
+                    if (verbose)
+                    {
                         double pct_of_base = (avg_freq / base_freq) * 100.0;
-                        std::cout << "[CPU stable at " << static_cast<int>(avg_freq) 
-                                  << " MHz (" << std::fixed << std::setprecision(0) << pct_of_base 
-                                  << "% of base, variance: " << std::setprecision(1) 
-                                  << variance_pct << "%)]\n";
+                        std::cout << "[CPU stable at " << static_cast<int>(avg_freq) << " MHz (" << std::fixed
+                                  << std::setprecision(0) << pct_of_base
+                                  << "% of base, variance: " << std::setprecision(1) << variance_pct << "%)]\n";
                     }
                     return true;
                 }
-            } else {
-                stable_count = 0;  // Reset on unstable reading
-                if (verbose) {
-                    if (!freq_floor_ok) {
+            }
+            else
+            {
+                stable_count = 0; // Reset on unstable reading
+                if (verbose)
+                {
+                    if (!freq_floor_ok)
+                    {
                         double pct_of_base = (avg_freq / base_freq) * 100.0;
-                        std::cout << "[Waiting: " << static_cast<int>(avg_freq) 
-                                  << " MHz (" << std::fixed << std::setprecision(0) << pct_of_base 
-                                  << "% of base, need >" << min_freq_percent << "%)]   \r" << std::flush;
-                    } else {
-                        std::cout << "[Waiting: " << static_cast<int>(avg_freq) 
-                                  << " MHz (variance: " << std::fixed << std::setprecision(1) 
-                                  << variance_pct << "%, need <" << max_variance_percent << "%)]   \r" << std::flush;
+                        std::cout << "[Waiting: " << static_cast<int>(avg_freq) << " MHz (" << std::fixed
+                                  << std::setprecision(0) << pct_of_base << "% of base, need >" << min_freq_percent
+                                  << "%)]   \r" << std::flush;
+                    }
+                    else
+                    {
+                        std::cout << "[Waiting: " << static_cast<int>(avg_freq) << " MHz (variance: " << std::fixed
+                                  << std::setprecision(1) << variance_pct << "%, need <" << max_variance_percent
+                                  << "%)]   \r" << std::flush;
                     }
                 }
             }
         }
-        
+
         std::this_thread::sleep_for(std::chrono::milliseconds(check_interval_ms));
     }
-    
-    if (verbose) {
+
+    if (verbose)
+    {
         auto final_info = fat_p::bench::capture_cpu_frequency();
         double pct_of_base = (final_info.mCurrentFreqMHz / base_freq) * 100.0;
         std::cout << "\n[WARNING: CPU frequency still unstable after " << timeout_seconds << "s - "
-                  << static_cast<int>(final_info.mCurrentFreqMHz) << " MHz (" 
-                  << std::fixed << std::setprecision(0) << pct_of_base << "% of base)]\n";
+                  << static_cast<int>(final_info.mCurrentFreqMHz) << " MHz (" << std::fixed << std::setprecision(0)
+                  << pct_of_base << "% of base)]\n";
     }
     return false;
 }
@@ -386,49 +406,60 @@ static bool wait_for_cpu_stable(
 // Busy work to wake up CPU after idle
 static inline void cpu_warmup_burst(int milliseconds)
 {
-    if (milliseconds <= 0) return;
-    
+    if (milliseconds <= 0)
+    {
+        return;
+    }
+
     auto start = std::chrono::steady_clock::now();
     auto duration = std::chrono::milliseconds(milliseconds);
-    
+
     volatile uint64_t sink = 0;
     volatile uint64_t x = 0xDEADBEEFCAFEBABEULL;
-    
-    while (std::chrono::steady_clock::now() - start < duration) {
-        for (int i = 0; i < 1000; ++i) {
+
+    while (std::chrono::steady_clock::now() - start < duration)
+    {
+        for (int i = 0; i < 1000; ++i)
+        {
             x ^= x << 13;
             x ^= x >> 7;
             x ^= x << 17;
             sink += x;
         }
     }
-    
+
     benchmark_sink ^= static_cast<int64_t>(sink);
 }
 
 // Smart cooling: sleep then wait for frequency to stabilize
 static inline void cooling_delay(int min_sleep_ms, const char* reason = nullptr)
 {
-    if (reason) {
+    if (reason)
+    {
         std::cout << "[Cooling: " << reason << "]" << std::flush;
     }
-    
+
     // Minimum sleep to let CPU cool
     std::this_thread::sleep_for(std::chrono::milliseconds(min_sleep_ms));
-    
+
     // Wait until frequency stabilizes (shorter timeout for between-test waits)
     // wait_for_cpu_stable now keeps CPU busy during check, so no extra warmup needed
     bool stable = wait_for_cpu_stable(10.0, 15, 200, false);
-    
-    if (reason) {
+
+    if (reason)
+    {
         auto info = fat_p::bench::capture_cpu_frequency();
-        if (info.has_reliable_detection()) {
+        if (info.has_reliable_detection())
+        {
             std::cout << " [Ready: " << static_cast<int>(info.mCurrentFreqMHz) << " MHz";
-            if (!stable) {
+            if (!stable)
+            {
                 std::cout << " (still fluctuating)";
             }
             std::cout << "]\n";
-        } else {
+        }
+        else
+        {
             std::cout << " [Ready]\n";
         }
     }
@@ -436,11 +467,11 @@ static inline void cooling_delay(int min_sleep_ms, const char* reason = nullptr)
 
 // Delay durations (minimum sleep before checking stability)
 #if defined(_WIN32) || defined(_WIN64)
-static constexpr int COOLING_DELAY_SECTION_MS = 2000;   // Between major benchmark sections
-static constexpr int COOLING_DELAY_SIZE_MS = 1000;      // Between size transitions
-static constexpr int COOLING_DELAY_CASE_MS = 300;       // Between test cases within a size
+static constexpr int COOLING_DELAY_SECTION_MS = 2000; // Between major benchmark sections
+static constexpr int COOLING_DELAY_SIZE_MS = 1000;    // Between size transitions
+static constexpr int COOLING_DELAY_CASE_MS = 300;     // Between test cases within a size
 #else
-static constexpr int COOLING_DELAY_SECTION_MS = 1000;   // Linux generally has better thermal management
+static constexpr int COOLING_DELAY_SECTION_MS = 1000; // Linux generally has better thermal management
 static constexpr int COOLING_DELAY_SIZE_MS = 500;
 static constexpr int COOLING_DELAY_CASE_MS = 200;
 #endif
@@ -462,7 +493,10 @@ struct Statistics
     static Statistics compute(std::vector<double> samples)
     {
         Statistics s{};
-        if (samples.empty()) return s;
+        if (samples.empty())
+        {
+            return s;
+        }
 
         std::sort(samples.begin(), samples.end());
         size_t n = samples.size();
@@ -500,7 +534,7 @@ struct Statistics
             // z = 1.96 corresponds to 95% CI for standard normal distribution.
             // CI = mean +/- z * (stddev / sqrt(n))
             double se = s.stddev / std::sqrt(static_cast<double>(n));
-            constexpr double z = 1.96;  // 95% CI critical value for normal distribution
+            constexpr double z = 1.96; // 95% CI critical value for normal distribution
             s.ci95_low = s.mean - z * se;
             s.ci95_high = s.mean + z * se;
         }
@@ -512,11 +546,9 @@ struct Statistics
     {
         std::cout << std::fixed << std::setprecision(2);
         std::cout << "  " << std::setw(12) << label << ": "
-            << "median=" << std::setw(8) << median
-            << " mean=" << std::setw(8) << mean
-            << " +/-" << std::setw(6) << stddev
-            << " CI95(mean)=[" << ci95_low << "," << ci95_high << "]"
-            << " min=" << min << " max=" << max << "\n";
+                  << "median=" << std::setw(8) << median << " mean=" << std::setw(8) << mean << " +/-" << std::setw(6)
+                  << stddev << " CI95(mean)=[" << ci95_low << "," << ci95_high << "]"
+                  << " min=" << min << " max=" << max << "\n";
     }
 };
 
@@ -529,8 +561,8 @@ struct Statistics
 
 struct SplitMix64Hash
 {
-    using is_avalanching = void;  // Opt-out of built-in mixer
-    
+    using is_avalanching = void; // Opt-out of built-in mixer
+
     size_t operator()(int64_t x) const noexcept
     {
         uint64_t z = static_cast<uint64_t>(x);
@@ -539,7 +571,6 @@ struct SplitMix64Hash
         return static_cast<size_t>(z ^ (z >> 31));
     }
 };
-
 
 
 // ============================================================================
@@ -635,11 +666,16 @@ static inline const char* case_name(Case c)
 {
     switch (c)
     {
-    case Case::Insert:   return "Insert (amortized)";
-    case Case::FindHit:  return "Find(hit)";
-    case Case::FindMiss: return "Find(miss)";
-    case Case::Erase:    return "Erase (25%)";
-    case Case::Churn:    return "Churn";
+        case Case::Insert:
+            return "Insert (amortized)";
+        case Case::FindHit:
+            return "Find(hit)";
+        case Case::FindMiss:
+            return "Find(miss)";
+        case Case::Erase:
+            return "Erase (25%)";
+        case Case::Churn:
+            return "Churn";
     }
     return "Unknown";
 }
@@ -734,7 +770,10 @@ class StdUnorderedMapAdapter final : public IMapAdapter
     std::unique_ptr<std::unordered_map<int64_t, int64_t>> map_;
 
 public:
-    const char* name() const override { return "std::unordered_map"; }
+    const char* name() const override
+    {
+        return "std::unordered_map";
+    }
 
     void setup(size_t N, const Inputs&) override
     {
@@ -760,48 +799,54 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::Insert:
-            for (int64_t k : in.keys)
-            {
-                map_->emplace(k, k);
-                ++ops;
-            }
-            break;
+            case Case::Insert:
+                for (int64_t k : in.keys)
+                {
+                    map_->emplace(k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                map_->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    map_->erase(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::Churn:
-            for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
-            {
-                map_->erase(in.churn_erase_keys[i]);
-                map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
-                ops += 2;
-            }
-            break;
+            case Case::Churn:
+                for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
+                {
+                    map_->erase(in.churn_erase_keys[i]);
+                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    ops += 2;
+                }
+                break;
         }
         return ops;
     }
@@ -817,7 +862,10 @@ class TslRobinMapAdapter final : public IMapAdapter
     std::unique_ptr<tsl::robin_map<int64_t, int64_t>> map_;
 
 public:
-    const char* name() const override { return "tsl::robin_map"; }
+    const char* name() const override
+    {
+        return "tsl::robin_map";
+    }
 
     void setup(size_t N, const Inputs&) override
     {
@@ -843,48 +891,54 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::Insert:
-            for (int64_t k : in.keys)
-            {
-                map_->insert({k, k});
-                ++ops;
-            }
-            break;
+            case Case::Insert:
+                for (int64_t k : in.keys)
+                {
+                    map_->insert({k, k});
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                map_->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    map_->erase(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::Churn:
-            for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
-            {
-                map_->erase(in.churn_erase_keys[i]);
-                map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
-                ops += 2;
-            }
-            break;
+            case Case::Churn:
+                for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
+                {
+                    map_->erase(in.churn_erase_keys[i]);
+                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    ops += 2;
+                }
+                break;
         }
         return ops;
     }
@@ -901,7 +955,10 @@ class AnkerlDenseMapAdapter final : public IMapAdapter
     std::unique_ptr<ankerl::unordered_dense::map<int64_t, int64_t>> map_;
 
 public:
-    const char* name() const override { return "ankerl::unordered_dense"; }
+    const char* name() const override
+    {
+        return "ankerl::unordered_dense";
+    }
 
     void setup(size_t N, const Inputs&) override
     {
@@ -927,48 +984,54 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::Insert:
-            for (int64_t k : in.keys)
-            {
-                map_->insert({k, k});
-                ++ops;
-            }
-            break;
+            case Case::Insert:
+                for (int64_t k : in.keys)
+                {
+                    map_->insert({k, k});
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                map_->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    map_->erase(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::Churn:
-            for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
-            {
-                map_->erase(in.churn_erase_keys[i]);
-                map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
-                ops += 2;
-            }
-            break;
+            case Case::Churn:
+                for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
+                {
+                    map_->erase(in.churn_erase_keys[i]);
+                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    ops += 2;
+                }
+                break;
         }
         return ops;
     }
@@ -985,7 +1048,10 @@ class AbslFlatHashMapAdapter final : public IMapAdapter
     std::unique_ptr<absl::flat_hash_map<int64_t, int64_t>> map_;
 
 public:
-    const char* name() const override { return "absl::flat_hash_map"; }
+    const char* name() const override
+    {
+        return "absl::flat_hash_map";
+    }
 
     void setup(size_t N, const Inputs&) override
     {
@@ -1011,48 +1077,54 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::Insert:
-            for (int64_t k : in.keys)
-            {
-                map_->insert({k, k});
-                ++ops;
-            }
-            break;
+            case Case::Insert:
+                for (int64_t k : in.keys)
+                {
+                    map_->insert({k, k});
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                map_->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    map_->erase(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::Churn:
-            for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
-            {
-                map_->erase(in.churn_erase_keys[i]);
-                map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
-                ops += 2;
-            }
-            break;
+            case Case::Churn:
+                for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
+                {
+                    map_->erase(in.churn_erase_keys[i]);
+                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    ops += 2;
+                }
+                break;
         }
         return ops;
     }
@@ -1067,7 +1139,10 @@ class AbslNodeHashMapAdapter final : public IMapAdapter
     std::unique_ptr<absl::node_hash_map<int64_t, int64_t>> map_;
 
 public:
-    const char* name() const override { return "absl::node_hash_map"; }
+    const char* name() const override
+    {
+        return "absl::node_hash_map";
+    }
 
     void setup(size_t N, const Inputs&) override
     {
@@ -1093,48 +1168,54 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::Insert:
-            for (int64_t k : in.keys)
-            {
-                map_->insert({k, k});
-                ++ops;
-            }
-            break;
+            case Case::Insert:
+                for (int64_t k : in.keys)
+                {
+                    map_->insert({k, k});
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                map_->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    map_->erase(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::Churn:
-            for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
-            {
-                map_->erase(in.churn_erase_keys[i]);
-                map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
-                ops += 2;
-            }
-            break;
+            case Case::Churn:
+                for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
+                {
+                    map_->erase(in.churn_erase_keys[i]);
+                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    ops += 2;
+                }
+                break;
         }
         return ops;
     }
@@ -1151,7 +1232,10 @@ class BoostFlatMapAdapter final : public IMapAdapter
     std::unique_ptr<boost::unordered_flat_map<int64_t, int64_t>> map_;
 
 public:
-    const char* name() const override { return "boost::unordered_flat_map"; }
+    const char* name() const override
+    {
+        return "boost::unordered_flat_map";
+    }
 
     void setup(size_t N, const Inputs&) override
     {
@@ -1177,48 +1261,54 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::Insert:
-            for (int64_t k : in.keys)
-            {
-                map_->insert({k, k});
-                ++ops;
-            }
-            break;
+            case Case::Insert:
+                for (int64_t k : in.keys)
+                {
+                    map_->insert({k, k});
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                map_->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    map_->erase(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::Churn:
-            for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
-            {
-                map_->erase(in.churn_erase_keys[i]);
-                map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
-                ops += 2;
-            }
-            break;
+            case Case::Churn:
+                for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
+                {
+                    map_->erase(in.churn_erase_keys[i]);
+                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    ops += 2;
+                }
+                break;
         }
         return ops;
     }
@@ -1233,7 +1323,10 @@ class BoostNodeMapAdapter final : public IMapAdapter
     std::unique_ptr<boost::unordered_node_map<int64_t, int64_t>> map_;
 
 public:
-    const char* name() const override { return "boost::unordered_node_map"; }
+    const char* name() const override
+    {
+        return "boost::unordered_node_map";
+    }
 
     void setup(size_t N, const Inputs&) override
     {
@@ -1259,48 +1352,54 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::Insert:
-            for (int64_t k : in.keys)
-            {
-                map_->insert({k, k});
-                ++ops;
-            }
-            break;
+            case Case::Insert:
+                for (int64_t k : in.keys)
+                {
+                    map_->insert({k, k});
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                map_->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    map_->erase(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::Churn:
-            for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
-            {
-                map_->erase(in.churn_erase_keys[i]);
-                map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
-                ops += 2;
-            }
-            break;
+            case Case::Churn:
+                for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
+                {
+                    map_->erase(in.churn_erase_keys[i]);
+                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    ops += 2;
+                }
+                break;
         }
         return ops;
     }
@@ -1317,7 +1416,10 @@ class FollyF14MapAdapter final : public IMapAdapter
     std::unique_ptr<folly::F14FastMap<int64_t, int64_t>> map_;
 
 public:
-    const char* name() const override { return "folly::F14FastMap"; }
+    const char* name() const override
+    {
+        return "folly::F14FastMap";
+    }
 
     void setup(size_t N, const Inputs&) override
     {
@@ -1343,48 +1445,54 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::Insert:
-            for (int64_t k : in.keys)
-            {
-                map_->insert({k, k});
-                ++ops;
-            }
-            break;
+            case Case::Insert:
+                for (int64_t k : in.keys)
+                {
+                    map_->insert({k, k});
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                map_->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    map_->erase(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::Churn:
-            for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
-            {
-                map_->erase(in.churn_erase_keys[i]);
-                map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
-                ops += 2;
-            }
-            break;
+            case Case::Churn:
+                for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
+                {
+                    map_->erase(in.churn_erase_keys[i]);
+                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    ops += 2;
+                }
+                break;
         }
         return ops;
     }
@@ -1399,7 +1507,10 @@ class FollyF14NodeMapAdapter final : public IMapAdapter
     std::unique_ptr<folly::F14NodeMap<int64_t, int64_t>> map_;
 
 public:
-    const char* name() const override { return "folly::F14NodeMap"; }
+    const char* name() const override
+    {
+        return "folly::F14NodeMap";
+    }
 
     void setup(size_t N, const Inputs&) override
     {
@@ -1425,48 +1536,54 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::Insert:
-            for (int64_t k : in.keys)
-            {
-                map_->insert({k, k});
-                ++ops;
-            }
-            break;
+            case Case::Insert:
+                for (int64_t k : in.keys)
+                {
+                    map_->insert({k, k});
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                map_->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    map_->erase(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::Churn:
-            for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
-            {
-                map_->erase(in.churn_erase_keys[i]);
-                map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
-                ops += 2;
-            }
-            break;
+            case Case::Churn:
+                for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
+                {
+                    map_->erase(in.churn_erase_keys[i]);
+                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    ops += 2;
+                }
+                break;
         }
         return ops;
     }
@@ -1483,7 +1600,10 @@ class LlvmDenseMapAdapter final : public IMapAdapter
     std::unique_ptr<llvm::DenseMap<int64_t, int64_t>> map_;
 
 public:
-    const char* name() const override { return "llvm::DenseMap"; }
+    const char* name() const override
+    {
+        return "llvm::DenseMap";
+    }
 
     void setup(size_t N, const Inputs&) override
     {
@@ -1509,48 +1629,54 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::Insert:
-            for (int64_t k : in.keys)
-            {
-                map_->insert({k, k});
-                ++ops;
-            }
-            break;
+            case Case::Insert:
+                for (int64_t k : in.keys)
+                {
+                    map_->insert({k, k});
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = map_->find(k);
-                if (it != map_->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = map_->find(k);
+                    if (it != map_->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                map_->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    map_->erase(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::Churn:
-            for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
-            {
-                map_->erase(in.churn_erase_keys[i]);
-                map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
-                ops += 2;
-            }
-            break;
+            case Case::Churn:
+                for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
+                {
+                    map_->erase(in.churn_erase_keys[i]);
+                    map_->try_emplace(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    ops += 2;
+                }
+                break;
         }
         return ops;
     }
@@ -1561,7 +1687,7 @@ public:
 // fat_p::FastHashMap Adapter
 // ============================================================================
 
-template <typename Hash = std::hash<int64_t>, 
+template <typename Hash = std::hash<int64_t>,
           typename KeyEqual = std::equal_to<int64_t>,
           typename DeletionPolicy = fat_p::BackwardShiftDeletion>
 class FastHashMapAdapter final : public IMapAdapter
@@ -1570,9 +1696,15 @@ class FastHashMapAdapter final : public IMapAdapter
     std::unique_ptr<fat_p::FastHashMap<int64_t, int64_t, Hash, KeyEqual, DeletionPolicy>> map_;
 
 public:
-    explicit FastHashMapAdapter(const char* name) : name_(name) {}
+    explicit FastHashMapAdapter(const char* name)
+        : name_(name)
+    {
+    }
 
-    const char* name() const override { return name_.c_str(); }
+    const char* name() const override
+    {
+        return name_.c_str();
+    }
 
     void setup(size_t N, const Inputs&) override
     {
@@ -1598,55 +1730,62 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::Insert:
-            for (int64_t k : in.keys)
-            {
-                map_->insert(k, k);
-                ++ops;
-            }
-            break;
+            case Case::Insert:
+                for (int64_t k : in.keys)
+                {
+                    map_->insert(k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.keys)
-            {
-                auto* v = map_->find(k);
-                if (v) benchmark_sink += *v;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.keys)
+                {
+                    auto* v = map_->find(k);
+                    if (v)
+                    {
+                        benchmark_sink += *v;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto* v = map_->find(k);
-                if (v) benchmark_sink += *v;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto* v = map_->find(k);
+                    if (v)
+                    {
+                        benchmark_sink += *v;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                map_->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    map_->erase(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::Churn:
-            for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
-            {
-                map_->erase(in.churn_erase_keys[i]);
-                map_->insert(in.churn_insert_keys[i], in.churn_insert_keys[i]);
-                ops += 2;
-            }
-            break;
+            case Case::Churn:
+                for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
+                {
+                    map_->erase(in.churn_erase_keys[i]);
+                    map_->insert(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    ops += 2;
+                }
+                break;
         }
         return ops;
     }
 };
 
 // Convenience aliases for FastHashMap policies
-// std::hash variants use built-in mixer; SplitMix64Hash variants use explicit mixer (no double-mix due to is_avalanching)
+// std::hash variants use built-in mixer; SplitMix64Hash variants use explicit mixer (no double-mix due to
+// is_avalanching)
 using FastHashMapBS = FastHashMapAdapter<std::hash<int64_t>, std::equal_to<int64_t>, fat_p::BackwardShiftDeletion>;
 using FastHashMapTS = FastHashMapAdapter<std::hash<int64_t>, std::equal_to<int64_t>, fat_p::TombstoneDeletion>;
 using FastHashMapBS_SM64 = FastHashMapAdapter<SplitMix64Hash, std::equal_to<int64_t>, fat_p::BackwardShiftDeletion>;
@@ -1663,9 +1802,15 @@ class StableHashMapAdapter final : public IMapAdapter
     std::unique_ptr<fat_p::StableHashMap<int64_t, int64_t, Hash, KeyEqual>> map_;
 
 public:
-    explicit StableHashMapAdapter(const char* name) : name_(name) {}
+    explicit StableHashMapAdapter(const char* name)
+        : name_(name)
+    {
+    }
 
-    const char* name() const override { return name_.c_str(); }
+    const char* name() const override
+    {
+        return name_.c_str();
+    }
 
     void setup(size_t N, const Inputs&) override
     {
@@ -1691,48 +1836,54 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::Insert:
-            for (int64_t k : in.keys)
-            {
-                map_->insert(k, k);
-                ++ops;
-            }
-            break;
+            case Case::Insert:
+                for (int64_t k : in.keys)
+                {
+                    map_->insert(k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.keys)
-            {
-                auto* v = map_->find(k);
-                if (v) benchmark_sink += *v;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.keys)
+                {
+                    auto* v = map_->find(k);
+                    if (v)
+                    {
+                        benchmark_sink += *v;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto* v = map_->find(k);
-                if (v) benchmark_sink += *v;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto* v = map_->find(k);
+                    if (v)
+                    {
+                        benchmark_sink += *v;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                map_->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    map_->erase(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::Churn:
-            for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
-            {
-                map_->erase(in.churn_erase_keys[i]);
-                map_->insert(in.churn_insert_keys[i], in.churn_insert_keys[i]);
-                ops += 2;
-            }
-            break;
+            case Case::Churn:
+                for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
+                {
+                    map_->erase(in.churn_erase_keys[i]);
+                    map_->insert(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    ops += 2;
+                }
+                break;
         }
         return ops;
     }
@@ -1751,9 +1902,15 @@ class StableHashMapBlockAdapter final : public IMapAdapter
     std::unique_ptr<fat_p::StableHashMap<int64_t, int64_t, Hash, KeyEqual, fat_p::BlockAllocator>> map_;
 
 public:
-    explicit StableHashMapBlockAdapter(const char* name) : name_(name) {}
+    explicit StableHashMapBlockAdapter(const char* name)
+        : name_(name)
+    {
+    }
 
-    const char* name() const override { return name_.c_str(); }
+    const char* name() const override
+    {
+        return name_.c_str();
+    }
 
     void setup(size_t N, const Inputs&) override
     {
@@ -1779,48 +1936,54 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::Insert:
-            for (int64_t k : in.keys)
-            {
-                map_->insert(k, k);
-                ++ops;
-            }
-            break;
+            case Case::Insert:
+                for (int64_t k : in.keys)
+                {
+                    map_->insert(k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.keys)
-            {
-                auto* v = map_->find(k);
-                if (v) benchmark_sink += *v;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.keys)
+                {
+                    auto* v = map_->find(k);
+                    if (v)
+                    {
+                        benchmark_sink += *v;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto* v = map_->find(k);
-                if (v) benchmark_sink += *v;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto* v = map_->find(k);
+                    if (v)
+                    {
+                        benchmark_sink += *v;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                map_->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    map_->erase(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::Churn:
-            for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
-            {
-                map_->erase(in.churn_erase_keys[i]);
-                map_->insert(in.churn_insert_keys[i], in.churn_insert_keys[i]);
-                ops += 2;
-            }
-            break;
+            case Case::Churn:
+                for (size_t i = 0; i < in.churn_erase_keys.size(); ++i)
+                {
+                    map_->erase(in.churn_erase_keys[i]);
+                    map_->insert(in.churn_insert_keys[i], in.churn_insert_keys[i]);
+                    ops += 2;
+                }
+                break;
         }
         return ops;
     }
@@ -1856,12 +2019,8 @@ static inline bool needs_preload(Case c)
     return c == Case::FindHit || c == Case::FindMiss || c == Case::Erase || c == Case::Churn;
 }
 
-SuiteResult run_case_round_robin(
-    Case c,
-    size_t N,
-    const Inputs& in,
-    std::vector<IMapAdapter*>& adapters,
-    uint64_t rng_seed)
+SuiteResult
+run_case_round_robin(Case c, size_t N, const Inputs& in, std::vector<IMapAdapter*>& adapters, uint64_t rng_seed)
 {
     SuiteResult out;
     out.c = c;
@@ -1882,7 +2041,10 @@ SuiteResult run_case_round_robin(
         for (IMapAdapter* a : order)
         {
             a->setup(N, in);
-            if (needs_preload(c)) a->preload(in);
+            if (needs_preload(c))
+            {
+                a->preload(in);
+            }
             (void)a->run_operation(c, in);
             a->teardown();
         }
@@ -1897,7 +2059,10 @@ SuiteResult run_case_round_robin(
         for (IMapAdapter* a : order)
         {
             a->setup(N, in);
-            if (needs_preload(c)) a->preload(in);
+            if (needs_preload(c))
+            {
+                a->preload(in);
+            }
 
             Timer t;
             t.start();
@@ -1937,19 +2102,22 @@ SuiteResult run_case_round_robin(
 
 void sanity_check(const CaseResult& cr, size_t N)
 {
-    if (cr.samples_ns_per_op.empty()) return;
+    if (cr.samples_ns_per_op.empty())
+    {
+        return;
+    }
 
     // At large N, node-based maps (std::unordered_map) often pay for pointer chasing and allocator locality.
     if (N >= 1'000'000 && cr.stats.median > 100.0 && cr.library == "std::unordered_map")
     {
         std::cout << "  [NOTE] " << cr.library << ": median " << cr.stats.median
-            << " ns (node-based pointer chasing / cache locality effects)\n";
+                  << " ns (node-based pointer chasing / cache locality effects)\n";
     }
 
     if (cr.stats.stddev > cr.stats.median && cr.stats.median > 0)
     {
-        std::cout << "  [NOTE] " << cr.library << ": high variance (stddev " << cr.stats.stddev
-            << " > median " << cr.stats.median << ") - system noise or memory pressure\n";
+        std::cout << "  [NOTE] " << cr.library << ": high variance (stddev " << cr.stats.stddev << " > median "
+                  << cr.stats.median << ") - system noise or memory pressure\n";
     }
 }
 
@@ -1970,11 +2138,9 @@ void print_case_table(const SuiteResult& sr, bool show_warnings = true)
     std::cout << "\n--- " << case_name(sr.c) << " ---\n";
 
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << std::setw(30) << "Library"
-        << std::setw(12) << "Median"
-        << std::setw(12) << "Mean"
-        << std::setw(10) << "Stddev"
-        << "  CI95\n";
+    std::cout << std::setw(30) << "Library" << std::setw(12) << "Median" << std::setw(12) << "Mean" << std::setw(10)
+              << "Stddev"
+              << "  CI95\n";
     std::cout << std::string(79, '-') << "\n";
 
     for (const auto& cr : sr.per_library)
@@ -1985,11 +2151,9 @@ void print_case_table(const SuiteResult& sr, bool show_warnings = true)
             continue;
         }
 
-        std::cout << std::setw(30) << cr.library
-            << std::setw(12) << cr.stats.median
-            << std::setw(12) << cr.stats.mean
-            << std::setw(10) << cr.stats.stddev
-            << "  [" << cr.stats.ci95_low << ", " << cr.stats.ci95_high << "]\n";
+        std::cout << std::setw(30) << cr.library << std::setw(12) << cr.stats.median << std::setw(12) << cr.stats.mean
+                  << std::setw(10) << cr.stats.stddev << "  [" << cr.stats.ci95_low << ", " << cr.stats.ci95_high
+                  << "]\n";
     }
 
     if (show_warnings)
@@ -2055,10 +2219,8 @@ static inline uint8_t sm64_tag_high7(uint64_t h) noexcept
     return static_cast<uint8_t>((h >> 57) & 0x7FULL);
 }
 
-static MissKeySets make_miss_key_sets(
-    size_t N,
-    const std::vector<int64_t>& present_keys,
-    uint64_t seed = 0xA11CE5EEDULL)
+static MissKeySets
+make_miss_key_sets(size_t N, const std::vector<int64_t>& present_keys, uint64_t seed = 0xA11CE5EEDULL)
 {
     MissKeySets out;
     out.mRandom = generate_missing_keys(N, seed ^ 0x11111111ULL);
@@ -2073,8 +2235,7 @@ static MissKeySets make_miss_key_sets(
         ++high_hist[sm64_tag_high7(h)];
     }
 
-    auto pick_mode = [](const std::array<uint32_t, 128>& hist) -> uint8_t
-    {
+    auto pick_mode = [](const std::array<uint32_t, 128>& hist) -> uint8_t {
         uint32_t best = 0;
         uint8_t bestTag = 0;
         for (uint32_t i = 0; i < 128; ++i)
@@ -2136,8 +2297,14 @@ static MissKeySets make_miss_key_sets(
         }
     }
 
-    if (out.mH2Low7.size() > want) out.mH2Low7.resize(want);
-    if (out.mH2High7.size() > want) out.mH2High7.resize(want);
+    if (out.mH2Low7.size() > want)
+    {
+        out.mH2Low7.resize(want);
+    }
+    if (out.mH2High7.size() > want)
+    {
+        out.mH2High7.resize(want);
+    }
 
     return out;
 }
@@ -2179,7 +2346,10 @@ class StableHashMapMissDiagAdapter final : public IMissDiagAdapter
 
         size_t operator()(int64_t x) const noexcept
         {
-            if (sCalls) { ++(*sCalls); }
+            if (sCalls)
+            {
+                ++(*sCalls);
+            }
             return SplitMix64Hash{}(x);
         }
     };
@@ -2190,7 +2360,10 @@ class StableHashMapMissDiagAdapter final : public IMissDiagAdapter
 
         bool operator()(int64_t a, int64_t b) const noexcept
         {
-            if (sCalls) { ++(*sCalls); }
+            if (sCalls)
+            {
+                ++(*sCalls);
+            }
             return a == b;
         }
     };
@@ -2205,7 +2378,10 @@ public:
     {
     }
 
-    const char* name() const override { return name_.c_str(); }
+    const char* name() const override
+    {
+        return name_.c_str();
+    }
 
     void setup(size_t reserveN, const Inputs& in) override
     {
@@ -2239,7 +2415,10 @@ public:
         for (int64_t k : miss_keys)
         {
             auto* v = map_->find(k);
-            if (v) benchmark_sink += *v; // should never hit, but prevents DCE
+            if (v)
+            {
+                benchmark_sink += *v; // should never hit, but prevents DCE
+            }
         }
 
         const double elapsed = t.elapsed_ns();
@@ -2283,7 +2462,10 @@ class StableHashMapBlockMissDiagAdapter final : public IMissDiagAdapter
 
         size_t operator()(int64_t x) const noexcept
         {
-            if (sCalls) { ++(*sCalls); }
+            if (sCalls)
+            {
+                ++(*sCalls);
+            }
             return SplitMix64Hash{}(x);
         }
     };
@@ -2294,7 +2476,10 @@ class StableHashMapBlockMissDiagAdapter final : public IMissDiagAdapter
 
         bool operator()(int64_t a, int64_t b) const noexcept
         {
-            if (sCalls) { ++(*sCalls); }
+            if (sCalls)
+            {
+                ++(*sCalls);
+            }
             return a == b;
         }
     };
@@ -2309,7 +2494,10 @@ public:
     {
     }
 
-    const char* name() const override { return name_.c_str(); }
+    const char* name() const override
+    {
+        return name_.c_str();
+    }
 
     void setup(size_t reserveN, const Inputs& in) override
     {
@@ -2343,7 +2531,10 @@ public:
         for (int64_t k : miss_keys)
         {
             auto* v = map_->find(k);
-            if (v) benchmark_sink += *v;
+            if (v)
+            {
+                benchmark_sink += *v;
+            }
         }
 
         const double elapsed = t.elapsed_ns();
@@ -2392,7 +2583,10 @@ class BoostNodeMapMissDiagAdapter final : public IMissDiagAdapter
 
         size_t operator()(int64_t x) const noexcept
         {
-            if (sCalls) { ++(*sCalls); }
+            if (sCalls)
+            {
+                ++(*sCalls);
+            }
             return SplitMix64Hash{}(x);
         }
     };
@@ -2403,7 +2597,10 @@ class BoostNodeMapMissDiagAdapter final : public IMissDiagAdapter
 
         bool operator()(int64_t a, int64_t b) const noexcept
         {
-            if (sCalls) { ++(*sCalls); }
+            if (sCalls)
+            {
+                ++(*sCalls);
+            }
             return a == b;
         }
     };
@@ -2418,7 +2615,10 @@ public:
     {
     }
 
-    const char* name() const override { return name_.c_str(); }
+    const char* name() const override
+    {
+        return name_.c_str();
+    }
 
     void setup(size_t reserveN, const Inputs& in) override
     {
@@ -2452,7 +2652,10 @@ public:
         for (int64_t k : miss_keys)
         {
             auto it = map_->find(k);
-            if (it != map_->end()) benchmark_sink += it->second;
+            if (it != map_->end())
+            {
+                benchmark_sink += it->second;
+            }
         }
 
         const double elapsed = t.elapsed_ns();
@@ -2484,24 +2687,16 @@ struct MissDiagResult
     std::vector<double> mTagMatches;
 };
 
-static inline void print_miss_diag_table(
-    const char* title,
-    size_t N,
-    size_t reserveN,
-    const std::vector<MissDiagResult>& results)
+static inline void
+print_miss_diag_table(const char* title, size_t N, size_t reserveN, const std::vector<MissDiagResult>& results)
 {
     std::cout << "\n--- MISS DIAGNOSTIC: " << title << " ---\n";
     std::cout << "N=" << N << " reserve=" << reserveN << "\n";
 
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << std::setw(34) << "Library"
-              << std::setw(12) << "Median(ns)"
-              << std::setw(14) << "Eq/miss"
-              << std::setw(14) << "Hash/miss"
-              << std::setw(12) << "Grp/miss"
-              << std::setw(14) << "FullSlots/m"
-              << std::setw(12) << "FullGrp/m"
-              << std::setw(12) << "Tag/miss"
+    std::cout << std::setw(34) << "Library" << std::setw(12) << "Median(ns)" << std::setw(14) << "Eq/miss"
+              << std::setw(14) << "Hash/miss" << std::setw(12) << "Grp/miss" << std::setw(14) << "FullSlots/m"
+              << std::setw(12) << "FullGrp/m" << std::setw(12) << "Tag/miss"
               << "\n";
     std::cout << std::string(124, '-') << "\n";
 
@@ -2516,9 +2711,7 @@ static inline void print_miss_diag_table(
         const Statistics eqS = Statistics::compute(r.mEqCalls);
         const Statistics hS = Statistics::compute(r.mHashCalls);
 
-        std::cout << std::setw(34) << r.mName
-                  << std::setw(12) << nsS.median
-                  << std::setw(14) << eqS.median
+        std::cout << std::setw(34) << r.mName << std::setw(12) << nsS.median << std::setw(14) << eqS.median
                   << std::setw(14) << hS.median;
 
         if (!r.mGroups.empty())
@@ -2528,30 +2721,24 @@ static inline void print_miss_diag_table(
             const Statistics fgS = Statistics::compute(r.mFullGroups);
             const Statistics tmS = Statistics::compute(r.mTagMatches);
 
-            std::cout << std::setw(12) << gS.median
-                      << std::setw(14) << fsS.median
-                      << std::setw(12) << fgS.median
+            std::cout << std::setw(12) << gS.median << std::setw(14) << fsS.median << std::setw(12) << fgS.median
                       << std::setw(12) << tmS.median;
         }
         else
         {
-            std::cout << std::setw(12) << "-"
-                      << std::setw(14) << "-"
-                      << std::setw(12) << "-"
-                      << std::setw(12) << "-";
+            std::cout << std::setw(12) << "-" << std::setw(14) << "-" << std::setw(12) << "-" << std::setw(12) << "-";
         }
 
         std::cout << "\n";
     }
 }
 
-static std::vector<MissDiagResult> run_miss_diag_round_robin(
-    size_t N,
-    size_t reserveN,
-    const Inputs& in,
-    const std::vector<int64_t>& miss_keys,
-    std::vector<IMissDiagAdapter*>& adapters,
-    uint64_t rng_seed)
+static std::vector<MissDiagResult> run_miss_diag_round_robin(size_t N,
+                                                             size_t reserveN,
+                                                             const Inputs& in,
+                                                             const std::vector<int64_t>& miss_keys,
+                                                             std::vector<IMissDiagAdapter*>& adapters,
+                                                             uint64_t rng_seed)
 {
     std::unordered_map<IMissDiagAdapter*, MissDiagResult> acc;
     acc.reserve(adapters.size());
@@ -2634,9 +2821,12 @@ static inline const char* miss_set_name(int which)
 {
     switch (which)
     {
-    case 0: return "Random misses";
-    case 1: return "H2-biased (low7 of SM64)";
-    case 2: return "H2-biased (high7 of SM64)";
+        case 0:
+            return "Random misses";
+        case 1:
+            return "H2-biased (low7 of SM64)";
+        case 2:
+            return "H2-biased (high7 of SM64)";
     }
     return "Unknown";
 }
@@ -2686,8 +2876,7 @@ void benchmark_miss_diagnostics(const std::vector<size_t>& sizes)
         MissKeySets missSets = make_miss_key_sets(N, in.keys, 0xFEEDFACEULL ^ N);
 
         // Keep work bounded: miss sets can be large; cap if needed.
-        auto cap_keys = [](std::vector<int64_t>& v)
-        {
+        auto cap_keys = [](std::vector<int64_t>& v) {
             constexpr size_t kMax = 2'000'000;
             if (v.size() > kMax)
             {
@@ -2708,9 +2897,18 @@ void benchmark_miss_diagnostics(const std::vector<size_t>& sizes)
             for (int mk : missKinds)
             {
                 const std::vector<int64_t>* miss = nullptr;
-                if (mk == 0) miss = &missSets.mRandom;
-                else if (mk == 1) miss = &missSets.mH2Low7;
-                else miss = &missSets.mH2High7;
+                if (mk == 0)
+                {
+                    miss = &missSets.mRandom;
+                }
+                else if (mk == 1)
+                {
+                    miss = &missSets.mH2Low7;
+                }
+                else
+                {
+                    miss = &missSets.mH2High7;
+                }
 
                 if (!miss || miss->empty())
                 {
@@ -2719,8 +2917,8 @@ void benchmark_miss_diagnostics(const std::vector<size_t>& sizes)
 
                 cooling_delay(COOLING_DELAY_CASE_MS, nullptr);
 
-                const uint64_t seed = 0xBADC0FFEULL ^ (static_cast<uint64_t>(N) << 1)
-                    ^ static_cast<uint64_t>(reserveN) ^ static_cast<uint64_t>(mk);
+                const uint64_t seed = 0xBADC0FFEULL ^ (static_cast<uint64_t>(N) << 1) ^
+                                      static_cast<uint64_t>(reserveN) ^ static_cast<uint64_t>(mk);
 
                 const std::vector<MissDiagResult> results =
                     run_miss_diag_round_robin(N, reserveN, in, *miss, adapters, seed);
@@ -2784,18 +2982,18 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
     // FastHashMap with BackwardShift deletion (faster miss detection)
     FastHashMapBS fast_bs("FastHashMap[BS]");
     FastHashMapBS_SM64 fast_bs_sm64("FastHashMap[BS]+SplitMix64");
-    
+
     // FastHashMap with Tombstone deletion (faster erase)
     FastHashMapTS fast_ts("FastHashMap[TS]");
     FastHashMapTS_SM64 fast_ts_sm64("FastHashMap[TS]+SplitMix64");
-    
+
     // StableHashMap (reference-stable, node-based, SIMD-accelerated)
     StableHashMapStd stable_std("StableHashMap");
     StableHashMapSM64 stable_sm64("StableHashMap+SplitMix64");
-    
+
     // StableHashMap with BlockAllocator (better cache locality for nodes)
     StableHashMapBlockSM64 stable_block_sm64("StableHashMap[Block]+SM64");
-    
+
     StdUnorderedMapAdapter std_adapter;
 
 #if HAS_TSL
@@ -2852,9 +3050,7 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
 #endif
     };
 
-    const std::vector<Case> cases = {
-        Case::Insert, Case::FindHit, Case::FindMiss, Case::Erase, Case::Churn
-    };
+    const std::vector<Case> cases = {Case::Insert, Case::FindHit, Case::FindMiss, Case::Erase, Case::Churn};
 
     bool first_size = true;
     for (size_t N : sizes)
@@ -2865,7 +3061,7 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
             cooling_delay(COOLING_DELAY_SIZE_MS, "before next size");
         }
         first_size = false;
-        
+
         print_cpu_context();
         std::cout << "N = " << N << "\n";
 
@@ -2880,10 +3076,10 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
             // Short cooling delay between cases
             if (!first_case)
             {
-                cooling_delay(COOLING_DELAY_CASE_MS, nullptr);  // Silent delay
+                cooling_delay(COOLING_DELAY_CASE_MS, nullptr); // Silent delay
             }
             first_case = false;
-            
+
             print_cpu_context(case_name(c));
             SuiteResult sr = run_case_round_robin(c, N, in, adapters, rng_seed);
             case_results.push_back(std::move(sr));
@@ -2892,12 +3088,8 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
         // Print compact table
         std::cout << std::string(79, '-') << "\n";
         std::cout << std::fixed << std::setprecision(2);
-        std::cout << std::setw(30) << "Map"
-            << std::setw(10) << "Insert"
-            << std::setw(10) << "Find"
-            << std::setw(10) << "Miss"
-            << std::setw(10) << "Erase"
-            << std::setw(10) << "Churn" << "\n";
+        std::cout << std::setw(30) << "Map" << std::setw(10) << "Insert" << std::setw(10) << "Find" << std::setw(10)
+                  << "Miss" << std::setw(10) << "Erase" << std::setw(10) << "Churn" << "\n";
         std::cout << std::string(79, '-') << "\n";
 
         for (IMapAdapter* a : adapters)
@@ -2906,11 +3098,15 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
         }
 
         // Print speedup vs std::unordered_map
-        struct MapTimes {
+        struct MapTimes
+        {
             double insert = 0, find = 0, erase = 0;
-            bool valid() const { return insert > 0 && find > 0 && erase > 0; }
+            bool valid() const
+            {
+                return insert > 0 && find > 0 && erase > 0;
+            }
         };
-        
+
         MapTimes std_times, fast_bs, fast_bs_sm64, fast_ts, fast_ts_sm64;
         MapTimes stable_std, stable_sm64, stable_block_sm64;
 #if HAS_TSL
@@ -2937,156 +3133,301 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
             for (const auto& cr : sr.per_library)
             {
                 MapTimes* target = nullptr;
-                
-                if (cr.library == "std::unordered_map") target = &std_times;
-                else if (cr.library == "FastHashMap[BS]") target = &fast_bs;
-                else if (cr.library == "FastHashMap[BS]+SplitMix64") target = &fast_bs_sm64;
-                else if (cr.library == "FastHashMap[TS]") target = &fast_ts;
-                else if (cr.library == "FastHashMap[TS]+SplitMix64") target = &fast_ts_sm64;
-                else if (cr.library == "StableHashMap") target = &stable_std;
-                else if (cr.library == "StableHashMap+SplitMix64") target = &stable_sm64;
-                else if (cr.library == "StableHashMap[Block]+SM64") target = &stable_block_sm64;
+
+                if (cr.library == "std::unordered_map")
+                {
+                    target = &std_times;
+                }
+                else if (cr.library == "FastHashMap[BS]")
+                {
+                    target = &fast_bs;
+                }
+                else if (cr.library == "FastHashMap[BS]+SplitMix64")
+                {
+                    target = &fast_bs_sm64;
+                }
+                else if (cr.library == "FastHashMap[TS]")
+                {
+                    target = &fast_ts;
+                }
+                else if (cr.library == "FastHashMap[TS]+SplitMix64")
+                {
+                    target = &fast_ts_sm64;
+                }
+                else if (cr.library == "StableHashMap")
+                {
+                    target = &stable_std;
+                }
+                else if (cr.library == "StableHashMap+SplitMix64")
+                {
+                    target = &stable_sm64;
+                }
+                else if (cr.library == "StableHashMap[Block]+SM64")
+                {
+                    target = &stable_block_sm64;
+                }
 #if HAS_TSL
-                else if (cr.library == "tsl::robin_map") target = &tsl_robin;
+                else if (cr.library == "tsl::robin_map")
+                {
+                    target = &tsl_robin;
+                }
 #endif
 #if HAS_ANKERL
-                else if (cr.library == "ankerl::unordered_dense") target = &ankerl_dense;
+                else if (cr.library == "ankerl::unordered_dense")
+                {
+                    target = &ankerl_dense;
+                }
 #endif
 #if HAS_ABSL
-                else if (cr.library == "absl::flat_hash_map") target = &absl_flat;
-                else if (cr.library == "absl::node_hash_map") target = &absl_node;
+                else if (cr.library == "absl::flat_hash_map")
+                {
+                    target = &absl_flat;
+                }
+                else if (cr.library == "absl::node_hash_map")
+                {
+                    target = &absl_node;
+                }
 #endif
 #if HAS_BOOST_FLAT
-                else if (cr.library == "boost::unordered_flat_map") target = &boost_flat;
-                else if (cr.library == "boost::unordered_node_map") target = &boost_node;
+                else if (cr.library == "boost::unordered_flat_map")
+                {
+                    target = &boost_flat;
+                }
+                else if (cr.library == "boost::unordered_node_map")
+                {
+                    target = &boost_node;
+                }
 #endif
 #if HAS_FOLLY
-                else if (cr.library == "folly::F14FastMap") target = &folly_fast;
-                else if (cr.library == "folly::F14NodeMap") target = &folly_node;
+                else if (cr.library == "folly::F14FastMap")
+                {
+                    target = &folly_fast;
+                }
+                else if (cr.library == "folly::F14NodeMap")
+                {
+                    target = &folly_node;
+                }
 #endif
 #if HAS_LLVM
-                else if (cr.library == "llvm::DenseMap") target = &llvm_dense;
+                else if (cr.library == "llvm::DenseMap")
+                {
+                    target = &llvm_dense;
+                }
 #endif
-                
+
                 if (target)
                 {
-                    if (sr.c == Case::Insert) target->insert = cr.stats.median;
-                    else if (sr.c == Case::FindHit) target->find = cr.stats.median;
-                    else if (sr.c == Case::Erase) target->erase = cr.stats.median;
+                    if (sr.c == Case::Insert)
+                    {
+                        target->insert = cr.stats.median;
+                    }
+                    else if (sr.c == Case::FindHit)
+                    {
+                        target->find = cr.stats.median;
+                    }
+                    else if (sr.c == Case::Erase)
+                    {
+                        target->erase = cr.stats.median;
+                    }
                 }
             }
         }
 
         auto print_speedup = [&](const char* name, const MapTimes& times) {
-            if (times.valid()) {
-                std::cout << "    " << std::setw(30) << std::left << name << std::right
-                    << std::fixed << std::setprecision(2)
-                    << std::setw(6) << (std_times.insert / times.insert) << "x insert, "
-                    << std::setw(5) << (std_times.find / times.find) << "x find, "
-                    << std::setw(5) << (std_times.erase / times.erase) << "x erase\n";
+            if (times.valid())
+            {
+                std::cout << "    " << std::setw(30) << std::left << name << std::right << std::fixed
+                          << std::setprecision(2) << std::setw(6) << (std_times.insert / times.insert) << "x insert, "
+                          << std::setw(5) << (std_times.find / times.find) << "x find, " << std::setw(5)
+                          << (std_times.erase / times.erase) << "x erase\n";
             }
         };
 
         // Collect all maps into categorized vectors for ranking
-        struct MapEntry {
+        struct MapEntry
+        {
             const char* name;
             MapTimes times;
             bool is_node_based;
         };
         std::vector<MapEntry> all_maps;
-        
+
         // Fat-P maps
-        if (fast_bs.valid()) all_maps.push_back({"FastHashMap[BS]", fast_bs, false});
-        if (fast_bs_sm64.valid()) all_maps.push_back({"FastHashMap[BS]+SplitMix64", fast_bs_sm64, false});
-        if (fast_ts.valid()) all_maps.push_back({"FastHashMap[TS]", fast_ts, false});
-        if (fast_ts_sm64.valid()) all_maps.push_back({"FastHashMap[TS]+SplitMix64", fast_ts_sm64, false});
-        if (stable_std.valid()) all_maps.push_back({"StableHashMap", stable_std, true});
-        if (stable_sm64.valid()) all_maps.push_back({"StableHashMap+SplitMix64", stable_sm64, true});
-        if (stable_block_sm64.valid()) all_maps.push_back({"StableHashMap[Block]+SM64", stable_block_sm64, true});
-        
+        if (fast_bs.valid())
+        {
+            all_maps.push_back({"FastHashMap[BS]", fast_bs, false});
+        }
+        if (fast_bs_sm64.valid())
+        {
+            all_maps.push_back({"FastHashMap[BS]+SplitMix64", fast_bs_sm64, false});
+        }
+        if (fast_ts.valid())
+        {
+            all_maps.push_back({"FastHashMap[TS]", fast_ts, false});
+        }
+        if (fast_ts_sm64.valid())
+        {
+            all_maps.push_back({"FastHashMap[TS]+SplitMix64", fast_ts_sm64, false});
+        }
+        if (stable_std.valid())
+        {
+            all_maps.push_back({"StableHashMap", stable_std, true});
+        }
+        if (stable_sm64.valid())
+        {
+            all_maps.push_back({"StableHashMap+SplitMix64", stable_sm64, true});
+        }
+        if (stable_block_sm64.valid())
+        {
+            all_maps.push_back({"StableHashMap[Block]+SM64", stable_block_sm64, true});
+        }
+
         // Competitor maps
 #if HAS_TSL
-        if (tsl_robin.valid()) all_maps.push_back({"tsl::robin_map", tsl_robin, false});
+        if (tsl_robin.valid())
+        {
+            all_maps.push_back({"tsl::robin_map", tsl_robin, false});
+        }
 #endif
 #if HAS_ANKERL
-        if (ankerl_dense.valid()) all_maps.push_back({"ankerl::unordered_dense", ankerl_dense, false});
+        if (ankerl_dense.valid())
+        {
+            all_maps.push_back({"ankerl::unordered_dense", ankerl_dense, false});
+        }
 #endif
 #if HAS_ABSL
-        if (absl_flat.valid()) all_maps.push_back({"absl::flat_hash_map", absl_flat, false});
-        if (absl_node.valid()) all_maps.push_back({"absl::node_hash_map", absl_node, true});
+        if (absl_flat.valid())
+        {
+            all_maps.push_back({"absl::flat_hash_map", absl_flat, false});
+        }
+        if (absl_node.valid())
+        {
+            all_maps.push_back({"absl::node_hash_map", absl_node, true});
+        }
 #endif
 #if HAS_BOOST_FLAT
-        if (boost_flat.valid()) all_maps.push_back({"boost::unordered_flat_map", boost_flat, false});
-        if (boost_node.valid()) all_maps.push_back({"boost::unordered_node_map", boost_node, true});
+        if (boost_flat.valid())
+        {
+            all_maps.push_back({"boost::unordered_flat_map", boost_flat, false});
+        }
+        if (boost_node.valid())
+        {
+            all_maps.push_back({"boost::unordered_node_map", boost_node, true});
+        }
 #endif
 #if HAS_FOLLY
-        if (folly_fast.valid()) all_maps.push_back({"folly::F14FastMap", folly_fast, false});
-        if (folly_node.valid()) all_maps.push_back({"folly::F14NodeMap", folly_node, true});
+        if (folly_fast.valid())
+        {
+            all_maps.push_back({"folly::F14FastMap", folly_fast, false});
+        }
+        if (folly_node.valid())
+        {
+            all_maps.push_back({"folly::F14NodeMap", folly_node, true});
+        }
 #endif
 #if HAS_LLVM
-        if (llvm_dense.valid()) all_maps.push_back({"llvm::DenseMap", llvm_dense, false});
+        if (llvm_dense.valid())
+        {
+            all_maps.push_back({"llvm::DenseMap", llvm_dense, false});
+        }
 #endif
 
         if (std_times.valid() && !all_maps.empty())
         {
             // Separate into flat and node-based
             std::vector<MapEntry> flat_maps, node_maps;
-            for (const auto& m : all_maps) {
-                if (m.is_node_based) node_maps.push_back(m);
-                else flat_maps.push_back(m);
+            for (const auto& m : all_maps)
+            {
+                if (m.is_node_based)
+                {
+                    node_maps.push_back(m);
+                }
+                else
+                {
+                    flat_maps.push_back(m);
+                }
             }
-            
+
             auto print_top3 = [&](const char* metric, auto get_speedup) {
                 std::vector<std::pair<double, const char*>> ranked;
-                for (const auto& m : flat_maps) {
+                for (const auto& m : flat_maps)
+                {
                     ranked.push_back({get_speedup(m.times), m.name});
                 }
-                std::sort(ranked.begin(), ranked.end(), [](auto& a, auto& b) { return a.first > b.first; });
-                
+                std::sort(ranked.begin(), ranked.end(), [](auto& a, auto& b) {
+                    return a.first > b.first;
+                });
+
                 std::cout << "    Top 3 " << metric << ": ";
-                for (size_t i = 0; i < std::min(size_t(3), ranked.size()); ++i) {
-                    if (i > 0) std::cout << ", ";
-                    std::cout << ranked[i].second << " (" << std::fixed << std::setprecision(2) 
-                              << ranked[i].first << "x)";
+                for (size_t i = 0; i < std::min(size_t(3), ranked.size()); ++i)
+                {
+                    if (i > 0)
+                    {
+                        std::cout << ", ";
+                    }
+                    std::cout << ranked[i].second << " (" << std::fixed << std::setprecision(2) << ranked[i].first
+                              << "x)";
                 }
                 std::cout << "\n";
             };
-            
+
             auto print_top3_node = [&](const char* metric, auto get_speedup) {
                 std::vector<std::pair<double, const char*>> ranked;
-                for (const auto& m : node_maps) {
+                for (const auto& m : node_maps)
+                {
                     ranked.push_back({get_speedup(m.times), m.name});
                 }
-                std::sort(ranked.begin(), ranked.end(), [](auto& a, auto& b) { return a.first > b.first; });
-                
+                std::sort(ranked.begin(), ranked.end(), [](auto& a, auto& b) {
+                    return a.first > b.first;
+                });
+
                 std::cout << "    Top 3 " << metric << ": ";
-                for (size_t i = 0; i < std::min(size_t(3), ranked.size()); ++i) {
-                    if (i > 0) std::cout << ", ";
-                    std::cout << ranked[i].second << " (" << std::fixed << std::setprecision(2) 
-                              << ranked[i].first << "x)";
+                for (size_t i = 0; i < std::min(size_t(3), ranked.size()); ++i)
+                {
+                    if (i > 0)
+                    {
+                        std::cout << ", ";
+                    }
+                    std::cout << ranked[i].second << " (" << std::fixed << std::setprecision(2) << ranked[i].first
+                              << "x)";
                 }
                 std::cout << "\n";
             };
 
             std::cout << "\nSpeedup vs std::unordered_map:\n";
-            
-            if (!flat_maps.empty()) {
+
+            if (!flat_maps.empty())
+            {
                 std::cout << "  Flat/Fast Maps:\n";
-                print_top3("Insert", [&](const MapTimes& t) { return std_times.insert / t.insert; });
-                print_top3("Find", [&](const MapTimes& t) { return std_times.find / t.find; });
-                print_top3("Erase", [&](const MapTimes& t) { return std_times.erase / t.erase; });
+                print_top3("Insert", [&](const MapTimes& t) {
+                    return std_times.insert / t.insert;
+                });
+                print_top3("Find", [&](const MapTimes& t) {
+                    return std_times.find / t.find;
+                });
+                print_top3("Erase", [&](const MapTimes& t) {
+                    return std_times.erase / t.erase;
+                });
             }
-            
-            if (!node_maps.empty()) {
+
+            if (!node_maps.empty())
+            {
                 std::cout << "  Node-Based Maps (reference-stable):\n";
-                print_top3_node("Insert", [&](const MapTimes& t) { return std_times.insert / t.insert; });
-                print_top3_node("Find", [&](const MapTimes& t) { return std_times.find / t.find; });
-                print_top3_node("Erase", [&](const MapTimes& t) { return std_times.erase / t.erase; });
+                print_top3_node("Insert", [&](const MapTimes& t) {
+                    return std_times.insert / t.insert;
+                });
+                print_top3_node("Find", [&](const MapTimes& t) {
+                    return std_times.find / t.find;
+                });
+                print_top3_node("Erase", [&](const MapTimes& t) {
+                    return std_times.erase / t.erase;
+                });
             }
-            
+
             // Also print full details
             std::cout << "\n  All Results:\n";
-            for (const auto& m : all_maps) {
+            for (const auto& m : all_maps)
+            {
                 print_speedup(m.name, m.times);
             }
         }
@@ -3103,26 +3444,33 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
         // For largest N, print detailed statistics for all Fat-P maps
         if (N == sizes.back())
         {
-            const std::vector<std::string> fatp_maps = {
-                "FastHashMap[BS]",
-                "FastHashMap[BS]+SplitMix64",
-                "FastHashMap[TS]",
-                "FastHashMap[TS]+SplitMix64",
-                "StableHashMap",
-                "StableHashMap+SplitMix64",
-                "StableHashMap[Block]+SM64"
-            };
-            
+            const std::vector<std::string> fatp_maps = {"FastHashMap[BS]",
+                                                        "FastHashMap[BS]+SplitMix64",
+                                                        "FastHashMap[TS]",
+                                                        "FastHashMap[TS]+SplitMix64",
+                                                        "StableHashMap",
+                                                        "StableHashMap+SplitMix64",
+                                                        "StableHashMap[Block]+SM64"};
+
             for (const auto& map_name : fatp_maps)
             {
                 bool has_data = false;
-                for (const auto& sr : case_results) {
-                    for (const auto& cr : sr.per_library) {
-                        if (cr.library == map_name) { has_data = true; break; }
+                for (const auto& sr : case_results)
+                {
+                    for (const auto& cr : sr.per_library)
+                    {
+                        if (cr.library == map_name)
+                        {
+                            has_data = true;
+                            break;
+                        }
                     }
-                    if (has_data) break;
+                    if (has_data)
+                    {
+                        break;
+                    }
                 }
-                
+
                 if (has_data)
                 {
                     std::cout << "\n--- Detailed Statistics for " << map_name << " at N=" << N << " ---\n";
@@ -3173,8 +3521,7 @@ void benchmark_pathological_erase()
 
     auto keys = generate_random_keys(N, 0xBADC0FFEEULL);
 
-    auto make_script = [&](size_t iter) -> Script
-    {
+    auto make_script = [&](size_t iter) -> Script {
         Script s;
         s.erase_keys.resize(TOTAL_OPS);
         s.insert_keys.resize(TOTAL_OPS);
@@ -3200,8 +3547,7 @@ void benchmark_pathological_erase()
     };
 
     // Generic pathological test runner: std-like API (reserve, insert({k,v}), erase(k)).
-    auto run_pathological_std_api = [&](auto& map, const Script& s) -> double
-    {
+    auto run_pathological_std_api = [&](auto& map, const Script& s) -> double {
         map.reserve(N * 2);
         for (const auto& k : keys)
         {
@@ -3219,8 +3565,7 @@ void benchmark_pathological_erase()
     };
 
     // Generic pathological test runner: Fat-P API (reserve, insert(k,v), erase(k)).
-    auto run_pathological_fatp_api = [&](auto& map, const Script& s) -> double
-    {
+    auto run_pathological_fatp_api = [&](auto& map, const Script& s) -> double {
         map.reserve(N * 2);
         for (const auto& k : keys)
         {
@@ -3305,32 +3650,38 @@ void benchmark_pathological_erase()
             }
             else if (results[idx].name == "StableHashMap[Block]+SM64")
             {
-                fat_p::StableHashMap<int64_t, int64_t, SplitMix64Hash, std::equal_to<int64_t>,
-                                     fat_p::BlockAllocator> map;
+                fat_p::StableHashMap<int64_t, int64_t, SplitMix64Hash, std::equal_to<int64_t>, fat_p::BlockAllocator>
+                    map;
                 ns = run_pathological_fatp_api(map, script);
             }
             else if (results[idx].name == "FastHashMap[BS]")
             {
-                fat_p::FastHashMap<int64_t, int64_t, std::hash<int64_t>, std::equal_to<int64_t>, 
-                                   fat_p::BackwardShiftDeletion> map;
+                fat_p::FastHashMap<int64_t,
+                                   int64_t,
+                                   std::hash<int64_t>,
+                                   std::equal_to<int64_t>,
+                                   fat_p::BackwardShiftDeletion>
+                    map;
                 ns = run_pathological_fatp_api(map, script);
             }
             else if (results[idx].name == "FastHashMap[BS]+SplitMix64")
             {
-                fat_p::FastHashMap<int64_t, int64_t, SplitMix64Hash, std::equal_to<int64_t>,
-                                   fat_p::BackwardShiftDeletion> map;
+                fat_p::
+                    FastHashMap<int64_t, int64_t, SplitMix64Hash, std::equal_to<int64_t>, fat_p::BackwardShiftDeletion>
+                        map;
                 ns = run_pathological_fatp_api(map, script);
             }
             else if (results[idx].name == "FastHashMap[TS]")
             {
-                fat_p::FastHashMap<int64_t, int64_t, std::hash<int64_t>, std::equal_to<int64_t>,
-                                   fat_p::TombstoneDeletion> map;
+                fat_p::
+                    FastHashMap<int64_t, int64_t, std::hash<int64_t>, std::equal_to<int64_t>, fat_p::TombstoneDeletion>
+                        map;
                 ns = run_pathological_fatp_api(map, script);
             }
             else if (results[idx].name == "FastHashMap[TS]+SplitMix64")
             {
-                fat_p::FastHashMap<int64_t, int64_t, SplitMix64Hash, std::equal_to<int64_t>,
-                                   fat_p::TombstoneDeletion> map;
+                fat_p::FastHashMap<int64_t, int64_t, SplitMix64Hash, std::equal_to<int64_t>, fat_p::TombstoneDeletion>
+                    map;
                 ns = run_pathological_fatp_api(map, script);
             }
 #if HAS_TSL
@@ -3422,7 +3773,7 @@ void benchmark_pathological_erase()
     {
         auto stats = Statistics::compute(r.samples);
         std::cout << std::setw(28) << r.name << ": " << std::setw(8) << stats.median << " ns/step "
-            << "(+/-" << stats.stddev << ", CI:[" << stats.ci95_low << "," << stats.ci95_high << "])\n";
+                  << "(+/-" << stats.stddev << ", CI:[" << stats.ci95_low << "," << stats.ci95_high << "])\n";
     }
 }
 // ============================================================================
@@ -3436,17 +3787,17 @@ void benchmark_hash_quality(const std::vector<size_t>& /* sizes */)
     std::cout << "FastHashMap and StableHashMap now have a built-in SplitMix64 finalizer\n";
     std::cout << "applied to all hashes by default. This protects against poor hash functions\n";
     std::cout << "like std::hash<int> (identity on many platforms).\n\n";
-    
+
     std::cout << "To compare std::hash vs SplitMix64:\n";
     std::cout << "  - 'FastHashMap[BS]' uses std::hash + built-in mixer\n";
     std::cout << "  - 'FastHashMap[BS]+SplitMix64' uses SplitMix64Hash (no double-mix due to is_avalanching)\n\n";
-    
+
     std::cout << "To opt-out of the built-in mixer for your own hash:\n";
     std::cout << "  struct MyHash {\n";
     std::cout << "      using is_avalanching = void;  // Marker to skip built-in mixer\n";
     std::cout << "      size_t operator()(int64_t x) const { return my_good_hash(x); }\n";
     std::cout << "  };\n\n";
-    
+
     std::cout << "See the Core Operations benchmark above for std::hash vs SplitMix64 comparison.\n";
 }
 
@@ -3466,8 +3817,7 @@ void benchmark_string_heterogeneous(const std::vector<size_t>& sizes)
     constexpr size_t ITERATIONS = 5;
     constexpr size_t FIND_ITERS = 1000000;
 
-    using HeteroMap = fat_p::StableHashMap<std::string, size_t, 
-        TransparentStringHash, TransparentStringEqual>;
+    using HeteroMap = fat_p::StableHashMap<std::string, size_t, TransparentStringHash, TransparentStringEqual>;
 
     bool first_size = true;
     for (size_t n : sizes)
@@ -3477,7 +3827,7 @@ void benchmark_string_heterogeneous(const std::vector<size_t>& sizes)
             cooling_delay(COOLING_DELAY_SIZE_MS, nullptr);
         }
         first_size = false;
-        
+
         print_cpu_context();
         std::cout << "N = " << n << "\n";
         std::cout << std::string(60, '-') << "\n";
@@ -3499,51 +3849,79 @@ void benchmark_string_heterogeneous(const std::vector<size_t>& sizes)
 
             if (iter % 2 == 0)
             {
-                Timer t; t.start();
+                Timer t;
+                t.start();
                 for (size_t i = 0; i < FIND_ITERS; ++i)
                 {
                     std::string_view sv{keys[idx]};
                     auto* v = map.find(sv);
-                    if (v) benchmark_sink += static_cast<size_t>(*v);
+                    if (v)
+                    {
+                        benchmark_sink += static_cast<size_t>(*v);
+                    }
                     idx = (idx + 1) % keys.size();
                 }
-                if (iter >= WARMUP_ITERS) hetero_ns += t.elapsed_ns() / FIND_ITERS;
+                if (iter >= WARMUP_ITERS)
+                {
+                    hetero_ns += t.elapsed_ns() / FIND_ITERS;
+                }
 
                 idx = 0;
-                Timer t2; t2.start();
+                Timer t2;
+                t2.start();
                 for (size_t i = 0; i < FIND_ITERS; ++i)
                 {
                     std::string_view sv{keys[idx]};
                     std::string temp{sv};
                     auto* v = map.find(temp);
-                    if (v) benchmark_sink += static_cast<size_t>(*v);
+                    if (v)
+                    {
+                        benchmark_sink += static_cast<size_t>(*v);
+                    }
                     idx = (idx + 1) % keys.size();
                 }
-                if (iter >= WARMUP_ITERS) temp_ns += t2.elapsed_ns() / FIND_ITERS;
+                if (iter >= WARMUP_ITERS)
+                {
+                    temp_ns += t2.elapsed_ns() / FIND_ITERS;
+                }
             }
             else
             {
-                Timer t2; t2.start();
+                Timer t2;
+                t2.start();
                 for (size_t i = 0; i < FIND_ITERS; ++i)
                 {
                     std::string_view sv{keys[idx]};
                     std::string temp{sv};
                     auto* v = map.find(temp);
-                    if (v) benchmark_sink += static_cast<size_t>(*v);
+                    if (v)
+                    {
+                        benchmark_sink += static_cast<size_t>(*v);
+                    }
                     idx = (idx + 1) % keys.size();
                 }
-                if (iter >= WARMUP_ITERS) temp_ns += t2.elapsed_ns() / FIND_ITERS;
+                if (iter >= WARMUP_ITERS)
+                {
+                    temp_ns += t2.elapsed_ns() / FIND_ITERS;
+                }
 
                 idx = 0;
-                Timer t; t.start();
+                Timer t;
+                t.start();
                 for (size_t i = 0; i < FIND_ITERS; ++i)
                 {
                     std::string_view sv{keys[idx]};
                     auto* v = map.find(sv);
-                    if (v) benchmark_sink += static_cast<size_t>(*v);
+                    if (v)
+                    {
+                        benchmark_sink += static_cast<size_t>(*v);
+                    }
                     idx = (idx + 1) % keys.size();
                 }
-                if (iter >= WARMUP_ITERS) hetero_ns += t.elapsed_ns() / FIND_ITERS;
+                if (iter >= WARMUP_ITERS)
+                {
+                    hetero_ns += t.elapsed_ns() / FIND_ITERS;
+                }
             }
         }
         hetero_ns /= ITERATIONS;
@@ -3566,7 +3944,7 @@ void benchmark_string_heterogeneous(const std::vector<size_t>& sizes)
 // [REMOVED] This test was designed for the old StableHashMap with configurable
 // load factors. The new node-based StableHashMap doesn't use this API.
 
-#if 0  // Load factor sensitivity test disabled
+#if 0 // Load factor sensitivity test disabled
 void benchmark_load_factor_sensitivity()
 {
     print_header("LOAD FACTOR SENSITIVITY");
@@ -3673,7 +4051,8 @@ void benchmark_load_factor_sensitivity()
 
 int main(int argc, char* argv[])
 {
-    (void)argc; (void)argv;
+    (void)argc;
+    (void)argv;
 
     std::cout << "================================================================================\n";
     std::cout << "  StableHashMap Comprehensive Benchmark Suite (Round-Robin Architecture)\n";
@@ -3721,17 +4100,18 @@ int main(int argc, char* argv[])
     std::cout << "  4. All libraries observe same distribution of machine states\n";
     std::cout << "  5. Medians are the primary reported statistic\n";
     std::cout << "  6. Waits for CPU frequency to stabilize before each test\n\n";
-    
+
     std::cout << "Cooling delays (min sleep): section=" << COOLING_DELAY_SECTION_MS << "ms, "
               << "size=" << COOLING_DELAY_SIZE_MS << "ms, "
               << "case=" << COOLING_DELAY_CASE_MS << "ms\n";
     std::cout << "Stability detection: frequency variance < 10% AND >= 60% of base (under load)\n\n";
-    
+
     // Wait for initial CPU stability
     std::cout << "Checking initial CPU state...\n";
     print_cpu_context("Initial");
     std::cout << "Waiting for CPU to stabilize before benchmarks...\n";
-    if (!wait_for_cpu_stable(10.0, 30, 200, true)) {
+    if (!wait_for_cpu_stable(10.0, 30, 200, true))
+    {
         std::cout << "WARNING: CPU frequency still fluctuating, results may have higher variance.\n";
     }
     std::cout << "\n";
@@ -3757,16 +4137,16 @@ int main(int argc, char* argv[])
 
     cooling_delay(COOLING_DELAY_SECTION_MS, "before miss diagnostics");
     benchmark_miss_diagnostics(core_sizes);
-    
+
     cooling_delay(COOLING_DELAY_SECTION_MS, "before pathological erase");
     benchmark_pathological_erase();
-    
+
     cooling_delay(COOLING_DELAY_SECTION_MS, "before hash quality");
     benchmark_hash_quality(hash_sizes);
-    
+
     cooling_delay(COOLING_DELAY_SECTION_MS, "before string heterogeneous");
     benchmark_string_heterogeneous(string_sizes);
-    
+
     cooling_delay(COOLING_DELAY_SECTION_MS, "before load factor sensitivity");
     // Load factor sensitivity test removed - not applicable to new node-based StableHashMap
     // benchmark_load_factor_sensitivity();

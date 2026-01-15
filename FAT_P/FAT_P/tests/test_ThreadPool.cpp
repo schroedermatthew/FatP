@@ -67,11 +67,9 @@ FATP_TEST_CASE(basic_submission)
 
     for (int i = 0; i < 100; ++i)
     {
-        (void)pool.submit(
-            [&counter]()
-            {
-                counter.fetch_add(1, std::memory_order_relaxed);
-            });
+        (void)pool.submit([&counter]() {
+            counter.fetch_add(1, std::memory_order_relaxed);
+        });
     }
 
     pool.wait_idle();
@@ -87,19 +85,14 @@ FATP_TEST_CASE(future_returns)
 {
     ThreadPool pool(2);
 
-    auto future1 = pool.submit(
-        []()
-        {
-            return 42;
-        });
-    auto future2 = pool.submit(
-        []()
-        {
-            return std::string("hello");
-        });
+    auto future1 = pool.submit([]() {
+        return 42;
+    });
+    auto future2 = pool.submit([]() {
+        return std::string("hello");
+    });
     auto future3 = pool.submit(
-        [](int a, int b)
-        {
+        [](int a, int b) {
             return a + b;
         },
         10,
@@ -119,11 +112,9 @@ FATP_TEST_CASE(exception_handling)
 {
     ThreadPool pool(2);
 
-    auto future = pool.submit(
-        []() -> int
-        {
-            throw std::runtime_error("Test exception");
-        });
+    auto future = pool.submit([]() -> int {
+        throw std::runtime_error("Test exception");
+    });
 
     bool caught = false;
     try
@@ -139,11 +130,9 @@ FATP_TEST_CASE(exception_handling)
     FATP_ASSERT_TRUE(caught, "Exception should propagate through future.get()");
 
     // Pool should remain healthy after exception
-    auto recovery_future = pool.submit(
-        []()
-        {
-            return 123;
-        });
+    auto recovery_future = pool.submit([]() {
+        return 123;
+    });
     FATP_ASSERT_EQ(recovery_future.get(), 123, "Pool should recover from exception");
 
     return true;
@@ -162,14 +151,12 @@ FATP_TEST_CASE(priority_scheduling)
     std::atomic<bool> release_blocker{false};
 
     // 1. Submit a blocking task to hold the worker (Critical to go to global queue first)
-    (void)pool.submit_priority(Priority::Critical,
-                               [&release_blocker]()
-                               {
-                                   while (!release_blocker.load(std::memory_order_acquire))
-                                   {
-                                       std::this_thread::yield();
-                                   }
-                               });
+    (void)pool.submit_priority(Priority::Critical, [&release_blocker]() {
+        while (!release_blocker.load(std::memory_order_acquire))
+        {
+            std::this_thread::yield();
+        }
+    });
 
     // Small delay to ensure blocker is picked up
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -177,26 +164,20 @@ FATP_TEST_CASE(priority_scheduling)
     // 2. Queue tasks with different priorities - ALL High+ to go to global queue
     //    Note: Normal/Low go to local queues (different scheduling path)
     //    This test verifies priority ordering within the global queue only
-    (void)pool.submit_priority(Priority::High,
-                               [&results, &results_mutex]()
-                               {
-                                   std::lock_guard<std::mutex> lock(results_mutex);
-                                   results.push_back(100); // High priority
-                               });
+    (void)pool.submit_priority(Priority::High, [&results, &results_mutex]() {
+        std::lock_guard<std::mutex> lock(results_mutex);
+        results.push_back(100); // High priority
+    });
 
-    (void)pool.submit_priority(Priority::Critical,
-                               [&results, &results_mutex]()
-                               {
-                                   std::lock_guard<std::mutex> lock(results_mutex);
-                                   results.push_back(200); // Critical priority
-                               });
+    (void)pool.submit_priority(Priority::Critical, [&results, &results_mutex]() {
+        std::lock_guard<std::mutex> lock(results_mutex);
+        results.push_back(200); // Critical priority
+    });
 
-    (void)pool.submit_priority(Priority::High,
-                               [&results, &results_mutex]()
-                               {
-                                   std::lock_guard<std::mutex> lock(results_mutex);
-                                   results.push_back(101); // High priority (submitted after 100)
-                               });
+    (void)pool.submit_priority(Priority::High, [&results, &results_mutex]() {
+        std::lock_guard<std::mutex> lock(results_mutex);
+        results.push_back(101); // High priority (submitted after 100)
+    });
 
     // 3. Release the blocker
     release_blocker.store(true, std::memory_order_release);
@@ -225,11 +206,9 @@ FATP_TEST_CASE(batch_submission)
 
     for (int i = 0; i < 100; ++i)
     {
-        tasks.emplace_back(
-            [&counter]()
-            {
-                counter.fetch_add(1, std::memory_order_relaxed);
-            });
+        tasks.emplace_back([&counter]() {
+            counter.fetch_add(1, std::memory_order_relaxed);
+        });
     }
 
     pool.submit_batch(tasks);
@@ -251,11 +230,9 @@ FATP_TEST_CASE(stress_many_tasks)
 
     for (int i = 0; i < NUM_TASKS; ++i)
     {
-        (void)pool.submit(
-            [&sum, i]()
-            {
-                sum.fetch_add(static_cast<uint64_t>(i), std::memory_order_relaxed);
-            });
+        (void)pool.submit([&sum, i]() {
+            sum.fetch_add(static_cast<uint64_t>(i), std::memory_order_relaxed);
+        });
     }
 
     pool.wait_idle();
@@ -277,12 +254,10 @@ FATP_TEST_CASE(work_stealing)
     // Submit many tasks that take some time
     for (int i = 0; i < 100; ++i)
     {
-        (void)pool.submit(
-            [&counter]()
-            {
-                std::this_thread::sleep_for(std::chrono::microseconds(100));
-                counter.fetch_add(1, std::memory_order_relaxed);
-            });
+        (void)pool.submit([&counter]() {
+            std::this_thread::sleep_for(std::chrono::microseconds(100));
+            counter.fetch_add(1, std::memory_order_relaxed);
+        });
     }
 
     pool.wait_idle();
@@ -305,12 +280,10 @@ FATP_TEST_CASE(shutdown_behavior)
         // Submit tasks that take some time
         for (int i = 0; i < 20; ++i)
         {
-            (void)pool.submit(
-                [&completed]()
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
-                    completed.fetch_add(1, std::memory_order_relaxed);
-                });
+            (void)pool.submit([&completed]() {
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                completed.fetch_add(1, std::memory_order_relaxed);
+            });
         }
 
         // Destructor calls shutdown(), which should wait for all tasks
@@ -333,11 +306,9 @@ FATP_TEST_CASE(spin_configuration)
 
         for (int i = 0; i < 50; ++i)
         {
-            (void)pool_nospin.submit(
-                [&counter]()
-                {
-                    counter.fetch_add(1, std::memory_order_relaxed);
-                });
+            (void)pool_nospin.submit([&counter]() {
+                counter.fetch_add(1, std::memory_order_relaxed);
+            });
         }
 
         pool_nospin.wait_idle();
@@ -351,11 +322,9 @@ FATP_TEST_CASE(spin_configuration)
 
         for (int i = 0; i < 50; ++i)
         {
-            (void)pool_spin.submit(
-                [&counter]()
-                {
-                    counter.fetch_add(1, std::memory_order_relaxed);
-                });
+            (void)pool_spin.submit([&counter]() {
+                counter.fetch_add(1, std::memory_order_relaxed);
+            });
         }
 
         pool_spin.wait_idle();
@@ -393,14 +362,12 @@ FATP_TEST_CASE(task_counters)
     FATP_ASSERT_EQ(pool.active_tasks(), 0, "Initially no active tasks");
 
     // Submit blocking task
-    (void)pool.submit(
-        [&release]()
+    (void)pool.submit([&release]() {
+        while (!release.load(std::memory_order_acquire))
         {
-            while (!release.load(std::memory_order_acquire))
-            {
-                std::this_thread::yield();
-            }
-        });
+            std::this_thread::yield();
+        }
+    });
 
     // Give task time to start
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -411,11 +378,9 @@ FATP_TEST_CASE(task_counters)
     // Submit more tasks that will be pending
     for (int i = 0; i < 10; ++i)
     {
-        (void)pool.submit(
-            []()
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            });
+        (void)pool.submit([]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        });
     }
 
     FATP_ASSERT_GE(pool.pending_tasks(), 1, "Should have pending tasks");
@@ -445,11 +410,9 @@ FATP_TEST_CASE(wait_idle_stress)
     for (int i = 0; i < iterations; ++i)
     {
         // Submit a single task
-        (void)pool.submit(
-            [&completed]()
-            {
-                completed.fetch_add(1, std::memory_order_relaxed);
-            });
+        (void)pool.submit([&completed]() {
+            completed.fetch_add(1, std::memory_order_relaxed);
+        });
 
         // Immediately wait for idle - this should never return early
         pool.wait_idle();
@@ -481,13 +444,10 @@ void benchmark_thread_pool()
         std::atomic<int> dummy{0};
 
         double submit_time = measure_perf(
-            [&]()
-            {
-                (void)pool.submit(
-                    [&dummy]()
-                    {
-                        dummy.fetch_add(1, std::memory_order_relaxed);
-                    });
+            [&]() {
+                (void)pool.submit([&dummy]() {
+                    dummy.fetch_add(1, std::memory_order_relaxed);
+                });
             },
             1000,
             10);
@@ -507,11 +467,9 @@ void benchmark_thread_pool()
 
         for (int i = 0; i < NUM_TASKS; ++i)
         {
-            (void)pool.submit(
-                [&counter]()
-                {
-                    counter.fetch_add(1, std::memory_order_relaxed);
-                });
+            (void)pool.submit([&counter]() {
+                counter.fetch_add(1, std::memory_order_relaxed);
+            });
         }
 
         pool.wait_idle();
@@ -527,8 +485,7 @@ void benchmark_thread_pool()
     // Benchmark 3: Latency comparison with different spin durations
     std::cout << "\n" << colors::yellow() << "  Task Latency by Spin Duration:" << colors::reset() << "\n";
 
-    auto latency_test = [](size_t spin_us, const char* label)
-    {
+    auto latency_test = [](size_t spin_us, const char* label) {
         ThreadPool pool(4, spin_us);
         constexpr int NUM_TRIALS = 1000;
         std::vector<double> latencies;
@@ -538,11 +495,9 @@ void benchmark_thread_pool()
         {
             auto start = std::chrono::high_resolution_clock::now();
 
-            auto future = pool.submit(
-                []()
-                {
-                    return 42;
-                });
+            auto future = pool.submit([]() {
+                return 42;
+            });
             future.get();
 
             auto end = std::chrono::high_resolution_clock::now();

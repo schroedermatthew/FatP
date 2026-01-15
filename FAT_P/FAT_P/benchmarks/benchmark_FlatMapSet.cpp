@@ -2409,8 +2409,7 @@ void benchmark_pathological_insert()
             results.push_back({adapter->name(), {}});
         }
 
-        auto run_one = [&](bool record_samples)
-        {
+        auto run_one = [&](bool record_samples) {
             // Randomize order each run
             std::vector<size_t> order(adapters.size());
             std::iota(order.begin(), order.end(), 0);

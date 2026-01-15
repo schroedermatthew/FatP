@@ -61,7 +61,8 @@ FATP_META:
 #include <type_traits>
 #include <utility>
 
-namespace fat_p {
+namespace fat_p
+{
 
 /**
  * @brief Standard new/delete allocator with per-object heap allocation.
@@ -86,7 +87,7 @@ namespace fat_p {
  * alloc.deallocate(p);                      // Destroys and frees
  * @endcode
  */
-template<typename T>
+template <typename T>
 class NewDeleteAllocator
 {
     static constexpr bool kIsOveraligned = alignof(T) > alignof(std::max_align_t);
@@ -109,7 +110,7 @@ public:
      * @throws std::bad_alloc if allocation fails.
      * @throws Any exception thrown by T's constructor.
      */
-    template<typename... Args>
+    template <typename... Args>
     T* allocate(Args&&... args)
     {
         if constexpr (kIsOveraligned)
@@ -178,10 +179,10 @@ public:
  * alloc.deallocate(p);
  * @endcode
  */
-template<typename T>
+template <typename T>
 class BlockAllocator
 {
-    static constexpr size_t kBlockSize = 256;  // Objects per block
+    static constexpr size_t kBlockSize = 256; // Objects per block
 
     struct FreeNode
     {
@@ -189,8 +190,7 @@ class BlockAllocator
     };
 
     // T must be at least as large as a pointer for free list to work
-    static_assert(sizeof(T) >= sizeof(FreeNode*),
-        "BlockAllocator<T>: T is too small (must be at least pointer-sized)");
+    static_assert(sizeof(T) >= sizeof(FreeNode*), "BlockAllocator<T>: T is too small (must be at least pointer-sized)");
 
     struct Block
     {
@@ -200,7 +200,7 @@ class BlockAllocator
 
     Block* mHeadBlock = nullptr;
     FreeNode* mFreeList = nullptr;
-    size_t mCurrentOffset = kBlockSize;  // Forces new block on first alloc
+    size_t mCurrentOffset = kBlockSize; // Forces new block on first alloc
 
 public:
     BlockAllocator() = default;
@@ -258,7 +258,7 @@ public:
      * @throws std::bad_alloc if block allocation fails.
      * @throws Any exception thrown by T's constructor.
      */
-    template<typename... Args>
+    template <typename... Args>
     T* allocate(Args&&... args)
     {
         T* ptr = allocateRaw();
@@ -302,8 +302,7 @@ private:
             mCurrentOffset = 0;
         }
 
-        T* ptr = reinterpret_cast<T*>(
-            mHeadBlock->data + mCurrentOffset * sizeof(T));
+        T* ptr = reinterpret_cast<T*>(mHeadBlock->data + mCurrentOffset * sizeof(T));
         ++mCurrentOffset;
         return ptr;
     }
@@ -353,7 +352,7 @@ private:
  * bool isFull = alloc.full();
  * @endcode
  */
-template<size_t MaxObjects>
+template <size_t MaxObjects>
 struct PoolAllocator
 {
     /**
@@ -362,7 +361,7 @@ struct PoolAllocator
      * @tparam T Element type to allocate. Must be trivially copyable and
      *         at least sizeof(void*).
      */
-    template<typename T>
+    template <typename T>
     class Allocator
     {
         struct FreeNode
@@ -372,13 +371,13 @@ struct PoolAllocator
 
         // T must be at least as large as a pointer for free list to work
         static_assert(sizeof(T) >= sizeof(FreeNode*),
-            "PoolAllocator<T>: T is too small (must be at least pointer-sized)");
+                      "PoolAllocator<T>: T is too small (must be at least pointer-sized)");
 
         // Move operations use memcpy, which requires trivially copyable T
         // If you need non-trivial types, use NewDeleteAllocator or BlockAllocator
         static_assert(std::is_trivially_copyable_v<T> || MaxObjects == 0,
-            "PoolAllocator<T>: T must be trivially copyable for move operations. "
-            "Use NewDeleteAllocator or BlockAllocator for non-trivial types.");
+                      "PoolAllocator<T>: T must be trivially copyable for move operations. "
+                      "Use NewDeleteAllocator or BlockAllocator for non-trivial types.");
 
         alignas(alignof(T)) char mStorage[MaxObjects * sizeof(T)];
         FreeNode* mFreeList = nullptr;
@@ -394,8 +393,7 @@ struct PoolAllocator
             // Build free list in reverse (LIFO order)
             for (size_t i = MaxObjects; i > 0; --i)
             {
-                FreeNode* fn = reinterpret_cast<FreeNode*>(
-                    mStorage + (i - 1) * sizeof(T));
+                FreeNode* fn = reinterpret_cast<FreeNode*>(mStorage + (i - 1) * sizeof(T));
                 fn->next = mFreeList;
                 mFreeList = fn;
             }
@@ -489,13 +487,13 @@ struct PoolAllocator
          * @throws std::bad_alloc if pool is exhausted.
          * @throws Any exception thrown by T's constructor.
          */
-        template<typename... Args>
+        template <typename... Args>
         T* allocate(Args&&... args)
         {
             initialize();
             if (!mFreeList)
             {
-                throw std::bad_alloc();  // Pool exhausted
+                throw std::bad_alloc(); // Pool exhausted
             }
             FreeNode* fn = mFreeList;
             mFreeList = fn->next;
@@ -523,16 +521,28 @@ struct PoolAllocator
         }
 
         /// @brief Returns the maximum number of objects the pool can hold.
-        [[nodiscard]] static constexpr size_t capacity() { return MaxObjects; }
+        [[nodiscard]] static constexpr size_t capacity()
+        {
+            return MaxObjects;
+        }
 
         /// @brief Returns the number of currently allocated objects.
-        [[nodiscard]] size_t allocated() const { return mAllocated; }
+        [[nodiscard]] size_t allocated() const
+        {
+            return mAllocated;
+        }
 
         /// @brief Returns the number of available slots in the pool.
-        [[nodiscard]] size_t available() const { return MaxObjects - mAllocated; }
+        [[nodiscard]] size_t available() const
+        {
+            return MaxObjects - mAllocated;
+        }
 
         /// @brief Returns true if the pool is fully allocated.
-        [[nodiscard]] bool full() const { return mAllocated >= MaxObjects; }
+        [[nodiscard]] bool full() const
+        {
+            return mAllocated >= MaxObjects;
+        }
     };
 };
 

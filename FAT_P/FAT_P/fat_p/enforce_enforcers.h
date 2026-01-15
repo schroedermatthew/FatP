@@ -3,7 +3,7 @@
  * @brief Defines the core RAII object used by all contract enforcement
  * macros, specializing on the chosen Raiser policy for failure handling.
  *
- * 
+ *
  *
  * @layer Foundation
  *
@@ -46,8 +46,8 @@ FATP_META:
 #include <utility>
 
 #include "ContractException.h"
-#include "Stringify.h"
 #include "enforce_raisers.h"
+#include "Stringify.h"
 
 // ==================================================================================
 // Portable Compiler Attributes
@@ -57,12 +57,13 @@ FATP_META:
 
 // FATP_UNLIKELY_COND: Branch hint (C++20 [[unlikely]] where available, otherwise no-op)
 #if FATP_HAS_EXPECTED || FATP_CPP20_OR_LATER
-    #define FATP_UNLIKELY_IF(cond) if (cond) [[unlikely]]
+#define FATP_UNLIKELY_IF(cond) if (cond) [[unlikely]]
 #else
-    #define FATP_UNLIKELY_IF(cond) if (cond)
+#define FATP_UNLIKELY_IF(cond) if (cond)
 #endif
 
-namespace fat_p {
+namespace fat_p
+{
 
 /**
  * @brief Utility struct for building the final diagnostic message string.
@@ -129,12 +130,12 @@ inline constexpr bool is_expected_raiser_v = is_expected_raiser<T>::value;
  *
  * @details The destructor is guaranteed to run, checking the condition
  * result and invoking the Raiser policy on failure.
- * 
+ *
  * CRITICAL: This class is designed for ZERO overhead when the condition passes.
  * All members are trivially destructible (pointers/bool only). The expensive
  * operations (string building, ostringstream, exception throwing) only happen
  * in the failure path, which is marked cold.
- * 
+ *
  * @tparam Raiser The failure consequence policy (e.g., throw, log, abort).
  */
 template <typename Raiser>
@@ -143,7 +144,7 @@ class Enforcer
     const bool mPassed;
     const char* const mLocus;
     const char* const mExpression;
-    const char* user_message_ = nullptr;  // Points to static string or nullptr - NO allocation
+    const char* user_message_ = nullptr; // Points to static string or nullptr - NO allocation
 
 public:
     /**
@@ -165,8 +166,7 @@ public:
      * @details Calls `Raiser::fail` if the condition was false. The failure
      * path is marked cold to help the optimizer keep the hot path tight.
      */
-    ~Enforcer() noexcept(std::is_same_v<Raiser, NoThrowRaiser> ||
-                         std::is_same_v<Raiser, WarningToCerrRaiser> ||
+    ~Enforcer() noexcept(std::is_same_v<Raiser, NoThrowRaiser> || std::is_same_v<Raiser, WarningToCerrRaiser> ||
                          std::is_same_v<Raiser, NoOpRaiser>)
     {
         FATP_UNLIKELY_IF(!mPassed)
@@ -178,7 +178,7 @@ public:
 private:
     /**
      * @brief Cold path - only called on failure
-     * 
+     *
      * Marked noinline to prevent the exception handling machinery from
      * polluting the hot path where the condition passes.
      */
@@ -189,13 +189,13 @@ private:
         full_message += mExpression;
         full_message += "\n\tLocus: ";
         full_message += mLocus;
-        if (user_message_) {
+        if (user_message_)
+        {
             full_message += "\n\tMessage: ";
             full_message += user_message_;
         }
-        
-        if constexpr (std::is_same_v<Raiser, NoThrowRaiser> ||
-                      std::is_same_v<Raiser, WarningToCerrRaiser> ||
+
+        if constexpr (std::is_same_v<Raiser, NoThrowRaiser> || std::is_same_v<Raiser, WarningToCerrRaiser> ||
                       std::is_same_v<Raiser, NoOpRaiser>)
         {
             Raiser::fail(full_message);
@@ -217,10 +217,10 @@ public:
             user_message_ = msg;
         }
     }
-    
+
     /**
      * @brief Set diagnostic message (variadic version for complex messages).
-     * 
+     *
      * Uses ostringstream to format multiple arguments. Only called on failure.
      */
     template <typename... Msgs>
@@ -262,8 +262,7 @@ public:
     /**
      * @brief Zero-overhead constructor.
      */
-    NoOpEnforcer(bool /* passed */, const char* /* expression_str */, const char* /* locus */)
-        noexcept
+    NoOpEnforcer(bool /* passed */, const char* /* expression_str */, const char* /* locus */) noexcept
     {
     }
 

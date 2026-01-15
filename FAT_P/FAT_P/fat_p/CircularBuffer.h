@@ -43,9 +43,11 @@ FATP_META:
 
 #include "FatPTypeTraits.h"
 
-namespace fat_p {
+namespace fat_p
+{
 
-namespace detail {
+namespace detail
+{
 
 // Cache line size for false sharing prevention
 // C++17 provides std::hardware_destructive_interference_size but:
@@ -127,8 +129,7 @@ template <typename T, size_t Capacity>
 class CircularBuffer
 {
     static_assert(Capacity > 0, "Capacity must be greater than 0");
-    static_assert(std::is_nothrow_move_constructible_v<T> ||
-                  std::is_nothrow_copy_constructible_v<T>,
+    static_assert(std::is_nothrow_move_constructible_v<T> || std::is_nothrow_copy_constructible_v<T>,
                   "T must be nothrow move or copy constructible for exception safety");
     static_assert(std::atomic<size_t>::is_always_lock_free,
                   "std::atomic<size_t> must be lock-free for wait-free guarantees");
@@ -148,10 +149,8 @@ private:
     static constexpr size_t INDEX_MASK = BUFFER_SIZE - 1;
 
     // Verify our power-of-2 logic at compile time
-    static_assert(detail::is_power_of_two(BUFFER_SIZE),
-                  "Internal error: BUFFER_SIZE must be power of 2");
-    static_assert(BUFFER_SIZE > Capacity,
-                  "Internal error: BUFFER_SIZE must be greater than Capacity");
+    static_assert(detail::is_power_of_two(BUFFER_SIZE), "Internal error: BUFFER_SIZE must be power of 2");
+    static_assert(BUFFER_SIZE > Capacity, "Internal error: BUFFER_SIZE must be greater than Capacity");
 
     // Core indices - each on its own cache line to prevent false sharing
     alignas(CACHE_LINE_SIZE) std::atomic<size_t> read_idx_{0};
@@ -161,8 +160,8 @@ private:
     // Producer caches consumer's read_idx to avoid cross-core atomic loads
     // Consumer caches producer's write_idx to avoid cross-core atomic loads
     // These are NOT atomic - only accessed by their respective threads
-    alignas(CACHE_LINE_SIZE) mutable size_t cached_read_idx_{0};   // Producer's cache of read_idx
-    alignas(CACHE_LINE_SIZE) mutable size_t cached_write_idx_{0};  // Consumer's cache of write_idx
+    alignas(CACHE_LINE_SIZE) mutable size_t cached_read_idx_{0};  // Producer's cache of read_idx
+    alignas(CACHE_LINE_SIZE) mutable size_t cached_write_idx_{0}; // Consumer's cache of write_idx
 
     alignas(CACHE_LINE_SIZE) std::unique_ptr<T[]> mBuffer;
 
@@ -228,7 +227,7 @@ public:
             cached_read_idx_ = read_idx_.load(std::memory_order_acquire);
             if (index_distance(write, cached_read_idx_) >= Capacity)
             {
-                return false;  // Actually full
+                return false; // Actually full
             }
         }
 
@@ -257,7 +256,7 @@ public:
             cached_read_idx_ = read_idx_.load(std::memory_order_acquire);
             if (index_distance(write, cached_read_idx_) >= Capacity)
             {
-                return false;  // Actually full
+                return false; // Actually full
             }
         }
 
@@ -287,7 +286,7 @@ public:
             cached_read_idx_ = read_idx_.load(std::memory_order_acquire);
             if (index_distance(write, cached_read_idx_) >= Capacity)
             {
-                return false;  // Actually full
+                return false; // Actually full
             }
         }
 
@@ -316,7 +315,7 @@ public:
             cached_write_idx_ = write_idx_.load(std::memory_order_acquire);
             if (read == cached_write_idx_)
             {
-                return false;  // Actually empty
+                return false; // Actually empty
             }
         }
 
@@ -372,8 +371,7 @@ public:
      */
     [[nodiscard]] bool empty() const noexcept
     {
-        return read_idx_.load(std::memory_order_acquire) ==
-               write_idx_.load(std::memory_order_acquire);
+        return read_idx_.load(std::memory_order_acquire) == write_idx_.load(std::memory_order_acquire);
     }
 
     /**
@@ -463,6 +461,8 @@ public:
 
 // Type trait specialization
 template <typename T, size_t N>
-struct is_circular_buffer<CircularBuffer<T, N>> : std::true_type {};
+struct is_circular_buffer<CircularBuffer<T, N>> : std::true_type
+{
+};
 
 } // namespace fat_p

@@ -436,8 +436,7 @@ void run_hpc_vector_benchmarks()
     // std::vector allocation
     benchmark(
         "std::vector<float> alloc",
-        [&]()
-        {
+        [&]() {
             std::vector<float> v(N);
             DoNotOptimize(v.data());
         },
@@ -446,8 +445,7 @@ void run_hpc_vector_benchmarks()
     // HpcVector allocation
     benchmark(
         "HpcVector<float> alloc",
-        [&]()
-        {
+        [&]() {
             HpcVector<float> v(N);
             DoNotOptimize(v.data());
         },
@@ -460,8 +458,7 @@ void run_hpc_vector_benchmarks()
 
     benchmark(
         "std::vector write",
-        [&]()
-        {
+        [&]() {
             for (size_t i = 0; i < N; ++i)
             {
                 std_v[i] = static_cast<float>(i);
@@ -472,8 +469,7 @@ void run_hpc_vector_benchmarks()
 
     benchmark(
         "HpcVector write",
-        [&]()
-        {
+        [&]() {
             float* ptr = hpc_v.assume_aligned();
             for (size_t i = 0; i < N; ++i)
             {
@@ -496,8 +492,7 @@ void run_hpc_vector_benchmarks()
 
     benchmark(
         "std::vector sum",
-        [&]()
-        {
+        [&]() {
             float sum = 0;
             for (size_t i = 0; i < N; ++i)
             {
@@ -509,8 +504,7 @@ void run_hpc_vector_benchmarks()
 
     benchmark(
         "HpcVector sum (aligned)",
-        [&]()
-        {
+        [&]() {
             float sum = 0;
             const float* ptr = hpc_v.assume_aligned();
             for (size_t i = 0; i < N; ++i)

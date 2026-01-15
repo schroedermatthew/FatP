@@ -47,10 +47,10 @@ FATP_META:
  * @note Requires: Expected.h, enforce.h, HpcVector.h, JsonStreamLite.h
  */
 
-#include "JsonStreamLite.h"
+#include "enforce.h"
 #include "Expected.h"
 #include "HpcVector.h"
-#include "enforce.h"
+#include "JsonStreamLite.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -63,12 +63,12 @@ namespace json_stream_fatp
 {
 
 // Re-export base types
-using json_stream::JsonValue;
+using json_stream::error_to_string;
 using json_stream::JsonArray;
 using json_stream::JsonObject;
-using json_stream::ParseStatus;
+using json_stream::JsonValue;
 using json_stream::ParseError;
-using json_stream::error_to_string;
+using json_stream::ParseStatus;
 
 // =============================================================================
 // Enhanced Error Types
@@ -103,8 +103,7 @@ struct StreamError
     {
     }
 
-    StreamError(ParseError c, std::size_t pos, std::size_t ln, std::size_t col,
-                std::string ctx)
+    StreamError(ParseError c, std::size_t pos, std::size_t ln, std::size_t col, std::string ctx)
         : code(c)
         , byte_position(pos)
         , line(ln)
@@ -238,9 +237,8 @@ struct RelaxedValidationPolicy
 /**
  * @brief Progress callback signature
  */
-using ProgressCallback = std::function<void(std::size_t bytes_consumed,
-                                            std::size_t current_depth,
-                                            std::size_t values_parsed)>;
+using ProgressCallback =
+    std::function<void(std::size_t bytes_consumed, std::size_t current_depth, std::size_t values_parsed)>;
 
 // =============================================================================
 // Enhanced Stream Parser
@@ -252,8 +250,7 @@ using ProgressCallback = std::function<void(std::size_t bytes_consumed,
  * @tparam LimitsPolicy Policy defining parsing limits
  * @tparam ValidationPolicy Policy for validation rules
  */
-template <typename LimitsPolicy = DefaultLimitsPolicy,
-          typename ValidationPolicy = NoValidationPolicy>
+template <typename LimitsPolicy = DefaultLimitsPolicy, typename ValidationPolicy = NoValidationPolicy>
 class FatPJsonStreamParser
 {
 public:
@@ -316,23 +313,16 @@ public:
 
             if (status == ParseStatus::Error)
             {
-                return make_unexpected(StreamError(
-                    mParser.error(),
-                    mParser.stats().bytes_consumed,
-                    mLine,
-                    mColumn));
+                return make_unexpected(StreamError(mParser.error(), mParser.stats().bytes_consumed, mLine, mColumn));
             }
 
             // Progress callback
             if (progress_callback_ && progress_interval_ > 0)
             {
                 std::size_t consumed = mParser.stats().bytes_consumed;
-                if (consumed / progress_interval_ !=
-                    bytes_before / progress_interval_)
+                if (consumed / progress_interval_ != bytes_before / progress_interval_)
                 {
-                    progress_callback_(consumed,
-                                       mParser.stats().current_depth,
-                                       mParser.stats().values_parsed);
+                    progress_callback_(consumed, mParser.stats().current_depth, mParser.stats().values_parsed);
                 }
                 bytes_before = consumed;
             }
@@ -366,12 +356,11 @@ public:
 
         if (*status == ParseStatus::NeedMoreData)
         {
-            return make_unexpected(StreamError(
-                ParseError::UnexpectedEof,
-                mParser.stats().bytes_consumed,
-                mLine,
-                mColumn,
-                "incomplete JSON input"));
+            return make_unexpected(StreamError(ParseError::UnexpectedEof,
+                                               mParser.stats().bytes_consumed,
+                                               mLine,
+                                               mColumn,
+                                               "incomplete JSON input"));
         }
 
         return mParser.take_result();
@@ -385,7 +374,7 @@ public:
     template <std::size_t N>
     StreamResult<JsonValue> parse(const char (&data)[N])
     {
-        return parse(data, N - 1);  // Exclude null terminator
+        return parse(data, N - 1); // Exclude null terminator
     }
 
     template <typename Container,
@@ -487,26 +476,22 @@ private:
 /**
  * @brief Default streaming parser
  */
-using DefaultJsonStreamParser =
-    FatPJsonStreamParser<DefaultLimitsPolicy, NoValidationPolicy>;
+using DefaultJsonStreamParser = FatPJsonStreamParser<DefaultLimitsPolicy, NoValidationPolicy>;
 
 /**
  * @brief Strict parser for untrusted input
  */
-using StrictJsonStreamParser =
-    FatPJsonStreamParser<StrictLimitsPolicy, StrictValidationPolicy>;
+using StrictJsonStreamParser = FatPJsonStreamParser<StrictLimitsPolicy, StrictValidationPolicy>;
 
 /**
  * @brief Relaxed parser for trusted input
  */
-using RelaxedJsonStreamParser =
-    FatPJsonStreamParser<RelaxedLimitsPolicy, RelaxedValidationPolicy>;
+using RelaxedJsonStreamParser = FatPJsonStreamParser<RelaxedLimitsPolicy, RelaxedValidationPolicy>;
 
 /**
  * @brief Parser with runtime-configurable limits
  */
-using ConfigurableJsonStreamParser =
-    FatPJsonStreamParser<RuntimeLimitsPolicy, NoValidationPolicy>;
+using ConfigurableJsonStreamParser = FatPJsonStreamParser<RuntimeLimitsPolicy, NoValidationPolicy>;
 
 // =============================================================================
 // Convenience Functions
@@ -515,8 +500,7 @@ using ConfigurableJsonStreamParser =
 /**
  * @brief Parse JSON with default settings
  */
-inline StreamResult<JsonValue> stream_parse_json(const char* data,
-                                                  std::size_t size)
+inline StreamResult<JsonValue> stream_parse_json(const char* data, std::size_t size)
 {
     DefaultJsonStreamParser parser;
     return parser.parse(data, size);
@@ -536,8 +520,7 @@ inline StreamResult<JsonValue> stream_parse_json(const char (&data)[N])
 /**
  * @brief Parse JSON with strict validation (for untrusted input)
  */
-inline StreamResult<JsonValue> stream_parse_json_strict(const char* data,
-                                                         std::size_t size)
+inline StreamResult<JsonValue> stream_parse_json_strict(const char* data, std::size_t size)
 {
     StrictJsonStreamParser parser;
     return parser.parse(data, size);
@@ -551,18 +534,14 @@ inline StreamResult<JsonValue> stream_parse_json_strict(const std::string& data)
 /**
  * @brief Parse JSON with custom limits
  */
-inline StreamResult<JsonValue> stream_parse_json_limited(
-    const char* data,
-    std::size_t size,
-    const RuntimeLimitsPolicy& limits)
+inline StreamResult<JsonValue>
+stream_parse_json_limited(const char* data, std::size_t size, const RuntimeLimitsPolicy& limits)
 {
     ConfigurableJsonStreamParser parser(limits);
     return parser.parse(data, size);
 }
 
-inline StreamResult<JsonValue> stream_parse_json_limited(
-    const std::string& data,
-    const RuntimeLimitsPolicy& limits)
+inline StreamResult<JsonValue> stream_parse_json_limited(const std::string& data, const RuntimeLimitsPolicy& limits)
 {
     return stream_parse_json_limited(data.data(), data.size(), limits);
 }
@@ -576,28 +555,28 @@ namespace jsf = json_stream_fatp;
 /**
  * @brief Macro to bring FatPJsonStream types into local scope
  */
-#define USING_FATP_JSON_STREAM()                                              \
-    using fat_p::json_stream_fatp::StreamError;                               \
-    using fat_p::json_stream_fatp::StreamResult;                              \
-    using fat_p::json_stream_fatp::FatPJsonStreamParser;                      \
-    using fat_p::json_stream_fatp::DefaultJsonStreamParser;                   \
-    using fat_p::json_stream_fatp::StrictJsonStreamParser;                    \
-    using fat_p::json_stream_fatp::RelaxedJsonStreamParser;                   \
-    using fat_p::json_stream_fatp::ConfigurableJsonStreamParser;              \
-    using fat_p::json_stream_fatp::DefaultLimitsPolicy;                       \
-    using fat_p::json_stream_fatp::StrictLimitsPolicy;                        \
-    using fat_p::json_stream_fatp::RelaxedLimitsPolicy;                       \
-    using fat_p::json_stream_fatp::RuntimeLimitsPolicy;                       \
-    using fat_p::json_stream_fatp::NoValidationPolicy;                        \
-    using fat_p::json_stream_fatp::StrictValidationPolicy;                    \
-    using fat_p::json_stream_fatp::RelaxedValidationPolicy;                   \
-    using fat_p::json_stream_fatp::stream_parse_json;                         \
-    using fat_p::json_stream_fatp::stream_parse_json_strict;                  \
-    using fat_p::json_stream_fatp::stream_parse_json_limited;                 \
-    using fat_p::json_stream_fatp::JsonValue;                                 \
-    using fat_p::json_stream_fatp::JsonArray;                                 \
-    using fat_p::json_stream_fatp::JsonObject;                                \
-    using fat_p::json_stream_fatp::ParseStatus;                               \
+#define USING_FATP_JSON_STREAM()                                 \
+    using fat_p::json_stream_fatp::StreamError;                  \
+    using fat_p::json_stream_fatp::StreamResult;                 \
+    using fat_p::json_stream_fatp::FatPJsonStreamParser;         \
+    using fat_p::json_stream_fatp::DefaultJsonStreamParser;      \
+    using fat_p::json_stream_fatp::StrictJsonStreamParser;       \
+    using fat_p::json_stream_fatp::RelaxedJsonStreamParser;      \
+    using fat_p::json_stream_fatp::ConfigurableJsonStreamParser; \
+    using fat_p::json_stream_fatp::DefaultLimitsPolicy;          \
+    using fat_p::json_stream_fatp::StrictLimitsPolicy;           \
+    using fat_p::json_stream_fatp::RelaxedLimitsPolicy;          \
+    using fat_p::json_stream_fatp::RuntimeLimitsPolicy;          \
+    using fat_p::json_stream_fatp::NoValidationPolicy;           \
+    using fat_p::json_stream_fatp::StrictValidationPolicy;       \
+    using fat_p::json_stream_fatp::RelaxedValidationPolicy;      \
+    using fat_p::json_stream_fatp::stream_parse_json;            \
+    using fat_p::json_stream_fatp::stream_parse_json_strict;     \
+    using fat_p::json_stream_fatp::stream_parse_json_limited;    \
+    using fat_p::json_stream_fatp::JsonValue;                    \
+    using fat_p::json_stream_fatp::JsonArray;                    \
+    using fat_p::json_stream_fatp::JsonObject;                   \
+    using fat_p::json_stream_fatp::ParseStatus;                  \
     using fat_p::json_stream_fatp::ParseError
 
 } // namespace fat_p

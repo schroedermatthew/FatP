@@ -1115,8 +1115,7 @@ void benchmark_component()
     constexpr int warmup = 10;
 
     double time_spmv = measure_perf(
-        [&]()
-        {
+        [&]() {
             A.matvec(x.data(), y.data());
             DoNotOptimize(y);
         },
@@ -1127,8 +1126,7 @@ void benchmark_component()
 
     // Benchmark 2: Parallel SpMV
     double time_spmv_par = measure_perf(
-        [&]()
-        {
+        [&]() {
             A.matvec_parallel(x.data(), y.data());
             DoNotOptimize(y);
         },
@@ -1139,8 +1137,7 @@ void benchmark_component()
 
     // Benchmark 3: Transpose
     double time_transpose = measure_perf(
-        [&]()
-        {
+        [&]() {
             auto AT = A.transpose();
             DoNotOptimize(AT);
         },
@@ -1172,8 +1169,7 @@ void benchmark_component()
     CSRMatrix<double, int> B(M, M, small_rows, small_cols, small_vals);
 
     double time_matmul = measure_perf(
-        [&]()
-        {
+        [&]() {
             auto C = B.matmul(B);
             DoNotOptimize(C);
         },

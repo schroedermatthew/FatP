@@ -71,13 +71,15 @@ FATP_META:
 #include "Expected.h"
 #include "FatPTypeTraits.h"
 
-namespace fat_p {
+namespace fat_p
+{
 
 // =============================================================================
 // Internal Helpers
 // =============================================================================
 
-namespace pipe_detail {
+namespace pipe_detail
+{
 
 template <typename Func, typename... Args>
 using invoke_result_t = std::invoke_result_t<Func, Args...>;
@@ -95,10 +97,14 @@ inline constexpr bool is_nothrow_invocable_v = std::is_nothrow_invocable_v<Func,
  * Other storage policies (UnionStorage, VariantStorage) work with any type.
  */
 template <template <typename, typename> class Storage>
-struct is_trivial_storage : std::false_type {};
+struct is_trivial_storage : std::false_type
+{
+};
 
 template <>
-struct is_trivial_storage<TrivialStorage> : std::true_type {};
+struct is_trivial_storage<TrivialStorage> : std::true_type
+{
+};
 
 template <template <typename, typename> class Storage>
 inline constexpr bool is_trivial_storage_v = is_trivial_storage<Storage>::value;
@@ -135,8 +141,7 @@ template <typename ResultType, typename E, template <typename, typename> class C
 struct SelectResultStorage<ResultType, E, CurrentStorage, true>
 {
     // TrivialStorage requires: trivially copyable AND not void
-    static constexpr bool can_use_trivial =
-        std::is_trivially_copyable_v<ResultType> && !std::is_void_v<ResultType>;
+    static constexpr bool can_use_trivial = std::is_trivially_copyable_v<ResultType> && !std::is_void_v<ResultType>;
 
     using type = std::conditional_t<can_use_trivial,
                                     ExpectedImpl<ResultType, E, TrivialStorage>,
@@ -167,10 +172,8 @@ using select_result_t = typename SelectResultStorage<ResultType, E, CurrentStora
  * `using fat_p::operator|;` or the `pipe()` wrapper function.
  */
 template <typename T, typename Func>
-auto operator|(T&& value, Func&& func)
-    noexcept(pipe_detail::is_nothrow_invocable_v<Func, T>)
-    -> std::enable_if_t<!is_expected_v<std::decay_t<T>>,
-                        pipe_detail::invoke_result_t<Func, T>>
+auto operator|(T&& value, Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func, T>)
+    -> std::enable_if_t<!is_expected_v<std::decay_t<T>>, pipe_detail::invoke_result_t<Func, T>>
 {
     return std::invoke(std::forward<Func>(func), std::forward<T>(value));
 }
@@ -189,17 +192,12 @@ auto operator|(T&& value, Func&& func)
  * - If U is trivially copyable: preserves TrivialStorage
  * - If U is void or non-trivial: falls back to UnionStorage
  */
-template <typename T,
-          typename E,
-          template <typename, typename> class Storage,
-          typename Func>
-auto operator|(ExpectedImpl<T, E, Storage>&& exp, Func&& func)
-    noexcept(pipe_detail::is_nothrow_invocable_v<Func, T&&> &&
-             std::is_nothrow_move_constructible_v<E>)
-    -> std::enable_if_t<
-        !std::is_void_v<T> &&
-            !is_expected_v<std::decay_t<pipe_detail::invoke_result_t<Func, T&&>>>,
-        pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func, T&&>, E, Storage>>
+template <typename T, typename E, template <typename, typename> class Storage, typename Func>
+auto operator|(ExpectedImpl<T, E, Storage>&& exp,
+               Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func, T&&> &&
+                                     std::is_nothrow_move_constructible_v<E>)
+    -> std::enable_if_t<!std::is_void_v<T> && !is_expected_v<std::decay_t<pipe_detail::invoke_result_t<Func, T&&>>>,
+                        pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func, T&&>, E, Storage>>
 {
     using ResultType = pipe_detail::invoke_result_t<Func, T&&>;
     using ReturnType = pipe_detail::select_result_t<ResultType, E, Storage>;
@@ -213,8 +211,7 @@ auto operator|(ExpectedImpl<T, E, Storage>&& exp, Func&& func)
         }
         else
         {
-            return ReturnType(std::in_place,
-                              std::invoke(std::forward<Func>(func), *std::move(exp)));
+            return ReturnType(std::in_place, std::invoke(std::forward<Func>(func), *std::move(exp)));
         }
     }
     return ReturnType(unexpected<E>(std::move(exp.error())));
@@ -229,17 +226,12 @@ auto operator|(ExpectedImpl<T, E, Storage>&& exp, Func&& func)
  * Note: The storage policy of the result is determined by the function's
  * return type, not the input's storage policy.
  */
-template <typename T,
-          typename E,
-          template <typename, typename> class Storage,
-          typename Func>
-auto operator|(ExpectedImpl<T, E, Storage>&& exp, Func&& func)
-    noexcept(pipe_detail::is_nothrow_invocable_v<Func, T&&> &&
-             std::is_nothrow_move_constructible_v<E>)
-    -> std::enable_if_t<
-        !std::is_void_v<T> &&
-            is_expected_v<std::decay_t<pipe_detail::invoke_result_t<Func, T&&>>>,
-        std::decay_t<pipe_detail::invoke_result_t<Func, T&&>>>
+template <typename T, typename E, template <typename, typename> class Storage, typename Func>
+auto operator|(ExpectedImpl<T, E, Storage>&& exp,
+               Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func, T&&> &&
+                                     std::is_nothrow_move_constructible_v<E>)
+    -> std::enable_if_t<!std::is_void_v<T> && is_expected_v<std::decay_t<pipe_detail::invoke_result_t<Func, T&&>>>,
+                        std::decay_t<pipe_detail::invoke_result_t<Func, T&&>>>
 {
     using ReturnType = std::decay_t<pipe_detail::invoke_result_t<Func, T&&>>;
 
@@ -253,17 +245,13 @@ auto operator|(ExpectedImpl<T, E, Storage>&& exp, Func&& func)
 /**
  * @brief Const map: const Expected<T>& | (T -> U) -> Expected<U>
  */
-template <typename T,
-          typename E,
-          template <typename, typename> class Storage,
-          typename Func>
-auto operator|(const ExpectedImpl<T, E, Storage>& exp, Func&& func)
-    noexcept(pipe_detail::is_nothrow_invocable_v<Func, const T&> &&
-             std::is_nothrow_copy_constructible_v<E>)
-    -> std::enable_if_t<
-        !std::is_void_v<T> &&
-            !is_expected_v<std::decay_t<pipe_detail::invoke_result_t<Func, const T&>>>,
-        pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func, const T&>, E, Storage>>
+template <typename T, typename E, template <typename, typename> class Storage, typename Func>
+auto operator|(const ExpectedImpl<T, E, Storage>& exp,
+               Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func, const T&> &&
+                                     std::is_nothrow_copy_constructible_v<E>)
+    -> std::enable_if_t<!std::is_void_v<T> &&
+                            !is_expected_v<std::decay_t<pipe_detail::invoke_result_t<Func, const T&>>>,
+                        pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func, const T&>, E, Storage>>
 {
     using ResultType = pipe_detail::invoke_result_t<Func, const T&>;
     using ReturnType = pipe_detail::select_result_t<ResultType, E, Storage>;
@@ -277,8 +265,7 @@ auto operator|(const ExpectedImpl<T, E, Storage>& exp, Func&& func)
         }
         else
         {
-            return ReturnType(std::in_place,
-                              std::invoke(std::forward<Func>(func), *exp));
+            return ReturnType(std::in_place, std::invoke(std::forward<Func>(func), *exp));
         }
     }
     return ReturnType(unexpected<E>(exp.error()));
@@ -287,17 +274,12 @@ auto operator|(const ExpectedImpl<T, E, Storage>& exp, Func&& func)
 /**
  * @brief Const bind: const Expected<T>& | (T -> Expected<U>) -> Expected<U>
  */
-template <typename T,
-          typename E,
-          template <typename, typename> class Storage,
-          typename Func>
-auto operator|(const ExpectedImpl<T, E, Storage>& exp, Func&& func)
-    noexcept(pipe_detail::is_nothrow_invocable_v<Func, const T&> &&
-             std::is_nothrow_copy_constructible_v<E>)
-    -> std::enable_if_t<
-        !std::is_void_v<T> &&
-            is_expected_v<std::decay_t<pipe_detail::invoke_result_t<Func, const T&>>>,
-        std::decay_t<pipe_detail::invoke_result_t<Func, const T&>>>
+template <typename T, typename E, template <typename, typename> class Storage, typename Func>
+auto operator|(const ExpectedImpl<T, E, Storage>& exp,
+               Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func, const T&> &&
+                                     std::is_nothrow_copy_constructible_v<E>)
+    -> std::enable_if_t<!std::is_void_v<T> && is_expected_v<std::decay_t<pipe_detail::invoke_result_t<Func, const T&>>>,
+                        std::decay_t<pipe_detail::invoke_result_t<Func, const T&>>>
 {
     using ReturnType = std::decay_t<pipe_detail::invoke_result_t<Func, const T&>>;
 
@@ -318,12 +300,10 @@ auto operator|(const ExpectedImpl<T, E, Storage>& exp, Func&& func)
  * Applies zero-argument function when Expected<void> has value.
  */
 template <typename E, template <typename, typename> class Storage, typename Func>
-auto operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func)
-    noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
-             std::is_nothrow_move_constructible_v<E>)
-    -> std::enable_if_t<
-        !is_expected_v<std::decay_t<pipe_detail::invoke_result_t<Func>>>,
-        pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func>, E, Storage>>
+auto operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
+                                                                           std::is_nothrow_move_constructible_v<E>)
+    -> std::enable_if_t<!is_expected_v<std::decay_t<pipe_detail::invoke_result_t<Func>>>,
+                        pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func>, E, Storage>>
 {
     using ResultType = pipe_detail::invoke_result_t<Func>;
     using ReturnType = pipe_detail::select_result_t<ResultType, E, Storage>;
@@ -347,9 +327,8 @@ auto operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func)
  * @brief Void bind: Expected<void>&& | (() -> Expected<U>) -> Expected<U>
  */
 template <typename E, template <typename, typename> class Storage, typename Func>
-auto operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func)
-    noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
-             std::is_nothrow_move_constructible_v<E>)
+auto operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
+                                                                           std::is_nothrow_move_constructible_v<E>)
     -> std::enable_if_t<is_expected_v<std::decay_t<pipe_detail::invoke_result_t<Func>>>,
                         std::decay_t<pipe_detail::invoke_result_t<Func>>>
 {
@@ -366,12 +345,11 @@ auto operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func)
  * @brief Const void map: const Expected<void>& | (() -> U) -> Expected<U>
  */
 template <typename E, template <typename, typename> class Storage, typename Func>
-auto operator|(const ExpectedImpl<void, E, Storage>& exp, Func&& func)
-    noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
-             std::is_nothrow_copy_constructible_v<E>)
-    -> std::enable_if_t<
-        !is_expected_v<std::decay_t<pipe_detail::invoke_result_t<Func>>>,
-        pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func>, E, Storage>>
+auto operator|(const ExpectedImpl<void, E, Storage>& exp,
+               Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
+                                     std::is_nothrow_copy_constructible_v<E>)
+    -> std::enable_if_t<!is_expected_v<std::decay_t<pipe_detail::invoke_result_t<Func>>>,
+                        pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func>, E, Storage>>
 {
     using ResultType = pipe_detail::invoke_result_t<Func>;
     using ReturnType = pipe_detail::select_result_t<ResultType, E, Storage>;
@@ -395,9 +373,9 @@ auto operator|(const ExpectedImpl<void, E, Storage>& exp, Func&& func)
  * @brief Const void bind: const Expected<void>& | (() -> Expected<U>) -> Expected<U>
  */
 template <typename E, template <typename, typename> class Storage, typename Func>
-auto operator|(const ExpectedImpl<void, E, Storage>& exp, Func&& func)
-    noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
-             std::is_nothrow_copy_constructible_v<E>)
+auto operator|(const ExpectedImpl<void, E, Storage>& exp,
+               Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
+                                     std::is_nothrow_copy_constructible_v<E>)
     -> std::enable_if_t<is_expected_v<std::decay_t<pipe_detail::invoke_result_t<Func>>>,
                         std::decay_t<pipe_detail::invoke_result_t<Func>>>
 {
@@ -428,9 +406,8 @@ struct PipeWrapper
     T value;
 
     template <typename Func>
-    auto operator|(Func&& func) &&
-        noexcept(noexcept(std::forward<T>(value) | std::forward<Func>(func)))
-            -> decltype(std::forward<T>(value) | std::forward<Func>(func))
+    auto operator|(Func&& func) && noexcept(noexcept(std::forward<T>(value) | std::forward<Func>(func)))
+        -> decltype(std::forward<T>(value) | std::forward<Func>(func))
     {
         return std::forward<T>(value) | std::forward<Func>(func);
     }

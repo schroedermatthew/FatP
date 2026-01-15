@@ -76,8 +76,7 @@ void benchmark_stacktrace()
 
     // Benchmark current()
     double current_time = measure_perf(
-        []()
-        {
+        []() {
             auto trace = Stacktrace::current();
             DoNotOptimize(trace);
         },
@@ -88,8 +87,7 @@ void benchmark_stacktrace()
     // Benchmark to_string()
     auto trace = Stacktrace::current();
     double tostring_time = measure_perf(
-        [&trace]()
-        {
+        [&trace]() {
             std::string str = trace.to_string();
             DoNotOptimize(str);
         },

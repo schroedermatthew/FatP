@@ -55,18 +55,18 @@ FATP_META:
 #include <stdexcept>
 
 #ifdef _MSC_VER
-    #include <intrin.h>
-    #define FATP_POPCNT64(x) __popcnt64(x)
-    #define FATP_CTZ64(x) _tzcnt_u64(x)
-    #define FATP_CLZ64(x) _lzcnt_u64(x)
+#include <intrin.h>
+#define FATP_POPCNT64(x) __popcnt64(x)
+#define FATP_CTZ64(x) _tzcnt_u64(x)
+#define FATP_CLZ64(x) _lzcnt_u64(x)
 #elif defined(__GNUC__) || defined(__clang__)
-    #define FATP_POPCNT64(x) __builtin_popcountll(x)
-    #define FATP_CTZ64(x) __builtin_ctzll(x)
-    #define FATP_CLZ64(x) __builtin_clzll(x)
+#define FATP_POPCNT64(x) __builtin_popcountll(x)
+#define FATP_CTZ64(x) __builtin_ctzll(x)
+#define FATP_CLZ64(x) __builtin_clzll(x)
 #else
-    #define FATP_POPCNT64(x) fat_p::detail::popcnt64_fallback(x)
-    #define FATP_CTZ64(x) fat_p::detail::ctz64_fallback(x)
-    #define FATP_CLZ64(x) fat_p::detail::clz64_fallback(x)
+#define FATP_POPCNT64(x) fat_p::detail::popcnt64_fallback(x)
+#define FATP_CTZ64(x) fat_p::detail::ctz64_fallback(x)
+#define FATP_CLZ64(x) fat_p::detail::clz64_fallback(x)
 #endif
 
 namespace fat_p
@@ -144,7 +144,7 @@ inline constexpr uint64_t mask_from(size_t bit_index) noexcept
  * Thread-safety: None (each thread needs own instance or external sync)
  * Exception-safety: Strong guarantee for checked operations
  */
-template<size_t N>
+template <size_t N>
 class BitSet
 {
     static_assert(N > 0, "BitSet size must be greater than 0");
@@ -153,8 +153,7 @@ class BitSet
     static constexpr size_t NUM_WORDS = (N + BITS_PER_WORD - 1) / BITS_PER_WORD;
     static constexpr size_t CAPACITY = NUM_WORDS * BITS_PER_WORD;
     static constexpr size_t LAST_WORD_BITS = N % BITS_PER_WORD;
-    static constexpr uint64_t LAST_WORD_MASK =
-        (LAST_WORD_BITS == 0) ? ~0ULL : ((1ULL << LAST_WORD_BITS) - 1);
+    static constexpr uint64_t LAST_WORD_MASK = (LAST_WORD_BITS == 0) ? ~0ULL : ((1ULL << LAST_WORD_BITS) - 1);
 
 public:
     /**
@@ -861,7 +860,7 @@ private:
 namespace std
 {
 
-template<size_t N>
+template <size_t N>
 struct hash<fat_p::BitSet<N>>
 {
     size_t operator()(const fat_p::BitSet<N>& bs) const noexcept

@@ -155,25 +155,23 @@ FATP_TEST_CASE(visit_fields)
     std::vector<std::string> field_names;
     std::vector<std::string> field_values;
 
-    visit_fields(p,
-                 [&](std::string_view name, const auto& value)
-                 {
-                     field_names.push_back(std::string(name));
+    visit_fields(p, [&](std::string_view name, const auto& value) {
+        field_names.push_back(std::string(name));
 
-                     using T = std::decay_t<decltype(value)>;
-                     if constexpr (std::is_same_v<T, std::string>)
-                     {
-                         field_values.push_back(value);
-                     }
-                     else if constexpr (std::is_integral_v<T>)
-                     {
-                         field_values.push_back(std::to_string(value));
-                     }
-                     else if constexpr (std::is_floating_point_v<T>)
-                     {
-                         field_values.push_back(std::to_string(value));
-                     }
-                 });
+        using T = std::decay_t<decltype(value)>;
+        if constexpr (std::is_same_v<T, std::string>)
+        {
+            field_values.push_back(value);
+        }
+        else if constexpr (std::is_integral_v<T>)
+        {
+            field_values.push_back(std::to_string(value));
+        }
+        else if constexpr (std::is_floating_point_v<T>)
+        {
+            field_values.push_back(std::to_string(value));
+        }
+    });
 
     FATP_ASSERT_EQ(field_names.size(), 3u, "Should visit 3 fields");
     FATP_ASSERT_TRUE(field_names[0] == "name", "First field should be name");
@@ -200,32 +198,26 @@ FATP_TEST_CASE(field_accessor)
     bool found_name = false;
     std::string retrieved_name;
 
-    FieldAccessor<Person>::visit_field(p,
-                                       "name",
-                                       [&](const auto& value)
-                                       {
-                                           found_name = true;
-                                           using T = std::decay_t<decltype(value)>;
-                                           if constexpr (std::is_same_v<T, std::string>)
-                                           {
-                                               retrieved_name = value;
-                                           }
-                                       });
+    FieldAccessor<Person>::visit_field(p, "name", [&](const auto& value) {
+        found_name = true;
+        using T = std::decay_t<decltype(value)>;
+        if constexpr (std::is_same_v<T, std::string>)
+        {
+            retrieved_name = value;
+        }
+    });
 
     FATP_ASSERT_TRUE(found_name, "Should find name field");
     FATP_ASSERT_TRUE(retrieved_name == "Bob", "Retrieved name should be Bob");
 
     // Test modification via visit_field
-    FieldAccessor<Person>::visit_field(p,
-                                       "age",
-                                       [](auto& value)
-                                       {
-                                           using T = std::decay_t<decltype(value)>;
-                                           if constexpr (std::is_integral_v<T>)
-                                           {
-                                               value = 26;
-                                           }
-                                       });
+    FieldAccessor<Person>::visit_field(p, "age", [](auto& value) {
+        using T = std::decay_t<decltype(value)>;
+        if constexpr (std::is_integral_v<T>)
+        {
+            value = 26;
+        }
+    });
 
     FATP_ASSERT_EQ(p.age, 26, "Age should be modified to 26");
 
@@ -386,11 +378,9 @@ FATP_TEST_CASE(const_access)
     const Person person{"Diana", 28, 168.5};
 
     bool visited = false;
-    visit_fields(person,
-                 [&](std::string_view, const auto&)
-                 {
-                     visited = true;
-                 });
+    visit_fields(person, [&](std::string_view, const auto&) {
+        visited = true;
+    });
 
     FATP_ASSERT_TRUE(visited, "Should be able to visit const object fields");
 
@@ -430,8 +420,7 @@ void benchmark_reflection()
 
     // Benchmark direct field access
     double direct_time = measure_perf(
-        [&p, i = 0]() mutable
-        {
+        [&p, i = 0]() mutable {
             p.x = i++;
             DoNotOptimize(p.x);
         },
@@ -441,8 +430,7 @@ void benchmark_reflection()
 
     // Benchmark reflection field access
     double reflect_time = measure_perf(
-        [&p, i = 0]() mutable
-        {
+        [&p, i = 0]() mutable {
             get_field<0>(p) = i++;
             DoNotOptimize(get_field<0>(p));
         },
@@ -453,13 +441,10 @@ void benchmark_reflection()
     // Benchmark visit_fields
     Person person{"Test", 0, 0.0};
     double visit_time = measure_perf(
-        [&person]()
-        {
-            visit_fields(person,
-                         [](std::string_view, const auto& value)
-                         {
-                             DoNotOptimize(value);
-                         });
+        [&person]() {
+            visit_fields(person, [](std::string_view, const auto& value) {
+                DoNotOptimize(value);
+            });
         },
         10000,
         100);
@@ -467,14 +452,10 @@ void benchmark_reflection()
 
     // Benchmark field lookup by name
     double lookup_time = measure_perf(
-        [&person]()
-        {
-            FieldAccessor<Person>::visit_field(person,
-                                               "age",
-                                               [](const auto& value)
-                                               {
-                                                   DoNotOptimize(value);
-                                               });
+        [&person]() {
+            FieldAccessor<Person>::visit_field(person, "age", [](const auto& value) {
+                DoNotOptimize(value);
+            });
         },
         10000,
         100);
@@ -482,8 +463,7 @@ void benchmark_reflection()
 
     // Benchmark to_tuple
     double tuple_time = measure_perf(
-        [&p]()
-        {
+        [&p]() {
             auto t = to_tuple(p);
             DoNotOptimize(t);
         },
@@ -493,8 +473,7 @@ void benchmark_reflection()
 
     // Benchmark get_field_names
     double names_time = measure_perf(
-        []()
-        {
+        []() {
             auto names = get_field_names<Person>();
             DoNotOptimize(names);
         },

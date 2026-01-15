@@ -64,23 +64,29 @@ namespace fat_p
 
 /**
  * @brief Tag to indicate input range is already sorted and unique.
- * 
+ *
  * Pass this tag to constructors/insert functions when you can guarantee
  * the input is already sorted according to the container's comparator
  * and contains no duplicate keys. This skips O(N log N) sorting.
- * 
+ *
  * @warning Passing unsorted or non-unique data with this tag is undefined behavior.
  */
-struct ordered_unique_range_t { explicit ordered_unique_range_t() = default; };
+struct ordered_unique_range_t
+{
+    explicit ordered_unique_range_t() = default;
+};
 inline constexpr ordered_unique_range_t ordered_unique_range{};
 
 /**
  * @brief Tag to indicate input range is already sorted but may have duplicates.
- * 
+ *
  * Pass this tag when input is sorted but may contain duplicate keys.
  * This skips sorting but still runs deduplication (first key wins).
  */
-struct ordered_range_t { explicit ordered_range_t() = default; };
+struct ordered_range_t
+{
+    explicit ordered_range_t() = default;
+};
 inline constexpr ordered_range_t ordered_range{};
 
 #endif // FATP_ORDERED_RANGE_TAGS_DEFINED
@@ -97,16 +103,20 @@ private:
 
     // Helper to detect if Compare has is_transparent
     template <typename C, typename = void>
-    struct HasIsTransparent : std::false_type {};
-    
+    struct HasIsTransparent : std::false_type
+    {
+    };
+
     template <typename C>
-    struct HasIsTransparent<C, std::void_t<typename C::is_transparent>> : std::true_type {};
+    struct HasIsTransparent<C, std::void_t<typename C::is_transparent>> : std::true_type
+    {
+    };
 
     bool elementsEquivalent(const T& a, const T& b) const
     {
         return !mComp(a, b) && !mComp(b, a);
     }
-    
+
     // Heterogeneous equivalence check
     template <typename K>
     bool elementsEquivalentHetero(const T& a, const K& b) const
@@ -122,7 +132,7 @@ public:
     using key_compare = Compare;
     using value_compare = Compare;
     using allocator_type = Allocator;
-    using reference = const value_type&;  // const - set elements are immutable
+    using reference = const value_type&; // const - set elements are immutable
     using const_reference = const value_type&;
     using pointer = typename std::allocator_traits<Allocator>::const_pointer;
     using const_pointer = typename std::allocator_traits<Allocator>::const_pointer;
@@ -141,7 +151,6 @@ private:
     }
 
 public:
-
     // =========================================================================
     // Constructors
     // =========================================================================
@@ -160,24 +169,20 @@ public:
     }
 
     template <class InputIt>
-    FlatSet(InputIt first,
-            InputIt last,
-            const Compare& comp = Compare(),
-            const Allocator& alloc = Allocator())
+    FlatSet(InputIt first, InputIt last, const Compare& comp = Compare(), const Allocator& alloc = Allocator())
         : mData(first, last, alloc)
         , mComp(comp)
     {
         std::stable_sort(mData.begin(), mData.end(), mComp);
-        auto lastUnique =
-            std::unique(mData.begin(), mData.end(), [this](const T& a, const T& b) {
-                return elementsEquivalent(a, b);
-            });
+        auto lastUnique = std::unique(mData.begin(), mData.end(), [this](const T& a, const T& b) {
+            return elementsEquivalent(a, b);
+        });
         mData.erase(lastUnique, mData.end());
     }
 
     /**
      * @brief Construct from pre-sorted, unique range (skips sort and dedup).
-     * 
+     *
      * @warning Caller guarantees range is sorted by comp and has no duplicates.
      *          Passing unsorted or non-unique data is undefined behavior.
      */
@@ -192,12 +197,12 @@ public:
     {
         // Trust caller - no sort, no dedup
         FATP_ENFORCE(std::is_sorted(mData.begin(), mData.end(), mComp),
-                "FlatSet: ordered_unique_range input was not sorted");
+                     "FlatSet: ordered_unique_range input was not sorted");
     }
 
     /**
      * @brief Construct from pre-sorted range that may have duplicates (skips sort only).
-     * 
+     *
      * @warning Caller guarantees range is sorted by comp. First duplicate wins.
      */
     template <class InputIt>
@@ -210,12 +215,10 @@ public:
         , mComp(comp)
     {
         // Trust caller on sorting - only dedup
-        FATP_ENFORCE(std::is_sorted(mData.begin(), mData.end(), mComp),
-                "FlatSet: ordered_range input was not sorted");
-        auto lastUnique =
-            std::unique(mData.begin(), mData.end(), [this](const T& a, const T& b) {
-                return elementsEquivalent(a, b);
-            });
+        FATP_ENFORCE(std::is_sorted(mData.begin(), mData.end(), mComp), "FlatSet: ordered_range input was not sorted");
+        auto lastUnique = std::unique(mData.begin(), mData.end(), [this](const T& a, const T& b) {
+            return elementsEquivalent(a, b);
+        });
         mData.erase(lastUnique, mData.end());
     }
 
@@ -230,17 +233,15 @@ public:
     FlatSet(const FlatSet&) = default;
     FlatSet& operator=(const FlatSet&) = default;
 
-    FlatSet(FlatSet&& other) noexcept(
-        std::is_nothrow_move_constructible_v<Storage> &&
-        std::is_nothrow_move_constructible_v<Compare>)
+    FlatSet(FlatSet&& other) noexcept(std::is_nothrow_move_constructible_v<Storage> &&
+                                      std::is_nothrow_move_constructible_v<Compare>)
         : mData(std::move(other.mData))
         , mComp(std::move(other.mComp))
     {
     }
 
-    FlatSet& operator=(FlatSet&& other) noexcept(
-        std::is_nothrow_move_assignable_v<Storage> &&
-        std::is_nothrow_move_assignable_v<Compare>)
+    FlatSet& operator=(FlatSet&& other) noexcept(std::is_nothrow_move_assignable_v<Storage> &&
+                                                 std::is_nothrow_move_assignable_v<Compare>)
     {
         mData = std::move(other.mData);
         mComp = std::move(other.mComp);
@@ -403,16 +404,15 @@ public:
         std::stable_sort(mid, mData.end(), mComp);
         std::inplace_merge(mData.begin(), mid, mData.end(), mComp);
 
-        auto lastUnique =
-            std::unique(mData.begin(), mData.end(), [this](const T& a, const T& b) {
-                return elementsEquivalent(a, b);
-            });
+        auto lastUnique = std::unique(mData.begin(), mData.end(), [this](const T& a, const T& b) {
+            return elementsEquivalent(a, b);
+        });
         mData.erase(lastUnique, mData.end());
     }
 
     /**
      * @brief Insert from pre-sorted, unique range (skips sort of new elements).
-     * 
+     *
      * @warning Caller guarantees range is sorted and unique. UB otherwise.
      */
     template <class InputIt>
@@ -431,19 +431,18 @@ public:
         }
 
         auto mid = mData.begin() + static_cast<difference_type>(oldSize);
-        
+
         // Debug check: verify input was actually sorted
         FATP_ENFORCE(std::is_sorted(mid, mData.end(), mComp),
-                "FlatSet::insert(ordered_unique_range): input was not sorted");
+                     "FlatSet::insert(ordered_unique_range): input was not sorted");
 
         // Skip sorting new elements - just merge
         std::inplace_merge(mData.begin(), mid, mData.end(), mComp);
 
         // Still need to dedup against existing elements
-        auto lastUnique =
-            std::unique(mData.begin(), mData.end(), [this](const T& a, const T& b) {
-                return elementsEquivalent(a, b);
-            });
+        auto lastUnique = std::unique(mData.begin(), mData.end(), [this](const T& a, const T& b) {
+            return elementsEquivalent(a, b);
+        });
         mData.erase(lastUnique, mData.end());
     }
 
@@ -482,10 +481,8 @@ public:
 
     iterator erase(const_iterator first, const_iterator last)
     {
-        FATP_ENFORCE(first >= mData.cbegin() && first <= mData.cend(),
-                "FlatSet::erase: invalid first iterator");
-        FATP_ENFORCE(last >= mData.cbegin() && last <= mData.cend(),
-                "FlatSet::erase: invalid last iterator");
+        FATP_ENFORCE(first >= mData.cbegin() && first <= mData.cend(), "FlatSet::erase: invalid first iterator");
+        FATP_ENFORCE(last >= mData.cbegin() && last <= mData.cend(), "FlatSet::erase: invalid last iterator");
         FATP_ENFORCE(first <= last, "FlatSet::erase: invalid iterator range");
         return mData.erase(toInternal(first), toInternal(last));
     }
@@ -514,8 +511,7 @@ public:
         return result;
     }
 
-    void swap(FlatSet& other) noexcept(std::is_nothrow_swappable_v<Storage> &&
-                                       std::is_nothrow_swappable_v<Compare>)
+    void swap(FlatSet& other) noexcept(std::is_nothrow_swappable_v<Storage> && std::is_nothrow_swappable_v<Compare>)
     {
         mData.swap(other.mData);
         std::swap(mComp, other.mComp);
@@ -523,11 +519,11 @@ public:
 
     /**
      * @brief Merge elements from another FlatSet
-     * 
+     *
      * Attempts to extract each element from source and insert it into *this.
      * If an element already exists in *this, it is left in source.
      * Uses O(n + m) merge algorithm since both containers are sorted.
-     * 
+     *
      * @param source The FlatSet to merge from (will be modified)
      */
     void merge(FlatSet& source)
@@ -546,16 +542,16 @@ public:
             swap(source);
             return;
         }
-        
+
         // Both containers are sorted - use merge algorithm for O(n + m) complexity
         Storage merged(mData.get_allocator());
-        Storage remaining(source.mData.get_allocator());  // Elements that stay in source (duplicates)
+        Storage remaining(source.mData.get_allocator()); // Elements that stay in source (duplicates)
         merged.reserve(size() + source.size());
         remaining.reserve(source.size());
-        
+
         auto it1 = mData.begin();
         auto it2 = source.mData.begin();
-        
+
         while (it1 != mData.end() && it2 != source.mData.end())
         {
             if (mComp(*it1, *it2))
@@ -577,21 +573,21 @@ public:
                 ++it2;
             }
         }
-        
+
         // Append remaining elements from this
         while (it1 != mData.end())
         {
             merged.push_back(std::move(*it1));
             ++it1;
         }
-        
+
         // Append remaining elements from source (these get merged)
         while (it2 != source.mData.end())
         {
             merged.push_back(std::move(*it2));
             ++it2;
         }
-        
+
         mData = std::move(merged);
         source.mData = std::move(remaining);
     }
@@ -666,73 +662,63 @@ public:
     // These overloads are only enabled when the comparator has is_transparent,
     // allowing lookups without constructing a key_type object.
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     [[nodiscard]] size_type count(const K& key) const
     {
         return find(key) != end() ? 1 : 0;
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     [[nodiscard]] iterator find(const K& key)
     {
         auto it = lower_bound(key);
         return (it != end() && elementsEquivalentHetero(*it, key)) ? it : end();
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     [[nodiscard]] const_iterator find(const K& key) const
     {
         auto it = lower_bound(key);
         return (it != end() && elementsEquivalentHetero(*it, key)) ? it : end();
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     [[nodiscard]] bool contains(const K& key) const
     {
         return find(key) != end();
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     std::pair<iterator, iterator> equal_range(const K& key)
     {
         return {lower_bound(key), upper_bound(key)};
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     std::pair<const_iterator, const_iterator> equal_range(const K& key) const
     {
         return {lower_bound(key), upper_bound(key)};
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     iterator lower_bound(const K& key)
     {
         return std::lower_bound(mData.begin(), mData.end(), key, mComp);
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     const_iterator lower_bound(const K& key) const
     {
         return std::lower_bound(mData.begin(), mData.end(), key, mComp);
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     iterator upper_bound(const K& key)
     {
         return std::upper_bound(mData.begin(), mData.end(), key, mComp);
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     const_iterator upper_bound(const K& key) const
     {
         return std::upper_bound(mData.begin(), mData.end(), key, mComp);
@@ -760,7 +746,7 @@ public:
 private:
     /**
      * @brief Insert with hint optimization
-     * 
+     *
      * If the hint is correct (value belongs at hint position), this is O(1) for
      * position finding + O(n) for the actual vector insert.
      * If hint is wrong, falls back to O(log n) binary search.
@@ -779,7 +765,7 @@ private:
             // Check if it's a duplicate of the last element
             if (!mComp(value, mData.back()))
             {
-                return mData.end() - 1;  // Value equivalent to last, return existing
+                return mData.end() - 1; // Value equivalent to last, return existing
             }
         }
         // Fast path: hint at begin and value < first element
@@ -797,7 +783,7 @@ private:
             // Check if it's a duplicate of the first element
             if (!mComp(mData.front(), value))
             {
-                return mData.begin();  // Value equivalent to first, return existing
+                return mData.begin(); // Value equivalent to first, return existing
             }
         }
         // Check if hint is valid for middle positions
@@ -805,7 +791,7 @@ private:
         {
             auto hintIt = toInternal(hint);
             auto prevIt = hintIt - 1;
-            
+
             // Valid hint: prev < value < hint
             if (mComp(*prevIt, value) && mComp(value, *hintIt))
             {
@@ -822,12 +808,12 @@ private:
                 return hintIt;
             }
         }
-        
+
         // Hint was wrong - fall back to binary search
         auto it = std::lower_bound(mData.begin(), mData.end(), value, mComp);
         if (it != mData.end() && !mComp(value, *it))
         {
-            return it;  // Value already exists
+            return it; // Value already exists
         }
         return mData.insert(it, std::forward<V>(value));
     }

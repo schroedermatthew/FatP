@@ -2,7 +2,7 @@
  * @file NumaAllocator.h
  * @brief NUMA-aware memory allocator for many-core HPC systems
  *
- * 
+ *
  *
  * @layer Domain
  *
@@ -82,32 +82,32 @@ FATP_META:
 // Following FATP_HAS_* pattern with explicit 0/1 values for safer #if checks.
 
 #if defined(__linux__)
-    #if FATP_HAS_NUMA
-        #include <numa.h>
-        #include <numaif.h>
-        #include <sched.h>
-        #include <unistd.h>
-        #define FATP_HAS_NUMA_SUPPORT 1
-    #else
-        #define FATP_HAS_NUMA_SUPPORT 0
-    #endif
-#elif defined(_WIN32)
-    #ifndef NOMINMAX
-        #define NOMINMAX
-    #endif
-    #ifndef WIN32_LEAN_AND_MEAN
-        #define WIN32_LEAN_AND_MEAN
-    #endif
-    #include <windows.h>
-    #include <malloc.h>
-    #define FATP_HAS_NUMA_SUPPORT 1
+#if FATP_HAS_NUMA
+#include <numa.h>
+#include <numaif.h>
+#include <sched.h>
+#include <unistd.h>
+#define FATP_HAS_NUMA_SUPPORT 1
 #else
-    #define FATP_HAS_NUMA_SUPPORT 0
+#define FATP_HAS_NUMA_SUPPORT 0
+#endif
+#elif defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <malloc.h>
+#include <windows.h>
+#define FATP_HAS_NUMA_SUPPORT 1
+#else
+#define FATP_HAS_NUMA_SUPPORT 0
 #endif
 
 // Clean up Windows macro pollution
 #ifdef max
-    #undef max
+#undef max
 #endif
 
 namespace fat_p
@@ -131,16 +131,16 @@ inline void* aligned_alloc_portable(size_t alignment, size_t size) noexcept
     size_t aligned_size = align_size(size, alignment);
 
 #if defined(__linux__)
-    #if FATP_CPP17_OR_LATER
+#if FATP_CPP17_OR_LATER
     return std::aligned_alloc(alignment, aligned_size);
-    #else
+#else
     void* ptr = nullptr;
     if (posix_memalign(&ptr, alignment, aligned_size) != 0)
     {
         return nullptr;
     }
     return ptr;
-    #endif
+#endif
 #elif defined(_WIN32)
     return _aligned_malloc(aligned_size, alignment);
 #else
@@ -212,16 +212,16 @@ inline NumaState& get_numa_state()
 
 /**
  * @brief Query interface for NUMA topology information
- * 
+ *
  * CONTRACT GUARANTEES (always hold, even when NUMA unavailable):
  * - num_nodes() >= 1 (returns 1 when NUMA unavailable - "virtual single-node model")
  * - 0 <= current_node() < num_nodes() (always valid node index)
  * - cpus_on_node(n) > 0 for valid n
- * 
+ *
  * This design ensures code can always iterate over nodes without special-casing
  * NUMA availability. When NUMA is unavailable, the system presents itself as a
  * single-node topology with node 0 containing all CPUs.
- * 
+ *
  * @note These guarantees are relied upon by tests and container implementations.
  */
 class NumaInfo
@@ -350,7 +350,7 @@ struct NumaPreferredPolicy
     }
 };
 
-template<typename T, typename Policy = NumaLocalPolicy>
+template <typename T, typename Policy = NumaLocalPolicy>
 class NumaAllocator
 {
 public:
@@ -364,8 +364,7 @@ public:
     using propagate_on_container_move_assignment = std::true_type;
     using propagate_on_container_swap = std::true_type;
     using is_always_equal =
-        std::bool_constant<std::is_same_v<Policy, NumaLocalPolicy> ||
-                           std::is_same_v<Policy, NumaInterleavedPolicy>>;
+        std::bool_constant<std::is_same_v<Policy, NumaLocalPolicy> || std::is_same_v<Policy, NumaInterleavedPolicy>>;
 
 private:
     static constexpr bool is_over_aligned = alignof(T) > alignof(std::max_align_t);
@@ -490,12 +489,15 @@ private:
     }
 
 public:
-    NumaAllocator() noexcept : mPolicy(), numa_available_(NumaInfo::is_available())
+    NumaAllocator() noexcept
+        : mPolicy()
+        , numa_available_(NumaInfo::is_available())
     {
     }
 
     explicit NumaAllocator(Policy policy) noexcept
-        : mPolicy(policy), numa_available_(NumaInfo::is_available())
+        : mPolicy(policy)
+        , numa_available_(NumaInfo::is_available())
     {
         if constexpr (std::is_same_v<Policy, NumaPreferredPolicy>)
         {
@@ -508,9 +510,10 @@ public:
         }
     }
 
-    template<typename U>
+    template <typename U>
     NumaAllocator(const NumaAllocator<U, Policy>& other) noexcept
-        : mPolicy(other.get_policy()), numa_available_(other.is_numa_available())
+        : mPolicy(other.get_policy())
+        , numa_available_(other.is_numa_available())
     {
     }
 
@@ -562,7 +565,7 @@ public:
         free_numa(ptr, n * sizeof(T));
     }
 
-    template<typename U>
+    template <typename U>
     struct rebind
     {
         using other = NumaAllocator<U, Policy>;
@@ -578,11 +581,11 @@ public:
         return numa_available_;
     }
 
-    template<typename, typename>
+    template <typename, typename>
     friend class NumaAllocator;
 };
 
-template<typename T1, typename P1, typename T2, typename P2>
+template <typename T1, typename P1, typename T2, typename P2>
 bool operator==(const NumaAllocator<T1, P1>& lhs, const NumaAllocator<T2, P2>& rhs) noexcept
 {
     if constexpr (!std::is_same_v<P1, P2>)
@@ -599,7 +602,7 @@ bool operator==(const NumaAllocator<T1, P1>& lhs, const NumaAllocator<T2, P2>& r
     }
 }
 
-template<typename T1, typename P1, typename T2, typename P2>
+template <typename T1, typename P1, typename T2, typename P2>
 bool operator!=(const NumaAllocator<T1, P1>& lhs, const NumaAllocator<T2, P2>& rhs) noexcept
 {
     return !(lhs == rhs);
@@ -634,7 +637,7 @@ bool operator!=(const NumaAllocator<T1, P1>& lhs, const NumaAllocator<T2, P2>& r
  * Type requirements: Designed for trivially destructible types. Non-trivial
  * types require explicit destructor calls before deallocation.
  */
-template<typename T>
+template <typename T>
 class ThreadLocalNumaPool
 {
 private:
@@ -659,8 +662,7 @@ private:
     // after the header.
     static constexpr size_t align_req = alignof(T);
     static constexpr size_t header_size_bytes = sizeof(AllocationHeader);
-    static constexpr size_t padding =
-        (align_req - (header_size_bytes % align_req)) % align_req;
+    static constexpr size_t padding = (align_req - (header_size_bytes % align_req)) % align_req;
     static constexpr size_t total_overhead = header_size_bytes + padding;
 
     static void free_memory_safe(void* ptr, size_t bytes, bool numa_available)
@@ -757,8 +759,11 @@ private:
 #if defined(__linux__) && FATP_HAS_NUMA_SUPPORT
                 raw_mem = numa_alloc_onnode(size_bytes, node);
 #elif defined(_WIN32) && FATP_HAS_NUMA_SUPPORT
-                raw_mem = VirtualAllocExNuma(GetCurrentProcess(), nullptr, size_bytes,
-                                             MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE,
+                raw_mem = VirtualAllocExNuma(GetCurrentProcess(),
+                                             nullptr,
+                                             size_bytes,
+                                             MEM_RESERVE | MEM_COMMIT,
+                                             PAGE_READWRITE,
                                              static_cast<DWORD>(node));
 #endif
             }
@@ -853,8 +858,11 @@ public:
             raw_mem = numa_alloc_onnode(alloc_size, node);
 #elif defined(_WIN32) && FATP_HAS_NUMA_SUPPORT
             int node = NumaInfo::current_node();
-            raw_mem = VirtualAllocExNuma(GetCurrentProcess(), nullptr, alloc_size,
-                                         MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE,
+            raw_mem = VirtualAllocExNuma(GetCurrentProcess(),
+                                         nullptr,
+                                         alloc_size,
+                                         MEM_RESERVE | MEM_COMMIT,
+                                         PAGE_READWRITE,
                                          static_cast<DWORD>(node));
 #endif
         }
@@ -925,9 +933,8 @@ public:
         {
             deallocate_slow_path(ptr, n);
         }
-        __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION
-                      ? EXCEPTION_EXECUTE_HANDLER
-                      : EXCEPTION_CONTINUE_SEARCH)
+        __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ? EXCEPTION_EXECUTE_HANDLER
+                                                                   : EXCEPTION_CONTINUE_SEARCH)
         {
             // Access violation: memory was unmapped (owner thread exited).
             // Gracefully return without crashing - this is documented UB
@@ -969,7 +976,6 @@ private:
     }
 
 public:
-
     /// @warning Invalidates ALL previously allocated pointers from this pool.
     /// Deallocating pointers obtained before reset() is undefined behavior.
     /// This includes pointers that were passed to other threads.
@@ -1002,27 +1008,25 @@ public:
     }
 };
 
-template<typename T>
+template <typename T>
 using NumaLocalVector = std::vector<T, NumaAllocator<T, NumaLocalPolicy>>;
 
-template<typename T>
+template <typename T>
 using NumaInterleavedVector = std::vector<T, NumaAllocator<T, NumaInterleavedPolicy>>;
 
-template<typename T>
+template <typename T>
 using NumaPreferredVector = std::vector<T, NumaAllocator<T, NumaPreferredPolicy>>;
 
-template<typename T>
+template <typename T>
 NumaPreferredVector<T> make_preferred_vector(int node)
 {
-    return NumaPreferredVector<T>(
-        NumaAllocator<T, NumaPreferredPolicy>(NumaPreferredPolicy{node}));
+    return NumaPreferredVector<T>(NumaAllocator<T, NumaPreferredPolicy>(NumaPreferredPolicy{node}));
 }
 
-template<typename T>
+template <typename T>
 NumaPreferredVector<T> make_preferred_vector(int node, size_t count, const T& value = T())
 {
-    return NumaPreferredVector<T>(
-        count, value, NumaAllocator<T, NumaPreferredPolicy>(NumaPreferredPolicy{node}));
+    return NumaPreferredVector<T>(count, value, NumaAllocator<T, NumaPreferredPolicy>(NumaPreferredPolicy{node}));
 }
 
 /// @brief Bind the current thread to execute only on CPUs belonging to the specified NUMA node.

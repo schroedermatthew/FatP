@@ -1,7 +1,7 @@
 /**
  * @file CheckedArithmeticFP.h
  * @brief Checked arithmetic operations for floating-point types
- * 
+ *
  *
  * @layer Foundation
  *
@@ -66,8 +66,8 @@ FATP_META:
     mode: autogen
 */
 #include "CheckedArithmeticPolicies.h"
-#include "SimdVector.h"
 #include "enforce.h"
+#include "SimdVector.h"
 
 #include <cmath>
 #include <vector>
@@ -76,7 +76,8 @@ FATP_META:
 #include <immintrin.h>
 #endif
 
-namespace fat_p {
+namespace fat_p
+{
 
 // =============================================================================
 // Internal Macros
@@ -91,36 +92,53 @@ namespace fat_p {
  *
  * Must be followed by the actual operation.
  */
-#define FATP_VALIDATE_FP_INPUTS(a, b, op_name)                                              \
-    do {                                                                               \
-        if (std::isnan(a) || std::isnan(b)) {                                          \
-            if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>) {                \
-                FATP_ALWAYS_ENFORCE(false, "FP input contains NaN:", a, op_name, b);        \
-            } else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>) {       \
-                return Expected<T, MathError>(unexpect, MathError::NaN);               \
-            } else if constexpr (std::is_same_v<Policy, SaturatingPolicy>) {           \
-                return std::numeric_limits<T>::quiet_NaN();                            \
-            } else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>) {          \
-                return std::numeric_limits<T>::quiet_NaN();                            \
-            }                                                                          \
-        }                                                                              \
-        if (std::isinf(a) && std::isinf(b)) {                                          \
-            constexpr bool is_subtraction = (op_name[0] == '-');                       \
-            bool same_sign = (a > 0) == (b > 0);                                       \
-            if ((!same_sign && op_name[0] == '+') ||                                   \
-                (same_sign && is_subtraction)) {                                       \
-                if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>) {            \
-                    FATP_ALWAYS_ENFORCE(false, "FP Inf-Inf undefined:", a, op_name, b);     \
-                } else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>) {   \
-                    return Expected<T, MathError>(unexpect, MathError::NaN);           \
-                } else if constexpr (std::is_same_v<Policy, SaturatingPolicy>) {       \
-                    return std::numeric_limits<T>::quiet_NaN();                        \
-                } else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>) {      \
-                    return std::numeric_limits<T>::quiet_NaN();                        \
-                }                                                                      \
-            }                                                                          \
-        }                                                                              \
-    } while(0)
+#define FATP_VALIDATE_FP_INPUTS(a, b, op_name)                                          \
+    do                                                                                  \
+    {                                                                                   \
+        if (std::isnan(a) || std::isnan(b))                                             \
+        {                                                                               \
+            if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)                   \
+            {                                                                           \
+                FATP_ALWAYS_ENFORCE(false, "FP input contains NaN:", a, op_name, b);    \
+            }                                                                           \
+            else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)            \
+            {                                                                           \
+                return Expected<T, MathError>(unexpect, MathError::NaN);                \
+            }                                                                           \
+            else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)                \
+            {                                                                           \
+                return std::numeric_limits<T>::quiet_NaN();                             \
+            }                                                                           \
+            else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)               \
+            {                                                                           \
+                return std::numeric_limits<T>::quiet_NaN();                             \
+            }                                                                           \
+        }                                                                               \
+        if (std::isinf(a) && std::isinf(b))                                             \
+        {                                                                               \
+            constexpr bool is_subtraction = (op_name[0] == '-');                        \
+            bool same_sign = (a > 0) == (b > 0);                                        \
+            if ((!same_sign && op_name[0] == '+') || (same_sign && is_subtraction))     \
+            {                                                                           \
+                if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)               \
+                {                                                                       \
+                    FATP_ALWAYS_ENFORCE(false, "FP Inf-Inf undefined:", a, op_name, b); \
+                }                                                                       \
+                else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)        \
+                {                                                                       \
+                    return Expected<T, MathError>(unexpect, MathError::NaN);            \
+                }                                                                       \
+                else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)            \
+                {                                                                       \
+                    return std::numeric_limits<T>::quiet_NaN();                         \
+                }                                                                       \
+                else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)           \
+                {                                                                       \
+                    return std::numeric_limits<T>::quiet_NaN();                         \
+                }                                                                       \
+            }                                                                           \
+        }                                                                               \
+    } while (0)
 
 // =============================================================================
 // Scalar Floating-Point Operations
@@ -132,21 +150,24 @@ namespace fat_p {
  * Validates inputs and detects overflow (finite->infinite).
  */
 template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
-[[nodiscard]] PolicyReturnType<Policy, T> checked_add_fp(T a, T b)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_add_fp(T a,
+                                                         T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     FATP_VALIDATE_FP_INPUTS(a, b, "+");
-    
+
     T result = a + b;
     bool is_nan = std::isnan(result);
     bool is_inf = std::isinf(result);
-    
+
     if (is_nan || (is_inf && std::isfinite(a) && std::isfinite(b)))
     {
         MathError code = is_nan ? MathError::NaN : MathError::Inf;
         if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)
         {
-            if (is_inf) return result;
+            if (is_inf)
+            {
+                return result;
+            }
             return std::numeric_limits<T>::quiet_NaN();
         }
         else if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -159,12 +180,14 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
         }
         else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
         {
-            if (is_nan) return std::numeric_limits<T>::quiet_NaN();
-            return (result > 0) ? std::numeric_limits<T>::max() :
-                                  std::numeric_limits<T>::lowest();
+            if (is_nan)
+            {
+                return std::numeric_limits<T>::quiet_NaN();
+            }
+            return (result > 0) ? std::numeric_limits<T>::max() : std::numeric_limits<T>::lowest();
         }
     }
-    
+
     return result;
 }
 
@@ -172,21 +195,24 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
  * @brief Checked floating-point subtraction
  */
 template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
-[[nodiscard]] PolicyReturnType<Policy, T> checked_sub_fp(T a, T b)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_sub_fp(T a,
+                                                         T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     FATP_VALIDATE_FP_INPUTS(a, b, "-");
-    
+
     T result = a - b;
     bool is_nan = std::isnan(result);
     bool is_inf = std::isinf(result);
-    
+
     if (is_nan || (is_inf && std::isfinite(a) && std::isfinite(b)))
     {
         MathError code = is_nan ? MathError::NaN : MathError::Inf;
         if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)
         {
-            if (is_inf) return result;
+            if (is_inf)
+            {
+                return result;
+            }
             return std::numeric_limits<T>::quiet_NaN();
         }
         else if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -199,12 +225,14 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
         }
         else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
         {
-            if (is_nan) return std::numeric_limits<T>::quiet_NaN();
-            return (result > 0) ? std::numeric_limits<T>::max() :
-                                  std::numeric_limits<T>::lowest();
+            if (is_nan)
+            {
+                return std::numeric_limits<T>::quiet_NaN();
+            }
+            return (result > 0) ? std::numeric_limits<T>::max() : std::numeric_limits<T>::lowest();
         }
     }
-    
+
     return result;
 }
 
@@ -212,21 +240,24 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
  * @brief Checked floating-point multiplication
  */
 template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
-[[nodiscard]] PolicyReturnType<Policy, T> checked_mul_fp(T a, T b)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_mul_fp(T a,
+                                                         T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     FATP_VALIDATE_FP_INPUTS(a, b, "*");
-    
+
     T result = a * b;
     bool is_nan = std::isnan(result);
     bool is_inf = std::isinf(result);
-    
+
     if (is_nan || (is_inf && std::isfinite(a) && std::isfinite(b)))
     {
         MathError code = is_nan ? MathError::NaN : MathError::Inf;
         if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)
         {
-            if (is_inf) return result;
+            if (is_inf)
+            {
+                return result;
+            }
             return std::numeric_limits<T>::quiet_NaN();
         }
         else if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -239,12 +270,14 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
         }
         else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
         {
-            if (is_nan) return std::numeric_limits<T>::quiet_NaN();
-            return (result > 0) ? std::numeric_limits<T>::max() :
-                                  std::numeric_limits<T>::lowest();
+            if (is_nan)
+            {
+                return std::numeric_limits<T>::quiet_NaN();
+            }
+            return (result > 0) ? std::numeric_limits<T>::max() : std::numeric_limits<T>::lowest();
         }
     }
-    
+
     return result;
 }
 
@@ -254,11 +287,11 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
  * Additionally handles division by zero specially.
  */
 template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
-[[nodiscard]] PolicyReturnType<Policy, T> checked_div_fp(T a, T b)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_div_fp(T a,
+                                                         T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     FATP_VALIDATE_FP_INPUTS(a, b, "/");
-    
+
     if (b == T{0})
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -271,28 +304,35 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
         }
         else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
         {
-            if (a == T{0}) return T{0};
-            return (a > T{0}) ? std::numeric_limits<T>::max() :
-                                std::numeric_limits<T>::lowest();
+            if (a == T{0})
+            {
+                return T{0};
+            }
+            return (a > T{0}) ? std::numeric_limits<T>::max() : std::numeric_limits<T>::lowest();
         }
         else if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)
         {
-            if (a == T{0}) return std::numeric_limits<T>::quiet_NaN();
-            return (a > T{0}) ? std::numeric_limits<T>::infinity() :
-                              -std::numeric_limits<T>::infinity();
+            if (a == T{0})
+            {
+                return std::numeric_limits<T>::quiet_NaN();
+            }
+            return (a > T{0}) ? std::numeric_limits<T>::infinity() : -std::numeric_limits<T>::infinity();
         }
     }
-    
+
     T result = a / b;
     bool is_nan = std::isnan(result);
     bool is_inf = std::isinf(result);
-    
+
     if (is_nan || (is_inf && std::isfinite(a) && std::isfinite(b)))
     {
         MathError code = is_nan ? MathError::NaN : MathError::Inf;
         if constexpr (std::is_same_v<Policy, InfTolerantPolicy>)
         {
-            if (is_inf) return result;
+            if (is_inf)
+            {
+                return result;
+            }
             return std::numeric_limits<T>::quiet_NaN();
         }
         else if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -305,12 +345,14 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
         }
         else if constexpr (std::is_same_v<Policy, SaturatingPolicy>)
         {
-            if (is_nan) return std::numeric_limits<T>::quiet_NaN();
-            return (result > 0) ? std::numeric_limits<T>::max() :
-                                  std::numeric_limits<T>::lowest();
+            if (is_nan)
+            {
+                return std::numeric_limits<T>::quiet_NaN();
+            }
+            return (result > 0) ? std::numeric_limits<T>::max() : std::numeric_limits<T>::lowest();
         }
     }
-    
+
     return result;
 }
 
@@ -318,11 +360,11 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
  * @brief Checked floating-point modulo (fmod)
  */
 template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
-[[nodiscard]] PolicyReturnType<Policy, T> checked_mod_fp(T a, T b)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_mod_fp(T a,
+                                                         T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     FATP_VALIDATE_FP_INPUTS(a, b, "%");
-    
+
     if (b == T{0})
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -342,9 +384,9 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
             return std::numeric_limits<T>::quiet_NaN();
         }
     }
-    
+
     T result = std::fmod(a, b);
-    
+
     if (std::isnan(result))
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -360,7 +402,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
             return std::numeric_limits<T>::quiet_NaN();
         }
     }
-    
+
     return result;
 }
 
@@ -368,8 +410,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
  * @brief Checked floating-point absolute value
  */
 template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
-[[nodiscard]] PolicyReturnType<Policy, T> checked_abs_fp(T a)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_abs_fp(T a) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if (std::isnan(a))
     {
@@ -386,7 +427,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
             return std::numeric_limits<T>::quiet_NaN();
         }
     }
-    
+
     return std::abs(a);
 }
 
@@ -396,8 +437,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
  * Detects NaN input and negative input (invalid domain).
  */
 template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
-[[nodiscard]] PolicyReturnType<Policy, T> checked_sqrt_fp(T a)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_sqrt_fp(T a) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if (std::isnan(a))
     {
@@ -414,7 +454,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
             return std::numeric_limits<T>::quiet_NaN();
         }
     }
-    
+
     if (a < 0)
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -434,7 +474,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
             return std::numeric_limits<T>::quiet_NaN();
         }
     }
-    
+
     return std::sqrt(a);
 }
 
@@ -442,8 +482,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
  * @brief Checked floating-point floor
  */
 template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
-[[nodiscard]] PolicyReturnType<Policy, T> checked_floor_fp(T a)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_floor_fp(T a) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if (std::isnan(a))
     {
@@ -460,7 +499,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
             return std::numeric_limits<T>::quiet_NaN();
         }
     }
-    
+
     return std::floor(a);
 }
 
@@ -468,8 +507,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
  * @brief Checked floating-point ceiling
  */
 template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
-[[nodiscard]] PolicyReturnType<Policy, T> checked_ceil_fp(T a)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_ceil_fp(T a) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if (std::isnan(a))
     {
@@ -486,7 +524,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
             return std::numeric_limits<T>::quiet_NaN();
         }
     }
-    
+
     return std::ceil(a);
 }
 
@@ -494,8 +532,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
  * @brief Checked floating-point truncation
  */
 template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
-[[nodiscard]] PolicyReturnType<Policy, T> checked_trunc_fp(T a)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_trunc_fp(T a) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if (std::isnan(a))
     {
@@ -512,7 +549,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
             return std::numeric_limits<T>::quiet_NaN();
         }
     }
-    
+
     return std::trunc(a);
 }
 
@@ -520,8 +557,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
  * @brief Checked floating-point rounding
  */
 template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
-[[nodiscard]] PolicyReturnType<Policy, T> checked_round_fp(T a)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, T> checked_round_fp(T a) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     if (std::isnan(a))
     {
@@ -538,7 +574,7 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
             return std::numeric_limits<T>::quiet_NaN();
         }
     }
-    
+
     return std::round(a);
 }
 
@@ -546,15 +582,15 @@ template <typename Policy = ThrowOnErrorPolicy, FATP_ENABLE_IF_FLOATING>
 // SIMD Error Detection Helpers
 // =============================================================================
 
-namespace detail {
+namespace detail
+{
 
 #if defined(__AVX2__) && (defined(__x86_64__) || defined(_M_X64))
 /**
  * @brief Detects NaN or overflow-to-Inf in AVX2 double vector results
  */
 template <typename Policy>
-[[nodiscard]] inline bool detect_fp_simd_error(
-    const __m256d& va, const __m256d& vb, const __m256d& vr) noexcept
+[[nodiscard]] inline bool detect_fp_simd_error(const __m256d& va, const __m256d& vb, const __m256d& vr) noexcept
 {
     // Check for NaN in result
     __m256d nan_mask = _mm256_cmp_pd(vr, vr, _CMP_UNORD_Q);
@@ -562,31 +598,25 @@ template <typename Policy>
     {
         return true;
     }
-    
+
     // For non-InfTolerant policies, check for overflow
     if constexpr (!std::is_same_v<Policy, InfTolerantPolicy>)
     {
         __m256d inf_pos = _mm256_set1_pd(std::numeric_limits<double>::infinity());
         __m256d inf_neg = _mm256_set1_pd(-std::numeric_limits<double>::infinity());
-        __m256d result_is_inf = _mm256_or_pd(
-            _mm256_cmp_pd(vr, inf_pos, _CMP_EQ_OQ),
-            _mm256_cmp_pd(vr, inf_neg, _CMP_EQ_OQ));
-        
+        __m256d result_is_inf =
+            _mm256_or_pd(_mm256_cmp_pd(vr, inf_pos, _CMP_EQ_OQ), _mm256_cmp_pd(vr, inf_neg, _CMP_EQ_OQ));
+
         __m256d a_is_finite = _mm256_and_pd(
             _mm256_cmp_pd(va, va, _CMP_ORD_Q),
-            _mm256_and_pd(
-                _mm256_cmp_pd(va, inf_pos, _CMP_NEQ_OQ),
-                _mm256_cmp_pd(va, inf_neg, _CMP_NEQ_OQ)));
-        
+            _mm256_and_pd(_mm256_cmp_pd(va, inf_pos, _CMP_NEQ_OQ), _mm256_cmp_pd(va, inf_neg, _CMP_NEQ_OQ)));
+
         __m256d b_is_finite = _mm256_and_pd(
             _mm256_cmp_pd(vb, vb, _CMP_ORD_Q),
-            _mm256_and_pd(
-                _mm256_cmp_pd(vb, inf_pos, _CMP_NEQ_OQ),
-                _mm256_cmp_pd(vb, inf_neg, _CMP_NEQ_OQ)));
-        
-        __m256d overflow = _mm256_and_pd(result_is_inf,
-                                         _mm256_and_pd(a_is_finite, b_is_finite));
-        
+            _mm256_and_pd(_mm256_cmp_pd(vb, inf_pos, _CMP_NEQ_OQ), _mm256_cmp_pd(vb, inf_neg, _CMP_NEQ_OQ)));
+
+        __m256d overflow = _mm256_and_pd(result_is_inf, _mm256_and_pd(a_is_finite, b_is_finite));
+
         if (_mm256_movemask_pd(overflow) != 0)
         {
             return true;
@@ -602,15 +632,15 @@ template <typename Policy>
  * Works on SSE, AVX, AVX-512, NEON via SimdVector abstraction.
  */
 template <typename Policy, typename T>
-[[nodiscard]] inline bool detect_fp_simd_error_generic(
-    const SimdVector<T>& va, const SimdVector<T>& vb, const SimdVector<T>& vr) noexcept
+[[nodiscard]] inline bool
+detect_fp_simd_error_generic(const SimdVector<T>& va, const SimdVector<T>& vb, const SimdVector<T>& vr) noexcept
 {
     // Check for NaN in result
     if (vr.has_nan())
     {
         return true;
     }
-    
+
     // For non-InfTolerant policies, check for overflow (finite->Inf)
     if constexpr (!std::is_same_v<Policy, InfTolerantPolicy>)
     {
@@ -637,13 +667,12 @@ template <typename Policy, typename T>
  * Uses SimdVector for portable SIMD across SSE, AVX, AVX-512, NEON.
  */
 template <typename Policy = ThrowOnErrorPolicy, typename T>
-[[nodiscard]] PolicyReturnType<Policy, std::vector<T>> checked_add_vec_fp(
-    const std::vector<T>& vec_a, 
-    const std::vector<T>& vec_b)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, std::vector<T>>
+checked_add_vec_fp(const std::vector<T>& vec_a,
+                   const std::vector<T>& vec_b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_floating_point_v<T>, "checked_add_vec_fp requires floating-point types");
-    
+
     if (vec_a.size() != vec_b.size())
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -659,24 +688,24 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
             return std::vector<T>();
         }
     }
-    
+
     size_t n = vec_a.size();
     std::vector<T> result(n);
-    
+
     using VecT = SimdVector<T>;
     constexpr size_t vec_width = VecT::width;
-    
+
     size_t i = 0;
-    
+
     // SIMD main loop
     for (; i + vec_width <= n; i += vec_width)
     {
         auto va = VecT::load_unaligned(&vec_a[i]);
         auto vb = VecT::load_unaligned(&vec_b[i]);
         auto vr = va + vb;
-        
+
         bool has_error = detail::detect_fp_simd_error_generic<Policy>(va, vb, vr);
-        
+
         if (has_error)
         {
             // Scalar fallback for error classification
@@ -702,7 +731,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
             vr.store_unaligned(&result[i]);
         }
     }
-    
+
     // Scalar cleanup
     for (; i < n; ++i)
     {
@@ -720,7 +749,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
             result[i] = temp;
         }
     }
-    
+
     return result;
 }
 
@@ -728,13 +757,12 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
  * @brief SIMD-accelerated checked vector subtraction for floating-point
  */
 template <typename Policy = ThrowOnErrorPolicy, typename T>
-[[nodiscard]] PolicyReturnType<Policy, std::vector<T>> checked_sub_vec_fp(
-    const std::vector<T>& vec_a, 
-    const std::vector<T>& vec_b)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, std::vector<T>>
+checked_sub_vec_fp(const std::vector<T>& vec_a,
+                   const std::vector<T>& vec_b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_floating_point_v<T>, "checked_sub_vec_fp requires floating-point types");
-    
+
     if (vec_a.size() != vec_b.size())
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -750,23 +778,23 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
             return std::vector<T>();
         }
     }
-    
+
     size_t n = vec_a.size();
     std::vector<T> result(n);
-    
+
     using VecT = SimdVector<T>;
     constexpr size_t vec_width = VecT::width;
-    
+
     size_t i = 0;
-    
+
     for (; i + vec_width <= n; i += vec_width)
     {
         auto va = VecT::load_unaligned(&vec_a[i]);
         auto vb = VecT::load_unaligned(&vec_b[i]);
         auto vr = va - vb;
-        
+
         bool has_error = detail::detect_fp_simd_error_generic<Policy>(va, vb, vr);
-        
+
         if (has_error)
         {
             for (size_t j = i; j < i + vec_width && j < n; ++j)
@@ -791,7 +819,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
             vr.store_unaligned(&result[i]);
         }
     }
-    
+
     for (; i < n; ++i)
     {
         auto temp = checked_sub_fp<Policy>(vec_a[i], vec_b[i]);
@@ -808,7 +836,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
             result[i] = temp;
         }
     }
-    
+
     return result;
 }
 
@@ -816,13 +844,12 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
  * @brief SIMD-accelerated checked vector multiplication for floating-point
  */
 template <typename Policy = ThrowOnErrorPolicy, typename T>
-[[nodiscard]] PolicyReturnType<Policy, std::vector<T>> checked_mul_vec_fp(
-    const std::vector<T>& vec_a, 
-    const std::vector<T>& vec_b)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, std::vector<T>>
+checked_mul_vec_fp(const std::vector<T>& vec_a,
+                   const std::vector<T>& vec_b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_floating_point_v<T>, "checked_mul_vec_fp requires floating-point types");
-    
+
     if (vec_a.size() != vec_b.size())
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -838,23 +865,23 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
             return std::vector<T>();
         }
     }
-    
+
     size_t n = vec_a.size();
     std::vector<T> result(n);
-    
+
     using VecT = SimdVector<T>;
     constexpr size_t vec_width = VecT::width;
-    
+
     size_t i = 0;
-    
+
     for (; i + vec_width <= n; i += vec_width)
     {
         auto va = VecT::load_unaligned(&vec_a[i]);
         auto vb = VecT::load_unaligned(&vec_b[i]);
         auto vr = va * vb;
-        
+
         bool has_error = detail::detect_fp_simd_error_generic<Policy>(va, vb, vr);
-        
+
         if (has_error)
         {
             for (size_t j = i; j < i + vec_width && j < n; ++j)
@@ -879,7 +906,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
             vr.store_unaligned(&result[i]);
         }
     }
-    
+
     for (; i < n; ++i)
     {
         auto temp = checked_mul_fp<Policy>(vec_a[i], vec_b[i]);
@@ -896,7 +923,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
             result[i] = temp;
         }
     }
-    
+
     return result;
 }
 
@@ -904,13 +931,12 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
  * @brief SIMD-accelerated checked vector division for floating-point
  */
 template <typename Policy = ThrowOnErrorPolicy, typename T>
-[[nodiscard]] PolicyReturnType<Policy, std::vector<T>> checked_div_vec_fp(
-    const std::vector<T>& vec_a, 
-    const std::vector<T>& vec_b)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, std::vector<T>>
+checked_div_vec_fp(const std::vector<T>& vec_a,
+                   const std::vector<T>& vec_b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_floating_point_v<T>, "checked_div_vec_fp requires floating-point types");
-    
+
     if (vec_a.size() != vec_b.size())
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -926,23 +952,23 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
             return std::vector<T>();
         }
     }
-    
+
     size_t n = vec_a.size();
     std::vector<T> result(n);
-    
+
     using VecT = SimdVector<T>;
     constexpr size_t vec_width = VecT::width;
-    
+
     size_t i = 0;
-    
+
     for (; i + vec_width <= n; i += vec_width)
     {
         auto va = VecT::load_unaligned(&vec_a[i]);
         auto vb = VecT::load_unaligned(&vec_b[i]);
         auto vr = va / vb;
-        
+
         bool has_error = detail::detect_fp_simd_error_generic<Policy>(va, vb, vr);
-        
+
         if (has_error)
         {
             for (size_t j = i; j < i + vec_width && j < n; ++j)
@@ -967,7 +993,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
             vr.store_unaligned(&result[i]);
         }
     }
-    
+
     for (; i < n; ++i)
     {
         auto temp = checked_div_fp<Policy>(vec_a[i], vec_b[i]);
@@ -984,7 +1010,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
             result[i] = temp;
         }
     }
-    
+
     return result;
 }
 
@@ -1013,21 +1039,21 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
  * @code
  *   AlignedVector<double> a(1000), b(1000);
  *   // ... fill a and b ...
- *   auto result = checked_add_vec_fp_aligned<SaturatingPolicy, double, 
+ *   auto result = checked_add_vec_fp_aligned<SaturatingPolicy, double,
  *                                            AlignedVector<double>>(a, b);
  *   // Uses aligned stores internally
  * @endcode
  */
-template <typename Policy = ThrowOnErrorPolicy, typename T, 
+template <typename Policy = ThrowOnErrorPolicy,
+          typename T,
           typename ResultVec = std::vector<T>,
           typename InputVec = std::vector<T>>
-[[nodiscard]] PolicyReturnType<Policy, ResultVec> checked_add_vec_fp_aligned(
-    const InputVec& vec_a, 
-    const InputVec& vec_b)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, ResultVec>
+checked_add_vec_fp_aligned(const InputVec& vec_a,
+                           const InputVec& vec_b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_floating_point_v<T>, "checked_add_vec_fp_aligned requires floating-point types");
-    
+
     if (vec_a.size() != vec_b.size())
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -1043,27 +1069,27 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
             return ResultVec();
         }
     }
-    
+
     size_t n = vec_a.size();
     ResultVec result(n);
-    
+
     // Get appropriately aligned pointer for stores
     T* res_ptr = get_aligned_ptr(result);
-    
+
     using VecT = SimdVector<T>;
     constexpr size_t vec_width = VecT::width;
-    
+
     size_t i = 0;
-    
+
     // SIMD main loop with alignment-aware stores
     for (; i + vec_width <= n; i += vec_width)
     {
         auto va = VecT::load_unaligned(&vec_a[i]);
         auto vb = VecT::load_unaligned(&vec_b[i]);
         auto vr = va + vb;
-        
+
         bool has_error = detail::detect_fp_simd_error_generic<Policy>(va, vb, vr);
-        
+
         if (has_error)
         {
             for (size_t j = i; j < i + vec_width && j < n; ++j)
@@ -1096,7 +1122,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
             }
         }
     }
-    
+
     // Scalar cleanup
     for (; i < n; ++i)
     {
@@ -1114,23 +1140,23 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
             res_ptr[i] = temp;
         }
     }
-    
+
     return result;
 }
 
 /**
  * @brief Alignment-aware checked vector subtraction for floating-point
  */
-template <typename Policy = ThrowOnErrorPolicy, typename T, 
+template <typename Policy = ThrowOnErrorPolicy,
+          typename T,
           typename ResultVec = std::vector<T>,
           typename InputVec = std::vector<T>>
-[[nodiscard]] PolicyReturnType<Policy, ResultVec> checked_sub_vec_fp_aligned(
-    const InputVec& vec_a, 
-    const InputVec& vec_b)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, ResultVec>
+checked_sub_vec_fp_aligned(const InputVec& vec_a,
+                           const InputVec& vec_b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_floating_point_v<T>, "checked_sub_vec_fp_aligned requires floating-point types");
-    
+
     if (vec_a.size() != vec_b.size())
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -1146,24 +1172,24 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
             return ResultVec();
         }
     }
-    
+
     size_t n = vec_a.size();
     ResultVec result(n);
     T* res_ptr = get_aligned_ptr(result);
-    
+
     using VecT = SimdVector<T>;
     constexpr size_t vec_width = VecT::width;
-    
+
     size_t i = 0;
-    
+
     for (; i + vec_width <= n; i += vec_width)
     {
         auto va = VecT::load_unaligned(&vec_a[i]);
         auto vb = VecT::load_unaligned(&vec_b[i]);
         auto vr = va - vb;
-        
+
         bool has_error = detail::detect_fp_simd_error_generic<Policy>(va, vb, vr);
-        
+
         if (has_error)
         {
             for (size_t j = i; j < i + vec_width && j < n; ++j)
@@ -1195,7 +1221,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
             }
         }
     }
-    
+
     for (; i < n; ++i)
     {
         auto temp = checked_sub_fp<Policy>(vec_a[i], vec_b[i]);
@@ -1212,23 +1238,23 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
             res_ptr[i] = temp;
         }
     }
-    
+
     return result;
 }
 
 /**
  * @brief Alignment-aware checked vector multiplication for floating-point
  */
-template <typename Policy = ThrowOnErrorPolicy, typename T, 
+template <typename Policy = ThrowOnErrorPolicy,
+          typename T,
           typename ResultVec = std::vector<T>,
           typename InputVec = std::vector<T>>
-[[nodiscard]] PolicyReturnType<Policy, ResultVec> checked_mul_vec_fp_aligned(
-    const InputVec& vec_a, 
-    const InputVec& vec_b)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, ResultVec>
+checked_mul_vec_fp_aligned(const InputVec& vec_a,
+                           const InputVec& vec_b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_floating_point_v<T>, "checked_mul_vec_fp_aligned requires floating-point types");
-    
+
     if (vec_a.size() != vec_b.size())
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -1244,24 +1270,24 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
             return ResultVec();
         }
     }
-    
+
     size_t n = vec_a.size();
     ResultVec result(n);
     T* res_ptr = get_aligned_ptr(result);
-    
+
     using VecT = SimdVector<T>;
     constexpr size_t vec_width = VecT::width;
-    
+
     size_t i = 0;
-    
+
     for (; i + vec_width <= n; i += vec_width)
     {
         auto va = VecT::load_unaligned(&vec_a[i]);
         auto vb = VecT::load_unaligned(&vec_b[i]);
         auto vr = va * vb;
-        
+
         bool has_error = detail::detect_fp_simd_error_generic<Policy>(va, vb, vr);
-        
+
         if (has_error)
         {
             for (size_t j = i; j < i + vec_width && j < n; ++j)
@@ -1293,7 +1319,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
             }
         }
     }
-    
+
     for (; i < n; ++i)
     {
         auto temp = checked_mul_fp<Policy>(vec_a[i], vec_b[i]);
@@ -1310,23 +1336,23 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
             res_ptr[i] = temp;
         }
     }
-    
+
     return result;
 }
 
 /**
  * @brief Alignment-aware checked vector division for floating-point
  */
-template <typename Policy = ThrowOnErrorPolicy, typename T, 
+template <typename Policy = ThrowOnErrorPolicy,
+          typename T,
           typename ResultVec = std::vector<T>,
           typename InputVec = std::vector<T>>
-[[nodiscard]] PolicyReturnType<Policy, ResultVec> checked_div_vec_fp_aligned(
-    const InputVec& vec_a, 
-    const InputVec& vec_b)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] PolicyReturnType<Policy, ResultVec>
+checked_div_vec_fp_aligned(const InputVec& vec_a,
+                           const InputVec& vec_b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_floating_point_v<T>, "checked_div_vec_fp_aligned requires floating-point types");
-    
+
     if (vec_a.size() != vec_b.size())
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
@@ -1342,24 +1368,24 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
             return ResultVec();
         }
     }
-    
+
     size_t n = vec_a.size();
     ResultVec result(n);
     T* res_ptr = get_aligned_ptr(result);
-    
+
     using VecT = SimdVector<T>;
     constexpr size_t vec_width = VecT::width;
-    
+
     size_t i = 0;
-    
+
     for (; i + vec_width <= n; i += vec_width)
     {
         auto va = VecT::load_unaligned(&vec_a[i]);
         auto vb = VecT::load_unaligned(&vec_b[i]);
         auto vr = va / vb;
-        
+
         bool has_error = detail::detect_fp_simd_error_generic<Policy>(va, vb, vr);
-        
+
         if (has_error)
         {
             for (size_t j = i; j < i + vec_width && j < n; ++j)
@@ -1391,7 +1417,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
             }
         }
     }
-    
+
     for (; i < n; ++i)
     {
         auto temp = checked_div_fp<Policy>(vec_a[i], vec_b[i]);
@@ -1408,7 +1434,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T,
             res_ptr[i] = temp;
         }
     }
-    
+
     return result;
 }
 

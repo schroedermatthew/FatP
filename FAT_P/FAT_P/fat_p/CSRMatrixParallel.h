@@ -2,7 +2,7 @@
  * @file CSRMatrixParallel.h
  * @brief ThreadPool-based parallel operations for CSRMatrix
  *
- * 
+ *
  *
  * @layer Domain
  *
@@ -48,8 +48,8 @@ FATP_META:
     mode: autogen
 */
 #include "CSRMatrix.h"
-#include "ThreadPool.h"
 #include "CSRMatrixPartitioning.h"
+#include "ThreadPool.h"
 
 #include <algorithm>
 #include <atomic>
@@ -106,12 +106,11 @@ struct ParallelConfig
  * @param config Parallel execution configuration
  */
 template <typename T, typename IndexType>
-void matvec_threadpool(
-    const CSRMatrix<T, IndexType>& matrix,
-    const T* x,
-    T* y,
-    ThreadPool& pool,
-    const ParallelConfig& config = {})
+void matvec_threadpool(const CSRMatrix<T, IndexType>& matrix,
+                       const T* x,
+                       T* y,
+                       ThreadPool& pool,
+                       const ParallelConfig& config = {})
 {
     using size_type = std::size_t;
     using ptr_type = typename CSRMatrix<T, IndexType>::ptr_type;
@@ -138,12 +137,10 @@ void matvec_threadpool(
         num_tasks = pool.thread_count() * 4;
     }
 
-    num_tasks = std::min(num_tasks,
-                         (nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
+    num_tasks = std::min(num_tasks, (nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
     num_tasks = std::max(num_tasks, size_type{1});
 
-    auto partitions = detail::compute_balanced_partitions(
-        matrix.row_ptrs().data(), rows, num_tasks);
+    auto partitions = detail::compute_balanced_partitions(matrix.row_ptrs().data(), rows, num_tasks);
 
     const T* values = matrix.values().data();
     const IndexType* col_indices = matrix.col_indices().data();
@@ -157,9 +154,7 @@ void matvec_threadpool(
         size_type start_row = partition.first;
         size_type end_row = partition.second;
 
-        futures.push_back(pool.submit([values, col_indices, row_ptrs, x, y,
-                                       start_row, end_row]()
-        {
+        futures.push_back(pool.submit([values, col_indices, row_ptrs, x, y, start_row, end_row]() {
             for (size_type i = start_row; i < end_row; ++i)
             {
                 T sum = T{0};
@@ -186,14 +181,13 @@ void matvec_threadpool(
  * @brief Parallel SpMV with alpha/beta: y = alpha * A * x + beta * y
  */
 template <typename T, typename IndexType>
-void matvec_threadpool(
-    const CSRMatrix<T, IndexType>& matrix,
-    T alpha,
-    const T* x,
-    T beta,
-    T* y,
-    ThreadPool& pool,
-    const ParallelConfig& config = {})
+void matvec_threadpool(const CSRMatrix<T, IndexType>& matrix,
+                       T alpha,
+                       const T* x,
+                       T beta,
+                       T* y,
+                       ThreadPool& pool,
+                       const ParallelConfig& config = {})
 {
     using size_type = std::size_t;
     using ptr_type = typename CSRMatrix<T, IndexType>::ptr_type;
@@ -236,12 +230,10 @@ void matvec_threadpool(
     {
         num_tasks = pool.thread_count() * 4;
     }
-    num_tasks = std::min(num_tasks,
-                         (nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
+    num_tasks = std::min(num_tasks, (nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
     num_tasks = std::max(num_tasks, size_type{1});
 
-    auto partitions = detail::compute_balanced_partitions(
-        matrix.row_ptrs().data(), rows, num_tasks);
+    auto partitions = detail::compute_balanced_partitions(matrix.row_ptrs().data(), rows, num_tasks);
 
     const T* values = matrix.values().data();
     const IndexType* col_indices = matrix.col_indices().data();
@@ -255,30 +247,29 @@ void matvec_threadpool(
         size_type start_row = partition.first;
         size_type end_row = partition.second;
 
-        futures.push_back(pool.submit([values, col_indices, row_ptrs, x, y,
-                                       start_row, end_row, alpha, beta, beta_zero]()
-        {
-            for (size_type i = start_row; i < end_row; ++i)
-            {
-                T sum = T{0};
-                ptr_type j_start = row_ptrs[i];
-                ptr_type j_end = row_ptrs[i + 1];
+        futures.push_back(
+            pool.submit([values, col_indices, row_ptrs, x, y, start_row, end_row, alpha, beta, beta_zero]() {
+                for (size_type i = start_row; i < end_row; ++i)
+                {
+                    T sum = T{0};
+                    ptr_type j_start = row_ptrs[i];
+                    ptr_type j_end = row_ptrs[i + 1];
 
-                for (ptr_type j = j_start; j < j_end; ++j)
-                {
-                    sum += values[j] * x[col_indices[j]];
-                }
+                    for (ptr_type j = j_start; j < j_end; ++j)
+                    {
+                        sum += values[j] * x[col_indices[j]];
+                    }
 
-                if (beta_zero)
-                {
-                    y[i] = alpha * sum;
+                    if (beta_zero)
+                    {
+                        y[i] = alpha * sum;
+                    }
+                    else
+                    {
+                        y[i] = alpha * sum + beta * y[i];
+                    }
                 }
-                else
-                {
-                    y[i] = alpha * sum + beta * y[i];
-                }
-            }
-        }));
+            }));
     }
 
     for (auto& f : futures)
@@ -294,12 +285,11 @@ void matvec_threadpool(
  * Faster for small matrices where future overhead dominates.
  */
 template <typename T, typename IndexType>
-void matvec_threadpool_batch(
-    const CSRMatrix<T, IndexType>& matrix,
-    const T* x,
-    T* y,
-    ThreadPool& pool,
-    const ParallelConfig& config = {})
+void matvec_threadpool_batch(const CSRMatrix<T, IndexType>& matrix,
+                             const T* x,
+                             T* y,
+                             ThreadPool& pool,
+                             const ParallelConfig& config = {})
 {
     using size_type = std::size_t;
     using ptr_type = typename CSRMatrix<T, IndexType>::ptr_type;
@@ -325,12 +315,10 @@ void matvec_threadpool_batch(
     {
         num_tasks = pool.thread_count() * 4;
     }
-    num_tasks = std::min(num_tasks,
-                         (nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
+    num_tasks = std::min(num_tasks, (nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
     num_tasks = std::max(num_tasks, size_type{1});
 
-    auto partitions = detail::compute_balanced_partitions(
-        matrix.row_ptrs().data(), rows, num_tasks);
+    auto partitions = detail::compute_balanced_partitions(matrix.row_ptrs().data(), rows, num_tasks);
 
     std::vector<std::function<void()>> tasks;
     tasks.reserve(partitions.size());
@@ -344,9 +332,7 @@ void matvec_threadpool_batch(
         size_type start_row = partition.first;
         size_type end_row = partition.second;
 
-        tasks.emplace_back([values_ptr, col_indices_ptr, row_ptrs_ptr, x, y,
-                            start_row, end_row]()
-        {
+        tasks.emplace_back([values_ptr, col_indices_ptr, row_ptrs_ptr, x, y, start_row, end_row]() {
             for (size_type i = start_row; i < end_row; ++i)
             {
                 T sum = T{0};
@@ -375,11 +361,10 @@ void matvec_threadpool_batch(
  * @brief std::vector interface for parallel SpMV
  */
 template <typename T, typename IndexType>
-std::vector<T> matvec_parallel(
-    const CSRMatrix<T, IndexType>& matrix,
-    const std::vector<T>& x,
-    ThreadPool& pool,
-    const ParallelConfig& config = {})
+std::vector<T> matvec_parallel(const CSRMatrix<T, IndexType>& matrix,
+                               const std::vector<T>& x,
+                               ThreadPool& pool,
+                               const ParallelConfig& config = {})
 {
     if (x.size() != matrix.cols())
     {
@@ -406,9 +391,7 @@ inline ThreadPool& default_thread_pool()
  * @brief Parallel SpMV using default thread pool
  */
 template <typename T, typename IndexType>
-std::vector<T> matvec_parallel(
-    const CSRMatrix<T, IndexType>& matrix,
-    const std::vector<T>& x)
+std::vector<T> matvec_parallel(const CSRMatrix<T, IndexType>& matrix, const std::vector<T>& x)
 {
     return matvec_parallel(matrix, x, default_thread_pool());
 }
@@ -427,9 +410,7 @@ std::vector<T> matvec_parallel(
  * The result is constructed via COO format which handles sorting internally.
  */
 template <typename T, typename IndexType>
-CSRMatrix<T, IndexType> transpose_parallel(
-    const CSRMatrix<T, IndexType>& matrix,
-    ThreadPool& pool)
+CSRMatrix<T, IndexType> transpose_parallel(const CSRMatrix<T, IndexType>& matrix, ThreadPool& pool)
 {
     using size_type = std::size_t;
     using ptr_type = typename CSRMatrix<T, IndexType>::ptr_type;
@@ -466,9 +447,7 @@ CSRMatrix<T, IndexType> transpose_parallel(
             size_type start_row = partitions[t].first;
             size_type end_row = partitions[t].second;
 
-            futures.push_back(pool.submit(
-                [row_ptrs, col_indices, &thread_counts, t, start_row, end_row]()
-            {
+            futures.push_back(pool.submit([row_ptrs, col_indices, &thread_counts, t, start_row, end_row]() {
                 for (size_type i = start_row; i < end_row; ++i)
                 {
                     for (ptr_type j = row_ptrs[i]; j < row_ptrs[i + 1]; ++j)
@@ -522,17 +501,21 @@ CSRMatrix<T, IndexType> transpose_parallel(
             size_type start_row = partitions[t].first;
             size_type end_row = partitions[t].second;
 
-            futures.push_back(pool.submit(
-                [values, col_indices, row_ptrs, &result_row_indices, &result_col_indices,
-                 &result_values, &write_pos, start_row, end_row]()
-            {
+            futures.push_back(pool.submit([values,
+                                           col_indices,
+                                           row_ptrs,
+                                           &result_row_indices,
+                                           &result_col_indices,
+                                           &result_values,
+                                           &write_pos,
+                                           start_row,
+                                           end_row]() {
                 for (size_type i = start_row; i < end_row; ++i)
                 {
                     for (ptr_type j = row_ptrs[i]; j < row_ptrs[i + 1]; ++j)
                     {
                         IndexType col = col_indices[j];
-                        size_type dest = write_pos[static_cast<size_type>(col)].fetch_add(
-                            1, std::memory_order_relaxed);
+                        size_type dest = write_pos[static_cast<size_type>(col)].fetch_add(1, std::memory_order_relaxed);
 
                         result_row_indices[dest] = col;
                         result_col_indices[dest] = static_cast<IndexType>(i);
@@ -549,10 +532,7 @@ CSRMatrix<T, IndexType> transpose_parallel(
     }
 
     // Construct result from COO (handles sorting internally)
-    return CSRMatrix<T, IndexType>(cols, rows,
-                                   result_row_indices,
-                                   result_col_indices,
-                                   result_values);
+    return CSRMatrix<T, IndexType>(cols, rows, result_row_indices, result_col_indices, result_values);
 }
 
 } // namespace fat_p

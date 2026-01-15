@@ -212,8 +212,7 @@ FATP_TEST_CASE(singleton_factory_resolution)
     std::atomic<int> created{0};
 
     auto reg = locator.registerFactory<Widget>(
-        [&created]() -> std::unique_ptr<Widget>
-        {
+        [&created]() -> std::unique_ptr<Widget> {
             created.fetch_add(1, std::memory_order_relaxed);
             return std::make_unique<Widget>(42);
         },
@@ -240,8 +239,7 @@ FATP_TEST_CASE(transient_factory_creation)
     std::atomic<int> created{0};
 
     auto reg = locator.registerFactory<Widget>(
-        [&created]() -> std::unique_ptr<Widget>
-        {
+        [&created]() -> std::unique_ptr<Widget> {
             int id = created.fetch_add(1, std::memory_order_relaxed) + 1;
             return std::make_unique<Widget>(id);
         },
@@ -306,18 +304,16 @@ FATP_TEST_CASE(thread_safe_smoke)
 
     for (int t = 0; t < kThreads; ++t)
     {
-        threads.emplace_back(
-            [&]()
+        threads.emplace_back([&]() {
+            for (int i = 0; i < kIters; ++i)
             {
-                for (int i = 0; i < kIters; ++i)
+                CounterService* p = locator.tryResolve<CounterService>();
+                if (p != nullptr && p->mValue == 99)
                 {
-                    CounterService* p = locator.tryResolve<CounterService>();
-                    if (p != nullptr && p->mValue == 99)
-                    {
-                        ok.fetch_add(1, std::memory_order_relaxed);
-                    }
+                    ok.fetch_add(1, std::memory_order_relaxed);
                 }
-            });
+            }
+        });
     }
 
     for (auto& th : threads)
@@ -341,8 +337,7 @@ FATP_TEST_CASE(concurrent_singleton_exactly_once)
     std::atomic<int> mismatchCount{0};
 
     auto reg = locator.registerFactory<Widget>(
-        [&factoryInvocations]() -> std::unique_ptr<Widget>
-        {
+        [&factoryInvocations]() -> std::unique_ptr<Widget> {
             factoryInvocations.fetch_add(1, std::memory_order_relaxed);
             // Sleep to widen the race window
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -357,30 +352,28 @@ FATP_TEST_CASE(concurrent_singleton_exactly_once)
 
     for (int t = 0; t < kThreads; ++t)
     {
-        threads.emplace_back(
-            [&]()
+        threads.emplace_back([&]() {
+            Widget* p = locator.tryResolve<Widget>();
+            if (p == nullptr)
             {
-                Widget* p = locator.tryResolve<Widget>();
-                if (p == nullptr)
+                mismatchCount.fetch_add(1, std::memory_order_relaxed);
+                return;
+            }
+
+            // Record first observed instance, check all threads see the same one
+            Widget* expected = nullptr;
+            if (!firstObserved.compare_exchange_strong(expected,
+                                                       p,
+                                                       std::memory_order_acq_rel,
+                                                       std::memory_order_acquire))
+            {
+                // Someone else set it first; verify we got the same pointer
+                if (expected != p)
                 {
                     mismatchCount.fetch_add(1, std::memory_order_relaxed);
-                    return;
                 }
-
-                // Record first observed instance, check all threads see the same one
-                Widget* expected = nullptr;
-                if (!firstObserved.compare_exchange_strong(expected,
-                                                           p,
-                                                           std::memory_order_acq_rel,
-                                                           std::memory_order_acquire))
-                {
-                    // Someone else set it first; verify we got the same pointer
-                    if (expected != p)
-                    {
-                        mismatchCount.fetch_add(1, std::memory_order_relaxed);
-                    }
-                }
-            });
+            }
+        });
     }
 
     for (auto& th : threads)
@@ -411,8 +404,7 @@ FATP_TEST_CASE(singleton_reregister_does_not_poison)
     std::atomic<Widget*> oldObserved{nullptr};
 
     auto regOld = locator.registerFactory<Widget>(
-        [&]() -> std::unique_ptr<Widget>
-        {
+        [&]() -> std::unique_ptr<Widget> {
             oldInvocations.fetch_add(1, std::memory_order_relaxed);
             oldEntered.store(true, std::memory_order_release);
 
@@ -426,11 +418,9 @@ FATP_TEST_CASE(singleton_reregister_does_not_poison)
         ServiceLifetime::Singleton);
     FATP_ASSERT_TRUE(regOld.has_value(), "old singleton factory registration should succeed");
 
-    std::thread creator(
-        [&]()
-        {
-            oldObserved.store(locator.tryResolve<Widget>(), std::memory_order_relaxed);
-        });
+    std::thread creator([&]() {
+        oldObserved.store(locator.tryResolve<Widget>(), std::memory_order_relaxed);
+    });
 
     while (!oldEntered.load(std::memory_order_acquire))
     {
@@ -440,8 +430,7 @@ FATP_TEST_CASE(singleton_reregister_does_not_poison)
     FATP_ASSERT_TRUE(locator.unregister<Widget>(), "unregister should succeed while factory is running");
 
     auto regNew = locator.registerFactory<Widget>(
-        [&]() -> std::unique_ptr<Widget>
-        {
+        [&]() -> std::unique_ptr<Widget> {
             newInvocations.fetch_add(1, std::memory_order_relaxed);
             return std::make_unique<Widget>(2);
         },
@@ -472,8 +461,7 @@ FATP_TEST_CASE(circular_dependency_detected)
 
     // Register a factory that tries to resolve itself - circular dependency
     auto reg = locator.registerFactory<Widget>(
-        [&locator, &innerErrorCode]() -> std::unique_ptr<Widget>
-        {
+        [&locator, &innerErrorCode]() -> std::unique_ptr<Widget> {
             // This should detect CircularDependency error
             auto inner = locator.resolveExpected<Widget>();
             if (!inner.has_value())

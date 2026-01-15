@@ -3,7 +3,7 @@
  * @brief Defines the policy-to-raiser mapping and meta-logic required for the
  * policy-based contract system, including contextual enforcement.
  *
- * 
+ *
  *
  * @layer Foundation
  *
@@ -43,7 +43,8 @@ FATP_META:
 #include "enforce_predicates.h"
 #include "enforce_raisers.h"
 
-namespace fat_p {
+namespace fat_p
+{
 
 // --- 1. Policy Tags ---
 

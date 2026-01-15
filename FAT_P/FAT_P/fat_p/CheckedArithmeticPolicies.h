@@ -1,7 +1,7 @@
 /**
  * @file CheckedArithmeticPolicies.h
  * @brief Policy classes and type traits for checked arithmetic
- * 
+ *
  *
  * @layer Foundation
  *
@@ -82,10 +82,11 @@ FATP_META:
 #include "CppStandardDetection.h"
 #include "Expected.h"
 
-#include <type_traits>
 #include <limits>
+#include <type_traits>
 
-namespace fat_p {
+namespace fat_p
+{
 
 // =============================================================================
 // Policy Tag Classes (complete the forward declarations from Base.h)
@@ -106,7 +107,9 @@ namespace fat_p {
  * - is_noexcept: false
  * - Returns: T directly
  */
-struct ThrowOnErrorPolicy {};
+struct ThrowOnErrorPolicy
+{
+};
 
 /**
  * @brief Policy that returns Expected<T, MathError> instead of throwing
@@ -123,7 +126,9 @@ struct ThrowOnErrorPolicy {};
  * - is_noexcept: true
  * - Returns: Expected<T, MathError>
  */
-struct ReturnExpectedPolicy {};
+struct ReturnExpectedPolicy
+{
+};
 
 /**
  * @brief Policy that saturates to min/max on overflow
@@ -143,7 +148,9 @@ struct ReturnExpectedPolicy {};
  * Note: On NEON, SaturatingPolicy can use hardware saturation (vqadd/vqsub)
  * for zero-overhead implementation.
  */
-struct SaturatingPolicy {};
+struct SaturatingPolicy
+{
+};
 
 /**
  * @brief Policy like Saturating but allows infinity for FP operations
@@ -161,7 +168,9 @@ struct SaturatingPolicy {};
  * - Returns: T directly
  * - allows_infinity: true (unique to this policy)
  */
-struct InfTolerantPolicy {};
+struct InfTolerantPolicy
+{
+};
 
 // =============================================================================
 // Policy Traits - Primary Template (undefined)
@@ -197,14 +206,14 @@ struct PolicyTraits<ThrowOnErrorPolicy>
     /// Operations with this policy may throw
     template <typename T>
     static constexpr bool is_noexcept = false;
-    
+
     /// Return type is T directly
     template <typename T>
     using ReturnType = T;
-    
+
     /// This policy does not allow infinity (FP operations check for it)
     static constexpr bool allows_infinity = false;
-    
+
     /// Human-readable policy name for diagnostics
     static constexpr const char* name = "ThrowOnError";
 };
@@ -218,14 +227,14 @@ struct PolicyTraits<ReturnExpectedPolicy>
     /// Operations with this policy are noexcept
     template <typename T>
     static constexpr bool is_noexcept = true;
-    
+
     /// Return type is Expected<T, MathError>
     template <typename T>
     using ReturnType = Expected<T, MathError>;
-    
+
     /// This policy does not allow infinity (returns error instead)
     static constexpr bool allows_infinity = false;
-    
+
     /// Human-readable policy name for diagnostics
     static constexpr const char* name = "ReturnExpected";
 };
@@ -239,14 +248,14 @@ struct PolicyTraits<SaturatingPolicy>
     /// Operations with this policy are noexcept
     template <typename T>
     static constexpr bool is_noexcept = true;
-    
+
     /// Return type is T directly (clamped to range)
     template <typename T>
     using ReturnType = T;
-    
+
     /// This policy does not allow infinity (saturates to max instead)
     static constexpr bool allows_infinity = false;
-    
+
     /// Human-readable policy name for diagnostics
     static constexpr const char* name = "Saturating";
 };
@@ -260,14 +269,14 @@ struct PolicyTraits<InfTolerantPolicy>
     /// Operations with this policy are noexcept
     template <typename T>
     static constexpr bool is_noexcept = true;
-    
+
     /// Return type is T directly
     template <typename T>
     using ReturnType = T;
-    
+
     /// This policy DOES allow infinity through (unique among policies)
     static constexpr bool allows_infinity = true;
-    
+
     /// Human-readable policy name for diagnostics
     static constexpr const char* name = "InfTolerant";
 };
@@ -324,9 +333,10 @@ concept Arithmetic = IntegralNonBool<T> || FloatingPoint<T>;
  * Ensures the policy has required traits defined.
  */
 template <typename P>
-concept ValidPolicy = requires {
-    { PolicyTraits<P>::template is_noexcept<int> } -> std::convertible_to<bool>;
-    { PolicyTraits<P>::allows_infinity } -> std::convertible_to<bool>;
+concept ValidPolicy = requires
+{
+    {PolicyTraits<P>::template is_noexcept<int>}->std::convertible_to<bool>;
+    {PolicyTraits<P>::allows_infinity}->std::convertible_to<bool>;
 };
 
 // Macro versions for template parameter lists
@@ -366,17 +376,16 @@ using EnableIfFloating = std::enable_if_t<std::is_floating_point_v<T>, T>;
  * When available, they generate optimal code (using carry flag, etc.).
  */
 #if defined(__has_builtin)
-    #if __has_builtin(__builtin_add_overflow) && \
-        __has_builtin(__builtin_sub_overflow) && \
-        __has_builtin(__builtin_mul_overflow)
-        #define FATP_HAS_BUILTIN_OVERFLOW 1
-    #else
-        #define FATP_HAS_BUILTIN_OVERFLOW 0
-    #endif
-#elif defined(__GNUC__) && (__GNUC__ >= 5)
-    #define FATP_HAS_BUILTIN_OVERFLOW 1
+#if __has_builtin(__builtin_add_overflow) && __has_builtin(__builtin_sub_overflow) && \
+    __has_builtin(__builtin_mul_overflow)
+#define FATP_HAS_BUILTIN_OVERFLOW 1
 #else
-    #define FATP_HAS_BUILTIN_OVERFLOW 0
+#define FATP_HAS_BUILTIN_OVERFLOW 0
+#endif
+#elif defined(__GNUC__) && (__GNUC__ >= 5)
+#define FATP_HAS_BUILTIN_OVERFLOW 1
+#else
+#define FATP_HAS_BUILTIN_OVERFLOW 0
 #endif
 
 } // namespace fat_p

@@ -2114,8 +2114,7 @@ void benchmark_aligned_vector()
     // Benchmark 1: push_back
     print_cpu_state("push_back");
     double pushTime = measure_perf(
-        []()
-        {
+        []() {
             fat_p::AlignedVector<int, 64> v;
             for (int i = 0; i < 1000; ++i)
             {
@@ -2131,8 +2130,7 @@ void benchmark_aligned_vector()
     // Benchmark 2: Sequential iteration
     print_cpu_state("iteration");
     double iterTime = measure_perf(
-        [&vec]()
-        {
+        [&vec]() {
             long long sum = 0;
             for (size_t i = 0; i < vec.size(); ++i)
             {
@@ -2149,8 +2147,7 @@ void benchmark_aligned_vector()
     // Benchmark 3: assume_aligned iteration
     print_cpu_state("assume_aligned");
     double assumeAlignedTime = measure_perf(
-        [&vec]()
-        {
+        [&vec]() {
             long long sum = 0;
             const int* p = vec.assume_aligned();
             for (size_t i = 0; i < vec.size(); ++i)
@@ -2173,8 +2170,7 @@ void benchmark_aligned_vector()
 
     print_cpu_state("random access");
     double randomTime = measure_perf(
-        [&vec, &indices]()
-        {
+        [&vec, &indices]() {
             long long sum = 0;
             for (size_t idx : indices)
             {
@@ -2191,8 +2187,7 @@ void benchmark_aligned_vector()
     // Benchmark 5: insert at begin (worst case)
     print_cpu_state("insert begin");
     double insertTime = measure_perf(
-        []()
-        {
+        []() {
             fat_p::AlignedVector<int> v;
             v.reserve(100);
             for (int i = 0; i < 100; ++i)
@@ -2218,8 +2213,7 @@ void benchmark_aligned_vector()
 
     print_cpu_state("std::vector iter");
     double stdIterTime = measure_perf(
-        [&stdVec]()
-        {
+        [&stdVec]() {
             long long sum = 0;
             for (size_t i = 0; i < stdVec.size(); ++i)
             {
@@ -2235,8 +2229,7 @@ void benchmark_aligned_vector()
 
     print_cpu_state("std::vector random");
     double stdRandomTime = measure_perf(
-        [&stdVec, &indices]()
-        {
+        [&stdVec, &indices]() {
             long long sum = 0;
             for (size_t idx : indices)
             {

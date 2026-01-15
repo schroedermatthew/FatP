@@ -2,7 +2,7 @@
  * @file Signal.h
  * @brief High-performance Signal/Slot implementation for the fat_p library
  *
- * 
+ *
  *
  * @layer Domain
  *
@@ -97,19 +97,20 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+#include <algorithm>
+#include <atomic>
 #include <functional>
 #include <type_traits>
-#include <atomic>
-#include <algorithm>
 #include <utility>
 
-#include "SmallVector.h"
 #include "ConcurrencyPolicies.h"
-#include "StrongId.h"
-#include "ScopeGuard.h"
 #include "FatPTypeTraits.h"
+#include "ScopeGuard.h"
+#include "SmallVector.h"
+#include "StrongId.h"
 
-namespace fat_p {
+namespace fat_p
+{
 
 // =============================================================================
 // Connection ID Type
@@ -118,7 +119,9 @@ namespace fat_p {
 /**
  * @brief Tag type for Signal connection IDs
  */
-struct SignalConnectionTag {};
+struct SignalConnectionTag
+{
+};
 
 /**
  * @brief Type-safe connection identifier
@@ -139,12 +142,17 @@ inline constexpr ConnectionId InvalidConnectionId{0};
 /**
  * @brief Policy that catches and ignores exceptions from slots during emission
  */
-struct CatchAndIgnorePolicy {
+struct CatchAndIgnorePolicy
+{
     template <typename F, typename... Args>
-    static void invoke(F&& f, Args&&... args) noexcept {
-        try {
+    static void invoke(F&& f, Args&&... args) noexcept
+    {
+        try
+        {
             std::forward<F>(f)(std::forward<Args>(args)...);
-        } catch (...) {
+        }
+        catch (...)
+        {
             // Swallow exception - slot failure doesn't affect others
         }
     }
@@ -154,9 +162,11 @@ struct CatchAndIgnorePolicy {
  * @brief Policy that allows exceptions to propagate from slots
  * @warning If a slot throws, subsequent slots won't be notified
  */
-struct PropagateExceptionPolicy {
+struct PropagateExceptionPolicy
+{
     template <typename F, typename... Args>
-    static void invoke(F&& f, Args&&... args) {
+    static void invoke(F&& f, Args&&... args)
+    {
         std::forward<F>(f)(std::forward<Args>(args)...);
     }
 };
@@ -164,9 +174,11 @@ struct PropagateExceptionPolicy {
 /**
  * @brief Policy that terminates on slot exceptions (for noexcept emission)
  */
-struct TerminateOnExceptionPolicy {
+struct TerminateOnExceptionPolicy
+{
     template <typename F, typename... Args>
-    static void invoke(F&& f, Args&&... args) noexcept {
+    static void invoke(F&& f, Args&&... args) noexcept
+    {
         std::forward<F>(f)(std::forward<Args>(args)...);
     }
 };
@@ -205,7 +217,8 @@ class Signal;
  * };
  * @endcode
  */
-class ScopedConnection {
+class ScopedConnection
+{
 public:
     /**
      * @brief Default constructor - creates empty (unconnected) handle
@@ -219,7 +232,8 @@ public:
     explicit ScopedConnection(std::function<void()> disconnector) noexcept
         : mDisconnector(std::move(disconnector))
         , mConnected(true)
-    {}
+    {
+    }
 
     /**
      * @brief Move constructor - transfers ownership
@@ -234,8 +248,10 @@ public:
     /**
      * @brief Move assignment - disconnects current, takes ownership
      */
-    ScopedConnection& operator=(ScopedConnection&& other) noexcept {
-        if (this != &other) {
+    ScopedConnection& operator=(ScopedConnection&& other) noexcept
+    {
+        if (this != &other)
+        {
             disconnect();
             mDisconnector = std::move(other.mDisconnector);
             mConnected = other.mConnected;
@@ -251,18 +267,24 @@ public:
     /**
      * @brief Destructor - automatically disconnects if connected
      */
-    ~ScopedConnection() {
+    ~ScopedConnection()
+    {
         disconnect();
     }
 
     /**
      * @brief Manually disconnect (idempotent)
      */
-    void disconnect() noexcept {
-        if (mConnected && mDisconnector) {
-            try {
+    void disconnect() noexcept
+    {
+        if (mConnected && mDisconnector)
+        {
+            try
+            {
                 mDisconnector();
-            } catch (...) {
+            }
+            catch (...)
+            {
                 // Swallow exceptions in destructor context
             }
             mConnected = false;
@@ -274,7 +296,8 @@ public:
      * @details After release(), the connection remains active but this
      * ScopedConnection no longer manages it.
      */
-    void release() noexcept {
+    void release() noexcept
+    {
         mConnected = false;
         mDisconnector = nullptr;
     }
@@ -282,12 +305,18 @@ public:
     /**
      * @brief Check if this handle is connected
      */
-    [[nodiscard]] bool isConnected() const noexcept { return mConnected; }
+    [[nodiscard]] bool isConnected() const noexcept
+    {
+        return mConnected;
+    }
 
     /**
      * @brief Boolean conversion for connected state
      */
-    explicit operator bool() const noexcept { return mConnected; }
+    explicit operator bool() const noexcept
+    {
+        return mConnected;
+    }
 
 private:
     std::function<void()> mDisconnector;
@@ -307,18 +336,14 @@ private:
  * @tparam EmissionPolicy How to handle slot exceptions during emit
  * @tparam InlineCapacity Number of slots to store inline (stack allocation)
  */
-template <typename R, typename... Args,
-          typename SyncPolicy,
-          typename EmissionPolicy,
-          size_t InlineCapacity>
-class Signal<R(Args...), SyncPolicy, EmissionPolicy, InlineCapacity>
-    : private SyncPolicy
+template <typename R, typename... Args, typename SyncPolicy, typename EmissionPolicy, size_t InlineCapacity>
+class Signal<R(Args...), SyncPolicy, EmissionPolicy, InlineCapacity> : private SyncPolicy
 {
 public:
     // -------------------------------------------------------------------------
     // Type Aliases
     // -------------------------------------------------------------------------
-    
+
     using Signature = R(Args...);
     using Callback = std::function<Signature>;
     using SyncPolicyType = SyncPolicy;
@@ -330,21 +355,28 @@ private:
     // -------------------------------------------------------------------------
     // Internal Slot Structure
     // -------------------------------------------------------------------------
-    
-    struct Slot {
+
+    struct Slot
+    {
         ConnectionId id{InvalidConnectionId};
         Callback func;
         int priority = 0;
-        bool active = true;  // Soft-delete flag for deferred cleanup
+        bool active = true; // Soft-delete flag for deferred cleanup
 
         Slot() = default;
-        
+
         Slot(ConnectionId cid, Callback f, int prio)
-            : id(cid), func(std::move(f)), priority(prio), active(true) {}
+            : id(cid)
+            , func(std::move(f))
+            , priority(prio)
+            , active(true)
+        {
+        }
 
         // For priority-based sorting (higher priority = earlier in list)
-        bool operator<(const Slot& other) const noexcept {
-            return priority > other.priority;  // Descending order
+        bool operator<(const Slot& other) const noexcept
+        {
+            return priority > other.priority; // Descending order
         }
     };
 
@@ -354,11 +386,11 @@ private:
     // -------------------------------------------------------------------------
     // Member Data
     // -------------------------------------------------------------------------
-    
+
     SlotList mSlots;
-    std::atomic<size_t> mNextId{1};           // Monotonic ID generator
-    std::atomic<size_t> mRecursionDepth{0};   // Emission reentrancy counter
-    std::atomic<bool> mNeedsCleanup{false};   // Deferred cleanup flag
+    std::atomic<size_t> mNextId{1};         // Monotonic ID generator
+    std::atomic<size_t> mRecursionDepth{0}; // Emission reentrancy counter
+    std::atomic<bool> mNeedsCleanup{false}; // Deferred cleanup flag
 
 public:
     // -------------------------------------------------------------------------
@@ -374,7 +406,7 @@ public:
 
     // Move semantics
     Signal(Signal&& other) noexcept
-        : SyncPolicy()  // Default construct base (policies shouldn't have state to move)
+        : SyncPolicy() // Default construct base (policies shouldn't have state to move)
         , mSlots(std::move(other.mSlots))
         , mNextId(other.mNextId.load(std::memory_order_relaxed))
         , mRecursionDepth(0)
@@ -383,12 +415,13 @@ public:
         other.mNextId.store(1, std::memory_order_relaxed);
     }
 
-    Signal& operator=(Signal&& other) noexcept {
-        if (this != &other) {
+    Signal& operator=(Signal&& other) noexcept
+    {
+        if (this != &other)
+        {
             typename SyncPolicy::LockGuard lock(this->getLock());
             mSlots = std::move(other.mSlots);
-            mNextId.store(other.mNextId.load(std::memory_order_relaxed),
-                         std::memory_order_relaxed);
+            mNextId.store(other.mNextId.load(std::memory_order_relaxed), std::memory_order_relaxed);
             mRecursionDepth.store(0, std::memory_order_relaxed);
             mNeedsCleanup.store(false, std::memory_order_relaxed);
             other.mNextId.store(1, std::memory_order_relaxed);
@@ -409,9 +442,10 @@ public:
      *
      * @note Thread-safe when using appropriate SyncPolicy
      */
-    [[nodiscard]] ScopedConnection connect(Callback callback, int priority = 0) {
+    [[nodiscard]] ScopedConnection connect(Callback callback, int priority = 0)
+    {
         ConnectionId id = connectManual(std::move(callback), priority);
-        
+
         // Capture weak reference to handle signal destruction
         return ScopedConnection([this, id]() {
             this->disconnect(id);
@@ -428,21 +462,20 @@ public:
      * @warning Caller is responsible for calling disconnect() before
      * callback becomes invalid (e.g., captured 'this' pointer destroyed)
      */
-    ConnectionId connectManual(Callback callback, int priority = 0) {
+    ConnectionId connectManual(Callback callback, int priority = 0)
+    {
         typename SyncPolicy::LockGuard lock(this->getLock());
-        
+
         ConnectionId id(mNextId.fetch_add(1, std::memory_order_relaxed));
-        
+
         // Find insertion point to maintain priority order
         // Use upper_bound so equal priorities maintain insertion order (FIFO)
-        auto it = std::upper_bound(
-            mSlots.begin(), mSlots.end(),
-            priority,
-            [](int prio, const Slot& slot) { return prio > slot.priority; }
-        );
-        
+        auto it = std::upper_bound(mSlots.begin(), mSlots.end(), priority, [](int prio, const Slot& slot) {
+            return prio > slot.priority;
+        });
+
         mSlots.insert(it, Slot{id, std::move(callback), priority});
-        
+
         return id;
     }
 
@@ -465,10 +498,13 @@ public:
      * @endcode
      */
     template <typename T>
-    [[nodiscard]] ScopedConnection connect(T* obj, R (T::*method)(Args...), int priority = 0) {
-        return connect([obj, method](Args... args) {
-            (obj->*method)(std::forward<Args>(args)...);
-        }, priority);
+    [[nodiscard]] ScopedConnection connect(T* obj, R (T::*method)(Args...), int priority = 0)
+    {
+        return connect(
+            [obj, method](Args... args) {
+                (obj->*method)(std::forward<Args>(args)...);
+            },
+            priority);
     }
 
     /**
@@ -480,33 +516,40 @@ public:
      * @note If called during emission, performs soft-delete for reentrancy safety
      * @note Thread-safe: can be called from within slot callbacks without deadlock
      */
-    bool disconnect(ConnectionId id) {
+    bool disconnect(ConnectionId id)
+    {
         // Check if we're currently emitting (from any thread)
         // During emission, we only need to soft-delete (set active=false)
         // which can be done with a read lock since it's just a flag flip
-        if (mRecursionDepth.load(std::memory_order_acquire) > 0) {
+        if (mRecursionDepth.load(std::memory_order_acquire) > 0)
+        {
             // We might be inside emit() on this or another thread
             // Use read lock for soft delete to avoid deadlock
             typename SyncPolicy::SharedGuard lock(this->getLock());
-            
-            for (auto& slot : mSlots) {
-                if (slot.id == id && slot.active) {
-                    slot.active = false;  // Soft delete
+
+            for (auto& slot : mSlots)
+            {
+                if (slot.id == id && slot.active)
+                {
+                    slot.active = false; // Soft delete
                     mNeedsCleanup.store(true, std::memory_order_release);
                     return true;
                 }
             }
             return false;
         }
-        
+
         // Not emitting: acquire write lock for immediate removal
         typename SyncPolicy::LockGuard lock(this->getLock());
-        
+
         // Re-check recursion depth under write lock
-        if (mRecursionDepth.load(std::memory_order_acquire) > 0) {
+        if (mRecursionDepth.load(std::memory_order_acquire) > 0)
+        {
             // Race: emission started between our checks
-            for (auto& slot : mSlots) {
-                if (slot.id == id && slot.active) {
+            for (auto& slot : mSlots)
+            {
+                if (slot.id == id && slot.active)
+                {
                     slot.active = false;
                     mNeedsCleanup.store(true, std::memory_order_release);
                     return true;
@@ -514,10 +557,12 @@ public:
             }
             return false;
         }
-        
+
         // Safe to physically remove
-        for (auto it = mSlots.begin(); it != mSlots.end(); ++it) {
-            if (it->id == id) {
+        for (auto it = mSlots.begin(); it != mSlots.end(); ++it)
+        {
+            if (it->id == id)
+            {
                 mSlots.erase(it);
                 return true;
             }
@@ -528,26 +573,33 @@ public:
     /**
      * @brief Disconnect all slots
      */
-    void disconnectAll() {
-        if (mRecursionDepth.load(std::memory_order_acquire) > 0) {
+    void disconnectAll()
+    {
+        if (mRecursionDepth.load(std::memory_order_acquire) > 0)
+        {
             // During emission: soft delete with read lock
             typename SyncPolicy::SharedGuard lock(this->getLock());
-            for (auto& slot : mSlots) {
+            for (auto& slot : mSlots)
+            {
                 slot.active = false;
             }
             mNeedsCleanup.store(true, std::memory_order_release);
             return;
         }
-        
+
         typename SyncPolicy::LockGuard lock(this->getLock());
-        
+
         // Re-check under write lock
-        if (mRecursionDepth.load(std::memory_order_acquire) > 0) {
-            for (auto& slot : mSlots) {
+        if (mRecursionDepth.load(std::memory_order_acquire) > 0)
+        {
+            for (auto& slot : mSlots)
+            {
                 slot.active = false;
             }
             mNeedsCleanup.store(true, std::memory_order_release);
-        } else {
+        }
+        else
+        {
             mSlots.clear();
         }
     }
@@ -564,36 +616,41 @@ public:
      * @note Reentrancy-safe: slots can connect/disconnect during emission
      * @note Exception handling controlled by EmissionPolicy
      */
-    void emit(Args... args) {
+    void emit(Args... args)
+    {
         bool shouldCleanup = false;
-        
+
         {
             typename SyncPolicy::SharedGuard lock(this->getLock());
-            
+
             // Enter emission context
             mRecursionDepth.fetch_add(1, std::memory_order_acquire);
-            
+
             // RAII guard for decrement on exit (exception-safe)
             auto depthGuard = makeScopeGuard([this, &shouldCleanup]() noexcept {
                 size_t depth = mRecursionDepth.fetch_sub(1, std::memory_order_release);
-                
+
                 // Mark for cleanup if we're the outermost emission and cleanup is needed
-                if (depth == 1 && mNeedsCleanup.load(std::memory_order_acquire)) {
+                if (depth == 1 && mNeedsCleanup.load(std::memory_order_acquire))
+                {
                     shouldCleanup = true;
                 }
             });
-            
+
             // Invoke all active slots
-            for (auto& slot : mSlots) {
-                if (slot.active) {
+            for (auto& slot : mSlots)
+            {
+                if (slot.active)
+                {
                     EmissionPolicy::invoke(slot.func, args...);
                 }
             }
         }
         // SharedGuard released here
-        
+
         // Perform cleanup outside the read lock to avoid deadlock
-        if (shouldCleanup) {
+        if (shouldCleanup)
+        {
             performDeferredCleanup();
         }
     }
@@ -606,7 +663,8 @@ public:
      * sig(42);  // Same as sig.emit(42)
      * @endcode
      */
-    void operator()(Args... args) {
+    void operator()(Args... args)
+    {
         emit(std::forward<Args>(args)...);
     }
 
@@ -617,45 +675,50 @@ public:
     /**
      * @brief Get number of connected slots (including inactive pending cleanup)
      */
-    [[nodiscard]] size_t slotCount() const {
-        typename SyncPolicy::SharedGuard lock(
-            const_cast<Signal*>(this)->getLock());
+    [[nodiscard]] size_t slotCount() const
+    {
+        typename SyncPolicy::SharedGuard lock(const_cast<Signal*>(this)->getLock());
         return mSlots.size();
     }
 
     /**
      * @brief Get number of active (non-tombstone) slots
      */
-    [[nodiscard]] size_t activeSlotCount() const {
-        typename SyncPolicy::SharedGuard lock(
-            const_cast<Signal*>(this)->getLock());
-        return std::count_if(mSlots.begin(), mSlots.end(),
-                            [](const Slot& s) { return s.active; });
+    [[nodiscard]] size_t activeSlotCount() const
+    {
+        typename SyncPolicy::SharedGuard lock(const_cast<Signal*>(this)->getLock());
+        return std::count_if(mSlots.begin(), mSlots.end(), [](const Slot& s) {
+            return s.active;
+        });
     }
 
     /**
      * @brief Check if any slots are connected
      */
-    [[nodiscard]] bool hasConnections() const {
+    [[nodiscard]] bool hasConnections() const
+    {
         return activeSlotCount() > 0;
     }
 
     /**
      * @brief Check if currently emitting (for debugging/diagnostics)
      */
-    [[nodiscard]] bool isEmitting() const noexcept {
+    [[nodiscard]] bool isEmitting() const noexcept
+    {
         return mRecursionDepth.load(std::memory_order_acquire) > 0;
     }
 
     /**
      * @brief Check if a specific connection is still active
      */
-    [[nodiscard]] bool isConnected(ConnectionId id) const {
-        typename SyncPolicy::SharedGuard lock(
-            const_cast<Signal*>(this)->getLock());
-        
-        for (const auto& slot : mSlots) {
-            if (slot.id == id) {
+    [[nodiscard]] bool isConnected(ConnectionId id) const
+    {
+        typename SyncPolicy::SharedGuard lock(const_cast<Signal*>(this)->getLock());
+
+        for (const auto& slot : mSlots)
+        {
+            if (slot.id == id)
+            {
                 return slot.active;
             }
         }
@@ -678,30 +741,38 @@ public:
     template <typename Ret = R,
               typename Container = SmallVector<Ret, InlineCapacity>,
               typename = std::enable_if_t<!std::is_void_v<Ret>>>
-    [[nodiscard]] Container emitCollect(Args... args) {
+    [[nodiscard]] Container emitCollect(Args... args)
+    {
         Container results;
         bool shouldCleanup = false;
-        
+
         {
             typename SyncPolicy::SharedGuard lock(this->getLock());
-            
+
             results.reserve(mSlots.size());
-            
+
             mRecursionDepth.fetch_add(1, std::memory_order_acquire);
-            
+
             auto depthGuard = makeScopeGuard([this, &shouldCleanup]() noexcept {
                 size_t depth = mRecursionDepth.fetch_sub(1, std::memory_order_release);
-                if (depth == 1 && mNeedsCleanup.load(std::memory_order_acquire)) {
+                if (depth == 1 && mNeedsCleanup.load(std::memory_order_acquire))
+                {
                     shouldCleanup = true;
                 }
             });
-            
-            for (auto& slot : mSlots) {
-                if (slot.active) {
-                    try {
+
+            for (auto& slot : mSlots)
+            {
+                if (slot.active)
+                {
+                    try
+                    {
                         results.push_back(slot.func(args...));
-                    } catch (...) {
-                        if constexpr (std::is_same_v<EmissionPolicy, PropagateExceptionPolicy>) {
+                    }
+                    catch (...)
+                    {
+                        if constexpr (std::is_same_v<EmissionPolicy, PropagateExceptionPolicy>)
+                        {
                             throw;
                         }
                         // CatchAndIgnore: skip this slot's result
@@ -709,11 +780,12 @@ public:
                 }
             }
         }
-        
-        if (shouldCleanup) {
+
+        if (shouldCleanup)
+        {
             performDeferredCleanup();
         }
-        
+
         return results;
     }
 
@@ -725,46 +797,54 @@ public:
      *
      * @note Only available when R is convertible to bool
      */
-    template <typename Ret = R,
-              typename = std::enable_if_t<
-                  !std::is_void_v<Ret> && std::is_convertible_v<Ret, bool>>>
-    [[nodiscard]] Ret emitUntil(Args... args) {
+    template <typename Ret = R, typename = std::enable_if_t<!std::is_void_v<Ret> && std::is_convertible_v<Ret, bool>>>
+    [[nodiscard]] Ret emitUntil(Args... args)
+    {
         Ret result{};
         bool shouldCleanup = false;
-        
+
         {
             typename SyncPolicy::SharedGuard lock(this->getLock());
-            
+
             mRecursionDepth.fetch_add(1, std::memory_order_acquire);
-            
+
             auto depthGuard = makeScopeGuard([this, &shouldCleanup]() noexcept {
                 size_t depth = mRecursionDepth.fetch_sub(1, std::memory_order_release);
-                if (depth == 1 && mNeedsCleanup.load(std::memory_order_acquire)) {
+                if (depth == 1 && mNeedsCleanup.load(std::memory_order_acquire))
+                {
                     shouldCleanup = true;
                 }
             });
-            
-            for (auto& slot : mSlots) {
-                if (slot.active) {
-                    try {
+
+            for (auto& slot : mSlots)
+            {
+                if (slot.active)
+                {
+                    try
+                    {
                         Ret r = slot.func(args...);
-                        if (static_cast<bool>(r)) {
+                        if (static_cast<bool>(r))
+                        {
                             result = std::move(r);
                             break;
                         }
-                    } catch (...) {
-                        if constexpr (std::is_same_v<EmissionPolicy, PropagateExceptionPolicy>) {
+                    }
+                    catch (...)
+                    {
+                        if constexpr (std::is_same_v<EmissionPolicy, PropagateExceptionPolicy>)
+                        {
                             throw;
                         }
                     }
                 }
             }
         }
-        
-        if (shouldCleanup) {
+
+        if (shouldCleanup)
+        {
             performDeferredCleanup();
         }
-        
+
         return result;
     }
 
@@ -779,16 +859,19 @@ private:
      * Uses erase-remove idiom to compact the SmallVector, removing
      * slots that were soft-deleted during emission.
      */
-    void performDeferredCleanup() {
+    void performDeferredCleanup()
+    {
         typename SyncPolicy::LockGuard lock(this->getLock());
-        
+
         // Only cleanup if no longer emitting
-        if (mRecursionDepth.load(std::memory_order_acquire) == 0) {
-            mSlots.erase(
-                std::remove_if(mSlots.begin(), mSlots.end(),
-                              [](const Slot& s) { return !s.active; }),
-                mSlots.end()
-            );
+        if (mRecursionDepth.load(std::memory_order_acquire) == 0)
+        {
+            mSlots.erase(std::remove_if(mSlots.begin(),
+                                        mSlots.end(),
+                                        [](const Slot& s) {
+                                            return !s.active;
+                                        }),
+                         mSlots.end());
             mNeedsCleanup.store(false, std::memory_order_release);
         }
     }
@@ -802,10 +885,14 @@ private:
  * @brief Type trait to detect Signal types
  */
 template <typename T>
-struct is_signal : std::false_type {};
+struct is_signal : std::false_type
+{
+};
 
 template <typename Sig, typename Sync, typename Emit, size_t N>
-struct is_signal<Signal<Sig, Sync, Emit, N>> : std::true_type {};
+struct is_signal<Signal<Sig, Sync, Emit, N>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool is_signal_v = is_signal<T>::value;
@@ -818,21 +905,18 @@ inline constexpr bool is_signal_v = is_signal<T>::value;
  * @brief Thread-safe signal using SharedMutexPolicy
  */
 template <typename Signature, size_t InlineCapacity = 4>
-using ThreadSafeSignal = Signal<Signature, SharedMutexPolicy,
-                                 CatchAndIgnorePolicy, InlineCapacity>;
+using ThreadSafeSignal = Signal<Signature, SharedMutexPolicy, CatchAndIgnorePolicy, InlineCapacity>;
 
 /**
  * @brief Spinlock-based signal for low-latency scenarios
  */
 template <typename Signature, size_t InlineCapacity = 4>
-using SpinlockSignal = Signal<Signature, SpinlockSynchronizationPolicy,
-                               CatchAndIgnorePolicy, InlineCapacity>;
+using SpinlockSignal = Signal<Signature, SpinlockSynchronizationPolicy, CatchAndIgnorePolicy, InlineCapacity>;
 
 /**
  * @brief Single-threaded signal (zero synchronization overhead)
  */
 template <typename Signature, size_t InlineCapacity = 4>
-using LocalSignal = Signal<Signature, SingleThreadedPolicy,
-                            CatchAndIgnorePolicy, InlineCapacity>;
+using LocalSignal = Signal<Signature, SingleThreadedPolicy, CatchAndIgnorePolicy, InlineCapacity>;
 
 } // namespace fat_p

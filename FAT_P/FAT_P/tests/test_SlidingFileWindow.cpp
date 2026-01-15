@@ -361,8 +361,7 @@ FATP_TEST_CASE(thread_safety)
     const size_t reads_per_thread = 100;
     std::atomic<size_t> error_count{0};
 
-    auto reader = [&](size_t thread_id)
-    {
+    auto reader = [&](size_t thread_id) {
         std::mt19937_64 rng(thread_id);
         std::uniform_int_distribution<size_t> dist(0, element_count - 1);
 
@@ -540,8 +539,7 @@ void benchmark_slidingfilewindow()
     const size_t iterations = 10000;
 
     double seq_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             for (size_t i = 0; i < window_size; ++i)
             {
                 auto elem = window[i];
@@ -558,8 +556,7 @@ void benchmark_slidingfilewindow()
     std::uniform_int_distribution<size_t> dist(0, element_count - 1);
 
     double rand_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             size_t index = dist(rng);
             auto elem = window[index];
             DoNotOptimize(elem);

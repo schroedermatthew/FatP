@@ -76,7 +76,7 @@ struct ItemHeader
 // Low-level helpers
 // ----------------------------------------------------------------------------
 
-inline void write_type_and_argument(buffer &out, MajorType mt, std::uint64_t arg)
+inline void write_type_and_argument(buffer& out, MajorType mt, std::uint64_t arg)
 {
     const std::uint8_t major = static_cast<std::uint8_t>(mt) << 5U;
 
@@ -123,9 +123,7 @@ inline void write_type_and_argument(buffer &out, MajorType mt, std::uint64_t arg
     out.push_back(static_cast<byte>(arg & 0xFFU));
 }
 
-inline void ensure_available(std::size_t size,
-                             std::size_t pos,
-                             std::size_t required)
+inline void ensure_available(std::size_t size, std::size_t pos, std::size_t required)
 {
     if (pos + required > size)
     {
@@ -137,16 +135,12 @@ inline std::size_t safe_to_size_t(std::uint64_t value, const char* context)
 {
     if (value > std::numeric_limits<std::size_t>::max())
     {
-        throw std::runtime_error(std::string("CBOR: ") + context +
-                                 " length exceeds platform limits");
+        throw std::runtime_error(std::string("CBOR: ") + context + " length exceeds platform limits");
     }
     return static_cast<std::size_t>(value);
 }
 
-inline std::uint64_t read_argument(const byte *data,
-                                   std::size_t &pos,
-                                   std::size_t size,
-                                   std::uint8_t ai)
+inline std::uint64_t read_argument(const byte* data, std::size_t& pos, std::size_t size, std::uint8_t ai)
 {
     if (ai < 24U)
     {
@@ -165,8 +159,7 @@ inline std::uint64_t read_argument(const byte *data,
     {
         ensure_available(size, pos, 2U);
         const std::uint64_t result =
-            (static_cast<std::uint64_t>(data[pos]) << 8U) |
-            static_cast<std::uint64_t>(data[pos + 1U]);
+            (static_cast<std::uint64_t>(data[pos]) << 8U) | static_cast<std::uint64_t>(data[pos + 1U]);
         pos += 2U;
         return result;
     }
@@ -205,12 +198,12 @@ inline std::uint64_t read_argument(const byte *data,
 class Encoder
 {
 public:
-    explicit Encoder(buffer &out) noexcept
+    explicit Encoder(buffer& out) noexcept
         : mOut(out)
     {
     }
 
-    buffer &output() noexcept
+    buffer& output() noexcept
     {
         return mOut;
     }
@@ -248,14 +241,13 @@ public:
         mOut.push_back(static_cast<byte>(0xF6U));
     }
 
-    void write_bytes(const byte *data, std::size_t size)
+    void write_bytes(const byte* data, std::size_t size)
     {
-        write_type_and_argument(mOut, MajorType::ByteString,
-                                static_cast<std::uint64_t>(size));
+        write_type_and_argument(mOut, MajorType::ByteString, static_cast<std::uint64_t>(size));
         mOut.insert(mOut.end(), data, data + size);
     }
 
-    void write_bytes(const buffer &b)
+    void write_bytes(const buffer& b)
     {
         if (!b.empty())
         {
@@ -267,27 +259,24 @@ public:
         }
     }
 
-    void write_text(const std::string &s)
+    void write_text(const std::string& s)
     {
-        write_type_and_argument(mOut, MajorType::TextString,
-                                static_cast<std::uint64_t>(s.size()));
+        write_type_and_argument(mOut, MajorType::TextString, static_cast<std::uint64_t>(s.size()));
         mOut.insert(mOut.end(), s.begin(), s.end());
     }
 
     void begin_array(std::size_t size)
     {
-        write_type_and_argument(mOut, MajorType::Array,
-                                static_cast<std::uint64_t>(size));
+        write_type_and_argument(mOut, MajorType::Array, static_cast<std::uint64_t>(size));
     }
 
     void begin_map(std::size_t size)
     {
-        write_type_and_argument(mOut, MajorType::Map,
-                                static_cast<std::uint64_t>(size));
+        write_type_and_argument(mOut, MajorType::Map, static_cast<std::uint64_t>(size));
     }
 
 private:
-    buffer &mOut;
+    buffer& mOut;
 };
 
 // ----------------------------------------------------------------------------
@@ -297,14 +286,14 @@ private:
 class Decoder
 {
 public:
-    Decoder(const byte *data, std::size_t size) noexcept
+    Decoder(const byte* data, std::size_t size) noexcept
         : data_(data)
         , size_(size)
         , mPos(0)
     {
     }
 
-    explicit Decoder(const buffer &b) noexcept
+    explicit Decoder(const buffer& b) noexcept
         : data_(b.data())
         , size_(b.size())
         , mPos(0)
@@ -346,8 +335,7 @@ public:
 
         if (header.major == MajorType::UnsignedInt)
         {
-            const auto max = static_cast<std::uint64_t>(
-                std::numeric_limits<std::int64_t>::max());
+            const auto max = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
             if (header.argument > max)
             {
                 throw std::runtime_error("CBOR: unsigned integer too large for int64_t");
@@ -357,8 +345,7 @@ public:
 
         if (header.major == MajorType::NegativeInt)
         {
-            const auto max = static_cast<std::uint64_t>(
-                std::numeric_limits<std::int64_t>::max());
+            const auto max = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
             if (header.argument > max)
             {
                 throw std::runtime_error("CBOR: negative integer too small for int64_t");
@@ -406,7 +393,7 @@ public:
         const auto len = safe_to_size_t(header.argument, "text string");
         ensure_available(size_, mPos, len);
 
-        const char *begin = reinterpret_cast<const char *>(data_ + mPos);
+        const char* begin = reinterpret_cast<const char*>(data_ + mPos);
         std::string result(begin, begin + len);
         mPos += len;
         return result;
@@ -450,7 +437,7 @@ public:
     }
 
 private:
-    const byte *data_;
+    const byte* data_;
     std::size_t size_;
     std::size_t mPos;
 };

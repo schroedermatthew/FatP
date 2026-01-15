@@ -1976,8 +1976,7 @@ struct JsonDispatcher<JsonValue, Policy>
     static void dump(Os& os, const JsonValue& val, bool pretty = Policy::pretty_print, int indent = 0)
     {
         std::visit(
-            [&](auto&& arg)
-            {
+            [&](auto&& arg) {
                 JsonDispatcher<std::decay_t<decltype(arg)>, Policy>::dump(os, arg, pretty, indent);
             },
             val);
@@ -2009,25 +2008,22 @@ void dump_tuple_impl(Os& os, const Tuple& tup, std::index_sequence<I...>, bool p
     }
     bool first = true;
     // Fold expression: invoke lambda for each index in sequence
-    (...,
-     (
-         [&]()
+    (..., ([&]() {
+         if (!first)
          {
-             if (!first)
-             {
-                 os << ',';
-             }
-             if (pretty)
-             {
-                 os << '\n';
-                 output_indent(os, indent + Policy::indent_step);
-             }
-             first = false;
-             JsonDispatcher<std::tuple_element_t<I, Tuple>, Policy>::dump(os,
-                                                                          std::get<I>(tup),
-                                                                          pretty,
-                                                                          indent + Policy::indent_step);
-         })());
+             os << ',';
+         }
+         if (pretty)
+         {
+             os << '\n';
+             output_indent(os, indent + Policy::indent_step);
+         }
+         first = false;
+         JsonDispatcher<std::tuple_element_t<I, Tuple>, Policy>::dump(os,
+                                                                      std::get<I>(tup),
+                                                                      pretty,
+                                                                      indent + Policy::indent_step);
+     })());
     if (pretty && sizeof...(I) > 0)
     {
         os << '\n';

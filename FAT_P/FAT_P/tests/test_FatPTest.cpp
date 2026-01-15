@@ -226,8 +226,7 @@ void auto_calibration()
 
     // Test calibrate_iterations
     volatile int sink = 0;
-    auto fast_op = [&]()
-    {
+    auto fast_op = [&]() {
         sink++;
     };
 
@@ -262,8 +261,7 @@ void benchmark_context()
     volatile int sink = 0;
     benchmark(
         "context_test",
-        [&]()
-        {
+        [&]() {
             sink++;
         },
         1000);
@@ -285,46 +283,40 @@ void assert_macros_basic()
 
     OutputCapture capture;
 
-    bool result = []() -> bool
-    {
+    bool result = []() -> bool {
         FATP_ASSERT_TRUE(true, "Should pass");
         return true;
     }();
     VERIFY(result, "FATP_SIMPLE_ASSERT passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         FATP_ASSERT_TRUE(false, "Should fail");
         return true;
     }();
     VERIFY(!result, "FATP_SIMPLE_ASSERT fails");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         int a = 42, b = 42;
         FATP_ASSERT_EQ(a, b, "Equal values");
         return true;
     }();
     VERIFY(result, "FATP_ASSERT_EQ passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         int a = 42, b = 43;
         FATP_ASSERT_EQ(a, b, "Unequal values");
         return true;
     }();
     VERIFY(!result, "FATP_ASSERT_EQ fails");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         int a = 42, b = 43;
         FATP_ASSERT_NE(a, b, "Not equal");
         return true;
     }();
     VERIFY(result, "FATP_ASSERT_NE passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         FATP_ASSERT_TRUE(true, "True test");
         FATP_ASSERT_FALSE(false, "False test");
         return true;
@@ -338,29 +330,25 @@ void assert_macros_comparison()
 
     OutputCapture capture;
 
-    bool result = []() -> bool
-    {
+    bool result = []() -> bool {
         FATP_ASSERT_LT(5, 10, "5 < 10");
         return true;
     }();
     VERIFY(result, "FATP_ASSERT_LT passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         FATP_ASSERT_LE(5, 5, "5 <= 5");
         return true;
     }();
     VERIFY(result, "FATP_ASSERT_LE passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         FATP_ASSERT_GT(10, 5, "10 > 5");
         return true;
     }();
     VERIFY(result, "FATP_ASSERT_GT passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         FATP_ASSERT_GE(10, 10, "10 >= 10");
         return true;
     }();
@@ -373,16 +361,14 @@ void assert_macros_pointers()
 
     OutputCapture capture;
 
-    bool result = []() -> bool
-    {
+    bool result = []() -> bool {
         int* ptr = nullptr;
         FATP_ASSERT_NULLPTR(ptr, "Null pointer");
         return true;
     }();
     VERIFY(result, "FATP_ASSERT_NULLPTR passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         int value = 42;
         int* ptr = &value;
         FATP_ASSERT_NOT_NULLPTR(ptr, "Valid pointer");
@@ -397,8 +383,7 @@ void assert_macros_float()
 
     OutputCapture capture;
 
-    bool result = []() -> bool
-    {
+    bool result = []() -> bool {
         double a = 0.1 + 0.2;
         double b = 0.3;
         FATP_ASSERT_CLOSE(a, b, "0.1 + 0.2 ~ 0.3");
@@ -406,8 +391,7 @@ void assert_macros_float()
     }();
     VERIFY(result, "FATP_ASSERT_CLOSE passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         double a = 1.0;
         double b = 1.001;
         FATP_ASSERT_CLOSE_EPS(a, b, 0.01, "Custom epsilon");
@@ -415,8 +399,7 @@ void assert_macros_float()
     }();
     VERIFY(result, "FATP_ASSERT_CLOSE_EPS passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         double a = 1000.0;
         double b = 1001.0;
         FATP_ASSERT_CLOSE_REL_ABS(a, b, 0.01, 0.01, "Rel/abs epsilon");
@@ -434,8 +417,7 @@ FATP_TEST_CASE(assert_throws_pass)
 FATP_TEST_CASE(assert_no_throw_pass)
 {
     FATP_ASSERT_NO_THROW(
-        []()
-        {
+        []() {
             int x = 42;
             (void)x;
         }(),
@@ -462,48 +444,42 @@ void assert_macros_strings()
 
     OutputCapture capture;
 
-    bool result = []() -> bool
-    {
+    bool result = []() -> bool {
         std::string str = "hello world";
         FATP_ASSERT_CONTAINS(str, "world", "Contains substring");
         return true;
     }();
     VERIFY(result, "FATP_ASSERT_CONTAINS passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         std::string str = "hello world";
         FATP_ASSERT_NOT_CONTAINS(str, "xyz", "Does not contain");
         return true;
     }();
     VERIFY(result, "FATP_ASSERT_NOT_CONTAINS passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         std::string str = "hello world";
         FATP_ASSERT_STARTS_WITH(str, "hello", "Starts with");
         return true;
     }();
     VERIFY(result, "FATP_ASSERT_STARTS_WITH passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         std::string str = "hello world";
         FATP_ASSERT_ENDS_WITH(str, "world", "Ends with");
         return true;
     }();
     VERIFY(result, "FATP_ASSERT_ENDS_WITH passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         std::string str = "test123";
         FATP_ASSERT_MATCHES(str, "test\\d+", "Regex match");
         return true;
     }();
     VERIFY(result, "FATP_ASSERT_MATCHES passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         FATP_ASSERT_STR_EQ_IGNORE_CASE("Hello", "HELLO", "Case insensitive");
         return true;
     }();
@@ -516,8 +492,7 @@ void assert_macros_ranges()
 
     OutputCapture capture;
 
-    bool result = []() -> bool
-    {
+    bool result = []() -> bool {
         std::vector<int> v1 = {1, 2, 3};
         std::vector<int> v2 = {1, 2, 3};
         FATP_ASSERT_RANGE_EQ(v1, v2, "Equal ranges");
@@ -525,8 +500,7 @@ void assert_macros_ranges()
     }();
     VERIFY(result, "FATP_ASSERT_RANGE_EQ passes");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         std::vector<double> v1 = {1.0, 2.0, 3.0};
         std::vector<double> v2 = {1.001, 2.001, 3.001};
         FATP_ASSERT_RANGE_CLOSE(v1, v2, 0.01, "Close ranges");
@@ -550,8 +524,7 @@ void performance_measurement()
     VERIFY(ms_str.find("ms") != std::string::npos, "format_time: ms");
 
     double time = measure_perf(
-        []()
-        {
+        []() {
             volatile int x = 42;
             (void)x;
         },
@@ -559,8 +532,7 @@ void performance_measurement()
     VERIFY(time >= 0, "measure_perf returns non-negative");
 
     auto stats = measure_perf_stats(
-        []()
-        {
+        []() {
             volatile int x = 42;
             (void)x;
         },
@@ -584,8 +556,7 @@ void benchmarking()
         OutputCapture capture;
         benchmark(
             "simple_bench",
-            []()
-            {
+            []() {
                 volatile int x = 42;
                 (void)x;
             },
@@ -598,8 +569,7 @@ void benchmarking()
         OutputCapture capture2;
         benchmark_detailed(
             "detailed_bench",
-            []()
-            {
+            []() {
                 volatile int x = 42;
                 (void)x;
             },
@@ -614,14 +584,12 @@ void benchmarking()
         OutputCapture capture3;
         benchmark_compare(
             "func1",
-            []()
-            {
+            []() {
                 volatile int x = 42;
                 (void)x;
             },
             "func2",
-            []()
-            {
+            []() {
                 volatile int y = 43;
                 (void)y;
             },
@@ -678,12 +646,10 @@ void fixtures()
     TestRunner runner;
 
     bool fixture_worked = false;
-    runner.run_test_with_fixture<MyFixture>("fixture_test",
-                                            [&](MyFixture& f)
-                                            {
-                                                fixture_worked = f.setup_called && f.data != nullptr && *f.data == 42;
-                                                return true;
-                                            });
+    runner.run_test_with_fixture<MyFixture>("fixture_test", [&](MyFixture& f) {
+        fixture_worked = f.setup_called && f.data != nullptr && *f.data == 42;
+        return true;
+    });
 
     VERIFY(fixture_worked, "Fixture SetUp called and data initialized");
     VERIFY(runner.results().size() == 1, "Fixture test recorded");
@@ -697,20 +663,16 @@ void test_runner()
     OutputCapture capture;
     TestRunner runner;
 
-    runner.run_test("test1",
-                    []()
-                    {
-                        return true;
-                    });
+    runner.run_test("test1", []() {
+        return true;
+    });
     VERIFY(runner.results().size() == 1, "Test recorded");
     VERIFY(runner.results()[0].passed, "Test passed");
     VERIFY(runner.results()[0].name == "test1", "Test name correct");
 
-    runner.run_test("test2",
-                    []()
-                    {
-                        return false;
-                    });
+    runner.run_test("test2", []() {
+        return false;
+    });
     VERIFY(runner.results().size() == 2, "Failed test recorded");
     VERIFY(!runner.results()[1].passed, "Test marked as failed");
 
@@ -718,35 +680,25 @@ void test_runner()
     VERIFY(runner.results().size() == 0, "Results cleared");
 
     runner.set_filter("*math*");
-    runner.run_test("test_math_add",
-                    []()
-                    {
-                        return true;
-                    });
-    runner.run_test("test_string_ops",
-                    []()
-                    {
-                        return true;
-                    });
+    runner.run_test("test_math_add", []() {
+        return true;
+    });
+    runner.run_test("test_string_ops", []() {
+        return true;
+    });
     VERIFY(runner.results().size() == 1, "Filter works");
 
     runner.clear();
     runner.set_filter("");
-    runner.run_test("pass1",
-                    []()
-                    {
-                        return true;
-                    });
-    runner.run_test("pass2",
-                    []()
-                    {
-                        return true;
-                    });
-    runner.run_test("fail1",
-                    []()
-                    {
-                        return false;
-                    });
+    runner.run_test("pass1", []() {
+        return true;
+    });
+    runner.run_test("pass2", []() {
+        return true;
+    });
+    runner.run_test("fail1", []() {
+        return false;
+    });
 
 
     int failed = runner.print_summary();
@@ -762,8 +714,7 @@ void test_runner_advanced()
 
     runner.run_test_with_timeout(
         "fast_test",
-        []()
-        {
+        []() {
             return true;
         },
         1000);
@@ -773,8 +724,7 @@ void test_runner_advanced()
     runner.clear();
     auto repeat_result = runner.run_test_repeat(
         "stable_test",
-        []()
-        {
+        []() {
             return true;
         },
         10);
@@ -785,8 +735,7 @@ void test_runner_advanced()
     int counter = 0;
     auto flaky_result = runner.run_test_repeat(
         "flaky_test",
-        [&]()
-        {
+        [&]() {
             return counter++ % 2 == 0;
         },
         10);
@@ -797,8 +746,7 @@ void test_runner_advanced()
     counter = 0;
     size_t failed_at = runner.run_until_failure(
         "eventual_fail",
-        [&]()
-        {
+        [&]() {
             return counter++ < 5;
         },
         100);
@@ -815,15 +763,12 @@ void parameterized_tests()
                                                   {{10, 20, 30}, "10+20=30"},
                                                   {{-1, 1, 0}, "-1+1=0"}};
 
-    bool result = run_parameterized_test("addition",
-                                         cases,
-                                         [](const auto& tc)
-                                         {
-                                             int a = std::get<0>(tc.inputs);
-                                             int b = std::get<1>(tc.inputs);
-                                             int expected = std::get<2>(tc.inputs);
-                                             return (a + b) == expected;
-                                         });
+    bool result = run_parameterized_test("addition", cases, [](const auto& tc) {
+        int a = std::get<0>(tc.inputs);
+        int b = std::get<1>(tc.inputs);
+        int expected = std::get<2>(tc.inputs);
+        return (a + b) == expected;
+    });
 
     VERIFY(result, "Parameterized test passed");
 }
@@ -834,8 +779,7 @@ void subtest_tracking()
 
     OutputCapture capture;
 
-    bool result = []() -> bool
-    {
+    bool result = []() -> bool {
         get_subtest_tracker().clear();
 
         FATP_SUBTEST("part1")
@@ -864,8 +808,7 @@ void subtest_tracking()
     VERIFY(result, "All subtests passed");
     VERIFY(get_subtest_tracker().get_results().size() == 2, "Two subtests recorded");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         get_subtest_tracker().clear();
 
         FATP_SUBTEST("passing")
@@ -922,16 +865,12 @@ void junit_xml()
     std::remove("test_output.xml");
 
     TestRunner runner;
-    runner.run_test("test1",
-                    []()
-                    {
-                        return true;
-                    });
-    runner.run_test("test2",
-                    []()
-                    {
-                        return false;
-                    });
+    runner.run_test("test1", []() {
+        return true;
+    });
+    runner.run_test("test2", []() {
+        return false;
+    });
     success = runner.export_to_junit_xml("runner_output.xml", "RunnerSuite");
     VERIFY(success, "TestRunner XML export");
     std::remove("runner_output.xml");
@@ -943,16 +882,14 @@ void non_copyable_types()
 
     OutputCapture capture;
 
-    bool result = []() -> bool
-    {
+    bool result = []() -> bool {
         std::atomic<int> counter{42};
         FATP_ASSERT_EQ(counter.load(), 42, "Atomic value");
         return true;
     }();
     VERIFY(result, "FATP_ASSERT_EQ works with atomic");
 
-    result = []() -> bool
-    {
+    result = []() -> bool {
         std::unique_ptr<int> ptr = std::make_unique<int>(42);
         FATP_ASSERT_NOT_NULLPTR(ptr.get(), "unique_ptr valid");
         return true;
@@ -967,8 +904,7 @@ void assert_with_handler()
     OutputCapture capture;
 
     bool handler_called = false;
-    bool result = [&]() -> bool
-    {
+    bool result = [&]() -> bool {
         FATP_ASSERT_WITH_HANDLER(false, "Should fail", { handler_called = true; });
         return true;
     }();

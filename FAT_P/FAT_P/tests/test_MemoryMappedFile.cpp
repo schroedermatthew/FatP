@@ -229,8 +229,7 @@ void benchmark_memory_mapped_file()
         uint64_t sum = 0;
 
         double time = measure_perf(
-            [&]()
-            {
+            [&]() {
                 auto span = file.get_span<const uint8_t>();
                 for (size_t i = 0; i < span.size(); i += 64)
                 {
@@ -249,8 +248,7 @@ void benchmark_memory_mapped_file()
         std::vector<char> buffer(SIZE);
 
         double time = measure_perf(
-            [&]()
-            {
+            [&]() {
                 FILE* f = fopen(filename.c_str(), "rb");
                 fread(buffer.data(), 1, SIZE, f);
                 fclose(f);
@@ -273,8 +271,7 @@ void benchmark_memory_mapped_file()
         uint64_t sum = 0;
 
         double time = measure_perf(
-            [&]()
-            {
+            [&]() {
                 auto span = file.get_span<const uint8_t>();
                 // Simulate random access pattern
                 for (size_t i = 0; i < 1000; ++i)
@@ -296,8 +293,7 @@ void benchmark_memory_mapped_file()
         char byte;
 
         double time = measure_perf(
-            [&]()
-            {
+            [&]() {
                 FILE* f = fopen(filename.c_str(), "rb");
                 for (size_t i = 0; i < 1000; ++i)
                 {

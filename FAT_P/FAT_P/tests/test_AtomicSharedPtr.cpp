@@ -201,18 +201,16 @@ FATP_TEST_CASE(concurrent_loads)
     std::vector<std::thread> threads;
     for (int i = 0; i < num_threads; ++i)
     {
-        threads.emplace_back(
-            [&]()
+        threads.emplace_back([&]() {
+            for (int j = 0; j < 1000; ++j)
             {
-                for (int j = 0; j < 1000; ++j)
+                auto val = ref.load();
+                if (val && val->value == 270)
                 {
-                    auto val = ref.load();
-                    if (val && val->value == 270)
-                    {
-                        success_count++;
-                    }
+                    success_count++;
                 }
-            });
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -238,15 +236,13 @@ FATP_TEST_CASE(concurrent_stores)
     std::vector<std::thread> threads;
     for (int i = 0; i < num_threads; ++i)
     {
-        threads.emplace_back(
-            [&, i]()
+        threads.emplace_back([&, i]() {
+            for (int j = 0; j < 100; ++j)
             {
-                for (int j = 0; j < 100; ++j)
-                {
-                    ref.store(std::make_shared<TestData>(i * 100 + j));
-                }
-                completed++;
-            });
+                ref.store(std::make_shared<TestData>(i * 100 + j));
+            }
+            completed++;
+        });
     }
 
     for (auto& t : threads)

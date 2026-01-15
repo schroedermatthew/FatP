@@ -724,49 +724,47 @@ FATP_TEST_CASE(concurrent_registry_access)
 
     for (int t = 0; t < kNumThreads; ++t)
     {
-        threads.emplace_back(
-            [&, t]()
+        threads.emplace_back([&, t]() {
+            // Wait for all threads to be ready
+            while (!startFlag.load(std::memory_order_acquire))
             {
-                // Wait for all threads to be ready
-                while (!startFlag.load(std::memory_order_acquire))
+                std::this_thread::yield();
+            }
+
+            for (int i = 0; i < kIterationsPerThread; ++i)
+            {
+                // Mix of different registered types to stress registry lookups
+                std::any a1, a2;
+                switch (i % 4)
                 {
-                    std::this_thread::yield();
+                    case 0:
+                        a1 = 42 + t;
+                        a2 = 42 + t;
+                        break;
+                    case 1:
+                        a1 = 3.14 + static_cast<double>(t);
+                        a2 = 3.14 + static_cast<double>(t);
+                        break;
+                    case 2:
+                        a1 = std::string("test");
+                        a2 = std::string("test");
+                        break;
+                    case 3:
+                        a1 = std::vector<double>{1.0, 2.0};
+                        a2 = std::vector<double>{1.0, 2.0};
+                        break;
                 }
 
-                for (int i = 0; i < kIterationsPerThread; ++i)
+                if (areEqual(a1, a2))
                 {
-                    // Mix of different registered types to stress registry lookups
-                    std::any a1, a2;
-                    switch (i % 4)
-                    {
-                        case 0:
-                            a1 = 42 + t;
-                            a2 = 42 + t;
-                            break;
-                        case 1:
-                            a1 = 3.14 + static_cast<double>(t);
-                            a2 = 3.14 + static_cast<double>(t);
-                            break;
-                        case 2:
-                            a1 = std::string("test");
-                            a2 = std::string("test");
-                            break;
-                        case 3:
-                            a1 = std::vector<double>{1.0, 2.0};
-                            a2 = std::vector<double>{1.0, 2.0};
-                            break;
-                    }
-
-                    if (areEqual(a1, a2))
-                    {
-                        successCount.fetch_add(1, std::memory_order_relaxed);
-                    }
-                    else
-                    {
-                        failureCount.fetch_add(1, std::memory_order_relaxed);
-                    }
+                    successCount.fetch_add(1, std::memory_order_relaxed);
                 }
-            });
+                else
+                {
+                    failureCount.fetch_add(1, std::memory_order_relaxed);
+                }
+            }
+        });
     }
 
     // Release all threads
@@ -863,8 +861,7 @@ void run_benchmarks()
     volatile bool result = false;
 
     double time = measure_perf(
-        [&]()
-        {
+        [&]() {
             result = areEqual(a1, a2);
         },
         1000,

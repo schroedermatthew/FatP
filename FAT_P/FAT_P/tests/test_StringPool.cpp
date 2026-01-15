@@ -508,8 +508,7 @@ FATP_TEST_CASE(thread_safety_shared_mutex)
     StringPool<SharedMutexPolicy> pool;
     std::atomic<int> matches{0};
 
-    auto worker = [&pool, &matches]()
-    {
+    auto worker = [&pool, &matches]() {
         for (int i = 0; i < 1000; ++i)
         {
             const char* s = pool.intern("thread_safe_test");
@@ -542,8 +541,7 @@ FATP_TEST_CASE(thread_safety_mutex)
     StringPool<MutexSynchronizationPolicy> pool;
     std::atomic<int> success_count{0};
 
-    auto worker = [&pool, &success_count](int thread_id)
-    {
+    auto worker = [&pool, &success_count](int thread_id) {
         for (int i = 0; i < 500; ++i)
         {
             std::string unique_str = "thread_" + std::to_string(thread_id) + "_iter_" + std::to_string(i);
@@ -585,8 +583,7 @@ FATP_TEST_CASE(concurrent_read_write)
     std::atomic<int> read_success{0};
     std::atomic<int> write_success{0};
 
-    auto reader = [&pool, &read_success]()
-    {
+    auto reader = [&pool, &read_success]() {
         for (int i = 0; i < 500; ++i)
         {
             if (pool.contains("preload_50"))
@@ -596,8 +593,7 @@ FATP_TEST_CASE(concurrent_read_write)
         }
     };
 
-    auto writer = [&pool, &write_success]()
-    {
+    auto writer = [&pool, &write_success]() {
         for (int i = 0; i < 500; ++i)
         {
             const char* s = pool.intern("new_string_" + std::to_string(i));
@@ -633,8 +629,7 @@ FATP_TEST_CASE(concurrent_clear)
     std::atomic<int> clear_count{0};
     bool timed_out = false;
 
-    auto interner = [&pool, &done, &intern_count]()
-    {
+    auto interner = [&pool, &done, &intern_count]() {
         while (!done.load(std::memory_order_acquire))
         {
             pool.intern("test_string");
@@ -642,8 +637,7 @@ FATP_TEST_CASE(concurrent_clear)
         }
     };
 
-    auto clearer = [&pool, &done, &clear_count]()
-    {
+    auto clearer = [&pool, &done, &clear_count]() {
         while (!done.load(std::memory_order_acquire))
         {
             pool.clear();
@@ -701,8 +695,7 @@ FATP_TEST_CASE(concurrent_reads)
 
     std::atomic<size_t> successes{0};
 
-    auto reader = [&pool, &successes]()
-    {
+    auto reader = [&pool, &successes]() {
         for (int i = 0; i < 1000; ++i)
         {
             if (pool.contains("key_50"))
@@ -813,8 +806,7 @@ FATP_TEST_CASE(concurrent_stats_consistency)
     std::atomic<bool> done{false};
     std::atomic<int> violations{0};
 
-    auto writer = [&pool, &done]()
-    {
+    auto writer = [&pool, &done]() {
         int i = 0;
         while (!done.load(std::memory_order_acquire))
         {
@@ -822,8 +814,7 @@ FATP_TEST_CASE(concurrent_stats_consistency)
         }
     };
 
-    auto stater = [&pool, &done, &violations]()
-    {
+    auto stater = [&pool, &done, &violations]() {
         while (!done.load(std::memory_order_acquire))
         {
             auto s = pool.stats();
@@ -871,8 +862,7 @@ void benchmark_string_pool()
         StringPool<> pool;
         int i = 0;
         double time = measure_perf(
-            [&pool, &i]()
-            {
+            [&pool, &i]() {
                 auto ptr = pool.intern("unique_string_" + std::to_string(i++));
                 DoNotOptimize(ptr);
             },
@@ -887,8 +877,7 @@ void benchmark_string_pool()
         pool.intern("cached");
 
         double time = measure_perf(
-            [&pool]()
-            {
+            [&pool]() {
                 auto ptr = pool.intern("cached");
                 DoNotOptimize(ptr);
             },
@@ -920,8 +909,7 @@ void benchmark_string_pool()
         pool.intern("cached");
 
         double time = measure_perf(
-            [&pool]()
-            {
+            [&pool]() {
                 auto ptr = pool.intern("cached");
                 DoNotOptimize(ptr);
             },
@@ -943,15 +931,13 @@ void benchmark_string_pool()
         std::vector<std::thread> threads;
         for (int t = 0; t < THREADS; ++t)
         {
-            threads.emplace_back(
-                [&pool]()
+            threads.emplace_back([&pool]() {
+                for (int i = 0; i < OPS_PER_THREAD; ++i)
                 {
-                    for (int i = 0; i < OPS_PER_THREAD; ++i)
-                    {
-                        auto ptr = pool.intern("cached_multi");
-                        DoNotOptimize(ptr);
-                    }
-                });
+                    auto ptr = pool.intern("cached_multi");
+                    DoNotOptimize(ptr);
+                }
+            });
         }
 
         for (auto& t : threads)
@@ -979,15 +965,13 @@ void benchmark_string_pool()
         std::vector<std::thread> threads;
         for (int t = 0; t < THREADS; ++t)
         {
-            threads.emplace_back(
-                [&pool, t]()
+            threads.emplace_back([&pool, t]() {
+                for (int i = 0; i < OPS_PER_THREAD; ++i)
                 {
-                    for (int i = 0; i < OPS_PER_THREAD; ++i)
-                    {
-                        auto ptr = pool.intern("unique_" + std::to_string(t * OPS_PER_THREAD + i));
-                        DoNotOptimize(ptr);
-                    }
-                });
+                    auto ptr = pool.intern("unique_" + std::to_string(t * OPS_PER_THREAD + i));
+                    DoNotOptimize(ptr);
+                }
+            });
         }
 
         for (auto& t : threads)
@@ -1009,8 +993,7 @@ void benchmark_string_pool()
         pool.intern("lookup_target");
 
         double time = measure_perf(
-            [&pool]()
-            {
+            [&pool]() {
                 bool found = pool.contains("lookup_target");
                 DoNotOptimize(found);
             },
@@ -1025,8 +1008,7 @@ void benchmark_string_pool()
         pool.intern("find_target");
 
         double time = measure_perf(
-            [&pool]()
-            {
+            [&pool]() {
                 auto ptr = pool.find("find_target");
                 DoNotOptimize(ptr);
             },
@@ -1052,8 +1034,7 @@ void benchmark_string_pool()
                 StringPool<> pool;
                 int i = 0;
                 double time = measure_perf(
-                    [&pool, &i, base]()
-                    {
+                    [&pool, &i, base]() {
                         auto ptr = pool.intern("bulk_" + std::to_string(base + i++));
                         DoNotOptimize(ptr);
                     },
@@ -1068,8 +1049,7 @@ void benchmark_string_pool()
                 pool.reserve(BULK_SIZE);
                 int j = 0;
                 double time = measure_perf(
-                    [&pool, &j, base]()
-                    {
+                    [&pool, &j, base]() {
                         auto ptr = pool.intern("bulk_" + std::to_string(base + j++));
                         DoNotOptimize(ptr);
                     },

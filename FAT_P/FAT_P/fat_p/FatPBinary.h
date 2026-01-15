@@ -103,25 +103,19 @@ struct is_binary_byte_container : std::false_type
 template <typename Container>
 struct is_binary_byte_container<
     Container,
-    std::void_t<
-        typename Container::value_type,
-        decltype(std::declval<Container&>().data()),
-        decltype(std::declval<const Container&>().data()),
-        decltype(std::declval<Container&>().size()),
-        decltype(std::declval<Container&>().push_back(
-            std::declval<std::uint8_t>()))>>
-    : std::bool_constant<
-          std::is_same_v<typename Container::value_type, std::uint8_t> &&
-          std::is_same_v<decltype(std::declval<Container&>().data()),
-                         std::uint8_t*> &&
-          std::is_same_v<decltype(std::declval<const Container&>().data()),
-                         const std::uint8_t*>>
+    std::void_t<typename Container::value_type,
+                decltype(std::declval<Container&>().data()),
+                decltype(std::declval<const Container&>().data()),
+                decltype(std::declval<Container&>().size()),
+                decltype(std::declval<Container&>().push_back(std::declval<std::uint8_t>()))>>
+    : std::bool_constant<std::is_same_v<typename Container::value_type, std::uint8_t> &&
+                         std::is_same_v<decltype(std::declval<Container&>().data()), std::uint8_t*> &&
+                         std::is_same_v<decltype(std::declval<const Container&>().data()), const std::uint8_t*>>
 {
 };
 
 template <typename Container>
-inline constexpr bool is_binary_byte_container_v =
-    is_binary_byte_container<Container>::value;
+inline constexpr bool is_binary_byte_container_v = is_binary_byte_container<Container>::value;
 
 } // namespace detail
 
@@ -129,9 +123,7 @@ inline constexpr bool is_binary_byte_container_v =
 // Default Buffer Type
 // ============================================================================
 
-template <typename T = std::uint8_t,
-          std::size_t Alignment = 64,
-          typename Policy = memory::NumaLocalPolicy>
+template <typename T = std::uint8_t, std::size_t Alignment = 64, typename Policy = memory::NumaLocalPolicy>
 using DefaultBinaryBuffer = HpcVector<T, Alignment, Policy>;
 
 using BinaryBuffer = DefaultBinaryBuffer<>;
@@ -183,9 +175,7 @@ public:
         write_le(value);
     }
 
-    template <typename UInt,
-              typename = std::enable_if_t<std::is_unsigned_v<UInt> &&
-                                          std::is_integral_v<UInt>>>
+    template <typename UInt, typename = std::enable_if_t<std::is_unsigned_v<UInt> && std::is_integral_v<UInt>>>
     void write_uint(UInt value)
     {
         if constexpr (sizeof(UInt) == 1)
@@ -234,9 +224,7 @@ public:
         write_le(value);
     }
 
-    template <typename SInt,
-              typename = std::enable_if_t<std::is_signed_v<SInt> &&
-                                          std::is_integral_v<SInt>>>
+    template <typename SInt, typename = std::enable_if_t<std::is_signed_v<SInt> && std::is_integral_v<SInt>>>
     void write_int(SInt value)
     {
         if constexpr (sizeof(SInt) == 1)
@@ -298,8 +286,7 @@ public:
     template <typename ByteContainer>
     void write_bytes(const ByteContainer& bytes)
     {
-        static_assert(detail::is_binary_byte_container_v<ByteContainer>,
-                      "ByteContainer must store uint8_t");
+        static_assert(detail::is_binary_byte_container_v<ByteContainer>, "ByteContainer must store uint8_t");
         write_bytes(bytes.data(), bytes.size());
     }
 
@@ -326,8 +313,7 @@ private:
     template <typename T>
     void write_le(T value)
     {
-        static_assert(std::is_trivially_copyable_v<T>,
-                      "Type must be trivially copyable");
+        static_assert(std::is_trivially_copyable_v<T>, "Type must be trivially copyable");
 
         const auto* bytes = reinterpret_cast<const std::uint8_t*>(&value);
         mBuffer.insert(mBuffer.end(), bytes, bytes + sizeof(T));
@@ -348,9 +334,7 @@ public:
     {
     }
 
-    template <typename Container,
-              typename = std::enable_if_t<
-                  detail::is_binary_byte_container_v<Container>>>
+    template <typename Container, typename = std::enable_if_t<detail::is_binary_byte_container_v<Container>>>
     explicit BinaryReader(const Container& buffer) noexcept
         : BinaryReader(buffer.data(), buffer.size())
     {
@@ -524,8 +508,7 @@ public:
         const auto len = static_cast<std::size_t>(*len_result);
         if (remaining() < len)
         {
-            return make_unexpected(
-                BinaryError("Buffer underflow reading string"));
+            return make_unexpected(BinaryError("Buffer underflow reading string"));
         }
 
         std::string result(reinterpret_cast<const char*>(data_ + mPos), len);
@@ -550,8 +533,7 @@ public:
         const auto len = static_cast<std::size_t>(*len_result);
         if (remaining() < len)
         {
-            return make_unexpected(
-                BinaryError("Buffer underflow reading bytes"));
+            return make_unexpected(BinaryError("Buffer underflow reading bytes"));
         }
 
         std::vector<std::uint8_t> result(data_ + mPos, data_ + mPos + len);
@@ -596,8 +578,7 @@ private:
     template <typename T>
     BinaryResult<T> read_le()
     {
-        static_assert(std::is_trivially_copyable_v<T>,
-                      "Type must be trivially copyable");
+        static_assert(std::is_trivially_copyable_v<T>, "Type must be trivially copyable");
 
         if (remaining() < sizeof(T))
         {
@@ -620,10 +601,8 @@ private:
         const auto actual = static_cast<binary::TypeTag>(data_[mPos++]);
         if (actual != expected)
         {
-            return make_unexpected(BinaryError(
-                "Type mismatch: expected " +
-                std::to_string(static_cast<int>(expected)) +
-                " got " + std::to_string(static_cast<int>(actual))));
+            return make_unexpected(BinaryError("Type mismatch: expected " + std::to_string(static_cast<int>(expected)) +
+                                               " got " + std::to_string(static_cast<int>(actual))));
         }
         return {};
     }
@@ -641,9 +620,7 @@ struct BinaryTraits;
 // ----------------------------------------------------------------------------
 
 template <typename T>
-struct BinaryTraits<
-    T,
-    std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>>>
+struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>>>
 {
     template <typename Writer>
     static void encode(Writer& writer, T value)
@@ -667,28 +644,40 @@ struct BinaryTraits<
             case binary::TypeTag::Int8:
             {
                 auto v = reader.read_int8();
-                if (!v) return make_unexpected(v.error());
+                if (!v)
+                {
+                    return make_unexpected(v.error());
+                }
                 result = static_cast<std::int64_t>(*v);
                 break;
             }
             case binary::TypeTag::Int16:
             {
                 auto v = reader.read_int16();
-                if (!v) return make_unexpected(v.error());
+                if (!v)
+                {
+                    return make_unexpected(v.error());
+                }
                 result = static_cast<std::int64_t>(*v);
                 break;
             }
             case binary::TypeTag::Int32:
             {
                 auto v = reader.read_int32();
-                if (!v) return make_unexpected(v.error());
+                if (!v)
+                {
+                    return make_unexpected(v.error());
+                }
                 result = static_cast<std::int64_t>(*v);
                 break;
             }
             case binary::TypeTag::Int64:
             {
                 auto v = reader.read_int64();
-                if (!v) return make_unexpected(v.error());
+                if (!v)
+                {
+                    return make_unexpected(v.error());
+                }
                 result = *v;
                 break;
             }
@@ -711,9 +700,7 @@ struct BinaryTraits<
 // ----------------------------------------------------------------------------
 
 template <typename T>
-struct BinaryTraits<
-    T,
-    std::enable_if_t<std::is_integral_v<T> && std::is_unsigned_v<T>>>
+struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_unsigned_v<T>>>
 {
     template <typename Writer>
     static void encode(Writer& writer, T value)
@@ -737,28 +724,40 @@ struct BinaryTraits<
             case binary::TypeTag::Uint8:
             {
                 auto v = reader.read_uint8();
-                if (!v) return make_unexpected(v.error());
+                if (!v)
+                {
+                    return make_unexpected(v.error());
+                }
                 result = static_cast<std::uint64_t>(*v);
                 break;
             }
             case binary::TypeTag::Uint16:
             {
                 auto v = reader.read_uint16();
-                if (!v) return make_unexpected(v.error());
+                if (!v)
+                {
+                    return make_unexpected(v.error());
+                }
                 result = static_cast<std::uint64_t>(*v);
                 break;
             }
             case binary::TypeTag::Uint32:
             {
                 auto v = reader.read_uint32();
-                if (!v) return make_unexpected(v.error());
+                if (!v)
+                {
+                    return make_unexpected(v.error());
+                }
                 result = static_cast<std::uint64_t>(*v);
                 break;
             }
             case binary::TypeTag::Uint64:
             {
                 auto v = reader.read_uint64();
-                if (!v) return make_unexpected(v.error());
+                if (!v)
+                {
+                    return make_unexpected(v.error());
+                }
                 result = *v;
                 break;
             }
@@ -909,8 +908,7 @@ struct BinaryTraits<std::vector<T, Alloc>>
         }
 
         const auto len = *len_result;
-        if (len > static_cast<std::uint64_t>(
-                      std::numeric_limits<std::size_t>::max()))
+        if (len > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max()))
         {
             return make_unexpected(BinaryError("Array length too large"));
         }
@@ -960,8 +958,7 @@ struct BinaryTraits<std::map<K, V, Compare, Alloc>>
         }
 
         const auto len = *len_result;
-        if (len > static_cast<std::uint64_t>(
-                      std::numeric_limits<std::size_t>::max()))
+        if (len > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max()))
         {
             return make_unexpected(BinaryError("Map length too large"));
         }
@@ -1047,15 +1044,15 @@ BinaryResult<T> binary_decode_from(const ByteContainer& buffer)
 
 
 // Local-scope convenience imports (does not pollute namespace fat_p)
-#define USING_FATP_BINARY()                          \
-    using fat_p::binary_fatp::BinaryError;           \
-    using fat_p::binary_fatp::BinaryResult;          \
-    using fat_p::binary_fatp::DefaultBinaryBuffer;   \
-    using fat_p::binary_fatp::BinaryBuffer;          \
-    using fat_p::binary_fatp::BinaryWriter;          \
-    using fat_p::binary_fatp::BinaryReader;          \
-    using fat_p::binary_fatp::BinaryTraits;          \
-    using fat_p::binary_fatp::binary_encode;         \
-    using fat_p::binary_fatp::binary_decode;         \
-    using fat_p::binary_fatp::binary_encode_to;      \
+#define USING_FATP_BINARY()                        \
+    using fat_p::binary_fatp::BinaryError;         \
+    using fat_p::binary_fatp::BinaryResult;        \
+    using fat_p::binary_fatp::DefaultBinaryBuffer; \
+    using fat_p::binary_fatp::BinaryBuffer;        \
+    using fat_p::binary_fatp::BinaryWriter;        \
+    using fat_p::binary_fatp::BinaryReader;        \
+    using fat_p::binary_fatp::BinaryTraits;        \
+    using fat_p::binary_fatp::binary_encode;       \
+    using fat_p::binary_fatp::binary_decode;       \
+    using fat_p::binary_fatp::binary_encode_to;    \
     using fat_p::binary_fatp::binary_decode_from;

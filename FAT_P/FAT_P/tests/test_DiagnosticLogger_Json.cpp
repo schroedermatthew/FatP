@@ -373,8 +373,7 @@ FATP_TEST_CASE(log_json_all_levels)
 
     auto messages = sink->getMessages();
 
-    auto checkLevel = [](const std::string& json, const std::string& expectedLevel)
-    {
+    auto checkLevel = [](const std::string& json, const std::string& expectedLevel) {
         auto parsed = parse_json(json);
         const auto& obj = std::get<JsonObject>(parsed);
         return std::get<std::string>(obj.at("level")) == expectedLevel;
@@ -569,8 +568,7 @@ void benchmark_json_logging()
 
     std::vector<int> data = {1, 2, 3, 4, 5};
     double json_time = measure_perf(
-        [&data]()
-        {
+        [&data]() {
             FATP_LOG_INFO_JSON(data);
         },
         10000,
@@ -579,8 +577,7 @@ void benchmark_json_logging()
 
     std::map<std::string, int> mapData = {{"a", 1}, {"b", 2}, {"c", 3}};
     double map_time = measure_perf(
-        [&mapData]()
-        {
+        [&mapData]() {
             FATP_LOG_INFO_JSON(mapData);
         },
         10000,
@@ -589,8 +586,7 @@ void benchmark_json_logging()
 
     fat_p::DiagnosticLoggerJsonTestData customData{"test", 42, 3.14};
     double custom_time = measure_perf(
-        [&customData]()
-        {
+        [&customData]() {
             FATP_LOG_INFO_JSON(customData);
         },
         10000,
@@ -598,8 +594,7 @@ void benchmark_json_logging()
     std::cout << "JSON logging (custom struct): " << format_time(custom_time) << "\n";
 
     double with_data_time = measure_perf(
-        [&data]()
-        {
+        [&data]() {
             FATP_LOG_INFO_WITH_DATA("Message", data);
         },
         10000,

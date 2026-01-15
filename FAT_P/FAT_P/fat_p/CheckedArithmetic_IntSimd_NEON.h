@@ -1,7 +1,7 @@
 /**
  * @file CheckedArithmetic_IntSimd_NEON.h
  * @brief NEON (128-bit) integer SIMD acceleration for checked arithmetic
- * 
+ *
  *
  * @layer Foundation
  *
@@ -47,8 +47,10 @@ FATP_META:
 
 #if defined(FATP_INT_SIMD_NEON)
 
-namespace fat_p {
-namespace int_simd {
+namespace fat_p
+{
+namespace int_simd
+{
 
 // =============================================================================
 // NEON Differential Saturation: int32_t (4-wide)
@@ -60,14 +62,13 @@ namespace int_simd {
  * Uses differential saturation: compare wrapping vs saturating result.
  * If they differ, overflow occurred in that lane.
  */
-template<typename Policy, typename ScalarAddFn>
-size_t neon_checked_add_i32(
-    const int32_t* a,
-    const int32_t* b,
-    int32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarAddFn checked_add_scalar)
+template <typename Policy, typename ScalarAddFn>
+size_t neon_checked_add_i32(const int32_t* a,
+                            const int32_t* b,
+                            int32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarAddFn checked_add_scalar)
 {
     constexpr size_t LANES = 4;
     size_t i = start_idx;
@@ -80,14 +81,14 @@ size_t neon_checked_add_i32(
         // SaturatingPolicy fast path: use hardware saturation directly
         if constexpr (std::is_same_v<Policy, fat_p::SaturatingPolicy>)
         {
-            int32x4_t vs = vqaddq_s32(va, vb);  // Hardware saturating add
+            int32x4_t vs = vqaddq_s32(va, vb); // Hardware saturating add
             vst1q_s32(result + i, vs);
             continue;
         }
 
         // Other policies: detect overflow via differential saturation
-        int32x4_t vr = vaddq_s32(va, vb);       // Wrapping add
-        int32x4_t vs = vqaddq_s32(va, vb);      // Saturating add
+        int32x4_t vr = vaddq_s32(va, vb);  // Wrapping add
+        int32x4_t vs = vqaddq_s32(va, vb); // Saturating add
 
         if (neon_any_differ_i32(vr, vs))
         {
@@ -121,14 +122,13 @@ size_t neon_checked_add_i32(
 /**
  * @brief SIMD accelerated checked add for uint32_t vectors using NEON
  */
-template<typename Policy, typename ScalarAddFn>
-size_t neon_checked_add_u32(
-    const uint32_t* a,
-    const uint32_t* b,
-    uint32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarAddFn checked_add_scalar)
+template <typename Policy, typename ScalarAddFn>
+size_t neon_checked_add_u32(const uint32_t* a,
+                            const uint32_t* b,
+                            uint32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarAddFn checked_add_scalar)
 {
     constexpr size_t LANES = 4;
     size_t i = start_idx;
@@ -180,14 +180,13 @@ size_t neon_checked_add_u32(
 // NEON Differential Saturation: int32_t Sub
 // =============================================================================
 
-template<typename Policy, typename ScalarSubFn>
-size_t neon_checked_sub_i32(
-    const int32_t* a,
-    const int32_t* b,
-    int32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarSubFn checked_sub_scalar)
+template <typename Policy, typename ScalarSubFn>
+size_t neon_checked_sub_i32(const int32_t* a,
+                            const int32_t* b,
+                            int32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarSubFn checked_sub_scalar)
 {
     constexpr size_t LANES = 4;
     size_t i = start_idx;
@@ -235,14 +234,13 @@ size_t neon_checked_sub_i32(
     return i;
 }
 
-template<typename Policy, typename ScalarSubFn>
-size_t neon_checked_sub_u32(
-    const uint32_t* a,
-    const uint32_t* b,
-    uint32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarSubFn checked_sub_scalar)
+template <typename Policy, typename ScalarSubFn>
+size_t neon_checked_sub_u32(const uint32_t* a,
+                            const uint32_t* b,
+                            uint32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarSubFn checked_sub_scalar)
 {
     constexpr size_t LANES = 4;
     size_t i = start_idx;
@@ -296,14 +294,13 @@ size_t neon_checked_sub_u32(
 
 #if FATP_INT_SIMD_NEON_AARCH64
 
-template<typename Policy, typename ScalarAddFn>
-size_t neon_checked_add_i64(
-    const int64_t* a,
-    const int64_t* b,
-    int64_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarAddFn checked_add_scalar)
+template <typename Policy, typename ScalarAddFn>
+size_t neon_checked_add_i64(const int64_t* a,
+                            const int64_t* b,
+                            int64_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarAddFn checked_add_scalar)
 {
     constexpr size_t LANES = 2;
     size_t i = start_idx;
@@ -351,14 +348,13 @@ size_t neon_checked_add_i64(
     return i;
 }
 
-template<typename Policy, typename ScalarSubFn>
-size_t neon_checked_sub_i64(
-    const int64_t* a,
-    const int64_t* b,
-    int64_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarSubFn checked_sub_scalar)
+template <typename Policy, typename ScalarSubFn>
+size_t neon_checked_sub_i64(const int64_t* a,
+                            const int64_t* b,
+                            int64_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarSubFn checked_sub_scalar)
 {
     constexpr size_t LANES = 2;
     size_t i = start_idx;
@@ -448,14 +444,13 @@ inline bool neon_mul_overflow_u32(uint64x2_t wide_lo, uint64x2_t wide_hi) noexce
     return (vgetq_lane_u64(any_overflow, 0) != 0) || (vgetq_lane_u64(any_overflow, 1) != 0);
 }
 
-template<typename Policy, typename ScalarMulFn>
-size_t neon_checked_mul_i32(
-    const int32_t* a,
-    const int32_t* b,
-    int32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarMulFn checked_mul_scalar)
+template <typename Policy, typename ScalarMulFn>
+size_t neon_checked_mul_i32(const int32_t* a,
+                            const int32_t* b,
+                            int32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarMulFn checked_mul_scalar)
 {
     constexpr size_t LANES = 4;
     size_t i = start_idx;
@@ -520,14 +515,13 @@ size_t neon_checked_mul_i32(
     return i;
 }
 
-template<typename Policy, typename ScalarMulFn>
-size_t neon_checked_mul_u32(
-    const uint32_t* a,
-    const uint32_t* b,
-    uint32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarMulFn checked_mul_scalar)
+template <typename Policy, typename ScalarMulFn>
+size_t neon_checked_mul_u32(const uint32_t* a,
+                            const uint32_t* b,
+                            uint32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarMulFn checked_mul_scalar)
 {
     constexpr size_t LANES = 4;
     size_t i = start_idx;

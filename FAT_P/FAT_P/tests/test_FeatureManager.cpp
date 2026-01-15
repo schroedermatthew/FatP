@@ -266,8 +266,7 @@ FATP_TEST_CASE(validation_and_cycles)
     {
         FeatureManager<> graph;
         bool check_pass = true;
-        auto check = [&check_pass]() -> Expected<void, std::string>
-        {
+        auto check = [&check_pass]() -> Expected<void, std::string> {
             if (check_pass)
             {
                 return {};
@@ -475,8 +474,7 @@ FATP_TEST_CASE(thread_safety)
 
     std::atomic<int> success_count{0};
 
-    auto worker = [&]()
-    {
+    auto worker = [&]() {
         for (int i = 0; i < 100; ++i)
         {
             auto res = graph.enable("SharedFlag");
@@ -514,8 +512,7 @@ FATP_TEST_CASE(observers)
     bool last_state = false;
     bool last_success = false;
 
-    FeatureObserver cb = [&](const std::string& name, bool new_state, bool success)
-    {
+    FeatureObserver cb = [&](const std::string& name, bool new_state, bool success) {
         (void)name;
         call_count++;
         last_state = new_state;
@@ -765,11 +762,9 @@ FATP_TEST_CASE(remove_observer)
         (void)manager.add_feature("A");
 
         int call_count = 0;
-        ObserverId id = manager.add_observer(
-            [&](auto, auto, auto)
-            {
-                ++call_count;
-            });
+        ObserverId id = manager.add_observer([&](auto, auto, auto) {
+            ++call_count;
+        });
 
         (void)manager.enable("A");
         FATP_ASSERT_EQ(call_count, 1, "Observer should be called once");
@@ -794,16 +789,12 @@ FATP_TEST_CASE(remove_observer)
         (void)manager.add_feature("A");
 
         int count1 = 0, count2 = 0;
-        ObserverId id1 = manager.add_observer(
-            [&](auto, auto, auto)
-            {
-                ++count1;
-            });
-        ObserverId id2 = manager.add_observer(
-            [&](auto, auto, auto)
-            {
-                ++count2;
-            });
+        ObserverId id1 = manager.add_observer([&](auto, auto, auto) {
+            ++count1;
+        });
+        ObserverId id2 = manager.add_observer([&](auto, auto, auto) {
+            ++count2;
+        });
 
         (void)manager.enable("A");
         FATP_ASSERT_EQ(count1, 1, "Observer 1 called");
@@ -824,16 +815,12 @@ FATP_TEST_CASE(remove_observer)
         (void)manager.add_feature("A");
 
         int count = 0;
-        (void)manager.add_observer(
-            [&](auto, auto, auto)
-            {
-                ++count;
-            });
-        (void)manager.add_observer(
-            [&](auto, auto, auto)
-            {
-                ++count;
-            });
+        (void)manager.add_observer([&](auto, auto, auto) {
+            ++count;
+        });
+        (void)manager.add_observer([&](auto, auto, auto) {
+            ++count;
+        });
 
         manager.clear_observers();
 
@@ -853,11 +840,9 @@ FATP_TEST_CASE(scoped_observer)
 
         int call_count = 0;
         {
-            FeatureManager<>::ScopedObserver scoped(manager,
-                                                    [&](auto, auto, auto)
-                                                    {
-                                                        ++call_count;
-                                                    });
+            FeatureManager<>::ScopedObserver scoped(manager, [&](auto, auto, auto) {
+                ++call_count;
+            });
 
             (void)manager.enable("A");
             FATP_ASSERT_EQ(call_count, 1, "Observer called while in scope");
@@ -876,11 +861,9 @@ FATP_TEST_CASE(scoped_observer)
         std::optional<FeatureManager<>::ScopedObserver> holder;
 
         {
-            FeatureManager<>::ScopedObserver scoped(manager,
-                                                    [&](auto, auto, auto)
-                                                    {
-                                                        ++call_count;
-                                                    });
+            FeatureManager<>::ScopedObserver scoped(manager, [&](auto, auto, auto) {
+                ++call_count;
+            });
             holder.emplace(std::move(scoped));
         }
 
@@ -900,11 +883,9 @@ FATP_TEST_CASE(scoped_observer)
         int call_count = 0;
         ObserverId released_id;
         {
-            FeatureManager<>::ScopedObserver scoped(manager,
-                                                    [&](auto, auto, auto)
-                                                    {
-                                                        ++call_count;
-                                                    });
+            FeatureManager<>::ScopedObserver scoped(manager, [&](auto, auto, auto) {
+                ++call_count;
+            });
             released_id = scoped.release();
         }
 
@@ -934,14 +915,12 @@ FATP_TEST_CASE(batch_observer)
         bool was_enabled = false;
         bool was_success = false;
 
-        (void)manager.add_batch_observer(
-            [&](auto req, auto changed, auto en, auto ok)
-            {
-                requested = req;
-                all_changed = changed;
-                was_enabled = en;
-                was_success = ok;
-            });
+        (void)manager.add_batch_observer([&](auto req, auto changed, auto en, auto ok) {
+            requested = req;
+            all_changed = changed;
+            was_enabled = en;
+            was_success = ok;
+        });
 
         // Enable Module1 - should also enable Core
         (void)manager.enable("Module1");
@@ -965,11 +944,9 @@ FATP_TEST_CASE(batch_observer)
 
         int call_count = 0;
         {
-            FeatureManager<>::ScopedBatchObserver scoped(manager,
-                                                         [&](auto, auto, auto, auto)
-                                                         {
-                                                             ++call_count;
-                                                         });
+            FeatureManager<>::ScopedBatchObserver scoped(manager, [&](auto, auto, auto, auto) {
+                ++call_count;
+            });
 
             (void)manager.enable("A");
             FATP_ASSERT_EQ(call_count, 1, "Batch observer called while in scope");
@@ -994,14 +971,12 @@ FATP_TEST_CASE(implicit_notifications)
         (void)manager.add_relationship("Dependent", FeatureRelationship::Requires, "Base2");
 
         std::vector<std::string> notified_features;
-        (void)manager.add_observer(
-            [&](const std::string& name, bool enabled, bool)
+        (void)manager.add_observer([&](const std::string& name, bool enabled, bool) {
+            if (enabled)
             {
-                if (enabled)
-                {
-                    notified_features.push_back(name);
-                }
-            });
+                notified_features.push_back(name);
+            }
+        });
 
         // Enable Dependent - should trigger notifications for Base1, Base2, and Dependent
         (void)manager.enable("Dependent");
@@ -1028,14 +1003,12 @@ FATP_TEST_CASE(implicit_notifications)
         (void)manager.add_relationship("Premium", FeatureRelationship::Implies, "AllFeatures");
 
         std::vector<std::string> notified;
-        (void)manager.add_observer(
-            [&](const std::string& name, bool enabled, bool)
+        (void)manager.add_observer([&](const std::string& name, bool enabled, bool) {
+            if (enabled)
             {
-                if (enabled)
-                {
-                    notified.push_back(name);
-                }
-            });
+                notified.push_back(name);
+            }
+        });
 
         (void)manager.enable("Premium");
 
@@ -1172,14 +1145,11 @@ Expected<void, std::string> check_hardware()
 }
 void register_checks()
 {
-    (void)get_feature_check_factory().registerType("module_a.hardware",
-                                                   []() -> FeatureCheck
-                                                   {
-                                                       return []()
-                                                       {
-                                                           return check_hardware();
-                                                       };
-                                                   });
+    (void)get_feature_check_factory().registerType("module_a.hardware", []() -> FeatureCheck {
+        return []() {
+            return check_hardware();
+        };
+    });
 }
 } // namespace module_a
 
@@ -1193,14 +1163,11 @@ Expected<void, std::string> check_license()
 }
 void register_checks()
 {
-    (void)get_feature_check_factory().registerType("module_b.license",
-                                                   []() -> FeatureCheck
-                                                   {
-                                                       return []()
-                                                       {
-                                                           return check_license();
-                                                       };
-                                                   });
+    (void)get_feature_check_factory().registerType("module_b.license", []() -> FeatureCheck {
+        return []() {
+            return check_license();
+        };
+    });
 }
 } // namespace module_b
 
@@ -1211,24 +1178,18 @@ FATP_TEST_CASE(basic_factory_registration)
     auto& factory = get_feature_check_factory();
     factory.clear();
 
-    bool registered = factory.registerType("test.simple",
-                                           []() -> FeatureCheck
-                                           {
-                                               return []() -> Expected<void, std::string>
-                                               {
-                                                   return {};
-                                               };
-                                           });
+    bool registered = factory.registerType("test.simple", []() -> FeatureCheck {
+        return []() -> Expected<void, std::string> {
+            return {};
+        };
+    });
     FATP_ASSERT_TRUE(registered, "Should register new check");
 
-    bool registered_again = factory.registerType("test.simple",
-                                                 []() -> FeatureCheck
-                                                 {
-                                                     return []() -> Expected<void, std::string>
-                                                     {
-                                                         return unexpected("No");
-                                                     };
-                                                 });
+    bool registered_again = factory.registerType("test.simple", []() -> FeatureCheck {
+        return []() -> Expected<void, std::string> {
+            return unexpected("No");
+        };
+    });
     FATP_ASSERT_FALSE(registered_again, "Should not allow duplicate registration");
 
     auto check_result = factory.make("test.simple");
@@ -1250,22 +1211,16 @@ FATP_TEST_CASE(json_serialization_roundtrip)
     auto& factory = get_feature_check_factory();
     factory.clear();
 
-    [[maybe_unused]] bool r1 = factory.registerType("hardware.gpu",
-                                                    []() -> FeatureCheck
-                                                    {
-                                                        return []() -> Expected<void, std::string>
-                                                        {
-                                                            return {};
-                                                        };
-                                                    });
-    [[maybe_unused]] bool r2 = factory.registerType("license.valid",
-                                                    []() -> FeatureCheck
-                                                    {
-                                                        return []() -> Expected<void, std::string>
-                                                        {
-                                                            return {};
-                                                        };
-                                                    });
+    [[maybe_unused]] bool r1 = factory.registerType("hardware.gpu", []() -> FeatureCheck {
+        return []() -> Expected<void, std::string> {
+            return {};
+        };
+    });
+    [[maybe_unused]] bool r2 = factory.registerType("license.valid", []() -> FeatureCheck {
+        return []() -> Expected<void, std::string> {
+            return {};
+        };
+    });
 
     FeatureManager<> manager;
     (void)manager.add_feature("GPUAcceleration", "hardware.gpu");
@@ -1298,14 +1253,11 @@ FATP_TEST_CASE(raii_registration)
     factory.clear();
 
     {
-        FeatureCheckRegistration reg1("test.raii1",
-                                      []() -> FeatureCheck
-                                      {
-                                          return []() -> Expected<void, std::string>
-                                          {
-                                              return {};
-                                          };
-                                      });
+        FeatureCheckRegistration reg1("test.raii1", []() -> FeatureCheck {
+            return []() -> Expected<void, std::string> {
+                return {};
+            };
+        });
         FATP_ASSERT_TRUE(factory.hasType("test.raii1"), "Should be registered");
 
         FeatureManager<> manager;
@@ -1350,22 +1302,16 @@ FATP_TEST_CASE(complex_graph_serialization)
     auto& factory = get_feature_check_factory();
     factory.clear();
 
-    [[maybe_unused]] bool r1 = factory.registerType("check.a",
-                                                    []() -> FeatureCheck
-                                                    {
-                                                        return []() -> Expected<void, std::string>
-                                                        {
-                                                            return {};
-                                                        };
-                                                    });
-    [[maybe_unused]] bool r2 = factory.registerType("check.b",
-                                                    []() -> FeatureCheck
-                                                    {
-                                                        return []() -> Expected<void, std::string>
-                                                        {
-                                                            return {};
-                                                        };
-                                                    });
+    [[maybe_unused]] bool r1 = factory.registerType("check.a", []() -> FeatureCheck {
+        return []() -> Expected<void, std::string> {
+            return {};
+        };
+    });
+    [[maybe_unused]] bool r2 = factory.registerType("check.b", []() -> FeatureCheck {
+        return []() -> Expected<void, std::string> {
+            return {};
+        };
+    });
 
     FeatureManager<> manager;
     (void)manager.add_feature("A", "check.a");
@@ -1403,27 +1349,21 @@ FATP_TEST_CASE(raii_duplicate_registration_does_not_unregister_original)
     factory.clear();
 
     {
-        FeatureCheckRegistration reg1("dup_test",
-                                      []()
-                                      {
-                                          return []() -> Expected<void, std::string>
-                                          {
-                                              return {};
-                                          };
-                                      });
+        FeatureCheckRegistration reg1("dup_test", []() {
+            return []() -> Expected<void, std::string> {
+                return {};
+            };
+        });
 
         FATP_ASSERT_TRUE(factory.hasType("dup_test"), "Original registration should exist");
 
         {
             // Duplicate registration should fail; destructor must NOT unregister original.
-            FeatureCheckRegistration reg2("dup_test",
-                                          []()
-                                          {
-                                              return []() -> Expected<void, std::string>
-                                              {
-                                                  return unexpected("fail");
-                                              };
-                                          });
+            FeatureCheckRegistration reg2("dup_test", []() {
+                return []() -> Expected<void, std::string> {
+                    return unexpected("fail");
+                };
+            });
         }
 
         FATP_ASSERT_TRUE(factory.hasType("dup_test"),
@@ -1670,8 +1610,7 @@ void benchmark_hot_path_lookup()
 
     benchmark_detailed(
         "Hot Path: is_enabled() [Hit]",
-        [&]()
-        {
+        [&]() {
             bool status = manager.is_enabled("F5000");
             DoNotOptimize(status);
         },
@@ -1680,8 +1619,7 @@ void benchmark_hot_path_lookup()
 
     benchmark_detailed(
         "Hot Path: is_enabled() [Miss]",
-        [&]()
-        {
+        [&]() {
             bool status = manager.is_enabled("F9999");
             DoNotOptimize(status);
         },
@@ -1697,8 +1635,7 @@ void benchmark_dependency_resolution()
         setup_dense_graph(manager, 1000, 0);
         benchmark_detailed(
             "Write: enable() [No Dependencies]",
-            [&]()
-            {
+            [&]() {
                 FeatureManager<> temp;
                 (void)temp.add_feature("A");
                 (void)temp.enable("A");
@@ -1722,8 +1659,7 @@ void benchmark_dependency_resolution()
         }
         benchmark_detailed(
             "Write: enable() [Chain Depth 50]",
-            [&]()
-            {
+            [&]() {
                 (void)deep_manager.disable("N0");
                 (void)deep_manager.enable("N0");
             },
@@ -1738,8 +1674,7 @@ void benchmark_full_validation()
     setup_dense_graph(manager, 1000, 5);
     benchmark_detailed(
         "Maintenance: validate() [1k nodes]",
-        [&]()
-        {
+        [&]() {
             auto res = manager.validate();
             DoNotOptimize(res);
         },
@@ -1759,14 +1694,12 @@ void benchmark_mutex_overhead()
 
     benchmark_compare(
         "SingleThreaded Read",
-        [&]()
-        {
+        [&]() {
             bool s = st_manager.is_enabled("F1");
             DoNotOptimize(s);
         },
         "MutexLock Read",
-        [&]()
-        {
+        [&]() {
             bool s = mt_manager.is_enabled("F1");
             DoNotOptimize(s);
         },

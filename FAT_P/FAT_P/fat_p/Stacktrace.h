@@ -37,31 +37,40 @@ FATP_META:
 // Placeholder for Boost.Stacktrace or custom impl; assume single-header polyfill
 // For real use, include <boost/stacktrace.hpp> if allowing Boost, else custom unwind
 
-namespace fat_p {
+namespace fat_p
+{
 
-struct StackFrame {
+struct StackFrame
+{
     std::string function;
     std::string file;
     size_t line;
 };
 
-class Stacktrace {
+class Stacktrace
+{
 private:
     std::vector<StackFrame> mFrames;
 
 public:
-    static Stacktrace current(size_t skip = 1) {
+    static Stacktrace current(size_t skip = 1)
+    {
         Stacktrace st;
         // Emulate with __builtin_return_address or libunwind; simplified placeholder
-        st.mFrames.push_back({"current_function", "file.cpp", 42});  // Replace with actual unwind
+        st.mFrames.push_back({"current_function", "file.cpp", 42}); // Replace with actual unwind
         return st;
     }
 
-    const std::vector<StackFrame>& frames() const { return mFrames; }
+    const std::vector<StackFrame>& frames() const
+    {
+        return mFrames;
+    }
 
-    std::string to_string() const {
+    std::string to_string() const
+    {
         std::string result;
-        for (const auto& f : mFrames) {
+        for (const auto& f : mFrames)
+        {
             result += f.file + ":" + std::to_string(f.line) + " in " + f.function + "\n";
         }
         return result;
@@ -70,4 +79,4 @@ public:
 
 // Integration with enforce: e.g., FATP_ENFORCE(condition) << Stacktrace::current();
 
-}  // namespace fat_p
+} // namespace fat_p

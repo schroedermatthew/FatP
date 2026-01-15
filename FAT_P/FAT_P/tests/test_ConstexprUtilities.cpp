@@ -825,21 +825,19 @@ FATP_TEST_CASE(thread_safety)
 
     for (int t = 0; t < NUM_THREADS; ++t)
     {
-        threads.emplace_back(
-            [&failed, t]()
+        threads.emplace_back([&failed, t]() {
+            for (int i = 0; i < ITERATIONS; ++i)
             {
-                for (int i = 0; i < ITERATIONS; ++i)
+                int value = t * ITERATIONS + i;
+                auto sv = to_string_view(value);
+                std::string expected = std::to_string(value);
+                if (sv != expected)
                 {
-                    int value = t * ITERATIONS + i;
-                    auto sv = to_string_view(value);
-                    std::string expected = std::to_string(value);
-                    if (sv != expected)
-                    {
-                        failed = true;
-                        break;
-                    }
+                    failed = true;
+                    break;
                 }
-            });
+            }
+        });
     }
 
     for (auto& th : threads)
@@ -911,8 +909,7 @@ void run_constexpr_utilities_benchmarks()
     // Hash benchmarks
     benchmark(
         "constexpr_hash (short string)",
-        []()
-        {
+        []() {
             auto result = constexpr_hash("test");
             DoNotOptimize(result);
         },
@@ -920,8 +917,7 @@ void run_constexpr_utilities_benchmarks()
 
     benchmark(
         "constexpr_hash (long string)",
-        []()
-        {
+        []() {
             auto result = constexpr_hash("The quick brown fox jumps over the lazy dog");
             DoNotOptimize(result);
         },
@@ -929,8 +925,7 @@ void run_constexpr_utilities_benchmarks()
 
     benchmark(
         "constexpr_hash64 (short string)",
-        []()
-        {
+        []() {
             auto result = constexpr_hash64("test");
             DoNotOptimize(result);
         },
@@ -938,8 +933,7 @@ void run_constexpr_utilities_benchmarks()
 
     benchmark(
         "hash_combine",
-        []()
-        {
+        []() {
             auto result = hash_combine(12345ULL, 67890ULL);
             DoNotOptimize(result);
         },
@@ -948,8 +942,7 @@ void run_constexpr_utilities_benchmarks()
     // Arithmetic benchmarks
     benchmark(
         "is_power_of_two",
-        []()
-        {
+        []() {
             auto result = is_power_of_two(1024);
             DoNotOptimize(result);
         },
@@ -957,8 +950,7 @@ void run_constexpr_utilities_benchmarks()
 
     benchmark(
         "next_power_of_two",
-        []()
-        {
+        []() {
             auto result = next_power_of_two(1000u);
             DoNotOptimize(result);
         },
@@ -966,8 +958,7 @@ void run_constexpr_utilities_benchmarks()
 
     benchmark(
         "log2_floor",
-        []()
-        {
+        []() {
             auto result = log2_floor(1024u);
             DoNotOptimize(result);
         },
@@ -975,8 +966,7 @@ void run_constexpr_utilities_benchmarks()
 
     benchmark(
         "popcount",
-        []()
-        {
+        []() {
             auto result = popcount(0xDEADBEEFu);
             DoNotOptimize(result);
         },
@@ -985,8 +975,7 @@ void run_constexpr_utilities_benchmarks()
     // String conversion benchmarks
     benchmark(
         "to_string_view (single digit)",
-        []()
-        {
+        []() {
             auto sv = to_string_view(5);
             DoNotOptimize(sv.data());
         },
@@ -994,8 +983,7 @@ void run_constexpr_utilities_benchmarks()
 
     benchmark(
         "to_string_view (multi-digit)",
-        []()
-        {
+        []() {
             auto sv = to_string_view(12345);
             DoNotOptimize(sv.data());
         },
@@ -1003,8 +991,7 @@ void run_constexpr_utilities_benchmarks()
 
     benchmark(
         "to_string_view (INT32_MAX)",
-        []()
-        {
+        []() {
             auto sv = to_string_view(INT32_MAX);
             DoNotOptimize(sv.data());
         },
@@ -1012,8 +999,7 @@ void run_constexpr_utilities_benchmarks()
 
     benchmark(
         "to_hex_string_view",
-        []()
-        {
+        []() {
             auto sv = to_hex_string_view(0xDEADBEEFu);
             DoNotOptimize(sv.data());
         },
@@ -1022,8 +1008,7 @@ void run_constexpr_utilities_benchmarks()
     // Concatenation benchmarks
     benchmark(
         "constexpr_concat (2 strings)",
-        []()
-        {
+        []() {
             auto cs = constexpr_concat("Hello", " World");
             DoNotOptimize(cs.size());
         },
@@ -1031,8 +1016,7 @@ void run_constexpr_utilities_benchmarks()
 
     benchmark(
         "constexpr_concat (with integer)",
-        []()
-        {
+        []() {
             auto cs = constexpr_concat("Value: ", to_string_view(42));
             DoNotOptimize(cs.size());
         },
@@ -1040,8 +1024,7 @@ void run_constexpr_utilities_benchmarks()
 
     benchmark(
         "ConstexprString::to_string()",
-        []()
-        {
+        []() {
             auto cs = constexpr_concat("Value: ", to_string_view(123));
             auto s = cs.to_string();
             DoNotOptimize(s.data());

@@ -110,19 +110,19 @@ FATP_META:
 // MSVC Compatibility - Must be before ANY includes
 // ============================================================================
 #ifdef _MSC_VER
-    #ifndef _CRT_SECURE_NO_WARNINGS
-        #define _CRT_SECURE_NO_WARNINGS 1
-        #define FATP_DEFINED_CRT_SECURE_NO_WARNINGS_BENCH
-    #endif
-    #pragma warning(push)
-    #pragma warning(disable: 4996)  // deprecated functions
-    #pragma warning(disable: 4267)  // size_t to unsigned int
-    #pragma warning(disable: 4244)  // possible loss of data
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS 1
+#define FATP_DEFINED_CRT_SECURE_NO_WARNINGS_BENCH
+#endif
+#pragma warning(push)
+#pragma warning(disable : 4996) // deprecated functions
+#pragma warning(disable : 4267) // size_t to unsigned int
+#pragma warning(disable : 4244) // possible loss of data
 #endif
 
 #ifndef NOMINMAX
-    #define NOMINMAX
-    #define FATP_DEFINED_NOMINMAX_BENCH
+#define NOMINMAX
+#define FATP_DEFINED_NOMINMAX_BENCH
 #endif
 
 // ============================================================================
@@ -155,12 +155,12 @@ FATP_META:
 
 #if defined(_WIN32) || defined(_WIN64)
 #ifndef WIN32_LEAN_AND_MEAN
-    #define WIN32_LEAN_AND_MEAN
-    #define FATP_DEFINED_WIN32_LEAN_AND_MEAN_BENCH
+#define WIN32_LEAN_AND_MEAN
+#define FATP_DEFINED_WIN32_LEAN_AND_MEAN_BENCH
 #endif
+#include <intrin.h> // For __cpuid
 #include <windows.h>
 #include <winreg.h>
-#include <intrin.h>  // For __cpuid
 
 #ifndef FATP_ENABLE_PDH_STATS
 #define FATP_ENABLE_PDH_STATS
@@ -196,7 +196,7 @@ struct CpuFreqInfo
 
     // True if the reference is a turbo/max fallback rather than a base clock.
     bool mRefIsMax = false;
-    
+
     // True if the reference base was estimated (e.g., 70% of registry turbo)
     bool mRefIsEstimated = false;
 
@@ -263,18 +263,10 @@ inline double read_registry_base_freq_mhz()
     DWORD size = sizeof(DWORD);
     HKEY hKey;
 
-    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,
-                      "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
-                      0,
-                      KEY_READ,
-                      &hKey) == ERROR_SUCCESS)
+    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hKey) ==
+        ERROR_SUCCESS)
     {
-        RegQueryValueExA(hKey,
-                         "~MHz",
-                         nullptr,
-                         nullptr,
-                         reinterpret_cast<LPBYTE>(&freq),
-                         &size);
+        RegQueryValueExA(hKey, "~MHz", nullptr, nullptr, reinterpret_cast<LPBYTE>(&freq), &size);
         RegCloseKey(hKey);
     }
 
@@ -297,16 +289,16 @@ inline double read_registry_base_freq_mhz()
  */
 struct CpuidFrequencies
 {
-    uint16_t mBaseMHz = 0;    ///< Processor Base Frequency (sustainable)
-    uint16_t mMaxMHz = 0;     ///< Maximum Frequency (turbo)
-    uint16_t mBusMHz = 0;     ///< Bus (Reference) Frequency
-    bool mSupported = false;  ///< True if CPUID 0x16 is available and valid
-    
+    uint16_t mBaseMHz = 0;   ///< Processor Base Frequency (sustainable)
+    uint16_t mMaxMHz = 0;    ///< Maximum Frequency (turbo)
+    uint16_t mBusMHz = 0;    ///< Bus (Reference) Frequency
+    bool mSupported = false; ///< True if CPUID 0x16 is available and valid
+
     // Diagnostic fields
-    int mMaxLeaf = 0;         ///< Maximum supported CPUID leaf
-    uint32_t mRawEAX = 0;     ///< Raw EAX from leaf 0x16
-    uint32_t mRawEBX = 0;     ///< Raw EBX from leaf 0x16
-    uint32_t mRawECX = 0;     ///< Raw ECX from leaf 0x16
+    int mMaxLeaf = 0;     ///< Maximum supported CPUID leaf
+    uint32_t mRawEAX = 0; ///< Raw EAX from leaf 0x16
+    uint32_t mRawEBX = 0; ///< Raw EBX from leaf 0x16
+    uint32_t mRawECX = 0; ///< Raw ECX from leaf 0x16
 };
 
 /**
@@ -325,35 +317,34 @@ struct CpuidFrequencies
 inline CpuidFrequencies query_cpuid_frequencies()
 {
     CpuidFrequencies result{};
-    
+
     int cpuInfo[4] = {0};
-    
+
     // Get maximum supported CPUID leaf
     __cpuid(cpuInfo, 0);
     result.mMaxLeaf = cpuInfo[0];
-    
+
     // Check if leaf 0x16 is supported
     if (result.mMaxLeaf < 0x16)
     {
-        return result;  // Not supported (AMD or older Intel)
+        return result; // Not supported (AMD or older Intel)
     }
-    
+
     // Query leaf 0x16: Processor Frequency Information
     __cpuid(cpuInfo, 0x16);
-    
+
     // Store raw values for diagnostics
     result.mRawEAX = static_cast<uint32_t>(cpuInfo[0]);
     result.mRawEBX = static_cast<uint32_t>(cpuInfo[1]);
     result.mRawECX = static_cast<uint32_t>(cpuInfo[2]);
-    
-    result.mBaseMHz = static_cast<uint16_t>(cpuInfo[0] & 0xFFFF);  // EAX[15:0]
-    result.mMaxMHz  = static_cast<uint16_t>(cpuInfo[1] & 0xFFFF);  // EBX[15:0]
-    result.mBusMHz  = static_cast<uint16_t>(cpuInfo[2] & 0xFFFF);  // ECX[15:0]
-    
+
+    result.mBaseMHz = static_cast<uint16_t>(cpuInfo[0] & 0xFFFF); // EAX[15:0]
+    result.mMaxMHz = static_cast<uint16_t>(cpuInfo[1] & 0xFFFF);  // EBX[15:0]
+    result.mBusMHz = static_cast<uint16_t>(cpuInfo[2] & 0xFFFF);  // ECX[15:0]
+
     // Validate - base should be non-zero and less than or equal to max
-    result.mSupported = (result.mBaseMHz > 0) && 
-                        (result.mMaxMHz == 0 || result.mBaseMHz <= result.mMaxMHz);
-    
+    result.mSupported = (result.mBaseMHz > 0) && (result.mMaxMHz == 0 || result.mBaseMHz <= result.mMaxMHz);
+
     return result;
 }
 
@@ -381,10 +372,10 @@ struct BaseFrequencyResult
 inline BaseFrequencyResult get_best_base_frequency()
 {
     BaseFrequencyResult result{};
-    
+
     // Try CPUID first (accurate on Intel Skylake through Raptor Lake)
     const CpuidFrequencies cpuid = query_cpuid_frequencies();
-    
+
     if (cpuid.mSupported)
     {
         result.mBaseMHz = static_cast<double>(cpuid.mBaseMHz);
@@ -393,7 +384,7 @@ inline BaseFrequencyResult get_best_base_frequency()
         result.mIsEstimated = false;
         return result;
     }
-    
+
     // CPUID failed - use registry value
     // On modern Intel (including Arrow Lake where CPUID 0x16 returns zeros),
     // the registry typically reports the P-core base frequency, not turbo.
@@ -401,10 +392,10 @@ inline BaseFrequencyResult get_best_base_frequency()
     // We use it directly as our reference - PDH will measure actual current.
     const double regMHz = read_registry_base_freq_mhz();
     result.mBaseMHz = regMHz;
-    result.mMaxMHz = regMHz;  // We don't know true max without CPUID
+    result.mMaxMHz = regMHz; // We don't know true max without CPUID
     result.mIsAccurate = false;
-    result.mIsEstimated = false;  // Using registry directly, not estimating
-    
+    result.mIsEstimated = false; // Using registry directly, not estimating
+
     return result;
 }
 
@@ -447,8 +438,7 @@ private:
     using PdhOpenQueryA_t = PDH_STATUS(WINAPI*)(LPCSTR, DWORD_PTR, PDH_HQUERY*);
     using PdhAddCounterA_t = PDH_STATUS(WINAPI*)(PDH_HQUERY, LPCSTR, DWORD_PTR, PDH_HCOUNTER*);
     using PdhCollectQueryData_t = PDH_STATUS(WINAPI*)(PDH_HQUERY);
-    using PdhGetFormattedCounterValue_t =
-        PDH_STATUS(WINAPI*)(PDH_HCOUNTER, DWORD, LPDWORD, PDH_FMT_COUNTERVALUE*);
+    using PdhGetFormattedCounterValue_t = PDH_STATUS(WINAPI*)(PDH_HCOUNTER, DWORD, LPDWORD, PDH_FMT_COUNTERVALUE*);
     using PdhCloseQuery_t = PDH_STATUS(WINAPI*)(PDH_HQUERY);
 
     HMODULE mPdh = nullptr;
@@ -474,10 +464,9 @@ public:
 
         mOpenQuery = reinterpret_cast<PdhOpenQueryA_t>(GetProcAddress(mPdh, "PdhOpenQueryA"));
         mAddCounter = reinterpret_cast<PdhAddCounterA_t>(GetProcAddress(mPdh, "PdhAddCounterA"));
-        mCollect =
-            reinterpret_cast<PdhCollectQueryData_t>(GetProcAddress(mPdh, "PdhCollectQueryData"));
-        mGetValue = reinterpret_cast<PdhGetFormattedCounterValue_t>(
-            GetProcAddress(mPdh, "PdhGetFormattedCounterValue"));
+        mCollect = reinterpret_cast<PdhCollectQueryData_t>(GetProcAddress(mPdh, "PdhCollectQueryData"));
+        mGetValue =
+            reinterpret_cast<PdhGetFormattedCounterValue_t>(GetProcAddress(mPdh, "PdhGetFormattedCounterValue"));
         mCloseQuery = reinterpret_cast<PdhCloseQuery_t>(GetProcAddress(mPdh, "PdhCloseQuery"));
 
         if (!mOpenQuery || !mAddCounter || !mCollect || !mGetValue || !mCloseQuery)
@@ -704,11 +693,11 @@ inline bool read_proc_cpuinfo_model_base_mhz(double& outMHz)
 #if defined(_WIN32) || defined(_WIN64)
     // Get best available base frequency (CPUID preferred, estimated from registry otherwise)
     const detail::BaseFrequencyResult baseInfo = detail::get_best_base_frequency();
-    
+
     // Use base frequency (accurate from CPUID, or estimated as 70% of registry turbo)
     info.mRefFreqMHz = baseInfo.mBaseMHz;
-    info.mRefIsMax = false;  // We're using base (actual or estimated), not max
-    info.mRefIsEstimated = baseInfo.mIsEstimated;  // Track if it's an estimate
+    info.mRefIsMax = false;                       // We're using base (actual or estimated), not max
+    info.mRefIsEstimated = baseInfo.mIsEstimated; // Track if it's an estimate
     info.mCurrentFreqMHz = baseInfo.mBaseMHz;
     info.mCurrentIsEstimated = true;
 
@@ -750,9 +739,7 @@ inline bool read_proc_cpuinfo_model_base_mhz(double& outMHz)
         info.mRefFreqMHz = static_cast<double>(khz) / 1000.0;
         info.mRefIsMax = false;
     }
-    else if (detail::read_int64_from_file(
-        "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq",
-        khz))
+    else if (detail::read_int64_from_file("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq", khz))
     {
         info.mRefFreqMHz = static_cast<double>(khz) / 1000.0;
         info.mRefIsMax = true;
@@ -793,7 +780,7 @@ inline bool read_proc_cpuinfo_model_base_mhz(double& outMHz)
 inline void print_cpu_detection_info(std::ostream& out)
 {
     out << "CPU Frequency Detection Diagnostics:\n";
-    
+
 #if defined(_WIN32) || defined(_WIN64)
     // Show CPUID results
     const detail::CpuidFrequencies cpuid = detail::query_cpuid_frequencies();
@@ -812,12 +799,12 @@ inline void print_cpu_detection_info(std::ostream& out)
         if (cpuid.mMaxLeaf >= 0x16)
         {
             // Leaf exists but validation failed - show raw values
-            out << "    Raw EAX:         0x" << std::hex << cpuid.mRawEAX << std::dec 
-                << " (base: " << cpuid.mBaseMHz << " MHz)\n";
-            out << "    Raw EBX:         0x" << std::hex << cpuid.mRawEBX << std::dec 
-                << " (max: " << cpuid.mMaxMHz << " MHz)\n";
-            out << "    Raw ECX:         0x" << std::hex << cpuid.mRawECX << std::dec 
-                << " (bus: " << cpuid.mBusMHz << " MHz)\n";
+            out << "    Raw EAX:         0x" << std::hex << cpuid.mRawEAX << std::dec << " (base: " << cpuid.mBaseMHz
+                << " MHz)\n";
+            out << "    Raw EBX:         0x" << std::hex << cpuid.mRawEBX << std::dec << " (max: " << cpuid.mMaxMHz
+                << " MHz)\n";
+            out << "    Raw ECX:         0x" << std::hex << cpuid.mRawECX << std::dec << " (bus: " << cpuid.mBusMHz
+                << " MHz)\n";
             // Explain why validation failed
             if (cpuid.mBaseMHz == 0)
             {
@@ -825,8 +812,7 @@ inline void print_cpu_detection_info(std::ostream& out)
             }
             else if (cpuid.mMaxMHz > 0 && cpuid.mBaseMHz > cpuid.mMaxMHz)
             {
-                out << "    Reason:          Base (" << cpuid.mBaseMHz 
-                    << ") > Max (" << cpuid.mMaxMHz << ")\n";
+                out << "    Reason:          Base (" << cpuid.mBaseMHz << ") > Max (" << cpuid.mMaxMHz << ")\n";
             }
         }
         else
@@ -834,7 +820,7 @@ inline void print_cpu_detection_info(std::ostream& out)
             out << "    Reason:          Leaf 0x16 not available (need >= 0x16)\n";
         }
     }
-    
+
     // Show registry value
     const double regMHz = detail::read_registry_base_freq_mhz();
     out << "  Registry ~MHz:    " << static_cast<int>(regMHz) << " MHz";
@@ -854,7 +840,7 @@ inline void print_cpu_detection_info(std::ostream& out)
         }
     }
     out << "\n";
-    
+
     // Show what we're using
     const detail::BaseFrequencyResult best = detail::get_best_base_frequency();
     out << "  Using:            ";
@@ -872,7 +858,7 @@ inline void print_cpu_detection_info(std::ostream& out)
         out << "Registry base (" << static_cast<int>(best.mBaseMHz) << " MHz) - "
             << "CPUID 0x16 unavailable, using registry directly\n";
     }
-    
+
 #if defined(FATP_ENABLE_PDH_STATS)
     // Show PDH availability
     static detail::PdhCpuMonitor sMonitor;
@@ -886,7 +872,7 @@ inline void print_cpu_detection_info(std::ostream& out)
     out << "  PDH Monitor:      DISABLED\n";
 #endif
 
-#else  // Linux
+#else // Linux
     out << "  Linux sysfs interface\n";
     int64_t khz = 0;
     if (detail::read_int64_from_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq", khz))
@@ -906,12 +892,10 @@ inline void print_cpu_detection_info(std::ostream& out)
     // Show final captured state
     const CpuFreqInfo info = capture_cpu_frequency();
     out << "  Captured state:\n";
-    out << "    Reference:      " << static_cast<int>(info.mRefFreqMHz) << " MHz (" 
-        << info.ref_label() << ")\n";
+    out << "    Reference:      " << static_cast<int>(info.mRefFreqMHz) << " MHz (" << info.ref_label() << ")\n";
     out << "    Current:        " << static_cast<int>(info.mCurrentFreqMHz) << " MHz"
         << (info.mCurrentIsEstimated ? " (estimated)" : " (measured)") << "\n";
-    out << "    Throttle %:     " << std::fixed << std::setprecision(1) 
-        << info.throttle_percentage() << "%\n";
+    out << "    Throttle %:     " << std::fixed << std::setprecision(1) << info.throttle_percentage() << "%\n";
     out << "    Reliable:       " << (info.has_reliable_detection() ? "YES" : "NO") << "\n";
 }
 
@@ -982,25 +966,25 @@ struct CpuWaitConfig
     /// If true, use fixed delays instead of waiting for throttle to clear.
     /// Set this when throttle detection is unreliable (e.g., virtualized, BIOS settings).
     bool mUseFixedDelays = false;
-    
+
     /// Maximum time to wait for CPU to stabilize (seconds). 0 = no limit.
     int mMaxWaitSeconds = 30;
-    
+
     /// Throttle threshold percentage. CPU is "stable" when below this.
     /// Set to 0 for auto-detection based on CPUID availability:
     ///   - With CPUID base freq: 10% (accurate detection)
     ///   - With registry (may be turbo): 50% (running at base isn't throttling)
-    double mThrottleThreshold = 0.0;  // 0 = auto
-    
+    double mThrottleThreshold = 0.0; // 0 = auto
+
     /// Poll interval while waiting (milliseconds).
     int mPollIntervalMs = 500;
-    
+
     /// Fixed delay for section transitions (milliseconds). Used when mUseFixedDelays=true.
     int mFixedSectionDelayMs = 2000;
-    
+
     /// Fixed delay for size transitions (milliseconds). Used when mUseFixedDelays=true.
     int mFixedSizeDelayMs = 1000;
-    
+
     /// Fixed delay for case transitions (milliseconds). Used when mUseFixedDelays=true.
     int mFixedCaseDelayMs = 300;
 };
@@ -1010,10 +994,10 @@ struct CpuWaitConfig
  */
 struct CpuWaitResult
 {
-    bool mStabilized = false;      ///< True if CPU stabilized within timeout
-    bool mUsedFixedDelay = false;  ///< True if fixed delay was used instead of waiting
-    int mWaitedMs = 0;             ///< Actual time waited
-    CpuFreqInfo mFinalState;       ///< CPU state after wait
+    bool mStabilized = false;     ///< True if CPU stabilized within timeout
+    bool mUsedFixedDelay = false; ///< True if fixed delay was used instead of waiting
+    int mWaitedMs = 0;            ///< Actual time waited
+    CpuFreqInfo mFinalState;      ///< CPU state after wait
 };
 
 /**
@@ -1036,14 +1020,11 @@ struct CpuWaitResult
  *       work correctly because the CPU normally runs below P-core base (E-cores,
  *       efficiency modes). Consider using variance-based stability detection instead.
  */
-inline CpuWaitResult wait_for_cpu_stable(
-    std::ostream* out,
-    const CpuWaitConfig& config,
-    int delayMs,
-    const char* label = nullptr)
+inline CpuWaitResult
+wait_for_cpu_stable(std::ostream* out, const CpuWaitConfig& config, int delayMs, const char* label = nullptr)
 {
     CpuWaitResult result;
-    
+
     if (config.mUseFixedDelays)
     {
         // Fixed delay mode - just sleep
@@ -1056,28 +1037,27 @@ inline CpuWaitResult wait_for_cpu_stable(
             }
             *out << "]\n";
         }
-        
+
         std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
-        
+
         result.mUsedFixedDelay = true;
         result.mStabilized = true;
         result.mWaitedMs = delayMs;
         result.mFinalState = capture_cpu_frequency();
         return result;
     }
-    
+
     // Dynamic wait mode - poll until stable or timeout
     const auto startTime = std::chrono::steady_clock::now();
     const int maxWaitMs = config.mMaxWaitSeconds * 1000;
-    
+
     while (true)
     {
         result.mFinalState = capture_cpu_frequency();
-        
+
         const auto elapsed = std::chrono::steady_clock::now() - startTime;
-        result.mWaitedMs = static_cast<int>(
-            std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
-        
+        result.mWaitedMs = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
+
         // Determine effective threshold
         // - Auto (0): use 10% if CPUID worked (accurate base), 50% if registry (may be turbo)
         // - Manual: use configured value
@@ -1086,19 +1066,19 @@ inline CpuWaitResult wait_for_cpu_stable(
         {
             effectiveThreshold = result.mFinalState.mRefIsMax ? 50.0 : 10.0;
         }
-        
+
         // Check if stable
         if (!result.mFinalState.has_reliable_detection() ||
             result.mFinalState.throttle_percentage() <= effectiveThreshold)
         {
             result.mStabilized = true;
-            
+
             if (out)
             {
-                *out << "[Ready: " << static_cast<int>(result.mFinalState.mCurrentFreqMHz)
-                     << "/" << static_cast<int>(result.mFinalState.mRefFreqMHz) << " MHz";
+                *out << "[Ready: " << static_cast<int>(result.mFinalState.mCurrentFreqMHz) << "/"
+                     << static_cast<int>(result.mFinalState.mRefFreqMHz) << " MHz";
                 const double pct = result.mFinalState.throttle_percentage();
-                if (pct > 5.0)  // Only show if noticeable
+                if (pct > 5.0) // Only show if noticeable
                 {
                     *out << " (" << std::fixed << std::setprecision(0) << pct << "% below "
                          << (result.mFinalState.mRefIsMax ? "max" : "base") << ")";
@@ -1107,34 +1087,32 @@ inline CpuWaitResult wait_for_cpu_stable(
             }
             return result;
         }
-        
+
         // Check timeout
         if (maxWaitMs > 0 && result.mWaitedMs >= maxWaitMs)
         {
             result.mStabilized = false;
-            
+
             if (out)
             {
                 *out << "[WARNING: CPU still " << std::fixed << std::setprecision(0)
                      << result.mFinalState.throttle_percentage() << "% below "
-                     << (result.mFinalState.mRefIsMax ? "max" : "base")
-                     << " after " << config.mMaxWaitSeconds << "s - "
-                     << static_cast<int>(result.mFinalState.mCurrentFreqMHz)
-                     << "/" << static_cast<int>(result.mFinalState.mRefFreqMHz) << " MHz]\n";
+                     << (result.mFinalState.mRefIsMax ? "max" : "base") << " after " << config.mMaxWaitSeconds << "s - "
+                     << static_cast<int>(result.mFinalState.mCurrentFreqMHz) << "/"
+                     << static_cast<int>(result.mFinalState.mRefFreqMHz) << " MHz]\n";
             }
             return result;
         }
-        
+
         // Print progress every 5 seconds
         if (out && (result.mWaitedMs % 5000) < config.mPollIntervalMs)
         {
-            *out << "[Waiting: " << static_cast<int>(result.mFinalState.mCurrentFreqMHz)
-                 << "/" << static_cast<int>(result.mFinalState.mRefFreqMHz)
-                 << " MHz (" << std::fixed << std::setprecision(0)
+            *out << "[Waiting: " << static_cast<int>(result.mFinalState.mCurrentFreqMHz) << "/"
+                 << static_cast<int>(result.mFinalState.mRefFreqMHz) << " MHz (" << std::fixed << std::setprecision(0)
                  << result.mFinalState.throttle_percentage() << "% below "
                  << (result.mFinalState.mRefIsMax ? "max" : "base") << ")]\n";
         }
-        
+
         std::this_thread::sleep_for(std::chrono::milliseconds(config.mPollIntervalMs));
     }
 }
@@ -1180,8 +1158,7 @@ inline bool parse_fixed_delay_flag(int argc, char** argv)
 {
     for (int i = 1; i < argc; ++i)
     {
-        if (std::string(argv[i]) == "--fixed-delays" ||
-            std::string(argv[i]) == "-f" ||
+        if (std::string(argv[i]) == "--fixed-delays" || std::string(argv[i]) == "-f" ||
             std::string(argv[i]) == "--fixed")
         {
             return true;
@@ -1200,7 +1177,7 @@ inline bool parse_fixed_delay_flag(int argc, char** argv)
 
 #if defined(_WIN32) || defined(_WIN64)
 inline constexpr std::size_t kDefaultWarmupRuns = 3;
-inline constexpr std::size_t kDefaultMeasuredRuns = 15;   // Windows: higher variance
+inline constexpr std::size_t kDefaultMeasuredRuns = 15; // Windows: higher variance
 inline constexpr int kDefaultCooldownSectionMs = 2000;
 inline constexpr int kDefaultCooldownSizeMs = 1000;
 inline constexpr int kDefaultCooldownCaseMs = 300;
@@ -1236,14 +1213,14 @@ inline void DoNotOptimize(const T& value)
     // For integral types, XOR into sink
     if constexpr (std::is_integral_v<T> || std::is_pointer_v<T>)
     {
-        g_benchmark_sink ^= static_cast<std::int64_t>(
-            reinterpret_cast<std::uintptr_t>(
-                static_cast<const void*>(&value)));
+        g_benchmark_sink ^=
+            static_cast<std::int64_t>(reinterpret_cast<std::uintptr_t>(static_cast<const void*>(&value)));
     }
     else if constexpr (std::is_floating_point_v<T>)
     {
         // For floating point, use bit representation
-        union {
+        union
+        {
             T f;
             std::int64_t i;
         } u;
@@ -1302,7 +1279,10 @@ struct Timer
 
     TimePoint t0;
 
-    void start() { t0 = Clock::now(); }
+    void start()
+    {
+        t0 = Clock::now();
+    }
 
     [[nodiscard]] double elapsedNs() const
     {
@@ -1310,9 +1290,18 @@ struct Timer
         return std::chrono::duration<double, std::nano>(t1 - t0).count();
     }
 
-    [[nodiscard]] double elapsedUs() const { return elapsedNs() / 1000.0; }
-    [[nodiscard]] double elapsedMs() const { return elapsedNs() / 1000000.0; }
-    [[nodiscard]] double elapsedS() const { return elapsedNs() / 1000000000.0; }
+    [[nodiscard]] double elapsedUs() const
+    {
+        return elapsedNs() / 1000.0;
+    }
+    [[nodiscard]] double elapsedMs() const
+    {
+        return elapsedNs() / 1000000.0;
+    }
+    [[nodiscard]] double elapsedS() const
+    {
+        return elapsedNs() / 1000000000.0;
+    }
 };
 
 /**
@@ -1357,15 +1346,14 @@ public:
         {
             DWORD_PTR nonzero = proc_mask & ~static_cast<DWORD_PTR>(1);
             DWORD_PTR pick = nonzero ? nonzero : proc_mask;
-            target = pick & (~pick + 1);  // Lowest set bit
+            target = pick & (~pick + 1); // Lowest set bit
         }
         old_affinity_ = SetThreadAffinityMask(thread, target);
         mActive = true;
 
         if (verbose)
         {
-            std::cout << "[BenchmarkScope] High priority, CPU"
-                      << (target > 1 ? " non-0" : " 0") << " affinity\n";
+            std::cout << "[BenchmarkScope] High priority, CPU" << (target > 1 ? " non-0" : " 0") << " affinity\n";
         }
     }
 
@@ -1387,7 +1375,7 @@ public:
     BenchmarkScope& operator=(const BenchmarkScope&) = delete;
 };
 
-#else  // Non-Windows
+#else // Non-Windows
 
 /**
  * @brief No-op BenchmarkScope for non-Windows platforms
@@ -1395,7 +1383,9 @@ public:
 class BenchmarkScope
 {
 public:
-    explicit BenchmarkScope(bool = false) {}
+    explicit BenchmarkScope(bool = false)
+    {
+    }
 };
 
 #endif
@@ -1420,7 +1410,8 @@ public:
     explicit SpinBarrier(unsigned int count)
         : mCount(count)
         , mTotal(count)
-    {}
+    {
+    }
 
     void wait()
     {
@@ -1444,7 +1435,8 @@ public:
 // Environment Variable Helpers
 // ============================================================================
 
-namespace detail {
+namespace detail
+{
 
 inline bool hasEnvVar(const char* name)
 {
@@ -1475,7 +1467,10 @@ inline std::string getEnvVar(const char* name, const char* default_value = "")
 inline std::size_t getEnvSizeT(const char* name, std::size_t default_value)
 {
     std::string val = getEnvVar(name);
-    if (val.empty()) return default_value;
+    if (val.empty())
+    {
+        return default_value;
+    }
     try
     {
         return static_cast<std::size_t>(std::stoull(val));
@@ -1489,7 +1484,10 @@ inline std::size_t getEnvSizeT(const char* name, std::size_t default_value)
 inline std::uint64_t getEnvUint64(const char* name, std::uint64_t default_value)
 {
     std::string val = getEnvVar(name);
-    if (val.empty()) return default_value;
+    if (val.empty())
+    {
+        return default_value;
+    }
     try
     {
         return static_cast<std::uint64_t>(std::stoull(val));
@@ -1500,7 +1498,7 @@ inline std::uint64_t getEnvUint64(const char* name, std::uint64_t default_value)
     }
 }
 
-}  // namespace detail
+} // namespace detail
 
 // ============================================================================
 // BenchConfig - Unified Configuration
@@ -1600,16 +1598,26 @@ struct BenchConfig
      */
     void print(std::ostream& out = std::cout) const
     {
-        out << "  Config: warmup=" << warmupRuns
-            << ", batches=" << measuredRuns
-            << ", seed=" << seed
+        out << "  Config: warmup=" << warmupRuns << ", batches=" << measuredRuns << ", seed=" << seed
             << ", minBatchMs=" << minBatchMs << "\n";
 
         out << "  Options:";
-        if (noScope) out << " noScope";
-        if (noStabilize) out << " noStabilize";
-        if (noCooldown) out << " noCooldown";
-        if (verboseStats) out << " verbose";
+        if (noScope)
+        {
+            out << " noScope";
+        }
+        if (noStabilize)
+        {
+            out << " noStabilize";
+        }
+        if (noCooldown)
+        {
+            out << " noCooldown";
+        }
+        if (verboseStats)
+        {
+            out << " verbose";
+        }
         if (!noScope && !noStabilize && !noCooldown && !verboseStats)
         {
             out << " (defaults)";
@@ -1638,27 +1646,27 @@ struct BenchConfig
 inline std::string getPlatformString()
 {
 #if defined(_WIN32) || defined(_WIN64)
-    #if defined(_M_ARM64) || defined(__aarch64__)
-        return "Windows-ARM64";
-    #elif defined(_M_X64) || defined(__x86_64__)
-        return "Windows-x64";
-    #else
-        return "Windows-x86";
-    #endif
+#if defined(_M_ARM64) || defined(__aarch64__)
+    return "Windows-ARM64";
+#elif defined(_M_X64) || defined(__x86_64__)
+    return "Windows-x64";
+#else
+    return "Windows-x86";
+#endif
 #elif defined(__APPLE__)
-    #if defined(__aarch64__)
-        return "macOS-ARM64";
-    #else
-        return "macOS-x64";
-    #endif
+#if defined(__aarch64__)
+    return "macOS-ARM64";
+#else
+    return "macOS-x64";
+#endif
 #elif defined(__linux__)
-    #if defined(__aarch64__)
-        return "Linux-ARM64";
-    #elif defined(__x86_64__)
-        return "Linux-x64";
-    #else
-        return "Linux-x86";
-    #endif
+#if defined(__aarch64__)
+    return "Linux-ARM64";
+#elif defined(__x86_64__)
+    return "Linux-x64";
+#else
+    return "Linux-x86";
+#endif
 #else
     return "Unknown";
 #endif
@@ -1673,11 +1681,9 @@ inline std::string getCompilerString()
 #if defined(_MSC_VER)
     return "MSVC " + std::to_string(_MSC_VER);
 #elif defined(__clang__)
-    return "Clang " + std::to_string(__clang_major__) + "." +
-           std::to_string(__clang_minor__);
+    return "Clang " + std::to_string(__clang_major__) + "." + std::to_string(__clang_minor__);
 #elif defined(__GNUC__)
-    return "GCC " + std::to_string(__GNUC__) + "." +
-           std::to_string(__GNUC_MINOR__);
+    return "GCC " + std::to_string(__GNUC__) + "." + std::to_string(__GNUC_MINOR__);
 #else
     return "Unknown";
 #endif
@@ -1727,7 +1733,10 @@ struct Statistics
     static Statistics compute(std::vector<double> rawSamples)
     {
         Statistics s{};
-        if (rawSamples.empty()) return s;
+        if (rawSamples.empty())
+        {
+            return s;
+        }
 
         std::sort(rawSamples.begin(), rawSamples.end());
         const std::size_t n = rawSamples.size();
@@ -1767,12 +1776,30 @@ struct Statistics
 
             // CI95 using t-distribution approximation
             double t_value;
-            if (n >= 120) t_value = 1.96;
-            else if (n >= 60) t_value = 2.00;
-            else if (n >= 30) t_value = 2.04;
-            else if (n >= 15) t_value = 2.14;
-            else if (n >= 10) t_value = 2.26;
-            else t_value = 2.78;
+            if (n >= 120)
+            {
+                t_value = 1.96;
+            }
+            else if (n >= 60)
+            {
+                t_value = 2.00;
+            }
+            else if (n >= 30)
+            {
+                t_value = 2.04;
+            }
+            else if (n >= 15)
+            {
+                t_value = 2.14;
+            }
+            else if (n >= 10)
+            {
+                t_value = 2.26;
+            }
+            else
+            {
+                t_value = 2.78;
+            }
 
             double se = s.stddev / std::sqrt(static_cast<double>(n));
             double margin = t_value * se;
@@ -1788,15 +1815,11 @@ struct Statistics
      *
      * @details Format: "  label                  :   45.23 ns/op  (+/- 2.31)"
      */
-    void printCompact(std::ostream& out,
-                       const char* label,
-                       const char* unit = "ns/op",
-                       int labelWidth = 24) const
+    void printCompact(std::ostream& out, const char* label, const char* unit = "ns/op", int labelWidth = 24) const
     {
         out << std::fixed << std::setprecision(2);
-        out << "    " << std::left << std::setw(labelWidth) << label << ": "
-            << std::right << std::setw(8) << mean << " " << unit
-            << "  (+/-" << std::setw(6) << stddev << ")";
+        out << "    " << std::left << std::setw(labelWidth) << label << ": " << std::right << std::setw(8) << mean
+            << " " << unit << "  (+/-" << std::setw(6) << stddev << ")";
 
         // Add CI95 if verbose or samples are few
         if (samples < 30 || stddev / mean > 0.1)
@@ -1811,15 +1834,11 @@ struct Statistics
      *
      * @details Format: "  label                  :   45.23 ns/op  median=45.00  (+/- 2.31)"
      */
-    void printComparison(std::ostream& out,
-                          const char* label,
-                          const char* unit = "ns/op",
-                          int labelWidth = 24) const
+    void printComparison(std::ostream& out, const char* label, const char* unit = "ns/op", int labelWidth = 24) const
     {
         out << std::fixed << std::setprecision(2);
-        out << "    " << std::left << std::setw(labelWidth) << label << ": "
-            << std::right << std::setw(8) << median << " " << unit
-            << "  (+/-" << std::setw(6) << stddev << ")\n";
+        out << "    " << std::left << std::setw(labelWidth) << label << ": " << std::right << std::setw(8) << median
+            << " " << unit << "  (+/-" << std::setw(6) << stddev << ")\n";
     }
 
     /**
@@ -1851,7 +1870,7 @@ struct Statistics
 struct BenchResult
 {
     std::string name;
-    std::string library;       // Empty for single-library benchmarks
+    std::string library; // Empty for single-library benchmarks
     std::string unit = "ns/op";
     Statistics stats;
     CpuFreqInfo cpuContext;
@@ -1895,7 +1914,9 @@ struct IAdapter
     virtual void teardown() = 0;
 
     /// Clear state for next iteration (outside timing)
-    virtual void clear() {}
+    virtual void clear()
+    {
+    }
 };
 
 // ============================================================================
@@ -1966,7 +1987,10 @@ inline std::string formatTime(double ns)
  */
 inline void cooldownDelay(int ms, const char* reason = nullptr, bool verbose = false)
 {
-    if (ms <= 0) return;
+    if (ms <= 0)
+    {
+        return;
+    }
 
     if (verbose && reason)
     {
@@ -2003,19 +2027,35 @@ public:
         : mName(std::move(name))
         , mConfig(std::move(config))
         , mRng(static_cast<std::mt19937::result_type>(mConfig.seed))
-    {}
+    {
+    }
 
     // ========================================================================
     // Accessors
     // ========================================================================
 
-    const std::string& name() const { return mName; }
+    const std::string& name() const
+    {
+        return mName;
+    }
 
-    BenchConfig& config() { return mConfig; }
-    const BenchConfig& config() const { return mConfig; }
+    BenchConfig& config()
+    {
+        return mConfig;
+    }
+    const BenchConfig& config() const
+    {
+        return mConfig;
+    }
 
-    const std::vector<BenchResult>& results() const { return mResults; }
-    const std::vector<ComparisonResult>& comparisonResults() const { return comparison_mResults; }
+    const std::vector<BenchResult>& results() const
+    {
+        return mResults;
+    }
+    const std::vector<ComparisonResult>& comparisonResults() const
+    {
+        return comparison_mResults;
+    }
 
     // ========================================================================
     // Section Management
@@ -2030,8 +2070,7 @@ public:
 
         if (!mConfig.noCooldown && !mResults.empty())
         {
-            cooldownDelay(mConfig.cooldownSectionMs, "section transition",
-                           mConfig.verboseStats);
+            cooldownDelay(mConfig.cooldownSectionMs, "section transition", mConfig.verboseStats);
         }
 
         printSectionHeader(std::cout, title);
@@ -2100,13 +2139,10 @@ public:
      * @param needs_preload Whether to call preload before timing
      */
     template <typename RunFunc>
-    void compare(const std::string& caseName,
-                 RunFunc run_func,
-                 std::size_t N,
-                 bool needs_preload = false)
+    void compare(const std::string& caseName, RunFunc run_func, std::size_t N, bool needs_preload = false)
     {
-        (void)needs_preload;  // Reserved for future use
-        
+        (void)needs_preload; // Reserved for future use
+
         if (mAdapters.empty())
         {
             std::cerr << "Warning: No adapters registered for comparison\n";
@@ -2204,8 +2240,7 @@ public:
         std::cout << "  " << mName << " Benchmark\n";
         std::cout << "================================================================================\n\n";
 
-        std::cout << "  Platform: " << getPlatformString()
-                  << ", " << getCompilerString() << "\n";
+        std::cout << "  Platform: " << getPlatformString() << ", " << getCompilerString() << "\n";
         mConfig.print(std::cout);
 
         // CPU detection info
@@ -2218,7 +2253,10 @@ public:
      */
     void printLibraries() const
     {
-        if (mAdapters.empty()) return;
+        if (mAdapters.empty())
+        {
+            return;
+        }
 
         std::cout << "  Libraries:\n";
         for (const auto& adapter : mAdapters)
@@ -2261,7 +2299,10 @@ public:
      */
     void exportCsvIfConfigured() const
     {
-        if (mConfig.outputCsv.empty()) return;
+        if (mConfig.outputCsv.empty())
+        {
+            return;
+        }
         exportCsv(mConfig.outputCsv);
     }
 
@@ -2270,7 +2311,10 @@ public:
      */
     void exportJsonIfConfigured() const
     {
-        if (mConfig.outputJson.empty()) return;
+        if (mConfig.outputJson.empty())
+        {
+            return;
+        }
         exportJson(mConfig.outputJson);
     }
 
@@ -2380,7 +2424,10 @@ public:
         // Single benchmarks
         for (const auto& result : mResults)
         {
-            if (!first) file << ",\n";
+            if (!first)
+            {
+                file << ",\n";
+            }
             first = false;
             writeJsonResult(file, result);
         }
@@ -2390,7 +2437,10 @@ public:
         {
             for (const auto& result : comp.libraries)
             {
-                if (!first) file << ",\n";
+                if (!first)
+                {
+                    file << ",\n";
+                }
                 first = false;
                 writeJsonResult(file, result);
             }
@@ -2500,35 +2550,19 @@ private:
     }
 
     void writeCsvRow(std::ofstream& file,
-                       const std::string& timestamp,
-                       const std::string& platform,
-                       const std::string& compiler,
-                       const BenchResult& result) const
+                     const std::string& timestamp,
+                     const std::string& platform,
+                     const std::string& compiler,
+                     const BenchResult& result) const
     {
-        file << timestamp << ","
-             << mName << ","
-             << result.name << ","
-             << result.library << ","
-             << result.unit << ","
-             << result.stats.median << ","
-             << result.stats.mean << ","
-             << result.stats.stddev << ","
-             << result.stats.ci95Low << ","
-             << result.stats.ci95High << ","
-             << result.stats.min << ","
-             << result.stats.max << ","
-             << result.stats.p95 << ","
-             << result.stats.p99 << ","
-             << result.stats.samples << ","
-             << platform << ","
-             << compiler << ","
-             << static_cast<int>(result.cpuContext.mCurrentFreqMHz) << ","
+        file << timestamp << "," << mName << "," << result.name << "," << result.library << "," << result.unit << ","
+             << result.stats.median << "," << result.stats.mean << "," << result.stats.stddev << ","
+             << result.stats.ci95Low << "," << result.stats.ci95High << "," << result.stats.min << ","
+             << result.stats.max << "," << result.stats.p95 << "," << result.stats.p99 << "," << result.stats.samples
+             << "," << platform << "," << compiler << "," << static_cast<int>(result.cpuContext.mCurrentFreqMHz) << ","
              << static_cast<int>(result.cpuContext.mRefFreqMHz) << ","
-             << (result.cpuContext.mRefIsMax ? "true" : "false") << ","
-             << mConfig.seed << ","
-             << mConfig.warmupRuns << ","
-             << mConfig.measuredRuns << ","
-             << mConfig.minBatchMs << "\n";
+             << (result.cpuContext.mRefIsMax ? "true" : "false") << "," << mConfig.seed << "," << mConfig.warmupRuns
+             << "," << mConfig.measuredRuns << "," << mConfig.minBatchMs << "\n";
     }
 
     void writeJsonResult(std::ofstream& file, const BenchResult& result) const
@@ -2578,8 +2612,7 @@ private:
 /**
  * @brief Wait for CPU to stabilize before benchmarking
  */
-inline bool waitForStableCpu(const BenchConfig& config,
-                                std::ostream& out = std::cout)
+inline bool waitForStableCpu(const BenchConfig& config, std::ostream& out = std::cout)
 {
     if (config.noStabilize)
     {
@@ -2593,9 +2626,7 @@ inline bool waitForStableCpu(const BenchConfig& config,
     wait_config.mMaxWaitSeconds = 30;
     wait_config.mPollIntervalMs = 200;
 
-    auto result = wait_for_cpu_stable(&out, wait_config,
-                                      wait_config.mFixedSectionDelayMs,
-                                      "initial");
+    auto result = wait_for_cpu_stable(&out, wait_config, wait_config.mFixedSectionDelayMs, "initial");
 
     return result.mStabilized;
 }
@@ -2657,29 +2688,29 @@ inline BenchmarkRunner makeTestRunner(const std::string& name, bool quiet = fals
 
     // Skip header, scope, and CPU wait entirely for tests
     // If quiet mode requested, redirect output during run (caller's responsibility)
-    (void)quiet;  // Reserved for future use
+    (void)quiet; // Reserved for future use
 
     return runner;
 }
 
-}  // namespace bench
-}  // namespace fat_p
+} // namespace bench
+} // namespace fat_p
 
 // ============================================================================
 // Cleanup - restore macros we may have defined
 // ============================================================================
 #ifdef FATP_DEFINED_NOMINMAX_BENCH
-    #undef NOMINMAX
-    #undef FATP_DEFINED_NOMINMAX_BENCH
+#undef NOMINMAX
+#undef FATP_DEFINED_NOMINMAX_BENCH
 #endif
 #ifdef FATP_DEFINED_WIN32_LEAN_AND_MEAN_BENCH
-    #undef WIN32_LEAN_AND_MEAN
-    #undef FATP_DEFINED_WIN32_LEAN_AND_MEAN_BENCH
+#undef WIN32_LEAN_AND_MEAN
+#undef FATP_DEFINED_WIN32_LEAN_AND_MEAN_BENCH
 #endif
 #ifdef FATP_DEFINED_CRT_SECURE_NO_WARNINGS_BENCH
-    #undef _CRT_SECURE_NO_WARNINGS
-    #undef FATP_DEFINED_CRT_SECURE_NO_WARNINGS_BENCH
+#undef _CRT_SECURE_NO_WARNINGS
+#undef FATP_DEFINED_CRT_SECURE_NO_WARNINGS_BENCH
 #endif
 #ifdef _MSC_VER
-    #pragma warning(pop)
+#pragma warning(pop)
 #endif

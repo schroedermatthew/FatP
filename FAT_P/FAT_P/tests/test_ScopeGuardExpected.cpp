@@ -63,11 +63,9 @@ FATP_TEST_CASE(make_rollback_guard)
         int rollback_count = 0;
         {
             Expected<int, std::string> result = make_unexpected(std::string("error"));
-            auto guard = make_rollback_guard(result,
-                                             [&]
-                                             {
-                                                 ++rollback_count;
-                                             });
+            auto guard = make_rollback_guard(result, [&] {
+                ++rollback_count;
+            });
         }
         FATP_ASSERT_EQ(rollback_count, 1, "Rollback should execute on error");
     }
@@ -79,11 +77,9 @@ FATP_TEST_CASE(make_rollback_guard)
         int rollback_count = 0;
         {
             Expected<int, std::string> result = 42;
-            auto guard = make_rollback_guard(result,
-                                             [&]
-                                             {
-                                                 ++rollback_count;
-                                             });
+            auto guard = make_rollback_guard(result, [&] {
+                ++rollback_count;
+            });
         }
         FATP_ASSERT_EQ(rollback_count, 0, "Rollback should not execute on success");
     }
@@ -95,11 +91,9 @@ FATP_TEST_CASE(make_rollback_guard)
         int rollback_count = 0;
         {
             Expected<void, std::string> result = make_unexpected(std::string("failed"));
-            auto guard = make_rollback_guard(result,
-                                             [&]
-                                             {
-                                                 ++rollback_count;
-                                             });
+            auto guard = make_rollback_guard(result, [&] {
+                ++rollback_count;
+            });
         }
         FATP_ASSERT_EQ(rollback_count, 1, "Rollback should execute on void error");
     }
@@ -111,11 +105,9 @@ FATP_TEST_CASE(make_rollback_guard)
         int rollback_count = 0;
         {
             Expected<int, std::string> result = make_unexpected(std::string("error"));
-            auto guard = make_rollback_guard(result,
-                                             [&]
-                                             {
-                                                 ++rollback_count;
-                                             });
+            auto guard = make_rollback_guard(result, [&] {
+                ++rollback_count;
+            });
             guard.dismiss();
         }
         FATP_ASSERT_EQ(rollback_count, 0, "Dismissed rollback should not execute");
@@ -140,11 +132,9 @@ FATP_TEST_CASE(make_success_guard)
         int commit_count = 0;
         {
             Expected<int, std::string> result = 42;
-            auto guard = make_success_guard(result,
-                                            [&]
-                                            {
-                                                ++commit_count;
-                                            });
+            auto guard = make_success_guard(result, [&] {
+                ++commit_count;
+            });
         }
         FATP_ASSERT_EQ(commit_count, 1, "Success action should execute on value");
     }
@@ -156,11 +146,9 @@ FATP_TEST_CASE(make_success_guard)
         int commit_count = 0;
         {
             Expected<int, std::string> result = make_unexpected(std::string("error"));
-            auto guard = make_success_guard(result,
-                                            [&]
-                                            {
-                                                ++commit_count;
-                                            });
+            auto guard = make_success_guard(result, [&] {
+                ++commit_count;
+            });
         }
         FATP_ASSERT_EQ(commit_count, 0, "Success action should not execute on error");
     }
@@ -172,11 +160,9 @@ FATP_TEST_CASE(make_success_guard)
         int commit_count = 0;
         {
             Expected<void, std::string> result; // Default constructs as success
-            auto guard = make_success_guard(result,
-                                            [&]
-                                            {
-                                                ++commit_count;
-                                            });
+            auto guard = make_success_guard(result, [&] {
+                ++commit_count;
+            });
         }
         FATP_ASSERT_EQ(commit_count, 1, "Success action should execute on void success");
     }
@@ -202,16 +188,12 @@ FATP_TEST_CASE(transaction_pattern)
 
         {
             Expected<void, std::string> result;
-            auto commit_guard = make_success_guard(result,
-                                                   [&]
-                                                   {
-                                                       ++commits;
-                                                   });
-            auto rollback_guard = make_rollback_guard(result,
-                                                      [&]
-                                                      {
-                                                          ++rollbacks;
-                                                      });
+            auto commit_guard = make_success_guard(result, [&] {
+                ++commits;
+            });
+            auto rollback_guard = make_rollback_guard(result, [&] {
+                ++rollbacks;
+            });
 
             // Simulate success
             result = Expected<void, std::string>{};
@@ -230,16 +212,12 @@ FATP_TEST_CASE(transaction_pattern)
 
         {
             Expected<void, std::string> result;
-            auto commit_guard = make_success_guard(result,
-                                                   [&]
-                                                   {
-                                                       ++commits;
-                                                   });
-            auto rollback_guard = make_rollback_guard(result,
-                                                      [&]
-                                                      {
-                                                          ++rollbacks;
-                                                      });
+            auto commit_guard = make_success_guard(result, [&] {
+                ++commits;
+            });
+            auto rollback_guard = make_rollback_guard(result, [&] {
+                ++rollbacks;
+            });
 
             // Simulate failure
             result = make_unexpected(std::string("operation failed"));
@@ -257,8 +235,7 @@ FATP_TEST_CASE(transaction_pattern)
         int step2_rollback = 0;
         int final_commit = 0;
 
-        auto do_transaction = [&](bool step1_ok, bool step2_ok) -> Expected<int, std::string>
-        {
+        auto do_transaction = [&](bool step1_ok, bool step2_ok) -> Expected<int, std::string> {
             Expected<int, std::string> result;
 
             // Step 1
@@ -266,11 +243,9 @@ FATP_TEST_CASE(transaction_pattern)
             {
                 return make_unexpected(std::string("step1 failed"));
             }
-            auto guard1 = make_rollback_guard(result,
-                                              [&]
-                                              {
-                                                  ++step1_rollback;
-                                              });
+            auto guard1 = make_rollback_guard(result, [&] {
+                ++step1_rollback;
+            });
 
             // Step 2
             if (!step2_ok)
@@ -278,19 +253,15 @@ FATP_TEST_CASE(transaction_pattern)
                 result = make_unexpected(std::string("step2 failed"));
                 return result;
             }
-            auto guard2 = make_rollback_guard(result,
-                                              [&]
-                                              {
-                                                  ++step2_rollback;
-                                              });
+            auto guard2 = make_rollback_guard(result, [&] {
+                ++step2_rollback;
+            });
 
             // Success
             result = 100;
-            auto commit_guard = make_success_guard(result,
-                                                   [&]
-                                                   {
-                                                       ++final_commit;
-                                                   });
+            auto commit_guard = make_success_guard(result, [&] {
+                ++final_commit;
+            });
 
             return result;
         };
@@ -330,16 +301,13 @@ FATP_TEST_CASE(with_resource)
 
         bool cleaned_up = false;
         auto result = with_resource<int, std::string>(
-            []
-            {
+            [] {
                 return 10;
             },
-            [](int& val)
-            {
+            [](int& val) {
                 return val * 2;
             },
-            [&](int&)
-            {
+            [&](int&) {
                 cleaned_up = true;
             });
 
@@ -354,16 +322,13 @@ FATP_TEST_CASE(with_resource)
 
         bool cleaned_up = false;
         auto result = with_resource<int, std::string>(
-            []
-            {
+            [] {
                 return 10;
             },
-            [](int&) -> int
-            {
+            [](int&) -> int {
                 throw std::runtime_error("action failed");
             },
-            [&](int&)
-            {
+            [&](int&) {
                 cleaned_up = true;
             });
 
@@ -382,16 +347,13 @@ FATP_TEST_CASE(with_resource)
         bool cleaned_up = false;
 
         auto result = with_resource<void, std::string>(
-            []
-            {
+            [] {
                 return 42;
             },
-            [&](int& val)
-            {
+            [&](int& val) {
                 action_ran = (val == 42);
             },
-            [&](int&)
-            {
+            [&](int&) {
                 cleaned_up = true;
             });
 
@@ -406,16 +368,13 @@ FATP_TEST_CASE(with_resource)
 
         bool cleaned_up = false;
         auto result = with_resource<int, std::string>(
-            []
-            {
+            [] {
                 return 10;
             },
-            [](int&) -> int
-            {
+            [](int&) -> int {
                 throw 42;
             }, // Non-std::exception
-            [&](int&)
-            {
+            [&](int&) {
                 cleaned_up = true;
             });
 
@@ -433,16 +392,13 @@ FATP_TEST_CASE(with_resource)
         // This must NOT call std::terminate. If action throws and cleanup also throws,
         // the cleanup exception should be swallowed and the action exception propagated.
         auto result = with_resource<int, std::string>(
-            []
-            {
+            [] {
                 return 10;
             },
-            [](int&) -> int
-            {
+            [](int&) -> int {
                 throw std::runtime_error("Primary Error");
             },
-            [&](int&)
-            {
+            [&](int&) {
                 cleanup_ran = true;
                 throw std::runtime_error("Cleanup Error"); // Should be swallowed
             });
@@ -475,12 +431,10 @@ FATP_TEST_CASE(with_expected_resource)
 
         auto result = with_expected_resource<int, std::string, int>(
             std::move(resource_result),
-            [](int& val) -> Expected<int, std::string>
-            {
+            [](int& val) -> Expected<int, std::string> {
                 return val * 3;
             },
-            [&](int&)
-            {
+            [&](int&) {
                 cleaned_up = true;
             });
 
@@ -499,13 +453,11 @@ FATP_TEST_CASE(with_expected_resource)
 
         auto result = with_expected_resource<int, std::string, int>(
             std::move(resource_result),
-            [&](int& val) -> Expected<int, std::string>
-            {
+            [&](int& val) -> Expected<int, std::string> {
                 action_ran = true;
                 return val * 3;
             },
-            [&](int&)
-            {
+            [&](int&) {
                 cleaned_up = true;
             });
 
@@ -524,12 +476,10 @@ FATP_TEST_CASE(with_expected_resource)
 
         auto result = with_expected_resource<int, std::string, int>(
             std::move(resource_result),
-            [](int&) -> Expected<int, std::string>
-            {
+            [](int&) -> Expected<int, std::string> {
                 return make_unexpected(std::string("action error"));
             },
-            [&](int&)
-            {
+            [&](int&) {
                 cleaned_up = true;
             });
 
@@ -558,11 +508,9 @@ FATP_TEST_CASE(make_capturing_guard)
         bool cleanup_ran = false;
 
         {
-            auto guard = make_capturing_guard(cleanup_result,
-                                              [&]
-                                              {
-                                                  cleanup_ran = true;
-                                              });
+            auto guard = make_capturing_guard(cleanup_result, [&] {
+                cleanup_ran = true;
+            });
         }
 
         FATP_ASSERT_TRUE(cleanup_ran, "Cleanup should run");
@@ -578,11 +526,9 @@ FATP_TEST_CASE(make_capturing_guard)
         {
             // This should NOT produce any stderr output since we use NothrowPolicy
             // and swallow the exception internally after capturing it
-            auto guard = make_capturing_guard(cleanup_result,
-                                              []
-                                              {
-                                                  throw std::runtime_error("cleanup failed");
-                                              });
+            auto guard = make_capturing_guard(cleanup_result, [] {
+                throw std::runtime_error("cleanup failed");
+            });
         }
 
         FATP_ASSERT_FALSE(cleanup_result.has_value(), "Should indicate failure");
@@ -598,11 +544,9 @@ FATP_TEST_CASE(make_capturing_guard)
         Expected<void, std::string> cleanup_result;
 
         {
-            auto guard = make_capturing_guard(cleanup_result,
-                                              []
-                                              {
-                                                  throw 42; // Non-std::exception
-                                              });
+            auto guard = make_capturing_guard(cleanup_result, [] {
+                throw 42; // Non-std::exception
+            });
         }
 
         FATP_ASSERT_FALSE(cleanup_result.has_value(), "Should indicate failure");

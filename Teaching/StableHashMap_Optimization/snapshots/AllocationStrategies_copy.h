@@ -58,7 +58,8 @@
 #include <type_traits>
 #include <utility>
 
-namespace fat_p {
+namespace fat_p
+{
 
 // ============================================================================
 // NewDeleteAllocator - Standard new/delete per object
@@ -77,10 +78,11 @@ namespace fat_p {
 //
 // Memory overhead: malloc metadata per object (~16-32 bytes typical)
 //
-template<typename T>
-class NewDeleteAllocator {
+template <typename T>
+class NewDeleteAllocator
+{
     static constexpr bool is_overaligned = alignof(T) > alignof(std::max_align_t);
-    
+
 public:
     NewDeleteAllocator() = default;
     NewDeleteAllocator(const NewDeleteAllocator&) = default;
@@ -88,25 +90,33 @@ public:
     NewDeleteAllocator(NewDeleteAllocator&&) noexcept = default;
     NewDeleteAllocator& operator=(NewDeleteAllocator&&) noexcept = default;
     ~NewDeleteAllocator() = default;
-    
-    template<typename... Args>
-    T* allocate(Args&&... args) {
-        if constexpr (is_overaligned) {
+
+    template <typename... Args>
+    T* allocate(Args&&... args)
+    {
+        if constexpr (is_overaligned)
+        {
             // Over-aligned: use aligned allocation + placement new
             void* mem = ::operator new(sizeof(T), std::align_val_t{alignof(T)});
             return new (mem) T(std::forward<Args>(args)...);
-        } else {
+        }
+        else
+        {
             // Normal alignment: standard new handles it
             return new T(std::forward<Args>(args)...);
         }
     }
-    
-    void deallocate(T* ptr) {
-        if constexpr (is_overaligned) {
+
+    void deallocate(T* ptr)
+    {
+        if constexpr (is_overaligned)
+        {
             // Over-aligned: explicit destructor + aligned delete
             ptr->~T();
             ::operator delete(ptr, std::align_val_t{alignof(T)});
-        } else {
+        }
+        else
+        {
             delete ptr;
         }
     }
@@ -136,45 +146,50 @@ public:
 //   - Objects scattered across blocks may hurt lookup cache locality
 //   - Memory not returned to OS until allocator destroyed
 //
-template<typename T>
-class BlockAllocator {
-    static constexpr size_t kBlockSize = 256;  // Objects per block
-    
-    struct FreeNode {
+template <typename T>
+class BlockAllocator
+{
+    static constexpr size_t kBlockSize = 256; // Objects per block
+
+    struct FreeNode
+    {
         FreeNode* next;
     };
-    
+
     // T must be at least as large as a pointer for free list to work
-    static_assert(sizeof(T) >= sizeof(FreeNode*), 
-        "BlockAllocator<T>: T is too small (must be at least pointer-sized)");
-    
-    struct Block {
+    static_assert(sizeof(T) >= sizeof(FreeNode*), "BlockAllocator<T>: T is too small (must be at least pointer-sized)");
+
+    struct Block
+    {
         alignas(alignof(T)) char data[kBlockSize * sizeof(T)];
         Block* next = nullptr;
     };
-    
+
     Block* head_block_ = nullptr;
     FreeNode* free_list_ = nullptr;
-    size_t current_offset_ = kBlockSize;  // Forces new block on first alloc
-    
+    size_t current_offset_ = kBlockSize; // Forces new block on first alloc
+
 public:
     BlockAllocator() = default;
-    
+
     // Non-copyable (stateful)
     BlockAllocator(const BlockAllocator&) = delete;
     BlockAllocator& operator=(const BlockAllocator&) = delete;
-    
+
     BlockAllocator(BlockAllocator&& other) noexcept
-        : head_block_(other.head_block_),
-          free_list_(other.free_list_),
-          current_offset_(other.current_offset_) {
+        : head_block_(other.head_block_)
+        , free_list_(other.free_list_)
+        , current_offset_(other.current_offset_)
+    {
         other.head_block_ = nullptr;
         other.free_list_ = nullptr;
         other.current_offset_ = kBlockSize;
     }
-    
-    BlockAllocator& operator=(BlockAllocator&& other) noexcept {
-        if (this != &other) {
+
+    BlockAllocator& operator=(BlockAllocator&& other) noexcept
+    {
+        if (this != &other)
+        {
             destroy_all_blocks();
             head_block_ = other.head_block_;
             free_list_ = other.free_list_;
@@ -185,50 +200,57 @@ public:
         }
         return *this;
     }
-    
-    ~BlockAllocator() {
+
+    ~BlockAllocator()
+    {
         destroy_all_blocks();
     }
-    
-    template<typename... Args>
-    T* allocate(Args&&... args) {
+
+    template <typename... Args>
+    T* allocate(Args&&... args)
+    {
         T* ptr = allocate_raw();
         new (ptr) T(std::forward<Args>(args)...);
         return ptr;
     }
-    
-    void deallocate(T* ptr) {
+
+    void deallocate(T* ptr)
+    {
         ptr->~T();
         FreeNode* fn = reinterpret_cast<FreeNode*>(ptr);
         fn->next = free_list_;
         free_list_ = fn;
     }
-    
+
 private:
-    T* allocate_raw() {
+    T* allocate_raw()
+    {
         // Fast path: reuse from free list
-        if (free_list_) {
+        if (free_list_)
+        {
             FreeNode* fn = free_list_;
             free_list_ = fn->next;
             return reinterpret_cast<T*>(fn);
         }
-        
+
         // Allocate new block if needed
-        if (current_offset_ >= kBlockSize) {
+        if (current_offset_ >= kBlockSize)
+        {
             Block* new_block = new Block();
             new_block->next = head_block_;
             head_block_ = new_block;
             current_offset_ = 0;
         }
-        
-        T* ptr = reinterpret_cast<T*>(
-            head_block_->data + current_offset_ * sizeof(T));
+
+        T* ptr = reinterpret_cast<T*>(head_block_->data + current_offset_ * sizeof(T));
         ++current_offset_;
         return ptr;
     }
-    
-    void destroy_all_blocks() {
-        while (head_block_) {
+
+    void destroy_all_blocks()
+    {
+        while (head_block_)
+        {
             Block* next = head_block_->next;
             delete head_block_;
             head_block_ = next;
@@ -265,59 +287,70 @@ private:
 //   MyNode* p = alloc.allocate(args...);
 //   alloc.deallocate(p);
 //
-template<size_t MaxObjects>
-struct PoolAllocator {
-    template<typename T>
-    class Allocator {
-        struct FreeNode {
+template <size_t MaxObjects>
+struct PoolAllocator
+{
+    template <typename T>
+    class Allocator
+    {
+        struct FreeNode
+        {
             FreeNode* next;
         };
-        
+
         // T must be at least as large as a pointer for free list to work
-        static_assert(sizeof(T) >= sizeof(FreeNode*), 
-            "PoolAllocator<T>: T is too small (must be at least pointer-sized)");
-        
+        static_assert(sizeof(T) >= sizeof(FreeNode*),
+                      "PoolAllocator<T>: T is too small (must be at least pointer-sized)");
+
         // Move operations use memcpy, which requires trivially copyable T
-        // If you need non-trivial types, use NewDeleteAllocator or BlockAllocator instead
+        // If you need non-trivial types, use NewDeleteAllocator or BlockAllocator
+        // instead
         static_assert(std::is_trivially_copyable_v<T> || MaxObjects == 0,
-            "PoolAllocator<T>: T must be trivially copyable for move operations. "
-            "Use NewDeleteAllocator or BlockAllocator for non-trivial types.");
-        
+                      "PoolAllocator<T>: T must be trivially copyable for move operations. "
+                      "Use NewDeleteAllocator or BlockAllocator for non-trivial types.");
+
         alignas(alignof(T)) char storage_[MaxObjects * sizeof(T)];
         FreeNode* free_list_ = nullptr;
         size_t allocated_ = 0;
         bool initialized_ = false;
-        
-        void initialize() {
-            if (initialized_) return;
+
+        void initialize()
+        {
+            if (initialized_)
+            {
+                return;
+            }
             // Build free list in reverse (LIFO order)
-            for (size_t i = MaxObjects; i > 0; --i) {
-                FreeNode* fn = reinterpret_cast<FreeNode*>(
-                    storage_ + (i - 1) * sizeof(T));
+            for (size_t i = MaxObjects; i > 0; --i)
+            {
+                FreeNode* fn = reinterpret_cast<FreeNode*>(storage_ + (i - 1) * sizeof(T));
                 fn->next = free_list_;
                 free_list_ = fn;
             }
             initialized_ = true;
         }
-        
+
     public:
         Allocator() = default;
-        
+
         // Non-copyable (stateful with embedded storage)
         Allocator(const Allocator&) = delete;
         Allocator& operator=(const Allocator&) = delete;
-        
+
         Allocator(Allocator&& other) noexcept
-            : free_list_(nullptr),
-              allocated_(other.allocated_),
-              initialized_(other.initialized_) {
-            if (initialized_) {
+            : free_list_(nullptr)
+            , allocated_(other.allocated_)
+            , initialized_(other.initialized_)
+        {
+            if (initialized_)
+            {
                 std::memcpy(storage_, other.storage_, MaxObjects * sizeof(T));
                 // Rebuild free list for new storage location
                 free_list_ = nullptr;
                 FreeNode* other_current = other.free_list_;
                 FreeNode** my_tail = &free_list_;
-                while (other_current) {
+                while (other_current)
+                {
                     size_t offset = reinterpret_cast<char*>(other_current) - other.storage_;
                     FreeNode* my_node = reinterpret_cast<FreeNode*>(storage_ + offset);
                     *my_tail = my_node;
@@ -330,18 +363,22 @@ struct PoolAllocator {
             other.allocated_ = 0;
             other.initialized_ = false;
         }
-        
-        Allocator& operator=(Allocator&& other) noexcept {
-            if (this != &other) {
+
+        Allocator& operator=(Allocator&& other) noexcept
+        {
+            if (this != &other)
+            {
                 allocated_ = other.allocated_;
                 initialized_ = other.initialized_;
-                if (initialized_) {
+                if (initialized_)
+                {
                     std::memcpy(storage_, other.storage_, MaxObjects * sizeof(T));
                     // Rebuild free list
                     free_list_ = nullptr;
                     FreeNode* other_current = other.free_list_;
                     FreeNode** my_tail = &free_list_;
-                    while (other_current) {
+                    while (other_current)
+                    {
                         size_t offset = reinterpret_cast<char*>(other_current) - other.storage_;
                         FreeNode* my_node = reinterpret_cast<FreeNode*>(storage_ + offset);
                         *my_tail = my_node;
@@ -356,14 +393,16 @@ struct PoolAllocator {
             }
             return *this;
         }
-        
+
         ~Allocator() = default;
-        
-        template<typename... Args>
-        T* allocate(Args&&... args) {
+
+        template <typename... Args>
+        T* allocate(Args&&... args)
+        {
             initialize();
-            if (!free_list_) {
-                throw std::bad_alloc();  // Pool exhausted
+            if (!free_list_)
+            {
+                throw std::bad_alloc(); // Pool exhausted
             }
             FreeNode* fn = free_list_;
             free_list_ = fn->next;
@@ -372,20 +411,33 @@ struct PoolAllocator {
             new (ptr) T(std::forward<Args>(args)...);
             return ptr;
         }
-        
-        void deallocate(T* ptr) {
+
+        void deallocate(T* ptr)
+        {
             ptr->~T();
             FreeNode* fn = reinterpret_cast<FreeNode*>(ptr);
             fn->next = free_list_;
             free_list_ = fn;
             --allocated_;
         }
-        
+
         // Pool status queries
-        static constexpr size_t capacity() { return MaxObjects; }
-        size_t allocated() const { return allocated_; }
-        size_t available() const { return MaxObjects - allocated_; }
-        bool full() const { return allocated_ >= MaxObjects; }
+        static constexpr size_t capacity()
+        {
+            return MaxObjects;
+        }
+        size_t allocated() const
+        {
+            return allocated_;
+        }
+        size_t available() const
+        {
+            return MaxObjects - allocated_;
+        }
+        bool full() const
+        {
+            return allocated_ >= MaxObjects;
+        }
     };
 };
 

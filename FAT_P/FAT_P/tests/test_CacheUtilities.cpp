@@ -671,8 +671,7 @@ void benchmark_cache_utilities()
 
     // Benchmark without prefetch
     double no_prefetch_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             float sum = 0.0f;
             for (size_t i = 0; i < N; ++i)
             {
@@ -687,8 +686,7 @@ void benchmark_cache_utilities()
 
     // Benchmark with prefetch
     double prefetch_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             float sum = 0.0f;
             for (size_t i = 0; i < N - 8; ++i)
             {
@@ -711,8 +709,7 @@ void benchmark_cache_utilities()
     std::memset(src, 0xAB, COPY_SIZE);
 
     double memcpy_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             std::memcpy(dest, src, COPY_SIZE);
             DoNotOptimize(dest);
         },
@@ -722,8 +719,7 @@ void benchmark_cache_utilities()
     std::cout << "memcpy (8KB aligned): " << format_time(memcpy_time) << "\n";
 
     double stream_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             stream_copy(dest, src, COPY_SIZE);
             DoNotOptimize(dest);
         },

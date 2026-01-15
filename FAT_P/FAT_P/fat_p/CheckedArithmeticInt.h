@@ -971,8 +971,7 @@ checked_add_vec(const std::vector<T>& vec_a,
 #if FATP_HAS_INT_SIMD
     if constexpr (std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, int64_t>)
     {
-        auto scalar_fn = [](T a, T b)
-        {
+        auto scalar_fn = [](T a, T b) {
             return checked_add<Policy>(a, b);
         };
 
@@ -1051,8 +1050,7 @@ checked_sub_vec(const std::vector<T>& vec_a,
 #if FATP_HAS_INT_SIMD
     if constexpr (std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, int64_t>)
     {
-        auto scalar_fn = [](T a, T b)
-        {
+        auto scalar_fn = [](T a, T b) {
             return checked_sub<Policy>(a, b);
         };
 
@@ -1134,8 +1132,7 @@ checked_mul_vec(const std::vector<T>& vec_a,
 #if FATP_HAS_INT_SIMD
     if constexpr (std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t>)
     {
-        auto scalar_fn = [](T a, T b)
-        {
+        auto scalar_fn = [](T a, T b) {
             return checked_mul<Policy>(a, b);
         };
 

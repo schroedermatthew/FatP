@@ -53,25 +53,25 @@ FATP_META:
 //
 // NOTE: This macro must be defined in exactly one place (Rule F).
 #ifndef FATP_NO_UNIQUE_ADDRESS
-    #if defined(_MSC_VER)
-        #if defined(__has_cpp_attribute)
-            #if __has_cpp_attribute(msvc::no_unique_address)
-                #define FATP_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
-            #elif __has_cpp_attribute(no_unique_address)
-                #define FATP_NO_UNIQUE_ADDRESS [[no_unique_address]]
-            #else
-                #define FATP_NO_UNIQUE_ADDRESS
-            #endif
-        #else
-            #define FATP_NO_UNIQUE_ADDRESS
-        #endif
-    #else
-        #if defined(__has_cpp_attribute) && __has_cpp_attribute(no_unique_address)
-            #define FATP_NO_UNIQUE_ADDRESS [[no_unique_address]]
-        #else
-            #define FATP_NO_UNIQUE_ADDRESS
-        #endif
-    #endif
+#if defined(_MSC_VER)
+#if defined(__has_cpp_attribute)
+#if __has_cpp_attribute(msvc::no_unique_address)
+#define FATP_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#elif __has_cpp_attribute(no_unique_address)
+#define FATP_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#else
+#define FATP_NO_UNIQUE_ADDRESS
+#endif
+#else
+#define FATP_NO_UNIQUE_ADDRESS
+#endif
+#else
+#if defined(__has_cpp_attribute) && __has_cpp_attribute(no_unique_address)
+#define FATP_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#else
+#define FATP_NO_UNIQUE_ADDRESS
+#endif
+#endif
 #endif
 
 // =============================================================================
@@ -79,14 +79,14 @@ FATP_META:
 // =============================================================================
 // Help optimizer with branch prediction but not required for correctness.
 #ifndef FATP_LIKELY
-    #if defined(__GNUC__) || defined(__clang__)
-        #define FATP_LIKELY(x)   __builtin_expect(!!(x), 1)
-        #define FATP_UNLIKELY(x) __builtin_expect(!!(x), 0)
-    #else
-        // MSVC and others: no-op, optimizer handles it
-        #define FATP_LIKELY(x)   (x)
-        #define FATP_UNLIKELY(x) (x)
-    #endif
+#if defined(__GNUC__) || defined(__clang__)
+#define FATP_LIKELY(x) __builtin_expect(!!(x), 1)
+#define FATP_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+// MSVC and others: no-op, optimizer handles it
+#define FATP_LIKELY(x) (x)
+#define FATP_UNLIKELY(x) (x)
+#endif
 #endif
 
 // =============================================================================
@@ -95,13 +95,13 @@ FATP_META:
 // Used to ensure critical fast paths are always inlined regardless of
 // compiler optimization settings.
 #ifndef FATP_FORCEINLINE
-    #if defined(_MSC_VER)
-        #define FATP_FORCEINLINE __forceinline
-    #elif defined(__GNUC__) || defined(__clang__)
-        #define FATP_FORCEINLINE inline __attribute__((always_inline))
-    #else
-        #define FATP_FORCEINLINE inline
-    #endif
+#if defined(_MSC_VER)
+#define FATP_FORCEINLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+#define FATP_FORCEINLINE inline __attribute__((always_inline))
+#else
+#define FATP_FORCEINLINE inline
+#endif
 #endif
 
 // =============================================================================
@@ -111,13 +111,13 @@ FATP_META:
 // to improve I-cache utilization. The 'cold' attribute on GCC/Clang also
 // hints that the function is unlikely to be called.
 #ifndef FATP_NOINLINE
-    #if defined(_MSC_VER)
-        #define FATP_NOINLINE __declspec(noinline)
-    #elif defined(__GNUC__) || defined(__clang__)
-        #define FATP_NOINLINE __attribute__((noinline, cold))
-    #else
-        #define FATP_NOINLINE
-    #endif
+#if defined(_MSC_VER)
+#define FATP_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define FATP_NOINLINE __attribute__((noinline, cold))
+#else
+#define FATP_NOINLINE
+#endif
 #endif
 
 namespace fat_p
@@ -128,4 +128,3 @@ namespace config
 inline constexpr std::size_t cache_line_size = FATP_CACHE_LINE_SIZE;
 } // namespace config
 } // namespace fat_p
-

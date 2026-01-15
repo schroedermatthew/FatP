@@ -160,8 +160,7 @@ struct SourceLocation
     }
 };
 
-#define FATP_SOURCE_LOCATION()                                                                 \
-    ::fat_p::diagnostic::SourceLocation(__FILE__, __LINE__, __func__)
+#define FATP_SOURCE_LOCATION() ::fat_p::diagnostic::SourceLocation(__FILE__, __LINE__, __func__)
 
 /**
  * @brief Contains all information about a single log event.
@@ -224,9 +223,7 @@ public:
         std::ostringstream oss;
 
         auto time_t = std::chrono::system_clock::to_time_t(record.timestamp);
-        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                      record.timestamp.time_since_epoch()) %
-                  1000;
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(record.timestamp.time_since_epoch()) % 1000;
         std::tm tm_buf;
 #ifdef _WIN32
         localtime_s(&tm_buf, &time_t);
@@ -234,8 +231,8 @@ public:
         localtime_r(&time_t, &tm_buf);
 #endif
 
-        oss << '[' << std::put_time(&tm_buf, "%Y-%m-%d %H:%M:%S") << '.' << std::setfill('0')
-            << std::setw(3) << ms.count() << "] ";
+        oss << '[' << std::put_time(&tm_buf, "%Y-%m-%d %H:%M:%S") << '.' << std::setfill('0') << std::setw(3)
+            << ms.count() << "] ";
         oss << '[' << logLevelToString(record.level) << "] ";
 
         std::ostringstream tid_oss;
@@ -537,16 +534,13 @@ public:
      * @param metadata Optional structured metadata.
      */
     template <typename MessageGenerator>
-    FATP_FORCE_INLINE void log(LogLevel level,
-                          MessageGenerator&& messageGen,
-                          SourceLocation location,
-                          std::string metadata = "")
+    FATP_FORCE_INLINE void
+    log(LogLevel level, MessageGenerator&& messageGen, SourceLocation location, std::string metadata = "")
     {
         // Optimization: Logging is usually the cold path.
         if (FATP_UNLIKELY(shouldLog(level)))
         {
-            log_slow_path(level, std::forward<MessageGenerator>(messageGen), location,
-                          std::move(metadata));
+            log_slow_path(level, std::forward<MessageGenerator>(messageGen), location, std::move(metadata));
         }
     }
 
@@ -621,8 +615,7 @@ private:
                 auto sink = createDefaultSink();
                 if (sink)
                 {
-                    auto newSinks =
-                        std::make_shared<std::vector<std::shared_ptr<ISink>>>(*mSinks);
+                    auto newSinks = std::make_shared<std::vector<std::shared_ptr<ISink>>>(*mSinks);
                     newSinks->push_back(std::move(sink));
                     mSinks = newSinks;
                 }
@@ -631,10 +624,8 @@ private:
     }
 
     template <typename MessageGenerator>
-    FATP_NO_INLINE void log_slow_path(LogLevel level,
-                                 MessageGenerator&& messageGen,
-                                 SourceLocation location,
-                                 std::string metadata)
+    FATP_NO_INLINE void
+    log_slow_path(LogLevel level, MessageGenerator&& messageGen, SourceLocation location, std::string metadata)
     {
         tryAutoInit();
 
@@ -960,20 +951,20 @@ inline Logger& getGlobalLogger()
 
 // Global logger macros
 
-#define FATP_LOG_MACRO_IMPL(func, msg)                                                                  \
-    do                                                                                             \
-    {                                                                                              \
-        if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::func)    \
-        {                                                                                          \
-            ::fat_p::diagnostic::getGlobalLogger().log(                                            \
-                ::fat_p::diagnostic::LogLevel::func,                                               \
-                [&]() {                                                                            \
-                    std::ostringstream _oss_;                                                      \
-                    _oss_ << msg;                                                                  \
-                    return _oss_.str();                                                            \
-                },                                                                                 \
-                FATP_SOURCE_LOCATION());                                                       \
-        }                                                                                          \
+#define FATP_LOG_MACRO_IMPL(func, msg)                                                          \
+    do                                                                                          \
+    {                                                                                           \
+        if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::func) \
+        {                                                                                       \
+            ::fat_p::diagnostic::getGlobalLogger().log(                                         \
+                ::fat_p::diagnostic::LogLevel::func,                                            \
+                [&]() {                                                                         \
+                    std::ostringstream _oss_;                                                   \
+                    _oss_ << msg;                                                               \
+                    return _oss_.str();                                                         \
+                },                                                                              \
+                FATP_SOURCE_LOCATION());                                                        \
+        }                                                                                       \
     } while (0)
 
 #define FATP_LOG_TRACE(msg) FATP_LOG_MACRO_IMPL(Trace, msg)
@@ -985,21 +976,21 @@ inline Logger& getGlobalLogger()
 
 // Named logger macros with static caching for zero lookup overhead after first call
 
-#define FATP_LOG_TO_IMPL(logger_name, func, msg)                                                        \
-    do                                                                                             \
-    {                                                                                              \
-        if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::func)    \
-        {                                                                                          \
-            static ::fat_p::diagnostic::Logger& _cached_logger_ =                                  \
-                ::fat_p::diagnostic::getLogger(logger_name);                                       \
-            _cached_logger_.log(::fat_p::diagnostic::LogLevel::func,                               \
-                                [&]() {                                                            \
-                                    std::ostringstream _oss_;                                      \
-                                    _oss_ << msg;                                                  \
-                                    return _oss_.str();                                            \
-                                },                                                                 \
-                                FATP_SOURCE_LOCATION());                                       \
-        }                                                                                          \
+#define FATP_LOG_TO_IMPL(logger_name, func, msg)                                                               \
+    do                                                                                                         \
+    {                                                                                                          \
+        if constexpr (::fat_p::diagnostic::gMinLogLevel <= ::fat_p::diagnostic::LogLevel::func)                \
+        {                                                                                                      \
+            static ::fat_p::diagnostic::Logger& _cached_logger_ = ::fat_p::diagnostic::getLogger(logger_name); \
+            _cached_logger_.log(                                                                               \
+                ::fat_p::diagnostic::LogLevel::func,                                                           \
+                [&]() {                                                                                        \
+                    std::ostringstream _oss_;                                                                  \
+                    _oss_ << msg;                                                                              \
+                    return _oss_.str();                                                                        \
+                },                                                                                             \
+                FATP_SOURCE_LOCATION());                                                                       \
+        }                                                                                                      \
     } while (0)
 
 #define FATP_LOG_TRACE_TO(name, msg) FATP_LOG_TO_IMPL(name, Trace, msg)

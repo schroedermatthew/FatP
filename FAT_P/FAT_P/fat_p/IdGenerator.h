@@ -2,7 +2,7 @@
  * @file IdGenerator.h
  * @brief Policy-based unique identifier generator with type-safe IDs and recycling.
  *
- * 
+ *
  *
  * @layer Domain
  *
@@ -88,17 +88,25 @@ namespace detail
 
 // Helper to detect value_type alias
 template <typename T, typename = void>
-struct has_value_type : std::false_type {};
+struct has_value_type : std::false_type
+{
+};
 
 template <typename T>
-struct has_value_type<T, std::void_t<typename T::value_type>> : std::true_type {};
+struct has_value_type<T, std::void_t<typename T::value_type>> : std::true_type
+{
+};
 
 // Helper to detect underlying_type alias (common alternative)
 template <typename T, typename = void>
-struct has_underlying_type : std::false_type {};
+struct has_underlying_type : std::false_type
+{
+};
 
 template <typename T>
-struct has_underlying_type<T, std::void_t<typename T::underlying_type>> : std::true_type {};
+struct has_underlying_type<T, std::void_t<typename T::underlying_type>> : std::true_type
+{
+};
 
 // Primary template - for integral types
 template <typename T, typename = void>
@@ -125,9 +133,9 @@ struct extract_value_type<T, std::enable_if_t<!std::is_integral_v<T> && has_valu
 
 // Specialization for types with underlying_type but not value_type
 template <typename T>
-struct extract_value_type<T, std::enable_if_t<!std::is_integral_v<T> && 
-                                               !has_value_type<T>::value && 
-                                               has_underlying_type<T>::value>>
+struct extract_value_type<
+    T,
+    std::enable_if_t<!std::is_integral_v<T> && !has_value_type<T>::value && has_underlying_type<T>::value>>
 {
     using type = typename T::underlying_type;
 };
@@ -146,10 +154,14 @@ using distribution_type_t = typename distribution_type<T>::type;
 
 // Trait to detect if policy has revert() method
 template <typename T, typename = void>
-struct has_revert : std::false_type {};
+struct has_revert : std::false_type
+{
+};
 
 template <typename T>
-struct has_revert<T, std::void_t<decltype(std::declval<T>().revert(size_t{}))>> : std::true_type {};
+struct has_revert<T, std::void_t<decltype(std::declval<T>().revert(size_t{}))>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool has_revert_v = has_revert<T>::value;
@@ -215,11 +227,20 @@ public:
         return result;
     }
 
-    size_t count(T id) const { return mContainer.count(id); }
+    size_t count(T id) const
+    {
+        return mContainer.count(id);
+    }
 
-    bool empty() const noexcept { return mContainer.empty(); }
+    bool empty() const noexcept
+    {
+        return mContainer.empty();
+    }
 
-    size_t size() const noexcept { return mContainer.size(); }
+    size_t size() const noexcept
+    {
+        return mContainer.size();
+    }
 
     /**
      * @brief Get the maximum element in the tracker.
@@ -325,11 +346,14 @@ public:
     /// @param count Number of IDs to revert
     void revert(size_t count) noexcept
     {
-        if (count == 0) return;
-        
+        if (count == 0)
+        {
+            return;
+        }
+
         // Clear exhausted flag since we're reverting
         mExhausted = false;
-        
+
         // Protect against underflow
         if (count > static_cast<size_t>(next_id_ - base_id_))
         {
@@ -353,7 +377,7 @@ public:
 private:
     IdType base_id_;
     IdType next_id_;
-    bool mExhausted;  // Track if we've hit the limit
+    bool mExhausted; // Track if we've hit the limit
 };
 
 template <typename IdType = uint64_t>
@@ -370,8 +394,7 @@ public:
     /// @brief Construct with random seed from std::random_device
     explicit RandomAllocationPolicy(IdType = 0)
         : mRng(std::random_device{}())
-        , mDist(static_cast<DistType>(0),
-                static_cast<DistType>(std::numeric_limits<IdType>::max()))
+        , mDist(static_cast<DistType>(0), static_cast<DistType>(std::numeric_limits<IdType>::max()))
     {
     }
 
@@ -380,8 +403,7 @@ public:
     /// @param ignored Disambiguator (use any value)
     RandomAllocationPolicy(uint64_t seed, int /*ignored*/)
         : mRng(seed)
-        , mDist(static_cast<DistType>(0),
-                static_cast<DistType>(std::numeric_limits<IdType>::max()))
+        , mDist(static_cast<DistType>(0), static_cast<DistType>(std::numeric_limits<IdType>::max()))
     {
     }
 
@@ -391,10 +413,16 @@ public:
         return static_cast<IdType>(mDist(mRng));
     }
 
-    void reset(IdType = 0) noexcept { mRng.seed(std::random_device{}()); }
+    void reset(IdType = 0) noexcept
+    {
+        mRng.seed(std::random_device{}());
+    }
 
     /// @brief Reset with explicit seed for reproducible randomness
-    void reset_with_seed(uint64_t seed) noexcept { mRng.seed(seed); }
+    void reset_with_seed(uint64_t seed) noexcept
+    {
+        mRng.seed(seed);
+    }
 
 private:
     std::mt19937_64 mRng;
@@ -403,11 +431,11 @@ private:
 
 /**
  * @brief Sequential allocation with custom upper bound.
- * 
+ *
  * @details Generates IDs in monotonically increasing order within a specified range.
  * Useful for domain-specific constraints like array indexing or protocol compliance.
  * Returns nullopt (overflow) when max_bound is exceeded.
- * 
+ *
  * @tparam IdType The underlying ID type (must be unsigned integral)
  */
 template <typename IdType = uint64_t>
@@ -418,7 +446,7 @@ class BoundedSequentialAllocationPolicy
 
 public:
     explicit BoundedSequentialAllocationPolicy(IdType base_id = 0,
-                                                IdType max_bound = std::numeric_limits<IdType>::max())
+                                               IdType max_bound = std::numeric_limits<IdType>::max())
         : base_id_(base_id)
         , next_id_(base_id)
         , max_bound_(max_bound)
@@ -475,8 +503,11 @@ public:
     /// @param count Number of IDs to revert
     void revert(size_t count) noexcept
     {
-        if (count == 0) return;
-        
+        if (count == 0)
+        {
+            return;
+        }
+
         // Protect against underflow
         if (count > static_cast<size_t>(next_id_ - base_id_))
         {
@@ -506,23 +537,33 @@ namespace detail
 /// @brief Trait to detect if an allocation policy may produce collisions.
 /// Sequential policies are deterministic and don't need retry loops.
 template <typename T>
-struct may_collide : std::true_type {};
+struct may_collide : std::true_type
+{
+};
 
 template <typename IdType>
-struct may_collide<SequentialAllocationPolicy<IdType>> : std::false_type {};
+struct may_collide<SequentialAllocationPolicy<IdType>> : std::false_type
+{
+};
 
 template <typename IdType>
-struct may_collide<BoundedSequentialAllocationPolicy<IdType>> : std::false_type {};
+struct may_collide<BoundedSequentialAllocationPolicy<IdType>> : std::false_type
+{
+};
 
 template <typename T>
 inline constexpr bool may_collide_v = may_collide<T>::value;
 
 /// @brief Trait to detect if allocation policy is RandomAllocationPolicy
 template <typename T>
-struct is_random_policy : std::false_type {};
+struct is_random_policy : std::false_type
+{
+};
 
 template <typename IdType>
-struct is_random_policy<RandomAllocationPolicy<IdType>> : std::true_type {};
+struct is_random_policy<RandomAllocationPolicy<IdType>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool is_random_policy_v = is_random_policy<T>::value;
@@ -535,7 +576,7 @@ inline constexpr bool is_random_policy_v = is_random_policy<T>::value;
 
 /**
  * @brief FIFO recycling using std::deque.
- * 
+ *
  * @details Fast O(1) operations for both add and get. IDs are recycled in the
  * order they were released. This is the default policy, suitable for most use cases.
  */
@@ -554,11 +595,20 @@ public:
         return id;
     }
 
-    void add_recycled(IdType id) noexcept { mRecycled.push_back(id); }
+    void add_recycled(IdType id) noexcept
+    {
+        mRecycled.push_back(id);
+    }
 
-    size_t recycled_count() const noexcept { return mRecycled.size(); }
+    size_t recycled_count() const noexcept
+    {
+        return mRecycled.size();
+    }
 
-    void clear() noexcept { mRecycled.clear(); }
+    void clear() noexcept
+    {
+        mRecycled.clear();
+    }
 
 private:
     std::deque<IdType> mRecycled;
@@ -566,7 +616,7 @@ private:
 
 /**
  * @brief Min-first recycling using std::set.
- * 
+ *
  * @details Always recycles the smallest available ID first, promoting dense ID ranges.
  * Uses O(log n) operations. Recommended for HPC applications where memory locality
  * benefits from contiguous ID ranges in ID-indexed data structures.
@@ -587,11 +637,20 @@ public:
         return id;
     }
 
-    void add_recycled(IdType id) noexcept { mRecycled.insert(id); }
+    void add_recycled(IdType id) noexcept
+    {
+        mRecycled.insert(id);
+    }
 
-    size_t recycled_count() const noexcept { return mRecycled.size(); }
+    size_t recycled_count() const noexcept
+    {
+        return mRecycled.size();
+    }
 
-    void clear() noexcept { mRecycled.clear(); }
+    void clear() noexcept
+    {
+        mRecycled.clear();
+    }
 
 private:
     std::set<IdType> mRecycled;
@@ -601,10 +660,20 @@ template <typename IdType = uint64_t>
 class NoRecyclingPolicy
 {
 public:
-    std::optional<IdType> get_recycled() noexcept { return std::nullopt; }
-    void add_recycled(IdType) noexcept {}
-    size_t recycled_count() const noexcept { return 0; }
-    void clear() noexcept {}
+    std::optional<IdType> get_recycled() noexcept
+    {
+        return std::nullopt;
+    }
+    void add_recycled(IdType) noexcept
+    {
+    }
+    size_t recycled_count() const noexcept
+    {
+        return 0;
+    }
+    void clear() noexcept
+    {
+    }
 };
 
 // =============================================================================
@@ -621,7 +690,10 @@ public:
     using result_type = Expected<IdType, ErrorType>;
     using void_result_type = Expected<void, ErrorType>;
 
-    static result_type report_success(IdType id) noexcept { return id; }
+    static result_type report_success(IdType id) noexcept
+    {
+        return id;
+    }
 
     static result_type report_error(ErrorType error) noexcept
     {
@@ -666,15 +738,11 @@ inline constexpr seed_tag_t seed_tag{};
  *       exist results in undefined behavior.
  */
 template <typename IdType_,
-          typename AllocationPolicy =
-              SequentialAllocationPolicy<underlying_id_type_t<IdType_>>,
-          typename RecyclingPolicy =
-              ImmediateRecyclingPolicy<underlying_id_type_t<IdType_>>,
+          typename AllocationPolicy = SequentialAllocationPolicy<underlying_id_type_t<IdType_>>,
+          typename RecyclingPolicy = ImmediateRecyclingPolicy<underlying_id_type_t<IdType_>>,
           typename ErrorPolicy = id_generator::ExpectedErrorPolicy<IdType_, IdError>,
           typename ConcurrencyPolicy = SingleThreadedPolicy>
-class IdGenerator : private AllocationPolicy
-                  , private RecyclingPolicy
-                  , private ConcurrencyPolicy
+class IdGenerator : private AllocationPolicy, private RecyclingPolicy, private ConcurrencyPolicy
 {
 public:
     using id_type = IdType_;
@@ -696,16 +764,15 @@ public:
 
     /**
      * @brief Construct with explicit seed for reproducible random generation.
-     * 
+     *
      * @details Only available when AllocationPolicy is RandomAllocationPolicy.
      * Enables deterministic ID sequences for testing and simulations.
      * Use: `RandomIdGenerator<uint64_t> gen(seed_tag, 42);`
-     * 
+     *
      * @param tag Disambiguation tag (use `seed_tag`)
      * @param seed The seed value for the random number generator
      */
-    template <typename AP = AllocationPolicy,
-              typename = std::enable_if_t<detail::is_random_policy_v<AP>>>
+    template <typename AP = AllocationPolicy, typename = std::enable_if_t<detail::is_random_policy_v<AP>>>
     IdGenerator(seed_tag_t /*tag*/, uint64_t seed)
         : AllocationPolicy(seed, 0)
         , RecyclingPolicy()
@@ -717,12 +784,12 @@ public:
 
     /**
      * @brief Destructor that explicitly clears internal state.
-     * 
+     *
      * @details Clears ids_in_use_ and recycle pools to help AddressSanitizer
      * detect use-after-free errors more reliably. If a dangling IdGuard tries
      * to release after destruction, this increases the chance of catching the
      * error rather than silently corrupting memory.
-     * 
+     *
      * @warning IdGuard instances must not outlive the generator. Moving or
      * destroying the generator while guards exist results in undefined behavior.
      */
@@ -832,15 +899,15 @@ public:
 
     /**
      * @brief Generate multiple IDs in a single operation.
-     * 
+     *
      * @details Acquires lock once and generates all requested IDs, reducing
      * synchronization overhead for thread-safe variants. If generation fails
      * partway through, all successfully generated IDs are released (rollback).
-     * 
+     *
      * Rollback behavior: IDs that were recycled are returned to the recycle pool.
      * Newly generated IDs (beyond previous max) are discarded to preserve ID density
      * for MinRecyclingPolicy and similar policies.
-     * 
+     *
      * @param count Number of IDs to generate
      * @return Expected containing vector of IDs, or error if generation failed
      */
@@ -930,10 +997,10 @@ public:
 
     /**
      * @brief Release multiple IDs in a single operation.
-     * 
+     *
      * @details Acquires lock once and releases all specified IDs, reducing
      * synchronization overhead for thread-safe variants. Stops on first error.
-     * 
+     *
      * @param ids Vector of IDs to release
      * @return Expected<void, IdError> - success or first error encountered
      */
@@ -972,14 +1039,13 @@ public:
 private:
     /**
      * @brief Rollback batch generation, preserving ID density.
-     * 
+     *
      * @details IDs that were recycled (below or equal to pre_batch_max) are
      * returned to the recycle pool. Newly generated IDs (above pre_batch_max)
      * are discarded and the allocation policy counter is reverted to prevent
      * permanent sequence gaps.
      */
-    void rollback_batch(const std::vector<id_type>& result,
-                        std::optional<underlying_type> pre_batch_max)
+    void rollback_batch(const std::vector<id_type>& result, std::optional<underlying_type> pre_batch_max)
     {
         size_t newly_generated_count = 0;
 
@@ -1018,7 +1084,6 @@ private:
     }
 
 public:
-
     // =========================================================================
     // Query Operations
     // =========================================================================
@@ -1071,7 +1136,12 @@ public:
     class IdGuard
     {
     public:
-        IdGuard() noexcept : mGenerator(nullptr), mId{}, mValid(false) {}
+        IdGuard() noexcept
+            : mGenerator(nullptr)
+            , mId{}
+            , mValid(false)
+        {
+        }
 
         IdGuard(IdGenerator& gen, IdType_ id) noexcept
             : mGenerator(&gen)
@@ -1128,11 +1198,23 @@ public:
             return *this;
         }
 
-        IdType_ get() const noexcept { return mId; }
-        IdType_ operator*() const noexcept { return mId; }
-        explicit operator bool() const noexcept { return mValid; }
+        IdType_ get() const noexcept
+        {
+            return mId;
+        }
+        IdType_ operator*() const noexcept
+        {
+            return mId;
+        }
+        explicit operator bool() const noexcept
+        {
+            return mValid;
+        }
 
-        void release_ownership() noexcept { mValid = false; }
+        void release_ownership() noexcept
+        {
+            mValid = false;
+        }
 
     private:
         IdGenerator* mGenerator;
@@ -1161,40 +1243,36 @@ private:
 
 /// @brief Simple single-threaded generator with FIFO recycling
 template <typename IdType = uint64_t>
-using SimpleIdGenerator =
-    IdGenerator<IdType,
-                SequentialAllocationPolicy<underlying_id_type_t<IdType>>,
-                ImmediateRecyclingPolicy<underlying_id_type_t<IdType>>,
-                id_generator::ExpectedErrorPolicy<IdType, IdError>,
-                SingleThreadedPolicy>;
+using SimpleIdGenerator = IdGenerator<IdType,
+                                      SequentialAllocationPolicy<underlying_id_type_t<IdType>>,
+                                      ImmediateRecyclingPolicy<underlying_id_type_t<IdType>>,
+                                      id_generator::ExpectedErrorPolicy<IdType, IdError>,
+                                      SingleThreadedPolicy>;
 
 /// @brief Thread-safe generator with mutex synchronization
 template <typename IdType = uint64_t>
-using ThreadSafeIdGenerator =
-    IdGenerator<IdType,
-                SequentialAllocationPolicy<underlying_id_type_t<IdType>>,
-                ImmediateRecyclingPolicy<underlying_id_type_t<IdType>>,
-                id_generator::ExpectedErrorPolicy<IdType, IdError>,
-                MutexSynchronizationPolicy>;
+using ThreadSafeIdGenerator = IdGenerator<IdType,
+                                          SequentialAllocationPolicy<underlying_id_type_t<IdType>>,
+                                          ImmediateRecyclingPolicy<underlying_id_type_t<IdType>>,
+                                          id_generator::ExpectedErrorPolicy<IdType, IdError>,
+                                          MutexSynchronizationPolicy>;
 
 /// @brief Generator prioritizing ID density (Min-First recycling)
 /// @details Recommended for HPC applications where contiguous ID ranges
 /// improve cache performance in ID-indexed data structures.
 template <typename IdType = uint64_t>
-using DenseIdGenerator =
-    IdGenerator<IdType,
-                SequentialAllocationPolicy<underlying_id_type_t<IdType>>,
-                MinRecyclingPolicy<underlying_id_type_t<IdType>>,
-                id_generator::ExpectedErrorPolicy<IdType, IdError>,
-                SingleThreadedPolicy>;
+using DenseIdGenerator = IdGenerator<IdType,
+                                     SequentialAllocationPolicy<underlying_id_type_t<IdType>>,
+                                     MinRecyclingPolicy<underlying_id_type_t<IdType>>,
+                                     id_generator::ExpectedErrorPolicy<IdType, IdError>,
+                                     SingleThreadedPolicy>;
 
 /// @brief Random ID generator (no recycling, with retry for collisions)
 template <typename IdType = uint64_t>
-using RandomIdGenerator =
-    IdGenerator<IdType,
-                RandomAllocationPolicy<underlying_id_type_t<IdType>>,
-                NoRecyclingPolicy<underlying_id_type_t<IdType>>,
-                id_generator::ExpectedErrorPolicy<IdType, IdError>,
-                SingleThreadedPolicy>;
+using RandomIdGenerator = IdGenerator<IdType,
+                                      RandomAllocationPolicy<underlying_id_type_t<IdType>>,
+                                      NoRecyclingPolicy<underlying_id_type_t<IdType>>,
+                                      id_generator::ExpectedErrorPolicy<IdType, IdError>,
+                                      SingleThreadedPolicy>;
 
 } // namespace fat_p

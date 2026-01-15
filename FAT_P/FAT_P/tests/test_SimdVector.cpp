@@ -518,8 +518,7 @@ void benchmark_simd_vector()
 
     // Benchmark SIMD addition
     double simd_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             for (size_t i = 0; i < N; i += SimdVectorF::width)
             {
                 auto va = SimdVectorF::load_aligned(&a[i]);
@@ -536,8 +535,7 @@ void benchmark_simd_vector()
 
     // Benchmark FMA
     double fma_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             for (size_t i = 0; i < N; i += SimdVectorF::width)
             {
                 auto va = SimdVectorF::load_aligned(&a[i]);
@@ -555,8 +553,7 @@ void benchmark_simd_vector()
 
     // Benchmark horizontal sum
     double hsum_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             float sum = 0.0f;
             for (size_t i = 0; i < N; i += SimdVectorF::width)
             {

@@ -411,8 +411,7 @@ void benchmark_spmv()
     std::cout << "ThreadPool threads: " << pool.thread_count() << "\n";
     std::cout << "NUMA available: " << std::boolalpha << fat_p::HpcCSRMatrix<double>().is_numa_available() << "\n\n";
 
-    auto run_benchmark = [&](const char* name, fat_p::HpcCSRMatrix<double, int32_t>& matrix, int iterations)
-    {
+    auto run_benchmark = [&](const char* name, fat_p::HpcCSRMatrix<double, int32_t>& matrix, int iterations) {
         std::vector<double> x(matrix.cols());
         std::uniform_real_distribution<double> dist(-1.0, 1.0);
         for (auto& val : x)
@@ -428,32 +427,28 @@ void benchmark_spmv()
         std::cout << name << " (" << matrix.rows() << "x" << matrix.cols() << ", nnz=" << matrix.nnz() << "):\n";
 
         double serial_time = measure_perf(
-            [&]()
-            {
+            [&]() {
                 matrix.matvec(x.data(), y_serial.data(), true);
                 DoNotOptimize(y_serial.data());
             },
             iterations);
 
         double serial_no_pf_time = measure_perf(
-            [&]()
-            {
+            [&]() {
                 matrix.matvec(x.data(), y_serial_no_pf.data(), false);
                 DoNotOptimize(y_serial_no_pf.data());
             },
             iterations);
 
         double threadpool_time = measure_perf(
-            [&]()
-            {
+            [&]() {
                 matrix.matvec_parallel(x.data(), y_threadpool.data(), pool);
                 DoNotOptimize(y_threadpool.data());
             },
             iterations);
 
         double batch_time = measure_perf(
-            [&]()
-            {
+            [&]() {
                 matrix.matvec_parallel_batch(x.data(), y_batch.data(), pool);
                 DoNotOptimize(y_batch.data());
             },

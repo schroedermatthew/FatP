@@ -522,8 +522,7 @@ void benchmark_iterators()
     // Row-major iteration
     RowMajorTensor<double> row_major({size, size});
     double row_time = measure_perf(
-        [&row_major]()
-        {
+        [&row_major]() {
             double sum = 0.0;
             for (const auto& elem : row_major)
             {
@@ -538,8 +537,7 @@ void benchmark_iterators()
     // Column-major iteration
     ColumnMajorTensor<double> col_major({size, size});
     double col_time = measure_perf(
-        [&col_major]()
-        {
+        [&col_major]() {
             double sum = 0.0;
             for (const auto& elem : col_major)
             {
@@ -555,8 +553,7 @@ void benchmark_iterators()
     StridedTensor<double> strided({size, size});
     auto col_view = strided.col(size / 2);
     double strided_time = measure_perf(
-        [&col_view]()
-        {
+        [&col_view]() {
             double sum = 0.0;
             for (const auto& elem : col_view)
             {
@@ -571,8 +568,7 @@ void benchmark_iterators()
     // Blocked iteration
     BlockedTensor<double, 64> blocked({size, size});
     double blocked_time = measure_perf(
-        [&blocked]()
-        {
+        [&blocked]() {
             double sum = 0.0;
             for (const auto& elem : blocked)
             {
@@ -593,8 +589,7 @@ void benchmark_element_access()
 
     // Variadic indexing
     double access_time = measure_perf(
-        [&mat, i = 0, j = 0]() mutable
-        {
+        [&mat, i = 0, j = 0]() mutable {
             double val = mat(i, j);
             DoNotOptimize(val);
             ++j;
@@ -614,8 +609,7 @@ void benchmark_element_access()
 
     // Linear indexing
     double linear_time = measure_perf(
-        [&mat, idx = 0]() mutable
-        {
+        [&mat, idx = 0]() mutable {
             double val = mat[idx];
             DoNotOptimize(val);
             ++idx;
@@ -638,8 +632,7 @@ void benchmark_operations()
 
     // Element-wise addition
     double add_time = measure_perf(
-        [&a, &b]()
-        {
+        [&a, &b]() {
             auto c = a + b;
             DoNotOptimize(c);
         },
@@ -649,8 +642,7 @@ void benchmark_operations()
 
     // Scalar multiplication
     double scalar_time = measure_perf(
-        [&a]()
-        {
+        [&a]() {
             auto c = a * 2.0;
             DoNotOptimize(c);
         },
@@ -660,8 +652,7 @@ void benchmark_operations()
 
     // Sum reduction
     double sum_time = measure_perf(
-        [&a]()
-        {
+        [&a]() {
             double s = a.sum();
             DoNotOptimize(s);
         },
@@ -1227,11 +1218,9 @@ FATP_TEST_CASE(rcu_tensor_integration)
 
         {
             auto guard = rcu_tensor.write();
-            guard.update(
-                [](Tensor<double>& t)
-                {
-                    t.fill(42.0);
-                });
+            guard.update([](Tensor<double>& t) {
+                t.fill(42.0);
+            });
         }
 
         {
@@ -1246,14 +1235,12 @@ FATP_TEST_CASE(rcu_tensor_integration)
 
         {
             auto guard = weights.write();
-            guard.update(
-                [](Tensor<float>& w)
+            guard.update([](Tensor<float>& w) {
+                for (size_t i = 0; i < w.size(); ++i)
                 {
-                    for (size_t i = 0; i < w.size(); ++i)
-                    {
-                        w[i] = static_cast<float>(i) * 0.01f;
-                    }
-                });
+                    w[i] = static_cast<float>(i) * 0.01f;
+                }
+            });
         }
 
         {

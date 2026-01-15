@@ -1584,8 +1584,7 @@ FATP_TEST_CASE(heterogeneous_try_emplace_rvalue)
 
     // Test with rvalue string - this would trigger the use-after-move bug
     // if not properly fixed
-    auto make_key = []()
-    {
+    auto make_key = []() {
         return std::string("rvalue_key");
     };
     auto [ptr1, inserted1] = map.try_emplace(make_key(), 42);
@@ -1601,8 +1600,7 @@ FATP_TEST_CASE(heterogeneous_try_emplace_rvalue)
     FATP_ASSERT_EQ(*ptr2, 42, "Value should still be 42");
 
     // Test with longer rvalue string to ensure no SSO interference
-    auto make_long_key = []()
-    {
+    auto make_long_key = []() {
         return std::string("this_is_a_very_long_key_that_exceeds_sso_buffer_size_on_most_implementations");
     };
     auto [ptr3, inserted3] = map.try_emplace(make_long_key(), 999);
@@ -1999,15 +1997,13 @@ void benchmark_stablehashmap()
 
     // Benchmark find
     size_t idx = 0;
-    auto next_key = [&]()
-    {
+    auto next_key = [&]() {
         int k = keys[idx++ % keys.size()];
         return k;
     };
 
     double fmap_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             int* v = fmap.find(next_key());
             benchmark_sink += reinterpret_cast<std::uintptr_t>(v);
         },
@@ -2017,8 +2013,7 @@ void benchmark_stablehashmap()
     idx = 0;
 
     double umap_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             auto it = umap.find(next_key());
             benchmark_sink += reinterpret_cast<std::uintptr_t>(it == umap.end() ? nullptr : &it->second);
         },

@@ -60,22 +60,23 @@ FATP_META:
 #pragma warning(disable : 4702)
 #endif
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
+#include <initializer_list>
+#include <iterator>
+#include <limits>
 #include <memory>
 #include <stdexcept>
-#include <algorithm>
-#include <iterator>
 #include <type_traits>
-#include <initializer_list>
-#include <cstring>
-#include <limits>
 
 #include "FatPTypeTraits.h"
 
-namespace fat_p {
+namespace fat_p
+{
 
 // =============================================================================
 // Aligned Allocator
@@ -89,7 +90,7 @@ namespace fat_p {
  *
  * @note Thread-safety: NOT thread-safe. Each container should have its own allocator.
  */
-template<typename T, size_t Alignment = 64>
+template <typename T, size_t Alignment = 64>
 class AlignedAllocator
 {
 public:
@@ -108,7 +109,7 @@ public:
 
     AlignedAllocator() noexcept = default;
 
-    template<typename U>
+    template <typename U>
     AlignedAllocator(const AlignedAllocator<U, Alignment>&) noexcept
     {
     }
@@ -174,20 +175,20 @@ public:
 #endif
     }
 
-    template<typename U>
+    template <typename U>
     struct rebind
     {
         using other = AlignedAllocator<U, Alignment>;
     };
 };
 
-template<typename T1, size_t A1, typename T2, size_t A2>
+template <typename T1, size_t A1, typename T2, size_t A2>
 bool operator==(const AlignedAllocator<T1, A1>&, const AlignedAllocator<T2, A2>&) noexcept
 {
     return A1 == A2;
 }
 
-template<typename T1, size_t A1, typename T2, size_t A2>
+template <typename T1, size_t A1, typename T2, size_t A2>
 bool operator!=(const AlignedAllocator<T1, A1>&, const AlignedAllocator<T2, A2>&) noexcept
 {
     return A1 != A2;
@@ -207,7 +208,7 @@ bool operator!=(const AlignedAllocator<T1, A1>&, const AlignedAllocator<T2, A2>&
  *
  * @see AlignedAllocator for allocation details
  */
-template<typename T, size_t Alignment = 64>
+template <typename T, size_t Alignment = 64>
 class AlignedVector
 {
 public:
@@ -401,8 +402,7 @@ private:
             {
                 for (; constructedCount < mSize; ++constructedCount)
                 {
-                    if constexpr (std::is_nothrow_move_constructible_v<T> ||
-                                  !std::is_copy_constructible_v<T>)
+                    if constexpr (std::is_nothrow_move_constructible_v<T> || !std::is_copy_constructible_v<T>)
                     {
                         new (newData + constructedCount) T(std::move(mData[constructedCount]));
                     }
@@ -570,8 +570,7 @@ public:
      *
      * @note Complexity: O(distance(first, last))
      */
-    template<typename InputIt,
-             typename = std::enable_if_t<!std::is_integral_v<InputIt>>>
+    template <typename InputIt, typename = std::enable_if_t<!std::is_integral_v<InputIt>>>
     AlignedVector(InputIt first, InputIt last)
         : mAllocator()
         , mData(nullptr)
@@ -579,7 +578,7 @@ public:
         , mCapacity(0)
     {
         if constexpr (std::is_base_of_v<std::random_access_iterator_tag,
-                      typename std::iterator_traits<InputIt>::iterator_category>)
+                                        typename std::iterator_traits<InputIt>::iterator_category>)
         {
             auto count = static_cast<size_type>(std::distance(first, last));
             if (count > 0)
@@ -883,21 +882,57 @@ public:
     // Iterators
     // =========================================================================
 
-    iterator begin() noexcept { return mData; }
-    const_iterator begin() const noexcept { return mData; }
-    const_iterator cbegin() const noexcept { return mData; }
+    iterator begin() noexcept
+    {
+        return mData;
+    }
+    const_iterator begin() const noexcept
+    {
+        return mData;
+    }
+    const_iterator cbegin() const noexcept
+    {
+        return mData;
+    }
 
-    iterator end() noexcept { return iterAt(mSize); }
-    const_iterator end() const noexcept { return iterAt(mSize); }
-    const_iterator cend() const noexcept { return iterAt(mSize); }
+    iterator end() noexcept
+    {
+        return iterAt(mSize);
+    }
+    const_iterator end() const noexcept
+    {
+        return iterAt(mSize);
+    }
+    const_iterator cend() const noexcept
+    {
+        return iterAt(mSize);
+    }
 
-    reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
-    const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
-    const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(end()); }
+    reverse_iterator rbegin() noexcept
+    {
+        return reverse_iterator(end());
+    }
+    const_reverse_iterator rbegin() const noexcept
+    {
+        return const_reverse_iterator(end());
+    }
+    const_reverse_iterator crbegin() const noexcept
+    {
+        return const_reverse_iterator(end());
+    }
 
-    reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
-    const_reverse_iterator rend() const noexcept { return const_reverse_iterator(begin()); }
-    const_reverse_iterator crend() const noexcept { return const_reverse_iterator(begin()); }
+    reverse_iterator rend() noexcept
+    {
+        return reverse_iterator(begin());
+    }
+    const_reverse_iterator rend() const noexcept
+    {
+        return const_reverse_iterator(begin());
+    }
+    const_reverse_iterator crend() const noexcept
+    {
+        return const_reverse_iterator(begin());
+    }
 
     // =========================================================================
     // Capacity
@@ -1063,8 +1098,7 @@ public:
      * @note Complexity: O(size() + distance(first, last))
      * @note Exception safety: Strong guarantee
      */
-    template<typename InputIt,
-             typename = std::enable_if_t<!std::is_integral_v<InputIt>>>
+    template <typename InputIt, typename = std::enable_if_t<!std::is_integral_v<InputIt>>>
     void assign(InputIt first, InputIt last)
     {
         // Build new vector, then swap (strong exception guarantee)
@@ -1312,8 +1346,7 @@ public:
             catch (...)
             {
                 // Destroy tail elements we constructed
-                destroyRange(mData + mSize + count - tailConstructed,
-                             mData + mSize + count);
+                destroyRange(mData + mSize + count - tailConstructed, mData + mSize + count);
                 throw;
             }
         }
@@ -1352,8 +1385,7 @@ public:
      * @note Exception safety: Basic guarantee
      * @note Handles self-insertion safely
      */
-    template<typename InputIt,
-             typename = std::enable_if_t<!std::is_integral_v<InputIt>>>
+    template <typename InputIt, typename = std::enable_if_t<!std::is_integral_v<InputIt>>>
     iterator insert(const_iterator pos, InputIt first, InputIt last)
     {
         size_type index = indexFrom(pos);
@@ -1365,7 +1397,7 @@ public:
         }
 
         if constexpr (std::is_base_of_v<std::random_access_iterator_tag,
-                      typename std::iterator_traits<InputIt>::iterator_category>)
+                                        typename std::iterator_traits<InputIt>::iterator_category>)
         {
             size_type count = static_cast<size_type>(std::distance(first, last));
             if (count == 0)
@@ -1375,8 +1407,7 @@ public:
 
             // Self-insertion check: if iterators point into this vector,
             // copy to temporary to avoid use-after-free on reallocation
-            if constexpr (std::is_same_v<InputIt, iterator> ||
-                          std::is_same_v<InputIt, const_iterator>)
+            if constexpr (std::is_same_v<InputIt, iterator> || std::is_same_v<InputIt, const_iterator>)
             {
                 if (isInternalReference(first))
                 {
@@ -1452,8 +1483,7 @@ public:
                 }
                 catch (...)
                 {
-                    destroyRange(mData + mSize + count - tailConstructed,
-                                 mData + mSize + count);
+                    destroyRange(mData + mSize + count - tailConstructed, mData + mSize + count);
                     throw;
                 }
             }
@@ -1515,7 +1545,7 @@ public:
      * @note Complexity: O(size())
      * @note Exception safety: Basic guarantee (leak-free even if move assignment throws)
      */
-    template<typename... Args>
+    template <typename... Args>
     iterator emplace(const_iterator pos, Args&&... args)
     {
         size_type index = indexFrom(pos);
@@ -1716,7 +1746,7 @@ public:
      *
      * @note Complexity: O(1) amortized, O(size()) worst-case
      */
-    template<typename... Args>
+    template <typename... Args>
     reference emplace_back(Args&&... args)
     {
         if (mSize == mCapacity)
@@ -1888,51 +1918,53 @@ public:
 // Non-member Functions
 // =============================================================================
 
-template<typename T, size_t A>
+template <typename T, size_t A>
 void swap(AlignedVector<T, A>& lhs, AlignedVector<T, A>& rhs) noexcept
 {
     lhs.swap(rhs);
 }
 
-template<typename T, size_t A>
+template <typename T, size_t A>
 bool operator==(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs)
 {
     return lhs.size() == rhs.size() && std::equal(lhs.begin(), lhs.end(), rhs.begin());
 }
 
-template<typename T, size_t A>
+template <typename T, size_t A>
 bool operator!=(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs)
 {
     return !(lhs == rhs);
 }
 
-template<typename T, size_t A>
+template <typename T, size_t A>
 bool operator<(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs)
 {
     return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 }
 
-template<typename T, size_t A>
+template <typename T, size_t A>
 bool operator<=(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs)
 {
     return !(rhs < lhs);
 }
 
-template<typename T, size_t A>
+template <typename T, size_t A>
 bool operator>(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs)
 {
     return rhs < lhs;
 }
 
-template<typename T, size_t A>
+template <typename T, size_t A>
 bool operator>=(const AlignedVector<T, A>& lhs, const AlignedVector<T, A>& rhs)
 {
     return !(lhs < rhs);
 }
 
 // Type trait specialization
-template<typename T, size_t Alignment>
-struct is_aligned_vector<AlignedVector<T, Alignment>> : std::true_type {};
+template <typename T, size_t Alignment>
+struct is_aligned_vector<AlignedVector<T, Alignment>> : std::true_type
+{
+};
 
 } // namespace fat_p
 

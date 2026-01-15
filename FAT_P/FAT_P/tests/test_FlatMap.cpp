@@ -850,8 +850,7 @@ FATP_TEST_CASE(case_insensitive_comparator)
                                                 a.end(),
                                                 b.begin(),
                                                 b.end(),
-                                                [](unsigned char c1, unsigned char c2)
-                                                {
+                                                [](unsigned char c1, unsigned char c2) {
                                                     return std::tolower(c1) < std::tolower(c2);
                                                 });
         }
@@ -876,15 +875,9 @@ FATP_TEST_CASE(case_insensitive_constructor_keeps_first)
     {
         bool operator()(const std::string& a, const std::string& b) const
         {
-            return std::lexicographical_compare(a.begin(),
-                                                a.end(),
-                                                b.begin(),
-                                                b.end(),
-                                                [](char c1, char c2)
-                                                {
-                                                    return std::tolower(static_cast<unsigned char>(c1)) <
-                                                           std::tolower(static_cast<unsigned char>(c2));
-                                                });
+            return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(), [](char c1, char c2) {
+                return std::tolower(static_cast<unsigned char>(c1)) < std::tolower(static_cast<unsigned char>(c2));
+            });
         }
     };
 
@@ -1547,8 +1540,7 @@ void run_benchmarks()
     fat_p::FlatMap<int, int> map;
 
     double insertTime = measure_perf(
-        [&map, i = 0]() mutable
-        {
+        [&map, i = 0]() mutable {
             map.insert({i % N, i});
             ++i;
         },
@@ -1559,8 +1551,7 @@ void run_benchmarks()
     map.clear();
     map.reserve(N);
     double insertSortedTime = measure_perf(
-        [&map, i = 0]() mutable
-        {
+        [&map, i = 0]() mutable {
             if (map.size() < N)
             {
                 map.insert({static_cast<int>(map.size()), i});
@@ -1579,8 +1570,7 @@ void run_benchmarks()
 
     volatile int findAccumulator = 0;
     double findTime = measure_perf(
-        [&map, &findAccumulator, i = 0]() mutable
-        {
+        [&map, &findAccumulator, i = 0]() mutable {
             auto it = map.find(i % N);
             if (it != map.end())
             {
@@ -1594,8 +1584,7 @@ void run_benchmarks()
     DoNotOptimize(findAccumulator);
 
     double iterTime = measure_perf(
-        [&map]()
-        {
+        [&map]() {
             volatile int sum = 0;
             for (const auto& kv : map)
             {
@@ -1615,8 +1604,7 @@ void run_benchmarks()
 
     volatile int stdFindAccumulator = 0;
     double stdFindTime = measure_perf(
-        [&stdMap, &stdFindAccumulator, i = 0]() mutable
-        {
+        [&stdMap, &stdFindAccumulator, i = 0]() mutable {
             auto it = stdMap.find(i % N);
             if (it != stdMap.end())
             {
@@ -1630,8 +1618,7 @@ void run_benchmarks()
     DoNotOptimize(stdFindAccumulator);
 
     double stdIterTime = measure_perf(
-        [&stdMap]()
-        {
+        [&stdMap]() {
             volatile int sum = 0;
             for (const auto& [k, v] : stdMap)
             {
@@ -1671,8 +1658,7 @@ void run_large_scale_benchmarks()
 
     volatile int findAccumulator = 0;
     double findTime = measure_perf(
-        [&map, &randomKeys, &findAccumulator, i = 0]() mutable
-        {
+        [&map, &randomKeys, &findAccumulator, i = 0]() mutable {
             auto it = map.find(randomKeys[i % N]);
             if (it != map.end())
             {
@@ -1687,8 +1673,7 @@ void run_large_scale_benchmarks()
 
     volatile int stdFindAccumulator = 0;
     double stdFindTime = measure_perf(
-        [&stdMap, &randomKeys, &stdFindAccumulator, i = 0]() mutable
-        {
+        [&stdMap, &randomKeys, &stdFindAccumulator, i = 0]() mutable {
             auto it = stdMap.find(randomKeys[i % N]);
             if (it != stdMap.end())
             {
@@ -1702,8 +1687,7 @@ void run_large_scale_benchmarks()
     DoNotOptimize(stdFindAccumulator);
 
     double iterTime = measure_perf(
-        [&map]()
-        {
+        [&map]() {
             volatile int sum = 0;
             for (const auto& kv : map)
             {
@@ -1716,8 +1700,7 @@ void run_large_scale_benchmarks()
     std::cout << "FlatMap Iteration (100k elements): " << format_time(iterTime) << "\n";
 
     double stdIterTime = measure_perf(
-        [&stdMap]()
-        {
+        [&stdMap]() {
             volatile int sum = 0;
             for (const auto& [k, v] : stdMap)
             {

@@ -577,8 +577,7 @@ FATP_TEST_CASE(allocator_traits)
 
 FATP_TEST_CASE(callable_traits)
 {
-    auto lambda = [](int x)
-    {
+    auto lambda = [](int x) {
         return x * 2;
     };
     auto void_lambda = []() {};
@@ -596,12 +595,10 @@ FATP_TEST_CASE(callable_traits)
 FATP_TEST_CASE(nothrow_invocable)
 {
     // Test noexcept lambdas
-    auto noexcept_lambda = [](int x) noexcept
-    {
+    auto noexcept_lambda = [](int x) noexcept {
         return x * 2;
     };
-    auto throwing_lambda = [](int x)
-    {
+    auto throwing_lambda = [](int x) {
         return x * 2;
     };
 
@@ -856,10 +853,8 @@ void run_benchmarks()
     std::cout << "Note: Type traits are compile-time only, "
               << "so runtime benchmarks measure overhead.\n";
     double lambda_invoke_time = measure_perf(
-        []()
-        {
-            auto f = [](int x)
-            {
+        []() {
+            auto f = [](int x) {
                 return x * 2;
             };
             int result = f(42);
@@ -869,8 +864,7 @@ void run_benchmarks()
         10000);
     std::cout << "Lambda invocation overhead: " << format_time(lambda_invoke_time) << "\n";
     double container_iteration_time = measure_perf(
-        []()
-        {
+        []() {
             std::vector<int> v = {1, 2, 3, 4, 5};
             int sum = 0;
             for (int x : v)

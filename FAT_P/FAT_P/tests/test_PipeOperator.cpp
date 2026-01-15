@@ -40,12 +40,10 @@ namespace fat_p::testing::pipeoperator
 
 FATP_TEST_CASE(basic_pipe)
 {
-    auto add_ten = [](int x)
-    {
+    auto add_ten = [](int x) {
         return x + 10;
     };
-    auto multiply_two = [](int x)
-    {
+    auto multiply_two = [](int x) {
         return x * 2;
     };
 
@@ -58,16 +56,14 @@ FATP_TEST_CASE(basic_pipe)
 
 FATP_TEST_CASE(string_pipe)
 {
-    auto to_upper = [](std::string s)
-    {
+    auto to_upper = [](std::string s) {
         for (auto& c : s)
         {
             c = std::toupper(c);
         }
         return s;
     };
-    auto add_exclamation = [](std::string s)
-    {
+    auto add_exclamation = [](std::string s) {
         return s + "!";
     };
 
@@ -80,12 +76,10 @@ FATP_TEST_CASE(string_pipe)
 
 FATP_TEST_CASE(expected_success)
 {
-    auto add_ten = [](int x) -> Expected<int, std::string>
-    {
+    auto add_ten = [](int x) -> Expected<int, std::string> {
         return x + 10;
     };
-    auto multiply_two = [](int x) -> Expected<int, std::string>
-    {
+    auto multiply_two = [](int x) -> Expected<int, std::string> {
         return x * 2;
     };
 
@@ -99,16 +93,13 @@ FATP_TEST_CASE(expected_success)
 
 FATP_TEST_CASE(expected_error)
 {
-    auto add_ten = [](int x) -> Expected<int, std::string>
-    {
+    auto add_ten = [](int x) -> Expected<int, std::string> {
         return x + 10;
     };
-    auto fail = [](int) -> Expected<int, std::string>
-    {
+    auto fail = [](int) -> Expected<int, std::string> {
         return unexpected<std::string>("error occurred");
     };
-    auto multiply_two = [](int x) -> Expected<int, std::string>
-    {
+    auto multiply_two = [](int x) -> Expected<int, std::string> {
         return x * 2;
     };
 
@@ -122,12 +113,10 @@ FATP_TEST_CASE(expected_error)
 
 FATP_TEST_CASE(type_conversion)
 {
-    auto int_to_string = [](int x)
-    {
+    auto int_to_string = [](int x) {
         return std::to_string(x);
     };
-    auto append_text = [](std::string s)
-    {
+    auto append_text = [](std::string s) {
         return s + " units";
     };
 
@@ -140,16 +129,13 @@ FATP_TEST_CASE(type_conversion)
 
 FATP_TEST_CASE(complex_chain)
 {
-    auto step1 = [](int x) -> Expected<int, std::string>
-    {
+    auto step1 = [](int x) -> Expected<int, std::string> {
         return x * 2;
     };
-    auto step2 = [](int x) -> Expected<int, std::string>
-    {
+    auto step2 = [](int x) -> Expected<int, std::string> {
         return x + 5;
     };
-    auto step3 = [](int x) -> Expected<int, std::string>
-    {
+    auto step3 = [](int x) -> Expected<int, std::string> {
         return x - 3;
     };
 
@@ -165,8 +151,7 @@ FATP_TEST_CASE(void_to_value)
 {
     // Expected<void> success -> value producing function
     Expected<void, std::string> success;
-    auto produce_int = []()
-    {
+    auto produce_int = []() {
         return 42;
     };
 
@@ -181,8 +166,7 @@ FATP_TEST_CASE(void_to_expected)
 {
     // Expected<void> success -> Expected producing function
     Expected<void, std::string> success;
-    auto produce_expected = []() -> Expected<int, std::string>
-    {
+    auto produce_expected = []() -> Expected<int, std::string> {
         return 100;
     };
 
@@ -197,8 +181,7 @@ FATP_TEST_CASE(void_error_propagation)
 {
     // Expected<void> error -> any function (should propagate error)
     Expected<void, std::string> failure(unexpected<std::string>("void error"));
-    auto produce_int = []()
-    {
+    auto produce_int = []() {
         return 42;
     };
 
@@ -215,16 +198,13 @@ FATP_TEST_CASE(void_chain)
     int side_effect = 0;
     Expected<void, std::string> start;
 
-    auto step1 = [&side_effect]()
-    {
+    auto step1 = [&side_effect]() {
         side_effect = 1;
     };
-    auto step2 = [&side_effect]()
-    {
+    auto step2 = [&side_effect]() {
         side_effect += 10;
     };
-    auto step3 = [&side_effect]()
-    {
+    auto step3 = [&side_effect]() {
         return side_effect * 2;
     };
 
@@ -242,8 +222,7 @@ FATP_TEST_CASE(void_to_void)
     int counter = 0;
     Expected<void, std::string> start;
 
-    auto increment = [&counter]()
-    {
+    auto increment = [&counter]() {
         counter++;
     };
 
@@ -258,8 +237,7 @@ FATP_TEST_CASE(const_void_pipe)
 {
     // Const lvalue void piping
     const Expected<void, std::string> success;
-    auto produce = []()
-    {
+    auto produce = []() {
         return 99;
     };
 
@@ -281,24 +259,20 @@ enum class TestError
 FATP_TEST_CASE(mixed_pipeline)
 {
     // Real-world scenario: status -> config -> validation
-    auto init = []() -> Expected<void, TestError>
-    {
+    auto init = []() -> Expected<void, TestError> {
         return {};
     };
-    auto get_config = []() -> Expected<int, TestError>
-    {
+    auto get_config = []() -> Expected<int, TestError> {
         return 42;
     };
-    auto validate = [](int x) -> Expected<int, TestError>
-    {
+    auto validate = [](int x) -> Expected<int, TestError> {
         if (x > 0)
         {
             return x * 2;
         }
         return unexpected<TestError>(TestError::Invalid);
     };
-    auto format = [](int x)
-    {
+    auto format = [](int x) {
         return std::to_string(x) + " units";
     };
 
@@ -313,8 +287,7 @@ FATP_TEST_CASE(wrapper)
 {
     // Test explicit pipe() wrapper for disambiguation
     Expected<int, std::string> exp(5);
-    auto double_it = [](int x)
-    {
+    auto double_it = [](int x) {
         return x * 2;
     };
 
@@ -329,19 +302,16 @@ void benchmark_pipeoperator()
 {
     std::cout << "\n" << colors::cyan() << "PipeOperator Benchmarks:" << colors::reset() << "\n\n";
 
-    auto add_ten = [](int x)
-    {
+    auto add_ten = [](int x) {
         return x + 10;
     };
-    auto multiply_two = [](int x)
-    {
+    auto multiply_two = [](int x) {
         return x * 2;
     };
 
     // Benchmark basic pipe
     double pipe_time = measure_perf(
-        [&add_ten, &multiply_two, i = 0]() mutable
-        {
+        [&add_ten, &multiply_two, i = 0]() mutable {
             int result = i | add_ten | multiply_two;
             DoNotOptimize(result);
             ++i;
@@ -351,18 +321,15 @@ void benchmark_pipeoperator()
     std::cout << "Basic pipe: " << format_time(pipe_time) << "\n";
 
     // Benchmark Expected pipe
-    auto add_ten_exp = [](int x) -> Expected<int, std::string>
-    {
+    auto add_ten_exp = [](int x) -> Expected<int, std::string> {
         return x + 10;
     };
-    auto multiply_two_exp = [](int x) -> Expected<int, std::string>
-    {
+    auto multiply_two_exp = [](int x) -> Expected<int, std::string> {
         return x * 2;
     };
 
     double exp_time = measure_perf(
-        [&add_ten_exp, &multiply_two_exp, i = 0]() mutable
-        {
+        [&add_ten_exp, &multiply_two_exp, i = 0]() mutable {
             auto result = Expected<int, std::string>(i) | add_ten_exp | multiply_two_exp;
             DoNotOptimize(result);
             ++i;

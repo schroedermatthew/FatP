@@ -170,8 +170,7 @@ FATP_TEST_CASE(guard_move_semantics)
 {
     SimpleIdGenerator<uint64_t> gen(100);
 
-    auto create_guard = [&gen]()
-    {
+    auto create_guard = [&gen]() {
         auto guard_result = gen.scoped_id();
         return std::move(guard_result.value());
     };
@@ -369,8 +368,7 @@ FATP_TEST_CASE(thread_safety)
     const size_t ids_per_thread = 1000;
     std::vector<std::set<uint64_t>> thread_ids(num_threads);
 
-    auto worker = [&](size_t thread_id)
-    {
+    auto worker = [&](size_t thread_id) {
         for (size_t i = 0; i < ids_per_thread; ++i)
         {
             auto id = safe_gen.generate();
@@ -435,59 +433,55 @@ FATP_TEST_CASE(concurrent_queries)
     // Writer threads: generate and release IDs
     for (size_t t = 0; t < kNumThreads / 2; ++t)
     {
-        threads.emplace_back(
-            [&gen, &generate_count, &stop_flag]()
+        threads.emplace_back([&gen, &generate_count, &stop_flag]() {
+            std::vector<uint64_t> my_ids;
+            my_ids.reserve(kOpsPerThread);
+
+            for (size_t i = 0; i < kOpsPerThread && !stop_flag; ++i)
             {
-                std::vector<uint64_t> my_ids;
-                my_ids.reserve(kOpsPerThread);
-
-                for (size_t i = 0; i < kOpsPerThread && !stop_flag; ++i)
+                auto id = gen.generate();
+                if (id)
                 {
-                    auto id = gen.generate();
-                    if (id)
-                    {
-                        my_ids.push_back(*id);
-                        generate_count.fetch_add(1, std::memory_order_relaxed);
-                    }
-
-                    // Release some to exercise concurrent state changes
-                    if (my_ids.size() > 10 && (i % 3 == 0))
-                    {
-                        (void)gen.release(my_ids.back());
-                        my_ids.pop_back();
-                    }
+                    my_ids.push_back(*id);
+                    generate_count.fetch_add(1, std::memory_order_relaxed);
                 }
 
-                // Cleanup remaining IDs
-                for (auto id : my_ids)
+                // Release some to exercise concurrent state changes
+                if (my_ids.size() > 10 && (i % 3 == 0))
                 {
-                    (void)gen.release(id);
+                    (void)gen.release(my_ids.back());
+                    my_ids.pop_back();
                 }
-            });
+            }
+
+            // Cleanup remaining IDs
+            for (auto id : my_ids)
+            {
+                (void)gen.release(id);
+            }
+        });
     }
 
     // Reader threads: query is_active and active_count
     for (size_t t = 0; t < kNumThreads / 2; ++t)
     {
-        threads.emplace_back(
-            [&gen, &query_count, &stop_flag]()
+        threads.emplace_back([&gen, &query_count, &stop_flag]() {
+            for (size_t i = 0; i < kOpsPerThread * 2 && !stop_flag; ++i)
             {
-                for (size_t i = 0; i < kOpsPerThread * 2 && !stop_flag; ++i)
+                // Query active count
+                size_t count = gen.active_count();
+                DoNotOptimize(count);
+
+                // Query is_active for various IDs
+                for (uint64_t check_id = 1; check_id <= 20; ++check_id)
                 {
-                    // Query active count
-                    size_t count = gen.active_count();
-                    DoNotOptimize(count);
-
-                    // Query is_active for various IDs
-                    for (uint64_t check_id = 1; check_id <= 20; ++check_id)
-                    {
-                        bool active = gen.is_active(check_id);
-                        DoNotOptimize(active);
-                    }
-
-                    query_count.fetch_add(1, std::memory_order_relaxed);
+                    bool active = gen.is_active(check_id);
+                    DoNotOptimize(active);
                 }
-            });
+
+                query_count.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -697,15 +691,13 @@ FATP_TEST_CASE(threadsafe_batch_generation)
 
     for (size_t t = 0; t < num_threads; ++t)
     {
-        threads.emplace_back(
-            [&gen, &thread_ids, t, batch_size]()
+        threads.emplace_back([&gen, &thread_ids, t, batch_size]() {
+            auto batch = gen.generate_batch(batch_size);
+            if (batch.has_value())
             {
-                auto batch = gen.generate_batch(batch_size);
-                if (batch.has_value())
-                {
-                    thread_ids[t] = std::move(batch.value());
-                }
-            });
+                thread_ids[t] = std::move(batch.value());
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -1295,8 +1287,7 @@ void benchmark_idgenerator()
         ids.reserve(kBenchmarkIterations);
 
         double gen_time = measure_perf(
-            [&gen, &ids]()
-            {
+            [&gen, &ids]() {
                 auto id = gen.generate();
                 if (id)
                 {
@@ -1309,8 +1300,7 @@ void benchmark_idgenerator()
 
         // Release benchmark
         double rel_time = measure_perf(
-            [&gen, &ids, i = size_t(0)]() mutable
-            {
+            [&gen, &ids, i = size_t(0)]() mutable {
                 if (i < ids.size())
                 {
                     (void)gen.release(ids[i++]);
@@ -1342,8 +1332,7 @@ void benchmark_idgenerator()
         }
 
         double recycle_time = measure_perf(
-            [&gen]()
-            {
+            [&gen]() {
                 auto id = gen.generate();
                 DoNotOptimize(id);
             },
@@ -1356,8 +1345,7 @@ void benchmark_idgenerator()
     {
         ThreadSafeIdGenerator<uint64_t> safe_gen(1);
         double safe_time = measure_perf(
-            [&safe_gen]()
-            {
+            [&safe_gen]() {
                 auto id = safe_gen.generate();
                 DoNotOptimize(id);
             },
@@ -1380,8 +1368,7 @@ void benchmark_idgenerator()
         }
 
         double query_time = measure_perf(
-            [&gen, &ids, i = size_t(0)]() mutable
-            {
+            [&gen, &ids, i = size_t(0)]() mutable {
                 bool active = gen.is_active(ids[i % ids.size()]);
                 DoNotOptimize(active);
                 ++i;
@@ -1403,8 +1390,7 @@ void benchmark_idgenerator()
         constexpr size_t kBatchIterations = kBenchmarkIterations / kBatchSize;
 
         double batch_gen_time = measure_perf(
-            [&gen, kBatchSize]()
-            {
+            [&gen, kBatchSize]() {
                 auto batch = gen.generate_batch(kBatchSize);
                 DoNotOptimize(batch);
                 // Release for next iteration
@@ -1428,8 +1414,7 @@ void benchmark_idgenerator()
         constexpr size_t kBatchIterations = kReducedIterations / kBatchSize;
 
         double ts_batch_gen_time = measure_perf(
-            [&gen, kBatchSize]()
-            {
+            [&gen, kBatchSize]() {
                 auto batch = gen.generate_batch(kBatchSize);
                 DoNotOptimize(batch);
                 if (batch)
@@ -1453,8 +1438,7 @@ void benchmark_idgenerator()
         uint64_t counter = 1;
 
         double set_insert_time = measure_perf(
-            [&set_tracker, &counter]()
-            {
+            [&set_tracker, &counter]() {
                 set_tracker.insert(counter++);
             },
             kBenchmarkIterations,
@@ -1463,8 +1447,7 @@ void benchmark_idgenerator()
 
         // std::set max_element (rbegin) benchmark
         double set_max_time = measure_perf(
-            [&set_tracker]()
-            {
+            [&set_tracker]() {
                 auto max = *set_tracker.rbegin();
                 DoNotOptimize(max);
             },
@@ -1479,8 +1462,7 @@ void benchmark_idgenerator()
         uint64_t counter = 1;
 
         double tracker_insert_time = measure_perf(
-            [&tracker, &counter]()
-            {
+            [&tracker, &counter]() {
                 tracker.insert(counter++);
             },
             kBenchmarkIterations,
@@ -1488,8 +1470,7 @@ void benchmark_idgenerator()
         std::cout << "ActiveIdTracker insert: " << format_time(tracker_insert_time) << "\n";
 
         double tracker_max_time = measure_perf(
-            [&tracker]()
-            {
+            [&tracker]() {
                 auto max = tracker.max_element();
                 if (max)
                 {

@@ -84,7 +84,8 @@ FATP_META:
 #include <utility>
 #include <vector>
 
-namespace fat_p {
+namespace fat_p
+{
 
 // =============================================================================
 // SlotMapHandle - Standalone Handle Type
@@ -129,7 +130,10 @@ struct SlotMapHandle
     /// @brief Lexicographic comparison for use in std::set/std::map.
     [[nodiscard]] constexpr bool operator<(const SlotMapHandle& other) const noexcept
     {
-        if (index != other.index) return index < other.index;
+        if (index != other.index)
+        {
+            return index < other.index;
+        }
         return generation < other.generation;
     }
 
@@ -183,7 +187,7 @@ struct SlotMapHandle
  *
  * @note Thread Safety: Not thread-safe. External synchronization required.
  */
-template<typename T, typename Allocator = std::allocator<T>>
+template <typename T, typename Allocator = std::allocator<T>>
 class SlotMap
 {
 public:
@@ -213,8 +217,8 @@ private:
 
     struct Slot
     {
-        generation_type generation{0};  // 0 = never used or wrapped, incremented on insert/erase
-        size_type data_index{0};        // Index into dense data array
+        generation_type generation{0}; // 0 = never used or wrapped, incremented on insert/erase
+        size_type data_index{0};       // Index into dense data array
     };
 
     // Allocator rebinding for internal vectors
@@ -439,17 +443,14 @@ public:
     SlotMap(const SlotMap&) = default;
     SlotMap& operator=(const SlotMap&) = default;
 
-    SlotMap(SlotMap&&) noexcept(
-        std::is_nothrow_move_constructible_v<std::vector<T, Allocator>> &&
-        std::is_nothrow_move_constructible_v<std::vector<size_type, IndexAllocator>> &&
-        std::is_nothrow_move_constructible_v<std::vector<Slot, SlotAllocator>>
-    ) = default;
+    SlotMap(SlotMap&&) noexcept(std::is_nothrow_move_constructible_v<std::vector<T, Allocator>> &&
+                                std::is_nothrow_move_constructible_v<std::vector<size_type, IndexAllocator>> &&
+                                std::is_nothrow_move_constructible_v<std::vector<Slot, SlotAllocator>>) = default;
 
-    SlotMap& operator=(SlotMap&&) noexcept(
-        std::is_nothrow_move_assignable_v<std::vector<T, Allocator>> &&
-        std::is_nothrow_move_assignable_v<std::vector<size_type, IndexAllocator>> &&
-        std::is_nothrow_move_assignable_v<std::vector<Slot, SlotAllocator>>
-    ) = default;
+    SlotMap&
+    operator=(SlotMap&&) noexcept(std::is_nothrow_move_assignable_v<std::vector<T, Allocator>> &&
+                                  std::is_nothrow_move_assignable_v<std::vector<size_type, IndexAllocator>> &&
+                                  std::is_nothrow_move_assignable_v<std::vector<Slot, SlotAllocator>>) = default;
 
     // =========================================================================
     // Modifiers
@@ -469,7 +470,7 @@ public:
      * @warning Pointers/references to existing elements may be invalidated
      *          if reallocation occurs.
      */
-    template<typename... Args>
+    template <typename... Args>
     [[nodiscard]] Handle insert(Args&&... args)
     {
         // 1. Determine source BEFORE modifying any state (for exception safety)
@@ -546,7 +547,7 @@ public:
      * @param args Arguments forwarded to T's constructor.
      * @return Handle to the emplaced element.
      */
-    template<typename... Args>
+    template <typename... Args>
     [[nodiscard]] Handle emplace(Args&&... args)
     {
         return insert(std::forward<Args>(args)...);
@@ -589,7 +590,7 @@ public:
         // Invalidate slot and add to free list
         if (++slot.generation == 0)
         {
-            slot.generation = 1;  // Skip 0 to preserve is_null() semantics
+            slot.generation = 1; // Skip 0 to preserve is_null() semantics
         }
         slot.data_index = std::numeric_limits<size_type>::max();
         mFreeList.push_back(handle.index);
@@ -622,7 +623,7 @@ public:
         {
             if (++mSlots[i].generation == 0)
             {
-                mSlots[i].generation = 1;  // Skip 0
+                mSlots[i].generation = 1; // Skip 0
             }
             mSlots[i].data_index = std::numeric_limits<size_type>::max();
             mFreeList.push_back(i);
@@ -655,11 +656,9 @@ public:
      * @brief Swap contents with another SlotMap.
      * @param other The SlotMap to swap with.
      */
-    void swap(SlotMap& other) noexcept(
-        std::is_nothrow_swappable_v<std::vector<T, Allocator>> &&
-        std::is_nothrow_swappable_v<std::vector<size_type, IndexAllocator>> &&
-        std::is_nothrow_swappable_v<std::vector<Slot, SlotAllocator>>
-    )
+    void swap(SlotMap& other) noexcept(std::is_nothrow_swappable_v<std::vector<T, Allocator>> &&
+                                       std::is_nothrow_swappable_v<std::vector<size_type, IndexAllocator>> &&
+                                       std::is_nothrow_swappable_v<std::vector<Slot, SlotAllocator>>)
     {
         using std::swap;
         swap(mData, other.mData);
@@ -842,14 +841,32 @@ public:
      * @brief Iterator to the first element (dense array).
      * @note Iteration is O(n) and cache-friendly.
      */
-    [[nodiscard]] iterator begin() noexcept { return mData.begin(); }
-    [[nodiscard]] iterator end() noexcept { return mData.end(); }
+    [[nodiscard]] iterator begin() noexcept
+    {
+        return mData.begin();
+    }
+    [[nodiscard]] iterator end() noexcept
+    {
+        return mData.end();
+    }
 
-    [[nodiscard]] const_iterator begin() const noexcept { return mData.begin(); }
-    [[nodiscard]] const_iterator end() const noexcept { return mData.end(); }
+    [[nodiscard]] const_iterator begin() const noexcept
+    {
+        return mData.begin();
+    }
+    [[nodiscard]] const_iterator end() const noexcept
+    {
+        return mData.end();
+    }
 
-    [[nodiscard]] const_iterator cbegin() const noexcept { return mData.cbegin(); }
-    [[nodiscard]] const_iterator cend() const noexcept { return mData.cend(); }
+    [[nodiscard]] const_iterator cbegin() const noexcept
+    {
+        return mData.cbegin();
+    }
+    [[nodiscard]] const_iterator cend() const noexcept
+    {
+        return mData.cend();
+    }
 
     /**
      * @brief Iterate over (handle, value) pairs.
@@ -866,18 +883,24 @@ public:
      *   }
      * @endcode
      */
-    [[nodiscard]] EntryRange entries() noexcept { return EntryRange(this); }
-    [[nodiscard]] ConstEntryRange entries() const noexcept { return ConstEntryRange(this); }
+    [[nodiscard]] EntryRange entries() noexcept
+    {
+        return EntryRange(this);
+    }
+    [[nodiscard]] ConstEntryRange entries() const noexcept
+    {
+        return ConstEntryRange(this);
+    }
 
 private:
     // =========================================================================
     // Data Members (Fat-P naming: mPascalCase)
     // =========================================================================
 
-    std::vector<T, Allocator> mData;                      ///< Dense array of actual data
-    std::vector<size_type, IndexAllocator> mEraseMap;     ///< Maps data index -> slot index
-    std::vector<Slot, SlotAllocator> mSlots;              ///< Sparse array of slots
-    std::vector<size_type, IndexAllocator> mFreeList;     ///< Free slot indices for reuse
+    std::vector<T, Allocator> mData;                  ///< Dense array of actual data
+    std::vector<size_type, IndexAllocator> mEraseMap; ///< Maps data index -> slot index
+    std::vector<Slot, SlotAllocator> mSlots;          ///< Sparse array of slots
+    std::vector<size_type, IndexAllocator> mFreeList; ///< Free slot indices for reuse
 
     // EntryIterator needs access to internals
     friend class EntryIterator;
@@ -891,7 +914,7 @@ private:
 /**
  * @brief Swap two SlotMaps.
  */
-template<typename T, typename Allocator>
+template <typename T, typename Allocator>
 void swap(SlotMap<T, Allocator>& lhs, SlotMap<T, Allocator>& rhs) noexcept(noexcept(lhs.swap(rhs)))
 {
     lhs.swap(rhs);
@@ -903,14 +926,12 @@ void swap(SlotMap<T, Allocator>& lhs, SlotMap<T, Allocator>& rhs) noexcept(noexc
 // std::hash Specialization for SlotMapHandle
 // =============================================================================
 
-template<>
+template <>
 struct std::hash<fat_p::SlotMapHandle>
 {
     [[nodiscard]] std::size_t operator()(const fat_p::SlotMapHandle& h) const noexcept
     {
         // Combine index and generation into a single 64-bit value, then hash
-        return std::hash<std::uint64_t>{}(
-            (static_cast<std::uint64_t>(h.index) << 32) | h.generation
-        );
+        return std::hash<std::uint64_t>{}((static_cast<std::uint64_t>(h.index) << 32) | h.generation);
     }
 };

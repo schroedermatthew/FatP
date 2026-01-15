@@ -76,8 +76,8 @@ FATP_META:
     mode: autogen
 */
 #include "ConcurrencyPolicies.h"
-#include "Expected.h"
 #include "enforce.h"
+#include "Expected.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -112,22 +112,31 @@ enum class ServiceError
     FactoryReturnedNull,
     FactoryThrew,
     FactoryNotRegistered,
-    CircularDependency  ///< Factory tried to resolve itself (directly or indirectly)
+    CircularDependency ///< Factory tried to resolve itself (directly or indirectly)
 };
 
 inline std::string toString(ServiceError error)
 {
     switch (error)
     {
-        case ServiceError::ServiceNotFound: return "Service not found";
-        case ServiceError::ServiceAlreadyExists: return "Service already exists";
-        case ServiceError::InvalidLifetime: return "Invalid lifetime";
-        case ServiceError::NullSharedInstance: return "Shared instance is null";
-        case ServiceError::FactoryReturnedNull: return "Factory returned null";
-        case ServiceError::FactoryThrew: return "Factory threw";
-        case ServiceError::FactoryNotRegistered: return "Factory not registered";
-        case ServiceError::CircularDependency: return "Circular dependency detected";
-        default: return "Unknown error";
+        case ServiceError::ServiceNotFound:
+            return "Service not found";
+        case ServiceError::ServiceAlreadyExists:
+            return "Service already exists";
+        case ServiceError::InvalidLifetime:
+            return "Invalid lifetime";
+        case ServiceError::NullSharedInstance:
+            return "Shared instance is null";
+        case ServiceError::FactoryReturnedNull:
+            return "Factory returned null";
+        case ServiceError::FactoryThrew:
+            return "Factory threw";
+        case ServiceError::FactoryNotRegistered:
+            return "Factory not registered";
+        case ServiceError::CircularDependency:
+            return "Circular dependency detected";
+        default:
+            return "Unknown error";
     }
 }
 
@@ -145,7 +154,9 @@ struct ServiceErrorInfo
     ServiceErrorInfo() = default;
 
     ServiceErrorInfo(ServiceError code, std::string message, std::string name)
-        : mCode(code), mMessage(std::move(message)), mName(std::move(name))
+        : mCode(code)
+        , mMessage(std::move(message))
+        , mName(std::move(name))
     {
     }
 
@@ -174,15 +185,34 @@ struct NoServiceLocatorStatisticsPolicy
             size_t mUnregistrations = 0;
         };
 
-        void incrementRegistrations() noexcept {}
-        void incrementRegistrationFailures() noexcept {}
-        void incrementResolutions() noexcept {}
-        void incrementResolutionFailures() noexcept {}
-        void incrementCreations() noexcept {}
-        void incrementCreationFailures() noexcept {}
-        void incrementUnregistrations() noexcept {}
-        void reset() noexcept {}
-        [[nodiscard]] Snapshot snapshot() const noexcept { return {}; }
+        void incrementRegistrations() noexcept
+        {
+        }
+        void incrementRegistrationFailures() noexcept
+        {
+        }
+        void incrementResolutions() noexcept
+        {
+        }
+        void incrementResolutionFailures() noexcept
+        {
+        }
+        void incrementCreations() noexcept
+        {
+        }
+        void incrementCreationFailures() noexcept
+        {
+        }
+        void incrementUnregistrations() noexcept
+        {
+        }
+        void reset() noexcept
+        {
+        }
+        [[nodiscard]] Snapshot snapshot() const noexcept
+        {
+            return {};
+        }
     };
 };
 
@@ -228,14 +258,13 @@ struct AtomicServiceLocatorStatisticsPolicy
 
         [[nodiscard]] Snapshot snapshot() const noexcept
         {
-            return Snapshot{
-                mRegistrations.load(std::memory_order_relaxed),
-                mRegistrationFailures.load(std::memory_order_relaxed),
-                mResolutions.load(std::memory_order_relaxed),
-                mResolutionFailures.load(std::memory_order_relaxed),
-                mCreations.load(std::memory_order_relaxed),
-                mCreationFailures.load(std::memory_order_relaxed),
-                mUnregistrations.load(std::memory_order_relaxed)};
+            return Snapshot{mRegistrations.load(std::memory_order_relaxed),
+                            mRegistrationFailures.load(std::memory_order_relaxed),
+                            mResolutions.load(std::memory_order_relaxed),
+                            mResolutionFailures.load(std::memory_order_relaxed),
+                            mCreations.load(std::memory_order_relaxed),
+                            mCreationFailures.load(std::memory_order_relaxed),
+                            mUnregistrations.load(std::memory_order_relaxed)};
         }
 
         void incrementRegistrations() noexcept
@@ -354,20 +383,18 @@ std::shared_ptr<T> invokeFactoryToShared(Factory& factory)
     }
     else
     {
-        static_assert(
-            std::is_same_v<Ret, std::shared_ptr<T>> || std::is_same_v<Ret, std::unique_ptr<T>>,
-            "Factory must return std::shared_ptr<T> or std::unique_ptr<T>.");
+        static_assert(std::is_same_v<Ret, std::shared_ptr<T>> || std::is_same_v<Ret, std::unique_ptr<T>>,
+                      "Factory must return std::shared_ptr<T> or std::unique_ptr<T>.");
         return {};
     }
 }
 
 } // namespace detail
 
-template <
-    typename ConcurrencyPolicy = SingleThreadedPolicy,
-    typename RegistrationPolicy = ServicePreventOverwritePolicy,
-    typename StatisticsPolicy = NoServiceLocatorStatisticsPolicy,
-    typename TypeKeyPolicy = detail::DefaultServiceTypeKeyPolicy>
+template <typename ConcurrencyPolicy = SingleThreadedPolicy,
+          typename RegistrationPolicy = ServicePreventOverwritePolicy,
+          typename StatisticsPolicy = NoServiceLocatorStatisticsPolicy,
+          typename TypeKeyPolicy = detail::DefaultServiceTypeKeyPolicy>
 class ServiceLocator : private ConcurrencyPolicy
 {
 public:
@@ -403,12 +430,12 @@ public:
     }
 
 
-    [[nodiscard]] ServiceLocator makeChild() const &
+    [[nodiscard]] ServiceLocator makeChild() const&
     {
         return ServiceLocator(this);
     }
 
-    ServiceLocator makeChild() const && = delete;
+    ServiceLocator makeChild() const&& = delete;
 
     template <typename T>
     [[nodiscard]] RegisterResult registerInstance(T& instance, std::string_view name = {})
@@ -423,28 +450,24 @@ public:
         auto lock = writeLock();
         if (!RegistrationPolicy::insert(mRegistry, key, std::move(entry), mStats))
         {
-            return unexpected{ServiceErrorInfo{
-                ServiceError::ServiceAlreadyExists,
-                "Instance registration rejected by RegistrationPolicy",
-                std::string(name)}};
+            return unexpected{ServiceErrorInfo{ServiceError::ServiceAlreadyExists,
+                                               "Instance registration rejected by RegistrationPolicy",
+                                               std::string(name)}};
         }
         return {};
     }
 
     template <typename T>
-    [[nodiscard]] RegisterResult registerShared(
-        std::shared_ptr<T> instance,
-        std::string_view name = {})
+    [[nodiscard]] RegisterResult registerShared(std::shared_ptr<T> instance, std::string_view name = {})
     {
         assertRegistrableServiceType<T>();
 
         if (!instance)
         {
             mStats.incrementRegistrationFailures();
-            return unexpected{ServiceErrorInfo{
-                ServiceError::NullSharedInstance,
-                "Shared registration received an empty shared_ptr",
-                std::string(name)}};
+            return unexpected{ServiceErrorInfo{ServiceError::NullSharedInstance,
+                                               "Shared registration received an empty shared_ptr",
+                                               std::string(name)}};
         }
 
         ServiceKey key = makeKey<T>(name);
@@ -456,28 +479,23 @@ public:
         auto lock = writeLock();
         if (!RegistrationPolicy::insert(mRegistry, key, std::move(entry), mStats))
         {
-            return unexpected{ServiceErrorInfo{
-                ServiceError::ServiceAlreadyExists,
-                "Shared registration rejected by RegistrationPolicy",
-                std::string(name)}};
+            return unexpected{ServiceErrorInfo{ServiceError::ServiceAlreadyExists,
+                                               "Shared registration rejected by RegistrationPolicy",
+                                               std::string(name)}};
         }
         return {};
     }
 
     template <typename T, typename Factory>
-    [[nodiscard]] RegisterResult registerFactory(
-        Factory factory,
-        ServiceLifetime lifetime,
-        std::string_view name = {})
+    [[nodiscard]] RegisterResult registerFactory(Factory factory, ServiceLifetime lifetime, std::string_view name = {})
     {
         assertRegistrableServiceType<T>();
 
         if (lifetime != ServiceLifetime::Singleton && lifetime != ServiceLifetime::Transient)
         {
-            return unexpected{ServiceErrorInfo{
-                ServiceError::InvalidLifetime,
-                "Only Singleton and Transient lifetimes are valid for factories",
-                std::string(name)}};
+            return unexpected{ServiceErrorInfo{ServiceError::InvalidLifetime,
+                                               "Only Singleton and Transient lifetimes are valid for factories",
+                                               std::string(name)}};
         }
 
         ServiceKey key = makeKey<T>(name);
@@ -485,8 +503,7 @@ public:
         ServiceEntry entry;
         entry.mKind = ServiceEntryKind::Factory;
         entry.mLifetime = lifetime;
-        entry.mFactory = [factory = std::move(factory)]() mutable -> std::shared_ptr<void>
-        {
+        entry.mFactory = [factory = std::move(factory)]() mutable -> std::shared_ptr<void> {
             auto sp = detail::invokeFactoryToShared<T>(factory);
             return sp;
         };
@@ -494,10 +511,9 @@ public:
         auto lock = writeLock();
         if (!RegistrationPolicy::insert(mRegistry, key, std::move(entry), mStats))
         {
-            return unexpected{ServiceErrorInfo{
-                ServiceError::ServiceAlreadyExists,
-                "Factory registration rejected by RegistrationPolicy",
-                std::string(name)}};
+            return unexpected{ServiceErrorInfo{ServiceError::ServiceAlreadyExists,
+                                               "Factory registration rejected by RegistrationPolicy",
+                                               std::string(name)}};
         }
 
         return {};
@@ -555,8 +571,8 @@ public:
     }
 
     template <typename T>
-    [[nodiscard]] Expected<std::reference_wrapper<T>, ServiceErrorInfo> resolveExpected(
-        std::string_view name = {}) const
+    [[nodiscard]] Expected<std::reference_wrapper<T>, ServiceErrorInfo>
+    resolveExpected(std::string_view name = {}) const
     {
         const ServiceKey key = makeKey<T>(name);
         auto local = resolveEntryForRead(key);
@@ -567,10 +583,8 @@ public:
                 return mParent->template resolveExpected<T>(name);
             }
             mStats.incrementResolutionFailures();
-            return unexpected{ServiceErrorInfo{
-                ServiceError::ServiceNotFound,
-                "No matching service registration",
-                std::string(name)}};
+            return unexpected{
+                ServiceErrorInfo{ServiceError::ServiceNotFound, "No matching service registration", std::string(name)}};
         }
 
         const ServiceEntrySnapshot snap = local.value();
@@ -584,10 +598,9 @@ public:
             if (!snap.mShared)
             {
                 mStats.incrementResolutionFailures();
-                return unexpected{ServiceErrorInfo{
-                    ServiceError::NullSharedInstance,
-                    "Shared registration holds an empty shared_ptr",
-                    std::string(name)}};
+                return unexpected{ServiceErrorInfo{ServiceError::NullSharedInstance,
+                                                   "Shared registration holds an empty shared_ptr",
+                                                   std::string(name)}};
             }
             mStats.incrementResolutions();
             return std::ref(*static_cast<T*>(snap.mShared.get()));
@@ -597,10 +610,9 @@ public:
             if (snap.mLifetime == ServiceLifetime::Transient)
             {
                 mStats.incrementResolutionFailures();
-                return unexpected{ServiceErrorInfo{
-                    ServiceError::FactoryNotRegistered,
-                    "Transient services require createExpected<T>()",
-                    std::string(name)}};
+                return unexpected{ServiceErrorInfo{ServiceError::FactoryNotRegistered,
+                                                   "Transient services require createExpected<T>()",
+                                                   std::string(name)}};
             }
 
             auto cached = resolveOrCreateSingleton(key, snap, std::string(name));
@@ -614,10 +626,8 @@ public:
         }
 
         mStats.incrementResolutionFailures();
-        return unexpected{ServiceErrorInfo{
-            ServiceError::ServiceNotFound,
-            "Entry kind not recognized",
-            std::string(name)}};
+        return unexpected{
+            ServiceErrorInfo{ServiceError::ServiceNotFound, "Entry kind not recognized", std::string(name)}};
     }
 
     template <typename T>
@@ -626,17 +636,13 @@ public:
         auto expected = resolveExpected<T>(name);
         if (!expected.has_value())
         {
-            FATP_ALWAYS_ENFORCE(
-                false,
-                "ServiceLocator::resolve failed: {}",
-                expected.error().fullMessage());
+            FATP_ALWAYS_ENFORCE(false, "ServiceLocator::resolve failed: {}", expected.error().fullMessage());
         }
         return expected.value().get();
     }
 
     template <typename T>
-    [[nodiscard]] Expected<std::shared_ptr<T>, ServiceErrorInfo> createExpected(
-        std::string_view name = {}) const
+    [[nodiscard]] Expected<std::shared_ptr<T>, ServiceErrorInfo> createExpected(std::string_view name = {}) const
     {
         const ServiceKey key = makeKey<T>(name);
         auto local = resolveEntryForRead(key);
@@ -647,20 +653,17 @@ public:
                 return mParent->template createExpected<T>(name);
             }
             mStats.incrementCreationFailures();
-            return unexpected{ServiceErrorInfo{
-                ServiceError::ServiceNotFound,
-                "No matching service registration",
-                std::string(name)}};
+            return unexpected{
+                ServiceErrorInfo{ServiceError::ServiceNotFound, "No matching service registration", std::string(name)}};
         }
 
         const ServiceEntrySnapshot snap = local.value();
         if (snap.mKind != ServiceEntryKind::Factory)
         {
             mStats.incrementCreationFailures();
-            return unexpected{ServiceErrorInfo{
-                ServiceError::FactoryNotRegistered,
-                "No factory registered for this service",
-                std::string(name)}};
+            return unexpected{ServiceErrorInfo{ServiceError::FactoryNotRegistered,
+                                               "No factory registered for this service",
+                                               std::string(name)}};
         }
 
         if (snap.mLifetime == ServiceLifetime::Singleton)
@@ -691,10 +694,7 @@ public:
         auto expected = createExpected<T>(name);
         if (!expected.has_value())
         {
-            FATP_ALWAYS_ENFORCE(
-                false,
-                "ServiceLocator::create failed: {}",
-                expected.error().fullMessage());
+            FATP_ALWAYS_ENFORCE(false, "ServiceLocator::create failed: {}", expected.error().fullMessage());
         }
         return expected.value();
     }
@@ -740,9 +740,9 @@ private:
         void* mInstance = nullptr;
         std::shared_ptr<void> mShared{};
         std::function<std::shared_ptr<void>()> mFactory{};
-        
+
         /// Per-entry state for singleton creation coordination.
-        /// 
+        ///
         /// Design rationale: We use shared_ptr to a separate state object because:
         /// 1. std::mutex/condition_variable are not movable, but ServiceEntry must be
         ///    movable for unordered_map storage
@@ -761,10 +761,10 @@ private:
             std::condition_variable mCv{};
             bool mCreating = false;
             std::thread::id mCreatingThread{};
-            std::shared_ptr<void> mValue{};  // Result stored here for lifetime safety
+            std::shared_ptr<void> mValue{}; // Result stored here for lifetime safety
         };
         mutable std::shared_ptr<SingletonState> mSingletonState{};
-        
+
         /// Ensures the singleton state exists. Called while holding registry lock.
         std::shared_ptr<SingletonState> ensureSingletonState() const
         {
@@ -785,8 +785,7 @@ private:
         std::function<std::shared_ptr<void>()> mFactory{};
     };
 
-    using Registry =
-        std::unordered_map<ServiceKey, ServiceEntry, ServiceKeyHash, ServiceKeyEq>;
+    using Registry = std::unordered_map<ServiceKey, ServiceEntry, ServiceKeyHash, ServiceKeyEq>;
 
     const ServiceLocator* mParent = nullptr;
     mutable Registry mRegistry{};
@@ -804,8 +803,7 @@ private:
 
     [[nodiscard]] auto writeLock() const
     {
-        auto& policy = const_cast<ConcurrencyPolicy&>(
-            static_cast<const ConcurrencyPolicy&>(*this));
+        auto& policy = const_cast<ConcurrencyPolicy&>(static_cast<const ConcurrencyPolicy&>(*this));
         return policy.lock();
     }
 
@@ -822,9 +820,8 @@ private:
     static void assertRegistrableServiceType()
     {
         using U = std::remove_reference_t<T>;
-        static_assert(
-            !std::is_const_v<U> && !std::is_volatile_v<U>,
-            "ServiceLocator does not permit registration of cv-qualified service types.");
+        static_assert(!std::is_const_v<U> && !std::is_volatile_v<U>,
+                      "ServiceLocator does not permit registration of cv-qualified service types.");
     }
 
     [[nodiscard]] bool unregisterUntyped(const void* typeId, std::string_view name)
@@ -842,8 +839,7 @@ private:
         return removed != 0;
     }
 
-    [[nodiscard]] std::optional<ServiceEntrySnapshot> resolveEntryForRead(
-        const ServiceKey& key) const
+    [[nodiscard]] std::optional<ServiceEntrySnapshot> resolveEntryForRead(const ServiceKey& key) const
     {
         auto lock = readLock();
         auto it = mRegistry.find(key);
@@ -861,57 +857,48 @@ private:
         return snap;
     }
 
-    [[nodiscard]] Expected<std::shared_ptr<void>, ServiceErrorInfo> invokeFactory(
-        const ServiceEntrySnapshot& snap,
-        std::string name) const
+    [[nodiscard]] Expected<std::shared_ptr<void>, ServiceErrorInfo> invokeFactory(const ServiceEntrySnapshot& snap,
+                                                                                  std::string name) const
     {
         return invokeFactoryImpl(snap.mFactory, std::move(name));
     }
 
 private:
-    [[nodiscard]] Expected<std::shared_ptr<void>, ServiceErrorInfo> invokeFactoryImpl(
-        const std::function<std::shared_ptr<void>()>& factory,
-        std::string name) const
+    [[nodiscard]] Expected<std::shared_ptr<void>, ServiceErrorInfo>
+    invokeFactoryImpl(const std::function<std::shared_ptr<void>()>& factory, std::string name) const
     {
         try
         {
             std::shared_ptr<void> created = factory ? factory() : nullptr;
             if (!created)
             {
-                return unexpected{ServiceErrorInfo{
-                    ServiceError::FactoryReturnedNull,
-                    "Factory returned an empty shared_ptr",
-                    std::move(name)}};
+                return unexpected{ServiceErrorInfo{ServiceError::FactoryReturnedNull,
+                                                   "Factory returned an empty shared_ptr",
+                                                   std::move(name)}};
             }
             return created;
         }
         catch (const std::exception& e)
         {
-            return unexpected{ServiceErrorInfo{
-                ServiceError::FactoryThrew,
-                std::string("Factory threw: ") + e.what(),
-                std::move(name)}};
+            return unexpected{ServiceErrorInfo{ServiceError::FactoryThrew,
+                                               std::string("Factory threw: ") + e.what(),
+                                               std::move(name)}};
         }
         catch (...)
         {
-            return unexpected{ServiceErrorInfo{
-                ServiceError::FactoryThrew,
-                "Factory threw: non-std exception",
-                std::move(name)}};
+            return unexpected{
+                ServiceErrorInfo{ServiceError::FactoryThrew, "Factory threw: non-std exception", std::move(name)}};
         }
     }
 
-    [[nodiscard]] Expected<std::shared_ptr<void>, ServiceErrorInfo> resolveOrCreateSingleton(
-        const ServiceKey& key,
-        const ServiceEntrySnapshot& snap,
-        std::string name) const
+    [[nodiscard]] Expected<std::shared_ptr<void>, ServiceErrorInfo>
+    resolveOrCreateSingleton(const ServiceKey& key, const ServiceEntrySnapshot& snap, std::string name) const
     {
         if (snap.mLifetime != ServiceLifetime::Singleton)
         {
-            return unexpected{ServiceErrorInfo{
-                ServiceError::InvalidLifetime,
-                "resolveOrCreateSingleton requires Singleton lifetime",
-                std::move(name)}};
+            return unexpected{ServiceErrorInfo{ServiceError::InvalidLifetime,
+                                               "resolveOrCreateSingleton requires Singleton lifetime",
+                                               std::move(name)}};
         }
 
         // Fast path: already created (from snapshot taken under read lock)
@@ -921,7 +908,7 @@ private:
         }
 
         // Slow path: coordinate singleton creation.
-        // 
+        //
         // CRITICAL LIFETIME SAFETY: After releasing the registry lock, another thread
         // could unregister/clear the entry. We must NOT access any ServiceEntry* after
         // the lock is released. Instead:
@@ -936,46 +923,40 @@ private:
             auto it = mRegistry.find(key);
             if (it == mRegistry.end())
             {
-                return unexpected{ServiceErrorInfo{
-                    ServiceError::ServiceNotFound,
-                    "Singleton factory removed during resolution",
-                    std::move(name)}};
+                return unexpected{ServiceErrorInfo{ServiceError::ServiceNotFound,
+                                                   "Singleton factory removed during resolution",
+                                                   std::move(name)}};
             }
-            
+
             // Quick check: maybe another thread already created it
             if (it->second.mShared)
             {
                 return it->second.mShared;
             }
-            
+
             // Get/create the SingletonState (returned as shared_ptr)
             state = it->second.ensureSingletonState();
         }
         // Registry lock released - we now only interact with `state` and `snap`
         // Both are safe: state is shared_ptr, snap is a copy
 
-        auto publishAndGet =
-            [&](const std::shared_ptr<typename ServiceEntry::SingletonState>& localState)
-                -> Expected<std::shared_ptr<void>, ServiceErrorInfo>
-        {
+        auto publishAndGet = [&](const std::shared_ptr<typename ServiceEntry::SingletonState>& localState)
+            -> Expected<std::shared_ptr<void>, ServiceErrorInfo> {
             auto lock = writeLock();
             auto it = mRegistry.find(key);
             if (it == mRegistry.end())
             {
-                return unexpected{ServiceErrorInfo{
-                    ServiceError::ServiceNotFound,
-                    "Singleton entry removed during creation",
-                    std::string(name)}};
+                return unexpected{ServiceErrorInfo{ServiceError::ServiceNotFound,
+                                                   "Singleton entry removed during creation",
+                                                   std::string(name)}};
             }
 
-            if (it->second.mKind != ServiceEntryKind::Factory
-                || it->second.mLifetime != ServiceLifetime::Singleton
-                || it->second.mSingletonState != localState)
+            if (it->second.mKind != ServiceEntryKind::Factory || it->second.mLifetime != ServiceLifetime::Singleton ||
+                it->second.mSingletonState != localState)
             {
-                return unexpected{ServiceErrorInfo{
-                    ServiceError::ServiceNotFound,
-                    "Singleton entry replaced during creation",
-                    std::string(name)}};
+                return unexpected{ServiceErrorInfo{ServiceError::ServiceNotFound,
+                                                   "Singleton entry replaced during creation",
+                                                   std::string(name)}};
             }
 
             if (it->second.mShared)
@@ -985,10 +966,9 @@ private:
 
             if (!localState->mValue)
             {
-                return unexpected{ServiceErrorInfo{
-                    ServiceError::ServiceNotFound,
-                    "Singleton value not available after creation",
-                    std::string(name)}};
+                return unexpected{ServiceErrorInfo{ServiceError::ServiceNotFound,
+                                                   "Singleton value not available after creation",
+                                                   std::string(name)}};
             }
 
             it->second.mShared = localState->mValue;
@@ -1012,15 +992,14 @@ private:
             // Circular dependency detection: same thread trying to create again
             if (state->mCreatingThread == thisThread)
             {
-                return unexpected{ServiceErrorInfo{
-                    ServiceError::CircularDependency,
-                    "Singleton factory attempted to resolve itself (circular dependency)",
-                    std::move(name)}};
+                return unexpected{
+                    ServiceErrorInfo{ServiceError::CircularDependency,
+                                     "Singleton factory attempted to resolve itself (circular dependency)",
+                                     std::move(name)}};
             }
 
             // Different thread is creating - wait for it to finish
-            state->mCv.wait(stateLock, [&state]()
-            {
+            state->mCv.wait(stateLock, [&state]() {
                 return !state->mCreating;
             });
 
@@ -1030,7 +1009,7 @@ private:
                 stateLock.unlock();
                 return publishAndGet(state);
             }
-            
+
             // Creator failed. Retry-on-failure semantics: we try creating ourselves.
             // (Alternative: cache-failure semantics would return error here)
         }
@@ -1071,11 +1050,7 @@ private:
     }
 };
 
-template <
-    typename ConcurrencyPolicy,
-    typename RegistrationPolicy,
-    typename StatisticsPolicy,
-    typename TypeKeyPolicy>
+template <typename ConcurrencyPolicy, typename RegistrationPolicy, typename StatisticsPolicy, typename TypeKeyPolicy>
 class ServiceLocator<ConcurrencyPolicy, RegistrationPolicy, StatisticsPolicy, TypeKeyPolicy>::Scope
 {
 public:
@@ -1105,22 +1080,15 @@ private:
     ServiceLocator mChild;
 };
 
-template <
-    typename ConcurrencyPolicy,
-    typename RegistrationPolicy,
-    typename StatisticsPolicy,
-    typename TypeKeyPolicy>
-class ServiceLocator<ConcurrencyPolicy, RegistrationPolicy, StatisticsPolicy, TypeKeyPolicy>::
-    Registration
+template <typename ConcurrencyPolicy, typename RegistrationPolicy, typename StatisticsPolicy, typename TypeKeyPolicy>
+class ServiceLocator<ConcurrencyPolicy, RegistrationPolicy, StatisticsPolicy, TypeKeyPolicy>::Registration
 {
 public:
     Registration() = default;
 
     template <typename T>
-    static Expected<Registration, ServiceErrorInfo> registerInstanceExpected(
-        ServiceLocator& locator,
-        T& instance,
-        std::string_view name = {})
+    static Expected<Registration, ServiceErrorInfo>
+    registerInstanceExpected(ServiceLocator& locator, T& instance, std::string_view name = {})
     {
         auto result = locator.registerInstance<T>(instance, name);
         if (!result.has_value())
@@ -1134,9 +1102,9 @@ public:
     Registration& operator=(const Registration&) = delete;
 
     Registration(Registration&& other) noexcept
-        : mLocator(other.mLocator),
-          mTypeId(other.mTypeId),
-          mName(std::move(other.mName))
+        : mLocator(other.mLocator)
+        , mTypeId(other.mTypeId)
+        , mName(std::move(other.mName))
     {
         other.mLocator = nullptr;
         other.mTypeId = nullptr;
@@ -1176,7 +1144,9 @@ public:
 
 private:
     Registration(ServiceLocator& locator, const void* typeId, std::string name)
-        : mLocator(&locator), mTypeId(typeId), mName(std::move(name))
+        : mLocator(&locator)
+        , mTypeId(typeId)
+        , mName(std::move(name))
     {
     }
 

@@ -250,12 +250,10 @@ FATP_TEST_CASE(truncated_uint_1byte)
 
     buffer truncated(buf.begin(), buf.begin() + 1);
 
-    FATP_ASSERT_THROWS((
-                           [&]
-                           {
-                               Decoder dec(truncated);
-                               (void)dec.read_uint();
-                           }()),
+    FATP_ASSERT_THROWS(([&] {
+                           Decoder dec(truncated);
+                           (void)dec.read_uint();
+                       }()),
                        std::runtime_error,
                        "truncated uint8 should throw");
 
@@ -271,12 +269,10 @@ FATP_TEST_CASE(truncated_uint_2byte)
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         buffer truncated(buf.begin(), buf.begin() + cut);
-        FATP_ASSERT_THROWS((
-                               [&]
-                               {
-                                   Decoder dec(truncated);
-                                   (void)dec.read_uint();
-                               }()),
+        FATP_ASSERT_THROWS(([&] {
+                               Decoder dec(truncated);
+                               (void)dec.read_uint();
+                           }()),
                            std::runtime_error,
                            "truncated uint16 should throw");
     }
@@ -293,12 +289,10 @@ FATP_TEST_CASE(truncated_uint_4byte)
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         buffer truncated(buf.begin(), buf.begin() + cut);
-        FATP_ASSERT_THROWS((
-                               [&]
-                               {
-                                   Decoder dec(truncated);
-                                   (void)dec.read_uint();
-                               }()),
+        FATP_ASSERT_THROWS(([&] {
+                               Decoder dec(truncated);
+                               (void)dec.read_uint();
+                           }()),
                            std::runtime_error,
                            "truncated uint32 should throw");
     }
@@ -315,12 +309,10 @@ FATP_TEST_CASE(truncated_uint_8byte)
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         buffer truncated(buf.begin(), buf.begin() + cut);
-        FATP_ASSERT_THROWS((
-                               [&]
-                               {
-                                   Decoder dec(truncated);
-                                   (void)dec.read_uint();
-                               }()),
+        FATP_ASSERT_THROWS(([&] {
+                               Decoder dec(truncated);
+                               (void)dec.read_uint();
+                           }()),
                            std::runtime_error,
                            "truncated uint64 should throw");
     }
@@ -339,12 +331,10 @@ FATP_TEST_CASE(truncated_text)
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         buffer truncated(buf.begin(), buf.begin() + cut);
-        FATP_ASSERT_THROWS((
-                               [&]
-                               {
-                                   Decoder dec(truncated);
-                                   (void)dec.read_text();
-                               }()),
+        FATP_ASSERT_THROWS(([&] {
+                               Decoder dec(truncated);
+                               (void)dec.read_text();
+                           }()),
                            std::runtime_error,
                            "truncated text should throw");
     }
@@ -363,12 +353,10 @@ FATP_TEST_CASE(truncated_bytes)
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         buffer truncated(buf.begin(), buf.begin() + cut);
-        FATP_ASSERT_THROWS((
-                               [&]
-                               {
-                                   Decoder dec(truncated);
-                                   (void)dec.read_bytes();
-                               }()),
+        FATP_ASSERT_THROWS(([&] {
+                               Decoder dec(truncated);
+                               (void)dec.read_bytes();
+                           }()),
                            std::runtime_error,
                            "truncated bytes should throw");
     }
@@ -382,12 +370,10 @@ FATP_TEST_CASE(wrong_type_uint_from_text)
     Encoder enc(buf);
     enc.write_text("not an integer");
 
-    FATP_ASSERT_THROWS((
-                           [&]
-                           {
-                               Decoder dec(buf);
-                               (void)dec.read_uint();
-                           }()),
+    FATP_ASSERT_THROWS(([&] {
+                           Decoder dec(buf);
+                           (void)dec.read_uint();
+                       }()),
                        std::runtime_error,
                        "uint from text should throw");
 
@@ -400,12 +386,10 @@ FATP_TEST_CASE(wrong_type_text_from_uint)
     Encoder enc(buf);
     enc.write_uint(12345ULL);
 
-    FATP_ASSERT_THROWS((
-                           [&]
-                           {
-                               Decoder dec(buf);
-                               (void)dec.read_text();
-                           }()),
+    FATP_ASSERT_THROWS(([&] {
+                           Decoder dec(buf);
+                           (void)dec.read_text();
+                       }()),
                        std::runtime_error,
                        "text from uint should throw");
 
@@ -418,12 +402,10 @@ FATP_TEST_CASE(wrong_type_bool_from_int)
     Encoder enc(buf);
     enc.write_int(1LL);
 
-    FATP_ASSERT_THROWS((
-                           [&]
-                           {
-                               Decoder dec(buf);
-                               (void)dec.read_bool();
-                           }()),
+    FATP_ASSERT_THROWS(([&] {
+                           Decoder dec(buf);
+                           (void)dec.read_bool();
+                       }()),
                        std::runtime_error,
                        "bool from int should throw");
 
@@ -436,12 +418,10 @@ FATP_TEST_CASE(wrong_type_array_from_map)
     Encoder enc(buf);
     enc.begin_map(3U);
 
-    FATP_ASSERT_THROWS((
-                           [&]
-                           {
-                               Decoder dec(buf);
-                               (void)dec.read_array_length();
-                           }()),
+    FATP_ASSERT_THROWS(([&] {
+                           Decoder dec(buf);
+                           (void)dec.read_array_length();
+                       }()),
                        std::runtime_error,
                        "array from map should throw");
 
@@ -452,30 +432,24 @@ FATP_TEST_CASE(empty_buffer)
 {
     buffer empty;
 
-    FATP_ASSERT_THROWS((
-                           [&]
-                           {
-                               Decoder dec(empty);
-                               (void)dec.read_uint();
-                           }()),
+    FATP_ASSERT_THROWS(([&] {
+                           Decoder dec(empty);
+                           (void)dec.read_uint();
+                       }()),
                        std::runtime_error,
                        "empty buffer uint should throw");
 
-    FATP_ASSERT_THROWS((
-                           [&]
-                           {
-                               Decoder dec(empty);
-                               (void)dec.read_text();
-                           }()),
+    FATP_ASSERT_THROWS(([&] {
+                           Decoder dec(empty);
+                           (void)dec.read_text();
+                       }()),
                        std::runtime_error,
                        "empty buffer text should throw");
 
-    FATP_ASSERT_THROWS((
-                           [&]
-                           {
-                               Decoder dec(empty);
-                               (void)dec.read_bool();
-                           }()),
+    FATP_ASSERT_THROWS(([&] {
+                           Decoder dec(empty);
+                           (void)dec.read_bool();
+                       }()),
                        std::runtime_error,
                        "empty buffer bool should throw");
 
@@ -486,12 +460,10 @@ FATP_TEST_CASE(invalid_bool_value)
 {
     buffer bad = {0xF7U};
 
-    FATP_ASSERT_THROWS((
-                           [&]
-                           {
-                               Decoder dec(bad);
-                               (void)dec.read_bool();
-                           }()),
+    FATP_ASSERT_THROWS(([&] {
+                           Decoder dec(bad);
+                           (void)dec.read_bool();
+                       }()),
                        std::runtime_error,
                        "invalid bool value should throw");
 
@@ -502,12 +474,10 @@ FATP_TEST_CASE(invalid_null_value)
 {
     buffer bad = {0xF5U};
 
-    FATP_ASSERT_THROWS((
-                           [&]
-                           {
-                               Decoder dec(bad);
-                               dec.read_null();
-                           }()),
+    FATP_ASSERT_THROWS(([&] {
+                           Decoder dec(bad);
+                           dec.read_null();
+                       }()),
                        std::runtime_error,
                        "invalid null value should throw");
 
@@ -518,12 +488,10 @@ FATP_TEST_CASE(indefinite_length_rejected)
 {
     buffer bad = {0x5FU};
 
-    FATP_ASSERT_THROWS((
-                           [&]
-                           {
-                               Decoder dec(bad);
-                               (void)dec.read_bytes();
-                           }()),
+    FATP_ASSERT_THROWS(([&] {
+                           Decoder dec(bad);
+                           (void)dec.read_bytes();
+                       }()),
                        std::runtime_error,
                        "indefinite length should throw");
 
@@ -545,12 +513,10 @@ FATP_TEST_CASE(impossible_text_length)
     buf.push_back('b');
     buf.push_back('c');
 
-    FATP_ASSERT_THROWS((
-                           [&]
-                           {
-                               Decoder dec(buf);
-                               (void)dec.read_text();
-                           }()),
+    FATP_ASSERT_THROWS(([&] {
+                           Decoder dec(buf);
+                           (void)dec.read_text();
+                       }()),
                        std::runtime_error,
                        "impossible text length should throw");
 
@@ -568,11 +534,9 @@ FATP_TEST_CASE(read_past_eof)
 
     FATP_ASSERT_TRUE(dec.eof(), "should be at EOF");
 
-    FATP_ASSERT_THROWS((
-                           [&]
-                           {
-                               (void)dec.read_uint();
-                           }()),
+    FATP_ASSERT_THROWS(([&] {
+                           (void)dec.read_uint();
+                       }()),
                        std::runtime_error,
                        "reading past EOF should throw");
 
@@ -794,8 +758,7 @@ void benchmark_cborlite()
     std::cout << "\n" << colors::cyan() << "CborLite Benchmarks:" << colors::reset() << "\n\n";
 
     double enc_time = measure_perf(
-        []()
-        {
+        []() {
             buffer buf;
             buf.reserve(90000);
             Encoder enc(buf);
@@ -820,8 +783,7 @@ void benchmark_cborlite()
     }
 
     double dec_time = measure_perf(
-        [&int_buf]()
-        {
+        [&int_buf]() {
             Decoder dec(int_buf);
             std::uint64_t sum = 0;
             while (!dec.eof())
@@ -836,8 +798,7 @@ void benchmark_cborlite()
 
     std::string large_str(100000, 'x');
     double str_enc_time = measure_perf(
-        [&large_str]()
-        {
+        [&large_str]() {
             buffer buf;
             Encoder enc(buf);
             enc.write_text(large_str);
@@ -854,8 +815,7 @@ void benchmark_cborlite()
     }
 
     double str_dec_time = measure_perf(
-        [&str_buf]()
-        {
+        [&str_buf]() {
             Decoder dec(str_buf);
             auto s = dec.read_text();
             DoNotOptimize(s.data());
@@ -871,8 +831,7 @@ void benchmark_cborlite()
     }
 
     double bytes_enc_time = measure_perf(
-        [&large_bytes]()
-        {
+        [&large_bytes]() {
             buffer buf;
             Encoder enc(buf);
             enc.write_bytes(large_bytes);
@@ -889,8 +848,7 @@ void benchmark_cborlite()
     }
 
     double bytes_dec_time = measure_perf(
-        [&bytes_buf]()
-        {
+        [&bytes_buf]() {
             Decoder dec(bytes_buf);
             auto b = dec.read_bytes();
             DoNotOptimize(b.data());
@@ -900,8 +858,7 @@ void benchmark_cborlite()
     std::cout << "Decode 1MB bytes: " << format_time(bytes_dec_time) << "\n";
 
     double neg_time = measure_perf(
-        []()
-        {
+        []() {
             buffer buf;
             buf.reserve(90000);
             Encoder enc(buf);

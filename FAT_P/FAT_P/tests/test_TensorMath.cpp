@@ -514,23 +514,17 @@ void run_tensor_math_benchmarks()
         Vec3f a{1.0f, 2.0f, 3.0f};
         Vec3f b{4.0f, 5.0f, 6.0f};
 
-        benchmark("Vec3 addition",
-                  [&]()
-                  {
-                      volatile auto c = a + b;
-                  });
+        benchmark("Vec3 addition", [&]() {
+            volatile auto c = a + b;
+        });
 
-        benchmark("Vec3 dot product",
-                  [&]()
-                  {
-                      volatile float d = dot(a, b);
-                  });
+        benchmark("Vec3 dot product", [&]() {
+            volatile float d = dot(a, b);
+        });
 
-        benchmark("Vec3 norm",
-                  [&]()
-                  {
-                      volatile float n = norm(a);
-                  });
+        benchmark("Vec3 norm", [&]() {
+            volatile float n = norm(a);
+        });
     }
 
     // Matrix operations
@@ -540,17 +534,13 @@ void run_tensor_math_benchmarks()
         Mat2x2f b{5.0f, 6.0f, 7.0f, 8.0f};
         Vec2f v{9.0f, 10.0f};
 
-        benchmark("Mat2x2 matrix-vector multiply",
-                  [&]()
-                  {
-                      volatile auto r = matvec(a, v);
-                  });
+        benchmark("Mat2x2 matrix-vector multiply", [&]() {
+            volatile auto r = matvec(a, v);
+        });
 
-        benchmark("Mat2x2 matrix-matrix multiply",
-                  [&]()
-                  {
-                      volatile auto r = matmul(a, b);
-                  });
+        benchmark("Mat2x2 matrix-matrix multiply", [&]() {
+            volatile auto r = matmul(a, b);
+        });
     }
 
     // Larger matrices
@@ -566,8 +556,7 @@ void run_tensor_math_benchmarks()
 
         benchmark(
             "Mat4x4 matrix-matrix multiply",
-            [&]()
-            {
+            [&]() {
                 volatile auto r = matmul(a, b);
             },
             100000);
@@ -587,16 +576,14 @@ void run_tensor_math_benchmarks()
 
         benchmark(
             "Vec64 SIMD addition",
-            [&]()
-            {
+            [&]() {
                 volatile auto c = a + b;
             },
             500000);
 
         benchmark(
             "Vec64 SIMD dot product",
-            [&]()
-            {
+            [&]() {
                 volatile float d = simd_dot(a, b);
             },
             500000);
@@ -611,17 +598,13 @@ void run_tensor_math_benchmarks()
         Vec3<int, CheckedPolicy> a2{1, 2, 3};
         Vec3<int, CheckedPolicy> b2{4, 5, 6};
 
-        benchmark("Vec3i addition (Unchecked)",
-                  [&]()
-                  {
-                      volatile auto c = a1 + b1;
-                  });
+        benchmark("Vec3i addition (Unchecked)", [&]() {
+            volatile auto c = a1 + b1;
+        });
 
-        benchmark("Vec3i addition (Checked)",
-                  [&]()
-                  {
-                      volatile auto c = a2 + b2;
-                  });
+        benchmark("Vec3i addition (Checked)", [&]() {
+            volatile auto c = a2 + b2;
+        });
     }
 
     out << "\n";

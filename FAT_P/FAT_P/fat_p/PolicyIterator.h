@@ -52,63 +52,88 @@ FATP_META:
 
 #include "enforce.h"
 
-namespace fat_p::iterator {
+namespace fat_p::iterator
+{
 
 // --------------------------------------------------------------------
 // Policy Traits (implementation detail - not part of public API)
 // --------------------------------------------------------------------
 
-namespace detail {
+namespace detail
+{
 
 template <typename P, typename = void>
-struct has_stride : std::false_type {};
+struct has_stride : std::false_type
+{
+};
 
 template <typename P>
-struct has_stride<P, std::void_t<decltype(P::kStrideValue)>> : std::true_type {};
+struct has_stride<P, std::void_t<decltype(P::kStrideValue)>> : std::true_type
+{
+};
 
 template <typename P, typename = void>
-struct has_predicate : std::false_type {};
+struct has_predicate : std::false_type
+{
+};
 
 template <typename P>
-struct has_predicate<P, std::void_t<typename P::predicate_type>> : std::true_type {};
+struct has_predicate<P, std::void_t<typename P::predicate_type>> : std::true_type
+{
+};
 
 template <typename P, typename = void>
-struct has_transformer : std::false_type {};
+struct has_transformer : std::false_type
+{
+};
 
 template <typename P>
-struct has_transformer<P, std::void_t<typename P::transformer_type>> : std::true_type {};
+struct has_transformer<P, std::void_t<typename P::transformer_type>> : std::true_type
+{
+};
 
 // Trait to detect policies that need end-clamping (have kNeedsEndClamp = true)
 template <typename P, typename = void>
-struct needs_end_clamp : std::false_type {};
+struct needs_end_clamp : std::false_type
+{
+};
 
 template <typename P>
-struct needs_end_clamp<P, std::void_t<decltype(P::kNeedsEndClamp)>> 
-    : std::bool_constant<P::kNeedsEndClamp> {};
+struct needs_end_clamp<P, std::void_t<decltype(P::kNeedsEndClamp)>> : std::bool_constant<P::kNeedsEndClamp>
+{
+};
 
 // Trait to detect tensor policies (position-based iteration)
 template <typename P, typename = void>
-struct is_tensor_policy : std::false_type {};
+struct is_tensor_policy : std::false_type
+{
+};
 
 template <typename P>
-struct is_tensor_policy<P, std::void_t<decltype(P::kIsTensorPolicy)>>
-    : std::bool_constant<P::kIsTensorPolicy> {};
+struct is_tensor_policy<P, std::void_t<decltype(P::kIsTensorPolicy)>> : std::bool_constant<P::kIsTensorPolicy>
+{
+};
 
 // Trait to detect policies requiring a functor (predicate or transformer)
 template <typename P>
-struct requires_functor : std::bool_constant<has_predicate<P>::value || has_transformer<P>::value> {};
+struct requires_functor : std::bool_constant<has_predicate<P>::value || has_transformer<P>::value>
+{
+};
 
 // Trait to detect policies with setToEnd(pointer&, pointer, pointer) for end iterator initialization
 template <typename P, typename = void>
-struct has_set_to_end : std::false_type {};
+struct has_set_to_end : std::false_type
+{
+};
 
 template <typename P>
-struct has_set_to_end<P, std::void_t<
-    decltype(std::declval<P&>().setToEnd(
-        std::declval<typename P::pointer&>(),
-        std::declval<typename P::pointer>(),
-        std::declval<typename P::pointer>()))
->> : std::true_type {};
+struct has_set_to_end<P,
+                      std::void_t<decltype(std::declval<P&>().setToEnd(std::declval<typename P::pointer&>(),
+                                                                       std::declval<typename P::pointer>(),
+                                                                       std::declval<typename P::pointer>()))>>
+    : std::true_type
+{
+};
 
 } // namespace detail
 
@@ -121,15 +146,22 @@ struct has_set_to_end<P, std::void_t<
  * @tparam T Element type.
  */
 template <typename T>
-struct StandardPolicy {
+struct StandardPolicy
+{
     using iterator_category = std::bidirectional_iterator_tag;
     using difference_type = std::ptrdiff_t;
     using value_type = T;
     using pointer = T*;
     using reference = T&;
 
-    void advance(T*& ptr) const { ++ptr; }
-    void retreat(T*& ptr) const { --ptr; }
+    void advance(T*& ptr) const
+    {
+        ++ptr;
+    }
+    void retreat(T*& ptr) const
+    {
+        --ptr;
+    }
 };
 
 /**
@@ -143,7 +175,8 @@ struct StandardPolicy {
  *       Example: size=10, stride=4 visits {0,4,8} but --end would give 6.
  */
 template <typename T, int N>
-struct StridePolicy {
+struct StridePolicy
+{
     static_assert(N > 0, "Stride must be positive");
 
     using iterator_category = std::forward_iterator_tag;
@@ -153,16 +186,23 @@ struct StridePolicy {
     using reference = T&;
 
     static constexpr int kStrideValue = N;
-    static constexpr bool kNeedsEndClamp = true;  ///< Signals PolicyIterator to use advance(ptr, end)
+    static constexpr bool kNeedsEndClamp = true; ///< Signals PolicyIterator to use advance(ptr, end)
 
-    void advance(T*& ptr) const { ptr += N; }
-    
+    void advance(T*& ptr) const
+    {
+        ptr += N;
+    }
+
     /// Advance with bounds checking to avoid UB from ptr arithmetic past end.
-    void advance(T*& ptr, T* end) const {
+    void advance(T*& ptr, T* end) const
+    {
         // Check distance BEFORE advancing to avoid UB
-        if (end - ptr <= N) {
+        if (end - ptr <= N)
+        {
             ptr = end;
-        } else {
+        }
+        else
+        {
             ptr += N;
         }
     }
@@ -174,7 +214,8 @@ struct StridePolicy {
  * @tparam Predicate Callable with signature bool(const T&).
  */
 template <typename T, typename Predicate>
-struct FilterPolicy {
+struct FilterPolicy
+{
     using predicate_type = Predicate;
     using iterator_category = std::forward_iterator_tag;
     using difference_type = std::ptrdiff_t;
@@ -182,9 +223,13 @@ struct FilterPolicy {
     using pointer = T*;
     using reference = T&;
 
-    void advance(T*& ptr, T* end, const Predicate& pred) const {
+    void advance(T*& ptr, T* end, const Predicate& pred) const
+    {
         ++ptr;
-        while (ptr < end && !pred(*ptr)) ++ptr;
+        while (ptr < end && !pred(*ptr))
+        {
+            ++ptr;
+        }
     }
 };
 
@@ -199,7 +244,8 @@ struct FilterPolicy {
  *       while dereference provides the transformed view.
  */
 template <typename T, typename Transformer>
-struct TransformPolicy {
+struct TransformPolicy
+{
     using transformer_type = Transformer;
     using iterator_category = std::bidirectional_iterator_tag;
     using difference_type = std::ptrdiff_t;
@@ -208,10 +254,17 @@ struct TransformPolicy {
     using reference = value_type;
     using pointer = const T*;
 
-    void advance(T*& ptr) const { ++ptr; }
-    void retreat(T*& ptr) const { --ptr; }
+    void advance(T*& ptr) const
+    {
+        ++ptr;
+    }
+    void retreat(T*& ptr) const
+    {
+        --ptr;
+    }
 
-    [[nodiscard]] reference dereference(const T* ptr, const Transformer& fn) const {
+    [[nodiscard]] reference dereference(const T* ptr, const Transformer& fn) const
+    {
         return fn(*ptr);
     }
 };
@@ -233,12 +286,12 @@ struct TransformPolicy {
  * // Standard iteration
  * auto b = PolicyIterator<int>::begin(data, data + n);
  * auto e = PolicyIterator<int>::end(data, data + n);
- * 
+ *
  * // With stride policy
  * using Iter = PolicyIterator<int, StridePolicy<int, 2>>;
  * auto b = Iter::begin(data, data + n);
  * auto e = Iter::end(data, data + n);
- * 
+ *
  * // With functor (filter/transform)
  * auto pred = [](const int& x) { return x > 0; };
  * using P = FilterPolicy<int, decltype(pred)>;
@@ -249,7 +302,8 @@ struct TransformPolicy {
  * For tensor policies, comparison uses position rather than pointer.
  */
 template <typename T, typename Policy = StandardPolicy<T>>
-class PolicyIterator {
+class PolicyIterator
+{
 public:
     using iterator_category = typename Policy::iterator_category;
     using difference_type = typename Policy::difference_type;
@@ -264,16 +318,24 @@ private:
     T* mBase;
 
     template <typename P, typename = void>
-    struct predicate_or_monostate { using type = std::monostate; };
+    struct predicate_or_monostate
+    {
+        using type = std::monostate;
+    };
     template <typename P>
-    struct predicate_or_monostate<P, std::void_t<typename P::predicate_type>> {
+    struct predicate_or_monostate<P, std::void_t<typename P::predicate_type>>
+    {
         using type = std::optional<typename P::predicate_type>;
     };
 
     template <typename P, typename = void>
-    struct transformer_or_monostate { using type = std::monostate; };
+    struct transformer_or_monostate
+    {
+        using type = std::monostate;
+    };
     template <typename P>
-    struct transformer_or_monostate<P, std::void_t<typename P::transformer_type>> {
+    struct transformer_or_monostate<P, std::void_t<typename P::transformer_type>>
+    {
         using type = std::optional<typename P::transformer_type>;
     };
 
@@ -282,11 +344,16 @@ private:
 
     /// Update mPtr from tensor policy offset.
     /// CRITICAL: Compare INTEGER quantities before ANY pointer arithmetic to avoid UB.
-    void syncPtrFromTensor() {
-        if constexpr (detail::is_tensor_policy<Policy>::value) {
-            if (mPolicy.atEnd()) {
+    void syncPtrFromTensor()
+    {
+        if constexpr (detail::is_tensor_policy<Policy>::value)
+        {
+            if (mPolicy.atEnd())
+            {
                 mPtr = mEnd;
-            } else {
+            }
+            else
+            {
                 auto offset = mPolicy.currentOffset();
                 // Compute span as integer - NO pointer arithmetic yet
                 // [[maybe_unused]] because FATP_ENFORCE() compiles out in release
@@ -306,16 +373,27 @@ private:
 
     /// Core constructor for non-functor policies
     PolicyIterator(T* base, T* end, T* ptr, Policy policy)
-        : mPolicy(std::move(policy)), mPtr(ptr), mEnd(end), mBase(base) {}
+        : mPolicy(std::move(policy))
+        , mPtr(ptr)
+        , mEnd(end)
+        , mBase(base)
+    {
+    }
 
     /// Core constructor for functor policies
     template <typename Func>
     PolicyIterator(T* base, T* end, T* ptr, Policy policy, Func&& func)
-        : mPolicy(std::move(policy)), mPtr(ptr), mEnd(end), mBase(base) {
-        if constexpr (detail::has_predicate<Policy>::value) {
+        : mPolicy(std::move(policy))
+        , mPtr(ptr)
+        , mEnd(end)
+        , mBase(base)
+    {
+        if constexpr (detail::has_predicate<Policy>::value)
+        {
             mPredicate.emplace(std::forward<Func>(func));
         }
-        else if constexpr (detail::has_transformer<Policy>::value) {
+        else if constexpr (detail::has_transformer<Policy>::value)
+        {
             mTransformer.emplace(std::forward<Func>(func));
         }
     }
@@ -330,24 +408,28 @@ public:
     /// Create a begin iterator for standard policies
     template <typename P = Policy,
               std::enable_if_t<!detail::requires_functor<P>::value && !detail::is_tensor_policy<P>::value, int> = 0>
-    [[nodiscard]] static PolicyIterator begin(T* base, T* end) {
+    [[nodiscard]] static PolicyIterator begin(T* base, T* end)
+    {
         return PolicyIterator(base, end, base, Policy{});
     }
 
     /// Create a begin iterator for standard policies with explicit policy
     template <typename P = Policy,
               std::enable_if_t<!detail::requires_functor<P>::value && !detail::is_tensor_policy<P>::value, int> = 0>
-    [[nodiscard]] static PolicyIterator begin(T* base, T* end, Policy policy) {
+    [[nodiscard]] static PolicyIterator begin(T* base, T* end, Policy policy)
+    {
         return PolicyIterator(base, end, base, std::move(policy));
     }
 
     /// Create an end iterator for standard policies
     template <typename P = Policy,
               std::enable_if_t<!detail::requires_functor<P>::value && !detail::is_tensor_policy<P>::value, int> = 0>
-    [[nodiscard]] static PolicyIterator end(T* base, T* end) {
+    [[nodiscard]] static PolicyIterator end(T* base, T* end)
+    {
         Policy policy{};
         T* ptr = end;
-        if constexpr (detail::has_set_to_end<Policy>::value) {
+        if constexpr (detail::has_set_to_end<Policy>::value)
+        {
             policy.setToEnd(ptr, base, end);
         }
         return PolicyIterator(base, end, ptr, std::move(policy));
@@ -356,9 +438,11 @@ public:
     /// Create an end iterator for standard policies with explicit policy
     template <typename P = Policy,
               std::enable_if_t<!detail::requires_functor<P>::value && !detail::is_tensor_policy<P>::value, int> = 0>
-    [[nodiscard]] static PolicyIterator end(T* base, T* end, Policy policy) {
+    [[nodiscard]] static PolicyIterator end(T* base, T* end, Policy policy)
+    {
         T* ptr = end;
-        if constexpr (detail::has_set_to_end<Policy>::value) {
+        if constexpr (detail::has_set_to_end<Policy>::value)
+        {
             policy.setToEnd(ptr, base, end);
         }
         return PolicyIterator(base, end, ptr, std::move(policy));
@@ -367,55 +451,56 @@ public:
     // --- Filter policies ---
 
     /// Create a begin iterator for filter policies
-    template <typename Func, typename P = Policy,
-              std::enable_if_t<detail::has_predicate<P>::value, int> = 0>
-    [[nodiscard]] static PolicyIterator begin(T* base, T* end, Policy policy, Func&& func) {
+    template <typename Func, typename P = Policy, std::enable_if_t<detail::has_predicate<P>::value, int> = 0>
+    [[nodiscard]] static PolicyIterator begin(T* base, T* end, Policy policy, Func&& func)
+    {
         PolicyIterator it(base, end, base, std::move(policy), std::forward<Func>(func));
         // Advance to first matching element
-        while (it.mPtr < it.mEnd && !(*it.mPredicate)(*it.mPtr)) {
+        while (it.mPtr < it.mEnd && !(*it.mPredicate)(*it.mPtr))
+        {
             ++it.mPtr;
         }
         return it;
     }
 
     /// Create an end iterator for filter policies
-    template <typename Func, typename P = Policy,
-              std::enable_if_t<detail::has_predicate<P>::value, int> = 0>
-    [[nodiscard]] static PolicyIterator end(T* base, T* end, Policy policy, Func&& func) {
+    template <typename Func, typename P = Policy, std::enable_if_t<detail::has_predicate<P>::value, int> = 0>
+    [[nodiscard]] static PolicyIterator end(T* base, T* end, Policy policy, Func&& func)
+    {
         return PolicyIterator(base, end, end, std::move(policy), std::forward<Func>(func));
     }
 
     // --- Transform policies ---
 
     /// Create a begin iterator for transform policies
-    template <typename Func, typename P = Policy,
-              std::enable_if_t<detail::has_transformer<P>::value, int> = 0>
-    [[nodiscard]] static PolicyIterator begin(T* base, T* end, Policy policy, Func&& func) {
+    template <typename Func, typename P = Policy, std::enable_if_t<detail::has_transformer<P>::value, int> = 0>
+    [[nodiscard]] static PolicyIterator begin(T* base, T* end, Policy policy, Func&& func)
+    {
         return PolicyIterator(base, end, base, std::move(policy), std::forward<Func>(func));
     }
 
     /// Create an end iterator for transform policies
-    template <typename Func, typename P = Policy,
-              std::enable_if_t<detail::has_transformer<P>::value, int> = 0>
-    [[nodiscard]] static PolicyIterator end(T* base, T* end, Policy policy, Func&& func) {
+    template <typename Func, typename P = Policy, std::enable_if_t<detail::has_transformer<P>::value, int> = 0>
+    [[nodiscard]] static PolicyIterator end(T* base, T* end, Policy policy, Func&& func)
+    {
         return PolicyIterator(base, end, end, std::move(policy), std::forward<Func>(func));
     }
 
     // --- Tensor policies ---
 
     /// Create a begin iterator for tensor policies
-    template <typename P = Policy,
-              std::enable_if_t<detail::is_tensor_policy<P>::value, int> = 0>
-    [[nodiscard]] static PolicyIterator begin(T* base, T* end, Policy policy) {
+    template <typename P = Policy, std::enable_if_t<detail::is_tensor_policy<P>::value, int> = 0>
+    [[nodiscard]] static PolicyIterator begin(T* base, T* end, Policy policy)
+    {
         PolicyIterator it(base, end, base, std::move(policy));
         it.syncPtrFromTensor();
         return it;
     }
 
     /// Create an end iterator for tensor policies
-    template <typename P = Policy,
-              std::enable_if_t<detail::is_tensor_policy<P>::value, int> = 0>
-    [[nodiscard]] static PolicyIterator end(T* base, T* end, Policy policy) {
+    template <typename P = Policy, std::enable_if_t<detail::is_tensor_policy<P>::value, int> = 0>
+    [[nodiscard]] static PolicyIterator end(T* base, T* end, Policy policy)
+    {
         PolicyIterator it(base, end, end, std::move(policy));
         it.mPolicy.setToEnd();
         return it;
@@ -425,79 +510,97 @@ public:
     // Element access
     // ----------------------------------------------------------------
 
-    [[nodiscard]] reference operator*() const {
-        if constexpr (detail::has_transformer<Policy>::value) {
+    [[nodiscard]] reference operator*() const
+    {
+        if constexpr (detail::has_transformer<Policy>::value)
+        {
             FATP_ENFORCE(mTransformer.has_value(), "Transformer not initialized");
             FATP_ENFORCE(mPtr < mEnd, "Cannot dereference end iterator");
             return mPolicy.dereference(mPtr, *mTransformer);
         }
-        else if constexpr (detail::is_tensor_policy<Policy>::value) {
+        else if constexpr (detail::is_tensor_policy<Policy>::value)
+        {
             FATP_ENFORCE(!mPolicy.atEnd(), "Cannot dereference end iterator");
             return *mPtr;
         }
-        else {
+        else
+        {
             FATP_ENFORCE(mPtr < mEnd, "Cannot dereference end iterator");
             return *mPtr;
         }
     }
 
-    [[nodiscard]] pointer operator->() const { 
-        if constexpr (detail::is_tensor_policy<Policy>::value) {
+    [[nodiscard]] pointer operator->() const
+    {
+        if constexpr (detail::is_tensor_policy<Policy>::value)
+        {
             FATP_ENFORCE(!mPolicy.atEnd(), "Cannot dereference end iterator");
         }
-        else {
+        else
+        {
             FATP_ENFORCE(mPtr < mEnd, "Cannot dereference end iterator");
         }
-        return mPtr; 
+        return mPtr;
     }
 
     // ----------------------------------------------------------------
     // Increment/Decrement
     // ----------------------------------------------------------------
 
-    PolicyIterator& operator++() {
-        if constexpr (detail::is_tensor_policy<Policy>::value) {
+    PolicyIterator& operator++()
+    {
+        if constexpr (detail::is_tensor_policy<Policy>::value)
+        {
             FATP_ENFORCE(!mPolicy.atEnd(), "Iterator past end");
             mPolicy.advance();
             syncPtrFromTensor();
         }
-        else {
+        else
+        {
             FATP_ENFORCE(mPtr < mEnd, "Iterator past end");
-            if constexpr (detail::has_predicate<Policy>::value) {
+            if constexpr (detail::has_predicate<Policy>::value)
+            {
                 FATP_ENFORCE(mPredicate.has_value(), "Predicate not initialized");
                 mPolicy.advance(mPtr, mEnd, *mPredicate);
             }
-            else if constexpr (detail::has_stride<Policy>::value || detail::needs_end_clamp<Policy>::value) {
+            else if constexpr (detail::has_stride<Policy>::value || detail::needs_end_clamp<Policy>::value)
+            {
                 mPolicy.advance(mPtr, mEnd);
             }
-            else {
+            else
+            {
                 mPolicy.advance(mPtr);
             }
         }
         return *this;
     }
 
-    PolicyIterator operator++(int) {
+    PolicyIterator operator++(int)
+    {
         auto copy = *this;
         ++(*this);
         return copy;
     }
 
-    PolicyIterator& operator--() {
+    PolicyIterator& operator--()
+    {
         static_assert(std::is_convertible_v<iterator_category, std::bidirectional_iterator_tag>,
-            "Decrement requires bidirectional iterator");
-        if constexpr (detail::is_tensor_policy<Policy>::value) {
+                      "Decrement requires bidirectional iterator");
+        if constexpr (detail::is_tensor_policy<Policy>::value)
+        {
             mPolicy.retreat();
             syncPtrFromTensor();
         }
-        else {
+        else
+        {
             FATP_ENFORCE(mPtr > mBase, "Cannot retreat before begin");
             mPolicy.retreat(mPtr);
         }
         return *this;
     }
 
-    PolicyIterator operator--(int) {
+    PolicyIterator operator--(int)
+    {
         auto copy = *this;
         --(*this);
         return copy;
@@ -507,16 +610,20 @@ public:
     // Comparison: tensor policies compare position, others compare pointer
     // ----------------------------------------------------------------
 
-    [[nodiscard]] bool operator==(const PolicyIterator& other) const {
-        if constexpr (detail::is_tensor_policy<Policy>::value) {
+    [[nodiscard]] bool operator==(const PolicyIterator& other) const
+    {
+        if constexpr (detail::is_tensor_policy<Policy>::value)
+        {
             return mPolicy.position() == other.mPolicy.position();
         }
-        else {
+        else
+        {
             return mPtr == other.mPtr;
         }
     }
 
-    [[nodiscard]] bool operator!=(const PolicyIterator& other) const {
+    [[nodiscard]] bool operator!=(const PolicyIterator& other) const
+    {
         return !(*this == other);
     }
 
@@ -525,15 +632,28 @@ public:
     // ----------------------------------------------------------------
 
     /// Returns the underlying pointer (respects Policy::pointer type)
-    [[nodiscard]] pointer get() const { return mPtr; }
+    [[nodiscard]] pointer get() const
+    {
+        return mPtr;
+    }
 
-    [[nodiscard]] constexpr int strideSize() const {
-        if constexpr (detail::has_stride<Policy>::value) return Policy::kStrideValue;
-        else return 1;
+    [[nodiscard]] constexpr int strideSize() const
+    {
+        if constexpr (detail::has_stride<Policy>::value)
+        {
+            return Policy::kStrideValue;
+        }
+        else
+        {
+            return 1;
+        }
     }
 
     /// Access to policy (for tensor policies to query position/shape)
-    [[nodiscard]] const Policy& policy() const { return mPolicy; }
+    [[nodiscard]] const Policy& policy() const
+    {
+        return mPolicy;
+    }
 };
 
 } // namespace fat_p::iterator

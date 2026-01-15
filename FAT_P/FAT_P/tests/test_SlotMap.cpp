@@ -1014,8 +1014,7 @@ void benchmark_slot_map()
     // Benchmark insert
     int insert_counter = 0;
     double insert_time = measure_perf(
-        [&map, &insert_counter]()
-        {
+        [&map, &insert_counter]() {
             (void)map.insert(Entity{insert_counter++, "Entity", 100.0f});
         },
         10000,
@@ -1034,8 +1033,7 @@ void benchmark_slot_map()
     // Benchmark get
     int get_counter = 0;
     double get_time = measure_perf(
-        [&map, &handles, &get_counter]()
-        {
+        [&map, &handles, &get_counter]() {
             Entity* e = map.get(handles[get_counter % handles.size()]);
             DoNotOptimize(e);
             ++get_counter;
@@ -1047,8 +1045,7 @@ void benchmark_slot_map()
     // Benchmark is_valid
     int valid_counter = 0;
     double valid_time = measure_perf(
-        [&map, &handles, &valid_counter]()
-        {
+        [&map, &handles, &valid_counter]() {
             bool v = map.is_valid(handles[valid_counter % handles.size()]);
             DoNotOptimize(v);
             ++valid_counter;
@@ -1067,8 +1064,7 @@ void benchmark_slot_map()
 
     int erase_counter = 0;
     double erase_time = measure_perf(
-        [&map2, &erase_handles, &erase_counter]()
-        {
+        [&map2, &erase_handles, &erase_counter]() {
             if (static_cast<size_t>(erase_counter) < erase_handles.size())
             {
                 map2.erase(erase_handles[erase_counter]);
@@ -1087,8 +1083,7 @@ void benchmark_slot_map()
     }
 
     double iter_time = measure_perf(
-        [&map3]()
-        {
+        [&map3]() {
             int sum = 0;
             for (int val : map3)
             {
@@ -1102,8 +1097,7 @@ void benchmark_slot_map()
 
     // Benchmark entries iteration
     double entries_time = measure_perf(
-        [&map3]()
-        {
+        [&map3]() {
             int sum = 0;
             for (auto entry : map3.entries())
             {
@@ -1127,8 +1121,7 @@ void benchmark_slot_map()
 
     int unchecked_counter = 0;
     double unchecked_time = measure_perf(
-        [&map4, &int_handles, &unchecked_counter]()
-        {
+        [&map4, &int_handles, &unchecked_counter]() {
             int& val = map4.get_unchecked(int_handles[unchecked_counter % int_handles.size()]);
             DoNotOptimize(val);
             ++unchecked_counter;

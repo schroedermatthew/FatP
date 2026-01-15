@@ -7,9 +7,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="pch.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="fat_p\AlignedVector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -308,12 +305,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="fat_p\ViewLifetimeTracking.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="fat_p\FatPBenchmarkUtils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="fat_p\NodeHashMap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="fat_p\FatPBenchmarkRunner.h">

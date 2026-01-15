@@ -1,7 +1,7 @@
 /**
  * @file NumaAlignedAllocator.h
  * @brief Combined NUMA-aware + cache-aligned allocator for HPC workloads
- * 
+ *
  *
  * @layer Domain
  *
@@ -66,40 +66,45 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
-#include "NumaAllocator.h"  // Provides NumaInfo, policies, platform detection
+#include "NumaAllocator.h" // Provides NumaInfo, policies, platform detection
 
 #include <cstddef>
 #include <limits>
 #include <new>
 #include <type_traits>
 
-namespace fat_p {
-namespace memory {
+namespace fat_p
+{
+namespace memory
+{
 
 // =============================================================================
 // NUMA Allocation Wrappers (with :: qualification to prevent recursion)
 // =============================================================================
 
-namespace detail {
+namespace detail
+{
 
 /**
  * @brief NUMA-aware allocation on specific node
  * @note Uses global :: qualification to call libnuma, preventing recursion
  */
-inline void* numa_alloc_on_node_impl(std::size_t size, int node) noexcept {
-    if (size == 0) return nullptr;
+inline void* numa_alloc_on_node_impl(std::size_t size, int node) noexcept
+{
+    if (size == 0)
+    {
+        return nullptr;
+    }
 
 #if defined(__linux__) && FATP_HAS_NUMA_SUPPORT
     return ::numa_alloc_onnode(size, node);
 #elif defined(_WIN32) && FATP_HAS_NUMA_SUPPORT
-    return ::VirtualAllocExNuma(
-        ::GetCurrentProcess(),
-        nullptr,
-        size,
-        MEM_RESERVE | MEM_COMMIT,
-        PAGE_READWRITE,
-        static_cast<DWORD>(node)
-    );
+    return ::VirtualAllocExNuma(::GetCurrentProcess(),
+                                nullptr,
+                                size,
+                                MEM_RESERVE | MEM_COMMIT,
+                                PAGE_READWRITE,
+                                static_cast<DWORD>(node));
 #else
     (void)size;
     (void)node;
@@ -111,21 +116,23 @@ inline void* numa_alloc_on_node_impl(std::size_t size, int node) noexcept {
  * @brief NUMA-aware interleaved allocation across all nodes
  * @note Uses global :: qualification to call libnuma, preventing recursion
  */
-inline void* numa_alloc_interleaved_impl(std::size_t size) noexcept {
-    if (size == 0) return nullptr;
+inline void* numa_alloc_interleaved_impl(std::size_t size) noexcept
+{
+    if (size == 0)
+    {
+        return nullptr;
+    }
 
 #if defined(__linux__) && FATP_HAS_NUMA_SUPPORT
     return ::numa_alloc_interleaved(size);
 #elif defined(_WIN32) && FATP_HAS_NUMA_SUPPORT
     // Windows: No direct interleaved API, use local node as fallback
-    return ::VirtualAllocExNuma(
-        ::GetCurrentProcess(),
-        nullptr,
-        size,
-        MEM_RESERVE | MEM_COMMIT,
-        PAGE_READWRITE,
-        static_cast<DWORD>(NumaInfo::current_node())
-    );
+    return ::VirtualAllocExNuma(::GetCurrentProcess(),
+                                nullptr,
+                                size,
+                                MEM_RESERVE | MEM_COMMIT,
+                                PAGE_READWRITE,
+                                static_cast<DWORD>(NumaInfo::current_node()));
 #else
     (void)size;
     return nullptr;
@@ -136,8 +143,12 @@ inline void* numa_alloc_interleaved_impl(std::size_t size) noexcept {
  * @brief NUMA-aware deallocation
  * @note Uses global :: qualification to call libnuma, preventing recursion
  */
-inline void numa_free_impl(void* ptr, std::size_t size) noexcept {
-    if (!ptr) return;
+inline void numa_free_impl(void* ptr, std::size_t size) noexcept
+{
+    if (!ptr)
+    {
+        return;
+    }
 
 #if defined(__linux__) && FATP_HAS_NUMA_SUPPORT
     ::numa_free(ptr, size);
@@ -170,9 +181,7 @@ inline void numa_free_impl(void* ptr, std::size_t size) noexcept {
  * 2. If NUMA unavailable: ALL allocations use explicit aligned allocation
  * 3. No mixing of allocation sources (prevents deallocation UB)
  */
-template<typename T,
-         std::size_t Alignment = 64,
-         typename Policy = NumaLocalPolicy>
+template <typename T, std::size_t Alignment = 64, typename Policy = NumaLocalPolicy>
 class NumaAlignedAllocator
 {
 public:
@@ -189,33 +198,34 @@ public:
 
     static constexpr std::size_t alignment = Alignment;
 
-    static_assert((Alignment & (Alignment - 1)) == 0,
-                  "Alignment must be a power of two");
-    static_assert(Alignment >= alignof(T),
-                  "Alignment must be at least alignof(T)");
-    static_assert(Alignment <= 4096,
-                  "Alignment must not exceed page size (4096)");
+    static_assert((Alignment & (Alignment - 1)) == 0, "Alignment must be a power of two");
+    static_assert(Alignment >= alignof(T), "Alignment must be at least alignof(T)");
+    static_assert(Alignment <= 4096, "Alignment must not exceed page size (4096)");
 
     // Constructors
     NumaAlignedAllocator() noexcept
         : mPolicy()
         , numa_available_(NumaInfo::is_available())
-    {}
+    {
+    }
 
     explicit NumaAlignedAllocator(const Policy& policy) noexcept
         : mPolicy(policy)
         , numa_available_(NumaInfo::is_available())
-    {}
+    {
+    }
 
-    template<typename U>
+    template <typename U>
     NumaAlignedAllocator(const NumaAlignedAllocator<U, Alignment, Policy>& other) noexcept
         : mPolicy(other.policy())
         , numa_available_(other.numa_available())
-    {}
+    {
+    }
 
     // Rebind for STL containers
-    template<typename U>
-    struct rebind {
+    template <typename U>
+    struct rebind
+    {
         using other = NumaAlignedAllocator<U, Alignment, Policy>;
     };
 
@@ -231,24 +241,35 @@ public:
      *       If NUMA is available but allocation fails, throws rather than falling
      *       back to aligned allocation (prevents deallocation mismatch).
      */
-    [[nodiscard]] pointer allocate(size_type n) {
-        if (n == 0) return nullptr;
+    [[nodiscard]] pointer allocate(size_type n)
+    {
+        if (n == 0)
+        {
+            return nullptr;
+        }
 
-        if (n > max_size()) {
+        if (n > max_size())
+        {
             throw std::bad_alloc();
         }
 
         const size_type bytes = n * sizeof(T);
         void* ptr = nullptr;
 
-        if (numa_available_) {
+        if (numa_available_)
+        {
             // NUMA path: page-aligned (>= 4KB), satisfies Alignment <= 4096
             // Policy handling matches NumaAllocator.h pattern
-            if constexpr (std::is_same_v<Policy, NumaInterleavedPolicy>) {
+            if constexpr (std::is_same_v<Policy, NumaInterleavedPolicy>)
+            {
                 ptr = detail::numa_alloc_interleaved_impl(bytes);
-            } else if constexpr (std::is_same_v<Policy, NumaPreferredPolicy>) {
+            }
+            else if constexpr (std::is_same_v<Policy, NumaPreferredPolicy>)
+            {
                 ptr = detail::numa_alloc_on_node_impl(bytes, mPolicy.node);
-            } else {
+            }
+            else
+            {
                 // NumaLocalPolicy: allocate on current thread's node
                 ptr = detail::numa_alloc_on_node_impl(bytes, NumaInfo::current_node());
             }
@@ -256,7 +277,8 @@ public:
             // CRITICAL: Do NOT fall back to aligned allocation if NUMA fails.
             // Falling back would cause deallocate() to call numa_free() on a
             // pointer from aligned_alloc, which is undefined behavior.
-            if (!ptr) {
+            if (!ptr)
+            {
                 throw std::bad_alloc();
             }
             return static_cast<pointer>(ptr);
@@ -265,7 +287,8 @@ public:
         // Non-NUMA path: explicit aligned allocation
         // Uses aligned_alloc_portable from NumaAllocator.h
         ptr = detail::aligned_alloc_portable(Alignment, bytes);
-        if (!ptr) {
+        if (!ptr)
+        {
             throw std::bad_alloc();
         }
         return static_cast<pointer>(ptr);
@@ -281,14 +304,21 @@ public:
      *       constant for the allocator's lifetime. Since allocate() throws
      *       rather than falling back, this is always correct.
      */
-    void deallocate(pointer ptr, size_type n) noexcept {
-        if (!ptr) return;
+    void deallocate(pointer ptr, size_type n) noexcept
+    {
+        if (!ptr)
+        {
+            return;
+        }
 
         const size_type bytes = n * sizeof(T);
 
-        if (numa_available_) {
+        if (numa_available_)
+        {
             detail::numa_free_impl(ptr, bytes);
-        } else {
+        }
+        else
+        {
             detail::aligned_free_portable(ptr);
         }
     }
@@ -296,13 +326,20 @@ public:
     /**
      * @brief Maximum number of elements that can be allocated
      */
-    [[nodiscard]] size_type max_size() const noexcept {
+    [[nodiscard]] size_type max_size() const noexcept
+    {
         return std::numeric_limits<size_type>::max() / sizeof(T);
     }
 
     // Accessors
-    [[nodiscard]] const Policy& policy() const noexcept { return mPolicy; }
-    [[nodiscard]] bool numa_available() const noexcept { return numa_available_; }
+    [[nodiscard]] const Policy& policy() const noexcept
+    {
+        return mPolicy;
+    }
+    [[nodiscard]] bool numa_available() const noexcept
+    {
+        return numa_available_;
+    }
 
 private:
     Policy mPolicy;
@@ -312,31 +349,36 @@ private:
 // Equality operators
 // Note: Empty policies (NumaLocalPolicy, NumaInterleavedPolicy) are always equal
 // NumaPreferredPolicy compares by node number
-template<typename T1, std::size_t A1, typename P1,
-         typename T2, std::size_t A2, typename P2>
-bool operator==(const NumaAlignedAllocator<T1, A1, P1>& lhs,
-                const NumaAlignedAllocator<T2, A2, P2>& rhs) noexcept {
-    if constexpr (A1 != A2 || !std::is_same_v<P1, P2>) {
+template <typename T1, std::size_t A1, typename P1, typename T2, std::size_t A2, typename P2>
+bool operator==(const NumaAlignedAllocator<T1, A1, P1>& lhs, const NumaAlignedAllocator<T2, A2, P2>& rhs) noexcept
+{
+    if constexpr (A1 != A2 || !std::is_same_v<P1, P2>)
+    {
         return false;
-    } else {
+    }
+    else
+    {
         // Must have same NUMA availability state to safely deallocate
-        if (lhs.numa_available() != rhs.numa_available()) {
+        if (lhs.numa_available() != rhs.numa_available())
+        {
             return false;
         }
         // Policy comparison: empty policies are always equal
-        if constexpr (std::is_same_v<P1, NumaPreferredPolicy>) {
+        if constexpr (std::is_same_v<P1, NumaPreferredPolicy>)
+        {
             return lhs.policy().node == rhs.policy().node;
-        } else {
+        }
+        else
+        {
             // NumaLocalPolicy and NumaInterleavedPolicy are empty - always equal
             return true;
         }
     }
 }
 
-template<typename T1, std::size_t A1, typename P1,
-         typename T2, std::size_t A2, typename P2>
-bool operator!=(const NumaAlignedAllocator<T1, A1, P1>& lhs,
-                const NumaAlignedAllocator<T2, A2, P2>& rhs) noexcept {
+template <typename T1, std::size_t A1, typename P1, typename T2, std::size_t A2, typename P2>
+bool operator!=(const NumaAlignedAllocator<T1, A1, P1>& lhs, const NumaAlignedAllocator<T2, A2, P2>& rhs) noexcept
+{
     return !(lhs == rhs);
 }
 
@@ -345,15 +387,15 @@ bool operator!=(const NumaAlignedAllocator<T1, A1, P1>& lhs,
 // =============================================================================
 
 /// Allocator for local NUMA node with alignment (default 64 bytes)
-template<typename T, std::size_t Alignment = 64>
+template <typename T, std::size_t Alignment = 64>
 using NumaLocalAllocator = NumaAlignedAllocator<T, Alignment, NumaLocalPolicy>;
 
 /// Allocator for specific NUMA node with alignment (default 64 bytes)
-template<typename T, std::size_t Alignment = 64>
+template <typename T, std::size_t Alignment = 64>
 using NumaPreferredAllocator = NumaAlignedAllocator<T, Alignment, NumaPreferredPolicy>;
 
 /// Allocator with interleaved NUMA allocation and alignment (default 64 bytes)
-template<typename T, std::size_t Alignment = 64>
+template <typename T, std::size_t Alignment = 64>
 using NumaInterleavedAllocator = NumaAlignedAllocator<T, Alignment, NumaInterleavedPolicy>;
 
 } // namespace memory

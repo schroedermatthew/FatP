@@ -1,7 +1,7 @@
 /**
  * @file CheckedArithmetic_IntSimd.h
  * @brief Unified integer SIMD dispatch for checked arithmetic operations
- * 
+ *
  *
  * @layer Foundation
  *
@@ -74,19 +74,21 @@ FATP_META:
 #include "CheckedArithmetic_IntSimd_Common.h"
 
 #if defined(FATP_INT_SIMD_AVX2)
-    #include "CheckedArithmetic_IntSimd_AVX2.h"
+#include "CheckedArithmetic_IntSimd_AVX2.h"
 #endif
 
 #if defined(FATP_INT_SIMD_SSE2)
-    #include "CheckedArithmetic_IntSimd_SSE2.h"
+#include "CheckedArithmetic_IntSimd_SSE2.h"
 #endif
 
 #if defined(FATP_INT_SIMD_NEON)
-    #include "CheckedArithmetic_IntSimd_NEON.h"
+#include "CheckedArithmetic_IntSimd_NEON.h"
 #endif
 
-namespace fat_p {
-namespace int_simd {
+namespace fat_p
+{
+namespace int_simd
+{
 
 // =============================================================================
 // Unified Dispatch: checked_add_vec_simd
@@ -112,13 +114,8 @@ namespace int_simd {
  *       [](int32_t x, int32_t y) { return checked_add<ReturnExpectedPolicy>(x, y); }
  *   );
  */
-template<typename T, typename Policy, typename ScalarAddFn>
-bool checked_add_vec_simd(
-    const T* a,
-    const T* b,
-    T* result,
-    size_t n,
-    ScalarAddFn checked_add_scalar)
+template <typename T, typename Policy, typename ScalarAddFn>
+bool checked_add_vec_simd(const T* a, const T* b, T* result, size_t n, ScalarAddFn checked_add_scalar)
 {
     size_t i = 0;
 
@@ -163,7 +160,7 @@ bool checked_add_vec_simd(
     // Check for error signal from SIMD path
     if (i == static_cast<size_t>(-1))
     {
-        return false;  // Error occurred
+        return false; // Error occurred
     }
 
     // Tail processing (scalar)
@@ -191,13 +188,8 @@ bool checked_add_vec_simd(
 // Unified Dispatch: checked_sub_vec_simd
 // =============================================================================
 
-template<typename T, typename Policy, typename ScalarSubFn>
-bool checked_sub_vec_simd(
-    const T* a,
-    const T* b,
-    T* result,
-    size_t n,
-    ScalarSubFn checked_sub_scalar)
+template <typename T, typename Policy, typename ScalarSubFn>
+bool checked_sub_vec_simd(const T* a, const T* b, T* result, size_t n, ScalarSubFn checked_sub_scalar)
 {
     size_t i = 0;
 
@@ -271,13 +263,8 @@ bool checked_sub_vec_simd(
  * @tparam ScalarMulFn Scalar checked_mul function type
  * @return true on success, false if error detected (for ReturnExpectedPolicy)
  */
-template<typename T, typename Policy, typename ScalarMulFn>
-bool checked_mul_vec_simd(
-    const T* a,
-    const T* b,
-    T* result,
-    size_t n,
-    ScalarMulFn checked_mul_scalar)
+template <typename T, typename Policy, typename ScalarMulFn>
+bool checked_mul_vec_simd(const T* a, const T* b, T* result, size_t n, ScalarMulFn checked_mul_scalar)
 {
     size_t i = 0;
 
@@ -308,7 +295,7 @@ bool checked_mul_vec_simd(
     // Check for error signal from SIMD path
     if (i == static_cast<size_t>(-1))
     {
-        return false;  // Error occurred
+        return false; // Error occurred
     }
 
     // Tail processing (scalar)
@@ -378,7 +365,7 @@ struct IntSimdInfo
     static constexpr bool has_saturating_hardware()
     {
 #if defined(FATP_INT_SIMD_NEON)
-        return true;  // NEON has vqadd/vqsub
+        return true; // NEON has vqadd/vqsub
 #else
         return false;
 #endif

@@ -2,7 +2,7 @@
  * @file StringPool.h
  * @brief High-performance string interning pool with policy-based thread safety
  *
- * 
+ *
  *
  * @layer Domain
  *
@@ -114,11 +114,11 @@ namespace fat_p
  */
 struct StringPoolStats
 {
-    size_t unique_strings = 0;   ///< Number of unique strings stored
-    size_t total_interns = 0;    ///< Total intern() calls made
-    size_t content_bytes = 0;    ///< Logical bytes of string content (not heap allocation)
-    size_t memory_saved = 0;     ///< Bytes saved by deduplication
-    double hit_rate = 0.0;       ///< Cache hit rate (0.0 to 1.0)
+    size_t unique_strings = 0; ///< Number of unique strings stored
+    size_t total_interns = 0;  ///< Total intern() calls made
+    size_t content_bytes = 0;  ///< Logical bytes of string content (not heap allocation)
+    size_t memory_saved = 0;   ///< Bytes saved by deduplication
+    double hit_rate = 0.0;     ///< Cache hit rate (0.0 to 1.0)
 };
 
 namespace detail
@@ -171,8 +171,7 @@ using StringSet = std::unordered_set<std::string>;
 #endif
 
 template <typename SyncPolicy, typename T>
-using StatType =
-    std::conditional_t<std::is_same_v<SyncPolicy, SingleThreadedPolicy>, T, std::atomic<T>>;
+using StatType = std::conditional_t<std::is_same_v<SyncPolicy, SingleThreadedPolicy>, T, std::atomic<T>>;
 
 template <typename T>
 inline void increment_stat(T& stat, size_t delta = 1)
@@ -517,9 +516,15 @@ private:
 class StringHandle
 {
 public:
-    constexpr StringHandle() noexcept : m_ptr(nullptr) {}
+    constexpr StringHandle() noexcept
+        : m_ptr(nullptr)
+    {
+    }
 
-    constexpr StringHandle(const char* ptr) noexcept : m_ptr(ptr) {}
+    constexpr StringHandle(const char* ptr) noexcept
+        : m_ptr(ptr)
+    {
+    }
 
     const char* get() const noexcept
     {

@@ -393,15 +393,13 @@ FATP_TEST_CASE(async_sink_high_load)
         std::vector<std::thread> threads;
         for (int t = 0; t < 5; ++t)
         {
-            threads.emplace_back(
-                [&asyncSink, &counter, loc]()
+            threads.emplace_back([&asyncSink, &counter, loc]() {
+                for (int i = 0; i < 100; ++i)
                 {
-                    for (int i = 0; i < 100; ++i)
-                    {
-                        LogRecord record(LogLevel::Info, "Thread message " + std::to_string(counter.fetch_add(1)), loc);
-                        asyncSink->write(record);
-                    }
-                });
+                    LogRecord record(LogLevel::Info, "Thread message " + std::to_string(counter.fetch_add(1)), loc);
+                    asyncSink->write(record);
+                }
+            });
         }
 
         for (auto& t : threads)
@@ -492,11 +490,9 @@ FATP_TEST_CASE(filtering_sink)
 
     {
         auto fileSink = makeFileSink(filename);
-        auto filterSink = std::make_shared<FilteringSink>(fileSink,
-                                                          [](const LogRecord& rec)
-                                                          {
-                                                              return rec.level >= LogLevel::Warning;
-                                                          });
+        auto filterSink = std::make_shared<FilteringSink>(fileSink, [](const LogRecord& rec) {
+            return rec.level >= LogLevel::Warning;
+        });
 
         auto loc = FATP_SOURCE_LOCATION();
 
@@ -540,11 +536,9 @@ FATP_TEST_CASE(filtering_sink_custom_filter)
 
     {
         auto fileSink = makeFileSink(filename);
-        auto filterSink = std::make_shared<FilteringSink>(fileSink,
-                                                          [](const LogRecord& rec)
-                                                          {
-                                                              return rec.message.find("important") != std::string::npos;
-                                                          });
+        auto filterSink = std::make_shared<FilteringSink>(fileSink, [](const LogRecord& rec) {
+            return rec.message.find("important") != std::string::npos;
+        });
 
         auto loc = FATP_SOURCE_LOCATION();
 
@@ -672,11 +666,9 @@ FATP_TEST_CASE(async_with_filtering)
 
     {
         auto fileSink = makeFileSink(filename);
-        auto filterSink = std::make_shared<FilteringSink>(fileSink,
-                                                          [](const LogRecord& rec)
-                                                          {
-                                                              return rec.level >= LogLevel::Error;
-                                                          });
+        auto filterSink = std::make_shared<FilteringSink>(fileSink, [](const LogRecord& rec) {
+            return rec.level >= LogLevel::Error;
+        });
         auto asyncSink = std::make_shared<AsyncSink>(filterSink);
 
         auto loc = FATP_SOURCE_LOCATION();
@@ -715,8 +707,7 @@ void benchmark_io_sinks()
         auto loc = FATP_SOURCE_LOCATION();
 
         double file_time = measure_perf(
-            [&fileSink, loc]()
-            {
+            [&fileSink, loc]() {
                 LogRecord record(LogLevel::Info, "Benchmark message", loc);
                 fileSink->write(record);
             },
@@ -726,8 +717,7 @@ void benchmark_io_sinks()
 
         RingBufferSink rbSink;
         double ring_time = measure_perf(
-            [&rbSink, loc]()
-            {
+            [&rbSink, loc]() {
                 LogRecord record(LogLevel::Info, "Ring buffer benchmark", loc);
                 rbSink.write(record);
             },
@@ -737,8 +727,7 @@ void benchmark_io_sinks()
 
         auto asyncSink = std::make_shared<AsyncSink>(fileSink);
         double async_time = measure_perf(
-            [&asyncSink, loc]()
-            {
+            [&asyncSink, loc]() {
                 LogRecord record(LogLevel::Info, "Async benchmark", loc);
                 asyncSink->write(record);
             },

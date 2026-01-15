@@ -3811,8 +3811,7 @@ void benchmark_jsonlite()
 
     Point p{42, 84};
     double serialize_time = measure_perf(
-        [&p]()
-        {
+        [&p]() {
             std::string json = to_json_string(p);
             DoNotOptimize(json);
         },
@@ -3822,8 +3821,7 @@ void benchmark_jsonlite()
 
     std::string json_str = R"({"x": 42, "y": 84})";
     double parse_time = measure_perf(
-        [&json_str]()
-        {
+        [&json_str]() {
             JsonValue j = parse_json(json_str);
             DoNotOptimize(j);
         },
@@ -3832,8 +3830,7 @@ void benchmark_jsonlite()
     std::cout << "Parse simple object: " << format_time(parse_time) << "\n";
 
     double roundtrip_time = measure_perf(
-        [&p]()
-        {
+        [&p]() {
             std::string json = to_json_string(p);
             Point p2 = from_json_string<Point>(json);
             DoNotOptimize(p2);
@@ -3848,8 +3845,7 @@ void benchmark_jsonlite()
         large_vec[i] = static_cast<int>(i);
     }
     double large_array_time = measure_perf(
-        [&large_vec]()
-        {
+        [&large_vec]() {
             std::string json = to_json_string(large_vec);
             DoNotOptimize(json);
         },
@@ -3867,8 +3863,7 @@ void benchmark_jsonlite()
     emp.certifications["GCP"] = 2022;
 
     double complex_struct_time = measure_perf(
-        [&emp]()
-        {
+        [&emp]() {
             std::string json = to_json_string(emp);
             Employee emp2 = from_json_string<Employee>(json);
             DoNotOptimize(emp2);
@@ -4349,8 +4344,7 @@ FATP_TEST_CASE(encode_decode_benchmark_vector_int)
     }
 
     const double enc_vec_ms = bench_time_ms(
-        [&]()
-        {
+        [&]() {
             std::string json = encode_value(vec);
             (void)json;
         },
@@ -4359,8 +4353,7 @@ FATP_TEST_CASE(encode_decode_benchmark_vector_int)
     std::string vec_json = encode_value(vec);
 
     const double dec_vec_ms = bench_time_ms(
-        [&]()
-        {
+        [&]() {
             auto result = decode_value<std::vector<int>>(vec_json);
             (void)result;
         },
@@ -4381,8 +4374,7 @@ FATP_TEST_CASE(encode_decode_benchmark_map_string_int)
     }
 
     const double enc_map_ms = bench_time_ms(
-        [&]()
-        {
+        [&]() {
             std::string json = encode_value(m);
             (void)json;
         },
@@ -4391,8 +4383,7 @@ FATP_TEST_CASE(encode_decode_benchmark_map_string_int)
     std::string map_json = encode_value(m);
 
     const double dec_map_ms = bench_time_ms(
-        [&]()
-        {
+        [&]() {
             auto result = decode_value<std::map<std::string, int>>(map_json);
             (void)result;
         },
@@ -4419,8 +4410,7 @@ FATP_TEST_CASE(encode_decode_benchmark_nested)
     }
 
     const double enc_nested_ms = bench_time_ms(
-        [&]()
-        {
+        [&]() {
             std::string json = encode_value(nested);
             (void)json;
         },
@@ -4429,8 +4419,7 @@ FATP_TEST_CASE(encode_decode_benchmark_nested)
     std::string nested_json = encode_value(nested);
 
     const double dec_nested_ms = bench_time_ms(
-        [&]()
-        {
+        [&]() {
             auto result = decode_value<std::vector<std::map<std::string, int>>>(nested_json);
             (void)result;
         },

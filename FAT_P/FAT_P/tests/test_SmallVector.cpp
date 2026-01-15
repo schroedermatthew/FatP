@@ -1804,20 +1804,20 @@ FATP_TEST_CASE(spaceship_operator)
     SmallVector<int, 4> v4 = {1, 2};
 
     // Test strong ordering results
-    FATP_ASSERT_TRUE((v1 <=> v2) == std::strong_ordering::equal, "Equal vectors compare equal");
-    FATP_ASSERT_TRUE((v1 <=> v3) == std::strong_ordering::less, "Lexicographically less");
-    FATP_ASSERT_TRUE((v3 <=> v1) == std::strong_ordering::greater, "Lexicographically greater");
-    FATP_ASSERT_TRUE((v4 <=> v1) == std::strong_ordering::less, "Shorter vector is less");
-    FATP_ASSERT_TRUE((v1 <=> v4) == std::strong_ordering::greater, "Longer vector is greater");
+    FATP_ASSERT_TRUE((v1 <= > v2) == std::strong_ordering::equal, "Equal vectors compare equal");
+    FATP_ASSERT_TRUE((v1 <= > v3) == std::strong_ordering::less, "Lexicographically less");
+    FATP_ASSERT_TRUE((v3 <= > v1) == std::strong_ordering::greater, "Lexicographically greater");
+    FATP_ASSERT_TRUE((v4 <= > v1) == std::strong_ordering::less, "Shorter vector is less");
+    FATP_ASSERT_TRUE((v1 <= > v4) == std::strong_ordering::greater, "Longer vector is greater");
 
     // Cross-capacity comparison
     SmallVector<int, 8> v5 = {1, 2, 3};
-    FATP_ASSERT_TRUE((v1 <=> v5) == std::strong_ordering::equal, "Cross-capacity equal");
+    FATP_ASSERT_TRUE((v1 <= > v5) == std::strong_ordering::equal, "Cross-capacity equal");
 
     // Empty vectors
     SmallVector<int, 4> empty1, empty2;
-    FATP_ASSERT_TRUE((empty1 <=> empty2) == std::strong_ordering::equal, "Empty vectors equal");
-    FATP_ASSERT_TRUE((empty1 <=> v1) == std::strong_ordering::less, "Empty less than non-empty");
+    FATP_ASSERT_TRUE((empty1 <= > empty2) == std::strong_ordering::equal, "Empty vectors equal");
+    FATP_ASSERT_TRUE((empty1 <= > v1) == std::strong_ordering::less, "Empty less than non-empty");
 
     return true;
 }
@@ -1837,8 +1837,7 @@ void benchmark_small_vector()
     print_benchmark_context(std::cout);
     benchmark(
         "SmallVector<int,8> push 4",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 8> v;
             for (int i = 0; i < 4; ++i)
             {
@@ -1851,8 +1850,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector<int> push 4",
-        [&]()
-        {
+        [&]() {
             std::vector<int> v;
             for (int i = 0; i < 4; ++i)
             {
@@ -1867,8 +1865,7 @@ void benchmark_small_vector()
     print_benchmark_context(std::cout);
     benchmark(
         "SmallVector<int,8> push 100",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 8> v;
             for (int i = 0; i < 100; ++i)
             {
@@ -1881,8 +1878,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector<int> push 100",
-        [&]()
-        {
+        [&]() {
             std::vector<int> v;
             for (int i = 0; i < 100; ++i)
             {
@@ -1903,8 +1899,7 @@ void benchmark_small_vector()
 
     benchmark(
         "SmallVector copy (inline)",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 8> v = src_small;
             DoNotOptimize(v.data());
         },
@@ -1918,8 +1913,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector copy (4 elem)",
-        [&]()
-        {
+        [&]() {
             std::vector<int> v = src_vec;
             DoNotOptimize(v.data());
         },
@@ -1935,8 +1929,7 @@ void benchmark_small_vector()
 
     benchmark(
         "SmallVector copy (heap)",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 8> v = src_large;
             DoNotOptimize(v.data());
         },
@@ -1950,8 +1943,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector copy (100 elem)",
-        [&]()
-        {
+        [&]() {
             std::vector<int> v = src_vec_large;
             DoNotOptimize(v.data());
         },
@@ -1964,8 +1956,7 @@ void benchmark_small_vector()
 
     benchmark(
         "SmallVector iterate (inline)",
-        [&]()
-        {
+        [&]() {
             int sum = 0;
             for (int x : src_small)
             {
@@ -1978,8 +1969,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector iterate (4 elem)",
-        [&]()
-        {
+        [&]() {
             int sum = 0;
             for (int x : src_vec)
             {
@@ -1994,8 +1984,7 @@ void benchmark_small_vector()
     print_benchmark_context(std::cout);
     benchmark(
         "SmallVector insert middle",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 8> v = {1, 2, 3, 4};
             v.insert(v.begin() + 2, 99);
             DoNotOptimize(v.data());
@@ -2004,8 +1993,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector insert middle",
-        [&]()
-        {
+        [&]() {
             std::vector<int> v = {1, 2, 3, 4};
             v.insert(v.begin() + 2, 99);
             DoNotOptimize(v.data());
@@ -2016,8 +2004,7 @@ void benchmark_small_vector()
     print_benchmark_context(std::cout);
     benchmark(
         "SmallVector emplace_back",
-        [&]()
-        {
+        [&]() {
             SmallVector<std::string, 8> v;
             for (int i = 0; i < 4; ++i)
             {
@@ -2029,8 +2016,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector emplace_back",
-        [&]()
-        {
+        [&]() {
             std::vector<std::string> v;
             for (int i = 0; i < 4; ++i)
             {
@@ -2044,8 +2030,7 @@ void benchmark_small_vector()
     print_benchmark_context(std::cout);
     benchmark(
         "SmallVector reserve",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 8> v;
             v.reserve(50);
             DoNotOptimize(v.data());
@@ -2054,8 +2039,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector reserve",
-        [&]()
-        {
+        [&]() {
             std::vector<int> v;
             v.reserve(50);
             DoNotOptimize(v.data());
@@ -2070,8 +2054,7 @@ void benchmark_small_vector()
     print_benchmark_context(std::cout);
     benchmark(
         "SmallVector move construct (heap)",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 4> v1;
             for (int i = 0; i < 100; ++i)
             {
@@ -2084,8 +2067,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector move construct",
-        [&]()
-        {
+        [&]() {
             std::vector<int> v1;
             for (int i = 0; i < 100; ++i)
             {
@@ -2100,8 +2082,7 @@ void benchmark_small_vector()
     print_benchmark_context(std::cout);
     benchmark(
         "SmallVector move construct (inline)",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 8> v1 = {1, 2, 3, 4};
             SmallVector<int, 8> v2(std::move(v1));
             DoNotOptimize(v2.data());
@@ -2110,8 +2091,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector move construct (4 elem)",
-        [&]()
-        {
+        [&]() {
             std::vector<int> v1 = {1, 2, 3, 4};
             std::vector<int> v2(std::move(v1));
             DoNotOptimize(v2.data());
@@ -2122,8 +2102,7 @@ void benchmark_small_vector()
     print_benchmark_context(std::cout);
     benchmark(
         "SmallVector move assign (heap)",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 4> v1;
             for (int i = 0; i < 100; ++i)
             {
@@ -2137,8 +2116,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector move assign",
-        [&]()
-        {
+        [&]() {
             std::vector<int> v1;
             for (int i = 0; i < 100; ++i)
             {
@@ -2154,8 +2132,7 @@ void benchmark_small_vector()
     print_benchmark_context(std::cout);
     benchmark(
         "SmallVector shrink_to_fit",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 8> v;
             for (int i = 0; i < 20; ++i)
             {
@@ -2169,8 +2146,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector shrink_to_fit",
-        [&]()
-        {
+        [&]() {
             std::vector<int> v;
             for (int i = 0; i < 20; ++i)
             {
@@ -2186,8 +2162,7 @@ void benchmark_small_vector()
     print_benchmark_context(std::cout);
     benchmark(
         "SmallVector<int,4> push 4",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 4> v;
             for (int i = 0; i < 4; ++i)
             {
@@ -2200,8 +2175,7 @@ void benchmark_small_vector()
 
     benchmark(
         "SmallVector<int,8> push 4",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 8> v;
             for (int i = 0; i < 4; ++i)
             {
@@ -2214,8 +2188,7 @@ void benchmark_small_vector()
 
     benchmark(
         "SmallVector<int,16> push 4",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 16> v;
             for (int i = 0; i < 4; ++i)
             {
@@ -2228,8 +2201,7 @@ void benchmark_small_vector()
 
     benchmark(
         "SmallVector<int,32> push 4",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 32> v;
             for (int i = 0; i < 4; ++i)
             {
@@ -2244,8 +2216,7 @@ void benchmark_small_vector()
     print_benchmark_context(std::cout);
     benchmark(
         "SmallVector<string,4> push 4",
-        [&]()
-        {
+        [&]() {
             SmallVector<std::string, 4> v;
             v.push_back("one");
             v.push_back("two");
@@ -2257,8 +2228,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector<string> push 4",
-        [&]()
-        {
+        [&]() {
             std::vector<std::string> v;
             v.push_back("one");
             v.push_back("two");
@@ -2282,8 +2252,7 @@ void benchmark_small_vector()
 
     benchmark(
         "SmallVector sequential read",
-        [&]()
-        {
+        [&]() {
             int sum = 0;
             for (size_t i = 0; i < sv_access.size(); ++i)
             {
@@ -2296,8 +2265,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector sequential read",
-        [&]()
-        {
+        [&]() {
             int sum = 0;
             for (size_t i = 0; i < vec_access.size(); ++i)
             {
@@ -2320,8 +2288,7 @@ void benchmark_small_vector()
 
     benchmark(
         "SmallVector random read",
-        [&]()
-        {
+        [&]() {
             int sum = 0;
             for (size_t idx : indices)
             {
@@ -2334,8 +2301,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector random read",
-        [&]()
-        {
+        [&]() {
             int sum = 0;
             for (size_t idx : indices)
             {
@@ -2350,8 +2316,7 @@ void benchmark_small_vector()
     print_benchmark_context(std::cout);
     benchmark(
         "SmallVector data()[] sequential",
-        [&]()
-        {
+        [&]() {
             int sum = 0;
             int* p = sv_access.data();
             size_t sz = sv_access.size();
@@ -2366,8 +2331,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector data()[] sequential",
-        [&]()
-        {
+        [&]() {
             int sum = 0;
             int* p = vec_access.data();
             size_t sz = vec_access.size();
@@ -2390,8 +2354,7 @@ void benchmark_small_vector()
     print_benchmark_context(std::cout);
     benchmark(
         "SmallVector swap (inline-inline)",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 8> v1 = {1, 2, 3, 4};
             SmallVector<int, 8> v2 = {5, 6, 7, 8};
             v1.swap(v2);
@@ -2402,8 +2365,7 @@ void benchmark_small_vector()
 
     benchmark(
         "std::vector swap",
-        [&]()
-        {
+        [&]() {
             std::vector<int> v1 = {1, 2, 3, 4};
             std::vector<int> v2 = {5, 6, 7, 8};
             v1.swap(v2);
@@ -2414,8 +2376,7 @@ void benchmark_small_vector()
 
     benchmark(
         "SmallVector swap (heap-heap)",
-        [&]()
-        {
+        [&]() {
             SmallVector<int, 2> v1 = {1, 2, 3, 4, 5};
             SmallVector<int, 2> v2 = {6, 7, 8, 9, 10};
             v1.swap(v2);

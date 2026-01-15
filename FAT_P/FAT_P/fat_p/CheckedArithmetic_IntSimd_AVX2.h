@@ -1,7 +1,7 @@
 /**
  * @file CheckedArithmetic_IntSimd_AVX2.h
  * @brief AVX2 (256-bit) integer SIMD acceleration for checked arithmetic
- * 
+ *
  *
  * @layer Foundation
  *
@@ -45,8 +45,10 @@ FATP_META:
 
 #if defined(FATP_INT_SIMD_AVX2)
 
-namespace fat_p {
-namespace int_simd {
+namespace fat_p
+{
+namespace int_simd
+{
 
 // =============================================================================
 // AVX2 Signed Overflow Detection
@@ -136,14 +138,13 @@ inline __m256i avx2_sub_overflow_mask_u64(__m256i a, __m256i b, __m256i /*r*/) n
 // AVX2 Vector Add (int32_t - 8-wide)
 // =============================================================================
 
-template<typename Policy, typename ScalarAddFn>
-size_t avx2_checked_add_i32(
-    const int32_t* a,
-    const int32_t* b,
-    int32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarAddFn checked_add_scalar)
+template <typename Policy, typename ScalarAddFn>
+size_t avx2_checked_add_i32(const int32_t* a,
+                            const int32_t* b,
+                            int32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarAddFn checked_add_scalar)
 {
     constexpr size_t LANES = 8;
     size_t i = start_idx;
@@ -185,14 +186,13 @@ size_t avx2_checked_add_i32(
     return i;
 }
 
-template<typename Policy, typename ScalarAddFn>
-size_t avx2_checked_add_u32(
-    const uint32_t* a,
-    const uint32_t* b,
-    uint32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarAddFn checked_add_scalar)
+template <typename Policy, typename ScalarAddFn>
+size_t avx2_checked_add_u32(const uint32_t* a,
+                            const uint32_t* b,
+                            uint32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarAddFn checked_add_scalar)
 {
     constexpr size_t LANES = 8;
     size_t i = start_idx;
@@ -237,14 +237,13 @@ size_t avx2_checked_add_u32(
 // AVX2 Vector Add (int64_t - 4-wide)
 // =============================================================================
 
-template<typename Policy, typename ScalarAddFn>
-size_t avx2_checked_add_i64(
-    const int64_t* a,
-    const int64_t* b,
-    int64_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarAddFn checked_add_scalar)
+template <typename Policy, typename ScalarAddFn>
+size_t avx2_checked_add_i64(const int64_t* a,
+                            const int64_t* b,
+                            int64_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarAddFn checked_add_scalar)
 {
     constexpr size_t LANES = 4;
     size_t i = start_idx;
@@ -289,14 +288,13 @@ size_t avx2_checked_add_i64(
 // AVX2 Vector Add (uint64_t - 4-wide)
 // =============================================================================
 
-template<typename Policy, typename ScalarAddFn>
-size_t avx2_checked_add_u64(
-    const uint64_t* a,
-    const uint64_t* b,
-    uint64_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarAddFn checked_add_scalar)
+template <typename Policy, typename ScalarAddFn>
+size_t avx2_checked_add_u64(const uint64_t* a,
+                            const uint64_t* b,
+                            uint64_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarAddFn checked_add_scalar)
 {
     constexpr size_t LANES = 4;
     size_t i = start_idx;
@@ -341,14 +339,13 @@ size_t avx2_checked_add_u64(
 // AVX2 Vector Sub (int32_t - 8-wide)
 // =============================================================================
 
-template<typename Policy, typename ScalarSubFn>
-size_t avx2_checked_sub_i32(
-    const int32_t* a,
-    const int32_t* b,
-    int32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarSubFn checked_sub_scalar)
+template <typename Policy, typename ScalarSubFn>
+size_t avx2_checked_sub_i32(const int32_t* a,
+                            const int32_t* b,
+                            int32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarSubFn checked_sub_scalar)
 {
     constexpr size_t LANES = 8;
     size_t i = start_idx;
@@ -389,14 +386,13 @@ size_t avx2_checked_sub_i32(
     return i;
 }
 
-template<typename Policy, typename ScalarSubFn>
-size_t avx2_checked_sub_u32(
-    const uint32_t* a,
-    const uint32_t* b,
-    uint32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarSubFn checked_sub_scalar)
+template <typename Policy, typename ScalarSubFn>
+size_t avx2_checked_sub_u32(const uint32_t* a,
+                            const uint32_t* b,
+                            uint32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarSubFn checked_sub_scalar)
 {
     constexpr size_t LANES = 8;
     size_t i = start_idx;
@@ -523,14 +519,13 @@ inline __m256i avx2_narrow_and_interleave(__m256i wide_even, __m256i wide_odd) n
     return _mm256_castps_si256(result_f);
 }
 
-template<typename Policy, typename ScalarMulFn>
-size_t avx2_checked_mul_i32(
-    const int32_t* a,
-    const int32_t* b,
-    int32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarMulFn checked_mul_scalar)
+template <typename Policy, typename ScalarMulFn>
+size_t avx2_checked_mul_i32(const int32_t* a,
+                            const int32_t* b,
+                            int32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarMulFn checked_mul_scalar)
 {
     constexpr size_t LANES = 8;
     size_t i = start_idx;
@@ -542,12 +537,12 @@ size_t avx2_checked_mul_i32(
 
         // Wide multiply: int32 * int32 -> int64
         // _mm256_mul_epi32 multiplies low 32-bits of each 64-bit lane
-        __m256i wide_even = _mm256_mul_epi32(va, vb);  // lanes 0, 2, 4, 6
+        __m256i wide_even = _mm256_mul_epi32(va, vb); // lanes 0, 2, 4, 6
 
         // Shift to get odd lanes into position, then multiply
         __m256i va_odd = _mm256_srli_epi64(va, 32);
         __m256i vb_odd = _mm256_srli_epi64(vb, 32);
-        __m256i wide_odd = _mm256_mul_epi32(va_odd, vb_odd);  // lanes 1, 3, 5, 7
+        __m256i wide_odd = _mm256_mul_epi32(va_odd, vb_odd); // lanes 1, 3, 5, 7
 
         if (avx2_mul_overflow_i32(wide_even, wide_odd))
         {
@@ -580,14 +575,13 @@ size_t avx2_checked_mul_i32(
     return i;
 }
 
-template<typename Policy, typename ScalarMulFn>
-size_t avx2_checked_mul_u32(
-    const uint32_t* a,
-    const uint32_t* b,
-    uint32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarMulFn checked_mul_scalar)
+template <typename Policy, typename ScalarMulFn>
+size_t avx2_checked_mul_u32(const uint32_t* a,
+                            const uint32_t* b,
+                            uint32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarMulFn checked_mul_scalar)
 {
     constexpr size_t LANES = 8;
     size_t i = start_idx;
@@ -598,11 +592,11 @@ size_t avx2_checked_mul_u32(
         __m256i vb = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(b + i));
 
         // Wide multiply: uint32 * uint32 -> uint64
-        __m256i wide_even = _mm256_mul_epu32(va, vb);  // lanes 0, 2, 4, 6
+        __m256i wide_even = _mm256_mul_epu32(va, vb); // lanes 0, 2, 4, 6
 
         __m256i va_odd = _mm256_srli_epi64(va, 32);
         __m256i vb_odd = _mm256_srli_epi64(vb, 32);
-        __m256i wide_odd = _mm256_mul_epu32(va_odd, vb_odd);  // lanes 1, 3, 5, 7
+        __m256i wide_odd = _mm256_mul_epu32(va_odd, vb_odd); // lanes 1, 3, 5, 7
 
         if (avx2_mul_overflow_u32(wide_even, wide_odd))
         {

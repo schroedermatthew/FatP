@@ -724,8 +724,7 @@ void run_benchmarks()
 
         // NewDeleteAllocator
         double ndTime = measure_perf(
-            []()
-            {
+            []() {
                 NewDeleteAllocator<int> alloc;
                 int* ptr = alloc.allocate(42);
                 DoNotOptimize(ptr);
@@ -737,8 +736,7 @@ void run_benchmarks()
 
         // std::allocator for comparison
         double stdTime = measure_perf(
-            []()
-            {
+            []() {
                 std::allocator<int> alloc;
                 int* ptr = alloc.allocate(1);
                 DoNotOptimize(ptr);
@@ -752,8 +750,7 @@ void run_benchmarks()
         // BlockAllocator with reuse (use int64_t - must be at least pointer-sized)
         BlockAllocator<int64_t> blockAlloc;
         double blockTime = measure_perf(
-            [&blockAlloc]()
-            {
+            [&blockAlloc]() {
                 int64_t* ptr = blockAlloc.allocate(42);
                 DoNotOptimize(ptr);
                 blockAlloc.deallocate(ptr); // Goes to free list
@@ -765,8 +762,7 @@ void run_benchmarks()
         // PoolAllocator
         PoolAllocator<1000>::Allocator<TrivialNode> poolAlloc;
         double poolTime = measure_perf(
-            [&poolAlloc]()
-            {
+            [&poolAlloc]() {
                 TrivialNode* ptr = poolAlloc.allocate(1, 2);
                 DoNotOptimize(ptr);
                 poolAlloc.deallocate(ptr);
@@ -785,8 +781,7 @@ void run_benchmarks()
 
         // NewDeleteAllocator
         double ndBurst = measure_perf(
-            []()
-            {
+            []() {
                 NewDeleteAllocator<int> alloc;
                 std::array<int*, 100> ptrs;
                 for (size_t i = 0; i < 100; ++i)
@@ -804,8 +799,7 @@ void run_benchmarks()
 
         // std::allocator for comparison
         double stdBurst = measure_perf(
-            []()
-            {
+            []() {
                 std::allocator<int> alloc;
                 std::array<int*, 100> ptrs;
                 for (size_t i = 0; i < 100; ++i)
@@ -824,8 +818,7 @@ void run_benchmarks()
 
         // BlockAllocator
         double blockBurst = measure_perf(
-            []()
-            {
+            []() {
                 BlockAllocator<int64_t> alloc;
                 std::array<int64_t*, 100> ptrs;
                 for (size_t i = 0; i < 100; ++i)
@@ -843,8 +836,7 @@ void run_benchmarks()
 
         // PoolAllocator
         double poolBurst = measure_perf(
-            []()
-            {
+            []() {
                 PoolAllocator<100>::Allocator<TrivialNode> alloc;
                 std::array<TrivialNode*, 100> ptrs;
                 for (size_t i = 0; i < 100; ++i)
@@ -881,8 +873,7 @@ void run_benchmarks()
         }
 
         double churnTime = measure_perf(
-            [&primed]()
-            {
+            [&primed]() {
                 int64_t* ptr = primed.allocate(99);
                 DoNotOptimize(ptr);
                 primed.deallocate(ptr);
@@ -904,8 +895,7 @@ void run_benchmarks()
         }
 
         double poolChurn = measure_perf(
-            [&primedPool]()
-            {
+            [&primedPool]() {
                 TrivialNode* ptr = primedPool.allocate(99, 99);
                 DoNotOptimize(ptr);
                 primedPool.deallocate(ptr);

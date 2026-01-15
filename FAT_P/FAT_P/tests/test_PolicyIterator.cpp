@@ -205,8 +205,7 @@ FATP_TEST_CASE(filtering_policy_even)
 {
     std::vector<int> data = {1, 2, 3, 4, 5, 6, 7, 8};
 
-    auto is_even = [](const int& v)
-    {
+    auto is_even = [](const int& v) {
         return v % 2 == 0;
     };
     using Policy = FilterPolicy<int, decltype(is_even)>;
@@ -228,8 +227,7 @@ FATP_TEST_CASE(filtering_policy_positive)
 {
     std::vector<int> data = {-3, -2, -1, 0, 1, 2, 3};
 
-    auto is_positive = [](const int& v)
-    {
+    auto is_positive = [](const int& v) {
         return v > 0;
     };
     using Policy = FilterPolicy<int, decltype(is_positive)>;
@@ -255,8 +253,7 @@ FATP_TEST_CASE(transform_policy_double)
 {
     std::vector<int> data = {1, 2, 3, 4, 5};
 
-    auto doubler = [](const int& v) -> int
-    {
+    auto doubler = [](const int& v) -> int {
         return v * 2;
     };
     using Policy = TransformPolicy<int, decltype(doubler)>;
@@ -278,8 +275,7 @@ FATP_TEST_CASE(transform_bidirectional)
 {
     std::vector<int> data = {1, 2, 3, 4, 5};
 
-    auto doubler = [](const int& v) -> int
-    {
+    auto doubler = [](const int& v) -> int {
         return v * 2;
     };
     using Policy = TransformPolicy<int, decltype(doubler)>;
@@ -304,8 +300,7 @@ FATP_TEST_CASE(transform_type_conversion)
 {
     std::vector<int> data = {1, 2, 3};
 
-    auto to_double = [](const int& v) -> double
-    {
+    auto to_double = [](const int& v) -> double {
         return v * 1.5;
     };
     using Policy = TransformPolicy<int, decltype(to_double)>;
@@ -593,8 +588,7 @@ FATP_TEST_CASE(filter_matches_none)
 {
     std::vector<int> data = {1, 3, 5, 7};
 
-    auto is_even = [](const int& v)
-    {
+    auto is_even = [](const int& v) {
         return v % 2 == 0;
     };
     using Policy = FilterPolicy<int, decltype(is_even)>;
@@ -616,8 +610,7 @@ FATP_TEST_CASE(filter_matches_all)
 {
     std::vector<int> data = {2, 4, 6, 8};
 
-    auto is_even = [](const int& v)
-    {
+    auto is_even = [](const int& v) {
         return v % 2 == 0;
     };
     using Policy = FilterPolicy<int, decltype(is_even)>;
@@ -687,8 +680,7 @@ FATP_TEST_CASE(stl_iterator_category_stride)
 
 FATP_TEST_CASE(stl_iterator_category_filter)
 {
-    auto pred = [](const int&)
-    {
+    auto pred = [](const int&) {
         return true;
     };
     using Policy = FilterPolicy<int, decltype(pred)>;
@@ -773,8 +765,7 @@ FATP_TEST_CASE(constructibility_filter_uses_factories)
     // FilterPolicy iterators are constructed via factories with functor
     std::vector<int> data = {1, 2, 3, 4, 5};
 
-    auto pred = [](const int& x)
-    {
+    auto pred = [](const int& x) {
         return x > 2;
     };
     using Policy = FilterPolicy<int, decltype(pred)>;
@@ -793,8 +784,7 @@ FATP_TEST_CASE(constructibility_transform_uses_factories)
     // TransformPolicy iterators are constructed via factories with functor
     std::vector<int> data = {1, 2, 3};
 
-    auto xform = [](const int& x)
-    {
+    auto xform = [](const int& x) {
         return x * 10;
     };
     using Policy = TransformPolicy<int, decltype(xform)>;
@@ -1188,8 +1178,7 @@ FATP_TEST_CASE(transform_decrement_end_yields_last)
     // --end should yield the last valid element (bidirectional requirement)
     std::vector<int> data = {10, 20, 30, 40, 50};
 
-    auto doubler = [](const int& x) -> int
-    {
+    auto doubler = [](const int& x) -> int {
         return x * 2;
     };
     using Policy = TransformPolicy<int, decltype(doubler)>;
@@ -1231,8 +1220,7 @@ FATP_TEST_CASE(reverse_iterator_transform)
     // std::reverse_iterator must work with bidirectional TransformPolicy
     std::vector<int> data = {1, 2, 3, 4, 5};
 
-    auto doubler = [](const int& x) -> int
-    {
+    auto doubler = [](const int& x) -> int {
         return x * 2;
     };
     using Policy = TransformPolicy<int, decltype(doubler)>;
@@ -1263,13 +1251,9 @@ FATP_TEST_CASE(iterate_nd_1d_basic)
     std::vector<int> data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
     int64_t sum = 0;
-    iterateND(data.data(),
-              {10},
-              {1},
-              [&](int v)
-              {
-                  sum += v;
-              });
+    iterateND(data.data(), {10}, {1}, [&](int v) {
+        sum += v;
+    });
 
     FATP_ASSERT_EQ(sum, 55, "1D iterateND sum");
     return true;
@@ -1281,13 +1265,9 @@ FATP_TEST_CASE(iterate_nd_1d_strided)
     std::vector<int> data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
     int64_t sum = 0;
-    iterateND(data.data(),
-              {5},
-              {2},
-              [&](int v)
-              {
-                  sum += v;
-              }); // 1,3,5,7,9
+    iterateND(data.data(), {5}, {2}, [&](int v) {
+        sum += v;
+    }); // 1,3,5,7,9
 
     FATP_ASSERT_EQ(sum, 25, "1D strided iterateND sum");
     return true;
@@ -1299,13 +1279,9 @@ FATP_TEST_CASE(iterate_nd_2d_basic)
     std::vector<int> data = {1, 2, 3, 4, 5, 6};
 
     int64_t sum = 0;
-    iterateND(data.data(),
-              {2, 3},
-              {3, 1},
-              [&](int v)
-              {
-                  sum += v;
-              });
+    iterateND(data.data(), {2, 3}, {3, 1}, [&](int v) {
+        sum += v;
+    });
 
     FATP_ASSERT_EQ(sum, 21, "2D iterateND sum");
     return true;
@@ -1318,12 +1294,9 @@ FATP_TEST_CASE(iterate_nd_2d_contiguous)
     std::iota(data.begin(), data.end(), 1); // 1..100
 
     int64_t sum = 0;
-    iterateND(data.data(),
-              {10, 10},
-              [&](int v)
-              {
-                  sum += v;
-              });
+    iterateND(data.data(), {10, 10}, [&](int v) {
+        sum += v;
+    });
 
     FATP_ASSERT_EQ(sum, 5050, "2D contiguous iterateND sum");
     return true;
@@ -1336,13 +1309,9 @@ FATP_TEST_CASE(iterate_nd_3d_basic)
     std::iota(data.begin(), data.end(), 1); // 1..24
 
     int64_t sum = 0;
-    iterateND(data.data(),
-              {2, 3, 4},
-              {12, 4, 1},
-              [&](int v)
-              {
-                  sum += v;
-              });
+    iterateND(data.data(), {2, 3, 4}, {12, 4, 1}, [&](int v) {
+        sum += v;
+    });
 
     FATP_ASSERT_EQ(sum, 300, "3D iterateND sum (1+2+...+24 = 300)");
     return true;
@@ -1355,12 +1324,9 @@ FATP_TEST_CASE(iterate_nd_3d_contiguous)
     std::iota(data.begin(), data.end(), 1);
 
     int64_t sum = 0;
-    iterateND(data.data(),
-              {2, 3, 4},
-              [&](int v)
-              {
-                  sum += v;
-              });
+    iterateND(data.data(), {2, 3, 4}, [&](int v) {
+        sum += v;
+    });
 
     FATP_ASSERT_EQ(sum, 300, "3D contiguous iterateND sum");
     return true;
@@ -1373,12 +1339,9 @@ FATP_TEST_CASE(iterate_nd_4d_basic)
     std::iota(data.begin(), data.end(), 1); // 1..48
 
     int64_t sum = 0;
-    iterateND(data.data(),
-              {2, 2, 3, 4},
-              [&](int v)
-              {
-                  sum += v;
-              });
+    iterateND(data.data(), {2, 2, 3, 4}, [&](int v) {
+        sum += v;
+    });
 
     // Sum of 1..48 = 48*49/2 = 1176
     FATP_ASSERT_EQ(sum, 1176, "4D iterateND sum");
@@ -1392,12 +1355,9 @@ FATP_TEST_CASE(iterate_nd_5d_basic)
     std::iota(data.begin(), data.end(), 1); // 1..96
 
     int64_t sum = 0;
-    iterateND(data.data(),
-              {2, 2, 2, 3, 4},
-              [&](int v)
-              {
-                  sum += v;
-              });
+    iterateND(data.data(), {2, 2, 2, 3, 4}, [&](int v) {
+        sum += v;
+    });
 
     // Sum of 1..96 = 96*97/2 = 4656
     FATP_ASSERT_EQ(sum, 4656, "5D iterateND sum");
@@ -1409,12 +1369,9 @@ FATP_TEST_CASE(iterate_nd_mutation)
     // Verify elements can be mutated
     std::vector<int> data = {1, 2, 3, 4, 5, 6};
 
-    iterateND(data.data(),
-              {2, 3},
-              [](int& v)
-              {
-                  v *= 2;
-              });
+    iterateND(data.data(), {2, 3}, [](int& v) {
+        v *= 2;
+    });
 
     std::vector<int> expected = {2, 4, 6, 8, 10, 12};
     return check_sequence(data, expected, "iterateND mutation");
@@ -1437,13 +1394,9 @@ FATP_TEST_CASE(reduce_nd_max)
     // Max reduction
     std::vector<int> data = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8};
 
-    auto maxVal = reduceND(data.data(),
-                           {3, 4},
-                           std::numeric_limits<int>::min(),
-                           [](int a, int b)
-                           {
-                               return std::max(a, b);
-                           });
+    auto maxVal = reduceND(data.data(), {3, 4}, std::numeric_limits<int>::min(), [](int a, int b) {
+        return std::max(a, b);
+    });
 
     FATP_ASSERT_EQ(maxVal, 9, "reduceND max");
     return true;
@@ -1499,12 +1452,9 @@ FATP_TEST_CASE(transform_nd_scale)
     // Scale by constant
     std::vector<double> data = {1.0, 2.0, 3.0, 4.0};
 
-    transformND(data.data(),
-                {2, 2},
-                [](double v)
-                {
-                    return v * 2.5;
-                });
+    transformND(data.data(), {2, 2}, [](double v) {
+        return v * 2.5;
+    });
 
     FATP_ASSERT_EQ(data[0], 2.5, "transformND scale [0]");
     FATP_ASSERT_EQ(data[1], 5.0, "transformND scale [1]");
@@ -1520,13 +1470,10 @@ FATP_TEST_CASE(for_each_slice_basic)
     std::iota(data.begin(), data.end(), 1); // 1..60
 
     std::vector<int64_t> sliceSums;
-    forEachSlice(data.data(),
-                 {3, 4, 5},
-                 [&](std::size_t /*idx*/, int* slice)
-                 {
-                     auto sum = reduceND(slice, {4, 5}, int64_t{0}, std::plus<>{});
-                     sliceSums.push_back(sum);
-                 });
+    forEachSlice(data.data(), {3, 4, 5}, [&](std::size_t /*idx*/, int* slice) {
+        auto sum = reduceND(slice, {4, 5}, int64_t{0}, std::plus<>{});
+        sliceSums.push_back(sum);
+    });
 
     FATP_ASSERT_EQ(sliceSums.size(), 3u, "forEachSlice count");
     // Slice 0: 1..20, sum = 210
@@ -1982,8 +1929,7 @@ FATP_TEST_CASE(contract_transform_deref_end)
 {
     // Verify: dereferencing transform end iterator triggers enforce
     std::vector<int> data = {1, 2, 3};
-    auto doubler = [](const int& x) -> int
-    {
+    auto doubler = [](const int& x) -> int {
         return x * 2;
     };
     using Policy = TransformPolicy<int, decltype(doubler)>;
@@ -2014,8 +1960,7 @@ FATP_TEST_CASE(throwing_predicate)
     std::vector<int> data = {1, 2, 3, 4, 5};
 
     int call_count = 0;
-    auto throwing_pred = [&call_count](const int& v) -> bool
-    {
+    auto throwing_pred = [&call_count](const int& v) -> bool {
         ++call_count;
         if (v == 3)
         {
@@ -2053,8 +1998,7 @@ FATP_TEST_CASE(throwing_transformer)
 {
     std::vector<int> data = {1, 2, 3};
 
-    auto throwing_xform = [](const int& v) -> int
-    {
+    auto throwing_xform = [](const int& v) -> int {
         if (v == 2)
         {
             throw std::runtime_error("Transformer threw");
@@ -2151,8 +2095,7 @@ FATP_TEST_CASE(fuzz_filter_iteration)
         std::vector<int> data(static_cast<size_t>(size));
         std::iota(data.begin(), data.end(), 0);
 
-        auto is_even = [](const int& v)
-        {
+        auto is_even = [](const int& v) {
             return v % 2 == 0;
         };
         using Policy = FilterPolicy<int, decltype(is_even)>;

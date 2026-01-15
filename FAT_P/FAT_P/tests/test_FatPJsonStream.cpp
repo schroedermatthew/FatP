@@ -261,14 +261,12 @@ FATP_TEST_CASE(progress_callback)
     std::size_t last_bytes = 0;
 
     parser.set_progress_interval(10);
-    parser.set_progress_callback(
-        [&](std::size_t bytes, std::size_t depth, std::size_t values)
-        {
-            ++callback_count;
-            last_bytes = bytes;
-            (void)depth;
-            (void)values;
-        });
+    parser.set_progress_callback([&](std::size_t bytes, std::size_t depth, std::size_t values) {
+        ++callback_count;
+        last_bytes = bytes;
+        (void)depth;
+        (void)values;
+    });
 
     // Build larger JSON
     std::string json = "[";
@@ -425,8 +423,7 @@ void benchmark_policies()
 
     // Default parser
     double time_default = measure_perf(
-        [&]()
-        {
+        [&]() {
             DefaultJsonStreamParser parser;
             auto result = parser.parse(json);
             DoNotOptimize(result);
@@ -438,8 +435,7 @@ void benchmark_policies()
 
     // Strict parser
     double time_strict = measure_perf(
-        [&]()
-        {
+        [&]() {
             StrictJsonStreamParser parser;
             auto result = parser.parse(json);
             DoNotOptimize(result);
@@ -451,8 +447,7 @@ void benchmark_policies()
 
     // Relaxed parser
     double time_relaxed = measure_perf(
-        [&]()
-        {
+        [&]() {
             RelaxedJsonStreamParser parser;
             auto result = parser.parse(json);
             DoNotOptimize(result);

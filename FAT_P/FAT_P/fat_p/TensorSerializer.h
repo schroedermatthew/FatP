@@ -90,8 +90,8 @@ inline std::uint32_t bswap32(std::uint32_t val)
 #elif defined(_MSC_VER)
     return _byteswap_ulong(val);
 #else
-    return ((val & 0xFF000000U) >> 24U) | ((val & 0x00FF0000U) >> 8U) |
-           ((val & 0x0000FF00U) << 8U) | ((val & 0x000000FFU) << 24U);
+    return ((val & 0xFF000000U) >> 24U) | ((val & 0x00FF0000U) >> 8U) | ((val & 0x0000FF00U) << 8U) |
+           ((val & 0x000000FFU) << 24U);
 #endif
 }
 
@@ -102,14 +102,10 @@ inline std::uint64_t bswap64(std::uint64_t val)
 #elif defined(_MSC_VER)
     return _byteswap_uint64(val);
 #else
-    return ((val & 0xFF00000000000000ULL) >> 56U) |
-           ((val & 0x00FF000000000000ULL) >> 40U) |
-           ((val & 0x0000FF0000000000ULL) >> 24U) |
-           ((val & 0x000000FF00000000ULL) >> 8U) |
-           ((val & 0x00000000FF000000ULL) << 8U) |
-           ((val & 0x0000000000FF0000ULL) << 24U) |
-           ((val & 0x000000000000FF00ULL) << 40U) |
-           ((val & 0x00000000000000FFULL) << 56U);
+    return ((val & 0xFF00000000000000ULL) >> 56U) | ((val & 0x00FF000000000000ULL) >> 40U) |
+           ((val & 0x0000FF0000000000ULL) >> 24U) | ((val & 0x000000FF00000000ULL) >> 8U) |
+           ((val & 0x00000000FF000000ULL) << 8U) | ((val & 0x0000000000FF0000ULL) << 24U) |
+           ((val & 0x000000000000FF00ULL) << 40U) | ((val & 0x00000000000000FFULL) << 56U);
 #endif
 }
 
@@ -346,12 +342,9 @@ constexpr std::uint8_t TENSOR_FORMAT_VERSION = 1U;
  * @param tensor Tensor to serialize
  * @return Binary buffer in big-endian format, or error
  */
-template <typename T,
-          typename Allocator,
-          typename IteratorPolicy,
-          typename ConcurrencyPolicy>
-TensorSerializationResult<std::vector<std::uint8_t>> serialize_tensor(
-    const Tensor<T, Allocator, IteratorPolicy, ConcurrencyPolicy>& tensor)
+template <typename T, typename Allocator, typename IteratorPolicy, typename ConcurrencyPolicy>
+TensorSerializationResult<std::vector<std::uint8_t>>
+serialize_tensor(const Tensor<T, Allocator, IteratorPolicy, ConcurrencyPolicy>& tensor)
 {
     try
     {
@@ -415,37 +408,33 @@ deserialize_tensor(const std::vector<std::uint8_t>& data)
 
         if (data.size() < 8)
         {
-            return make_unexpected(
-                TensorSerializationError("Buffer too small for tensor header"));
+            return make_unexpected(TensorSerializationError("Buffer too small for tensor header"));
         }
 
         const std::uint32_t magic = detail::read_be<std::uint32_t>(data, pos);
         if (magic != TENSOR_MAGIC)
         {
-            return make_unexpected(
-                TensorSerializationError("Invalid tensor magic number"));
+            return make_unexpected(TensorSerializationError("Invalid tensor magic number"));
         }
 
         const std::uint8_t version = data[pos++];
         if (version != TENSOR_FORMAT_VERSION)
         {
-            return make_unexpected(
-                TensorSerializationError("Unsupported tensor format version"));
+            return make_unexpected(TensorSerializationError("Unsupported tensor format version"));
         }
 
         const auto type_id = static_cast<TensorTypeID>(data[pos++]);
         if (type_id != get_tensor_type_id<T>())
         {
-            return make_unexpected(TensorSerializationError(
-                std::string("Type mismatch: expected ") + get_tensor_type_name<T>() +
-                " but got type ID " + std::to_string(static_cast<int>(type_id))));
+            return make_unexpected(TensorSerializationError(std::string("Type mismatch: expected ") +
+                                                            get_tensor_type_name<T>() + " but got type ID " +
+                                                            std::to_string(static_cast<int>(type_id))));
         }
 
         const std::uint16_t ndim = detail::read_be<std::uint16_t>(data, pos);
         if (ndim == 0 || ndim > 32)
         {
-            return make_unexpected(
-                TensorSerializationError("Invalid number of dimensions"));
+            return make_unexpected(TensorSerializationError("Invalid number of dimensions"));
         }
 
         std::vector<std::size_t> shape(ndim);
@@ -468,8 +457,7 @@ deserialize_tensor(const std::vector<std::uint8_t>& data)
 
         if (pos + total_size * sizeof(T) > data.size())
         {
-            return make_unexpected(
-                TensorSerializationError("Buffer too small for tensor data"));
+            return make_unexpected(TensorSerializationError("Buffer too small for tensor data"));
         }
 
         Tensor<T, Allocator, IteratorPolicy, ConcurrencyPolicy> result(shape);

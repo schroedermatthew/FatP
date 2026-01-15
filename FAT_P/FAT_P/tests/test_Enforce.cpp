@@ -429,8 +429,7 @@ FATP_TEST_CASE(predicate_noexcept_correctness)
         FATP_ASSERT_TRUE(fat_p::IsSortedPredicate::check(vec), "IsSortedPredicate with sorted vector");
 
         // Test with custom comparator
-        auto custom_less = [](int a, int b)
-        {
+        auto custom_less = [](int a, int b) {
             return a < b;
         };
         FATP_ASSERT_TRUE(fat_p::IsSortedPredicate::check(vec, custom_less), "IsSortedPredicate with custom comparator");
@@ -439,8 +438,7 @@ FATP_TEST_CASE(predicate_noexcept_correctness)
     // Test 2: AllSatisfyPredicate with predicate function
     {
         std::vector<int> vec = {2, 4, 6, 8};
-        auto is_even = [](int x)
-        {
+        auto is_even = [](int x) {
             return x % 2 == 0;
         };
 
@@ -453,8 +451,7 @@ FATP_TEST_CASE(predicate_noexcept_correctness)
     // Test 3: AnySatisfyPredicate with predicate function
     {
         std::vector<int> vec = {1, 3, 5, 7};
-        auto is_even = [](int x)
-        {
+        auto is_even = [](int x) {
             return x % 2 == 0;
         };
 
@@ -1234,8 +1231,7 @@ FATP_TEST_CASE(expected_with_predicate)
 
 FATP_TEST_CASE(expected_chaining)
 {
-    auto divide = [](int a, int b) -> Expected<int, std::string>
-    {
+    auto divide = [](int a, int b) -> Expected<int, std::string> {
         auto check = FATP_ENFORCE_EXPECTED(b != 0, "Division by zero");
         if (!check)
         {
@@ -1295,8 +1291,7 @@ FATP_TEST_CASE(expected_no_exceptions)
 FATP_TEST_CASE(expected_contextual_noexcept)
 {
     // Define a noexcept function that uses FATP_CONTEXTUAL_ENFORCE_EXPECTED
-    auto noexcept_func = []() noexcept -> Expected<void, std::string>
-    {
+    auto noexcept_func = []() noexcept -> Expected<void, std::string> {
         // This should compile and work correctly in noexcept context
         auto result = FATP_CONTEXTUAL_ENFORCE_EXPECTED(&noexcept_func, true, "Test");
         if (!result)
@@ -1311,8 +1306,7 @@ FATP_TEST_CASE(expected_contextual_noexcept)
     FATP_ASSERT_TRUE(result.has_value(), "FATP_CONTEXTUAL_ENFORCE_EXPECTED in noexcept function should work");
 
     // Test 2: Test with failing condition in noexcept context
-    auto noexcept_fail = []() noexcept -> Expected<void, std::string>
-    {
+    auto noexcept_fail = []() noexcept -> Expected<void, std::string> {
         return FATP_CONTEXTUAL_ENFORCE_EXPECTED(&noexcept_fail, false, "Failed");
     };
 
@@ -1330,8 +1324,7 @@ FATP_TEST_CASE(expected_predicate_variants)
     // Test 1: FATP_CONTEXTUAL_ENFORCE_EXPECTED_1 (single argument predicate)
     {
         int value = 42;
-        auto test_func = [&]() noexcept -> Expected<bool, std::string>
-        {
+        auto test_func = [&]() noexcept -> Expected<bool, std::string> {
             return FATP_CONTEXTUAL_ENFORCE_EXPECTED_1(&test_func,
                                                       fat_p::IsPositivePredicate,
                                                       value,
@@ -1346,8 +1339,7 @@ FATP_TEST_CASE(expected_predicate_variants)
     // Test 2: FATP_CONTEXTUAL_ENFORCE_EXPECTED_2 (two argument predicate)
     {
         std::vector<int> vec = {1, 2, 3};
-        auto test_func = [&]() noexcept -> Expected<bool, std::string>
-        {
+        auto test_func = [&]() noexcept -> Expected<bool, std::string> {
             return FATP_CONTEXTUAL_ENFORCE_EXPECTED_2(&test_func, fat_p::HasSizePredicate, 3, vec, "Size should be 3");
         };
 
@@ -1359,8 +1351,7 @@ FATP_TEST_CASE(expected_predicate_variants)
     // Test 3: FATP_CONTEXTUAL_ENFORCE_EXPECTED_3 (three argument predicate)
     {
         int value = 50;
-        auto test_func = [&]() noexcept -> Expected<bool, std::string>
-        {
+        auto test_func = [&]() noexcept -> Expected<bool, std::string> {
             return FATP_CONTEXTUAL_ENFORCE_EXPECTED_3(&test_func,
                                                       fat_p::InRangePredicate,
                                                       value,
@@ -1381,8 +1372,7 @@ FATP_TEST_CASE(expected_predicate_variants)
 FATP_TEST_CASE(expected_error_propagation)
 {
     // Test 1: Early return pattern
-    auto func_with_checks = []() -> Expected<int, std::string>
-    {
+    auto func_with_checks = []() -> Expected<int, std::string> {
         auto check1 = FATP_ENFORCE_EXPECTED(true, "Check 1");
         if (!check1)
         {
@@ -1403,8 +1393,7 @@ FATP_TEST_CASE(expected_error_propagation)
     FATP_ASSERT_TRUE(result.value() == 42, "Correct value returned");
 
     // Test 2: Error at first check
-    auto func_fail_early = []() -> Expected<int, std::string>
-    {
+    auto func_fail_early = []() -> Expected<int, std::string> {
         auto check1 = FATP_ENFORCE_EXPECTED(false, "First check failed");
         if (!check1)
         {
@@ -1523,8 +1512,7 @@ FATP_TEST_CASE(thread_safety_concurrent_enforcement)
     std::atomic<int> success_count{0};
     std::atomic<int> failure_count{0};
 
-    auto thread_func = [&](int thread_id)
-    {
+    auto thread_func = [&](int thread_id) {
         for (int i = 0; i < iterations_per_thread; ++i)
         {
             try

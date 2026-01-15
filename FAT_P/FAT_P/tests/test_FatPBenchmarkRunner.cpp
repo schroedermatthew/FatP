@@ -286,17 +286,15 @@ FATP_TEST_CASE(spin_barrier_multi_thread)
 
     for (unsigned int i = 0; i < kNumThreads; ++i)
     {
-        threads.emplace_back(
-            [&]()
+        threads.emplace_back([&]() {
+            counter.fetch_add(1, std::memory_order_relaxed);
+            barrier.wait();
+            // After barrier, all threads should have incremented
+            if (counter.load(std::memory_order_relaxed) == kNumThreads)
             {
-                counter.fetch_add(1, std::memory_order_relaxed);
-                barrier.wait();
-                // After barrier, all threads should have incremented
-                if (counter.load(std::memory_order_relaxed) == kNumThreads)
-                {
-                    allArrived.store(true, std::memory_order_relaxed);
-                }
-            });
+                allArrived.store(true, std::memory_order_relaxed);
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -322,17 +320,15 @@ FATP_TEST_CASE(spin_barrier_reuse)
 
     for (unsigned int i = 0; i < kNumThreads; ++i)
     {
-        threads.emplace_back(
-            [&]()
-            {
-                // Phase 1
-                barrier.wait();
-                phase.fetch_add(1, std::memory_order_relaxed);
+        threads.emplace_back([&]() {
+            // Phase 1
+            barrier.wait();
+            phase.fetch_add(1, std::memory_order_relaxed);
 
-                // Phase 2 - reuse barrier
-                barrier.wait();
-                phase.fetch_add(1, std::memory_order_relaxed);
-            });
+            // Phase 2 - reuse barrier
+            barrier.wait();
+            phase.fetch_add(1, std::memory_order_relaxed);
+        });
     }
 
     for (auto& t : threads)
@@ -390,11 +386,9 @@ FATP_TEST_CASE(runner_add_benchmark)
     BenchmarkRunner runner = makeTestRunner("TestRunner");
 
     int callCount = 0;
-    runner.add("test_bench",
-               [&]()
-               {
-                   ++callCount;
-               });
+    runner.add("test_bench", [&]() {
+        ++callCount;
+    });
 
     // Suppress output during test
     std::ostringstream devnull;
@@ -416,12 +410,10 @@ FATP_TEST_CASE(runner_results)
 
     BenchmarkRunner runner = makeTestRunner("TestRunner");
 
-    runner.add("simple_add",
-               []()
-               {
-                   volatile int x = 1 + 1;
-                   DoNotOptimize(x);
-               });
+    runner.add("simple_add", []() {
+        volatile int x = 1 + 1;
+        DoNotOptimize(x);
+    });
 
     // Suppress output during test
     std::ostringstream devnull;

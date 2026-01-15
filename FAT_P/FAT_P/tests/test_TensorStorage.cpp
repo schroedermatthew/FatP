@@ -219,26 +219,24 @@ FATP_TEST_CASE(concurrent_copy)
     // Each thread creates and destroys many copies
     for (int t = 0; t < num_threads; ++t)
     {
-        threads.emplace_back(
-            [&original, &success_count]()
+        threads.emplace_back([&original, &success_count]() {
+            for (int i = 0; i < copies_per_thread; ++i)
             {
-                for (int i = 0; i < copies_per_thread; ++i)
+                TensorStorage<int, Alloc> copy = original;
+
+                // Verify data integrity
+                if (copy[500] == 500 && copy.get() == original.get())
                 {
-                    TensorStorage<int, Alloc> copy = original;
-
-                    // Verify data integrity
-                    if (copy[500] == 500 && copy.get() == original.get())
-                    {
-                        success_count.fetch_add(1, std::memory_order_relaxed);
-                    }
-
-                    // Random delay to increase contention
-                    if (i % 10 == 0)
-                    {
-                        std::this_thread::yield();
-                    }
+                    success_count.fetch_add(1, std::memory_order_relaxed);
                 }
-            });
+
+                // Random delay to increase contention
+                if (i % 10 == 0)
+                {
+                    std::this_thread::yield();
+                }
+            }
+        });
     }
 
     for (auto& thread : threads)
@@ -276,33 +274,31 @@ FATP_TEST_CASE(concurrent_mixed_ops)
     // Mix of copy, move, and access operations
     for (int t = 0; t < num_threads; ++t)
     {
-        threads.emplace_back(
-            [&shared, &error_flag, t]()
+        threads.emplace_back([&shared, &error_flag, t]() {
+            for (int i = 0; i < 50; ++i)
             {
-                for (int i = 0; i < 50; ++i)
+                // Create copy
+                TensorStorage<float, Alloc> copy1 = shared;
+
+                // Verify access
+                if (copy1[t] != static_cast<float>(t))
                 {
-                    // Create copy
-                    TensorStorage<float, Alloc> copy1 = shared;
-
-                    // Verify access
-                    if (copy1[t] != static_cast<float>(t))
-                    {
-                        error_flag.store(true, std::memory_order_relaxed);
-                    }
-
-                    // Create another copy
-                    TensorStorage<float, Alloc> copy2 = copy1;
-
-                    // Move operation
-                    TensorStorage<float, Alloc> copy3 = std::move(copy2);
-
-                    // Verify again
-                    if (copy3[t * 10 % 100] != static_cast<float>(t * 10 % 100))
-                    {
-                        error_flag.store(true, std::memory_order_relaxed);
-                    }
+                    error_flag.store(true, std::memory_order_relaxed);
                 }
-            });
+
+                // Create another copy
+                TensorStorage<float, Alloc> copy2 = copy1;
+
+                // Move operation
+                TensorStorage<float, Alloc> copy3 = std::move(copy2);
+
+                // Verify again
+                if (copy3[t * 10 % 100] != static_cast<float>(t * 10 % 100))
+                {
+                    error_flag.store(true, std::memory_order_relaxed);
+                }
+            }
+        });
     }
 
     for (auto& thread : threads)
@@ -339,8 +335,7 @@ void benchmark_tensor_storage()
         TensorStorage<double, Alloc> original(data, size, alloc);
 
         double copy_time = measure_perf(
-            [&original]()
-            {
+            [&original]() {
                 TensorStorage<double, Alloc> copy = original;
                 DoNotOptimize(copy);
             },
@@ -361,8 +356,7 @@ void benchmark_tensor_storage()
         TensorStorage<double, Alloc> storage(new_data, size, alloc);
 
         double access_time = measure_perf(
-            [&storage, i = 0]() mutable
-            {
+            [&storage, i = 0]() mutable {
                 double val = storage[i % 1000];
                 DoNotOptimize(val);
                 ++i;
@@ -379,8 +373,7 @@ void benchmark_tensor_storage()
         TensorStorage<double, Alloc> original(data3, size, alloc);
 
         double ref_time = measure_perf(
-            [&original]()
-            {
+            [&original]() {
                 TensorStorage<double, Alloc> copy = original;
                 long count = copy.use_count();
                 DoNotOptimize(count);

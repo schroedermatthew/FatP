@@ -196,9 +196,9 @@ FATP_TEST_CASE(spaceship_operator)
     UserId id2(200);
     UserId id3(100);
 
-    FATP_ASSERT_TRUE((id1 <=> id2) < 0, "Spaceship operator: less than");
-    FATP_ASSERT_TRUE((id2 <=> id1) > 0, "Spaceship operator: greater than");
-    FATP_ASSERT_TRUE((id1 <=> id3) == 0, "Spaceship operator: equal");
+    FATP_ASSERT_TRUE((id1 <= > id2) < 0, "Spaceship operator: less than");
+    FATP_ASSERT_TRUE((id2 <= > id1) > 0, "Spaceship operator: greater than");
+    FATP_ASSERT_TRUE((id1 <= > id3) == 0, "Spaceship operator: equal");
     return true;
 }
 #endif
@@ -590,18 +590,16 @@ FATP_TEST_CASE(atomic_concurrent_reads)
 
     for (int i = 0; i < 20; ++i)
     {
-        threads.emplace_back(
-            [&atomic_id, &errors]()
+        threads.emplace_back([&atomic_id, &errors]() {
+            for (int j = 0; j < 1000; ++j)
             {
-                for (int j = 0; j < 1000; ++j)
+                UserId value = atomic_id.load();
+                if (value.get() != 42)
                 {
-                    UserId value = atomic_id.load();
-                    if (value.get() != 42)
-                    {
-                        errors++;
-                    }
+                    errors++;
                 }
-            });
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -623,18 +621,16 @@ FATP_TEST_CASE(atomic_concurrent_increments)
 
     for (int i = 0; i < num_threads; ++i)
     {
-        threads.emplace_back(
-            [&atomic_id]()
+        threads.emplace_back([&atomic_id]() {
+            for (int j = 0; j < iterations_per_thread; ++j)
             {
-                for (int j = 0; j < iterations_per_thread; ++j)
+                UserId expected = atomic_id.load();
+                while (!atomic_id.compare_exchange_weak(expected, UserId(expected.get() + 1)))
                 {
-                    UserId expected = atomic_id.load();
-                    while (!atomic_id.compare_exchange_weak(expected, UserId(expected.get() + 1)))
-                    {
-                        // Retry
-                    }
+                    // Retry
                 }
-            });
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -672,69 +668,53 @@ void run_strong_id_benchmarks()
         << colors::cyan() << colors::bold() << "=== StrongId Performance Benchmarks ===" << colors::reset() << "\n\n";
 
     // Construction benchmark
-    benchmark("StrongId Construction",
-              []()
-              {
-                  volatile UserId id(42);
-                  (void)id;
-              });
+    benchmark("StrongId Construction", []() {
+        volatile UserId id(42);
+        (void)id;
+    });
 
     // Get accessor benchmark
     UserId id(42);
-    benchmark("StrongId get()",
-              [&id]()
-              {
-                  volatile int x = id.get();
-                  (void)x;
-              });
+    benchmark("StrongId get()", [&id]() {
+        volatile int x = id.get();
+        (void)x;
+    });
 
     // Arithmetic operations
-    benchmark("StrongId Addition",
-              [&id]()
-              {
-                  volatile UserId result = id + 10;
-                  (void)result;
-              });
+    benchmark("StrongId Addition", [&id]() {
+        volatile UserId result = id + 10;
+        (void)result;
+    });
 
-    benchmark("StrongId Multiplication",
-              [&id]()
-              {
-                  volatile UserId result = id * 2;
-                  (void)result;
-              });
+    benchmark("StrongId Multiplication", [&id]() {
+        volatile UserId result = id * 2;
+        (void)result;
+    });
 
     // Comparison operations
     UserId id2(100);
-    benchmark("StrongId Comparison",
-              [&id, &id2]()
-              {
-                  volatile bool result = id < id2;
-                  (void)result;
-              });
+    benchmark("StrongId Comparison", [&id, &id2]() {
+        volatile bool result = id < id2;
+        (void)result;
+    });
 
     // Atomic operations
     AtomicUserId atomic_id(UserId(42));
-    benchmark("Atomic load()",
-              [&atomic_id]()
-              {
-                  volatile UserId x = atomic_id.load();
-                  (void)x;
-              });
+    benchmark("Atomic load()", [&atomic_id]() {
+        volatile UserId x = atomic_id.load();
+        (void)x;
+    });
 
-    benchmark("Atomic store()",
-              [&atomic_id]()
-              {
-                  atomic_id.store(UserId(42));
-              });
+    benchmark("Atomic store()", [&atomic_id]() {
+        atomic_id.store(UserId(42));
+    });
 
     // Hash benchmark
     std::hash<UserId> hasher;
-    benchmark("Hash Calculation",
-              [&id, &hasher]()
-              {
-                  volatile size_t h = hasher(id);
-                  (void)h;
-              });
+    benchmark("Hash Calculation", [&id, &hasher]() {
+        volatile size_t h = hasher(id);
+        (void)h;
+    });
 
     out << "\n";
 }
@@ -770,150 +750,114 @@ void run_comparative_benchmarks()
     // -------------------------------------------------------------------------
     out << "\n" << colors::blue() << "--- Construction ---" << colors::reset() << "\n";
 
-    benchmark("Checked StrongId",
-              []()
-              {
-                  volatile UserId id(42);
-                  (void)id;
-              });
-    benchmark("Unchecked StrongId",
-              []()
-              {
-                  volatile UncheckedId id(42);
-                  (void)id;
-              });
-    benchmark("Raw int",
-              []()
-              {
-                  volatile int id = 42;
-                  (void)id;
-              });
+    benchmark("Checked StrongId", []() {
+        volatile UserId id(42);
+        (void)id;
+    });
+    benchmark("Unchecked StrongId", []() {
+        volatile UncheckedId id(42);
+        (void)id;
+    });
+    benchmark("Raw int", []() {
+        volatile int id = 42;
+        (void)id;
+    });
 
     // -------------------------------------------------------------------------
     // Value Access
     // -------------------------------------------------------------------------
     out << "\n" << colors::blue() << "--- Value Access ---" << colors::reset() << "\n";
 
-    benchmark("Checked get()",
-              [&checked_id]()
-              {
-                  volatile int x = checked_id.get();
-                  (void)x;
-              });
-    benchmark("Unchecked get()",
-              [&unchecked_id]()
-              {
-                  volatile int x = unchecked_id.get();
-                  (void)x;
-              });
-    benchmark("Raw int read",
-              [&raw_id]()
-              {
-                  volatile int x = raw_id;
-                  (void)x;
-              });
+    benchmark("Checked get()", [&checked_id]() {
+        volatile int x = checked_id.get();
+        (void)x;
+    });
+    benchmark("Unchecked get()", [&unchecked_id]() {
+        volatile int x = unchecked_id.get();
+        (void)x;
+    });
+    benchmark("Raw int read", [&raw_id]() {
+        volatile int x = raw_id;
+        (void)x;
+    });
 
     // -------------------------------------------------------------------------
     // Comparison Operations
     // -------------------------------------------------------------------------
     out << "\n" << colors::blue() << "--- Comparison (operator<) ---" << colors::reset() << "\n";
 
-    benchmark("Checked operator<",
-              [&checked_id, &checked_id2]()
-              {
-                  volatile bool r = checked_id < checked_id2;
-                  (void)r;
-              });
-    benchmark("Unchecked operator<",
-              [&unchecked_id, &unchecked_id2]()
-              {
-                  volatile bool r = unchecked_id < unchecked_id2;
-                  (void)r;
-              });
-    benchmark("Raw int operator<",
-              [&raw_id, &raw_id2]()
-              {
-                  volatile bool r = raw_id < raw_id2;
-                  (void)r;
-              });
+    benchmark("Checked operator<", [&checked_id, &checked_id2]() {
+        volatile bool r = checked_id < checked_id2;
+        (void)r;
+    });
+    benchmark("Unchecked operator<", [&unchecked_id, &unchecked_id2]() {
+        volatile bool r = unchecked_id < unchecked_id2;
+        (void)r;
+    });
+    benchmark("Raw int operator<", [&raw_id, &raw_id2]() {
+        volatile bool r = raw_id < raw_id2;
+        (void)r;
+    });
 
     // -------------------------------------------------------------------------
     // Addition
     // -------------------------------------------------------------------------
     out << "\n" << colors::blue() << "--- Addition ---" << colors::reset() << "\n";
 
-    benchmark("Checked addition",
-              [&checked_id]()
-              {
-                  volatile UserId r = checked_id + 10;
-                  (void)r;
-              });
-    benchmark("Unchecked addition",
-              [&unchecked_id]()
-              {
-                  volatile UncheckedId r = unchecked_id + 10;
-                  (void)r;
-              });
-    benchmark("Raw int addition",
-              [&raw_id]()
-              {
-                  volatile int r = raw_id + 10;
-                  (void)r;
-              });
+    benchmark("Checked addition", [&checked_id]() {
+        volatile UserId r = checked_id + 10;
+        (void)r;
+    });
+    benchmark("Unchecked addition", [&unchecked_id]() {
+        volatile UncheckedId r = unchecked_id + 10;
+        (void)r;
+    });
+    benchmark("Raw int addition", [&raw_id]() {
+        volatile int r = raw_id + 10;
+        (void)r;
+    });
 
     // -------------------------------------------------------------------------
     // Multiplication (key benchmark - shows checked arithmetic overhead)
     // -------------------------------------------------------------------------
     out << "\n" << colors::blue() << "--- Multiplication (key benchmark) ---" << colors::reset() << "\n";
 
-    benchmark("Checked multiplication",
-              [&checked_id]()
-              {
-                  volatile UserId r = checked_id * 2;
-                  (void)r;
-              });
-    benchmark("Unchecked multiplication",
-              [&unchecked_id]()
-              {
-                  volatile UncheckedId r = unchecked_id * 2;
-                  (void)r;
-              });
-    benchmark("Raw int multiplication",
-              [&raw_id]()
-              {
-                  volatile int r = raw_id * 2;
-                  (void)r;
-              });
+    benchmark("Checked multiplication", [&checked_id]() {
+        volatile UserId r = checked_id * 2;
+        (void)r;
+    });
+    benchmark("Unchecked multiplication", [&unchecked_id]() {
+        volatile UncheckedId r = unchecked_id * 2;
+        (void)r;
+    });
+    benchmark("Raw int multiplication", [&raw_id]() {
+        volatile int r = raw_id * 2;
+        (void)r;
+    });
 
     // -------------------------------------------------------------------------
     // Pre-increment
     // -------------------------------------------------------------------------
     out << "\n" << colors::blue() << "--- Pre-increment ---" << colors::reset() << "\n";
 
-    benchmark("Checked pre-increment",
-              [&checked_id]()
-              {
-                  UserId temp = checked_id;
-                  ++temp;
-                  volatile int x = temp.get();
-                  (void)x;
-              });
-    benchmark("Unchecked pre-increment",
-              [&unchecked_id]()
-              {
-                  UncheckedId temp = unchecked_id;
-                  ++temp;
-                  volatile int x = temp.get();
-                  (void)x;
-              });
-    benchmark("Raw int pre-increment",
-              [&raw_id]()
-              {
-                  int temp = raw_id;
-                  ++temp;
-                  volatile int x = temp;
-                  (void)x;
-              });
+    benchmark("Checked pre-increment", [&checked_id]() {
+        UserId temp = checked_id;
+        ++temp;
+        volatile int x = temp.get();
+        (void)x;
+    });
+    benchmark("Unchecked pre-increment", [&unchecked_id]() {
+        UncheckedId temp = unchecked_id;
+        ++temp;
+        volatile int x = temp.get();
+        (void)x;
+    });
+    benchmark("Raw int pre-increment", [&raw_id]() {
+        int temp = raw_id;
+        ++temp;
+        volatile int x = temp;
+        (void)x;
+    });
 
     // -------------------------------------------------------------------------
     // Hash Operations
@@ -924,24 +868,18 @@ void run_comparative_benchmarks()
     std::hash<UncheckedId> unchecked_hasher;
     std::hash<int> int_hasher;
 
-    benchmark("Checked hash",
-              [&checked_id, &checked_hasher]()
-              {
-                  volatile size_t h = checked_hasher(checked_id);
-                  (void)h;
-              });
-    benchmark("Unchecked hash",
-              [&unchecked_id, &unchecked_hasher]()
-              {
-                  volatile size_t h = unchecked_hasher(unchecked_id);
-                  (void)h;
-              });
-    benchmark("Raw int hash",
-              [&raw_id, &int_hasher]()
-              {
-                  volatile size_t h = int_hasher(raw_id);
-                  (void)h;
-              });
+    benchmark("Checked hash", [&checked_id, &checked_hasher]() {
+        volatile size_t h = checked_hasher(checked_id);
+        (void)h;
+    });
+    benchmark("Unchecked hash", [&unchecked_id, &unchecked_hasher]() {
+        volatile size_t h = unchecked_hasher(unchecked_id);
+        (void)h;
+    });
+    benchmark("Raw int hash", [&raw_id, &int_hasher]() {
+        volatile size_t h = int_hasher(raw_id);
+        (void)h;
+    });
 
     // -------------------------------------------------------------------------
     // Container Operations
@@ -963,24 +901,18 @@ void run_comparative_benchmarks()
     UncheckedId lookup_unchecked(500);
     int lookup_int = 500;
 
-    benchmark("Checked set lookup",
-              [&checked_set, &lookup_checked]()
-              {
-                  volatile bool found = checked_set.count(lookup_checked) > 0;
-                  (void)found;
-              });
-    benchmark("Unchecked set lookup",
-              [&unchecked_set, &lookup_unchecked]()
-              {
-                  volatile bool found = unchecked_set.count(lookup_unchecked) > 0;
-                  (void)found;
-              });
-    benchmark("Raw int set lookup",
-              [&int_set, &lookup_int]()
-              {
-                  volatile bool found = int_set.count(lookup_int) > 0;
-                  (void)found;
-              });
+    benchmark("Checked set lookup", [&checked_set, &lookup_checked]() {
+        volatile bool found = checked_set.count(lookup_checked) > 0;
+        (void)found;
+    });
+    benchmark("Unchecked set lookup", [&unchecked_set, &lookup_unchecked]() {
+        volatile bool found = unchecked_set.count(lookup_unchecked) > 0;
+        (void)found;
+    });
+    benchmark("Raw int set lookup", [&int_set, &lookup_int]() {
+        volatile bool found = int_set.count(lookup_int) > 0;
+        (void)found;
+    });
 
     // -------------------------------------------------------------------------
     // Atomic Operations
@@ -991,40 +923,28 @@ void run_comparative_benchmarks()
     std::atomic<UncheckedId> atomic_unchecked(UncheckedId(42));
     std::atomic<int> atomic_int(42);
 
-    benchmark("Checked atomic load",
-              [&atomic_checked]()
-              {
-                  volatile UserId x = atomic_checked.load();
-                  (void)x;
-              });
-    benchmark("Unchecked atomic load",
-              [&atomic_unchecked]()
-              {
-                  volatile UncheckedId x = atomic_unchecked.load();
-                  (void)x;
-              });
-    benchmark("Raw int atomic load",
-              [&atomic_int]()
-              {
-                  volatile int x = atomic_int.load();
-                  (void)x;
-              });
+    benchmark("Checked atomic load", [&atomic_checked]() {
+        volatile UserId x = atomic_checked.load();
+        (void)x;
+    });
+    benchmark("Unchecked atomic load", [&atomic_unchecked]() {
+        volatile UncheckedId x = atomic_unchecked.load();
+        (void)x;
+    });
+    benchmark("Raw int atomic load", [&atomic_int]() {
+        volatile int x = atomic_int.load();
+        (void)x;
+    });
 
-    benchmark("Checked atomic store",
-              [&atomic_checked]()
-              {
-                  atomic_checked.store(UserId(42));
-              });
-    benchmark("Unchecked atomic store",
-              [&atomic_unchecked]()
-              {
-                  atomic_unchecked.store(UncheckedId(42));
-              });
-    benchmark("Raw int atomic store",
-              [&atomic_int]()
-              {
-                  atomic_int.store(42);
-              });
+    benchmark("Checked atomic store", [&atomic_checked]() {
+        atomic_checked.store(UserId(42));
+    });
+    benchmark("Unchecked atomic store", [&atomic_unchecked]() {
+        atomic_unchecked.store(UncheckedId(42));
+    });
+    benchmark("Raw int atomic store", [&atomic_int]() {
+        atomic_int.store(42);
+    });
 
     // -------------------------------------------------------------------------
     // Summary

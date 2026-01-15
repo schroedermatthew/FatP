@@ -339,8 +339,7 @@ void benchmark_tensorcomparison()
     Tensor<float> b({N, N}, 1.0f + 1e-7f);
 
     double time_exact = measure_perf(
-        [&]()
-        {
+        [&]() {
             DoNotOptimize(a == b);
         },
         1000,
@@ -348,8 +347,7 @@ void benchmark_tensorcomparison()
     std::cout << "operator== (" << N << "x" << N << "): " << format_time(time_exact) << "\n";
 
     double time_approx = measure_perf(
-        [&]()
-        {
+        [&]() {
             DoNotOptimize(a.approx_equal(b));
         },
         1000,
@@ -363,8 +361,7 @@ void benchmark_tensorcomparison()
     }
 
     double time_hash = measure_perf(
-        [&]()
-        {
+        [&]() {
             std::size_t hash = std::hash<Tensor<float>>{}(a);
             DoNotOptimize(hash);
         },

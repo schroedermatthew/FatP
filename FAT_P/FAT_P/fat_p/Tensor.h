@@ -969,11 +969,9 @@ public:
         if (size_ > 0)
         {
             T* raw = mAllocator.allocate(size_);
-            shared_data_ = std::shared_ptr<T[]>(raw,
-                                                [this](T* p)
-                                                {
-                                                    mAllocator.deallocate(p, size_);
-                                                });
+            shared_data_ = std::shared_ptr<T[]>(raw, [this](T* p) {
+                mAllocator.deallocate(p, size_);
+            });
             data_ = shared_data_.get();
             std::fill(data_, data_ + size_, T{});
         }
@@ -1000,11 +998,9 @@ public:
         if (size_ > 0)
         {
             T* raw = mAllocator.allocate(size_);
-            shared_data_ = std::shared_ptr<T[]>(raw,
-                                                [this](T* p)
-                                                {
-                                                    mAllocator.deallocate(p, size_);
-                                                });
+            shared_data_ = std::shared_ptr<T[]>(raw, [this](T* p) {
+                mAllocator.deallocate(p, size_);
+            });
             data_ = shared_data_.get();
             std::copy(other.data_, other.data_ + size_, data_);
         }
@@ -2094,11 +2090,9 @@ private:
                 break;
             }
 
-            futures.push_back(pool->submit(
-                [this, a, b, result, start, end]()
-                {
-                    simd_add(a + start, b + start, result + start, end - start);
-                }));
+            futures.push_back(pool->submit([this, a, b, result, start, end]() {
+                simd_add(a + start, b + start, result + start, end - start);
+            }));
         }
 
         // Wait for all tasks to complete
@@ -2141,11 +2135,9 @@ private:
                 break;
             }
 
-            futures.push_back(pool->submit(
-                [this, a, b, result, start, end]()
-                {
-                    simd_sub(a + start, b + start, result + start, end - start);
-                }));
+            futures.push_back(pool->submit([this, a, b, result, start, end]() {
+                simd_sub(a + start, b + start, result + start, end - start);
+            }));
         }
 
         for (auto& fut : futures)
@@ -2187,11 +2179,9 @@ private:
                 break;
             }
 
-            futures.push_back(pool->submit(
-                [this, a, b, result, start, end]()
-                {
-                    simd_mul(a + start, b + start, result + start, end - start);
-                }));
+            futures.push_back(pool->submit([this, a, b, result, start, end]() {
+                simd_mul(a + start, b + start, result + start, end - start);
+            }));
         }
 
         for (auto& fut : futures)
@@ -2642,11 +2632,9 @@ public:
             mStrides = compute_strides(mShape);
 
             T* raw = mAllocator.allocate(size_);
-            shared_data_ = std::shared_ptr<T[]>(raw,
-                                                [this](T* p)
-                                                {
-                                                    mAllocator.deallocate(p, size_);
-                                                });
+            shared_data_ = std::shared_ptr<T[]>(raw, [this](T* p) {
+                mAllocator.deallocate(p, size_);
+            });
             data_ = shared_data_.get();
         }
 

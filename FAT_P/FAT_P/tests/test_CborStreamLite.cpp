@@ -673,8 +673,7 @@ void benchmark_streaming_parser()
     // Benchmark: Full buffer parse
     CborStreamParser parser;
     double time_full = measure_perf(
-        [&]()
-        {
+        [&]() {
             parser.reset();
             auto status = parser.feed(data);
             DoNotOptimize(status);
@@ -686,8 +685,7 @@ void benchmark_streaming_parser()
 
     // Benchmark: Byte-at-a-time parse
     double time_byte = measure_perf(
-        [&]()
-        {
+        [&]() {
             parser.reset();
             for (size_t i = 0; i < data.size(); ++i)
             {

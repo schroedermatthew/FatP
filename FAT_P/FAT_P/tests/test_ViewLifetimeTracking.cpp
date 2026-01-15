@@ -261,23 +261,21 @@ FATP_TEST_CASE(thread_safety)
 
     for (int i = 0; i < 10; ++i)
     {
-        threads.emplace_back(
-            [&]()
+        threads.emplace_back([&]() {
+            auto view = tracker.create_view();
+            if (view.is_valid())
             {
-                auto view = tracker.create_view();
-                if (view.is_valid())
+                int sum = 0;
+                for (size_t j = 0; j < 100; ++j)
                 {
-                    int sum = 0;
-                    for (size_t j = 0; j < 100; ++j)
-                    {
-                        sum += (*view)[j];
-                    }
-                    if (sum == 4200)
-                    { // 100 * 42
-                        success_count++;
-                    }
+                    sum += (*view)[j];
                 }
-            });
+                if (sum == 4200)
+                { // 100 * 42
+                    success_count++;
+                }
+            }
+        });
     }
 
     for (auto& t : threads)

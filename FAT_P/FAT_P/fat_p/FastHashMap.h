@@ -110,12 +110,12 @@ FATP_META:
 #include <type_traits>
 #include <utility>
 
-#include "FatPSimdDetection.h"
 #include "FatPConfig.h"
+#include "FatPSimdDetection.h"
 
 #if defined(_MSC_VER)
+#include <intrin.h> // For _BitScanForward
 #include <malloc.h>
-#include <intrin.h>  // For _BitScanForward
 #endif
 
 // =============================================================================
@@ -131,34 +131,35 @@ FATP_META:
 
 // AVX2: 32-byte groups
 #if defined(FATP_SIMD_AVX2)
-    #define FATP_FAST_HASH_MAP_AVX2 1
-    #define FATP_FAST_HASH_MAP_SSE2 1
-    #include <immintrin.h>
+#define FATP_FAST_HASH_MAP_AVX2 1
+#define FATP_FAST_HASH_MAP_SSE2 1
+#include <immintrin.h>
 
 // SSE2: 16-byte groups
 #elif defined(FATP_SIMD_SSE2)
-    #define FATP_FAST_HASH_MAP_SSE2 1
-    #include <emmintrin.h>
-    #if defined(__SSSE3__)
-        #include <tmmintrin.h>
-    #endif
+#define FATP_FAST_HASH_MAP_SSE2 1
+#include <emmintrin.h>
+#if defined(__SSSE3__)
+#include <tmmintrin.h>
+#endif
 #endif
 
 #if defined(FATP_SIMD_NEON)
-    #define FATP_FAST_HASH_MAP_NEON 1
-    #if FATP_SIMD_NEON_AARCH64
-        #define FATP_FAST_HASH_MAP_NEON_AARCH64 1
-    #else
-        #define FATP_FAST_HASH_MAP_NEON_AARCH64 0
-    #endif
-    #include <arm_neon.h>
+#define FATP_FAST_HASH_MAP_NEON 1
+#if FATP_SIMD_NEON_AARCH64
+#define FATP_FAST_HASH_MAP_NEON_AARCH64 1
+#else
+#define FATP_FAST_HASH_MAP_NEON_AARCH64 0
+#endif
+#include <arm_neon.h>
 #endif
 
 #if !defined(FATP_FAST_HASH_MAP_SSE2) && !defined(FATP_FAST_HASH_MAP_NEON)
-    #define FATP_FAST_HASH_MAP_PORTABLE 1
+#define FATP_FAST_HASH_MAP_PORTABLE 1
 #endif
 
-namespace fat_p {
+namespace fat_p
+{
 
 // =============================================================================
 // Deletion Policy Tags
@@ -166,18 +167,28 @@ namespace fat_p {
 
 /// Tombstone-based deletion: O(1) erase, good all-around performance
 /// Best for: most workloads (default)
-struct TombstoneDeletion {
-    static constexpr const char* name() { return "Tombstone"; }
+struct TombstoneDeletion
+{
+    static constexpr const char* name()
+    {
+        return "Tombstone";
+    }
 };
 
 /// Backward-shift deletion: No tombstones, maintains table density
 /// Best for: theoretical advantage on miss-after-delete (not observed in practice)
-struct BackwardShiftDeletion {
-    static constexpr const char* name() { return "BackwardShift"; }
+struct BackwardShiftDeletion
+{
+    static constexpr const char* name()
+    {
+        return "BackwardShift";
+    }
 };
 
 // Empty placeholder for [[no_unique_address]] optimization
-struct EmptyMember {};
+struct EmptyMember
+{
+};
 
 // =============================================================================
 // Allocator Policies - Raw memory allocation for control bytes and slots
@@ -199,21 +210,30 @@ struct EmptyMember {};
 
 /// HeapAllocator - Standard aligned heap allocation (default)
 /// Uses platform-appropriate aligned allocation (posix_memalign, _aligned_malloc)
-struct HeapAllocator {
-    static constexpr const char* name() { return "Heap"; }
-    static constexpr bool kPointerStealSafe = true;  // Pointers survive allocator move
-    
-    void* allocate(size_t size, size_t alignment) {
+struct HeapAllocator
+{
+    static constexpr const char* name()
+    {
+        return "Heap";
+    }
+    static constexpr bool kPointerStealSafe = true; // Pointers survive allocator move
+
+    void* allocate(size_t size, size_t alignment)
+    {
 #if defined(_MSC_VER)
         return _aligned_malloc(size, alignment);
 #else
         void* ptr = nullptr;
-        if (posix_memalign(&ptr, alignment, size) != 0) return nullptr;
+        if (posix_memalign(&ptr, alignment, size) != 0)
+        {
+            return nullptr;
+        }
         return ptr;
 #endif
     }
-    
-    void deallocate(void* ptr, [[maybe_unused]] size_t size, [[maybe_unused]] size_t alignment) {
+
+    void deallocate(void* ptr, [[maybe_unused]] size_t size, [[maybe_unused]] size_t alignment)
+    {
 #if defined(_MSC_VER)
         _aligned_free(ptr);
 #else
@@ -241,76 +261,109 @@ struct HeapAllocator {
 ///   fat_p::FastHashMap<int, int, std::hash<int>, std::equal_to<int>,
 ///                      fat_p::TombstoneDeletion, fat_p::FixedAllocator<4096>> map;
 ///
-template<size_t BufferSize>
-class FixedAllocator {
+template <size_t BufferSize>
+class FixedAllocator
+{
     static_assert(BufferSize >= 128, "FixedAllocator buffer too small (min 128 bytes)");
-    
-    alignas(64) char mBuffer[BufferSize];  // 64-byte aligned for SIMD
+
+    alignas(64) char mBuffer[BufferSize]; // 64-byte aligned for SIMD
     size_t mUsed = 0;
-    
+
 public:
-    static constexpr const char* name() { return "Fixed"; }
-    static constexpr size_t buffer_size() { return BufferSize; }
-    static constexpr bool kPointerStealSafe = false;  // Pointers into embedded buffer!
-    
+    static constexpr const char* name()
+    {
+        return "Fixed";
+    }
+    static constexpr size_t buffer_size()
+    {
+        return BufferSize;
+    }
+    static constexpr bool kPointerStealSafe = false; // Pointers into embedded buffer!
+
     FixedAllocator() = default;
-    
+
     // Non-copyable (contains embedded storage)
     FixedAllocator(const FixedAllocator&) = delete;
     FixedAllocator& operator=(const FixedAllocator&) = delete;
-    
+
     // Non-movable: pointers into mBuffer would dangle after move
     // The FastHashMap static_assert will catch attempts to move FixedHashMap
     FixedAllocator(FixedAllocator&&) = delete;
     FixedAllocator& operator=(FixedAllocator&&) = delete;
-    
-    void* allocate(size_t size, size_t alignment) {
+
+    void* allocate(size_t size, size_t alignment)
+    {
         // Alignment must be power of two
         assert(alignment != 0 && (alignment & (alignment - 1)) == 0);
-        
+
         // Align the actual address, not just the offset
         // This handles alignments > 64 correctly
         const uintptr_t base = reinterpret_cast<uintptr_t>(mBuffer);
         const uintptr_t cur = base + mUsed;
         const uintptr_t aligned = (cur + alignment - 1) & ~(uintptr_t(alignment) - 1);
         const size_t aligned_offset = static_cast<size_t>(aligned - base);
-        
-        if (aligned_offset + size > BufferSize) {
-            return nullptr;  // Caller will throw std::bad_alloc
+
+        if (aligned_offset + size > BufferSize)
+        {
+            return nullptr; // Caller will throw std::bad_alloc
         }
-        
+
         void* ptr = mBuffer + aligned_offset;
         mUsed = aligned_offset + size;
         return ptr;
     }
-    
-    void deallocate(void* /*ptr*/, size_t /*size*/, size_t /*alignment*/) {
+
+    void deallocate(void* /*ptr*/, size_t /*size*/, size_t /*alignment*/)
+    {
         // Fixed allocator doesn't reclaim memory until reset
         // WARNING: rehash will exhaust buffer - reserve sufficient capacity upfront
     }
-    
-    void reset() { mUsed = 0; }
-    size_t used() const { return mUsed; }
-    size_t available() const { return BufferSize - mUsed; }
+
+    void reset()
+    {
+        mUsed = 0;
+    }
+    size_t used() const
+    {
+        return mUsed;
+    }
+    size_t available() const
+    {
+        return BufferSize - mUsed;
+    }
 };
 
 // =============================================================================
 // Control Byte Constants
 // =============================================================================
 
-namespace fasthash_detail {
+namespace fasthash_detail
+{
 
-constexpr uint8_t kEmpty    = 0x00;
-constexpr uint8_t kDeleted  = 0x7E;  // Only used with TombstoneDeletion
+constexpr uint8_t kEmpty = 0x00;
+constexpr uint8_t kDeleted = 0x7E; // Only used with TombstoneDeletion
 constexpr uint8_t kSentinel = 0x7F;
 constexpr size_t kGroupSize = 16;
 
-constexpr bool is_full(uint8_t ctrl) { return (ctrl & 0x80) != 0; }
-constexpr bool is_empty(uint8_t ctrl) { return ctrl == kEmpty; }
-constexpr bool is_deleted(uint8_t ctrl) { return ctrl == kDeleted; }
-constexpr bool is_empty_or_deleted(uint8_t ctrl) { return ctrl < 0x80 && ctrl != kSentinel; }
+constexpr bool is_full(uint8_t ctrl)
+{
+    return (ctrl & 0x80) != 0;
+}
+constexpr bool is_empty(uint8_t ctrl)
+{
+    return ctrl == kEmpty;
+}
+constexpr bool is_deleted(uint8_t ctrl)
+{
+    return ctrl == kDeleted;
+}
+constexpr bool is_empty_or_deleted(uint8_t ctrl)
+{
+    return ctrl < 0x80 && ctrl != kSentinel;
+}
 
-constexpr uint8_t H2(size_t hash) {
+constexpr uint8_t H2(size_t hash)
+{
     // Use top 7 bits. Portable calculation avoids UB on 32-bit.
     constexpr size_t kBits = sizeof(size_t) * 8;
     constexpr size_t kShift = kBits - 7;
@@ -321,12 +374,20 @@ constexpr uint8_t H2(size_t hash) {
 // BitMask
 // =============================================================================
 
-class BitMask {
+class BitMask
+{
 public:
-    explicit BitMask(uint32_t mask) : mMask(mask) {}
-    explicit operator bool() const { return mMask != 0; }
-    
-    uint32_t lowest_set_bit() const {
+    explicit BitMask(uint32_t mask)
+        : mMask(mask)
+    {
+    }
+    explicit operator bool() const
+    {
+        return mMask != 0;
+    }
+
+    uint32_t lowest_set_bit() const
+    {
 #if defined(_MSC_VER)
         unsigned long index;
         _BitScanForward(&index, mMask);
@@ -335,28 +396,59 @@ public:
         return static_cast<uint32_t>(__builtin_ctz(mMask));
 #endif
     }
-    
-    BitMask& remove_lowest_bit() { mMask &= mMask - 1; return *this; }
-    
-    class iterator {
+
+    BitMask& remove_lowest_bit()
+    {
+        mMask &= mMask - 1;
+        return *this;
+    }
+
+    class iterator
+    {
     public:
         using iterator_category = std::forward_iterator_tag;
         using value_type = uint32_t;
         using difference_type = std::ptrdiff_t;
-        
-        iterator() : mMask(0) {}
-        explicit iterator(uint32_t mask) : mMask(mask) {}
-        uint32_t operator*() const { return BitMask(mMask).lowest_set_bit(); }
-        iterator& operator++() { mMask &= mMask - 1; return *this; }
-        bool operator==(const iterator& o) const { return mMask == o.mMask; }
-        bool operator!=(const iterator& o) const { return mMask != o.mMask; }
+
+        iterator()
+            : mMask(0)
+        {
+        }
+        explicit iterator(uint32_t mask)
+            : mMask(mask)
+        {
+        }
+        uint32_t operator*() const
+        {
+            return BitMask(mMask).lowest_set_bit();
+        }
+        iterator& operator++()
+        {
+            mMask &= mMask - 1;
+            return *this;
+        }
+        bool operator==(const iterator& o) const
+        {
+            return mMask == o.mMask;
+        }
+        bool operator!=(const iterator& o) const
+        {
+            return mMask != o.mMask;
+        }
+
     private:
         uint32_t mMask;
     };
-    
-    iterator begin() const { return iterator(mMask); }
-    iterator end() const { return iterator(0); }
-    
+
+    iterator begin() const
+    {
+        return iterator(mMask);
+    }
+    iterator end() const
+    {
+        return iterator(0);
+    }
+
 private:
     uint32_t mMask;
 };
@@ -374,21 +466,21 @@ private:
 class Group {
 public:
     static constexpr size_t kWidth = 64;
-    
+
     explicit Group(const uint8_t* ctrl) {
         mCtrl = _mm512_loadu_si512(reinterpret_cast<const __m512i*>(ctrl));
     }
-    
+
     BitMask match(uint8_t h2) const {
         auto match_vec = _mm512_set1_epi8(static_cast<char>(h2));
         return BitMask(static_cast<uint32_t>(_mm512_cmpeq_epi8_mask(mCtrl, match_vec)));
     }
-    
+
     BitMask match_empty() const {
         auto zero = _mm512_setzero_si512();
         return BitMask(static_cast<uint32_t>(_mm512_cmpeq_epi8_mask(mCtrl, zero)));
     }
-    
+
     BitMask match_empty_or_deleted() const {
         // Empty (0x00) and Deleted (0x01) both have high bit clear, Sentinel (0xFF) doesn't
         auto high_bit_mask = _mm512_set1_epi8(static_cast<char>(0x80u));
@@ -399,7 +491,7 @@ public:
         auto is_sentinel = _mm512_cmpeq_epi8_mask(mCtrl, sentinel);
         return BitMask(static_cast<uint32_t>(has_high_bit_clear & ~is_sentinel));
     }
-    
+
 private:
     __m512i mCtrl;
 };
@@ -410,27 +502,32 @@ private:
 // --- AVX2: 32-byte groups ---
 #if defined(FATP_FAST_HASH_MAP_AVX2) && !defined(FATP_FAST_HASH_MAP_AVX512)
 
-class Group {
+class Group
+{
 public:
     static constexpr size_t kWidth = 32;
-    
-    explicit Group(const uint8_t* ctrl) {
+
+    explicit Group(const uint8_t* ctrl)
+    {
         mCtrl = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(ctrl));
     }
-    
-    BitMask match(uint8_t h2) const {
+
+    BitMask match(uint8_t h2) const
+    {
         auto match_vec = _mm256_set1_epi8(static_cast<char>(h2));
         auto result = _mm256_cmpeq_epi8(mCtrl, match_vec);
         return BitMask(static_cast<uint32_t>(_mm256_movemask_epi8(result)));
     }
-    
-    BitMask match_empty() const {
+
+    BitMask match_empty() const
+    {
         auto zero = _mm256_setzero_si256();
         auto result = _mm256_cmpeq_epi8(mCtrl, zero);
         return BitMask(static_cast<uint32_t>(_mm256_movemask_epi8(result)));
     }
-    
-    BitMask match_empty_or_deleted() const {
+
+    BitMask match_empty_or_deleted() const
+    {
         // Empty (0x00) and Deleted (0x01) both have high bit clear, Sentinel (0xFF) doesn't
         auto high_bit_mask = _mm256_set1_epi8(static_cast<char>(0x80u));
         auto high_bits = _mm256_and_si256(mCtrl, high_bit_mask);
@@ -441,7 +538,7 @@ public:
         auto result = _mm256_andnot_si256(is_sentinel, has_high_bit_clear);
         return BitMask(static_cast<uint32_t>(_mm256_movemask_epi8(result)));
     }
-    
+
 private:
     __m256i mCtrl;
 };
@@ -449,27 +546,32 @@ private:
 // --- SSE2: 16-byte groups ---
 #elif defined(FATP_FAST_HASH_MAP_SSE2)
 
-class Group {
+class Group
+{
 public:
     static constexpr size_t kWidth = 16;
-    
-    explicit Group(const uint8_t* ctrl) {
+
+    explicit Group(const uint8_t* ctrl)
+    {
         mCtrl = _mm_loadu_si128(reinterpret_cast<const __m128i*>(ctrl));
     }
-    
-    BitMask match(uint8_t h2) const {
+
+    BitMask match(uint8_t h2) const
+    {
         auto match_vec = _mm_set1_epi8(static_cast<char>(h2));
         auto result = _mm_cmpeq_epi8(mCtrl, match_vec);
         return BitMask(static_cast<uint32_t>(_mm_movemask_epi8(result)));
     }
-    
-    BitMask match_empty() const {
+
+    BitMask match_empty() const
+    {
         auto zero = _mm_setzero_si128();
         auto result = _mm_cmpeq_epi8(mCtrl, zero);
         return BitMask(static_cast<uint32_t>(_mm_movemask_epi8(result)));
     }
-    
-    BitMask match_empty_or_deleted() const {
+
+    BitMask match_empty_or_deleted() const
+    {
         auto high_bit_mask = _mm_set1_epi8(static_cast<char>(0x80u));
         auto high_bits = _mm_and_si128(mCtrl, high_bit_mask);
         auto zero = _mm_setzero_si128();
@@ -479,7 +581,7 @@ public:
         auto result = _mm_andnot_si128(is_sentinel, has_high_bit_clear);
         return BitMask(static_cast<uint32_t>(_mm_movemask_epi8(result)));
     }
-    
+
 private:
     __m128i mCtrl;
 };
@@ -487,19 +589,22 @@ private:
 // --- NEON: 16-byte groups ---
 #elif defined(FATP_FAST_HASH_MAP_NEON)
 
-class Group {
+class Group
+{
 public:
     static constexpr size_t kWidth = 16;
-    
-    explicit Group(const uint8_t* ctrl) {
+
+    explicit Group(const uint8_t* ctrl)
+    {
         mCtrl = vld1q_u8(ctrl);
     }
-    
-    BitMask match(uint8_t h2) const {
+
+    BitMask match(uint8_t h2) const
+    {
         auto match_vec = vdupq_n_u8(h2);
         auto result = vceqq_u8(mCtrl, match_vec);
 #if FATP_FAST_HASH_MAP_NEON_AARCH64
-        static const uint8x16_t bit_mask = {1,2,4,8,16,32,64,128,1,2,4,8,16,32,64,128};
+        static const uint8x16_t bit_mask = {1, 2, 4, 8, 16, 32, 64, 128, 1, 2, 4, 8, 16, 32, 64, 128};
         auto masked = vandq_u8(result, bit_mask);
         auto paired = vpaddq_u8(masked, masked);
         auto quad = vpaddq_u8(paired, paired);
@@ -510,24 +615,35 @@ public:
         uint64_t lo = vgetq_lane_u64(paired, 0);
         uint64_t hi = vgetq_lane_u64(paired, 1);
         uint32_t mask = 0;
-        for (int i = 0; i < 8; ++i) {
-            if ((lo >> (i * 8)) & 0xFF) mask |= (1u << i);
-            if ((hi >> (i * 8)) & 0xFF) mask |= (1u << (i + 8));
+        for (int i = 0; i < 8; ++i)
+        {
+            if ((lo >> (i * 8)) & 0xFF)
+            {
+                mask |= (1u << i);
+            }
+            if ((hi >> (i * 8)) & 0xFF)
+            {
+                mask |= (1u << (i + 8));
+            }
         }
         return BitMask(mask);
 #endif
     }
-    
-    BitMask match_empty() const { return match(kEmpty); }
-    
-    BitMask match_empty_or_deleted() const {
+
+    BitMask match_empty() const
+    {
+        return match(kEmpty);
+    }
+
+    BitMask match_empty_or_deleted() const
+    {
         auto high_bit = vdupq_n_u8(0x80);
         auto has_high = vandq_u8(mCtrl, high_bit);
         auto no_high = vceqq_u8(has_high, vdupq_n_u8(0));
         auto sentinel = vceqq_u8(mCtrl, vdupq_n_u8(kSentinel));
         auto result = vbicq_u8(no_high, sentinel);
 #if FATP_FAST_HASH_MAP_NEON_AARCH64
-        static const uint8x16_t bit_mask = {1,2,4,8,16,32,64,128,1,2,4,8,16,32,64,128};
+        static const uint8x16_t bit_mask = {1, 2, 4, 8, 16, 32, 64, 128, 1, 2, 4, 8, 16, 32, 64, 128};
         auto masked = vandq_u8(result, bit_mask);
         auto paired = vpaddq_u8(masked, masked);
         auto quad = vpaddq_u8(paired, paired);
@@ -538,14 +654,21 @@ public:
         uint64_t lo = vgetq_lane_u64(paired, 0);
         uint64_t hi = vgetq_lane_u64(paired, 1);
         uint32_t mask = 0;
-        for (int i = 0; i < 8; ++i) {
-            if ((lo >> (i * 8)) & 0xFF) mask |= (1u << i);
-            if ((hi >> (i * 8)) & 0xFF) mask |= (1u << (i + 8));
+        for (int i = 0; i < 8; ++i)
+        {
+            if ((lo >> (i * 8)) & 0xFF)
+            {
+                mask |= (1u << i);
+            }
+            if ((hi >> (i * 8)) & 0xFF)
+            {
+                mask |= (1u << (i + 8));
+            }
         }
         return BitMask(mask);
 #endif
     }
-    
+
 private:
     uint8x16_t mCtrl;
 };
@@ -553,32 +676,47 @@ private:
 // --- Portable fallback: 16-byte groups ---
 #else
 
-class Group {
+class Group
+{
 public:
     static constexpr size_t kWidth = 16;
-    
-    explicit Group(const uint8_t* ctrl) {
+
+    explicit Group(const uint8_t* ctrl)
+    {
         std::memcpy(mCtrl, ctrl, kWidth);
     }
-    
-    BitMask match(uint8_t h2) const {
+
+    BitMask match(uint8_t h2) const
+    {
         uint32_t mask = 0;
-        for (size_t i = 0; i < kWidth; ++i) {
-            if (mCtrl[i] == h2) mask |= (1u << i);
+        for (size_t i = 0; i < kWidth; ++i)
+        {
+            if (mCtrl[i] == h2)
+            {
+                mask |= (1u << i);
+            }
         }
         return BitMask(mask);
     }
-    
-    BitMask match_empty() const { return match(kEmpty); }
-    
-    BitMask match_empty_or_deleted() const {
+
+    BitMask match_empty() const
+    {
+        return match(kEmpty);
+    }
+
+    BitMask match_empty_or_deleted() const
+    {
         uint32_t mask = 0;
-        for (size_t i = 0; i < kWidth; ++i) {
-            if (is_empty_or_deleted(mCtrl[i])) mask |= (1u << i);
+        for (size_t i = 0; i < kWidth; ++i)
+        {
+            if (is_empty_or_deleted(mCtrl[i]))
+            {
+                mask |= (1u << i);
+            }
         }
         return BitMask(mask);
     }
-    
+
 private:
     uint8_t mCtrl[kWidth];
 };
@@ -589,15 +727,28 @@ private:
 // ProbeSequence - Linear probing
 // =============================================================================
 
-class ProbeSequence {
+class ProbeSequence
+{
 public:
-    ProbeSequence(size_t hash, size_t mask) 
-        : mMask(mask), mOffset(hash & mask) {}
-    
-    size_t offset() const { return mOffset; }
-    size_t offset(size_t i) const { return (mOffset + i) & mMask; }
-    void next() { mOffset = (mOffset + Group::kWidth) & mMask; }
-    
+    ProbeSequence(size_t hash, size_t mask)
+        : mMask(mask)
+        , mOffset(hash & mask)
+    {
+    }
+
+    size_t offset() const
+    {
+        return mOffset;
+    }
+    size_t offset(size_t i) const
+    {
+        return (mOffset + i) & mMask;
+    }
+    void next()
+    {
+        mOffset = (mOffset + Group::kWidth) & mMask;
+    }
+
 private:
     size_t mMask;
     size_t mOffset;
@@ -609,12 +760,14 @@ private:
 // FastHashMap - Main class with deletion policy
 // =============================================================================
 
-template <typename Key, typename Value, 
-          typename Hash = std::hash<Key>, 
+template <typename Key,
+          typename Value,
+          typename Hash = std::hash<Key>,
           typename KeyEqual = std::equal_to<Key>,
           typename DeletionPolicy = TombstoneDeletion,
           typename Allocator = HeapAllocator>
-class FastHashMap {
+class FastHashMap
+{
 public:
     using key_type = Key;
     using mapped_type = Value;
@@ -624,109 +777,138 @@ public:
     using key_equal = KeyEqual;
     using deletion_policy = DeletionPolicy;
     using allocator_type = Allocator;
-    
+
     static constexpr bool uses_tombstones = std::is_same_v<DeletionPolicy, TombstoneDeletion>;
-    
+
 private:
     using Group = fasthash_detail::Group;
     using ProbeSequence = fasthash_detail::ProbeSequence;
     using BitMask = fasthash_detail::BitMask;
-    
+
     // Slot structure - conditionally includes 'home' for backward-shift
-    struct Slot {
+    struct Slot
+    {
         Key key{};
         Value value{};
-        
+
         // Only include home field for backward-shift deletion
         // Uses empty struct for zero overhead with tombstones
-        struct Empty {};
+        struct Empty
+        {
+        };
         FATP_NO_UNIQUE_ADDRESS std::conditional_t<uses_tombstones, Empty, size_t> mHome{};
-        
+
         Slot() = default;
-        
-        template<typename K, typename V>
-        void emplace(K&& k, V&& v, size_t home) {
+
+        template <typename K, typename V>
+        void emplace(K&& k, V&& v, size_t home)
+        {
             key = std::forward<K>(k);
             value = std::forward<V>(v);
-            if constexpr (!uses_tombstones) {
+            if constexpr (!uses_tombstones)
+            {
                 mHome = home;
             }
         }
-        
-        size_t home() const {
-            if constexpr (uses_tombstones) return 0;
-            else return mHome;
+
+        size_t home() const
+        {
+            if constexpr (uses_tombstones)
+            {
+                return 0;
+            }
+            else
+            {
+                return mHome;
+            }
         }
-        
-        void destroy() {
+
+        void destroy()
+        {
             key.~Key();
             value.~Value();
         }
     };
-    
+
     uint8_t* mCtrl = nullptr;
     Slot* mSlots = nullptr;
     size_t size_ = 0;
     size_t mCapacity = 0;
     size_t mMask = 0;
     size_t growth_threshold_ = 0;
-    
+
     // Only used with TombstoneDeletion - zero overhead when unused
     FATP_NO_UNIQUE_ADDRESS std::conditional_t<uses_tombstones, size_t, EmptyMember> mTombstones{};
-    
+
     double max_load_factor_ = 0.875;
-    bool mFrozen = false;  // Read-only mode for high-density lookup tables
+    bool mFrozen = false; // Read-only mode for high-density lookup tables
     FATP_NO_UNIQUE_ADDRESS Hash mHasher;
     FATP_NO_UNIQUE_ADDRESS KeyEqual key_equal_;
     FATP_NO_UNIQUE_ADDRESS Allocator mAllocator;
-    
+
     static constexpr size_t kMinCapacity = Group::kWidth * 2;
-    
+
     // Validate and clamp max_load_factor to safe range (0, 1)
-    static constexpr double normalize_load_factor(double lf) noexcept {
-        if (lf <= 0.0 || lf >= 1.0) return 0.875;  // Default
+    static constexpr double normalize_load_factor(double lf) noexcept
+    {
+        if (lf <= 0.0 || lf >= 1.0)
+        {
+            return 0.875; // Default
+        }
         return lf;
     }
-    
+
     // Compute growth threshold ensuring at least one empty slot remains
-    static size_t compute_growth_threshold(size_t cap, double max_lf) noexcept {
+    static size_t compute_growth_threshold(size_t cap, double max_lf) noexcept
+    {
         size_t threshold = static_cast<size_t>(static_cast<double>(cap) * max_lf);
         // Must leave at least one empty slot for probe termination
-        if (threshold >= cap) threshold = cap - 1;
-        if (threshold < 1) threshold = 1;
+        if (threshold >= cap)
+        {
+            threshold = cap - 1;
+        }
+        if (threshold < 1)
+        {
+            threshold = 1;
+        }
         return threshold;
     }
-    
+
     // Write to control array, maintaining prefix mirror in tail
-    void set_ctrl(size_t idx, uint8_t value) noexcept {
+    void set_ctrl(size_t idx, uint8_t value) noexcept
+    {
         mCtrl[idx] = value;
         // Mirror prefix bytes into tail for wrap-around group reads
-        if (idx < Group::kWidth) {
+        if (idx < Group::kWidth)
+        {
             mCtrl[mCapacity + idx] = value;
         }
     }
-    
-    void allocate(size_t cap) {
+
+    void allocate(size_t cap)
+    {
         // Allocate control bytes with SIMD alignment
         // Note: We don't modify member variables until allocation succeeds
         // to maintain exception safety
         uint8_t* new_ctrl = static_cast<uint8_t*>(mAllocator.allocate(cap + Group::kWidth, Group::kWidth));
-        if (!new_ctrl) {
+        if (!new_ctrl)
+        {
             throw std::bad_alloc();
         }
-        
+
         // Initialize all to empty (including tail - will be overwritten by mirror)
         std::memset(new_ctrl, fasthash_detail::kEmpty, cap + Group::kWidth);
-        
+
         // Allocate slots with proper alignment for Key/Value types
-        constexpr size_t slot_align = alignof(Slot) > alignof(std::max_align_t) 
-            ? alignof(Slot) : alignof(std::max_align_t);
+        constexpr size_t slot_align =
+            alignof(Slot) > alignof(std::max_align_t) ? alignof(Slot) : alignof(std::max_align_t);
         Slot* new_slots = static_cast<Slot*>(mAllocator.allocate(cap * sizeof(Slot), slot_align));
-        if (!new_slots) {
+        if (!new_slots)
+        {
             mAllocator.deallocate(new_ctrl, cap + Group::kWidth, Group::kWidth);
             throw std::bad_alloc();
         }
-        
+
         // Both allocations succeeded - now commit to member variables
         mCtrl = new_ctrl;
         mSlots = new_slots;
@@ -734,75 +916,82 @@ private:
         mMask = cap - 1;
         growth_threshold_ = compute_growth_threshold(cap, max_load_factor_);
     }
-    
-    void deallocate() {
-        if (mCtrl) {
-            for (size_t i = 0; i < mCapacity; ++i) {
-                if (fasthash_detail::is_full(mCtrl[i])) {
+
+    void deallocate()
+    {
+        if (mCtrl)
+        {
+            for (size_t i = 0; i < mCapacity; ++i)
+            {
+                if (fasthash_detail::is_full(mCtrl[i]))
+                {
                     mSlots[i].destroy();
                 }
             }
-            constexpr size_t slot_align = alignof(Slot) > alignof(std::max_align_t) 
-                ? alignof(Slot) : alignof(std::max_align_t);
+            constexpr size_t slot_align =
+                alignof(Slot) > alignof(std::max_align_t) ? alignof(Slot) : alignof(std::max_align_t);
             mAllocator.deallocate(mSlots, mCapacity * sizeof(Slot), slot_align);
             mAllocator.deallocate(mCtrl, mCapacity + Group::kWidth, Group::kWidth);
             mCtrl = nullptr;
             mSlots = nullptr;
         }
     }
-    
+
     // Detect if hash already has good avalanche properties (opt-out marker)
     // If Hash::is_avalanching is defined, skip the built-in mixer
-    template<typename T, typename = void>
-    struct has_avalanching : std::false_type {};
-    
-    template<typename T>
-    struct has_avalanching<T, std::void_t<typename T::is_avalanching>> : std::true_type {};
-    
+    template <typename T, typename = void>
+    struct has_avalanching : std::false_type
+    {
+    };
+
+    template <typename T>
+    struct has_avalanching<T, std::void_t<typename T::is_avalanching>> : std::true_type
+    {
+    };
+
     // noexcept specifications for move/swap - conditional on Hash/KeyEqual/Allocator
-    static constexpr bool is_nothrow_move_constructible_v =
-        std::is_nothrow_move_constructible_v<Hash> &&
-        std::is_nothrow_move_constructible_v<KeyEqual> &&
-        std::is_nothrow_move_constructible_v<Allocator>;
-    
-    static constexpr bool is_nothrow_move_assignable_v =
-        std::is_nothrow_move_assignable_v<Hash> &&
-        std::is_nothrow_move_assignable_v<KeyEqual> &&
-        std::is_nothrow_move_assignable_v<Allocator>;
-    
-    static constexpr bool is_nothrow_swappable_v =
-        std::is_nothrow_swappable_v<Hash> &&
-        std::is_nothrow_swappable_v<KeyEqual> &&
-        std::is_nothrow_swappable_v<Allocator>;
-    
+    static constexpr bool is_nothrow_move_constructible_v = std::is_nothrow_move_constructible_v<Hash> &&
+                                                            std::is_nothrow_move_constructible_v<KeyEqual> &&
+                                                            std::is_nothrow_move_constructible_v<Allocator>;
+
+    static constexpr bool is_nothrow_move_assignable_v = std::is_nothrow_move_assignable_v<Hash> &&
+                                                         std::is_nothrow_move_assignable_v<KeyEqual> &&
+                                                         std::is_nothrow_move_assignable_v<Allocator>;
+
+    static constexpr bool is_nothrow_swappable_v = std::is_nothrow_swappable_v<Hash> &&
+                                                   std::is_nothrow_swappable_v<KeyEqual> &&
+                                                   std::is_nothrow_swappable_v<Allocator>;
+
     // SFINAE helpers for heterogeneous lookup
     // These ensure find/erase/contains mDon_LIT_0__t handle K
-    template<typename K>
-    using IsHashInvocable = std::bool_constant<
-        std::is_invocable_r_v<size_t, const Hash&, const K&>>;
-    
-    template<typename K>
-    using IsKeyEqualInvocable = std::bool_constant<
-        std::is_invocable_r_v<bool, const KeyEqual&, const Key&, const K&>>;
-    
-    template<typename K>
-    static constexpr bool is_hetero_lookup_enabled =
-        IsHashInvocable<K>::value && IsKeyEqualInvocable<K>::value;
-    
+    template <typename K>
+    using IsHashInvocable = std::bool_constant<std::is_invocable_r_v<size_t, const Hash&, const K&>>;
+
+    template <typename K>
+    using IsKeyEqualInvocable = std::bool_constant<std::is_invocable_r_v<bool, const KeyEqual&, const Key&, const K&>>;
+
+    template <typename K>
+    static constexpr bool is_hetero_lookup_enabled = IsHashInvocable<K>::value && IsKeyEqualInvocable<K>::value;
+
     // Hash with optional finalizer
     // Applied by default to protect against bad user hashes (e.g., std::hash<int> is identity)
     // Skipped if Hash::is_avalanching is defined (e.g., absl::Hash, wyhash)
     // Uses SplitMix64 on 64-bit, MurmurHash3 finalizer on 32-bit (avoids UB from >> 33)
     // Note: hash value 0 is valid. H2(0)=0x80 cannot be confused with kEmpty=0x00.
-    template<typename K>
-    size_t hash_key(const K& k) const {
+    template <typename K>
+    size_t hash_key(const K& k) const
+    {
         size_t h = mHasher(k);
-        if constexpr (has_avalanching<Hash>::value) {
+        if constexpr (has_avalanching<Hash>::value)
+        {
             // User's hash already has good distribution, use as-is
             return h;
-        } else {
+        }
+        else
+        {
             // Apply finalizer appropriate for architecture (avoids 32-bit UB)
-            if constexpr (sizeof(size_t) >= 8) {
+            if constexpr (sizeof(size_t) >= 8)
+            {
                 // SplitMix64 finalizer for 64-bit
                 uint64_t x = static_cast<uint64_t>(h);
                 x ^= x >> 33;
@@ -812,7 +1001,9 @@ private:
                 x ^= x >> 33;
                 size_t mixed = static_cast<size_t>(x);
                 return mixed ? mixed : 1;
-            } else {
+            }
+            else
+            {
                 // MurmurHash3 finalizer for 32-bit
                 uint32_t x = static_cast<uint32_t>(h);
                 x ^= x >> 16;
@@ -825,205 +1016,250 @@ private:
             }
         }
     }
-    
-    template<typename K,
-             std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
-    std::pair<size_t, bool> find_slot(const K& k) const {
-        if (mCapacity == 0) return {0, false};
-        
+
+    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    std::pair<size_t, bool> find_slot(const K& k) const
+    {
+        if (mCapacity == 0)
+        {
+            return {0, false};
+        }
+
         size_t h = hash_key(k);
         uint8_t h2 = fasthash_detail::H2(h);
         ProbeSequence seq(h, mMask);
-        
-        while (true) {
+
+        while (true)
+        {
             Group g(mCtrl + seq.offset());
-            
-            for (uint32_t i : g.match(h2)) {
+
+            for (uint32_t i : g.match(h2))
+            {
                 size_t idx = seq.offset(i);
-                if (key_equal_(mSlots[idx].key, k)) {
+                if (key_equal_(mSlots[idx].key, k))
+                {
                     return {idx, true};
                 }
             }
-            
-            if (g.match_empty()) {
+
+            if (g.match_empty())
+            {
                 return {0, false};
             }
-            
+
             seq.next();
         }
     }
-    
-    size_t find_insert_slot(size_t h) const {
+
+    size_t find_insert_slot(size_t h) const
+    {
         ProbeSequence seq(h, mMask);
-        
-        while (true) {
+
+        while (true)
+        {
             Group g(mCtrl + seq.offset());
-            
+
             // With tombstones, can insert into deleted slots
             // Without tombstones, only empty slots
             BitMask mask = uses_tombstones ? g.match_empty_or_deleted() : g.match_empty();
-            if (mask) {
+            if (mask)
+            {
                 return seq.offset(mask.lowest_set_bit());
             }
-            
+
             seq.next();
         }
     }
-    
-    void rehash_internal(size_t new_cap) {
+
+    void rehash_internal(size_t new_cap)
+    {
         uint8_t* old_ctrl = mCtrl;
         Slot* old_slots = mSlots;
         size_t old_cap = mCapacity;
         size_t old_mask = mMask;
         size_t old_growth_threshold = growth_threshold_;
-        
+
         mCtrl = nullptr;
         mSlots = nullptr;
-        
-        try {
+
+        try
+        {
             allocate(new_cap);
-        } catch (...) {
+        }
+        catch (...)
+        {
             // Restore old state on allocation failure
             mCtrl = old_ctrl;
             mSlots = old_slots;
             mCapacity = old_cap;
             mMask = old_mask;
             growth_threshold_ = old_growth_threshold;
-            throw;  // Re-throw the exception
+            throw; // Re-throw the exception
         }
-        
+
         size_ = 0;
-        if constexpr (uses_tombstones) {
+        if constexpr (uses_tombstones)
+        {
             mTombstones = 0;
         }
-        
-        if (old_ctrl) {
-            for (size_t i = 0; i < old_cap; ++i) {
-                if (fasthash_detail::is_full(old_ctrl[i])) {
+
+        if (old_ctrl)
+        {
+            for (size_t i = 0; i < old_cap; ++i)
+            {
+                if (fasthash_detail::is_full(old_ctrl[i]))
+                {
                     size_t h = hash_key(old_slots[i].key);
                     size_t idx = find_insert_slot(h);
                     size_t home = h & mMask;
-                    
+
                     set_ctrl(idx, fasthash_detail::H2(h));
                     new (&mSlots[idx]) Slot();
-                    mSlots[idx].emplace(std::move(old_slots[i].key), 
-                                       std::move(old_slots[i].value), home);
+                    mSlots[idx].emplace(std::move(old_slots[i].key), std::move(old_slots[i].value), home);
                     old_slots[i].destroy();
                     ++size_;
                 }
             }
-            
-            constexpr size_t slot_align = alignof(Slot) > alignof(std::max_align_t) 
-                ? alignof(Slot) : alignof(std::max_align_t);
+
+            constexpr size_t slot_align =
+                alignof(Slot) > alignof(std::max_align_t) ? alignof(Slot) : alignof(std::max_align_t);
             mAllocator.deallocate(old_slots, old_cap * sizeof(Slot), slot_align);
             mAllocator.deallocate(old_ctrl, old_cap + Group::kWidth, Group::kWidth);
         }
     }
-    
-    void maybe_rehash() {
+
+    void maybe_rehash()
+    {
         // Skip rehash check before first allocation
-        if (mCapacity == 0) {
+        if (mCapacity == 0)
+        {
             return;
         }
-        if constexpr (uses_tombstones) {
-            if (size_ + mTombstones >= growth_threshold_) {
+        if constexpr (uses_tombstones)
+        {
+            if (size_ + mTombstones >= growth_threshold_)
+            {
                 size_t new_cap = mCapacity;
-                if (size_ >= growth_threshold_ / 2) {
+                if (size_ >= growth_threshold_ / 2)
+                {
                     new_cap = mCapacity ? mCapacity * 2 : kMinCapacity;
                 }
                 rehash_internal(new_cap);
             }
-        } else {
-            if (size_ >= growth_threshold_) {
+        }
+        else
+        {
+            if (size_ >= growth_threshold_)
+            {
                 size_t new_cap = mCapacity ? mCapacity * 2 : kMinCapacity;
                 rehash_internal(new_cap);
             }
         }
     }
-    
+
     // Erase implementation - policy-specific
-    void erase_at(size_t idx) {
-        if constexpr (uses_tombstones) {
+    void erase_at(size_t idx)
+    {
+        if constexpr (uses_tombstones)
+        {
             // Tombstone deletion: O(1), mark as deleted
             mSlots[idx].destroy();
             set_ctrl(idx, fasthash_detail::kDeleted);
             --size_;
             ++mTombstones;
-        } else {
+        }
+        else
+        {
             // Backward-shift deletion: shift elements back
             --size_;
-            
+
             size_t hole = idx;
             size_t scan = (hole + 1) & mMask;
-            
-            while (fasthash_detail::is_full(mCtrl[scan])) {
+
+            while (fasthash_detail::is_full(mCtrl[scan]))
+            {
                 size_t natural_pos = mSlots[scan].home();
                 size_t dist_to_current = (scan - natural_pos) & mMask;
                 size_t dist_to_hole = (hole - natural_pos) & mMask;
-                
-                if (dist_to_hole < dist_to_current) {
+
+                if (dist_to_hole < dist_to_current)
+                {
                     set_ctrl(hole, mCtrl[scan]);
                     mSlots[hole].key = std::move(mSlots[scan].key);
                     mSlots[hole].value = std::move(mSlots[scan].value);
-                    if constexpr (!uses_tombstones) {
+                    if constexpr (!uses_tombstones)
+                    {
                         mSlots[hole].mHome = natural_pos;
                     }
                     hole = scan;
                 }
-                
+
                 scan = (scan + 1) & mMask;
             }
-            
+
             mSlots[hole].destroy();
             set_ctrl(hole, fasthash_detail::kEmpty);
         }
     }
-    
+
 public:
     FastHashMap() = default;
-    
+
     explicit FastHashMap(size_t initial_capacity, double load_factor = 0.875)
-        : max_load_factor_(normalize_load_factor(load_factor)) {
-        if (initial_capacity > 0) {
+        : max_load_factor_(normalize_load_factor(load_factor))
+    {
+        if (initial_capacity > 0)
+        {
             size_t cap = kMinCapacity;
-            while (cap < initial_capacity) cap *= 2;
+            while (cap < initial_capacity)
+            {
+                cap *= 2;
+            }
             allocate(cap);
         }
     }
-    
-    ~FastHashMap() { deallocate(); }
-    
+
+    ~FastHashMap()
+    {
+        deallocate();
+    }
+
     FastHashMap(const FastHashMap& other)
         : max_load_factor_(other.max_load_factor_)
         , mFrozen(other.mFrozen)
         , mHasher(other.mHasher)
         , key_equal_(other.key_equal_)
-        , mAllocator() {  // Default construct allocator (can't copy stateful allocators)
-        if (other.mCapacity > 0) {
+        , mAllocator()
+    { // Default construct allocator (can't copy stateful allocators)
+        if (other.mCapacity > 0)
+        {
             allocate(other.mCapacity);
-            for (size_t i = 0; i < other.mCapacity; ++i) {
-                if (fasthash_detail::is_full(other.mCtrl[i])) {
+            for (size_t i = 0; i < other.mCapacity; ++i)
+            {
+                if (fasthash_detail::is_full(other.mCtrl[i]))
+                {
                     set_ctrl(i, other.mCtrl[i]);
                     new (&mSlots[i]) Slot();
-                    mSlots[i].emplace(other.mSlots[i].key, other.mSlots[i].value,
-                                     other.mSlots[i].home());
-                } else if (fasthash_detail::is_deleted(other.mCtrl[i])) {
+                    mSlots[i].emplace(other.mSlots[i].key, other.mSlots[i].value, other.mSlots[i].home());
+                }
+                else if (fasthash_detail::is_deleted(other.mCtrl[i]))
+                {
                     set_ctrl(i, fasthash_detail::kDeleted);
                 }
                 // Empty slots already initialized by allocate()
             }
             size_ = other.size_;
-            if constexpr (uses_tombstones) {
+            if constexpr (uses_tombstones)
+            {
                 mTombstones = other.mTombstones;
             }
         }
     }
-    
+
     // Move constructor - only available when allocator supports pointer stealing
     // For inline-storage allocators (FixedAllocator), moves are deleted because
     // pointers into the embedded buffer would dangle after move.
-    template<typename A = Allocator,
-             std::enable_if_t<A::kPointerStealSafe, int> = 0>
+    template <typename A = Allocator, std::enable_if_t<A::kPointerStealSafe, int> = 0>
     FastHashMap(FastHashMap&& other) noexcept(is_nothrow_move_constructible_v)
         : mCtrl(other.mCtrl)
         , mSlots(other.mSlots)
@@ -1035,8 +1271,10 @@ public:
         , mFrozen(other.mFrozen)
         , mHasher(std::move(other.mHasher))
         , key_equal_(std::move(other.key_equal_))
-        , mAllocator(std::move(other.mAllocator)) {
-        if constexpr (uses_tombstones) {
+        , mAllocator(std::move(other.mAllocator))
+    {
+        if constexpr (uses_tombstones)
+        {
             mTombstones = other.mTombstones;
             other.mTombstones = 0;
         }
@@ -1047,25 +1285,27 @@ public:
         other.mMask = 0;
         other.mFrozen = false;
     }
-    
+
     // Deleted move constructor for inline-storage allocators
-    template<typename A = Allocator,
-             std::enable_if_t<!A::kPointerStealSafe, int> = 0>
+    template <typename A = Allocator, std::enable_if_t<!A::kPointerStealSafe, int> = 0>
     FastHashMap(FastHashMap&&) = delete;
-    
-    FastHashMap& operator=(const FastHashMap& other) {
-        if (this != &other) {
+
+    FastHashMap& operator=(const FastHashMap& other)
+    {
+        if (this != &other)
+        {
             FastHashMap tmp(other);
             swap(tmp);
         }
         return *this;
     }
-    
+
     // Move assignment - only available when allocator supports pointer stealing
-    template<typename A = Allocator,
-             std::enable_if_t<A::kPointerStealSafe, int> = 0>
-    FastHashMap& operator=(FastHashMap&& other) noexcept(is_nothrow_move_assignable_v) {
-        if (this != &other) {
+    template <typename A = Allocator, std::enable_if_t<A::kPointerStealSafe, int> = 0>
+    FastHashMap& operator=(FastHashMap&& other) noexcept(is_nothrow_move_assignable_v)
+    {
+        if (this != &other)
+        {
             deallocate();
             mCtrl = other.mCtrl;
             mSlots = other.mSlots;
@@ -1078,7 +1318,8 @@ public:
             mHasher = std::move(other.mHasher);
             key_equal_ = std::move(other.key_equal_);
             mAllocator = std::move(other.mAllocator);
-            if constexpr (uses_tombstones) {
+            if constexpr (uses_tombstones)
+            {
                 mTombstones = other.mTombstones;
                 other.mTombstones = 0;
             }
@@ -1091,16 +1332,15 @@ public:
         }
         return *this;
     }
-    
+
     // Deleted move assignment for inline-storage allocators
-    template<typename A = Allocator,
-             std::enable_if_t<!A::kPointerStealSafe, int> = 0>
+    template <typename A = Allocator, std::enable_if_t<!A::kPointerStealSafe, int> = 0>
     FastHashMap& operator=(FastHashMap&&) = delete;
-    
+
     // Swap - only available when allocator supports pointer stealing
-    template<typename A = Allocator,
-             std::enable_if_t<A::kPointerStealSafe, int> = 0>
-    void swap(FastHashMap& other) noexcept(is_nothrow_swappable_v) {
+    template <typename A = Allocator, std::enable_if_t<A::kPointerStealSafe, int> = 0>
+    void swap(FastHashMap& other) noexcept(is_nothrow_swappable_v)
+    {
         std::swap(mCtrl, other.mCtrl);
         std::swap(mSlots, other.mSlots);
         std::swap(size_, other.size_);
@@ -1112,357 +1352,557 @@ public:
         std::swap(mHasher, other.mHasher);
         std::swap(key_equal_, other.key_equal_);
         std::swap(mAllocator, other.mAllocator);
-        if constexpr (uses_tombstones) {
+        if constexpr (uses_tombstones)
+        {
             std::swap(mTombstones, other.mTombstones);
         }
     }
-    
+
     // Capacity
-    bool empty() const noexcept { return size_ == 0; }
-    size_t size() const noexcept { return size_; }
-    size_t capacity() const noexcept { return mCapacity; }
-    double load_factor() const noexcept {
+    bool empty() const noexcept
+    {
+        return size_ == 0;
+    }
+    size_t size() const noexcept
+    {
+        return size_;
+    }
+    size_t capacity() const noexcept
+    {
+        return mCapacity;
+    }
+    double load_factor() const noexcept
+    {
         return mCapacity ? static_cast<double>(size_) / static_cast<double>(mCapacity) : 0.0;
     }
-    double max_load_factor() const noexcept { return max_load_factor_; }
-    
+    double max_load_factor() const noexcept
+    {
+        return max_load_factor_;
+    }
+
     /// Get allocator reference (for diagnostics/introspection)
-    Allocator& get_allocator() noexcept { return mAllocator; }
-    const Allocator& get_allocator() const noexcept { return mAllocator; }
-    
+    Allocator& get_allocator() noexcept
+    {
+        return mAllocator;
+    }
+    const Allocator& get_allocator() const noexcept
+    {
+        return mAllocator;
+    }
+
     /// Freeze the map for read-only access. Enables safe high-density lookup.
     /// After freezing, insert/erase/clear will assert in debug builds.
     /// Cannot be unfrozen - create a new map if mutations are needed.
-    FastHashMap& freeze() noexcept { mFrozen = true; return *this; }
-    
+    FastHashMap& freeze() noexcept
+    {
+        mFrozen = true;
+        return *this;
+    }
+
     /// Check if map is frozen (read-only mode)
-    bool is_frozen() const noexcept { return mFrozen; }
-    
-    void reserve(size_t count) {
+    bool is_frozen() const noexcept
+    {
+        return mFrozen;
+    }
+
+    void reserve(size_t count)
+    {
         assert(!mFrozen && "FastHashMap::reserve() called on frozen map");
         size_t required = static_cast<size_t>(count / max_load_factor_) + 1;
-        if (required > mCapacity) {
+        if (required > mCapacity)
+        {
             size_t new_cap = kMinCapacity;
-            while (new_cap < required) new_cap *= 2;
+            while (new_cap < required)
+            {
+                new_cap *= 2;
+            }
             rehash_internal(new_cap);
         }
     }
-    
-    void rehash(size_t count) {
+
+    void rehash(size_t count)
+    {
         assert(!mFrozen && "FastHashMap::rehash() called on frozen map");
         size_t new_cap = kMinCapacity;
-        while (new_cap < count) new_cap *= 2;
+        while (new_cap < count)
+        {
+            new_cap *= 2;
+        }
         bool should_rehash = new_cap > mCapacity;
-        if constexpr (uses_tombstones) {
+        if constexpr (uses_tombstones)
+        {
             should_rehash = should_rehash || (mTombstones > size_ / 4);
         }
-        if (should_rehash) {
+        if (should_rehash)
+        {
             rehash_internal(new_cap);
         }
     }
-    
-    void clear() {
+
+    void clear()
+    {
         assert(!mFrozen && "FastHashMap::clear() called on frozen map");
-        if (mCtrl) {
-            for (size_t i = 0; i < mCapacity; ++i) {
-                if (fasthash_detail::is_full(mCtrl[i])) {
+        if (mCtrl)
+        {
+            for (size_t i = 0; i < mCapacity; ++i)
+            {
+                if (fasthash_detail::is_full(mCtrl[i]))
+                {
                     mSlots[i].destroy();
                 }
             }
             // Reset all control bytes including mirrored tail
             std::memset(mCtrl, fasthash_detail::kEmpty, mCapacity + Group::kWidth);
             size_ = 0;
-            if constexpr (uses_tombstones) {
+            if constexpr (uses_tombstones)
+            {
                 mTombstones = 0;
             }
         }
     }
-    
+
     // Modifiers
-    template<typename K, typename V>
-    Value* insert(K&& key, V&& value) {
+    template <typename K, typename V>
+    Value* insert(K&& key, V&& value)
+    {
         assert(!mFrozen && "FastHashMap::insert() called on frozen map");
-        if (mCapacity == 0) allocate(kMinCapacity);
+        if (mCapacity == 0)
+        {
+            allocate(kMinCapacity);
+        }
         maybe_rehash();
-        
+
         size_t h = hash_key(key);
         uint8_t h2 = fasthash_detail::H2(h);
         size_t home = h & mMask;
-        
+
         ProbeSequence seq(h, mMask);
         size_t insert_idx = SIZE_MAX;
-        
-        while (true) {
+
+        while (true)
+        {
             Group g(mCtrl + seq.offset());
-            
-            for (uint32_t i : g.match(h2)) {
+
+            for (uint32_t i : g.match(h2))
+            {
                 size_t idx = seq.offset(i);
-                if (key_equal_(mSlots[idx].key, key)) {
-                    return nullptr;  // Already exists
+                if (key_equal_(mSlots[idx].key, key))
+                {
+                    return nullptr; // Already exists
                 }
             }
-            
-            if (insert_idx == SIZE_MAX) {
+
+            if (insert_idx == SIZE_MAX)
+            {
                 BitMask empty_mask = uses_tombstones ? g.match_empty_or_deleted() : g.match_empty();
-                if (empty_mask) {
+                if (empty_mask)
+                {
                     insert_idx = seq.offset(empty_mask.lowest_set_bit());
                 }
             }
-            
-            if (g.match_empty()) break;
+
+            if (g.match_empty())
+            {
+                break;
+            }
             seq.next();
         }
-        
-        if (insert_idx == SIZE_MAX) {
+
+        if (insert_idx == SIZE_MAX)
+        {
             insert_idx = find_insert_slot(h);
         }
-        
-        if constexpr (uses_tombstones) {
-            if (fasthash_detail::is_deleted(mCtrl[insert_idx])) {
+
+        if constexpr (uses_tombstones)
+        {
+            if (fasthash_detail::is_deleted(mCtrl[insert_idx]))
+            {
                 --mTombstones;
             }
         }
-        
+
         set_ctrl(insert_idx, h2);
         new (&mSlots[insert_idx]) Slot();
         mSlots[insert_idx].emplace(std::forward<K>(key), std::forward<V>(value), home);
         ++size_;
-        
+
         return &mSlots[insert_idx].value;
     }
-    
-    template<typename K, typename V>
-    std::pair<Value*, bool> insert_or_assign(K&& key, V&& value) {
+
+    template <typename K, typename V>
+    std::pair<Value*, bool> insert_or_assign(K&& key, V&& value)
+    {
         assert(!mFrozen && "FastHashMap::insert_or_assign() called on frozen map");
-        if (mCapacity == 0) allocate(kMinCapacity);
+        if (mCapacity == 0)
+        {
+            allocate(kMinCapacity);
+        }
         maybe_rehash();
-        
+
         size_t h = hash_key(key);
         uint8_t h2 = fasthash_detail::H2(h);
         size_t home = h & mMask;
-        
+
         ProbeSequence seq(h, mMask);
         size_t insert_idx = SIZE_MAX;
-        
-        while (true) {
+
+        while (true)
+        {
             Group g(mCtrl + seq.offset());
-            
-            for (uint32_t i : g.match(h2)) {
+
+            for (uint32_t i : g.match(h2))
+            {
                 size_t idx = seq.offset(i);
-                if (key_equal_(mSlots[idx].key, key)) {
+                if (key_equal_(mSlots[idx].key, key))
+                {
                     // Key exists - assign new value
                     mSlots[idx].value = std::forward<V>(value);
                     return {&mSlots[idx].value, false};
                 }
             }
-            
-            if (insert_idx == SIZE_MAX) {
+
+            if (insert_idx == SIZE_MAX)
+            {
                 BitMask empty_mask = uses_tombstones ? g.match_empty_or_deleted() : g.match_empty();
-                if (empty_mask) {
+                if (empty_mask)
+                {
                     insert_idx = seq.offset(empty_mask.lowest_set_bit());
                 }
             }
-            
-            if (g.match_empty()) break;
+
+            if (g.match_empty())
+            {
+                break;
+            }
             seq.next();
         }
-        
-        if (insert_idx == SIZE_MAX) {
+
+        if (insert_idx == SIZE_MAX)
+        {
             insert_idx = find_insert_slot(h);
         }
-        
-        if constexpr (uses_tombstones) {
-            if (fasthash_detail::is_deleted(mCtrl[insert_idx])) {
+
+        if constexpr (uses_tombstones)
+        {
+            if (fasthash_detail::is_deleted(mCtrl[insert_idx]))
+            {
                 --mTombstones;
             }
         }
-        
+
         set_ctrl(insert_idx, h2);
         new (&mSlots[insert_idx]) Slot();
         mSlots[insert_idx].emplace(std::forward<K>(key), std::forward<V>(value), home);
         ++size_;
-        
+
         return {&mSlots[insert_idx].value, true};
     }
-    
+
     /// Erase a key. Supports heterogeneous lookup.
-    template<typename K,
-             std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
-    bool erase(const K& key) {
+    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    bool erase(const K& key)
+    {
         assert(!mFrozen && "FastHashMap::erase() called on frozen map");
         auto [idx, found] = find_slot(key);
-        if (!found) return false;
+        if (!found)
+        {
+            return false;
+        }
         erase_at(idx);
         return true;
     }
-    
+
     // Lookup - Supports heterogeneous lookup (e.g., find with string_view for string keys)
-    template<typename K,
-             std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
-    Value* find(const K& key) {
+    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    Value* find(const K& key)
+    {
         auto [idx, found] = find_slot(key);
         return found ? &mSlots[idx].value : nullptr;
     }
-    
-    template<typename K,
-             std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
-    const Value* find(const K& key) const {
+
+    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    const Value* find(const K& key) const
+    {
         auto [idx, found] = find_slot(key);
         return found ? &mSlots[idx].value : nullptr;
     }
-    
-    template<typename K,
-             std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
-    bool contains(const K& key) const {
+
+    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    bool contains(const K& key) const
+    {
         auto [idx, found] = find_slot(key);
         return found;
     }
-    
-    template<typename K,
-             std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
-    size_t count(const K& key) const {
+
+    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    size_t count(const K& key) const
+    {
         return contains(key) ? 1 : 0;
     }
-    
-    template<typename K,
-             std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
-    Value& at(const K& key) {
+
+    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    Value& at(const K& key)
+    {
         auto [idx, found] = find_slot(key);
-        if (!found) throw std::out_of_range("FastHashMap::at: key not found");
+        if (!found)
+        {
+            throw std::out_of_range("FastHashMap::at: key not found");
+        }
         return mSlots[idx].value;
     }
-    
-    template<typename K,
-             std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
-    const Value& at(const K& key) const {
+
+    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    const Value& at(const K& key) const
+    {
         auto [idx, found] = find_slot(key);
-        if (!found) throw std::out_of_range("FastHashMap::at: key not found");
+        if (!found)
+        {
+            throw std::out_of_range("FastHashMap::at: key not found");
+        }
         return mSlots[idx].value;
     }
-    
-    Value& operator[](const Key& key) {
+
+    Value& operator[](const Key& key)
+    {
         assert(!mFrozen && "FastHashMap::operator[] called on frozen map (use find() or at())");
-        if (mCapacity == 0) allocate(kMinCapacity);
+        if (mCapacity == 0)
+        {
+            allocate(kMinCapacity);
+        }
         maybe_rehash();
-        
+
         size_t h = hash_key(key);
         uint8_t h2 = fasthash_detail::H2(h);
         size_t home = h & mMask;
-        
+
         ProbeSequence seq(h, mMask);
         size_t insert_idx = SIZE_MAX;
-        
-        while (true) {
+
+        while (true)
+        {
             Group g(mCtrl + seq.offset());
-            
-            for (uint32_t i : g.match(h2)) {
+
+            for (uint32_t i : g.match(h2))
+            {
                 size_t idx = seq.offset(i);
-                if (key_equal_(mSlots[idx].key, key)) {
+                if (key_equal_(mSlots[idx].key, key))
+                {
                     return mSlots[idx].value;
                 }
             }
-            
-            if (insert_idx == SIZE_MAX) {
+
+            if (insert_idx == SIZE_MAX)
+            {
                 BitMask empty_mask = uses_tombstones ? g.match_empty_or_deleted() : g.match_empty();
-                if (empty_mask) {
+                if (empty_mask)
+                {
                     insert_idx = seq.offset(empty_mask.lowest_set_bit());
                 }
             }
-            
-            if (g.match_empty()) break;
+
+            if (g.match_empty())
+            {
+                break;
+            }
             seq.next();
         }
-        
-        if (insert_idx == SIZE_MAX) {
+
+        if (insert_idx == SIZE_MAX)
+        {
             insert_idx = find_insert_slot(h);
         }
-        
-        if constexpr (uses_tombstones) {
-            if (fasthash_detail::is_deleted(mCtrl[insert_idx])) {
+
+        if constexpr (uses_tombstones)
+        {
+            if (fasthash_detail::is_deleted(mCtrl[insert_idx]))
+            {
                 --mTombstones;
             }
         }
-        
+
         set_ctrl(insert_idx, h2);
         new (&mSlots[insert_idx]) Slot();
         mSlots[insert_idx].emplace(key, Value{}, home);
         ++size_;
-        
+
         return mSlots[insert_idx].value;
     }
-    
+
     // Iterator
-    class iterator {
+    class iterator
+    {
     public:
         using iterator_category = std::forward_iterator_tag;
         using value_type = std::pair<const Key&, Value&>;
         using difference_type = std::ptrdiff_t;
         using pointer = void;
         using reference = value_type;
-        
-        iterator() : mCtrl(nullptr), mSlots(nullptr), mIdx(0), mCap(0) {}
+
+        iterator()
+            : mCtrl(nullptr)
+            , mSlots(nullptr)
+            , mIdx(0)
+            , mCap(0)
+        {
+        }
         iterator(uint8_t* ctrl, Slot* slots, size_t idx, size_t cap)
-            : mCtrl(ctrl), mSlots(slots), mIdx(idx), mCap(cap) { skip_empty(); }
-        
-        value_type operator*() const { return {mSlots[mIdx].key, mSlots[mIdx].value}; }
-        const Key& key() const { return mSlots[mIdx].key; }
-        Value& value() const { return mSlots[mIdx].value; }
-        
-        iterator& operator++() { ++mIdx; skip_empty(); return *this; }
-        iterator operator++(int) { iterator tmp = *this; ++(*this); return tmp; }
-        bool operator==(const iterator& o) const { return mCtrl == o.mCtrl && mIdx == o.mIdx; }
-        bool operator!=(const iterator& o) const { return !(*this == o); }
-        
+            : mCtrl(ctrl)
+            , mSlots(slots)
+            , mIdx(idx)
+            , mCap(cap)
+        {
+            skip_empty();
+        }
+
+        value_type operator*() const
+        {
+            return {mSlots[mIdx].key, mSlots[mIdx].value};
+        }
+        const Key& key() const
+        {
+            return mSlots[mIdx].key;
+        }
+        Value& value() const
+        {
+            return mSlots[mIdx].value;
+        }
+
+        iterator& operator++()
+        {
+            ++mIdx;
+            skip_empty();
+            return *this;
+        }
+        iterator operator++(int)
+        {
+            iterator tmp = *this;
+            ++(*this);
+            return tmp;
+        }
+        bool operator==(const iterator& o) const
+        {
+            return mCtrl == o.mCtrl && mIdx == o.mIdx;
+        }
+        bool operator!=(const iterator& o) const
+        {
+            return !(*this == o);
+        }
+
     private:
-        void skip_empty() {
-            while (mIdx < mCap && !fasthash_detail::is_full(mCtrl[mIdx])) ++mIdx;
+        void skip_empty()
+        {
+            while (mIdx < mCap && !fasthash_detail::is_full(mCtrl[mIdx]))
+            {
+                ++mIdx;
+            }
         }
         uint8_t* mCtrl;
         Slot* mSlots;
         size_t mIdx;
         size_t mCap;
     };
-    
-    class const_iterator {
+
+    class const_iterator
+    {
     public:
         using iterator_category = std::forward_iterator_tag;
         using value_type = std::pair<const Key&, const Value&>;
         using difference_type = std::ptrdiff_t;
         using pointer = void;
         using reference = value_type;
-        
-        const_iterator() : mCtrl(nullptr), mSlots(nullptr), mIdx(0), mCap(0) {}
+
+        const_iterator()
+            : mCtrl(nullptr)
+            , mSlots(nullptr)
+            , mIdx(0)
+            , mCap(0)
+        {
+        }
         const_iterator(const uint8_t* ctrl, const Slot* slots, size_t idx, size_t cap)
-            : mCtrl(ctrl), mSlots(slots), mIdx(idx), mCap(cap) { skip_empty(); }
-        
-        value_type operator*() const { return {mSlots[mIdx].key, mSlots[mIdx].value}; }
-        const Key& key() const { return mSlots[mIdx].key; }
-        const Value& value() const { return mSlots[mIdx].value; }
-        
-        const_iterator& operator++() { ++mIdx; skip_empty(); return *this; }
-        const_iterator operator++(int) { const_iterator tmp = *this; ++(*this); return tmp; }
-        bool operator==(const const_iterator& o) const { return mCtrl == o.mCtrl && mIdx == o.mIdx; }
-        bool operator!=(const const_iterator& o) const { return !(*this == o); }
-        
+            : mCtrl(ctrl)
+            , mSlots(slots)
+            , mIdx(idx)
+            , mCap(cap)
+        {
+            skip_empty();
+        }
+
+        value_type operator*() const
+        {
+            return {mSlots[mIdx].key, mSlots[mIdx].value};
+        }
+        const Key& key() const
+        {
+            return mSlots[mIdx].key;
+        }
+        const Value& value() const
+        {
+            return mSlots[mIdx].value;
+        }
+
+        const_iterator& operator++()
+        {
+            ++mIdx;
+            skip_empty();
+            return *this;
+        }
+        const_iterator operator++(int)
+        {
+            const_iterator tmp = *this;
+            ++(*this);
+            return tmp;
+        }
+        bool operator==(const const_iterator& o) const
+        {
+            return mCtrl == o.mCtrl && mIdx == o.mIdx;
+        }
+        bool operator!=(const const_iterator& o) const
+        {
+            return !(*this == o);
+        }
+
     private:
-        void skip_empty() {
-            while (mIdx < mCap && !fasthash_detail::is_full(mCtrl[mIdx])) ++mIdx;
+        void skip_empty()
+        {
+            while (mIdx < mCap && !fasthash_detail::is_full(mCtrl[mIdx]))
+            {
+                ++mIdx;
+            }
         }
         const uint8_t* mCtrl;
         const Slot* mSlots;
         size_t mIdx;
         size_t mCap;
     };
-    
-    iterator begin() { return iterator(mCtrl, mSlots, 0, mCapacity); }
-    iterator end() { return iterator(mCtrl, mSlots, mCapacity, mCapacity); }
-    const_iterator begin() const { return const_iterator(mCtrl, mSlots, 0, mCapacity); }
-    const_iterator end() const { return const_iterator(mCtrl, mSlots, mCapacity, mCapacity); }
-    const_iterator cbegin() const { return const_iterator(mCtrl, mSlots, 0, mCapacity); }
-    const_iterator cend() const { return const_iterator(mCtrl, mSlots, mCapacity, mCapacity); }
-    
+
+    iterator begin()
+    {
+        return iterator(mCtrl, mSlots, 0, mCapacity);
+    }
+    iterator end()
+    {
+        return iterator(mCtrl, mSlots, mCapacity, mCapacity);
+    }
+    const_iterator begin() const
+    {
+        return const_iterator(mCtrl, mSlots, 0, mCapacity);
+    }
+    const_iterator end() const
+    {
+        return const_iterator(mCtrl, mSlots, mCapacity, mCapacity);
+    }
+    const_iterator cbegin() const
+    {
+        return const_iterator(mCtrl, mSlots, 0, mCapacity);
+    }
+    const_iterator cend() const
+    {
+        return const_iterator(mCtrl, mSlots, mCapacity, mCapacity);
+    }
+
     // Diagnostics
-    static const char* simd_backend() {
+    static const char* simd_backend()
+    {
 #if defined(FATP_FAST_HASH_MAP_AVX512)
         return "AVX-512";
 #elif defined(FATP_FAST_HASH_MAP_AVX2)
@@ -1475,34 +1915,35 @@ public:
         return "Portable";
 #endif
     }
-    
-    static constexpr size_t group_width() {
+
+    static constexpr size_t group_width()
+    {
         return Group::kWidth;
     }
-    
-    static const char* deletion_policy_name() {
+
+    static const char* deletion_policy_name()
+    {
         return DeletionPolicy::name();
     }
-    
-    static const char* allocator_name() {
+
+    static const char* allocator_name()
+    {
         return Allocator::name();
     }
 };
 
 // Convenience aliases - Default allocator (HeapAllocator)
-template<typename K, typename V, typename H = std::hash<K>, typename E = std::equal_to<K>>
+template <typename K, typename V, typename H = std::hash<K>, typename E = std::equal_to<K>>
 using FastHashMapBS = FastHashMap<K, V, H, E, BackwardShiftDeletion, HeapAllocator>;
 
-template<typename K, typename V, typename H = std::hash<K>, typename E = std::equal_to<K>>
+template <typename K, typename V, typename H = std::hash<K>, typename E = std::equal_to<K>>
 using FastHashMapTS = FastHashMap<K, V, H, E, TombstoneDeletion, HeapAllocator>;
 
 // Fixed-size map aliases (no heap allocation after construction)
-template<typename K, typename V, size_t BufferBytes = 4096,
-         typename H = std::hash<K>, typename E = std::equal_to<K>>
+template <typename K, typename V, size_t BufferBytes = 4096, typename H = std::hash<K>, typename E = std::equal_to<K>>
 using FixedHashMap = FastHashMap<K, V, H, E, TombstoneDeletion, FixedAllocator<BufferBytes>>;
 
-template<typename K, typename V, size_t BufferBytes = 4096,
-         typename H = std::hash<K>, typename E = std::equal_to<K>>
+template <typename K, typename V, size_t BufferBytes = 4096, typename H = std::hash<K>, typename E = std::equal_to<K>>
 using FixedHashMapBS = FastHashMap<K, V, H, E, BackwardShiftDeletion, FixedAllocator<BufferBytes>>;
 
 } // namespace fat_p

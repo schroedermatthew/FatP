@@ -42,11 +42,9 @@ namespace fat_p::testing::asyncoperations
 
 FATP_TEST_CASE(basic_task)
 {
-    auto task = async_task(
-        []() -> Expected<int, std::string>
-        {
-            return 42;
-        });
+    auto task = async_task([]() -> Expected<int, std::string> {
+        return 42;
+    });
 
     auto result = task.wait();
     FATP_ASSERT_TRUE(result.has_value(), "Task should succeed");
@@ -57,16 +55,11 @@ FATP_TEST_CASE(basic_task)
 
 FATP_TEST_CASE(continuation)
 {
-    auto task = async_task(
-                    []() -> Expected<int, std::string>
-                    {
-                        return 10;
-                    })
-                    .then(
-                        [](int val) -> Expected<int, std::string>
-                        {
-                            return val * 2;
-                        });
+    auto task = async_task([]() -> Expected<int, std::string> {
+                    return 10;
+                }).then([](int val) -> Expected<int, std::string> {
+        return val * 2;
+    });
 
     auto result = task.wait();
     FATP_ASSERT_TRUE(result.has_value(), "Task should succeed");
@@ -79,16 +72,11 @@ FATP_TEST_CASE(error_handling)
 {
     bool error_called = false;
 
-    auto task = async_task(
-                    []() -> Expected<int, std::string>
-                    {
-                        return unexpected<std::string>("error occurred");
-                    })
-                    .error(
-                        [&](const std::string& err)
-                        {
-                            error_called = true;
-                        });
+    auto task = async_task([]() -> Expected<int, std::string> {
+                    return unexpected<std::string>("error occurred");
+                }).error([&](const std::string& err) {
+        error_called = true;
+    });
 
     auto result = task.wait();
     FATP_ASSERT_TRUE(!result.has_value(), "Task should fail");
@@ -99,21 +87,15 @@ FATP_TEST_CASE(error_handling)
 
 FATP_TEST_CASE(chained_continuations)
 {
-    auto task = async_task(
-                    []() -> Expected<int, std::string>
-                    {
-                        return 5;
+    auto task = async_task([]() -> Expected<int, std::string> {
+                    return 5;
+                })
+                    .then([](int val) -> Expected<int, std::string> {
+                        return val + 10;
                     })
-                    .then(
-                        [](int val) -> Expected<int, std::string>
-                        {
-                            return val + 10;
-                        })
-                    .then(
-                        [](int val) -> Expected<int, std::string>
-                        {
-                            return val * 2;
-                        });
+                    .then([](int val) -> Expected<int, std::string> {
+                        return val * 2;
+                    });
 
     auto result = task.wait();
     FATP_ASSERT_TRUE(result.has_value(), "Task should succeed");
@@ -124,16 +106,11 @@ FATP_TEST_CASE(chained_continuations)
 
 FATP_TEST_CASE(error_propagation)
 {
-    auto task = async_task(
-                    []() -> Expected<int, std::string>
-                    {
-                        return unexpected<std::string>("initial error");
-                    })
-                    .then(
-                        [](int val) -> Expected<int, std::string>
-                        {
-                            return val * 2; // Should not execute
-                        });
+    auto task = async_task([]() -> Expected<int, std::string> {
+                    return unexpected<std::string>("initial error");
+                }).then([](int val) -> Expected<int, std::string> {
+        return val * 2; // Should not execute
+    });
 
     auto result = task.wait();
     FATP_ASSERT_TRUE(!result.has_value(), "Task should fail");
@@ -144,12 +121,10 @@ FATP_TEST_CASE(error_propagation)
 
 FATP_TEST_CASE(poll)
 {
-    auto task = async_task(
-        []() -> Expected<int, std::string>
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            return 42;
-        });
+    auto task = async_task([]() -> Expected<int, std::string> {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        return 42;
+    });
 
     auto early_result = task.poll();
     // May or may not be ready depending on timing
@@ -162,11 +137,9 @@ FATP_TEST_CASE(poll)
 
 FATP_TEST_CASE(valid)
 {
-    auto task = async_task(
-        []() -> Expected<int, std::string>
-        {
-            return 42;
-        });
+    auto task = async_task([]() -> Expected<int, std::string> {
+        return 42;
+    });
 
     FATP_ASSERT_TRUE(task.valid(), "Task should be valid before wait");
 
@@ -183,13 +156,10 @@ void benchmark_asyncoperations()
 
     // Benchmark task creation and wait
     double task_time = measure_perf(
-        []()
-        {
-            auto task = async_task(
-                []() -> Expected<int, std::string>
-                {
-                    return 42;
-                });
+        []() {
+            auto task = async_task([]() -> Expected<int, std::string> {
+                return 42;
+            });
             auto result = task.wait();
             DoNotOptimize(result);
         },
@@ -199,18 +169,12 @@ void benchmark_asyncoperations()
 
     // Benchmark with continuation
     double chain_time = measure_perf(
-        []()
-        {
-            auto task = async_task(
-                            []() -> Expected<int, std::string>
-                            {
-                                return 10;
-                            })
-                            .then(
-                                [](int val) -> Expected<int, std::string>
-                                {
-                                    return val * 2;
-                                });
+        []() {
+            auto task = async_task([]() -> Expected<int, std::string> {
+                            return 10;
+                        }).then([](int val) -> Expected<int, std::string> {
+                return val * 2;
+            });
             auto result = task.wait();
             DoNotOptimize(result);
         },

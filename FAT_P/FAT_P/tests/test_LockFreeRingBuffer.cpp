@@ -157,37 +157,33 @@ FATP_TEST_CASE(ring_buffer_spsc_threaded)
     std::atomic<bool> producer_done{false};
 
     // Producer thread
-    std::thread producer(
-        [&]()
+    std::thread producer([&]() {
+        for (int i = 0; i < NUM_ITEMS; ++i)
         {
-            for (int i = 0; i < NUM_ITEMS; ++i)
+            while (!buffer.push(i))
             {
-                while (!buffer.push(i))
-                {
-                    // Spin until push succeeds
-                }
+                // Spin until push succeeds
             }
-            producer_done = true;
-        });
+        }
+        producer_done = true;
+    });
 
     // Consumer thread
-    std::thread consumer(
-        [&]()
+    std::thread consumer([&]() {
+        int expected = 0;
+        while (expected < NUM_ITEMS)
         {
-            int expected = 0;
-            while (expected < NUM_ITEMS)
+            auto val = buffer.pop();
+            if (val)
             {
-                auto val = buffer.pop();
-                if (val)
+                if (*val != expected)
                 {
-                    if (*val != expected)
-                    {
-                        std::cerr << "Expected " << expected << " got " << *val << "\n";
-                    }
-                    ++expected;
+                    std::cerr << "Expected " << expected << " got " << *val << "\n";
                 }
+                ++expected;
             }
-        });
+        }
+    });
 
     producer.join();
     consumer.join();
@@ -205,8 +201,7 @@ void benchmark_ring_buffer()
 
     // Benchmark push
     double push_time = measure_perf(
-        [&buffer, i = 0]() mutable
-        {
+        [&buffer, i = 0]() mutable {
             (void)buffer.push(i++);
         },
         100000,
@@ -222,8 +217,7 @@ void benchmark_ring_buffer()
 
     // Benchmark pop
     double pop_time = measure_perf(
-        [&buffer2]()
-        {
+        [&buffer2]() {
             auto val = buffer2.pop();
             DoNotOptimize(val);
         },
@@ -235,8 +229,7 @@ void benchmark_ring_buffer()
     LockFreeRingBufferMPMC<int> mpmc_buffer(1024);
 
     double mpmc_push_time = measure_perf(
-        [&mpmc_buffer, i = 0]() mutable
-        {
+        [&mpmc_buffer, i = 0]() mutable {
             (void)mpmc_buffer.push(i++);
         },
         100000,

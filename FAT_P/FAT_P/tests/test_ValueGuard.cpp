@@ -405,12 +405,9 @@ FATP_TEST_CASE(conditional_restore_true)
     int value = 42;
 
     {
-        auto guard = make_value_guard_conditional(value,
-                                                  100,
-                                                  []()
-                                                  {
-                                                      return true;
-                                                  });
+        auto guard = make_value_guard_conditional(value, 100, []() {
+            return true;
+        });
         FATP_ASSERT_EQ(value, 100, "Value changed");
     }
 
@@ -423,12 +420,9 @@ FATP_TEST_CASE(conditional_restore_false)
     int value = 42;
 
     {
-        auto guard = make_value_guard_conditional(value,
-                                                  100,
-                                                  []()
-                                                  {
-                                                      return false;
-                                                  });
+        auto guard = make_value_guard_conditional(value, 100, []() {
+            return false;
+        });
         FATP_ASSERT_EQ(value, 100, "Value changed");
     }
 
@@ -442,12 +436,9 @@ FATP_TEST_CASE(conditional_dynamic_decision)
     bool should_restore = true;
 
     {
-        auto guard = make_value_guard_conditional(value,
-                                                  100,
-                                                  [&should_restore]()
-                                                  {
-                                                      return should_restore;
-                                                  });
+        auto guard = make_value_guard_conditional(value, 100, [&should_restore]() {
+            return should_restore;
+        });
         FATP_ASSERT_EQ(value, 100, "Value changed");
 
         // Decide not to restore mid-scope
@@ -468,13 +459,10 @@ FATP_TEST_CASE(custom_restorer)
     bool restorer_called = false;
 
     {
-        auto guard = make_value_guard_custom(value,
-                                             100,
-                                             [&restorer_called](int& target, int&& original)
-                                             {
-                                                 restorer_called = true;
-                                                 target = original + 1; // Custom logic: restore + 1
-                                             });
+        auto guard = make_value_guard_custom(value, 100, [&restorer_called](int& target, int&& original) {
+            restorer_called = true;
+            target = original + 1; // Custom logic: restore + 1
+        });
         FATP_ASSERT_EQ(value, 100, "Value changed");
     }
 
@@ -491,8 +479,7 @@ FATP_TEST_CASE(custom_restorer_with_logging)
     {
         auto guard = make_value_guard_custom(value,
                                              std::string("temporary"),
-                                             [&log](std::string& target, std::string&& original)
-                                             {
+                                             [&log](std::string& target, std::string&& original) {
                                                  log.push_back("Restoring from '" + target + "' to '" + original + "'");
                                                  target = std::move(original);
                                              });
@@ -510,12 +497,9 @@ FATP_TEST_CASE(custom_restorer_incremental)
     int counter = 0;
 
     {
-        auto guard = make_value_guard_custom(counter,
-                                             10,
-                                             [](int& target, int&& /*original*/)
-                                             {
-                                                 target--; // Decrement instead of full restore
-                                             });
+        auto guard = make_value_guard_custom(counter, 10, [](int& target, int&& /*original*/) {
+            target--; // Decrement instead of full restore
+        });
         FATP_ASSERT_EQ(counter, 10, "Counter set to 10");
     }
 
@@ -889,12 +873,9 @@ FATP_TEST_CASE(deduction_guide_custom)
 
     {
         // 2-arg callable -> CustomPolicy (NOT ConditionalPolicy)
-        ValueGuard guard(value,
-                         100,
-                         [](int& t, int&& o)
-                         {
-                             t = o;
-                         });
+        ValueGuard guard(value, 100, [](int& t, int&& o) {
+            t = o;
+        });
         FATP_ASSERT_EQ(value, 100, "Value changed");
     }
 
@@ -915,12 +896,9 @@ FATP_TEST_CASE(deduction_guide_disambiguation)
 
     // Test 1: 2-arg callable should select CustomPolicy
     {
-        ValueGuard guard1(value,
-                          100,
-                          [](int& target, int&& original)
-                          {
-                              target = original + 1; // Custom restore logic
-                          });
+        ValueGuard guard1(value, 100, [](int& target, int&& original) {
+            target = original + 1; // Custom restore logic
+        });
         FATP_ASSERT_EQ(value, 100, "Custom: value changed");
     }
     FATP_ASSERT_EQ(value, 43, "Custom: restored with +1");
@@ -931,12 +909,9 @@ FATP_TEST_CASE(deduction_guide_disambiguation)
     // Test 2: 0-arg callable should select ConditionalPolicy
     {
         bool do_restore = true;
-        ValueGuard guard2(value,
-                          100,
-                          [&do_restore]()
-                          {
-                              return do_restore;
-                          });
+        ValueGuard guard2(value, 100, [&do_restore]() {
+            return do_restore;
+        });
         FATP_ASSERT_EQ(value, 100, "Conditional: value changed");
     }
     FATP_ASSERT_EQ(value, 42, "Conditional: restored (condition true)");
@@ -1011,8 +986,7 @@ FATP_TEST_CASE(guard_with_counter)
 {
     int recursion_depth = 0;
 
-    auto recursive_func = [&recursion_depth](auto& self, int n) -> int
-    {
+    auto recursive_func = [&recursion_depth](auto& self, int n) -> int {
         ValueGuard guard(recursion_depth, recursion_depth + 1);
 
         if (n <= 1)
@@ -1218,8 +1192,7 @@ void benchmark_value_guard()
     {
         int value = 42;
         double ns = measure_perf(
-            [&value]()
-            {
+            [&value]() {
                 ValueGuard guard(value, 100);
                 DoNotOptimize(value);
             },
@@ -1231,8 +1204,7 @@ void benchmark_value_guard()
     {
         std::string str = "original_value_for_testing";
         double ns = measure_perf(
-            [&str]()
-            {
+            [&str]() {
                 ValueGuard guard(str, std::string("temporary_value"));
                 DoNotOptimize(str);
             },
@@ -1244,14 +1216,10 @@ void benchmark_value_guard()
     {
         int value = 42;
         double ns = measure_perf(
-            [&value]()
-            {
-                auto guard = make_value_guard_custom(value,
-                                                     100,
-                                                     [](int& t, int&& o) noexcept
-                                                     {
-                                                         t = o;
-                                                     });
+            [&value]() {
+                auto guard = make_value_guard_custom(value, 100, [](int& t, int&& o) noexcept {
+                    t = o;
+                });
                 DoNotOptimize(value);
             },
             ITERATIONS);
@@ -1262,14 +1230,10 @@ void benchmark_value_guard()
     {
         int value = 42;
         double ns = measure_perf(
-            [&value]()
-            {
-                auto guard = make_value_guard_conditional(value,
-                                                          100,
-                                                          []() noexcept
-                                                          {
-                                                              return true;
-                                                          });
+            [&value]() {
+                auto guard = make_value_guard_conditional(value, 100, []() noexcept {
+                    return true;
+                });
                 DoNotOptimize(value);
             },
             ITERATIONS);
@@ -1280,8 +1244,7 @@ void benchmark_value_guard()
     {
         int value = 42;
         double ns = measure_perf(
-            [&value]()
-            {
+            [&value]() {
                 ValueGuard guard1(value, 100);
                 ValueGuard guard2(std::move(guard1));
                 DoNotOptimize(guard2);
@@ -1334,12 +1297,9 @@ FATP_TEST_CASE(performance_custom_policy)
 
     for (int i = 0; i < ITERATIONS; ++i)
     {
-        auto guard = make_value_guard_custom(value,
-                                             i,
-                                             [](int& t, int&& o) noexcept
-                                             {
-                                                 t = o;
-                                             });
+        auto guard = make_value_guard_custom(value, i, [](int& t, int&& o) noexcept {
+            t = o;
+        });
         DoNotOptimize(value);
     }
 

@@ -950,8 +950,7 @@ void benchmark_fasthashmap()
     volatile long long sink = 0;
 
     double fast_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             long long sum = 0;
             for (int k : lookup_keys)
             {
@@ -967,8 +966,7 @@ void benchmark_fasthashmap()
         WARMUP / N);
 
     double umap_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             long long sum = 0;
             for (int k : lookup_keys)
             {

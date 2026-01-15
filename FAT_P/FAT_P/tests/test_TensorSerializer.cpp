@@ -605,8 +605,7 @@ void benchmark_tensorserializer()
     }
 
     double small_enc_time = measure_perf(
-        [&small_f]()
-        {
+        [&small_f]() {
             auto r = serialize_tensor(small_f);
             DoNotOptimize(r);
         },
@@ -617,8 +616,7 @@ void benchmark_tensorserializer()
     auto small_buf = serialize_tensor(small_f);
 
     double small_dec_time = measure_perf(
-        [&small_buf]()
-        {
+        [&small_buf]() {
             auto r = deserialize_tensor<float>(*small_buf);
             DoNotOptimize(r);
         },
@@ -634,8 +632,7 @@ void benchmark_tensorserializer()
     }
 
     double large_enc_time = measure_perf(
-        [&large_d]()
-        {
+        [&large_d]() {
             auto r = serialize_tensor(large_d);
             DoNotOptimize(r);
         },
@@ -646,8 +643,7 @@ void benchmark_tensorserializer()
     auto large_buf = serialize_tensor(large_d);
 
     double large_dec_time = measure_perf(
-        [&large_buf]()
-        {
+        [&large_buf]() {
             auto r = deserialize_tensor<double>(*large_buf);
             DoNotOptimize(r);
         },
@@ -663,8 +659,7 @@ void benchmark_tensorserializer()
     }
 
     double int_enc_time = measure_perf(
-        [&int_t]()
-        {
+        [&int_t]() {
             auto r = serialize_tensor(int_t);
             DoNotOptimize(r);
         },
@@ -675,8 +670,7 @@ void benchmark_tensorserializer()
     auto int_buf = serialize_tensor(int_t);
 
     double int_dec_time = measure_perf(
-        [&int_buf]()
-        {
+        [&int_buf]() {
             auto r = deserialize_tensor<std::int32_t>(*int_buf);
             DoNotOptimize(r);
         },

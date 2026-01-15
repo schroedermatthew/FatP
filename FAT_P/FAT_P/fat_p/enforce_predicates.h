@@ -4,7 +4,7 @@
  * perform specialized, type-safe checks on various C++ types (pointers,
  * containers, arithmetic values).
  *
- * 
+ *
  *
  * @layer Foundation
  *
@@ -48,7 +48,8 @@ FATP_META:
 #include "ConstexprUtilities.h"
 #include "TypeTraits.h"
 
-namespace fat_p {
+namespace fat_p
+{
 
 // ===================================================================
 // 1. Core Predicates
@@ -140,7 +141,7 @@ struct IsPositivePredicate
     template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
     static constexpr bool check(T value) noexcept
     {
-        return value > T{ 0 };
+        return value > T{0};
     }
 
     template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
@@ -152,7 +153,7 @@ struct IsPositivePredicate
     template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
     static bool check_runtime(T value) noexcept
     {
-        return value > T{ 0 };
+        return value > T{0};
     }
 };
 
@@ -161,7 +162,7 @@ struct IsNonNegativePredicate
     template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
     static constexpr bool check(T value) noexcept
     {
-        return value >= T{ 0 };
+        return value >= T{0};
     }
 
     template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
@@ -173,7 +174,7 @@ struct IsNonNegativePredicate
     template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
     static bool check_runtime(T value) noexcept
     {
-        return value >= T{ 0 };
+        return value >= T{0};
     }
 };
 
@@ -204,12 +205,10 @@ struct IsIntegralPredicate
 
 struct ContainerIsUniquePredicate
 {
-    template <typename Container,
-              std::enable_if_t<has_begin<Container>::value && has_end<Container>::value, int> = 0>
+    template <typename Container, std::enable_if_t<has_begin<Container>::value && has_end<Container>::value, int> = 0>
     static bool check(const Container& container) noexcept(false)
     {
-        using value_type =
-            typename std::iterator_traits<decltype(std::begin(container))>::value_type;
+        using value_type = typename std::iterator_traits<decltype(std::begin(container))>::value_type;
         if constexpr (is_hashable<value_type>::value)
         {
             std::unordered_set<value_type> unique_set;
@@ -240,8 +239,7 @@ struct ContainerIsUniquePredicate
         }
     }
 
-    template <typename Container,
-              std::enable_if_t<has_begin<Container>::value && has_end<Container>::value, int> = 0>
+    template <typename Container, std::enable_if_t<has_begin<Container>::value && has_end<Container>::value, int> = 0>
     static bool check_runtime(const Container& container) noexcept(false)
     {
         return check(container);
@@ -250,8 +248,7 @@ struct ContainerIsUniquePredicate
 
 struct HasNoNullElementsPredicate
 {
-    template <typename Container,
-              std::enable_if_t<has_begin<Container>::value && has_end<Container>::value, int> = 0>
+    template <typename Container, std::enable_if_t<has_begin<Container>::value && has_end<Container>::value, int> = 0>
     static constexpr bool check(const Container& container) noexcept
     {
         for (const auto& element : container)
@@ -264,8 +261,7 @@ struct HasNoNullElementsPredicate
         return true;
     }
 
-    template <typename Container,
-              std::enable_if_t<has_begin<Container>::value && has_end<Container>::value, int> = 0>
+    template <typename Container, std::enable_if_t<has_begin<Container>::value && has_end<Container>::value, int> = 0>
     static bool check_runtime(const Container& container) noexcept
     {
         for (const auto& element : container)
@@ -281,33 +277,25 @@ struct HasNoNullElementsPredicate
 
 struct HasSizePredicate
 {
-    template <typename Size,
-              typename Container,
-              std::enable_if_t<has_size<Container>::value, int> = 0>
+    template <typename Size, typename Container, std::enable_if_t<has_size<Container>::value, int> = 0>
     static constexpr bool check(Size expected, const Container& container) noexcept
     {
         return container.size() == static_cast<typename Container::size_type>(expected);
     }
 
-    template <typename Size,
-              typename Container,
-              std::enable_if_t<has_size<Container>::value, int> = 0>
+    template <typename Size, typename Container, std::enable_if_t<has_size<Container>::value, int> = 0>
     static constexpr bool check(const Container& container) noexcept
     {
         return container.size() == Size::value;
     }
 
-    template <typename Size,
-              typename Container,
-              std::enable_if_t<has_size<Container>::value, int> = 0>
+    template <typename Size, typename Container, std::enable_if_t<has_size<Container>::value, int> = 0>
     static bool check_runtime(Size expected, const Container& container) noexcept
     {
         return container.size() == static_cast<typename Container::size_type>(expected);
     }
 
-    template <typename Size,
-              typename Container,
-              std::enable_if_t<has_size<Container>::value, int> = 0>
+    template <typename Size, typename Container, std::enable_if_t<has_size<Container>::value, int> = 0>
     static bool check_runtime(const Container& container) noexcept
     {
         return container.size() == Size::value;
@@ -397,8 +385,7 @@ struct ContainerHasElementPredicate
               std::enable_if_t<has_begin<Container>::value && has_end<Container>::value, int> = 0>
     static bool check(const Container& container, const Element& element)
     {
-        return std::find(std::begin(container), std::end(container), element) !=
-               std::end(container);
+        return std::find(std::begin(container), std::end(container), element) != std::end(container);
     }
 
     template <typename Container,
@@ -419,22 +406,16 @@ struct InRangePredicate
     template <typename T,
               typename U = T,
               typename V = T,
-              std::enable_if_t<std::is_arithmetic_v<T> && std::is_arithmetic_v<U> &&
-                                   std::is_arithmetic_v<V>,
-                               int> = 0>
+              std::enable_if_t<std::is_arithmetic_v<T> && std::is_arithmetic_v<U> && std::is_arithmetic_v<V>, int> = 0>
     static constexpr bool check(T value, U min, V max) noexcept
     {
         return value >= min && value <= max;
     }
 
-    template <typename MinType,
-              typename MaxType,
-              typename T,
-              std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+    template <typename MinType, typename MaxType, typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
     static constexpr bool check(T value) noexcept
     {
-        static_assert(std::is_arithmetic_v<decltype(MinType::value)> &&
-                          std::is_arithmetic_v<decltype(MaxType::value)>,
+        static_assert(std::is_arithmetic_v<decltype(MinType::value)> && std::is_arithmetic_v<decltype(MaxType::value)>,
                       "MinType and MaxType must have arithmetic ::value members.");
         return value >= MinType::value && value <= MaxType::value;
     }
@@ -442,22 +423,16 @@ struct InRangePredicate
     template <typename T,
               typename U = T,
               typename V = T,
-              std::enable_if_t<std::is_arithmetic_v<T> && std::is_arithmetic_v<U> &&
-                                   std::is_arithmetic_v<V>,
-                               int> = 0>
+              std::enable_if_t<std::is_arithmetic_v<T> && std::is_arithmetic_v<U> && std::is_arithmetic_v<V>, int> = 0>
     static bool check_runtime(T value, U min, V max) noexcept
     {
         return value >= min && value <= max;
     }
 
-    template <typename MinType,
-              typename MaxType,
-              typename T,
-              std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+    template <typename MinType, typename MaxType, typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
     static bool check_runtime(T value) noexcept
     {
-        static_assert(std::is_arithmetic_v<decltype(MinType::value)> &&
-                          std::is_arithmetic_v<decltype(MaxType::value)>,
+        static_assert(std::is_arithmetic_v<decltype(MinType::value)> && std::is_arithmetic_v<decltype(MaxType::value)>,
                       "MinType and MaxType must have arithmetic ::value members.");
         return value >= MinType::value && value <= MaxType::value;
     }
@@ -468,22 +443,16 @@ struct InExclusiveRangePredicate
     template <typename T,
               typename U = T,
               typename V = T,
-              std::enable_if_t<std::is_arithmetic_v<T> && std::is_arithmetic_v<U> &&
-                                   std::is_arithmetic_v<V>,
-                               int> = 0>
+              std::enable_if_t<std::is_arithmetic_v<T> && std::is_arithmetic_v<U> && std::is_arithmetic_v<V>, int> = 0>
     static constexpr bool check(T value, U min, V max) noexcept
     {
         return value > min && value < max;
     }
 
-    template <typename MinType,
-              typename MaxType,
-              typename T,
-              std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+    template <typename MinType, typename MaxType, typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
     static constexpr bool check(T value) noexcept
     {
-        static_assert(std::is_arithmetic_v<decltype(MinType::value)> &&
-                          std::is_arithmetic_v<decltype(MaxType::value)>,
+        static_assert(std::is_arithmetic_v<decltype(MinType::value)> && std::is_arithmetic_v<decltype(MaxType::value)>,
                       "MinType and MaxType must have arithmetic ::value members.");
         return value > MinType::value && value < MaxType::value;
     }
@@ -491,9 +460,7 @@ struct InExclusiveRangePredicate
     template <typename T,
               typename U = T,
               typename V = T,
-              std::enable_if_t<std::is_arithmetic_v<T> && std::is_arithmetic_v<U> &&
-                                   std::is_arithmetic_v<V>,
-                               int> = 0>
+              std::enable_if_t<std::is_arithmetic_v<T> && std::is_arithmetic_v<U> && std::is_arithmetic_v<V>, int> = 0>
     static bool check_runtime(T value, U min, V max) noexcept
     {
         return value > min && value < max;
@@ -502,9 +469,7 @@ struct InExclusiveRangePredicate
 
 struct ValidIndexPredicate
 {
-    template <typename Index,
-              typename Container,
-              std::enable_if_t<has_size<Container>::value, int> = 0>
+    template <typename Index, typename Container, std::enable_if_t<has_size<Container>::value, int> = 0>
     static constexpr bool check(Index idx, const Container& container) noexcept
     {
         if constexpr (std::is_signed_v<Index>)
@@ -517,9 +482,7 @@ struct ValidIndexPredicate
         }
     }
 
-    template <typename Index,
-              typename Container,
-              std::enable_if_t<has_size<Container>::value, int> = 0>
+    template <typename Index, typename Container, std::enable_if_t<has_size<Container>::value, int> = 0>
     static bool check_runtime(Index idx, const Container& container) noexcept
     {
         return check(idx, container);
@@ -534,8 +497,7 @@ struct IsPowerOfTwoPredicate
         return value > 0 && (value & (value - 1)) == 0;
     }
 
-    template <typename ValueType,
-              std::enable_if_t<std::is_integral_v<decltype(ValueType::value)>, int> = 0>
+    template <typename ValueType, std::enable_if_t<std::is_integral_v<decltype(ValueType::value)>, int> = 0>
     static constexpr bool check() noexcept
     {
         return ValueType::value > 0 && (ValueType::value & (ValueType::value - 1)) == 0;
@@ -547,8 +509,7 @@ struct IsPowerOfTwoPredicate
         return value > 0 && (value & (value - 1)) == 0;
     }
 
-    template <typename ValueType,
-              std::enable_if_t<std::is_integral_v<decltype(ValueType::value)>, int> = 0>
+    template <typename ValueType, std::enable_if_t<std::is_integral_v<decltype(ValueType::value)>, int> = 0>
     static bool check_runtime() noexcept
     {
         return ValueType::value > 0 && (ValueType::value & (ValueType::value - 1)) == 0;
@@ -557,12 +518,12 @@ struct IsPowerOfTwoPredicate
 
 struct ApproxEqualPredicate
 {
-    template <typename Eps,
-              typename T,
-              typename U = T,
-              std::enable_if_t<std::is_floating_point_v<T> && std::is_floating_point_v<U> &&
-                                   std::is_floating_point_v<Eps>,
-                               int> = 0>
+    template <
+        typename Eps,
+        typename T,
+        typename U = T,
+        std::enable_if_t<std::is_floating_point_v<T> && std::is_floating_point_v<U> && std::is_floating_point_v<Eps>,
+                         int> = 0>
     static constexpr bool check(Eps epsilon, T a, U b) noexcept
     {
         return std::abs(a - b) <= epsilon;
@@ -579,12 +540,12 @@ struct ApproxEqualPredicate
         return std::abs(a - b) <= EpsilonType::value;
     }
 
-    template <typename Eps,
-              typename T,
-              typename U = T,
-              std::enable_if_t<std::is_floating_point_v<T> && std::is_floating_point_v<U> &&
-                                   std::is_floating_point_v<Eps>,
-                               int> = 0>
+    template <
+        typename Eps,
+        typename T,
+        typename U = T,
+        std::enable_if_t<std::is_floating_point_v<T> && std::is_floating_point_v<U> && std::is_floating_point_v<Eps>,
+                         int> = 0>
     static bool check_runtime(Eps epsilon, T a, U b) noexcept
     {
         return std::abs(a - b) <= epsilon;
@@ -686,13 +647,13 @@ struct IsNormalPredicate
     template <typename T, std::enable_if_t<std::is_floating_point_v<T>, int> = 0>
     static bool check(T value) noexcept
     {
-        return std::isnormal(value) || value == T{ 0 };
+        return std::isnormal(value) || value == T{0};
     }
 
     template <typename T, std::enable_if_t<std::is_floating_point_v<T>, int> = 0>
     static bool check_runtime(T value) noexcept
     {
-        return std::isnormal(value) || value == T{ 0 };
+        return std::isnormal(value) || value == T{0};
     }
 };
 
@@ -734,9 +695,9 @@ struct IsValidIteratorPredicate
 {
     template <typename It,
               typename End,
-              std::enable_if_t<std::is_base_of_v<std::input_iterator_tag,
-                                                 typename std::iterator_traits<It>::iterator_category>,
-                               int> = 0>
+              std::enable_if_t<
+                  std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<It>::iterator_category>,
+                  int> = 0>
     static constexpr bool check(It it, End end) noexcept
     {
         return it != end;
@@ -744,8 +705,7 @@ struct IsValidIteratorPredicate
 
     template <typename ItType,
               std::enable_if_t<
-                  std::is_base_of_v<std::input_iterator_tag,
-                                    typename std::iterator_traits<ItType>::iterator_category>,
+                  std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<ItType>::iterator_category>,
                   int> = 0>
     static constexpr bool check() noexcept
     {
@@ -754,9 +714,9 @@ struct IsValidIteratorPredicate
 
     template <typename It,
               typename End,
-              std::enable_if_t<std::is_base_of_v<std::input_iterator_tag,
-                                                 typename std::iterator_traits<It>::iterator_category>,
-                               int> = 0>
+              std::enable_if_t<
+                  std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<It>::iterator_category>,
+                  int> = 0>
     static bool check_runtime(It it, End end) noexcept
     {
         return it != end;
@@ -764,8 +724,7 @@ struct IsValidIteratorPredicate
 
     template <typename ItType,
               std::enable_if_t<
-                  std::is_base_of_v<std::input_iterator_tag,
-                                    typename std::iterator_traits<ItType>::iterator_category>,
+                  std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<ItType>::iterator_category>,
                   int> = 0>
     static bool check_runtime() noexcept
     {

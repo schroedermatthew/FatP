@@ -558,16 +558,14 @@ FATP_TEST_CASE(thread_safety)
 
     for (int i = 0; i < 4; ++i)
     {
-        threads.emplace_back(
-            [&pool, &total_ops]()
+        threads.emplace_back([&pool, &total_ops]() {
+            for (int j = 0; j < 100; ++j)
             {
-                for (int j = 0; j < 100; ++j)
-                {
-                    TestObject* obj = pool.acquire(j);
-                    pool.release(obj);
-                    ++total_ops;
-                }
-            });
+                TestObject* obj = pool.acquire(j);
+                pool.release(obj);
+                ++total_ops;
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -588,15 +586,13 @@ FATP_TEST_CASE(thread_safe_alias)
     std::vector<std::thread> threads;
     for (int i = 0; i < 2; ++i)
     {
-        threads.emplace_back(
-            [&pool]()
+        threads.emplace_back([&pool]() {
+            for (int j = 0; j < 50; ++j)
             {
-                for (int j = 0; j < 50; ++j)
-                {
-                    TestObject* obj = pool.acquire(j);
-                    pool.release(obj);
-                }
-            });
+                TestObject* obj = pool.acquire(j);
+                pool.release(obj);
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -677,8 +673,7 @@ void benchmark_objectpool()
 
     // Benchmark acquire + release
     double pool_time = measure_perf(
-        [&pool]()
-        {
+        [&pool]() {
             TestObject* obj = pool.acquire(42);
             pool.release(obj);
         },
@@ -688,8 +683,7 @@ void benchmark_objectpool()
 
     // Benchmark new + delete for comparison
     double new_time = measure_perf(
-        []()
-        {
+        []() {
             TestObject* obj = new TestObject(42);
             delete obj;
         },
@@ -704,8 +698,7 @@ void benchmark_objectpool()
 
     // Benchmark try_acquire
     double try_time = measure_perf(
-        [&pool]()
-        {
+        [&pool]() {
             TestObject* obj = pool.try_acquire(42);
             if (obj)
             {
@@ -718,8 +711,7 @@ void benchmark_objectpool()
 
     // Benchmark stats() (cold path)
     double stats_time = measure_perf(
-        [&pool]()
-        {
+        [&pool]() {
             auto s = pool.stats();
             (void)s;
         },

@@ -3,7 +3,7 @@
  * @brief Defines various synchronization policies for use with a policy-based
  * design, such as ScopeGuard, Enforcer, or smart resource handles.
  *
- * 
+ *
  *
  * @layer Concurrency
  *
@@ -116,10 +116,8 @@ FATP_META:
 // C++20 atomic<shared_ptr> detection - use internal flag
 #if FATP_HAS_ATOMIC_SHARED_PTR
 #define FATP_HAS_ATOMIC_SHARED_PTR 1
-#elif FATP_HAS_CPP20 && \
-    ((defined(__GNUC__) && __GNUC__ >= 11) || \
-     (defined(__clang__) && __clang_major__ >= 13) || \
-     (defined(_MSC_VER) && _MSC_VER >= 1930))
+#elif FATP_HAS_CPP20 && ((defined(__GNUC__) && __GNUC__ >= 11) || (defined(__clang__) && __clang_major__ >= 13) || \
+                         (defined(_MSC_VER) && _MSC_VER >= 1930))
 #define FATP_HAS_ATOMIC_SHARED_PTR 1
 #else
 #define FATP_HAS_ATOMIC_SHARED_PTR 0
@@ -127,19 +125,19 @@ FATP_META:
 
 // Standard Library Includes
 #if FATP_USE_MUTEX
-#include <mutex>
 #include <memory>
+#include <mutex>
 #include <utility>
 #endif
 #if FATP_USE_SHARED_MUTEX
 #include <shared_mutex>
 #endif
 #if FATP_USE_ATOMIC
+#include <array>
 #include <atomic>
+#include <functional>
 #include <thread>
 #include <vector>
-#include <array>
-#include <functional>
 #endif
 #if FATP_USE_CHRONO
 #include <chrono>
@@ -148,11 +146,11 @@ FATP_META:
 #include <condition_variable>
 #endif
 
-#include <type_traits>
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
-#include <algorithm>
 #include <optional>
+#include <type_traits>
 
 // Platform-specific includes for priority inheritance
 #if defined(__unix__) || defined(__APPLE__)
@@ -160,22 +158,22 @@ FATP_META:
 #define FATP_HAS_PTHREAD_PRIO_INHERIT 1
 #elif defined(_WIN32)
 #ifndef NOMINMAX
-    #define NOMINMAX
-    #define FATP_DEFINED_NOMINMAX_CONC
+#define NOMINMAX
+#define FATP_DEFINED_NOMINMAX_CONC
 #endif
 #ifndef WIN32_LEAN_AND_MEAN
-    #define WIN32_LEAN_AND_MEAN
-    #define FATP_DEFINED_WIN32_LEAN_AND_MEAN_CONC
+#define WIN32_LEAN_AND_MEAN
+#define FATP_DEFINED_WIN32_LEAN_AND_MEAN_CONC
 #endif
 #include <windows.h>
 // Clean up Windows macros we defined
 #ifdef FATP_DEFINED_NOMINMAX_CONC
-    #undef NOMINMAX
-    #undef FATP_DEFINED_NOMINMAX_CONC
+#undef NOMINMAX
+#undef FATP_DEFINED_NOMINMAX_CONC
 #endif
 #ifdef FATP_DEFINED_WIN32_LEAN_AND_MEAN_CONC
-    #undef WIN32_LEAN_AND_MEAN
-    #undef FATP_DEFINED_WIN32_LEAN_AND_MEAN_CONC
+#undef WIN32_LEAN_AND_MEAN
+#undef FATP_DEFINED_WIN32_LEAN_AND_MEAN_CONC
 #endif
 #define FATP_HAS_WIN32_CRITICAL_SECTION 1
 #else
@@ -191,124 +189,176 @@ namespace fat_p
 // =============================================================================
 
 template <typename T, typename = void>
-struct is_concurrency_policy : std::false_type {};
+struct is_concurrency_policy : std::false_type
+{
+};
 
 template <typename T>
-struct is_concurrency_policy<T, std::void_t<typename T::PolicyTag>> : std::true_type {};
+struct is_concurrency_policy<T, std::void_t<typename T::PolicyTag>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool is_concurrency_policy_v = is_concurrency_policy<T>::value;
 
 template <typename T, typename = void>
-struct is_shared_policy : std::false_type {};
+struct is_shared_policy : std::false_type
+{
+};
 
 template <typename T>
-struct is_shared_policy<T, std::void_t<typename T::SharedGuard>> : std::true_type {};
+struct is_shared_policy<T, std::void_t<typename T::SharedGuard>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool is_shared_policy_v = is_shared_policy<T>::value;
 
 template <typename T, typename = void>
-struct is_waitable_policy : std::false_type {};
+struct is_waitable_policy : std::false_type
+{
+};
 
 template <typename T>
-struct is_waitable_policy<T, std::void_t<decltype(
-    std::declval<typename T::LockGuard>().wait(std::declval<std::condition_variable&>()))>>
-    : std::true_type {};
+struct is_waitable_policy<
+    T,
+    std::void_t<decltype(std::declval<typename T::LockGuard>().wait(std::declval<std::condition_variable&>()))>>
+    : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool is_waitable_policy_v = is_waitable_policy<T>::value;
 
 template <typename T, typename = void>
-struct is_fair_policy : std::false_type {};
+struct is_fair_policy : std::false_type
+{
+};
 
 template <typename T>
-struct is_fair_policy<T, std::void_t<typename T::FairOrderingTag>> : std::true_type {};
+struct is_fair_policy<T, std::void_t<typename T::FairOrderingTag>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool is_fair_policy_v = is_fair_policy<T>::value;
 
 template <typename T, typename = void>
-struct is_optimistic_policy : std::false_type {};
+struct is_optimistic_policy : std::false_type
+{
+};
 
 template <typename T>
-struct is_optimistic_policy<T, std::void_t<typename T::OptimisticTag>> : std::true_type {};
+struct is_optimistic_policy<T, std::void_t<typename T::OptimisticTag>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool is_optimistic_policy_v = is_optimistic_policy<T>::value;
 
 template <typename T, typename = void>
-struct is_numa_aware_policy : std::false_type {};
+struct is_numa_aware_policy : std::false_type
+{
+};
 
 template <typename T>
-struct is_numa_aware_policy<T, std::void_t<typename T::NUMAAwareTag>> : std::true_type {};
+struct is_numa_aware_policy<T, std::void_t<typename T::NUMAAwareTag>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool is_numa_aware_policy_v = is_numa_aware_policy<T>::value;
 
 template <typename T, typename = void>
-struct is_realtime_policy : std::false_type {};
+struct is_realtime_policy : std::false_type
+{
+};
 
 template <typename T>
-struct is_realtime_policy<T, std::void_t<typename T::RealtimeTag>> : std::true_type {};
+struct is_realtime_policy<T, std::void_t<typename T::RealtimeTag>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool is_realtime_policy_v = is_realtime_policy<T>::value;
 
 template <typename T, typename = void>
-struct is_lockfree_policy : std::false_type {};
+struct is_lockfree_policy : std::false_type
+{
+};
 
 template <typename T>
-struct is_lockfree_policy<T, std::void_t<typename T::LockFreeTag>> : std::true_type {};
+struct is_lockfree_policy<T, std::void_t<typename T::LockFreeTag>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool is_lockfree_policy_v = is_lockfree_policy<T>::value;
 
 template <typename T, typename = void>
-struct is_adaptive_policy : std::false_type {};
+struct is_adaptive_policy : std::false_type
+{
+};
 
 template <typename T>
-struct is_adaptive_policy<T, std::void_t<typename T::AdaptiveTag>> : std::true_type {};
+struct is_adaptive_policy<T, std::void_t<typename T::AdaptiveTag>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool is_adaptive_policy_v = is_adaptive_policy<T>::value;
 
 template <typename T, typename = void>
-struct has_contention_tracking : std::false_type {};
+struct has_contention_tracking : std::false_type
+{
+};
 
 template <typename T>
-struct has_contention_tracking<T, std::void_t<decltype(std::declval<T>().get_contention())>>
-    : std::true_type {};
+struct has_contention_tracking<T, std::void_t<decltype(std::declval<T>().get_contention())>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool has_contention_tracking_v = has_contention_tracking<T>::value;
 
 template <typename T, typename = void>
-struct is_recursive_policy : std::false_type {};
+struct is_recursive_policy : std::false_type
+{
+};
 
 template <typename T>
-struct is_recursive_policy<T, std::void_t<typename T::RecursiveTag>> : std::true_type {};
+struct is_recursive_policy<T, std::void_t<typename T::RecursiveTag>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool is_recursive_policy_v = is_recursive_policy<T>::value;
 
 template <typename T, typename = void>
-struct is_timed_policy : std::false_type {};
+struct is_timed_policy : std::false_type
+{
+};
 
 template <typename T>
-struct is_timed_policy<T, std::void_t<decltype(
-    std::declval<typename T::LockGuard>().try_lock_for(std::chrono::milliseconds(1)))>>
-    : std::true_type {};
+struct is_timed_policy<
+    T,
+    std::void_t<decltype(std::declval<typename T::LockGuard>().try_lock_for(std::chrono::milliseconds(1)))>>
+    : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool is_timed_policy_v = is_timed_policy<T>::value;
 
 template <typename T, typename = void>
-struct supports_try_lock : std::false_type {};
+struct supports_try_lock : std::false_type
+{
+};
 
 template <typename T>
-struct supports_try_lock<T, std::void_t<decltype(std::declval<T>().try_lock())>>
-    : std::true_type {};
+struct supports_try_lock<T, std::void_t<decltype(std::declval<T>().try_lock())>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool supports_try_lock_v = supports_try_lock<T>::value;
@@ -325,13 +375,17 @@ struct SingleThreadedPolicy
     SingleThreadedPolicy(const SingleThreadedPolicy&) = delete;
     SingleThreadedPolicy& operator=(const SingleThreadedPolicy&) = delete;
 
-    struct NoOpLock {};
+    struct NoOpLock
+    {
+    };
 
     class LockGuard
     {
     public:
         template <typename T>
-        explicit LockGuard(T&) {}
+        explicit LockGuard(T&)
+        {
+        }
         LockGuard(const LockGuard&) = delete;
         LockGuard& operator=(const LockGuard&) = delete;
         ~LockGuard() = default;
@@ -341,12 +395,27 @@ struct SingleThreadedPolicy
     using WriteLock = LockGuard;
     using ReadLock = LockGuard;
 
-    [[nodiscard]] LockGuard lock() { return LockGuard(mLock); }
-    [[nodiscard]] SharedGuard lock_shared() const { return SharedGuard(mLock); }
-    [[nodiscard]] bool try_lock() { return true; }
-    [[nodiscard]] bool try_lock_shared() const { return true; }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(mLock);
+    }
+    [[nodiscard]] SharedGuard lock_shared() const
+    {
+        return SharedGuard(mLock);
+    }
+    [[nodiscard]] bool try_lock()
+    {
+        return true;
+    }
+    [[nodiscard]] bool try_lock_shared() const
+    {
+        return true;
+    }
 
-    NoOpLock& getLock() const { return mLock; }
+    NoOpLock& getLock() const
+    {
+        return mLock;
+    }
 
     static NoOpLock& getStaticLock()
     {
@@ -354,8 +423,13 @@ struct SingleThreadedPolicy
         return mLock;
     }
 
-    uint64_t get_contention() const { return 0; }
-    void reset_contention() {}
+    uint64_t get_contention() const
+    {
+        return 0;
+    }
+    void reset_contention()
+    {
+    }
 
 private:
     mutable NoOpLock mLock{};
@@ -383,13 +457,19 @@ public:
     {
         return mContention.load(std::memory_order_relaxed);
     }
-    void reset_contention() noexcept { mContention.store(0, std::memory_order_relaxed); }
+    void reset_contention() noexcept
+    {
+        mContention.store(0, std::memory_order_relaxed);
+    }
 #endif
 
     class LockGuard
     {
     public:
-        explicit LockGuard(std::mutex& mutex) : mGuard(mutex) {}
+        explicit LockGuard(std::mutex& mutex)
+            : mGuard(mutex)
+        {
+        }
 
 #if FATP_USE_ATOMIC
         explicit LockGuard(MutexSynchronizationPolicy& policy)
@@ -419,7 +499,10 @@ public:
     using WriteLock = LockGuard;
     using ReadLock = LockGuard;
 
-    [[nodiscard]] LockGuard lock() { return LockGuard(*this); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(*this);
+    }
     [[nodiscard]] SharedGuard lock_shared() const
     {
         return SharedGuard(const_cast<MutexSynchronizationPolicy&>(*this));
@@ -432,7 +515,10 @@ public:
         return mMutex.try_lock();
     }
 
-    std::mutex& getLock() const { return mMutex; }
+    std::mutex& getLock() const
+    {
+        return mMutex;
+    }
 
     static std::mutex& getStaticLock()
     {
@@ -461,7 +547,10 @@ struct SharedMutexPolicy
     class LockGuard
     {
     public:
-        explicit LockGuard(std::shared_mutex& mutex) : mLock(mutex) {}
+        explicit LockGuard(std::shared_mutex& mutex)
+            : mLock(mutex)
+        {
+        }
 
         LockGuard(const LockGuard&) = delete;
         LockGuard& operator=(const LockGuard&) = delete;
@@ -474,7 +563,10 @@ struct SharedMutexPolicy
     class SharedGuard
     {
     public:
-        explicit SharedGuard(std::shared_mutex& mutex) : mLock(mutex) {}
+        explicit SharedGuard(std::shared_mutex& mutex)
+            : mLock(mutex)
+        {
+        }
 
         SharedGuard(const SharedGuard&) = delete;
         SharedGuard& operator=(const SharedGuard&) = delete;
@@ -487,19 +579,28 @@ struct SharedMutexPolicy
     using WriteLock = LockGuard;
     using ReadLock = SharedGuard;
 
-    [[nodiscard]] LockGuard lock() { return LockGuard(mMutex); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(mMutex);
+    }
     [[nodiscard]] SharedGuard lock_shared() const
     {
         return SharedGuard(const_cast<std::shared_mutex&>(mMutex));
     }
 
-    [[nodiscard]] bool try_lock() { return mMutex.try_lock(); }
+    [[nodiscard]] bool try_lock()
+    {
+        return mMutex.try_lock();
+    }
     [[nodiscard]] bool try_lock_shared() const
     {
         return const_cast<std::shared_mutex&>(mMutex).try_lock_shared();
     }
 
-    std::shared_mutex& getLock() const { return const_cast<std::shared_mutex&>(mMutex); }
+    std::shared_mutex& getLock() const
+    {
+        return const_cast<std::shared_mutex&>(mMutex);
+    }
 
     static std::shared_mutex& getStaticLock()
     {
@@ -507,8 +608,13 @@ struct SharedMutexPolicy
         return mMutex;
     }
 
-    uint64_t get_contention() const { return 0; }
-    void reset_contention() {}
+    uint64_t get_contention() const
+    {
+        return 0;
+    }
+    void reset_contention()
+    {
+    }
 
 private:
     mutable std::shared_mutex mMutex;
@@ -524,7 +630,10 @@ struct UniqueRWLockPolicy
 {
     using PolicyTag = void;
 
-    UniqueRWLockPolicy() : mMutex(std::make_unique<std::shared_mutex>()) {}
+    UniqueRWLockPolicy()
+        : mMutex(std::make_unique<std::shared_mutex>())
+    {
+    }
     UniqueRWLockPolicy(const UniqueRWLockPolicy&) = delete;
     UniqueRWLockPolicy& operator=(const UniqueRWLockPolicy&) = delete;
     UniqueRWLockPolicy(UniqueRWLockPolicy&&) noexcept = default;
@@ -533,7 +642,10 @@ struct UniqueRWLockPolicy
     class LockGuard
     {
     public:
-        explicit LockGuard(std::shared_mutex& mutex) : mLock(mutex) {}
+        explicit LockGuard(std::shared_mutex& mutex)
+            : mLock(mutex)
+        {
+        }
         LockGuard(const LockGuard&) = delete;
         LockGuard& operator=(const LockGuard&) = delete;
         ~LockGuard() = default;
@@ -545,7 +657,10 @@ struct UniqueRWLockPolicy
     class SharedGuard
     {
     public:
-        explicit SharedGuard(std::shared_mutex& mutex) : mLock(mutex) {}
+        explicit SharedGuard(std::shared_mutex& mutex)
+            : mLock(mutex)
+        {
+        }
         SharedGuard(const SharedGuard&) = delete;
         SharedGuard& operator=(const SharedGuard&) = delete;
         ~SharedGuard() = default;
@@ -557,13 +672,28 @@ struct UniqueRWLockPolicy
     using WriteLock = LockGuard;
     using ReadLock = SharedGuard;
 
-    [[nodiscard]] LockGuard lock() { return LockGuard(*mMutex); }
-    [[nodiscard]] SharedGuard lock_shared() const { return SharedGuard(*mMutex); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(*mMutex);
+    }
+    [[nodiscard]] SharedGuard lock_shared() const
+    {
+        return SharedGuard(*mMutex);
+    }
 
-    [[nodiscard]] bool try_lock() { return mMutex->try_lock(); }
-    [[nodiscard]] bool try_lock_shared() const { return mMutex->try_lock_shared(); }
+    [[nodiscard]] bool try_lock()
+    {
+        return mMutex->try_lock();
+    }
+    [[nodiscard]] bool try_lock_shared() const
+    {
+        return mMutex->try_lock_shared();
+    }
 
-    std::shared_mutex& getLock() const { return *mMutex; }
+    std::shared_mutex& getLock() const
+    {
+        return *mMutex;
+    }
 
     static std::shared_mutex& getStaticLock()
     {
@@ -598,7 +728,10 @@ public:
     {
         return mContention.load(std::memory_order_relaxed);
     }
-    void reset_contention() noexcept { mContention.store(0, std::memory_order_relaxed); }
+    void reset_contention() noexcept
+    {
+        mContention.store(0, std::memory_order_relaxed);
+    }
 
     class LockGuard
     {
@@ -631,7 +764,10 @@ public:
     using WriteLock = LockGuard;
     using ReadLock = LockGuard;
 
-    [[nodiscard]] LockGuard lock() { return LockGuard(*this); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(*this);
+    }
     [[nodiscard]] SharedGuard lock_shared() const
     {
         return SharedGuard(const_cast<SpinlockSynchronizationPolicy&>(*this));
@@ -647,8 +783,14 @@ public:
         lock_flag_.clear(std::memory_order_release);
     }
 
-    SpinlockSynchronizationPolicy& getLock() { return *this; }
-    SpinlockSynchronizationPolicy& getLock() const { return const_cast<SpinlockSynchronizationPolicy&>(*this); }
+    SpinlockSynchronizationPolicy& getLock()
+    {
+        return *this;
+    }
+    SpinlockSynchronizationPolicy& getLock() const
+    {
+        return const_cast<SpinlockSynchronizationPolicy&>(*this);
+    }
 
 
     static SpinlockSynchronizationPolicy& getStaticLock()
@@ -657,7 +799,10 @@ public:
         return mPolicy;
     }
 
-    std::atomic_flag& getRawLock() { return lock_flag_; }
+    std::atomic_flag& getRawLock()
+    {
+        return lock_flag_;
+    }
 };
 #endif // FATP_USE_ATOMIC
 
@@ -679,7 +824,9 @@ struct LockFreeSynchronizationPolicy
     {
     public:
         template <typename T>
-        explicit LockGuard(T&) {}
+        explicit LockGuard(T&)
+        {
+        }
         LockGuard(const LockGuard&) = delete;
         LockGuard& operator=(const LockGuard&) = delete;
         ~LockGuard() = default;
@@ -689,13 +836,27 @@ struct LockFreeSynchronizationPolicy
     using WriteLock = LockGuard;
     using ReadLock = LockGuard;
 
-    struct NoOpLock {};
+    struct NoOpLock
+    {
+    };
 
-    [[nodiscard]] LockGuard lock() { return LockGuard(mLock); }
-    [[nodiscard]] SharedGuard lock_shared() const { return SharedGuard(mLock); }
-    [[nodiscard]] bool try_lock() { return true; }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(mLock);
+    }
+    [[nodiscard]] SharedGuard lock_shared() const
+    {
+        return SharedGuard(mLock);
+    }
+    [[nodiscard]] bool try_lock()
+    {
+        return true;
+    }
 
-    NoOpLock& getLock() const { return mLock; }
+    NoOpLock& getLock() const
+    {
+        return mLock;
+    }
 
     static NoOpLock& getStaticLock()
     {
@@ -729,8 +890,14 @@ struct LockFreeWithFallbackPolicy
     using WriteLock = LockGuard;
     using ReadLock = SharedGuard;
 
-    [[nodiscard]] LockGuard lock() { return mPolicy.lock(); }
-    [[nodiscard]] SharedGuard lock_shared() const { return mPolicy.lock_shared(); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return mPolicy.lock();
+    }
+    [[nodiscard]] SharedGuard lock_shared() const
+    {
+        return mPolicy.lock_shared();
+    }
 
     [[nodiscard]] bool try_lock()
     {
@@ -741,7 +908,10 @@ struct LockFreeWithFallbackPolicy
         return true;
     }
 
-    auto& getLock() { return mPolicy.getLock(); }
+    auto& getLock()
+    {
+        return mPolicy.getLock();
+    }
 
     uint64_t get_contention() const
     {
@@ -773,7 +943,10 @@ struct WaitableSynchronizationPolicy
     class LockGuard
     {
     public:
-        explicit LockGuard(std::mutex& mutex) : mLock(mutex) {}
+        explicit LockGuard(std::mutex& mutex)
+            : mLock(mutex)
+        {
+        }
 
         LockGuard(const LockGuard&) = delete;
         LockGuard& operator=(const LockGuard&) = delete;
@@ -794,15 +967,19 @@ struct WaitableSynchronizationPolicy
 #endif
 
         template <typename Rep, typename Period, typename Predicate>
-        bool wait_for(std::condition_variable& cond,
-                      const std::chrono::duration<Rep, Period>& rel_time,
-                      Predicate pred)
+        bool wait_for(std::condition_variable& cond, const std::chrono::duration<Rep, Period>& rel_time, Predicate pred)
         {
             return cond.wait_for(mLock, rel_time, std::move(pred));
         }
 
-        bool owns_lock() const { return mLock.owns_lock(); }
-        std::mutex* mutex() const { return mLock.mutex(); }
+        bool owns_lock() const
+        {
+            return mLock.owns_lock();
+        }
+        std::mutex* mutex() const
+        {
+            return mLock.mutex();
+        }
 
     private:
         std::unique_lock<std::mutex> mLock;
@@ -812,15 +989,24 @@ struct WaitableSynchronizationPolicy
     using WriteLock = LockGuard;
     using ReadLock = LockGuard;
 
-    [[nodiscard]] LockGuard lock() { return LockGuard(mMutex); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(mMutex);
+    }
     [[nodiscard]] SharedGuard lock_shared() const
     {
         return SharedGuard(const_cast<std::mutex&>(mMutex));
     }
 
-    [[nodiscard]] bool try_lock() { return mMutex.try_lock(); }
+    [[nodiscard]] bool try_lock()
+    {
+        return mMutex.try_lock();
+    }
 
-    std::mutex& getLock() const { return const_cast<std::mutex&>(mMutex); }
+    std::mutex& getLock() const
+    {
+        return const_cast<std::mutex&>(mMutex);
+    }
     std::condition_variable& getCondition() const
     {
         return const_cast<std::condition_variable&>(mCondition);
@@ -832,7 +1018,10 @@ struct WaitableSynchronizationPolicy
         return mMutex;
     }
 
-    uint64_t get_contention() const { return 0; }
+    uint64_t get_contention() const
+    {
+        return 0;
+    }
 
 private:
     mutable std::mutex mMutex{};
@@ -857,7 +1046,8 @@ struct SeqLockPolicy
     class LockGuard
     {
     public:
-        explicit LockGuard(std::atomic<uint64_t>& seq) : mSequence(seq)
+        explicit LockGuard(std::atomic<uint64_t>& seq)
+            : mSequence(seq)
         {
             uint64_t current = mSequence.load(std::memory_order_relaxed);
             mSequence.store(current + 1, std::memory_order_release);
@@ -923,8 +1113,14 @@ struct SeqLockPolicy
             return mSequence.load(std::memory_order_acquire) == start_seq_;
         }
 
-        bool retry_limit_exceeded() const { return !mValid; }
-        uint64_t get_sequence() const { return start_seq_; }
+        bool retry_limit_exceeded() const
+        {
+            return !mValid;
+        }
+        uint64_t get_sequence() const
+        {
+            return start_seq_;
+        }
 
     private:
         std::atomic<uint64_t>& mSequence;
@@ -935,13 +1131,19 @@ struct SeqLockPolicy
     using WriteLock = LockGuard;
     using ReadLock = SharedGuard;
 
-    [[nodiscard]] LockGuard lock() { return LockGuard(mSequence); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(mSequence);
+    }
     [[nodiscard]] SharedGuard lock_shared() const
     {
         return SharedGuard(const_cast<std::atomic<uint64_t>&>(mSequence));
     }
 
-    std::atomic<uint64_t>& getLock() { return mSequence; }
+    std::atomic<uint64_t>& getLock()
+    {
+        return mSequence;
+    }
 
     static std::atomic<uint64_t>& getStaticLock()
     {
@@ -949,8 +1151,14 @@ struct SeqLockPolicy
         return mSequence;
     }
 
-    uint64_t get_sequence() const { return mSequence.load(std::memory_order_relaxed); }
-    uint64_t get_contention() const { return 0; }
+    uint64_t get_sequence() const
+    {
+        return mSequence.load(std::memory_order_relaxed);
+    }
+    uint64_t get_contention() const
+    {
+        return 0;
+    }
 
 private:
     alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> mSequence{0};
@@ -1001,7 +1209,10 @@ struct TicketLockPolicy
     using WriteLock = LockGuard;
     using ReadLock = LockGuard;
 
-    [[nodiscard]] LockGuard lock() { return LockGuard(*this); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(*this);
+    }
     [[nodiscard]] SharedGuard lock_shared() const
     {
         return SharedGuard(const_cast<TicketLockPolicy&>(*this));
@@ -1013,13 +1224,18 @@ struct TicketLockPolicy
         uint64_t next = next_ticket_.load(std::memory_order_relaxed);
         if (current == next)
         {
-            return next_ticket_.compare_exchange_strong(next, next + 1,
-                std::memory_order_acquire, std::memory_order_relaxed);
+            return next_ticket_.compare_exchange_strong(next,
+                                                        next + 1,
+                                                        std::memory_order_acquire,
+                                                        std::memory_order_relaxed);
         }
         return false;
     }
 
-    TicketLockPolicy& getLock() { return *this; }
+    TicketLockPolicy& getLock()
+    {
+        return *this;
+    }
 
     static TicketLockPolicy& getStaticLock()
     {
@@ -1029,11 +1245,13 @@ struct TicketLockPolicy
 
     uint64_t get_queue_length() const
     {
-        return next_ticket_.load(std::memory_order_relaxed) -
-               now_serving_.load(std::memory_order_relaxed);
+        return next_ticket_.load(std::memory_order_relaxed) - now_serving_.load(std::memory_order_relaxed);
     }
 
-    uint64_t get_contention() const { return get_queue_length(); }
+    uint64_t get_contention() const
+    {
+        return get_queue_length();
+    }
 
 private:
     alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> next_ticket_{0};
@@ -1065,7 +1283,8 @@ struct MCSLockPolicy
     class LockGuard
     {
     public:
-        explicit LockGuard(std::atomic<QNode*>& tail) : mTail(tail)
+        explicit LockGuard(std::atomic<QNode*>& tail)
+            : mTail(tail)
         {
             my_node_.next.store(nullptr, std::memory_order_relaxed);
             my_node_.locked.store(true, std::memory_order_relaxed);
@@ -1113,13 +1332,19 @@ struct MCSLockPolicy
     using WriteLock = LockGuard;
     using ReadLock = LockGuard;
 
-    [[nodiscard]] LockGuard lock() { return LockGuard(mTail); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(mTail);
+    }
     [[nodiscard]] SharedGuard lock_shared() const
     {
         return SharedGuard(const_cast<std::atomic<QNode*>&>(mTail));
     }
 
-    std::atomic<QNode*>& getLock() { return mTail; }
+    std::atomic<QNode*>& getLock()
+    {
+        return mTail;
+    }
 
     static std::atomic<QNode*>& getStaticLock()
     {
@@ -1127,7 +1352,10 @@ struct MCSLockPolicy
         return mTail;
     }
 
-    uint64_t get_contention() const { return 0; }
+    uint64_t get_contention() const
+    {
+        return 0;
+    }
 
 private:
     alignas(FATP_CACHE_LINE_SIZE) std::atomic<QNode*> mTail{nullptr};
@@ -1145,8 +1373,14 @@ struct RCUPolicy
     using PolicyTag = void;
     using LockFreeTag = void;
 
-    RCUPolicy() : data_(std::make_shared<T>()) {}
-    explicit RCUPolicy(T initial) : data_(std::make_shared<T>(std::move(initial))) {}
+    RCUPolicy()
+        : data_(std::make_shared<T>())
+    {
+    }
+    explicit RCUPolicy(T initial)
+        : data_(std::make_shared<T>(std::move(initial)))
+    {
+    }
 
     RCUPolicy(const RCUPolicy&) = delete;
     RCUPolicy& operator=(const RCUPolicy&) = delete;
@@ -1154,15 +1388,27 @@ struct RCUPolicy
     class SharedGuard
     {
     public:
-        explicit SharedGuard(std::shared_ptr<T> snapshot) : mSnapshot(std::move(snapshot)) {}
+        explicit SharedGuard(std::shared_ptr<T> snapshot)
+            : mSnapshot(std::move(snapshot))
+        {
+        }
 
         SharedGuard(const SharedGuard&) = delete;
         SharedGuard& operator=(const SharedGuard&) = delete;
         ~SharedGuard() = default;
 
-        const T& operator*() const { return *mSnapshot; }
-        const T* operator->() const { return mSnapshot.get(); }
-        const T* get() const { return mSnapshot.get(); }
+        const T& operator*() const
+        {
+            return *mSnapshot;
+        }
+        const T* operator->() const
+        {
+            return mSnapshot.get();
+        }
+        const T* get() const
+        {
+            return mSnapshot.get();
+        }
 
     private:
         std::shared_ptr<T> mSnapshot;
@@ -1178,9 +1424,7 @@ struct RCUPolicy
         {
         }
 #else
-        LockGuard(std::shared_ptr<T>& data_ptr,
-                  std::shared_mutex& rw_mutex,
-                  std::mutex& write_mutex)
+        LockGuard(std::shared_ptr<T>& data_ptr, std::shared_mutex& rw_mutex, std::mutex& write_mutex)
             : data_ptr_(data_ptr)
             , rw_mutex_(rw_mutex)
             , write_lock_(write_mutex)
@@ -1202,9 +1446,8 @@ struct RCUPolicy
             {
                 new_data = std::make_shared<T>(*current);
                 f(*new_data);
-            } while (!data_.compare_exchange_weak(current, new_data,
-                                                   std::memory_order_release,
-                                                   std::memory_order_acquire));
+            } while (
+                !data_.compare_exchange_weak(current, new_data, std::memory_order_release, std::memory_order_acquire));
 #else
             std::shared_ptr<T> current;
             {
@@ -1261,7 +1504,10 @@ struct RCUPolicy
         return SharedGuard(data_.load(std::memory_order_acquire));
     }
 
-    static constexpr bool is_lock_free() { return true; }
+    static constexpr bool is_lock_free()
+    {
+        return true;
+    }
 #else
     [[nodiscard]] SharedGuard read() const
     {
@@ -1269,7 +1515,10 @@ struct RCUPolicy
         return SharedGuard(data_);
     }
 
-    static constexpr bool is_lock_free() { return false; }
+    static constexpr bool is_lock_free()
+    {
+        return false;
+    }
 #endif
 
     [[nodiscard]] LockGuard write()
@@ -1281,7 +1530,10 @@ struct RCUPolicy
 #endif
     }
 
-    uint64_t get_contention() const { return 0; }
+    uint64_t get_contention() const
+    {
+        return 0;
+    }
 
 private:
 #if FATP_HAS_ATOMIC_SHARED_PTR
@@ -1338,7 +1590,11 @@ struct HazardPointerPolicy
     class Guard
     {
     public:
-        explicit Guard(std::atomic<T*>& hp) : mHp(hp), protected_ptr_(nullptr) {}
+        explicit Guard(std::atomic<T*>& hp)
+            : mHp(hp)
+            , protected_ptr_(nullptr)
+        {
+        }
 
         Guard(const Guard&) = delete;
         Guard& operator=(const Guard&) = delete;
@@ -1356,7 +1612,10 @@ struct HazardPointerPolicy
             return ptr;
         }
 
-        T* get() const { return protected_ptr_; }
+        T* get() const
+        {
+            return protected_ptr_;
+        }
 
         ~Guard()
         {
@@ -1378,8 +1637,14 @@ struct HazardPointerPolicy
         return Guard(get_thread_record().hps[index].ptr);
     }
 
-    [[nodiscard]] Guard lock() const { return acquire(0); }
-    [[nodiscard]] Guard lock_shared() const { return acquire(0); }
+    [[nodiscard]] Guard lock() const
+    {
+        return acquire(0);
+    }
+    [[nodiscard]] Guard lock_shared() const
+    {
+        return acquire(0);
+    }
 
     void retire(T* ptr)
     {
@@ -1397,7 +1662,10 @@ struct HazardPointerPolicy
         scan_and_reclaim();
     }
 
-    uint64_t get_contention() const { return 0; }
+    uint64_t get_contention() const
+    {
+        return 0;
+    }
 
 private:
     static std::mutex& get_global_mutex()
@@ -1478,18 +1746,15 @@ private:
 
         std::sort(protected_ptrs.begin(), protected_ptrs.end());
 
-        auto new_end = std::remove_if(retired_list.begin(), retired_list.end(),
-            [&protected_ptrs](T* ptr)
+        auto new_end = std::remove_if(retired_list.begin(), retired_list.end(), [&protected_ptrs](T* ptr) {
+            bool is_protected = std::binary_search(protected_ptrs.begin(), protected_ptrs.end(), ptr);
+            if (!is_protected)
             {
-                bool is_protected = std::binary_search(
-                    protected_ptrs.begin(), protected_ptrs.end(), ptr);
-                if (!is_protected)
-                {
-                    delete ptr;
-                    return true;
-                }
-                return false;
-            });
+                delete ptr;
+                return true;
+            }
+            return false;
+        });
 
         retired_list.erase(new_end, retired_list.end());
     }
@@ -1534,8 +1799,7 @@ struct AdaptiveLockPolicy
                 {
                     if (++spins > SPIN_THRESHOLD)
                     {
-                        uint32_t count = contention_counter_.fetch_add(1,
-                            std::memory_order_relaxed);
+                        uint32_t count = contention_counter_.fetch_add(1, std::memory_order_relaxed);
                         if (count > ADAPT_WINDOW / 10)
                         {
                             use_mutex_.store(true, std::memory_order_relaxed);
@@ -1587,7 +1851,10 @@ struct AdaptiveLockPolicy
     using WriteLock = LockGuard;
     using ReadLock = LockGuard;
 
-    [[nodiscard]] LockGuard lock() { return LockGuard(*this); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(*this);
+    }
     [[nodiscard]] SharedGuard lock_shared() const
     {
         return SharedGuard(const_cast<AdaptiveLockPolicy&>(*this));
@@ -1602,7 +1869,10 @@ struct AdaptiveLockPolicy
         return !spin_lock_.test_and_set(std::memory_order_acquire);
     }
 
-    AdaptiveLockPolicy& getLock() { return *this; }
+    AdaptiveLockPolicy& getLock()
+    {
+        return *this;
+    }
 
     static AdaptiveLockPolicy& getStaticLock()
     {
@@ -1678,7 +1948,8 @@ struct PriorityInheritanceLockPolicy
     {
     public:
 #if FATP_HAS_PTHREAD_PRIO_INHERIT
-        explicit LockGuard(pthread_mutex_t& mutex) : mMutex(mutex)
+        explicit LockGuard(pthread_mutex_t& mutex)
+            : mMutex(mutex)
         {
             pthread_mutex_lock(&mMutex);
         }
@@ -1691,7 +1962,8 @@ struct PriorityInheritanceLockPolicy
     private:
         pthread_mutex_t& mMutex;
 #elif FATP_HAS_WIN32_CRITICAL_SECTION
-        explicit LockGuard(CRITICAL_SECTION& cs) : mCs(cs)
+        explicit LockGuard(CRITICAL_SECTION& cs)
+            : mCs(cs)
         {
             EnterCriticalSection(&mCs);
         }
@@ -1704,7 +1976,10 @@ struct PriorityInheritanceLockPolicy
     private:
         CRITICAL_SECTION& mCs;
 #else
-        explicit LockGuard(std::mutex& mutex) : mGuard(mutex) {}
+        explicit LockGuard(std::mutex& mutex)
+            : mGuard(mutex)
+        {
+        }
         ~LockGuard() = default;
 
     private:
@@ -1721,7 +1996,10 @@ struct PriorityInheritanceLockPolicy
     using ReadLock = LockGuard;
 
 #if FATP_HAS_PTHREAD_PRIO_INHERIT
-    [[nodiscard]] LockGuard lock() { return LockGuard(mMutex); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(mMutex);
+    }
     [[nodiscard]] SharedGuard lock_shared() const
     {
         return SharedGuard(const_cast<pthread_mutex_t&>(mMutex));
@@ -1732,14 +2010,16 @@ struct PriorityInheritanceLockPolicy
         return pthread_mutex_trylock(&mMutex) == 0;
     }
 
-    pthread_mutex_t& getLock() { return mMutex; }
+    pthread_mutex_t& getLock()
+    {
+        return mMutex;
+    }
 
     static pthread_mutex_t& getStaticLock()
     {
         static pthread_mutex_t mMutex;
         static std::once_flag init_flag;
-        std::call_once(init_flag, []()
-        {
+        std::call_once(init_flag, []() {
             pthread_mutexattr_t attr;
             pthread_mutexattr_init(&attr);
             pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT);
@@ -1753,7 +2033,10 @@ private:
     pthread_mutex_t mMutex;
 
 #elif FATP_HAS_WIN32_CRITICAL_SECTION
-    [[nodiscard]] LockGuard lock() { return LockGuard(mCs); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(mCs);
+    }
     [[nodiscard]] SharedGuard lock_shared() const
     {
         return SharedGuard(const_cast<CRITICAL_SECTION&>(mCs));
@@ -1764,14 +2047,16 @@ private:
         return TryEnterCriticalSection(&mCs) != 0;
     }
 
-    CRITICAL_SECTION& getLock() { return mCs; }
+    CRITICAL_SECTION& getLock()
+    {
+        return mCs;
+    }
 
     static CRITICAL_SECTION& getStaticLock()
     {
         static CRITICAL_SECTION mCs;
         static std::once_flag init_flag;
-        std::call_once(init_flag, []()
-        {
+        std::call_once(init_flag, []() {
             InitializeCriticalSection(&mCs);
         });
         return mCs;
@@ -1781,15 +2066,24 @@ private:
     CRITICAL_SECTION mCs;
 
 #else
-    [[nodiscard]] LockGuard lock() { return LockGuard(mMutex); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(mMutex);
+    }
     [[nodiscard]] SharedGuard lock_shared() const
     {
         return SharedGuard(const_cast<std::mutex&>(mMutex));
     }
 
-    [[nodiscard]] bool try_lock() { return mMutex.try_lock(); }
+    [[nodiscard]] bool try_lock()
+    {
+        return mMutex.try_lock();
+    }
 
-    std::mutex& getLock() { return mMutex; }
+    std::mutex& getLock()
+    {
+        return mMutex;
+    }
 
     static std::mutex& getStaticLock()
     {
@@ -1802,7 +2096,10 @@ private:
 #endif
 
 public:
-    uint64_t get_contention() const { return 0; }
+    uint64_t get_contention() const
+    {
+        return 0;
+    }
 };
 #endif // FATP_USE_MUTEX
 
@@ -1843,7 +2140,10 @@ struct VersionedLockPolicy
             }
         }
 
-        uint64_t get_version() const { return write_version_; }
+        uint64_t get_version() const
+        {
+            return write_version_;
+        }
 
         ~LockGuard()
         {
@@ -1879,7 +2179,10 @@ struct VersionedLockPolicy
             return mVersion.load(std::memory_order_acquire) == read_version_;
         }
 
-        uint64_t get_version() const { return read_version_; }
+        uint64_t get_version() const
+        {
+            return read_version_;
+        }
 
     private:
         std::atomic<uint64_t>& mVersion;
@@ -1910,7 +2213,10 @@ struct VersionedLockPolicy
         return write_lock_.try_lock();
     }
 
-    LockHandle getLock() { return {mVersion, write_lock_}; }
+    LockHandle getLock()
+    {
+        return {mVersion, write_lock_};
+    }
 
     static LockHandle getStaticLock()
     {
@@ -1919,8 +2225,14 @@ struct VersionedLockPolicy
         return {mVersion, write_lock_};
     }
 
-    uint64_t get_version() const { return mVersion.load(std::memory_order_relaxed); }
-    uint64_t get_contention() const { return 0; }
+    uint64_t get_version() const
+    {
+        return mVersion.load(std::memory_order_relaxed);
+    }
+    uint64_t get_contention() const
+    {
+        return 0;
+    }
 
 private:
     alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> mVersion{0};
@@ -1947,15 +2259,24 @@ struct RecursiveMutexPolicy
     using WriteLock = LockGuard;
     using ReadLock = LockGuard;
 
-    [[nodiscard]] LockGuard lock() { return LockGuard(mLock); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(mLock);
+    }
     [[nodiscard]] SharedGuard lock_shared() const
     {
         return SharedGuard(const_cast<std::recursive_mutex&>(mLock));
     }
 
-    [[nodiscard]] bool try_lock() { return mLock.try_lock(); }
+    [[nodiscard]] bool try_lock()
+    {
+        return mLock.try_lock();
+    }
 
-    std::recursive_mutex& getLock() const { return const_cast<std::recursive_mutex&>(mLock); }
+    std::recursive_mutex& getLock() const
+    {
+        return const_cast<std::recursive_mutex&>(mLock);
+    }
 
     static std::recursive_mutex& getStaticLock()
     {
@@ -1963,7 +2284,10 @@ struct RecursiveMutexPolicy
         return static_lock;
     }
 
-    uint64_t get_contention() const { return 0; }
+    uint64_t get_contention() const
+    {
+        return 0;
+    }
 
 private:
     mutable std::recursive_mutex mLock;
@@ -1986,10 +2310,16 @@ struct TimedMutexPolicy
     class LockGuard
     {
     public:
-        explicit LockGuard(std::timed_mutex& mtx) : mLock(mtx) {}
-        LockGuard(std::timed_mutex& mtx, std::defer_lock_t) : mLock(mtx, std::defer_lock) {}
+        explicit LockGuard(std::timed_mutex& mtx)
+            : mLock(mtx)
+        {
+        }
+        LockGuard(std::timed_mutex& mtx, std::defer_lock_t)
+            : mLock(mtx, std::defer_lock)
+        {
+        }
 
-        template<typename Rep, typename Period>
+        template <typename Rep, typename Period>
         bool try_lock_for(const std::chrono::duration<Rep, Period>& timeout)
         {
             if (mLock.owns_lock())
@@ -1999,7 +2329,10 @@ struct TimedMutexPolicy
             return mLock.try_lock_for(timeout);
         }
 
-        bool owns_lock() const { return mLock.owns_lock(); }
+        bool owns_lock() const
+        {
+            return mLock.owns_lock();
+        }
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -2030,22 +2363,34 @@ struct TimedMutexPolicy
     using WriteLock = LockGuard;
     using ReadLock = LockGuard;
 
-    [[nodiscard]] LockGuard lock() { return LockGuard(mLock); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(mLock);
+    }
     [[nodiscard]] SharedGuard lock_shared() const
     {
         return SharedGuard(const_cast<std::timed_mutex&>(mLock));
     }
-    [[nodiscard]] LockGuard lock_deferred() { return LockGuard(mLock, std::defer_lock); }
+    [[nodiscard]] LockGuard lock_deferred()
+    {
+        return LockGuard(mLock, std::defer_lock);
+    }
 
-    [[nodiscard]] bool try_lock() { return mLock.try_lock(); }
+    [[nodiscard]] bool try_lock()
+    {
+        return mLock.try_lock();
+    }
 
-    template<typename Rep, typename Period>
+    template <typename Rep, typename Period>
     [[nodiscard]] bool try_lock_for(const std::chrono::duration<Rep, Period>& timeout)
     {
         return mLock.try_lock_for(timeout);
     }
 
-    std::timed_mutex& getLock() const { return const_cast<std::timed_mutex&>(mLock); }
+    std::timed_mutex& getLock() const
+    {
+        return const_cast<std::timed_mutex&>(mLock);
+    }
 
     static std::timed_mutex& getStaticLock()
     {
@@ -2053,7 +2398,10 @@ struct TimedMutexPolicy
         return static_lock;
     }
 
-    uint64_t get_contention() const { return 0; }
+    uint64_t get_contention() const
+    {
+        return 0;
+    }
 
 private:
     mutable std::timed_mutex mLock;
@@ -2078,25 +2426,31 @@ struct SharedTimedMutexPolicy
     using WriteLock = LockGuard;
     using ReadLock = SharedGuard;
 
-    [[nodiscard]] LockGuard lock() { return LockGuard(mLock); }
+    [[nodiscard]] LockGuard lock()
+    {
+        return LockGuard(mLock);
+    }
     [[nodiscard]] SharedGuard lock_shared() const
     {
         return SharedGuard(const_cast<std::shared_timed_mutex&>(mLock));
     }
 
-    [[nodiscard]] bool try_lock() { return mLock.try_lock(); }
+    [[nodiscard]] bool try_lock()
+    {
+        return mLock.try_lock();
+    }
     [[nodiscard]] bool try_lock_shared() const
     {
         return const_cast<std::shared_timed_mutex&>(mLock).try_lock_shared();
     }
 
-    template<typename Rep, typename Period>
+    template <typename Rep, typename Period>
     [[nodiscard]] bool try_lock_for(const std::chrono::duration<Rep, Period>& timeout)
     {
         return mLock.try_lock_for(timeout);
     }
 
-    template<typename Rep, typename Period>
+    template <typename Rep, typename Period>
     [[nodiscard]] bool try_lock_shared_for(const std::chrono::duration<Rep, Period>& timeout) const
     {
         return const_cast<std::shared_timed_mutex&>(mLock).try_lock_shared_for(timeout);
@@ -2113,7 +2467,10 @@ struct SharedTimedMutexPolicy
         return static_lock;
     }
 
-    uint64_t get_contention() const { return 0; }
+    uint64_t get_contention() const
+    {
+        return 0;
+    }
 
 private:
     mutable std::shared_timed_mutex mLock;
@@ -2133,13 +2490,13 @@ using SpinLock = SpinlockSynchronizationPolicy;
 // =============================================================================
 
 #if FATP_HAS_CPP20
-template<typename P>
+template <typename P>
 concept ConcurrencyPolicy = requires(P p)
 {
     typename P::LockGuard;
     typename P::SharedGuard;
-    { p.lock() } -> std::same_as<typename P::LockGuard>;
-    { p.lock_shared() } -> std::same_as<typename P::SharedGuard>;
+    {p.lock()}->std::same_as<typename P::LockGuard>;
+    {p.lock_shared()}->std::same_as<typename P::SharedGuard>;
 };
 #endif
 

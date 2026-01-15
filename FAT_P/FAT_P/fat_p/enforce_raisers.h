@@ -3,7 +3,7 @@
  * @brief Defines the policy classes that determine how a contract failure
  * is handled (e.g., throw exception, log warning, abort, or ignore).
  *
- * 
+ *
  *
  * @layer Foundation
  *
@@ -64,7 +64,8 @@ FATP_META:
 #include "ContractException.h"
 #include "Expected.h"
 
-namespace fat_p {
+namespace fat_p
+{
 
 // ============================================================================
 // Local SingleThreadedPolicy stub (Foundation layer independence)
@@ -78,19 +79,27 @@ namespace fat_p {
 //   using MyRaiser = CustomRaiser<MyException, fat_p::MutexSynchronizationPolicy>;
 // ============================================================================
 
-namespace detail {
+namespace detail
+{
 
-struct LocalNoOpLock {};
+struct LocalNoOpLock
+{
+};
 
-struct LocalSingleThreadedPolicy {
+struct LocalSingleThreadedPolicy
+{
     using LockType = LocalNoOpLock;
-    
-    struct SharedGuard {
+
+    struct SharedGuard
+    {
         template <typename T>
-        explicit SharedGuard(T&) noexcept {}
+        explicit SharedGuard(T&) noexcept
+        {
+        }
     };
-    
-    static LocalNoOpLock& getStaticLock() {
+
+    static LocalNoOpLock& getStaticLock()
+    {
         static LocalNoOpLock lock;
         return lock;
     }
@@ -100,7 +109,8 @@ struct LocalSingleThreadedPolicy {
 
 using ViolationHandlerFunction = std::function<void(const std::string&)>;
 
-namespace detail {
+namespace detail
+{
 
 inline std::mutex& getViolationMutex()
 {
@@ -139,7 +149,8 @@ inline void default_violation_handler(const std::string& message)
 #endif
 }
 
-namespace detail {
+namespace detail
+{
 
 struct ViolationHandlerStorage
 {
@@ -398,19 +409,19 @@ struct SystemErrorRaiser
  * @param ExceptionType The custom exception type (e.g., MyCustomError).
  * @param prefix A string literal for the message prefix (e.g., "My Error: ").
  */
-#define FATP_DEFINE_CUSTOM_RAISER(CustomRaiserName, ExceptionType, prefix)                              \
-    struct CustomRaiserName                                                                        \
-    {                                                                                              \
-        static_assert(std::is_base_of_v<std::exception, ExceptionType>,                            \
-                      #ExceptionType " must derive from std::exception.");                         \
-        static_assert(std::is_constructible_v<ExceptionType, const std::string&>,                  \
-                      #ExceptionType " must be constructible from const std::string&.");           \
-                                                                                                   \
-        static void fail(const std::string& message)                                               \
-        {                                                                                          \
-            ::fat_p::detail::writeToStderr("Exception: ", message);                                \
-            throw ExceptionType(std::string(prefix) + message);                                    \
-        }                                                                                          \
+#define FATP_DEFINE_CUSTOM_RAISER(CustomRaiserName, ExceptionType, prefix)               \
+    struct CustomRaiserName                                                              \
+    {                                                                                    \
+        static_assert(std::is_base_of_v<std::exception, ExceptionType>,                  \
+                      #ExceptionType " must derive from std::exception.");               \
+        static_assert(std::is_constructible_v<ExceptionType, const std::string&>,        \
+                      #ExceptionType " must be constructible from const std::string&."); \
+                                                                                         \
+        static void fail(const std::string& message)                                     \
+        {                                                                                \
+            ::fat_p::detail::writeToStderr("Exception: ", message);                      \
+            throw ExceptionType(std::string(prefix) + message);                          \
+        }                                                                                \
     };
 
 template <typename E>

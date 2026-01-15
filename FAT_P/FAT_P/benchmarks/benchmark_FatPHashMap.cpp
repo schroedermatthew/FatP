@@ -2984,8 +2984,7 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
             }
         }
 
-        auto print_speedup = [&](const char* name, const MapTimes& times)
-        {
+        auto print_speedup = [&](const char* name, const MapTimes& times) {
             if (times.valid())
             {
                 std::cout << "    " << std::setw(30) << std::left << name << std::right << std::fixed
@@ -3102,19 +3101,15 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
                 }
             }
 
-            auto print_top3 = [&](const char* metric, auto get_speedup)
-            {
+            auto print_top3 = [&](const char* metric, auto get_speedup) {
                 std::vector<std::pair<double, const char*>> ranked;
                 for (const auto& m : flat_maps)
                 {
                     ranked.push_back({get_speedup(m.times), m.name});
                 }
-                std::sort(ranked.begin(),
-                          ranked.end(),
-                          [](auto& a, auto& b)
-                          {
-                              return a.first > b.first;
-                          });
+                std::sort(ranked.begin(), ranked.end(), [](auto& a, auto& b) {
+                    return a.first > b.first;
+                });
 
                 std::cout << "    Top 3 " << metric << ": ";
                 for (size_t i = 0; i < std::min(size_t(3), ranked.size()); ++i)
@@ -3129,19 +3124,15 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
                 std::cout << "\n";
             };
 
-            auto print_top3_node = [&](const char* metric, auto get_speedup)
-            {
+            auto print_top3_node = [&](const char* metric, auto get_speedup) {
                 std::vector<std::pair<double, const char*>> ranked;
                 for (const auto& m : node_maps)
                 {
                     ranked.push_back({get_speedup(m.times), m.name});
                 }
-                std::sort(ranked.begin(),
-                          ranked.end(),
-                          [](auto& a, auto& b)
-                          {
-                              return a.first > b.first;
-                          });
+                std::sort(ranked.begin(), ranked.end(), [](auto& a, auto& b) {
+                    return a.first > b.first;
+                });
 
                 std::cout << "    Top 3 " << metric << ": ";
                 for (size_t i = 0; i < std::min(size_t(3), ranked.size()); ++i)
@@ -3161,61 +3152,41 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
             if (!flat_maps.empty())
             {
                 std::cout << "  Flat/Fast Maps:\n";
-                print_top3("Insert",
-                           [&](const MapTimes& t)
-                           {
-                               return std_times.insert / t.insert;
-                           });
-                print_top3("Find",
-                           [&](const MapTimes& t)
-                           {
-                               return std_times.find / t.find;
-                           });
-                print_top3("Miss",
-                           [&](const MapTimes& t)
-                           {
-                               return std_times.miss / t.miss;
-                           });
-                print_top3("Erase",
-                           [&](const MapTimes& t)
-                           {
-                               return std_times.erase / t.erase;
-                           });
-                print_top3("Churn",
-                           [&](const MapTimes& t)
-                           {
-                               return std_times.churn / t.churn;
-                           });
+                print_top3("Insert", [&](const MapTimes& t) {
+                    return std_times.insert / t.insert;
+                });
+                print_top3("Find", [&](const MapTimes& t) {
+                    return std_times.find / t.find;
+                });
+                print_top3("Miss", [&](const MapTimes& t) {
+                    return std_times.miss / t.miss;
+                });
+                print_top3("Erase", [&](const MapTimes& t) {
+                    return std_times.erase / t.erase;
+                });
+                print_top3("Churn", [&](const MapTimes& t) {
+                    return std_times.churn / t.churn;
+                });
             }
 
             if (!node_maps.empty())
             {
                 std::cout << "  Node-Based Maps (reference-stable):\n";
-                print_top3_node("Insert",
-                                [&](const MapTimes& t)
-                                {
-                                    return std_times.insert / t.insert;
-                                });
-                print_top3_node("Find",
-                                [&](const MapTimes& t)
-                                {
-                                    return std_times.find / t.find;
-                                });
-                print_top3_node("Miss",
-                                [&](const MapTimes& t)
-                                {
-                                    return std_times.miss / t.miss;
-                                });
-                print_top3_node("Erase",
-                                [&](const MapTimes& t)
-                                {
-                                    return std_times.erase / t.erase;
-                                });
-                print_top3_node("Churn",
-                                [&](const MapTimes& t)
-                                {
-                                    return std_times.churn / t.churn;
-                                });
+                print_top3_node("Insert", [&](const MapTimes& t) {
+                    return std_times.insert / t.insert;
+                });
+                print_top3_node("Find", [&](const MapTimes& t) {
+                    return std_times.find / t.find;
+                });
+                print_top3_node("Miss", [&](const MapTimes& t) {
+                    return std_times.miss / t.miss;
+                });
+                print_top3_node("Erase", [&](const MapTimes& t) {
+                    return std_times.erase / t.erase;
+                });
+                print_top3_node("Churn", [&](const MapTimes& t) {
+                    return std_times.churn / t.churn;
+                });
             }
 
             // Also print full details
@@ -3315,8 +3286,7 @@ void benchmark_pathological_erase()
 
     auto keys = generate_random_keys(N, 0xBADC0FFEEULL);
 
-    auto make_script = [&](size_t iter) -> Script
-    {
+    auto make_script = [&](size_t iter) -> Script {
         Script s;
         s.erase_keys.resize(TOTAL_OPS);
         s.insert_keys.resize(TOTAL_OPS);
@@ -3342,8 +3312,7 @@ void benchmark_pathological_erase()
     };
 
     // Generic pathological test runner: std-like API (reserve, insert({k,v}), erase(k)).
-    auto run_pathological_std_api = [&](auto& map, const Script& s) -> double
-    {
+    auto run_pathological_std_api = [&](auto& map, const Script& s) -> double {
         map.reserve(N * 2);
         for (const auto& k : keys)
         {
@@ -3361,8 +3330,7 @@ void benchmark_pathological_erase()
     };
 
     // Generic pathological test runner: Fat-P API (reserve, insert(k,v), erase(k)).
-    auto run_pathological_fatp_api = [&](auto& map, const Script& s) -> double
-    {
+    auto run_pathological_fatp_api = [&](auto& map, const Script& s) -> double {
         map.reserve(N * 2);
         for (const auto& k : keys)
         {

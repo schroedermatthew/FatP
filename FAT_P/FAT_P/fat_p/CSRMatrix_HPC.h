@@ -1,7 +1,7 @@
 /**
  * @file CSRMatrix_HPC.h
  * @brief High-Performance CSR Matrix with NUMA locality, cache prefetching, and contract enforcement
- * 
+ *
  *
  * @layer Domain
  *
@@ -29,12 +29,12 @@
  * @code
  * // Drop-in replacement for CSRMatrix
  * HpcCSRMatrix<double> A(1000, 1000, rows, cols, vals);
- * 
+ *
  * // Check NUMA support
  * if (A.is_numa_available()) {
  *     std::cout << "NUMA-aware allocation enabled\n";
  * }
- * 
+ *
  * // SpMV with automatic prefetching
  * std::vector<double> x(1000, 1.0), y(1000);
  * A.matvec(x.data(), y.data());
@@ -97,13 +97,13 @@ FATP_META:
 #include <vector>
 
 // Fat-P HPC components
-#include "HpcVector.h"
-#include "enforce.h"
 #include "CacheUtilities.h"
 #include "CheckedArithmetic.h"
-#include "FatPTypeTraits.h"
-#include "ThreadPool.h"
 #include "CSRMatrixPartitioning.h"
+#include "enforce.h"
+#include "FatPTypeTraits.h"
+#include "HpcVector.h"
+#include "ThreadPool.h"
 
 #include <future>
 
@@ -148,15 +148,15 @@ inline ThreadPool& default_hpc_thread_pool()
 
 /**
  * @brief High-Performance Compressed Sparse Row matrix
- * 
+ *
  * Enhanced CSRMatrix with NUMA-local storage, cache prefetching, and contract enforcement.
- * 
+ *
  * @tparam T Value type (must be arithmetic: float, double, signed int, etc.)
  * @tparam IndexType Index type for column indices (int32_t, int64_t)
  * @tparam Alignment Cache line alignment (default 64 bytes)
  * @tparam NumaPolicy NUMA allocation policy (default: local node)
  */
-template <typename T, 
+template <typename T,
           typename IndexType = int32_t,
           std::size_t Alignment = 64,
           typename NumaPolicy = memory::NumaLocalPolicy>
@@ -178,7 +178,7 @@ public:
     using index_type = IndexType;
     using size_type = std::size_t;
     using ptr_type = std::size_t;
-    
+
     // HPC storage types
     using value_vector = HpcVector<T, Alignment, NumaPolicy>;
     using index_vector = HpcVector<IndexType, Alignment, NumaPolicy>;
@@ -191,9 +191,9 @@ public:
      */
     enum class DuplicatePolicy
     {
-        Sum,   ///< Sum duplicate values (standard behavior, default)
-        Keep,  ///< Keep all duplicates as separate entries (summed on access)
-        Error  ///< Throw exception if duplicates exist
+        Sum,  ///< Sum duplicate values (standard behavior, default)
+        Keep, ///< Keep all duplicates as separate entries (summed on access)
+        Error ///< Throw exception if duplicates exist
     };
 
 private:
@@ -240,13 +240,11 @@ private:
         constexpr auto idx_max = static_cast<size_type>(std::numeric_limits<IndexType>::max());
         if (rows > idx_max)
         {
-            throw std::overflow_error(
-                "HpcCSRMatrix: Row count exceeds IndexType limits (use larger IndexType)");
+            throw std::overflow_error("HpcCSRMatrix: Row count exceeds IndexType limits (use larger IndexType)");
         }
         if (cols > idx_max)
         {
-            throw std::overflow_error(
-                "HpcCSRMatrix: Column count exceeds IndexType limits (use larger IndexType)");
+            throw std::overflow_error("HpcCSRMatrix: Column count exceeds IndexType limits (use larger IndexType)");
         }
     }
 
@@ -270,7 +268,9 @@ public:
     // Constructors
     // =========================================================================
 
-    HpcCSRMatrix() : mRows(0), mCols(0)
+    HpcCSRMatrix()
+        : mRows(0)
+        , mCols(0)
     {
         row_ptrs_.push_back(0);
     }
@@ -285,7 +285,8 @@ public:
      * @brief Construct empty matrix with given dimensions
      */
     explicit HpcCSRMatrix(size_type rows, size_type cols)
-        : mRows(rows), mCols(cols)
+        : mRows(rows)
+        , mCols(cols)
     {
         validate_dimensions(rows, cols);
         row_ptrs_.resize(rows + 1, 0);
@@ -301,13 +302,13 @@ public:
                  const ColContainer& col_indices,
                  const ValContainer& values,
                  DuplicatePolicy dup_policy = DuplicatePolicy::Sum)
-        : mRows(rows), mCols(cols)
+        : mRows(rows)
+        , mCols(cols)
     {
         validate_dimensions(rows, cols);
 
-        FATP_ALWAYS_ENFORCE(row_indices.size() == col_indices.size() &&
-                       col_indices.size() == values.size(),
-                       "HpcCSRMatrix: COO arrays must have same size");
+        FATP_ALWAYS_ENFORCE(row_indices.size() == col_indices.size() && col_indices.size() == values.size(),
+                            "HpcCSRMatrix: COO arrays must have same size");
 
         size_type nnz_input = values.size();
         row_ptrs_.resize(rows + 1, 0);
@@ -324,7 +325,10 @@ public:
         std::sort(perm.begin(), perm.end(), [&](size_type a, size_type b) {
             auto ra = row_indices[a];
             auto rb = row_indices[b];
-            if (ra != rb) return ra < rb;
+            if (ra != rb)
+            {
+                return ra < rb;
+            }
             return col_indices[a] < col_indices[b];
         });
 
@@ -333,10 +337,8 @@ public:
         {
             auto r = row_indices[perm[i]];
             auto c = col_indices[perm[i]];
-            FATP_ALWAYS_ENFORCE(r >= 0 && static_cast<size_type>(r) < rows,
-                           "HpcCSRMatrix: row index out of range");
-            FATP_ALWAYS_ENFORCE(c >= 0 && static_cast<size_type>(c) < cols,
-                           "HpcCSRMatrix: column index out of range");
+            FATP_ALWAYS_ENFORCE(r >= 0 && static_cast<size_type>(r) < rows, "HpcCSRMatrix: row index out of range");
+            FATP_ALWAYS_ENFORCE(c >= 0 && static_cast<size_type>(c) < cols, "HpcCSRMatrix: column index out of range");
         }
 
         // Build CSR based on duplicate policy
@@ -383,8 +385,7 @@ public:
 
                     if (dup_policy == DuplicatePolicy::Error)
                     {
-                        throw std::invalid_argument(
-                            "HpcCSRMatrix: duplicate entry found with DuplicatePolicy::Error");
+                        throw std::invalid_argument("HpcCSRMatrix: duplicate entry found with DuplicatePolicy::Error");
                     }
 
                     sum += values[jdx];
@@ -413,13 +414,9 @@ public:
     /**
      * @brief Create from dense matrix
      */
-    [[nodiscard]] static HpcCSRMatrix from_dense(const T* dense,
-                                                  size_type rows,
-                                                  size_type cols,
-                                                  T epsilon = T{0})
+    [[nodiscard]] static HpcCSRMatrix from_dense(const T* dense, size_type rows, size_type cols, T epsilon = T{0})
     {
-        FATP_ALWAYS_ENFORCE(dense != nullptr || (rows == 0 || cols == 0),
-                       "HpcCSRMatrix: null pointer to dense matrix");
+        FATP_ALWAYS_ENFORCE(dense != nullptr || (rows == 0 || cols == 0), "HpcCSRMatrix: null pointer to dense matrix");
 
         validate_dimensions(rows, cols);
         validate_dense_size(rows, cols);
@@ -467,14 +464,35 @@ public:
     // Accessors
     // =========================================================================
 
-    [[nodiscard]] size_type rows() const noexcept { return mRows; }
-    [[nodiscard]] size_type cols() const noexcept { return mCols; }
-    [[nodiscard]] size_type nnz() const noexcept { return mValues.size(); }
-    [[nodiscard]] bool empty() const noexcept { return mValues.empty(); }
+    [[nodiscard]] size_type rows() const noexcept
+    {
+        return mRows;
+    }
+    [[nodiscard]] size_type cols() const noexcept
+    {
+        return mCols;
+    }
+    [[nodiscard]] size_type nnz() const noexcept
+    {
+        return mValues.size();
+    }
+    [[nodiscard]] bool empty() const noexcept
+    {
+        return mValues.empty();
+    }
 
-    [[nodiscard]] const value_vector& values() const noexcept { return mValues; }
-    [[nodiscard]] const index_vector& col_indices() const noexcept { return col_indices_; }
-    [[nodiscard]] const ptr_vector& row_ptrs() const noexcept { return row_ptrs_; }
+    [[nodiscard]] const value_vector& values() const noexcept
+    {
+        return mValues;
+    }
+    [[nodiscard]] const index_vector& col_indices() const noexcept
+    {
+        return col_indices_;
+    }
+    [[nodiscard]] const ptr_vector& row_ptrs() const noexcept
+    {
+        return row_ptrs_;
+    }
 
     // =========================================================================
     // HPC-Specific Accessors
@@ -561,7 +579,7 @@ public:
 
     /**
      * @brief Sparse matrix-vector multiply: y = A * x
-     * 
+     *
      * @param x Input vector (size = cols)
      * @param y Output vector (size = rows)
      * @param use_prefetch Enable software prefetching (default true). Disable on
@@ -612,7 +630,7 @@ public:
 
     /**
      * @brief Sparse matrix-vector multiply: y = alpha * A * x + beta * y
-     * 
+     *
      * @param alpha Scalar multiplier for A * x
      * @param x Input vector (size = cols)
      * @param beta Scalar multiplier for y (beta=0 handled specially to avoid NaN)
@@ -673,8 +691,7 @@ public:
     /**
      * @brief Convenience overload for std::vector
      */
-    void matvec(T alpha, const std::vector<T>& x, T beta, std::vector<T>& y,
-                bool use_prefetch = true) const
+    void matvec(T alpha, const std::vector<T>& x, T beta, std::vector<T>& y, bool use_prefetch = true) const
     {
         FATP_ALWAYS_ENFORCE(x.size() == mCols, "HpcCSRMatrix: x size mismatch");
         FATP_ALWAYS_ENFORCE(y.size() == mRows, "HpcCSRMatrix: y size mismatch");
@@ -712,11 +729,7 @@ public:
      * @param pool ThreadPool to use for parallel execution
      * @param config Parallel execution configuration
      */
-    void matvec_parallel(
-        const T* x,
-        T* y,
-        ThreadPool& pool,
-        const HpcParallelConfig& config = {}) const
+    void matvec_parallel(const T* x, T* y, ThreadPool& pool, const HpcParallelConfig& config = {}) const
     {
         FATP_ENFORCE(x != nullptr, "HpcCSRMatrix::matvec_parallel: x pointer is null");
         FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec_parallel: y pointer is null");
@@ -743,12 +756,10 @@ public:
         {
             num_tasks = pool.thread_count() * 4;
         }
-        num_tasks = std::min(num_tasks,
-                             (n_nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
+        num_tasks = std::min(num_tasks, (n_nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
         num_tasks = std::max(num_tasks, std::size_t{1});
 
-        auto partitions = detail::compute_balanced_partitions(
-            row_ptrs_.data(), n_rows, num_tasks);
+        auto partitions = detail::compute_balanced_partitions(row_ptrs_.data(), n_rows, num_tasks);
 
         const T* vals = mValues.data();
         const IndexType* cols = col_indices_.data();
@@ -763,9 +774,7 @@ public:
             size_type start_row = partition.first;
             size_type end_row = partition.second;
 
-            futures.push_back(pool.submit(
-                [vals, cols, ptrs, x, y, start_row, end_row, do_prefetch]()
-            {
+            futures.push_back(pool.submit([vals, cols, ptrs, x, y, start_row, end_row, do_prefetch]() {
                 for (size_type i = start_row; i < end_row; ++i)
                 {
                     T sum = T{0};
@@ -806,13 +815,8 @@ public:
     /**
      * @brief Parallel SpMV: y = alpha * A * x + beta * y using ThreadPool
      */
-    void matvec_parallel(
-        T alpha,
-        const T* x,
-        T beta,
-        T* y,
-        ThreadPool& pool,
-        const HpcParallelConfig& config = {}) const
+    void
+    matvec_parallel(T alpha, const T* x, T beta, T* y, ThreadPool& pool, const HpcParallelConfig& config = {}) const
     {
         FATP_ENFORCE(x != nullptr, "HpcCSRMatrix::matvec_parallel: x pointer is null");
         FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec_parallel: y pointer is null");
@@ -856,12 +860,10 @@ public:
         {
             num_tasks = pool.thread_count() * 4;
         }
-        num_tasks = std::min(num_tasks,
-                             (n_nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
+        num_tasks = std::min(num_tasks, (n_nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
         num_tasks = std::max(num_tasks, std::size_t{1});
 
-        auto partitions = detail::compute_balanced_partitions(
-            row_ptrs_.data(), n_rows, num_tasks);
+        auto partitions = detail::compute_balanced_partitions(row_ptrs_.data(), n_rows, num_tasks);
 
         const T* vals = mValues.data();
         const IndexType* cols = col_indices_.data();
@@ -876,45 +878,44 @@ public:
             size_type start_row = partition.first;
             size_type end_row = partition.second;
 
-            futures.push_back(pool.submit(
-                [vals, cols, ptrs, x, y, start_row, end_row, alpha, beta, beta_zero, do_prefetch]()
-            {
-                for (size_type i = start_row; i < end_row; ++i)
-                {
-                    T sum = T{0};
-                    ptr_type start = ptrs[i];
-                    ptr_type end = ptrs[i + 1];
-
-                    if (do_prefetch && i + 1 < end_row)
+            futures.push_back(
+                pool.submit([vals, cols, ptrs, x, y, start_row, end_row, alpha, beta, beta_zero, do_prefetch]() {
+                    for (size_type i = start_row; i < end_row; ++i)
                     {
-                        ptr_type next_start = ptrs[i + 1];
-                        ptr_type next_end = ptrs[i + 2];
-                        if (next_start < next_end)
+                        T sum = T{0};
+                        ptr_type start = ptrs[i];
+                        ptr_type end = ptrs[i + 1];
+
+                        if (do_prefetch && i + 1 < end_row)
                         {
-                            perf::prefetch<perf::PrefetchLocality::High>(&vals[next_start]);
-                            perf::prefetch<perf::PrefetchLocality::High>(&cols[next_start]);
+                            ptr_type next_start = ptrs[i + 1];
+                            ptr_type next_end = ptrs[i + 2];
+                            if (next_start < next_end)
+                            {
+                                perf::prefetch<perf::PrefetchLocality::High>(&vals[next_start]);
+                                perf::prefetch<perf::PrefetchLocality::High>(&cols[next_start]);
+                            }
+                        }
+
+                        for (ptr_type j = start; j < end; ++j)
+                        {
+                            if (do_prefetch && j + 4 < end)
+                            {
+                                perf::prefetch<perf::PrefetchLocality::Low>(&x[cols[j + 4]]);
+                            }
+                            sum += vals[j] * x[cols[j]];
+                        }
+
+                        if (beta_zero)
+                        {
+                            y[i] = alpha * sum;
+                        }
+                        else
+                        {
+                            y[i] = alpha * sum + beta * y[i];
                         }
                     }
-
-                    for (ptr_type j = start; j < end; ++j)
-                    {
-                        if (do_prefetch && j + 4 < end)
-                        {
-                            perf::prefetch<perf::PrefetchLocality::Low>(&x[cols[j + 4]]);
-                        }
-                        sum += vals[j] * x[cols[j]];
-                    }
-
-                    if (beta_zero)
-                    {
-                        y[i] = alpha * sum;
-                    }
-                    else
-                    {
-                        y[i] = alpha * sum + beta * y[i];
-                    }
-                }
-            }));
+                }));
         }
 
         for (auto& f : futures)
@@ -929,11 +930,7 @@ public:
      * @details Uses submit_batch + wait_idle instead of individual futures.
      * Lower overhead for smaller matrices where future creation dominates.
      */
-    void matvec_parallel_batch(
-        const T* x,
-        T* y,
-        ThreadPool& pool,
-        const HpcParallelConfig& config = {}) const
+    void matvec_parallel_batch(const T* x, T* y, ThreadPool& pool, const HpcParallelConfig& config = {}) const
     {
         FATP_ENFORCE(x != nullptr, "HpcCSRMatrix::matvec_parallel_batch: x pointer is null");
         FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec_parallel_batch: y pointer is null");
@@ -960,12 +957,10 @@ public:
         {
             num_tasks = pool.thread_count() * 4;
         }
-        num_tasks = std::min(num_tasks,
-                             (n_nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
+        num_tasks = std::min(num_tasks, (n_nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
         num_tasks = std::max(num_tasks, std::size_t{1});
 
-        auto partitions = detail::compute_balanced_partitions(
-            row_ptrs_.data(), n_rows, num_tasks);
+        auto partitions = detail::compute_balanced_partitions(row_ptrs_.data(), n_rows, num_tasks);
 
         const T* vals = mValues.data();
         const IndexType* cols = col_indices_.data();
@@ -980,9 +975,7 @@ public:
             size_type start_row = partition.first;
             size_type end_row = partition.second;
 
-            tasks.emplace_back(
-                [vals, cols, ptrs, x, y, start_row, end_row, do_prefetch]()
-            {
+            tasks.emplace_back([vals, cols, ptrs, x, y, start_row, end_row, do_prefetch]() {
                 for (size_type i = start_row; i < end_row; ++i)
                 {
                     T sum = T{0};
@@ -1040,8 +1033,7 @@ public:
         const size_type n_nnz = nnz();
 
         size_t num_threads = pool.thread_count();
-        auto partitions = detail::compute_balanced_partitions(
-            row_ptrs_.data(), n_rows, num_threads);
+        auto partitions = detail::compute_balanced_partitions(row_ptrs_.data(), n_rows, num_threads);
 
         // Phase 1: Count columns in parallel
         std::vector<std::vector<ptr_type>> thread_counts(partitions.size());
@@ -1059,8 +1051,7 @@ public:
                 size_type start_row = partitions[t].first;
                 size_type end_row = partitions[t].second;
 
-                futures.push_back(pool.submit([this, &thread_counts, t, start_row, end_row]()
-                {
+                futures.push_back(pool.submit([this, &thread_counts, t, start_row, end_row]() {
                     for (size_type i = start_row; i < end_row; ++i)
                     {
                         for (ptr_type j = row_ptrs_[i]; j < row_ptrs_[i + 1]; ++j)
@@ -1118,8 +1109,7 @@ public:
                 size_type start_row = partitions[t].first;
                 size_type end_row = partitions[t].second;
 
-                futures.push_back(pool.submit([this, &result, &write_pos, start_row, end_row]()
-                {
+                futures.push_back(pool.submit([this, &result, &write_pos, start_row, end_row]() {
                     for (size_type i = start_row; i < end_row; ++i)
                     {
                         for (ptr_type j = row_ptrs_[i]; j < row_ptrs_[i + 1]; ++j)
@@ -1143,8 +1133,7 @@ public:
         // Phase 3: Sort each row by column index (parallel)
         // The atomic scatter may have placed entries out of order
         {
-            auto result_partitions = detail::compute_balanced_partitions(
-                result.row_ptrs_.data(), n_cols, num_threads);
+            auto result_partitions = detail::compute_balanced_partitions(result.row_ptrs_.data(), n_cols, num_threads);
 
             std::vector<std::future<void>> futures;
             futures.reserve(result_partitions.size());
@@ -1154,8 +1143,7 @@ public:
                 size_type start_row = partition.first;
                 size_type end_row = partition.second;
 
-                futures.push_back(pool.submit([&result, start_row, end_row]()
-                {
+                futures.push_back(pool.submit([&result, start_row, end_row]() {
                     for (size_type i = start_row; i < end_row; ++i)
                     {
                         ptr_type row_start = result.row_ptrs_[i];
@@ -1171,11 +1159,8 @@ public:
                         std::vector<ptr_type> perm(row_len);
                         std::iota(perm.begin(), perm.end(), ptr_type{0});
 
-                        std::sort(perm.begin(), perm.end(),
-                            [&result, row_start](ptr_type a, ptr_type b)
-                        {
-                            return result.col_indices_[row_start + a]
-                                 < result.col_indices_[row_start + b];
+                        std::sort(perm.begin(), perm.end(), [&result, row_start](ptr_type a, ptr_type b) {
+                            return result.col_indices_[row_start + a] < result.col_indices_[row_start + b];
                         });
 
                         // Apply permutation
@@ -1217,8 +1202,7 @@ public:
     /**
      * @brief Parallel SpMV using default thread pool: y = alpha * A * x + beta * y
      */
-    void matvec_parallel(T alpha, const T* x, T beta, T* y,
-                         const HpcParallelConfig& config = {}) const
+    void matvec_parallel(T alpha, const T* x, T beta, T* y, const HpcParallelConfig& config = {}) const
     {
         matvec_parallel(alpha, x, beta, y, default_hpc_thread_pool(), config);
     }
@@ -1226,8 +1210,7 @@ public:
     /**
      * @brief Parallel SpMV batch using default thread pool
      */
-    void matvec_parallel_batch(const T* x, T* y,
-                               const HpcParallelConfig& config = {}) const
+    void matvec_parallel_batch(const T* x, T* y, const HpcParallelConfig& config = {}) const
     {
         matvec_parallel_batch(x, y, default_hpc_thread_pool(), config);
     }
@@ -1304,7 +1287,7 @@ public:
     [[nodiscard]] HpcCSRMatrix operator+(const HpcCSRMatrix& other) const
     {
         FATP_ALWAYS_ENFORCE(mRows == other.mRows && mCols == other.mCols,
-                       "HpcCSRMatrix: dimension mismatch for addition");
+                            "HpcCSRMatrix: dimension mismatch for addition");
 
         HpcCSRMatrix result(mRows, mCols);
         result.mValues.reserve(nnz() + other.nnz());
@@ -1319,12 +1302,8 @@ public:
 
             while (a_ptr < a_end || b_ptr < b_end)
             {
-                IndexType col_a = (a_ptr < a_end)
-                    ? col_indices_[a_ptr]
-                    : std::numeric_limits<IndexType>::max();
-                IndexType col_b = (b_ptr < b_end)
-                    ? other.col_indices_[b_ptr]
-                    : std::numeric_limits<IndexType>::max();
+                IndexType col_a = (a_ptr < a_end) ? col_indices_[a_ptr] : std::numeric_limits<IndexType>::max();
+                IndexType col_b = (b_ptr < b_end) ? other.col_indices_[b_ptr] : std::numeric_limits<IndexType>::max();
                 IndexType cur_col = std::min(col_a, col_b);
 
                 T sum = T{0};
@@ -1358,7 +1337,7 @@ public:
     [[nodiscard]] HpcCSRMatrix operator-(const HpcCSRMatrix& other) const
     {
         FATP_ALWAYS_ENFORCE(mRows == other.mRows && mCols == other.mCols,
-                       "HpcCSRMatrix: dimension mismatch for subtraction");
+                            "HpcCSRMatrix: dimension mismatch for subtraction");
 
         HpcCSRMatrix result(mRows, mCols);
         result.mValues.reserve(nnz() + other.nnz());
@@ -1373,12 +1352,8 @@ public:
 
             while (a_ptr < a_end || b_ptr < b_end)
             {
-                IndexType col_a = (a_ptr < a_end)
-                    ? col_indices_[a_ptr]
-                    : std::numeric_limits<IndexType>::max();
-                IndexType col_b = (b_ptr < b_end)
-                    ? other.col_indices_[b_ptr]
-                    : std::numeric_limits<IndexType>::max();
+                IndexType col_a = (a_ptr < a_end) ? col_indices_[a_ptr] : std::numeric_limits<IndexType>::max();
+                IndexType col_b = (b_ptr < b_end) ? other.col_indices_[b_ptr] : std::numeric_limits<IndexType>::max();
                 IndexType cur_col = std::min(col_a, col_b);
 
                 T diff = T{0};
@@ -1462,8 +1437,7 @@ public:
      */
     [[nodiscard]] HpcCSRMatrix matmul(const HpcCSRMatrix& B) const
     {
-        FATP_ALWAYS_ENFORCE(mCols == B.mRows,
-                       "HpcCSRMatrix: incompatible dimensions for matmul");
+        FATP_ALWAYS_ENFORCE(mCols == B.mRows, "HpcCSRMatrix: incompatible dimensions for matmul");
 
         HpcCSRMatrix result(mRows, B.mCols);
         result.mValues.reserve(std::max(nnz(), B.nnz()));
@@ -1472,7 +1446,7 @@ public:
         // Workspace (hoisted out of loop, NUMA-local for memory locality)
         memory::NumaLocalVector<T> accumulator(B.mCols, T{0});
         memory::NumaLocalVector<size_type> marker(B.mCols, static_cast<size_type>(-1));
-        std::vector<IndexType> touched_cols;  // Small, frequently cleared
+        std::vector<IndexType> touched_cols; // Small, frequently cleared
         touched_cols.reserve(std::min(B.mCols, size_type{256}));
 
         for (size_type i = 0; i < mRows; ++i)

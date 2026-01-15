@@ -2,7 +2,7 @@
  * @file AtomicSharedPtr.h
  * @brief Minimal thread-safe atomic wrapper for std::shared_ptr.
  *
- * 
+ *
  *
  * @layer Concurrency
  *
@@ -83,9 +83,15 @@ public:
     using value_type = T;
     using pointer_type = std::shared_ptr<T>;
 
-    AtomicSharedPtr() noexcept : mPtr(nullptr) {}
+    AtomicSharedPtr() noexcept
+        : mPtr(nullptr)
+    {
+    }
 
-    explicit AtomicSharedPtr(std::shared_ptr<T> p) noexcept : mPtr(std::move(p)) {}
+    explicit AtomicSharedPtr(std::shared_ptr<T> p) noexcept
+        : mPtr(std::move(p))
+    {
+    }
 
     AtomicSharedPtr(const AtomicSharedPtr&) = delete;
     AtomicSharedPtr& operator=(const AtomicSharedPtr&) = delete;
@@ -96,8 +102,7 @@ public:
     // Core Operations
     // ========================================================================
 
-    [[nodiscard]] std::shared_ptr<T> load(
-        std::memory_order order = std::memory_order_acquire) const
+    [[nodiscard]] std::shared_ptr<T> load(std::memory_order order = std::memory_order_acquire) const
     {
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
         auto result = mPtr.load(order);
@@ -114,8 +119,7 @@ public:
         return result;
     }
 
-    [[nodiscard]] std::shared_ptr<T> raw_load(
-        std::memory_order order = std::memory_order_acquire) const noexcept
+    [[nodiscard]] std::shared_ptr<T> raw_load(std::memory_order order = std::memory_order_acquire) const noexcept
     {
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
         return mPtr.load(order);
@@ -124,8 +128,7 @@ public:
 #endif
     }
 
-    void store(std::shared_ptr<T> p,
-               std::memory_order order = std::memory_order_release) noexcept
+    void store(std::shared_ptr<T> p, std::memory_order order = std::memory_order_release) noexcept
     {
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
         mPtr.store(std::move(p), order);
@@ -134,9 +137,8 @@ public:
 #endif
     }
 
-    [[nodiscard]] std::shared_ptr<T> exchange(
-        std::shared_ptr<T> p,
-        std::memory_order order = std::memory_order_acq_rel) noexcept
+    [[nodiscard]] std::shared_ptr<T> exchange(std::shared_ptr<T> p,
+                                              std::memory_order order = std::memory_order_acq_rel) noexcept
     {
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
         return mPtr.exchange(std::move(p), order);
@@ -145,31 +147,27 @@ public:
 #endif
     }
 
-    bool compare_exchange_weak(
-        std::shared_ptr<T>& expected,
-        std::shared_ptr<T> desired,
-        std::memory_order success = std::memory_order_acq_rel,
-        std::memory_order failure = std::memory_order_acquire) noexcept
+    bool compare_exchange_weak(std::shared_ptr<T>& expected,
+                               std::shared_ptr<T> desired,
+                               std::memory_order success = std::memory_order_acq_rel,
+                               std::memory_order failure = std::memory_order_acquire) noexcept
     {
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
         return mPtr.compare_exchange_weak(expected, std::move(desired), success, failure);
 #else
-        return std::atomic_compare_exchange_weak_explicit(
-            &mPtr, &expected, std::move(desired), success, failure);
+        return std::atomic_compare_exchange_weak_explicit(&mPtr, &expected, std::move(desired), success, failure);
 #endif
     }
 
-    bool compare_exchange_strong(
-        std::shared_ptr<T>& expected,
-        std::shared_ptr<T> desired,
-        std::memory_order success = std::memory_order_acq_rel,
-        std::memory_order failure = std::memory_order_acquire) noexcept
+    bool compare_exchange_strong(std::shared_ptr<T>& expected,
+                                 std::shared_ptr<T> desired,
+                                 std::memory_order success = std::memory_order_acq_rel,
+                                 std::memory_order failure = std::memory_order_acquire) noexcept
     {
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
         return mPtr.compare_exchange_strong(expected, std::move(desired), success, failure);
 #else
-        return std::atomic_compare_exchange_strong_explicit(
-            &mPtr, &expected, std::move(desired), success, failure);
+        return std::atomic_compare_exchange_strong_explicit(&mPtr, &expected, std::move(desired), success, failure);
 #endif
     }
 
@@ -178,14 +176,19 @@ public:
     // ========================================================================
 
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR
-    void wait(std::shared_ptr<T> old,
-              std::memory_order order = std::memory_order_acquire) const
+    void wait(std::shared_ptr<T> old, std::memory_order order = std::memory_order_acquire) const
     {
         mPtr.wait(std::move(old), order);
     }
 
-    void notify_one() noexcept { mPtr.notify_one(); }
-    void notify_all() noexcept { mPtr.notify_all(); }
+    void notify_one() noexcept
+    {
+        mPtr.notify_one();
+    }
+    void notify_all() noexcept
+    {
+        mPtr.notify_all();
+    }
 #endif
 
     // ========================================================================
@@ -233,10 +236,14 @@ template <typename T, bool ThrowOnNull = false, typename... Args>
 // ============================================================================
 
 template <typename T>
-struct is_atomic_shared_ptr : std::false_type {};
+struct is_atomic_shared_ptr : std::false_type
+{
+};
 
 template <typename T, bool B>
-struct is_atomic_shared_ptr<AtomicSharedPtr<T, B>> : std::true_type {};
+struct is_atomic_shared_ptr<AtomicSharedPtr<T, B>> : std::true_type
+{
+};
 
 template <typename T>
 inline constexpr bool is_atomic_shared_ptr_v = is_atomic_shared_ptr<T>::value;

@@ -440,11 +440,9 @@ public:
         : mTarget(std::move(target))
         , mWorker(1)
     {
-        mWorkerFuture = mWorker.submit(
-            [this]()
-            {
-                processLoop();
-            });
+        mWorkerFuture = mWorker.submit([this]() {
+            processLoop();
+        });
     }
 
     ~AsyncSink()
@@ -470,11 +468,9 @@ public:
     void flush() override
     {
         std::unique_lock<std::mutex> lock(flush_mutex_);
-        flush_cv_.wait(lock,
-                       [this]
-                       {
-                           return mQueue.empty() && !mProcessing.load();
-                       });
+        flush_cv_.wait(lock, [this] {
+            return mQueue.empty() && !mProcessing.load();
+        });
         mTarget->flush();
     }
 

@@ -161,8 +161,7 @@ FATP_TEST_CASE(allow_duplicates_stability)
     FATP_ASSERT_EQ(vec.size(), 3, "Should have 3 elements");
     FATP_ASSERT_TRUE(std::all_of(vec.begin(),
                                  vec.end(),
-                                 [](int v)
-                                 {
+                                 [](int v) {
                                      return v == 5;
                                  }),
                      "All elements should be 5");
@@ -570,18 +569,16 @@ FATP_TEST_CASE(concurrent_inserts)
 
     for (int t = 0; t < CONCURRENT_THREAD_COUNT; ++t)
     {
-        threads.emplace_back(
-            [&sv, &success_count, t]()
+        threads.emplace_back([&sv, &success_count, t]() {
+            for (int i = 0; i < CONCURRENT_ITERATIONS; ++i)
             {
-                for (int i = 0; i < CONCURRENT_ITERATIONS; ++i)
+                auto result = sv.insert(t * 1000 + i);
+                if (result.has_value() && result.value())
                 {
-                    auto result = sv.insert(t * 1000 + i);
-                    if (result.has_value() && result.value())
-                    {
-                        success_count.fetch_add(1, std::memory_order_relaxed);
-                    }
+                    success_count.fetch_add(1, std::memory_order_relaxed);
                 }
-            });
+            }
+        });
     }
 
     for (auto& thread : threads)
@@ -635,19 +632,15 @@ FATP_TEST_CASE(with_internal_container_basic)
     (void)sv.insert(2);
     (void)sv.insert(3);
 
-    auto result = sv.withInternalContainer(
-        [](const auto& container)
-        {
-            return container.size();
-        });
+    auto result = sv.withInternalContainer([](const auto& container) {
+        return container.size();
+    });
 
     FATP_ASSERT_EQ(result, 3u, "withInternalContainer should return correct size");
 
-    auto sum = sv.withInternalContainer(
-        [](const auto& container)
-        {
-            return std::accumulate(container.begin(), container.end(), 0);
-        });
+    auto sum = sv.withInternalContainer([](const auto& container) {
+        return std::accumulate(container.begin(), container.end(), 0);
+    });
 
     FATP_ASSERT_EQ(sum, 6, "Sum should be 1+2+3=6");
 
@@ -673,19 +666,15 @@ FATP_TEST_CASE(with_internal_container_thread_safety)
 
     for (int t = 0; t < 4; ++t)
     {
-        threads.emplace_back(
-            [&sv, &read_count]()
+        threads.emplace_back([&sv, &read_count]() {
+            for (int i = 0; i < 100; ++i)
             {
-                for (int i = 0; i < 100; ++i)
-                {
-                    sv.withInternalContainer(
-                        [&read_count](const auto& container)
-                        {
-                            (void)std::accumulate(container.begin(), container.end(), 0);
-                            read_count.fetch_add(1, std::memory_order_relaxed);
-                        });
-                }
-            });
+                sv.withInternalContainer([&read_count](const auto& container) {
+                    (void)std::accumulate(container.begin(), container.end(), 0);
+                    read_count.fetch_add(1, std::memory_order_relaxed);
+                });
+            }
+        });
     }
 
     for (auto& thread : threads)
@@ -705,23 +694,21 @@ FATP_TEST_CASE(with_internal_container_complex_return)
     (void)sv.insert(20);
     (void)sv.insert(30);
 
-    auto stats = sv.withInternalContainer(
-        [](const auto& container)
+    auto stats = sv.withInternalContainer([](const auto& container) {
+        struct Stats
         {
-            struct Stats
-            {
-                int min;
-                int max;
-                int sum;
-                size_t count;
-            };
-            if (container.empty())
-            {
-                return Stats{0, 0, 0, 0};
-            }
-            int sum = std::accumulate(container.begin(), container.end(), 0);
-            return Stats{container.front(), container.back(), sum, container.size()};
-        });
+            int min;
+            int max;
+            int sum;
+            size_t count;
+        };
+        if (container.empty())
+        {
+            return Stats{0, 0, 0, 0};
+        }
+        int sum = std::accumulate(container.begin(), container.end(), 0);
+        return Stats{container.front(), container.back(), sum, container.size()};
+    });
 
     FATP_ASSERT_EQ(stats.min, 10, "Min should be 10");
     FATP_ASSERT_EQ(stats.max, 30, "Max should be 30");
@@ -745,11 +732,9 @@ FATP_TEST_CASE(with_internal_container_backend_agnostic)
     (void)deque_sv.insert(2);
     (void)deque_sv.insert(3);
 
-    auto sum = deque_sv.withInternalContainer(
-        [](const auto& container)
-        {
-            return std::accumulate(container.begin(), container.end(), 0);
-        });
+    auto sum = deque_sv.withInternalContainer([](const auto& container) {
+        return std::accumulate(container.begin(), container.end(), 0);
+    });
 
     FATP_ASSERT_EQ(sum, 6, "Deque backend should also work with withInternalContainer");
 
@@ -767,18 +752,14 @@ FATP_TEST_CASE(vector_access_methods)
     FATP_ASSERT_EQ(vec_copy.size(), 3u, "toVector should return copy with correct size");
 
     vec_copy[0] = 999;
-    auto original_first = sv.withInternalContainer(
-        [](const auto& c)
-        {
-            return c.front();
-        });
+    auto original_first = sv.withInternalContainer([](const auto& c) {
+        return c.front();
+    });
     FATP_ASSERT_EQ(original_first, 1, "Modifying copy should not affect original");
 
-    int sum = sv.withInternalContainer(
-        [](const auto& container)
-        {
-            return std::accumulate(container.begin(), container.end(), 0);
-        });
+    int sum = sv.withInternalContainer([](const auto& container) {
+        return std::accumulate(container.begin(), container.end(), 0);
+    });
 
     FATP_ASSERT_EQ(sum, 6, "Sum should be 1+2+3=6");
 
@@ -827,8 +808,7 @@ void benchmark_component()
     fat_p::SortedContainer<int> sv;
 
     double insert_time = measure_perf(
-        [&sv]()
-        {
+        [&sv]() {
             static int i = 0;
             auto result = sv.insert(i++);
             DoNotOptimize(result);
@@ -847,8 +827,7 @@ void benchmark_component()
     }
 
     double batch_time = measure_perf(
-        [&sv, &batch]()
-        {
+        [&sv, &batch]() {
             sv.clear();
             auto result = sv.insertRange(batch.begin(), batch.end());
             DoNotOptimize(result);
@@ -861,8 +840,7 @@ void benchmark_component()
     (void)sv.insertRange(batch.begin(), batch.end());
 
     double find_time = measure_perf(
-        [&sv]()
-        {
+        [&sv]() {
             auto it = sv.find(500);
             DoNotOptimize(it);
         },
@@ -871,8 +849,7 @@ void benchmark_component()
     std::cout << "Find (binary search): " << format_time(find_time) << "\n";
 
     double lower_bound_time = measure_perf(
-        [&sv]()
-        {
+        [&sv]() {
             auto it = sv.lower_bound(500);
             DoNotOptimize(it);
         },
@@ -891,8 +868,7 @@ void benchmark_component()
     }
 
     double fuzzy_time = measure_perf(
-        [&fuzzy_sv, &fuzzy_batch]()
-        {
+        [&fuzzy_sv, &fuzzy_batch]() {
             fuzzy_sv.clear();
             auto result = fuzzy_sv.insertRange(fuzzy_batch.begin(), fuzzy_batch.end());
             DoNotOptimize(result);

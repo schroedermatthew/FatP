@@ -672,8 +672,7 @@ FATP_TEST_CASE(concurrent_exception_throwing)
     std::atomic<int> runtime_count{0};
     std::atomic<int> alloc_count{0};
 
-    auto thread_func = [&](int thread_id)
-    {
+    auto thread_func = [&](int thread_id) {
         for (int i = 0; i < iterations; ++i)
         {
             try
@@ -738,8 +737,7 @@ FATP_TEST_CASE(concurrent_exception_throwing)
 
 FATP_TEST_CASE(factory_error_pattern)
 {
-    auto create_object = [](const std::string& key)
-    {
+    auto create_object = [](const std::string& key) {
         if (key.empty())
         {
             throw InvalidArgumentContractError("Factory key cannot be empty");
@@ -778,8 +776,7 @@ FATP_TEST_CASE(factory_error_pattern)
 
 FATP_TEST_CASE(checked_arithmetic_pattern)
 {
-    auto checked_add = [](int a, int b) -> int
-    {
+    auto checked_add = [](int a, int b) -> int {
         if (a > 0 && b > INT_MAX - a)
         {
             throw OverflowContractError("Integer overflow in addition");
@@ -802,8 +799,7 @@ FATP_TEST_CASE(checked_arithmetic_pattern)
 
 FATP_TEST_CASE(allocator_pattern)
 {
-    auto allocate = [](size_t size) -> void*
-    {
+    auto allocate = [](size_t size) -> void* {
         constexpr size_t MAX_SIZE = 1024 * 1024;
         if (size > MAX_SIZE)
         {
@@ -889,8 +885,7 @@ void run_benchmarks()
 
     benchmark(
         "std::logic_error construction",
-        []()
-        {
+        []() {
             std::logic_error e("Test message for benchmark");
             DoNotOptimize(&e);
         },
@@ -898,8 +893,7 @@ void run_benchmarks()
 
     benchmark(
         "LogicContractError construction",
-        []()
-        {
+        []() {
             LogicContractError e("Test message for benchmark");
             DoNotOptimize(&e);
         },
@@ -907,8 +901,7 @@ void run_benchmarks()
 
     benchmark(
         "AllocContractError construction",
-        []()
-        {
+        []() {
             AllocContractError e("Test message for benchmark");
             DoNotOptimize(&e);
         },
@@ -919,8 +912,7 @@ void run_benchmarks()
 
     benchmark(
         "std::logic_error throw/catch",
-        []()
-        {
+        []() {
             try
             {
                 throw std::logic_error("benchmark");
@@ -934,8 +926,7 @@ void run_benchmarks()
 
     benchmark(
         "LogicContractError throw/catch",
-        []()
-        {
+        []() {
             try
             {
                 throw LogicContractError("benchmark");
@@ -949,8 +940,7 @@ void run_benchmarks()
 
     benchmark(
         "LogicContractError catch as base",
-        []()
-        {
+        []() {
             try
             {
                 throw LogicContractError("benchmark");
@@ -970,24 +960,21 @@ void run_benchmarks()
 
     benchmark(
         "what() access",
-        [&]()
-        {
+        [&]() {
             DoNotOptimize(static_error.what());
         },
         1000000);
 
     benchmark(
         "category() access",
-        [&]()
-        {
+        [&]() {
             DoNotOptimize(static_error.category());
         },
         1000000);
 
     benchmark(
         "message() access",
-        [&]()
-        {
+        [&]() {
             DoNotOptimize(static_error.message());
         },
         1000000);
@@ -997,8 +984,7 @@ void run_benchmarks()
 
     benchmark(
         "operator<< to ostringstream",
-        [&]()
-        {
+        [&]() {
             std::ostringstream oss;
             oss << static_cast<const ContractViolationBase&>(static_error);
             DoNotOptimize(oss.str().data());
@@ -1010,8 +996,7 @@ void run_benchmarks()
 
     benchmark(
         "AllocContractError copy",
-        [&]()
-        {
+        [&]() {
             AllocContractError copy = static_alloc;
             DoNotOptimize(copy.what());
         },
@@ -1019,8 +1004,7 @@ void run_benchmarks()
 
     benchmark(
         "AllocContractError move",
-        []()
-        {
+        []() {
             AllocContractError original("move benchmark");
             AllocContractError moved = std::move(original);
             DoNotOptimize(moved.what());

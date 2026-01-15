@@ -1,7 +1,7 @@
 /**
  * @file test_FastHashMap.cpp
  * @brief Comprehensive test suite for fat_p::FastHashMap
- * 
+ *
  * Tests all features including:
  * - SIMD-accelerated probing (SSE2/AVX2/NEON)
  * - Deletion policies (Tombstone and BackwardShift)
@@ -14,7 +14,7 @@
  * - Load factor management (0.875)
  * - Iterator support
  * - Performance vs std::unordered_map
- * 
+ *
  * Total Tests: 32
  */
 
@@ -564,9 +564,17 @@ TEST_CASE(stress_random)
 struct ThrowingHash
 {
     ThrowingHash() = default;
-    ThrowingHash(ThrowingHash&&) noexcept(false) {}
-    ThrowingHash& operator=(ThrowingHash&&) noexcept(false) { return *this; }
-    size_t operator()(int k) const { return static_cast<size_t>(k); }
+    ThrowingHash(ThrowingHash&&) noexcept(false)
+    {
+    }
+    ThrowingHash& operator=(ThrowingHash&&) noexcept(false)
+    {
+        return *this;
+    }
+    size_t operator()(int k) const
+    {
+        return static_cast<size_t>(k);
+    }
 };
 
 struct NothrowHash
@@ -574,7 +582,10 @@ struct NothrowHash
     NothrowHash() = default;
     NothrowHash(NothrowHash&&) noexcept = default;
     NothrowHash& operator=(NothrowHash&&) noexcept = default;
-    size_t operator()(int k) const noexcept { return static_cast<size_t>(k); }
+    size_t operator()(int k) const noexcept
+    {
+        return static_cast<size_t>(k);
+    }
 };
 
 TEST_CASE(conditional_noexcept)
@@ -582,17 +593,16 @@ TEST_CASE(conditional_noexcept)
     // Maps with throwing hash should NOT be nothrow move constructible
     using ThrowingMap = FastHashMap<int, int, ThrowingHash>;
     static_assert(!std::is_nothrow_move_constructible_v<ThrowingMap>,
-        "ThrowingHash map should NOT be nothrow move constructible");
+                  "ThrowingHash map should NOT be nothrow move constructible");
 
     // Maps with nothrow hash SHOULD be nothrow move constructible
     using NothrowMap = FastHashMap<int, int, NothrowHash>;
     static_assert(std::is_nothrow_move_constructible_v<NothrowMap>,
-        "NothrowHash map should be nothrow move constructible");
+                  "NothrowHash map should be nothrow move constructible");
 
     // Default map should be nothrow (std::hash is nothrow)
     using DefaultMap = FastHashMap<int, int>;
-    static_assert(std::is_nothrow_move_constructible_v<DefaultMap>,
-        "Default map should be nothrow move constructible");
+    static_assert(std::is_nothrow_move_constructible_v<DefaultMap>, "Default map should be nothrow move constructible");
 
     return true;
 }
@@ -605,8 +615,8 @@ TEST_CASE(conditional_noexcept)
 struct TransparentHash
 {
     using is_transparent = void;
-    using is_avalanching = void;  // Already good hash, skip mixer
-    
+    using is_avalanching = void; // Already good hash, skip mixer
+
     size_t operator()(std::string_view s) const noexcept
     {
         return std::hash<std::string_view>{}(s);
@@ -687,12 +697,9 @@ TEST_CASE(heap_allocator)
     // HeapAllocator maps are movable and swappable
     using HeapMap = FastHashMap<int, int>;
 
-    static_assert(std::is_move_constructible_v<HeapMap>,
-        "HeapAllocator map should be move constructible");
-    static_assert(std::is_move_assignable_v<HeapMap>,
-        "HeapAllocator map should be move assignable");
-    static_assert(std::is_swappable_v<HeapMap>,
-        "HeapAllocator map should be swappable");
+    static_assert(std::is_move_constructible_v<HeapMap>, "HeapAllocator map should be move constructible");
+    static_assert(std::is_move_assignable_v<HeapMap>, "HeapAllocator map should be move assignable");
+    static_assert(std::is_swappable_v<HeapMap>, "HeapAllocator map should be swappable");
 
     // Runtime verification
     HeapMap map1;
@@ -778,15 +785,12 @@ TEST_CASE(fixed_hashmap_non_movable)
 
     // FixedAllocator is non-movable
     static_assert(!std::is_move_constructible_v<FixedAllocator<4096>>,
-        "FixedAllocator should be non-move-constructible");
+                  "FixedAllocator should be non-move-constructible");
 
     // FixedHashMap is non-movable (due to SFINAE-deleted move operations)
-    static_assert(!std::is_move_constructible_v<FixedMap>,
-        "FixedHashMap should be non-move-constructible");
-    static_assert(!std::is_move_assignable_v<FixedMap>,
-        "FixedHashMap should be non-move-assignable");
-    static_assert(!std::is_swappable_v<FixedMap>,
-        "FixedHashMap should be non-swappable");
+    static_assert(!std::is_move_constructible_v<FixedMap>, "FixedHashMap should be non-move-constructible");
+    static_assert(!std::is_move_assignable_v<FixedMap>, "FixedHashMap should be non-move-assignable");
+    static_assert(!std::is_swappable_v<FixedMap>, "FixedHashMap should be non-swappable");
 
     // But it still works for its intended use case
     FixedMap map;
@@ -806,12 +810,10 @@ TEST_CASE(fixed_hashmap_non_movable)
 TEST_CASE(pointer_steal_safe_trait)
 {
     // HeapAllocator is pointer-steal safe (pointers survive allocator move)
-    static_assert(HeapAllocator::kPointerStealSafe == true,
-        "HeapAllocator should be pointer-steal safe");
+    static_assert(HeapAllocator::kPointerStealSafe == true, "HeapAllocator should be pointer-steal safe");
 
     // FixedAllocator is NOT pointer-steal safe (pointers into embedded buffer)
-    static_assert(FixedAllocator<1024>::kPointerStealSafe == false,
-        "FixedAllocator should NOT be pointer-steal safe");
+    static_assert(FixedAllocator<1024>::kPointerStealSafe == false, "FixedAllocator should NOT be pointer-steal safe");
 
     return true;
 }
@@ -896,8 +898,7 @@ TEST_CASE(freeze_mode)
 
 void benchmark_fasthashmap()
 {
-    std::cout << "\n" << colors::cyan() << "FastHashMap Benchmarks:"
-              << colors::reset() << "\n\n";
+    std::cout << "\n" << colors::cyan() << "FastHashMap Benchmarks:" << colors::reset() << "\n\n";
 
     std::cout << "SIMD Backend: " << FastHashMap<int, int>::simd_backend() << "\n\n";
 
@@ -928,31 +929,37 @@ void benchmark_fasthashmap()
 
     volatile long long sink = 0;
 
-    double fast_time = measure_perf([&]() {
-        long long sum = 0;
-        for (int k : lookup_keys)
-        {
-            int* v = fmap.find(k);
-            if (v)
+    double fast_time = measure_perf(
+        [&]() {
+            long long sum = 0;
+            for (int k : lookup_keys)
             {
-                sum += *v;
+                int* v = fmap.find(k);
+                if (v)
+                {
+                    sum += *v;
+                }
             }
-        }
-        sink = sum;
-    }, ITERATIONS / N, WARMUP / N);
+            sink = sum;
+        },
+        ITERATIONS / N,
+        WARMUP / N);
 
-    double umap_time = measure_perf([&]() {
-        long long sum = 0;
-        for (int k : lookup_keys)
-        {
-            auto it = umap.find(k);
-            if (it != umap.end())
+    double umap_time = measure_perf(
+        [&]() {
+            long long sum = 0;
+            for (int k : lookup_keys)
             {
-                sum += it->second;
+                auto it = umap.find(k);
+                if (it != umap.end())
+                {
+                    sum += it->second;
+                }
             }
-        }
-        sink = sum;
-    }, ITERATIONS / N, WARMUP / N);
+            sink = sum;
+        },
+        ITERATIONS / N,
+        WARMUP / N);
 
     double ns_per_find_fast = (fast_time * 1e6) / N;
     double ns_per_find_umap = (umap_time * 1e6) / N;
@@ -966,7 +973,7 @@ void benchmark_fasthashmap()
     (void)sink;
 }
 
-}  // namespace fat_p::testing::fasthashmap
+} // namespace fat_p::testing::fasthashmap
 
 // ============================================================================
 // Public Interface
@@ -1043,7 +1050,7 @@ bool test_FastHashMap()
     return 0 == runner.print_summary();
 }
 
-}  // namespace fat_p::testing
+} // namespace fat_p::testing
 
 #ifdef ENABLE_TEST_APPLICATION
 int main()

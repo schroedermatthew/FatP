@@ -2,7 +2,7 @@
  * @file SlidingFileWindow.h
  * @brief Policy-based sliding window access to large binary files with on-demand paging.
  *
- * 
+ *
  *
  * @layer Domain
  *
@@ -27,16 +27,16 @@
  * - Memory: sizeof(ElementType) * window_size
  *
  * @section policies Available Policies
- * 
+ *
  * **SerializationPolicy:**
  * - BinarySerializationPolicy: Raw binary I/O (memcpy, fastest)
  * - StreamSerializationPolicy: operator<< / operator>> based
  * - CustomSerializationPolicy: User-defined Read/Write methods
- * 
+ *
  * **ErrorPolicy:**
  * - ExpectedFileErrorPolicy: Returns Expected<T, FileError>
  * - ThrowingFileErrorPolicy: Throws FileWindowException
- * 
+ *
  * **ConcurrencyPolicy:**
  * - SingleThreadedPolicy: No synchronization (default)
  * - MutexSynchronizationPolicy: std::mutex protection
@@ -47,18 +47,18 @@
  * struct DataPoint {
  *     double value;
  *     uint64_t timestamp;
- *     
+ *
  *     void Read(std::istream& is) {
  *         is.read(reinterpret_cast<char*>(&value), sizeof(value));
  *         is.read(reinterpret_cast<char*>(&timestamp), sizeof(timestamp));
  *     }
- *     
+ *
  *     void Write(std::ostream& os) const {
  *         os.write(reinterpret_cast<const char*>(&value), sizeof(value));
  *         os.write(reinterpret_cast<const char*>(&timestamp), sizeof(timestamp));
  *     }
  * };
- * 
+ *
  * SlidingFileWindow<DataPoint> window;
  * auto result = window.open("data.bin", sizeof(DataPoint), 1000);
  * if (result) {
@@ -158,7 +158,10 @@ public:
     {
     }
 
-    FileError error() const noexcept { return mError; }
+    FileError error() const noexcept
+    {
+        return mError;
+    }
 
 private:
     FileError mError;
@@ -205,7 +208,7 @@ private:
  * @brief Binary serialization using memcpy (fastest, requires POD-like types)
  * @tparam ElementType Type of elements (must be trivially copyable)
  */
-template<typename ElementType>
+template <typename ElementType>
 class BinarySerializationPolicy
 {
     static_assert(std::is_trivially_copyable_v<ElementType>,
@@ -224,14 +227,17 @@ public:
         return stream.good();
     }
 
-    static constexpr size_t element_size() noexcept { return sizeof(ElementType); }
+    static constexpr size_t element_size() noexcept
+    {
+        return sizeof(ElementType);
+    }
 };
 
 /**
  * @brief Stream-based serialization using operator<< and operator>>
  * @tparam ElementType Type of elements (must support stream operators)
  */
-template<typename ElementType>
+template <typename ElementType>
 class StreamSerializationPolicy
 {
 public:
@@ -261,14 +267,17 @@ public:
         }
     }
 
-    static constexpr size_t element_size() noexcept { return sizeof(ElementType); }
+    static constexpr size_t element_size() noexcept
+    {
+        return sizeof(ElementType);
+    }
 };
 
 /**
  * @brief Custom serialization using ElementType::Read() and ElementType::Write()
  * @tparam ElementType Type with Read(std::istream&) and Write(std::ostream&) methods
  */
-template<typename ElementType>
+template <typename ElementType>
 class CustomSerializationPolicy
 {
 public:
@@ -298,7 +307,10 @@ public:
         }
     }
 
-    static constexpr size_t element_size() noexcept { return sizeof(ElementType); }
+    static constexpr size_t element_size() noexcept
+    {
+        return sizeof(ElementType);
+    }
 };
 
 // =============================================================================
@@ -307,21 +319,21 @@ public:
 
 /**
  * @brief Report errors via Expected<T, FileError>
- * 
+ *
  * @note For reference types T&, uses std::reference_wrapper<T> since Expected
  *       doesn't support reference types directly.
  */
-template<typename T, typename Error = FileError>
+template <typename T, typename Error = FileError>
 class ExpectedFileErrorPolicy
 {
 private:
-    template<typename U>
+    template <typename U>
     struct wrap_reference
     {
         using type = U;
     };
 
-    template<typename U>
+    template <typename U>
     struct wrap_reference<U&>
     {
         using type = std::reference_wrapper<U>;
@@ -332,9 +344,12 @@ public:
     using result_type = Expected<wrapped_type, Error>;
     using void_result_type = Expected<void, Error>;
 
-    static result_type report_error(Error error) noexcept { return make_unexpected(error); }
+    static result_type report_error(Error error) noexcept
+    {
+        return make_unexpected(error);
+    }
 
-    template<typename U>
+    template <typename U>
     static result_type report_success(U&& value) noexcept
     {
         return result_type(std::forward<U>(value));
@@ -345,13 +360,16 @@ public:
         return make_unexpected(error);
     }
 
-    static void_result_type report_void_success() noexcept { return void_result_type{}; }
+    static void_result_type report_void_success() noexcept
+    {
+        return void_result_type{};
+    }
 };
 
 /**
  * @brief Report errors by throwing FileWindowException
  */
-template<typename T>
+template <typename T>
 class ThrowingFileErrorPolicy
 {
 public:
@@ -363,7 +381,7 @@ public:
         throw FileWindowException(error);
     }
 
-    template<typename U>
+    template <typename U>
     static result_type report_success(U&& value) noexcept
     {
         return std::forward<U>(value);
@@ -374,7 +392,9 @@ public:
         throw FileWindowException(error);
     }
 
-    static void_result_type report_void_success() noexcept {}
+    static void_result_type report_void_success() noexcept
+    {
+    }
 };
 
 // =============================================================================
@@ -383,16 +403,18 @@ public:
 
 /**
  * @brief Trait to detect if a ConcurrencyPolicy requires thread-safe return semantics
- * 
+ *
  * Thread-safe policies must return copies (not references) from operator[] because
  * the lock is released before the caller uses the returned value. Returning a
  * reference would create a race condition where concurrent window shifts could
  * invalidate the reference.
  */
-template<typename Policy>
-struct is_threadsafe_policy : std::bool_constant<!std::is_same_v<Policy, SingleThreadedPolicy>> {};
+template <typename Policy>
+struct is_threadsafe_policy : std::bool_constant<!std::is_same_v<Policy, SingleThreadedPolicy>>
+{
+};
 
-template<typename Policy>
+template <typename Policy>
 inline constexpr bool is_threadsafe_policy_v = is_threadsafe_policy<Policy>::value;
 
 // =============================================================================
@@ -401,46 +423,41 @@ inline constexpr bool is_threadsafe_policy_v = is_threadsafe_policy<Policy>::val
 
 /**
  * @brief Policy-based sliding window for large file access
- * 
+ *
  * @tparam ElementType Type of elements in file
  * @tparam SerializationPolicy How elements are serialized
  * @tparam ErrorPolicy How errors are reported
  * @tparam ConcurrencyPolicy Thread-safety policy
- * 
+ *
  * @note For thread-safe variants (ConcurrencyPolicy != SingleThreadedPolicy),
  *       operator[] returns element copies rather than references. This prevents
  *       race conditions where a returned reference could be invalidated by
  *       concurrent window shifts.
  */
-template<typename ElementType,
-         typename SerializationPolicy = CustomSerializationPolicy<ElementType>,
-         typename ErrorPolicy = ExpectedFileErrorPolicy<ElementType&, FileError>,
-         typename ConcurrencyPolicy = SingleThreadedPolicy>
+template <typename ElementType,
+          typename SerializationPolicy = CustomSerializationPolicy<ElementType>,
+          typename ErrorPolicy = ExpectedFileErrorPolicy<ElementType&, FileError>,
+          typename ConcurrencyPolicy = SingleThreadedPolicy>
 class SlidingFileWindow : private SerializationPolicy
 {
 public:
     // =============================================================================
     // Type Traits and Definitions
     // =============================================================================
-    
+
     static constexpr bool is_threadsafe = is_threadsafe_policy_v<ConcurrencyPolicy>;
-    
+
     using element_type = ElementType;
-    
+
     // Single-threaded: use provided ErrorPolicy (typically returns reference)
     // Thread-safe: always return by value to prevent reference-outlives-lock bugs
-    using result_type = std::conditional_t<
-        is_threadsafe,
-        Expected<ElementType, FileError>,
-        typename ErrorPolicy::result_type
-    >;
-    
-    using const_result_type = std::conditional_t<
-        is_threadsafe,
-        Expected<ElementType, FileError>,
-        Expected<std::reference_wrapper<const ElementType>, FileError>
-    >;
-    
+    using result_type =
+        std::conditional_t<is_threadsafe, Expected<ElementType, FileError>, typename ErrorPolicy::result_type>;
+
+    using const_result_type = std::conditional_t<is_threadsafe,
+                                                 Expected<ElementType, FileError>,
+                                                 Expected<std::reference_wrapper<const ElementType>, FileError>>;
+
     using void_result_type = typename ErrorPolicy::void_result_type;
 
     // =============================================================================
@@ -449,7 +466,10 @@ public:
 
     SlidingFileWindow() = default;
 
-    ~SlidingFileWindow() { close(); }
+    ~SlidingFileWindow()
+    {
+        close();
+    }
 
     SlidingFileWindow(const SlidingFileWindow&) = delete;
     SlidingFileWindow& operator=(const SlidingFileWindow&) = delete;
@@ -462,17 +482,15 @@ public:
 
     /**
      * @brief Open a file with sliding window access
-     * 
+     *
      * @param filename Path to file
      * @param element_size Size of each element in bytes
      * @param window_size Number of elements in window (0 = entire file)
      * @param lag_offset Start window at (file_size - lag_offset) position
      * @return Result indicating success or error
      */
-    void_result_type open(const std::string& filename,
-                          size_t element_size,
-                          size_t window_size = 5000,
-                          size_t lag_offset = 0)
+    void_result_type
+    open(const std::string& filename, size_t element_size, size_t window_size = 5000, size_t lag_offset = 0)
     {
         auto guard = mMutex.lock();
 
@@ -564,13 +582,13 @@ public:
 
     /**
      * @brief Access element at index
-     * 
+     *
      * For single-threaded mode: returns reference to cached element (zero-copy).
      * For thread-safe mode: returns copy of element (prevents reference-outlives-lock).
-     * 
+     *
      * Thread-safe mode automatically shifts the window if the index is out of range,
      * keeping the lock held throughout the operation.
-     * 
+     *
      * @param index Element index in file
      * @return Result containing element (reference or copy depending on ConcurrencyPolicy)
      */
@@ -618,7 +636,7 @@ public:
 
         // Check if index is in current window
         auto window_index = get_window_index(index);
-        
+
         if constexpr (is_threadsafe)
         {
             // Thread-safe: auto-shift window if needed (lock held throughout)
@@ -627,13 +645,13 @@ public:
                 shift_to_index_impl(index);
                 window_index = get_window_index(index);
             }
-            
+
             if (window_index)
             {
                 // Return COPY - lock released after return
                 return result_type(mWindow[*window_index]);
             }
-            
+
             return make_unexpected(FileError::CorruptedState);
         }
         else
@@ -669,7 +687,7 @@ public:
 
     /**
      * @brief Const access to element
-     * 
+     *
      * For single-threaded mode: returns const reference (in-window only).
      * For thread-safe mode: returns copy with auto-shift.
      */
@@ -787,7 +805,7 @@ private:
     // =============================================================================
     // Internal Shift Implementation (caller must hold lock)
     // =============================================================================
-    
+
     void shift_to_index_impl(size_t target_index) noexcept
     {
         // Check if already in window
@@ -954,31 +972,29 @@ private:
 /**
  * @brief Simple sliding window with custom serialization (default)
  */
-template<typename ElementType>
+template <typename ElementType>
 using SimpleSlidingWindow = SlidingFileWindow<ElementType>;
 
 /**
  * @brief Thread-safe sliding window (returns element copies, auto-shifts window)
- * 
+ *
  * Unlike the single-threaded variant, operator[] returns copies of elements
  * rather than references. This prevents race conditions where concurrent
  * window shifts could invalidate references held by other threads.
- * 
+ *
  * operator[] also auto-shifts the window if the requested index is out of
  * range, keeping the lock held throughout the entire operation.
  */
-template<typename ElementType>
-using ThreadSafeSlidingWindow =
-    SlidingFileWindow<ElementType,
-                      CustomSerializationPolicy<ElementType>,
-                      ExpectedFileErrorPolicy<ElementType, FileError>,
-                      MutexSynchronizationPolicy>;
+template <typename ElementType>
+using ThreadSafeSlidingWindow = SlidingFileWindow<ElementType,
+                                                  CustomSerializationPolicy<ElementType>,
+                                                  ExpectedFileErrorPolicy<ElementType, FileError>,
+                                                  MutexSynchronizationPolicy>;
 
 /**
  * @brief Binary POD sliding window (fastest)
  */
-template<typename ElementType>
-using BinarySlidingWindow =
-    SlidingFileWindow<ElementType, BinarySerializationPolicy<ElementType>>;
+template <typename ElementType>
+using BinarySlidingWindow = SlidingFileWindow<ElementType, BinarySerializationPolicy<ElementType>>;
 
 } // namespace fat_p

@@ -405,11 +405,9 @@ FATP_TEST_CASE(if_debug)
     fat_p::DebugOnly<int> val(42);
     int result = 0;
 
-    val.if_debug(
-        [&result](int v)
-        {
-            result = v * 2;
-        });
+    val.if_debug([&result](int v) {
+        result = v * 2;
+    });
 
 #ifndef NDEBUG
     FATP_ASSERT_EQ(result, 84, "if_debug should execute in debug mode");
@@ -424,11 +422,9 @@ FATP_TEST_CASE(modify)
 {
     fat_p::DebugOnly<int> val(10);
 
-    val.modify(
-        [](int& v)
-        {
-            v *= 3;
-        });
+    val.modify([](int& v) {
+        v *= 3;
+    });
 
 #ifndef NDEBUG
     FATP_ASSERT_EQ(val.get(), 30, "modify should update value in debug");
@@ -805,47 +801,37 @@ void benchmark_debugonly()
     fat_p::DebugOnly<int> debug_val;
     int sink = 0;
 
-    fat_p::testing::benchmark("DebugOnly<int> assignment",
-                              [&]()
-                              {
-                                  debug_val = sink;
-                                  fat_p::testing::DoNotOptimize(debug_val);
-                                  fat_p::testing::DoNotOptimize(sink);
-                                  ++sink;
-                              });
+    fat_p::testing::benchmark("DebugOnly<int> assignment", [&]() {
+        debug_val = sink;
+        fat_p::testing::DoNotOptimize(debug_val);
+        fat_p::testing::DoNotOptimize(sink);
+        ++sink;
+    });
 
     // Benchmark increment
     fat_p::DebugOnly<size_t> counter(0);
 
-    fat_p::testing::benchmark("DebugOnly<size_t> increment",
-                              [&]()
-                              {
-                                  ++counter;
-                                  fat_p::testing::DoNotOptimize(counter);
-                              });
+    fat_p::testing::benchmark("DebugOnly<size_t> increment", [&]() {
+        ++counter;
+        fat_p::testing::DoNotOptimize(counter);
+    });
 
     // Benchmark if_debug
     fat_p::DebugOnly<int> val(42);
     int result = 0;
 
-    fat_p::testing::benchmark("DebugOnly<int>::if_debug",
-                              [&]()
-                              {
-                                  val.if_debug(
-                                      [&](int v)
-                                      {
-                                          result = v;
-                                      });
-                                  fat_p::testing::DoNotOptimize(result);
-                              });
+    fat_p::testing::benchmark("DebugOnly<int>::if_debug", [&]() {
+        val.if_debug([&](int v) {
+            result = v;
+        });
+        fat_p::testing::DoNotOptimize(result);
+    });
 
     // Benchmark value_or
-    fat_p::testing::benchmark("DebugOnly<int>::value_or",
-                              [&]()
-                              {
-                                  result = val.value_or(999);
-                                  fat_p::testing::DoNotOptimize(result);
-                              });
+    fat_p::testing::benchmark("DebugOnly<int>::value_or", [&]() {
+        result = val.value_or(999);
+        fat_p::testing::DoNotOptimize(result);
+    });
 
     // Size information
     struct WithDebug

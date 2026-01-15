@@ -184,8 +184,7 @@ FATP_TEST_CASE(has_error)
 FATP_TEST_CASE(error_or_else)
 {
     int call_count = 0;
-    auto factory = [&]()
-    {
+    auto factory = [&]() {
         ++call_count;
         return std::string("computed");
     };
@@ -206,19 +205,14 @@ FATP_TEST_CASE(error_or_else)
 
 FATP_TEST_CASE(map)
 {
-    auto result = Expected<int, std::string>(10).map(
-        [](int x)
-        {
-            return x * 2;
-        });
+    auto result = Expected<int, std::string>(10).map([](int x) {
+        return x * 2;
+    });
     FATP_ASSERT_TRUE(*result == 20, "Map should double the value");
 
-    auto err_result = Expected<int, std::string>(unexpected{"error"})
-                          .map(
-                              [](int x)
-                              {
-                                  return x * 2;
-                              });
+    auto err_result = Expected<int, std::string>(unexpected{"error"}).map([](int x) {
+        return x * 2;
+    });
     FATP_ASSERT_TRUE(!err_result.has_value(), "Error should propagate through map");
     FATP_ASSERT_TRUE(err_result.error() == "error", "Error should be preserved");
 
@@ -227,19 +221,14 @@ FATP_TEST_CASE(map)
 
 FATP_TEST_CASE(and_then)
 {
-    auto result = Expected<int, std::string>(10).and_then(
-        [](int x) -> Expected<int, std::string>
-        {
-            return x * 2;
-        });
+    auto result = Expected<int, std::string>(10).and_then([](int x) -> Expected<int, std::string> {
+        return x * 2;
+    });
     FATP_ASSERT_TRUE(*result == 20, "and_then should double the value");
 
-    auto err_result = Expected<int, std::string>(unexpected{"error"})
-                          .and_then(
-                              [](int x) -> Expected<int, std::string>
-                              {
-                                  return x * 2;
-                              });
+    auto err_result = Expected<int, std::string>(unexpected{"error"}).and_then([](int x) -> Expected<int, std::string> {
+        return x * 2;
+    });
     FATP_ASSERT_TRUE(!err_result.has_value(), "Error should propagate through and_then");
 
     return true;
@@ -247,19 +236,15 @@ FATP_TEST_CASE(and_then)
 
 FATP_TEST_CASE(or_else)
 {
-    auto result = Expected<int, std::string>(unexpected{"error"})
-                      .or_else(
-                          [](const std::string&) -> Expected<int, std::string>
-                          {
-                              return 42;
-                          });
-    FATP_ASSERT_TRUE(*result == 42, "or_else should recover with 42");
-
-    auto val_result = Expected<int, std::string>(10).or_else(
-        [](const std::string&) -> Expected<int, std::string>
-        {
+    auto result =
+        Expected<int, std::string>(unexpected{"error"}).or_else([](const std::string&) -> Expected<int, std::string> {
             return 42;
         });
+    FATP_ASSERT_TRUE(*result == 42, "or_else should recover with 42");
+
+    auto val_result = Expected<int, std::string>(10).or_else([](const std::string&) -> Expected<int, std::string> {
+        return 42;
+    });
     FATP_ASSERT_TRUE(*val_result == 10, "or_else should not affect values");
 
     return true;
@@ -267,12 +252,9 @@ FATP_TEST_CASE(or_else)
 
 FATP_TEST_CASE(transform_error)
 {
-    auto result = Expected<int, std::string>(unexpected{"error"})
-                      .transform_error(
-                          [](const std::string& e)
-                          {
-                              return e + "_transformed";
-                          });
+    auto result = Expected<int, std::string>(unexpected{"error"}).transform_error([](const std::string& e) {
+        return e + "_transformed";
+    });
     FATP_ASSERT_TRUE(result.error() == "error_transformed", "transform_error should transform");
 
     return true;
@@ -281,20 +263,15 @@ FATP_TEST_CASE(transform_error)
 FATP_TEST_CASE(inspect)
 {
     int inspected_value = 0;
-    Expected<int, std::string>(42).inspect(
-        [&](int x)
-        {
-            inspected_value = x;
-        });
+    Expected<int, std::string>(42).inspect([&](int x) {
+        inspected_value = x;
+    });
     FATP_ASSERT_TRUE(inspected_value == 42, "inspect should observe value");
 
     std::string inspected_error;
-    Expected<int, std::string>(unexpected{"error"})
-        .inspect_error(
-            [&](const std::string& e)
-            {
-                inspected_error = e;
-            });
+    Expected<int, std::string>(unexpected{"error"}).inspect_error([&](const std::string& e) {
+        inspected_error = e;
+    });
     FATP_ASSERT_TRUE(inspected_error == "error", "inspect_error should observe error");
 
     return true;
@@ -310,30 +287,24 @@ FATP_TEST_CASE(void_specialization)
     FATP_ASSERT_TRUE(e.error() == "error", "Void Expected error should be accessible");
 
     // Test map returning non-void
-    auto mapped = v.map(
-        []()
-        {
-            return 42;
-        });
+    auto mapped = v.map([]() {
+        return 42;
+    });
     FATP_ASSERT_TRUE(mapped.has_value() && *mapped == 42, "Void map to int works");
 
     // Test map returning void (void -> void)
     int side_effect = 0;
-    auto void_mapped = v.map(
-        [&]()
-        {
-            side_effect = 100;
-        });
+    auto void_mapped = v.map([&]() {
+        side_effect = 100;
+    });
     FATP_ASSERT_TRUE(void_mapped.has_value(), "Void map to void works");
     FATP_ASSERT_TRUE(side_effect == 100, "Void map side effect executed");
 
     // Test map on error state (should not invoke)
     side_effect = 0;
-    auto err_mapped = e.map(
-        [&]()
-        {
-            side_effect = 999;
-        });
+    auto err_mapped = e.map([&]() {
+        side_effect = 999;
+    });
     FATP_ASSERT_TRUE(!err_mapped.has_value(), "Error propagates through void map");
     FATP_ASSERT_TRUE(side_effect == 0, "Void map not invoked on error");
 
@@ -453,13 +424,10 @@ FATP_TEST_CASE(rebind)
 
     static_assert(std::is_same_v<DoubleExpected, Expected<double, std::string>>, "rebind changes value type");
 
-    auto to_double = [](auto exp) -> typename decltype(exp)::template rebind<double>
-    {
-        return exp.map(
-            [](const auto& x)
-            {
-                return static_cast<double>(x);
-            });
+    auto to_double = [](auto exp) -> typename decltype(exp)::template rebind<double> {
+        return exp.map([](const auto& x) {
+            return static_cast<double>(x);
+        });
     };
 
     Expected<int, std::string> int_exp(42);
@@ -521,17 +489,15 @@ FATP_TEST_CASE(concurrent_read)
     std::vector<std::thread> threads;
     for (int i = 0; i < 4; ++i)
     {
-        threads.emplace_back(
-            [&]()
+        threads.emplace_back([&]() {
+            for (int j = 0; j < 100; ++j)
             {
-                for (int j = 0; j < 100; ++j)
+                if (shared_exp.has_value())
                 {
-                    if (shared_exp.has_value())
-                    {
-                        sum += *shared_exp;
-                    }
+                    sum += *shared_exp;
                 }
-            });
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -547,31 +513,23 @@ FATP_TEST_CASE(concurrent_read)
 FATP_TEST_CASE(monadic_chaining)
 {
     auto result = safe_stoi("10")
-                      .and_then(
-                          [](int x)
-                          {
-                              return divide(100, x);
-                          })
-                      .map(
-                          [](int x)
-                          {
-                              return x * 2;
-                          });
+                      .and_then([](int x) {
+                          return divide(100, x);
+                      })
+                      .map([](int x) {
+                          return x * 2;
+                      });
 
     FATP_ASSERT_TRUE(result.has_value(), "Chained operations succeed");
     FATP_ASSERT_TRUE(*result == 20, "Chained result correct");
 
     auto err_result = safe_stoi("not_a_number")
-                          .and_then(
-                              [](int x)
-                              {
-                                  return divide(100, x);
-                              })
-                          .map(
-                              [](int x)
-                              {
-                                  return x * 2;
-                              });
+                          .and_then([](int x) {
+                              return divide(100, x);
+                          })
+                          .map([](int x) {
+                              return x * 2;
+                          });
 
     FATP_ASSERT_TRUE(!err_result.has_value(), "Error propagates through chain");
 
@@ -582,24 +540,20 @@ FATP_TEST_CASE(fold)
 {
     auto v = Expected<int, std::string>(42);
     int result = v.fold(
-        [](int x)
-        {
+        [](int x) {
             return x * 2;
         },
-        [](const std::string&)
-        {
+        [](const std::string&) {
             return -1;
         });
     FATP_ASSERT_TRUE(result == 84, "fold with value");
 
     auto e = Expected<int, std::string>(unexpected{"error"});
     int err_result = e.fold(
-        [](int x)
-        {
+        [](int x) {
             return x * 2;
         },
-        [](const std::string&)
-        {
+        [](const std::string&) {
             return -1;
         });
     FATP_ASSERT_TRUE(err_result == -1, "fold with error");
@@ -657,11 +611,9 @@ FATP_TEST_CASE(trivial_storage)
     v.swap(e);
     FATP_ASSERT_TRUE(!v.has_value() && e.has_value(), "TrivialExpected swap works");
 
-    auto mapped = e.map(
-        [](int x)
-        {
-            return x * 2;
-        });
+    auto mapped = e.map([](int x) {
+        return x * 2;
+    });
     FATP_ASSERT_TRUE(*mapped == 84, "TrivialExpected map works");
 
     return true;
@@ -669,24 +621,20 @@ FATP_TEST_CASE(trivial_storage)
 
 FATP_TEST_CASE(assign_or_return)
 {
-    auto success_fn = []() -> Expected<int, std::string>
-    {
+    auto success_fn = []() -> Expected<int, std::string> {
         return 42;
     };
-    auto fail_fn = []() -> Expected<int, std::string>
-    {
+    auto fail_fn = []() -> Expected<int, std::string> {
         return unexpected{"fail"};
     };
 
-    auto wrapper_success = [&]() -> Expected<int, std::string>
-    {
+    auto wrapper_success = [&]() -> Expected<int, std::string> {
         int val = 0;
         FATP_EXPECTED_ASSIGN_OR_RETURN(val, success_fn());
         return val * 2;
     };
 
-    auto wrapper_fail = [&]() -> Expected<int, std::string>
-    {
+    auto wrapper_fail = [&]() -> Expected<int, std::string> {
         int val = 0;
         FATP_EXPECTED_ASSIGN_OR_RETURN(val, fail_fn());
         return val * 2;
@@ -710,12 +658,12 @@ FATP_TEST_CASE(three_way_comparison)
     Expected<int, std::string> err1(unexpected{"error1"});
     Expected<int, std::string> err2(unexpected{"error2"});
 
-    FATP_ASSERT_TRUE((v1 <=> v2) == std::strong_ordering::less, "42 < 43");
-    FATP_ASSERT_TRUE((v2 <=> v1) == std::strong_ordering::greater, "43 > 42");
-    FATP_ASSERT_TRUE((v1 <=> v3) == std::strong_ordering::equal, "42 == 42");
-    FATP_ASSERT_TRUE((err1 <=> v1) == std::strong_ordering::less, "error < value");
-    FATP_ASSERT_TRUE((v1 <=> err1) == std::strong_ordering::greater, "value > error");
-    FATP_ASSERT_TRUE((err1 <=> err2) == std::strong_ordering::less, "error1 < error2");
+    FATP_ASSERT_TRUE((v1 <= > v2) == std::strong_ordering::less, "42 < 43");
+    FATP_ASSERT_TRUE((v2 <= > v1) == std::strong_ordering::greater, "43 > 42");
+    FATP_ASSERT_TRUE((v1 <= > v3) == std::strong_ordering::equal, "42 == 42");
+    FATP_ASSERT_TRUE((err1 <= > v1) == std::strong_ordering::less, "error < value");
+    FATP_ASSERT_TRUE((v1 <= > err1) == std::strong_ordering::greater, "value > error");
+    FATP_ASSERT_TRUE((err1 <= > err2) == std::strong_ordering::less, "error1 < error2");
 
     return true;
 }
@@ -763,8 +711,7 @@ void benchmark_expected()
     std::cout << colors::yellow() << "1. Construction" << colors::reset() << "\n";
     benchmark(
         "Value construction",
-        []()
-        {
+        []() {
             Expected<int, std::string> e(42);
             DoNotOptimize(e.has_value());
         },
@@ -772,8 +719,7 @@ void benchmark_expected()
 
     benchmark(
         "Error construction",
-        []()
-        {
+        []() {
             Expected<int, std::string> e(unexpected{"error"});
             DoNotOptimize(e.has_value());
         },
@@ -787,8 +733,7 @@ void benchmark_expected()
 
     benchmark(
         "Same-state assignment",
-        [&]()
-        {
+        [&]() {
             assign_target = assign_source;
             DoNotOptimize(assign_target.has_value());
         },
@@ -801,8 +746,7 @@ void benchmark_expected()
 
     benchmark(
         "Different-state assignment",
-        [&]()
-        {
+        [&]() {
             val_exp = err_exp;
             err_exp = Expected<int, std::string>(100);
             DoNotOptimize(val_exp.has_value());
@@ -815,8 +759,7 @@ void benchmark_expected()
 
     benchmark(
         "has_value()",
-        [&]()
-        {
+        [&]() {
             bool has = access_exp.has_value();
             DoNotOptimize(has);
         },
@@ -824,8 +767,7 @@ void benchmark_expected()
 
     benchmark(
         "value_or()",
-        [&]()
-        {
+        [&]() {
             int val = access_exp.value_or(0);
             DoNotOptimize(val);
         },
@@ -833,8 +775,7 @@ void benchmark_expected()
 
     benchmark(
         "operator*",
-        [&]()
-        {
+        [&]() {
             int val = *access_exp;
             DoNotOptimize(val);
         },
@@ -846,39 +787,30 @@ void benchmark_expected()
 
     benchmark(
         "map()",
-        [&]()
-        {
-            auto result = monadic_exp.map(
-                [](int x)
-                {
-                    return x * 2;
-                });
+        [&]() {
+            auto result = monadic_exp.map([](int x) {
+                return x * 2;
+            });
             DoNotOptimize(result.has_value());
         },
         N);
 
     benchmark(
         "and_then()",
-        [&]()
-        {
-            auto result = monadic_exp.and_then(
-                [](int x) -> Expected<int, std::string>
-                {
-                    return x * 2;
-                });
+        [&]() {
+            auto result = monadic_exp.and_then([](int x) -> Expected<int, std::string> {
+                return x * 2;
+            });
             DoNotOptimize(result.has_value());
         },
         N);
 
     benchmark(
         "or_else() with value",
-        [&]()
-        {
-            auto result = monadic_exp.or_else(
-                [](const std::string&) -> Expected<int, std::string>
-                {
-                    return 0;
-                });
+        [&]() {
+            auto result = monadic_exp.or_else([](const std::string&) -> Expected<int, std::string> {
+                return 0;
+            });
             DoNotOptimize(result.has_value());
         },
         N);
@@ -888,13 +820,10 @@ void benchmark_expected()
 
     benchmark(
         "or_else() with error",
-        [&]()
-        {
-            auto result = err_for_or_else.or_else(
-                [](const std::string&) -> Expected<int, std::string>
-                {
-                    return 0;
-                });
+        [&]() {
+            auto result = err_for_or_else.or_else([](const std::string&) -> Expected<int, std::string> {
+                return 0;
+            });
             DoNotOptimize(result.has_value());
         },
         N);
@@ -902,8 +831,7 @@ void benchmark_expected()
     std::cout << "\n" << colors::yellow() << "5. Comparison with std::optional" << colors::reset() << "\n";
     benchmark(
         "Expected<int> construction",
-        []()
-        {
+        []() {
             Expected<int, std::string> e(42);
             DoNotOptimize(e.has_value());
         },
@@ -911,8 +839,7 @@ void benchmark_expected()
 
     benchmark(
         "std::optional<int> construction",
-        []()
-        {
+        []() {
             std::optional<int> o(42);
             DoNotOptimize(o.has_value());
         },
@@ -921,8 +848,7 @@ void benchmark_expected()
     std::cout << "\n" << colors::yellow() << "6. Void Specialization" << colors::reset() << "\n";
     benchmark(
         "Expected<void> success construction",
-        []()
-        {
+        []() {
             Expected<void, std::string> e;
             DoNotOptimize(e.has_value());
         },
@@ -930,8 +856,7 @@ void benchmark_expected()
 
     benchmark(
         "Expected<void> error construction",
-        []()
-        {
+        []() {
             Expected<void, std::string> e(unexpected{"error"});
             DoNotOptimize(e.has_value());
         },
@@ -942,8 +867,7 @@ void benchmark_expected()
 
     benchmark(
         "Expected<void> has_value()",
-        [&]()
-        {
+        [&]() {
             bool has = void_exp.has_value();
             DoNotOptimize(has);
         },
@@ -951,21 +875,17 @@ void benchmark_expected()
 
     benchmark(
         "Expected<void> map()",
-        [&]()
-        {
-            auto result = void_exp.map(
-                []()
-                {
-                    return 42;
-                });
+        [&]() {
+            auto result = void_exp.map([]() {
+                return 42;
+            });
             DoNotOptimize(result.has_value());
         },
         N);
 
     benchmark(
         "Status alias construction",
-        []()
-        {
+        []() {
             Status s;
             DoNotOptimize(s.has_value());
         },

@@ -66,36 +66,39 @@ namespace fat_p
 
 /**
  * @brief Tag to indicate input range is already sorted and unique.
- * 
+ *
  * Pass this tag to constructors/insert functions when you can guarantee
  * the input is already sorted according to the container's comparator
  * and contains no duplicate keys. This skips O(N log N) sorting.
- * 
+ *
  * @warning Passing unsorted or non-unique data with this tag is undefined behavior.
- * 
+ *
  * @example
  *   std::vector<std::pair<int, std::string>> sorted_data = ...;
  *   FlatMap<int, std::string> map(ordered_unique_range, sorted_data.begin(), sorted_data.end());
  */
-struct ordered_unique_range_t { explicit ordered_unique_range_t() = default; };
+struct ordered_unique_range_t
+{
+    explicit ordered_unique_range_t() = default;
+};
 inline constexpr ordered_unique_range_t ordered_unique_range{};
 
 /**
  * @brief Tag to indicate input range is already sorted but may have duplicates.
- * 
+ *
  * Pass this tag when input is sorted but may contain duplicate keys.
  * This skips sorting but still runs deduplication (first key wins).
  */
-struct ordered_range_t { explicit ordered_range_t() = default; };
+struct ordered_range_t
+{
+    explicit ordered_range_t() = default;
+};
 inline constexpr ordered_range_t ordered_range{};
 
 #endif // FATP_ORDERED_RANGE_TAGS_DEFINED
 
 // Forward declaration
-template <typename Key,
-          typename T,
-          typename Compare,
-          typename Allocator>
+template <typename Key, typename T, typename Compare, typename Allocator>
 class FlatMap;
 
 template <typename BaseIterator, typename Key, typename T>
@@ -248,9 +251,8 @@ public:
 };
 
 template <typename BaseIterator, typename Key, typename T>
-FlatMapIterator<BaseIterator, Key, T> operator+(
-    typename FlatMapIterator<BaseIterator, Key, T>::difference_type n,
-    const FlatMapIterator<BaseIterator, Key, T>& it)
+FlatMapIterator<BaseIterator, Key, T> operator+(typename FlatMapIterator<BaseIterator, Key, T>::difference_type n,
+                                                const FlatMapIterator<BaseIterator, Key, T>& it)
 {
     return it + n;
 }
@@ -405,9 +407,9 @@ public:
 };
 
 template <typename BaseIterator, typename Key, typename T>
-FlatMapConstIterator<BaseIterator, Key, T> operator+(
-    typename FlatMapConstIterator<BaseIterator, Key, T>::difference_type n,
-    const FlatMapConstIterator<BaseIterator, Key, T>& it)
+FlatMapConstIterator<BaseIterator, Key, T>
+operator+(typename FlatMapConstIterator<BaseIterator, Key, T>::difference_type n,
+          const FlatMapConstIterator<BaseIterator, Key, T>& it)
 {
     return it + n;
 }
@@ -424,8 +426,7 @@ class FlatMap
 {
 private:
     using InternalPair = std::pair<Key, T>;
-    using InternalAllocator =
-        typename std::allocator_traits<Allocator>::template rebind_alloc<InternalPair>;
+    using InternalAllocator = typename std::allocator_traits<Allocator>::template rebind_alloc<InternalPair>;
     using Storage = std::vector<InternalPair, InternalAllocator>;
 
     Storage mData;
@@ -433,19 +434,22 @@ private:
 
     // Helper to detect if Compare has is_transparent
     template <typename C, typename = void>
-    struct HasIsTransparent : std::false_type {};
-    
+    struct HasIsTransparent : std::false_type
+    {
+    };
+
     template <typename C>
-    struct HasIsTransparent<C, std::void_t<typename C::is_transparent>> : std::true_type {};
+    struct HasIsTransparent<C, std::void_t<typename C::is_transparent>> : std::true_type
+    {
+    };
 
     struct KeyCompare
     {
         Compare mComp;
-        
+
         // Enable is_transparent if the underlying comparator has it
         // This allows heterogeneous lookup (e.g., find("literal") without creating std::string)
-        template <typename C = Compare, 
-                  typename = std::enable_if_t<HasIsTransparent<C>::value>>
+        template <typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
         using is_transparent = typename C::is_transparent;
 
         // Standard overloads for InternalPair comparisons
@@ -463,19 +467,15 @@ private:
         {
             return mComp(a, b.first);
         }
-        
+
         // Heterogeneous lookup overloads - enabled when Compare has is_transparent
-        template <typename K, 
-                  typename C = Compare,
-                  typename = std::enable_if_t<HasIsTransparent<C>::value>>
+        template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
         bool operator()(const InternalPair& a, const K& b) const
         {
             return mComp(a.first, b);
         }
-        
-        template <typename K,
-                  typename C = Compare,
-                  typename = std::enable_if_t<HasIsTransparent<C>::value>>
+
+        template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
         bool operator()(const K& a, const InternalPair& b) const
         {
             return mComp(a, b.first);
@@ -526,10 +526,7 @@ public:
     }
 
     template <class InputIt>
-    FlatMap(InputIt first,
-            InputIt last,
-            const Compare& comp = Compare(),
-            const Allocator& alloc = Allocator())
+    FlatMap(InputIt first, InputIt last, const Compare& comp = Compare(), const Allocator& alloc = Allocator())
         : mData(InternalAllocator(alloc))
         , mComp(comp)
     {
@@ -538,17 +535,15 @@ public:
             mData.emplace_back(first->first, first->second);
         }
         std::stable_sort(mData.begin(), mData.end(), keyValueComp());
-        auto lastUnique = std::unique(mData.begin(),
-                                      mData.end(),
-                                      [this](const InternalPair& a, const InternalPair& b) {
-                                          return keysEquivalent(a.first, b.first);
-                                      });
+        auto lastUnique = std::unique(mData.begin(), mData.end(), [this](const InternalPair& a, const InternalPair& b) {
+            return keysEquivalent(a.first, b.first);
+        });
         mData.erase(lastUnique, mData.end());
     }
 
     /**
      * @brief Construct from pre-sorted, unique range (skips sort and dedup).
-     * 
+     *
      * @warning Caller guarantees range is sorted by comp and has no duplicate keys.
      *          Passing unsorted or non-unique data is undefined behavior.
      */
@@ -567,12 +562,12 @@ public:
         }
         // Trust caller - no sort, no dedup
         FATP_ENFORCE(std::is_sorted(mData.begin(), mData.end(), keyValueComp()),
-                "FlatMap: ordered_unique_range input was not sorted");
+                     "FlatMap: ordered_unique_range input was not sorted");
     }
 
     /**
      * @brief Construct from pre-sorted range that may have duplicates (skips sort only).
-     * 
+     *
      * @warning Caller guarantees range is sorted by comp. First duplicate wins.
      */
     template <class InputIt>
@@ -590,12 +585,10 @@ public:
         }
         // Trust caller on sorting - only dedup
         FATP_ENFORCE(std::is_sorted(mData.begin(), mData.end(), keyValueComp()),
-                "FlatMap: ordered_range input was not sorted");
-        auto lastUnique = std::unique(mData.begin(),
-                                      mData.end(),
-                                      [this](const InternalPair& a, const InternalPair& b) {
-                                          return keysEquivalent(a.first, b.first);
-                                      });
+                     "FlatMap: ordered_range input was not sorted");
+        auto lastUnique = std::unique(mData.begin(), mData.end(), [this](const InternalPair& a, const InternalPair& b) {
+            return keysEquivalent(a.first, b.first);
+        });
         mData.erase(lastUnique, mData.end());
     }
 
@@ -610,17 +603,15 @@ public:
     FlatMap(const FlatMap&) = default;
     FlatMap& operator=(const FlatMap&) = default;
 
-    FlatMap(FlatMap&& other) noexcept(
-        std::is_nothrow_move_constructible_v<Storage> &&
-        std::is_nothrow_move_constructible_v<Compare>)
+    FlatMap(FlatMap&& other) noexcept(std::is_nothrow_move_constructible_v<Storage> &&
+                                      std::is_nothrow_move_constructible_v<Compare>)
         : mData(std::move(other.mData))
         , mComp(std::move(other.mComp))
     {
     }
 
-    FlatMap& operator=(FlatMap&& other) noexcept(
-        std::is_nothrow_move_assignable_v<Storage> &&
-        std::is_nothrow_move_assignable_v<Compare>)
+    FlatMap& operator=(FlatMap&& other) noexcept(std::is_nothrow_move_assignable_v<Storage> &&
+                                                 std::is_nothrow_move_assignable_v<Compare>)
     {
         mData = std::move(other.mData);
         mComp = std::move(other.mComp);
@@ -795,8 +786,7 @@ public:
         {
             return {iterator(it), false};
         }
-        auto inserted =
-            mData.insert(it, InternalPair(std::move(value.first), std::move(value.second)));
+        auto inserted = mData.insert(it, InternalPair(std::move(value.first), std::move(value.second)));
         return {iterator(inserted), true};
     }
 
@@ -829,17 +819,15 @@ public:
         std::stable_sort(mid, mData.end(), keyValueComp());
         std::inplace_merge(mData.begin(), mid, mData.end(), keyValueComp());
 
-        auto lastUnique = std::unique(mData.begin(),
-                                      mData.end(),
-                                      [this](const InternalPair& a, const InternalPair& b) {
-                                          return keysEquivalent(a.first, b.first);
-                                      });
+        auto lastUnique = std::unique(mData.begin(), mData.end(), [this](const InternalPair& a, const InternalPair& b) {
+            return keysEquivalent(a.first, b.first);
+        });
         mData.erase(lastUnique, mData.end());
     }
 
     /**
      * @brief Insert from pre-sorted, unique range (skips sort of new elements).
-     * 
+     *
      * @warning Caller guarantees range is sorted and unique. UB otherwise.
      */
     template <class InputIt>
@@ -858,20 +846,18 @@ public:
         }
 
         auto mid = mData.begin() + static_cast<difference_type>(oldSize);
-        
+
         // Debug check: verify input was actually sorted
         FATP_ENFORCE(std::is_sorted(mid, mData.end(), keyValueComp()),
-                "FlatMap::insert(ordered_unique_range): input was not sorted");
+                     "FlatMap::insert(ordered_unique_range): input was not sorted");
 
         // Skip sorting new elements - just merge
         std::inplace_merge(mData.begin(), mid, mData.end(), keyValueComp());
 
         // Still need to dedup against existing elements
-        auto lastUnique = std::unique(mData.begin(),
-                                      mData.end(),
-                                      [this](const InternalPair& a, const InternalPair& b) {
-                                          return keysEquivalent(a.first, b.first);
-                                      });
+        auto lastUnique = std::unique(mData.begin(), mData.end(), [this](const InternalPair& a, const InternalPair& b) {
+            return keysEquivalent(a.first, b.first);
+        });
         mData.erase(lastUnique, mData.end());
     }
 
@@ -966,24 +952,22 @@ public:
 
     iterator erase(iterator pos)
     {
-        FATP_ENFORCE(pos.base() >= mData.begin() && pos.base() < mData.end(),
-                "FlatMap::erase: invalid iterator");
+        FATP_ENFORCE(pos.base() >= mData.begin() && pos.base() < mData.end(), "FlatMap::erase: invalid iterator");
         return iterator(mData.erase(pos.base()));
     }
 
     iterator erase(const_iterator pos)
     {
-        FATP_ENFORCE(pos.base() >= mData.cbegin() && pos.base() < mData.cend(),
-                "FlatMap::erase: invalid iterator");
+        FATP_ENFORCE(pos.base() >= mData.cbegin() && pos.base() < mData.cend(), "FlatMap::erase: invalid iterator");
         return iterator(mData.erase(pos.base()));
     }
 
     iterator erase(const_iterator first, const_iterator last)
     {
         FATP_ENFORCE(first.base() >= mData.cbegin() && first.base() <= mData.cend(),
-                "FlatMap::erase: invalid first iterator");
+                     "FlatMap::erase: invalid first iterator");
         FATP_ENFORCE(last.base() >= mData.cbegin() && last.base() <= mData.cend(),
-                "FlatMap::erase: invalid last iterator");
+                     "FlatMap::erase: invalid last iterator");
         FATP_ENFORCE(first.base() <= last.base(), "FlatMap::erase: invalid iterator range");
         return iterator(mData.erase(first.base(), last.base()));
     }
@@ -1012,8 +996,7 @@ public:
         return result;
     }
 
-    void swap(FlatMap& other) noexcept(std::is_nothrow_swappable_v<Storage> &&
-                                       std::is_nothrow_swappable_v<Compare>)
+    void swap(FlatMap& other) noexcept(std::is_nothrow_swappable_v<Storage> && std::is_nothrow_swappable_v<Compare>)
     {
         mData.swap(other.mData);
         std::swap(mComp, other.mComp);
@@ -1021,11 +1004,11 @@ public:
 
     /**
      * @brief Merge elements from another FlatMap
-     * 
+     *
      * Attempts to extract each element from source and insert it into *this.
      * If a key already exists in *this, the element is left in source.
      * Uses O(n + m) merge algorithm since both containers are sorted.
-     * 
+     *
      * @param source The FlatMap to merge from (will be modified)
      */
     void merge(FlatMap& source)
@@ -1044,16 +1027,16 @@ public:
             swap(source);
             return;
         }
-        
+
         // Both containers are sorted - use merge algorithm for O(n + m) complexity
         Storage merged(mData.get_allocator());
-        Storage remaining(source.mData.get_allocator());  // Elements that stay in source (duplicates)
+        Storage remaining(source.mData.get_allocator()); // Elements that stay in source (duplicates)
         merged.reserve(size() + source.size());
         remaining.reserve(source.size());
-        
+
         auto it1 = mData.begin();
         auto it2 = source.mData.begin();
-        
+
         while (it1 != mData.end() && it2 != source.mData.end())
         {
             if (mComp(it1->first, it2->first))
@@ -1075,21 +1058,21 @@ public:
                 ++it2;
             }
         }
-        
+
         // Append remaining elements from this
         while (it1 != mData.end())
         {
             merged.push_back(std::move(*it1));
             ++it1;
         }
-        
+
         // Append remaining elements from source (these get merged)
         while (it2 != source.mData.end())
         {
             merged.push_back(std::move(*it2));
             ++it2;
         }
-        
+
         mData = std::move(merged);
         source.mData = std::move(remaining);
     }
@@ -1173,15 +1156,13 @@ public:
     // allowing lookups without constructing a Key object (e.g., find("literal")
     // on FlatMap<std::string, T, std::less<>> avoids std::string construction).
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     [[nodiscard]] size_type count(const K& key) const
     {
         return find(key) != end() ? 1 : 0;
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     [[nodiscard]] iterator find(const K& key)
     {
         auto it = std::lower_bound(mData.begin(), mData.end(), key, keyValueComp());
@@ -1192,8 +1173,7 @@ public:
         return end();
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     [[nodiscard]] const_iterator find(const K& key) const
     {
         auto it = std::lower_bound(mData.begin(), mData.end(), key, keyValueComp());
@@ -1204,50 +1184,43 @@ public:
         return end();
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     [[nodiscard]] bool contains(const K& key) const
     {
         return find(key) != end();
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     std::pair<iterator, iterator> equal_range(const K& key)
     {
         return {lower_bound(key), upper_bound(key)};
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     std::pair<const_iterator, const_iterator> equal_range(const K& key) const
     {
         return {lower_bound(key), upper_bound(key)};
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     iterator lower_bound(const K& key)
     {
         return iterator(std::lower_bound(mData.begin(), mData.end(), key, keyValueComp()));
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     const_iterator lower_bound(const K& key) const
     {
         return const_iterator(std::lower_bound(mData.begin(), mData.end(), key, keyValueComp()));
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     iterator upper_bound(const K& key)
     {
         return iterator(std::upper_bound(mData.begin(), mData.end(), key, keyValueComp()));
     }
 
-    template <typename K, typename C = Compare,
-              typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
     const_iterator upper_bound(const K& key) const
     {
         return const_iterator(std::upper_bound(mData.begin(), mData.end(), key, keyValueComp()));
@@ -1295,11 +1268,11 @@ private:
 
     /**
      * @brief Insert with hint optimization
-     * 
+     *
      * If the hint is correct (key belongs at hint position), this is O(1) for
      * position finding + O(n) for the actual vector insert.
      * If hint is wrong, falls back to O(log n) binary search.
-     * 
+     *
      * Hint is considered correct if:
      * - hint == end() and (empty or key > back)
      * - hint == begin() and (empty or key < front)
@@ -1319,7 +1292,7 @@ private:
             // Check if it's a duplicate of the last element
             if (!mComp(key, mData.back().first))
             {
-                return iterator(mData.end() - 1);  // Key equivalent to last, return existing
+                return iterator(mData.end() - 1); // Key equivalent to last, return existing
             }
         }
         // Fast path: hint at begin and key < first element
@@ -1332,14 +1305,13 @@ private:
             }
             if (mComp(key, mData.front().first))
             {
-                auto it = mData.insert(mData.begin(), 
-                                       InternalPair(std::forward<K>(key), std::forward<V>(value)));
+                auto it = mData.insert(mData.begin(), InternalPair(std::forward<K>(key), std::forward<V>(value)));
                 return iterator(it);
             }
             // Check if it's a duplicate of the first element
             if (!mComp(mData.front().first, key))
             {
-                return iterator(mData.begin());  // Key equivalent to first, return existing
+                return iterator(mData.begin()); // Key equivalent to first, return existing
             }
         }
         // Check if hint is valid for middle positions
@@ -1347,13 +1319,12 @@ private:
         {
             auto hintBase = hint.base();
             auto prevIt = hintBase - 1;
-            
+
             // Valid hint: prev < key < hint
             if (mComp(prevIt->first, key) && mComp(key, hintBase->first))
             {
                 auto insertPos = mData.begin() + (hintBase - mData.cbegin());
-                auto it = mData.insert(insertPos,
-                                       InternalPair(std::forward<K>(key), std::forward<V>(value)));
+                auto it = mData.insert(insertPos, InternalPair(std::forward<K>(key), std::forward<V>(value)));
                 return iterator(it);
             }
             // Check if key is equivalent to prev (duplicate)
@@ -1367,12 +1338,12 @@ private:
                 return iterator(mData.begin() + (hintBase - mData.cbegin()));
             }
         }
-        
+
         // Hint was wrong - fall back to binary search
         auto it = lowerBoundInternal(key);
         if (it != mData.end() && !mComp(key, it->first))
         {
-            return iterator(it);  // Key already exists
+            return iterator(it); // Key already exists
         }
         return iterator(mData.insert(it, InternalPair(std::forward<K>(key), std::forward<V>(value))));
     }
@@ -1412,8 +1383,7 @@ bool operator!=(const FlatMap<K, V, C, A>& lhs, const FlatMap<K, V, C, A>& rhs)
 // =============================================================================
 
 template <typename K, typename V, typename C, typename A>
-void swap(FlatMap<K, V, C, A>& lhs,
-          FlatMap<K, V, C, A>& rhs) noexcept(noexcept(lhs.swap(rhs)))
+void swap(FlatMap<K, V, C, A>& lhs, FlatMap<K, V, C, A>& rhs) noexcept(noexcept(lhs.swap(rhs)))
 {
     lhs.swap(rhs);
 }

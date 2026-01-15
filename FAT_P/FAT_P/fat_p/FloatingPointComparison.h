@@ -281,8 +281,7 @@ struct UlpComparisonPolicy
         }
 
         // Subnormal handling: ULP distance unreliable, use absolute tolerance
-        constexpr T AbsSubnormalTolerance = []
-        {
+        constexpr T AbsSubnormalTolerance = [] {
             if constexpr (std::is_same_v<T, float>)
             {
                 return static_cast<T>(1.0e-6f);
@@ -316,8 +315,7 @@ struct UlpComparisonPolicy
         // - Negative floats: invert all bits (maps 0xFF... to 0x00...)
         // This creates a linear ordering where subtraction gives ULP distance
         constexpr BitsType sign_mask = BitsType(1) << (sizeof(BitsType) * 8 - 1);
-        auto to_ordered = [sign_mask](BitsType bits) -> BitsType
-        {
+        auto to_ordered = [sign_mask](BitsType bits) -> BitsType {
             return (bits & sign_mask) ? ~bits : (bits | sign_mask);
         };
 

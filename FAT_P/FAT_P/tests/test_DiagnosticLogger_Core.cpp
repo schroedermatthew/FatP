@@ -352,8 +352,7 @@ FATP_TEST_CASE(logger_lambda_message)
     int value = 42;
     logger.log(
         LogLevel::Info,
-        [&]()
-        {
+        [&]() {
             return "Value is " + std::to_string(value);
         },
         FATP_SOURCE_LOCATION());
@@ -374,8 +373,7 @@ FATP_TEST_CASE(logger_stream_message)
     int num = 123;
     logger.log(
         LogLevel::Info,
-        [&]()
-        {
+        [&]() {
             std::ostringstream oss;
             oss << "Number: " << num;
             return oss.str();
@@ -442,16 +440,14 @@ FATP_TEST_CASE(logger_thread_safety)
 
     for (int t = 0; t < numThreads; ++t)
     {
-        threads.emplace_back(
-            [&logger, t, messagesPerThread]()
+        threads.emplace_back([&logger, t, messagesPerThread]() {
+            for (int i = 0; i < messagesPerThread; ++i)
             {
-                for (int i = 0; i < messagesPerThread; ++i)
-                {
-                    logger.log(LogLevel::Info,
-                               "Thread " + std::to_string(t) + " msg " + std::to_string(i),
-                               FATP_SOURCE_LOCATION());
-                }
-            });
+                logger.log(LogLevel::Info,
+                           "Thread " + std::to_string(t) + " msg " + std::to_string(i),
+                           FATP_SOURCE_LOCATION());
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -1131,19 +1127,17 @@ FATP_TEST_CASE(registry_thread_safety)
 
     for (int t = 0; t < numThreads; ++t)
     {
-        threads.emplace_back(
-            [t, loggersPerThread, &successCount]()
+        threads.emplace_back([t, loggersPerThread, &successCount]() {
+            for (int i = 0; i < loggersPerThread; ++i)
             {
-                for (int i = 0; i < loggersPerThread; ++i)
+                std::string name = "thread" + std::to_string(t) + "_logger" + std::to_string(i);
+                Logger& log = getLogger(name);
+                if (log.getLevel() == LogLevel::Trace)
                 {
-                    std::string name = "thread" + std::to_string(t) + "_logger" + std::to_string(i);
-                    Logger& log = getLogger(name);
-                    if (log.getLevel() == LogLevel::Trace)
-                    {
-                        successCount++;
-                    }
+                    successCount++;
                 }
-            });
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -1170,11 +1164,9 @@ FATP_TEST_CASE(registry_concurrent_get_same_logger)
 
     for (int t = 0; t < numThreads; ++t)
     {
-        threads.emplace_back(
-            [t, &loggerPtrs]()
-            {
-                loggerPtrs[t] = &getLogger("shared");
-            });
+        threads.emplace_back([t, &loggerPtrs]() {
+            loggerPtrs[t] = &getLogger("shared");
+        });
     }
 
     for (auto& t : threads)
@@ -1205,8 +1197,7 @@ void benchmark_logger()
     logger.addSink(testSink);
 
     double enabled_time = measure_perf(
-        [&logger]()
-        {
+        [&logger]() {
             logger.log(LogLevel::Info, "Benchmark message", FATP_SOURCE_LOCATION());
         },
         10000,
@@ -1215,8 +1206,7 @@ void benchmark_logger()
 
     logger.setEnabled(false);
     double disabled_time = measure_perf(
-        [&logger]()
-        {
+        [&logger]() {
             logger.log(LogLevel::Info, "Disabled message", FATP_SOURCE_LOCATION());
         },
         100000,
@@ -1226,8 +1216,7 @@ void benchmark_logger()
     logger.setEnabled(true);
     logger.setLevel(LogLevel::Error);
     double filtered_time = measure_perf(
-        [&logger]()
-        {
+        [&logger]() {
             logger.log(LogLevel::Info, "Filtered message", FATP_SOURCE_LOCATION());
         },
         100000,
@@ -1236,12 +1225,10 @@ void benchmark_logger()
 
     logger.setLevel(LogLevel::Trace);
     double with_lambda_time = measure_perf(
-        [&logger]()
-        {
+        [&logger]() {
             logger.log(
                 LogLevel::Info,
-                []()
-                {
+                []() {
                     return "Lambda message";
                 },
                 FATP_SOURCE_LOCATION());
@@ -1262,8 +1249,7 @@ void benchmark_named_loggers()
     getLogger("bench").addSink(sink);
 
     double lookup_time = measure_perf(
-        []()
-        {
+        []() {
             getLogger("bench");
         },
         100000,
@@ -1271,8 +1257,7 @@ void benchmark_named_loggers()
     std::cout << "Logger lookup (existing): " << format_time(lookup_time) << "\n";
 
     double log_to_time = measure_perf(
-        []()
-        {
+        []() {
             FATP_LOG_INFO_TO("bench", "Benchmark");
         },
         10000,
@@ -1281,8 +1266,7 @@ void benchmark_named_loggers()
 
     LoggerRegistry::instance().dropAll();
     double create_time = measure_perf(
-        []()
-        {
+        []() {
             static int counter = 0;
             getLogger("new_" + std::to_string(counter++));
         },

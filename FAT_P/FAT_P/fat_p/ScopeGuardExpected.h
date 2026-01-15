@@ -2,7 +2,7 @@
  * @file ScopeGuardExpected.h
  * @brief Bridge utilities for combining ScopeGuard with Expected error handling.
  *
- * 
+ *
  *
  * @layer Foundation
  *
@@ -57,8 +57,8 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
-#include "ScopeGuard.h"
 #include "Expected.h"
+#include "ScopeGuard.h"
 
 namespace fat_p
 {
@@ -87,8 +87,8 @@ namespace fat_p
  *     if (!file) return fat_p::make_unexpected(file.error());
  *
  *     fat_p::Expected<void, Error> result;
- *     auto guard = fat_p::make_rollback_guard(result, [&] { 
- *         delete_partial_output(); 
+ *     auto guard = fat_p::make_rollback_guard(result, [&] {
+ *         delete_partial_output();
  *     });
  *
  *     result = write_header(*file);
@@ -141,13 +141,13 @@ auto make_rollback_guard(const Expected<T, E>&& result, F&& cleanup) = delete;
  * fat_p::Expected<void, Error> transaction()
  * {
  *     begin_transaction();
- *     
+ *
  *     fat_p::Expected<void, Error> result;
- *     auto commit_guard = fat_p::make_success_guard(result, [&] { 
- *         commit_transaction(); 
+ *     auto commit_guard = fat_p::make_success_guard(result, [&] {
+ *         commit_transaction();
  *     });
- *     auto rollback_guard = fat_p::make_rollback_guard(result, [&] { 
- *         rollback_transaction(); 
+ *     auto rollback_guard = fat_p::make_rollback_guard(result, [&] {
+ *         rollback_transaction();
  *     });
  *
  *     result = step1();
@@ -204,7 +204,7 @@ auto make_success_guard(const Expected<T, E>&& result, F&& on_success) = delete;
  *     });
  *
  *     auto data = read_all(f);
- *     
+ *
  *     // After scope exit, check cleanup_result if you care about close errors
  *     return data;
  * }
@@ -213,27 +213,24 @@ auto make_success_guard(const Expected<T, E>&& result, F&& on_success) = delete;
 template <typename E, typename F>
 [[nodiscard]] auto make_capturing_guard(Expected<void, E>& error_sink, F&& cleanup)
 {
-    static_assert(std::is_constructible_v<E, const char*>,
-        "Error type E must be constructible from const char*");
-    
+    static_assert(std::is_constructible_v<E, const char*>, "Error type E must be constructible from const char*");
+
     // Use NothrowPolicy because we handle exceptions inside the lambda.
     // This prevents ScopeGuardLogAndSwallowPolicy from logging handled errors.
-    return makeScopeGuard<ScopeGuardNothrowPolicy>(
-        [&error_sink, cleanup = std::forward<F>(cleanup)]() noexcept {
-            try
-            {
-                cleanup();
-            }
-            catch (const std::exception& e)
-            {
-                error_sink = make_unexpected(E(e.what()));
-            }
-            catch (...)
-            {
-                error_sink = make_unexpected(E("Unknown exception during cleanup"));
-            }
+    return makeScopeGuard<ScopeGuardNothrowPolicy>([&error_sink, cleanup = std::forward<F>(cleanup)]() noexcept {
+        try
+        {
+            cleanup();
         }
-    );
+        catch (const std::exception& e)
+        {
+            error_sink = make_unexpected(E(e.what()));
+        }
+        catch (...)
+        {
+            error_sink = make_unexpected(E("Unknown exception during cleanup"));
+        }
+    });
 }
 
 /**
@@ -265,45 +262,38 @@ template <typename E, typename F>
  * );
  * @endcode
  */
-template <typename T, 
-          typename E = std::string, 
-          typename Setup, 
-          typename Action, 
-          typename Cleanup>
+template <typename T, typename E = std::string, typename Setup, typename Action, typename Cleanup>
 [[nodiscard]] Expected<T, E> with_resource(Setup&& setup, Action&& action, Cleanup&& cleanup)
 {
-    static_assert(std::is_constructible_v<E, const char*>,
-        "Error type E must be constructible from const char*");
-    
+    static_assert(std::is_constructible_v<E, const char*>, "Error type E must be constructible from const char*");
+
     // Prevent nested Expected - if action returns Expected<U,F>, the user should use
     // with_expected_resource or handle the error explicitly
     using SetupResult = std::invoke_result_t<Setup>;
     using ActionResult = std::invoke_result_t<Action, SetupResult&>;
     static_assert(!is_expected_v<ActionResult> || std::is_void_v<T>,
-        "Action returns Expected - use with_expected_resource or unwrap manually to avoid "
-        "nested Expected<Expected<T,E>,E>");
-    
+                  "Action returns Expected - use with_expected_resource or unwrap manually to avoid "
+                  "nested Expected<Expected<T,E>,E>");
+
     try
     {
         auto resource = setup();
-        
+
         // Use NothrowPolicy to prevent std::terminate if both action and cleanup throw.
         // If action throws, we are unwinding. If cleanup also throws with TerminatePolicy,
         // the program would crash. Instead, we swallow cleanup exceptions to let the
         // original action exception propagate to the catch block below.
-        auto guard = makeScopeGuard<ScopeGuardNothrowPolicy>(
-            [&resource, &cleanup]() noexcept {
-                try
-                {
-                    cleanup(resource);
-                }
-                catch (...)
-                {
-                    // Swallow cleanup exception to preserve original exception
-                }
+        auto guard = makeScopeGuard<ScopeGuardNothrowPolicy>([&resource, &cleanup]() noexcept {
+            try
+            {
+                cleanup(resource);
             }
-        );
-        
+            catch (...)
+            {
+                // Swallow cleanup exception to preserve original exception
+            }
+        });
+
         if constexpr (std::is_void_v<T>)
         {
             action(resource);
@@ -353,33 +343,29 @@ template <typename T,
  * @endcode
  */
 template <typename T, typename E, typename R, typename Action, typename Cleanup>
-[[nodiscard]] Expected<T, E> with_expected_resource(
-    Expected<R, E>&& resource_result,
-    Action&& action,
-    Cleanup&& cleanup)
+[[nodiscard]] Expected<T, E>
+with_expected_resource(Expected<R, E>&& resource_result, Action&& action, Cleanup&& cleanup)
 {
     if (!resource_result.has_value())
     {
         return make_unexpected(std::move(resource_result).error());
     }
-    
+
     auto& resource = *resource_result;
-    
+
     // Use NothrowPolicy to prevent std::terminate on double-exception
-    auto guard = makeScopeGuard<ScopeGuardNothrowPolicy>(
-        [&resource, &cleanup]() noexcept {
-            try
-            {
-                cleanup(resource);
-            }
-            catch (...)
-            {
-                // Swallow cleanup exception
-            }
+    auto guard = makeScopeGuard<ScopeGuardNothrowPolicy>([&resource, &cleanup]() noexcept {
+        try
+        {
+            cleanup(resource);
         }
-    );
-    
+        catch (...)
+        {
+            // Swallow cleanup exception
+        }
+    });
+
     return action(resource);
 }
 
-}  // namespace fat_p
+} // namespace fat_p

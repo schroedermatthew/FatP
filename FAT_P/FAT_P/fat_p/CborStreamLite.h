@@ -80,12 +80,12 @@ enum class MajorType : std::uint8_t
 {
     UnsignedInt = 0,
     NegativeInt = 1,
-    ByteString  = 2,
-    TextString  = 3,
-    Array       = 4,
-    Map         = 5,
-    Tag         = 6,
-    Simple      = 7
+    ByteString = 2,
+    TextString = 3,
+    Array = 4,
+    Map = 5,
+    Tag = 6,
+    Simple = 7
 };
 
 // Forward declaration
@@ -100,9 +100,9 @@ using CborBytes = std::vector<std::uint8_t>;
  */
 enum class SimpleValue : std::uint8_t
 {
-    False     = 20,
-    True      = 21,
-    Null      = 22,
+    False = 20,
+    True = 21,
+    Null = 22,
     Undefined = 23
 };
 
@@ -155,18 +155,16 @@ struct CborTagged
 class CborValue
 {
 public:
-    using Variant = std::variant<
-        std::monostate,
-        std::uint64_t,
-        std::int64_t,
-        CborBytes,
-        std::string,
-        CborArray,
-        CborMap,
-        CborTagged,
-        SimpleValue,
-        double
-    >;
+    using Variant = std::variant<std::monostate,
+                                 std::uint64_t,
+                                 std::int64_t,
+                                 CborBytes,
+                                 std::string,
+                                 CborArray,
+                                 CborMap,
+                                 CborTagged,
+                                 SimpleValue,
+                                 double>;
 
     CborValue()
         : data_(std::monostate{})
@@ -183,20 +181,18 @@ public:
     {
     }
 
-    template <typename T,
-              std::enable_if_t<std::is_integral_v<T> &&
-                               std::is_signed_v<T> &&
-                               !std::is_same_v<T, std::int64_t>, int> = 0>
+    template <
+        typename T,
+        std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T> && !std::is_same_v<T, std::int64_t>, int> = 0>
     explicit CborValue(T v)
         : data_(static_cast<std::int64_t>(v))
     {
     }
 
     template <typename T,
-              std::enable_if_t<std::is_integral_v<T> &&
-                               std::is_unsigned_v<T> &&
-                               !std::is_same_v<T, std::uint64_t> &&
-                               !std::is_same_v<T, bool>, int> = 0>
+              std::enable_if_t<std::is_integral_v<T> && std::is_unsigned_v<T> && !std::is_same_v<T, std::uint64_t> &&
+                                   !std::is_same_v<T, bool>,
+                               int> = 0>
     explicit CborValue(T v)
         : data_(static_cast<std::uint64_t>(v))
     {
@@ -776,8 +772,7 @@ private:
                 return emit_value(CborValue(mArgument));
 
             case 1:
-                return emit_value(CborValue(static_cast<std::int64_t>(-1) -
-                                            static_cast<std::int64_t>(mArgument)));
+                return emit_value(CborValue(static_cast<std::int64_t>(-1) - static_cast<std::int64_t>(mArgument)));
 
             case 2:
                 if (mArgument > mLimits.max_string_bytes)
@@ -1153,8 +1148,7 @@ private:
         }
         else if (exp == 31)
         {
-            val = (mant == 0) ? std::numeric_limits<double>::infinity()
-                              : std::numeric_limits<double>::quiet_NaN();
+            val = (mant == 0) ? std::numeric_limits<double>::infinity() : std::numeric_limits<double>::quiet_NaN();
         }
         else
         {
@@ -1196,8 +1190,7 @@ inline CborValue parse_cbor(const std::uint8_t* data, std::size_t size)
 
     if (status == ParseStatus::Error)
     {
-        throw std::runtime_error(std::string("CBOR parse error: ") +
-                                 parser.error_message());
+        throw std::runtime_error(std::string("CBOR parse error: ") + parser.error_message());
     }
     if (status == ParseStatus::NeedMoreData)
     {
@@ -1213,17 +1206,14 @@ inline CborValue parse_cbor(const Container& data)
     return parse_cbor(reinterpret_cast<const std::uint8_t*>(data.data()), data.size());
 }
 
-inline CborValue parse_cbor_limited(const std::uint8_t* data,
-                                    std::size_t size,
-                                    const CborStreamParser::Limits& limits)
+inline CborValue parse_cbor_limited(const std::uint8_t* data, std::size_t size, const CborStreamParser::Limits& limits)
 {
     CborStreamParser parser(limits);
     auto status = parser.feed(data, size);
 
     if (status == ParseStatus::Error)
     {
-        throw std::runtime_error(std::string("CBOR parse error: ") +
-                                 parser.error_message());
+        throw std::runtime_error(std::string("CBOR parse error: ") + parser.error_message());
     }
     if (status == ParseStatus::NeedMoreData)
     {
@@ -1242,18 +1232,18 @@ inline CborValue parse_cbor_limited(const std::uint8_t* data,
  * local scope without polluting the fat_p root namespace. Safe to use in .cpp
  * files. Avoid using in public headers.
  */
-#define FATP_USING_CBOR_STREAM_LITE()                          \
-    using fat_p::cbor_stream::CborStreamParser;           \
-    using fat_p::cbor_stream::CborValue;                  \
-    using fat_p::cbor_stream::CborArray;                  \
-    using fat_p::cbor_stream::CborMap;                    \
-    using fat_p::cbor_stream::CborBytes;                  \
-    using fat_p::cbor_stream::CborTagged;                 \
-    using fat_p::cbor_stream::SimpleValue;                \
-    using fat_p::cbor_stream::ParseStatus;                \
-    using fat_p::cbor_stream::ParseError;                 \
-    using fat_p::cbor_stream::parse_cbor;                 \
-    using fat_p::cbor_stream::parse_cbor_limited;         \
+#define FATP_USING_CBOR_STREAM_LITE()             \
+    using fat_p::cbor_stream::CborStreamParser;   \
+    using fat_p::cbor_stream::CborValue;          \
+    using fat_p::cbor_stream::CborArray;          \
+    using fat_p::cbor_stream::CborMap;            \
+    using fat_p::cbor_stream::CborBytes;          \
+    using fat_p::cbor_stream::CborTagged;         \
+    using fat_p::cbor_stream::SimpleValue;        \
+    using fat_p::cbor_stream::ParseStatus;        \
+    using fat_p::cbor_stream::ParseError;         \
+    using fat_p::cbor_stream::parse_cbor;         \
+    using fat_p::cbor_stream::parse_cbor_limited; \
     using fat_p::cbor_stream::error_to_string
 
 } // namespace fat_p

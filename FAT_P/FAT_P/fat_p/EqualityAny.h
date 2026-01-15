@@ -172,20 +172,16 @@ void registerAnyType()
     auto key = std::make_pair(std::type_index(typeid(T)), std::type_index(typeid(Policy)));
 
     // Register default-epsilon version (uses policy/type defaults)
-    (void)getAnyDefaultRegistry().registerType(key,
-                                               [](const std::any& a, const std::any& b)
-                                               {
-                                                   return areEqual<T, Policy>(std::any_cast<const T&>(a),
-                                                                              std::any_cast<const T&>(b));
-                                               });
+    (void)getAnyDefaultRegistry().registerType(key, [](const std::any& a, const std::any& b) {
+        return areEqual<T, Policy>(std::any_cast<const T&>(a), std::any_cast<const T&>(b));
+    });
 
     // Register explicit-epsilon version
     if constexpr (std::is_same_v<Policy, HybridComparisonPolicy>)
     {
         (void)getAnyExplicitRegistry().registerType(
             key,
-            [](const std::any& a, const std::any& b, double relEps, double absEps)
-            {
+            [](const std::any& a, const std::any& b, double relEps, double absEps) {
                 return areEqual<T, Policy>(std::any_cast<const T&>(a), std::any_cast<const T&>(b), relEps, absEps);
             });
     }
@@ -193,8 +189,7 @@ void registerAnyType()
     {
         (void)getAnyExplicitRegistry().registerType(
             key,
-            [](const std::any& a, const std::any& b, double eps, double /*unused*/)
-            {
+            [](const std::any& a, const std::any& b, double eps, double /*unused*/) {
                 return areEqual<T, Policy>(std::any_cast<const T&>(a), std::any_cast<const T&>(b), eps);
             });
     }
@@ -214,23 +209,19 @@ void registerAnyType()
 template <typename T>
 void registerAnyTypeWithoutEpsilon()
 {
-    auto registerForPolicy = [](auto policyTag)
-    {
+    auto registerForPolicy = [](auto policyTag) {
         using Policy = std::decay_t<decltype(policyTag)>;
 
         auto key = std::make_pair(std::type_index(typeid(T)), std::type_index(typeid(Policy)));
 
         // Both registries use exact equality for non-epsilon types
-        (void)getAnyDefaultRegistry().registerType(key,
-                                                   [](const std::any& a, const std::any& b)
-                                                   {
-                                                       return std::any_cast<const T&>(a) == std::any_cast<const T&>(b);
-                                                   });
+        (void)getAnyDefaultRegistry().registerType(key, [](const std::any& a, const std::any& b) {
+            return std::any_cast<const T&>(a) == std::any_cast<const T&>(b);
+        });
 
         (void)getAnyExplicitRegistry().registerType(
             key,
-            [](const std::any& a, const std::any& b, double /*unused*/, double /*unused*/)
-            {
+            [](const std::any& a, const std::any& b, double /*unused*/, double /*unused*/) {
                 return std::any_cast<const T&>(a) == std::any_cast<const T&>(b);
             });
     };
@@ -339,8 +330,7 @@ namespace detail
  */
 inline void ensureAnyEqualityRegistered()
 {
-    static const bool initialized = []()
-    {
+    static const bool initialized = []() {
         // Fixed-width integer types (no epsilon needed)
         // Note: We register both fixed-width and fundamental types to ensure
         // portability. On platforms where int == int32_t, duplicate registration

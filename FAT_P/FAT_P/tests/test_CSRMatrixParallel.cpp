@@ -372,8 +372,7 @@ void benchmark_spmv()
     fat_p::ThreadPool pool;
     std::cout << "ThreadPool threads: " << pool.thread_count() << "\n\n";
 
-    auto run_benchmark = [&](const char* name, fat_p::CSRMatrix<double, int32_t>& matrix, int iterations)
-    {
+    auto run_benchmark = [&](const char* name, fat_p::CSRMatrix<double, int32_t>& matrix, int iterations) {
         std::vector<double> x(matrix.cols());
         std::uniform_real_distribution<double> dist(-1.0, 1.0);
         for (auto& val : x)
@@ -388,24 +387,21 @@ void benchmark_spmv()
         std::cout << name << " (" << matrix.rows() << "x" << matrix.cols() << ", nnz=" << matrix.nnz() << "):\n";
 
         double serial_time = measure_perf(
-            [&]()
-            {
+            [&]() {
                 matrix.matvec(x.data(), y_serial.data());
                 DoNotOptimize(y_serial.data());
             },
             iterations);
 
         double parallel_time = measure_perf(
-            [&]()
-            {
+            [&]() {
                 fat_p::matvec_threadpool(matrix, x.data(), y_parallel.data(), pool);
                 DoNotOptimize(y_parallel.data());
             },
             iterations);
 
         double batch_time = measure_perf(
-            [&]()
-            {
+            [&]() {
                 fat_p::matvec_threadpool_batch(matrix, x.data(), y_batch.data(), pool);
                 DoNotOptimize(y_batch.data());
             },

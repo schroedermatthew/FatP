@@ -408,8 +408,7 @@ void benchFilterVsManual(const BenchConfig& cfg)
     constexpr std::size_t N = 1000000;
     auto data = generateData(N, cfg.seed);
 
-    auto isEven = [](const int64_t& v)
-    {
+    auto isEven = [](const int64_t& v) {
         return v % 2 == 0;
     };
 
@@ -592,8 +591,7 @@ void benchTransformVsManual(const BenchConfig& cfg)
     constexpr std::size_t N = 1000000;
     auto data = generateData(N, cfg.seed);
 
-    auto doubler = [](const int64_t& v) -> int64_t
-    {
+    auto doubler = [](const int64_t& v) -> int64_t {
         return v * 2;
     };
 
@@ -1557,12 +1555,9 @@ void benchTensorIteration(const BenchConfig& cfg)
             int64_t sum = 0;
             Timer t;
             t.start();
-            iterateND(data3D.data(),
-                      {d1, d2, d3},
-                      [&](int64_t v)
-                      {
-                          sum += v;
-                      });
+            iterateND(data3D.data(), {d1, d2, d3}, [&](int64_t v) {
+                sum += v;
+            });
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
             if (measured)
@@ -1644,12 +1639,9 @@ void benchTensorIteration(const BenchConfig& cfg)
             int64_t sum = 0;
             Timer t;
             t.start();
-            iterateND(data4D.data(),
-                      {e1, e2, e3, e4},
-                      [&](int64_t v)
-                      {
-                          sum += v;
-                      });
+            iterateND(data4D.data(), {e1, e2, e3, e4}, [&](int64_t v) {
+                sum += v;
+            });
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
             if (measured)

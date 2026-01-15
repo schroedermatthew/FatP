@@ -123,8 +123,7 @@ void benchmark_rate_limiters()
     {
         TokenBucketRateLimiter limiter(1000000.0, 1000.0);
         double time = measure_perf(
-            [&]()
-            {
+            [&]() {
                 limiter.try_acquire();
             },
             10000,
@@ -136,8 +135,7 @@ void benchmark_rate_limiters()
     {
         SlidingWindowRateLimiter limiter(10000, std::chrono::seconds(1));
         double time = measure_perf(
-            [&]()
-            {
+            [&]() {
                 limiter.try_acquire();
             },
             1000,

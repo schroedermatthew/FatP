@@ -1,7 +1,7 @@
 /**
  * @file CheckedArithmetic_IntSimd_SSE2.h
  * @brief SSE2 (128-bit) integer SIMD acceleration for checked arithmetic
- * 
+ *
  *
  * @layer Foundation
  *
@@ -44,8 +44,10 @@ FATP_META:
 
 #if defined(FATP_INT_SIMD_SSE2)
 
-namespace fat_p {
-namespace int_simd {
+namespace fat_p
+{
+namespace int_simd
+{
 
 // =============================================================================
 // SSE2 Signed Overflow Detection
@@ -131,14 +133,13 @@ inline __m128i sse2_sub_overflow_mask_u32(__m128i a, __m128i b, __m128i /*r*/) n
  *
  * Pattern: Process SIMD chunks, detect overflow, fall back to scalar on error.
  */
-template<typename Policy, typename ScalarAddFn>
-size_t sse2_checked_add_i32(
-    const int32_t* a,
-    const int32_t* b,
-    int32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarAddFn checked_add_scalar)
+template <typename Policy, typename ScalarAddFn>
+size_t sse2_checked_add_i32(const int32_t* a,
+                            const int32_t* b,
+                            int32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarAddFn checked_add_scalar)
 {
     constexpr size_t LANES = 4;
     size_t i = start_idx;
@@ -162,7 +163,7 @@ size_t sse2_checked_add_i32(
                 {
                     if (!r.has_value())
                     {
-                        return static_cast<size_t>(-1);  // Signal error
+                        return static_cast<size_t>(-1); // Signal error
                     }
                     result[j] = r.value();
                 }
@@ -179,20 +180,19 @@ size_t sse2_checked_add_i32(
         }
     }
 
-    return i;  // Return index for tail processing
+    return i; // Return index for tail processing
 }
 
 /**
  * @brief SIMD accelerated checked add for uint32_t vectors
  */
-template<typename Policy, typename ScalarAddFn>
-size_t sse2_checked_add_u32(
-    const uint32_t* a,
-    const uint32_t* b,
-    uint32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarAddFn checked_add_scalar)
+template <typename Policy, typename ScalarAddFn>
+size_t sse2_checked_add_u32(const uint32_t* a,
+                            const uint32_t* b,
+                            uint32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarAddFn checked_add_scalar)
 {
     constexpr size_t LANES = 4;
     size_t i = start_idx;
@@ -201,7 +201,7 @@ size_t sse2_checked_add_u32(
     {
         __m128i va = _mm_loadu_si128(reinterpret_cast<const __m128i*>(a + i));
         __m128i vb = _mm_loadu_si128(reinterpret_cast<const __m128i*>(b + i));
-        __m128i vr = _mm_add_epi32(va, vb);  // Same instruction for signed/unsigned
+        __m128i vr = _mm_add_epi32(va, vb); // Same instruction for signed/unsigned
 
         __m128i overflow_mask = sse2_add_overflow_mask_u32(va, vb, vr);
 
@@ -238,14 +238,13 @@ size_t sse2_checked_add_u32(
 // SSE2 Vector Sub (int32_t)
 // =============================================================================
 
-template<typename Policy, typename ScalarSubFn>
-size_t sse2_checked_sub_i32(
-    const int32_t* a,
-    const int32_t* b,
-    int32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarSubFn checked_sub_scalar)
+template <typename Policy, typename ScalarSubFn>
+size_t sse2_checked_sub_i32(const int32_t* a,
+                            const int32_t* b,
+                            int32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarSubFn checked_sub_scalar)
 {
     constexpr size_t LANES = 4;
     size_t i = start_idx;
@@ -286,14 +285,13 @@ size_t sse2_checked_sub_i32(
     return i;
 }
 
-template<typename Policy, typename ScalarSubFn>
-size_t sse2_checked_sub_u32(
-    const uint32_t* a,
-    const uint32_t* b,
-    uint32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarSubFn checked_sub_scalar)
+template <typename Policy, typename ScalarSubFn>
+size_t sse2_checked_sub_u32(const uint32_t* a,
+                            const uint32_t* b,
+                            uint32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarSubFn checked_sub_scalar)
 {
     constexpr size_t LANES = 4;
     size_t i = start_idx;
@@ -350,9 +348,7 @@ inline bool sse2_mul_overflow_i32(__m128i wide_even, __m128i wide_odd) noexcept
     int64_t o0 = _mm_cvtsi128_si64(wide_odd);
     int64_t o1 = _mm_cvtsi128_si64(_mm_srli_si128(wide_odd, 8));
 
-    return (e0 > INT32_MAX || e0 < INT32_MIN ||
-            e1 > INT32_MAX || e1 < INT32_MIN ||
-            o0 > INT32_MAX || o0 < INT32_MIN ||
+    return (e0 > INT32_MAX || e0 < INT32_MIN || e1 > INT32_MAX || e1 < INT32_MIN || o0 > INT32_MAX || o0 < INT32_MIN ||
             o1 > INT32_MAX || o1 < INT32_MIN);
 }
 
@@ -404,14 +400,13 @@ inline __m128i sse2_narrow_and_interleave(__m128i wide_even, __m128i wide_odd) n
  *
  * @note For true SIMD multiplication, compile with SSE4.1 or AVX2 flags.
  */
-template<typename Policy, typename ScalarMulFn>
-size_t sse2_checked_mul_i32(
-    const int32_t* a,
-    const int32_t* b,
-    int32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarMulFn checked_mul_scalar)
+template <typename Policy, typename ScalarMulFn>
+size_t sse2_checked_mul_i32(const int32_t* a,
+                            const int32_t* b,
+                            int32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarMulFn checked_mul_scalar)
 {
     constexpr size_t LANES = 4;
     size_t i = start_idx;
@@ -420,15 +415,13 @@ size_t sse2_checked_mul_i32(
     {
         // Scalar widening multiply - SSE2 lacks signed 32->64 multiply
         // Process 4 elements per iteration for cache/prefetch efficiency
-        int64_t p0 = static_cast<int64_t>(a[i])   * static_cast<int64_t>(b[i]);
-        int64_t p1 = static_cast<int64_t>(a[i+1]) * static_cast<int64_t>(b[i+1]);
-        int64_t p2 = static_cast<int64_t>(a[i+2]) * static_cast<int64_t>(b[i+2]);
-        int64_t p3 = static_cast<int64_t>(a[i+3]) * static_cast<int64_t>(b[i+3]);
+        int64_t p0 = static_cast<int64_t>(a[i]) * static_cast<int64_t>(b[i]);
+        int64_t p1 = static_cast<int64_t>(a[i + 1]) * static_cast<int64_t>(b[i + 1]);
+        int64_t p2 = static_cast<int64_t>(a[i + 2]) * static_cast<int64_t>(b[i + 2]);
+        int64_t p3 = static_cast<int64_t>(a[i + 3]) * static_cast<int64_t>(b[i + 3]);
 
-        bool overflow = (p0 > INT32_MAX || p0 < INT32_MIN ||
-                         p1 > INT32_MAX || p1 < INT32_MIN ||
-                         p2 > INT32_MAX || p2 < INT32_MIN ||
-                         p3 > INT32_MAX || p3 < INT32_MIN);
+        bool overflow = (p0 > INT32_MAX || p0 < INT32_MIN || p1 > INT32_MAX || p1 < INT32_MIN || p2 > INT32_MAX ||
+                         p2 < INT32_MIN || p3 > INT32_MAX || p3 < INT32_MIN);
 
         if (overflow)
         {
@@ -451,24 +444,23 @@ size_t sse2_checked_mul_i32(
         }
         else
         {
-            result[i]   = static_cast<int32_t>(p0);
-            result[i+1] = static_cast<int32_t>(p1);
-            result[i+2] = static_cast<int32_t>(p2);
-            result[i+3] = static_cast<int32_t>(p3);
+            result[i] = static_cast<int32_t>(p0);
+            result[i + 1] = static_cast<int32_t>(p1);
+            result[i + 2] = static_cast<int32_t>(p2);
+            result[i + 3] = static_cast<int32_t>(p3);
         }
     }
 
     return i;
 }
 
-template<typename Policy, typename ScalarMulFn>
-size_t sse2_checked_mul_u32(
-    const uint32_t* a,
-    const uint32_t* b,
-    uint32_t* result,
-    size_t n,
-    size_t start_idx,
-    ScalarMulFn checked_mul_scalar)
+template <typename Policy, typename ScalarMulFn>
+size_t sse2_checked_mul_u32(const uint32_t* a,
+                            const uint32_t* b,
+                            uint32_t* result,
+                            size_t n,
+                            size_t start_idx,
+                            ScalarMulFn checked_mul_scalar)
 {
     constexpr size_t LANES = 4;
     size_t i = start_idx;

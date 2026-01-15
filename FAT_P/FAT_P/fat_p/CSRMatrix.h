@@ -106,9 +106,9 @@ public:
      */
     enum class DuplicatePolicy
     {
-        Sum,   ///< Sum duplicate values (standard behavior, default)
-        Keep,  ///< Keep all duplicates as separate entries (summed on access)
-        Error  ///< Throw exception if duplicates exist
+        Sum,  ///< Sum duplicate values (standard behavior, default)
+        Keep, ///< Keep all duplicates as separate entries (summed on access)
+        Error ///< Throw exception if duplicates exist
     };
 
 private:
@@ -153,13 +153,11 @@ private:
         constexpr auto idx_max = static_cast<size_type>(std::numeric_limits<IndexType>::max());
         if (rows > idx_max)
         {
-            throw std::overflow_error(
-                "CSRMatrix: Row count exceeds IndexType limits (use larger IndexType)");
+            throw std::overflow_error("CSRMatrix: Row count exceeds IndexType limits (use larger IndexType)");
         }
         if (cols > idx_max)
         {
-            throw std::overflow_error(
-                "CSRMatrix: Column count exceeds IndexType limits (use larger IndexType)");
+            throw std::overflow_error("CSRMatrix: Column count exceeds IndexType limits (use larger IndexType)");
         }
     }
 
@@ -168,7 +166,9 @@ public:
     // Constructors
     // =========================================================================
 
-    CSRMatrix() : mRows(0), mCols(0)
+    CSRMatrix()
+        : mRows(0)
+        , mCols(0)
     {
         row_ptrs_.push_back(0);
     }
@@ -180,7 +180,9 @@ public:
     CSRMatrix& operator=(CSRMatrix&&) noexcept = default;
     ~CSRMatrix() = default;
 
-    CSRMatrix(size_type rows, size_type cols) : mRows(rows), mCols(cols)
+    CSRMatrix(size_type rows, size_type cols)
+        : mRows(rows)
+        , mCols(cols)
     {
         validate_dimensions(rows, cols);
         row_ptrs_.resize(rows + 1, 0);
@@ -204,12 +206,12 @@ public:
               const std::vector<IndexType>& col_indices,
               const std::vector<T>& values,
               DuplicatePolicy policy = DuplicatePolicy::Sum)
-        : mRows(rows), mCols(cols)
+        : mRows(rows)
+        , mCols(cols)
     {
         validate_dimensions(rows, cols);
 
-        if (row_indices.size() != col_indices.size() ||
-            row_indices.size() != values.size())
+        if (row_indices.size() != col_indices.size() || row_indices.size() != values.size())
         {
             throw std::invalid_argument("CSRMatrix: COO arrays must have same size");
         }
@@ -232,8 +234,7 @@ public:
             IndexType r = row_indices[i];
             IndexType c = col_indices[i];
 
-            if (r < 0 || static_cast<size_type>(r) >= rows ||
-                c < 0 || static_cast<size_type>(c) >= cols)
+            if (r < 0 || static_cast<size_type>(r) >= rows || c < 0 || static_cast<size_type>(c) >= cols)
             {
                 throw std::out_of_range("CSRMatrix: COO index out of bounds");
             }
@@ -242,15 +243,13 @@ public:
         }
 
         // Sort by (row, col)
-        std::sort(triplets.begin(), triplets.end(),
-                  [](const Triplet& a, const Triplet& b)
-                  {
-                      if (std::get<0>(a) != std::get<0>(b))
-                      {
-                          return std::get<0>(a) < std::get<0>(b);
-                      }
-                      return std::get<1>(a) < std::get<1>(b);
-                  });
+        std::sort(triplets.begin(), triplets.end(), [](const Triplet& a, const Triplet& b) {
+            if (std::get<0>(a) != std::get<0>(b))
+            {
+                return std::get<0>(a) < std::get<0>(b);
+            }
+            return std::get<1>(a) < std::get<1>(b);
+        });
 
         // Apply duplicate policy
         std::vector<Triplet> processed;
@@ -266,8 +265,7 @@ public:
             {
                 for (size_type i = 0; i < triplets.size(); ++i)
                 {
-                    if (i > 0 &&
-                        std::get<0>(triplets[i]) == std::get<0>(triplets[i - 1]) &&
+                    if (i > 0 && std::get<0>(triplets[i]) == std::get<0>(triplets[i - 1]) &&
                         std::get<1>(triplets[i]) == std::get<1>(triplets[i - 1]))
                     {
                         throw std::invalid_argument("CSRMatrix: duplicate COO entries");
@@ -282,8 +280,7 @@ public:
             {
                 for (const auto& t : triplets)
                 {
-                    if (!processed.empty() &&
-                        std::get<0>(processed.back()) == std::get<0>(t) &&
+                    if (!processed.empty() && std::get<0>(processed.back()) == std::get<0>(t) &&
                         std::get<1>(processed.back()) == std::get<1>(t))
                     {
                         std::get<2>(processed.back()) += std::get<2>(t);
@@ -329,10 +326,7 @@ public:
      * @throws std::invalid_argument if dense is null with non-zero dimensions
      * @throws std::overflow_error if dimensions exceed IndexType limits or matrix too large
      */
-    [[nodiscard]] static CSRMatrix from_dense(const T* dense,
-                                               size_type rows,
-                                               size_type cols,
-                                               T epsilon = T{0})
+    [[nodiscard]] static CSRMatrix from_dense(const T* dense, size_type rows, size_type cols, T epsilon = T{0})
     {
         // Null pointer check
         if (dense == nullptr && rows > 0 && cols > 0)
@@ -342,8 +336,7 @@ public:
 
         validate_dimensions(rows, cols);
 
-        if (rows > 0 && cols > 0 &&
-            rows > std::numeric_limits<size_type>::max() / cols)
+        if (rows > 0 && cols > 0 && rows > std::numeric_limits<size_type>::max() / cols)
         {
             throw std::overflow_error("CSRMatrix: matrix too large for dense conversion");
         }
@@ -385,17 +378,35 @@ public:
     // Accessors
     // =========================================================================
 
-    [[nodiscard]] size_type rows() const noexcept { return mRows; }
-    [[nodiscard]] size_type cols() const noexcept { return mCols; }
-    [[nodiscard]] size_type nnz() const noexcept { return mValues.size(); }
-    [[nodiscard]] bool empty() const noexcept { return mValues.empty(); }
+    [[nodiscard]] size_type rows() const noexcept
+    {
+        return mRows;
+    }
+    [[nodiscard]] size_type cols() const noexcept
+    {
+        return mCols;
+    }
+    [[nodiscard]] size_type nnz() const noexcept
+    {
+        return mValues.size();
+    }
+    [[nodiscard]] bool empty() const noexcept
+    {
+        return mValues.empty();
+    }
 
-    [[nodiscard]] const std::vector<T>& values() const noexcept { return mValues; }
+    [[nodiscard]] const std::vector<T>& values() const noexcept
+    {
+        return mValues;
+    }
     [[nodiscard]] const std::vector<IndexType>& col_indices() const noexcept
     {
         return col_indices_;
     }
-    [[nodiscard]] const std::vector<ptr_type>& row_ptrs() const noexcept { return row_ptrs_; }
+    [[nodiscard]] const std::vector<ptr_type>& row_ptrs() const noexcept
+    {
+        return row_ptrs_;
+    }
 
     // =========================================================================
     // Element Access
@@ -525,8 +536,7 @@ public:
             }
 
             mValues.insert(mValues.begin() + static_cast<std::ptrdiff_t>(insert_pos), value);
-            col_indices_.insert(col_indices_.begin() + static_cast<std::ptrdiff_t>(insert_pos),
-                                target_col);
+            col_indices_.insert(col_indices_.begin() + static_cast<std::ptrdiff_t>(insert_pos), target_col);
             for (size_type r = row + 1; r <= mRows; ++r)
             {
                 row_ptrs_[r]++;
@@ -553,9 +563,16 @@ public:
             using pointer = const value_type*;
             using reference = value_type;
 
-            Iterator(const IndexType* col, const T* val) : mCol(col), mVal(val) {}
+            Iterator(const IndexType* col, const T* val)
+                : mCol(col)
+                , mVal(val)
+            {
+            }
 
-            reference operator*() const { return {*mCol, *mVal}; }
+            reference operator*() const
+            {
+                return {*mCol, *mVal};
+            }
             Iterator& operator++()
             {
                 ++mCol;
@@ -568,22 +585,31 @@ public:
                 ++(*this);
                 return tmp;
             }
-            bool operator==(const Iterator& other) const { return mCol == other.mCol; }
-            bool operator!=(const Iterator& other) const { return mCol != other.mCol; }
+            bool operator==(const Iterator& other) const
+            {
+                return mCol == other.mCol;
+            }
+            bool operator!=(const Iterator& other) const
+            {
+                return mCol != other.mCol;
+            }
 
         private:
             const IndexType* mCol;
             const T* mVal;
         };
 
-        RowView(const IndexType* col_begin,
-                const IndexType* col_end,
-                const T* val_begin)
-            : col_begin_(col_begin), col_end_(col_end), val_begin_(val_begin)
+        RowView(const IndexType* col_begin, const IndexType* col_end, const T* val_begin)
+            : col_begin_(col_begin)
+            , col_end_(col_end)
+            , val_begin_(val_begin)
         {
         }
 
-        [[nodiscard]] Iterator begin() const { return Iterator(col_begin_, val_begin_); }
+        [[nodiscard]] Iterator begin() const
+        {
+            return Iterator(col_begin_, val_begin_);
+        }
         [[nodiscard]] Iterator end() const
         {
             return Iterator(col_end_, val_begin_ + (col_end_ - col_begin_));
@@ -592,7 +618,10 @@ public:
         {
             return static_cast<size_type>(col_end_ - col_begin_);
         }
-        [[nodiscard]] bool empty() const { return col_begin_ == col_end_; }
+        [[nodiscard]] bool empty() const
+        {
+            return col_begin_ == col_end_;
+        }
 
         [[nodiscard]] std::pair<IndexType, T> operator[](size_type idx) const
         {
@@ -618,9 +647,7 @@ public:
         }
         ptr_type start = row_ptrs_[row];
         ptr_type end = row_ptrs_[row + 1];
-        return RowView(col_indices_.data() + start,
-                       col_indices_.data() + end,
-                       mValues.data() + start);
+        return RowView(col_indices_.data() + start, col_indices_.data() + end, mValues.data() + start);
     }
 
     // =========================================================================
@@ -711,7 +738,7 @@ public:
     void matvec_parallel(const T* x, T* y) const
     {
 #if defined(_OPENMP)
-        #pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
         for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(mRows); ++i)
         {
             T sum = T{0};
@@ -738,7 +765,7 @@ public:
     void matvec_parallel(T alpha, const T* x, T beta, T* y) const
     {
 #if defined(_OPENMP)
-        #pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
         for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(mRows); ++i)
         {
             T sum = T{0};
@@ -845,12 +872,8 @@ public:
             while (a_ptr < a_end || b_ptr < b_end)
             {
                 // Determine the current minimum column
-                IndexType col_a = (a_ptr < a_end)
-                    ? col_indices_[a_ptr]
-                    : std::numeric_limits<IndexType>::max();
-                IndexType col_b = (b_ptr < b_end)
-                    ? other.col_indices_[b_ptr]
-                    : std::numeric_limits<IndexType>::max();
+                IndexType col_a = (a_ptr < a_end) ? col_indices_[a_ptr] : std::numeric_limits<IndexType>::max();
+                IndexType col_b = (b_ptr < b_end) ? other.col_indices_[b_ptr] : std::numeric_limits<IndexType>::max();
                 IndexType cur_col = std::min(col_a, col_b);
 
                 T sum = T{0};
@@ -908,12 +931,8 @@ public:
             while (a_ptr < a_end || b_ptr < b_end)
             {
                 // Determine the current minimum column
-                IndexType col_a = (a_ptr < a_end)
-                    ? col_indices_[a_ptr]
-                    : std::numeric_limits<IndexType>::max();
-                IndexType col_b = (b_ptr < b_end)
-                    ? other.col_indices_[b_ptr]
-                    : std::numeric_limits<IndexType>::max();
+                IndexType col_a = (a_ptr < a_end) ? col_indices_[a_ptr] : std::numeric_limits<IndexType>::max();
+                IndexType col_b = (b_ptr < b_end) ? other.col_indices_[b_ptr] : std::numeric_limits<IndexType>::max();
                 IndexType cur_col = std::min(col_a, col_b);
 
                 T diff = T{0};
@@ -1091,9 +1110,7 @@ public:
         {
             return false;
         }
-        return row_ptrs_ == other.row_ptrs_ &&
-               col_indices_ == other.col_indices_ &&
-               mValues == other.mValues;
+        return row_ptrs_ == other.row_ptrs_ && col_indices_ == other.col_indices_ && mValues == other.mValues;
     }
 
     [[nodiscard]] bool operator!=(const CSRMatrix& other) const
@@ -1154,8 +1171,7 @@ public:
      */
     [[nodiscard]] std::vector<T> to_dense() const
     {
-        if (mRows > 0 && mCols > 0 &&
-            mRows > std::numeric_limits<size_type>::max() / mCols)
+        if (mRows > 0 && mCols > 0 && mRows > std::numeric_limits<size_type>::max() / mCols)
         {
             throw std::overflow_error("CSRMatrix: matrix too large for dense conversion");
         }
@@ -1323,8 +1339,7 @@ public:
      */
     friend std::ostream& operator<<(std::ostream& os, const CSRMatrix& mat)
     {
-        os << "CSRMatrix(" << mat.mRows << "x" << mat.mCols
-           << ", nnz=" << mat.nnz() << ")";
+        os << "CSRMatrix(" << mat.mRows << "x" << mat.mCols << ", nnz=" << mat.nnz() << ")";
         return os;
     }
 };

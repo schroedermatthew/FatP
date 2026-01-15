@@ -1,7 +1,7 @@
 /**
  * @file CheckedArithmeticBase.h
  * @brief Core types, enums, and detection traits for checked arithmetic
- * 
+ *
  *
  * @layer Foundation
  *
@@ -74,14 +74,15 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
-#include <ostream>
 #include <cstdint>
+#include <ostream>
 #include <type_traits>
-#include <utility>  // for std::declval
+#include <utility> // for std::declval
 
-#include "Expected.h"  // Required for PolicyReturnType
+#include "Expected.h" // Required for PolicyReturnType
 
-namespace fat_p {
+namespace fat_p
+{
 
 // =============================================================================
 // Forward Declarations (Policy Types)
@@ -108,13 +109,14 @@ struct InfTolerantPolicy;
  * Used by both integer and floating-point checked operations to classify
  * the type of error that occurred.
  */
-enum class MathError {
-    Overflow,        ///< Result exceeded maximum representable value
-    Underflow,       ///< Result fell below minimum representable value
-    DivByZero,       ///< Division or modulo by zero attempted
-    NaN,             ///< Result is Not-a-Number (FP only)
-    Inf,             ///< Result is infinity from finite inputs (FP only)
-    InvalidArgument  ///< Invalid input (e.g., bad shift amount, NaN input)
+enum class MathError
+{
+    Overflow,       ///< Result exceeded maximum representable value
+    Underflow,      ///< Result fell below minimum representable value
+    DivByZero,      ///< Division or modulo by zero attempted
+    NaN,            ///< Result is Not-a-Number (FP only)
+    Inf,            ///< Result is infinity from finite inputs (FP only)
+    InvalidArgument ///< Invalid input (e.g., bad shift amount, NaN input)
 };
 
 /**
@@ -126,13 +128,20 @@ inline std::ostream& operator<<(std::ostream& os, MathError err)
 {
     switch (err)
     {
-    case MathError::Overflow:        return os << "Overflow";
-    case MathError::Underflow:       return os << "Underflow";
-    case MathError::DivByZero:       return os << "DivByZero";
-    case MathError::NaN:             return os << "NaN";
-    case MathError::Inf:             return os << "Inf";
-    case MathError::InvalidArgument: return os << "InvalidArgument";
-    default:                         return os << "Unknown";
+        case MathError::Overflow:
+            return os << "Overflow";
+        case MathError::Underflow:
+            return os << "Underflow";
+        case MathError::DivByZero:
+            return os << "DivByZero";
+        case MathError::NaN:
+            return os << "NaN";
+        case MathError::Inf:
+            return os << "Inf";
+        case MathError::InvalidArgument:
+            return os << "InvalidArgument";
+        default:
+            return os << "Unknown";
     }
 }
 
@@ -150,10 +159,8 @@ inline std::ostream& operator<<(std::ostream& os, MathError err)
  * - ReturnExpectedPolicy: Returns Expected<R, MathError>
  */
 template <typename Policy, typename R>
-using PolicyReturnType = std::conditional_t<
-    std::is_same_v<Policy, ReturnExpectedPolicy>,
-    fat_p::Expected<R, fat_p::MathError>,
-    R>;
+using PolicyReturnType =
+    std::conditional_t<std::is_same_v<Policy, ReturnExpectedPolicy>, fat_p::Expected<R, fat_p::MathError>, R>;
 
 // =============================================================================
 // SIMD Configuration Constants
@@ -191,11 +198,14 @@ constexpr std::size_t AVX2_DOUBLES_PER_REG = 4;
  * @tparam C Container type to test
  */
 template <typename C, typename = void>
-struct has_assume_aligned : std::false_type {};
+struct has_assume_aligned : std::false_type
+{
+};
 
 template <typename C>
-struct has_assume_aligned<C, std::void_t<decltype(std::declval<C>().assume_aligned())>> 
-    : std::true_type {};
+struct has_assume_aligned<C, std::void_t<decltype(std::declval<C>().assume_aligned())>> : std::true_type
+{
+};
 
 /**
  * @brief Helper variable template for has_assume_aligned
@@ -211,11 +221,14 @@ inline constexpr bool has_assume_aligned_v = has_assume_aligned<C>::value;
  * method as an alternative.
  */
 template <typename C, typename = void>
-struct has_aligned_data : std::false_type {};
+struct has_aligned_data : std::false_type
+{
+};
 
 template <typename C>
-struct has_aligned_data<C, std::void_t<decltype(std::declval<C>().aligned_data())>>
-    : std::true_type {};
+struct has_aligned_data<C, std::void_t<decltype(std::declval<C>().aligned_data())>> : std::true_type
+{
+};
 
 template <typename C>
 inline constexpr bool has_aligned_data_v = has_aligned_data<C>::value;
@@ -226,15 +239,14 @@ inline constexpr bool has_aligned_data_v = has_aligned_data<C>::value;
  * Returns true if the container provides any form of aligned pointer access.
  */
 template <typename C>
-inline constexpr bool is_alignment_aware_v = 
-    has_assume_aligned_v<C> || has_aligned_data_v<C>;
+inline constexpr bool is_alignment_aware_v = has_assume_aligned_v<C> || has_aligned_data_v<C>;
 
 /**
  * @brief Get aligned pointer from container (with SFINAE dispatch)
  *
  * Returns a pointer suitable for aligned SIMD operations:
  * - If container has assume_aligned(): calls it
- * - If container has aligned_data(): calls it  
+ * - If container has aligned_data(): calls it
  * - Otherwise: returns data() (unaligned fallback)
  *
  * @tparam C Container type
@@ -244,11 +256,16 @@ inline constexpr bool is_alignment_aware_v =
 template <typename C>
 auto get_aligned_ptr(C& container) noexcept
 {
-    if constexpr (has_assume_aligned_v<C>) {
+    if constexpr (has_assume_aligned_v<C>)
+    {
         return container.assume_aligned();
-    } else if constexpr (has_aligned_data_v<C>) {
+    }
+    else if constexpr (has_aligned_data_v<C>)
+    {
         return container.aligned_data();
-    } else {
+    }
+    else
+    {
         return container.data();
     }
 }
@@ -259,11 +276,16 @@ auto get_aligned_ptr(C& container) noexcept
 template <typename C>
 auto get_aligned_ptr(const C& container) noexcept
 {
-    if constexpr (has_assume_aligned_v<std::remove_const_t<C>>) {
+    if constexpr (has_assume_aligned_v<std::remove_const_t<C>>)
+    {
         return container.assume_aligned();
-    } else if constexpr (has_aligned_data_v<std::remove_const_t<C>>) {
+    }
+    else if constexpr (has_aligned_data_v<std::remove_const_t<C>>)
+    {
         return container.aligned_data();
-    } else {
+    }
+    else
+    {
         return container.data();
     }
 }

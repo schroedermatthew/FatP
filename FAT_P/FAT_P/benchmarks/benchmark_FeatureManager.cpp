@@ -160,8 +160,8 @@ fat_p::FeatureManager<SyncPolicy> makeTreeGraph(std::size_t depth, std::size_t b
     fat_p::FeatureManager<SyncPolicy> fm;
     std::size_t nodeId = 0;
 
-    std::function<void(std::size_t, const std::string&)> buildLevel = [&](std::size_t level, const std::string& parent)
-    {
+    std::function<void(std::size_t, const std::string&)> buildLevel = [&](std::size_t level,
+                                                                          const std::string& parent) {
         if (level > depth)
         {
             return;
@@ -452,52 +452,40 @@ int main()
     // -------------------------------------------------------------------------
     runner.section("LOOKUP OPERATIONS").contract("is_enabled() is O(log n) lookup in std::map<string, FeatureNode>");
 
-    runner.add("is_enabled: enabled hit (10k features)",
-               [&]()
-               {
-                   bool v = fmLookup.is_enabled(enabledName);
-                   DoNotOptimize(v);
-               });
+    runner.add("is_enabled: enabled hit (10k features)", [&]() {
+        bool v = fmLookup.is_enabled(enabledName);
+        DoNotOptimize(v);
+    });
 
-    runner.add("is_enabled: disabled hit (10k features)",
-               [&]()
-               {
-                   bool v = fmLookup.is_enabled(disabledName);
-                   DoNotOptimize(v);
-               });
+    runner.add("is_enabled: disabled hit (10k features)", [&]() {
+        bool v = fmLookup.is_enabled(disabledName);
+        DoNotOptimize(v);
+    });
 
-    runner.add("is_enabled: missing feature (10k features)",
-               [&]()
-               {
-                   bool v = fmLookup.is_enabled(missingName);
-                   DoNotOptimize(v);
-               });
+    runner.add("is_enabled: missing feature (10k features)", [&]() {
+        bool v = fmLookup.is_enabled(missingName);
+        DoNotOptimize(v);
+    });
 
     // -------------------------------------------------------------------------
     // 5. Validation Operations
     // -------------------------------------------------------------------------
     runner.section("VALIDATION OPERATIONS").contract("validate() traverses full dependency graph, O(n * d * log n)");
 
-    runner.add("validate: requires-chain depth 50 (all enabled)",
-               [&]()
-               {
-                   auto res = fmChain50.validate();
-                   DoNotOptimize(res);
-               });
+    runner.add("validate: requires-chain depth 50 (all enabled)", [&]() {
+        auto res = fmChain50.validate();
+        DoNotOptimize(res);
+    });
 
-    runner.add("validate: flat graph 10k (no dependencies)",
-               [&]()
-               {
-                   auto res = fmLookup.validate();
-                   DoNotOptimize(res);
-               });
+    runner.add("validate: flat graph 10k (no dependencies)", [&]() {
+        auto res = fmLookup.validate();
+        DoNotOptimize(res);
+    });
 
-    runner.add("validate: conflict graph 100 features",
-               [&]()
-               {
-                   auto res = fmConflict.validate();
-                   DoNotOptimize(res);
-               });
+    runner.add("validate: conflict graph 100 features", [&]() {
+        auto res = fmConflict.validate();
+        DoNotOptimize(res);
+    });
 
     // -------------------------------------------------------------------------
     // 6. Enable/Disable Operations
@@ -505,108 +493,88 @@ int main()
     runner.section("ENABLE/DISABLE OPERATIONS")
         .contract("enable() recursively enables dependencies with rollback on failure");
 
-    runner.add("batch_enable + batch_disable: chain depth 50 (cold)",
-               [&]()
-               {
-                   FeatureManager<> fm = makeRequiresChain(50);
-                   auto res = fm.batch_enable({"N0"});
-                   DoNotOptimize(res);
-                   disableAll(fm, chainNames50);
-               });
+    runner.add("batch_enable + batch_disable: chain depth 50 (cold)", [&]() {
+        FeatureManager<> fm = makeRequiresChain(50);
+        auto res = fm.batch_enable({"N0"});
+        DoNotOptimize(res);
+        disableAll(fm, chainNames50);
+    });
 
-    runner.add("enable + disable: single feature (no deps)",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   (void)fm.add_feature("A");
-                   auto res1 = fm.enable("A");
-                   DoNotOptimize(res1);
-                   auto res2 = fm.disable("A");
-                   DoNotOptimize(res2);
-               });
+    runner.add("enable + disable: single feature (no deps)", [&]() {
+        FeatureManager<> fm;
+        (void)fm.add_feature("A");
+        auto res1 = fm.enable("A");
+        DoNotOptimize(res1);
+        auto res2 = fm.disable("A");
+        DoNotOptimize(res2);
+    });
 
-    runner.add("enable: conflict detection (100 conflicts)",
-               [&]()
-               {
-                   FeatureManager<> fm = makeConflictGraph(100);
-                   (void)fm.enable("C0");
-                   auto res = fm.enable("C1");
-                   DoNotOptimize(res);
-                   (void)fm.disable("C0");
-               });
+    runner.add("enable: conflict detection (100 conflicts)", [&]() {
+        FeatureManager<> fm = makeConflictGraph(100);
+        (void)fm.enable("C0");
+        auto res = fm.enable("C1");
+        DoNotOptimize(res);
+        (void)fm.disable("C0");
+    });
 
     // -------------------------------------------------------------------------
     // 7. Observer Overhead
     // -------------------------------------------------------------------------
     runner.section("OBSERVER OVERHEAD").contract("Observers are called synchronously on state change");
 
-    runner.add("enable/disable: 0 observers",
-               [&]()
-               {
-                   FeatureManager<> fm = makeFlatGraph(1024);
-                   auto res = fm.enable("F1");
-                   DoNotOptimize(res);
-                   auto res2 = fm.disable("F1");
-                   DoNotOptimize(res2);
-               });
+    runner.add("enable/disable: 0 observers", [&]() {
+        FeatureManager<> fm = makeFlatGraph(1024);
+        auto res = fm.enable("F1");
+        DoNotOptimize(res);
+        auto res2 = fm.disable("F1");
+        DoNotOptimize(res2);
+    });
 
-    runner.add("enable/disable: 1 observer",
-               [&]()
-               {
-                   FeatureManager<> fm = makeFlatGraph(1024);
-                   std::atomic<std::size_t> c{0};
-                   auto id = fm.add_observer(
-                       [&](const std::string&, bool, bool)
-                       {
-                           c.fetch_add(1, std::memory_order_relaxed);
-                       });
-                   DoNotOptimize(id);
-                   auto res = fm.enable("F1");
-                   DoNotOptimize(res);
-                   auto res2 = fm.disable("F1");
-                   DoNotOptimize(res2);
-                   DoNotOptimize(c.load(std::memory_order_relaxed));
-               });
+    runner.add("enable/disable: 1 observer", [&]() {
+        FeatureManager<> fm = makeFlatGraph(1024);
+        std::atomic<std::size_t> c{0};
+        auto id = fm.add_observer([&](const std::string&, bool, bool) {
+            c.fetch_add(1, std::memory_order_relaxed);
+        });
+        DoNotOptimize(id);
+        auto res = fm.enable("F1");
+        DoNotOptimize(res);
+        auto res2 = fm.disable("F1");
+        DoNotOptimize(res2);
+        DoNotOptimize(c.load(std::memory_order_relaxed));
+    });
 
-    runner.add("enable/disable: 10 observers",
-               [&]()
-               {
-                   FeatureManager<> fm = makeFlatGraph(1024);
-                   std::atomic<std::size_t> c{0};
-                   for (int i = 0; i < 10; ++i)
-                   {
-                       auto id = fm.add_observer(
-                           [&](const std::string&, bool, bool)
-                           {
-                               c.fetch_add(1, std::memory_order_relaxed);
-                           });
-                       DoNotOptimize(id);
-                   }
-                   auto res = fm.enable("F1");
-                   DoNotOptimize(res);
-                   auto res2 = fm.disable("F1");
-                   DoNotOptimize(res2);
-                   DoNotOptimize(c.load(std::memory_order_relaxed));
-               });
+    runner.add("enable/disable: 10 observers", [&]() {
+        FeatureManager<> fm = makeFlatGraph(1024);
+        std::atomic<std::size_t> c{0};
+        for (int i = 0; i < 10; ++i)
+        {
+            auto id = fm.add_observer([&](const std::string&, bool, bool) {
+                c.fetch_add(1, std::memory_order_relaxed);
+            });
+            DoNotOptimize(id);
+        }
+        auto res = fm.enable("F1");
+        DoNotOptimize(res);
+        auto res2 = fm.disable("F1");
+        DoNotOptimize(res2);
+        DoNotOptimize(c.load(std::memory_order_relaxed));
+    });
 
     // -------------------------------------------------------------------------
     // 8. Serialization
     // -------------------------------------------------------------------------
     runner.section("SERIALIZATION").contract("JSON round-trip must preserve enabled state and relationships");
 
-    runner.add("to_json: 10k features, no relationships",
-               [&]()
-               {
-                   auto json = fmLookup.to_json();
-                   DoNotOptimize(json);
-               });
+    runner.add("to_json: 10k features, no relationships", [&]() {
+        auto json = fmLookup.to_json();
+        DoNotOptimize(json);
+    });
 
-    runner.add("from_json: 10k features, no relationships",
-               [&]()
-               {
-                   auto fmRes = FeatureManager<>::from_json(jsonBlob);
-                   DoNotOptimize(fmRes);
-               });
+    runner.add("from_json: 10k features, no relationships", [&]() {
+        auto fmRes = FeatureManager<>::from_json(jsonBlob);
+        DoNotOptimize(fmRes);
+    });
 
     FeatureManager<> fmSmallRel;
     for (int i = 0; i < 100; ++i)
@@ -621,70 +589,58 @@ int main()
     }
     const std::string dotBlob = fmSmallRel.to_dot();
 
-    runner.add("to_dot: 100 features, 50 relationships",
-               [&]()
-               {
-                   auto dot = fmSmallRel.to_dot();
-                   DoNotOptimize(dot);
-               });
+    runner.add("to_dot: 100 features, 50 relationships", [&]() {
+        auto dot = fmSmallRel.to_dot();
+        DoNotOptimize(dot);
+    });
 
-    runner.add("from_dot: 100 features, 50 relationships",
-               [&]()
-               {
-                   auto fmRes = FeatureManager<>::from_dot(dotBlob);
-                   DoNotOptimize(fmRes);
-               });
+    runner.add("from_dot: 100 features, 50 relationships", [&]() {
+        auto fmRes = FeatureManager<>::from_dot(dotBlob);
+        DoNotOptimize(fmRes);
+    });
 
-    runner.add("to_dot: 10k features, no relationships",
-               [&]()
-               {
-                   auto dot = fmLookup.to_dot();
-                   DoNotOptimize(dot);
-               });
+    runner.add("to_dot: 10k features, no relationships", [&]() {
+        auto dot = fmLookup.to_dot();
+        DoNotOptimize(dot);
+    });
 
     // -------------------------------------------------------------------------
     // 9. Graph Construction
     // -------------------------------------------------------------------------
     runner.section("GRAPH CONSTRUCTION").contract("add_feature() is O(log n) map insertion");
 
-    runner.add("add_feature: build 100 features",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   for (int i = 0; i < 100; ++i)
-                   {
-                       auto res = fm.add_feature("F" + std::to_string(i));
-                       DoNotOptimize(res);
-                   }
-               });
+    runner.add("add_feature: build 100 features", [&]() {
+        FeatureManager<> fm;
+        for (int i = 0; i < 100; ++i)
+        {
+            auto res = fm.add_feature("F" + std::to_string(i));
+            DoNotOptimize(res);
+        }
+    });
 
-    runner.add("add_feature: build 1000 features",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   for (int i = 0; i < 1000; ++i)
-                   {
-                       auto res = fm.add_feature("F" + std::to_string(i));
-                       DoNotOptimize(res);
-                   }
-               });
+    runner.add("add_feature: build 1000 features", [&]() {
+        FeatureManager<> fm;
+        for (int i = 0; i < 1000; ++i)
+        {
+            auto res = fm.add_feature("F" + std::to_string(i));
+            DoNotOptimize(res);
+        }
+    });
 
-    runner.add("add_relationship: 100 Requires edges",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   for (int i = 0; i < 101; ++i)
-                   {
-                       (void)fm.add_feature("N" + std::to_string(i));
-                   }
-                   for (int i = 0; i < 100; ++i)
-                   {
-                       auto res = fm.add_relationship("N" + std::to_string(i),
-                                                      FeatureRelationship::Requires,
-                                                      "N" + std::to_string(i + 1));
-                       DoNotOptimize(res);
-                   }
-               });
+    runner.add("add_relationship: 100 Requires edges", [&]() {
+        FeatureManager<> fm;
+        for (int i = 0; i < 101; ++i)
+        {
+            (void)fm.add_feature("N" + std::to_string(i));
+        }
+        for (int i = 0; i < 100; ++i)
+        {
+            auto res = fm.add_relationship("N" + std::to_string(i),
+                                           FeatureRelationship::Requires,
+                                           "N" + std::to_string(i + 1));
+            DoNotOptimize(res);
+        }
+    });
 
     // -------------------------------------------------------------------------
     // 10. Synchronization Policy Overhead
@@ -692,22 +648,18 @@ int main()
     runner.section("SYNCHRONIZATION POLICY OVERHEAD")
         .contract("Comparing SingleThreadedPolicy vs MutexSynchronizationPolicy");
 
-    runner.add("is_enabled: SingleThreadedPolicy (10k)",
-               [&]()
-               {
-                   bool v = fmLookup.is_enabled(enabledName);
-                   DoNotOptimize(v);
-               });
+    runner.add("is_enabled: SingleThreadedPolicy (10k)", [&]() {
+        bool v = fmLookup.is_enabled(enabledName);
+        DoNotOptimize(v);
+    });
 
     FeatureManager<MutexSynchronizationPolicy> fmMutex = makeFlatGraph<MutexSynchronizationPolicy>(10'000);
     (void)fmMutex.enable("F5000");
 
-    runner.add("is_enabled: MutexSynchronizationPolicy (10k)",
-               [&]()
-               {
-                   bool v = fmMutex.is_enabled(enabledName);
-                   DoNotOptimize(v);
-               });
+    runner.add("is_enabled: MutexSynchronizationPolicy (10k)", [&]() {
+        bool v = fmMutex.is_enabled(enabledName);
+        DoNotOptimize(v);
+    });
 
     // -------------------------------------------------------------------------
     // 11. Group Operations
@@ -728,12 +680,10 @@ int main()
         (void)fmGroups.enable("G" + std::to_string(i));
     }
 
-    runner.add("get_group_state: 20-member group",
-               [&]()
-               {
-                   auto state = fmGroups.get_group_state<fat_p::FeatureGroupState>("TestGroup");
-                   DoNotOptimize(state);
-               });
+    runner.add("get_group_state: 20-member group", [&]() {
+        auto state = fmGroups.get_group_state<fat_p::FeatureGroupState>("TestGroup");
+        DoNotOptimize(state);
+    });
 
     // -------------------------------------------------------------------------
     // 12. Batch Operations Scaling
@@ -741,66 +691,58 @@ int main()
     runner.section("BATCH OPERATIONS SCALING")
         .contract("batch_enable atomically enables multiple features with rollback");
 
-    runner.add("batch_enable: 10 features (no deps)",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   std::vector<std::string> names;
-                   for (int i = 0; i < 10; ++i)
-                   {
-                       std::string name = "B" + std::to_string(i);
-                       (void)fm.add_feature(name);
-                       names.push_back(name);
-                   }
-                   auto res = fm.batch_enable(names);
-                   DoNotOptimize(res);
-               });
+    runner.add("batch_enable: 10 features (no deps)", [&]() {
+        FeatureManager<> fm;
+        std::vector<std::string> names;
+        for (int i = 0; i < 10; ++i)
+        {
+            std::string name = "B" + std::to_string(i);
+            (void)fm.add_feature(name);
+            names.push_back(name);
+        }
+        auto res = fm.batch_enable(names);
+        DoNotOptimize(res);
+    });
 
-    runner.add("batch_enable: 100 features (no deps)",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   std::vector<std::string> names;
-                   for (int i = 0; i < 100; ++i)
-                   {
-                       std::string name = "B" + std::to_string(i);
-                       (void)fm.add_feature(name);
-                       names.push_back(name);
-                   }
-                   auto res = fm.batch_enable(names);
-                   DoNotOptimize(res);
-               });
+    runner.add("batch_enable: 100 features (no deps)", [&]() {
+        FeatureManager<> fm;
+        std::vector<std::string> names;
+        for (int i = 0; i < 100; ++i)
+        {
+            std::string name = "B" + std::to_string(i);
+            (void)fm.add_feature(name);
+            names.push_back(name);
+        }
+        auto res = fm.batch_enable(names);
+        DoNotOptimize(res);
+    });
 
-    runner.add("batch_enable: 1000 features (no deps)",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   std::vector<std::string> names;
-                   for (int i = 0; i < 1000; ++i)
-                   {
-                       std::string name = "B" + std::to_string(i);
-                       (void)fm.add_feature(name);
-                       names.push_back(name);
-                   }
-                   auto res = fm.batch_enable(names);
-                   DoNotOptimize(res);
-               });
+    runner.add("batch_enable: 1000 features (no deps)", [&]() {
+        FeatureManager<> fm;
+        std::vector<std::string> names;
+        for (int i = 0; i < 1000; ++i)
+        {
+            std::string name = "B" + std::to_string(i);
+            (void)fm.add_feature(name);
+            names.push_back(name);
+        }
+        auto res = fm.batch_enable(names);
+        DoNotOptimize(res);
+    });
 
-    runner.add("batch_disable: 100 features (no deps)",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   std::vector<std::string> names;
-                   for (int i = 0; i < 100; ++i)
-                   {
-                       std::string name = "B" + std::to_string(i);
-                       (void)fm.add_feature(name);
-                       names.push_back(name);
-                   }
-                   (void)fm.batch_enable(names);
-                   auto res = fm.batch_disable(names);
-                   DoNotOptimize(res);
-               });
+    runner.add("batch_disable: 100 features (no deps)", [&]() {
+        FeatureManager<> fm;
+        std::vector<std::string> names;
+        for (int i = 0; i < 100; ++i)
+        {
+            std::string name = "B" + std::to_string(i);
+            (void)fm.add_feature(name);
+            names.push_back(name);
+        }
+        (void)fm.batch_enable(names);
+        auto res = fm.batch_disable(names);
+        DoNotOptimize(res);
+    });
 
     // -------------------------------------------------------------------------
     // 13. Dense Graph Operations
@@ -810,52 +752,40 @@ int main()
     FeatureManager<> fmDense = makeDenseGraph(200, 5, cfg.seed);
     const std::string denseJson = fmDense.to_json();
 
-    runner.add("validate: dense graph (200 nodes, ~1000 edges)",
-               [&]()
-               {
-                   auto res = fmDense.validate();
-                   DoNotOptimize(res);
-               });
+    runner.add("validate: dense graph (200 nodes, ~1000 edges)", [&]() {
+        auto res = fmDense.validate();
+        DoNotOptimize(res);
+    });
 
-    runner.add("to_json: dense graph (200 nodes, ~1000 edges)",
-               [&]()
-               {
-                   auto json = fmDense.to_json();
-                   DoNotOptimize(json);
-               });
+    runner.add("to_json: dense graph (200 nodes, ~1000 edges)", [&]() {
+        auto json = fmDense.to_json();
+        DoNotOptimize(json);
+    });
 
-    runner.add("from_json: dense graph (200 nodes, ~1000 edges)",
-               [&]()
-               {
-                   auto fmRes = FeatureManager<>::from_json(denseJson);
-                   DoNotOptimize(fmRes);
-               });
+    runner.add("from_json: dense graph (200 nodes, ~1000 edges)", [&]() {
+        auto fmRes = FeatureManager<>::from_json(denseJson);
+        DoNotOptimize(fmRes);
+    });
 
     FeatureManager<> fmVeryDense = makeDenseGraph(500, 10, cfg.seed);
 
-    runner.add("validate: very dense graph (500 nodes, ~5000 edges)",
-               [&]()
-               {
-                   auto res = fmVeryDense.validate();
-                   DoNotOptimize(res);
-               });
+    runner.add("validate: very dense graph (500 nodes, ~5000 edges)", [&]() {
+        auto res = fmVeryDense.validate();
+        DoNotOptimize(res);
+    });
 
     FeatureManager<> fmTree = makeTreeGraph(5, 3);
 
-    runner.add("validate: tree graph (depth 5, branching 3)",
-               [&]()
-               {
-                   auto res = fmTree.validate();
-                   DoNotOptimize(res);
-               });
+    runner.add("validate: tree graph (depth 5, branching 3)", [&]() {
+        auto res = fmTree.validate();
+        DoNotOptimize(res);
+    });
 
-    runner.add("enable: tree root (cascades to 364 nodes)",
-               [&]()
-               {
-                   FeatureManager<> fm = makeTreeGraph(5, 3);
-                   auto res = fm.enable("T0");
-                   DoNotOptimize(res);
-               });
+    runner.add("enable: tree root (cascades to 364 nodes)", [&]() {
+        FeatureManager<> fm = makeTreeGraph(5, 3);
+        auto res = fm.enable("T0");
+        DoNotOptimize(res);
+    });
 
     // -------------------------------------------------------------------------
     // 14. ScopedFeatureChange RAII Helper
@@ -863,56 +793,50 @@ int main()
     runner.section("SCOPED FEATURE CHANGE (RAII)")
         .contract("ScopedFeatureChange provides temporary state with auto-rollback");
 
-    runner.add("ScopedFeatureChange: enable then auto-restore",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   (void)fm.add_feature("Scoped");
-                   {
-                       FeatureManager<>::ScopedFeatureChange guard(fm, "Scoped", true);
-                       bool v = fm.is_enabled("Scoped");
-                       DoNotOptimize(v);
-                   }
-                   bool v = fm.is_enabled("Scoped");
-                   DoNotOptimize(v);
-               });
+    runner.add("ScopedFeatureChange: enable then auto-restore", [&]() {
+        FeatureManager<> fm;
+        (void)fm.add_feature("Scoped");
+        {
+            FeatureManager<>::ScopedFeatureChange guard(fm, "Scoped", true);
+            bool v = fm.is_enabled("Scoped");
+            DoNotOptimize(v);
+        }
+        bool v = fm.is_enabled("Scoped");
+        DoNotOptimize(v);
+    });
 
-    runner.add("ScopedFeatureChange: disable then auto-restore",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   (void)fm.add_feature("Scoped");
-                   (void)fm.enable("Scoped");
-                   {
-                       FeatureManager<>::ScopedFeatureChange guard(fm, "Scoped", false);
-                       bool v = fm.is_enabled("Scoped");
-                       DoNotOptimize(v);
-                   }
-                   bool v = fm.is_enabled("Scoped");
-                   DoNotOptimize(v);
-               });
+    runner.add("ScopedFeatureChange: disable then auto-restore", [&]() {
+        FeatureManager<> fm;
+        (void)fm.add_feature("Scoped");
+        (void)fm.enable("Scoped");
+        {
+            FeatureManager<>::ScopedFeatureChange guard(fm, "Scoped", false);
+            bool v = fm.is_enabled("Scoped");
+            DoNotOptimize(v);
+        }
+        bool v = fm.is_enabled("Scoped");
+        DoNotOptimize(v);
+    });
 
-    runner.add("ScopedFeatureChange: nested scopes (3 deep)",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   (void)fm.add_feature("S1");
-                   (void)fm.add_feature("S2");
-                   (void)fm.add_feature("S3");
-                   {
-                       FeatureManager<>::ScopedFeatureChange g1(fm, "S1", true);
-                       {
-                           FeatureManager<>::ScopedFeatureChange g2(fm, "S2", true);
-                           {
-                               FeatureManager<>::ScopedFeatureChange g3(fm, "S3", true);
-                               bool v = fm.is_enabled("S3");
-                               DoNotOptimize(v);
-                           }
-                       }
-                   }
-                   bool v = fm.is_enabled("S1");
-                   DoNotOptimize(v);
-               });
+    runner.add("ScopedFeatureChange: nested scopes (3 deep)", [&]() {
+        FeatureManager<> fm;
+        (void)fm.add_feature("S1");
+        (void)fm.add_feature("S2");
+        (void)fm.add_feature("S3");
+        {
+            FeatureManager<>::ScopedFeatureChange g1(fm, "S1", true);
+            {
+                FeatureManager<>::ScopedFeatureChange g2(fm, "S2", true);
+                {
+                    FeatureManager<>::ScopedFeatureChange g3(fm, "S3", true);
+                    bool v = fm.is_enabled("S3");
+                    DoNotOptimize(v);
+                }
+            }
+        }
+        bool v = fm.is_enabled("S1");
+        DoNotOptimize(v);
+    });
 
     // -------------------------------------------------------------------------
     // 15. Custom StateComputer
@@ -933,12 +857,10 @@ int main()
         (void)fmDefaultComputer.enable("DC" + std::to_string(i));
     }
 
-    runner.add("get_group_state: default computer (50 features)",
-               [&]()
-               {
-                   auto state = fmDefaultComputer.get_group_state<fat_p::FeatureGroupState>("DefaultGroup");
-                   DoNotOptimize(state);
-               });
+    runner.add("get_group_state: default computer (50 features)", [&]() {
+        auto state = fmDefaultComputer.get_group_state<fat_p::FeatureGroupState>("DefaultGroup");
+        DoNotOptimize(state);
+    });
 
     FeatureManager<> fmCustomComputer;
     std::vector<std::string> ccFeatures;
@@ -954,12 +876,10 @@ int main()
         (void)fmCustomComputer.enable("CC" + std::to_string(i));
     }
 
-    runner.add("get_group_state: custom computer (50 features)",
-               [&]()
-               {
-                   auto state = fmCustomComputer.get_group_state<BenchmarkState>("CustomGroup");
-                   DoNotOptimize(state);
-               });
+    runner.add("get_group_state: custom computer (50 features)", [&]() {
+        auto state = fmCustomComputer.get_group_state<BenchmarkState>("CustomGroup");
+        DoNotOptimize(state);
+    });
 
     FeatureManager<> fmLargeGroup;
     std::vector<std::string> lgFeatures;
@@ -975,12 +895,10 @@ int main()
         (void)fmLargeGroup.enable("LG" + std::to_string(i));
     }
 
-    runner.add("get_group_state: default computer (200 features)",
-               [&]()
-               {
-                   auto state = fmLargeGroup.get_group_state<fat_p::FeatureGroupState>("LargeGroup");
-                   DoNotOptimize(state);
-               });
+    runner.add("get_group_state: default computer (200 features)", [&]() {
+        auto state = fmLargeGroup.get_group_state<fat_p::FeatureGroupState>("LargeGroup");
+        DoNotOptimize(state);
+    });
 
     // -------------------------------------------------------------------------
     // 16. Memory & Construction Scaling
@@ -988,72 +906,62 @@ int main()
     runner.section("MEMORY & CONSTRUCTION SCALING")
         .contract("Construction cost scaling with features and relationships");
 
-    runner.add("construct: 100 features + 50 relationships",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   for (int i = 0; i < 100; ++i)
-                   {
-                       (void)fm.add_feature("M" + std::to_string(i));
-                   }
-                   for (int i = 0; i < 50; ++i)
-                   {
-                       (void)fm.add_relationship("M" + std::to_string(i),
-                                                 FeatureRelationship::Requires,
-                                                 "M" + std::to_string(i + 50));
-                   }
-                   DoNotOptimize(fm);
-               });
+    runner.add("construct: 100 features + 50 relationships", [&]() {
+        FeatureManager<> fm;
+        for (int i = 0; i < 100; ++i)
+        {
+            (void)fm.add_feature("M" + std::to_string(i));
+        }
+        for (int i = 0; i < 50; ++i)
+        {
+            (void)fm.add_relationship("M" + std::to_string(i),
+                                      FeatureRelationship::Requires,
+                                      "M" + std::to_string(i + 50));
+        }
+        DoNotOptimize(fm);
+    });
 
-    runner.add("construct: 1000 features + 500 relationships",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   for (int i = 0; i < 1000; ++i)
-                   {
-                       (void)fm.add_feature("M" + std::to_string(i));
-                   }
-                   for (int i = 0; i < 500; ++i)
-                   {
-                       (void)fm.add_relationship("M" + std::to_string(i),
-                                                 FeatureRelationship::Requires,
-                                                 "M" + std::to_string(i + 500));
-                   }
-                   DoNotOptimize(fm);
-               });
+    runner.add("construct: 1000 features + 500 relationships", [&]() {
+        FeatureManager<> fm;
+        for (int i = 0; i < 1000; ++i)
+        {
+            (void)fm.add_feature("M" + std::to_string(i));
+        }
+        for (int i = 0; i < 500; ++i)
+        {
+            (void)fm.add_relationship("M" + std::to_string(i),
+                                      FeatureRelationship::Requires,
+                                      "M" + std::to_string(i + 500));
+        }
+        DoNotOptimize(fm);
+    });
 
-    runner.add("construct: 5000 features + 2500 relationships",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   for (int i = 0; i < 5000; ++i)
-                   {
-                       (void)fm.add_feature("M" + std::to_string(i));
-                   }
-                   for (int i = 0; i < 2500; ++i)
-                   {
-                       (void)fm.add_relationship("M" + std::to_string(i),
-                                                 FeatureRelationship::Requires,
-                                                 "M" + std::to_string(i + 2500));
-                   }
-                   DoNotOptimize(fm);
-               });
+    runner.add("construct: 5000 features + 2500 relationships", [&]() {
+        FeatureManager<> fm;
+        for (int i = 0; i < 5000; ++i)
+        {
+            (void)fm.add_feature("M" + std::to_string(i));
+        }
+        for (int i = 0; i < 2500; ++i)
+        {
+            (void)fm.add_relationship("M" + std::to_string(i),
+                                      FeatureRelationship::Requires,
+                                      "M" + std::to_string(i + 2500));
+        }
+        DoNotOptimize(fm);
+    });
 
-    runner.add("move: 1000-feature graph",
-               [&]()
-               {
-                   FeatureManager<> fm = makeFlatGraph(1000);
-                   FeatureManager<> fm2 = std::move(fm);
-                   DoNotOptimize(fm2);
-               });
+    runner.add("move: 1000-feature graph", [&]() {
+        FeatureManager<> fm = makeFlatGraph(1000);
+        FeatureManager<> fm2 = std::move(fm);
+        DoNotOptimize(fm2);
+    });
 
-    runner.add("clear: 1000-feature graph",
-               [&]()
-               {
-                   FeatureManager<> fm = makeFlatGraph(1000);
-                   fm.clear();
-                   DoNotOptimize(fm);
-               });
+    runner.add("clear: 1000-feature graph", [&]() {
+        FeatureManager<> fm = makeFlatGraph(1000);
+        fm.clear();
+        DoNotOptimize(fm);
+    });
 
     // -------------------------------------------------------------------------
     // 17. Mutually Exclusive Groups
@@ -1061,35 +969,31 @@ int main()
     runner.section("MUTUALLY EXCLUSIVE GROUPS")
         .contract("add_mutually_exclusive_group creates O(n^2) conflict relationships");
 
-    runner.add("add_mutually_exclusive_group: 10 features",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   std::vector<std::string> names;
-                   for (int i = 0; i < 10; ++i)
-                   {
-                       std::string name = "ME" + std::to_string(i);
-                       (void)fm.add_feature(name);
-                       names.push_back(name);
-                   }
-                   auto res = fm.add_mutually_exclusive_group("MutexGroup", names);
-                   DoNotOptimize(res);
-               });
+    runner.add("add_mutually_exclusive_group: 10 features", [&]() {
+        FeatureManager<> fm;
+        std::vector<std::string> names;
+        for (int i = 0; i < 10; ++i)
+        {
+            std::string name = "ME" + std::to_string(i);
+            (void)fm.add_feature(name);
+            names.push_back(name);
+        }
+        auto res = fm.add_mutually_exclusive_group("MutexGroup", names);
+        DoNotOptimize(res);
+    });
 
-    runner.add("add_mutually_exclusive_group: 50 features",
-               [&]()
-               {
-                   FeatureManager<> fm;
-                   std::vector<std::string> names;
-                   for (int i = 0; i < 50; ++i)
-                   {
-                       std::string name = "ME" + std::to_string(i);
-                       (void)fm.add_feature(name);
-                       names.push_back(name);
-                   }
-                   auto res = fm.add_mutually_exclusive_group("MutexGroup", names);
-                   DoNotOptimize(res);
-               });
+    runner.add("add_mutually_exclusive_group: 50 features", [&]() {
+        FeatureManager<> fm;
+        std::vector<std::string> names;
+        for (int i = 0; i < 50; ++i)
+        {
+            std::string name = "ME" + std::to_string(i);
+            (void)fm.add_feature(name);
+            names.push_back(name);
+        }
+        auto res = fm.add_mutually_exclusive_group("MutexGroup", names);
+        DoNotOptimize(res);
+    });
 
     FeatureManager<> fmMutexGroup;
     std::vector<std::string> mutexNames;
@@ -1102,19 +1006,15 @@ int main()
     (void)fmMutexGroup.add_mutually_exclusive_group("MutexGroup", mutexNames);
     (void)fmMutexGroup.enable("MX0");
 
-    runner.add("validate: mutually exclusive group (20 features)",
-               [&]()
-               {
-                   auto res = fmMutexGroup.validate();
-                   DoNotOptimize(res);
-               });
+    runner.add("validate: mutually exclusive group (20 features)", [&]() {
+        auto res = fmMutexGroup.validate();
+        DoNotOptimize(res);
+    });
 
-    runner.add("enable: conflict in mutually exclusive group",
-               [&]()
-               {
-                   auto res = fmMutexGroup.enable("MX1");
-                   DoNotOptimize(res);
-               });
+    runner.add("enable: conflict in mutually exclusive group", [&]() {
+        auto res = fmMutexGroup.enable("MX1");
+        DoNotOptimize(res);
+    });
 
     // -------------------------------------------------------------------------
     // 18. Run All Benchmarks
@@ -1147,8 +1047,7 @@ int main()
         concurrentNames.push_back(name);
     }
 
-    auto resetFeatures = [&]()
-    {
+    auto resetFeatures = [&]() {
         for (std::size_t i = 0; i < 1000; ++i)
         {
             (void)fmConcurrent.disable(concurrentNames[i]);

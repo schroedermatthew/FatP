@@ -1,7 +1,7 @@
 /**
  * @file CheckedArithmetic.h
  * @brief Unified checked arithmetic operations for integers and floating-point
- * 
+ *
  *
  * @layer Foundation
  *
@@ -72,13 +72,14 @@ FATP_META:
     mode: autogen
 */
 // Include the split components
-#include "CheckedArithmeticInt.h"
 #include "CheckedArithmeticFP.h"
+#include "CheckedArithmeticInt.h"
 
-#include <algorithm>  // for std::swap
-#include <cstdint>    // Explicit include for INT32_MAX etc.
+#include <algorithm> // for std::swap
+#include <cstdint>   // Explicit include for INT32_MAX etc.
 
-namespace fat_p {
+namespace fat_p
+{
 
 // =============================================================================
 // Mixed Operations (Integer + Floating-Point)
@@ -100,8 +101,8 @@ namespace fat_p {
  * - NaN inputs (for floating-point)
  */
 template <typename Policy = ThrowOnErrorPolicy, typename T>
-[[nodiscard]] constexpr PolicyReturnType<Policy, T> checked_clamp(T value, T min_val, T max_val)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] constexpr PolicyReturnType<Policy, T>
+checked_clamp(T value, T min_val, T max_val) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_arithmetic_v<T>, "checked_clamp requires arithmetic types");
 
@@ -115,8 +116,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
         {
             return Expected<T, MathError>(unexpect, MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
-                          std::is_same_v<Policy, InfTolerantPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> || std::is_same_v<Policy, InfTolerantPolicy>)
         {
             std::swap(min_val, max_val);
         }
@@ -134,8 +134,7 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
             {
                 return Expected<T, MathError>(unexpect, MathError::NaN);
             }
-            else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
-                              std::is_same_v<Policy, InfTolerantPolicy>)
+            else if constexpr (std::is_same_v<Policy, SaturatingPolicy> || std::is_same_v<Policy, InfTolerantPolicy>)
             {
                 return std::numeric_limits<T>::quiet_NaN();
             }
@@ -158,8 +157,8 @@ template <typename Policy = ThrowOnErrorPolicy, typename T>
  * @return true if in range, or error according to policy
  */
 template <typename Policy = ReturnExpectedPolicy, typename T>
-[[nodiscard]] constexpr PolicyReturnType<Policy, bool> checked_in_range(T value, T min_val, T max_val)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
+[[nodiscard]] constexpr PolicyReturnType<Policy, bool>
+checked_in_range(T value, T min_val, T max_val) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
 {
     static_assert(std::is_arithmetic_v<T>, "checked_in_range requires arithmetic types");
 
@@ -173,8 +172,7 @@ template <typename Policy = ReturnExpectedPolicy, typename T>
         {
             return Expected<bool, MathError>(unexpect, MathError::InvalidArgument);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
-                          std::is_same_v<Policy, InfTolerantPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> || std::is_same_v<Policy, InfTolerantPolicy>)
         {
             std::swap(min_val, max_val);
         }
@@ -192,8 +190,7 @@ template <typename Policy = ReturnExpectedPolicy, typename T>
             {
                 return Expected<bool, MathError>(unexpect, MathError::NaN);
             }
-            else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
-                              std::is_same_v<Policy, InfTolerantPolicy>)
+            else if constexpr (std::is_same_v<Policy, SaturatingPolicy> || std::is_same_v<Policy, InfTolerantPolicy>)
             {
                 return false;
             }
@@ -209,7 +206,8 @@ template <typename Policy = ReturnExpectedPolicy, typename T>
 // Type Conversion with Overflow Detection
 // =============================================================================
 
-namespace detail {
+namespace detail
+{
 
 /**
  * @brief Helper to detect if a cast would overflow
@@ -228,8 +226,7 @@ struct CastOverflowCheck
             {
                 return true;
             }
-            return value < static_cast<From>(ToLimits::lowest()) ||
-                   value > static_cast<From>(ToLimits::max());
+            return value < static_cast<From>(ToLimits::lowest()) || value > static_cast<From>(ToLimits::max());
         }
         else if constexpr (std::is_integral_v<From> && std::is_floating_point_v<To>)
         {
@@ -241,13 +238,12 @@ struct CastOverflowCheck
             // Same signedness
             if constexpr (sizeof(From) <= sizeof(To))
             {
-                return false;  // Widening
+                return false; // Widening
             }
             else
             {
                 // Narrowing
-                return value < static_cast<From>(ToLimits::lowest()) ||
-                       value > static_cast<From>(ToLimits::max());
+                return value < static_cast<From>(ToLimits::lowest()) || value > static_cast<From>(ToLimits::max());
             }
         }
         else if constexpr (std::is_signed_v<From> && !std::is_signed_v<To>)
@@ -265,7 +261,7 @@ struct CastOverflowCheck
             // Unsigned to signed
             if constexpr (sizeof(From) < sizeof(To))
             {
-                return false;  // Always fits
+                return false; // Always fits
             }
             else
             {
@@ -295,8 +291,8 @@ struct CastOverflowCheck
  * - NaN/Inf (for floating-point sources)
  */
 template <typename To, typename Policy = ThrowOnErrorPolicy, typename From>
-[[nodiscard]] constexpr PolicyReturnType<Policy, To> checked_cast(From value)
-    noexcept(PolicyTraits<Policy>::template is_noexcept<To>)
+[[nodiscard]] constexpr PolicyReturnType<Policy, To>
+checked_cast(From value) noexcept(PolicyTraits<Policy>::template is_noexcept<To>)
 {
     static_assert(std::is_arithmetic_v<From>, "checked_cast requires arithmetic source");
     static_assert(std::is_arithmetic_v<To>, "checked_cast requires arithmetic target");
@@ -321,8 +317,7 @@ template <typename To, typename Policy = ThrowOnErrorPolicy, typename From>
             {
                 return Expected<To, MathError>(unexpect, MathError::NaN);
             }
-            else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
-                              std::is_same_v<Policy, InfTolerantPolicy>)
+            else if constexpr (std::is_same_v<Policy, SaturatingPolicy> || std::is_same_v<Policy, InfTolerantPolicy>)
             {
                 if constexpr (std::is_floating_point_v<To>)
                 {
@@ -345,11 +340,9 @@ template <typename To, typename Policy = ThrowOnErrorPolicy, typename From>
             {
                 return Expected<To, MathError>(unexpect, MathError::Inf);
             }
-            else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
-                              std::is_same_v<Policy, InfTolerantPolicy>)
+            else if constexpr (std::is_same_v<Policy, SaturatingPolicy> || std::is_same_v<Policy, InfTolerantPolicy>)
             {
-                return (value > 0) ? std::numeric_limits<To>::max() :
-                                     std::numeric_limits<To>::lowest();
+                return (value > 0) ? std::numeric_limits<To>::max() : std::numeric_limits<To>::lowest();
             }
         }
     }
@@ -374,8 +367,7 @@ template <typename To, typename Policy = ThrowOnErrorPolicy, typename From>
             }
             return Expected<To, MathError>(unexpect, MathError::Overflow);
         }
-        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> ||
-                          std::is_same_v<Policy, InfTolerantPolicy>)
+        else if constexpr (std::is_same_v<Policy, SaturatingPolicy> || std::is_same_v<Policy, InfTolerantPolicy>)
         {
             if constexpr (std::is_signed_v<From> && !std::is_floating_point_v<From>)
             {
@@ -431,7 +423,8 @@ constexpr bool has_avx2 = false;
 // Compile-Time Checked Arithmetic (static_math namespace)
 // =============================================================================
 
-namespace static_math {
+namespace static_math
+{
 
 /**
  * @brief Compile-time checked addition
@@ -440,8 +433,7 @@ namespace static_math {
 template <typename T, T a, T b>
 constexpr T add()
 {
-    static_assert(b >= 0 ? a <= std::numeric_limits<T>::max() - b :
-                            a >= std::numeric_limits<T>::min() - b,
+    static_assert(b >= 0 ? a <= std::numeric_limits<T>::max() - b : a >= std::numeric_limits<T>::min() - b,
                   "Overflow in static_math::add");
     return a + b;
 }
@@ -452,8 +444,7 @@ constexpr T add()
 template <typename T, T a, T b>
 constexpr T sub()
 {
-    static_assert(b >= 0 ? a >= std::numeric_limits<T>::min() + b :
-                            a <= std::numeric_limits<T>::max() + b,
+    static_assert(b >= 0 ? a >= std::numeric_limits<T>::min() + b : a <= std::numeric_limits<T>::max() + b,
                   "Overflow in static_math::sub");
     return a - b;
 }
@@ -470,17 +461,16 @@ constexpr T mul()
     if constexpr (std::is_unsigned_v<T>)
     {
         // Unsigned: only need to check a * b <= max
-        static_assert(a == 0 || b == 0 || a <= std::numeric_limits<T>::max() / b,
-                      "Overflow in static_math::mul");
+        static_assert(a == 0 || b == 0 || a <= std::numeric_limits<T>::max() / b, "Overflow in static_math::mul");
     }
     else
     {
         // Signed: need to handle all four sign combinations
         static_assert(a == 0 || b == 0 ||
-            (a > 0 && b > 0 ? a <= std::numeric_limits<T>::max() / b :
-             a < 0 && b < 0 ? a >= std::numeric_limits<T>::max() / b :
-             (a > 0 ? b >= std::numeric_limits<T>::min() / a :
-                      a >= std::numeric_limits<T>::min() / b)),
+                          (a > 0 && b > 0   ? a <= std::numeric_limits<T>::max() / b
+                           : a < 0 && b < 0 ? a >= std::numeric_limits<T>::max() / b
+                                            : (a > 0 ? b >= std::numeric_limits<T>::min() / a
+                                                     : a >= std::numeric_limits<T>::min() / b)),
                       "Overflow in static_math::mul");
     }
     return a * b;

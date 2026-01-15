@@ -911,8 +911,7 @@ FATP_TEST_CASE(thread_safety_stress)
     std::atomic<size_t> error_count{0};
     std::vector<std::thread> threads;
 
-    auto worker = [&](size_t thread_id)
-    {
+    auto worker = [&](size_t thread_id) {
         while (!start_flag.load(std::memory_order_acquire))
         {
             std::this_thread::yield();
@@ -987,8 +986,7 @@ FATP_TEST_CASE(thread_local_error_independence)
     std::vector<std::thread> threads;
     std::atomic<bool> start_flag{false};
 
-    auto error_worker = [&](size_t)
-    {
+    auto error_worker = [&](size_t) {
         while (!start_flag.load(std::memory_order_acquire))
         {
             std::this_thread::yield();
@@ -1055,125 +1053,99 @@ void run_stringify_performance_benchmarks()
 
     volatile int test_int = 12345;
 
-    benchmark("toString(int) [fast path]",
-              [&test_int]()
-              {
-                  volatile auto s = toString(static_cast<int>(test_int));
-                  (void)s;
-              });
+    benchmark("toString(int) [fast path]", [&test_int]() {
+        volatile auto s = toString(static_cast<int>(test_int));
+        (void)s;
+    });
 
-    benchmark("std::to_string(int) [baseline]",
-              [&test_int]()
-              {
-                  volatile auto s = std::to_string(static_cast<int>(test_int));
-                  (void)s;
-              });
+    benchmark("std::to_string(int) [baseline]", [&test_int]() {
+        volatile auto s = std::to_string(static_cast<int>(test_int));
+        (void)s;
+    });
 
-    benchmark("ostringstream << int [slow]",
-              [&test_int]()
-              {
-                  std::ostringstream ss;
-                  ss << static_cast<int>(test_int);
-                  volatile auto s = ss.str();
-                  (void)s;
-              });
+    benchmark("ostringstream << int [slow]", [&test_int]() {
+        std::ostringstream ss;
+        ss << static_cast<int>(test_int);
+        volatile auto s = ss.str();
+        (void)s;
+    });
 
     StringifyOptions int_opts;
     int_opts.float_precision = 0;
 
-    benchmark("toString(int, opts) [slow path]",
-              [&test_int, &int_opts]()
-              {
-                  volatile auto s = toString(static_cast<int>(test_int), int_opts);
-                  (void)s;
-              });
+    benchmark("toString(int, opts) [slow path]", [&test_int, &int_opts]() {
+        volatile auto s = toString(static_cast<int>(test_int), int_opts);
+        (void)s;
+    });
 
     out << "\n" << colors::blue() << "--- Floating-Point Conversion ---" << colors::reset() << "\n";
 
     volatile double test_double = 3.14159265358979;
 
-    benchmark("toString(double) [fast path]",
-              [&test_double]()
-              {
-                  volatile auto s = toString(static_cast<double>(test_double));
-                  (void)s;
-              });
+    benchmark("toString(double) [fast path]", [&test_double]() {
+        volatile auto s = toString(static_cast<double>(test_double));
+        (void)s;
+    });
 
-    benchmark("std::to_string(double) [baseline]",
-              [&test_double]()
-              {
-                  volatile auto s = std::to_string(static_cast<double>(test_double));
-                  (void)s;
-              });
+    benchmark("std::to_string(double) [baseline]", [&test_double]() {
+        volatile auto s = std::to_string(static_cast<double>(test_double));
+        (void)s;
+    });
 
     StringifyOptions float_opts;
     float_opts.float_precision = 2;
 
-    benchmark("toString(double, prec=2) [slow path]",
-              [&test_double, &float_opts]()
-              {
-                  volatile auto s = toString(static_cast<double>(test_double), float_opts);
-                  (void)s;
-              });
+    benchmark("toString(double, prec=2) [slow path]", [&test_double, &float_opts]() {
+        volatile auto s = toString(static_cast<double>(test_double), float_opts);
+        (void)s;
+    });
 
     out << "\n" << colors::blue() << "--- Boolean Conversion ---" << colors::reset() << "\n";
 
     volatile bool test_bool = true;
 
-    benchmark("toString(bool) [fast path]",
-              [&test_bool]()
-              {
-                  volatile auto s = toString(static_cast<bool>(test_bool));
-                  (void)s;
-              });
+    benchmark("toString(bool) [fast path]", [&test_bool]() {
+        volatile auto s = toString(static_cast<bool>(test_bool));
+        (void)s;
+    });
 
     StringifyOptions bool_opts;
     bool_opts.show_bool_as_text = false;
 
-    benchmark("toString(bool, numeric) [fast path]",
-              [&test_bool, &bool_opts]()
-              {
-                  volatile auto s = toString(static_cast<bool>(test_bool), bool_opts);
-                  (void)s;
-              });
+    benchmark("toString(bool, numeric) [fast path]", [&test_bool, &bool_opts]() {
+        volatile auto s = toString(static_cast<bool>(test_bool), bool_opts);
+        (void)s;
+    });
 
     out << "\n" << colors::blue() << "--- String Passthrough ---" << colors::reset() << "\n";
 
     std::string test_string = "Hello, World!";
     const char* test_cstring = "Hello, World!";
 
-    benchmark("toString(std::string) [zero-copy]",
-              [&test_string]()
-              {
-                  volatile auto s = toString(test_string);
-                  (void)s;
-              });
+    benchmark("toString(std::string) [zero-copy]", [&test_string]() {
+        volatile auto s = toString(test_string);
+        (void)s;
+    });
 
-    benchmark("toString(const char*)",
-              [&test_cstring]()
-              {
-                  volatile auto s = toString(test_cstring);
-                  (void)s;
-              });
+    benchmark("toString(const char*)", [&test_cstring]() {
+        volatile auto s = toString(test_cstring);
+        (void)s;
+    });
 
     out << "\n" << colors::blue() << "--- Enum Conversion ---" << colors::reset() << "\n";
 
     volatile Color test_color = Color::Green;
     volatile Size test_size = Size::Medium;
 
-    benchmark("toString(enum) [specialized]",
-              [&test_color]()
-              {
-                  volatile auto s = toString(static_cast<Color>(test_color));
-                  (void)s;
-              });
+    benchmark("toString(enum) [specialized]", [&test_color]() {
+        volatile auto s = toString(static_cast<Color>(test_color));
+        (void)s;
+    });
 
-    benchmark("toString(enum) [fallback to int]",
-              [&test_size]()
-              {
-                  volatile auto s = toString(static_cast<Size>(test_size));
-                  (void)s;
-              });
+    benchmark("toString(enum) [fallback to int]", [&test_size]() {
+        volatile auto s = toString(static_cast<Size>(test_size));
+        (void)s;
+    });
 
     // Section 2: Custom Type Benchmarks
     out << colors::cyan() << colors::bold() << "\n\n=== SECTION 2: Custom Type Conversions ===" << colors::reset()
@@ -1185,26 +1157,20 @@ void run_stringify_performance_benchmarks()
 
     out << "\n" << colors::blue() << "--- Custom Methods ---" << colors::reset() << "\n";
 
-    benchmark("toString() method",
-              [&custom_ts]()
-              {
-                  volatile auto s = toString(custom_ts);
-                  (void)s;
-              });
+    benchmark("toString() method", [&custom_ts]() {
+        volatile auto s = toString(custom_ts);
+        (void)s;
+    });
 
-    benchmark("to_string() method (snake_case)",
-              [&custom_snake]()
-              {
-                  volatile auto s = toString(custom_snake);
-                  (void)s;
-              });
+    benchmark("to_string() method (snake_case)", [&custom_snake]() {
+        volatile auto s = toString(custom_snake);
+        (void)s;
+    });
 
-    benchmark("operator<< (stream)",
-              [&custom_stream]()
-              {
-                  volatile auto s = toString(custom_stream);
-                  (void)s;
-              });
+    benchmark("operator<< (stream)", [&custom_stream]() {
+        volatile auto s = toString(custom_stream);
+        (void)s;
+    });
 
     // Section 3: Container Benchmarks
     out << colors::cyan() << colors::bold() << "\n\n=== SECTION 3: Container Stringification ===" << colors::reset()
@@ -1218,8 +1184,7 @@ void run_stringify_performance_benchmarks()
 
     benchmark(
         "vector<int> (5 elements)",
-        [&vec5]()
-        {
+        [&vec5]() {
             volatile auto s = toString(vec5);
             (void)s;
         },
@@ -1227,8 +1192,7 @@ void run_stringify_performance_benchmarks()
 
     benchmark(
         "vector<int> (20 elements)",
-        [&vec20]()
-        {
+        [&vec20]() {
             volatile auto s = toString(vec20);
             (void)s;
         },
@@ -1236,8 +1200,7 @@ void run_stringify_performance_benchmarks()
 
     benchmark(
         "vector<int> (100 elements)",
-        [&vec100]()
-        {
+        [&vec100]() {
             volatile auto s = toString(vec100);
             (void)s;
         },
@@ -1248,80 +1211,62 @@ void run_stringify_performance_benchmarks()
     std::pair<int, std::string> test_pair = {42, "hello"};
     std::tuple<int, double, std::string> test_tuple = {1, 3.14, "test"};
 
-    benchmark("pair<int, string>",
-              [&test_pair]()
-              {
-                  volatile auto s = toString(test_pair);
-                  (void)s;
-              });
+    benchmark("pair<int, string>", [&test_pair]() {
+        volatile auto s = toString(test_pair);
+        (void)s;
+    });
 
-    benchmark("tuple<int, double, string>",
-              [&test_tuple]()
-              {
-                  volatile auto s = toString(test_tuple);
-                  (void)s;
-              });
+    benchmark("tuple<int, double, string>", [&test_tuple]() {
+        volatile auto s = toString(test_tuple);
+        (void)s;
+    });
 
     out << "\n" << colors::blue() << "--- std::optional ---" << colors::reset() << "\n";
 
     std::optional<int> opt_value = 42;
     std::optional<int> opt_empty = std::nullopt;
 
-    benchmark("optional<int> (has value)",
-              [&opt_value]()
-              {
-                  volatile auto s = toString(opt_value);
-                  (void)s;
-              });
+    benchmark("optional<int> (has value)", [&opt_value]() {
+        volatile auto s = toString(opt_value);
+        (void)s;
+    });
 
-    benchmark("optional<int> (empty)",
-              [&opt_empty]()
-              {
-                  volatile auto s = toString(opt_empty);
-                  (void)s;
-              });
+    benchmark("optional<int> (empty)", [&opt_empty]() {
+        volatile auto s = toString(opt_empty);
+        (void)s;
+    });
 
     // Section 4: Helper Functions
     out << colors::cyan() << colors::bold() << "\n\n=== SECTION 4: Helper Functions ===" << colors::reset() << "\n";
 
     out << "\n" << colors::blue() << "--- Concatenation ---" << colors::reset() << "\n";
 
-    benchmark("toStringConcat (2 args)",
-              []()
-              {
-                  volatile auto s = toStringConcat("Value: ", 42);
-                  (void)s;
-              });
+    benchmark("toStringConcat (2 args)", []() {
+        volatile auto s = toStringConcat("Value: ", 42);
+        (void)s;
+    });
 
-    benchmark("toStringConcat (4 args)",
-              []()
-              {
-                  volatile auto s = toStringConcat("x=", 1, ", y=", 2);
-                  (void)s;
-              });
+    benchmark("toStringConcat (4 args)", []() {
+        volatile auto s = toStringConcat("x=", 1, ", y=", 2);
+        (void)s;
+    });
 
-    benchmark("toStringConcat (6 args)",
-              []()
-              {
-                  volatile auto s = toStringConcat("a=", 1, ", b=", 2, ", c=", 3);
-                  (void)s;
-              });
+    benchmark("toStringConcat (6 args)", []() {
+        volatile auto s = toStringConcat("a=", 1, ", b=", 2, ", c=", 3);
+        (void)s;
+    });
 
     out << "\n" << colors::blue() << "--- Padding ---" << colors::reset() << "\n";
 
-    benchmark("toStringPadded (right, space)",
-              []()
-              {
-                  volatile auto s = toStringPadded(42, 10, '>');
-                  (void)s;
-              });
+    benchmark("toStringPadded (right, space)", []() {
+        volatile auto s = toStringPadded(42, 10, '>');
+        (void)s;
+    });
 
-    benchmark("toStringPadded (zero)",
-              []()
-              {
-                  volatile auto s = toStringPadded(42, 10, '>', '0');
-                  (void)s;
-              });
+    benchmark("toStringPadded (zero)", []() {
+        volatile auto s = toStringPadded(42, 10, '>', '0');
+        (void)s;
+    });
 
     // Section 5: Error Handling
     out << colors::cyan() << colors::bold() << "\n\n=== SECTION 5: Error Handling Overhead ===" << colors::reset()
@@ -1331,19 +1276,16 @@ void run_stringify_performance_benchmarks()
 
     std::string out_str;
 
-    benchmark("tryToString (success)",
-              [&out_str]()
-              {
-                  volatile bool result = tryToString(42, out_str);
-                  (void)result;
-              });
+    benchmark("tryToString (success)", [&out_str]() {
+        volatile bool result = tryToString(42, out_str);
+        (void)result;
+    });
 
     ThrowingClass thrower;
 
     benchmark(
         "tryToString (exception caught)",
-        [&thrower, &out_str]()
-        {
+        [&thrower, &out_str]() {
             volatile bool result = tryToString(thrower, out_str);
             (void)result;
         },

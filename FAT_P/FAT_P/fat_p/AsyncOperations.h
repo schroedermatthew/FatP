@@ -110,8 +110,7 @@ public:
         using NewT = ExtractExpectedValue_t<ResultType>;
 
         return AsyncTask<NewT, E>::create(
-            [fut = std::move(mFuture), cont = std::forward<Func>(continuation)]() mutable -> Expected<NewT, E>
-            {
+            [fut = std::move(mFuture), cont = std::forward<Func>(continuation)]() mutable -> Expected<NewT, E> {
                 auto result = fut.get();
                 if (!result)
                 {
@@ -125,8 +124,7 @@ public:
     AsyncTask<T, E> error(Func&& error_handler)
     {
         return create(
-            [fut = std::move(mFuture), handler = std::forward<Func>(error_handler)]() mutable -> Expected<T, E>
-            {
+            [fut = std::move(mFuture), handler = std::forward<Func>(error_handler)]() mutable -> Expected<T, E> {
                 auto result = fut.get();
                 if (result)
                 {

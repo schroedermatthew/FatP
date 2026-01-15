@@ -160,8 +160,7 @@ FATP_TEST_CASE(fp_input_validation)
 
     {
         FATP_ASSERT_TRUE(test_throws("NaN + 1",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_add_fp<ThrowOnErrorPolicy>(nan_val, 1.0);
                                      }),
                          "Should throw on NaN input in addition");
@@ -176,8 +175,7 @@ FATP_TEST_CASE(fp_input_validation)
 
     {
         FATP_ASSERT_TRUE(test_throws("1 - NaN",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_sub_fp<ThrowOnErrorPolicy>(1.0, nan_val);
                                      }),
                          "Should throw on NaN input in subtraction");
@@ -185,8 +183,7 @@ FATP_TEST_CASE(fp_input_validation)
 
     {
         FATP_ASSERT_TRUE(test_throws("NaN * 2",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_mul_fp<ThrowOnErrorPolicy>(nan_val, 2.0);
                                      }),
                          "Should throw on NaN input in multiplication");
@@ -194,8 +191,7 @@ FATP_TEST_CASE(fp_input_validation)
 
     {
         FATP_ASSERT_TRUE(test_throws("NaN / 5",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_div_fp<ThrowOnErrorPolicy>(nan_val, 5.0);
                                      }),
                          "Should throw on NaN input in division");
@@ -203,8 +199,7 @@ FATP_TEST_CASE(fp_input_validation)
 
     {
         FATP_ASSERT_TRUE(test_throws("Inf - Inf",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_sub_fp<ThrowOnErrorPolicy>(inf_val, inf_val);
                                      }),
                          "Should throw on Inf - Inf");
@@ -216,8 +211,7 @@ FATP_TEST_CASE(fp_input_validation)
 
     {
         FATP_ASSERT_TRUE(test_throws("-Inf + Inf",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_add_fp<ThrowOnErrorPolicy>(-inf_val, inf_val);
                                      }),
                          "Should throw on -Inf + Inf");
@@ -244,8 +238,7 @@ FATP_TEST_CASE(fp_input_validation)
         double large = std::numeric_limits<double>::max();
 
         FATP_ASSERT_TRUE(test_throws("Overflow: max * 2",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_mul_fp<ThrowOnErrorPolicy>(large, 2.0);
                                      }),
                          "Should detect overflow (finite * finite -> Inf)");
@@ -299,8 +292,7 @@ FATP_TEST_CASE(type_safe_shifts)
 
     {
         FATP_ASSERT_TRUE(test_throws("Negative left shift",
-                                     []()
-                                     {
+                                     []() {
                                          (void)checked_left_shift<ThrowOnErrorPolicy>(5, -1);
                                      }),
                          "Should throw on negative left shift");
@@ -312,8 +304,7 @@ FATP_TEST_CASE(type_safe_shifts)
 
     {
         FATP_ASSERT_TRUE(test_throws("Shift >= bitwidth",
-                                     []()
-                                     {
+                                     []() {
                                          (void)checked_left_shift<ThrowOnErrorPolicy>(5, 32);
                                      }),
                          "Should throw on shift >= bitwidth");
@@ -371,15 +362,13 @@ FATP_TEST_CASE(checked_abs)
     // MIN overflow - ThrowOnErrorPolicy
     {
         FATP_ASSERT_TRUE(test_throws("abs(INT_MIN)",
-                                     []()
-                                     {
+                                     []() {
                                          (void)checked_abs<ThrowOnErrorPolicy>(std::numeric_limits<int>::min());
                                      }),
                          "abs(INT_MIN) should throw");
 
         FATP_ASSERT_TRUE(test_throws("abs(LLONG_MIN)",
-                                     []()
-                                     {
+                                     []() {
                                          (void)checked_abs<ThrowOnErrorPolicy>(std::numeric_limits<long long>::min());
                                      }),
                          "abs(LLONG_MIN) should throw");
@@ -914,8 +903,7 @@ FATP_TEST_CASE(simd_overflow_detection)
     std::vector<int32_t> vec_b = {1, 2, 1, 4, 5};
 
     FATP_ASSERT_TRUE(test_throws("Vector addition overflow",
-                                 [&]()
-                                 {
+                                 [&]() {
                                      (void)checked_add_vec<ThrowOnErrorPolicy>(vec_a, vec_b);
                                  }),
                      "Should detect overflow in vector operation");
@@ -940,8 +928,7 @@ FATP_TEST_CASE(fp_vec_sub_nan_detection)
     std::vector<double> vec_b = {1.0, 2.0, 3.0, 4.0};
 
     FATP_ASSERT_TRUE(test_throws("Vector sub with NaN",
-                                 [&]()
-                                 {
+                                 [&]() {
                                      (void)checked_sub_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
                                  }),
                      "Should detect NaN in subtraction");
@@ -962,8 +949,7 @@ FATP_TEST_CASE(fp_vec_sub_inf_overflow)
     std::vector<double> vec_b = {1.0, -std::numeric_limits<double>::max(), 3.0};
 
     FATP_ASSERT_TRUE(test_throws("Vector sub overflow to Inf",
-                                 [&]()
-                                 {
+                                 [&]() {
                                      (void)checked_sub_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
                                  }),
                      "Should detect Inf overflow from finite inputs");
@@ -1004,8 +990,7 @@ FATP_TEST_CASE(fp_vec_mul_nan_detection)
     std::vector<double> vec_b = {1.0, 2.0, std::numeric_limits<double>::infinity(), 4.0};
 
     FATP_ASSERT_TRUE(test_throws("Vector mul with 0 * Inf -> NaN",
-                                 [&]()
-                                 {
+                                 [&]() {
                                      (void)checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
                                  }),
                      "Should detect NaN from 0 * Inf");
@@ -1026,8 +1011,7 @@ FATP_TEST_CASE(fp_vec_mul_inf_overflow)
     std::vector<double> vec_b = {1.0, 3.0, 3.0};
 
     FATP_ASSERT_TRUE(test_throws("Vector mul overflow to Inf",
-                                 [&]()
-                                 {
+                                 [&]() {
                                      (void)checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
                                  }),
                      "Should detect Inf overflow from finite multiplication");
@@ -1053,8 +1037,7 @@ FATP_TEST_CASE(fp_vec_mul_mixed_overflow)
     std::vector<double> vec_b = {2.0, 3.0, 10.0, 6.0, 7.0};
 
     FATP_ASSERT_TRUE(test_throws("Mixed overflow detection",
-                                 [&]()
-                                 {
+                                 [&]() {
                                      (void)checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
                                  }),
                      "Should detect overflow in middle of vector");
@@ -1094,8 +1077,7 @@ FATP_TEST_CASE(fp_vec_div_nan_detection)
     std::vector<double> vec_b = {2.0, std::numeric_limits<double>::infinity(), 3.0};
 
     FATP_ASSERT_TRUE(test_throws("Vector div with Inf / Inf -> NaN",
-                                 [&]()
-                                 {
+                                 [&]() {
                                      (void)checked_div_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
                                  }),
                      "Should detect NaN from Inf / Inf");
@@ -1116,8 +1098,7 @@ FATP_TEST_CASE(fp_vec_div_inf_overflow)
     std::vector<double> vec_b = {2.0, small_val, 3.0};
 
     FATP_ASSERT_TRUE(test_throws("Vector div overflow to Inf",
-                                 [&]()
-                                 {
+                                 [&]() {
                                      (void)checked_div_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
                                  }),
                      "Should detect Inf overflow from division");
@@ -1142,8 +1123,7 @@ FATP_TEST_CASE(fp_vec_div_by_zero)
     std::vector<double> vec_b = {2.0, 0.0, 3.0};
 
     FATP_ASSERT_TRUE(test_throws("Vector div by zero",
-                                 [&]()
-                                 {
+                                 [&]() {
                                      (void)checked_div_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
                                  }),
                      "Should detect division by zero");
@@ -1238,8 +1218,7 @@ FATP_TEST_CASE(fp_vec_boundary_detection)
         std::vector<double> vec_b = {max_val, 2.0};
 
         FATP_ASSERT_TRUE(test_throws("Mul overflow at DBL_MAX",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
                                      }),
                          "Should detect DBL_MAX overflow");
@@ -1250,8 +1229,7 @@ FATP_TEST_CASE(fp_vec_boundary_detection)
         std::vector<double> vec_b = {min_val, 1.0};
 
         FATP_ASSERT_TRUE(test_throws("Div overflow DBL_MAX/DBL_MIN",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_div_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
                                      }),
                          "Should detect division overflow");
@@ -1262,8 +1240,7 @@ FATP_TEST_CASE(fp_vec_boundary_detection)
         std::vector<double> vec_b = {-max_val, 1.0};
 
         FATP_ASSERT_TRUE(test_throws("Sub overflow to Inf",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_sub_vec_fp<ThrowOnErrorPolicy>(vec_a, vec_b);
                                      }),
                          "Should detect subtraction overflow");
@@ -1443,8 +1420,7 @@ FATP_TEST_CASE(fp_vec_throw_on_overflow)
 
     // First lane overflows: 1e308 * 2 = Inf
     FATP_ASSERT_TRUE(test_throws("Finite->Inf overflow",
-                                 [&]()
-                                 {
+                                 [&]() {
                                      (void)checked_mul_vec_fp<ThrowOnErrorPolicy>(huge, mult);
                                  }),
                      "Should throw on finite->Inf overflow");
@@ -1479,8 +1455,7 @@ FATP_TEST_CASE(fp_vec_inf_inf_fallback)
 
     // Also test with ThrowOnError
     FATP_ASSERT_TRUE(test_throws("Inf + (-Inf)",
-                                 [&]()
-                                 {
+                                 [&]() {
                                      (void)checked_add_vec_fp<ThrowOnErrorPolicy>(a, b);
                                  }),
                      "Should throw on Inf + (-Inf)");
@@ -1646,15 +1621,13 @@ FATP_TEST_CASE(checked_add)
 
     {
         FATP_ASSERT_TRUE(test_throws("INT_MAX + 1",
-                                     []()
-                                     {
+                                     []() {
                                          (void)checked_add<ThrowOnErrorPolicy>(std::numeric_limits<int>::max(), 1);
                                      }),
                          "Should throw on overflow");
 
         FATP_ASSERT_TRUE(test_throws("INT_MIN + (-1)",
-                                     []()
-                                     {
+                                     []() {
                                          (void)checked_add<ThrowOnErrorPolicy>(std::numeric_limits<int>::min(), -1);
                                      }),
                          "Should throw on underflow");
@@ -1693,8 +1666,7 @@ FATP_TEST_CASE(checked_sub)
 
     {
         FATP_ASSERT_TRUE(test_throws("INT_MIN - 1",
-                                     []()
-                                     {
+                                     []() {
                                          (void)checked_sub<ThrowOnErrorPolicy>(std::numeric_limits<int>::min(), 1);
                                      }),
                          "Should throw on underflow");
@@ -1723,8 +1695,7 @@ FATP_TEST_CASE(checked_mul)
 
     {
         FATP_ASSERT_TRUE(test_throws("Large mul",
-                                     []()
-                                     {
+                                     []() {
                                          (void)checked_mul<ThrowOnErrorPolicy>(100000, 100000);
                                      }),
                          "Should throw on overflow");
@@ -1745,8 +1716,7 @@ FATP_TEST_CASE(checked_div)
 
     {
         FATP_ASSERT_TRUE(test_throws("Div by zero",
-                                     []()
-                                     {
+                                     []() {
                                          (void)checked_div<ThrowOnErrorPolicy>(10, 0);
                                      }),
                          "Should throw on div by zero");
@@ -1760,8 +1730,7 @@ FATP_TEST_CASE(checked_div)
 
     {
         FATP_ASSERT_TRUE(test_throws("INT_MIN / -1",
-                                     []()
-                                     {
+                                     []() {
                                          (void)checked_div<ThrowOnErrorPolicy>(std::numeric_limits<int>::min(), -1);
                                      }),
                          "Should throw on min/-1 overflow");
@@ -1784,8 +1753,7 @@ FATP_TEST_CASE(checked_fp_operations)
         double nan_val = std::numeric_limits<double>::quiet_NaN();
 
         FATP_ASSERT_TRUE(test_throws("NaN + 1",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_add_fp<ThrowOnErrorPolicy>(nan_val, 1.0);
                                      }),
                          "Should throw on NaN input");
@@ -1819,8 +1787,7 @@ FATP_TEST_CASE(checked_mod)
 
     {
         FATP_ASSERT_TRUE(test_throws("Mod by zero",
-                                     []()
-                                     {
+                                     []() {
                                          (void)checked_mod<ThrowOnErrorPolicy>(10, 0);
                                      }),
                          "Should throw on mod by zero");
@@ -1851,8 +1818,7 @@ FATP_TEST_CASE(checked_negate)
 
     {
         FATP_ASSERT_TRUE(test_throws("Negate INT_MIN",
-                                     []()
-                                     {
+                                     []() {
                                          (void)checked_negate<ThrowOnErrorPolicy>(std::numeric_limits<int>::min());
                                      }),
                          "Should throw on INT_MIN negation (overflow)");
@@ -1876,8 +1842,7 @@ FATP_TEST_CASE(checked_negate)
 
     {
         FATP_ASSERT_TRUE(test_throws("Negate INT64_MIN",
-                                     []()
-                                     {
+                                     []() {
                                          (void)checked_negate<ThrowOnErrorPolicy>(std::numeric_limits<int64_t>::min());
                                      }),
                          "Should throw on INT64_MIN negation");
@@ -1984,8 +1949,7 @@ FATP_TEST_CASE(checked_cast_narrowing)
     {
         int64_t big = 1000000000000LL;
         FATP_ASSERT_TRUE(test_throws("int64 -> int32 overflow",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_cast<int32_t, ThrowOnErrorPolicy>(big);
                                      }),
                          "Should throw on narrowing overflow");
@@ -2021,8 +1985,7 @@ FATP_TEST_CASE(checked_cast_sign_conversion)
     {
         int32_t negative = -100;
         FATP_ASSERT_TRUE(test_throws("negative int -> unsigned",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_cast<uint32_t, ThrowOnErrorPolicy>(negative);
                                      }),
                          "Should throw on negative to unsigned");
@@ -2044,8 +2007,7 @@ FATP_TEST_CASE(checked_cast_sign_conversion)
     {
         uint64_t big_unsigned = static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1;
         FATP_ASSERT_TRUE(test_throws("large unsigned -> signed",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_cast<int64_t, ThrowOnErrorPolicy>(big_unsigned);
                                      }),
                          "Should throw on unsigned overflow to signed");
@@ -2068,8 +2030,7 @@ FATP_TEST_CASE(checked_cast_fp_to_int)
     {
         double big = 1e15;
         FATP_ASSERT_TRUE(test_throws("large double -> int32",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_cast<int32_t, ThrowOnErrorPolicy>(big);
                                      }),
                          "Should throw on FP overflow");
@@ -2078,8 +2039,7 @@ FATP_TEST_CASE(checked_cast_fp_to_int)
     {
         double nan = std::numeric_limits<double>::quiet_NaN();
         FATP_ASSERT_TRUE(test_throws("NaN -> int",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_cast<int32_t, ThrowOnErrorPolicy>(nan);
                                      }),
                          "Should throw on NaN");
@@ -2088,8 +2048,7 @@ FATP_TEST_CASE(checked_cast_fp_to_int)
     {
         double inf = std::numeric_limits<double>::infinity();
         FATP_ASSERT_TRUE(test_throws("Inf -> int",
-                                     [&]()
-                                     {
+                                     [&]() {
                                          (void)checked_cast<int32_t, ThrowOnErrorPolicy>(inf);
                                      }),
                          "Should throw on Inf");
@@ -2825,140 +2784,104 @@ void run_checked_arithmetic_benchmarks()
 
     out << colors::blue() << "--- Integer Scalar Operations ---" << colors::reset() << "\n";
 
-    benchmark("checked_add (int32)",
-              [&]()
-              {
-                  volatile int32_t r = checked_add<ThrowOnErrorPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("checked_add (int32)", [&]() {
+        volatile int32_t r = checked_add<ThrowOnErrorPolicy>(a, b);
+        (void)r;
+    });
 
-    benchmark("checked_sub (int32)",
-              [&]()
-              {
-                  volatile int32_t r = checked_sub<ThrowOnErrorPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("checked_sub (int32)", [&]() {
+        volatile int32_t r = checked_sub<ThrowOnErrorPolicy>(a, b);
+        (void)r;
+    });
 
-    benchmark("checked_mul (int32)",
-              [&]()
-              {
-                  volatile int32_t r = checked_mul<ThrowOnErrorPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("checked_mul (int32)", [&]() {
+        volatile int32_t r = checked_mul<ThrowOnErrorPolicy>(a, b);
+        (void)r;
+    });
 
-    benchmark("checked_div (int32)",
-              [&]()
-              {
-                  volatile int32_t r = checked_div<ThrowOnErrorPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("checked_div (int32)", [&]() {
+        volatile int32_t r = checked_div<ThrowOnErrorPolicy>(a, b);
+        (void)r;
+    });
 
-    benchmark("checked_mod (int32)",
-              [&]()
-              {
-                  volatile int32_t r = checked_mod<ThrowOnErrorPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("checked_mod (int32)", [&]() {
+        volatile int32_t r = checked_mod<ThrowOnErrorPolicy>(a, b);
+        (void)r;
+    });
 
     out << "\n" << colors::blue() << "--- Floating-Point Scalar Operations ---" << colors::reset() << "\n";
 
-    benchmark("checked_add_fp (double)",
-              [&]()
-              {
-                  volatile double r = checked_add_fp<ThrowOnErrorPolicy>(fa, fb);
-                  (void)r;
-              });
+    benchmark("checked_add_fp (double)", [&]() {
+        volatile double r = checked_add_fp<ThrowOnErrorPolicy>(fa, fb);
+        (void)r;
+    });
 
-    benchmark("checked_sub_fp (double)",
-              [&]()
-              {
-                  volatile double r = checked_sub_fp<ThrowOnErrorPolicy>(fa, fb);
-                  (void)r;
-              });
+    benchmark("checked_sub_fp (double)", [&]() {
+        volatile double r = checked_sub_fp<ThrowOnErrorPolicy>(fa, fb);
+        (void)r;
+    });
 
-    benchmark("checked_mul_fp (double)",
-              [&]()
-              {
-                  volatile double r = checked_mul_fp<ThrowOnErrorPolicy>(fa, fb);
-                  (void)r;
-              });
+    benchmark("checked_mul_fp (double)", [&]() {
+        volatile double r = checked_mul_fp<ThrowOnErrorPolicy>(fa, fb);
+        (void)r;
+    });
 
-    benchmark("checked_div_fp (double)",
-              [&]()
-              {
-                  volatile double r = checked_div_fp<ThrowOnErrorPolicy>(fa, fb);
-                  (void)r;
-              });
+    benchmark("checked_div_fp (double)", [&]() {
+        volatile double r = checked_div_fp<ThrowOnErrorPolicy>(fa, fb);
+        (void)r;
+    });
 
     out << "\n" << colors::blue() << "--- Bitwise Operations ---" << colors::reset() << "\n";
 
-    benchmark("checked_and",
-              [&]()
-              {
-                  volatile int32_t r = checked_and<ThrowOnErrorPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("checked_and", [&]() {
+        volatile int32_t r = checked_and<ThrowOnErrorPolicy>(a, b);
+        (void)r;
+    });
 
-    benchmark("checked_or",
-              [&]()
-              {
-                  volatile int32_t r = checked_or<ThrowOnErrorPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("checked_or", [&]() {
+        volatile int32_t r = checked_or<ThrowOnErrorPolicy>(a, b);
+        (void)r;
+    });
 
-    benchmark("checked_xor",
-              [&]()
-              {
-                  volatile int32_t r = checked_xor<ThrowOnErrorPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("checked_xor", [&]() {
+        volatile int32_t r = checked_xor<ThrowOnErrorPolicy>(a, b);
+        (void)r;
+    });
 
-    benchmark("checked_left_shift",
-              [&]()
-              {
-                  volatile int32_t r = checked_left_shift<ThrowOnErrorPolicy>(a, 4);
-                  (void)r;
-              });
+    benchmark("checked_left_shift", [&]() {
+        volatile int32_t r = checked_left_shift<ThrowOnErrorPolicy>(a, 4);
+        (void)r;
+    });
 
-    benchmark("checked_right_shift",
-              [&]()
-              {
-                  volatile int32_t r = checked_right_shift<ThrowOnErrorPolicy>(a, 4);
-                  (void)r;
-              });
+    benchmark("checked_right_shift", [&]() {
+        volatile int32_t r = checked_right_shift<ThrowOnErrorPolicy>(a, 4);
+        (void)r;
+    });
 
     out << "\n" << colors::blue() << "--- Checked Cast Operations ---" << colors::reset() << "\n";
 
     int64_t big_val = 12345;
     double dbl_val = 1234.5;
 
-    benchmark("checked_cast int64->int32",
-              [&]()
-              {
-                  volatile int32_t r = checked_cast<int32_t, ThrowOnErrorPolicy>(big_val);
-                  (void)r;
-              });
+    benchmark("checked_cast int64->int32", [&]() {
+        volatile int32_t r = checked_cast<int32_t, ThrowOnErrorPolicy>(big_val);
+        (void)r;
+    });
 
-    benchmark("checked_cast int32->int64",
-              [&]()
-              {
-                  volatile int64_t r = checked_cast<int64_t, ThrowOnErrorPolicy>(a);
-                  (void)r;
-              });
+    benchmark("checked_cast int32->int64", [&]() {
+        volatile int64_t r = checked_cast<int64_t, ThrowOnErrorPolicy>(a);
+        (void)r;
+    });
 
-    benchmark("checked_cast double->int32",
-              [&]()
-              {
-                  volatile int32_t r = checked_cast<int32_t, ThrowOnErrorPolicy>(dbl_val);
-                  (void)r;
-              });
+    benchmark("checked_cast double->int32", [&]() {
+        volatile int32_t r = checked_cast<int32_t, ThrowOnErrorPolicy>(dbl_val);
+        (void)r;
+    });
 
-    benchmark("checked_cast int32->double",
-              [&]()
-              {
-                  volatile double r = checked_cast<double, ThrowOnErrorPolicy>(a);
-                  (void)r;
-              });
+    benchmark("checked_cast int32->double", [&]() {
+        volatile double r = checked_cast<double, ThrowOnErrorPolicy>(a);
+        (void)r;
+    });
 
     out << "\n" << colors::blue() << "--- Vector Operations (1K elements) ---" << colors::reset() << "\n";
 
@@ -2969,8 +2892,7 @@ void run_checked_arithmetic_benchmarks()
 
     benchmark(
         "checked_add_vec (int32)",
-        [&]()
-        {
+        [&]() {
             auto r = checked_add_vec<ThrowOnErrorPolicy>(vec_a, vec_b);
             volatile int32_t x = r[0];
             (void)x;
@@ -2979,8 +2901,7 @@ void run_checked_arithmetic_benchmarks()
 
     benchmark(
         "checked_sub_vec (int32)",
-        [&]()
-        {
+        [&]() {
             auto r = checked_sub_vec<ThrowOnErrorPolicy>(vec_a, vec_b);
             volatile int32_t x = r[0];
             (void)x;
@@ -2989,8 +2910,7 @@ void run_checked_arithmetic_benchmarks()
 
     benchmark(
         "checked_mul_vec (int32)",
-        [&]()
-        {
+        [&]() {
             auto r = checked_mul_vec<ThrowOnErrorPolicy>(vec_a, vec_b);
             volatile int32_t x = r[0];
             (void)x;
@@ -2999,8 +2919,7 @@ void run_checked_arithmetic_benchmarks()
 
     benchmark(
         "checked_add_vec_fp (double)",
-        [&]()
-        {
+        [&]() {
             auto r = checked_add_vec_fp<ThrowOnErrorPolicy>(vec_fa, vec_fb);
             volatile double x = r[0];
             (void)x;
@@ -3009,8 +2928,7 @@ void run_checked_arithmetic_benchmarks()
 
     benchmark(
         "checked_mul_vec_fp (double)",
-        [&]()
-        {
+        [&]() {
             auto r = checked_mul_vec_fp<ThrowOnErrorPolicy>(vec_fa, vec_fb);
             volatile double x = r[0];
             (void)x;
@@ -3019,8 +2937,7 @@ void run_checked_arithmetic_benchmarks()
 
     benchmark(
         "checked_div_vec_fp (double)",
-        [&]()
-        {
+        [&]() {
             auto r = checked_div_vec_fp<ThrowOnErrorPolicy>(vec_fa, vec_fb);
             volatile double x = r[0];
             (void)x;
@@ -3063,8 +2980,7 @@ void run_simd_vs_scalar_benchmarks()
 
     // SIMD path (via checked_add_vec)
     double simd_add_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             auto r = checked_add_vec<ThrowOnErrorPolicy>(a_i32, b_i32);
             DoNotOptimize(r.data());
         },
@@ -3074,8 +2990,7 @@ void run_simd_vs_scalar_benchmarks()
 
     // Pure scalar loop
     double scalar_add_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             for (size_t i = 0; i < N; ++i)
             {
                 result_i32[i] = checked_add<ThrowOnErrorPolicy>(a_i32[i], b_i32[i]);
@@ -3091,8 +3006,7 @@ void run_simd_vs_scalar_benchmarks()
     out << "\n" << colors::blue() << "--- SUB (int32, " << N << " elements) ---" << colors::reset() << "\n";
 
     double simd_sub_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             auto r = checked_sub_vec<ThrowOnErrorPolicy>(a_i32, b_i32);
             DoNotOptimize(r.data());
         },
@@ -3101,8 +3015,7 @@ void run_simd_vs_scalar_benchmarks()
     out << "  SIMD (checked_sub_vec):  " << format_time(simd_sub_time) << "\n";
 
     double scalar_sub_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             for (size_t i = 0; i < N; ++i)
             {
                 result_i32[i] = checked_sub<ThrowOnErrorPolicy>(a_i32[i], b_i32[i]);
@@ -3118,8 +3031,7 @@ void run_simd_vs_scalar_benchmarks()
     out << "\n" << colors::blue() << "--- MUL (int32, " << N << " elements) ---" << colors::reset() << "\n";
 
     double simd_mul_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             auto r = checked_mul_vec<ThrowOnErrorPolicy>(a_i32, b_i32);
             DoNotOptimize(r.data());
         },
@@ -3128,8 +3040,7 @@ void run_simd_vs_scalar_benchmarks()
     out << "  SIMD (checked_mul_vec):  " << format_time(simd_mul_time) << "\n";
 
     double scalar_mul_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             for (size_t i = 0; i < N; ++i)
             {
                 result_i32[i] = checked_mul<ThrowOnErrorPolicy>(a_i32[i], b_i32[i]);
@@ -3174,108 +3085,82 @@ void run_policy_comparison_benchmarks()
 
     out << colors::blue() << "--- Addition Policy Comparison ---" << colors::reset() << "\n";
 
-    benchmark("ThrowOnErrorPolicy",
-              [&]()
-              {
-                  volatile int32_t r = checked_add<ThrowOnErrorPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("ThrowOnErrorPolicy", [&]() {
+        volatile int32_t r = checked_add<ThrowOnErrorPolicy>(a, b);
+        (void)r;
+    });
 
-    benchmark("ReturnExpectedPolicy",
-              [&]()
-              {
-                  auto r = checked_add<ReturnExpectedPolicy>(a, b);
-                  volatile int32_t x = *r;
-                  (void)x;
-              });
+    benchmark("ReturnExpectedPolicy", [&]() {
+        auto r = checked_add<ReturnExpectedPolicy>(a, b);
+        volatile int32_t x = *r;
+        (void)x;
+    });
 
-    benchmark("SaturatingPolicy",
-              [&]()
-              {
-                  volatile int32_t r = checked_add<SaturatingPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("SaturatingPolicy", [&]() {
+        volatile int32_t r = checked_add<SaturatingPolicy>(a, b);
+        (void)r;
+    });
 
     out << "\n" << colors::blue() << "--- Multiplication Policy Comparison ---" << colors::reset() << "\n";
 
-    benchmark("ThrowOnErrorPolicy",
-              [&]()
-              {
-                  volatile int32_t r = checked_mul<ThrowOnErrorPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("ThrowOnErrorPolicy", [&]() {
+        volatile int32_t r = checked_mul<ThrowOnErrorPolicy>(a, b);
+        (void)r;
+    });
 
-    benchmark("ReturnExpectedPolicy",
-              [&]()
-              {
-                  auto r = checked_mul<ReturnExpectedPolicy>(a, b);
-                  volatile int32_t x = *r;
-                  (void)x;
-              });
+    benchmark("ReturnExpectedPolicy", [&]() {
+        auto r = checked_mul<ReturnExpectedPolicy>(a, b);
+        volatile int32_t x = *r;
+        (void)x;
+    });
 
-    benchmark("SaturatingPolicy",
-              [&]()
-              {
-                  volatile int32_t r = checked_mul<SaturatingPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("SaturatingPolicy", [&]() {
+        volatile int32_t r = checked_mul<SaturatingPolicy>(a, b);
+        (void)r;
+    });
 
     out << "\n" << colors::blue() << "--- Division Policy Comparison ---" << colors::reset() << "\n";
 
-    benchmark("ThrowOnErrorPolicy",
-              [&]()
-              {
-                  volatile int32_t r = checked_div<ThrowOnErrorPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("ThrowOnErrorPolicy", [&]() {
+        volatile int32_t r = checked_div<ThrowOnErrorPolicy>(a, b);
+        (void)r;
+    });
 
-    benchmark("ReturnExpectedPolicy",
-              [&]()
-              {
-                  auto r = checked_div<ReturnExpectedPolicy>(a, b);
-                  volatile int32_t x = *r;
-                  (void)x;
-              });
+    benchmark("ReturnExpectedPolicy", [&]() {
+        auto r = checked_div<ReturnExpectedPolicy>(a, b);
+        volatile int32_t x = *r;
+        (void)x;
+    });
 
-    benchmark("SaturatingPolicy",
-              [&]()
-              {
-                  volatile int32_t r = checked_div<SaturatingPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("SaturatingPolicy", [&]() {
+        volatile int32_t r = checked_div<SaturatingPolicy>(a, b);
+        (void)r;
+    });
 
     out << "\n" << colors::blue() << "--- FP Policy Comparison (with InfTolerant) ---" << colors::reset() << "\n";
 
     double fa = 1234.5, fb = 678.9;
 
-    benchmark("ThrowOnErrorPolicy",
-              [&]()
-              {
-                  volatile double r = checked_mul_fp<ThrowOnErrorPolicy>(fa, fb);
-                  (void)r;
-              });
+    benchmark("ThrowOnErrorPolicy", [&]() {
+        volatile double r = checked_mul_fp<ThrowOnErrorPolicy>(fa, fb);
+        (void)r;
+    });
 
-    benchmark("ReturnExpectedPolicy",
-              [&]()
-              {
-                  auto r = checked_mul_fp<ReturnExpectedPolicy>(fa, fb);
-                  volatile double x = *r;
-                  (void)x;
-              });
+    benchmark("ReturnExpectedPolicy", [&]() {
+        auto r = checked_mul_fp<ReturnExpectedPolicy>(fa, fb);
+        volatile double x = *r;
+        (void)x;
+    });
 
-    benchmark("SaturatingPolicy",
-              [&]()
-              {
-                  volatile double r = checked_mul_fp<SaturatingPolicy>(fa, fb);
-                  (void)r;
-              });
+    benchmark("SaturatingPolicy", [&]() {
+        volatile double r = checked_mul_fp<SaturatingPolicy>(fa, fb);
+        (void)r;
+    });
 
-    benchmark("InfTolerantPolicy",
-              [&]()
-              {
-                  volatile double r = checked_mul_fp<InfTolerantPolicy>(fa, fb);
-                  (void)r;
-              });
+    benchmark("InfTolerantPolicy", [&]() {
+        volatile double r = checked_mul_fp<InfTolerantPolicy>(fa, fb);
+        (void)r;
+    });
 
     out << "\n";
 }
@@ -3296,83 +3181,63 @@ void run_raw_vs_checked_benchmarks()
 
     out << colors::blue() << "--- Integer Addition ---" << colors::reset() << "\n";
 
-    benchmark("Raw int add",
-              [&]()
-              {
-                  volatile int32_t r = a + b;
-                  (void)r;
-              });
+    benchmark("Raw int add", [&]() {
+        volatile int32_t r = a + b;
+        (void)r;
+    });
 
-    benchmark("checked_add",
-              [&]()
-              {
-                  volatile int32_t r = checked_add<ThrowOnErrorPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("checked_add", [&]() {
+        volatile int32_t r = checked_add<ThrowOnErrorPolicy>(a, b);
+        (void)r;
+    });
 
     out << "\n" << colors::blue() << "--- Integer Multiplication ---" << colors::reset() << "\n";
 
-    benchmark("Raw int mul",
-              [&]()
-              {
-                  volatile int32_t r = a * b;
-                  (void)r;
-              });
+    benchmark("Raw int mul", [&]() {
+        volatile int32_t r = a * b;
+        (void)r;
+    });
 
-    benchmark("checked_mul",
-              [&]()
-              {
-                  volatile int32_t r = checked_mul<ThrowOnErrorPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("checked_mul", [&]() {
+        volatile int32_t r = checked_mul<ThrowOnErrorPolicy>(a, b);
+        (void)r;
+    });
 
     out << "\n" << colors::blue() << "--- Integer Division ---" << colors::reset() << "\n";
 
-    benchmark("Raw int div",
-              [&]()
-              {
-                  volatile int32_t r = a / b;
-                  (void)r;
-              });
+    benchmark("Raw int div", [&]() {
+        volatile int32_t r = a / b;
+        (void)r;
+    });
 
-    benchmark("checked_div",
-              [&]()
-              {
-                  volatile int32_t r = checked_div<ThrowOnErrorPolicy>(a, b);
-                  (void)r;
-              });
+    benchmark("checked_div", [&]() {
+        volatile int32_t r = checked_div<ThrowOnErrorPolicy>(a, b);
+        (void)r;
+    });
 
     out << "\n" << colors::blue() << "--- FP Addition ---" << colors::reset() << "\n";
 
-    benchmark("Raw double add",
-              [&]()
-              {
-                  volatile double r = fa + fb;
-                  (void)r;
-              });
+    benchmark("Raw double add", [&]() {
+        volatile double r = fa + fb;
+        (void)r;
+    });
 
-    benchmark("checked_add_fp",
-              [&]()
-              {
-                  volatile double r = checked_add_fp<ThrowOnErrorPolicy>(fa, fb);
-                  (void)r;
-              });
+    benchmark("checked_add_fp", [&]() {
+        volatile double r = checked_add_fp<ThrowOnErrorPolicy>(fa, fb);
+        (void)r;
+    });
 
     out << "\n" << colors::blue() << "--- FP Multiplication ---" << colors::reset() << "\n";
 
-    benchmark("Raw double mul",
-              [&]()
-              {
-                  volatile double r = fa * fb;
-                  (void)r;
-              });
+    benchmark("Raw double mul", [&]() {
+        volatile double r = fa * fb;
+        (void)r;
+    });
 
-    benchmark("checked_mul_fp",
-              [&]()
-              {
-                  volatile double r = checked_mul_fp<ThrowOnErrorPolicy>(fa, fb);
-                  (void)r;
-              });
+    benchmark("checked_mul_fp", [&]() {
+        volatile double r = checked_mul_fp<ThrowOnErrorPolicy>(fa, fb);
+        (void)r;
+    });
 
     out << "\n" << colors::blue() << "--- Vector Addition (1K elements) ---" << colors::reset() << "\n";
 
@@ -3381,8 +3246,7 @@ void run_raw_vs_checked_benchmarks()
 
     benchmark(
         "Raw vector add loop",
-        [&]()
-        {
+        [&]() {
             std::vector<int32_t> result(1000);
             for (size_t i = 0; i < 1000; ++i)
             {
@@ -3395,8 +3259,7 @@ void run_raw_vs_checked_benchmarks()
 
     benchmark(
         "checked_add_vec",
-        [&]()
-        {
+        [&]() {
             auto r = checked_add_vec<ThrowOnErrorPolicy>(vec_a, vec_b);
             volatile int32_t x = r[0];
             (void)x;
@@ -3432,8 +3295,7 @@ void run_vector_scaling_benchmarks()
         std::string name = "checked_add_vec (" + std::to_string(sz) + " elems)";
         benchmark(
             name.c_str(),
-            [&]()
-            {
+            [&]() {
                 auto r = checked_add_vec<ThrowOnErrorPolicy>(va, vb);
                 volatile int32_t x = r[0];
                 (void)x;
@@ -3451,8 +3313,7 @@ void run_vector_scaling_benchmarks()
         std::string name = "checked_mul_vec_fp (" + std::to_string(sz) + " elems)";
         benchmark(
             name.c_str(),
-            [&]()
-            {
+            [&]() {
                 auto r = checked_mul_vec_fp<ThrowOnErrorPolicy>(va, vb);
                 volatile double x = r[0];
                 (void)x;

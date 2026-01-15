@@ -810,8 +810,7 @@ void benchmark_policy_standard(const BenchmarkData& data)
 
     benchmark_detailed(
         "Standard - Normal values",
-        [&]()
-        {
+        [&]() {
             volatile bool result = false;
             for (size_t i = 0; i < data.values_normal.size() - 1; ++i)
             {
@@ -823,8 +822,7 @@ void benchmark_policy_standard(const BenchmarkData& data)
 
     benchmark_detailed(
         "Standard - Near zero",
-        [&]()
-        {
+        [&]() {
             volatile bool result = false;
             for (size_t i = 0; i < data.values_near_zero.size() - 1; ++i)
             {
@@ -841,8 +839,7 @@ void benchmark_policy_relative(const BenchmarkData& data)
 
     benchmark_detailed(
         "Relative - Normal values",
-        [&]()
-        {
+        [&]() {
             volatile bool result = false;
             for (size_t i = 0; i < data.values_normal.size() - 1; ++i)
             {
@@ -861,8 +858,7 @@ void benchmark_policy_ulp(const BenchmarkData& data)
 
     benchmark_detailed(
         "ULP - Normal values",
-        [&]()
-        {
+        [&]() {
             volatile bool result = false;
             for (size_t i = 0; i < data.values_normal.size() - 1; ++i)
             {
@@ -879,8 +875,7 @@ void benchmark_policy_hybrid(const BenchmarkData& data)
 
     benchmark_detailed(
         "Hybrid - Normal values",
-        [&]()
-        {
+        [&]() {
             volatile bool result = false;
             for (size_t i = 0; i < data.values_normal.size() - 1; ++i)
             {
@@ -892,8 +887,7 @@ void benchmark_policy_hybrid(const BenchmarkData& data)
 
     benchmark_detailed(
         "Hybrid - Mixed scales",
-        [&]()
-        {
+        [&]() {
             volatile bool result = false;
             for (size_t i = 0; i < data.values_mixed.size() - 1; ++i)
             {
@@ -910,8 +904,7 @@ void benchmark_policy_comparison(const BenchmarkData& data)
 
     benchmark_compare(
         "Standard",
-        [&]()
-        {
+        [&]() {
             volatile bool result = false;
             for (size_t i = 0; i < 1000; ++i)
             {
@@ -920,8 +913,7 @@ void benchmark_policy_comparison(const BenchmarkData& data)
             return result;
         },
         "Hybrid",
-        [&]()
-        {
+        [&]() {
             volatile bool result = false;
             for (size_t i = 0; i < 1000; ++i)
             {
@@ -942,8 +934,7 @@ void benchmark_special_values()
 
     benchmark_detailed(
         "NaN comparisons",
-        [&]()
-        {
+        [&]() {
             volatile bool result = false;
             for (int i = 0; i < 10000; ++i)
             {
@@ -955,8 +946,7 @@ void benchmark_special_values()
 
     benchmark_detailed(
         "Infinity comparisons",
-        [&]()
-        {
+        [&]() {
             volatile bool result = false;
             for (int i = 0; i < 10000; ++i)
             {

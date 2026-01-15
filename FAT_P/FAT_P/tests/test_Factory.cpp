@@ -266,11 +266,9 @@ FATP_TEST_CASE(basic_registration)
 {
     SimpleFactory<std::string, Widget> factory;
 
-    bool registered = factory.registerType("widget1",
-                                           []
-                                           {
-                                               return Widget(42);
-                                           });
+    bool registered = factory.registerType("widget1", [] {
+        return Widget(42);
+    });
     FATP_ASSERT_TRUE(registered, "First registration should succeed");
 
     FATP_ASSERT_TRUE(factory.hasType("widget1"), "Registered type should exist");
@@ -285,16 +283,12 @@ FATP_TEST_CASE(basic_registration)
 FATP_TEST_CASE(basic_make)
 {
     SimpleFactory<std::string, Widget> factory;
-    (void)factory.registerType("widget1",
-                               []
-                               {
-                                   return Widget(42);
-                               });
-    (void)factory.registerType("widget2",
-                               []
-                               {
-                                   return Widget(100);
-                               });
+    (void)factory.registerType("widget1", [] {
+        return Widget(42);
+    });
+    (void)factory.registerType("widget2", [] {
+        return Widget(100);
+    });
 
     auto result1 = factory.make("widget1");
     FATP_ASSERT_TRUE(result1.has_value(), "Make should succeed for registered type");
@@ -317,19 +311,15 @@ FATP_TEST_CASE(lambda_capture_parameters)
 
     std::string name1 = "widget1";
     int value1 = 42;
-    (void)factory.registerType("basic",
-                               [name1, value1]()
-                               {
-                                   return ConfiguredWidget(name1, value1);
-                               });
+    (void)factory.registerType("basic", [name1, value1]() {
+        return ConfiguredWidget(name1, value1);
+    });
 
     std::string name2 = "widget2";
     int value2 = 100;
-    (void)factory.registerType("advanced",
-                               [name2, value2]()
-                               {
-                                   return ConfiguredWidget(name2 + "_advanced", value2 * 2);
-                               });
+    (void)factory.registerType("advanced", [name2, value2]() {
+        return ConfiguredWidget(name2 + "_advanced", value2 * 2);
+    });
 
     auto result1 = factory.make("basic");
     FATP_ASSERT_TRUE(result1.has_value(), "Should make with captured parameters");
@@ -348,10 +338,8 @@ FATP_TEST_CASE(database_connection_lambda_capture)
 {
     SimpleFactory<std::string, DatabaseConnection> db_factory;
 
-    auto makeDbCreator = [](std::string type, std::string host, int port)
-    {
-        return [type, host, port]()
-        {
+    auto makeDbCreator = [](std::string type, std::string host, int port) {
+        return [type, host, port]() {
             return DatabaseConnection(type, host, port);
         };
     };
@@ -382,18 +370,14 @@ FATP_TEST_CASE(duplicate_registration)
 {
     SimpleFactory<std::string, Widget> factory;
 
-    bool first = factory.registerType("widget",
-                                      []
-                                      {
-                                          return Widget(1);
-                                      });
+    bool first = factory.registerType("widget", [] {
+        return Widget(1);
+    });
     FATP_ASSERT_TRUE(first, "First registration should succeed");
 
-    bool second = factory.registerType("widget",
-                                       []
-                                       {
-                                           return Widget(2);
-                                       });
+    bool second = factory.registerType("widget", [] {
+        return Widget(2);
+    });
     FATP_ASSERT_TRUE(!second, "Second registration should fail (prevent overwrite)");
 
     auto result = factory.make("widget");
@@ -407,16 +391,12 @@ FATP_TEST_CASE(unregister)
 {
     SimpleFactory<std::string, Widget> factory;
 
-    (void)factory.registerType("widget1",
-                               []
-                               {
-                                   return Widget(1);
-                               });
-    (void)factory.registerType("widget2",
-                               []
-                               {
-                                   return Widget(2);
-                               });
+    (void)factory.registerType("widget1", [] {
+        return Widget(1);
+    });
+    (void)factory.registerType("widget2", [] {
+        return Widget(2);
+    });
 
     FATP_ASSERT_EQ(factory.size(), 2u, "Should have 2 registrations");
 
@@ -436,16 +416,12 @@ FATP_TEST_CASE(clear)
 {
     SimpleFactory<std::string, Widget> factory;
 
-    (void)factory.registerType("widget1",
-                               []
-                               {
-                                   return Widget(1);
-                               });
-    (void)factory.registerType("widget2",
-                               []
-                               {
-                                   return Widget(2);
-                               });
+    (void)factory.registerType("widget1", [] {
+        return Widget(1);
+    });
+    (void)factory.registerType("widget2", [] {
+        return Widget(2);
+    });
 
     FATP_ASSERT_EQ(factory.size(), 2u, "Should have 2 registrations");
 
@@ -465,21 +441,15 @@ FATP_TEST_CASE(get_registered_keys)
 {
     SimpleFactory<std::string, Widget> factory;
 
-    (void)factory.registerType("widget1",
-                               []
-                               {
-                                   return Widget(1);
-                               });
-    (void)factory.registerType("widget2",
-                               []
-                               {
-                                   return Widget(2);
-                               });
-    (void)factory.registerType("widget3",
-                               []
-                               {
-                                   return Widget(3);
-                               });
+    (void)factory.registerType("widget1", [] {
+        return Widget(1);
+    });
+    (void)factory.registerType("widget2", [] {
+        return Widget(2);
+    });
+    (void)factory.registerType("widget3", [] {
+        return Widget(3);
+    });
 
     auto keys = factory.getRegisteredKeys();
 
@@ -501,11 +471,9 @@ FATP_TEST_CASE(get_registered_keys)
 FATP_TEST_CASE(throwing_make)
 {
     SimpleFactory<std::string, ThrowingWidget> factory;
-    (void)factory.registerType("thrower",
-                               []
-                               {
-                                   return ThrowingWidget();
-                               });
+    (void)factory.registerType("thrower", [] {
+        return ThrowingWidget();
+    });
 
     ThrowingWidget::should_throw = false;
     auto ok_result = factory.make("thrower");
@@ -537,11 +505,9 @@ FATP_TEST_CASE(throwing_error_policy)
                                     AtomicStatisticsPolicy>;
 
     ThrowingFactory factory;
-    (void)factory.registerType("widget",
-                               []
-                               {
-                                   return Widget(42);
-                               });
+    (void)factory.registerType("widget", [] {
+        return Widget(42);
+    });
 
     // Success case
     Widget w = factory.make("widget");
@@ -576,11 +542,9 @@ FATP_TEST_CASE(default_error_policy)
                                    AtomicStatisticsPolicy>;
 
     DefaultFactory factory;
-    (void)factory.registerType("widget",
-                               []
-                               {
-                                   return Widget(42);
-                               });
+    (void)factory.registerType("widget", [] {
+        return Widget(42);
+    });
 
     // Success case
     Widget w1 = factory.make("widget");
@@ -600,11 +564,9 @@ FATP_TEST_CASE(default_error_policy)
 FATP_TEST_CASE(statistics)
 {
     SimpleFactory<std::string, Widget> factory;
-    (void)factory.registerType("widget",
-                               []
-                               {
-                                   return Widget(42);
-                               });
+    (void)factory.registerType("widget", [] {
+        return Widget(42);
+    });
 
     auto result1 = factory.make("widget");      // 1 lookup, 1 resolution
     (void)factory.hasType("widget");            // 2 lookups
@@ -623,11 +585,9 @@ FATP_TEST_CASE(statistics)
 FATP_TEST_CASE(const_methods_update_stats)
 {
     SimpleFactory<std::string, Widget> factory;
-    (void)factory.registerType("widget",
-                               []
-                               {
-                                   return Widget(42);
-                               });
+    (void)factory.registerType("widget", [] {
+        return Widget(42);
+    });
     factory.resetStats();
 
     // Access via const reference
@@ -652,11 +612,9 @@ FATP_TEST_CASE(no_statistics_policy)
                                    NoStatisticsPolicy>;
 
     NoStatsFactory factory;
-    (void)factory.registerType("widget",
-                               []
-                               {
-                                   return Widget(42);
-                               });
+    (void)factory.registerType("widget", [] {
+        return Widget(42);
+    });
     (void)factory.make("widget");
     (void)factory.hasType("widget");
     (void)factory.make("nonexistent");
@@ -677,16 +635,12 @@ FATP_TEST_CASE(hpc_factory)
     // HPCFactory combines: NoStatisticsPolicy + ThrowingErrorPolicy + UnorderedMapStoragePolicy
     HPCFactory<std::string, Widget> factory;
 
-    (void)factory.registerType("widget",
-                               []
-                               {
-                                   return Widget(42);
-                               });
-    (void)factory.registerType("another",
-                               []
-                               {
-                                   return Widget(99);
-                               });
+    (void)factory.registerType("widget", [] {
+        return Widget(42);
+    });
+    (void)factory.registerType("another", [] {
+        return Widget(99);
+    });
 
     // Success case - returns Widget directly (ThrowingErrorPolicy)
     Widget w = factory.make("widget");
@@ -732,22 +686,18 @@ FATP_TEST_CASE(overwrite_policy)
 
     OverwriteFactory factory;
 
-    bool first = factory.registerType("widget",
-                                      []
-                                      {
-                                          return Widget(1);
-                                      });
+    bool first = factory.registerType("widget", [] {
+        return Widget(1);
+    });
     FATP_ASSERT_TRUE(first, "First registration should succeed");
 
     auto result1 = factory.make("widget");
     FATP_ASSERT_TRUE(result1.has_value(), "Should make widget");
     FATP_ASSERT_EQ(result1->mValue, 1, "Should use first creator");
 
-    bool second = factory.registerType("widget",
-                                       []
-                                       {
-                                           return Widget(2);
-                                       });
+    bool second = factory.registerType("widget", [] {
+        return Widget(2);
+    });
     FATP_ASSERT_TRUE(!second, "Returns false for overwrite");
 
     auto result2 = factory.make("widget");
@@ -763,11 +713,9 @@ FATP_TEST_CASE(unordered_map_storage)
 
     for (int i = 0; i < 100; ++i)
     {
-        (void)factory.registerType("widget" + std::to_string(i),
-                                   [i]
-                                   {
-                                       return Widget(i);
-                                   });
+        (void)factory.registerType("widget" + std::to_string(i), [i] {
+            return Widget(i);
+        });
     }
 
     FATP_ASSERT_EQ(factory.size(), 100u, "Should have 100 registrations");
@@ -798,11 +746,9 @@ FATP_TEST_CASE(singleton_lifetime_policy)
 
     FATP_ASSERT_TRUE(&factory1 == &factory2, "Should return same instance");
 
-    (void)factory1.registerType("singleton_test",
-                                []
-                                {
-                                    return Widget(123);
-                                });
+    (void)factory1.registerType("singleton_test", [] {
+        return Widget(123);
+    });
     FATP_ASSERT_TRUE(factory2.hasType("singleton_test"), "Registration should be visible on both references");
 
     // Cleanup for other tests
@@ -826,11 +772,9 @@ FATP_TEST_CASE(variadic_parameters)
 
     ParamFactory factory;
 
-    (void)factory.registerType("configured",
-                               [](std::string name, int value)
-                               {
-                                   return ConfiguredWidget(name, value);
-                               });
+    (void)factory.registerType("configured", [](std::string name, int value) {
+        return ConfiguredWidget(name, value);
+    });
 
     auto result = factory.make("configured", "test_name", 99);
     FATP_ASSERT_TRUE(result.has_value(), "Should create with parameters");
@@ -848,18 +792,14 @@ FATP_TEST_CASE(reentrant_factory_access)
 {
     SimpleFactory<std::string, int> factory;
 
-    (void)factory.registerType("child",
-                               []()
-                               {
-                                   return 42;
-                               });
-    (void)factory.registerType("parent",
-                               [&factory]()
-                               {
-                                   // This re-enters the factory from within a creator
-                                   auto child = factory.make("child");
-                                   return child.has_value() ? *child + 1 : -1;
-                               });
+    (void)factory.registerType("child", []() {
+        return 42;
+    });
+    (void)factory.registerType("parent", [&factory]() {
+        // This re-enters the factory from within a creator
+        auto child = factory.make("child");
+        return child.has_value() ? *child + 1 : -1;
+    });
 
     // This would deadlock/UB before the snapshot pattern fix
     auto result = factory.make("parent");
@@ -877,11 +817,9 @@ FATP_TEST_CASE(simple_variadic_factory_basic)
 {
     auto& factory = SimpleVariadicFactory<std::string, Widget, false>::instance();
 
-    bool registered = factory.registerType("legacy_widget",
-                                           []
-                                           {
-                                               return Widget(100);
-                                           });
+    bool registered = factory.registerType("legacy_widget", [] {
+        return Widget(100);
+    });
     FATP_ASSERT_TRUE(registered, "Should register in legacy factory");
 
     Widget w = factory.create("legacy_widget");
@@ -902,11 +840,9 @@ FATP_TEST_CASE(simple_variadic_factory_params)
 
     auto& factory = ParamLegacyFactory::instance();
 
-    (void)factory.registerType("param_widget",
-                               [](std::string name, int value)
-                               {
-                                   return ConfiguredWidget(name, value);
-                               });
+    (void)factory.registerType("param_widget", [](std::string name, int value) {
+        return ConfiguredWidget(name, value);
+    });
 
     ConfiguredWidget w = factory.create("param_widget", "legacy_name", 55);
     FATP_ASSERT_EQ(w.mName, std::string("legacy_name"), "Name should match");
@@ -920,17 +856,13 @@ FATP_TEST_CASE(simple_variadic_factory_reentrant)
 {
     auto& factory = SimpleVariadicFactory<std::string, int, false>::instance();
 
-    (void)factory.registerType("child",
-                               []()
-                               {
-                                   return 10;
-                               });
-    (void)factory.registerType("parent",
-                               [&factory]()
-                               {
-                                   // Re-entrant access
-                                   return factory.create("child") * 2;
-                               });
+    (void)factory.registerType("child", []() {
+        return 10;
+    });
+    (void)factory.registerType("parent", [&factory]() {
+        // Re-entrant access
+        return factory.create("child") * 2;
+    });
 
     int result = factory.create("parent");
     FATP_ASSERT_EQ(result, 20, "Re-entrant create should work");
@@ -956,35 +888,31 @@ FATP_TEST_CASE(concurrent_access)
 
     for (int t = 0; t < NUM_THREADS; ++t)
     {
-        threads.emplace_back(
-            [&factory, t, &success_count, &failure_count]
+        threads.emplace_back([&factory, t, &success_count, &failure_count] {
+            for (int i = 0; i < OPS_PER_THREAD; ++i)
             {
-                for (int i = 0; i < OPS_PER_THREAD; ++i)
+                std::string key = "widget_" + std::to_string(t) + "_" + std::to_string(i);
+
+                bool registered = factory.registerType(key, [t, i] {
+                    return Widget(t * 1000 + i);
+                });
+
+                if (registered)
                 {
-                    std::string key = "widget_" + std::to_string(t) + "_" + std::to_string(i);
+                    ++success_count;
 
-                    bool registered = factory.registerType(key,
-                                                           [t, i]
-                                                           {
-                                                               return Widget(t * 1000 + i);
-                                                           });
-
-                    if (registered)
+                    auto result = factory.make(key);
+                    if (result.has_value())
                     {
                         ++success_count;
-
-                        auto result = factory.make(key);
-                        if (result.has_value())
-                        {
-                            ++success_count;
-                        }
-                        else
-                        {
-                            ++failure_count;
-                        }
+                    }
+                    else
+                    {
+                        ++failure_count;
                     }
                 }
-            });
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -1011,11 +939,9 @@ FATP_TEST_CASE(concurrent_read_write)
     // Pre-register some types
     for (int i = 0; i < 100; ++i)
     {
-        (void)factory.registerType(i,
-                                   [i]
-                                   {
-                                       return Widget(i);
-                                   });
+        (void)factory.registerType(i, [i] {
+            return Widget(i);
+        });
     }
 
     std::atomic<bool> start{false};
@@ -1033,46 +959,40 @@ FATP_TEST_CASE(concurrent_read_write)
     // Spawn readers
     for (int i = 0; i < NUM_READERS; ++i)
     {
-        readers.emplace_back(
-            [&]
+        readers.emplace_back([&] {
+            while (!start.load(std::memory_order_acquire))
             {
-                while (!start.load(std::memory_order_acquire))
+                std::this_thread::yield();
+            }
+            while (!stop.load(std::memory_order_acquire))
+            {
+                int key = read_count.load(std::memory_order_relaxed) % 100;
+                auto result = factory.make(key);
+                if (result.has_value())
                 {
-                    std::this_thread::yield();
+                    read_count.fetch_add(1, std::memory_order_relaxed);
                 }
-                while (!stop.load(std::memory_order_acquire))
-                {
-                    int key = read_count.load(std::memory_order_relaxed) % 100;
-                    auto result = factory.make(key);
-                    if (result.has_value())
-                    {
-                        read_count.fetch_add(1, std::memory_order_relaxed);
-                    }
-                }
-            });
+            }
+        });
     }
 
     // Spawn writers
     for (int i = 0; i < NUM_WRITERS; ++i)
     {
-        writers.emplace_back(
-            [&, i]
+        writers.emplace_back([&, i] {
+            while (!start.load(std::memory_order_acquire))
             {
-                while (!start.load(std::memory_order_acquire))
-                {
-                    std::this_thread::yield();
-                }
-                for (int j = 0; j < WRITES_PER_WRITER; ++j)
-                {
-                    int key = 100 + i * WRITES_PER_WRITER + j;
-                    (void)factory.registerType(key,
-                                               [i]
-                                               {
-                                                   return Widget(i);
-                                               });
-                    write_count.fetch_add(1, std::memory_order_relaxed);
-                }
-            });
+                std::this_thread::yield();
+            }
+            for (int j = 0; j < WRITES_PER_WRITER; ++j)
+            {
+                int key = 100 + i * WRITES_PER_WRITER + j;
+                (void)factory.registerType(key, [i] {
+                    return Widget(i);
+                });
+                write_count.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
     // Start all threads simultaneously
@@ -1115,11 +1035,9 @@ FATP_TEST_CASE(shared_mutex_concurrency)
     // Pre-register types
     for (int i = 0; i < 100; ++i)
     {
-        (void)factory.registerType(i,
-                                   [i]
-                                   {
-                                       return Widget(i);
-                                   });
+        (void)factory.registerType(i, [i] {
+            return Widget(i);
+        });
     }
 
     std::atomic<bool> start{false};
@@ -1133,23 +1051,21 @@ FATP_TEST_CASE(shared_mutex_concurrency)
     // Spawn readers - all should run concurrently with shared locks
     for (int i = 0; i < NUM_READERS; ++i)
     {
-        readers.emplace_back(
-            [&]
+        readers.emplace_back([&] {
+            while (!start.load(std::memory_order_acquire))
             {
-                while (!start.load(std::memory_order_acquire))
+                std::this_thread::yield();
+            }
+            while (!stop.load(std::memory_order_acquire))
+            {
+                int key = read_count.load(std::memory_order_relaxed) % 100;
+                auto result = factory.make(key);
+                if (result.has_value())
                 {
-                    std::this_thread::yield();
+                    read_count.fetch_add(1, std::memory_order_relaxed);
                 }
-                while (!stop.load(std::memory_order_acquire))
-                {
-                    int key = read_count.load(std::memory_order_relaxed) % 100;
-                    auto result = factory.make(key);
-                    if (result.has_value())
-                    {
-                        read_count.fetch_add(1, std::memory_order_relaxed);
-                    }
-                }
-            });
+            }
+        });
     }
 
     start.store(true, std::memory_order_release);
@@ -1172,11 +1088,9 @@ FATP_TEST_CASE(shared_mutex_concurrency)
 FATP_TEST_CASE(transparent_lookup)
 {
     FastFactory<std::string, Widget> factory;
-    (void)factory.registerType("widget",
-                               []
-                               {
-                                   return Widget(42);
-                               });
+    (void)factory.registerType("widget", [] {
+        return Widget(42);
+    });
 
     // Note: make() takes const K& (const std::string&), so string literals
     // undergo implicit conversion. The transparent comparator benefit is
@@ -1209,18 +1123,14 @@ FATP_TEST_CASE(batch_registration)
     SimpleFactory<std::string, Widget> factory;
 
     size_t registered = factory.registerTypes({{"widget1",
-                                                []
-                                                {
+                                                [] {
                                                     return Widget(1);
                                                 }},
                                                {"widget2",
-                                                []
-                                                {
+                                                [] {
                                                     return Widget(2);
                                                 }},
-                                               {"widget3",
-                                                []
-                                                {
+                                               {"widget3", [] {
                                                     return Widget(3);
                                                 }}});
 
@@ -1249,11 +1159,9 @@ FATP_TEST_CASE(lambda_with_captures)
     SimpleFactory<std::string, Widget> factory;
 
     int captured_value = 99;
-    (void)factory.registerType("captured",
-                               [captured_value]
-                               {
-                                   return Widget(captured_value);
-                               });
+    (void)factory.registerType("captured", [captured_value] {
+        return Widget(captured_value);
+    });
 
     auto result = factory.make("captured");
     FATP_ASSERT_TRUE(result.has_value(), "Should make captured lambda");
@@ -1266,11 +1174,9 @@ FATP_TEST_CASE(movable_only_types)
 {
     SimpleFactory<std::string, MovableWidget> factory;
 
-    (void)factory.registerType("movable",
-                               []
-                               {
-                                   return MovableWidget(42);
-                               });
+    (void)factory.registerType("movable", [] {
+        return MovableWidget(42);
+    });
 
     auto result = factory.make("movable");
     FATP_ASSERT_TRUE(result.has_value(), "Should make movable-only type");
@@ -1287,11 +1193,9 @@ FATP_TEST_CASE(unique_ptr_factory)
 {
     SimpleFactory<std::string, std::unique_ptr<Widget>> factory;
 
-    (void)factory.registerType("unique_widget",
-                               []
-                               {
-                                   return std::make_unique<Widget>(42);
-                               });
+    (void)factory.registerType("unique_widget", [] {
+        return std::make_unique<Widget>(42);
+    });
 
     auto result = factory.make("unique_widget");
     FATP_ASSERT_TRUE(result.has_value(), "Should make unique_ptr");
@@ -1305,16 +1209,12 @@ FATP_TEST_CASE(integer_keys)
 {
     SimpleFactory<int, Widget> factory;
 
-    (void)factory.registerType(1,
-                               []
-                               {
-                                   return Widget(10);
-                               });
-    (void)factory.registerType(2,
-                               []
-                               {
-                                   return Widget(20);
-                               });
+    (void)factory.registerType(1, [] {
+        return Widget(10);
+    });
+    (void)factory.registerType(2, [] {
+        return Widget(20);
+    });
 
     auto result1 = factory.make(1);
     auto result2 = factory.make(2);
@@ -1333,11 +1233,9 @@ FATP_TEST_CASE(tracked_object_lifecycle)
 
     {
         SimpleFactory<std::string, TrackedObject> factory;
-        (void)factory.registerType("tracked",
-                                   []
-                                   {
-                                       return TrackedObject(1);
-                                   });
+        (void)factory.registerType("tracked", [] {
+            return TrackedObject(1);
+        });
 
         {
             auto result = factory.make("tracked");
@@ -1366,11 +1264,9 @@ FATP_TEST_CASE(empty_key)
     SimpleFactory<std::string, Widget> factory;
 
     // Empty string is valid key
-    bool registered = factory.registerType("",
-                                           []
-                                           {
-                                               return Widget(0);
-                                           });
+    bool registered = factory.registerType("", [] {
+        return Widget(0);
+    });
     FATP_ASSERT_TRUE(registered, "Empty key should be valid");
 
     auto result = factory.make("");
@@ -1392,15 +1288,12 @@ void run_benchmarks()
     // Basic make
     {
         SimpleFactory<std::string, Widget> factory;
-        (void)factory.registerType("widget",
-                                   []
-                                   {
-                                       return Widget(42);
-                                   });
+        (void)factory.registerType("widget", [] {
+            return Widget(42);
+        });
 
         double time = measure_perf(
-            [&factory]
-            {
+            [&factory] {
                 auto result = factory.make("widget");
                 DoNotOptimize(result);
             },
@@ -1415,15 +1308,12 @@ void run_benchmarks()
         SimpleFactory<std::string, ConfiguredWidget> factory;
         std::string name = "test";
         int value = 42;
-        (void)factory.registerType("widget",
-                                   [name, value]()
-                                   {
-                                       return ConfiguredWidget(name, value);
-                                   });
+        (void)factory.registerType("widget", [name, value]() {
+            return ConfiguredWidget(name, value);
+        });
 
         double time = measure_perf(
-            [&factory]
-            {
+            [&factory] {
                 auto result = factory.make("widget");
                 DoNotOptimize(result);
             },
@@ -1439,13 +1329,10 @@ void run_benchmarks()
         int counter = 0;
 
         double time = measure_perf(
-            [&factory, &counter]
-            {
-                (void)factory.registerType("widget" + std::to_string(counter++),
-                                           []
-                                           {
-                                               return Widget(42);
-                                           });
+            [&factory, &counter] {
+                (void)factory.registerType("widget" + std::to_string(counter++), [] {
+                    return Widget(42);
+                });
             },
             10000,
             100);
@@ -1456,15 +1343,12 @@ void run_benchmarks()
     // Lookup (hasType)
     {
         SimpleFactory<std::string, Widget> factory;
-        (void)factory.registerType("widget",
-                                   []
-                                   {
-                                       return Widget(42);
-                                   });
+        (void)factory.registerType("widget", [] {
+            return Widget(42);
+        });
 
         double time = measure_perf(
-            [&factory]
-            {
+            [&factory] {
                 bool has = factory.hasType("widget");
                 DoNotOptimize(has);
             },
@@ -1477,17 +1361,14 @@ void run_benchmarks()
     // Direct creation vs Factory
     {
         SimpleFactory<std::string, Widget> factory;
-        (void)factory.registerType("widget",
-                                   []
-                                   {
-                                       return Widget(42);
-                                   });
+        (void)factory.registerType("widget", [] {
+            return Widget(42);
+        });
 
         out << "\nDirect creation vs Factory:\n";
 
         double direct_time = measure_perf(
-            []
-            {
+            [] {
                 Widget w(42);
                 DoNotOptimize(w);
             },
@@ -1496,8 +1377,7 @@ void run_benchmarks()
         out << "  Direct creation: " << format_time(direct_time) << "\n";
 
         double factory_time = measure_perf(
-            [&factory]
-            {
+            [&factory] {
                 auto result = factory.make("widget");
                 DoNotOptimize(result);
             },
@@ -1515,23 +1395,18 @@ void run_benchmarks()
         for (int i = 0; i < 1000; ++i)
         {
             std::string key = "widget" + std::to_string(i);
-            (void)map_factory.registerType(key,
-                                           [i]
-                                           {
-                                               return Widget(i);
-                                           });
-            (void)unordered_factory.registerType(key,
-                                                 [i]
-                                                 {
-                                                     return Widget(i);
-                                                 });
+            (void)map_factory.registerType(key, [i] {
+                return Widget(i);
+            });
+            (void)unordered_factory.registerType(key, [i] {
+                return Widget(i);
+            });
         }
 
         out << "\nMap vs UnorderedMap (1000 items):\n";
 
         double map_time = measure_perf(
-            [&map_factory]
-            {
+            [&map_factory] {
                 auto r = map_factory.make("widget500");
                 DoNotOptimize(r);
             },
@@ -1540,8 +1415,7 @@ void run_benchmarks()
         out << "  Map storage: " << format_time(map_time) << "\n";
 
         double unordered_time = measure_perf(
-            [&unordered_factory]
-            {
+            [&unordered_factory] {
                 auto r = unordered_factory.make("widget500");
                 DoNotOptimize(r);
             },
@@ -1556,28 +1430,23 @@ void run_benchmarks()
         SimpleFactory<std::string, Widget> small_factory;
         for (int i = 0; i < 10; ++i)
         {
-            (void)small_factory.registerType("widget" + std::to_string(i),
-                                             [i]
-                                             {
-                                                 return Widget(i);
-                                             });
+            (void)small_factory.registerType("widget" + std::to_string(i), [i] {
+                return Widget(i);
+            });
         }
 
         SimpleFactory<std::string, Widget> large_factory;
         for (int i = 0; i < 1000; ++i)
         {
-            (void)large_factory.registerType("widget" + std::to_string(i),
-                                             [i]
-                                             {
-                                                 return Widget(i);
-                                             });
+            (void)large_factory.registerType("widget" + std::to_string(i), [i] {
+                return Widget(i);
+            });
         }
 
         out << "\nSize impact (Map storage):\n";
 
         double small_time = measure_perf(
-            [&small_factory]
-            {
+            [&small_factory] {
                 auto r = small_factory.make("widget5");
                 DoNotOptimize(r);
             },
@@ -1586,8 +1455,7 @@ void run_benchmarks()
         out << "  10 items: " << format_time(small_time) << "\n";
 
         double large_time = measure_perf(
-            [&large_factory]
-            {
+            [&large_factory] {
                 auto r = large_factory.make("widget500");
                 DoNotOptimize(r);
             },
@@ -1601,22 +1469,17 @@ void run_benchmarks()
         out << "\nStatistics Policy Overhead:\n";
 
         SimpleFactory<std::string, Widget> atomic_factory;
-        (void)atomic_factory.registerType("widget",
-                                          []
-                                          {
-                                              return Widget(42);
-                                          });
+        (void)atomic_factory.registerType("widget", [] {
+            return Widget(42);
+        });
 
         HPCFactory<std::string, Widget> no_stats_factory;
-        (void)no_stats_factory.registerType("widget",
-                                            []
-                                            {
-                                                return Widget(42);
-                                            });
+        (void)no_stats_factory.registerType("widget", [] {
+            return Widget(42);
+        });
 
         double atomic_time = measure_perf(
-            [&atomic_factory]
-            {
+            [&atomic_factory] {
                 auto r = atomic_factory.make("widget");
                 DoNotOptimize(r);
             },
@@ -1625,8 +1488,7 @@ void run_benchmarks()
         out << "  Atomic stats: " << format_time(atomic_time) << "\n";
 
         double no_stats_time = measure_perf(
-            [&no_stats_factory]
-            {
+            [&no_stats_factory] {
                 try
                 {
                     Widget w = no_stats_factory.make("widget");

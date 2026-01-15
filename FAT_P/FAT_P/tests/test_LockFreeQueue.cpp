@@ -130,39 +130,35 @@ FATP_TEST_CASE(lock_free_queue_mpmc)
     // Producers
     for (int t = 0; t < NUM_PRODUCERS; ++t)
     {
-        threads.emplace_back(
-            [&queue, &total_produced, t]()
+        threads.emplace_back([&queue, &total_produced, t]() {
+            for (int i = 0; i < ITEMS_PER_PRODUCER; ++i)
             {
-                for (int i = 0; i < ITEMS_PER_PRODUCER; ++i)
+                while (!queue.enqueue(t * ITEMS_PER_PRODUCER + i))
                 {
-                    while (!queue.enqueue(t * ITEMS_PER_PRODUCER + i))
-                    {
-                        std::this_thread::yield();
-                    }
-                    total_produced.fetch_add(1, std::memory_order_relaxed);
+                    std::this_thread::yield();
                 }
-            });
+                total_produced.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
     // Consumers
     for (int t = 0; t < NUM_CONSUMERS; ++t)
     {
-        threads.emplace_back(
-            [&queue, &total_consumed, expected = NUM_PRODUCERS * ITEMS_PER_PRODUCER]()
+        threads.emplace_back([&queue, &total_consumed, expected = NUM_PRODUCERS * ITEMS_PER_PRODUCER]() {
+            int value;
+            while (total_consumed.load(std::memory_order_relaxed) < expected)
             {
-                int value;
-                while (total_consumed.load(std::memory_order_relaxed) < expected)
+                if (queue.dequeue(value))
                 {
-                    if (queue.dequeue(value))
-                    {
-                        total_consumed.fetch_add(1, std::memory_order_relaxed);
-                    }
-                    else
-                    {
-                        std::this_thread::yield();
-                    }
+                    total_consumed.fetch_add(1, std::memory_order_relaxed);
                 }
-            });
+                else
+                {
+                    std::this_thread::yield();
+                }
+            }
+        });
     }
 
     for (auto& thread : threads)
@@ -222,8 +218,7 @@ void benchmark_lock_free_queue()
         LockFreeQueue<int, 1024> queue;
 
         double enqueue_time = measure_perf(
-            [&queue]()
-            {
+            [&queue]() {
                 queue.enqueue(42);
             },
             10000,
@@ -232,8 +227,7 @@ void benchmark_lock_free_queue()
         std::cout << "Single-threaded enqueue: " << format_time(enqueue_time) << "\n";
 
         double dequeue_time = measure_perf(
-            [&queue]()
-            {
+            [&queue]() {
                 int value;
                 queue.dequeue(value);
             },
@@ -250,30 +244,26 @@ void benchmark_lock_free_queue()
 
         auto start = std::chrono::high_resolution_clock::now();
 
-        std::thread producer(
-            [&queue]()
+        std::thread producer([&queue]() {
+            for (int i = 0; i < NUM_OPS; ++i)
             {
-                for (int i = 0; i < NUM_OPS; ++i)
+                while (!queue.enqueue(i))
                 {
-                    while (!queue.enqueue(i))
-                    {
-                        std::this_thread::yield();
-                    }
+                    std::this_thread::yield();
                 }
-            });
+            }
+        });
 
-        std::thread consumer(
-            [&queue]()
+        std::thread consumer([&queue]() {
+            int value;
+            for (int i = 0; i < NUM_OPS; ++i)
             {
-                int value;
-                for (int i = 0; i < NUM_OPS; ++i)
+                while (!queue.dequeue(value))
                 {
-                    while (!queue.dequeue(value))
-                    {
-                        std::this_thread::yield();
-                    }
+                    std::this_thread::yield();
                 }
-            });
+            }
+        });
 
         producer.join();
         consumer.join();

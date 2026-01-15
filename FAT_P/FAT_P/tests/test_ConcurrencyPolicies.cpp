@@ -189,11 +189,9 @@ FATP_TEST_CASE(MutexSynchronizationPolicy)
     std::vector<std::thread> threads;
     for (int i = 0; i < num_threads; ++i)
     {
-        threads.emplace_back(
-            [&]()
-            {
-                run_concurrent_increment(policy, counter, ops_per_thread);
-            });
+        threads.emplace_back([&]() {
+            run_concurrent_increment(policy, counter, ops_per_thread);
+        });
     }
 
     for (auto& t : threads)
@@ -240,15 +238,13 @@ FATP_TEST_CASE(SharedMutexPolicy)
     std::vector<std::thread> readers;
     for (int i = 0; i < num_readers; ++i)
     {
-        readers.emplace_back(
-            [&]()
+        readers.emplace_back([&]() {
+            for (int j = 0; j < 1000; ++j)
             {
-                for (int j = 0; j < 1000; ++j)
-                {
-                    auto guard = policy.lock_shared();
-                    read_sum.fetch_add(value.load(std::memory_order_relaxed), std::memory_order_relaxed);
-                }
-            });
+                auto guard = policy.lock_shared();
+                read_sum.fetch_add(value.load(std::memory_order_relaxed), std::memory_order_relaxed);
+            }
+        });
     }
 
     for (auto& t : readers)
@@ -322,11 +318,9 @@ FATP_TEST_CASE(SpinlockSynchronizationPolicy)
     std::vector<std::thread> threads;
     for (int i = 0; i < num_threads; ++i)
     {
-        threads.emplace_back(
-            [&]()
-            {
-                run_concurrent_increment(policy, counter, ops_per_thread);
-            });
+        threads.emplace_back([&]() {
+            run_concurrent_increment(policy, counter, ops_per_thread);
+        });
     }
 
     for (auto& t : threads)
@@ -390,15 +384,13 @@ FATP_TEST_CASE(LockFreeWithFallbackPolicy)
     std::vector<std::thread> threads;
     for (int i = 0; i < 4; ++i)
     {
-        threads.emplace_back(
-            [&]()
+        threads.emplace_back([&]() {
+            for (int j = 0; j < 1000; ++j)
             {
-                for (int j = 0; j < 1000; ++j)
-                {
-                    auto guard = policy.lock();
-                    counter.fetch_add(1, std::memory_order_relaxed);
-                }
-            });
+                auto guard = policy.lock();
+                counter.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -440,26 +432,20 @@ FATP_TEST_CASE(WaitableSynchronizationPolicy)
     bool ready = false;
     bool processed = false;
 
-    std::thread producer(
-        [&]()
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            auto guard = policy.lock();
-            ready = true;
-            policy.getCondition().notify_one();
-        });
+    std::thread producer([&]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        auto guard = policy.lock();
+        ready = true;
+        policy.getCondition().notify_one();
+    });
 
-    std::thread consumer(
-        [&]()
-        {
-            auto guard = policy.lock();
-            guard.wait(policy.getCondition(),
-                       [&]()
-                       {
-                           return ready;
-                       });
-            processed = true;
+    std::thread consumer([&]() {
+        auto guard = policy.lock();
+        guard.wait(policy.getCondition(), [&]() {
+            return ready;
         });
+        processed = true;
+    });
 
     producer.join();
     consumer.join();
@@ -515,42 +501,38 @@ FATP_TEST_CASE(SeqLockPolicy)
 
     test_data = 0;
 
-    std::thread writer(
-        [&]()
+    std::thread writer([&]() {
+        for (int burst = 0; burst < 10; ++burst)
         {
-            for (int burst = 0; burst < 10; ++burst)
+            for (int i = 0; i < 100; ++i)
             {
-                for (int i = 0; i < 100; ++i)
-                {
-                    auto guard = policy.lock();
-                    test_data++;
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                auto guard = policy.lock();
+                test_data++;
             }
-            stop.store(true);
-        });
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+        stop.store(true);
+    });
 
     std::vector<std::thread> readers;
     for (int i = 0; i < 4; ++i)
     {
-        readers.emplace_back(
-            [&]()
+        readers.emplace_back([&]() {
+            while (!stop.load())
             {
-                while (!stop.load())
+                auto guard = policy.lock_shared();
+                int value = test_data;
+                (void)value;
+                if (guard.is_valid())
                 {
-                    auto guard = policy.lock_shared();
-                    int value = test_data;
-                    (void)value;
-                    if (guard.is_valid())
-                    {
-                        successful_reads.fetch_add(1);
-                    }
-                    else
-                    {
-                        failed_reads.fetch_add(1);
-                    }
+                    successful_reads.fetch_add(1);
                 }
-            });
+                else
+                {
+                    failed_reads.fetch_add(1);
+                }
+            }
+        });
     }
 
     writer.join();
@@ -586,15 +568,13 @@ FATP_TEST_CASE(TicketLockPolicy)
     std::vector<std::thread> threads;
     for (int i = 0; i < num_threads; ++i)
     {
-        threads.emplace_back(
-            [&]()
+        threads.emplace_back([&]() {
+            for (int j = 0; j < ops; ++j)
             {
-                for (int j = 0; j < ops; ++j)
-                {
-                    auto guard = policy.lock();
-                    counter.fetch_add(1, std::memory_order_relaxed);
-                }
-            });
+                auto guard = policy.lock();
+                counter.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -627,15 +607,13 @@ FATP_TEST_CASE(MCSLockPolicy)
     std::vector<std::thread> threads;
     for (int i = 0; i < num_threads; ++i)
     {
-        threads.emplace_back(
-            [&]()
+        threads.emplace_back([&]() {
+            for (int j = 0; j < ops; ++j)
             {
-                for (int j = 0; j < ops; ++j)
-                {
-                    auto guard = policy.lock();
-                    counter.fetch_add(1, std::memory_order_relaxed);
-                }
-            });
+                auto guard = policy.lock();
+                counter.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -668,11 +646,9 @@ FATP_TEST_CASE(RCUPolicy)
 
     {
         auto guard = rcu.write();
-        guard.update(
-            [](int& val)
-            {
-                val = 100;
-            });
+        guard.update([](int& val) {
+            val = 100;
+        });
     }
 
     {
@@ -685,18 +661,16 @@ FATP_TEST_CASE(RCUPolicy)
 
     for (int i = 0; i < 4; ++i)
     {
-        readers.emplace_back(
-            [&]()
+        readers.emplace_back([&]() {
+            for (int j = 0; j < 1000; ++j)
             {
-                for (int j = 0; j < 1000; ++j)
+                auto guard = rcu.read();
+                if (*guard == 100)
                 {
-                    auto guard = rcu.read();
-                    if (*guard == 100)
-                    {
-                        read_count.fetch_add(1);
-                    }
+                    read_count.fetch_add(1);
                 }
-            });
+            }
+        });
     }
 
     for (auto& r : readers)
@@ -740,35 +714,31 @@ FATP_TEST_CASE(HazardPointerPolicy)
     std::atomic<int> sum{0};
     std::atomic<bool> stop{false};
 
-    std::thread writer(
-        [&]()
+    std::thread writer([&]() {
+        for (int i = 1; i <= 100; ++i)
         {
-            for (int i = 1; i <= 100; ++i)
-            {
-                int* new_val = new int(i);
-                int* old_val = shared_ptr.exchange(new_val);
-                hp.retire(old_val);
-                std::this_thread::yield();
-            }
-            stop.store(true);
-        });
+            int* new_val = new int(i);
+            int* old_val = shared_ptr.exchange(new_val);
+            hp.retire(old_val);
+            std::this_thread::yield();
+        }
+        stop.store(true);
+    });
 
     std::vector<std::thread> readers;
     for (int i = 0; i < 4; ++i)
     {
-        readers.emplace_back(
-            [&]()
+        readers.emplace_back([&]() {
+            while (!stop.load())
             {
-                while (!stop.load())
+                auto guard = hp.acquire();
+                int* p = guard.protect(shared_ptr);
+                if (p)
                 {
-                    auto guard = hp.acquire();
-                    int* p = guard.protect(shared_ptr);
-                    if (p)
-                    {
-                        sum.fetch_add(*p, std::memory_order_relaxed);
-                    }
+                    sum.fetch_add(*p, std::memory_order_relaxed);
                 }
-            });
+            }
+        });
     }
 
     writer.join();
@@ -816,15 +786,13 @@ FATP_TEST_CASE(AdaptiveLockPolicy)
     std::vector<std::thread> threads;
     for (int i = 0; i < 8; ++i)
     {
-        threads.emplace_back(
-            [&]()
+        threads.emplace_back([&]() {
+            for (int j = 0; j < 2000; ++j)
             {
-                for (int j = 0; j < 2000; ++j)
-                {
-                    auto guard = policy.lock();
-                    counter.fetch_add(1, std::memory_order_relaxed);
-                }
-            });
+                auto guard = policy.lock();
+                counter.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -856,15 +824,13 @@ FATP_TEST_CASE(PriorityInheritanceLockPolicy)
     std::vector<std::thread> threads;
     for (int i = 0; i < 4; ++i)
     {
-        threads.emplace_back(
-            [&]()
+        threads.emplace_back([&]() {
+            for (int j = 0; j < 5000; ++j)
             {
-                for (int j = 0; j < 5000; ++j)
-                {
-                    auto guard = policy.lock();
-                    counter.fetch_add(1, std::memory_order_relaxed);
-                }
-            });
+                auto guard = policy.lock();
+                counter.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -959,15 +925,13 @@ FATP_TEST_CASE(RecursiveMutexPolicy)
     std::vector<std::thread> threads;
     for (int i = 0; i < 4; ++i)
     {
-        threads.emplace_back(
-            [&]()
+        threads.emplace_back([&]() {
+            for (int j = 0; j < 5000; ++j)
             {
-                for (int j = 0; j < 5000; ++j)
-                {
-                    auto guard = policy.lock();
-                    counter.fetch_add(1, std::memory_order_relaxed);
-                }
-            });
+                auto guard = policy.lock();
+                counter.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -1009,13 +973,11 @@ FATP_TEST_CASE(TimedMutexPolicy)
     TimedMutexPolicy policy2;
     std::atomic<bool> holder_ready{false};
 
-    std::thread holder(
-        [&]()
-        {
-            auto guard = policy2.lock();
-            holder_ready.store(true);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        });
+    std::thread holder([&]() {
+        auto guard = policy2.lock();
+        holder_ready.store(true);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    });
 
     while (!holder_ready.load())
     {
@@ -1057,15 +1019,13 @@ FATP_TEST_CASE(SharedTimedMutexPolicy)
 
     for (int i = 0; i < 8; ++i)
     {
-        readers.emplace_back(
-            [&]()
+        readers.emplace_back([&]() {
+            for (int j = 0; j < 1000; ++j)
             {
-                for (int j = 0; j < 1000; ++j)
-                {
-                    auto guard = policy.lock_shared();
-                    read_sum.fetch_add(value.load(), std::memory_order_relaxed);
-                }
-            });
+                auto guard = policy.lock_shared();
+                read_sum.fetch_add(value.load(), std::memory_order_relaxed);
+            }
+        });
     }
 
     for (auto& r : readers)
@@ -1097,8 +1057,7 @@ void run_performance_benchmarks()
         int value = 0;
         benchmark(
             "SingleThreadedPolicy",
-            [&]()
-            {
+            [&]() {
                 auto guard = policy.lock();
                 value++;
             },
@@ -1112,8 +1071,7 @@ void run_performance_benchmarks()
         int value = 0;
         benchmark(
             "MutexSynchronizationPolicy",
-            [&]()
-            {
+            [&]() {
                 auto guard = policy.lock();
                 value++;
             },
@@ -1128,8 +1086,7 @@ void run_performance_benchmarks()
         int value = 0;
         benchmark(
             "SpinlockPolicy",
-            [&]()
-            {
+            [&]() {
                 auto guard = policy.lock();
                 value++;
             },
@@ -1142,8 +1099,7 @@ void run_performance_benchmarks()
         int value = 0;
         benchmark(
             "TicketLockPolicy",
-            [&]()
-            {
+            [&]() {
                 auto guard = policy.lock();
                 value++;
             },
@@ -1156,8 +1112,7 @@ void run_performance_benchmarks()
         int value = 0;
         benchmark(
             "MCSLockPolicy",
-            [&]()
-            {
+            [&]() {
                 auto guard = policy.lock();
                 value++;
             },
@@ -1170,8 +1125,7 @@ void run_performance_benchmarks()
         int data = 0;
         benchmark(
             "SeqLockPolicy (write)",
-            [&]()
-            {
+            [&]() {
                 auto guard = policy.lock();
                 data++;
             },
@@ -1186,8 +1140,7 @@ void run_performance_benchmarks()
         int value = 0;
         benchmark(
             "AdaptiveLockPolicy",
-            [&]()
-            {
+            [&]() {
                 auto guard = policy.lock();
                 value++;
             },
@@ -1200,8 +1153,7 @@ void run_performance_benchmarks()
         int value = 0;
         benchmark(
             "VersionedLockPolicy",
-            [&]()
-            {
+            [&]() {
                 auto guard = policy.lock();
                 value++;
             },
@@ -1223,23 +1175,20 @@ void run_contended_benchmarks()
     const size_t ITERATIONS_PER_THREAD = 10000;
     const size_t NUM_THREADS = 4;
 
-    auto run_contended_test = [&](auto& policy, const char* name)
-    {
+    auto run_contended_test = [&](auto& policy, const char* name) {
         std::atomic<int> counter{0};
         auto start = std::chrono::high_resolution_clock::now();
 
         std::vector<std::thread> threads;
         for (size_t i = 0; i < NUM_THREADS; ++i)
         {
-            threads.emplace_back(
-                [&]()
+            threads.emplace_back([&]() {
+                for (size_t j = 0; j < ITERATIONS_PER_THREAD; ++j)
                 {
-                    for (size_t j = 0; j < ITERATIONS_PER_THREAD; ++j)
-                    {
-                        auto guard = policy.lock();
-                        counter.fetch_add(1, std::memory_order_relaxed);
-                    }
-                });
+                    auto guard = policy.lock();
+                    counter.fetch_add(1, std::memory_order_relaxed);
+                }
+            });
         }
 
         for (auto& t : threads)

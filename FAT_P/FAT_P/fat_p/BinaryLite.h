@@ -68,25 +68,31 @@ namespace detail
 // Compile-time endianness detection
 // C++20 has std::endian; for C++17 we use compiler intrinsics
 #if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && defined(__ORDER_BIG_ENDIAN__)
-    // GCC, Clang, and most modern compilers
-    inline constexpr bool is_little_endian = (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
-    inline constexpr bool is_big_endian = (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__);
+// GCC, Clang, and most modern compilers
+inline constexpr bool is_little_endian = (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
+inline constexpr bool is_big_endian = (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__);
 #elif defined(_MSC_VER)
-    // MSVC: x86/x64 is always little-endian
-    inline constexpr bool is_little_endian = true;
-    inline constexpr bool is_big_endian = false;
+// MSVC: x86/x64 is always little-endian
+inline constexpr bool is_little_endian = true;
+inline constexpr bool is_big_endian = false;
 #else
-    // Fallback: runtime detection (evaluated once at startup)
-    inline const bool is_little_endian = []() {
-        const std::uint32_t test = 0x01020304;
-        return *reinterpret_cast<const std::uint8_t*>(&test) == 0x04;
-    }();
-    inline const bool is_big_endian = !is_little_endian;
+// Fallback: runtime detection (evaluated once at startup)
+inline const bool is_little_endian = []() {
+    const std::uint32_t test = 0x01020304;
+    return *reinterpret_cast<const std::uint8_t*>(&test) == 0x04;
+}();
+inline const bool is_big_endian = !is_little_endian;
 #endif
 
 // Byte swap functions for converting between native and little-endian
-inline std::uint8_t byte_swap(std::uint8_t v) noexcept { return v; }
-inline std::int8_t byte_swap(std::int8_t v) noexcept { return v; }
+inline std::uint8_t byte_swap(std::uint8_t v) noexcept
+{
+    return v;
+}
+inline std::int8_t byte_swap(std::int8_t v) noexcept
+{
+    return v;
+}
 
 inline std::uint16_t byte_swap(std::uint16_t v) noexcept
 {
@@ -111,10 +117,7 @@ inline std::uint32_t byte_swap(std::uint32_t v) noexcept
 #elif defined(__GNUC__) || defined(__clang__)
     return __builtin_bswap32(v);
 #else
-    return ((v & 0xFF000000u) >> 24) |
-           ((v & 0x00FF0000u) >> 8)  |
-           ((v & 0x0000FF00u) << 8)  |
-           ((v & 0x000000FFu) << 24);
+    return ((v & 0xFF000000u) >> 24) | ((v & 0x00FF0000u) >> 8) | ((v & 0x0000FF00u) << 8) | ((v & 0x000000FFu) << 24);
 #endif
 }
 
@@ -130,14 +133,10 @@ inline std::uint64_t byte_swap(std::uint64_t v) noexcept
 #elif defined(__GNUC__) || defined(__clang__)
     return __builtin_bswap64(v);
 #else
-    return ((v & 0xFF00000000000000ull) >> 56) |
-           ((v & 0x00FF000000000000ull) >> 40) |
-           ((v & 0x0000FF0000000000ull) >> 24) |
-           ((v & 0x000000FF00000000ull) >> 8)  |
-           ((v & 0x00000000FF000000ull) << 8)  |
-           ((v & 0x0000000000FF0000ull) << 24) |
-           ((v & 0x000000000000FF00ull) << 40) |
-           ((v & 0x00000000000000FFull) << 56);
+    return ((v & 0xFF00000000000000ull) >> 56) | ((v & 0x00FF000000000000ull) >> 40) |
+           ((v & 0x0000FF0000000000ull) >> 24) | ((v & 0x000000FF00000000ull) >> 8) |
+           ((v & 0x00000000FF000000ull) << 8) | ((v & 0x0000000000FF0000ull) << 24) |
+           ((v & 0x000000000000FF00ull) << 40) | ((v & 0x00000000000000FFull) << 56);
 #endif
 }
 
@@ -234,9 +233,7 @@ enum class TypeTag : std::uint8_t
 // Low-Level Encoding/Decoding Helpers
 // ============================================================================
 
-inline void ensure_available(std::size_t size,
-                             std::size_t pos,
-                             std::size_t required)
+inline void ensure_available(std::size_t size, std::size_t pos, std::size_t required)
 {
     if (pos + required > size)
     {
@@ -248,8 +245,7 @@ inline std::size_t safe_to_size_t(std::uint64_t value, const char* context)
 {
     if (value > std::numeric_limits<std::size_t>::max())
     {
-        throw std::runtime_error(std::string("Binary: ") + context +
-                                 " length exceeds platform limits");
+        throw std::runtime_error(std::string("Binary: ") + context + " length exceeds platform limits");
     }
     return static_cast<std::size_t>(value);
 }
@@ -257,8 +253,7 @@ inline std::size_t safe_to_size_t(std::uint64_t value, const char* context)
 template <typename T>
 void write_le(std::vector<std::uint8_t>& buffer, T value)
 {
-    static_assert(std::is_trivially_copyable_v<T>,
-                  "Type must be trivially copyable");
+    static_assert(std::is_trivially_copyable_v<T>, "Type must be trivially copyable");
 
     // Convert to little-endian before writing
     const T le_value = detail::native_to_le(value);
@@ -269,8 +264,7 @@ void write_le(std::vector<std::uint8_t>& buffer, T value)
 template <typename T>
 T read_le(const std::uint8_t* data, std::size_t& pos, std::size_t size)
 {
-    static_assert(std::is_trivially_copyable_v<T>,
-                  "Type must be trivially copyable");
+    static_assert(std::is_trivially_copyable_v<T>, "Type must be trivially copyable");
 
     ensure_available(size, pos, sizeof(T));
 
@@ -281,9 +275,7 @@ T read_le(const std::uint8_t* data, std::size_t& pos, std::size_t size)
     return detail::le_to_native(le_value);
 }
 
-inline void copy_data(std::vector<std::uint8_t>& buffer,
-                      const std::uint8_t* src,
-                      std::size_t len)
+inline void copy_data(std::vector<std::uint8_t>& buffer, const std::uint8_t* src, std::size_t len)
 {
 #ifdef __AVX2__
     const std::size_t old_size = buffer.size();
@@ -293,8 +285,7 @@ inline void copy_data(std::vector<std::uint8_t>& buffer,
     std::size_t i = 0;
     for (; i + 32 <= len; i += 32)
     {
-        __m256i chunk = _mm256_loadu_si256(
-            reinterpret_cast<const __m256i*>(src + i));
+        __m256i chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + i));
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + i), chunk);
     }
     std::memcpy(dst + i, src + i, len - i);
@@ -392,9 +383,7 @@ public:
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::String));
         write_le(mOut, static_cast<std::uint64_t>(value.size()));
-        copy_data(mOut,
-                  reinterpret_cast<const std::uint8_t*>(value.data()),
-                  value.size());
+        copy_data(mOut, reinterpret_cast<const std::uint8_t*>(value.data()), value.size());
     }
 
     void write_bytes(const std::uint8_t* data, std::size_t size)
@@ -607,10 +596,8 @@ private:
         const auto actual = static_cast<TypeTag>(data_[mPos++]);
         if (actual != expected)
         {
-            throw std::runtime_error(
-                "Binary: type mismatch, expected " +
-                std::to_string(static_cast<int>(expected)) +
-                " got " + std::to_string(static_cast<int>(actual)));
+            throw std::runtime_error("Binary: type mismatch, expected " + std::to_string(static_cast<int>(expected)) +
+                                     " got " + std::to_string(static_cast<int>(actual)));
         }
     }
 };
@@ -723,7 +710,7 @@ public:
 private:
     std::istream& mIs;
 
-    static constexpr std::size_t MAX_STRING_LENGTH = 16 * 1024 * 1024;  // 16MB default
+    static constexpr std::size_t MAX_STRING_LENGTH = 16 * 1024 * 1024; // 16MB default
 
     template <typename T>
     void deserialize_impl(T& value)
@@ -768,4 +755,3 @@ private:
 
 } // namespace binary
 } // namespace fat_p
-

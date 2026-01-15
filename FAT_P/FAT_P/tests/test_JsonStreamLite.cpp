@@ -509,8 +509,7 @@ void benchmark_parsing()
 
     // Full buffer parse
     double time_full = measure_perf(
-        [&]()
-        {
+        [&]() {
             JsonStreamParser parser;
             auto status = parser.feed(json.data(), json.size());
             DoNotOptimize(status);
@@ -522,8 +521,7 @@ void benchmark_parsing()
 
     // Byte-at-a-time parse
     double time_byte = measure_perf(
-        [&]()
-        {
+        [&]() {
             JsonStreamParser parser;
             for (std::size_t i = 0; i < json.size(); ++i)
             {

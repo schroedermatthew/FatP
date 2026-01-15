@@ -48,9 +48,9 @@ FATP_META:
  */
 
 #include "CborStreamLite.h"
+#include "enforce.h"
 #include "Expected.h"
 #include "HpcVector.h"
-#include "enforce.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -231,22 +231,18 @@ struct Utf8ValidationPolicy
                 }
                 if (bytes[i] < 0xC2)
                 {
-                    return false;  // Overlong
+                    return false; // Overlong
                 }
                 i += 2;
             }
             else if ((bytes[i] & 0xF0) == 0xE0)
             {
-                if (i + 2 >= len ||
-                    (bytes[i + 1] & 0xC0) != 0x80 ||
-                    (bytes[i + 2] & 0xC0) != 0x80)
+                if (i + 2 >= len || (bytes[i + 1] & 0xC0) != 0x80 || (bytes[i + 2] & 0xC0) != 0x80)
                 {
                     return false;
                 }
                 // Check overlong and surrogate
-                unsigned int cp = ((bytes[i] & 0x0F) << 12) |
-                                  ((bytes[i + 1] & 0x3F) << 6) |
-                                  (bytes[i + 2] & 0x3F);
+                unsigned int cp = ((bytes[i] & 0x0F) << 12) | ((bytes[i + 1] & 0x3F) << 6) | (bytes[i + 2] & 0x3F);
                 if (cp < 0x800 || (cp >= 0xD800 && cp <= 0xDFFF))
                 {
                     return false;
@@ -255,18 +251,14 @@ struct Utf8ValidationPolicy
             }
             else if ((bytes[i] & 0xF8) == 0xF0)
             {
-                if (i + 3 >= len ||
-                    (bytes[i + 1] & 0xC0) != 0x80 ||
-                    (bytes[i + 2] & 0xC0) != 0x80 ||
+                if (i + 3 >= len || (bytes[i + 1] & 0xC0) != 0x80 || (bytes[i + 2] & 0xC0) != 0x80 ||
                     (bytes[i + 3] & 0xC0) != 0x80)
                 {
                     return false;
                 }
                 // Check overlong and max codepoint
-                unsigned int cp = ((bytes[i] & 0x07) << 18) |
-                                  ((bytes[i + 1] & 0x3F) << 12) |
-                                  ((bytes[i + 2] & 0x3F) << 6) |
-                                  (bytes[i + 3] & 0x3F);
+                unsigned int cp = ((bytes[i] & 0x07) << 18) | ((bytes[i + 1] & 0x3F) << 12) |
+                                  ((bytes[i + 2] & 0x3F) << 6) | (bytes[i + 3] & 0x3F);
                 if (cp < 0x10000 || cp > 0x10FFFF)
                 {
                     return false;
@@ -307,15 +299,13 @@ struct StrictValidationPolicy : Utf8ValidationPolicy
 /**
  * @brief Progress callback signature
  */
-using ProgressCallback = std::function<void(std::size_t bytes_consumed,
-                                            std::size_t current_depth,
-                                            std::size_t values_parsed)>;
+using ProgressCallback =
+    std::function<void(std::size_t bytes_consumed, std::size_t current_depth, std::size_t values_parsed)>;
 
 /**
  * @brief Value callback (called for each parsed value)
  */
-using ValueCallback = std::function<bool(const CborValue& value,
-                                         std::size_t depth)>;
+using ValueCallback = std::function<bool(const CborValue& value, std::size_t depth)>;
 
 // =============================================================================
 // Enhanced Stream Parser
@@ -334,10 +324,9 @@ template <typename LimitsPolicy = DefaultLimitsPolicy,
 class FatPStreamParser
 {
 public:
-    using Limits = typename std::conditional<
-        std::is_same_v<LimitsPolicy, RuntimeLimitsPolicy>,
-        RuntimeLimitsPolicy,
-        CborStreamParser::Limits>::type;
+    using Limits = typename std::conditional<std::is_same_v<LimitsPolicy, RuntimeLimitsPolicy>,
+                                             RuntimeLimitsPolicy,
+                                             CborStreamParser::Limits>::type;
 
     FatPStreamParser()
     {
@@ -386,10 +375,8 @@ public:
 
             if (status == ParseStatus::Error)
             {
-                return make_unexpected(StreamError(
-                    mParser.error(),
-                    mParser.stats().bytes_consumed,
-                    mParser.stats().current_depth));
+                return make_unexpected(
+                    StreamError(mParser.error(), mParser.stats().bytes_consumed, mParser.stats().current_depth));
             }
 
             // Progress callback
@@ -398,9 +385,7 @@ public:
                 std::size_t consumed = mParser.stats().bytes_consumed;
                 if (consumed / progress_interval_ != bytes_before / progress_interval_)
                 {
-                    progress_callback_(consumed,
-                                       mParser.stats().current_depth,
-                                       mParser.stats().values_parsed);
+                    progress_callback_(consumed, mParser.stats().current_depth, mParser.stats().values_parsed);
                 }
                 bytes_before = consumed;
             }
@@ -444,11 +429,10 @@ public:
 
         if (*status == ParseStatus::NeedMoreData)
         {
-            return make_unexpected(StreamError(
-                ParseError::UnexpectedEof,
-                mParser.stats().bytes_consumed,
-                mParser.stats().current_depth,
-                "incomplete CBOR input"));
+            return make_unexpected(StreamError(ParseError::UnexpectedEof,
+                                               mParser.stats().bytes_consumed,
+                                               mParser.stats().current_depth,
+                                               "incomplete CBOR input"));
         }
 
         return mParser.take_result();
@@ -551,11 +535,10 @@ private:
         {
             if (!ValidationPolicy::validate_utf8(value.as_string()))
             {
-                return make_unexpected(StreamError(
-                    ParseError::InvalidUtf8,
-                    mParser.stats().bytes_consumed,
-                    mParser.stats().current_depth,
-                    "invalid UTF-8 in text string"));
+                return make_unexpected(StreamError(ParseError::InvalidUtf8,
+                                                   mParser.stats().bytes_consumed,
+                                                   mParser.stats().current_depth,
+                                                   "invalid UTF-8 in text string"));
             }
         }
         else if (value.is_array())
@@ -588,11 +571,10 @@ private:
                     {
                         if (!ValidationPolicy::validate_map_key_order(*prev_key, key))
                         {
-                            return make_unexpected(StreamError(
-                                ParseError::InternalError,
-                                mParser.stats().bytes_consumed,
-                                mParser.stats().current_depth,
-                                "map keys not in canonical order"));
+                            return make_unexpected(StreamError(ParseError::InternalError,
+                                                               mParser.stats().bytes_consumed,
+                                                               mParser.stats().current_depth,
+                                                               "map keys not in canonical order"));
                         }
                     }
                     prev_key = &key;
@@ -670,8 +652,7 @@ inline StreamResult<CborValue> stream_parse(const Container& data)
 /**
  * @brief Parse CBOR with strict validation (for untrusted input)
  */
-inline StreamResult<CborValue> stream_parse_strict(const std::uint8_t* data,
-                                                   std::size_t size)
+inline StreamResult<CborValue> stream_parse_strict(const std::uint8_t* data, std::size_t size)
 {
     StrictStreamParser parser;
     return parser.parse(data, size);
@@ -680,30 +661,23 @@ inline StreamResult<CborValue> stream_parse_strict(const std::uint8_t* data,
 template <typename Container>
 inline StreamResult<CborValue> stream_parse_strict(const Container& data)
 {
-    return stream_parse_strict(
-        reinterpret_cast<const std::uint8_t*>(data.data()),
-        data.size());
+    return stream_parse_strict(reinterpret_cast<const std::uint8_t*>(data.data()), data.size());
 }
 
 /**
  * @brief Parse CBOR with custom limits
  */
-inline StreamResult<CborValue> stream_parse_limited(const std::uint8_t* data,
-                                                    std::size_t size,
-                                                    const RuntimeLimitsPolicy& limits)
+inline StreamResult<CborValue>
+stream_parse_limited(const std::uint8_t* data, std::size_t size, const RuntimeLimitsPolicy& limits)
 {
     ConfigurableStreamParser parser(limits);
     return parser.parse(data, size);
 }
 
 template <typename Container>
-inline StreamResult<CborValue> stream_parse_limited(const Container& data,
-                                                    const RuntimeLimitsPolicy& limits)
+inline StreamResult<CborValue> stream_parse_limited(const Container& data, const RuntimeLimitsPolicy& limits)
 {
-    return stream_parse_limited(
-        reinterpret_cast<const std::uint8_t*>(data.data()),
-        data.size(),
-        limits);
+    return stream_parse_limited(reinterpret_cast<const std::uint8_t*>(data.data()), data.size(), limits);
 }
 
 } // namespace cbor_stream
@@ -711,30 +685,30 @@ inline StreamResult<CborValue> stream_parse_limited(const Container& data,
 /**
  * @brief Macro to bring FatPCborStream types into local scope
  */
-#define USING_FATP_CBOR_STREAM()                                     \
-    using fat_p::cbor_stream::StreamError;                           \
-    using fat_p::cbor_stream::StreamResult;                          \
-    using fat_p::cbor_stream::FatPStreamParser;                      \
-    using fat_p::cbor_stream::DefaultStreamParser;                   \
-    using fat_p::cbor_stream::StrictStreamParser;                    \
-    using fat_p::cbor_stream::RelaxedStreamParser;                   \
-    using fat_p::cbor_stream::ValidatingStreamParser;                \
-    using fat_p::cbor_stream::ConfigurableStreamParser;              \
-    using fat_p::cbor_stream::DefaultLimitsPolicy;                   \
-    using fat_p::cbor_stream::StrictLimitsPolicy;                    \
-    using fat_p::cbor_stream::RelaxedLimitsPolicy;                   \
-    using fat_p::cbor_stream::RuntimeLimitsPolicy;                   \
-    using fat_p::cbor_stream::NoValidationPolicy;                    \
-    using fat_p::cbor_stream::Utf8ValidationPolicy;                  \
-    using fat_p::cbor_stream::StrictValidationPolicy;                \
-    using fat_p::cbor_stream::stream_parse;                          \
-    using fat_p::cbor_stream::stream_parse_strict;                   \
-    using fat_p::cbor_stream::stream_parse_limited;                  \
-    using fat_p::cbor_stream::CborValue;                             \
-    using fat_p::cbor_stream::CborArray;                             \
-    using fat_p::cbor_stream::CborMap;                               \
-    using fat_p::cbor_stream::CborBytes;                             \
-    using fat_p::cbor_stream::ParseStatus;                           \
+#define USING_FATP_CBOR_STREAM()                        \
+    using fat_p::cbor_stream::StreamError;              \
+    using fat_p::cbor_stream::StreamResult;             \
+    using fat_p::cbor_stream::FatPStreamParser;         \
+    using fat_p::cbor_stream::DefaultStreamParser;      \
+    using fat_p::cbor_stream::StrictStreamParser;       \
+    using fat_p::cbor_stream::RelaxedStreamParser;      \
+    using fat_p::cbor_stream::ValidatingStreamParser;   \
+    using fat_p::cbor_stream::ConfigurableStreamParser; \
+    using fat_p::cbor_stream::DefaultLimitsPolicy;      \
+    using fat_p::cbor_stream::StrictLimitsPolicy;       \
+    using fat_p::cbor_stream::RelaxedLimitsPolicy;      \
+    using fat_p::cbor_stream::RuntimeLimitsPolicy;      \
+    using fat_p::cbor_stream::NoValidationPolicy;       \
+    using fat_p::cbor_stream::Utf8ValidationPolicy;     \
+    using fat_p::cbor_stream::StrictValidationPolicy;   \
+    using fat_p::cbor_stream::stream_parse;             \
+    using fat_p::cbor_stream::stream_parse_strict;      \
+    using fat_p::cbor_stream::stream_parse_limited;     \
+    using fat_p::cbor_stream::CborValue;                \
+    using fat_p::cbor_stream::CborArray;                \
+    using fat_p::cbor_stream::CborMap;                  \
+    using fat_p::cbor_stream::CborBytes;                \
+    using fat_p::cbor_stream::ParseStatus;              \
     using fat_p::cbor_stream::ParseError
 
 } // namespace fat_p

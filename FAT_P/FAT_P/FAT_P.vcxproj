@@ -194,7 +194,6 @@
     <ClInclude Include="fat_p\Factory.h" />
     <ClInclude Include="fat_p\FastHashMap.h" />
     <ClInclude Include="fat_p\FatPBenchmarkRunner.h" />
-    <ClInclude Include="fat_p\FatPBenchmarkUtils.h" />
     <ClInclude Include="fat_p\FatPBinary.h" />
     <ClInclude Include="fat_p\FatPCbor.h" />
     <ClInclude Include="fat_p\FatPCborStream.h" />
@@ -215,7 +214,6 @@
     <ClInclude Include="fat_p\LockFreeQueue.h" />
     <ClInclude Include="fat_p\LockFreeRingBuffer.h" />
     <ClInclude Include="fat_p\MemoryMappedFile.h" />
-    <ClInclude Include="fat_p\NodeHashMap.h" />
     <ClInclude Include="fat_p\NumaAlignedAllocator.h" />
     <ClInclude Include="fat_p\NumaAllocator.h" />
     <ClInclude Include="fat_p\ObjectPool.h" />
@@ -251,7 +249,6 @@
     <ClInclude Include="fat_p\TypeTraits.h" />
     <ClInclude Include="fat_p\ValueGuard.h" />
     <ClInclude Include="fat_p\ViewLifetimeTracking.h" />
-    <ClInclude Include="pch.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -31,10 +31,10 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
-#include "Expected.h"
-#include "enforce.h"
-#include "HpcVector.h"
 #include "CborLite.h"
+#include "enforce.h"
+#include "Expected.h"
+#include "HpcVector.h"
 
 #include <cstdint>
 #include <cstring>
@@ -82,21 +82,16 @@ struct is_byte_container : std::false_type
 };
 
 template <typename Container>
-struct is_byte_container<
-    Container,
-    std::void_t<
-        typename Container::value_type,
-        decltype(std::declval<Container &>().data()),
-        decltype(std::declval<const Container &>().data()),
-        decltype(std::declval<Container &>().size()),
-        decltype(std::declval<Container &>().push_back(
-            std::declval<std::uint8_t>()))>>
-    : std::bool_constant<
-          std::is_same_v<typename Container::value_type, std::uint8_t> &&
-          std::is_same_v<decltype(std::declval<Container &>().data()), std::uint8_t *> &&
-          std::is_same_v<decltype(std::declval<const Container &>().data()),
-                         const std::uint8_t *> &&
-          std::is_same_v<decltype(std::declval<Container &>().size()), std::size_t>>
+struct is_byte_container<Container,
+                         std::void_t<typename Container::value_type,
+                                     decltype(std::declval<Container&>().data()),
+                                     decltype(std::declval<const Container&>().data()),
+                                     decltype(std::declval<Container&>().size()),
+                                     decltype(std::declval<Container&>().push_back(std::declval<std::uint8_t>()))>>
+    : std::bool_constant<std::is_same_v<typename Container::value_type, std::uint8_t> &&
+                         std::is_same_v<decltype(std::declval<Container&>().data()), std::uint8_t*> &&
+                         std::is_same_v<decltype(std::declval<const Container&>().data()), const std::uint8_t*> &&
+                         std::is_same_v<decltype(std::declval<Container&>().size()), std::size_t>>
 {
 };
 
@@ -106,9 +101,7 @@ inline constexpr bool is_byte_container_v = is_byte_container<Container>::value;
 } // namespace detail
 
 // Default high-performance CBOR buffer: HpcVector<uint8_t, Alignment, Policy>
-template <typename T = std::uint8_t,
-          std::size_t Alignment = 64,
-          typename Policy = memory::NumaLocalPolicy>
+template <typename T = std::uint8_t, std::size_t Alignment = 64, typename Policy = memory::NumaLocalPolicy>
 using DefaultCborBuffer = HpcVector<T, Alignment, Policy>;
 
 // Canonical Fat-P CBOR buffer alias
@@ -125,25 +118,21 @@ public:
     static_assert(detail::is_byte_container_v<Buffer>,
                   "Buffer must store uint8_t and provide data()/size()/push_back()");
 
-    explicit CborWriter(Buffer &buffer) noexcept
+    explicit CborWriter(Buffer& buffer) noexcept
         : mBuffer(buffer)
     {
     }
 
-    CborWriter(const CborWriter &) = delete;
-    CborWriter &operator=(const CborWriter &) = delete;
+    CborWriter(const CborWriter&) = delete;
+    CborWriter& operator=(const CborWriter&) = delete;
 
-    template <typename UInt,
-              typename = std::enable_if_t<std::is_unsigned_v<UInt> &&
-                                          std::is_integral_v<UInt>>>
+    template <typename UInt, typename = std::enable_if_t<std::is_unsigned_v<UInt> && std::is_integral_v<UInt>>>
     void write_uint(UInt value)
     {
         write_major_type(0U, static_cast<std::uint64_t>(value));
     }
 
-    template <typename SInt,
-              typename = std::enable_if_t<std::is_signed_v<SInt> &&
-                                          std::is_integral_v<SInt>>>
+    template <typename SInt, typename = std::enable_if_t<std::is_signed_v<SInt> && std::is_integral_v<SInt>>>
     void write_int(SInt value)
     {
         if (value >= 0)
@@ -178,22 +167,20 @@ public:
 
         for (int i = 7; i >= 0; --i)
         {
-            mBuffer.push_back(
-                static_cast<std::uint8_t>((bits >> (8 * i)) & 0xFFU));
+            mBuffer.push_back(static_cast<std::uint8_t>((bits >> (8 * i)) & 0xFFU));
         }
     }
 
-    void write_string(const std::string &value)
+    void write_string(const std::string& value)
     {
         write_major_type(3U, static_cast<std::uint64_t>(value.size()));
-        mBuffer.insert(
-            mBuffer.end(),
-            reinterpret_cast<const std::uint8_t *>(value.data()),
-            reinterpret_cast<const std::uint8_t *>(value.data()) + value.size());
+        mBuffer.insert(mBuffer.end(),
+                       reinterpret_cast<const std::uint8_t*>(value.data()),
+                       reinterpret_cast<const std::uint8_t*>(value.data()) + value.size());
     }
 
     template <typename BytesContainer>
-    void write_bytes(const BytesContainer &bytes)
+    void write_bytes(const BytesContainer& bytes)
     {
         static_assert(detail::is_byte_container_v<BytesContainer>,
                       "BytesContainer must store uint8_t and provide data()/size()");
@@ -217,7 +204,7 @@ public:
     }
 
 private:
-    Buffer &mBuffer;
+    Buffer& mBuffer;
 
     void write_major_type(std::uint8_t major_type, std::uint64_t arg)
     {
@@ -226,23 +213,20 @@ private:
         if (arg < 24U)
         {
             const auto ai = static_cast<std::uint8_t>(arg);
-            mBuffer.push_back(
-                static_cast<std::uint8_t>((major_type << 5U) | ai));
+            mBuffer.push_back(static_cast<std::uint8_t>((major_type << 5U) | ai));
             return;
         }
 
         if (arg <= std::numeric_limits<std::uint8_t>::max())
         {
-            mBuffer.push_back(
-                static_cast<std::uint8_t>((major_type << 5U) | 24U));
+            mBuffer.push_back(static_cast<std::uint8_t>((major_type << 5U) | 24U));
             mBuffer.push_back(static_cast<std::uint8_t>(arg));
             return;
         }
 
         if (arg <= std::numeric_limits<std::uint16_t>::max())
         {
-            mBuffer.push_back(
-                static_cast<std::uint8_t>((major_type << 5U) | 25U));
+            mBuffer.push_back(static_cast<std::uint8_t>((major_type << 5U) | 25U));
             mBuffer.push_back(static_cast<std::uint8_t>((arg >> 8) & 0xFFU));
             mBuffer.push_back(static_cast<std::uint8_t>(arg & 0xFFU));
             return;
@@ -250,22 +234,18 @@ private:
 
         if (arg <= std::numeric_limits<std::uint32_t>::max())
         {
-            mBuffer.push_back(
-                static_cast<std::uint8_t>((major_type << 5U) | 26U));
+            mBuffer.push_back(static_cast<std::uint8_t>((major_type << 5U) | 26U));
             for (int i = 3; i >= 0; --i)
             {
-                mBuffer.push_back(static_cast<std::uint8_t>(
-                    (arg >> (8 * i)) & 0xFFU));
+                mBuffer.push_back(static_cast<std::uint8_t>((arg >> (8 * i)) & 0xFFU));
             }
             return;
         }
 
-        mBuffer.push_back(
-            static_cast<std::uint8_t>((major_type << 5U) | 27U));
+        mBuffer.push_back(static_cast<std::uint8_t>((major_type << 5U) | 27U));
         for (int i = 7; i >= 0; --i)
         {
-            mBuffer.push_back(static_cast<std::uint8_t>(
-                (arg >> (8 * i)) & 0xFFU));
+            mBuffer.push_back(static_cast<std::uint8_t>((arg >> (8 * i)) & 0xFFU));
         }
     }
 };
@@ -277,16 +257,15 @@ private:
 class CborReader
 {
 public:
-    CborReader(const std::uint8_t *data, std::size_t size) noexcept
+    CborReader(const std::uint8_t* data, std::size_t size) noexcept
         : data_(data)
         , size_(size)
         , mPos(0)
     {
     }
 
-    template <typename Container,
-              typename = std::enable_if_t<detail::is_byte_container_v<Container>>>
-    explicit CborReader(const Container &buffer) noexcept
+    template <typename Container, typename = std::enable_if_t<detail::is_byte_container_v<Container>>>
+    explicit CborReader(const Container& buffer) noexcept
         : CborReader(buffer.data(), buffer.size())
     {
     }
@@ -310,10 +289,8 @@ public:
         }
 
         const std::uint8_t b = *head;
-        const std::uint8_t mt =
-            static_cast<std::uint8_t>(b >> 5U);
-        const std::uint8_t ai =
-            static_cast<std::uint8_t>(b & 0x1FU);
+        const std::uint8_t mt = static_cast<std::uint8_t>(b >> 5U);
+        const std::uint8_t ai = static_cast<std::uint8_t>(b & 0x1FU);
 
         if (mt != 0U)
         {
@@ -337,10 +314,8 @@ public:
         }
 
         const std::uint8_t b = *head;
-        const std::uint8_t mt =
-            static_cast<std::uint8_t>(b >> 5U);
-        const std::uint8_t ai =
-            static_cast<std::uint8_t>(b & 0x1FU);
+        const std::uint8_t mt = static_cast<std::uint8_t>(b >> 5U);
+        const std::uint8_t ai = static_cast<std::uint8_t>(b & 0x1FU);
 
         if (mt == 0U)
         {
@@ -359,8 +334,7 @@ public:
             {
                 return make_unexpected(CborError(arg.error().message));
             }
-            return static_cast<std::int64_t>(
-                -static_cast<std::int64_t>(*arg) - 1);
+            return static_cast<std::int64_t>(-static_cast<std::int64_t>(*arg) - 1);
         }
 
         return make_unexpected(CborError("Expected integer"));
@@ -395,10 +369,8 @@ public:
         }
 
         const std::uint8_t b = *head;
-        const std::uint8_t mt =
-            static_cast<std::uint8_t>(b >> 5U);
-        const std::uint8_t ai =
-            static_cast<std::uint8_t>(b & 0x1FU);
+        const std::uint8_t mt = static_cast<std::uint8_t>(b >> 5U);
+        const std::uint8_t ai = static_cast<std::uint8_t>(b & 0x1FU);
 
         if (mt != 7U || ai != 27U)
         {
@@ -407,8 +379,7 @@ public:
 
         if (remaining() < 8U)
         {
-            return make_unexpected(
-                CborError("CBOR underflow reading double"));
+            return make_unexpected(CborError("CBOR underflow reading double"));
         }
 
         std::uint64_t bits = 0;
@@ -432,10 +403,8 @@ public:
         }
 
         const std::uint8_t b = *head;
-        const std::uint8_t mt =
-            static_cast<std::uint8_t>(b >> 5U);
-        const std::uint8_t ai =
-            static_cast<std::uint8_t>(b & 0x1FU);
+        const std::uint8_t mt = static_cast<std::uint8_t>(b >> 5U);
+        const std::uint8_t ai = static_cast<std::uint8_t>(b & 0x1FU);
 
         if (mt != 3U)
         {
@@ -451,15 +420,12 @@ public:
         const std::uint64_t len = *len_res;
         if (len > remaining())
         {
-            return make_unexpected(
-                CborError("CBOR underflow reading string"));
+            return make_unexpected(CborError("CBOR underflow reading string"));
         }
 
         std::string out;
         out.resize(static_cast<std::size_t>(len));
-        std::memcpy(out.data(),
-                    data_ + mPos,
-                    static_cast<std::size_t>(len));
+        std::memcpy(out.data(), data_ + mPos, static_cast<std::size_t>(len));
         mPos += static_cast<std::size_t>(len);
         return out;
     }
@@ -475,7 +441,7 @@ public:
     }
 
 private:
-    const std::uint8_t *data_;
+    const std::uint8_t* data_;
     std::size_t size_;
     std::size_t mPos;
 
@@ -483,8 +449,7 @@ private:
     {
         if (mPos >= size_)
         {
-            return make_unexpected(
-                CborError("CBOR underflow reading byte"));
+            return make_unexpected(CborError("CBOR underflow reading byte"));
         }
         return data_[mPos++];
     }
@@ -513,8 +478,7 @@ private:
                 return make_unexpected(CborError("CBOR underflow"));
             }
             const std::uint64_t v =
-                (static_cast<std::uint64_t>(data_[mPos]) << 8U) |
-                static_cast<std::uint64_t>(data_[mPos + 1U]);
+                (static_cast<std::uint64_t>(data_[mPos]) << 8U) | static_cast<std::uint64_t>(data_[mPos + 1U]);
             mPos += 2U;
             return v;
         }
@@ -552,8 +516,7 @@ private:
         return make_unexpected(CborError("Invalid CBOR additional info"));
     }
 
-    CborResult<std::uint64_t> read_sized_header(std::uint8_t expected_mt,
-                                                const char *what)
+    CborResult<std::uint64_t> read_sized_header(std::uint8_t expected_mt, const char* what)
     {
         auto head = read_byte();
         if (!head)
@@ -562,15 +525,12 @@ private:
         }
 
         const std::uint8_t b = *head;
-        const std::uint8_t mt =
-            static_cast<std::uint8_t>(b >> 5U);
-        const std::uint8_t ai =
-            static_cast<std::uint8_t>(b & 0x1FU);
+        const std::uint8_t mt = static_cast<std::uint8_t>(b >> 5U);
+        const std::uint8_t ai = static_cast<std::uint8_t>(b & 0x1FU);
 
         if (mt != expected_mt)
         {
-            return make_unexpected(
-                CborError(std::string("Expected ") + what + " header"));
+            return make_unexpected(CborError(std::string("Expected ") + what + " header"));
         }
 
         return read_arg(ai);
@@ -586,18 +546,16 @@ struct CborTraits;
 
 // Signed integers
 template <typename T>
-struct CborTraits<
-    T,
-    std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>>>
+struct CborTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>>>
 {
     template <typename Writer>
-    static void encode(Writer &writer, T value)
+    static void encode(Writer& writer, T value)
     {
         writer.write_int(value);
     }
 
     template <typename Reader>
-    static CborResult<T> decode(Reader &reader)
+    static CborResult<T> decode(Reader& reader)
     {
         auto v = reader.read_int();
         if (!v)
@@ -617,18 +575,16 @@ struct CborTraits<
 
 // Unsigned integers
 template <typename T>
-struct CborTraits<
-    T,
-    std::enable_if_t<std::is_integral_v<T> && std::is_unsigned_v<T>>>
+struct CborTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_unsigned_v<T>>>
 {
     template <typename Writer>
-    static void encode(Writer &writer, T value)
+    static void encode(Writer& writer, T value)
     {
         writer.write_uint(value);
     }
 
     template <typename Reader>
-    static CborResult<T> decode(Reader &reader)
+    static CborResult<T> decode(Reader& reader)
     {
         auto v = reader.read_uint();
         if (!v)
@@ -638,8 +594,7 @@ struct CborTraits<
 
         if (*v > std::numeric_limits<T>::max())
         {
-            return make_unexpected(
-                CborError("Unsigned integer out of range"));
+            return make_unexpected(CborError("Unsigned integer out of range"));
         }
 
         return static_cast<T>(*v);
@@ -651,15 +606,14 @@ template <typename T>
 struct CborTraits<T, std::enable_if_t<std::is_enum_v<T>>>
 {
     template <typename Writer>
-    static void encode(Writer &writer, T value)
+    static void encode(Writer& writer, T value)
     {
         using underlying = std::underlying_type_t<T>;
-        CborTraits<underlying>::encode(
-            writer, static_cast<underlying>(value));
+        CborTraits<underlying>::encode(writer, static_cast<underlying>(value));
     }
 
     template <typename Reader>
-    static CborResult<T> decode(Reader &reader)
+    static CborResult<T> decode(Reader& reader)
     {
         using underlying = std::underlying_type_t<T>;
         auto v = CborTraits<underlying>::decode(reader);
@@ -676,13 +630,13 @@ template <>
 struct CborTraits<bool>
 {
     template <typename Writer>
-    static void encode(Writer &writer, bool value)
+    static void encode(Writer& writer, bool value)
     {
         writer.write_bool(value);
     }
 
     template <typename Reader>
-    static CborResult<bool> decode(Reader &reader)
+    static CborResult<bool> decode(Reader& reader)
     {
         return reader.read_bool();
     }
@@ -693,13 +647,13 @@ template <>
 struct CborTraits<double>
 {
     template <typename Writer>
-    static void encode(Writer &writer, double value)
+    static void encode(Writer& writer, double value)
     {
         writer.write_double(value);
     }
 
     template <typename Reader>
-    static CborResult<double> decode(Reader &reader)
+    static CborResult<double> decode(Reader& reader)
     {
         return reader.read_double();
     }
@@ -710,13 +664,13 @@ template <>
 struct CborTraits<std::string>
 {
     template <typename Writer>
-    static void encode(Writer &writer, const std::string &value)
+    static void encode(Writer& writer, const std::string& value)
     {
         writer.write_string(value);
     }
 
     template <typename Reader>
-    static CborResult<std::string> decode(Reader &reader)
+    static CborResult<std::string> decode(Reader& reader)
     {
         return reader.read_string();
     }
@@ -727,18 +681,17 @@ template <typename T, typename Alloc>
 struct CborTraits<std::vector<T, Alloc>>
 {
     template <typename Writer>
-    static void encode(Writer &writer, const std::vector<T, Alloc> &vec)
+    static void encode(Writer& writer, const std::vector<T, Alloc>& vec)
     {
-        writer.write_array_header(
-            static_cast<std::uint64_t>(vec.size()));
-        for (const auto &elem : vec)
+        writer.write_array_header(static_cast<std::uint64_t>(vec.size()));
+        for (const auto& elem : vec)
         {
             CborTraits<T>::encode(writer, elem);
         }
     }
 
     template <typename Reader>
-    static CborResult<std::vector<T, Alloc>> decode(Reader &reader)
+    static CborResult<std::vector<T, Alloc>> decode(Reader& reader)
     {
         auto len_res = reader.read_array_header();
         if (!len_res)
@@ -747,11 +700,9 @@ struct CborTraits<std::vector<T, Alloc>>
         }
 
         const std::uint64_t len = *len_res;
-        if (len > static_cast<std::uint64_t>(
-                      std::numeric_limits<std::size_t>::max()))
+        if (len > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max()))
         {
-            return make_unexpected(
-                CborError("Array length too large"));
+            return make_unexpected(CborError("Array length too large"));
         }
 
         std::vector<T, Alloc> result;
@@ -774,12 +725,10 @@ template <typename K, typename V, typename Compare, typename Alloc>
 struct CborTraits<std::map<K, V, Compare, Alloc>>
 {
     template <typename Writer>
-    static void encode(Writer &writer,
-                       const std::map<K, V, Compare, Alloc> &m)
+    static void encode(Writer& writer, const std::map<K, V, Compare, Alloc>& m)
     {
-        writer.write_map_header(
-            static_cast<std::uint64_t>(m.size()));
-        for (const auto &kv : m)
+        writer.write_map_header(static_cast<std::uint64_t>(m.size()));
+        for (const auto& kv : m)
         {
             CborTraits<K>::encode(writer, kv.first);
             CborTraits<V>::encode(writer, kv.second);
@@ -787,8 +736,7 @@ struct CborTraits<std::map<K, V, Compare, Alloc>>
     }
 
     template <typename Reader>
-    static CborResult<std::map<K, V, Compare, Alloc>>
-    decode(Reader &reader)
+    static CborResult<std::map<K, V, Compare, Alloc>> decode(Reader& reader)
     {
         auto len_res = reader.read_map_header();
         if (!len_res)
@@ -797,11 +745,9 @@ struct CborTraits<std::map<K, V, Compare, Alloc>>
         }
 
         const std::uint64_t len = *len_res;
-        if (len > static_cast<std::uint64_t>(
-                      std::numeric_limits<std::size_t>::max()))
+        if (len > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max()))
         {
-            return make_unexpected(
-                CborError("Map length too large"));
+            return make_unexpected(CborError("Map length too large"));
         }
 
         std::map<K, V, Compare, Alloc> result;
@@ -831,20 +777,19 @@ struct CborTraits<std::map<K, V, Compare, Alloc>>
 // ============================================================================
 
 template <typename T, typename Writer>
-void cbor_encode(Writer &writer, const T &value)
+void cbor_encode(Writer& writer, const T& value)
 {
     CborTraits<T>::encode(writer, value);
 }
 
 template <typename T, typename Reader>
-CborResult<T> cbor_decode(Reader &reader)
+CborResult<T> cbor_decode(Reader& reader)
 {
     return CborTraits<T>::decode(reader);
 }
 
 template <typename T, typename ByteContainer>
-CborResult<void> cbor_encode_to(ByteContainer &buffer,
-                                const T &value)
+CborResult<void> cbor_encode_to(ByteContainer& buffer, const T& value)
 {
     static_assert(detail::is_byte_container_v<ByteContainer>,
                   "ByteContainer must store uint8_t and provide data()/size()/push_back()");
@@ -854,7 +799,7 @@ CborResult<void> cbor_encode_to(ByteContainer &buffer,
     {
         CborTraits<T>::encode(writer, value);
     }
-    catch (const std::exception &ex)
+    catch (const std::exception& ex)
     {
         return make_unexpected(CborError(ex.what()));
     }
@@ -862,7 +807,7 @@ CborResult<void> cbor_encode_to(ByteContainer &buffer,
 }
 
 template <typename T, typename ByteContainer>
-CborResult<T> cbor_decode_from(const ByteContainer &buffer)
+CborResult<T> cbor_decode_from(const ByteContainer& buffer)
 {
     static_assert(detail::is_byte_container_v<ByteContainer>,
                   "ByteContainer must store uint8_t and provide data()/size()/push_back()");
@@ -872,7 +817,7 @@ CborResult<T> cbor_decode_from(const ByteContainer &buffer)
     {
         return CborTraits<T>::decode(reader);
     }
-    catch (const std::exception &ex)
+    catch (const std::exception& ex)
     {
         return make_unexpected(CborError(ex.what()));
     }
@@ -882,15 +827,15 @@ CborResult<T> cbor_decode_from(const ByteContainer &buffer)
 } // namespace fat_p
 
 // Local-scope convenience imports (does not pollute namespace fat_p)
-#define USING_FATP_CBOR()                           \
-    using fat_p::cbor_fatp::CborError;              \
-    using fat_p::cbor_fatp::CborResult;             \
-    using fat_p::cbor_fatp::DefaultCborBuffer;      \
-    using fat_p::cbor_fatp::CborBuffer;             \
-    using fat_p::cbor_fatp::CborWriter;             \
-    using fat_p::cbor_fatp::CborReader;             \
-    using fat_p::cbor_fatp::CborTraits;             \
-    using fat_p::cbor_fatp::cbor_encode;            \
-    using fat_p::cbor_fatp::cbor_decode;            \
-    using fat_p::cbor_fatp::cbor_encode_to;         \
+#define USING_FATP_CBOR()                      \
+    using fat_p::cbor_fatp::CborError;         \
+    using fat_p::cbor_fatp::CborResult;        \
+    using fat_p::cbor_fatp::DefaultCborBuffer; \
+    using fat_p::cbor_fatp::CborBuffer;        \
+    using fat_p::cbor_fatp::CborWriter;        \
+    using fat_p::cbor_fatp::CborReader;        \
+    using fat_p::cbor_fatp::CborTraits;        \
+    using fat_p::cbor_fatp::cbor_encode;       \
+    using fat_p::cbor_fatp::cbor_decode;       \
+    using fat_p::cbor_fatp::cbor_encode_to;    \
     using fat_p::cbor_fatp::cbor_decode_from;

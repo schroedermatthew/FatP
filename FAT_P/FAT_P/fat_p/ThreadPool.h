@@ -2,7 +2,7 @@
  * @file ThreadPool.h
  * @brief Production-ready thread pool with work stealing, priority queues, and hybrid idle strategy
  *
- * 
+ *
  *
  * @layer Concurrency
  *
@@ -131,8 +131,14 @@ public:
         }
     }
 
-    Priority priority() const noexcept { return m_priority; }
-    uint64_t id() const noexcept { return m_id; }
+    Priority priority() const noexcept
+    {
+        return m_priority;
+    }
+    uint64_t id() const noexcept
+    {
+        return m_id;
+    }
 
     /**
      * @brief Comparison for std::priority_queue (max-heap)
@@ -154,7 +160,10 @@ public:
         return m_id > other.m_id;
     }
 
-    explicit operator bool() const noexcept { return static_cast<bool>(m_func); }
+    explicit operator bool() const noexcept
+    {
+        return static_cast<bool>(m_func);
+    }
 
 private:
     TaskFunction m_func;
@@ -335,7 +344,9 @@ public:
 
         for (size_t i = 0; i < num_threads; ++i)
         {
-            m_workers.emplace_back([this, i]() { worker_thread(i); });
+            m_workers.emplace_back([this, i]() {
+                worker_thread(i);
+            });
         }
     }
 
@@ -364,12 +375,9 @@ public:
      * @note Uses lambda capture instead of std::bind to preserve reference semantics
      */
     template <typename F, typename... Args>
-    [[nodiscard]] auto submit(F&& f, Args&&... args)
-        -> std::future<std::invoke_result_t<F, Args...>>
+    [[nodiscard]] auto submit(F&& f, Args&&... args) -> std::future<std::invoke_result_t<F, Args...>>
     {
-        return submit_priority(Priority::Normal,
-                               std::forward<F>(f),
-                               std::forward<Args>(args)...);
+        return submit_priority(Priority::Normal, std::forward<F>(f), std::forward<Args>(args)...);
     }
 
     /**
@@ -389,15 +397,18 @@ public:
 
         // Lambda capture preserves reference semantics (unlike std::bind)
         auto bound_task = [func = std::forward<F>(f),
-                           args_tuple = std::make_tuple(std::forward<Args>(args)...)]() mutable
-            -> ReturnType {
+                           args_tuple = std::make_tuple(std::forward<Args>(args)...)]() mutable -> ReturnType {
             return std::apply(std::move(func), std::move(args_tuple));
         };
 
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(std::move(bound_task));
         std::future<ReturnType> result = task->get_future();
 
-        ThreadPoolTask wrapped([task]() { (*task)(); }, priority);
+        ThreadPoolTask wrapped(
+            [task]() {
+                (*task)();
+            },
+            priority);
 
         enqueue_task(std::move(wrapped), priority, /*notify=*/true);
 
@@ -698,9 +709,8 @@ private:
     {
         // Thread-local state for victim selection (no static - supports multiple pools)
         thread_local std::vector<size_t> victims;
-        thread_local std::mt19937 rng(
-            std::random_device{}() + static_cast<unsigned int>(
-                std::hash<std::thread::id>{}(std::this_thread::get_id())));
+        thread_local std::mt19937 rng(std::random_device{}() + static_cast<unsigned int>(std::hash<std::thread::id>{}(
+                                                                   std::this_thread::get_id())));
 
         // Resize if thread pool size changed (supports multiple pools per thread)
         if (victims.size() != m_num_threads)

@@ -505,8 +505,7 @@ void benchmark_spmv()
     constexpr int warmup = 100;
 
     double time_prefetch = measure_perf(
-        [&]()
-        {
+        [&]() {
             A.matvec(x.data(), y.data(), true);
             DoNotOptimize(y.data());
         },
@@ -514,8 +513,7 @@ void benchmark_spmv()
         warmup);
 
     double time_no_prefetch = measure_perf(
-        [&]()
-        {
+        [&]() {
             A.matvec(x.data(), y.data(), false);
             DoNotOptimize(y.data());
         },
@@ -567,8 +565,7 @@ void benchmark_transpose()
     constexpr int warmup = 10;
 
     double time = measure_perf(
-        [&]()
-        {
+        [&]() {
             auto AT = A.transpose();
             DoNotOptimize(&AT);
         },

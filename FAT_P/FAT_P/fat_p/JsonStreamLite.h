@@ -83,15 +83,7 @@ using JsonObject = std::map<std::string, JsonValue>;
 class JsonValue
 {
 public:
-    using Variant = std::variant<
-        std::nullptr_t,
-        bool,
-        std::int64_t,
-        double,
-        std::string,
-        JsonArray,
-        JsonObject
-    >;
+    using Variant = std::variant<std::nullptr_t, bool, std::int64_t, double, std::string, JsonArray, JsonObject>;
 
     JsonValue()
         : data_(nullptr)
@@ -108,9 +100,7 @@ public:
     {
     }
 
-    template <typename T,
-              typename = std::enable_if_t<std::is_integral_v<T> &&
-                                          !std::is_same_v<T, bool>>>
+    template <typename T, typename = std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>>>
     JsonValue(T v)
         : data_(static_cast<std::int64_t>(v))
     {
@@ -294,24 +284,42 @@ inline const char* error_to_string(ParseError e)
 {
     switch (e)
     {
-        case ParseError::None: return "no error";
-        case ParseError::UnexpectedEof: return "unexpected end of input";
-        case ParseError::UnexpectedCharacter: return "unexpected character";
-        case ParseError::InvalidEscapeSequence: return "invalid escape sequence";
-        case ParseError::InvalidUnicodeEscape: return "invalid unicode escape";
-        case ParseError::InvalidNumber: return "invalid number format";
-        case ParseError::NumberOutOfRange: return "number out of range";
-        case ParseError::InvalidLiteral: return "invalid literal";
-        case ParseError::MaxDepthExceeded: return "maximum nesting depth exceeded";
-        case ParseError::MaxStringSizeExceeded: return "maximum string size exceeded";
-        case ParseError::MaxTotalSizeExceeded: return "maximum total size exceeded";
-        case ParseError::MaxArrayElementsExceeded: return "maximum array elements exceeded";
-        case ParseError::MaxObjectMembersExceeded: return "maximum object members exceeded";
-        case ParseError::DuplicateKey: return "duplicate object key";
-        case ParseError::TrailingComma: return "trailing comma";
-        case ParseError::MissingColon: return "missing colon after object key";
-        case ParseError::MissingComma: return "missing comma";
-        case ParseError::InternalError: return "internal parser error";
+        case ParseError::None:
+            return "no error";
+        case ParseError::UnexpectedEof:
+            return "unexpected end of input";
+        case ParseError::UnexpectedCharacter:
+            return "unexpected character";
+        case ParseError::InvalidEscapeSequence:
+            return "invalid escape sequence";
+        case ParseError::InvalidUnicodeEscape:
+            return "invalid unicode escape";
+        case ParseError::InvalidNumber:
+            return "invalid number format";
+        case ParseError::NumberOutOfRange:
+            return "number out of range";
+        case ParseError::InvalidLiteral:
+            return "invalid literal";
+        case ParseError::MaxDepthExceeded:
+            return "maximum nesting depth exceeded";
+        case ParseError::MaxStringSizeExceeded:
+            return "maximum string size exceeded";
+        case ParseError::MaxTotalSizeExceeded:
+            return "maximum total size exceeded";
+        case ParseError::MaxArrayElementsExceeded:
+            return "maximum array elements exceeded";
+        case ParseError::MaxObjectMembersExceeded:
+            return "maximum object members exceeded";
+        case ParseError::DuplicateKey:
+            return "duplicate object key";
+        case ParseError::TrailingComma:
+            return "trailing comma";
+        case ParseError::MissingColon:
+            return "missing colon after object key";
+        case ParseError::MissingComma:
+            return "missing comma";
+        case ParseError::InternalError:
+            return "internal parser error";
     }
     return "unknown error";
 }
@@ -798,8 +806,7 @@ private:
             return ParseStatus::NeedMoreData;
         }
 
-        if (is_sign && number_has_exp_ && 
-            (mToken.back() == 'e' || mToken.back() == 'E'))
+        if (is_sign && number_has_exp_ && (mToken.back() == 'e' || mToken.back() == 'E'))
         {
             mToken += c;
             return ParseStatus::NeedMoreData;
@@ -838,14 +845,12 @@ private:
         }
 
         // Check for valid number format
-        if (mToken.size() > 1 && mToken[0] == '0' && 
-            mToken[1] >= '0' && mToken[1] <= '9')
+        if (mToken.size() > 1 && mToken[0] == '0' && mToken[1] >= '0' && mToken[1] <= '9')
         {
             return set_error(ParseError::InvalidNumber);
         }
 
-        if (mToken[0] == '-' && mToken.size() > 2 && 
-            mToken[1] == '0' && mToken[2] >= '0' && mToken[2] <= '9')
+        if (mToken[0] == '-' && mToken.size() > 2 && mToken[1] == '0' && mToken[2] >= '0' && mToken[2] <= '9')
         {
             return set_error(ParseError::InvalidNumber);
         }
@@ -854,8 +859,7 @@ private:
         if (!mToken.empty())
         {
             char last = mToken.back();
-            if (last == '.' || last == 'e' || last == 'E' ||
-                last == '+' || last == '-')
+            if (last == '.' || last == 'e' || last == 'E' || last == '+' || last == '-')
             {
                 return set_error(ParseError::InvalidNumber);
             }
@@ -934,12 +938,10 @@ private:
                 const char* false_str = "false";
                 const char* null_str = "null";
 
-                bool matches_true = (mToken.size() <= 4 && 
-                    std::strncmp(mToken.c_str(), true_str, mToken.size()) == 0);
-                bool matches_false = (mToken.size() <= 5 && 
-                    std::strncmp(mToken.c_str(), false_str, mToken.size()) == 0);
-                bool matches_null = (mToken.size() <= 4 && 
-                    std::strncmp(mToken.c_str(), null_str, mToken.size()) == 0);
+                bool matches_true = (mToken.size() <= 4 && std::strncmp(mToken.c_str(), true_str, mToken.size()) == 0);
+                bool matches_false =
+                    (mToken.size() <= 5 && std::strncmp(mToken.c_str(), false_str, mToken.size()) == 0);
+                bool matches_null = (mToken.size() <= 4 && std::strncmp(mToken.c_str(), null_str, mToken.size()) == 0);
 
                 if (matches_true || matches_false || matches_null)
                 {
@@ -1116,7 +1118,7 @@ private:
 
             mState = State::InString;
             mToken.clear();
-            ctx.expect_value = false;  // We're parsing a key
+            ctx.expect_value = false; // We're parsing a key
             return ParseStatus::NeedMoreData;
         }
 
@@ -1248,9 +1250,7 @@ private:
 
     static bool is_hex_digit(char c)
     {
-        return (c >= '0' && c <= '9') ||
-               (c >= 'a' && c <= 'f') ||
-               (c >= 'A' && c <= 'F');
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
     }
 
     static unsigned int hex_digit_value(char c)
@@ -1304,7 +1304,7 @@ inline JsonValue parse_json(const std::string& data)
 template <std::size_t N>
 inline JsonValue parse_json(const char (&data)[N])
 {
-    return parse_json(data, N - 1);  // Exclude null terminator
+    return parse_json(data, N - 1); // Exclude null terminator
 }
 
 template <typename Container,
@@ -1324,14 +1324,14 @@ namespace js = json_stream;
 /**
  * @brief Macro to bring JsonStreamLite types into local scope
  */
-#define FATP_USING_JSON_STREAM_LITE()                          \
-    using fat_p::json_stream::JsonValue;                  \
-    using fat_p::json_stream::JsonArray;                  \
-    using fat_p::json_stream::JsonObject;                 \
-    using fat_p::json_stream::ParseStatus;                \
-    using fat_p::json_stream::ParseError;                 \
-    using fat_p::json_stream::JsonStreamParser;           \
-    using fat_p::json_stream::parse_json;                 \
+#define FATP_USING_JSON_STREAM_LITE()           \
+    using fat_p::json_stream::JsonValue;        \
+    using fat_p::json_stream::JsonArray;        \
+    using fat_p::json_stream::JsonObject;       \
+    using fat_p::json_stream::ParseStatus;      \
+    using fat_p::json_stream::ParseError;       \
+    using fat_p::json_stream::JsonStreamParser; \
+    using fat_p::json_stream::parse_json;       \
     using fat_p::json_stream::error_to_string
 
 } // namespace fat_p

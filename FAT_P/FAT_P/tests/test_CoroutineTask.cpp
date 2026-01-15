@@ -61,8 +61,7 @@ namespace fat_p::testing::coroutinetask
 FATP_TEST_CASE(simple_coroutine)
 {
     // Simple coroutine that returns a value
-    auto simple_task = []() -> CoroutineTask<int>
-    {
+    auto simple_task = []() -> CoroutineTask<int> {
         co_return 42;
     };
 
@@ -77,8 +76,7 @@ FATP_TEST_CASE(simple_coroutine)
 FATP_TEST_CASE(coroutine_with_computation)
 {
     // Coroutine that performs computation
-    auto compute_sum = [](int a, int b) -> CoroutineTask<int>
-    {
+    auto compute_sum = [](int a, int b) -> CoroutineTask<int> {
         int result = a + b;
         co_return result;
     };
@@ -94,8 +92,7 @@ FATP_TEST_CASE(coroutine_with_computation)
 FATP_TEST_CASE(coroutine_with_string)
 {
     // Coroutine that returns string
-    auto get_message = []() -> CoroutineTask<std::string>
-    {
+    auto get_message = []() -> CoroutineTask<std::string> {
         co_return "Hello from coroutine";
     };
 
@@ -121,8 +118,7 @@ FATP_TEST_CASE(coroutine_with_complex_type)
         }
     };
 
-    auto create_data = []() -> CoroutineTask<Data>
-    {
+    auto create_data = []() -> CoroutineTask<Data> {
         Data d{42, 3.14, "test"};
         co_return d;
     };
@@ -144,8 +140,7 @@ FATP_TEST_CASE(coroutine_with_complex_type)
 FATP_TEST_CASE(coroutine_exception_handling)
 {
     // Coroutine that throws an exception
-    auto throwing_task = []() -> CoroutineTask<int>
-    {
+    auto throwing_task = []() -> CoroutineTask<int> {
         throw std::runtime_error("Test exception");
         co_return 0; // Never reached
     };
@@ -174,8 +169,7 @@ FATP_TEST_CASE(eager_task_executes_immediately)
 {
     int executed = 0;
 
-    auto eager = [&executed]() -> EagerTask<int>
-    {
+    auto eager = [&executed]() -> EagerTask<int> {
         executed = 42;
         co_return executed;
     }();
@@ -194,8 +188,7 @@ FATP_TEST_CASE(lazy_task_waits_for_await)
 {
     int executed = 0;
 
-    auto lazy = [&executed]() -> CoroutineTask<int>
-    {
+    auto lazy = [&executed]() -> CoroutineTask<int> {
         executed = 42;
         co_return executed;
     }();
@@ -218,8 +211,7 @@ FATP_TEST_CASE(lazy_task_waits_for_await)
 
 FATP_TEST_CASE(generator_simple_sequence)
 {
-    auto range = [](int n) -> Generator<int>
-    {
+    auto range = [](int n) -> Generator<int> {
         for (int i = 0; i < n; ++i)
         {
             co_yield i;
@@ -242,8 +234,7 @@ FATP_TEST_CASE(generator_simple_sequence)
 
 FATP_TEST_CASE(generator_fibonacci)
 {
-    auto fibonacci = [](int n) -> Generator<int>
-    {
+    auto fibonacci = [](int n) -> Generator<int> {
         int a = 0, b = 1;
         for (int i = 0; i < n; ++i)
         {
@@ -274,8 +265,7 @@ FATP_TEST_CASE(generator_fibonacci)
 
 FATP_TEST_CASE(generator_string_values)
 {
-    auto string_gen = []() -> Generator<std::string>
-    {
+    auto string_gen = []() -> Generator<std::string> {
         co_yield "first";
         co_yield "second";
         co_yield "third";
@@ -333,24 +323,18 @@ FATP_TEST_CASE(when_all_failure)
 {
     std::vector<CoroutineTask<int>> tasks;
 
-    tasks.push_back(
-        []() -> CoroutineTask<int>
-        {
-            co_return 1;
-        }());
+    tasks.push_back([]() -> CoroutineTask<int> {
+        co_return 1;
+    }());
 
-    tasks.push_back(
-        []() -> CoroutineTask<int>
-        {
-            throw std::runtime_error("Task failed");
-            co_return 2;
-        }());
+    tasks.push_back([]() -> CoroutineTask<int> {
+        throw std::runtime_error("Task failed");
+        co_return 2;
+    }());
 
-    tasks.push_back(
-        []() -> CoroutineTask<int>
-        {
-            co_return 3;
-        }());
+    tasks.push_back([]() -> CoroutineTask<int> {
+        co_return 3;
+    }());
 
     auto result = when_all(tasks);
 
@@ -362,17 +346,13 @@ FATP_TEST_CASE(when_any_first_succeeds)
 {
     std::vector<CoroutineTask<int>> tasks;
 
-    tasks.push_back(
-        []() -> CoroutineTask<int>
-        {
-            co_return 42;
-        }());
+    tasks.push_back([]() -> CoroutineTask<int> {
+        co_return 42;
+    }());
 
-    tasks.push_back(
-        []() -> CoroutineTask<int>
-        {
-            co_return 100;
-        }());
+    tasks.push_back([]() -> CoroutineTask<int> {
+        co_return 100;
+    }());
 
     auto result = when_any(tasks);
 
@@ -386,8 +366,7 @@ FATP_TEST_CASE(when_any_all_fail)
     std::vector<CoroutineTask<int>> tasks;
 
     // Helper that always throws
-    auto make_failing_task = []() -> CoroutineTask<int>
-    {
+    auto make_failing_task = []() -> CoroutineTask<int> {
         throw std::runtime_error("Task failed");
         co_return 0; // Unreachable, but required for coroutine return type
     };
@@ -409,8 +388,7 @@ FATP_TEST_CASE(when_any_all_fail)
 
 FATP_TEST_CASE(coroutine_task_move_constructor)
 {
-    auto make_task = []() -> CoroutineTask<int>
-    {
+    auto make_task = []() -> CoroutineTask<int> {
         co_return 42;
     };
 
@@ -429,8 +407,7 @@ FATP_TEST_CASE(coroutine_task_move_constructor)
 
 FATP_TEST_CASE(coroutine_task_move_assignment)
 {
-    auto make_task = [](int val) -> CoroutineTask<int>
-    {
+    auto make_task = [](int val) -> CoroutineTask<int> {
         co_return val;
     };
 
@@ -447,8 +424,7 @@ FATP_TEST_CASE(coroutine_task_move_assignment)
 
 FATP_TEST_CASE(generator_move_semantics)
 {
-    auto make_gen = []() -> Generator<int>
-    {
+    auto make_gen = []() -> Generator<int> {
         for (int i = 0; i < 3; ++i)
         {
             co_yield i;
@@ -474,8 +450,7 @@ FATP_TEST_CASE(generator_move_semantics)
 
 FATP_TEST_CASE(task_done_state)
 {
-    auto task = []() -> CoroutineTask<int>
-    {
+    auto task = []() -> CoroutineTask<int> {
         co_return 42;
     }();
 
@@ -490,8 +465,7 @@ FATP_TEST_CASE(task_done_state)
 
 FATP_TEST_CASE(task_validity_check)
 {
-    auto task = []() -> CoroutineTask<int>
-    {
+    auto task = []() -> CoroutineTask<int> {
         co_return 42;
     }();
 
@@ -521,10 +495,8 @@ void run_coroutine_benchmarks()
     {
         benchmark(
             "Simple coroutine creation and execution",
-            []()
-            {
-                auto task = []() -> CoroutineTask<int>
-                {
+            []() {
+                auto task = []() -> CoroutineTask<int> {
                     co_return 42;
                 }();
                 volatile auto result = task.await();
@@ -537,10 +509,8 @@ void run_coroutine_benchmarks()
     {
         benchmark(
             "Lazy task",
-            []()
-            {
-                auto task = []() -> CoroutineTask<int>
-                {
+            []() {
+                auto task = []() -> CoroutineTask<int> {
                     co_return 42;
                 }();
                 volatile auto result = task.await();
@@ -549,10 +519,8 @@ void run_coroutine_benchmarks()
 
         benchmark(
             "Eager task",
-            []()
-            {
-                auto task = []() -> EagerTask<int>
-                {
+            []() {
+                auto task = []() -> EagerTask<int> {
                     co_return 42;
                 }();
                 volatile auto result = task.result();
@@ -565,10 +533,8 @@ void run_coroutine_benchmarks()
     {
         benchmark(
             "Generator iteration (10 items)",
-            []()
-            {
-                auto gen = []() -> Generator<int>
-                {
+            []() {
+                auto gen = []() -> Generator<int> {
                     for (int i = 0; i < 10; ++i)
                     {
                         co_yield i;

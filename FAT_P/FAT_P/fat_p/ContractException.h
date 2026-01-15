@@ -8,7 +8,7 @@
  * (std::logic_error, std::runtime_error, std::bad_alloc) based on the context
  * of the failure.
  *
- * 
+ *
  *
  * @layer Foundation
  *
@@ -84,7 +84,8 @@ FATP_META:
 #include <string>
 #include <type_traits>
 
-namespace fat_p {
+namespace fat_p
+{
 
 // =============================================================================
 // Polymorphic Base for All Contract Violations
@@ -158,8 +159,7 @@ inline std::ostream& operator<<(std::ostream& os, const ContractViolationBase& e
 template <typename T>
 class ContractViolationError : public T, public ContractViolationBase
 {
-    static_assert(std::is_base_of_v<std::exception, T>,
-                  "T must inherit from std::exception.");
+    static_assert(std::is_base_of_v<std::exception, T>, "T must inherit from std::exception.");
     static_assert(std::is_constructible_v<T, const std::string&>,
                   "T must be constructible from const std::string& "
                   "(use AllocContractError for std::bad_alloc).");
@@ -258,8 +258,7 @@ class AllocContractError : public std::bad_alloc, public ContractViolationBase
 private:
     std::string full_message_;
 
-    static constexpr const char* FALLBACK_MESSAGE =
-        "Contract Violation: Bad Allocation (message construction failed)";
+    static constexpr const char* FALLBACK_MESSAGE = "Contract Violation: Bad Allocation (message construction failed)";
 
 public:
     /**

@@ -54,9 +54,9 @@ namespace fat_p
 // =============================================================================
 
 #if FATP_CPP20_OR_LATER
-    #define FATP_CONSTEVAL consteval
+#define FATP_CONSTEVAL consteval
 #else
-    #define FATP_CONSTEVAL constexpr
+#define FATP_CONSTEVAL constexpr
 #endif
 
 // =============================================================================
@@ -201,7 +201,7 @@ template <typename T>
     constexpr T high_bit = T(1) << (sizeof(T) * 8 - 1);
     if (n > high_bit)
     {
-        return 0;  // Overflow: result would exceed type max
+        return 0; // Overflow: result would exceed type max
     }
 
     --n;
@@ -333,38 +333,40 @@ template <typename T>
     if constexpr (sizeof(T) <= 4)
     {
         // 32-bit path
-        digits = (abs_n < 10) ? 1 :
-                 (abs_n < 100) ? 2 :
-                 (abs_n < 1000) ? 3 :
-                 (abs_n < 10000) ? 4 :
-                 (abs_n < 100000) ? 5 :
-                 (abs_n < 1000000) ? 6 :
-                 (abs_n < 10000000) ? 7 :
-                 (abs_n < 100000000) ? 8 :
-                 (abs_n < 1000000000) ? 9 : 10;
+        digits = (abs_n < 10)           ? 1
+                 : (abs_n < 100)        ? 2
+                 : (abs_n < 1000)       ? 3
+                 : (abs_n < 10000)      ? 4
+                 : (abs_n < 100000)     ? 5
+                 : (abs_n < 1000000)    ? 6
+                 : (abs_n < 10000000)   ? 7
+                 : (abs_n < 100000000)  ? 8
+                 : (abs_n < 1000000000) ? 9
+                                        : 10;
     }
     else
     {
         // 64-bit path
-        digits = (abs_n < 10ULL) ? 1 :
-                 (abs_n < 100ULL) ? 2 :
-                 (abs_n < 1000ULL) ? 3 :
-                 (abs_n < 10000ULL) ? 4 :
-                 (abs_n < 100000ULL) ? 5 :
-                 (abs_n < 1000000ULL) ? 6 :
-                 (abs_n < 10000000ULL) ? 7 :
-                 (abs_n < 100000000ULL) ? 8 :
-                 (abs_n < 1000000000ULL) ? 9 :
-                 (abs_n < 10000000000ULL) ? 10 :
-                 (abs_n < 100000000000ULL) ? 11 :
-                 (abs_n < 1000000000000ULL) ? 12 :
-                 (abs_n < 10000000000000ULL) ? 13 :
-                 (abs_n < 100000000000000ULL) ? 14 :
-                 (abs_n < 1000000000000000ULL) ? 15 :
-                 (abs_n < 10000000000000000ULL) ? 16 :
-                 (abs_n < 100000000000000000ULL) ? 17 :
-                 (abs_n < 1000000000000000000ULL) ? 18 :
-                 (abs_n < 10000000000000000000ULL) ? 19 : 20;
+        digits = (abs_n < 10ULL)                     ? 1
+                 : (abs_n < 100ULL)                  ? 2
+                 : (abs_n < 1000ULL)                 ? 3
+                 : (abs_n < 10000ULL)                ? 4
+                 : (abs_n < 100000ULL)               ? 5
+                 : (abs_n < 1000000ULL)              ? 6
+                 : (abs_n < 10000000ULL)             ? 7
+                 : (abs_n < 100000000ULL)            ? 8
+                 : (abs_n < 1000000000ULL)           ? 9
+                 : (abs_n < 10000000000ULL)          ? 10
+                 : (abs_n < 100000000000ULL)         ? 11
+                 : (abs_n < 1000000000000ULL)        ? 12
+                 : (abs_n < 10000000000000ULL)       ? 13
+                 : (abs_n < 100000000000000ULL)      ? 14
+                 : (abs_n < 1000000000000000ULL)     ? 15
+                 : (abs_n < 10000000000000000ULL)    ? 16
+                 : (abs_n < 100000000000000000ULL)   ? 17
+                 : (abs_n < 1000000000000000000ULL)  ? 18
+                 : (abs_n < 10000000000000000000ULL) ? 19
+                                                     : 20;
     }
     return sign_chars + digits;
 }
@@ -653,9 +655,9 @@ namespace detail
 {
 
 // Maximum value that can be safely cast to long long
-inline constexpr double MAX_SAFE_INT_DOUBLE = 9007199254740992.0;  // 2^53
+inline constexpr double MAX_SAFE_INT_DOUBLE = 9007199254740992.0; // 2^53
 
-}  // namespace detail
+} // namespace detail
 
 /**
  * @brief Floating-point-to-string conversion helper.
@@ -824,7 +826,7 @@ struct to_hex_string_t
 {
     static_assert(std::is_integral_v<T>, "to_hex_string_t requires integral type");
     static_assert(std::is_unsigned_v<T>, "to_hex_string_t requires unsigned type");
-    static constexpr std::size_t MaxSize = sizeof(T) * 2 + 3;  // "0x" + digits + null
+    static constexpr std::size_t MaxSize = sizeof(T) * 2 + 3; // "0x" + digits + null
     char buffer[MaxSize] = {};
     std::size_t length = 0;
 
@@ -892,9 +894,7 @@ struct to_hex_string_t
  *   to_hex_string_view(255u, false);       // "ff"
  */
 template <typename T, typename = std::enable_if_t<std::is_integral_v<T> && std::is_unsigned_v<T>>>
-[[nodiscard]] inline std::string_view to_hex_string_view(T value,
-                                                          bool prefix = true,
-                                                          bool uppercase = false) noexcept
+[[nodiscard]] inline std::string_view to_hex_string_view(T value, bool prefix = true, bool uppercase = false) noexcept
 {
     thread_local to_hex_string_t<T> converter_pool[STRING_POOL_SIZE] = {};
     thread_local std::size_t pool_index = 0;
@@ -956,8 +956,7 @@ struct ConstexprString
      *
      * @note Truncates if buffer is too small. Always null-terminates.
      */
-    [[nodiscard]] constexpr std::size_t to_array(char* target_buffer,
-                                                  std::size_t target_size) const
+    [[nodiscard]] constexpr std::size_t to_array(char* target_buffer, std::size_t target_size) const
     {
         if (target_size == 0)
         {
@@ -1091,4 +1090,4 @@ template <typename... Args>
     return true;
 }
 
-}  // namespace fat_p
+} // namespace fat_p

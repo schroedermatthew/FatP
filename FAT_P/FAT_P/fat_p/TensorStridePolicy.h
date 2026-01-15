@@ -12,35 +12,35 @@
  *       TensorStridePolicy is more general but has higher per-step overhead
  *       (~3-6x slower than manual loops in benchmarks). The specialized
  *       policies achieve near zero-overhead (~1.0-1.3x manual loops).
- * 
+ *
  * PERFORMANCE CHARACTERISTICS:
- * 
+ *
  * CONTIGUOUS ITERATION (row-major default, or strides matching natural layout):
  * - advance()/retreat(): O(1) constant time
  * - Detected automatically at construction
  * - Use shape-only constructor for guaranteed contiguous
- * 
+ *
  * NON-CONTIGUOUS ITERATION (strided, transposed, padded layouts):
  * - advance()/retreat(): O(1) amortized, O(dims) worst case on rollover
  * - currentOffset(): O(1) - cached value
- * 
+ *
  * Memory: Zero heap allocation for â‰¤8 dimensions (MaxInlineDims).
- * 
+ *
  * CONTIGUOUS vs NON-CONTIGUOUS DETECTION:
  * @code
  * // CONTIGUOUS (O(1) iteration):
  * TensorStridePolicy<T> policy({100, 200});              // Shape-only = row-major
  * TensorStridePolicy<T> policy({100, 200}, {200, 1});    // Explicit row-major strides
- * 
+ *
  * // NON-CONTIGUOUS (O(1) amortized iteration):
  * TensorStridePolicy<T> policy({100, 200}, {256, 1});    // Padded rows (pitch=256)
  * TensorStridePolicy<T> policy({200, 100}, {1, 200});    // Column-major traversal
  * @endcode
- * 
+ *
  * TRAVERSAL ORDER:
  * Iteration always varies the LAST dimension fastest (like an odometer).
  * The shape array determines traversal order; strides determine memory mapping.
- * 
+ *
  * To change traversal order, permute the dimension list (both shape AND strides).
  *
  * Example: 3x4 matrix in row-major storage, row-major traversal:
@@ -120,9 +120,11 @@ FATP_META:
 #include "enforce.h"
 #include "SmallVector.h"
 
-namespace fat_p::iterator {
+namespace fat_p::iterator
+{
 
-namespace detail {
+namespace detail
+{
 /// Default inline capacity for tensor dimension storage (covers up to 8D tensors without heap)
 inline constexpr std::size_t kDefaultTensorDims = 8;
 } // namespace detail
@@ -159,11 +161,12 @@ inline constexpr std::size_t kDefaultTensorDims = 8;
  * Iterates through all elements of an N-dimensional tensor. The shape defines
  * the size of each dimension (and traversal order - last dimension fastest),
  * while strides define memory offsets.
- * 
+ *
  * Uses cached indices with incremental offset updates for O(1) amortized advance/retreat.
  */
 template <typename T, std::size_t MaxInlineDims = detail::kDefaultTensorDims>
-struct TensorStridePolicy {
+struct TensorStridePolicy
+{
     using iterator_category = std::bidirectional_iterator_tag;
     using difference_type = std::ptrdiff_t;
     using value_type = T;
@@ -178,21 +181,24 @@ private:
     using StrideVec = SmallVector<std::ptrdiff_t, MaxInlineDims>;
     using IndexVec = SmallVector<std::size_t, MaxInlineDims>;
 
-    ShapeVec mShape;              ///< Size of each dimension
-    StrideVec mStrides;           ///< Memory stride for each dimension
-    IndexVec mIndices;            ///< Current multi-dimensional indices (cached)
-    std::ptrdiff_t mOffset;       ///< Current memory offset (cached, updated incrementally)
-    std::size_t mPosition;        ///< Linear position 0..total (for atEnd check)
-    std::size_t mTotal;           ///< Total number of elements
-    bool mIsContiguous;           ///< True if iteration is memory-contiguous (enables O(1) advance)
-    
+    ShapeVec mShape;        ///< Size of each dimension
+    StrideVec mStrides;     ///< Memory stride for each dimension
+    IndexVec mIndices;      ///< Current multi-dimensional indices (cached)
+    std::ptrdiff_t mOffset; ///< Current memory offset (cached, updated incrementally)
+    std::size_t mPosition;  ///< Linear position 0..total (for atEnd check)
+    std::size_t mTotal;     ///< Total number of elements
+    bool mIsContiguous;     ///< True if iteration is memory-contiguous (enables O(1) advance)
+
     /// Check if strides represent contiguous row-major layout
-    [[nodiscard]] bool computeIsContiguous() const noexcept {
+    [[nodiscard]] bool computeIsContiguous() const noexcept
+    {
         // Contiguous means: stride[i] == product of shape[i+1..N-1]
         // i.e., row-major layout with no gaps
         std::ptrdiff_t expectedStride = 1;
-        for (std::size_t i = mShape.size(); i-- > 0; ) {
-            if (mStrides[i] != expectedStride) {
+        for (std::size_t i = mShape.size(); i-- > 0;)
+        {
+            if (mStrides[i] != expectedStride)
+            {
                 return false;
             }
             expectedStride *= static_cast<std::ptrdiff_t>(mShape[i]);
@@ -210,20 +216,20 @@ public:
      * @pre All shape dimensions must be > 0
      * @pre Product of shape dimensions must not overflow size_t
      */
-    TensorStridePolicy(std::initializer_list<std::size_t> shape, 
-                       std::initializer_list<std::ptrdiff_t> strides)
+    TensorStridePolicy(std::initializer_list<std::size_t> shape, std::initializer_list<std::ptrdiff_t> strides)
         : mShape(shape)
         , mStrides(strides)
         , mIndices(shape.size(), std::size_t{0})
         , mOffset(0)
         , mPosition(0)
         , mTotal(1)
-        , mIsContiguous(false)  // Computed below
+        , mIsContiguous(false) // Computed below
     {
         FATP_ENFORCE(!mShape.empty(), "Shape cannot be empty");
         FATP_ENFORCE(mShape.size() == mStrides.size(), "Shape and strides must have same dimensions");
-        
-        for (std::size_t i = 0; i < mShape.size(); ++i) {
+
+        for (std::size_t i = 0; i < mShape.size(); ++i)
+        {
             FATP_ENFORCE(mShape[i] > 0, "All dimensions must be > 0");
             mTotal *= mShape[i];
         }
@@ -245,20 +251,21 @@ public:
         , mOffset(0)
         , mPosition(0)
         , mTotal(1)
-        , mIsContiguous(true)  // Row-major strides are always contiguous
+        , mIsContiguous(true) // Row-major strides are always contiguous
     {
         FATP_ENFORCE(!mShape.empty(), "Shape cannot be empty");
-        
+
         mStrides.resize(mShape.size());
-        
+
         // Compute row-major strides: stride[i] = product of all dimensions after i
         std::ptrdiff_t stride = 1;
-        for (std::size_t i = mShape.size(); i-- > 0; ) {
+        for (std::size_t i = mShape.size(); i-- > 0;)
+        {
             FATP_ENFORCE(mShape[i] > 0, "All dimensions must be > 0");
             mStrides[i] = stride;
             stride *= static_cast<std::ptrdiff_t>(mShape[i]);
         }
-        
+
         mTotal = static_cast<std::size_t>(stride);
     }
 
@@ -272,19 +279,21 @@ public:
      * @pre !atEnd() - offset is undefined for end position
      * @note O(1) - returns cached value, no computation.
      */
-    [[nodiscard]] std::ptrdiff_t currentOffset() const {
+    [[nodiscard]] std::ptrdiff_t currentOffset() const
+    {
         FATP_ENFORCE(!atEnd(), "Cannot compute offset for end position");
         return mOffset;
     }
 
     /**
      * @brief Returns true if iteration is memory-contiguous.
-     * 
+     *
      * Contiguous iteration (row-major with no gaps) enables O(1) advance/retreat.
      * Non-contiguous iteration (strided, transposed, padded) uses odometer-style
      * index tracking with O(1) amortized, O(dims) worst case.
      */
-    [[nodiscard]] bool isContiguous() const noexcept {
+    [[nodiscard]] bool isContiguous() const noexcept
+    {
         return mIsContiguous;
     }
 
@@ -294,21 +303,24 @@ public:
      * @pre !atEnd() - indices are undefined for end position
      * @note O(dims) - computes from position for contiguous iteration.
      */
-    [[nodiscard]] IndexVec currentIndices() const {
+    [[nodiscard]] IndexVec currentIndices() const
+    {
         FATP_ENFORCE(!atEnd(), "Cannot compute indices for end position");
-        
+
         // For contiguous iteration, indices are not maintained incrementally
         // Compute them from linear position
-        if (mIsContiguous) {
+        if (mIsContiguous)
+        {
             IndexVec result(mShape.size());
             std::size_t remaining = mPosition;
-            for (std::size_t d = mShape.size(); d-- > 0; ) {
+            for (std::size_t d = mShape.size(); d-- > 0;)
+            {
                 result[d] = remaining % mShape[d];
                 remaining /= mShape[d];
             }
             return result;
         }
-        
+
         return mIndices;
     }
 
@@ -319,44 +331,50 @@ public:
     /// Advance to next position
     /// @pre !atEnd() - cannot advance past end
     /// @note O(1) for contiguous iteration; O(1) amortized, O(dims) worst case otherwise
-    void advance() {
+    void advance()
+    {
         FATP_ENFORCE(!atEnd(), "Cannot advance past end");
         ++mPosition;
-        
-        if (mPosition >= mTotal) {
+
+        if (mPosition >= mTotal)
+        {
             // At end - indices/offset are now undefined
             return;
         }
-        
+
         // FAST PATH: Contiguous iteration - just increment offset
-        if (mIsContiguous) {
+        if (mIsContiguous)
+        {
             ++mOffset;
             // Note: mIndices not updated (use currentIndices() only when needed)
             return;
         }
-        
+
         // MEDIUM PATH: Non-contiguous, but last dimension doesn't rollover (common case)
         const std::size_t lastDim = mShape.size() - 1;
         ++mIndices[lastDim];
         mOffset += mStrides[lastDim];
-        
-        if (mIndices[lastDim] < mShape[lastDim]) {
-            return;  // No rollover, done
+
+        if (mIndices[lastDim] < mShape[lastDim])
+        {
+            return; // No rollover, done
         }
-        
+
         // SLOW PATH: Rollover in last dimension - propagate carry
         mOffset -= static_cast<std::ptrdiff_t>(mIndices[lastDim]) * mStrides[lastDim];
         mIndices[lastDim] = 0;
-        
+
         // Continue odometer increment for remaining dimensions
-        for (std::size_t d = lastDim; d-- > 0; ) {
+        for (std::size_t d = lastDim; d-- > 0;)
+        {
             ++mIndices[d];
             mOffset += mStrides[d];
-            
-            if (mIndices[d] < mShape[d]) {
-                return;  // No rollover, done
+
+            if (mIndices[d] < mShape[d])
+            {
+                return; // No rollover, done
             }
-            
+
             // Rollover: reset this dimension, continue to next
             mOffset -= static_cast<std::ptrdiff_t>(mIndices[d]) * mStrides[d];
             mIndices[d] = 0;
@@ -366,56 +384,66 @@ public:
     /// Retreat to previous position using odometer-style decrement
     /// @pre !atBegin() - cannot retreat before begin
     /// @note O(1) for contiguous iteration; O(1) amortized, O(dims) worst case otherwise
-    void retreat() {
+    void retreat()
+    {
         FATP_ENFORCE(!atBegin(), "Cannot retreat before begin");
-        
+
         bool wasAtEnd = atEnd();
         --mPosition;
-        
+
         // FAST PATH: Contiguous iteration
-        if (mIsContiguous) {
-            if (wasAtEnd) {
+        if (mIsContiguous)
+        {
+            if (wasAtEnd)
+            {
                 // Transitioning from end to last element
                 mOffset = static_cast<std::ptrdiff_t>(mTotal - 1);
-            } else {
+            }
+            else
+            {
                 --mOffset;
             }
             // Note: mIndices not updated (use currentIndices() only when needed)
             return;
         }
-        
+
         // NON-CONTIGUOUS PATH
-        if (wasAtEnd) {
+        if (wasAtEnd)
+        {
             // Transitioning from end to last valid element
             // Reset indices to last element of each dimension
             mOffset = 0;
-            for (std::size_t d = 0; d < mShape.size(); ++d) {
+            for (std::size_t d = 0; d < mShape.size(); ++d)
+            {
                 mIndices[d] = mShape[d] - 1;
                 mOffset += static_cast<std::ptrdiff_t>(mIndices[d]) * mStrides[d];
             }
             return;
         }
-        
+
         // MEDIUM PATH: Last dimension doesn't borrow (common case)
         const std::size_t lastDim = mShape.size() - 1;
-        if (mIndices[lastDim] > 0) {
+        if (mIndices[lastDim] > 0)
+        {
             --mIndices[lastDim];
             mOffset -= mStrides[lastDim];
             return;
         }
-        
+
         // SLOW PATH: Borrow from last dimension - propagate
         mIndices[lastDim] = mShape[lastDim] - 1;
         mOffset += static_cast<std::ptrdiff_t>(mIndices[lastDim]) * mStrides[lastDim];
-        
+
         // Continue odometer decrement for remaining dimensions
-        for (std::size_t d = lastDim; d-- > 0; ) {
-            if (mIndices[d] > 0) {
+        for (std::size_t d = lastDim; d-- > 0;)
+        {
+            if (mIndices[d] > 0)
+            {
                 --mIndices[d];
                 mOffset -= mStrides[d];
                 return;
             }
-            
+
             // Borrow: wrap this dimension to max, continue to next
             mIndices[d] = mShape[d] - 1;
             mOffset += static_cast<std::ptrdiff_t>(mIndices[d]) * mStrides[d];
@@ -423,16 +451,19 @@ public:
     }
 
     /// Set position to end (past last element)
-    void setToEnd() {
+    void setToEnd()
+    {
         mPosition = mTotal;
         // Indices/offset become undefined at end
     }
 
     /// Set position to beginning
-    void setToBegin() {
+    void setToBegin()
+    {
         mPosition = 0;
         mOffset = 0;
-        for (std::size_t d = 0; d < mIndices.size(); ++d) {
+        for (std::size_t d = 0; d < mIndices.size(); ++d)
+        {
             mIndices[d] = 0;
         }
     }
@@ -442,28 +473,45 @@ public:
     // ----------------------------------------------------------------
 
     /// Check if at end position
-    [[nodiscard]] bool atEnd() const { return mPosition >= mTotal; }
+    [[nodiscard]] bool atEnd() const
+    {
+        return mPosition >= mTotal;
+    }
 
     /// Check if at beginning position
-    [[nodiscard]] bool atBegin() const { return mPosition == 0; }
+    [[nodiscard]] bool atBegin() const
+    {
+        return mPosition == 0;
+    }
 
     /// Get current linear position
-    [[nodiscard]] std::size_t position() const { return mPosition; }
+    [[nodiscard]] std::size_t position() const
+    {
+        return mPosition;
+    }
 
     /// Get total number of elements
-    [[nodiscard]] std::size_t total() const { return mTotal; }
+    [[nodiscard]] std::size_t total() const
+    {
+        return mTotal;
+    }
 
     /// Get number of dimensions
-    [[nodiscard]] std::size_t dims() const { return mShape.size(); }
+    [[nodiscard]] std::size_t dims() const
+    {
+        return mShape.size();
+    }
 
     /// Get shape of specific dimension
-    [[nodiscard]] std::size_t shape(std::size_t dim) const {
+    [[nodiscard]] std::size_t shape(std::size_t dim) const
+    {
         FATP_ENFORCE(dim < mShape.size(), "Dimension out of range");
         return mShape[dim];
     }
 
     /// Get stride of specific dimension
-    [[nodiscard]] std::ptrdiff_t stride(std::size_t dim) const {
+    [[nodiscard]] std::ptrdiff_t stride(std::size_t dim) const
+    {
         FATP_ENFORCE(dim < mStrides.size(), "Dimension out of range");
         return mStrides[dim];
     }
@@ -492,7 +540,8 @@ public:
  * @endcode
  */
 template <typename T>
-struct Stride1DPolicy {
+struct Stride1DPolicy
+{
     using iterator_category = std::bidirectional_iterator_tag;
     using difference_type = std::ptrdiff_t;
     using value_type = T;
@@ -503,9 +552,9 @@ struct Stride1DPolicy {
     static constexpr bool kIsTensorPolicy = false;
 
 private:
-    std::size_t mCount;           ///< Number of elements to visit
-    std::ptrdiff_t mStride;       ///< Stride between elements
-    std::size_t mPosition;        ///< Current position [0, mCount]
+    std::size_t mCount;     ///< Number of elements to visit
+    std::ptrdiff_t mStride; ///< Stride between elements
+    std::size_t mPosition;  ///< Current position [0, mCount]
 
 public:
     /**
@@ -515,39 +564,59 @@ public:
      * @pre stride > 0 (descending/negative stride not supported)
      */
     explicit Stride1DPolicy(std::size_t count, std::ptrdiff_t stride = 1)
-        : mCount(count), mStride(stride), mPosition(0) {
+        : mCount(count)
+        , mStride(stride)
+        , mPosition(0)
+    {
         FATP_ENFORCE(count > 0, "Count must be > 0");
         FATP_ENFORCE(stride > 0, "Stride must be > 0 (descending stride not supported)");
     }
 
-    [[nodiscard]] bool atEnd() const noexcept { return mPosition >= mCount; }
-    [[nodiscard]] bool atBegin() const noexcept { return mPosition == 0; }
-    [[nodiscard]] std::size_t count() const noexcept { return mCount; }
-    [[nodiscard]] std::ptrdiff_t stride() const noexcept { return mStride; }
-    [[nodiscard]] std::size_t position() const noexcept { return mPosition; }
+    [[nodiscard]] bool atEnd() const noexcept
+    {
+        return mPosition >= mCount;
+    }
+    [[nodiscard]] bool atBegin() const noexcept
+    {
+        return mPosition == 0;
+    }
+    [[nodiscard]] std::size_t count() const noexcept
+    {
+        return mCount;
+    }
+    [[nodiscard]] std::ptrdiff_t stride() const noexcept
+    {
+        return mStride;
+    }
+    [[nodiscard]] std::size_t position() const noexcept
+    {
+        return mPosition;
+    }
 
-    void advance(pointer& ptr) {
+    void advance(pointer& ptr)
+    {
         FATP_ENFORCE(!atEnd(), "Cannot advance past end");
         ptr += mStride;
         ++mPosition;
     }
 
-    void retreat(pointer& ptr) {
+    void retreat(pointer& ptr)
+    {
         FATP_ENFORCE(!atBegin(), "Cannot retreat before begin");
         ptr -= mStride;
         --mPosition;
     }
 
-    void setToEnd([[maybe_unused]] pointer& ptr, pointer base, pointer bufferEnd) {
+    void setToEnd([[maybe_unused]] pointer& ptr, pointer base, pointer bufferEnd)
+    {
         // Validate using integer span comparison (no UB pointer arithmetic)
         // Contract: user must pass end == base + count*stride
 #ifndef NDEBUG
         auto span = bufferEnd - base;
         auto expected = static_cast<std::ptrdiff_t>(mCount) * mStride;
-        FATP_ENFORCE(span == expected,
-                "Stride1D: end must equal base + count*stride");
-        (void)base;       // Used only in debug
-        (void)bufferEnd;  // Used only in debug
+        FATP_ENFORCE(span == expected, "Stride1D: end must equal base + count*stride");
+        (void)base;      // Used only in debug
+        (void)bufferEnd; // Used only in debug
 #else
         (void)base;
         (void)bufferEnd;
@@ -600,7 +669,8 @@ public:
  * @endcode
  */
 template <typename T>
-struct Stride2DPolicy {
+struct Stride2DPolicy
+{
     using iterator_category = std::bidirectional_iterator_tag;
     using difference_type = std::ptrdiff_t;
     using value_type = T;
@@ -610,14 +680,14 @@ struct Stride2DPolicy {
     static constexpr bool kIsTensorPolicy = false;
 
 private:
-    std::size_t mRows;            ///< Number of rows (outer dimension)
-    std::size_t mCols;            ///< Number of columns (inner dimension)
-    std::ptrdiff_t mRowStride;    ///< Stride between rows
-    std::ptrdiff_t mColStride;    ///< Stride between columns
-    std::size_t mRow;             ///< Current row
-    std::size_t mCol;             ///< Current column
-    std::size_t mTotal;           ///< Total elements (rows * cols)
-    std::size_t mPosition;        ///< Linear position for end check
+    std::size_t mRows;         ///< Number of rows (outer dimension)
+    std::size_t mCols;         ///< Number of columns (inner dimension)
+    std::ptrdiff_t mRowStride; ///< Stride between rows
+    std::ptrdiff_t mColStride; ///< Stride between columns
+    std::size_t mRow;          ///< Current row
+    std::size_t mCol;          ///< Current column
+    std::size_t mTotal;        ///< Total elements (rows * cols)
+    std::size_t mPosition;     ///< Linear position for end check
 
 public:
     /**
@@ -629,39 +699,64 @@ public:
      * @pre rowStride > 0 && colStride > 0 (descending strides not supported)
      * @pre rowStride >= cols * colStride (monotonic traversal requirement)
      */
-    Stride2DPolicy(std::size_t rows, std::size_t cols,
-                   std::ptrdiff_t rowStride, std::ptrdiff_t colStride)
-        : mRows(rows), mCols(cols)
-        , mRowStride(rowStride), mColStride(colStride)
-        , mRow(0), mCol(0)
-        , mTotal(rows * cols), mPosition(0) {
+    Stride2DPolicy(std::size_t rows, std::size_t cols, std::ptrdiff_t rowStride, std::ptrdiff_t colStride)
+        : mRows(rows)
+        , mCols(cols)
+        , mRowStride(rowStride)
+        , mColStride(colStride)
+        , mRow(0)
+        , mCol(0)
+        , mTotal(rows * cols)
+        , mPosition(0)
+    {
         FATP_ENFORCE(rows > 0 && cols > 0, "Dimensions must be > 0");
-        FATP_ENFORCE(rowStride > 0 && colStride > 0, 
-                "Strides must be > 0 (descending strides not supported)");
+        FATP_ENFORCE(rowStride > 0 && colStride > 0, "Strides must be > 0 (descending strides not supported)");
         FATP_ENFORCE(rowStride >= static_cast<std::ptrdiff_t>(cols) * colStride,
-                "rowStride must be >= cols * colStride for monotonic row-major traversal");
+                     "rowStride must be >= cols * colStride for monotonic row-major traversal");
     }
 
     /// Convenience: Row-major contiguous matrix
     Stride2DPolicy(std::size_t rows, std::size_t cols)
-        : Stride2DPolicy(rows, cols, static_cast<std::ptrdiff_t>(cols), 1) {}
+        : Stride2DPolicy(rows, cols, static_cast<std::ptrdiff_t>(cols), 1)
+    {
+    }
 
-    [[nodiscard]] bool atEnd() const noexcept { return mPosition >= mTotal; }
-    [[nodiscard]] bool atBegin() const noexcept { return mPosition == 0; }
-    [[nodiscard]] std::size_t rows() const noexcept { return mRows; }
-    [[nodiscard]] std::size_t cols() const noexcept { return mCols; }
-    [[nodiscard]] std::size_t row() const noexcept { return mRow; }
-    [[nodiscard]] std::size_t col() const noexcept { return mCol; }
+    [[nodiscard]] bool atEnd() const noexcept
+    {
+        return mPosition >= mTotal;
+    }
+    [[nodiscard]] bool atBegin() const noexcept
+    {
+        return mPosition == 0;
+    }
+    [[nodiscard]] std::size_t rows() const noexcept
+    {
+        return mRows;
+    }
+    [[nodiscard]] std::size_t cols() const noexcept
+    {
+        return mCols;
+    }
+    [[nodiscard]] std::size_t row() const noexcept
+    {
+        return mRow;
+    }
+    [[nodiscard]] std::size_t col() const noexcept
+    {
+        return mCol;
+    }
 
-    void advance(pointer& ptr) {
+    void advance(pointer& ptr)
+    {
         FATP_ENFORCE(!atEnd(), "Cannot advance past end");
         ++mPosition;
-        
+
         // Advance column (inner dimension)
         ++mCol;
         ptr += mColStride;
-        
-        if (mCol >= mCols) {
+
+        if (mCol >= mCols)
+        {
             // Wrap to next row
             mCol = 0;
             ++mRow;
@@ -670,14 +765,18 @@ public:
         }
     }
 
-    void retreat(pointer& ptr) {
+    void retreat(pointer& ptr)
+    {
         FATP_ENFORCE(!atBegin(), "Cannot retreat before begin");
         --mPosition;
-        
-        if (mCol > 0) {
+
+        if (mCol > 0)
+        {
             --mCol;
             ptr -= mColStride;
-        } else {
+        }
+        else
+        {
             // Wrap to previous row's last column
             mCol = mCols - 1;
             --mRow;
@@ -686,16 +785,16 @@ public:
         }
     }
 
-    void setToEnd([[maybe_unused]] pointer& ptr, pointer base, pointer bufferEnd) {
+    void setToEnd([[maybe_unused]] pointer& ptr, pointer base, pointer bufferEnd)
+    {
         // Validate using integer span comparison (no UB pointer arithmetic)
         // Contract: user must pass end == base + rows*rowStride
 #ifndef NDEBUG
         auto span = bufferEnd - base;
         auto expected = static_cast<std::ptrdiff_t>(mRows) * mRowStride;
-        FATP_ENFORCE(span == expected,
-                "Stride2D: end must equal base + rows*rowStride");
-        (void)base;       // Used only in debug
-        (void)bufferEnd;  // Used only in debug
+        FATP_ENFORCE(span == expected, "Stride2D: end must equal base + rows*rowStride");
+        (void)base;      // Used only in debug
+        (void)bufferEnd; // Used only in debug
 #else
         (void)base;
         (void)bufferEnd;
@@ -718,7 +817,8 @@ public:
  * Traversal order is last-dimension-fastest (standard C/C++ order).
  */
 template <typename T>
-TensorStridePolicy<T> makeRowMajor(std::initializer_list<std::size_t> shape) {
+TensorStridePolicy<T> makeRowMajor(std::initializer_list<std::size_t> shape)
+{
     return TensorStridePolicy<T>(shape);
 }
 

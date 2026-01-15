@@ -132,8 +132,7 @@ void benchmark_sparse_set()
 
     // Benchmark insert
     double insert_time = measure_perf(
-        [&set, i = 0]() mutable
-        {
+        [&set, i = 0]() mutable {
             set.insert(i * 100);
             ++i;
         },
@@ -143,8 +142,7 @@ void benchmark_sparse_set()
 
     // Benchmark contains
     double contains_time = measure_perf(
-        [&set]()
-        {
+        [&set]() {
             set.contains(50000);
         },
         100000,
@@ -153,8 +151,7 @@ void benchmark_sparse_set()
 
     // Benchmark erase
     double erase_time = measure_perf(
-        [&set, i = 0]() mutable
-        {
+        [&set, i = 0]() mutable {
             set.erase(i * 100);
             ++i;
         },

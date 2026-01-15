@@ -410,14 +410,12 @@ FATP_TEST_CASE(progress_callback)
     std::size_t last_bytes = 0;
 
     parser.set_progress_interval(10);
-    parser.set_progress_callback(
-        [&](std::size_t bytes, std::size_t depth, std::size_t values)
-        {
-            ++callback_count;
-            last_bytes = bytes;
-            (void)depth;
-            (void)values;
-        });
+    parser.set_progress_callback([&](std::size_t bytes, std::size_t depth, std::size_t values) {
+        ++callback_count;
+        last_bytes = bytes;
+        (void)depth;
+        (void)values;
+    });
 
     // Build data larger than progress interval
     std::vector<uint8_t> data = encode_array_header(50);
@@ -533,8 +531,7 @@ void benchmark_policies()
     // Default parser (no validation)
     DefaultStreamParser default_parser;
     double time_default = measure_perf(
-        [&]()
-        {
+        [&]() {
             default_parser.reset();
             auto result = default_parser.parse(data);
             DoNotOptimize(result);
@@ -547,8 +544,7 @@ void benchmark_policies()
     // Validating parser (UTF-8)
     ValidatingStreamParser validating_parser;
     double time_validating = measure_perf(
-        [&]()
-        {
+        [&]() {
             validating_parser.reset();
             auto result = validating_parser.parse(data);
             DoNotOptimize(result);
@@ -561,8 +557,7 @@ void benchmark_policies()
     // Strict parser (UTF-8 + ordering)
     StrictStreamParser strict_parser;
     double time_strict = measure_perf(
-        [&]()
-        {
+        [&]() {
             strict_parser.reset();
             auto result = strict_parser.parse(data);
             DoNotOptimize(result);

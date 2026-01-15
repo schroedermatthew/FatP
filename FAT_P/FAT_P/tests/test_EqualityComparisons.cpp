@@ -1040,8 +1040,7 @@ void run_benchmarks()
 
     // Fat-P areEqual with explicit epsilon (matches manual loop)
     double fatp_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             result = areEqual(v1, v2, eps);
         },
         1000,
@@ -1050,8 +1049,7 @@ void run_benchmarks()
 
     // Fair baseline: manual epsilon loop (same semantics, minimal overhead)
     double manual_eps_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             bool ok = true;
             for (size_t i = 0; i < N && ok; ++i)
             {
@@ -1067,8 +1065,7 @@ void run_benchmarks()
 
     // std::equal baseline (exact ==, no epsilon - NOT apples-to-apples)
     double std_time = measure_perf(
-        [&]()
-        {
+        [&]() {
             result = std::equal(v1.begin(), v1.end(), v2.begin());
         },
         1000,

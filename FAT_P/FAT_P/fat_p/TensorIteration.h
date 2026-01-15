@@ -62,7 +62,8 @@ FATP_META:
 #include "PolicyIterator.h"
 #include "TensorStridePolicy.h"
 
-namespace fat_p::iterator {
+namespace fat_p::iterator
+{
 
 // ============================================================================
 // PERFORMANCE MODEL / POLICY SELECTION
@@ -99,7 +100,8 @@ namespace fat_p::iterator {
 // Implementation Details
 // ============================================================================
 
-namespace detail {
+namespace detail
+{
 
 /**
  * @brief Recursive N-D iteration implementation.
@@ -113,40 +115,43 @@ namespace detail {
  * overhead since outer dimensions typically have small extents.
  */
 template <typename T, typename Func>
-void iterateNDImpl(T* base,
-                   const std::size_t* shape,
-                   const std::ptrdiff_t* strides,
-                   std::size_t ndim,
-                   Func& fn) {
-    if (ndim == 1) {
+void iterateNDImpl(T* base, const std::size_t* shape, const std::ptrdiff_t* strides, std::size_t ndim, Func& fn)
+{
+    if (ndim == 1)
+    {
         // 1D: use Stride1DPolicy
         Stride1DPolicy<T> policy(shape[0], strides[0]);
         using Iter = PolicyIterator<T, Stride1DPolicy<T>>;
-        
+
         T* bufferEnd = base + static_cast<std::ptrdiff_t>(shape[0]) * strides[0];
         auto it = Iter::begin(base, bufferEnd, policy);
         auto end = Iter::end(base, bufferEnd, policy);
-        
-        for (; it != end; ++it) {
+
+        for (; it != end; ++it)
+        {
             fn(*it);
         }
     }
-    else if (ndim == 2) {
+    else if (ndim == 2)
+    {
         // 2D: use Stride2DPolicy (the efficient inner kernel)
         Stride2DPolicy<T> policy(shape[0], shape[1], strides[0], strides[1]);
         using Iter = PolicyIterator<T, Stride2DPolicy<T>>;
-        
+
         T* bufferEnd = base + static_cast<std::ptrdiff_t>(shape[0]) * strides[0];
         auto it = Iter::begin(base, bufferEnd, policy);
         auto end = Iter::end(base, bufferEnd, policy);
-        
-        for (; it != end; ++it) {
+
+        for (; it != end; ++it)
+        {
             fn(*it);
         }
     }
-    else {
+    else
+    {
         // N-D where N >= 3: loop over outermost dimension, recurse
-        for (std::size_t i = 0; i < shape[0]; ++i) {
+        for (std::size_t i = 0; i < shape[0]; ++i)
+        {
             T* slice = base + static_cast<std::ptrdiff_t>(i) * strides[0];
             iterateNDImpl(slice, shape + 1, strides + 1, ndim - 1, fn);
         }
@@ -161,11 +166,11 @@ void iterateNDImpl(T* base,
  * Row-major means stride[i] = product of shape[i+1..N-1].
  * Last dimension has stride 1.
  */
-inline void computeRowMajorStrides(const std::size_t* shape,
-                                   std::ptrdiff_t* strides,
-                                   std::size_t ndim) {
+inline void computeRowMajorStrides(const std::size_t* shape, std::ptrdiff_t* strides, std::size_t ndim)
+{
     std::ptrdiff_t stride = 1;
-    for (std::size_t i = ndim; i-- > 0; ) {
+    for (std::size_t i = ndim; i-- > 0;)
+    {
         strides[i] = stride;
         stride *= static_cast<std::ptrdiff_t>(shape[i]);
     }
@@ -223,22 +228,23 @@ template <typename T, typename Func>
 void iterateND(T* base,
                std::initializer_list<std::size_t> shape,
                std::initializer_list<std::ptrdiff_t> strides,
-               Func&& fn) {
+               Func&& fn)
+{
     FATP_ENFORCE(shape.size() == strides.size(), "Shape and strides must have same size");
     FATP_ENFORCE(shape.size() >= 1, "At least 1 dimension required");
-    
+
     // Use SmallVector to avoid heap allocation for typical tensor ranks (â‰¤8D)
     SmallVector<std::size_t, 8> shapeVec(shape);
     SmallVector<std::ptrdiff_t, 8> strideVec(strides);
-    
+
     // Contract enforcement (debug): prevent UB from negative/zero strides before pointer arithmetic
-    for (std::size_t i = 0; i < shapeVec.size(); ++i) {
+    for (std::size_t i = 0; i < shapeVec.size(); ++i)
+    {
         FATP_ENFORCE(shapeVec[i] > 0, "All dimensions must be > 0");
         FATP_ENFORCE(strideVec[i] > 0, "All strides must be > 0");
     }
-    
-    detail::iterateNDImpl(base, shapeVec.data(), strideVec.data(),
-                          shapeVec.size(), fn);
+
+    detail::iterateNDImpl(base, shapeVec.data(), strideVec.data(), shapeVec.size(), fn);
 }
 
 /**
@@ -258,23 +264,22 @@ void iterateND(T* base,
  * @endcode
  */
 template <typename T, typename Func>
-void iterateND(T* base,
-               std::initializer_list<std::size_t> shape,
-               Func&& fn) {
+void iterateND(T* base, std::initializer_list<std::size_t> shape, Func&& fn)
+{
     FATP_ENFORCE(shape.size() >= 1, "At least 1 dimension required");
-    
+
     SmallVector<std::size_t, 8> shapeVec(shape);
     SmallVector<std::ptrdiff_t, 8> strideVec(shape.size());
-    
+
     // Contract enforcement (debug): dimensions must be non-zero for row-major traversal
-    for (std::size_t i = 0; i < shapeVec.size(); ++i) {
+    for (std::size_t i = 0; i < shapeVec.size(); ++i)
+    {
         FATP_ENFORCE(shapeVec[i] > 0, "All dimensions must be > 0");
     }
-    
+
     detail::computeRowMajorStrides(shapeVec.data(), strideVec.data(), shapeVec.size());
-    
-    detail::iterateNDImpl(base, shapeVec.data(), strideVec.data(),
-                          shapeVec.size(), fn);
+
+    detail::iterateNDImpl(base, shapeVec.data(), strideVec.data(), shapeVec.size(), fn);
 }
 
 // ============================================================================
@@ -314,10 +319,13 @@ template <typename T, typename Acc, typename BinaryOp>
 [[nodiscard]] Acc reduceND(T* base,
                            std::initializer_list<std::size_t> shape,
                            std::initializer_list<std::ptrdiff_t> strides,
-                           Acc init, BinaryOp op) {
+                           Acc init,
+                           BinaryOp op)
+{
     Acc acc = std::move(init);
-    iterateND(base, shape, strides,
-              [&](const T& val) { acc = op(std::move(acc), val); });
+    iterateND(base, shape, strides, [&](const T& val) {
+        acc = op(std::move(acc), val);
+    });
     return acc;
 }
 
@@ -325,12 +333,12 @@ template <typename T, typename Acc, typename BinaryOp>
  * @brief Reduce N-D tensor with row-major contiguous layout.
  */
 template <typename T, typename Acc, typename BinaryOp>
-[[nodiscard]] Acc reduceND(T* base,
-                           std::initializer_list<std::size_t> shape,
-                           Acc init, BinaryOp op) {
+[[nodiscard]] Acc reduceND(T* base, std::initializer_list<std::size_t> shape, Acc init, BinaryOp op)
+{
     Acc acc = std::move(init);
-    iterateND(base, shape,
-              [&](const T& val) { acc = op(std::move(acc), val); });
+    iterateND(base, shape, [&](const T& val) {
+        acc = op(std::move(acc), val);
+    });
     return acc;
 }
 
@@ -355,8 +363,8 @@ template <typename T, typename Acc, typename BinaryOp>
  *
  * // Apply gamma correction
  * transformND(pixels, {H, W, 3}, {W*3, 3, 1},
- *             [gamma](uint8_t v) { 
- *                 return static_cast<uint8_t>(255 * std::pow(v/255.0, gamma)); 
+ *             [gamma](uint8_t v) {
+ *                 return static_cast<uint8_t>(255 * std::pow(v/255.0, gamma));
  *             });
  *
  * // Normalize to [0, 1]
@@ -369,20 +377,22 @@ template <typename T, typename UnaryOp>
 void transformND(T* base,
                  std::initializer_list<std::size_t> shape,
                  std::initializer_list<std::ptrdiff_t> strides,
-                 UnaryOp op) {
-    iterateND(base, shape, strides,
-              [&](T& val) { val = op(val); });
+                 UnaryOp op)
+{
+    iterateND(base, shape, strides, [&](T& val) {
+        val = op(val);
+    });
 }
 
 /**
  * @brief Transform N-D tensor with row-major contiguous layout.
  */
 template <typename T, typename UnaryOp>
-void transformND(T* base,
-                 std::initializer_list<std::size_t> shape,
-                 UnaryOp op) {
-    iterateND(base, shape,
-              [&](T& val) { val = op(val); });
+void transformND(T* base, std::initializer_list<std::size_t> shape, UnaryOp op)
+{
+    iterateND(base, shape, [&](T& val) {
+        val = op(val);
+    });
 }
 
 // ============================================================================
@@ -430,20 +440,23 @@ template <typename T, typename SliceFunc>
 void forEachSlice(T* base,
                   std::initializer_list<std::size_t> shape,
                   std::initializer_list<std::ptrdiff_t> strides,
-                  SliceFunc&& fn) {
+                  SliceFunc&& fn)
+{
     FATP_ENFORCE(shape.size() >= 2, "forEachSlice requires at least 2 dimensions");
     FATP_ENFORCE(shape.size() == strides.size(), "Shape and strides must have same size");
-    
+
     SmallVector<std::size_t, 8> shapeVec(shape);
     SmallVector<std::ptrdiff_t, 8> strideVec(strides);
-    
+
     // Contract enforcement (debug): prevent UB from negative/zero strides before pointer arithmetic
-    for (std::size_t i = 0; i < shapeVec.size(); ++i) {
+    for (std::size_t i = 0; i < shapeVec.size(); ++i)
+    {
         FATP_ENFORCE(shapeVec[i] > 0, "All dimensions must be > 0");
         FATP_ENFORCE(strideVec[i] > 0, "All strides must be > 0");
     }
-    
-    for (std::size_t i = 0; i < shapeVec[0]; ++i) {
+
+    for (std::size_t i = 0; i < shapeVec[0]; ++i)
+    {
         T* slice = base + static_cast<std::ptrdiff_t>(i) * strideVec[0];
         fn(i, slice);
     }
@@ -453,22 +466,23 @@ void forEachSlice(T* base,
  * @brief Iterate over slices with row-major contiguous layout.
  */
 template <typename T, typename SliceFunc>
-void forEachSlice(T* base,
-                  std::initializer_list<std::size_t> shape,
-                  SliceFunc&& fn) {
+void forEachSlice(T* base, std::initializer_list<std::size_t> shape, SliceFunc&& fn)
+{
     FATP_ENFORCE(shape.size() >= 2, "forEachSlice requires at least 2 dimensions");
-    
+
     SmallVector<std::size_t, 8> shapeVec(shape);
     SmallVector<std::ptrdiff_t, 8> strideVec(shape.size());
-    
+
     // Contract enforcement (debug): dimensions must be non-zero for row-major traversal
-    for (std::size_t i = 0; i < shapeVec.size(); ++i) {
+    for (std::size_t i = 0; i < shapeVec.size(); ++i)
+    {
         FATP_ENFORCE(shapeVec[i] > 0, "All dimensions must be > 0");
     }
-    
+
     detail::computeRowMajorStrides(shapeVec.data(), strideVec.data(), shapeVec.size());
-    
-    for (std::size_t i = 0; i < shapeVec[0]; ++i) {
+
+    for (std::size_t i = 0; i < shapeVec[0]; ++i)
+    {
         T* slice = base + static_cast<std::ptrdiff_t>(i) * strideVec[0];
         fn(i, slice);
     }

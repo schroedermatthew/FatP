@@ -387,8 +387,7 @@ void benchmark_intrusive_list()
 
     IntrusiveList<TestNode> list;
     double push_time = measure_perf(
-        [&list, &nodes, i = 0]() mutable
-        {
+        [&list, &nodes, i = 0]() mutable {
             list.push_back(nodes[i % 10000]);
             ++i;
         },
@@ -404,8 +403,7 @@ void benchmark_intrusive_list()
     }
 
     double iter_time = measure_perf(
-        [&list]()
-        {
+        [&list]() {
             int sum = 0;
             for (const auto& node : list)
             {
@@ -419,8 +417,7 @@ void benchmark_intrusive_list()
 
     // Benchmark remove
     double remove_time = measure_perf(
-        [&list, &nodes, i = 0]() mutable
-        {
+        [&list, &nodes, i = 0]() mutable {
             if (i < 10000)
             {
                 list.remove(nodes[i]);
@@ -435,8 +432,7 @@ void benchmark_intrusive_list()
     IntrusiveList<TestNode> list2;
     list2.push_back(nodes[0]);
     double insert_time = measure_perf(
-        [&list2, &nodes, i = 1]() mutable
-        {
+        [&list2, &nodes, i = 1]() mutable {
             if (i < 10000)
             {
                 list2.insert(list2.end(), nodes[i]);

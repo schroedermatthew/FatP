@@ -749,8 +749,7 @@ void benchmark_fatpcbor()
     }
 
     double enc_time = measure_perf(
-        [&vec]()
-        {
+        [&vec]() {
             CborBuffer buf;
             auto rc = cbor_encode_to(buf, vec);
             DoNotOptimize(buf.data());
@@ -764,8 +763,7 @@ void benchmark_fatpcbor()
     (void)cbor_encode_to(vec_buf, vec);
 
     double dec_time = measure_perf(
-        [&vec_buf]()
-        {
+        [&vec_buf]() {
             auto rc = cbor_decode_from<std::vector<int>>(vec_buf);
             DoNotOptimize(rc);
             (void)rc;
@@ -782,8 +780,7 @@ void benchmark_fatpcbor()
     }
 
     double map_enc_time = measure_perf(
-        [&m]()
-        {
+        [&m]() {
             CborBuffer buf;
             auto rc = cbor_encode_to(buf, m);
             DoNotOptimize(buf.data());
@@ -797,8 +794,7 @@ void benchmark_fatpcbor()
     (void)cbor_encode_to(map_buf, m);
 
     double map_dec_time = measure_perf(
-        [&map_buf]()
-        {
+        [&map_buf]() {
             auto rc = cbor_decode_from<std::map<std::string, int>>(map_buf);
             DoNotOptimize(rc);
             (void)rc;
@@ -821,8 +817,7 @@ void benchmark_fatpcbor()
     }
 
     double nested_enc_time = measure_perf(
-        [&nested]()
-        {
+        [&nested]() {
             CborBuffer buf;
             auto rc = cbor_encode_to(buf, nested);
             DoNotOptimize(buf.data());
@@ -836,8 +831,7 @@ void benchmark_fatpcbor()
     (void)cbor_encode_to(nested_buf, nested);
 
     double nested_dec_time = measure_perf(
-        [&nested_buf]()
-        {
+        [&nested_buf]() {
             auto rc = cbor_decode_from<std::vector<std::map<std::string, int>>>(nested_buf);
             DoNotOptimize(rc);
             (void)rc;

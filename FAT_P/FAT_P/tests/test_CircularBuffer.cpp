@@ -453,44 +453,40 @@ FATP_TEST_CASE(thread_safety_spsc)
     std::atomic<int> consumer_received{0};
     std::atomic<bool> order_error{false};
 
-    std::thread producer(
-        [&]()
+    std::thread producer([&]() {
+        while (!start.load(std::memory_order_acquire))
         {
-            while (!start.load(std::memory_order_acquire))
+            std::this_thread::yield();
+        }
+        for (int i = 0; i < NUM_ITEMS; ++i)
+        {
+            while (!buffer.push(i))
             {
                 std::this_thread::yield();
             }
-            for (int i = 0; i < NUM_ITEMS; ++i)
-            {
-                while (!buffer.push(i))
-                {
-                    std::this_thread::yield();
-                }
-            }
-        });
+        }
+    });
 
-    std::thread consumer(
-        [&]()
+    std::thread consumer([&]() {
+        while (!start.load(std::memory_order_acquire))
         {
-            while (!start.load(std::memory_order_acquire))
+            std::this_thread::yield();
+        }
+        int expected = 0;
+        while (expected < NUM_ITEMS)
+        {
+            int val = 0;
+            if (buffer.pop(val))
             {
-                std::this_thread::yield();
-            }
-            int expected = 0;
-            while (expected < NUM_ITEMS)
-            {
-                int val = 0;
-                if (buffer.pop(val))
+                if (val != expected)
                 {
-                    if (val != expected)
-                    {
-                        order_error.store(true, std::memory_order_release);
-                    }
-                    ++expected;
+                    order_error.store(true, std::memory_order_release);
                 }
+                ++expected;
             }
-            consumer_received.store(expected, std::memory_order_release);
-        });
+        }
+        consumer_received.store(expected, std::memory_order_release);
+    });
 
     start.store(true, std::memory_order_release);
 
@@ -550,8 +546,7 @@ void benchmark_circularbuffer()
     CircularBuffer<int, BUFFER_SIZE> buffer;
 
     double push_time = measure_perf(
-        [&buffer]()
-        {
+        [&buffer]() {
             static int i = 0;
             if (buffer.full())
             {
@@ -571,8 +566,7 @@ void benchmark_circularbuffer()
     }
 
     double pop_time = measure_perf(
-        [&buffer]()
-        {
+        [&buffer]() {
             static int refill = 0;
             int val = 0;
             if (buffer.pop(val))
@@ -591,8 +585,7 @@ void benchmark_circularbuffer()
     }
 
     double size_time = measure_perf(
-        [&buffer]()
-        {
+        [&buffer]() {
             size_t s = buffer.size();
             DoNotOptimize(s);
         },
@@ -601,8 +594,7 @@ void benchmark_circularbuffer()
     std::cout << "Size query: " << format_time(size_time) << "\n";
 
     double empty_time = measure_perf(
-        [&buffer]()
-        {
+        [&buffer]() {
             bool e = buffer.empty();
             DoNotOptimize(e);
         },
@@ -611,8 +603,7 @@ void benchmark_circularbuffer()
     std::cout << "Empty check: " << format_time(empty_time) << "\n";
 
     double full_time = measure_perf(
-        [&buffer]()
-        {
+        [&buffer]() {
             bool f = buffer.full();
             DoNotOptimize(f);
         },
@@ -629,39 +620,35 @@ void benchmark_circularbuffer()
         CircularBuffer<int, 4096> throughput_buffer;
         std::atomic<bool> start{false};
 
-        std::thread producer(
-            [&]()
+        std::thread producer([&]() {
+            while (!start.load(std::memory_order_acquire))
             {
-                while (!start.load(std::memory_order_acquire))
+                std::this_thread::yield();
+            }
+            for (int i = 0; i < THROUGHPUT_ITEMS; ++i)
+            {
+                while (!throughput_buffer.push(i))
                 {
                     std::this_thread::yield();
                 }
-                for (int i = 0; i < THROUGHPUT_ITEMS; ++i)
-                {
-                    while (!throughput_buffer.push(i))
-                    {
-                        std::this_thread::yield();
-                    }
-                }
-            });
+            }
+        });
 
-        std::thread consumer(
-            [&]()
+        std::thread consumer([&]() {
+            while (!start.load(std::memory_order_acquire))
             {
-                while (!start.load(std::memory_order_acquire))
+                std::this_thread::yield();
+            }
+            int received = 0;
+            while (received < THROUGHPUT_ITEMS)
+            {
+                int val = 0;
+                if (throughput_buffer.pop(val))
                 {
-                    std::this_thread::yield();
+                    ++received;
                 }
-                int received = 0;
-                while (received < THROUGHPUT_ITEMS)
-                {
-                    int val = 0;
-                    if (throughput_buffer.pop(val))
-                    {
-                        ++received;
-                    }
-                }
-            });
+            }
+        });
 
         start.store(true, std::memory_order_release);
         auto start_time = std::chrono::high_resolution_clock::now();

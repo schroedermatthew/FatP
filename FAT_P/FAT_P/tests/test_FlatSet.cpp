@@ -780,8 +780,7 @@ FATP_TEST_CASE(case_insensitive_comparator)
                                                 a.end(),
                                                 b.begin(),
                                                 b.end(),
-                                                [](unsigned char c1, unsigned char c2)
-                                                {
+                                                [](unsigned char c1, unsigned char c2) {
                                                     return std::tolower(c1) < std::tolower(c2);
                                                 });
         }
@@ -806,15 +805,9 @@ FATP_TEST_CASE(case_insensitive_constructor_keeps_first)
     {
         bool operator()(const std::string& a, const std::string& b) const
         {
-            return std::lexicographical_compare(a.begin(),
-                                                a.end(),
-                                                b.begin(),
-                                                b.end(),
-                                                [](char c1, char c2)
-                                                {
-                                                    return std::tolower(static_cast<unsigned char>(c1)) <
-                                                           std::tolower(static_cast<unsigned char>(c2));
-                                                });
+            return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(), [](char c1, char c2) {
+                return std::tolower(static_cast<unsigned char>(c1)) < std::tolower(static_cast<unsigned char>(c2));
+            });
         }
     };
 
@@ -1348,8 +1341,7 @@ void run_benchmarks()
     fat_p::FlatSet<int> set;
 
     double insertTime = measure_perf(
-        [&set, i = 0]() mutable
-        {
+        [&set, i = 0]() mutable {
             set.insert(i % N);
             ++i;
         },
@@ -1360,8 +1352,7 @@ void run_benchmarks()
     set.clear();
     set.reserve(N);
     double insertSortedTime = measure_perf(
-        [&set, i = 0]() mutable
-        {
+        [&set, i = 0]() mutable {
             if (set.size() < N)
             {
                 set.insert(static_cast<int>(set.size()));
@@ -1380,8 +1371,7 @@ void run_benchmarks()
 
     volatile int findAccumulator = 0;
     double findTime = measure_perf(
-        [&set, &findAccumulator, i = 0]() mutable
-        {
+        [&set, &findAccumulator, i = 0]() mutable {
             auto it = set.find(i % N);
             if (it != set.end())
             {
@@ -1395,8 +1385,7 @@ void run_benchmarks()
     DoNotOptimize(findAccumulator);
 
     double iterTime = measure_perf(
-        [&set]()
-        {
+        [&set]() {
             volatile int sum = 0;
             for (int val : set)
             {
@@ -1416,8 +1405,7 @@ void run_benchmarks()
 
     volatile int stdFindAccumulator = 0;
     double stdFindTime = measure_perf(
-        [&stdSet, &stdFindAccumulator, i = 0]() mutable
-        {
+        [&stdSet, &stdFindAccumulator, i = 0]() mutable {
             auto it = stdSet.find(i % N);
             if (it != stdSet.end())
             {
@@ -1431,8 +1419,7 @@ void run_benchmarks()
     DoNotOptimize(stdFindAccumulator);
 
     double stdIterTime = measure_perf(
-        [&stdSet]()
-        {
+        [&stdSet]() {
             volatile int sum = 0;
             for (int val : stdSet)
             {
@@ -1472,8 +1459,7 @@ void run_large_scale_benchmarks()
 
     volatile int findAccumulator = 0;
     double findTime = measure_perf(
-        [&set, &randomKeys, &findAccumulator, i = 0]() mutable
-        {
+        [&set, &randomKeys, &findAccumulator, i = 0]() mutable {
             auto it = set.find(randomKeys[i % N]);
             if (it != set.end())
             {
@@ -1488,8 +1474,7 @@ void run_large_scale_benchmarks()
 
     volatile int stdFindAccumulator = 0;
     double stdFindTime = measure_perf(
-        [&stdSet, &randomKeys, &stdFindAccumulator, i = 0]() mutable
-        {
+        [&stdSet, &randomKeys, &stdFindAccumulator, i = 0]() mutable {
             auto it = stdSet.find(randomKeys[i % N]);
             if (it != stdSet.end())
             {
@@ -1503,8 +1488,7 @@ void run_large_scale_benchmarks()
     DoNotOptimize(stdFindAccumulator);
 
     double iterTime = measure_perf(
-        [&set]()
-        {
+        [&set]() {
             volatile int sum = 0;
             for (int val : set)
             {
@@ -1517,8 +1501,7 @@ void run_large_scale_benchmarks()
     std::cout << "FlatSet Iteration (100k elements): " << format_time(iterTime) << "\n";
 
     double stdIterTime = measure_perf(
-        [&stdSet]()
-        {
+        [&stdSet]() {
             volatile int sum = 0;
             for (int val : stdSet)
             {

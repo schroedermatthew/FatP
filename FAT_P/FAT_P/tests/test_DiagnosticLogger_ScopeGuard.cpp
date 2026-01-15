@@ -484,11 +484,9 @@ FATP_TEST_CASE(scope_guard_comprehensive_demo)
         logger.clearSinks();
         logger.addSink(sink);
 
-        auto cleanupLogger = fat_p::makeScopeGuard(
-            [&logger]()
-            {
-                logger.clearSinks();
-            });
+        auto cleanupLogger = fat_p::makeScopeGuard([&logger]() {
+            logger.clearSinks();
+        });
 
         // Generate enough logs to trigger rotation
         for (int i = 0; i < 30; ++i)

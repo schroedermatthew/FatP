@@ -2,7 +2,7 @@
  * @file DiagnosticLogger_Sinks.h
  * @brief Standard sink implementations for the diagnostic logging system.
  *
- * 
+ *
  *
  * @layer Domain
  *

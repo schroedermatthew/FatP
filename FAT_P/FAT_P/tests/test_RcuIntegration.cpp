@@ -66,14 +66,12 @@ FATP_TEST_CASE(tensor_basic)
     // Initialize tensor
     {
         auto write_guard = rcu_tensor.write();
-        write_guard.update(
-            [](TensorType& tensor)
+        write_guard.update([](TensorType& tensor) {
+            for (size_t i = 0; i < tensor.size(); ++i)
             {
-                for (size_t i = 0; i < tensor.size(); ++i)
-                {
-                    tensor[i] = static_cast<double>(i);
-                }
-            });
+                tensor[i] = static_cast<double>(i);
+            }
+        });
     }
 
     // Verify reads
@@ -116,47 +114,41 @@ FATP_TEST_CASE(concurrent_readers_writers)
     std::vector<std::thread> readers;
     for (int i = 0; i < 8; ++i)
     {
-        readers.emplace_back(
-            [&]()
+        readers.emplace_back([&]() {
+            while (!stop.load(std::memory_order_relaxed))
             {
-                while (!stop.load(std::memory_order_relaxed))
+                auto guard = rcu_tensor.read();
+                const auto& tensor = *guard;
+                // Verify data consistency
+                int sum = 0;
+                for (size_t j = 0; j < std::min<size_t>(10, tensor.size()); ++j)
                 {
-                    auto guard = rcu_tensor.read();
-                    const auto& tensor = *guard;
-                    // Verify data consistency
-                    int sum = 0;
-                    for (size_t j = 0; j < std::min<size_t>(10, tensor.size()); ++j)
-                    {
-                        sum += tensor[j];
-                    }
-                    (void)sum; // Use value
-                    read_count.fetch_add(1, std::memory_order_relaxed);
+                    sum += tensor[j];
                 }
-            });
+                (void)sum; // Use value
+                read_count.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
     // 2 writer threads (low frequency)
     std::vector<std::thread> writers;
     for (int i = 0; i < 2; ++i)
     {
-        writers.emplace_back(
-            [&, writer_id = i]()
+        writers.emplace_back([&, writer_id = i]() {
+            for (int j = 0; j < 50; ++j)
             {
-                for (int j = 0; j < 50; ++j)
-                {
-                    auto guard = rcu_tensor.write();
-                    guard.update(
-                        [writer_id, j](TensorType& tensor)
-                        {
-                            for (size_t k = 0; k < tensor.size(); ++k)
-                            {
-                                tensor[k] = writer_id * 1000 + j;
-                            }
-                        });
-                    write_count.fetch_add(1, std::memory_order_relaxed);
-                    std::this_thread::sleep_for(1ms);
-                }
-            });
+                auto guard = rcu_tensor.write();
+                guard.update([writer_id, j](TensorType& tensor) {
+                    for (size_t k = 0; k < tensor.size(); ++k)
+                    {
+                        tensor[k] = writer_id * 1000 + j;
+                    }
+                });
+                write_count.fetch_add(1, std::memory_order_relaxed);
+                std::this_thread::sleep_for(1ms);
+            }
+        });
     }
 
     // Let it run for a bit
@@ -204,11 +196,9 @@ FATP_TEST_CASE(performance)
     // Initialize
     {
         auto guard = rcu_tensor.write();
-        guard.update(
-            [](TensorType& tensor)
-            {
-                tensor.fill(42.0);
-            });
+        guard.update([](TensorType& tensor) {
+            tensor.fill(42.0);
+        });
     }
 
     // Benchmark pure reads
@@ -258,14 +248,12 @@ FATP_TEST_CASE(complex_updates)
     // Update entire 2D tensor
     {
         auto guard = rcu_tensor.write();
-        guard.update(
-            [](TensorType& tensor)
+        guard.update([](TensorType& tensor) {
+            for (size_t i = 0; i < tensor.size(); ++i)
             {
-                for (size_t i = 0; i < tensor.size(); ++i)
-                {
-                    tensor[i] = static_cast<double>(i % 100);
-                }
-            });
+                tensor[i] = static_cast<double>(i % 100);
+            }
+        });
     }
 
     // Verify structure
@@ -281,14 +269,12 @@ FATP_TEST_CASE(complex_updates)
     // Perform arithmetic update
     {
         auto guard = rcu_tensor.write();
-        guard.update(
-            [](TensorType& tensor)
+        guard.update([](TensorType& tensor) {
+            for (size_t i = 0; i < tensor.size(); ++i)
             {
-                for (size_t i = 0; i < tensor.size(); ++i)
-                {
-                    tensor[i] *= 2.0;
-                }
-            });
+                tensor[i] *= 2.0;
+            }
+        });
     }
 
     // Verify arithmetic
