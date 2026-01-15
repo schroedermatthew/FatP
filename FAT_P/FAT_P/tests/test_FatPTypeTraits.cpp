@@ -38,54 +38,70 @@ FATP_META:
     mode: autogen
 */
 
-#include <vector>
-#include <iostream>
 #include <cstdint>
+#include <iostream>
 #include <string>
+#include <vector>
 
-#include "CppStandardDetection.h"
-#include "SmallVector.h"
 #include "CircularBuffer.h"
+#include "CppStandardDetection.h"
+#include "Expected.h"
 #include "FlatMap.h"
 #include "FlatSet.h"
+#include "SlotMap.h"
+#include "SmallVector.h"
 #include "SortedContainer.h"
 #include "SparseSet.h"
-#include "SlotMap.h"
-#include "Expected.h"
 #include "StrongId.h"
 #include "ValueGuard.h"
 
-#include "FatPTypeTraits.h"
 #include "FatPTest.h"
+#include "FatPTypeTraits.h"
 
 namespace fat_p::testing::fatptypetraits
 {
 
 struct PolicyWithValidate
 {
-    bool validate() const { return true; }
-    bool validate(int x) const { return x > 0; }
+    bool validate() const
+    {
+        return true;
+    }
+    bool validate(int x) const
+    {
+        return x > 0;
+    }
 };
 
 struct PolicyWithoutValidate
 {
-    static void check(int) {}
+    static void check(int)
+    {
+    }
 };
 
 struct PolicyWithSharedLocking
 {
-    struct SharedGuard {};
-    struct LockGuard {};
+    struct SharedGuard
+    {
+    };
+    struct LockGuard
+    {
+    };
 };
 
 struct PolicyWithoutSharedLocking
 {
-    struct LockGuard {};
+    struct LockGuard
+    {
+    };
 };
 
 struct LockFreePolicy
 {
-    struct LockFreeTag {};
+    struct LockFreeTag
+    {
+    };
 };
 
 struct LockingPolicy
@@ -112,7 +128,9 @@ struct BinarySerializableType
 
 struct OnlyBinarySerializable
 {
-    void binary_serialize(std::vector<uint8_t>&) const {}
+    void binary_serialize(std::vector<uint8_t>&) const
+    {
+    }
     int value = 0;
 };
 
@@ -127,53 +145,88 @@ struct OnlyBinaryDeserializable
 
 struct BenchmarkableType
 {
-    void benchmark_setup() {}
-    void benchmark_run() {}
-    void benchmark_teardown() {}
+    void benchmark_setup()
+    {
+    }
+    void benchmark_run()
+    {
+    }
+    void benchmark_teardown()
+    {
+    }
 };
 
 struct NonBenchmarkableType
 {
-    void setup() {}
-    void run() {}
+    void setup()
+    {
+    }
+    void run()
+    {
+    }
 };
 
 struct TypeWithCapacity
 {
-    size_t capacity() const { return 100; }
+    size_t capacity() const
+    {
+        return 100;
+    }
 };
 
 struct TypeWithoutCapacity
 {
-    size_t size() const { return 0; }
+    size_t size() const
+    {
+        return 0;
+    }
 };
 
 struct TypeWithShrinkToFit
 {
-    void shrink_to_fit() {}
+    void shrink_to_fit()
+    {
+    }
 };
 
 struct TypeWithGetAllocator
 {
-    std::allocator<int> get_allocator() const { return {}; }
+    std::allocator<int> get_allocator() const
+    {
+        return {};
+    }
 };
 
 struct TypeWithLocking
 {
-    void lock() {}
-    void unlock() {}
-    bool try_lock() { return true; }
+    void lock()
+    {
+    }
+    void unlock()
+    {
+    }
+    bool try_lock()
+    {
+        return true;
+    }
 };
 
 struct TypeWithoutLocking
 {
-    void acquire() {}
-    void release() {}
+    void acquire()
+    {
+    }
+    void release()
+    {
+    }
 };
 
 struct TypeWithIsInline
 {
-    bool is_inline() const { return true; }
+    bool is_inline() const
+    {
+        return true;
+    }
 };
 
 struct TypeWithoutIsInline
@@ -182,23 +235,38 @@ struct TypeWithoutIsInline
 
 struct ExpectedLikeType
 {
-    int value() { return 42; }
-    std::string error() { return "error"; }
+    int value()
+    {
+        return 42;
+    }
+    std::string error()
+    {
+        return "error";
+    }
 };
 
 struct NotExpectedLikeValue
 {
-    int value() { return 42; }
+    int value()
+    {
+        return 42;
+    }
 };
 
 struct NotExpectedLikeError
 {
-    std::string error() { return "error"; }
+    std::string error()
+    {
+        return "error";
+    }
 };
 
 struct TensorLikeType
 {
-    std::vector<size_t> shape() const { return {2, 3}; }
+    std::vector<size_t> shape() const
+    {
+        return {2, 3};
+    }
 };
 
 struct NotTensorLike
@@ -211,18 +279,16 @@ FATP_TEST_CASE(has_validate)
     static_assert(!has_validate_v<PolicyWithoutValidate>, "PolicyWithoutValidate lacks validate");
     static_assert(!has_validate_v<int>, "int does not have validate");
     static_assert(!has_validate_v<std::vector<int>>, "vector does not have validate");
-    
+
     return true;
 }
 
 FATP_TEST_CASE(has_shared_locking)
 {
-    static_assert(has_shared_locking_v<PolicyWithSharedLocking>, 
-                  "PolicyWithSharedLocking should have shared locking");
-    static_assert(!has_shared_locking_v<PolicyWithoutSharedLocking>, 
-                  "PolicyWithoutSharedLocking lacks shared locking");
+    static_assert(has_shared_locking_v<PolicyWithSharedLocking>, "PolicyWithSharedLocking should have shared locking");
+    static_assert(!has_shared_locking_v<PolicyWithoutSharedLocking>, "PolicyWithoutSharedLocking lacks shared locking");
     static_assert(!has_shared_locking_v<int>, "int does not have shared locking");
-    
+
     return true;
 }
 
@@ -231,7 +297,7 @@ FATP_TEST_CASE(is_lock_free_policy)
     static_assert(is_lock_free_policy_v<LockFreePolicy>, "LockFreePolicy should be lock-free");
     static_assert(!is_lock_free_policy_v<LockingPolicy>, "LockingPolicy is not lock-free");
     static_assert(!is_lock_free_policy_v<int>, "int is not a lock-free policy");
-    
+
     return true;
 }
 
@@ -239,92 +305,78 @@ FATP_TEST_CASE(binary_serialization)
 {
     FATP_SUBTEST("has_binary_serialize")
     {
-        static_assert(has_binary_serialize_v<BinarySerializableType>, 
-                     "BinarySerializableType has serialize");
-        static_assert(has_binary_serialize_v<OnlyBinarySerializable>, 
-                     "OnlyBinarySerializable has serialize");
-        static_assert(!has_binary_serialize_v<OnlyBinaryDeserializable>, 
-                     "OnlyBinaryDeserializable lacks serialize");
+        static_assert(has_binary_serialize_v<BinarySerializableType>, "BinarySerializableType has serialize");
+        static_assert(has_binary_serialize_v<OnlyBinarySerializable>, "OnlyBinarySerializable has serialize");
+        static_assert(!has_binary_serialize_v<OnlyBinaryDeserializable>, "OnlyBinaryDeserializable lacks serialize");
         static_assert(!has_binary_serialize_v<int>, "int lacks serialize");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("has_binary_deserialize")
     {
-        static_assert(has_binary_deserialize_v<BinarySerializableType>, 
-                     "BinarySerializableType has deserialize");
-        static_assert(has_binary_deserialize_v<OnlyBinaryDeserializable>, 
-                     "OnlyBinaryDeserializable has deserialize");
-        static_assert(!has_binary_deserialize_v<OnlyBinarySerializable>, 
-                     "OnlyBinarySerializable lacks deserialize");
+        static_assert(has_binary_deserialize_v<BinarySerializableType>, "BinarySerializableType has deserialize");
+        static_assert(has_binary_deserialize_v<OnlyBinaryDeserializable>, "OnlyBinaryDeserializable has deserialize");
+        static_assert(!has_binary_deserialize_v<OnlyBinarySerializable>, "OnlyBinarySerializable lacks deserialize");
         static_assert(!has_binary_deserialize_v<int>, "int lacks deserialize");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("is_binary_serializable")
     {
-        static_assert(is_binary_serializable_v<BinarySerializableType>, 
-                     "BinarySerializableType is fully serializable");
-        static_assert(!is_binary_serializable_v<OnlyBinarySerializable>, 
-                     "OnlyBinarySerializable is incomplete");
-        static_assert(!is_binary_serializable_v<OnlyBinaryDeserializable>, 
-                     "OnlyBinaryDeserializable is incomplete");
+        static_assert(is_binary_serializable_v<BinarySerializableType>, "BinarySerializableType is fully serializable");
+        static_assert(!is_binary_serializable_v<OnlyBinarySerializable>, "OnlyBinarySerializable is incomplete");
+        static_assert(!is_binary_serializable_v<OnlyBinaryDeserializable>, "OnlyBinaryDeserializable is incomplete");
         static_assert(!is_binary_serializable_v<int>, "int is not serializable");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
 FATP_TEST_CASE(parallel_compatible)
 {
-    static_assert(is_parallel_algorithm_compatible_v<std::vector<int>>, 
-                  "vector<int> is parallel compatible");
-    static_assert(is_parallel_algorithm_compatible_v<std::vector<double>>, 
-                  "vector<double> is parallel compatible");
-    static_assert(!is_parallel_algorithm_compatible_v<int>, 
-                  "int is not parallel compatible");
-    
+    static_assert(is_parallel_algorithm_compatible_v<std::vector<int>>, "vector<int> is parallel compatible");
+    static_assert(is_parallel_algorithm_compatible_v<std::vector<double>>, "vector<double> is parallel compatible");
+    static_assert(!is_parallel_algorithm_compatible_v<int>, "int is not parallel compatible");
+
     return true;
 }
 
 FATP_TEST_CASE(benchmark_interface)
 {
-    static_assert(has_benchmark_interface_v<BenchmarkableType>, 
-                 "BenchmarkableType has benchmark interface");
-    static_assert(!has_benchmark_interface_v<NonBenchmarkableType>, 
-                 "NonBenchmarkableType lacks benchmark interface");
+    static_assert(has_benchmark_interface_v<BenchmarkableType>, "BenchmarkableType has benchmark interface");
+    static_assert(!has_benchmark_interface_v<NonBenchmarkableType>, "NonBenchmarkableType lacks benchmark interface");
     static_assert(!has_benchmark_interface_v<int>, "int lacks benchmark interface");
-    
+
     return true;
 }
 
 FATP_TEST_CASE(small_vector_detection)
 {
     using SV = SmallVector<int, 16>;
-    
+
     static_assert(is_small_vector_v<SV>, "SmallVector should be detected");
     static_assert(!is_small_vector_v<std::vector<int>>, "vector is not SmallVector");
     static_assert(!is_small_vector_v<int>, "int is not SmallVector");
-    
+
     static_assert(is_small_buffer_optimized_v<SV>, "SmallVector has SBO");
     static_assert(is_library_container_v<SV>, "SmallVector is library container");
     static_assert(!is_concurrent_container_v<SV>, "SmallVector is not concurrent");
-    
+
     return true;
 }
 
 FATP_TEST_CASE(circular_buffer_detection)
 {
     using CB = CircularBuffer<int, 32>;
-    
+
     static_assert(is_circular_buffer_v<CB>, "CircularBuffer should be detected");
     static_assert(!is_circular_buffer_v<std::vector<int>>, "vector is not CircularBuffer");
     static_assert(!is_circular_buffer_v<int>, "int is not CircularBuffer");
-    
+
     static_assert(is_library_container_v<CB>, "CircularBuffer is library container");
     static_assert(!is_small_buffer_optimized_v<CB>, "CircularBuffer does not have SBO");
-    
+
     return true;
 }
 
@@ -332,27 +384,26 @@ FATP_TEST_CASE(flat_containers_detection)
 {
     FATP_SUBTEST("FlatMap")
     {
-        using FM = FlatMap<int, std::string, std::less<int>, 
-                          std::allocator<std::pair<const int, std::string>>>;
-        
+        using FM = FlatMap<int, std::string, std::less<int>, std::allocator<std::pair<const int, std::string>>>;
+
         static_assert(is_flat_map_v<FM>, "FlatMap should be detected");
         static_assert(!is_flat_map_v<std::vector<int>>, "vector is not FlatMap");
         static_assert(is_small_buffer_optimized_v<FM>, "FlatMap has SBO");
         static_assert(is_library_container_v<FM>, "FlatMap is library container");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("FlatSet")
     {
         using FS = FlatSet<int, std::less<int>, std::allocator<int>>;
-        
+
         static_assert(is_flat_set_v<FS>, "FlatSet should be detected");
         static_assert(!is_flat_set_v<std::vector<int>>, "vector is not FlatSet");
         static_assert(is_small_buffer_optimized_v<FS>, "FlatSet has SBO");
         static_assert(is_library_container_v<FS>, "FlatSet is library container");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
@@ -361,34 +412,33 @@ FATP_TEST_CASE(sparse_containers_detection)
     FATP_SUBTEST("SparseSet")
     {
         using SS = SparseSet<int>;
-        
+
         static_assert(is_sparse_set_v<SS>, "SparseSet should be detected");
         static_assert(!is_sparse_set_v<std::vector<int>>, "vector is not SparseSet");
         static_assert(is_library_container_v<SS>, "SparseSet is library container");
         static_assert(!is_small_buffer_optimized_v<SS>, "SparseSet does not have SBO");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("SlotMap")
     {
         using SM = SlotMap<int>;
-        
+
         static_assert(is_slot_map_v<SM>, "SlotMap should be detected");
         static_assert(!is_slot_map_v<std::vector<int>>, "vector is not SlotMap");
         static_assert(is_library_container_v<SM>, "SlotMap is library container");
         static_assert(!is_small_buffer_optimized_v<SM>, "SlotMap does not have SBO");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
 FATP_TEST_CASE(sorted_container_detection)
 {
-    static_assert(!is_sorted_container_v<std::vector<int>>, 
-                 "vector is not SortedContainer");
+    static_assert(!is_sorted_container_v<std::vector<int>>, "vector is not SortedContainer");
     static_assert(!is_sorted_container_v<int>, "int is not SortedContainer");
-    
+
     return true;
 }
 
@@ -398,39 +448,32 @@ FATP_TEST_CASE(tensor_detection)
     static_assert(!is_fixed_tensor_v<std::vector<int>>, "vector is not FixedTensor");
     static_assert(!is_csr_matrix_v<std::vector<int>>, "vector is not CSRMatrix");
     static_assert(!is_simd_vector_v<std::vector<int>>, "vector is not SimdVector");
-    
+
     static_assert(!is_tensor_type_v<std::vector<int>>, "vector is not any tensor type");
     static_assert(!is_tensor_type_v<int>, "int is not any tensor type");
-    
+
     return true;
 }
 
 FATP_TEST_CASE(concurrency_detection)
 {
-    static_assert(!is_lock_free_queue_v<std::vector<int>>, 
-                 "vector is not LockFreeQueue");
-    static_assert(!is_lock_free_ring_buffer_v<std::vector<int>>, 
-                 "vector is not LockFreeRingBuffer");
+    static_assert(!is_lock_free_queue_v<std::vector<int>>, "vector is not LockFreeQueue");
+    static_assert(!is_lock_free_ring_buffer_v<std::vector<int>>, "vector is not LockFreeRingBuffer");
     static_assert(!is_thread_pool_v<std::vector<int>>, "vector is not ThreadPool");
-    static_assert(!is_atomic_reference_v<std::vector<int>>, 
-                 "vector is not AtomicReference");
-    static_assert(!is_spinlock_policy_v<std::vector<int>>, 
-                 "vector is not spinlock policy");
-    
-    static_assert(!is_concurrent_container_v<std::vector<int>>, 
-                 "vector is not concurrent container");
-    
+    static_assert(!is_atomic_reference_v<std::vector<int>>, "vector is not AtomicReference");
+    static_assert(!is_spinlock_policy_v<std::vector<int>>, "vector is not spinlock policy");
+
+    static_assert(!is_concurrent_container_v<std::vector<int>>, "vector is not concurrent container");
+
     return true;
 }
 
 FATP_TEST_CASE(memory_detection)
 {
-    static_assert(!is_aligned_vector_v<std::vector<int>>, 
-                 "vector is not AlignedVector");
+    static_assert(!is_aligned_vector_v<std::vector<int>>, "vector is not AlignedVector");
     static_assert(!is_object_pool_v<std::vector<int>>, "vector is not ObjectPool");
-    static_assert(!has_numa_allocator_v<std::vector<int>>, 
-                 "vector does not have NumaAllocator");
-    
+    static_assert(!has_numa_allocator_v<std::vector<int>>, "vector does not have NumaAllocator");
+
     return true;
 }
 
@@ -440,62 +483,59 @@ FATP_TEST_CASE(utility_detection)
     {
         static_assert(!is_expected_v<std::vector<int>>, "vector is not Expected");
         static_assert(!is_expected_v<int>, "int is not Expected");
-        
+
         // ExpectedImpl is in fat_p namespace (not expected_internal)
         using Exp = ExpectedImpl<int, std::string, UnionStorage>;
         static_assert(is_expected_v<Exp>, "ExpectedImpl should be detected");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("StrongId")
     {
         static_assert(!is_strong_id_v<int>, "int is not StrongId");
         static_assert(!is_strong_id_v<std::vector<int>>, "vector is not StrongId");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("ValueGuard")
     {
         static_assert(!is_value_guard_v<int>, "int is not ValueGuard");
         static_assert(!is_value_guard_v<std::vector<int>>, "vector is not ValueGuard");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("ScopeGuard")
     {
         static_assert(!is_scope_guard_v<int>, "int is not ScopeGuard");
         static_assert(!is_scope_guard_v<std::vector<int>>, "vector is not ScopeGuard");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
 FATP_TEST_CASE(small_buffer_optimized)
 {
-    static_assert(!is_small_buffer_optimized_v<std::vector<int>>, 
-                 "vector is not SBO");
+    static_assert(!is_small_buffer_optimized_v<std::vector<int>>, "vector is not SBO");
     static_assert(!is_small_buffer_optimized_v<int>, "int is not SBO");
-    
+
     using SV = SmallVector<int, 16>;
     static_assert(is_small_buffer_optimized_v<SV>, "SmallVector has SBO");
-    
-    using FM = FlatMap<int, std::string, std::less<int>, 
-                      std::allocator<std::pair<const int, std::string>>>;
+
+    using FM = FlatMap<int, std::string, std::less<int>, std::allocator<std::pair<const int, std::string>>>;
     static_assert(is_small_buffer_optimized_v<FM>, "FlatMap has SBO");
-    
+
     using FS = FlatSet<int, std::less<int>, std::allocator<int>>;
     static_assert(is_small_buffer_optimized_v<FS>, "FlatSet has SBO");
-    
+
     return true;
 }
 
 FATP_TEST_CASE(cache_aware)
 {
-    static_assert(!is_cache_aware_type_v<std::vector<int>>, 
-                 "vector is not cache-aware type");
+    static_assert(!is_cache_aware_type_v<std::vector<int>>, "vector is not cache-aware type");
     static_assert(!is_cache_aware_type_v<int>, "int is not cache-aware type");
-    
+
     return true;
 }
 
@@ -503,7 +543,7 @@ FATP_TEST_CASE(guard_type)
 {
     static_assert(!is_guard_type_v<int>, "int is not a guard type");
     static_assert(!is_guard_type_v<std::vector<int>>, "vector is not a guard type");
-    
+
     return true;
 }
 
@@ -512,29 +552,26 @@ FATP_TEST_CASE(method_detection_capacity)
     FATP_SUBTEST("has_capacity")
     {
         static_assert(has_capacity_v<TypeWithCapacity>, "TypeWithCapacity has capacity()");
-        static_assert(!has_capacity_v<TypeWithoutCapacity>, 
-                     "TypeWithoutCapacity lacks capacity()");
+        static_assert(!has_capacity_v<TypeWithoutCapacity>, "TypeWithoutCapacity lacks capacity()");
         static_assert(!has_capacity_v<int>, "int lacks capacity()");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("has_shrink_to_fit")
     {
-        static_assert(has_shrink_to_fit_v<TypeWithShrinkToFit>, 
-                     "TypeWithShrinkToFit has shrink_to_fit()");
+        static_assert(has_shrink_to_fit_v<TypeWithShrinkToFit>, "TypeWithShrinkToFit has shrink_to_fit()");
         static_assert(!has_shrink_to_fit_v<int>, "int lacks shrink_to_fit()");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
 FATP_TEST_CASE(method_detection_allocator)
 {
-    static_assert(has_get_allocator_v<TypeWithGetAllocator>, 
-                 "TypeWithGetAllocator has get_allocator()");
+    static_assert(has_get_allocator_v<TypeWithGetAllocator>, "TypeWithGetAllocator has get_allocator()");
     static_assert(!has_get_allocator_v<int>, "int lacks get_allocator()");
-    
+
     return true;
 }
 
@@ -547,7 +584,7 @@ FATP_TEST_CASE(method_detection_locking)
         static_assert(!has_lock_v<int>, "int lacks lock()");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("has_unlock")
     {
         static_assert(has_unlock_v<TypeWithLocking>, "TypeWithLocking has unlock()");
@@ -555,16 +592,15 @@ FATP_TEST_CASE(method_detection_locking)
         static_assert(!has_unlock_v<int>, "int lacks unlock()");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("has_try_lock")
     {
         static_assert(has_try_lock_v<TypeWithLocking>, "TypeWithLocking has try_lock()");
-        static_assert(!has_try_lock_v<TypeWithoutLocking>, 
-                     "TypeWithoutLocking lacks try_lock()");
+        static_assert(!has_try_lock_v<TypeWithoutLocking>, "TypeWithoutLocking lacks try_lock()");
         static_assert(!has_try_lock_v<int>, "int lacks try_lock()");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
@@ -572,22 +608,20 @@ FATP_TEST_CASE(method_detection_container_types)
 {
     FATP_SUBTEST("has_key_type")
     {
-        using FM = FlatMap<int, std::string, std::less<int>, 
-                          std::allocator<std::pair<const int, std::string>>>;
+        using FM = FlatMap<int, std::string, std::less<int>, std::allocator<std::pair<const int, std::string>>>;
         static_assert(has_key_type_v<FM>, "FlatMap has key_type");
         static_assert(!has_key_type_v<std::vector<int>>, "vector lacks key_type");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("has_mapped_type")
     {
-        using FM = FlatMap<int, std::string, std::less<int>, 
-                          std::allocator<std::pair<const int, std::string>>>;
+        using FM = FlatMap<int, std::string, std::less<int>, std::allocator<std::pair<const int, std::string>>>;
         static_assert(has_mapped_type_v<FM>, "FlatMap has mapped_type");
         static_assert(!has_mapped_type_v<std::vector<int>>, "vector lacks mapped_type");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
@@ -598,31 +632,28 @@ FATP_TEST_CASE(type_extraction_comprehensive)
         using SV = SmallVector<int, 16>;
         using value_type = container_value_type_t<SV>;
         static_assert(std::is_same_v<value_type, int>, "Should extract int");
-        
+
         using vec_value = container_value_type_t<std::vector<double>>;
         static_assert(std::is_same_v<vec_value, double>, "Should extract double");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("container_key_type_t")
     {
-        using FM = FlatMap<int, std::string, std::less<int>, 
-                          std::allocator<std::pair<const int, std::string>>>;
+        using FM = FlatMap<int, std::string, std::less<int>, std::allocator<std::pair<const int, std::string>>>;
         using key_type = container_key_type_t<FM>;
         static_assert(std::is_same_v<key_type, int>, "Should extract int key");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("container_mapped_type_t")
     {
-        using FM = FlatMap<int, std::string, std::less<int>, 
-                          std::allocator<std::pair<const int, std::string>>>;
+        using FM = FlatMap<int, std::string, std::less<int>, std::allocator<std::pair<const int, std::string>>>;
         using mapped_type = container_mapped_type_t<FM>;
-        static_assert(std::is_same_v<mapped_type, std::string>, 
-                     "Should extract string mapped type");
+        static_assert(std::is_same_v<mapped_type, std::string>, "Should extract string mapped type");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
@@ -630,35 +661,29 @@ FATP_TEST_CASE(duck_typing_comprehensive)
 {
     FATP_SUBTEST("is_small_vector_like")
     {
-        static_assert(is_small_vector_like_v<TypeWithIsInline>, 
-                     "Should detect is_inline() method");
-        static_assert(!is_small_vector_like_v<TypeWithoutIsInline>, 
-                     "Should not detect without is_inline()");
+        static_assert(is_small_vector_like_v<TypeWithIsInline>, "Should detect is_inline() method");
+        static_assert(!is_small_vector_like_v<TypeWithoutIsInline>, "Should not detect without is_inline()");
         static_assert(!is_small_vector_like_v<int>, "int is not small vector like");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("is_expected_like")
     {
-        static_assert(is_expected_like_v<ExpectedLikeType>, 
-                     "Should detect value() and error() methods");
-        static_assert(!is_expected_like_v<NotExpectedLikeValue>, 
-                     "Should require both value() and error()");
-        static_assert(!is_expected_like_v<NotExpectedLikeError>, 
-                     "Should require both value() and error()");
+        static_assert(is_expected_like_v<ExpectedLikeType>, "Should detect value() and error() methods");
+        static_assert(!is_expected_like_v<NotExpectedLikeValue>, "Should require both value() and error()");
+        static_assert(!is_expected_like_v<NotExpectedLikeError>, "Should require both value() and error()");
         static_assert(!is_expected_like_v<int>, "int is not expected like");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("is_tensor_like")
     {
         static_assert(is_tensor_like_v<TensorLikeType>, "Should detect shape() method");
-        static_assert(!is_tensor_like_v<NotTensorLike>, 
-                     "Should not detect without shape()");
+        static_assert(!is_tensor_like_v<NotTensorLike>, "Should not detect without shape()");
         static_assert(!is_tensor_like_v<int>, "int is not tensor like");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
@@ -669,26 +694,26 @@ FATP_TEST_CASE(dbc_helpers_comprehensive)
         requires_validate<PolicyWithValidate>();
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("requires_parallel_compatible")
     {
         requires_parallel_compatible<std::vector<int>>();
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("requires_binary_serializable")
     {
         requires_binary_serializable<BinarySerializableType>();
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("requires_library_container")
     {
         using SV = SmallVector<int, 16>;
         requires_library_container<SV>();
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("requires_expected")
     {
         // ExpectedImpl is in fat_p namespace (not expected_internal)
@@ -696,7 +721,7 @@ FATP_TEST_CASE(dbc_helpers_comprehensive)
         requires_expected<Exp>();
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
@@ -709,22 +734,23 @@ FATP_TEST_CASE(diagnostics_expected)
         FATP_ASSERT_CONTAINS(diag, "Missing", "Should explain what is missing");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("diagnose_expected on Expected-like type")
     {
         const char* diag = diagnose_expected<ExpectedLikeType>();
         FATP_ASSERT_NOT_NULLPTR(diag, "Should return diagnostic string");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("why_not_expected")
     {
         FATP_ASSERT_NOT_NULLPTR(why_not_expected<int>::reason, "Should provide reason for int");
-        FATP_ASSERT_CONTAINS(why_not_expected<NotExpectedLikeValue>::reason, "Missing", 
-                       "Should explain what is missing");
+        FATP_ASSERT_CONTAINS(why_not_expected<NotExpectedLikeValue>::reason,
+                             "Missing",
+                             "Should explain what is missing");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
@@ -737,22 +763,21 @@ FATP_TEST_CASE(diagnostics_tensor)
         FATP_ASSERT_CONTAINS(diag, "Missing", "Should explain what is missing");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("diagnose_tensor on Tensor-like type")
     {
         const char* diag = diagnose_tensor<TensorLikeType>();
         FATP_ASSERT_NOT_NULLPTR(diag, "Should return diagnostic string");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("why_not_tensor")
     {
         FATP_ASSERT_NOT_NULLPTR(why_not_tensor<int>::reason, "Should provide reason for int");
-        FATP_ASSERT_CONTAINS(why_not_tensor<NotTensorLike>::reason, "Missing", 
-                       "Should explain what is missing");
+        FATP_ASSERT_CONTAINS(why_not_tensor<NotTensorLike>::reason, "Missing", "Should explain what is missing");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
@@ -765,7 +790,7 @@ FATP_TEST_CASE(diagnostics_serializable)
         FATP_ASSERT_CONTAINS(diag, "serializable", "Should indicate serializability");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("diagnose_binary_serializable on partial type")
     {
         const char* diag = diagnose_binary_serializable<OnlyBinarySerializable>();
@@ -773,16 +798,16 @@ FATP_TEST_CASE(diagnostics_serializable)
         FATP_ASSERT_CONTAINS(diag, "Missing", "Should explain what is missing");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("why_not_binary_serializable")
     {
-        FATP_ASSERT_NOT_NULLPTR(why_not_binary_serializable<int>::reason, 
-                          "Should provide reason for int");
-        FATP_ASSERT_CONTAINS(why_not_binary_serializable<OnlyBinarySerializable>::reason, 
-                       "Missing", "Should explain what is missing");
+        FATP_ASSERT_NOT_NULLPTR(why_not_binary_serializable<int>::reason, "Should provide reason for int");
+        FATP_ASSERT_CONTAINS(why_not_binary_serializable<OnlyBinarySerializable>::reason,
+                             "Missing",
+                             "Should explain what is missing");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
@@ -795,7 +820,7 @@ FATP_TEST_CASE(diagnostics_container)
         FATP_ASSERT_CONTAINS(diag, "not a library container", "Should indicate not a library type");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("diagnose_library_container on library type")
     {
         using SV = SmallVector<int, 16>;
@@ -804,7 +829,7 @@ FATP_TEST_CASE(diagnostics_container)
         FATP_ASSERT_CONTAINS(diag, "SmallVector", "Should detect SmallVector");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
@@ -812,13 +837,12 @@ FATP_TEST_CASE(negative_cases)
 {
     FATP_SUBTEST("Const types")
     {
-        static_assert(!is_small_vector_v<const SmallVector<int, 16>>, 
-                     "Const SmallVector should not match");
-        static_assert(!is_expected_v<const ExpectedImpl<int, std::string, UnionStorage>>, 
-                     "Const Expected should not match");
+        static_assert(!is_small_vector_v<const SmallVector<int, 16>>, "Const SmallVector should not match");
+        static_assert(!is_expected_v<const ExpectedImpl<int, std::string, UnionStorage>>,
+                      "Const Expected should not match");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("Reference types")
     {
         using SV = SmallVector<int, 16>;
@@ -826,14 +850,14 @@ FATP_TEST_CASE(negative_cases)
         static_assert(!is_small_vector_v<SV&&>, "Rvalue reference should not match");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("Pointer types")
     {
         using SV = SmallVector<int, 16>;
         static_assert(!is_small_vector_v<SV*>, "Pointer should not match");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
@@ -845,50 +869,48 @@ FATP_TEST_CASE(library_container_comprehensive)
         static_assert(is_library_container_v<SV>, "SmallVector is library container");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("CircularBuffer is library container")
     {
         using CB = CircularBuffer<int, 32>;
         static_assert(is_library_container_v<CB>, "CircularBuffer is library container");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("FlatMap is library container")
     {
-        using FM = FlatMap<int, std::string, std::less<int>, 
-                          std::allocator<std::pair<const int, std::string>>>;
+        using FM = FlatMap<int, std::string, std::less<int>, std::allocator<std::pair<const int, std::string>>>;
         static_assert(is_library_container_v<FM>, "FlatMap is library container");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("FlatSet is library container")
     {
         using FS = FlatSet<int, std::less<int>, std::allocator<int>>;
         static_assert(is_library_container_v<FS>, "FlatSet is library container");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("SparseSet is library container")
     {
         using SS = SparseSet<int>;
         static_assert(is_library_container_v<SS>, "SparseSet is library container");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("SlotMap is library container")
     {
         using SM = SlotMap<int>;
         static_assert(is_library_container_v<SM>, "SlotMap is library container");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("std::vector is not library container")
     {
-        static_assert(!is_library_container_v<std::vector<int>>, 
-                     "std::vector is not library container");
+        static_assert(!is_library_container_v<std::vector<int>>, "std::vector is not library container");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
@@ -897,30 +919,29 @@ FATP_TEST_CASE(extension_points)
     FATP_SUBTEST("library_custom_traits default is empty")
     {
         using DefaultTraits = extension_points::library_custom_traits<int>;
-        static_assert(std::is_class_v<DefaultTraits>, 
-                     "library_custom_traits should be a class");
+        static_assert(std::is_class_v<DefaultTraits>, "library_custom_traits should be a class");
         // Note: We mCan_LIT_0__s truly empty without specializing it
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("library_custom_traits for SmallVector")
     {
         using SV = SmallVector<int, 16>;
         using SVTraits = extension_points::library_custom_traits<SV>;
-        static_assert(std::is_class_v<SVTraits>, 
-                     "library_custom_traits should work with SmallVector");
+        static_assert(std::is_class_v<SVTraits>, "library_custom_traits should work with SmallVector");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("library_custom_traits for custom type")
     {
-        struct CustomType {};
+        struct CustomType
+        {
+        };
         using CustomTraits = extension_points::library_custom_traits<CustomType>;
-        static_assert(std::is_class_v<CustomTraits>, 
-                     "library_custom_traits should work with custom types");
+        static_assert(std::is_class_v<CustomTraits>, "library_custom_traits should work with custom types");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 
@@ -931,40 +952,34 @@ FATP_TEST_CASE(concepts)
     {
         using SV = SmallVector<int, 16>;
         static_assert(concepts::SmallVectorType<SV>, "SmallVector should satisfy concept");
-        static_assert(!concepts::SmallVectorType<std::vector<int>>, 
-                     "vector should not satisfy concept");
+        static_assert(!concepts::SmallVectorType<std::vector<int>>, "vector should not satisfy concept");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("CircularBufferType concept")
     {
         using CB = CircularBuffer<int, 32>;
-        static_assert(concepts::CircularBufferType<CB>, 
-                     "CircularBuffer should satisfy concept");
-        static_assert(!concepts::CircularBufferType<std::vector<int>>, 
-                     "vector should not satisfy concept");
+        static_assert(concepts::CircularBufferType<CB>, "CircularBuffer should satisfy concept");
+        static_assert(!concepts::CircularBufferType<std::vector<int>>, "vector should not satisfy concept");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("FlatMapType concept")
     {
-        using FM = FlatMap<int, std::string, std::less<int>, 
-                          std::allocator<std::pair<const int, std::string>>>;
+        using FM = FlatMap<int, std::string, std::less<int>, std::allocator<std::pair<const int, std::string>>>;
         static_assert(concepts::FlatMapType<FM>, "FlatMap should satisfy concept");
-        static_assert(!concepts::FlatMapType<std::vector<int>>, 
-                     "vector should not satisfy concept");
+        static_assert(!concepts::FlatMapType<std::vector<int>>, "vector should not satisfy concept");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("FlatSetType concept")
     {
         using FS = FlatSet<int, std::less<int>, std::allocator<int>>;
         static_assert(concepts::FlatSetType<FS>, "FlatSet should satisfy concept");
-        static_assert(!concepts::FlatSetType<std::vector<int>>, 
-                     "vector should not satisfy concept");
+        static_assert(!concepts::FlatSetType<std::vector<int>>, "vector should not satisfy concept");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("ExpectedType concept")
     {
         using Exp = ExpectedImpl<int, std::string, UnionStorage>;
@@ -972,44 +987,38 @@ FATP_TEST_CASE(concepts)
         static_assert(!concepts::ExpectedType<int>, "int should not satisfy concept");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("BinarySerializable concept")
     {
-        static_assert(concepts::BinarySerializable<BinarySerializableType>, 
-                     "BinarySerializableType should satisfy concept");
-        static_assert(!concepts::BinarySerializable<int>, 
-                     "int should not satisfy concept");
+        static_assert(concepts::BinarySerializable<BinarySerializableType>,
+                      "BinarySerializableType should satisfy concept");
+        static_assert(!concepts::BinarySerializable<int>, "int should not satisfy concept");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("ParallelCompatible concept")
     {
-        static_assert(concepts::ParallelCompatible<std::vector<int>>, 
-                     "vector should satisfy concept");
-        static_assert(!concepts::ParallelCompatible<int>, 
-                     "int should not satisfy concept");
+        static_assert(concepts::ParallelCompatible<std::vector<int>>, "vector should satisfy concept");
+        static_assert(!concepts::ParallelCompatible<int>, "int should not satisfy concept");
     }
     FATP_END_SUBTEST
-    
+
     FATP_SUBTEST("LibraryContainer concept")
     {
         using SV = SmallVector<int, 16>;
-        static_assert(concepts::LibraryContainer<SV>, 
-                     "SmallVector should satisfy concept");
-        static_assert(!concepts::LibraryContainer<std::vector<int>>, 
-                     "std::vector should not satisfy concept");
+        static_assert(concepts::LibraryContainer<SV>, "SmallVector should satisfy concept");
+        static_assert(!concepts::LibraryContainer<std::vector<int>>, "std::vector should not satisfy concept");
     }
     FATP_END_SUBTEST
-    
+
     return get_subtest_tracker().all_passed();
 }
 #endif
 
 void benchmark_fatp_type_traits()
 {
-    std::cout << "\n" << colors::cyan() << "FatPTypeTraits Benchmarks:" 
-              << colors::reset() << "\n\n";
-    
+    std::cout << "\n" << colors::cyan() << "FatPTypeTraits Benchmarks:" << colors::reset() << "\n\n";
+
     std::cout << "Note: FatPTypeTraits is compile-time only.\n";
     std::cout << "No runtime benchmarks needed - zero runtime overhead!\n";
     std::cout << "All type trait evaluations happen at compile time.\n";
@@ -1039,7 +1048,7 @@ bool test_FatPTypeTraits()
     FATP_RUN_TEST_NS(runner, fatptypetraits, flat_containers_detection);
     FATP_RUN_TEST_NS(runner, fatptypetraits, sparse_containers_detection);
     FATP_RUN_TEST_NS(runner, fatptypetraits, sorted_container_detection);
-    
+
     FATP_RUN_TEST_NS(runner, fatptypetraits, tensor_detection);
     FATP_RUN_TEST_NS(runner, fatptypetraits, concurrency_detection);
     FATP_RUN_TEST_NS(runner, fatptypetraits, memory_detection);
@@ -1048,12 +1057,12 @@ bool test_FatPTypeTraits()
     FATP_RUN_TEST_NS(runner, fatptypetraits, small_buffer_optimized);
     FATP_RUN_TEST_NS(runner, fatptypetraits, cache_aware);
     FATP_RUN_TEST_NS(runner, fatptypetraits, guard_type);
-    
+
     FATP_RUN_TEST_NS(runner, fatptypetraits, method_detection_capacity);
     FATP_RUN_TEST_NS(runner, fatptypetraits, method_detection_allocator);
     FATP_RUN_TEST_NS(runner, fatptypetraits, method_detection_locking);
     FATP_RUN_TEST_NS(runner, fatptypetraits, method_detection_container_types);
-    
+
     FATP_RUN_TEST_NS(runner, fatptypetraits, type_extraction_comprehensive);
     FATP_RUN_TEST_NS(runner, fatptypetraits, duck_typing_comprehensive);
     FATP_RUN_TEST_NS(runner, fatptypetraits, dbc_helpers_comprehensive);
@@ -1062,14 +1071,14 @@ bool test_FatPTypeTraits()
     FATP_RUN_TEST_NS(runner, fatptypetraits, diagnostics_tensor);
     FATP_RUN_TEST_NS(runner, fatptypetraits, diagnostics_serializable);
     FATP_RUN_TEST_NS(runner, fatptypetraits, diagnostics_container);
-    
+
     FATP_RUN_TEST_NS(runner, fatptypetraits, negative_cases);
     FATP_RUN_TEST_NS(runner, fatptypetraits, library_container_comprehensive);
     FATP_RUN_TEST_NS(runner, fatptypetraits, extension_points);
 
-    #if FATP_HAS_CPP20
+#if FATP_HAS_CPP20
     FATP_RUN_TEST_NS(runner, fatptypetraits, concepts);
-    #endif
+#endif
 
     fatptypetraits::benchmark_fatp_type_traits();
 

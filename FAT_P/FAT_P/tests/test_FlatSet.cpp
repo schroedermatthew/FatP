@@ -36,8 +36,8 @@ FATP_META:
 #include <string>
 #include <vector>
 
-#include "FlatSet.h"
 #include "FatPTest.h"
+#include "FlatSet.h"
 
 namespace fat_p::testing::flatset
 {
@@ -57,28 +57,34 @@ public:
 
     int value;
 
-    explicit LifecycleTracker(int v = 0) : value(v) { ++construct_count; }
-    
-    LifecycleTracker(const LifecycleTracker& other) : value(other.value)
+    explicit LifecycleTracker(int v = 0)
+        : value(v)
+    {
+        ++construct_count;
+    }
+
+    LifecycleTracker(const LifecycleTracker& other)
+        : value(other.value)
     {
         ++construct_count;
         ++copy_count;
     }
-    
-    LifecycleTracker(LifecycleTracker&& other) noexcept : value(other.value)
+
+    LifecycleTracker(LifecycleTracker&& other) noexcept
+        : value(other.value)
     {
         ++construct_count;
         ++move_count;
         other.value = -1;
     }
-    
+
     LifecycleTracker& operator=(const LifecycleTracker& other)
     {
         value = other.value;
         ++copy_count;
         return *this;
     }
-    
+
     LifecycleTracker& operator=(LifecycleTracker&& other) noexcept
     {
         value = other.value;
@@ -86,8 +92,11 @@ public:
         other.value = -1;
         return *this;
     }
-    
-    ~LifecycleTracker() { ++destruct_count; }
+
+    ~LifecycleTracker()
+    {
+        ++destruct_count;
+    }
 
     static void reset()
     {
@@ -96,9 +105,15 @@ public:
         copy_count = 0;
         move_count = 0;
     }
-    
-    bool operator<(const LifecycleTracker& other) const { return value < other.value; }
-    bool operator==(const LifecycleTracker& other) const { return value == other.value; }
+
+    bool operator<(const LifecycleTracker& other) const
+    {
+        return value < other.value;
+    }
+    bool operator==(const LifecycleTracker& other) const
+    {
+        return value == other.value;
+    }
 };
 
 /// Type that throws on copy after N operations
@@ -108,9 +123,13 @@ struct ThrowOnCopy
     static inline int throw_after = -1;
     static inline int operation_count = 0;
 
-    explicit ThrowOnCopy(int v = 0) : value(v) {}
+    explicit ThrowOnCopy(int v = 0)
+        : value(v)
+    {
+    }
 
-    ThrowOnCopy(const ThrowOnCopy& other) : value(other.value)
+    ThrowOnCopy(const ThrowOnCopy& other)
+        : value(other.value)
     {
         if (throw_after >= 0 && ++operation_count >= throw_after)
         {
@@ -118,8 +137,12 @@ struct ThrowOnCopy
         }
     }
 
-    ThrowOnCopy(ThrowOnCopy&& other) noexcept : value(other.value) { other.value = -1; }
-    
+    ThrowOnCopy(ThrowOnCopy&& other) noexcept
+        : value(other.value)
+    {
+        other.value = -1;
+    }
+
     ThrowOnCopy& operator=(const ThrowOnCopy& other)
     {
         if (throw_after >= 0 && ++operation_count >= throw_after)
@@ -129,7 +152,7 @@ struct ThrowOnCopy
         value = other.value;
         return *this;
     }
-    
+
     ThrowOnCopy& operator=(ThrowOnCopy&& other) noexcept
     {
         value = other.value;
@@ -142,9 +165,15 @@ struct ThrowOnCopy
         operation_count = 0;
         throw_after = -1;
     }
-    
-    bool operator<(const ThrowOnCopy& other) const { return value < other.value; }
-    bool operator==(const ThrowOnCopy& other) const { return value == other.value; }
+
+    bool operator<(const ThrowOnCopy& other) const
+    {
+        return value < other.value;
+    }
+    bool operator==(const ThrowOnCopy& other) const
+    {
+        return value == other.value;
+    }
 };
 
 /// Move-only type for testing move semantics
@@ -152,15 +181,27 @@ struct MoveOnly
 {
     std::unique_ptr<int> data;
 
-    explicit MoveOnly(int v = 0) : data(std::make_unique<int>(v)) {}
+    explicit MoveOnly(int v = 0)
+        : data(std::make_unique<int>(v))
+    {
+    }
     MoveOnly(MoveOnly&&) = default;
     MoveOnly& operator=(MoveOnly&&) = default;
     MoveOnly(const MoveOnly&) = delete;
     MoveOnly& operator=(const MoveOnly&) = delete;
 
-    int get() const { return data ? *data : -1; }
-    bool operator<(const MoveOnly& other) const { return get() < other.get(); }
-    bool operator==(const MoveOnly& other) const { return get() == other.get(); }
+    int get() const
+    {
+        return data ? *data : -1;
+    }
+    bool operator<(const MoveOnly& other) const
+    {
+        return get() < other.get();
+    }
+    bool operator==(const MoveOnly& other) const
+    {
+        return get() == other.get();
+    }
 };
 
 // ============================================================================
@@ -202,7 +243,7 @@ FATP_TEST_CASE(allocator_constructor)
     fat_p::FlatSet<int> set(alloc);
 
     FATP_ASSERT_TRUE(set.empty(), "Allocator-constructed set should be empty");
-    
+
     set.insert(1);
     FATP_ASSERT_EQ(set.size(), size_t(1), "Should have 1 element after insert");
 
@@ -225,7 +266,7 @@ FATP_TEST_CASE(comparator_allocator_constructor)
 
 FATP_TEST_CASE(range_constructor)
 {
-    std::vector<int> data = {3, 1, 2, 1, 3};  // Note: duplicates
+    std::vector<int> data = {3, 1, 2, 1, 3}; // Note: duplicates
 
     fat_p::FlatSet<int> set(data.begin(), data.end());
 
@@ -295,7 +336,7 @@ FATP_TEST_CASE(self_assignment)
     fat_p::FlatSet<int> set{1, 2};
 
     auto* ptr = &set;
-    *ptr = set;  // Self-assignment
+    *ptr = set; // Self-assignment
 
     FATP_ASSERT_EQ(set.size(), size_t(2), "Size should be unchanged after self-assignment");
     FATP_ASSERT_TRUE(set.contains(1), "Content should be unchanged");
@@ -356,21 +397,21 @@ FATP_TEST_CASE(basic_operations)
 FATP_TEST_CASE(single_element)
 {
     fat_p::FlatSet<int> set;
-    
+
     set.insert(42);
-    
+
     FATP_ASSERT_EQ(set.size(), size_t(1), "Size should be 1");
     FATP_ASSERT_FALSE(set.empty(), "Set should not be empty");
     FATP_ASSERT_TRUE(set.contains(42), "Should contain the value");
-    
+
     // Iterator operations on single element
     FATP_ASSERT_EQ(*set.begin(), 42, "begin() should point to the element");
     FATP_ASSERT_EQ(std::distance(set.begin(), set.end()), 1, "Should have exactly 1 element");
-    
+
     // Erase single element
     set.erase(42);
     FATP_ASSERT_TRUE(set.empty(), "Set should be empty after erasing only element");
-    
+
     return true;
 }
 
@@ -411,11 +452,11 @@ FATP_TEST_CASE(find_operations)
 FATP_TEST_CASE(count)
 {
     fat_p::FlatSet<int> set{1, 2, 3};
-    
+
     FATP_ASSERT_EQ(set.count(1), size_t(1), "count(1) should return 1");
     FATP_ASSERT_EQ(set.count(2), size_t(1), "count(2) should return 1");
     FATP_ASSERT_EQ(set.count(99), size_t(0), "count(99) should return 0");
-    
+
     return true;
 }
 
@@ -455,9 +496,9 @@ FATP_TEST_CASE(erase_range)
 
     auto first = set.find(2);
     auto last = set.find(4);
-    
-    set.erase(first, last);  // Erases 2 and 3
-    
+
+    set.erase(first, last); // Erases 2 and 3
+
     FATP_ASSERT_EQ(set.size(), size_t(3), "Size should be 3 after range erase");
     FATP_ASSERT_TRUE(set.contains(1), "Value 1 should remain");
     FATP_ASSERT_FALSE(set.contains(2), "Value 2 should be erased");
@@ -491,7 +532,7 @@ FATP_TEST_CASE(lower_upper_bound)
     FATP_ASSERT_TRUE(it != set.end(), "Should find lower bound");
     FATP_ASSERT_EQ(*it, 30, "Lower bound should be 30");
 
-    it = set.lower_bound(25);  // Value doesn't exist
+    it = set.lower_bound(25); // Value doesn't exist
     FATP_ASSERT_TRUE(it != set.end(), "Should find lower bound for non-existent value");
     FATP_ASSERT_EQ(*it, 30, "Lower bound of 25 should be 30");
 
@@ -544,7 +585,7 @@ FATP_TEST_CASE(clear)
 FATP_TEST_CASE(iterator_basics)
 {
     fat_p::FlatSet<int> set{1, 2, 3};
-    
+
     // Forward iteration
     std::vector<int> values;
     for (auto it = set.begin(); it != set.end(); ++it)
@@ -553,7 +594,7 @@ FATP_TEST_CASE(iterator_basics)
     }
     FATP_ASSERT_EQ(values.size(), size_t(3), "Should iterate over all elements");
     FATP_ASSERT_TRUE(std::is_sorted(values.begin(), values.end()), "Should iterate in sorted order");
-    
+
     // Range-based for
     values.clear();
     for (int v : set)
@@ -561,7 +602,7 @@ FATP_TEST_CASE(iterator_basics)
         values.push_back(v);
     }
     FATP_ASSERT_EQ(values.size(), size_t(3), "Range-based for should work");
-    
+
     return true;
 }
 
@@ -569,14 +610,14 @@ FATP_TEST_CASE(const_iterator)
 {
     fat_p::FlatSet<int> set{1, 2};
     const auto& constSet = set;
-    
+
     std::vector<int> values;
     for (auto it = constSet.begin(); it != constSet.end(); ++it)
     {
         values.push_back(*it);
     }
     FATP_ASSERT_EQ(values.size(), size_t(2), "Const iteration should work");
-    
+
     // cbegin/cend
     values.clear();
     for (auto it = set.cbegin(); it != set.cend(); ++it)
@@ -584,25 +625,25 @@ FATP_TEST_CASE(const_iterator)
         values.push_back(*it);
     }
     FATP_ASSERT_EQ(values.size(), size_t(2), "cbegin/cend should work");
-    
+
     return true;
 }
 
 FATP_TEST_CASE(reverse_iterator)
 {
     fat_p::FlatSet<int> set{1, 2, 3};
-    
+
     std::vector<int> values;
     for (auto it = set.rbegin(); it != set.rend(); ++it)
     {
         values.push_back(*it);
     }
-    
+
     FATP_ASSERT_EQ(values.size(), size_t(3), "Should iterate over all elements");
     FATP_ASSERT_EQ(values[0], 3, "First in reverse should be 3");
     FATP_ASSERT_EQ(values[1], 2, "Second in reverse should be 2");
     FATP_ASSERT_EQ(values[2], 1, "Third in reverse should be 1");
-    
+
     // const reverse iterator
     const auto& constSet = set;
     values.clear();
@@ -611,7 +652,7 @@ FATP_TEST_CASE(reverse_iterator)
         values.push_back(*it);
     }
     FATP_ASSERT_EQ(values.size(), size_t(3), "Const reverse iteration should work");
-    
+
     // crbegin/crend
     values.clear();
     for (auto it = set.crbegin(); it != set.crend(); ++it)
@@ -619,7 +660,7 @@ FATP_TEST_CASE(reverse_iterator)
         values.push_back(*it);
     }
     FATP_ASSERT_EQ(values.size(), size_t(3), "crbegin/crend should work");
-    
+
     return true;
 }
 
@@ -654,10 +695,10 @@ FATP_TEST_CASE(reserve_capacity)
 FATP_TEST_CASE(max_size)
 {
     fat_p::FlatSet<int> set;
-    
+
     FATP_ASSERT_GT(set.max_size(), size_t(0), "max_size should be positive");
     FATP_ASSERT_GT(set.max_size(), size_t(1000000), "max_size should be large");
-    
+
     return true;
 }
 
@@ -669,18 +710,18 @@ FATP_TEST_CASE(key_comp)
 {
     fat_p::FlatSet<int> set;
     auto comp = set.key_comp();
-    
+
     FATP_ASSERT_TRUE(comp(1, 2), "1 < 2 should be true");
     FATP_ASSERT_FALSE(comp(2, 1), "2 < 1 should be false");
     FATP_ASSERT_FALSE(comp(1, 1), "1 < 1 should be false");
-    
+
     // With custom comparator
     fat_p::FlatSet<int, std::greater<int>> descSet;
     auto descComp = descSet.key_comp();
-    
+
     FATP_ASSERT_FALSE(descComp(1, 2), "1 > 2 should be false");
     FATP_ASSERT_TRUE(descComp(2, 1), "2 > 1 should be true");
-    
+
     return true;
 }
 
@@ -688,10 +729,10 @@ FATP_TEST_CASE(value_comp)
 {
     fat_p::FlatSet<int> set;
     auto comp = set.value_comp();
-    
+
     FATP_ASSERT_TRUE(comp(1, 2), "1 < 2 should be true");
     FATP_ASSERT_FALSE(comp(2, 1), "2 < 1 should be false");
-    
+
     return true;
 }
 
@@ -699,12 +740,11 @@ FATP_TEST_CASE(get_allocator)
 {
     fat_p::FlatSet<int> set;
     auto alloc = set.get_allocator();
-    
+
     // Just verify it compiles and returns something
     using AllocType = decltype(alloc);
-    FATP_ASSERT_TRUE((std::is_same_v<AllocType, std::allocator<int>>),
-                "Allocator type should match");
-    
+    FATP_ASSERT_TRUE((std::is_same_v<AllocType, std::allocator<int>>), "Allocator type should match");
+
     return true;
 }
 
@@ -736,12 +776,14 @@ FATP_TEST_CASE(case_insensitive_comparator)
     {
         bool operator()(const std::string& a, const std::string& b) const
         {
-            return std::lexicographical_compare(
-                a.begin(),
-                a.end(),
-                b.begin(),
-                b.end(),
-                [](unsigned char c1, unsigned char c2) { return std::tolower(c1) < std::tolower(c2); });
+            return std::lexicographical_compare(a.begin(),
+                                                a.end(),
+                                                b.begin(),
+                                                b.end(),
+                                                [](unsigned char c1, unsigned char c2)
+                                                {
+                                                    return std::tolower(c1) < std::tolower(c2);
+                                                });
         }
     };
 
@@ -764,16 +806,15 @@ FATP_TEST_CASE(case_insensitive_constructor_keeps_first)
     {
         bool operator()(const std::string& a, const std::string& b) const
         {
-            return std::lexicographical_compare(
-                a.begin(),
-                a.end(),
-                b.begin(),
-                b.end(),
-                [](char c1, char c2)
-                {
-                    return std::tolower(static_cast<unsigned char>(c1)) <
-                           std::tolower(static_cast<unsigned char>(c2));
-                });
+            return std::lexicographical_compare(a.begin(),
+                                                a.end(),
+                                                b.begin(),
+                                                b.end(),
+                                                [](char c1, char c2)
+                                                {
+                                                    return std::tolower(static_cast<unsigned char>(c1)) <
+                                                           std::tolower(static_cast<unsigned char>(c2));
+                                                });
         }
     };
 
@@ -782,8 +823,9 @@ FATP_TEST_CASE(case_insensitive_constructor_keeps_first)
     fat_p::FlatSet<std::string, CaseInsensitiveCompare> set(data.begin(), data.end());
 
     FATP_ASSERT_EQ(set.size(), size_t(2), "Should have 2 unique values under comparator");
-    FATP_ASSERT_EQ(*set.begin(), std::string("Hello"),
-              "Constructor should keep the first inserted representative for equivalent values");
+    FATP_ASSERT_EQ(*set.begin(),
+                   std::string("Hello"),
+                   "Constructor should keep the first inserted representative for equivalent values");
 
     FATP_ASSERT_TRUE(set.contains("HELLO"), "Equivalent lookup should succeed");
     FATP_ASSERT_TRUE(set.contains("hello"), "Equivalent lookup should succeed");
@@ -915,7 +957,7 @@ FATP_TEST_CASE(empty_operations)
     FATP_ASSERT_TRUE(first == last, "equal_range on empty set should return empty range");
 
     FATP_ASSERT_EQ(set.erase(1), size_t(0), "erase nonexistent value should return 0");
-    
+
     // Clear on empty should be safe
     set.clear();
     FATP_ASSERT_TRUE(set.empty(), "clear on empty should leave set empty");
@@ -927,56 +969,56 @@ FATP_TEST_CASE(heterogeneous_lookup)
 {
     // Use std::less<> for transparent comparison
     fat_p::FlatSet<std::string, std::less<>> set;
-    
+
     set.insert("apple");
     set.insert("banana");
     set.insert("cherry");
-    
+
     // These lookups should NOT create temporary std::string objects
     auto it = set.find("banana");
     FATP_ASSERT_TRUE(it != set.end(), "find with const char* should work");
     FATP_ASSERT_EQ(*it, std::string("banana"), "find should return correct value");
-    
+
     FATP_ASSERT_TRUE(set.contains("apple"), "contains with const char* should work");
     FATP_ASSERT_FALSE(set.contains("grape"), "contains should return false for missing value");
-    
+
     FATP_ASSERT_EQ(set.count("cherry"), size_t(1), "count with const char* should work");
     FATP_ASSERT_EQ(set.count("grape"), size_t(0), "count should return 0 for missing value");
-    
+
     auto lb = set.lower_bound("banana");
     FATP_ASSERT_TRUE(lb != set.end(), "lower_bound should find element");
     FATP_ASSERT_EQ(*lb, std::string("banana"), "lower_bound with const char* should work");
-    
+
     auto ub = set.upper_bound("banana");
     FATP_ASSERT_TRUE(ub != set.end(), "upper_bound should find next element");
     FATP_ASSERT_EQ(*ub, std::string("cherry"), "upper_bound with const char* should work");
-    
+
     auto [first, last] = set.equal_range("banana");
     FATP_ASSERT_TRUE(first != last, "equal_range should find element");
     FATP_ASSERT_EQ(*first, std::string("banana"), "equal_range should return correct element");
-    
+
     return true;
 }
 
 FATP_TEST_CASE(merge)
 {
     fat_p::FlatSet<int> set1{1, 3, 5};
-    fat_p::FlatSet<int> set2{2, 3, 4};  // 3 is duplicate
-    
+    fat_p::FlatSet<int> set2{2, 3, 4}; // 3 is duplicate
+
     set1.merge(set2);
-    
+
     FATP_ASSERT_EQ(set1.size(), size_t(5), "Merged set should have 5 elements");
-    
+
     // Element 3 was duplicate - it should remain in source
     FATP_ASSERT_EQ(set2.size(), size_t(1), "Source should have 1 element (the duplicate)");
     FATP_ASSERT_TRUE(set2.contains(3), "Source should still contain duplicate element 3");
-    
+
     FATP_ASSERT_TRUE(set1.contains(1), "Element 1 should be preserved");
     FATP_ASSERT_TRUE(set1.contains(2), "Element 2 should be merged");
     FATP_ASSERT_TRUE(set1.contains(3), "Element 3 should be present");
     FATP_ASSERT_TRUE(set1.contains(4), "Element 4 should be merged");
     FATP_ASSERT_TRUE(set1.contains(5), "Element 5 should be preserved");
-    
+
     // Verify sorted order
     int prev = -1;
     for (int v : set1)
@@ -984,13 +1026,13 @@ FATP_TEST_CASE(merge)
         FATP_ASSERT_GT(v, prev, "Merged set should maintain sorted order");
         prev = v;
     }
-    
+
     // Test merge with empty source
     fat_p::FlatSet<int> empty;
     size_t sizeBefore = set1.size();
     set1.merge(empty);
     FATP_ASSERT_EQ(set1.size(), sizeBefore, "Merging empty set should not change size");
-    
+
     // Test merge into empty target
     fat_p::FlatSet<int> target;
     fat_p::FlatSet<int> source{10, 20};
@@ -1013,63 +1055,62 @@ FATP_TEST_CASE(merge)
 FATP_TEST_CASE(lifecycle_tracking)
 {
     LifecycleTracker::reset();
-    
+
     {
         fat_p::FlatSet<LifecycleTracker> set;
         set.emplace(LifecycleTracker(10));
         set.emplace(LifecycleTracker(20));
         set.emplace(LifecycleTracker(30));
-        
+
         FATP_ASSERT_EQ(set.size(), size_t(3), "Should have 3 elements");
     }
-    
+
     // After scope ends, all elements should be destroyed
-    FATP_ASSERT_EQ(LifecycleTracker::construct_count, LifecycleTracker::destruct_count,
-              "All constructed objects should be destroyed");
-    
+    FATP_ASSERT_EQ(LifecycleTracker::construct_count,
+                   LifecycleTracker::destruct_count,
+                   "All constructed objects should be destroyed");
+
     return true;
 }
 
 FATP_TEST_CASE(lifecycle_on_clear)
 {
     LifecycleTracker::reset();
-    
+
     fat_p::FlatSet<LifecycleTracker> set;
     set.emplace(LifecycleTracker(10));
     set.emplace(LifecycleTracker(20));
-    
+
     int destructedBefore = LifecycleTracker::destruct_count;
-    
+
     set.clear();
-    
+
     FATP_ASSERT_TRUE(set.empty(), "Set should be empty after clear");
-    FATP_ASSERT_GT(LifecycleTracker::destruct_count, destructedBefore,
-              "Clear should destroy elements");
-    
+    FATP_ASSERT_GT(LifecycleTracker::destruct_count, destructedBefore, "Clear should destroy elements");
+
     return true;
 }
 
 FATP_TEST_CASE(lifecycle_on_erase)
 {
     LifecycleTracker::reset();
-    
+
     fat_p::FlatSet<LifecycleTracker> set;
     set.emplace(LifecycleTracker(10));
     set.emplace(LifecycleTracker(20));
     set.emplace(LifecycleTracker(30));
-    
+
     int destructedBefore = LifecycleTracker::destruct_count;
-    
+
     auto it = set.find(LifecycleTracker(20));
     if (it != set.end())
     {
         set.erase(it);
     }
-    
+
     FATP_ASSERT_EQ(set.size(), size_t(2), "Set should have 2 elements");
-    FATP_ASSERT_GT(LifecycleTracker::destruct_count, destructedBefore,
-              "Erase should destroy element");
-    
+    FATP_ASSERT_GT(LifecycleTracker::destruct_count, destructedBefore, "Erase should destroy element");
+
     return true;
 }
 
@@ -1080,33 +1121,33 @@ FATP_TEST_CASE(lifecycle_on_erase)
 FATP_TEST_CASE(exception_safety_insert)
 {
     ThrowOnCopy::reset();
-    
+
     fat_p::FlatSet<ThrowOnCopy> set;
     set.emplace(ThrowOnCopy(10));
     set.emplace(ThrowOnCopy(20));
-    
+
     size_t sizeBefore = set.size();
-    
+
     ThrowOnCopy::reset();
-    ThrowOnCopy::throw_after = 1;  // Throw on first copy
-    
+    ThrowOnCopy::throw_after = 1; // Throw on first copy
+
     bool threw = false;
     try
     {
         ThrowOnCopy value(30);
-        set.insert(value);  // This should throw during copy
+        set.insert(value); // This should throw during copy
     }
     catch (const std::runtime_error&)
     {
         threw = true;
     }
-    
+
     FATP_ASSERT_TRUE(threw, "Should have thrown");
     // Basic guarantee: set is still valid
     FATP_ASSERT_GE(set.size(), sizeBefore - 1, "Set should remain valid after exception");
-    
+
     ThrowOnCopy::reset();
-    
+
     return true;
 }
 
@@ -1117,17 +1158,17 @@ FATP_TEST_CASE(exception_safety_insert)
 FATP_TEST_CASE(move_only_values)
 {
     fat_p::FlatSet<MoveOnly> set;
-    
+
     set.emplace(MoveOnly(10));
     set.emplace(MoveOnly(20));
     set.emplace(MoveOnly(30));
-    
+
     FATP_ASSERT_EQ(set.size(), size_t(3), "Should have 3 elements");
-    
+
     // Test move construction
     fat_p::FlatSet<MoveOnly> set2(std::move(set));
     FATP_ASSERT_EQ(set2.size(), size_t(3), "Moved set should have 3 elements");
-    
+
     return true;
 }
 
@@ -1139,16 +1180,16 @@ FATP_TEST_CASE(stress_random_operations)
 {
     fat_p::FlatSet<int> container;
     std::set<int> reference;
-    
-    std::mt19937 rng(42);  // Fixed seed for reproducibility
+
+    std::mt19937 rng(42); // Fixed seed for reproducibility
     std::uniform_int_distribution<int> keyDist(0, 999);
     std::uniform_int_distribution<int> opDist(0, 2);
-    
+
     for (int i = 0; i < 5000; ++i)
     {
         int key = keyDist(rng);
         int op = opDist(rng);
-        
+
         if (op == 0)
         {
             container.insert(key);
@@ -1167,9 +1208,9 @@ FATP_TEST_CASE(stress_random_operations)
             FATP_ASSERT_EQ(ours, theirs, "Erase results should match");
         }
     }
-    
+
     FATP_ASSERT_EQ(container.size(), reference.size(), "Final size should match");
-    
+
     return true;
 }
 
@@ -1177,111 +1218,111 @@ FATP_TEST_CASE(stress_comprehensive)
 {
     fat_p::FlatSet<int> container;
     std::set<int> reference;
-    
+
     std::mt19937 rng(12345);
     std::uniform_int_distribution<int> keyDist(0, 499);
     std::uniform_int_distribution<int> opDist(0, 7);
-    
+
     for (int i = 0; i < 10000; ++i)
     {
         int key = keyDist(rng);
         int op = opDist(rng);
-        
+
         switch (op)
         {
-        case 0: // insert
-        {
-            auto [it1, ins1] = container.insert(key);
-            auto [it2, ins2] = reference.insert(key);
-            FATP_ASSERT_EQ(ins1, ins2, "insert result mismatch");
-            break;
-        }
-        
-        case 1: // find
-        {
-            bool ours = container.find(key) != container.end();
-            bool theirs = reference.find(key) != reference.end();
-            FATP_ASSERT_EQ(ours, theirs, "find mismatch");
-            break;
-        }
-        
-        case 2: // erase
-        {
-            size_t ours = container.erase(key);
-            size_t theirs = reference.erase(key);
-            FATP_ASSERT_EQ(ours, theirs, "erase mismatch");
-            break;
-        }
-        
-        case 3: // contains/count
-        {
-            bool ours = container.contains(key);
-            bool theirs = reference.count(key) > 0;
-            FATP_ASSERT_EQ(ours, theirs, "contains mismatch");
-            
-            size_t oursCount = container.count(key);
-            size_t theirsCount = reference.count(key);
-            FATP_ASSERT_EQ(oursCount, theirsCount, "count mismatch");
-            break;
-        }
-        
-        case 4: // emplace
-        {
-            auto [it1, ins1] = container.emplace(key);
-            auto [it2, ins2] = reference.emplace(key);
-            FATP_ASSERT_EQ(ins1, ins2, "emplace mismatch");
-            break;
-        }
-        
-        case 5: // lower_bound
-        {
-            auto ours = container.lower_bound(key);
-            auto theirs = reference.lower_bound(key);
-            bool oursEnd = (ours == container.end());
-            bool theirsEnd = (theirs == reference.end());
-            FATP_ASSERT_EQ(oursEnd, theirsEnd, "lower_bound end mismatch");
-            if (!oursEnd && !theirsEnd)
+            case 0: // insert
             {
-                FATP_ASSERT_EQ(*ours, *theirs, "lower_bound value mismatch");
+                auto [it1, ins1] = container.insert(key);
+                auto [it2, ins2] = reference.insert(key);
+                FATP_ASSERT_EQ(ins1, ins2, "insert result mismatch");
+                break;
             }
-            break;
-        }
-        
-        case 6: // upper_bound
-        {
-            auto ours = container.upper_bound(key);
-            auto theirs = reference.upper_bound(key);
-            bool oursEnd = (ours == container.end());
-            bool theirsEnd = (theirs == reference.end());
-            FATP_ASSERT_EQ(oursEnd, theirsEnd, "upper_bound end mismatch");
-            if (!oursEnd && !theirsEnd)
+
+            case 1: // find
             {
-                FATP_ASSERT_EQ(*ours, *theirs, "upper_bound value mismatch");
+                bool ours = container.find(key) != container.end();
+                bool theirs = reference.find(key) != reference.end();
+                FATP_ASSERT_EQ(ours, theirs, "find mismatch");
+                break;
             }
-            break;
-        }
-        
-        case 7: // equal_range
-        {
-            auto [f1, l1] = container.equal_range(key);
-            auto [f2, l2] = reference.equal_range(key);
-            size_t ourDist = static_cast<size_t>(std::distance(f1, l1));
-            size_t refDist = static_cast<size_t>(std::distance(f2, l2));
-            FATP_ASSERT_EQ(ourDist, refDist, "equal_range distance mismatch");
-            break;
-        }
+
+            case 2: // erase
+            {
+                size_t ours = container.erase(key);
+                size_t theirs = reference.erase(key);
+                FATP_ASSERT_EQ(ours, theirs, "erase mismatch");
+                break;
+            }
+
+            case 3: // contains/count
+            {
+                bool ours = container.contains(key);
+                bool theirs = reference.count(key) > 0;
+                FATP_ASSERT_EQ(ours, theirs, "contains mismatch");
+
+                size_t oursCount = container.count(key);
+                size_t theirsCount = reference.count(key);
+                FATP_ASSERT_EQ(oursCount, theirsCount, "count mismatch");
+                break;
+            }
+
+            case 4: // emplace
+            {
+                auto [it1, ins1] = container.emplace(key);
+                auto [it2, ins2] = reference.emplace(key);
+                FATP_ASSERT_EQ(ins1, ins2, "emplace mismatch");
+                break;
+            }
+
+            case 5: // lower_bound
+            {
+                auto ours = container.lower_bound(key);
+                auto theirs = reference.lower_bound(key);
+                bool oursEnd = (ours == container.end());
+                bool theirsEnd = (theirs == reference.end());
+                FATP_ASSERT_EQ(oursEnd, theirsEnd, "lower_bound end mismatch");
+                if (!oursEnd && !theirsEnd)
+                {
+                    FATP_ASSERT_EQ(*ours, *theirs, "lower_bound value mismatch");
+                }
+                break;
+            }
+
+            case 6: // upper_bound
+            {
+                auto ours = container.upper_bound(key);
+                auto theirs = reference.upper_bound(key);
+                bool oursEnd = (ours == container.end());
+                bool theirsEnd = (theirs == reference.end());
+                FATP_ASSERT_EQ(oursEnd, theirsEnd, "upper_bound end mismatch");
+                if (!oursEnd && !theirsEnd)
+                {
+                    FATP_ASSERT_EQ(*ours, *theirs, "upper_bound value mismatch");
+                }
+                break;
+            }
+
+            case 7: // equal_range
+            {
+                auto [f1, l1] = container.equal_range(key);
+                auto [f2, l2] = reference.equal_range(key);
+                size_t ourDist = static_cast<size_t>(std::distance(f1, l1));
+                size_t refDist = static_cast<size_t>(std::distance(f2, l2));
+                FATP_ASSERT_EQ(ourDist, refDist, "equal_range distance mismatch");
+                break;
+            }
         }
     }
-    
+
     // Final state verification
     FATP_ASSERT_EQ(container.size(), reference.size(), "Final size mismatch");
-    
+
     // Verify all elements match
     for (int v : reference)
     {
         FATP_ASSERT_TRUE(container.contains(v), "Missing value in container");
     }
-    
+
     // Verify iteration order matches
     auto ourIt = container.begin();
     auto refIt = reference.begin();
@@ -1291,7 +1332,7 @@ FATP_TEST_CASE(stress_comprehensive)
         ++ourIt;
         ++refIt;
     }
-    
+
     return true;
 }
 
@@ -1307,7 +1348,8 @@ void run_benchmarks()
     fat_p::FlatSet<int> set;
 
     double insertTime = measure_perf(
-        [&set, i = 0]() mutable {
+        [&set, i = 0]() mutable
+        {
             set.insert(i % N);
             ++i;
         },
@@ -1318,7 +1360,8 @@ void run_benchmarks()
     set.clear();
     set.reserve(N);
     double insertSortedTime = measure_perf(
-        [&set, i = 0]() mutable {
+        [&set, i = 0]() mutable
+        {
             if (set.size() < N)
             {
                 set.insert(static_cast<int>(set.size()));
@@ -1337,7 +1380,8 @@ void run_benchmarks()
 
     volatile int findAccumulator = 0;
     double findTime = measure_perf(
-        [&set, &findAccumulator, i = 0]() mutable {
+        [&set, &findAccumulator, i = 0]() mutable
+        {
             auto it = set.find(i % N);
             if (it != set.end())
             {
@@ -1351,7 +1395,8 @@ void run_benchmarks()
     DoNotOptimize(findAccumulator);
 
     double iterTime = measure_perf(
-        [&set]() {
+        [&set]()
+        {
             volatile int sum = 0;
             for (int val : set)
             {
@@ -1371,7 +1416,8 @@ void run_benchmarks()
 
     volatile int stdFindAccumulator = 0;
     double stdFindTime = measure_perf(
-        [&stdSet, &stdFindAccumulator, i = 0]() mutable {
+        [&stdSet, &stdFindAccumulator, i = 0]() mutable
+        {
             auto it = stdSet.find(i % N);
             if (it != stdSet.end())
             {
@@ -1385,7 +1431,8 @@ void run_benchmarks()
     DoNotOptimize(stdFindAccumulator);
 
     double stdIterTime = measure_perf(
-        [&stdSet]() {
+        [&stdSet]()
+        {
             volatile int sum = 0;
             for (int val : stdSet)
             {
@@ -1400,12 +1447,11 @@ void run_benchmarks()
 
 void run_large_scale_benchmarks()
 {
-    std::cout << "\n" << colors::cyan() 
-              << "Large-Scale Benchmarks (100k elements, cache stress):" 
-              << colors::reset() << "\n";
-    
+    std::cout << "\n"
+              << colors::cyan() << "Large-Scale Benchmarks (100k elements, cache stress):" << colors::reset() << "\n";
+
     constexpr int N = 100000;
-    
+
     std::vector<int> randomKeys(N);
     std::iota(randomKeys.begin(), randomKeys.end(), 0);
     std::mt19937 rng(42);
@@ -1426,7 +1472,8 @@ void run_large_scale_benchmarks()
 
     volatile int findAccumulator = 0;
     double findTime = measure_perf(
-        [&set, &randomKeys, &findAccumulator, i = 0]() mutable {
+        [&set, &randomKeys, &findAccumulator, i = 0]() mutable
+        {
             auto it = set.find(randomKeys[i % N]);
             if (it != set.end())
             {
@@ -1441,7 +1488,8 @@ void run_large_scale_benchmarks()
 
     volatile int stdFindAccumulator = 0;
     double stdFindTime = measure_perf(
-        [&stdSet, &randomKeys, &stdFindAccumulator, i = 0]() mutable {
+        [&stdSet, &randomKeys, &stdFindAccumulator, i = 0]() mutable
+        {
             auto it = stdSet.find(randomKeys[i % N]);
             if (it != stdSet.end())
             {
@@ -1455,7 +1503,8 @@ void run_large_scale_benchmarks()
     DoNotOptimize(stdFindAccumulator);
 
     double iterTime = measure_perf(
-        [&set]() {
+        [&set]()
+        {
             volatile int sum = 0;
             for (int val : set)
             {
@@ -1468,7 +1517,8 @@ void run_large_scale_benchmarks()
     std::cout << "FlatSet Iteration (100k elements): " << format_time(iterTime) << "\n";
 
     double stdIterTime = measure_perf(
-        [&stdSet]() {
+        [&stdSet]()
+        {
             volatile int sum = 0;
             for (int val : stdSet)
             {

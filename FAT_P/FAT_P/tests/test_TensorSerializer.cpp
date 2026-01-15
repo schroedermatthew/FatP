@@ -33,9 +33,9 @@ FATP_META:
 #include <random>
 #include <vector>
 
-#include "TensorSerializer.h"
-#include "Tensor.h"
 #include "FatPTest.h"
+#include "Tensor.h"
+#include "TensorSerializer.h"
 
 namespace fat_p::testing::tensorserializer
 {
@@ -185,8 +185,7 @@ FATP_TEST_CASE(int64_roundtrip)
     Tensor<std::int64_t> t({2, 5});
     for (std::size_t i = 0; i < t.size(); ++i)
     {
-        t.data()[i] = static_cast<std::int64_t>(i) * 1234567890123LL -
-                      5000000000000LL;
+        t.data()[i] = static_cast<std::int64_t>(i) * 1234567890123LL - 5000000000000LL;
     }
 
     auto serialized = serialize_tensor(t);
@@ -554,9 +553,8 @@ FATP_TEST_CASE(fuzz_double_3d)
 FATP_TEST_CASE(fuzz_int32_various_shapes)
 {
     std::mt19937_64 rng(0x7E50A1B2C3D4E5F8ULL);
-    std::uniform_int_distribution<std::int32_t> val_dist(
-        std::numeric_limits<std::int32_t>::min(),
-        std::numeric_limits<std::int32_t>::max());
+    std::uniform_int_distribution<std::int32_t> val_dist(std::numeric_limits<std::int32_t>::min(),
+                                                         std::numeric_limits<std::int32_t>::max());
 
     for (int iter = 0; iter < 100; ++iter)
     {
@@ -598,8 +596,7 @@ FATP_TEST_CASE(fuzz_int32_various_shapes)
 
 void benchmark_tensorserializer()
 {
-    std::cout << "\n" << colors::cyan() << "TensorSerializer Benchmarks:"
-              << colors::reset() << "\n\n";
+    std::cout << "\n" << colors::cyan() << "TensorSerializer Benchmarks:" << colors::reset() << "\n\n";
 
     Tensor<float> small_f({64, 64});
     for (std::size_t i = 0; i < small_f.size(); ++i)
@@ -607,20 +604,26 @@ void benchmark_tensorserializer()
         small_f.data()[i] = static_cast<float>(i) * 0.001f;
     }
 
-    double small_enc_time = measure_perf([&small_f]()
-    {
-        auto r = serialize_tensor(small_f);
-        DoNotOptimize(r);
-    }, 1000, 100);
+    double small_enc_time = measure_perf(
+        [&small_f]()
+        {
+            auto r = serialize_tensor(small_f);
+            DoNotOptimize(r);
+        },
+        1000,
+        100);
     std::cout << "Serialize float[64x64]: " << format_time(small_enc_time) << "\n";
 
     auto small_buf = serialize_tensor(small_f);
 
-    double small_dec_time = measure_perf([&small_buf]()
-    {
-        auto r = deserialize_tensor<float>(*small_buf);
-        DoNotOptimize(r);
-    }, 1000, 100);
+    double small_dec_time = measure_perf(
+        [&small_buf]()
+        {
+            auto r = deserialize_tensor<float>(*small_buf);
+            DoNotOptimize(r);
+        },
+        1000,
+        100);
     std::cout << "Deserialize float[64x64]: " << format_time(small_dec_time) << "\n";
     std::cout << "Serialized size: " << small_buf->size() << " bytes\n\n";
 
@@ -630,20 +633,26 @@ void benchmark_tensorserializer()
         large_d.data()[i] = static_cast<double>(i) * 0.001;
     }
 
-    double large_enc_time = measure_perf([&large_d]()
-    {
-        auto r = serialize_tensor(large_d);
-        DoNotOptimize(r);
-    }, 100, 10);
+    double large_enc_time = measure_perf(
+        [&large_d]()
+        {
+            auto r = serialize_tensor(large_d);
+            DoNotOptimize(r);
+        },
+        100,
+        10);
     std::cout << "Serialize double[256x256]: " << format_time(large_enc_time) << "\n";
 
     auto large_buf = serialize_tensor(large_d);
 
-    double large_dec_time = measure_perf([&large_buf]()
-    {
-        auto r = deserialize_tensor<double>(*large_buf);
-        DoNotOptimize(r);
-    }, 100, 10);
+    double large_dec_time = measure_perf(
+        [&large_buf]()
+        {
+            auto r = deserialize_tensor<double>(*large_buf);
+            DoNotOptimize(r);
+        },
+        100,
+        10);
     std::cout << "Deserialize double[256x256]: " << format_time(large_dec_time) << "\n";
     std::cout << "Serialized size: " << large_buf->size() << " bytes\n\n";
 
@@ -653,20 +662,26 @@ void benchmark_tensorserializer()
         int_t.data()[i] = static_cast<std::int32_t>(i);
     }
 
-    double int_enc_time = measure_perf([&int_t]()
-    {
-        auto r = serialize_tensor(int_t);
-        DoNotOptimize(r);
-    }, 100, 10);
+    double int_enc_time = measure_perf(
+        [&int_t]()
+        {
+            auto r = serialize_tensor(int_t);
+            DoNotOptimize(r);
+        },
+        100,
+        10);
     std::cout << "Serialize int32[100x100x10]: " << format_time(int_enc_time) << "\n";
 
     auto int_buf = serialize_tensor(int_t);
 
-    double int_dec_time = measure_perf([&int_buf]()
-    {
-        auto r = deserialize_tensor<std::int32_t>(*int_buf);
-        DoNotOptimize(r);
-    }, 100, 10);
+    double int_dec_time = measure_perf(
+        [&int_buf]()
+        {
+            auto r = deserialize_tensor<std::int32_t>(*int_buf);
+            DoNotOptimize(r);
+        },
+        100,
+        10);
     std::cout << "Deserialize int32[100x100x10]: " << format_time(int_dec_time) << "\n";
     std::cout << "Serialized size: " << int_buf->size() << " bytes\n";
 }

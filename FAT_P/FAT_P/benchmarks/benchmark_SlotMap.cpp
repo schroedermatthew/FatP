@@ -166,8 +166,14 @@ FATP_META:
 static fat_p::bench::BenchConfig g_config;
 
 // Accessors for backward compatibility with existing benchmark code
-static size_t WARMUP_RUNS() { return g_config.warmupRuns; }
-static size_t MEASURED_RUNS() { return g_config.measuredRuns; }
+static size_t WARMUP_RUNS()
+{
+    return g_config.warmupRuns;
+}
+static size_t MEASURED_RUNS()
+{
+    return g_config.measuredRuns;
+}
 
 // ============================================================================
 // CPU Frequency Monitoring (Shared)
@@ -194,7 +200,10 @@ struct Timer
     using clock = std::chrono::steady_clock;
     clock::time_point t0;
 
-    void start() { t0 = clock::now(); }
+    void start()
+    {
+        t0 = clock::now();
+    }
 
     double elapsed_ns() const
     {
@@ -222,14 +231,17 @@ static inline void prevent_opt(int64_t value)
 
 static inline void cpu_warmup_burst(int milliseconds)
 {
-    if (milliseconds <= 0) return;
-    
+    if (milliseconds <= 0)
+    {
+        return;
+    }
+
     auto start = std::chrono::steady_clock::now();
     auto duration = std::chrono::milliseconds(milliseconds);
-    
+
     volatile uint64_t sink = 0;
     volatile uint64_t x = 0xDEADBEEFCAFEBABEULL;
-    
+
     while (std::chrono::steady_clock::now() - start < duration)
     {
         for (int i = 0; i < 1000; ++i)
@@ -240,19 +252,18 @@ static inline void cpu_warmup_burst(int milliseconds)
             sink += x;
         }
     }
-    
+
     benchmark_sink ^= static_cast<int64_t>(sink);
 }
 
-static bool wait_for_cpu_stable(
-    double max_variance_percent = 10.0,
-    int timeout_seconds = 30,
-    int check_interval_ms = 200,
-    bool verbose = true)
+static bool wait_for_cpu_stable(double max_variance_percent = 10.0,
+                                int timeout_seconds = 30,
+                                int check_interval_ms = 200,
+                                bool verbose = true)
 {
     auto start = std::chrono::steady_clock::now();
     auto timeout = std::chrono::seconds(timeout_seconds);
-    
+
     auto initial_info = fat_p::bench::capture_cpu_frequency();
     if (!initial_info.has_reliable_detection())
     {
@@ -263,42 +274,45 @@ static bool wait_for_cpu_stable(
         std::this_thread::sleep_for(std::chrono::seconds(3));
         return true;
     }
-    
+
     double base_freq = initial_info.mRefFreqMHz;
     double min_required_freq = base_freq * 0.60;
-    
+
     cpu_warmup_burst(100);
-    
+
     std::vector<double> recent_readings;
     const size_t window_size = 5;
     const int required_stable = 3;
     int stable_count = 0;
-    
+
     while (std::chrono::steady_clock::now() - start < timeout)
     {
         cpu_warmup_burst(50);
-        
+
         auto info = fat_p::bench::capture_cpu_frequency();
         recent_readings.push_back(info.mCurrentFreqMHz);
-        
+
         if (recent_readings.size() > window_size)
         {
             recent_readings.erase(recent_readings.begin());
         }
-        
+
         if (recent_readings.size() >= window_size)
         {
             double min_freq = *std::min_element(recent_readings.begin(), recent_readings.end());
             double max_freq = *std::max_element(recent_readings.begin(), recent_readings.end());
             double avg_freq = 0;
-            for (double f : recent_readings) avg_freq += f;
+            for (double f : recent_readings)
+            {
+                avg_freq += f;
+            }
             avg_freq /= recent_readings.size();
-            
+
             double variance_pct = (max_freq - min_freq) / avg_freq * 100.0;
             bool variance_ok = variance_pct <= max_variance_percent;
             bool freq_floor_ok = avg_freq >= min_required_freq;
             bool is_stable = variance_ok && freq_floor_ok;
-            
+
             if (is_stable)
             {
                 ++stable_count;
@@ -307,9 +321,8 @@ static bool wait_for_cpu_stable(
                     if (verbose)
                     {
                         double pct_of_base = (avg_freq / base_freq) * 100.0;
-                        std::cout << "[CPU stable at " << static_cast<int>(avg_freq) 
-                                  << " MHz (" << std::fixed << std::setprecision(0) << pct_of_base 
-                                  << "% of base)]\n";
+                        std::cout << "[CPU stable at " << static_cast<int>(avg_freq) << " MHz (" << std::fixed
+                                  << std::setprecision(0) << pct_of_base << "% of base)]\n";
                     }
                     return true;
                 }
@@ -319,10 +332,10 @@ static bool wait_for_cpu_stable(
                 stable_count = 0;
             }
         }
-        
+
         std::this_thread::sleep_for(std::chrono::milliseconds(check_interval_ms));
     }
-    
+
     if (verbose)
     {
         std::cout << "[WARNING: CPU frequency still unstable after " << timeout_seconds << "s]\n";
@@ -336,10 +349,10 @@ static inline void cooling_delay(int min_sleep_ms, const char* reason = nullptr)
     {
         std::cout << "[Cooling: " << reason << "]" << std::flush;
     }
-    
+
     std::this_thread::sleep_for(std::chrono::milliseconds(min_sleep_ms));
     wait_for_cpu_stable(10.0, 15, 200, false);
-    
+
     if (reason)
     {
         auto info = fat_p::bench::capture_cpu_frequency();
@@ -381,7 +394,10 @@ struct Statistics
     static Statistics compute(std::vector<double> samples)
     {
         Statistics s{};
-        if (samples.empty()) return s;
+        if (samples.empty())
+        {
+            return s;
+        }
 
         std::sort(samples.begin(), samples.end());
         size_t n = samples.size();
@@ -435,15 +451,29 @@ struct TestValue
     double x, y, z;
     int32_t health;
     int32_t flags;
-    
-    TestValue() : id(0), x(0), y(0), z(0), health(100), flags(0) {}
-    explicit TestValue(int64_t i) 
-        : id(i), x(static_cast<double>(i)), y(static_cast<double>(i) * 0.5), 
-          z(static_cast<double>(i) * 0.25), health(100), flags(0) {}
-    
-    int64_t checksum() const 
-    { 
-        return id + static_cast<int64_t>(x + y + z) + health + flags; 
+
+    TestValue()
+        : id(0)
+        , x(0)
+        , y(0)
+        , z(0)
+        , health(100)
+        , flags(0)
+    {
+    }
+    explicit TestValue(int64_t i)
+        : id(i)
+        , x(static_cast<double>(i))
+        , y(static_cast<double>(i) * 0.5)
+        , z(static_cast<double>(i) * 0.25)
+        , health(100)
+        , flags(0)
+    {
+    }
+
+    int64_t checksum() const
+    {
+        return id + static_cast<int64_t>(x + y + z) + health + flags;
     }
 };
 
@@ -453,28 +483,36 @@ struct TestValue
 
 enum class Case
 {
-    SequentialInsert,    // Insert N elements sequentially
-    RandomAccessValid,   // Access N valid handles
-    RandomAccessMixed,   // Access mix of valid/invalid handles (ABA test)
-    Iteration,           // Iterate over all elements
-    Erase25Percent,      // Erase 25% of elements
-    EraseAll,            // Erase all elements one by one
-    MixedWorkload,       // Interleaved insert/erase/access
-    SlotReuse            // Insert, erase, insert again (tests slot reuse)
+    SequentialInsert,  // Insert N elements sequentially
+    RandomAccessValid, // Access N valid handles
+    RandomAccessMixed, // Access mix of valid/invalid handles (ABA test)
+    Iteration,         // Iterate over all elements
+    Erase25Percent,    // Erase 25% of elements
+    EraseAll,          // Erase all elements one by one
+    MixedWorkload,     // Interleaved insert/erase/access
+    SlotReuse          // Insert, erase, insert again (tests slot reuse)
 };
 
 static inline const char* case_name(Case c)
 {
     switch (c)
     {
-    case Case::SequentialInsert:   return "Sequential Insert";
-    case Case::RandomAccessValid:  return "Random Access (valid)";
-    case Case::RandomAccessMixed:  return "Random Access (mixed valid/invalid)";
-    case Case::Iteration:          return "Iteration";
-    case Case::Erase25Percent:     return "Erase (25%)";
-    case Case::EraseAll:           return "Erase (all)";
-    case Case::MixedWorkload:      return "Mixed Workload";
-    case Case::SlotReuse:          return "Slot Reuse";
+        case Case::SequentialInsert:
+            return "Sequential Insert";
+        case Case::RandomAccessValid:
+            return "Random Access (valid)";
+        case Case::RandomAccessMixed:
+            return "Random Access (mixed valid/invalid)";
+        case Case::Iteration:
+            return "Iteration";
+        case Case::Erase25Percent:
+            return "Erase (25%)";
+        case Case::EraseAll:
+            return "Erase (all)";
+        case Case::MixedWorkload:
+            return "Mixed Workload";
+        case Case::SlotReuse:
+            return "Slot Reuse";
     }
     return "Unknown";
 }
@@ -486,9 +524,9 @@ static inline const char* case_name(Case c)
 struct Inputs
 {
     size_t N;
-    std::vector<int64_t> values;            // Values to insert
-    std::vector<size_t> access_indices;     // Random indices for access benchmarks
-    std::vector<size_t> erase_indices;      // Indices of elements to erase (25%)
+    std::vector<int64_t> values;        // Values to insert
+    std::vector<size_t> access_indices; // Random indices for access benchmarks
+    std::vector<size_t> erase_indices;  // Indices of elements to erase (25%)
     uint64_t seed;
 
     static Inputs make(size_t n, uint64_t seed = 0x5107CAFEBABE01ULL)
@@ -549,7 +587,10 @@ class FatPSlotMapAdapter final : public ISlotMapAdapter
     std::vector<fat_p::SlotMapHandle> invalid_handles_;
 
 public:
-    const char* name() const override { return "fat_p::SlotMap"; }
+    const char* name() const override
+    {
+        return "fat_p::SlotMap";
+    }
 
     void setup(size_t N) override
     {
@@ -560,16 +601,16 @@ public:
         invalid_handles_.clear();
     }
 
-    void teardown() override 
-    { 
-        mMap.reset(); 
+    void teardown() override
+    {
+        mMap.reset();
         mHandles.clear();
         invalid_handles_.clear();
     }
 
-    void clear() override 
-    { 
-        mMap->clear(); 
+    void clear() override
+    {
+        mMap->clear();
         mHandles.clear();
         invalid_handles_.clear();
     }
@@ -591,161 +632,164 @@ public:
 
         switch (c)
         {
-        case Case::SequentialInsert:
-            mHandles.clear();
-            for (int64_t v : in.values)
-            {
-                mHandles.push_back(mMap->insert(TestValue(v)));
-                ++ops;
-            }
-            break;
-
-        case Case::RandomAccessValid:
-            for (size_t idx : in.access_indices)
-            {
-                if (idx < mHandles.size())
+            case Case::SequentialInsert:
+                mHandles.clear();
+                for (int64_t v : in.values)
                 {
-                    if (auto* ptr = mMap->get(mHandles[idx]))
+                    mHandles.push_back(mMap->insert(TestValue(v)));
+                    ++ops;
+                }
+                break;
+
+            case Case::RandomAccessValid:
+                for (size_t idx : in.access_indices)
+                {
+                    if (idx < mHandles.size())
                     {
-                        benchmark_sink += ptr->checksum();
+                        if (auto* ptr = mMap->get(mHandles[idx]))
+                        {
+                            benchmark_sink += ptr->checksum();
+                        }
+                    }
+                    ++ops;
+                }
+                break;
+
+            case Case::RandomAccessMixed:
+                // Create some invalid handles first
+                if (invalid_handles_.empty())
+                {
+                    size_t to_invalidate = std::min<size_t>(in.N / 4, mHandles.size());
+                    for (size_t i = 0; i < to_invalidate; ++i)
+                    {
+                        invalid_handles_.push_back(mHandles[i]);
+                        mMap->erase(mHandles[i]);
+                    }
+                    // Re-insert to reuse slots (handles now invalid)
+                    for (size_t i = 0; i < to_invalidate; ++i)
+                    {
+                        mHandles[i] = mMap->insert(TestValue(in.values[i] + 1000000));
                     }
                 }
-                ++ops;
-            }
-            break;
 
-        case Case::RandomAccessMixed:
-            // Create some invalid handles first
-            if (invalid_handles_.empty())
-            {
-                size_t to_invalidate = std::min<size_t>(in.N / 4, mHandles.size());
-                for (size_t i = 0; i < to_invalidate; ++i)
+                // Access mix of valid and invalid
+                for (size_t i = 0; i < in.access_indices.size(); ++i)
                 {
-                    invalid_handles_.push_back(mHandles[i]);
-                    mMap->erase(mHandles[i]);
-                }
-                // Re-insert to reuse slots (handles now invalid)
-                for (size_t i = 0; i < to_invalidate; ++i)
-                {
-                    mHandles[i] = mMap->insert(TestValue(in.values[i] + 1000000));
-                }
-            }
-            
-            // Access mix of valid and invalid
-            for (size_t i = 0; i < in.access_indices.size(); ++i)
-            {
-                size_t idx = in.access_indices[i];
-                if (i % 4 == 0 && idx < invalid_handles_.size())
-                {
-                    // Try invalid handle (should return nullptr)
-                    auto* ptr = mMap->get(invalid_handles_[idx]);
-                    if (ptr) benchmark_sink += ptr->checksum();
-                }
-                else if (idx < mHandles.size())
-                {
-                    if (auto* ptr = mMap->get(mHandles[idx]))
+                    size_t idx = in.access_indices[i];
+                    if (i % 4 == 0 && idx < invalid_handles_.size())
                     {
-                        benchmark_sink += ptr->checksum();
+                        // Try invalid handle (should return nullptr)
+                        auto* ptr = mMap->get(invalid_handles_[idx]);
+                        if (ptr)
+                        {
+                            benchmark_sink += ptr->checksum();
+                        }
                     }
+                    else if (idx < mHandles.size())
+                    {
+                        if (auto* ptr = mMap->get(mHandles[idx]))
+                        {
+                            benchmark_sink += ptr->checksum();
+                        }
+                    }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::Iteration:
-            for (const auto& val : *mMap)
-            {
-                benchmark_sink += val.checksum();
-                ++ops;
-            }
-            break;
-
-        case Case::Erase25Percent:
-            for (size_t idx : in.erase_indices)
-            {
-                if (idx < mHandles.size())
+            case Case::Iteration:
+                for (const auto& val : *mMap)
                 {
-                    mMap->erase(mHandles[idx]);
+                    benchmark_sink += val.checksum();
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::EraseAll:
-            for (auto& h : mHandles)
-            {
-                mMap->erase(h);
-                ++ops;
-            }
-            mHandles.clear();
-            break;
-
-        case Case::MixedWorkload:
-        {
-            size_t batch = std::max<size_t>(1, in.N / 10);
-            
-            // Insert batch
-            for (size_t i = 0; i < batch && i < in.values.size(); ++i)
-            {
-                mHandles.push_back(mMap->insert(TestValue(in.values[i])));
-                ++ops;
-            }
-            
-            // Access batch
-            for (size_t i = 0; i < batch && i < mHandles.size(); ++i)
-            {
-                size_t idx = rng() % mHandles.size();
-                if (auto* ptr = mMap->get(mHandles[idx]))
+            case Case::Erase25Percent:
+                for (size_t idx : in.erase_indices)
                 {
-                    benchmark_sink += ptr->checksum();
+                    if (idx < mHandles.size())
+                    {
+                        mMap->erase(mHandles[idx]);
+                    }
+                    ++ops;
                 }
-                ++ops;
-            }
-            
-            // Erase half the batch
-            size_t erase_count = std::min(batch / 2, mHandles.size());
-            for (size_t i = 0; i < erase_count; ++i)
+                break;
+
+            case Case::EraseAll:
+                for (auto& h : mHandles)
+                {
+                    mMap->erase(h);
+                    ++ops;
+                }
+                mHandles.clear();
+                break;
+
+            case Case::MixedWorkload:
             {
-                if (!mHandles.empty())
+                size_t batch = std::max<size_t>(1, in.N / 10);
+
+                // Insert batch
+                for (size_t i = 0; i < batch && i < in.values.size(); ++i)
+                {
+                    mHandles.push_back(mMap->insert(TestValue(in.values[i])));
+                    ++ops;
+                }
+
+                // Access batch
+                for (size_t i = 0; i < batch && i < mHandles.size(); ++i)
                 {
                     size_t idx = rng() % mHandles.size();
-                    mMap->erase(mHandles[idx]);
-                    mHandles[idx] = mHandles.back();
-                    mHandles.pop_back();
+                    if (auto* ptr = mMap->get(mHandles[idx]))
+                    {
+                        benchmark_sink += ptr->checksum();
+                    }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
-        }
 
-        case Case::SlotReuse:
-        {
-            // Insert, erase half, insert again to test slot reuse
-            size_t half = in.N / 2;
-            
-            // Insert all
-            mHandles.clear();
-            for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
-            {
-                mHandles.push_back(mMap->insert(TestValue(in.values[i])));
-                ++ops;
+                // Erase half the batch
+                size_t erase_count = std::min(batch / 2, mHandles.size());
+                for (size_t i = 0; i < erase_count; ++i)
+                {
+                    if (!mHandles.empty())
+                    {
+                        size_t idx = rng() % mHandles.size();
+                        mMap->erase(mHandles[idx]);
+                        mHandles[idx] = mHandles.back();
+                        mHandles.pop_back();
+                    }
+                    ++ops;
+                }
+                break;
             }
-            
-            // Erase first half
-            for (size_t i = 0; i < half && i < mHandles.size(); ++i)
+
+            case Case::SlotReuse:
             {
-                mMap->erase(mHandles[i]);
-                ++ops;
+                // Insert, erase half, insert again to test slot reuse
+                size_t half = in.N / 2;
+
+                // Insert all
+                mHandles.clear();
+                for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
+                {
+                    mHandles.push_back(mMap->insert(TestValue(in.values[i])));
+                    ++ops;
+                }
+
+                // Erase first half
+                for (size_t i = 0; i < half && i < mHandles.size(); ++i)
+                {
+                    mMap->erase(mHandles[i]);
+                    ++ops;
+                }
+
+                // Insert again (should reuse slots)
+                for (size_t i = 0; i < half && i < in.values.size(); ++i)
+                {
+                    mHandles.push_back(mMap->insert(TestValue(in.values[i] + 1000000)));
+                    ++ops;
+                }
+                break;
             }
-            
-            // Insert again (should reuse slots)
-            for (size_t i = 0; i < half && i < in.values.size(); ++i)
-            {
-                mHandles.push_back(mMap->insert(TestValue(in.values[i] + 1000000)));
-                ++ops;
-            }
-            break;
-        }
         }
         return ops;
     }
@@ -764,7 +808,10 @@ class EnTTAdapter final : public ISlotMapAdapter
     std::vector<entt::entity> mEntities;
 
 public:
-    const char* name() const override { return "entt::registry"; }
+    const char* name() const override
+    {
+        return "entt::registry";
+    }
 
     void setup(size_t N) override
     {
@@ -774,14 +821,14 @@ public:
         mEntities.reserve(N);
     }
 
-    void teardown() override 
-    { 
+    void teardown() override
+    {
         mRegistry.clear();
         mEntities.clear();
     }
 
-    void clear() override 
-    { 
+    void clear() override
+    {
         mRegistry.clear();
         mEntities.clear();
     }
@@ -805,164 +852,173 @@ public:
 
         switch (c)
         {
-        case Case::SequentialInsert:
-            mEntities.clear();
-            for (int64_t v : in.values)
-            {
-                auto e = mRegistry.create();
-                mRegistry.emplace<TestValue>(e, TestValue(v));
-                mEntities.push_back(e);
-                ++ops;
-            }
-            break;
-
-        case Case::RandomAccessValid:
-            for (size_t idx : in.access_indices)
-            {
-                if (idx < mEntities.size())
+            case Case::SequentialInsert:
+                mEntities.clear();
+                for (int64_t v : in.values)
                 {
-                    auto e = mEntities[idx];
-                    if (mRegistry.valid(e))
-                    {
-                        auto* ptr = mRegistry.try_get<TestValue>(e);
-                        if (ptr) benchmark_sink += ptr->checksum();
-                    }
+                    auto e = mRegistry.create();
+                    mRegistry.emplace<TestValue>(e, TestValue(v));
+                    mEntities.push_back(e);
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::RandomAccessMixed:
-            // EnTT has built-in versioning for ABA protection
-            for (size_t idx : in.access_indices)
-            {
-                if (idx < mEntities.size())
+            case Case::RandomAccessValid:
+                for (size_t idx : in.access_indices)
                 {
-                    auto e = mEntities[idx];
-                    // mRegistry.valid() checks version
-                    if (mRegistry.valid(e))
+                    if (idx < mEntities.size())
                     {
-                        auto* ptr = mRegistry.try_get<TestValue>(e);
-                        if (ptr) benchmark_sink += ptr->checksum();
+                        auto e = mEntities[idx];
+                        if (mRegistry.valid(e))
+                        {
+                            auto* ptr = mRegistry.try_get<TestValue>(e);
+                            if (ptr)
+                            {
+                                benchmark_sink += ptr->checksum();
+                            }
+                        }
                     }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::Iteration:
-        {
-            auto view = mRegistry.view<TestValue>();
-            for (auto e : view)
-            {
-                auto& val = view.get<TestValue>(e);
-                benchmark_sink += val.checksum();
-                ++ops;
-            }
-            break;
-        }
-
-        case Case::Erase25Percent:
-            for (size_t idx : in.erase_indices)
-            {
-                if (idx < mEntities.size())
+            case Case::RandomAccessMixed:
+                // EnTT has built-in versioning for ABA protection
+                for (size_t idx : in.access_indices)
                 {
-                    auto e = mEntities[idx];
+                    if (idx < mEntities.size())
+                    {
+                        auto e = mEntities[idx];
+                        // mRegistry.valid() checks version
+                        if (mRegistry.valid(e))
+                        {
+                            auto* ptr = mRegistry.try_get<TestValue>(e);
+                            if (ptr)
+                            {
+                                benchmark_sink += ptr->checksum();
+                            }
+                        }
+                    }
+                    ++ops;
+                }
+                break;
+
+            case Case::Iteration:
+            {
+                auto view = mRegistry.view<TestValue>();
+                for (auto e : view)
+                {
+                    auto& val = view.get<TestValue>(e);
+                    benchmark_sink += val.checksum();
+                    ++ops;
+                }
+                break;
+            }
+
+            case Case::Erase25Percent:
+                for (size_t idx : in.erase_indices)
+                {
+                    if (idx < mEntities.size())
+                    {
+                        auto e = mEntities[idx];
+                        if (mRegistry.valid(e))
+                        {
+                            mRegistry.destroy(e);
+                        }
+                    }
+                    ++ops;
+                }
+                break;
+
+            case Case::EraseAll:
+                for (auto e : mEntities)
+                {
                     if (mRegistry.valid(e))
                     {
                         mRegistry.destroy(e);
                     }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                mEntities.clear();
+                break;
 
-        case Case::EraseAll:
-            for (auto e : mEntities)
+            case Case::MixedWorkload:
             {
-                if (mRegistry.valid(e))
-                {
-                    mRegistry.destroy(e);
-                }
-                ++ops;
-            }
-            mEntities.clear();
-            break;
+                size_t batch = std::max<size_t>(1, in.N / 10);
 
-        case Case::MixedWorkload:
-        {
-            size_t batch = std::max<size_t>(1, in.N / 10);
-            
-            for (size_t i = 0; i < batch && i < in.values.size(); ++i)
-            {
-                auto e = mRegistry.create();
-                mRegistry.emplace<TestValue>(e, TestValue(in.values[i]));
-                mEntities.push_back(e);
-                ++ops;
-            }
-            
-            for (size_t i = 0; i < batch && i < mEntities.size(); ++i)
-            {
-                size_t idx = rng() % mEntities.size();
-                auto e = mEntities[idx];
-                if (mRegistry.valid(e))
+                for (size_t i = 0; i < batch && i < in.values.size(); ++i)
                 {
-                    auto* ptr = mRegistry.try_get<TestValue>(e);
-                    if (ptr) benchmark_sink += ptr->checksum();
+                    auto e = mRegistry.create();
+                    mRegistry.emplace<TestValue>(e, TestValue(in.values[i]));
+                    mEntities.push_back(e);
+                    ++ops;
                 }
-                ++ops;
-            }
-            
-            size_t erase_count = std::min(batch / 2, mEntities.size());
-            for (size_t i = 0; i < erase_count; ++i)
-            {
-                if (!mEntities.empty())
+
+                for (size_t i = 0; i < batch && i < mEntities.size(); ++i)
                 {
                     size_t idx = rng() % mEntities.size();
                     auto e = mEntities[idx];
                     if (mRegistry.valid(e))
                     {
-                        mRegistry.destroy(e);
+                        auto* ptr = mRegistry.try_get<TestValue>(e);
+                        if (ptr)
+                        {
+                            benchmark_sink += ptr->checksum();
+                        }
                     }
-                    mEntities[idx] = mEntities.back();
-                    mEntities.pop_back();
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
-        }
 
-        case Case::SlotReuse:
-        {
-            size_t half = in.N / 2;
-            
-            mEntities.clear();
-            for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
-            {
-                auto e = mRegistry.create();
-                mRegistry.emplace<TestValue>(e, TestValue(in.values[i]));
-                mEntities.push_back(e);
-                ++ops;
-            }
-            
-            for (size_t i = 0; i < half && i < mEntities.size(); ++i)
-            {
-                if (mRegistry.valid(mEntities[i]))
+                size_t erase_count = std::min(batch / 2, mEntities.size());
+                for (size_t i = 0; i < erase_count; ++i)
                 {
-                    mRegistry.destroy(mEntities[i]);
+                    if (!mEntities.empty())
+                    {
+                        size_t idx = rng() % mEntities.size();
+                        auto e = mEntities[idx];
+                        if (mRegistry.valid(e))
+                        {
+                            mRegistry.destroy(e);
+                        }
+                        mEntities[idx] = mEntities.back();
+                        mEntities.pop_back();
+                    }
+                    ++ops;
                 }
-                ++ops;
+                break;
             }
-            
-            for (size_t i = 0; i < half && i < in.values.size(); ++i)
+
+            case Case::SlotReuse:
             {
-                auto e = mRegistry.create();
-                mRegistry.emplace<TestValue>(e, TestValue(in.values[i] + 1000000));
-                mEntities.push_back(e);
-                ++ops;
+                size_t half = in.N / 2;
+
+                mEntities.clear();
+                for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
+                {
+                    auto e = mRegistry.create();
+                    mRegistry.emplace<TestValue>(e, TestValue(in.values[i]));
+                    mEntities.push_back(e);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < half && i < mEntities.size(); ++i)
+                {
+                    if (mRegistry.valid(mEntities[i]))
+                    {
+                        mRegistry.destroy(mEntities[i]);
+                    }
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < half && i < in.values.size(); ++i)
+                {
+                    auto e = mRegistry.create();
+                    mRegistry.emplace<TestValue>(e, TestValue(in.values[i] + 1000000));
+                    mEntities.push_back(e);
+                    ++ops;
+                }
+                break;
             }
-            break;
-        }
         }
         return ops;
     }
@@ -982,7 +1038,10 @@ class PlfHiveAdapter final : public ISlotMapAdapter
     std::vector<plf::hive<TestValue>::iterator> mIters;
 
 public:
-    const char* name() const override { return "plf::hive"; }
+    const char* name() const override
+    {
+        return "plf::hive";
+    }
 
     void setup(size_t N) override
     {
@@ -992,14 +1051,14 @@ public:
         mIters.reserve(N);
     }
 
-    void teardown() override 
-    { 
+    void teardown() override
+    {
         mHive.reset();
         mIters.clear();
     }
 
-    void clear() override 
-    { 
+    void clear() override
+    {
         mHive->clear();
         mIters.clear();
     }
@@ -1022,116 +1081,116 @@ public:
 
         switch (c)
         {
-        case Case::SequentialInsert:
-            mIters.clear();
-            for (int64_t v : in.values)
-            {
-                auto it = mHive->insert(TestValue(v));
-                mIters.push_back(it);
-                ++ops;
-            }
-            break;
-
-        case Case::RandomAccessValid:
-        case Case::RandomAccessMixed:
-            // plf::hive iterators remain valid after other erasures
-            for (size_t idx : in.access_indices)
-            {
-                if (idx < mIters.size())
+            case Case::SequentialInsert:
+                mIters.clear();
+                for (int64_t v : in.values)
                 {
-                    // Note: No way to check if iterator is still valid in hive
-                    // This demonstrates a key difference from SlotMap
-                    benchmark_sink += mIters[idx]->checksum();
+                    auto it = mHive->insert(TestValue(v));
+                    mIters.push_back(it);
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::Iteration:
-            for (const auto& val : *mHive)
-            {
-                benchmark_sink += val.checksum();
-                ++ops;
-            }
-            break;
-
-        case Case::Erase25Percent:
-            for (size_t idx : in.erase_indices)
-            {
-                if (idx < mIters.size())
+            case Case::RandomAccessValid:
+            case Case::RandomAccessMixed:
+                // plf::hive iterators remain valid after other erasures
+                for (size_t idx : in.access_indices)
                 {
-                    mHive->erase(mIters[idx]);
-                    // Mark as invalid (can't actually check in hive)
+                    if (idx < mIters.size())
+                    {
+                        // Note: No way to check if iterator is still valid in hive
+                        // This demonstrates a key difference from SlotMap
+                        benchmark_sink += mIters[idx]->checksum();
+                    }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::EraseAll:
-            mHive->clear();
-            mIters.clear();
-            ops = in.N;
-            break;
+            case Case::Iteration:
+                for (const auto& val : *mHive)
+                {
+                    benchmark_sink += val.checksum();
+                    ++ops;
+                }
+                break;
 
-        case Case::MixedWorkload:
-        {
-            size_t batch = std::max<size_t>(1, in.N / 10);
-            
-            for (size_t i = 0; i < batch && i < in.values.size(); ++i)
+            case Case::Erase25Percent:
+                for (size_t idx : in.erase_indices)
+                {
+                    if (idx < mIters.size())
+                    {
+                        mHive->erase(mIters[idx]);
+                        // Mark as invalid (can't actually check in hive)
+                    }
+                    ++ops;
+                }
+                break;
+
+            case Case::EraseAll:
+                mHive->clear();
+                mIters.clear();
+                ops = in.N;
+                break;
+
+            case Case::MixedWorkload:
             {
-                auto it = mHive->insert(TestValue(in.values[i]));
-                mIters.push_back(it);
-                ++ops;
-            }
-            
-            for (size_t i = 0; i < batch && i < mIters.size(); ++i)
-            {
-                size_t idx = rng() % mIters.size();
-                benchmark_sink += mIters[idx]->checksum();
-                ++ops;
-            }
-            
-            size_t erase_count = std::min(batch / 2, mIters.size());
-            for (size_t i = 0; i < erase_count; ++i)
-            {
-                if (!mIters.empty())
+                size_t batch = std::max<size_t>(1, in.N / 10);
+
+                for (size_t i = 0; i < batch && i < in.values.size(); ++i)
+                {
+                    auto it = mHive->insert(TestValue(in.values[i]));
+                    mIters.push_back(it);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < batch && i < mIters.size(); ++i)
                 {
                     size_t idx = rng() % mIters.size();
-                    mHive->erase(mIters[idx]);
-                    mIters[idx] = mIters.back();
-                    mIters.pop_back();
+                    benchmark_sink += mIters[idx]->checksum();
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
-        }
 
-        case Case::SlotReuse:
-        {
-            size_t half = in.N / 2;
-            
-            mIters.clear();
-            for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
-            {
-                auto it = mHive->insert(TestValue(in.values[i]));
-                mIters.push_back(it);
-                ++ops;
+                size_t erase_count = std::min(batch / 2, mIters.size());
+                for (size_t i = 0; i < erase_count; ++i)
+                {
+                    if (!mIters.empty())
+                    {
+                        size_t idx = rng() % mIters.size();
+                        mHive->erase(mIters[idx]);
+                        mIters[idx] = mIters.back();
+                        mIters.pop_back();
+                    }
+                    ++ops;
+                }
+                break;
             }
-            
-            for (size_t i = 0; i < half && i < mIters.size(); ++i)
+
+            case Case::SlotReuse:
             {
-                mHive->erase(mIters[i]);
-                ++ops;
+                size_t half = in.N / 2;
+
+                mIters.clear();
+                for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
+                {
+                    auto it = mHive->insert(TestValue(in.values[i]));
+                    mIters.push_back(it);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < half && i < mIters.size(); ++i)
+                {
+                    mHive->erase(mIters[i]);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < half && i < in.values.size(); ++i)
+                {
+                    auto it = mHive->insert(TestValue(in.values[i] + 1000000));
+                    mIters.push_back(it);
+                    ++ops;
+                }
+                break;
             }
-            
-            for (size_t i = 0; i < half && i < in.values.size(); ++i)
-            {
-                auto it = mHive->insert(TestValue(in.values[i] + 1000000));
-                mIters.push_back(it);
-                ++ops;
-            }
-            break;
-        }
         }
         return ops;
     }
@@ -1149,7 +1208,10 @@ class SG14SlotMapAdapter final : public ISlotMapAdapter
     std::vector<stdext::slot_map<TestValue>::key_type> mKeys;
 
 public:
-    const char* name() const override { return "sg14::slot_map"; }
+    const char* name() const override
+    {
+        return "sg14::slot_map";
+    }
 
     void setup(size_t N) override
     {
@@ -1159,14 +1221,14 @@ public:
         mKeys.reserve(N);
     }
 
-    void teardown() override 
-    { 
+    void teardown() override
+    {
         mMap.reset();
         mKeys.clear();
     }
 
-    void clear() override 
-    { 
+    void clear() override
+    {
         mMap->clear();
         mKeys.clear();
     }
@@ -1189,138 +1251,138 @@ public:
 
         switch (c)
         {
-        case Case::SequentialInsert:
-            mKeys.clear();
-            for (int64_t v : in.values)
-            {
-                auto key = mMap->insert(TestValue(v));
-                mKeys.push_back(key);
-                ++ops;
-            }
-            break;
-
-        case Case::RandomAccessValid:
-            for (size_t idx : in.access_indices)
-            {
-                if (idx < mKeys.size())
+            case Case::SequentialInsert:
+                mKeys.clear();
+                for (int64_t v : in.values)
                 {
-                    auto it = mMap->find(mKeys[idx]);
-                    if (it != mMap->end())
+                    auto key = mMap->insert(TestValue(v));
+                    mKeys.push_back(key);
+                    ++ops;
+                }
+                break;
+
+            case Case::RandomAccessValid:
+                for (size_t idx : in.access_indices)
+                {
+                    if (idx < mKeys.size())
                     {
-                        benchmark_sink += it->checksum();
+                        auto it = mMap->find(mKeys[idx]);
+                        if (it != mMap->end())
+                        {
+                            benchmark_sink += it->checksum();
+                        }
                     }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::RandomAccessMixed:
-            // SG14 slot_map has generational indices like fat_p::SlotMap
-            for (size_t idx : in.access_indices)
-            {
-                if (idx < mKeys.size())
+            case Case::RandomAccessMixed:
+                // SG14 slot_map has generational indices like fat_p::SlotMap
+                for (size_t idx : in.access_indices)
                 {
-                    auto it = mMap->find(mKeys[idx]);
-                    if (it != mMap->end())
+                    if (idx < mKeys.size())
                     {
-                        benchmark_sink += it->checksum();
+                        auto it = mMap->find(mKeys[idx]);
+                        if (it != mMap->end())
+                        {
+                            benchmark_sink += it->checksum();
+                        }
                     }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::Iteration:
-            for (const auto& val : *mMap)
-            {
-                benchmark_sink += val.checksum();
-                ++ops;
-            }
-            break;
-
-        case Case::Erase25Percent:
-            for (size_t idx : in.erase_indices)
-            {
-                if (idx < mKeys.size())
+            case Case::Iteration:
+                for (const auto& val : *mMap)
                 {
-                    mMap->erase(mKeys[idx]);
+                    benchmark_sink += val.checksum();
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::EraseAll:
-            for (auto& k : mKeys)
-            {
-                mMap->erase(k);
-                ++ops;
-            }
-            mKeys.clear();
-            break;
-
-        case Case::MixedWorkload:
-        {
-            size_t batch = std::max<size_t>(1, in.N / 10);
-            
-            for (size_t i = 0; i < batch && i < in.values.size(); ++i)
-            {
-                auto key = mMap->insert(TestValue(in.values[i]));
-                mKeys.push_back(key);
-                ++ops;
-            }
-            
-            for (size_t i = 0; i < batch && i < mKeys.size(); ++i)
-            {
-                size_t idx = rng() % mKeys.size();
-                auto it = mMap->find(mKeys[idx]);
-                if (it != mMap->end())
+            case Case::Erase25Percent:
+                for (size_t idx : in.erase_indices)
                 {
-                    benchmark_sink += it->checksum();
+                    if (idx < mKeys.size())
+                    {
+                        mMap->erase(mKeys[idx]);
+                    }
+                    ++ops;
                 }
-                ++ops;
-            }
-            
-            size_t erase_count = std::min(batch / 2, mKeys.size());
-            for (size_t i = 0; i < erase_count; ++i)
+                break;
+
+            case Case::EraseAll:
+                for (auto& k : mKeys)
+                {
+                    mMap->erase(k);
+                    ++ops;
+                }
+                mKeys.clear();
+                break;
+
+            case Case::MixedWorkload:
             {
-                if (!mKeys.empty())
+                size_t batch = std::max<size_t>(1, in.N / 10);
+
+                for (size_t i = 0; i < batch && i < in.values.size(); ++i)
+                {
+                    auto key = mMap->insert(TestValue(in.values[i]));
+                    mKeys.push_back(key);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < batch && i < mKeys.size(); ++i)
                 {
                     size_t idx = rng() % mKeys.size();
-                    mMap->erase(mKeys[idx]);
-                    mKeys[idx] = mKeys.back();
-                    mKeys.pop_back();
+                    auto it = mMap->find(mKeys[idx]);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->checksum();
+                    }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
-        }
 
-        case Case::SlotReuse:
-        {
-            size_t half = in.N / 2;
-            
-            mKeys.clear();
-            for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
-            {
-                auto key = mMap->insert(TestValue(in.values[i]));
-                mKeys.push_back(key);
-                ++ops;
+                size_t erase_count = std::min(batch / 2, mKeys.size());
+                for (size_t i = 0; i < erase_count; ++i)
+                {
+                    if (!mKeys.empty())
+                    {
+                        size_t idx = rng() % mKeys.size();
+                        mMap->erase(mKeys[idx]);
+                        mKeys[idx] = mKeys.back();
+                        mKeys.pop_back();
+                    }
+                    ++ops;
+                }
+                break;
             }
-            
-            for (size_t i = 0; i < half && i < mKeys.size(); ++i)
+
+            case Case::SlotReuse:
             {
-                mMap->erase(mKeys[i]);
-                ++ops;
+                size_t half = in.N / 2;
+
+                mKeys.clear();
+                for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
+                {
+                    auto key = mMap->insert(TestValue(in.values[i]));
+                    mKeys.push_back(key);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < half && i < mKeys.size(); ++i)
+                {
+                    mMap->erase(mKeys[i]);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < half && i < in.values.size(); ++i)
+                {
+                    auto key = mMap->insert(TestValue(in.values[i] + 1000000));
+                    mKeys.push_back(key);
+                    ++ops;
+                }
+                break;
             }
-            
-            for (size_t i = 0; i < half && i < in.values.size(); ++i)
-            {
-                auto key = mMap->insert(TestValue(in.values[i] + 1000000));
-                mKeys.push_back(key);
-                ++ops;
-            }
-            break;
-        }
         }
         return ops;
     }
@@ -1338,7 +1400,10 @@ class UnorderedMapAdapter final : public ISlotMapAdapter
     uint64_t next_key_ = 0;
 
 public:
-    const char* name() const override { return "std::unordered_map"; }
+    const char* name() const override
+    {
+        return "std::unordered_map";
+    }
 
     void setup(size_t N) override
     {
@@ -1349,15 +1414,15 @@ public:
         next_key_ = 0;
     }
 
-    void teardown() override 
-    { 
-        mMap.reset(); 
+    void teardown() override
+    {
+        mMap.reset();
         mKeys.clear();
     }
 
-    void clear() override 
-    { 
-        mMap->clear(); 
+    void clear() override
+    {
+        mMap->clear();
         mKeys.clear();
         next_key_ = 0;
     }
@@ -1381,121 +1446,127 @@ public:
 
         switch (c)
         {
-        case Case::SequentialInsert:
-            mKeys.clear();
-            for (int64_t v : in.values)
-            {
-                uint64_t key = next_key_++;
-                mMap->emplace(key, TestValue(v));
-                mKeys.push_back(key);
-                ++ops;
-            }
-            break;
-
-        case Case::RandomAccessValid:
-        case Case::RandomAccessMixed:  // No ABA safety, so same as valid
-            for (size_t idx : in.access_indices)
-            {
-                if (idx < mKeys.size())
+            case Case::SequentialInsert:
+                mKeys.clear();
+                for (int64_t v : in.values)
                 {
-                    auto it = mMap->find(mKeys[idx]);
-                    if (it != mMap->end()) benchmark_sink += it->second.checksum();
+                    uint64_t key = next_key_++;
+                    mMap->emplace(key, TestValue(v));
+                    mKeys.push_back(key);
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::Iteration:
-            for (const auto& [key, val] : *mMap)
-            {
-                benchmark_sink += val.checksum();
-                ++ops;
-            }
-            break;
-
-        case Case::Erase25Percent:
-            for (size_t idx : in.erase_indices)
-            {
-                if (idx < mKeys.size())
+            case Case::RandomAccessValid:
+            case Case::RandomAccessMixed: // No ABA safety, so same as valid
+                for (size_t idx : in.access_indices)
                 {
-                    mMap->erase(mKeys[idx]);
+                    if (idx < mKeys.size())
+                    {
+                        auto it = mMap->find(mKeys[idx]);
+                        if (it != mMap->end())
+                        {
+                            benchmark_sink += it->second.checksum();
+                        }
+                    }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::EraseAll:
-            for (uint64_t k : mKeys)
-            {
-                mMap->erase(k);
-                ++ops;
-            }
-            mKeys.clear();
-            break;
+            case Case::Iteration:
+                for (const auto& [key, val] : *mMap)
+                {
+                    benchmark_sink += val.checksum();
+                    ++ops;
+                }
+                break;
 
-        case Case::MixedWorkload:
-        {
-            size_t batch = std::max<size_t>(1, in.N / 10);
-            
-            for (size_t i = 0; i < batch && i < in.values.size(); ++i)
+            case Case::Erase25Percent:
+                for (size_t idx : in.erase_indices)
+                {
+                    if (idx < mKeys.size())
+                    {
+                        mMap->erase(mKeys[idx]);
+                    }
+                    ++ops;
+                }
+                break;
+
+            case Case::EraseAll:
+                for (uint64_t k : mKeys)
+                {
+                    mMap->erase(k);
+                    ++ops;
+                }
+                mKeys.clear();
+                break;
+
+            case Case::MixedWorkload:
             {
-                uint64_t key = next_key_++;
-                mMap->emplace(key, TestValue(in.values[i]));
-                mKeys.push_back(key);
-                ++ops;
-            }
-            
-            for (size_t i = 0; i < batch && i < mKeys.size(); ++i)
-            {
-                size_t idx = rng() % mKeys.size();
-                auto it = mMap->find(mKeys[idx]);
-                if (it != mMap->end()) benchmark_sink += it->second.checksum();
-                ++ops;
-            }
-            
-            size_t erase_count = std::min(batch / 2, mKeys.size());
-            for (size_t i = 0; i < erase_count; ++i)
-            {
-                if (!mKeys.empty())
+                size_t batch = std::max<size_t>(1, in.N / 10);
+
+                for (size_t i = 0; i < batch && i < in.values.size(); ++i)
+                {
+                    uint64_t key = next_key_++;
+                    mMap->emplace(key, TestValue(in.values[i]));
+                    mKeys.push_back(key);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < batch && i < mKeys.size(); ++i)
                 {
                     size_t idx = rng() % mKeys.size();
-                    mMap->erase(mKeys[idx]);
-                    mKeys[idx] = mKeys.back();
-                    mKeys.pop_back();
+                    auto it = mMap->find(mKeys[idx]);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second.checksum();
+                    }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
-        }
 
-        case Case::SlotReuse:
-        {
-            size_t half = in.N / 2;
-            
-            mKeys.clear();
-            for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
-            {
-                uint64_t key = next_key_++;
-                mMap->emplace(key, TestValue(in.values[i]));
-                mKeys.push_back(key);
-                ++ops;
+                size_t erase_count = std::min(batch / 2, mKeys.size());
+                for (size_t i = 0; i < erase_count; ++i)
+                {
+                    if (!mKeys.empty())
+                    {
+                        size_t idx = rng() % mKeys.size();
+                        mMap->erase(mKeys[idx]);
+                        mKeys[idx] = mKeys.back();
+                        mKeys.pop_back();
+                    }
+                    ++ops;
+                }
+                break;
             }
-            
-            for (size_t i = 0; i < half && i < mKeys.size(); ++i)
+
+            case Case::SlotReuse:
             {
-                mMap->erase(mKeys[i]);
-                ++ops;
+                size_t half = in.N / 2;
+
+                mKeys.clear();
+                for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
+                {
+                    uint64_t key = next_key_++;
+                    mMap->emplace(key, TestValue(in.values[i]));
+                    mKeys.push_back(key);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < half && i < mKeys.size(); ++i)
+                {
+                    mMap->erase(mKeys[i]);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < half && i < in.values.size(); ++i)
+                {
+                    uint64_t key = next_key_++;
+                    mMap->emplace(key, TestValue(in.values[i] + 1000000));
+                    mKeys.push_back(key);
+                    ++ops;
+                }
+                break;
             }
-            
-            for (size_t i = 0; i < half && i < in.values.size(); ++i)
-            {
-                uint64_t key = next_key_++;
-                mMap->emplace(key, TestValue(in.values[i] + 1000000));
-                mKeys.push_back(key);
-                ++ops;
-            }
-            break;
-        }
         }
         return ops;
     }
@@ -1512,7 +1583,10 @@ class StdMapAdapter final : public ISlotMapAdapter
     uint64_t next_key_ = 0;
 
 public:
-    const char* name() const override { return "std::map"; }
+    const char* name() const override
+    {
+        return "std::map";
+    }
 
     void setup(size_t) override
     {
@@ -1521,15 +1595,15 @@ public:
         next_key_ = 0;
     }
 
-    void teardown() override 
-    { 
-        mMap.reset(); 
+    void teardown() override
+    {
+        mMap.reset();
         mKeys.clear();
     }
 
-    void clear() override 
-    { 
-        mMap->clear(); 
+    void clear() override
+    {
+        mMap->clear();
         mKeys.clear();
         next_key_ = 0;
     }
@@ -1553,121 +1627,127 @@ public:
 
         switch (c)
         {
-        case Case::SequentialInsert:
-            mKeys.clear();
-            for (int64_t v : in.values)
-            {
-                uint64_t key = next_key_++;
-                mMap->emplace(key, TestValue(v));
-                mKeys.push_back(key);
-                ++ops;
-            }
-            break;
-
-        case Case::RandomAccessValid:
-        case Case::RandomAccessMixed:
-            for (size_t idx : in.access_indices)
-            {
-                if (idx < mKeys.size())
+            case Case::SequentialInsert:
+                mKeys.clear();
+                for (int64_t v : in.values)
                 {
-                    auto it = mMap->find(mKeys[idx]);
-                    if (it != mMap->end()) benchmark_sink += it->second.checksum();
+                    uint64_t key = next_key_++;
+                    mMap->emplace(key, TestValue(v));
+                    mKeys.push_back(key);
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::Iteration:
-            for (const auto& [key, val] : *mMap)
-            {
-                benchmark_sink += val.checksum();
-                ++ops;
-            }
-            break;
-
-        case Case::Erase25Percent:
-            for (size_t idx : in.erase_indices)
-            {
-                if (idx < mKeys.size())
+            case Case::RandomAccessValid:
+            case Case::RandomAccessMixed:
+                for (size_t idx : in.access_indices)
                 {
-                    mMap->erase(mKeys[idx]);
+                    if (idx < mKeys.size())
+                    {
+                        auto it = mMap->find(mKeys[idx]);
+                        if (it != mMap->end())
+                        {
+                            benchmark_sink += it->second.checksum();
+                        }
+                    }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::EraseAll:
-            for (uint64_t k : mKeys)
-            {
-                mMap->erase(k);
-                ++ops;
-            }
-            mKeys.clear();
-            break;
+            case Case::Iteration:
+                for (const auto& [key, val] : *mMap)
+                {
+                    benchmark_sink += val.checksum();
+                    ++ops;
+                }
+                break;
 
-        case Case::MixedWorkload:
-        {
-            size_t batch = std::max<size_t>(1, in.N / 10);
-            
-            for (size_t i = 0; i < batch && i < in.values.size(); ++i)
+            case Case::Erase25Percent:
+                for (size_t idx : in.erase_indices)
+                {
+                    if (idx < mKeys.size())
+                    {
+                        mMap->erase(mKeys[idx]);
+                    }
+                    ++ops;
+                }
+                break;
+
+            case Case::EraseAll:
+                for (uint64_t k : mKeys)
+                {
+                    mMap->erase(k);
+                    ++ops;
+                }
+                mKeys.clear();
+                break;
+
+            case Case::MixedWorkload:
             {
-                uint64_t key = next_key_++;
-                mMap->emplace(key, TestValue(in.values[i]));
-                mKeys.push_back(key);
-                ++ops;
-            }
-            
-            for (size_t i = 0; i < batch && i < mKeys.size(); ++i)
-            {
-                size_t idx = rng() % mKeys.size();
-                auto it = mMap->find(mKeys[idx]);
-                if (it != mMap->end()) benchmark_sink += it->second.checksum();
-                ++ops;
-            }
-            
-            size_t erase_count = std::min(batch / 2, mKeys.size());
-            for (size_t i = 0; i < erase_count; ++i)
-            {
-                if (!mKeys.empty())
+                size_t batch = std::max<size_t>(1, in.N / 10);
+
+                for (size_t i = 0; i < batch && i < in.values.size(); ++i)
+                {
+                    uint64_t key = next_key_++;
+                    mMap->emplace(key, TestValue(in.values[i]));
+                    mKeys.push_back(key);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < batch && i < mKeys.size(); ++i)
                 {
                     size_t idx = rng() % mKeys.size();
-                    mMap->erase(mKeys[idx]);
-                    mKeys[idx] = mKeys.back();
-                    mKeys.pop_back();
+                    auto it = mMap->find(mKeys[idx]);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second.checksum();
+                    }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
-        }
 
-        case Case::SlotReuse:
-        {
-            size_t half = in.N / 2;
-            
-            mKeys.clear();
-            for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
-            {
-                uint64_t key = next_key_++;
-                mMap->emplace(key, TestValue(in.values[i]));
-                mKeys.push_back(key);
-                ++ops;
+                size_t erase_count = std::min(batch / 2, mKeys.size());
+                for (size_t i = 0; i < erase_count; ++i)
+                {
+                    if (!mKeys.empty())
+                    {
+                        size_t idx = rng() % mKeys.size();
+                        mMap->erase(mKeys[idx]);
+                        mKeys[idx] = mKeys.back();
+                        mKeys.pop_back();
+                    }
+                    ++ops;
+                }
+                break;
             }
-            
-            for (size_t i = 0; i < half && i < mKeys.size(); ++i)
+
+            case Case::SlotReuse:
             {
-                mMap->erase(mKeys[i]);
-                ++ops;
+                size_t half = in.N / 2;
+
+                mKeys.clear();
+                for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
+                {
+                    uint64_t key = next_key_++;
+                    mMap->emplace(key, TestValue(in.values[i]));
+                    mKeys.push_back(key);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < half && i < mKeys.size(); ++i)
+                {
+                    mMap->erase(mKeys[i]);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < half && i < in.values.size(); ++i)
+                {
+                    uint64_t key = next_key_++;
+                    mMap->emplace(key, TestValue(in.values[i] + 1000000));
+                    mKeys.push_back(key);
+                    ++ops;
+                }
+                break;
             }
-            
-            for (size_t i = 0; i < half && i < in.values.size(); ++i)
-            {
-                uint64_t key = next_key_++;
-                mMap->emplace(key, TestValue(in.values[i] + 1000000));
-                mKeys.push_back(key);
-                ++ops;
-            }
-            break;
-        }
         }
         return ops;
     }
@@ -1680,10 +1760,13 @@ public:
 class VectorAdapter final : public ISlotMapAdapter
 {
     std::unique_ptr<std::vector<TestValue>> mVec;
-    std::vector<bool> mValid;  // Track which slots are valid (simple free list)
+    std::vector<bool> mValid; // Track which slots are valid (simple free list)
 
 public:
-    const char* name() const override { return "std::vector (raw)"; }
+    const char* name() const override
+    {
+        return "std::vector (raw)";
+    }
 
     void setup(size_t N) override
     {
@@ -1693,15 +1776,15 @@ public:
         mValid.reserve(N);
     }
 
-    void teardown() override 
-    { 
-        mVec.reset(); 
+    void teardown() override
+    {
+        mVec.reset();
         mValid.clear();
     }
 
-    void clear() override 
-    { 
-        mVec->clear(); 
+    void clear() override
+    {
+        mVec->clear();
         mValid.clear();
     }
 
@@ -1723,121 +1806,121 @@ public:
 
         switch (c)
         {
-        case Case::SequentialInsert:
-            mVec->clear();
-            mValid.clear();
-            for (int64_t v : in.values)
-            {
-                mVec->emplace_back(TestValue(v));
-                mValid.push_back(true);
-                ++ops;
-            }
-            break;
-
-        case Case::RandomAccessValid:
-        case Case::RandomAccessMixed:
-            for (size_t idx : in.access_indices)
-            {
-                if (idx < mVec->size() && mValid[idx])
+            case Case::SequentialInsert:
+                mVec->clear();
+                mValid.clear();
+                for (int64_t v : in.values)
                 {
-                    benchmark_sink += (*mVec)[idx].checksum();
+                    mVec->emplace_back(TestValue(v));
+                    mValid.push_back(true);
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::Iteration:
-            for (size_t i = 0; i < mVec->size(); ++i)
-            {
-                if (mValid[i])
+            case Case::RandomAccessValid:
+            case Case::RandomAccessMixed:
+                for (size_t idx : in.access_indices)
                 {
-                    benchmark_sink += (*mVec)[i].checksum();
+                    if (idx < mVec->size() && mValid[idx])
+                    {
+                        benchmark_sink += (*mVec)[idx].checksum();
+                    }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::Erase25Percent:
-            // Just mark as invalid (no actual removal - demonstrates issue)
-            for (size_t idx : in.erase_indices)
-            {
-                if (idx < mValid.size())
+            case Case::Iteration:
+                for (size_t i = 0; i < mVec->size(); ++i)
                 {
-                    mValid[idx] = false;
+                    if (mValid[i])
+                    {
+                        benchmark_sink += (*mVec)[i].checksum();
+                    }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
+                break;
 
-        case Case::EraseAll:
-            for (size_t i = 0; i < mValid.size(); ++i)
-            {
-                mValid[i] = false;
-                ++ops;
-            }
-            break;
-
-        case Case::MixedWorkload:
-        {
-            size_t batch = std::max<size_t>(1, in.N / 10);
-            
-            for (size_t i = 0; i < batch && i < in.values.size(); ++i)
-            {
-                mVec->emplace_back(TestValue(in.values[i]));
-                mValid.push_back(true);
-                ++ops;
-            }
-            
-            for (size_t i = 0; i < batch && i < mVec->size(); ++i)
-            {
-                size_t idx = rng() % mVec->size();
-                if (mValid[idx])
+            case Case::Erase25Percent:
+                // Just mark as invalid (no actual removal - demonstrates issue)
+                for (size_t idx : in.erase_indices)
                 {
-                    benchmark_sink += (*mVec)[idx].checksum();
+                    if (idx < mValid.size())
+                    {
+                        mValid[idx] = false;
+                    }
+                    ++ops;
                 }
-                ++ops;
-            }
-            
-            size_t erase_count = std::min(batch / 2, mVec->size());
-            for (size_t i = 0; i < erase_count; ++i)
+                break;
+
+            case Case::EraseAll:
+                for (size_t i = 0; i < mValid.size(); ++i)
+                {
+                    mValid[i] = false;
+                    ++ops;
+                }
+                break;
+
+            case Case::MixedWorkload:
             {
-                if (!mVec->empty())
+                size_t batch = std::max<size_t>(1, in.N / 10);
+
+                for (size_t i = 0; i < batch && i < in.values.size(); ++i)
+                {
+                    mVec->emplace_back(TestValue(in.values[i]));
+                    mValid.push_back(true);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < batch && i < mVec->size(); ++i)
                 {
                     size_t idx = rng() % mVec->size();
-                    mValid[idx] = false;
+                    if (mValid[idx])
+                    {
+                        benchmark_sink += (*mVec)[idx].checksum();
+                    }
+                    ++ops;
                 }
-                ++ops;
-            }
-            break;
-        }
 
-        case Case::SlotReuse:
-        {
-            size_t half = in.N / 2;
-            
-            mVec->clear();
-            mValid.clear();
-            for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
-            {
-                mVec->emplace_back(TestValue(in.values[i]));
-                mValid.push_back(true);
-                ++ops;
+                size_t erase_count = std::min(batch / 2, mVec->size());
+                for (size_t i = 0; i < erase_count; ++i)
+                {
+                    if (!mVec->empty())
+                    {
+                        size_t idx = rng() % mVec->size();
+                        mValid[idx] = false;
+                    }
+                    ++ops;
+                }
+                break;
             }
-            
-            for (size_t i = 0; i < half && i < mValid.size(); ++i)
+
+            case Case::SlotReuse:
             {
-                mValid[i] = false;
-                ++ops;
+                size_t half = in.N / 2;
+
+                mVec->clear();
+                mValid.clear();
+                for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
+                {
+                    mVec->emplace_back(TestValue(in.values[i]));
+                    mValid.push_back(true);
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < half && i < mValid.size(); ++i)
+                {
+                    mValid[i] = false;
+                    ++ops;
+                }
+
+                for (size_t i = 0; i < half && i < in.values.size(); ++i)
+                {
+                    mVec->emplace_back(TestValue(in.values[i] + 1000000));
+                    mValid.push_back(true);
+                    ++ops;
+                }
+                break;
             }
-            
-            for (size_t i = 0; i < half && i < in.values.size(); ++i)
-            {
-                mVec->emplace_back(TestValue(in.values[i] + 1000000));
-                mValid.push_back(true);
-                ++ops;
-            }
-            break;
-        }
         }
         return ops;
     }
@@ -1863,12 +1946,12 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
     std::cout << "================================================================================\n";
     std::cout << "  SECTION 1: Core Operations (Insert, Access, Erase)\n";
     std::cout << "================================================================================\n";
-    
+
     print_cpu_context("Section start");
 
     // Build adapter list with all available libraries
     std::vector<std::unique_ptr<ISlotMapAdapter>> adapters;
-    
+
 #if HAS_FATP_SLOTMAP
     adapters.push_back(std::make_unique<FatPSlotMapAdapter>());
 #endif
@@ -1886,11 +1969,7 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
     adapters.push_back(std::make_unique<VectorAdapter>());
 
     std::mt19937_64 rng(42);
-    std::vector<Case> cases = {
-        Case::SequentialInsert,
-        Case::RandomAccessValid,
-        Case::Erase25Percent
-    };
+    std::vector<Case> cases = {Case::SequentialInsert, Case::RandomAccessValid, Case::Erase25Percent};
 
     for (size_t N : sizes)
     {
@@ -1918,7 +1997,10 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
                 for (size_t idx = 0; idx < adapters.size(); ++idx)
                 {
                     adapters[idx]->setup(N);
-                    if (needs_preload) adapters[idx]->preload(in);
+                    if (needs_preload)
+                    {
+                        adapters[idx]->preload(in);
+                    }
                     adapters[idx]->run_operation(c, in);
                     adapters[idx]->teardown();
                 }
@@ -1934,7 +2016,10 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
                 for (size_t idx : order)
                 {
                     adapters[idx]->setup(N);
-                    if (needs_preload) adapters[idx]->preload(in);
+                    if (needs_preload)
+                    {
+                        adapters[idx]->preload(in);
+                    }
 
                     Timer t;
                     t.start();
@@ -1953,8 +2038,7 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
             for (const auto& r : results)
             {
                 auto stats = Statistics::compute(r.samples);
-                std::cout << "    " << std::setw(24) << r.library << ": "
-                          << std::setw(8) << stats.median << " ns/op "
+                std::cout << "    " << std::setw(24) << r.library << ": " << std::setw(8) << stats.median << " ns/op "
                           << "(+/-" << std::setw(6) << stats.stddev << ")\n";
             }
         }
@@ -1971,15 +2055,15 @@ void benchmark_aba_safety()
     std::cout << "================================================================================\n";
     std::cout << "  SECTION 2: ABA Safety Test (Generational Index Validation)\n";
     std::cout << "================================================================================\n";
-    
+
     print_cpu_context("Section start");
 
 #if HAS_FATP_SLOTMAP
     std::cout << "\n  Testing fat_p::SlotMap ABA protection:\n";
-    
+
     fat_p::SlotMap<TestValue> map;
     constexpr size_t N = 10000;
-    
+
     // Insert elements
     std::vector<fat_p::SlotMapHandle> handles;
     handles.reserve(N);
@@ -1987,29 +2071,31 @@ void benchmark_aba_safety()
     {
         handles.push_back(map.insert(TestValue(static_cast<int64_t>(i))));
     }
-    
+
     // Store some handles before erasing
     std::vector<fat_p::SlotMapHandle> old_handles;
     for (size_t i = 0; i < N / 2; ++i)
     {
         old_handles.push_back(handles[i]);
     }
-    
+
     // Erase first half
     for (size_t i = 0; i < N / 2; ++i)
     {
         map.erase(handles[i]);
     }
-    
+
     // Verify old handles are now invalid
     size_t invalid_count = 0;
     for (const auto& h : old_handles)
     {
-        if (!map.is_valid(h)) ++invalid_count;
+        if (!map.is_valid(h))
+        {
+            ++invalid_count;
+        }
     }
-    
-    std::cout << "    Erased handles correctly invalidated: " 
-              << invalid_count << "/" << old_handles.size();
+
+    std::cout << "    Erased handles correctly invalidated: " << invalid_count << "/" << old_handles.size();
     if (invalid_count == old_handles.size())
     {
         std::cout << " [PASS]\n";
@@ -2018,22 +2104,24 @@ void benchmark_aba_safety()
     {
         std::cout << " [FAIL]\n";
     }
-    
+
     // Reinsert (should reuse slots)
     for (size_t i = 0; i < N / 2; ++i)
     {
         handles[i] = map.insert(TestValue(static_cast<int64_t>(i + N)));
     }
-    
+
     // Old handles should STILL be invalid (generation changed)
     size_t still_invalid = 0;
     for (const auto& h : old_handles)
     {
-        if (!map.is_valid(h)) ++still_invalid;
+        if (!map.is_valid(h))
+        {
+            ++still_invalid;
+        }
     }
-    
-    std::cout << "    Old handles invalid after slot reuse: " 
-              << still_invalid << "/" << old_handles.size();
+
+    std::cout << "    Old handles invalid after slot reuse: " << still_invalid << "/" << old_handles.size();
     if (still_invalid == old_handles.size())
     {
         std::cout << " [PASS]\n";
@@ -2042,14 +2130,17 @@ void benchmark_aba_safety()
     {
         std::cout << " [FAIL - ABA VULNERABILITY!]\n";
     }
-    
+
     // New handles should be valid
     size_t new_valid = 0;
     for (size_t i = 0; i < N; ++i)
     {
-        if (map.is_valid(handles[i])) ++new_valid;
+        if (map.is_valid(handles[i]))
+        {
+            ++new_valid;
+        }
     }
-    
+
     std::cout << "    New handles valid: " << new_valid << "/" << N;
     if (new_valid == N)
     {
@@ -2065,10 +2156,10 @@ void benchmark_aba_safety()
 
 #if HAS_ENTT
     std::cout << "\n  Testing entt::registry ABA protection:\n";
-    
+
     entt::basic_registry<entt::entity> registry;
     constexpr size_t N_ENTT = 10000;
-    
+
     std::vector<entt::entity> entities;
     entities.reserve(N_ENTT);
     for (size_t i = 0; i < N_ENTT; ++i)
@@ -2077,26 +2168,28 @@ void benchmark_aba_safety()
         registry.emplace<TestValue>(e, TestValue(static_cast<int64_t>(i)));
         entities.push_back(e);
     }
-    
+
     std::vector<entt::entity> old_entities;
     for (size_t i = 0; i < N_ENTT / 2; ++i)
     {
         old_entities.push_back(entities[i]);
     }
-    
+
     for (size_t i = 0; i < N_ENTT / 2; ++i)
     {
         registry.destroy(entities[i]);
     }
-    
+
     size_t invalid_count_entt = 0;
     for (const auto& e : old_entities)
     {
-        if (!registry.valid(e)) ++invalid_count_entt;
+        if (!registry.valid(e))
+        {
+            ++invalid_count_entt;
+        }
     }
-    
-    std::cout << "    Destroyed entities correctly invalidated: " 
-              << invalid_count_entt << "/" << old_entities.size();
+
+    std::cout << "    Destroyed entities correctly invalidated: " << invalid_count_entt << "/" << old_entities.size();
     if (invalid_count_entt == old_entities.size())
     {
         std::cout << " [PASS]\n";
@@ -2118,7 +2211,7 @@ void benchmark_iteration_speed()
     std::cout << "================================================================================\n";
     std::cout << "  SECTION 3: Iteration Speed (Dense Storage Advantage)\n";
     std::cout << "================================================================================\n";
-    
+
     print_cpu_context("Section start");
 
     std::vector<std::unique_ptr<ISlotMapAdapter>> adapters;
@@ -2193,8 +2286,7 @@ void benchmark_iteration_speed()
         for (const auto& r : results)
         {
             auto stats = Statistics::compute(r.samples);
-            std::cout << "    " << std::setw(24) << r.library << ": "
-                      << std::setw(8) << stats.median << " ns/op "
+            std::cout << "    " << std::setw(24) << r.library << ": " << std::setw(8) << stats.median << " ns/op "
                       << "(+/-" << std::setw(6) << stats.stddev << ")\n";
         }
     }
@@ -2210,7 +2302,7 @@ void benchmark_mixed_workload()
     std::cout << "================================================================================\n";
     std::cout << "  SECTION 4: Mixed Workload (Insert/Access/Erase Interleaved)\n";
     std::cout << "================================================================================\n";
-    
+
     print_cpu_context("Section start");
 
     std::vector<std::unique_ptr<ISlotMapAdapter>> adapters;
@@ -2282,8 +2374,7 @@ void benchmark_mixed_workload()
         for (const auto& r : results)
         {
             auto stats = Statistics::compute(r.samples);
-            std::cout << "    " << std::setw(24) << r.library << ": "
-                      << std::setw(8) << stats.median << " ns/op "
+            std::cout << "    " << std::setw(24) << r.library << ": " << std::setw(8) << stats.median << " ns/op "
                       << "(+/-" << std::setw(6) << stats.stddev << ")\n";
         }
     }
@@ -2340,7 +2431,7 @@ void print_memory_comparison()
     {
         (void)slotmap.insert(TestValue(static_cast<int64_t>(i)));
     }
-    
+
     std::cout << "  fat_p::SlotMap<TestValue> with " << N << " elements:\n";
     std::cout << "    size():        " << slotmap.size() << "\n";
     std::cout << "    capacity():    " << slotmap.capacity() << "\n";
@@ -2355,7 +2446,8 @@ void print_memory_comparison()
 
 int main(int argc, char* argv[])
 {
-    (void)argc; (void)argv;
+    (void)argc;
+    (void)argv;
 
     // Load configuration from FATP_BENCH_* environment variables
     g_config = fat_p::bench::BenchConfig::fromEnv();
@@ -2366,15 +2458,15 @@ int main(int argc, char* argv[])
     std::cout << "================================================================================\n";
     std::cout << "  SlotMap Comprehensive Benchmark Suite\n";
     std::cout << "================================================================================\n";
-    
+
     std::cout << "\nPlatform: ";
 #if defined(_WIN32) || defined(_WIN64)
     std::cout << "Windows";
 #else
     std::cout << "Linux";
 #endif
-    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() 
-              << ", seed=" << g_config.seed << ")\n";
+    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << ", seed=" << g_config.seed
+              << ")\n";
 
     std::cout << "\nLibraries detected:\n";
 #if HAS_FATP_SLOTMAP

@@ -200,16 +200,16 @@ FATP_TEST_CASE(config_defaults)
 {
     using namespace fat_p::bench;
 
-    // Clear relevant env vars to ensure defaults
-    #if defined(_WIN32)
+// Clear relevant env vars to ensure defaults
+#if defined(_WIN32)
     _putenv("FATP_BENCH_WARMUP_RUNS=");
     _putenv("FATP_BENCH_BATCHES=");
     _putenv("FATP_BENCH_SEED=");
-    #else
+#else
     unsetenv("FATP_BENCH_WARMUP_RUNS");
     unsetenv("FATP_BENCH_BATCHES");
     unsetenv("FATP_BENCH_SEED");
-    #endif
+#endif
 
     BenchConfig cfg = BenchConfig::fromEnv();
 
@@ -286,16 +286,17 @@ FATP_TEST_CASE(spin_barrier_multi_thread)
 
     for (unsigned int i = 0; i < kNumThreads; ++i)
     {
-        threads.emplace_back([&]()
-        {
-            counter.fetch_add(1, std::memory_order_relaxed);
-            barrier.wait();
-            // After barrier, all threads should have incremented
-            if (counter.load(std::memory_order_relaxed) == kNumThreads)
+        threads.emplace_back(
+            [&]()
             {
-                allArrived.store(true, std::memory_order_relaxed);
-            }
-        });
+                counter.fetch_add(1, std::memory_order_relaxed);
+                barrier.wait();
+                // After barrier, all threads should have incremented
+                if (counter.load(std::memory_order_relaxed) == kNumThreads)
+                {
+                    allArrived.store(true, std::memory_order_relaxed);
+                }
+            });
     }
 
     for (auto& t : threads)
@@ -321,16 +322,17 @@ FATP_TEST_CASE(spin_barrier_reuse)
 
     for (unsigned int i = 0; i < kNumThreads; ++i)
     {
-        threads.emplace_back([&]()
-        {
-            // Phase 1
-            barrier.wait();
-            phase.fetch_add(1, std::memory_order_relaxed);
+        threads.emplace_back(
+            [&]()
+            {
+                // Phase 1
+                barrier.wait();
+                phase.fetch_add(1, std::memory_order_relaxed);
 
-            // Phase 2 - reuse barrier
-            barrier.wait();
-            phase.fetch_add(1, std::memory_order_relaxed);
-        });
+                // Phase 2 - reuse barrier
+                barrier.wait();
+                phase.fetch_add(1, std::memory_order_relaxed);
+            });
     }
 
     for (auto& t : threads)
@@ -369,17 +371,14 @@ FATP_TEST_CASE(runner_section_and_contract)
     std::ostringstream oss;
     auto oldBuf = std::cout.rdbuf(oss.rdbuf());
 
-    runner.section("TEST SECTION")
-          .contract("This is a test contract");
+    runner.section("TEST SECTION").contract("This is a test contract");
 
     std::cout.rdbuf(oldBuf);
 
     std::string output = oss.str();
-    FATP_ASSERT_TRUE(output.find("TEST SECTION") != std::string::npos,
-                "Output should contain section name");
-    FATP_ASSERT_TRUE(output.find("Contract:") != std::string::npos ||
-                output.find("test contract") != std::string::npos,
-                "Output should contain contract");
+    FATP_ASSERT_TRUE(output.find("TEST SECTION") != std::string::npos, "Output should contain section name");
+    FATP_ASSERT_TRUE(output.find("Contract:") != std::string::npos || output.find("test contract") != std::string::npos,
+                     "Output should contain contract");
 
     return true;
 }
@@ -391,10 +390,11 @@ FATP_TEST_CASE(runner_add_benchmark)
     BenchmarkRunner runner = makeTestRunner("TestRunner");
 
     int callCount = 0;
-    runner.add("test_bench", [&]()
-    {
-        ++callCount;
-    });
+    runner.add("test_bench",
+               [&]()
+               {
+                   ++callCount;
+               });
 
     // Suppress output during test
     std::ostringstream devnull;
@@ -416,11 +416,12 @@ FATP_TEST_CASE(runner_results)
 
     BenchmarkRunner runner = makeTestRunner("TestRunner");
 
-    runner.add("simple_add", []()
-    {
-        volatile int x = 1 + 1;
-        DoNotOptimize(x);
-    });
+    runner.add("simple_add",
+               []()
+               {
+                   volatile int x = 1 + 1;
+                   DoNotOptimize(x);
+               });
 
     // Suppress output during test
     std::ostringstream devnull;
@@ -457,9 +458,8 @@ FATP_TEST_CASE(format_time_microseconds)
     using namespace fat_p::bench;
 
     std::string result = formatTime(5000.0);
-    FATP_ASSERT_TRUE(result.find("us") != std::string::npos ||
-                result.find("µs") != std::string::npos,
-                "Should format as microseconds");
+    FATP_ASSERT_TRUE(result.find("us") != std::string::npos || result.find("µs") != std::string::npos,
+                     "Should format as microseconds");
 
     return true;
 }
@@ -522,19 +522,33 @@ FATP_TEST_CASE(adapter_interface)
         bool mTeardownCalled = false;
 
     public:
-        const char* name() const override { return "TestAdapter"; }
+        const char* name() const override
+        {
+            return "TestAdapter";
+        }
 
-        void setup(std::size_t) override { mSetupCalled = true; }
-        void teardown() override { mTeardownCalled = true; }
+        void setup(std::size_t) override
+        {
+            mSetupCalled = true;
+        }
+        void teardown() override
+        {
+            mTeardownCalled = true;
+        }
 
-        bool wasSetupCalled() const { return mSetupCalled; }
-        bool wasTeardownCalled() const { return mTeardownCalled; }
+        bool wasSetupCalled() const
+        {
+            return mSetupCalled;
+        }
+        bool wasTeardownCalled() const
+        {
+            return mTeardownCalled;
+        }
     };
 
     TestAdapter adapter;
 
-    FATP_ASSERT_EQ(std::string(adapter.name()), std::string("TestAdapter"),
-              "Adapter should return correct name");
+    FATP_ASSERT_EQ(std::string(adapter.name()), std::string("TestAdapter"), "Adapter should return correct name");
 
     adapter.setup(100);
     FATP_ASSERT_TRUE(adapter.wasSetupCalled(), "setup() should have been called");
@@ -594,10 +608,8 @@ FATP_TEST_CASE(print_section_header)
     printSectionHeader(oss, "MY SECTION");
 
     std::string output = oss.str();
-    FATP_ASSERT_TRUE(output.find("MY SECTION") != std::string::npos,
-                "Section header should contain section name");
-    FATP_ASSERT_TRUE(output.find("===") != std::string::npos,
-                "Section header should have separator lines");
+    FATP_ASSERT_TRUE(output.find("MY SECTION") != std::string::npos, "Section header should contain section name");
+    FATP_ASSERT_TRUE(output.find("===") != std::string::npos, "Section header should have separator lines");
 
     return true;
 }
@@ -610,10 +622,8 @@ FATP_TEST_CASE(print_contract)
     printContract(oss, "Test contract message");
 
     std::string output = oss.str();
-    FATP_ASSERT_TRUE(output.find("Contract:") != std::string::npos,
-                "Should contain Contract: label");
-    FATP_ASSERT_TRUE(output.find("Test contract message") != std::string::npos,
-                "Should contain the contract text");
+    FATP_ASSERT_TRUE(output.find("Contract:") != std::string::npos, "Should contain Contract: label");
+    FATP_ASSERT_TRUE(output.find("Test contract message") != std::string::npos, "Should contain the contract text");
 
     return true;
 }
@@ -626,8 +636,7 @@ void run_benchmarks()
 {
     using namespace fat_p::bench;
 
-    std::cout << colors::cyan() << "\nBenchmarkRunner Infrastructure Benchmarks:"
-              << colors::reset() << "\n";
+    std::cout << colors::cyan() << "\nBenchmarkRunner Infrastructure Benchmarks:" << colors::reset() << "\n";
 
     // Benchmark Timer overhead
     {
@@ -665,12 +674,12 @@ void run_benchmarks()
         {
             std::vector<double> copy = samples;
             Statistics stats = Statistics::compute(std::move(copy));
-            dummy = stats.median;  // Prevent optimization
+            dummy = stats.median; // Prevent optimization
         }
         double total = timer.elapsedNs();
 
-        std::cout << "  Statistics::compute(" << kSamples << " samples): "
-                  << formatTime(total / kIterations) << "/call\n";
+        std::cout << "  Statistics::compute(" << kSamples << " samples): " << formatTime(total / kIterations)
+                  << "/call\n";
         (void)dummy;
     }
 
@@ -688,8 +697,7 @@ void run_benchmarks()
         }
         double total = timer.elapsedNs();
 
-        std::cout << "  SpinBarrier::wait() (1 thread): "
-                  << formatTime(total / kIterations) << "/call\n";
+        std::cout << "  SpinBarrier::wait() (1 thread): " << formatTime(total / kIterations) << "/call\n";
     }
 }
 

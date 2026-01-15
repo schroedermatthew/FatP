@@ -37,15 +37,15 @@ FATP_META:
     mode: autogen
 */
 
+#include <atomic>
 #include <iostream>
+#include <stdexcept>
+#include <string>
 #include <thread>
 #include <vector>
-#include <stdexcept>
-#include <atomic>
-#include <string>
 
-#include "ObjectPool.h"
 #include "FatPTest.h"
+#include "ObjectPool.h"
 
 namespace fat_p::testing::objectpool
 {
@@ -60,8 +60,15 @@ struct TestObject
     static inline std::atomic<int> construct_count{0};
     static inline std::atomic<int> destruct_count{0};
 
-    TestObject(int v = 0) : value(v) { ++construct_count; }
-    ~TestObject() { ++destruct_count; }
+    TestObject(int v = 0)
+        : value(v)
+    {
+        ++construct_count;
+    }
+    ~TestObject()
+    {
+        ++destruct_count;
+    }
 
     static void reset()
     {
@@ -75,7 +82,8 @@ struct ThrowingObject
     static inline bool should_throw{false};
     int value;
 
-    ThrowingObject(int v = 0) : value(v)
+    ThrowingObject(int v = 0)
+        : value(v)
     {
         if (should_throw)
         {
@@ -90,7 +98,9 @@ struct ComplexObject
     std::string str;
 
     ComplexObject(int x, int y, std::string s)
-        : a(x), b(y), str(std::move(s))
+        : a(x)
+        , b(y)
+        , str(std::move(s))
     {
     }
 };
@@ -191,7 +201,7 @@ FATP_TEST_CASE(constructor_args)
 
     ComplexObject* obj = pool.acquire(10, 20, "test");
     FATP_ASSERT_TRUE(obj->a == 10 && obj->b == 20 && obj->str == "test",
-                  "Constructor args should be forwarded correctly");
+                     "Constructor args should be forwarded correctly");
 
     pool.release(obj);
 
@@ -510,7 +520,7 @@ FATP_TEST_CASE(constructor_exception_safety)
     bool caught = false;
     try
     {
-        (void)pool.acquire(2);  // Should throw, suppress [[nodiscard]] warning
+        (void)pool.acquire(2); // Should throw, suppress [[nodiscard]] warning
     }
     catch (const std::runtime_error&)
     {
@@ -521,7 +531,7 @@ FATP_TEST_CASE(constructor_exception_safety)
 
     auto stats_after = pool.stats();
     FATP_ASSERT_TRUE(stats_after.available == available_before,
-                  "Node should be restored to free list after constructor throws");
+                     "Node should be restored to free list after constructor throws");
 
     // Disable throwing and verify pool still works
     ThrowingObject::should_throw = false;
@@ -548,14 +558,16 @@ FATP_TEST_CASE(thread_safety)
 
     for (int i = 0; i < 4; ++i)
     {
-        threads.emplace_back([&pool, &total_ops]() {
-            for (int j = 0; j < 100; ++j)
+        threads.emplace_back(
+            [&pool, &total_ops]()
             {
-                TestObject* obj = pool.acquire(j);
-                pool.release(obj);
-                ++total_ops;
-            }
-        });
+                for (int j = 0; j < 100; ++j)
+                {
+                    TestObject* obj = pool.acquire(j);
+                    pool.release(obj);
+                    ++total_ops;
+                }
+            });
     }
 
     for (auto& t : threads)
@@ -576,13 +588,15 @@ FATP_TEST_CASE(thread_safe_alias)
     std::vector<std::thread> threads;
     for (int i = 0; i < 2; ++i)
     {
-        threads.emplace_back([&pool]() {
-            for (int j = 0; j < 50; ++j)
+        threads.emplace_back(
+            [&pool]()
             {
-                TestObject* obj = pool.acquire(j);
-                pool.release(obj);
-            }
-        });
+                for (int j = 0; j < 50; ++j)
+                {
+                    TestObject* obj = pool.acquire(j);
+                    pool.release(obj);
+                }
+            });
     }
 
     for (auto& t : threads)
@@ -630,7 +644,7 @@ FATP_TEST_CASE(exhaust_and_grow)
 
     TestObject* obj1 = pool.acquire();
     TestObject* obj2 = pool.acquire();
-    TestObject* obj3 = pool.acquire();  // Should trigger new block
+    TestObject* obj3 = pool.acquire(); // Should trigger new block
 
     FATP_ASSERT_TRUE(obj1 && obj2 && obj3, "Should handle pool exhaustion by growing");
     FATP_ASSERT_TRUE(pool.num_blocks() >= 2, "Should have allocated new block");
@@ -662,37 +676,55 @@ void benchmark_objectpool()
     ObjectPool<TestObject> pool(64);
 
     // Benchmark acquire + release
-    double pool_time = measure_perf([&pool]() {
-        TestObject* obj = pool.acquire(42);
-        pool.release(obj);
-    }, 100000, 1000);
+    double pool_time = measure_perf(
+        [&pool]()
+        {
+            TestObject* obj = pool.acquire(42);
+            pool.release(obj);
+        },
+        100000,
+        1000);
     std::cout << "Pool acquire + release: " << format_time(pool_time) << "\n";
 
     // Benchmark new + delete for comparison
-    double new_time = measure_perf([]() {
-        TestObject* obj = new TestObject(42);
-        delete obj;
-    }, 100000, 1000);
+    double new_time = measure_perf(
+        []()
+        {
+            TestObject* obj = new TestObject(42);
+            delete obj;
+        },
+        100000,
+        1000);
     std::cout << "new + delete:           " << format_time(new_time) << "\n";
 
     if (pool_time > 0)
     {
-        std::cout << "Speedup: " << std::fixed << std::setprecision(1)
-                  << (new_time / pool_time) << "x\n";
+        std::cout << "Speedup: " << std::fixed << std::setprecision(1) << (new_time / pool_time) << "x\n";
     }
 
     // Benchmark try_acquire
-    double try_time = measure_perf([&pool]() {
-        TestObject* obj = pool.try_acquire(42);
-        if (obj) pool.release(obj);
-    }, 100000, 1000);
+    double try_time = measure_perf(
+        [&pool]()
+        {
+            TestObject* obj = pool.try_acquire(42);
+            if (obj)
+            {
+                pool.release(obj);
+            }
+        },
+        100000,
+        1000);
     std::cout << "try_acquire + release:  " << format_time(try_time) << "\n";
 
     // Benchmark stats() (cold path)
-    double stats_time = measure_perf([&pool]() {
-        auto s = pool.stats();
-        (void)s;
-    }, 10000, 100);
+    double stats_time = measure_perf(
+        [&pool]()
+        {
+            auto s = pool.stats();
+            (void)s;
+        },
+        10000,
+        100);
     std::cout << "stats() (cold path):    " << format_time(stats_time) << "\n";
 }
 

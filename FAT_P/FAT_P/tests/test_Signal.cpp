@@ -27,14 +27,14 @@ FATP_META:
     mode: autogen
 */
 
-#include <iostream>
-#include <vector>
-#include <thread>
 #include <atomic>
 #include <chrono>
+#include <iostream>
+#include <thread>
+#include <vector>
 
-#include "Signal.h"
 #include "FatPTest.h"
+#include "Signal.h"
 
 namespace fat_p::testing::signal
 {
@@ -44,7 +44,11 @@ FATP_TEST_CASE(basic_connection)
     Signal<void(int)> sig;
     int receivedValue = 0;
 
-    auto conn = sig.connect([&](int v) { receivedValue = v; });
+    auto conn = sig.connect(
+        [&](int v)
+        {
+            receivedValue = v;
+        });
 
     sig.emit(42);
     FATP_ASSERT_EQ(receivedValue, 42, "Should receive emitted value");
@@ -57,9 +61,21 @@ FATP_TEST_CASE(multiple_connections)
     Signal<void(int)> sig;
     std::vector<int> values;
 
-    auto c1 = sig.connect([&](int v) { values.push_back(v); });
-    auto c2 = sig.connect([&](int v) { values.push_back(v * 2); });
-    auto c3 = sig.connect([&](int v) { values.push_back(v * 3); });
+    auto c1 = sig.connect(
+        [&](int v)
+        {
+            values.push_back(v);
+        });
+    auto c2 = sig.connect(
+        [&](int v)
+        {
+            values.push_back(v * 2);
+        });
+    auto c3 = sig.connect(
+        [&](int v)
+        {
+            values.push_back(v * 3);
+        });
 
     sig.emit(10);
 
@@ -76,7 +92,11 @@ FATP_TEST_CASE(manual_connect_disconnect)
     Signal<void(int)> sig;
     int count = 0;
 
-    ConnectionId id = sig.connectManual([&](int) { ++count; });
+    ConnectionId id = sig.connectManual(
+        [&](int)
+        {
+            ++count;
+        });
 
     sig.emit(1);
     FATP_ASSERT_EQ(count, 1, "Should be called once");
@@ -95,7 +115,11 @@ FATP_TEST_CASE(call_operator)
     Signal<void(int, int)> sig;
     int sum = 0;
 
-    auto conn = sig.connect([&](int a, int b) { sum = a + b; });
+    auto conn = sig.connect(
+        [&](int a, int b)
+        {
+            sum = a + b;
+        });
 
     sig(3, 4);
     FATP_ASSERT_EQ(sum, 7, "operator() should emit");
@@ -109,7 +133,11 @@ FATP_TEST_CASE(scoped_connection_raii)
     int callCount = 0;
 
     {
-        auto conn = sig.connect([&]() { ++callCount; });
+        auto conn = sig.connect(
+            [&]()
+            {
+                ++callCount;
+            });
         sig.emit();
         FATP_ASSERT_EQ(callCount, 1, "Should be called once");
     }
@@ -127,7 +155,11 @@ FATP_TEST_CASE(scoped_connection_move)
 
     ScopedConnection conn1;
     {
-        auto conn2 = sig.connect([&]() { ++callCount; });
+        auto conn2 = sig.connect(
+            [&]()
+            {
+                ++callCount;
+            });
         conn1 = std::move(conn2);
         FATP_ASSERT_FALSE(conn2.isConnected(), "Moved-from should be disconnected");
         FATP_ASSERT_TRUE(conn1.isConnected(), "Moved-to should be connected");
@@ -149,7 +181,11 @@ FATP_TEST_CASE(scoped_connection_release)
     int callCount = 0;
 
     {
-        auto conn = sig.connect([&]() { ++callCount; });
+        auto conn = sig.connect(
+            [&]()
+            {
+                ++callCount;
+            });
         conn.release();
         FATP_ASSERT_FALSE(conn.isConnected(), "Should be released");
     }
@@ -164,10 +200,30 @@ FATP_TEST_CASE(priority_ordering)
 {
     Signal<void(std::vector<int>&)> sig;
 
-    auto c1 = sig.connect([](std::vector<int>& v) { v.push_back(1); }, 10);
-    auto c2 = sig.connect([](std::vector<int>& v) { v.push_back(2); }, -5);
-    auto c3 = sig.connect([](std::vector<int>& v) { v.push_back(3); }, 5);
-    auto c4 = sig.connect([](std::vector<int>& v) { v.push_back(4); }, 0);
+    auto c1 = sig.connect(
+        [](std::vector<int>& v)
+        {
+            v.push_back(1);
+        },
+        10);
+    auto c2 = sig.connect(
+        [](std::vector<int>& v)
+        {
+            v.push_back(2);
+        },
+        -5);
+    auto c3 = sig.connect(
+        [](std::vector<int>& v)
+        {
+            v.push_back(3);
+        },
+        5);
+    auto c4 = sig.connect(
+        [](std::vector<int>& v)
+        {
+            v.push_back(4);
+        },
+        0);
 
     std::vector<int> order;
     sig.emit(order);
@@ -187,10 +243,12 @@ FATP_TEST_CASE(disconnect_during_emission)
     int callCount = 0;
     ConnectionId selfId;
 
-    selfId = sig.connectManual([&]() {
-        ++callCount;
-        sig.disconnect(selfId);
-    });
+    selfId = sig.connectManual(
+        [&]()
+        {
+            ++callCount;
+            sig.disconnect(selfId);
+        });
 
     sig.emit();
     FATP_ASSERT_EQ(callCount, 1, "Should be called once");
@@ -208,13 +266,19 @@ FATP_TEST_CASE(connect_during_emission)
     int newCount = 0;
     ScopedConnection newConn;
 
-    auto conn = sig.connect([&]() {
-        ++originalCount;
-        if (originalCount == 1)
+    auto conn = sig.connect(
+        [&]()
         {
-            newConn = sig.connect([&]() { ++newCount; });
-        }
-    });
+            ++originalCount;
+            if (originalCount == 1)
+            {
+                newConn = sig.connect(
+                    [&]()
+                    {
+                        ++newCount;
+                    });
+            }
+        });
 
     sig.emit();
     FATP_ASSERT_EQ(originalCount, 1, "Original called once");
@@ -231,13 +295,15 @@ FATP_TEST_CASE(nested_emission)
     Signal<void(int)> sig;
     std::vector<int> calls;
 
-    auto conn = sig.connect([&](int depth) {
-        calls.push_back(depth);
-        if (depth > 0)
+    auto conn = sig.connect(
+        [&](int depth)
         {
-            sig.emit(depth - 1);
-        }
-    });
+            calls.push_back(depth);
+            if (depth > 0)
+            {
+                sig.emit(depth - 1);
+            }
+        });
 
     sig.emit(3);
 
@@ -291,9 +357,21 @@ FATP_TEST_CASE(disconnect_all)
     Signal<void()> sig;
     int count = 0;
 
-    auto c1 = sig.connect([&]() { ++count; });
-    auto c2 = sig.connect([&]() { ++count; });
-    auto c3 = sig.connect([&]() { ++count; });
+    auto c1 = sig.connect(
+        [&]()
+        {
+            ++count;
+        });
+    auto c2 = sig.connect(
+        [&]()
+        {
+            ++count;
+        });
+    auto c3 = sig.connect(
+        [&]()
+        {
+            ++count;
+        });
 
     sig.emit();
     FATP_ASSERT_EQ(count, 3, "Should call all 3 slots");
@@ -341,9 +419,21 @@ FATP_TEST_CASE(catch_and_ignore_policy)
     Signal<void(), SingleThreadedPolicy, CatchAndIgnorePolicy> sig;
     int count = 0;
 
-    auto c1 = sig.connect([&]() { ++count; });
-    auto c2 = sig.connect([]() { throw std::runtime_error("Oops!"); });
-    auto c3 = sig.connect([&]() { ++count; });
+    auto c1 = sig.connect(
+        [&]()
+        {
+            ++count;
+        });
+    auto c2 = sig.connect(
+        []()
+        {
+            throw std::runtime_error("Oops!");
+        });
+    auto c3 = sig.connect(
+        [&]()
+        {
+            ++count;
+        });
 
     sig.emit();
 
@@ -357,9 +447,21 @@ FATP_TEST_CASE(propagate_exception_policy)
     Signal<void(), SingleThreadedPolicy, PropagateExceptionPolicy> sig;
     int count = 0;
 
-    auto c1 = sig.connect([&]() { ++count; });
-    auto c2 = sig.connect([]() { throw std::runtime_error("Expected"); });
-    auto c3 = sig.connect([&]() { ++count; });
+    auto c1 = sig.connect(
+        [&]()
+        {
+            ++count;
+        });
+    auto c2 = sig.connect(
+        []()
+        {
+            throw std::runtime_error("Expected");
+        });
+    auto c3 = sig.connect(
+        [&]()
+        {
+            ++count;
+        });
 
     bool caught = false;
     try
@@ -369,8 +471,7 @@ FATP_TEST_CASE(propagate_exception_policy)
     catch (const std::runtime_error& e)
     {
         caught = true;
-        FATP_ASSERT_NE(std::string(e.what()).find("Expected"), std::string::npos,
-                      "Should catch expected exception");
+        FATP_ASSERT_NE(std::string(e.what()).find("Expected"), std::string::npos, "Should catch expected exception");
     }
 
     FATP_ASSERT_TRUE(caught, "Exception should propagate");
@@ -383,9 +484,21 @@ FATP_TEST_CASE(emit_collect)
 {
     Signal<int(int), SingleThreadedPolicy, CatchAndIgnorePolicy> sig;
 
-    auto c1 = sig.connect([](int x) { return x * 1; });
-    auto c2 = sig.connect([](int x) { return x * 2; });
-    auto c3 = sig.connect([](int x) { return x * 3; });
+    auto c1 = sig.connect(
+        [](int x)
+        {
+            return x * 1;
+        });
+    auto c2 = sig.connect(
+        [](int x)
+        {
+            return x * 2;
+        });
+    auto c3 = sig.connect(
+        [](int x)
+        {
+            return x * 3;
+        });
 
     auto results = sig.emitCollect(10);
 
@@ -401,9 +514,21 @@ FATP_TEST_CASE(emit_collect_with_exceptions)
 {
     Signal<int(int), SingleThreadedPolicy, CatchAndIgnorePolicy> sig;
 
-    auto c1 = sig.connect([](int x) { return x * 1; });
-    auto c2 = sig.connect([](int) -> int { throw std::runtime_error("Skip"); });
-    auto c3 = sig.connect([](int x) { return x * 3; });
+    auto c1 = sig.connect(
+        [](int x)
+        {
+            return x * 1;
+        });
+    auto c2 = sig.connect(
+        [](int) -> int
+        {
+            throw std::runtime_error("Skip");
+        });
+    auto c3 = sig.connect(
+        [](int x)
+        {
+            return x * 3;
+        });
 
     auto results = sig.emitCollect(10);
 
@@ -419,9 +544,24 @@ FATP_TEST_CASE(emit_collect_propagate_exception)
     Signal<int(int), SingleThreadedPolicy, PropagateExceptionPolicy> sig;
     int callCount = 0;
 
-    auto c1 = sig.connect([&](int x) { ++callCount; return x * 1; });
-    auto c2 = sig.connect([&](int) -> int { ++callCount; throw std::runtime_error("Stop"); });
-    auto c3 = sig.connect([&](int x) { ++callCount; return x * 3; });
+    auto c1 = sig.connect(
+        [&](int x)
+        {
+            ++callCount;
+            return x * 1;
+        });
+    auto c2 = sig.connect(
+        [&](int) -> int
+        {
+            ++callCount;
+            throw std::runtime_error("Stop");
+        });
+    auto c3 = sig.connect(
+        [&](int x)
+        {
+            ++callCount;
+            return x * 3;
+        });
 
     bool caught = false;
     try
@@ -446,9 +586,24 @@ FATP_TEST_CASE(emit_until)
     Signal<bool(int), SingleThreadedPolicy, CatchAndIgnorePolicy> sig;
     int callCount = 0;
 
-    auto c1 = sig.connect([&](int x) { ++callCount; return x > 10; });
-    auto c2 = sig.connect([&](int x) { ++callCount; return x > 5; });
-    auto c3 = sig.connect([&](int) { ++callCount; return true; });
+    auto c1 = sig.connect(
+        [&](int x)
+        {
+            ++callCount;
+            return x > 10;
+        });
+    auto c2 = sig.connect(
+        [&](int x)
+        {
+            ++callCount;
+            return x > 5;
+        });
+    auto c3 = sig.connect(
+        [&](int)
+        {
+            ++callCount;
+            return true;
+        });
 
     bool result = sig.emitUntil(7);
 
@@ -463,8 +618,18 @@ FATP_TEST_CASE(emit_until_with_exceptions)
     Signal<bool(int), SingleThreadedPolicy, CatchAndIgnorePolicy> sig;
     int callCount = 0;
 
-    auto c1 = sig.connect([&](int) -> bool { ++callCount; throw std::runtime_error("Skip"); });
-    auto c2 = sig.connect([&](int) { ++callCount; return true; });
+    auto c1 = sig.connect(
+        [&](int) -> bool
+        {
+            ++callCount;
+            throw std::runtime_error("Skip");
+        });
+    auto c2 = sig.connect(
+        [&](int)
+        {
+            ++callCount;
+            return true;
+        });
 
     bool result = sig.emitUntil(5);
 
@@ -479,9 +644,11 @@ FATP_TEST_CASE(thread_safe_emission)
     ThreadSafeSignal<void(int)> sig;
     std::atomic<int> total{0};
 
-    auto conn = sig.connect([&](int v) {
-        total.fetch_add(v, std::memory_order_relaxed);
-    });
+    auto conn = sig.connect(
+        [&](int v)
+        {
+            total.fetch_add(v, std::memory_order_relaxed);
+        });
 
     std::vector<std::thread> threads;
     constexpr int numThreads = 4;
@@ -489,12 +656,14 @@ FATP_TEST_CASE(thread_safe_emission)
 
     for (int i = 0; i < numThreads; ++i)
     {
-        threads.emplace_back([&]() {
-            for (int j = 0; j < emitsPerThread; ++j)
+        threads.emplace_back(
+            [&]()
             {
-                sig.emit(1);
-            }
-        });
+                for (int j = 0; j < emitsPerThread; ++j)
+                {
+                    sig.emit(1);
+                }
+            });
     }
 
     for (auto& t : threads)
@@ -502,8 +671,7 @@ FATP_TEST_CASE(thread_safe_emission)
         t.join();
     }
 
-    FATP_ASSERT_EQ(total.load(), numThreads * emitsPerThread,
-                  "All emissions should be counted");
+    FATP_ASSERT_EQ(total.load(), numThreads * emitsPerThread, "All emissions should be counted");
 
     return true;
 }
@@ -514,21 +682,25 @@ FATP_TEST_CASE(concurrent_connect_disconnect)
     std::atomic<bool> running{true};
     std::atomic<int> emitCount{0};
 
-    std::thread emitter([&]() {
-        while (running.load())
+    std::thread emitter(
+        [&]()
         {
-            sig.emit();
-            emitCount.fetch_add(1);
-        }
-    });
+            while (running.load())
+            {
+                sig.emit();
+                emitCount.fetch_add(1);
+            }
+        });
 
-    std::thread modifier([&]() {
-        for (int i = 0; i < 100; ++i)
+    std::thread modifier(
+        [&]()
         {
-            auto conn = sig.connect([]() {});
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
-        }
-    });
+            for (int i = 0; i < 100; ++i)
+            {
+                auto conn = sig.connect([]() {});
+                std::this_thread::sleep_for(std::chrono::microseconds(10));
+            }
+        });
 
     modifier.join();
     running.store(false);
@@ -545,10 +717,12 @@ FATP_TEST_CASE(thread_safe_disconnect_during_emission)
     std::atomic<int> callCount{0};
     ConnectionId selfId;
 
-    selfId = sig.connectManual([&]() {
-        callCount.fetch_add(1);
-        sig.disconnect(selfId);
-    });
+    selfId = sig.connectManual(
+        [&]()
+        {
+            callCount.fetch_add(1);
+            sig.disconnect(selfId);
+        });
 
     sig.emit();
     FATP_ASSERT_EQ(callCount.load(), 1, "Should be called once");
@@ -574,7 +748,11 @@ FATP_TEST_CASE(inline_storage_efficiency)
     FATP_ASSERT_EQ(sig.slotCount(), 5, "Should have 5 slots");
 
     int count = 0;
-    auto verifier = sig.connect([&]() { ++count; });
+    auto verifier = sig.connect(
+        [&]()
+        {
+            ++count;
+        });
     sig.emit();
     FATP_ASSERT_EQ(count, 1, "Verifier should be called");
 
@@ -586,11 +764,23 @@ FATP_TEST_CASE(custom_inline_capacity_small)
     Signal<void(), SingleThreadedPolicy, CatchAndIgnorePolicy, 1> sig;
     int count = 0;
 
-    auto c1 = sig.connect([&]() { ++count; });
+    auto c1 = sig.connect(
+        [&]()
+        {
+            ++count;
+        });
     FATP_ASSERT_EQ(sig.slotCount(), 1, "Should have 1 slot");
 
-    auto c2 = sig.connect([&]() { ++count; });
-    auto c3 = sig.connect([&]() { ++count; });
+    auto c2 = sig.connect(
+        [&]()
+        {
+            ++count;
+        });
+    auto c3 = sig.connect(
+        [&]()
+        {
+            ++count;
+        });
     FATP_ASSERT_EQ(sig.slotCount(), 3, "Should have 3 slots after overflow");
 
     sig.emit();
@@ -607,7 +797,11 @@ FATP_TEST_CASE(custom_inline_capacity_large)
     std::vector<ScopedConnection> conns;
     for (int i = 0; i < 8; ++i)
     {
-        conns.push_back(sig.connect([&]() { ++count; }));
+        conns.push_back(sig.connect(
+            [&]()
+            {
+                ++count;
+            }));
     }
     FATP_ASSERT_EQ(sig.slotCount(), 8, "Should have 8 slots");
 
@@ -622,19 +816,23 @@ FATP_TEST_CASE(spinlock_signal)
     SpinlockSignal<void(int)> sig;
     std::atomic<int> total{0};
 
-    auto conn = sig.connect([&](int v) {
-        total.fetch_add(v, std::memory_order_relaxed);
-    });
+    auto conn = sig.connect(
+        [&](int v)
+        {
+            total.fetch_add(v, std::memory_order_relaxed);
+        });
 
     std::vector<std::thread> threads;
     for (int i = 0; i < 4; ++i)
     {
-        threads.emplace_back([&]() {
-            for (int j = 0; j < 100; ++j)
+        threads.emplace_back(
+            [&]()
             {
-                sig.emit(1);
-            }
-        });
+                for (int j = 0; j < 100; ++j)
+                {
+                    sig.emit(1);
+                }
+            });
     }
 
     for (auto& t : threads)
@@ -652,7 +850,11 @@ FATP_TEST_CASE(local_signal_alias)
     LocalSignal<void(int)> sig;
     int value = 0;
 
-    auto conn = sig.connect([&](int v) { value = v; });
+    auto conn = sig.connect(
+        [&](int v)
+        {
+            value = v;
+        });
     sig.emit(42);
 
     FATP_ASSERT_EQ(value, 42, "LocalSignal should work");
@@ -689,19 +891,23 @@ FATP_TEST_CASE(double_disconnect_during_emission)
 
     targetId = sig.connectManual([]() {});
 
-    auto c1 = sig.connect([&]() {
-        if (sig.disconnect(targetId))
+    auto c1 = sig.connect(
+        [&]()
         {
-            ++disconnectCount;
-        }
-    });
+            if (sig.disconnect(targetId))
+            {
+                ++disconnectCount;
+            }
+        });
 
-    auto c2 = sig.connect([&]() {
-        if (sig.disconnect(targetId))
+    auto c2 = sig.connect(
+        [&]()
         {
-            ++disconnectCount;
-        }
-    });
+            if (sig.disconnect(targetId))
+            {
+                ++disconnectCount;
+            }
+        });
 
     sig.emit();
     FATP_ASSERT_EQ(disconnectCount, 1, "Only one disconnect should succeed");
@@ -724,7 +930,11 @@ FATP_TEST_CASE(move_signal)
     Signal<void()> sig1;
     int count = 0;
 
-    auto conn = sig1.connect([&]() { ++count; });
+    auto conn = sig1.connect(
+        [&]()
+        {
+            ++count;
+        });
     sig1.emit();
     FATP_ASSERT_EQ(count, 1, "Should be called once");
 
@@ -742,8 +952,16 @@ FATP_TEST_CASE(move_assignment)
     int count1 = 0;
     int count2 = 0;
 
-    auto conn1 = sig1.connect([&]() { ++count1; });
-    auto conn2 = sig2.connect([&]() { ++count2; });
+    auto conn1 = sig1.connect(
+        [&]()
+        {
+            ++count1;
+        });
+    auto conn2 = sig2.connect(
+        [&]()
+        {
+            ++count2;
+        });
 
     sig1.emit();
     sig2.emit();
@@ -781,7 +999,11 @@ FATP_TEST_CASE(many_slots_performance)
 
     for (int i = 0; i < 100; ++i)
     {
-        connections.push_back(sig.connect([&]() { ++count; }));
+        connections.push_back(sig.connect(
+            [&]()
+            {
+                ++count;
+            }));
     }
 
     FATP_ASSERT_EQ(sig.slotCount(), 100, "Should have 100 slots");
@@ -799,27 +1021,55 @@ void benchmark_signal()
     Signal<void(int)> sig;
     int dummy = 0;
 
-    auto conn = sig.connect([&](int v) { dummy += v; });
+    auto conn = sig.connect(
+        [&](int v)
+        {
+            dummy += v;
+        });
 
-    double emit_time = measure_perf([&sig]() {
-        sig.emit(1);
-    }, 100000, 1000);
+    double emit_time = measure_perf(
+        [&sig]()
+        {
+            sig.emit(1);
+        },
+        100000,
+        1000);
     std::cout << "Emit (1 slot): " << format_time(emit_time) << "\n";
 
-    auto c2 = sig.connect([&](int v) { dummy += v; });
-    auto c3 = sig.connect([&](int v) { dummy += v; });
-    auto c4 = sig.connect([&](int v) { dummy += v; });
+    auto c2 = sig.connect(
+        [&](int v)
+        {
+            dummy += v;
+        });
+    auto c3 = sig.connect(
+        [&](int v)
+        {
+            dummy += v;
+        });
+    auto c4 = sig.connect(
+        [&](int v)
+        {
+            dummy += v;
+        });
 
-    double emit4_time = measure_perf([&sig]() {
-        sig.emit(1);
-    }, 100000, 1000);
+    double emit4_time = measure_perf(
+        [&sig]()
+        {
+            sig.emit(1);
+        },
+        100000,
+        1000);
     std::cout << "Emit (4 slots): " << format_time(emit4_time) << "\n";
 
     Signal<void()> connSig;
-    double connect_time = measure_perf([&connSig]() {
-        auto c = connSig.connect([]() {});
-        DoNotOptimize(c);
-    }, 10000, 100);
+    double connect_time = measure_perf(
+        [&connSig]()
+        {
+            auto c = connSig.connect([]() {});
+            DoNotOptimize(c);
+        },
+        10000,
+        100);
     std::cout << "Connect: " << format_time(connect_time) << "\n";
 
     Signal<void()> disconnSig;
@@ -829,21 +1079,33 @@ void benchmark_signal()
         ids.push_back(disconnSig.connectManual([]() {}));
     }
     size_t idx = 0;
-    double disconnect_time = measure_perf([&disconnSig, &ids, &idx]() {
-        if (idx < ids.size())
+    double disconnect_time = measure_perf(
+        [&disconnSig, &ids, &idx]()
         {
-            disconnSig.disconnect(ids[idx++]);
-        }
-    }, 1000, 10);
+            if (idx < ids.size())
+            {
+                disconnSig.disconnect(ids[idx++]);
+            }
+        },
+        1000,
+        10);
     std::cout << "Disconnect: " << format_time(disconnect_time) << "\n";
 
     ThreadSafeSignal<void(int)> tsSig;
     int tsDummy = 0;
-    auto tsConn = tsSig.connect([&](int v) { tsDummy += v; });
+    auto tsConn = tsSig.connect(
+        [&](int v)
+        {
+            tsDummy += v;
+        });
 
-    double ts_emit_time = measure_perf([&tsSig]() {
-        tsSig.emit(1);
-    }, 100000, 1000);
+    double ts_emit_time = measure_perf(
+        [&tsSig]()
+        {
+            tsSig.emit(1);
+        },
+        100000,
+        1000);
     std::cout << "Emit (ThreadSafe, 1 slot): " << format_time(ts_emit_time) << "\n";
 
     DoNotOptimize(dummy);

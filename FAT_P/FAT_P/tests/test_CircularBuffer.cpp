@@ -258,17 +258,44 @@ FATP_TEST_CASE(clear_auto_destruct)
     struct NonTrivial
     {
         int value;
-        NonTrivial() : value(0) {}
-        NonTrivial(int v) : value(v) {}
-        NonTrivial(const NonTrivial& other) : value(other.value) {}
-        NonTrivial(NonTrivial&& other) noexcept : value(other.value) { other.value = -1; }
-        NonTrivial& operator=(const NonTrivial& other) { value = other.value; return *this; }
-        NonTrivial& operator=(NonTrivial&& other) noexcept { value = other.value; other.value = -1; return *this; }
-        ~NonTrivial() { if (value >= 0) ++destruct_count; }
+        NonTrivial()
+            : value(0)
+        {
+        }
+        NonTrivial(int v)
+            : value(v)
+        {
+        }
+        NonTrivial(const NonTrivial& other)
+            : value(other.value)
+        {
+        }
+        NonTrivial(NonTrivial&& other) noexcept
+            : value(other.value)
+        {
+            other.value = -1;
+        }
+        NonTrivial& operator=(const NonTrivial& other)
+        {
+            value = other.value;
+            return *this;
+        }
+        NonTrivial& operator=(NonTrivial&& other) noexcept
+        {
+            value = other.value;
+            other.value = -1;
+            return *this;
+        }
+        ~NonTrivial()
+        {
+            if (value >= 0)
+            {
+                ++destruct_count;
+            }
+        }
     };
 
-    static_assert(!std::is_trivially_destructible_v<NonTrivial>,
-                  "NonTrivial should not be trivially destructible");
+    static_assert(!std::is_trivially_destructible_v<NonTrivial>, "NonTrivial should not be trivially destructible");
 
     destruct_count = 0;
 
@@ -280,7 +307,7 @@ FATP_TEST_CASE(clear_auto_destruct)
         }
 
         int before = destruct_count;
-        buffer.clear();  // Should auto-destruct for non-trivial types
+        buffer.clear(); // Should auto-destruct for non-trivial types
 
         FATP_ASSERT_TRUE(destruct_count > before, "clear() should destruct non-trivial elements");
         FATP_ASSERT_TRUE(buffer.empty(), "Buffer should be empty after clear");
@@ -298,16 +325,14 @@ FATP_TEST_CASE(size_tracking)
     for (int i = 1; i <= 5; ++i)
     {
         (void)buffer.push(i);
-        FATP_ASSERT_TRUE(buffer.size() == static_cast<size_t>(i),
-                      "Size should increment after push");
+        FATP_ASSERT_TRUE(buffer.size() == static_cast<size_t>(i), "Size should increment after push");
     }
 
     for (int i = 4; i >= 0; --i)
     {
         int val = 0;
         (void)buffer.pop(val);
-        FATP_ASSERT_TRUE(buffer.size() == static_cast<size_t>(i),
-                      "Size should decrement after pop");
+        FATP_ASSERT_TRUE(buffer.size() == static_cast<size_t>(i), "Size should decrement after pop");
     }
 
     return true;
@@ -317,8 +342,7 @@ FATP_TEST_CASE(type_trait)
 {
     static_assert(is_circular_buffer_v<CircularBuffer<int, 8>>,
                   "CircularBuffer should satisfy is_circular_buffer trait");
-    static_assert(!is_circular_buffer_v<std::vector<int>>,
-                  "std::vector should not satisfy is_circular_buffer trait");
+    static_assert(!is_circular_buffer_v<std::vector<int>>, "std::vector should not satisfy is_circular_buffer trait");
     return true;
 }
 
@@ -365,16 +389,20 @@ FATP_TEST_CASE(clear_and_destruct)
     struct Tracked
     {
         int value;
-        Tracked() : value(0)
+        Tracked()
+            : value(0)
         {
         }
-        Tracked(int v) : value(v)
+        Tracked(int v)
+            : value(v)
         {
         }
-        Tracked(const Tracked& other) : value(other.value)
+        Tracked(const Tracked& other)
+            : value(other.value)
         {
         }
-        Tracked(Tracked&& other) noexcept : value(other.value)
+        Tracked(Tracked&& other) noexcept
+            : value(other.value)
         {
             other.value = -1;
         }
@@ -425,40 +453,44 @@ FATP_TEST_CASE(thread_safety_spsc)
     std::atomic<int> consumer_received{0};
     std::atomic<bool> order_error{false};
 
-    std::thread producer([&]() {
-        while (!start.load(std::memory_order_acquire))
+    std::thread producer(
+        [&]()
         {
-            std::this_thread::yield();
-        }
-        for (int i = 0; i < NUM_ITEMS; ++i)
-        {
-            while (!buffer.push(i))
+            while (!start.load(std::memory_order_acquire))
             {
                 std::this_thread::yield();
             }
-        }
-    });
-
-    std::thread consumer([&]() {
-        while (!start.load(std::memory_order_acquire))
-        {
-            std::this_thread::yield();
-        }
-        int expected = 0;
-        while (expected < NUM_ITEMS)
-        {
-            int val = 0;
-            if (buffer.pop(val))
+            for (int i = 0; i < NUM_ITEMS; ++i)
             {
-                if (val != expected)
+                while (!buffer.push(i))
                 {
-                    order_error.store(true, std::memory_order_release);
+                    std::this_thread::yield();
                 }
-                ++expected;
             }
-        }
-        consumer_received.store(expected, std::memory_order_release);
-    });
+        });
+
+    std::thread consumer(
+        [&]()
+        {
+            while (!start.load(std::memory_order_acquire))
+            {
+                std::this_thread::yield();
+            }
+            int expected = 0;
+            while (expected < NUM_ITEMS)
+            {
+                int val = 0;
+                if (buffer.pop(val))
+                {
+                    if (val != expected)
+                    {
+                        order_error.store(true, std::memory_order_release);
+                    }
+                    ++expected;
+                }
+            }
+            consumer_received.store(expected, std::memory_order_release);
+        });
 
     start.store(true, std::memory_order_release);
 
@@ -475,7 +507,7 @@ FATP_TEST_CASE(thread_safety_spsc)
 FATP_TEST_CASE(stress_wraparound)
 {
     constexpr int ITERATIONS = 10000;
-    CircularBuffer<int, 7> buffer;  // Small odd capacity to stress power-of-2 logic
+    CircularBuffer<int, 7> buffer; // Small odd capacity to stress power-of-2 logic
 
     for (int i = 0; i < ITERATIONS; ++i)
     {
@@ -518,7 +550,8 @@ void benchmark_circularbuffer()
     CircularBuffer<int, BUFFER_SIZE> buffer;
 
     double push_time = measure_perf(
-        [&buffer]() {
+        [&buffer]()
+        {
             static int i = 0;
             if (buffer.full())
             {
@@ -538,7 +571,8 @@ void benchmark_circularbuffer()
     }
 
     double pop_time = measure_perf(
-        [&buffer]() {
+        [&buffer]()
+        {
             static int refill = 0;
             int val = 0;
             if (buffer.pop(val))
@@ -557,7 +591,8 @@ void benchmark_circularbuffer()
     }
 
     double size_time = measure_perf(
-        [&buffer]() {
+        [&buffer]()
+        {
             size_t s = buffer.size();
             DoNotOptimize(s);
         },
@@ -566,7 +601,8 @@ void benchmark_circularbuffer()
     std::cout << "Size query: " << format_time(size_time) << "\n";
 
     double empty_time = measure_perf(
-        [&buffer]() {
+        [&buffer]()
+        {
             bool e = buffer.empty();
             DoNotOptimize(e);
         },
@@ -575,7 +611,8 @@ void benchmark_circularbuffer()
     std::cout << "Empty check: " << format_time(empty_time) << "\n";
 
     double full_time = measure_perf(
-        [&buffer]() {
+        [&buffer]()
+        {
             bool f = buffer.full();
             DoNotOptimize(f);
         },
@@ -592,35 +629,39 @@ void benchmark_circularbuffer()
         CircularBuffer<int, 4096> throughput_buffer;
         std::atomic<bool> start{false};
 
-        std::thread producer([&]() {
-            while (!start.load(std::memory_order_acquire))
+        std::thread producer(
+            [&]()
             {
-                std::this_thread::yield();
-            }
-            for (int i = 0; i < THROUGHPUT_ITEMS; ++i)
-            {
-                while (!throughput_buffer.push(i))
+                while (!start.load(std::memory_order_acquire))
                 {
                     std::this_thread::yield();
                 }
-            }
-        });
-
-        std::thread consumer([&]() {
-            while (!start.load(std::memory_order_acquire))
-            {
-                std::this_thread::yield();
-            }
-            int received = 0;
-            while (received < THROUGHPUT_ITEMS)
-            {
-                int val = 0;
-                if (throughput_buffer.pop(val))
+                for (int i = 0; i < THROUGHPUT_ITEMS; ++i)
                 {
-                    ++received;
+                    while (!throughput_buffer.push(i))
+                    {
+                        std::this_thread::yield();
+                    }
                 }
-            }
-        });
+            });
+
+        std::thread consumer(
+            [&]()
+            {
+                while (!start.load(std::memory_order_acquire))
+                {
+                    std::this_thread::yield();
+                }
+                int received = 0;
+                while (received < THROUGHPUT_ITEMS)
+                {
+                    int val = 0;
+                    if (throughput_buffer.pop(val))
+                    {
+                        ++received;
+                    }
+                }
+            });
 
         start.store(true, std::memory_order_release);
         auto start_time = std::chrono::high_resolution_clock::now();
@@ -632,8 +673,8 @@ void benchmark_circularbuffer()
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
 
         double ops_per_sec = (THROUGHPUT_ITEMS * 1000000.0) / duration.count();
-        std::cout << "Throughput: " << std::fixed << std::setprecision(2)
-                  << (ops_per_sec / 1000000.0) << " million ops/sec\n";
+        std::cout << "Throughput: " << std::fixed << std::setprecision(2) << (ops_per_sec / 1000000.0)
+                  << " million ops/sec\n";
         std::cout << "Time for " << THROUGHPUT_ITEMS << " items: " << duration.count() << " us\n";
     }
 }

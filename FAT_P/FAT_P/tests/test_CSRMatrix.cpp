@@ -83,8 +83,7 @@ FATP_TEST_CASE(coo_construction_sum_policy)
     std::vector<int> cols = {0, 1, 1, 2};
     std::vector<double> vals = {1.0, 2.0, 3.0, 4.0};
 
-    CSRMatrix<double, int> mat(3, 3, rows, cols, vals,
-                                CSRMatrix<double, int>::DuplicatePolicy::Sum);
+    CSRMatrix<double, int> mat(3, 3, rows, cols, vals, CSRMatrix<double, int>::DuplicatePolicy::Sum);
 
     FATP_ASSERT_EQ(mat.rows(), 3u, "COO Sum: rows");
     FATP_ASSERT_EQ(mat.cols(), 3u, "COO Sum: cols");
@@ -103,8 +102,7 @@ FATP_TEST_CASE(coo_construction_sum_duplicates)
     std::vector<int> cols = {0, 1, 1, 1};
     std::vector<double> vals = {1.0, 2.0, 5.0, 3.0};
 
-    CSRMatrix<double, int> mat(2, 2, rows, cols, vals,
-                                CSRMatrix<double, int>::DuplicatePolicy::Sum);
+    CSRMatrix<double, int> mat(2, 2, rows, cols, vals, CSRMatrix<double, int>::DuplicatePolicy::Sum);
 
     FATP_ASSERT_EQ(mat.nnz(), 3u, "COO Sum duplicates: nnz after merge");
     FATP_ASSERT_CLOSE(mat(0, 1), 7.0, "COO Sum duplicates: summed value");
@@ -118,8 +116,7 @@ FATP_TEST_CASE(coo_construction_keep_policy)
     std::vector<int> cols = {1, 1, 0};
     std::vector<double> vals = {2.0, 3.0, 1.0};
 
-    CSRMatrix<double, int> mat(2, 2, rows, cols, vals,
-                                CSRMatrix<double, int>::DuplicatePolicy::Keep);
+    CSRMatrix<double, int> mat(2, 2, rows, cols, vals, CSRMatrix<double, int>::DuplicatePolicy::Keep);
 
     FATP_ASSERT_EQ(mat.nnz(), 3u, "COO Keep: all entries preserved");
     // operator() should return sum for consistency
@@ -132,10 +129,9 @@ FATP_TEST_CASE(coo_construction_keep_filters_zeros)
     // Keep policy should still filter explicit zeros (sparse invariant)
     std::vector<int> rows = {0, 0, 1};
     std::vector<int> cols = {0, 1, 0};
-    std::vector<double> vals = {1.0, 0.0, 2.0};  // Zero at (0,1)
+    std::vector<double> vals = {1.0, 0.0, 2.0}; // Zero at (0,1)
 
-    CSRMatrix<double, int> mat(2, 2, rows, cols, vals,
-                                CSRMatrix<double, int>::DuplicatePolicy::Keep);
+    CSRMatrix<double, int> mat(2, 2, rows, cols, vals, CSRMatrix<double, int>::DuplicatePolicy::Keep);
 
     FATP_ASSERT_EQ(mat.nnz(), 2u, "COO Keep: zeros filtered");
     FATP_ASSERT_CLOSE(mat(0, 1), 0.0, "COO Keep: zero not stored");
@@ -145,57 +141,48 @@ FATP_TEST_CASE(coo_construction_keep_filters_zeros)
 FATP_TEST_CASE(coo_construction_error_policy)
 {
     std::vector<int> rows = {0, 0};
-    std::vector<int> cols = {1, 1};  // Duplicate!
+    std::vector<int> cols = {1, 1}; // Duplicate!
     std::vector<double> vals = {2.0, 3.0};
 
-    FATP_ASSERT_THROWS(
-        (CSRMatrix<double, int>(2, 2, rows, cols, vals,
-                                CSRMatrix<double, int>::DuplicatePolicy::Error)),
-        std::invalid_argument,
-        "COO Error policy: should throw on duplicates"
-    );
+    FATP_ASSERT_THROWS((CSRMatrix<double, int>(2, 2, rows, cols, vals, CSRMatrix<double, int>::DuplicatePolicy::Error)),
+                       std::invalid_argument,
+                       "COO Error policy: should throw on duplicates");
     return true;
 }
 
 FATP_TEST_CASE(coo_construction_out_of_bounds)
 {
-    std::vector<int> rows = {0, 5};  // 5 is out of bounds for 3x3
+    std::vector<int> rows = {0, 5}; // 5 is out of bounds for 3x3
     std::vector<int> cols = {0, 0};
     std::vector<double> vals = {1.0, 2.0};
 
-    FATP_ASSERT_THROWS(
-        (CSRMatrix<double, int>(3, 3, rows, cols, vals)),
-        std::out_of_range,
-        "COO: should throw on out-of-bounds row"
-    );
+    FATP_ASSERT_THROWS((CSRMatrix<double, int>(3, 3, rows, cols, vals)),
+                       std::out_of_range,
+                       "COO: should throw on out-of-bounds row");
     return true;
 }
 
 FATP_TEST_CASE(coo_construction_negative_index)
 {
-    std::vector<int> rows = {0, -1};  // Negative!
+    std::vector<int> rows = {0, -1}; // Negative!
     std::vector<int> cols = {0, 0};
     std::vector<double> vals = {1.0, 2.0};
 
-    FATP_ASSERT_THROWS(
-        (CSRMatrix<double, int>(3, 3, rows, cols, vals)),
-        std::out_of_range,
-        "COO: negative row index should throw"
-    );
+    FATP_ASSERT_THROWS((CSRMatrix<double, int>(3, 3, rows, cols, vals)),
+                       std::out_of_range,
+                       "COO: negative row index should throw");
     return true;
 }
 
 FATP_TEST_CASE(coo_construction_mismatched_sizes)
 {
     std::vector<int> rows = {0, 1};
-    std::vector<int> cols = {0};  // Size mismatch!
+    std::vector<int> cols = {0}; // Size mismatch!
     std::vector<double> vals = {1.0, 2.0};
 
-    FATP_ASSERT_THROWS(
-        (CSRMatrix<double, int>(3, 3, rows, cols, vals)),
-        std::invalid_argument,
-        "COO: should throw on mismatched array sizes"
-    );
+    FATP_ASSERT_THROWS((CSRMatrix<double, int>(3, 3, rows, cols, vals)),
+                       std::invalid_argument,
+                       "COO: should throw on mismatched array sizes");
     return true;
 }
 
@@ -219,11 +206,9 @@ FATP_TEST_CASE(from_dense_construction)
 
 FATP_TEST_CASE(from_dense_null_pointer)
 {
-    FATP_ASSERT_THROWS(
-        (CSRMatrix<double, int>::from_dense(nullptr, 3, 3)),
-        std::invalid_argument,
-        "from_dense: should throw on null pointer with non-zero dimensions"
-    );
+    FATP_ASSERT_THROWS((CSRMatrix<double, int>::from_dense(nullptr, 3, 3)),
+                       std::invalid_argument,
+                       "from_dense: should throw on null pointer with non-zero dimensions");
 
     // Null with zero dimensions should be OK
     auto mat = CSRMatrix<double, int>::from_dense(nullptr, 0, 0);
@@ -294,11 +279,10 @@ FATP_TEST_CASE(keep_policy_operator_consistency)
     // operator() should return the SUM of all entries, matching matvec/to_dense
 
     std::vector<int> rows = {0, 0, 0};
-    std::vector<int> cols = {1, 1, 1};  // Three entries at (0,1)
+    std::vector<int> cols = {1, 1, 1}; // Three entries at (0,1)
     std::vector<double> vals = {2.0, 3.0, 4.0};
 
-    CSRMatrix<double, int> mat(1, 3, rows, cols, vals,
-                                CSRMatrix<double, int>::DuplicatePolicy::Keep);
+    CSRMatrix<double, int> mat(1, 3, rows, cols, vals, CSRMatrix<double, int>::DuplicatePolicy::Keep);
 
     FATP_ASSERT_EQ(mat.nnz(), 3u, "Keep: all entries stored");
 
@@ -324,8 +308,7 @@ FATP_TEST_CASE(keep_policy_set_collapses_duplicates)
     std::vector<int> cols = {1, 1};
     std::vector<double> vals = {2.0, 3.0};
 
-    CSRMatrix<double, int> mat(1, 2, rows, cols, vals,
-                                CSRMatrix<double, int>::DuplicatePolicy::Keep);
+    CSRMatrix<double, int> mat(1, 2, rows, cols, vals, CSRMatrix<double, int>::DuplicatePolicy::Keep);
 
     FATP_ASSERT_EQ(mat.nnz(), 2u, "Keep: initial duplicates");
 
@@ -397,8 +380,7 @@ FATP_TEST_CASE(matrix_addition_with_keep_duplicates)
     std::vector<int> a_rows = {0, 0};
     std::vector<int> a_cols = {1, 1};
     std::vector<double> a_vals = {2.0, 3.0};
-    CSRMatrix<double, int> A(1, 2, a_rows, a_cols, a_vals,
-                              CSRMatrix<double, int>::DuplicatePolicy::Keep);
+    CSRMatrix<double, int> A(1, 2, a_rows, a_cols, a_vals, CSRMatrix<double, int>::DuplicatePolicy::Keep);
 
     std::vector<int> b_rows = {0};
     std::vector<int> b_cols = {1};
@@ -549,11 +531,7 @@ FATP_TEST_CASE(matmul_size_mismatch)
     CSRMatrix<double, int> A(2, 3);
     CSRMatrix<double, int> B(2, 2);
 
-    FATP_ASSERT_THROWS(
-        A.matmul(B),
-        std::invalid_argument,
-        "Matmul: should throw on dimension mismatch"
-    );
+    FATP_ASSERT_THROWS(A.matmul(B), std::invalid_argument, "Matmul: should throw on dimension mismatch");
     return true;
 }
 
@@ -563,7 +541,7 @@ FATP_TEST_CASE(matmul_index_overflow)
     // When using small IndexType (int8_t), rows > 127 would overflow the marker
     // The fix uses size_type for the marker vector
 
-    constexpr std::size_t dim = 150;  // > int8_t max (127)
+    constexpr std::size_t dim = 150; // > int8_t max (127)
 
     // Create sparse identity-like matrices
     std::vector<int8_t> rows, cols;
@@ -583,11 +561,9 @@ FATP_TEST_CASE(matmul_index_overflow)
     }
 
     // The dimension validation should throw because dim > int8_t::max
-    FATP_ASSERT_THROWS(
-        (CSRMatrix<double, int8_t>(dim, dim, rows, cols, vals)),
-        std::overflow_error,
-        "Matmul overflow: dimension validation catches int8_t overflow"
-    );
+    FATP_ASSERT_THROWS((CSRMatrix<double, int8_t>(dim, dim, rows, cols, vals)),
+                       std::overflow_error,
+                       "Matmul overflow: dimension validation catches int8_t overflow");
     return true;
 }
 
@@ -679,8 +655,7 @@ FATP_TEST_CASE(matvec_beta_zero_nan_safe)
     auto mat = CSRMatrix<double, int>::from_dense(dense.data(), 2, 2);
 
     std::vector<double> x = {2.0, 3.0};
-    std::vector<double> y = {std::numeric_limits<double>::quiet_NaN(),
-                             std::numeric_limits<double>::quiet_NaN()};
+    std::vector<double> y = {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN()};
 
     mat.matvec(1.0, x.data(), 0.0, y.data());
 
@@ -693,14 +668,10 @@ FATP_TEST_CASE(matvec_beta_zero_nan_safe)
 
 FATP_TEST_CASE(matvec_size_mismatch)
 {
-    CSRMatrix<double, int> mat(2, 3);  // 2x3 matrix
-    std::vector<double> x = {1.0, 2.0};  // Size 2, need size 3
+    CSRMatrix<double, int> mat(2, 3);   // 2x3 matrix
+    std::vector<double> x = {1.0, 2.0}; // Size 2, need size 3
 
-    FATP_ASSERT_THROWS(
-        mat * x,
-        std::invalid_argument,
-        "Matvec: should throw on vector size mismatch"
-    );
+    FATP_ASSERT_THROWS(mat * x, std::invalid_argument, "Matvec: should throw on vector size mismatch");
     return true;
 }
 
@@ -751,14 +722,14 @@ FATP_TEST_CASE(equality_operators)
 
     CSRMatrix<double, int> A(2, 2, rows, cols, vals);
     CSRMatrix<double, int> B(2, 2, rows, cols, vals);
-    CSRMatrix<double, int> C(2, 2, rows, cols, {1.0, 3.0});  // Different values
+    CSRMatrix<double, int> C(2, 2, rows, cols, {1.0, 3.0}); // Different values
 
     FATP_ASSERT_TRUE(A == B, "Equality: identical matrices");
     FATP_ASSERT_FALSE(A != B, "Inequality: identical matrices");
     FATP_ASSERT_FALSE(A == C, "Equality: different values");
     FATP_ASSERT_TRUE(A != C, "Inequality: different values");
 
-    CSRMatrix<double, int> D(3, 3);  // Different dimensions
+    CSRMatrix<double, int> D(3, 3); // Different dimensions
     FATP_ASSERT_FALSE(A == D, "Equality: different dimensions");
     return true;
 }
@@ -832,7 +803,7 @@ FATP_TEST_CASE(remove_zeros)
     mat.set(0, 0, 1e-12);
     FATP_ASSERT_EQ(mat.nnz(), 3u, "Before remove_zeros");
 
-    mat.remove_zeros(1e-10);  // Epsilon larger than 1e-12
+    mat.remove_zeros(1e-10); // Epsilon larger than 1e-12
     FATP_ASSERT_EQ(mat.nnz(), 2u, "After remove_zeros");
     return true;
 }
@@ -864,10 +835,10 @@ FATP_TEST_CASE(to_dense)
 
     // Row-major: [[0, 0, 1], [2, 0, 0], [0, 3, 0]]
     FATP_ASSERT_EQ(dense.size(), 9u, "to_dense: size");
-    FATP_ASSERT_CLOSE(dense[0*3 + 2], 1.0, "to_dense: (0,2)");
-    FATP_ASSERT_CLOSE(dense[1*3 + 0], 2.0, "to_dense: (1,0)");
-    FATP_ASSERT_CLOSE(dense[2*3 + 1], 3.0, "to_dense: (2,1)");
-    FATP_ASSERT_CLOSE(dense[0*3 + 0], 0.0, "to_dense: zeros");
+    FATP_ASSERT_CLOSE(dense[0 * 3 + 2], 1.0, "to_dense: (0,2)");
+    FATP_ASSERT_CLOSE(dense[1 * 3 + 0], 2.0, "to_dense: (1,0)");
+    FATP_ASSERT_CLOSE(dense[2 * 3 + 1], 3.0, "to_dense: (2,1)");
+    FATP_ASSERT_CLOSE(dense[0 * 3 + 0], 0.0, "to_dense: zeros");
     return true;
 }
 
@@ -878,8 +849,7 @@ FATP_TEST_CASE(to_dense_keep_duplicates)
     std::vector<int> cols = {1, 1, 1};
     std::vector<double> vals = {2.0, 3.0, 4.0};
 
-    CSRMatrix<double, int> mat(1, 3, rows, cols, vals,
-                                CSRMatrix<double, int>::DuplicatePolicy::Keep);
+    CSRMatrix<double, int> mat(1, 3, rows, cols, vals, CSRMatrix<double, int>::DuplicatePolicy::Keep);
 
     auto dense = mat.to_dense();
     FATP_ASSERT_CLOSE(dense[1], 9.0, "to_dense Keep: sums duplicates (2+3+4=9)");
@@ -924,7 +894,7 @@ FATP_TEST_CASE(identity_matrix)
         FATP_ASSERT_CLOSE(I(i, i), 1.0, "Identity: diagonal");
         if (i > 0)
         {
-            FATP_ASSERT_CLOSE(I(i, i-1), 0.0, "Identity: off-diagonal");
+            FATP_ASSERT_CLOSE(I(i, i - 1), 0.0, "Identity: off-diagonal");
         }
     }
     return true;
@@ -995,8 +965,8 @@ FATP_TEST_CASE(empty_rows)
     FATP_ASSERT_EQ(mat.row_nnz(2), 1u, "Empty rows: row 2 nnz");
 
     auto dense = mat.to_dense();
-    FATP_ASSERT_CLOSE(dense[1*2 + 0], 0.0, "Empty rows: (1,0) is zero");
-    FATP_ASSERT_CLOSE(dense[1*2 + 1], 0.0, "Empty rows: (1,1) is zero");
+    FATP_ASSERT_CLOSE(dense[1 * 2 + 0], 0.0, "Empty rows: (1,0) is zero");
+    FATP_ASSERT_CLOSE(dense[1 * 2 + 1], 0.0, "Empty rows: (1,1) is zero");
     return true;
 }
 
@@ -1057,17 +1027,13 @@ FATP_TEST_CASE(dimension_overflow_validation)
     // Using int8_t as IndexType, max value is 127
 
     // Should throw: 200 > 127
-    FATP_ASSERT_THROWS(
-        (CSRMatrix<double, int8_t>(200, 10)),
-        std::overflow_error,
-        "Dimension overflow: rows exceed int8_t"
-    );
+    FATP_ASSERT_THROWS((CSRMatrix<double, int8_t>(200, 10)),
+                       std::overflow_error,
+                       "Dimension overflow: rows exceed int8_t");
 
-    FATP_ASSERT_THROWS(
-        (CSRMatrix<double, int8_t>(10, 200)),
-        std::overflow_error,
-        "Dimension overflow: cols exceed int8_t"
-    );
+    FATP_ASSERT_THROWS((CSRMatrix<double, int8_t>(10, 200)),
+                       std::overflow_error,
+                       "Dimension overflow: cols exceed int8_t");
 
     // Should succeed: 100 <= 127
     CSRMatrix<double, int8_t> small_mat(100, 100);
@@ -1092,7 +1058,7 @@ FATP_TEST_CASE(integer_value_types)
     // -------------------------------------------------------------------------
     // Compile-time type restrictions (static_assert prevents instantiation):
     // -------------------------------------------------------------------------
-    // 
+    //
     // CSRMatrix<unsigned int, int> mat1;  // Error: unsigned value types not supported
     //                                     // (subtraction may produce negative intermediates)
     //
@@ -1113,8 +1079,7 @@ FATP_TEST_CASE(integer_value_types)
 
 void benchmark_component()
 {
-    std::cout << "\n" << colors::cyan() << "CSRMatrix Benchmarks:"
-              << colors::reset() << "\n\n";
+    std::cout << "\n" << colors::cyan() << "CSRMatrix Benchmarks:" << colors::reset() << "\n\n";
 
     // Setup: 10k x 10k matrix with ~1% density
     constexpr size_t N = 10000;
@@ -1142,34 +1107,45 @@ void benchmark_component()
     std::vector<double> x(N, 1.0);
     std::vector<double> y(N);
 
-    std::cout << "Matrix: " << N << "x" << N << ", nnz=" << A.nnz()
-              << " (density=" << std::fixed << std::setprecision(2)
-              << A.density() * 100.0 << "%)\n\n";
+    std::cout << "Matrix: " << N << "x" << N << ", nnz=" << A.nnz() << " (density=" << std::fixed
+              << std::setprecision(2) << A.density() * 100.0 << "%)\n\n";
 
     // Benchmark 1: Serial SpMV
     constexpr int iterations = 100;
     constexpr int warmup = 10;
 
-    double time_spmv = measure_perf([&]() {
-        A.matvec(x.data(), y.data());
-        DoNotOptimize(y);
-    }, iterations, warmup);
+    double time_spmv = measure_perf(
+        [&]()
+        {
+            A.matvec(x.data(), y.data());
+            DoNotOptimize(y);
+        },
+        iterations,
+        warmup);
 
     std::cout << "SpMV (Serial):  " << format_time(time_spmv) << "\n";
 
     // Benchmark 2: Parallel SpMV
-    double time_spmv_par = measure_perf([&]() {
-        A.matvec_parallel(x.data(), y.data());
-        DoNotOptimize(y);
-    }, iterations, warmup);
+    double time_spmv_par = measure_perf(
+        [&]()
+        {
+            A.matvec_parallel(x.data(), y.data());
+            DoNotOptimize(y);
+        },
+        iterations,
+        warmup);
 
     std::cout << "SpMV (OpenMP):  " << format_time(time_spmv_par) << "\n";
 
     // Benchmark 3: Transpose
-    double time_transpose = measure_perf([&]() {
-        auto AT = A.transpose();
-        DoNotOptimize(AT);
-    }, 10, 2);
+    double time_transpose = measure_perf(
+        [&]()
+        {
+            auto AT = A.transpose();
+            DoNotOptimize(AT);
+        },
+        10,
+        2);
 
     std::cout << "Transpose:      " << format_time(time_transpose) << "\n";
 
@@ -1195,10 +1171,14 @@ void benchmark_component()
 
     CSRMatrix<double, int> B(M, M, small_rows, small_cols, small_vals);
 
-    double time_matmul = measure_perf([&]() {
-        auto C = B.matmul(B);
-        DoNotOptimize(C);
-    }, 10, 2);
+    double time_matmul = measure_perf(
+        [&]()
+        {
+            auto C = B.matmul(B);
+            DoNotOptimize(C);
+        },
+        10,
+        2);
 
     std::cout << "MatMul (" << M << "x" << M << "): " << format_time(time_matmul) << "\n";
 }

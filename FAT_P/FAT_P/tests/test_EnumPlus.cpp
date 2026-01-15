@@ -101,48 +101,48 @@ enum class SingleValue
 namespace fat_p
 {
 
-template<>
+template <>
 struct EnumSizeTrait<Color>
 {
     static constexpr std::size_t size = 4;
 };
 
-template<>
+template <>
 struct EnumSizeTrait<FilePermission>
 {
     static constexpr std::size_t size = 4;
 };
 
-template<>
+template <>
 struct EnumSizeTrait<Status>
 {
     static constexpr std::size_t size = 4;
 };
 
-template<>
+template <>
 struct EnumSizeTrait<LargeEnum>
 {
     static constexpr std::size_t size = 10;
 };
 
-template<>
+template <>
 struct EnumSizeTrait<SignedEnum>
 {
     static constexpr std::size_t size = 3;
 };
 
-template<>
+template <>
 struct EnumSizeTrait<SingleValue>
 {
     static constexpr std::size_t size = 1;
 };
 
-template<>
+template <>
 struct EnableOverloadedOperators<FilePermission> : std::true_type
 {
 };
 
-template<>
+template <>
 struct EnumStringPolicy<Color>
 {
     static constexpr bool has_names = true;
@@ -186,7 +186,7 @@ struct EnumStringPolicy<Color>
     }
 };
 
-template<>
+template <>
 struct EnumStringPolicy<Status>
 {
     static constexpr bool has_names = true;
@@ -230,7 +230,7 @@ struct EnumStringPolicy<Status>
     }
 };
 
-template<>
+template <>
 struct EnumStringPolicy<SignedEnum>
 {
     static constexpr bool has_names = true;
@@ -333,22 +333,29 @@ FATP_TEST_CASE(enum_plus_map_constructor_variants)
     FATP_ASSERT_EQ(init_list_map[Color::Red], 1, "Init list Red should be 1");
     FATP_ASSERT_EQ(init_list_map[Color::Yellow], 4, "Init list Yellow should be 4");
 
-    EnumPlusMap<Color, int> generated_map([](Color c) { return static_cast<int>(c) * 10; });
+    EnumPlusMap<Color, int> generated_map(
+        [](Color c)
+        {
+            return static_cast<int>(c) * 10;
+        });
     FATP_ASSERT_EQ(generated_map[Color::Red], 0, "Generated Red should be 0");
     FATP_ASSERT_EQ(generated_map[Color::Green], 10, "Generated Green should be 10");
     FATP_ASSERT_EQ(generated_map[Color::Blue], 20, "Generated Blue should be 20");
     FATP_ASSERT_EQ(generated_map[Color::Yellow], 30, "Generated Yellow should be 30");
 
     int sum = 0;
-    generated_map.for_each([&sum](int& val) { sum += val; });
+    generated_map.for_each(
+        [&sum](int& val)
+        {
+            sum += val;
+        });
     FATP_ASSERT_EQ(sum, 60, "Sum of generated values should be 60");
     return true;
 }
 
 FATP_TEST_CASE(enum_plus_map_with_string_policy)
 {
-    EnumPlusMap<Status, std::string> status_messages{
-        "System idle", "Processing...", "Done!", "Error occurred"};
+    EnumPlusMap<Status, std::string> status_messages{"System idle", "Processing...", "Done!", "Error occurred"};
 
     FATP_ASSERT_EQ(status_messages[Status::Idle], std::string("System idle"), "Idle message");
     FATP_ASSERT_EQ(status_messages[Status::Running], std::string("Processing..."), "Running message");
@@ -395,8 +402,8 @@ FATP_TEST_CASE(bitwise_or_operators)
 
 FATP_TEST_CASE(bitwise_and_operators)
 {
-    auto all_perms = EnumPlusWrapper<FilePermission>(FilePermission::Read) |
-                     EnumPlusWrapper<FilePermission>(FilePermission::Write);
+    auto all_perms =
+        EnumPlusWrapper<FilePermission>(FilePermission::Read) | EnumPlusWrapper<FilePermission>(FilePermission::Write);
     auto read_only = all_perms & EnumPlusWrapper<FilePermission>(FilePermission::Read);
     FATP_ASSERT_EQ(read_only.underlying(), 1u, "(Read|Write) & Read should equal 1");
 
@@ -544,10 +551,8 @@ FATP_TEST_CASE(enum_plus_wrapper)
 
 FATP_TEST_CASE(wrapper_no_implicit_conversion)
 {
-    static_assert(!std::is_convertible_v<int, EnumPlusWrapper<Color>>,
-                  "Should not allow implicit conversion from int");
-    static_assert(!std::is_constructible_v<EnumPlusWrapper<Color>, int>,
-                  "Should not allow construction from int");
+    static_assert(!std::is_convertible_v<int, EnumPlusWrapper<Color>>, "Should not allow implicit conversion from int");
+    static_assert(!std::is_constructible_v<EnumPlusWrapper<Color>, int>, "Should not allow construction from int");
     return true;
 }
 
@@ -698,7 +703,8 @@ FATP_TEST_CASE(enum_value)
 
 FATP_TEST_CASE(enum_index_value_roundtrip)
 {
-    for (std::size_t i = 0; i < EnumSizeTrait<Color>::size; ++i) {
+    for (std::size_t i = 0; i < EnumSizeTrait<Color>::size; ++i)
+    {
         auto val = enum_value<Color>(i);
         FATP_ASSERT_TRUE(val.has_value(), "Index should produce valid value");
         auto idx = enum_index(*val);
@@ -707,7 +713,8 @@ FATP_TEST_CASE(enum_index_value_roundtrip)
     }
 
     auto values = enum_values<Color>();
-    for (auto v : values) {
+    for (auto v : values)
+    {
         auto idx = enum_index(v);
         FATP_ASSERT_TRUE(idx.has_value(), "Value should have valid index");
         auto val = enum_value<Color>(*idx);
@@ -752,17 +759,21 @@ FATP_TEST_CASE(for_each_enum)
 {
     std::size_t count = 0;
     int sum = 0;
-    for_each_enum<Color>([&](Color c) {
-        ++count;
-        sum += static_cast<int>(c);
-    });
+    for_each_enum<Color>(
+        [&](Color c)
+        {
+            ++count;
+            sum += static_cast<int>(c);
+        });
     FATP_ASSERT_EQ(count, 4u, "for_each_enum should iterate 4 times");
     FATP_ASSERT_EQ(sum, 6, "Sum of Color indices should be 0+1+2+3=6");
 
     std::vector<Status> collected;
-    for_each_enum<Status>([&](Status s) {
-        collected.push_back(s);
-    });
+    for_each_enum<Status>(
+        [&](Status s)
+        {
+            collected.push_back(s);
+        });
     FATP_ASSERT_EQ(collected.size(), 4u, "Should collect 4 Status values");
     FATP_ASSERT_EQ(collected[0], Status::Idle, "First should be Idle");
     FATP_ASSERT_EQ(collected[3], Status::Failed, "Last should be Failed");
@@ -910,45 +921,36 @@ bool test_EnumPlus()
     TestRunner runner;
     get_test_config().verbose = true;
 
-    std::cout << "\n" << colors::cyan() << "Test Suite 1: EnumSizeTrait"
-              << colors::reset() << "\n";
+    std::cout << "\n" << colors::cyan() << "Test Suite 1: EnumSizeTrait" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, enumplus, enum_size_trait);
 
-    std::cout << "\n" << colors::cyan() << "Test Suite 2: EnumPlusMap Basic Operations"
-              << colors::reset() << "\n";
+    std::cout << "\n" << colors::cyan() << "Test Suite 2: EnumPlusMap Basic Operations" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, enumplus, enum_plus_map_basic);
     FATP_RUN_TEST_NS(runner, enumplus, enum_plus_map_access);
     FATP_RUN_TEST_NS(runner, enumplus, enum_plus_map_constructor_variants);
     FATP_RUN_TEST_NS(runner, enumplus, enum_plus_map_with_string_policy);
 
-    std::cout << "\n" << colors::cyan() << "Test Suite 3: Stream Operators"
-              << colors::reset() << "\n";
+    std::cout << "\n" << colors::cyan() << "Test Suite 3: Stream Operators" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, enumplus, stream_operators);
 
-    std::cout << "\n" << colors::cyan() << "Test Suite 4: Bitwise OR Operators"
-              << colors::reset() << "\n";
+    std::cout << "\n" << colors::cyan() << "Test Suite 4: Bitwise OR Operators" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, enumplus, bitwise_or_operators);
 
-    std::cout << "\n" << colors::cyan() << "Test Suite 5: Bitwise AND Operators"
-              << colors::reset() << "\n";
+    std::cout << "\n" << colors::cyan() << "Test Suite 5: Bitwise AND Operators" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, enumplus, bitwise_and_operators);
 
-    std::cout << "\n" << colors::cyan() << "Test Suite 6: Bitwise XOR Operators"
-              << colors::reset() << "\n";
+    std::cout << "\n" << colors::cyan() << "Test Suite 6: Bitwise XOR Operators" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, enumplus, bitwise_xor_operators);
 
-    std::cout << "\n" << colors::cyan() << "Test Suite 7: Bitwise NOT Operators"
-              << colors::reset() << "\n";
+    std::cout << "\n" << colors::cyan() << "Test Suite 7: Bitwise NOT Operators" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, enumplus, bitwise_not_operators);
 
-    std::cout << "\n" << colors::cyan() << "Test Suite 8: Compound Assignment Operators"
-              << colors::reset() << "\n";
+    std::cout << "\n" << colors::cyan() << "Test Suite 8: Compound Assignment Operators" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, enumplus, compound_or_assignment);
     FATP_RUN_TEST_NS(runner, enumplus, compound_and_assignment);
     FATP_RUN_TEST_NS(runner, enumplus, compound_xor_assignment);
 
-    std::cout << "\n" << colors::cyan() << "Test Suite 9: Mixed Operations and Utilities"
-              << colors::reset() << "\n";
+    std::cout << "\n" << colors::cyan() << "Test Suite 9: Mixed Operations and Utilities" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, enumplus, mixed_operations);
     FATP_RUN_TEST_NS(runner, enumplus, has_flag_utility);
     FATP_RUN_TEST_NS(runner, enumplus, enum_plus_wrapper);
@@ -958,8 +960,7 @@ bool test_EnumPlus()
     FATP_RUN_TEST_NS(runner, enumplus, no_bounds_check_policy);
     FATP_RUN_TEST_NS(runner, enumplus, bounds_check_throws);
 
-    std::cout << "\n" << colors::cyan() << "Test Suite 10: Type Safety"
-              << colors::reset() << "\n";
+    std::cout << "\n" << colors::cyan() << "Test Suite 10: Type Safety" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, enumplus, wrapper_no_implicit_conversion);
     FATP_RUN_TEST_NS(runner, enumplus, is_valid_enum);
     FATP_RUN_TEST_NS(runner, enumplus, safe_enum_cast);
@@ -967,14 +968,12 @@ bool test_EnumPlus()
     FATP_RUN_TEST_NS(runner, enumplus, shift_operators);
     FATP_RUN_TEST_NS(runner, enumplus, from_string_icase);
 
-    std::cout << "\n" << colors::cyan() << "Test Suite 11: Index/Value Reflection"
-              << colors::reset() << "\n";
+    std::cout << "\n" << colors::cyan() << "Test Suite 11: Index/Value Reflection" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, enumplus, enum_index);
     FATP_RUN_TEST_NS(runner, enumplus, enum_value);
     FATP_RUN_TEST_NS(runner, enumplus, enum_index_value_roundtrip);
 
-    std::cout << "\n" << colors::cyan() << "Test Suite 12: Enum Reflection Utilities"
-              << colors::reset() << "\n";
+    std::cout << "\n" << colors::cyan() << "Test Suite 12: Enum Reflection Utilities" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, enumplus, enum_contains);
     FATP_RUN_TEST_NS(runner, enumplus, enum_count);
     FATP_RUN_TEST_NS(runner, enumplus, for_each_enum);

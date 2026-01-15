@@ -139,7 +139,7 @@ FATP_TEST_CASE(stream_parse_json_limited_convenience)
 
 FATP_TEST_CASE(strict_limits_depth)
 {
-    StrictJsonStreamParser parser;  // max_depth = 32
+    StrictJsonStreamParser parser; // max_depth = 32
 
     // Create deeply nested JSON
     std::string json = "";
@@ -163,7 +163,7 @@ FATP_TEST_CASE(strict_limits_depth)
 
 FATP_TEST_CASE(strict_limits_string_size)
 {
-    StrictJsonStreamParser parser;  // max_string_bytes = 64KB
+    StrictJsonStreamParser parser; // max_string_bytes = 64KB
 
     // Create string larger than 64KB
     std::string large = "[\"" + std::string(100 * 1024, 'x') + "\"]";
@@ -239,8 +239,7 @@ FATP_TEST_CASE(chunked_feeding_error)
         if (!status.has_value())
         {
             got_error = true;
-            FATP_ASSERT_TRUE(status.error().code == ParseError::MaxDepthExceeded,
-                          "Depth error");
+            FATP_ASSERT_TRUE(status.error().code == ParseError::MaxDepthExceeded, "Depth error");
             break;
         }
     }
@@ -339,7 +338,7 @@ FATP_TEST_CASE(incomplete_input_error)
 {
     DefaultJsonStreamParser parser;
 
-    auto result = parser.parse("[1, 2,");  // Incomplete
+    auto result = parser.parse("[1, 2,"); // Incomplete
 
     FATP_ASSERT_TRUE(!result.has_value(), "Parse failed");
     FATP_ASSERT_TRUE(result.error().code == ParseError::UnexpectedEof, "EOF error");
@@ -375,10 +374,7 @@ FATP_TEST_CASE(nested_objects)
 
     FATP_ASSERT_TRUE(result.has_value(), "Parse succeeded");
 
-    int64_t val = result->as_object()
-                    .at("a").as_object()
-                    .at("b").as_object()
-                    .at("c").as_int();
+    int64_t val = result->as_object().at("a").as_object().at("b").as_object().at("c").as_int();
     FATP_ASSERT_TRUE(val == 123, "Deep value");
 
     return true;
@@ -406,8 +402,7 @@ FATP_TEST_CASE(mixed_nesting)
 
 void benchmark_policies()
 {
-    std::cout << "\n" << colors::cyan() << "FatPJsonStream Policy Benchmarks:"
-              << colors::reset() << "\n\n";
+    std::cout << "\n" << colors::cyan() << "FatPJsonStream Policy Benchmarks:" << colors::reset() << "\n\n";
 
     constexpr int iterations = 1000;
     constexpr int warmup = 100;
@@ -429,32 +424,41 @@ void benchmark_policies()
     std::cout << "Test data size: " << json.size() << " bytes\n\n";
 
     // Default parser
-    double time_default = measure_perf([&]()
-    {
-        DefaultJsonStreamParser parser;
-        auto result = parser.parse(json);
-        DoNotOptimize(result);
-    }, iterations, warmup);
+    double time_default = measure_perf(
+        [&]()
+        {
+            DefaultJsonStreamParser parser;
+            auto result = parser.parse(json);
+            DoNotOptimize(result);
+        },
+        iterations,
+        warmup);
 
     std::cout << "DefaultJsonStreamParser: " << format_time(time_default) << "\n";
 
     // Strict parser
-    double time_strict = measure_perf([&]()
-    {
-        StrictJsonStreamParser parser;
-        auto result = parser.parse(json);
-        DoNotOptimize(result);
-    }, iterations, warmup);
+    double time_strict = measure_perf(
+        [&]()
+        {
+            StrictJsonStreamParser parser;
+            auto result = parser.parse(json);
+            DoNotOptimize(result);
+        },
+        iterations,
+        warmup);
 
     std::cout << "StrictJsonStreamParser:  " << format_time(time_strict) << "\n";
 
     // Relaxed parser
-    double time_relaxed = measure_perf([&]()
-    {
-        RelaxedJsonStreamParser parser;
-        auto result = parser.parse(json);
-        DoNotOptimize(result);
-    }, iterations, warmup);
+    double time_relaxed = measure_perf(
+        [&]()
+        {
+            RelaxedJsonStreamParser parser;
+            auto result = parser.parse(json);
+            DoNotOptimize(result);
+        },
+        iterations,
+        warmup);
 
     std::cout << "RelaxedJsonStreamParser: " << format_time(time_relaxed) << "\n";
 
@@ -463,12 +467,9 @@ void benchmark_policies()
     double throughput_strict = json.size() / time_strict / 1000.0;
     double throughput_relaxed = json.size() / time_relaxed / 1000.0;
 
-    std::cout << "\nThroughput (default): " << std::fixed << std::setprecision(1)
-              << throughput_default << " MB/s\n";
-    std::cout << "Throughput (strict):  " << std::fixed << std::setprecision(1)
-              << throughput_strict << " MB/s\n";
-    std::cout << "Throughput (relaxed): " << std::fixed << std::setprecision(1)
-              << throughput_relaxed << " MB/s\n";
+    std::cout << "\nThroughput (default): " << std::fixed << std::setprecision(1) << throughput_default << " MB/s\n";
+    std::cout << "Throughput (strict):  " << std::fixed << std::setprecision(1) << throughput_strict << " MB/s\n";
+    std::cout << "Throughput (relaxed): " << std::fixed << std::setprecision(1) << throughput_relaxed << " MB/s\n";
 }
 
 } // namespace fat_p::testing::fatpjsonstream

@@ -152,8 +152,14 @@ FATP_META:
 static fat_p::bench::BenchConfig g_config;
 
 // Accessors for backward compatibility with existing benchmark code
-static size_t WARMUP_RUNS() { return g_config.warmupRuns; }
-static size_t MEASURED_RUNS() { return g_config.measuredRuns; }
+static size_t WARMUP_RUNS()
+{
+    return g_config.warmupRuns;
+}
+static size_t MEASURED_RUNS()
+{
+    return g_config.measuredRuns;
+}
 
 // ============================================================================
 // CPU Frequency Monitoring (Shared)
@@ -180,7 +186,10 @@ struct Timer
     using clock = std::chrono::steady_clock;
     clock::time_point t0;
 
-    void start() { t0 = clock::now(); }
+    void start()
+    {
+        t0 = clock::now();
+    }
 
     double elapsed_ns() const
     {
@@ -208,14 +217,17 @@ static inline void prevent_opt(int64_t value)
 
 static inline void cpu_warmup_burst(int milliseconds)
 {
-    if (milliseconds <= 0) return;
-    
+    if (milliseconds <= 0)
+    {
+        return;
+    }
+
     auto start = std::chrono::steady_clock::now();
     auto duration = std::chrono::milliseconds(milliseconds);
-    
+
     volatile uint64_t sink = 0;
     volatile uint64_t x = 0xDEADBEEFCAFEBABEULL;
-    
+
     while (std::chrono::steady_clock::now() - start < duration)
     {
         for (int i = 0; i < 1000; ++i)
@@ -226,19 +238,18 @@ static inline void cpu_warmup_burst(int milliseconds)
             sink += x;
         }
     }
-    
+
     benchmark_sink ^= static_cast<int64_t>(sink);
 }
 
-static bool wait_for_cpu_stable(
-    double max_variance_percent = 10.0,
-    int timeout_seconds = 30,
-    int check_interval_ms = 200,
-    bool verbose = true)
+static bool wait_for_cpu_stable(double max_variance_percent = 10.0,
+                                int timeout_seconds = 30,
+                                int check_interval_ms = 200,
+                                bool verbose = true)
 {
     auto start = std::chrono::steady_clock::now();
     auto timeout = std::chrono::seconds(timeout_seconds);
-    
+
     auto initial_info = fat_p::bench::capture_cpu_frequency();
     if (!initial_info.has_reliable_detection())
     {
@@ -249,42 +260,45 @@ static bool wait_for_cpu_stable(
         std::this_thread::sleep_for(std::chrono::seconds(3));
         return true;
     }
-    
+
     double base_freq = initial_info.mRefFreqMHz;
     double min_required_freq = base_freq * 0.60;
-    
+
     cpu_warmup_burst(100);
-    
+
     std::vector<double> recent_readings;
     const size_t window_size = 5;
     const int required_stable = 3;
     int stable_count = 0;
-    
+
     while (std::chrono::steady_clock::now() - start < timeout)
     {
         cpu_warmup_burst(50);
-        
+
         auto info = fat_p::bench::capture_cpu_frequency();
         recent_readings.push_back(info.mCurrentFreqMHz);
-        
+
         if (recent_readings.size() > window_size)
         {
             recent_readings.erase(recent_readings.begin());
         }
-        
+
         if (recent_readings.size() >= window_size)
         {
             double min_freq = *std::min_element(recent_readings.begin(), recent_readings.end());
             double max_freq = *std::max_element(recent_readings.begin(), recent_readings.end());
             double avg_freq = 0;
-            for (double f : recent_readings) avg_freq += f;
+            for (double f : recent_readings)
+            {
+                avg_freq += f;
+            }
             avg_freq /= recent_readings.size();
-            
+
             double variance_pct = (max_freq - min_freq) / avg_freq * 100.0;
             bool variance_ok = variance_pct <= max_variance_percent;
             bool freq_floor_ok = avg_freq >= min_required_freq;
             bool is_stable = variance_ok && freq_floor_ok;
-            
+
             if (is_stable)
             {
                 ++stable_count;
@@ -293,9 +307,8 @@ static bool wait_for_cpu_stable(
                     if (verbose)
                     {
                         double pct_of_base = (avg_freq / base_freq) * 100.0;
-                        std::cout << "[CPU stable at " << static_cast<int>(avg_freq) 
-                                  << " MHz (" << std::fixed << std::setprecision(0) << pct_of_base 
-                                  << "% of base)]\n";
+                        std::cout << "[CPU stable at " << static_cast<int>(avg_freq) << " MHz (" << std::fixed
+                                  << std::setprecision(0) << pct_of_base << "% of base)]\n";
                     }
                     return true;
                 }
@@ -305,10 +318,10 @@ static bool wait_for_cpu_stable(
                 stable_count = 0;
             }
         }
-        
+
         std::this_thread::sleep_for(std::chrono::milliseconds(check_interval_ms));
     }
-    
+
     if (verbose)
     {
         std::cout << "[WARNING: CPU frequency still unstable after " << timeout_seconds << "s]\n";
@@ -322,10 +335,10 @@ static inline void cooling_delay(int min_sleep_ms, const char* reason = nullptr)
     {
         std::cout << "[Cooling: " << reason << "]" << std::flush;
     }
-    
+
     std::this_thread::sleep_for(std::chrono::milliseconds(min_sleep_ms));
     wait_for_cpu_stable(10.0, 15, 200, false);
-    
+
     if (reason)
     {
         auto info = fat_p::bench::capture_cpu_frequency();
@@ -367,7 +380,10 @@ struct Statistics
     static Statistics compute(std::vector<double> samples)
     {
         Statistics s{};
-        if (samples.empty()) return s;
+        if (samples.empty())
+        {
+            return s;
+        }
 
         std::sort(samples.begin(), samples.end());
         size_t n = samples.size();
@@ -454,7 +470,7 @@ std::vector<std::string> generate_string_keys(size_t n, uint64_t seed = 54321)
     std::mt19937_64 rng(seed);
     std::uniform_int_distribution<int> len_dist(8, 32);
     std::uniform_int_distribution<int> char_dist('a', 'z');
-    
+
     for (size_t i = 0; i < n; ++i)
     {
         int len = len_dist(rng);
@@ -473,14 +489,14 @@ std::vector<std::string> generate_string_keys(size_t n, uint64_t seed = 54321)
 
 enum class Case
 {
-    BulkInsertSorted,        // Sorted incremental inserts (often uses hints)
-    BulkBuildSortedRange,   // Bulk build from sorted unique range (range insert / construct)
-    BulkInsertRandom,       // FlatMap's worst case
+    BulkInsertSorted,     // Sorted incremental inserts (often uses hints)
+    BulkBuildSortedRange, // Bulk build from sorted unique range (range insert / construct)
+    BulkInsertRandom,     // FlatMap's worst case
     FindHit,
     FindMiss,
     Iteration,
     LowerBound,
-    SingleInsert,        // Pathological for flat containers
+    SingleInsert, // Pathological for flat containers
     Erase
 };
 
@@ -488,15 +504,24 @@ static inline const char* case_name(Case c)
 {
     switch (c)
     {
-    case Case::BulkInsertSorted:      return "Bulk Insert (sorted)";
-    case Case::BulkBuildSortedRange: return "Bulk Build (sorted range)";
-    case Case::BulkInsertRandom:      return "Bulk Insert (random)";
-    case Case::FindHit:           return "Find (hit)";
-    case Case::FindMiss:          return "Find (miss)";
-    case Case::Iteration:         return "Iteration";
-    case Case::LowerBound:        return "lower_bound";
-    case Case::SingleInsert:      return "Single Insert (random)";
-    case Case::Erase:             return "Erase (25%)";
+        case Case::BulkInsertSorted:
+            return "Bulk Insert (sorted)";
+        case Case::BulkBuildSortedRange:
+            return "Bulk Build (sorted range)";
+        case Case::BulkInsertRandom:
+            return "Bulk Insert (random)";
+        case Case::FindHit:
+            return "Find (hit)";
+        case Case::FindMiss:
+            return "Find (miss)";
+        case Case::Iteration:
+            return "Iteration";
+        case Case::LowerBound:
+            return "lower_bound";
+        case Case::SingleInsert:
+            return "Single Insert (random)";
+        case Case::Erase:
+            return "Erase (25%)";
     }
     return "Unknown";
 }
@@ -507,13 +532,13 @@ static inline const char* case_name(Case c)
 
 struct Inputs
 {
-    std::vector<int64_t> sorted_keys;      // Pre-sorted unique keys
+    std::vector<int64_t> sorted_keys;                      // Pre-sorted unique keys
     std::vector<std::pair<int64_t, int64_t>> sorted_pairs; // Optional: {k,k} for map bulk-build
-    std::vector<int64_t> random_keys;      // Random order for worst-case insert
-    std::vector<int64_t> miss_keys;        // Keys not in the map
-    std::vector<int64_t> lookup_keys;      // Shuffled keys for find benchmark
-    std::vector<int64_t> erase_subset;     // 25% of keys for erase benchmark
-    std::vector<int64_t> bound_targets;    // Keys for lower_bound/upper_bound
+    std::vector<int64_t> random_keys;                      // Random order for worst-case insert
+    std::vector<int64_t> miss_keys;                        // Keys not in the map
+    std::vector<int64_t> lookup_keys;                      // Shuffled keys for find benchmark
+    std::vector<int64_t> erase_subset;                     // 25% of keys for erase benchmark
+    std::vector<int64_t> bound_targets;                    // Keys for lower_bound/upper_bound
 
     static Inputs make(size_t N, uint64_t seed = 0xF1A7CAFEBABE01ULL, bool make_pairs = false)
     {
@@ -522,8 +547,7 @@ struct Inputs
         in.random_keys = generate_random_keys(N, seed);
         in.sorted_keys = in.random_keys;
         std::sort(in.sorted_keys.begin(), in.sorted_keys.end());
-        in.sorted_keys.erase(std::unique(in.sorted_keys.begin(), in.sorted_keys.end()), 
-                             in.sorted_keys.end());
+        in.sorted_keys.erase(std::unique(in.sorted_keys.begin(), in.sorted_keys.end()), in.sorted_keys.end());
 
         if (make_pairs)
         {
@@ -535,11 +559,11 @@ struct Inputs
         }
 
         in.miss_keys = generate_missing_keys(N, seed ^ 0x12345);
-        
+
         in.lookup_keys = in.sorted_keys;
         std::mt19937_64 rng(seed ^ 0x9E3779B97F4A7C15ULL);
         std::shuffle(in.lookup_keys.begin(), in.lookup_keys.end(), rng);
-        
+
         // 25% subset for erase
         in.erase_subset = in.lookup_keys;
         const size_t erase_count = std::max<size_t>(1, in.sorted_keys.size() / 4);
@@ -547,7 +571,7 @@ struct Inputs
         {
             in.erase_subset.resize(erase_count);
         }
-        
+
         // Targets for lower_bound (mix of existing and non-existing)
         in.bound_targets.reserve(N);
         for (size_t i = 0; i < N / 2 && i < in.sorted_keys.size(); ++i)
@@ -589,15 +613,24 @@ class StdMapAdapter final : public IMapAdapter
     std::unique_ptr<std::map<int64_t, int64_t>> mMap;
 
 public:
-    const char* name() const override { return "std::map"; }
+    const char* name() const override
+    {
+        return "std::map";
+    }
 
     void setup(size_t) override
     {
         mMap = std::make_unique<std::map<int64_t, int64_t>>();
     }
 
-    void teardown() override { mMap.reset(); }
-    void clear() override { mMap->clear(); }
+    void teardown() override
+    {
+        mMap.reset();
+    }
+    void clear() override
+    {
+        mMap->clear();
+    }
 
     void preload(const Inputs& in) override
     {
@@ -612,78 +645,87 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::BulkBuildSortedRange:
-            mMap->insert(in.sorted_pairs.begin(), in.sorted_pairs.end());
-            ops += in.sorted_pairs.size();
-            break;
+            case Case::BulkBuildSortedRange:
+                mMap->insert(in.sorted_pairs.begin(), in.sorted_pairs.end());
+                ops += in.sorted_pairs.size();
+                break;
 
-        case Case::BulkInsertSorted:
-            for (int64_t k : in.sorted_keys)
-            {
-                mMap->emplace_hint(mMap->end(), k, k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertSorted:
+                for (int64_t k : in.sorted_keys)
+                {
+                    mMap->emplace_hint(mMap->end(), k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::BulkInsertRandom:
-            for (int64_t k : in.random_keys)
-            {
-                mMap->emplace(k, k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertRandom:
+                for (int64_t k : in.random_keys)
+                {
+                    mMap->emplace(k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.lookup_keys)
-            {
-                auto it = mMap->find(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.lookup_keys)
+                {
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = mMap->find(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Iteration:
-            for (const auto& [key, value] : *mMap)
-            {
-                benchmark_sink += value;
-                ++ops;
-            }
-            break;
+            case Case::Iteration:
+                for (const auto& [key, value] : *mMap)
+                {
+                    benchmark_sink += value;
+                    ++ops;
+                }
+                break;
 
-        case Case::LowerBound:
-            for (int64_t k : in.bound_targets)
-            {
-                auto it = mMap->lower_bound(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::LowerBound:
+                for (int64_t k : in.bound_targets)
+                {
+                    auto it = mMap->lower_bound(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::SingleInsert:
-            // Single inserts at random positions
-            for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
-            {
-                mMap->emplace(in.random_keys[i], in.random_keys[i]);
-                ++ops;
-            }
-            break;
+            case Case::SingleInsert:
+                // Single inserts at random positions
+                for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
+                {
+                    mMap->emplace(in.random_keys[i], in.random_keys[i]);
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                mMap->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    mMap->erase(k);
+                    ++ops;
+                }
+                break;
         }
         return ops;
     }
@@ -711,7 +753,10 @@ class FatPFlatMapAdapter final : public IMapAdapter
     std::unique_ptr<fat_p::FlatMap<int64_t, int64_t>> mMap;
 
 public:
-    const char* name() const override { return "fat_p::FlatMap"; }
+    const char* name() const override
+    {
+        return "fat_p::FlatMap";
+    }
 
     void setup(size_t N) override
     {
@@ -719,8 +764,14 @@ public:
         mMap->reserve(N);
     }
 
-    void teardown() override { mMap.reset(); }
-    void clear() override { mMap->clear(); }
+    void teardown() override
+    {
+        mMap.reset();
+    }
+    void clear() override
+    {
+        mMap->clear();
+    }
 
     void preload(const Inputs& in) override
     {
@@ -739,81 +790,90 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::BulkBuildSortedRange:
-            // Use ordered_unique_range tag to skip sorting (apples-to-apples with Boost)
-            mMap->insert(fat_p::ordered_unique_range, in.sorted_pairs.begin(), in.sorted_pairs.end());
-            ops += in.sorted_pairs.size();
-            break;
+            case Case::BulkBuildSortedRange:
+                // Use ordered_unique_range tag to skip sorting (apples-to-apples with Boost)
+                mMap->insert(fat_p::ordered_unique_range, in.sorted_pairs.begin(), in.sorted_pairs.end());
+                ops += in.sorted_pairs.size();
+                break;
 
-        case Case::BulkInsertSorted:
-        {
-            // Hint-based insertion for sorted input
-            for (int64_t k : in.sorted_keys)
+            case Case::BulkInsertSorted:
             {
-                mMap->emplace_hint(mMap->end(), k, k);
-                ++ops;
+                // Hint-based insertion for sorted input
+                for (int64_t k : in.sorted_keys)
+                {
+                    mMap->emplace_hint(mMap->end(), k, k);
+                    ++ops;
+                }
+                break;
             }
-            break;
-        }
 
-        case Case::BulkInsertRandom:
-            for (int64_t k : in.random_keys)
-            {
-                mMap->emplace(k, k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertRandom:
+                for (int64_t k : in.random_keys)
+                {
+                    mMap->emplace(k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.lookup_keys)
-            {
-                auto it = mMap->find(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.lookup_keys)
+                {
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = mMap->find(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Iteration:
-            for (const auto& [key, value] : *mMap)
-            {
-                benchmark_sink += value;
-                ++ops;
-            }
-            break;
+            case Case::Iteration:
+                for (const auto& [key, value] : *mMap)
+                {
+                    benchmark_sink += value;
+                    ++ops;
+                }
+                break;
 
-        case Case::LowerBound:
-            for (int64_t k : in.bound_targets)
-            {
-                auto it = mMap->lower_bound(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::LowerBound:
+                for (int64_t k : in.bound_targets)
+                {
+                    auto it = mMap->lower_bound(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::SingleInsert:
-            for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
-            {
-                mMap->emplace(in.random_keys[i], in.random_keys[i]);
-                ++ops;
-            }
-            break;
+            case Case::SingleInsert:
+                for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
+                {
+                    mMap->emplace(in.random_keys[i], in.random_keys[i]);
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                mMap->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    mMap->erase(k);
+                    ++ops;
+                }
+                break;
         }
         return ops;
     }
@@ -842,7 +902,10 @@ class BoostFlatMapAdapter final : public IMapAdapter
     std::unique_ptr<boost::container::flat_map<int64_t, int64_t>> mMap;
 
 public:
-    const char* name() const override { return "boost::flat_map"; }
+    const char* name() const override
+    {
+        return "boost::flat_map";
+    }
 
     void setup(size_t N) override
     {
@@ -850,8 +913,14 @@ public:
         mMap->reserve(N);
     }
 
-    void teardown() override { mMap.reset(); }
-    void clear() override { mMap->clear(); }
+    void teardown() override
+    {
+        mMap.reset();
+    }
+    void clear() override
+    {
+        mMap->clear();
+    }
 
     void preload(const Inputs& in) override
     {
@@ -866,77 +935,86 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::BulkBuildSortedRange:
-            mMap->insert(boost::container::ordered_unique_range, in.sorted_pairs.begin(), in.sorted_pairs.end());
-            ops += in.sorted_pairs.size();
-            break;
+            case Case::BulkBuildSortedRange:
+                mMap->insert(boost::container::ordered_unique_range, in.sorted_pairs.begin(), in.sorted_pairs.end());
+                ops += in.sorted_pairs.size();
+                break;
 
-        case Case::BulkInsertSorted:
-            for (int64_t k : in.sorted_keys)
-            {
-                mMap->emplace_hint(mMap->end(), k, k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertSorted:
+                for (int64_t k : in.sorted_keys)
+                {
+                    mMap->emplace_hint(mMap->end(), k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::BulkInsertRandom:
-            for (int64_t k : in.random_keys)
-            {
-                mMap->emplace(k, k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertRandom:
+                for (int64_t k : in.random_keys)
+                {
+                    mMap->emplace(k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.lookup_keys)
-            {
-                auto it = mMap->find(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.lookup_keys)
+                {
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = mMap->find(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Iteration:
-            for (const auto& [key, value] : *mMap)
-            {
-                benchmark_sink += value;
-                ++ops;
-            }
-            break;
+            case Case::Iteration:
+                for (const auto& [key, value] : *mMap)
+                {
+                    benchmark_sink += value;
+                    ++ops;
+                }
+                break;
 
-        case Case::LowerBound:
-            for (int64_t k : in.bound_targets)
-            {
-                auto it = mMap->lower_bound(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::LowerBound:
+                for (int64_t k : in.bound_targets)
+                {
+                    auto it = mMap->lower_bound(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::SingleInsert:
-            for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
-            {
-                mMap->emplace(in.random_keys[i], in.random_keys[i]);
-                ++ops;
-            }
-            break;
+            case Case::SingleInsert:
+                for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
+                {
+                    mMap->emplace(in.random_keys[i], in.random_keys[i]);
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                mMap->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    mMap->erase(k);
+                    ++ops;
+                }
+                break;
         }
         return ops;
     }
@@ -965,15 +1043,24 @@ class AbslBtreeMapAdapter final : public IMapAdapter
     std::unique_ptr<absl::btree_map<int64_t, int64_t>> mMap;
 
 public:
-    const char* name() const override { return "absl::btree_map"; }
+    const char* name() const override
+    {
+        return "absl::btree_map";
+    }
 
     void setup(size_t) override
     {
         mMap = std::make_unique<absl::btree_map<int64_t, int64_t>>();
     }
 
-    void teardown() override { mMap.reset(); }
-    void clear() override { mMap->clear(); }
+    void teardown() override
+    {
+        mMap.reset();
+    }
+    void clear() override
+    {
+        mMap->clear();
+    }
 
     void preload(const Inputs& in) override
     {
@@ -988,77 +1075,86 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::BulkBuildSortedRange:
-            mMap->insert(in.sorted_pairs.begin(), in.sorted_pairs.end());
-            ops += in.sorted_pairs.size();
-            break;
+            case Case::BulkBuildSortedRange:
+                mMap->insert(in.sorted_pairs.begin(), in.sorted_pairs.end());
+                ops += in.sorted_pairs.size();
+                break;
 
-        case Case::BulkInsertSorted:
-            for (int64_t k : in.sorted_keys)
-            {
-                mMap->emplace_hint(mMap->end(), k, k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertSorted:
+                for (int64_t k : in.sorted_keys)
+                {
+                    mMap->emplace_hint(mMap->end(), k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::BulkInsertRandom:
-            for (int64_t k : in.random_keys)
-            {
-                mMap->emplace(k, k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertRandom:
+                for (int64_t k : in.random_keys)
+                {
+                    mMap->emplace(k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.lookup_keys)
-            {
-                auto it = mMap->find(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.lookup_keys)
+                {
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = mMap->find(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Iteration:
-            for (const auto& [key, value] : *mMap)
-            {
-                benchmark_sink += value;
-                ++ops;
-            }
-            break;
+            case Case::Iteration:
+                for (const auto& [key, value] : *mMap)
+                {
+                    benchmark_sink += value;
+                    ++ops;
+                }
+                break;
 
-        case Case::LowerBound:
-            for (int64_t k : in.bound_targets)
-            {
-                auto it = mMap->lower_bound(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::LowerBound:
+                for (int64_t k : in.bound_targets)
+                {
+                    auto it = mMap->lower_bound(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::SingleInsert:
-            for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
-            {
-                mMap->emplace(in.random_keys[i], in.random_keys[i]);
-                ++ops;
-            }
-            break;
+            case Case::SingleInsert:
+                for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
+                {
+                    mMap->emplace(in.random_keys[i], in.random_keys[i]);
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                mMap->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    mMap->erase(k);
+                    ++ops;
+                }
+                break;
         }
         return ops;
     }
@@ -1087,7 +1183,10 @@ class FollySortedVectorMapAdapter final : public IMapAdapter
     std::unique_ptr<folly::sorted_vector_map<int64_t, int64_t>> mMap;
 
 public:
-    const char* name() const override { return "folly::sorted_vector_map"; }
+    const char* name() const override
+    {
+        return "folly::sorted_vector_map";
+    }
 
     void setup(size_t N) override
     {
@@ -1095,8 +1194,14 @@ public:
         mMap->reserve(N);
     }
 
-    void teardown() override { mMap.reset(); }
-    void clear() override { mMap->clear(); }
+    void teardown() override
+    {
+        mMap.reset();
+    }
+    void clear() override
+    {
+        mMap->clear();
+    }
 
     void preload(const Inputs& in) override
     {
@@ -1111,80 +1216,89 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::BulkBuildSortedRange:
-            for (int64_t k : in.sorted_keys)
-            {
-                mMap->emplace_hint(mMap->end(), k, k);
-                ++ops;
-            }
-            break;
+            case Case::BulkBuildSortedRange:
+                for (int64_t k : in.sorted_keys)
+                {
+                    mMap->emplace_hint(mMap->end(), k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::BulkInsertSorted:
-            for (int64_t k : in.sorted_keys)
-            {
-                mMap->emplace_hint(mMap->end(), k, k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertSorted:
+                for (int64_t k : in.sorted_keys)
+                {
+                    mMap->emplace_hint(mMap->end(), k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::BulkInsertRandom:
-            for (int64_t k : in.random_keys)
-            {
-                mMap->emplace(k, k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertRandom:
+                for (int64_t k : in.random_keys)
+                {
+                    mMap->emplace(k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.lookup_keys)
-            {
-                auto it = mMap->find(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.lookup_keys)
+                {
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = mMap->find(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Iteration:
-            for (const auto& [key, value] : *mMap)
-            {
-                benchmark_sink += value;
-                ++ops;
-            }
-            break;
+            case Case::Iteration:
+                for (const auto& [key, value] : *mMap)
+                {
+                    benchmark_sink += value;
+                    ++ops;
+                }
+                break;
 
-        case Case::LowerBound:
-            for (int64_t k : in.bound_targets)
-            {
-                auto it = mMap->lower_bound(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::LowerBound:
+                for (int64_t k : in.bound_targets)
+                {
+                    auto it = mMap->lower_bound(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::SingleInsert:
-            for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
-            {
-                mMap->emplace(in.random_keys[i], in.random_keys[i]);
-                ++ops;
-            }
-            break;
+            case Case::SingleInsert:
+                for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
+                {
+                    mMap->emplace(in.random_keys[i], in.random_keys[i]);
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                mMap->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    mMap->erase(k);
+                    ++ops;
+                }
+                break;
         }
         return ops;
     }
@@ -1213,15 +1327,24 @@ class StdFlatMapAdapter final : public IMapAdapter
     std::unique_ptr<std::flat_map<int64_t, int64_t>> mMap;
 
 public:
-    const char* name() const override { return "std::flat_map (C++23)"; }
+    const char* name() const override
+    {
+        return "std::flat_map (C++23)";
+    }
 
     void setup(size_t) override
     {
         mMap = std::make_unique<std::flat_map<int64_t, int64_t>>();
     }
 
-    void teardown() override { mMap.reset(); }
-    void clear() override { mMap->clear(); }
+    void teardown() override
+    {
+        mMap.reset();
+    }
+    void clear() override
+    {
+        mMap->clear();
+    }
 
     void preload(const Inputs& in) override
     {
@@ -1236,80 +1359,89 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::BulkBuildSortedRange:
-            for (int64_t k : in.sorted_keys)
-            {
-                mMap->emplace_hint(mMap->end(), k, k);
-                ++ops;
-            }
-            break;
+            case Case::BulkBuildSortedRange:
+                for (int64_t k : in.sorted_keys)
+                {
+                    mMap->emplace_hint(mMap->end(), k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::BulkInsertSorted:
-            for (int64_t k : in.sorted_keys)
-            {
-                mMap->emplace_hint(mMap->end(), k, k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertSorted:
+                for (int64_t k : in.sorted_keys)
+                {
+                    mMap->emplace_hint(mMap->end(), k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::BulkInsertRandom:
-            for (int64_t k : in.random_keys)
-            {
-                mMap->emplace(k, k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertRandom:
+                for (int64_t k : in.random_keys)
+                {
+                    mMap->emplace(k, k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.lookup_keys)
-            {
-                auto it = mMap->find(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.lookup_keys)
+                {
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = mMap->find(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = mMap->find(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Iteration:
-            for (const auto& [key, value] : *mMap)
-            {
-                benchmark_sink += value;
-                ++ops;
-            }
-            break;
+            case Case::Iteration:
+                for (const auto& [key, value] : *mMap)
+                {
+                    benchmark_sink += value;
+                    ++ops;
+                }
+                break;
 
-        case Case::LowerBound:
-            for (int64_t k : in.bound_targets)
-            {
-                auto it = mMap->lower_bound(k);
-                if (it != mMap->end()) benchmark_sink += it->second;
-                ++ops;
-            }
-            break;
+            case Case::LowerBound:
+                for (int64_t k : in.bound_targets)
+                {
+                    auto it = mMap->lower_bound(k);
+                    if (it != mMap->end())
+                    {
+                        benchmark_sink += it->second;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::SingleInsert:
-            for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
-            {
-                mMap->emplace(in.random_keys[i], in.random_keys[i]);
-                ++ops;
-            }
-            break;
+            case Case::SingleInsert:
+                for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
+                {
+                    mMap->emplace(in.random_keys[i], in.random_keys[i]);
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                mMap->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    mMap->erase(k);
+                    ++ops;
+                }
+                break;
         }
         return ops;
     }
@@ -1359,15 +1491,24 @@ class StdSetAdapter final : public ISetAdapter
     std::unique_ptr<std::set<int64_t>> mSet;
 
 public:
-    const char* name() const override { return "std::set"; }
+    const char* name() const override
+    {
+        return "std::set";
+    }
 
     void setup(size_t) override
     {
         mSet = std::make_unique<std::set<int64_t>>();
     }
 
-    void teardown() override { mSet.reset(); }
-    void clear() override { mSet->clear(); }
+    void teardown() override
+    {
+        mSet.reset();
+    }
+    void clear() override
+    {
+        mSet->clear();
+    }
 
     void preload(const Inputs& in) override
     {
@@ -1382,77 +1523,86 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::BulkBuildSortedRange:
-            mSet->insert(in.sorted_keys.begin(), in.sorted_keys.end());
-            ops += in.sorted_keys.size();
-            break;
+            case Case::BulkBuildSortedRange:
+                mSet->insert(in.sorted_keys.begin(), in.sorted_keys.end());
+                ops += in.sorted_keys.size();
+                break;
 
-        case Case::BulkInsertSorted:
-            for (int64_t k : in.sorted_keys)
-            {
-                mSet->insert(mSet->end(), k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertSorted:
+                for (int64_t k : in.sorted_keys)
+                {
+                    mSet->insert(mSet->end(), k);
+                    ++ops;
+                }
+                break;
 
-        case Case::BulkInsertRandom:
-            for (int64_t k : in.random_keys)
-            {
-                mSet->insert(k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertRandom:
+                for (int64_t k : in.random_keys)
+                {
+                    mSet->insert(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.lookup_keys)
-            {
-                auto it = mSet->find(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.lookup_keys)
+                {
+                    auto it = mSet->find(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = mSet->find(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = mSet->find(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Iteration:
-            for (int64_t val : *mSet)
-            {
-                benchmark_sink += val;
-                ++ops;
-            }
-            break;
+            case Case::Iteration:
+                for (int64_t val : *mSet)
+                {
+                    benchmark_sink += val;
+                    ++ops;
+                }
+                break;
 
-        case Case::LowerBound:
-            for (int64_t k : in.bound_targets)
-            {
-                auto it = mSet->lower_bound(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::LowerBound:
+                for (int64_t k : in.bound_targets)
+                {
+                    auto it = mSet->lower_bound(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::SingleInsert:
-            for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
-            {
-                mSet->insert(in.random_keys[i]);
-                ++ops;
-            }
-            break;
+            case Case::SingleInsert:
+                for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
+                {
+                    mSet->insert(in.random_keys[i]);
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                mSet->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    mSet->erase(k);
+                    ++ops;
+                }
+                break;
         }
         return ops;
     }
@@ -1480,7 +1630,10 @@ class FatPFlatSetAdapter final : public ISetAdapter
     std::unique_ptr<fat_p::FlatSet<int64_t>> mSet;
 
 public:
-    const char* name() const override { return "fat_p::FlatSet"; }
+    const char* name() const override
+    {
+        return "fat_p::FlatSet";
+    }
 
     void setup(size_t N) override
     {
@@ -1488,8 +1641,14 @@ public:
         mSet->reserve(N);
     }
 
-    void teardown() override { mSet.reset(); }
-    void clear() override { mSet->clear(); }
+    void teardown() override
+    {
+        mSet.reset();
+    }
+    void clear() override
+    {
+        mSet->clear();
+    }
 
     void preload(const Inputs& in) override
     {
@@ -1502,78 +1661,87 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::BulkBuildSortedRange:
-            // Use ordered_unique_range tag to skip sorting (apples-to-apples with Boost)
-            mSet->insert(fat_p::ordered_unique_range, in.sorted_keys.begin(), in.sorted_keys.end());
-            ops += in.sorted_keys.size();
-            break;
+            case Case::BulkBuildSortedRange:
+                // Use ordered_unique_range tag to skip sorting (apples-to-apples with Boost)
+                mSet->insert(fat_p::ordered_unique_range, in.sorted_keys.begin(), in.sorted_keys.end());
+                ops += in.sorted_keys.size();
+                break;
 
-        case Case::BulkInsertSorted:
-            for (int64_t k : in.sorted_keys)
-            {
-                mSet->insert(mSet->end(), k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertSorted:
+                for (int64_t k : in.sorted_keys)
+                {
+                    mSet->insert(mSet->end(), k);
+                    ++ops;
+                }
+                break;
 
-        case Case::BulkInsertRandom:
-            for (int64_t k : in.random_keys)
-            {
-                mSet->insert(k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertRandom:
+                for (int64_t k : in.random_keys)
+                {
+                    mSet->insert(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.lookup_keys)
-            {
-                auto it = mSet->find(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.lookup_keys)
+                {
+                    auto it = mSet->find(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = mSet->find(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = mSet->find(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Iteration:
-            for (int64_t val : *mSet)
-            {
-                benchmark_sink += val;
-                ++ops;
-            }
-            break;
+            case Case::Iteration:
+                for (int64_t val : *mSet)
+                {
+                    benchmark_sink += val;
+                    ++ops;
+                }
+                break;
 
-        case Case::LowerBound:
-            for (int64_t k : in.bound_targets)
-            {
-                auto it = mSet->lower_bound(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::LowerBound:
+                for (int64_t k : in.bound_targets)
+                {
+                    auto it = mSet->lower_bound(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::SingleInsert:
-            for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
-            {
-                mSet->insert(in.random_keys[i]);
-                ++ops;
-            }
-            break;
+            case Case::SingleInsert:
+                for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
+                {
+                    mSet->insert(in.random_keys[i]);
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                mSet->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    mSet->erase(k);
+                    ++ops;
+                }
+                break;
         }
         return ops;
     }
@@ -1602,7 +1770,10 @@ class BoostFlatSetAdapter final : public ISetAdapter
     std::unique_ptr<boost::container::flat_set<int64_t>> mSet;
 
 public:
-    const char* name() const override { return "boost::flat_set"; }
+    const char* name() const override
+    {
+        return "boost::flat_set";
+    }
 
     void setup(size_t N) override
     {
@@ -1610,8 +1781,14 @@ public:
         mSet->reserve(N);
     }
 
-    void teardown() override { mSet.reset(); }
-    void clear() override { mSet->clear(); }
+    void teardown() override
+    {
+        mSet.reset();
+    }
+    void clear() override
+    {
+        mSet->clear();
+    }
 
     void preload(const Inputs& in) override
     {
@@ -1626,77 +1803,86 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::BulkBuildSortedRange:
-            mSet->insert(boost::container::ordered_unique_range, in.sorted_keys.begin(), in.sorted_keys.end());
-            ops += in.sorted_keys.size();
-            break;
+            case Case::BulkBuildSortedRange:
+                mSet->insert(boost::container::ordered_unique_range, in.sorted_keys.begin(), in.sorted_keys.end());
+                ops += in.sorted_keys.size();
+                break;
 
-        case Case::BulkInsertSorted:
-            for (int64_t k : in.sorted_keys)
-            {
-                mSet->insert(mSet->end(), k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertSorted:
+                for (int64_t k : in.sorted_keys)
+                {
+                    mSet->insert(mSet->end(), k);
+                    ++ops;
+                }
+                break;
 
-        case Case::BulkInsertRandom:
-            for (int64_t k : in.random_keys)
-            {
-                mSet->insert(k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertRandom:
+                for (int64_t k : in.random_keys)
+                {
+                    mSet->insert(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.lookup_keys)
-            {
-                auto it = mSet->find(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.lookup_keys)
+                {
+                    auto it = mSet->find(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = mSet->find(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = mSet->find(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Iteration:
-            for (int64_t val : *mSet)
-            {
-                benchmark_sink += val;
-                ++ops;
-            }
-            break;
+            case Case::Iteration:
+                for (int64_t val : *mSet)
+                {
+                    benchmark_sink += val;
+                    ++ops;
+                }
+                break;
 
-        case Case::LowerBound:
-            for (int64_t k : in.bound_targets)
-            {
-                auto it = mSet->lower_bound(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::LowerBound:
+                for (int64_t k : in.bound_targets)
+                {
+                    auto it = mSet->lower_bound(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::SingleInsert:
-            for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
-            {
-                mSet->insert(in.random_keys[i]);
-                ++ops;
-            }
-            break;
+            case Case::SingleInsert:
+                for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
+                {
+                    mSet->insert(in.random_keys[i]);
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                mSet->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    mSet->erase(k);
+                    ++ops;
+                }
+                break;
         }
         return ops;
     }
@@ -1726,15 +1912,24 @@ class AbslBtreeSetAdapter final : public ISetAdapter
     std::unique_ptr<absl::btree_set<int64_t>> mSet;
 
 public:
-    const char* name() const override { return "absl::btree_set"; }
+    const char* name() const override
+    {
+        return "absl::btree_set";
+    }
 
     void setup(size_t) override
     {
         mSet = std::make_unique<absl::btree_set<int64_t>>();
     }
 
-    void teardown() override { mSet.reset(); }
-    void clear() override { mSet->clear(); }
+    void teardown() override
+    {
+        mSet.reset();
+    }
+    void clear() override
+    {
+        mSet->clear();
+    }
 
     void preload(const Inputs& in) override
     {
@@ -1749,77 +1944,86 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::BulkBuildSortedRange:
-            mSet->insert(in.sorted_keys.begin(), in.sorted_keys.end());
-            ops += in.sorted_keys.size();
-            break;
+            case Case::BulkBuildSortedRange:
+                mSet->insert(in.sorted_keys.begin(), in.sorted_keys.end());
+                ops += in.sorted_keys.size();
+                break;
 
-        case Case::BulkInsertSorted:
-            for (int64_t k : in.sorted_keys)
-            {
-                mSet->insert(mSet->end(), k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertSorted:
+                for (int64_t k : in.sorted_keys)
+                {
+                    mSet->insert(mSet->end(), k);
+                    ++ops;
+                }
+                break;
 
-        case Case::BulkInsertRandom:
-            for (int64_t k : in.random_keys)
-            {
-                mSet->insert(k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertRandom:
+                for (int64_t k : in.random_keys)
+                {
+                    mSet->insert(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.lookup_keys)
-            {
-                auto it = mSet->find(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.lookup_keys)
+                {
+                    auto it = mSet->find(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = mSet->find(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = mSet->find(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Iteration:
-            for (int64_t val : *mSet)
-            {
-                benchmark_sink += val;
-                ++ops;
-            }
-            break;
+            case Case::Iteration:
+                for (int64_t val : *mSet)
+                {
+                    benchmark_sink += val;
+                    ++ops;
+                }
+                break;
 
-        case Case::LowerBound:
-            for (int64_t k : in.bound_targets)
-            {
-                auto it = mSet->lower_bound(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::LowerBound:
+                for (int64_t k : in.bound_targets)
+                {
+                    auto it = mSet->lower_bound(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::SingleInsert:
-            for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
-            {
-                mSet->insert(in.random_keys[i]);
-                ++ops;
-            }
-            break;
+            case Case::SingleInsert:
+                for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
+                {
+                    mSet->insert(in.random_keys[i]);
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                mSet->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    mSet->erase(k);
+                    ++ops;
+                }
+                break;
         }
         return ops;
     }
@@ -1843,21 +2047,30 @@ public:
 // C++23 std::flat_set Adapter
 // ============================================================================
 
-#if HAS_STD_FLATMAP  // flat_set comes with flat_map in C++23
+#if HAS_STD_FLATMAP // flat_set comes with flat_map in C++23
 class StdFlatSetAdapter final : public ISetAdapter
 {
     std::unique_ptr<std::flat_set<int64_t>> mSet;
 
 public:
-    const char* name() const override { return "std::flat_set (C++23)"; }
+    const char* name() const override
+    {
+        return "std::flat_set (C++23)";
+    }
 
     void setup(size_t) override
     {
         mSet = std::make_unique<std::flat_set<int64_t>>();
     }
 
-    void teardown() override { mSet.reset(); }
-    void clear() override { mSet->clear(); }
+    void teardown() override
+    {
+        mSet.reset();
+    }
+    void clear() override
+    {
+        mSet->clear();
+    }
 
     void preload(const Inputs& in) override
     {
@@ -1872,80 +2085,89 @@ public:
         size_t ops = 0;
         switch (c)
         {
-        case Case::BulkBuildSortedRange:
-            for (int64_t k : in.sorted_keys)
-            {
-                mSet->emplace_hint(mSet->end(), k);
-                ++ops;
-            }
-            break;
+            case Case::BulkBuildSortedRange:
+                for (int64_t k : in.sorted_keys)
+                {
+                    mSet->emplace_hint(mSet->end(), k);
+                    ++ops;
+                }
+                break;
 
-        case Case::BulkInsertSorted:
-            for (int64_t k : in.sorted_keys)
-            {
-                mSet->insert(mSet->end(), k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertSorted:
+                for (int64_t k : in.sorted_keys)
+                {
+                    mSet->insert(mSet->end(), k);
+                    ++ops;
+                }
+                break;
 
-        case Case::BulkInsertRandom:
-            for (int64_t k : in.random_keys)
-            {
-                mSet->insert(k);
-                ++ops;
-            }
-            break;
+            case Case::BulkInsertRandom:
+                for (int64_t k : in.random_keys)
+                {
+                    mSet->insert(k);
+                    ++ops;
+                }
+                break;
 
-        case Case::FindHit:
-            for (int64_t k : in.lookup_keys)
-            {
-                auto it = mSet->find(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::FindHit:
+                for (int64_t k : in.lookup_keys)
+                {
+                    auto it = mSet->find(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::FindMiss:
-            for (int64_t k : in.miss_keys)
-            {
-                auto it = mSet->find(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::FindMiss:
+                for (int64_t k : in.miss_keys)
+                {
+                    auto it = mSet->find(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::Iteration:
-            for (int64_t val : *mSet)
-            {
-                benchmark_sink += val;
-                ++ops;
-            }
-            break;
+            case Case::Iteration:
+                for (int64_t val : *mSet)
+                {
+                    benchmark_sink += val;
+                    ++ops;
+                }
+                break;
 
-        case Case::LowerBound:
-            for (int64_t k : in.bound_targets)
-            {
-                auto it = mSet->lower_bound(k);
-                if (it != mSet->end()) benchmark_sink += *it;
-                ++ops;
-            }
-            break;
+            case Case::LowerBound:
+                for (int64_t k : in.bound_targets)
+                {
+                    auto it = mSet->lower_bound(k);
+                    if (it != mSet->end())
+                    {
+                        benchmark_sink += *it;
+                    }
+                    ++ops;
+                }
+                break;
 
-        case Case::SingleInsert:
-            for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
-            {
-                mSet->insert(in.random_keys[i]);
-                ++ops;
-            }
-            break;
+            case Case::SingleInsert:
+                for (size_t i = 0; i < std::min<size_t>(100, in.random_keys.size()); ++i)
+                {
+                    mSet->insert(in.random_keys[i]);
+                    ++ops;
+                }
+                break;
 
-        case Case::Erase:
-            for (int64_t k : in.erase_subset)
-            {
-                mSet->erase(k);
-                ++ops;
-            }
-            break;
+            case Case::Erase:
+                for (int64_t k : in.erase_subset)
+                {
+                    mSet->erase(k);
+                    ++ops;
+                }
+                break;
         }
         return ops;
     }
@@ -1984,7 +2206,7 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
     std::cout << "================================================================================\n";
     std::cout << "  SECTION 1: Core Operations\n";
     std::cout << "================================================================================\n";
-    
+
     print_cpu_context("Section start");
 
     // Build adapter list
@@ -2006,15 +2228,13 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
     adapters.push_back(std::make_unique<StdFlatMapAdapter>());
 #endif
 
-    std::vector<Case> cases = {
-        Case::BulkBuildSortedRange,
-        Case::BulkInsertSorted,
-        Case::BulkInsertRandom,
-        Case::FindHit,
-        Case::FindMiss,
-        Case::Iteration,
-        Case::LowerBound
-    };
+    std::vector<Case> cases = {Case::BulkBuildSortedRange,
+                               Case::BulkInsertSorted,
+                               Case::BulkInsertRandom,
+                               Case::FindHit,
+                               Case::FindMiss,
+                               Case::Iteration,
+                               Case::LowerBound};
 
     std::mt19937_64 rng(42);
 
@@ -2049,11 +2269,10 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
                 {
                     auto& adapter = adapters[idx];
                     adapter->setup(N);
-                    
+
                     // Preload for find/iteration/bound/erase cases
-                    bool needs_preload = (c == Case::FindHit || c == Case::FindMiss || 
-                                          c == Case::Iteration || c == Case::LowerBound ||
-                                          c == Case::Erase);
+                    bool needs_preload = (c == Case::FindHit || c == Case::FindMiss || c == Case::Iteration ||
+                                          c == Case::LowerBound || c == Case::Erase);
                     if (needs_preload)
                     {
                         adapter->preload(in);
@@ -2081,10 +2300,9 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
                 {
                     auto& adapter = adapters[idx];
                     adapter->setup(N);
-                    
-                    bool needs_preload = (c == Case::FindHit || c == Case::FindMiss || 
-                                          c == Case::Iteration || c == Case::LowerBound ||
-                                          c == Case::Erase);
+
+                    bool needs_preload = (c == Case::FindHit || c == Case::FindMiss || c == Case::Iteration ||
+                                          c == Case::LowerBound || c == Case::Erase);
                     if (needs_preload)
                     {
                         adapter->preload(in);
@@ -2107,10 +2325,9 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
             for (const auto& r : results)
             {
                 auto stats = Statistics::compute(r.samples);
-                std::cout << "    " << std::setw(24) << r.library << ": "
-                          << std::setw(8) << stats.median << " ns/op "
-                          << "(+/-" << std::setw(6) << stats.stddev 
-                          << ", CI:[" << stats.ci95_low << "," << stats.ci95_high << "])\n";
+                std::cout << "    " << std::setw(24) << r.library << ": " << std::setw(8) << stats.median << " ns/op "
+                          << "(+/-" << std::setw(6) << stats.stddev << ", CI:[" << stats.ci95_low << ","
+                          << stats.ci95_high << "])\n";
             }
         }
     }
@@ -2240,15 +2457,12 @@ void benchmark_pathological_insert()
         for (const auto& r : results)
         {
             auto stats = Statistics::compute(r.samples);
-            std::cout << "    " << std::setw(24) << r.library << ": "
-                      << std::setw(8) << stats.median << " ns/op "
-                      << "(+/-" << std::setw(6) << stats.stddev
-                      << ", CI:[" << stats.ci95_low << "," << stats.ci95_high << "])\n";
+            std::cout << "    " << std::setw(24) << r.library << ": " << std::setw(8) << stats.median << " ns/op "
+                      << "(+/-" << std::setw(6) << stats.stddev << ", CI:[" << stats.ci95_low << "," << stats.ci95_high
+                      << "])\n";
         }
     }
 }
-
-
 
 
 // ============================================================================
@@ -2292,7 +2506,7 @@ void benchmark_iteration_speed()
         for (auto& adapter : adapters)
         {
             std::vector<double> samples;
-            
+
             for (size_t run = 0; run < MEASURED_RUNS(); ++run)
             {
                 adapter->setup(N);
@@ -2308,8 +2522,8 @@ void benchmark_iteration_speed()
             }
 
             auto stats = Statistics::compute(samples);
-            std::cout << "    " << std::setw(24) << adapter->name() << ": "
-                      << std::setw(8) << stats.median << " ns/elem "
+            std::cout << "    " << std::setw(24) << adapter->name() << ": " << std::setw(8) << stats.median
+                      << " ns/elem "
                       << "(+/-" << stats.stddev << ")\n";
         }
     }
@@ -2347,7 +2561,7 @@ void benchmark_set_operations(const std::vector<size_t>& sizes)
     std::cout << "================================================================================\n";
     std::cout << "  SECTION 4: FlatSet Core Operations\n";
     std::cout << "================================================================================\n";
-    
+
     print_cpu_context("Section start");
 
     // Build adapter list
@@ -2366,15 +2580,13 @@ void benchmark_set_operations(const std::vector<size_t>& sizes)
     adapters.push_back(std::make_unique<StdFlatSetAdapter>());
 #endif
 
-    std::vector<Case> cases = {
-        Case::BulkBuildSortedRange,
-        Case::BulkInsertSorted,
-        Case::BulkInsertRandom,
-        Case::FindHit,
-        Case::FindMiss,
-        Case::Iteration,
-        Case::LowerBound
-    };
+    std::vector<Case> cases = {Case::BulkBuildSortedRange,
+                               Case::BulkInsertSorted,
+                               Case::BulkInsertRandom,
+                               Case::FindHit,
+                               Case::FindMiss,
+                               Case::Iteration,
+                               Case::LowerBound};
 
     std::mt19937_64 rng(42);
 
@@ -2409,10 +2621,9 @@ void benchmark_set_operations(const std::vector<size_t>& sizes)
                 {
                     auto& adapter = adapters[idx];
                     adapter->setup(N);
-                    
-                    bool needs_preload = (c == Case::FindHit || c == Case::FindMiss || 
-                                          c == Case::Iteration || c == Case::LowerBound ||
-                                          c == Case::Erase);
+
+                    bool needs_preload = (c == Case::FindHit || c == Case::FindMiss || c == Case::Iteration ||
+                                          c == Case::LowerBound || c == Case::Erase);
                     if (needs_preload)
                     {
                         adapter->preload(in);
@@ -2440,10 +2651,9 @@ void benchmark_set_operations(const std::vector<size_t>& sizes)
                 {
                     auto& adapter = adapters[idx];
                     adapter->setup(N);
-                    
-                    bool needs_preload = (c == Case::FindHit || c == Case::FindMiss || 
-                                          c == Case::Iteration || c == Case::LowerBound ||
-                                          c == Case::Erase);
+
+                    bool needs_preload = (c == Case::FindHit || c == Case::FindMiss || c == Case::Iteration ||
+                                          c == Case::LowerBound || c == Case::Erase);
                     if (needs_preload)
                     {
                         adapter->preload(in);
@@ -2466,10 +2676,9 @@ void benchmark_set_operations(const std::vector<size_t>& sizes)
             for (const auto& r : results)
             {
                 auto stats = Statistics::compute(r.samples);
-                std::cout << "    " << std::setw(24) << r.library << ": "
-                          << std::setw(8) << stats.median << " ns/op "
-                          << "(+/-" << std::setw(6) << stats.stddev 
-                          << ", CI:[" << stats.ci95_low << "," << stats.ci95_high << "])\n";
+                std::cout << "    " << std::setw(24) << r.library << ": " << std::setw(8) << stats.median << " ns/op "
+                          << "(+/-" << std::setw(6) << stats.stddev << ", CI:[" << stats.ci95_low << ","
+                          << stats.ci95_high << "])\n";
             }
         }
     }
@@ -2499,15 +2708,15 @@ int main(int argc, char* argv[])
     std::cout << "================================================================================\n";
     std::cout << "  FlatMap/FlatSet Comprehensive Benchmark Suite\n";
     std::cout << "================================================================================\n";
-    
+
     std::cout << "\nPlatform: ";
 #if defined(_WIN32) || defined(_WIN64)
     std::cout << "Windows";
 #else
     std::cout << "Linux";
 #endif
-    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() 
-              << ", seed=" << g_config.seed << ")\n";
+    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << ", seed=" << g_config.seed
+              << ")\n";
 
     std::cout << "Competitor libraries: ";
 #if HAS_FATP_FLATMAP

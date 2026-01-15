@@ -34,8 +34,8 @@ FATP_META:
 #include <thread>
 #include <vector>
 
-#include "ServiceLocator.h"
 #include "FatPTest.h"
+#include "ServiceLocator.h"
 
 namespace fat_p::testing::service_locator
 {
@@ -95,15 +95,14 @@ FATP_TEST_CASE(named_instances)
     b.mValue = 2;
 
     FATP_ASSERT_TRUE(locator.registerInstance<CounterService>(a, "primary").has_value(),
-        "register primary should succeed");
+                     "register primary should succeed");
     FATP_ASSERT_TRUE(locator.registerInstance<CounterService>(b, "secondary").has_value(),
-        "register secondary should succeed");
+                     "register secondary should succeed");
 
     FATP_ASSERT_EQ(locator.resolve<CounterService>("primary").mValue, 1, "primary matches");
     FATP_ASSERT_EQ(locator.resolve<CounterService>("secondary").mValue, 2, "secondary matches");
 
-    FATP_ASSERT_TRUE(locator.tryResolve<CounterService>("missing") == nullptr,
-        "missing name should not resolve");
+    FATP_ASSERT_TRUE(locator.tryResolve<CounterService>("missing") == nullptr, "missing name should not resolve");
 
     return true;
 }
@@ -118,8 +117,7 @@ FATP_TEST_CASE(prevent_overwrite_policy)
     CounterService b;
     b.mValue = 20;
 
-    FATP_ASSERT_TRUE(locator.registerInstance<CounterService>(a).has_value(),
-        "first registration should succeed");
+    FATP_ASSERT_TRUE(locator.registerInstance<CounterService>(a).has_value(), "first registration should succeed");
 
     auto second = locator.registerInstance<CounterService>(b);
     FATP_ASSERT_TRUE(!second.has_value(), "duplicate registration should fail");
@@ -141,10 +139,8 @@ FATP_TEST_CASE(allow_overwrite_policy)
     CounterService b;
     b.mValue = 20;
 
-    FATP_ASSERT_TRUE(locator.registerInstance<CounterService>(a).has_value(),
-        "first registration should succeed");
-    FATP_ASSERT_TRUE(locator.registerInstance<CounterService>(b).has_value(),
-        "overwrite registration should succeed");
+    FATP_ASSERT_TRUE(locator.registerInstance<CounterService>(a).has_value(), "first registration should succeed");
+    FATP_ASSERT_TRUE(locator.registerInstance<CounterService>(b).has_value(), "overwrite registration should succeed");
 
     CounterService& r = locator.resolve<CounterService>();
     FATP_ASSERT_EQ(&r, &b, "allow overwrite replaces instance");
@@ -177,8 +173,9 @@ FATP_TEST_CASE(shared_null_rejected)
     auto reg = locator.registerShared<CounterService>(empty);
 
     FATP_ASSERT_TRUE(!reg.has_value(), "registerShared should reject empty shared_ptr");
-    FATP_ASSERT_EQ(reg.error().mCode, ServiceError::NullSharedInstance,
-        "null shared registration should report NullSharedInstance");
+    FATP_ASSERT_EQ(reg.error().mCode,
+                   ServiceError::NullSharedInstance,
+                   "null shared registration should report NullSharedInstance");
 
     return true;
 }
@@ -191,21 +188,19 @@ FATP_TEST_CASE(registration_raii_unregisters)
     svc.mValue = 5;
 
     {
-        auto regExpected = DefaultServiceLocator::Registration::registerInstanceExpected(
-            locator,
-            svc);
+        auto regExpected = DefaultServiceLocator::Registration::registerInstanceExpected(locator, svc);
         FATP_ASSERT_TRUE(regExpected.has_value(), "RAII instance registration should succeed");
 
         auto reg = std::move(regExpected.value());
         FATP_ASSERT_TRUE(locator.tryResolve<CounterService>() != nullptr,
-            "service should be resolvable while registration is alive");
+                         "service should be resolvable while registration is alive");
 
         CounterService& r = locator.resolve<CounterService>();
         FATP_ASSERT_EQ(r.mValue, 5, "resolved value matches");
     }
 
     FATP_ASSERT_TRUE(locator.tryResolve<CounterService>() == nullptr,
-        "service should be unregistered when Registration is destroyed");
+                     "service should be unregistered when Registration is destroyed");
 
     return true;
 }
@@ -254,8 +249,7 @@ FATP_TEST_CASE(transient_factory_creation)
 
     FATP_ASSERT_TRUE(reg.has_value(), "transient factory registration should succeed");
 
-    FATP_ASSERT_TRUE(locator.tryResolve<Widget>() == nullptr,
-        "transient factory is not resolvable via tryResolve");
+    FATP_ASSERT_TRUE(locator.tryResolve<Widget>() == nullptr, "transient factory is not resolvable via tryResolve");
 
     auto c1 = locator.createExpected<Widget>();
     FATP_ASSERT_TRUE(c1.has_value(), "createExpected should succeed");
@@ -278,8 +272,7 @@ FATP_TEST_CASE(scoped_overrides)
     CounterService base;
     base.mValue = 1;
 
-    FATP_ASSERT_TRUE(parent.registerInstance<CounterService>(base).has_value(),
-        "parent registration should succeed");
+    FATP_ASSERT_TRUE(parent.registerInstance<CounterService>(base).has_value(), "parent registration should succeed");
 
     auto scope = parent.makeScope();
 
@@ -287,7 +280,7 @@ FATP_TEST_CASE(scoped_overrides)
     override.mValue = 2;
 
     FATP_ASSERT_TRUE(scope.locator().registerInstance<CounterService>(override).has_value(),
-        "child override registration should succeed");
+                     "child override registration should succeed");
 
     FATP_ASSERT_EQ(parent.resolve<CounterService>().mValue, 1, "parent resolves base");
     FATP_ASSERT_EQ(scope.locator().resolve<CounterService>().mValue, 2, "child resolves override");
@@ -302,8 +295,7 @@ FATP_TEST_CASE(thread_safe_smoke)
     CounterService svc;
     svc.mValue = 99;
 
-    FATP_ASSERT_TRUE(locator.registerInstance<CounterService>(svc).has_value(),
-        "thread-safe register should succeed");
+    FATP_ASSERT_TRUE(locator.registerInstance<CounterService>(svc).has_value(), "thread-safe register should succeed");
 
     constexpr int kThreads = 8;
     constexpr int kIters = 1000;
@@ -333,8 +325,9 @@ FATP_TEST_CASE(thread_safe_smoke)
         th.join();
     }
 
-    FATP_ASSERT_EQ(ok.load(std::memory_order_relaxed), kThreads * kIters,
-        "all thread resolves should observe the registered service");
+    FATP_ASSERT_EQ(ok.load(std::memory_order_relaxed),
+                   kThreads * kIters,
+                   "all thread resolves should observe the registered service");
 
     return true;
 }
@@ -342,7 +335,7 @@ FATP_TEST_CASE(thread_safe_smoke)
 FATP_TEST_CASE(concurrent_singleton_exactly_once)
 {
     ThreadSafeServiceLocator locator;
-    
+
     std::atomic<int> factoryInvocations{0};
     std::atomic<Widget*> firstObserved{nullptr};
     std::atomic<int> mismatchCount{0};
@@ -373,11 +366,13 @@ FATP_TEST_CASE(concurrent_singleton_exactly_once)
                     mismatchCount.fetch_add(1, std::memory_order_relaxed);
                     return;
                 }
-                
+
                 // Record first observed instance, check all threads see the same one
                 Widget* expected = nullptr;
-                if (!firstObserved.compare_exchange_strong(expected, p,
-                        std::memory_order_acq_rel, std::memory_order_acquire))
+                if (!firstObserved.compare_exchange_strong(expected,
+                                                           p,
+                                                           std::memory_order_acq_rel,
+                                                           std::memory_order_acquire))
                 {
                     // Someone else set it first; verify we got the same pointer
                     if (expected != p)
@@ -393,14 +388,14 @@ FATP_TEST_CASE(concurrent_singleton_exactly_once)
         th.join();
     }
 
-    FATP_ASSERT_EQ(factoryInvocations.load(std::memory_order_relaxed), 1,
-        "singleton factory must be invoked exactly once");
-    FATP_ASSERT_EQ(mismatchCount.load(std::memory_order_relaxed), 0,
-        "all threads must observe the same singleton instance");
-    FATP_ASSERT_TRUE(firstObserved.load(std::memory_order_relaxed) != nullptr,
-        "singleton should have been created");
-    FATP_ASSERT_EQ(firstObserved.load(std::memory_order_relaxed)->mId, 42,
-        "singleton should have correct value");
+    FATP_ASSERT_EQ(factoryInvocations.load(std::memory_order_relaxed),
+                   1,
+                   "singleton factory must be invoked exactly once");
+    FATP_ASSERT_EQ(mismatchCount.load(std::memory_order_relaxed),
+                   0,
+                   "all threads must observe the same singleton instance");
+    FATP_ASSERT_TRUE(firstObserved.load(std::memory_order_relaxed) != nullptr, "singleton should have been created");
+    FATP_ASSERT_EQ(firstObserved.load(std::memory_order_relaxed)->mId, 42, "singleton should have correct value");
 
     return true;
 }
@@ -457,16 +452,14 @@ FATP_TEST_CASE(singleton_reregister_does_not_poison)
     creator.join();
 
     FATP_ASSERT_TRUE(oldObserved.load(std::memory_order_relaxed) == nullptr,
-        "creator resolve must fail if the singleton registration was replaced during creation");
+                     "creator resolve must fail if the singleton registration was replaced during creation");
 
     Widget* resolved = locator.tryResolve<Widget>();
     FATP_ASSERT_TRUE(resolved != nullptr, "resolve after re-register should succeed");
     FATP_ASSERT_EQ(resolved->mId, 2, "resolve must return the re-registered singleton instance");
 
-    FATP_ASSERT_EQ(oldInvocations.load(std::memory_order_relaxed), 1,
-        "old factory should have been invoked once");
-    FATP_ASSERT_EQ(newInvocations.load(std::memory_order_relaxed), 1,
-        "new factory should have been invoked once");
+    FATP_ASSERT_EQ(oldInvocations.load(std::memory_order_relaxed), 1, "old factory should have been invoked once");
+    FATP_ASSERT_EQ(newInvocations.load(std::memory_order_relaxed), 1, "new factory should have been invoked once");
 
     return true;
 }
@@ -474,9 +467,9 @@ FATP_TEST_CASE(singleton_reregister_does_not_poison)
 FATP_TEST_CASE(circular_dependency_detected)
 {
     DefaultServiceLocator locator;
-    
+
     ServiceError innerErrorCode{};
-    
+
     // Register a factory that tries to resolve itself - circular dependency
     auto reg = locator.registerFactory<Widget>(
         [&locator, &innerErrorCode]() -> std::unique_ptr<Widget>
@@ -496,11 +489,12 @@ FATP_TEST_CASE(circular_dependency_detected)
 
     // Attempting to resolve should detect the circular dependency
     auto result = locator.resolveExpected<Widget>();
-    
+
     // The inner resolve should have detected circular dependency
-    FATP_ASSERT_EQ(innerErrorCode, ServiceError::CircularDependency,
-        "inner resolve should report CircularDependency error");
-    
+    FATP_ASSERT_EQ(innerErrorCode,
+                   ServiceError::CircularDependency,
+                   "inner resolve should report CircularDependency error");
+
     // The outer resolve should fail because factory returned nullptr
     FATP_ASSERT_FALSE(result.has_value(), "circular dependency should fail resolution");
 
@@ -520,25 +514,21 @@ bool test_ServiceLocator()
 
     auto& out = *get_test_config().output;
 
-    out << "\n" << colors::bold() << "=== Basic Registration & Resolution ==="
-        << colors::reset() << std::endl;
+    out << "\n" << colors::bold() << "=== Basic Registration & Resolution ===" << colors::reset() << std::endl;
     FATP_RUN_TEST_NS(runner, service_locator, instance_registration_and_resolution);
     FATP_RUN_TEST_NS(runner, service_locator, named_instances);
 
-    out << "\n" << colors::bold() << "=== Registration Policies ==="
-        << colors::reset() << std::endl;
+    out << "\n" << colors::bold() << "=== Registration Policies ===" << colors::reset() << std::endl;
     FATP_RUN_TEST_NS(runner, service_locator, prevent_overwrite_policy);
     FATP_RUN_TEST_NS(runner, service_locator, allow_overwrite_policy);
 
-    out << "\n" << colors::bold() << "=== Ownership & Factories ==="
-        << colors::reset() << std::endl;
+    out << "\n" << colors::bold() << "=== Ownership & Factories ===" << colors::reset() << std::endl;
     FATP_RUN_TEST_NS(runner, service_locator, shared_registration);
     FATP_RUN_TEST_NS(runner, service_locator, shared_null_rejected);
     FATP_RUN_TEST_NS(runner, service_locator, singleton_factory_resolution);
     FATP_RUN_TEST_NS(runner, service_locator, transient_factory_creation);
 
-    out << "\n" << colors::bold() << "=== Scoping & Thread Safety ==="
-        << colors::reset() << std::endl;
+    out << "\n" << colors::bold() << "=== Scoping & Thread Safety ===" << colors::reset() << std::endl;
     FATP_RUN_TEST_NS(runner, service_locator, scoped_overrides);
     FATP_RUN_TEST_NS(runner, service_locator, registration_raii_unregisters);
     FATP_RUN_TEST_NS(runner, service_locator, thread_safe_smoke);

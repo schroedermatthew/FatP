@@ -47,7 +47,10 @@ using namespace fat_p;
 struct TestData
 {
     int value;
-    explicit TestData(int v = 0) : value(v) {}
+    explicit TestData(int v = 0)
+        : value(v)
+    {
+    }
 };
 
 struct LifetimeTracker
@@ -55,9 +58,20 @@ struct LifetimeTracker
     inline static std::atomic<int> alive{0};
     int id;
 
-    explicit LifetimeTracker(int i = 0) : id(i) { alive++; }
-    ~LifetimeTracker() { alive--; }
-    LifetimeTracker(const LifetimeTracker& o) : id(o.id) { alive++; }
+    explicit LifetimeTracker(int i = 0)
+        : id(i)
+    {
+        alive++;
+    }
+    ~LifetimeTracker()
+    {
+        alive--;
+    }
+    LifetimeTracker(const LifetimeTracker& o)
+        : id(o.id)
+    {
+        alive++;
+    }
 };
 
 // ============================================================================
@@ -187,17 +201,18 @@ FATP_TEST_CASE(concurrent_loads)
     std::vector<std::thread> threads;
     for (int i = 0; i < num_threads; ++i)
     {
-        threads.emplace_back([&]()
-        {
-            for (int j = 0; j < 1000; ++j)
+        threads.emplace_back(
+            [&]()
             {
-                auto val = ref.load();
-                if (val && val->value == 270)
+                for (int j = 0; j < 1000; ++j)
                 {
-                    success_count++;
+                    auto val = ref.load();
+                    if (val && val->value == 270)
+                    {
+                        success_count++;
+                    }
                 }
-            }
-        });
+            });
     }
 
     for (auto& t : threads)
@@ -223,14 +238,15 @@ FATP_TEST_CASE(concurrent_stores)
     std::vector<std::thread> threads;
     for (int i = 0; i < num_threads; ++i)
     {
-        threads.emplace_back([&, i]()
-        {
-            for (int j = 0; j < 100; ++j)
+        threads.emplace_back(
+            [&, i]()
             {
-                ref.store(std::make_shared<TestData>(i * 100 + j));
-            }
-            completed++;
-        });
+                for (int j = 0; j < 100; ++j)
+                {
+                    ref.store(std::make_shared<TestData>(i * 100 + j));
+                }
+                completed++;
+            });
     }
 
     for (auto& t : threads)
@@ -286,14 +302,10 @@ FATP_TEST_CASE(type_trait)
     auto& out = *get_test_config().output;
     out << colors::cyan() << "\n=== Type Trait ===" << colors::reset() << "\n";
 
-    static_assert(is_atomic_shared_ptr_v<AtomicSharedPtr<TestData>>,
-                  "Should be true for AtomicSharedPtr");
-    static_assert(is_atomic_shared_ptr_v<AtomicSharedPtr<TestData, true>>,
-                  "Should be true for throwing variant");
-    static_assert(!is_atomic_shared_ptr_v<int>,
-                  "Should be false for int");
-    static_assert(!is_atomic_shared_ptr_v<std::shared_ptr<TestData>>,
-                  "Should be false for shared_ptr");
+    static_assert(is_atomic_shared_ptr_v<AtomicSharedPtr<TestData>>, "Should be true for AtomicSharedPtr");
+    static_assert(is_atomic_shared_ptr_v<AtomicSharedPtr<TestData, true>>, "Should be true for throwing variant");
+    static_assert(!is_atomic_shared_ptr_v<int>, "Should be false for int");
+    static_assert(!is_atomic_shared_ptr_v<std::shared_ptr<TestData>>, "Should be false for shared_ptr");
 
     out << colors::green() << "OK" << colors::reset() << "\n";
     return true;
@@ -305,7 +317,7 @@ FATP_TEST_CASE(lock_free_query)
     out << colors::cyan() << "\n=== Lock-Free Query ===" << colors::reset() << "\n";
 
     AtomicSharedPtr<TestData> ref;
-    
+
     // Runtime query
     bool lf = ref.is_lock_free();
     out << "  is_lock_free(): " << (lf ? "true" : "false") << "\n";

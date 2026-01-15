@@ -28,11 +28,11 @@ FATP_META:
     mode: autogen
 */
 
+#include <atomic>
+#include <chrono>
 #include <iostream>
 #include <sstream>
 #include <thread>
-#include <atomic>
-#include <chrono>
 
 #include "DiagnosticLogger_Core.h"
 #include "DiagnosticLogger_Sinks.h"
@@ -55,7 +55,9 @@ public:
         mRecords.push_back(record);
     }
 
-    void flush() override {}
+    void flush() override
+    {
+    }
 
     std::vector<LogRecord> getRecords() const
     {
@@ -134,7 +136,7 @@ FATP_TEST_CASE(source_location)
     FATP_ASSERT_TRUE(loc.line > 0, "Line is positive");
     FATP_ASSERT_TRUE(loc.function != nullptr, "Function is not null");
     FATP_ASSERT_TRUE(std::string(loc.function).find("test_source_location") != std::string::npos,
-                  "Function name captured");
+                     "Function name captured");
 
     return true;
 }
@@ -348,9 +350,13 @@ FATP_TEST_CASE(logger_lambda_message)
     logger.addSink(testSink);
 
     int value = 42;
-    logger.log(LogLevel::Info,
-               [&]() { return "Value is " + std::to_string(value); },
-               FATP_SOURCE_LOCATION());
+    logger.log(
+        LogLevel::Info,
+        [&]()
+        {
+            return "Value is " + std::to_string(value);
+        },
+        FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
     FATP_ASSERT_TRUE(records.size() == 1, "One record logged");
@@ -366,13 +372,15 @@ FATP_TEST_CASE(logger_stream_message)
     logger.addSink(testSink);
 
     int num = 123;
-    logger.log(LogLevel::Info,
-               [&]() {
-                   std::ostringstream oss;
-                   oss << "Number: " << num;
-                   return oss.str();
-               },
-               FATP_SOURCE_LOCATION());
+    logger.log(
+        LogLevel::Info,
+        [&]()
+        {
+            std::ostringstream oss;
+            oss << "Number: " << num;
+            return oss.str();
+        },
+        FATP_SOURCE_LOCATION());
 
     auto records = testSink->getRecords();
     FATP_ASSERT_TRUE(records.size() == 1, "One record logged");
@@ -434,14 +442,16 @@ FATP_TEST_CASE(logger_thread_safety)
 
     for (int t = 0; t < numThreads; ++t)
     {
-        threads.emplace_back([&logger, t, messagesPerThread]() {
-            for (int i = 0; i < messagesPerThread; ++i)
+        threads.emplace_back(
+            [&logger, t, messagesPerThread]()
             {
-                logger.log(LogLevel::Info,
-                           "Thread " + std::to_string(t) + " msg " + std::to_string(i),
-                           FATP_SOURCE_LOCATION());
-            }
-        });
+                for (int i = 0; i < messagesPerThread; ++i)
+                {
+                    logger.log(LogLevel::Info,
+                               "Thread " + std::to_string(t) + " msg " + std::to_string(i),
+                               FATP_SOURCE_LOCATION());
+                }
+            });
     }
 
     for (auto& t : threads)
@@ -450,7 +460,7 @@ FATP_TEST_CASE(logger_thread_safety)
     }
 
     FATP_ASSERT_TRUE(testSink->count() == static_cast<size_t>(numThreads * messagesPerThread),
-                  "All messages from all threads logged");
+                     "All messages from all threads logged");
 
     return true;
 }
@@ -950,8 +960,7 @@ FATP_TEST_CASE(log_to_macro_with_stream)
     FATP_LOG_INFO_TO("stream_test", "User " << name << " has value " << value);
 
     FATP_ASSERT_TRUE(sink->count() == 1, "One message logged");
-    FATP_ASSERT_TRUE(sink->containsMessage("User Alice has value 99"),
-                  "Stream formatting correct");
+    FATP_ASSERT_TRUE(sink->containsMessage("User Alice has value 99"), "Stream formatting correct");
 
     return true;
 }
@@ -993,7 +1002,7 @@ FATP_TEST_CASE(lazy_init_auto_creates_sink)
 
     std::string output = capturedOutput.str();
     FATP_ASSERT_TRUE(output.find("Auto-init test message") != std::string::npos,
-                  "Message appeared in console (auto-initialized)");
+                     "Message appeared in console (auto-initialized)");
 
     FATP_ASSERT_TRUE(getGlobalLogger().hasSinks(), "Global logger has sinks after auto-init");
 
@@ -1122,17 +1131,19 @@ FATP_TEST_CASE(registry_thread_safety)
 
     for (int t = 0; t < numThreads; ++t)
     {
-        threads.emplace_back([t, loggersPerThread, &successCount]() {
-            for (int i = 0; i < loggersPerThread; ++i)
+        threads.emplace_back(
+            [t, loggersPerThread, &successCount]()
             {
-                std::string name = "thread" + std::to_string(t) + "_logger" + std::to_string(i);
-                Logger& log = getLogger(name);
-                if (log.getLevel() == LogLevel::Trace)
+                for (int i = 0; i < loggersPerThread; ++i)
                 {
-                    successCount++;
+                    std::string name = "thread" + std::to_string(t) + "_logger" + std::to_string(i);
+                    Logger& log = getLogger(name);
+                    if (log.getLevel() == LogLevel::Trace)
+                    {
+                        successCount++;
+                    }
                 }
-            }
-        });
+            });
     }
 
     for (auto& t : threads)
@@ -1140,12 +1151,10 @@ FATP_TEST_CASE(registry_thread_safety)
         t.join();
     }
 
-    FATP_ASSERT_TRUE(successCount == numThreads * loggersPerThread,
-                  "All loggers created successfully");
+    FATP_ASSERT_TRUE(successCount == numThreads * loggersPerThread, "All loggers created successfully");
 
-    FATP_ASSERT_TRUE(LoggerRegistry::instance().count() ==
-                      static_cast<size_t>(numThreads * loggersPerThread),
-                  "Correct total count");
+    FATP_ASSERT_TRUE(LoggerRegistry::instance().count() == static_cast<size_t>(numThreads * loggersPerThread),
+                     "Correct total count");
 
     return true;
 }
@@ -1161,7 +1170,11 @@ FATP_TEST_CASE(registry_concurrent_get_same_logger)
 
     for (int t = 0; t < numThreads; ++t)
     {
-        threads.emplace_back([t, &loggerPtrs]() { loggerPtrs[t] = &getLogger("shared"); });
+        threads.emplace_back(
+            [t, &loggerPtrs]()
+            {
+                loggerPtrs[t] = &getLogger("shared");
+            });
     }
 
     for (auto& t : threads)
@@ -1185,45 +1198,62 @@ FATP_TEST_CASE(registry_concurrent_get_same_logger)
 
 void benchmark_logger()
 {
-    std::cout << "\n"
-              << colors::cyan() << "DiagnosticLogger Core Benchmarks:" << colors::reset() << "\n\n";
+    std::cout << "\n" << colors::cyan() << "DiagnosticLogger Core Benchmarks:" << colors::reset() << "\n\n";
 
     Logger logger;
     auto testSink = std::make_shared<TestSink>();
     logger.addSink(testSink);
 
     double enabled_time = measure_perf(
-        [&logger]() { logger.log(LogLevel::Info, "Benchmark message", FATP_SOURCE_LOCATION()); },
-        10000, 100);
+        [&logger]()
+        {
+            logger.log(LogLevel::Info, "Benchmark message", FATP_SOURCE_LOCATION());
+        },
+        10000,
+        100);
     std::cout << "Enabled logging: " << format_time(enabled_time) << "\n";
 
     logger.setEnabled(false);
     double disabled_time = measure_perf(
-        [&logger]() { logger.log(LogLevel::Info, "Disabled message", FATP_SOURCE_LOCATION()); },
-        100000, 1000);
+        [&logger]()
+        {
+            logger.log(LogLevel::Info, "Disabled message", FATP_SOURCE_LOCATION());
+        },
+        100000,
+        1000);
     std::cout << "Disabled logging: " << format_time(disabled_time) << "\n";
 
     logger.setEnabled(true);
     logger.setLevel(LogLevel::Error);
     double filtered_time = measure_perf(
-        [&logger]() { logger.log(LogLevel::Info, "Filtered message", FATP_SOURCE_LOCATION()); },
-        100000, 1000);
+        [&logger]()
+        {
+            logger.log(LogLevel::Info, "Filtered message", FATP_SOURCE_LOCATION());
+        },
+        100000,
+        1000);
     std::cout << "Filtered logging: " << format_time(filtered_time) << "\n";
 
     logger.setLevel(LogLevel::Trace);
     double with_lambda_time = measure_perf(
-        [&logger]() {
-            logger.log(LogLevel::Info, []() { return "Lambda message"; },
-                       FATP_SOURCE_LOCATION());
+        [&logger]()
+        {
+            logger.log(
+                LogLevel::Info,
+                []()
+                {
+                    return "Lambda message";
+                },
+                FATP_SOURCE_LOCATION());
         },
-        10000, 100);
+        10000,
+        100);
     std::cout << "With lambda: " << format_time(with_lambda_time) << "\n";
 }
 
 void benchmark_named_loggers()
 {
-    std::cout << "\n"
-              << colors::cyan() << "Named Loggers Benchmarks:" << colors::reset() << "\n\n";
+    std::cout << "\n" << colors::cyan() << "Named Loggers Benchmarks:" << colors::reset() << "\n\n";
 
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
@@ -1231,19 +1261,33 @@ void benchmark_named_loggers()
     auto sink = std::make_shared<TestSink>();
     getLogger("bench").addSink(sink);
 
-    double lookup_time = measure_perf([]() { getLogger("bench"); }, 100000, 1000);
+    double lookup_time = measure_perf(
+        []()
+        {
+            getLogger("bench");
+        },
+        100000,
+        1000);
     std::cout << "Logger lookup (existing): " << format_time(lookup_time) << "\n";
 
-    double log_to_time = measure_perf([]() { FATP_LOG_INFO_TO("bench", "Benchmark"); }, 10000, 100);
+    double log_to_time = measure_perf(
+        []()
+        {
+            FATP_LOG_INFO_TO("bench", "Benchmark");
+        },
+        10000,
+        100);
     std::cout << "LOG_INFO_TO (cached): " << format_time(log_to_time) << "\n";
 
     LoggerRegistry::instance().dropAll();
     double create_time = measure_perf(
-        []() {
+        []()
+        {
             static int counter = 0;
             getLogger("new_" + std::to_string(counter++));
         },
-        1000, 10);
+        1000,
+        10);
     std::cout << "Logger creation: " << format_time(create_time) << "\n";
 }
 

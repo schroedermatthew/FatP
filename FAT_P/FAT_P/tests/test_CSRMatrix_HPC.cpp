@@ -231,8 +231,7 @@ FATP_TEST_CASE(matvec_prefetch_toggle)
 
     for (std::size_t i = 0; i < N; ++i)
     {
-        FATP_ASSERT_CLOSE(y_prefetch[i], y_no_prefetch[i],
-                     "Prefetch toggle should not affect correctness");
+        FATP_ASSERT_CLOSE(y_prefetch[i], y_no_prefetch[i], "Prefetch toggle should not affect correctness");
     }
 
     // Test alpha/beta form
@@ -244,8 +243,7 @@ FATP_TEST_CASE(matvec_prefetch_toggle)
 
     for (std::size_t i = 0; i < N; ++i)
     {
-        FATP_ASSERT_CLOSE(y1[i], y2[i],
-                     "Prefetch toggle should not affect alpha/beta correctness");
+        FATP_ASSERT_CLOSE(y1[i], y2[i], "Prefetch toggle should not affect alpha/beta correctness");
     }
 
     return true;
@@ -417,11 +415,7 @@ FATP_TEST_CASE(from_dense)
 {
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
-    std::vector<double> dense = {
-        1.0, 0.0, 2.0,
-        0.0, 3.0, 0.0,
-        4.0, 0.0, 5.0
-    };
+    std::vector<double> dense = {1.0, 0.0, 2.0, 0.0, 3.0, 0.0, 4.0, 0.0, 5.0};
 
     auto A = Matrix::from_dense(dense.data(), 3, 3);
 
@@ -510,29 +504,35 @@ void benchmark_spmv()
     constexpr int iterations = 1000;
     constexpr int warmup = 100;
 
-    double time_prefetch = measure_perf([&]() {
-        A.matvec(x.data(), y.data(), true);
-        DoNotOptimize(y.data());
-    }, iterations, warmup);
+    double time_prefetch = measure_perf(
+        [&]()
+        {
+            A.matvec(x.data(), y.data(), true);
+            DoNotOptimize(y.data());
+        },
+        iterations,
+        warmup);
 
-    double time_no_prefetch = measure_perf([&]() {
-        A.matvec(x.data(), y.data(), false);
-        DoNotOptimize(y.data());
-    }, iterations, warmup);
+    double time_no_prefetch = measure_perf(
+        [&]()
+        {
+            A.matvec(x.data(), y.data(), false);
+            DoNotOptimize(y.data());
+        },
+        iterations,
+        warmup);
 
     std::cout << "  matvec (" << N << "x" << N << ", nnz=" << A.nnz() << "):\n";
     std::cout << "    prefetch=true:  " << format_time(time_prefetch) << "\n";
     std::cout << "    prefetch=false: " << format_time(time_no_prefetch);
     if (time_no_prefetch < time_prefetch)
     {
-        std::cout << " (" << std::fixed << std::setprecision(1)
-                  << ((time_prefetch / time_no_prefetch - 1.0) * 100.0)
+        std::cout << " (" << std::fixed << std::setprecision(1) << ((time_prefetch / time_no_prefetch - 1.0) * 100.0)
                   << "% faster)";
     }
     else
     {
-        std::cout << " (" << std::fixed << std::setprecision(1)
-                  << ((time_no_prefetch / time_prefetch - 1.0) * 100.0)
+        std::cout << " (" << std::fixed << std::setprecision(1) << ((time_no_prefetch / time_prefetch - 1.0) * 100.0)
                   << "% slower)";
     }
     std::cout << "\n";
@@ -566,13 +566,16 @@ void benchmark_transpose()
     constexpr int iterations = 100;
     constexpr int warmup = 10;
 
-    double time = measure_perf([&]() {
-        auto AT = A.transpose();
-        DoNotOptimize(&AT);
-    }, iterations, warmup);
+    double time = measure_perf(
+        [&]()
+        {
+            auto AT = A.transpose();
+            DoNotOptimize(&AT);
+        },
+        iterations,
+        warmup);
 
-    std::cout << "  transpose (" << N << "x" << N << ", nnz=" << A.nnz() << "): "
-              << format_time(time) << "\n";
+    std::cout << "  transpose (" << N << "x" << N << ", nnz=" << A.nnz() << "): " << format_time(time) << "\n";
 }
 
 } // namespace fat_p::testing::csrmatrix_hpc

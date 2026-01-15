@@ -59,11 +59,7 @@ double max_abs_diff(const std::vector<T>& a, const std::vector<T>& b)
 }
 
 template <typename T, typename IndexType = int32_t>
-fat_p::HpcCSRMatrix<T, IndexType> generate_random_sparse(
-    size_t rows,
-    size_t cols,
-    double density,
-    std::mt19937& rng)
+fat_p::HpcCSRMatrix<T, IndexType> generate_random_sparse(size_t rows, size_t cols, double density, std::mt19937& rng)
 {
     std::vector<IndexType> row_indices;
     std::vector<IndexType> col_indices;
@@ -94,12 +90,8 @@ fat_p::HpcCSRMatrix<T, IndexType> generate_random_sparse(
 }
 
 template <typename T, typename IndexType = int32_t>
-fat_p::HpcCSRMatrix<T, IndexType> generate_powerlaw_sparse(
-    size_t rows,
-    size_t cols,
-    size_t total_nnz,
-    double alpha,
-    std::mt19937& rng)
+fat_p::HpcCSRMatrix<T, IndexType>
+generate_powerlaw_sparse(size_t rows, size_t cols, size_t total_nnz, double alpha, std::mt19937& rng)
 {
     std::vector<IndexType> row_indices;
     std::vector<IndexType> col_indices;
@@ -360,7 +352,7 @@ FATP_TEST_CASE(numa_available_check)
 
     // This should not crash, regardless of NUMA availability
     bool numa = matrix.is_numa_available();
-    (void)numa;  // Suppress unused warning
+    (void)numa; // Suppress unused warning
 
     return true;
 }
@@ -411,19 +403,15 @@ void benchmark_spmv()
 {
     using namespace fat_p::testing;
 
-    std::cout << "\n" << colors::cyan() << "HpcCSRMatrix ThreadPool Benchmarks:"
-              << colors::reset() << "\n\n";
+    std::cout << "\n" << colors::cyan() << "HpcCSRMatrix ThreadPool Benchmarks:" << colors::reset() << "\n\n";
 
     std::mt19937 rng(42);
 
     fat_p::ThreadPool pool;
     std::cout << "ThreadPool threads: " << pool.thread_count() << "\n";
-    std::cout << "NUMA available: " << std::boolalpha
-              << fat_p::HpcCSRMatrix<double>().is_numa_available() << "\n\n";
+    std::cout << "NUMA available: " << std::boolalpha << fat_p::HpcCSRMatrix<double>().is_numa_available() << "\n\n";
 
-    auto run_benchmark = [&](const char* name,
-                             fat_p::HpcCSRMatrix<double, int32_t>& matrix,
-                             int iterations)
+    auto run_benchmark = [&](const char* name, fat_p::HpcCSRMatrix<double, int32_t>& matrix, int iterations)
     {
         std::vector<double> x(matrix.cols());
         std::uniform_real_distribution<double> dist(-1.0, 1.0);
@@ -437,39 +425,45 @@ void benchmark_spmv()
         std::vector<double> y_threadpool(matrix.rows());
         std::vector<double> y_batch(matrix.rows());
 
-        std::cout << name << " (" << matrix.rows() << "x" << matrix.cols()
-                  << ", nnz=" << matrix.nnz() << "):\n";
+        std::cout << name << " (" << matrix.rows() << "x" << matrix.cols() << ", nnz=" << matrix.nnz() << "):\n";
 
-        double serial_time = measure_perf([&]()
-        {
-            matrix.matvec(x.data(), y_serial.data(), true);
-            DoNotOptimize(y_serial.data());
-        }, iterations);
+        double serial_time = measure_perf(
+            [&]()
+            {
+                matrix.matvec(x.data(), y_serial.data(), true);
+                DoNotOptimize(y_serial.data());
+            },
+            iterations);
 
-        double serial_no_pf_time = measure_perf([&]()
-        {
-            matrix.matvec(x.data(), y_serial_no_pf.data(), false);
-            DoNotOptimize(y_serial_no_pf.data());
-        }, iterations);
+        double serial_no_pf_time = measure_perf(
+            [&]()
+            {
+                matrix.matvec(x.data(), y_serial_no_pf.data(), false);
+                DoNotOptimize(y_serial_no_pf.data());
+            },
+            iterations);
 
-        double threadpool_time = measure_perf([&]()
-        {
-            matrix.matvec_parallel(x.data(), y_threadpool.data(), pool);
-            DoNotOptimize(y_threadpool.data());
-        }, iterations);
+        double threadpool_time = measure_perf(
+            [&]()
+            {
+                matrix.matvec_parallel(x.data(), y_threadpool.data(), pool);
+                DoNotOptimize(y_threadpool.data());
+            },
+            iterations);
 
-        double batch_time = measure_perf([&]()
-        {
-            matrix.matvec_parallel_batch(x.data(), y_batch.data(), pool);
-            DoNotOptimize(y_batch.data());
-        }, iterations);
+        double batch_time = measure_perf(
+            [&]()
+            {
+                matrix.matvec_parallel_batch(x.data(), y_batch.data(), pool);
+                DoNotOptimize(y_batch.data());
+            },
+            iterations);
 
         std::cout << "  Serial (prefetch):    " << format_time(serial_time) << "\n";
         std::cout << "  Serial (no prefetch): " << format_time(serial_no_pf_time);
         if (serial_no_pf_time < serial_time)
         {
-            std::cout << " (" << std::fixed << std::setprecision(1)
-                      << ((serial_time / serial_no_pf_time - 1.0) * 100.0)
+            std::cout << " (" << std::fixed << std::setprecision(1) << ((serial_time / serial_no_pf_time - 1.0) * 100.0)
                       << "% faster)";
         }
         std::cout << "\n";
@@ -477,15 +471,12 @@ void benchmark_spmv()
         // Use the faster serial time as baseline for parallel comparison
         double best_serial = std::min(serial_time, serial_no_pf_time);
 
-        std::cout << "  ThreadPool: " << format_time(threadpool_time)
-                  << " (" << std::fixed << std::setprecision(2)
+        std::cout << "  ThreadPool: " << format_time(threadpool_time) << " (" << std::fixed << std::setprecision(2)
                   << (best_serial / threadpool_time) << "x)\n";
-        std::cout << "  Batch:      " << format_time(batch_time)
-                  << " (" << (best_serial / batch_time) << "x)\n";
+        std::cout << "  Batch:      " << format_time(batch_time) << " (" << (best_serial / batch_time) << "x)\n";
 
         double max_err = max_abs_diff(y_serial, y_threadpool);
-        std::cout << "  Max error:  " << std::scientific << std::setprecision(2)
-                  << max_err << "\n\n";
+        std::cout << "  Max error:  " << std::scientific << std::setprecision(2) << max_err << "\n\n";
     };
 
     auto matrix1 = generate_random_sparse<double>(10000, 10000, 0.01, rng);

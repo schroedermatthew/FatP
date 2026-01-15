@@ -39,8 +39,8 @@ FATP_META:
 namespace fat_p::testing::binarylite
 {
 
-using fat_p::binary::Encoder;
 using fat_p::binary::Decoder;
+using fat_p::binary::Encoder;
 using fat_p::binary::TypeTag;
 
 // ============================================================================
@@ -100,9 +100,8 @@ FATP_TEST_CASE(uint32_roundtrip)
 
 FATP_TEST_CASE(uint64_roundtrip)
 {
-    const std::uint64_t values[] = {0ULL, 1ULL, 255ULL, 256ULL, 65535ULL,
-                                    0xDEADBEEFCAFEBABEULL,
-                                    std::numeric_limits<std::uint64_t>::max()};
+    const std::uint64_t values[] =
+        {0ULL, 1ULL, 255ULL, 256ULL, 65535ULL, 0xDEADBEEFCAFEBABEULL, std::numeric_limits<std::uint64_t>::max()};
 
     for (std::uint64_t v : values)
     {
@@ -153,7 +152,11 @@ FATP_TEST_CASE(int16_roundtrip)
 
 FATP_TEST_CASE(int32_roundtrip)
 {
-    const std::int32_t values[] = {0, 1, -1, 1234567, -9876543,
+    const std::int32_t values[] = {0,
+                                   1,
+                                   -1,
+                                   1234567,
+                                   -9876543,
                                    std::numeric_limits<std::int32_t>::min(),
                                    std::numeric_limits<std::int32_t>::max()};
 
@@ -172,7 +175,11 @@ FATP_TEST_CASE(int32_roundtrip)
 
 FATP_TEST_CASE(int64_roundtrip)
 {
-    const std::int64_t values[] = {0, 1, -1, 1234567, -9876543,
+    const std::int64_t values[] = {0,
+                                   1,
+                                   -1,
+                                   1234567,
+                                   -9876543,
                                    std::numeric_limits<std::int64_t>::min(),
                                    std::numeric_limits<std::int64_t>::max()};
 
@@ -359,13 +366,14 @@ FATP_TEST_CASE(truncated_uint64)
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
-        FATP_ASSERT_THROWS(
-            ([&] {
-                Decoder dec(truncated);
-                (void)dec.read_uint64();
-            }()),
-            std::runtime_error,
-            "truncated uint64 should throw");
+        FATP_ASSERT_THROWS((
+                               [&]
+                               {
+                                   Decoder dec(truncated);
+                                   (void)dec.read_uint64();
+                               }()),
+                           std::runtime_error,
+                           "truncated uint64 should throw");
     }
 
     return true;
@@ -382,13 +390,14 @@ FATP_TEST_CASE(truncated_uint32)
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
-        FATP_ASSERT_THROWS(
-            ([&] {
-                Decoder dec(truncated);
-                (void)dec.read_uint32();
-            }()),
-            std::runtime_error,
-            "truncated uint32 should throw");
+        FATP_ASSERT_THROWS((
+                               [&]
+                               {
+                                   Decoder dec(truncated);
+                                   (void)dec.read_uint32();
+                               }()),
+                           std::runtime_error,
+                           "truncated uint32 should throw");
     }
 
     return true;
@@ -403,13 +412,14 @@ FATP_TEST_CASE(truncated_string)
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
-        FATP_ASSERT_THROWS(
-            ([&] {
-                Decoder dec(truncated);
-                (void)dec.read_string();
-            }()),
-            std::runtime_error,
-            "truncated string should throw");
+        FATP_ASSERT_THROWS((
+                               [&]
+                               {
+                                   Decoder dec(truncated);
+                                   (void)dec.read_string();
+                               }()),
+                           std::runtime_error,
+                           "truncated string should throw");
     }
 
     return true;
@@ -426,13 +436,14 @@ FATP_TEST_CASE(truncated_bytes)
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
-        FATP_ASSERT_THROWS(
-            ([&] {
-                Decoder dec(truncated);
-                (void)dec.read_bytes();
-            }()),
-            std::runtime_error,
-            "truncated bytes should throw");
+        FATP_ASSERT_THROWS((
+                               [&]
+                               {
+                                   Decoder dec(truncated);
+                                   (void)dec.read_bytes();
+                               }()),
+                           std::runtime_error,
+                           "truncated bytes should throw");
     }
 
     return true;
@@ -449,13 +460,14 @@ FATP_TEST_CASE(truncated_double)
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
-        FATP_ASSERT_THROWS(
-            ([&] {
-                Decoder dec(truncated);
-                (void)dec.read_double();
-            }()),
-            std::runtime_error,
-            "truncated double should throw");
+        FATP_ASSERT_THROWS((
+                               [&]
+                               {
+                                   Decoder dec(truncated);
+                                   (void)dec.read_double();
+                               }()),
+                           std::runtime_error,
+                           "truncated double should throw");
     }
 
     return true;
@@ -467,13 +479,14 @@ FATP_TEST_CASE(wrong_type_uint_from_string)
     Encoder enc(buf);
     enc.write_string("not a number");
 
-    FATP_ASSERT_THROWS(
-        ([&] {
-            Decoder dec(buf);
-            (void)dec.read_uint64();
-        }()),
-        std::runtime_error,
-        "uint64 from string should throw");
+    FATP_ASSERT_THROWS((
+                           [&]
+                           {
+                               Decoder dec(buf);
+                               (void)dec.read_uint64();
+                           }()),
+                       std::runtime_error,
+                       "uint64 from string should throw");
 
     return true;
 }
@@ -484,13 +497,14 @@ FATP_TEST_CASE(wrong_type_string_from_uint)
     Encoder enc(buf);
     enc.write_uint64(12345ULL);
 
-    FATP_ASSERT_THROWS(
-        ([&] {
-            Decoder dec(buf);
-            (void)dec.read_string();
-        }()),
-        std::runtime_error,
-        "string from uint should throw");
+    FATP_ASSERT_THROWS((
+                           [&]
+                           {
+                               Decoder dec(buf);
+                               (void)dec.read_string();
+                           }()),
+                       std::runtime_error,
+                       "string from uint should throw");
 
     return true;
 }
@@ -501,13 +515,14 @@ FATP_TEST_CASE(wrong_type_bool_from_double)
     Encoder enc(buf);
     enc.write_double(1.0);
 
-    FATP_ASSERT_THROWS(
-        ([&] {
-            Decoder dec(buf);
-            (void)dec.read_bool();
-        }()),
-        std::runtime_error,
-        "bool from double should throw");
+    FATP_ASSERT_THROWS((
+                           [&]
+                           {
+                               Decoder dec(buf);
+                               (void)dec.read_bool();
+                           }()),
+                       std::runtime_error,
+                       "bool from double should throw");
 
     return true;
 }
@@ -518,13 +533,14 @@ FATP_TEST_CASE(wrong_type_int32_from_int64)
     Encoder enc(buf);
     enc.write_int64(12345LL);
 
-    FATP_ASSERT_THROWS(
-        ([&] {
-            Decoder dec(buf);
-            (void)dec.read_int32();
-        }()),
-        std::runtime_error,
-        "int32 from int64 should throw");
+    FATP_ASSERT_THROWS((
+                           [&]
+                           {
+                               Decoder dec(buf);
+                               (void)dec.read_int32();
+                           }()),
+                       std::runtime_error,
+                       "int32 from int64 should throw");
 
     return true;
 }
@@ -533,29 +549,32 @@ FATP_TEST_CASE(empty_buffer)
 {
     std::vector<std::uint8_t> empty;
 
-    FATP_ASSERT_THROWS(
-        ([&] {
-            Decoder dec(empty);
-            (void)dec.read_uint64();
-        }()),
-        std::runtime_error,
-        "empty buffer uint64 should throw");
+    FATP_ASSERT_THROWS((
+                           [&]
+                           {
+                               Decoder dec(empty);
+                               (void)dec.read_uint64();
+                           }()),
+                       std::runtime_error,
+                       "empty buffer uint64 should throw");
 
-    FATP_ASSERT_THROWS(
-        ([&] {
-            Decoder dec(empty);
-            (void)dec.read_string();
-        }()),
-        std::runtime_error,
-        "empty buffer string should throw");
+    FATP_ASSERT_THROWS((
+                           [&]
+                           {
+                               Decoder dec(empty);
+                               (void)dec.read_string();
+                           }()),
+                       std::runtime_error,
+                       "empty buffer string should throw");
 
-    FATP_ASSERT_THROWS(
-        ([&] {
-            Decoder dec(empty);
-            (void)dec.peek_type();
-        }()),
-        std::runtime_error,
-        "empty buffer peek should throw");
+    FATP_ASSERT_THROWS((
+                           [&]
+                           {
+                               Decoder dec(empty);
+                               (void)dec.peek_type();
+                           }()),
+                       std::runtime_error,
+                       "empty buffer peek should throw");
 
     return true;
 }
@@ -564,13 +583,14 @@ FATP_TEST_CASE(invalid_type_tag)
 {
     std::vector<std::uint8_t> bad = {15U, 0U, 0U, 0U, 0U};
 
-    FATP_ASSERT_THROWS(
-        ([&] {
-            Decoder dec(bad);
-            (void)dec.read_uint32();
-        }()),
-        std::runtime_error,
-        "invalid type tag should throw");
+    FATP_ASSERT_THROWS((
+                           [&]
+                           {
+                               Decoder dec(bad);
+                               (void)dec.read_uint32();
+                           }()),
+                       std::runtime_error,
+                       "invalid type tag should throw");
 
     return true;
 }
@@ -588,13 +608,14 @@ FATP_TEST_CASE(impossible_string_length)
     buf.push_back('b');
     buf.push_back('c');
 
-    FATP_ASSERT_THROWS(
-        ([&] {
-            Decoder dec(buf);
-            (void)dec.read_string();
-        }()),
-        std::runtime_error,
-        "impossible string length should throw");
+    FATP_ASSERT_THROWS((
+                           [&]
+                           {
+                               Decoder dec(buf);
+                               (void)dec.read_string();
+                           }()),
+                       std::runtime_error,
+                       "impossible string length should throw");
 
     return true;
 }
@@ -610,12 +631,13 @@ FATP_TEST_CASE(read_past_eof)
 
     FATP_ASSERT_TRUE(dec.eof(), "should be at EOF");
 
-    FATP_ASSERT_THROWS(
-        ([&] {
-            (void)dec.read_uint32();
-        }()),
-        std::runtime_error,
-        "reading past EOF should throw");
+    FATP_ASSERT_THROWS((
+                           [&]
+                           {
+                               (void)dec.read_uint32();
+                           }()),
+                       std::runtime_error,
+                       "reading past EOF should throw");
 
     return true;
 }
@@ -646,9 +668,8 @@ FATP_TEST_CASE(fuzz_uint64)
 FATP_TEST_CASE(fuzz_int64)
 {
     std::mt19937_64 rng(0xB1A2B3C4D5E6F7A9ULL);
-    std::uniform_int_distribution<std::int64_t> dist(
-        std::numeric_limits<std::int64_t>::min(),
-        std::numeric_limits<std::int64_t>::max());
+    std::uniform_int_distribution<std::int64_t> dist(std::numeric_limits<std::int64_t>::min(),
+                                                     std::numeric_limits<std::int64_t>::max());
 
     for (int i = 0; i < 2000; ++i)
     {
@@ -781,9 +802,8 @@ FATP_TEST_CASE(fuzz_mixed_types)
 {
     std::mt19937_64 rng(0xB1A2B3C4D5E6F7AEULL);
     std::uniform_int_distribution<int> type_dist(0, 5);
-    std::uniform_int_distribution<std::int64_t> int_dist(
-        std::numeric_limits<std::int64_t>::min(),
-        std::numeric_limits<std::int64_t>::max());
+    std::uniform_int_distribution<std::int64_t> int_dist(std::numeric_limits<std::int64_t>::min(),
+                                                         std::numeric_limits<std::int64_t>::max());
     std::uniform_real_distribution<double> dbl_dist(-1e10, 1e10);
     std::uniform_int_distribution<std::size_t> len_dist(0, 64);
     std::uniform_int_distribution<int> ch_dist(32, 126);
@@ -797,62 +817,62 @@ FATP_TEST_CASE(fuzz_mixed_types)
 
         switch (type)
         {
-        case 0:
-        {
-            const auto v = static_cast<std::uint64_t>(rng());
-            enc.write_uint64(v);
-            Decoder dec(buf);
-            FATP_ASSERT_EQ(dec.read_uint64(), v, "mixed uint64");
-            break;
-        }
-        case 1:
-        {
-            const auto v = int_dist(rng);
-            enc.write_int64(v);
-            Decoder dec(buf);
-            FATP_ASSERT_EQ(dec.read_int64(), v, "mixed int64");
-            break;
-        }
-        case 2:
-        {
-            const double v = dbl_dist(rng);
-            enc.write_double(v);
-            Decoder dec(buf);
-            FATP_ASSERT_EQ(dec.read_double(), v, "mixed double");
-            break;
-        }
-        case 3:
-        {
-            const std::size_t len = len_dist(rng);
-            std::string s;
-            for (std::size_t j = 0; j < len; ++j)
+            case 0:
             {
-                s.push_back(static_cast<char>(ch_dist(rng)));
+                const auto v = static_cast<std::uint64_t>(rng());
+                enc.write_uint64(v);
+                Decoder dec(buf);
+                FATP_ASSERT_EQ(dec.read_uint64(), v, "mixed uint64");
+                break;
             }
-            enc.write_string(s);
-            Decoder dec(buf);
-            FATP_ASSERT_EQ(dec.read_string(), s, "mixed string");
-            break;
-        }
-        case 4:
-        {
-            const bool v = (rng() % 2) == 1;
-            enc.write_bool(v);
-            Decoder dec(buf);
-            FATP_ASSERT_EQ(dec.read_bool(), v, "mixed bool");
-            break;
-        }
-        case 5:
-        {
-            std::uniform_real_distribution<float> flt_dist(-1e6f, 1e6f);
-            const float v = flt_dist(rng);
-            enc.write_float(v);
-            Decoder dec(buf);
-            FATP_ASSERT_EQ(dec.read_float(), v, "mixed float");
-            break;
-        }
-        default:
-            break;
+            case 1:
+            {
+                const auto v = int_dist(rng);
+                enc.write_int64(v);
+                Decoder dec(buf);
+                FATP_ASSERT_EQ(dec.read_int64(), v, "mixed int64");
+                break;
+            }
+            case 2:
+            {
+                const double v = dbl_dist(rng);
+                enc.write_double(v);
+                Decoder dec(buf);
+                FATP_ASSERT_EQ(dec.read_double(), v, "mixed double");
+                break;
+            }
+            case 3:
+            {
+                const std::size_t len = len_dist(rng);
+                std::string s;
+                for (std::size_t j = 0; j < len; ++j)
+                {
+                    s.push_back(static_cast<char>(ch_dist(rng)));
+                }
+                enc.write_string(s);
+                Decoder dec(buf);
+                FATP_ASSERT_EQ(dec.read_string(), s, "mixed string");
+                break;
+            }
+            case 4:
+            {
+                const bool v = (rng() % 2) == 1;
+                enc.write_bool(v);
+                Decoder dec(buf);
+                FATP_ASSERT_EQ(dec.read_bool(), v, "mixed bool");
+                break;
+            }
+            case 5:
+            {
+                std::uniform_real_distribution<float> flt_dist(-1e6f, 1e6f);
+                const float v = flt_dist(rng);
+                enc.write_float(v);
+                Decoder dec(buf);
+                FATP_ASSERT_EQ(dec.read_float(), v, "mixed float");
+                break;
+            }
+            default:
+                break;
         }
     }
 
@@ -867,17 +887,20 @@ void benchmark_binarylite()
 {
     std::cout << "\n" << colors::cyan() << "BinaryLite Benchmarks:" << colors::reset() << "\n\n";
 
-    double enc_time = measure_perf([]()
-    {
-        std::vector<std::uint8_t> buf;
-        buf.reserve(90000);
-        Encoder enc(buf);
-        for (std::uint64_t i = 0; i < 10000; ++i)
+    double enc_time = measure_perf(
+        []()
         {
-            enc.write_uint64(i * 12345ULL);
-        }
-        DoNotOptimize(buf.data());
-    }, 1000, 100);
+            std::vector<std::uint8_t> buf;
+            buf.reserve(90000);
+            Encoder enc(buf);
+            for (std::uint64_t i = 0; i < 10000; ++i)
+            {
+                enc.write_uint64(i * 12345ULL);
+            }
+            DoNotOptimize(buf.data());
+        },
+        1000,
+        100);
     std::cout << "Encode 10000 uint64: " << format_time(enc_time) << "\n";
 
     std::vector<std::uint8_t> int_buf;
@@ -890,26 +913,32 @@ void benchmark_binarylite()
         }
     }
 
-    double dec_time = measure_perf([&int_buf]()
-    {
-        Decoder dec(int_buf);
-        std::uint64_t sum = 0;
-        for (int i = 0; i < 10000; ++i)
+    double dec_time = measure_perf(
+        [&int_buf]()
         {
-            sum += dec.read_uint64();
-        }
-        DoNotOptimize(sum);
-    }, 1000, 100);
+            Decoder dec(int_buf);
+            std::uint64_t sum = 0;
+            for (int i = 0; i < 10000; ++i)
+            {
+                sum += dec.read_uint64();
+            }
+            DoNotOptimize(sum);
+        },
+        1000,
+        100);
     std::cout << "Decode 10000 uint64: " << format_time(dec_time) << "\n";
 
     std::string large_str(100000, 'x');
-    double str_enc_time = measure_perf([&large_str]()
-    {
-        std::vector<std::uint8_t> buf;
-        Encoder enc(buf);
-        enc.write_string(large_str);
-        DoNotOptimize(buf.data());
-    }, 1000, 100);
+    double str_enc_time = measure_perf(
+        [&large_str]()
+        {
+            std::vector<std::uint8_t> buf;
+            Encoder enc(buf);
+            enc.write_string(large_str);
+            DoNotOptimize(buf.data());
+        },
+        1000,
+        100);
     std::cout << "Encode 100KB string: " << format_time(str_enc_time) << "\n";
 
     std::vector<std::uint8_t> str_buf;
@@ -918,12 +947,15 @@ void benchmark_binarylite()
         enc.write_string(large_str);
     }
 
-    double str_dec_time = measure_perf([&str_buf]()
-    {
-        Decoder dec(str_buf);
-        auto s = dec.read_string();
-        DoNotOptimize(s.data());
-    }, 1000, 100);
+    double str_dec_time = measure_perf(
+        [&str_buf]()
+        {
+            Decoder dec(str_buf);
+            auto s = dec.read_string();
+            DoNotOptimize(s.data());
+        },
+        1000,
+        100);
     std::cout << "Decode 100KB string: " << format_time(str_dec_time) << "\n";
 
     std::vector<std::uint8_t> large_bytes(1000000);
@@ -932,13 +964,16 @@ void benchmark_binarylite()
         large_bytes[i] = static_cast<std::uint8_t>(i & 0xFF);
     }
 
-    double bytes_enc_time = measure_perf([&large_bytes]()
-    {
-        std::vector<std::uint8_t> buf;
-        Encoder enc(buf);
-        enc.write_bytes(large_bytes);
-        DoNotOptimize(buf.data());
-    }, 100, 10);
+    double bytes_enc_time = measure_perf(
+        [&large_bytes]()
+        {
+            std::vector<std::uint8_t> buf;
+            Encoder enc(buf);
+            enc.write_bytes(large_bytes);
+            DoNotOptimize(buf.data());
+        },
+        100,
+        10);
     std::cout << "Encode 1MB bytes: " << format_time(bytes_enc_time) << "\n";
 
     std::vector<std::uint8_t> bytes_buf;
@@ -947,12 +982,15 @@ void benchmark_binarylite()
         enc.write_bytes(large_bytes);
     }
 
-    double bytes_dec_time = measure_perf([&bytes_buf]()
-    {
-        Decoder dec(bytes_buf);
-        auto b = dec.read_bytes();
-        DoNotOptimize(b.data());
-    }, 100, 10);
+    double bytes_dec_time = measure_perf(
+        [&bytes_buf]()
+        {
+            Decoder dec(bytes_buf);
+            auto b = dec.read_bytes();
+            DoNotOptimize(b.data());
+        },
+        100,
+        10);
     std::cout << "Decode 1MB bytes: " << format_time(bytes_dec_time) << "\n";
 }
 

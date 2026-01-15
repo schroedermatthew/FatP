@@ -643,8 +643,7 @@ FATP_TEST_CASE(parse_cbor_convenience)
 
 void benchmark_streaming_parser()
 {
-    std::cout << "\n" << colors::cyan() << "CborStreamLite Benchmarks:"
-              << colors::reset() << "\n\n";
+    std::cout << "\n" << colors::cyan() << "CborStreamLite Benchmarks:" << colors::reset() << "\n\n";
 
     constexpr int iterations = 1000;
     constexpr int warmup = 100;
@@ -673,25 +672,31 @@ void benchmark_streaming_parser()
 
     // Benchmark: Full buffer parse
     CborStreamParser parser;
-    double time_full = measure_perf([&]()
-    {
-        parser.reset();
-        auto status = parser.feed(data);
-        DoNotOptimize(status);
-    }, iterations, warmup);
+    double time_full = measure_perf(
+        [&]()
+        {
+            parser.reset();
+            auto status = parser.feed(data);
+            DoNotOptimize(status);
+        },
+        iterations,
+        warmup);
 
     std::cout << "Full buffer parse:      " << format_time(time_full) << "\n";
 
     // Benchmark: Byte-at-a-time parse
-    double time_byte = measure_perf([&]()
-    {
-        parser.reset();
-        for (size_t i = 0; i < data.size(); ++i)
+    double time_byte = measure_perf(
+        [&]()
         {
-            auto status = parser.feed(&data[i], 1);
-            DoNotOptimize(status);
-        }
-    }, iterations / 10, warmup / 10);
+            parser.reset();
+            for (size_t i = 0; i < data.size(); ++i)
+            {
+                auto status = parser.feed(&data[i], 1);
+                DoNotOptimize(status);
+            }
+        },
+        iterations / 10,
+        warmup / 10);
 
     std::cout << "Byte-at-a-time parse:   " << format_time(time_byte) << "\n";
 
@@ -700,10 +705,8 @@ void benchmark_streaming_parser()
     double throughput_full = data.size() / time_full / 1000.0;
     double throughput_byte = data.size() / time_byte / 1000.0;
 
-    std::cout << "\nThroughput (full):      " << std::fixed << std::setprecision(1)
-              << throughput_full << " MB/s\n";
-    std::cout << "Throughput (byte):      " << std::fixed << std::setprecision(1)
-              << throughput_byte << " MB/s\n";
+    std::cout << "\nThroughput (full):      " << std::fixed << std::setprecision(1) << throughput_full << " MB/s\n";
+    std::cout << "Throughput (byte):      " << std::fixed << std::setprecision(1) << throughput_byte << " MB/s\n";
 }
 
 } // namespace fat_p::testing::cborstreamlite

@@ -224,7 +224,7 @@ FATP_TEST_CASE(stream_parse_limited_convenience)
 
 FATP_TEST_CASE(strict_limits_depth)
 {
-    StrictStreamParser parser;  // max_depth = 32
+    StrictStreamParser parser; // max_depth = 32
 
     // Create array nested 40 deep (exceeds strict limit of 32)
     std::vector<uint8_t> data;
@@ -246,7 +246,7 @@ FATP_TEST_CASE(strict_limits_depth)
 
 FATP_TEST_CASE(strict_limits_string_size)
 {
-    StrictStreamParser parser;  // max_string_bytes = 64KB
+    StrictStreamParser parser; // max_string_bytes = 64KB
 
     // Create string larger than 64KB
     std::string large_string(100 * 1024, 'x');
@@ -300,7 +300,7 @@ FATP_TEST_CASE(utf8_validation_valid)
 
     // Valid UTF-8: Multi-byte
     parser.reset();
-    data = encode_text("Hello, \xC3\xA9\xC3\xA0\xC3\xBC");  // e-acute, a-grave, u-umlaut
+    data = encode_text("Hello, \xC3\xA9\xC3\xA0\xC3\xBC"); // e-acute, a-grave, u-umlaut
     result = parser.parse(data);
     FATP_ASSERT_TRUE(result.has_value(), "Multi-byte valid");
 
@@ -410,13 +410,14 @@ FATP_TEST_CASE(progress_callback)
     std::size_t last_bytes = 0;
 
     parser.set_progress_interval(10);
-    parser.set_progress_callback([&](std::size_t bytes, std::size_t depth, std::size_t values)
-    {
-        ++callback_count;
-        last_bytes = bytes;
-        (void)depth;
-        (void)values;
-    });
+    parser.set_progress_callback(
+        [&](std::size_t bytes, std::size_t depth, std::size_t values)
+        {
+            ++callback_count;
+            last_bytes = bytes;
+            (void)depth;
+            (void)values;
+        });
 
     // Build data larger than progress interval
     std::vector<uint8_t> data = encode_array_header(50);
@@ -502,8 +503,7 @@ FATP_TEST_CASE(using_macro)
 
 void benchmark_policies()
 {
-    std::cout << "\n" << colors::cyan() << "FatPCborStream Policy Benchmarks:"
-              << colors::reset() << "\n\n";
+    std::cout << "\n" << colors::cyan() << "FatPCborStream Policy Benchmarks:" << colors::reset() << "\n\n";
 
     constexpr int iterations = 1000;
     constexpr int warmup = 100;
@@ -532,34 +532,43 @@ void benchmark_policies()
 
     // Default parser (no validation)
     DefaultStreamParser default_parser;
-    double time_default = measure_perf([&]()
-    {
-        default_parser.reset();
-        auto result = default_parser.parse(data);
-        DoNotOptimize(result);
-    }, iterations, warmup);
+    double time_default = measure_perf(
+        [&]()
+        {
+            default_parser.reset();
+            auto result = default_parser.parse(data);
+            DoNotOptimize(result);
+        },
+        iterations,
+        warmup);
 
     std::cout << "DefaultStreamParser:    " << format_time(time_default) << "\n";
 
     // Validating parser (UTF-8)
     ValidatingStreamParser validating_parser;
-    double time_validating = measure_perf([&]()
-    {
-        validating_parser.reset();
-        auto result = validating_parser.parse(data);
-        DoNotOptimize(result);
-    }, iterations, warmup);
+    double time_validating = measure_perf(
+        [&]()
+        {
+            validating_parser.reset();
+            auto result = validating_parser.parse(data);
+            DoNotOptimize(result);
+        },
+        iterations,
+        warmup);
 
     std::cout << "ValidatingStreamParser: " << format_time(time_validating) << "\n";
 
     // Strict parser (UTF-8 + ordering)
     StrictStreamParser strict_parser;
-    double time_strict = measure_perf([&]()
-    {
-        strict_parser.reset();
-        auto result = strict_parser.parse(data);
-        DoNotOptimize(result);
-    }, iterations, warmup);
+    double time_strict = measure_perf(
+        [&]()
+        {
+            strict_parser.reset();
+            auto result = strict_parser.parse(data);
+            DoNotOptimize(result);
+        },
+        iterations,
+        warmup);
 
     std::cout << "StrictStreamParser:     " << format_time(time_strict) << "\n";
 
@@ -568,21 +577,17 @@ void benchmark_policies()
     double throughput_validating = data.size() / time_validating / 1000.0;
     double throughput_strict = data.size() / time_strict / 1000.0;
 
-    std::cout << "\nThroughput (default):    " << std::fixed << std::setprecision(1)
-              << throughput_default << " MB/s\n";
-    std::cout << "Throughput (validating): " << std::fixed << std::setprecision(1)
-              << throughput_validating << " MB/s\n";
-    std::cout << "Throughput (strict):     " << std::fixed << std::setprecision(1)
-              << throughput_strict << " MB/s\n";
+    std::cout << "\nThroughput (default):    " << std::fixed << std::setprecision(1) << throughput_default << " MB/s\n";
+    std::cout << "Throughput (validating): " << std::fixed << std::setprecision(1) << throughput_validating
+              << " MB/s\n";
+    std::cout << "Throughput (strict):     " << std::fixed << std::setprecision(1) << throughput_strict << " MB/s\n";
 
     // Overhead calculation
     double validation_overhead = (time_validating - time_default) / time_default * 100.0;
     double strict_overhead = (time_strict - time_default) / time_default * 100.0;
 
-    std::cout << "\nValidation overhead:     " << std::fixed << std::setprecision(1)
-              << validation_overhead << "%\n";
-    std::cout << "Strict overhead:         " << std::fixed << std::setprecision(1)
-              << strict_overhead << "%\n";
+    std::cout << "\nValidation overhead:     " << std::fixed << std::setprecision(1) << validation_overhead << "%\n";
+    std::cout << "Strict overhead:         " << std::fixed << std::setprecision(1) << strict_overhead << "%\n";
 }
 
 } // namespace fat_p::testing::fatpcborstream

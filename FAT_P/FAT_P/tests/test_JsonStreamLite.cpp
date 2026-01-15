@@ -35,8 +35,8 @@ FATP_META:
 #include <string>
 #include <vector>
 
-#include "JsonStreamLite.h"
 #include "FatPTest.h"
+#include "JsonStreamLite.h"
 
 namespace fat_p::testing::jsonstreamlite
 {
@@ -234,10 +234,7 @@ FATP_TEST_CASE(parse_nested_objects)
     FATP_ASSERT_TRUE(status == ParseStatus::Done, "Parse succeeded");
 
     auto result = parser.take_result();
-    auto val = result.as_object()
-                    .at("outer").as_object()
-                    .at("inner").as_object()
-                    .at("deep").as_int();
+    auto val = result.as_object().at("outer").as_object().at("inner").as_object().at("deep").as_int();
     FATP_ASSERT_TRUE(val == 99, "Deep value");
 
     return true;
@@ -489,8 +486,7 @@ FATP_TEST_CASE(parse_with_whitespace)
 
 void benchmark_parsing()
 {
-    std::cout << "\n" << colors::cyan() << "JsonStreamLite Benchmarks:"
-              << colors::reset() << "\n\n";
+    std::cout << "\n" << colors::cyan() << "JsonStreamLite Benchmarks:" << colors::reset() << "\n\n";
 
     constexpr int iterations = 1000;
     constexpr int warmup = 100;
@@ -512,25 +508,31 @@ void benchmark_parsing()
     std::cout << "Test data size: " << json.size() << " bytes\n\n";
 
     // Full buffer parse
-    double time_full = measure_perf([&]()
-    {
-        JsonStreamParser parser;
-        auto status = parser.feed(json.data(), json.size());
-        DoNotOptimize(status);
-    }, iterations, warmup);
+    double time_full = measure_perf(
+        [&]()
+        {
+            JsonStreamParser parser;
+            auto status = parser.feed(json.data(), json.size());
+            DoNotOptimize(status);
+        },
+        iterations,
+        warmup);
 
     std::cout << "Full buffer parse:    " << format_time(time_full) << "\n";
 
     // Byte-at-a-time parse
-    double time_byte = measure_perf([&]()
-    {
-        JsonStreamParser parser;
-        for (std::size_t i = 0; i < json.size(); ++i)
+    double time_byte = measure_perf(
+        [&]()
         {
-            auto status = parser.feed(json.data() + i, 1);
-            DoNotOptimize(status);
-        }
-    }, iterations, warmup);
+            JsonStreamParser parser;
+            for (std::size_t i = 0; i < json.size(); ++i)
+            {
+                auto status = parser.feed(json.data() + i, 1);
+                DoNotOptimize(status);
+            }
+        },
+        iterations,
+        warmup);
 
     std::cout << "Byte-at-a-time parse: " << format_time(time_byte) << "\n";
 
@@ -538,10 +540,8 @@ void benchmark_parsing()
     double throughput_full = json.size() / time_full / 1000.0;
     double throughput_byte = json.size() / time_byte / 1000.0;
 
-    std::cout << "\nThroughput (full):    " << std::fixed << std::setprecision(1)
-              << throughput_full << " MB/s\n";
-    std::cout << "Throughput (byte):    " << std::fixed << std::setprecision(1)
-              << throughput_byte << " MB/s\n";
+    std::cout << "\nThroughput (full):    " << std::fixed << std::setprecision(1) << throughput_full << " MB/s\n";
+    std::cout << "Throughput (byte):    " << std::fixed << std::setprecision(1) << throughput_byte << " MB/s\n";
 }
 
 } // namespace fat_p::testing::jsonstreamlite

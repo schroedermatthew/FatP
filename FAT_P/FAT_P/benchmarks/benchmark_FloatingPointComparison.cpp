@@ -60,7 +60,8 @@ FATP_META:
 #include "FatPBenchmarkRunner.h"
 #include "FloatingPointComparison.h"
 
-namespace {
+namespace
+{
 
 using namespace fat_p::bench;
 
@@ -130,7 +131,8 @@ TestData generate_special_values(std::size_t n, bool nan_values)
 // Baseline Implementations (what users write without Fat-P)
 // ============================================================================
 
-namespace baseline {
+namespace baseline
+{
 
 bool manual_absolute(double a, double b, double eps)
 {
@@ -145,7 +147,10 @@ bool manual_relative(double a, double b, double eps)
 bool manual_hybrid(double a, double b, double rel_eps, double abs_eps)
 {
     double diff = std::fabs(a - b);
-    if (diff <= abs_eps) return true;
+    if (diff <= abs_eps)
+    {
+        return true;
+    }
     return diff <= rel_eps * std::max(std::fabs(a), std::fabs(b));
 }
 
@@ -156,8 +161,7 @@ bool manual_hybrid(double a, double b, double rel_eps, double abs_eps)
 // ============================================================================
 
 template <typename Func>
-Statistics run_benchmark(const char* /*name*/, std::size_t ops_per_batch,
-                         const BenchConfig& config, Func&& func)
+Statistics run_benchmark(const char* /*name*/, std::size_t ops_per_batch, const BenchConfig& config, Func&& func)
 {
     // Warmup
     for (std::size_t i = 0; i < config.warmupRuns; ++i)
@@ -184,8 +188,7 @@ Statistics run_benchmark(const char* /*name*/, std::size_t ops_per_batch,
 void print_stats(const char* name, const Statistics& s)
 {
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "  " << std::setw(30) << std::left << name
-              << std::setw(10) << s.median << " ns"
+    std::cout << "  " << std::setw(30) << std::left << name << std::setw(10) << s.median << " ns"
               << "  (mean: " << s.mean << ", stddev: " << s.stddev << ")"
               << "  CI95: [" << s.ci95Low << ", " << s.ci95High << "]\n";
 }
@@ -233,62 +236,86 @@ int main()
 
     // Standard vs manual_absolute
     {
-        auto s1 = run_benchmark("Fat-P Standard", N, config, [&]() {
-            std::size_t count = 0;
-            for (std::size_t i = 0; i < N; ++i)
+        auto s1 = run_benchmark(
+            "Fat-P Standard",
+            N,
+            config,
+            [&]()
             {
-                if (fat_p::floatEqual<double, fat_p::StandardComparisonPolicy>(
-                        normal_data.values_a[i], normal_data.values_b[i], 1e-9))
-                    ++count;
-            }
-            DoNotOptimize(count);
-        });
+                std::size_t count = 0;
+                for (std::size_t i = 0; i < N; ++i)
+                {
+                    if (fat_p::floatEqual<double, fat_p::StandardComparisonPolicy>(normal_data.values_a[i],
+                                                                                   normal_data.values_b[i],
+                                                                                   1e-9))
+                    {
+                        ++count;
+                    }
+                }
+                DoNotOptimize(count);
+            });
 
-        auto s2 = run_benchmark("Manual absolute", N, config, [&]() {
-            std::size_t count = 0;
-            for (std::size_t i = 0; i < N; ++i)
-            {
-                if (baseline::manual_absolute(
-                        normal_data.values_a[i], normal_data.values_b[i], 1e-9))
-                    ++count;
-            }
-            DoNotOptimize(count);
-        });
+        auto s2 =
+            run_benchmark("Manual absolute",
+                          N,
+                          config,
+                          [&]()
+                          {
+                              std::size_t count = 0;
+                              for (std::size_t i = 0; i < N; ++i)
+                              {
+                                  if (baseline::manual_absolute(normal_data.values_a[i], normal_data.values_b[i], 1e-9))
+                                  {
+                                      ++count;
+                                  }
+                              }
+                              DoNotOptimize(count);
+                          });
 
         print_stats("Fat-P Standard", s1);
         print_stats("Manual absolute", s2);
-        std::cout << "  Ratio: " << std::fixed << std::setprecision(2)
-                  << (s1.median / s2.median) << "x\n\n";
+        std::cout << "  Ratio: " << std::fixed << std::setprecision(2) << (s1.median / s2.median) << "x\n\n";
     }
 
     // Hybrid vs manual_hybrid
     {
-        auto s1 = run_benchmark("Fat-P Hybrid", N, config, [&]() {
-            std::size_t count = 0;
-            for (std::size_t i = 0; i < N; ++i)
+        auto s1 = run_benchmark(
+            "Fat-P Hybrid",
+            N,
+            config,
+            [&]()
             {
-                if (fat_p::approximateEqual(
-                        normal_data.values_a[i], normal_data.values_b[i], 1e-9, 1e-12))
-                    ++count;
-            }
-            DoNotOptimize(count);
-        });
+                std::size_t count = 0;
+                for (std::size_t i = 0; i < N; ++i)
+                {
+                    if (fat_p::approximateEqual(normal_data.values_a[i], normal_data.values_b[i], 1e-9, 1e-12))
+                    {
+                        ++count;
+                    }
+                }
+                DoNotOptimize(count);
+            });
 
-        auto s2 = run_benchmark("Manual hybrid", N, config, [&]() {
-            std::size_t count = 0;
-            for (std::size_t i = 0; i < N; ++i)
+        auto s2 = run_benchmark(
+            "Manual hybrid",
+            N,
+            config,
+            [&]()
             {
-                if (baseline::manual_hybrid(
-                        normal_data.values_a[i], normal_data.values_b[i], 1e-9, 1e-12))
-                    ++count;
-            }
-            DoNotOptimize(count);
-        });
+                std::size_t count = 0;
+                for (std::size_t i = 0; i < N; ++i)
+                {
+                    if (baseline::manual_hybrid(normal_data.values_a[i], normal_data.values_b[i], 1e-9, 1e-12))
+                    {
+                        ++count;
+                    }
+                }
+                DoNotOptimize(count);
+            });
 
         print_stats("Fat-P Hybrid", s1);
         print_stats("Manual hybrid", s2);
-        std::cout << "  Ratio: " << std::fixed << std::setprecision(2)
-                  << (s1.median / s2.median) << "x\n\n";
+        std::cout << "  Ratio: " << std::fixed << std::setprecision(2) << (s1.median / s2.median) << "x\n\n";
     }
 
     // ========================================================================
@@ -296,49 +323,78 @@ int main()
     std::cout << "Contract: epsilon-based floating-point equality\n\n";
     print_cpu_context(std::cout);
 
-    auto s_standard = run_benchmark("Standard", N, config, [&]() {
-        std::size_t count = 0;
-        for (std::size_t i = 0; i < N; ++i)
-        {
-            if (fat_p::floatEqual<double, fat_p::StandardComparisonPolicy>(
-                    normal_data.values_a[i], normal_data.values_b[i], 1e-9))
-                ++count;
-        }
-        DoNotOptimize(count);
-    });
+    auto s_standard =
+        run_benchmark("Standard",
+                      N,
+                      config,
+                      [&]()
+                      {
+                          std::size_t count = 0;
+                          for (std::size_t i = 0; i < N; ++i)
+                          {
+                              if (fat_p::floatEqual<double, fat_p::StandardComparisonPolicy>(normal_data.values_a[i],
+                                                                                             normal_data.values_b[i],
+                                                                                             1e-9))
+                              {
+                                  ++count;
+                              }
+                          }
+                          DoNotOptimize(count);
+                      });
 
-    auto s_relative = run_benchmark("Relative", N, config, [&]() {
-        std::size_t count = 0;
-        for (std::size_t i = 0; i < N; ++i)
-        {
-            if (fat_p::floatEqual<double, fat_p::RelativeComparisonPolicy>(
-                    normal_data.values_a[i], normal_data.values_b[i], 1e-9))
-                ++count;
-        }
-        DoNotOptimize(count);
-    });
+    auto s_relative =
+        run_benchmark("Relative",
+                      N,
+                      config,
+                      [&]()
+                      {
+                          std::size_t count = 0;
+                          for (std::size_t i = 0; i < N; ++i)
+                          {
+                              if (fat_p::floatEqual<double, fat_p::RelativeComparisonPolicy>(normal_data.values_a[i],
+                                                                                             normal_data.values_b[i],
+                                                                                             1e-9))
+                              {
+                                  ++count;
+                              }
+                          }
+                          DoNotOptimize(count);
+                      });
 
-    auto s_ulp = run_benchmark("ULP", N, config, [&]() {
-        std::size_t count = 0;
-        for (std::size_t i = 0; i < N; ++i)
-        {
-            if (fat_p::floatEqual<double, fat_p::UlpComparisonPolicy>(
-                    normal_data.values_a[i], normal_data.values_b[i], 4.0))
-                ++count;
-        }
-        DoNotOptimize(count);
-    });
+    auto s_ulp =
+        run_benchmark("ULP",
+                      N,
+                      config,
+                      [&]()
+                      {
+                          std::size_t count = 0;
+                          for (std::size_t i = 0; i < N; ++i)
+                          {
+                              if (fat_p::floatEqual<double, fat_p::UlpComparisonPolicy>(normal_data.values_a[i],
+                                                                                        normal_data.values_b[i],
+                                                                                        4.0))
+                              {
+                                  ++count;
+                              }
+                          }
+                          DoNotOptimize(count);
+                      });
 
-    auto s_hybrid = run_benchmark("Hybrid", N, config, [&]() {
-        std::size_t count = 0;
-        for (std::size_t i = 0; i < N; ++i)
-        {
-            if (fat_p::approximateEqual(
-                    normal_data.values_a[i], normal_data.values_b[i]))
-                ++count;
-        }
-        DoNotOptimize(count);
-    });
+    auto s_hybrid = run_benchmark("Hybrid",
+                                  N,
+                                  config,
+                                  [&]()
+                                  {
+                                      std::size_t count = 0;
+                                      for (std::size_t i = 0; i < N; ++i)
+                                      {
+                                          if (fat_p::approximateEqual(normal_data.values_a[i], normal_data.values_b[i]))
+                                          {
+                                              ++count;
+                                          }
+                                      }
+                                      DoNotOptimize(count);
+                                  });
 
     print_stats("Standard", s_standard);
     print_stats("Relative", s_relative);
@@ -350,31 +406,42 @@ int main()
     std::cout << "Contract: IEEE 754 NaN/Inf semantics\n\n";
     print_cpu_context(std::cout);
 
-    auto s_nan = run_benchmark("NaN", N, config, [&]() {
-        std::size_t count = 0;
-        for (std::size_t i = 0; i < N; ++i)
-        {
-            if (fat_p::approximateEqual(nan_data.values_a[i], nan_data.values_b[i]))
-                ++count;
-        }
-        DoNotOptimize(count);
-    });
+    auto s_nan = run_benchmark("NaN",
+                               N,
+                               config,
+                               [&]()
+                               {
+                                   std::size_t count = 0;
+                                   for (std::size_t i = 0; i < N; ++i)
+                                   {
+                                       if (fat_p::approximateEqual(nan_data.values_a[i], nan_data.values_b[i]))
+                                       {
+                                           ++count;
+                                       }
+                                   }
+                                   DoNotOptimize(count);
+                               });
 
-    auto s_inf = run_benchmark("Infinity", N, config, [&]() {
-        std::size_t count = 0;
-        for (std::size_t i = 0; i < N; ++i)
-        {
-            if (fat_p::approximateEqual(inf_data.values_a[i], inf_data.values_b[i]))
-                ++count;
-        }
-        DoNotOptimize(count);
-    });
+    auto s_inf = run_benchmark("Infinity",
+                               N,
+                               config,
+                               [&]()
+                               {
+                                   std::size_t count = 0;
+                                   for (std::size_t i = 0; i < N; ++i)
+                                   {
+                                       if (fat_p::approximateEqual(inf_data.values_a[i], inf_data.values_b[i]))
+                                       {
+                                           ++count;
+                                       }
+                                   }
+                                   DoNotOptimize(count);
+                               });
 
     print_stats("NaN", s_nan);
     print_stats("Infinity", s_inf);
-    std::cout << "  Speedup vs normal: " << std::fixed << std::setprecision(1)
-              << (s_hybrid.median / s_nan.median) << "x (NaN), "
-              << (s_hybrid.median / s_inf.median) << "x (Inf)\n";
+    std::cout << "  Speedup vs normal: " << std::fixed << std::setprecision(1) << (s_hybrid.median / s_nan.median)
+              << "x (NaN), " << (s_hybrid.median / s_inf.median) << "x (Inf)\n";
 
     // ========================================================================
     std::cout << "\n================================================================\n";

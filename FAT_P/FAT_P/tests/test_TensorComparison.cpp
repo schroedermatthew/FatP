@@ -332,37 +332,44 @@ FATP_TEST_CASE(single_element)
 
 void benchmark_tensorcomparison()
 {
-    std::cout << "\n" << colors::cyan() << "TensorComparison Benchmarks:"
-              << colors::reset() << "\n\n";
+    std::cout << "\n" << colors::cyan() << "TensorComparison Benchmarks:" << colors::reset() << "\n\n";
 
     const std::size_t N = 1000;
     Tensor<float> a({N, N}, 1.0f);
     Tensor<float> b({N, N}, 1.0f + 1e-7f);
 
-    double time_exact = measure_perf([&]()
-    {
-        DoNotOptimize(a == b);
-    }, 1000, 100);
+    double time_exact = measure_perf(
+        [&]()
+        {
+            DoNotOptimize(a == b);
+        },
+        1000,
+        100);
     std::cout << "operator== (" << N << "x" << N << "): " << format_time(time_exact) << "\n";
 
-    double time_approx = measure_perf([&]()
-    {
-        DoNotOptimize(a.approx_equal(b));
-    }, 1000, 100);
+    double time_approx = measure_perf(
+        [&]()
+        {
+            DoNotOptimize(a.approx_equal(b));
+        },
+        1000,
+        100);
     std::cout << "approx_equal (" << N << "x" << N << "): " << format_time(time_approx) << "\n";
 
     if (time_exact > 0.0)
     {
         double ratio = time_approx / time_exact;
-        std::cout << "Ratio (approx/exact): " << std::fixed
-                  << std::setprecision(2) << ratio << "x\n";
+        std::cout << "Ratio (approx/exact): " << std::fixed << std::setprecision(2) << ratio << "x\n";
     }
 
-    double time_hash = measure_perf([&]()
-    {
-        std::size_t hash = std::hash<Tensor<float>>{}(a);
-        DoNotOptimize(hash);
-    }, 100, 10);
+    double time_hash = measure_perf(
+        [&]()
+        {
+            std::size_t hash = std::hash<Tensor<float>>{}(a);
+            DoNotOptimize(hash);
+        },
+        100,
+        10);
     std::cout << "std::hash (" << N << "x" << N << "): " << format_time(time_hash) << "\n";
 }
 

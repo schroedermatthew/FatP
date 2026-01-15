@@ -52,8 +52,16 @@ struct NonTrivial
     std::string data;
     int value;
 
-    NonTrivial() : data("default"), value(0) {}
-    NonTrivial(std::string d, int v) : data(std::move(d)), value(v) {}
+    NonTrivial()
+        : data("default")
+        , value(0)
+    {
+    }
+    NonTrivial(std::string d, int v)
+        : data(std::move(d))
+        , value(v)
+    {
+    }
 
     bool operator==(const NonTrivial& other) const
     {
@@ -65,15 +73,24 @@ struct MoveOnly
 {
     std::unique_ptr<int> ptr;
 
-    MoveOnly() : ptr(nullptr) {}
-    explicit MoveOnly(int v) : ptr(std::make_unique<int>(v)) {}
+    MoveOnly()
+        : ptr(nullptr)
+    {
+    }
+    explicit MoveOnly(int v)
+        : ptr(std::make_unique<int>(v))
+    {
+    }
     MoveOnly(MoveOnly&&) noexcept = default;
     MoveOnly& operator=(MoveOnly&&) noexcept = default;
 
     MoveOnly(const MoveOnly&) = delete;
     MoveOnly& operator=(const MoveOnly&) = delete;
 
-    int get_value() const { return ptr ? *ptr : -1; }
+    int get_value() const
+    {
+        return ptr ? *ptr : -1;
+    }
 };
 
 struct ThrowingCtor
@@ -81,7 +98,8 @@ struct ThrowingCtor
     int value;
     static bool should_throw;
 
-    ThrowingCtor() : value(0)
+    ThrowingCtor()
+        : value(0)
     {
         if (should_throw)
         {
@@ -89,7 +107,8 @@ struct ThrowingCtor
         }
     }
 
-    explicit ThrowingCtor(int v) : value(v)
+    explicit ThrowingCtor(int v)
+        : value(v)
     {
         if (should_throw)
         {
@@ -386,7 +405,11 @@ FATP_TEST_CASE(if_debug)
     fat_p::DebugOnly<int> val(42);
     int result = 0;
 
-    val.if_debug([&result](int v) { result = v * 2; });
+    val.if_debug(
+        [&result](int v)
+        {
+            result = v * 2;
+        });
 
 #ifndef NDEBUG
     FATP_ASSERT_EQ(result, 84, "if_debug should execute in debug mode");
@@ -401,7 +424,11 @@ FATP_TEST_CASE(modify)
 {
     fat_p::DebugOnly<int> val(10);
 
-    val.modify([](int& v) { v *= 3; });
+    val.modify(
+        [](int& v)
+        {
+            v *= 3;
+        });
 
 #ifndef NDEBUG
     FATP_ASSERT_EQ(val.get(), 30, "modify should update value in debug");
@@ -478,7 +505,7 @@ FATP_TEST_CASE(comparison_with_raw_value)
     // In release mode, comparison with raw T is deleted to prevent control flow bugs.
     // Use value_or() instead for cross-mode safe comparisons:
     FATP_ASSERT_TRUE(val.value_or(0) == 0, "Release: value_or returns default");
-    
+
     // This would not compile in release (correctly!):
     // val == 42;  // Error: use of deleted function
 #endif
@@ -645,13 +672,11 @@ FATP_TEST_CASE(size_characteristics)
     };
 
 #ifdef NDEBUG
-    #if FATP_HAS_CPP20
-    FATP_ASSERT_EQ(sizeof(WithDebug), sizeof(int),
-              "C++20 release: zero overhead with [[no_unique_address]]");
-    #else
-    FATP_ASSERT_LE(sizeof(WithDebug), sizeof(int) + sizeof(void*),
-              "C++17 release: minimal overhead");
-    #endif
+#if FATP_HAS_CPP20
+    FATP_ASSERT_EQ(sizeof(WithDebug), sizeof(int), "C++20 release: zero overhead with [[no_unique_address]]");
+#else
+    FATP_ASSERT_LE(sizeof(WithDebug), sizeof(int) + sizeof(void*), "C++17 release: minimal overhead");
+#endif
 #else
     FATP_ASSERT_GT(sizeof(WithDebug), sizeof(int), "Debug: should include string storage");
 #endif
@@ -764,8 +789,8 @@ FATP_TEST_CASE(constexpr_construction)
 
 void benchmark_debugonly()
 {
-    std::cout << "\n" << fat_p::testing::colors::cyan()
-              << "DebugOnly Benchmarks:" << fat_p::testing::colors::reset() << "\n\n";
+    std::cout << "\n"
+              << fat_p::testing::colors::cyan() << "DebugOnly Benchmarks:" << fat_p::testing::colors::reset() << "\n\n";
 
 #ifdef NDEBUG
     std::cout << "Running in RELEASE mode (NDEBUG defined)\n";
@@ -780,35 +805,47 @@ void benchmark_debugonly()
     fat_p::DebugOnly<int> debug_val;
     int sink = 0;
 
-    fat_p::testing::benchmark("DebugOnly<int> assignment", [&]() {
-        debug_val = sink;
-        fat_p::testing::DoNotOptimize(debug_val);
-        fat_p::testing::DoNotOptimize(sink);
-        ++sink;
-    });
+    fat_p::testing::benchmark("DebugOnly<int> assignment",
+                              [&]()
+                              {
+                                  debug_val = sink;
+                                  fat_p::testing::DoNotOptimize(debug_val);
+                                  fat_p::testing::DoNotOptimize(sink);
+                                  ++sink;
+                              });
 
     // Benchmark increment
     fat_p::DebugOnly<size_t> counter(0);
 
-    fat_p::testing::benchmark("DebugOnly<size_t> increment", [&]() {
-        ++counter;
-        fat_p::testing::DoNotOptimize(counter);
-    });
+    fat_p::testing::benchmark("DebugOnly<size_t> increment",
+                              [&]()
+                              {
+                                  ++counter;
+                                  fat_p::testing::DoNotOptimize(counter);
+                              });
 
     // Benchmark if_debug
     fat_p::DebugOnly<int> val(42);
     int result = 0;
 
-    fat_p::testing::benchmark("DebugOnly<int>::if_debug", [&]() {
-        val.if_debug([&](int v) { result = v; });
-        fat_p::testing::DoNotOptimize(result);
-    });
+    fat_p::testing::benchmark("DebugOnly<int>::if_debug",
+                              [&]()
+                              {
+                                  val.if_debug(
+                                      [&](int v)
+                                      {
+                                          result = v;
+                                      });
+                                  fat_p::testing::DoNotOptimize(result);
+                              });
 
     // Benchmark value_or
-    fat_p::testing::benchmark("DebugOnly<int>::value_or", [&]() {
-        result = val.value_or(999);
-        fat_p::testing::DoNotOptimize(result);
-    });
+    fat_p::testing::benchmark("DebugOnly<int>::value_or",
+                              [&]()
+                              {
+                                  result = val.value_or(999);
+                                  fat_p::testing::DoNotOptimize(result);
+                              });
 
     // Size information
     struct WithDebug
@@ -820,16 +857,15 @@ void benchmark_debugonly()
     std::cout << "\nSize Characteristics:\n";
     std::cout << "  sizeof(int): " << sizeof(int) << " bytes\n";
     std::cout << "  sizeof(DebugOnly<int>): " << sizeof(fat_p::DebugOnly<int>) << " bytes\n";
-    std::cout << "  sizeof(DebugOnly<string>): " << sizeof(fat_p::DebugOnly<std::string>)
-              << " bytes\n";
+    std::cout << "  sizeof(DebugOnly<string>): " << sizeof(fat_p::DebugOnly<std::string>) << " bytes\n";
     std::cout << "  sizeof(WithDebug): " << sizeof(WithDebug) << " bytes\n";
 
 #ifdef NDEBUG
-    #if FATP_HAS_CPP20
+#if FATP_HAS_CPP20
     std::cout << "  [OK] C++20 with [[no_unique_address]]: True zero overhead\n";
-    #else
+#else
     std::cout << "  [INFO] C++17: Minimal overhead (1 byte + padding)\n";
-    #endif
+#endif
 #endif
 }
 

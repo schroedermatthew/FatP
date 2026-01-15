@@ -63,8 +63,8 @@ FATP_META:
 
 #include "FatPBenchmarkRunner.h"
 #include "PolicyIterator.h"
-#include "TensorStridePolicy.h"
 #include "TensorIteration.h"
+#include "TensorStridePolicy.h"
 
 #include <numeric>
 
@@ -73,19 +73,19 @@ FATP_META:
 // ============================================================================
 
 #if __has_include(<boost/iterator/filter_iterator.hpp>)
+#include <boost/iterator/counting_iterator.hpp>
 #include <boost/iterator/filter_iterator.hpp>
 #include <boost/iterator/transform_iterator.hpp>
-#include <boost/iterator/counting_iterator.hpp>
 #define HAS_BOOST_ITERATOR 1
 #else
 #define HAS_BOOST_ITERATOR 0
 #endif
 
 #if __has_include(<range/v3/view/filter.hpp>)
-#include <range/v3/view/filter.hpp>
-#include <range/v3/view/transform.hpp>
-#include <range/v3/view/stride.hpp>
 #include <range/v3/numeric/accumulate.hpp>
+#include <range/v3/view/filter.hpp>
+#include <range/v3/view/stride.hpp>
+#include <range/v3/view/transform.hpp>
 #define HAS_RANGE_V3 1
 #else
 #define HAS_RANGE_V3 0
@@ -104,32 +104,32 @@ FATP_META:
 
 // xtensor: dynamic N-D tensor library (requires C++20 for xtensor 0.27+)
 #if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
-    #if __has_include(<xtensor/xarray.hpp>)
-        #include <xtensor/xarray.hpp>
-        #include <xtensor/xadapt.hpp>
-        #include <xtensor/xstrided_view.hpp>
-        #define HAS_XTENSOR 1
-    #elif __has_include(<xtensor/containers/xarray.hpp>)
-        #include <xtensor/containers/xarray.hpp>
-        #include <xtensor/containers/xadapt.hpp>
-        #include <xtensor/views/xstrided_view.hpp>
-        #define HAS_XTENSOR 1
-    #else
-        #define HAS_XTENSOR 0
-    #endif
+#if __has_include(<xtensor/xarray.hpp>)
+#include <xtensor/xadapt.hpp>
+#include <xtensor/xarray.hpp>
+#include <xtensor/xstrided_view.hpp>
+#define HAS_XTENSOR 1
+#elif __has_include(<xtensor/containers/xarray.hpp>)
+#include <xtensor/containers/xadapt.hpp>
+#include <xtensor/containers/xarray.hpp>
+#include <xtensor/views/xstrided_view.hpp>
+#define HAS_XTENSOR 1
 #else
-    #define HAS_XTENSOR 0
+#define HAS_XTENSOR 0
+#endif
+#else
+#define HAS_XTENSOR 0
 #endif
 
 // Boost.MultiArray
 #if __has_include(<boost/multi_array.hpp>)
 #ifdef _MSC_VER
-    #pragma warning(push)
-    #pragma warning(disable: 4996)  // Suppress deprecated 'assign' warning in Boost.MultiArray
+#pragma warning(push)
+#pragma warning(disable : 4996) // Suppress deprecated 'assign' warning in Boost.MultiArray
 #endif
 #include <boost/multi_array.hpp>
 #ifdef _MSC_VER
-    #pragma warning(pop)
+#pragma warning(pop)
 #endif
 #define HAS_BOOST_MULTIARRAY 1
 #else
@@ -172,7 +172,10 @@ void benchStandardVsRawPointer(const BenchConfig& cfg)
 
     // Correctness check
     int64_t expectedSum = 0;
-    for (std::size_t i = 0; i < N; ++i) expectedSum += data[i];
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        expectedSum += data[i];
+    }
 
     for (std::size_t run = 0; run < cfg.warmupRuns + cfg.measuredRuns; ++run)
     {
@@ -189,7 +192,10 @@ void benchStandardVsRawPointer(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) rawTimes.push_back(elapsed / static_cast<double>(N));
+            if (measured)
+            {
+                rawTimes.push_back(elapsed / static_cast<double>(N));
+            }
             if (run == 0 && sum != expectedSum)
             {
                 std::cerr << "CORRECTNESS FAILURE: raw pointer sum\n";
@@ -210,7 +216,10 @@ void benchStandardVsRawPointer(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) policyTimes.push_back(elapsed / static_cast<double>(N));
+            if (measured)
+            {
+                policyTimes.push_back(elapsed / static_cast<double>(N));
+            }
             if (run == 0 && sum != expectedSum)
             {
                 std::cerr << "CORRECTNESS FAILURE: PolicyIterator sum\n";
@@ -236,9 +245,10 @@ void benchStandardVsRawPointer(const BenchConfig& cfg)
 
 void benchStrideVsManual(const BenchConfig& cfg)
 {
-    printSectionHeader(std::cout, "STRIDE POLICIES VS MANUAL LOOPS"
+    printSectionHeader(std::cout,
+                       "STRIDE POLICIES VS MANUAL LOOPS"
 #if HAS_RANGE_V3
-        " + RANGE-V3"
+                       " + RANGE-V3"
 #endif
     );
     printContract(std::cout, "Sum with fixed compile-time stride, bounds clamping included");
@@ -257,8 +267,7 @@ void benchStrideVsManual(const BenchConfig& cfg)
         std::vector<double> rangesTimes;
 #endif
 
-        std::size_t expectedIters = (N + static_cast<std::size_t>(stride) - 1) /
-                                     static_cast<std::size_t>(stride);
+        std::size_t expectedIters = (N + static_cast<std::size_t>(stride) - 1) / static_cast<std::size_t>(stride);
 
         // Expected sum for correctness
         int64_t expectedSum = 0;
@@ -282,7 +291,10 @@ void benchStrideVsManual(const BenchConfig& cfg)
                 }
                 double elapsed = t.elapsedNs();
                 DoNotOptimize(sum);
-                if (measured) manualTimes.push_back(elapsed / static_cast<double>(expectedIters));
+                if (measured)
+                {
+                    manualTimes.push_back(elapsed / static_cast<double>(expectedIters));
+                }
             }
 
             // PolicyIterator with stride
@@ -296,26 +308,38 @@ void benchStrideVsManual(const BenchConfig& cfg)
                     using Iter = PolicyIterator<int64_t, StridePolicy<int64_t, 2>>;
                     auto begin = Iter::begin(data.data(), data.data() + N);
                     auto end = Iter::end(data.data(), data.data() + N);
-                    for (auto it = begin; it != end; ++it) sum += *it;
+                    for (auto it = begin; it != end; ++it)
+                    {
+                        sum += *it;
+                    }
                 }
                 else if (stride == 4)
                 {
                     using Iter = PolicyIterator<int64_t, StridePolicy<int64_t, 4>>;
                     auto begin = Iter::begin(data.data(), data.data() + N);
                     auto end = Iter::end(data.data(), data.data() + N);
-                    for (auto it = begin; it != end; ++it) sum += *it;
+                    for (auto it = begin; it != end; ++it)
+                    {
+                        sum += *it;
+                    }
                 }
                 else
                 {
                     using Iter = PolicyIterator<int64_t, StridePolicy<int64_t, 8>>;
                     auto begin = Iter::begin(data.data(), data.data() + N);
                     auto end = Iter::end(data.data(), data.data() + N);
-                    for (auto it = begin; it != end; ++it) sum += *it;
+                    for (auto it = begin; it != end; ++it)
+                    {
+                        sum += *it;
+                    }
                 }
 
                 double elapsed = t.elapsedNs();
                 DoNotOptimize(sum);
-                if (measured) policyTimes.push_back(elapsed / static_cast<double>(expectedIters));
+                if (measured)
+                {
+                    policyTimes.push_back(elapsed / static_cast<double>(expectedIters));
+                }
             }
 
 #if HAS_RANGE_V3
@@ -330,7 +354,10 @@ void benchStrideVsManual(const BenchConfig& cfg)
                 }
                 double elapsed = t.elapsedNs();
                 DoNotOptimize(sum);
-                if (measured) rangesTimes.push_back(elapsed / static_cast<double>(expectedIters));
+                if (measured)
+                {
+                    rangesTimes.push_back(elapsed / static_cast<double>(expectedIters));
+                }
                 if (run == 0 && sum != expectedSum)
                 {
                     std::cerr << "CORRECTNESS FAILURE: range-v3 stride sum\n";
@@ -349,7 +376,7 @@ void benchStrideVsManual(const BenchConfig& cfg)
 #if HAS_RANGE_V3
         auto rangesStats = Statistics::compute(std::move(rangesTimes));
         rangesStats.printComparison(std::cout, "range-v3::views::stride", "ns/op");
-        
+
         std::cout << "    vs Manual: Policy " << std::fixed << std::setprecision(2)
                   << (policyStats.median / manualStats.median) << "x, range-v3 "
                   << (rangesStats.median / manualStats.median) << "x\n";
@@ -366,12 +393,13 @@ void benchStrideVsManual(const BenchConfig& cfg)
 
 void benchFilterVsManual(const BenchConfig& cfg)
 {
-    printSectionHeader(std::cout, "FILTER POLICY VS MANUAL LOOP" 
+    printSectionHeader(std::cout,
+                       "FILTER POLICY VS MANUAL LOOP"
 #if HAS_BOOST_ITERATOR
-        " + BOOST"
+                       " + BOOST"
 #endif
 #if HAS_RANGE_V3
-        " + RANGE-V3"
+                       " + RANGE-V3"
 #endif
     );
     printContract(std::cout, "Sum of even values only, predicate evaluation cost included");
@@ -380,7 +408,10 @@ void benchFilterVsManual(const BenchConfig& cfg)
     constexpr std::size_t N = 1000000;
     auto data = generateData(N, cfg.seed);
 
-    auto isEven = [](const int64_t& v) { return v % 2 == 0; };
+    auto isEven = [](const int64_t& v)
+    {
+        return v % 2 == 0;
+    };
 
     std::vector<double> manualTimes, policyTimes;
 #if HAS_BOOST_ITERATOR
@@ -416,11 +447,17 @@ void benchFilterVsManual(const BenchConfig& cfg)
             t.start();
             for (std::size_t i = 0; i < N; ++i)
             {
-                if (isEven(data[i])) sum += data[i];
+                if (isEven(data[i]))
+                {
+                    sum += data[i];
+                }
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) manualTimes.push_back(elapsed / static_cast<double>(N));
+            if (measured)
+            {
+                manualTimes.push_back(elapsed / static_cast<double>(N));
+            }
             if (run == 0 && sum != expectedSum)
             {
                 std::cerr << "CORRECTNESS FAILURE: manual filter sum\n";
@@ -431,10 +468,8 @@ void benchFilterVsManual(const BenchConfig& cfg)
         // PolicyIterator with filter
         {
             using Policy = FilterPolicy<int64_t, decltype(isEven)>;
-            auto begin = PolicyIterator<int64_t, Policy>::begin(
-                data.data(), data.data() + N, Policy{}, isEven);
-            auto end = PolicyIterator<int64_t, Policy>::end(
-                data.data(), data.data() + N, Policy{}, isEven);
+            auto begin = PolicyIterator<int64_t, Policy>::begin(data.data(), data.data() + N, Policy{}, isEven);
+            auto end = PolicyIterator<int64_t, Policy>::end(data.data(), data.data() + N, Policy{}, isEven);
 
             int64_t sum = 0;
             Timer t;
@@ -445,7 +480,10 @@ void benchFilterVsManual(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) policyTimes.push_back(elapsed / static_cast<double>(N));
+            if (measured)
+            {
+                policyTimes.push_back(elapsed / static_cast<double>(N));
+            }
             if (run == 0 && sum != expectedSum)
             {
                 std::cerr << "CORRECTNESS FAILURE: PolicyIterator filter sum\n";
@@ -468,7 +506,10 @@ void benchFilterVsManual(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) boostTimes.push_back(elapsed / static_cast<double>(N));
+            if (measured)
+            {
+                boostTimes.push_back(elapsed / static_cast<double>(N));
+            }
             if (run == 0 && sum != expectedSum)
             {
                 std::cerr << "CORRECTNESS FAILURE: Boost filter sum\n";
@@ -489,7 +530,10 @@ void benchFilterVsManual(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) rangesTimes.push_back(elapsed / static_cast<double>(N));
+            if (measured)
+            {
+                rangesTimes.push_back(elapsed / static_cast<double>(N));
+            }
             if (run == 0 && sum != expectedSum)
             {
                 std::cerr << "CORRECTNESS FAILURE: range-v3 filter sum\n";
@@ -533,12 +577,13 @@ void benchFilterVsManual(const BenchConfig& cfg)
 
 void benchTransformVsManual(const BenchConfig& cfg)
 {
-    printSectionHeader(std::cout, "TRANSFORM POLICY VS MANUAL LOOP"
+    printSectionHeader(std::cout,
+                       "TRANSFORM POLICY VS MANUAL LOOP"
 #if HAS_BOOST_ITERATOR
-        " + BOOST"
+                       " + BOOST"
 #endif
 #if HAS_RANGE_V3
-        " + RANGE-V3"
+                       " + RANGE-V3"
 #endif
     );
     printContract(std::cout, "Sum of doubled values, transform cost included");
@@ -547,7 +592,10 @@ void benchTransformVsManual(const BenchConfig& cfg)
     constexpr std::size_t N = 1000000;
     auto data = generateData(N, cfg.seed);
 
-    auto doubler = [](const int64_t& v) -> int64_t { return v * 2; };
+    auto doubler = [](const int64_t& v) -> int64_t
+    {
+        return v * 2;
+    };
 
     std::vector<double> manualTimes, policyTimes;
 #if HAS_BOOST_ITERATOR
@@ -559,7 +607,10 @@ void benchTransformVsManual(const BenchConfig& cfg)
 
     // Expected sum
     int64_t expectedSum = 0;
-    for (std::size_t i = 0; i < N; ++i) expectedSum += data[i] * 2;
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        expectedSum += data[i] * 2;
+    }
 
     for (std::size_t run = 0; run < cfg.warmupRuns + cfg.measuredRuns; ++run)
     {
@@ -576,16 +627,17 @@ void benchTransformVsManual(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) manualTimes.push_back(elapsed / static_cast<double>(N));
+            if (measured)
+            {
+                manualTimes.push_back(elapsed / static_cast<double>(N));
+            }
         }
 
         // PolicyIterator with transform
         {
             using Policy = TransformPolicy<int64_t, decltype(doubler)>;
-            auto begin = PolicyIterator<int64_t, Policy>::begin(
-                data.data(), data.data() + N, Policy{}, doubler);
-            auto end = PolicyIterator<int64_t, Policy>::end(
-                data.data(), data.data() + N, Policy{}, doubler);
+            auto begin = PolicyIterator<int64_t, Policy>::begin(data.data(), data.data() + N, Policy{}, doubler);
+            auto end = PolicyIterator<int64_t, Policy>::end(data.data(), data.data() + N, Policy{}, doubler);
 
             int64_t sum = 0;
             Timer t;
@@ -596,7 +648,10 @@ void benchTransformVsManual(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) policyTimes.push_back(elapsed / static_cast<double>(N));
+            if (measured)
+            {
+                policyTimes.push_back(elapsed / static_cast<double>(N));
+            }
         }
 
 #if HAS_BOOST_ITERATOR
@@ -614,7 +669,10 @@ void benchTransformVsManual(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) boostTimes.push_back(elapsed / static_cast<double>(N));
+            if (measured)
+            {
+                boostTimes.push_back(elapsed / static_cast<double>(N));
+            }
         }
 #endif
 
@@ -630,7 +688,10 @@ void benchTransformVsManual(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) rangesTimes.push_back(elapsed / static_cast<double>(N));
+            if (measured)
+            {
+                rangesTimes.push_back(elapsed / static_cast<double>(N));
+            }
         }
 #endif
     }
@@ -669,15 +730,16 @@ void benchTransformVsManual(const BenchConfig& cfg)
 
 void benchTensorStride(const BenchConfig& cfg)
 {
-    printSectionHeader(std::cout, "TENSOR STRIDE POLICY VS MANUAL"
+    printSectionHeader(std::cout,
+                       "TENSOR STRIDE POLICY VS MANUAL"
 #if HAS_EIGEN
-        " + EIGEN"
+                       " + EIGEN"
 #endif
 #if HAS_XTENSOR
-        " + XTENSOR"
+                       " + XTENSOR"
 #endif
 #if HAS_BOOST_MULTIARRAY
-        " + BOOST"
+                       " + BOOST"
 #endif
     );
     printContract(std::cout, "Row-major matrix column iteration (strided access)");
@@ -703,25 +765,28 @@ void benchTensorStride(const BenchConfig& cfg)
 
     // Expected sum (first column)
     int64_t expectedSum = 0;
-    for (std::size_t r = 0; r < rows; ++r) expectedSum += data[r * cols];
+    for (std::size_t r = 0; r < rows; ++r)
+    {
+        expectedSum += data[r * cols];
+    }
 
 #if HAS_EIGEN
     // Create Eigen matrix (Map over existing data to avoid copy)
-    Eigen::Map<Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> 
-        eigenMat(data.data(), static_cast<Eigen::Index>(rows), static_cast<Eigen::Index>(cols));
+    Eigen::Map<Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> eigenMat(
+        data.data(),
+        static_cast<Eigen::Index>(rows),
+        static_cast<Eigen::Index>(cols));
 #endif
 
 #if HAS_XTENSOR
     // Create xtensor xarray (dynamic shape)
-    xt::xarray<int64_t> xtArr = xt::adapt(
-        data.data(), rows * cols, xt::no_ownership(),
-        std::vector<std::size_t>{rows, cols});
+    xt::xarray<int64_t> xtArr =
+        xt::adapt(data.data(), rows * cols, xt::no_ownership(), std::vector<std::size_t>{rows, cols});
 #endif
 
 #if HAS_BOOST_MULTIARRAY
     // Create Boost.MultiArray (view over existing data)
-    boost::const_multi_array_ref<int64_t, 2> boostArr(
-        data.data(), boost::extents[rows][cols]);
+    boost::const_multi_array_ref<int64_t, 2> boostArr(data.data(), boost::extents[rows][cols]);
 #endif
 
     for (std::size_t run = 0; run < cfg.warmupRuns + cfg.measuredRuns; ++run)
@@ -739,7 +804,10 @@ void benchTensorStride(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) manualTimes.push_back(elapsed / static_cast<double>(rows));
+            if (measured)
+            {
+                manualTimes.push_back(elapsed / static_cast<double>(rows));
+            }
             if (run == 0 && sum != expectedSum)
             {
                 std::cerr << "CORRECTNESS FAILURE: manual column sum\n";
@@ -749,14 +817,13 @@ void benchTensorStride(const BenchConfig& cfg)
 
         // TensorStridePolicy
         {
-            TensorStridePolicy<int64_t> policy(
-                {rows},
-                {static_cast<std::ptrdiff_t>(cols)}
-            );
-            auto it = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::begin(
-                data.data(), data.data() + rows * cols, policy);
-            auto endIt = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::end(
-                data.data(), data.data() + rows * cols, policy);
+            TensorStridePolicy<int64_t> policy({rows}, {static_cast<std::ptrdiff_t>(cols)});
+            auto it = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::begin(data.data(),
+                                                                                  data.data() + rows * cols,
+                                                                                  policy);
+            auto endIt = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::end(data.data(),
+                                                                                   data.data() + rows * cols,
+                                                                                   policy);
 
             int64_t sum = 0;
             Timer t;
@@ -767,7 +834,10 @@ void benchTensorStride(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) policyTimes.push_back(elapsed / static_cast<double>(rows));
+            if (measured)
+            {
+                policyTimes.push_back(elapsed / static_cast<double>(rows));
+            }
             if (run == 0 && sum != expectedSum)
             {
                 std::cerr << "CORRECTNESS FAILURE: TensorStridePolicy column sum\n";
@@ -778,10 +848,10 @@ void benchTensorStride(const BenchConfig& cfg)
         // Stride1DPolicy (lightweight specialization)
         {
             Stride1DPolicy<int64_t> policy(rows, static_cast<std::ptrdiff_t>(cols));
-            auto it = PolicyIterator<int64_t, Stride1DPolicy<int64_t>>::begin(
-                data.data(), data.data() + rows * cols, policy);
-            auto endIt = PolicyIterator<int64_t, Stride1DPolicy<int64_t>>::end(
-                data.data(), data.data() + rows * cols, policy);
+            auto it =
+                PolicyIterator<int64_t, Stride1DPolicy<int64_t>>::begin(data.data(), data.data() + rows * cols, policy);
+            auto endIt =
+                PolicyIterator<int64_t, Stride1DPolicy<int64_t>>::end(data.data(), data.data() + rows * cols, policy);
 
             int64_t sum = 0;
             Timer t;
@@ -792,7 +862,10 @@ void benchTensorStride(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) stride1dTimes.push_back(elapsed / static_cast<double>(rows));
+            if (measured)
+            {
+                stride1dTimes.push_back(elapsed / static_cast<double>(rows));
+            }
             if (run == 0 && sum != expectedSum)
             {
                 std::cerr << "CORRECTNESS FAILURE: Stride1DPolicy column sum\n";
@@ -809,7 +882,10 @@ void benchTensorStride(const BenchConfig& cfg)
             sum = eigenMat.col(0).sum();
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) eigenTimes.push_back(elapsed / static_cast<double>(rows));
+            if (measured)
+            {
+                eigenTimes.push_back(elapsed / static_cast<double>(rows));
+            }
             if (run == 0 && sum != expectedSum)
             {
                 std::cerr << "CORRECTNESS FAILURE: Eigen column sum\n";
@@ -831,7 +907,10 @@ void benchTensorStride(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) xtensorTimes.push_back(elapsed / static_cast<double>(rows));
+            if (measured)
+            {
+                xtensorTimes.push_back(elapsed / static_cast<double>(rows));
+            }
             if (run == 0 && sum != expectedSum)
             {
                 std::cerr << "CORRECTNESS FAILURE: xtensor strided_view column sum\n";
@@ -852,7 +931,10 @@ void benchTensorStride(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) boostTimes.push_back(elapsed / static_cast<double>(rows));
+            if (measured)
+            {
+                boostTimes.push_back(elapsed / static_cast<double>(rows));
+            }
             if (run == 0 && sum != expectedSum)
             {
                 std::cerr << "CORRECTNESS FAILURE: Boost.MultiArray column sum\n";
@@ -903,8 +985,7 @@ void benchTensorStride(const BenchConfig& cfg)
 
 #if HAS_XTENSOR
     std::cout << "\n  TensorStridePolicy vs xtensor (strided iteration):\n";
-    std::cout << "    TensorStridePolicy: " << std::fixed << std::setprecision(2)
-              << policyStats.median << " ns\n";
+    std::cout << "    TensorStridePolicy: " << std::fixed << std::setprecision(2) << policyStats.median << " ns\n";
     std::cout << "    xtensor:            " << xtensorStats.median << " ns ("
               << (policyStats.median / xtensorStats.median) << "x)\n";
 #endif
@@ -916,12 +997,13 @@ void benchTensorStride(const BenchConfig& cfg)
 
 void benchTensorContiguous(const BenchConfig& cfg)
 {
-    printSectionHeader(std::cout, "TENSOR: CONTIGUOUS VS NON-CONTIGUOUS VS SPECIALIZED"
+    printSectionHeader(std::cout,
+                       "TENSOR: CONTIGUOUS VS NON-CONTIGUOUS VS SPECIALIZED"
 #if HAS_XTENSOR
-        " + XTENSOR"
+                       " + XTENSOR"
 #endif
 #if HAS_BOOST_MULTIARRAY
-        " + BOOST"
+                       " + BOOST"
 #endif
     );
     printContract(std::cout, "Compare general TensorStridePolicy vs lightweight 1D/2D policies");
@@ -943,23 +1025,27 @@ void benchTensorContiguous(const BenchConfig& cfg)
 #endif
 
     int64_t expectedSum = 0;
-    for (auto v : data) expectedSum += v;
-    
+    for (auto v : data)
+    {
+        expectedSum += v;
+    }
+
     // Expected for column sum (stride=1000)
     int64_t expectedColSum = 0;
-    for (std::size_t r = 0; r < rows; ++r) expectedColSum += data[r * cols];
+    for (std::size_t r = 0; r < rows; ++r)
+    {
+        expectedColSum += data[r * cols];
+    }
 
 #if HAS_XTENSOR
     // Create xtensor xarray
-    xt::xarray<int64_t> xtArr = xt::adapt(
-        data.data(), rows * cols, xt::no_ownership(),
-        std::vector<std::size_t>{rows, cols});
+    xt::xarray<int64_t> xtArr =
+        xt::adapt(data.data(), rows * cols, xt::no_ownership(), std::vector<std::size_t>{rows, cols});
 #endif
 
 #if HAS_BOOST_MULTIARRAY
     // Create Boost.MultiArray
-    boost::const_multi_array_ref<int64_t, 2> boostArr(
-        data.data(), boost::extents[rows][cols]);
+    boost::const_multi_array_ref<int64_t, 2> boostArr(data.data(), boost::extents[rows][cols]);
 #endif
 
     for (std::size_t run = 0; run < cfg.warmupRuns + cfg.measuredRuns; ++run)
@@ -977,16 +1063,21 @@ void benchTensorContiguous(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) manualTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            if (measured)
+            {
+                manualTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            }
         }
 
         // TensorStridePolicy - CONTIGUOUS (full matrix, row-major)
         {
             TensorStridePolicy<int64_t> policy({rows, cols});
-            auto it = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::begin(
-                data.data(), data.data() + rows * cols, policy);
-            auto endIt = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::end(
-                data.data(), data.data() + rows * cols, policy);
+            auto it = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::begin(data.data(),
+                                                                                  data.data() + rows * cols,
+                                                                                  policy);
+            auto endIt = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::end(data.data(),
+                                                                                   data.data() + rows * cols,
+                                                                                   policy);
 
             int64_t sum = 0;
             Timer t;
@@ -997,16 +1088,21 @@ void benchTensorContiguous(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) tensorContiguousTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            if (measured)
+            {
+                tensorContiguousTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            }
         }
 
         // TensorStridePolicy - NON-CONTIGUOUS (column sum with stride)
         {
             TensorStridePolicy<int64_t> policy({rows}, {static_cast<std::ptrdiff_t>(cols)});
-            auto it = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::begin(
-                data.data(), data.data() + rows * cols, policy);
-            auto endIt = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::end(
-                data.data(), data.data() + rows * cols, policy);
+            auto it = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::begin(data.data(),
+                                                                                  data.data() + rows * cols,
+                                                                                  policy);
+            auto endIt = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::end(data.data(),
+                                                                                   data.data() + rows * cols,
+                                                                                   policy);
 
             int64_t sum = 0;
             Timer t;
@@ -1018,16 +1114,19 @@ void benchTensorContiguous(const BenchConfig& cfg)
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
             // Note: This visits only `rows` elements, normalize per element visited
-            if (measured) tensorStridedTimes.push_back(elapsed / static_cast<double>(rows));
+            if (measured)
+            {
+                tensorStridedTimes.push_back(elapsed / static_cast<double>(rows));
+            }
         }
 
         // Stride1DPolicy - Column sum (lightweight)
         {
             Stride1DPolicy<int64_t> policy(rows, static_cast<std::ptrdiff_t>(cols));
-            auto it = PolicyIterator<int64_t, Stride1DPolicy<int64_t>>::begin(
-                data.data(), data.data() + rows * cols, policy);
-            auto endIt = PolicyIterator<int64_t, Stride1DPolicy<int64_t>>::end(
-                data.data(), data.data() + rows * cols, policy);
+            auto it =
+                PolicyIterator<int64_t, Stride1DPolicy<int64_t>>::begin(data.data(), data.data() + rows * cols, policy);
+            auto endIt =
+                PolicyIterator<int64_t, Stride1DPolicy<int64_t>>::end(data.data(), data.data() + rows * cols, policy);
 
             int64_t sum = 0;
             Timer t;
@@ -1038,7 +1137,10 @@ void benchTensorContiguous(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) stride1dTimes.push_back(elapsed / static_cast<double>(rows));
+            if (measured)
+            {
+                stride1dTimes.push_back(elapsed / static_cast<double>(rows));
+            }
             if (run == 0 && sum != expectedColSum)
             {
                 std::cerr << "CORRECTNESS FAILURE: Stride1DPolicy column sum\n";
@@ -1048,11 +1150,11 @@ void benchTensorContiguous(const BenchConfig& cfg)
 
         // Stride2DPolicy - Full matrix (lightweight)
         {
-            Stride2DPolicy<int64_t> policy(rows, cols);  // Row-major contiguous
-            auto it = PolicyIterator<int64_t, Stride2DPolicy<int64_t>>::begin(
-                data.data(), data.data() + rows * cols, policy);
-            auto endIt = PolicyIterator<int64_t, Stride2DPolicy<int64_t>>::end(
-                data.data(), data.data() + rows * cols, policy);
+            Stride2DPolicy<int64_t> policy(rows, cols); // Row-major contiguous
+            auto it =
+                PolicyIterator<int64_t, Stride2DPolicy<int64_t>>::begin(data.data(), data.data() + rows * cols, policy);
+            auto endIt =
+                PolicyIterator<int64_t, Stride2DPolicy<int64_t>>::end(data.data(), data.data() + rows * cols, policy);
 
             int64_t sum = 0;
             Timer t;
@@ -1063,7 +1165,10 @@ void benchTensorContiguous(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) stride2dTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            if (measured)
+            {
+                stride2dTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            }
             if (run == 0 && sum != expectedSum)
             {
                 std::cerr << "CORRECTNESS FAILURE: Stride2DPolicy full sum\n";
@@ -1083,7 +1188,10 @@ void benchTensorContiguous(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) xtensorContiguousTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            if (measured)
+            {
+                xtensorContiguousTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            }
         }
 
         // xtensor - strided_view column 0
@@ -1098,7 +1206,10 @@ void benchTensorContiguous(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) xtensorStridedTimes.push_back(elapsed / static_cast<double>(rows));
+            if (measured)
+            {
+                xtensorStridedTimes.push_back(elapsed / static_cast<double>(rows));
+            }
         }
 #endif
 
@@ -1116,7 +1227,10 @@ void benchTensorContiguous(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) boostContiguousTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            if (measured)
+            {
+                boostContiguousTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            }
         }
 #endif
     }
@@ -1164,12 +1278,11 @@ void benchTensorContiguous(const BenchConfig& cfg)
     std::cout << "    Boost:              " << std::fixed << std::setprecision(2)
               << (boostContiguousStats.median / manualStats.median) << "x\n";
 #endif
-              
+
     std::cout << "\n  Stride1D vs TensorStride (column iteration):\n";
-    std::cout << "    TensorStridePolicy: " << std::fixed << std::setprecision(2)
-              << tensorStridedStats.median << " ns/row\n";
-    std::cout << "    Stride1DPolicy:     " << std::fixed << std::setprecision(2)
-              << stride1dStats.median << " ns/row ("
+    std::cout << "    TensorStridePolicy: " << std::fixed << std::setprecision(2) << tensorStridedStats.median
+              << " ns/row\n";
+    std::cout << "    Stride1DPolicy:     " << std::fixed << std::setprecision(2) << stride1dStats.median << " ns/row ("
               << (stride1dStats.median / tensorStridedStats.median) << "x)\n";
 
 #if HAS_XTENSOR
@@ -1200,10 +1313,15 @@ void benchMatrixIteration(const BenchConfig& cfg)
     std::vector<double> manualTimes, policyTimes, stride2dTimes, eigenTimes, eigenCoeffTimes;
 
     int64_t expectedSum = 0;
-    for (auto v : data) expectedSum += v;
+    for (auto v : data)
+    {
+        expectedSum += v;
+    }
 
-    Eigen::Map<Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>
-        eigenMat(data.data(), static_cast<Eigen::Index>(rows), static_cast<Eigen::Index>(cols));
+    Eigen::Map<Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> eigenMat(
+        data.data(),
+        static_cast<Eigen::Index>(rows),
+        static_cast<Eigen::Index>(cols));
 
     for (std::size_t run = 0; run < cfg.warmupRuns + cfg.measuredRuns; ++run)
     {
@@ -1220,16 +1338,21 @@ void benchMatrixIteration(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) manualTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            if (measured)
+            {
+                manualTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            }
         }
 
         // TensorStridePolicy 2D
         {
-            TensorStridePolicy<int64_t> policy({rows, cols});  // Row-major default
-            auto it = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::begin(
-                data.data(), data.data() + rows * cols, policy);
-            auto endIt = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::end(
-                data.data(), data.data() + rows * cols, policy);
+            TensorStridePolicy<int64_t> policy({rows, cols}); // Row-major default
+            auto it = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::begin(data.data(),
+                                                                                  data.data() + rows * cols,
+                                                                                  policy);
+            auto endIt = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>::end(data.data(),
+                                                                                   data.data() + rows * cols,
+                                                                                   policy);
 
             int64_t sum = 0;
             Timer t;
@@ -1240,16 +1363,19 @@ void benchMatrixIteration(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) policyTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            if (measured)
+            {
+                policyTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            }
         }
 
         // Stride2DPolicy (specialized lightweight)
         {
             Stride2DPolicy<int64_t> policy(rows, cols);
-            auto it = PolicyIterator<int64_t, Stride2DPolicy<int64_t>>::begin(
-                data.data(), data.data() + rows * cols, policy);
-            auto endIt = PolicyIterator<int64_t, Stride2DPolicy<int64_t>>::end(
-                data.data(), data.data() + rows * cols, policy);
+            auto it =
+                PolicyIterator<int64_t, Stride2DPolicy<int64_t>>::begin(data.data(), data.data() + rows * cols, policy);
+            auto endIt =
+                PolicyIterator<int64_t, Stride2DPolicy<int64_t>>::end(data.data(), data.data() + rows * cols, policy);
 
             int64_t sum = 0;
             Timer t;
@@ -1260,7 +1386,10 @@ void benchMatrixIteration(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) stride2dTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            if (measured)
+            {
+                stride2dTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            }
         }
 
         // Eigen .sum()
@@ -1271,7 +1400,10 @@ void benchMatrixIteration(const BenchConfig& cfg)
             sum = eigenMat.sum();
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) eigenTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            if (measured)
+            {
+                eigenTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            }
         }
 
         // Eigen coefficient-wise iteration
@@ -1288,7 +1420,10 @@ void benchMatrixIteration(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) eigenCoeffTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            if (measured)
+            {
+                eigenCoeffTimes.push_back(elapsed / static_cast<double>(rows * cols));
+            }
         }
     }
 
@@ -1329,22 +1464,27 @@ void benchTensorIteration(const BenchConfig& cfg)
     constexpr std::size_t d1 = 50, d2 = 100, d3 = 200;
     constexpr std::size_t total3D = d1 * d2 * d3;
     auto data3D = generateData(total3D, cfg.seed);
-    
+
     // 4D benchmark: 8 x 16 x 50 x 100 = 640,000 elements
     constexpr std::size_t e1 = 8, e2 = 16, e3 = 50, e4 = 100;
     constexpr std::size_t total4D = e1 * e2 * e3 * e4;
     auto data4D = generateData(total4D, cfg.seed + 1);
 
-    std::cout << "  3D Tensor: " << d1 << " x " << d2 << " x " << d3 
-              << " (" << total3D << " elements)\n";
-    std::cout << "  4D Tensor: " << e1 << " x " << e2 << " x " << e3 << " x " << e4 
-              << " (" << total4D << " elements)\n\n";
+    std::cout << "  3D Tensor: " << d1 << " x " << d2 << " x " << d3 << " (" << total3D << " elements)\n";
+    std::cout << "  4D Tensor: " << e1 << " x " << e2 << " x " << e3 << " x " << e4 << " (" << total4D
+              << " elements)\n\n";
 
     // Pre-compute expected sums for correctness checks
     int64_t expected3D = 0;
-    for (auto v : data3D) expected3D += v;
+    for (auto v : data3D)
+    {
+        expected3D += v;
+    }
     int64_t expected4D = 0;
-    for (auto v : data4D) expected4D += v;
+    for (auto v : data4D)
+    {
+        expected4D += v;
+    }
 
     std::vector<double> manual3DTimes, tensor3DTimes, iterateND3DTimes;
     std::vector<double> manual4DTimes, tensor4DTimes, iterateND4DTimes;
@@ -1355,23 +1495,30 @@ void benchTensorIteration(const BenchConfig& cfg)
         bool measured = (run >= cfg.warmupRuns);
 
         // ===== 3D BENCHMARKS =====
-        
+
         // Manual nested loop (3D)
         {
             int64_t sum = 0;
             Timer t;
             t.start();
-            for (std::size_t i = 0; i < d1; ++i) {
-                for (std::size_t j = 0; j < d2; ++j) {
-                    for (std::size_t k = 0; k < d3; ++k) {
+            for (std::size_t i = 0; i < d1; ++i)
+            {
+                for (std::size_t j = 0; j < d2; ++j)
+                {
+                    for (std::size_t k = 0; k < d3; ++k)
+                    {
                         sum += data3D[i * d2 * d3 + j * d3 + k];
                     }
                 }
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) manual3DTimes.push_back(elapsed / static_cast<double>(total3D));
-            if (run == 0 && sum != expected3D) {
+            if (measured)
+            {
+                manual3DTimes.push_back(elapsed / static_cast<double>(total3D));
+            }
+            if (run == 0 && sum != expected3D)
+            {
                 std::cerr << "CORRECTNESS FAILURE: Manual 3D sum\n";
                 return;
             }
@@ -1382,19 +1529,24 @@ void benchTensorIteration(const BenchConfig& cfg)
             int64_t sum = 0;
             Timer t;
             t.start();
-            TensorStridePolicy<int64_t> policy({d1, d2, d3}, 
-                {static_cast<std::ptrdiff_t>(d2 * d3), 
-                 static_cast<std::ptrdiff_t>(d3), 1});
+            TensorStridePolicy<int64_t> policy(
+                {d1, d2, d3},
+                {static_cast<std::ptrdiff_t>(d2 * d3), static_cast<std::ptrdiff_t>(d3), 1});
             using Iter = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>;
             auto it = Iter::begin(data3D.data(), data3D.data() + data3D.size(), policy);
             auto end = Iter::end(data3D.data(), data3D.data() + data3D.size(), policy);
-            for (; it != end; ++it) {
+            for (; it != end; ++it)
+            {
                 sum += *it;
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) tensor3DTimes.push_back(elapsed / static_cast<double>(total3D));
-            if (run == 0 && sum != expected3D) {
+            if (measured)
+            {
+                tensor3DTimes.push_back(elapsed / static_cast<double>(total3D));
+            }
+            if (run == 0 && sum != expected3D)
+            {
                 std::cerr << "CORRECTNESS FAILURE: TensorStridePolicy 3D sum\n";
                 return;
             }
@@ -1405,27 +1557,40 @@ void benchTensorIteration(const BenchConfig& cfg)
             int64_t sum = 0;
             Timer t;
             t.start();
-            iterateND(data3D.data(), {d1, d2, d3}, [&](int64_t v) { sum += v; });
+            iterateND(data3D.data(),
+                      {d1, d2, d3},
+                      [&](int64_t v)
+                      {
+                          sum += v;
+                      });
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) iterateND3DTimes.push_back(elapsed / static_cast<double>(total3D));
-            if (run == 0 && sum != expected3D) {
+            if (measured)
+            {
+                iterateND3DTimes.push_back(elapsed / static_cast<double>(total3D));
+            }
+            if (run == 0 && sum != expected3D)
+            {
                 std::cerr << "CORRECTNESS FAILURE: iterateND 3D sum\n";
                 return;
             }
         }
 
         // ===== 4D BENCHMARKS =====
-        
+
         // Manual nested loop (4D)
         {
             int64_t sum = 0;
             Timer t;
             t.start();
-            for (std::size_t i = 0; i < e1; ++i) {
-                for (std::size_t j = 0; j < e2; ++j) {
-                    for (std::size_t k = 0; k < e3; ++k) {
-                        for (std::size_t l = 0; l < e4; ++l) {
+            for (std::size_t i = 0; i < e1; ++i)
+            {
+                for (std::size_t j = 0; j < e2; ++j)
+                {
+                    for (std::size_t k = 0; k < e3; ++k)
+                    {
+                        for (std::size_t l = 0; l < e4; ++l)
+                        {
                             sum += data4D[i * e2 * e3 * e4 + j * e3 * e4 + k * e4 + l];
                         }
                     }
@@ -1433,8 +1598,12 @@ void benchTensorIteration(const BenchConfig& cfg)
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) manual4DTimes.push_back(elapsed / static_cast<double>(total4D));
-            if (run == 0 && sum != expected4D) {
+            if (measured)
+            {
+                manual4DTimes.push_back(elapsed / static_cast<double>(total4D));
+            }
+            if (run == 0 && sum != expected4D)
+            {
                 std::cerr << "CORRECTNESS FAILURE: Manual 4D sum\n";
                 return;
             }
@@ -1445,20 +1614,26 @@ void benchTensorIteration(const BenchConfig& cfg)
             int64_t sum = 0;
             Timer t;
             t.start();
-            TensorStridePolicy<int64_t> policy({e1, e2, e3, e4}, 
-                {static_cast<std::ptrdiff_t>(e2 * e3 * e4),
-                 static_cast<std::ptrdiff_t>(e3 * e4),
-                 static_cast<std::ptrdiff_t>(e4), 1});
+            TensorStridePolicy<int64_t> policy({e1, e2, e3, e4},
+                                               {static_cast<std::ptrdiff_t>(e2 * e3 * e4),
+                                                static_cast<std::ptrdiff_t>(e3 * e4),
+                                                static_cast<std::ptrdiff_t>(e4),
+                                                1});
             using Iter = PolicyIterator<int64_t, TensorStridePolicy<int64_t>>;
             auto it = Iter::begin(data4D.data(), data4D.data() + data4D.size(), policy);
             auto end = Iter::end(data4D.data(), data4D.data() + data4D.size(), policy);
-            for (; it != end; ++it) {
+            for (; it != end; ++it)
+            {
                 sum += *it;
             }
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) tensor4DTimes.push_back(elapsed / static_cast<double>(total4D));
-            if (run == 0 && sum != expected4D) {
+            if (measured)
+            {
+                tensor4DTimes.push_back(elapsed / static_cast<double>(total4D));
+            }
+            if (run == 0 && sum != expected4D)
+            {
                 std::cerr << "CORRECTNESS FAILURE: TensorStridePolicy 4D sum\n";
                 return;
             }
@@ -1469,11 +1644,20 @@ void benchTensorIteration(const BenchConfig& cfg)
             int64_t sum = 0;
             Timer t;
             t.start();
-            iterateND(data4D.data(), {e1, e2, e3, e4}, [&](int64_t v) { sum += v; });
+            iterateND(data4D.data(),
+                      {e1, e2, e3, e4},
+                      [&](int64_t v)
+                      {
+                          sum += v;
+                      });
             double elapsed = t.elapsedNs();
             DoNotOptimize(sum);
-            if (measured) iterateND4DTimes.push_back(elapsed / static_cast<double>(total4D));
-            if (run == 0 && sum != expected4D) {
+            if (measured)
+            {
+                iterateND4DTimes.push_back(elapsed / static_cast<double>(total4D));
+            }
+            if (run == 0 && sum != expected4D)
+            {
                 std::cerr << "CORRECTNESS FAILURE: iterateND 4D sum\n";
                 return;
             }
@@ -1484,7 +1668,7 @@ void benchTensorIteration(const BenchConfig& cfg)
     auto manual3DStats = Statistics::compute(std::move(manual3DTimes));
     auto tensor3DStats = Statistics::compute(std::move(tensor3DTimes));
     auto iterateND3DStats = Statistics::compute(std::move(iterateND3DTimes));
-    
+
     auto manual4DStats = Statistics::compute(std::move(manual4DTimes));
     auto tensor4DStats = Statistics::compute(std::move(tensor4DTimes));
     auto iterateND4DStats = Statistics::compute(std::move(iterateND4DTimes));
@@ -1528,13 +1712,15 @@ void benchSizeScaling(const BenchConfig& cfg)
     printContract(std::cout, "Standard iteration sum at different data sizes");
     print_cpu_context(std::cout, "Start");
 
-    struct SizeCase { const char* name; std::size_t n; };
-    SizeCase sizes[] = {
-        {"L1 (4K)",      4 * 1024 / sizeof(int64_t)},
-        {"L2 (32K)",    32 * 1024 / sizeof(int64_t)},
-        {"L3 (512K)",  512 * 1024 / sizeof(int64_t)},
-        {"RAM (8M)",     8 * 1024 * 1024 / sizeof(int64_t)}
+    struct SizeCase
+    {
+        const char* name;
+        std::size_t n;
     };
+    SizeCase sizes[] = {{"L1 (4K)", 4 * 1024 / sizeof(int64_t)},
+                        {"L2 (32K)", 32 * 1024 / sizeof(int64_t)},
+                        {"L3 (512K)", 512 * 1024 / sizeof(int64_t)},
+                        {"RAM (8M)", 8 * 1024 * 1024 / sizeof(int64_t)}};
 
     for (const auto& sz : sizes)
     {
@@ -1559,7 +1745,10 @@ void benchSizeScaling(const BenchConfig& cfg)
                 }
                 double elapsed = t.elapsedNs();
                 DoNotOptimize(sum);
-                if (measured) rawTimes.push_back(elapsed / static_cast<double>(sz.n));
+                if (measured)
+                {
+                    rawTimes.push_back(elapsed / static_cast<double>(sz.n));
+                }
             }
 
             // PolicyIterator
@@ -1575,7 +1764,10 @@ void benchSizeScaling(const BenchConfig& cfg)
                 }
                 double elapsed = t.elapsedNs();
                 DoNotOptimize(sum);
-                if (measured) policyTimes.push_back(elapsed / static_cast<double>(sz.n));
+                if (measured)
+                {
+                    policyTimes.push_back(elapsed / static_cast<double>(sz.n));
+                }
             }
         }
 
@@ -1635,8 +1827,7 @@ int main()
     std::cout << "\nConfiguration:\n";
     cfg.print(std::cout);
 
-    std::cout << "\nPlatform: " << getPlatformString()
-              << ", Compiler: " << getCompilerString() << "\n";
+    std::cout << "\nPlatform: " << getPlatformString() << ", Compiler: " << getCompilerString() << "\n";
     std::cout << "Timestamp: " << getTimestampIso() << "\n";
 
     std::cout << "\nInitial CPU state:\n";
@@ -1644,30 +1835,54 @@ int main()
 
     // Run benchmarks
     benchStandardVsRawPointer(cfg);
-    if (!cfg.noCooldown) cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    if (!cfg.noCooldown)
+    {
+        cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    }
 
     benchStrideVsManual(cfg);
-    if (!cfg.noCooldown) cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    if (!cfg.noCooldown)
+    {
+        cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    }
 
     benchFilterVsManual(cfg);
-    if (!cfg.noCooldown) cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    if (!cfg.noCooldown)
+    {
+        cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    }
 
     benchTransformVsManual(cfg);
-    if (!cfg.noCooldown) cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    if (!cfg.noCooldown)
+    {
+        cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    }
 
     benchTensorStride(cfg);
-    if (!cfg.noCooldown) cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    if (!cfg.noCooldown)
+    {
+        cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    }
 
     benchTensorContiguous(cfg);
-    if (!cfg.noCooldown) cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    if (!cfg.noCooldown)
+    {
+        cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    }
 
 #if HAS_EIGEN
     benchMatrixIteration(cfg);
-    if (!cfg.noCooldown) cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    if (!cfg.noCooldown)
+    {
+        cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    }
 #endif
 
     benchTensorIteration(cfg);
-    if (!cfg.noCooldown) cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    if (!cfg.noCooldown)
+    {
+        cooldownDelay(cfg.cooldownSectionMs, "section transition");
+    }
 
     benchSizeScaling(cfg);
 

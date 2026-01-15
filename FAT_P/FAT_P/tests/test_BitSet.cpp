@@ -418,12 +418,9 @@ FATP_TEST_CASE(iterator_traits)
 {
     using Iterator = fat_p::BitSet<64>::Iterator;
 
-    static_assert(std::is_same_v<Iterator::iterator_category, std::forward_iterator_tag>,
-                  "Should be forward iterator");
-    static_assert(std::is_same_v<Iterator::value_type, size_t>,
-                  "Value type should be size_t");
-    static_assert(std::is_same_v<Iterator::difference_type, std::ptrdiff_t>,
-                  "Difference type should be ptrdiff_t");
+    static_assert(std::is_same_v<Iterator::iterator_category, std::forward_iterator_tag>, "Should be forward iterator");
+    static_assert(std::is_same_v<Iterator::value_type, size_t>, "Value type should be size_t");
+    static_assert(std::is_same_v<Iterator::difference_type, std::ptrdiff_t>, "Difference type should be ptrdiff_t");
 
     return true;
 }
@@ -775,43 +772,55 @@ void benchmark_bitset()
     fat_p::BitSet<1024> bits;
     volatile uint64_t* ptr = bits.data();
 
-    double set_time = measure_perf([&bits, ptr]()
-    {
-        for (size_t i = 0; i < 1024; ++i)
+    double set_time = measure_perf(
+        [&bits, ptr]()
         {
-            bits.set_unchecked(i);
-        }
-        DoNotOptimize(*ptr);
-    }, 10000, 100);
+            for (size_t i = 0; i < 1024; ++i)
+            {
+                bits.set_unchecked(i);
+            }
+            DoNotOptimize(*ptr);
+        },
+        10000,
+        100);
     std::cout << "Set 1024 bits (unchecked): " << format_time(set_time) << "\n";
 
-    double test_time = measure_perf([&bits]()
-    {
-        bool result = false;
-        for (size_t i = 0; i < 1024; ++i)
+    double test_time = measure_perf(
+        [&bits]()
         {
-            result ^= bits.test_unchecked(i);
-        }
-        DoNotOptimize(result);
-    }, 10000, 100);
+            bool result = false;
+            for (size_t i = 0; i < 1024; ++i)
+            {
+                result ^= bits.test_unchecked(i);
+            }
+            DoNotOptimize(result);
+        },
+        10000,
+        100);
     std::cout << "Test 1024 bits (unchecked): " << format_time(test_time) << "\n";
 
     bits.set_all();
-    double count_time = measure_perf([&bits]()
-    {
-        size_t c = bits.count();
-        DoNotOptimize(c);
-    }, 100000, 1000);
+    double count_time = measure_perf(
+        [&bits]()
+        {
+            size_t c = bits.count();
+            DoNotOptimize(c);
+        },
+        100000,
+        1000);
     std::cout << "Count bits (popcnt): " << format_time(count_time) << "\n";
 
     fat_p::BitSet<1024> other;
     other.set_all();
     fat_p::BitSet<1024> result;
-    double and_time = measure_perf([&bits, &other, &result]()
-    {
-        result = bits & other;
-        DoNotOptimize(*result.data());
-    }, 100000, 1000);
+    double and_time = measure_perf(
+        [&bits, &other, &result]()
+        {
+            result = bits & other;
+            DoNotOptimize(*result.data());
+        },
+        100000,
+        1000);
     std::cout << "Bitwise AND (1024 bits): " << format_time(and_time) << "\n";
 
     bits.clear_all();
@@ -819,26 +828,32 @@ void benchmark_bitset()
     {
         bits.set(i);
     }
-    double iterate_time = measure_perf([&bits]()
-    {
-        size_t sum = 0;
-        for (size_t idx : bits)
+    double iterate_time = measure_perf(
+        [&bits]()
         {
-            sum += idx;
-        }
-        DoNotOptimize(sum);
-    }, 10000, 100);
+            size_t sum = 0;
+            for (size_t idx : bits)
+            {
+                sum += idx;
+            }
+            DoNotOptimize(sum);
+        },
+        10000,
+        100);
     std::cout << "Iterate ~100 set bits: " << format_time(iterate_time) << "\n";
 
-    double find_time = measure_perf([&bits]()
-    {
-        size_t pos = bits.find_first();
-        while (pos != 1024)
+    double find_time = measure_perf(
+        [&bits]()
         {
-            DoNotOptimize(pos);
-            pos = bits.find_next(pos);
-        }
-    }, 10000, 100);
+            size_t pos = bits.find_first();
+            while (pos != 1024)
+            {
+                DoNotOptimize(pos);
+                pos = bits.find_next(pos);
+            }
+        },
+        10000,
+        100);
     std::cout << "Find traversal ~100 bits: " << format_time(find_time) << "\n";
 }
 

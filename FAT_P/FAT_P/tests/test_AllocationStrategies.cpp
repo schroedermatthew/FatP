@@ -65,19 +65,22 @@ public:
     static inline std::atomic<int> sCopyCount{0};
     static inline std::atomic<int> sMoveCount{0};
 
-    int64_t mValue;  // Ensures type is at least pointer-sized
+    int64_t mValue; // Ensures type is at least pointer-sized
 
-    explicit LifecycleTracker(int v = 0) : mValue(v)
+    explicit LifecycleTracker(int v = 0)
+        : mValue(v)
     {
         sConstructCount.fetch_add(1, std::memory_order_relaxed);
     }
 
-    LifecycleTracker(const LifecycleTracker& other) : mValue(other.mValue)
+    LifecycleTracker(const LifecycleTracker& other)
+        : mValue(other.mValue)
     {
         sCopyCount.fetch_add(1, std::memory_order_relaxed);
     }
 
-    LifecycleTracker(LifecycleTracker&& other) noexcept : mValue(other.mValue)
+    LifecycleTracker(LifecycleTracker&& other) noexcept
+        : mValue(other.mValue)
     {
         sMoveCount.fetch_add(1, std::memory_order_relaxed);
     }
@@ -124,8 +127,16 @@ struct TrivialNode
     int mKey;
     int mValue;
 
-    TrivialNode() : mKey(0), mValue(0) {}
-    TrivialNode(int k, int v) : mKey(k), mValue(v) {}
+    TrivialNode()
+        : mKey(0)
+        , mValue(0)
+    {
+    }
+    TrivialNode(int k, int v)
+        : mKey(k)
+        , mValue(v)
+    {
+    }
 };
 static_assert(std::is_trivially_copyable_v<TrivialNode>);
 
@@ -136,8 +147,14 @@ struct alignas(64) CacheAligned
 {
     char mData[64];
 
-    CacheAligned() { mData[0] = 0; }
-    explicit CacheAligned(char c) { mData[0] = c; }
+    CacheAligned()
+    {
+        mData[0] = 0;
+    }
+    explicit CacheAligned(char c)
+    {
+        mData[0] = c;
+    }
 };
 
 // ============================================================================
@@ -254,7 +271,7 @@ FATP_TEST_CASE(block_multiple_allocations)
     LifecycleTracker::reset();
     std::vector<LifecycleTracker*> ptrs;
 
-    constexpr int kCount = 500;  // More than one block (256 per block)
+    constexpr int kCount = 500; // More than one block (256 per block)
 
     for (int i = 0; i < kCount; ++i)
     {
@@ -513,8 +530,14 @@ FATP_TEST_CASE(edge_single_element_type)
     struct SmallType
     {
         void* mData;
-        SmallType() : mData(nullptr) {}
-        explicit SmallType(void* p) : mData(p) {}
+        SmallType()
+            : mData(nullptr)
+        {
+        }
+        explicit SmallType(void* p)
+            : mData(p)
+        {
+        }
     };
     static_assert(sizeof(SmallType) >= sizeof(void*));
 
@@ -563,7 +586,7 @@ FATP_TEST_CASE(stress_block_random_operations)
     LifecycleTracker::reset();
     std::vector<LifecycleTracker*> live;
 
-    std::mt19937 rng(42);  // Fixed seed for reproducibility
+    std::mt19937 rng(42); // Fixed seed for reproducibility
     constexpr int kIterations = 10000;
 
     for (int i = 0; i < kIterations; ++i)
@@ -677,8 +700,8 @@ FATP_TEST_CASE(stress_newdelete_interleaved)
     }
 
     FATP_ASSERT_EQ(LifecycleTracker::sConstructCount.load(),
-              LifecycleTracker::sDestructCount.load(),
-              "All allocations should be freed");
+                   LifecycleTracker::sDestructCount.load(),
+                   "All allocations should be freed");
 
     return true;
 }
@@ -690,8 +713,7 @@ FATP_TEST_CASE(stress_newdelete_interleaved)
 void run_benchmarks()
 {
     auto& out = *get_test_config().output;
-    out << "\n" << colors::cyan() << "Allocation Strategies Benchmarks:"
-        << colors::reset() << "\n\n";
+    out << "\n" << colors::cyan() << "Allocation Strategies Benchmarks:" << colors::reset() << "\n\n";
 
     constexpr size_t kIterations = 100000;
     constexpr size_t kWarmup = 1000;
@@ -701,118 +723,148 @@ void run_benchmarks()
         out << colors::yellow() << "Single Allocation/Deallocation:" << colors::reset() << "\n";
 
         // NewDeleteAllocator
-        double ndTime = measure_perf([]() {
-            NewDeleteAllocator<int> alloc;
-            int* ptr = alloc.allocate(42);
-            DoNotOptimize(ptr);
-            alloc.deallocate(ptr);
-        }, kIterations, kWarmup);
+        double ndTime = measure_perf(
+            []()
+            {
+                NewDeleteAllocator<int> alloc;
+                int* ptr = alloc.allocate(42);
+                DoNotOptimize(ptr);
+                alloc.deallocate(ptr);
+            },
+            kIterations,
+            kWarmup);
         out << "  NewDeleteAllocator: " << format_time(ndTime) << "\n";
 
         // std::allocator for comparison
-        double stdTime = measure_perf([]() {
-            std::allocator<int> alloc;
-            int* ptr = alloc.allocate(1);
-            DoNotOptimize(ptr);
-            *ptr = 42;
-            alloc.deallocate(ptr, 1);
-        }, kIterations, kWarmup);
+        double stdTime = measure_perf(
+            []()
+            {
+                std::allocator<int> alloc;
+                int* ptr = alloc.allocate(1);
+                DoNotOptimize(ptr);
+                *ptr = 42;
+                alloc.deallocate(ptr, 1);
+            },
+            kIterations,
+            kWarmup);
         out << "  std::allocator:     " << format_time(stdTime) << "\n";
 
         // BlockAllocator with reuse (use int64_t - must be at least pointer-sized)
         BlockAllocator<int64_t> blockAlloc;
-        double blockTime = measure_perf([&blockAlloc]() {
-            int64_t* ptr = blockAlloc.allocate(42);
-            DoNotOptimize(ptr);
-            blockAlloc.deallocate(ptr);  // Goes to free list
-        }, kIterations, kWarmup);
+        double blockTime = measure_perf(
+            [&blockAlloc]()
+            {
+                int64_t* ptr = blockAlloc.allocate(42);
+                DoNotOptimize(ptr);
+                blockAlloc.deallocate(ptr); // Goes to free list
+            },
+            kIterations,
+            kWarmup);
         out << "  BlockAllocator:     " << format_time(blockTime) << "\n";
 
         // PoolAllocator
         PoolAllocator<1000>::Allocator<TrivialNode> poolAlloc;
-        double poolTime = measure_perf([&poolAlloc]() {
-            TrivialNode* ptr = poolAlloc.allocate(1, 2);
-            DoNotOptimize(ptr);
-            poolAlloc.deallocate(ptr);
-        }, kIterations, kWarmup);
+        double poolTime = measure_perf(
+            [&poolAlloc]()
+            {
+                TrivialNode* ptr = poolAlloc.allocate(1, 2);
+                DoNotOptimize(ptr);
+                poolAlloc.deallocate(ptr);
+            },
+            kIterations,
+            kWarmup);
         out << "  PoolAllocator:      " << format_time(poolTime) << "\n";
     }
 
     // Benchmark 2: Burst allocation pattern
     {
-        out << "\n" << colors::yellow() << "Burst Allocation (100 objects):"
-            << colors::reset() << "\n";
+        out << "\n" << colors::yellow() << "Burst Allocation (100 objects):" << colors::reset() << "\n";
 
         constexpr size_t kBurstIterations = kIterations / 100;
         constexpr size_t kBurstWarmup = kWarmup / 10;
 
         // NewDeleteAllocator
-        double ndBurst = measure_perf([]() {
-            NewDeleteAllocator<int> alloc;
-            std::array<int*, 100> ptrs;
-            for (size_t i = 0; i < 100; ++i)
+        double ndBurst = measure_perf(
+            []()
             {
-                ptrs[i] = alloc.allocate(static_cast<int>(i));
-            }
-            for (auto ptr : ptrs)
-            {
-                alloc.deallocate(ptr);
-            }
-        }, kBurstIterations, kBurstWarmup);
+                NewDeleteAllocator<int> alloc;
+                std::array<int*, 100> ptrs;
+                for (size_t i = 0; i < 100; ++i)
+                {
+                    ptrs[i] = alloc.allocate(static_cast<int>(i));
+                }
+                for (auto ptr : ptrs)
+                {
+                    alloc.deallocate(ptr);
+                }
+            },
+            kBurstIterations,
+            kBurstWarmup);
         out << "  NewDeleteAllocator: " << format_time(ndBurst) << "\n";
 
         // std::allocator for comparison
-        double stdBurst = measure_perf([]() {
-            std::allocator<int> alloc;
-            std::array<int*, 100> ptrs;
-            for (size_t i = 0; i < 100; ++i)
+        double stdBurst = measure_perf(
+            []()
             {
-                ptrs[i] = alloc.allocate(1);
-                *ptrs[i] = static_cast<int>(i);
-            }
-            for (auto ptr : ptrs)
-            {
-                alloc.deallocate(ptr, 1);
-            }
-        }, kBurstIterations, kBurstWarmup);
+                std::allocator<int> alloc;
+                std::array<int*, 100> ptrs;
+                for (size_t i = 0; i < 100; ++i)
+                {
+                    ptrs[i] = alloc.allocate(1);
+                    *ptrs[i] = static_cast<int>(i);
+                }
+                for (auto ptr : ptrs)
+                {
+                    alloc.deallocate(ptr, 1);
+                }
+            },
+            kBurstIterations,
+            kBurstWarmup);
         out << "  std::allocator:     " << format_time(stdBurst) << "\n";
 
         // BlockAllocator
-        double blockBurst = measure_perf([]() {
-            BlockAllocator<int64_t> alloc;
-            std::array<int64_t*, 100> ptrs;
-            for (size_t i = 0; i < 100; ++i)
+        double blockBurst = measure_perf(
+            []()
             {
-                ptrs[i] = alloc.allocate(static_cast<int64_t>(i));
-            }
-            for (auto ptr : ptrs)
-            {
-                alloc.deallocate(ptr);
-            }
-        }, kBurstIterations, kBurstWarmup);
+                BlockAllocator<int64_t> alloc;
+                std::array<int64_t*, 100> ptrs;
+                for (size_t i = 0; i < 100; ++i)
+                {
+                    ptrs[i] = alloc.allocate(static_cast<int64_t>(i));
+                }
+                for (auto ptr : ptrs)
+                {
+                    alloc.deallocate(ptr);
+                }
+            },
+            kBurstIterations,
+            kBurstWarmup);
         out << "  BlockAllocator:     " << format_time(blockBurst) << "\n";
 
         // PoolAllocator
-        double poolBurst = measure_perf([]() {
-            PoolAllocator<100>::Allocator<TrivialNode> alloc;
-            std::array<TrivialNode*, 100> ptrs;
-            for (size_t i = 0; i < 100; ++i)
+        double poolBurst = measure_perf(
+            []()
             {
-                int val = static_cast<int>(i);
-                ptrs[i] = alloc.allocate(val, val);
-            }
-            for (auto ptr : ptrs)
-            {
-                alloc.deallocate(ptr);
-            }
-        }, kBurstIterations, kBurstWarmup);
+                PoolAllocator<100>::Allocator<TrivialNode> alloc;
+                std::array<TrivialNode*, 100> ptrs;
+                for (size_t i = 0; i < 100; ++i)
+                {
+                    int val = static_cast<int>(i);
+                    ptrs[i] = alloc.allocate(val, val);
+                }
+                for (auto ptr : ptrs)
+                {
+                    alloc.deallocate(ptr);
+                }
+            },
+            kBurstIterations,
+            kBurstWarmup);
         out << "  PoolAllocator:      " << format_time(poolBurst) << "\n";
     }
 
     // Benchmark 3: Sustained churn (allocate/deallocate interleaved)
     {
-        out << "\n" << colors::yellow() << "Sustained Churn (steady state):"
-            << colors::reset() << "\n";
+        out << "\n" << colors::yellow() << "Sustained Churn (steady state):" << colors::reset() << "\n";
 
         constexpr size_t kChurnIterations = kIterations / 10;
 
@@ -828,11 +880,15 @@ void run_benchmarks()
             primed.deallocate(p);
         }
 
-        double churnTime = measure_perf([&primed]() {
-            int64_t* ptr = primed.allocate(99);
-            DoNotOptimize(ptr);
-            primed.deallocate(ptr);
-        }, kChurnIterations, kWarmup);
+        double churnTime = measure_perf(
+            [&primed]()
+            {
+                int64_t* ptr = primed.allocate(99);
+                DoNotOptimize(ptr);
+                primed.deallocate(ptr);
+            },
+            kChurnIterations,
+            kWarmup);
         out << "  BlockAllocator (warmed): " << format_time(churnTime) << "\n";
 
         // PoolAllocator - primed
@@ -847,11 +903,15 @@ void run_benchmarks()
             primedPool.deallocate(p);
         }
 
-        double poolChurn = measure_perf([&primedPool]() {
-            TrivialNode* ptr = primedPool.allocate(99, 99);
-            DoNotOptimize(ptr);
-            primedPool.deallocate(ptr);
-        }, kChurnIterations, kWarmup);
+        double poolChurn = measure_perf(
+            [&primedPool]()
+            {
+                TrivialNode* ptr = primedPool.allocate(99, 99);
+                DoNotOptimize(ptr);
+                primedPool.deallocate(ptr);
+            },
+            kChurnIterations,
+            kWarmup);
         out << "  PoolAllocator (warmed):  " << format_time(poolChurn) << "\n";
     }
 

@@ -27,15 +27,15 @@ FATP_META:
     mode: autogen
 */
 
-#include <iostream>
-#include <string>
-#include <vector>
 #include <algorithm>
+#include <iostream>
 #include <set>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
-#include "SlotMap.h"
 #include "FatPTest.h"
+#include "SlotMap.h"
 
 namespace fat_p::testing::slotmap
 {
@@ -787,25 +787,25 @@ FATP_TEST_CASE(stress_slot_reuse)
 FATP_TEST_CASE(clear_aba_fix)
 {
     SlotMap<int> map;
-    
+
     auto h1 = map.insert(42);
     FATP_ASSERT_TRUE(map.is_valid(h1), "Handle should be valid before erase");
-    
+
     map.erase(h1);
     FATP_ASSERT_FALSE(map.is_valid(h1), "Handle should be invalid after erase");
-    
+
     map.clear();
-    
+
     // Insert new element - may reuse same slot index
     auto h2 = map.insert(99);
-    
+
     // CRITICAL: Old handle h1 must NOT validate after clear!
     FATP_ASSERT_FALSE(map.is_valid(h1), "Old handle must remain invalid after clear");
-    
+
     // New handle should work
     FATP_ASSERT_TRUE(map.is_valid(h2), "New handle should be valid");
     FATP_ASSERT_EQ(*map.get(h2), 99, "New handle should point to correct data");
-    
+
     return true;
 }
 
@@ -815,21 +815,21 @@ FATP_TEST_CASE(clear_aba_fix)
 FATP_TEST_CASE(generation_wrap_skips_zero)
 {
     SlotMap<int> map;
-    
+
     // Insert many elements and verify none have generation 0
     std::vector<SlotMap<int>::Handle> handles;
     for (int i = 0; i < 100; ++i)
     {
         handles.push_back(map.insert(i));
     }
-    
+
     // All handles should have non-zero generation
     for (const auto& h : handles)
     {
         FATP_ASSERT_FALSE(h.is_null(), "Valid handle should not be null");
         FATP_ASSERT_NE(h.generation, 0u, "Valid handle generation should never be 0");
     }
-    
+
     // Erase and reinsert multiple times on same slots
     for (int cycle = 0; cycle < 10; ++cycle)
     {
@@ -838,7 +838,7 @@ FATP_TEST_CASE(generation_wrap_skips_zero)
             map.erase(h);
         }
         handles.clear();
-        
+
         for (int i = 0; i < 100; ++i)
         {
             auto new_h = map.insert(i);
@@ -847,7 +847,7 @@ FATP_TEST_CASE(generation_wrap_skips_zero)
             handles.push_back(new_h);
         }
     }
-    
+
     return true;
 }
 
@@ -860,13 +860,13 @@ FATP_TEST_CASE(at_throws_on_invalid)
 {
     SlotMap<int> map;
     auto h = map.insert(42);
-    
+
     // Valid handle works
     FATP_ASSERT_EQ(map.at(h), 42, "at() should return correct value");
-    
+
     // Erase it
     map.erase(h);
-    
+
     // Now at() should throw
     bool threw = false;
     try
@@ -878,7 +878,7 @@ FATP_TEST_CASE(at_throws_on_invalid)
         threw = true;
     }
     FATP_ASSERT_TRUE(threw, "at() should throw on invalid handle");
-    
+
     return true;
 }
 
@@ -887,16 +887,16 @@ FATP_TEST_CASE(contains_alias)
 {
     SlotMap<int> map;
     auto h = map.insert(42);
-    
+
     FATP_ASSERT_TRUE(map.contains(h), "contains() should return true for valid handle");
-    
+
     map.erase(h);
-    
+
     FATP_ASSERT_FALSE(map.contains(h), "contains() should return false for erased handle");
-    
+
     SlotMap<int>::Handle null_handle;
     FATP_ASSERT_FALSE(map.contains(null_handle), "contains() should return false for null handle");
-    
+
     return true;
 }
 
@@ -904,13 +904,13 @@ FATP_TEST_CASE(contains_alias)
 FATP_TEST_CASE(emplace_alias)
 {
     SlotMap<Entity> map;
-    
+
     auto h = map.emplace(42, "Emplaced", 100.0f);
-    
+
     FATP_ASSERT_TRUE(map.is_valid(h), "emplace() should return valid handle");
     FATP_ASSERT_TRUE(map.get(h)->id == 42, "emplaced entity should have correct id");
     FATP_ASSERT_TRUE(map.get(h)->name == "Emplaced", "emplaced entity should have correct name");
-    
+
     return true;
 }
 
@@ -918,21 +918,21 @@ FATP_TEST_CASE(emplace_alias)
 FATP_TEST_CASE(handle_hashable)
 {
     SlotMap<int> map;
-    
+
     auto h1 = map.insert(1);
     auto h2 = map.insert(2);
     auto h3 = map.insert(3);
-    
+
     // Should be usable in unordered_map
     std::unordered_map<SlotMapHandle, std::string> lookup;
     lookup[h1] = "one";
     lookup[h2] = "two";
     lookup[h3] = "three";
-    
+
     FATP_ASSERT_EQ(lookup[h1], "one", "Hash lookup should work for h1");
     FATP_ASSERT_EQ(lookup[h2], "two", "Hash lookup should work for h2");
     FATP_ASSERT_EQ(lookup[h3], "three", "Hash lookup should work for h3");
-    
+
     return true;
 }
 
@@ -942,19 +942,19 @@ FATP_TEST_CASE(handle_ordering)
     SlotMapHandle h1{0, 1};
     SlotMapHandle h2{0, 2};
     SlotMapHandle h3{1, 1};
-    
+
     // Less-than comparison
     FATP_ASSERT_TRUE(h1 < h2, "Same index, lower generation should be less");
     FATP_ASSERT_TRUE(h1 < h3, "Lower index should be less");
     FATP_ASSERT_FALSE((h2 < h1), "Higher generation should not be less");
-    
+
     // Should work in std::set
     std::set<SlotMapHandle> handles;
     handles.insert(h1);
     handles.insert(h2);
     handles.insert(h3);
     FATP_ASSERT_EQ(handles.size(), 3u, "Set should contain all 3 unique handles");
-    
+
     return true;
 }
 
@@ -964,19 +964,19 @@ FATP_TEST_CASE(swap_member)
     SlotMap<int> map1;
     auto h1 = map1.insert(1);
     (void)map1.insert(2);
-    
+
     SlotMap<int> map2;
     auto h3 = map2.insert(3);
-    
+
     map1.swap(map2);
-    
+
     FATP_ASSERT_EQ(map1.size(), 1u, "map1 should have 1 element after swap");
     FATP_ASSERT_EQ(map2.size(), 2u, "map2 should have 2 elements after swap");
-    
+
     // Handles track their original map's data
     FATP_ASSERT_TRUE(map1.is_valid(h3), "h3 should be valid in map1 after swap");
     FATP_ASSERT_TRUE(map2.is_valid(h1), "h1 should be valid in map2 after swap");
-    
+
     return true;
 }
 
@@ -985,18 +985,18 @@ FATP_TEST_CASE(shrink_to_fit)
 {
     SlotMap<int> map;
     map.reserve(1000);
-    
+
     FATP_ASSERT_TRUE(map.capacity() >= 1000, "Capacity should be at least 1000 after reserve");
-    
+
     (void)map.insert(1);
     (void)map.insert(2);
-    
+
     map.shrink_to_fit();
-    
+
     // Capacity may still be >= 2, but should be reduced from 1000
     // (Implementation-defined, so we just verify it doesn't crash)
     FATP_ASSERT_EQ(map.size(), 2u, "Size should still be 2 after shrink_to_fit");
-    
+
     return true;
 }
 
@@ -1014,7 +1014,10 @@ void benchmark_slot_map()
     // Benchmark insert
     int insert_counter = 0;
     double insert_time = measure_perf(
-        [&map, &insert_counter]() { (void)map.insert(Entity{insert_counter++, "Entity", 100.0f}); },
+        [&map, &insert_counter]()
+        {
+            (void)map.insert(Entity{insert_counter++, "Entity", 100.0f});
+        },
         10000,
         100);
     std::cout << "Insert: " << format_time(insert_time) << "\n";

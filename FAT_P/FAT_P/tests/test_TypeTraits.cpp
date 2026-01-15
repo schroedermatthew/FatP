@@ -42,26 +42,26 @@ FATP_META:
     mode: autogen
 */
 
-#include <vector>
-#include <list>
-#include <deque>
 #include <array>
-#include <string>
+#include <deque>
+#include <forward_list>
+#include <functional>
+#include <iostream>
+#include <list>
 #include <map>
+#include <memory>
+#include <optional>
 #include <set>
+#include <sstream>
+#include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
-#include <forward_list>
-#include <iostream>
-#include <sstream>
-#include <optional>
 #include <variant>
-#include <tuple>
-#include <memory>
-#include <functional>
+#include <vector>
 
-#include "TypeTraits.h"
 #include "FatPTest.h"
+#include "TypeTraits.h"
 
 namespace fat_p::testing::typetraits
 {
@@ -70,18 +70,22 @@ using namespace fat_p;
 
 enum class ScopedEnum
 {
-    A, B, C
+    A,
+    B,
+    C
 };
 
 enum UnscopedEnum
 {
-    X, Y, Z
+    X,
+    Y,
+    Z
 };
 
 struct TransparentComparator
 {
     using is_transparent = void;
-    template<typename T, typename U>
+    template <typename T, typename U>
     bool operator()(const T& a, const U& b) const
     {
         return a < b;
@@ -151,7 +155,7 @@ struct ContainerWithEmplaceBack
     {
         return 0;
     }
-    template<typename... Args>
+    template <typename... Args>
     void emplace_back(Args&&...)
     {
     }
@@ -227,7 +231,7 @@ struct NonSerializable
     int value;
 };
 
-template<typename T>
+template <typename T>
 struct CustomAllocator
 {
     using value_type = T;
@@ -239,7 +243,7 @@ struct CustomAllocator
     {
         ::operator delete(p);
     }
-    template<typename U>
+    template <typename U>
     struct rebind
     {
         using other = CustomAllocator<U>;
@@ -282,7 +286,8 @@ struct AggregateStruct
 
 struct NonAggregateStruct
 {
-    NonAggregateStruct(int a) : x(a)
+    NonAggregateStruct(int a)
+        : x(a)
     {
     }
     int x;
@@ -389,8 +394,7 @@ FATP_TEST_CASE(detection_idiom)
     static_assert(std::is_same_v<default_type, double>, "detected_or uses default");
     static_assert(is_detected_exact_v<int, op_value_type, std::vector<int>>, "exact type match");
     static_assert(!is_detected_exact_v<double, op_value_type, std::vector<int>>, "type mismatch");
-    static_assert(is_detected_convertible_v<long, op_value_type, std::vector<int>>,
-        "int converts to long");
+    static_assert(is_detected_convertible_v<long, op_value_type, std::vector<int>>, "int converts to long");
     return true;
 }
 
@@ -525,8 +529,7 @@ FATP_TEST_CASE(comparator_traits)
 {
     static_assert(is_valid_comparator_v<std::less<int>, int>, "std::less is valid for int");
     static_assert(is_valid_comparator_v<TransparentComparator, int>, "transparent comparator valid");
-    static_assert(is_valid_comparator_v<NonTransparentComparator, int>,
-        "non-transparent comparator valid");
+    static_assert(is_valid_comparator_v<NonTransparentComparator, int>, "non-transparent comparator valid");
     static_assert(is_transparent_v<TransparentComparator>, "has is_transparent tag");
     static_assert(!is_transparent_v<NonTransparentComparator>, "lacks is_transparent tag");
     static_assert(!is_transparent_v<int>, "int not transparent");
@@ -578,9 +581,7 @@ FATP_TEST_CASE(callable_traits)
     {
         return x * 2;
     };
-    auto void_lambda = []()
-    {
-    };
+    auto void_lambda = []() {};
     static_assert(is_invocable_v<decltype(lambda), int>, "lambda invocable with int");
     static_assert(is_invocable_v<decltype(void_lambda)>, "void lambda invocable");
     static_assert(!is_invocable_v<decltype(lambda)>, "lambda needs argument");
@@ -604,22 +605,18 @@ FATP_TEST_CASE(nothrow_invocable)
         return x * 2;
     };
 
-    static_assert(is_nothrow_invocable_v<decltype(noexcept_lambda), int>,
-        "noexcept lambda is nothrow invocable");
-    static_assert(!is_nothrow_invocable_v<decltype(throwing_lambda), int>,
-        "throwing lambda is not nothrow invocable");
+    static_assert(is_nothrow_invocable_v<decltype(noexcept_lambda), int>, "noexcept lambda is nothrow invocable");
+    static_assert(!is_nothrow_invocable_v<decltype(throwing_lambda), int>, "throwing lambda is not nothrow invocable");
 
     // Test noexcept function objects
-    static_assert(is_nothrow_invocable_v<NoexceptCallable, int>,
-        "noexcept callable is nothrow invocable");
-    static_assert(!is_nothrow_invocable_v<ThrowingCallable, int>,
-        "throwing callable is not nothrow invocable");
+    static_assert(is_nothrow_invocable_v<NoexceptCallable, int>, "noexcept callable is nothrow invocable");
+    static_assert(!is_nothrow_invocable_v<ThrowingCallable, int>, "throwing callable is not nothrow invocable");
 
     // Test noexcept function pointers
     static_assert(is_nothrow_invocable_v<decltype(&noexcept_function), int>,
-        "noexcept function ptr is nothrow invocable");
+                  "noexcept function ptr is nothrow invocable");
     static_assert(!is_nothrow_invocable_v<decltype(&throwing_function), int>,
-        "throwing function ptr is not nothrow invocable");
+                  "throwing function ptr is not nothrow invocable");
 
     // Test non-invocable cases
     static_assert(!is_nothrow_invocable_v<int, int>, "int is not invocable");
@@ -746,8 +743,7 @@ FATP_TEST_CASE(tuple_traits)
 
 FATP_TEST_CASE(iterator_traits)
 {
-    static_assert(has_iterator_category_v<std::vector<int>::iterator>,
-        "vector iterator has category");
+    static_assert(has_iterator_category_v<std::vector<int>::iterator>, "vector iterator has category");
     static_assert(has_iterator_category_v<std::list<int>::iterator>, "list iterator has category");
     static_assert(has_iterator_category_v<int*>, "pointer has iterator traits");
     static_assert(!has_iterator_category_v<int>, "int has no iterator category");
@@ -782,10 +778,8 @@ FATP_TEST_CASE(optional_variant_traits)
 FATP_TEST_CASE(trivially_relocatable)
 {
     static_assert(is_trivially_relocatable_v<int>, "int is trivially relocatable");
-    static_assert(is_trivially_relocatable_v<TriviallyRelocatable>,
-        "trivial struct is relocatable");
-    static_assert(!is_trivially_relocatable_v<NonTriviallyRelocatable>,
-        "non-trivial not relocatable");
+    static_assert(is_trivially_relocatable_v<TriviallyRelocatable>, "trivial struct is relocatable");
+    static_assert(!is_trivially_relocatable_v<NonTriviallyRelocatable>, "non-trivial not relocatable");
     static_assert(!is_trivially_relocatable_v<std::string>, "string not trivially relocatable");
     return true;
 }
@@ -793,14 +787,10 @@ FATP_TEST_CASE(trivially_relocatable)
 FATP_TEST_CASE(trait_composition)
 {
     using namespace trait_ops;
-    static_assert(all_of_v<std::vector<int>, is_iterable, is_sized, has_reserve>,
-        "vector passes all traits");
-    static_assert(!all_of_v<std::list<int>, is_iterable, is_sized, has_reserve>,
-        "list fails reserve");
-    static_assert(any_of_v<std::vector<int>, has_reserve, has_push_front>,
-        "vector has reserve");
-    static_assert(!any_of_v<std::array<int, 5>, has_reserve, has_clear>,
-        "array has neither");
+    static_assert(all_of_v<std::vector<int>, is_iterable, is_sized, has_reserve>, "vector passes all traits");
+    static_assert(!all_of_v<std::list<int>, is_iterable, is_sized, has_reserve>, "list fails reserve");
+    static_assert(any_of_v<std::vector<int>, has_reserve, has_push_front>, "vector has reserve");
+    static_assert(!any_of_v<std::array<int, 5>, has_reserve, has_clear>, "array has neither");
     static_assert(none_of_v<int, is_iterable>, "int not iterable");
     static_assert(!none_of_v<std::vector<int>, is_iterable>, "vector is iterable");
     return true;
@@ -820,11 +810,9 @@ FATP_TEST_CASE(diagnostics)
     using namespace diagnostics;
     const char* reason = diagnose_container<int>();
     FATP_ASSERT_NOT_NULLPTR(reason, "diagnostic returns reason");
-    static_assert(why_not_container<std::vector<int>>::reason != nullptr,
-        "vector diagnostic exists");
+    static_assert(why_not_container<std::vector<int>>::reason != nullptr, "vector diagnostic exists");
     static_assert(why_not_hashable<int>::reason != nullptr, "int hashable diagnostic exists");
-    static_assert(why_not_serializable<int>::reason != nullptr,
-        "int serializable diagnostic exists");
+    static_assert(why_not_serializable<int>::reason != nullptr, "int serializable diagnostic exists");
     static_assert(why_not_comparable<int>::reason != nullptr, "int comparable diagnostic exists");
     return true;
 }
@@ -845,8 +833,7 @@ FATP_TEST_CASE(dbc_helpers)
 
 FATP_TEST_CASE(value_type_detection)
 {
-    static_assert(is_detected_v<detail::op_value_type, std::vector<int>>,
-        "vector has value_type");
+    static_assert(is_detected_v<detail::op_value_type, std::vector<int>>, "vector has value_type");
     static_assert(is_detected_v<detail::op_value_type, WithValueType>, "custom has value_type");
     static_assert(!is_detected_v<detail::op_value_type, WithoutValueType>, "no value_type");
     return true;
@@ -868,28 +855,33 @@ void run_benchmarks()
     std::cout << "\n" << colors::cyan() << "TypeTraits Benchmarks:" << colors::reset() << "\n\n";
     std::cout << "Note: Type traits are compile-time only, "
               << "so runtime benchmarks measure overhead.\n";
-    double lambda_invoke_time = measure_perf([]()
-    {
-        auto f = [](int x)
+    double lambda_invoke_time = measure_perf(
+        []()
         {
-            return x * 2;
-        };
-        int result = f(42);
-        DoNotOptimize(result);
-    }, 1000000, 10000);
+            auto f = [](int x)
+            {
+                return x * 2;
+            };
+            int result = f(42);
+            DoNotOptimize(result);
+        },
+        1000000,
+        10000);
     std::cout << "Lambda invocation overhead: " << format_time(lambda_invoke_time) << "\n";
-    double container_iteration_time = measure_perf([]()
-    {
-        std::vector<int> v = {1, 2, 3, 4, 5};
-        int sum = 0;
-        for (int x : v)
+    double container_iteration_time = measure_perf(
+        []()
         {
-            sum += x;
-        }
-        DoNotOptimize(sum);
-    }, 100000, 1000);
-    std::cout << "Container iteration (verified iterable): "
-              << format_time(container_iteration_time) << "\n";
+            std::vector<int> v = {1, 2, 3, 4, 5};
+            int sum = 0;
+            for (int x : v)
+            {
+                sum += x;
+            }
+            DoNotOptimize(sum);
+        },
+        100000,
+        1000);
+    std::cout << "Container iteration (verified iterable): " << format_time(container_iteration_time) << "\n";
 }
 
 } // namespace fat_p::testing::typetraits
@@ -905,7 +897,7 @@ bool test_TypeTraits()
 {
     FATP_PRINT_HEADER(TYPE TRAITS)
     TestRunner runner;
-    
+
     FATP_RUN_TEST_NS(runner, typetraits, detection_idiom);
     FATP_RUN_TEST_NS(runner, typetraits, container_basic_traits);
     FATP_RUN_TEST_NS(runner, typetraits, reverse_iteration_traits);
@@ -939,9 +931,9 @@ bool test_TypeTraits()
     FATP_RUN_TEST_NS(runner, typetraits, dbc_helpers);
     FATP_RUN_TEST_NS(runner, typetraits, value_type_detection);
     FATP_RUN_TEST_NS(runner, typetraits, constexpr_evaluation);
-    
+
     typetraits::run_benchmarks();
-    
+
     return 0 == runner.print_summary();
 }
 

@@ -99,6 +99,9 @@ FATP_META:
 #include <iterator>
 #include <cstddef>
 
+#include <ostream>
+#include <utility>
+
 #include "CppStandardDetection.h"
 
 #if FATP_HAS_CPP20
@@ -767,6 +770,24 @@ template <typename T>
 inline constexpr bool is_inequality_comparable_v = is_inequality_comparable<T>::value;
 
 /**
+ * @brief is_streamable - detects if T supports stream insertion (operator<<)
+ * @tparam T The type to check
+ */
+template <typename T, typename = void>
+struct is_streamable : std::false_type {};
+
+template <typename T>
+struct is_streamable<T, detail::void_t<decltype(
+    std::declval<std::ostream&>() << std::declval<const T&>())>> : std::true_type {};
+
+/**
+ * @brief is_streamable_v - variable template for is_streamable
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool is_streamable_v = is_streamable<T>::value;
+
+/**
  * @brief has_less - detects if T has operator<
  * @tparam T The type to check
  */
@@ -856,6 +877,25 @@ struct is_fully_ordered : std::conjunction<
  */
 template <typename T>
 inline constexpr bool is_fully_ordered_v = is_fully_ordered<T>::value;
+
+/**
+ * @brief is_less_comparable - detects if T supports all relational operators (<, <=, >, >=)
+ * @tparam T The type to check
+ */
+template <typename T>
+struct is_less_comparable : std::conjunction<
+    has_less<T>,
+    has_less_equal<T>,
+    has_greater<T>,
+    has_greater_equal<T>
+> {};
+
+/**
+ * @brief is_less_comparable_v - variable template for is_less_comparable
+ * @tparam T The type to check
+ */
+template <typename T>
+inline constexpr bool is_less_comparable_v = is_less_comparable<T>::value;
 
 /**
  * @brief has_less_than - detects if T has operator< (for ordering)

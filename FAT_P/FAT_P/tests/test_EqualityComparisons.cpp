@@ -126,7 +126,7 @@ FATP_TEST_CASE(standard_policy_signed_zeros)
 FATP_TEST_CASE(standard_policy_denormals)
 {
     constexpr double denorm1 = std::numeric_limits<double>::denorm_min();
-    double denorm2 = denorm1 + denorm1;  // 2x denorm_min
+    double denorm2 = denorm1 + denorm1; // 2x denorm_min
 
     // Denormal should equal itself
     FATP_ASSERT_TRUE(areEqual(denorm1, denorm1), "Denormal equals itself");
@@ -161,13 +161,11 @@ FATP_TEST_CASE(ulp_policy_subnormals)
 {
     // Float subnormals
     constexpr float denorm_f = std::numeric_limits<float>::denorm_min();
-    FATP_ASSERT_TRUE((areEqual<float, UlpComparisonPolicy>(denorm_f, denorm_f)),
-                "Float subnormal equals itself");
+    FATP_ASSERT_TRUE((areEqual<float, UlpComparisonPolicy>(denorm_f, denorm_f)), "Float subnormal equals itself");
 
     // Double subnormals
     constexpr double denorm_d = std::numeric_limits<double>::denorm_min();
-    FATP_ASSERT_TRUE((areEqual<double, UlpComparisonPolicy>(denorm_d, denorm_d)),
-                "Double subnormal equals itself");
+    FATP_ASSERT_TRUE((areEqual<double, UlpComparisonPolicy>(denorm_d, denorm_d)), "Double subnormal equals itself");
 
     return true;
 }
@@ -178,8 +176,7 @@ FATP_TEST_CASE(ulp_policy_sign_matters)
     double b = -1.0;
 
     // Different signs should NOT be equal (even if same magnitude)
-    FATP_ASSERT_FALSE((areEqual<double, UlpComparisonPolicy>(a, b)),
-                 "Opposite signs not equal");
+    FATP_ASSERT_FALSE((areEqual<double, UlpComparisonPolicy>(a, b)), "Opposite signs not equal");
 
     return true;
 }
@@ -195,14 +192,12 @@ FATP_TEST_CASE(relative_policy_scale_independence)
     // Small values
     double a1 = 1.0;
     double b1 = 1.0 + 0.5e-5;
-    FATP_ASSERT_TRUE((areEqual<double, RelativeComparisonPolicy>(a1, b1, relEps)),
-                "Small values within tolerance");
+    FATP_ASSERT_TRUE((areEqual<double, RelativeComparisonPolicy>(a1, b1, relEps)), "Small values within tolerance");
 
     // Large values (same relative error)
     double a2 = 1e6;
     double b2 = 1e6 + 0.5;
-    FATP_ASSERT_TRUE((areEqual<double, RelativeComparisonPolicy>(a2, b2, relEps)),
-                "Large values within tolerance");
+    FATP_ASSERT_TRUE((areEqual<double, RelativeComparisonPolicy>(a2, b2, relEps)), "Large values within tolerance");
 
     return true;
 }
@@ -220,13 +215,13 @@ FATP_TEST_CASE(hybrid_policy_robust)
     double a1 = 1e-10;
     double b1 = 2e-10;
     FATP_ASSERT_TRUE((areEqual<double, HybridComparisonPolicy>(a1, b1, relEps, absEps)),
-                "Near zero handled by absolute tolerance");
+                     "Near zero handled by absolute tolerance");
 
     // Large values - relative tolerance should dominate
     double a2 = 1e6;
     double b2 = 1e6 + 0.5;
     FATP_ASSERT_TRUE((areEqual<double, HybridComparisonPolicy>(a2, b2, relEps, absEps)),
-                "Large values handled by relative tolerance");
+                     "Large values handled by relative tolerance");
 
     return true;
 }
@@ -327,7 +322,7 @@ FATP_TEST_CASE(forward_list_comparison)
     std::forward_list<int> fl1 = {1, 2, 3};
     std::forward_list<int> fl2 = {1, 2, 3};
     std::forward_list<int> fl3 = {1, 2, 4};
-    std::forward_list<int> fl4 = {1, 2, 3, 4};  // Different length
+    std::forward_list<int> fl4 = {1, 2, 3, 4}; // Different length
 
     FATP_ASSERT_TRUE(areEqual(fl1, fl2), "Identical forward_lists");
     FATP_ASSERT_FALSE(areEqual(fl1, fl3), "Different element in forward_list");
@@ -351,7 +346,7 @@ FATP_TEST_CASE(forward_list_empty)
 FATP_TEST_CASE(string_view_comparison)
 {
     using namespace std::string_view_literals;
-    
+
     std::string_view sv1 = "hello"sv;
     std::string_view sv2 = "hello"sv;
     std::string_view sv3 = "world"sv;
@@ -429,7 +424,7 @@ FATP_TEST_CASE(multiset_basic)
 {
     std::multiset<int> ms1 = {1, 1, 2, 3};
     std::multiset<int> ms2 = {1, 1, 2, 3};
-    std::multiset<int> ms3 = {1, 2, 2, 3};  // Same elements, different multiplicities
+    std::multiset<int> ms3 = {1, 2, 2, 3}; // Same elements, different multiplicities
 
     FATP_ASSERT_TRUE(areEqual(ms1, ms2), "Identical multisets");
     FATP_ASSERT_FALSE(areEqual(ms1, ms3), "Different multiplicities");
@@ -456,7 +451,7 @@ FATP_TEST_CASE(multimap_basic)
 FATP_TEST_CASE(unordered_set_basic)
 {
     std::unordered_set<int> us1 = {1, 2, 3};
-    std::unordered_set<int> us2 = {3, 2, 1};  // Same elements, different insertion order
+    std::unordered_set<int> us2 = {3, 2, 1}; // Same elements, different insertion order
     std::unordered_set<int> us3 = {1, 2, 4};
     std::unordered_set<int> us4 = {1, 2};
 
@@ -517,8 +512,7 @@ FATP_TEST_CASE(unordered_multiset_multiplicity_regression)
     std::unordered_multiset<int> ms1 = {1, 1, 1};
     std::unordered_multiset<int> ms2 = {1, 2, 3};
 
-    FATP_ASSERT_FALSE(areEqual(ms1, ms2),
-                 "REGRESSION: {1,1,1} vs {1,2,3} must be NOT EQUAL");
+    FATP_ASSERT_FALSE(areEqual(ms1, ms2), "REGRESSION: {1,1,1} vs {1,2,3} must be NOT EQUAL");
 
     return true;
 }
@@ -526,8 +520,8 @@ FATP_TEST_CASE(unordered_multiset_multiplicity_regression)
 FATP_TEST_CASE(unordered_multiset_basic)
 {
     std::unordered_multiset<int> ums1 = {1, 1, 2, 3};
-    std::unordered_multiset<int> ums2 = {3, 1, 2, 1};  // Same with different order
-    std::unordered_multiset<int> ums3 = {1, 2, 2, 3};  // Different multiplicities
+    std::unordered_multiset<int> ums2 = {3, 1, 2, 1}; // Same with different order
+    std::unordered_multiset<int> ums3 = {1, 2, 2, 3}; // Different multiplicities
 
     FATP_ASSERT_TRUE(areEqual(ums1, ums2), "Same multiset different order");
     FATP_ASSERT_FALSE(areEqual(ums1, ums3), "Different multiplicities");
@@ -584,19 +578,18 @@ FATP_TEST_CASE(unordered_multimap_floating_multiplicity)
     // Stress test: duplicated keys with floating values near tolerance
     // Tests interaction between epsilon matching and multiplicity counting
     constexpr double tiny = 50.0 * kEps;
-    
-    std::unordered_multimap<int, double> umm1 = {
-        {1, 1.0}, {1, 1.0 + tiny}, {1, 2.0},  // key=1 has 3 values
-        {2, 3.0}
-    };
-    std::unordered_multimap<int, double> umm2 = {
-        {1, 1.0 + tiny/2}, {1, 1.0 + tiny}, {1, 2.0},  // same structure, within epsilon
-        {2, 3.0}
-    };
-    std::unordered_multimap<int, double> umm3 = {
-        {1, 1.0}, {1, 1.0 + tiny},  // only 2 values for key=1 (multiplicity mismatch)
-        {2, 3.0}
-    };
+
+    std::unordered_multimap<int, double> umm1 = {{1, 1.0},
+                                                 {1, 1.0 + tiny},
+                                                 {1, 2.0}, // key=1 has 3 values
+                                                 {2, 3.0}};
+    std::unordered_multimap<int, double> umm2 = {{1, 1.0 + tiny / 2},
+                                                 {1, 1.0 + tiny},
+                                                 {1, 2.0}, // same structure, within epsilon
+                                                 {2, 3.0}};
+    std::unordered_multimap<int, double> umm3 = {{1, 1.0},
+                                                 {1, 1.0 + tiny}, // only 2 values for key=1 (multiplicity mismatch)
+                                                 {2, 3.0}};
 
     FATP_ASSERT_TRUE(areEqual(umm1, umm2), "Floating multimap within epsilon");
     FATP_ASSERT_FALSE(areEqual(umm1, umm3), "Floating multimap multiplicity mismatch");
@@ -634,10 +627,10 @@ FATP_TEST_CASE(unordered_multimap_epsilon_pairing)
     //
     // For now, document that greedy matching is used and may produce
     // false negatives in pathological epsilon cases.
-    
+
     std::unordered_multimap<int, double> umm1 = {{1, 1.0}, {1, 1.4}};
     std::unordered_multimap<int, double> umm2 = {{1, 1.1}, {1, 1.5}};
-    
+
     // With eps=0.2, unique matching exists: 1.0<->1.1, 1.4<->1.5
     bool result = areEqual(umm1, umm2, 0.2);
     FATP_ASSERT_TRUE(result, "Greedy match should find valid pairing with tight epsilon");
@@ -650,7 +643,7 @@ FATP_TEST_CASE(vector_containing_nan)
     // NaN inside containers: ensure container logic doesn't accidentally
     // treat NaNs as equal via "diff <= eps" shortcut
     const double nan = std::numeric_limits<double>::quiet_NaN();
-    
+
     std::vector<double> v1 = {1.0, nan, 3.0};
     std::vector<double> v2 = {1.0, nan, 3.0};
     std::vector<double> v3 = {1.0, 2.0, 3.0};
@@ -667,17 +660,17 @@ FATP_TEST_CASE(symmetry_check)
     // Meta-test: areEqual(a,b) == areEqual(b,a) for various types
     std::vector<double> v1 = {1.0, 2.0, 3.0};
     std::vector<double> v2 = {1.0, 2.0, 3.1};
-    
+
     FATP_ASSERT_EQ(areEqual(v1, v2), areEqual(v2, v1), "Vector comparison should be symmetric");
-    
+
     std::map<int, double> m1 = {{1, 1.0}, {2, 2.0}};
     std::map<int, double> m2 = {{1, 1.0}, {2, 2.1}};
-    
+
     FATP_ASSERT_EQ(areEqual(m1, m2), areEqual(m2, m1), "Map comparison should be symmetric");
-    
+
     std::unordered_multiset<int> ums1 = {1, 1, 2};
     std::unordered_multiset<int> ums2 = {1, 2, 2};
-    
+
     FATP_ASSERT_EQ(areEqual(ums1, ums2), areEqual(ums2, ums1), "Multiset comparison should be symmetric");
 
     return true;
@@ -771,18 +764,9 @@ FATP_TEST_CASE(nested_vector_vector)
 
 FATP_TEST_CASE(nested_map_vector)
 {
-    std::map<std::string, std::vector<double>> m1 = {
-        {"a", {1.0, 2.0}},
-        {"b", {3.0, 4.0}}
-    };
-    std::map<std::string, std::vector<double>> m2 = {
-        {"a", {1.0, 2.0}},
-        {"b", {3.0, 4.0}}
-    };
-    std::map<std::string, std::vector<double>> m3 = {
-        {"a", {1.0, 2.0}},
-        {"b", {3.0, 9.0}}
-    };
+    std::map<std::string, std::vector<double>> m1 = {{"a", {1.0, 2.0}}, {"b", {3.0, 4.0}}};
+    std::map<std::string, std::vector<double>> m2 = {{"a", {1.0, 2.0}}, {"b", {3.0, 4.0}}};
+    std::map<std::string, std::vector<double>> m3 = {{"a", {1.0, 2.0}}, {"b", {3.0, 9.0}}};
 
     FATP_ASSERT_TRUE(areEqual(m1, m2), "Identical map of vectors");
     FATP_ASSERT_FALSE(areEqual(m1, m3), "Different map of vectors");
@@ -810,17 +794,11 @@ FATP_TEST_CASE(deep_nesting)
     using Level3 = std::map<std::string, Level2>;
     using Level4 = std::vector<Level3>;
 
-    Level4 d1 = {
-        {{{"a", {{1, 1.0}, {2, 2.0}}}}},
-        {{{"b", {{3, 3.0}}}}}
-    };
-    Level4 d2 = {
-        {{{"a", {{1, 1.0}, {2, 2.0}}}}},
-        {{{"b", {{3, 3.0}}}}}
-    };
+    Level4 d1 = {{{{"a", {{1, 1.0}, {2, 2.0}}}}}, {{{"b", {{3, 3.0}}}}}};
+    Level4 d2 = {{{{"a", {{1, 1.0}, {2, 2.0}}}}}, {{{"b", {{3, 3.0}}}}}};
     Level4 d3 = {
         {{{"a", {{1, 1.0}, {2, 2.0}}}}},
-        {{{"b", {{3, 9.0}}}}}  // Different value deep inside
+        {{{"b", {{3, 9.0}}}}} // Different value deep inside
     };
 
     FATP_ASSERT_TRUE(areEqual(d1, d2), "Identical deep nesting");
@@ -878,29 +856,28 @@ FATP_TEST_CASE(default_tolerance_contract)
     // CONTRACT: Default epsilon is 100 * std::numeric_limits<double>::epsilon()
     // This is approximately 2.22e-14 for IEEE 754 double precision.
     // Values within this tolerance are considered equal; values outside are not.
-    
+
     constexpr double defaultEps = 100.0 * std::numeric_limits<double>::epsilon();
-    
+
     // Just inside default tolerance (should be equal)
     double a1 = 1.0;
-    double b1 = 1.0 + defaultEps * 0.5;  // 50% of tolerance
+    double b1 = 1.0 + defaultEps * 0.5; // 50% of tolerance
     FATP_ASSERT_TRUE(areEqual(a1, b1), "Values within 50% of default tolerance should be equal");
-    
+
     // At the boundary (should be equal - tolerance is inclusive)
     double a2 = 1.0;
-    double b2 = 1.0 + defaultEps * 0.99;  // 99% of tolerance
+    double b2 = 1.0 + defaultEps * 0.99; // 99% of tolerance
     FATP_ASSERT_TRUE(areEqual(a2, b2), "Values at 99% of default tolerance should be equal");
-    
+
     // Just outside default tolerance (should NOT be equal)
     double a3 = 1.0;
-    double b3 = 1.0 + defaultEps * 10.0;  // 10x tolerance
+    double b3 = 1.0 + defaultEps * 10.0; // 10x tolerance
     FATP_ASSERT_FALSE(areEqual(a3, b3), "Values at 10x default tolerance should NOT be equal");
-    
+
     // Verify the actual default value matches our expectation
     // (This would catch if someone changes kDefaultDoubleEpsilon)
     constexpr double expectedDefault = std::numeric_limits<double>::epsilon() * 100.0;
-    FATP_ASSERT_TRUE(areEqual(1.0, 1.0 + expectedDefault * 0.5),
-                "Default tolerance should be ~100 * machine epsilon");
+    FATP_ASSERT_TRUE(areEqual(1.0, 1.0 + expectedDefault * 0.5), "Default tolerance should be ~100 * machine epsilon");
 
     return true;
 }
@@ -972,14 +949,10 @@ FATP_TEST_CASE(float_equal_with_policies)
     double a = 1.0;
     double b = 1.0 + kEps;
 
-    FATP_ASSERT_TRUE((floatEqual<double, StandardComparisonPolicy>(a, b)),
-                "floatEqual with Standard policy");
-    FATP_ASSERT_TRUE((floatEqual<double, UlpComparisonPolicy>(a, b, 4.0)),
-                "floatEqual with ULP policy");
-    FATP_ASSERT_TRUE((floatEqual<double, RelativeComparisonPolicy>(a, b, 1e-9)),
-                "floatEqual with Relative policy");
-    FATP_ASSERT_TRUE((floatEqual<double, HybridComparisonPolicy>(a, b, 1e-9, 1e-9)),
-                "floatEqual with Hybrid policy");
+    FATP_ASSERT_TRUE((floatEqual<double, StandardComparisonPolicy>(a, b)), "floatEqual with Standard policy");
+    FATP_ASSERT_TRUE((floatEqual<double, UlpComparisonPolicy>(a, b, 4.0)), "floatEqual with ULP policy");
+    FATP_ASSERT_TRUE((floatEqual<double, RelativeComparisonPolicy>(a, b, 1e-9)), "floatEqual with Relative policy");
+    FATP_ASSERT_TRUE((floatEqual<double, HybridComparisonPolicy>(a, b, 1e-9, 1e-9)), "floatEqual with Hybrid policy");
 
     return true;
 }
@@ -1010,7 +983,7 @@ FATP_TEST_CASE(stress_large_vector)
 
 FATP_TEST_CASE(stress_random_operations)
 {
-    std::mt19937 rng(42);  // Fixed seed for reproducibility
+    std::mt19937 rng(42); // Fixed seed for reproducibility
     std::uniform_real_distribution<double> dist(-1000.0, 1000.0);
 
     for (int trial = 0; trial < 100; ++trial)
@@ -1051,8 +1024,7 @@ FATP_TEST_CASE(stress_random_operations)
 
 void run_benchmarks()
 {
-    std::cout << colors::cyan() << "\nEquality Comparison Benchmarks:" 
-              << colors::reset() << "\n";
+    std::cout << colors::cyan() << "\nEquality Comparison Benchmarks:" << colors::reset() << "\n";
 
 #ifdef NDEBUG
     constexpr size_t N = 10000;
@@ -1068,37 +1040,43 @@ void run_benchmarks()
 
     // Fat-P areEqual with explicit epsilon (matches manual loop)
     double fatp_time = measure_perf(
-        [&]() {
+        [&]()
+        {
             result = areEqual(v1, v2, eps);
         },
-        1000, 100);
+        1000,
+        100);
     DoNotOptimize(result);
 
     // Fair baseline: manual epsilon loop (same semantics, minimal overhead)
     double manual_eps_time = measure_perf(
-        [&]() {
+        [&]()
+        {
             bool ok = true;
             for (size_t i = 0; i < N && ok; ++i)
             {
                 double diff = std::fabs(v1[i] - v2[i]);
                 double maxVal = std::fmax(std::fabs(v1[i]), std::fabs(v2[i]));
-                ok = diff <= eps * maxVal + eps;  // relative + absolute (hybrid-like)
+                ok = diff <= eps * maxVal + eps; // relative + absolute (hybrid-like)
             }
             result = ok;
         },
-        1000, 100);
+        1000,
+        100);
     DoNotOptimize(result);
 
     // std::equal baseline (exact ==, no epsilon - NOT apples-to-apples)
     double std_time = measure_perf(
-        [&]() {
+        [&]()
+        {
             result = std::equal(v1.begin(), v1.end(), v2.begin());
         },
-        1000, 100);
+        1000,
+        100);
     DoNotOptimize(result);
 
-    std::cout << "  Vector<double>[" << N << "] comparison (eps=" 
-              << std::scientific << std::setprecision(1) << eps << std::defaultfloat << "):\n"
+    std::cout << "  Vector<double>[" << N << "] comparison (eps=" << std::scientific << std::setprecision(1) << eps
+              << std::defaultfloat << "):\n"
               << "    Fat-P areEqual:      " << format_time(fatp_time) << "\n"
               << "    Manual epsilon loop: " << format_time(manual_eps_time) << " (fair baseline)\n"
               << "    std::equal (exact):  " << format_time(std_time) << " (no epsilon)\n";
@@ -1107,7 +1085,7 @@ void run_benchmarks()
 #endif
 }
 
-}  // namespace fat_p::testing::equalitycomparisons
+} // namespace fat_p::testing::equalitycomparisons
 
 // ============================================================================
 // Public Interface
@@ -1220,7 +1198,7 @@ bool test_EqualityComparisons()
     return 0 == runner.print_summary();
 }
 
-}  // namespace fat_p::testing
+} // namespace fat_p::testing
 
 // =============================================================================
 // Standalone Entry Point

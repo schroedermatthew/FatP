@@ -41,13 +41,13 @@ FATP_META:
 namespace fat_p::testing::fatpbinary
 {
 
+using fat_p::binary_fatp::binary_decode_from;
+using fat_p::binary_fatp::binary_encode_to;
 using fat_p::binary_fatp::BinaryBuffer;
-using fat_p::binary_fatp::BinaryWriter;
+using fat_p::binary_fatp::BinaryError;
 using fat_p::binary_fatp::BinaryReader;
 using fat_p::binary_fatp::BinaryResult;
-using fat_p::binary_fatp::BinaryError;
-using fat_p::binary_fatp::binary_encode_to;
-using fat_p::binary_fatp::binary_decode_from;
+using fat_p::binary_fatp::BinaryWriter;
 
 // ============================================================================
 // Buffer Alignment
@@ -70,9 +70,7 @@ FATP_TEST_CASE(buffer_alignment)
 
 FATP_TEST_CASE(int_roundtrip)
 {
-    const int values[] = {0, 1, -1, 123456, -987654,
-                          std::numeric_limits<int>::min(),
-                          std::numeric_limits<int>::max()};
+    const int values[] = {0, 1, -1, 123456, -987654, std::numeric_limits<int>::min(), std::numeric_limits<int>::max()};
 
     for (int v : values)
     {
@@ -90,8 +88,8 @@ FATP_TEST_CASE(int_roundtrip)
 
 FATP_TEST_CASE(uint64_roundtrip)
 {
-    const std::uint64_t values[] = {0ULL, 1ULL, 23ULL, 65535ULL, 123456789ULL,
-                                    std::numeric_limits<std::uint64_t>::max()};
+    const std::uint64_t values[] =
+        {0ULL, 1ULL, 23ULL, 65535ULL, 123456789ULL, std::numeric_limits<std::uint64_t>::max()};
 
     for (std::uint64_t v : values)
     {
@@ -283,10 +281,7 @@ FATP_TEST_CASE(map_roundtrip)
 
 FATP_TEST_CASE(nested_map_roundtrip)
 {
-    std::map<std::string, std::map<int, std::string>> m{
-        {"x", {{1, "a"}, {2, "b"}}},
-        {"y", {{3, "c"}}}
-    };
+    std::map<std::string, std::map<int, std::string>> m{{"x", {{1, "a"}, {2, "b"}}}, {"y", {{3, "c"}}}};
 
     BinaryBuffer buf;
     auto enc = binary_encode_to(buf, m);
@@ -542,9 +537,7 @@ FATP_TEST_CASE(decode_huge_length_protection)
 FATP_TEST_CASE(fuzz_ints)
 {
     std::mt19937_64 rng(0xFA7B1A2C3D4E5F6AULL);
-    std::uniform_int_distribution<int> dist(
-        std::numeric_limits<int>::min(),
-        std::numeric_limits<int>::max());
+    std::uniform_int_distribution<int> dist(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
 
     for (int i = 0; i < 2000; ++i)
     {
@@ -742,24 +735,30 @@ void benchmark_fatpbinary()
         vec.push_back(i);
     }
 
-    double enc_time = measure_perf([&vec]()
-    {
-        BinaryBuffer buf;
-        auto rc = binary_encode_to(buf, vec);
-        DoNotOptimize(buf.data());
-        (void)rc;
-    }, 1000, 100);
+    double enc_time = measure_perf(
+        [&vec]()
+        {
+            BinaryBuffer buf;
+            auto rc = binary_encode_to(buf, vec);
+            DoNotOptimize(buf.data());
+            (void)rc;
+        },
+        1000,
+        100);
     std::cout << "Encode vector<int> (10000): " << format_time(enc_time) << "\n";
 
     BinaryBuffer vec_buf;
     (void)binary_encode_to(vec_buf, vec);
 
-    double dec_time = measure_perf([&vec_buf]()
-    {
-        auto rc = binary_decode_from<std::vector<int>>(vec_buf);
-        DoNotOptimize(rc);
-        (void)rc;
-    }, 1000, 100);
+    double dec_time = measure_perf(
+        [&vec_buf]()
+        {
+            auto rc = binary_decode_from<std::vector<int>>(vec_buf);
+            DoNotOptimize(rc);
+            (void)rc;
+        },
+        1000,
+        100);
     std::cout << "Decode vector<int> (10000): " << format_time(dec_time) << "\n";
     std::cout << "Encoded size: " << vec_buf.size() << " bytes\n";
 
@@ -769,24 +768,30 @@ void benchmark_fatpbinary()
         m.emplace("key_" + std::to_string(i), i);
     }
 
-    double map_enc_time = measure_perf([&m]()
-    {
-        BinaryBuffer buf;
-        auto rc = binary_encode_to(buf, m);
-        DoNotOptimize(buf.data());
-        (void)rc;
-    }, 500, 50);
+    double map_enc_time = measure_perf(
+        [&m]()
+        {
+            BinaryBuffer buf;
+            auto rc = binary_encode_to(buf, m);
+            DoNotOptimize(buf.data());
+            (void)rc;
+        },
+        500,
+        50);
     std::cout << "Encode map<string,int> (1000): " << format_time(map_enc_time) << "\n";
 
     BinaryBuffer map_buf;
     (void)binary_encode_to(map_buf, m);
 
-    double map_dec_time = measure_perf([&map_buf]()
-    {
-        auto rc = binary_decode_from<std::map<std::string, int>>(map_buf);
-        DoNotOptimize(rc);
-        (void)rc;
-    }, 500, 50);
+    double map_dec_time = measure_perf(
+        [&map_buf]()
+        {
+            auto rc = binary_decode_from<std::map<std::string, int>>(map_buf);
+            DoNotOptimize(rc);
+            (void)rc;
+        },
+        500,
+        50);
     std::cout << "Decode map<string,int> (1000): " << format_time(map_dec_time) << "\n";
     std::cout << "Encoded size: " << map_buf.size() << " bytes\n";
 
@@ -797,31 +802,35 @@ void benchmark_fatpbinary()
         std::map<std::string, int> inner;
         for (int j = 0; j < 64; ++j)
         {
-            inner.emplace("k_" + std::to_string(i) + "_" + std::to_string(j),
-                          i * 1000 + j);
+            inner.emplace("k_" + std::to_string(i) + "_" + std::to_string(j), i * 1000 + j);
         }
         nested.push_back(std::move(inner));
     }
 
-    double nested_enc_time = measure_perf([&nested]()
-    {
-        BinaryBuffer buf;
-        auto rc = binary_encode_to(buf, nested);
-        DoNotOptimize(buf.data());
-        (void)rc;
-    }, 100, 10);
+    double nested_enc_time = measure_perf(
+        [&nested]()
+        {
+            BinaryBuffer buf;
+            auto rc = binary_encode_to(buf, nested);
+            DoNotOptimize(buf.data());
+            (void)rc;
+        },
+        100,
+        10);
     std::cout << "Encode nested (64x64): " << format_time(nested_enc_time) << "\n";
 
     BinaryBuffer nested_buf;
     (void)binary_encode_to(nested_buf, nested);
 
-    double nested_dec_time = measure_perf([&nested_buf]()
-    {
-        auto rc =
-            binary_decode_from<std::vector<std::map<std::string, int>>>(nested_buf);
-        DoNotOptimize(rc);
-        (void)rc;
-    }, 100, 10);
+    double nested_dec_time = measure_perf(
+        [&nested_buf]()
+        {
+            auto rc = binary_decode_from<std::vector<std::map<std::string, int>>>(nested_buf);
+            DoNotOptimize(rc);
+            (void)rc;
+        },
+        100,
+        10);
     std::cout << "Decode nested (64x64): " << format_time(nested_dec_time) << "\n";
     std::cout << "Encoded size: " << nested_buf.size() << " bytes\n";
 }

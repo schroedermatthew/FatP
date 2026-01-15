@@ -134,8 +134,7 @@ FATP_TEST_CASE(error_handling)
     // Try invalid release
     auto release_result = small_gen.release(200); // Not in use
     FATP_ASSERT_TRUE(!release_result.has_value(), "Should fail to release invalid ID");
-    FATP_ASSERT_TRUE(release_result.error() == IdError::InvalidRelease,
-                  "Should get InvalidRelease error");
+    FATP_ASSERT_TRUE(release_result.error() == IdError::InvalidRelease, "Should get InvalidRelease error");
 
     return true;
 }
@@ -171,7 +170,8 @@ FATP_TEST_CASE(guard_move_semantics)
 {
     SimpleIdGenerator<uint64_t> gen(100);
 
-    auto create_guard = [&gen]() {
+    auto create_guard = [&gen]()
+    {
         auto guard_result = gen.scoped_id();
         return std::move(guard_result.value());
     };
@@ -192,31 +192,31 @@ FATP_TEST_CASE(guard_default_ctor)
     // Test IdGuard default constructor creates invalid guard
     SimpleIdGenerator<uint64_t> gen(1);
     using Guard = typename SimpleIdGenerator<uint64_t>::IdGuard;
-    
+
     Guard default_guard;
     FATP_ASSERT_TRUE(!default_guard, "Default guard should be invalid (operator bool)");
-    
+
     // Default guard destruction should be safe (no-op)
     // This is implicitly tested by the guard going out of scope
-    
+
     // Move assignment from valid guard
     {
         auto scoped = gen.scoped_id();
         FATP_ASSERT_TRUE(scoped.has_value(), "scoped_id should succeed");
-        
+
         default_guard = std::move(scoped.value());
         FATP_ASSERT_TRUE(static_cast<bool>(default_guard), "Guard should be valid after move");
         FATP_ASSERT_EQ(default_guard.get(), uint64_t(1), "Should hold ID 1");
     }
-    
+
     FATP_ASSERT_EQ(gen.active_count(), size_t(1), "ID still active (guard holds it)");
-    
+
     default_guard.release_ownership();
     FATP_ASSERT_TRUE(!default_guard, "Guard should be invalid after release_ownership");
-    
+
     // ID is now leaked (intentionally) - verify it's still tracked
     FATP_ASSERT_EQ(gen.active_count(), size_t(1), "ID still tracked after ownership release");
-    
+
     return true;
 }
 
@@ -237,8 +237,7 @@ FATP_TEST_CASE(random_allocation)
         FATP_ASSERT_TRUE(id.has_value(), "Random ID generation failed");
 
         // Check for collisions (should be extremely rare with uint64_t)
-        FATP_ASSERT_TRUE(generated_ids.find(id.value()) == generated_ids.end(),
-                      "Random ID collision detected!");
+        FATP_ASSERT_TRUE(generated_ids.find(id.value()) == generated_ids.end(), "Random ID collision detected!");
         generated_ids.insert(id.value());
     }
 
@@ -275,8 +274,7 @@ FATP_TEST_CASE(random_small_type)
         else
         {
             // Collision should return AlreadyInUse error
-            FATP_ASSERT_TRUE(id.error() == IdError::AlreadyInUse,
-                          "Collision should return AlreadyInUse error");
+            FATP_ASSERT_TRUE(id.error() == IdError::AlreadyInUse, "Collision should return AlreadyInUse error");
             ++collision_error_count;
         }
     }
@@ -371,7 +369,8 @@ FATP_TEST_CASE(thread_safety)
     const size_t ids_per_thread = 1000;
     std::vector<std::set<uint64_t>> thread_ids(num_threads);
 
-    auto worker = [&](size_t thread_id) {
+    auto worker = [&](size_t thread_id)
+    {
         for (size_t i = 0; i < ids_per_thread; ++i)
         {
             auto id = safe_gen.generate();
@@ -404,8 +403,7 @@ FATP_TEST_CASE(thread_safety)
     {
         for (uint64_t id : thread_set)
         {
-            FATP_ASSERT_TRUE(all_ids.find(id) == all_ids.end(),
-                          "Thread-safety violation: duplicate ID");
+            FATP_ASSERT_TRUE(all_ids.find(id) == all_ids.end(), "Thread-safety violation: duplicate ID");
             all_ids.insert(id);
         }
     }
@@ -413,8 +411,8 @@ FATP_TEST_CASE(thread_safety)
     size_t total_expected = num_threads * ids_per_thread;
     FATP_ASSERT_EQ(all_ids.size(), total_expected, "Should generate correct number of unique IDs");
 
-    std::cout << "Generated " << all_ids.size() << " unique IDs across " << num_threads
-              << " threads in " << duration.count() << " ms\n";
+    std::cout << "Generated " << all_ids.size() << " unique IDs across " << num_threads << " threads in "
+              << duration.count() << " ms\n";
 
     return true;
 }
@@ -427,7 +425,7 @@ FATP_TEST_CASE(concurrent_queries)
 
     constexpr size_t kNumThreads = 4;
     constexpr size_t kOpsPerThread = 500; // Reduced for balanced read/write load
-    
+
     std::atomic<size_t> query_count{0};
     std::atomic<size_t> generate_count{0};
     std::atomic<bool> stop_flag{false};
@@ -437,55 +435,59 @@ FATP_TEST_CASE(concurrent_queries)
     // Writer threads: generate and release IDs
     for (size_t t = 0; t < kNumThreads / 2; ++t)
     {
-        threads.emplace_back([&gen, &generate_count, &stop_flag]() {
-            std::vector<uint64_t> my_ids;
-            my_ids.reserve(kOpsPerThread);
-
-            for (size_t i = 0; i < kOpsPerThread && !stop_flag; ++i)
+        threads.emplace_back(
+            [&gen, &generate_count, &stop_flag]()
             {
-                auto id = gen.generate();
-                if (id)
+                std::vector<uint64_t> my_ids;
+                my_ids.reserve(kOpsPerThread);
+
+                for (size_t i = 0; i < kOpsPerThread && !stop_flag; ++i)
                 {
-                    my_ids.push_back(*id);
-                    generate_count.fetch_add(1, std::memory_order_relaxed);
+                    auto id = gen.generate();
+                    if (id)
+                    {
+                        my_ids.push_back(*id);
+                        generate_count.fetch_add(1, std::memory_order_relaxed);
+                    }
+
+                    // Release some to exercise concurrent state changes
+                    if (my_ids.size() > 10 && (i % 3 == 0))
+                    {
+                        (void)gen.release(my_ids.back());
+                        my_ids.pop_back();
+                    }
                 }
 
-                // Release some to exercise concurrent state changes
-                if (my_ids.size() > 10 && (i % 3 == 0))
+                // Cleanup remaining IDs
+                for (auto id : my_ids)
                 {
-                    (void)gen.release(my_ids.back());
-                    my_ids.pop_back();
+                    (void)gen.release(id);
                 }
-            }
-
-            // Cleanup remaining IDs
-            for (auto id : my_ids)
-            {
-                (void)gen.release(id);
-            }
-        });
+            });
     }
 
     // Reader threads: query is_active and active_count
     for (size_t t = 0; t < kNumThreads / 2; ++t)
     {
-        threads.emplace_back([&gen, &query_count, &stop_flag]() {
-            for (size_t i = 0; i < kOpsPerThread * 2 && !stop_flag; ++i)
+        threads.emplace_back(
+            [&gen, &query_count, &stop_flag]()
             {
-                // Query active count
-                size_t count = gen.active_count();
-                DoNotOptimize(count);
-
-                // Query is_active for various IDs
-                for (uint64_t check_id = 1; check_id <= 20; ++check_id)
+                for (size_t i = 0; i < kOpsPerThread * 2 && !stop_flag; ++i)
                 {
-                    bool active = gen.is_active(check_id);
-                    DoNotOptimize(active);
-                }
+                    // Query active count
+                    size_t count = gen.active_count();
+                    DoNotOptimize(count);
 
-                query_count.fetch_add(1, std::memory_order_relaxed);
-            }
-        });
+                    // Query is_active for various IDs
+                    for (uint64_t check_id = 1; check_id <= 20; ++check_id)
+                    {
+                        bool active = gen.is_active(check_id);
+                        DoNotOptimize(active);
+                    }
+
+                    query_count.fetch_add(1, std::memory_order_relaxed);
+                }
+            });
     }
 
     for (auto& t : threads)
@@ -509,8 +511,7 @@ FATP_TEST_CASE(concurrent_queries)
 
 FATP_TEST_CASE(no_recycling)
 {
-    using NoRecycleGen =
-        IdGenerator<uint64_t, SequentialAllocationPolicy<uint64_t>, NoRecyclingPolicy<uint64_t>>;
+    using NoRecycleGen = IdGenerator<uint64_t, SequentialAllocationPolicy<uint64_t>, NoRecyclingPolicy<uint64_t>>;
 
     NoRecycleGen gen(1);
 
@@ -556,9 +557,7 @@ FATP_TEST_CASE(recycling_order)
 FATP_TEST_CASE(min_recycling_policy)
 {
     // Test MinRecyclingPolicy - should recycle smallest ID first
-    using MinGen = IdGenerator<uint64_t,
-                               SequentialAllocationPolicy<uint64_t>,
-                               MinRecyclingPolicy<uint64_t>>;
+    using MinGen = IdGenerator<uint64_t, SequentialAllocationPolicy<uint64_t>, MinRecyclingPolicy<uint64_t>>;
     MinGen gen(1);
 
     auto id1 = gen.generate(); // 1
@@ -621,7 +620,7 @@ FATP_TEST_CASE(retry_logic_collision)
         {
             // Verify no duplicates
             FATP_ASSERT_TRUE(generated.find(id.value()) == generated.end(),
-                          "Retry logic should prevent duplicate returns");
+                             "Retry logic should prevent duplicate returns");
             generated.insert(id.value());
             ++success_count;
         }
@@ -698,13 +697,15 @@ FATP_TEST_CASE(threadsafe_batch_generation)
 
     for (size_t t = 0; t < num_threads; ++t)
     {
-        threads.emplace_back([&gen, &thread_ids, t, batch_size]() {
-            auto batch = gen.generate_batch(batch_size);
-            if (batch.has_value())
+        threads.emplace_back(
+            [&gen, &thread_ids, t, batch_size]()
             {
-                thread_ids[t] = std::move(batch.value());
-            }
-        });
+                auto batch = gen.generate_batch(batch_size);
+                if (batch.has_value())
+                {
+                    thread_ids[t] = std::move(batch.value());
+                }
+            });
     }
 
     for (auto& t : threads)
@@ -720,13 +721,12 @@ FATP_TEST_CASE(threadsafe_batch_generation)
         for (uint64_t id : ids)
         {
             FATP_ASSERT_TRUE(all_ids.find(id) == all_ids.end(),
-                          "Batch generation should produce unique IDs across threads");
+                             "Batch generation should produce unique IDs across threads");
             all_ids.insert(id);
         }
     }
 
-    FATP_ASSERT_EQ(all_ids.size(), num_threads * batch_size,
-              "Total unique IDs should equal threads * batch_size");
+    FATP_ASSERT_EQ(all_ids.size(), num_threads * batch_size, "Total unique IDs should equal threads * batch_size");
 
     return true;
 }
@@ -953,8 +953,7 @@ FATP_TEST_CASE(overflow_exhaustion_tracking)
     {
         auto overflow = gen.generate();
         FATP_ASSERT_TRUE(!overflow.has_value(), "Should fail on overflow");
-        FATP_ASSERT_TRUE(overflow.error() == IdError::Overflow, 
-                      "Should get Overflow error, not AlreadyInUse");
+        FATP_ASSERT_TRUE(overflow.error() == IdError::Overflow, "Should get Overflow error, not AlreadyInUse");
     }
 
     // After release and recycle, should still work
@@ -1018,7 +1017,10 @@ FATP_TEST_CASE(custom_allocation_policy)
     {
         uint64_t mNext = 0;
 
-        explicit EvenOnlyPolicy(uint64_t base = 0) : mNext((base + 1) & ~uint64_t(1)) {}
+        explicit EvenOnlyPolicy(uint64_t base = 0)
+            : mNext((base + 1) & ~uint64_t(1))
+        {
+        }
 
         std::optional<uint64_t> next_id(uint64_t, bool) noexcept
         {
@@ -1027,7 +1029,10 @@ FATP_TEST_CASE(custom_allocation_policy)
             return result;
         }
 
-        void reset(uint64_t base = 0) noexcept { mNext = (base + 1) & ~uint64_t(1); }
+        void reset(uint64_t base = 0) noexcept
+        {
+            mNext = (base + 1) & ~uint64_t(1);
+        }
     };
 
     IdGenerator<uint64_t, EvenOnlyPolicy> gen(0);
@@ -1053,9 +1058,9 @@ FATP_TEST_CASE(bounded_allocation)
     // Test BoundedSequentialAllocationPolicy for custom ID ranges
     // Use the policy directly since IdGenerator's constructor only passes base_id
     BoundedSequentialAllocationPolicy<uint8_t> policy(250, 253);
-    
+
     std::vector<uint8_t> ids;
-    
+
     // Should successfully generate 4 IDs: 250, 251, 252, 253
     for (int i = 0; i < 5; ++i)
     {
@@ -1085,59 +1090,65 @@ FATP_TEST_CASE(dirty_max_smaller_id)
     // Test the specific Gemini bug: inserting smaller ID when max is invalid.
     // Uses custom policy to generate IDs: 20, 10, 5 (decreasing order).
     // This is unrealistic but tests the tracker's robustness.
-    
+
     struct DecreasingPolicy
     {
         std::vector<uint64_t> mSequence;
         size_t mIndex = 0;
-        
-        explicit DecreasingPolicy(uint64_t) : mSequence{20, 10, 5, 25} {}
-        
+
+        explicit DecreasingPolicy(uint64_t)
+            : mSequence{20, 10, 5, 25}
+        {
+        }
+
         std::optional<uint64_t> next_id(uint64_t, bool) noexcept
         {
-            if (mIndex >= mSequence.size()) return std::nullopt;
+            if (mIndex >= mSequence.size())
+            {
+                return std::nullopt;
+            }
             return mSequence[mIndex++];
         }
     };
-    
+
     IdGenerator<uint64_t, DecreasingPolicy, NoRecyclingPolicy<uint64_t>> gen(0);
-    
+
     // Generate 20 - Active: {20}, max=20
     auto id20 = gen.generate();
     FATP_ASSERT_TRUE(id20.has_value(), "Generate should succeed");
     FATP_ASSERT_EQ(id20.value(), uint64_t(20), "First ID is 20");
-    
+
     // Generate 10 - Active: {10, 20}, max=20 (10 < 20, no update)
     auto id10 = gen.generate();
     FATP_ASSERT_TRUE(id10.has_value(), "Generate should succeed");
     FATP_ASSERT_EQ(id10.value(), uint64_t(10), "Second ID is 10");
-    
+
     // Release 20 (the max) - Active: {10}, max_valid_=false
     (void)gen.release(id20.value());
     FATP_ASSERT_EQ(gen.active_count(), size_t(1), "Should have 1 active ID");
-    
+
     // Generate 5 - With OLD bug: max would become 5 (WRONG!)
     // With fix: max_valid_ stays false, insert(5) doesn't touch mMax
     auto id5 = gen.generate();
     FATP_ASSERT_TRUE(id5.has_value(), "Generate should succeed");
     FATP_ASSERT_EQ(id5.value(), uint64_t(5), "Third ID is 5");
-    
+
     // Active: {5, 10}, max should be 10 (not 5!)
     FATP_ASSERT_EQ(gen.active_count(), size_t(2), "Should have 2 active IDs");
-    
+
     // Generate 25 - max_element() must recompute, find max=10, return it
     // Then policy gives us 25, we insert it, and since 25 > 10 and max was just
     // validated, max becomes 25
     auto id25 = gen.generate();
     FATP_ASSERT_TRUE(id25.has_value(), "Generate should succeed");
     FATP_ASSERT_EQ(id25.value(), uint64_t(25), "Fourth ID is 25");
-    
+
     // Final state: {5, 10, 25}
     FATP_ASSERT_EQ(gen.active_count(), size_t(3), "Should have 3 active IDs");
     FATP_ASSERT_TRUE(gen.is_active(5), "5 should be active");
     FATP_ASSERT_TRUE(gen.is_active(10), "10 should be active");
     FATP_ASSERT_TRUE(gen.is_active(25), "25 should be active");
-    
+
     return true;
 }
 
@@ -1208,18 +1219,18 @@ FATP_TEST_CASE(dirty_max_insert)
     // Test that inserting when max is invalid doesn't corrupt max tracking.
     // The key scenario: after releasing max, the next max_element() call should
     // correctly recompute from remaining IDs.
-    
+
     // Note: SequentialAllocationPolicy maintains internal counter that never decreases,
     // so released IDs are NOT reused (that's what recycling is for).
-    
+
     using Gen = IdGenerator<uint64_t,
                             SequentialAllocationPolicy<uint64_t>,
                             NoRecyclingPolicy<uint64_t>,
                             fat_p::id_generator::ExpectedErrorPolicy<uint64_t, IdError>,
                             SingleThreadedPolicy>;
-    
-    Gen gen(10);  // Start at 10
-    
+
+    Gen gen(10); // Start at 10
+
     // Generate: 10, 11, 12
     auto id10 = gen.generate();
     auto id11 = gen.generate();
@@ -1228,31 +1239,31 @@ FATP_TEST_CASE(dirty_max_insert)
     FATP_ASSERT_EQ(id10.value(), uint64_t(10), "First ID");
     FATP_ASSERT_EQ(id11.value(), uint64_t(11), "Second ID");
     FATP_ASSERT_EQ(id12.value(), uint64_t(12), "Third ID (max)");
-    
+
     // Release max (12) - invalidates cached max. Active: {10, 11}
     auto rel = gen.release(id12.value());
     FATP_ASSERT_TRUE(rel.has_value(), "Release should succeed");
-    
+
     // Generate next - policy's internal counter is at 13, max_element()=11
     // Policy returns max(13, 11+1) = 13
     auto id13 = gen.generate();
     FATP_ASSERT_TRUE(id13.has_value(), "Generate should succeed");
     FATP_ASSERT_EQ(id13.value(), uint64_t(13), "Sequential policy advances past released IDs");
-    
+
     // Now test max tracking after dirty insert:
     // Active: {10, 11, 13}, max should be 13
     // Release 13 -> max_valid_ = false, Active: {10, 11}
     (void)gen.release(id13.value());
-    
+
     // Release 11 -> Active: {10}, max_valid_ still false (11 != max which was 13)
     (void)gen.release(id11.value());
-    
+
     // Generate - max_element() should scan {10}, find max=10
     // Policy returns max(14, 10+1) = 14
     auto id14 = gen.generate();
     FATP_ASSERT_TRUE(id14.has_value(), "Generate should succeed");
     FATP_ASSERT_EQ(id14.value(), uint64_t(14), "Policy continues advancing");
-    
+
     // Verify correct tracking - should have {10, 14}
     FATP_ASSERT_EQ(gen.active_count(), size_t(2), "Should have 2 active IDs");
     FATP_ASSERT_TRUE(gen.is_active(10), "ID 10 should be active");
@@ -1260,7 +1271,7 @@ FATP_TEST_CASE(dirty_max_insert)
     FATP_ASSERT_TRUE(!gen.is_active(11), "ID 11 should not be active");
     FATP_ASSERT_TRUE(!gen.is_active(12), "ID 12 should not be active");
     FATP_ASSERT_TRUE(!gen.is_active(13), "ID 13 should not be active");
-    
+
     return true;
 }
 
@@ -1271,7 +1282,7 @@ FATP_TEST_CASE(dirty_max_insert)
 // Benchmark configuration constants
 constexpr size_t kBenchmarkIterations = 100000;
 constexpr size_t kStandardWarmup = 1000;
-constexpr size_t kReducedIterations = 10000;  // For slower operations
+constexpr size_t kReducedIterations = 10000; // For slower operations
 
 void benchmark_idgenerator()
 {
@@ -1284,7 +1295,8 @@ void benchmark_idgenerator()
         ids.reserve(kBenchmarkIterations);
 
         double gen_time = measure_perf(
-            [&gen, &ids]() {
+            [&gen, &ids]()
+            {
                 auto id = gen.generate();
                 if (id)
                 {
@@ -1297,7 +1309,8 @@ void benchmark_idgenerator()
 
         // Release benchmark
         double rel_time = measure_perf(
-            [&gen, &ids, i = size_t(0)]() mutable {
+            [&gen, &ids, i = size_t(0)]() mutable
+            {
                 if (i < ids.size())
                 {
                     (void)gen.release(ids[i++]);
@@ -1329,7 +1342,8 @@ void benchmark_idgenerator()
         }
 
         double recycle_time = measure_perf(
-            [&gen]() {
+            [&gen]()
+            {
                 auto id = gen.generate();
                 DoNotOptimize(id);
             },
@@ -1342,7 +1356,8 @@ void benchmark_idgenerator()
     {
         ThreadSafeIdGenerator<uint64_t> safe_gen(1);
         double safe_time = measure_perf(
-            [&safe_gen]() {
+            [&safe_gen]()
+            {
                 auto id = safe_gen.generate();
                 DoNotOptimize(id);
             },
@@ -1365,7 +1380,8 @@ void benchmark_idgenerator()
         }
 
         double query_time = measure_perf(
-            [&gen, &ids, i = size_t(0)]() mutable {
+            [&gen, &ids, i = size_t(0)]() mutable
+            {
                 bool active = gen.is_active(ids[i % ids.size()]);
                 DoNotOptimize(active);
                 ++i;
@@ -1387,7 +1403,8 @@ void benchmark_idgenerator()
         constexpr size_t kBatchIterations = kBenchmarkIterations / kBatchSize;
 
         double batch_gen_time = measure_perf(
-            [&gen, kBatchSize]() {
+            [&gen, kBatchSize]()
+            {
                 auto batch = gen.generate_batch(kBatchSize);
                 DoNotOptimize(batch);
                 // Release for next iteration
@@ -1411,7 +1428,8 @@ void benchmark_idgenerator()
         constexpr size_t kBatchIterations = kReducedIterations / kBatchSize;
 
         double ts_batch_gen_time = measure_perf(
-            [&gen, kBatchSize]() {
+            [&gen, kBatchSize]()
+            {
                 auto batch = gen.generate_batch(kBatchSize);
                 DoNotOptimize(batch);
                 if (batch)
@@ -1435,7 +1453,8 @@ void benchmark_idgenerator()
         uint64_t counter = 1;
 
         double set_insert_time = measure_perf(
-            [&set_tracker, &counter]() {
+            [&set_tracker, &counter]()
+            {
                 set_tracker.insert(counter++);
             },
             kBenchmarkIterations,
@@ -1444,7 +1463,8 @@ void benchmark_idgenerator()
 
         // std::set max_element (rbegin) benchmark
         double set_max_time = measure_perf(
-            [&set_tracker]() {
+            [&set_tracker]()
+            {
                 auto max = *set_tracker.rbegin();
                 DoNotOptimize(max);
             },
@@ -1459,7 +1479,8 @@ void benchmark_idgenerator()
         uint64_t counter = 1;
 
         double tracker_insert_time = measure_perf(
-            [&tracker, &counter]() {
+            [&tracker, &counter]()
+            {
                 tracker.insert(counter++);
             },
             kBenchmarkIterations,
@@ -1467,9 +1488,11 @@ void benchmark_idgenerator()
         std::cout << "ActiveIdTracker insert: " << format_time(tracker_insert_time) << "\n";
 
         double tracker_max_time = measure_perf(
-            [&tracker]() {
+            [&tracker]()
+            {
                 auto max = tracker.max_element();
-                if (max) {
+                if (max)
+                {
                     auto val = *max;
                     DoNotOptimize(val);
                 }

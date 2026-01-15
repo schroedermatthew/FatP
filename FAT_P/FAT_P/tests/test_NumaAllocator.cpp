@@ -50,8 +50,7 @@ FATP_TEST_CASE(numa_info)
 
     FATP_ASSERT_TRUE(NumaInfo::num_nodes() >= 1, "Should have at least 1 NUMA node");
     FATP_ASSERT_TRUE(NumaInfo::current_node() >= 0, "Current node should be non-negative");
-    FATP_ASSERT_TRUE(NumaInfo::current_node() < NumaInfo::num_nodes(),
-                  "Current node should be within range");
+    FATP_ASSERT_TRUE(NumaInfo::current_node() < NumaInfo::num_nodes(), "Current node should be within range");
 
     int cpus = NumaInfo::cpus_on_node(0);
     FATP_ASSERT_TRUE(cpus >= 0, "CPUs on node 0 should be non-negative");
@@ -194,8 +193,8 @@ FATP_TEST_CASE(allocator_rebind)
     ReboundAlloc double_alloc(int_alloc);
 
     FATP_ASSERT_EQ(double_alloc.get_policy().node,
-              int_alloc.get_policy().node,
-              "Rebound allocator should preserve policy state");
+                   int_alloc.get_policy().node,
+                   "Rebound allocator should preserve policy state");
 
     double* ptr = double_alloc.allocate(10);
     FATP_ASSERT_TRUE(ptr != nullptr, "Rebound allocator should work");
@@ -276,9 +275,8 @@ FATP_TEST_CASE(numa_memory_stats)
     for (int node = 0; node < NumaInfo::num_nodes(); ++node)
     {
         auto stats = get_node_memory_stats(node);
-        std::cout << "Node " << node << " - Valid: " << (stats.valid ? "Yes" : "No")
-                  << ", Total: " << stats.total_bytes << ", Free: " << stats.free_bytes
-                  << ", Used: " << stats.used_bytes
+        std::cout << "Node " << node << " - Valid: " << (stats.valid ? "Yes" : "No") << ", Total: " << stats.total_bytes
+                  << ", Free: " << stats.free_bytes << ", Used: " << stats.used_bytes
                   << ", Has Total: " << (stats.has_total ? "Yes" : "No") << "\n";
 
         if (stats.valid)
@@ -286,13 +284,12 @@ FATP_TEST_CASE(numa_memory_stats)
             found_valid_stats = true;
             if (stats.has_total)
             {
-                FATP_ASSERT_TRUE(stats.total_bytes >= stats.free_bytes,
-                              "Total should be >= free");
+                FATP_ASSERT_TRUE(stats.total_bytes >= stats.free_bytes, "Total should be >= free");
 #if defined(__linux__)
                 FATP_ASSERT_TRUE(stats.total_bytes > 0, "Total bytes should be positive on Linux");
                 FATP_ASSERT_EQ(stats.used_bytes,
-                          stats.total_bytes - stats.free_bytes,
-                          "Used should equal total - free");
+                               stats.total_bytes - stats.free_bytes,
+                               "Used should equal total - free");
 #endif
             }
             else
@@ -400,7 +397,8 @@ FATP_TEST_CASE(thread_local_numa_pool_multithread)
 {
     std::atomic<bool> success{true};
 
-    auto worker = [&success](int thread_id) {
+    auto worker = [&success](int thread_id)
+    {
         int* ptr = ThreadLocalNumaPool<int>::allocate(10);
         if (!ptr)
         {
@@ -465,44 +463,48 @@ FATP_TEST_CASE(thread_local_numa_pool_cross_thread_dealloc)
     std::atomic<bool> consumer_done{false};
     std::atomic<bool> producer_ready{false};
 
-    std::thread producer([&]() {
-        // Allocate from producer thread's pool
-        int* ptr = ThreadLocalNumaPool<int>::allocate(10);
-        for (int i = 0; i < 10; ++i)
+    std::thread producer(
+        [&]()
         {
-            ptr[i] = 42 + i;
-        }
-        shared_ptr.store(ptr, std::memory_order_release);
-        producer_ready.store(true, std::memory_order_release);
+            // Allocate from producer thread's pool
+            int* ptr = ThreadLocalNumaPool<int>::allocate(10);
+            for (int i = 0; i < 10; ++i)
+            {
+                ptr[i] = 42 + i;
+            }
+            shared_ptr.store(ptr, std::memory_order_release);
+            producer_ready.store(true, std::memory_order_release);
 
-        // CRITICAL: Wait for consumer to finish before exiting
-        // If we exit early, the pool is destroyed and consumer gets UB
-        while (!consumer_done.load(std::memory_order_acquire))
+            // CRITICAL: Wait for consumer to finish before exiting
+            // If we exit early, the pool is destroyed and consumer gets UB
+            while (!consumer_done.load(std::memory_order_acquire))
+            {
+                std::this_thread::yield();
+            }
+        });
+
+    std::thread consumer(
+        [&]()
         {
-            std::this_thread::yield();
-        }
-    });
+            // Wait for producer to share data
+            while (!producer_ready.load(std::memory_order_acquire))
+            {
+                std::this_thread::yield();
+            }
 
-    std::thread consumer([&]() {
-        // Wait for producer to share data
-        while (!producer_ready.load(std::memory_order_acquire))
-        {
-            std::this_thread::yield();
-        }
+            int* ptr = shared_ptr.load(std::memory_order_acquire);
 
-        int* ptr = shared_ptr.load(std::memory_order_acquire);
+            // Verify memory is accessible (producer is still alive)
+            bool data_valid = (ptr != nullptr && ptr[0] == 42 && ptr[9] == 51);
 
-        // Verify memory is accessible (producer is still alive)
-        bool data_valid = (ptr != nullptr && ptr[0] == 42 && ptr[9] == 51);
+            // Deallocate from consumer thread
+            // This should detect "Source::Pool" in header and safely no-op
+            // (safe because producer thread is still alive)
+            ThreadLocalNumaPool<int>::deallocate(ptr, 10);
 
-        // Deallocate from consumer thread
-        // This should detect "Source::Pool" in header and safely no-op
-        // (safe because producer thread is still alive)
-        ThreadLocalNumaPool<int>::deallocate(ptr, 10);
-
-        // Signal producer that we're done
-        consumer_done.store(data_valid, std::memory_order_release);
-    });
+            // Signal producer that we're done
+            consumer_done.store(data_valid, std::memory_order_release);
+        });
 
     producer.join();
     consumer.join();
@@ -569,8 +571,7 @@ FATP_TEST_CASE(numa_allocator_aligned_types)
     FATP_ASSERT_TRUE(interleaved_ptr != nullptr, "Interleaved policy aligned allocation should succeed");
 
     std::uintptr_t interleaved_addr = reinterpret_cast<std::uintptr_t>(interleaved_ptr);
-    FATP_ASSERT_TRUE(interleaved_addr % 64 == 0,
-                  "NumaInterleavedPolicy must return 64-byte aligned pointer");
+    FATP_ASSERT_TRUE(interleaved_addr % 64 == 0, "NumaInterleavedPolicy must return 64-byte aligned pointer");
 
     interleaved_alloc.deallocate(interleaved_ptr, 5);
 
@@ -622,7 +623,8 @@ void benchmark_numa_allocator()
     constexpr int warmup = 10;
 
     double std_time = measure_perf(
-        []() {
+        []()
+        {
             std::allocator<int> alloc;
             int* ptr = alloc.allocate(N);
             for (size_t i = 0; i < N; ++i)
@@ -638,7 +640,8 @@ void benchmark_numa_allocator()
     std::cout << "std::allocator (" << N << " ints): " << format_time(std_time) << "\n";
 
     double local_time = measure_perf(
-        []() {
+        []()
+        {
             NumaAllocator<int, NumaLocalPolicy> alloc;
             int* ptr = alloc.allocate(N);
             for (size_t i = 0; i < N; ++i)
@@ -657,7 +660,8 @@ void benchmark_numa_allocator()
     std::cout << "Ratio (NUMA/std): " << std::fixed << std::setprecision(2) << ratio << "x\n";
 
     double vec_std_time = measure_perf(
-        []() {
+        []()
+        {
             std::vector<int> vec;
             for (int i = 0; i < 1000; ++i)
             {
@@ -671,7 +675,8 @@ void benchmark_numa_allocator()
     std::cout << "\nstd::vector push_back (1000 elements, no reserve): " << format_time(vec_std_time) << "\n";
 
     double vec_numa_time = measure_perf(
-        []() {
+        []()
+        {
             NumaLocalVector<int> vec;
             for (int i = 0; i < 1000; ++i)
             {
@@ -692,7 +697,8 @@ void benchmark_numa_allocator()
     std::cout << "\n" << colors::cyan() << "ThreadLocalNumaPool Overhead:" << colors::reset() << "\n";
 
     double direct_time = measure_perf(
-        []() {
+        []()
+        {
             NumaAllocator<int, NumaLocalPolicy> alloc;
             int* ptr = alloc.allocate(10);
             DoNotOptimize(ptr);
@@ -707,7 +713,8 @@ void benchmark_numa_allocator()
     // Measure pool-HIT performance: allocate within pool capacity, then reset
     // This measures the fast path (pointer bump) not the overflow path
     double pool_time = measure_perf(
-        []() {
+        []()
+        {
             // Allocate 10 ints, 100 times = 1000 ints per iteration
             // Well within default 1024-element pool capacity
             for (int i = 0; i < 100; ++i)
@@ -720,7 +727,7 @@ void benchmark_numa_allocator()
             // Reset reclaims all pool memory for next iteration
             ThreadLocalNumaPool<int>::reset();
         },
-        1000,  // Fewer outer iterations since we do 100 allocs per
+        1000, // Fewer outer iterations since we do 100 allocs per
         100);
 
     // Normalize to per-allocation time

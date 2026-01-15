@@ -35,8 +35,8 @@ FATP_META:
 #include <unordered_map>
 #include <vector>
 
-#include "StringPool.h"
 #include "FatPTest.h"
+#include "StringPool.h"
 
 namespace fat_p::testing::stringpool
 {
@@ -80,8 +80,7 @@ FATP_TEST_CASE(memory_savings)
 
     for (size_t i = 1; i < pointers.size(); ++i)
     {
-        FATP_ASSERT_EQ(pointers[i], pointers[0],
-                  "All duplicates should point to same string");
+        FATP_ASSERT_EQ(pointers[i], pointers[0], "All duplicates should point to same string");
     }
 
     auto stats = pool.stats();
@@ -136,14 +135,11 @@ FATP_TEST_CASE(long_strings)
     const char* s2 = pool.intern(long_str);
 
     FATP_ASSERT_EQ(s1, s2, "Long strings should be deduplicated");
-    FATP_ASSERT_EQ(std::string_view(s1).size(), size_t(10000),
-              "Long string length should be preserved");
+    FATP_ASSERT_EQ(std::string_view(s1).size(), size_t(10000), "Long string length should be preserved");
 
     auto stats = pool.stats();
-    FATP_ASSERT_EQ(stats.content_bytes, size_t(10001),
-              "Should track 10000 chars + null terminator");
-    FATP_ASSERT_EQ(stats.memory_saved, size_t(10001),
-              "Should save 10001 bytes on second intern");
+    FATP_ASSERT_EQ(stats.content_bytes, size_t(10001), "Should track 10000 chars + null terminator");
+    FATP_ASSERT_EQ(stats.memory_saved, size_t(10001), "Should save 10001 bytes on second intern");
 
     return true;
 }
@@ -152,9 +148,9 @@ FATP_TEST_CASE(reset_stats_accuracy)
 {
     StringPool<> pool;
 
-    pool.intern("test1");  // +6 bytes (5 + null)
-    pool.intern("test2");  // +6 bytes
-    pool.intern("test1");  // hit, saved 6
+    pool.intern("test1"); // +6 bytes (5 + null)
+    pool.intern("test2"); // +6 bytes
+    pool.intern("test1"); // hit, saved 6
 
     auto stats_before = pool.stats();
     FATP_ASSERT_EQ(stats_before.content_bytes, size_t(12), "Pre-reset content_bytes");
@@ -188,10 +184,8 @@ FATP_TEST_CASE(utf8_strings)
     FATP_ASSERT_NE(s1, s3, "Different UTF-8 strings should differ");
     FATP_ASSERT_NE(s1, s4, "Different UTF-8 strings should differ");
 
-    FATP_ASSERT_EQ(std::string_view(s1), std::string_view("Hello World"),
-              "UTF-8 content should be preserved");
-    FATP_ASSERT_EQ(std::string_view(s3), std::string_view("Bonjour le monde"),
-              "UTF-8 content should be preserved");
+    FATP_ASSERT_EQ(std::string_view(s1), std::string_view("Hello World"), "UTF-8 content should be preserved");
+    FATP_ASSERT_EQ(std::string_view(s3), std::string_view("Bonjour le monde"), "UTF-8 content should be preserved");
 
     return true;
 }
@@ -265,14 +259,10 @@ FATP_TEST_CASE(clear_behavior)
     pool.clear();
 
     auto stats_after = pool.stats();
-    FATP_ASSERT_TRUE(stats_after.unique_strings == 0,
-                  "unique_strings should be 0 after clear");
-    FATP_ASSERT_TRUE(stats_after.total_interns == 0,
-                  "total_interns should be 0 after clear");
-    FATP_ASSERT_TRUE(stats_after.content_bytes == 0,
-                  "content_bytes should be 0 after clear");
-    FATP_ASSERT_TRUE(stats_after.memory_saved == 0,
-                  "memory_saved should be 0 after clear");
+    FATP_ASSERT_TRUE(stats_after.unique_strings == 0, "unique_strings should be 0 after clear");
+    FATP_ASSERT_TRUE(stats_after.total_interns == 0, "total_interns should be 0 after clear");
+    FATP_ASSERT_TRUE(stats_after.content_bytes == 0, "content_bytes should be 0 after clear");
+    FATP_ASSERT_TRUE(stats_after.memory_saved == 0, "memory_saved should be 0 after clear");
     FATP_ASSERT_TRUE(pool.size() == 0, "Pool size should be 0 after clear");
     FATP_ASSERT_TRUE(pool.empty(), "Pool should be empty after clear");
 
@@ -294,14 +284,10 @@ FATP_TEST_CASE(reset_stats)
     pool.reset_stats();
 
     auto stats_after = pool.stats();
-    FATP_ASSERT_TRUE(stats_after.unique_strings == 2,
-                  "unique_strings should equal pool size after reset");
-    FATP_ASSERT_TRUE(stats_after.total_interns == 2,
-                  "total_interns should equal pool size after reset");
-    FATP_ASSERT_TRUE(stats_after.memory_saved == 0,
-                  "memory_saved should be 0 after reset");
-    FATP_ASSERT_TRUE(stats_after.content_bytes > 0,
-                  "content_bytes should reflect current pool content");
+    FATP_ASSERT_TRUE(stats_after.unique_strings == 2, "unique_strings should equal pool size after reset");
+    FATP_ASSERT_TRUE(stats_after.total_interns == 2, "total_interns should equal pool size after reset");
+    FATP_ASSERT_TRUE(stats_after.memory_saved == 0, "memory_saved should be 0 after reset");
+    FATP_ASSERT_TRUE(stats_after.content_bytes > 0, "content_bytes should reflect current pool content");
 
     return true;
 }
@@ -320,8 +306,7 @@ FATP_TEST_CASE(contains_and_find)
 
     FATP_ASSERT_TRUE(found != nullptr, "find() should return non-null for existing string");
     FATP_ASSERT_TRUE(not_found == nullptr, "find() should return null for non-existing string");
-    FATP_ASSERT_TRUE(std::string_view(found) == "exists",
-                  "Found string should have correct content");
+    FATP_ASSERT_TRUE(std::string_view(found) == "exists", "Found string should have correct content");
 
     return true;
 }
@@ -382,7 +367,7 @@ FATP_TEST_CASE(hit_rate_calculation)
     double expected_hit_rate = 3.0 / 6.0;
     double tolerance = 0.001;
     FATP_ASSERT_TRUE(std::abs(stats.hit_rate - expected_hit_rate) < tolerance,
-                  "Hit rate should be 0.5 (3 hits out of 6 interns)");
+                     "Hit rate should be 0.5 (3 hits out of 6 interns)");
 
     return true;
 }
@@ -450,8 +435,7 @@ FATP_TEST_CASE(handle_operations)
     StringHandle handle(ptr);
 
     FATP_ASSERT_TRUE(handle.get() == ptr, "get() should return original pointer");
-    FATP_ASSERT_TRUE(std::string_view(handle.c_str()) == "test",
-                  "c_str() should return string content");
+    FATP_ASSERT_TRUE(std::string_view(handle.c_str()) == "test", "c_str() should return string content");
 
     const char* implicit = handle;
     FATP_ASSERT_TRUE(implicit == ptr, "Implicit conversion to const char* should work");
@@ -460,8 +444,7 @@ FATP_TEST_CASE(handle_operations)
     FATP_ASSERT_TRUE(sv == "test", "Implicit conversion to string_view should work");
 
     StringHandle empty;
-    FATP_ASSERT_TRUE(std::string_view(empty.c_str()) == "",
-                  "Empty handle c_str() should return empty string");
+    FATP_ASSERT_TRUE(std::string_view(empty.c_str()) == "", "Empty handle c_str() should return empty string");
 
     return true;
 }
@@ -525,7 +508,8 @@ FATP_TEST_CASE(thread_safety_shared_mutex)
     StringPool<SharedMutexPolicy> pool;
     std::atomic<int> matches{0};
 
-    auto worker = [&pool, &matches]() {
+    auto worker = [&pool, &matches]()
+    {
         for (int i = 0; i < 1000; ++i)
         {
             const char* s = pool.intern("thread_safe_test");
@@ -558,11 +542,11 @@ FATP_TEST_CASE(thread_safety_mutex)
     StringPool<MutexSynchronizationPolicy> pool;
     std::atomic<int> success_count{0};
 
-    auto worker = [&pool, &success_count](int thread_id) {
+    auto worker = [&pool, &success_count](int thread_id)
+    {
         for (int i = 0; i < 500; ++i)
         {
-            std::string unique_str = "thread_" + std::to_string(thread_id) + "_iter_" +
-                                     std::to_string(i);
+            std::string unique_str = "thread_" + std::to_string(thread_id) + "_iter_" + std::to_string(i);
             const char* s = pool.intern(unique_str);
             if (s != nullptr && std::string_view(s) == unique_str)
             {
@@ -601,7 +585,8 @@ FATP_TEST_CASE(concurrent_read_write)
     std::atomic<int> read_success{0};
     std::atomic<int> write_success{0};
 
-    auto reader = [&pool, &read_success]() {
+    auto reader = [&pool, &read_success]()
+    {
         for (int i = 0; i < 500; ++i)
         {
             if (pool.contains("preload_50"))
@@ -611,7 +596,8 @@ FATP_TEST_CASE(concurrent_read_write)
         }
     };
 
-    auto writer = [&pool, &write_success]() {
+    auto writer = [&pool, &write_success]()
+    {
         for (int i = 0; i < 500; ++i)
         {
             const char* s = pool.intern("new_string_" + std::to_string(i));
@@ -647,7 +633,8 @@ FATP_TEST_CASE(concurrent_clear)
     std::atomic<int> clear_count{0};
     bool timed_out = false;
 
-    auto interner = [&pool, &done, &intern_count]() {
+    auto interner = [&pool, &done, &intern_count]()
+    {
         while (!done.load(std::memory_order_acquire))
         {
             pool.intern("test_string");
@@ -655,7 +642,8 @@ FATP_TEST_CASE(concurrent_clear)
         }
     };
 
-    auto clearer = [&pool, &done, &clear_count]() {
+    auto clearer = [&pool, &done, &clear_count]()
+    {
         while (!done.load(std::memory_order_acquire))
         {
             pool.clear();
@@ -670,8 +658,7 @@ FATP_TEST_CASE(concurrent_clear)
 
     // Wait until we have meaningful activity (with timeout to prevent CI hangs)
     auto start = std::chrono::steady_clock::now();
-    while (intern_count.load(std::memory_order_relaxed) < 100 ||
-           clear_count.load(std::memory_order_relaxed) < 3)
+    while (intern_count.load(std::memory_order_relaxed) < 100 || clear_count.load(std::memory_order_relaxed) < 3)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         if (std::chrono::steady_clock::now() - start > std::chrono::seconds(5))
@@ -714,7 +701,8 @@ FATP_TEST_CASE(concurrent_reads)
 
     std::atomic<size_t> successes{0};
 
-    auto reader = [&pool, &successes]() {
+    auto reader = [&pool, &successes]()
+    {
         for (int i = 0; i < 1000; ++i)
         {
             if (pool.contains("key_50"))
@@ -825,7 +813,8 @@ FATP_TEST_CASE(concurrent_stats_consistency)
     std::atomic<bool> done{false};
     std::atomic<int> violations{0};
 
-    auto writer = [&pool, &done]() {
+    auto writer = [&pool, &done]()
+    {
         int i = 0;
         while (!done.load(std::memory_order_acquire))
         {
@@ -833,7 +822,8 @@ FATP_TEST_CASE(concurrent_stats_consistency)
         }
     };
 
-    auto stater = [&pool, &done, &violations]() {
+    auto stater = [&pool, &done, &violations]()
+    {
         while (!done.load(std::memory_order_acquire))
         {
             auto s = pool.stats();
@@ -874,17 +864,20 @@ FATP_TEST_CASE(concurrent_stats_consistency)
 
 void benchmark_string_pool()
 {
-    std::cout << "\n" << colors::cyan() << "StringPool Benchmarks:"
-              << colors::reset() << "\n\n";
+    std::cout << "\n" << colors::cyan() << "StringPool Benchmarks:" << colors::reset() << "\n\n";
 
     // Benchmark: First intern (cache miss)
     {
         StringPool<> pool;
         int i = 0;
-        double time = measure_perf([&pool, &i]() {
-            auto ptr = pool.intern("unique_string_" + std::to_string(i++));
-            DoNotOptimize(ptr);
-        }, 1000, 10);
+        double time = measure_perf(
+            [&pool, &i]()
+            {
+                auto ptr = pool.intern("unique_string_" + std::to_string(i++));
+                DoNotOptimize(ptr);
+            },
+            1000,
+            10);
         std::cout << "First intern (miss): " << format_time(time) << "\n";
     }
 
@@ -893,10 +886,14 @@ void benchmark_string_pool()
         StringPool<> pool;
         pool.intern("cached");
 
-        double time = measure_perf([&pool]() {
-            auto ptr = pool.intern("cached");
-            DoNotOptimize(ptr);
-        }, 10000, 100);
+        double time = measure_perf(
+            [&pool]()
+            {
+                auto ptr = pool.intern("cached");
+                DoNotOptimize(ptr);
+            },
+            10000,
+            100);
         std::cout << "Subsequent intern (hit): " << format_time(time) << "\n";
     }
 
@@ -904,8 +901,7 @@ void benchmark_string_pool()
     {
         StringPool<> pool;
         constexpr int NUM_DUPLICATES = 10000;
-        const std::string str =
-            "This is a moderately long string that gets duplicated many times";
+        const std::string str = "This is a moderately long string that gets duplicated many times";
 
         for (int i = 0; i < NUM_DUPLICATES; ++i)
         {
@@ -914,8 +910,7 @@ void benchmark_string_pool()
 
         auto stats = pool.stats();
         size_t saved = stats.memory_saved;
-        std::cout << "Memory saved (" << NUM_DUPLICATES << " duplicates): "
-                  << colors::green() << saved << " bytes"
+        std::cout << "Memory saved (" << NUM_DUPLICATES << " duplicates): " << colors::green() << saved << " bytes"
                   << colors::reset() << "\n";
     }
 
@@ -924,10 +919,14 @@ void benchmark_string_pool()
         StringPool<SharedMutexPolicy> pool;
         pool.intern("cached");
 
-        double time = measure_perf([&pool]() {
-            auto ptr = pool.intern("cached");
-            DoNotOptimize(ptr);
-        }, 10000, 100);
+        double time = measure_perf(
+            [&pool]()
+            {
+                auto ptr = pool.intern("cached");
+                DoNotOptimize(ptr);
+            },
+            10000,
+            100);
         std::cout << "SharedMutexPolicy intern (hit, single-thread): " << format_time(time) << "\n";
     }
 
@@ -944,13 +943,15 @@ void benchmark_string_pool()
         std::vector<std::thread> threads;
         for (int t = 0; t < THREADS; ++t)
         {
-            threads.emplace_back([&pool]() {
-                for (int i = 0; i < OPS_PER_THREAD; ++i)
+            threads.emplace_back(
+                [&pool]()
                 {
-                    auto ptr = pool.intern("cached_multi");
-                    DoNotOptimize(ptr);
-                }
-            });
+                    for (int i = 0; i < OPS_PER_THREAD; ++i)
+                    {
+                        auto ptr = pool.intern("cached_multi");
+                        DoNotOptimize(ptr);
+                    }
+                });
         }
 
         for (auto& t : threads)
@@ -962,8 +963,8 @@ void benchmark_string_pool()
         double total_ns = std::chrono::duration<double, std::nano>(end - start).count();
         double per_op_ns = total_ns / (THREADS * OPS_PER_THREAD);
 
-        std::cout << "SharedMutexPolicy intern (hit, " << THREADS << " threads): "
-                  << std::fixed << std::setprecision(1) << per_op_ns << " ns/op\n";
+        std::cout << "SharedMutexPolicy intern (hit, " << THREADS << " threads): " << std::fixed << std::setprecision(1)
+                  << per_op_ns << " ns/op\n";
     }
 
     // Benchmark: Multi-threaded SharedMutexPolicy misses (unique strings)
@@ -978,13 +979,15 @@ void benchmark_string_pool()
         std::vector<std::thread> threads;
         for (int t = 0; t < THREADS; ++t)
         {
-            threads.emplace_back([&pool, t]() {
-                for (int i = 0; i < OPS_PER_THREAD; ++i)
+            threads.emplace_back(
+                [&pool, t]()
                 {
-                    auto ptr = pool.intern("unique_" + std::to_string(t * OPS_PER_THREAD + i));
-                    DoNotOptimize(ptr);
-                }
-            });
+                    for (int i = 0; i < OPS_PER_THREAD; ++i)
+                    {
+                        auto ptr = pool.intern("unique_" + std::to_string(t * OPS_PER_THREAD + i));
+                        DoNotOptimize(ptr);
+                    }
+                });
         }
 
         for (auto& t : threads)
@@ -996,8 +999,8 @@ void benchmark_string_pool()
         double total_ns = std::chrono::duration<double, std::nano>(end - start).count();
         double per_op_ns = total_ns / (THREADS * OPS_PER_THREAD);
 
-        std::cout << "SharedMutexPolicy intern (miss, " << THREADS << " threads): "
-                  << std::fixed << std::setprecision(1) << per_op_ns << " ns/op\n";
+        std::cout << "SharedMutexPolicy intern (miss, " << THREADS << " threads): " << std::fixed
+                  << std::setprecision(1) << per_op_ns << " ns/op\n";
     }
 
     // Benchmark: contains() lookup
@@ -1005,10 +1008,14 @@ void benchmark_string_pool()
         StringPool<> pool;
         pool.intern("lookup_target");
 
-        double time = measure_perf([&pool]() {
-            bool found = pool.contains("lookup_target");
-            DoNotOptimize(found);
-        }, 10000, 100);
+        double time = measure_perf(
+            [&pool]()
+            {
+                bool found = pool.contains("lookup_target");
+                DoNotOptimize(found);
+            },
+            10000,
+            100);
         std::cout << "contains() lookup: " << format_time(time) << "\n";
     }
 
@@ -1017,10 +1024,14 @@ void benchmark_string_pool()
         StringPool<> pool;
         pool.intern("find_target");
 
-        double time = measure_perf([&pool]() {
-            auto ptr = pool.find("find_target");
-            DoNotOptimize(ptr);
-        }, 10000, 100);
+        double time = measure_perf(
+            [&pool]()
+            {
+                auto ptr = pool.find("find_target");
+                DoNotOptimize(ptr);
+            },
+            10000,
+            100);
         std::cout << "find() lookup: " << format_time(time) << "\n";
     }
 
@@ -1040,10 +1051,14 @@ void benchmark_string_pool()
             {
                 StringPool<> pool;
                 int i = 0;
-                double time = measure_perf([&pool, &i, base]() {
-                    auto ptr = pool.intern("bulk_" + std::to_string(base + i++));
-                    DoNotOptimize(ptr);
-                }, BULK_SIZE, 0);
+                double time = measure_perf(
+                    [&pool, &i, base]()
+                    {
+                        auto ptr = pool.intern("bulk_" + std::to_string(base + i++));
+                        DoNotOptimize(ptr);
+                    },
+                    BULK_SIZE,
+                    0);
                 total_unreserved += time;
             }
 
@@ -1052,18 +1067,20 @@ void benchmark_string_pool()
                 StringPool<> pool;
                 pool.reserve(BULK_SIZE);
                 int j = 0;
-                double time = measure_perf([&pool, &j, base]() {
-                    auto ptr = pool.intern("bulk_" + std::to_string(base + j++));
-                    DoNotOptimize(ptr);
-                }, BULK_SIZE, 0);
+                double time = measure_perf(
+                    [&pool, &j, base]()
+                    {
+                        auto ptr = pool.intern("bulk_" + std::to_string(base + j++));
+                        DoNotOptimize(ptr);
+                    },
+                    BULK_SIZE,
+                    0);
                 total_reserved += time;
             }
         }
 
-        std::cout << "Bulk insert unique (no reserve): "
-                  << format_time(total_unreserved / TRIALS) << "\n";
-        std::cout << "Bulk insert unique (with reserve): "
-                  << format_time(total_reserved / TRIALS) << "\n";
+        std::cout << "Bulk insert unique (no reserve): " << format_time(total_unreserved / TRIALS) << "\n";
+        std::cout << "Bulk insert unique (with reserve): " << format_time(total_reserved / TRIALS) << "\n";
     }
 }
 

@@ -27,21 +27,21 @@ FATP_META:
     mode: autogen
 */
 
-#include <iostream>
-#include <vector>
 #include <algorithm>
-#include <stdexcept>
-#include <memory>
-#include <string>
 #include <cstring>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
-#include "SmallVector.h"
 #include "FatPTest.h"
+#include "SmallVector.h"
 
 namespace fat_p::testing::smallvector
 {
 
-template<typename T>
+template <typename T>
 class TrackingAllocator
 {
 public:
@@ -55,11 +55,20 @@ public:
     inline static size_t allocation_count = 0;
     inline static size_t deallocation_count = 0;
 
-    TrackingAllocator() : id(next_id++) {}
-    explicit TrackingAllocator(int i) : id(i) {}
+    TrackingAllocator()
+        : id(next_id++)
+    {
+    }
+    explicit TrackingAllocator(int i)
+        : id(i)
+    {
+    }
 
-    template<typename U>
-    TrackingAllocator(const TrackingAllocator<U>& other) : id(other.id) {}
+    template <typename U>
+    TrackingAllocator(const TrackingAllocator<U>& other)
+        : id(other.id)
+    {
+    }
 
     T* allocate(size_t n)
     {
@@ -73,11 +82,17 @@ public:
         ::operator delete(p);
     }
 
-    template<typename U>
-    bool operator==(const TrackingAllocator<U>& other) const { return id == other.id; }
+    template <typename U>
+    bool operator==(const TrackingAllocator<U>& other) const
+    {
+        return id == other.id;
+    }
 
-    template<typename U>
-    bool operator!=(const TrackingAllocator<U>& other) const { return id != other.id; }
+    template <typename U>
+    bool operator!=(const TrackingAllocator<U>& other) const
+    {
+        return id != other.id;
+    }
 
     static void reset_counts()
     {
@@ -89,12 +104,16 @@ public:
 struct ThrowOnCopy
 {
     int value;
-    static int operation_count;  // Tracks all potentially-throwing operations (copy AND move)
+    static int operation_count; // Tracks all potentially-throwing operations (copy AND move)
     static int throw_after;
 
-    ThrowOnCopy(int v = 0) : value(v) {}
+    ThrowOnCopy(int v = 0)
+        : value(v)
+    {
+    }
 
-    ThrowOnCopy(const ThrowOnCopy& other) : value(other.value)
+    ThrowOnCopy(const ThrowOnCopy& other)
+        : value(other.value)
     {
         if (++operation_count >= throw_after && throw_after > 0)
         {
@@ -112,14 +131,15 @@ struct ThrowOnCopy
         return *this;
     }
 
-    ThrowOnCopy(ThrowOnCopy&& other) : value(other.value)
+    ThrowOnCopy(ThrowOnCopy&& other)
+        : value(other.value)
     {
         if (++operation_count >= throw_after && throw_after > 0)
         {
             throw std::runtime_error("Move threw");
         }
     }
-    
+
     ThrowOnCopy& operator=(ThrowOnCopy&& other)
     {
         if (++operation_count >= throw_after && throw_after > 0)
@@ -130,9 +150,16 @@ struct ThrowOnCopy
         return *this;
     }
 
-    bool operator==(const ThrowOnCopy& other) const { return value == other.value; }
+    bool operator==(const ThrowOnCopy& other) const
+    {
+        return value == other.value;
+    }
 
-    static void reset() { operation_count = 0; throw_after = -1; }
+    static void reset()
+    {
+        operation_count = 0;
+        throw_after = -1;
+    }
 };
 
 int ThrowOnCopy::operation_count = 0;
@@ -142,7 +169,7 @@ int ThrowOnCopy::throw_after = -1;
 // NOTE: This is a QoI-style heuristic, not a formal proof of mode.
 // It assumes inline_buffer_ lives within the object and that heap
 // allocations won't land inside that address range.
-template<typename T, size_t N, typename A>
+template <typename T, size_t N, typename A>
 bool is_using_inline_storage(const SmallVector<T, N, A>& v)
 {
     const char* obj_start = reinterpret_cast<const char*>(&v);
@@ -231,7 +258,7 @@ FATP_TEST_CASE(copy_assignment)
     FATP_ASSERT_TRUE(v4[0] == 10 && v4[1] == 20, "Values correct after copy assignment");
 
     SmallVector<int, 4> v5 = {1, 2, 3};
-    auto& self_ref = v5;  // Use reference to avoid -Wself-assign-overloaded
+    auto& self_ref = v5; // Use reference to avoid -Wself-assign-overloaded
     v5 = self_ref;
     FATP_ASSERT_TRUE(v5.size() == 3, "Self-assignment works");
     FATP_ASSERT_TRUE(v5[0] == 1 && v5[1] == 2 && v5[2] == 3, "Self-assignment preserves values");
@@ -258,7 +285,7 @@ FATP_TEST_CASE(move_assignment)
     FATP_ASSERT_TRUE(v3.size() == 0, "Heap move assignment empties source");
 
     SmallVector<int, 4> v5 = {1, 2, 3};
-    auto& v5_ref = v5;  // Indirect reference to avoid -Wself-move
+    auto& v5_ref = v5; // Indirect reference to avoid -Wself-move
     v5 = std::move(v5_ref);
     FATP_ASSERT_TRUE(v5.size() == 3, "Self-move assignment works");
 
@@ -863,41 +890,41 @@ FATP_TEST_CASE(swap_mixed_mode)
 {
     // Test inline-heap swap
     {
-        SmallVector<int, 4> inline_vec = {1, 2};              // inline (2 <= 4)
-        SmallVector<int, 4> heap_vec = {10, 20, 30, 40, 50};  // heap (5 > 4)
-        
+        SmallVector<int, 4> inline_vec = {1, 2};             // inline (2 <= 4)
+        SmallVector<int, 4> heap_vec = {10, 20, 30, 40, 50}; // heap (5 > 4)
+
         FATP_ASSERT_TRUE(is_using_inline_storage(inline_vec), "inline_vec starts inline");
         FATP_ASSERT_TRUE(!is_using_inline_storage(heap_vec), "heap_vec starts on heap");
-        
+
         int* heap_ptr_before = heap_vec.data();
-        
+
         inline_vec.swap(heap_vec);
-        
+
         // After swap: inline_vec should have heap's data, heap_vec should be inline
         FATP_ASSERT_TRUE(inline_vec.size() == 5, "inline_vec has 5 elements after swap");
         FATP_ASSERT_TRUE(inline_vec.data() == heap_ptr_before, "inline_vec stole heap pointer");
         FATP_ASSERT_TRUE(inline_vec[0] == 10 && inline_vec[4] == 50, "inline_vec has heap values");
-        
+
         FATP_ASSERT_TRUE(heap_vec.size() == 2, "heap_vec has 2 elements after swap");
         FATP_ASSERT_TRUE(is_using_inline_storage(heap_vec), "heap_vec is now inline");
         FATP_ASSERT_TRUE(heap_vec[0] == 1 && heap_vec[1] == 2, "heap_vec has inline values");
     }
-    
+
     // Test heap-inline swap (reverse direction)
     {
-        SmallVector<int, 4> heap_vec = {10, 20, 30, 40, 50};  // heap
-        SmallVector<int, 4> inline_vec = {1, 2};              // inline
-        
+        SmallVector<int, 4> heap_vec = {10, 20, 30, 40, 50}; // heap
+        SmallVector<int, 4> inline_vec = {1, 2};             // inline
+
         int* heap_ptr_before = heap_vec.data();
-        
+
         heap_vec.swap(inline_vec);
-        
+
         FATP_ASSERT_TRUE(inline_vec.size() == 5, "inline_vec has 5 elements");
         FATP_ASSERT_TRUE(inline_vec.data() == heap_ptr_before, "inline_vec stole heap pointer");
         FATP_ASSERT_TRUE(heap_vec.size() == 2, "heap_vec has 2 elements");
         FATP_ASSERT_TRUE(is_using_inline_storage(heap_vec), "heap_vec is now inline");
     }
-    
+
     return true;
 }
 
@@ -905,106 +932,106 @@ FATP_TEST_CASE(move_pointer_steal)
 {
     // Verify move construction steals heap pointer (O(1) operation)
     {
-        SmallVector<int, 2> v1 = {1, 2, 3, 4, 5};  // heap
+        SmallVector<int, 2> v1 = {1, 2, 3, 4, 5}; // heap
         int* original_ptr = v1.data();
-        
+
         SmallVector<int, 2> v2(std::move(v1));
-        
+
         FATP_ASSERT_TRUE(v2.data() == original_ptr, "Move construction stole heap pointer");
         FATP_ASSERT_TRUE(v2.size() == 5, "Moved vector has correct size");
         FATP_ASSERT_TRUE(v1.size() == 0, "Source vector is empty");
         FATP_ASSERT_TRUE(is_using_inline_storage(v1), "Source reverted to inline storage");
     }
-    
+
     // Verify move assignment steals heap pointer
     {
-        SmallVector<int, 2> v1 = {1, 2, 3, 4, 5};  // heap
+        SmallVector<int, 2> v1 = {1, 2, 3, 4, 5}; // heap
         int* original_ptr = v1.data();
-        
+
         SmallVector<int, 2> v2;
         v2 = std::move(v1);
-        
+
         FATP_ASSERT_TRUE(v2.data() == original_ptr, "Move assignment stole heap pointer");
         FATP_ASSERT_TRUE(v2.size() == 5, "Moved vector has correct size");
         FATP_ASSERT_TRUE(v1.size() == 0, "Source vector is empty");
     }
-    
+
     // Verify inline move doesn't steal (copies elements)
     {
-        SmallVector<int, 4> v1 = {1, 2, 3};  // inline
+        SmallVector<int, 4> v1 = {1, 2, 3}; // inline
         int* original_ptr = v1.data();
-        
+
         SmallVector<int, 4> v2(std::move(v1));
-        
+
         // Inline data is not stolen - mIt_LIT_0__s inline buffer
         FATP_ASSERT_TRUE(v2.data() != original_ptr, "Inline move did NOT steal pointer");
         FATP_ASSERT_TRUE(is_using_inline_storage(v2), "v2 uses inline storage");
         FATP_ASSERT_TRUE(v2.size() == 3, "v2 has correct size");
         FATP_ASSERT_TRUE(v2[0] == 1 && v2[2] == 3, "v2 has correct values");
     }
-    
+
     return true;
 }
 
 FATP_TEST_CASE(shrink_to_fit_pointer_change)
 {
     SmallVector<int, 4> v;
-    
+
     // Fill to heap
     for (int i = 0; i < 10; ++i)
     {
         v.push_back(i);
     }
-    
+
     FATP_ASSERT_TRUE(!is_using_inline_storage(v), "Vector is on heap");
     int* heap_ptr = v.data();
-    
+
     // Shrink to inline-compatible size
     v.resize(3);
     FATP_ASSERT_TRUE(v.data() == heap_ptr, "Still on heap after resize");
-    
+
     // shrink_to_fit should move back to inline
     v.shrink_to_fit();
-    
+
     FATP_ASSERT_TRUE(is_using_inline_storage(v), "Vector is now inline after shrink_to_fit");
     FATP_ASSERT_TRUE(v.data() != heap_ptr, "Pointer changed to inline buffer");
     FATP_ASSERT_TRUE(v.capacity() == 4, "Capacity is InlineCapacity");
     FATP_ASSERT_TRUE(v.size() == 3, "Size preserved");
     FATP_ASSERT_TRUE(v[0] == 0 && v[1] == 1 && v[2] == 2, "Values preserved");
-    
+
     return true;
 }
 
 FATP_TEST_CASE(iterator_invalidation)
 {
     SmallVector<int, 4> v = {1, 2, 3, 4};
-    
+
     // Iterators should remain valid after operations that don't reallocate
     auto it = v.begin() + 2;
     int* ptr = &v[2];
-    
-    v[0] = 10;  // Modification doesn't invalidate
+
+    v[0] = 10; // Modification doesn't invalidate
     FATP_ASSERT_TRUE(*it == 3, "Iterator valid after element modification");
     FATP_ASSERT_TRUE(*ptr == 3, "Pointer valid after element modification");
-    
+
     // push_back that triggers reallocation invalidates iterators
-    v.push_back(5);  // This grows from inline to heap
+    v.push_back(5); // This grows from inline to heap
     // Note: it and ptr are now invalid - we can't test them
-    
+
     // Get new iterators after reallocation
     auto new_it = v.begin();
     FATP_ASSERT_TRUE(*new_it == 10, "New iterator works after reallocation");
     FATP_ASSERT_TRUE(v.size() == 5, "Size correct after growth");
-    
+
     // Reserve doesn't invalidate if no reallocation needed
-    v.reserve(v.capacity());  // No-op
+    v.reserve(v.capacity()); // No-op
     auto it2 = v.begin();
     FATP_ASSERT_TRUE(*it2 == 10, "Iterator valid after no-op reserve");
-    
+
     // Erase invalidates iterators at and after erased position
     v.erase(v.begin());
     FATP_ASSERT_TRUE(v[0] == 2, "First element after erase");
-    
+
     return true;
 }
 
@@ -1017,7 +1044,7 @@ FATP_TEST_CASE(reserve_edge_cases)
         FATP_ASSERT_TRUE(v.capacity() == 4, "reserve(0) keeps InlineCapacity");
         FATP_ASSERT_TRUE(v.empty(), "reserve(0) keeps empty");
     }
-    
+
     // reserve(0) on non-empty vector
     {
         SmallVector<int, 4> v = {1, 2, 3};
@@ -1025,7 +1052,7 @@ FATP_TEST_CASE(reserve_edge_cases)
         FATP_ASSERT_TRUE(v.capacity() == 4, "reserve(0) doesn't shrink");
         FATP_ASSERT_TRUE(v.size() == 3, "reserve(0) keeps elements");
     }
-    
+
     // reserve less than current capacity
     {
         SmallVector<int, 4> v;
@@ -1034,7 +1061,7 @@ FATP_TEST_CASE(reserve_edge_cases)
         v.reserve(5);
         FATP_ASSERT_TRUE(v.capacity() == cap, "reserve less than capacity is no-op");
     }
-    
+
     // reserve exact InlineCapacity
     {
         SmallVector<int, 4> v;
@@ -1042,7 +1069,7 @@ FATP_TEST_CASE(reserve_edge_cases)
         FATP_ASSERT_TRUE(v.capacity() == 4, "reserve(InlineCapacity) stays inline");
         FATP_ASSERT_TRUE(is_using_inline_storage(v), "Still inline after reserve(InlineCapacity)");
     }
-    
+
     // reserve InlineCapacity + 1 forces heap
     {
         SmallVector<int, 4> v;
@@ -1050,7 +1077,7 @@ FATP_TEST_CASE(reserve_edge_cases)
         FATP_ASSERT_TRUE(v.capacity() >= 5, "reserve(5) increases capacity");
         FATP_ASSERT_TRUE(!is_using_inline_storage(v), "Moved to heap after reserve(5)");
     }
-    
+
     return true;
 }
 
@@ -1064,7 +1091,7 @@ FATP_TEST_CASE(insert_boundaries)
         FATP_ASSERT_TRUE(v[0] == 1, "Element at begin");
         FATP_ASSERT_TRUE(v.size() == 4, "Size increased");
     }
-    
+
     // Insert at end
     {
         SmallVector<int, 4> v = {1, 2, 3};
@@ -1073,7 +1100,7 @@ FATP_TEST_CASE(insert_boundaries)
         FATP_ASSERT_TRUE(v.back() == 4, "Element at end");
         FATP_ASSERT_TRUE(v.size() == 4, "Size increased");
     }
-    
+
     // Insert multiple at begin
     {
         SmallVector<int, 8> v = {3, 4};
@@ -1081,7 +1108,7 @@ FATP_TEST_CASE(insert_boundaries)
         FATP_ASSERT_TRUE(*it == 1, "Insert multiple at begin");
         FATP_ASSERT_TRUE(v[0] == 1 && v[1] == 2 && v[2] == 3, "Elements correct");
     }
-    
+
     // Insert multiple at end
     {
         SmallVector<int, 8> v = {1, 2};
@@ -1089,7 +1116,7 @@ FATP_TEST_CASE(insert_boundaries)
         FATP_ASSERT_TRUE(*it == 3, "Insert multiple at end");
         FATP_ASSERT_TRUE(v[2] == 3 && v[3] == 4, "Elements correct");
     }
-    
+
     // Insert 0 elements (no-op)
     {
         SmallVector<int, 4> v = {1, 2, 3};
@@ -1097,7 +1124,7 @@ FATP_TEST_CASE(insert_boundaries)
         FATP_ASSERT_TRUE(it == v.begin() + 1, "Insert 0 returns position");
         FATP_ASSERT_TRUE(v.size() == 3, "Size unchanged");
     }
-    
+
     // Insert into empty vector
     {
         SmallVector<int, 4> v;
@@ -1105,7 +1132,7 @@ FATP_TEST_CASE(insert_boundaries)
         FATP_ASSERT_TRUE(*it == 42, "Insert into empty");
         FATP_ASSERT_TRUE(v.size() == 1, "Size is 1");
     }
-    
+
     return true;
 }
 
@@ -1121,32 +1148,33 @@ FATP_TEST_CASE(insert_self_range_stress_int)
     // Compares against std::vector as reference implementation
     using Vec = SmallVector<int, 8>;
 
-    for (int initial_size = 0; initial_size <= 20; ++initial_size) {
+    for (int initial_size = 0; initial_size <= 20; ++initial_size)
+    {
         Vec base;
         for (int i = 0; i < initial_size; ++i)
+        {
             base.push_back(i);
+        }
 
-        for (int first = 0; first <= initial_size; ++first) {
-            for (int last = first; last <= initial_size; ++last) {
-                for (int pos = 0; pos <= initial_size; ++pos) {
-
+        for (int first = 0; first <= initial_size; ++first)
+        {
+            for (int last = first; last <= initial_size; ++last)
+            {
+                for (int pos = 0; pos <= initial_size; ++pos)
+                {
                     // Reference behavior using std::vector
                     std::vector<int> ref_vec(base.begin(), base.end());
-                    ref_vec.insert(ref_vec.begin() + pos,
-                                   ref_vec.begin() + first,
-                                   ref_vec.begin() + last);
+                    ref_vec.insert(ref_vec.begin() + pos, ref_vec.begin() + first, ref_vec.begin() + last);
 
                     // Test SmallVector self-insert
                     Vec v = base;
-                    v.insert(v.begin() + pos,
-                             v.begin() + first,
-                             v.begin() + last);
+                    v.insert(v.begin() + pos, v.begin() + first, v.begin() + last);
 
-                    FATP_ASSERT_TRUE(v.size() == ref_vec.size(), 
-                        "Size mismatch in self-range insert");
+                    FATP_ASSERT_TRUE(v.size() == ref_vec.size(), "Size mismatch in self-range insert");
 
                     bool values_match = true;
-                    for (size_t i = 0; i < v.size() && values_match; ++i) {
+                    for (size_t i = 0; i < v.size() && values_match; ++i)
+                    {
                         values_match = (v[i] == ref_vec[i]);
                     }
                     FATP_ASSERT_TRUE(values_match, "Value mismatch in self-range insert");
@@ -1161,14 +1189,23 @@ FATP_TEST_CASE(insert_self_range_stress_move_only)
 {
     // Verify move-only types work with insert from external source
     // Note: Self-insert with move iterators is not well-defined (moves invalidate source)
-    struct MoveOnly {
+    struct MoveOnly
+    {
         int value;
-        explicit MoveOnly(int v) : value(v) {}
-        MoveOnly(MoveOnly&& other) noexcept : value(other.value) { other.value = -1; }
-        MoveOnly& operator=(MoveOnly&& other) noexcept { 
-            value = other.value; 
-            other.value = -1; 
-            return *this; 
+        explicit MoveOnly(int v)
+            : value(v)
+        {
+        }
+        MoveOnly(MoveOnly&& other) noexcept
+            : value(other.value)
+        {
+            other.value = -1;
+        }
+        MoveOnly& operator=(MoveOnly&& other) noexcept
+        {
+            value = other.value;
+            other.value = -1;
+            return *this;
         }
 
         MoveOnly(const MoveOnly&) = delete;
@@ -1181,16 +1218,16 @@ FATP_TEST_CASE(insert_self_range_stress_move_only)
     {
         Vec v;
         for (int i = 0; i < 4; ++i)
+        {
             v.emplace_back(i);
+        }
 
         std::vector<MoveOnly> src;
         src.emplace_back(10);
         src.emplace_back(20);
         src.emplace_back(30);
 
-        v.insert(v.begin() + 2, 
-                 std::make_move_iterator(src.begin()),
-                 std::make_move_iterator(src.end()));
+        v.insert(v.begin() + 2, std::make_move_iterator(src.begin()), std::make_move_iterator(src.end()));
 
         FATP_ASSERT_TRUE(v.size() == 7, "Move insert: size");
         FATP_ASSERT_TRUE(v[0].value == 0, "Move insert: original[0]");
@@ -1203,15 +1240,15 @@ FATP_TEST_CASE(insert_self_range_stress_move_only)
     // Test insert triggering reallocation with move-only type
     {
         Vec v;
-        for (int i = 0; i < 8; ++i)  // Fill to inline capacity
+        for (int i = 0; i < 8; ++i) // Fill to inline capacity
+        {
             v.emplace_back(i);
+        }
 
         std::vector<MoveOnly> src;
         src.emplace_back(100);
 
-        v.insert(v.begin() + 4,
-                 std::make_move_iterator(src.begin()),
-                 std::make_move_iterator(src.end()));
+        v.insert(v.begin() + 4, std::make_move_iterator(src.begin()), std::make_move_iterator(src.end()));
 
         FATP_ASSERT_TRUE(v.size() == 9, "Move insert realloc: size");
         FATP_ASSERT_TRUE(v[4].value == 100, "Move insert realloc: inserted value");
@@ -1227,22 +1264,27 @@ FATP_TEST_CASE(insert_self_range_throwing_copy)
 
     Vec v;
     for (int i = 0; i < 12; ++i)
+    {
         v.emplace_back(i);
+    }
 
     // Save original state
     std::vector<int> original_values;
     for (const auto& e : v)
+    {
         original_values.push_back(e.value);
+    }
 
     ThrowOnCopy::reset();
-    ThrowOnCopy::throw_after = 3;  // Throw after 3 operations
+    ThrowOnCopy::throw_after = 3; // Throw after 3 operations
 
     bool threw = false;
-    try {
-        v.insert(v.begin() + 3,
-                 v.begin() + 2,
-                 v.begin() + 7);
-    } catch (const std::runtime_error&) {
+    try
+    {
+        v.insert(v.begin() + 3, v.begin() + 2, v.begin() + 7);
+    }
+    catch (const std::runtime_error&)
+    {
         threw = true;
     }
 
@@ -1252,10 +1294,11 @@ FATP_TEST_CASE(insert_self_range_throwing_copy)
     // If it threw, we have basic guarantee (valid but unspecified state)
     // Just verify we can still use the container
     FATP_ASSERT_TRUE(v.size() > 0 || threw, "Container should be usable after exception");
-    
+
     // Verify we can iterate without crashing
     size_t count = 0;
-    for (const auto& e : v) {
+    for (const auto& e : v)
+    {
         (void)e.value;
         ++count;
     }
@@ -1273,7 +1316,7 @@ FATP_TEST_CASE(insert_self_range_specific_cases)
     {
         Vec v = {1, 2, 3, 4, 5, 6};
         v.reserve(16);
-        v.insert(v.begin() + 1, v.begin() + 3, v.begin() + 5);  // Insert [4,5] at pos 1
+        v.insert(v.begin() + 1, v.begin() + 3, v.begin() + 5); // Insert [4,5] at pos 1
         // Expected: {1, 4, 5, 2, 3, 4, 5, 6}
         FATP_ASSERT_TRUE(v.size() == 8, "Case 1: size");
         FATP_ASSERT_TRUE(v[0] == 1 && v[1] == 4 && v[2] == 5 && v[3] == 2, "Case 1: values");
@@ -1283,7 +1326,7 @@ FATP_TEST_CASE(insert_self_range_specific_cases)
     {
         Vec v = {1, 2, 3, 4, 5, 6};
         v.reserve(16);
-        v.insert(v.begin() + 5, v.begin(), v.begin() + 2);  // Insert [1,2] at pos 5
+        v.insert(v.begin() + 5, v.begin(), v.begin() + 2); // Insert [1,2] at pos 5
         // Expected: {1, 2, 3, 4, 5, 1, 2, 6}
         FATP_ASSERT_TRUE(v.size() == 8, "Case 2: size");
         FATP_ASSERT_TRUE(v[5] == 1 && v[6] == 2 && v[7] == 6, "Case 2: values");
@@ -1293,7 +1336,7 @@ FATP_TEST_CASE(insert_self_range_specific_cases)
     {
         Vec v = {1, 2, 3, 4, 5, 6};
         v.reserve(16);
-        v.insert(v.begin() + 2, v.begin() + 1, v.begin() + 4);  // Insert [2,3,4] at pos 2
+        v.insert(v.begin() + 2, v.begin() + 1, v.begin() + 4); // Insert [2,3,4] at pos 2
         // Expected: {1, 2, 2, 3, 4, 3, 4, 5, 6}
         FATP_ASSERT_TRUE(v.size() == 9, "Case 3: size");
         FATP_ASSERT_TRUE(v[2] == 2 && v[3] == 3 && v[4] == 4, "Case 3: inserted values");
@@ -1303,7 +1346,7 @@ FATP_TEST_CASE(insert_self_range_specific_cases)
     {
         Vec v = {1, 2, 3, 4};
         // Don't reserve - force reallocation
-        v.insert(v.begin() + 2, v.begin(), v.begin() + 2);  // Insert [1,2] at pos 2
+        v.insert(v.begin() + 2, v.begin(), v.begin() + 2); // Insert [1,2] at pos 2
         // Expected: {1, 2, 1, 2, 3, 4}
         FATP_ASSERT_TRUE(v.size() == 6, "Case 4: size");
         FATP_ASSERT_TRUE(v[0] == 1 && v[2] == 1 && v[3] == 2 && v[4] == 3, "Case 4: values");
@@ -1313,7 +1356,7 @@ FATP_TEST_CASE(insert_self_range_specific_cases)
     {
         Vec v = {1, 2, 3};
         v.reserve(16);
-        v.insert(v.begin() + 1, v.begin(), v.end());  // Insert [1,2,3] at pos 1
+        v.insert(v.begin() + 1, v.begin(), v.end()); // Insert [1,2,3] at pos 1
         // Expected: {1, 1, 2, 3, 2, 3}
         FATP_ASSERT_TRUE(v.size() == 6, "Case 5: size");
         FATP_ASSERT_TRUE(v[0] == 1 && v[1] == 1 && v[2] == 2 && v[3] == 3, "Case 5: values");
@@ -1331,44 +1374,44 @@ FATP_TEST_CASE(swap_edge_cases)
         FATP_ASSERT_TRUE(v.size() == 3, "Self-swap preserves size");
         FATP_ASSERT_TRUE(v[0] == 1 && v[2] == 3, "Self-swap preserves values");
     }
-    
+
     // Swap with empty (inline-inline, one empty)
     {
         SmallVector<int, 4> v1 = {1, 2, 3};
         SmallVector<int, 4> v2;
-        
+
         v1.swap(v2);
-        
+
         FATP_ASSERT_TRUE(v1.empty(), "v1 is now empty");
         FATP_ASSERT_TRUE(v2.size() == 3, "v2 has elements");
         FATP_ASSERT_TRUE(v2[0] == 1, "v2 has correct values");
     }
-    
+
     // Swap two empty vectors
     {
         SmallVector<int, 4> v1;
         SmallVector<int, 4> v2;
-        
+
         v1.swap(v2);
-        
+
         FATP_ASSERT_TRUE(v1.empty() && v2.empty(), "Both still empty");
     }
-    
+
     // Swap heap with empty
     {
-        SmallVector<int, 2> v1 = {1, 2, 3, 4, 5};  // heap
-        SmallVector<int, 2> v2;  // inline empty
-        
+        SmallVector<int, 2> v1 = {1, 2, 3, 4, 5}; // heap
+        SmallVector<int, 2> v2;                   // inline empty
+
         int* heap_ptr = v1.data();
-        
+
         v1.swap(v2);
-        
+
         FATP_ASSERT_TRUE(v1.empty(), "v1 is empty");
         FATP_ASSERT_TRUE(is_using_inline_storage(v1), "v1 is inline");
         FATP_ASSERT_TRUE(v2.size() == 5, "v2 has 5 elements");
         FATP_ASSERT_TRUE(v2.data() == heap_ptr, "v2 stole heap");
     }
-    
+
     return true;
 }
 
@@ -1382,7 +1425,10 @@ FATP_TEST_CASE(swap_edge_cases)
 struct FuzzRNG
 {
     uint32_t state;
-    explicit FuzzRNG(uint32_t s) : state(s) {}
+    explicit FuzzRNG(uint32_t s)
+        : state(s)
+    {
+    }
 
     uint32_t next()
     {
@@ -1398,7 +1444,7 @@ struct FuzzRNG
 
 /**
  * @brief Fuzzer test: random operations with std::vector as oracle
- * 
+ *
  * Runs deterministic random sequences of operations on both SmallVector
  * and std::vector, comparing results after each operation. If they ever
  * diverge, reports the seed for reproduction.
@@ -1421,124 +1467,133 @@ FATP_TEST_CASE(fuzz_operations)
 
             switch (op)
             {
-            case 0: // push_back
-            {
-                int v = rng.range(0, 1000);
-                sv.push_back(v);
-                ref.push_back(v);
-                break;
-            }
-            case 1: // emplace_back
-            {
-                int v = rng.range(0, 1000);
-                sv.emplace_back(v);
-                ref.emplace_back(v);
-                break;
-            }
-            case 2: // insert single
-            {
-                // Allow insert into empty (pos=0 is valid for empty vector)
-                size_t pos = ref.empty() ? 0 : static_cast<size_t>(rng.range(0, static_cast<int>(ref.size())));
-                int v = rng.range(0, 1000);
-                sv.insert(sv.begin() + static_cast<ptrdiff_t>(pos), v);
-                ref.insert(ref.begin() + static_cast<ptrdiff_t>(pos), v);
-                break;
-            }
-            case 3: // insert count
-            {
-                if (ref.size() > 20) break; // Limit size growth
-                size_t pos = ref.empty() ? 0 : static_cast<size_t>(rng.range(0, static_cast<int>(ref.size())));
-                size_t count = static_cast<size_t>(rng.range(1, 3));
-                int v = rng.range(0, 1000);
-                sv.insert(sv.begin() + static_cast<ptrdiff_t>(pos), count, v);
-                ref.insert(ref.begin() + static_cast<ptrdiff_t>(pos), count, v);
-                break;
-            }
-            case 4: // erase single
-            {
-                if (ref.empty()) break;
-                size_t pos = static_cast<size_t>(rng.range(0, static_cast<int>(ref.size()) - 1));
-                sv.erase(sv.begin() + static_cast<ptrdiff_t>(pos));
-                ref.erase(ref.begin() + static_cast<ptrdiff_t>(pos));
-                break;
-            }
-            case 5: // erase range
-            {
-                if (ref.size() < 2) break;
-                size_t first = static_cast<size_t>(rng.range(0, static_cast<int>(ref.size()) - 1));
-                size_t last = static_cast<size_t>(rng.range(static_cast<int>(first), static_cast<int>(ref.size())));
-                sv.erase(sv.begin() + static_cast<ptrdiff_t>(first), 
-                         sv.begin() + static_cast<ptrdiff_t>(last));
-                ref.erase(ref.begin() + static_cast<ptrdiff_t>(first), 
-                          ref.begin() + static_cast<ptrdiff_t>(last));
-                break;
-            }
-            case 6: // resize (shrink or grow)
-            {
-                size_t n = static_cast<size_t>(rng.range(0, 16));
-                sv.resize(n);
-                ref.resize(n);
-                break;
-            }
-            case 7: // resize with value
-            {
-                size_t n = static_cast<size_t>(rng.range(0, 16));
-                int v = rng.range(0, 1000);
-                sv.resize(n, v);
-                ref.resize(n, v);
-                break;
-            }
-            case 8: // reserve
-            {
-                size_t n = static_cast<size_t>(rng.range(0, 32));
-                sv.reserve(n);
-                ref.reserve(n);
-                break;
-            }
-            case 9: // clear
-            {
-                sv.clear();
-                ref.clear();
-                break;
-            }
-            case 10: // shrink_to_fit
-            {
-                // NOTE: std::vector::shrink_to_fit() is non-binding (may be ignored).
-                // SmallVector::shrink_to_fit() actively demotes to inline when possible.
-                // We only compare size/content, not capacity, so this oracle comparison is valid.
-                sv.shrink_to_fit();
-                ref.shrink_to_fit();
-                break;
-            }
-            case 11: // assign count
-            {
-                size_t count = static_cast<size_t>(rng.range(0, 10));
-                int v = rng.range(0, 1000);
-                sv.assign(count, v);
-                ref.assign(count, v);
-                break;
-            }
-            case 12: // pop_back
-            {
-                if (ref.empty()) break;
-                sv.pop_back();
-                ref.pop_back();
-                break;
-            }
+                case 0: // push_back
+                {
+                    int v = rng.range(0, 1000);
+                    sv.push_back(v);
+                    ref.push_back(v);
+                    break;
+                }
+                case 1: // emplace_back
+                {
+                    int v = rng.range(0, 1000);
+                    sv.emplace_back(v);
+                    ref.emplace_back(v);
+                    break;
+                }
+                case 2: // insert single
+                {
+                    // Allow insert into empty (pos=0 is valid for empty vector)
+                    size_t pos = ref.empty() ? 0 : static_cast<size_t>(rng.range(0, static_cast<int>(ref.size())));
+                    int v = rng.range(0, 1000);
+                    sv.insert(sv.begin() + static_cast<ptrdiff_t>(pos), v);
+                    ref.insert(ref.begin() + static_cast<ptrdiff_t>(pos), v);
+                    break;
+                }
+                case 3: // insert count
+                {
+                    if (ref.size() > 20)
+                    {
+                        break; // Limit size growth
+                    }
+                    size_t pos = ref.empty() ? 0 : static_cast<size_t>(rng.range(0, static_cast<int>(ref.size())));
+                    size_t count = static_cast<size_t>(rng.range(1, 3));
+                    int v = rng.range(0, 1000);
+                    sv.insert(sv.begin() + static_cast<ptrdiff_t>(pos), count, v);
+                    ref.insert(ref.begin() + static_cast<ptrdiff_t>(pos), count, v);
+                    break;
+                }
+                case 4: // erase single
+                {
+                    if (ref.empty())
+                    {
+                        break;
+                    }
+                    size_t pos = static_cast<size_t>(rng.range(0, static_cast<int>(ref.size()) - 1));
+                    sv.erase(sv.begin() + static_cast<ptrdiff_t>(pos));
+                    ref.erase(ref.begin() + static_cast<ptrdiff_t>(pos));
+                    break;
+                }
+                case 5: // erase range
+                {
+                    if (ref.size() < 2)
+                    {
+                        break;
+                    }
+                    size_t first = static_cast<size_t>(rng.range(0, static_cast<int>(ref.size()) - 1));
+                    size_t last = static_cast<size_t>(rng.range(static_cast<int>(first), static_cast<int>(ref.size())));
+                    sv.erase(sv.begin() + static_cast<ptrdiff_t>(first), sv.begin() + static_cast<ptrdiff_t>(last));
+                    ref.erase(ref.begin() + static_cast<ptrdiff_t>(first), ref.begin() + static_cast<ptrdiff_t>(last));
+                    break;
+                }
+                case 6: // resize (shrink or grow)
+                {
+                    size_t n = static_cast<size_t>(rng.range(0, 16));
+                    sv.resize(n);
+                    ref.resize(n);
+                    break;
+                }
+                case 7: // resize with value
+                {
+                    size_t n = static_cast<size_t>(rng.range(0, 16));
+                    int v = rng.range(0, 1000);
+                    sv.resize(n, v);
+                    ref.resize(n, v);
+                    break;
+                }
+                case 8: // reserve
+                {
+                    size_t n = static_cast<size_t>(rng.range(0, 32));
+                    sv.reserve(n);
+                    ref.reserve(n);
+                    break;
+                }
+                case 9: // clear
+                {
+                    sv.clear();
+                    ref.clear();
+                    break;
+                }
+                case 10: // shrink_to_fit
+                {
+                    // NOTE: std::vector::shrink_to_fit() is non-binding (may be ignored).
+                    // SmallVector::shrink_to_fit() actively demotes to inline when possible.
+                    // We only compare size/content, not capacity, so this oracle comparison is valid.
+                    sv.shrink_to_fit();
+                    ref.shrink_to_fit();
+                    break;
+                }
+                case 11: // assign count
+                {
+                    size_t count = static_cast<size_t>(rng.range(0, 10));
+                    int v = rng.range(0, 1000);
+                    sv.assign(count, v);
+                    ref.assign(count, v);
+                    break;
+                }
+                case 12: // pop_back
+                {
+                    if (ref.empty())
+                    {
+                        break;
+                    }
+                    sv.pop_back();
+                    ref.pop_back();
+                    break;
+                }
             }
 
             // Verify consistency after each operation
             if (sv.size() != ref.size())
             {
-                std::cerr << "Fuzzer FAIL at seed=" << seed << " step=" << step 
-                          << " op=" << op << ": size mismatch (sv=" << sv.size() 
-                          << " ref=" << ref.size() << ")\n";
+                std::cerr << "Fuzzer FAIL at seed=" << seed << " step=" << step << " op=" << op
+                          << ": size mismatch (sv=" << sv.size() << " ref=" << ref.size() << ")\n";
                 return false;
             }
             if (!std::equal(sv.begin(), sv.end(), ref.begin()))
             {
-                std::cerr << "Fuzzer FAIL at seed=" << seed << " step=" << step 
-                          << " op=" << op << ": content mismatch\n";
+                std::cerr << "Fuzzer FAIL at seed=" << seed << " step=" << step << " op=" << op
+                          << ": content mismatch\n";
                 return false;
             }
         }
@@ -1552,70 +1607,74 @@ FATP_TEST_CASE(over_aligned_types)
 {
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable: 4324)  // structure was padded due to alignment specifier
+#pragma warning(disable : 4324) // structure was padded due to alignment specifier
 #endif
     struct alignas(64) Aligned64
     {
         int x;
-        Aligned64() : x(0) {}
-        explicit Aligned64(int v) : x(v) {}
-        bool operator==(const Aligned64& o) const { return x == o.x; }
+        Aligned64()
+            : x(0)
+        {
+        }
+        explicit Aligned64(int v)
+            : x(v)
+        {
+        }
+        bool operator==(const Aligned64& o) const
+        {
+            return x == o.x;
+        }
     };
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-    
+
     // Verify alignment requirement
     static_assert(alignof(Aligned64) == 64, "Test type must be 64-byte aligned");
-    
+
     SmallVector<Aligned64, 4> v;
-    
+
     // Test inline storage alignment
     v.push_back(Aligned64(1));
-    FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[0]) % 64 == 0, 
-                  "Inline storage must respect alignment");
-    
+    FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[0]) % 64 == 0, "Inline storage must respect alignment");
+
     v.push_back(Aligned64(2));
     v.push_back(Aligned64(3));
     v.push_back(Aligned64(4));
-    
+
     // All elements must be properly aligned
     for (size_t i = 0; i < v.size(); ++i)
     {
-        FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[i]) % 64 == 0,
-                      "Each inline element must be aligned");
+        FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[i]) % 64 == 0, "Each inline element must be aligned");
     }
-    
+
     // Force transition to heap
     v.push_back(Aligned64(5));
     FATP_ASSERT_TRUE(v.size() == 5, "Transitioned to heap storage");
-    
+
     // Heap storage must also be aligned
     for (size_t i = 0; i < v.size(); ++i)
     {
-        FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[i]) % 64 == 0,
-                      "Each heap element must be aligned");
+        FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[i]) % 64 == 0, "Each heap element must be aligned");
     }
-    
+
     // Test copy
     auto v2 = v;
     FATP_ASSERT_TRUE(v2.size() == 5, "Copy preserves size");
     for (size_t i = 0; i < v2.size(); ++i)
     {
-        FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v2[i]) % 64 == 0,
-                      "Copied elements must be aligned");
+        FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v2[i]) % 64 == 0, "Copied elements must be aligned");
     }
-    
+
     // Test move back to inline via shrink_to_fit
     v.resize(2);
     v.shrink_to_fit();
     FATP_ASSERT_TRUE(v.capacity() == 4, "Shrunk back to inline");
     for (size_t i = 0; i < v.size(); ++i)
     {
-        FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[i]) % 64 == 0,
-                      "Shrunk elements must be aligned");
+        FATP_ASSERT_TRUE(reinterpret_cast<uintptr_t>(&v[i]) % 64 == 0, "Shrunk elements must be aligned");
     }
-    
+
     return true;
 }
 
@@ -1625,47 +1684,47 @@ FATP_TEST_CASE(swap_throw_rollback)
     // Test 1: Successful mixed swap (baseline)
     {
         ThrowOnCopy::reset();
-        
+
         SmallVector<ThrowOnCopy, 4> inline_vec;
         inline_vec.push_back(ThrowOnCopy(1));
         inline_vec.push_back(ThrowOnCopy(2));
-        
+
         SmallVector<ThrowOnCopy, 4> heap_vec;
         for (int i = 0; i < 8; ++i)
         {
             heap_vec.push_back(ThrowOnCopy(100 + i));
         }
-        
+
         ThrowOnCopy::reset();
-        
+
         // Swap inline <-> heap without throwing
         inline_vec.swap(heap_vec);
-        
+
         FATP_ASSERT_TRUE(inline_vec.size() == 8, "Inline now has heap contents");
         FATP_ASSERT_TRUE(heap_vec.size() == 2, "Heap now has inline contents");
         FATP_ASSERT_TRUE(inline_vec[0].value == 100, "Values swapped correctly");
         FATP_ASSERT_TRUE(heap_vec[0].value == 1, "Values swapped correctly");
     }
-    
+
     // Test 2: Swap with throw - verify both containers remain valid
     {
         ThrowOnCopy::reset();
-        
+
         SmallVector<ThrowOnCopy, 4> inline_vec;
         inline_vec.push_back(ThrowOnCopy(1));
         inline_vec.push_back(ThrowOnCopy(2));
         inline_vec.push_back(ThrowOnCopy(3));
-        
+
         SmallVector<ThrowOnCopy, 4> heap_vec;
         for (int i = 0; i < 6; ++i)
         {
             heap_vec.push_back(ThrowOnCopy(100 + i));
         }
-        
+
         // Enable throwing after a few moves
         ThrowOnCopy::reset();
         ThrowOnCopy::throw_after = 2;
-        
+
         bool threw = false;
         try
         {
@@ -1675,37 +1734,37 @@ FATP_TEST_CASE(swap_throw_rollback)
         {
             threw = true;
         }
-        
+
         ThrowOnCopy::reset();
-        
+
         // Whether or not it threw, both containers must be valid
         // (Basic guarantee: no leaks, containers usable)
-        
+
         // Can iterate both without crashing
         [[maybe_unused]] int sum1 = 0;
         for (const auto& e : inline_vec)
         {
             sum1 += e.value;
         }
-        
+
         [[maybe_unused]] int sum2 = 0;
         for (const auto& e : heap_vec)
         {
             sum2 += e.value;
         }
-        
+
         // Both should be clearable without crash
         inline_vec.clear();
         heap_vec.clear();
-        
+
         FATP_ASSERT_TRUE(inline_vec.empty(), "inline_vec cleared");
         FATP_ASSERT_TRUE(heap_vec.empty(), "heap_vec cleared");
-        
+
         // Note: We don't assert threw==true because move_if_noexcept may use copy
         // The important thing is no crash/leak regardless
         (void)threw;
     }
-    
+
     return true;
 }
 
@@ -1717,23 +1776,23 @@ FATP_TEST_CASE(swap_throw_rollback)
 FATP_TEST_CASE(contains)
 {
     SmallVector<int, 4> v = {1, 2, 3, 4};
-    
+
     FATP_ASSERT_TRUE(v.contains(1), "contains finds first element");
     FATP_ASSERT_TRUE(v.contains(4), "contains finds last element");
     FATP_ASSERT_TRUE(v.contains(2), "contains finds middle element");
     FATP_ASSERT_TRUE(!v.contains(0), "contains returns false for missing element");
     FATP_ASSERT_TRUE(!v.contains(5), "contains returns false for value not in range");
     FATP_ASSERT_TRUE(!v.contains(-1), "contains returns false for negative value");
-    
+
     // Test with empty vector
     SmallVector<int, 4> empty;
     FATP_ASSERT_TRUE(!empty.contains(1), "contains returns false for empty vector");
-    
+
     // Test with strings
     SmallVector<std::string, 4> sv = {"hello", "world"};
     FATP_ASSERT_TRUE(sv.contains("hello"), "contains works with strings");
     FATP_ASSERT_TRUE(!sv.contains("foo"), "contains returns false for missing string");
-    
+
     return true;
 }
 
@@ -1743,23 +1802,23 @@ FATP_TEST_CASE(spaceship_operator)
     SmallVector<int, 4> v2 = {1, 2, 3};
     SmallVector<int, 4> v3 = {1, 2, 4};
     SmallVector<int, 4> v4 = {1, 2};
-    
+
     // Test strong ordering results
-    FATP_ASSERT_TRUE((v1 <=> v2) == std::strong_ordering::equal, "Equal vectors compare equal");
-    FATP_ASSERT_TRUE((v1 <=> v3) == std::strong_ordering::less, "Lexicographically less");
-    FATP_ASSERT_TRUE((v3 <=> v1) == std::strong_ordering::greater, "Lexicographically greater");
-    FATP_ASSERT_TRUE((v4 <=> v1) == std::strong_ordering::less, "Shorter vector is less");
-    FATP_ASSERT_TRUE((v1 <=> v4) == std::strong_ordering::greater, "Longer vector is greater");
-    
+    FATP_ASSERT_TRUE((v1 <= > v2) == std::strong_ordering::equal, "Equal vectors compare equal");
+    FATP_ASSERT_TRUE((v1 <= > v3) == std::strong_ordering::less, "Lexicographically less");
+    FATP_ASSERT_TRUE((v3 <= > v1) == std::strong_ordering::greater, "Lexicographically greater");
+    FATP_ASSERT_TRUE((v4 <= > v1) == std::strong_ordering::less, "Shorter vector is less");
+    FATP_ASSERT_TRUE((v1 <= > v4) == std::strong_ordering::greater, "Longer vector is greater");
+
     // Cross-capacity comparison
     SmallVector<int, 8> v5 = {1, 2, 3};
-    FATP_ASSERT_TRUE((v1 <=> v5) == std::strong_ordering::equal, "Cross-capacity equal");
-    
+    FATP_ASSERT_TRUE((v1 <= > v5) == std::strong_ordering::equal, "Cross-capacity equal");
+
     // Empty vectors
     SmallVector<int, 4> empty1, empty2;
-    FATP_ASSERT_TRUE((empty1 <=> empty2) == std::strong_ordering::equal, "Empty vectors equal");
-    FATP_ASSERT_TRUE((empty1 <=> v1) == std::strong_ordering::less, "Empty less than non-empty");
-    
+    FATP_ASSERT_TRUE((empty1 <= > empty2) == std::strong_ordering::equal, "Empty vectors equal");
+    FATP_ASSERT_TRUE((empty1 <= > v1) == std::strong_ordering::less, "Empty less than non-empty");
+
     return true;
 }
 #endif
@@ -1776,51 +1835,63 @@ void benchmark_small_vector()
 
     std::cout << colors::yellow() << "1. Construction & Push Back (Small Size)" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
-    benchmark("SmallVector<int,8> push 4", [&]()
-    {
-        SmallVector<int, 8> v;
-        for (int i = 0; i < 4; ++i)
+    benchmark(
+        "SmallVector<int,8> push 4",
+        [&]()
         {
-            v.push_back(i);
-        }
-        DoNotOptimize(v.data());
-        DoNotOptimize(v.size());
-    }, N);
+            SmallVector<int, 8> v;
+            for (int i = 0; i < 4; ++i)
+            {
+                v.push_back(i);
+            }
+            DoNotOptimize(v.data());
+            DoNotOptimize(v.size());
+        },
+        N);
 
-    benchmark("std::vector<int> push 4", [&]()
-    {
-        std::vector<int> v;
-        for (int i = 0; i < 4; ++i)
+    benchmark(
+        "std::vector<int> push 4",
+        [&]()
         {
-            v.push_back(i);
-        }
-        DoNotOptimize(v.data());
-        DoNotOptimize(v.size());
-    }, N);
+            std::vector<int> v;
+            for (int i = 0; i < 4; ++i)
+            {
+                v.push_back(i);
+            }
+            DoNotOptimize(v.data());
+            DoNotOptimize(v.size());
+        },
+        N);
 
     std::cout << "\n" << colors::yellow() << "2. Construction & Push Back (Large Size)" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
-    benchmark("SmallVector<int,8> push 100", [&]()
-    {
-        SmallVector<int, 8> v;
-        for (int i = 0; i < 100; ++i)
+    benchmark(
+        "SmallVector<int,8> push 100",
+        [&]()
         {
-            v.push_back(i);
-        }
-        DoNotOptimize(v.data());
-        DoNotOptimize(v.size());
-    }, N);
+            SmallVector<int, 8> v;
+            for (int i = 0; i < 100; ++i)
+            {
+                v.push_back(i);
+            }
+            DoNotOptimize(v.data());
+            DoNotOptimize(v.size());
+        },
+        N);
 
-    benchmark("std::vector<int> push 100", [&]()
-    {
-        std::vector<int> v;
-        for (int i = 0; i < 100; ++i)
+    benchmark(
+        "std::vector<int> push 100",
+        [&]()
         {
-            v.push_back(i);
-        }
-        DoNotOptimize(v.data());
-        DoNotOptimize(v.size());
-    }, N);
+            std::vector<int> v;
+            for (int i = 0; i < 100; ++i)
+            {
+                v.push_back(i);
+            }
+            DoNotOptimize(v.data());
+            DoNotOptimize(v.size());
+        },
+        N);
 
     std::cout << "\n" << colors::yellow() << "3. Copy Operations (Inline)" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
@@ -1830,11 +1901,14 @@ void benchmark_small_vector()
         src_small.push_back(i);
     }
 
-    benchmark("SmallVector copy (inline)", [&]()
-    {
-        SmallVector<int, 8> v = src_small;
-        DoNotOptimize(v.data());
-    }, N);
+    benchmark(
+        "SmallVector copy (inline)",
+        [&]()
+        {
+            SmallVector<int, 8> v = src_small;
+            DoNotOptimize(v.data());
+        },
+        N);
 
     std::vector<int> src_vec;
     for (int i = 0; i < 4; ++i)
@@ -1842,11 +1916,14 @@ void benchmark_small_vector()
         src_vec.push_back(i);
     }
 
-    benchmark("std::vector copy (4 elem)", [&]()
-    {
-        std::vector<int> v = src_vec;
-        DoNotOptimize(v.data());
-    }, N);
+    benchmark(
+        "std::vector copy (4 elem)",
+        [&]()
+        {
+            std::vector<int> v = src_vec;
+            DoNotOptimize(v.data());
+        },
+        N);
 
     std::cout << "\n" << colors::yellow() << "4. Copy Operations (Heap)" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
@@ -1856,11 +1933,14 @@ void benchmark_small_vector()
         src_large.push_back(i);
     }
 
-    benchmark("SmallVector copy (heap)", [&]()
-    {
-        SmallVector<int, 8> v = src_large;
-        DoNotOptimize(v.data());
-    }, N);
+    benchmark(
+        "SmallVector copy (heap)",
+        [&]()
+        {
+            SmallVector<int, 8> v = src_large;
+            DoNotOptimize(v.data());
+        },
+        N);
 
     std::vector<int> src_vec_large;
     for (int i = 0; i < 100; ++i)
@@ -1868,92 +1948,119 @@ void benchmark_small_vector()
         src_vec_large.push_back(i);
     }
 
-    benchmark("std::vector copy (100 elem)", [&]()
-    {
-        std::vector<int> v = src_vec_large;
-        DoNotOptimize(v.data());
-    }, N);
+    benchmark(
+        "std::vector copy (100 elem)",
+        [&]()
+        {
+            std::vector<int> v = src_vec_large;
+            DoNotOptimize(v.data());
+        },
+        N);
 
     std::cout << "\n" << colors::yellow() << "5. Iteration" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
     DoNotOptimize(src_small.data());
     DoNotOptimize(src_vec.data());
-    
-    benchmark("SmallVector iterate (inline)", [&]()
-    {
-        int sum = 0;
-        for (int x : src_small)
-        {
-            DoNotOptimize(x);
-            sum += x;
-        }
-        DoNotOptimize(sum);
-    }, N);
 
-    benchmark("std::vector iterate (4 elem)", [&]()
-    {
-        int sum = 0;
-        for (int x : src_vec)
+    benchmark(
+        "SmallVector iterate (inline)",
+        [&]()
         {
-            DoNotOptimize(x);
-            sum += x;
-        }
-        DoNotOptimize(sum);
-    }, N);
+            int sum = 0;
+            for (int x : src_small)
+            {
+                DoNotOptimize(x);
+                sum += x;
+            }
+            DoNotOptimize(sum);
+        },
+        N);
+
+    benchmark(
+        "std::vector iterate (4 elem)",
+        [&]()
+        {
+            int sum = 0;
+            for (int x : src_vec)
+            {
+                DoNotOptimize(x);
+                sum += x;
+            }
+            DoNotOptimize(sum);
+        },
+        N);
 
     std::cout << "\n" << colors::yellow() << "6. Insert Operations" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
-    benchmark("SmallVector insert middle", [&]()
-    {
-        SmallVector<int, 8> v = {1, 2, 3, 4};
-        v.insert(v.begin() + 2, 99);
-        DoNotOptimize(v.data());
-    }, N);
+    benchmark(
+        "SmallVector insert middle",
+        [&]()
+        {
+            SmallVector<int, 8> v = {1, 2, 3, 4};
+            v.insert(v.begin() + 2, 99);
+            DoNotOptimize(v.data());
+        },
+        N);
 
-    benchmark("std::vector insert middle", [&]()
-    {
-        std::vector<int> v = {1, 2, 3, 4};
-        v.insert(v.begin() + 2, 99);
-        DoNotOptimize(v.data());
-    }, N);
+    benchmark(
+        "std::vector insert middle",
+        [&]()
+        {
+            std::vector<int> v = {1, 2, 3, 4};
+            v.insert(v.begin() + 2, 99);
+            DoNotOptimize(v.data());
+        },
+        N);
 
     std::cout << "\n" << colors::yellow() << "7. Emplace Back" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
-    benchmark("SmallVector emplace_back", [&]()
-    {
-        SmallVector<std::string, 8> v;
-        for (int i = 0; i < 4; ++i)
+    benchmark(
+        "SmallVector emplace_back",
+        [&]()
         {
-            v.emplace_back("test");
-        }
-        DoNotOptimize(v.data());
-    }, N / 10);
+            SmallVector<std::string, 8> v;
+            for (int i = 0; i < 4; ++i)
+            {
+                v.emplace_back("test");
+            }
+            DoNotOptimize(v.data());
+        },
+        N / 10);
 
-    benchmark("std::vector emplace_back", [&]()
-    {
-        std::vector<std::string> v;
-        for (int i = 0; i < 4; ++i)
+    benchmark(
+        "std::vector emplace_back",
+        [&]()
         {
-            v.emplace_back("test");
-        }
-        DoNotOptimize(v.data());
-    }, N / 10);
+            std::vector<std::string> v;
+            for (int i = 0; i < 4; ++i)
+            {
+                v.emplace_back("test");
+            }
+            DoNotOptimize(v.data());
+        },
+        N / 10);
 
     std::cout << "\n" << colors::yellow() << "8. Reserve Operations" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
-    benchmark("SmallVector reserve", [&]()
-    {
-        SmallVector<int, 8> v;
-        v.reserve(50);
-        DoNotOptimize(v.data());
-    }, N);
+    benchmark(
+        "SmallVector reserve",
+        [&]()
+        {
+            SmallVector<int, 8> v;
+            v.reserve(50);
+            DoNotOptimize(v.data());
+        },
+        N);
 
-    benchmark("std::vector reserve", [&]()
-    {
-        std::vector<int> v;
-        v.reserve(50);
-        DoNotOptimize(v.data());
-    }, N);
+    benchmark(
+        "std::vector reserve",
+        [&]()
+        {
+            std::vector<int> v;
+            v.reserve(50);
+            DoNotOptimize(v.data());
+        },
+        N);
 
     // ==================================================================================
     // NEW BENCHMARKS
@@ -1961,133 +2068,205 @@ void benchmark_small_vector()
 
     std::cout << "\n" << colors::yellow() << "9. Move Construction (Heap - should be O(1))" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
-    benchmark("SmallVector move construct (heap)", [&]()
-    {
-        SmallVector<int, 4> v1;
-        for (int i = 0; i < 100; ++i) v1.push_back(i);
-        SmallVector<int, 4> v2(std::move(v1));
-        DoNotOptimize(v2.data());
-    }, N);
+    benchmark(
+        "SmallVector move construct (heap)",
+        [&]()
+        {
+            SmallVector<int, 4> v1;
+            for (int i = 0; i < 100; ++i)
+            {
+                v1.push_back(i);
+            }
+            SmallVector<int, 4> v2(std::move(v1));
+            DoNotOptimize(v2.data());
+        },
+        N);
 
-    benchmark("std::vector move construct", [&]()
-    {
-        std::vector<int> v1;
-        for (int i = 0; i < 100; ++i) v1.push_back(i);
-        std::vector<int> v2(std::move(v1));
-        DoNotOptimize(v2.data());
-    }, N);
+    benchmark(
+        "std::vector move construct",
+        [&]()
+        {
+            std::vector<int> v1;
+            for (int i = 0; i < 100; ++i)
+            {
+                v1.push_back(i);
+            }
+            std::vector<int> v2(std::move(v1));
+            DoNotOptimize(v2.data());
+        },
+        N);
 
     std::cout << "\n" << colors::yellow() << "10. Move Construction (Inline)" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
-    benchmark("SmallVector move construct (inline)", [&]()
-    {
-        SmallVector<int, 8> v1 = {1, 2, 3, 4};
-        SmallVector<int, 8> v2(std::move(v1));
-        DoNotOptimize(v2.data());
-    }, N);
+    benchmark(
+        "SmallVector move construct (inline)",
+        [&]()
+        {
+            SmallVector<int, 8> v1 = {1, 2, 3, 4};
+            SmallVector<int, 8> v2(std::move(v1));
+            DoNotOptimize(v2.data());
+        },
+        N);
 
-    benchmark("std::vector move construct (4 elem)", [&]()
-    {
-        std::vector<int> v1 = {1, 2, 3, 4};
-        std::vector<int> v2(std::move(v1));
-        DoNotOptimize(v2.data());
-    }, N);
+    benchmark(
+        "std::vector move construct (4 elem)",
+        [&]()
+        {
+            std::vector<int> v1 = {1, 2, 3, 4};
+            std::vector<int> v2(std::move(v1));
+            DoNotOptimize(v2.data());
+        },
+        N);
 
     std::cout << "\n" << colors::yellow() << "11. Move Assignment (Heap)" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
-    benchmark("SmallVector move assign (heap)", [&]()
-    {
-        SmallVector<int, 4> v1;
-        for (int i = 0; i < 100; ++i) v1.push_back(i);
-        SmallVector<int, 4> v2;
-        v2 = std::move(v1);
-        DoNotOptimize(v2.data());
-    }, N);
+    benchmark(
+        "SmallVector move assign (heap)",
+        [&]()
+        {
+            SmallVector<int, 4> v1;
+            for (int i = 0; i < 100; ++i)
+            {
+                v1.push_back(i);
+            }
+            SmallVector<int, 4> v2;
+            v2 = std::move(v1);
+            DoNotOptimize(v2.data());
+        },
+        N);
 
-    benchmark("std::vector move assign", [&]()
-    {
-        std::vector<int> v1;
-        for (int i = 0; i < 100; ++i) v1.push_back(i);
-        std::vector<int> v2;
-        v2 = std::move(v1);
-        DoNotOptimize(v2.data());
-    }, N);
+    benchmark(
+        "std::vector move assign",
+        [&]()
+        {
+            std::vector<int> v1;
+            for (int i = 0; i < 100; ++i)
+            {
+                v1.push_back(i);
+            }
+            std::vector<int> v2;
+            v2 = std::move(v1);
+            DoNotOptimize(v2.data());
+        },
+        N);
 
     std::cout << "\n" << colors::yellow() << "12. shrink_to_fit (Heap to Inline)" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
-    benchmark("SmallVector shrink_to_fit", [&]()
-    {
-        SmallVector<int, 8> v;
-        for (int i = 0; i < 20; ++i) v.push_back(i);
-        v.resize(4);
-        v.shrink_to_fit();
-        DoNotOptimize(v.data());
-    }, N);
+    benchmark(
+        "SmallVector shrink_to_fit",
+        [&]()
+        {
+            SmallVector<int, 8> v;
+            for (int i = 0; i < 20; ++i)
+            {
+                v.push_back(i);
+            }
+            v.resize(4);
+            v.shrink_to_fit();
+            DoNotOptimize(v.data());
+        },
+        N);
 
-    benchmark("std::vector shrink_to_fit", [&]()
-    {
-        std::vector<int> v;
-        for (int i = 0; i < 20; ++i) v.push_back(i);
-        v.resize(4);
-        v.shrink_to_fit();
-        DoNotOptimize(v.data());
-    }, N);
+    benchmark(
+        "std::vector shrink_to_fit",
+        [&]()
+        {
+            std::vector<int> v;
+            for (int i = 0; i < 20; ++i)
+            {
+                v.push_back(i);
+            }
+            v.resize(4);
+            v.shrink_to_fit();
+            DoNotOptimize(v.data());
+        },
+        N);
 
     std::cout << "\n" << colors::yellow() << "13. Different InlineCapacity Values" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
-    benchmark("SmallVector<int,4> push 4", [&]()
-    {
-        SmallVector<int, 4> v;
-        for (int i = 0; i < 4; ++i) v.push_back(i);
-        DoNotOptimize(v.data());
-        DoNotOptimize(v.size());
-    }, N);
+    benchmark(
+        "SmallVector<int,4> push 4",
+        [&]()
+        {
+            SmallVector<int, 4> v;
+            for (int i = 0; i < 4; ++i)
+            {
+                v.push_back(i);
+            }
+            DoNotOptimize(v.data());
+            DoNotOptimize(v.size());
+        },
+        N);
 
-    benchmark("SmallVector<int,8> push 4", [&]()
-    {
-        SmallVector<int, 8> v;
-        for (int i = 0; i < 4; ++i) v.push_back(i);
-        DoNotOptimize(v.data());
-        DoNotOptimize(v.size());
-    }, N);
+    benchmark(
+        "SmallVector<int,8> push 4",
+        [&]()
+        {
+            SmallVector<int, 8> v;
+            for (int i = 0; i < 4; ++i)
+            {
+                v.push_back(i);
+            }
+            DoNotOptimize(v.data());
+            DoNotOptimize(v.size());
+        },
+        N);
 
-    benchmark("SmallVector<int,16> push 4", [&]()
-    {
-        SmallVector<int, 16> v;
-        for (int i = 0; i < 4; ++i) v.push_back(i);
-        DoNotOptimize(v.data());
-        DoNotOptimize(v.size());
-    }, N);
+    benchmark(
+        "SmallVector<int,16> push 4",
+        [&]()
+        {
+            SmallVector<int, 16> v;
+            for (int i = 0; i < 4; ++i)
+            {
+                v.push_back(i);
+            }
+            DoNotOptimize(v.data());
+            DoNotOptimize(v.size());
+        },
+        N);
 
-    benchmark("SmallVector<int,32> push 4", [&]()
-    {
-        SmallVector<int, 32> v;
-        for (int i = 0; i < 4; ++i) v.push_back(i);
-        DoNotOptimize(v.data());
-        DoNotOptimize(v.size());
-    }, N);
+    benchmark(
+        "SmallVector<int,32> push 4",
+        [&]()
+        {
+            SmallVector<int, 32> v;
+            for (int i = 0; i < 4; ++i)
+            {
+                v.push_back(i);
+            }
+            DoNotOptimize(v.data());
+            DoNotOptimize(v.size());
+        },
+        N);
 
     std::cout << "\n" << colors::yellow() << "14. Non-Trivial Types (std::string)" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
-    benchmark("SmallVector<string,4> push 4", [&]()
-    {
-        SmallVector<std::string, 4> v;
-        v.push_back("one");
-        v.push_back("two");
-        v.push_back("three");
-        v.push_back("four");
-        DoNotOptimize(v.data());
-    }, N / 10);
+    benchmark(
+        "SmallVector<string,4> push 4",
+        [&]()
+        {
+            SmallVector<std::string, 4> v;
+            v.push_back("one");
+            v.push_back("two");
+            v.push_back("three");
+            v.push_back("four");
+            DoNotOptimize(v.data());
+        },
+        N / 10);
 
-    benchmark("std::vector<string> push 4", [&]()
-    {
-        std::vector<std::string> v;
-        v.push_back("one");
-        v.push_back("two");
-        v.push_back("three");
-        v.push_back("four");
-        DoNotOptimize(v.data());
-    }, N / 10);
+    benchmark(
+        "std::vector<string> push 4",
+        [&]()
+        {
+            std::vector<std::string> v;
+            v.push_back("one");
+            v.push_back("two");
+            v.push_back("three");
+            v.push_back("four");
+            DoNotOptimize(v.data());
+        },
+        N / 10);
 
     std::cout << "\n" << colors::yellow() << "15. Sequential Access Pattern" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
@@ -2101,86 +2280,107 @@ void benchmark_small_vector()
     DoNotOptimize(sv_access.data());
     DoNotOptimize(vec_access.data());
 
-    benchmark("SmallVector sequential read", [&]()
-    {
-        int sum = 0;
-        for (size_t i = 0; i < sv_access.size(); ++i)
+    benchmark(
+        "SmallVector sequential read",
+        [&]()
         {
-            DoNotOptimize(sv_access[i]);
-            sum += sv_access[i];
-        }
-        DoNotOptimize(sum);
-    }, N);
+            int sum = 0;
+            for (size_t i = 0; i < sv_access.size(); ++i)
+            {
+                DoNotOptimize(sv_access[i]);
+                sum += sv_access[i];
+            }
+            DoNotOptimize(sum);
+        },
+        N);
 
-    benchmark("std::vector sequential read", [&]()
-    {
-        int sum = 0;
-        for (size_t i = 0; i < vec_access.size(); ++i)
+    benchmark(
+        "std::vector sequential read",
+        [&]()
         {
-            DoNotOptimize(vec_access[i]);
-            sum += vec_access[i];
-        }
-        DoNotOptimize(sum);
-    }, N);
+            int sum = 0;
+            for (size_t i = 0; i < vec_access.size(); ++i)
+            {
+                DoNotOptimize(vec_access[i]);
+                sum += vec_access[i];
+            }
+            DoNotOptimize(sum);
+        },
+        N);
 
     std::cout << "\n" << colors::yellow() << "16. Random Access Pattern" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
     // Pre-generate random indices
     std::vector<size_t> indices(64);
-    for (size_t i = 0; i < 64; ++i) indices[i] = (i * 37) % 64;  // Pseudo-random
+    for (size_t i = 0; i < 64; ++i)
+    {
+        indices[i] = (i * 37) % 64; // Pseudo-random
+    }
     DoNotOptimize(indices.data());
 
-    benchmark("SmallVector random read", [&]()
-    {
-        int sum = 0;
-        for (size_t idx : indices)
+    benchmark(
+        "SmallVector random read",
+        [&]()
         {
-            DoNotOptimize(sv_access[idx]);
-            sum += sv_access[idx];
-        }
-        DoNotOptimize(sum);
-    }, N);
+            int sum = 0;
+            for (size_t idx : indices)
+            {
+                DoNotOptimize(sv_access[idx]);
+                sum += sv_access[idx];
+            }
+            DoNotOptimize(sum);
+        },
+        N);
 
-    benchmark("std::vector random read", [&]()
-    {
-        int sum = 0;
-        for (size_t idx : indices)
+    benchmark(
+        "std::vector random read",
+        [&]()
         {
-            DoNotOptimize(vec_access[idx]);
-            sum += vec_access[idx];
-        }
-        DoNotOptimize(sum);
-    }, N);
+            int sum = 0;
+            for (size_t idx : indices)
+            {
+                DoNotOptimize(vec_access[idx]);
+                sum += vec_access[idx];
+            }
+            DoNotOptimize(sum);
+        },
+        N);
 
     std::cout << "\n" << colors::yellow() << "17. data()[] Access Pattern" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
-    benchmark("SmallVector data()[] sequential", [&]()
-    {
-        int sum = 0;
-        int* p = sv_access.data();
-        size_t sz = sv_access.size();
-        for (size_t i = 0; i < sz; ++i)
+    benchmark(
+        "SmallVector data()[] sequential",
+        [&]()
         {
-            DoNotOptimize(p[i]);
-            sum += p[i];
-        }
-        DoNotOptimize(sum);
-    }, N);
+            int sum = 0;
+            int* p = sv_access.data();
+            size_t sz = sv_access.size();
+            for (size_t i = 0; i < sz; ++i)
+            {
+                DoNotOptimize(p[i]);
+                sum += p[i];
+            }
+            DoNotOptimize(sum);
+        },
+        N);
 
-    benchmark("std::vector data()[] sequential", [&]()
-    {
-        int sum = 0;
-        int* p = vec_access.data();
-        size_t sz = vec_access.size();
-        for (size_t i = 0; i < sz; ++i)
+    benchmark(
+        "std::vector data()[] sequential",
+        [&]()
         {
-            DoNotOptimize(p[i]);
-            sum += p[i];
-        }
-        DoNotOptimize(sum);
-    }, N);
+            int sum = 0;
+            int* p = vec_access.data();
+            size_t sz = vec_access.size();
+            for (size_t i = 0; i < sz; ++i)
+            {
+                DoNotOptimize(p[i]);
+                sum += p[i];
+            }
+            DoNotOptimize(sum);
+        },
+        N);
 
-    std::cout << colors::blue() << "  Note: " << colors::reset() 
+    std::cout << colors::blue() << "  Note: " << colors::reset()
               << "On MSVC, operator[] benchmarks slower than data()[] for BOTH SmallVector\n"
               << "        AND std::vector, even with all bounds checks removed. This is an MSVC\n"
               << "        codegen artifact, not caused by enforce() or this implementation.\n"
@@ -2188,32 +2388,41 @@ void benchmark_small_vector()
 
     std::cout << "\n" << colors::yellow() << "18. Swap Operations" << colors::reset() << "\n";
     print_benchmark_context(std::cout);
-    benchmark("SmallVector swap (inline-inline)", [&]()
-    {
-        SmallVector<int, 8> v1 = {1, 2, 3, 4};
-        SmallVector<int, 8> v2 = {5, 6, 7, 8};
-        v1.swap(v2);
-        DoNotOptimize(v1.data());
-        DoNotOptimize(v2.data());
-    }, N);
+    benchmark(
+        "SmallVector swap (inline-inline)",
+        [&]()
+        {
+            SmallVector<int, 8> v1 = {1, 2, 3, 4};
+            SmallVector<int, 8> v2 = {5, 6, 7, 8};
+            v1.swap(v2);
+            DoNotOptimize(v1.data());
+            DoNotOptimize(v2.data());
+        },
+        N);
 
-    benchmark("std::vector swap", [&]()
-    {
-        std::vector<int> v1 = {1, 2, 3, 4};
-        std::vector<int> v2 = {5, 6, 7, 8};
-        v1.swap(v2);
-        DoNotOptimize(v1.data());
-        DoNotOptimize(v2.data());
-    }, N);
+    benchmark(
+        "std::vector swap",
+        [&]()
+        {
+            std::vector<int> v1 = {1, 2, 3, 4};
+            std::vector<int> v2 = {5, 6, 7, 8};
+            v1.swap(v2);
+            DoNotOptimize(v1.data());
+            DoNotOptimize(v2.data());
+        },
+        N);
 
-    benchmark("SmallVector swap (heap-heap)", [&]()
-    {
-        SmallVector<int, 2> v1 = {1, 2, 3, 4, 5};
-        SmallVector<int, 2> v2 = {6, 7, 8, 9, 10};
-        v1.swap(v2);
-        DoNotOptimize(v1.data());
-        DoNotOptimize(v2.data());
-    }, N);
+    benchmark(
+        "SmallVector swap (heap-heap)",
+        [&]()
+        {
+            SmallVector<int, 2> v1 = {1, 2, 3, 4, 5};
+            SmallVector<int, 2> v2 = {6, 7, 8, 9, 10};
+            v1.swap(v2);
+            DoNotOptimize(v1.data());
+            DoNotOptimize(v2.data());
+        },
+        N);
 }
 
 } // namespace fat_p::testing::smallvector
@@ -2269,13 +2478,13 @@ bool test_SmallVector()
     FATP_RUN_TEST_NS(runner, smallvector, iterator_invalidation);
     FATP_RUN_TEST_NS(runner, smallvector, reserve_edge_cases);
     FATP_RUN_TEST_NS(runner, smallvector, insert_boundaries);
-    
+
     // Self-range insertion stress tests (P0 fix verification)
     FATP_RUN_TEST_NS(runner, smallvector, insert_self_range_stress_int);
     FATP_RUN_TEST_NS(runner, smallvector, insert_self_range_stress_move_only);
     FATP_RUN_TEST_NS(runner, smallvector, insert_self_range_throwing_copy);
     FATP_RUN_TEST_NS(runner, smallvector, insert_self_range_specific_cases);
-    
+
     FATP_RUN_TEST_NS(runner, smallvector, swap_edge_cases);
 
     // Additional edge case tests

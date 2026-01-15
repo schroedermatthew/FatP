@@ -37,14 +37,14 @@ FATP_META:
     mode: autogen
 */
 
+#include <atomic>
+#include <cmath>
+#include <cstdint>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <string>
-#include <limits>
-#include <cstdint>
-#include <cmath>
 #include <thread>
-#include <atomic>
 #include <vector>
 
 #include "ConstexprUtilities.h"
@@ -62,8 +62,7 @@ namespace fat_p::testing::constexprutilities
 
 FATP_TEST_CASE(constexpr_hash_basic)
 {
-    std::cout << colors::cyan() << "\nTesting: constexpr_hash (32-bit)..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: constexpr_hash (32-bit)..." << colors::reset() << std::endl;
 
     // Empty string - FNV offset basis
     static_assert(constexpr_hash("") == 2166136261U);
@@ -85,15 +84,13 @@ FATP_TEST_CASE(constexpr_hash_basic)
     // Known test vectors
     static_assert(constexpr_hash("hello") == constexpr_hash("hello"));
 
-    std::cout << colors::green() << "  PASSED: All 32-bit hash tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: All 32-bit hash tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(constexpr_hash_collision_resistance)
 {
-    std::cout << colors::cyan() << "\nTesting: constexpr_hash collision resistance..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: constexpr_hash collision resistance..." << colors::reset() << std::endl;
 
     uint32_t h1 = constexpr_hash("The quick brown fox");
     uint32_t h2 = constexpr_hash("The quick brown fo");
@@ -109,15 +106,13 @@ FATP_TEST_CASE(constexpr_hash_collision_resistance)
     FATP_ASSERT_TRUE(constexpr_hash("test!") != constexpr_hash("test?"), "Different special chars");
     FATP_ASSERT_TRUE(constexpr_hash("123") != constexpr_hash("321"), "Number strings");
 
-    std::cout << colors::green() << "  PASSED: All collision resistance tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: All collision resistance tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(constexpr_hash_avalanche)
 {
-    std::cout << colors::cyan() << "\nTesting: constexpr_hash avalanche property..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: constexpr_hash avalanche property..." << colors::reset() << std::endl;
 
     // Verify single bit/char change affects many output bits
     constexpr auto h1 = constexpr_hash("aaaa");
@@ -134,8 +129,7 @@ FATP_TEST_CASE(constexpr_hash_avalanche)
     FATP_ASSERT_TRUE(bits1 >= 8 && bits1 <= 24, "Avalanche property (first char change)");
     FATP_ASSERT_TRUE(bits2 >= 8 && bits2 <= 24, "Avalanche property (last char change)");
 
-    std::cout << colors::green() << "  PASSED: Avalanche property tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: Avalanche property tests" << colors::reset() << std::endl;
     return true;
 }
 
@@ -145,8 +139,7 @@ FATP_TEST_CASE(constexpr_hash_avalanche)
 
 FATP_TEST_CASE(constexpr_hash64_basic)
 {
-    std::cout << colors::cyan() << "\nTesting: constexpr_hash64 (64-bit)..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: constexpr_hash64 (64-bit)..." << colors::reset() << std::endl;
 
     // Empty string - FNV offset basis for 64-bit
     static_assert(constexpr_hash64("") == 14695981039346656037ULL);
@@ -166,15 +159,13 @@ FATP_TEST_CASE(constexpr_hash64_basic)
     FATP_ASSERT_TRUE(constexpr_hash64("abc") != constexpr_hash64("acb"), "Different order");
     FATP_ASSERT_TRUE(constexpr_hash64("hello") != constexpr_hash64("world"), "Different strings");
 
-    std::cout << colors::green() << "  PASSED: All 64-bit hash tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: All 64-bit hash tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(hash_combine)
 {
-    std::cout << colors::cyan() << "\nTesting: hash_combine..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: hash_combine..." << colors::reset() << std::endl;
 
     constexpr auto h1 = constexpr_hash64("key");
     constexpr auto h2 = constexpr_hash64("value");
@@ -194,8 +185,7 @@ FATP_TEST_CASE(hash_combine)
     constexpr auto multi2 = hash_values("a", "b", "d");
     FATP_ASSERT_TRUE(multi != multi2, "hash_values distinguishes different inputs");
 
-    std::cout << colors::green() << "  PASSED: hash_combine tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: hash_combine tests" << colors::reset() << std::endl;
     return true;
 }
 
@@ -205,8 +195,7 @@ FATP_TEST_CASE(hash_combine)
 
 FATP_TEST_CASE(is_power_of_two_signed)
 {
-    std::cout << colors::cyan() << "\nTesting: is_power_of_two (signed integers)..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: is_power_of_two (signed integers)..." << colors::reset() << std::endl;
 
     // Negative values should return false
     static_assert(!is_power_of_two(INT32_MIN), "INT32_MIN not power of 2");
@@ -242,15 +231,13 @@ FATP_TEST_CASE(is_power_of_two_signed)
     FATP_ASSERT_FALSE(is_power_of_two(3), "3 is NOT power of 2");
     FATP_ASSERT_FALSE(is_power_of_two(1023), "1023 is NOT power of 2");
 
-    std::cout << colors::green() << "  PASSED: All signed is_power_of_two tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: All signed is_power_of_two tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(is_power_of_two_unsigned)
 {
-    std::cout << colors::cyan() << "\nTesting: is_power_of_two (unsigned integers)..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: is_power_of_two (unsigned integers)..." << colors::reset() << std::endl;
 
     // Zero
     static_assert(!is_power_of_two(0U), "0U not power of 2");
@@ -277,8 +264,7 @@ FATP_TEST_CASE(is_power_of_two_unsigned)
     FATP_ASSERT_TRUE(is_power_of_two(1ULL << 50), "2^50 is power of 2");
     FATP_ASSERT_FALSE(is_power_of_two(UINT64_MAX), "UINT64_MAX is NOT power of 2");
 
-    std::cout << colors::green() << "  PASSED: All unsigned is_power_of_two tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: All unsigned is_power_of_two tests" << colors::reset() << std::endl;
     return true;
 }
 
@@ -288,8 +274,7 @@ FATP_TEST_CASE(is_power_of_two_unsigned)
 
 FATP_TEST_CASE(next_power_of_two)
 {
-    std::cout << colors::cyan() << "\nTesting: next_power_of_two..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: next_power_of_two..." << colors::reset() << std::endl;
 
     // Basic cases
     static_assert(next_power_of_two(0u) == 1u, "0 -> 1");
@@ -310,15 +295,13 @@ FATP_TEST_CASE(next_power_of_two)
     FATP_ASSERT_EQ(next_power_of_two(uint64_t(1) << 40), uint64_t(1) << 40, "2^40 -> 2^40");
     FATP_ASSERT_EQ(next_power_of_two((uint64_t(1) << 40) + 1), uint64_t(1) << 41, "2^40+1 -> 2^41");
 
-    std::cout << colors::green() << "  PASSED: next_power_of_two tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: next_power_of_two tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(log2_functions)
 {
-    std::cout << colors::cyan() << "\nTesting: log2_floor and log2_ceil..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: log2_floor and log2_ceil..." << colors::reset() << std::endl;
 
     // log2_floor
     static_assert(log2_floor(0u) == -1, "log2_floor(0) = -1");
@@ -345,15 +328,13 @@ FATP_TEST_CASE(log2_functions)
     FATP_ASSERT_EQ(log2_ceil(1024u), 10, "log2_ceil(1024)");
     FATP_ASSERT_EQ(log2_ceil(1025u), 11, "log2_ceil(1025)");
 
-    std::cout << colors::green() << "  PASSED: log2 function tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: log2 function tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(bit_operations)
 {
-    std::cout << colors::cyan() << "\nTesting: popcount, clz, ctz..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: popcount, clz, ctz..." << colors::reset() << std::endl;
 
     // popcount
     static_assert(popcount(0u) == 0, "popcount(0)");
@@ -377,15 +358,13 @@ FATP_TEST_CASE(bit_operations)
     FATP_ASSERT_EQ(ctz(uint8_t(8)), 3, "ctz(8) for uint8_t");
     FATP_ASSERT_EQ(ctz(uint32_t(0x80000000u)), 31, "ctz(0x80000000) for uint32_t");
 
-    std::cout << colors::green() << "  PASSED: Bit operation tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: Bit operation tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(count_digits)
 {
-    std::cout << colors::cyan() << "\nTesting: count_digits..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: count_digits..." << colors::reset() << std::endl;
 
     static_assert(count_digits(0) == 1, "count_digits(0)");
     static_assert(count_digits(1) == 1, "count_digits(1)");
@@ -404,8 +383,7 @@ FATP_TEST_CASE(count_digits)
     FATP_ASSERT_EQ(count_digits(-42), 3, "count_digits(-42)");
     FATP_ASSERT_EQ(count_digits(INT32_MIN), 11, "count_digits(INT32_MIN)");
 
-    std::cout << colors::green() << "  PASSED: count_digits tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: count_digits tests" << colors::reset() << std::endl;
     return true;
 }
 
@@ -415,8 +393,7 @@ FATP_TEST_CASE(count_digits)
 
 FATP_TEST_CASE(to_string_view_integers)
 {
-    std::cout << colors::cyan() << "\nTesting: to_string_view (integers)..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: to_string_view (integers)..." << colors::reset() << std::endl;
 
     // Zero
     FATP_ASSERT_EQ(to_string_view(0), "0", "Zero");
@@ -443,33 +420,29 @@ FATP_TEST_CASE(to_string_view_integers)
     FATP_ASSERT_EQ(to_string_view(INT64_MIN), "-9223372036854775808", "INT64_MIN");
     FATP_ASSERT_EQ(to_string_view(UINT64_MAX), "18446744073709551615", "UINT64_MAX");
 
-    std::cout << colors::green() << "  PASSED: Integer to_string_view tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: Integer to_string_view tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(to_string_view_c_string)
 {
-    std::cout << colors::cyan() << "\nTesting: to_string_view (C-string)..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: to_string_view (C-string)..." << colors::reset() << std::endl;
 
     FATP_ASSERT_EQ(to_string_view("test"), "test", "C-string");
     FATP_ASSERT_EQ(to_string_view("Hello World"), "Hello World", "C-string with space");
     FATP_ASSERT_EQ(to_string_view(""), "", "Empty C-string");
 
-    std::cout << colors::green() << "  PASSED: C-string to_string_view tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: C-string to_string_view tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(constexpr_to_string_t)
 {
-    std::cout << colors::cyan() << "\nTesting: constexpr_to_string_t..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: constexpr_to_string_t..." << colors::reset() << std::endl;
 
     // Note: Full constexpr evaluation requires C++20 due to loop in constructor
     // In C++17, we test runtime behavior which uses the same code path
-    
+
     constexpr_to_string_t<int> conv42{42};
     auto view42 = conv42.view();
     FATP_ASSERT_EQ(view42.size(), 2, "Size of 42");
@@ -494,8 +467,7 @@ FATP_TEST_CASE(constexpr_to_string_t)
     auto view_min = conv_min.view();
     FATP_ASSERT_EQ(view_min, "-9223372036854775808", "INT64_MIN");
 
-    std::cout << colors::green() << "  PASSED: constexpr_to_string_t tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: constexpr_to_string_t tests" << colors::reset() << std::endl;
     return true;
 }
 
@@ -505,8 +477,8 @@ FATP_TEST_CASE(constexpr_to_string_t)
 
 FATP_TEST_CASE(to_string_view_float_basic)
 {
-    std::cout << colors::cyan() << "\nTesting: to_string_view (floating-point basic)..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: to_string_view (floating-point basic)..." << colors::reset()
+              << std::endl;
 
     // Zero
     auto zero = to_string_view(0.0);
@@ -528,15 +500,14 @@ FATP_TEST_CASE(to_string_view_float_basic)
     auto prec0 = to_string_view(3.9, 0);
     FATP_ASSERT_EQ(prec0, "3.", "Float precision 0");
 
-    std::cout << colors::green() << "  PASSED: Basic floating-point tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: Basic floating-point tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(to_string_view_float_special)
 {
-    std::cout << colors::cyan() << "\nTesting: to_string_view (floating-point special values)..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: to_string_view (floating-point special values)..." << colors::reset()
+              << std::endl;
 
     // NaN
     auto nan_val = to_string_view(std::numeric_limits<double>::quiet_NaN());
@@ -554,15 +525,14 @@ FATP_TEST_CASE(to_string_view_float_special)
     auto neg_zero = to_string_view(-0.0, 2);
     FATP_ASSERT_EQ(neg_zero, "0.00", "Negative zero normalized to 0.00");
 
-    std::cout << colors::green() << "  PASSED: Special floating-point tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: Special floating-point tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(to_string_view_float_overflow)
 {
-    std::cout << colors::cyan() << "\nTesting: to_string_view (floating-point overflow)..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: to_string_view (floating-point overflow)..." << colors::reset()
+              << std::endl;
 
     // Large value that would overflow long long
     auto large = to_string_view(1e20);
@@ -575,8 +545,7 @@ FATP_TEST_CASE(to_string_view_float_overflow)
     auto safe = to_string_view(9007199254740000.0, 0);
     FATP_ASSERT_TRUE(safe[0] != 'o', "Value under limit works");
 
-    std::cout << colors::green() << "  PASSED: Floating-point overflow tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: Floating-point overflow tests" << colors::reset() << std::endl;
     return true;
 }
 
@@ -586,8 +555,7 @@ FATP_TEST_CASE(to_string_view_float_overflow)
 
 FATP_TEST_CASE(to_hex_string_view)
 {
-    std::cout << colors::cyan() << "\nTesting: to_hex_string_view..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: to_hex_string_view..." << colors::reset() << std::endl;
 
     // Basic values
     FATP_ASSERT_EQ(to_hex_string_view(0u), "0x0", "Hex 0");
@@ -607,8 +575,7 @@ FATP_TEST_CASE(to_hex_string_view)
     FATP_ASSERT_EQ(to_hex_string_view(0xDEADBEEFu, false, true), "DEADBEEF", "Uppercase no prefix");
     FATP_ASSERT_EQ(to_hex_string_view(255u, true, true), "0XFF", "Uppercase 255");
 
-    std::cout << colors::green() << "  PASSED: Hexadecimal conversion tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: Hexadecimal conversion tests" << colors::reset() << std::endl;
     return true;
 }
 
@@ -618,8 +585,7 @@ FATP_TEST_CASE(to_hex_string_view)
 
 FATP_TEST_CASE(constexpr_concat_basic)
 {
-    std::cout << colors::cyan() << "\nTesting: constexpr_concat (basic)..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: constexpr_concat (basic)..." << colors::reset() << std::endl;
 
     // Two strings
     auto s1 = constexpr_concat("Hello", " World");
@@ -641,15 +607,13 @@ FATP_TEST_CASE(constexpr_concat_basic)
     (void)s3.to_array(buf3, sizeof(buf3));
     FATP_ASSERT_EQ(std::string_view(buf3), "One Two Three", "Five strings");
 
-    std::cout << colors::green() << "  PASSED: Basic concat tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: Basic concat tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(constexpr_concat_with_integers)
 {
-    std::cout << colors::cyan() << "\nTesting: constexpr_concat (with integers)..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: constexpr_concat (with integers)..." << colors::reset() << std::endl;
 
     // String + integer
     auto s1 = constexpr_concat("Value: ", to_string_view(42));
@@ -658,8 +622,7 @@ FATP_TEST_CASE(constexpr_concat_with_integers)
     FATP_ASSERT_EQ(std::string_view(buf1), "Value: 42", "String + integer");
 
     // Multiple integers
-    auto s2 = constexpr_concat("Numbers: ", to_string_view(1), ", ",
-                                to_string_view(2), ", ", to_string_view(3));
+    auto s2 = constexpr_concat("Numbers: ", to_string_view(1), ", ", to_string_view(2), ", ", to_string_view(3));
     char buf2[128];
     (void)s2.to_array(buf2, sizeof(buf2));
     FATP_ASSERT_EQ(std::string_view(buf2), "Numbers: 1, 2, 3", "Multiple integers");
@@ -670,15 +633,13 @@ FATP_TEST_CASE(constexpr_concat_with_integers)
     (void)s3.to_array(buf3, sizeof(buf3));
     FATP_ASSERT_EQ(std::string_view(buf3), "Negative: -42", "Negative integer");
 
-    std::cout << colors::green() << "  PASSED: Concat with integers tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: Concat with integers tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(constexpr_concat_edge_cases)
 {
-    std::cout << colors::cyan() << "\nTesting: constexpr_concat (edge cases)..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: constexpr_concat (edge cases)..." << colors::reset() << std::endl;
 
     // Empty strings
     auto empty = constexpr_concat("", "", "");
@@ -700,15 +661,13 @@ FATP_TEST_CASE(constexpr_concat_edge_cases)
     (void)long_str.to_array(zero_buf, 0);
     FATP_ASSERT_EQ(zero_buf[0], 'X', "Zero-size buffer unchanged");
 
-    std::cout << colors::green() << "  PASSED: Concat edge case tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: Concat edge case tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(constexpr_string_to_string)
 {
-    std::cout << colors::cyan() << "\nTesting: ConstexprString::to_string()..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: ConstexprString::to_string()..." << colors::reset() << std::endl;
 
     auto cs1 = constexpr_concat("Hello ", "World");
     std::string result1 = cs1.to_string();
@@ -723,15 +682,14 @@ FATP_TEST_CASE(constexpr_string_to_string)
     std::string result3 = cs3.to_string();
     FATP_ASSERT_EQ(result3, "", "Empty to_string");
 
-    std::cout << colors::green() << "  PASSED: to_string() tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: to_string() tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(constexpr_string_to_array_return)
 {
-    std::cout << colors::cyan() << "\nTesting: ConstexprString::to_array() return value..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: ConstexprString::to_array() return value..." << colors::reset()
+              << std::endl;
 
     auto cs1 = constexpr_concat("Hello", " ", "World");
     char buf[32];
@@ -749,15 +707,13 @@ FATP_TEST_CASE(constexpr_string_to_array_return)
     std::size_t zero_written = cs1.to_array(buf, 0);
     FATP_ASSERT_EQ(zero_written, 0, "Zero-size buffer returns 0");
 
-    std::cout << colors::green() << "  PASSED: to_array() return value tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: to_array() return value tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(constexpr_string_ostream)
 {
-    std::cout << colors::cyan() << "\nTesting: ConstexprString operator<<..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: ConstexprString operator<<..." << colors::reset() << std::endl;
 
     auto cs = constexpr_concat("Value=", to_string_view(42));
     std::ostringstream oss;
@@ -770,8 +726,7 @@ FATP_TEST_CASE(constexpr_string_ostream)
     oss2 << empty_cs;
     FATP_ASSERT_EQ(oss2.str(), "", "Empty stream output");
 
-    std::cout << colors::green() << "  PASSED: operator<< tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: operator<< tests" << colors::reset() << std::endl;
     return true;
 }
 
@@ -781,8 +736,7 @@ FATP_TEST_CASE(constexpr_string_ostream)
 
 FATP_TEST_CASE(constexpr_string_utilities)
 {
-    std::cout << colors::cyan() << "\nTesting: constexpr string utilities..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: constexpr string utilities..." << colors::reset() << std::endl;
 
     // constexpr_strlen
     static_assert(constexpr_strlen("") == 0, "strlen empty");
@@ -808,8 +762,7 @@ FATP_TEST_CASE(constexpr_string_utilities)
     FATP_ASSERT_TRUE(constexpr_streq("test", "test"), "streq equal");
     FATP_ASSERT_FALSE(constexpr_streq("test", "Test"), "streq case sensitive");
 
-    std::cout << colors::green() << "  PASSED: String utility tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: String utility tests" << colors::reset() << std::endl;
     return true;
 }
 
@@ -819,8 +772,7 @@ FATP_TEST_CASE(constexpr_string_utilities)
 
 FATP_TEST_CASE(buffer_pool_rotation)
 {
-    std::cout << colors::cyan() << "\nTesting: Buffer pool rotation..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: Buffer pool rotation..." << colors::reset() << std::endl;
 
     // Store 16 views (pool size = STRING_POOL_SIZE)
     std::string_view views[16];
@@ -835,15 +787,13 @@ FATP_TEST_CASE(buffer_pool_rotation)
         FATP_ASSERT_EQ(views[i], std::to_string(i), "View " + std::to_string(i) + " valid");
     }
 
-    std::cout << colors::green() << "  PASSED: Buffer pool rotation tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: Buffer pool rotation tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(buffer_pool_exhaustion)
 {
-    std::cout << colors::cyan() << "\nTesting: Buffer pool exhaustion..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: Buffer pool exhaustion..." << colors::reset() << std::endl;
 
     // Store first view
     std::string_view first = to_string_view(999);
@@ -858,17 +808,15 @@ FATP_TEST_CASE(buffer_pool_exhaustion)
     // First view should now be overwritten
     // Note: This tests the documented behavior warning
     FATP_ASSERT_TRUE(first != first_copy || first.data() != first_copy.data(),
-                "Buffer was reused after pool exhaustion");
+                     "Buffer was reused after pool exhaustion");
 
-    std::cout << colors::green() << "  PASSED: Buffer pool exhaustion tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: Buffer pool exhaustion tests" << colors::reset() << std::endl;
     return true;
 }
 
 FATP_TEST_CASE(thread_safety)
 {
-    std::cout << colors::cyan() << "\nTesting: Thread safety..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: Thread safety..." << colors::reset() << std::endl;
 
     std::atomic<bool> failed{false};
     std::vector<std::thread> threads;
@@ -877,20 +825,21 @@ FATP_TEST_CASE(thread_safety)
 
     for (int t = 0; t < NUM_THREADS; ++t)
     {
-        threads.emplace_back([&failed, t]()
-        {
-            for (int i = 0; i < ITERATIONS; ++i)
+        threads.emplace_back(
+            [&failed, t]()
             {
-                int value = t * ITERATIONS + i;
-                auto sv = to_string_view(value);
-                std::string expected = std::to_string(value);
-                if (sv != expected)
+                for (int i = 0; i < ITERATIONS; ++i)
                 {
-                    failed = true;
-                    break;
+                    int value = t * ITERATIONS + i;
+                    auto sv = to_string_view(value);
+                    std::string expected = std::to_string(value);
+                    if (sv != expected)
+                    {
+                        failed = true;
+                        break;
+                    }
                 }
-            }
-        });
+            });
     }
 
     for (auto& th : threads)
@@ -900,8 +849,7 @@ FATP_TEST_CASE(thread_safety)
 
     FATP_ASSERT_FALSE(failed.load(), "No thread interference detected");
 
-    std::cout << colors::green() << "  PASSED: Thread safety tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: Thread safety tests" << colors::reset() << std::endl;
     return true;
 }
 
@@ -911,22 +859,20 @@ FATP_TEST_CASE(thread_safety)
 
 FATP_TEST_CASE(integration_complex_scenarios)
 {
-    std::cout << colors::cyan() << "\nTesting: Complex integration scenarios..."
-              << colors::reset() << std::endl;
+    std::cout << colors::cyan() << "\nTesting: Complex integration scenarios..." << colors::reset() << std::endl;
 
     // Error message generation
-    auto error_msg = constexpr_concat(
-        "Error at line ", to_string_view(42), ": Invalid value ", to_string_view(-1)
-    );
+    auto error_msg = constexpr_concat("Error at line ", to_string_view(42), ": Invalid value ", to_string_view(-1));
     auto error_str = error_msg.to_string();
     FATP_ASSERT_EQ(error_str, "Error at line 42: Invalid value -1", "Error message");
 
     // Configuration string
-    auto config = constexpr_concat(
-        "Config: threads=", to_string_view(8),
-        ", buffer_size=", to_string_view(1024),
-        ", enabled=", to_string_view(1)
-    );
+    auto config = constexpr_concat("Config: threads=",
+                                   to_string_view(8),
+                                   ", buffer_size=",
+                                   to_string_view(1024),
+                                   ", enabled=",
+                                   to_string_view(1));
     auto config_str = config.to_string();
     FATP_ASSERT_TRUE(config_str.find("threads=8") != std::string::npos, "Config threads");
     FATP_ASSERT_TRUE(config_str.find("buffer_size=1024") != std::string::npos, "Config buffer");
@@ -946,8 +892,7 @@ FATP_TEST_CASE(integration_complex_scenarios)
     constexpr auto combined = hash_values("module", "function", "v1");
     FATP_ASSERT_TRUE(combined != 0, "Combined hash is non-zero");
 
-    std::cout << colors::green() << "  PASSED: All integration tests"
-              << colors::reset() << std::endl;
+    std::cout << colors::green() << "  PASSED: All integration tests" << colors::reset() << std::endl;
     return true;
 }
 
@@ -957,109 +902,154 @@ FATP_TEST_CASE(integration_complex_scenarios)
 
 void run_constexpr_utilities_benchmarks()
 {
-    std::cout << "\n" << colors::bold() << colors::cyan()
-              << "=== ConstexprUtilities Performance Benchmarks ==="
-              << colors::reset() << std::endl;
+    std::cout << "\n"
+              << colors::bold() << colors::cyan()
+              << "=== ConstexprUtilities Performance Benchmarks ===" << colors::reset() << std::endl;
 
     const size_t ITERATIONS = 10'000'000;
 
     // Hash benchmarks
-    benchmark("constexpr_hash (short string)", []()
-    {
-        auto result = constexpr_hash("test");
-        DoNotOptimize(result);
-    }, ITERATIONS);
+    benchmark(
+        "constexpr_hash (short string)",
+        []()
+        {
+            auto result = constexpr_hash("test");
+            DoNotOptimize(result);
+        },
+        ITERATIONS);
 
-    benchmark("constexpr_hash (long string)", []()
-    {
-        auto result = constexpr_hash("The quick brown fox jumps over the lazy dog");
-        DoNotOptimize(result);
-    }, ITERATIONS);
+    benchmark(
+        "constexpr_hash (long string)",
+        []()
+        {
+            auto result = constexpr_hash("The quick brown fox jumps over the lazy dog");
+            DoNotOptimize(result);
+        },
+        ITERATIONS);
 
-    benchmark("constexpr_hash64 (short string)", []()
-    {
-        auto result = constexpr_hash64("test");
-        DoNotOptimize(result);
-    }, ITERATIONS);
+    benchmark(
+        "constexpr_hash64 (short string)",
+        []()
+        {
+            auto result = constexpr_hash64("test");
+            DoNotOptimize(result);
+        },
+        ITERATIONS);
 
-    benchmark("hash_combine", []()
-    {
-        auto result = hash_combine(12345ULL, 67890ULL);
-        DoNotOptimize(result);
-    }, ITERATIONS);
+    benchmark(
+        "hash_combine",
+        []()
+        {
+            auto result = hash_combine(12345ULL, 67890ULL);
+            DoNotOptimize(result);
+        },
+        ITERATIONS);
 
     // Arithmetic benchmarks
-    benchmark("is_power_of_two", []()
-    {
-        auto result = is_power_of_two(1024);
-        DoNotOptimize(result);
-    }, ITERATIONS);
+    benchmark(
+        "is_power_of_two",
+        []()
+        {
+            auto result = is_power_of_two(1024);
+            DoNotOptimize(result);
+        },
+        ITERATIONS);
 
-    benchmark("next_power_of_two", []()
-    {
-        auto result = next_power_of_two(1000u);
-        DoNotOptimize(result);
-    }, ITERATIONS);
+    benchmark(
+        "next_power_of_two",
+        []()
+        {
+            auto result = next_power_of_two(1000u);
+            DoNotOptimize(result);
+        },
+        ITERATIONS);
 
-    benchmark("log2_floor", []()
-    {
-        auto result = log2_floor(1024u);
-        DoNotOptimize(result);
-    }, ITERATIONS);
+    benchmark(
+        "log2_floor",
+        []()
+        {
+            auto result = log2_floor(1024u);
+            DoNotOptimize(result);
+        },
+        ITERATIONS);
 
-    benchmark("popcount", []()
-    {
-        auto result = popcount(0xDEADBEEFu);
-        DoNotOptimize(result);
-    }, ITERATIONS);
+    benchmark(
+        "popcount",
+        []()
+        {
+            auto result = popcount(0xDEADBEEFu);
+            DoNotOptimize(result);
+        },
+        ITERATIONS);
 
     // String conversion benchmarks
-    benchmark("to_string_view (single digit)", []()
-    {
-        auto sv = to_string_view(5);
-        DoNotOptimize(sv.data());
-    }, ITERATIONS);
+    benchmark(
+        "to_string_view (single digit)",
+        []()
+        {
+            auto sv = to_string_view(5);
+            DoNotOptimize(sv.data());
+        },
+        ITERATIONS);
 
-    benchmark("to_string_view (multi-digit)", []()
-    {
-        auto sv = to_string_view(12345);
-        DoNotOptimize(sv.data());
-    }, ITERATIONS);
+    benchmark(
+        "to_string_view (multi-digit)",
+        []()
+        {
+            auto sv = to_string_view(12345);
+            DoNotOptimize(sv.data());
+        },
+        ITERATIONS);
 
-    benchmark("to_string_view (INT32_MAX)", []()
-    {
-        auto sv = to_string_view(INT32_MAX);
-        DoNotOptimize(sv.data());
-    }, ITERATIONS);
+    benchmark(
+        "to_string_view (INT32_MAX)",
+        []()
+        {
+            auto sv = to_string_view(INT32_MAX);
+            DoNotOptimize(sv.data());
+        },
+        ITERATIONS);
 
-    benchmark("to_hex_string_view", []()
-    {
-        auto sv = to_hex_string_view(0xDEADBEEFu);
-        DoNotOptimize(sv.data());
-    }, ITERATIONS);
+    benchmark(
+        "to_hex_string_view",
+        []()
+        {
+            auto sv = to_hex_string_view(0xDEADBEEFu);
+            DoNotOptimize(sv.data());
+        },
+        ITERATIONS);
 
     // Concatenation benchmarks
-    benchmark("constexpr_concat (2 strings)", []()
-    {
-        auto cs = constexpr_concat("Hello", " World");
-        DoNotOptimize(cs.size());
-    }, ITERATIONS);
+    benchmark(
+        "constexpr_concat (2 strings)",
+        []()
+        {
+            auto cs = constexpr_concat("Hello", " World");
+            DoNotOptimize(cs.size());
+        },
+        ITERATIONS);
 
-    benchmark("constexpr_concat (with integer)", []()
-    {
-        auto cs = constexpr_concat("Value: ", to_string_view(42));
-        DoNotOptimize(cs.size());
-    }, ITERATIONS);
+    benchmark(
+        "constexpr_concat (with integer)",
+        []()
+        {
+            auto cs = constexpr_concat("Value: ", to_string_view(42));
+            DoNotOptimize(cs.size());
+        },
+        ITERATIONS);
 
-    benchmark("ConstexprString::to_string()", []()
-    {
-        auto cs = constexpr_concat("Value: ", to_string_view(123));
-        auto s = cs.to_string();
-        DoNotOptimize(s.data());
-    }, 1'000'000);
+    benchmark(
+        "ConstexprString::to_string()",
+        []()
+        {
+            auto cs = constexpr_concat("Value: ", to_string_view(123));
+            auto s = cs.to_string();
+            DoNotOptimize(s.data());
+        },
+        1'000'000);
 
-    std::cout << "\n" << colors::blue()
-              << "[NOTE] Benchmarks measure runtime performance with thread-local storage"
+    std::cout << "\n"
+              << colors::blue() << "[NOTE] Benchmarks measure runtime performance with thread-local storage"
               << colors::reset() << std::endl;
 }
 
@@ -1135,7 +1125,7 @@ bool test_ConstexprUtilities()
     return failed == 0;
 }
 
-}  // namespace fat_p::testing
+} // namespace fat_p::testing
 
 // =============================================================================
 // Standalone Entry Point

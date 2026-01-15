@@ -60,11 +60,7 @@ double max_abs_diff(const std::vector<T>& a, const std::vector<T>& b)
 }
 
 template <typename T, typename IndexType = int32_t>
-fat_p::CSRMatrix<T, IndexType> generate_random_sparse(
-    size_t rows,
-    size_t cols,
-    double density,
-    std::mt19937& rng)
+fat_p::CSRMatrix<T, IndexType> generate_random_sparse(size_t rows, size_t cols, double density, std::mt19937& rng)
 {
     std::vector<IndexType> row_indices;
     std::vector<IndexType> col_indices;
@@ -95,12 +91,8 @@ fat_p::CSRMatrix<T, IndexType> generate_random_sparse(
 }
 
 template <typename T, typename IndexType = int32_t>
-fat_p::CSRMatrix<T, IndexType> generate_powerlaw_sparse(
-    size_t rows,
-    size_t cols,
-    size_t total_nnz,
-    double alpha,
-    std::mt19937& rng)
+fat_p::CSRMatrix<T, IndexType>
+generate_powerlaw_sparse(size_t rows, size_t cols, size_t total_nnz, double alpha, std::mt19937& rng)
 {
     std::vector<IndexType> row_indices;
     std::vector<IndexType> col_indices;
@@ -373,17 +365,14 @@ void benchmark_spmv()
 {
     using namespace fat_p::testing;
 
-    std::cout << "\n" << colors::cyan() << "CSRMatrixParallel Benchmarks:"
-              << colors::reset() << "\n\n";
+    std::cout << "\n" << colors::cyan() << "CSRMatrixParallel Benchmarks:" << colors::reset() << "\n\n";
 
     std::mt19937 rng(42);
 
     fat_p::ThreadPool pool;
     std::cout << "ThreadPool threads: " << pool.thread_count() << "\n\n";
 
-    auto run_benchmark = [&](const char* name,
-                             fat_p::CSRMatrix<double, int32_t>& matrix,
-                             int iterations)
+    auto run_benchmark = [&](const char* name, fat_p::CSRMatrix<double, int32_t>& matrix, int iterations)
     {
         std::vector<double> x(matrix.cols());
         std::uniform_real_distribution<double> dist(-1.0, 1.0);
@@ -396,37 +385,39 @@ void benchmark_spmv()
         std::vector<double> y_parallel(matrix.rows());
         std::vector<double> y_batch(matrix.rows());
 
-        std::cout << name << " (" << matrix.rows() << "x" << matrix.cols()
-                  << ", nnz=" << matrix.nnz() << "):\n";
+        std::cout << name << " (" << matrix.rows() << "x" << matrix.cols() << ", nnz=" << matrix.nnz() << "):\n";
 
-        double serial_time = measure_perf([&]()
-        {
-            matrix.matvec(x.data(), y_serial.data());
-            DoNotOptimize(y_serial.data());
-        }, iterations);
+        double serial_time = measure_perf(
+            [&]()
+            {
+                matrix.matvec(x.data(), y_serial.data());
+                DoNotOptimize(y_serial.data());
+            },
+            iterations);
 
-        double parallel_time = measure_perf([&]()
-        {
-            fat_p::matvec_threadpool(matrix, x.data(), y_parallel.data(), pool);
-            DoNotOptimize(y_parallel.data());
-        }, iterations);
+        double parallel_time = measure_perf(
+            [&]()
+            {
+                fat_p::matvec_threadpool(matrix, x.data(), y_parallel.data(), pool);
+                DoNotOptimize(y_parallel.data());
+            },
+            iterations);
 
-        double batch_time = measure_perf([&]()
-        {
-            fat_p::matvec_threadpool_batch(matrix, x.data(), y_batch.data(), pool);
-            DoNotOptimize(y_batch.data());
-        }, iterations);
+        double batch_time = measure_perf(
+            [&]()
+            {
+                fat_p::matvec_threadpool_batch(matrix, x.data(), y_batch.data(), pool);
+                DoNotOptimize(y_batch.data());
+            },
+            iterations);
 
         std::cout << "  Serial:     " << format_time(serial_time) << "\n";
-        std::cout << "  ThreadPool: " << format_time(parallel_time)
-                  << " (" << std::fixed << std::setprecision(2)
+        std::cout << "  ThreadPool: " << format_time(parallel_time) << " (" << std::fixed << std::setprecision(2)
                   << (serial_time / parallel_time) << "x)\n";
-        std::cout << "  Batch:      " << format_time(batch_time)
-                  << " (" << (serial_time / batch_time) << "x)\n";
+        std::cout << "  Batch:      " << format_time(batch_time) << " (" << (serial_time / batch_time) << "x)\n";
 
         double max_err = max_abs_diff(y_serial, y_parallel);
-        std::cout << "  Max error:  " << std::scientific << std::setprecision(2)
-                  << max_err << "\n\n";
+        std::cout << "  Max error:  " << std::scientific << std::setprecision(2) << max_err << "\n\n";
     };
 
     auto matrix1 = generate_random_sparse<double>(10000, 10000, 0.01, rng);

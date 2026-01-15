@@ -200,7 +200,7 @@ int ThrowOnCopy::limit = 100;
 struct ThrowOnMoveAssign
 {
     int value;
-    static int alive;          // Live instance count (increment on ctor, decrement on dtor)
+    static int alive; // Live instance count (increment on ctor, decrement on dtor)
     static int moveAssignCount;
     static int throwAfter;
     static int constructCount;
@@ -458,8 +458,7 @@ FATP_TEST_CASE(alignment_64)
     fat_p::AlignedVector<float, 64> vec(100);
 
     FATP_ASSERT_TRUE(vec.is_aligned(), "Data should be aligned");
-    FATP_ASSERT_EQ(reinterpret_cast<std::uintptr_t>(vec.data()) % 64, 0u,
-              "Data pointer should be 64-byte aligned");
+    FATP_ASSERT_EQ(reinterpret_cast<std::uintptr_t>(vec.data()) % 64, 0u, "Data pointer should be 64-byte aligned");
 
     return true;
 }
@@ -467,16 +466,13 @@ FATP_TEST_CASE(alignment_64)
 FATP_TEST_CASE(alignment_various)
 {
     fat_p::AlignedVector<float, 16> vec16(10);
-    FATP_ASSERT_EQ(reinterpret_cast<std::uintptr_t>(vec16.data()) % 16, 0u,
-              "16-byte alignment should work");
+    FATP_ASSERT_EQ(reinterpret_cast<std::uintptr_t>(vec16.data()) % 16, 0u, "16-byte alignment should work");
 
     fat_p::AlignedVector<double, 128> vec128(10);
-    FATP_ASSERT_EQ(reinterpret_cast<std::uintptr_t>(vec128.data()) % 128, 0u,
-              "128-byte alignment should work");
+    FATP_ASSERT_EQ(reinterpret_cast<std::uintptr_t>(vec128.data()) % 128, 0u, "128-byte alignment should work");
 
     fat_p::AlignedVector<int, 256> vec256(10);
-    FATP_ASSERT_EQ(reinterpret_cast<std::uintptr_t>(vec256.data()) % 256, 0u,
-              "256-byte alignment should work");
+    FATP_ASSERT_EQ(reinterpret_cast<std::uintptr_t>(vec256.data()) % 256, 0u, "256-byte alignment should work");
 
     return true;
 }
@@ -1061,7 +1057,7 @@ FATP_TEST_CASE(max_size_and_overflow)
 
     FATP_ASSERT_TRUE(vec.max_size() > 0, "max_size should be positive");
     FATP_ASSERT_TRUE(vec.max_size() <= std::numeric_limits<size_t>::max() / sizeof(int),
-                "max_size should account for sizeof(T)");
+                     "max_size should account for sizeof(T)");
 
     return true;
 }
@@ -1436,8 +1432,9 @@ FATP_TEST_CASE(destructor_calls)
         int countAfterEmplace = DestructorCounter::count;
 
         vec.clear();
-        FATP_ASSERT_EQ(DestructorCounter::count, countAfterEmplace + 2,
-                  "clear() should call destructors for all elements");
+        FATP_ASSERT_EQ(DestructorCounter::count,
+                       countAfterEmplace + 2,
+                       "clear() should call destructors for all elements");
     }
 
     return true;
@@ -1499,7 +1496,7 @@ FATP_TEST_CASE(assign_exception_safety_strong_guarantee)
 
     // Strong guarantee: vector should be in a valid state
     FATP_ASSERT_TRUE(vec.size() == 0 || vec.size() == originalSize,
-                "Vector should be empty or unchanged (basic guarantee)");
+                     "Vector should be empty or unchanged (basic guarantee)");
 
     ThrowAfterN::reset();
 
@@ -1784,7 +1781,7 @@ FATP_TEST_CASE(insert_single_throwing_move_assign)
         try
         {
             ThrowOnMoveAssign newVal(99);
-            vec.insert(vec.begin() + 1, newVal);  // Insert in middle
+            vec.insert(vec.begin() + 1, newVal); // Insert in middle
         }
         catch (const std::runtime_error&)
         {
@@ -1796,15 +1793,15 @@ FATP_TEST_CASE(insert_single_throwing_move_assign)
         // Vector should still be valid and destructible
         // Size should be unchanged (basic guarantee)
         FATP_ASSERT_EQ(vec.size(), 5u, "Size should be unchanged after exception");
-        
+
         // No leaked elements from the failed insert
-        FATP_ASSERT_EQ(ThrowOnMoveAssign::alive, aliveBefore,
-                  "Failed insert should not leak a constructed tail element");
+        FATP_ASSERT_EQ(ThrowOnMoveAssign::alive,
+                       aliveBefore,
+                       "Failed insert should not leak a constructed tail element");
     }
 
     // Critical check: all constructed objects must have been destroyed
-    FATP_ASSERT_TRUE(ThrowOnMoveAssign::no_leaks(),
-                "Constructor/destructor count mismatch - leak detected!");
+    FATP_ASSERT_TRUE(ThrowOnMoveAssign::no_leaks(), "Constructor/destructor count mismatch - leak detected!");
 
     ThrowOnMoveAssign::reset();
     return true;
@@ -1836,7 +1833,7 @@ FATP_TEST_CASE(insert_rvalue_throwing_move_assign)
         bool threw = false;
         try
         {
-            vec.insert(vec.begin() + 1, ThrowOnMoveAssign(99));  // rvalue
+            vec.insert(vec.begin() + 1, ThrowOnMoveAssign(99)); // rvalue
         }
         catch (const std::runtime_error&)
         {
@@ -1845,12 +1842,12 @@ FATP_TEST_CASE(insert_rvalue_throwing_move_assign)
 
         FATP_ASSERT_TRUE(threw, "Should have thrown from move assignment");
         FATP_ASSERT_EQ(vec.size(), 5u, "Size should be unchanged after exception");
-        FATP_ASSERT_EQ(ThrowOnMoveAssign::alive, aliveBefore,
-                  "Failed insert should not leak a constructed tail element");
+        FATP_ASSERT_EQ(ThrowOnMoveAssign::alive,
+                       aliveBefore,
+                       "Failed insert should not leak a constructed tail element");
     }
 
-    FATP_ASSERT_TRUE(ThrowOnMoveAssign::no_leaks(),
-                "Constructor/destructor count mismatch - leak detected!");
+    FATP_ASSERT_TRUE(ThrowOnMoveAssign::no_leaks(), "Constructor/destructor count mismatch - leak detected!");
 
     ThrowOnMoveAssign::reset();
     return true;
@@ -1882,7 +1879,7 @@ FATP_TEST_CASE(emplace_throwing_move_assign)
         bool threw = false;
         try
         {
-            vec.emplace(vec.begin() + 1, 99);  // Emplace in middle
+            vec.emplace(vec.begin() + 1, 99); // Emplace in middle
         }
         catch (const std::runtime_error&)
         {
@@ -1891,12 +1888,12 @@ FATP_TEST_CASE(emplace_throwing_move_assign)
 
         FATP_ASSERT_TRUE(threw, "Should have thrown from move assignment");
         FATP_ASSERT_EQ(vec.size(), 5u, "Size should be unchanged after exception");
-        FATP_ASSERT_EQ(ThrowOnMoveAssign::alive, aliveBefore,
-                  "Failed emplace should not leak a constructed tail element");
+        FATP_ASSERT_EQ(ThrowOnMoveAssign::alive,
+                       aliveBefore,
+                       "Failed emplace should not leak a constructed tail element");
     }
 
-    FATP_ASSERT_TRUE(ThrowOnMoveAssign::no_leaks(),
-                "Constructor/destructor count mismatch - leak detected!");
+    FATP_ASSERT_TRUE(ThrowOnMoveAssign::no_leaks(), "Constructor/destructor count mismatch - leak detected!");
 
     ThrowOnMoveAssign::reset();
     return true;
@@ -2080,13 +2077,12 @@ void print_cpu_state(const char* label)
         double throttlePct = info.throttle_percentage();
         if (throttlePct > 5.0)
         {
-            std::cout << " (" << colors::yellow() << std::fixed << std::setprecision(0)
-                      << throttlePct << "% throttled" << colors::reset() << colors::blue() << ")";
+            std::cout << " (" << colors::yellow() << std::fixed << std::setprecision(0) << throttlePct << "% throttled"
+                      << colors::reset() << colors::blue() << ")";
         }
         else if (throttlePct < -5.0)
         {
-            std::cout << " (" << colors::green() << "turbo" << colors::reset() << colors::blue()
-                      << ")";
+            std::cout << " (" << colors::green() << "turbo" << colors::reset() << colors::blue() << ")";
         }
     }
     else if (info.base_freq_mhz > 0)
@@ -2118,7 +2114,8 @@ void benchmark_aligned_vector()
     // Benchmark 1: push_back
     print_cpu_state("push_back");
     double pushTime = measure_perf(
-        []() {
+        []()
+        {
             fat_p::AlignedVector<int, 64> v;
             for (int i = 0; i < 1000; ++i)
             {
@@ -2134,7 +2131,8 @@ void benchmark_aligned_vector()
     // Benchmark 2: Sequential iteration
     print_cpu_state("iteration");
     double iterTime = measure_perf(
-        [&vec]() {
+        [&vec]()
+        {
             long long sum = 0;
             for (size_t i = 0; i < vec.size(); ++i)
             {
@@ -2145,13 +2143,14 @@ void benchmark_aligned_vector()
         1000,
         100);
 
-    std::cout << "Iteration sum (" << N << " elements): " << format_time(iterTime) << " ("
-              << std::fixed << std::setprecision(2) << (iterTime * 1e6 / N) << " ns/element)\n\n";
+    std::cout << "Iteration sum (" << N << " elements): " << format_time(iterTime) << " (" << std::fixed
+              << std::setprecision(2) << (iterTime * 1e6 / N) << " ns/element)\n\n";
 
     // Benchmark 3: assume_aligned iteration
     print_cpu_state("assume_aligned");
     double assumeAlignedTime = measure_perf(
-        [&vec]() {
+        [&vec]()
+        {
             long long sum = 0;
             const int* p = vec.assume_aligned();
             for (size_t i = 0; i < vec.size(); ++i)
@@ -2163,9 +2162,8 @@ void benchmark_aligned_vector()
         1000,
         100);
 
-    std::cout << "assume_aligned sum (" << N << " elements): " << format_time(assumeAlignedTime)
-              << " (" << std::fixed << std::setprecision(2) << (assumeAlignedTime * 1e6 / N)
-              << " ns/element)\n\n";
+    std::cout << "assume_aligned sum (" << N << " elements): " << format_time(assumeAlignedTime) << " (" << std::fixed
+              << std::setprecision(2) << (assumeAlignedTime * 1e6 / N) << " ns/element)\n\n";
 
     // Benchmark 4: Random access
     std::vector<size_t> indices(N);
@@ -2175,7 +2173,8 @@ void benchmark_aligned_vector()
 
     print_cpu_state("random access");
     double randomTime = measure_perf(
-        [&vec, &indices]() {
+        [&vec, &indices]()
+        {
             long long sum = 0;
             for (size_t idx : indices)
             {
@@ -2186,14 +2185,14 @@ void benchmark_aligned_vector()
         1000,
         100);
 
-    std::cout << "Random access sum (" << N << " elements): " << format_time(randomTime) << " ("
-              << std::fixed << std::setprecision(2) << (randomTime * 1e6 / N)
-              << " ns/element)\n\n";
+    std::cout << "Random access sum (" << N << " elements): " << format_time(randomTime) << " (" << std::fixed
+              << std::setprecision(2) << (randomTime * 1e6 / N) << " ns/element)\n\n";
 
     // Benchmark 5: insert at begin (worst case)
     print_cpu_state("insert begin");
     double insertTime = measure_perf(
-        []() {
+        []()
+        {
             fat_p::AlignedVector<int> v;
             v.reserve(100);
             for (int i = 0; i < 100; ++i)
@@ -2208,8 +2207,7 @@ void benchmark_aligned_vector()
     std::cout << "insert at begin (100 elements): " << format_time(insertTime) << "\n";
 
     // Benchmark 6: Comparison with std::vector
-    std::cout << "\n" << colors::yellow() << "Comparison with std::vector:" << colors::reset()
-              << "\n";
+    std::cout << "\n" << colors::yellow() << "Comparison with std::vector:" << colors::reset() << "\n";
 
     std::vector<int> stdVec(N);
     for (size_t i = 0; i < N; ++i)
@@ -2220,7 +2218,8 @@ void benchmark_aligned_vector()
 
     print_cpu_state("std::vector iter");
     double stdIterTime = measure_perf(
-        [&stdVec]() {
+        [&stdVec]()
+        {
             long long sum = 0;
             for (size_t i = 0; i < stdVec.size(); ++i)
             {
@@ -2231,13 +2230,13 @@ void benchmark_aligned_vector()
         1000,
         100);
 
-    std::cout << "std::vector iteration (" << N << " elements): " << format_time(stdIterTime)
-              << " (" << std::fixed << std::setprecision(2) << (stdIterTime * 1e6 / N)
-              << " ns/element)\n\n";
+    std::cout << "std::vector iteration (" << N << " elements): " << format_time(stdIterTime) << " (" << std::fixed
+              << std::setprecision(2) << (stdIterTime * 1e6 / N) << " ns/element)\n\n";
 
     print_cpu_state("std::vector random");
     double stdRandomTime = measure_perf(
-        [&stdVec, &indices]() {
+        [&stdVec, &indices]()
+        {
             long long sum = 0;
             for (size_t idx : indices)
             {
@@ -2248,9 +2247,8 @@ void benchmark_aligned_vector()
         1000,
         100);
 
-    std::cout << "std::vector random access (" << N << " elements): " << format_time(stdRandomTime)
-              << " (" << std::fixed << std::setprecision(2) << (stdRandomTime * 1e6 / N)
-              << " ns/element)\n";
+    std::cout << "std::vector random access (" << N << " elements): " << format_time(stdRandomTime) << " ("
+              << std::fixed << std::setprecision(2) << (stdRandomTime * 1e6 / N) << " ns/element)\n";
 
     // Speedup calculation
     double iterSpeedup = stdIterTime / iterTime;
