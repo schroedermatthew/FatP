@@ -74,6 +74,52 @@ FATP_META:
     #endif
 #endif
 
+// =============================================================================
+// Branch prediction hints
+// =============================================================================
+// Help optimizer with branch prediction but not required for correctness.
+#ifndef FATP_LIKELY
+    #if defined(__GNUC__) || defined(__clang__)
+        #define FATP_LIKELY(x)   __builtin_expect(!!(x), 1)
+        #define FATP_UNLIKELY(x) __builtin_expect(!!(x), 0)
+    #else
+        // MSVC and others: no-op, optimizer handles it
+        #define FATP_LIKELY(x)   (x)
+        #define FATP_UNLIKELY(x) (x)
+    #endif
+#endif
+
+// =============================================================================
+// Force inlining for hot paths
+// =============================================================================
+// Used to ensure critical fast paths are always inlined regardless of
+// compiler optimization settings.
+#ifndef FATP_FORCEINLINE
+    #if defined(_MSC_VER)
+        #define FATP_FORCEINLINE __forceinline
+    #elif defined(__GNUC__) || defined(__clang__)
+        #define FATP_FORCEINLINE inline __attribute__((always_inline))
+    #else
+        #define FATP_FORCEINLINE inline
+    #endif
+#endif
+
+// =============================================================================
+// Prevent inlining for cold paths
+// =============================================================================
+// Used to keep cold paths (error handling, reallocation) out of hot code
+// to improve I-cache utilization. The 'cold' attribute on GCC/Clang also
+// hints that the function is unlikely to be called.
+#ifndef FATP_NOINLINE
+    #if defined(_MSC_VER)
+        #define FATP_NOINLINE __declspec(noinline)
+    #elif defined(__GNUC__) || defined(__clang__)
+        #define FATP_NOINLINE __attribute__((noinline, cold))
+    #else
+        #define FATP_NOINLINE
+    #endif
+#endif
+
 namespace fat_p
 {
 namespace config

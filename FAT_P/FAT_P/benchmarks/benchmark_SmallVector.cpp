@@ -1200,7 +1200,284 @@ void benchmark_inline_capacity_sensitivity()
 }
 
 // ============================================================================
-// Section 6: Object Size Impact
+// Section 6: Fast Path Throughput (Isolation Benchmark)
+// ============================================================================
+
+/**
+ * @brief Measures pure fast-path performance without allocation noise
+ *
+ * This benchmark specifically targets the emplace_back optimization:
+ * - Fast/slow path split (FATP_FORCEINLINE + FATP_NOINLINE)
+ * - Data member layout reorder (hot fields first)
+ * - Cached slot pointer before increment
+ *
+ * The benchmark ensures 100% fast-path execution by never exceeding inline capacity.
+ * This isolates the fast-path improvement from allocation speedup.
+ */
+void benchmark_fast_path_throughput()
+{
+    print_header("FAST PATH THROUGHPUT (ISOLATION BENCHMARK)");
+
+    std::cout << "Measuring pure fast-path performance with zero allocations.\n";
+    std::cout << "This isolates the emplace_back fast-path optimization from allocation benefits.\n\n";
+
+    print_cpu_context("Starting");
+
+    // ==========================================================================
+    // Test 1: emplace_back throughput at various inline capacities
+    // ==========================================================================
+    std::cout << "\n--- emplace_back Throughput (100% Fast Path) ---\n\n";
+    std::cout << "InlineCap | SmallVector (ns/op) | std::vector* (ns/op) | Ratio\n";
+    std::cout << "----------|---------------------|----------------------|------\n";
+    std::cout << "* std::vector is pre-reserved to avoid allocation\n\n";
+
+    constexpr size_t ITERATIONS = 100000;
+
+    // Helper to test emplace_back at specific inline capacity
+    // Note: Using macro because template lambdas require C++20
+    #define TEST_EMPLACE_BACK_CAP(INLINE_CAP) do { \
+        constexpr size_t N = INLINE_CAP; \
+        double sv_total_ns = 0; \
+        double std_total_ns = 0; \
+        \
+        /* Warmup */ \
+        for (size_t w = 0; w < WARMUP_RUNS(); ++w) { \
+            fat_p::SmallVector<int64_t, INLINE_CAP> sv; \
+            for (size_t i = 0; i < N; ++i) sv.emplace_back(static_cast<int64_t>(i)); \
+            benchmark_sink += sv.size(); \
+            \
+            std::vector<int64_t> stdv; \
+            stdv.reserve(N); \
+            for (size_t i = 0; i < N; ++i) stdv.emplace_back(static_cast<int64_t>(i)); \
+            benchmark_sink += stdv.size(); \
+        } \
+        \
+        /* Measured runs - interleaved to reduce systematic bias */ \
+        for (size_t iter = 0; iter < ITERATIONS; ++iter) { \
+            /* SmallVector (no reserve - uses inline storage) */ \
+            { \
+                fat_p::SmallVector<int64_t, INLINE_CAP> vec; \
+                Timer t; \
+                t.start(); \
+                for (size_t i = 0; i < N; ++i) { \
+                    vec.emplace_back(static_cast<int64_t>(i)); \
+                } \
+                sv_total_ns += t.elapsed_ns(); \
+                benchmark_sink += vec.size(); \
+            } \
+            \
+            /* std::vector (pre-reserved to avoid allocation during push) */ \
+            { \
+                std::vector<int64_t> vec; \
+                vec.reserve(N); \
+                Timer t; \
+                t.start(); \
+                for (size_t i = 0; i < N; ++i) { \
+                    vec.emplace_back(static_cast<int64_t>(i)); \
+                } \
+                std_total_ns += t.elapsed_ns(); \
+                benchmark_sink += vec.size(); \
+            } \
+        } \
+        \
+        double sv_ns_per = sv_total_ns / (ITERATIONS * N); \
+        double std_ns_per = std_total_ns / (ITERATIONS * N); \
+        double ratio = std_ns_per / sv_ns_per; \
+        \
+        std::cout << std::fixed << std::setprecision(2); \
+        std::cout << std::setw(9) << INLINE_CAP << " | " \
+                  << std::setw(19) << sv_ns_per << " | " \
+                  << std::setw(20) << std_ns_per << " | " \
+                  << std::setw(5) << ratio << "x\n"; \
+    } while(0)
+
+    TEST_EMPLACE_BACK_CAP(4);
+    TEST_EMPLACE_BACK_CAP(8);
+    TEST_EMPLACE_BACK_CAP(16);
+    TEST_EMPLACE_BACK_CAP(32);
+
+    #undef TEST_EMPLACE_BACK_CAP
+
+    // ==========================================================================
+    // Test 2: push_back vs emplace_back comparison
+    // ==========================================================================
+    std::cout << "\n--- push_back vs emplace_back (InlineCap=16) ---\n\n";
+    std::cout << "Operation   | SmallVector (ns/op) | std::vector* (ns/op)\n";
+    std::cout << "------------|---------------------|---------------------\n";
+
+    constexpr size_t INLINE_CAP_16 = 16;
+    constexpr size_t N_16 = 16;
+
+    // push_back
+    {
+        double sv_total = 0, std_total = 0;
+        for (size_t iter = 0; iter < ITERATIONS; ++iter) {
+            {
+                fat_p::SmallVector<int64_t, INLINE_CAP_16> vec;
+                Timer t; t.start();
+                for (size_t i = 0; i < N_16; ++i) vec.push_back(static_cast<int64_t>(i));
+                sv_total += t.elapsed_ns();
+                benchmark_sink += vec.size();
+            }
+            {
+                std::vector<int64_t> vec;
+                vec.reserve(N_16);
+                Timer t; t.start();
+                for (size_t i = 0; i < N_16; ++i) vec.push_back(static_cast<int64_t>(i));
+                std_total += t.elapsed_ns();
+                benchmark_sink += vec.size();
+            }
+        }
+        double sv_ns = sv_total / (ITERATIONS * N_16);
+        double std_ns = std_total / (ITERATIONS * N_16);
+        std::cout << "push_back   | " << std::setw(19) << sv_ns 
+                  << " | " << std::setw(19) << std_ns << "\n";
+    }
+
+    // emplace_back
+    {
+        double sv_total = 0, std_total = 0;
+        for (size_t iter = 0; iter < ITERATIONS; ++iter) {
+            {
+                fat_p::SmallVector<int64_t, INLINE_CAP_16> vec;
+                Timer t; t.start();
+                for (size_t i = 0; i < N_16; ++i) vec.emplace_back(static_cast<int64_t>(i));
+                sv_total += t.elapsed_ns();
+                benchmark_sink += vec.size();
+            }
+            {
+                std::vector<int64_t> vec;
+                vec.reserve(N_16);
+                Timer t; t.start();
+                for (size_t i = 0; i < N_16; ++i) vec.emplace_back(static_cast<int64_t>(i));
+                std_total += t.elapsed_ns();
+                benchmark_sink += vec.size();
+            }
+        }
+        double sv_ns = sv_total / (ITERATIONS * N_16);
+        double std_ns = std_total / (ITERATIONS * N_16);
+        std::cout << "emplace_back| " << std::setw(19) << sv_ns 
+                  << " | " << std::setw(19) << std_ns << "\n";
+    }
+
+    // ==========================================================================
+    // Test 3: Competitor comparison (if available)
+    // ==========================================================================
+#if HAS_BOOST || HAS_LLVM
+    std::cout << "\n--- Cross-Library Comparison (InlineCap=16, N=16) ---\n\n";
+    std::cout << "Library       | emplace_back (ns/op)\n";
+    std::cout << "--------------|---------------------\n";
+
+    // SmallVector
+    {
+        double total = 0;
+        for (size_t iter = 0; iter < ITERATIONS; ++iter) {
+            fat_p::SmallVector<int64_t, 16> vec;
+            Timer t; t.start();
+            for (size_t i = 0; i < 16; ++i) vec.emplace_back(static_cast<int64_t>(i));
+            total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+        std::cout << "fat_p::SV    | " << std::setw(19) << (total / (ITERATIONS * 16)) << "\n";
+    }
+
+#if HAS_BOOST
+    // Boost
+    {
+        double total = 0;
+        for (size_t iter = 0; iter < ITERATIONS; ++iter) {
+            boost::container::small_vector<int64_t, 16> vec;
+            Timer t; t.start();
+            for (size_t i = 0; i < 16; ++i) vec.emplace_back(static_cast<int64_t>(i));
+            total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+        std::cout << "boost::sv    | " << std::setw(19) << (total / (ITERATIONS * 16)) << "\n";
+    }
+#endif
+
+#if HAS_LLVM
+    // LLVM
+    {
+        double total = 0;
+        for (size_t iter = 0; iter < ITERATIONS; ++iter) {
+            llvm::SmallVector<int64_t, 16> vec;
+            Timer t; t.start();
+            for (size_t i = 0; i < 16; ++i) vec.emplace_back(static_cast<int64_t>(i));
+            total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+        std::cout << "llvm::SV     | " << std::setw(19) << (total / (ITERATIONS * 16)) << "\n";
+    }
+#endif
+
+    // std::vector (pre-reserved)
+    {
+        double total = 0;
+        for (size_t iter = 0; iter < ITERATIONS; ++iter) {
+            std::vector<int64_t> vec;
+            vec.reserve(16);
+            Timer t; t.start();
+            for (size_t i = 0; i < 16; ++i) vec.emplace_back(static_cast<int64_t>(i));
+            total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+        std::cout << "std::vector* | " << std::setw(19) << (total / (ITERATIONS * 16)) << "\n";
+    }
+#endif
+
+    // ==========================================================================
+    // Test 4: Repeated fill/clear cycle (measures amortized fast-path cost)
+    // ==========================================================================
+    std::cout << "\n--- Fill/Clear Cycle (1000 cycles, InlineCap=16) ---\n";
+    std::cout << "Tests repeated use of same SmallVector (cache-warm scenario)\n\n";
+
+    constexpr size_t CYCLES = 1000;
+    constexpr size_t ELEMENTS = 16;
+
+    // SmallVector - reuse same object
+    {
+        fat_p::SmallVector<int64_t, 16> vec;
+        Timer t; t.start();
+        for (size_t cycle = 0; cycle < CYCLES; ++cycle) {
+            for (size_t i = 0; i < ELEMENTS; ++i) {
+                vec.emplace_back(static_cast<int64_t>(i));
+            }
+            benchmark_sink += vec.size();
+            vec.clear();
+        }
+        double total_ns = t.elapsed_ns();
+        double ns_per_op = total_ns / (CYCLES * ELEMENTS);
+        std::cout << "SmallVector (reused): " << std::fixed << std::setprecision(2) 
+                  << ns_per_op << " ns/op\n";
+    }
+
+    // std::vector - reuse same object (pre-reserved)
+    {
+        std::vector<int64_t> vec;
+        vec.reserve(ELEMENTS);
+        Timer t; t.start();
+        for (size_t cycle = 0; cycle < CYCLES; ++cycle) {
+            for (size_t i = 0; i < ELEMENTS; ++i) {
+                vec.emplace_back(static_cast<int64_t>(i));
+            }
+            benchmark_sink += vec.size();
+            vec.clear();
+        }
+        double total_ns = t.elapsed_ns();
+        double ns_per_op = total_ns / (CYCLES * ELEMENTS);
+        std::cout << "std::vector (reused): " << std::fixed << std::setprecision(2) 
+                  << ns_per_op << " ns/op\n";
+    }
+
+    std::cout << "\nNote: This benchmark measures the optimized fast-path code.\n";
+    std::cout << "The main SmallVector advantage (7-8x for small N) comes from\n";
+    std::cout << "avoiding heap allocation entirely, which is tested in\n";
+    std::cout << "benchmark_inline_vs_heap().\n";
+}
+
+// ============================================================================
+// Section 7: Object Size Impact
 // ============================================================================
 
 void benchmark_object_size()
@@ -1303,6 +1580,7 @@ int main(int argc, char* argv[])
     benchmark_allocation_count();
     benchmark_insert_erase();
     benchmark_inline_capacity_sensitivity();
+    benchmark_fast_path_throughput();
     benchmark_object_size();
 
     std::cout << "\n";

@@ -162,6 +162,7 @@ FATP_META:
 #include <utility>
 
 #include "enforce.h"
+#include "FatPConfig.h"
 #include "CheckedArithmetic.h"
 #include "ScopeGuard.h"
 #include "FatPTypeTraits.h"  // For is_small_vector primary template
@@ -174,15 +175,7 @@ FATP_META:
 // Portable Compiler Intrinsics
 // ==================================================================================
 
-// Branch prediction hints - help optimizer but not required for correctness
-#if defined(__GNUC__) || defined(__clang__)
-    #define FATP_LIKELY(x)   __builtin_expect(!!(x), 1)
-    #define FATP_UNLIKELY(x) __builtin_expect(!!(x), 0)
-#else
-    // MSVC and others: no-op, optimizer handles it
-    #define FATP_LIKELY(x)   (x)
-    #define FATP_UNLIKELY(x) (x)
-#endif
+// FATP_LIKELY, FATP_UNLIKELY: Provided by FatPConfig.h (Rule F: single source of truth)
 
 namespace fat_p {
 
@@ -218,8 +211,12 @@ class SmallVector {
 private:
     using AllocTraits = std::allocator_traits<Allocator>;
     
-    // Inline buffer for small element storage - no heap allocation needed
-    alignas(T) std::byte inline_buffer_[InlineCapacity * sizeof(T)];
+    // ==========================================================================
+    // DATA MEMBER LAYOUT OPTIMIZED FOR CACHE LOCALITY
+    // Hot fields (accessed on every operation) come first to ensure they're
+    // in the same cache line. The inline buffer comes last since it's only
+    // accessed for element storage, not metadata checks.
+    // ==========================================================================
     
     // Always-valid pointer to current storage (inline or heap)
     // Hot path optimization: begin()/data() just return this pointer
@@ -237,7 +234,11 @@ private:
     [[no_unique_address]] Allocator mAllocator;
 #else
     Allocator mAllocator;
-#endif 
+#endif
+
+    // Inline buffer for small element storage - no heap allocation needed
+    // Placed LAST to keep hot fields (data_, size_, mCapacity) in first cache line
+    alignas(T) std::byte inline_buffer_[InlineCapacity * sizeof(T)]; 
 
     // Returns pointer to inline buffer as T*
     T* inline_ptr() noexcept {
@@ -1543,18 +1544,28 @@ public:
      * @note Handles self-referential insertion (e.g., v.push_back(v[0]))
      */
     template <class... Args>
-    reference emplace_back(Args&&... args) {
+    FATP_FORCEINLINE reference emplace_back(Args&&... args) {
         if (FATP_LIKELY(size_ < mCapacity)) {
-            // Fast path: no reallocation needed
-            AllocTraits::construct(mAllocator, data_ + size_, std::forward<Args>(args)...);
+            // =================================================================
+            // FAST PATH - kept minimal for I-cache efficiency
+            // =================================================================
+            T* slot = data_ + size_;
+            AllocTraits::construct(mAllocator, slot, std::forward<Args>(args)...);
             ++size_;
-            assert_invariants();
-            return data_[size_ - 1];
+            return *slot;
         }
-        
-        // Slow path: reallocation required
-        // Must construct new element BEFORE moving old elements to handle
-        // self-referential insertion (e.g., v.push_back(v[0]))
+        return emplace_back_slow(std::forward<Args>(args)...);
+    }
+
+private:
+    /**
+     * @brief Slow path for emplace_back - handles reallocation
+     * @note Marked NOINLINE to keep fast path small for better I-cache utilization
+     * @note Must construct new element BEFORE moving old elements to handle
+     *       self-referential insertion (e.g., v.push_back(v[0]))
+     */
+    template <class... Args>
+    FATP_NOINLINE reference emplace_back_slow(Args&&... args) {
         auto new_cap_result = checked_mul<ReturnExpectedPolicy>(mCapacity, size_t(2));
         size_t new_cap;
         if (new_cap_result.has_value()) {
@@ -1609,6 +1620,8 @@ public:
         assert_invariants();
         return data_[size_ - 1];
     }
+
+public:
 
     /** @brief Removes last element */
     void pop_back() {

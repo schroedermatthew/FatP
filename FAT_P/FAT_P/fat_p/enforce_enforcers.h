@@ -36,6 +36,7 @@ FATP_META:
     mode: autogen
 */
 #include "CppStandardDetection.h"
+#include "FatPConfig.h"
 
 #include <exception>
 #include <sstream>
@@ -52,14 +53,7 @@ FATP_META:
 // Portable Compiler Attributes
 // ==================================================================================
 
-// FATP_NOINLINE: Prevent inlining to keep hot paths tight
-#if defined(_MSC_VER)
-    #define FATP_NOINLINE __declspec(noinline)
-#elif defined(__GNUC__) || defined(__clang__)
-    #define FATP_NOINLINE __attribute__((noinline, cold))
-#else
-    #define FATP_NOINLINE
-#endif
+// FATP_NOINLINE: Provided by FatPConfig.h (Rule F: single source of truth)
 
 // FATP_UNLIKELY_COND: Branch hint (C++20 [[unlikely]] where available, otherwise no-op)
 #if FATP_HAS_EXPECTED || FATP_CPP20_OR_LATER
