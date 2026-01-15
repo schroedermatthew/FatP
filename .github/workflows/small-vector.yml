@@ -196,17 +196,19 @@ jobs:
           echo "✓ No warnings"
 
   # ===========================================================================
-  # Benchmarks (Weekly/Manual)
+  # Benchmarks (Weekly/Manual) - Multi-Compiler with Competitive Libraries
   # ===========================================================================
-  benchmarks:
+  benchmark-gcc:
     name: Benchmark GCC-13 C++20
     runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install GCC
-        run: sudo apt-get update && sudo apt-get install -y g++-13
+      - name: Install GCC and Boost
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-13 libboost-container-dev llvm-18-dev
 
       - name: Detect AVX2 support
         run: |
@@ -229,13 +231,128 @@ jobs:
           FATP_BENCH_WARMUP_RUNS: 3
           FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: 1
-        run: ./bench_bin 2>&1 | tee benchmark.log
+        run: ./bench_bin 2>&1 | tee benchmark-gcc.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-results
-          path: benchmark.log
+          name: benchmark-results-gcc
+          path: benchmark-gcc.log
+
+  benchmark-clang:
+    name: Benchmark Clang-18 C++20
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang and Boost
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 libboost-container-dev llvm-18-dev
+
+      - name: Detect AVX2 support
+        run: |
+          if grep -q avx2 /proc/cpuinfo; then
+            echo "AVX_FLAGS=-mavx2 -mfma" >> "$GITHUB_ENV"
+            echo "✓ AVX2 supported"
+          else
+            echo "AVX_FLAGS=" >> "$GITHUB_ENV"
+            echo "⚠ AVX2 not supported"
+          fi
+
+      - name: Build benchmark
+        run: |
+          clang++-18 -std=c++20 -O3 -DNDEBUG $AVX_FLAGS \
+            -Wno-gnu-zero-variadic-macro-arguments \
+            -I./FAT_P/FAT_P/fat_p \
+            ${{ env.BENCH_SRC }} -o bench_bin
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: 1
+        run: ./bench_bin 2>&1 | tee benchmark-clang.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-clang
+          path: benchmark-clang.log
+
+  benchmark-msvc:
+    name: Benchmark MSVC C++20
+    runs-on: windows-latest
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Boost
+        run: |
+          choco install boost-msvc-14.3 -y
+          echo "BOOST_ROOT=C:\local\boost_1_85_0" >> $env:GITHUB_ENV
+
+      - name: Build benchmark
+        run: |
+          cl /std:c++20 /O2 /DNDEBUG /EHsc /permissive- /I.\FAT_P\FAT_P\fat_p /I"$env:BOOST_ROOT" FAT_P\FAT_P\benchmarks\benchmark_SmallVector.cpp /Fe:bench_bin.exe /link advapi32.lib
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: 1
+        run: |
+          .\bench_bin.exe 2>&1 | Tee-Object -FilePath benchmark-msvc.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-msvc
+          path: benchmark-msvc.log
+
+  # ===========================================================================
+  # Benchmark Summary
+  # ===========================================================================
+  benchmark-summary:
+    name: Benchmark Summary
+    needs: [benchmark-gcc, benchmark-clang, benchmark-msvc]
+    runs-on: ubuntu-latest
+    if: ${{ always() && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true') }}
+    steps:
+      - name: Download all benchmark results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: benchmark-results-*
+          merge-multiple: false
+
+      - name: Generate summary
+        run: |
+          echo "# SmallVector Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## GCC-13" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat benchmark-results-gcc/benchmark-gcc.log | head -100 >> $GITHUB_STEP_SUMMARY || echo "GCC benchmark not available"
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Clang-18" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat benchmark-results-clang/benchmark-clang.log | head -100 >> $GITHUB_STEP_SUMMARY || echo "Clang benchmark not available"
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## MSVC" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat benchmark-results-msvc/benchmark-msvc.log | head -100 >> $GITHUB_STEP_SUMMARY || echo "MSVC benchmark not available"
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload combined results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-all
+          path: benchmark-results-*/
 
   # ===========================================================================
   # CI Gate
