@@ -1274,7 +1274,7 @@ using BenchClock = std::chrono::steady_clock;
 
 struct Timer
 {
-    using Clock = std::chrono::steady_clock;
+    using Clock = BenchClock;
     using TimePoint = Clock::time_point;
 
     TimePoint t0;

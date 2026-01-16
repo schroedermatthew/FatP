@@ -153,14 +153,27 @@ inline uint8_t H2(size_t hash)
 
 // Hash finalizer - makes the map robust against bad user hashes
 // (e.g., std::hash<int> is identity on many platforms)
+// Uses SplitMix64 on 64-bit, MurmurHash3 finalizer on 32-bit (avoids UB from >> 33)
 inline size_t mix_hash(size_t h)
 {
-    // SplitMix64 finalizer - excellent avalanche properties
-    h ^= h >> 33;
-    h *= 0xff51afd7ed558ccdULL;
-    h ^= h >> 33;
-    h *= 0xc4ceb9fe1a85ec53ULL;
-    h ^= h >> 33;
+    if constexpr (sizeof(size_t) >= 8)
+    {
+        // SplitMix64 finalizer - excellent avalanche properties
+        h ^= h >> 33;
+        h *= 0xff51afd7ed558ccdULL;
+        h ^= h >> 33;
+        h *= 0xc4ceb9fe1a85ec53ULL;
+        h ^= h >> 33;
+    }
+    else
+    {
+        // MurmurHash3 32-bit finalizer
+        h ^= h >> 16;
+        h *= 0x85ebca6bU;
+        h ^= h >> 13;
+        h *= 0xc2b2ae35U;
+        h ^= h >> 16;
+    }
     return h;
 }
 
@@ -1389,6 +1402,7 @@ public:
 
     class iterator
     {
+        friend class const_iterator; // Allow const_iterator to access private members
     public:
         using iterator_category = std::forward_iterator_tag;
         using value_type = std::pair<const Key&, Value&>;
@@ -1440,11 +1454,11 @@ public:
         }
         bool operator==(const iterator& o) const
         {
-            return mIdx == o.mIdx;
+            return mCtrl == o.mCtrl && mIdx == o.mIdx;
         }
         bool operator!=(const iterator& o) const
         {
-            return mIdx != o.mIdx;
+            return !(*this == o);
         }
 
     private:
@@ -1522,11 +1536,11 @@ public:
         }
         bool operator==(const const_iterator& o) const
         {
-            return mIdx == o.mIdx;
+            return mCtrl == o.mCtrl && mIdx == o.mIdx;
         }
         bool operator!=(const const_iterator& o) const
         {
-            return mIdx != o.mIdx;
+            return !(*this == o);
         }
 
     private:

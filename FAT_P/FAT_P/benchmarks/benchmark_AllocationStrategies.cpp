@@ -24,7 +24,7 @@
  *   - std::allocator: Standard library baseline
  *   - std::pmr::monotonic_buffer_resource: C++17 PMR bump allocator
  *   - std::pmr::unsynchronized_pool_resource: C++17 PMR pool
- *   - boost::object_pool: If Boost.Pool available
+ *   - boost::pool: Raw segregated storage (same genre as BlockAllocator)
  *
  * Build (minimal):
  *   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_AllocationStrategies.cpp -o bench_alloc -pthread
@@ -69,8 +69,8 @@ FATP_META:
   hygiene:
     pragma_once: false
     include_guard: false
-    defines_total: 2
-    defines_unprefixed: 2
+    defines_total: 6
+    defines_unprefixed: 6
     undefs_total: 0
     includes_windows_h: false
   generated:
@@ -98,11 +98,12 @@ FATP_META:
 // Optional Competitor Detection
 // ============================================================================
 
-#if __has_include(<boost/pool/object_pool.hpp>)
-#include <boost/pool/object_pool.hpp>
-#define HAS_BOOST_POOL 1
+// boost::pool (raw segregated storage - same genre as BlockAllocator)
+#if __has_include(<boost/pool/pool.hpp>)
+#include <boost/pool/pool.hpp>
+#define FATP_HAS_BOOST_POOL 1
 #else
-#define HAS_BOOST_POOL 0
+#define FATP_HAS_BOOST_POOL 0
 #endif
 
 // ============================================================================
@@ -228,15 +229,15 @@ static void print_contract_note(const std::string& note)
 
 static void print_result_table_header()
 {
-    std::cout << std::left << std::setw(30) << "Allocator" << std::right << std::setw(14) << "Median (ns)"
+    std::cout << std::left << std::setw(32) << "Allocator" << std::right << std::setw(14) << "Median (ns)"
               << std::setw(14) << "Mean (ns)" << std::setw(12) << "Stddev" << std::setw(20) << "CI95"
               << "\n";
-    std::cout << std::string(90, '-') << "\n";
+    std::cout << std::string(92, '-') << "\n";
 }
 
 static void print_result_row(const std::string& name, const Statistics& s)
 {
-    std::cout << std::left << std::setw(30) << name << std::right << std::fixed << std::setprecision(2) << std::setw(14)
+    std::cout << std::left << std::setw(32) << name << std::right << std::fixed << std::setprecision(2) << std::setw(14)
               << s.median << std::setw(14) << s.mean << std::setw(12) << s.stddev << "  [" << std::setw(7) << s.ci95Low
               << ", " << std::setw(7) << s.ci95High << "]"
               << "\n";
@@ -249,7 +250,7 @@ static void print_result_row(const std::string& name, const Statistics& s)
 
 static void print_separator()
 {
-    std::cout << std::string(90, '-') << "\n";
+    std::cout << std::string(92, '-') << "\n";
 }
 
 // ============================================================================
@@ -284,8 +285,8 @@ void benchmark_single_allocation()
         LIB_STD,
         LIB_PMR_MONO,
         LIB_PMR_UNSYNC,
-#if HAS_BOOST_POOL
-        LIB_BOOST,
+#if FATP_HAS_BOOST_POOL
+        LIB_BOOST_POOL,
 #endif
         LIB_COUNT
     };
@@ -297,8 +298,8 @@ void benchmark_single_allocation()
     results[LIB_STD].name = "std::allocator";
     results[LIB_PMR_MONO].name = "std::pmr::monotonic";
     results[LIB_PMR_UNSYNC].name = "std::pmr::unsync_pool";
-#if HAS_BOOST_POOL
-    results[LIB_BOOST].name = "boost::object_pool";
+#if FATP_HAS_BOOST_POOL
+    results[LIB_BOOST_POOL].name = "boost::pool (raw)";
 #endif
 
     for (auto& r : results)
@@ -332,6 +333,23 @@ void benchmark_single_allocation()
     // PMR buffer (heap allocated to avoid stack overflow)
     constexpr size_t PMR_BUF_SIZE = 256 * 1024;
     auto pmrBuffer = std::make_unique<char[]>(PMR_BUF_SIZE);
+
+#if FATP_HAS_BOOST_POOL
+    // Pre-warm boost::pool
+    boost::pool<> boostPool(sizeof(PointerSized));
+    {
+        std::vector<void*> ptrs;
+        for (int i = 0; i < 500; ++i)
+        {
+            ptrs.push_back(boostPool.malloc());
+        }
+        for (auto* p : ptrs)
+        {
+            boostPool.free(p);
+        }
+    }
+#endif
+
 
     // Round-robin execution order
     std::vector<int> order(LIB_COUNT);
@@ -462,16 +480,19 @@ void benchmark_single_allocation()
                     }
                     break;
                 }
-#if HAS_BOOST_POOL
-                case LIB_BOOST:
+#if FATP_HAS_BOOST_POOL
+                case LIB_BOOST_POOL:
                 {
-                    boost::object_pool<PointerSized> pool;
+                    // boost::pool is raw memory - same genre as BlockAllocator
+                    // Uses pre-warmed pool for fair comparison
                     timer.start();
                     for (size_t i = 0; i < ITERATIONS; ++i)
                     {
-                        PointerSized* p = pool.construct(static_cast<int64_t>(i));
+                        void* mem = boostPool.malloc();
+                        PointerSized* p = new (mem) PointerSized(static_cast<int64_t>(i));
                         DoNotOptimize(p);
-                        pool.destroy(p);
+                        p->~PointerSized();
+                        boostPool.free(mem);
                     }
                     double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
                     if (!isWarmup)
@@ -485,7 +506,7 @@ void benchmark_single_allocation()
         }
     }
 
-    // Print results
+    // Print results - fat_p first
     print_result_table_header();
     for (int i = 0; i <= LIB_POOL; ++i)
     {
@@ -493,6 +514,7 @@ void benchmark_single_allocation()
         print_result_row(results[i].name, stats);
     }
     print_separator();
+    // Then competitors
     for (int i = LIB_STD; i < LIB_COUNT; ++i)
     {
         auto stats = Statistics::compute(std::move(results[i].samples));
@@ -536,8 +558,8 @@ void benchmark_burst_allocation()
         LIB_STD,
         LIB_PMR_MONO,
         LIB_PMR_UNSYNC,
-#if HAS_BOOST_POOL
-        LIB_BOOST,
+#if FATP_HAS_BOOST_POOL
+        LIB_BOOST_POOL,
 #endif
         LIB_COUNT
     };
@@ -549,8 +571,8 @@ void benchmark_burst_allocation()
     results[LIB_STD].name = "std::allocator";
     results[LIB_PMR_MONO].name = "std::pmr::monotonic";
     results[LIB_PMR_UNSYNC].name = "std::pmr::unsync_pool";
-#if HAS_BOOST_POOL
-    results[LIB_BOOST].name = "boost::object_pool";
+#if FATP_HAS_BOOST_POOL
+    results[LIB_BOOST_POOL].name = "boost::pool (raw)";
 #endif
 
     for (auto& r : results)
@@ -727,22 +749,25 @@ void benchmark_burst_allocation()
                     }
                     break;
                 }
-#if HAS_BOOST_POOL
-                case LIB_BOOST:
+#if FATP_HAS_BOOST_POOL
+                case LIB_BOOST_POOL:
                 {
+                    // boost::pool - raw segregated storage (same genre as BlockAllocator)
                     timer.start();
                     for (size_t iter = 0; iter < ITERATIONS; ++iter)
                     {
-                        boost::object_pool<PointerSized> pool;
+                        boost::pool<> pool(sizeof(PointerSized));
                         std::array<PointerSized*, BURST_SIZE> ptrs;
                         for (size_t i = 0; i < BURST_SIZE; ++i)
                         {
-                            ptrs[i] = pool.construct(static_cast<int64_t>(i));
+                            void* mem = pool.malloc();
+                            ptrs[i] = new (mem) PointerSized(static_cast<int64_t>(i));
                         }
                         prevent_opt(reinterpret_cast<int64_t>(ptrs[0]));
                         for (auto p : ptrs)
                         {
-                            pool.destroy(p);
+                            p->~PointerSized();
+                            pool.free(p);
                         }
                     }
                     double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
@@ -791,6 +816,9 @@ void benchmark_churn_pattern()
         LIB_NEWDELETE = 0,
         LIB_BLOCK,
         LIB_POOL,
+#if FATP_HAS_BOOST_POOL
+        LIB_BOOST_POOL,
+#endif
         LIB_COUNT
     };
 
@@ -798,6 +826,9 @@ void benchmark_churn_pattern()
     results[LIB_NEWDELETE].name = "fat_p::NewDeleteAllocator";
     results[LIB_BLOCK].name = "fat_p::BlockAllocator (warmed)";
     results[LIB_POOL].name = "fat_p::PoolAllocator (warmed)";
+#if FATP_HAS_BOOST_POOL
+    results[LIB_BOOST_POOL].name = "boost::pool (warmed)";
+#endif
 
     for (auto& r : results)
     {
@@ -832,6 +863,28 @@ void benchmark_churn_pattern()
             poolAlloc.deallocate(p);
         }
     }
+
+#if FATP_HAS_BOOST_POOL
+    // Pre-warm boost::pool
+    boost::pool<> boostPool(sizeof(PointerSized));
+    {
+        std::vector<void*> ptrs;
+        for (int i = 0; i < 200; ++i)
+        {
+            ptrs.push_back(boostPool.malloc());
+        }
+        for (int i = 0; i < 100; ++i)
+        {
+            boostPool.free(ptrs.back());
+            ptrs.pop_back();
+        }
+        for (auto* p : ptrs)
+        {
+            boostPool.free(p);
+        }
+    }
+#endif
+
 
     std::vector<int> order(LIB_COUNT);
     std::iota(order.begin(), order.end(), 0);
@@ -898,6 +951,26 @@ void benchmark_churn_pattern()
                     }
                     break;
                 }
+#if FATP_HAS_BOOST_POOL
+                case LIB_BOOST_POOL:
+                {
+                    timer.start();
+                    for (size_t i = 0; i < ITERATIONS; ++i)
+                    {
+                        void* mem = boostPool.malloc();
+                        PointerSized* p = new (mem) PointerSized(static_cast<int64_t>(i));
+                        DoNotOptimize(p);
+                        p->~PointerSized();
+                        boostPool.free(mem);
+                    }
+                    double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                    if (!isWarmup)
+                    {
+                        results[idx].samples.push_back(ns);
+                    }
+                    break;
+                }
+#endif
             }
         }
     }
@@ -934,12 +1007,18 @@ void benchmark_size_scaling()
         {
             LIB_NEWDELETE = 0,
             LIB_BLOCK,
+#if FATP_HAS_BOOST_POOL
+            LIB_BOOST_POOL,
+#endif
             LIB_COUNT
         };
 
         std::vector<LibraryResult> results(LIB_COUNT);
         results[LIB_NEWDELETE].name = "fat_p::NewDeleteAllocator";
         results[LIB_BLOCK].name = "fat_p::BlockAllocator";
+#if FATP_HAS_BOOST_POOL
+        results[LIB_BOOST_POOL].name = "boost::pool";
+#endif
 
         for (auto& r : results)
         {
@@ -1020,6 +1099,39 @@ void benchmark_size_scaling()
                         }
                         break;
                     }
+#if FATP_HAS_BOOST_POOL
+                    case LIB_BOOST_POOL:
+                    {
+                        boost::pool<> pool(sizeof(PointerSized));
+                        std::vector<void*> ptrs;
+                        ptrs.reserve(targetCount);
+                        for (size_t i = 0; i < targetCount; ++i)
+                        {
+                            ptrs.push_back(pool.malloc());
+                        }
+
+                        timer.start();
+                        for (size_t i = 0; i < ITERATIONS; ++i)
+                        {
+                            void* mem = pool.malloc();
+                            PointerSized* p = new (mem) PointerSized(static_cast<int64_t>(i));
+                            DoNotOptimize(p);
+                            p->~PointerSized();
+                            pool.free(mem);
+                        }
+                        double ns = timer.elapsedNs() / static_cast<double>(ITERATIONS);
+                        if (!isWarmup)
+                        {
+                            results[idx].samples.push_back(ns);
+                        }
+
+                        for (auto* p : ptrs)
+                        {
+                            pool.free(p);
+                        }
+                        break;
+                    }
+#endif
                 }
             }
         }
@@ -1067,9 +1179,9 @@ int main(int argc, char* argv[])
               << ")\n";
 
     // Competitor detection
-    std::cout << "\nCompetitor libraries: std::pmr ";
-#if HAS_BOOST_POOL
-    std::cout << "boost::object_pool ";
+    std::cout << "\nCompetitor libraries: std::pmr";
+#if FATP_HAS_BOOST_POOL
+    std::cout << " boost::pool";
 #endif
     std::cout << "\n\n";
 

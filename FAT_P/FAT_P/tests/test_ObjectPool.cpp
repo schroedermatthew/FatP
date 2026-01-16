@@ -352,6 +352,9 @@ FATP_TEST_CASE(acquire_uninitialized)
     TrivialObject* obj = pool.acquire_uninitialized();
     FATP_ASSERT_TRUE(obj != nullptr, "acquire_uninitialized should return pointer");
 
+    // The pool returns raw storage. Start object lifetime before accessing.
+    ::new (static_cast<void*>(obj)) TrivialObject;
+
     // Manually initialize
     obj->x = 10;
     obj->y = 20;
@@ -370,6 +373,9 @@ FATP_TEST_CASE(acquire_zeroed)
 
     TrivialObject* obj = pool.acquire_zeroed();
     FATP_ASSERT_TRUE(obj != nullptr, "acquire_zeroed should return pointer");
+
+    // The pool returns raw storage. Start object lifetime without overwriting zeroed bytes.
+    ::new (static_cast<void*>(obj)) TrivialObject;
 
     // Memory should be zeroed
     FATP_ASSERT_TRUE(obj->x == 0 && obj->y == 0, "Memory should be zero-initialized");

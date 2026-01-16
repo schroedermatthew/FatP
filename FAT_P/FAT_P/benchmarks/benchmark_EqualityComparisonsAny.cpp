@@ -13,7 +13,7 @@
 //
 // Build:
 //   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_EqualityComparisonsAny.cpp -o bench_eq
-//   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_EqualityComparisonsAny.cpp
+//   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_EqualityComparisonsAny.cpp /link advapi32.lib
 //
 // Environment Variables (all optional):
 //   FATP_BENCH_TARGET_WORK   - Target element comparisons per benchmark (default: 5000000)

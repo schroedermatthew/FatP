@@ -48,6 +48,7 @@ FATP_META:
 */
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <memory>
 #include <new>
@@ -68,6 +69,7 @@ namespace fat_p
  *
  * @note Non-movable to prevent dangling pointer bugs
  * @note Template signature matches fat_p forward declaration
+ * @note Blocks are never reclaimed until pool destruction (monotonic growth)
  */
 template <typename T, typename SyncPolicy = SingleThreadedPolicy>
 class [[nodiscard]] ObjectPool
@@ -93,11 +95,13 @@ private:
 
     // CRITICAL-2 FIX: Compile-time layout verification
     // Ensures reinterpret_cast<Node*>(obj) is valid because storage is at offset 0
-    static_assert(offsetof(Node, storage) == 0, "Node layout assumption violated: storage must be at offset 0");
+    static_assert(offsetof(Node, storage) == 0,
+                  "Node layout assumption violated: storage must be at offset 0");
 
     // Compile-time alignment verification
     static_assert(alignof(Node) >= alignof(T), "Node alignment must be sufficient for T");
-    static_assert(offsetof(Node, storage) % alignof(T) == 0, "Storage must be correctly aligned for T");
+    static_assert(offsetof(Node, storage) % alignof(T) == 0,
+                  "Storage must be correctly aligned for T");
 
     // Compile-time type requirements
     static_assert(std::is_destructible_v<T>, "T must be destructible");
@@ -107,6 +111,7 @@ private:
     // ========================================================================
 
     Node* free_list_ = nullptr;
+    size_t free_count_ = 0;
     std::vector<std::unique_ptr<Node[]>> mBlocks;
     size_t block_size_;
     mutable SyncPolicy sync_policy_; // mutable for const methods (ALL FOUR agreed)
@@ -138,11 +143,18 @@ private:
             free_list_ = node;
         }
 
+        free_count_ += block_size_;
+
         // No-throw guarantee after reserve succeeded
         mBlocks.push_back(std::move(block));
     }
 
 #ifndef NDEBUG
+    static Node* acquired_sentinel() noexcept
+    {
+        return reinterpret_cast<Node*>(static_cast<std::uintptr_t>(1));
+    }
+
     // Debug helper: check if pointer belongs to this pool
     bool is_from_pool(const T* obj) const noexcept
     {
@@ -151,15 +163,15 @@ private:
             return false;
         }
 
-        const Node* node = reinterpret_cast<const Node*>(obj);
+        const std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(obj);
         for (const auto& block : mBlocks)
         {
-            const Node* begin = block.get();
-            const Node* end = begin + block_size_;
+            const std::uintptr_t begin = reinterpret_cast<std::uintptr_t>(block.get());
+            const std::uintptr_t end = begin + (block_size_ * sizeof(Node));
 
-            if (node >= begin && node < end)
+            if (addr >= begin && addr < end)
             {
-                return true;
+                return ((addr - begin) % sizeof(Node)) == 0;
             }
         }
         return false;
@@ -197,7 +209,8 @@ public:
     {
 #ifndef NDEBUG
         // CRITICAL-4 FIX: Debug assertion for unreleased objects
-        assert(acquired_count_ == 0 && "ObjectPool destroyed with unreleased objects - resource leak!");
+        assert(acquired_count_ == 0 &&
+               "ObjectPool destroyed with unreleased objects - resource leak!");
 #endif
         // unique_ptr handles block deallocation automatically
     }
@@ -230,6 +243,11 @@ public:
 
         Node* node = free_list_;
         free_list_ = node->next;
+        --free_count_;
+
+#ifndef NDEBUG
+        node->next = acquired_sentinel();
+#endif
 
         // CRITICAL-6 FIX: Exception-safe construction
         try
@@ -246,6 +264,7 @@ public:
             // Restore node to free list before rethrowing
             node->next = free_list_;
             free_list_ = node;
+            ++free_count_;
             throw;
         }
     }
@@ -262,7 +281,8 @@ public:
      * @note Conditionally noexcept based on T's constructor
      */
     template <typename... Args>
-    T* try_acquire(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
+    [[nodiscard]] T* try_acquire(Args&&... args)
+        noexcept(std::is_nothrow_constructible_v<T, Args...>)
     {
         typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
 
@@ -273,6 +293,11 @@ public:
 
         Node* node = free_list_;
         free_list_ = node->next;
+        --free_count_;
+
+#ifndef NDEBUG
+        node->next = acquired_sentinel();
+#endif
 
         // Optimization: Skip try-catch for noexcept constructors
         if constexpr (std::is_nothrow_constructible_v<T, Args...>)
@@ -299,17 +324,19 @@ public:
             {
                 node->next = free_list_;
                 free_list_ = node;
+                ++free_count_;
                 throw;
             }
         }
     }
 
     /**
-     * @brief Acquires uninitialized storage
-     * @return Pointer to uninitialized storage
+     * @brief Acquires raw storage suitable for one T (no object constructed)
+     * @return Pointer to storage; a T object does not exist yet
      *
-     * @note Caller MUST placement-new before use and ensure destructor is called
-     * @note Only available for trivially destructible T (safety constraint)
+     * @note Caller MUST construct T in-place (placement-new) before any access.
+     * @note Caller MUST destroy the object and then call release() exactly once.
+     * @note Only enabled for trivially destructible T.
      */
     template <typename U = T>
     [[nodiscard]] std::enable_if_t<std::is_trivially_destructible_v<U>, T*> acquire_uninitialized()
@@ -323,6 +350,11 @@ public:
 
         Node* node = free_list_;
         free_list_ = node->next;
+        --free_count_;
+
+#ifndef NDEBUG
+        node->next = acquired_sentinel();
+#endif
 
 #ifndef NDEBUG
         ++acquired_count_;
@@ -332,14 +364,18 @@ public:
     }
 
     /**
-     * @brief Acquires zero-initialized storage
-     * @return Pointer to zero-filled storage
+     * @brief Acquires raw storage whose bytes are zero-filled (no object constructed)
+     * @return Pointer to storage; a T object does not exist yet
      *
-     * @note Only available for trivially constructible T
-     * @note Returns value-initialized memory, not a constructed object
+     * @note Caller MUST construct T in-place (placement-new) before any access.
+     * @note Only enabled for trivially constructible and trivially destructible T.
+     * @note This zeroes bytes; it is not equivalent to value-initialization for all T.
      */
     template <typename U = T>
-    [[nodiscard]] std::enable_if_t<std::is_trivially_constructible_v<U>, T*> acquire_zeroed()
+    [[nodiscard]] std::enable_if_t<std::is_trivially_constructible_v<U> &&
+                                   std::is_trivially_destructible_v<U>,
+                                   T*>
+    acquire_zeroed()
     {
         typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
 
@@ -350,6 +386,11 @@ public:
 
         Node* node = free_list_;
         free_list_ = node->next;
+        --free_count_;
+
+#ifndef NDEBUG
+        node->next = acquired_sentinel();
+#endif
 
         std::memset(node->storage, 0, sizeof(T));
 
@@ -380,7 +421,8 @@ public:
 #ifndef NDEBUG
         // Double-release and foreign pointer detection
         assert(is_from_pool(obj) && "ObjectPool::release: pointer not from this pool");
-        assert(acquired_count_ > 0 && "ObjectPool::release: double release detected");
+        Node* node = reinterpret_cast<Node*>(obj);
+        assert(node->next == acquired_sentinel() && "ObjectPool::release: double release detected");
         --acquired_count_;
         ++total_releases_;
 #endif
@@ -390,9 +432,14 @@ public:
 
         // Return node to free list
         // Valid cast due to static_assert checking offsetof(Node, storage) == 0
+#ifndef NDEBUG
+        // (node already computed above)
+#else
         Node* node = reinterpret_cast<Node*>(obj);
+#endif
         node->next = free_list_;
         free_list_ = node;
+        ++free_count_;
     }
 
     // ========================================================================
@@ -430,10 +477,8 @@ public:
         size_t acquired;       ///< Objects currently in use
         size_t num_blocks;     ///< Number of allocated blocks
         size_t block_size;     ///< Objects per block
-#ifndef NDEBUG
-        size_t lifetime_acquires; ///< Total acquire() calls (debug only)
-        size_t lifetime_releases; ///< Total release() calls (debug only)
-#endif
+        size_t lifetime_acquires; ///< Total acquire() calls (0 in release builds)
+        size_t lifetime_releases; ///< Total release() calls (0 in release builds)
     };
 
     /**
@@ -444,28 +489,34 @@ public:
     {
         typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
 
-        size_t avail = 0;
-        for (Node* n = free_list_; n != nullptr; n = n->next)
-        {
-            ++avail;
-        }
+        const size_t total = mBlocks.size() * block_size_;
+        const size_t avail = free_count_;
 
-        size_t total = mBlocks.size() * block_size_;
+#ifndef NDEBUG
+        assert((acquired_count_ + free_count_) == total && "ObjectPool: counter mismatch");
+#endif
+
+#ifndef NDEBUG
+        return Stats{total,
+                     avail,
+                     acquired_count_,
+                     mBlocks.size(),
+                     block_size_,
+                     total_acquires_,
+                     total_releases_};
+#else
         return Stats{total,
                      avail,
                      total - avail,
                      mBlocks.size(),
-                     block_size_
-#ifndef NDEBUG
-                     ,
-                     total_acquires_,
-                     total_releases_
+                     block_size_,
+                     0u,
+                     0u};
 #endif
-        };
     }
 
     /// @brief Get the block size
-    size_t block_size() const
+    size_t block_size() const noexcept
     {
         return block_size_;
     }
@@ -487,18 +538,13 @@ public:
     /**
      * @brief Get number of objects available for acquire()
      * @return Number of free objects
-     * @note O(n) operation - traverses free list
+     * @note O(1) operation
      */
     size_t available() const
     {
         typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
 
-        size_t count = 0;
-        for (Node* n = free_list_; n != nullptr; n = n->next)
-        {
-            ++count;
-        }
-        return count;
+        return free_count_;
     }
 
     /**
@@ -635,25 +681,25 @@ public:
     }
 
     /// @brief Get raw pointer (may be nullptr)
-    T* get()
+    T* get() noexcept
     {
         return mObj;
     }
 
     /// @brief Get raw pointer (may be nullptr)
-    const T* get() const
+    const T* get() const noexcept
     {
         return mObj;
     }
 
     /// @brief Check if wrapper holds a valid object
-    explicit operator bool() const
+    explicit operator bool() const noexcept
     {
         return mObj != nullptr;
     }
 
     /// @brief Get owning pool
-    pool_type* get_pool() const
+    pool_type* get_pool() const noexcept
     {
         return mPool;
     }
@@ -673,7 +719,8 @@ public:
  * @return RAII wrapper holding newly acquired object
  */
 template <typename T, typename SyncPolicy, typename... Args>
-[[nodiscard]] PooledObject<T, SyncPolicy> make_pooled(ObjectPool<T, SyncPolicy>& pool, Args&&... args)
+[[nodiscard]] PooledObject<T, SyncPolicy>
+make_pooled(ObjectPool<T, SyncPolicy>& pool, Args&&... args)
 {
     return PooledObject<T, SyncPolicy>(&pool, pool.acquire(std::forward<Args>(args)...));
 }

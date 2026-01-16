@@ -21,6 +21,7 @@
  *
  * Compile (basic - auto-detects available libraries):
  *   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_PolicyIterator.cpp -o bench
+ *   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_PolicyIterator.cpp /link advapi32.lib
  *
  * With vcpkg (headers auto-discovered):
  *   g++ -std=c++17 -O3 -DNDEBUG -march=native \

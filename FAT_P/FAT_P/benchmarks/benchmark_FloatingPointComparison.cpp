@@ -4,7 +4,7 @@
 //
 // Build:
 //   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_FloatingPointComparison.cpp -o bench_fp
-//   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_FloatingPointComparison.cpp
+//   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_FloatingPointComparison.cpp /link advapi32.lib
 //
 // Environment Variables (all optional):
 //   FATP_BENCH_WARMUP_RUNS   - Warmup iterations (default: 3)

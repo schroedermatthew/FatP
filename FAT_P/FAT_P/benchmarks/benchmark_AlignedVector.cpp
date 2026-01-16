@@ -29,7 +29,7 @@
  *   clang++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_AlignedVector.cpp -o bench_av
  *
  * Build (Windows MSVC):
- *   cl /std:c++17 /O2 /DNDEBUG /EHsc /arch:AVX2 benchmark_AlignedVector.cpp
+ *   cl /std:c++17 /O2 /DNDEBUG /EHsc /arch:AVX2 benchmark_AlignedVector.cpp /link advapi32.lib
  *
  * Build (with Boost):
  *   g++ -std=c++17 -O3 -DNDEBUG -march=native -I/path/to/boost benchmark_AlignedVector.cpp -o bench_av

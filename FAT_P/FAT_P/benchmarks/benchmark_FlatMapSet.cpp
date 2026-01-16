@@ -20,7 +20,7 @@
 //
 // Build:
 //   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_FlatMapSet.cpp -o bench_fm
-//   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_FlatMapSet.cpp
+//   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_FlatMapSet.cpp /link advapi32.lib
 //
 // Environment Variables (all optional):
 //   FATP_BENCH_WARMUP_RUNS()   - Warmup iterations (default: 3)
@@ -120,7 +120,9 @@ FATP_META:
 #endif
 
 // Optional: Folly sorted_vector_map (requires -DUSE_FOLLY=1)
-#define USE_FOLLY 1
+#ifndef USE_FOLLY
+#define USE_FOLLY 0
+#endif
 #if defined(USE_FOLLY) && USE_FOLLY && __has_include(<folly/sorted_vector_types.h>)
 #include <folly/sorted_vector_types.h>
 #define HAS_FOLLY 1
@@ -184,7 +186,7 @@ using fat_p::bench::BenchmarkScope;
 
 struct Timer
 {
-    using clock = std::chrono::steady_clock;
+    using clock = fat_p::bench::BenchClock;
     clock::time_point t0;
 
     void start()
