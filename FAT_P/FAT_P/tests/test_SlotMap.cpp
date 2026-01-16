@@ -778,7 +778,7 @@ FATP_TEST_CASE(stress_slot_reuse)
 }
 
 // =============================================================================
-// CRITICAL BUG FIX TESTS (Multi-AI Review)
+// CRITICAL BUG FIX TESTS
 // =============================================================================
 
 // Test: clear() must not cause ABA violation
@@ -1188,7 +1188,7 @@ bool test_SlotMap()
     FATP_RUN_TEST_NS(runner, slotmap, stress_insert_erase);
     FATP_RUN_TEST_NS(runner, slotmap, stress_slot_reuse);
 
-    // Critical bug fix tests (Multi-AI Review)
+    // Critical bug fix tests
     FATP_RUN_TEST_NS(runner, slotmap, clear_aba_fix);
     FATP_RUN_TEST_NS(runner, slotmap, generation_wrap_skips_zero);
 

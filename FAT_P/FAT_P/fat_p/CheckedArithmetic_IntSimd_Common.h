@@ -46,6 +46,9 @@ FATP_META:
 #include <limits>
 #include <type_traits>
 
+// Policy types used by SIMD dispatch functions
+#include "CheckedArithmeticPolicies.h"
+
 // =============================================================================
 // Architecture Detection (MUST be at global scope before any namespace)
 // =============================================================================

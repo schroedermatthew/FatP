@@ -8,12 +8,6 @@
  *
  * @details Object pool that integrates with fat_p concurrency infrastructure.
  *
- * Multi-reviewer validated implementation incorporating findings from:
- * - Claude (semantic analysis, exception safety, memory ownership)
- * - Gemini (code production, allocator concepts)
- * - Grok (compliance, validation, performance)
- * - ChatGPT (API enhancements, alignment concerns)
- *
  * Critical fixes implemented:
  * - CRITICAL-1: Deleted move operations (prevents use-after-free)
  * - CRITICAL-2: static_assert for Node layout (prevents fragile cast)
@@ -22,7 +16,7 @@
  * - CRITICAL-5: reserve() before free_list_ modification (exception safety)
  * - CRITICAL-6: try-catch in acquire() (constructor exception safety)
  *
- * @version 3.2 (Four-Reviewer Final Consensus)
+ * @version 3.2
  */
 
 #pragma once
@@ -101,7 +95,7 @@ private:
     // Ensures reinterpret_cast<Node*>(obj) is valid because storage is at offset 0
     static_assert(offsetof(Node, storage) == 0, "Node layout assumption violated: storage must be at offset 0");
 
-    // Compile-time alignment verification (ChatGPT contribution)
+    // Compile-time alignment verification
     static_assert(alignof(Node) >= alignof(T), "Node alignment must be sufficient for T");
     static_assert(offsetof(Node, storage) % alignof(T) == 0, "Storage must be correctly aligned for T");
 
@@ -149,7 +143,7 @@ private:
     }
 
 #ifndef NDEBUG
-    // Debug helper: check if pointer belongs to this pool (Grok contribution)
+    // Debug helper: check if pointer belongs to this pool
     bool is_from_pool(const T* obj) const noexcept
     {
         if (!obj)
@@ -257,7 +251,7 @@ public:
     }
 
     /**
-     * @brief Tries to acquire without allocating new blocks (ChatGPT contribution)
+     * @brief Tries to acquire without allocating new blocks
      * @tparam Args Constructor argument types
      * @param args Arguments forwarded to T's constructor
      * @return Pointer to constructed object, or nullptr if pool is empty
@@ -265,7 +259,7 @@ public:
      * @throws Any exception thrown by T's constructor (node is restored)
      *
      * @note Never allocates new blocks - useful for HPC where memory growth is forbidden
-     * @note Conditionally noexcept based on T's constructor (Gemini optimization)
+     * @note Conditionally noexcept based on T's constructor
      */
     template <typename... Args>
     T* try_acquire(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
@@ -280,7 +274,7 @@ public:
         Node* node = free_list_;
         free_list_ = node->next;
 
-        // Optimization: Skip try-catch for noexcept constructors (Gemini)
+        // Optimization: Skip try-catch for noexcept constructors
         if constexpr (std::is_nothrow_constructible_v<T, Args...>)
         {
             T* obj = new (node->storage) T(std::forward<Args>(args)...);
@@ -311,7 +305,7 @@ public:
     }
 
     /**
-     * @brief Acquires uninitialized storage (Gemini contribution)
+     * @brief Acquires uninitialized storage
      * @return Pointer to uninitialized storage
      *
      * @note Caller MUST placement-new before use and ensure destructor is called
@@ -338,7 +332,7 @@ public:
     }
 
     /**
-     * @brief Acquires zero-initialized storage (Gemini contribution)
+     * @brief Acquires zero-initialized storage
      * @return Pointer to zero-filled storage
      *
      * @note Only available for trivially constructible T
@@ -384,7 +378,7 @@ public:
         typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
 
 #ifndef NDEBUG
-        // Double-release and foreign pointer detection (Claude + Grok)
+        // Double-release and foreign pointer detection
         assert(is_from_pool(obj) && "ObjectPool::release: pointer not from this pool");
         assert(acquired_count_ > 0 && "ObjectPool::release: double release detected");
         --acquired_count_;
@@ -402,7 +396,7 @@ public:
     }
 
     // ========================================================================
-    // Capacity Management (ChatGPT contribution)
+    // Capacity Management
     // ========================================================================
 
     /**
@@ -423,7 +417,7 @@ public:
     }
 
     // ========================================================================
-    // Diagnostics (Claude + Grok + ChatGPT)
+    // Diagnostics
     // ========================================================================
 
     /**
@@ -615,7 +609,7 @@ public:
         return tmp;
     }
 
-    // Accessors with null checks (Claude + Grok)
+    // Accessors with null checks
     T* operator->()
     {
         assert(mObj != nullptr && "Dereferencing null PooledObject");
@@ -658,7 +652,7 @@ public:
         return mObj != nullptr;
     }
 
-    /// @brief Get owning pool (ChatGPT suggestion)
+    /// @brief Get owning pool
     pool_type* get_pool() const
     {
         return mPool;

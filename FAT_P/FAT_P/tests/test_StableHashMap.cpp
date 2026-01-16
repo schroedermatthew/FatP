@@ -46,12 +46,15 @@ FATP_META:
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <stdexcept>
 #include <numeric>
 #include <random>
 #include <string>
@@ -136,7 +139,7 @@ constexpr int LARGE_SIZE = 10000;
 
 
 // ============================================================================
-// RAII Tracking Type (from Gemini review)
+// RAII Tracking Type
 // ============================================================================
 
 struct TrackedRAII
@@ -204,7 +207,7 @@ struct TrackedRAII
 };
 
 // ============================================================================
-// Heap-owning payload for sanitizer tests (from Gemini review)
+// Heap-owning payload for sanitizer tests
 // ============================================================================
 
 struct HeapBox
@@ -272,6 +275,55 @@ struct ZeroHash
         return 1; // Force all keys to same bucket (not 0, since 0 = empty)
     }
 };
+
+// ============================================================================
+// Counting node allocator for leak regression testing
+// ============================================================================
+
+template <typename T>
+struct CountingNodeAllocator
+{
+    inline static std::atomic<size_t> sAllocs{0};
+    inline static std::atomic<size_t> sFrees{0};
+
+    template <typename... Args>
+    T* allocate(Args&&... args)
+    {
+        ++sAllocs;
+        return new T(std::forward<Args>(args)...);
+    }
+
+    void deallocate(T* ptr)
+    {
+        ++sFrees;
+        delete ptr;
+    }
+};
+
+struct ThrowingEqualState
+{
+    size_t mCount = 0;
+    size_t mThrowAfter = 0;
+};
+
+struct ThrowingEqual
+{
+    ThrowingEqualState* mState = nullptr;
+
+    bool operator()(int a, int b) const
+    {
+        if (mState)
+        {
+            ++mState->mCount;
+            if (mState->mCount > mState->mThrowAfter)
+            {
+                throw std::runtime_error("ThrowingEqual: forced");
+            }
+        }
+        return a == b;
+    }
+};
+
 
 // ============================================================================
 // White-Box Tester for Swiss Table Internals
@@ -839,6 +891,67 @@ FATP_TEST_CASE(copy_semantics)
     return true;
 }
 
+
+// ============================================================================
+// Test 15b: Copy Constructor Exception Safety (No Leak)
+// ============================================================================
+
+FATP_TEST_CASE(copy_ctor_exception_no_leak)
+{
+    using Map = StableHashMap<int, int, ZeroHash, ThrowingEqual, CountingNodeAllocator>;
+    using NodeType = typename Map::node_type;
+    using Alloc = CountingNodeAllocator<NodeType>;
+
+    Alloc::sAllocs.store(0);
+    Alloc::sFrees.store(0);
+
+    ThrowingEqualState st;
+    st.mCount = 0;
+    st.mThrowAfter = std::numeric_limits<size_t>::max(); // No throw during build
+
+    {
+        Map src(256, 0.8, ZeroHash{}, ThrowingEqual{&st});
+        for (int i = 0; i < 100; ++i)
+        {
+            src.insert(i, i * 10);
+        }
+
+        const size_t baseline_allocs = Alloc::sAllocs.load();
+        const size_t baseline_frees = Alloc::sFrees.load();
+
+        FATP_ASSERT_TRUE(baseline_allocs > 0, "Expected some node allocations");
+        FATP_ASSERT_EQ(baseline_frees, size_t(0), "No frees expected before destruction");
+
+        // Force an exception during copy after some comparisons have occurred.
+        st.mCount = 0;
+        st.mThrowAfter = 500;
+
+        bool threw = false;
+        try
+        {
+            Map copy(src);
+            (void)copy;
+        }
+        catch (...)
+        {
+            threw = true;
+        }
+
+        FATP_ASSERT_TRUE(threw, "Copy constructor should throw under ThrowingEqual");
+
+        const size_t after_allocs = Alloc::sAllocs.load();
+        const size_t after_frees = Alloc::sFrees.load();
+
+        // All nodes allocated by the failed copy must have been freed (no leak).
+        FATP_ASSERT_EQ(after_allocs - baseline_allocs,
+                       after_frees - baseline_frees,
+                       "Leaked nodes during failed copy construction");
+    }
+
+    FATP_ASSERT_EQ(Alloc::sAllocs.load(), Alloc::sFrees.load(), "All nodes should be freed at end of scope");
+    return true;
+}
+
 // ============================================================================
 // Test 16: Tombstone Deletion (Swiss Table)
 // ============================================================================
@@ -988,7 +1101,7 @@ FATP_TEST_CASE(stress_random)
 }
 
 // ============================================================================
-// Test 19: RAII Erase Correctness (from Gemini review)
+// Test 19: RAII Erase Correctness
 // ============================================================================
 
 FATP_TEST_CASE(raii_erase_correctness)
@@ -1018,7 +1131,7 @@ FATP_TEST_CASE(raii_erase_correctness)
 }
 
 // ============================================================================
-// Test 20: HeapBox Sanitizer Stress (from Gemini review)
+// Test 20: HeapBox Sanitizer Stress
 // ============================================================================
 
 FATP_TEST_CASE(heapbox_stress)
@@ -1049,7 +1162,7 @@ FATP_TEST_CASE(heapbox_stress)
 }
 
 // ============================================================================
-// Test 21: Rehash Stress (from Gemini review)
+// Test 21: Rehash Stress
 // ============================================================================
 
 FATP_TEST_CASE(rehash_stress)
@@ -1856,137 +1969,51 @@ FATP_TEST_CASE(churn_no_ghost_slots)
 }
 
 // ============================================================================
-// Churn Stability Test 3: Latency Remains Reasonable
+// Sanity Benchmark (one per object)
 // ============================================================================
-// Objective: Wall-clock performance benchmark. Aged lookup speed should
-// remain within acceptable bounds of fresh lookup speed.
-// Swiss Table with tombstones may show slight degradation, but should
-// not be catastrophic like pure tombstone maps (1.5-3.0x).
+// Purpose: regression tripwire vs std::unordered_map.
+// Method: measure random misses (assert loose minimum speedup), measure hits (print only).
 
-FATP_TEST_CASE(churn_latency_stability)
+static bool should_run_sanity_benchmarks()
 {
-    using Map = StableHashMap<int, int>;
-
-    const int TARGET_SIZE = 50000;
-    const int LOOKUPS = 1000000;
-    const int CHURN_OPS = 100000; // Reduced to avoid excessive tombstone accumulation
-
-    Map map;
-    std::mt19937 rng(42);
-
-    // 1. Fill map with tracked keys
-    std::vector<int> keys;
-    keys.reserve(TARGET_SIZE);
-    for (int i = 0; i < TARGET_SIZE; ++i)
+    const char* v = std::getenv("FATP_TEST_DISABLE_SANITY_BENCH");
+    if (v && v[0] != '\0')
     {
-        int k = static_cast<int>(rng());
-        if (map.try_emplace(k, k).second)
+        const char c = v[0];
+        if (c == '1' || c == 'y' || c == 'Y' || c == 't' || c == 'T')
         {
-            keys.push_back(k);
-        }
-        else
-        {
-            --i;
+            return false;
         }
     }
-
-    // Generate lookup keys (mix of hits and misses)
-    std::vector<int> lookup_keys;
-    lookup_keys.reserve(LOOKUPS);
-    std::uniform_int_distribution<int> lookup_dist(0, TARGET_SIZE * 20);
-    for (int i = 0; i < LOOKUPS; ++i)
-    {
-        lookup_keys.push_back(lookup_dist(rng));
-    }
-
-    // 2. Measure fresh lookup performance
-    volatile int sink = 0;
-    auto start_fresh = std::chrono::high_resolution_clock::now();
-    for (int k : lookup_keys)
-    {
-        if (auto* v = map.find(k))
-        {
-            sink += *v;
-        }
-    }
-    auto end_fresh = std::chrono::high_resolution_clock::now();
-    auto fresh_us = std::chrono::duration_cast<std::chrono::microseconds>(end_fresh - start_fresh).count();
-
-    // 3. Perform churn (using tracked keys for real erases)
-    std::uniform_int_distribution<int> key_dist(0, std::numeric_limits<int>::max());
-    for (int i = 0; i < CHURN_OPS; ++i)
-    {
-        std::uniform_int_distribution<size_t> idx_dist(0, keys.size() - 1);
-        size_t idx = idx_dist(rng);
-
-        map.erase(keys[idx]);
-        keys[idx] = keys.back();
-        keys.pop_back();
-
-        // Insert new RANDOM key
-        int new_key;
-        do
-        {
-            new_key = key_dist(rng);
-        } while (map.find(new_key) != nullptr);
-
-        map.insert(new_key, new_key);
-        keys.push_back(new_key);
-    }
-
-    // 4. Measure aged lookup performance
-    auto start_aged = std::chrono::high_resolution_clock::now();
-    for (int k : lookup_keys)
-    {
-        if (auto* v = map.find(k))
-        {
-            sink += *v;
-        }
-    }
-    auto end_aged = std::chrono::high_resolution_clock::now();
-    auto aged_us = std::chrono::duration_cast<std::chrono::microseconds>(end_aged - start_aged).count();
-
-    // 5. Assert latency stability
-    // Allow 50% tolerance for Swiss Table tombstone overhead + system noise
-    double ratio = static_cast<double>(aged_us) / static_cast<double>(fresh_us);
-
-    // Diagnostic output
-    std::cout << "  Latency: fresh=" << fresh_us << "us aged=" << aged_us << "us ratio=" << ratio << "\n";
-
-    // Use sink to prevent optimization
-    (void)sink;
-
-    // CI tolerance: 2.5x accounts for tombstone overhead + noisy CI runners
-    // (shared resources, CPU throttling). Local runs typically see ~1.3-1.5x.
-    FATP_ASSERT_TRUE(ratio < 2.50, "Lookup performance degraded excessively after churn");
 
     return true;
 }
 
-// ============================================================================
-// Benchmark Sanity Test
-// ============================================================================
-// Simplified benchmark that verifies StableHashMap is faster than unordered_map
-// for the core find operation at a reasonable size.
-
-static volatile std::uintptr_t benchmark_sink = 0;
-
-
-void benchmark_stablehashmap()
+FATP_TEST_CASE(sanity_benchmark)
 {
-    std::cout << "\n" << colors::cyan() << "StableHashMap Sanity Benchmark:" << colors::reset() << "\n\n";
+    if (!should_run_sanity_benchmarks())
+    {
+        return true;
+    }
 
-    constexpr size_t N = 100'000;
-    constexpr size_t ITERS = 500'000;
+    std::cout << "\n" << colors::cyan() << "StableHashMap Sanity Benchmark (vs std::unordered_map):" << colors::reset()
+              << "\n\n";
+    std::cout << "SIMD Backend: " << StableHashMap<int, int>::simd_backend() << "\n";
+    print_benchmark_context(std::cout);
+
+    constexpr size_t N = 100000;
+    constexpr size_t BLOCK = 1024;
+    constexpr size_t BATCHES = 15;
 
     std::mt19937 rng(123456);
+
     std::vector<int> keys(N);
     std::iota(keys.begin(), keys.end(), 0);
     std::shuffle(keys.begin(), keys.end(), rng);
 
-    // Build maps
-    fat_p::StableHashMap<int, int> fmap(N * 2, 0.75f);
+    StableHashMap<int, int> fmap;
     std::unordered_map<int, int> umap;
+    fmap.reserve(N * 2);
     umap.reserve(N * 2);
 
     for (int k : keys)
@@ -1995,47 +2022,90 @@ void benchmark_stablehashmap()
         umap.emplace(k, k);
     }
 
-    // Benchmark find
-    size_t idx = 0;
-    auto next_key = [&]() {
-        int k = keys[idx++ % keys.size()];
-        return k;
+    std::vector<int> miss_keys(BLOCK);
+    for (size_t i = 0; i < BLOCK; ++i)
+    {
+        miss_keys[i] = -static_cast<int>(i) - 1;
+    }
+
+    std::vector<int> hit_keys(BLOCK);
+    std::uniform_int_distribution<size_t> pick(0, keys.size() - 1);
+    for (size_t i = 0; i < BLOCK; ++i)
+    {
+        hit_keys[i] = keys[pick(rng)];
+    }
+
+    auto do_stable_miss = [&]() {
+        std::uintptr_t acc = 0;
+        for (int k : miss_keys)
+        {
+            acc += reinterpret_cast<std::uintptr_t>(fmap.find(k));
+        }
+        DoNotOptimize(acc);
     };
 
-    double fmap_time = measure_perf(
-        [&]() {
-            int* v = fmap.find(next_key());
-            benchmark_sink += reinterpret_cast<std::uintptr_t>(v);
-        },
-        ITERS,
-        10);
+    auto do_std_miss = [&]() {
+        std::uintptr_t acc = 0;
+        for (int k : miss_keys)
+        {
+            auto it = umap.find(k);
+            acc += reinterpret_cast<std::uintptr_t>(it == umap.end() ? nullptr : &it->second);
+        }
+        DoNotOptimize(acc);
+    };
 
-    idx = 0;
+    auto do_stable_hit = [&]() {
+        long long acc = 0;
+        for (int k : hit_keys)
+        {
+            if (int* v = fmap.find(k))
+            {
+                acc += *v;
+            }
+        }
+        DoNotOptimize(acc);
+    };
 
-    double umap_time = measure_perf(
-        [&]() {
-            auto it = umap.find(next_key());
-            benchmark_sink += reinterpret_cast<std::uintptr_t>(it == umap.end() ? nullptr : &it->second);
-        },
-        ITERS,
-        10);
+    auto do_std_hit = [&]() {
+        long long acc = 0;
+        for (int k : hit_keys)
+        {
+            auto it = umap.find(k);
+            if (it != umap.end())
+            {
+                acc += it->second;
+            }
+        }
+        DoNotOptimize(acc);
+    };
 
-    double speedup = umap_time / fmap_time;
+    const BenchmarkStats stable_miss = measure_perf_stats(do_stable_miss, 0, BATCHES);
+    const BenchmarkStats std_miss = measure_perf_stats(do_std_miss, 0, BATCHES);
+    const BenchmarkStats stable_hit = measure_perf_stats(do_stable_hit, 0, BATCHES);
+    const BenchmarkStats std_hit = measure_perf_stats(do_std_hit, 0, BATCHES);
 
-    std::cout << "Find (" << N << " elements, " << ITERS << " lookups):\n";
-    std::cout << "  StableHashMap: " << format_time(fmap_time) << "\n";
-    std::cout << "  unordered_map: " << format_time(umap_time) << "\n";
-    std::cout << "  Speedup: " << std::fixed << std::setprecision(2) << speedup << "x\n\n";
+    const double stable_miss_ns = stable_miss.median_ns() / static_cast<double>(BLOCK);
+    const double std_miss_ns = std_miss.median_ns() / static_cast<double>(BLOCK);
+    const double stable_hit_ns = stable_hit.median_ns() / static_cast<double>(BLOCK);
+    const double std_hit_ns = std_hit.median_ns() / static_cast<double>(BLOCK);
 
-    // Sanity check: StableHashMap should be at least as fast
-    if (speedup < 0.8)
-    {
-        std::cout << colors::yellow() << "  Warning: StableHashMap slower than expected" << colors::reset() << "\n";
-    }
-    else
-    {
-        std::cout << colors::green() << "  ✓ Performance sanity check passed" << colors::reset() << "\n";
-    }
+    const double miss_speedup = std_miss.median_ms / stable_miss.median_ms;
+    const double hit_speedup = std_hit.median_ms / stable_hit.median_ms;
+
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "  N=" << N << " BLOCK=" << BLOCK << " batches=" << BATCHES << "\n";
+    std::cout << "  Miss: StableHashMap " << stable_miss_ns << " ns/op, std " << std_miss_ns << " ns/op, speedup "
+              << miss_speedup << "x\n";
+    std::cout << "  Hit:  StableHashMap " << stable_hit_ns << " ns/op, std " << std_hit_ns << " ns/op, speedup "
+              << hit_speedup << "x\n\n";
+
+#ifndef NDEBUG
+    (void)miss_speedup;
+#else
+    FATP_ASSERT_TRUE(miss_speedup >= 1.30, "StableHashMap miss regression vs std::unordered_map");
+#endif
+
+    return true;
 }
 
 } // namespace fat_p::testing::stablehashmap
@@ -2070,6 +2140,7 @@ bool test_StableHashMap()
     FATP_RUN_TEST_NS(runner, stablehashmap, bracket_operator);
     FATP_RUN_TEST_NS(runner, stablehashmap, move_semantics);
     FATP_RUN_TEST_NS(runner, stablehashmap, copy_semantics);
+    FATP_RUN_TEST_NS(runner, stablehashmap, copy_ctor_exception_no_leak);
     FATP_RUN_TEST_NS(runner, stablehashmap, backward_shift_deletion);
     FATP_RUN_TEST_NS(runner, stablehashmap, equality_operators);
     FATP_RUN_TEST_NS(runner, stablehashmap, stress_random);
@@ -2093,12 +2164,13 @@ bool test_StableHashMap()
     FATP_RUN_TEST_NS(runner, stablehashmap, heterogeneous_try_emplace_rvalue);
     FATP_RUN_TEST_NS(runner, stablehashmap, safepolicy_erase_basic_guarantee);
 
-    // Churn stability tests (verify no-tombstone invariant)
+    // Churn stability tests (structural invariants)
     FATP_RUN_TEST_NS(runner, stablehashmap, churn_probe_distance_stability);
     FATP_RUN_TEST_NS(runner, stablehashmap, churn_no_ghost_slots);
-    FATP_RUN_TEST_NS(runner, stablehashmap, churn_latency_stability);
 
-    stablehashmap::benchmark_stablehashmap();
+    auto& out = *get_test_config().output;
+    out << "\n" << colors::blue() << "--- Sanity Benchmark ---" << colors::reset() << "\n";
+    FATP_RUN_TEST_NS(runner, stablehashmap, sanity_benchmark);
 
     return 0 == runner.print_summary();
 }

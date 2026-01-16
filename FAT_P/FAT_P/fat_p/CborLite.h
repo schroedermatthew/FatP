@@ -1,9 +1,3 @@
-/**
- * @file CborLite.h
- * @brief Lightweight CBOR encoding and decoding
- *
- * @layer Foundation
- */
 #pragma once
 
 /*
@@ -13,7 +7,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CborLite.h
   namespace: fat_p
-  layer: Domain
+  layer: Foundation
   summary: "Public header for CborLite."
   api_stability: in_work
   related:
@@ -31,9 +25,12 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
-// CborLite.h
-// Minimal CBOR encoder/decoder with no Fat-P dependencies beyond the namespace.
-// C++17, header-only, standard library only.
+
+/**
+ * @file CborLite.h
+ * @brief Minimal CBOR encoder/decoder with no Fat-P dependencies beyond the namespace.
+ * C++17, header-only, standard library only.
+ */
 
 #include <cstddef>
 #include <cstdint>

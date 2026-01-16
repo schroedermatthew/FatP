@@ -44,7 +44,7 @@ namespace fat_p::testing::csrmatrix_hpc
 
 FATP_TEST_CASE(is_symmetric_structural_check)
 {
-    // Gemini's bug case: Matrix where A(0,1)=5, A(1,0)=0
+    // Edge case: Matrix where A(0,1)=5, A(1,0)=0
     // Values arrays would be identical [5], but structure differs
     // Old buggy code would return true; fixed code returns false
 

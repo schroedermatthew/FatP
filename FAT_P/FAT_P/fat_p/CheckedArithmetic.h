@@ -1,9 +1,34 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: CheckedArithmetic
+  file_role: public_header
+  path: fat_p/CheckedArithmetic.h
+  namespace: fat_p
+  layer: Foundation
+  summary: "Public header for CheckedArithmetic."
+  api_stability: in_work
+  related:
+    docs_search: "CheckedArithmetic"
+    tests:
+      - tests/test_CheckedArithmetic.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 1
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file CheckedArithmetic.h
  * @brief Unified checked arithmetic operations for integers and floating-point
- *
- *
- * @layer Foundation
  *
  * @version 3.1 (Fixed static_math::mul for unsigned types)
  *
@@ -44,33 +69,7 @@
  * - SIMD vectors (int32, AVX2): ~0.5-1 ns per element
  * - SIMD vectors (float/double): ~0.5-1 ns per element
  */
-#pragma once
 
-/*
-FATP_META:
-  meta_version: 1
-  component: CheckedArithmetic
-  file_role: public_header
-  path: fat_p/CheckedArithmetic.h
-  namespace: fat_p
-  layer: Foundation
-  summary: "Public header for CheckedArithmetic."
-  api_stability: in_work
-  related:
-    docs_search: "CheckedArithmetic"
-    tests:
-      - tests/test_CheckedArithmetic.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 1
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 // Include the split components
 #include "CheckedArithmeticFP.h"
 #include "CheckedArithmeticInt.h"

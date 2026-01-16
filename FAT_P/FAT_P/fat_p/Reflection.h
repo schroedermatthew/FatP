@@ -19,12 +19,12 @@
  * - Future-proof for C++26 native reflection
  * - MSVC-compatible macro expansion (v3.0.1)
  *
- * Key Changes in v3.0.1:
+ * Changes in v3.0.1:
  * - Added MSVC workaround for __VA_ARGS__ expansion in nested macros
  * - Uses FATP_REFLECT_MAP_EXPAND on MSVC to force proper macro expansion
  * - GCC/Clang behavior unchanged
  *
- * Key Changes in v3.0:
+ * Changes in v3.0:
  * - Eliminated REFLECT_MANUAL (legacy) - now both C++17 and C++20 use REFLECT_REGISTER
  * - C++17 uses Field constructor with #field for names (no boilerplate)
  * - Macro expansion fixed for proper FATP_REFLECT_COUNT evaluation

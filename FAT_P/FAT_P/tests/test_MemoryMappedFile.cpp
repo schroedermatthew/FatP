@@ -27,8 +27,6 @@ FATP_META:
     mode: autogen
 */
 
-#define _CRT_SECURE_NO_WARNINGS
-
 #include <cstdio> // For std::remove
 #include <cstring>
 #include <fstream>

@@ -108,7 +108,8 @@ FATP_TEST_CASE(mul_type_mismatch)
         FATP_ASSERT_EQ(result, 0, "Saturating policy should also work");
     }
 
-    std::cout << colors::green() << "[CRITICAL FIX] checked_mul type mismatch: FIXED" << colors::reset() << std::endl;
+    std::cout << colors::green() << "[CRITICAL FIX] checked_mul type mismatch: VERIFIED" << colors::reset()
+              << std::endl;
     return true;
 }
 
@@ -146,7 +147,7 @@ FATP_TEST_CASE(div_sign_aware_saturation)
                        "Small negative / 0.0 should saturate to lowest");
     }
 
-    std::cout << colors::green() << "[CRITICAL FIX] Sign-aware saturation: FIXED" << colors::reset() << std::endl;
+    std::cout << colors::green() << "[CRITICAL FIX] Sign-aware saturation: VERIFIED" << colors::reset() << std::endl;
     return true;
 }
 
@@ -248,7 +249,7 @@ FATP_TEST_CASE(fp_input_validation)
         FATP_ASSERT_EQ(result.error(), MathError::Inf, "Should return Inf error for overflow");
     }
 
-    std::cout << colors::green() << "[CRITICAL FIX] FP input validation: FIXED" << colors::reset() << std::endl;
+    std::cout << colors::green() << "[CRITICAL FIX] FP input validation: VERIFIED" << colors::reset() << std::endl;
     return true;
 }
 

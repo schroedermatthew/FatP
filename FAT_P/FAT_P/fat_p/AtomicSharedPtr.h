@@ -1,22 +1,3 @@
-/**
- * @file AtomicSharedPtr.h
- * @brief Minimal thread-safe atomic wrapper for std::shared_ptr.
- *
- *
- *
- * @layer Concurrency
- *
- * @details Thin wrapper providing atomic operations on shared_ptr<T>.
- * Uses std::atomic<shared_ptr> on C++20, free functions on C++17.
- *
- * This is an **atomic handle**, not an atomic object - atomicity applies
- * only to the pointer/control block, not to the managed object T.
- *
- * @note Requires C++17 minimum; C++20 for native wait/notify support.
- * @author Fat-P Library
- * @version 1.0
- * @date 2025
- */
 #pragma once
 
 /*
@@ -44,6 +25,23 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file AtomicSharedPtr.h
+ * @brief Minimal thread-safe atomic wrapper for std::shared_ptr.
+ *
+ * @details Thin wrapper providing atomic operations on shared_ptr<T>.
+ * Uses std::atomic<shared_ptr> on C++20, free functions on C++17.
+ *
+ * This is an **atomic handle**, not an atomic object - atomicity applies
+ * only to the pointer/control block, not to the managed object T.
+ *
+ * @note Requires C++17 minimum; C++20 for native wait/notify support.
+ * @author Fat-P Library
+ * @version 1.0
+ * @date 2025
+ */
+
 #include "CppStandardDetection.h"
 
 #include <atomic>

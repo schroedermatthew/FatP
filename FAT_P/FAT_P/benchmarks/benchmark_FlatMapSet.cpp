@@ -120,6 +120,7 @@ FATP_META:
 #endif
 
 // Optional: Folly sorted_vector_map (requires -DUSE_FOLLY=1)
+#define USE_FOLLY 1
 #if defined(USE_FOLLY) && USE_FOLLY && __has_include(<folly/sorted_vector_types.h>)
 #include <folly/sorted_vector_types.h>
 #define HAS_FOLLY 1

@@ -503,7 +503,7 @@ FATP_TEST_CASE(unordered_map_empty)
 // ============================================================================
 // Test Suite 8: Unordered Multi-Containers (REGRESSION TESTS)
 // ============================================================================
-// These tests verify the multiplicity validation that Gemini falsely claimed
+// These tests verify the multiplicity validation that was falsely claimed
 // was broken. The {1,1,1} vs {1,2,3} case MUST return false.
 
 FATP_TEST_CASE(unordered_multiset_multiplicity_regression)

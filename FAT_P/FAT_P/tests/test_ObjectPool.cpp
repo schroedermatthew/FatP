@@ -342,7 +342,7 @@ FATP_TEST_CASE(active_count)
 }
 
 // ============================================================================
-// Specialized Acquire Tests (Gemini contribution)
+// Specialized Acquire Tests
 // ============================================================================
 
 FATP_TEST_CASE(acquire_uninitialized)

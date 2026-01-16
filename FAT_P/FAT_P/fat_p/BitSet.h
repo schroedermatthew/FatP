@@ -1,25 +1,3 @@
-/**
- * @file BitSet.h
- * @brief High-performance fixed-size bit set with compiler intrinsics
- *
- * Features:
- * - Fixed capacity bit set with O(1) single-bit operations
- * - Bulk operations (set_all, clear_all, flip_all)
- * - Population count using hardware popcnt instruction
- * - Find first/last/next set bit using hardware ctz/clz
- * - Bitwise operations (AND, OR, XOR, NOT)
- * - Range operations (set_range, clear_range, count_range)
- * - Set operations (is_subset_of, intersects)
- * - STL-compatible iterator over set bits
- * - Unchecked accessors for HPC inner loops
- *
- * Compilation: Requires C++17
- * - g++ -std=c++17 -O3 -mpopcnt your_code.cpp
- * - cl /std:c++17 /O2 your_code.cpp
- *
- * @layer Containers
- */
-
 #pragma once
 
 /*
@@ -47,6 +25,27 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file BitSet.h
+ * @brief High-performance fixed-size bit set with compiler intrinsics
+ *
+ * Features:
+ * - Fixed capacity bit set with O(1) single-bit operations
+ * - Bulk operations (set_all, clear_all, flip_all)
+ * - Population count using hardware popcnt instruction
+ * - Find first/last/next set bit using hardware ctz/clz
+ * - Bitwise operations (AND, OR, XOR, NOT)
+ * - Range operations (set_range, clear_range, count_range)
+ * - Set operations (is_subset_of, intersects)
+ * - STL-compatible iterator over set bits
+ * - Unchecked accessors for HPC inner loops
+ *
+ * Compilation: Requires C++17
+ * - g++ -std=c++17 -O3 -mpopcnt your_code.cpp
+ * - cl /std:c++17 /O2 your_code.cpp
+ */
+
 #include <array>
 #include <cstddef>
 #include <cstdint>

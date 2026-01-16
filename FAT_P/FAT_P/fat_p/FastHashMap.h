@@ -7,7 +7,7 @@
  * @details
  * A single-header Swiss table implementation with configurable deletion policy
  * and allocator support. 3-5x faster than std::unordered_map for most workloads.
- * Version: December 22, 2025 (4-AI Review Round 3)
+ * Version: December 22, 2025
  * Fixes applied:
  * - P0 Critical: Control byte prefix mirroring (fixes probing hang)
  * - P0 Critical: Guaranteed >=1 empty slot (probe termination)
@@ -724,13 +724,14 @@ private:
 #endif
 
 // =============================================================================
-// ProbeSequence - Linear probing
+// ProbeSequence
 // =============================================================================
 
-class ProbeSequence
+// Linear probing by group width. Required for backward-shift deletion.
+class ProbeSequenceLinear
 {
 public:
-    ProbeSequence(size_t hash, size_t mask)
+    ProbeSequenceLinear(size_t hash, size_t mask)
         : mMask(mask)
         , mOffset(hash & mask)
     {
@@ -752,6 +753,42 @@ public:
 private:
     size_t mMask;
     size_t mOffset;
+};
+
+// Triangular probing by group width.
+// This reduces primary clustering and tends to improve miss behavior for
+// high-load tables. It is used only for tombstone-based maps because
+// backward-shift deletion relies on linear probe ordering.
+class ProbeSequenceTriangular
+{
+public:
+    ProbeSequenceTriangular(size_t hash, size_t mask)
+        : mMask(mask)
+        , mPos(hash & mask)
+        , mStride(0)
+    {
+    }
+
+    size_t offset() const
+    {
+        return mPos;
+    }
+
+    size_t offset(size_t i) const
+    {
+        return (mPos + i) & mMask;
+    }
+
+    void next()
+    {
+        mStride += Group::kWidth;
+        mPos = (mPos + mStride) & mMask;
+    }
+
+private:
+    size_t mMask;
+    size_t mPos;
+    size_t mStride;
 };
 
 } // namespace fasthash_detail
@@ -782,36 +819,83 @@ public:
 
 private:
     using Group = fasthash_detail::Group;
-    using ProbeSequence = fasthash_detail::ProbeSequence;
+    using ProbeSequence = std::conditional_t<uses_tombstones,
+                                             fasthash_detail::ProbeSequenceTriangular,
+                                             fasthash_detail::ProbeSequenceLinear>;
     using BitMask = fasthash_detail::BitMask;
 
-    // Slot structure - conditionally includes 'home' for backward-shift
+    // Slot structure - always-live; element lifetime is controlled by control bytes.
+    // Stores (Key, Value) in raw storage to avoid default construction and to make
+    // exception-safe two-phase commit possible.
     struct Slot
     {
-        Key key{};
-        Value value{};
+        using element_type = std::pair<Key, Value>;
+
+        alignas(element_type) unsigned char mStorage[sizeof(element_type)];
 
         // Only include home field for backward-shift deletion
         // Uses empty struct for zero overhead with tombstones
         struct Empty
         {
         };
+
         FATP_NO_UNIQUE_ADDRESS std::conditional_t<uses_tombstones, Empty, size_t> mHome{};
 
         Slot() = default;
+        Slot(const Slot&) = delete;
+        Slot& operator=(const Slot&) = delete;
+
+        element_type* element_ptr() noexcept
+        {
+            return std::launder(reinterpret_cast<element_type*>(mStorage));
+        }
+
+        const element_type* element_ptr() const noexcept
+        {
+            return std::launder(reinterpret_cast<const element_type*>(mStorage));
+        }
+
+        const Key& key() const noexcept
+        {
+            return element_ptr()->first;
+        }
+
+        Key& key_mut() noexcept
+        {
+            return element_ptr()->first;
+        }
+
+        Value& value() noexcept
+        {
+            return element_ptr()->second;
+        }
+
+        const Value& value() const noexcept
+        {
+            return element_ptr()->second;
+        }
+
+        Value& value_mut() noexcept
+        {
+            return element_ptr()->second;
+        }
 
         template <typename K, typename V>
-        void emplace(K&& k, V&& v, size_t home)
+        void construct(K&& k, V&& v, size_t home)
         {
-            key = std::forward<K>(k);
-            value = std::forward<V>(v);
+            ::new ((void*)mStorage) element_type(std::forward<K>(k), std::forward<V>(v));
             if constexpr (!uses_tombstones)
             {
                 mHome = home;
             }
         }
 
-        size_t home() const
+        void destroy() noexcept
+        {
+            element_ptr()->~element_type();
+        }
+
+        size_t home() const noexcept
         {
             if constexpr (uses_tombstones)
             {
@@ -823,10 +907,12 @@ private:
             }
         }
 
-        void destroy()
+        void set_home(size_t home) noexcept
         {
-            key.~Key();
-            value.~Value();
+            if constexpr (!uses_tombstones)
+            {
+                mHome = home;
+            }
         }
     };
 
@@ -907,6 +993,12 @@ private:
         {
             mAllocator.deallocate(new_ctrl, cap + Group::kWidth, Group::kWidth);
             throw std::bad_alloc();
+        }
+
+        // Begin lifetime of Slot objects (they do not construct Key/Value)
+        for (size_t i = 0; i < cap; ++i)
+        {
+            ::new ((void*)(new_slots + i)) Slot();
         }
 
         // Both allocations succeeded - now commit to member variables
@@ -1036,7 +1128,7 @@ private:
             for (uint32_t i : g.match(h2))
             {
                 size_t idx = seq.offset(i);
-                if (key_equal_(mSlots[idx].key, k))
+                if (key_equal_(mSlots[idx].key(), k))
                 {
                     return {idx, true};
                 }
@@ -1073,58 +1165,143 @@ private:
 
     void rehash_internal(size_t new_cap)
     {
+        if (mCapacity == 0)
+        {
+            allocate(new_cap);
+            return;
+        }
+
         uint8_t* old_ctrl = mCtrl;
         Slot* old_slots = mSlots;
-        size_t old_cap = mCapacity;
-        size_t old_mask = mMask;
-        size_t old_growth_threshold = growth_threshold_;
+        const size_t old_cap = mCapacity;
 
-        mCtrl = nullptr;
-        mSlots = nullptr;
+        // Allocate new control bytes
+        uint8_t* new_ctrl = static_cast<uint8_t*>(mAllocator.allocate(new_cap + Group::kWidth, Group::kWidth));
+        if (!new_ctrl)
+        {
+            throw std::bad_alloc();
+        }
+        std::memset(new_ctrl, fasthash_detail::kEmpty, new_cap + Group::kWidth);
+
+        // Allocate new slots
+        constexpr size_t slot_align =
+            alignof(Slot) > alignof(std::max_align_t) ? alignof(Slot) : alignof(std::max_align_t);
+        Slot* new_slots = static_cast<Slot*>(mAllocator.allocate(new_cap * sizeof(Slot), slot_align));
+        if (!new_slots)
+        {
+            mAllocator.deallocate(new_ctrl, new_cap + Group::kWidth, Group::kWidth);
+            throw std::bad_alloc();
+        }
+
+        for (size_t i = 0; i < new_cap; ++i)
+        {
+            ::new ((void*)(new_slots + i)) Slot();
+        }
+
+        const size_t new_mask = new_cap - 1;
+        size_t new_size = 0;
+
+        auto set_ctrl_local = [&](size_t idx, uint8_t value) noexcept {
+            new_ctrl[idx] = value;
+            if (idx < Group::kWidth)
+            {
+                new_ctrl[new_cap + idx] = value;
+            }
+        };
+
+        auto find_insert_slot_local = [&](size_t h) {
+            ProbeSequence seq(h, new_mask);
+            while (true)
+            {
+                Group g(new_ctrl + seq.offset());
+                BitMask mask = g.match_empty();
+                if (mask)
+                {
+                    return seq.offset(mask.lowest_set_bit());
+                }
+                seq.next();
+            }
+        };
 
         try
         {
-            allocate(new_cap);
+            if constexpr (std::is_nothrow_invocable_r_v<size_t, const Hash&, const Key&> &&
+                          std::is_nothrow_move_constructible_v<Key> &&
+                          std::is_nothrow_move_constructible_v<Value>)
+            {
+                // Move path: no throws after allocations.
+                for (size_t i = 0; i < old_cap; ++i)
+                {
+                    if (fasthash_detail::is_full(old_ctrl[i]))
+                    {
+                        const size_t h = hash_key(old_slots[i].key());
+                        const size_t idx = find_insert_slot_local(h);
+                        const size_t home = h & new_mask;
+
+                        new_slots[idx].construct(std::move(old_slots[i].key_mut()),
+                                                 std::move(old_slots[i].value_mut()),
+                                                 home);
+                        set_ctrl_local(idx, fasthash_detail::H2(h));
+                        ++new_size;
+                    }
+                }
+            }
+            else
+            {
+                // Copy path: provides strong guarantee for copyable types.
+                static_assert(std::is_copy_constructible_v<Key> && std::is_copy_constructible_v<Value>,
+                              "FastHashMap rehash: Key and Value must be copy-constructible unless Hash and moves are noexcept.");
+
+                for (size_t i = 0; i < old_cap; ++i)
+                {
+                    if (fasthash_detail::is_full(old_ctrl[i]))
+                    {
+                        const size_t h = hash_key(old_slots[i].key());
+                        const size_t idx = find_insert_slot_local(h);
+                        const size_t home = h & new_mask;
+
+                        new_slots[idx].construct(old_slots[i].key(), old_slots[i].value(), home);
+                        set_ctrl_local(idx, fasthash_detail::H2(h));
+                        ++new_size;
+                    }
+                }
+            }
         }
         catch (...)
         {
-            // Restore old state on allocation failure
-            mCtrl = old_ctrl;
-            mSlots = old_slots;
-            mCapacity = old_cap;
-            mMask = old_mask;
-            growth_threshold_ = old_growth_threshold;
-            throw; // Re-throw the exception
+            for (size_t i = 0; i < new_cap; ++i)
+            {
+                if (fasthash_detail::is_full(new_ctrl[i]))
+                {
+                    new_slots[i].destroy();
+                }
+            }
+            mAllocator.deallocate(new_slots, new_cap * sizeof(Slot), slot_align);
+            mAllocator.deallocate(new_ctrl, new_cap + Group::kWidth, Group::kWidth);
+            throw;
         }
 
-        size_ = 0;
+        // Destroy old elements and free old storage
+        for (size_t i = 0; i < old_cap; ++i)
+        {
+            if (fasthash_detail::is_full(old_ctrl[i]))
+            {
+                old_slots[i].destroy();
+            }
+        }
+        mAllocator.deallocate(old_slots, old_cap * sizeof(Slot), slot_align);
+        mAllocator.deallocate(old_ctrl, old_cap + Group::kWidth, Group::kWidth);
+
+        // Commit new table
+        mCtrl = new_ctrl;
+        mSlots = new_slots;
+        mCapacity = new_cap;
+        mMask = new_mask;
+        growth_threshold_ = compute_growth_threshold(new_cap, max_load_factor_);
+        size_ = new_size;
         if constexpr (uses_tombstones)
         {
             mTombstones = 0;
-        }
-
-        if (old_ctrl)
-        {
-            for (size_t i = 0; i < old_cap; ++i)
-            {
-                if (fasthash_detail::is_full(old_ctrl[i]))
-                {
-                    size_t h = hash_key(old_slots[i].key);
-                    size_t idx = find_insert_slot(h);
-                    size_t home = h & mMask;
-
-                    set_ctrl(idx, fasthash_detail::H2(h));
-                    new (&mSlots[idx]) Slot();
-                    mSlots[idx].emplace(std::move(old_slots[i].key), std::move(old_slots[i].value), home);
-                    old_slots[i].destroy();
-                    ++size_;
-                }
-            }
-
-            constexpr size_t slot_align =
-                alignof(Slot) > alignof(std::max_align_t) ? alignof(Slot) : alignof(std::max_align_t);
-            mAllocator.deallocate(old_slots, old_cap * sizeof(Slot), slot_align);
-            mAllocator.deallocate(old_ctrl, old_cap + Group::kWidth, Group::kWidth);
         }
     }
 
@@ -1185,12 +1362,8 @@ private:
                 if (dist_to_hole < dist_to_current)
                 {
                     set_ctrl(hole, mCtrl[scan]);
-                    mSlots[hole].key = std::move(mSlots[scan].key);
-                    mSlots[hole].value = std::move(mSlots[scan].value);
-                    if constexpr (!uses_tombstones)
-                    {
-                        mSlots[hole].mHome = natural_pos;
-                    }
+                    *mSlots[hole].element_ptr() = std::move(*mSlots[scan].element_ptr());
+                    mSlots[hole].set_home(natural_pos);
                     hole = scan;
                 }
 
@@ -1238,15 +1411,15 @@ public:
             {
                 if (fasthash_detail::is_full(other.mCtrl[i]))
                 {
+                    // Phase 1: construct element
+                    mSlots[i].construct(other.mSlots[i].key(), other.mSlots[i].value(), other.mSlots[i].home());
+                    // Phase 2: commit ctrl
                     set_ctrl(i, other.mCtrl[i]);
-                    new (&mSlots[i]) Slot();
-                    mSlots[i].emplace(other.mSlots[i].key, other.mSlots[i].value, other.mSlots[i].home());
                 }
                 else if (fasthash_detail::is_deleted(other.mCtrl[i]))
                 {
                     set_ctrl(i, fasthash_detail::kDeleted);
                 }
-                // Empty slots already initialized by allocate()
             }
             size_ = other.size_;
             if constexpr (uses_tombstones)
@@ -1472,9 +1645,9 @@ public:
         }
         maybe_rehash();
 
-        size_t h = hash_key(key);
-        uint8_t h2 = fasthash_detail::H2(h);
-        size_t home = h & mMask;
+        const size_t h = hash_key(key);
+        const uint8_t h2 = fasthash_detail::H2(h);
+        const size_t home = h & mMask;
 
         ProbeSequence seq(h, mMask);
         size_t insert_idx = SIZE_MAX;
@@ -1485,8 +1658,8 @@ public:
 
             for (uint32_t i : g.match(h2))
             {
-                size_t idx = seq.offset(i);
-                if (key_equal_(mSlots[idx].key, key))
+                const size_t idx = seq.offset(i);
+                if (key_equal_(mSlots[idx].key(), key))
                 {
                     return nullptr; // Already exists
                 }
@@ -1513,20 +1686,23 @@ public:
             insert_idx = find_insert_slot(h);
         }
 
+        const bool reused_tombstone = uses_tombstones && fasthash_detail::is_deleted(mCtrl[insert_idx]);
+
+        // Phase 1: construct element (may throw)
+        mSlots[insert_idx].construct(std::forward<K>(key), std::forward<V>(value), home);
+
+        // Phase 2: commit metadata (no throw)
+        set_ctrl(insert_idx, h2);
+        ++size_;
         if constexpr (uses_tombstones)
         {
-            if (fasthash_detail::is_deleted(mCtrl[insert_idx]))
+            if (reused_tombstone)
             {
                 --mTombstones;
             }
         }
 
-        set_ctrl(insert_idx, h2);
-        new (&mSlots[insert_idx]) Slot();
-        mSlots[insert_idx].emplace(std::forward<K>(key), std::forward<V>(value), home);
-        ++size_;
-
-        return &mSlots[insert_idx].value;
+        return &mSlots[insert_idx].value();
     }
 
     template <typename K, typename V>
@@ -1539,9 +1715,9 @@ public:
         }
         maybe_rehash();
 
-        size_t h = hash_key(key);
-        uint8_t h2 = fasthash_detail::H2(h);
-        size_t home = h & mMask;
+        const size_t h = hash_key(key);
+        const uint8_t h2 = fasthash_detail::H2(h);
+        const size_t home = h & mMask;
 
         ProbeSequence seq(h, mMask);
         size_t insert_idx = SIZE_MAX;
@@ -1552,12 +1728,12 @@ public:
 
             for (uint32_t i : g.match(h2))
             {
-                size_t idx = seq.offset(i);
-                if (key_equal_(mSlots[idx].key, key))
+                const size_t idx = seq.offset(i);
+                if (key_equal_(mSlots[idx].key(), key))
                 {
-                    // Key exists - assign new value
-                    mSlots[idx].value = std::forward<V>(value);
-                    return {&mSlots[idx].value, false};
+                    Value& ref = mSlots[idx].value_mut();
+                    ref = std::forward<V>(value);
+                    return {&ref, false};
                 }
             }
 
@@ -1582,20 +1758,21 @@ public:
             insert_idx = find_insert_slot(h);
         }
 
+        const bool reused_tombstone = uses_tombstones && fasthash_detail::is_deleted(mCtrl[insert_idx]);
+
+        mSlots[insert_idx].construct(std::forward<K>(key), std::forward<V>(value), home);
+
+        set_ctrl(insert_idx, h2);
+        ++size_;
         if constexpr (uses_tombstones)
         {
-            if (fasthash_detail::is_deleted(mCtrl[insert_idx]))
+            if (reused_tombstone)
             {
                 --mTombstones;
             }
         }
 
-        set_ctrl(insert_idx, h2);
-        new (&mSlots[insert_idx]) Slot();
-        mSlots[insert_idx].emplace(std::forward<K>(key), std::forward<V>(value), home);
-        ++size_;
-
-        return {&mSlots[insert_idx].value, true};
+        return {&mSlots[insert_idx].value_mut(), true};
     }
 
     /// Erase a key. Supports heterogeneous lookup.
@@ -1617,14 +1794,14 @@ public:
     Value* find(const K& key)
     {
         auto [idx, found] = find_slot(key);
-        return found ? &mSlots[idx].value : nullptr;
+        return found ? &mSlots[idx].value() : nullptr;
     }
 
     template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
     const Value* find(const K& key) const
     {
         auto [idx, found] = find_slot(key);
-        return found ? &mSlots[idx].value : nullptr;
+        return found ? &mSlots[idx].value() : nullptr;
     }
 
     template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
@@ -1648,7 +1825,7 @@ public:
         {
             throw std::out_of_range("FastHashMap::at: key not found");
         }
-        return mSlots[idx].value;
+        return mSlots[idx].value();
     }
 
     template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
@@ -1659,7 +1836,7 @@ public:
         {
             throw std::out_of_range("FastHashMap::at: key not found");
         }
-        return mSlots[idx].value;
+        return mSlots[idx].value();
     }
 
     Value& operator[](const Key& key)
@@ -1671,9 +1848,9 @@ public:
         }
         maybe_rehash();
 
-        size_t h = hash_key(key);
-        uint8_t h2 = fasthash_detail::H2(h);
-        size_t home = h & mMask;
+        const size_t h = hash_key(key);
+        const uint8_t h2 = fasthash_detail::H2(h);
+        const size_t home = h & mMask;
 
         ProbeSequence seq(h, mMask);
         size_t insert_idx = SIZE_MAX;
@@ -1684,10 +1861,10 @@ public:
 
             for (uint32_t i : g.match(h2))
             {
-                size_t idx = seq.offset(i);
-                if (key_equal_(mSlots[idx].key, key))
+                const size_t idx = seq.offset(i);
+                if (key_equal_(mSlots[idx].key(), key))
                 {
-                    return mSlots[idx].value;
+                    return mSlots[idx].value();
                 }
             }
 
@@ -1712,20 +1889,21 @@ public:
             insert_idx = find_insert_slot(h);
         }
 
+        const bool reused_tombstone = uses_tombstones && fasthash_detail::is_deleted(mCtrl[insert_idx]);
+
+        mSlots[insert_idx].construct(key, Value{}, home);
+
+        set_ctrl(insert_idx, h2);
+        ++size_;
         if constexpr (uses_tombstones)
         {
-            if (fasthash_detail::is_deleted(mCtrl[insert_idx]))
+            if (reused_tombstone)
             {
                 --mTombstones;
             }
         }
 
-        set_ctrl(insert_idx, h2);
-        new (&mSlots[insert_idx]) Slot();
-        mSlots[insert_idx].emplace(key, Value{}, home);
-        ++size_;
-
-        return mSlots[insert_idx].value;
+        return mSlots[insert_idx].value();
     }
 
     // Iterator
@@ -1756,15 +1934,15 @@ public:
 
         value_type operator*() const
         {
-            return {mSlots[mIdx].key, mSlots[mIdx].value};
+            return {mSlots[mIdx].key(), mSlots[mIdx].value()};
         }
         const Key& key() const
         {
-            return mSlots[mIdx].key;
+            return mSlots[mIdx].key();
         }
         Value& value() const
         {
-            return mSlots[mIdx].value;
+            return mSlots[mIdx].value();
         }
 
         iterator& operator++()
@@ -1829,15 +2007,15 @@ public:
 
         value_type operator*() const
         {
-            return {mSlots[mIdx].key, mSlots[mIdx].value};
+            return {mSlots[mIdx].key(), mSlots[mIdx].value()};
         }
         const Key& key() const
         {
-            return mSlots[mIdx].key;
+            return mSlots[mIdx].key();
         }
         const Value& value() const
         {
-            return mSlots[mIdx].value;
+            return mSlots[mIdx].value();
         }
 
         const_iterator& operator++()

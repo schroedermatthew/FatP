@@ -13,8 +13,20 @@
 //   4. All libraries observe the same distribution of machine states.
 //   5. Medians are the primary reported statistic.
 //
+// Changelog:
+//   2026-01-15: Fixed three benchmark harness issues:
+//     - Issue 1 (DCE risk): Added benchmark_sink barriers after push_back/emplace_back
+//       loops in all adapters to prevent dead-code elimination.
+//     - Issue 2 (allocation counting): Fixed hardcoded InlineCapacity=8 in
+//       benchmark_inline_capacity_sensitivity(). Now uses template helper to count
+//       allocations with the correct capacity for each test case.
+//     - Issue 3 (move ctor): Changed MoveConstruct to measure pure move by moving
+//       from mVec directly (prepared outside timed region) instead of copy+move.
+//     - Also fixed LLVM include path to support both vcpkg (<llvm/ADT/...>) and
+//       Linux package manager (<llvm-18/llvm/ADT/...>) installations.
+//
 // Sections:
-//   1. Core operations (SmallVector vs std::vector vs boost vs folly)
+//   1. Core operations (SmallVector vs std::vector vs boost vs folly vs llvm vs absl vs ankerl vs eastl)
 //   2. Inline vs heap performance (the key SmallVector advantage)
 //   3. Copy/move operations
 //   4. Insert/erase operations
@@ -84,6 +96,8 @@ FATP_META:
 #include "FatPBenchmarkRunner.h"
 #include "SmallVector.h"
 
+#pragma warning(push, 0)
+
 // Optional: Include competitor headers if available
 #if __has_include(<boost/container/small_vector.hpp>)
 #include <boost/container/small_vector.hpp>
@@ -92,7 +106,12 @@ FATP_META:
 #define HAS_BOOST 0
 #endif
 
-// Folly requires special setup (fmt, boost, glog, etc.) - opt-in with -DUSE_FOLLY=1
+// Folly requires special setup:
+//   1. vcpkg install folly (brings in fmt, boost, glog, etc.)
+//   2. MSVC: Add /utf-8 to compiler options (required by fmt)
+//      Project Properties -> C/C++ -> Command Line -> Additional Options -> /utf-8
+//   3. Define USE_FOLLY=1 to enable
+#define USE_FOLLY 1
 #if defined(USE_FOLLY) && USE_FOLLY && __has_include(<folly/small_vector.h>)
 #include <folly/small_vector.h>
 #define HAS_FOLLY 1
@@ -100,12 +119,71 @@ FATP_META:
 #define HAS_FOLLY 0
 #endif
 
-#if __has_include(<llvm-18/llvm/ADT/SmallVector.h>)
+// vcpkg installs to: vcpkg_installed/x64-windows/x64-windows/include/llvm/ADT/
+// Linux may have it at /usr/include/llvm-18/llvm/ADT/ or similar
+#if __has_include(<llvm/ADT/SmallVector.h>)
+#include <llvm/ADT/SmallVector.h>
+#define HAS_LLVM 1
+#if defined(_WIN32) || defined(_WIN64)
+#pragma comment(lib, "ws2_32.lib")  // LLVMSupport.lib requires Windows Sockets
+#endif
+#elif __has_include(<llvm-18/llvm/ADT/SmallVector.h>)
 #include <llvm-18/llvm/ADT/SmallVector.h>
 #define HAS_LLVM 1
+#if defined(_WIN32) || defined(_WIN64)
+#pragma comment(lib, "ws2_32.lib")  // LLVMSupport.lib requires Windows Sockets
+#endif
 #else
 #define HAS_LLVM 0
 #endif
+
+// Abseil InlinedVector
+// vcpkg install abseil
+#if __has_include(<absl/container/inlined_vector.h>)
+#include <absl/container/inlined_vector.h>
+#define HAS_ABSL 1
+#else
+#define HAS_ABSL 0
+#endif
+
+// ankerl::svector - compact small vector with tagged pointer
+// https://github.com/martinus/svector
+// Header-only: just drop svector.h in your include path
+#if __has_include(<ankerl/svector.h>)
+#include <ankerl/svector.h>
+#define HAS_ANKERL 1
+#else
+#define HAS_ANKERL 0
+#endif
+
+// EASTL fixed_vector - EA's game-industry container library
+// vcpkg install eastl
+#if __has_include(<EASTL/fixed_vector.h>)
+#include <EASTL/fixed_vector.h>
+#define HAS_EASTL 1
+// EASTL requires a custom new[] operator override - provide minimal implementation
+// This is only needed if not already provided by your project
+#if !defined(EASTL_USER_DEFINED_ALLOCATOR)
+void* operator new[](size_t size, const char* /*name*/, int /*flags*/, unsigned /*debugFlags*/, const char* /*file*/, int /*line*/)
+{
+    return malloc(size);
+}
+void* operator new[](size_t size, size_t alignment, size_t /*alignmentOffset*/, const char* /*name*/, int /*flags*/, unsigned /*debugFlags*/, const char* /*file*/, int /*line*/)
+{
+#if defined(_WIN32)
+    return _aligned_malloc(size, alignment);
+#else
+    void* ptr = nullptr;
+    posix_memalign(&ptr, alignment, size);
+    return ptr;
+#endif
+}
+#endif
+#else
+#define HAS_EASTL 0
+#endif
+
+#pragma warning(pop)
 
 // ============================================================================
 // Platform Configuration
@@ -454,6 +532,7 @@ public:
                     mVec->push_back(v);
                     ++ops;
                 }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
                 break;
 
             case Case::EmplaceBack:
@@ -462,6 +541,7 @@ public:
                     mVec->emplace_back(v);
                     ++ops;
                 }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
                 break;
 
             case Case::RandomAccess:
@@ -495,10 +575,13 @@ public:
 
             case Case::MoveConstruct:
             {
-                fat_p::SmallVector<int64_t, InlineCapacity> temp(*mVec);
-                fat_p::SmallVector<int64_t, InlineCapacity> moved(std::move(temp));
+                // Move from mVec directly (prepared in preload, outside timed region)
+                // Note: This consumes mVec, so only valid for single measurement
+                fat_p::SmallVector<int64_t, InlineCapacity> moved(std::move(*mVec));
                 benchmark_sink += moved.size();
-                ops = mVec->size();
+                ops = moved.size();
+                // Restore mVec for potential reuse (though teardown follows)
+                *mVec = std::move(moved);
             }
             break;
         }
@@ -550,6 +633,7 @@ public:
                     mVec->push_back(v);
                     ++ops;
                 }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
                 break;
 
             case Case::EmplaceBack:
@@ -558,6 +642,7 @@ public:
                     mVec->emplace_back(v);
                     ++ops;
                 }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
                 break;
 
             case Case::RandomAccess:
@@ -591,10 +676,12 @@ public:
 
             case Case::MoveConstruct:
             {
-                std::vector<int64_t> temp(*mVec);
-                std::vector<int64_t> moved(std::move(temp));
+                // Move from mVec directly (prepared in preload, outside timed region)
+                std::vector<int64_t> moved(std::move(*mVec));
                 benchmark_sink += moved.size();
-                ops = mVec->size();
+                ops = moved.size();
+                // Restore mVec for potential reuse
+                *mVec = std::move(moved);
             }
             break;
         }
@@ -654,6 +741,7 @@ public:
                     mVec->push_back(v);
                     ++ops;
                 }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
                 break;
 
             case Case::EmplaceBack:
@@ -662,6 +750,7 @@ public:
                     mVec->emplace_back(v);
                     ++ops;
                 }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
                 break;
 
             case Case::RandomAccess:
@@ -695,10 +784,12 @@ public:
 
             case Case::MoveConstruct:
             {
-                boost::container::small_vector<int64_t, InlineCapacity> temp(*mVec);
-                boost::container::small_vector<int64_t, InlineCapacity> moved(std::move(temp));
+                // Move from mVec directly (prepared in preload, outside timed region)
+                boost::container::small_vector<int64_t, InlineCapacity> moved(std::move(*mVec));
                 benchmark_sink += moved.size();
-                ops = mVec->size();
+                ops = moved.size();
+                // Restore mVec for potential reuse
+                *mVec = std::move(moved);
             }
             break;
         }
@@ -759,6 +850,7 @@ public:
                     mVec->push_back(v);
                     ++ops;
                 }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
                 break;
 
             case Case::EmplaceBack:
@@ -767,6 +859,7 @@ public:
                     mVec->emplace_back(v);
                     ++ops;
                 }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
                 break;
 
             case Case::RandomAccess:
@@ -800,10 +893,450 @@ public:
 
             case Case::MoveConstruct:
             {
-                llvm::SmallVector<int64_t, InlineCapacity> temp(*mVec);
-                llvm::SmallVector<int64_t, InlineCapacity> moved(std::move(temp));
+                // Move from mVec directly (prepared in preload, outside timed region)
+                llvm::SmallVector<int64_t, InlineCapacity> moved(std::move(*mVec));
                 benchmark_sink += moved.size();
+                ops = moved.size();
+                // Restore mVec for potential reuse
+                *mVec = std::move(moved);
+            }
+            break;
+        }
+        return ops;
+    }
+};
+#endif
+
+// ============================================================================
+// Folly small_vector Adapter (if available)
+// ============================================================================
+
+#if HAS_FOLLY
+template <size_t InlineCapacity>
+class FollySmallVectorAdapter final : public IVectorAdapter
+{
+    std::string mName;
+    std::unique_ptr<folly::small_vector<int64_t, InlineCapacity>> mVec;
+
+public:
+    explicit FollySmallVectorAdapter(const char* name)
+        : mName(name)
+    {
+    }
+
+    const char* name() const override
+    {
+        return mName.c_str();
+    }
+
+    void setup(size_t N) override
+    {
+        mVec = std::make_unique<folly::small_vector<int64_t, InlineCapacity>>();
+        mVec->reserve(N);
+    }
+
+    void teardown() override
+    {
+        mVec.reset();
+    }
+
+    void preload(const Inputs& in) override
+    {
+        for (int64_t v : in.values)
+        {
+            mVec->push_back(v);
+        }
+    }
+
+    size_t run_operation(Case c, const Inputs& in) override
+    {
+        size_t ops = 0;
+        switch (c)
+        {
+            case Case::PushBack:
+                for (int64_t v : in.values)
+                {
+                    mVec->push_back(v);
+                    ++ops;
+                }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                break;
+
+            case Case::EmplaceBack:
+                for (int64_t v : in.values)
+                {
+                    mVec->emplace_back(v);
+                    ++ops;
+                }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                break;
+
+            case Case::RandomAccess:
+                for (size_t idx : in.access_order)
+                {
+                    benchmark_sink += (*mVec)[idx];
+                    ++ops;
+                }
+                break;
+
+            case Case::Iteration:
+                for (const auto& v : *mVec)
+                {
+                    benchmark_sink += v;
+                    ++ops;
+                }
+                break;
+
+            case Case::Clear:
+                mVec->clear();
+                ops = mVec->capacity();
+                break;
+
+            case Case::CopyConstruct:
+            {
+                folly::small_vector<int64_t, InlineCapacity> copy(*mVec);
+                benchmark_sink += copy.size();
                 ops = mVec->size();
+            }
+            break;
+
+            case Case::MoveConstruct:
+            {
+                // Move from mVec directly (prepared in preload, outside timed region)
+                folly::small_vector<int64_t, InlineCapacity> moved(std::move(*mVec));
+                benchmark_sink += moved.size();
+                ops = moved.size();
+                // Restore mVec for potential reuse
+                *mVec = std::move(moved);
+            }
+            break;
+        }
+        return ops;
+    }
+};
+#endif
+
+// ============================================================================
+// Abseil InlinedVector Adapter (if available)
+// ============================================================================
+
+#if HAS_ABSL
+template <size_t InlineCapacity>
+class AbslInlinedVectorAdapter final : public IVectorAdapter
+{
+    std::string mName;
+    std::unique_ptr<absl::InlinedVector<int64_t, InlineCapacity>> mVec;
+
+public:
+    explicit AbslInlinedVectorAdapter(const char* name)
+        : mName(name)
+    {
+    }
+
+    const char* name() const override
+    {
+        return mName.c_str();
+    }
+
+    void setup(size_t N) override
+    {
+        mVec = std::make_unique<absl::InlinedVector<int64_t, InlineCapacity>>();
+        mVec->reserve(N);
+    }
+
+    void teardown() override
+    {
+        mVec.reset();
+    }
+
+    void preload(const Inputs& in) override
+    {
+        for (int64_t v : in.values)
+        {
+            mVec->push_back(v);
+        }
+    }
+
+    size_t run_operation(Case c, const Inputs& in) override
+    {
+        size_t ops = 0;
+        switch (c)
+        {
+            case Case::PushBack:
+                for (int64_t v : in.values)
+                {
+                    mVec->push_back(v);
+                    ++ops;
+                }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                break;
+
+            case Case::EmplaceBack:
+                for (int64_t v : in.values)
+                {
+                    mVec->emplace_back(v);
+                    ++ops;
+                }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                break;
+
+            case Case::RandomAccess:
+                for (size_t idx : in.access_order)
+                {
+                    benchmark_sink += (*mVec)[idx];
+                    ++ops;
+                }
+                break;
+
+            case Case::Iteration:
+                for (const auto& v : *mVec)
+                {
+                    benchmark_sink += v;
+                    ++ops;
+                }
+                break;
+
+            case Case::Clear:
+                mVec->clear();
+                ops = mVec->capacity();
+                break;
+
+            case Case::CopyConstruct:
+            {
+                absl::InlinedVector<int64_t, InlineCapacity> copy(*mVec);
+                benchmark_sink += copy.size();
+                ops = mVec->size();
+            }
+            break;
+
+            case Case::MoveConstruct:
+            {
+                // Move from mVec directly (prepared in preload, outside timed region)
+                absl::InlinedVector<int64_t, InlineCapacity> moved(std::move(*mVec));
+                benchmark_sink += moved.size();
+                ops = moved.size();
+                // Restore mVec for potential reuse
+                *mVec = std::move(moved);
+            }
+            break;
+        }
+        return ops;
+    }
+};
+#endif
+
+// ============================================================================
+// ankerl::svector Adapter (if available)
+// ============================================================================
+
+#if HAS_ANKERL
+template <size_t InlineCapacity>
+class AnkerlSvectorAdapter final : public IVectorAdapter
+{
+    std::string mName;
+    std::unique_ptr<ankerl::svector<int64_t, InlineCapacity>> mVec;
+
+public:
+    explicit AnkerlSvectorAdapter(const char* name)
+        : mName(name)
+    {
+    }
+
+    const char* name() const override
+    {
+        return mName.c_str();
+    }
+
+    void setup(size_t N) override
+    {
+        mVec = std::make_unique<ankerl::svector<int64_t, InlineCapacity>>();
+        mVec->reserve(N);
+    }
+
+    void teardown() override
+    {
+        mVec.reset();
+    }
+
+    void preload(const Inputs& in) override
+    {
+        for (int64_t v : in.values)
+        {
+            mVec->push_back(v);
+        }
+    }
+
+    size_t run_operation(Case c, const Inputs& in) override
+    {
+        size_t ops = 0;
+        switch (c)
+        {
+            case Case::PushBack:
+                for (int64_t v : in.values)
+                {
+                    mVec->push_back(v);
+                    ++ops;
+                }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                break;
+
+            case Case::EmplaceBack:
+                for (int64_t v : in.values)
+                {
+                    mVec->emplace_back(v);
+                    ++ops;
+                }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                break;
+
+            case Case::RandomAccess:
+                for (size_t idx : in.access_order)
+                {
+                    benchmark_sink += (*mVec)[idx];
+                    ++ops;
+                }
+                break;
+
+            case Case::Iteration:
+                for (const auto& v : *mVec)
+                {
+                    benchmark_sink += v;
+                    ++ops;
+                }
+                break;
+
+            case Case::Clear:
+                mVec->clear();
+                ops = mVec->capacity();
+                break;
+
+            case Case::CopyConstruct:
+            {
+                ankerl::svector<int64_t, InlineCapacity> copy(*mVec);
+                benchmark_sink += copy.size();
+                ops = mVec->size();
+            }
+            break;
+
+            case Case::MoveConstruct:
+            {
+                // Move from mVec directly (prepared in preload, outside timed region)
+                ankerl::svector<int64_t, InlineCapacity> moved(std::move(*mVec));
+                benchmark_sink += moved.size();
+                ops = moved.size();
+                // Restore mVec for potential reuse
+                *mVec = std::move(moved);
+            }
+            break;
+        }
+        return ops;
+    }
+};
+#endif
+
+// ============================================================================
+// EASTL fixed_vector Adapter (if available)
+// ============================================================================
+
+#if HAS_EASTL
+template <size_t InlineCapacity>
+class EastlFixedVectorAdapter final : public IVectorAdapter
+{
+    std::string mName;
+    // eastl::fixed_vector<T, N, bEnableOverflow>
+    // bEnableOverflow=true allows growth beyond N (like other SmallVector impls)
+    std::unique_ptr<eastl::fixed_vector<int64_t, InlineCapacity, true>> mVec;
+
+public:
+    explicit EastlFixedVectorAdapter(const char* name)
+        : mName(name)
+    {
+    }
+
+    const char* name() const override
+    {
+        return mName.c_str();
+    }
+
+    void setup(size_t N) override
+    {
+        mVec = std::make_unique<eastl::fixed_vector<int64_t, InlineCapacity, true>>();
+        mVec->reserve(N);
+    }
+
+    void teardown() override
+    {
+        mVec.reset();
+    }
+
+    void preload(const Inputs& in) override
+    {
+        for (int64_t v : in.values)
+        {
+            mVec->push_back(v);
+        }
+    }
+
+    size_t run_operation(Case c, const Inputs& in) override
+    {
+        size_t ops = 0;
+        switch (c)
+        {
+            case Case::PushBack:
+                for (int64_t v : in.values)
+                {
+                    mVec->push_back(v);
+                    ++ops;
+                }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                break;
+
+            case Case::EmplaceBack:
+                for (int64_t v : in.values)
+                {
+                    mVec->emplace_back(v);
+                    ++ops;
+                }
+                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                break;
+
+            case Case::RandomAccess:
+                for (size_t idx : in.access_order)
+                {
+                    benchmark_sink += (*mVec)[idx];
+                    ++ops;
+                }
+                break;
+
+            case Case::Iteration:
+                for (const auto& v : *mVec)
+                {
+                    benchmark_sink += v;
+                    ++ops;
+                }
+                break;
+
+            case Case::Clear:
+                mVec->clear();
+                ops = mVec->capacity();
+                break;
+
+            case Case::CopyConstruct:
+            {
+                eastl::fixed_vector<int64_t, InlineCapacity, true> copy(*mVec);
+                benchmark_sink += copy.size();
+                ops = mVec->size();
+            }
+            break;
+
+            case Case::MoveConstruct:
+            {
+                // Move from mVec directly (prepared in preload, outside timed region)
+                eastl::fixed_vector<int64_t, InlineCapacity, true> moved(std::move(*mVec));
+                benchmark_sink += moved.size();
+                ops = moved.size();
+                // Restore mVec for potential reuse
+                *mVec = std::move(moved);
             }
             break;
         }
@@ -858,6 +1391,18 @@ void benchmark_core_operations(const std::vector<size_t>& sizes)
 #endif
 #if HAS_LLVM
         adapters.push_back(std::make_unique<LLVMSmallVectorAdapter<INLINE_CAP>>("llvm::SmallVector<16>"));
+#endif
+#if HAS_FOLLY
+        adapters.push_back(std::make_unique<FollySmallVectorAdapter<INLINE_CAP>>("folly::small_vector<16>"));
+#endif
+#if HAS_ABSL
+        adapters.push_back(std::make_unique<AbslInlinedVectorAdapter<INLINE_CAP>>("absl::InlinedVector<16>"));
+#endif
+#if HAS_ANKERL
+        adapters.push_back(std::make_unique<AnkerlSvectorAdapter<INLINE_CAP>>("ankerl::svector<16>"));
+#endif
+#if HAS_EASTL
+        adapters.push_back(std::make_unique<EastlFixedVectorAdapter<INLINE_CAP>>("eastl::fixed_vector<16>"));
 #endif
 
         // Cases to benchmark
@@ -1193,6 +1738,32 @@ void benchmark_insert_erase()
 // Section 5: Inline Capacity Sensitivity
 // ============================================================================
 
+// Helper template to count allocations for a specific inline capacity
+template <size_t InlineCap>
+size_t count_allocations_smallvector(size_t N)
+{
+    reset_allocation_counters();
+    fat_p::SmallVector<int64_t, InlineCap, CountingAllocator<int64_t>> counter_vec;
+    for (size_t i = 0; i < N; ++i)
+    {
+        counter_vec.push_back(static_cast<int64_t>(i));
+    }
+    return get_allocation_stats().allocations;
+}
+
+// Specialization for std::vector (InlineCap = 0)
+template <>
+size_t count_allocations_smallvector<0>(size_t N)
+{
+    reset_allocation_counters();
+    std::vector<int64_t, CountingAllocator<int64_t>> counter_vec;
+    for (size_t i = 0; i < N; ++i)
+    {
+        counter_vec.push_back(static_cast<int64_t>(i));
+    }
+    return get_allocation_stats().allocations;
+}
+
 void benchmark_inline_capacity_sensitivity()
 {
     print_header("INLINE CAPACITY SENSITIVITY");
@@ -1209,10 +1780,9 @@ void benchmark_inline_capacity_sensitivity()
     std::cout << "InlineCapacity | Time (ns/op) | Allocations | Notes\n";
     std::cout << "---------------|--------------|-------------|------\n";
 
-    // Test various inline capacities
-    auto test_capacity = [&](size_t inline_cap, const char* label, auto make_vec) {
+    // Test various inline capacities with correct allocation counting
+    auto test_capacity = [&](size_t inline_cap, const char* label, size_t allocs, auto make_vec) {
         double total_ns = 0;
-        size_t allocs = 0;
 
         for (size_t iter = 0; iter < ITERATIONS; ++iter)
         {
@@ -1227,17 +1797,6 @@ void benchmark_inline_capacity_sensitivity()
             benchmark_sink += vec.size();
         }
 
-        // Count allocations once
-        {
-            reset_allocation_counters();
-            fat_p::SmallVector<int64_t, 8, CountingAllocator<int64_t>> counter_vec;
-            for (size_t i = 0; i < N; ++i)
-            {
-                counter_vec.push_back(i);
-            }
-            allocs = get_allocation_stats().allocations;
-        }
-
         double ns_per = total_ns / (ITERATIONS * N);
         const char* note = (inline_cap >= N) ? "all inline" : (inline_cap == 0) ? "always heap" : "transitions";
 
@@ -1246,25 +1805,290 @@ void benchmark_inline_capacity_sensitivity()
                   << " | " << note << "\n";
     };
 
-    test_capacity(0, "0 (std::vec)", [] {
+    // Each call now uses the correctly-typed allocation counter
+    test_capacity(0, "0 (std::vec)", count_allocations_smallvector<0>(N), [] {
         return std::vector<int64_t>{};
     });
-    test_capacity(8, "8", [] {
+    test_capacity(8, "8", count_allocations_smallvector<8>(N), [] {
         return fat_p::SmallVector<int64_t, 8>{};
     });
-    test_capacity(16, "16", [] {
+    test_capacity(16, "16", count_allocations_smallvector<16>(N), [] {
         return fat_p::SmallVector<int64_t, 16>{};
     });
-    test_capacity(32, "32", [] {
+    test_capacity(32, "32", count_allocations_smallvector<32>(N), [] {
         return fat_p::SmallVector<int64_t, 32>{};
     });
-    test_capacity(64, "64", [] {
+    test_capacity(64, "64", count_allocations_smallvector<64>(N), [] {
         return fat_p::SmallVector<int64_t, 64>{};
     });
 }
 
 // ============================================================================
-// Section 6: Fast Path Throughput (Isolation Benchmark)
+// Section 6: Pairwise Fast-Path Comparison Functions
+// ============================================================================
+
+// Each function tests fat_p vs ONE competitor in isolation.
+// This prevents compiler optimization budget interference from multiple template instantiations.
+
+#if defined(_MSC_VER)
+#define FATP_BENCH_NOINLINE __declspec(noinline)
+#else
+#define FATP_BENCH_NOINLINE __attribute__((noinline))
+#endif
+
+FATP_BENCH_NOINLINE void benchmark_fastpath_vs_std(size_t iterations)
+{
+    constexpr size_t N = 16;
+    double fatp_total = 0, other_total = 0;
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        {
+            fat_p::SmallVector<int64_t, 16> vec;
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < N; ++i)
+                vec.emplace_back(static_cast<int64_t>(i));
+            fatp_total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+        {
+            std::vector<int64_t> vec;
+            vec.reserve(N);
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < N; ++i)
+                vec.emplace_back(static_cast<int64_t>(i));
+            other_total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+    }
+
+    double fatp_ns = fatp_total / (iterations * N);
+    double other_ns = other_total / (iterations * N);
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "fat_p=" << std::setw(5) << fatp_ns
+              << "  std::vec=" << std::setw(5) << other_ns << "\n";
+}
+
+#if HAS_BOOST
+FATP_BENCH_NOINLINE void benchmark_fastpath_vs_boost(size_t iterations)
+{
+    constexpr size_t N = 16;
+    double fatp_total = 0, other_total = 0;
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        {
+            fat_p::SmallVector<int64_t, 16> vec;
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < N; ++i)
+                vec.emplace_back(static_cast<int64_t>(i));
+            fatp_total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+        {
+            boost::container::small_vector<int64_t, 16> vec;
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < N; ++i)
+                vec.emplace_back(static_cast<int64_t>(i));
+            other_total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+    }
+
+    double fatp_ns = fatp_total / (iterations * N);
+    double other_ns = other_total / (iterations * N);
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "fat_p=" << std::setw(5) << fatp_ns
+              << "  boost=" << std::setw(5) << other_ns << "\n";
+}
+#endif
+
+#if HAS_LLVM
+FATP_BENCH_NOINLINE void benchmark_fastpath_vs_llvm(size_t iterations)
+{
+    constexpr size_t N = 16;
+    double fatp_total = 0, other_total = 0;
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        {
+            fat_p::SmallVector<int64_t, 16> vec;
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < N; ++i)
+                vec.emplace_back(static_cast<int64_t>(i));
+            fatp_total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+        {
+            llvm::SmallVector<int64_t, 16> vec;
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < N; ++i)
+                vec.emplace_back(static_cast<int64_t>(i));
+            other_total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+    }
+
+    double fatp_ns = fatp_total / (iterations * N);
+    double other_ns = other_total / (iterations * N);
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "fat_p=" << std::setw(5) << fatp_ns
+              << "  llvm=" << std::setw(5) << other_ns << "\n";
+}
+#endif
+
+#if HAS_FOLLY
+FATP_BENCH_NOINLINE void benchmark_fastpath_vs_folly(size_t iterations)
+{
+    constexpr size_t N = 16;
+    double fatp_total = 0, other_total = 0;
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        {
+            fat_p::SmallVector<int64_t, 16> vec;
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < N; ++i)
+                vec.emplace_back(static_cast<int64_t>(i));
+            fatp_total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+        {
+            folly::small_vector<int64_t, 16> vec;
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < N; ++i)
+                vec.emplace_back(static_cast<int64_t>(i));
+            other_total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+    }
+
+    double fatp_ns = fatp_total / (iterations * N);
+    double other_ns = other_total / (iterations * N);
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "fat_p=" << std::setw(5) << fatp_ns
+              << "  folly=" << std::setw(5) << other_ns << "\n";
+}
+#endif
+
+#if HAS_ABSL
+FATP_BENCH_NOINLINE void benchmark_fastpath_vs_absl(size_t iterations)
+{
+    constexpr size_t N = 16;
+    double fatp_total = 0, other_total = 0;
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        {
+            fat_p::SmallVector<int64_t, 16> vec;
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < N; ++i)
+                vec.emplace_back(static_cast<int64_t>(i));
+            fatp_total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+        {
+            absl::InlinedVector<int64_t, 16> vec;
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < N; ++i)
+                vec.emplace_back(static_cast<int64_t>(i));
+            other_total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+    }
+
+    double fatp_ns = fatp_total / (iterations * N);
+    double other_ns = other_total / (iterations * N);
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "fat_p=" << std::setw(5) << fatp_ns
+              << "  absl=" << std::setw(5) << other_ns << "\n";
+}
+#endif
+
+#if HAS_ANKERL
+FATP_BENCH_NOINLINE void benchmark_fastpath_vs_ankerl(size_t iterations)
+{
+    constexpr size_t N = 16;
+    double fatp_total = 0, other_total = 0;
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        {
+            fat_p::SmallVector<int64_t, 16> vec;
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < N; ++i)
+                vec.emplace_back(static_cast<int64_t>(i));
+            fatp_total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+        {
+            ankerl::svector<int64_t, 16> vec;
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < N; ++i)
+                vec.emplace_back(static_cast<int64_t>(i));
+            other_total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+    }
+
+    double fatp_ns = fatp_total / (iterations * N);
+    double other_ns = other_total / (iterations * N);
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "fat_p=" << std::setw(5) << fatp_ns
+              << "  ankerl=" << std::setw(5) << other_ns << "\n";
+}
+#endif
+
+#if HAS_EASTL
+FATP_BENCH_NOINLINE void benchmark_fastpath_vs_eastl(size_t iterations)
+{
+    constexpr size_t N = 16;
+    double fatp_total = 0, other_total = 0;
+
+    for (size_t iter = 0; iter < iterations; ++iter)
+    {
+        {
+            fat_p::SmallVector<int64_t, 16> vec;
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < N; ++i)
+                vec.emplace_back(static_cast<int64_t>(i));
+            fatp_total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+        {
+            eastl::fixed_vector<int64_t, 16, true> vec;
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < N; ++i)
+                vec.emplace_back(static_cast<int64_t>(i));
+            other_total += t.elapsed_ns();
+            benchmark_sink += vec.size();
+        }
+    }
+
+    double fatp_ns = fatp_total / (iterations * N);
+    double other_ns = other_total / (iterations * N);
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "fat_p=" << std::setw(5) << fatp_ns
+              << "  eastl=" << std::setw(5) << other_ns << "\n";
+}
+#endif
+
+// ============================================================================
+// Section 7: Fast Path Throughput (Isolation Benchmark)
 // ============================================================================
 
 /**
@@ -1447,89 +2271,31 @@ void benchmark_fast_path_throughput()
     }
 
     // ==========================================================================
-    // Test 3: Competitor comparison (if available)
+    // Test 3: Pairwise competitor comparisons (isolated function calls)
+    // Each pair is tested in a separate function to isolate compiler optimization.
+    // 100ms delay between pairs allows CPU/cache to settle.
     // ==========================================================================
-#if HAS_BOOST || HAS_LLVM
-    std::cout << "\n--- Cross-Library Comparison (InlineCap=16, N=16) ---\n\n";
-    std::cout << "Library       | emplace_back (ns/op)\n";
-    std::cout << "--------------|---------------------\n";
+    std::cout << "\n--- Pairwise Fast-Path Comparisons (InlineCap=16, N=16) ---\n";
+    std::cout << "Each pair tested in isolated function call (noinline).\n\n";
 
-    // SmallVector
-    {
-        double total = 0;
-        for (size_t iter = 0; iter < ITERATIONS; ++iter)
-        {
-            fat_p::SmallVector<int64_t, 16> vec;
-            Timer t;
-            t.start();
-            for (size_t i = 0; i < 16; ++i)
-            {
-                vec.emplace_back(static_cast<int64_t>(i));
-            }
-            total += t.elapsed_ns();
-            benchmark_sink += vec.size();
-        }
-        std::cout << "fat_p::SV    | " << std::setw(19) << (total / (ITERATIONS * 16)) << "\n";
-    }
-
+    benchmark_fastpath_vs_std(ITERATIONS);
 #if HAS_BOOST
-    // Boost
-    {
-        double total = 0;
-        for (size_t iter = 0; iter < ITERATIONS; ++iter)
-        {
-            boost::container::small_vector<int64_t, 16> vec;
-            Timer t;
-            t.start();
-            for (size_t i = 0; i < 16; ++i)
-            {
-                vec.emplace_back(static_cast<int64_t>(i));
-            }
-            total += t.elapsed_ns();
-            benchmark_sink += vec.size();
-        }
-        std::cout << "boost::sv    | " << std::setw(19) << (total / (ITERATIONS * 16)) << "\n";
-    }
+    benchmark_fastpath_vs_boost(ITERATIONS);
 #endif
-
 #if HAS_LLVM
-    // LLVM
-    {
-        double total = 0;
-        for (size_t iter = 0; iter < ITERATIONS; ++iter)
-        {
-            llvm::SmallVector<int64_t, 16> vec;
-            Timer t;
-            t.start();
-            for (size_t i = 0; i < 16; ++i)
-            {
-                vec.emplace_back(static_cast<int64_t>(i));
-            }
-            total += t.elapsed_ns();
-            benchmark_sink += vec.size();
-        }
-        std::cout << "llvm::SV     | " << std::setw(19) << (total / (ITERATIONS * 16)) << "\n";
-    }
+    benchmark_fastpath_vs_llvm(ITERATIONS);
 #endif
-
-    // std::vector (pre-reserved)
-    {
-        double total = 0;
-        for (size_t iter = 0; iter < ITERATIONS; ++iter)
-        {
-            std::vector<int64_t> vec;
-            vec.reserve(16);
-            Timer t;
-            t.start();
-            for (size_t i = 0; i < 16; ++i)
-            {
-                vec.emplace_back(static_cast<int64_t>(i));
-            }
-            total += t.elapsed_ns();
-            benchmark_sink += vec.size();
-        }
-        std::cout << "std::vector* | " << std::setw(19) << (total / (ITERATIONS * 16)) << "\n";
-    }
+#if HAS_FOLLY
+    benchmark_fastpath_vs_folly(ITERATIONS);
+#endif
+#if HAS_ABSL
+    benchmark_fastpath_vs_absl(ITERATIONS);
+#endif
+#if HAS_ANKERL
+    benchmark_fastpath_vs_ankerl(ITERATIONS);
+#endif
+#if HAS_EASTL
+    benchmark_fastpath_vs_eastl(ITERATIONS);
 #endif
 
     // ==========================================================================
@@ -1624,10 +2390,37 @@ void benchmark_object_size()
               << sizeof(boost::container::small_vector<int64_t, 16>) << "\n";
 #endif
 
+#if HAS_FOLLY
+    std::cout << "\nFolly comparison:\n";
+    std::cout << std::setw(32) << "folly::small_vector<int64_t, 16>" << " | " << std::setw(14)
+              << sizeof(folly::small_vector<int64_t, 16>) << "\n";
+#endif
+
 #if HAS_LLVM
     std::cout << "\nLLVM comparison:\n";
     std::cout << std::setw(32) << "llvm::SmallVector<int64_t, 16>" << " | " << std::setw(14)
               << sizeof(llvm::SmallVector<int64_t, 16>) << "\n";
+#endif
+
+#if HAS_ABSL
+    std::cout << "\nAbseil comparison:\n";
+    std::cout << std::setw(32) << "absl::InlinedVector<int64_t, 16>" << " | " << std::setw(14)
+              << sizeof(absl::InlinedVector<int64_t, 16>) << "\n";
+#endif
+
+#if HAS_ANKERL
+    std::cout << "\nankerl comparison:\n";
+    std::cout << std::setw(32) << "ankerl::svector<int64_t, 16>" << " | " << std::setw(14)
+              << sizeof(ankerl::svector<int64_t, 16>) << "\n";
+    // Also show the minimal size case - ankerl's claim to fame
+    std::cout << std::setw(32) << "ankerl::svector<int64_t, 1>" << " | " << std::setw(14)
+              << sizeof(ankerl::svector<int64_t, 1>) << "\n";
+#endif
+
+#if HAS_EASTL
+    std::cout << "\nEASTL comparison:\n";
+    std::cout << std::setw(32) << "eastl::fixed_vector<int64_t,16>" << " | " << std::setw(14)
+              << sizeof(eastl::fixed_vector<int64_t, 16, true>) << "\n";
 #endif
 
     std::cout << "\nNote: SmallVector<T, N> size ≈ 3*sizeof(void*) + N*sizeof(T)\n";
@@ -1670,7 +2463,16 @@ int main(int argc, char* argv[])
 #if HAS_LLVM
     std::cout << "llvm ";
 #endif
-#if !HAS_BOOST && !HAS_FOLLY && !HAS_LLVM
+#if HAS_ABSL
+    std::cout << "absl ";
+#endif
+#if HAS_ANKERL
+    std::cout << "ankerl ";
+#endif
+#if HAS_EASTL
+    std::cout << "eastl ";
+#endif
+#if !HAS_BOOST && !HAS_FOLLY && !HAS_LLVM && !HAS_ABSL && !HAS_ANKERL && !HAS_EASTL
     std::cout << "(none found)";
 #endif
     std::cout << "\n\n";

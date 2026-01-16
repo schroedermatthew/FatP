@@ -74,10 +74,10 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\benchmarks;C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\fat_p;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\mtthw\Desktop\FatP\FAT_P\ThirdParty;C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\benchmarks;C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\fat_p;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\benchmarks;C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\fat_p;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\mtthw\Desktop\FatP\FAT_P\ThirdParty;C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\benchmarks;C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\fat_p;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
@@ -118,6 +118,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -135,6 +136,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

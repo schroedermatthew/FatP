@@ -1079,7 +1079,7 @@ FATP_TEST_CASE(bounded_allocation)
 
 FATP_TEST_CASE(dirty_max_smaller_id)
 {
-    // Test the specific Gemini bug: inserting smaller ID when max is invalid.
+    // Test edge case: inserting smaller ID when max is invalid.
     // Uses custom policy to generate IDs: 20, 10, 5 (decreasing order).
     // This is unrealistic but tests the tracker's robustness.
 

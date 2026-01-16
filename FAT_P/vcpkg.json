@@ -8,6 +8,9 @@
     "abseil",
     "eigen3",
     "range-v3",
-	"xtensor"
+    "xtensor",
+    "eastl",
+    "entt",
+    "plf-hive"
   ]
 }

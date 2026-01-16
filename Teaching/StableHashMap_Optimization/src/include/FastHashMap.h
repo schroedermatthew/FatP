@@ -3,7 +3,7 @@
 // A single-header Swiss table implementation with configurable deletion policy
 // and allocator support.
 //
-// Version: December 22, 2025 (4-AI Review Round 3)
+// Version: December 22, 2025
 // Fixes applied:
 //   - P0 Critical: Control byte prefix mirroring (fixes probing hang)
 //   - P0 Critical: Guaranteed ≥1 empty slot (probe termination)

@@ -1,27 +1,3 @@
-/**
- * @file AlignedVector.h
- * @brief Cache-aware aligned vector container for HPC workloads
- *
- * @layer Containers
- *
- * @details Drop-in replacement for std::vector with explicit memory alignment control.
- * Optimized for SIMD operations and cache-line awareness to prevent false sharing.
- *
- * Key Features:
- * - Configurable memory alignment (16, 32, 64, 128 bytes)
- * - SIMD-friendly data layout
- * - Cache-line aligned allocations
- * - Compatible with std::vector interface
- * - Move semantics support
- * - Exception-safe operations
- * - Zero-overhead when alignment == alignof(T)
- *
- * @note Thread-safety: NOT thread-safe. Caller must synchronize for concurrent access.
- *
- * @see HpcVector.h for NUMA-aware variant
- * @see CheckedArithmetic.h for integration with checked vector operations
- */
-
 #pragma once
 
 /*
@@ -52,6 +28,29 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file AlignedVector.h
+ * @brief Cache-aware aligned vector container for HPC workloads
+ *
+ * @details Drop-in replacement for std::vector with explicit memory alignment control.
+ * Optimized for SIMD operations and cache-line awareness to prevent false sharing.
+ *
+ * Key Features:
+ * - Configurable memory alignment (16, 32, 64, 128 bytes)
+ * - SIMD-friendly data layout
+ * - Cache-line aligned allocations
+ * - Compatible with std::vector interface
+ * - Move semantics support
+ * - Exception-safe operations
+ * - Zero-overhead when alignment == alignof(T)
+ *
+ * @note Thread-safety: NOT thread-safe. Caller must synchronize for concurrent access.
+ *
+ * @see HpcVector.h for NUMA-aware variant
+ * @see CheckedArithmetic.h for integration with checked vector operations
+ */
+
 // MSVC warning C4702: unreachable code
 // This is a false positive triggered by if constexpr discarded branches.
 // GCC/Clang don't warn about this (correctly).

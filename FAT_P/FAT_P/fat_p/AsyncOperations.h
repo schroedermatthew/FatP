@@ -1,9 +1,3 @@
-/**
- * @file AsyncOperations.h
- * @brief Asynchronous operation utilities with Expected integration
- *
- * @layer Concurrency
- */
 #pragma once
 
 /*
@@ -31,6 +25,12 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file AsyncOperations.h
+ * @brief Asynchronous operation utilities with Expected integration
+ */
+
 #include "Expected.h" // Assuming Expected<T, E> is in Expected.h
 #include <functional>
 #include <future>

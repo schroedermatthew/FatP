@@ -112,7 +112,6 @@ inline bool is_empty_or_deleted(uint8_t ctrl)
 // H2: Extract 7 bits from HIGH bits of hash for control byte matching.
 // CRITICAL: Using low bits would correlate with bucket index (hash & mask_),
 // causing false-positive SIMD matches and degraded miss performance.
-// Fix identified by ChatGPT code review.
 inline uint8_t H2(size_t hash)
 {
     // Use top 7 bits (shift by 57 on 64-bit, 25 on 32-bit)
@@ -674,7 +673,7 @@ private:
         std::memset(nodes_, 0, cap * sizeof(Node*));
 
         // CRITICAL: Always keep at least 1 empty slot to prevent infinite loops
-        // in find_slot() and find_or_prepare_insert(). Fix identified by ChatGPT.
+        // in find_slot() and find_or_prepare_insert().
         size_t threshold = static_cast<size_t>(cap * max_load_factor_);
         growth_threshold_ = (threshold >= cap) ? cap - 1 : threshold;
         if (growth_threshold_ == 0 && cap > 0)

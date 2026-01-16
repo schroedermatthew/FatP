@@ -334,7 +334,7 @@ FATP_TEST_CASE(select_blend)
 }
 
 // ============================================================================
-// Adversarial Tests (from ChatGPT four-AI analysis)
+// Adversarial Tests
 // ============================================================================
 
 // Tests mixed true/false mask lanes - not just all-true or all-false

@@ -557,7 +557,7 @@ TEST_CASE(stress_random)
 }
 
 // ============================================================================
-// Test 23: Conditional noexcept (ChatGPT Round 2)
+// Test 23: Conditional noexcept
 // ============================================================================
 
 // Helper types for noexcept testing
@@ -608,7 +608,7 @@ TEST_CASE(conditional_noexcept)
 }
 
 // ============================================================================
-// Test 24: SFINAE Heterogeneous Lookup (ChatGPT Round 2)
+// Test 24: SFINAE Heterogeneous Lookup
 // ============================================================================
 
 // Transparent hash/equal for heterogeneous lookup
@@ -657,7 +657,7 @@ TEST_CASE(sfinae_heterogeneous_lookup)
 }
 
 // ============================================================================
-// Test 25: 32-bit Hash Finalizer Safety (ChatGPT Round 2)
+// Test 25: 32-bit Hash Finalizer Safety
 // ============================================================================
 
 TEST_CASE(hash_finalizer_safety)
@@ -689,7 +689,7 @@ TEST_CASE(hash_finalizer_safety)
 }
 
 // ============================================================================
-// Test 26: HeapAllocator (ChatGPT Round 3)
+// Test 26: HeapAllocator
 // ============================================================================
 
 TEST_CASE(heap_allocator)
@@ -715,7 +715,7 @@ TEST_CASE(heap_allocator)
 }
 
 // ============================================================================
-// Test 27: FixedAllocator Basic Operations (ChatGPT Round 3)
+// Test 27: FixedAllocator Basic Operations
 // ============================================================================
 
 TEST_CASE(fixed_allocator_basic)
@@ -751,7 +751,7 @@ TEST_CASE(fixed_allocator_basic)
 }
 
 // ============================================================================
-// Test 28: FixedAllocator Alignment (ChatGPT Round 3)
+// Test 28: FixedAllocator Alignment
 // ============================================================================
 
 TEST_CASE(fixed_allocator_alignment)
@@ -775,7 +775,7 @@ TEST_CASE(fixed_allocator_alignment)
 }
 
 // ============================================================================
-// Test 29: FixedHashMap Non-Movable (ChatGPT Round 3)
+// Test 29: FixedHashMap Non-Movable
 // ============================================================================
 
 TEST_CASE(fixed_hashmap_non_movable)
@@ -804,7 +804,7 @@ TEST_CASE(fixed_hashmap_non_movable)
 }
 
 // ============================================================================
-// Test 30: kPointerStealSafe Trait (ChatGPT Round 3)
+// Test 30: kPointerStealSafe Trait
 // ============================================================================
 
 TEST_CASE(pointer_steal_safe_trait)
@@ -1026,13 +1026,13 @@ bool test_FastHashMap()
     RUN_TEST_NS(runner, fasthashmap, simd_backend);
     RUN_TEST_NS(runner, fasthashmap, rehash);
 
-    // --- Conditional noexcept & SFINAE (ChatGPT Round 2) ---
+    // --- Conditional noexcept & SFINAE ---
     out << "\n" << colors::blue() << "--- Conditional noexcept & SFINAE ---" << colors::reset() << "\n";
     RUN_TEST_NS(runner, fasthashmap, conditional_noexcept);
     RUN_TEST_NS(runner, fasthashmap, sfinae_heterogeneous_lookup);
     RUN_TEST_NS(runner, fasthashmap, hash_finalizer_safety);
 
-    // --- Allocator Policies (ChatGPT Round 3) ---
+    // --- Allocator Policies ---
     out << "\n" << colors::blue() << "--- Allocator Policies ---" << colors::reset() << "\n";
     RUN_TEST_NS(runner, fasthashmap, heap_allocator);
     RUN_TEST_NS(runner, fasthashmap, fixed_allocator_basic);

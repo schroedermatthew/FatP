@@ -12,9 +12,9 @@
  *
  * Key Features:
  * - Safe shared ownership with std::shared_ptr (no dangling views)
- * - Enhanced bounds checking with detailed error messages (NEW in v5.1 - debug only)
- * - View lifetime tracking to detect dangling references (NEW in v5.1 - debug only)
- * - RCU concurrency policy for lock-free tensor sharing (NEW in v5.1)
+ * - Enhanced bounds checking with detailed error messages (v5.1, debug only)
+ * - View lifetime tracking to detect dangling references (v5.1, debug only)
+ * - RCU concurrency policy for lock-free tensor sharing (v5.1)
  * - Policy-based iterators (RowMajor, ColumnMajor, Blocked, Strided)
  * - Stride-aware operations
  * - SIMD-aligned memory using AlignedVector (32/64-byte alignment)
@@ -1381,7 +1381,7 @@ public:
     }
 
     // =========================================================================
-    // Lifetime Tracking Support (NEW in v5.1)
+    // Lifetime Tracking Support (v5.1)
     // =========================================================================
 
     /**
@@ -1471,7 +1471,7 @@ public:
 
 
     // =========================================================================
-    // AVX-512 Optimized Operations (NEW in v5.0)
+    // AVX-512 Optimized Operations (v5.0)
     // =========================================================================
 
 #ifdef __AVX512F__
@@ -1583,7 +1583,7 @@ public:
 #endif // __AVX512F__
 
     // =========================================================================
-    // Vectorized Broadcasting (NEW in v5.0)
+    // Vectorized Broadcasting (v5.0)
     // =========================================================================
 
     /**

@@ -1,9 +1,3 @@
-/**
- * @file CborStreamLite.h
- * @brief Streaming CBOR parser with incremental processing
- *
- * @layer Foundation
- */
 #pragma once
 
 /*
@@ -13,7 +7,7 @@ FATP_META:
   file_role: public_header
   path: fat_p/CborStreamLite.h
   namespace: fat_p
-  layer: Domain
+  layer: Foundation
   summary: "Public header for CborStreamLite."
   api_stability: in_work
   related:

@@ -11,7 +11,7 @@
  * - Shutdown behavior
  * - Stress testing with many tasks
  *
- * @version 2.0 (Consolidated from multi-AI review)
+ * @version 2.0
  */
 /*
 FATP_META:

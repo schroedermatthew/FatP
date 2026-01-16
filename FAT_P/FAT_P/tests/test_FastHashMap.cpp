@@ -44,6 +44,8 @@ FATP_META:
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
+#include <iomanip>
 #include <iostream>
 #include <random>
 #include <string>
@@ -56,6 +58,16 @@ FATP_META:
 
 namespace fat_p::testing::fasthashmap
 {
+
+struct ConstantAvalanchingHash
+{
+    using is_avalanching = void; // Disable built-in mixer (keep hash constant)
+
+    size_t operator()(int) const noexcept
+    {
+        return 0;
+    }
+};
 
 using namespace fat_p::testing;
 
@@ -353,6 +365,51 @@ FATP_TEST_CASE(tombstone_stress)
 }
 
 // ============================================================================
+// Test 13b: Probe Sequence Coverage (Triangular Probing)
+// ============================================================================
+//
+// Ensures that the probe sequence used by the tombstone-based map does not
+// get stuck in a subset of groups. We force a pathological hash where all keys
+// share the same starting position and the same H2 tag, which would hang if the
+// probe sequence failed to cover the table.
+
+FATP_TEST_CASE(triangular_probe_sequence_coverage)
+{
+    using Map = FastHashMap<int, int, ConstantAvalanchingHash>;
+
+    Map map;
+    constexpr int N = 1000;
+    map.reserve(N * 4);
+
+    for (int i = 0; i < N; ++i)
+    {
+        auto* inserted = map.insert(i, i * 3);
+        FATP_ASSERT_TRUE(inserted != nullptr, "Insert should succeed under pathological hash");
+    }
+
+    FATP_ASSERT_EQ(map.size(), static_cast<size_t>(N), "Map should contain all inserted keys");
+
+    for (int i = 0; i < N; ++i)
+    {
+        int* v = map.find(i);
+        FATP_ASSERT_TRUE(v != nullptr, "Inserted key should be found");
+        FATP_ASSERT_EQ(*v, i * 3, "Value should match inserted value");
+    }
+
+    // Basic erase/reinsert on the pathological hash.
+    for (int i = 0; i < N; i += 10)
+    {
+        FATP_ASSERT_TRUE(map.erase(i), "Erase should succeed");
+        FATP_ASSERT_TRUE(map.find(i) == nullptr, "Erased key should not be found");
+        auto* re = map.insert(i, i * 7);
+        FATP_ASSERT_TRUE(re != nullptr, "Reinsert should succeed");
+        FATP_ASSERT_EQ(*re, i * 7, "Reinserted value should be correct");
+    }
+
+    return true;
+}
+
+// ============================================================================
 // Test 14: Iterator Basic
 // ============================================================================
 
@@ -577,7 +634,7 @@ FATP_TEST_CASE(stress_random)
 }
 
 // ============================================================================
-// Test 23: Conditional noexcept (ChatGPT Round 2)
+// Test 23: Conditional noexcept
 // ============================================================================
 
 // Helper types for noexcept testing
@@ -628,7 +685,7 @@ FATP_TEST_CASE(conditional_noexcept)
 }
 
 // ============================================================================
-// Test 24: SFINAE Heterogeneous Lookup (ChatGPT Round 2)
+// Test 24: SFINAE Heterogeneous Lookup
 // ============================================================================
 
 // Transparent hash/equal for heterogeneous lookup
@@ -677,7 +734,7 @@ FATP_TEST_CASE(sfinae_heterogeneous_lookup)
 }
 
 // ============================================================================
-// Test 25: 32-bit Hash Finalizer Safety (ChatGPT Round 2)
+// Test 25: 32-bit Hash Finalizer Safety
 // ============================================================================
 
 FATP_TEST_CASE(hash_finalizer_safety)
@@ -709,7 +766,7 @@ FATP_TEST_CASE(hash_finalizer_safety)
 }
 
 // ============================================================================
-// Test 26: HeapAllocator (ChatGPT Round 3)
+// Test 26: HeapAllocator
 // ============================================================================
 
 FATP_TEST_CASE(heap_allocator)
@@ -735,7 +792,7 @@ FATP_TEST_CASE(heap_allocator)
 }
 
 // ============================================================================
-// Test 27: FixedAllocator Basic Operations (ChatGPT Round 3)
+// Test 27: FixedAllocator Basic Operations
 // ============================================================================
 
 FATP_TEST_CASE(fixed_allocator_basic)
@@ -771,7 +828,7 @@ FATP_TEST_CASE(fixed_allocator_basic)
 }
 
 // ============================================================================
-// Test 28: FixedAllocator Alignment (ChatGPT Round 3)
+// Test 28: FixedAllocator Alignment
 // ============================================================================
 
 FATP_TEST_CASE(fixed_allocator_alignment)
@@ -795,7 +852,7 @@ FATP_TEST_CASE(fixed_allocator_alignment)
 }
 
 // ============================================================================
-// Test 29: FixedHashMap Non-Movable (ChatGPT Round 3)
+// Test 29: FixedHashMap Non-Movable
 // ============================================================================
 
 FATP_TEST_CASE(fixed_hashmap_non_movable)
@@ -824,7 +881,7 @@ FATP_TEST_CASE(fixed_hashmap_non_movable)
 }
 
 // ============================================================================
-// Test 30: kPointerStealSafe Trait (ChatGPT Round 3)
+// Test 30: kPointerStealSafe Trait
 // ============================================================================
 
 FATP_TEST_CASE(pointer_steal_safe_trait)
@@ -916,81 +973,144 @@ FATP_TEST_CASE(freeze_mode)
 // Benchmarks
 // ============================================================================
 
-void benchmark_fasthashmap()
+static bool should_run_sanity_benchmarks()
 {
-    std::cout << "\n" << colors::cyan() << "FastHashMap Benchmarks:" << colors::reset() << "\n\n";
+    const char* v = std::getenv("FATP_TEST_DISABLE_SANITY_BENCH");
+    if (v && v[0] != '\0')
+    {
+        const char c = v[0];
+        if (c == '1' || c == 'y' || c == 'Y' || c == 't' || c == 'T')
+        {
+            return false;
+        }
+    }
 
-    std::cout << "SIMD Backend: " << FastHashMap<int, int>::simd_backend() << "\n\n";
+    return true;
+}
 
-    constexpr size_t N = 50000;
-    constexpr size_t WARMUP = 1000;
-    constexpr size_t ITERATIONS = 100000;
+// Sanity Benchmark (one per object)
+// Purpose: regression tripwire vs std::unordered_map.
+// Method: measure random misses (assert loose minimum speedup), measure hits (print only).
+FATP_TEST_CASE(sanity_benchmark)
+{
+    if (!should_run_sanity_benchmarks())
+    {
+        return true;
+    }
+
+    std::cout << "\n" << colors::cyan() << "FastHashMap Sanity Benchmark (vs std::unordered_map):" << colors::reset()
+              << "\n\n";
+    std::cout << "SIMD Backend: " << FastHashMap<int, int>::simd_backend() << "\n";
+    print_benchmark_context(std::cout);
+
+    constexpr size_t N = 100000;
+    constexpr size_t BLOCK = 1024;
+    constexpr size_t BATCHES = 15;
+
+    std::mt19937 rng(12345);
 
     std::vector<int> keys(N);
     for (size_t i = 0; i < N; ++i)
     {
         keys[i] = static_cast<int>(i);
     }
-
-    std::mt19937 rng(12345);
     std::shuffle(keys.begin(), keys.end(), rng);
-
-    std::vector<int> lookup_keys = keys;
-    std::shuffle(lookup_keys.begin(), lookup_keys.end(), rng);
 
     FastHashMap<int, int> fmap;
     std::unordered_map<int, int> umap;
+    fmap.reserve(N * 2);
+    umap.reserve(N * 2);
 
     for (int k : keys)
     {
         fmap.insert(k, k * 10);
-        umap[k] = k * 10;
+        umap.emplace(k, k * 10);
     }
 
-    volatile long long sink = 0;
+    std::vector<int> miss_keys(BLOCK);
+    for (size_t i = 0; i < BLOCK; ++i)
+    {
+        miss_keys[i] = -static_cast<int>(i) - 1;
+    }
 
-    double fast_time = measure_perf(
-        [&]() {
-            long long sum = 0;
-            for (int k : lookup_keys)
+    std::vector<int> hit_keys(BLOCK);
+    std::uniform_int_distribution<size_t> pick(0, keys.size() - 1);
+    for (size_t i = 0; i < BLOCK; ++i)
+    {
+        hit_keys[i] = keys[pick(rng)];
+    }
+
+    auto do_fast_miss = [&]() {
+        std::uintptr_t acc = 0;
+        for (int k : miss_keys)
+        {
+            acc += reinterpret_cast<std::uintptr_t>(fmap.find(k));
+        }
+        DoNotOptimize(acc);
+    };
+
+    auto do_std_miss = [&]() {
+        std::uintptr_t acc = 0;
+        for (int k : miss_keys)
+        {
+            auto it = umap.find(k);
+            acc += reinterpret_cast<std::uintptr_t>(it == umap.end() ? nullptr : &it->second);
+        }
+        DoNotOptimize(acc);
+    };
+
+    auto do_fast_hit = [&]() {
+        long long acc = 0;
+        for (int k : hit_keys)
+        {
+            if (int* v = fmap.find(k))
             {
-                int* v = fmap.find(k);
-                if (v)
-                {
-                    sum += *v;
-                }
+                acc += *v;
             }
-            sink = sum;
-        },
-        ITERATIONS / N,
-        WARMUP / N);
+        }
+        DoNotOptimize(acc);
+    };
 
-    double umap_time = measure_perf(
-        [&]() {
-            long long sum = 0;
-            for (int k : lookup_keys)
+    auto do_std_hit = [&]() {
+        long long acc = 0;
+        for (int k : hit_keys)
+        {
+            auto it = umap.find(k);
+            if (it != umap.end())
             {
-                auto it = umap.find(k);
-                if (it != umap.end())
-                {
-                    sum += it->second;
-                }
+                acc += it->second;
             }
-            sink = sum;
-        },
-        ITERATIONS / N,
-        WARMUP / N);
+        }
+        DoNotOptimize(acc);
+    };
 
-    double ns_per_find_fast = (fast_time * 1e6) / N;
-    double ns_per_find_umap = (umap_time * 1e6) / N;
+    const BenchmarkStats fast_miss = measure_perf_stats(do_fast_miss, 0, BATCHES);
+    const BenchmarkStats std_miss = measure_perf_stats(do_std_miss, 0, BATCHES);
+    const BenchmarkStats fast_hit = measure_perf_stats(do_fast_hit, 0, BATCHES);
+    const BenchmarkStats std_hit = measure_perf_stats(do_std_hit, 0, BATCHES);
+
+    const double fast_miss_ns = fast_miss.median_ns() / static_cast<double>(BLOCK);
+    const double std_miss_ns = std_miss.median_ns() / static_cast<double>(BLOCK);
+    const double fast_hit_ns = fast_hit.median_ns() / static_cast<double>(BLOCK);
+    const double std_hit_ns = std_hit.median_ns() / static_cast<double>(BLOCK);
+
+    const double miss_speedup = std_miss.median_ms / fast_miss.median_ms;
+    const double hit_speedup = std_hit.median_ms / fast_hit.median_ms;
 
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "Find (" << N << " elements):\n";
-    std::cout << "  FastHashMap:       " << ns_per_find_fast << " ns/op\n";
-    std::cout << "  std::unordered_map:" << ns_per_find_umap << " ns/op\n";
-    std::cout << "  Speedup:           " << (umap_time / fast_time) << "x\n\n";
+    std::cout << "  N=" << N << " BLOCK=" << BLOCK << " batches=" << BATCHES << "\n";
+    std::cout << "  Miss: FastHashMap " << fast_miss_ns << " ns/op, std " << std_miss_ns << " ns/op, speedup "
+              << miss_speedup << "x\n";
+    std::cout << "  Hit:  FastHashMap " << fast_hit_ns << " ns/op, std " << std_hit_ns << " ns/op, speedup "
+              << hit_speedup << "x\n\n";
 
-    (void)sink;
+#ifndef NDEBUG
+    (void)miss_speedup;
+#else
+    FATP_ASSERT_TRUE(miss_speedup >= 1.30, "FastHashMap miss regression vs std::unordered_map");
+#endif
+
+    return true;
 }
 
 } // namespace fat_p::testing::fasthashmap
@@ -1027,6 +1147,7 @@ bool test_FastHashMap()
     FATP_RUN_TEST_NS(runner, fasthashmap, large_dataset);
     FATP_RUN_TEST_NS(runner, fasthashmap, erase_reinsert);
     FATP_RUN_TEST_NS(runner, fasthashmap, tombstone_stress);
+    FATP_RUN_TEST_NS(runner, fasthashmap, triangular_probe_sequence_coverage);
     FATP_RUN_TEST_NS(runner, fasthashmap, stress_random);
 
     // --- Iterators ---
@@ -1046,13 +1167,13 @@ bool test_FastHashMap()
     FATP_RUN_TEST_NS(runner, fasthashmap, simd_backend);
     FATP_RUN_TEST_NS(runner, fasthashmap, rehash);
 
-    // --- Conditional noexcept & SFINAE (ChatGPT Round 2) ---
+    // --- Conditional noexcept & SFINAE ---
     out << "\n" << colors::blue() << "--- Conditional noexcept & SFINAE ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, fasthashmap, conditional_noexcept);
     FATP_RUN_TEST_NS(runner, fasthashmap, sfinae_heterogeneous_lookup);
     FATP_RUN_TEST_NS(runner, fasthashmap, hash_finalizer_safety);
 
-    // --- Allocator Policies (ChatGPT Round 3) ---
+    // --- Allocator Policies ---
     out << "\n" << colors::blue() << "--- Allocator Policies ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, fasthashmap, heap_allocator);
     FATP_RUN_TEST_NS(runner, fasthashmap, fixed_allocator_basic);
@@ -1065,7 +1186,8 @@ bool test_FastHashMap()
     FATP_RUN_TEST_NS(runner, fasthashmap, backward_shift_deletion);
     FATP_RUN_TEST_NS(runner, fasthashmap, freeze_mode);
 
-    fasthashmap::benchmark_fasthashmap();
+    out << "\n" << colors::blue() << "--- Sanity Benchmark ---" << colors::reset() << "\n";
+    FATP_RUN_TEST_NS(runner, fasthashmap, sanity_benchmark);
 
     return 0 == runner.print_summary();
 }

@@ -51,7 +51,7 @@ using fat_p::StableHashMap;
 constexpr int LARGE_SIZE = 10000;
 
 // ============================================================================
-// RAII Tracking Type (from Gemini review)
+// RAII Tracking Type
 // ============================================================================
 
 struct TrackedRAII
@@ -119,7 +119,7 @@ struct TrackedRAII
 };
 
 // ============================================================================
-// Heap-owning payload for sanitizer tests (from Gemini review)
+// Heap-owning payload for sanitizer tests
 // ============================================================================
 
 struct HeapBox
@@ -788,7 +788,7 @@ TEST_CASE(stress_random)
 }
 
 // ============================================================================
-// Test 19: RAII Erase Correctness (from Gemini review)
+// Test 19: RAII Erase Correctness
 // ============================================================================
 
 TEST_CASE(raii_erase_correctness)
@@ -818,7 +818,7 @@ TEST_CASE(raii_erase_correctness)
 }
 
 // ============================================================================
-// Test 20: HeapBox Sanitizer Stress (from Gemini review)
+// Test 20: HeapBox Sanitizer Stress
 // ============================================================================
 
 TEST_CASE(heapbox_stress)
@@ -849,7 +849,7 @@ TEST_CASE(heapbox_stress)
 }
 
 // ============================================================================
-// Test 21: Rehash Stress (from Gemini review)
+// Test 21: Rehash Stress
 // ============================================================================
 
 TEST_CASE(rehash_stress)

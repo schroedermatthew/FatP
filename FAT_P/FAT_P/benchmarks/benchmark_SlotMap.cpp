@@ -1204,8 +1204,8 @@ public:
 #if HAS_SG14_SLOTMAP
 class SG14SlotMapAdapter final : public ISlotMapAdapter
 {
-    std::unique_ptr<stdext::slot_map<TestValue>> mMap;
-    std::vector<stdext::slot_map<TestValue>::key_type> mKeys;
+    std::unique_ptr<sg14::slot_map<TestValue>> mMap;
+    std::vector<sg14::slot_map<TestValue>::key_type> mKeys;
 
 public:
     const char* name() const override
@@ -1215,7 +1215,7 @@ public:
 
     void setup(size_t N) override
     {
-        mMap = std::make_unique<stdext::slot_map<TestValue>>();
+        mMap = std::make_unique<sg14::slot_map<TestValue>>();
         mMap->reserve(N);
         mKeys.clear();
         mKeys.reserve(N);

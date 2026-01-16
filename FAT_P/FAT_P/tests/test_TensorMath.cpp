@@ -243,7 +243,7 @@ FATP_TEST_CASE(checked_policy_throws_on_overflow)
 
 FATP_TEST_CASE(saturating_policy_clamps)
 {
-    // FIXED: Use SaturatingArithmeticPolicy instead of SaturatingPolicy
+    // Note: Use SaturatingArithmeticPolicy instead of SaturatingPolicy
     Vec2<int, SaturatingArithmeticPolicy> v1{INT_MAX, 0};
     Vec2<int, SaturatingArithmeticPolicy> v2{100, 0};
     auto result = v1 + v2;

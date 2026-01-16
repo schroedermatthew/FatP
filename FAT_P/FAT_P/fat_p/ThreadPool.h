@@ -26,7 +26,7 @@
  * - Multiple threads may submit concurrently
  * - Internal synchronization via mutexes and atomics
  *
- * @version 2.0 (Consolidated from multi-AI review)
+ * @version 2.0
  */
 
 #pragma once

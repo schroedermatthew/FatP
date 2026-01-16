@@ -144,7 +144,6 @@ inline bool is_empty_or_deleted(uint8_t ctrl)
 // H2: Extract 7 bits from HIGH bits of hash for control byte matching.
 // CRITICAL: Using low bits would correlate with bucket index (hash & mMask),
 // causing false-positive SIMD matches and degraded miss performance.
-// Fix identified by ChatGPT code review.
 inline uint8_t H2(size_t hash)
 {
     // Use top 7 bits (shift by 57 on 64-bit, 25 on 32-bit)
@@ -594,6 +593,14 @@ private:
             , value(std::forward<V>(v))
         {
         }
+    
+
+        template <typename K, typename... Args>
+        Node(K&& k, std::in_place_t, Args&&... args)
+            : key(std::forward<K>(k))
+            , value(std::forward<Args>(args)...)
+        {
+        }
     };
 
 public:
@@ -682,25 +689,30 @@ private:
         mCapacity = cap;
         mMask = cap - 1;
 
-        size_t ctrl_size = cap + Group::kWidth;
-        mCtrl = static_cast<uint8_t*>(stablehash_detail::aligned_alloc(Group::kWidth, ctrl_size));
-        if (!mCtrl)
-        {
-            throw std::bad_alloc();
-        }
-        std::memset(mCtrl, stablehash_detail::kEmpty, ctrl_size);
+        const size_t ctrl_size = cap + Group::kWidth;
+        const size_t nodes_size = cap * sizeof(Node*);
+        const size_t nodes_align = alignof(Node*);
 
-        mNodes = static_cast<Node**>(stablehash_detail::aligned_alloc(alignof(Node*), cap * sizeof(Node*)));
-        if (!mNodes)
+        // Single allocation for control bytes + node pointers.
+        // Control bytes start at the base pointer to preserve SIMD alignment.
+        const size_t total_size = ctrl_size + nodes_size + (nodes_align - 1);
+        uint8_t* base = static_cast<uint8_t*>(stablehash_detail::aligned_alloc(Group::kWidth, total_size));
+        if (!base)
         {
-            stablehash_detail::aligned_free(mCtrl);
-            mCtrl = nullptr;
             throw std::bad_alloc();
         }
-        std::memset(mNodes, 0, cap * sizeof(Node*));
+
+        mCtrl = base;
+
+        uintptr_t nodes_ptr = reinterpret_cast<uintptr_t>(base + ctrl_size);
+        nodes_ptr = (nodes_ptr + (nodes_align - 1)) & ~(static_cast<uintptr_t>(nodes_align - 1));
+        mNodes = reinterpret_cast<Node**>(nodes_ptr);
+
+        std::memset(mCtrl, stablehash_detail::kEmpty, ctrl_size);
+        std::memset(mNodes, 0, nodes_size);
 
         // CRITICAL: Always keep at least 1 empty slot to prevent infinite loops
-        // in find_slot() and find_or_prepare_insert(). Fix identified by ChatGPT.
+        // in find_slot() and find_or_prepare_insert().
         size_t threshold = static_cast<size_t>(static_cast<double>(cap) * max_load_factor_);
         growth_threshold_ = (threshold >= cap) ? cap - 1 : threshold;
         if (growth_threshold_ == 0 && cap > 0)
@@ -708,6 +720,7 @@ private:
             growth_threshold_ = 1;
         }
     }
+
 
     void deallocate()
     {
@@ -721,7 +734,6 @@ private:
                     mAllocator.deallocate(mNodes[i]);
                 }
             }
-            stablehash_detail::aligned_free(mNodes);
             stablehash_detail::aligned_free(mCtrl);
             mCtrl = nullptr;
             mNodes = nullptr;
@@ -832,60 +844,114 @@ private:
     {
         uint8_t* old_ctrl = mCtrl;
         Node** old_nodes = mNodes;
-        size_t old_cap = mCapacity;
-        size_t old_mask = mMask;
-        size_t old_growth = growth_threshold_;
+        const size_t old_cap = mCapacity;
 
-        mCtrl = nullptr;
-        mNodes = nullptr;
+        // Allocate new arrays without mutating this until successful.
+        const size_t new_mask = new_cap - 1;
+
+        uint8_t* new_ctrl = nullptr;
+        Node** new_nodes = nullptr;
 
         try
         {
-            allocate(new_cap);
-        }
-        catch (...)
-        {
-            // Restore old state on allocation failure
-            mCtrl = old_ctrl;
-            mNodes = old_nodes;
-            mCapacity = old_cap;
-            mMask = old_mask;
-            growth_threshold_ = old_growth;
-            throw;
-        }
+            const size_t ctrl_size = new_cap + Group::kWidth;
+            const size_t nodes_size = new_cap * sizeof(Node*);
+            const size_t nodes_align = alignof(Node*);
 
-        size_ = 0;
-        mTombstones = 0;
-
-        if (old_ctrl)
-        {
-            for (size_t i = 0; i < old_cap; ++i)
+            // Single allocation for control bytes + node pointers.
+            const size_t total_size = ctrl_size + nodes_size + (nodes_align - 1);
+            new_ctrl = static_cast<uint8_t*>(stablehash_detail::aligned_alloc(Group::kWidth, total_size));
+            if (!new_ctrl)
             {
-                if (stablehash_detail::is_full(old_ctrl[i]))
-                {
-                    Node* node = old_nodes[i];
-                    size_t h = hash_key(node->key);
+                throw std::bad_alloc();
+            }
 
-                    // Find empty slot (no deleted slots in fresh table)
-                    stablehash_detail::ProbeSequence seq(h, mMask);
-                    while (true)
+            std::memset(new_ctrl, stablehash_detail::kEmpty, ctrl_size);
+
+            uintptr_t nodes_ptr = reinterpret_cast<uintptr_t>(new_ctrl + ctrl_size);
+            nodes_ptr = (nodes_ptr + (nodes_align - 1)) & ~(static_cast<uintptr_t>(nodes_align - 1));
+            new_nodes = reinterpret_cast<Node**>(nodes_ptr);
+
+            std::memset(new_nodes, 0, nodes_size);
+
+            auto set_ctrl_local = [&](size_t idx, uint8_t value) {
+                new_ctrl[idx] = value;
+                if (idx < Group::kWidth)
+                {
+                    new_ctrl[new_cap + idx] = value;
+                }
+            };
+
+            size_t new_size = 0;
+
+            if (old_ctrl)
+            {
+                for (size_t i = 0; i < old_cap; ++i)
+                {
+                    if (stablehash_detail::is_full(old_ctrl[i]))
                     {
-                        stablehash_detail::Group g(mCtrl + seq.offset());
-                        auto empty = g.match_empty();
-                        if (empty)
+                        Node* node = old_nodes[i];
+                        const size_t h = hash_key(node->key);
+                        const uint8_t h2 = stablehash_detail::H2(h);
+
+                        stablehash_detail::ProbeSequence seq(h, new_mask);
+                        while (true)
                         {
-                            size_t idx = seq.offset(empty.lowest_set_bit());
-                            set_ctrl(idx, stablehash_detail::H2(h));
-                            mNodes[idx] = node;
-                            ++size_;
-                            break;
+                            stablehash_detail::Group g(new_ctrl + seq.offset());
+                            auto empty = g.match_empty();
+                            if (empty)
+                            {
+                                const size_t idx = seq.offset(empty.lowest_set_bit());
+                                set_ctrl_local(idx, h2);
+                                new_nodes[idx] = node;
+                                ++new_size;
+                                break;
+                            }
+                            seq.next();
                         }
-                        seq.next();
                     }
                 }
             }
-            stablehash_detail::aligned_free(old_nodes);
-            stablehash_detail::aligned_free(old_ctrl);
+
+            // Commit new state.
+            mCtrl = new_ctrl;
+            mNodes = new_nodes;
+            mCapacity = new_cap;
+            mMask = new_mask;
+
+            // Recompute growth threshold (keep >=1 empty slot).
+            size_t threshold = static_cast<size_t>(static_cast<double>(new_cap) * max_load_factor_);
+            growth_threshold_ = (threshold >= new_cap) ? new_cap - 1 : threshold;
+            if (growth_threshold_ == 0 && new_cap > 0)
+            {
+                growth_threshold_ = 1;
+            }
+
+            size_ = new_size;
+            mTombstones = 0;
+
+            // Release old arrays after commit.
+            if (old_ctrl)
+            {
+                stablehash_detail::aligned_free(old_ctrl);
+            }
+        }
+        catch (...)
+        {
+            if (new_ctrl)
+            {
+                stablehash_detail::aligned_free(new_ctrl);
+                new_ctrl = nullptr;
+            }
+
+            // Restore original state (unchanged on failure).
+            mCtrl = old_ctrl;
+            mNodes = old_nodes;
+            mCapacity = old_cap;
+            mMask = old_cap ? (old_cap - 1) : 0;
+
+            // growth_threshold_ is unchanged by this function unless commit succeeded.
+            throw;
         }
     }
 
@@ -1039,18 +1105,32 @@ public:
         if (other.size_ > 0)
         {
             allocate(other.mCapacity);
-            for (size_t i = 0; i < other.mCapacity; ++i)
+            try
             {
-                if (stablehash_detail::is_full(other.mCtrl[i]))
+                for (size_t i = 0; i < other.mCapacity; ++i)
                 {
-                    // Compute hash BEFORE allocating node to prevent leak if hash throws
-                    size_t h = hash_key(other.mNodes[i]->key);
-                    Node* new_node = mAllocator.allocate(other.mNodes[i]->key, other.mNodes[i]->value);
-                    auto [idx, found, insert_slot] = find_or_prepare_insert(new_node->key, h);
-                    set_ctrl(insert_slot, stablehash_detail::H2(h));
-                    mNodes[insert_slot] = new_node;
-                    ++size_;
+                    if (stablehash_detail::is_full(other.mCtrl[i]))
+                    {
+                        const Key& k = other.mNodes[i]->key;
+                        const Value& v = other.mNodes[i]->value;
+
+                        // Compute hash BEFORE any allocation. If hash/key_equal throws, no leak.
+                        const size_t h = hash_key(k);
+                        auto [idx, found, insert_slot] = find_or_prepare_insert(k, h);
+                        (void)idx;
+                        (void)found;
+
+                        Node* new_node = mAllocator.allocate(k, v);
+                        set_ctrl(insert_slot, stablehash_detail::H2(h));
+                        mNodes[insert_slot] = new_node;
+                        ++size_;
+                    }
                 }
+            }
+            catch (...)
+            {
+                deallocate();
+                throw;
             }
         }
     }
@@ -1161,7 +1241,7 @@ public:
         }
 
         // Key doesn't exist - construct value in-place
-        Node* node = mAllocator.allocate(std::forward<K>(key), Value(std::forward<Args>(args)...));
+        Node* node = mAllocator.allocate(std::forward<K>(key), std::in_place, std::forward<Args>(args)...);
 
         uint8_t old_ctrl = mCtrl[insert_slot];
         set_ctrl(insert_slot, stablehash_detail::H2(h));

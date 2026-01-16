@@ -124,6 +124,7 @@ FATP_META:
 #endif
 
 // Folly requires special setup (fmt, boost, glog, etc.) - opt-in with -DUSE_FOLLY=1
+#define USE_FOLLY 1
 #if defined(USE_FOLLY) && USE_FOLLY && __has_include("folly/container/F14Map.h")
 #include "folly/container/F14Map.h"
 #define HAS_FOLLY 1

@@ -1,9 +1,34 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: CacheUtilities
+  file_role: public_header
+  path: fat_p/CacheUtilities.h
+  namespace: fat_p
+  layer: Domain
+  summary: "Public header for CacheUtilities."
+  api_stability: in_work
+  related:
+    docs_search: "CacheUtilities"
+    tests:
+      - tests/test_CacheUtilities.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 5
+    defines_unprefixed: 5
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file CacheUtilities.h
  * @brief Cache control, prefetching, and cache-aware programming utilities
- *
- *
- * @layer Domain
  *
  * @version 1.1
  *
@@ -47,33 +72,6 @@
  * @date 2025
  */
 
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: CacheUtilities
-  file_role: public_header
-  path: fat_p/CacheUtilities.h
-  namespace: fat_p
-  layer: Domain
-  summary: "Public header for CacheUtilities."
-  api_stability: in_work
-  related:
-    docs_search: "CacheUtilities"
-    tests:
-      - tests/test_CacheUtilities.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 5
-    defines_unprefixed: 5
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include "FatPConfig.h"
 #include <algorithm>
 #include <atomic> // for std::atomic_thread_fence

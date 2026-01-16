@@ -74,10 +74,10 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\benchmarks;C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\fat_p;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\mtthw\Desktop\FatP\FAT_P\ThirdParty;C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\benchmarks;C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\fat_p;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\benchmarks;C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\fat_p;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\mtthw\Desktop\FatP\FAT_P\ThirdParty;C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\benchmarks;C:\Users\mtthw\Desktop\FatP\FAT_P\FAT_P\fat_p;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
@@ -116,7 +116,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);ENABLE_TEST_APPLICATION;NOMINMAX</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -131,7 +131,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);ENABLE_TEST_APPLICATION;NOMINMAX</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
     </ClCompile>
     <Link>

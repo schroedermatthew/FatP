@@ -1,0 +1,162 @@
+# .github/workflows/header-hygiene.yml
+#
+# CI workflow to verify Fat-P header hygiene:
+# 1. All headers are self-contained (compile standalone)
+# 2. IncludeAllFatPHeaders.h compiles (no ODR/include-order issues)
+
+name: Header Hygiene
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'fat_p/**'
+      - 'tests/IncludeAllFatPHeaders.h'
+      - '.github/workflows/header-hygiene.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'fat_p/**'
+      - 'tests/IncludeAllFatPHeaders.h'
+
+jobs:
+  header-self-containment:
+    name: Header Self-Containment
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            compiler: g++
+            std: c++20
+          - os: ubuntu-latest
+            compiler: clang++
+            std: c++20
+          - os: macos-latest
+            compiler: clang++
+            std: c++20
+          # Windows uses MSVC, different syntax
+          # - os: windows-latest
+          #   compiler: cl
+          #   std: c++20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Compiler (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          if [[ "${{ matrix.compiler }}" == "clang++" ]]; then
+            sudo apt-get install -y clang
+          fi
+
+      - name: Check Header Self-Containment
+        run: |
+          echo "Checking header self-containment with ${{ matrix.compiler }} -std=${{ matrix.std }}"
+          
+          FAILED=0
+          PASSED=0
+          
+          for header in fat_p/*.h; do
+            header_name=$(basename "$header")
+            
+            if echo "#include \"$header_name\"" | \
+               ${{ matrix.compiler }} -std=${{ matrix.std }} \
+               -fsyntax-only -Wall -Wextra -I fat_p -x c++ - 2>/dev/null; then
+              ((PASSED++))
+            else
+              echo "FAILED: $header_name"
+              echo "#include \"$header_name\"" | \
+                ${{ matrix.compiler }} -std=${{ matrix.std }} \
+                -fsyntax-only -Wall -I fat_p -x c++ - 2>&1 | head -10
+              ((FAILED++))
+            fi
+          done
+          
+          echo ""
+          echo "Results: $PASSED passed, $FAILED failed"
+          
+          if [[ $FAILED -gt 0 ]]; then
+            exit 1
+          fi
+
+  include-all-headers:
+    name: Include All Headers
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            compiler: g++
+            std: c++20
+          - os: ubuntu-latest
+            compiler: clang++
+            std: c++20
+          - os: macos-latest
+            compiler: clang++
+            std: c++20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Compiler (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          if [[ "${{ matrix.compiler }}" == "clang++" ]]; then
+            sudo apt-get install -y clang
+          fi
+
+      - name: Compile IncludeAllFatPHeaders.h
+        run: |
+          echo "Compiling IncludeAllFatPHeaders.h with ${{ matrix.compiler }} -std=${{ matrix.std }}"
+          
+          # Create a source file that includes the header
+          echo '#include "IncludeAllFatPHeaders.h"' > test_include_all.cpp
+          
+          ${{ matrix.compiler }} -std=${{ matrix.std }} \
+            -fsyntax-only -Wall -Wextra \
+            -I fat_p -I tests \
+            test_include_all.cpp
+          
+          echo "PASSED: IncludeAllFatPHeaders.h compiles successfully"
+
+  windows-header-check:
+    name: Windows Header Check
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Check Headers with MSVC
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          
+          set FAILED=0
+          set PASSED=0
+          
+          for %%f in (fat_p\*.h) do (
+            echo #include "%%~nxf" > test_header.cpp
+            cl /std:c++20 /Zs /W4 /I fat_p test_header.cpp 2>nul
+            if errorlevel 1 (
+              echo FAILED: %%~nxf
+              set /a FAILED+=1
+            ) else (
+              set /a PASSED+=1
+            )
+          )
+          
+          echo.
+          echo Results: %PASSED% passed, %FAILED% failed
+          
+          if %FAILED% gtr 0 exit /b 1
