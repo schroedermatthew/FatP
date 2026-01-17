@@ -10,6 +10,7 @@
   <Project Path="benchmark_FeatureManager/benchmark_FeatureManager.vcxproj" Id="a5b8cc99-23f5-4ffe-b496-5f8209b62d3a" />
   <Project Path="benchmark_FlatMapSet/benchmark_FlatMapSet.vcxproj" Id="16d48786-23df-4e9f-b3b6-3ed4b28db150" />
   <Project Path="benchmark_FloatingPointComparison/benchmark_FloatingPointComparison.vcxproj" Id="66cbd00c-f58e-4185-a1f0-e8cb389293ce" />
+  <Project Path="benchmark_ObjectPool/benchmark_ObjectPool.vcxproj" Id="708fa9d7-9475-45cb-b009-d0412c7ea34b" />
   <Project Path="benchmark_PolicyIterator/benchmark_PolicyIterator.vcxproj" Id="f3b1a77b-17fd-466c-96a2-b0a95a70bd44" />
   <Project Path="benchmark_SlotMap/benchmark_SlotMap.vcxproj" Id="1ede3fe8-1584-43f5-81f7-2576e3932445" />
   <Project Path="benchmark_SmallVector/benchmark_SmallVector.vcxproj" Id="6f0e9afa-2538-4e80-b411-dcbb85782fb6" />

@@ -1,3 +1,28 @@
+/*
+FATP_META:
+  meta_version: 1
+  component: ObjectPool
+  file_role: benchmark
+  path: benchmarks/benchmark_ObjectPool.cpp
+  namespace: fat_p
+  summary: "Comprehensive benchmarks for ObjectPool vs industry competitors."
+  related:
+    docs_search: "ObjectPool"
+    headers:
+      - fat_p/FatPBenchmarkRunner.h
+      - fat_p/ObjectPool.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 12
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: true
+  generated:
+    by: Claude
+    mode: manual
+*/
+
 // benchmark_ObjectPool.cpp
 //
 // FAT-P ObjectPool benchmarks using unified FatPBenchmarkRunner infrastructure.
@@ -54,31 +79,6 @@
 // Run:
 //   ./bench_objpool
 //   FATP_BENCH_OUTPUT_CSV=results.csv ./bench_objpool
-
-/*
-FATP_META:
-  meta_version: 1
-  component: ObjectPool
-  file_role: benchmark
-  path: benchmarks/benchmark_ObjectPool.cpp
-  namespace: fat_p
-  summary: "Comprehensive benchmarks for ObjectPool vs industry competitors."
-  related:
-    docs_search: "ObjectPool"
-    headers:
-      - fat_p/FatPBenchmarkRunner.h
-      - fat_p/ObjectPool.h
-  hygiene:
-    pragma_once: false
-    include_guard: false
-    defines_total: 12
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: true
-  generated:
-    by: Claude
-    mode: manual
-*/
 
 #include <algorithm>
 #include <array>
@@ -140,19 +140,11 @@ FATP_META:
 
 // EASTL fixed_pool - EA's game-industry allocator
 // Install: vcpkg install eastl, or github.com/electronicarts/EASTL
-#if __has_include(<EASTL/fixed_pool.h>)
-#include <EASTL/fixed_pool.h>
+#if __has_include(<EASTL/internal/fixed_pool.h>)
+#include <EASTL/internal/fixed_pool.h>
 #define HAS_EASTL_POOL 1
 #else
 #define HAS_EASTL_POOL 0
-#endif
-
-// Apache APR pools (C library, less common in C++ projects)
-#if __has_include(<apr_pools.h>)
-#include <apr_pools.h>
-#define HAS_APR_POOL 1
-#else
-#define HAS_APR_POOL 0
 #endif
 
 // ============================================================================
@@ -606,8 +598,10 @@ struct IPoolAdapter
     virtual size_t available() const = 0;
     virtual bool supports_try_acquire() const { return false; }
     virtual bool supports_uninitialized() const { return false; }
+    virtual bool supports_compact() const { return false; }
     virtual T* acquire_uninitialized() { return nullptr; }
     virtual T* acquire_zeroed() { return nullptr; }
+    virtual bool try_compact_free_list() { return false; }
 };
 
 // ============================================================================
@@ -647,6 +641,13 @@ public:
     bool supports_try_acquire() const override { return true; }
 
     bool supports_uninitialized() const override { return std::is_trivially_destructible_v<T>; }
+
+    bool supports_compact() const override { return true; }
+
+    bool try_compact_free_list() override
+    {
+        return pool_ ? pool_->try_compact_free_list() : false;
+    }
 
     T* acquire_uninitialized() override
     {
@@ -726,6 +727,136 @@ public:
 #endif
 
 // ============================================================================
+// foonathan::memory Pool Adapter
+// ============================================================================
+
+#if HAS_FOONATHAN_MEMORY
+template <typename T>
+class FoonathanPoolAdapter final : public IPoolAdapter<T>
+{
+    // foonathan::memory_pool with default growth policy
+    std::unique_ptr<foonathan::memory::memory_pool<>> pool_;
+    size_t capacity_ = 0;
+    size_t acquired_ = 0;
+
+public:
+    const char* name() const override { return "foonathan::memory_pool"; }
+
+    void setup(size_t capacity) override
+    {
+        // memory_pool(node_size, initial_block_size)
+        // Block size is in bytes, not count
+        const size_t block_bytes = capacity * sizeof(T) + 1024; // Some overhead
+        pool_ = std::make_unique<foonathan::memory::memory_pool<>>(sizeof(T), block_bytes);
+        capacity_ = capacity;
+        acquired_ = 0;
+    }
+
+    void teardown() override
+    {
+        pool_.reset();
+        acquired_ = 0;
+    }
+
+    T* acquire(int64_t value) override
+    {
+        void* mem = pool_->allocate_node();
+        T* obj = new (mem) T(value);
+        ++acquired_;
+        return obj;
+    }
+
+    T* try_acquire(int64_t value) override
+    {
+        // foonathan memory_pool grows on demand, so this always succeeds
+        return acquire(value);
+    }
+
+    void release(T* obj) override
+    {
+        obj->~T();
+        pool_->deallocate_node(obj);
+        if (acquired_ > 0)
+            --acquired_;
+    }
+
+    size_t capacity() const override { return capacity_; }
+    size_t available() const override { return capacity_ > acquired_ ? capacity_ - acquired_ : 0; }
+};
+#endif
+
+// ============================================================================
+// EASTL fixed_pool Adapter
+// ============================================================================
+
+#if HAS_EASTL_POOL
+template <typename T>
+class EastlPoolAdapter final : public IPoolAdapter<T>
+{
+    // EASTL fixed_pool requires a backing buffer
+    std::unique_ptr<char[]> buffer_;
+    std::unique_ptr<eastl::fixed_pool> pool_;
+    size_t capacity_ = 0;
+    size_t acquired_ = 0;
+
+public:
+    const char* name() const override { return "EASTL::fixed_pool [!grow]"; }
+
+    void setup(size_t capacity) override
+    {
+        // fixed_pool needs a buffer; each node needs sizeof(T) + some overhead for linkage
+        // EASTL uses at least sizeof(void*) for the free list pointer
+        const size_t node_size = std::max(sizeof(T), sizeof(void*));
+        const size_t buffer_size = capacity * (node_size + sizeof(void*)) + 256; // Extra for alignment/overhead
+        buffer_ = std::make_unique<char[]>(buffer_size);
+        pool_ = std::make_unique<eastl::fixed_pool>(buffer_.get(), buffer_size, node_size, alignof(T));
+        capacity_ = capacity;
+        acquired_ = 0;
+    }
+
+    void teardown() override
+    {
+        pool_.reset();
+        buffer_.reset();
+        acquired_ = 0;
+    }
+
+    T* acquire(int64_t value) override
+    {
+        void* mem = pool_->allocate();
+        if (!mem)
+        {
+            // Pool exhausted - this shouldn't happen if we sized correctly
+            // but EASTL fixed_pool doesn't grow
+            return nullptr;
+        }
+        T* obj = new (mem) T(value);
+        ++acquired_;
+        return obj;
+    }
+
+    T* try_acquire(int64_t value) override
+    {
+        return acquire(value); // fixed_pool returns nullptr when exhausted
+    }
+
+    void release(T* obj) override
+    {
+        if (obj)
+        {
+            obj->~T();
+            pool_->deallocate(obj);
+            if (acquired_ > 0)
+                --acquired_;
+        }
+    }
+
+    size_t capacity() const override { return capacity_; }
+    size_t available() const override { return capacity_ > acquired_ ? capacity_ - acquired_ : 0; }
+};
+#endif
+
+// ============================================================================
 // std::pmr Pool Adapter
 // ============================================================================
 
@@ -737,7 +868,7 @@ class PmrPoolAdapter final : public IPoolAdapter<T>
     size_t acquired_ = 0;
 
 public:
-    const char* name() const override { return "std::pmr::pool_resource"; }
+    const char* name() const override { return "std::pmr::unsync_pool"; }
 
     void setup(size_t capacity) override
     {
@@ -1234,6 +1365,198 @@ void benchmark_pool_reuse(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapter
 }
 
 // ============================================================================
+// Pool Reuse With Compaction Benchmark (Tests Locality Recovery)
+// ============================================================================
+
+template <typename T>
+void benchmark_pool_reuse_with_compact(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapters,
+                                       const std::vector<size_t>& sizes,
+                                       const char* type_name)
+{
+    // Check if any adapter supports compaction
+    bool any_supports_compact = false;
+    for (const auto& adapter : adapters)
+    {
+        if (adapter->supports_compact())
+        {
+            any_supports_compact = true;
+            break;
+        }
+    }
+
+    if (!any_supports_compact)
+    {
+        return; // Skip if no adapters support compaction
+    }
+
+    std::cout << "\n";
+    std::cout << std::string(80, '=') << "\n";
+    std::cout << "  Pool Reuse With Compaction (" << type_name << ")\n";
+    std::cout << std::string(80, '=') << "\n";
+    std::cout << "Contract: Acquire N, release all randomly, COMPACT, then acquire N again\n";
+    std::cout << "          Tests whether compaction recovers allocation locality\n\n";
+
+    std::mt19937_64 rng(g_config.seed);
+
+    for (size_t N : sizes)
+    {
+        std::cout << "\n--- N = " << N << " objects ---\n";
+        print_cpu_context();
+        cooling_delay(COOLING_DELAY_SIZE_MS, "size transition");
+
+        Inputs in = Inputs::make(N);
+
+        std::vector<BenchResult> results;
+        for (auto& adapter : adapters)
+            results.push_back({adapter->name(), {}});
+
+        std::vector<T*> acquired(N);
+
+        // Measured runs
+        for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+        {
+            std::vector<size_t> order(adapters.size());
+            std::iota(order.begin(), order.end(), 0);
+            std::shuffle(order.begin(), order.end(), rng);
+
+            for (size_t idx : order)
+            {
+                adapters[idx]->setup(N * 2);
+
+                // Phase 1: Acquire all (outside timing)
+                for (size_t i = 0; i < N; ++i)
+                    acquired[i] = adapters[idx]->acquire(in.values[i]);
+
+                // Phase 2: Release in random order (outside timing)
+                for (size_t i : in.release_order)
+                    adapters[idx]->release(acquired[i]);
+
+                // Phase 2.5: Compact the free list (outside timing)
+                adapters[idx]->try_compact_free_list();
+
+                // Phase 3: Re-acquire all (TIMED - tests free list after compaction)
+                Timer t;
+                t.start();
+                for (size_t i = 0; i < N; ++i)
+                {
+                    acquired[i] = adapters[idx]->acquire(in.values[i]);
+                    prevent_opt_ptr(acquired[i]);
+                }
+                double elapsed = t.elapsed_ns();
+
+                // Cleanup
+                for (size_t i = 0; i < N; ++i)
+                    adapters[idx]->release(acquired[i]);
+
+                adapters[idx]->teardown();
+                results[idx].samples.push_back(ns_per_op(elapsed, N));
+            }
+        }
+
+        // Print results
+        std::cout << std::fixed << std::setprecision(2);
+        for (const auto& r : results)
+        {
+            auto stats = Statistics::compute(r.samples);
+            std::cout << "  " << std::setw(26) << r.library << ": median=" << std::setw(8) << stats.median
+                      << " ns/op  mean=" << std::setw(8) << stats.mean << " +/-" << std::setw(6) << stats.stddev << "\n";
+        }
+    }
+}
+
+// ============================================================================
+// Pool Reuse Full Cycle Benchmark (True Apples-to-Apples)
+// ============================================================================
+
+template <typename T>
+void benchmark_pool_reuse_full_cycle(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapters,
+                                     const std::vector<size_t>& sizes,
+                                     const char* type_name)
+{
+    std::cout << "\n";
+    std::cout << std::string(80, '=') << "\n";
+    std::cout << "  Pool Reuse Full Cycle (" << type_name << ")\n";
+    std::cout << std::string(80, '=') << "\n";
+    std::cout << "Contract: Acquire N, then TIME [release all randomly + compact + reacquire all]\n";
+    std::cout << "          True cost of 'flush and refill' pattern (no hidden work)\n";
+    std::cout << "          Note: Boost's ordered_free O(N) cost is now visible\n\n";
+
+    std::mt19937_64 rng(g_config.seed);
+
+    for (size_t N : sizes)
+    {
+        std::cout << "\n--- N = " << N << " objects ---\n";
+        print_cpu_context();
+        cooling_delay(COOLING_DELAY_SIZE_MS, "size transition");
+
+        Inputs in = Inputs::make(N);
+
+        std::vector<BenchResult> results;
+        for (auto& adapter : adapters)
+            results.push_back({adapter->name(), {}});
+
+        std::vector<T*> acquired(N);
+
+        // Measured runs
+        for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+        {
+            std::vector<size_t> order(adapters.size());
+            std::iota(order.begin(), order.end(), 0);
+            std::shuffle(order.begin(), order.end(), rng);
+
+            for (size_t idx : order)
+            {
+                adapters[idx]->setup(N * 2);
+
+                // Phase 1: Acquire all (outside timing - this is the "warm" state)
+                for (size_t i = 0; i < N; ++i)
+                    acquired[i] = adapters[idx]->acquire(in.values[i]);
+
+                // === TIMED REGION: Full flush-and-refill cycle ===
+                Timer t;
+                t.start();
+
+                // Phase 2: Release in random order (TIMED)
+                for (size_t i : in.release_order)
+                    adapters[idx]->release(acquired[i]);
+
+                // Phase 3: Compact if supported (TIMED)
+                adapters[idx]->try_compact_free_list();
+
+                // Phase 4: Re-acquire all (TIMED)
+                for (size_t i = 0; i < N; ++i)
+                {
+                    acquired[i] = adapters[idx]->acquire(in.values[i]);
+                    prevent_opt_ptr(acquired[i]);
+                }
+
+                double elapsed = t.elapsed_ns();
+                // === END TIMED REGION ===
+
+                // Cleanup (outside timing)
+                for (size_t i = 0; i < N; ++i)
+                    adapters[idx]->release(acquired[i]);
+
+                adapters[idx]->teardown();
+
+                // Cost per object for the full cycle (release + compact + reacquire)
+                // Divide by N, not 2N, since we're measuring the pattern cost per object
+                results[idx].samples.push_back(ns_per_op(elapsed, N));
+            }
+        }
+
+        // Print results
+        std::cout << std::fixed << std::setprecision(2);
+        for (const auto& r : results)
+        {
+            auto stats = Statistics::compute(r.samples);
+            std::cout << "  " << std::setw(26) << r.library << ": median=" << std::setw(8) << stats.median
+                      << " ns/op  mean=" << std::setw(8) << stats.mean << " +/-" << std::setw(6) << stats.stddev << "\n";
+        }
+    }
+}
+
+// ============================================================================
 // Specialized Acquire Benchmark (Trivial Types Only)
 // ============================================================================
 
@@ -1301,6 +1624,8 @@ void benchmark_specialized_acquire()
         }
 
         // Benchmark: acquire_zeroed()
+        // NOTE: We read the zeroed bytes to make the memset observable.
+        // We use std::byte to avoid UB from reading uninitialized fields.
         std::vector<double> zeroed_samples;
         for (size_t run = 0; run < MEASURED_RUNS(); ++run)
         {
@@ -1309,6 +1634,12 @@ void benchmark_specialized_acquire()
             for (size_t i = 0; i < N; ++i)
             {
                 SmallTrivial* raw = pool.acquire_zeroed();
+                // Read zeroed bytes BEFORE starting lifetime (to verify memset happened)
+                // Use volatile to ensure the read is not optimized away
+                volatile std::byte b0 = reinterpret_cast<std::byte*>(raw)[0];
+                volatile std::byte b1 = reinterpret_cast<std::byte*>(raw)[sizeof(SmallTrivial) - 1];
+                (void)b0;
+                (void)b1;
                 ::new (static_cast<void*>(raw)) SmallTrivial; // Start lifetime
                 prevent_opt_ptr(raw);
                 acquired[i] = raw;
@@ -1349,10 +1680,11 @@ void benchmark_multithreaded()
 {
     std::cout << "\n";
     std::cout << std::string(80, '=') << "\n";
-    std::cout << "  Multi-threaded Contention (fat_p::ThreadSafeObjectPool)\n";
+    std::cout << "  Multi-threaded Contention (Thread-Safe Pools)\n";
     std::cout << std::string(80, '=') << "\n";
     std::cout << "Contract: Concurrent acquire/release from multiple threads\n";
-    std::cout << "          Tests lock contention and scalability\n\n";
+    std::cout << "          Tests lock contention and scalability\n";
+    std::cout << "          Comparing: fat_p::ThreadSafeObjectPool vs std::pmr::synchronized_pool_resource\n\n";
 
     print_cpu_context();
 
@@ -1368,59 +1700,115 @@ void benchmark_multithreaded()
         std::cout << "\n--- " << num_threads << " threads, " << OPS_PER_THREAD << " ops/thread ---\n";
         cooling_delay(COOLING_DELAY_SIZE_MS, "thread count transition");
 
-        std::vector<double> samples;
-
-        for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+        // ---- fat_p::ThreadSafeObjectPool ----
         {
-            fat_p::ThreadSafeObjectPool<MediumObject> pool(1024);
+            std::vector<double> samples;
 
-            std::atomic<bool> start_flag{false};
-            std::atomic<size_t> total_ops{0};
+            for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+            {
+                fat_p::ThreadSafeObjectPool<MediumObject> pool(1024);
 
-            std::vector<std::thread> threads;
-            threads.reserve(num_threads);
+                std::atomic<bool> start_flag{false};
+                std::atomic<size_t> total_ops{0};
 
-            auto worker = [&](size_t thread_id) {
-                // Wait for start signal
-                while (!start_flag.load(std::memory_order_acquire))
-                    std::this_thread::yield();
+                std::vector<std::thread> threads;
+                threads.reserve(num_threads);
 
-                size_t local_ops = 0;
-                for (size_t i = 0; i < OPS_PER_THREAD; ++i)
-                {
-                    MediumObject* obj = pool.acquire(static_cast<int64_t>(thread_id * 1000000 + i));
-                    prevent_opt(obj->checksum());
-                    pool.release(obj);
-                    ++local_ops;
-                }
-                total_ops.fetch_add(local_ops, std::memory_order_relaxed);
-            };
+                auto worker = [&](size_t thread_id) {
+                    while (!start_flag.load(std::memory_order_acquire))
+                        std::this_thread::yield();
 
-            // Create threads
-            for (size_t t = 0; t < num_threads; ++t)
-                threads.emplace_back(worker, t);
+                    size_t local_ops = 0;
+                    for (size_t i = 0; i < OPS_PER_THREAD; ++i)
+                    {
+                        MediumObject* obj = pool.acquire(static_cast<int64_t>(thread_id * 1000000 + i));
+                        prevent_opt(obj->checksum());
+                        pool.release(obj);
+                        ++local_ops;
+                    }
+                    total_ops.fetch_add(local_ops, std::memory_order_relaxed);
+                };
 
-            // Start timing and signal threads
-            Timer timer;
-            timer.start();
-            start_flag.store(true, std::memory_order_release);
+                for (size_t t = 0; t < num_threads; ++t)
+                    threads.emplace_back(worker, t);
 
-            // Wait for all threads
-            for (auto& th : threads)
-                th.join();
+                Timer timer;
+                timer.start();
+                start_flag.store(true, std::memory_order_release);
 
-            double elapsed = timer.elapsed_ns();
-            size_t ops = total_ops.load();
+                for (auto& th : threads)
+                    th.join();
 
-            samples.push_back(ns_per_op(elapsed, ops));
+                double elapsed = timer.elapsed_ns();
+                size_t ops = total_ops.load();
+                samples.push_back(ns_per_op(elapsed, ops));
+            }
+
+            auto stats = Statistics::compute(samples);
+            double throughput = 1e9 / stats.median;
+
+            std::cout << std::fixed << std::setprecision(2);
+            std::cout << "  " << std::setw(26) << "fat_p::ThreadSafePool"
+                      << ": median=" << std::setw(8) << stats.median
+                      << " ns/op  throughput=" << std::setprecision(0) << std::setw(10) << throughput << " ops/sec\n";
         }
 
-        auto stats = Statistics::compute(samples);
-        double throughput = 1e9 / stats.median; // ops/sec
+        // ---- std::pmr::synchronized_pool_resource ----
+        {
+            std::vector<double> samples;
 
-        std::cout << std::fixed << std::setprecision(2);
-        std::cout << "  median=" << std::setw(8) << stats.median << " ns/op  throughput=" << std::setprecision(0)
-                  << std::setw(10) << throughput << " ops/sec\n";
+            for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+            {
+                std::pmr::synchronized_pool_resource pool;
+
+                std::atomic<bool> start_flag{false};
+                std::atomic<size_t> total_ops{0};
+
+                std::vector<std::thread> threads;
+                threads.reserve(num_threads);
+
+                auto worker = [&](size_t thread_id) {
+                    while (!start_flag.load(std::memory_order_acquire))
+                        std::this_thread::yield();
+
+                    std::pmr::polymorphic_allocator<MediumObject> alloc(&pool);
+                    size_t local_ops = 0;
+                    for (size_t i = 0; i < OPS_PER_THREAD; ++i)
+                    {
+                        MediumObject* obj = alloc.allocate(1);
+                        std::allocator_traits<std::pmr::polymorphic_allocator<MediumObject>>::construct(
+                            alloc, obj, static_cast<int64_t>(thread_id * 1000000 + i));
+                        prevent_opt(obj->checksum());
+                        std::allocator_traits<std::pmr::polymorphic_allocator<MediumObject>>::destroy(alloc, obj);
+                        alloc.deallocate(obj, 1);
+                        ++local_ops;
+                    }
+                    total_ops.fetch_add(local_ops, std::memory_order_relaxed);
+                };
+
+                for (size_t t = 0; t < num_threads; ++t)
+                    threads.emplace_back(worker, t);
+
+                Timer timer;
+                timer.start();
+                start_flag.store(true, std::memory_order_release);
+
+                for (auto& th : threads)
+                    th.join();
+
+                double elapsed = timer.elapsed_ns();
+                size_t ops = total_ops.load();
+                samples.push_back(ns_per_op(elapsed, ops));
+            }
+
+            auto stats = Statistics::compute(samples);
+            double throughput = 1e9 / stats.median;
+
+            std::cout << std::fixed << std::setprecision(2);
+            std::cout << "  " << std::setw(26) << "std::pmr::sync_pool"
+                      << ": median=" << std::setw(8) << stats.median
+                      << " ns/op  throughput=" << std::setprecision(0) << std::setw(10) << throughput << " ops/sec\n";
+        }
     }
 }
 #endif
@@ -1443,23 +1831,39 @@ void print_memory_comparison()
 #if HAS_BOOST_POOL
     std::cout << "    boost::object_pool:   " << sizeof(void*) << " bytes (chunk linkage)\n";
 #endif
+#if HAS_FOONATHAN_MEMORY
+    std::cout << "    foonathan::memory:    " << sizeof(void*) << " bytes (node linkage)\n";
+#endif
+#if HAS_EASTL_POOL
+    std::cout << "    EASTL::fixed_pool:    " << sizeof(void*) << " bytes (free list pointer)\n";
+#endif
     std::cout << "    std::pmr::pool:       " << sizeof(void*) << "-" << (sizeof(void*) * 2)
               << " bytes (block headers)\n";
     std::cout << "    new/delete:           " << sizeof(void*) << "-" << (sizeof(void*) + 16)
               << " bytes (malloc metadata)\n\n";
 
     std::cout << "  Feature comparison:\n";
-    std::cout << "    Allocator             O(1)   Thread-Safe  Auto-Grow  RAII Wrapper  try_acquire\n";
-    std::cout << "    -------------------------------------------------------------------------------\n";
+    std::cout << "    Allocator               O(1)   Thread-Safe  Auto-Grow  RAII Wrapper  try_acquire\n";
+    std::cout << "    ---------------------------------------------------------------------------------\n";
 #if HAS_FATP_OBJECTPOOL
-    std::cout << "    fat_p::ObjectPool     Yes    Optional     Yes        Yes           Yes\n";
+    std::cout << "    fat_p::ObjectPool       Yes    Optional     Yes        Yes           Yes\n";
 #endif
 #if HAS_BOOST_POOL
-    std::cout << "    boost::object_pool    Yes    No           Yes        No            No\n";
+    std::cout << "    boost::object_pool      Yes    No           Yes        No            No\n";
 #endif
-    std::cout << "    std::pmr::pool        Yes    No           Yes        No            No\n";
-    std::cout << "    new/delete            No*    Yes          N/A        No            No\n";
-    std::cout << "    (* malloc may have O(1) fast path but can degrade)\n\n";
+#if HAS_FOONATHAN_MEMORY
+    std::cout << "    foonathan::memory       Yes    Optional     Yes        No            No\n";
+#endif
+#if HAS_EASTL_POOL
+    std::cout << "    EASTL::fixed_pool [!]   Yes    No           NO         No            Yes*\n";
+#endif
+    std::cout << "    std::pmr::unsync_pool   Yes    No           Yes        No            No\n";
+    std::cout << "    std::pmr::sync_pool     Yes    Yes          Yes        No            No\n";
+    std::cout << "    new/delete              No**   Yes          N/A        No            No\n";
+    std::cout << "\n";
+    std::cout << "    [!] EASTL::fixed_pool is FIXED-CAPACITY (no auto-grow) - different contract\n";
+    std::cout << "    *   EASTL returns nullptr when exhausted\n";
+    std::cout << "    **  malloc may have O(1) fast path but can degrade\n\n";
 
 #if HAS_FATP_OBJECTPOOL
     // Actual memory measurement
@@ -1519,11 +1923,12 @@ int main(int argc, char* argv[])
     std::cout << "  [ ] foonathan::memory_pool (install: vcpkg install foonathan-memory)\n";
 #endif
 #if HAS_EASTL_POOL
-    std::cout << "  [x] EASTL::fixed_pool\n";
+    std::cout << "  [x] EASTL::fixed_pool [!grow] (fixed-capacity, no auto-grow)\n";
 #else
     std::cout << "  [ ] EASTL::fixed_pool (install: vcpkg install eastl)\n";
 #endif
-    std::cout << "  [x] std::pmr::pool_resource (C++17 standard)\n";
+    std::cout << "  [x] std::pmr::unsynchronized_pool_resource (C++17)\n";
+    std::cout << "  [x] std::pmr::synchronized_pool_resource (C++17, thread-safe)\n";
     std::cout << "  [x] new/delete (baseline)\n\n";
 
     // CPU detection
@@ -1561,6 +1966,12 @@ int main(int argc, char* argv[])
 #if HAS_BOOST_POOL
         adapters.push_back(std::make_unique<BoostPoolAdapter<SmallTrivial>>());
 #endif
+#if HAS_FOONATHAN_MEMORY
+        adapters.push_back(std::make_unique<FoonathanPoolAdapter<SmallTrivial>>());
+#endif
+#if HAS_EASTL_POOL
+        adapters.push_back(std::make_unique<EastlPoolAdapter<SmallTrivial>>());
+#endif
         adapters.push_back(std::make_unique<PmrPoolAdapter<SmallTrivial>>());
         adapters.push_back(std::make_unique<NewDeleteAdapter<SmallTrivial>>());
 
@@ -1573,6 +1984,10 @@ int main(int argc, char* argv[])
         benchmark_interleaved(adapters, sizes, "SmallTrivial 16B");
         cooling_delay(COOLING_DELAY_SECTION_MS, "before pool reuse");
         benchmark_pool_reuse(adapters, sizes, "SmallTrivial 16B");
+        cooling_delay(COOLING_DELAY_SECTION_MS, "before pool reuse with compact");
+        benchmark_pool_reuse_with_compact(adapters, sizes, "SmallTrivial 16B");
+        cooling_delay(COOLING_DELAY_SECTION_MS, "before pool reuse full cycle");
+        benchmark_pool_reuse_full_cycle(adapters, sizes, "SmallTrivial 16B");
     }
 
     // Medium objects
@@ -1584,6 +1999,12 @@ int main(int argc, char* argv[])
 #endif
 #if HAS_BOOST_POOL
         adapters.push_back(std::make_unique<BoostPoolAdapter<MediumObject>>());
+#endif
+#if HAS_FOONATHAN_MEMORY
+        adapters.push_back(std::make_unique<FoonathanPoolAdapter<MediumObject>>());
+#endif
+#if HAS_EASTL_POOL
+        adapters.push_back(std::make_unique<EastlPoolAdapter<MediumObject>>());
 #endif
         adapters.push_back(std::make_unique<PmrPoolAdapter<MediumObject>>());
         adapters.push_back(std::make_unique<NewDeleteAdapter<MediumObject>>());
@@ -1604,6 +2025,12 @@ int main(int argc, char* argv[])
 #endif
 #if HAS_BOOST_POOL
         adapters.push_back(std::make_unique<BoostPoolAdapter<LargeObject>>());
+#endif
+#if HAS_FOONATHAN_MEMORY
+        adapters.push_back(std::make_unique<FoonathanPoolAdapter<LargeObject>>());
+#endif
+#if HAS_EASTL_POOL
+        adapters.push_back(std::make_unique<EastlPoolAdapter<LargeObject>>());
 #endif
         adapters.push_back(std::make_unique<PmrPoolAdapter<LargeObject>>());
         adapters.push_back(std::make_unique<NewDeleteAdapter<LargeObject>>());

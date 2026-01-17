@@ -569,6 +569,98 @@ For libraries requiring explicit linking (e.g., Abseil):
 #endif
 ```
 
+
+---
+
+## Competitor Policy
+
+Benchmarks are evidence, not a sport. Competitors exist to establish *context* and to expose trade-offs.
+
+### Goals
+
+* Demonstrate where Fat-P sits in the real ecosystem for this component category.
+* Compare against distinct design families, not near-duplicates.
+* Keep the competitor set stable so results remain comparable over time.
+
+### Non-Goals
+
+* Do not add competitors to chase a single headline number.
+* Do not remove competitors because Fat-P loses a case.
+* Do not benchmark semantics that are not clearly stated in the Contract Note.
+
+### Selection Rules (P0 - Critical)
+
+1. **Always include a standard baseline** when an equivalent exists.
+
+   Examples: `std::vector`, `std::unordered_map`, `std::pmr::unsynchronized_pool_resource`, `new/delete`.
+
+2. **Include Boost when Boost provides an equivalent component.**
+
+   Boost is a widely deployed reference point and is already part of many environments.
+
+3. **Include at most one competitor per design family**, unless there is a stated reason.
+
+   *Example families:* open-addressing hash maps, chained hash maps, B-trees, flat/sorted vectors, fixed-capacity containers, node-pool allocators.
+
+4. **Prefer competitors that are**:
+
+   * widely used in production,
+   * maintained,
+   * installable via a standard channel (e.g., vcpkg),
+   * and have stable APIs.
+
+5. **Do not exceed a practical competitor count.**
+
+   Rule of thumb: Fat-P + standard baseline + Boost + 1–3 additional competitors.
+
+### Semantics and Labeling (P0 - Critical)
+
+* A competitor is "equivalent" only if it matches the Contract Note semantics.
+
+  If semantics differ, the output name must include a label.
+
+  Examples:
+
+  * `EASTL::fixed_pool (fixed capacity)`
+  * `unordered_map (no handle safety)`
+  * `std::pmr::unsynchronized_pool_resource (thread-unsafe)`
+
+* If a benchmark times only a subset of a compound workflow (e.g., measuring the refill phase but not the free phase), add a second case that measures the full cycle or state clearly that the case isolates one phase.
+
+  **Rule:** If a competitor shifts cost between operations (e.g., ordered-free vs LIFO free list), do not use a one-phase benchmark as the only headline number.
+
+### Optional Dependencies and Build Policy (P0 - Critical)
+
+* The benchmark must compile and run with **zero third-party dependencies installed**.
+
+  Competitors are optional, gated by `__has_include` and feature macros.
+
+* Libraries requiring non-header-only linking or large dependency trees must be **explicit opt-in**.
+
+  Pattern:
+
+  * `USE_X` → user choice (default off)
+  * `HAS_X` → compile-time detection
+
+* Every benchmark must print a "Competitor libraries detected" list at startup, including install hints for missing competitors when known.
+
+### Concurrency Competitors (P1 - Recommended)
+
+If the benchmark includes multi-threaded cases, include at least one thread-safe baseline.
+
+Examples:
+
+* `std::pmr::synchronized_pool_resource` for pool benchmarks
+* a locked wrapper around a single-threaded competitor (explicitly labeled)
+
+### Change Control
+
+Adding or removing a competitor requires:
+
+* Updating the benchmark file header comment "Competitors" list.
+* Updating any printed "Competitor libraries" list.
+* A one-line rationale in the benchmark source near the competitor include block.
+
 ---
 
 ## Data Generation
@@ -785,4 +877,4 @@ Sequential runs are acceptable only when the benchmark has a single measured cas
 
 ---
 
-*Fat-P Benchmark Code Style Guide v1.2 — December 2025*
+*Fat-P Benchmark Code Style Guide v1.3 — January 2026*

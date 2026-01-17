@@ -46,6 +46,7 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -461,6 +462,68 @@ public:
         {
             allocate_block();
         }
+    }
+
+    /**
+     * @brief Rebuild the free list in address order to restore allocation locality
+     * @return true if compaction was performed, false if pool has acquired objects
+     *
+     * @details After many random-order releases, the LIFO free list can become
+     * scattered across memory, causing cache-unfriendly pointer chasing on
+     * subsequent acquires. This function rebuilds the free list so that
+     * consecutive acquires return memory in sequential address order.
+     *
+     * @note Only compacts when pool is fully free (no outstanding acquired objects)
+     * @note Complexity: O(capacity) when compaction occurs
+     * @note Call this at natural idle points (end of frame, connection pool drain)
+     *
+     * @warning This is an optimization for specific workloads with "flush and refill"
+     * patterns. Most applications do not need to call this.
+     */
+    bool try_compact_free_list()
+    {
+        typename SyncPolicy::LockGuard guard(sync_policy_.getLock());
+
+        // Only compact when fully free
+        const size_t total_capacity = mBlocks.size() * block_size_;
+        if (free_count_ != total_capacity)
+        {
+            return false; // Objects still acquired
+        }
+
+#ifndef NDEBUG
+        assert(acquired_count_ == 0 && "Counter mismatch: free_count_ == capacity but acquired_count_ != 0");
+#endif
+
+        // Rebuild free list in address order
+        // We want acquires to return memory sequentially, so build list in reverse
+        // (LIFO means first node in list is returned first)
+        free_list_ = nullptr;
+
+        // Collect and sort block pointers by address
+        std::vector<Node*> blocks;
+        blocks.reserve(mBlocks.size());
+        for (const auto& block : mBlocks)
+        {
+            blocks.push_back(block.get());
+        }
+
+        std::sort(blocks.begin(), blocks.end());
+
+        // Process blocks in reverse address order so lower-address blocks are at front of list
+        for (auto it = blocks.rbegin(); it != blocks.rend(); ++it)
+        {
+            Node* block_start = *it;
+            // Link nodes in reverse order within block
+            for (size_t i = block_size_; i-- > 0;)
+            {
+                Node* node = &block_start[i];
+                node->next = free_list_;
+                free_list_ = node;
+            }
+        }
+
+        return true;
     }
 
     // ========================================================================

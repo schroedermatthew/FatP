@@ -1,9 +1,3 @@
-/**
- * @file IntrusiveList.h
- * @brief Intrusive doubly-linked list with zero allocation overhead
- *
- * @layer Containers
- */
 #pragma once
 
 /*
@@ -31,6 +25,12 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file IntrusiveList.h
+ * @brief Intrusive doubly-linked list with zero allocation overhead
+ */
+
 #include <cstddef>
 #include <iterator>
 #include <type_traits>
