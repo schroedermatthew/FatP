@@ -465,22 +465,14 @@ T* acquire(Args&&... args) {
 Memory fragmentation is what happens when free memory becomes scattered in small, non-contiguous chunks:
 
 ```mermaid
-flowchart LR
-    subgraph Fragmented["Fragmented Heap"]
-        U1["USED<br/>64B"]
-        F1["free<br/>32B"]
-        U2["USED<br/>128B"]
-        U3["USED<br/>64B"]
-        F2["free<br/>48B"]
-        U4["USED<br/>256B"]
-        F3["free<br/>16B"]
-        F4["free<br/>24B"]
-        U5["USED<br/>64B"]
+flowchart TD
+    subgraph Heap["Fragmented Heap Layout"]
+        direction LR
+        U1["USED 64B"] ~~~ F1["free 32B"] ~~~ U2["USED 128B"] ~~~ U3["USED 64B"]
+        U3 ~~~ F2["free 48B"] ~~~ U4["USED 256B"] ~~~ F3["free 16B"]
     end
     
-    subgraph Problem["Problem"]
-        Q["Need 100B contiguous?<br/>Total free: 120B<br/>Largest free: 48B<br/>ALLOCATION FAILS"]
-    end
+    Heap --> Problem["❌ Need 100B contiguous?<br/>Total free: 120B<br/>Largest free: 48B<br/>ALLOCATION FAILS"]
 ```
 
 The total free memory might be substantial, but if you need a contiguous block larger than any individual free chunk, allocation fails.
@@ -545,19 +537,18 @@ void handle_request(const Request& req) {
 Object pools sidestep this problem entirely when used correctly. If all objects from a pool are the same size, every freed slot can hold a new object. There's no fragmentation within the pool because every slot is exactly the right size:
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph Pool["ObjectPool (all slots same size)"]
-        S0["Slot 0<br/>64B<br/>FREE"]
-        S1["Slot 1<br/>64B<br/>USED"]
-        S2["Slot 2<br/>64B<br/>FREE"]
-        S3["Slot 3<br/>64B<br/>USED"]
-        S4["Slot 4<br/>64B<br/>FREE"]
-        S5["Slot 5<br/>64B<br/>USED"]
+        direction LR
+        S0["Slot 0<br/>64B FREE"]
+        S1["Slot 1<br/>64B USED"]
+        S2["Slot 2<br/>64B FREE"]
+        S3["Slot 3<br/>64B USED"]
+        S4["Slot 4<br/>64B FREE"]
+        S5["Slot 5<br/>64B USED"]
     end
     
-    subgraph NoFragmentation["No Fragmentation"]
-        Q2["Any free slot can hold<br/>the next object.<br/>No size mismatch possible."]
-    end
+    Pool --> Result["✓ No Fragmentation<br/>Any free slot can hold the next object"]
 ```
 
 Fragmentation can still occur at the pool level—the blocks that make up the pool are allocated from the heap—but this is far less severe. Instead of millions of small allocations fragmenting the heap, you have dozens of large block allocations.
@@ -894,29 +885,23 @@ This is why the `storage` member must come first. If `next` came first, we'd nee
 The key insight that distinguishes ObjectPool from naive pools is transactional exception handling:
 
 ```mermaid
-flowchart TB
-    subgraph Normal["Normal Path"]
-        A1["Lock (if thread-safe)"]
-        A1 --> A2["Remove node from free list"]
-        A2 --> A3["Decrement free_count_"]
-        A3 --> A4["Unlock"]
-        A4 --> A5["Construct T in storage"]
-        A5 -->|"success"| A6["Return T* ✓"]
-    end
+flowchart TD
+    A["Lock (if thread-safe)"] --> B["Remove node from free list"]
+    B --> C["Decrement free_count_"]
+    C --> D["Unlock"]
+    D --> E["Construct T in storage"]
     
-    subgraph Exception["Exception Path"]
-        B1["Lock"]
-        B1 --> B2["Remove node from free list"]
-        B2 --> B3["Decrement free_count_"]
-        B3 --> B4["Unlock"]
-        B4 --> B5["Construct T in storage"]
-        B5 -->|"throws!"| B6["Catch exception"]
-        B6 --> B7["Re-lock"]
-        B7 --> B8["Restore node to free list"]
-        B8 --> B9["Increment free_count_"]
-        B9 --> B10["Unlock"]
-        B10 --> B11["Re-throw ✓"]
-    end
+    E -->|"success"| F["Return T* ✓"]
+    
+    E -->|"throws!"| G["Catch exception"]
+    G --> H["Re-lock"]
+    H --> I["Restore node to free list"]
+    I --> J["Increment free_count_"]
+    J --> K["Unlock"]
+    K --> L["Re-throw exception ✓"]
+    
+    style F fill:#90EE90
+    style L fill:#FFB6C1
 ```
 
 ```cpp
