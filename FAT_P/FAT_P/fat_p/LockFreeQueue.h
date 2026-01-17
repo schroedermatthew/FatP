@@ -1,50 +1,41 @@
 /**
  * @file LockFreeQueue.h
- * @brief High-performance lock-free MPMC queue implementation
- *
- *
+ * @brief Lock-free MPMC queue with sequence-number-based ABA prevention
  *
  * @layer Concurrency
  *
- * @details Lock-free multi-producer multi-consumer queue using atomic operations.
- * Complements CircularBuffer with true lock-free semantics for high contention scenarios.
+ * @details Lock-free multi-producer multi-consumer queue using atomic operations
+ * with per-slot sequence numbers for ABA problem prevention. Provides O(1)
+ * amortized enqueue and dequeue operations with strong progress guarantees.
  *
  * Features:
  * - True lock-free MPMC semantics
  * - Fixed capacity (power of 2 for fast modulo)
  * - Wait-free for single producer/consumer
- * - ABA-problem resistant
+ * - ABA-problem resistant via monotonic sequence numbers
  * - Cache-line aligned to prevent false sharing
  * - Bounded memory usage
+ * - Optional statistics tracking (compile-time configurable)
  *
- * @section performance Performance Characteristics
- * - Enqueue: O(1) amortized, ~50-100ns uncontended
- * - Dequeue: O(1) amortized, ~50-100ns uncontended
- * - Under contention: ~200-500ns per operation
- * - Memory: Fixed (capacity * sizeof(T) + metadata)
- *
- * @section algorithm Algorithm
- * Uses sequence numbers to track slot state:
- * - Empty slot: sequence == expected_read
- * - Full slot: sequence == expected_write
- * - Prevents ABA problem via monotonic sequences
+ * Thread-safety: Full MPMC lock-free
+ * Exception-safety: Strong guarantee (operations are atomic)
  *
  * @section usage Usage Example
  * @code
- * LockFreeQueue<int> queue(1024);
+ * LockFreeQueue<int, 1024> queue;
  *
  * // Producer thread
  * queue.enqueue(42);
  *
  * // Consumer thread
  * int value;
- * if (queue.dequeue(value)) {
+ * if (queue.dequeue(value))
+ * {
  *     // Got value
  * }
  *
- * // Check stats
+ * // Check stats (if enabled)
  * auto stats = queue.stats();
- * std::cout << "Enqueued: " << stats.total_enqueues << "\n";
  * @endcode
  */
 
@@ -58,8 +49,8 @@ FATP_META:
   path: fat_p/LockFreeQueue.h
   namespace: fat_p
   layer: Concurrency
-  summary: "Public header for LockFreeQueue."
-  api_stability: in_work
+  summary: "Lock-free MPMC queue with sequence-number ABA prevention."
+  api_stability: stable
   related:
     docs_search: "LockFreeQueue"
     tests:
@@ -75,41 +66,76 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
 #include "FatPConfig.h"
+#include "FatPTypeTraits.h"
+
 #include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <new>
+#include <thread>
 #include <type_traits>
+#include <utility>
 
-#include "FatPTypeTraits.h"
+#if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
+#include <intrin.h>
+#endif
 
 namespace fat_p
 {
 
 // ============================================================================
-// Cache Line Size
-// ============================================================================
-
-
-// ============================================================================
 // Queue Statistics
 // ============================================================================
+
+namespace lockfree_queue
+{
 
 /**
  * @brief Statistics for lock-free queue performance monitoring
  */
-struct LockFreeQueueStats
+struct Stats
 {
-    uint64_t total_enqueues = 0;
-    uint64_t total_dequeues = 0;
-    uint64_t failed_enqueues = 0; // Queue full
-    uint64_t failed_dequeues = 0; // Queue empty
-    size_t current_size = 0;
+    uint64_t totalEnqueues = 0;
+    uint64_t totalDequeues = 0;
+    uint64_t failedEnqueues = 0;
+    uint64_t failedDequeues = 0;
+    size_t currentSize = 0;
     size_t capacity = 0;
 };
+
+} // namespace lockfree_queue
+
+// ============================================================================
+// CPU Pause Intrinsic
+// ============================================================================
+
+namespace detail
+{
+
+/**
+ * @brief CPU pause hint for spin-wait loops
+ *
+ * Reduces power consumption and improves performance on hyperthreaded cores
+ * by hinting to the processor that this is a spin-wait loop.
+ */
+inline void cpuPause() noexcept
+{
+#if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
+    _mm_pause();
+#elif defined(__x86_64__) || defined(__i386__)
+    __builtin_ia32_pause();
+#elif defined(__aarch64__)
+    __asm__ __volatile__("yield" ::: "memory");
+#elif defined(__arm__)
+    __asm__ __volatile__("yield" ::: "memory");
+#else
+    std::this_thread::yield();
+#endif
+}
+
+} // namespace detail
 
 // ============================================================================
 // Lock-Free Queue Implementation
@@ -118,17 +144,37 @@ struct LockFreeQueueStats
 /**
  * @brief Lock-free MPMC queue with fixed capacity
  *
- * @tparam T Element type (must be trivially copyable for best performance)
+ * @tparam T Element type (must be trivially copyable)
  * @tparam MaxSize Maximum queue capacity (must be power of 2)
+ * @tparam EnableStats Enable statistics tracking (slight overhead when true)
  *
- * Thread-safety: Full MPMC lock-free
- * Exception-safety: Strong guarantee (operations are atomic)
+ * Algorithm: Uses per-slot sequence numbers to track slot state:
+ * - Slot ready to write: sequence == enqueue position
+ * - Slot ready to read: sequence == enqueue position + 1
+ * - After read: sequence == enqueue position + MaxSize
+ *
+ * This prevents ABA problems by ensuring each slot cycles through
+ * monotonically increasing sequence numbers.
  */
-template <typename T, size_t MaxSize = 1024>
+template <typename T, size_t MaxSize = 1024, bool EnableStats = false>
 class LockFreeQueue
 {
-    static_assert((MaxSize & (MaxSize - 1)) == 0, "MaxSize must be power of 2");
-    static_assert(MaxSize > 0, "MaxSize must be positive");
+    static_assert(std::is_trivially_copyable_v<T>,
+                  "T must be trivially copyable for lock-free operations");
+    static_assert((MaxSize & (MaxSize - 1)) == 0,
+                  "MaxSize must be power of 2");
+    static_assert(MaxSize > 0,
+                  "MaxSize must be positive");
+    static_assert(std::atomic<uint64_t>::is_always_lock_free,
+                  "uint64_t atomics must be lock-free for this implementation");
+
+public:
+    using value_type = T;
+    using size_type = size_t;
+    using stats_type = lockfree_queue::Stats;
+
+private:
+    static constexpr size_t kMask = MaxSize - 1;
 
     // Slot with sequence number for ABA prevention
     struct alignas(FATP_CACHE_LINE_SIZE) Slot
@@ -136,34 +182,43 @@ class LockFreeQueue
         std::atomic<uint64_t> sequence;
         T data;
 
-        Slot()
+        Slot() noexcept
             : sequence(0)
         {
         }
     };
 
+    // Statistics storage (conditionally compiled)
+    struct StatsStorage
+    {
+        alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> totalEnqueues{0};
+        alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> totalDequeues{0};
+        alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> failedEnqueues{0};
+        alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> failedDequeues{0};
+    };
+
+    struct NoStatsStorage
+    {
+    };
+
+    using StatsType = std::conditional_t<EnableStats, StatsStorage, NoStatsStorage>;
+
 public:
     /**
-     * @brief Construct queue with specified capacity
-     * @param capacity Queue capacity (will be rounded up to power of 2)
+     * @brief Construct queue
+     *
+     * Initializes all slot sequence numbers for correct initial state.
      */
-    explicit LockFreeQueue(size_t capacity = MaxSize)
-        : m_mask(MaxSize - 1)
+    LockFreeQueue() noexcept
     {
-        (void)capacity; // Capacity is fixed by MaxSize template parameter.
-                        // Initialize sequence numbers
         for (size_t i = 0; i < MaxSize; ++i)
         {
-            m_slots[i].sequence.store(i, std::memory_order_relaxed);
+            mSlots[i].sequence.store(i, std::memory_order_relaxed);
         }
-
-        m_enqueue_pos.store(0, std::memory_order_relaxed);
-        m_dequeue_pos.store(0, std::memory_order_relaxed);
+        mEnqueuePos.store(0, std::memory_order_relaxed);
+        mDequeuePos.store(0, std::memory_order_relaxed);
     }
 
-    /**
-     * @brief Destructor
-     */
     ~LockFreeQueue() = default;
 
     // Non-copyable (contains atomics)
@@ -179,9 +234,9 @@ public:
      * @param item Element to enqueue
      * @return true if enqueued, false if queue is full
      */
-    bool enqueue(const T& item)
+    [[nodiscard]] bool enqueue(const T& item) noexcept
     {
-        return enqueue_impl(item);
+        return enqueueImpl(item);
     }
 
     /**
@@ -189,9 +244,9 @@ public:
      * @param item Element to enqueue
      * @return true if enqueued, false if queue is full
      */
-    bool enqueue(T&& item)
+    [[nodiscard]] bool enqueue(T&& item) noexcept
     {
-        return enqueue_impl(std::move(item));
+        return enqueueImpl(std::move(item));
     }
 
     /**
@@ -199,117 +254,120 @@ public:
      * @param item Output parameter for dequeued element
      * @return true if dequeued, false if queue is empty
      */
-    bool dequeue(T& item)
+    [[nodiscard]] bool dequeue(T& item) noexcept
     {
-        Slot* slot;
-        uint64_t pos = m_dequeue_pos.load(std::memory_order_relaxed);
+        uint64_t pos = mDequeuePos.load(std::memory_order_relaxed);
 
         for (;;)
         {
-            slot = &m_slots[pos & m_mask];
+            Slot* slot = &mSlots[pos & kMask];
             uint64_t seq = slot->sequence.load(std::memory_order_acquire);
-            intptr_t diff = static_cast<intptr_t>(seq) - static_cast<intptr_t>(pos + 1);
+            auto diff = static_cast<int64_t>(seq) - static_cast<int64_t>(pos + 1);
 
             if (diff == 0)
             {
                 // Slot is ready to dequeue
-                if (m_dequeue_pos.compare_exchange_weak(pos, pos + 1, std::memory_order_relaxed))
+                if (mDequeuePos.compare_exchange_weak(pos,
+                                                      pos + 1,
+                                                      std::memory_order_relaxed))
                 {
                     item = std::move(slot->data);
-                    slot->sequence.store(pos + m_mask + 1, std::memory_order_release);
-                    m_stats.total_dequeues.fetch_add(1, std::memory_order_relaxed);
+                    slot->sequence.store(pos + MaxSize, std::memory_order_release);
+                    incrementStat<&StatsStorage::totalDequeues>();
                     return true;
                 }
             }
             else if (diff < 0)
             {
                 // Queue is empty
-                m_stats.failed_dequeues.fetch_add(1, std::memory_order_relaxed);
+                incrementStat<&StatsStorage::failedDequeues>();
                 return false;
             }
             else
             {
                 // Another thread dequeued, retry
-                pos = m_dequeue_pos.load(std::memory_order_relaxed);
+                pos = mDequeuePos.load(std::memory_order_relaxed);
             }
         }
     }
 
     /**
-     * @brief Try to dequeue with timeout (busy-wait)
+     * @brief Try to dequeue with spin-wait
      * @param item Output parameter
-     * @param max_attempts Maximum retry attempts
+     * @param maxAttempts Maximum retry attempts before giving up
      * @return true if dequeued
      */
-    bool try_dequeue(T& item, size_t max_attempts = 100)
+    [[nodiscard]] bool tryDequeue(T& item, size_t maxAttempts = 100) noexcept
     {
-        for (size_t i = 0; i < max_attempts; ++i)
+        for (size_t i = 0; i < maxAttempts; ++i)
         {
             if (dequeue(item))
             {
                 return true;
             }
-            // Brief pause to reduce contention
-            for (volatile int j = 0; j < 10; ++j)
-                ;
+            detail::cpuPause();
         }
         return false;
     }
 
     /**
      * @brief Check if queue is empty
-     * @note This is a snapshot - state may change immediately
+     * @note Snapshot only - state may change immediately after return
      */
-    bool empty() const noexcept
+    [[nodiscard]] bool empty() const noexcept
     {
-        uint64_t enq = m_enqueue_pos.load(std::memory_order_acquire);
-        uint64_t deq = m_dequeue_pos.load(std::memory_order_acquire);
+        uint64_t enq = mEnqueuePos.load(std::memory_order_acquire);
+        uint64_t deq = mDequeuePos.load(std::memory_order_acquire);
         return enq == deq;
     }
 
     /**
      * @brief Get approximate queue size
-     * @note This is a snapshot - may not be exact under high contention
+     * @note Snapshot only - may not be exact under high contention
      */
-    size_t size() const noexcept
+    [[nodiscard]] size_t size() const noexcept
     {
-        uint64_t enq = m_enqueue_pos.load(std::memory_order_acquire);
-        uint64_t deq = m_dequeue_pos.load(std::memory_order_acquire);
+        uint64_t enq = mEnqueuePos.load(std::memory_order_acquire);
+        uint64_t deq = mDequeuePos.load(std::memory_order_acquire);
         return static_cast<size_t>(enq - deq);
     }
 
     /**
      * @brief Get queue capacity
      */
-    size_t capacity() const noexcept
+    [[nodiscard]] static constexpr size_t capacity() noexcept
     {
         return MaxSize;
     }
 
     /**
      * @brief Get queue statistics
+     * @note Only available when EnableStats = true
      */
-    LockFreeQueueStats stats() const
+    template <bool E = EnableStats>
+    [[nodiscard]] std::enable_if_t<E, stats_type> stats() const noexcept
     {
-        LockFreeQueueStats result;
-        result.total_enqueues = m_stats.total_enqueues.load(std::memory_order_relaxed);
-        result.total_dequeues = m_stats.total_dequeues.load(std::memory_order_relaxed);
-        result.failed_enqueues = m_stats.failed_enqueues.load(std::memory_order_relaxed);
-        result.failed_dequeues = m_stats.failed_dequeues.load(std::memory_order_relaxed);
-        result.current_size = size();
+        stats_type result;
+        result.totalEnqueues = mStats.totalEnqueues.load(std::memory_order_relaxed);
+        result.totalDequeues = mStats.totalDequeues.load(std::memory_order_relaxed);
+        result.failedEnqueues = mStats.failedEnqueues.load(std::memory_order_relaxed);
+        result.failedDequeues = mStats.failedDequeues.load(std::memory_order_relaxed);
+        result.currentSize = size();
         result.capacity = MaxSize;
         return result;
     }
 
     /**
      * @brief Reset statistics
+     * @note Only available when EnableStats = true
      */
-    void reset_stats()
+    template <bool E = EnableStats>
+    std::enable_if_t<E> resetStats() noexcept
     {
-        m_stats.total_enqueues.store(0, std::memory_order_relaxed);
-        m_stats.total_dequeues.store(0, std::memory_order_relaxed);
-        m_stats.failed_enqueues.store(0, std::memory_order_relaxed);
-        m_stats.failed_dequeues.store(0, std::memory_order_relaxed);
+        mStats.totalEnqueues.store(0, std::memory_order_relaxed);
+        mStats.totalDequeues.store(0, std::memory_order_relaxed);
+        mStats.failedEnqueues.store(0, std::memory_order_relaxed);
+        mStats.failedDequeues.store(0, std::memory_order_relaxed);
     }
 
 private:
@@ -317,64 +375,68 @@ private:
      * @brief Internal enqueue implementation
      */
     template <typename U>
-    bool enqueue_impl(U&& item)
+    [[nodiscard]] bool enqueueImpl(U&& item) noexcept
     {
-        Slot* slot;
-        uint64_t pos = m_enqueue_pos.load(std::memory_order_relaxed);
+        uint64_t pos = mEnqueuePos.load(std::memory_order_relaxed);
 
         for (;;)
         {
-            slot = &m_slots[pos & m_mask];
+            Slot* slot = &mSlots[pos & kMask];
             uint64_t seq = slot->sequence.load(std::memory_order_acquire);
-            intptr_t diff = static_cast<intptr_t>(seq) - static_cast<intptr_t>(pos);
+            auto diff = static_cast<int64_t>(seq) - static_cast<int64_t>(pos);
 
             if (diff == 0)
             {
                 // Slot is ready to enqueue
-                if (m_enqueue_pos.compare_exchange_weak(pos, pos + 1, std::memory_order_relaxed))
+                if (mEnqueuePos.compare_exchange_weak(pos,
+                                                      pos + 1,
+                                                      std::memory_order_relaxed))
                 {
                     slot->data = std::forward<U>(item);
                     slot->sequence.store(pos + 1, std::memory_order_release);
-                    m_stats.total_enqueues.fetch_add(1, std::memory_order_relaxed);
+                    incrementStat<&StatsStorage::totalEnqueues>();
                     return true;
                 }
             }
             else if (diff < 0)
             {
                 // Queue is full
-                m_stats.failed_enqueues.fetch_add(1, std::memory_order_relaxed);
+                incrementStat<&StatsStorage::failedEnqueues>();
                 return false;
             }
             else
             {
                 // Another thread enqueued, retry
-                pos = m_enqueue_pos.load(std::memory_order_relaxed);
+                pos = mEnqueuePos.load(std::memory_order_relaxed);
             }
         }
     }
 
-    // Align to cache line to prevent false sharing
-    alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> m_enqueue_pos;
-    alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> m_dequeue_pos;
-
-    const uint64_t m_mask;
-
-    // Statistics (relaxed ordering for performance)
-    struct
+    /**
+     * @brief Conditionally increment a statistic counter
+     */
+    template <std::atomic<uint64_t> StatsStorage::*Counter>
+    void incrementStat() noexcept
     {
-        alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> total_enqueues{0};
-        alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> total_dequeues{0};
-        alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> failed_enqueues{0};
-        alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> failed_dequeues{0};
-    } m_stats;
+        if constexpr (EnableStats)
+        {
+            (mStats.*Counter).fetch_add(1, std::memory_order_relaxed);
+        }
+    }
 
-    // Slot array (must be last for alignment)
-    alignas(FATP_CACHE_LINE_SIZE) std::array<Slot, MaxSize> m_slots;
+    // Data members - carefully ordered for cache efficiency
+    alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> mEnqueuePos;
+    alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> mDequeuePos;
+    alignas(FATP_CACHE_LINE_SIZE) StatsType mStats;
+    alignas(FATP_CACHE_LINE_SIZE) std::array<Slot, MaxSize> mSlots;
 };
 
+// ============================================================================
+// Type Trait Specialization
+// ============================================================================
 
-template <typename T, size_t MaxSize>
-struct is_lock_free_queue<LockFreeQueue<T, MaxSize>> : std::true_type
+template <typename T, size_t MaxSize, bool EnableStats>
+struct is_lock_free_queue<LockFreeQueue<T, MaxSize, EnableStats>> : std::true_type
 {
 };
 

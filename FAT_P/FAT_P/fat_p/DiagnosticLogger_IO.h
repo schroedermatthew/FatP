@@ -5,14 +5,14 @@
  *
  * @layer Domain
  *
- * @dependencies <filesystem>, <fstream>, CircularBuffer, LockFreeQueue, ThreadPool, ScopeGuard
+ * @dependencies <filesystem>, <fstream>, CircularBuffer, ThreadPool, ScopeGuard
  *
  * FIXES APPLIED (v2.0):
  * - P1.3: Fixed loop underflow in rotation
  * - P1.5: Fixed tellp() error handling
  * - P2.1: Exception-safe constructors (no throws)
  * - P3.1: RingBufferSink now uses CircularBuffer
- * - P3.2: Added AsyncSink using LockFreeQueue + ThreadPool
+ * - P3.2: Added AsyncSink using mutex-protected queue + ThreadPool
  * - P3.3: Added RateLimitingSink
  * - P3.4: Added FilteringSink
  *
@@ -50,13 +50,13 @@ FATP_META:
     mode: autogen
 */
 #include "DiagnosticLogger_Core.h"
-#include "LockFreeQueue.h"
 #include "ScopeGuard.h"
 #include "ThreadPool.h"
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <future>
+#include <queue>
 #include <vector>
 
 namespace fat_p
@@ -423,7 +423,8 @@ public:
 
 class AsyncSink : public ISink
 {
-    LockFreeQueue<LogRecord, 4096> mQueue;
+    std::queue<LogRecord> mQueue;
+    mutable std::mutex mQueueMutex;
     std::shared_ptr<ISink> mTarget;
     ThreadPool mWorker;
     std::atomic<bool> mRunning{true};
@@ -459,16 +460,15 @@ public:
 
     void write(const LogRecord& record) override
     {
-        if (!mQueue.enqueue(record))
-        {
-            mDropped.fetch_add(1, std::memory_order_relaxed);
-        }
+        std::lock_guard<std::mutex> lock(mQueueMutex);
+        mQueue.push(record);
     }
 
     void flush() override
     {
         std::unique_lock<std::mutex> lock(flush_mutex_);
         flush_cv_.wait(lock, [this] {
+            std::lock_guard<std::mutex> qlock(mQueueMutex);
             return mQueue.empty() && !mProcessing.load();
         });
         mTarget->flush();
@@ -482,16 +482,16 @@ public:
 private:
     void processLoop()
     {
-        while (mRunning.load(std::memory_order_acquire) || !mQueue.empty())
+        while (mRunning.load(std::memory_order_acquire) || !queueEmpty())
         {
             LogRecord rec;
-            if (mQueue.dequeue(rec))
+            if (tryDequeue(rec))
             {
                 mProcessing.store(true);
                 mTarget->write(rec);
                 mProcessing.store(false);
 
-                if (mQueue.empty())
+                if (queueEmpty())
                 {
                     flush_cv_.notify_all();
                 }
@@ -501,6 +501,24 @@ private:
                 std::this_thread::sleep_for(std::chrono::microseconds(100));
             }
         }
+    }
+
+    bool queueEmpty() const
+    {
+        std::lock_guard<std::mutex> lock(mQueueMutex);
+        return mQueue.empty();
+    }
+
+    bool tryDequeue(LogRecord& rec)
+    {
+        std::lock_guard<std::mutex> lock(mQueueMutex);
+        if (mQueue.empty())
+        {
+            return false;
+        }
+        rec = std::move(mQueue.front());
+        mQueue.pop();
+        return true;
     }
 };
 

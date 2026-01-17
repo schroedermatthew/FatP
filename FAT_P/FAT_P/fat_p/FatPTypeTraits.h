@@ -107,10 +107,12 @@ template <typename T, typename IndexType>
 class CSRMatrix;
 template <typename T>
 class SimdVector;
-template <typename T, size_t MaxSize>
+template <typename T, size_t MaxSize, bool EnableStats>
 class LockFreeQueue;
 template <typename T>
 class LockFreeRingBuffer;
+template <typename T>
+class LockFreeRingBufferMPMC;
 class ThreadPool;
 template <typename T, typename EnforcementPolicy, template <typename> class WaitPolicy, typename DurationPolicy>
 class AtomicReference;

@@ -12,6 +12,7 @@
     "eastl",
     "entt",
     "plf-hive",
-    "foonathan-memory"
+    "foonathan-memory",
+	"concurrentqueue"
   ]
 }
