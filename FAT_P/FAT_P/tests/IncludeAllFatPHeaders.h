@@ -84,6 +84,8 @@ FATP_META:
       - fat_p/JsonLite.h
       - fat_p/JsonStreamLite.h
       - fat_p/LockFreeQueue.h
+      - fat_p/PolicyQueue.h
+      - fat_p/WorkQueue.h
       - fat_p/LockFreeRingBuffer.h
       - fat_p/MemoryMappedFile.h
       - fat_p/NumaAlignedAllocator.h
@@ -211,6 +213,8 @@ FATP_META:
 #include "JsonLite.h"
 #include "JsonStreamLite.h"
 #include "LockFreeQueue.h"
+#include "PolicyQueue.h"
+#include "WorkQueue.h"
 #include "LockFreeRingBuffer.h"
 #include "MemoryMappedFile.h"
 #include "NumaAlignedAllocator.h"

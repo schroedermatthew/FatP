@@ -35,10 +35,21 @@
  *   FATP_BENCH_OUTPUT_CSV    - CSV output path (default: disabled)
  */
 
+
+#ifndef FATP_BENCH_ENABLE_FAA
+#define FATP_BENCH_ENABLE_FAA 0
+#endif
+
 #include "LockFreeQueue.h"
 #include "LockFreeRingBuffer.h"
+#include "WorkQueue.h"
+
+#if FATP_BENCH_ENABLE_FAA
+#include "LockFreeQueueFAA.h"
+#endif
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -637,6 +648,14 @@ namespace
 
 constexpr size_t kQueueCapacity = 131072; // 128K
 
+constexpr size_t kWorkQueueShardCount = 16;
+constexpr size_t kWorkQueueShardCapacity = kQueueCapacity / kWorkQueueShardCount;
+
+static_assert((kWorkQueueShardCapacity & (kWorkQueueShardCapacity - 1)) == 0,
+              "WorkQueue shard capacity must be power of 2");
+static_assert(kWorkQueueShardCount * kWorkQueueShardCapacity == kQueueCapacity,
+              "WorkQueue total capacity must match kQueueCapacity");
+
 // -----------------------------------------------------------------------------
 // fat_p::LockFreeQueue Adapter
 // -----------------------------------------------------------------------------
@@ -662,12 +681,16 @@ public:
 
     size_t run_operation() override
     {
-        // Interleaved enqueue/dequeue - guarantees all operations succeed
-        // This measures actual queue throughput, not "return false" speed
-        int value;
+        // Enqueue all
         for (size_t i = 0; i < mN; ++i)
         {
             (void)mQueue->enqueue(static_cast<int>(i));
+        }
+
+        // Dequeue all
+        int value;
+        for (size_t i = 0; i < mN; ++i)
+        {
             (void)mQueue->dequeue(value);
             DoNotOptimize(value);
         }
@@ -679,6 +702,107 @@ private:
     size_t mN = 0;
     std::unique_ptr<fat_p::LockFreeQueue<int, kQueueCapacity>> mQueue;
 };
+
+// -----------------------------------------------------------------------------
+// fat_p::WorkQueue (sharded) Adapter
+// -----------------------------------------------------------------------------
+
+class FatpWorkQueueAdapter : public IAdapter
+{
+private:
+    using QueueType =
+        fat_p::work_queue::WorkQueue<int, kWorkQueueShardCount, kWorkQueueShardCapacity>;
+
+public:
+    const char* name() const override
+    {
+        return "fat_p::WorkQueue (sharded)";
+    }
+
+    void setup(size_t n) override
+    {
+        mN = n;
+        mQueue = std::make_unique<QueueType>();
+    }
+
+    void teardown() override
+    {
+        mQueue.reset();
+    }
+
+    size_t run_operation() override
+    {
+        auto pTok = mQueue->makeProducerToken();
+        auto cTok = mQueue->makeConsumerToken();
+
+        for (size_t i = 0; i < mN; ++i)
+        {
+            (void)mQueue->enqueue(pTok, static_cast<int>(i));
+        }
+
+        int value;
+        for (size_t i = 0; i < mN; ++i)
+        {
+            (void)mQueue->dequeue(cTok, value);
+            DoNotOptimize(value);
+        }
+
+        return mN * 2;
+    }
+
+private:
+    size_t mN = 0;
+    std::unique_ptr<QueueType> mQueue;
+};
+
+// -----------------------------------------------------------------------------
+#if FATP_BENCH_ENABLE_FAA
+
+// fat_p::LockFreeQueueFAA (FAA-based MPMC) Adapter
+// -----------------------------------------------------------------------------
+
+class FatpLockFreeQueueFAAAdapter : public IAdapter
+{
+public:
+    const char* name() const override
+    {
+        return "fat_p::LockFreeQueueFAA";
+    }
+
+    void setup(size_t n) override
+    {
+        mN = n;
+        mQueue = std::make_unique<fat_p::LockFreeQueueFAA<int, kQueueCapacity>>();
+    }
+
+    void teardown() override
+    {
+        mQueue.reset();
+    }
+
+    size_t run_operation() override
+    {
+        for (size_t i = 0; i < mN; ++i)
+        {
+            (void)mQueue->enqueue(static_cast<int>(i));
+        }
+
+        int value;
+        for (size_t i = 0; i < mN; ++i)
+        {
+            (void)mQueue->dequeue(value);
+            DoNotOptimize(value);
+        }
+
+        return mN * 2;
+    }
+
+private:
+    size_t mN = 0;
+    std::unique_ptr<fat_p::LockFreeQueueFAA<int, kQueueCapacity>> mQueue;
+};
+
+#endif
 
 // -----------------------------------------------------------------------------
 // fat_p::LockFreeRingBuffer (SPSC) Adapter
@@ -705,11 +829,14 @@ public:
 
     size_t run_operation() override
     {
-        // Interleaved push/pop - guarantees all operations succeed
-        int value;
         for (size_t i = 0; i < mN; ++i)
         {
             (void)mBuffer->push(static_cast<int>(i));
+        }
+
+        int value;
+        for (size_t i = 0; i < mN; ++i)
+        {
             (void)mBuffer->pop(value);
             DoNotOptimize(value);
         }
@@ -747,10 +874,13 @@ public:
 
     size_t run_operation() override
     {
-        // Interleaved push/pop - guarantees all operations succeed
         for (size_t i = 0; i < mN; ++i)
         {
             (void)mBuffer->push(static_cast<int>(i));
+        }
+
+        for (size_t i = 0; i < mN; ++i)
+        {
             auto val = mBuffer->pop();
             DoNotOptimize(val);
         }
@@ -788,19 +918,18 @@ public:
 
     size_t run_operation() override
     {
-        // Interleaved push/pop - guarantees all operations succeed
         for (size_t i = 0; i < mN; ++i)
         {
-            {
-                std::lock_guard<std::mutex> lock(mMutex);
-                mQueue.push(static_cast<int>(i));
-            }
-            {
-                std::lock_guard<std::mutex> lock(mMutex);
-                int value = mQueue.front();
-                mQueue.pop();
-                DoNotOptimize(value);
-            }
+            std::lock_guard<std::mutex> lock(mMutex);
+            mQueue.push(static_cast<int>(i));
+        }
+
+        for (size_t i = 0; i < mN; ++i)
+        {
+            std::lock_guard<std::mutex> lock(mMutex);
+            int value = mQueue.front();
+            mQueue.pop();
+            DoNotOptimize(value);
         }
 
         return mN * 2;
@@ -838,11 +967,14 @@ public:
 
     size_t run_operation() override
     {
-        // Interleaved enqueue/dequeue - guarantees all operations succeed
-        int value;
         for (size_t i = 0; i < mN; ++i)
         {
             mQueue->enqueue(static_cast<int>(i));
+        }
+
+        int value;
+        for (size_t i = 0; i < mN; ++i)
+        {
             mQueue->try_dequeue(value);
             DoNotOptimize(value);
         }
@@ -882,11 +1014,14 @@ public:
 
     size_t run_operation() override
     {
-        // Interleaved push/pop - guarantees all operations succeed
-        int value;
         for (size_t i = 0; i < mN; ++i)
         {
             mQueue->push(static_cast<int>(i));
+        }
+
+        int value;
+        for (size_t i = 0; i < mN; ++i)
+        {
             mQueue->pop(value);
             DoNotOptimize(value);
         }
@@ -1488,6 +1623,370 @@ private:
     std::unique_ptr<fat_p::LockFreeQueue<int, kQueueCapacity>> mQueue;
 };
 
+
+// -----------------------------------------------------------------------------
+// fat_p::WorkQueue (sharded) MPMC Adapter
+// -----------------------------------------------------------------------------
+
+class FatpWorkQueueMpmcAdapter : public IMpmcAdapter
+{
+private:
+    using QueueType =
+        fat_p::work_queue::WorkQueue<int, kWorkQueueShardCount, kWorkQueueShardCapacity>;
+
+public:
+    const char* name() const override
+    {
+        return "fat_p::WorkQueue (sharded)";
+    }
+
+    void setup() override
+    {
+        mQueue = std::make_unique<QueueType>();
+    }
+
+    void teardown() override
+    {
+        mQueue.reset();
+    }
+
+    size_t run_mpmc(size_t producers, size_t consumers, size_t ops_per_producer) override
+    {
+        std::atomic<size_t> consumed{0};
+        std::atomic<bool> start{false};
+        std::vector<std::thread> threads;
+        size_t total_ops = producers * ops_per_producer;
+
+        for (size_t t = 0; t < producers; ++t)
+        {
+            threads.emplace_back([this, t, ops_per_producer, &start]() {
+                auto tok = mQueue->makeProducerToken();
+
+                while (!start.load(std::memory_order_acquire))
+                {
+                }
+
+                for (size_t i = 0; i < ops_per_producer; ++i)
+                {
+                    const int value = static_cast<int>(t * 1000000 + i);
+                    while (!mQueue->enqueue(tok, value))
+                    {
+                        std::this_thread::yield();
+                    }
+                }
+            });
+        }
+
+        for (size_t t = 0; t < consumers; ++t)
+        {
+            threads.emplace_back([this, total_ops, &consumed, &start]() {
+                auto tok = mQueue->makeConsumerToken();
+
+                while (!start.load(std::memory_order_acquire))
+                {
+                }
+
+                int value;
+                while (consumed.load(std::memory_order_relaxed) < total_ops)
+                {
+                    if (mQueue->dequeue(tok, value))
+                    {
+                        DoNotOptimize(value);
+                        consumed.fetch_add(1, std::memory_order_relaxed);
+                    }
+                    else
+                    {
+                        std::this_thread::yield();
+                    }
+                }
+            });
+        }
+
+        start.store(true, std::memory_order_release);
+        for (auto& th : threads)
+        {
+            th.join();
+        }
+
+        return total_ops * 2;
+    }
+
+private:
+    std::unique_ptr<QueueType> mQueue;
+};
+
+// -----------------------------------------------------------------------------
+// fat_p::WorkQueue (RoundRobin) MPMC Adapter
+// -----------------------------------------------------------------------------
+
+class FatpWorkQueueRoundRobinMpmcAdapter : public IMpmcAdapter
+{
+private:
+    using QueueType = fat_p::work_queue::WorkQueue<
+        int,
+        kWorkQueueShardCount,
+        kWorkQueueShardCapacity,
+        fat_p::work_queue::RoundRobinRoutingPolicy>;
+
+public:
+    const char* name() const override
+    {
+        return "fat_p::WorkQueue (round-robin)";
+    }
+
+    void setup() override
+    {
+        mQueue = std::make_unique<QueueType>();
+    }
+
+    void teardown() override
+    {
+        mQueue.reset();
+    }
+
+    size_t run_mpmc(size_t producers, size_t consumers, size_t ops_per_producer) override
+    {
+        std::atomic<size_t> consumed{0};
+        std::atomic<bool> start{false};
+        std::vector<std::thread> threads;
+        size_t total_ops = producers * ops_per_producer;
+
+        for (size_t t = 0; t < producers; ++t)
+        {
+            threads.emplace_back([this, t, ops_per_producer, &start]() {
+                auto tok = mQueue->makeProducerToken();
+
+                while (!start.load(std::memory_order_acquire))
+                {
+                }
+
+                for (size_t i = 0; i < ops_per_producer; ++i)
+                {
+                    const int value = static_cast<int>(t * 1000000 + i);
+                    while (!mQueue->enqueue(tok, value))
+                    {
+                        std::this_thread::yield();
+                    }
+                }
+            });
+        }
+
+        for (size_t t = 0; t < consumers; ++t)
+        {
+            threads.emplace_back([this, total_ops, &consumed, &start]() {
+                auto tok = mQueue->makeConsumerToken();
+
+                while (!start.load(std::memory_order_acquire))
+                {
+                }
+
+                int value;
+                while (consumed.load(std::memory_order_relaxed) < total_ops)
+                {
+                    if (mQueue->dequeue(tok, value))
+                    {
+                        DoNotOptimize(value);
+                        consumed.fetch_add(1, std::memory_order_relaxed);
+                    }
+                    else
+                    {
+                        std::this_thread::yield();
+                    }
+                }
+            });
+        }
+
+        start.store(true, std::memory_order_release);
+        for (auto& th : threads)
+        {
+            th.join();
+        }
+
+        return total_ops * 2;
+    }
+
+private:
+    std::unique_ptr<QueueType> mQueue;
+};
+
+// -----------------------------------------------------------------------------
+// fat_p::WorkQueue (Stride<3>) MPMC Adapter
+// -----------------------------------------------------------------------------
+
+class FatpWorkQueueStride3MpmcAdapter : public IMpmcAdapter
+{
+private:
+    using QueueType = fat_p::work_queue::WorkQueue<
+        int,
+        kWorkQueueShardCount,
+        kWorkQueueShardCapacity,
+        fat_p::work_queue::StrideRoutingPolicy<3>>;
+
+public:
+    const char* name() const override
+    {
+        return "fat_p::WorkQueue (stride-3)";
+    }
+
+    void setup() override
+    {
+        mQueue = std::make_unique<QueueType>();
+    }
+
+    void teardown() override
+    {
+        mQueue.reset();
+    }
+
+    size_t run_mpmc(size_t producers, size_t consumers, size_t ops_per_producer) override
+    {
+        std::atomic<size_t> consumed{0};
+        std::atomic<bool> start{false};
+        std::vector<std::thread> threads;
+        size_t total_ops = producers * ops_per_producer;
+
+        for (size_t t = 0; t < producers; ++t)
+        {
+            threads.emplace_back([this, t, ops_per_producer, &start]() {
+                auto tok = mQueue->makeProducerToken();
+
+                while (!start.load(std::memory_order_acquire))
+                {
+                }
+
+                for (size_t i = 0; i < ops_per_producer; ++i)
+                {
+                    const int value = static_cast<int>(t * 1000000 + i);
+                    while (!mQueue->enqueue(tok, value))
+                    {
+                        std::this_thread::yield();
+                    }
+                }
+            });
+        }
+
+        for (size_t t = 0; t < consumers; ++t)
+        {
+            threads.emplace_back([this, total_ops, &consumed, &start]() {
+                auto tok = mQueue->makeConsumerToken();
+
+                while (!start.load(std::memory_order_acquire))
+                {
+                }
+
+                int value;
+                while (consumed.load(std::memory_order_relaxed) < total_ops)
+                {
+                    if (mQueue->dequeue(tok, value))
+                    {
+                        DoNotOptimize(value);
+                        consumed.fetch_add(1, std::memory_order_relaxed);
+                    }
+                    else
+                    {
+                        std::this_thread::yield();
+                    }
+                }
+            });
+        }
+
+        start.store(true, std::memory_order_release);
+        for (auto& th : threads)
+        {
+            th.join();
+        }
+
+        return total_ops * 2;
+    }
+
+private:
+    std::unique_ptr<QueueType> mQueue;
+};
+
+#if FATP_BENCH_ENABLE_FAA
+
+// -----------------------------------------------------------------------------
+// fat_p::LockFreeQueueFAA MPMC Adapter
+// -----------------------------------------------------------------------------
+
+class FatpLockFreeQueueFAAMpmcAdapter : public IMpmcAdapter
+{
+public:
+    const char* name() const override
+    {
+        return "fat_p::LockFreeQueueFAA";
+    }
+
+    void setup() override
+    {
+        mQueue = std::make_unique<fat_p::LockFreeQueueFAA<int, kQueueCapacity>>();
+    }
+
+    void teardown() override
+    {
+        mQueue.reset();
+    }
+
+    size_t run_mpmc(size_t producers, size_t consumers, size_t ops_per_producer) override
+    {
+        std::atomic<size_t> consumed{0};
+        std::atomic<bool> start{false};
+        std::vector<std::thread> threads;
+        size_t total_ops = producers * ops_per_producer;
+
+        for (size_t t = 0; t < producers; ++t)
+        {
+            threads.emplace_back([this, t, ops_per_producer, &start]() {
+                while (!start.load(std::memory_order_acquire))
+                {
+                }
+                for (size_t i = 0; i < ops_per_producer; ++i)
+                {
+                    while (!mQueue->enqueue(static_cast<int>(t * 1000000 + i)))
+                    {
+                        std::this_thread::yield();
+                    }
+                }
+            });
+        }
+
+        for (size_t t = 0; t < consumers; ++t)
+        {
+            threads.emplace_back([this, total_ops, &consumed, &start]() {
+                while (!start.load(std::memory_order_acquire))
+                {
+                }
+                int value;
+                while (consumed.load(std::memory_order_relaxed) < total_ops)
+                {
+                    if (mQueue->dequeue(value))
+                    {
+                        DoNotOptimize(value);
+                        consumed.fetch_add(1, std::memory_order_relaxed);
+                    }
+                    else
+                    {
+                        std::this_thread::yield();
+                    }
+                }
+            });
+        }
+
+        start.store(true, std::memory_order_release);
+        for (auto& th : threads)
+        {
+            th.join();
+        }
+
+        return total_ops * 2;
+    }
+
+private:
+    std::unique_ptr<fat_p::LockFreeQueueFAA<int, kQueueCapacity>> mQueue;
+};
+
+#endif
+
 // -----------------------------------------------------------------------------
 // fat_p::LockFreeRingBufferMPMC Adapter
 // -----------------------------------------------------------------------------
@@ -1820,6 +2319,12 @@ void run_mpmc_scaling_benchmark(const BenchConfig& cfg)
 
     std::vector<std::unique_ptr<IMpmcAdapter>> adapters;
     adapters.push_back(std::make_unique<FatpLockFreeQueueMpmcAdapter>());
+    adapters.push_back(std::make_unique<FatpWorkQueueMpmcAdapter>());
+    adapters.push_back(std::make_unique<FatpWorkQueueRoundRobinMpmcAdapter>());
+    adapters.push_back(std::make_unique<FatpWorkQueueStride3MpmcAdapter>());
+#if FATP_BENCH_ENABLE_FAA
+    adapters.push_back(std::make_unique<FatpLockFreeQueueFAAMpmcAdapter>());
+#endif
     adapters.push_back(std::make_unique<FatpRingBufferMpmcMpmcAdapter>());
     adapters.push_back(std::make_unique<MutexQueueMpmcAdapter>());
 #if HAS_MOODYCAMEL
@@ -1911,6 +2416,109 @@ void run_mpmc_scaling_benchmark(const BenchConfig& cfg)
             std::cout << std::setw(12) << std::right << std::fixed << std::setprecision(1)
                       << stats.median;
         }
+        std::cout << " ns/op\n";
+    }
+
+    std::cout << "\n";
+    print_cpu_context("END");
+}
+
+struct AsymCase
+{
+    const char* mLabel = nullptr;
+    size_t mProducers = 0;
+    size_t mConsumers = 0;
+};
+
+/**
+ * @brief Run asymmetric MPMC benchmark (MPSC, SPMC, and unbalanced)
+ */
+void run_asymmetric_mpmc_benchmark(const BenchConfig& cfg)
+{
+    print_header("Asymmetric MPMC (MPSC, SPMC, Unbalanced)");
+    print_cpu_context("START");
+    print_contract_note("Tests non-symmetric producer/consumer ratios.");
+
+    std::vector<std::unique_ptr<IMpmcAdapter>> adapters;
+    adapters.push_back(std::make_unique<FatpLockFreeQueueMpmcAdapter>());
+    adapters.push_back(std::make_unique<FatpWorkQueueMpmcAdapter>());
+#if FATP_BENCH_ENABLE_FAA
+    adapters.push_back(std::make_unique<FatpLockFreeQueueFAAMpmcAdapter>());
+#endif
+    adapters.push_back(std::make_unique<FatpRingBufferMpmcMpmcAdapter>());
+    adapters.push_back(std::make_unique<MutexQueueMpmcAdapter>());
+#if HAS_MOODYCAMEL
+    adapters.push_back(std::make_unique<MoodycamelMpmcAdapter>());
+#endif
+#if HAS_BOOST_LOCKFREE
+    adapters.push_back(std::make_unique<BoostLockfreeMpmcAdapter>());
+#endif
+
+    // Match the table ordering you printed.
+    const std::array<AsymCase, 6> cases = {
+        AsymCase{"8P:1C", 8, 1},
+        AsymCase{"4P:1C", 4, 1},
+        AsymCase{"1P:8C", 1, 8},
+        AsymCase{"1P:4C", 1, 4},
+        AsymCase{"8P:2C", 8, 2},
+        AsymCase{"2P:8C", 2, 8},
+    };
+
+    std::cout << "\n";
+    std::cout << std::setw(37) << std::left << "Library";
+    for (const auto& c : cases)
+    {
+        std::cout << std::setw(10) << std::right << c.mLabel;
+    }
+    std::cout << "\n" << std::string(37 + 10 * cases.size(), '-') << "\n";
+
+    for (auto& adapter : adapters)
+    {
+        std::cout << std::setw(37) << std::left << adapter->name();
+
+        for (const auto& c : cases)
+        {
+            // Keep total work approximately cfg.targetWork per case.
+            // Ensure at least 1 op per producer.
+            const size_t ops_per_producer =
+                std::max<size_t>(1, cfg.targetWork / std::max<size_t>(1, c.mProducers));
+
+            std::vector<double> samples;
+            samples.reserve(cfg.measuredRuns);
+
+            // Warmup
+            for (size_t run = 0; run < cfg.warmupRuns; ++run)
+            {
+                adapter->setup();
+                Timer t;
+                t.start();
+                adapter->run_mpmc(c.mProducers, c.mConsumers, ops_per_producer);
+                (void)t.elapsed_ns();
+                adapter->teardown();
+            }
+
+            // Measured
+            for (size_t run = 0; run < cfg.measuredRuns; ++run)
+            {
+                adapter->setup();
+                ClobberMemory();
+
+                Timer t;
+                t.start();
+                const size_t ops = adapter->run_mpmc(c.mProducers, c.mConsumers, ops_per_producer);
+                const double elapsed = t.elapsed_ns();
+
+                adapter->teardown();
+
+                const double ns_per_op = elapsed / static_cast<double>(ops);
+                samples.push_back(ns_per_op);
+            }
+
+            const auto stats = Statistics::compute(samples);
+            std::cout << std::setw(10) << std::right << std::fixed << std::setprecision(1)
+                      << stats.median;
+        }
+
         std::cout << " ns/op\n";
     }
 
@@ -2048,6 +2656,10 @@ int main()
         {
             std::vector<std::unique_ptr<IAdapter>> adapters;
             adapters.push_back(std::make_unique<FatpLockFreeQueueAdapter>());
+            adapters.push_back(std::make_unique<FatpWorkQueueAdapter>());
+#if FATP_BENCH_ENABLE_FAA
+            adapters.push_back(std::make_unique<FatpLockFreeQueueFAAAdapter>());
+#endif
             adapters.push_back(std::make_unique<FatpRingBufferSpscAdapter>());
             adapters.push_back(std::make_unique<FatpRingBufferMpmcAdapter>());
             adapters.push_back(std::make_unique<MutexQueueAdapter>());
@@ -2058,11 +2670,19 @@ int main()
             adapters.push_back(std::make_unique<BoostLockfreeAdapter>());
 #endif
 
+            const size_t single_thread_work = std::min(cfg.targetWork, kQueueCapacity);
+            if (single_thread_work != cfg.targetWork)
+            {
+                std::cout << "  [NOTE] Single-thread target work clamped from "
+                          << cfg.targetWork << " to " << single_thread_work
+                          << " to avoid capacity overflow.\n";
+            }
+
             run_round_robin_benchmark(
                 "Single-Threaded Throughput (enqueue + dequeue cycle)",
-                "Pure queue overhead without contention. Interleaved enqueue/dequeue pairs.",
+                "Pure queue overhead without contention. Measures enqueue+dequeue per op.",
                 adapters,
-                cfg.targetWork,
+                single_thread_work,
                 cfg.warmupRuns,
                 cfg.measuredRuns,
                 cfg.seed);
@@ -2073,6 +2693,9 @@ int main()
 
         // 3. MPMC scaling benchmark
         run_mpmc_scaling_benchmark(cfg);
+
+        // 4. Asymmetric MPMC benchmark
+        run_asymmetric_mpmc_benchmark(cfg);
     }
 
     // Summary

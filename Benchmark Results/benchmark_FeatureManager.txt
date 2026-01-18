@@ -1,0 +1,237 @@
+================================================================================
+  FeatureManager Benchmark
+================================================================================
+
+  Platform: Windows-x64, MSVC 1950
+  Config: warmup=3, batches=15, seed=12345, minBatchMs=50
+  Options: (defaults)
+CPU Frequency Detection Diagnostics:
+  CPUID Leaf 0x16: NOT SUPPORTED
+    Max CPUID leaf:  0x23
+    Raw EAX:         0x0 (base: 0 MHz)
+    Raw EBX:         0x0 (max: 0 MHz)
+    Raw ECX:         0x0 (bus: 0 MHz)
+    Reason:          Base frequency is 0
+  Registry ~MHz:    3686 MHz
+  Using:            Registry base (3686 MHz) - CPUID 0x16 unavailable, using registry directly
+  PDH Monitor:      AVAILABLE
+    Current %:      79.0%
+  Captured state:
+    Reference:      3686 MHz (base)
+    Current:        2911 MHz (measured)
+    Throttle %:     21.0%
+    Reliable:       YES
+
+  Waiting for CPU to stabilize...
+[Waiting: 2911/3686 MHz (21% below base)]
+[Waiting: 1769/3686 MHz (52% below base)]
+[Waiting: 1769/3686 MHz (52% below base)]
+[Waiting: 2248/3686 MHz (39% below base)]
+[Ready: 3464/3686 MHz (6% below base)]
+
+================================================================================
+  FIXTURE SETUP
+================================================================================
+
+[2026-01-17 19:57:40] Creating fixtures CPU: 3464 MHz (base: 3686)
+  Verifying fixtures...
+    [OK] All fixture validations passed
+
+
+================================================================================
+  LOOKUP OPERATIONS
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2322 MHz (base: 3686)
+  Contract: is_enabled() is O(log n) lookup in std::map<string, FeatureNode>
+
+
+================================================================================
+  VALIDATION OPERATIONS
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2322 MHz (base: 3686)
+  Contract: validate() traverses full dependency graph, O(n * d * log n)
+
+
+================================================================================
+  ENABLE/DISABLE OPERATIONS
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2322 MHz (base: 3686)
+  Contract: enable() recursively enables dependencies with rollback on failure
+
+
+================================================================================
+  OBSERVER OVERHEAD
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2322 MHz (base: 3686)
+  Contract: Observers are called synchronously on state change
+
+
+================================================================================
+  SERIALIZATION
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2322 MHz (base: 3686)
+  Contract: JSON round-trip must preserve enabled state and relationships
+
+
+================================================================================
+  GRAPH CONSTRUCTION
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2322 MHz (base: 3686)
+  Contract: add_feature() is O(log n) map insertion
+
+
+================================================================================
+  SYNCHRONIZATION POLICY OVERHEAD
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2322 MHz (base: 3686)
+  Contract: Comparing SingleThreadedPolicy vs MutexSynchronizationPolicy
+
+
+================================================================================
+  GROUP OPERATIONS
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2395 MHz (base: 3686)
+  Contract: Group state computed from member feature states
+
+
+================================================================================
+  BATCH OPERATIONS SCALING
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2395 MHz (base: 3686)
+  Contract: batch_enable atomically enables multiple features with rollback
+
+
+================================================================================
+  DENSE GRAPH OPERATIONS
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2395 MHz (base: 3686)
+  Contract: Performance with 1000+ relationships for scaling analysis
+
+
+================================================================================
+  SCOPED FEATURE CHANGE (RAII)
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2395 MHz (base: 3686)
+  Contract: ScopedFeatureChange provides temporary state with auto-rollback
+
+
+================================================================================
+  CUSTOM STATE COMPUTER
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2395 MHz (base: 3686)
+  Contract: User-provided state computation logic for groups
+
+
+================================================================================
+  MEMORY & CONSTRUCTION SCALING
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2395 MHz (base: 3686)
+  Contract: Construction cost scaling with features and relationships
+
+
+================================================================================
+  MUTUALLY EXCLUSIVE GROUPS
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2395 MHz (base: 3686)
+  Contract: add_mutually_exclusive_group creates O(n^2) conflict relationships
+
+
+================================================================================
+  RUNNING BENCHMARKS
+================================================================================
+
+[2026-01-17 19:57:40] Section start CPU: 2395 MHz (base: 3686)
+[2026-01-17 19:57:40] Starting benchmark execution CPU: 2395 MHz (base: 3686)
+    is_enabled: enabled hit (10k features):   153.33 ns/op  (+/- 63.99)  CI95=[117.97, 188.69]
+    is_enabled: disabled hit (10k features):   300.00 ns/op  (+/- 65.47)  CI95=[263.83, 336.17]
+    is_enabled: missing feature (10k features):   133.33 ns/op  (+/- 61.72)  CI95=[99.23, 167.44]
+    validate: requires-chain depth 50 (all enabled):  6433.33 ns/op  (+/-397.61)  CI95=[6213.63, 6653.03]
+    validate: flat graph 10k (no dependencies): 1749906.67 ns/op  (+/-25313.59)  CI95=[1735919.75, 1763893.58]
+    validate: conflict graph 100 features: 252626.67 ns/op  (+/-9797.48)  CI95=[247213.11, 258040.22]
+    batch_enable + batch_disable: chain depth 50 (cold): 71773.33 ns/op  (+/-1206.81)  CI95=[71106.52, 72440.15]
+    enable + disable: single feature (no deps):   706.67 ns/op  (+/-237.45)  CI95=[575.47, 837.87]
+    enable: conflict detection (100 conflicts): 812000.00 ns/op  (+/-15156.52)  CI95=[803625.33, 820374.67]
+    enable/disable: 0 observers: 321773.33 ns/op  (+/-8211.27)  CI95=[317236.23, 326310.43]
+    enable/disable: 1 observer: 321733.33 ns/op  (+/-8024.31)  CI95=[317299.54, 326167.13]
+    enable/disable: 10 observers: 312046.67 ns/op  (+/-9833.97)  CI95=[306612.95, 317480.38]
+    to_json: 10k features, no relationships: 11632913.33 ns/op  (+/-396932.97)  CI95=[11413589.76, 11852236.91]
+    from_json: 10k features, no relationships: 10996300.00 ns/op  (+/-374324.47)  CI95=[10789468.65, 11203131.35]
+    to_dot: 100 features, 50 relationships: 22046.67 ns/op  (+/-2379.04)  CI95=[20732.14, 23361.19]
+    from_dot: 100 features, 50 relationships: 1165926.67 ns/op  (+/-13183.84)  CI95=[1158642.00, 1173211.34]
+    to_dot: 10k features, no relationships: 1367273.33 ns/op  (+/-353905.46)  CI95=[1171724.42, 1562822.25]
+    add_feature: build 100 features: 13980.00 ns/op  (+/-2127.44)  CI95=[12804.49, 15155.51]
+    add_feature: build 1000 features: 206873.33 ns/op  (+/-2351.13)  CI95=[205574.23, 208172.44]
+    add_relationship: 100 Requires edges: 27793.33 ns/op  (+/-1205.62)  CI95=[27127.17, 28459.49]
+    is_enabled: SingleThreadedPolicy (10k):    53.33 ns/op  (+/- 83.38)  CI95=[7.26, 99.41]
+    is_enabled: MutexSynchronizationPolicy (10k):   186.67 ns/op  (+/- 99.04)  CI95=[131.94, 241.39]
+    get_group_state: 20-member group:  1820.00 ns/op  (+/-948.08)  CI95=[1296.14, 2343.86]
+    batch_enable: 10 features (no deps):  2820.00 ns/op  (+/-1443.31)  CI95=[2022.51, 3617.49]
+    batch_enable: 100 features (no deps): 34780.00 ns/op  (+/-995.13)  CI95=[34230.14, 35329.86]
+    batch_enable: 1000 features (no deps): 461180.00 ns/op  (+/-9090.12)  CI95=[456157.29, 466202.71]
+    batch_disable: 100 features (no deps): 51366.67 ns/op  (+/-6746.60)  CI95=[47638.86, 55094.47]
+    validate: dense graph (200 nodes, ~1000 edges): 65446.67 ns/op  (+/-3910.40)  CI95=[63285.99, 67607.34]
+    to_json: dense graph (200 nodes, ~1000 edges): 877833.33 ns/op  (+/-20117.11)  CI95=[866717.71, 888948.95]
+    from_json: dense graph (200 nodes, ~1000 edges): 731260.00 ns/op  (+/-23418.09)  CI95=[718320.44, 744199.56]
+    validate: very dense graph (500 nodes, ~5000 edges): 422726.67 ns/op  (+/-12714.08)  CI95=[415701.56, 429751.78]
+    validate: tree graph (depth 5, branching 3): 62346.67 ns/op  (+/-3346.83)  CI95=[60497.39, 64195.94]
+    enable: tree root (cascades to 364 nodes): 221886.67 ns/op  (+/-1893.55)  CI95=[220840.40, 222932.94]
+    ScopedFeatureChange: enable then auto-restore:   673.33 ns/op  (+/-218.65)  CI95=[552.52, 794.15]
+    ScopedFeatureChange: disable then auto-restore:   586.67 ns/op  (+/-159.76)  CI95=[498.39, 674.94]
+    ScopedFeatureChange: nested scopes (3 deep):  1200.00 ns/op  (+/-181.27)  CI95=[1099.84, 1300.16]
+    get_group_state: default computer (50 features):  6060.00 ns/op  (+/-154.92)  CI95=[5974.40, 6145.60]
+    get_group_state: custom computer (50 features):  8033.33 ns/op  (+/-4168.36)  CI95=[5730.12, 10336.54]
+    get_group_state: default computer (200 features): 74473.33 ns/op  (+/-1507.82)  CI95=[73640.19, 75306.47]
+    construct: 100 features + 50 relationships: 22320.00 ns/op  (+/-7404.84)  CI95=[18228.49, 26411.51]
+    construct: 1000 features + 500 relationships: 312640.00 ns/op  (+/-6671.35)  CI95=[308953.78, 316326.22]
+    construct: 5000 features + 2500 relationships: 1774266.67 ns/op  (+/-93749.31)  CI95=[1722465.89, 1826067.44]
+    move: 1000-feature graph: 207466.67 ns/op  (+/-1629.49)  CI95=[206566.30, 208367.03]
+    clear: 1000-feature graph: 206953.33 ns/op  (+/-2334.79)  CI95=[205663.26, 208243.41]
+    add_mutually_exclusive_group: 10 features:  6373.33 ns/op  (+/-483.24)  CI95=[6106.32, 6640.35]
+    add_mutually_exclusive_group: 50 features: 183186.67 ns/op  (+/-3264.72)  CI95=[181382.76, 184990.57]
+    validate: mutually exclusive group (20 features):  9413.33 ns/op  (+/-135.58)  CI95=[9338.42, 9488.25]
+    enable: conflict in mutually exclusive group:  1453.33 ns/op  (+/-155.23)  CI95=[1367.56, 1539.10]
+[2026-01-17 19:57:56] Benchmark execution complete CPU: 2285 MHz (base: 3686)
+
+================================================================================
+  CONCURRENT ACCESS PATTERNS
+================================================================================
+
+  Contract: Multi-threaded read/write contention with MutexSynchronizationPolicy
+
+[2026-01-17 19:57:56] Concurrent benchmarks CPU: 2285 MHz (base: 3686)
+  Hardware threads: 24, using up to 8
+  Pinning policy: ON (Windows only)
+
+  Thread Scaling (read-only, 300ms warmup + 500ms measured):
+    Threads  |  Throughput (ops/sec)  |  Per-Thread
+    ---------+------------------------+-------------
+          1  |               9371180  |      9371180
+          2  |               9407919  |      4703959
+          4  |               8734839  |      2183710
+          8  |               4953059  |       619132
+
+  Mixed read-write (6 readers, 2 writers, with barrier):
+    Total reads:   6
+    Total writes:  6996 (failed: 0)
+    Read throughput:  12 ops/sec
+    Write throughput: 13695 ops/sec
+
+
+================================================================================
+  Benchmark Complete
+================================================================================
+[2026-01-17 19:58:00] Benchmark complete CPU: 2764 MHz (base: 3686)

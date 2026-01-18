@@ -1,0 +1,113 @@
+================================================================================
+  Fat-P LockFreeQueue / LockFreeRingBuffer Benchmark Suite
+================================================================================
+
+Competitor libraries detected:
+  [x] std::mutex + std::queue (baseline)
+  [x] moodycamel::ConcurrentQueue
+  [x] boost::lockfree::queue
+
+Configuration:
+  Warmup runs:    3
+  Measured runs:  15
+  Seed:           12345
+  Target work:    1000000
+  Min batch ms:   50
+  Scope:          enabled
+  Stabilize:      enabled
+  Cooldown:       enabled
+
+[INIT 18:50:06] CPU: 3686 MHz (base: 3686)
+
+Correctness verification:
+  [PASS] LockFreeQueue FIFO ordering
+  [PASS] LockFreeRingBuffer (SPSC) FIFO ordering
+  [PASS] LockFreeRingBufferMPMC FIFO ordering
+
+[BenchmarkScope] High priority, CPU non-0 affinity
+  [NOTE] Single-thread target work clamped from 1000000 to 131072 to avoid capacity overflow.
+
+================================================================================
+  Single-Threaded Throughput (enqueue + dequeue cycle)
+================================================================================
+
+[START 18:50:06] CPU: 3686 MHz (base: 3686)
+Contract: Pure queue overhead without contention. Measures enqueue+dequeue per op.
+
+Library                                  Median        Mean    Stddev  CI95
+------------------------------------------------------------------------------------------
+fat_p::LockFreeQueue                       8.25        8.28      0.11  [    8.23,     8.34]  ns/op
+fat_p::WorkQueue (sharded)                10.06       10.04      0.25  [    9.91,    10.16]  ns/op
+fat_p::LockFreeRingBuffer (SPSC)           0.52        0.54      0.03  [    0.52,     0.55]  ns/op
+fat_p::LockFreeRingBufferMPMC             10.23       10.19      0.45  [    9.96,    10.42]  ns/op
+std::mutex + std::queue (baseline)        16.65       16.65      0.31  [   16.49,    16.81]  ns/op
+moodycamel::ConcurrentQueue                8.68        8.76      0.23  [    8.65,     8.88]  ns/op
+boost::lockfree::queue                    54.15       53.55      2.98  [   52.05,    55.06]  ns/op
+
+[END 18:50:07] CPU: 3686 MHz (base: 3686)
+
+================================================================================
+  SPSC Throughput (1 producer, 1 consumer threads)
+================================================================================
+
+[START 18:50:07] CPU: 3686 MHz (base: 3686)
+Contract: Dedicated producer and consumer threads. Native SPSC use case.
+
+Library                                  Median        Mean    Stddev  CI95
+------------------------------------------------------------------------------------------
+fat_p::LockFreeQueue                      10.43       12.72      5.46  [    9.96,    15.49]  ns/op
+fat_p::LockFreeRingBuffer (SPSC)          31.13       36.46      9.04  [   31.88,    41.03]  ns/op
+std::mutex + std::queue (baseline)        20.58       21.27      1.84  [   20.34,    22.20]  ns/op
+moodycamel::ConcurrentQueue               19.00       19.06      2.05  [   18.02,    20.09]  ns/op
+boost::lockfree::queue                   113.99      112.43      7.02  [  108.88,   115.98]  ns/op
+
+[END 18:50:14] CPU: 3686 MHz (base: 3686)
+
+================================================================================
+  MPMC Scaling (N producers, N consumers)
+================================================================================
+
+[START 18:50:14] CPU: 3686 MHz (base: 3686)
+Contract: Equal producer and consumer threads. Tests lock-free scaling.
+
+Thread counts: 1 2 4 8 12 16
+
+Library                                      1T          2T          4T          8T         12T         16T
+-----------------------------------------------------------------------------------------------------------
+fat_p::LockFreeQueue                        6.4        45.4        62.2        81.4        83.1        89.5 ns/op
+fat_p::WorkQueue (sharded)                  9.3        11.7        22.7        23.2        33.5        24.4 ns/op
+fat_p::WorkQueue (round-robin)              7.9        21.2        67.0        63.5        73.6        73.0 ns/op
+fat_p::WorkQueue (stride-3)                 7.8        21.1        51.4        60.8        72.7        76.1 ns/op
+fat_p::LockFreeRingBufferMPMC               8.2        25.5        71.6        74.1        85.2        90.3 ns/op
+std::mutex + std::queue (baseline)         19.8        26.4        47.2       202.3       272.6       247.4 ns/op
+moodycamel::ConcurrentQueue                19.7        31.2        49.3        47.3        42.5        38.8 ns/op
+boost::lockfree::queue                     63.2       104.7       188.8       232.7       272.2       287.5 ns/op
+
+[END 18:52:27] CPU: 3686 MHz (base: 3686)
+
+================================================================================
+  Asymmetric MPMC (MPSC, SPMC, Unbalanced)
+================================================================================
+
+[START 18:52:27] CPU: 3686 MHz (base: 3686)
+Contract: Tests non-symmetric producer/consumer ratios.
+
+
+Library                                   8P:1C     4P:1C     1P:8C     1P:4C     8P:2C     2P:8C
+-------------------------------------------------------------------------------------------------
+fat_p::LockFreeQueue                       47.4      35.1      74.7      60.3      58.5      79.8 ns/op
+fat_p::WorkQueue (sharded)                 16.8      19.4      25.5      20.4      21.5      23.3 ns/op
+fat_p::LockFreeRingBufferMPMC              52.6      33.4      74.9      48.1      60.5      77.2 ns/op
+std::mutex + std::queue (baseline)         41.8      22.0     200.6      29.5      57.9     158.0 ns/op
+moodycamel::ConcurrentQueue                16.7      16.2      58.8      55.8      49.6      48.4 ns/op
+boost::lockfree::queue                    162.5     192.4     263.3     167.8     166.7     264.9 ns/op
+
+[END 18:54:15] CPU: 3686 MHz (base: 3686)
+
+================================================================================
+  Summary
+================================================================================
+
+Benchmarks completed.
+Hardware concurrency: 24 threads
+[FINAL 18:54:15] CPU: 3686 MHz (base: 3686)

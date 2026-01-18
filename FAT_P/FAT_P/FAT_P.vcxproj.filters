@@ -331,5 +331,11 @@
     <ClInclude Include="fat_p\FatPSimdDetection.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="fat_p\WorkQueue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="fat_p\PolicyQueue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

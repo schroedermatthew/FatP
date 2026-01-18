@@ -1,0 +1,377 @@
+[BenchmarkScope] High priority, CPU non-0 affinity
+
+EqualityComparisons & EqualityAny Benchmark Suite
+=================================================
+
+Platform:
+  OS: Windows
+  Compiler: MSVC 1950
+  Build: Release
+  [2026-01-17 19:50:15] CPU: 3464 MHz (base: 3686)
+
+Configuration:
+  FATP_BENCH_TARGET_WORK = 5000000
+  FATP_BENCH_BATCHES = 15
+  FATP_BENCH_VERBOSE_STATS = false
+  FATP_BENCH_NO_SCOPE = false
+  Primary metric: median (robust to outliers)
+
+
+EqualityComparisons Benchmarks
+==============================
+
+vector<double> vs Manual Epsilon Loop
+-------------------------------------
+  [2026-01-17 19:50:15] CPU: 3464 MHz (base: 3686)
+N=64:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                 131.831 ns  131.902 ns    0.268 ns  [131.766 ns, 132.037 ns]
+Baseline               19.309 ns   19.196 ns    0.302 ns  [19.043 ns, 19.348 ns]
+  Speedup: 0.15x
+
+N=256:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                 491.880 ns  491.870 ns    0.640 ns  [491.546 ns, 492.194 ns]
+Baseline               58.246 ns   58.343 ns    0.210 ns  [58.237 ns, 58.450 ns]
+  Speedup: 0.12x
+
+N=1024:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                   1.924 us    1.924 us    1.541 ns  [1.923 us, 1.925 us]
+Baseline              201.762 ns  201.230 ns    2.865 ns  [199.780 ns, 202.680 ns]
+  Speedup: 0.10x
+
+N=4096:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                   7.655 us    7.646 us   42.456 ns  [7.624 us, 7.667 us]
+Baseline              956.885 ns  958.880 ns    5.670 ns  [956.011 ns, 961.749 ns]
+  Speedup: 0.12x
+
+N=16384:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                  30.515 us   30.503 us   69.909 ns  [30.468 us, 30.538 us]
+Baseline                4.520 us    4.517 us   12.253 ns  [4.511 us, 4.524 us]
+  Speedup: 0.15x
+
+vector<double> vs Manual Fat-P Semantics Loop (NaN/Inf aware)
+-------------------------------------------------------------
+  [2026-01-17 19:50:16] CPU: 3022 MHz (base: 3686)
+N=64:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                 131.830 ns  131.924 ns    0.273 ns  [131.786 ns, 132.062 ns]
+Semantics baseline    107.583 ns  107.298 ns    0.711 ns  [106.939 ns, 107.658 ns]
+  Speedup: 0.82x
+
+N=256:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                 490.216 ns  490.599 ns    7.631 ns  [486.737 ns, 494.460 ns]
+Semantics baseline    411.418 ns  413.848 ns    7.815 ns  [409.894 ns, 417.803 ns]
+  Speedup: 0.84x
+
+N=1024:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                   1.924 us    1.924 us    1.935 ns  [1.923 us, 1.925 us]
+Semantics baseline      1.710 us    1.707 us   13.280 ns  [1.701 us, 1.714 us]
+  Speedup: 0.89x
+
+N=4096:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                   7.653 us    7.655 us    6.075 ns  [7.651 us, 7.658 us]
+Semantics baseline      6.856 us    6.854 us   17.683 ns  [6.845 us, 6.863 us]
+  Speedup: 0.90x
+
+N=16384:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                  30.567 us   30.572 us   52.470 ns  [30.545 us, 30.598 us]
+Semantics baseline     27.286 us   27.292 us   62.263 ns  [27.260 us, 27.323 us]
+  Speedup: 0.89x
+
+vector<double> Fat-P vs std::equal (exact, no epsilon)
+------------------------------------------------------
+  [2026-01-17 19:50:17] CPU: 1732 MHz (base: 3686)
+N=1000:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                   1.881 us    1.886 us   13.966 ns  [1.879 us, 1.893 us]
+std::equal            258.980 ns  259.236 ns    1.079 ns  [258.690 ns, 259.782 ns]
+  Speedup: 0.14x
+
+N=10000:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                  18.707 us   18.696 us   30.481 ns  [18.681 us, 18.711 us]
+std::equal              2.763 us    2.795 us   51.015 ns  [2.769 us, 2.821 us]
+  Speedup: 0.15x
+
+N=100000:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                 184.656 us  184.450 us    1.567 us  [183.657 us, 185.243 us]
+std::equal             29.994 us   29.955 us  218.255 ns  [29.845 us, 30.066 us]
+  Speedup: 0.16x
+
+Note: std::equal uses exact bitwise comparison (no epsilon math)
+
+map<string, vector<double>> vs Manual Nested Loop
+-------------------------------------------------
+  [2026-01-17 19:50:18] CPU: 2064 MHz (base: 3686)
+K=64, V=32:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                   5.011 us    5.011 us    9.675 ns  [5.006 us, 5.016 us]
+Manual nested         778.042 ns  774.404 ns   20.148 ns  [764.208 ns, 784.600 ns]
+  Speedup: 0.16x
+
+K=128, V=64:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                  16.888 us   16.903 us   73.050 ns  [16.866 us, 16.940 us]
+Manual nested           3.309 us    3.307 us   38.062 ns  [3.287 us, 3.326 us]
+  Speedup: 0.20x
+
+K=256, V=64:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                  34.035 us   34.125 us  293.595 ns  [33.976 us, 34.274 us]
+Manual nested           7.043 us    7.082 us   79.554 ns  [7.041 us, 7.122 us]
+  Speedup: 0.21x
+
+unordered_map<string, vector<double>> vs Manual Find+Loop
+---------------------------------------------------------
+  [2026-01-17 19:50:18] CPU: 2174 MHz (base: 3686)
+K=64, V=32:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                   5.052 us    5.062 us   27.734 ns  [5.048 us, 5.076 us]
+Manual find+loop        1.008 us    1.010 us    4.278 ns  [1.007 us, 1.012 us]
+  Speedup: 0.20x
+
+K=128, V=64:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                  17.565 us   17.532 us  105.191 ns  [17.478 us, 17.585 us]
+Manual find+loop        3.841 us    3.845 us   26.301 ns  [3.832 us, 3.859 us]
+  Speedup: 0.22x
+
+K=256, V=64:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                  35.773 us   35.781 us   44.596 ns  [35.759 us, 35.804 us]
+Manual find+loop        8.328 us    8.344 us   42.494 ns  [8.323 us, 8.366 us]
+  Speedup: 0.23x
+
+unordered_map<string, double> vs Manual Find
+--------------------------------------------
+  [2026-01-17 19:50:19] CPU: 2064 MHz (base: 3686)
+K=64:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                 757.046 ns  751.312 ns   14.688 ns  [743.879 ns, 758.745 ns]
+Manual find           468.517 ns  473.250 ns   11.377 ns  [467.493 ns, 479.008 ns]
+  Speedup: 0.62x
+
+K=256:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                   2.905 us    2.933 us  127.905 ns  [2.868 us, 2.998 us]
+Manual find             1.821 us    1.820 us   35.812 ns  [1.802 us, 1.838 us]
+  Speedup: 0.63x
+
+K=1024:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                  11.214 us   11.198 us  108.230 ns  [11.143 us, 11.253 us]
+Manual find             7.619 us    7.621 us   81.053 ns  [7.580 us, 7.662 us]
+  Speedup: 0.68x
+
+K=4096:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                  44.385 us   44.473 us  551.741 ns  [44.194 us, 44.752 us]
+Manual find            31.465 us   31.344 us  586.115 ns  [31.047 us, 31.640 us]
+  Speedup: 0.71x
+
+tuple<double,double,double> vs Manual 3 Compares
+------------------------------------------------
+  [2026-01-17 19:50:25] CPU: 1879 MHz (base: 3686)
+3 doubles (from 64 tuples):
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                 139.328 ns  139.596 ns    1.477 ns  [138.849 ns, 140.344 ns]
+Manual 3-cmp            0.610 ns    0.611 ns    0.028 ns  [0.597 ns, 0.625 ns]
+  Speedup: 0.00x
+
+tuple<double,double,double> vs Manual Fat-P Semantics
+-----------------------------------------------------
+  [2026-01-17 19:50:28] CPU: 2727 MHz (base: 3686)
+3 doubles (from 64 tuples):
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                 141.564 ns  141.248 ns    1.713 ns  [140.381 ns, 142.115 ns]
+Semantics baseline      1.872 ns    1.874 ns    0.006 ns  [1.872 ns, 1.877 ns]
+  Speedup: 0.01x
+
+Policy Comparison: vector<double>[10000]
+----------------------------------------
+  [2026-01-17 19:50:32] CPU: 3022 MHz (base: 3686)
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Standard               30.714 us   30.819 us  827.816 ns  [30.400 us, 31.238 us]
+Relative               63.327 us   63.630 us  937.997 ns  [63.156 us, 64.105 us]
+Hybrid                 32.656 us   32.733 us  482.973 ns  [32.489 us, 32.978 us]
+ULP (float)            18.393 us   18.403 us   46.307 ns  [18.380 us, 18.427 us]
+
+Note: ULP row uses vector<float>; others use vector<double>.
+
+Mismatch Detection (Early Exit Behavior)
+----------------------------------------
+  [2026-01-17 19:50:33] CPU: 2064 MHz (base: 3686)
+Skipped: kStopOnFirstError=false (no early-exit behavior to measure).
+
+Size Scaling with Per-Element Overhead
+--------------------------------------
+  [2026-01-17 19:50:33] CPU: 2580 MHz (base: 3686)
+N=10:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                  31.096 ns   31.097 ns    0.029 ns  [31.082 ns, 31.112 ns]
+Manual                  2.083 ns    2.086 ns    0.018 ns  [2.077 ns, 2.095 ns]
+  Speedup: 0.07x  |  Per-elem overhead: 2.901 ns
+
+N=100:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                 199.340 ns  199.318 ns    0.401 ns  [199.115 ns, 199.521 ns]
+Manual                 27.232 ns   27.326 ns    0.235 ns  [27.207 ns, 27.445 ns]
+  Speedup: 0.14x  |  Per-elem overhead: 1.721 ns
+
+N=1000:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                   1.888 us    1.888 us    4.670 ns  [1.886 us, 1.890 us]
+Manual                197.480 ns  198.124 ns    2.046 ns  [197.089 ns, 199.159 ns]
+  Speedup: 0.10x  |  Per-elem overhead: 1.690 ns
+
+N=10000:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                  18.729 us   18.763 us  149.834 ns  [18.687 us, 18.839 us]
+Manual                  2.335 us    2.340 us   15.909 ns  [2.332 us, 2.348 us]
+  Speedup: 0.12x  |  Per-elem overhead: 1.639 ns
+
+N=100000:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Fat-P                 180.996 us  181.201 us    2.160 us  [180.108 us, 182.294 us]
+Manual                 27.922 us   28.015 us  230.601 ns  [27.898 us, 28.131 us]
+  Speedup: 0.15x  |  Per-elem overhead: 1.531 ns
+
+Nested Container Overhead
+-------------------------
+  [2026-01-17 19:50:34] CPU: 2174 MHz (base: 3686)
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Flat [1000]             1.882 us    1.874 us   29.127 ns  [1.859 us, 1.889 us]
+  Per-element: 1.882 ns
+2-level [10x100]        1.982 us    1.971 us   30.960 ns  [1.956 us, 1.987 us]
+  Per-element: 1.982 ns
+3-level [5x10x20]       2.498 us    2.489 us   45.779 ns  [2.465 us, 2.512 us]
+  Per-element: 2.498 ns
+
+Note: All structures contain 1000 double elements total.
+
+
+EqualityAny Benchmarks
+======================
+
+std::any(double): Registry vs Direct
+------------------------------------
+  [2026-01-17 19:50:35] CPU: 1879 MHz (base: 3686)
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+any registry           77.582 ns   77.836 ns    0.857 ns  [77.403 ns, 78.270 ns]
+any_cast+typed          4.591 ns    4.586 ns    0.044 ns  [4.563 ns, 4.608 ns]
+direct double           1.637 ns    1.644 ns    0.031 ns  [1.628 ns, 1.659 ns]
+
+std::any(vector<double>) vs Direct
+----------------------------------
+  [2026-01-17 19:50:41] CPU: 2322 MHz (base: 3686)
+N=64:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+any(vector)           219.715 ns  219.102 ns    2.702 ns  [217.735 ns, 220.470 ns]
+direct vector         127.099 ns  127.567 ns    1.731 ns  [126.691 ns, 128.443 ns]
+  Speedup: 0.58x
+
+N=256:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+any(vector)           543.602 ns  541.727 ns    6.956 ns  [538.206 ns, 545.247 ns]
+direct vector         478.424 ns  479.729 ns   10.063 ns  [474.636 ns, 484.821 ns]
+  Speedup: 0.88x
+
+N=1024:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+any(vector)             1.846 us    1.849 us   26.876 ns  [1.836 us, 1.863 us]
+direct vector           1.879 us    1.878 us   24.253 ns  [1.866 us, 1.891 us]
+  Speedup: 1.02x
+
+N=4096:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+any(vector)             7.145 us    7.126 us   89.802 ns  [7.080 us, 7.171 us]
+direct vector           7.487 us    7.504 us  100.874 ns  [7.453 us, 7.555 us]
+  Speedup: 1.05x
+
+std::any(vector<any>) vs Direct vector<any>
+-------------------------------------------
+  [2026-01-17 19:50:42] CPU: 2764 MHz (base: 3686)
+N=32:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+any(vec<any>)           2.616 us    2.619 us   15.488 ns  [2.612 us, 2.627 us]
+direct vec<any>         2.499 us    2.504 us   14.828 ns  [2.496 us, 2.511 us]
+  Speedup: 0.96x
+
+N=128:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+any(vec<any>)          10.154 us   10.182 us  105.707 ns  [10.128 us, 10.235 us]
+direct vec<any>        10.065 us   10.082 us   94.225 ns  [10.035 us, 10.130 us]
+  Speedup: 0.99x
+
+N=512:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+any(vec<any>)          40.763 us   40.685 us  505.473 ns  [40.429 us, 40.941 us]
+direct vec<any>        40.053 us   40.187 us  372.576 ns  [39.998 us, 40.375 us]
+  Speedup: 0.98x
+
+N=2048:
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+any(vec<any>)         164.083 us  163.318 us    1.520 us  [162.549 us, 164.087 us]
+direct vec<any>       161.382 us  160.910 us    1.891 us  [159.953 us, 161.867 us]
+  Speedup: 0.98x
+
+std::any Edge Cases
+-------------------
+  [2026-01-17 19:51:30] CPU: 2359 MHz (base: 3686)
+Case                      Median        Mean      Stddev  CI95
+----------------------------------------------------------------------------
+Both empty              3.550 ns    3.520 ns    0.059 ns  [3.491 ns, 3.550 ns]
+Type mismatch          48.289 ns   48.410 ns    0.505 ns  [48.155 ns, 48.666 ns]
+Nested std::any        78.510 ns   78.492 ns    0.749 ns  [78.113 ns, 78.871 ns]
+
+Benchmark complete.

@@ -1,0 +1,138 @@
+[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  AllocationStrategies Comprehensive Benchmark Suite
+================================================================================
+
+Platform: Windows (warmup=3, measured=15, seed=12345)
+
+Competitor libraries: std::pmr boost::pool
+
+CPU Frequency Detection Diagnostics:
+  CPUID Leaf 0x16: NOT SUPPORTED
+    Max CPUID leaf:  0x23
+    Raw EAX:         0x0 (base: 0 MHz)
+    Raw EBX:         0x0 (max: 0 MHz)
+    Raw ECX:         0x0 (bus: 0 MHz)
+    Reason:          Base frequency is 0
+  Registry ~MHz:    3686 MHz
+  Using:            Registry base (3686 MHz) - CPUID 0x16 unavailable, using registry directly
+  PDH Monitor:      AVAILABLE
+    Current %:      92.0%
+  Captured state:
+    Reference:      3686 MHz (base)
+    Current:        3391 MHz (measured)
+    Throttle %:     8.0%
+    Reliable:       YES
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. Medians are the primary reported statistic
+  4. Correctness verified after each benchmark
+
+Checking initial CPU state...
+[2026-01-17 19:48:30] Initial CPU: 3391 MHz (base: 3686)
+  Waiting for CPU to stabilize...
+[Ready: 3391/3686 MHz (8% below base)]
+
+
+================================================================================
+  SINGLE ALLOCATION/DEALLOCATION
+================================================================================
+
+[2026-01-17 19:48:30] Start CPU: 3391 MHz (base: 3686)
+Contract: Measures time for one allocate() + deallocate() cycle. Allocation includes construction, deallocation includes destruction.
+
+Allocator                          Median (ns)     Mean (ns)      Stddev                CI95
+--------------------------------------------------------------------------------------------
+fat_p::NewDeleteAllocator                19.22         19.23        0.08  [  19.18,   19.27]
+fat_p::BlockAllocator                     1.11          1.14        0.05  [   1.11,    1.17]
+fat_p::PoolAllocator                      1.32          1.30        0.11  [   1.25,    1.36]
+--------------------------------------------------------------------------------------------
+std::allocator                           19.14         19.18        0.10  [  19.12,   19.23]
+std::pmr::monotonic                       1.79          1.75        0.12  [   1.68,    1.82]
+std::pmr::unsync_pool                     3.86          3.84        0.20  [   3.73,    3.95]
+boost::pool (raw)                         1.15          1.17        0.08  [   1.13,    1.22]
+
+  [Correctness: PASS]
+[2026-01-17 19:48:30] End CPU: 2285 MHz (base: 3686)
+
+================================================================================
+  BURST ALLOCATION (100 objects)
+================================================================================
+
+[2026-01-17 19:48:31] Start CPU: 2727 MHz (base: 3686)
+Contract: Allocate 100 objects, then deallocate all. Measures bulk allocation pattern common in container growth.
+
+Allocator                          Median (ns)     Mean (ns)      Stddev                CI95
+--------------------------------------------------------------------------------------------
+fat_p::NewDeleteAllocator              2348.26       2348.15        8.09  [2343.68, 2352.61]
+fat_p::BlockAllocator                    96.33         96.33        1.28  [  95.62,   97.03]
+fat_p::PoolAllocator                    206.79        208.76       18.27  [ 198.67,  218.85]
+--------------------------------------------------------------------------------------------
+std::allocator                         2346.67       2347.23        7.46  [2343.11, 2351.35]
+std::pmr::monotonic                     196.48        196.09        3.59  [ 194.11,  198.08]
+std::pmr::unsync_pool                   638.63        635.75       10.69  [ 629.85,  641.66]
+boost::pool (raw)                       176.19        175.95        2.16  [ 174.76,  177.14]
+[2026-01-17 19:48:32] End CPU: 2137 MHz (base: 3686)
+
+================================================================================
+  CHURN PATTERN (Steady-State Mixed Operations)
+================================================================================
+
+[2026-01-17 19:48:32] Start CPU: 3022 MHz (base: 3686)
+Contract: Simulates container churn with interleaved alloc/dealloc. Free list reuse should show advantage for BlockAllocator/PoolAllocator.
+
+Allocator                          Median (ns)     Mean (ns)      Stddev                CI95
+--------------------------------------------------------------------------------------------
+fat_p::NewDeleteAllocator                19.53         19.55        0.05  [  19.52,   19.58]
+fat_p::BlockAllocator (warmed)            1.11          1.11        0.00  [   1.11,    1.12]
+fat_p::PoolAllocator (warmed)             1.33          1.33        0.02  [   1.32,    1.34]
+boost::pool (warmed)                      1.23          1.23        0.08  [   1.19,    1.28]
+[2026-01-17 19:48:32] End CPU: 2064 MHz (base: 3686)
+
+================================================================================
+  SIZE SCALING (Allocation Count)
+================================================================================
+
+[2026-01-17 19:48:32] Start CPU: 1769 MHz (base: 3686)
+Contract: Measures how allocation time scales with number of live objects. BlockAllocator should show constant time regardless of count.
+
+
+--- N = 100 ---
+
+Allocator                          Median (ns)     Mean (ns)      Stddev                CI95
+--------------------------------------------------------------------------------------------
+fat_p::NewDeleteAllocator                18.89         22.15        7.54  [  17.99,   26.32]
+fat_p::BlockAllocator                     1.49          1.55        0.45  [   1.30,    1.80]
+boost::pool                               1.42          1.70        0.66  [   1.33,    2.06]
+
+--- N = 1000 ---
+
+Allocator                          Median (ns)     Mean (ns)      Stddev                CI95
+--------------------------------------------------------------------------------------------
+fat_p::NewDeleteAllocator                19.30         19.18        0.44  [  18.94,   19.42]
+fat_p::BlockAllocator                     1.27          1.34        0.18  [   1.24,    1.44]
+boost::pool                               1.42          1.37        0.10  [   1.32,    1.43]
+
+--- N = 10000 ---
+
+Allocator                          Median (ns)     Mean (ns)      Stddev                CI95
+--------------------------------------------------------------------------------------------
+fat_p::NewDeleteAllocator                18.63         18.80        0.30  [  18.63,   18.96]
+fat_p::BlockAllocator                     1.44          1.46        0.23  [   1.34,    1.59]
+boost::pool                               1.43          1.44        0.06  [   1.40,    1.47]
+
+--- N = 50000 ---
+
+Allocator                          Median (ns)     Mean (ns)      Stddev                CI95
+--------------------------------------------------------------------------------------------
+fat_p::NewDeleteAllocator                18.65         18.80        0.50  [  18.53,   19.08]
+fat_p::BlockAllocator                     1.29          1.35        0.20  [   1.24,    1.46]
+boost::pool                               1.42          1.37        0.11  [   1.30,    1.43]
+[2026-01-17 19:48:32] End CPU: 2322 MHz (base: 3686)
+
+================================================================================
+  Benchmark Complete
+================================================================================
+[2026-01-17 19:48:32] Final CPU: 2322 MHz (base: 3686)

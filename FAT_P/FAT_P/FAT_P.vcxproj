@@ -220,6 +220,7 @@
     <ClInclude Include="fat_p\ObjectPool.h" />
     <ClInclude Include="fat_p\PipeOperator.h" />
     <ClInclude Include="fat_p\PolicyIterator.h" />
+    <ClInclude Include="fat_p\PolicyQueue.h" />
     <ClInclude Include="fat_p\RateLimiter.h" />
     <ClInclude Include="fat_p\Reflection.h" />
     <ClInclude Include="fat_p\ScopeGuard.h" />
@@ -250,6 +251,7 @@
     <ClInclude Include="fat_p\TypeTraits.h" />
     <ClInclude Include="fat_p\ValueGuard.h" />
     <ClInclude Include="fat_p\ViewLifetimeTracking.h" />
+    <ClInclude Include="fat_p\WorkQueue.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

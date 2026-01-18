@@ -1,0 +1,120 @@
+[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  SlotMap Comprehensive Benchmark Suite
+================================================================================
+
+Platform: Windows (warmup=3, measured=15, seed=12345)
+
+Libraries detected:
+  [x] fat_p::SlotMap
+  [x] entt::registry (popular ECS library)
+  [x] plf::hive (stable pointer container)
+  [x] sg14::slot_map (WG21 study group reference)
+  [x] boost::container::stable_vector
+  [x] std::unordered_map (baseline)
+  [x] std::map (baseline)
+  [x] std::vector (baseline)
+
+CPU Frequency Detection Diagnostics:
+  CPUID Leaf 0x16: NOT SUPPORTED
+    Max CPUID leaf:  0x23
+    Raw EAX:         0x0 (base: 0 MHz)
+    Raw EBX:         0x0 (max: 0 MHz)
+    Raw ECX:         0x0 (bus: 0 MHz)
+    Reason:          Base frequency is 0
+  Registry ~MHz:    3686 MHz
+  Using:            Registry base (3686 MHz) - CPUID 0x16 unavailable, using registry directly
+  PDH Monitor:      AVAILABLE
+    Current %:      94.0%
+  Captured state:
+    Reference:      3686 MHz (base)
+    Current:        3464 MHz (measured)
+    Throttle %:     6.0%
+    Reliable:       YES
+
+Design Invariants:
+  1. Each measured run executes exactly one timed iteration per library
+  2. Library execution order is randomized per run
+  3. Setup/teardown outside timed regions
+  4. All libraries observe same distribution of machine states
+  5. Medians are the primary reported statistic
+
+Expected Results:
+  - SlotMap excels at: iteration (dense storage), O(1) operations, ABA safety
+  - EnTT: similar design, optimized for ECS patterns
+  - plf::hive: stable pointers, good iteration, no handle safety
+  - unordered_map: fast lookup but scattered iteration
+  - std::map: consistent O(log n) but slowest overall
+  - std::vector: fastest raw access but no handle safety
+
+Checking initial CPU state...
+[2026-01-17 20:30:19] Initial CPU: 2027 MHz (base: 3686)
+Waiting for CPU to stabilize...
+[WARNING: CPU frequency still unstable after 30s]
+WARNING: CPU frequency still fluctuating, results may have higher variance.
+
+
+================================================================================
+  SECTION 1: Core Operations (Insert, Access, Erase)
+================================================================================
+[2026-01-17 20:30:49] Section start CPU: 2469 MHz (base: 3686)
+
+--- N = 1000 ---
+[2026-01-17 20:30:49] CPU: 2469 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2617 MHz]
+  Sequential Insert:
+              fat_p::SlotMap:    10.20 ns/op (+/-  4.50)
+              entt::registry:    34.10 ns/op (+/- 10.82)
+                   plf::hive:     7.30 ns/op (+/-  0.13)
+              sg14::slot_map:    13.50 ns/op (+/-  3.03)
+          std::unordered_map:    20.60 ns/op (+/-  6.73)
+                    std::map:    50.40 ns/op (+/- 12.71)
+           std::vector (raw):     7.50 ns/op (+/-  2.53)
+  Random Access (valid):
+              fat_p::SlotMap:     2.00 ns/op (+/-  0.63)
+              entt::registry:     5.00 ns/op (+/-  1.73)
+                   plf::hive:     1.60 ns/op (+/-  0.50)
+              sg14::slot_map:     2.10 ns/op (+/-  0.66)
+          std::unordered_map:     5.70 ns/op (+/-  2.02)
+                    std::map:    28.60 ns/op (+/- 14.18)
+           std::vector (raw):     1.60 ns/op (+/-  0.48)
+  Erase (25%):
+              fat_p::SlotMap:     5.60 ns/op (+/-  0.87)
+              entt::registry:    34.00 ns/op (+/-  1.10)
+                   plf::hive:     7.20 ns/op (+/-  0.54)
+              sg14::slot_map:     5.60 ns/op (+/-  0.41)
+          std::unordered_map:    16.40 ns/op (+/-  0.59)
+                    std::map:    46.00 ns/op (+/-  6.39)
+           std::vector (raw):     1.60 ns/op (+/-  0.20)
+
+--- N = 10000 ---
+[2026-01-17 20:31:38] CPU: 2285 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2469 MHz]
+  Sequential Insert:
+              fat_p::SlotMap:    15.19 ns/op (+/-  2.14)
+              entt::registry:    30.79 ns/op (+/-  1.84)
+                   plf::hive:    10.44 ns/op (+/-  1.92)
+              sg14::slot_map:    17.75 ns/op (+/-  2.22)
+          std::unordered_map:    40.75 ns/op (+/-  5.59)
+                    std::map:    62.65 ns/op (+/-  3.12)
+           std::vector (raw):    11.71 ns/op (+/-  1.33)
+  Random Access (valid):
+              fat_p::SlotMap:     2.60 ns/op (+/-  0.18)
+              entt::registry:     5.72 ns/op (+/-  0.59)
+                   plf::hive:     1.98 ns/op (+/-  0.09)
+              sg14::slot_map:     2.66 ns/op (+/-  0.12)
+          std::unordered_map:    12.72 ns/op (+/-  0.39)
+                    std::map:    66.82 ns/op (+/-  4.30)
+           std::vector (raw):     1.65 ns/op (+/-  0.10)
+  Erase (25%):
+              fat_p::SlotMap:     6.88 ns/op (+/-  1.09)
+              entt::registry:    38.44 ns/op (+/-  2.29)
+                   plf::hive:     8.92 ns/op (+/-  0.94)
+              sg14::slot_map:     6.04 ns/op (+/-  0.65)
+          std::unordered_map:    28.04 ns/op (+/-  3.28)
+                    std::map:   140.48 ns/op (+/-  9.23)
+           std::vector (raw):     0.52 ns/op (+/-  0.04)
+
+--- N = 100000 ---
+[2026-01-17 20:32:06] CPU: 2690 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2322 MHz]

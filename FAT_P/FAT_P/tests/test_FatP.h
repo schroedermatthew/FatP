@@ -164,6 +164,8 @@ bool test_JsonLite();
 bool test_JsonStreamLite();
 bool test_LockFreeQueue();
 bool test_LockFreeRingBuffer();
+bool test_PolicyQueue();
+bool test_WorkQueue();
 bool test_MemoryMappedFile();
 bool test_NumaAllocator();
 bool test_ObjectPool();

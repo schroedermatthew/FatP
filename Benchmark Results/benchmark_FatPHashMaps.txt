@@ -1,0 +1,366 @@
+[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  StableHashMap Comprehensive Benchmark Suite (Round-Robin Architecture)
+================================================================================
+
+Platform: Windows (warmup=3, measured=15, seed=12345)
+Competitor libraries: tsl ankerl absl boost llvm
+
+CPU Frequency Detection Diagnostics:
+  CPUID Leaf 0x16: NOT SUPPORTED
+    Max CPUID leaf:  0x23
+    Raw EAX:         0x0 (base: 0 MHz)
+    Raw EBX:         0x0 (max: 0 MHz)
+    Raw ECX:         0x0 (bus: 0 MHz)
+    Reason:          Base frequency is 0
+  Registry ~MHz:    3686 MHz
+  Using:            Registry base (3686 MHz) - CPUID 0x16 unavailable, using registry directly
+  PDH Monitor:      AVAILABLE
+    Current %:      62.0%
+  Captured state:
+    Reference:      3686 MHz (base)
+    Current:        2285 MHz (measured)
+    Throttle %:     38.0%
+    Reliable:       YES
+
+Design Invariants:
+  1. Each measured run executes exactly one timed iteration per library
+  2. Library execution order is randomized per run
+  3. Setup/reserve outside timed regions (Insert is amortized)
+  4. All libraries observe same distribution of machine states
+  5. Medians are the primary reported statistic
+  6. Waits for CPU frequency to stabilize before each test
+
+Cooling delays (min sleep): section=2000ms, size=1000ms, case=300ms
+Stability detection: frequency variance < 10% AND >= 60% of base (under load)
+
+Checking initial CPU state...
+[2026-01-17 19:52:33] Initial CPU: 2285 MHz (base: 3686)
+Waiting for CPU to stabilize before benchmarks...
+[CPU stable at 2211 MHz (60% of base, variance: 8.3%)]
+
+
+================================================================================
+  CORE OPERATIONS BENCHMARK (Round-Robin)
+================================================================================
+
+Comparing FastHashMap and StableHashMap (std::hash vs SplitMix64Hash)
+vs std::unordered_map vs tsl::robin_map vs ankerl::unordered_dense vs absl::flat_hash_map vs boost::unordered_flat_map vs llvm::DenseMap
+
+Methodology:
+  - 3 warmup + 15 measured runs per test
+  - Round-robin execution with randomized order per run
+  - All libraries observe same distribution of machine states
+  - Primary metric: median (ns/op)
+  - FastHashMap SIMD backend: AVX2
+  - StableHashMap SIMD backend: AVX2
+  - FastHashMap policies: BackwardShift (BS), Tombstone (TS)
+  - StableHashMap: Reference-stable (pointers valid across insert/reserve)
+
+Cases (ns/op):
+  Insert: insert N unique keys into empty map (after reserve)
+  Find(hit): find N present keys
+  Find(miss): find N absent keys
+  Erase: erase 25% of present keys (random order)
+  Churn: key replacement churn (erase one existing key, insert new key; size constant)
+
+[2026-01-17 19:52:44] CPU: 2285 MHz (base: 3686)
+N = 10000
+[2026-01-17 19:52:44] Insert (amortized) CPU: 2285 MHz (base: 3686)
+[CPU stable at 1938 MHz (53% of base, variance: 7.6%)]
+[2026-01-17 19:52:46] Find(hit) CPU: 2027 MHz (base: 3686)
+[CPU stable at 1865 MHz (51% of base, variance: 5.9%)]
+[2026-01-17 19:52:49] Find(miss) CPU: 1879 MHz (base: 3686)
+[CPU stable at 1938 MHz (53% of base, variance: 5.7%)]
+[2026-01-17 19:52:55] Erase (25%) CPU: 1879 MHz (base: 3686)
+[CPU stable at 1872 MHz (51% of base, variance: 5.9%)]
+[2026-01-17 19:52:56] Churn CPU: 1806 MHz (base: 3686)
+-------------------------------------------------------------------------------
+                           Map    Insert      Find      Miss     Erase     Churn
+-------------------------------------------------------------------------------
+               FastHashMap[BS]      7.20      4.85      4.81     28.24     19.85
+    FastHashMap[BS]+SplitMix64      4.37      2.58      3.37     21.32     15.46
+               FastHashMap[TS]      7.41      4.72      4.95      4.36     17.79
+    FastHashMap[TS]+SplitMix64      4.71      2.50      3.46      2.80     14.42
+                 StableHashMap     27.17      6.13      4.44     18.12     32.49
+      StableHashMap+SplitMix64     24.30      3.00      1.75     13.56     28.21
+     StableHashMap[Block]+SM64      6.01      2.75      1.84      4.08     14.54
+            std::unordered_map     34.96      6.75      8.84     22.44     26.34
+                tsl::robin_map      7.29      6.32      7.68      8.88      8.83
+       ankerl::unordered_dense     19.92      8.07      3.24     18.72     14.43
+           absl::flat_hash_map     11.72      2.74      3.17      6.64     10.54
+           absl::node_hash_map     29.33      3.04      3.17     15.88     24.15
+     boost::unordered_flat_map      6.72      1.92      1.39      2.40      2.87
+     boost::unordered_node_map     26.04      2.24      1.42     12.40     17.75
+                llvm::DenseMap      7.81      4.74      9.12      5.40     19.81
+
+Speedup vs std::unordered_map:
+  Flat/Fast Maps:
+    Top 3 Insert: FastHashMap[BS]+SplitMix64 (8.00x), FastHashMap[TS]+SplitMix64 (7.42x), boost::unordered_flat_map (5.20x)
+    Top 3 Find: boost::unordered_flat_map (3.52x), FastHashMap[TS]+SplitMix64 (2.70x), FastHashMap[BS]+SplitMix64 (2.62x)
+    Top 3 Miss: boost::unordered_flat_map (6.36x), absl::flat_hash_map (2.79x), ankerl::unordered_dense (2.73x)
+    Top 3 Erase: boost::unordered_flat_map (9.35x), FastHashMap[TS]+SplitMix64 (8.01x), FastHashMap[TS] (5.15x)
+    Top 3 Churn: boost::unordered_flat_map (9.20x), tsl::robin_map (2.98x), absl::flat_hash_map (2.50x)
+  Node-Based Maps (reference-stable):
+    Top 3 Insert: StableHashMap[Block]+SM64 (5.82x), StableHashMap+SplitMix64 (1.44x), boost::unordered_node_map (1.34x)
+    Top 3 Find: boost::unordered_node_map (3.01x), StableHashMap[Block]+SM64 (2.45x), StableHashMap+SplitMix64 (2.25x)
+    Top 3 Miss: boost::unordered_node_map (6.23x), StableHashMap+SplitMix64 (5.05x), StableHashMap[Block]+SM64 (4.80x)
+    Top 3 Erase: StableHashMap[Block]+SM64 (5.50x), boost::unordered_node_map (1.81x), StableHashMap+SplitMix64 (1.65x)
+    Top 3 Churn: StableHashMap[Block]+SM64 (1.81x), boost::unordered_node_map (1.48x), absl::node_hash_map (1.09x)
+
+  All Results:
+    FastHashMap[BS]                 4.86x insert,  1.39x find,  1.84x miss,  0.79x erase,  1.33x churn
+    FastHashMap[BS]+SplitMix64      8.00x insert,  2.62x find,  2.62x miss,  1.05x erase,  1.70x churn
+    FastHashMap[TS]                 4.72x insert,  1.43x find,  1.79x miss,  5.15x erase,  1.48x churn
+    FastHashMap[TS]+SplitMix64      7.42x insert,  2.70x find,  2.55x miss,  8.01x erase,  1.83x churn
+    StableHashMap                   1.29x insert,  1.10x find,  1.99x miss,  1.24x erase,  0.81x churn
+    StableHashMap+SplitMix64        1.44x insert,  2.25x find,  5.05x miss,  1.65x erase,  0.93x churn
+    StableHashMap[Block]+SM64       5.82x insert,  2.45x find,  4.80x miss,  5.50x erase,  1.81x churn
+    tsl::robin_map                  4.80x insert,  1.07x find,  1.15x miss,  2.53x erase,  2.98x churn
+    ankerl::unordered_dense         1.76x insert,  0.84x find,  2.73x miss,  1.20x erase,  1.83x churn
+    absl::flat_hash_map             2.98x insert,  2.46x find,  2.79x miss,  3.38x erase,  2.50x churn
+    absl::node_hash_map             1.19x insert,  2.22x find,  2.79x miss,  1.41x erase,  1.09x churn
+    boost::unordered_flat_map       5.20x insert,  3.52x find,  6.36x miss,  9.35x erase,  9.20x churn
+    boost::unordered_node_map       1.34x insert,  3.01x find,  6.23x miss,  1.81x erase,  1.48x churn
+    llvm::DenseMap                  4.48x insert,  1.42x find,  0.97x miss,  4.16x erase,  1.33x churn
+
+[CPU stable at 1879 MHz (51% of base, variance: 5.9%)]e: 13.6%, need <10.0%)]
+ [Ready: 1953 MHz]
+[2026-01-17 19:52:58] CPU: 1953 MHz (base: 3686)
+N = 100000
+[2026-01-17 19:52:58] Insert (amortized) CPU: 1953 MHz (base: 3686)
+[CPU stable at 1828 MHz (50% of base, variance: 4.0%)]
+[2026-01-17 19:53:00] Find(hit) CPU: 1843 MHz (base: 3686)
+[CPU stable at 1909 MHz (52% of base, variance: 7.7%)]
+[2026-01-17 19:53:05] Find(miss) CPU: 1843 MHz (base: 3686)
+[CPU stable at 1931 MHz (52% of base, variance: 9.5%)]
+[2026-01-17 19:53:13] Erase (25%) CPU: 1990 MHz (base: 3686)
+[CPU stable at 1828 MHz (50% of base, variance: 4.0%)]
+[2026-01-17 19:53:14] Churn CPU: 1806 MHz (base: 3686)
+-------------------------------------------------------------------------------
+                           Map    Insert      Find      Miss     Erase     Churn
+-------------------------------------------------------------------------------
+               FastHashMap[BS]      8.56      6.96      7.20     40.96     30.24
+    FastHashMap[BS]+SplitMix64      5.90      4.49      5.20     31.82     25.31
+               FastHashMap[TS]      8.40      5.87      7.17      5.46     17.55
+    FastHashMap[TS]+SplitMix64      5.60      3.56      4.93      3.44     13.77
+                 StableHashMap     30.17     11.03      7.74     28.43     52.69
+      StableHashMap+SplitMix64     27.04      6.59      4.35     22.28     47.48
+     StableHashMap[Block]+SM64      9.13      4.48      3.38      6.65     15.37
+            std::unordered_map     40.83     10.22     11.95     34.40     55.44
+                tsl::robin_map     18.99      9.03     12.80     12.75     12.60
+       ankerl::unordered_dense     24.23     11.55      6.66     32.92     26.10
+           absl::flat_hash_map     11.65      3.62      5.90     10.60     18.05
+           absl::node_hash_map     31.52      4.94      6.29     24.68     49.27
+     boost::unordered_flat_map      7.33      2.83      2.46      3.35     11.30
+     boost::unordered_node_map     29.66      4.40      3.08     21.02     42.39
+                llvm::DenseMap     13.05      3.89      7.39      3.87     10.52
+
+Speedup vs std::unordered_map:
+  Flat/Fast Maps:
+    Top 3 Insert: FastHashMap[TS]+SplitMix64 (7.29x), FastHashMap[BS]+SplitMix64 (6.92x), boost::unordered_flat_map (5.57x)
+    Top 3 Find: boost::unordered_flat_map (3.61x), FastHashMap[TS]+SplitMix64 (2.87x), absl::flat_hash_map (2.83x)
+    Top 3 Miss: boost::unordered_flat_map (4.86x), FastHashMap[TS]+SplitMix64 (2.43x), FastHashMap[BS]+SplitMix64 (2.30x)
+    Top 3 Erase: boost::unordered_flat_map (10.27x), FastHashMap[TS]+SplitMix64 (10.01x), llvm::DenseMap (8.88x)
+    Top 3 Churn: llvm::DenseMap (5.27x), boost::unordered_flat_map (4.90x), tsl::robin_map (4.40x)
+  Node-Based Maps (reference-stable):
+    Top 3 Insert: StableHashMap[Block]+SM64 (4.47x), StableHashMap+SplitMix64 (1.51x), boost::unordered_node_map (1.38x)
+    Top 3 Find: boost::unordered_node_map (2.32x), StableHashMap[Block]+SM64 (2.28x), absl::node_hash_map (2.07x)
+    Top 3 Miss: boost::unordered_node_map (3.88x), StableHashMap[Block]+SM64 (3.54x), StableHashMap+SplitMix64 (2.75x)
+    Top 3 Erase: StableHashMap[Block]+SM64 (5.17x), boost::unordered_node_map (1.64x), StableHashMap+SplitMix64 (1.54x)
+    Top 3 Churn: StableHashMap[Block]+SM64 (3.61x), boost::unordered_node_map (1.31x), StableHashMap+SplitMix64 (1.17x)
+
+  All Results:
+    FastHashMap[BS]                 4.77x insert,  1.47x find,  1.66x miss,  0.84x erase,  1.83x churn
+    FastHashMap[BS]+SplitMix64      6.92x insert,  2.28x find,  2.30x miss,  1.08x erase,  2.19x churn
+    FastHashMap[TS]                 4.86x insert,  1.74x find,  1.67x miss,  6.30x erase,  3.16x churn
+    FastHashMap[TS]+SplitMix64      7.29x insert,  2.87x find,  2.43x miss, 10.01x erase,  4.03x churn
+    StableHashMap                   1.35x insert,  0.93x find,  1.55x miss,  1.21x erase,  1.05x churn
+    StableHashMap+SplitMix64        1.51x insert,  1.55x find,  2.75x miss,  1.54x erase,  1.17x churn
+    StableHashMap[Block]+SM64       4.47x insert,  2.28x find,  3.54x miss,  5.17x erase,  3.61x churn
+    tsl::robin_map                  2.15x insert,  1.13x find,  0.93x miss,  2.70x erase,  4.40x churn
+    ankerl::unordered_dense         1.68x insert,  0.89x find,  1.80x miss,  1.04x erase,  2.12x churn
+    absl::flat_hash_map             3.50x insert,  2.83x find,  2.02x miss,  3.25x erase,  3.07x churn
+    absl::node_hash_map             1.30x insert,  2.07x find,  1.90x miss,  1.39x erase,  1.13x churn
+    boost::unordered_flat_map       5.57x insert,  3.61x find,  4.86x miss, 10.27x erase,  4.90x churn
+    boost::unordered_node_map       1.38x insert,  2.32x find,  3.88x miss,  1.64x erase,  1.31x churn
+    llvm::DenseMap                  3.13x insert,  2.63x find,  1.62x miss,  8.88x erase,  5.27x churn
+
+[Cooling: before next size][CPU stable at 1879 MHz (51% of base, variance: 5.9%)]
+ [Ready: 1953 MHz]
+[2026-01-17 19:53:18] CPU: 1953 MHz (base: 3686)
+N = 1000000
+[2026-01-17 19:53:18] Insert (amortized) CPU: 2064 MHz (base: 3686)
+[CPU stable at 2005 MHz (54% of base, variance: 7.4%)]
+[2026-01-17 19:53:34] Find(hit) CPU: 1953 MHz (base: 3686)
+[CPU stable at 1843 MHz (50% of base, variance: 4.0%)]
+[2026-01-17 19:53:53] Find(miss) CPU: 1843 MHz (base: 3686)
+[CPU stable at 1894 MHz (51% of base, variance: 7.8%)]
+[2026-01-17 19:54:12] Erase (25%) CPU: 1879 MHz (base: 3686)
+[CPU stable at 1857 MHz (50% of base, variance: 6.0%)]
+[2026-01-17 19:54:31] Churn CPU: 1843 MHz (base: 3686)
+-------------------------------------------------------------------------------
+                           Map    Insert      Find      Miss     Erase     Churn
+-------------------------------------------------------------------------------
+               FastHashMap[BS]     14.96     27.67     10.14     51.62     38.36
+    FastHashMap[BS]+SplitMix64     11.71     20.11      6.87     38.41     29.02
+               FastHashMap[TS]     14.06     24.71      8.59     20.10     22.25
+    FastHashMap[TS]+SplitMix64     10.62     16.60      5.68     15.01     15.60
+                 StableHashMap     37.82     26.30      6.46    131.29    120.14
+      StableHashMap+SplitMix64     35.92     17.02      3.57    104.78    114.65
+     StableHashMap[Block]+SM64     16.59     11.54      3.20     28.13     28.73
+            std::unordered_map     97.52     33.11     38.76    151.38    203.33
+                tsl::robin_map     28.77     24.66     26.71     31.87     30.02
+       ankerl::unordered_dense     40.21     10.40      5.67     37.82     22.83
+           absl::flat_hash_map     19.57     16.92      4.17     26.64     25.66
+           absl::node_hash_map     41.36     17.35      8.92    119.07    118.14
+     boost::unordered_flat_map     11.34      8.97      2.34     10.12      9.52
+     boost::unordered_node_map     37.31     12.28      4.81     97.14     99.99
+                llvm::DenseMap     21.99     10.82     14.55      9.75     19.62
+
+Speedup vs std::unordered_map:
+  Flat/Fast Maps:
+    Top 3 Insert: FastHashMap[TS]+SplitMix64 (9.18x), boost::unordered_flat_map (8.60x), FastHashMap[BS]+SplitMix64 (8.33x)
+    Top 3 Find: boost::unordered_flat_map (3.69x), ankerl::unordered_dense (3.18x), llvm::DenseMap (3.06x)
+    Top 3 Miss: boost::unordered_flat_map (16.54x), absl::flat_hash_map (9.30x), ankerl::unordered_dense (6.84x)
+    Top 3 Erase: llvm::DenseMap (15.53x), boost::unordered_flat_map (14.96x), FastHashMap[TS]+SplitMix64 (10.09x)
+    Top 3 Churn: boost::unordered_flat_map (21.36x), FastHashMap[TS]+SplitMix64 (13.04x), llvm::DenseMap (10.36x)
+  Node-Based Maps (reference-stable):
+    Top 3 Insert: StableHashMap[Block]+SM64 (5.88x), StableHashMap+SplitMix64 (2.71x), boost::unordered_node_map (2.61x)
+    Top 3 Find: StableHashMap[Block]+SM64 (2.87x), boost::unordered_node_map (2.70x), StableHashMap+SplitMix64 (1.95x)
+    Top 3 Miss: StableHashMap[Block]+SM64 (12.11x), StableHashMap+SplitMix64 (10.85x), boost::unordered_node_map (8.06x)
+    Top 3 Erase: StableHashMap[Block]+SM64 (5.38x), boost::unordered_node_map (1.56x), StableHashMap+SplitMix64 (1.44x)
+    Top 3 Churn: StableHashMap[Block]+SM64 (7.08x), boost::unordered_node_map (2.03x), StableHashMap+SplitMix64 (1.77x)
+
+  All Results:
+    FastHashMap[BS]                 6.52x insert,  1.20x find,  3.82x miss,  2.93x erase,  5.30x churn
+    FastHashMap[BS]+SplitMix64      8.33x insert,  1.65x find,  5.64x miss,  3.94x erase,  7.01x churn
+    FastHashMap[TS]                 6.94x insert,  1.34x find,  4.51x miss,  7.53x erase,  9.14x churn
+    FastHashMap[TS]+SplitMix64      9.18x insert,  2.00x find,  6.82x miss, 10.09x erase, 13.04x churn
+    StableHashMap                   2.58x insert,  1.26x find,  6.00x miss,  1.15x erase,  1.69x churn
+    StableHashMap+SplitMix64        2.71x insert,  1.95x find, 10.85x miss,  1.44x erase,  1.77x churn
+    StableHashMap[Block]+SM64       5.88x insert,  2.87x find, 12.11x miss,  5.38x erase,  7.08x churn
+    tsl::robin_map                  3.39x insert,  1.34x find,  1.45x miss,  4.75x erase,  6.77x churn
+    ankerl::unordered_dense         2.43x insert,  3.18x find,  6.84x miss,  4.00x erase,  8.91x churn
+    absl::flat_hash_map             4.98x insert,  1.96x find,  9.30x miss,  5.68x erase,  7.92x churn
+    absl::node_hash_map             2.36x insert,  1.91x find,  4.35x miss,  1.27x erase,  1.72x churn
+    boost::unordered_flat_map       8.60x insert,  3.69x find, 16.54x miss, 14.96x erase, 21.36x churn
+    boost::unordered_node_map       2.61x insert,  2.70x find,  8.06x miss,  1.56x erase,  2.03x churn
+    llvm::DenseMap                  4.44x insert,  3.06x find,  2.66x miss, 15.53x erase, 10.36x churn
+  [NOTE] std::unordered_map: median 151.38 ns (node-based pointer chasing / cache locality effects)
+  [NOTE] std::unordered_map: median 203.33 ns (node-based pointer chasing / cache locality effects)
+
+--- Detailed Statistics for FastHashMap[BS] at N=1000000 ---
+  Insert (amortized): median=   14.96 mean=   14.86 +/-  0.43 CI95(mean)=[14.64,15.08] min=14.12 max=15.77
+     Find(hit): median=   27.67 mean=   27.72 +/-  0.94 CI95(mean)=[27.25,28.20] min=25.97 max=29.15
+    Find(miss): median=   10.14 mean=   10.29 +/-  0.82 CI95(mean)=[9.87,10.70] min=9.06 max=12.18
+   Erase (25%): median=   51.62 mean=   51.58 +/-  2.32 CI95(mean)=[50.40,52.75] min=47.58 max=56.52
+         Churn: median=   38.36 mean=   38.12 +/-  0.90 CI95(mean)=[37.67,38.58] min=36.90 max=39.75
+
+--- Detailed Statistics for FastHashMap[BS]+SplitMix64 at N=1000000 ---
+  Insert (amortized): median=   11.71 mean=   11.68 +/-  0.55 CI95(mean)=[11.40,11.96] min=10.78 max=12.82
+     Find(hit): median=   20.11 mean=   20.13 +/-  0.70 CI95(mean)=[19.77,20.48] min=18.85 max=21.37
+    Find(miss): median=    6.87 mean=    7.09 +/-  0.60 CI95(mean)=[6.78,7.39] min=6.57 max=8.48
+   Erase (25%): median=   38.41 mean=   38.00 +/-  1.21 CI95(mean)=[37.39,38.61] min=36.28 max=40.02
+         Churn: median=   29.02 mean=   29.06 +/-  0.46 CI95(mean)=[28.82,29.29] min=28.39 max=29.96
+
+--- Detailed Statistics for FastHashMap[TS] at N=1000000 ---
+  Insert (amortized): median=   14.06 mean=   14.03 +/-  0.52 CI95(mean)=[13.76,14.29] min=13.23 max=15.01
+     Find(hit): median=   24.71 mean=   25.10 +/-  2.77 CI95(mean)=[23.70,26.50] min=19.75 max=30.69
+    Find(miss): median=    8.59 mean=    8.87 +/-  1.01 CI95(mean)=[8.36,9.39] min=7.12 max=10.64
+   Erase (25%): median=   20.10 mean=   20.31 +/-  1.88 CI95(mean)=[19.36,21.26] min=17.57 max=24.24
+         Churn: median=   22.25 mean=   22.45 +/-  1.84 CI95(mean)=[21.52,23.38] min=20.73 max=27.41
+
+--- Detailed Statistics for FastHashMap[TS]+SplitMix64 at N=1000000 ---
+  Insert (amortized): median=   10.62 mean=   10.60 +/-  0.26 CI95(mean)=[10.47,10.73] min=10.23 max=11.03
+     Find(hit): median=   16.60 mean=   16.52 +/-  1.28 CI95(mean)=[15.87,17.16] min=14.58 max=19.49
+    Find(miss): median=    5.68 mean=    5.76 +/-  0.63 CI95(mean)=[5.43,6.08] min=4.86 max=7.37
+   Erase (25%): median=   15.01 mean=   14.87 +/-  1.38 CI95(mean)=[14.17,15.56] min=12.16 max=17.87
+         Churn: median=   15.60 mean=   15.44 +/-  0.75 CI95(mean)=[15.06,15.82] min=14.38 max=16.76
+
+--- Detailed Statistics for StableHashMap at N=1000000 ---
+  Insert (amortized): median=   37.82 mean=   38.01 +/-  2.48 CI95(mean)=[36.76,39.27] min=33.62 max=44.13
+     Find(hit): median=   26.30 mean=   26.84 +/-  3.93 CI95(mean)=[24.85,28.83] min=20.13 max=34.08
+    Find(miss): median=    6.46 mean=    6.46 +/-  0.39 CI95(mean)=[6.27,6.66] min=5.91 max=7.46
+   Erase (25%): median=  131.29 mean=  147.03 +/- 44.22 CI95(mean)=[124.65,169.41] min=98.65 max=251.27
+         Churn: median=  120.14 mean=  122.07 +/-  7.18 CI95(mean)=[118.43,125.70] min=113.30 max=142.45
+
+--- Detailed Statistics for StableHashMap+SplitMix64 at N=1000000 ---
+  Insert (amortized): median=   35.92 mean=   36.32 +/-  2.98 CI95(mean)=[34.81,37.83] min=33.52 max=45.75
+     Find(hit): median=   17.02 mean=   16.78 +/-  1.91 CI95(mean)=[15.82,17.75] min=13.00 max=19.60
+    Find(miss): median=    3.57 mean=    3.57 +/-  0.21 CI95(mean)=[3.46,3.67] min=3.26 max=4.03
+   Erase (25%): median=  104.78 mean=  112.42 +/- 22.57 CI95(mean)=[101.00,123.84] min=92.48 max=186.95
+         Churn: median=  114.65 mean=  114.45 +/-  3.75 CI95(mean)=[112.55,116.35] min=108.68 max=120.16
+
+--- Detailed Statistics for StableHashMap[Block]+SM64 at N=1000000 ---
+  Insert (amortized): median=   16.59 mean=   16.66 +/-  0.96 CI95(mean)=[16.17,17.15] min=14.26 max=18.11
+     Find(hit): median=   11.54 mean=   11.29 +/-  0.91 CI95(mean)=[10.83,11.75] min=9.56 max=12.83
+    Find(miss): median=    3.20 mean=    3.31 +/-  0.31 CI95(mean)=[3.16,3.47] min=2.95 max=4.16
+   Erase (25%): median=   28.13 mean=   28.43 +/-  2.64 CI95(mean)=[27.10,29.77] min=25.12 max=33.92
+         Churn: median=   28.73 mean=   29.07 +/-  1.50 CI95(mean)=[28.31,29.83] min=26.52 max=31.66
+
+[CPU stable at 2145 MHz (58% of base, variance: 6.9%)]variance: 12.8%, need <10.0%)]
+ [Ready: 2174 MHz]
+
+================================================================================
+  MISS DIAGNOSTICS (Slim)
+================================================================================
+
+Random misses only (no H2-biased sets), fixed N=1,000,000.
+Purpose: regression tripwire for unsuccessful lookup behavior.
+
+[2026-01-17 19:55:18] MissDiag CPU: 2359 MHz (base: 3686)
+
+--- MISS DIAGNOSTIC: Random misses ---
+N=1000000 reserve=1000000
+                           Library  Median(ns)       Eq/miss     Hash/miss    Grp/miss   FullSlots/m   FullGrp/m    Tag/miss
+----------------------------------------------------------------------------------------------------------------------------
+      StableHashMap+SM64 (counted)        3.71          0.01          1.00        1.00         15.26        0.00        0.01
+StableHashMap[Block]+SM64 (counted)        3.23          0.01          1.00        1.00         15.26        0.00        0.01
+boost::unordered_node_map+SM64 (counted)        5.33          0.03          1.00           -             -           -           -
+[CPU stable at 2307 MHz (63% of base, variance: 4.8%)]ance: 54.6%, need <10.0%)]
+ [Ready: 2248 MHz]
+
+--- MISS DIAGNOSTIC: Random misses ---
+N=1000000 reserve=2000000
+                           Library  Median(ns)       Eq/miss     Hash/miss    Grp/miss   FullSlots/m   FullGrp/m    Tag/miss
+----------------------------------------------------------------------------------------------------------------------------
+      StableHashMap+SM64 (counted)        4.10          0.00          1.00        1.00          7.63        0.00        0.00
+StableHashMap[Block]+SM64 (counted)        3.96          0.00          1.00        1.00          7.63        0.00        0.00
+boost::unordered_node_map+SM64 (counted)        4.78          0.02          1.00           -             -           -           -
+
+[CPU stable at 2255 MHz (61% of base, variance: 4.9%)] (variance: 29.9%, need <10.0%)]
+ [Ready: 2248 MHz]
+
+================================================================================
+  PATHOLOGICAL ERASE (TOMBSTONE DEGRADATION TEST)
+================================================================================
+
+Tests sustained churn on a single table without reset.
+Tombstone-based maps may degrade over time.
+Backward-shift maps stay stable.
+Methodology: 3 warmup + 15 measured runs
+             Round-robin execution with randomized order
+
+[2026-01-17 19:55:35] Starting CPU: 2248 MHz (base: 3686)
+N = 100000, Total operations = 5000000
+
+               StableHashMap:    97.85 ns/step (+/-1.95, CI:[97.59,99.56])
+    StableHashMap+SplitMix64:    89.99 ns/step (+/-1.94, CI:[88.90,90.86])
+   StableHashMap[Block]+SM64:    23.08 ns/step (+/-0.46, CI:[22.80,23.27])
+             FastHashMap[BS]:    31.53 ns/step (+/-0.40, CI:[31.21,31.61])
+  FastHashMap[BS]+SplitMix64:    22.74 ns/step (+/-0.24, CI:[22.68,22.92])
+             FastHashMap[TS]:    25.42 ns/step (+/-0.47, CI:[25.25,25.73])
+  FastHashMap[TS]+SplitMix64:    18.70 ns/step (+/-0.39, CI:[18.63,19.02])
+              tsl::robin_map:    16.97 ns/step (+/-0.46, CI:[16.87,17.34])
+     ankerl::unordered_dense:    20.74 ns/step (+/-0.34, CI:[20.69,21.04])
+         absl::flat_hash_map:    22.85 ns/step (+/-0.41, CI:[22.71,23.12])
+         absl::node_hash_map:    86.33 ns/step (+/-1.81, CI:[85.80,87.63])
+   boost::unordered_flat_map:     7.32 ns/step (+/-0.15, CI:[7.25,7.40])
+   boost::unordered_node_map:    73.30 ns/step (+/-1.32, CI:[72.73,74.06])
+              llvm::DenseMap:    20.18 ns/step (+/-0.94, CI:[20.12,21.07])
+          std::unordered_map:   110.37 ns/step (+/-2.65, CI:[109.53,112.21])
+
+================================================================================
+  Benchmark Complete
+================================================================================

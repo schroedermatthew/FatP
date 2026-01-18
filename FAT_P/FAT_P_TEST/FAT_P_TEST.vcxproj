@@ -204,6 +204,7 @@
     <ClCompile Include="..\FAT_P\tests\test_ObjectPool.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_PipeOperator.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_PolicyIterator.cpp" />
+    <ClCompile Include="..\FAT_P\tests\test_PolicyQueue.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_RateLimiter.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_RcuIntegration.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_Reflection.cpp" />
@@ -233,6 +234,7 @@
     <ClCompile Include="..\FAT_P\tests\test_TypeTraits.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_ValueGuard.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_ViewLifetimeTracking.cpp" />
+    <ClCompile Include="..\FAT_P\tests\test_WorkQueue.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

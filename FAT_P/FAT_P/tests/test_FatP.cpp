@@ -120,6 +120,8 @@ int main()
     RUN_AND_RECORD(test_JsonStreamLite);
     RUN_AND_RECORD(test_LockFreeQueue);
     RUN_AND_RECORD(test_LockFreeRingBuffer);
+    RUN_AND_RECORD(test_PolicyQueue);
+    RUN_AND_RECORD(test_WorkQueue);
     RUN_AND_RECORD(test_MemoryMappedFile);
     RUN_AND_RECORD(test_NumaAllocator);
     RUN_AND_RECORD(test_ObjectPool);

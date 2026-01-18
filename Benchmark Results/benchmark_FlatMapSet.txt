@@ -1,0 +1,426 @@
+[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  FlatMap/FlatSet Comprehensive Benchmark Suite
+================================================================================
+
+Platform: Windows (warmup=3, measured=15, seed=12345)
+Competitor libraries: fat_p::FlatMap fat_p::FlatSet boost::flat_{map,set} absl::btree_{map,set}
+
+CPU Frequency Detection Diagnostics:
+  CPUID Leaf 0x16: NOT SUPPORTED
+    Max CPUID leaf:  0x23
+    Raw EAX:         0x0 (base: 0 MHz)
+    Raw EBX:         0x0 (max: 0 MHz)
+    Raw ECX:         0x0 (bus: 0 MHz)
+    Reason:          Base frequency is 0
+  Registry ~MHz:    3686 MHz
+  Using:            Registry base (3686 MHz) - CPUID 0x16 unavailable, using registry directly
+  PDH Monitor:      AVAILABLE
+    Current %:      74.0%
+  Captured state:
+    Reference:      3686 MHz (base)
+    Current:        2727 MHz (measured)
+    Throttle %:     26.0%
+    Reliable:       YES
+
+Design Invariants:
+  1. Each measured run executes exactly one timed iteration per library
+  2. Library execution order is randomized per run
+  3. Setup/teardown outside timed regions
+  4. All libraries observe same distribution of machine states
+  5. Medians are the primary reported statistic
+
+Expected Results:
+  - FlatMap excels at: iteration, find, bulk insert (sorted)
+  - FlatMap struggles at: random insert, erase (O(n) operations)
+  - std::map has consistent O(log n) for all operations
+  - absl::btree_map balances between tree and flat characteristics
+
+Checking initial CPU state...
+[2026-01-17 20:00:30] Initial CPU: 2727 MHz (base: 3686)
+Waiting for CPU to stabilize...
+[WARNING: CPU frequency still unstable after 30s]
+WARNING: CPU frequency still fluctuating, results may have higher variance.
+
+
+================================================================================
+  SECTION 1: Core Operations
+================================================================================
+[2026-01-17 20:01:01] Section start CPU: 2064 MHz (base: 3686)
+
+--- N = 1000 ---
+[2026-01-17 20:01:01] CPU: 2064 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2101 MHz]
+
+  Bulk Build (sorted range):
+                    std::map:    23.50 ns/op (+/-  0.88, CI:[23.15,24.04])
+              fat_p::FlatMap:     0.80 ns/op (+/-  0.08, CI:[0.76,0.84])
+             boost::flat_map:     0.50 ns/op (+/-  0.10, CI:[0.45,0.55])
+             absl::btree_map:    12.10 ns/op (+/-  0.11, CI:[12.04,12.15])
+
+  Bulk Insert (sorted):
+                    std::map:    24.00 ns/op (+/-  0.97, CI:[23.99,24.97])
+              fat_p::FlatMap:     1.60 ns/op (+/-  0.14, CI:[1.58,1.72])
+             boost::flat_map:     2.70 ns/op (+/-  0.17, CI:[2.68,2.85])
+             absl::btree_map:    19.00 ns/op (+/-  1.26, CI:[19.10,20.37])
+
+  Bulk Insert (random):
+                    std::map:    59.10 ns/op (+/-  1.50, CI:[58.67,60.19])
+              fat_p::FlatMap:    85.00 ns/op (+/-  3.46, CI:[84.00,87.50])
+             boost::flat_map:    82.50 ns/op (+/-  2.33, CI:[81.81,84.17])
+             absl::btree_map:    38.60 ns/op (+/-  2.18, CI:[38.13,40.35])
+
+  Find (hit):
+                    std::map:    51.00 ns/op (+/- 17.23, CI:[42.91,60.35])
+              fat_p::FlatMap:    52.30 ns/op (+/- 19.60, CI:[42.09,61.92])
+             boost::flat_map:    47.90 ns/op (+/- 15.78, CI:[39.69,55.66])
+             absl::btree_map:    30.60 ns/op (+/- 11.95, CI:[25.74,37.84])
+
+  Find (miss):
+                    std::map:     8.70 ns/op (+/-  1.02, CI:[8.23,9.26])
+              fat_p::FlatMap:     5.70 ns/op (+/-  0.95, CI:[5.30,6.27])
+             boost::flat_map:     7.20 ns/op (+/-  1.14, CI:[6.17,7.32])
+             absl::btree_map:    15.80 ns/op (+/-  2.45, CI:[14.03,16.51])
+
+  Iteration:
+                    std::map:     2.30 ns/op (+/-  0.81, CI:[2.08,2.90])
+              fat_p::FlatMap:     1.20 ns/op (+/-  0.05, CI:[1.14,1.19])
+             boost::flat_map:     1.20 ns/op (+/-  0.07, CI:[1.19,1.25])
+             absl::btree_map:     1.90 ns/op (+/-  0.07, CI:[1.90,1.97])
+
+  lower_bound:
+                    std::map:    13.90 ns/op (+/-  1.44, CI:[13.78,15.23])
+              fat_p::FlatMap:    14.60 ns/op (+/-  1.01, CI:[14.51,15.53])
+             boost::flat_map:    14.90 ns/op (+/-  1.01, CI:[14.90,15.92])
+             absl::btree_map:    11.20 ns/op (+/-  0.86, CI:[11.21,12.07])
+
+--- N = 10000 ---
+[2026-01-17 20:02:40] CPU: 2359 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2248 MHz]
+
+  Bulk Build (sorted range):
+                    std::map:    33.44 ns/op (+/-  2.45, CI:[31.79,34.27])
+              fat_p::FlatMap:     4.49 ns/op (+/-  1.83, CI:[2.26,4.11])
+             boost::flat_map:     0.78 ns/op (+/-  1.87, CI:[1.46,3.35])
+             absl::btree_map:    14.72 ns/op (+/-  0.66, CI:[14.65,15.32])
+
+  Bulk Insert (sorted):
+                    std::map:    40.57 ns/op (+/- 13.88, CI:[39.14,53.19])
+              fat_p::FlatMap:     6.59 ns/op (+/-  3.08, CI:[5.17,8.28])
+             boost::flat_map:     4.86 ns/op (+/-  2.82, CI:[4.18,7.03])
+             absl::btree_map:    31.39 ns/op (+/-  9.57, CI:[27.19,36.87])
+
+  Bulk Insert (random):
+                    std::map:    90.90 ns/op (+/-  2.66, CI:[90.35,93.04])
+              fat_p::FlatMap:   639.90 ns/op (+/-  6.79, CI:[635.91,642.78])
+             boost::flat_map:   635.47 ns/op (+/-  4.03, CI:[632.56,636.64])
+             absl::btree_map:    60.74 ns/op (+/-  1.87, CI:[59.90,61.79])
+
+  Find (hit):
+                    std::map:    59.94 ns/op (+/-  1.85, CI:[58.57,60.44])
+              fat_p::FlatMap:    48.30 ns/op (+/-  1.27, CI:[47.41,48.70])
+             boost::flat_map:    48.38 ns/op (+/-  1.50, CI:[47.47,48.98])
+             absl::btree_map:    36.45 ns/op (+/-  1.77, CI:[35.41,37.21])
+
+  Find (miss):
+                    std::map:     4.66 ns/op (+/-  0.11, CI:[4.67,4.78])
+              fat_p::FlatMap:     5.78 ns/op (+/-  0.30, CI:[5.85,6.15])
+             boost::flat_map:     5.82 ns/op (+/-  0.26, CI:[5.83,6.10])
+             absl::btree_map:     6.35 ns/op (+/-  0.21, CI:[6.32,6.54])
+
+  Iteration:
+                    std::map:     3.99 ns/op (+/-  0.37, CI:[3.77,4.14])
+              fat_p::FlatMap:     1.20 ns/op (+/-  0.01, CI:[1.20,1.21])
+             boost::flat_map:     1.23 ns/op (+/-  0.01, CI:[1.22,1.23])
+             absl::btree_map:     1.97 ns/op (+/-  0.09, CI:[1.94,2.03])
+
+  lower_bound:
+                    std::map:    30.06 ns/op (+/-  0.61, CI:[29.85,30.47])
+              fat_p::FlatMap:    25.66 ns/op (+/-  1.27, CI:[25.69,26.98])
+             boost::flat_map:    26.72 ns/op (+/-  0.96, CI:[26.73,27.70])
+             absl::btree_map:    20.48 ns/op (+/-  0.87, CI:[20.15,21.04])
+
+--- N = 100000 ---
+[2026-01-17 20:03:51] CPU: 2322 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2285 MHz]
+
+  Bulk Build (sorted range):
+                    std::map:    40.22 ns/op (+/-  1.08, CI:[39.90,41.00])
+              fat_p::FlatMap:     4.44 ns/op (+/-  0.27, CI:[4.30,4.57])
+             boost::flat_map:     3.66 ns/op (+/-  0.13, CI:[3.65,3.79])
+             absl::btree_map:    15.53 ns/op (+/-  0.79, CI:[15.16,15.97])
+
+  Bulk Insert (sorted):
+                    std::map:    39.83 ns/op (+/-  0.65, CI:[39.53,40.19])
+              fat_p::FlatMap:     4.34 ns/op (+/-  0.16, CI:[4.27,4.43])
+             boost::flat_map:     4.93 ns/op (+/-  0.20, CI:[4.87,5.07])
+             absl::btree_map:    22.01 ns/op (+/-  0.31, CI:[21.86,22.18])
+
+  Bulk Insert (random):
+                    std::map:   140.76 ns/op (+/-  2.89, CI:[138.87,141.80])
+              fat_p::FlatMap:  7896.61 ns/op (+/- 74.64, CI:[7904.75,7980.30])
+             boost::flat_map:  7901.47 ns/op (+/- 75.44, CI:[7888.09,7964.45])
+             absl::btree_map:    73.33 ns/op (+/-  1.24, CI:[72.55,73.80])
+
+  Find (hit):
+                    std::map:   128.10 ns/op (+/-  2.23, CI:[126.94,129.20])
+              fat_p::FlatMap:    64.35 ns/op (+/-  0.93, CI:[64.07,65.01])
+             boost::flat_map:    64.80 ns/op (+/-  0.70, CI:[64.57,65.28])
+             absl::btree_map:    46.80 ns/op (+/-  1.08, CI:[46.29,47.39])
+
+  Find (miss):
+                    std::map:     6.57 ns/op (+/-  0.25, CI:[6.38,6.64])
+              fat_p::FlatMap:     6.92 ns/op (+/-  0.21, CI:[6.81,7.02])
+             boost::flat_map:     6.89 ns/op (+/-  0.17, CI:[6.71,6.88])
+             absl::btree_map:     6.51 ns/op (+/-  0.17, CI:[6.33,6.50])
+
+  Iteration:
+                    std::map:    14.54 ns/op (+/-  1.64, CI:[14.06,15.72])
+              fat_p::FlatMap:     1.32 ns/op (+/-  0.07, CI:[1.24,1.31])
+             boost::flat_map:     1.34 ns/op (+/-  0.10, CI:[1.31,1.41])
+             absl::btree_map:     2.10 ns/op (+/-  0.26, CI:[2.00,2.27])
+
+  lower_bound:
+                    std::map:    53.30 ns/op (+/-  1.60, CI:[52.23,53.85])
+              fat_p::FlatMap:    34.48 ns/op (+/-  0.48, CI:[34.43,34.92])
+             boost::flat_map:    36.20 ns/op (+/-  0.62, CI:[35.93,36.56])
+             absl::btree_map:    26.56 ns/op (+/-  0.38, CI:[26.49,26.87])
+[Cooling: before pathological insert] [Ready: 2322 MHz]
+
+================================================================================
+  SECTION 2: Pathological Random Insert (FlatMap's Weakness)
+================================================================================
+  This benchmark measures single random insertions into a populated container.
+  For flat containers, each insert may require shifting O(n) elements.
+
+[2026-01-17 20:06:04] Section start CPU: 2322 MHz (base: 3686)
+
+--- Base size: 1000, inserting 100 missing keys ---
+[2026-01-17 20:06:04] CPU: 2322 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2322 MHz]
+  Single random insert (into populated map):
+                    std::map:    41.00 ns/op (+/-  8.77, CI:[35.96,44.84])
+              fat_p::FlatMap:   131.00 ns/op (+/-  4.89, CI:[130.26,135.21])
+             boost::flat_map:   134.00 ns/op (+/- 10.53, CI:[130.94,141.60])
+             absl::btree_map:    22.00 ns/op (+/-  5.86, CI:[21.84,27.76])
+
+--- Base size: 5000, inserting 100 missing keys ---
+[2026-01-17 20:06:13] CPU: 2322 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2985 MHz]
+  Single random insert (into populated map):
+                    std::map:    50.00 ns/op (+/- 10.37, CI:[42.75,53.25])
+              fat_p::FlatMap:   586.00 ns/op (+/- 12.19, CI:[583.03,595.37])
+             boost::flat_map:   587.00 ns/op (+/- 19.38, CI:[585.86,605.47])
+             absl::btree_map:    86.00 ns/op (+/- 46.63, CI:[62.94,110.13])
+
+--- Base size: 10000, inserting 100 missing keys ---
+[2026-01-17 20:06:30] CPU: 3169 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2137 MHz]
+  Single random insert (into populated map):
+                    std::map:    62.00 ns/op (+/- 11.42, CI:[55.88,67.45])
+              fat_p::FlatMap:  1262.00 ns/op (+/-160.34, CI:[1238.72,1401.01])
+             boost::flat_map:  1209.00 ns/op (+/-153.53, CI:[1216.10,1371.50])
+             absl::btree_map:    83.00 ns/op (+/- 14.49, CI:[74.93,89.60])
+[Cooling: before iteration benchmark] [Ready: 2027 MHz]
+
+================================================================================
+  SECTION 3: Iteration Speed (FlatMap's Strength)
+================================================================================
+  FlatMap stores elements contiguously, enabling hardware prefetching.
+  std::map requires pointer chasing through scattered tree nodes.
+
+[2026-01-17 20:07:03] Section start CPU: 2027 MHz (base: 3686)
+
+--- N = 1000 ---
+[Cooling: size transition] [Ready: 1769 MHz]
+  Iteration (ns/element):
+                    std::map:     5.80 ns/elem (+/-0.35)
+              fat_p::FlatMap:     2.80 ns/elem (+/-0.06)
+             boost::flat_map:     2.90 ns/elem (+/-0.22)
+             absl::btree_map:     2.90 ns/elem (+/-0.11)
+
+--- N = 10000 ---
+[Cooling: size transition] [Ready: 2285 MHz]
+  Iteration (ns/element):
+                    std::map:     3.36 ns/elem (+/-2.19)
+              fat_p::FlatMap:     1.15 ns/elem (+/-0.05)
+             boost::flat_map:     1.33 ns/elem (+/-0.05)
+             absl::btree_map:     1.82 ns/elem (+/-0.03)
+
+--- N = 100000 ---
+[Cooling: size transition] [Ready: 2211 MHz]
+  Iteration (ns/element):
+                    std::map:     9.38 ns/elem (+/-3.60)
+              fat_p::FlatMap:     1.21 ns/elem (+/-0.06)
+             boost::flat_map:     1.22 ns/elem (+/-0.03)
+             absl::btree_map:     1.86 ns/elem (+/-0.10)
+
+--- N = 1000000 ---
+[Cooling: size transition] [Ready: 2911 MHz]
+  Iteration (ns/element):
+                    std::map:    12.79 ns/elem (+/-3.39)
+              fat_p::FlatMap:     1.46 ns/elem (+/-0.08)
+             boost::flat_map:     1.55 ns/elem (+/-0.06)
+             absl::btree_map:     3.36 ns/elem (+/-0.20)
+[Cooling: before set operations] [Ready: 1695 MHz]
+
+================================================================================
+  SECTION 4: FlatSet Core Operations
+================================================================================
+[2026-01-17 20:08:16] Section start CPU: 1695 MHz (base: 3686)
+
+--- N = 1000 ---
+[2026-01-17 20:08:16] CPU: 1695 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2137 MHz]
+
+  Bulk Build (sorted range):
+                    std::set:    49.70 ns/op (+/-  6.36, CI:[49.26,55.70])
+              fat_p::FlatSet:     1.80 ns/op (+/-  0.36, CI:[1.67,2.04])
+             boost::flat_set:     0.50 ns/op (+/-  0.08, CI:[0.51,0.60])
+             absl::btree_set:    28.60 ns/op (+/-  0.87, CI:[28.29,29.17])
+
+  Bulk Insert (sorted):
+                    std::set:    22.50 ns/op (+/-  2.05, CI:[22.59,24.66])
+              fat_p::FlatSet:     0.80 ns/op (+/-  0.11, CI:[0.71,0.82])
+             boost::flat_set:     1.80 ns/op (+/-  0.23, CI:[1.72,1.95])
+             absl::btree_set:    11.20 ns/op (+/-  0.79, CI:[11.19,11.99])
+
+  Bulk Insert (random):
+                    std::set:    59.60 ns/op (+/-  1.57, CI:[59.16,60.75])
+              fat_p::FlatSet:    47.70 ns/op (+/-  6.18, CI:[46.14,52.40])
+             boost::flat_set:    50.50 ns/op (+/-  0.99, CI:[49.97,50.97])
+             absl::btree_set:    36.90 ns/op (+/-  1.65, CI:[35.92,37.59])
+
+  Find (hit):
+                    std::set:    34.10 ns/op (+/-  0.66, CI:[33.96,34.63])
+              fat_p::FlatSet:    32.50 ns/op (+/-  0.60, CI:[32.48,33.08])
+             boost::flat_set:    26.30 ns/op (+/-  0.37, CI:[26.15,26.53])
+             absl::btree_set:    21.90 ns/op (+/-  1.73, CI:[20.88,22.64])
+
+  Find (miss):
+                    std::set:     3.70 ns/op (+/-  0.16, CI:[3.53,3.69])
+              fat_p::FlatSet:     2.80 ns/op (+/-  0.14, CI:[2.74,2.88])
+             boost::flat_set:     2.40 ns/op (+/-  0.09, CI:[2.31,2.40])
+             absl::btree_set:     6.10 ns/op (+/-  0.21, CI:[5.85,6.07])
+
+  Iteration:
+                    std::set:     2.10 ns/op (+/-  0.06, CI:[2.06,2.12])
+              fat_p::FlatSet:     1.20 ns/op (+/-  0.05, CI:[1.17,1.22])
+             boost::flat_set:     1.20 ns/op (+/-  0.06, CI:[1.21,1.27])
+             absl::btree_set:     1.70 ns/op (+/-  0.05, CI:[1.68,1.73])
+
+  lower_bound:
+                    std::set:    14.70 ns/op (+/-  1.14, CI:[14.52,15.68])
+              fat_p::FlatSet:    15.40 ns/op (+/-  7.14, CI:[13.74,20.97])
+             boost::flat_set:    15.60 ns/op (+/-  1.05, CI:[15.31,16.37])
+             absl::btree_set:    12.80 ns/op (+/-  0.60, CI:[12.72,13.32])
+
+--- N = 10000 ---
+[2026-01-17 20:09:35] CPU: 2322 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2395 MHz]
+
+  Bulk Build (sorted range):
+                    std::set:    18.99 ns/op (+/-  0.58, CI:[18.93,19.52])
+              fat_p::FlatSet:     0.83 ns/op (+/-  0.08, CI:[0.76,0.84])
+             boost::flat_set:     0.23 ns/op (+/-  0.18, CI:[0.18,0.36])
+             absl::btree_set:    11.67 ns/op (+/-  0.53, CI:[11.57,12.11])
+
+  Bulk Insert (sorted):
+                    std::set:    21.34 ns/op (+/-  0.55, CI:[21.22,21.77])
+              fat_p::FlatSet:     0.80 ns/op (+/-  0.04, CI:[0.76,0.80])
+             boost::flat_set:     1.67 ns/op (+/-  0.69, CI:[1.65,2.36])
+             absl::btree_set:    10.53 ns/op (+/-  0.41, CI:[10.52,10.94])
+
+  Bulk Insert (random):
+                    std::set:    83.11 ns/op (+/-  3.22, CI:[82.34,85.60])
+              fat_p::FlatSet:   194.49 ns/op (+/-  1.88, CI:[194.38,196.28])
+             boost::flat_set:   196.39 ns/op (+/-  1.99, CI:[196.37,198.38])
+             absl::btree_set:    48.10 ns/op (+/-  1.10, CI:[47.64,48.75])
+
+  Find (hit):
+                    std::set:    55.66 ns/op (+/-  1.90, CI:[54.98,56.90])
+              fat_p::FlatSet:    46.34 ns/op (+/-  2.43, CI:[44.93,47.38])
+             boost::flat_set:    46.52 ns/op (+/-  1.60, CI:[46.30,47.91])
+             absl::btree_set:    32.46 ns/op (+/-  1.76, CI:[31.37,33.15])
+
+  Find (miss):
+                    std::set:     4.58 ns/op (+/-  0.10, CI:[4.51,4.61])
+              fat_p::FlatSet:     5.48 ns/op (+/-  0.04, CI:[5.47,5.50])
+             boost::flat_set:     5.48 ns/op (+/-  0.09, CI:[5.47,5.56])
+             absl::btree_set:     5.65 ns/op (+/-  0.11, CI:[5.66,5.77])
+
+  Iteration:
+                    std::set:     3.02 ns/op (+/-  0.11, CI:[2.95,3.06])
+              fat_p::FlatSet:     1.20 ns/op (+/-  0.05, CI:[1.16,1.21])
+             boost::flat_set:     1.22 ns/op (+/-  0.05, CI:[1.18,1.23])
+             absl::btree_set:     1.64 ns/op (+/-  0.08, CI:[1.60,1.68])
+
+  lower_bound:
+                    std::set:    30.07 ns/op (+/-  0.82, CI:[29.72,30.55])
+              fat_p::FlatSet:    25.19 ns/op (+/-  0.87, CI:[25.06,25.94])
+             boost::flat_set:    26.35 ns/op (+/-  0.48, CI:[26.16,26.64])
+             absl::btree_set:    18.24 ns/op (+/-  0.70, CI:[18.13,18.84])
+
+--- N = 100000 ---
+[2026-01-17 20:11:18] CPU: 2617 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2174 MHz]
+
+  Bulk Build (sorted range):
+                    std::set:    19.92 ns/op (+/-  6.64, CI:[20.64,27.36])
+              fat_p::FlatSet:     0.93 ns/op (+/-  0.42, CI:[0.83,1.25])
+             boost::flat_set:     0.34 ns/op (+/-  0.47, CI:[0.26,0.74])
+             absl::btree_set:    11.54 ns/op (+/-  0.51, CI:[11.22,11.73])
+
+  Bulk Insert (sorted):
+                    std::set:    22.04 ns/op (+/-  5.40, CI:[22.00,27.47])
+              fat_p::FlatSet:     0.79 ns/op (+/-  0.53, CI:[0.72,1.25])
+             boost::flat_set:     2.71 ns/op (+/-  0.79, CI:[2.10,2.89])
+             absl::btree_set:    10.70 ns/op (+/-  0.47, CI:[10.60,11.07])
+
+  Bulk Insert (random):
+                    std::set:   121.39 ns/op (+/-  5.79, CI:[121.59,127.44])
+              fat_p::FlatSet:  2464.59 ns/op (+/- 15.38, CI:[2462.10,2477.67])
+             boost::flat_set:  2465.95 ns/op (+/- 17.05, CI:[2462.57,2479.83])
+             absl::btree_set:    59.35 ns/op (+/-  1.16, CI:[58.73,59.90])
+
+  Find (hit):
+                    std::set:   108.53 ns/op (+/-  3.82, CI:[107.55,111.42])
+              fat_p::FlatSet:    62.94 ns/op (+/-  0.88, CI:[62.07,62.96])
+             boost::flat_set:    65.10 ns/op (+/-  0.68, CI:[64.59,65.28])
+             absl::btree_set:    42.25 ns/op (+/-  0.71, CI:[41.82,42.54])
+
+  Find (miss):
+                    std::set:     6.49 ns/op (+/-  0.13, CI:[6.39,6.52])
+              fat_p::FlatSet:     6.80 ns/op (+/-  0.21, CI:[6.67,6.88])
+             boost::flat_set:     6.76 ns/op (+/-  0.19, CI:[6.70,6.89])
+             absl::btree_set:     6.15 ns/op (+/-  0.21, CI:[5.99,6.20])
+
+  Iteration:
+                    std::set:     4.91 ns/op (+/-  2.32, CI:[4.42,6.77])
+              fat_p::FlatSet:     1.20 ns/op (+/-  0.02, CI:[1.20,1.22])
+             boost::flat_set:     1.23 ns/op (+/-  0.03, CI:[1.22,1.26])
+             absl::btree_set:     1.62 ns/op (+/-  0.08, CI:[1.57,1.65])
+
+  lower_bound:
+                    std::set:    47.09 ns/op (+/-  1.02, CI:[46.66,47.69])
+              fat_p::FlatSet:    32.88 ns/op (+/-  0.25, CI:[32.75,33.01])
+             boost::flat_set:    33.94 ns/op (+/-  0.22, CI:[33.88,34.10])
+             absl::btree_set:    22.77 ns/op (+/-  0.29, CI:[22.64,22.93])
+
+================================================================================
+  Memory Usage Comparison (Theoretical)
+================================================================================
+  For map<int64_t, int64_t>:
+
+  Container                   Per-Entry Overhead    Total for N=10000
+  -------------------------   -------------------   -----------------
+  std::map                    ~40 bytes (tree node) ~400 KB + 160 KB data
+  fat_p::FlatMap              ~0 bytes              ~160 KB (data only)
+  boost::container::flat_map  ~0 bytes              ~160 KB (data only)
+  absl::btree_map             ~2-4 bytes (B-tree)   ~180-200 KB
+
+  Note: FlatMap has ~2.5x better memory efficiency than std::map.
+
+================================================================================
+  Benchmark Complete
+================================================================================
