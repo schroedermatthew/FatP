@@ -1,0 +1,60 @@
+=== Fat-P Stacktrace Benchmark ===
+
+Configuration:
+  Warmup runs:   3
+  Measured runs: 15
+  Backend:       Windows DbgHelp
+  Real backend:  yes
+
+======================================================================
+  captureRaw() - Address Collection Only
+======================================================================
+
+Contract: Measures address capture without symbol resolution
+
+captureRaw()                          0.26 us/op  (mean: 0.26, stddev: 0.01)
+
+======================================================================
+  current() - Full Capture with Symbols
+======================================================================
+
+Contract: Measures capture + symbol resolution
+
+current()                             3.41 us/op  (mean: 3.42, stddev: 0.02)
+
+======================================================================
+  Formatting - toString() and toJson()
+======================================================================
+
+Contract: Measures output formatting from symbolized trace
+
+toString()                            1.56 us/op  (mean: 1.56, stddev: 0.04)
+toJson()                              2.55 us/op  (mean: 2.59, stddev: 0.11)
+
+======================================================================
+  Depth Scaling - captureRaw() at Various Stack Depths
+======================================================================
+
+Contract: Measures capture cost vs stack depth
+
+Depth                               Median  us/op
+--------------------------------------------------
+depth=5                               0.59  us/op
+depth=10                              0.86  us/op
+depth=20                              1.32  us/op
+depth=50                              1.75  us/op
+
+======================================================================
+  hash() - For Deduplication
+======================================================================
+
+Contract: Measures hash computation for container usage
+
+hash()                                4.74 ns/op  (mean: 4.75, stddev: 0.03)
+
+======================================================================
+  Summary
+======================================================================
+
+All benchmarks completed.
+Backend used: Windows DbgHelp

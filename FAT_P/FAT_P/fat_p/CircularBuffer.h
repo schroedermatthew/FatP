@@ -15,9 +15,11 @@ FATP_META:
   namespace: fat_p
   layer: Containers
   summary: "Public header for CircularBuffer."
-  api_stability: in_work
+  api_stability: candidate
   related:
-    docs_search: "CircularBuffer"
+    docs:
+      - Documentation/IN WORK/CircularBuffer_Overview.md
+      - Documentation/IN WORK/CircularBuffer_User_Manual.md
     tests:
       - tests/test_CircularBuffer.cpp
       - tests/test_FatPTypeTraits.cpp
@@ -91,7 +93,7 @@ constexpr bool is_power_of_two(size_t n) noexcept
 /**
  * @brief Lock-free single-producer single-consumer (SPSC) circular buffer
  *
- * @tparam T Element type (must be nothrow move constructible and move assignable)
+ * @tparam T Element type. Must be default constructible and nothrow move/copy constructible.
  * @tparam Capacity Maximum number of elements the buffer can hold
  *
  * @details This is a wait-free SPSC queue using atomics with memory ordering.
@@ -129,6 +131,8 @@ template <typename T, size_t Capacity>
 class CircularBuffer
 {
     static_assert(Capacity > 0, "Capacity must be greater than 0");
+    static_assert(std::is_default_constructible_v<T>,
+                  "T must be default constructible (array-backed storage)");
     static_assert(std::is_nothrow_move_constructible_v<T> || std::is_nothrow_copy_constructible_v<T>,
                   "T must be nothrow move or copy constructible for exception safety");
     static_assert(std::atomic<size_t>::is_always_lock_free,
@@ -330,7 +334,10 @@ public:
      * @return Pointer to front element, or nullptr if empty
      *
      * @note Only the consumer thread should call this
-     * @note The returned pointer is valid until the next pop() call
+     * @note The returned pointer remains valid until the next successful pop() call
+     *       (or clear()/clear_and_destruct()).
+     * @note Under the SPSC contract, producer push()/emplace() does not invalidate
+     *       this pointer while the front element remains in the buffer.
      */
     [[nodiscard]] const T* front() const noexcept
     {
@@ -353,13 +360,29 @@ public:
      *
      * @note This value may be stale immediately after returning when
      *       producer and consumer are active concurrently
+     * @note The returned value is always in the range [0, Capacity]
      * @note Safe to call from any thread
      */
     [[nodiscard]] size_t size() const noexcept
     {
-        size_t write = write_idx_.load(std::memory_order_acquire);
-        size_t read = read_idx_.load(std::memory_order_acquire);
-        return index_distance(write, read);
+        const size_t write = write_idx_.load(std::memory_order_acquire);
+        const size_t read = read_idx_.load(std::memory_order_acquire);
+
+        const size_t distance = index_distance(write, read);
+        if (distance <= Capacity)
+        {
+            return distance;
+        }
+
+        // Under contention, loads may observe indices from different moments.
+        // Bound the result to the public Capacity contract.
+        const size_t alt = index_distance(read, write);
+        if (alt <= Capacity)
+        {
+            return alt;
+        }
+
+        return Capacity;
     }
 
     /**
@@ -456,6 +479,13 @@ public:
         {
             // Element is moved out and tmp is destructed at end of loop iteration
         }
+
+        // Reset indices and caches to the canonical empty state.
+        // This is single-threaded by contract.
+        read_idx_.store(0, std::memory_order_relaxed);
+        write_idx_.store(0, std::memory_order_relaxed);
+        cached_read_idx_ = 0;
+        cached_write_idx_ = 0;
     }
 };
 

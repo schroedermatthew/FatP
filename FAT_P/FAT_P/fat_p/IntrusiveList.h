@@ -34,6 +34,14 @@ FATP_META:
 #include <cstddef>
 #include <iterator>
 #include <type_traits>
+#include <cassert>
+
+// Debug assertion macro - enabled only in debug builds
+#ifdef NDEBUG
+    #define FATP_DEBUG_ASSERT(condition, message) ((void)0)
+#else
+    #define FATP_DEBUG_ASSERT(condition, message) assert((condition) && (message))
+#endif
 
 namespace fat_p
 {
@@ -75,6 +83,9 @@ class IntrusiveList;
 template <typename T>
 class IntrusiveListIterator;
 
+template <typename T>
+class IntrusiveListConstIterator;
+
 // ============================================================================
 // IntrusiveListNode - Base class for list nodes
 // ============================================================================
@@ -85,6 +96,7 @@ public:
     IntrusiveListNode()
         : mPrev(nullptr)
         , mNext(nullptr)
+        , mOwner(nullptr)
     {
     }
 
@@ -92,18 +104,23 @@ public:
     IntrusiveListNode(const IntrusiveListNode&) = delete;
     IntrusiveListNode& operator=(const IntrusiveListNode&) = delete;
 
-    // Check if node is linked in a list
-    bool is_linked() const
+    /**
+     * @brief Check if node is in a list
+     * @return true if node belongs to any IntrusiveList
+     */
+    [[nodiscard]] bool is_linked() const noexcept
     {
-        return mPrev != nullptr || mNext != nullptr;
+        return mOwner != nullptr;
     }
 
 protected:
     friend class IntrusiveList<T>;
     friend class IntrusiveListIterator<T>;
+    friend class IntrusiveListConstIterator<T>;
 
     IntrusiveListNode* mPrev;
     IntrusiveListNode* mNext;
+    IntrusiveList<T>* mOwner;  // Tracks which list owns this node
 };
 
 // ============================================================================
@@ -150,6 +167,13 @@ public:
         return tmp;
     }
 
+    /**
+     * @brief Decrement iterator
+     * 
+     * @warning Decrementing end() is UNDEFINED BEHAVIOR.
+     *          This iterator does NOT fully satisfy BidirectionalIterator
+     *          requirements when used with end().
+     */
     IntrusiveListIterator& operator--()
     {
         mNode = mNode->mPrev;
@@ -175,6 +199,7 @@ public:
 
 private:
     friend class IntrusiveList<T>;
+    friend class IntrusiveListConstIterator<T>;  // Allow const_iterator conversion
     IntrusiveListNode<T>* mNode;
 };
 
@@ -292,6 +317,14 @@ public:
         , mTail(other.mTail)
         , size_(other.size_)
     {
+        // Update ownership for all moved nodes
+        auto* node = mHead;
+        while (node)
+        {
+            node->mOwner = this;
+            node = node->mNext;
+        }
+        
         other.mHead = nullptr;
         other.mTail = nullptr;
         other.size_ = 0;
@@ -305,6 +338,15 @@ public:
             mHead = other.mHead;
             mTail = other.mTail;
             size_ = other.size_;
+            
+            // Update ownership for all moved nodes
+            auto* node = mHead;
+            while (node)
+            {
+                node->mOwner = this;
+                node = node->mNext;
+            }
+            
             other.mHead = nullptr;
             other.mTail = nullptr;
             other.size_ = 0;
@@ -313,58 +355,62 @@ public:
     }
 
     // Size queries
-    bool empty() const
+    [[nodiscard]] bool empty() const noexcept
     {
         return size_ == 0;
     }
-    size_type size() const
+    [[nodiscard]] size_type size() const noexcept
     {
         return size_;
     }
 
     // Element access
-    reference front()
+    [[nodiscard]] reference front()
     {
+        FATP_DEBUG_ASSERT(mHead != nullptr, "front() called on empty list");
         return *static_cast<T*>(mHead);
     }
-    const_reference front() const
+    [[nodiscard]] const_reference front() const
     {
+        FATP_DEBUG_ASSERT(mHead != nullptr, "front() called on empty list");
         return *static_cast<const T*>(mHead);
     }
 
-    reference back()
+    [[nodiscard]] reference back()
     {
+        FATP_DEBUG_ASSERT(mTail != nullptr, "back() called on empty list");
         return *static_cast<T*>(mTail);
     }
-    const_reference back() const
+    [[nodiscard]] const_reference back() const
     {
+        FATP_DEBUG_ASSERT(mTail != nullptr, "back() called on empty list");
         return *static_cast<const T*>(mTail);
     }
 
     // Iterators
-    iterator begin()
+    [[nodiscard]] iterator begin() noexcept
     {
         return iterator(mHead);
     }
-    iterator end()
+    [[nodiscard]] iterator end() noexcept
     {
         return iterator(nullptr);
     }
 
-    const_iterator begin() const
+    [[nodiscard]] const_iterator begin() const noexcept
     {
         return const_iterator(mHead);
     }
-    const_iterator end() const
+    [[nodiscard]] const_iterator end() const noexcept
     {
         return const_iterator(nullptr);
     }
 
-    const_iterator cbegin() const
+    [[nodiscard]] const_iterator cbegin() const noexcept
     {
         return const_iterator(mHead);
     }
-    const_iterator cend() const
+    [[nodiscard]] const_iterator cend() const noexcept
     {
         return const_iterator(nullptr);
     }
@@ -374,6 +420,7 @@ public:
     {
         auto* n = static_cast<IntrusiveListNode<T>*>(&node);
 
+        n->mOwner = this;  // Set ownership
         n->mPrev = nullptr;
         n->mNext = mHead;
 
@@ -394,6 +441,7 @@ public:
     {
         auto* n = static_cast<IntrusiveListNode<T>*>(&node);
 
+        n->mOwner = this;  // Set ownership
         n->mPrev = mTail;
         n->mNext = nullptr;
 
@@ -429,6 +477,7 @@ public:
             mTail = nullptr;
         }
 
+        node->mOwner = nullptr;  // Clear ownership
         node->mPrev = nullptr;
         node->mNext = nullptr;
         --size_;
@@ -453,6 +502,7 @@ public:
             mHead = nullptr;
         }
 
+        node->mOwner = nullptr;  // Clear ownership
         node->mPrev = nullptr;
         node->mNext = nullptr;
         --size_;
@@ -471,6 +521,7 @@ public:
             return iterator(n);
         }
 
+        n->mOwner = this;  // Set ownership
         n->mNext = pos_node;
         n->mPrev = pos_node->mPrev;
 
@@ -494,9 +545,10 @@ public:
     {
         auto* n = static_cast<IntrusiveListNode<T>*>(&node);
 
-        if (!n->is_linked() && n != mHead && n != mTail)
+        // Cross-list protection: only remove if node belongs to THIS list
+        if (n->mOwner != this)
         {
-            return; // Not in list
+            return;  // Not in this list - safe no-op
         }
 
         if (n->mPrev)
@@ -517,6 +569,7 @@ public:
             mTail = n->mPrev;
         }
 
+        n->mOwner = nullptr;  // Clear ownership
         n->mPrev = nullptr;
         n->mNext = nullptr;
         --size_;
@@ -545,6 +598,7 @@ public:
         while (node)
         {
             auto* next = node->mNext;
+            node->mOwner = nullptr;  // Clear ownership
             node->mPrev = nullptr;
             node->mNext = nullptr;
             node = next;
@@ -560,6 +614,14 @@ public:
         if (other.empty())
         {
             return;
+        }
+
+        // Update ownership for all nodes being transferred
+        auto* node = other.mHead;
+        while (node)
+        {
+            node->mOwner = this;
+            node = node->mNext;
         }
 
         if (pos.mNode == nullptr)
@@ -580,6 +642,10 @@ public:
         {
             // Splice before pos
             auto* pos_node = pos.mNode;
+
+            // Static analysis note: other.mHead/mTail are guaranteed non-null here
+            // because we returned early if other.empty() above
+            assert(other.mHead != nullptr && other.mTail != nullptr);
 
             other.mTail->mNext = pos_node;
             other.mHead->mPrev = pos_node->mPrev;

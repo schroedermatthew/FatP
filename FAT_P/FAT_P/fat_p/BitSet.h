@@ -17,7 +17,7 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: false
-    defines_total: 9
+    defines_total: 0
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
@@ -50,22 +50,13 @@ FATP_META:
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <initializer_list>
 #include <iterator>
 #include <stdexcept>
+#include <string>
 
 #ifdef _MSC_VER
 #include <intrin.h>
-#define FATP_POPCNT64(x) __popcnt64(x)
-#define FATP_CTZ64(x) _tzcnt_u64(x)
-#define FATP_CLZ64(x) _lzcnt_u64(x)
-#elif defined(__GNUC__) || defined(__clang__)
-#define FATP_POPCNT64(x) __builtin_popcountll(x)
-#define FATP_CTZ64(x) __builtin_ctzll(x)
-#define FATP_CLZ64(x) __builtin_clzll(x)
-#else
-#define FATP_POPCNT64(x) fat_p::detail::popcnt64_fallback(x)
-#define FATP_CTZ64(x) fat_p::detail::ctz64_fallback(x)
-#define FATP_CLZ64(x) fat_p::detail::clz64_fallback(x)
 #endif
 
 namespace fat_p
@@ -75,7 +66,7 @@ namespace detail
 {
 
 // Brian Kernighan's algorithm - O(k) where k = number of set bits
-inline size_t popcnt64_fallback(uint64_t x) noexcept
+inline constexpr size_t popcnt64_fallback(uint64_t x) noexcept
 {
     size_t count = 0;
     while (x)
@@ -86,7 +77,7 @@ inline size_t popcnt64_fallback(uint64_t x) noexcept
     return count;
 }
 
-inline size_t ctz64_fallback(uint64_t x) noexcept
+inline constexpr size_t ctz64_fallback(uint64_t x) noexcept
 {
     if (x == 0)
     {
@@ -101,7 +92,7 @@ inline size_t ctz64_fallback(uint64_t x) noexcept
     return count;
 }
 
-inline size_t clz64_fallback(uint64_t x) noexcept
+inline constexpr size_t clz64_fallback(uint64_t x) noexcept
 {
     if (x == 0)
     {
@@ -114,6 +105,82 @@ inline size_t clz64_fallback(uint64_t x) noexcept
         x <<= 1;
     }
     return count;
+}
+
+inline size_t popcnt64(uint64_t x) noexcept
+{
+#if defined(_MSC_VER)
+#if defined(_M_X64) || defined(_M_AMD64)
+    return static_cast<size_t>(__popcnt64(x));
+#else
+    const unsigned int lo = static_cast<unsigned int>(x);
+    const unsigned int hi = static_cast<unsigned int>(x >> 32);
+    return static_cast<size_t>(__popcnt(lo) + __popcnt(hi));
+#endif
+#elif defined(__GNUC__) || defined(__clang__)
+    return static_cast<size_t>(__builtin_popcountll(x));
+#else
+    return popcnt64_fallback(x);
+#endif
+}
+
+inline size_t ctz64(uint64_t x) noexcept
+{
+    if (x == 0)
+    {
+        return 64;
+    }
+
+#if defined(_MSC_VER)
+    unsigned long index = 0;
+#if defined(_M_X64) || defined(_M_AMD64)
+    _BitScanForward64(&index, x);
+    return static_cast<size_t>(index);
+#else
+    const unsigned int lo = static_cast<unsigned int>(x);
+    if (_BitScanForward(&index, lo) != 0)
+    {
+        return static_cast<size_t>(index);
+    }
+    const unsigned int hi = static_cast<unsigned int>(x >> 32);
+    _BitScanForward(&index, hi);
+    return static_cast<size_t>(index) + 32u;
+#endif
+#elif defined(__GNUC__) || defined(__clang__)
+    return static_cast<size_t>(__builtin_ctzll(x));
+#else
+    return ctz64_fallback(x);
+#endif
+}
+
+inline size_t clz64(uint64_t x) noexcept
+{
+    if (x == 0)
+    {
+        return 64;
+    }
+
+#if defined(_MSC_VER)
+    unsigned long index = 0;
+#if defined(_M_X64) || defined(_M_AMD64)
+    _BitScanReverse64(&index, x);
+    return 63u - static_cast<size_t>(index);
+#else
+    const unsigned int hi = static_cast<unsigned int>(x >> 32);
+    if (hi != 0)
+    {
+        _BitScanReverse(&index, hi);
+        return 31u - static_cast<size_t>(index);
+    }
+    const unsigned int lo = static_cast<unsigned int>(x);
+    _BitScanReverse(&index, lo);
+    return 63u - static_cast<size_t>(index);
+#endif
+#elif defined(__GNUC__) || defined(__clang__)
+    return static_cast<size_t>(__builtin_clzll(x));
+#else
+    return clz64_fallback(x);
+#endif
 }
 
 // Create a mask with bits [0, bit_index] set (inclusive)
@@ -193,12 +260,12 @@ public:
 
         bool operator==(const Iterator& other) const noexcept
         {
-            return m_pos == other.m_pos;
+            return (m_bitset == other.m_bitset) && (m_pos == other.m_pos);
         }
 
         bool operator!=(const Iterator& other) const noexcept
         {
-            return m_pos != other.m_pos;
+            return !(*this == other);
         }
 
     private:
@@ -420,6 +487,11 @@ public:
     // Range operations
     // ========================================================================
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 28020) // SAL annotation false positive on bit shift operations
+#endif
+
     /**
      * @brief Set all bits in range [start, end) to 1
      * @param start First bit index (inclusive)
@@ -497,6 +569,52 @@ public:
     }
 
     /**
+     * @brief Flip all bits in range [start, end)
+     * @param start First bit index (inclusive)
+     * @param end Last bit index (exclusive)
+     * @throws std::out_of_range if start > end or end > N
+     */
+    void flip_range(size_t start, size_t end)
+    {
+        if (start > end || end > N)
+        {
+            throw std::out_of_range("BitSet::flip_range: invalid range");
+        }
+        if (start == end)
+        {
+            return;
+        }
+
+        size_t start_word = start / BITS_PER_WORD;
+        size_t end_word = (end - 1) / BITS_PER_WORD;
+        size_t start_bit = start % BITS_PER_WORD;
+        size_t end_bit = (end - 1) % BITS_PER_WORD;
+
+        if (start_word == end_word)
+        {
+            uint64_t mask = detail::mask_up_to(end_bit) & detail::mask_from(start_bit);
+            m_words[start_word] ^= mask;
+        }
+        else
+        {
+            m_words[start_word] ^= detail::mask_from(start_bit);
+            for (size_t i = start_word + 1; i < end_word; ++i)
+            {
+                m_words[i] = ~m_words[i];
+            }
+            m_words[end_word] ^= detail::mask_up_to(end_bit);
+        }
+
+        if constexpr (LAST_WORD_BITS != 0)
+        {
+            if (end_word == NUM_WORDS - 1)
+            {
+                m_words[NUM_WORDS - 1] &= LAST_WORD_MASK;
+            }
+        }
+    }
+
+    /**
      * @brief Count set bits in range [start, end)
      * @param start First bit index (inclusive)
      * @param end Last bit index (exclusive)
@@ -522,17 +640,21 @@ public:
         if (start_word == end_word)
         {
             uint64_t mask = detail::mask_up_to(end_bit) & detail::mask_from(start_bit);
-            return FATP_POPCNT64(m_words[start_word] & mask);
+            return detail::popcnt64(m_words[start_word] & mask);
         }
 
-        size_t cnt = FATP_POPCNT64(m_words[start_word] & detail::mask_from(start_bit));
+        size_t cnt = detail::popcnt64(m_words[start_word] & detail::mask_from(start_bit));
         for (size_t i = start_word + 1; i < end_word; ++i)
         {
-            cnt += FATP_POPCNT64(m_words[i]);
+            cnt += detail::popcnt64(m_words[i]);
         }
-        cnt += FATP_POPCNT64(m_words[end_word] & detail::mask_up_to(end_bit));
+        cnt += detail::popcnt64(m_words[end_word] & detail::mask_up_to(end_bit));
         return cnt;
     }
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
     // ========================================================================
     // Query operations
@@ -547,7 +669,7 @@ public:
         size_t total = 0;
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            total += FATP_POPCNT64(m_words[i]);
+            total += detail::popcnt64(m_words[i]);
         }
         return total;
     }
@@ -598,6 +720,71 @@ public:
         return N;
     }
 
+    /**
+     * @brief Convert to string representation (MSB first, like std::bitset)
+     * @param zero Character for 0 bits
+     * @param one Character for 1 bits
+     * @return String of N characters, MSB first
+     */
+    [[nodiscard]] std::string to_string(char zero = '0', char one = '1') const
+    {
+        std::string result(N, zero);
+        for (size_t i = 0; i < N; ++i)
+        {
+            if (test_unchecked(i))
+            {
+                result[N - 1 - i] = one;
+            }
+        }
+        return result;
+    }
+
+    /**
+     * @brief Convert to unsigned long
+     * @return Value as unsigned long
+     * @throws std::overflow_error if the value does not fit
+     */
+    [[nodiscard]] unsigned long to_ulong() const
+    {
+        constexpr size_t kUlongBits = sizeof(unsigned long) * 8u;
+
+        if constexpr (N > kUlongBits)
+        {
+            for (size_t i = kUlongBits; i < N; ++i)
+            {
+                if (test_unchecked(i))
+                {
+                    throw std::overflow_error("BitSet::to_ulong: overflow");
+                }
+            }
+        }
+
+        return static_cast<unsigned long>(m_words[0]);
+    }
+
+    /**
+     * @brief Convert to unsigned long long
+     * @return Value as unsigned long long
+     * @throws std::overflow_error if the value does not fit
+     */
+    [[nodiscard]] unsigned long long to_ullong() const
+    {
+        constexpr size_t kUlongLongBits = sizeof(unsigned long long) * 8u;
+
+        if constexpr (N > kUlongLongBits)
+        {
+            for (size_t i = kUlongLongBits; i < N; ++i)
+            {
+                if (test_unchecked(i))
+                {
+                    throw std::overflow_error("BitSet::to_ullong: overflow");
+                }
+            }
+        }
+
+        return static_cast<unsigned long long>(m_words[0]);
+    }
+
     // ========================================================================
     // Find operations
     // ========================================================================
@@ -612,7 +799,7 @@ public:
         {
             if (m_words[i] != 0)
             {
-                size_t idx = i * BITS_PER_WORD + FATP_CTZ64(m_words[i]);
+                size_t idx = i * BITS_PER_WORD + detail::ctz64(m_words[i]);
                 return (idx < N) ? idx : N;
             }
         }
@@ -638,7 +825,7 @@ public:
         uint64_t word = m_words[word_idx] & detail::mask_from(bit_offset);
         if (word != 0)
         {
-            size_t idx = word_idx * BITS_PER_WORD + FATP_CTZ64(word);
+            size_t idx = word_idx * BITS_PER_WORD + detail::ctz64(word);
             return (idx < N) ? idx : N;
         }
 
@@ -646,7 +833,7 @@ public:
         {
             if (m_words[i] != 0)
             {
-                size_t idx = i * BITS_PER_WORD + FATP_CTZ64(m_words[i]);
+                size_t idx = i * BITS_PER_WORD + detail::ctz64(m_words[i]);
                 return (idx < N) ? idx : N;
             }
         }
@@ -664,11 +851,144 @@ public:
         {
             if (m_words[i] != 0)
             {
-                size_t bit_pos = 63 - FATP_CLZ64(m_words[i]);
+                size_t bit_pos = 63 - detail::clz64(m_words[i]);
                 size_t idx = i * BITS_PER_WORD + bit_pos;
                 return (idx < N) ? idx : N;
             }
         }
+        return N;
+    }
+
+    /**
+     * @brief Find previous set bit before given index
+     * @param before Search ends before this index (exclusive)
+     * @return Index of previous set bit, or N if none
+     */
+    [[nodiscard]] size_t find_prev(size_t before) const noexcept
+    {
+        if (before == 0 || before > N)
+        {
+            return N;
+        }
+
+        --before;
+
+        const size_t word_idx = before / BITS_PER_WORD;
+        const size_t bit_offset = before % BITS_PER_WORD;
+
+        uint64_t word = m_words[word_idx] & detail::mask_up_to(bit_offset);
+        if (word != 0)
+        {
+            return word_idx * BITS_PER_WORD + (63 - detail::clz64(word));
+        }
+
+        for (size_t i = word_idx; i-- > 0;)
+        {
+            if (m_words[i] != 0)
+            {
+                return i * BITS_PER_WORD + (63 - detail::clz64(m_words[i]));
+            }
+        }
+
+        return N;
+    }
+
+    /**
+     * @brief Find first cleared bit (first 0)
+     * @return Index of first cleared bit, or N if all bits are set
+     */
+    [[nodiscard]] size_t find_first_zero() const noexcept
+    {
+        for (size_t i = 0; i < NUM_WORDS - 1; ++i)
+        {
+            if (m_words[i] != ~0ULL)
+            {
+                return i * BITS_PER_WORD + detail::ctz64(~m_words[i]);
+            }
+        }
+
+        const uint64_t last_inverted = ~m_words[NUM_WORDS - 1] & LAST_WORD_MASK;
+        if (last_inverted != 0)
+        {
+            const size_t idx = (NUM_WORDS - 1) * BITS_PER_WORD + detail::ctz64(last_inverted);
+            return (idx < N) ? idx : N;
+        }
+
+        return N;
+    }
+
+    /**
+     * @brief Find next cleared bit after given index
+     * @param after Search starts after this index
+     * @return Index of next cleared bit, or N if none
+     */
+    [[nodiscard]] size_t find_next_zero(size_t after) const noexcept
+    {
+        ++after;
+        if (after >= N)
+        {
+            return N;
+        }
+
+        const size_t word_idx = after / BITS_PER_WORD;
+        const size_t bit_offset = after % BITS_PER_WORD;
+
+        uint64_t word = ~m_words[word_idx] & detail::mask_from(bit_offset);
+        if (word_idx == NUM_WORDS - 1)
+        {
+            word &= LAST_WORD_MASK;
+        }
+
+        if (word != 0)
+        {
+            const size_t idx = word_idx * BITS_PER_WORD + detail::ctz64(word);
+            return (idx < N) ? idx : N;
+        }
+
+        for (size_t i = word_idx + 1; i < NUM_WORDS - 1; ++i)
+        {
+            if (m_words[i] != ~0ULL)
+            {
+                return i * BITS_PER_WORD + detail::ctz64(~m_words[i]);
+            }
+        }
+
+        if (word_idx < NUM_WORDS - 1)
+        {
+            const uint64_t last_inverted = ~m_words[NUM_WORDS - 1] & LAST_WORD_MASK;
+            if (last_inverted != 0)
+            {
+                const size_t idx = (NUM_WORDS - 1) * BITS_PER_WORD + detail::ctz64(last_inverted);
+                return (idx < N) ? idx : N;
+            }
+        }
+
+        return N;
+    }
+
+    /**
+     * @brief Find last cleared bit (last 0)
+     * @return Index of last cleared bit, or N if all bits are set
+     */
+    [[nodiscard]] size_t find_last_zero() const noexcept
+    {
+        const uint64_t last_inverted = ~m_words[NUM_WORDS - 1] & LAST_WORD_MASK;
+        if (last_inverted != 0)
+        {
+            const size_t bit_pos = 63 - detail::clz64(last_inverted);
+            const size_t idx = (NUM_WORDS - 1) * BITS_PER_WORD + bit_pos;
+            return (idx < N) ? idx : N;
+        }
+
+        for (size_t i = NUM_WORDS - 1; i-- > 0;)
+        {
+            if (m_words[i] != ~0ULL)
+            {
+                const size_t bit_pos = 63 - detail::clz64(~m_words[i]);
+                return i * BITS_PER_WORD + bit_pos;
+            }
+        }
+
         return N;
     }
 
@@ -708,6 +1028,35 @@ public:
             }
         }
         return false;
+    }
+
+    /**
+     * @brief Count differing bits between two sets (Hamming distance)
+     */
+    [[nodiscard]] size_t hamming_distance(const BitSet& other) const noexcept
+    {
+        size_t dist = 0;
+        for (size_t i = 0; i < NUM_WORDS; ++i)
+        {
+            dist += detail::popcnt64(m_words[i] ^ other.m_words[i]);
+        }
+        return dist;
+    }
+
+    /**
+     * @brief Check if this set has no bits in common with another
+     */
+    [[nodiscard]] bool is_disjoint(const BitSet& other) const noexcept
+    {
+        return !intersects(other);
+    }
+
+    /**
+     * @brief Check if this set is a proper subset of another
+     */
+    [[nodiscard]] bool is_proper_subset_of(const BitSet& other) const noexcept
+    {
+        return is_subset_of(other) && (*this != other);
     }
 
     // ========================================================================
@@ -779,6 +1128,116 @@ public:
         {
             m_words[i] ^= other.m_words[i];
         }
+        return *this;
+    }
+
+    // ========================================================================
+    // Shift operators
+    // ========================================================================
+
+    /**
+     * @brief Left-shift all bits by n positions
+     * @param n Number of positions to shift (bits shifted out are lost)
+     * @return New BitSet with shifted bits
+     */
+    [[nodiscard]] BitSet operator<<(size_t n) const noexcept
+    {
+        if (n == 0)
+        {
+            return *this;
+        }
+        if (n >= N)
+        {
+            return BitSet{};
+        }
+
+        BitSet result;
+
+        const size_t word_shift = n / BITS_PER_WORD;
+        const size_t bit_shift = n % BITS_PER_WORD;
+
+        if (bit_shift == 0)
+        {
+            for (size_t i = word_shift; i < NUM_WORDS; ++i)
+            {
+                result.m_words[i] = m_words[i - word_shift];
+            }
+        }
+        else
+        {
+            const size_t inv_shift = BITS_PER_WORD - bit_shift;
+            for (size_t i = NUM_WORDS - 1; i > word_shift; --i)
+            {
+                result.m_words[i] = (m_words[i - word_shift] << bit_shift) |
+                                    (m_words[i - word_shift - 1] >> inv_shift);
+            }
+            result.m_words[word_shift] = m_words[0] << bit_shift;
+        }
+
+        if constexpr (LAST_WORD_BITS != 0)
+        {
+            result.m_words[NUM_WORDS - 1] &= LAST_WORD_MASK;
+        }
+
+        return result;
+    }
+
+    /**
+     * @brief Right-shift all bits by n positions
+     * @param n Number of positions to shift (bits shifted out are lost)
+     * @return New BitSet with shifted bits
+     */
+    [[nodiscard]] BitSet operator>>(size_t n) const noexcept
+    {
+        if (n == 0)
+        {
+            return *this;
+        }
+        if (n >= N)
+        {
+            return BitSet{};
+        }
+
+        BitSet result;
+
+        const size_t word_shift = n / BITS_PER_WORD;
+        const size_t bit_shift = n % BITS_PER_WORD;
+
+        if (bit_shift == 0)
+        {
+            for (size_t i = 0; i < NUM_WORDS - word_shift; ++i)
+            {
+                result.m_words[i] = m_words[i + word_shift];
+            }
+        }
+        else
+        {
+            const size_t inv_shift = BITS_PER_WORD - bit_shift;
+            for (size_t i = 0; i < NUM_WORDS - word_shift - 1; ++i)
+            {
+                result.m_words[i] = (m_words[i + word_shift] >> bit_shift) |
+                                    (m_words[i + word_shift + 1] << inv_shift);
+            }
+            result.m_words[NUM_WORDS - word_shift - 1] = m_words[NUM_WORDS - 1] >> bit_shift;
+        }
+
+        if constexpr (LAST_WORD_BITS != 0)
+        {
+            result.m_words[NUM_WORDS - 1] &= LAST_WORD_MASK;
+        }
+
+        return result;
+    }
+
+    BitSet& operator<<=(size_t n) noexcept
+    {
+        *this = *this << n;
+        return *this;
+    }
+
+    BitSet& operator>>=(size_t n) noexcept
+    {
+        *this = *this >> n;
         return *this;
     }
 

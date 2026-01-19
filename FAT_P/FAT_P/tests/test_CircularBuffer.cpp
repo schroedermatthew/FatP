@@ -11,7 +11,9 @@ FATP_META:
   namespace: fat_p::testing::circularbuffer
   summary: "Unit tests for CircularBuffer."
   related:
-    docs_search: "CircularBuffer"
+    docs:
+      - Documentation/IN WORK/CircularBuffer_Overview.md
+      - Documentation/IN WORK/CircularBuffer_User_Manual.md
     headers:
       - fat_p/CircularBuffer.h
       - fat_p/FatPTest.h
@@ -67,6 +69,30 @@ FATP_TEST_CASE(capacity_one)
     FATP_ASSERT_TRUE(buffer.pop(val), "Pop should succeed");
     FATP_ASSERT_TRUE(val == 42, "Popped value should be 42");
     FATP_ASSERT_TRUE(buffer.empty(), "Should be empty after pop");
+
+    return true;
+}
+
+FATP_TEST_CASE(capacity_two)
+{
+    CircularBuffer<int, 2> buffer;
+
+    FATP_ASSERT_TRUE(buffer.capacity() == 2, "Capacity should be 2");
+    FATP_ASSERT_TRUE(buffer.empty(), "Should be empty");
+
+    FATP_ASSERT_TRUE(buffer.push(11), "First push should succeed");
+    FATP_ASSERT_TRUE(buffer.push(22), "Second push should succeed");
+    FATP_ASSERT_TRUE(buffer.full(), "Should be full after two pushes");
+    FATP_ASSERT_TRUE(!buffer.push(33), "Push to full capacity-2 buffer should fail");
+
+    int val = 0;
+    FATP_ASSERT_TRUE(buffer.pop(val), "First pop should succeed");
+    FATP_ASSERT_TRUE(val == 11, "First pop should return 11");
+
+    FATP_ASSERT_TRUE(buffer.pop(val), "Second pop should succeed");
+    FATP_ASSERT_TRUE(val == 22, "Second pop should return 22");
+
+    FATP_ASSERT_TRUE(buffer.empty(), "Should be empty after draining");
 
     return true;
 }
@@ -221,6 +247,36 @@ FATP_TEST_CASE(front)
     int val = 0;
     FATP_ASSERT_TRUE(buffer.pop(val), "Pop should succeed");
     FATP_ASSERT_TRUE(*buffer.front() == 99, "Front should now be second element");
+
+    return true;
+}
+
+FATP_TEST_CASE(front_pointer_stability_until_pop)
+{
+    CircularBuffer<int, 8> buffer;
+    FATP_ASSERT_TRUE(buffer.push(100), "Push should succeed");
+
+    const int* first_ptr = buffer.front();
+    FATP_ASSERT_TRUE(first_ptr != nullptr, "Front should not be nullptr");
+    FATP_ASSERT_TRUE(*first_ptr == 100, "Front value should match");
+
+    // Pushing additional items must not invalidate the consumer's front pointer.
+    for (int i = 1; i < 8; ++i)
+    {
+        FATP_ASSERT_TRUE(buffer.push(100 + i), "Push should succeed");
+
+        const int* p = buffer.front();
+        FATP_ASSERT_TRUE(p == first_ptr, "Front pointer should remain stable until pop()");
+        FATP_ASSERT_TRUE(*p == 100, "Front value should remain stable until pop()");
+    }
+
+    int val = 0;
+    FATP_ASSERT_TRUE(buffer.pop(val), "Pop should succeed");
+    FATP_ASSERT_TRUE(val == 100, "Popped value should match first element");
+
+    const int* new_ptr = buffer.front();
+    FATP_ASSERT_TRUE(new_ptr != nullptr, "Front should not be nullptr after pop");
+    FATP_ASSERT_TRUE(*new_ptr == 101, "Front should advance after pop()");
 
     return true;
 }
@@ -444,6 +500,29 @@ FATP_TEST_CASE(clear_and_destruct)
     return true;
 }
 
+FATP_TEST_CASE(clear_and_destruct_allows_reuse)
+{
+    CircularBuffer<std::string, 8> buffer;
+
+    for (int i = 0; i < 5; ++i)
+    {
+        FATP_ASSERT_TRUE(buffer.push(std::to_string(i)), "Push should succeed");
+    }
+
+    buffer.clear_and_destruct();
+
+    FATP_ASSERT_TRUE(buffer.empty(), "Buffer should be empty after clear_and_destruct");
+    FATP_ASSERT_TRUE(buffer.size() == 0, "Size should be 0 after clear_and_destruct");
+    FATP_ASSERT_TRUE(buffer.front() == nullptr, "Front should be nullptr after clear_and_destruct");
+
+    FATP_ASSERT_TRUE(buffer.push("ok"), "Push after clear_and_destruct should succeed");
+    std::string s;
+    FATP_ASSERT_TRUE(buffer.pop(s), "Pop after clear_and_destruct should succeed");
+    FATP_ASSERT_TRUE(s == "ok", "Popped value should match");
+
+    return true;
+}
+
 FATP_TEST_CASE(thread_safety_spsc)
 {
     constexpr int NUM_ITEMS = 100000;
@@ -496,6 +575,76 @@ FATP_TEST_CASE(thread_safety_spsc)
     FATP_ASSERT_TRUE(!order_error.load(), "SPSC values must be in order");
     FATP_ASSERT_TRUE(consumer_received.load() == NUM_ITEMS, "All items should be received");
     FATP_ASSERT_TRUE(buffer.empty(), "Buffer should be empty after test");
+
+    return true;
+}
+
+FATP_TEST_CASE(size_bounded_under_contention)
+{
+    constexpr int NUM_ITEMS = 200000;
+    CircularBuffer<int, 1024> buffer;
+
+    std::atomic<bool> start{false};
+    std::atomic<bool> done{false};
+
+    std::thread producer([&]() {
+        while (!start.load(std::memory_order_acquire))
+        {
+            std::this_thread::yield();
+        }
+
+        for (int i = 0; i < NUM_ITEMS; ++i)
+        {
+            while (!buffer.push(i))
+            {
+                std::this_thread::yield();
+            }
+        }
+    });
+
+    std::thread consumer([&]() {
+        while (!start.load(std::memory_order_acquire))
+        {
+            std::this_thread::yield();
+        }
+
+        int received = 0;
+        while (received < NUM_ITEMS)
+        {
+            int val = 0;
+            if (buffer.pop(val))
+            {
+                ++received;
+            }
+        }
+
+        done.store(true, std::memory_order_release);
+    });
+
+    start.store(true, std::memory_order_release);
+
+    size_t max_size_seen = 0;
+    size_t out_of_range_samples = 0;
+    while (!done.load(std::memory_order_acquire))
+    {
+        const size_t s = buffer.size();
+        if (s > buffer.capacity())
+        {
+            ++out_of_range_samples;
+            break;
+        }
+
+        if (s > max_size_seen)
+        {
+            max_size_seen = s;
+        }
+    }
+
+    producer.join();
+    consumer.join();
+
+    FATP_ASSERT_TRUE(out_of_range_samples == 0, "size() must be bounded by capacity()");
+    FATP_ASSERT_TRUE(max_size_seen > 0, "Test should observe non-zero size during activity");
 
     return true;
 }
@@ -679,6 +828,7 @@ bool test_CircularBuffer()
 
     FATP_RUN_TEST_NS(runner, circularbuffer, basic_construction);
     FATP_RUN_TEST_NS(runner, circularbuffer, capacity_one);
+    FATP_RUN_TEST_NS(runner, circularbuffer, capacity_two);
     FATP_RUN_TEST_NS(runner, circularbuffer, push_pop_basic);
     FATP_RUN_TEST_NS(runner, circularbuffer, full_condition);
     FATP_RUN_TEST_NS(runner, circularbuffer, empty_condition);
@@ -687,6 +837,7 @@ bool test_CircularBuffer()
     FATP_RUN_TEST_NS(runner, circularbuffer, move_semantics);
     FATP_RUN_TEST_NS(runner, circularbuffer, emplace);
     FATP_RUN_TEST_NS(runner, circularbuffer, front);
+    FATP_RUN_TEST_NS(runner, circularbuffer, front_pointer_stability_until_pop);
     FATP_RUN_TEST_NS(runner, circularbuffer, clear);
     FATP_RUN_TEST_NS(runner, circularbuffer, clear_auto_destruct);
     FATP_RUN_TEST_NS(runner, circularbuffer, size_tracking);
@@ -694,7 +845,9 @@ bool test_CircularBuffer()
     FATP_RUN_TEST_NS(runner, circularbuffer, static_capacity);
     FATP_RUN_TEST_NS(runner, circularbuffer, buffer_size_power_of_two);
     FATP_RUN_TEST_NS(runner, circularbuffer, clear_and_destruct);
+    FATP_RUN_TEST_NS(runner, circularbuffer, clear_and_destruct_allows_reuse);
     FATP_RUN_TEST_NS(runner, circularbuffer, thread_safety_spsc);
+    FATP_RUN_TEST_NS(runner, circularbuffer, size_bounded_under_contention);
     FATP_RUN_TEST_NS(runner, circularbuffer, stress_wraparound);
 
     circularbuffer::benchmark_circularbuffer();

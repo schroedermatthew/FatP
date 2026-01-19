@@ -374,6 +374,218 @@ FATP_TEST_CASE(intrusive_list_move)
     return true;
 }
 
+// ============================================================================
+// New tests for bug fixes
+// ============================================================================
+
+FATP_TEST_CASE(intrusive_list_single_element)
+{
+    IntrusiveList<TestNode> list;
+    TestNode n1(42, "single");
+    
+    FATP_ASSERT_FALSE(n1.is_linked(), "Node should not be linked initially");
+    
+    list.push_back(n1);
+    
+    FATP_ASSERT_EQ(list.size(), 1u, "Size should be 1");
+    FATP_ASSERT_TRUE(n1.is_linked(), "Node should be linked after push");
+    FATP_ASSERT_EQ(&list.front(), &n1, "Front should be the node");
+    FATP_ASSERT_EQ(&list.back(), &n1, "Back should be the node");
+    
+    // Iterate over single element
+    int count = 0;
+    for (auto& node : list)
+    {
+        FATP_ASSERT_EQ(node.value, 42, "Should iterate the single node");
+        ++count;
+    }
+    FATP_ASSERT_EQ(count, 1, "Should iterate exactly once");
+    
+    list.remove(n1);
+    
+    FATP_ASSERT_TRUE(list.empty(), "List should be empty after remove");
+    FATP_ASSERT_FALSE(n1.is_linked(), "Node should not be linked after remove");
+    
+    return true;
+}
+
+FATP_TEST_CASE(intrusive_list_iterator_conversion)
+{
+    IntrusiveList<TestNode> list;
+    TestNode n1(1, "one");
+    TestNode n2(2, "two");
+    
+    list.push_back(n1);
+    list.push_back(n2);
+    
+    // Get mutable iterator
+    IntrusiveList<TestNode>::iterator it = list.begin();
+    
+    // Convert to const_iterator (this was broken before fix)
+    IntrusiveList<TestNode>::const_iterator cit = it;
+    
+    FATP_ASSERT_EQ(cit->value, 1, "const_iterator should point to first element");
+    
+    ++cit;
+    FATP_ASSERT_EQ(cit->value, 2, "const_iterator should advance");
+    
+    // Verify const correctness - this should compile
+    const IntrusiveList<TestNode>& const_list = list;
+    for (const auto& node : const_list)
+    {
+        (void)node.value;  // Should work with const iteration
+    }
+    
+    return true;
+}
+
+FATP_TEST_CASE(intrusive_list_is_linked)
+{
+    IntrusiveList<TestNode> list;
+    TestNode n1(1, "one");
+    TestNode n2(2, "two");
+    TestNode n3(3, "three");
+    
+    // Initially not linked
+    FATP_ASSERT_FALSE(n1.is_linked(), "n1 should not be linked initially");
+    FATP_ASSERT_FALSE(n2.is_linked(), "n2 should not be linked initially");
+    FATP_ASSERT_FALSE(n3.is_linked(), "n3 should not be linked initially");
+    
+    // After push
+    list.push_back(n1);
+    FATP_ASSERT_TRUE(n1.is_linked(), "n1 should be linked after push");
+    
+    list.push_back(n2);
+    FATP_ASSERT_TRUE(n1.is_linked(), "n1 should still be linked");
+    FATP_ASSERT_TRUE(n2.is_linked(), "n2 should be linked after push");
+    
+    list.push_back(n3);
+    FATP_ASSERT_TRUE(n1.is_linked(), "n1 should still be linked");
+    FATP_ASSERT_TRUE(n2.is_linked(), "n2 should still be linked");
+    FATP_ASSERT_TRUE(n3.is_linked(), "n3 should be linked after push");
+    
+    // After remove
+    list.remove(n2);
+    FATP_ASSERT_TRUE(n1.is_linked(), "n1 should still be linked");
+    FATP_ASSERT_FALSE(n2.is_linked(), "n2 should not be linked after remove");
+    FATP_ASSERT_TRUE(n3.is_linked(), "n3 should still be linked");
+    
+    // After clear
+    list.clear();
+    FATP_ASSERT_FALSE(n1.is_linked(), "n1 should not be linked after clear");
+    FATP_ASSERT_FALSE(n3.is_linked(), "n3 should not be linked after clear");
+    
+    return true;
+}
+
+FATP_TEST_CASE(intrusive_list_remove_unlinked)
+{
+    IntrusiveList<TestNode> list;
+    TestNode n1(1, "one");
+    TestNode unlinked(99, "never added");
+    
+    list.push_back(n1);
+    
+    // Remove a node that was never added - should be safe no-op
+    list.remove(unlinked);
+    
+    FATP_ASSERT_EQ(list.size(), 1u, "Size should be unchanged");
+    FATP_ASSERT_TRUE(n1.is_linked(), "n1 should still be linked");
+    FATP_ASSERT_FALSE(unlinked.is_linked(), "unlinked should still not be linked");
+    
+    return true;
+}
+
+FATP_TEST_CASE(intrusive_list_cross_list_remove)
+{
+    IntrusiveList<TestNode> listA;
+    IntrusiveList<TestNode> listB;
+    TestNode node(42, "shared");
+    
+    listB.push_back(node);
+    
+    FATP_ASSERT_EQ(listB.size(), 1u, "listB should have 1 element");
+    FATP_ASSERT_TRUE(node.is_linked(), "node should be linked");
+    
+    // Try to remove from wrong list - should be safe no-op
+    listA.remove(node);
+    
+    // listB should be unchanged
+    FATP_ASSERT_EQ(listB.size(), 1u, "listB size should be unchanged");
+    FATP_ASSERT_TRUE(node.is_linked(), "node should still be linked to listB");
+    FATP_ASSERT_EQ(&listB.front(), &node, "listB front should still be node");
+    
+    return true;
+}
+
+FATP_TEST_CASE(intrusive_list_splice_at_begin)
+{
+    IntrusiveList<TestNode> list1;
+    IntrusiveList<TestNode> list2;
+
+    TestNode n1(1, "one");
+    TestNode n2(2, "two");
+    TestNode n3(3, "three");
+    TestNode n4(4, "four");
+
+    list1.push_back(n1);
+    list1.push_back(n2);
+
+    list2.push_back(n3);
+    list2.push_back(n4);
+
+    // Splice list2 at the beginning of list1
+    list1.splice(list1.begin(), list2);
+
+    FATP_ASSERT_EQ(list1.size(), 4u, "list1 should have 4 elements");
+    FATP_ASSERT_TRUE(list2.empty(), "list2 should be empty");
+
+    std::vector<int> values;
+    for (const auto& node : list1)
+    {
+        values.push_back(node.value);
+    }
+
+    FATP_ASSERT_EQ(values[0], 3, "First should be 3");
+    FATP_ASSERT_EQ(values[1], 4, "Second should be 4");
+    FATP_ASSERT_EQ(values[2], 1, "Third should be 1");
+    FATP_ASSERT_EQ(values[3], 2, "Fourth should be 2");
+
+    // Verify ownership transferred
+    FATP_ASSERT_TRUE(n3.is_linked(), "n3 should be linked");
+    FATP_ASSERT_TRUE(n4.is_linked(), "n4 should be linked");
+
+    return true;
+}
+
+FATP_TEST_CASE(intrusive_list_move_ownership)
+{
+    IntrusiveList<TestNode> list1;
+    
+    TestNode n1(1, "one");
+    TestNode n2(2, "two");
+    
+    list1.push_back(n1);
+    list1.push_back(n2);
+    
+    FATP_ASSERT_TRUE(n1.is_linked(), "n1 should be linked before move");
+    FATP_ASSERT_TRUE(n2.is_linked(), "n2 should be linked before move");
+    
+    // Move to a new list
+    IntrusiveList<TestNode> list2(std::move(list1));
+    
+    // Nodes should still be linked (ownership transferred)
+    FATP_ASSERT_TRUE(n1.is_linked(), "n1 should be linked after move");
+    FATP_ASSERT_TRUE(n2.is_linked(), "n2 should be linked after move");
+    
+    // Removing from list2 should work
+    list2.remove(n1);
+    FATP_ASSERT_FALSE(n1.is_linked(), "n1 should not be linked after remove from list2");
+    FATP_ASSERT_EQ(list2.size(), 1u, "list2 should have 1 element");
+    
+    return true;
+}
+
 void benchmark_intrusive_list()
 {
     std::cout << "\n" << colors::cyan() << "IntrusiveList Benchmarks:" << colors::reset() << "\n\n";
@@ -467,6 +679,15 @@ bool test_IntrusiveList()
     FATP_RUN_TEST_NS(runner, intrusivelist, intrusive_list_clear);
     FATP_RUN_TEST_NS(runner, intrusivelist, intrusive_list_splice);
     FATP_RUN_TEST_NS(runner, intrusivelist, intrusive_list_move);
+    
+    // New tests for bug fixes
+    FATP_RUN_TEST_NS(runner, intrusivelist, intrusive_list_single_element);
+    FATP_RUN_TEST_NS(runner, intrusivelist, intrusive_list_iterator_conversion);
+    FATP_RUN_TEST_NS(runner, intrusivelist, intrusive_list_is_linked);
+    FATP_RUN_TEST_NS(runner, intrusivelist, intrusive_list_remove_unlinked);
+    FATP_RUN_TEST_NS(runner, intrusivelist, intrusive_list_cross_list_remove);
+    FATP_RUN_TEST_NS(runner, intrusivelist, intrusive_list_splice_at_begin);
+    FATP_RUN_TEST_NS(runner, intrusivelist, intrusive_list_move_ownership);
 
     intrusivelist::benchmark_intrusive_list();
 

@@ -1,0 +1,164 @@
+======================================================================
+  BitSet Comprehensive Benchmark Suite
+======================================================================
+
+Competitors detected:
+  std::bitset             : YES
+  boost::dynamic_bitset   : YES
+  llvm::BitVector         : YES
+  llvm::SmallBitVector    : YES
+  roaring::Roaring        : YES (CRoaring compressed bitmaps)
+  bm::bvector<>           : YES (BitMagic)
+
+Settings: warmup=3, measured=15
+
+======================================================================
+  Section 1: Single-Bit Operations (N=1024)
+======================================================================
+
+--- Set Operation ---
+                     Library    Median(ns)      Mean(ns)     Stddev
+--------------------------------------------------------------------
+               fat_p::BitSet          0.74          0.78        0.17
+                 std::bitset          0.32          0.32        0.02
+       boost::dynamic_bitset          0.30          0.30        0.00
+             llvm::BitVector          0.31          0.31        0.01
+            roaring::Roaring         37.26         37.30        0.15
+               bm::bvector<>          1.94          2.12        0.50
+
+======================================================================
+  Section 2: Population Count (N=1024)
+======================================================================
+
+                     Library    Median(ns)      Mean(ns)     Stddev
+--------------------------------------------------------------------
+               fat_p::BitSet          3.07          3.08        0.04
+                 std::bitset          3.90          3.91        0.03
+       boost::dynamic_bitset         41.01         41.17        0.84
+             llvm::BitVector         10.20         10.25        0.17
+   roaring::Roaring (cached)          1.31          1.37        0.17
+               bm::bvector<>        980.63        975.30       13.41
+
+======================================================================
+  Section 3: Find Operations (N=1024, k=100)
+======================================================================
+
+std::bitset has NO find_first/find_next - requires O(N) scan.
+
+--- find_first ---
+                     Library    Median(ns)      Mean(ns)     Stddev
+--------------------------------------------------------------------
+               fat_p::BitSet          0.80          0.88        0.17
+   std::bitset (manual scan)          0.89          0.89        0.01
+       boost::dynamic_bitset          1.42          1.43        0.05
+             llvm::BitVector          0.93          0.94        0.04
+            roaring::Roaring          1.31          1.33        0.04
+               bm::bvector<>          1.68          1.67        0.09
+
+--- Iterate All Set Bits ---
+                     Library    Median(ns)      Mean(ns)     Stddev
+--------------------------------------------------------------------
+               fat_p::BitSet        247.60        318.57      147.02
+     std::bitset (O(N) scan)        546.80        547.55        1.97
+       boost::dynamic_bitset        349.00        350.03        3.15
+             llvm::BitVector        244.40        245.21        2.26
+            roaring::Roaring        471.60        474.61        5.73
+               bm::bvector<>        896.60        897.41       64.41
+
+======================================================================
+  Section 3: Find Operations (N=10000, k=1000)
+======================================================================
+
+std::bitset has NO find_first/find_next - requires O(N) scan.
+
+--- find_first ---
+                     Library    Median(ns)      Mean(ns)     Stddev
+--------------------------------------------------------------------
+               fat_p::BitSet          0.79          0.90        0.21
+   std::bitset (manual scan)          2.35          2.37        0.06
+       boost::dynamic_bitset          1.45          1.46        0.04
+             llvm::BitVector          0.93          0.98        0.11
+            roaring::Roaring          1.31          1.34        0.07
+               bm::bvector<>          1.67          1.71        0.10
+
+--- Iterate All Set Bits ---
+                     Library    Median(ns)      Mean(ns)     Stddev
+--------------------------------------------------------------------
+               fat_p::BitSet       2609.10       2610.63        8.22
+     std::bitset (O(N) scan)       5776.90       5876.45      379.81
+       boost::dynamic_bitset       3655.30       3655.89       18.21
+             llvm::BitVector       2624.20       2625.07        6.07
+            roaring::Roaring       4658.20       4659.49        5.52
+               bm::bvector<>       2803.50       2805.16       61.29
+
+======================================================================
+  Section 4: Sparse Iteration (N=1024, k=50)
+======================================================================
+
+Density: 4.88%
+
+                     Library    Median(ns)      Mean(ns)     Stddev
+--------------------------------------------------------------------
+    fat_p::BitSet (iterator)        121.45        121.40        0.23
+     std::bitset (O(N) scan)        547.49        547.52        2.09
+            roaring::Roaring        248.29        248.35        0.29
+               bm::bvector<>        737.69        748.10       54.47
+
+======================================================================
+  Section 4: Sparse Iteration (N=10000, k=100)
+======================================================================
+
+Density: 1.00%
+
+                     Library    Median(ns)      Mean(ns)     Stddev
+--------------------------------------------------------------------
+    fat_p::BitSet (iterator)        257.84        258.09        0.82
+     std::bitset (O(N) scan)       5350.06       5359.37       52.51
+            roaring::Roaring        471.76        471.85        0.34
+               bm::bvector<>        830.69        831.34       26.02
+
+======================================================================
+  Section 5: Bitwise Operations (N=1024)
+======================================================================
+
+--- AND Operation ---
+                     Library    Median(ns)      Mean(ns)     Stddev
+--------------------------------------------------------------------
+               fat_p::BitSet          3.69          3.61        0.17
+                 std::bitset         13.02         11.46        3.32
+            roaring::Roaring        123.62        124.75        4.07
+               bm::bvector<>       1503.98       1499.25       19.85
+
+======================================================================
+  Section 6: Range Operations (N=1024, range=100)
+======================================================================
+
+Fat-P has native set_range. Others require loops.
+
+                     Library    Median(ns)      Mean(ns)     Stddev
+--------------------------------------------------------------------
+      fat_p::BitSet (native)          0.19          0.19        0.00
+          std::bitset (loop)         90.44         90.84        1.55
+    llvm::BitVector (native)         38.63         38.40        1.30
+   roaring::Roaring (native)         65.19         65.16        0.32
+      bm::bvector<> (native)        151.04        151.16        0.30
+
+======================================================================
+  Section 7: Object Sizes (bytes)
+======================================================================
+
+                          Type |        Size
+---------------------------------------------
+             fat_p::BitSet<64> |            8
+           fat_p::BitSet<1024> |          128
+               std::bitset<64> |            8
+             std::bitset<1024> |          128
+  boost::dynamic_bitset (base) |           32
+        llvm::BitVector (base) |           72
+          llvm::SmallBitVector |            8
+       roaring::Roaring (base) |           40
+          bm::bvector<> (base) |           72
+
+======================================================================
+  Benchmark Complete
+======================================================================

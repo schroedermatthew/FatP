@@ -28,7 +28,9 @@ FATP_META:
 */
 
 #include <iostream>
+#include <type_traits>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "BitSet.h"
@@ -308,6 +310,29 @@ FATP_TEST_CASE(clear_range)
     return true;
 }
 
+FATP_TEST_CASE(flip_range)
+{
+    fat_p::BitSet<256> bits;
+
+    bits.flip_range(10, 20);
+    FATP_ASSERT_EQ(bits.count(), 10u, "Should have 10 bits set");
+    FATP_ASSERT_TRUE(bits.test(10), "Bit 10 should be set");
+    FATP_ASSERT_TRUE(bits.test(19), "Bit 19 should be set");
+
+    bits.flip_range(10, 20);
+    FATP_ASSERT_TRUE(bits.none(), "Double flip should clear all");
+
+    bits.flip_range(60, 70);
+    FATP_ASSERT_EQ(bits.count(), 10u, "Should span word boundary");
+    FATP_ASSERT_TRUE(bits.test(63), "Bit 63 set");
+    FATP_ASSERT_TRUE(bits.test(64), "Bit 64 set");
+
+    FATP_ASSERT_THROWS(bits.flip_range(20, 10), std::out_of_range, "Invalid range");
+    FATP_ASSERT_THROWS(bits.flip_range(0, 257), std::out_of_range, "Out of bounds");
+
+    return true;
+}
+
 FATP_TEST_CASE(count_range)
 {
     fat_p::BitSet<256> bits;
@@ -367,6 +392,98 @@ FATP_TEST_CASE(find_at_boundaries)
     bits.set(63);
     bits.set(64);
     FATP_ASSERT_EQ(bits.find_next(63), 64u, "Should find bit across word boundary");
+
+    return true;
+}
+
+FATP_TEST_CASE(find_next_last_index)
+{
+    fat_p::BitSet<64> bits;
+    bits.set(63);
+
+    FATP_ASSERT_EQ(bits.find_next(62), 63u, "Should find bit 63");
+    FATP_ASSERT_EQ(bits.find_next(63), 64u, "Nothing after last index");
+
+    bits.clear_all();
+    FATP_ASSERT_EQ(bits.find_next(62), 64u, "Empty set returns N");
+    FATP_ASSERT_EQ(bits.find_next(63), 64u, "find_next(N-1) returns N");
+
+    return true;
+}
+
+FATP_TEST_CASE(find_next_at_word_boundary)
+{
+    fat_p::BitSet<128> bits;
+    bits.set(64);
+
+    FATP_ASSERT_EQ(bits.find_next(63), 64u, "Should cross word boundary");
+    FATP_ASSERT_EQ(bits.find_next(64), 128u, "Nothing after 64");
+
+    bits.set(127);
+    FATP_ASSERT_EQ(bits.find_next(64), 127u, "Should find 127");
+    FATP_ASSERT_EQ(bits.find_next(127), 128u, "Nothing after last");
+
+    return true;
+}
+
+FATP_TEST_CASE(find_prev_operations)
+{
+    fat_p::BitSet<256> bits;
+    bits.set(10);
+    bits.set(50);
+    bits.set(200);
+
+    FATP_ASSERT_EQ(bits.find_prev(200), 50u, "Prev before 200 should be 50");
+    FATP_ASSERT_EQ(bits.find_prev(201), 200u, "Prev before 201 should be 200");
+    FATP_ASSERT_EQ(bits.find_prev(11), 10u, "Prev before 11 should be 10");
+    FATP_ASSERT_EQ(bits.find_prev(10), 256u, "Prev before 10 should be none");
+    FATP_ASSERT_EQ(bits.find_prev(0), 256u, "Prev before 0 should be none");
+    FATP_ASSERT_EQ(bits.find_prev(256), 200u, "Prev before N should be last");
+
+    return true;
+}
+
+FATP_TEST_CASE(find_zero_operations)
+{
+    fat_p::BitSet<256> bits;
+    bits.set_all();
+
+    FATP_ASSERT_EQ(bits.find_first_zero(), 256u, "No zeros when all set");
+    FATP_ASSERT_EQ(bits.find_last_zero(), 256u, "No zeros when all set");
+
+    bits.clear(10);
+    bits.clear(100);
+    bits.clear(200);
+
+    FATP_ASSERT_EQ(bits.find_first_zero(), 10u, "First zero at 10");
+    FATP_ASSERT_EQ(bits.find_next_zero(10), 100u, "Next zero after 10 is 100");
+    FATP_ASSERT_EQ(bits.find_next_zero(100), 200u, "Next zero after 100 is 200");
+    FATP_ASSERT_EQ(bits.find_next_zero(200), 256u, "No zero after 200");
+    FATP_ASSERT_EQ(bits.find_last_zero(), 200u, "Last zero at 200");
+
+    bits.clear_all();
+    FATP_ASSERT_EQ(bits.find_first_zero(), 0u, "First zero at 0");
+    FATP_ASSERT_EQ(bits.find_last_zero(), 255u, "Last zero at 255");
+
+    return true;
+}
+
+FATP_TEST_CASE(find_zero_boundaries)
+{
+    fat_p::BitSet<65> bits;
+    bits.set_all();
+
+    bits.clear(0);
+    FATP_ASSERT_EQ(bits.find_first_zero(), 0u, "Zero at position 0");
+
+    bits.set(0);
+    bits.clear(64);
+    FATP_ASSERT_EQ(bits.find_first_zero(), 64u, "Zero at word boundary");
+    FATP_ASSERT_EQ(bits.find_last_zero(), 64u, "Last zero at 64");
+
+    bits.set(64);
+    bits.clear(63);
+    FATP_ASSERT_EQ(bits.find_first_zero(), 63u, "Zero at 63");
 
     return true;
 }
@@ -536,6 +653,71 @@ FATP_TEST_CASE(compound_assignment)
 }
 
 // ============================================================================
+// Shift Operations
+// ============================================================================
+
+FATP_TEST_CASE(left_shift)
+{
+    fat_p::BitSet<128> bits;
+    bits.set(0);
+    bits.set(1);
+    bits.set(63);
+
+    auto shifted = bits << 1;
+    FATP_ASSERT_TRUE(!shifted.test(0), "Bit 0 should be empty");
+    FATP_ASSERT_TRUE(shifted.test(1), "Bit 1 should be set");
+    FATP_ASSERT_TRUE(shifted.test(2), "Bit 2 should be set");
+    FATP_ASSERT_TRUE(shifted.test(64), "Bit 64 should be set (was 63)");
+
+    auto word_shift = bits << 64;
+    FATP_ASSERT_TRUE(word_shift.test(64), "Bit 64 should be set (was 0)");
+    FATP_ASSERT_TRUE(word_shift.test(65), "Bit 65 should be set (was 1)");
+    FATP_ASSERT_TRUE(word_shift.test(127), "Bit 127 should be set (was 63)");
+
+    auto empty = bits << 128;
+    FATP_ASSERT_TRUE(empty.none(), "Shift by N should empty the set");
+
+    auto same = bits << 0;
+    FATP_ASSERT_TRUE(same == bits, "Shift by 0 should be identity");
+
+    return true;
+}
+
+FATP_TEST_CASE(right_shift)
+{
+    fat_p::BitSet<128> bits;
+    bits.set(1);
+    bits.set(64);
+    bits.set(127);
+
+    auto shifted = bits >> 1;
+    FATP_ASSERT_TRUE(shifted.test(0), "Bit 0 should be set (was 1)");
+    FATP_ASSERT_TRUE(shifted.test(63), "Bit 63 should be set (was 64)");
+    FATP_ASSERT_TRUE(shifted.test(126), "Bit 126 should be set (was 127)");
+    FATP_ASSERT_TRUE(!shifted.test(127), "Bit 127 should be empty");
+
+    return true;
+}
+
+FATP_TEST_CASE(shift_assignment)
+{
+    fat_p::BitSet<64> bits;
+    bits.set(0);
+    bits.set(10);
+
+    bits <<= 5;
+    FATP_ASSERT_TRUE(bits.test(5), "Bit 5 should be set");
+    FATP_ASSERT_TRUE(bits.test(15), "Bit 15 should be set");
+    FATP_ASSERT_TRUE(!bits.test(0), "Bit 0 should be empty");
+
+    bits >>= 5;
+    FATP_ASSERT_TRUE(bits.test(0), "Back to bit 0");
+    FATP_ASSERT_TRUE(bits.test(10), "Back to bit 10");
+
+    return true;
+}
+
+// ============================================================================
 // Set Operations
 // ============================================================================
 
@@ -654,6 +836,119 @@ FATP_TEST_CASE(copy_operations)
     return true;
 }
 
+FATP_TEST_CASE(move_construction)
+{
+    fat_p::BitSet<128> original;
+    original.set(10);
+    original.set(100);
+
+    fat_p::BitSet<128> moved = std::move(original);
+    FATP_ASSERT_EQ(moved.count(), 2u, "Moved should have 2 bits");
+    FATP_ASSERT_TRUE(moved.test(10), "Bit 10 preserved");
+    FATP_ASSERT_TRUE(moved.test(100), "Bit 100 preserved");
+
+    return true;
+}
+
+FATP_TEST_CASE(move_assignment)
+{
+    fat_p::BitSet<128> original;
+    original.set(10);
+    original.set(100);
+
+    fat_p::BitSet<128> target;
+    target.set(50);
+
+    target = std::move(original);
+    FATP_ASSERT_EQ(target.count(), 2u, "Target should have 2 bits");
+    FATP_ASSERT_TRUE(target.test(10), "Bit 10 present");
+    FATP_ASSERT_TRUE(target.test(100), "Bit 100 present");
+    FATP_ASSERT_TRUE(!target.test(50), "Old bit 50 gone");
+
+    return true;
+}
+
+FATP_TEST_CASE(self_assignment)
+{
+    fat_p::BitSet<64> bits;
+    bits.set(10);
+    bits.set(20);
+    bits.set(30);
+
+    bits = bits;
+
+    FATP_ASSERT_EQ(bits.count(), 3u, "Self-assignment preserves count");
+    FATP_ASSERT_TRUE(bits.test(10), "Bit 10 preserved");
+    FATP_ASSERT_TRUE(bits.test(20), "Bit 20 preserved");
+    FATP_ASSERT_TRUE(bits.test(30), "Bit 30 preserved");
+
+    return true;
+}
+
+FATP_TEST_CASE(to_string_basic)
+{
+    fat_p::BitSet<8> bits;
+    bits.set(0);
+    bits.set(2);
+    bits.set(7);
+
+    FATP_ASSERT_EQ(bits.to_string(), std::string("10000101"), "MSB-first string");
+    FATP_ASSERT_EQ(bits.to_string('.', '#'), std::string("#....#.#"), "Custom chars");
+
+    return true;
+}
+
+FATP_TEST_CASE(to_integral)
+{
+    fat_p::BitSet<64> bits;
+    bits.set(0);
+    bits.set(5);
+    bits.set(20);
+
+    const unsigned long expected_ul = (1UL << 0) | (1UL << 5) | (1UL << 20);
+    const unsigned long long expected_ull = (1ULL << 0) | (1ULL << 5) | (1ULL << 20);
+
+    FATP_ASSERT_EQ(bits.to_ulong(), expected_ul, "to_ulong matches low bits");
+    FATP_ASSERT_EQ(bits.to_ullong(), expected_ull, "to_ullong matches low bits");
+
+    fat_p::BitSet<128> too_big;
+    too_big.set(70);
+    FATP_ASSERT_THROWS(too_big.to_ulong(), std::overflow_error, "to_ulong overflow");
+
+    fat_p::BitSet<65> too_big_ull;
+    too_big_ull.set(64);
+    FATP_ASSERT_THROWS(too_big_ull.to_ullong(), std::overflow_error, "to_ullong overflow");
+
+    return true;
+}
+
+FATP_TEST_CASE(hamming_distance_and_disjoint)
+{
+    fat_p::BitSet<64> a;
+    fat_p::BitSet<64> b;
+
+    a.set(1);
+    a.set(2);
+    a.set(10);
+
+    b.set(2);
+    b.set(3);
+
+    FATP_ASSERT_EQ(a.hamming_distance(b), 3u, "Hamming distance");
+    FATP_ASSERT_TRUE(!a.is_disjoint(b), "Shared bit means not disjoint");
+
+    fat_p::BitSet<64> c = a;
+    c.set(20);
+    FATP_ASSERT_TRUE(a.is_proper_subset_of(c), "Proper subset");
+    FATP_ASSERT_TRUE(!c.is_proper_subset_of(a), "Not a proper subset");
+
+    fat_p::BitSet<64> d;
+    d.set(50);
+    FATP_ASSERT_TRUE(a.is_disjoint(d), "Disjoint sets");
+
+    return true;
+}
+
 // ============================================================================
 // Exception Tests
 // ============================================================================
@@ -667,6 +962,14 @@ FATP_TEST_CASE(out_of_range_exceptions)
     FATP_ASSERT_THROWS(bits.flip(64), std::out_of_range, "flip(64) should throw");
     FATP_ASSERT_THROWS(bits.test(1000), std::out_of_range, "test(1000) should throw");
     FATP_ASSERT_THROWS(bits.reset(64), std::out_of_range, "reset(64) should throw");
+
+    return true;
+}
+
+FATP_TEST_CASE(initializer_list_out_of_range)
+{
+    FATP_ASSERT_THROWS((fat_p::BitSet<64>{10, 64}), std::out_of_range, "Initializer list out of range");
+    FATP_ASSERT_THROWS((fat_p::BitSet<64>{0, 100}), std::out_of_range, "Initializer list out of range");
 
     return true;
 }
@@ -878,10 +1181,16 @@ bool test_BitSet()
 
     FATP_RUN_TEST_NS(runner, bitset, set_range);
     FATP_RUN_TEST_NS(runner, bitset, clear_range);
+    FATP_RUN_TEST_NS(runner, bitset, flip_range);
     FATP_RUN_TEST_NS(runner, bitset, count_range);
 
     FATP_RUN_TEST_NS(runner, bitset, find_operations);
     FATP_RUN_TEST_NS(runner, bitset, find_at_boundaries);
+    FATP_RUN_TEST_NS(runner, bitset, find_next_last_index);
+    FATP_RUN_TEST_NS(runner, bitset, find_next_at_word_boundary);
+    FATP_RUN_TEST_NS(runner, bitset, find_prev_operations);
+    FATP_RUN_TEST_NS(runner, bitset, find_zero_operations);
+    FATP_RUN_TEST_NS(runner, bitset, find_zero_boundaries);
 
     FATP_RUN_TEST_NS(runner, bitset, iteration);
     FATP_RUN_TEST_NS(runner, bitset, iteration_empty);
@@ -893,15 +1202,27 @@ bool test_BitSet()
     FATP_RUN_TEST_NS(runner, bitset, bitwise_not);
     FATP_RUN_TEST_NS(runner, bitset, compound_assignment);
 
+    FATP_RUN_TEST_NS(runner, bitset, left_shift);
+    FATP_RUN_TEST_NS(runner, bitset, right_shift);
+    FATP_RUN_TEST_NS(runner, bitset, shift_assignment);
+
     FATP_RUN_TEST_NS(runner, bitset, is_subset_of);
     FATP_RUN_TEST_NS(runner, bitset, intersects);
+    FATP_RUN_TEST_NS(runner, bitset, hamming_distance_and_disjoint);
 
     FATP_RUN_TEST_NS(runner, bitset, equality);
 
     FATP_RUN_TEST_NS(runner, bitset, initializer_list_constructor);
     FATP_RUN_TEST_NS(runner, bitset, copy_operations);
+    FATP_RUN_TEST_NS(runner, bitset, move_construction);
+    FATP_RUN_TEST_NS(runner, bitset, move_assignment);
+    FATP_RUN_TEST_NS(runner, bitset, self_assignment);
+
+    FATP_RUN_TEST_NS(runner, bitset, to_string_basic);
+    FATP_RUN_TEST_NS(runner, bitset, to_integral);
 
     FATP_RUN_TEST_NS(runner, bitset, out_of_range_exceptions);
+    FATP_RUN_TEST_NS(runner, bitset, initializer_list_out_of_range);
     FATP_RUN_TEST_NS(runner, bitset, range_exceptions);
     FATP_RUN_TEST_NS(runner, bitset, range_word_boundaries);
 

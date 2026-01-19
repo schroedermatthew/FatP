@@ -1,0 +1,116 @@
+[BenchmarkScope] High priority, CPU non-0 affinity
+========================================================================
+  StrongId Comprehensive Benchmark Suite
+========================================================================
+
+Competitor libraries detected:
+  [x] fat_p::StrongId (Checked + Unchecked)
+  [x] fluent::NamedType
+  [x] ts::strong_typedef (type_safe)
+  [x] strong::type (rollbear)
+  [x] boost::strong_typedef
+  [x] enum class (built-in)
+  [x] Manual wrapper struct (baseline)
+  [x] Raw int (baseline)
+
+[2026-01-18 14:14:10] CPU: 3022 MHz (base: 3686)
+
+Configuration:
+  Warmup runs: 3
+  Measured runs: 15
+  Seed: 12345
+  Operations per run: 1000000
+
+Design Invariants:
+  1. Each operation measured independently
+  2. Results normalized to nanoseconds per operation
+  3. Ratio column shows overhead vs raw int baseline
+  4. Medians are the primary reported statistic
+
+------------------------------------------------------------------------
+  CONSTRUCTION (from int)
+------------------------------------------------------------------------
+
+  fat_p::StrongId (Checked)     0.10       ns  (stddev: 0.00  )  1.00 x
+  fat_p::StrongId (Unchecked)   0.10       ns  (stddev: 0.00  )  0.98 x
+  fluent::NamedType             0.10       ns  (stddev: 0.01  )  1.01 x
+  ts::strong_typedef            0.10       ns  (stddev: 0.00  )  0.99 x
+  strong::type (rollbear)       0.20       ns  (stddev: 0.00  )  2.01 x
+  boost::strong_typedef         0.10       ns  (stddev: 0.00  )  1.00 x
+  enum class                    0.10       ns  (stddev: 0.00  )  0.99 x
+  Manual wrapper struct         0.10       ns  (stddev: 0.00  )  0.98 x
+  Raw int (baseline)            0.10       ns  (stddev: 0.00  )  1.00 x
+
+------------------------------------------------------------------------
+  COMPARISON (operator<)
+------------------------------------------------------------------------
+
+  fat_p::StrongId (Checked)     0.37       ns  (stddev: 0.00  )  1.00 x
+  fat_p::StrongId (Unchecked)   0.37       ns  (stddev: 0.01  )  1.00 x
+  fluent::NamedType             0.37       ns  (stddev: 0.00  )  1.00 x
+  ts::strong_typedef            0.37       ns  (stddev: 0.01  )  1.00 x
+  strong::type (rollbear)       0.37       ns  (stddev: 0.01  )  1.00 x
+  boost::strong_typedef         0.37       ns  (stddev: 0.00  )  1.00 x
+  enum class                    0.37       ns  (stddev: 0.01  )  1.00 x
+  Manual wrapper struct         0.37       ns  (stddev: 0.00  )  1.00 x
+  Raw int (baseline)            0.37       ns  (stddev: 0.01  )  1.00 x
+
+------------------------------------------------------------------------
+  ADDITION (compound +=)
+------------------------------------------------------------------------
+
+  fat_p::StrongId (Checked)     2.09       ns  (stddev: 0.01  )  2.26 x
+  fat_p::StrongId (Unchecked)   0.93       ns  (stddev: 0.01  )  1.00 x
+  fluent::NamedType             0.92       ns  (stddev: 0.01  )  1.00 x
+  ts::strong_typedef            0.92       ns  (stddev: 0.02  )  1.00 x
+  strong::type (rollbear)       0.93       ns  (stddev: 0.00  )  1.00 x
+  boost::strong_typedef         0.93       ns  (stddev: 0.02  )  1.00 x
+  enum class                    0.93       ns  (stddev: 0.01  )  1.00 x
+  Manual wrapper struct         0.92       ns  (stddev: 0.01  )  1.00 x
+  Raw int (baseline)            0.93       ns  (stddev: 0.01  )  1.00 x
+
+------------------------------------------------------------------------
+  INCREMENT (prefix ++)
+------------------------------------------------------------------------
+
+  fat_p::StrongId (Checked)     1.86       ns  (stddev: 0.00  )  10.01x
+  fat_p::StrongId (Unchecked)   0.19       ns  (stddev: 0.00  )  1.00 x
+  fluent::NamedType             0.19       ns  (stddev: 0.00  )  1.00 x
+  ts::strong_typedef            0.19       ns  (stddev: 0.00  )  1.00 x
+  strong::type (rollbear)       0.19       ns  (stddev: 0.00  )  1.00 x
+  boost::strong_typedef         0.19       ns  (stddev: 0.00  )  1.00 x
+  enum class                    0.19       ns  (stddev: 0.00  )  1.00 x
+  Manual wrapper struct         0.19       ns  (stddev: 0.00  )  1.00 x
+  Raw int (baseline)            0.19       ns  (stddev: 0.00  )  1.00 x
+
+------------------------------------------------------------------------
+  HASH (std::hash)
+------------------------------------------------------------------------
+
+  fat_p::StrongId (Checked)     0.59       ns  (stddev: 0.00  )  1.00 x
+  fat_p::StrongId (Unchecked)   0.59       ns  (stddev: 0.00  )  1.00 x
+  fluent::NamedType             0.59       ns  (stddev: 0.00  )  1.01 x
+  ts::strong_typedef            0.59       ns  (stddev: 0.00  )  1.00 x
+  strong::type (rollbear)       0.60       ns  (stddev: 0.01  )  1.02 x
+  boost::strong_typedef         0.59       ns  (stddev: 0.01  )  1.00 x
+  enum class                    0.59       ns  (stddev: 0.00  )  1.00 x
+  Manual wrapper struct         0.59       ns  (stddev: 0.00  )  1.00 x
+  Raw int (baseline)            0.59       ns  (stddev: 0.00  )  1.00 x
+
+========================================================================
+  INTERPRETATION GUIDE
+========================================================================
+
+  1.00x = Zero overhead (identical to raw int)
+  <1.5x = Negligible overhead for most applications
+  >2.0x = Measurable overhead, consider for hot paths
+
+  Key findings:
+  - fat_p::StrongId (Unchecked) should match raw int exactly
+  - fat_p::StrongId (Checked) has overflow detection cost
+  - enum class lacks arithmetic/increment operators
+  - Manual wrapper validates zero-overhead design pattern
+
+========================================================================
+  Benchmark Complete
+========================================================================

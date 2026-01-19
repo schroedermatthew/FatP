@@ -1,0 +1,184 @@
+[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  IntrusiveList Comprehensive Benchmark Suite
+================================================================================
+
+Platform: Windows (warmup=3, measured=15, seed=12345)
+
+Competitor libraries detected:
+  [x] fat_p::IntrusiveList
+  [x] std::list<T*> (baseline)
+  [x] boost::intrusive::list
+  [x] eastl::intrusive_list
+  [x] llvm::simple_ilist
+  [x] etl::intrusive_list
+
+Design Invariants:
+  1. Each measured run executes exactly one timed iteration per library
+  2. Library execution order is randomized per run
+  3. Setup/teardown outside timed regions
+  4. All libraries observe same distribution of machine states
+  5. Medians are the primary reported statistic
+
+
+================================================================================
+  PUSH_BACK PERFORMANCE (N=10000)
+================================================================================
+
+[2026-01-18 21:48:01] CPU: 3391 MHz (base: 3686)
+Contract: Zero allocation for IntrusiveList vs heap allocation for std::list
+
+Measuring time to push_back 10000 pre-existing nodes.
+IntrusiveList: no allocation (nodes pre-exist)
+std::list: allocates node wrapper for each push
+
+Library                             Median        Mean    Stddev  CI95
+-------------------------------------------------------------------------------
+fat_p::IntrusiveList                  2.18        2.19      0.08  [2.15, 2.23] ns/op
+std::list<T*>                        18.83       19.09      1.67  [18.24, 19.93] ns/op
+boost::intrusive::list                2.00        2.05      0.14  [1.98, 2.12] ns/op
+eastl::intrusive_list                 1.90        1.91      0.05  [1.88, 1.93] ns/op
+etl::intrusive_list [!]               1.56        1.56      0.16  [1.48, 1.64] ns/op
+llvm::simple_ilist                    2.01        2.07      0.14  [2.00, 2.14] ns/op
+
+Speedup (IntrusiveList vs std::list): 8.6x
+
+================================================================================
+  REMOVE PERFORMANCE (N=10000)
+================================================================================
+
+[2026-01-18 21:48:01] CPU: 2653 MHz (base: 3686)
+Contract: O(1) removal with known node reference - except ETL which is O(N)
+
+Measuring time to remove 10000 nodes in random order.
+Most intrusive lists: O(1) removal via node reference or iterator_to()
+ETL: O(N) removal - searches the list (API limitation)
+
+Library                             Median        Mean    Stddev  CI95
+-------------------------------------------------------------------------------
+fat_p::IntrusiveList                  5.87        5.90      0.18  [5.81, 6.00] ns/op
+std::list<T*>                        29.17       29.27      0.98  [28.78, 29.77] ns/op
+boost::intrusive::list                5.36        5.38      0.19  [5.29, 5.48] ns/op
+eastl::intrusive_list                 4.51        4.49      0.14  [4.42, 4.56] ns/op
+etl::intrusive_list [!]           14716.91    14720.61    179.15  [14629.95, 14811.27] ns/op
+llvm::simple_ilist                    5.19        5.18      0.22  [5.07, 5.29] ns/op
+
+Speedup (IntrusiveList vs std::list): 5.0x
+
+================================================================================
+  ITERATION PERFORMANCE (N=10000)
+================================================================================
+
+[2026-01-18 21:48:03] CPU: 2911 MHz (base: 3686)
+Contract: Sequential traversal with equivalent memory layout (std::deque storage)
+
+Measuring time to iterate and sum 10000 elements.
+All competitors use std::deque for node storage.
+
+Library                             Median        Mean    Stddev  CI95
+-------------------------------------------------------------------------------
+fat_p::IntrusiveList              83200.00    72673.33  16956.81  [64092.00, 81254.66] ns/iter
+std::list<T*>                     36900.00    33266.67   5962.70  [30249.12, 36284.21] ns/iter
+boost::intrusive::list            73400.00    72033.33   7042.59  [68469.29, 75597.38] ns/iter
+eastl::intrusive_list             75000.00    65100.00  15943.52  [57031.47, 73168.53] ns/iter
+etl::intrusive_list [!]           79600.00    73553.33  16865.68  [65018.12, 82088.55] ns/iter
+llvm::simple_ilist                77200.00    66760.00  17640.61  [57832.62, 75687.38] ns/iter
+
+Per-element: 8.32 ns/element
+
+================================================================================
+  SPLICE PERFORMANCE (N=10000)
+================================================================================
+
+[2026-01-18 21:48:03] CPU: 2690 MHz (base: 3686)
+Contract: Build source list + splice to dest (measures total transfer cost)
+
+Measuring time to build source list and splice 10000 elements.
+std::list: N allocating push_backs + O(1) splice
+Intrusive: N non-allocating links + O(1) or O(N) splice
+fat_p splice is O(N) due to ownership pointer updates.
+
+Library                             Median        Mean    Stddev  CI95
+-------------------------------------------------------------------------------
+fat_p::IntrusiveList              85100.00    86486.67   3121.55  [84906.94, 88066.39] ns/splice
+std::list<T*>                    246700.00   250213.33  13157.99  [243554.47, 256872.19] ns/splice
+boost::intrusive::list            51100.00    51740.00   1968.61  [50743.75, 52736.25] ns/splice
+eastl::intrusive_list             19000.00    19060.00    318.03  [18899.05, 19220.95] ns/splice
+etl::intrusive_list [!]           47200.00    47686.67   1522.15  [46916.35, 48456.98] ns/splice
+llvm::simple_ilist                20000.00    20266.67    874.78  [19823.97, 20709.37] ns/splice
+
+Note: Results include cost of building source list (N push_backs).
+std::list is slowest due to N allocations during setup.
+
+================================================================================
+  MEMORY OVERHEAD COMPARISON
+================================================================================
+
+Per-node memory overhead for different list implementations:
+
+Structure                               sizeof (bytes)
+-------------------------------------------------------
+Raw user data (int64_t + 7 padding)                  64
+fat_p::IntrusiveList                                 88
+std::list<T*>                                        80
+boost::intrusive::list                               80
+eastl::intrusive_list                                80
+etl::intrusive_list [!]                              80
+llvm::simple_ilist                                   80
+
+Analysis:
+- IntrusiveList adds 24 bytes per node (prev + next + owner)
+- std::list adds 16 bytes per node PLUS allocator overhead (~8-32 bytes)
+- Other intrusive lists add 16 bytes (prev + next only)
+- For 1M nodes, IntrusiveList saves ~24-48 MB vs std::list
+
+================================================================================
+  FREE LIST PATTERN (Pool=1000, Ops=100000)
+================================================================================
+
+[2026-01-18 21:48:03] CPU: 2359 MHz (base: 3686)
+Contract: Allocate/deallocate pattern using list as free list
+
+Simulating object pool: allocate (pop_front) and deallocate (push_back)
+Pattern: 70% allocate, 30% deallocate
+
+Library                             Median        Mean    Stddev  CI95
+-------------------------------------------------------------------------------
+fat_p::IntrusiveList                  3.14        3.13      0.03  [3.12, 3.15] ns/op
+std::list<T*>                         8.40        8.41      0.15  [8.33, 8.48] ns/op
+boost::intrusive::list                3.16        3.16      0.06  [3.13, 3.19] ns/op
+eastl::intrusive_list                 3.29        3.29      0.05  [3.26, 3.31] ns/op
+etl::intrusive_list [!]               3.29        3.34      0.12  [3.28, 3.40] ns/op
+llvm::simple_ilist                    3.11        3.12      0.04  [3.10, 3.14] ns/op
+
+Speedup: 2.7x
+
+================================================================================
+  IS_LINKED CHECK PERFORMANCE (N=1000)
+================================================================================
+
+[2026-01-18 21:48:03] CPU: 3169 MHz (base: 3686)
+Contract: Check if each node is in a list - O(1) vs O(N) depending on library
+
+Measuring time to check membership for 1000 nodes (half linked).
+fat_p/Boost/EASTL/ETL: O(1) via link or owner pointers
+LLVM/std::list: O(N) search required - no is_linked() API
+Note: N kept small because O(N) search per node = O(N^2) total.
+
+Library                             Median        Mean    Stddev  CI95
+-------------------------------------------------------------------------------
+fat_p::IntrusiveList                  0.50        0.50      0.08  [0.46, 0.54] ns/op
+std::list<T*>                       283.60      284.81      3.57  [283.00, 286.61] ns/op
+boost::intrusive::list                0.70        0.75      0.05  [0.72, 0.77] ns/op
+eastl::intrusive_list                 0.50        0.50      0.07  [0.47, 0.53] ns/op
+etl::intrusive_list [!]               0.50        0.52      0.04  [0.50, 0.54] ns/op
+llvm::simple_ilist                  289.70      290.11      1.39  [289.40, 290.81] ns/op
+
+Note: Libraries with O(1) is_linked: fat_p, Boost, EASTL, ETL.
+Libraries requiring O(N) search: LLVM, std::list.
+At N=100000, O(N) search would be ~10000x slower than O(1).
+fat_p unique: owner pointer also identifies WHICH list owns the node.
+
+================================================================================
+  Benchmark Complete
+================================================================================

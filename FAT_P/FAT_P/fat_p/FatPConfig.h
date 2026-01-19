@@ -25,7 +25,7 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: true
-    defines_total: 8
+    defines_total: 9
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
@@ -118,6 +118,16 @@ FATP_META:
 #else
 #define FATP_NOINLINE
 #endif
+#endif
+
+// =============================================================================
+// Optional iostream support
+// =============================================================================
+// Controls whether components provide operator<< for std::ostream.
+// Consumers may override by defining FATP_ENABLE_IOSTREAM before including Fat-P.
+// Default: enabled (1). Set to 0 to disable <iostream> includes.
+#ifndef FATP_ENABLE_IOSTREAM
+#define FATP_ENABLE_IOSTREAM 1
 #endif
 
 namespace fat_p

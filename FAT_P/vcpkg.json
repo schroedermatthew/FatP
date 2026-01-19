@@ -13,6 +13,10 @@
     "entt",
     "plf-hive",
     "foonathan-memory",
-	"concurrentqueue"
+	"type-safe",
+	"concurrentqueue",
+	"readerwriterqueue",
+	"bitmagic",
+	"roaring"
   ]
 }

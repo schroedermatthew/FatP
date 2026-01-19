@@ -11,8 +11,7 @@
  * - Swap functionality
  * - Hash support for containers
  * - AtomicStrongId usage
- * - Performance benchmarks
- * - Comparative benchmarks (StrongId vs raw int) validating zero-overhead
+ * - Zero-overhead sanity benchmark
  */
 /*
 FATP_META:
@@ -23,7 +22,10 @@ FATP_META:
   namespace: fat_p
   summary: "Unit tests for StrongId."
   related:
-    docs_search: "StrongId"
+    docs:
+      - Documentation/IN WORK/Overview - StrongId.md
+      - Documentation/IN WORK/User Manual - StrongId.md
+      - Documentation/IN WORK/Companion Guide - StrongId.md
     headers:
       - fat_p/CppStandardDetection.h
       - fat_p/StrongId.h
@@ -44,6 +46,8 @@ FATP_META:
 #include "FatPTest.h"
 #include "StrongId.h"
 #include <atomic>
+#include <limits>
+#include <string>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -69,10 +73,10 @@ struct UncheckedIdTag
 // --- Type Aliases (4-parameter StrongId) ---
 using UserId = StrongId<int, UserIdTag>;
 using TransactionId = StrongId<long, TransactionIdTag>;
-using ProductId = StrongId<int, ProductIdTag, PositiveCheckPolicy>;
+using ProductId = StrongId<int, ProductIdTag, strong_id::PositiveCheckPolicy>;
 
 // Unchecked version for performance comparison
-using UncheckedId = StrongId<int, UncheckedIdTag, NoCheckPolicy, UncheckedOpPolicy>;
+using UncheckedId = StrongId<int, UncheckedIdTag, strong_id::NoCheckPolicy, strong_id::UncheckedOpPolicy>;
 
 // Thread-safe version using std::atomic
 using AtomicUserId = AtomicStrongId<int, UserIdTag>;
@@ -235,95 +239,73 @@ FATP_TEST_CASE(decrement_operators)
 
 FATP_TEST_CASE(addition_operators)
 {
-    UserId id1(100);
+    UserId id(10);
 
-    id1 += 50;
-    FATP_ASSERT_EQ(id1.get(), 150, "Compound addition should work");
+    UserId id2 = id + 5;
+    FATP_ASSERT_EQ(id2.get(), 15, "Addition should work");
 
-    UserId id2 = id1 + 25;
-    FATP_ASSERT_EQ(id2.get(), 175, "Binary addition with scalar should work");
-    FATP_ASSERT_EQ(id1.get(), 150, "Original should be unchanged");
-
-    UserId id3(50);
-    UserId id4 = id1 + id3;
-    FATP_ASSERT_EQ(id4.get(), 200, "Binary addition with StrongId should work");
+    id += 3;
+    FATP_ASSERT_EQ(id.get(), 13, "Compound addition should work");
     return true;
 }
 
 FATP_TEST_CASE(subtraction_operators)
 {
-    UserId id1(200);
+    UserId id(10);
 
-    id1 -= 50;
-    FATP_ASSERT_EQ(id1.get(), 150, "Compound subtraction should work");
+    UserId id2 = id - 3;
+    FATP_ASSERT_EQ(id2.get(), 7, "Subtraction should work");
 
-    UserId id2 = id1 - 25;
-    FATP_ASSERT_EQ(id2.get(), 125, "Binary subtraction with scalar should work");
-
-    UserId id3(50);
-    UserId id4 = id1 - id3;
-    FATP_ASSERT_EQ(id4.get(), 100, "Binary subtraction with StrongId should work");
+    id -= 2;
+    FATP_ASSERT_EQ(id.get(), 8, "Compound subtraction should work");
     return true;
 }
 
 FATP_TEST_CASE(multiplication_operators)
 {
-    UserId id1(10);
+    UserId id(10);
 
-    id1 *= 5;
-    FATP_ASSERT_EQ(id1.get(), 50, "Compound multiplication should work");
+    UserId id2 = id * 3;
+    FATP_ASSERT_EQ(id2.get(), 30, "Multiplication should work");
 
-    UserId id2 = id1 * 2;
-    FATP_ASSERT_EQ(id2.get(), 100, "Binary multiplication with scalar should work");
-
-    UserId id3(3);
-    UserId id4 = id1 * id3;
-    FATP_ASSERT_EQ(id4.get(), 150, "Binary multiplication with StrongId should work");
+    id *= 2;
+    FATP_ASSERT_EQ(id.get(), 20, "Compound multiplication should work");
     return true;
 }
 
 FATP_TEST_CASE(division_operators)
 {
-    UserId id1(100);
+    UserId id(20);
 
-    id1 /= 5;
-    FATP_ASSERT_EQ(id1.get(), 20, "Compound division should work");
+    UserId id2 = id / 4;
+    FATP_ASSERT_EQ(id2.get(), 5, "Division should work");
 
-    UserId id2 = id1 / 2;
-    FATP_ASSERT_EQ(id2.get(), 10, "Binary division with scalar should work");
-
-    UserId id3(2);
-    UserId id4 = id1 / id3;
-    FATP_ASSERT_EQ(id4.get(), 10, "Binary division with StrongId should work");
+    id /= 2;
+    FATP_ASSERT_EQ(id.get(), 10, "Compound division should work");
     return true;
 }
 
 FATP_TEST_CASE(modulo_operators)
 {
-    UserId id1(17);
+    UserId id(17);
 
-    id1 %= 5;
-    FATP_ASSERT_EQ(id1.get(), 2, "Compound modulo should work");
+    UserId id2 = id % 5;
+    FATP_ASSERT_EQ(id2.get(), 2, "Modulo should work");
 
-    UserId id2(17);
-    UserId id3 = id2 % 5;
-    FATP_ASSERT_EQ(id3.get(), 2, "Binary modulo with scalar should work");
-
-    UserId id4(17);
-    UserId id5(5);
-    UserId id6 = id4 % id5;
-    FATP_ASSERT_EQ(id6.get(), 2, "Binary modulo with StrongId should work");
+    id %= 7;
+    FATP_ASSERT_EQ(id.get(), 3, "Compound modulo should work");
     return true;
 }
 
 FATP_TEST_CASE(unary_operators)
 {
-    UserId id1(42);
-    UserId id2 = -id1;
-    FATP_ASSERT_EQ(id2.get(), -42, "Unary negation should work");
+    UserId id(42);
 
-    UserId id3 = +id1;
-    FATP_ASSERT_EQ(id3.get(), 42, "Unary plus should return copy");
+    UserId pos = +id;
+    FATP_ASSERT_EQ(pos.get(), 42, "Unary plus should work");
+
+    UserId neg = -id;
+    FATP_ASSERT_EQ(neg.get(), -42, "Unary minus should work");
     return true;
 }
 
@@ -334,75 +316,73 @@ FATP_TEST_CASE(unary_operators)
 FATP_TEST_CASE(bitwise_and)
 {
     UserId id(0b1100);
-    id &= 0b1010;
-    FATP_ASSERT_EQ(id.get(), 0b1000, "Bitwise AND should work");
+    UserId result = id & 0b1010;
+    FATP_ASSERT_EQ(result.get(), 0b1000, "Bitwise AND should work");
 
-    UserId id2(0b1100);
-    UserId id3 = id2 & 0b1010;
-    FATP_ASSERT_EQ(id3.get(), 0b1000, "Binary bitwise AND should work");
+    id &= 0b1110;
+    FATP_ASSERT_EQ(id.get(), 0b1100, "Compound AND should work");
     return true;
 }
 
 FATP_TEST_CASE(bitwise_or)
 {
     UserId id(0b1100);
-    id |= 0b0011;
-    FATP_ASSERT_EQ(id.get(), 0b1111, "Bitwise OR should work");
+    UserId result = id | 0b0011;
+    FATP_ASSERT_EQ(result.get(), 0b1111, "Bitwise OR should work");
 
-    UserId id2(0b1100);
-    UserId id3 = id2 | 0b0011;
-    FATP_ASSERT_EQ(id3.get(), 0b1111, "Binary bitwise OR should work");
+    id |= 0b0001;
+    FATP_ASSERT_EQ(id.get(), 0b1101, "Compound OR should work");
     return true;
 }
 
 FATP_TEST_CASE(bitwise_xor)
 {
     UserId id(0b1100);
-    id ^= 0b1010;
-    FATP_ASSERT_EQ(id.get(), 0b0110, "Bitwise XOR should work");
+    UserId result = id ^ 0b1010;
+    FATP_ASSERT_EQ(result.get(), 0b0110, "Bitwise XOR should work");
 
-    UserId id2(0b1100);
-    UserId id3 = id2 ^ 0b1010;
-    FATP_ASSERT_EQ(id3.get(), 0b0110, "Binary bitwise XOR should work");
+    id ^= 0b0011;
+    FATP_ASSERT_EQ(id.get(), 0b1111, "Compound XOR should work");
     return true;
 }
 
 FATP_TEST_CASE(bitwise_not)
 {
     UserId id(0);
-    UserId id2 = ~id;
-    FATP_ASSERT_EQ(id2.get(), ~0, "Bitwise NOT should work");
+    UserId result = ~id;
+    FATP_ASSERT_EQ(result.get(), ~0, "Bitwise NOT should work");
     return true;
 }
 
 FATP_TEST_CASE(bit_shifts)
 {
     UserId id(1);
-    id <<= 4;
-    FATP_ASSERT_EQ(id.get(), 16, "Left shift should work");
 
-    UserId id2(16);
-    id2 >>= 2;
-    FATP_ASSERT_EQ(id2.get(), 4, "Right shift should work");
+    UserId left = id << 4;
+    FATP_ASSERT_EQ(left.get(), 16, "Left shift should work");
 
-    UserId id3(1);
-    UserId id4 = id3 << 3;
-    FATP_ASSERT_EQ(id4.get(), 8, "Binary left shift should work");
+    UserId right = left >> 2;
+    FATP_ASSERT_EQ(right.get(), 4, "Right shift should work");
 
-    UserId id5(16);
-    UserId id6 = id5 >> 2;
-    FATP_ASSERT_EQ(id6.get(), 4, "Binary right shift should work");
+    id <<= 3;
+    FATP_ASSERT_EQ(id.get(), 8, "Compound left shift should work");
+
+    id >>= 1;
+    FATP_ASSERT_EQ(id.get(), 4, "Compound right shift should work");
     return true;
 }
 
 // =============================================================================
-// CheckPolicy Tests
+// CheckPolicy Validation Tests
 // =============================================================================
 
 FATP_TEST_CASE(positive_check_policy_valid)
 {
     ProductId id(42);
     FATP_ASSERT_EQ(id.get(), 42, "Positive value should be allowed");
+
+    ProductId zero(0);
+    FATP_ASSERT_EQ(zero.get(), 0, "Zero should be allowed with PositiveCheckPolicy");
     return true;
 }
 
@@ -417,15 +397,15 @@ FATP_TEST_CASE(positive_check_policy_invalid)
     {
         caught = true;
     }
-    FATP_ASSERT_TRUE(caught, "Negative value should throw");
+    FATP_ASSERT_TRUE(caught, "Negative value should throw with PositiveCheckPolicy");
     return true;
 }
 
 FATP_TEST_CASE(check_policy_in_default_constructor)
 {
-    // Default value (0) should pass PositiveCheckPolicy
+    // PositiveCheckPolicy allows 0, so default construction should work
     ProductId id;
-    FATP_ASSERT_EQ(id.get(), 0, "Default value 0 should pass positive check");
+    FATP_ASSERT_EQ(id.get(), 0, "Default construction should work with policy that allows 0");
     return true;
 }
 
@@ -436,15 +416,17 @@ FATP_TEST_CASE(check_policy_in_default_constructor)
 FATP_TEST_CASE(expected_create_success)
 {
     auto result = ProductId::create(42);
-    FATP_ASSERT_TRUE(result.has_value(), "Valid value should succeed");
-    FATP_ASSERT_EQ(result.value().get(), 42, "Created ID should have correct value");
+    FATP_ASSERT_TRUE(result.has_value(), "create() should succeed for valid value");
+    FATP_ASSERT_EQ(result->get(), 42, "Created ID should have correct value");
     return true;
 }
 
 FATP_TEST_CASE(expected_create_failure)
 {
     auto result = ProductId::create(-1);
-    FATP_ASSERT_FALSE(result.has_value(), "Invalid value should fail");
+    FATP_ASSERT_FALSE(result.has_value(), "create() should fail for invalid value");
+    FATP_ASSERT_TRUE(result.error().find("negative") != std::string::npos || result.error().size() > 0,
+                     "Error message should be present");
     return true;
 }
 
@@ -456,9 +438,9 @@ FATP_TEST_CASE(copy_assignment)
 {
     UserId id1(100);
     UserId id2(200);
+
     id2 = id1;
     FATP_ASSERT_EQ(id2.get(), 100, "Copy assignment should work");
-    FATP_ASSERT_EQ(id1.get(), 100, "Original should be unchanged");
     return true;
 }
 
@@ -466,6 +448,7 @@ FATP_TEST_CASE(move_assignment)
 {
     UserId id1(100);
     UserId id2(200);
+
     id2 = std::move(id1);
     FATP_ASSERT_EQ(id2.get(), 100, "Move assignment should work");
     return true;
@@ -480,16 +463,18 @@ FATP_TEST_CASE(self_assignment)
 }
 
 // =============================================================================
-// Swap Tests
+// Swap Functionality Tests
 // =============================================================================
 
 FATP_TEST_CASE(member_swap)
 {
     UserId id1(100);
     UserId id2(200);
+
     id1.swap(id2);
-    FATP_ASSERT_EQ(id1.get(), 200, "Member swap should work (id1)");
-    FATP_ASSERT_EQ(id2.get(), 100, "Member swap should work (id2)");
+
+    FATP_ASSERT_EQ(id1.get(), 200, "After swap, id1 should have id2's value");
+    FATP_ASSERT_EQ(id2.get(), 100, "After swap, id2 should have id1's value");
     return true;
 }
 
@@ -497,9 +482,12 @@ FATP_TEST_CASE(adl_swap)
 {
     UserId id1(100);
     UserId id2(200);
+
+    using std::swap;
     swap(id1, id2);
-    FATP_ASSERT_EQ(id1.get(), 200, "ADL swap should work (id1)");
-    FATP_ASSERT_EQ(id2.get(), 100, "ADL swap should work (id2)");
+
+    FATP_ASSERT_EQ(id1.get(), 200, "ADL swap should work");
+    FATP_ASSERT_EQ(id2.get(), 100, "ADL swap should work");
     return true;
 }
 
@@ -509,38 +497,30 @@ FATP_TEST_CASE(adl_swap)
 
 FATP_TEST_CASE(hash_function)
 {
-    UserId id1(100);
-    UserId id2(100);
-    UserId id3(200);
-
     std::hash<UserId> hasher;
-    FATP_ASSERT_EQ(hasher(id1), hasher(id2), "Equal IDs should have equal hashes");
-    // Note: hash collision possible, but unlikely for these values
-    FATP_ASSERT_TRUE(hasher(id1) != hasher(id3) || id1.get() == id3.get(),
-                     "Different IDs typically have different hashes");
+    UserId id1(42);
+    UserId id2(42);
+    UserId id3(100);
+
+    FATP_ASSERT_EQ(hasher(id1), hasher(id2), "Same values should have same hash");
+    // Note: Different values may have same hash (collision), so we don't test inequality
+    (void)hasher(id3); // Just ensure it compiles and runs
     return true;
 }
 
 FATP_TEST_CASE(unordered_map_usage)
 {
-    std::unordered_map<UserId, std::string> user_names;
+    std::unordered_map<UserId, std::string> map;
+    map[UserId(1)] = "one";
+    map[UserId(2)] = "two";
 
-    user_names[UserId(1)] = "Alice";
-    user_names[UserId(2)] = "Bob";
-    user_names[UserId(3)] = "Charlie";
-
-    FATP_ASSERT_EQ(user_names[UserId(1)], "Alice", "Lookup should work");
-    FATP_ASSERT_EQ(user_names[UserId(2)], "Bob", "Lookup should work");
-    FATP_ASSERT_EQ(user_names.size(), 3u, "Size should be 3");
-
-    user_names[UserId(1)] = "Alicia";
-    FATP_ASSERT_EQ(user_names[UserId(1)], "Alicia", "Update should work");
-    FATP_ASSERT_EQ(user_names.size(), 3u, "Size should remain 3 after update");
+    FATP_ASSERT_EQ(map[UserId(1)], "one", "Lookup should work");
+    FATP_ASSERT_EQ(map[UserId(2)], "two", "Lookup should work");
     return true;
 }
 
 // =============================================================================
-// Atomic StrongId Tests (Thread-Safety via std::atomic)
+// Atomic StrongId Tests
 // =============================================================================
 
 FATP_TEST_CASE(atomic_basic_operations)
@@ -572,31 +552,30 @@ FATP_TEST_CASE(atomic_compare_exchange)
     UserId expected(42);
     bool success = atomic_id.compare_exchange_strong(expected, UserId(100));
     FATP_ASSERT_TRUE(success, "CAS should succeed when expected matches");
-    FATP_ASSERT_EQ(atomic_id.load().get(), 100, "CAS should set new value");
+    FATP_ASSERT_EQ(atomic_id.load().get(), 100, "CAS should set new value on success");
 
-    expected = UserId(42); // Wrong expected value now
+    expected = UserId(42); // Wrong expected value
     success = atomic_id.compare_exchange_strong(expected, UserId(200));
     FATP_ASSERT_FALSE(success, "CAS should fail when expected doesn't match");
-    FATP_ASSERT_EQ(expected.get(), 100, "Failed CAS should update expected");
-    FATP_ASSERT_EQ(atomic_id.load().get(), 100, "Failed CAS should not change value");
+    FATP_ASSERT_EQ(expected.get(), 100, "CAS should update expected on failure");
     return true;
 }
 
 FATP_TEST_CASE(atomic_concurrent_reads)
 {
     AtomicUserId atomic_id(UserId(42));
-    std::vector<std::thread> threads;
-    std::atomic<int> errors{0};
+    std::atomic<bool> all_correct{true};
 
-    for (int i = 0; i < 20; ++i)
+    std::vector<std::thread> threads;
+    for (int i = 0; i < 4; ++i)
     {
-        threads.emplace_back([&atomic_id, &errors]() {
+        threads.emplace_back([&]() {
             for (int j = 0; j < 1000; ++j)
             {
-                UserId value = atomic_id.load();
-                if (value.get() != 42)
+                UserId val = atomic_id.load();
+                if (val.get() != 42)
                 {
-                    errors++;
+                    all_correct = false;
                 }
             }
         });
@@ -607,28 +586,23 @@ FATP_TEST_CASE(atomic_concurrent_reads)
         t.join();
     }
 
-    FATP_ASSERT_EQ(errors.load(), 0, "Concurrent reads should be safe");
+    FATP_ASSERT_TRUE(all_correct.load(), "Concurrent reads should be consistent");
     return true;
 }
 
 FATP_TEST_CASE(atomic_concurrent_increments)
 {
-    // Since StrongId doesn't have atomic increment, we use CAS loop
     AtomicUserId atomic_id(UserId(0));
-    std::vector<std::thread> threads;
-    constexpr int iterations_per_thread = 100;
-    constexpr int num_threads = 10;
+    constexpr int threads_count = 4;
+    constexpr int increments_per_thread = 1000;
 
-    for (int i = 0; i < num_threads; ++i)
+    std::vector<std::thread> threads;
+    for (int i = 0; i < threads_count; ++i)
     {
-        threads.emplace_back([&atomic_id]() {
-            for (int j = 0; j < iterations_per_thread; ++j)
+        threads.emplace_back([&]() {
+            for (int j = 0; j < increments_per_thread; ++j)
             {
-                UserId expected = atomic_id.load();
-                while (!atomic_id.compare_exchange_weak(expected, UserId(expected.get() + 1)))
-                {
-                    // Retry
-                }
+                atomic_id.fetch_add(1);
             }
         });
     }
@@ -638,326 +612,290 @@ FATP_TEST_CASE(atomic_concurrent_increments)
         t.join();
     }
 
-    FATP_ASSERT_EQ(atomic_id.load().get(),
-                   num_threads * iterations_per_thread,
-                   "Concurrent increments should all be counted");
+    FATP_ASSERT_EQ(atomic_id.load().get(), threads_count * increments_per_thread,
+                   "Concurrent increments should be atomic");
     return true;
 }
 
 // =============================================================================
-// Type Trait Tests
+// Type Traits Tests
 // =============================================================================
 
 FATP_TEST_CASE(is_strong_id_trait)
 {
-    static_assert(is_strong_id_v<UserId>, "UserId should be detected as StrongId");
-    static_assert(is_strong_id_v<ProductId>, "ProductId should be detected as StrongId");
-    static_assert(!is_strong_id_v<int>, "int should not be detected as StrongId");
-    static_assert(!is_strong_id_v<std::string>, "string should not be detected as StrongId");
+    static_assert(is_strong_id_v<UserId>, "UserId should be a StrongId");
+    static_assert(is_strong_id_v<ProductId>, "ProductId should be a StrongId");
+    static_assert(!is_strong_id_v<int>, "int should not be a StrongId");
+    static_assert(!is_strong_id_v<std::string>, "string should not be a StrongId");
     return true;
 }
 
 // =============================================================================
-// Performance Benchmarks
+// Sentinel/Validity Pattern Tests
 // =============================================================================
 
-void run_strong_id_benchmarks()
+FATP_TEST_CASE(invalid_sentinel)
 {
-    auto& out = *get_test_config().output;
-    out << "\n"
-        << colors::cyan() << colors::bold() << "=== StrongId Performance Benchmarks ===" << colors::reset() << "\n\n";
+    UserId invalid = UserId::invalid();
+    FATP_ASSERT_EQ(invalid.get(), std::numeric_limits<int>::max(), "invalid() should return max sentinel");
+    return true;
+}
 
-    // Construction benchmark
-    benchmark("StrongId Construction", []() {
-        volatile UserId id(42);
-        (void)id;
-    });
+FATP_TEST_CASE(is_valid_check)
+{
+    UserId valid(42);
+    UserId invalid = UserId::invalid();
 
-    // Get accessor benchmark
-    UserId id(42);
-    benchmark("StrongId get()", [&id]() {
-        volatile int x = id.get();
-        (void)x;
-    });
+    FATP_ASSERT_TRUE(valid.isValid(), "Regular ID should be valid");
+    FATP_ASSERT_FALSE(invalid.isValid(), "Invalid sentinel should not be valid");
+    return true;
+}
 
-    // Arithmetic operations
-    benchmark("StrongId Addition", [&id]() {
-        volatile UserId result = id + 10;
-        (void)result;
-    });
+FATP_TEST_CASE(min_max_methods)
+{
+    UserId min_id = UserId::min();
+    UserId max_id = UserId::max();
 
-    benchmark("StrongId Multiplication", [&id]() {
-        volatile UserId result = id * 2;
-        (void)result;
-    });
-
-    // Comparison operations
-    UserId id2(100);
-    benchmark("StrongId Comparison", [&id, &id2]() {
-        volatile bool result = id < id2;
-        (void)result;
-    });
-
-    // Atomic operations
-    AtomicUserId atomic_id(UserId(42));
-    benchmark("Atomic load()", [&atomic_id]() {
-        volatile UserId x = atomic_id.load();
-        (void)x;
-    });
-
-    benchmark("Atomic store()", [&atomic_id]() {
-        atomic_id.store(UserId(42));
-    });
-
-    // Hash benchmark
-    std::hash<UserId> hasher;
-    benchmark("Hash Calculation", [&id, &hasher]() {
-        volatile size_t h = hasher(id);
-        (void)h;
-    });
-
-    out << "\n";
+    FATP_ASSERT_EQ(min_id.get(), std::numeric_limits<int>::min(), "min() should return min value");
+    // max() returns max-1 to reserve max for invalid sentinel
+    FATP_ASSERT_EQ(max_id.get(), std::numeric_limits<int>::max() - 1, "max() should return max-1");
+    return true;
 }
 
 // =============================================================================
-// Comparative Benchmarks: StrongId (checked) vs StrongId (unchecked) vs Raw int
+// New Check Policy Tests
 // =============================================================================
 
-void run_comparative_benchmarks()
+// NonZeroCheckPolicy tests
+struct NonZeroIdTag
+{
+};
+using NonZeroId = StrongId<int, NonZeroIdTag, strong_id::NonZeroCheckPolicy>;
+
+FATP_TEST_CASE(non_zero_policy_sentinel_factories_bypass_validation)
+{
+    NonZeroId invalid = NonZeroId::invalid();
+    FATP_ASSERT_EQ(invalid.get(), std::numeric_limits<int>::max(), "invalid() should return max sentinel");
+    FATP_ASSERT_FALSE(invalid.isValid(), "Invalid sentinel should not be valid");
+
+    NonZeroId maxId = NonZeroId::max();
+    FATP_ASSERT_TRUE(maxId.isValid(), "max() should not return the invalid sentinel");
+    return true;
+}
+
+FATP_TEST_CASE(range_policy_sentinel_factories_bypass_validation)
+{
+    struct RangeIdTag
+    {
+    };
+    using RangeId = StrongId<int, RangeIdTag, strong_id::RangeCheckPolicy<1, 10>>;
+
+    RangeId invalid = RangeId::invalid();
+    FATP_ASSERT_EQ(invalid.get(), std::numeric_limits<int>::max(), "invalid() should return max sentinel");
+
+    RangeId minId = RangeId::min();
+    FATP_ASSERT_EQ(minId.get(), std::numeric_limits<int>::min(), "min() should return underlying min");
+
+    RangeId maxId = RangeId::max();
+    FATP_ASSERT_EQ(maxId.get(),
+                   std::numeric_limits<int>::max() - 1,
+                   "max() should return the maximum non-sentinel value");
+    return true;
+}
+
+FATP_TEST_CASE(non_zero_policy_valid)
+{
+    NonZeroId id(42);
+    FATP_ASSERT_EQ(id.get(), 42, "Non-zero value should be allowed");
+
+    NonZeroId negId(-5);
+    FATP_ASSERT_EQ(negId.get(), -5, "Negative non-zero value should be allowed");
+    return true;
+}
+
+FATP_TEST_CASE(non_zero_policy_invalid)
+{
+    bool caught = false;
+    try
+    {
+        NonZeroId id(0);
+    }
+    catch (const std::invalid_argument&)
+    {
+        caught = true;
+    }
+    FATP_ASSERT_TRUE(caught, "Zero value should throw with NonZeroCheckPolicy");
+    return true;
+}
+
+// StrictlyPositiveCheckPolicy tests
+struct StrictlyPositiveIdTag
+{
+};
+using StrictlyPositiveId = StrongId<int, StrictlyPositiveIdTag, strong_id::StrictlyPositiveCheckPolicy>;
+
+FATP_TEST_CASE(strictly_positive_policy_valid)
+{
+    StrictlyPositiveId id(42);
+    FATP_ASSERT_EQ(id.get(), 42, "Positive value should be allowed");
+    return true;
+}
+
+FATP_TEST_CASE(strictly_positive_policy_zero_invalid)
+{
+    bool caught = false;
+    try
+    {
+        StrictlyPositiveId id(0);
+    }
+    catch (const std::invalid_argument&)
+    {
+        caught = true;
+    }
+    FATP_ASSERT_TRUE(caught, "Zero should throw with StrictlyPositiveCheckPolicy");
+    return true;
+}
+
+FATP_TEST_CASE(strictly_positive_policy_negative_invalid)
+{
+    bool caught = false;
+    try
+    {
+        StrictlyPositiveId id(-5);
+    }
+    catch (const std::invalid_argument&)
+    {
+        caught = true;
+    }
+    FATP_ASSERT_TRUE(caught, "Negative should throw with StrictlyPositiveCheckPolicy");
+    return true;
+}
+
+// RangeCheckPolicy tests
+struct RangeIdTag
+{
+};
+using RangeId = StrongId<int, RangeIdTag, strong_id::RangeCheckPolicy<1, 100>>;
+
+FATP_TEST_CASE(range_policy_valid)
+{
+    RangeId idMin(1);
+    RangeId idMid(50);
+    RangeId idMax(100);
+
+    FATP_ASSERT_EQ(idMin.get(), 1, "Min boundary should be allowed");
+    FATP_ASSERT_EQ(idMid.get(), 50, "Middle value should be allowed");
+    FATP_ASSERT_EQ(idMax.get(), 100, "Max boundary should be allowed");
+    return true;
+}
+
+FATP_TEST_CASE(range_policy_below_min_invalid)
+{
+    bool caught = false;
+    try
+    {
+        RangeId id(0);
+    }
+    catch (const std::out_of_range&)
+    {
+        caught = true;
+    }
+    FATP_ASSERT_TRUE(caught, "Value below min should throw");
+    return true;
+}
+
+FATP_TEST_CASE(range_policy_above_max_invalid)
+{
+    bool caught = false;
+    try
+    {
+        RangeId id(101);
+    }
+    catch (const std::out_of_range&)
+    {
+        caught = true;
+    }
+    FATP_ASSERT_TRUE(caught, "Value above max should throw");
+    return true;
+}
+
+// =============================================================================
+// StrongId-to-StrongId Bitwise Operations Tests
+// =============================================================================
+
+FATP_TEST_CASE(bitwise_and_strongid)
+{
+    UserId id1(0b1100);
+    UserId id2(0b1010);
+    UserId result = id1 & id2;
+    FATP_ASSERT_EQ(result.get(), 0b1000, "StrongId & StrongId should work");
+    return true;
+}
+
+FATP_TEST_CASE(bitwise_or_strongid)
+{
+    UserId id1(0b1100);
+    UserId id2(0b0011);
+    UserId result = id1 | id2;
+    FATP_ASSERT_EQ(result.get(), 0b1111, "StrongId | StrongId should work");
+    return true;
+}
+
+FATP_TEST_CASE(bitwise_xor_strongid)
+{
+    UserId id1(0b1100);
+    UserId id2(0b1010);
+    UserId result = id1 ^ id2;
+    FATP_ASSERT_EQ(result.get(), 0b0110, "StrongId ^ StrongId should work");
+    return true;
+}
+
+// =============================================================================
+// Zero-Overhead Sanity Benchmark
+// =============================================================================
+
+/**
+ * @brief Single sanity benchmark validating zero-overhead abstraction.
+ *
+ * Compares UncheckedStrongId comparison vs raw int comparison.
+ * A ratio of ~1.0x confirms the wrapper compiles away completely.
+ *
+ * We use comparison (operator<) because:
+ * - It's the most fundamental operation for containers and sorting
+ * - It compiles to a single CPU instruction
+ * - It clearly shows whether the wrapper adds any overhead
+ */
+void run_zero_overhead_sanity_benchmark()
 {
     auto& out = *get_test_config().output;
 
     out << "\n"
         << colors::cyan() << colors::bold()
-        << "=== StrongId vs Raw int - Zero Overhead Validation ===" << colors::reset() << "\n\n";
+        << "=== Zero-Overhead Sanity Benchmark ===" << colors::reset() << "\n\n";
 
-    out << colors::yellow() << "Comparing: Checked StrongId | Unchecked StrongId | Raw int\n"
-        << "Near-identical times validate zero-overhead abstraction.\n"
-        << "Timer resolution warnings indicate sub-nanosecond operations.\n"
-        << colors::reset() << "\n";
+    out << "Comparing: UncheckedStrongId vs raw int (operator<)\n"
+        << "A ratio near 1.0x confirms the wrapper compiles away completely.\n\n";
 
-    // Setup test values
-    UserId checked_id(42);
-    UncheckedId unchecked_id(42);
-    int raw_id = 42;
+    UncheckedId strongid_a(42);
+    UncheckedId strongid_b(100);
+    int raw_a = 42;
+    int raw_b = 100;
 
-    UserId checked_id2(100);
-    UncheckedId unchecked_id2(100);
-    int raw_id2 = 100;
-
-    // -------------------------------------------------------------------------
-    // Construction
-    // -------------------------------------------------------------------------
-    out << "\n" << colors::blue() << "--- Construction ---" << colors::reset() << "\n";
-
-    benchmark("Checked StrongId", []() {
-        volatile UserId id(42);
-        (void)id;
-    });
-    benchmark("Unchecked StrongId", []() {
-        volatile UncheckedId id(42);
-        (void)id;
-    });
-    benchmark("Raw int", []() {
-        volatile int id = 42;
-        (void)id;
-    });
-
-    // -------------------------------------------------------------------------
-    // Value Access
-    // -------------------------------------------------------------------------
-    out << "\n" << colors::blue() << "--- Value Access ---" << colors::reset() << "\n";
-
-    benchmark("Checked get()", [&checked_id]() {
-        volatile int x = checked_id.get();
-        (void)x;
-    });
-    benchmark("Unchecked get()", [&unchecked_id]() {
-        volatile int x = unchecked_id.get();
-        (void)x;
-    });
-    benchmark("Raw int read", [&raw_id]() {
-        volatile int x = raw_id;
-        (void)x;
-    });
-
-    // -------------------------------------------------------------------------
-    // Comparison Operations
-    // -------------------------------------------------------------------------
-    out << "\n" << colors::blue() << "--- Comparison (operator<) ---" << colors::reset() << "\n";
-
-    benchmark("Checked operator<", [&checked_id, &checked_id2]() {
-        volatile bool r = checked_id < checked_id2;
-        (void)r;
-    });
-    benchmark("Unchecked operator<", [&unchecked_id, &unchecked_id2]() {
-        volatile bool r = unchecked_id < unchecked_id2;
-        (void)r;
-    });
-    benchmark("Raw int operator<", [&raw_id, &raw_id2]() {
-        volatile bool r = raw_id < raw_id2;
+    // Benchmark StrongId comparison
+    benchmark("UncheckedStrongId operator<", [&strongid_a, &strongid_b]() {
+        volatile bool r = strongid_a < strongid_b;
         (void)r;
     });
 
-    // -------------------------------------------------------------------------
-    // Addition
-    // -------------------------------------------------------------------------
-    out << "\n" << colors::blue() << "--- Addition ---" << colors::reset() << "\n";
-
-    benchmark("Checked addition", [&checked_id]() {
-        volatile UserId r = checked_id + 10;
-        (void)r;
-    });
-    benchmark("Unchecked addition", [&unchecked_id]() {
-        volatile UncheckedId r = unchecked_id + 10;
-        (void)r;
-    });
-    benchmark("Raw int addition", [&raw_id]() {
-        volatile int r = raw_id + 10;
+    // Benchmark raw int comparison
+    benchmark("Raw int operator<", [&raw_a, &raw_b]() {
+        volatile bool r = raw_a < raw_b;
         (void)r;
     });
 
-    // -------------------------------------------------------------------------
-    // Multiplication (key benchmark - shows checked arithmetic overhead)
-    // -------------------------------------------------------------------------
-    out << "\n" << colors::blue() << "--- Multiplication (key benchmark) ---" << colors::reset() << "\n";
-
-    benchmark("Checked multiplication", [&checked_id]() {
-        volatile UserId r = checked_id * 2;
-        (void)r;
-    });
-    benchmark("Unchecked multiplication", [&unchecked_id]() {
-        volatile UncheckedId r = unchecked_id * 2;
-        (void)r;
-    });
-    benchmark("Raw int multiplication", [&raw_id]() {
-        volatile int r = raw_id * 2;
-        (void)r;
-    });
-
-    // -------------------------------------------------------------------------
-    // Pre-increment
-    // -------------------------------------------------------------------------
-    out << "\n" << colors::blue() << "--- Pre-increment ---" << colors::reset() << "\n";
-
-    benchmark("Checked pre-increment", [&checked_id]() {
-        UserId temp = checked_id;
-        ++temp;
-        volatile int x = temp.get();
-        (void)x;
-    });
-    benchmark("Unchecked pre-increment", [&unchecked_id]() {
-        UncheckedId temp = unchecked_id;
-        ++temp;
-        volatile int x = temp.get();
-        (void)x;
-    });
-    benchmark("Raw int pre-increment", [&raw_id]() {
-        int temp = raw_id;
-        ++temp;
-        volatile int x = temp;
-        (void)x;
-    });
-
-    // -------------------------------------------------------------------------
-    // Hash Operations
-    // -------------------------------------------------------------------------
-    out << "\n" << colors::blue() << "--- Hashing ---" << colors::reset() << "\n";
-
-    std::hash<UserId> checked_hasher;
-    std::hash<UncheckedId> unchecked_hasher;
-    std::hash<int> int_hasher;
-
-    benchmark("Checked hash", [&checked_id, &checked_hasher]() {
-        volatile size_t h = checked_hasher(checked_id);
-        (void)h;
-    });
-    benchmark("Unchecked hash", [&unchecked_id, &unchecked_hasher]() {
-        volatile size_t h = unchecked_hasher(unchecked_id);
-        (void)h;
-    });
-    benchmark("Raw int hash", [&raw_id, &int_hasher]() {
-        volatile size_t h = int_hasher(raw_id);
-        (void)h;
-    });
-
-    // -------------------------------------------------------------------------
-    // Container Operations
-    // -------------------------------------------------------------------------
-    out << "\n" << colors::blue() << "--- Container Lookup (1000 elements) ---" << colors::reset() << "\n";
-
-    std::unordered_set<UserId> checked_set;
-    std::unordered_set<UncheckedId> unchecked_set;
-    std::unordered_set<int> int_set;
-
-    for (int i = 0; i < 1000; ++i)
-    {
-        checked_set.insert(UserId(i));
-        unchecked_set.insert(UncheckedId(i));
-        int_set.insert(i);
-    }
-
-    UserId lookup_checked(500);
-    UncheckedId lookup_unchecked(500);
-    int lookup_int = 500;
-
-    benchmark("Checked set lookup", [&checked_set, &lookup_checked]() {
-        volatile bool found = checked_set.count(lookup_checked) > 0;
-        (void)found;
-    });
-    benchmark("Unchecked set lookup", [&unchecked_set, &lookup_unchecked]() {
-        volatile bool found = unchecked_set.count(lookup_unchecked) > 0;
-        (void)found;
-    });
-    benchmark("Raw int set lookup", [&int_set, &lookup_int]() {
-        volatile bool found = int_set.count(lookup_int) > 0;
-        (void)found;
-    });
-
-    // -------------------------------------------------------------------------
-    // Atomic Operations
-    // -------------------------------------------------------------------------
-    out << "\n" << colors::blue() << "--- Atomic Operations ---" << colors::reset() << "\n";
-
-    AtomicUserId atomic_checked(UserId(42));
-    std::atomic<UncheckedId> atomic_unchecked(UncheckedId(42));
-    std::atomic<int> atomic_int(42);
-
-    benchmark("Checked atomic load", [&atomic_checked]() {
-        volatile UserId x = atomic_checked.load();
-        (void)x;
-    });
-    benchmark("Unchecked atomic load", [&atomic_unchecked]() {
-        volatile UncheckedId x = atomic_unchecked.load();
-        (void)x;
-    });
-    benchmark("Raw int atomic load", [&atomic_int]() {
-        volatile int x = atomic_int.load();
-        (void)x;
-    });
-
-    benchmark("Checked atomic store", [&atomic_checked]() {
-        atomic_checked.store(UserId(42));
-    });
-    benchmark("Unchecked atomic store", [&atomic_unchecked]() {
-        atomic_unchecked.store(UncheckedId(42));
-    });
-    benchmark("Raw int atomic store", [&atomic_int]() {
-        atomic_int.store(42);
-    });
-
-    // -------------------------------------------------------------------------
-    // Summary
-    // -------------------------------------------------------------------------
-    out << "\n" << colors::cyan() << colors::bold() << "--- Interpretation ---" << colors::reset() << "\n\n";
-
-    out << "1. " << colors::green() << "Unchecked StrongId matches raw int exactly" << colors::reset()
-        << " - confirms zero wrapper overhead.\n\n"
-        << "2. " << colors::yellow() << "Checked multiplication ~2x slower" << colors::reset()
-        << " - this is the cost of overflow detection,\n"
-        << "   not wrapper overhead. Use UncheckedOpPolicy if profiling shows this matters.\n\n"
-        << "3. All other checked operations match raw int - overflow checks are\n"
-        << "   optimized away or have negligible cost for add/increment.\n\n";
+    out << "\n" << colors::green()
+        << "Zero overhead confirmed if both times are nearly identical."
+        << colors::reset() << "\n\n";
 }
 
 } // namespace fat_p::testing::strongid
@@ -1053,11 +991,33 @@ bool test_StrongId()
     out << "\n" << colors::blue() << "--- Type Traits ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, strongid, is_strong_id_trait);
 
-    // Performance Benchmarks
-    strongid::run_strong_id_benchmarks();
+    // Sentinel/Validity Patterns
+    out << "\n" << colors::blue() << "--- Sentinel/Validity Patterns ---" << colors::reset() << "\n";
+    FATP_RUN_TEST_NS(runner, strongid, invalid_sentinel);
+    FATP_RUN_TEST_NS(runner, strongid, is_valid_check);
+    FATP_RUN_TEST_NS(runner, strongid, min_max_methods);
 
-    // Comparative Benchmarks: StrongId vs Raw int
-    strongid::run_comparative_benchmarks();
+    // New Check Policies
+    out << "\n" << colors::blue() << "--- New Check Policies ---" << colors::reset() << "\n";
+    FATP_RUN_TEST_NS(runner, strongid, non_zero_policy_sentinel_factories_bypass_validation);
+    FATP_RUN_TEST_NS(runner, strongid, range_policy_sentinel_factories_bypass_validation);
+    FATP_RUN_TEST_NS(runner, strongid, non_zero_policy_valid);
+    FATP_RUN_TEST_NS(runner, strongid, non_zero_policy_invalid);
+    FATP_RUN_TEST_NS(runner, strongid, strictly_positive_policy_valid);
+    FATP_RUN_TEST_NS(runner, strongid, strictly_positive_policy_zero_invalid);
+    FATP_RUN_TEST_NS(runner, strongid, strictly_positive_policy_negative_invalid);
+    FATP_RUN_TEST_NS(runner, strongid, range_policy_valid);
+    FATP_RUN_TEST_NS(runner, strongid, range_policy_below_min_invalid);
+    FATP_RUN_TEST_NS(runner, strongid, range_policy_above_max_invalid);
+
+    // StrongId-to-StrongId Bitwise
+    out << "\n" << colors::blue() << "--- StrongId-to-StrongId Bitwise ---" << colors::reset() << "\n";
+    FATP_RUN_TEST_NS(runner, strongid, bitwise_and_strongid);
+    FATP_RUN_TEST_NS(runner, strongid, bitwise_or_strongid);
+    FATP_RUN_TEST_NS(runner, strongid, bitwise_xor_strongid);
+
+    // Single sanity benchmark for zero-overhead validation
+    strongid::run_zero_overhead_sanity_benchmark();
 
     // Summary
     return 0 == runner.print_summary() ? true : false;

@@ -1,0 +1,316 @@
+==========================================================
+STRONG ID UNIT TESTS
+==========================================================
+
+--- Basic Functionality ---
+[14:15:39] CPU: 2801 MHz (24% throttled) Running: default_constructor ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: explicit_constructor ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: default_constructor_with_check_policy ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: type_safety ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: get_accessor ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: value_accessor ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: explicit_cast ... PASSED (0.0 ms)
+
+--- Comparison Operators ---
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: equality_comparison ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: inequality_comparison ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: less_than_comparison ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: all_relational_operators ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: spaceship_operator ... PASSED (0.0 ms)
+
+--- Arithmetic Operators ---
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: increment_operators ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: decrement_operators ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: addition_operators ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: subtraction_operators ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: multiplication_operators ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: division_operators ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: modulo_operators ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: unary_operators ... PASSED (0.0 ms)
+
+--- Bitwise Operators ---
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: bitwise_and ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: bitwise_or ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: bitwise_xor ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: bitwise_not ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: bit_shifts ... PASSED (0.0 ms)
+
+--- CheckPolicy Validation ---
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: positive_check_policy_valid ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: positive_check_policy_invalid ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: check_policy_in_default_constructor ... PASSED (0.0 ms)
+
+--- Expected-Based Safe Creation ---
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: expected_create_success ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: expected_create_failure ... PASSED (0.0 ms)
+
+--- Assignment Operators ---
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: copy_assignment ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: move_assignment ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: self_assignment ... PASSED (0.0 ms)
+
+--- Swap Functionality ---
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: member_swap ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: adl_swap ... PASSED (0.0 ms)
+
+--- Hash and Containers ---
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: hash_function ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: unordered_map_usage ... PASSED (0.0 ms)
+
+--- Atomic StrongId (Thread-Safety) ---
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: atomic_basic_operations ... PASSED (0.0 ms)
+[14:15:39] CPU: 2506 MHz (32% throttled) Running: atomic_exchange ... PASSED (0.0 ms)
+[14:15:39] CPU: 3686 MHz Running: atomic_compare_exchange ... PASSED (0.0 ms)
+[14:15:39] CPU: 3686 MHz Running: atomic_concurrent_reads ... PASSED (1.0 ms)
+[14:15:39] CPU: 3686 MHz Running: atomic_concurrent_increments ... PASSED (0.4 ms)
+
+--- Type Traits ---
+[14:15:39] CPU: 3686 MHz Running: is_strong_id_trait ... PASSED (0.0 ms)
+
+--- Sentinel/Validity Patterns ---
+[14:15:39] CPU: 3686 MHz Running: invalid_sentinel ... PASSED (0.0 ms)
+[14:15:39] CPU: 3686 MHz Running: is_valid_check ... PASSED (0.0 ms)
+[14:15:39] CPU: 3686 MHz Running: min_max_methods ... PASSED (0.0 ms)
+
+--- New Check Policies ---
+[14:15:39] CPU: 3686 MHz Running: non_zero_policy_valid ... PASSED (0.0 ms)
+[14:15:39] CPU: 3686 MHz Running: non_zero_policy_invalid ... PASSED (0.0 ms)
+[14:15:39] CPU: 3686 MHz Running: strictly_positive_policy_valid ... PASSED (0.0 ms)
+[14:15:39] CPU: 3686 MHz Running: strictly_positive_policy_zero_invalid ... PASSED (0.0 ms)
+[14:15:39] CPU: 3686 MHz Running: strictly_positive_policy_negative_invalid ... PASSED (0.0 ms)
+[14:15:39] CPU: 3686 MHz Running: range_policy_valid ... PASSED (0.0 ms)
+[14:15:39] CPU: 3686 MHz Running: range_policy_below_min_invalid ... PASSED (0.0 ms)
+[14:15:39] CPU: 3686 MHz Running: range_policy_above_max_invalid ... PASSED (0.0 ms)
+
+--- StrongId-to-StrongId Bitwise ---
+[14:15:39] CPU: 3686 MHz Running: bitwise_and_strongid ... PASSED (0.0 ms)
+[14:15:39] CPU: 3686 MHz Running: bitwise_or_strongid ... PASSED (0.0 ms)
+[14:15:39] CPU: 3686 MHz Running: bitwise_xor_strongid ... PASSED (0.0 ms)
+
+=== StrongId Performance Benchmarks ===
+
+Warning: Total measurement (0.0677 ms) may have insufficient precision. Consider increasing iterations.
+StrongId Construction:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.135 ns
+  Total for 500000 iterations: 67.700 us
+Warning: Total measurement (0.0625 ms) may have insufficient precision. Consider increasing iterations.
+StrongId get():
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.125 ns
+  Total for 500000 iterations: 62.500 us
+StrongId Addition:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 1.858 ns
+  Total for 55556 iterations: 103.200 us
+Warning: Total measurement (0.0475 ms) may have insufficient precision. Consider increasing iterations.
+StrongId Multiplication:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 2.327 ns
+  Total for 20409 iterations: 47.500 us
+StrongId Comparison:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.204 ns
+  Total for 500000 iterations: 101.800 us
+Warning: Total measurement (0.0562 ms) may have insufficient precision. Consider increasing iterations.
+Atomic load():
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.169 ns
+  Total for 333334 iterations: 56.200 us
+Warning: Total measurement (0.0977 ms) may have insufficient precision. Consider increasing iterations.
+Atomic store():
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 3.713 ns
+  Total for 26316 iterations: 97.700 us
+Warning: Total measurement (0.0936 ms) may have insufficient precision. Consider increasing iterations.
+Hash Calculation:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.562 ns
+  Total for 166667 iterations: 93.600 us
+
+
+=== StrongId vs Raw int - Zero Overhead Validation ===
+
+Comparing: Checked StrongId | Unchecked StrongId | Raw int
+Near-identical times validate zero-overhead abstraction.
+Timer resolution warnings indicate sub-nanosecond operations.
+
+
+--- Construction ---
+Warning: Total measurement (0.0658 ms) may have insufficient precision. Consider increasing iterations.
+Checked StrongId:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.132 ns
+  Total for 500000 iterations: 65.800 us
+Warning: Total measurement (0.031 ms) may have insufficient precision. Consider increasing iterations.
+Unchecked StrongId:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.093 ns
+  Total for 333334 iterations: 31.000 us
+Warning: Total measurement (0.0514 ms) may have insufficient precision. Consider increasing iterations.
+Raw int:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.103 ns
+  Total for 500000 iterations: 51.400 us
+
+--- Value Access ---
+Warning: Total measurement (0.0634 ms) may have insufficient precision. Consider increasing iterations.
+Checked get():
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.127 ns
+  Total for 500000 iterations: 63.400 us
+Warning: Total measurement (0.0656 ms) may have insufficient precision. Consider increasing iterations.
+Unchecked get():
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.131 ns
+  Total for 500000 iterations: 65.600 us
+Warning: Total measurement (0.0687 ms) may have insufficient precision. Consider increasing iterations.
+Raw int read:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.137 ns
+  Total for 500000 iterations: 68.700 us
+
+--- Comparison (operator<) ---
+Warning: Total measurement (0.0645 ms) may have insufficient precision. Consider increasing iterations.
+Checked operator<:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.193 ns
+  Total for 333334 iterations: 64.500 us
+Warning: Total measurement (0.0766 ms) may have insufficient precision. Consider increasing iterations.
+Unchecked operator<:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.230 ns
+  Total for 333334 iterations: 76.600 us
+Warning: Total measurement (0.0968 ms) may have insufficient precision. Consider increasing iterations.
+Raw int operator<:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.194 ns
+  Total for 500000 iterations: 96.800 us
+
+--- Addition ---
+Warning: Total measurement (0.088 ms) may have insufficient precision. Consider increasing iterations.
+Checked addition:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 1.672 ns
+  Total for 52632 iterations: 88.000 us
+Warning: Total measurement (0.0862 ms) may have insufficient precision. Consider increasing iterations.
+Unchecked addition:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.172 ns
+  Total for 500000 iterations: 86.200 us
+Warning: Total measurement (0.0697 ms) may have insufficient precision. Consider increasing iterations.
+Raw int addition:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.139 ns
+  Total for 500000 iterations: 69.700 us
+
+--- Multiplication (key benchmark) ---
+Warning: Total measurement (0.09 ms) may have insufficient precision. Consider increasing iterations.
+Checked multiplication:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 1.890 ns
+  Total for 47620 iterations: 90.000 us
+Warning: Total measurement (0.073 ms) may have insufficient precision. Consider increasing iterations.
+Unchecked multiplication:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.219 ns
+  Total for 333334 iterations: 73.000 us
+Warning: Total measurement (0.0578 ms) may have insufficient precision. Consider increasing iterations.
+Raw int multiplication:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.173 ns
+  Total for 333334 iterations: 57.800 us
+
+--- Pre-increment ---
+Warning: Total measurement (0.088 ms) may have insufficient precision. Consider increasing iterations.
+Checked pre-increment:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 1.672 ns
+  Total for 52632 iterations: 88.000 us
+Warning: Total measurement (0.0472 ms) may have insufficient precision. Consider increasing iterations.
+Unchecked pre-increment:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.142 ns
+  Total for 333334 iterations: 47.200 us
+Warning: Total measurement (0.0708 ms) may have insufficient precision. Consider increasing iterations.
+Raw int pre-increment:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.142 ns
+  Total for 500000 iterations: 70.800 us
+
+--- Hashing ---
+Warning: Total measurement (0.0935 ms) may have insufficient precision. Consider increasing iterations.
+Checked hash:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.561 ns
+  Total for 166667 iterations: 93.500 us
+Warning: Total measurement (0.0951 ms) may have insufficient precision. Consider increasing iterations.
+Unchecked hash:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.571 ns
+  Total for 166667 iterations: 95.100 us
+Raw int hash:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.545 ns
+  Total for 200001 iterations: 109.000 us
+
+--- Container Lookup (1000 elements) ---
+Checked set lookup:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 1.001 ns
+  Total for 100001 iterations: 100.100 us
+Warning: Total measurement (0.0914 ms) may have insufficient precision. Consider increasing iterations.
+Unchecked set lookup:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 1.005 ns
+  Total for 90910 iterations: 91.400 us
+Warning: Total measurement (0.0954 ms) may have insufficient precision. Consider increasing iterations.
+Raw int set lookup:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 2.480 ns
+  Total for 38462 iterations: 95.400 us
+
+--- Atomic Operations ---
+Warning: Total measurement (0.0556 ms) may have insufficient precision. Consider increasing iterations.
+Checked atomic load:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.167 ns
+  Total for 333334 iterations: 55.600 us
+Warning: Total measurement (0.0696 ms) may have insufficient precision. Consider increasing iterations.
+Unchecked atomic load:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.139 ns
+  Total for 500000 iterations: 69.600 us
+Warning: Total measurement (0.0546 ms) may have insufficient precision. Consider increasing iterations.
+Raw int atomic load:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 0.164 ns
+  Total for 333334 iterations: 54.600 us
+Checked atomic store:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 3.715 ns
+  Total for 27028 iterations: 100.400 us
+Unchecked atomic store:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 3.715 ns
+  Total for 27028 iterations: 100.400 us
+Raw int atomic store:
+  [2026-01-18 14:15:39] CPU: 3686 MHz
+  Average time per operation: 3.876 ns
+  Total for 26316 iterations: 102.000 us
+
+--- Interpretation ---
+
+1. Unchecked StrongId matches raw int exactly - confirms zero wrapper overhead.
+
+2. Checked multiplication ~2x slower - this is the cost of overflow detection,
+   not wrapper overhead. Use UncheckedOpPolicy if profiling shows this matters.
+
+3. All other checked operations match raw int - overflow checks are
+   optimized away or have negligible cost for add/increment.
+
+
+=== Test Summary ===
+Passed: 57
+Failed: 0
+Total:  57
