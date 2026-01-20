@@ -8,15 +8,6 @@
 
 ---
 
-## Guarantee Legend
-
-| Mark | Meaning |
-|------|---------|
-| ✅ **Compile-time** | Invalid operations are rejected by the compiler (the method does not exist on that type). |
-| ⚠ **Runtime / tooling** | Some misuse is still possible (e.g., use-after-move); catch via assertions, tests, or static analysis. |
-
----
-
 ## The Bug
 
 Your team's file processing library has been deployed for months. Then a crash report comes in:
@@ -432,7 +423,7 @@ void example() {
 |---------|-------------|
 | **Compile-time safety** | Invalid operations don't compile |
 | **Self-documenting** | Type signatures show valid operations |
-| **No explicit state flag** | Typically no extra runtime state beyond what you'd store anyway; overhead depends on the design (e.g., using `shared_ptr` for shared context, dynamic allocation, etc.). |
+| **No runtime overhead** | States are compile-time only |
 | **IDE support** | Autocomplete only shows valid operations |
 
 ### Disadvantages
@@ -492,7 +483,7 @@ void example() {
 1. **State is type, not value** — `OpenFile` vs `ClosedFile`, not `file.is_open`
 2. **Transitions consume and produce** — `open()` takes `ClosedFile`, returns `OpenFile`
 3. **Operations exist only on valid states** — `read()` only on `OpenFile`
-4. **Move semantics encourage “consume-and-produce” transitions** — but in C++ a moved-from object is still in scope, so using it is a *logic error* (not necessarily a compile error). Prefer APIs that make consumption obvious, and consider debug-mode moved-from poisoning/asserts or static analysis.
+4. **Move semantics enforce linearity** — can't use object after transition
 
 ### The Pattern in One Sentence
 

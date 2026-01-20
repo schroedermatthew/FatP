@@ -438,7 +438,7 @@ When reviewing code, check:
 |---------|----------|
 | Accidental mutation | Use `const T&` for read-only parameters |
 | Surprise side effects | Mark non-modifying methods `const` |
-| Thread-unsafe sharing | `const` objects are safe to share |
+| Thread-unsafe sharing | `const` makes read-only intent explicit; safe sharing still depends on the object being truly immutable (no `mutable` caches, no internal synchronization side effects, etc.). |
 | Unclear API intent | `const` documents read-only vs. read-write |
 | Runtime "constants" | Use `constexpr` for compile-time constants |
 
@@ -447,7 +447,7 @@ When reviewing code, check:
 1. **Default to const** — Remove it only when mutation is needed
 2. **Const is documentation** — It tells callers what to expect
 3. **Const is enforced** — The compiler rejects violations
-4. **Const enables concurrency** — Safe sharing without locks
+4. **Const can enable shared read-only access** — but it does not replace real thread-safety guarantees (watch for `mutable`, shared ownership, and internal state changes)
 5. **Const propagates** — A const object has const members
 
 ### The Guideline in One Sentence

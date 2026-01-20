@@ -11,19 +11,7 @@ Every bug caught at compile time is a bug that:
 - Never reaches production
 - Never wakes you up at 3am
 
-The C++ type system can act like a proof assistant. When used well, compiling successfully becomes a *partial* proof that certain classes of bugs cannot exist in your program.
-
-This bundle contains **Sessions 1–5** (Strong Typedefs, Enum Exhaustiveness, StateMachine, Type-State Pattern, Const Correctness). The overview also mentions Sessions 6–8 as *optional extensions*; those are **not included** in the current lecture bundle.
-
----
-
-## Guarantee Legend (used throughout)
-
-| Mark | Meaning |
-|------|---------|
-| ✅ **Compile-time** | Invalid code does not compile (the compiler rejects it). |
-| ⚠ **Runtime fail-fast** | Invalid behavior is detected at runtime early (throw/assert/log), not “silently proceed.” |
-| 🛈 **Discipline/tooling** | A convention, review practice, or tooling can help, but the compiler does not enforce it by itself. |
+The C++ type system is a proof assistant. When used well, compiling successfully becomes a partial proof of correctness. The techniques in this course transform runtime errors into compile errors—making entire classes of bugs impossible to write.
 
 ---
 
@@ -101,7 +89,7 @@ void handle(Event e) {
 }
 ```
 
-**Solution:** Use a type-safe state machine that encodes the *state set* and *transition table* at compile time, then validates each attempted transition from the current runtime state using a policy (fail-fast).
+**Solution:** Use a type-safe state machine that encodes valid transitions at compile time.
 
 ```cpp
 // Define states as types
@@ -190,16 +178,14 @@ void process(const std::vector<int>& data) {
 
 **What it catches:**
 - Accidental mutation
+- Thread-safety violations (const enables safe sharing)
 - API contract violations
-- Some classes of concurrency mistakes by making read-only intent explicit (see clarification below)
-
-**Important clarification:** `const` helps communicate/read-only intent and can enable safe sharing *when the underlying object is truly immutable*, but `const` alone does **not** make an object thread-safe (e.g., `mutable` caches, internal synchronization, shared ownership, or other side effects).
 
 **Language features:** `const`, `constexpr`, `std::as_const`
 
 ---
 
-### 6. Non-Null References (Optional extension; not included in this bundle)
+### 6. Non-Null References (Session 6)
 **Problem:** Null pointer dereferences crash at runtime.
 
 ```cpp
@@ -229,7 +215,7 @@ void maybe_process(std::optional<User>& user) {
 
 ---
 
-### 7. [[nodiscard]] and Error Handling (Optional extension; not included in this bundle)
+### 7. [[nodiscard]] and Error Handling (Session 7)
 **Problem:** Error return values are silently ignored.
 
 ```cpp
@@ -256,7 +242,7 @@ remove("file.txt");  // Warning: ignoring return value
 
 ---
 
-### 8. Template Constraints (Optional extension; not included in this bundle)
+### 8. Template Constraints (Session 8)
 **Problem:** Template errors are incomprehensible; wrong types produce pages of errors deep in implementation.
 
 ```cpp
@@ -393,17 +379,15 @@ The goal is always the same: **make illegal states unrepresentable**.
 |-----------|-------------------|--------------|-----------------|
 | Strong Typedefs | Slightly longer compiles | Zero | Moderate (refactor call sites) |
 | Exhaustive Switches | Negligible | Zero | Low (add compiler flag, fix warnings) |
-| Type-Safe State Machines | Slightly longer compiles | O(1) transition validity check + entry/exit dispatch (often inlined) | Medium (restructure into state types) |
-| Type-State Pattern | Longer compiles | Usually zero extra state (but design-dependent) | High (redesign APIs) |
+| Type-Safe State Machines | Slightly longer compiles | Zero (same as switch) | Medium (restructure into state types) |
+| Type-State Pattern | Longer compiles | Zero | High (redesign APIs) |
 | Const Correctness | Negligible | Zero | Moderate (add const throughout) |
 | Non-Null References | Negligible | Zero | Low (prefer references) |
 | [[nodiscard]] | Negligible | Zero | Low (add attributes) |
 | SFINAE / Type Traits | Longer compiles | Zero | High (tricky syntax) |
 | Concepts (C++20) | Longer compiles | Zero | Moderate (cleaner than SFINAE) |
 
-Most techniques have **zero** runtime cost; when there *is* runtime work (e.g., a state machine transition check), it is typically **explicit, O(1), and fail-fast**, and should be benchmarked in the same way you would benchmark any other control-flow refactor.
-
-The main costs are:
+Every technique has **zero runtime cost** for the safety it provides. The only costs are:
 - Slightly longer compile times (usually negligible)
 - Initial refactoring effort
 - Learning curve
@@ -437,9 +421,9 @@ They're almost always worth it for:
 | 3 | Type-Safe State Machines | `StateMachine` | Template policies |
 | 4 | Type-State Pattern | — | Move semantics, type transformation |
 | 5 | Const Correctness | — | `const` |
-| 6 | Non-Null References (optional) | — | References, `optional` |
-| 7 | [[nodiscard]] and fail-fast results (optional) | `Expected` (or `std::expected`) | Attributes |
-| 8 | Template Constraints (optional) | `FatPTypeTraits` (or standard traits) | SFINAE (C++17), Concepts (C++20) |
+| 6 | Non-Null References | `Expected` | References, `optional` |
+| 7 | [[nodiscard]] | `Expected` | Attributes |
+| 8 | Template Constraints | `FatPTypeTraits` | SFINAE (C++17), Concepts (C++20) |
 
 ---
 

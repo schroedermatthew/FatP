@@ -54,12 +54,9 @@ Before reading further, think about:
 
 ## Q1: Why Didn't the Compiler Warn?
 
-The compiler *can* warn about missing enum cases, but you only get reliable coverage if you enable the right diagnostics.
+The compiler *can* warn about missing enum cases, but in this code it didn't because:
 
-**What happened here:**
-
-- Without `-Wswitch-enum` (or MSVC C4062), many builds won't emit a missing-case warning.
-- The trailing `return "";` makes the function total (all paths return), which can suppress *different* warnings like “control reaches end of non-void function,” but it does not, by itself, guarantee an enum-exhaustiveness diagnostic.
+**The `return "";` at the end suppresses the warning.**
 
 ```cpp
 switch (status) {
@@ -71,7 +68,7 @@ switch (status) {
 return "";  // This line tells the compiler "I've got it covered"
 ```
 
-The practical takeaway: the code *looks* “defensive,” but it can silence the very feedback you want.
+The compiler sees that all code paths return a value, so it doesn't warn about missing cases.
 
 **Without the trailing return:**
 ```cpp
@@ -174,11 +171,7 @@ enum class OrderStatus {
     Delivered,
     Cancelled
 };
-```
 
-**EnumPlusMap precondition:** `EnumPlusMap<E, T>` indexes by `static_cast<std::size_t>(e)`, so it assumes your enum values are a contiguous range starting at 0. The recommended pattern is to use a `COUNT_` sentinel and keep all “real” values in `[0, COUNT_)`. If you need explicit numeric values, gaps, or external protocol values, prefer a switch (with `-Werror=switch-enum`) or introduce an explicit mapping layer.
-
-```cpp
 // Step 1: Declare the enum size (required for EnumPlus)
 template<>
 struct fat_p::EnumSizeTrait<OrderStatus> {

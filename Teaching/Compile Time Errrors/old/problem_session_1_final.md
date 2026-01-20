@@ -103,20 +103,6 @@ So when the compiler sees `can_access(target, requester, required)`, it sees `ca
 
 ---
 
-## Practical Adoption Note: Interop Boundaries
-
-Strong types work best when they are **ubiquitous inside your codebase** and **explicit at the boundaries**.
-
-**Typical boundaries where you unwrap/wrap:**
-- serialization/deserialization (JSON/CBOR/protobuf)
-- DB APIs and ORM layers
-- OS / syscalls / file descriptors / socket APIs
-- logging and text formatting
-
-**Rule of thumb:** unwrap *once* at the boundary, and re-wrap immediately when you enter type-safe code again. Avoid “raw int plumbing” through application logic.
-
----
-
 ### Question 3: Why does the Android fdsan problem exist?
 
 **The Android fdsan scenario:**
