@@ -28,107 +28,152 @@ FATP_META:
 
 /**
  * @file IntrusiveList.h
- * @brief Intrusive doubly-linked list with zero allocation overhead
+ * @brief Intrusive doubly-linked list with zero allocation overhead.
  */
 
+#include <cassert>
 #include <cstddef>
 #include <iterator>
 #include <type_traits>
-#include <cassert>
-
-// Debug assertion macro - enabled only in debug builds
-#ifdef NDEBUG
-    #define FATP_DEBUG_ASSERT(condition, message) ((void)0)
-#else
-    #define FATP_DEBUG_ASSERT(condition, message) assert((condition) && (message))
-#endif
 
 namespace fat_p
 {
 
-// ============================================================================
-// IntrusiveList - Zero-Allocation Linked List
-// ============================================================================
-//
-// An intrusive linked list where objects contain their own links.
-// No separate node allocations - objects manage themselves!
-//
-// Benefits:
-// - Zero allocations for list management
-// - Cache-friendly (nodes are your actual objects)
-// - O(1) insert/remove with iterator
-// - O(1) splice operations
-// - Perfect for embedded systems and real-time code
-//
-// Usage:
-//   struct MyObject : IntrusiveListNode<MyObject> {
-//       int data;
-//   };
-//
-//   IntrusiveList<MyObject> list;
-//   MyObject obj;
-//   list.push_back(obj);
-//   list.remove(obj);
-//
-// Important:
-// - Objects must inherit from IntrusiveListNode<T>
-// - Objects can only be in ONE list at a time
-// - Object lifetime must exceed list operations
-// ============================================================================
+namespace intrusive_list
+{
+
+struct FastOwnerPolicy
+{
+    static constexpr bool kHasOwner = false;
+
+    void setOwner(const void*) noexcept
+    {
+    }
+
+    [[nodiscard]] const void* owner() const noexcept
+    {
+        return nullptr;
+    }
+};
+
+struct SafeOwnerPolicy
+{
+    static constexpr bool kHasOwner = true;
+
+    void setOwner(const void* owner) noexcept
+    {
+        mOwner = owner;
+    }
+
+    [[nodiscard]] const void* owner() const noexcept
+    {
+        return mOwner;
+    }
+
+private:
+    const void* mOwner = nullptr;
+};
+
+template <typename OwnerPolicy>
+struct Hook : private OwnerPolicy
+{
+    Hook* mPrev = nullptr;
+    Hook* mNext = nullptr;
+
+    [[nodiscard]] bool isLinked() const noexcept
+    {
+        return mPrev != nullptr;
+    }
+
+    void clearLinks() noexcept
+    {
+        mPrev = nullptr;
+        mNext = nullptr;
+        this->setOwner(nullptr);
+    }
+
+    void setOwnerPtr(const void* owner) noexcept
+    {
+        this->setOwner(owner);
+    }
+
+    [[nodiscard]] const void* ownerPtr() const noexcept
+    {
+        return this->owner();
+    }
+};
+
+} // namespace intrusive_list
 
 // Forward declarations
-template <typename T>
+template <typename T, typename OwnerPolicy>
 class IntrusiveList;
 
-template <typename T>
+template <typename T, typename OwnerPolicy>
 class IntrusiveListIterator;
 
-template <typename T>
+template <typename T, typename OwnerPolicy>
 class IntrusiveListConstIterator;
 
 // ============================================================================
 // IntrusiveListNode - Base class for list nodes
 // ============================================================================
-template <typename T>
-class IntrusiveListNode
+//
+// Contract:
+// - Objects must outlive their list membership.
+// - A node must be unlinked before destruction (debug-asserted).
+// - A node must not be inserted into any list while already linked
+//   (debug-asserted).
+//
+// Policy:
+// - FastOwnerPolicy (default): no owner pointer stored; splice/move O(1).
+//   Removing a node from the wrong list is UB.
+// - SafeOwnerPolicy: stores owner pointer; wrong-list remove is a safe no-op;
+//   splice/move are O(N) due to owner updates.
+// ============================================================================
+template <typename T, typename OwnerPolicy = intrusive_list::FastOwnerPolicy>
+class IntrusiveListNode : public intrusive_list::Hook<OwnerPolicy>
 {
 public:
-    IntrusiveListNode()
-        : mPrev(nullptr)
-        , mNext(nullptr)
-        , mOwner(nullptr)
-    {
-    }
+    IntrusiveListNode() = default;
 
-    // Non-copyable (nodes are unique in list structure)
     IntrusiveListNode(const IntrusiveListNode&) = delete;
     IntrusiveListNode& operator=(const IntrusiveListNode&) = delete;
 
-    /**
-     * @brief Check if node is in a list
-     * @return true if node belongs to any IntrusiveList
-     */
-    [[nodiscard]] bool is_linked() const noexcept
+    ~IntrusiveListNode()
     {
-        return mOwner != nullptr;
+        assert(!this->isLinked() && "Destroying a linked IntrusiveListNode");
     }
 
-protected:
-    friend class IntrusiveList<T>;
-    friend class IntrusiveListIterator<T>;
-    friend class IntrusiveListConstIterator<T>;
+    /**
+     * @brief Check whether the node is currently linked into any list.
+     */
+    [[nodiscard]] bool isLinked() const noexcept
+    {
+        return intrusive_list::Hook<OwnerPolicy>::isLinked();
+    }
 
-    IntrusiveListNode* mPrev;
-    IntrusiveListNode* mNext;
-    IntrusiveList<T>* mOwner;  // Tracks which list owns this node
+private:
+    template <typename U, typename P>
+    friend class IntrusiveList;
+
+    template <typename U, typename P>
+    friend class IntrusiveListIterator;
+
+    template <typename U, typename P>
+    friend class IntrusiveListConstIterator;
 };
 
 // ============================================================================
 // IntrusiveListIterator
 // ============================================================================
-template <typename T>
+template <typename T, typename OwnerPolicy = intrusive_list::FastOwnerPolicy>
 class IntrusiveListIterator
 {
+private:
+    using node_type = IntrusiveListNode<T, OwnerPolicy>;
+    using hook_type = intrusive_list::Hook<OwnerPolicy>;
+
 public:
     using iterator_category = std::bidirectional_iterator_tag;
     using difference_type = std::ptrdiff_t;
@@ -136,26 +181,31 @@ public:
     using pointer = T*;
     using reference = T&;
 
-    IntrusiveListIterator()
-        : mNode(nullptr)
-    {
-    }
-    explicit IntrusiveListIterator(IntrusiveListNode<T>* node)
+    IntrusiveListIterator() = default;
+
+    IntrusiveListIterator(hook_type* node, hook_type* sentinel)
         : mNode(node)
+        , mSentinel(sentinel)
     {
     }
 
     reference operator*() const
     {
-        return *static_cast<T*>(mNode);
+        assert(mNode != nullptr);
+        assert(mSentinel != nullptr);
+        assert(mNode != mSentinel);
+        return *static_cast<T*>(static_cast<node_type*>(mNode));
     }
+
     pointer operator->() const
     {
-        return static_cast<T*>(mNode);
+        return &(**this);
     }
 
     IntrusiveListIterator& operator++()
     {
+        assert(mNode != nullptr);
+        assert(mSentinel != nullptr);
         mNode = mNode->mNext;
         return *this;
     }
@@ -167,15 +217,10 @@ public:
         return tmp;
     }
 
-    /**
-     * @brief Decrement iterator
-     * 
-     * @warning Decrementing end() is UNDEFINED BEHAVIOR.
-     *          This iterator does NOT fully satisfy BidirectionalIterator
-     *          requirements when used with end().
-     */
     IntrusiveListIterator& operator--()
     {
+        assert(mNode != nullptr);
+        assert(mSentinel != nullptr);
         mNode = mNode->mPrev;
         return *this;
     }
@@ -189,7 +234,7 @@ public:
 
     bool operator==(const IntrusiveListIterator& other) const
     {
-        return mNode == other.mNode;
+        return mNode == other.mNode && mSentinel == other.mSentinel;
     }
 
     bool operator!=(const IntrusiveListIterator& other) const
@@ -198,17 +243,26 @@ public:
     }
 
 private:
-    friend class IntrusiveList<T>;
-    friend class IntrusiveListConstIterator<T>;  // Allow const_iterator conversion
-    IntrusiveListNode<T>* mNode;
+    template <typename U, typename P>
+    friend class IntrusiveList;
+
+    template <typename U, typename P>
+    friend class IntrusiveListConstIterator;
+
+    hook_type* mNode = nullptr;
+    hook_type* mSentinel = nullptr;
 };
 
 // ============================================================================
 // Const iterator
 // ============================================================================
-template <typename T>
+template <typename T, typename OwnerPolicy = intrusive_list::FastOwnerPolicy>
 class IntrusiveListConstIterator
 {
+private:
+    using node_type = IntrusiveListNode<T, OwnerPolicy>;
+    using hook_type = intrusive_list::Hook<OwnerPolicy>;
+
 public:
     using iterator_category = std::bidirectional_iterator_tag;
     using difference_type = std::ptrdiff_t;
@@ -216,30 +270,37 @@ public:
     using pointer = const T*;
     using reference = const T&;
 
-    IntrusiveListConstIterator()
-        : mNode(nullptr)
-    {
-    }
-    explicit IntrusiveListConstIterator(const IntrusiveListNode<T>* node)
+    IntrusiveListConstIterator() = default;
+
+    IntrusiveListConstIterator(const hook_type* node, const hook_type* sentinel)
         : mNode(node)
+        , mSentinel(sentinel)
     {
     }
-    IntrusiveListConstIterator(const IntrusiveListIterator<T>& it)
+
+    IntrusiveListConstIterator(const IntrusiveListIterator<T, OwnerPolicy>& it)
         : mNode(it.mNode)
+        , mSentinel(it.mSentinel)
     {
     }
 
     reference operator*() const
     {
-        return *static_cast<const T*>(mNode);
+        assert(mNode != nullptr);
+        assert(mSentinel != nullptr);
+        assert(mNode != mSentinel);
+        return *static_cast<const T*>(static_cast<const node_type*>(mNode));
     }
+
     pointer operator->() const
     {
-        return static_cast<const T*>(mNode);
+        return &(**this);
     }
 
     IntrusiveListConstIterator& operator++()
     {
+        assert(mNode != nullptr);
+        assert(mSentinel != nullptr);
         mNode = mNode->mNext;
         return *this;
     }
@@ -253,6 +314,8 @@ public:
 
     IntrusiveListConstIterator& operator--()
     {
+        assert(mNode != nullptr);
+        assert(mSentinel != nullptr);
         mNode = mNode->mPrev;
         return *this;
     }
@@ -266,7 +329,7 @@ public:
 
     bool operator==(const IntrusiveListConstIterator& other) const
     {
-        return mNode == other.mNode;
+        return mNode == other.mNode && mSentinel == other.mSentinel;
     }
 
     bool operator!=(const IntrusiveListConstIterator& other) const
@@ -275,31 +338,36 @@ public:
     }
 
 private:
-    friend class IntrusiveList<T>;
-    const IntrusiveListNode<T>* mNode;
+    template <typename U, typename P>
+    friend class IntrusiveList;
+
+    const hook_type* mNode = nullptr;
+    const hook_type* mSentinel = nullptr;
 };
 
 // ============================================================================
 // IntrusiveList
 // ============================================================================
-template <typename T>
+template <typename T, typename OwnerPolicy = intrusive_list::FastOwnerPolicy>
 class IntrusiveList
 {
+private:
+    using node_type = IntrusiveListNode<T, OwnerPolicy>;
+    using hook_type = intrusive_list::Hook<OwnerPolicy>;
+
 public:
-    static_assert(std::is_base_of_v<IntrusiveListNode<T>, T>, "T must inherit from IntrusiveListNode<T>");
+    static_assert(std::is_base_of_v<node_type, T>, "T must inherit from IntrusiveListNode<T, Policy>");
 
     using value_type = T;
     using reference = T&;
     using const_reference = const T&;
-    using iterator = IntrusiveListIterator<T>;
-    using const_iterator = IntrusiveListConstIterator<T>;
+    using iterator = IntrusiveListIterator<T, OwnerPolicy>;
+    using const_iterator = IntrusiveListConstIterator<T, OwnerPolicy>;
     using size_type = std::size_t;
 
     IntrusiveList()
-        : mHead(nullptr)
-        , mTail(nullptr)
-        , size_(0)
     {
+        initializeEmpty_();
     }
 
     ~IntrusiveList()
@@ -307,27 +375,13 @@ public:
         clear();
     }
 
-    // Non-copyable (would require cloning objects)
     IntrusiveList(const IntrusiveList&) = delete;
     IntrusiveList& operator=(const IntrusiveList&) = delete;
 
-    // Moveable
     IntrusiveList(IntrusiveList&& other) noexcept
-        : mHead(other.mHead)
-        , mTail(other.mTail)
-        , size_(other.size_)
     {
-        // Update ownership for all moved nodes
-        auto* node = mHead;
-        while (node)
-        {
-            node->mOwner = this;
-            node = node->mNext;
-        }
-        
-        other.mHead = nullptr;
-        other.mTail = nullptr;
-        other.size_ = 0;
+        initializeEmpty_();
+        moveFrom_(other);
     }
 
     IntrusiveList& operator=(IntrusiveList&& other) noexcept
@@ -335,344 +389,369 @@ public:
         if (this != &other)
         {
             clear();
-            mHead = other.mHead;
-            mTail = other.mTail;
-            size_ = other.size_;
-            
-            // Update ownership for all moved nodes
-            auto* node = mHead;
-            while (node)
-            {
-                node->mOwner = this;
-                node = node->mNext;
-            }
-            
-            other.mHead = nullptr;
-            other.mTail = nullptr;
-            other.size_ = 0;
+            moveFrom_(other);
         }
         return *this;
     }
 
-    // Size queries
     [[nodiscard]] bool empty() const noexcept
     {
-        return size_ == 0;
-    }
-    [[nodiscard]] size_type size() const noexcept
-    {
-        return size_;
+        return mSize == 0;
     }
 
-    // Element access
+    [[nodiscard]] size_type size() const noexcept
+    {
+        return mSize;
+    }
+
     [[nodiscard]] reference front()
     {
-        FATP_DEBUG_ASSERT(mHead != nullptr, "front() called on empty list");
-        return *static_cast<T*>(mHead);
+        assert(!empty() && "front() called on empty list");
+        return *static_cast<T*>(static_cast<node_type*>(mSentinel.mNext));
     }
+
     [[nodiscard]] const_reference front() const
     {
-        FATP_DEBUG_ASSERT(mHead != nullptr, "front() called on empty list");
-        return *static_cast<const T*>(mHead);
+        assert(!empty() && "front() called on empty list");
+        return *static_cast<const T*>(static_cast<const node_type*>(mSentinel.mNext));
     }
 
     [[nodiscard]] reference back()
     {
-        FATP_DEBUG_ASSERT(mTail != nullptr, "back() called on empty list");
-        return *static_cast<T*>(mTail);
-    }
-    [[nodiscard]] const_reference back() const
-    {
-        FATP_DEBUG_ASSERT(mTail != nullptr, "back() called on empty list");
-        return *static_cast<const T*>(mTail);
+        assert(!empty() && "back() called on empty list");
+        return *static_cast<T*>(static_cast<node_type*>(mSentinel.mPrev));
     }
 
-    // Iterators
+    [[nodiscard]] const_reference back() const
+    {
+        assert(!empty() && "back() called on empty list");
+        return *static_cast<const T*>(static_cast<const node_type*>(mSentinel.mPrev));
+    }
+
     [[nodiscard]] iterator begin() noexcept
     {
-        return iterator(mHead);
+        return iterator(mSentinel.mNext, &mSentinel);
     }
+
     [[nodiscard]] iterator end() noexcept
     {
-        return iterator(nullptr);
+        return iterator(&mSentinel, &mSentinel);
     }
 
     [[nodiscard]] const_iterator begin() const noexcept
     {
-        return const_iterator(mHead);
+        return const_iterator(mSentinel.mNext, &mSentinel);
     }
+
     [[nodiscard]] const_iterator end() const noexcept
     {
-        return const_iterator(nullptr);
+        return const_iterator(&mSentinel, &mSentinel);
     }
 
     [[nodiscard]] const_iterator cbegin() const noexcept
     {
-        return const_iterator(mHead);
+        return begin();
     }
+
     [[nodiscard]] const_iterator cend() const noexcept
     {
-        return const_iterator(nullptr);
+        return end();
     }
 
-    // Modifiers
+    /**
+     * @brief Get an iterator to a node already linked in this list.
+     *
+     * Contract:
+     * - If the node is not linked, returns end().
+     * - SafeOwnerPolicy: if the node is linked but belongs to a different list,
+     *   returns end().
+     * - FastOwnerPolicy: passing a node linked into a different list is
+     *   undefined behavior.
+     */
+    [[nodiscard]] iterator iteratorTo(T& node) noexcept
+    {
+        auto& n = static_cast<node_type&>(node);
+
+        if (!n.isLinked())
+        {
+            return end();
+        }
+
+        if constexpr (OwnerPolicy::kHasOwner)
+        {
+            if (n.ownerPtr() != this)
+            {
+                return end();
+            }
+        }
+
+        return iterator(static_cast<hook_type*>(&n), &mSentinel);
+    }
+
+    /**
+     * @brief Get a const iterator to a node already linked in this list.
+     *
+     * See iteratorTo(T&) for the policy-specific contract.
+     */
+    [[nodiscard]] const_iterator iteratorTo(const T& node) const noexcept
+    {
+        const auto& n = static_cast<const node_type&>(node);
+
+        if (!n.isLinked())
+        {
+            return end();
+        }
+
+        if constexpr (OwnerPolicy::kHasOwner)
+        {
+            if (n.ownerPtr() != this)
+            {
+                return end();
+            }
+        }
+
+        return const_iterator(static_cast<const hook_type*>(&n), &mSentinel);
+    }
+
+    [[nodiscard]] std::reverse_iterator<iterator> rbegin() noexcept
+    {
+        return std::reverse_iterator<iterator>(end());
+    }
+
+    [[nodiscard]] std::reverse_iterator<iterator> rend() noexcept
+    {
+        return std::reverse_iterator<iterator>(begin());
+    }
+
+    [[nodiscard]] std::reverse_iterator<const_iterator> rbegin() const noexcept
+    {
+        return std::reverse_iterator<const_iterator>(end());
+    }
+
+    [[nodiscard]] std::reverse_iterator<const_iterator> rend() const noexcept
+    {
+        return std::reverse_iterator<const_iterator>(begin());
+    }
+
+    [[nodiscard]] std::reverse_iterator<const_iterator> crbegin() const noexcept
+    {
+        return std::reverse_iterator<const_iterator>(cend());
+    }
+
+    [[nodiscard]] std::reverse_iterator<const_iterator> crend() const noexcept
+    {
+        return std::reverse_iterator<const_iterator>(cbegin());
+    }
+
     void push_front(T& node)
     {
-        auto* n = static_cast<IntrusiveListNode<T>*>(&node);
-
-        n->mOwner = this;  // Set ownership
-        n->mPrev = nullptr;
-        n->mNext = mHead;
-
-        if (mHead)
-        {
-            mHead->mPrev = n;
-        }
-        else
-        {
-            mTail = n;
-        }
-
-        mHead = n;
-        ++size_;
+        linkBefore_(mSentinel.mNext, node);
     }
 
     void push_back(T& node)
     {
-        auto* n = static_cast<IntrusiveListNode<T>*>(&node);
-
-        n->mOwner = this;  // Set ownership
-        n->mPrev = mTail;
-        n->mNext = nullptr;
-
-        if (mTail)
-        {
-            mTail->mNext = n;
-        }
-        else
-        {
-            mHead = n;
-        }
-
-        mTail = n;
-        ++size_;
+        linkBefore_(&mSentinel, node);
     }
 
     void pop_front()
     {
-        if (!mHead)
+        if (empty())
         {
             return;
         }
 
-        auto* node = mHead;
-        mHead = mHead->mNext;
-
-        if (mHead)
-        {
-            mHead->mPrev = nullptr;
-        }
-        else
-        {
-            mTail = nullptr;
-        }
-
-        node->mOwner = nullptr;  // Clear ownership
-        node->mPrev = nullptr;
-        node->mNext = nullptr;
-        --size_;
+        unlink_(*static_cast<T*>(static_cast<node_type*>(mSentinel.mNext)));
     }
 
     void pop_back()
     {
-        if (!mTail)
+        if (empty())
         {
             return;
         }
 
-        auto* node = mTail;
-        mTail = mTail->mPrev;
-
-        if (mTail)
-        {
-            mTail->mNext = nullptr;
-        }
-        else
-        {
-            mHead = nullptr;
-        }
-
-        node->mOwner = nullptr;  // Clear ownership
-        node->mPrev = nullptr;
-        node->mNext = nullptr;
-        --size_;
+        unlink_(*static_cast<T*>(static_cast<node_type*>(mSentinel.mPrev)));
     }
 
-    // Insert before position
     iterator insert(iterator pos, T& node)
     {
-        auto* n = static_cast<IntrusiveListNode<T>*>(&node);
-        auto* pos_node = pos.mNode;
-
-        if (!pos_node)
-        {
-            // Insert at end
-            push_back(node);
-            return iterator(n);
-        }
-
-        n->mOwner = this;  // Set ownership
-        n->mNext = pos_node;
-        n->mPrev = pos_node->mPrev;
-
-        if (pos_node->mPrev)
-        {
-            pos_node->mPrev->mNext = n;
-        }
-        else
-        {
-            mHead = n;
-        }
-
-        pos_node->mPrev = n;
-        ++size_;
-
-        return iterator(n);
+        assert(pos.mSentinel == &mSentinel && "insert iterator does not belong to this list");
+        linkBefore_(pos.mNode, node);
+        return iterator(static_cast<hook_type*>(static_cast<node_type*>(&node)), &mSentinel);
     }
 
-    // Remove specific node
     void remove(T& node)
     {
-        auto* n = static_cast<IntrusiveListNode<T>*>(&node);
+        auto& n = static_cast<node_type&>(node);
 
-        // Cross-list protection: only remove if node belongs to THIS list
-        if (n->mOwner != this)
+        if (!n.isLinked())
         {
-            return;  // Not in this list - safe no-op
-        }
-
-        if (n->mPrev)
-        {
-            n->mPrev->mNext = n->mNext;
-        }
-        else
-        {
-            mHead = n->mNext;
+            return;
         }
 
-        if (n->mNext)
+        if constexpr (OwnerPolicy::kHasOwner)
         {
-            n->mNext->mPrev = n->mPrev;
-        }
-        else
-        {
-            mTail = n->mPrev;
+            if (n.ownerPtr() != this)
+            {
+                return;
+            }
         }
 
-        n->mOwner = nullptr;  // Clear ownership
-        n->mPrev = nullptr;
-        n->mNext = nullptr;
-        --size_;
+        // Fast policy cannot validate ownership; removing a node from the wrong list is UB.
+        unlink_(node);
     }
 
-    // Erase at iterator
     iterator erase(iterator pos)
     {
+        assert(pos.mSentinel == &mSentinel && "erase iterator does not belong to this list");
+
         if (pos == end())
         {
             return end();
         }
 
-        auto* node = pos.mNode;
-        iterator next(node->mNext);
-
-        remove(*static_cast<T*>(node));
-
-        return next;
+        hook_type* const next = pos.mNode->mNext;
+        unlink_(*static_cast<T*>(static_cast<node_type*>(pos.mNode)));
+        return iterator(next, &mSentinel);
     }
 
-    // Clear list (unlinks all nodes)
     void clear()
     {
-        auto* node = mHead;
-        while (node)
+        hook_type* node = mSentinel.mNext;
+        while (node != &mSentinel)
         {
-            auto* next = node->mNext;
-            node->mOwner = nullptr;  // Clear ownership
-            node->mPrev = nullptr;
-            node->mNext = nullptr;
+            hook_type* const next = node->mNext;
+            node->clearLinks();
             node = next;
         }
-        mHead = nullptr;
-        mTail = nullptr;
-        size_ = 0;
+
+        initializeEmpty_();
     }
 
-    // Splice - move elements from other list
     void splice(iterator pos, IntrusiveList& other)
+    {
+        assert(pos.mSentinel == &mSentinel && "splice iterator does not belong to this list");
+
+        if (other.empty())
+        {
+            return;
+        }
+
+        if (&other == this)
+        {
+            return;
+        }
+
+        const size_type other_size = other.mSize;
+
+        hook_type* const first = other.mSentinel.mNext;
+        hook_type* const last = other.mSentinel.mPrev;
+
+        // Detach other's range.
+        other.initializeEmpty_();
+
+        // Insert range [first,last] before pos.mNode.
+        hook_type* const before = pos.mNode->mPrev;
+        before->mNext = first;
+        first->mPrev = before;
+        last->mNext = pos.mNode;
+        pos.mNode->mPrev = last;
+
+        if constexpr (OwnerPolicy::kHasOwner)
+        {
+            hook_type* cur = first;
+            while (cur != pos.mNode)
+            {
+                cur->setOwnerPtr(this);
+                cur = cur->mNext;
+            }
+        }
+
+        mSize += other_size;
+    }
+
+private:
+    void initializeEmpty_() noexcept
+    {
+        mSentinel.mPrev = &mSentinel;
+        mSentinel.mNext = &mSentinel;
+        mSentinel.setOwnerPtr(nullptr);
+        mSize = 0;
+    }
+
+    void moveFrom_(IntrusiveList& other) noexcept
     {
         if (other.empty())
         {
             return;
         }
 
-        // Update ownership for all nodes being transferred
-        auto* node = other.mHead;
-        while (node)
+        // Steal the chain.
+        mSentinel.mNext = other.mSentinel.mNext;
+        mSentinel.mPrev = other.mSentinel.mPrev;
+        mSentinel.mNext->mPrev = &mSentinel;
+        mSentinel.mPrev->mNext = &mSentinel;
+
+        mSize = other.mSize;
+
+        if constexpr (OwnerPolicy::kHasOwner)
         {
-            node->mOwner = this;
-            node = node->mNext;
+            hook_type* cur = mSentinel.mNext;
+            while (cur != &mSentinel)
+            {
+                cur->setOwnerPtr(this);
+                cur = cur->mNext;
+            }
         }
 
-        if (pos.mNode == nullptr)
-        {
-            // Splice at end
-            if (mTail)
-            {
-                mTail->mNext = other.mHead;
-                other.mHead->mPrev = mTail;
-            }
-            else
-            {
-                mHead = other.mHead;
-            }
-            mTail = other.mTail;
-        }
-        else
-        {
-            // Splice before pos
-            auto* pos_node = pos.mNode;
-
-            // Static analysis note: other.mHead/mTail are guaranteed non-null here
-            // because we returned early if other.empty() above
-            assert(other.mHead != nullptr && other.mTail != nullptr);
-
-            other.mTail->mNext = pos_node;
-            other.mHead->mPrev = pos_node->mPrev;
-
-            if (pos_node->mPrev)
-            {
-                pos_node->mPrev->mNext = other.mHead;
-            }
-            else
-            {
-                mHead = other.mHead;
-            }
-
-            pos_node->mPrev = other.mTail;
-        }
-
-        size_ += other.size_;
-
-        other.mHead = nullptr;
-        other.mTail = nullptr;
-        other.size_ = 0;
+        other.initializeEmpty_();
     }
 
-private:
-    IntrusiveListNode<T>* mHead;
-    IntrusiveListNode<T>* mTail;
-    size_type size_;
+    void linkBefore_(hook_type* before, T& node)
+    {
+        assert(before != nullptr);
+
+        auto& n = static_cast<node_type&>(node);
+        assert(!n.isLinked() && "Inserting an already-linked IntrusiveListNode");
+
+        hook_type* const new_hook = static_cast<hook_type*>(&n);
+        hook_type* const prev = before->mPrev;
+
+        new_hook->mNext = before;
+        new_hook->mPrev = prev;
+        prev->mNext = new_hook;
+        before->mPrev = new_hook;
+
+        if constexpr (OwnerPolicy::kHasOwner)
+        {
+            new_hook->setOwnerPtr(this);
+        }
+
+        ++mSize;
+    }
+
+    void unlink_(T& node)
+    {
+        auto& n = static_cast<node_type&>(node);
+        auto* hook = static_cast<hook_type*>(&n);
+
+        assert(hook->isLinked() && "Unlinking a node that is not linked");
+
+        hook->mPrev->mNext = hook->mNext;
+        hook->mNext->mPrev = hook->mPrev;
+
+        hook->clearLinks();
+        --mSize;
+    }
+
+    hook_type mSentinel;
+    size_type mSize = 0;
 };
+
+template <typename T>
+using IntrusiveListFast = IntrusiveList<T, intrusive_list::FastOwnerPolicy>;
+
+template <typename T>
+using IntrusiveListSafe = IntrusiveList<T, intrusive_list::SafeOwnerPolicy>;
 
 } // namespace fat_p

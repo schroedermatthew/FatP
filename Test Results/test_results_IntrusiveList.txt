@@ -1,0 +1,38 @@
+
+==========================================================
+INTRUSIVE LIST UNIT TESTS
+==========================================================
+
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_empty ... PASSED (0 ms)
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_push_front ... PASSED (0 ms)
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_push_back ... PASSED (0 ms)
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_iteration ... PASSED (0 ms)
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_pop_front ... PASSED (0 ms)
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_pop_back ... PASSED (0 ms)
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_remove ... PASSED (0 ms)
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_insert ... PASSED (0 ms)
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_erase ... PASSED (0 ms)
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_clear ... PASSED (0 ms)
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_splice ... PASSED (0 ms)
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_move ... PASSED (0 ms)
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_single_element ... PASSED (0 ms)
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_iterator_conversion ... PASSED (0 ms)
+[22:16:23] CPU: 3686 MHz Running: intrusive_list_is_linked ... PASSED (0 ms)
+[22:16:24] CPU: 3686 MHz Running: intrusive_list_remove_unlinked ... PASSED (0 ms)
+[22:16:24] CPU: 3686 MHz Running: intrusive_list_cross_list_remove ... PASSED (0 ms)
+[22:16:24] CPU: 3686 MHz Running: intrusive_list_splice_at_begin ... PASSED (0 ms)
+[22:16:24] CPU: 3686 MHz Running: intrusive_list_move_ownership ... PASSED (0 ms)
+
+IntrusiveList Benchmarks:
+
+Warning: Total measurement (0.0129 ms) may have insufficient precision. Consider increasing iterations.
+Push back: 1.290 ns
+Iteration (10k elements): 8.023 us
+Remove: 10.180 ns
+Warning: Total measurement (0.0156 ms) may have insufficient precision. Consider increasing iterations.
+Insert at end: 1.560 ns
+
+=== Test Summary ===
+Passed: 19
+Failed: 0
+Total:  19

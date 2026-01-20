@@ -3,7 +3,7 @@
 **Status:** Active  
 **Applies to:** All `.github/workflows/*.yml` files for Fat-P components  
 **Authority:** Subordinate to the *Fat-P Library Development Guidelines*
-**Version:** 2.0 (January 2026)
+**Version:** 2.1 (January 2026)
 
 ---
 
@@ -40,7 +40,7 @@ scripts/                        # Verification scripts
 |------|----------------|
 | Default build/test | C++20 full matrix |
 | Compile-only gate | C++17 for Foundation/Containers/Concurrency |
-| Layer integrity | Verify `@layer` tags and include direction |
+| Layer integrity | Verify `FATP_META.layer` and include direction |
 | Dependency hygiene | Verify no forbidden third-party includes |
 
 ---
@@ -70,7 +70,7 @@ Notes:
 | Job | Purpose | Required |
 |-----|---------|----------|
 | `cpp17-core-gate` | C++17 compile gate for core layers | ✅ (project-wide) |
-| `layer-verify` | Verify `@layer` tags match includes | ✅ (project-wide) |
+| `layer-verify` | Verify `FATP_META.layer` matches includes | ✅ (project-wide) |
 | `forbidden-deps` | Scan for Boost/Abseil/fmt/Eigen includes | ✅ (project-wide) |
 
 ---
@@ -142,10 +142,10 @@ jobs:
           # List of core layer headers
           # New layer names: Foundation, Containers, Concurrency
           # Legacy names: Infrastructure, CoreUtility, Enforcement
-          CORE_HEADERS=$(grep -l '@layer Foundation\|@layer Containers\|@layer Concurrency\|@layer Infrastructure\|@layer CoreUtility\|@layer Enforcement' "${all_headers[@]}" 2>/dev/null || true)
+          CORE_HEADERS=$(grep -l -E '^[[:space:]]*layer:[[:space:]]*(Foundation|Containers|Concurrency|Infrastructure|CoreUtility|Enforcement)[[:space:]]*$' "${all_headers[@]}" 2>/dev/null || true)
           
           if [ -z "$CORE_HEADERS" ]; then
-            echo "⚠ No core layer headers found with @layer tags"
+            echo "⚠ No core layer headers found with FATP_META.layer"
             echo "Checking all headers as fallback..."
             CORE_HEADERS="${all_headers[*]}"
           fi
@@ -215,10 +215,10 @@ jobs:
             exit 1
           fi
 
-          CORE_HEADERS=$(grep -l '@layer Foundation\|@layer Containers\|@layer Concurrency\|@layer Infrastructure\|@layer CoreUtility\|@layer Enforcement' "${all_headers[@]}" 2>/dev/null || true)
+          CORE_HEADERS=$(grep -l -E '^[[:space:]]*layer:[[:space:]]*(Foundation|Containers|Concurrency|Infrastructure|CoreUtility|Enforcement)[[:space:]]*$' "${all_headers[@]}" 2>/dev/null || true)
           
           if [ -z "$CORE_HEADERS" ]; then
-            echo "⚠ No core layer headers found with @layer tags"
+            echo "⚠ No core layer headers found with FATP_META.layer"
             CORE_HEADERS="${all_headers[*]}"
           fi
           
@@ -277,13 +277,13 @@ jobs:
 
 ### 5.2 Layer Verification (`ci_verify.yml`)
 
-Verifies that `@layer` tags match actual include dependencies.
+Verifies that `FATP_META.layer` matches actual include dependencies.
 
 ```yaml
 # =============================================================================
 # .github/workflows/ci_verify.yml
 # =============================================================================
-# Verifies @layer tags match actual #include dependencies and no forbidden deps
+# Verifies FATP_META.layer matches actual #include dependencies and no forbidden deps
 # Per Fat-P Guidelines §2.2: Layer mismatches are Critical violations
 # Per Fat-P Guidelines §1.6: No third-party libraries
 # =============================================================================
@@ -306,9 +306,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check @layer tags present
+      - name: Check FATP_META.layer present
         run: |
-          echo "Checking all headers have @layer tags..."
+          echo "Checking all headers have FATP_META.layer..."
           
           found=0
           missing=0
@@ -317,8 +317,13 @@ jobs:
               continue
             fi
             found=$((found + 1))
-            if ! grep -q '@layer' "$header"; then
-              echo "❌ Missing @layer tag: $header"
+            if ! grep -q 'FATP_META:' "$header"; then
+              echo "❌ Missing FATP_META block: $header"
+              missing=$((missing + 1))
+              continue
+            fi
+            if ! grep -q -E '^[[:space:]]*layer:[[:space:]]*' "$header"; then
+              echo "❌ Missing FATP_META.layer: $header"
               missing=$((missing + 1))
             fi
           done
@@ -330,12 +335,12 @@ jobs:
           
           if [ $missing -gt 0 ]; then
             echo ""
-            echo "❌ $missing headers missing @layer tags"
-            echo "Add @layer tag to file header per Guidelines §2.2"
+            echo "❌ $missing headers missing FATP_META.layer"
+            echo "Add layer to FATP_META per Guidelines §2.2"
             exit 1
           fi
           
-          echo "✓ All headers have @layer tags"
+          echo "✓ All headers have FATP_META.layer"
 
       - name: Verify layer dependencies
         run: |
@@ -367,8 +372,8 @@ jobs:
             
             basename=$(basename "$header")
             
-            # Extract @layer tag
-            layer=$(grep -oP '@layer\s+\K\w+' "$header" 2>/dev/null | head -1 || echo "MISSING")
+            # Extract FATP_META.layer
+            layer=$(grep -oP '^[[:space:]]*layer:\s*\K\w+' "$header" 2>/dev/null | head -1 || echo "MISSING")
             
             if [ "$layer" = "MISSING" ]; then
               continue  # Already reported above
@@ -393,12 +398,12 @@ jobs:
                 continue  # External include
               fi
               
-              inc_layer=$(grep -oP '@layer\s+\K\w+' "$inc_path" 2>/dev/null | head -1 || echo "MISSING")
+              inc_layer=$(grep -oP '^[[:space:]]*layer:\s*\K\w+' "$inc_path" 2>/dev/null | head -1 || echo "MISSING")
               inc_level=$(get_layer_level "$inc_layer")
               
               if [ "$inc_level" -gt "$layer_level" ]; then
-                echo "❌ LAYER VIOLATION: $basename (@layer $layer, level $layer_level)"
-                echo "   includes $inc_file (@layer $inc_layer, level $inc_level)"
+                echo "❌ LAYER VIOLATION: $basename (layer $layer, level $layer_level)"
+                echo "   includes $inc_file (layer $inc_layer, level $inc_level)"
                 violations=$((violations + 1))
               fi
             done < <(grep -E '^[[:space:]]*#include[[:space:]]*"' "$header" || true)
@@ -530,7 +535,7 @@ jobs:
 # =============================================================================
 # scripts/verify_layers.sh
 # =============================================================================
-# Verifies that @layer tags match actual #include dependencies
+# Verifies FATP_META.layer matches actual #include dependencies
 # =============================================================================
 
 set -e
@@ -571,11 +576,11 @@ violations=0
 for header in "${headers[@]}"; do
     basename=$(basename "$header")
 
-    # Extract @layer tag
-    layer=$(grep -oP '@layer\s+\K\w+' "$header" 2>/dev/null | head -1 || true)
+    # Extract FATP_META.layer
+    layer=$(grep -oP '^[[:space:]]*layer:\s*\K\w+' "$header" 2>/dev/null | head -1 || true)
 
     if [ -z "$layer" ]; then
-        echo "❌ $basename: Missing @layer tag"
+        echo "❌ $basename: Missing FATP_META.layer"
         violations=$((violations + 1))
         continue
     fi
@@ -597,9 +602,9 @@ for header in "${headers[@]}"; do
             continue  # External include, skip
         fi
 
-        inc_layer=$(grep -oP '@layer\s+\K\w+' "$inc_path" 2>/dev/null | head -1 || true)
+        inc_layer=$(grep -oP '^[[:space:]]*layer:\s*\K\w+' "$inc_path" 2>/dev/null | head -1 || true)
         if [ -z "$inc_layer" ]; then
-            echo "❌ $basename includes $inc_basename which is missing @layer tag"
+            echo "❌ $basename includes $inc_basename which is missing FATP_META.layer"
             violations=$((violations + 1))
             continue
         fi
@@ -607,7 +612,7 @@ for header in "${headers[@]}"; do
         inc_level=${LAYER_ORDER[$inc_layer]:-99}
 
         if [ "$inc_level" -gt "$layer_level" ]; then
-            echo "❌ $basename (@layer $layer) includes $inc_basename (@layer $inc_layer) - LAYER VIOLATION"
+            echo "❌ $basename (layer $layer) includes $inc_basename (layer $inc_layer) - LAYER VIOLATION"
             violations=$((violations + 1))
         fi
     done
@@ -643,7 +648,7 @@ exit 0
 #
 # Fat-P Guidelines compliance:
 #   - Section 1.1: C++20 default, C++17 for core layers
-#   - Section 2.2: Layer verification via @layer tag
+#   - Section 2.2: Layer verification via FATP_META.layer
 #   - Section 6.1: Include-all compile test
 #   - Section 6.2: Header self-contained tests
 #   - Section 6.4: Warning cleanliness (-Wall -Wextra -Wpedantic -Werror)
@@ -732,12 +737,16 @@ Before committing a new workflow:
 - [ ] `ci-success` gate job
 - [ ] Path triggers include the workflow file itself
 - [ ] `schedule` trigger for weekly benchmarks
-- [ ] **Component's `@layer` tag is documented in header**
+- [ ] **Component's `FATP_META.layer` is present and correct in header metadata**
 - [ ] Tested locally with `act` or manual validation
 
 ---
 
 ## 10. Changelog
+
+### v2.1 (January 2026)
+- Updated layer integrity guidance to use `FATP_META.layer` as the single source of truth (no Doxygen `@layer` tags)
+- Updated example workflows and scripts to extract layer from `FATP_META` blocks
 
 ### v2.0 (January 2026)
 - Added Section 3: CI Goals with C++20 default / C++17 core gate
@@ -748,7 +757,7 @@ Before committing a new workflow:
 - Updated Section 6: Component workflow template for C++20 primary
 - Updated Section 7: Compiler matrix notes
 - Added Section 8: Tooling alignment (C++20 target)
-- Updated checklist for `@layer` tag requirement
+- Updated checklist for `FATP_META.layer` requirement
 
 ### v1.0 (December 2025)
 - Initial CI Workflow Style Guide

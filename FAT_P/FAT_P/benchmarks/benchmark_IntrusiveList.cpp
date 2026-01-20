@@ -15,7 +15,8 @@
 //
 // Fat-P Libraries:
 //   - fat_p::IntrusiveList: Zero-allocation intrusive doubly-linked list
-//                           O(1) insert/remove, ownership tracking, is_linked() check
+//                           O(1) insert/remove, isLinked() check (fast policy, default)
+//   - fat_p::IntrusiveListSafe: Ownership-tracking variant (safe wrong-list remove)
 //
 // Competitor Libraries (conditioned on availability):
 //   TIER 1 - Direct competitors (intrusive lists):
@@ -33,7 +34,7 @@
 //   4. Splice (bulk transfer - O(1) vs O(N) semantics)
 //   5. Memory Overhead (per-node overhead comparison)
 //   6. Free List Pattern (real-world object pool simulation)
-//   7. is_linked() Check (fat_p-specific feature)
+//   7. isLinked() / is_linked() Check (membership query)
 //
 // Build (minimal):
 //   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_IntrusiveList.cpp -o bench_il
@@ -322,13 +323,25 @@ static void print_result_row(const char* name, const Stats& s, const char* unit 
 // Node Types for Each Library
 // ============================================================================
 
-// Fat-P IntrusiveList node
-struct FatPNode : public fat_p::IntrusiveListNode<FatPNode>
+// Fat-P IntrusiveList (fast policy, default) node
+struct FatPFastNode : public fat_p::IntrusiveListNode<FatPFastNode>
 {
     int64_t value;
     int64_t padding[7]{}; // Pad to 64 bytes for fair comparison
 
-    explicit FatPNode(int64_t v = 0)
+    explicit FatPFastNode(int64_t v = 0)
+        : value(v)
+    {
+    }
+};
+
+// Fat-P IntrusiveList (safe policy) node
+struct FatPSafeNode : public fat_p::IntrusiveListNode<FatPSafeNode, fat_p::intrusive_list::SafeOwnerPolicy>
+{
+    int64_t value;
+    int64_t padding[7]{};
+
+    explicit FatPSafeNode(int64_t v = 0)
         : value(v)
     {
     }
@@ -462,21 +475,21 @@ struct IListAdapter
 };
 
 // ============================================================================
-// Fat-P IntrusiveList Adapter
+// Fat-P IntrusiveList Adapters
 // ============================================================================
 
-class FatPListAdapter final : public IListAdapter
+class FatPFastListAdapter final : public IListAdapter
 {
-    std::deque<FatPNode> nodes_;
-    fat_p::IntrusiveList<FatPNode> list_;
-    fat_p::IntrusiveList<FatPNode> src_list_; // For splice
+    std::deque<FatPFastNode> nodes_;
+    fat_p::IntrusiveList<FatPFastNode> list_;
+    fat_p::IntrusiveList<FatPFastNode> src_list_; // For splice
     std::vector<size_t> removeOrder_;
-    std::vector<FatPNode*> allocated_; // For free list pattern
+    std::vector<FatPFastNode*> allocated_; // For free list pattern
 
 public:
     const char* name() const override
     {
-        return "fat_p::IntrusiveList";
+        return "fat_p::IntrusiveList (fast)";
     }
 
     void setup(size_t capacity) override
@@ -592,7 +605,7 @@ public:
     }
     size_t node_sizeof() const override
     {
-        return sizeof(FatPNode);
+        return sizeof(FatPFastNode);
     }
 
     void setup_is_linked() override
@@ -611,7 +624,154 @@ public:
         size_t count = 0;
         for (const auto& node : nodes_)
         {
-            if (node.is_linked())
+            if (node.isLinked())
+            {
+                ++count;
+            }
+        }
+        return count;
+    }
+};
+
+class FatPSafeListAdapter final : public IListAdapter
+{
+    std::deque<FatPSafeNode> nodes_;
+    fat_p::IntrusiveListSafe<FatPSafeNode> list_;
+    fat_p::IntrusiveListSafe<FatPSafeNode> src_list_;
+    std::vector<size_t> removeOrder_;
+    std::vector<FatPSafeNode*> allocated_;
+
+public:
+    const char* name() const override
+    {
+        return "fat_p::IntrusiveList (safe)";
+    }
+
+    void setup(size_t capacity) override
+    {
+        nodes_.clear();
+        for (size_t i = 0; i < capacity; ++i)
+        {
+            nodes_.emplace_back(static_cast<int64_t>(i));
+        }
+
+        removeOrder_.resize(capacity);
+        std::iota(removeOrder_.begin(), removeOrder_.end(), 0);
+        std::mt19937 rng(static_cast<std::mt19937::result_type>(g_config.seed));
+        std::shuffle(removeOrder_.begin(), removeOrder_.end(), rng);
+    }
+
+    void teardown() override
+    {
+        list_.clear();
+        src_list_.clear();
+        nodes_.clear();
+        removeOrder_.clear();
+        allocated_.clear();
+    }
+
+    void push_back_all() override
+    {
+        for (auto& node : nodes_)
+        {
+            list_.push_back(node);
+        }
+    }
+
+    void remove_all_random() override
+    {
+        for (auto& node : nodes_)
+        {
+            list_.push_back(node);
+        }
+        for (size_t idx : removeOrder_)
+        {
+            list_.remove(nodes_[idx]);
+        }
+    }
+
+    int64_t iterate_sum() override
+    {
+        if (list_.empty())
+        {
+            for (auto& node : nodes_)
+            {
+                list_.push_back(node);
+            }
+        }
+        int64_t sum = 0;
+        for (const auto& node : list_)
+        {
+            sum += node.value;
+        }
+        return sum;
+    }
+
+    void splice_all() override
+    {
+        for (auto& node : nodes_)
+        {
+            src_list_.push_back(node);
+        }
+        list_.splice(list_.end(), src_list_);
+        list_.clear();
+    }
+
+    void free_list_setup() override
+    {
+        allocated_.clear();
+        allocated_.reserve(nodes_.size());
+        list_.clear();
+        for (auto& node : nodes_)
+        {
+            list_.push_back(node);
+        }
+    }
+
+    void free_list_ops(const std::vector<bool>& isAlloc) override
+    {
+        for (bool alloc : isAlloc)
+        {
+            if (alloc && !list_.empty())
+            {
+                allocated_.push_back(&list_.front());
+                list_.pop_front();
+            }
+            else if (!alloc && !allocated_.empty())
+            {
+                list_.push_back(*allocated_.back());
+                allocated_.pop_back();
+            }
+        }
+        benchmark_sink += static_cast<int64_t>(list_.size() + allocated_.size());
+        list_.clear();
+    }
+
+    size_t size() const override
+    {
+        return list_.size();
+    }
+
+    size_t node_sizeof() const override
+    {
+        return sizeof(FatPSafeNode);
+    }
+
+    void setup_is_linked() override
+    {
+        list_.clear();
+        for (size_t i = 0; i < nodes_.size(); i += 2)
+        {
+            list_.push_back(nodes_[i]);
+        }
+    }
+
+    size_t count_linked() override
+    {
+        size_t count = 0;
+        for (const auto& node : nodes_)
+        {
+            if (node.isLinked())
             {
                 ++count;
             }
@@ -748,7 +908,10 @@ public:
     }
     size_t node_sizeof() const override
     {
-        return sizeof(StdNode) + 2 * sizeof(void*);
+        // Approximation for std::list<T*> node:
+        //   prev pointer + next pointer + stored T* value
+        // Allocator metadata not included.
+        return sizeof(StdNode) + 3 * sizeof(void*);
     } // + list node overhead
 
     void setup_is_linked() override
@@ -1655,8 +1818,8 @@ void benchmark_splice(std::vector<std::unique_ptr<IListAdapter>>& adapters, size
 
     std::cout << "Measuring time to build source list and splice " << N << " elements.\n";
     std::cout << "std::list: N allocating push_backs + O(1) splice\n";
-    std::cout << "Intrusive: N non-allocating links + O(1) or O(N) splice\n";
-    std::cout << "fat_p splice is O(N) due to ownership pointer updates.\n\n";
+    std::cout << "Intrusive: N non-allocating links + O(1) splice\n";
+    std::cout << "fat_p: fast policy splices in O(1); safe policy is O(N) due to owner updates.\n\n";
 
     for (auto& adapter : adapters)
     {
@@ -1839,8 +2002,8 @@ void benchmark_is_linked(std::vector<std::unique_ptr<IListAdapter>>& adapters, s
     print_contract("Check if each node is in a list - O(1) vs O(N) depending on library");
 
     std::cout << "Measuring time to check membership for " << N << " nodes (half linked).\n";
-    std::cout << "fat_p/Boost/EASTL/ETL: O(1) via link or owner pointers\n";
-    std::cout << "LLVM/std::list: O(N) search required - no is_linked() API\n";
+    std::cout << "fat_p/Boost/EASTL/ETL: O(1) via link state or owner pointers\n";
+    std::cout << "LLVM/std::list: O(N) search required - no public is_linked()/isLinked() API\n";
     std::cout << "Note: N kept small because O(N) search per node = O(N^2) total.\n\n";
 
     // Setup - link half the nodes (outside timed region)
@@ -1890,10 +2053,10 @@ void benchmark_is_linked(std::vector<std::unique_ptr<IListAdapter>>& adapters, s
         print_result_row(adapter->name(), stats);
     }
 
-    std::cout << "\nNote: Libraries with O(1) is_linked: fat_p, Boost, EASTL, ETL.\n";
+    std::cout << "\nNote: Libraries with O(1) membership: fat_p, Boost, EASTL, ETL.\n";
     std::cout << "Libraries requiring O(N) search: LLVM, std::list.\n";
     std::cout << "At N=100000, O(N) search would be ~10000x slower than O(1).\n";
-    std::cout << "fat_p unique: owner pointer also identifies WHICH list owns the node.\n";
+    std::cout << "fat_p safe policy: owner pointer can identify WHICH list owns the node.\n";
 
     for (auto& adapter : adapters)
     {
@@ -1931,7 +2094,8 @@ int main(int argc, char* argv[])
 
     // Print competitor detection
     std::cout << "\nCompetitor libraries detected:\n";
-    std::cout << "  [x] fat_p::IntrusiveList\n";
+    std::cout << "  [x] fat_p::IntrusiveList (fast policy)\n";
+    std::cout << "  [x] fat_p::IntrusiveList (safe policy)\n";
     std::cout << "  [x] std::list<T*> (baseline)\n";
 #if HAS_BOOST_INTRUSIVE
     std::cout << "  [x] boost::intrusive::list\n";
@@ -1967,7 +2131,8 @@ int main(int argc, char* argv[])
     // ========================================================================
 
     std::vector<std::unique_ptr<IListAdapter>> adapters;
-    adapters.push_back(std::make_unique<FatPListAdapter>());
+    adapters.push_back(std::make_unique<FatPFastListAdapter>());
+    adapters.push_back(std::make_unique<FatPSafeListAdapter>());
     adapters.push_back(std::make_unique<StdListAdapter>());
 #if HAS_BOOST_INTRUSIVE
     adapters.push_back(std::make_unique<BoostListAdapter>());
@@ -1994,7 +2159,7 @@ int main(int argc, char* argv[])
     benchmark_splice(adapters, N);
     benchmark_memory_overhead(adapters);
     benchmark_free_list(adapters, 1000, 100000);
-    benchmark_is_linked(adapters, 1000); // Small N because LLVM/std::list are O(N²)
+    benchmark_is_linked(adapters, 1000); // Small N because LLVM/std::list are O(N^2)
 
     std::cout << "\n";
     std::cout << std::string(80, '=') << "\n";

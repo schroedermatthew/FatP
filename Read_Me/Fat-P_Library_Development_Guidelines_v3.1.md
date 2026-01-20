@@ -55,9 +55,11 @@ This is the **authoritative** Fat-P guideline document. Five documents form the 
 **Default build standard:** C++20
 
 **Minimum guaranteed support:** C++17 for the following layers only:
-- `@layer Foundation`
-- `@layer Containers`
-- `@layer Concurrency`
+- `Foundation`
+- `Containers`
+- `Concurrency`
+
+These layer names refer to the value of `FATP_META.layer` in each file.
 
 **Best-effort C++17 support:** `Domain`, `Integration`, `Testing`
 - These layers may freely use C++20 features when they materially improve correctness, clarity, or performance
@@ -199,7 +201,7 @@ This principle requires judgment. The goal is zero-overhead for unused capabilit
 
 ### 2.1 Official Layers
 
-Fat-P uses a six-layer architecture. Each header must declare exactly one layer via `@layer` tag:
+Fat-P uses a six-layer architecture. Each header must declare exactly one layer via `FATP_META.layer`.
 
 ```
 Foundation → Containers → Concurrency → Domain → Integration → Testing
@@ -218,14 +220,27 @@ Foundation → Containers → Concurrency → Domain → Integration → Testing
 
 ### 2.2 Layer Classification Requirements
 
-Every header file must declare its architectural layer in the file-level Doxygen comment:
+Every header file must declare its architectural layer in `FATP_META.layer`.
+
+**Single source of truth rule:** If a file contains `FATP_META`, do **not** duplicate the layer in Doxygen (no `@layer` tag).
 
 ```cpp
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: ComponentName
+  file_role: public_header
+  path: fat_p/ComponentName.h
+  namespace: fat_p
+  layer: Containers
+  summary: One-line summary.
+*/
+
 /**
  * @file ComponentName.h
  * @brief One-line summary.
- *
- * @layer Containers
  *
  * [rest of description]
  */
@@ -233,9 +248,9 @@ Every header file must declare its architectural layer in the file-level Doxygen
 
 **Rules:**
 1. Components may only `#include` headers from layers **at or below** their own layer
-2. Mismatch between `@layer` tag and actual includes is a **Critical** violation
-3. AI and human reviewers must verify the `@layer` tag matches actual dependencies
-4. Layer verification scripts treat any tag not in the canonical set (or the explicitly permitted legacy-mapped set) as an error
+2. Mismatch between `FATP_META.layer` and actual includes is a **Critical** violation
+3. AI and human reviewers must verify `FATP_META.layer` matches actual dependencies
+4. Layer verification scripts treat any layer value not in the canonical set (or the explicitly permitted legacy-mapped set) as an error
 
 ### 2.3 Domain Layer Clarification
 
@@ -261,7 +276,7 @@ Domain holds **first-class Fat-P components** that implement coherent abstractio
 
 ### 2.5 Legacy Layer Mapping
 
-For backward compatibility with existing `@layer` tags, the following mapping applies:
+For backward compatibility with existing legacy layer labels, the following mapping applies:
 
 | Legacy Layer | Maps To | Notes |
 |--------------|---------|-------|
@@ -1063,27 +1078,40 @@ void eraseImpl(size_t slotIndex);
 
 #### 5.7.8 File Headers
 
-Every header file must have a Doxygen file comment that includes the **layer classification**:
+Every header file must have the following header layout:
+
+1. `#pragma once` on the first line
+2. `FATP_META` immediately after `#pragma once` (must include `layer`)
+3. Doxygen file header after `FATP_META` (must include `@file` and `@brief`)
+
+**Single source of truth rule:** Layer classification lives only in `FATP_META.layer`. Do **not** duplicate it in Doxygen (no `@layer` tag).
 
 ```cpp
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: StableHashMap
+  file_role: public_header
+  path: fat_p/StableHashMap.h
+  namespace: fat_p
+  layer: Containers
+  summary: Robin Hood hash map with tombstone-free deletion.
+*/
+
 /**
  * @file StableHashMap.h
  * @brief Robin Hood hash map with tombstone-free deletion.
  *
- * @layer Containers
- *
- * This header provides StableHashMap, a hash table implementation
- * optimized for sustained insert/erase workloads where tombstone
- * accumulation would degrade performance.
+ * This header provides StableHashMap, a hash table implementation optimized
+ * for sustained insert/erase workloads where tombstone accumulation would
+ * degrade performance.
  *
  * @see StableHashMap_User_Manual.md for usage documentation.
  * @see StableHashMap_Companion_Guide.md for design rationale.
  */
-
-#pragma once
 ```
-
-The `@layer` tag is **mandatory** for all headers. See Section 2 for layer definitions.
 
 #### 5.7.9 Doxygen Configuration
 
@@ -1331,6 +1359,19 @@ No overlap, no ambiguity.
 | Lightweight (`FastHashMap`, `FlatMap`) | UB on contract violation; assertions in debug |
 | Policy containers (`SortedContainer`) | Policy determines error handling |
 | Safe wrappers | Return `Expected<T>` or throw |
+
+**Debug-only validation is allowed (and encouraged) for lightweight containers.**
+
+When the release contract is "UB on violation", debug builds should detect common misuse via assertions.
+It is acceptable for these assertions to use **O(N) validation in debug builds**, as long as:
+
+- the checks compile out in release builds (e.g., `#if !defined(NDEBUG)` or equivalent)
+- release-time complexity and memory layout are unchanged
+- traversal-based validation is **bounded** (e.g., no more than `size() + 1` link hops) so a corrupted
+  structure cannot cause an infinite loop
+
+This pattern is the preferred way to catch "wrong container" misuse in fast policies that do not
+track ownership.
 
 ### 7.4 Architectural Layers and Allowed Dependencies
 
@@ -1602,7 +1643,8 @@ g++ -std=c++17 -O3 -DNDEBUG -march=native -flto
 - [ ] Class names unchanged (unless explicitly renaming)
 - [ ] Download link provided (if files modified)
 - [ ] No backwards compatibility aliases
-- [ ] `@layer` tag present in file header
+- [ ] For headers: `#pragma once` first, then `FATP_META`, then Doxygen file header
+- [ ] `FATP_META.layer` present and verified against actual includes
 
 ### Before Submitting Tests:
 
@@ -1642,7 +1684,8 @@ g++ -std=c++17 -O3 -DNDEBUG -march=native -flto
 - [ ] Thread-safety documented with `@note Thread-safety: ...`
 - [ ] No banned vocabulary in Doxygen comments
 - [ ] No Doxygen on private implementation details
-- [ ] File header present with `@file`, `@brief`, and `@layer`
+- [ ] File header present with `@file` and `@brief`
+- [ ] `FATP_META.layer` present (single source of truth; no `@layer` tag)
 - [ ] Code examples use `@code` / `@endcode`
 - [ ] Cross-references use `@see`
 
@@ -1719,9 +1762,9 @@ Banned terms must be replaced with mechanism-specific language in user-facing do
 
 Before flagging any dependency as a violation:
 
-1. Check if the included header has a `@layer` tag
-2. If tagged, verify the inclusion is permitted by the layer hierarchy (Section 2)
-3. If untagged, **ask the human maintainer** for clarification before claiming violation
+1. Check if the included header has `FATP_META.layer`
+2. If present, verify the inclusion is permitted by the layer hierarchy (Section 2)
+3. If missing, **ask the human maintainer** for clarification before claiming violation
 4. Never assume a component's layer from its name alone
 5. Remember: `*_Core.h` headers are typically Foundation layer, not the same as the full version
 
@@ -1844,7 +1887,7 @@ Before submitting any Fat-P artifact, AI should verify:
 - [ ] Namespace qualification explicit
 - [ ] Compilation claims backed by actual execution (if claimed)
 - [ ] No inference of unspecified behavior
-- [ ] `@layer` tag verified against actual includes
+- [ ] `FATP_META.layer` verified against actual includes
 - [ ] No "backward compatibility" suggestions
 
 ### 11.8 AI Code Review Standards
@@ -1887,12 +1930,12 @@ Findings are classified into two categories:
 Before asserting a missing include or layer violation:
 
 1. **Show the include chain** -- If claiming a transitive include is missing, demonstrate the actual chain (e.g., `A.h` -> `B.h` -> `C.h`)
-2. **Check `@layer` tags** -- Use the header's declared layer, not assumptions based on naming
+2. **Check `FATP_META.layer`** -- Use the header's declared layer, not assumptions based on naming
 3. **Quote the violation** -- Show the specific `#include` line that violates the layer hierarchy
 
 **Example of proper evidence:**
 
-> **Evidence:** Line 21 includes `DiagnosticLogger_Core.h`. Per its `@layer Foundation` tag (line 5 of that header), this is permitted for Domain-layer components.
+> **Evidence:** Line 21 includes `DiagnosticLogger_Core.h`. Per its `FATP_META.layer: Foundation` (in that header's metadata), this is permitted for Domain-layer components.
 
 #### Counterexample Format
 
@@ -1994,6 +2037,9 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 - Clarified: No-truncation rule applies to ALL files (docs, tests, configs), not just code
 - Renumbered sections for consistency (old Section 3 "Code Review Protocol" is now Section 4)
 - Updated layer references throughout to use new six-layer terminology
+- Clarified: Layer classification is a single source of truth in `FATP_META.layer`; do not duplicate with Doxygen `@layer`
+- Standardized header layout: `#pragma once` (line 1), then `FATP_META`, then Doxygen file header
+- Clarified: Debug-only contract assertions may use bounded O(N) validation for lightweight containers
 
 ### v3.0 (January 2026)
 - **BREAKING:** Updated C++ standard policy to C++20 default with bounded C++17 support
@@ -2044,12 +2090,12 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 
 ### v2.2 (December 2025)
 - Added Section 1.3: Explicit prohibition on "backward compatible" and "incremental adoption" thinking
-- Added Section 6.5: Explicit Component Layer Classification with mandatory `@layer` tag
+- Added Section 6.5: Explicit Component Layer Classification with mandatory `FATP_META.layer`
 - Expanded Section 6.4: Clarified CoreUtility vs Application layers; documented `_Core` suffix convention
-- Updated Section 4.7.8: File headers now require `@layer` tag
+- Updated Section 4.7.8: File headers now use `#pragma once` + `FATP_META` + Doxygen header layout (no Doxygen `@layer` tag)
 - Added Section 10.4: Layer Verification Protocol for AI assistants
 - Updated Section 10.3: Added items 8-10 prohibiting backward compatibility suggestions
-- Updated Section 9 checklist: Added `@layer` tag verification
+- Updated Section 9 checklist: Added `FATP_META.layer` verification
 
 ### v2.1 (December 2025)
 - Clarified Section 4.3: Split member variable convention into instance (`m` prefix) and static (`s` prefix)

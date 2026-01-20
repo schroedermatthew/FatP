@@ -8,7 +8,7 @@ applies_to:
   - tests/**/*.{h,cpp}
   - benchmarks/**/*.cpp
 version: 1
-last_updated: 2026-01-09
+last_updated: 2026-01-19
 ---
 
 # FAT-P Meta Header Guidelines
@@ -38,9 +38,17 @@ It is recommended (optional) for internal-only headers and tooling sources.
 
 ### Header files (`.h`)
 
-1. If the file uses `#pragma once`, place `FATP_META` **immediately after `#pragma once`**.
-2. If the file uses include guards, place `FATP_META` **immediately after the guard `#define`**.
-3. `FATP_META` must appear before any includes.
+**Required header layout:**
+
+1. `#pragma once` must be the **first line** of the file.
+2. Place `FATP_META` **immediately after `#pragma once`**.
+3. If the file has a Doxygen file header (`@file`, `@brief`, etc.), place it **after `FATP_META`**.
+4. `FATP_META` must appear before any includes.
+
+**Single source of truth:** Architectural layer classification lives in `FATP_META.layer`.
+Do **not** duplicate it in the Doxygen file header (no `@layer` tag).
+
+Legacy compatibility: headers that still use include guards follow the same ordering: include guard, then `FATP_META`, then optional Doxygen file header, then includes.
 
 ### Source files (`.cpp`)
 
@@ -92,6 +100,7 @@ If you need a “hint” that would normally be written as a recursive glob, use
 | `component` | string or list[string] | Canonical component name(s) associated with this file. |
 | `file_role` | enum | Role of the file in the repository (see enums). |
 | `path` | string | Repo-relative path using forward slashes. |
+| `layer` | string | Logical layer label (`Foundation`, `Containers`, `Concurrency`, `Domain`, `Integration`, `Testing`). |
 | `summary` | string | One sentence describing the file’s purpose. Avoid marketing. |
 
 ### Strongly recommended keys
@@ -99,7 +108,6 @@ If you need a “hint” that would normally be written as a recursive glob, use
 | Key | Type | Meaning |
 |---|---|---|
 | `namespace` | string or list[string] | Primary namespaces defined or used (`fat_p`, `fat_p::detail`, …). |
-| `layer` | string | Logical layer label (`Foundation`, `Containers`, `Concurrency`, `Domain`, `Integration`, `Testing`). |
 | `api_stability` | enum | Stability classification for the public surface. |
 | `related` | map | Links to docs/tests/benchmarks relevant to this file. |
 | `hygiene` | map | Machine-derived signals (macro counts, platform includes). |
@@ -359,7 +367,7 @@ The parser tolerates common whitespace issues (tabs, small indentation errors on
 python tools/validate_layers.py
 ```
 
-Reports any header that `#include`s a file from a layer above its own declared `@layer`.
+Reports any header that `#include`s a file from a layer above its own declared `FATP_META.layer`.
 
 ## Common mistakes
 

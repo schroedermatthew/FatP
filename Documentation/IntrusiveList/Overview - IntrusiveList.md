@@ -160,11 +160,11 @@ The sentinel is stored inside the list object itself—no allocation required. T
 
 IntrusiveList provides two ownership policies that let you choose between performance and safety:
 
-### NoOwnerPolicy (Fast, Default)
+### FastOwnerPolicy (Default)
 
 ```cpp
 struct Task : fat_p::IntrusiveListNode<Task> { int id; };
-fat_p::IntrusiveList<Task> queue;  // Uses NoOwnerPolicy by default
+fat_p::IntrusiveList<Task> queue;  // Uses FastOwnerPolicy by default
 ```
 
 **Properties:**
@@ -175,16 +175,16 @@ fat_p::IntrusiveList<Task> queue;  // Uses NoOwnerPolicy by default
 
 **Contract:**
 - Removing a node from the wrong list is **undefined behavior** in Release
-- Debug builds validate via linear scan (asserts if node not in list)
+- Debug builds assert if node not in list
 - You must know which list contains each node
 
-### OwnerPointerPolicy (Safe, Opt-in)
+### SafeOwnerPolicy (Opt-in)
 
 ```cpp
-struct Task : fat_p::IntrusiveListNode<Task, fat_p::intrusive_list::OwnerPointerPolicy> { 
+struct Task : fat_p::IntrusiveListNode<Task, fat_p::intrusive_list::SafeOwnerPolicy> { 
     int id; 
 };
-fat_p::IntrusiveListSafe<Task> queue;  // Explicitly uses OwnerPointerPolicy
+fat_p::IntrusiveListSafe<Task> queue;  // Explicitly uses SafeOwnerPolicy
 ```
 
 **Properties:**
@@ -260,11 +260,10 @@ Benchmarks on Linux, GCC 13, 2.1 GHz (median of 50 runs):
 | remove(node) | O(1)† | O(1) | O(n) search |
 | erase(iterator) | O(1) | O(1) | O(1) + free |
 | splice(all) | O(1) | O(n) | O(1) |
-| splice(range) | O(k) count | O(k) count + update | O(1) |
 | isLinked() | O(1) | O(1) | N/A |
 | size() | O(1) | O(1) | O(1) |
 
-†In debug mode, O(n) validation scan
+†In debug mode, assertions validate ownership
 
 ---
 
@@ -277,7 +276,7 @@ Boost.Intrusive is the most mature C++ intrusive container library:
 | Aspect | boost::intrusive::list | FAT-P IntrusiveList |
 |--------|----------------------|---------------------|
 | **Default ownership** | None | None (Fast policy) |
-| **Safe mode** | safe_link option | OwnerPointerPolicy |
+| **Safe mode** | safe_link option | SafeOwnerPolicy |
 | **--end() support** | Depends on sentinel option | Always (sentinel-based) |
 | **Dependencies** | Boost headers (~50+ headers) | None (single header) |
 | **Hook options** | Many (base_hook, member_hook, etc.) | CRTP inheritance only |
@@ -311,18 +310,11 @@ LLVM's `ilist` and `simple_ilist` are designed for compiler infrastructure:
 ```cpp
 // Fast policy (default) - O(1) splice, wrong-list remove is UB
 template <typename T>
-using IntrusiveListFast = IntrusiveList<T, intrusive_list::NoOwnerPolicy>;
+using IntrusiveListFast = IntrusiveList<T, intrusive_list::FastOwnerPolicy>;
 
 // Safe policy - O(n) splice, wrong-list remove is safe no-op
 template <typename T>
-using IntrusiveListSafe = IntrusiveList<T, intrusive_list::OwnerPointerPolicy>;
-
-// Node aliases
-template <typename T>
-using IntrusiveListNodeFast = IntrusiveListNode<T, intrusive_list::NoOwnerPolicy>;
-
-template <typename T>
-using IntrusiveListNodeSafe = IntrusiveListNode<T, intrusive_list::OwnerPointerPolicy>;
+using IntrusiveListSafe = IntrusiveList<T, intrusive_list::SafeOwnerPolicy>;
 ```
 
 ### Quick Example
@@ -362,7 +354,7 @@ if (task1.isLinked()) {
 
 ```cpp
 // Safe policy - for APIs where wrong-list removal might happen
-struct SafeTask : fat_p::IntrusiveListNodeSafe<SafeTask> {
+struct SafeTask : fat_p::IntrusiveListNode<SafeTask, fat_p::intrusive_list::SafeOwnerPolicy> {
     int id;
 };
 

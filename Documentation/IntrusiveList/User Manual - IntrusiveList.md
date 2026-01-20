@@ -107,8 +107,7 @@ IntrusiveList provides two ownership policies through template parameters.
 ```cpp
 // These are equivalent:
 struct Task : fat_p::IntrusiveListNode<Task> { };
-struct Task : fat_p::IntrusiveListNode<Task, fat_p::intrusive_list::NoOwnerPolicy> { };
-struct Task : fat_p::IntrusiveListNodeFast<Task> { };
+struct Task : fat_p::IntrusiveListNode<Task, fat_p::intrusive_list::FastOwnerPolicy> { };
 
 // List types:
 fat_p::IntrusiveList<Task> queue;
@@ -119,16 +118,14 @@ fat_p::IntrusiveListFast<Task> queue;  // Explicit alias
 - 16 bytes per node (prev + next pointers only)
 - O(1) splice, move, and all operations
 - Wrong-list removal is **undefined behavior** in Release
-- Debug mode validates via linear scan
+- Debug mode asserts if node not in list
 
 **Use when:** Performance is critical, you control which list each node belongs to, or you're doing frequent splice operations.
 
 ### Safe Policy
 
 ```cpp
-struct SafeTask : fat_p::IntrusiveListNode<SafeTask, fat_p::intrusive_list::OwnerPointerPolicy> { };
-// Or use the alias:
-struct SafeTask : fat_p::IntrusiveListNodeSafe<SafeTask> { };
+struct SafeTask : fat_p::IntrusiveListNode<SafeTask, fat_p::intrusive_list::SafeOwnerPolicy> { };
 
 // List type:
 fat_p::IntrusiveListSafe<SafeTask> queue;
@@ -170,7 +167,7 @@ struct Task : fat_p::IntrusiveListNode<Task> {
 };
 
 // Also correct: with explicit policy
-struct SafeTask : fat_p::IntrusiveListNode<SafeTask, fat_p::intrusive_list::OwnerPointerPolicy> {
+struct SafeTask : fat_p::IntrusiveListNode<SafeTask, fat_p::intrusive_list::SafeOwnerPolicy> {
     int data;
 };
 ```
@@ -222,12 +219,9 @@ listB.push_back(task);  // BUG: Debug assertion fails!
 To move between lists:
 
 ```cpp
-// Method 1: Remove then add
+// Remove then add
 listA.remove(task);
 listB.push_back(task);
-
-// Method 2: Splice
-listB.splice(listB.end(), listA, listA.iteratorTo(task));
 ```
 
 ---
@@ -268,14 +262,6 @@ Task& last = list.back();    // Last element (assert if empty)
 ```cpp
 bool empty = list.empty();   // O(1)
 size_t n = list.size();      // O(1)
-```
-
-### Getting Iterator from Node
-
-```cpp
-// When you have a node, get its iterator
-Task& myTask = ...;
-auto it = list.iteratorTo(myTask);  // O(1)
 ```
 
 ---
@@ -400,7 +386,7 @@ for (auto it = list.begin(); it != list.end(); ) {
 
 ## Splice Operations
 
-Splice transfers elements from one list to another without copying or allocation.
+Splice transfers all elements from one list to another without copying or allocation.
 
 ### Splice All Elements
 
@@ -412,18 +398,10 @@ dest.splice(dest.end(), source);  // Transfer all from source to end of dest
 // source is now empty
 ```
 
-### Splice Single Element
+### Splice at Beginning
 
 ```cpp
-dest.splice(dest.begin(), source, source.begin());  // Move first element
-```
-
-### Splice Range
-
-```cpp
-auto first = source.begin();
-auto last = std::next(first, 5);  // First 5 elements
-dest.splice(dest.end(), source, first, last);
+dest.splice(dest.begin(), source);  // Insert source contents at front of dest
 ```
 
 ### Complexity by Policy
@@ -431,19 +409,15 @@ dest.splice(dest.end(), source, first, last);
 | Operation | Fast Policy | Safe Policy |
 |-----------|-------------|-------------|
 | splice(all) | O(1) | O(N) |
-| splice(single) | O(1) | O(1) |
-| splice(range) | O(k) count | O(k) count + update |
 
 **Why Safe is O(N):** Safe policy must update the owner pointer for every transferred node.
 
-### Self-Splice
+### Self-Splice Guard
 
-Self-splice (splicing elements within the same list) is handled correctly:
+Splicing a list into itself is detected and handled as a no-op:
 
 ```cpp
-// Move element to different position in same list
-auto it = list.iteratorTo(task);
-list.splice(list.begin(), list, it);  // Move task to front
+list.splice(list.end(), list);  // Does nothing (same list)
 ```
 
 ---
@@ -458,8 +432,7 @@ In debug builds (without `NDEBUG`), the following are asserted:
 
 1. **Double insertion prevention:** `insert()` asserts if node is already linked
 2. **Destroyed-while-linked detection:** Node destructor asserts if still linked
-3. **Wrong-list removal (Fast policy):** `remove()` asserts if node not in this list
-4. **Iterator provenance (Safe policy):** Operations assert if iterator doesn't belong to this list
+3. **Iterator provenance:** Operations assert if iterator doesn't belong to this list
 
 ### Release Behavior
 
@@ -654,8 +627,8 @@ In debug builds (when `NDEBUG` is not defined), IntrusiveList provides additiona
 
 1. **Node destructor:** Asserts if destroyed while linked
 2. **insert():** Asserts if node already linked
-3. **remove() with Fast policy:** Asserts if node not in this list (via linear scan)
-4. **Iterator operations:** Assert on dereference of end iterator
+3. **Iterator operations:** Assert on dereference of end iterator
+4. **Iterator provenance:** Assert if iterator doesn't belong to this list
 
 ### Example Debug Output
 
@@ -666,9 +639,7 @@ File: fat_p/IntrusiveList.h, Line: 175
 
 ### Debug-Only Overhead
 
-Fast policy in debug mode performs O(N) scans for some operations. Safe policy is O(1) even in debug mode.
-
-To get release performance in debug builds:
+Debug mode performs additional validation. To get release performance in debug builds:
 
 ```cpp
 #define NDEBUG
@@ -768,20 +739,6 @@ if (!task.isLinked()) {
 }
 ```
 
-### "Assertion failed: remove(node) called on node not in this list" (Fast policy, debug)
-
-**Cause:** Calling `remove()` on a node that belongs to a different list.
-
-**Fix:** Track which list contains each node, or use Safe policy:
-```cpp
-// Option 1: Track ownership
-listA.remove(task);  // Only call on the correct list
-
-// Option 2: Use Safe policy
-fat_p::IntrusiveListSafe<SafeTask> list;
-list.remove(task);  // Safe no-op if not in this list
-```
-
 ### "Segmentation fault during iteration"
 
 **Cause:** Likely destroying objects during iteration without using `erase()`.
@@ -817,7 +774,7 @@ void add_to_list(Task& t) {
 ### IntrusiveListNode<T, OwnerPolicy>
 
 ```cpp
-template <typename T, typename OwnerPolicy = intrusive_list::NoOwnerPolicy>
+template <typename T, typename OwnerPolicy = intrusive_list::FastOwnerPolicy>
 class IntrusiveListNode {
 public:
     IntrusiveListNode() noexcept = default;
@@ -833,7 +790,7 @@ public:
 ### IntrusiveList<T, OwnerPolicy>
 
 ```cpp
-template <typename T, typename OwnerPolicy = intrusive_list::NoOwnerPolicy>
+template <typename T, typename OwnerPolicy = intrusive_list::FastOwnerPolicy>
 class IntrusiveList {
 public:
     // Types
@@ -890,14 +847,8 @@ public:
     void remove(T& node);
     void clear();
     
-    // Splice
+    // Splice (transfers all elements from other)
     void splice(iterator pos, IntrusiveList& other);
-    void splice(iterator pos, IntrusiveList& other, iterator it);
-    void splice(iterator pos, IntrusiveList& other, iterator first, iterator last);
-    
-    // Utilities
-    [[nodiscard]] iterator iteratorTo(T& node) noexcept;
-    [[nodiscard]] const_iterator iteratorTo(const T& node) const noexcept;
 };
 ```
 
@@ -905,19 +856,28 @@ public:
 
 ```cpp
 namespace fat_p {
-    // Node aliases
-    template <typename T>
-    using IntrusiveListNodeFast = IntrusiveListNode<T, intrusive_list::NoOwnerPolicy>;
-    
-    template <typename T>
-    using IntrusiveListNodeSafe = IntrusiveListNode<T, intrusive_list::OwnerPointerPolicy>;
-    
     // List aliases
     template <typename T>
-    using IntrusiveListFast = IntrusiveList<T, intrusive_list::NoOwnerPolicy>;
+    using IntrusiveListFast = IntrusiveList<T, intrusive_list::FastOwnerPolicy>;
     
     template <typename T>
-    using IntrusiveListSafe = IntrusiveList<T, intrusive_list::OwnerPointerPolicy>;
+    using IntrusiveListSafe = IntrusiveList<T, intrusive_list::SafeOwnerPolicy>;
+}
+```
+
+### Policy Types
+
+```cpp
+namespace fat_p::intrusive_list {
+    // Fast policy (default): 16 bytes/node, O(1) splice, wrong-list remove is UB
+    struct FastOwnerPolicy {
+        static constexpr bool kHasOwner = false;
+    };
+    
+    // Safe policy: 24 bytes/node, O(N) splice, wrong-list remove is safe no-op  
+    struct SafeOwnerPolicy {
+        static constexpr bool kHasOwner = true;
+    };
 }
 ```
 
