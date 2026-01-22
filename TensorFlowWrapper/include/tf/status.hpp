@@ -1,17 +1,13 @@
 // tf/status.hpp
 // RAII wrapper for TF_Status with exception-based error handling
 //
-// MERGED IMPLEMENTATION - Best of ChatGPT + Claude:
-// - ChatGPT: reset() method for reuse, null check in ctor
-// - Claude: Detailed error messages with source location, code names
-//
 // Fixes applied:
 // - P0: TF_Status always deleted (no leaks on success or error path)
 // - P3: Human-readable error code names
+// - V5: string_view safety fix (makes owned copy for null-termination)
 
 #pragma once
 
-#include <format>
 #include <new>
 #include <source_location>
 #include <stdexcept>
@@ -22,6 +18,8 @@
 extern "C" {
 #include <tensorflow/c/c_api.h>
 }
+
+#include "tf/format.hpp"
 
 namespace tf {
 
@@ -62,46 +60,45 @@ public:
     // Accessors
     // ─────────────────────────────────────────────────────────────────
 
-    /// Get raw pointer for passing to TF C API
     [[nodiscard]] TF_Status* get() noexcept { return st_; }
     [[nodiscard]] const TF_Status* get() const noexcept { return st_; }
-
-    /// Get the status code
     [[nodiscard]] TF_Code code() const noexcept { return TF_GetCode(st_); }
-
-    /// Get human-readable code name
-    [[nodiscard]] const char* code_name() const noexcept { 
-        return code_to_string(code()); 
-    }
-
-    /// Get the error message (empty if OK)
+    [[nodiscard]] const char* code_name() const noexcept { return code_to_string(code()); }
     [[nodiscard]] const char* message() const noexcept { return TF_Message(st_); }
-
-    /// Check if status is OK
     [[nodiscard]] bool ok() const noexcept { return code() == TF_OK; }
-
-    /// Explicit bool conversion
     [[nodiscard]] explicit operator bool() const noexcept { return ok(); }
+    [[nodiscard]] bool operator!() const noexcept { return !ok(); }
 
     // ─────────────────────────────────────────────────────────────────
     // Mutation
     // ─────────────────────────────────────────────────────────────────
 
-    /// Reset status to OK (useful for reusing Status objects in hot loops)
     void reset() noexcept {
         TF_SetStatus(st_, TF_OK, "");
     }
 
-    /// Set a specific status
-    void set(TF_Code code, const char* msg) noexcept {
-        TF_SetStatus(st_, code, msg);
+    void set(TF_Code code, const char* msg = "") noexcept {
+        TF_SetStatus(st_, code, msg ? msg : "");
+    }
+
+    void set(TF_Code code, const std::string& msg) noexcept {
+        TF_SetStatus(st_, code, msg.c_str());
+    }
+
+    /// Set status with string_view - makes owned copy for null-termination safety
+    void set(TF_Code code, std::string_view msg) {
+        if (msg.empty()) {
+            TF_SetStatus(st_, code, "");
+            return;
+        }
+        std::string tmp(msg);
+        TF_SetStatus(st_, code, tmp.c_str());
     }
 
     // ─────────────────────────────────────────────────────────────────
     // Error handling
     // ─────────────────────────────────────────────────────────────────
 
-    /// Throw std::runtime_error if not OK
     void throw_if_error(
         std::string_view context = "",
         std::source_location loc = std::source_location::current()) const
@@ -110,25 +107,16 @@ public:
 
         std::string msg;
         if (context.empty()) {
-            msg = std::format("[TF_{}] at {}:{} in {}: {}",
-                code_name(),
-                loc.file_name(),
-                loc.line(),
-                loc.function_name(),
-                message());
+            msg = tf::detail::format("[TF_{}] at {}:{} in {}: {}",
+                code_name(), loc.file_name(), loc.line(),
+                loc.function_name(), message());
         } else {
-            msg = std::format("[TF_{}] {} at {}:{}: {}",
-                code_name(),
-                context,
-                loc.file_name(),
-                loc.line(),
-                message());
+            msg = tf::detail::format("[TF_{}] {} at {}:{}: {}",
+                code_name(), context, loc.file_name(), loc.line(), message());
         }
-
         throw std::runtime_error(std::move(msg));
     }
 
-    /// Alias for compatibility with ChatGPT's naming convention
     void ThrowIfNotOK(
         std::string_view context = "",
         std::source_location loc = std::source_location::current()) const
@@ -140,7 +128,6 @@ public:
     // Static helpers
     // ─────────────────────────────────────────────────────────────────
 
-    /// Convert TF_Code to human-readable string
     [[nodiscard]] static constexpr const char* code_to_string(TF_Code code) noexcept {
         switch (code) {
             case TF_OK:                  return "OK";
@@ -172,7 +159,6 @@ private:
 // Free function helpers
 // ============================================================================
 
-/// Throw if status indicates an error
 inline void throw_if_error(
     const Status& st,
     std::string_view context = "",
@@ -181,8 +167,6 @@ inline void throw_if_error(
     st.throw_if_error(context, loc);
 }
 
-/// Consume a raw TF_Status*, throw if error, always delete
-/// Use this when calling TF C API functions that allocate their own status
 inline void consume_status(
     TF_Status* st,
     std::string_view context = "",
@@ -194,13 +178,13 @@ inline void consume_status(
     const char* msg = TF_Message(st);
     
     if (!is_ok) {
-        std::string error = std::format("{} at {}:{}: {}",
+        std::string error = tf::detail::format("{} at {}:{}: {}",
             context, loc.file_name(), loc.line(), msg);
-        TF_DeleteStatus(st);  // Delete BEFORE throwing
+        TF_DeleteStatus(st);
         throw std::runtime_error(std::move(error));
     }
     
-    TF_DeleteStatus(st);  // Also delete on success!
+    TF_DeleteStatus(st);
 }
 
 } // namespace tf

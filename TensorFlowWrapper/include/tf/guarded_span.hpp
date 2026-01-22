@@ -5,6 +5,11 @@
 // - ChatGPT: Clean core implementation, [[no_unique_address]]
 // - Claude: Full STL iterator support, at() with bounds checking
 //
+// NOTE: For tensor data access, prefer TensorView (in tensor.hpp) which
+// additionally holds a shared_ptr to the tensor state, preventing dangling
+// if the view outlives the original Tensor object. GuardedSpan is still
+// used internally for non-tensor contexts (e.g., graph operations).
+//
 // This is the KEY ABSTRACTION that makes thread-safety claims HONEST:
 // The lock is held for the ENTIRE lifetime of the view, not just
 // during pointer retrieval.
@@ -125,23 +130,8 @@ public:
     [[nodiscard]] constexpr bool empty() const noexcept { return span_.empty(); }
 
     // ─────────────────────────────────────────────────────────────────
-    // Subviews (return raw spans - guard still held by this object)
+    // Subviews - INTENTIONALLY OMITTED (see tensor.hpp TensorView)
     // ─────────────────────────────────────────────────────────────────
-
-    [[nodiscard]] constexpr std::span<T> first(size_type count) const noexcept {
-        return span_.first(count);
-    }
-
-    [[nodiscard]] constexpr std::span<T> last(size_type count) const noexcept {
-        return span_.last(count);
-    }
-
-    [[nodiscard]] constexpr std::span<T> subspan(
-        size_type offset, 
-        size_type count = std::dynamic_extent) const noexcept 
-    {
-        return span_.subspan(offset, count);
-    }
 
 private:
     std::span<T> span_;

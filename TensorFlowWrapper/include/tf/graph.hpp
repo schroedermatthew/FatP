@@ -13,7 +13,7 @@
 #pragma once
 
 #include <cassert>
-#include <format>
+#include <cstdio>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -26,6 +26,7 @@ extern "C" {
 #include <tensorflow/c/c_api.h>
 }
 
+#include "tf/format.hpp"
 #include "tf/operation.hpp"
 #include "tf/policy.hpp"
 #include "tf/status.hpp"
@@ -60,16 +61,25 @@ public:
         , finished_(false)
     {
         if (!desc_) {
-            throw std::runtime_error(std::format(
+            throw std::runtime_error(tf::detail::format(
                 "TF_NewOperation failed: type='{}', name='{}'", op_type, name));
         }
     }
     
-    /// Destructor - asserts if not finished (debugging aid)
+    /// Destructor - cleans up if not finished, logs warning in debug builds
     ~OperationBuilder() noexcept {
-        // In debug builds, warn if builder was abandoned without Finish()
-        // Note: TF doesn't provide TF_DeleteOperationDescription, so we can't clean up
-        assert(finished_ && "OperationBuilder destroyed without calling Finish()");
+        if (!finished_ && desc_) {
+            // Operation was never finished - clean up the description
+            // This can happen during exception unwinding, so we must not throw/assert
+            TF_DeleteOperationDescription(desc_);
+            
+            // In debug builds, log to stderr (safe during unwinding)
+            #ifndef NDEBUG
+            std::fprintf(stderr, 
+                "[tf_wrapper WARNING] OperationBuilder destroyed without Finish() - "
+                "operation was discarded\n");
+            #endif
+        }
     }
     
     // Non-copyable
@@ -101,20 +111,27 @@ public:
     
     // ─────────────────────────────────────────────────────────────────
     // Attribute setters (fluent interface, all return *this)
+    // Both lvalue (&) and rvalue (&&) overloads for flexible chaining
     // ─────────────────────────────────────────────────────────────────
     
     /// Set tensor attribute (e.g., for Const operations)
     OperationBuilder& SetAttrTensor(const char* name, TF_Tensor* tensor) & {
         Status st;
         TF_SetAttrTensor(desc_, name, tensor, st.get());
-        st.throw_if_error(std::format("SetAttrTensor('{}')", name));
+        st.throw_if_error(tf::detail::format("SetAttrTensor('{}')", name));
         return *this;
+    }
+    OperationBuilder&& SetAttrTensor(const char* name, TF_Tensor* tensor) && {
+        return std::move(SetAttrTensor(name, tensor));
     }
     
     /// Set data type attribute
     OperationBuilder& SetAttrType(const char* name, TF_DataType dtype) & {
         TF_SetAttrType(desc_, name, dtype);
         return *this;
+    }
+    OperationBuilder&& SetAttrType(const char* name, TF_DataType dtype) && {
+        return std::move(SetAttrType(name, dtype));
     }
     
     /// Set multiple data types
@@ -123,6 +140,10 @@ public:
         TF_SetAttrTypeList(desc_, name, types.data(), static_cast<int>(types.size()));
         return *this;
     }
+    OperationBuilder&& SetAttrTypeList(const char* name, 
+                                        std::span<const TF_DataType> types) && {
+        return std::move(SetAttrTypeList(name, types));
+    }
     
     /// Set shape attribute
     OperationBuilder& SetAttrShape(const char* name,
@@ -130,11 +151,18 @@ public:
         TF_SetAttrShape(desc_, name, dims.data(), static_cast<int>(dims.size()));
         return *this;
     }
+    OperationBuilder&& SetAttrShape(const char* name,
+                                     std::span<const std::int64_t> dims) && {
+        return std::move(SetAttrShape(name, dims));
+    }
     
     /// Set integer attribute
     OperationBuilder& SetAttrInt(const char* name, std::int64_t value) & {
         TF_SetAttrInt(desc_, name, value);
         return *this;
+    }
+    OperationBuilder&& SetAttrInt(const char* name, std::int64_t value) && {
+        return std::move(SetAttrInt(name, value));
     }
     
     /// Set multiple integers
@@ -143,11 +171,18 @@ public:
         TF_SetAttrIntList(desc_, name, values.data(), static_cast<int>(values.size()));
         return *this;
     }
+    OperationBuilder&& SetAttrIntList(const char* name,
+                                       std::span<const std::int64_t> values) && {
+        return std::move(SetAttrIntList(name, values));
+    }
     
     /// Set float attribute
     OperationBuilder& SetAttrFloat(const char* name, float value) & {
         TF_SetAttrFloat(desc_, name, value);
         return *this;
+    }
+    OperationBuilder&& SetAttrFloat(const char* name, float value) && {
+        return std::move(SetAttrFloat(name, value));
     }
     
     /// Set multiple floats
@@ -156,11 +191,18 @@ public:
         TF_SetAttrFloatList(desc_, name, values.data(), static_cast<int>(values.size()));
         return *this;
     }
+    OperationBuilder&& SetAttrFloatList(const char* name,
+                                         std::span<const float> values) && {
+        return std::move(SetAttrFloatList(name, values));
+    }
     
     /// Set boolean attribute
     OperationBuilder& SetAttrBool(const char* name, bool value) & {
         TF_SetAttrBool(desc_, name, value ? 1 : 0);
         return *this;
+    }
+    OperationBuilder&& SetAttrBool(const char* name, bool value) && {
+        return std::move(SetAttrBool(name, value));
     }
     
     /// Set string attribute
@@ -168,11 +210,17 @@ public:
         TF_SetAttrString(desc_, name, value.data(), value.size());
         return *this;
     }
+    OperationBuilder&& SetAttrString(const char* name, std::string_view value) && {
+        return std::move(SetAttrString(name, value));
+    }
     
     /// Set function attribute
     OperationBuilder& SetAttrFuncName(const char* name, std::string_view func_name) & {
         TF_SetAttrFuncName(desc_, name, func_name.data(), func_name.size());
         return *this;
+    }
+    OperationBuilder&& SetAttrFuncName(const char* name, std::string_view func_name) && {
+        return std::move(SetAttrFuncName(name, func_name));
     }
     
     // ─────────────────────────────────────────────────────────────────
@@ -184,11 +232,17 @@ public:
         TF_AddInput(desc_, input);
         return *this;
     }
+    OperationBuilder&& AddInput(TF_Output input) && {
+        return std::move(AddInput(input));
+    }
     
     /// Add input from Operation handle
     OperationBuilder& AddInput(const Operation& op, int index = 0) & {
         TF_AddInput(desc_, op.output(index));
         return *this;
+    }
+    OperationBuilder&& AddInput(const Operation& op, int index = 0) && {
+        return std::move(AddInput(op, index));
     }
     
     /// Add input from raw TF_Operation*
@@ -196,11 +250,17 @@ public:
         TF_AddInput(desc_, TF_Output{op, index});
         return *this;
     }
+    OperationBuilder&& AddInput(TF_Operation* op, int index = 0) && {
+        return std::move(AddInput(op, index));
+    }
     
     /// Add multiple inputs
     OperationBuilder& AddInputList(std::span<const TF_Output> inputs) & {
         TF_AddInputList(desc_, inputs.data(), static_cast<int>(inputs.size()));
         return *this;
+    }
+    OperationBuilder&& AddInputList(std::span<const TF_Output> inputs) && {
+        return std::move(AddInputList(inputs));
     }
     
     // ─────────────────────────────────────────────────────────────────
@@ -212,6 +272,9 @@ public:
         TF_AddControlInput(desc_, op);
         return *this;
     }
+    OperationBuilder&& AddControlInput(TF_Operation* op) && {
+        return std::move(AddControlInput(op));
+    }
     
     // ─────────────────────────────────────────────────────────────────
     // Device placement
@@ -222,11 +285,17 @@ public:
         TF_SetDevice(desc_, device);
         return *this;
     }
+    OperationBuilder&& SetDevice(const char* device) && {
+        return std::move(SetDevice(device));
+    }
     
     /// Colocate with another operation
     OperationBuilder& ColocateWith(TF_Operation* op) & {
         TF_ColocateWith(desc_, op);
         return *this;
+    }
+    OperationBuilder&& ColocateWith(TF_Operation* op) && {
+        return std::move(ColocateWith(op));
     }
     
     // ─────────────────────────────────────────────────────────────────
@@ -300,7 +369,7 @@ public:
     /// Import a serialized GraphDef protobuf
     void ImportGraphDef(const void* proto, std::size_t proto_len,
                         const char* prefix = "") {
-        auto guard = policy_.scoped_lock();  // Exclusive for mutation
+        [[maybe_unused]] auto guard = policy_.scoped_lock();  // Exclusive for mutation
         
         TF_Buffer* buf = TF_NewBufferFromString(proto, proto_len);
         TF_ImportGraphDefOptions* opts = TF_NewImportGraphDefOptions();
@@ -334,7 +403,7 @@ public:
     [[nodiscard]] std::optional<TF_Operation*> GetOperation(
         const std::string& name) const 
     {
-        auto guard = policy_.scoped_shared();  // Shared for read
+        [[maybe_unused]] auto guard = policy_.scoped_shared();  // Shared for read
         TF_Operation* op = TF_GraphOperationByName(graph_, name.c_str());
         return op ? std::optional{op} : std::nullopt;
     }  // Lock released here
@@ -343,7 +412,7 @@ public:
     [[nodiscard]] TF_Operation* GetOperationOrThrow(const std::string& name) const {
         auto opt = GetOperation(name);
         if (!opt) {
-            throw std::runtime_error(std::format(
+            throw std::runtime_error(tf::detail::format(
                 "Operation '{}' not found in graph", name));
         }
         return *opt;
@@ -373,7 +442,7 @@ public:
     
     /// Get all operations in the graph
     [[nodiscard]] std::vector<TF_Operation*> GetAllOperations() const {
-        auto guard = policy_.scoped_shared();
+        [[maybe_unused]] auto guard = policy_.scoped_shared();
         
         std::vector<TF_Operation*> ops;
         std::size_t pos = 0;
@@ -386,9 +455,176 @@ public:
         return ops;
     }
     
-    /// Get number of operations
+    /// Get number of operations (efficient - no allocation)
     [[nodiscard]] std::size_t num_operations() const {
-        return GetAllOperations().size();
+        [[maybe_unused]] auto guard = policy_.scoped_shared();
+        
+        std::size_t count = 0;
+        std::size_t pos = 0;
+        while (TF_GraphNextOperation(graph_, &pos) != nullptr) {
+            ++count;
+        }
+        return count;
+    }
+    
+    // ─────────────────────────────────────────────────────────────────
+    // Graph inspection (debugging)
+    // ─────────────────────────────────────────────────────────────────
+    
+    /// Serialize graph to GraphDef protobuf
+    /// The returned bytes can be:
+    /// - Written to a .pb file for visualization in TensorBoard
+    /// - Loaded by another Graph using ImportGraphDef
+    /// - Parsed using protobuf to inspect graph structure
+    [[nodiscard]] std::vector<std::uint8_t> ToGraphDef() const {
+        [[maybe_unused]] auto guard = policy_.scoped_shared();
+        
+        TF_Buffer* buf = TF_NewBuffer();
+        if (!buf) {
+            throw std::runtime_error("TF_NewBuffer failed");
+        }
+        
+        Status st;
+        TF_GraphToGraphDef(graph_, buf, st.get());
+        
+        if (!st.ok()) {
+            TF_DeleteBuffer(buf);
+            st.throw_if_error("TF_GraphToGraphDef");
+        }
+        
+        std::vector<std::uint8_t> result;
+        if (buf->data && buf->length > 0) {
+            const auto* p = static_cast<const std::uint8_t*>(buf->data);
+            result.assign(p, p + buf->length);
+        }
+        
+        TF_DeleteBuffer(buf);
+        return result;
+    }
+    
+    /// Information about an operation's input or output
+    struct TensorPort {
+        std::string op_name;      ///< Name of the operation
+        std::string op_type;      ///< Type of the operation (e.g., "Placeholder", "Const")
+        int index;                ///< Port index
+        TF_DataType dtype;        ///< Data type
+        std::string full_name;    ///< Full tensor name (op_name:index)
+    };
+    
+    /// Get information about all placeholder operations (typical feed points)
+    /// Placeholders are the usual entry points for feeding data into a graph
+    [[nodiscard]] std::vector<TensorPort> GetPlaceholders() const {
+        [[maybe_unused]] auto guard = policy_.scoped_shared();
+        
+        std::vector<TensorPort> placeholders;
+        std::size_t pos = 0;
+        TF_Operation* op;
+        
+        while ((op = TF_GraphNextOperation(graph_, &pos)) != nullptr) {
+            const char* op_type = TF_OperationOpType(op);
+            if (std::string_view(op_type) == "Placeholder" ||
+                std::string_view(op_type) == "PlaceholderV2") {
+                
+                const char* name = TF_OperationName(op);
+                const int num_outputs = TF_OperationNumOutputs(op);
+                
+                for (int i = 0; i < num_outputs; ++i) {
+                    TensorPort port;
+                    port.op_name = name;
+                    port.op_type = op_type;
+                    port.index = i;
+                    port.dtype = TF_OperationOutputType(TF_Output{op, i});
+                    port.full_name = std::string(name) + ":" + std::to_string(i);
+                    placeholders.push_back(std::move(port));
+                }
+            }
+        }
+        
+        return placeholders;
+    }
+    
+    /// Get information about operations that have no consumers (typical fetch points)
+    /// These are operations whose outputs are not used by any other operation
+    [[nodiscard]] std::vector<TensorPort> GetOutputs() const {
+        [[maybe_unused]] auto guard = policy_.scoped_shared();
+        
+        std::vector<TensorPort> outputs;
+        std::size_t pos = 0;
+        TF_Operation* op;
+        
+        while ((op = TF_GraphNextOperation(graph_, &pos)) != nullptr) {
+            const char* name = TF_OperationName(op);
+            const char* op_type = TF_OperationOpType(op);
+            const int num_outputs = TF_OperationNumOutputs(op);
+            
+            for (int i = 0; i < num_outputs; ++i) {
+                TF_Output output{op, i};
+                
+                // Check if this output has any consumers
+                const int num_consumers = TF_OperationOutputNumConsumers(output);
+                
+                if (num_consumers == 0) {
+                    TensorPort port;
+                    port.op_name = name;
+                    port.op_type = op_type;
+                    port.index = i;
+                    port.dtype = TF_OperationOutputType(output);
+                    port.full_name = std::string(name) + ":" + std::to_string(i);
+                    outputs.push_back(std::move(port));
+                }
+            }
+        }
+        
+        return outputs;
+    }
+    
+    /// Get all operations of a specific type
+    [[nodiscard]] std::vector<TF_Operation*> GetOperationsByType(
+        std::string_view op_type) const
+    {
+        [[maybe_unused]] auto guard = policy_.scoped_shared();
+        
+        std::vector<TF_Operation*> ops;
+        std::size_t pos = 0;
+        TF_Operation* op;
+        
+        while ((op = TF_GraphNextOperation(graph_, &pos)) != nullptr) {
+            if (std::string_view(TF_OperationOpType(op)) == op_type) {
+                ops.push_back(op);
+            }
+        }
+        
+        return ops;
+    }
+    
+    /// Print graph summary to a string (for debugging)
+    [[nodiscard]] std::string DebugString() const {
+        [[maybe_unused]] auto guard = policy_.scoped_shared();
+        
+        std::string result;
+        result += "Graph with " + std::to_string(num_operations()) + " operations:\n";
+        
+        std::size_t pos = 0;
+        TF_Operation* op;
+        
+        while ((op = TF_GraphNextOperation(graph_, &pos)) != nullptr) {
+            const char* name = TF_OperationName(op);
+            const char* type = TF_OperationOpType(op);
+            const int num_inputs = TF_OperationNumInputs(op);
+            const int num_outputs = TF_OperationNumOutputs(op);
+            
+            result += "  ";
+            result += name;
+            result += " (";
+            result += type;
+            result += ") inputs=";
+            result += std::to_string(num_inputs);
+            result += " outputs=";
+            result += std::to_string(num_outputs);
+            result += "\n";
+        }
+        
+        return result;
     }
     
     // ─────────────────────────────────────────────────────────────────

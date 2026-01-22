@@ -16,6 +16,8 @@ extern "C" {
 #include <tensorflow/c/c_api.h>
 }
 
+#include "tf/status.hpp"
+
 namespace tf {
 
 // ============================================================================
@@ -90,17 +92,36 @@ public:
         return TF_OperationOutputType(TF_Output{op_, index});
     }
     
-    /// Get number of dimensions for output (-1 if unknown)
-    [[nodiscard]] int output_num_dims(int index = 0) const noexcept {
+    /// Get number of dimensions for output (-1 if unknown).
+    ///
+    /// TensorFlow requires the owning graph to query shape info.
+    [[nodiscard]] int output_num_dims(TF_Graph* graph, int index = 0) const {
+        if (!graph) {
+            throw std::invalid_argument("Operation::output_num_dims: null TF_Graph*");
+        }
+
         Status st;
-        return TF_GraphGetTensorNumDims(
-            nullptr,  // Graph not needed for this
-            TF_Output{op_, index}, 
-            st.get());
+        const int ndims = TF_GraphGetTensorNumDims(graph, TF_Output{op_, index}, st.get());
+        st.throw_if_error("TF_GraphGetTensorNumDims");
+        return ndims;
     }
 
 private:
     TF_Operation* op_;  // Non-owning
 };
+
+// ============================================================================
+// Output Helper - Convenience functions for creating TF_Output
+// ============================================================================
+
+/// Create TF_Output from raw operation pointer
+[[nodiscard]] inline TF_Output Output(TF_Operation* op, int index = 0) noexcept {
+    return TF_Output{op, index};
+}
+
+/// Create TF_Output from Operation wrapper
+[[nodiscard]] inline TF_Output Output(const Operation& op, int index = 0) noexcept {
+    return op.output(index);
+}
 
 } // namespace tf

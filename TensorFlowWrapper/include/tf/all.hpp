@@ -86,6 +86,20 @@
 //       std::cout << x << " ";
 //   }
 //
+// LOAD SAVEDMODEL (recommended for production):
+// ─────────────────────────────────────────────────────────────────────────────
+//   auto [session, graph] = tf::Session<>::LoadSavedModel("/path/to/model");
+//   auto result = session.Run({tf::Feed{"input", tensor}}, {tf::Fetch{"output"}});
+//
+// DEVICE ENUMERATION:
+// ─────────────────────────────────────────────────────────────────────────────
+//   auto devices = session.ListDevices();
+//   for (int i = 0; i < devices.count(); ++i) {
+//       auto dev = devices.at(i);
+//       std::cout << dev.name << " (" << dev.type << ")\n";
+//   }
+//   if (session.HasGPU()) { /* use GPU */ }
+//
 // SCALAR TYPES SUPPORTED:
 // ─────────────────────────────────────────────────────────────────────────────
 //   float, double

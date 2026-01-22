@@ -36,23 +36,23 @@ void example_basic() {
     std::vector<float> values(8, 0.5f);
     auto const_tensor = tf::Tensor<>::FromVector<float>(shape, values);
     
-    // Add Const operation
-    auto const_op = std::move(graph.NewOperation("Const", "my_constant"))
+    // Add Const operation - using rvalue chaining (no std::move needed!)
+    auto const_op = graph.NewOperation("Const", "my_constant")
         .SetAttrTensor("value", const_tensor.handle())
         .SetAttrType("dtype", TF_FLOAT)
         .Finish();
     
     // Add Identity operation
-    std::move(graph.NewOperation("Identity", "output"))
+    (void)graph.NewOperation("Identity", "output")
         .AddInput(const_op, 0)
         .Finish();
     
     // Create session and run
     tf::Session<> session(graph);
-    auto results = session.Run({tf::Fetch{"output", 0}});
+    auto result = session.Run(tf::Fetch{"output", 0});
     
     // Access results safely
-    auto view = results[0].read<float>();
+    auto view = result.read<float>();
     std::cout << "Output (" << view.size() << " elements): ";
     for (float x : view) {
         std::cout << x << " ";
@@ -74,12 +74,12 @@ void example_threaded_session() {
     std::vector<float> values = {1.0f, 2.0f, 3.0f, 4.0f};
     auto tensor = tf::Tensor<>::FromVector<float>(shape, values);
     
-    auto const_op = std::move(graph.NewOperation("Const", "data"))
+    auto const_op = graph.NewOperation("Const", "data")
         .SetAttrTensor("value", tensor.handle())
         .SetAttrType("dtype", TF_FLOAT)
         .Finish();
     
-    std::move(graph.NewOperation("Identity", "result"))
+    (void)graph.NewOperation("Identity", "result")
         .AddInput(const_op, 0)
         .Finish();
     
@@ -94,9 +94,9 @@ void example_threaded_session() {
     for (int i = 0; i < num_threads; ++i) {
         workers.emplace_back([&session, &total_runs, i]() {
             for (int j = 0; j < runs_per_thread; ++j) {
-                auto results = session.Run({tf::Fetch{"result", 0}});
+                auto result = session.Run(tf::Fetch{"result", 0});
                 
-                auto view = results[0].read<float>();
+                auto view = result.read<float>();
                 float sum = std::accumulate(view.begin(), view.end(), 0.0f);
                 
                 ++total_runs;
@@ -259,7 +259,7 @@ void example_errors() {
     
     // Type mismatch
     try {
-        auto view = tensor.read<double>();
+        (void)tensor.read<double>();
         std::cout << "This should not print\n";
     } catch (const std::runtime_error& e) {
         std::cout << "Caught dtype error: " << e.what() << "\n";
@@ -267,7 +267,7 @@ void example_errors() {
     
     // Null tensor
     try {
-        tf::FastTensor::FromRaw(nullptr);
+        (void)tf::FastTensor::FromRaw(nullptr);
         std::cout << "This should not print\n";
     } catch (const std::invalid_argument& e) {
         std::cout << "Caught null error: " << e.what() << "\n";
@@ -275,7 +275,7 @@ void example_errors() {
     
     // Dimension mismatch
     try {
-        tf::FastTensor::FromVector<float>({2, 3}, {1, 2, 3});  // Need 6, got 3
+        (void)tf::FastTensor::FromVector<float>({2, 3}, {1, 2, 3});  // Need 6, got 3
         std::cout << "This should not print\n";
     } catch (const std::invalid_argument& e) {
         std::cout << "Caught dimension error (truncated): " 
@@ -297,12 +297,12 @@ void example_graph_policies() {
     
     auto tensor = tf::FastTensor::FromScalar<float>(42.0f);
     
-    auto const_op = std::move(graph.NewOperation("Const", "answer"))
+    auto const_op = graph.NewOperation("Const", "answer")
         .SetAttrTensor("value", tensor.handle())
         .SetAttrType("dtype", TF_FLOAT)
         .Finish();
     
-    std::move(graph.NewOperation("Identity", "out"))
+    (void)graph.NewOperation("Identity", "out")
         .AddInput(const_op, 0)
         .Finish();
     
