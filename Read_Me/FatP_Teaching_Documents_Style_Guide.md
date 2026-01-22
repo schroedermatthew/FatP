@@ -2,6 +2,9 @@
 ## Complete specifications for **Overviews**, **User Manuals**, **Companion Guides**, **Case Studies**, **Foundations**, **Handbooks**, **Pattern Guides**, **Design Notes**, **Benchmark Results**, and **Migration Guides**
 *(Designed for humans **and** AI retrieval/reasoning clients.)*
 
+**Authority:** Subordinate to the *Fat-P Library Development Guidelines*. In
+case of conflict, the Development Guidelines take precedence.
+
 ---
 
 ## Purpose
@@ -158,7 +161,7 @@ Every component document must explicitly state whether std:: or Boost equivalent
 | SmallVector | `std::inplace_vector` | C++26 | FAT-P supports heap fallback |
 | FlatMap | `std::flat_map` | C++23 | Similar API |
 | FlatSet | `std::flat_set` | C++23 | Similar API |
-| ScopeGuard | `std::scope_exit` | C++26 (Library Fundamentals TS v3) | FAT-P adds policies |
+| ScopeGuard | `std::experimental::scope_exit` | TS (Library Fundamentals v3, `<experimental/scope>`) | Not standard; FAT-P adds policies |
 | Signal | — | None | No std equivalent planned |
 | StrongId | — | None | No std equivalent |
 | ObjectPool | — | None | No std equivalent |
@@ -206,7 +209,7 @@ Every component document must explicitly state whether std:: or Boost equivalent
 | C++17 | 2017 | `optional`, `variant`, `string_view`, `any`, structured bindings |
 | C++20 | 2020 | Concepts, `span`, coroutines, `jthread`, `atomic_ref` |
 | C++23 | 2023 | `expected`, `flat_map`, `flat_set`, `mdspan`, `print` |
-| C++26 | 2026 | `inplace_vector`, contracts, `scope_exit` (planned) |
+| C++26 | 2026 | `inplace_vector`, contracts, sender/receiver execution (`std::execution`) |
 
 ---
 

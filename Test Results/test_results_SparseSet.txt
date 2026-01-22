@@ -1,0 +1,68 @@
+==========================================================
+SPARSE SET UNIT TESTS
+==========================================================
+
+[16:52:49] CPU: 3686 MHz Running: basic_operations ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: duplicate_insert ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: sparse_indices ... PASSED (0.10 ms)
+[16:52:49] CPU: 3686 MHz Running: erase ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: erase_single_element ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: erase_last_inserted ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: iteration ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: reserve ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: operator_bracket ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: at_bounds_checking ... PASSED (0.02 ms)
+[16:52:49] CPU: 3686 MHz Running: clear ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: dense_sparse_accessors ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: swap ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: find_existing ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: find_nonexistent ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: find_empty_set ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: find_const ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: shrink_to_fit_empty ... PASSED (0.01 ms)
+[16:52:49] CPU: 3686 MHz Running: shrink_to_fit_with_elements ... PASSED (0.04 ms)
+[16:52:49] CPU: 3686 MHz Running: shrink_to_fit_after_erase ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: copy_constructor ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: move_constructor ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: copy_assignment ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: move_assignment ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: self_assignment ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: with_data_basic ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: with_data_get_throws ... PASSED (0.01 ms)
+[16:52:49] CPU: 3686 MHz Running: with_data_try_get ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: with_data_move_insert ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: with_data_emplace ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: with_data_data_at ... PASSED (0.01 ms)
+[16:52:49] CPU: 3686 MHz Running: with_data_lifecycle ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: with_data_iteration ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: with_data_swap ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: with_data_insert_exception_safety ... PASSED (0.02 ms)
+[16:52:49] CPU: 3686 MHz Running: with_data_erase_exception_safety ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: with_data_find ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: with_data_shrink_to_fit ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: edge_case_uint8_max ... PASSED (0.01 ms)
+[16:52:49] CPU: 3686 MHz Running: edge_case_uint16_max ... PASSED (0.11 ms)
+[16:52:49] CPU: 3686 MHz Running: edge_case_uint64 ... PASSED (5.91 ms)
+[16:52:49] CPU: 3686 MHz Running: reserve_overflow ... PASSED (0.02 ms)
+[16:52:49] CPU: 3686 MHz Running: with_data_edge_case_uint8 ... PASSED (0.00 ms)
+[16:52:49] CPU: 3686 MHz Running: stress_random ... PASSED (0.46 ms)
+
+SparseSet Benchmarks:
+
+Insert 100000 elements:
+  SparseSet:          7.054 ns
+  std::unordered_set: 32.775 ns
+
+Warning: Total measurement (0.0918 ms) may have insufficient precision. Consider increasing iterations.
+Contains (existing):
+  SparseSet:          0.918 ns
+  std::unordered_set: 6.434 ns
+
+Warning: Total measurement (0.0437 ms) may have insufficient precision. Consider increasing iterations.
+Erase 50000 elements:
+  SparseSet:          0.874 ns
+
+=== Test Summary ===
+Passed: 44
+Failed: 0
+Total:  44

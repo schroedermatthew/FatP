@@ -43,8 +43,7 @@
 //   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_IntrusiveList.cpp /link advapi32.lib
 //
 // Build (with competitors):
-//   g++ -std=c++17 -O3 -DNDEBUG -march=native -I/path/to/boost \
-//       -I/path/to/EASTL benchmark_IntrusiveList.cpp -o bench_il
+//   g++ -std=c++17 -O3 -DNDEBUG -march=native -I/path/to/boost -I/path/to/EASTL benchmark_IntrusiveList.cpp -o bench_il
 //
 // Environment Variables (all optional):
 //   FATP_BENCH_WARMUP_RUNS   - Warmup iterations (default: 3)
@@ -78,9 +77,9 @@ FATP_META:
   hygiene:
     pragma_once: false
     include_guard: false
-    defines_total: 10
-    defines_unprefixed: 0
-    undefs_total: 0
+    defines_total: 11
+    defines_unprefixed: 4
+    undefs_total: 4
     includes_windows_h: true
   generated:
     by: Claude
@@ -119,7 +118,10 @@ FATP_META:
 #include "FatPBenchmarkRunner.h"
 #include "IntrusiveList.h"
 
+// Suppress warnings from third-party headers (MSVC only)
+#if defined(_MSC_VER)
 #pragma warning(push, 0)
+#endif
 
 // ============================================================================
 // Library Detection
@@ -175,7 +177,9 @@ void* operator new[](size_t size, size_t, size_t, const char*, int, unsigned, co
 #define HAS_ETL 0
 #endif
 
+#if defined(_MSC_VER)
 #pragma warning(pop)
+#endif
 
 // ============================================================================
 // Global Configuration
@@ -2168,3 +2172,11 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
+// ============================================================================
+// Macro Cleanup (unity build safety)
+// ============================================================================
+#undef HAS_BOOST_INTRUSIVE
+#undef HAS_EASTL
+#undef HAS_LLVM_ILIST
+#undef HAS_ETL

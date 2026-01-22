@@ -1,0 +1,299 @@
+[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  SparseSet Comprehensive Benchmark Suite
+================================================================================
+
+Platform: Windows (warmup=3, measured=15, seed=12345)
+
+Libraries detected:
+  [x] fat_p::SparseSet<8>  (uint8_t, max 256 elements)
+  [x] fat_p::SparseSet<32> (uint32_t, handles large N)
+  [x] fat_p::FlatSet
+  [x] llvm::SparseSet<8>   (default uint8_t, max 256 elements)
+  [x] llvm::SparseSet<32>  (uint32_t, handles large N)
+  [x] entt::sparse_set (ECS sparse set)
+  [x] absl::flat_hash_set (Swiss Table)
+  [x] std::unordered_set (baseline)
+  [x] std::set (baseline)
+
+CPU Frequency Detection Diagnostics:
+  CPUID Leaf 0x16: NOT SUPPORTED
+    Max CPUID leaf:  0x23
+    Raw EAX:         0x0 (base: 0 MHz)
+    Raw EBX:         0x0 (max: 0 MHz)
+    Raw ECX:         0x0 (bus: 0 MHz)
+    Reason:          Base frequency is 0
+  Registry ~MHz:    3686 MHz
+  Using:            Registry base (3686 MHz) - CPUID 0x16 unavailable, using registry directly
+  PDH Monitor:      AVAILABLE
+    Current %:      92.0%
+  Captured state:
+    Reference:      3686 MHz (base)
+    Current:        3391 MHz (measured)
+    Throttle %:     8.0%
+    Reliable:       YES
+
+Design Invariants:
+  1. Each measured run executes exactly one timed iteration per library
+  2. Library execution order is randomized per run
+  3. Setup/teardown outside timed regions
+  4. All libraries observe same distribution of machine states
+  5. Medians are the primary reported statistic
+
+Expected Results:
+  - SparseSet excels at: insert/erase churn, iteration
+  - FlatSet excels at: sorted access, iteration, lookup after build
+  - Hash sets: fast point operations, scattered iteration
+  - std::set: consistent O(log n), slowest overall
+
+Checking initial CPU state...
+[2026-01-21 21:49:46] Initial CPU: 3391 MHz (base: 3686)
+Waiting for CPU to stabilize...
+[Ready: 3391/3686 MHz (8% below base)]
+
+
+================================================================================
+  SECTION 1: Core Operations
+================================================================================
+
+[2026-01-21 21:49:46] Section start CPU: 3391 MHz (base: 3686)
+Contract Note: O(1) insert/erase/contains; dense iteration; unstable erase order
+              Insert excludes allocation (reserve performed in setup)
+
+
+--- N = 1000 ---
+[2026-01-21 21:49:46] CPU: 3391 MHz (base: 3686)
+[Cooling: size transition] [Ready: 1769 MHz]
+
+  Insert:
+     fat_p::SparseSet<8>:       2.00 ns/op (+/-   0.17, CI:[    1.84,    2.03])
+    fat_p::SparseSet<32>:       1.00 ns/op (+/-   0.05, CI:[    0.98,    1.04])
+          fat_p::FlatSet:      45.40 ns/op (+/-   1.82, CI:[   44.19,   46.21])
+      std::unordered_set:      27.20 ns/op (+/-   1.52, CI:[   26.90,   28.58])
+     absl::flat_hash_set:      15.80 ns/op (+/-   0.56, CI:[   15.58,   16.20])
+      llvm::SparseSet<8>:       1.10 ns/op (+/-   0.08, CI:[    1.04,    1.13])
+     llvm::SparseSet<32>:       0.80 ns/op (+/-   0.04, CI:[    0.79,    0.83])
+        entt::sparse_set:       3.20 ns/op (+/-   0.12, CI:[    3.17,    3.31])
+                std::set:      70.20 ns/op (+/-   1.37, CI:[   69.51,   71.02])
+
+  Contains (50% hit):
+     fat_p::SparseSet<8>:       0.40 ns/op (+/-   0.05, CI:[    0.41,    0.47])
+    fat_p::SparseSet<32>:       2.60 ns/op (+/-   0.58, CI:[    2.10,    2.74])
+          fat_p::FlatSet:      34.80 ns/op (+/-   1.02, CI:[   34.40,   35.52])
+      std::unordered_set:       6.80 ns/op (+/-   0.73, CI:[    6.36,    7.16])
+     absl::flat_hash_set:       4.70 ns/op (+/-   0.67, CI:[    4.67,    5.42])
+      llvm::SparseSet<8>:       4.40 ns/op (+/-   0.34, CI:[    4.23,    4.60])
+     llvm::SparseSet<32>:       2.60 ns/op (+/-   0.92, CI:[    2.10,    3.11])
+        entt::sparse_set:       2.90 ns/op (+/-   0.61, CI:[    2.53,    3.20])
+                std::set:      34.70 ns/op (+/-   1.46, CI:[   34.33,   35.94])
+
+  Erase:
+     fat_p::SparseSet<8>:       2.40 ns/op (+/-   0.74, CI:[    2.32,    3.14])
+    fat_p::SparseSet<32>:       0.80 ns/op (+/-   0.09, CI:[    0.80,    0.90])
+          fat_p::FlatSet:      42.40 ns/op (+/-   2.08, CI:[   41.69,   43.99])
+      std::unordered_set:      15.20 ns/op (+/-   0.78, CI:[   14.56,   15.42])
+     absl::flat_hash_set:       5.40 ns/op (+/-   0.28, CI:[    5.35,    5.66])
+      llvm::SparseSet<8>:       4.00 ns/op (+/-   0.25, CI:[    3.98,    4.26])
+     llvm::SparseSet<32>:       1.00 ns/op (+/-   0.13, CI:[    0.90,    1.04])
+        entt::sparse_set:       2.60 ns/op (+/-   0.17, CI:[    2.61,    2.80])
+                std::set:      82.40 ns/op (+/-   5.99, CI:[   81.29,   87.91])
+
+  Iteration:
+     fat_p::SparseSet<8>:       0.40 ns/op (+/-   0.18, CI:[    0.19,    0.39])
+    fat_p::SparseSet<32>:       0.20 ns/op (+/-   0.04, CI:[    0.19,    0.23])
+          fat_p::FlatSet:       0.20 ns/op (+/-   0.04, CI:[    0.19,    0.23])
+      std::unordered_set:       0.90 ns/op (+/-   0.04, CI:[    0.88,    0.92])
+     absl::flat_hash_set:       2.60 ns/op (+/-   0.46, CI:[    2.30,    2.81])
+      llvm::SparseSet<8>:       0.20 ns/op (+/-   0.00, CI:[    0.20,    0.20])
+     llvm::SparseSet<32>:       0.20 ns/op (+/-   0.04, CI:[    0.19,    0.23])
+        entt::sparse_set:       0.20 ns/op (+/-   0.05, CI:[    0.21,    0.26])
+                std::set:       4.00 ns/op (+/-   0.13, CI:[    3.95,    4.09])
+
+--- N = 10000 ---
+[2026-01-21 21:49:47] CPU: 2285 MHz (base: 3686)
+[Cooling: size transition] [Ready: 1806 MHz]
+
+  Insert:
+     fat_p::SparseSet<8>:       0.74 ns/op (+/-   0.03, CI:[    0.73,    0.76])
+    fat_p::SparseSet<32>:       1.18 ns/op (+/-   0.04, CI:[    1.16,    1.20])
+          fat_p::FlatSet:     109.03 ns/op (+/-   0.65, CI:[  108.83,  109.55])
+      std::unordered_set:      34.32 ns/op (+/-   0.73, CI:[   33.84,   34.65])
+     absl::flat_hash_set:      13.93 ns/op (+/-   0.70, CI:[   13.29,   14.06])
+      llvm::SparseSet<8>:       5.07 ns/op (+/-   0.11, CI:[    5.02,    5.14])
+     llvm::SparseSet<32>:       1.13 ns/op (+/-   0.10, CI:[    1.13,    1.23])
+        entt::sparse_set:       5.37 ns/op (+/-   0.36, CI:[    5.31,    5.71])
+                std::set:     112.44 ns/op (+/-   2.48, CI:[  110.48,  113.23])
+
+  Contains (50% hit):
+     fat_p::SparseSet<8>:       0.35 ns/op (+/-   0.02, CI:[    0.34,    0.36])
+    fat_p::SparseSet<32>:       3.79 ns/op (+/-   0.16, CI:[    3.75,    3.93])
+          fat_p::FlatSet:      47.50 ns/op (+/-   2.26, CI:[   46.87,   49.37])
+      std::unordered_set:       8.42 ns/op (+/-   0.33, CI:[    8.42,    8.79])
+     absl::flat_hash_set:       6.79 ns/op (+/-   0.21, CI:[    6.75,    6.98])
+      llvm::SparseSet<8>:      10.92 ns/op (+/-   0.55, CI:[   10.90,   11.50])
+     llvm::SparseSet<32>:       3.94 ns/op (+/-   0.21, CI:[    3.94,    4.17])
+        entt::sparse_set:       4.32 ns/op (+/-   0.14, CI:[    4.25,    4.41])
+                std::set:      57.62 ns/op (+/-   0.98, CI:[   57.53,   58.62])
+
+  Erase:
+     fat_p::SparseSet<8>:       0.94 ns/op (+/-   0.08, CI:[    0.89,    0.98])
+    fat_p::SparseSet<32>:       2.00 ns/op (+/-   0.08, CI:[    2.00,    2.09])
+          fat_p::FlatSet:     109.24 ns/op (+/-   0.98, CI:[  108.60,  109.69])
+      std::unordered_set:      15.62 ns/op (+/-   0.29, CI:[   15.49,   15.81])
+     absl::flat_hash_set:       5.70 ns/op (+/-   0.25, CI:[    5.69,    5.97])
+      llvm::SparseSet<8>:      10.92 ns/op (+/-   0.41, CI:[   10.84,   11.30])
+     llvm::SparseSet<32>:       1.98 ns/op (+/-   0.10, CI:[    1.97,    2.07])
+        entt::sparse_set:       3.96 ns/op (+/-   0.15, CI:[    3.92,    4.09])
+                std::set:     124.16 ns/op (+/-   1.23, CI:[  123.30,  124.67])
+
+  Iteration:
+     fat_p::SparseSet<8>:       0.39 ns/op (+/-   0.18, CI:[    0.32,    0.52])
+    fat_p::SparseSet<32>:       0.19 ns/op (+/-   0.01, CI:[    0.19,    0.20])
+          fat_p::FlatSet:       0.19 ns/op (+/-   0.01, CI:[    0.19,    0.20])
+      std::unordered_set:       2.30 ns/op (+/-   0.19, CI:[    2.19,    2.40])
+     absl::flat_hash_set:       2.92 ns/op (+/-   0.14, CI:[    2.89,    3.04])
+      llvm::SparseSet<8>:       0.19 ns/op (+/-   0.01, CI:[    0.19,    0.20])
+     llvm::SparseSet<32>:       0.19 ns/op (+/-   0.01, CI:[    0.19,    0.20])
+        entt::sparse_set:       0.21 ns/op (+/-   0.01, CI:[    0.20,    0.21])
+                std::set:       6.43 ns/op (+/-   0.18, CI:[    6.32,    6.52])
+
+--- N = 100000 ---
+[2026-01-21 21:49:48] CPU: 2248 MHz (base: 3686)
+[Cooling: size transition] [Ready: 1732 MHz]
+
+  Insert:
+     fat_p::SparseSet<8>:       0.61 ns/op (+/-   0.03, CI:[    0.60,    0.64])
+    fat_p::SparseSet<32>:       2.14 ns/op (+/-   0.24, CI:[    2.13,    2.40])
+          fat_p::FlatSet:    1175.62 ns/op (+/-  13.45, CI:[ 1161.96, 1176.82])
+      std::unordered_set:      42.31 ns/op (+/-   1.03, CI:[   41.56,   42.69])
+     absl::flat_hash_set:      12.15 ns/op (+/-   0.69, CI:[   11.57,   12.32])
+      llvm::SparseSet<8>:     107.88 ns/op (+/-   2.04, CI:[  106.55,  108.80])
+     llvm::SparseSet<32>:       1.80 ns/op (+/-   0.22, CI:[    1.73,    1.97])
+        entt::sparse_set:       7.58 ns/op (+/-   0.20, CI:[    7.47,    7.69])
+                std::set:     150.25 ns/op (+/-   2.34, CI:[  149.48,  152.07])
+
+  Contains (50% hit):
+     fat_p::SparseSet<8>:       0.38 ns/op (+/-   0.11, CI:[    0.38,    0.50])
+    fat_p::SparseSet<32>:       5.00 ns/op (+/-   0.17, CI:[    4.90,    5.09])
+          fat_p::FlatSet:      61.61 ns/op (+/-   1.14, CI:[   60.64,   61.90])
+      std::unordered_set:      11.32 ns/op (+/-   0.24, CI:[   11.11,   11.37])
+     absl::flat_hash_set:       7.92 ns/op (+/-   0.20, CI:[    7.75,    7.97])
+      llvm::SparseSet<8>:     157.94 ns/op (+/-   2.75, CI:[  156.53,  159.57])
+     llvm::SparseSet<32>:       5.35 ns/op (+/-   0.25, CI:[    5.14,    5.42])
+        entt::sparse_set:       5.76 ns/op (+/-   0.32, CI:[    5.63,    5.99])
+                std::set:     106.32 ns/op (+/-   2.41, CI:[  103.58,  106.24])
+
+  Erase:
+     fat_p::SparseSet<8>:       0.46 ns/op (+/-   0.07, CI:[    0.46,    0.53])
+    fat_p::SparseSet<32>:       3.24 ns/op (+/-   0.41, CI:[    3.16,    3.60])
+          fat_p::FlatSet:    1370.84 ns/op (+/-  16.47, CI:[ 1362.71, 1380.90])
+      std::unordered_set:      25.22 ns/op (+/-   2.61, CI:[   24.06,   26.95])
+     absl::flat_hash_set:       9.80 ns/op (+/-   0.67, CI:[    9.65,   10.38])
+      llvm::SparseSet<8>:      53.41 ns/op (+/-   1.03, CI:[   52.40,   53.54])
+     llvm::SparseSet<32>:       3.21 ns/op (+/-   0.65, CI:[    3.09,    3.80])
+        entt::sparse_set:       6.29 ns/op (+/-   0.67, CI:[    6.17,    6.92])
+                std::set:     203.43 ns/op (+/-   2.57, CI:[  201.87,  204.70])
+
+  Iteration:
+     fat_p::SparseSet<8>:       0.78 ns/op (+/-   0.41, CI:[    0.50,    0.96])
+    fat_p::SparseSet<32>:       0.19 ns/op (+/-   0.01, CI:[    0.18,    0.20])
+          fat_p::FlatSet:       0.19 ns/op (+/-   0.00, CI:[    0.18,    0.19])
+      std::unordered_set:       4.83 ns/op (+/-   0.14, CI:[    4.70,    4.86])
+     absl::flat_hash_set:       1.82 ns/op (+/-   0.08, CI:[    1.77,    1.86])
+      llvm::SparseSet<8>:       0.19 ns/op (+/-   0.01, CI:[    0.18,    0.18])
+     llvm::SparseSet<32>:       0.21 ns/op (+/-   0.02, CI:[    0.20,    0.23])
+        entt::sparse_set:       0.21 ns/op (+/-   0.02, CI:[    0.20,    0.23])
+                std::set:      11.99 ns/op (+/-   0.33, CI:[   11.67,   12.03])
+[Cooling: before iteration benchmark] [Ready: 1806 MHz]
+
+================================================================================
+  SECTION 2: Dense Iteration (SparseSet Key Advantage)
+================================================================================
+
+[2026-01-21 21:50:05] Section start CPU: 1806 MHz (base: 3686)
+Contract Note: Dense iterationΓÇöSparseSet/FlatSet expected to outperform hash sets
+
+--- N = 10000 ---
+[2026-01-21 21:50:05] CPU: 1806 MHz (base: 3686)
+[Cooling: size transition] [Ready: 1953 MHz]
+  Iteration (sum all elements):
+     fat_p::SparseSet<8>:       0.39 ns/op (+/-   0.14, CI:[    0.26,    0.41])
+    fat_p::SparseSet<32>:       0.19 ns/op (+/-   0.01, CI:[    0.19,    0.20])
+          fat_p::FlatSet:       0.19 ns/op (+/-   0.00, CI:[    0.18,    0.19])
+      std::unordered_set:       2.06 ns/op (+/-   0.08, CI:[    2.01,    2.10])
+     absl::flat_hash_set:       2.94 ns/op (+/-   0.15, CI:[    2.85,    3.02])
+      llvm::SparseSet<8>:       0.19 ns/op (+/-   0.01, CI:[    0.19,    0.19])
+     llvm::SparseSet<32>:       0.19 ns/op (+/-   0.01, CI:[    0.18,    0.20])
+        entt::sparse_set:       0.20 ns/op (+/-   0.01, CI:[    0.20,    0.21])
+                std::set:       6.43 ns/op (+/-   0.23, CI:[    6.20,    6.45])
+
+--- N = 100000 ---
+[2026-01-21 21:50:06] CPU: 2506 MHz (base: 3686)
+[Cooling: size transition] [Ready: 1769 MHz]
+  Iteration (sum all elements):
+     fat_p::SparseSet<8>:       0.78 ns/op (+/-   0.31, CI:[    0.50,    0.85])
+    fat_p::SparseSet<32>:       0.19 ns/op (+/-   0.01, CI:[    0.18,    0.19])
+          fat_p::FlatSet:       0.19 ns/op (+/-   0.01, CI:[    0.18,    0.19])
+      std::unordered_set:       4.83 ns/op (+/-   0.15, CI:[    4.71,    4.88])
+     absl::flat_hash_set:       1.78 ns/op (+/-   0.05, CI:[    1.75,    1.80])
+      llvm::SparseSet<8>:       0.19 ns/op (+/-   0.01, CI:[    0.18,    0.19])
+     llvm::SparseSet<32>:       0.20 ns/op (+/-   0.02, CI:[    0.20,    0.22])
+        entt::sparse_set:       0.21 ns/op (+/-   0.02, CI:[    0.21,    0.23])
+                std::set:      12.01 ns/op (+/-   0.28, CI:[   11.76,   12.08])
+
+[Cooling: before mixed workload] [Ready: 1769 MHz]
+
+================================================================================
+  SECTION 3: Mixed Workload (Insert/Erase Churn)
+================================================================================
+
+[2026-01-21 21:50:10] Section start CPU: 1769 MHz (base: 3686)
+Contract Note: Random insert/erase churnΓÇötests swap-with-back erase efficiency
+
+--- N = 10000 (50% insert/erase cycles) ---
+[2026-01-21 21:50:10] CPU: 1769 MHz (base: 3686)
+  Mixed Workload:
+     fat_p::SparseSet<8>:       1.31 ns/op (+/-   0.11, CI:[    1.29,    1.42])
+    fat_p::SparseSet<32>:       2.14 ns/op (+/-   0.10, CI:[    2.13,    2.24])
+          fat_p::FlatSet:     152.94 ns/op (+/-   1.02, CI:[  152.67,  153.80])
+      std::unordered_set:      21.08 ns/op (+/-   1.09, CI:[   20.56,   21.77])
+     absl::flat_hash_set:      10.52 ns/op (+/-   1.20, CI:[   10.26,   11.58])
+      llvm::SparseSet<8>:      14.32 ns/op (+/-   0.38, CI:[   14.25,   14.67])
+     llvm::SparseSet<32>:       2.13 ns/op (+/-   0.10, CI:[    2.12,    2.22])
+        entt::sparse_set:       3.71 ns/op (+/-   0.23, CI:[    3.69,    3.94])
+                std::set:     100.51 ns/op (+/-   1.77, CI:[   99.56,  101.52])
+
+================================================================================
+  Feature Comparison Summary
+================================================================================
+
+  Container                 Insert    Contains  Erase     Iteration  Order
+  --------------------------------------------------------------------------
+  fat_p::SparseSet<8>       O(1)*     O(1)      O(1)      Dense      Unstable  (max 256)
+  fat_p::SparseSet<32>      O(1)*     O(1)      O(1)      Dense      Unstable  (handles large N)
+  fat_p::FlatSet            O(n)      O(log n)  O(n)      Dense      Sorted
+  std::unordered_set        O(1)*     O(1)*     O(1)*     Scattered  Unordered
+  absl::flat_hash_set       O(1)*     O(1)*     O(1)*     Scattered  Unordered
+  llvm::SparseSet<8>        O(1)*     O(1)      O(1)      Dense      Unstable  (default, max 256)
+  llvm::SparseSet<32>       O(1)*     O(1)      O(1)      Dense      Unstable  (configured)
+  entt::sparse_set          O(1)*     O(1)      O(1)      Dense      Unstable
+  std::set                  O(log n)  O(log n)  O(log n)  In-order   Sorted
+
+  * = amortized
+  Note: <8> variants use uint8_t value type (max 256 elements)
+        <32> variants use uint32_t value type (handles large N)
+
+  When to use SparseSet:
+    - Integer keys in a bounded range
+    - Frequent insert/erase churn
+    - Iteration performance matters
+    - Order doesn't matter
+
+  When to use FlatSet:
+    - Need sorted order
+    - Mostly lookups after initial build
+    - Binary search semantics (lower_bound, etc.)
+
+================================================================================
+  Benchmark Complete
+================================================================================

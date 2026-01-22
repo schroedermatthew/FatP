@@ -734,6 +734,7 @@ Before committing a new workflow:
 - [ ] `header-check` job
 - [ ] `strict-warnings` job
 - [ ] `benchmarks` job (weekly + manual trigger)
+- [ ] Benchmark compilation flags are CPU-feature gated (avoid illegal instruction on runners)
 - [ ] `ci-success` gate job
 - [ ] Path triggers include the workflow file itself
 - [ ] `schedule` trigger for weekly benchmarks

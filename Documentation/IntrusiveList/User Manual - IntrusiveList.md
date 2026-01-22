@@ -9,7 +9,7 @@ cxx_standard: "C++17"
 std_equivalent: null
 boost_equivalent: "Boost.Intrusive list"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-01-19"
+last_verified: "2026-01-21"
 audience: ["C++ developers", "embedded systems developers", "game developers", "performance engineers", "AI assistants"]
 status: "reviewed"
 ---
@@ -20,6 +20,38 @@ status: "reviewed"
 
 ---
 
+## Scope
+
+This manual covers practical usage of IntrusiveList: node setup, list operations, policy selection, iteration patterns, and migration from std::list. It provides recipes for common use cases and troubleshooting guidance.
+
+## Not covered
+
+- Internal implementation details of the sentinel-based design
+- Comparison with other intrusive container libraries (see Overview - IntrusiveList)
+- Design rationale and tradeoff analysis (see Companion Guide when available)
+- Multi-list membership patterns (each node can only be in one list)
+
+## Prerequisites
+
+- Familiarity with C++ templates and CRTP pattern
+- Understanding of pointer semantics and object lifetime
+- Basic knowledge of doubly-linked list concepts
+
+---
+
+## User Manual Card
+
+**Component:** IntrusiveList  
+**Primary use case:** Zero-allocation list operations in performance-critical code  
+**Integration pattern:** Inherit from IntrusiveListNode<T>, create IntrusiveList<T>, add/remove via references  
+**Key API:** push_back(), remove(), isLinked(), iteratorTo(), splice()  
+**std equivalent:** None. No standard intrusive container exists.  
+**Migration from std:** Replace std::list<T*> with IntrusiveList<T>, change pointer semantics to reference semantics  
+**Common mistakes:** Destroying objects while linked, double insertion, wrong-list removal (Fast policy)  
+**Performance notes:** All operations O(1) except Safe policy splice O(N); zero heap allocation
+
+---
+
 ## Table of Contents
 
 1. [Getting Started](#getting-started)
@@ -27,15 +59,18 @@ status: "reviewed"
 3. [The Node Contract](#the-node-contract)
 4. [List Operations](#list-operations)
 5. [Membership Testing: isLinked()](#membership-testing-islinked)
-6. [Iteration: Bidirectional and Reverse](#iteration-bidirectional-and-reverse)
-7. [Splice Operations](#splice-operations)
-8. [Correctness Contract](#correctness-contract)
-9. [Common Patterns](#common-patterns)
-10. [Thread Safety](#thread-safety)
-11. [Debug Mode](#debug-mode)
-12. [Migration from std::list](#migration-from-stdlist)
-13. [Troubleshooting](#troubleshooting)
-14. [API Reference](#api-reference)
+6. [Converting Nodes to Iterators: iteratorTo()](#converting-nodes-to-iterators-iteratorto)
+7. [Iteration: Bidirectional and Reverse](#iteration-bidirectional-and-reverse)
+8. [Splice Operations](#splice-operations)
+9. [Correctness Contract](#correctness-contract)
+10. [Common Patterns](#common-patterns)
+11. [Thread Safety](#thread-safety)
+12. [Error Handling Model](#error-handling-model)
+13. [Performance Rules of Thumb](#performance-rules-of-thumb)
+14. [Debug Mode](#debug-mode)
+15. [Migration from std::list](#migration-from-stdlist)
+16. [Troubleshooting](#troubleshooting)
+17. [API Reference](#api-reference)
 
 ---
 
@@ -308,6 +343,78 @@ void move_to_list(Task& task, IntrusiveList<Task>& from, IntrusiveList<Task>& to
 
 ---
 
+## Converting Nodes to Iterators: iteratorTo()
+
+The `iteratorTo()` method converts a node reference to an iterator pointing to that node. This is useful when you have a reference to a node but need an iterator for operations like `erase()` or positional `insert()`.
+
+### Basic Usage
+
+```cpp
+Task task{42, "example"};
+list.push_back(task);
+
+// Get iterator to the node
+auto it = list.iteratorTo(task);
+
+// Now you can use iterator operations
+auto next = list.erase(it);  // Remove via iterator
+```
+
+### Behavior by Policy
+
+The behavior differs between Fast and Safe policies:
+
+| Scenario | Fast Policy | Safe Policy |
+|----------|-------------|-------------|
+| Node is linked to this list | Returns valid iterator | Returns valid iterator |
+| Node is not linked | Returns `end()` | Returns `end()` |
+| Node is linked to different list | **Undefined behavior** | Returns `end()` (safe) |
+
+### Fast Policy Example
+
+```cpp
+struct Task : fat_p::IntrusiveListNode<Task> { int id; };
+fat_p::IntrusiveList<Task> listA, listB;
+
+Task task{1};
+listA.push_back(task);
+
+auto it = listA.iteratorTo(task);  // Valid iterator
+// listB.iteratorTo(task);  // UB! Task is in listA, not listB
+```
+
+### Safe Policy Example
+
+```cpp
+struct SafeTask : fat_p::IntrusiveListNode<SafeTask, fat_p::intrusive_list::SafeOwnerPolicy> { int id; };
+fat_p::IntrusiveListSafe<SafeTask> listA, listB;
+
+SafeTask task{1};
+listA.push_back(task);
+
+auto itA = listA.iteratorTo(task);  // Valid iterator
+auto itB = listB.iteratorTo(task);  // Returns listB.end() (safe)
+
+if (itB == listB.end()) {
+    // Task is not in listB
+}
+```
+
+### Const Correctness
+
+Both mutable and const versions are available:
+
+```cpp
+void process(const fat_p::IntrusiveList<Task>& list, const Task& task) {
+    auto cit = list.iteratorTo(task);  // Returns const_iterator
+    if (cit != list.end()) {
+        std::cout << cit->id << "\n";
+    }
+}
+```
+
+---
+
 ## Iteration: Bidirectional and Reverse
 
 IntrusiveList provides full bidirectional iterator support.
@@ -368,6 +475,46 @@ auto it = list.begin();
 list.push_back(newTask);  // it still valid
 list.remove(otherTask);   // it still valid (unless it pointed to otherTask)
 ++it;                     // OK
+```
+
+### Iterator Invalidation Table
+
+| Operation | Invalidated Iterators |
+|-----------|----------------------|
+| `push_front(node)` | None |
+| `push_back(node)` | None |
+| `insert(pos, node)` | None |
+| `pop_front()` | Iterator to removed element only |
+| `pop_back()` | Iterator to removed element only |
+| `remove(node)` | Iterator to removed node only |
+| `erase(it)` | `it` only (returns next valid iterator) |
+| `clear()` | All iterators except `end()` |
+| `splice(pos, other)` | All iterators into `other` invalidated |
+| Move construction | Source iterators invalidated; destination iterators valid |
+| Move assignment | All destination iterators; source iterators invalidated |
+
+**Key guarantee:** Iterators to nodes that remain in the list are never invalidated by operations on other nodes.
+
+**Critical: Iterator List Binding**
+
+Iterators store a reference to their originating list's sentinel node. This has important implications:
+
+1. **Cross-list comparison is undefined:** Comparing iterators from different lists may produce incorrect results.
+
+2. **Splice invalidates source iterators:** After `splice(pos, other)`, all iterators into `other` are invalidated—including iterators to transferred nodes. Use `iteratorTo(node)` or `begin()`/`end()` on the destination list.
+
+3. **Move invalidates source iterators:** After move construction or assignment, all iterators into the moved-from list are invalidated.
+
+```cpp
+// WRONG: iterator still references source list's sentinel
+auto it = listA.begin();
+listB.splice(listB.end(), listA);
+++it;  // UB: sentinel mismatch
+
+// CORRECT: obtain fresh iterator from destination
+listB.splice(listB.end(), listA);
+for (auto& node : listB) { /* safe */ }
+// Or: auto it = listB.iteratorTo(node);
 ```
 
 **Safe removal during iteration:**
@@ -562,7 +709,7 @@ public:
 
 ## Thread Safety
 
-IntrusiveList provides **no thread safety**. All access must be externally synchronized.
+IntrusiveList provides **no internal synchronization**. All concurrent access must be externally synchronized.
 
 ### Single-Threaded Use
 
@@ -587,7 +734,98 @@ public:
     void push(Task& t) {
         std::lock_guard lock(mutex_);
         queue_.push_back(t);
+
+---
+
+## Error Handling Model
+
+IntrusiveList uses **assertions for contract violations** rather than exceptions. This design reflects the zero-overhead philosophy: correct code pays no runtime cost for error checking.
+
+### Debug Mode (NDEBUG not defined)
+
+| Violation | Behavior |
+|-----------|----------|
+| Insert already-linked node | Assertion failure |
+| Destroy node while linked | Assertion failure |
+| Dereference end() iterator | Assertion failure |
+| Iterator from wrong list (Safe policy) | Assertion failure |
+
+### Release Mode (NDEBUG defined)
+
+| Violation | Fast Policy | Safe Policy |
+|-----------|-------------|-------------|
+| Insert already-linked node | Undefined behavior | Undefined behavior |
+| Destroy node while linked | Undefined behavior | Undefined behavior |
+| Remove from wrong list | Undefined behavior | No-op (safe) |
+| Dereference end() iterator | Undefined behavior | Undefined behavior |
+
+### No Exceptions
+
+IntrusiveList operations are `noexcept` where possible. The library never throws exceptions. User code in callbacks (e.g., during iteration) may throw, but IntrusiveList itself provides strong exception neutrality—if user code throws, list state remains consistent.
+
+### Defensive Programming Pattern
+
+```cpp
+void safe_add(Task& t, fat_p::IntrusiveList<Task>& list) {
+    // Precondition check
+    assert(!t.isLinked() && "Task must not already be in a list");
+    list.push_back(t);
+}
+
+void safe_remove(Task& t, fat_p::IntrusiveList<Task>& list) {
+    // Only remove if actually linked
+    if (t.isLinked()) {
+        list.remove(t);
     }
+}
+```
+
+---
+
+## Performance Rules of Thumb
+
+### Operation Costs
+
+| Operation | Time | Allocations | Cache Behavior |
+|-----------|------|-------------|----------------|
+| `push_back/front` | ~2 ns | 0 | 2 cache lines touched |
+| `remove` | ~2 ns | 0 | 3 cache lines touched |
+| `isLinked()` | <1 ns | 0 | 1 cache line (node itself) |
+| `iteratorTo()` | <1 ns | 0 | 1 cache line (node itself) |
+| `splice` (Fast) | O(1) | 0 | 4 cache lines |
+| `splice` (Safe) | O(N) | 0 | N+4 cache lines |
+| `size()` | O(1) | 0 | 1 cache line (list header) |
+| Iteration per node | ~2 ns | 0 | 1 cache line per node |
+
+### Memory Layout Considerations
+
+IntrusiveList nodes are allocated wherever you put them—stack, heap, array, pool. This gives you control over memory layout:
+
+```cpp
+// Contiguous allocation = cache-friendly iteration
+std::vector<Task> tasks(1000);
+fat_p::IntrusiveList<Task> list;
+for (auto& t : tasks) {
+    list.push_back(t);
+}
+// Iteration touches consecutive memory
+```
+
+### When IntrusiveList Wins
+
+1. **Frequent add/remove in hot paths:** Zero allocation beats any allocator
+2. **Object pool free lists:** O(1) acquire/release with no overhead
+3. **Known-node removal:** O(1) removal vs O(N) for find-then-erase
+4. **Memory-constrained systems:** No per-node allocation overhead
+
+### When IntrusiveList Loses
+
+1. **Iteration-dominated workloads:** std::vector is faster for sequential access
+2. **Multi-list membership needed:** Each node can only be in one list
+3. **Polymorphic storage:** Cannot store different derived types in same list
+4. **Frequent splice with Safe policy:** O(N) owner updates add up
+
+---
     
     bool try_pop(Task*& out) {
         std::lock_guard lock(mutex_);
@@ -849,6 +1087,10 @@ public:
     
     // Splice (transfers all elements from other)
     void splice(iterator pos, IntrusiveList& other);
+    
+    // Node-to-iterator conversion
+    [[nodiscard]] iterator iteratorTo(T& node);
+    [[nodiscard]] const_iterator iteratorTo(const T& node) const;
 };
 ```
 

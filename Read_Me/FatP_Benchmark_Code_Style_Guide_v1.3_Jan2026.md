@@ -1,5 +1,10 @@
 # Fat-P Benchmark Code Style Guide
 
+**Status:** Active  
+**Applies to:** All benchmark translation units (`benchmarks/benchmark_*.cpp`)  
+**Authority:** Subordinate to the *Fat-P Library Development Guidelines*  
+**Version:** 1.3 (January 2026)
+
 ## Purpose
 
 This guide defines how to write benchmark `.cpp` files for Fat-P components. It ensures consistent methodology, statistical rigor, and fair comparisons across all Fat-P benchmarks.
@@ -836,6 +841,18 @@ Include in file header:
  */
 ```
 
+### CPU Feature Flags (ISA)
+
+If a benchmark compiles with explicit ISA flags (e.g. `-mavx2`, `-mfma`,
+`/arch:AVX2`), it must not execute on machines that do not support those
+features.
+
+Acceptable patterns:
+
+* Default to a baseline build, with ISA flags enabled only by opt-in.
+* Build baseline + ISA variants and run the supported one.
+* Detect CPU features at runtime and skip ISA-only cases.
+
 ---
 
 ## Checklist
@@ -859,6 +876,7 @@ Include in file header:
 * [ ] Contract note printed for every section
 * [ ] Optional CSV/JSON output via env vars
 * [ ] Build instructions in file header
+* [ ] ISA flags are feature-gated (avoid illegal-instruction execution)
 
 ---
 

@@ -2,7 +2,10 @@
 
 ## Document Governance
 
-This is the **authoritative** Fat-P guideline document. Five documents form the complete governance set:
+This is the **authoritative** Fat-P guideline document.
+
+The documents below form the governance set (the demerit ledger is a record,
+not a governance document):
 
 | Document | Role | Authority |
 |----------|------|-----------|
@@ -10,6 +13,8 @@ This is the **authoritative** Fat-P guideline document. Five documents form the 
 | **Teaching Documents Style Guide** | All teaching docs: Overviews, User Manuals, Companion Guides, Case Studies, Foundations, Handbooks, Pattern Guides, Design Notes, Benchmark Results | PRIMARY for all documentation |
 | **Test Suite Style Guide** | Test structure, coverage, assertions | PRIMARY for test code |
 | **Benchmark Code Style Guide** | Benchmark methodology, statistics, competitor comparison | PRIMARY for benchmark code |
+| **CI Workflow Style Guide** | GitHub Actions workflows, job matrix, gating, verification scripts | PRIMARY for CI workflows |
+| **FATP Meta Header Guidelines** | `FATP_META` schema, placement, and linking rules | NORMATIVE for `FATP_META` blocks |
 | **Systemic Hygiene Policy** | Header composability, ODR safety, namespace collision prevention | NORMATIVE for header correctness |
 
 **Precedence rules:**
@@ -33,6 +38,8 @@ This is the **authoritative** Fat-P guideline document. Five documents form the 
 | "How does this perform?" | Benchmark Results (see Teaching Documents Style Guide) |
 | "How do I test this component?" | Test Suite Style Guide |
 | "How do I write a benchmark?" | Benchmark Code Style Guide |
+| "How do I write or modify CI workflows?" | CI Workflow Style Guide |
+| "How do I add or update `FATP_META`?" | FATP Meta Header Guidelines |
 | "Can these headers be included together?" | Systemic Hygiene Policy |
 | "Is this code/test/doc compliant?" | Development Guidelines |
 
@@ -429,9 +436,15 @@ Provide analysis as a prioritized list with:
 | **Preserve naming** | Never change file names or internal class names when modifying components |
 | **Complete files only** | **NEVER provide truncated files** -- always provide entire files (code, docs, tests, configs) |
 | **No AI comments** | Never include comments like `NEW`, `FIXED`, `BUGFIX`, `CHANGED` -- comments describe *what* the code does, not the editing process |
-| **Always compile** | Compile code before delivering it |
+| **Always compile** | Compile code before delivering it when build access exists; otherwise state that compilation was not performed |
 | **Provide download links** | If files are modified, always provide download links **for modified files only** (do not attach unchanged files unless explicitly requested) |
 | **No backwards compat** | Never add deprecated aliases or compatibility shims |
+
+#### 5.1.1 Verification and Auditability (Compile / Run Claims)
+
+- I will never say “compiled/ran” unless I actually did it in this session.
+- When I do compile/run, I’ll include the exact commands and a verbatim snippet of the output (or a build log file), so it’s auditable.
+- If I can’t compile because something’s missing, I’ll say “not compiled” and list the precise blocker(s), instead of blending inferences with verification.
 
 ### 5.2 Formatting Standards
 
@@ -441,6 +454,12 @@ Provide analysis as a prioritized list with:
 - **Exception:** Macro definition lines (`#define`) are exempt from the 120-column limit
 
 The `ColumnLimit` is set to 120 with a high `PenaltyExcessCharacter` to discourage lines over 100 columns while still allowing up to 120 when necessary.
+
+**Line-length interpretation (for compliance / demerits):**
+
+- **Hard rule:** A line over **120 columns** is a guideline violation (unless an explicit exception applies).
+- **Preferred target:** 100 columns is the readability target (typical), but **101–120 is compliant**.
+- **Mentioning long lines:** Only flag 101–120 lines if they materially harm readability; do not treat them as violations.
 
 **Style configuration (clang-format):**
 
@@ -1163,6 +1182,58 @@ Local `using` directives improve readability in examples without polluting the g
 
 **Cross-reference:** For comprehensive header composability rules including namespace flattening prohibition and root namespace restrictions, see the *Systemic Hygiene Policy*.
 
+### 5.10 C++ Attributes
+
+#### 5.10.1 `[[nodiscard]]` Usage
+
+**Rule:** Before adding `[[nodiscard]]`, verify that discarding the return value is *almost certainly a bug* in realistic usage.
+
+**Apply `[[nodiscard]]` to:**
+
+| Category | Rationale |
+|----------|-----------|
+| Resource acquisition | Ignoring returned handle leaks the resource |
+| Error codes | Ignoring error status hides failures |
+| Predicates (`empty()`, `contains()`) | Called only for their return value |
+| Factory functions | Ignoring returned object leaks or wastes allocation |
+
+**Do NOT apply `[[nodiscard]]` to:**
+
+| Category | Rationale |
+|----------|-----------|
+| Iterator-returning mutators (`insert()`, `erase()`) | Callers often don't need the iterator; can recover via `iteratorTo()` if needed |
+| Chainable methods | Return value enables chaining but isn't required |
+| Methods with useful side effects | The side effect may be the primary purpose |
+
+**The Litmus Test:**
+
+> *"If I grep the codebase (or imagine typical usage), will most calls use the return value?"*
+
+- If **yes** → `[[nodiscard]]` is appropriate
+- If **no** or **mixed** → `[[nodiscard]]` becomes a nuisance; omit it
+
+**Example -- `[[nodiscard]]` appropriate:**
+
+```cpp
+/// Returns true if the container has no elements.
+[[nodiscard]] bool empty() const noexcept;  // Always called for its result
+
+/// Allocates a new connection. Caller owns the returned pointer.
+[[nodiscard]] Connection* acquire();  // Ignoring this leaks
+```
+
+**Example -- `[[nodiscard]]` inappropriate:**
+
+```cpp
+// IntrusiveList::insert() -- callers often just want to add a node
+iterator insert(iterator pos, T& node);  // No [[nodiscard]]
+
+// IntrusiveList::erase() -- callers often just want to remove
+iterator erase(iterator pos);  // No [[nodiscard]]
+```
+
+In the intrusive list case, the node remains valid after insertion/erasure (intrusive semantics), and position can be recovered via `iteratorTo()` if needed. Forcing callers to write `(void)list.insert(...)` is friction without safety benefit.
+
 ---
 
 ## 6. Unit Testing Standards
@@ -1214,13 +1285,13 @@ namespace fat_p::testing::component
 {
 
 // All test functions go in the nested namespace
-TEST_CASE(feature_one)
+FATP_TEST_CASE(feature_one)
 {
-    // Test implementation using SIMPLE_ASSERT, ASSERT_EQ, etc.
+    // Test implementation using FATP_SIMPLE_ASSERT, FATP_ASSERT_EQ, etc.
     return true;
 }
 
-TEST_CASE(feature_two)
+FATP_TEST_CASE(feature_two)
 {
     // ...
     return true;
@@ -1246,12 +1317,12 @@ namespace fat_p::testing
 
 bool test_Component()
 {
-    PRINT_HEADER(COMPONENT NAME)
+    FATP_PRINT_HEADER("Component");
     
     TestRunner runner;
     
-    RUN_TEST_NS(runner, component, feature_one);
-    RUN_TEST_NS(runner, component, feature_two);
+    FATP_RUN_TEST_NS(runner, component, feature_one);
+    FATP_RUN_TEST_NS(runner, component, feature_two);
     
     component::benchmarkComponent();
     
@@ -1272,10 +1343,10 @@ int main()
 
 | Element | Requirement |
 |---------|-------------|
-| **Test runner** | Use `TestRunner` and `RUN_TEST_NS` macro |
+| **Test runner** | Use `TestRunner` and `FATP_RUN_TEST_NS` macro |
 | **Nested namespace** | Place test functions in `fat_p::testing::componentname` |
-| **Function naming** | `bool test_xxx()` pattern via `TEST_CASE(xxx)` macro |
-| **Assertions** | Use `FatPTest.h` macros: `SIMPLE_ASSERT`, `ASSERT_EQ`, `ASSERT_CLOSE`, etc. |
+| **Function naming** | `bool test_xxx()` pattern via `FATP_TEST_CASE(xxx)` macro |
+| **Assertions** | Use `FatPTest.h` macros: `FATP_SIMPLE_ASSERT`, `FATP_ASSERT_EQ`, `FATP_ASSERT_CLOSE`, etc. |
 | **Benchmarks** | Use `measure_perf()`, `DoNotOptimize()`, `format_time()` |
 | **No manual counting** | Never use manual `cout` with test counts |
 | **No inline demos** | Tests and benchmarks only -- no example/demo code |
@@ -1285,9 +1356,9 @@ int main()
 
 | Macro | Usage | Description |
 |-------|-------|-------------|
-| `TEST_CASE(name)` | `TEST_CASE(feature_one) { ... }` | Defines `bool test_feature_one()` |
-| `RUN_TEST(runner, name)` | `RUN_TEST(runner, feature_one)` | Runs test from current namespace |
-| `RUN_TEST_NS(runner, ns, name)` | `RUN_TEST_NS(runner, component, feature_one)` | Runs `ns::test_name` from nested namespace |
+| `FATP_TEST_CASE(name)` | `FATP_TEST_CASE(feature_one) { ... }` | Defines `bool test_feature_one()` |
+| `FATP_RUN_TEST(runner, name)` | `FATP_RUN_TEST(runner, feature_one)` | Runs test from current namespace |
+| `FATP_RUN_TEST_NS(runner, ns, name)` | `FATP_RUN_TEST_NS(runner, component, feature_one)` | Runs `ns::test_name` from nested namespace |
 
 ---
 
@@ -1648,9 +1719,9 @@ g++ -std=c++17 -O3 -DNDEBUG -march=native -flto
 
 ### Before Submitting Tests:
 
-- [ ] Uses `TestRunner` + `RUN_TEST_NS` macro
+- [ ] Uses `TestRunner` + `FATP_RUN_TEST_NS` macro
 - [ ] Test functions in nested namespace (`fat_p::testing::componentname`)
-- [ ] Functions named `bool test_xxx()` via `TEST_CASE(xxx)`
+- [ ] Functions named `bool test_xxx()` via `FATP_TEST_CASE(xxx)`
 - [ ] Uses `FatPTest.h` assertions
 - [ ] Benchmarks use `DoNotOptimize`
 - [ ] Clean header with just declaration
@@ -1682,7 +1753,7 @@ g++ -std=c++17 -O3 -DNDEBUG -march=native -flto
 - [ ] All public methods have `@brief`, `@param`, `@return`
 - [ ] Complexity documented with `@note Complexity: O(...)`
 - [ ] Thread-safety documented with `@note Thread-safety: ...`
-- [ ] No banned vocabulary in Doxygen comments
+- [ ] Vocabulary ban does not apply to Doxygen; prefer mechanism-specific language when it improves clarity
 - [ ] No Doxygen on private implementation details
 - [ ] File header present with `@file` and `@brief`
 - [ ] `FATP_META.layer` present (single source of truth; no `@layer` tag)
@@ -2032,6 +2103,7 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 - **RESTORED:** Sections 3-11 that were accidentally truncated in v3.0
 - Added Section 5.3: STL-compatible method naming exception (snake_case for STL interfaces only)
 - Updated Section 5.2: Added macro line exception for 120-column limit
+- Added Section 5.10: C++ Attributes with `[[nodiscard]]` usage guidelines and litmus test
 - Added Section 12: Load-Bearing Elements (consolidated from Human Guidance document)
 - Removed Human Guidance from governance set (content merged into this document)
 - Clarified: No-truncation rule applies to ALL files (docs, tests, configs), not just code

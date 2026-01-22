@@ -100,8 +100,13 @@ If you need a “hint” that would normally be written as a recursive glob, use
 | `component` | string or list[string] | Canonical component name(s) associated with this file. |
 | `file_role` | enum | Role of the file in the repository (see enums). |
 | `path` | string | Repo-relative path using forward slashes. |
-| `layer` | string | Logical layer label (`Foundation`, `Containers`, `Concurrency`, `Domain`, `Integration`, `Testing`). |
 | `summary` | string | One sentence describing the file’s purpose. Avoid marketing. |
+
+### Required keys (headers only)
+
+| Key | Type | Meaning |
+|---|---|---|
+| `layer` | string | Logical layer label (`Foundation`, `Containers`, `Concurrency`, `Domain`, `Integration`, `Testing`). Required for `public_header` and `internal_header` roles. Omit for `test`, `benchmark`, `tooling`, and `doc_support` files—layer enforcement does not apply to non-header translation units. |
 
 ### Strongly recommended keys
 
@@ -138,7 +143,7 @@ Use this order inside `FATP_META`:
 3. `file_role`
 4. `path`
 5. `namespace`
-6. `layer`
+6. `layer` *(headers only; omit for test/benchmark/tooling)*
 7. `summary`
 8. `api_stability`
 9. `related`
@@ -198,6 +203,18 @@ Rules:
 - `defines_unprefixed` counts `#define` occurrences that do **not** start with `FATP_`.
 - `includes_windows_h` is true if `<windows.h>` is included directly.
 - If a value is unknown or not computed, omit it (do not guess).
+
+**Macro prefix requirements:**
+
+The `FATP_` prefix is required for **all** macros in **all** Fat-P source files, including tests and benchmarks. This prevents collisions when files are compiled together in a single translation unit (unity builds, `IncludeAllFatPHeaders.h`, combined test runners).
+
+| Approach | Example | Compliant |
+|----------|---------|-----------|
+| Prefixed macro | `#define FATP_HAS_BOOST 0` | ✅ Yes |
+| Unprefixed + `#undef` | `#define HAS_BOOST 0` ... `#undef HAS_BOOST` | ✅ Yes |
+| Unprefixed, no cleanup | `#define HAS_BOOST 0` | ❌ No |
+
+If an unprefixed macro is necessary for readability or third-party compatibility, it **must** be `#undef`'d before end of file. The `undefs_total` count should match the number of such cleanups.
 
 ## `generated` section
 
@@ -335,6 +352,42 @@ FATP_META:
     mode: autogen
 */
 ```
+
+### Test file example
+
+Test and benchmark files omit `layer` but must still use `FATP_` prefixed macros (or `#undef` unprefixed ones):
+
+```cpp
+/**
+ * @file test_SmallVector.cpp
+ * @brief Unit tests for SmallVector.h
+ */
+/*
+FATP_META:
+  meta_version: 1
+  component: SmallVector
+  file_role: test
+  path: tests/test_SmallVector.cpp
+  namespace: fat_p::testing::smallvector
+  summary: "Unit tests for SmallVector."
+  related:
+    headers:
+      - fat_p/SmallVector.h
+      - fat_p/FatPTest.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 2
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+```
+
+Note: `layer` is omitted (not applicable to test files). Macros should use `FATP_` prefix (`defines_unprefixed: 0`) to prevent collisions in unity builds.
 
 ## Tooling
 

@@ -18,6 +18,7 @@
   <Project Path="benchmark_PolicyIterator/benchmark_PolicyIterator.vcxproj" Id="f3b1a77b-17fd-466c-96a2-b0a95a70bd44" />
   <Project Path="benchmark_SlotMap/benchmark_SlotMap.vcxproj" Id="1ede3fe8-1584-43f5-81f7-2576e3932445" />
   <Project Path="benchmark_SmallVector/benchmark_SmallVector.vcxproj" Id="6f0e9afa-2538-4e80-b411-dcbb85782fb6" />
+  <Project Path="benchmark_SparseSet/benchmark_SparseSet.vcxproj" Id="e62bd217-db73-44ba-823b-2325c59836dc" />
   <Project Path="benchmark_Stacktrace/benchmark_Stacktrace.vcxproj" Id="2fc01317-d5c3-4346-ad34-f0be17523b6a" />
   <Project Path="benchmark_StrongId/benchmark_StrongId.vcxproj" Id="5923fccb-dad9-4c45-890f-8c839beca65a" />
   <Project Path="FAT_P/FAT_P.vcxproj" Id="07996acb-c24a-48aa-83d9-6676faee42de" />

@@ -1,38 +1,81 @@
-
 ==========================================================
 INTRUSIVE LIST UNIT TESTS
 ==========================================================
 
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_empty ... PASSED (0 ms)
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_push_front ... PASSED (0 ms)
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_push_back ... PASSED (0 ms)
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_iteration ... PASSED (0 ms)
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_pop_front ... PASSED (0 ms)
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_pop_back ... PASSED (0 ms)
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_remove ... PASSED (0 ms)
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_insert ... PASSED (0 ms)
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_erase ... PASSED (0 ms)
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_clear ... PASSED (0 ms)
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_splice ... PASSED (0 ms)
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_move ... PASSED (0 ms)
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_single_element ... PASSED (0 ms)
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_iterator_conversion ... PASSED (0 ms)
-[22:16:23] CPU: 3686 MHz Running: intrusive_list_is_linked ... PASSED (0 ms)
-[22:16:24] CPU: 3686 MHz Running: intrusive_list_remove_unlinked ... PASSED (0 ms)
-[22:16:24] CPU: 3686 MHz Running: intrusive_list_cross_list_remove ... PASSED (0 ms)
-[22:16:24] CPU: 3686 MHz Running: intrusive_list_splice_at_begin ... PASSED (0 ms)
-[22:16:24] CPU: 3686 MHz Running: intrusive_list_move_ownership ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_empty ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_push_front ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_push_back ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_iteration ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_pop_front ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_pop_back ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_remove ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_insert ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_erase ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_clear ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_splice ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_move ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_single_element ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_cross_iterator_comparison ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_max_size ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_type_aliases ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_iterator_conversion ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_reverse_iteration ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_decrement_end ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_is_linked ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_iterator_to_fast ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_iterator_to_safe ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_remove_unlinked ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_cross_list_remove ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_splice_at_begin ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_move_ownership ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_safe_owner_move_construction ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_safe_owner_move_assignment ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_safe_owner_splice ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_splice_empty_source ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: intrusive_list_move_assignment_to_nonempty ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: corner_empty_list_operations ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: corner_two_element_list ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: corner_insert_at_begin ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: corner_erase_first_and_last ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: corner_self_splice ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: corner_move_from_empty ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: corner_double_remove ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: corner_splice_in_middle ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: corner_const_iteration ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: corner_front_back_same_element ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: corner_iterator_equality ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: corner_post_increment_decrement ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: corner_safe_policy_unlinked_iteratorTo ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: swap_basic ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: swap_empty_with_nonempty ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: swap_both_empty ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: swap_self ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: swap_safe_policy ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: swap_adl ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: raii_lifecycle_clear ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: raii_lifecycle_list_destruction ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: raii_no_double_unlink ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: move_only_basic_operations ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: move_only_splice ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: move_only_list_move ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: exception_safe_iteration ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: exception_safe_partial_operation ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: stress_random_operations ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: stress_splice_multiple_lists ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: stress_safe_policy_ownership ... PASSED (0 ms)
+[09:31:04] CPU: 3686 MHz Running: stress_insert_erase_iteration ... PASSED (0 ms)
 
 IntrusiveList Benchmarks:
 
-Warning: Total measurement (0.0129 ms) may have insufficient precision. Consider increasing iterations.
-Push back: 1.290 ns
-Iteration (10k elements): 8.023 us
-Remove: 10.180 ns
-Warning: Total measurement (0.0156 ms) may have insufficient precision. Consider increasing iterations.
-Insert at end: 1.560 ns
+Warning: Total measurement (0.013 ms) may have insufficient precision. Consider increasing iterations.
+Push back: 1.300 ns
+Iteration (10k elements): 8.483 us
+Warning: Total measurement (0.0266 ms) may have insufficient precision. Consider increasing iterations.
+Remove: 2.660 ns
+Warning: Total measurement (0.0181 ms) may have insufficient precision. Consider increasing iterations.
+Insert at end: 1.810 ns
 
 === Test Summary ===
-Passed: 19
+Passed: 62
 Failed: 0
-Total:  19
+Total:  62

@@ -9,7 +9,7 @@ cxx_standard: "C++17"
 std_equivalent: null
 boost_equivalent: "Boost.Intrusive list"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-01-19"
+last_verified: "2026-01-21"
 audience: ["C++ developers", "embedded systems developers", "game developers", "performance engineers", "AI assistants"]
 status: "reviewed"
 ---
@@ -35,12 +35,12 @@ For systems where allocation latency is unacceptable—real-time audio, game eng
 **Component:** IntrusiveList  
 **Problem solved:** Heap allocation overhead and unpredictable latency in linked list operations  
 **When to use:** Hot loops with frequent list membership changes; real-time systems requiring bounded latency; object pools and free lists; embedded systems with no heap  
-**When NOT to use:** Objects need membership in multiple lists simultaneously; polymorphic storage needs; simple cases where std::vector suffices  
+**When NOT to use:** Objects need membership in multiple lists simultaneously; polymorphic storage needs; sequential access patterns where std::vector suffices  
 **Key guarantee:** Zero allocation for all list operations after object construction  
 **std equivalent:** None. No standard intrusive container exists or is planned.  
 **Boost equivalent:** `boost::intrusive::list` (similar concept, different ownership model)  
 **Other alternatives:** EASTL intrusive_list, LLVM ilist, Linux kernel list.h  
-**Read next:** User Manual - IntrusiveList, Companion Guide - IntrusiveList
+**Read next:** User Manual - IntrusiveList
 
 ---
 
@@ -232,13 +232,13 @@ Benchmarks on Linux, GCC 13, 2.1 GHz (median of 50 runs):
 
 | Operation | std::list<T*> | IntrusiveList (Fast) | Speedup |
 |-----------|--------------|----------------------|---------|
-| push_back (N=10k) | 18.6 ns/op | **3.7 ns/op** | **5.0×** |
-| remove with known reference | 28.9 ns/op | **8.5 ns/op** | **3.4×** |
-| Iteration sum (N=10k) | 19.7 µs | 46.6 µs | 0.4× |
+| push_back (N=10k) | 18.6 ns/op | **2.1 ns/op** | **8.9×** |
+| remove with known reference | 28.9 ns/op | **1.7 ns/op** | **17×** |
+| Iteration sum (N=10k) | 19.7 µs | 21.7 µs | 0.9× |
 | splice (N=10k) | 239 µs | **91 µs** | **2.6×** |
 | isLinked() check | N/A | **<1 ns** | - |
 
-**Note on Iteration:** The iteration benchmark shows std::list faster because it stores pointers (8 bytes) while IntrusiveList nodes contain embedded payload. For iteration-dominated workloads, consider your actual memory layout.
+**Note on Iteration:** The iteration benchmark shows comparable performance because IntrusiveList nodes contain embedded payload accessed directly, while std::list stores separate pointers requiring indirection. For iteration-dominated workloads, actual performance depends on your memory layout.
 
 ### Memory Overhead Comparison
 
@@ -377,13 +377,12 @@ listA.remove(task);  // Actually removes
 ```
 IntrusiveList.h
     → uses: <cassert> (debug assertions)
-    → used by: ObjectPool.h (free list management)
-    → used by: Signal.h (observer list)
-    → used by: ThreadPool.h (task queues)
     → pattern: Free list in any pool/cache structure
+    → pattern: Observer/subscriber lists
+    → pattern: Task queues and work stealing
 ```
 
-IntrusiveList is the backbone of FAT-P's pooled containers. ObjectPool uses it for the free list. Signal uses it for slot lists. Any time objects need efficient add/remove without allocation, IntrusiveList appears.
+IntrusiveList is a foundation pattern for zero-allocation data structures. Any time objects need O(1) add/remove without heap allocation, IntrusiveList is the appropriate tool.
 
 ---
 
