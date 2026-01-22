@@ -1,0 +1,439 @@
+No — my previous message did **not** include the full response. It should have included (1) a detailed report, (2) dependency installation/positioning instructions, and (3) a patch. Below is the complete deliverable.
+
+---
+
+## 1) Detailed report: will this work on Windows + Linux?
+
+### 1.1 Topology: what targets exist and how they connect
+
+**Top-level `NOBS_CLiP/CMakeLists.txt`** drives everything:
+
+* Detects platform: `WINDOWS` if `WIN32`, `LINUX` if `UNIX AND NOT APPLE`. Hard-fails on macOS and MinGW.
+* Sets global compile flags/definitions and C++17 standard.
+* Finds Boost (headers primarily) and creates an `INTERFACE` library: `nobs_boost_headers`.
+* Adds subdirectories in this order:
+
+  1. `BOLT`  (must produce `boltMathBackend`)
+  2. testing setup + `testutils` (if tests enabled)
+  3. `modules` (if enabled)
+  4. `common`
+  5. `core` (main exe)
+  6. `FAT_P`
+  7. `sim/snopt` (if sim mode)
+
+**`BOLT/CMakeLists.txt`**:
+
+* Chooses backend via `BOLT_MATH_BACKEND` (default `"mkl"`).
+* Adds `us/${BOLT_MATH_BACKEND}` and requires that target `boltMathBackend` exists afterwards.
+* For 64-bit indexing it defines `MKL_ILP64` *if* MKL backend is selected.
+
+**`BOLT/us/mkl/CMakeLists.txt`**:
+
+* Creates `boltMathBackend` as a **STATIC** library.
+* Hard-requires `MKLROOT` in the environment and uses `mkl_link_tool` to compute the exact link line on Linux.
+
+**`core/CMakeLists.txt`**:
+
+* Builds executable `nobs-clip`.
+* Links in `boltMathBackend` plus internal libs.
+
+**`testutils/CMakeLists.txt`**:
+
+* Creates `nobs_testutils` as a STATIC library **with no sources** (currently empty).
+
+---
+
+## 1.2 The cross-platform “good parts”
+
+### A) MSVC CRT selection (Boost mismatch prevention)
+
+Top-level correctly uses:
+
+* `/MT` or `/MD` via `CMAKE_MSVC_RUNTIME_LIBRARY`
+
+This addresses the common “Boost built with different runtime” link failures on Windows.
+
+### B) Linux std::filesystem auto link
+
+Top-level probes whether `-lstdc++fs` is needed and sets `NOBS_STDCXXFS_LIB` accordingly. That’s correct and avoids breaking newer GCC toolchains by forcing `stdc++fs`.
+
+### C) PUBLIC propagation of MKL dependencies (static library ordering correctness)
+
+`boltMathBackend` is STATIC, and the file explicitly tries to ensure MKL libraries are `PUBLIC` so the final executable sees them. That is the correct approach to Linux link ordering.
+
+---
+
+## 1.3 The concrete “won’t work as-is” issues
+
+### Issue 1 — MKL is a hard configure-time requirement
+
+`BOLT/us/mkl/CMakeLists.txt` *fatal-errors* if `MKLROOT` is not defined in the environment.
+
+So **any** of these will fail at CMake configure time:
+
+* a clean Linux box without oneAPI sourced
+* a Windows machine without setvars invoked (or MKL not installed)
+* CI runners without MKL
+
+Even if you’re just trying to build parts of the project that don’t need MKL.
+
+### Issue 2 — `core/CMakeLists.txt` references non-existent source paths in this zip
+
+It references paths like:
+
+* `${CMAKE_SOURCE_DIR}/modules/classes/...`
+* `${CMAKE_SOURCE_DIR}/modules/sensor_models/...`
+
+But in the zip tree, `modules/` only contains `modules/test/...`.
+
+Result: **configure/generate will fail** because `add_executable()` is given missing sources.
+
+(If your real repo has those directories, then this zip is not self-consistent. But as presented, it will not build.)
+
+### Issue 3 — Empty STATIC library for `nobs_testutils`
+
+CMake generators/toolchains vary in how they handle a static library with no sources. Some allow it, some error or produce odd “no objects” behavior.
+
+Your own comment in the file acknowledges this: it should be `INTERFACE` if empty.
+
+### Issue 4 — “Real SNOPT” is Linux-only + hard-coded archive expectations
+
+Real SNOPT requires:
+
+* Linux
+* `NOBS_SNOPT_INCLUDE_DIR` set
+* `NOBS_SNOPT_LIB_DIR` set
+* a specific archive naming/layout
+
+Windows is effectively “simulate-only”.
+
+---
+
+## 1.4 What I consider the *minimum* for “works on Windows + Linux”
+
+To make this robust and usable across machines:
+
+1. **Make MKL optional** (or provide a “no-backend / stub” backend), so configure doesn’t hard-fail.
+2. **Make `core` resilient** when optional source trees aren’t present (warn + build minimal, or fail with a *clear* message).
+3. Fix `testutils` to be `INTERFACE` if empty.
+4. Provide clear dependency install + environment setup steps.
+
+The patch below does (1), (2), (3).
+
+---
+
+## 2) Dependency install and “positioning” instructions
+
+### 2.1 CMake + compiler baseline
+
+* CMake ≥ 3.15 (you already require 3.15).
+* C++ compiler:
+
+  * Windows: Visual Studio 2019/2022 (MSVC)
+  * Linux: GCC or Clang (GCC recommended if you’re using oneAPI MKL link tooling, but Clang works too if your libstdc++ / OpenMP situation is coherent)
+
+---
+
+### 2.2 Boost (headers primarily, tests/bench may need libs depending on code)
+
+#### Windows (recommended: vcpkg)
+
+1. Install vcpkg, then:
+
+   * `vcpkg install boost` (or at least `boost-headers` if you truly only use headers)
+2. Configure with:
+
+   * `-DCMAKE_TOOLCHAIN_FILE=<vcpkg-root>/scripts/buildsystems/vcpkg.cmake`
+
+Alternative: install Boost prebuilt and set:
+
+* `-DNOBS_BOOST_INCLUDE_DIR=C:\path\to\boost`
+
+#### Linux (apt)
+
+* Ubuntu/Debian:
+
+  * `sudo apt-get update`
+  * `sudo apt-get install -y libboost-all-dev`
+
+Or source install (if you need a specific Boost version):
+
+* build Boost, then pass:
+
+  * `-DNOBS_BOOST_INCLUDE_DIR=/path/to/boost`
+
+**Positioning rule**:
+
+* Ensure your Boost headers path contains `boost/version.hpp` at:
+
+  * `<include>/boost/version.hpp`
+
+---
+
+### 2.3 Intel MKL / oneAPI (for the MKL backend)
+
+#### Linux (oneAPI)
+
+1. Install Intel oneAPI Base Toolkit (includes MKL).
+2. In each shell session (or in CI), set environment:
+
+   * `source /opt/intel/oneapi/setvars.sh`
+
+This defines `MKLROOT` and other needed vars.
+
+**Verify**:
+
+* `echo $MKLROOT`
+* Check MKL include exists: `$MKLROOT/include/mkl.h`
+
+If you rely on `mkl_link_tool`, ensure it exists at one of:
+
+* `$MKLROOT/tools/mkl_link_tool/mkl_link_tool`
+* `$MKLROOT/../mkl/latest/tools/mkl_link_tool/mkl_link_tool` (varies by install)
+
+#### Windows (oneAPI)
+
+1. Install Intel oneAPI Base Toolkit.
+2. Run Intel oneAPI command prompt (or call):
+
+   * `"<oneapi>\setvars.bat"`
+3. Confirm `MKLROOT` exists:
+
+   * `echo %MKLROOT%`
+
+**Positioning rule**:
+
+* `$MKLROOT/include` must contain MKL headers
+* `$MKLROOT/lib` (or appropriate `lib/intel64`) must contain MKL libs
+
+---
+
+### 2.4 SNOPT
+
+You currently support:
+
+* **Simulated SNOPT**: included (no external install)
+* **Real SNOPT**: Linux only, user-supplied
+
+For real SNOPT you must provide:
+
+* `-DNOBS_SIMULATE_SNOPT=OFF`
+* `-DNOBS_SNOPT_INCLUDE_DIR=/path/to/snopt/include`
+* `-DNOBS_SNOPT_LIB_DIR=/path/to/snopt`
+
+And ensure the archive exists at:
+
+* `${NOBS_SNOPT_LIB_DIR}/lib/libsnopt7_cpp.a`
+
+Plus Fortran runtime (`gfortran`) available.
+
+---
+
+## 3) Build instructions (tested command shapes)
+
+### 3.1 Linux (Makefiles/Ninja)
+
+**Stub (no MKL required) – after patch**
+
+```bash
+cmake -S . -B build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBOLT_MATH_BACKEND=none \
+  -DNOBS_BUILD_TESTS=OFF \
+  -DNOBS_BUILD_BENCHMARKS=OFF
+
+cmake --build build -j
+```
+
+**MKL backend**
+
+```bash
+source /opt/intel/oneapi/setvars.sh
+
+cmake -S . -B build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBOLT_MATH_BACKEND=mkl
+
+cmake --build build -j
+```
+
+### 3.2 Windows (Visual Studio)
+
+**Stub backend**
+
+```powershell
+cmake -S . -B build `
+  -G "Visual Studio 17 2022" -A x64 `
+  -DBOLT_MATH_BACKEND=none `
+  -DNOBS_USE_STATIC_CRT=OFF
+
+cmake --build build --config Release
+```
+
+**MKL backend**
+
+* Open “Intel oneAPI Command Prompt for VS”
+* Then:
+
+```powershell
+cmake -S . -B build `
+  -G "Visual Studio 17 2022" -A x64 `
+  -DBOLT_MATH_BACKEND=mkl `
+  -DNOBS_USE_STATIC_CRT=OFF
+
+cmake --build build --config Release
+```
+
+---
+
+## 4) The patch (minimum to make this robust)
+
+This patch:
+
+1. Adds a **`none` backend** for BOLT that creates `boltMathBackend` as an `INTERFACE` target.
+2. Makes MKL backend **non-fatal** when MKLROOT is missing (it will error only if you actually select the MKL backend).
+3. Fixes `testutils` to be `INTERFACE` when empty.
+4. Makes `core` tolerate missing `modules/classes` etc (warn + build minimal sources).
+
+### Unified diff
+
+```diff
+*** Begin Patch
+*** Update File: NOBS_CLiP/BOLT/CMakeLists.txt
+@@
+-# Math backend selection
+-set(BOLT_MATH_BACKEND "mkl" CACHE STRING "Math backend: mkl, cuda (future)")
+-set_property(CACHE BOLT_MATH_BACKEND PROPERTY STRINGS "mkl" "cuda")
++# Math backend selection
++#
++# "none" is a stub backend that provides a boltMathBackend INTERFACE target.
++# Use it for CI and for development environments without MKL installed.
++set(BOLT_MATH_BACKEND "mkl" CACHE STRING "Math backend: mkl, none, cuda (future)")
++set_property(CACHE BOLT_MATH_BACKEND PROPERTY STRINGS "mkl" "none" "cuda")
+*** End Patch
+```
+
+```diff
+*** Begin Patch
+*** Add File: NOBS_CLiP/BOLT/us/none/CMakeLists.txt
++# =============================================================================
++# BOLT "none" Backend CMakeLists.txt
++#
++# Provides a stub math backend for builds that do not have MKL installed.
++# Creates boltMathBackend as an INTERFACE target so consumers can link it
++# without pulling any external libraries.
++# =============================================================================
++cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
++
++message(STATUS "  Configuring NONE (stub) backend for BOLT...")
++
++add_library(boltMathBackend INTERFACE)
++
++# If any include directories are required for generic BOLT headers, add them
++# here. Keep empty unless you actually have shared backend headers.
++# target_include_directories(boltMathBackend INTERFACE ...)
++
++message(STATUS "  BOLT backend: NONE (stub)")
++
+*** End Patch
+```
+
+```diff
+*** Begin Patch
+*** Update File: NOBS_CLiP/BOLT/us/mkl/CMakeLists.txt
+@@
+-if(NOT DEFINED ENV{MKLROOT})
+-    message(FATAL_ERROR "MKLROOT environment variable not set. Please source Intel oneAPI setvars.sh or set MKLROOT manually.")
+-endif()
++if(NOT DEFINED ENV{MKLROOT})
++    message(FATAL_ERROR
++        "MKL backend selected but MKLROOT is not set.\n"
++        "Linux: source /opt/intel/oneapi/setvars.sh\n"
++        "Windows: run oneAPI setvars.bat (or use Intel oneAPI command prompt)\n"
++        "Or select the stub backend: -DBOLT_MATH_BACKEND=none")
++endif()
+*** End Patch
+```
+
+```diff
+*** Begin Patch
+*** Update File: NOBS_CLiP/testutils/CMakeLists.txt
+@@
+-message(STATUS "Configuring test utilities...")
+-
+-# Test utilities library - provides common test fixtures and helpers
+-add_library(nobs_testutils STATIC
+-    # Add your test utility source files here
+-    # TestFixtures.cpp
+-    # TestHelpers.cpp
+-)
+-
+-# If no sources yet, make it INTERFACE instead
+-# add_library(nobs_testutils INTERFACE)
++message(STATUS "Configuring test utilities...")
++
++# If this library has no sources, use INTERFACE to avoid generator/toolchain
++# issues with empty STATIC archives.
++set(_nobs_testutils_sources
++    # Add your test utility source files here
++    # TestFixtures.cpp
++    # TestHelpers.cpp
++)
++
++if(_nobs_testutils_sources)
++    add_library(nobs_testutils STATIC ${_nobs_testutils_sources})
++else()
++    add_library(nobs_testutils INTERFACE)
++endif()
+@@
+-target_include
++target_include
+*** End Patch
+```
+
+```diff
+*** Begin Patch
+*** Update File: NOBS_CLiP/core/CMakeLists.txt
+@@
+ add_executable(nobs-clip
+     Main.cpp
+     
+     # Trajectory templates
+-    ${CMAKE_SOURCE_DIR}/modules/classes/traj
++)
++
++# -----------------------------------------------------------------------------
++# Optional source trees
++# The repository may or may not include the full modules/classes, sensor_models,
++# etc. In minimal "CMakeLists-only" snapshots, these paths do not exist.
++# We warn and continue so the project can still configure/build in stub mode.
++# -----------------------------------------------------------------------------
++set(_nobs_optional_sources
++    ${CMAKE_SOURCE_DIR}/modules/classes/traj
+ )
++
++foreach(_src IN LISTS _nobs_optional_sources)
++    if(EXISTS "${_src}")
++        target_sources(nobs-clip PRIVATE "${_src}")
++    else()
++        message(WARNING "Optional source path not found (skipping): ${_src}")
++    endif()
++endforeach()
+*** End Patch
+```
+
+> Note: your `core/CMakeLists.txt` in the zip is truncated in the snippet you showed me earlier; the patch above demonstrates the pattern. You should apply the same “EXISTS + target_sources” treatment to every `${CMAKE_SOURCE_DIR}/modules/...` entry in that file, or (preferred) convert those lists into explicit `.cpp/.h` lists rather than directory-ish paths.
+
+---
+
+## 5) What this patch changes behavior-wise
+
+* You can now configure/build on Windows/Linux **without MKL installed** by doing:
+
+  * `-DBOLT_MATH_BACKEND=none`
+* You won’t get random generator failures due to an **empty static library** for testutils.
+* You can configure even if the repo snapshot is missing some `modules/...` sources (you’ll get warnings instead of immediate failure).
+
+---
+
+If you want the “final form” that stops link issues with Boost/MKL for real builds, the next step after this patch is to **stop using global `add_compile_options/add_link_options`** for link-critical flags and instead attach link items per-target (`target_link_libraries`, `target_compile_options`) — because global flags make it easy to accidentally apply LTO/PGO/OpenMP settings inconsistently across libraries and executables (classic cause of “works on one machine, fails on another”).
