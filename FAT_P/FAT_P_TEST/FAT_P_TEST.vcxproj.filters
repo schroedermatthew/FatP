@@ -289,5 +289,11 @@
     <ClCompile Include="..\FAT_P\tests\test_PolicyQueue.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\FAT_P\tests\test_StateMachine_HeaderSelfContained.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\FAT_P\tests\test_StateMachine_HeaderIncludeOrder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

@@ -1,0 +1,116 @@
+==========================================================
+STATE MACHINE HEADER INCLUDE ORDER UNIT TESTS
+==========================================================
+
+Suite: StateMachine Header Include-Order
+[23:28:19] CPU: 2359 MHz (36% throttled) Running: header_include_order_compiles_and_runs ... PASSED (0.00 ms)
+
+=== Test Summary ===
+Passed: 1
+Failed: 0
+Total:  1
+==========================================================
+STATE MACHINE HEADER UNIT TESTS
+==========================================================
+
+Suite: StateMachine Header Self-Containment
+[COMPILE] Running: header_self_contained_includes ... PASSED (0.00 ms)
+
+=== Test Summary ===
+Passed: 1
+Failed: 0
+Total:  1
+
+==========================================================
+STATE MACHINE UNIT TESTS
+==========================================================
+
+Suite 1: Construction and Initialization
+[23:28:19] CPU: 2359 MHz (36% throttled) Running: state_machine_construction ... PASSED (0.01 ms)
+[23:28:19] CPU: 2359 MHz (36% throttled) Running: state_machine_default_policy ... PASSED (0.00 ms)
+[23:28:19] CPU: 2469 MHz (33% throttled) Running: state_machine_custom_initial_state ... PASSED (0.00 ms)
+
+Suite 2: Basic State Transitions
+[23:28:19] CPU: 2469 MHz (33% throttled) Running: simple_transition ... PASSED (0.01 ms)
+[23:28:19] CPU: 2469 MHz (33% throttled) Running: chained_transitions ... PASSED (0.00 ms)
+[23:28:19] CPU: 2469 MHz (33% throttled) Running: self_transition_is_noop ... PASSED (0.00 ms)
+[23:28:19] CPU: 2469 MHz (33% throttled) Running: multiple_transitions_same_state ... PASSED (0.01 ms)
+
+Suite 3: fat_p::StrictTransitionPolicy
+[23:28:19] CPU: 2469 MHz (33% throttled) Running: strict_policy_valid_transitions ... PASSED (0.00 ms)
+[23:28:19] CPU: 2469 MHz (33% throttled) Running: strict_policy_invalid_transition_throws ... PASSED (0.04 ms)
+[23:28:19] CPU: 2469 MHz (33% throttled) Running: strict_policy_complex_graph ... PASSED (0.00 ms)
+[23:28:19] CPU: 2469 MHz (33% throttled) Running: strict_policy_prevents_shortcut ... PASSED (0.02 ms)
+
+Suite 4: fat_p::AnyToAnyTransitionPolicy
+[23:28:19] CPU: 2469 MHz (33% throttled) Running: any_to_any_policy_all_transitions ... PASSED (0.00 ms)
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: any_to_any_with_complex_states ... PASSED (0.01 ms)
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: any_to_any_with_four_states ... PASSED (0.00 ms)
+
+Suite 5: Action Policies
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: noexcept_policy_compiles ... PASSED (0.00 ms)
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: throwing_policy_allows_exceptions ... PASSED (0.04 ms)
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: throwing_exit_action ... PASSED (0.02 ms)
+
+Suite 6: Context Sharing
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: context_shared_between_states ... PASSED (0.01 ms)
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: context_persistence_across_transitions ... PASSED (0.01 ms)
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: context_modification_visible ... PASSED (0.00 ms)
+
+Suite 7: State Query Operations
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: current_state_index ... PASSED (0.00 ms)
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: is_in_state ... PASSED (0.00 ms)
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: query_operations_consistency ... PASSED (0.00 ms)
+
+Suite 8: Edge Cases
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: single_state_machine ... PASSED (0.00 ms)
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: large_state_machine ... PASSED (0.00 ms)
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: empty_log_accumulation ... PASSED (0.00 ms)
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: initial_state_action_called_once ... PASSED (0.00 ms)
+
+Suite 9: Compile-Time Validation
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: compile_time_state_validation ... PASSED (0.00 ms)
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: noexcept_specification ... PASSED (0.00 ms)
+
+Suite 10: Complex Scenarios
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: workflow_simulation ... PASSED (0.01 ms)
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: cyclic_transitions ... PASSED (0.00 ms)
+[23:28:19] CPU: 3096 MHz (16% throttled) Running: state_machine_with_custom_initial ... PASSED (0.00 ms)
+
+Suite 11: Stress / Soak / Fuzz / Debug-only Checks
+[23:28:19] CPU: 3464 MHz (6% throttled) Running: soak_cycle_transitions_env_configurable ... PASSED (3.53 ms)
+[23:28:19] CPU: 3464 MHz (6% throttled) Running: strict_policy_random_walk_fuzz ... PASSED (38.87 ms)
+[23:28:19] CPU: 3649 MHz Running: exception_injection_fuzz_throwing_policy ... PASSED (14.13 ms)
+[23:28:19] CPU: 3649 MHz Running: threaded_independent_state_machines_stress ... PASSED (1.55 ms)
+[23:28:19] CPU: 3649 MHz Running: reentrant_transition_detected_in_debug ... SKIPPED (Release)
+PASSED (0.04 ms)
+
+Suite 12: Construction Edge Cases and Semantics
+[23:28:19] CPU: 3649 MHz Running: exception_in_initial_entry_throws ... PASSED (0.02 ms)
+[23:28:19] CPU: 3649 MHz Running: state_machine_is_not_copyable ... PASSED (0.00 ms)
+[23:28:19] CPU: 3649 MHz Running: state_machine_is_not_movable ... PASSED (0.00 ms)
+[23:28:19] CPU: 3649 MHz Running: introspection_state_count ... PASSED (0.00 ms)
+[23:28:19] CPU: 3649 MHz Running: introspection_initial_state_index ... PASSED (0.00 ms)
+[23:28:19] CPU: 3649 MHz Running: introspection_contains_state ... PASSED (0.00 ms)
+[23:28:19] CPU: 3649 MHz Running: introspection_is_transition_allowed ... PASSED (0.00 ms)
+[23:28:19] CPU: 3649 MHz Running: transition_order_exit_completes_before_entry ... PASSED (0.00 ms)
+[23:28:19] CPU: 3649 MHz Running: state_internal_data_behavior ... PASSED (0.00 ms)
+
+Suite 13: Large State Counts and Policy Combinations
+[23:28:19] CPU: 3649 MHz Running: very_large_state_count_32 ... PASSED (0.00 ms)
+[23:28:19] CPU: 3649 MHz Running: all_policy_combinations_strict_noexcept ... PASSED (0.00 ms)
+[23:28:19] CPU: 3649 MHz Running: all_policy_combinations_strict_throwing ... PASSED (0.01 ms)
+[23:28:19] CPU: 3649 MHz Running: all_policy_combinations_anytoany_noexcept ... PASSED (0.00 ms)
+[23:28:19] CPU: 3649 MHz Running: all_policy_combinations_anytoany_throwing ... PASSED (0.00 ms)
+
+Suite 14: Extended Stress / Fuzz Tests
+[23:28:19] CPU: 3649 MHz Running: fuzz_any_to_any_noexcept ... PASSED (0.14 ms)
+[23:28:19] CPU: 3649 MHz Running: fuzz_any_to_any_throwing ... PASSED (0.70 ms)
+[23:28:19] CPU: 3649 MHz Running: deterministic_replay_verification ... PASSED (0.26 ms)
+[23:28:19] CPU: 3649 MHz Running: fully_connected_graph_stress ... PASSED (0.20 ms)
+[23:28:19] CPU: 3649 MHz Running: zero_allocation_after_construction ... PASSED (0.12 ms)
+
+=== Test Summary ===
+Passed: 56
+Failed: 0
+Total:  56

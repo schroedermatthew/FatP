@@ -34,6 +34,29 @@ scripts/                        # Verification scripts
 
 ---
 
+
+---
+
+## 2.5 Workflow Trigger Policy
+
+**Fat-P component CI workflows MUST NOT auto-trigger on push or pull_request.**  
+Component workflows are **manual-only** and must use `workflow_dispatch` as the sole trigger.
+
+Rationale:
+- Component workflows are designed to be run **selectively** (per-component) to control CI cost.
+- Project-wide verification workflows (layer/deps gates, C++17 core gate, etc.) provide continuous coverage where required.
+
+**Required trigger block (component workflows):**
+```yaml
+on:
+  workflow_dispatch: {}
+```
+
+Optional: component workflows may define `workflow_dispatch.inputs` (e.g. soak iterations) but must not add `push`, `pull_request`, or `schedule` triggers in component workflows.
+
+Project-wide workflows (e.g. `ci_core17.yml`, `ci_verify.yml`) may still auto-trigger per this guide’s existing rules.
+
+---
 ## 3. CI Goals
 
 | Goal | Implementation |
@@ -65,6 +88,71 @@ Notes:
 - C++17 compatibility is enforced **project-wide** by `ci_core17.yml` for the core layers (Foundation/Containers/Concurrency).
 - Component workflows should not run a full C++17 matrix unless the component lives in a C++17-guaranteed layer and the additional coverage is worth the CI cost.
 
+
+---
+
+## 4.5 Required Test Types in Component Workflows
+
+Component workflows must run tests **individually**, not via a monolithic "all tests" executable.
+
+Each component workflow MUST implement the following test categories when applicable:
+
+### A) Component Unit Test (Standalone Test App)
+
+**Purpose:** Execute the component’s runtime unit tests in isolation.  
+**File pattern:** `FAT_P/FAT_P/tests/test_<Component>.cpp`  
+**Build rule:** Compile the single TU as an executable with `-DENABLE_TEST_APPLICATION` (or MSVC equivalent) so it has a `main()`.
+
+Linux example:
+```bash
+g++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -pthread \
+  -I./FAT_P/FAT_P -I./FAT_P/FAT_P/fat_p -I./FAT_P/FAT_P/tests \
+  -DENABLE_TEST_APPLICATION \
+  FAT_P/FAT_P/tests/test_<Component>.cpp \
+  -o build/test_<Component>
+./build/test_<Component>
+```
+
+### B) Header Hygiene Tests
+
+These are **build gates** that validate header include robustness.
+
+#### B1) Header Self-Containment
+**File:** `tests/test_<Component>_HeaderSelfContained.cpp`  
+**Requirement:** The TU must include the target public header **first**, with no other Fat-P headers before it.  
+Optional: include the header twice to validate idempotency.
+
+#### B2) Header Include-Order
+**File:** `tests/test_<Component>_HeaderIncludeOrder.cpp`  
+**Requirement:** The TU must include a representative set of `<...>` standard headers and `FatPTest.h` (if relevant) **before** the component header, then run a minimal sanity check.
+
+**CI behavior:** build and run these as standalone executables (same as unit tests), but keep them conceptually as hygiene gates.
+
+### C) Compile-Fail Contract Suite
+
+Compile-fail tests are translation units that are **expected to fail compilation**, and serve to lock down template contracts and `static_assert` diagnostics.
+
+**Location:** `tests/compile_fail/`  
+**Pattern:** `compile_fail_<Component>_<Reason>.cpp`  
+**CI behavior:** For each TU, run a compile command and assert the compiler exits **non-zero**. If any TU compiles successfully, CI must fail.
+
+Linux example:
+```bash
+for f in FAT_P/FAT_P/tests/compile_fail/compile_fail_<Component>_*.cpp; do
+  if g++ -std=c++20 -Wall -Wextra -Wpedantic \
+    -I./FAT_P/FAT_P -I./FAT_P/FAT_P/fat_p -I./FAT_P/FAT_P/tests \
+    -c "$f" -o /tmp/compile_fail.o; then
+    echo "ERROR: expected failure but compiled: $f"
+    exit 1
+  fi
+done
+```
+
+**Notes:**
+- Compile-fail tests must not be part of runtime test executables.
+- Each TU should fail for **one primary reason** (one contract per file).
+
+---
 ### New Required Jobs (v2.0)
 
 | Job | Purpose | Required |

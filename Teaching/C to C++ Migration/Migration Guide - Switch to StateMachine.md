@@ -389,7 +389,7 @@ int main() {
 | **Transition list** | Explicit allowed transitions |
 | **StrictTransitionPolicy** | Runtime check against transition list |
 | **AnyToAnyPolicy** | Allow all transitions (for prototyping) |
-| **NoExceptActionPolicy** | Enforce noexcept on actions |
+| **NoExceptActionPolicy** | Enforce noexcept on actions and require nothrow state construction |
 | **Zero overhead** | Compiles to equivalent switch |
 
 ### Transition Policies
@@ -408,7 +408,8 @@ using FlexibleSM = StateMachine<Context, std::tuple<>, AnyToAnyTransitionPolicy,
 // Throwing: Actions can throw exceptions
 using ThrowingSM = StateMachine<..., ThrowingActionPolicy, ...>;
 
-// NoExcept: static_assert that all on_entry/on_exit are noexcept
+// NoExcept: static_assert that all on_entry/on_exit are noexcept and state types are nothrow
+// default-constructible (hooks are invoked on TState{} inside noexcept wrappers)
 using SafeSM = StateMachine<..., NoExceptActionPolicy, ...>;
 // Compile error if Idle::on_entry is not noexcept!
 ```
@@ -885,10 +886,11 @@ using ParseTransitions = std::tuple<
     std::pair<ParseAttr, ParseError>
 >;
 
-// NoExceptActionPolicy: compile error if any on_entry/on_exit can throw
+// NoExceptActionPolicy: compile error if any on_entry/on_exit can throw, or if state
+// default construction can throw (StateMachine invokes hooks on TState{} inside noexcept wrappers)
 using Parser = StateMachine<
     ParseContext, ParseTransitions, StrictTransitionPolicy,
-    NoExceptActionPolicy,  // <-- Enforces noexcept at compile time
+    NoExceptActionPolicy,  // <-- Enforces noexcept hooks + nothrow state construction
     0, ParseStart, ParseTag, ParseAttr, ParseError
 >;
 ```
@@ -1024,7 +1026,7 @@ using BadSM = StateMachine<Ctx, Trans, Policy, Policy, 0, A, B, A>;
 using BadSM = StateMachine<Ctx, Trans, Policy, Policy, 99, A, B, C>;
 // Compile error: "InitialIndex must be within 0 to NumStates-1"
 
-// 4. NoExceptActionPolicy enforces noexcept
+// 4. NoExceptActionPolicy enforces noexcept hooks and nothrow default construction
 struct BadState {
     void on_entry(Context& ctx) { throw std::runtime_error("oops"); }  // Not noexcept!
     void on_exit(Context& ctx) noexcept {}

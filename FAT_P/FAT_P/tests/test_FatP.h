@@ -187,6 +187,8 @@ bool test_SparseSet();
 bool test_StableHashMap();
 bool test_Stacktrace();
 bool test_StateMachine();
+bool test_StateMachine_HeaderIncludeOrder();
+bool test_StateMachine_HeaderSelfContained(); 
 bool test_Stringify();
 bool test_StringPool();
 bool test_StrongId();

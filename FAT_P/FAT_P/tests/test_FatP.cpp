@@ -142,6 +142,8 @@ int main()
     RUN_AND_RECORD(test_SparseSet);
     RUN_AND_RECORD(test_StableHashMap);
     RUN_AND_RECORD(test_Stacktrace);
+    RUN_AND_RECORD(test_StateMachine_HeaderIncludeOrder);
+    RUN_AND_RECORD(test_StateMachine_HeaderSelfContained);
     RUN_AND_RECORD(test_StateMachine);
     RUN_AND_RECORD(test_Stringify);
     RUN_AND_RECORD(test_StringPool);

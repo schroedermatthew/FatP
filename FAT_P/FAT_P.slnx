@@ -20,6 +20,7 @@
   <Project Path="benchmark_SmallVector/benchmark_SmallVector.vcxproj" Id="6f0e9afa-2538-4e80-b411-dcbb85782fb6" />
   <Project Path="benchmark_SparseSet/benchmark_SparseSet.vcxproj" Id="e62bd217-db73-44ba-823b-2325c59836dc" />
   <Project Path="benchmark_Stacktrace/benchmark_Stacktrace.vcxproj" Id="2fc01317-d5c3-4346-ad34-f0be17523b6a" />
+  <Project Path="benchmark_StateMachine/benchmark_StateMachine.vcxproj" Id="93922153-6fc0-4672-96ba-c68e25ce73fe" />
   <Project Path="benchmark_StrongId/benchmark_StrongId.vcxproj" Id="5923fccb-dad9-4c45-890f-8c839beca65a" />
   <Project Path="FAT_P/FAT_P.vcxproj" Id="07996acb-c24a-48aa-83d9-6676faee42de" />
   <Project Path="FAT_P_TEST/FAT_P_TEST.vcxproj" Id="bdba1326-3b91-49d8-afca-44e125ed66a5" />

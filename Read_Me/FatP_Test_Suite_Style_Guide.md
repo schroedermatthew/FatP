@@ -193,6 +193,118 @@ void test_assert_macros()
 } // namespace fat_p::testing::fatptest
 ```
 
+### Header Include Hygiene Tests
+
+**Example:** `test_StateMachine_HeaderSelfContained.cpp`
+
+Header include hygiene tests are **compile-only** translation units that enforce the systemic hygiene
+requirement that every public header is self-contained and include-order independent. A header must
+compile when included alone in an otherwise empty translation unit (no "transitive include" luck). 
+
+**File naming:**
+- For a public header `X.h`, create a test file named `test_X_HeaderSelfContained.cpp`.
+
+**Hard requirements:**
+- The **first include** in the file is the target header: `#include "X.h"`.
+- Do **not** include any other Fat-P headers (including `FatPTest.h`).
+- Optional but recommended: include the header **twice** to validate idempotence.
+- Provide a minimal `int main()`; this file exists to compile, not to run behavior tests.
+- No `using namespace` at global scope.
+- Do not add "convenience includes" (the whole point is to fail if `X.h` is missing includes).
+
+**What this catches:**
+- Missing standard includes inside `X.h` that only compile because another test happened to include them first.
+- Hidden include-order dependencies (header A must be included before header B).
+- Header guard / `#pragma once` failures (when the header is included twice).
+
+**Example pattern:**
+```cpp
+/**
+ * @file test_X_HeaderSelfContained.cpp
+ * @brief Compile-only header self-contained test for X.h.
+ */
+
+#include "X.h"
+#include "X.h"  // Optional: validate idempotence
+
+int main()
+{
+    return 0;
+}
+```
+
+**How to produce the test (per header):**
+1. Identify the public header under test: `fat_p/X.h`.
+2. Create `tests/test_X_HeaderSelfContained.cpp` using the above pattern.
+3. Add it as a build target that CI compiles (execution is optional; compilation is the gate).
+4. Treat failures as P0 hygiene regressions: fix the header (missing includes / collisions), not the include test.
+
+### Compile-Fail Contract Test Suite
+
+**Example:** `tests/compile_fail/compile_fail_StateMachine_BadInitialIndex.cpp`
+
+Compile-fail tests are **negative** translation units that are expected to **fail compilation**.
+They validate that compile-time contracts are actually enforced (via `static_assert`, concepts,
+`requires`, and deleted overloads), and that the diagnostic surface stays intentional.
+
+These tests are a core correctness tool for template-heavy components: if an invalid configuration
+accidentally starts compiling, that is usually a contract regression.
+
+**File location and naming:**
+- Place compile-fail translation units under `tests/compile_fail/`.
+- File name format: `compile_fail_<Component>_<Reason>.cpp`.
+- Keep each file focused: **one primary failure mode per TU**.
+
+**Hard requirements:**
+- The TU must fail because of the component's own contract checks (preferred: `static_assert` /
+  concept failure), not because of unrelated syntax errors, missing includes, or `#error`.
+- Include the header(s) under test directly (e.g., `#include "X.h"`). Do not rely on other test
+  files or transitive include luck.
+- Force instantiation of the invalid type or expression so the failure triggers deterministically
+  (e.g., a `using Bad = ...;` followed by `static_assert(sizeof(Bad) > 0);`).
+- No `using namespace` at global scope.
+- Std-only: do not add third-party frameworks.
+- Include a Doxygen file header (`@file`, `@brief`) describing the intended failure and the
+  contract being verified.
+
+**Example pattern:**
+```cpp
+/**
+ * @file compile_fail_Component_BadInitialIndex.cpp
+ * @brief Expected-fail: Bad configuration must trigger a clear static_assert.
+ */
+
+#include "Component.h"
+
+namespace
+{
+// Arrange an intentionally-invalid instantiation.
+using Bad = /* Component<BadParam...> */;
+
+// Force instantiation so the compile failure reliably triggers.
+static_assert(sizeof(Bad) > 0, "Force instantiation");
+} // namespace
+```
+
+**How to produce the test (per contract):**
+1. Identify a compile-time contract you claim to enforce (e.g., unique types, valid indices,
+   policy requirements, required hooks/members, valid type lists).
+2. Write a TU that violates exactly that contract.
+3. Ensure the failure originates from the component's contract check and has an intentional
+   diagnostic message.
+4. Wire it into CI as an **expected-fail compile** job:
+   - Compile with `-c` and assert non-zero exit status, or
+   - Use a CMake/CTest script that runs the compiler and expects failure.
+5. Treat regressions as P0: if a compile-fail starts compiling, either the contract enforcement
+   broke or the test no longer forces instantiation.
+
+**Recommended coverage (when applicable):**
+- Duplicate/invalid template parameters (e.g., repeated types).
+- Out-of-range indices or sizes.
+- Missing required member functions / hooks.
+- Policy mismatches (e.g., a `NoExcept` policy with non-`noexcept` hooks).
+- Invalid type-list contents (e.g., a transition list referencing an unknown type).
+
 ### Summary of Exemptions
 
 | File Type | Uses FATP_TEST_CASE | Uses FATP_RUN_TEST_NS | Uses FATP_ASSERT_* |
@@ -200,6 +312,8 @@ void test_assert_macros()
 | Standard test | ✅ Required | ✅ Required | ✅ Required |
 | Test orchestrator | ❌ N/A | ❌ N/A | ❌ N/A |
 | Framework self-test | ❌ Prohibited | ❌ Prohibited | ❌ Prohibited |
+| Header include hygiene test (`test_X_HeaderSelfContained.cpp`) | ❌ N/A | ❌ N/A | ❌ N/A |
+| Compile-fail contract test (`tests/compile_fail/*.cpp`) | ❌ N/A | ❌ N/A | ❌ N/A |
 
 ---
 
@@ -215,6 +329,8 @@ Test suites should cover these areas (as applicable to the component):
 | **Copy/move semantics** | Copy ctor/assign, move ctor/assign, self-assignment |
 | **Exception safety** | Throwing types, strong/basic guarantee |
 | **RAII correctness** | Resource cleanup, no leaks |
+| **Header hygiene** | Compile-only `test_X_HeaderSelfContained.cpp` for each public header (self-contained, include-order independent) |
+| **Compile-fail contract** | Expected-fail translation units proving invalid configurations are rejected at compile time |
 | **Stress/fuzz** | Random operations, reference oracle comparison |
 | **Performance** | Benchmarks vs std:: equivalent |
 
@@ -672,6 +788,8 @@ Compile standalone: `g++ -std=c++17 -O2 -DENABLE_TEST_APPLICATION test_Component
 ### Special-Purpose Files (Exemptions)
 - [ ] Test orchestrators: Uses aggregation pattern, NOT `FATP_TEST_CASE`/`FATP_RUN_TEST_NS`
 - [ ] Framework self-tests: Uses independent `VERIFY` macro, NOT `FATP_ASSERT_*`
+- [ ] Header include hygiene tests: Provide `test_X_HeaderSelfContained.cpp` per public header (compile-only, include `X.h` first, no other Fat-P includes)
+- [ ] Compile-fail contract tests: Provide `tests/compile_fail/compile_fail_<Component>_<Reason>.cpp` for key invalid configurations (expected-fail compile in CI)
 
 ### Coverage
 - [ ] Basic construction/destruction
@@ -682,6 +800,7 @@ Compile standalone: `g++ -std=c++17 -O2 -DENABLE_TEST_APPLICATION test_Component
 - [ ] Exception safety (if applicable)
 - [ ] RAII correctness (if applicable)
 - [ ] Fuzz/stress testing (for containers)
+- [ ] Compile-fail contract tests (when the component enforces compile-time constraints)
 
 ### Assertions
 - [ ] Every assertion has a descriptive message
