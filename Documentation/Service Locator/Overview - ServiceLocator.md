@@ -13,91 +13,88 @@ last_verified: "2026-01-26"
 audience: ["C++ developers", "library maintainers", "test authors"]
 status: "reviewed"
 ---
-
 # Overview - ServiceLocator
 
 *Fat-P Library — January 2026*
 
 ---
 
-## Executive summary
+**Scope:** This document explains what `fat_p::ServiceLocator` is, the problems it targets, and the core mental model (registration, resolution, scopes, and factories).
 
-`fat_p::ServiceLocator` is a policy-based service registry designed for **explicit wiring at startup** and **fast resolution at runtime**, with **scoped overrides** for tests and temporary behavior changes.
+**Not covered:**
+- Full API reference and edge cases (see **User Manual - ServiceLocator**)
+- Benchmark methodology and detailed performance tuning
+- Designing a `TypeKeyPolicy` for DSO/plugin boundaries (see **Foundations - ABI Stability and Module Boundaries**)
 
-It supports three registration styles:
-
-- **Instance registration** (`registerInstance<T>(T&)`): non-owning; the caller keeps lifetime ownership.
-- **Shared registration** (`registerShared<T>(std::shared_ptr<T>)`): shared ownership.
-- **Factory registration** (`registerFactory<T>(factory, lifetime)`): singleton or transient creation.
-
-For layering, a locator can create child scopes that fall back to a parent locator when a service is not found locally. This enables patterns like “production defaults in the root, test overrides in a scope”.
+**Prerequisites:**
+- C++17+ fundamentals (templates, lambdas, `std::shared_ptr`)
+- Basic ownership concepts (raw pointer vs `shared_ptr`)
+- Familiarity with a “composition root” (where the program wires dependencies) is helpful
 
 ---
 
-## Overview card
+## Overview Card
 
-| Aspect | Details |
-|--------|---------|
-| **Component** | `fat_p::ServiceLocator` (and aliases: `DefaultServiceLocator`, `ThreadSafeServiceLocator`, `HotLoopServiceLocator`, `ThreadSafeHotLoopServiceLocator`) |
-| **Problem solved** | Centralized registration + type-safe service lookup with scoped overrides |
-| **When to use** | App/framework “composition roots”, integration tests, systems that need temporary overrides (feature flags, simulated backends) |
-| **When not to use** | When you need compile-time dependency graphs, when services are frequently unregistered while pointers are in use, when type keys must be stable across DSOs/plugins without customization |
-| **Key capability** | Parent/child layering via `makeScope()` and `makeChild()` |
-| **Key trade-off** | Fast lookup and flexible overrides vs. weaker lifetime guarantees for raw-pointer resolves |
+**Component:** `fat_p::ServiceLocator` (aliases: `DefaultServiceLocator`, `ThreadSafeServiceLocator`, `HotLoopServiceLocator`, `ThreadSafeHotLoopServiceLocator`)  
+**Problem solved:** Centralized runtime wiring plus type-keyed lookup with scoped overrides  
+**When to use:** Composition roots, integration tests, systems that need temporary overrides (feature flags, simulated backends)  
+**When NOT to use:** When you require compile-time dependency graphs, when services are frequently unregistered while pointers are still in use, when type keys must be stable across DSOs/plugins without customization  
+**Key guarantee:** Resolution searches the current scope first, then the parent chain; singleton factories run once per registration (with cycle detection)  
+**std equivalent:** None  
+**Boost equivalent:** None  
+**Other alternatives:** Constructor injection (manual), Boost.DI (if a framework is acceptable), EnTT locator (global per type, if available)  
+**Read next:** **User Manual - ServiceLocator**, `tests/test_ServiceLocator.cpp`, **Foundations - ABI Stability and Module Boundaries**
 
 ---
 
 ## Mental model
 
-A `ServiceLocator` is a map from **(type, optional name)** to a service entry.
+A `ServiceLocator` is a registry keyed by **(type, optional name)**:
 
-- If `name` is empty, the service is stored in the “unnamed” registry (fast path).
-- If `name` is non-empty, the service is stored in the “named” registry keyed by `(typeId, name)`.
+- **Unnamed** services use an internal registry keyed by type only.
+- **Named** services use a registry keyed by `(type, name)`.
 
 Resolution checks:
 
-1. Current scope
-2. Parent scope (if any)
+1. Current locator
+2. Parent locator (if any)
 3. Failure
 
-A scope does not copy services. It only stores overrides and a pointer to its parent.
+A scope does not copy services. It stores overrides plus a pointer to its parent.
 
 ---
 
-## Threading and policies
+## Registration styles
 
-`ServiceLocator` does not hard-code synchronization. Concurrency is defined by its `ConcurrencyPolicy` template parameter.
+`ServiceLocator` supports three registration styles:
 
-Common aliases:
-
-- `fat_p::DefaultServiceLocator` (single-threaded policy; no internal synchronization)
-- `fat_p::ThreadSafeServiceLocator` (shared-mutex policy; supports concurrent resolves)
-- `fat_p::HotLoopServiceLocator` (single-threaded + tiny thread-local MRU cache for unnamed resolves)
-- `fat_p::ThreadSafeHotLoopServiceLocator` (shared-mutex + the same MRU cache)
-
-Statistics are also policy-based. When using a concurrency policy that allows concurrent resolves, the statistics policy must use atomic increments (enforced by a `static_assert`).
+- **Instance registration**: `registerInstance<T>(T&, name)` stores a non-owning pointer. The caller owns lifetime.
+- **Shared registration**: `registerShared<T>(std::shared_ptr<T>, name)` stores shared ownership.
+- **Factory registration**: `registerFactory<T>(factory, lifetime, name)` stores a factory plus a lifetime (`Singleton` or `Transient`).
 
 ---
 
-## Error model
+## Resolution styles
 
-The API offers three “levels” of error handling:
+The API exposes three “levels” of failure handling:
 
 - `tryResolve<T>(name)` → `T*` (returns `nullptr` if missing)
 - `resolveExpected<T>(name)` → `Expected<std::reference_wrapper<T>, ServiceErrorInfo>`
-- `resolve<T>(name)` → `T&` (enforces on failure; intended for “required” services)
+- `resolve<T>(name)` → `T&` (enforces on failure; intended for required services)
 
-For factory-registered services:
+Factory-registered services are created via:
 
-- `createExpected<T>(name)` creates a `std::shared_ptr<T>` (singleton or transient based on the registration)
+- `createExpected<T>(name)` → `Expected<std::shared_ptr<T>, ServiceErrorInfo>`
 
-For lifetime-carrying resolves:
+Lifetime-carrying resolves are available via:
 
-- `resolveSharedExpected<T>(name)` returns a `std::shared_ptr<T>` when the registration is shared ownership or a singleton factory that has produced a shared instance.
+- `resolveSharedExpected<T>(name)` → `Expected<std::shared_ptr<T>, ServiceErrorInfo>`
 
 ---
 
-## What scoped overrides look like
+## Scoped overrides
+
+`makeScope()` creates a child locator that falls back to the parent.
 
 ```cpp
 #include "fat_p/ServiceLocator.h"
@@ -129,14 +126,34 @@ void example()
 
 ---
 
+## Policies and concurrency
+
+`ServiceLocator` does not hard-code synchronization. Concurrency is defined by its `ConcurrencyPolicy` template parameter.
+
+Common aliases:
+
+- `fat_p::DefaultServiceLocator` (no internal synchronization)
+- `fat_p::ThreadSafeServiceLocator` (shared-mutex protected registry)
+- `fat_p::HotLoopServiceLocator` (optional thread-local MRU cache for unnamed resolves)
+- `fat_p::ThreadSafeHotLoopServiceLocator` (shared-mutex protected registry + the MRU cache)
+
+Notes:
+
+- The MRU cache is **type-only** and applies only when `name` is empty.
+- Cache hits do not acquire the shared mutex. Treat registration/unregistration/clear as a startup/shutdown operation or quiesce threads first.
+
+Statistics are policy-based as well. When using a concurrency policy that allows concurrent resolves, the statistics policy must provide atomic increments (enforced by `static_assert`).
+
+---
+
 ## Known limitations and design choices
 
-- **Type keys**: the default type key is based on address identity of an internal token. This is fast and stable within a single binary, but not stable across DSO/plugin boundaries.
-- **Raw-pointer resolves**: `tryResolve` and `resolveExpected` yield pointers/references. Callers must not continue using those pointers/references after the service is unregistered or overwritten.
-- **Factories**: transient services must be created with `createExpected<T>()` (resolving them as references is rejected with `ServiceError::TransientRequiresCreate`).
+- **Type keys:** the default type key uses address-identity of an internal token. This is stable within a single binary, but not stable across DSO/plugin boundaries.
+- **Pointer/reference resolves:** `tryResolve` and `resolveExpected` yield pointers/references. Callers must not keep those across unregister/overwrite operations.
+- **Transients:** transient factories must be created with `createExpected<T>()`; resolving them as references is rejected with `ServiceError::TransientRequiresCreate`.
 
 ---
 
 ## Read next
 
-- **User Manual - ServiceLocator** (detailed API reference and patterns)
+- **User Manual - ServiceLocator** (API surface, patterns, and gotchas)

@@ -61,6 +61,9 @@ FATP_META:
  *
  *   Notes:
  *     - The MRU resolve cache is type-only and applies only when resolving with an empty name.
+ *     - For cache-enabled thread-safe locators (ThreadSafeHotLoopServiceLocator), cache hits do not
+ *       take the shared mutex. Do not call register/unregister/clear concurrently with resolve/tryResolve
+ *       on other threads. Treat registration as a startup/shutdown operation or quiesce threads first.
  *     - Pointer/reference results become invalid after unregister/overwrite; use resolveSharedExpected()
  *       when you need lifetime via shared_ptr.
  *     - global() is per-instantiation: use ThreadSafeServiceLocator::global() if you need a globally

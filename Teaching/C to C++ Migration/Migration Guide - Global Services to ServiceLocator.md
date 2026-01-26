@@ -13,24 +13,41 @@ migration_complexity: "Medium"
 breaking_changes: true
 last_verified: "2026-01-26"
 ---
-
 # Migration Guide - Global Services to ServiceLocator
-
-### *From Hidden Dependencies to Explicit Wiring and Scoped Overrides*
 
 *Fat-P Library — January 2026*
 
 ---
 
-## Migration card
+**Scope:** This guide shows how to replace global service access (globals, singleton getters, function-pointer tables) with `fat_p::ServiceLocator`, including scoped overrides for tests.
 
-| Aspect | Detail |
-|--------|--------|
-| **From** | Global structs, singleton accessors, function tables, implicit globals in C modules |
-| **To** | `fat_p::ServiceLocator` (typically `fat_p::DefaultServiceLocator` or `fat_p::ThreadSafeServiceLocator`) |
-| **Problems solved** | Hidden dependencies, test isolation, configurable wiring at startup, controlled overrides |
-| **Migration complexity** | Medium — you must identify dependencies and choose where to construct/register them |
-| **Breaking changes** | Yes — call sites change from global access to locator-based access |
+**Not covered:**
+- Designing stable type keys for plugin/DSO boundaries (custom `TypeKeyPolicy`)
+- A full comparison of DI frameworks (beyond a brief alternatives section)
+- Refactoring internal class design (interfaces vs concrete types) beyond the minimal steps shown here
+
+**Prerequisites:**
+- C++17+ (interfaces via virtual functions, `std::shared_ptr`, lambdas)
+- Ability to identify “composition root” code (startup wiring)
+- Basic unit testing familiarity (for scoped overrides)
+
+---
+
+## Migration Guide Card
+
+**From:** Global structs, singleton accessors, function-pointer tables, implicit globals in C modules  
+**To:** `fat_p::ServiceLocator` (typically `fat_p::DefaultServiceLocator` or `fat_p::ThreadSafeServiceLocator`)  
+**Why migrate:** Make dependencies explicit, enable scoped overrides in tests, and control wiring at startup  
+**Compatibility strategy:** Introduce a locator at the composition root; optionally keep a transitional `::global()` accessor while call sites are migrated  
+**Mechanical steps:** 1) Identify global dependencies 2) Register services at startup 3) Pass `ServiceLocator&` to consumers 4) Replace global reads with `resolve/resolveExpected/tryResolve` 5) Use scopes for overrides  
+**Behavioral equivalence:** Service behavior stays the same; only the access mechanism changes  
+**Intentional differences:** Missing services can be treated as configuration errors (enforced) or as recoverable failures (`Expected`)  
+**Failure model:** Globals: undefined behavior / null checks / ad-hoc error codes → `ServiceErrorInfo` via `Expected` or enforcement for required services  
+**Threading model:** Choose `DefaultServiceLocator` (no internal synchronization) or `ThreadSafeServiceLocator` (shared-mutex protected registry) based on call patterns  
+**Lifetime model:** Instance registrations are non-owning; shared registrations/factories return `shared_ptr`-managed lifetimes  
+**Alternatives:** Constructor injection (manual), Boost.DI (framework), EnTT locator (global per type)  
+**Verification:** Add/extend unit tests; use scopes to override dependencies; run the ServiceLocator test suite  
+**Rollback plan:** Keep the old global accessor wrapper (or a `global()` locator) behind a feature flag until all call sites are migrated and validated
 
 ---
 
@@ -46,12 +63,12 @@ extern struct Logger g_logger;
 extern struct Database g_db;
 ```
 
-In C++, the goal is to create services at a **composition root** (startup) and pass a locator reference where needed:
+In C++, the target is to create services at a **composition root** (startup) and pass a locator reference where needed:
 
 ```cpp
 #include "fat_p/ServiceLocator.h"
 
-using Services = fat_p::DefaultServiceLocator; // or ThreadSafeServiceLocator
+using Services = fat_p::DefaultServiceLocator; // or fat_p::ThreadSafeServiceLocator
 
 void setup_services(Services& services);
 void process_order(Services& services /*, ... */);
@@ -124,7 +141,7 @@ Update call sites to pull dependencies from the locator:
 ```cpp
 void process_order(Services& services /*, const Order& order */)
 {
-    // If missing services should be treated as a programming/configuration error:
+    // Missing services treated as a configuration error:
     ILogger& logger = services.resolve<ILogger>();
     IDatabase& db   = services.resolve<IDatabase>();
 
@@ -143,9 +160,9 @@ if (!logger.has_value()) {
 }
 ```
 
-### 4) Migrate “test overrides” using scopes
+### 4) Migrate test overrides using scopes
 
-Scopes are the core test seam. A scope holds a child locator that falls back to its parent.
+A scope is a child locator that falls back to its parent.
 
 ```cpp
 #include "fat_p/ServiceLocator.h"
@@ -198,7 +215,7 @@ void test_with_raii_registration()
 
 ## Choosing between ServiceLocator and constructor injection
 
-ServiceLocator is useful when threading many individual dependencies through deep call stacks becomes unwieldy.
+`ServiceLocator` is useful when threading many individual dependencies through deep call stacks becomes unwieldy.
 If you have a small number of dependencies or want constructor signatures to show them explicitly, plain constructor injection can be a better fit.
 
 A pragmatic approach is:

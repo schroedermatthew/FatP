@@ -114,11 +114,6 @@ FATP_META:
 // Competitor Auto-Detection
 // ============================================================================
 
-// EnTT service locator (if available)
-// Install: vcpkg install entt
-#if __has_include(<entt/locator/locator.hpp>)
-#include <entt/locator/locator.hpp>
-
 // ============================================================================
 // fat_p locator variants (statistics overhead)
 // ============================================================================
@@ -142,7 +137,10 @@ using FatPThreadSafeAtomicStats = fat_p::ServiceLocator<fat_p::SharedMutexPolicy
                                                         fat_p::ServicePreventOverwritePolicy,
                                                         fat_p::AtomicServiceLocatorStatisticsPolicy>;
 
-
+// EnTT service locator (if available)
+// Install: vcpkg install entt
+#if __has_include(<entt/locator/locator.hpp>)
+#include <entt/locator/locator.hpp>
 #define FATP_HAS_ENTT 1
 #else
 #define FATP_HAS_ENTT 0

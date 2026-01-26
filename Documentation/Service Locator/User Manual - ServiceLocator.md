@@ -11,10 +11,36 @@ last_verified: "2026-01-26"
 audience: ["C++ developers", "test authors"]
 status: "reviewed"
 ---
-
 # User Manual - ServiceLocator
 
 *Fat-P Library — January 2026*
+
+---
+
+**Scope:** This manual describes the public API of `fat_p::ServiceLocator`: registration, resolution, scopes, factories, RAII registration helpers, and statistics.
+
+**Not covered:**
+- Designing a `TypeKeyPolicy` for DSO/plugin boundaries
+- Benchmark methodology and platform-specific performance tuning
+- Writing custom `ConcurrencyPolicy` / `StatisticsPolicy` implementations
+
+**Prerequisites:**
+- C++17+ (templates, lambdas, `std::shared_ptr`)
+- Familiarity with raw pointers vs `std::shared_ptr`
+- Basic understanding of a composition root (startup wiring)
+
+---
+
+## User Manual Card
+
+**Component:** `fat_p::ServiceLocator`  
+**Primary use case:** Wire services at startup and resolve them by type (and optional name), with scoped overrides for tests  
+**Integration pattern:** Construct a locator in the composition root, register instances/factories, pass `ServiceLocator&` where needed, and create scopes for temporary overrides  
+**Key API:** `registerInstance`, `registerShared`, `registerFactory`, `tryResolve`, `resolveExpected`, `resolve`, `createExpected`, `makeScope`, `Registration`  
+**std equivalent:** None  
+**Migration from std:** N/A (pattern is not provided by the standard library)  
+**Common mistakes:** Resolving a transient as `T&` instead of using `createExpected`, holding references across unregister/overwrite, assuming `global()` is one process-wide singleton for all aliases, mutating registrations concurrently with cache-enabled resolves  
+**Performance notes:** Lookup is hash-based (average O(1)); unnamed services avoid name hashing; the optional MRU cache only applies to unnamed resolves; statistics overhead depends on the selected statistics policy
 
 ---
 
@@ -214,7 +240,7 @@ NullLogger logger;
 Notes:
 
 - The handle stores the service key (type + name) and calls `unregister()` in its destructor.
-- It is safe to call `reset()` manually.
+- Calling `reset()` unregisters the entry (if still registered) and makes the handle empty.
 
 ---
 

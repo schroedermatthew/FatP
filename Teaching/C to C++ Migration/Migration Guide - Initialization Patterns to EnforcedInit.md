@@ -10,25 +10,42 @@ migration_complexity: "Low"
 breaking_changes: false
 last_verified: "2026-01-26"
 ---
-
 # Migration Guide - Initialization Patterns to EnforcedInit
 
 ### *From Runtime Crashes to Compile-Time Initialization Guarantees*
 
-*FAT-P Library — January 2025*
+*FAT-P Library — January 2026*
 
 ---
 
-## Migration Card
+**Scope:** This guide shows how to replace ad-hoc initialization tracking (flags, magic numbers, two-phase init) with `fat_p::EnforcedInit<T>` so that “use before init” is rejected by the wrapper’s API.
 
-| Aspect | Detail |
-|--------|--------|
-| **C Pattern** | isInit flags, magic numbers, two-phase init, defensive memset |
-| **Problems Solved** | Uninitialized reads, partial initialization, forgotten init calls |
-| **Fat-P Component** | `EnforcedInit<T>` |
-| **Migration Complexity** | Low — wrap type declaration, remove manual checks |
-| **Runtime Overhead** | Debug: ~1ns (assertion check); Release: zero |
-| **Breaking Changes** | No — drop-in replacement for T in most contexts |
+**Not covered:**
+- Redesigning the overall architecture (beyond initialization correctness)
+- Concurrency control for the underlying type (unchanged by `EnforcedInit<T>`)
+- Performance benchmarking methodology
+
+**Prerequisites:**
+- C++17 fundamentals (templates, RAII, assertions)
+- Familiarity with the existing initialization pattern in your codebase (where the flags/magic numbers live)
+
+---
+
+## Migration Guide Card
+
+**From:** `isInit` flags, magic numbers, two-phase initialization, defensive `memset`  
+**To:** `fat_p::EnforcedInit<T>`  
+**Why migrate:** Prevent uninitialized reads and partially initialized object use by making initialization an explicit step in the type wrapper  
+**Compatibility strategy:** Wrap types first, then remove redundant flags/checks once call sites compile and tests pass  
+**Mechanical steps:** 1) Wrap the type 2) Replace raw member access with `get()/value()` accessors 3) Delete `isInit`/magic-number checks 4) Add tests for initialization paths  
+**Behavioral equivalence:** Post-initialization behavior of `T` remains the same  
+**Intentional differences:** “Use before init” becomes a detected failure (debug assertions / enforcement) instead of undefined behavior  
+**Failure model:** Ad-hoc checks / UB → wrapper-enforced access discipline (plus explicit asserts)  
+**Threading model:** Unchanged (wrapper does not add synchronization)  
+**Lifetime model:** Unchanged (wrapper stores/contains a `T`)  
+**Alternatives:** `std::optional<T>` (when “not initialized” is a valid state), constructor refactors to ensure initialization at construction  
+**Verification:** Unit tests for init paths; sanitizer runs to confirm uninitialized reads are eliminated  
+**Rollback plan:** Remove `EnforcedInit<T>` wrappers and restore the old flags/checks behind a feature flag if needed
 
 ---
 
@@ -152,7 +169,7 @@ void use_connection(struct Connection* conn) {
 **Problems:** 
 - Flag can be wrong (set without actual init)
 - Runtime check instead of compile-time guarantee
-- Easy to forget the check
+- Check is frequently omitted
 
 ### Pattern 2: Magic Numbers
 
@@ -455,7 +472,7 @@ if (compute(x, value) == 0) {
 
 ### Example 1: State Machine
 
-**Before (easy to forget initialization):**
+**Before (initialization can be omitted):**
 ```cpp
 class Parser {
     int state;
@@ -487,7 +504,7 @@ public:
     // If we forget one, accessing it will assert
     
     void parse(const char* input) {
-        token_count = token_count.value() + 1;  // Safe
+        token_count = token_count.value() + 1;  // Valid after value() check
     }
 };
 ```
@@ -742,7 +759,7 @@ TEST_CASE(implicit_conversion) {
 
 ### 1. Trivial Stack Variables
 
-For simple function-local variables with obvious initialization:
+For function-local variables with obvious initialization:
 
 ```cpp
 // Overkill:
@@ -761,7 +778,7 @@ In hot loops, even Debug overhead may matter:
 ```cpp
 // Don't use EnforcedInit in inner loops
 for (size_t i = 0; i < 1000000; i++) {
-    int temp = data[i] * 2;  // Simple local, don't wrap
+    int temp = data[i] * 2;  // Local with obvious initialization; don't wrap
 }
 ```
 
