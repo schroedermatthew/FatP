@@ -6,13 +6,13 @@
 
 | Violation | ChatGPT | Claude | Gemini | GROK |
 |-----------|---------|--------|--------|------|
-| Did not read Guidelines carefully | | 4 | | |
+| Did not read Guidelines carefully | | 5 | | |
 | Did not follow code naming conventions | 1 | 1 |  |  |
 | Delivered code without compiling | 1 | 1 |  |  |
 | Lied about compiling and testing | 1 | | | |
-| Provided links to documents that were not changed | 2 |  |  |  |
+| Provided links to documents that were not changed | 2 | 1 |  |  |
 | Did not implement required changes | 9 |  |  |  |
 
 ---
 
-*Last updated: 2026-01-24*
+*Last updated: 2026-01-25*

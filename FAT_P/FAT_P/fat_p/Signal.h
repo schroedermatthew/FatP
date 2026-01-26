@@ -419,7 +419,7 @@ public:
     {
         if (this != &other)
         {
-            typename SyncPolicy::LockGuard lock(this->getLock());
+            auto lock = this->lock();
             mSlots = std::move(other.mSlots);
             mNextId.store(other.mNextId.load(std::memory_order_relaxed), std::memory_order_relaxed);
             mRecursionDepth.store(0, std::memory_order_relaxed);
@@ -464,7 +464,7 @@ public:
      */
     ConnectionId connectManual(Callback callback, int priority = 0)
     {
-        typename SyncPolicy::LockGuard lock(this->getLock());
+        auto lock = this->lock();
 
         ConnectionId id(mNextId.fetch_add(1, std::memory_order_relaxed));
 
@@ -525,7 +525,7 @@ public:
         {
             // We might be inside emit() on this or another thread
             // Use read lock for soft delete to avoid deadlock
-            typename SyncPolicy::SharedGuard lock(this->getLock());
+            auto lock = this->lock_shared();
 
             for (auto& slot : mSlots)
             {
@@ -540,7 +540,7 @@ public:
         }
 
         // Not emitting: acquire write lock for immediate removal
-        typename SyncPolicy::LockGuard lock(this->getLock());
+        auto lock = this->lock();
 
         // Re-check recursion depth under write lock
         if (mRecursionDepth.load(std::memory_order_acquire) > 0)
@@ -578,7 +578,7 @@ public:
         if (mRecursionDepth.load(std::memory_order_acquire) > 0)
         {
             // During emission: soft delete with read lock
-            typename SyncPolicy::SharedGuard lock(this->getLock());
+            auto lock = this->lock_shared();
             for (auto& slot : mSlots)
             {
                 slot.active = false;
@@ -587,7 +587,7 @@ public:
             return;
         }
 
-        typename SyncPolicy::LockGuard lock(this->getLock());
+        auto lock = this->lock();
 
         // Re-check under write lock
         if (mRecursionDepth.load(std::memory_order_acquire) > 0)
@@ -621,7 +621,7 @@ public:
         bool shouldCleanup = false;
 
         {
-            typename SyncPolicy::SharedGuard lock(this->getLock());
+            auto lock = this->lock_shared();
 
             // Enter emission context
             mRecursionDepth.fetch_add(1, std::memory_order_acquire);
@@ -677,7 +677,7 @@ public:
      */
     [[nodiscard]] size_t slotCount() const
     {
-        typename SyncPolicy::SharedGuard lock(const_cast<Signal*>(this)->getLock());
+        auto lock = this->lock_shared();
         return mSlots.size();
     }
 
@@ -686,7 +686,7 @@ public:
      */
     [[nodiscard]] size_t activeSlotCount() const
     {
-        typename SyncPolicy::SharedGuard lock(const_cast<Signal*>(this)->getLock());
+        auto lock = this->lock_shared();
         return std::count_if(mSlots.begin(), mSlots.end(), [](const Slot& s) {
             return s.active;
         });
@@ -713,7 +713,7 @@ public:
      */
     [[nodiscard]] bool isConnected(ConnectionId id) const
     {
-        typename SyncPolicy::SharedGuard lock(const_cast<Signal*>(this)->getLock());
+        auto lock = this->lock_shared();
 
         for (const auto& slot : mSlots)
         {
@@ -747,7 +747,7 @@ public:
         bool shouldCleanup = false;
 
         {
-            typename SyncPolicy::SharedGuard lock(this->getLock());
+            auto lock = this->lock_shared();
 
             results.reserve(mSlots.size());
 
@@ -804,7 +804,7 @@ public:
         bool shouldCleanup = false;
 
         {
-            typename SyncPolicy::SharedGuard lock(this->getLock());
+            auto lock = this->lock_shared();
 
             mRecursionDepth.fetch_add(1, std::memory_order_acquire);
 
@@ -861,7 +861,7 @@ private:
      */
     void performDeferredCleanup()
     {
-        typename SyncPolicy::LockGuard lock(this->getLock());
+        auto lock = this->lock();
 
         // Only cleanup if no longer emitting
         if (mRecursionDepth.load(std::memory_order_acquire) == 0)

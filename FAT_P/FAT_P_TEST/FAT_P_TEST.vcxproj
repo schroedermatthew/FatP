@@ -194,6 +194,7 @@
     <ClCompile Include="..\FAT_P\tests\test_FloatingPointComparison.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_HpcVector.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_IdGenerator.cpp" />
+    <ClCompile Include="..\FAT_P\tests\test_ServiceLocator_HeaderSelfContained.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_StateMachine_HeaderIncludeOrder.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_StateMachine_HeaderSelfContained.cpp" />
     <ClCompile Include="..\FAT_P\tests\test_IntrusiveList.cpp" />

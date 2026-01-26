@@ -1,8 +1,36 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: ServiceLocator
+  file_role: public_header
+  path: fat_p/ServiceLocator.h
+  namespace: fat_p
+  layer: Domain
+  summary: "Policy-based service locator with scoped overrides."
+  api_stability: in_work
+  related:
+    docs:
+      - Documentation/ServiceLocator/Overview - ServiceLocator.md
+      - Documentation/ServiceLocator/User Manual - ServiceLocator.md
+    tests:
+      - tests/test_ServiceLocator.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file ServiceLocator.h
  * @brief Policy-based service locator with scoped overrides.
- *
- * @layer Domain
  *
  * A ServiceLocator provides type-safe registration and resolution of services.
  * It supports:
@@ -11,14 +39,37 @@
  *   - factory registration (singleton or transient)
  *   - parent/child layering (scoped overrides)
  *
+ * Implementation:
+ *   Uses StableHashMap for reference stability (pointers remain valid across
+ *   insert/rehash). Two-level storage provides fast path for unnamed services.
+ *
  * Complexity:
- *   - register/unregister: Average O(1) + potential allocation (unordered_map growth)
- *   - tryResolve/resolve: Average O(1)
+ *   - register/unregister: Average O(1)
+ *   - tryResolve/resolve: Average O(1), ~4.5 ns for unnamed services
  *   - createExpected (factory): Average O(1) + factory cost
  *
  * Thread Safety:
  *   - Defined by ConcurrencyPolicy
  *   - With SharedMutexPolicy: concurrent resolves are permitted; registration is exclusive
+ *
+ * Thread Safety Matrix (common aliases):
+ *   - DefaultServiceLocator: No internal synchronization; callers must externally synchronize access.
+ *   - ThreadSafeServiceLocator: concurrent resolves are supported; register/unregister/clear are exclusive.
+ *   - HotLoopServiceLocator: DefaultServiceLocator + an optional thread-local MRU(2) cache for unnamed
+ *     resolves.
+ *   - ThreadSafeHotLoopServiceLocator: ThreadSafeServiceLocator + the MRU(2) cache for unnamed resolves.
+ *
+ *   Notes:
+ *     - The MRU resolve cache is type-only and applies only when resolving with an empty name.
+ *     - Pointer/reference results become invalid after unregister/overwrite; use resolveSharedExpected()
+ *       when you need lifetime via shared_ptr.
+ *     - global() is per-instantiation: use ThreadSafeServiceLocator::global() if you need a globally
+ *       accessible locator that supports concurrent resolves.
+ *
+ *   @note When using SharedMutexPolicy (thread-safe locator), the StatisticsPolicy
+ *         MUST provide thread-safe increment operations. Use AtomicServiceLocatorStatisticsPolicy
+ *         or implement a custom policy with atomic counters. NoServiceLocatorStatisticsPolicy
+ *         is always safe (no-op).
  *
  * Singleton Factory Semantics:
  *   Factory execution is guaranteed exactly once per registration, even under
@@ -29,6 +80,17 @@
  *   If a factory attempts to resolve its own service (circular dependency), the
  *   locator detects this and returns ServiceError::CircularDependency instead
  *   of deadlocking.
+ *
+ *   Cross-Thread Semantics: To prevent cross-thread deadlocks during singleton
+ *   construction, the locator serializes singleton factory execution (per
+ *   locator family). At most one singleton factory executes at a time.
+ *   Cycles are still detected only within a single call chain and are
+ *   reported as ServiceError::CircularDependency.
+ *
+ *   Design Note: This serialization is implemented via a re-entrant "singleton
+ *   factory gate" shared across parent/child scopes. A thread only marks a
+ *   singleton as "creating" after it owns the gate, preventing cross-thread
+ *   cyclic wait patterns that would otherwise deadlock.
  *
  *   Failure: If the factory throws or returns null, the error propagates to the
  *   caller. The singleton remains uninitialized, and subsequent resolve attempts
@@ -48,50 +110,24 @@
  *     across unregister/overwrite operations
  */
 
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: ServiceLocator
-  file_role: public_header
-  path: fat_p/ServiceLocator.h
-  namespace: fat_p
-  layer: Domain
-  summary: "Public header for ServiceLocator."
-  api_stability: in_work
-  related:
-    docs_search: "ServiceLocator"
-    tests:
-      - tests/test_ServiceLocator.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include "ConcurrencyPolicies.h"
 #include "enforce.h"
 #include "Expected.h"
+#include "StableHashMap.h"
 
 #include <atomic>
 #include <condition_variable>
 #include <cstddef>
+#include <cstdint>
+#include <exception>
 #include <functional>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
 #include <thread>
 #include <type_traits>
-#include <unordered_map>
 #include <utility>
 
 namespace fat_p
@@ -112,7 +148,8 @@ enum class ServiceError
     FactoryReturnedNull,
     FactoryThrew,
     FactoryNotRegistered,
-    CircularDependency ///< Factory tried to resolve itself (directly or indirectly)
+    CircularDependency,
+    TransientRequiresCreate
 };
 
 inline std::string toString(ServiceError error)
@@ -135,6 +172,8 @@ inline std::string toString(ServiceError error)
             return "Factory not registered";
         case ServiceError::CircularDependency:
             return "Circular dependency detected";
+        case ServiceError::TransientRequiresCreate:
+            return "Transient requires create";
         default:
             return "Unknown error";
     }
@@ -170,8 +209,15 @@ struct ServiceErrorInfo
     }
 };
 
+inline std::ostream& operator<<(std::ostream& os, const ServiceErrorInfo& info)
+{
+    return os << info.fullMessage();
+}
+
 struct NoServiceLocatorStatisticsPolicy
 {
+    static constexpr bool kThreadSafe = true;
+
     struct Stats
     {
         struct Snapshot
@@ -185,39 +231,23 @@ struct NoServiceLocatorStatisticsPolicy
             size_t mUnregistrations = 0;
         };
 
-        void incrementRegistrations() noexcept
-        {
-        }
-        void incrementRegistrationFailures() noexcept
-        {
-        }
-        void incrementResolutions() noexcept
-        {
-        }
-        void incrementResolutionFailures() noexcept
-        {
-        }
-        void incrementCreations() noexcept
-        {
-        }
-        void incrementCreationFailures() noexcept
-        {
-        }
-        void incrementUnregistrations() noexcept
-        {
-        }
-        void reset() noexcept
-        {
-        }
-        [[nodiscard]] Snapshot snapshot() const noexcept
-        {
-            return {};
-        }
+        void incrementRegistrations() noexcept {}
+        void incrementRegistrationFailures() noexcept {}
+        void incrementResolutions() noexcept {}
+        void incrementResolutionFailures() noexcept {}
+        void incrementCreations() noexcept {}
+        void incrementCreationFailures() noexcept {}
+        void incrementUnregistrations() noexcept {}
+        void incrementUnregistrations(size_t) noexcept {}
+        void reset() noexcept {}
+        [[nodiscard]] Snapshot snapshot() const noexcept { return {}; }
     };
 };
 
 struct AtomicServiceLocatorStatisticsPolicy
 {
+    static constexpr bool kThreadSafe = true;
+
     struct Stats
     {
         std::atomic<size_t> mRegistrations{0};
@@ -258,42 +288,27 @@ struct AtomicServiceLocatorStatisticsPolicy
 
         [[nodiscard]] Snapshot snapshot() const noexcept
         {
-            return Snapshot{mRegistrations.load(std::memory_order_relaxed),
-                            mRegistrationFailures.load(std::memory_order_relaxed),
-                            mResolutions.load(std::memory_order_relaxed),
-                            mResolutionFailures.load(std::memory_order_relaxed),
-                            mCreations.load(std::memory_order_relaxed),
-                            mCreationFailures.load(std::memory_order_relaxed),
-                            mUnregistrations.load(std::memory_order_relaxed)};
+            return Snapshot{
+                mRegistrations.load(std::memory_order_relaxed),
+                mRegistrationFailures.load(std::memory_order_relaxed),
+                mResolutions.load(std::memory_order_relaxed),
+                mResolutionFailures.load(std::memory_order_relaxed),
+                mCreations.load(std::memory_order_relaxed),
+                mCreationFailures.load(std::memory_order_relaxed),
+                mUnregistrations.load(std::memory_order_relaxed)
+            };
         }
 
-        void incrementRegistrations() noexcept
+        void incrementRegistrations() noexcept { mRegistrations.fetch_add(1, std::memory_order_relaxed); }
+        void incrementRegistrationFailures() noexcept { mRegistrationFailures.fetch_add(1, std::memory_order_relaxed); }
+        void incrementResolutions() noexcept { mResolutions.fetch_add(1, std::memory_order_relaxed); }
+        void incrementResolutionFailures() noexcept { mResolutionFailures.fetch_add(1, std::memory_order_relaxed); }
+        void incrementCreations() noexcept { mCreations.fetch_add(1, std::memory_order_relaxed); }
+        void incrementCreationFailures() noexcept { mCreationFailures.fetch_add(1, std::memory_order_relaxed); }
+        void incrementUnregistrations() noexcept { mUnregistrations.fetch_add(1, std::memory_order_relaxed); }
+        void incrementUnregistrations(size_t count) noexcept
         {
-            mRegistrations.fetch_add(1, std::memory_order_relaxed);
-        }
-        void incrementRegistrationFailures() noexcept
-        {
-            mRegistrationFailures.fetch_add(1, std::memory_order_relaxed);
-        }
-        void incrementResolutions() noexcept
-        {
-            mResolutions.fetch_add(1, std::memory_order_relaxed);
-        }
-        void incrementResolutionFailures() noexcept
-        {
-            mResolutionFailures.fetch_add(1, std::memory_order_relaxed);
-        }
-        void incrementCreations() noexcept
-        {
-            mCreations.fetch_add(1, std::memory_order_relaxed);
-        }
-        void incrementCreationFailures() noexcept
-        {
-            mCreationFailures.fetch_add(1, std::memory_order_relaxed);
-        }
-        void incrementUnregistrations() noexcept
-        {
-            mUnregistrations.fetch_add(1, std::memory_order_relaxed);
+            mUnregistrations.fetch_add(count, std::memory_order_relaxed);
         }
     };
 };
@@ -303,7 +318,7 @@ struct ServicePreventOverwritePolicy
     template <typename Registry, typename Key, typename Value, typename Stats>
     static bool insert(Registry& registry, const Key& key, Value&& value, Stats& stats)
     {
-        auto [it, inserted] = registry.try_emplace(key, std::forward<Value>(value));
+        auto [ptr, inserted] = registry.insert(key, std::forward<Value>(value));
         if (inserted)
         {
             stats.incrementRegistrations();
@@ -319,11 +334,161 @@ struct ServiceAllowOverwritePolicy
     template <typename Registry, typename Key, typename Value, typename Stats>
     static bool insert(Registry& registry, const Key& key, Value&& value, Stats& stats)
     {
-        (void)registry.insert_or_assign(key, std::forward<Value>(value));
+        registry.insert_or_assign(key, std::forward<Value>(value));
         stats.incrementRegistrations();
         return true;
     }
 };
+
+// ============================================================================
+// Resolve Cache Policies
+// ============================================================================
+
+// Default: no caching.
+struct NoServiceLocatorResolveCachePolicy
+{
+    static constexpr bool kEnabled = false;
+
+    template <typename T, typename Locator>
+    static T* tryGet(const Locator&, const void*, std::uint64_t) noexcept
+    {
+        return nullptr;
+    }
+
+    template <typename T, typename Locator>
+    static void put(const Locator&, const void*, std::uint64_t, T*) noexcept
+    {
+        // no-op
+    }
+};
+
+// Thread-local MRU cache.
+//
+// Notes:
+//  - This is intentionally tiny: 1-entry catches "same service repeatedly".
+//    2-entry catches common alternation patterns (e.g., read+write services).
+//  - Cache entries are invalidated by a monotonically increasing registry epoch.
+//    The epoch is bumped on successful register/unregister/clear operations.
+template <std::size_t Slots>
+struct ThreadLocalMruServiceLocatorResolveCachePolicy
+{
+    static_assert(Slots == 1 || Slots == 2, "Slots must be 1 or 2");
+    static constexpr bool kEnabled = true;
+
+    struct Entry
+    {
+        const void* owner = nullptr;
+        const void* typeId = nullptr;
+        const void* service = nullptr;
+        std::uint64_t epoch = 0;
+    };
+
+    struct Cache
+    {
+        Entry e0{};
+        Entry e1{};
+        std::uint8_t mruIndex = 0; // 0 => e0 is MRU, 1 => e1 is MRU (Slots==2)
+    };
+
+#if defined(__cpp_constinit) && (__cpp_constinit >= 201907L)
+    static inline thread_local constinit Cache tlsCache{};
+#else
+    static inline thread_local Cache tlsCache{};
+#endif
+
+    static Cache& cache() noexcept { return tlsCache; }
+
+    template <typename T, typename Locator>
+    static T* tryGet(const Locator& locator, const void* typeId, std::uint64_t epoch) noexcept
+    {
+        Cache& c = cache();
+        const void* owner = &locator;
+
+        if constexpr (Slots == 1)
+        {
+            if (c.e0.owner == owner && c.e0.typeId == typeId && c.e0.epoch == epoch)
+            {
+                return const_cast<T*>(static_cast<const T*>(c.e0.service));
+            }
+            return nullptr;
+        }
+        else
+        {
+            const std::uint8_t mru = static_cast<std::uint8_t>(c.mruIndex & 1U);
+            Entry& first = (mru == 0) ? c.e0 : c.e1;
+            Entry& second = (mru == 0) ? c.e1 : c.e0;
+
+            if (first.owner == owner && first.typeId == typeId && first.epoch == epoch)
+            {
+                return const_cast<T*>(static_cast<const T*>(first.service));
+            }
+
+            if (second.owner == owner && second.typeId == typeId && second.epoch == epoch)
+            {
+                // ABAB-friendly: flip MRU index without swapping full entries.
+                c.mruIndex = static_cast<std::uint8_t>(1U - mru);
+                return const_cast<T*>(static_cast<const T*>(second.service));
+            }
+
+            return nullptr;
+        }
+    }
+
+    template <typename T, typename Locator>
+    static void put(const Locator& locator, const void* typeId, std::uint64_t epoch, T* service) noexcept
+    {
+        if (service == nullptr)
+        {
+            return;
+        }
+
+        Cache& c = cache();
+        const void* owner = &locator;
+
+        if constexpr (Slots == 1)
+        {
+            c.e0 = Entry{owner, typeId, static_cast<const void*>(service), epoch};
+            return;
+        }
+        else
+        {
+            // Update if present.
+            if (c.e0.owner == owner && c.e0.typeId == typeId)
+            {
+                c.e0.service = static_cast<const void*>(service);
+                c.e0.epoch = epoch;
+                c.mruIndex = 0;
+                return;
+            }
+
+            if (c.e1.owner == owner && c.e1.typeId == typeId)
+            {
+                c.e1.service = static_cast<const void*>(service);
+                c.e1.epoch = epoch;
+                c.mruIndex = 1;
+                return;
+            }
+
+            // Insert into LRU slot (only when we have a real service to store).
+            const std::uint8_t mru = static_cast<std::uint8_t>(c.mruIndex & 1U);
+            const std::uint8_t lru = static_cast<std::uint8_t>(1U - mru);
+
+            if (lru == 0)
+            {
+                c.e0 = Entry{owner, typeId, static_cast<const void*>(service), epoch};
+            }
+            else
+            {
+                c.e1 = Entry{owner, typeId, static_cast<const void*>(service), epoch};
+            }
+
+            c.mruIndex = lru;
+        }
+    }
+};
+
+using OneEntryServiceLocatorResolveCachePolicy = ThreadLocalMruServiceLocatorResolveCachePolicy<1>;
+using TwoEntryServiceLocatorResolveCachePolicy = ThreadLocalMruServiceLocatorResolveCachePolicy<2>;
 
 namespace detail
 {
@@ -342,27 +507,19 @@ struct DefaultServiceTypeKeyPolicy
 };
 
 template <typename T>
-struct is_shared_ptr : std::false_type
-{
-};
+struct is_shared_ptr : std::false_type {};
 
 template <typename U>
-struct is_shared_ptr<std::shared_ptr<U>> : std::true_type
-{
-};
+struct is_shared_ptr<std::shared_ptr<U>> : std::true_type {};
 
 template <typename T>
 inline constexpr bool is_shared_ptr_v = is_shared_ptr<T>::value;
 
 template <typename T>
-struct is_unique_ptr : std::false_type
-{
-};
+struct is_unique_ptr : std::false_type {};
 
 template <typename U, typename D>
-struct is_unique_ptr<std::unique_ptr<U, D>> : std::true_type
-{
-};
+struct is_unique_ptr<std::unique_ptr<U, D>> : std::true_type {};
 
 template <typename T>
 inline constexpr bool is_unique_ptr_v = is_unique_ptr<T>::value;
@@ -372,11 +529,11 @@ std::shared_ptr<T> invokeFactoryToShared(Factory& factory)
 {
     using Ret = std::invoke_result_t<Factory&>;
 
-    if constexpr (detail::is_shared_ptr_v<Ret>)
+    if constexpr (is_shared_ptr_v<Ret>)
     {
         return factory();
     }
-    else if constexpr (detail::is_unique_ptr_v<Ret>)
+    else if constexpr (is_unique_ptr_v<Ret>)
     {
         auto up = factory();
         return std::shared_ptr<T>(std::move(up));
@@ -394,20 +551,107 @@ std::shared_ptr<T> invokeFactoryToShared(Factory& factory)
 template <typename ConcurrencyPolicy = SingleThreadedPolicy,
           typename RegistrationPolicy = ServicePreventOverwritePolicy,
           typename StatisticsPolicy = NoServiceLocatorStatisticsPolicy,
-          typename TypeKeyPolicy = detail::DefaultServiceTypeKeyPolicy>
+          typename TypeKeyPolicy = detail::DefaultServiceTypeKeyPolicy,
+          typename ResolveCachePolicy = NoServiceLocatorResolveCachePolicy>
 class ServiceLocator : private ConcurrencyPolicy
 {
+private:
+    struct SingletonFactoryGate
+    {
+        class Guard
+        {
+        public:
+            explicit Guard(SingletonFactoryGate& gate)
+                : mGate(gate)
+            {
+                mGate.enter();
+            }
+
+            Guard(const Guard&) = delete;
+            Guard& operator=(const Guard&) = delete;
+            Guard(Guard&&) = delete;
+            Guard& operator=(Guard&&) = delete;
+
+            ~Guard()
+            {
+                mGate.exit();
+            }
+
+        private:
+            SingletonFactoryGate& mGate;
+        };
+
+        void enter()
+        {
+            std::unique_lock<std::mutex> lock(mMutex);
+            const std::thread::id thisThread = std::this_thread::get_id();
+
+            mCv.wait(lock, [this, &thisThread]() { return (mDepth == 0) || (mOwnerThread == thisThread); });
+
+            mOwnerThread = thisThread;
+            ++mDepth;
+        }
+
+        void exit()
+        {
+            std::unique_lock<std::mutex> lock(mMutex);
+
+            FATP_ENFORCE(mDepth > 0, "SingletonFactoryGate exit without enter");
+            FATP_ENFORCE(mOwnerThread == std::this_thread::get_id(),
+                         "SingletonFactoryGate exit from non-owner thread");
+
+            if (mDepth == 0)
+            {
+                return;
+            }
+
+            if (--mDepth == 0)
+            {
+                mOwnerThread = std::thread::id{};
+                lock.unlock();
+                mCv.notify_all();
+            }
+        }
+
+    private:
+        std::mutex mMutex{};
+        std::condition_variable mCv{};
+        std::thread::id mOwnerThread{};
+        size_t mDepth = 0;
+    };
+
+    struct RootState
+    {
+        // Bumps whenever the registry is mutated (registration / unregistration / clear).
+        // Used as a cheap cache invalidation signal for optional resolve caches.
+        std::atomic<std::uint64_t> mRegistryEpoch{0};
+
+        SingletonFactoryGate mSingletonFactoryGate{};
+    };
+
 public:
+    // Enforce that thread-safe concurrency policies require thread-safe statistics policies.
+    // Use AtomicServiceLocatorStatisticsPolicy or NoServiceLocatorStatisticsPolicy with
+    // SharedMutexPolicy or other thread-safe concurrency policies.
+    static_assert(
+        std::is_same_v<ConcurrencyPolicy, SingleThreadedPolicy> || StatisticsPolicy::kThreadSafe,
+        "Thread-safe ConcurrencyPolicy requires a thread-safe StatisticsPolicy. "
+        "Use AtomicServiceLocatorStatisticsPolicy or NoServiceLocatorStatisticsPolicy.");
+
     using StatsType = typename StatisticsPolicy::Stats;
     using RegisterResult = Expected<void, ServiceErrorInfo>;
 
     class Scope;
     class Registration;
 
-    ServiceLocator() = default;
+    ServiceLocator()
+        : mRootState(std::make_shared<RootState>())
+    {
+    }
 
     explicit ServiceLocator(const ServiceLocator* parent)
         : mParent(parent)
+        , mRootState(parent != nullptr ? parent->mRootState : std::make_shared<RootState>())
     {
     }
 
@@ -424,11 +668,12 @@ public:
         return sLocator;
     }
 
-    [[nodiscard]] Scope makeScope() const
+    [[nodiscard]] Scope makeScope() const&
     {
         return Scope(*this);
     }
 
+    Scope makeScope() const&& = delete;
 
     [[nodiscard]] ServiceLocator makeChild() const&
     {
@@ -437,23 +682,45 @@ public:
 
     ServiceLocator makeChild() const&& = delete;
 
+    // ========================================================================
+    // Registration
+    // ========================================================================
+
     template <typename T>
     [[nodiscard]] RegisterResult registerInstance(T& instance, std::string_view name = {})
     {
         assertRegistrableServiceType<T>();
-        ServiceKey key = makeKey<T>(name);
+        const void* typeId = TypeKeyPolicy::template typeId<T>();
+
         ServiceEntry entry;
         entry.mKind = ServiceEntryKind::Instance;
         entry.mLifetime = ServiceLifetime::Singleton;
         entry.mInstance = std::addressof(instance);
 
         auto lock = writeLock();
-        if (!RegistrationPolicy::insert(mRegistry, key, std::move(entry), mStats))
+
+        if (name.empty())
         {
-            return unexpected{ServiceErrorInfo{ServiceError::ServiceAlreadyExists,
-                                               "Instance registration rejected by RegistrationPolicy",
-                                               std::string(name)}};
+            // Fast path: unnamed service - use RegistrationPolicy
+            if (!RegistrationPolicy::insert(mUnnamedRegistry, typeId, std::move(entry), mStats))
+            {
+                return unexpected{ServiceErrorInfo{ServiceError::ServiceAlreadyExists,
+                                                   "Instance registration rejected",
+                                                   std::string(name)}};
+            }
         }
+        else
+        {
+            // Named service path
+            ServiceKey key{typeId, std::string(name)};
+            if (!RegistrationPolicy::insert(mNamedRegistry, key, std::move(entry), mStats))
+            {
+                return unexpected{ServiceErrorInfo{ServiceError::ServiceAlreadyExists,
+                                                   "Instance registration rejected by RegistrationPolicy",
+                                                   std::string(name)}};
+            }
+        }
+        bumpRegistryEpoch();
         return {};
     }
 
@@ -470,19 +737,36 @@ public:
                                                std::string(name)}};
         }
 
-        ServiceKey key = makeKey<T>(name);
+        const void* typeId = TypeKeyPolicy::template typeId<T>();
+
         ServiceEntry entry;
         entry.mKind = ServiceEntryKind::Shared;
         entry.mLifetime = ServiceLifetime::Singleton;
         entry.mShared = std::move(instance);
 
         auto lock = writeLock();
-        if (!RegistrationPolicy::insert(mRegistry, key, std::move(entry), mStats))
+
+        if (name.empty())
         {
-            return unexpected{ServiceErrorInfo{ServiceError::ServiceAlreadyExists,
-                                               "Shared registration rejected by RegistrationPolicy",
-                                               std::string(name)}};
+            // Fast path: unnamed service - use RegistrationPolicy
+            if (!RegistrationPolicy::insert(mUnnamedRegistry, typeId, std::move(entry), mStats))
+            {
+                return unexpected{ServiceErrorInfo{ServiceError::ServiceAlreadyExists,
+                                                   "Shared registration rejected",
+                                                   std::string(name)}};
+            }
         }
+        else
+        {
+            ServiceKey key{typeId, std::string(name)};
+            if (!RegistrationPolicy::insert(mNamedRegistry, key, std::move(entry), mStats))
+            {
+                return unexpected{ServiceErrorInfo{ServiceError::ServiceAlreadyExists,
+                                                   "Shared registration rejected by RegistrationPolicy",
+                                                   std::string(name)}};
+            }
+        }
+        bumpRegistryEpoch();
         return {};
     }
 
@@ -493,12 +777,13 @@ public:
 
         if (lifetime != ServiceLifetime::Singleton && lifetime != ServiceLifetime::Transient)
         {
+            mStats.incrementRegistrationFailures();
             return unexpected{ServiceErrorInfo{ServiceError::InvalidLifetime,
                                                "Only Singleton and Transient lifetimes are valid for factories",
                                                std::string(name)}};
         }
 
-        ServiceKey key = makeKey<T>(name);
+        const void* typeId = TypeKeyPolicy::template typeId<T>();
 
         ServiceEntry entry;
         entry.mKind = ServiceEntryKind::Factory;
@@ -509,44 +794,107 @@ public:
         };
 
         auto lock = writeLock();
-        if (!RegistrationPolicy::insert(mRegistry, key, std::move(entry), mStats))
+
+        if (name.empty())
         {
-            return unexpected{ServiceErrorInfo{ServiceError::ServiceAlreadyExists,
-                                               "Factory registration rejected by RegistrationPolicy",
-                                               std::string(name)}};
+            // Fast path: unnamed service - use RegistrationPolicy
+            if (!RegistrationPolicy::insert(mUnnamedRegistry, typeId, std::move(entry), mStats))
+            {
+                return unexpected{ServiceErrorInfo{ServiceError::ServiceAlreadyExists,
+                                                   "Factory registration rejected",
+                                                   std::string(name)}};
+            }
+        }
+        else
+        {
+            ServiceKey key{typeId, std::string(name)};
+            if (!RegistrationPolicy::insert(mNamedRegistry, key, std::move(entry), mStats))
+            {
+                return unexpected{ServiceErrorInfo{ServiceError::ServiceAlreadyExists,
+                                                   "Factory registration rejected by RegistrationPolicy",
+                                                   std::string(name)}};
+            }
         }
 
+        bumpRegistryEpoch();
         return {};
     }
 
     template <typename T>
     [[nodiscard]] bool unregister(std::string_view name = {})
     {
-        ServiceKey key = makeKey<T>(name);
+        const void* typeId = TypeKeyPolicy::template typeId<T>();
         auto lock = writeLock();
-        const size_t removed = mRegistry.erase(key);
-        if (removed != 0)
+
+        bool removed = false;
+        if (name.empty())
         {
+            removed = mUnnamedRegistry.erase(typeId);
+        }
+        else
+        {
+            ServiceKeyView key{typeId, name};
+            removed = mNamedRegistry.erase(key);
+        }
+
+        if (removed)
+        {
+            bumpRegistryEpoch();
             mStats.incrementUnregistrations();
         }
-        return removed != 0;
+        return removed;
     }
 
     void clear()
     {
         auto lock = writeLock();
-        mRegistry.clear();
+        const size_t count = mUnnamedRegistry.size() + mNamedRegistry.size();
+        mUnnamedRegistry.clear();
+        mNamedRegistry.clear();
+        if (count > 0)
+        {
+            bumpRegistryEpoch();
+            mStats.incrementUnregistrations(count);
+        }
     }
 
     [[nodiscard]] size_t size() const
     {
         auto lock = readLock();
-        return mRegistry.size();
+        return mUnnamedRegistry.size() + mNamedRegistry.size();
     }
 
     [[nodiscard]] bool empty() const
     {
         return size() == 0;
+    }
+
+    template <typename T>
+    [[nodiscard]] bool isRegistered(std::string_view name = {}) const
+    {
+        const void* typeId = TypeKeyPolicy::template typeId<T>();
+
+        {
+            auto lock = readLock();
+
+            if (name.empty())
+            {
+                if (mUnnamedRegistry.find(typeId) != nullptr)
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                ServiceKeyView key{typeId, name};
+                if (mNamedRegistry.find(key) != nullptr)
+                {
+                    return true;
+                }
+            }
+        }
+        // Lock released before parent traversal (consistent with tryResolve pattern)
+        return mParent != nullptr && mParent->template isRegistered<T>(name);
     }
 
     [[nodiscard]] StatsType& stats() noexcept
@@ -559,75 +907,288 @@ public:
         return mStats;
     }
 
+    // ========================================================================
+    // Resolution - OPTIMIZED HOT PATH
+    // ========================================================================
+
     template <typename T>
     [[nodiscard]] T* tryResolve(std::string_view name = {}) const
     {
-        auto expected = resolveExpected<T>(name);
-        if (!expected.has_value())
+        const void* typeId = TypeKeyPolicy::template typeId<T>();
+
+        // Track if we need singleton factory creation (must happen outside lock)
+        bool needsFactoryCreation = false;
+
         {
-            return nullptr;
+            auto lock = readLock();
+
+            // Find entry (two-level lookup)
+            ServiceEntry* entry = nullptr;
+            const bool cacheable = name.empty();
+            std::uint64_t epoch = 0;
+            if (cacheable)
+            {
+                epoch = registryEpoch();
+
+                if constexpr (ResolveCachePolicy::kEnabled)
+                {
+                    if (auto* cached = ResolveCachePolicy::template tryGet<T>(*this, typeId, epoch))
+                    {
+                        mStats.incrementResolutions();
+                        return cached;
+                    }
+                }
+
+                entry = mUnnamedRegistry.find(typeId);
+            }
+            else
+            {
+                ServiceKeyView key{typeId, name};
+                entry = mNamedRegistry.find(key);
+            }
+
+            if (entry != nullptr)
+            {
+                if (entry->mKind == ServiceEntryKind::Instance)
+                {
+                    auto* resolved = static_cast<T*>(entry->mInstance);
+                    if constexpr (ResolveCachePolicy::kEnabled)
+                    {
+                        if (cacheable)
+                        {
+                            ResolveCachePolicy::template put<T>(*this, typeId, epoch, resolved);
+                        }
+                    }
+
+                    mStats.incrementResolutions();
+                    return resolved;
+                }
+                if (entry->mKind == ServiceEntryKind::Shared)
+                {
+                    if (!entry->mShared)
+                    {
+                        mStats.incrementResolutionFailures();
+                        return nullptr;
+                    }
+                    auto* resolved = static_cast<T*>(entry->mShared.get());
+                    if constexpr (ResolveCachePolicy::kEnabled)
+                    {
+                        if (cacheable)
+                        {
+                            ResolveCachePolicy::template put<T>(*this, typeId, epoch, resolved);
+                        }
+                    }
+                    mStats.incrementResolutions();
+                    return resolved;
+                }
+                if (entry->mKind == ServiceEntryKind::Factory)
+                {
+                    if (entry->mLifetime == ServiceLifetime::Transient)
+                    {
+                        mStats.incrementResolutionFailures();
+                        return nullptr;
+                    }
+
+                    // Singleton factory - check if already cached
+                    if (entry->mShared)
+                    {
+                        auto* resolved = static_cast<T*>(entry->mShared.get());
+                        if constexpr (ResolveCachePolicy::kEnabled)
+                        {
+                            if (cacheable)
+                            {
+                                ResolveCachePolicy::template put<T>(*this, typeId, epoch, resolved);
+                            }
+                        }
+                        mStats.incrementResolutions();
+                        return resolved;
+                    }
+
+                    // Need factory creation - must release lock first
+                    needsFactoryCreation = true;
+                }
+                else if (!needsFactoryCreation)
+                {
+                    mStats.incrementResolutionFailures();
+                    return nullptr;
+                }
+            }
         }
-        return std::addressof(expected.value().get());
+        // Lock released here
+
+        // Handle factory creation outside lock
+        if (needsFactoryCreation)
+        {
+            auto cached = resolveOrCreateSingleton<T>(typeId, name, nullptr);
+            if (!cached.has_value())
+            {
+                mStats.incrementResolutionFailures();
+                return nullptr;
+            }
+            auto* resolved = static_cast<T*>(cached.value().get());
+            if constexpr (ResolveCachePolicy::kEnabled)
+            {
+                if (name.empty())
+                {
+                    ResolveCachePolicy::template put<T>(*this, typeId, registryEpoch(), resolved);
+                }
+            }
+            mStats.incrementResolutions();
+            return resolved;
+        }
+
+        // Not found locally - try parent
+        if (mParent != nullptr)
+        {
+            return mParent->template tryResolve<T>(name);
+        }
+
+        mStats.incrementResolutionFailures();
+        return nullptr;
     }
+
 
     template <typename T>
     [[nodiscard]] Expected<std::reference_wrapper<T>, ServiceErrorInfo>
     resolveExpected(std::string_view name = {}) const
     {
-        const ServiceKey key = makeKey<T>(name);
-        auto local = resolveEntryForRead(key);
-        if (!local.has_value())
-        {
-            if (mParent != nullptr)
-            {
-                return mParent->template resolveExpected<T>(name);
-            }
-            mStats.incrementResolutionFailures();
-            return unexpected{
-                ServiceErrorInfo{ServiceError::ServiceNotFound, "No matching service registration", std::string(name)}};
-        }
+        const void* typeId = TypeKeyPolicy::template typeId<T>();
 
-        const ServiceEntrySnapshot snap = local.value();
-        if (snap.mKind == ServiceEntryKind::Instance)
+        // Track if we need factory creation (must happen outside lock)
+        bool needsFactoryCreation = false;
+
         {
-            mStats.incrementResolutions();
-            return std::ref(*static_cast<T*>(snap.mInstance));
-        }
-        if (snap.mKind == ServiceEntryKind::Shared)
-        {
-            if (!snap.mShared)
+            auto lock = readLock();
+
+            // Find entry (two-level lookup)
+            ServiceEntry* entry = nullptr;
+            const bool cacheable = name.empty();
+            std::uint64_t epoch = 0;
+            if (cacheable)
             {
-                mStats.incrementResolutionFailures();
-                return unexpected{ServiceErrorInfo{ServiceError::NullSharedInstance,
-                                                   "Shared registration holds an empty shared_ptr",
-                                                   std::string(name)}};
+                epoch = registryEpoch();
+
+                if constexpr (ResolveCachePolicy::kEnabled)
+                {
+                    if (auto* cached = ResolveCachePolicy::template tryGet<T>(*this, typeId, epoch))
+                    {
+                        mStats.incrementResolutions();
+                        return std::ref(*cached);
+                    }
+                }
+
+                entry = mUnnamedRegistry.find(typeId);
             }
-            mStats.incrementResolutions();
-            return std::ref(*static_cast<T*>(snap.mShared.get()));
-        }
-        if (snap.mKind == ServiceEntryKind::Factory)
-        {
-            if (snap.mLifetime == ServiceLifetime::Transient)
+            else
             {
-                mStats.incrementResolutionFailures();
-                return unexpected{ServiceErrorInfo{ServiceError::FactoryNotRegistered,
-                                                   "Transient services require createExpected<T>()",
-                                                   std::string(name)}};
+                ServiceKeyView key{typeId, name};
+                entry = mNamedRegistry.find(key);
             }
 
-            auto cached = resolveOrCreateSingleton(key, snap, std::string(name));
+            if (entry != nullptr)
+            {
+                // Resolve based on entry kind
+                if (entry->mKind == ServiceEntryKind::Instance)
+                {
+                    auto* resolved = static_cast<T*>(entry->mInstance);
+                    if constexpr (ResolveCachePolicy::kEnabled)
+                    {
+                        if (cacheable)
+                        {
+                            ResolveCachePolicy::template put<T>(*this, typeId, epoch, resolved);
+                        }
+                    }
+                    mStats.incrementResolutions();
+                    return std::ref(*resolved);
+                }
+                if (entry->mKind == ServiceEntryKind::Shared)
+                {
+                    if (!entry->mShared)
+                    {
+                        mStats.incrementResolutionFailures();
+                        return unexpected{ServiceErrorInfo{ServiceError::NullSharedInstance,
+                                                           "Shared registration holds an empty shared_ptr",
+                                                           std::string(name)}};
+                    }
+                    auto* resolved = static_cast<T*>(entry->mShared.get());
+                    if constexpr (ResolveCachePolicy::kEnabled)
+                    {
+                        if (cacheable)
+                        {
+                            ResolveCachePolicy::template put<T>(*this, typeId, epoch, resolved);
+                        }
+                    }
+                    mStats.incrementResolutions();
+                    return std::ref(*resolved);
+                }
+                if (entry->mKind == ServiceEntryKind::Factory)
+                {
+                    if (entry->mLifetime == ServiceLifetime::Transient)
+                    {
+                        mStats.incrementResolutionFailures();
+                        return unexpected{ServiceErrorInfo{ServiceError::TransientRequiresCreate,
+                                                           "Transient services require createExpected<T>()",
+                                                           std::string(name)}};
+                    }
+
+                    // Singleton factory - check if already cached
+                    if (entry->mShared)
+                    {
+                        auto* resolved = static_cast<T*>(entry->mShared.get());
+                        if constexpr (ResolveCachePolicy::kEnabled)
+                        {
+                            if (cacheable)
+                            {
+                                ResolveCachePolicy::template put<T>(*this, typeId, epoch, resolved);
+                            }
+                        }
+                        mStats.incrementResolutions();
+                        return std::ref(*resolved);
+                    }
+
+                    // Need factory creation - must release lock first
+                    needsFactoryCreation = true;
+                }
+                else if (!needsFactoryCreation)
+                {
+                    mStats.incrementResolutionFailures();
+                    return unexpected{ServiceErrorInfo{ServiceError::ServiceNotFound,
+                                                       "Entry kind not recognized",
+                                                       std::string(name)}};
+                }
+            }
+        }
+        // Lock released here
+
+        // Handle factory creation outside lock
+        if (needsFactoryCreation)
+        {
+            auto cached = resolveOrCreateSingleton<T>(typeId, name, nullptr);
             if (!cached.has_value())
             {
                 mStats.incrementResolutionFailures();
                 return unexpected{cached.error()};
             }
+            auto* resolved = static_cast<T*>(cached.value().get());
+            if constexpr (ResolveCachePolicy::kEnabled)
+            {
+                if (name.empty())
+                {
+                    ResolveCachePolicy::template put<T>(*this, typeId, registryEpoch(), resolved);
+                }
+            }
             mStats.incrementResolutions();
-            return std::ref(*static_cast<T*>(cached.value().get()));
+            return std::ref(*resolved);
         }
 
+        // Not found locally - try parent
+        if (mParent != nullptr)
+        {
+            return mParent->template resolveExpected<T>(name);
+        }
         mStats.incrementResolutionFailures();
         return unexpected{
-            ServiceErrorInfo{ServiceError::ServiceNotFound, "Entry kind not recognized", std::string(name)}};
+            ServiceErrorInfo{ServiceError::ServiceNotFound, "No matching service registration", std::string(name)}};
     }
 
     template <typename T>
@@ -644,31 +1205,60 @@ public:
     template <typename T>
     [[nodiscard]] Expected<std::shared_ptr<T>, ServiceErrorInfo> createExpected(std::string_view name = {}) const
     {
-        const ServiceKey key = makeKey<T>(name);
-        auto local = resolveEntryForRead(key);
-        if (!local.has_value())
+        const void* typeId = TypeKeyPolicy::template typeId<T>();
+
+        // Track what we need to do outside lock
+        bool needsSingletonCreation = false;
+        bool needsTransientCreation = false;
+        std::function<std::shared_ptr<void>()> factoryCopy;
+
         {
-            if (mParent != nullptr)
+            auto lock = readLock();
+
+            ServiceEntry* entry = nullptr;
+            if (name.empty())
             {
-                return mParent->template createExpected<T>(name);
+                entry = mUnnamedRegistry.find(typeId);
             }
-            mStats.incrementCreationFailures();
-            return unexpected{
-                ServiceErrorInfo{ServiceError::ServiceNotFound, "No matching service registration", std::string(name)}};
-        }
+            else
+            {
+                ServiceKeyView key{typeId, name};
+                entry = mNamedRegistry.find(key);
+            }
 
-        const ServiceEntrySnapshot snap = local.value();
-        if (snap.mKind != ServiceEntryKind::Factory)
-        {
-            mStats.incrementCreationFailures();
-            return unexpected{ServiceErrorInfo{ServiceError::FactoryNotRegistered,
-                                               "No factory registered for this service",
-                                               std::string(name)}};
-        }
+            if (entry != nullptr)
+            {
+                if (entry->mKind != ServiceEntryKind::Factory)
+                {
+                    mStats.incrementCreationFailures();
+                    return unexpected{ServiceErrorInfo{ServiceError::FactoryNotRegistered,
+                                                       "No factory registered for this service",
+                                                       std::string(name)}};
+                }
 
-        if (snap.mLifetime == ServiceLifetime::Singleton)
+                if (entry->mLifetime == ServiceLifetime::Singleton)
+                {
+                    // Check if already cached
+                    if (entry->mShared)
+                    {
+                        mStats.incrementCreations();
+                        return std::static_pointer_cast<T>(entry->mShared);
+                    }
+                    needsSingletonCreation = true;
+                }
+                else
+                {
+                    // Transient - copy factory for use outside lock
+                    factoryCopy = entry->mFactory;
+                    needsTransientCreation = true;
+                }
+            }
+        }
+        // Lock released here
+
+        if (needsSingletonCreation)
         {
-            auto cached = resolveOrCreateSingleton(key, snap, std::string(name));
+            auto cached = resolveOrCreateSingleton<T>(typeId, name, nullptr);
             if (!cached.has_value())
             {
                 mStats.incrementCreationFailures();
@@ -678,14 +1268,47 @@ public:
             return std::static_pointer_cast<T>(cached.value());
         }
 
-        auto created = invokeFactory(snap, std::string(name));
-        if (!created.has_value())
+        if (needsTransientCreation)
         {
-            mStats.incrementCreationFailures();
-            return unexpected{created.error()};
+            // Transient - create new instance outside lock
+            try
+            {
+                auto created = factoryCopy ? factoryCopy() : nullptr;
+                if (!created)
+                {
+                    mStats.incrementCreationFailures();
+                    return unexpected{ServiceErrorInfo{ServiceError::FactoryReturnedNull,
+                                                       "Factory returned an empty shared_ptr",
+                                                       std::string(name)}};
+                }
+                mStats.incrementCreations();
+                return std::static_pointer_cast<T>(created);
+            }
+            catch (const std::exception& e)
+            {
+                mStats.incrementCreationFailures();
+                return unexpected{ServiceErrorInfo{ServiceError::FactoryThrew,
+                                                   std::string("Factory threw: ") + e.what(),
+                                                   std::string(name)}};
+            }
+            catch (...)
+            {
+                mStats.incrementCreationFailures();
+                return unexpected{
+                    ServiceErrorInfo{ServiceError::FactoryThrew,
+                                               "Factory threw: non-std exception",
+                                               std::string(name)}};
+            }
         }
-        mStats.incrementCreations();
-        return std::static_pointer_cast<T>(created.value());
+
+        // Not found locally - try parent
+        if (mParent != nullptr)
+        {
+            return mParent->template createExpected<T>(name);
+        }
+        mStats.incrementCreationFailures();
+        return unexpected{
+            ServiceErrorInfo{ServiceError::ServiceNotFound, "No matching service registration", std::string(name)}};
     }
 
     template <typename T>
@@ -697,6 +1320,103 @@ public:
             FATP_ALWAYS_ENFORCE(false, "ServiceLocator::create failed: {}", expected.error().fullMessage());
         }
         return expected.value();
+    }
+
+    template <typename T>
+    [[nodiscard]] Expected<std::shared_ptr<T>, ServiceErrorInfo>
+    resolveSharedExpected(std::string_view name = {}) const
+    {
+        const void* typeId = TypeKeyPolicy::template typeId<T>();
+
+        bool needsFactoryCreation = false;
+
+        {
+            auto lock = readLock();
+
+            ServiceEntry* entry = nullptr;
+            if (name.empty())
+            {
+                entry = mUnnamedRegistry.find(typeId);
+            }
+            else
+            {
+                ServiceKeyView key{typeId, name};
+                entry = mNamedRegistry.find(key);
+            }
+
+            if (entry != nullptr)
+            {
+                if (entry->mKind == ServiceEntryKind::Instance)
+                {
+                    mStats.incrementResolutionFailures();
+                    return unexpected{ServiceErrorInfo{ServiceError::ServiceNotFound,
+                                                       "Cannot get shared_ptr for instance-registered service",
+                                                       std::string(name)}};
+                }
+
+                if (entry->mKind == ServiceEntryKind::Shared)
+                {
+                    if (!entry->mShared)
+                    {
+                        mStats.incrementResolutionFailures();
+                        return unexpected{ServiceErrorInfo{ServiceError::NullSharedInstance,
+                                                           "Shared registration holds an empty shared_ptr",
+                                                           std::string(name)}};
+                    }
+                    mStats.incrementResolutions();
+                    return std::static_pointer_cast<T>(entry->mShared);
+                }
+
+                if (entry->mKind == ServiceEntryKind::Factory)
+                {
+                    if (entry->mLifetime == ServiceLifetime::Transient)
+                    {
+                        mStats.incrementResolutionFailures();
+                        return unexpected{ServiceErrorInfo{ServiceError::TransientRequiresCreate,
+                                                           "Transient services require createExpected<T>()",
+                                                           std::string(name)}};
+                    }
+
+                    // Check if already cached
+                    if (entry->mShared)
+                    {
+                        mStats.incrementResolutions();
+                        return std::static_pointer_cast<T>(entry->mShared);
+                    }
+
+                    needsFactoryCreation = true;
+                }
+                else if (!needsFactoryCreation)
+                {
+                    mStats.incrementResolutionFailures();
+                    return unexpected{ServiceErrorInfo{ServiceError::ServiceNotFound,
+                                                       "Entry kind not recognized",
+                                                       std::string(name)}};
+                }
+            }
+        }
+        // Lock released here
+
+        if (needsFactoryCreation)
+        {
+            auto cached = resolveOrCreateSingleton<T>(typeId, name, nullptr);
+            if (!cached.has_value())
+            {
+                mStats.incrementResolutionFailures();
+                return unexpected{cached.error()};
+            }
+            mStats.incrementResolutions();
+            return std::static_pointer_cast<T>(cached.value());
+        }
+
+        // Not found locally - try parent
+        if (mParent != nullptr)
+        {
+            return mParent->template resolveSharedExpected<T>(name);
+        }
+        mStats.incrementResolutionFailures();
+        return unexpected{
+            ServiceErrorInfo{ServiceError::ServiceNotFound, "No matching service registration", std::string(name)}};
     }
 
 private:
@@ -712,22 +1432,122 @@ private:
     {
         const void* mTypeId = nullptr;
         std::string mName{};
+
+        bool operator==(const ServiceKey& other) const noexcept
+        {
+            return mTypeId == other.mTypeId && mName == other.mName;
+        }
+    };
+
+    struct ServiceKeyView
+    {
+        const void* mTypeId = nullptr;
+        std::string_view mName{};
+    };
+
+    struct TypeIdHash
+    {
+        // Marker to indicate we already produce a high-quality, avalanching hash.
+        // This allows StableHashMap to skip its built-in mixer (avoids double-mixing).
+        using is_avalanching = void;
+
+        [[nodiscard]] size_t operator()(const void* p) const noexcept
+        {
+            return hashPtr(p);
+        }
+
+    private:
+        [[nodiscard]] static size_t hashPtr(const void* p) noexcept
+        {
+            const uintptr_t x = reinterpret_cast<uintptr_t>(p);
+
+            if constexpr (sizeof(size_t) >= 8)
+            {
+                // SplitMix64 finalizer (same mixer used in FatPHashMap benchmarks).
+                uint64_t z = static_cast<uint64_t>(x);
+                z = (z ^ (z >> 30U)) * 0xBF58476D1CE4E5B9ULL;
+                z = (z ^ (z >> 27U)) * 0x94D049BB133111EBULL;
+                z = z ^ (z >> 31U);
+                return static_cast<size_t>(z);
+            }
+            else
+            {
+                // MurmurHash3 32-bit finalizer
+                uint32_t h = static_cast<uint32_t>(x);
+                h ^= h >> 16U;
+                h *= 0x85ebca6bU;
+                h ^= h >> 13U;
+                h *= 0xc2b2ae35U;
+                h ^= h >> 16U;
+                return static_cast<size_t>(h);
+            }
+        }
     };
 
     struct ServiceKeyHash
     {
+        using is_avalanching = void;
+
         [[nodiscard]] size_t operator()(const ServiceKey& key) const noexcept
         {
-            const size_t h1 = std::hash<const void*>{}(key.mTypeId);
-            const size_t h2 = std::hash<std::string>{}(key.mName);
-            constexpr size_t kMagic = static_cast<size_t>(0x9e3779b97f4a7c15ULL);
-            return h1 ^ (h2 + kMagic + (h1 << 6U) + (h1 >> 2U));
+            return hashImpl(key.mTypeId, key.mName);
+        }
+
+        [[nodiscard]] size_t operator()(const ServiceKeyView& key) const noexcept
+        {
+            return hashImpl(key.mTypeId, key.mName);
+        }
+
+    private:
+        [[nodiscard]] static size_t hashImpl(const void* typeId, std::string_view name) noexcept
+        {
+            // Combine the type-id and name hashes, then apply an explicit finalizer so
+            // StableHashMap can treat this hash as avalanching (see is_avalanching).
+            size_t h = TypeIdHash{}(typeId);
+            const size_t hName = std::hash<std::string_view>{}(name);
+
+            constexpr size_t kMagic = (sizeof(size_t) >= 8)
+                ? static_cast<size_t>(0x9e3779b97f4a7c15ULL)
+                : static_cast<size_t>(0x9e3779b9U);
+
+            h ^= (hName + kMagic + (h << 6U) + (h >> 2U));
+
+            if constexpr (sizeof(size_t) >= 8)
+            {
+                // MurmurHash3 finalizer (64-bit)
+                h ^= h >> 33U;
+                h *= 0xff51afd7ed558ccdULL;
+                h ^= h >> 33U;
+                h *= 0xc4ceb9fe1a85ec53ULL;
+                h ^= h >> 33U;
+            }
+            else
+            {
+                // MurmurHash3 finalizer (32-bit)
+                h ^= h >> 16U;
+                h *= 0x85ebca6bU;
+                h ^= h >> 13U;
+                h *= 0xc2b2ae35U;
+                h ^= h >> 16U;
+            }
+
+            return h;
         }
     };
 
     struct ServiceKeyEq
     {
         [[nodiscard]] bool operator()(const ServiceKey& a, const ServiceKey& b) const noexcept
+        {
+            return a.mTypeId == b.mTypeId && a.mName == b.mName;
+        }
+
+        [[nodiscard]] bool operator()(const ServiceKey& a, const ServiceKeyView& b) const noexcept
+        {
+            return a.mTypeId == b.mTypeId && a.mName == b.mName;
+        }
+
+        [[nodiscard]] bool operator()(const ServiceKeyView& a, const ServiceKey& b) const noexcept
         {
             return a.mTypeId == b.mTypeId && a.mName == b.mName;
         }
@@ -741,54 +1561,31 @@ private:
         std::shared_ptr<void> mShared{};
         std::function<std::shared_ptr<void>()> mFactory{};
 
-        /// Per-entry state for singleton creation coordination.
-        ///
-        /// Design rationale: We use shared_ptr to a separate state object because:
-        /// 1. std::mutex/condition_variable are not movable, but ServiceEntry must be
-        ///    movable for unordered_map storage
-        /// 2. After releasing the registry lock, another thread could unregister/clear
-        ///    the entry, making any raw pointers to ServiceEntry dangling. By holding
-        ///    a shared_ptr<SingletonState>, the coordination state survives even if
-        ///    the registry entry is deleted.
-        /// 3. We store mValue in SingletonState (not just ServiceEntry) so that
-        ///    threads blocked on mCv can safely read the result without re-acquiring
-        ///    the registry lock.
-        /// 4. After successful creation, we re-acquire the registry lock to publish
-        ///    mValue to ServiceEntry::mShared (if the entry still exists).
+        // Per-entry state for singleton creation coordination
         struct SingletonState
         {
             std::mutex mMutex{};
             std::condition_variable mCv{};
             bool mCreating = false;
             std::thread::id mCreatingThread{};
-            std::shared_ptr<void> mValue{}; // Result stored here for lifetime safety
+            std::shared_ptr<void> mValue{};
         };
         mutable std::shared_ptr<SingletonState> mSingletonState{};
-
-        /// Ensures the singleton state exists. Called while holding registry lock.
-        std::shared_ptr<SingletonState> ensureSingletonState() const
-        {
-            if (!mSingletonState)
-            {
-                mSingletonState = std::make_shared<SingletonState>();
-            }
-            return mSingletonState;
-        }
     };
 
-    struct ServiceEntrySnapshot
-    {
-        ServiceEntryKind mKind = ServiceEntryKind::None;
-        ServiceLifetime mLifetime = ServiceLifetime::Singleton;
-        void* mInstance = nullptr;
-        std::shared_ptr<void> mShared{};
-        std::function<std::shared_ptr<void>()> mFactory{};
-    };
-
-    using Registry = std::unordered_map<ServiceKey, ServiceEntry, ServiceKeyHash, ServiceKeyEq>;
+    // Two-level storage for optimal performance:
+    // Level 1: Unnamed services (fast path) - void* key only, no string allocation
+    // Level 2: Named services - full ServiceKey with string name
+    //
+    // StableHashMap provides reference stability: pointers to entries remain valid
+    // across insert/rehash operations. This eliminates the need for snapshot copies.
+    using UnnamedRegistry = StableHashMap<const void*, ServiceEntry, TypeIdHash>;
+    using NamedRegistry = StableHashMap<ServiceKey, ServiceEntry, ServiceKeyHash, ServiceKeyEq>;
 
     const ServiceLocator* mParent = nullptr;
-    mutable Registry mRegistry{};
+    std::shared_ptr<RootState> mRootState{};
+    mutable UnnamedRegistry mUnnamedRegistry{};
+    mutable NamedRegistry mNamedRegistry{};
     mutable StatsType mStats{};
 
     [[nodiscard]] auto readLock() const
@@ -807,13 +1604,15 @@ private:
         return policy.lock();
     }
 
-    template <typename T>
-    [[nodiscard]] static ServiceKey makeKey(std::string_view name)
+    [[nodiscard]] std::uint64_t registryEpoch() const noexcept
     {
-        ServiceKey key;
-        key.mTypeId = TypeKeyPolicy::template typeId<T>();
-        key.mName = std::string(name);
-        return key;
+        // RootState always exists for all scopes produced from a locator.
+        return mRootState->mRegistryEpoch.load(std::memory_order_relaxed);
+    }
+
+    void bumpRegistryEpoch() noexcept
+    {
+        mRootState->mRegistryEpoch.fetch_add(1, std::memory_order_relaxed);
     }
 
     template <typename T>
@@ -826,232 +1625,262 @@ private:
 
     [[nodiscard]] bool unregisterUntyped(const void* typeId, std::string_view name)
     {
-        ServiceKey key;
-        key.mTypeId = typeId;
-        key.mName = std::string(name);
-
         auto lock = writeLock();
-        const size_t removed = mRegistry.erase(key);
-        if (removed != 0)
+
+        bool removed = false;
+        if (name.empty())
         {
+            removed = mUnnamedRegistry.erase(typeId);
+        }
+        else
+        {
+            ServiceKeyView key{typeId, name};
+            removed = mNamedRegistry.erase(key);
+        }
+
+        if (removed)
+        {
+            bumpRegistryEpoch();
             mStats.incrementUnregistrations();
         }
-        return removed != 0;
+        return removed;
     }
 
-    [[nodiscard]] std::optional<ServiceEntrySnapshot> resolveEntryForRead(const ServiceKey& key) const
-    {
-        auto lock = readLock();
-        auto it = mRegistry.find(key);
-        if (it == mRegistry.end())
-        {
-            return std::nullopt;
-        }
-
-        ServiceEntrySnapshot snap;
-        snap.mKind = it->second.mKind;
-        snap.mLifetime = it->second.mLifetime;
-        snap.mInstance = it->second.mInstance;
-        snap.mShared = it->second.mShared;
-        snap.mFactory = it->second.mFactory;
-        return snap;
-    }
-
-    [[nodiscard]] Expected<std::shared_ptr<void>, ServiceErrorInfo> invokeFactory(const ServiceEntrySnapshot& snap,
-                                                                                  std::string name) const
-    {
-        return invokeFactoryImpl(snap.mFactory, std::move(name));
-    }
-
-private:
+    template <typename T>
     [[nodiscard]] Expected<std::shared_ptr<void>, ServiceErrorInfo>
-    invokeFactoryImpl(const std::function<std::shared_ptr<void>()>& factory, std::string name) const
+    resolveOrCreateSingleton(const void* typeId, std::string_view name, ServiceEntry* /*unused*/) const
     {
-        try
-        {
-            std::shared_ptr<void> created = factory ? factory() : nullptr;
-            if (!created)
-            {
-                return unexpected{ServiceErrorInfo{ServiceError::FactoryReturnedNull,
-                                                   "Factory returned an empty shared_ptr",
-                                                   std::move(name)}};
-            }
-            return created;
-        }
-        catch (const std::exception& e)
-        {
-            return unexpected{ServiceErrorInfo{ServiceError::FactoryThrew,
-                                               std::string("Factory threw: ") + e.what(),
-                                               std::move(name)}};
-        }
-        catch (...)
-        {
-            return unexpected{
-                ServiceErrorInfo{ServiceError::FactoryThrew, "Factory threw: non-std exception", std::move(name)}};
-        }
-    }
-
-    [[nodiscard]] Expected<std::shared_ptr<void>, ServiceErrorInfo>
-    resolveOrCreateSingleton(const ServiceKey& key, const ServiceEntrySnapshot& snap, std::string name) const
-    {
-        if (snap.mLifetime != ServiceLifetime::Singleton)
-        {
-            return unexpected{ServiceErrorInfo{ServiceError::InvalidLifetime,
-                                               "resolveOrCreateSingleton requires Singleton lifetime",
-                                               std::move(name)}};
-        }
-
-        // Fast path: already created (from snapshot taken under read lock)
-        if (snap.mShared)
-        {
-            return snap.mShared;
-        }
-
-        // Slow path: coordinate singleton creation.
-        //
-        // CRITICAL LIFETIME SAFETY: After releasing the registry lock, another thread
-        // could unregister/clear the entry. We must NOT access any ServiceEntry* after
-        // the lock is released. Instead:
-        //   1. Copy shared_ptr<SingletonState> out while holding lock (stays alive)
-        //   2. Store result in state->mValue (not ServiceEntry::mShared)
-        //   3. Re-acquire lock to publish to registry IF entry still exists
-
-        // Step 1: Get SingletonState under registry lock
+        // Get SingletonState under write lock
         std::shared_ptr<typename ServiceEntry::SingletonState> state;
+        std::function<std::shared_ptr<void>()> factoryCopy;
         {
             auto lock = writeLock();
-            auto it = mRegistry.find(key);
-            if (it == mRegistry.end())
+
+            // Find entry
+            ServiceEntry* entry = nullptr;
+            if (name.empty())
+            {
+                entry = mUnnamedRegistry.find(typeId);
+            }
+            else
+            {
+                ServiceKeyView key{typeId, name};
+                entry = mNamedRegistry.find(key);
+            }
+
+            if (entry == nullptr)
             {
                 return unexpected{ServiceErrorInfo{ServiceError::ServiceNotFound,
                                                    "Singleton factory removed during resolution",
-                                                   std::move(name)}};
+                                                   std::string(name)}};
             }
 
-            // Quick check: maybe another thread already created it
-            if (it->second.mShared)
+            if (entry->mLifetime != ServiceLifetime::Singleton)
             {
-                return it->second.mShared;
+                return unexpected{ServiceErrorInfo{ServiceError::InvalidLifetime,
+                                                   "resolveOrCreateSingleton requires Singleton lifetime",
+                                                   std::string(name)}};
             }
 
-            // Get/create the SingletonState (returned as shared_ptr)
-            state = it->second.ensureSingletonState();
+            // Fast path: already created
+            if (entry->mShared)
+            {
+                return entry->mShared;
+            }
+
+            if (!entry->mSingletonState)
+            {
+                entry->mSingletonState = std::make_shared<typename ServiceEntry::SingletonState>();
+            }
+            state = entry->mSingletonState;
+            factoryCopy = entry->mFactory;  // Copy factory for use outside lock
         }
-        // Registry lock released - we now only interact with `state` and `snap`
-        // Both are safe: state is shared_ptr, snap is a copy
 
-        auto publishAndGet = [&](const std::shared_ptr<typename ServiceEntry::SingletonState>& localState)
-            -> Expected<std::shared_ptr<void>, ServiceErrorInfo> {
-            auto lock = writeLock();
-            auto it = mRegistry.find(key);
-            if (it == mRegistry.end())
-            {
-                return unexpected{ServiceErrorInfo{ServiceError::ServiceNotFound,
-                                                   "Singleton entry removed during creation",
-                                                   std::string(name)}};
-            }
 
-            if (it->second.mKind != ServiceEntryKind::Factory || it->second.mLifetime != ServiceLifetime::Singleton ||
-                it->second.mSingletonState != localState)
-            {
-                return unexpected{ServiceErrorInfo{ServiceError::ServiceNotFound,
-                                                   "Singleton entry replaced during creation",
-                                                   std::string(name)}};
-            }
-
-            if (it->second.mShared)
-            {
-                return it->second.mShared;
-            }
-
-            if (!localState->mValue)
-            {
-                return unexpected{ServiceErrorInfo{ServiceError::ServiceNotFound,
-                                                   "Singleton value not available after creation",
-                                                   std::string(name)}};
-            }
-
-            it->second.mShared = localState->mValue;
-            return it->second.mShared;
-        };
-
-        // Step 2: Coordinate via SingletonState (no registry lock held)
-        const auto thisThread = std::this_thread::get_id();
+        // Coordinate via SingletonState (no registry lock held)
+        const std::thread::id thisThread = std::this_thread::get_id();
         std::unique_lock<std::mutex> stateLock(state->mMutex);
 
-        // Check if already created (stored in state->mValue for lifetime safety)
         if (state->mValue)
         {
             stateLock.unlock();
-            return publishAndGet(state);
+            return publishSingleton(typeId, name, state);
         }
 
-        // Check if another thread is currently creating
         if (state->mCreating)
         {
-            // Circular dependency detection: same thread trying to create again
             if (state->mCreatingThread == thisThread)
             {
-                return unexpected{
-                    ServiceErrorInfo{ServiceError::CircularDependency,
-                                     "Singleton factory attempted to resolve itself (circular dependency)",
-                                     std::move(name)}};
+                return unexpected{ServiceErrorInfo{ServiceError::CircularDependency,
+                                                   "Singleton factory attempted to resolve itself "
+                                                   "(circular dependency)",
+                                                   std::string(name)}};
             }
 
-            // Different thread is creating - wait for it to finish
-            state->mCv.wait(stateLock, [&state]() {
-                return !state->mCreating;
-            });
+            state->mCv.wait(stateLock, [&state]() { return !state->mCreating; });
 
-            // Check result after waking - creator may have succeeded or failed
             if (state->mValue)
             {
                 stateLock.unlock();
-                return publishAndGet(state);
+                return publishSingleton(typeId, name, state);
             }
-
-            // Creator failed. Retry-on-failure semantics: we try creating ourselves.
-            // (Alternative: cache-failure semantics would return error here)
         }
 
-        // Step 3: We are the creator
+        stateLock.unlock();
+
+        // Serialize singleton factory execution to prevent cross-thread deadlocks.
+        // The gate is re-entrant per thread, allowing factories to resolve other
+        // singletons safely within the same call chain.
+        FATP_ENFORCE(mRootState != nullptr, "ServiceLocator RootState must be initialized");
+        typename SingletonFactoryGate::Guard gate(mRootState->mSingletonFactoryGate);
+
+        stateLock.lock();
+
+        if (state->mValue)
+        {
+            stateLock.unlock();
+            return publishSingleton(typeId, name, state);
+        }
+
+        if (state->mCreating)
+        {
+            // Under the gate, only this thread should be able to be creating.
+            if (state->mCreatingThread == thisThread)
+            {
+                return unexpected{ServiceErrorInfo{ServiceError::CircularDependency,
+                                                   "Singleton factory attempted to resolve itself "
+                                                   "(circular dependency)",
+                                                   std::string(name)}};
+            }
+
+            state->mCv.wait(stateLock, [&state]() { return !state->mCreating; });
+
+            if (state->mValue)
+            {
+                stateLock.unlock();
+                return publishSingleton(typeId, name, state);
+            }
+        }
+
+        // We are the creator (and gate owner)
         state->mCreating = true;
         state->mCreatingThread = thisThread;
         stateLock.unlock();
 
-        // Step 4: Invoke factory with NO locks held
-        // Factory CAN safely resolve OTHER services (reentrancy supported)
-        // We use snap.mFactory (copied earlier), NOT a dangling entry pointer
-        auto created = invokeFactory(snap, name);
+        // Invoke factory with NO locks held (gate is held)
+        std::shared_ptr<void> created;
+        try
+        {
+            created = factoryCopy ? factoryCopy() : nullptr;
+            if (!created)
+            {
+                stateLock.lock();
+                state->mCreating = false;
+                state->mCreatingThread = std::thread::id{};
+                stateLock.unlock();
+                state->mCv.notify_all();
+                return unexpected{ServiceErrorInfo{ServiceError::FactoryReturnedNull,
+                                                   "Factory returned an empty shared_ptr",
+                                                   std::string(name)}};
+            }
+        }
+        catch (const std::exception& e)
+        {
+            stateLock.lock();
+            state->mCreating = false;
+            state->mCreatingThread = std::thread::id{};
+            stateLock.unlock();
+            state->mCv.notify_all();
+            return unexpected{ServiceErrorInfo{ServiceError::FactoryThrew,
+                                               std::string("Factory threw: ") + e.what(),
+                                               std::string(name)}};
+        }
+        catch (...)
+        {
+            stateLock.lock();
+            state->mCreating = false;
+            state->mCreatingThread = std::thread::id{};
+            stateLock.unlock();
+            state->mCv.notify_all();
+            return unexpected{ServiceErrorInfo{ServiceError::FactoryThrew,
+                                               "Factory threw: non-std exception",
+                                               std::string(name)}};
+        }
 
-        // Step 5: Update state and notify waiters
         stateLock.lock();
         state->mCreating = false;
         state->mCreatingThread = std::thread::id{};
-
-        if (!created.has_value())
-        {
-            // Factory failed. Wake waiters so they can retry.
-            stateLock.unlock();
-            state->mCv.notify_all();
-            return unexpected{created.error()};
-        }
-
-        // Success - store in SingletonState (lifetime-safe location)
-        state->mValue = created.value();
+        state->mValue = created;
         stateLock.unlock();
         state->mCv.notify_all();
 
-        // Step 6: Publish to registry and return the registry-held shared_ptr.
-        // If the entry was removed or replaced during creation, return an error
-        // rather than returning a shared_ptr that is not owned by the registry,
-        // because resolveExpected() returns references.
-        return publishAndGet(state);
+        return publishSingleton(typeId, name, state);
+    }
+
+    [[nodiscard]] Expected<std::shared_ptr<void>, ServiceErrorInfo>
+    publishSingleton(const void* typeId, std::string_view name,
+                     const std::shared_ptr<typename ServiceEntry::SingletonState>& state) const
+    {
+        auto lock = writeLock();
+
+        ServiceEntry* entry = nullptr;
+        if (name.empty())
+        {
+            entry = mUnnamedRegistry.find(typeId);
+        }
+        else
+        {
+            ServiceKeyView key{typeId, name};
+            entry = mNamedRegistry.find(key);
+        }
+
+        if (entry == nullptr)
+        {
+            return unexpected{ServiceErrorInfo{ServiceError::ServiceNotFound,
+                                               "Singleton entry removed during creation",
+                                               std::string(name)}};
+        }
+
+        if (entry->mKind != ServiceEntryKind::Factory ||
+            entry->mLifetime != ServiceLifetime::Singleton ||
+            entry->mSingletonState != state)
+        {
+            return unexpected{ServiceErrorInfo{ServiceError::ServiceNotFound,
+                                               "Singleton entry replaced during creation",
+                                               std::string(name)}};
+        }
+
+        if (entry->mShared)
+        {
+            return entry->mShared;
+        }
+
+        if (!state->mValue)
+        {
+            return unexpected{ServiceErrorInfo{ServiceError::ServiceNotFound,
+                                               "Singleton value not available after creation",
+                                               std::string(name)}};
+        }
+
+        entry->mShared = state->mValue;
+        return entry->mShared;
     }
 };
 
-template <typename ConcurrencyPolicy, typename RegistrationPolicy, typename StatisticsPolicy, typename TypeKeyPolicy>
-class ServiceLocator<ConcurrencyPolicy, RegistrationPolicy, StatisticsPolicy, TypeKeyPolicy>::Scope
+// ============================================================================
+// Scope RAII Helper
+// ============================================================================
+
+template <typename ConcurrencyPolicy,
+          typename RegistrationPolicy,
+          typename StatisticsPolicy,
+          typename TypeKeyPolicy,
+          typename ResolveCachePolicy>
+class ServiceLocator<ConcurrencyPolicy,
+                     RegistrationPolicy,
+                     StatisticsPolicy,
+                     TypeKeyPolicy,
+                     ResolveCachePolicy>::Scope
 {
 public:
     explicit Scope(const ServiceLocator& parent)
@@ -1080,8 +1909,20 @@ private:
     ServiceLocator mChild;
 };
 
-template <typename ConcurrencyPolicy, typename RegistrationPolicy, typename StatisticsPolicy, typename TypeKeyPolicy>
-class ServiceLocator<ConcurrencyPolicy, RegistrationPolicy, StatisticsPolicy, TypeKeyPolicy>::Registration
+// ============================================================================
+// Registration RAII Helper
+// ============================================================================
+
+template <typename ConcurrencyPolicy,
+          typename RegistrationPolicy,
+          typename StatisticsPolicy,
+          typename TypeKeyPolicy,
+          typename ResolveCachePolicy>
+class ServiceLocator<ConcurrencyPolicy,
+                     RegistrationPolicy,
+                     StatisticsPolicy,
+                     TypeKeyPolicy,
+                     ResolveCachePolicy>::Registration
 {
 public:
     Registration() = default;
@@ -1091,6 +1932,33 @@ public:
     registerInstanceExpected(ServiceLocator& locator, T& instance, std::string_view name = {})
     {
         auto result = locator.registerInstance<T>(instance, name);
+        if (!result.has_value())
+        {
+            return unexpected{result.error()};
+        }
+        return Registration(locator, TypeKeyPolicy::template typeId<T>(), std::string(name));
+    }
+
+    template <typename T>
+    static Expected<Registration, ServiceErrorInfo>
+    registerSharedExpected(ServiceLocator& locator, std::shared_ptr<T> instance, std::string_view name = {})
+    {
+        auto result = locator.registerShared<T>(std::move(instance), name);
+        if (!result.has_value())
+        {
+            return unexpected{result.error()};
+        }
+        return Registration(locator, TypeKeyPolicy::template typeId<T>(), std::string(name));
+    }
+
+    template <typename T, typename Factory>
+    static Expected<Registration, ServiceErrorInfo>
+    registerFactoryExpected(ServiceLocator& locator,
+                            Factory&& factory,
+                            ServiceLifetime lifetime,
+                            std::string_view name = {})
+    {
+        auto result = locator.template registerFactory<T>(std::forward<Factory>(factory), lifetime, name);
         if (!result.has_value())
         {
             return unexpected{result.error()};
@@ -1142,6 +2010,12 @@ public:
         mName.clear();
     }
 
+    /// Returns true if this Registration is managing an active service registration.
+    [[nodiscard]] explicit operator bool() const noexcept
+    {
+        return mLocator != nullptr && mTypeId != nullptr;
+    }
+
 private:
     Registration(ServiceLocator& locator, const void* typeId, std::string name)
         : mLocator(&locator)
@@ -1158,5 +2032,18 @@ private:
 // Convenience aliases
 using DefaultServiceLocator = ServiceLocator<SingleThreadedPolicy>;
 using ThreadSafeServiceLocator = ServiceLocator<SharedMutexPolicy>;
+
+// Opt-in: type-only resolve cache (thread-local 2-entry MRU). Best for hot loops.
+using HotLoopServiceLocator = ServiceLocator<SingleThreadedPolicy,
+                                            ServicePreventOverwritePolicy,
+                                            NoServiceLocatorStatisticsPolicy,
+                                            detail::DefaultServiceTypeKeyPolicy,
+                                            TwoEntryServiceLocatorResolveCachePolicy>;
+
+using ThreadSafeHotLoopServiceLocator = ServiceLocator<SharedMutexPolicy,
+                                                      ServicePreventOverwritePolicy,
+                                                      NoServiceLocatorStatisticsPolicy,
+                                                      detail::DefaultServiceTypeKeyPolicy,
+                                                      TwoEntryServiceLocatorResolveCachePolicy>;
 
 } // namespace fat_p

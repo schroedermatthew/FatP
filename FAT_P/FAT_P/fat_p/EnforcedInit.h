@@ -219,6 +219,15 @@ struct AtomicPolicy
     {
         return init_flag_;
     }
+
+    [[nodiscard]] LockGuard lock() noexcept
+    {
+        return LockGuard(getLock());
+    }
+    [[nodiscard]] SharedGuard lock_shared() const noexcept
+    {
+        return SharedGuard(getLock());
+    }
 };
 #endif
 
@@ -236,6 +245,15 @@ struct ConditionVarPolicy
         return cv_mutex_;
     }
 
+
+    [[nodiscard]] LockGuard lock() noexcept
+    {
+        return LockGuard(getLock());
+    }
+    [[nodiscard]] SharedGuard lock_shared() const noexcept
+    {
+        return SharedGuard(getLock());
+    }
     template <typename Duration>
     bool wait_for_init(const Duration& timeout) const
     {
@@ -329,7 +347,7 @@ EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::Enf
     : ConcurrencyPolicy()
 { // Default-construct policy, don't copy it
     static_assert(std::is_copy_constructible_v<T>, "T must be copyable for copy ctor");
-    typename ConcurrencyPolicy::SharedGuard guard(other.getLock());
+    auto guard = other.lock_shared();
     m_value = other.m_value;
 }
 
@@ -344,14 +362,14 @@ EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::ope
         // a strict total ordering for pointers.
         if (std::less<const void*>{}(this, &other))
         {
-            typename ConcurrencyPolicy::LockGuard guard_this(this->getLock());
-            typename ConcurrencyPolicy::SharedGuard guard_other(other.getLock());
+            auto guard_this = this->lock();
+            auto guard_other = other.lock_shared();
             m_value = other.m_value;
         }
         else
         {
-            typename ConcurrencyPolicy::SharedGuard guard_other(other.getLock());
-            typename ConcurrencyPolicy::LockGuard guard_this(this->getLock());
+            auto guard_other = other.lock_shared();
+            auto guard_this = this->lock();
             m_value = other.m_value;
         }
     }
@@ -370,7 +388,7 @@ EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::Enf
     }
     else
     {
-        typename ConcurrencyPolicy::LockGuard guard(other.getLock());
+        auto guard = other.lock();
         m_value = std::move(other.m_value);
     }
 }
@@ -393,14 +411,14 @@ EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::ope
             // a strict total ordering for pointers.
             if (std::less<const void*>{}(this, &other))
             {
-                typename ConcurrencyPolicy::LockGuard guard_this(this->getLock());
-                typename ConcurrencyPolicy::LockGuard guard_other(other.getLock());
+                auto guard_this = this->lock();
+                auto guard_other = other.lock();
                 m_value = std::move(other.m_value);
             }
             else
             {
-                typename ConcurrencyPolicy::LockGuard guard_other(other.getLock());
-                typename ConcurrencyPolicy::LockGuard guard_this(this->getLock());
+                auto guard_other = other.lock();
+                auto guard_this = this->lock();
                 m_value = std::move(other.m_value);
             }
         }
@@ -413,7 +431,7 @@ template <typename... Args>
 Expected<void, std::string>
 EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::init(Args&&... args)
 {
-    typename ConcurrencyPolicy::LockGuard guard(this->getLock());
+    auto guard = this->lock();
     if (m_value)
     {
         return make_unexpected("EnforcedInit object already initialized (init called twice)");
@@ -430,7 +448,7 @@ template <typename U, typename>
 Expected<void, std::string>
 EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::init(std::initializer_list<U> ilist)
 {
-    typename ConcurrencyPolicy::LockGuard guard(this->getLock());
+    auto guard = this->lock();
     if (m_value)
     {
         return make_unexpected("EnforcedInit object already initialized (init called twice)");
@@ -446,7 +464,7 @@ Expected<void, std::string>
 EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::reset() noexcept(
     std::is_same_v<ResetPolicy, AllowResetPolicy>)
 {
-    typename ConcurrencyPolicy::LockGuard guard(this->getLock());
+    auto guard = this->lock();
     if constexpr (std::is_same_v<ResetPolicy, AllowResetPolicy>)
     {
         m_value.reset();
@@ -462,7 +480,7 @@ template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename
 template <typename F, typename>
 void EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::lazy_init(F&& f)
 {
-    typename ConcurrencyPolicy::LockGuard guard(this->getLock());
+    auto guard = this->lock();
     if (!m_value)
     {
         m_value.emplace(std::forward<F>(f)());
@@ -482,7 +500,7 @@ T& EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::
 template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
 T& EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::get()
 {
-    typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
+    auto guard = this->lock_shared();
     FATP_ALWAYS_ENFORCE(static_cast<bool>(m_value), "Attempted to access EnforcedInit before init()");
     return m_value.value();
 }
@@ -490,7 +508,7 @@ T& EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::
 template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
 const T& EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::get() const
 {
-    typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
+    auto guard = this->lock_shared();
     FATP_ALWAYS_ENFORCE(static_cast<bool>(m_value), "Attempted to access EnforcedInit before init()");
     return m_value.value();
 }
@@ -522,7 +540,7 @@ const T* EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePol
 template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
 bool EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::is_initialized() const noexcept
 {
-    typename ConcurrencyPolicy::SharedGuard guard(this->getLock());
+    auto guard = this->lock_shared();
     return static_cast<bool>(m_value);
 }
 

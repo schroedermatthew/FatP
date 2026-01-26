@@ -379,29 +379,27 @@ struct SingleThreadedPolicy
     {
     };
 
-    class LockGuard
+    // Trivial, empty guard type. This is designed to be a true zero-cost
+    // abstraction under optimization (including with and without LTO).
+    //
+    // IMPORTANT:
+    // Do not construct guards directly from getLock(). Always use lock() /
+    // lock_shared() so SingleThreadedPolicy can remain a no-op.
+    struct LockGuard
     {
-    public:
-        template <typename T>
-        explicit LockGuard(T&)
-        {
-        }
-        LockGuard(const LockGuard&) = delete;
-        LockGuard& operator=(const LockGuard&) = delete;
-        ~LockGuard() = default;
     };
 
     using SharedGuard = LockGuard;
     using WriteLock = LockGuard;
     using ReadLock = LockGuard;
 
-    [[nodiscard]] LockGuard lock()
+    [[nodiscard]] LockGuard lock() noexcept
     {
-        return LockGuard(mLock);
+        return {};
     }
-    [[nodiscard]] SharedGuard lock_shared() const
+    [[nodiscard]] SharedGuard lock_shared() const noexcept
     {
-        return SharedGuard(mLock);
+        return {};
     }
     [[nodiscard]] bool try_lock()
     {

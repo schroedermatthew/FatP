@@ -132,6 +132,7 @@ int main()
     RUN_AND_RECORD(test_Reflection);
     RUN_AND_RECORD(test_ScopeGuard);
     RUN_AND_RECORD(test_ScopeGuardExpected);
+    RUN_AND_RECORD(test_ServiceLocator_HeaderSelfContained);
     RUN_AND_RECORD(test_ServiceLocator);
     RUN_AND_RECORD(test_Signal);
     RUN_AND_RECORD(test_SimdVector);

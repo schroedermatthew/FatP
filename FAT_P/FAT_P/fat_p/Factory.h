@@ -670,7 +670,7 @@ public:
     template <typename Callable>
     [[nodiscard]] bool registerType(const K& key, Callable&& creator)
     {
-        typename ConcurrencyPolicy::LockGuard lock(this->getLock());
+        auto lock = this->ConcurrencyPolicy::lock();
         if constexpr (std::is_pointer_v<K>)
         {
             FATP_DEBUG_ENFORCE(key != nullptr, "Factory: null key");
@@ -680,7 +680,7 @@ public:
 
     size_t registerTypes(std::initializer_list<std::pair<K, CreatorFunction>> registrations)
     {
-        typename ConcurrencyPolicy::LockGuard lock(this->getLock());
+        auto lock = this->ConcurrencyPolicy::lock();
 
         size_t success_count = 0;
         for (const auto& [key, creator] : registrations)
@@ -695,7 +695,7 @@ public:
 
     [[nodiscard]] bool unregisterType(const K& key)
     {
-        typename ConcurrencyPolicy::LockGuard lock(this->getLock());
+        auto lock = this->ConcurrencyPolicy::lock();
         size_t removed = mRegistry.erase(key);
         if (removed > 0)
         {
@@ -718,7 +718,7 @@ public:
         {
             if constexpr (is_shared_policy<ConcurrencyPolicy>::value)
             {
-                typename ConcurrencyPolicy::SharedGuard lock(getLockForConst());
+                auto lock = this->ConcurrencyPolicy::lock_shared();
                 mStats.increment_lookups();
                 auto it = mRegistry.find(key);
                 if (it == mRegistry.end())
@@ -730,7 +730,7 @@ public:
             }
             else
             {
-                typename ConcurrencyPolicy::LockGuard lock(getLockForConst());
+                auto lock = const_cast<Factory*>(this)->ConcurrencyPolicy::lock();
                 mStats.increment_lookups();
                 auto it = mRegistry.find(key);
                 if (it == mRegistry.end())
@@ -773,13 +773,13 @@ public:
     {
         if constexpr (is_shared_policy<ConcurrencyPolicy>::value)
         {
-            typename ConcurrencyPolicy::SharedGuard lock(getLockForConst());
+            auto lock = this->ConcurrencyPolicy::lock_shared();
             mStats.increment_lookups();
             return mRegistry.count(key) > 0;
         }
         else
         {
-            typename ConcurrencyPolicy::LockGuard lock(getLockForConst());
+            auto lock = const_cast<Factory*>(this)->ConcurrencyPolicy::lock();
             mStats.increment_lookups();
             return mRegistry.count(key) > 0;
         }
@@ -789,12 +789,12 @@ public:
     {
         if constexpr (is_shared_policy<ConcurrencyPolicy>::value)
         {
-            typename ConcurrencyPolicy::SharedGuard lock(getLockForConst());
+            auto lock = this->ConcurrencyPolicy::lock_shared();
             return mRegistry.size();
         }
         else
         {
-            typename ConcurrencyPolicy::LockGuard lock(getLockForConst());
+            auto lock = const_cast<Factory*>(this)->ConcurrencyPolicy::lock();
             return mRegistry.size();
         }
     }
@@ -809,7 +809,7 @@ public:
         std::vector<K> keys;
         if constexpr (is_shared_policy<ConcurrencyPolicy>::value)
         {
-            typename ConcurrencyPolicy::SharedGuard lock(getLockForConst());
+            auto lock = this->ConcurrencyPolicy::lock_shared();
             keys.reserve(mRegistry.size());
             for (const auto& [key, creator] : mRegistry)
             {
@@ -818,7 +818,7 @@ public:
         }
         else
         {
-            typename ConcurrencyPolicy::LockGuard lock(getLockForConst());
+            auto lock = const_cast<Factory*>(this)->ConcurrencyPolicy::lock();
             keys.reserve(mRegistry.size());
             for (const auto& [key, creator] : mRegistry)
             {
@@ -830,13 +830,13 @@ public:
 
     void resetStats() noexcept
     {
-        typename ConcurrencyPolicy::LockGuard lock(this->getLock());
+        auto lock = this->ConcurrencyPolicy::lock();
         mStats.reset();
     }
 
     void clear() noexcept
     {
-        typename ConcurrencyPolicy::LockGuard lock(this->getLock());
+        auto lock = this->ConcurrencyPolicy::lock();
         mRegistry.clear();
         mStats.reset();
     }
@@ -845,12 +845,12 @@ public:
     {
         if constexpr (is_shared_policy<ConcurrencyPolicy>::value)
         {
-            typename ConcurrencyPolicy::SharedGuard lock(getLockForConst());
+            auto lock = this->ConcurrencyPolicy::lock_shared();
             return mStats.snapshot();
         }
         else
         {
-            typename ConcurrencyPolicy::LockGuard lock(getLockForConst());
+            auto lock = const_cast<Factory*>(this)->ConcurrencyPolicy::lock();
             return mStats.snapshot();
         }
     }

@@ -1,0 +1,61 @@
+==========================================================
+SERVICE LOCATOR HEADER SELF-CONTAINMENT TEST
+==========================================================
+
+
+==========================================================
+SERVICE LOCATOR UNIT TESTS
+==========================================================
+
+
+=== Basic Registration & Resolution ===
+[21:04:42] CPU: 3686 MHz Running: instance_registration_and_resolution ... PASSED (0.01 ms)
+[21:04:42] CPU: 3686 MHz Running: named_instances ... PASSED (0.00 ms)
+
+=== Registration Policies ===
+[21:04:42] CPU: 3686 MHz Running: prevent_overwrite_policy ... PASSED (0.00 ms)
+[21:04:42] CPU: 3686 MHz Running: allow_overwrite_policy ... PASSED (0.01 ms)
+
+=== Ownership & Factories ===
+[21:04:42] CPU: 3686 MHz Running: shared_registration ... PASSED (0.00 ms)
+[21:04:42] CPU: 3686 MHz Running: shared_null_rejected ... PASSED (0.00 ms)
+[21:04:42] CPU: 3686 MHz Running: named_shared_registration_and_resolve_shared_expected ... PASSED (0.00 ms)
+[21:04:42] CPU: 3686 MHz Running: singleton_factory_resolution ... PASSED (0.01 ms)
+[21:04:42] CPU: 3686 MHz Running: named_singleton_factory_caches ... PASSED (0.00 ms)
+[21:04:42] CPU: 3686 MHz Running: named_singleton_factory_error_propagation ... PASSED (0.02 ms)
+[21:04:42] CPU: 3686 MHz Running: transient_factory_creation ... PASSED (0.00 ms)
+[21:04:42] CPU: 3686 MHz Running: named_transient_factory_creation ... PASSED (0.00 ms)
+
+=== Scoping & Thread Safety ===
+[21:04:42] CPU: 3686 MHz Running: scoped_overrides ... PASSED (0.00 ms)
+[21:04:43] CPU: 3686 MHz Running: named_scoped_overrides ... PASSED (0.00 ms)
+[21:04:43] CPU: 3686 MHz Running: registration_raii_unregisters ... PASSED (0.00 ms)
+[21:04:43] CPU: 3686 MHz Running: thread_safe_smoke ... PASSED (0.85 ms)
+[21:04:43] CPU: 3686 MHz Running: concurrent_singleton_exactly_once ... PASSED (14.05 ms)
+[21:04:43] CPU: 3686 MHz Running: cross_thread_singleton_factories_are_serialized ... PASSED (47.18 ms)
+[21:04:43] CPU: 3686 MHz Running: singleton_reregister_does_not_poison ... PASSED (35.25 ms)
+[21:04:43] CPU: 3686 MHz Running: circular_dependency_detected ... PASSED (0.01 ms)
+
+=== New API: isRegistered ===
+[21:04:43] CPU: 3686 MHz Running: is_registered_query ... PASSED (0.01 ms)
+[21:04:43] CPU: 3686 MHz Running: is_registered_checks_parent ... PASSED (0.00 ms)
+
+=== New API: resolveSharedExpected ===
+[21:04:43] CPU: 3686 MHz Running: resolve_shared_expected_from_shared ... PASSED (0.00 ms)
+[21:04:43] CPU: 3686 MHz Running: resolve_shared_expected_from_singleton_factory ... PASSED (0.00 ms)
+[21:04:43] CPU: 3686 MHz Running: resolve_shared_expected_fails_for_instance ... PASSED (0.00 ms)
+[21:04:43] CPU: 3686 MHz Running: resolve_shared_expected_fails_for_transient ... PASSED (0.00 ms)
+
+=== Error Codes & Statistics ===
+[21:04:43] CPU: 3686 MHz Running: transient_resolve_returns_correct_error_code ... PASSED (0.00 ms)
+[21:04:43] CPU: 3686 MHz Running: register_factory_invalid_lifetime_increments_stats ... PASSED (0.00 ms)
+[21:04:43] CPU: 3686 MHz Running: clear_increments_unregistration_stats ... PASSED (0.00 ms)
+
+=== RAII Registration Helpers ===
+[21:04:43] CPU: 3686 MHz Running: registration_raii_register_shared_expected ... PASSED (0.00 ms)
+[21:04:43] CPU: 3686 MHz Running: registration_raii_register_factory_expected ... PASSED (0.00 ms)
+
+=== Test Summary ===
+Passed: 31
+Failed: 0
+Total:  31

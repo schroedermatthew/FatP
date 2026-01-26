@@ -1186,7 +1186,7 @@ public:
             , feature_name_(feature_name)
             , mValid(false)
         {
-            typename SyncPolicy::LockGuard guard(mManager->mSync.getLock());
+            auto guard = mManager->mSync.lock();
             auto node_res = mManager->get_node(feature_name);
             if (node_res)
             {
@@ -1209,7 +1209,7 @@ public:
             if (mValid)
             {
                 {
-                    typename SyncPolicy::LockGuard guard(mManager->mSync.getLock());
+                    auto guard = mManager->mSync.lock();
                     auto node = mManager->get_node(feature_name_);
                     if (node)
                     {
@@ -1356,7 +1356,7 @@ public:
     // Add a feature with an optional validation check
     [[nodiscard]] Expected<void, std::string> add_feature(const std::string& name, FeatureCheck check = nullptr)
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         if (mFeatures.count(name))
         {
             return unexpected("Feature already exists: " + name);
@@ -1373,7 +1373,7 @@ public:
     // This allows the feature to be fully serialized and deserialized
     [[nodiscard]] Expected<void, std::string> add_feature(const std::string& name, const std::string& check_key)
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         if (mFeatures.count(name))
         {
             return unexpected("Feature already exists: " + name);
@@ -1398,7 +1398,7 @@ public:
     [[nodiscard]] Expected<void, std::string>
     add_relationship(const std::string& from, FeatureRelationship type, const std::string& to)
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         return add_relationship_unlocked(from, type, to);
     }
 
@@ -1409,7 +1409,7 @@ public:
               const std::vector<std::string>& feature_names,
               StateComputer<StateEnum> computer = FeatureGroupStatePolicy<StateEnum>::compute)
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         if (mGroups.count(group_name))
         {
             return unexpected("Group already exists: " + group_name);
@@ -1432,7 +1432,7 @@ public:
                                  const std::vector<std::string>& feature_names,
                                  StateComputer<StateEnum> computer = FeatureGroupStatePolicy<StateEnum>::compute)
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
 
         if (mGroups.count(group_name))
         {
@@ -1469,14 +1469,14 @@ public:
     template <typename StateEnum = FeatureGroupState>
     [[nodiscard]] Expected<StateEnum, std::string> get_group_state(const std::string& group_name) const
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         return compute_group_state_impl<StateEnum>(group_name);
     }
 
     // Get features in a group
     [[nodiscard]] Expected<std::set<std::string>, std::string> get_group_features(const std::string& group_name) const
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         auto git = mGroups.find(group_name);
         if (git == mGroups.end())
         {
@@ -1511,7 +1511,7 @@ public:
         std::vector<BatchObserverEntry> batch_observers_snapshot;
 
         { // Scope for LockGuard - Lock held only during state modification
-            typename SyncPolicy::LockGuard guard(mSync.getLock());
+            auto guard = mSync.lock();
 
             // Validate all features exist first
             for (const auto& name : names)
@@ -1607,7 +1607,7 @@ public:
         }
 
         { // Scope for LockGuard - Lock held only during state modification
-            typename SyncPolicy::LockGuard guard(mSync.getLock());
+            auto guard = mSync.lock();
 
             // Validate all features exist first
             for (const auto& name : unique_names)
@@ -1724,7 +1724,7 @@ public:
     // Check if feature is enabled
     bool is_enabled(const std::string& name) const
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         auto node_res = get_node(name);
         if (!node_res)
         {
@@ -1736,7 +1736,7 @@ public:
     // Validate entire feature set
     [[nodiscard]] Expected<void, std::string> validate()
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         return validate_unlocked();
     }
 
@@ -1765,7 +1765,7 @@ public:
     //
     ObserverId add_observer(FeatureObserver callback, int priority = 0)
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         ObserverId id = next_observer_id_++;
         mObservers.push_back({id, priority, std::move(callback)});
         return id;
@@ -1791,7 +1791,7 @@ public:
     // Returns: ObserverId that can be used to remove the observer later
     ObserverId add_batch_observer(BatchObserver callback, int priority = 0)
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         ObserverId id = next_observer_id_++;
         batch_observers_.push_back({id, priority, std::move(callback)});
         return id;
@@ -1805,7 +1805,7 @@ public:
     // Works for both regular and batch observers.
     bool remove_observer(ObserverId id)
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
 
         // Check regular observers
         auto it = std::find_if(mObservers.begin(), mObservers.end(), [id](const ObserverEntry& entry) {
@@ -1834,7 +1834,7 @@ public:
     // Remove all observers
     void clear_observers()
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         mObservers.clear();
         batch_observers_.clear();
     }
@@ -1842,7 +1842,7 @@ public:
     // Get all enabled features
     std::vector<std::string> get_enabled() const
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         std::vector<std::string> enabled;
         for (const auto& [name, node] : mFeatures)
         {
@@ -1857,7 +1857,7 @@ public:
     // Get all feature names
     std::vector<std::string> get_all_features() const
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         std::vector<std::string> all_features;
         for (const auto& [name, _] : mFeatures)
         {
@@ -1869,7 +1869,7 @@ public:
     // Get all group names
     std::vector<std::string> get_all_groups() const
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         std::vector<std::string> all_groups;
         for (const auto& [name, _] : mGroups)
         {
@@ -1881,7 +1881,7 @@ public:
     // Serialize to JSON
     std::string to_json() const
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         JsonObject root;
         JsonObject features_json;
         for (const auto& [name, node] : mFeatures)
@@ -2026,7 +2026,7 @@ public:
     // Export to GraphViz DOT format
     std::string to_dot() const
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         std::ostringstream ss;
         ss << "digraph FeatureGraph {\n";
         ss << "    rankdir=LR;\n";
@@ -2136,7 +2136,7 @@ public:
     // Clear all features, groups, and observers
     void clear()
     {
-        typename SyncPolicy::LockGuard guard(mSync.getLock());
+        auto guard = mSync.lock();
         mFeatures.clear();
         mGroups.clear();
         mObservers.clear();

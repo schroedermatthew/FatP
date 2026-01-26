@@ -281,7 +281,7 @@ public:
     {
 #if FATP_USE_TRANSPARENT_LOOKUP
         {
-            typename SyncPolicy::ReadLock read_lock(sync_policy_.getLock());
+            auto read_lock = sync_policy_.lock_shared();
             auto it = m_strings.find(str);
             if (it != m_strings.end())
             {
@@ -291,7 +291,7 @@ public:
             }
         }
 
-        typename SyncPolicy::WriteLock write_lock(sync_policy_.getLock());
+        auto write_lock = sync_policy_.lock();
 
         auto it = m_strings.find(str);
         if (it != m_strings.end())
@@ -306,7 +306,7 @@ public:
         std::string temp(str);
 
         {
-            typename SyncPolicy::ReadLock read_lock(sync_policy_.getLock());
+            auto read_lock = sync_policy_.lock_shared();
             auto it = m_strings.find(temp);
             if (it != m_strings.end())
             {
@@ -316,7 +316,7 @@ public:
             }
         }
 
-        typename SyncPolicy::WriteLock write_lock(sync_policy_.getLock());
+        auto write_lock = sync_policy_.lock();
 
         auto it = m_strings.find(temp);
         if (it != m_strings.end())
@@ -370,7 +370,7 @@ public:
      */
     bool contains(std::string_view str) const noexcept
     {
-        typename SyncPolicy::ReadLock lock(sync_policy_.getLock());
+        auto lock = sync_policy_.lock_shared();
 #if FATP_USE_TRANSPARENT_LOOKUP
         return m_strings.find(str) != m_strings.end();
 #else
@@ -385,7 +385,7 @@ public:
      */
     const char* find(std::string_view str) const noexcept
     {
-        typename SyncPolicy::ReadLock lock(sync_policy_.getLock());
+        auto lock = sync_policy_.lock_shared();
 #if FATP_USE_TRANSPARENT_LOOKUP
         auto it = m_strings.find(str);
 #else
@@ -399,7 +399,7 @@ public:
      */
     size_t size() const noexcept
     {
-        typename SyncPolicy::ReadLock lock(sync_policy_.getLock());
+        auto lock = sync_policy_.lock_shared();
         return m_strings.size();
     }
 
@@ -408,7 +408,7 @@ public:
      */
     bool empty() const noexcept
     {
-        typename SyncPolicy::ReadLock lock(sync_policy_.getLock());
+        auto lock = sync_policy_.lock_shared();
         return m_strings.empty();
     }
 
@@ -431,7 +431,7 @@ public:
      */
     void reserve(size_t n)
     {
-        typename SyncPolicy::WriteLock lock(sync_policy_.getLock());
+        auto lock = sync_policy_.lock();
         m_strings.reserve(n);
     }
 
@@ -442,7 +442,7 @@ public:
      */
     void clear()
     {
-        typename SyncPolicy::WriteLock lock(sync_policy_.getLock());
+        auto lock = sync_policy_.lock();
         m_strings.clear();
         detail::store_stat(m_stats.total_interns, 0);
         detail::store_stat(m_stats.content_bytes, 0);
@@ -458,7 +458,7 @@ public:
      */
     StringPoolStats stats() const noexcept
     {
-        typename SyncPolicy::ReadLock lock(sync_policy_.getLock());
+        auto lock = sync_policy_.lock_shared();
 
         StringPoolStats result;
         // Query container directly for exact count under lock
@@ -484,7 +484,7 @@ public:
      */
     void reset_stats()
     {
-        typename SyncPolicy::WriteLock lock(sync_policy_.getLock());
+        auto lock = sync_policy_.lock();
         detail::store_stat(m_stats.total_interns, m_strings.size());
         // content_bytes is already accurate from incremental updates in intern()
         detail::store_stat(m_stats.memory_saved, 0);

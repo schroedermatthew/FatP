@@ -16,6 +16,7 @@
   <Project Path="benchmark_LockFreeQueue/benchmark_LockFreeQueue.vcxproj" Id="56202cc5-83a0-4f83-ad9d-17b9a3cdb59a" />
   <Project Path="benchmark_ObjectPool/benchmark_ObjectPool.vcxproj" Id="708fa9d7-9475-45cb-b009-d0412c7ea34b" />
   <Project Path="benchmark_PolicyIterator/benchmark_PolicyIterator.vcxproj" Id="f3b1a77b-17fd-466c-96a2-b0a95a70bd44" />
+  <Project Path="benchmark_ServiceLocator/benchmark_ServiceLocator.vcxproj" Id="37a3fed1-f3cd-4cb8-a61d-96028dcde3fc" />
   <Project Path="benchmark_SlotMap/benchmark_SlotMap.vcxproj" Id="1ede3fe8-1584-43f5-81f7-2576e3932445" />
   <Project Path="benchmark_SmallVector/benchmark_SmallVector.vcxproj" Id="6f0e9afa-2538-4e80-b411-dcbb85782fb6" />
   <Project Path="benchmark_SparseSet/benchmark_SparseSet.vcxproj" Id="e62bd217-db73-44ba-823b-2325c59836dc" />

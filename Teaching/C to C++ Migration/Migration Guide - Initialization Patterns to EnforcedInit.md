@@ -8,7 +8,7 @@ fatp_version: "1.0"
 cxx_standard: "C++17"
 migration_complexity: "Low"
 breaking_changes: false
-last_verified: "2025-01-08"
+last_verified: "2026-01-26"
 ---
 
 # Migration Guide - Initialization Patterns to EnforcedInit
@@ -656,17 +656,13 @@ public:
 struct TestFixture {
     EnforcedInit<Database> db;
     EnforcedInit<MockLogger> logger;
-    EnforcedInit<ServiceLocator> services;
-    
+
     void setup() {
         db = Database::create_test_instance();
         logger = MockLogger{};
-        services = ServiceLocator{};
-        services.value().register_service<IDatabase>(db.value());
     }
-    
+
     void teardown() {
-        services.reset();
         logger.reset();
         db.reset();
     }

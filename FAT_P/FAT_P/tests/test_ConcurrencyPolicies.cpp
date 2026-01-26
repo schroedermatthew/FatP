@@ -57,12 +57,12 @@ struct ProtectedValue
 
     typename Policy::LockGuard lock()
     {
-        return typename Policy::LockGuard(policy.getLock());
+        return policy.lock();
     }
 
     typename Policy::SharedGuard shared_lock()
     {
-        return typename Policy::SharedGuard(policy.getLock());
+        return policy.lock_shared();
     }
 };
 
@@ -161,7 +161,8 @@ FATP_TEST_CASE(SingleThreadedPolicy)
 
     {
         auto& static_lock = SingleThreadedPolicy::getStaticLock();
-        SingleThreadedPolicy::LockGuard guard(static_lock);
+        (void)static_lock;
+        SingleThreadedPolicy::LockGuard guard{};
         FATP_ASSERT_TRUE(true, "Static lock should work");
     }
 
