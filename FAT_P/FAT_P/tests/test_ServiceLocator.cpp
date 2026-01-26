@@ -1120,6 +1120,124 @@ FATP_TEST_CASE(service_error_info_stream_output)
     return true;
 }
 
+/// Test makeChild() returns a functional child locator
+FATP_TEST_CASE(make_child_creates_functional_child)
+{
+    DefaultServiceLocator parent;
+
+    CounterService parentSvc;
+    parentSvc.mValue = 100;
+
+    FATP_ASSERT_TRUE(parent.registerInstance<CounterService>(parentSvc).has_value(),
+                     "parent registration should succeed");
+
+    // makeChild() returns ServiceLocator directly (not wrapped in Scope)
+    auto child = parent.makeChild();
+
+    // Child should inherit from parent
+    CounterService* inherited = child.tryResolve<CounterService>();
+    FATP_ASSERT_NOT_NULLPTR(inherited, "child should resolve service from parent");
+    FATP_ASSERT_EQ(inherited->mValue, 100, "inherited service should have parent's value");
+
+    // Child can override
+    CounterService childSvc;
+    childSvc.mValue = 200;
+    FATP_ASSERT_TRUE(child.registerInstance<CounterService>(childSvc).has_value(),
+                     "child override registration should succeed");
+
+    FATP_ASSERT_EQ(child.resolve<CounterService>().mValue, 200, "child resolves its own override");
+    FATP_ASSERT_EQ(parent.resolve<CounterService>().mValue, 100, "parent still resolves original");
+
+    return true;
+}
+
+/// Test tryResolveShared returns shared_ptr for shared registrations
+FATP_TEST_CASE(try_resolve_shared_from_shared_registration)
+{
+    DefaultServiceLocator locator;
+
+    auto shared = std::make_shared<CounterService>();
+    shared->mValue = 42;
+
+    FATP_ASSERT_TRUE(locator.registerShared<CounterService>(shared).has_value(),
+                     "registerShared should succeed");
+
+    std::shared_ptr<CounterService> result = locator.tryResolveShared<CounterService>();
+    FATP_ASSERT_TRUE(result != nullptr, "tryResolveShared should return non-null for shared registration");
+    FATP_ASSERT_EQ(result.get(), shared.get(), "should return same pointer");
+    FATP_ASSERT_EQ(result->mValue, 42, "value should match");
+
+    return true;
+}
+
+/// Test tryResolveShared returns empty for instance registration
+FATP_TEST_CASE(try_resolve_shared_empty_for_instance)
+{
+    DefaultServiceLocator locator;
+
+    CounterService svc;
+    svc.mValue = 10;
+
+    FATP_ASSERT_TRUE(locator.registerInstance<CounterService>(svc).has_value(),
+                     "registerInstance should succeed");
+
+    std::shared_ptr<CounterService> result = locator.tryResolveShared<CounterService>();
+    FATP_ASSERT_TRUE(result == nullptr, "tryResolveShared should return empty for instance registration");
+
+    return true;
+}
+
+/// Test tryResolveShared returns empty for missing service
+FATP_TEST_CASE(try_resolve_shared_empty_for_missing)
+{
+    DefaultServiceLocator locator;
+
+    std::shared_ptr<CounterService> result = locator.tryResolveShared<CounterService>();
+    FATP_ASSERT_TRUE(result == nullptr, "tryResolveShared should return empty for missing service");
+
+    return true;
+}
+
+/// Test tryResolveShared works with singleton factory
+FATP_TEST_CASE(try_resolve_shared_from_singleton_factory)
+{
+    DefaultServiceLocator locator;
+
+    auto reg = locator.registerFactory<Widget>(
+        []() -> std::unique_ptr<Widget> {
+            return std::make_unique<Widget>(99);
+        },
+        ServiceLifetime::Singleton);
+    FATP_ASSERT_TRUE(reg.has_value(), "singleton factory registration should succeed");
+
+    std::shared_ptr<Widget> result1 = locator.tryResolveShared<Widget>();
+    FATP_ASSERT_TRUE(result1 != nullptr, "tryResolveShared should return non-null for singleton factory");
+    FATP_ASSERT_EQ(result1->mId, 99, "value should match");
+
+    std::shared_ptr<Widget> result2 = locator.tryResolveShared<Widget>();
+    FATP_ASSERT_EQ(result1.get(), result2.get(), "should return same singleton instance");
+
+    return true;
+}
+
+/// Test tryResolveShared returns empty for transient factory
+FATP_TEST_CASE(try_resolve_shared_empty_for_transient)
+{
+    DefaultServiceLocator locator;
+
+    auto reg = locator.registerFactory<Widget>(
+        []() -> std::unique_ptr<Widget> {
+            return std::make_unique<Widget>(1);
+        },
+        ServiceLifetime::Transient);
+    FATP_ASSERT_TRUE(reg.has_value(), "transient factory registration should succeed");
+
+    std::shared_ptr<Widget> result = locator.tryResolveShared<Widget>();
+    FATP_ASSERT_TRUE(result == nullptr, "tryResolveShared should return empty for transient factory");
+
+    return true;
+}
+
 } // namespace fat_p::testing::service_locator
 
 namespace fat_p::testing
@@ -1170,6 +1288,16 @@ bool test_ServiceLocator()
     FATP_RUN_TEST_NS(runner, service_locator, resolve_shared_expected_from_singleton_factory);
     FATP_RUN_TEST_NS(runner, service_locator, resolve_shared_expected_fails_for_instance);
     FATP_RUN_TEST_NS(runner, service_locator, resolve_shared_expected_fails_for_transient);
+
+    out << "\n" << colors::bold() << "=== New API: tryResolveShared ===" << colors::reset() << std::endl;
+    FATP_RUN_TEST_NS(runner, service_locator, try_resolve_shared_from_shared_registration);
+    FATP_RUN_TEST_NS(runner, service_locator, try_resolve_shared_empty_for_instance);
+    FATP_RUN_TEST_NS(runner, service_locator, try_resolve_shared_empty_for_missing);
+    FATP_RUN_TEST_NS(runner, service_locator, try_resolve_shared_from_singleton_factory);
+    FATP_RUN_TEST_NS(runner, service_locator, try_resolve_shared_empty_for_transient);
+
+    out << "\n" << colors::bold() << "=== New API: makeChild ===" << colors::reset() << std::endl;
+    FATP_RUN_TEST_NS(runner, service_locator, make_child_creates_functional_child);
 
     out << "\n" << colors::bold() << "=== Error Codes & Statistics ===" << colors::reset() << std::endl;
     FATP_RUN_TEST_NS(runner, service_locator, transient_resolve_returns_correct_error_code);

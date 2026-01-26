@@ -69,6 +69,45 @@ Notes:
 
 ---
 
+## Performance characteristics
+
+### Unnamed vs named resolution
+
+Resolution performance differs significantly between unnamed (type-only) and named services:
+
+| Resolution type | Typical latency | Notes |
+|-----------------|-----------------|-------|
+| Unnamed (`tryResolve<T>()`) | ~3 ns | Hash lookup by type pointer only |
+| Unnamed with MRU cache hit | ~1.5 ns | Thread-local cache, no lock |
+| Named (`tryResolve<T>("name")`) | ~20-25 ns | String hashing + composite key |
+
+The ~7-9x gap between unnamed and named resolution is due to string hashing and `ServiceKey` construction overhead.
+
+**Guidance:**
+
+- Use **unnamed services** for hot-path resolution (per-request, inner loops).
+- Use **named services** for configuration-time lookups or when you need multiple instances of the same type.
+- If you must resolve a named service frequently, resolve once at startup and cache the pointer/reference.
+
+```cpp
+// Hot path: resolve once, use many times
+ILogger& logger = locator.resolve<ILogger>("file");  // ~25ns once
+for (auto& item : items) {
+    logger.log(item);  // No resolution overhead
+}
+```
+
+### MRU cache effectiveness
+
+The optional MRU(2) cache provides 1.5-1.7x speedup for repeated unnamed resolves:
+
+- **Repeat same type (AAAA...):** ~1.65x faster
+- **Alternate two types (ABAB...):** ~1.58x faster
+
+The cache is invalidated on any registry mutation (register/unregister/clear).
+
+---
+
 ## Basic registration
 
 ### Register a non-owning instance
@@ -115,7 +154,7 @@ ILogger* p = locator.tryResolve<ILogger>("primary");
 
 ### `tryResolve<T>`
 
-Returns a pointer or `nullptr`.
+Returns a pointer or `nullptr`. This is the fastest resolution method.
 
 ```cpp
 ILogger* logger = locator.tryResolve<ILogger>();
@@ -123,6 +162,19 @@ if (logger == nullptr) {
     // missing
 }
 ```
+
+### `tryResolveShared<T>`
+
+Returns a `shared_ptr` or empty `shared_ptr` on failure. Use this when you need lifetime safety without explicit error handling.
+
+```cpp
+std::shared_ptr<ILogger> logger = locator.tryResolveShared<ILogger>();
+if (!logger) {
+    // missing or not available as shared_ptr
+}
+```
+
+Note: Returns empty for instance-registered services (no shared ownership) and transient factories.
 
 ### `resolveExpected<T>`
 

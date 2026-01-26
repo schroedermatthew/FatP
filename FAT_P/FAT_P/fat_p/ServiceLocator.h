@@ -10,6 +10,7 @@ FATP_META:
   layer: Domain
   summary: "Policy-based service locator with scoped overrides."
   api_stability: in_work
+  api_stability_notes: "Core API is stable. 'in_work' reflects: (1) TypeKeyPolicy DSO stability not yet addressed, (2) potential future cache policy extensions for named services."
   related:
     docs:
       - Documentation/ServiceLocator/Overview - ServiceLocator.md
@@ -65,14 +66,23 @@ FATP_META:
  *       take the shared mutex. Do not call register/unregister/clear concurrently with resolve/tryResolve
  *       on other threads. Treat registration as a startup/shutdown operation or quiesce threads first.
  *     - Pointer/reference results become invalid after unregister/overwrite; use resolveSharedExpected()
- *       when you need lifetime via shared_ptr.
+ *       or tryResolveShared() when you need lifetime via shared_ptr.
  *     - global() is per-instantiation: use ThreadSafeServiceLocator::global() if you need a globally
  *       accessible locator that supports concurrent resolves.
+ *
+ *   Logical Constness:
+ *     Methods marked `const` (tryResolve, resolveExpected, etc.) do not modify the registry contents
+ *     (the set of registered services). However, they may mutate internal coordination state:
+ *     - Statistics counters (if enabled)
+ *     - Singleton factory creation state (one-time initialization)
+ *     - MRU cache entries (if enabled)
+ *     This is standard "logical constness" for thread-safe containers.
  *
  *   @note When using SharedMutexPolicy (thread-safe locator), the StatisticsPolicy
  *         MUST provide thread-safe increment operations. Use AtomicServiceLocatorStatisticsPolicy
  *         or implement a custom policy with atomic counters. NoServiceLocatorStatisticsPolicy
- *         is always safe (no-op).
+ *         is always safe (no-op). If you provide a custom StatisticsPolicy and use SharedMutexPolicy,
+ *         your policy must be thread-safe; the kThreadSafe trait is the enforcement mechanism.
  *
  * Singleton Factory Semantics:
  *   Factory execution is guaranteed exactly once per registration, even under
@@ -599,6 +609,8 @@ private:
         {
             std::unique_lock<std::mutex> lock(mMutex);
 
+            // Debug: fail-fast via FATP_ENFORCE (terminates on violation).
+            // Release: FATP_ENFORCE is no-op; graceful early return provides safety.
             FATP_ENFORCE(mDepth > 0, "SingletonFactoryGate exit without enter");
             FATP_ENFORCE(mOwnerThread == std::this_thread::get_id(),
                          "SingletonFactoryGate exit from non-owner thread");
@@ -1022,7 +1034,7 @@ public:
         // Handle factory creation outside lock
         if (needsFactoryCreation)
         {
-            auto cached = resolveOrCreateSingleton<T>(typeId, name, nullptr);
+            auto cached = resolveOrCreateSingleton<T>(typeId, name);
             if (!cached.has_value())
             {
                 mStats.incrementResolutionFailures();
@@ -1166,7 +1178,7 @@ public:
         // Handle factory creation outside lock
         if (needsFactoryCreation)
         {
-            auto cached = resolveOrCreateSingleton<T>(typeId, name, nullptr);
+            auto cached = resolveOrCreateSingleton<T>(typeId, name);
             if (!cached.has_value())
             {
                 mStats.incrementResolutionFailures();
@@ -1261,7 +1273,7 @@ public:
 
         if (needsSingletonCreation)
         {
-            auto cached = resolveOrCreateSingleton<T>(typeId, name, nullptr);
+            auto cached = resolveOrCreateSingleton<T>(typeId, name);
             if (!cached.has_value())
             {
                 mStats.incrementCreationFailures();
@@ -1402,7 +1414,7 @@ public:
 
         if (needsFactoryCreation)
         {
-            auto cached = resolveOrCreateSingleton<T>(typeId, name, nullptr);
+            auto cached = resolveOrCreateSingleton<T>(typeId, name);
             if (!cached.has_value())
             {
                 mStats.incrementResolutionFailures();
@@ -1420,6 +1432,24 @@ public:
         mStats.incrementResolutionFailures();
         return unexpected{
             ServiceErrorInfo{ServiceError::ServiceNotFound, "No matching service registration", std::string(name)}};
+    }
+
+    /// Resolve a service as shared_ptr, returning empty shared_ptr on failure.
+    ///
+    /// This is a convenience wrapper around resolveSharedExpected that returns
+    /// an empty shared_ptr instead of an error. Use this when you want lifetime
+    /// safety without explicit error handling.
+    ///
+    /// @note For hot-path resolution where lifetime management is not needed,
+    ///       prefer tryResolve<T>() which returns a raw pointer with lower overhead.
+    ///
+    /// @return shared_ptr to the service, or empty shared_ptr if not found or
+    ///         if the service is instance-registered (no shared ownership) or transient.
+    template <typename T>
+    [[nodiscard]] std::shared_ptr<T> tryResolveShared(std::string_view name = {}) const
+    {
+        auto result = resolveSharedExpected<T>(name);
+        return result.has_value() ? result.value() : std::shared_ptr<T>{};
     }
 
 private:
@@ -1651,7 +1681,7 @@ private:
 
     template <typename T>
     [[nodiscard]] Expected<std::shared_ptr<void>, ServiceErrorInfo>
-    resolveOrCreateSingleton(const void* typeId, std::string_view name, ServiceEntry* /*unused*/) const
+    resolveOrCreateSingleton(const void* typeId, std::string_view name) const
     {
         // Get SingletonState under write lock
         std::shared_ptr<typename ServiceEntry::SingletonState> state;
