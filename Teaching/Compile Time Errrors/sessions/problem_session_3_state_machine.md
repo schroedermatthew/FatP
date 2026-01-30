@@ -3,6 +3,14 @@
 
 ---
 
+## Threading Model (Read This First)
+
+This session assumes **single-thread confinement**: all public methods and all socket callbacks execute on the same thread (e.g., an IO event loop). There are no data races; the bugs are about ordering, missing transitions, and forgotten cleanup.
+
+If your team uses multi-threaded access to connection managers, the code shown here has additional problems (data races, UB) that require synchronization. `StateMachine` does not provide thread safety—it makes transition logic explicit, not atomic.
+
+---
+
 ## The Bug
 
 This code shipped. It passed code review. It has a bug.
@@ -30,6 +38,13 @@ public:
     }
     
     void disconnect() {
+        if (state_ == ConnectionState::Connecting) {
+            // BUG: closes socket but doesn't cancel the async operation
+            // or handle the callback that will still arrive
+            socket_.close();
+            state_ = ConnectionState::Idle;
+            return;
+        }
         if (state_ == ConnectionState::Connected) {
             state_ = ConnectionState::Disconnecting;
             socket_.async_close([this]() {
@@ -52,30 +67,64 @@ public:
     void retry() {
         if (state_ == ConnectionState::Failed) {
             state_ = ConnectionState::Idle;
-            // What if someone calls connect() during this transition?
         }
     }
 };
 ```
 
-A customer reports: "Sometimes `send()` works, sometimes it silently fails." After weeks of debugging, you find that `disconnect()` was called during `Connecting`, leaving the state machine in an inconsistent state.
+A customer reports: "Sometimes `send()` works, sometimes it silently fails. We also occasionally see 'connected' right before a failure."
 
 ---
 
-### Question 1: How many bugs can you find? Would the compiler warn?
+### How This Bug Manifests (Interleaving Trace)
+
+Here's the exact sequence that produces the symptom:
+
+| Step | Event | State Before | Action | State After |
+|------|-------|--------------|--------|-------------|
+| 1 | `connect("host")` | Idle | Starts async_connect | Connecting |
+| 2 | `disconnect()` | Connecting | Closes socket, sets Idle | Idle |
+| 3 | Connect callback fires (success=true) | Idle | Sets Connected, calls notify_connected() | Connected |
+| 4 | `send("data")` | Connected | Calls socket_.send() on closed socket | Connected |
+
+**Result:** The state says `Connected`, but the socket is closed. `send()` either silently fails or throws deep in the socket layer. The customer sees "connected" notification followed by send failures.
+
+**The "impossible" part:** The system is in `Connected` state while the underlying resource (socket) is not connected. State and reality have diverged.
+
+**Resource invariants that should hold (but don't):**
+
+| State | Socket | Outstanding Ops | Can Send? |
+|-------|--------|-----------------|-----------|
+| Idle | Closed | None | No |
+| Connecting | Opening | connect pending | No |
+| Connected | Open | None | Yes |
+| Disconnecting | Closing | close pending | No |
+| Failed | Closed | None | No |
+
+Step 3 in the trace violates this: we're in `Connected` but the socket is closed. The enum doesn't enforce invariants—it just names states.
+
+---
+
+### Question 1: What's wrong with this code?
+
+**[Facilitator: Pause here. Let participants find issues before revealing the answer.]**
 
 **Answer:**
 
-There are at least **six bugs** in this code:
+Separate the issues into three categories:
 
-1. **Missing transition: disconnect during Connecting**
+#### A. Concrete Bugs in This Code
+
+1. **Late callback corrupts state**
    ```cpp
    void disconnect() {
-       if (state_ == ConnectionState::Connected) {  // Only handles Connected!
+       if (state_ == ConnectionState::Connecting) {
+           socket_.close();
+           state_ = ConnectionState::Idle;  // But the callback will still fire!
    ```
-   If `disconnect()` is called while `Connecting`, nothing happens. The connection completes, but the caller thinks they disconnected.
+   The async_connect callback isn't cancelled. When it fires, it overwrites `Idle` → `Connected` on a closed socket.
 
-2. **Missing transition: on_socket_error doesn't close socket**
+2. **on_socket_error doesn't close socket**
    ```cpp
    void on_socket_error() {
        state_ = ConnectionState::Failed;
@@ -83,42 +132,44 @@ There are at least **six bugs** in this code:
    }
    ```
 
-3. **Race in retry()**
-   ```cpp
-   void retry() {
-       if (state_ == ConnectionState::Failed) {
-           state_ = ConnectionState::Idle;  // Now Idle
-           // If connect() is called here by another thread...
-       }
-   }
-   ```
-
-4. **No entry/exit actions**
-   - When entering `Failed`, should we close the socket?
-   - When exiting `Connected`, should we notify listeners?
-   - These are scattered throughout the code or forgotten entirely.
-
-5. **Invalid transition: Failed → Connecting is possible**
-   ```cpp
-   connect();  // State is now Failed
-   retry();    // State is now Idle
-   connect();  // OK, but what if retry() hasn't finished?
-   ```
-   There's no explicit check that prevents calling `connect()` from `Failed`.
-
-6. **send() silently fails**
+3. **send() silently drops data**
    ```cpp
    void send(const std::string& data) {
        if (state_ == ConnectionState::Connected) {
            socket_.send(data);
        }
-       // If not Connected, data is silently dropped!
+       // Not Connected? Data vanishes. No error, no log.
    }
    ```
+   
+   *Note: Whether this is a "bug" depends on your API contract. Valid designs include: throw, return error code, log and drop, queue for later. The problem is that the contract isn't defined or enforced—silence is the worst option because callers can't detect failure.*
 
-**The compiler warns about nothing.** All the code is type-correct. The bugs are in the *logic* of state transitions, which the type system doesn't encode.
+#### B. Design Hazards (Why This Pattern Breeds Bugs)
 
-**Key insight:** The enum defines *what states exist*, but not *which transitions are valid* or *what must happen during transitions*.
+4. **Transition rules are implicit and scattered**
+   - `connect()` checks for `Idle`
+   - `disconnect()` checks for `Connecting` or `Connected`
+   - `retry()` checks for `Failed`
+   - The complete transition graph exists only by reading all the code
+
+5. **Entry/exit actions are inconsistent**
+   - Entering `Failed` should close the socket—but `on_socket_error()` forgets
+   - Exiting `Connected` should notify listeners—sometimes it does, sometimes it doesn't
+   - There's no single place that defines "what happens when entering/exiting a state"
+
+6. **No enforcement of valid transitions**
+   - Nothing prevents future code from writing `state_ = ConnectionState::Connected` directly
+   - The enum defines what states *exist*, not which transitions are *allowed*
+
+#### C. Multi-Threading Hazards (If Not Single-Thread Confined)
+
+7. **Data races on state_**
+   - If callbacks can race with public methods, reading/writing `state_` is UB
+   - `StateMachine` doesn't fix this—you need a mutex or message queue
+
+**The compiler warns about nothing.** All the code is type-correct. The bugs are in the *logic* of state transitions and resource lifecycle, which the type system doesn't encode.
+
+**Key insight:** The enum defines *what states exist*, but not *which transitions are valid*, *what must happen during transitions*, or *how to correlate callbacks with current state*.
 
 ---
 
@@ -137,14 +188,13 @@ You'd need to test every possible state × event combination:
 | Failed | ??? | ??? | ??? | ??? | → Idle |
 
 That's 5 states × 5 events = **25 test cases** minimum, and that's before you consider:
-- Async callback timing
-- Thread interleaving
-- Callback-during-callback scenarios
+- Async callback timing (the actual bug!)
 - Resource state (socket open/closed)
+- Callback-during-callback scenarios
 
 **The testing burden grows quadratically** with states and events. And you're testing *behavior*, not *correctness*—the tests pass if the code does what it does, not what it should do.
 
-**The real problem:** We're using tests to verify what should be compile-time invariants.
+**The real problem:** We're using tests to verify what should be structural invariants.
 
 ---
 
@@ -222,22 +272,18 @@ struct Idle {
 
 struct Connecting {
     void on_entry(ConnContext& ctx) noexcept {
-        ctx.socket.async_connect(ctx.host, [](bool) {
-            // Callback handled externally
-        });
+        ctx.socket.async_connect(ctx.host);
+        // NOTE: Callback wiring shown in "Usage" section below.
+        // Late callback correlation shown in "Note on late callbacks."
     }
-    void on_exit(ConnContext& ctx) noexcept {
-        // If exiting to Failed, socket cleanup happens in Failed::on_entry
-    }
+    void on_exit(ConnContext& ctx) noexcept {}
 };
 
 struct Connected {
     void on_entry(ConnContext& ctx) noexcept {
         if (ctx.on_connected) ctx.on_connected();
     }
-    void on_exit(ConnContext& ctx) noexcept {
-        // Notify listeners we're leaving Connected
-    }
+    void on_exit(ConnContext& ctx) noexcept {}
 };
 
 struct Disconnecting {
@@ -259,6 +305,7 @@ struct Failed {
 using Transitions = std::tuple<
     std::pair<Idle, Connecting>,
     std::pair<Connecting, Connected>,
+    std::pair<Connecting, Disconnecting>,  // Allow cancel during connect
     std::pair<Connecting, Failed>,
     std::pair<Connected, Disconnecting>,
     std::pair<Connected, Failed>,
@@ -287,7 +334,6 @@ using ConnectionSM = StateMachine<
 | Forgotten exit action | Bug | Automatic—just implement on_exit |
 | Invalid state value | Possible (cast int) | Impossible (types) |
 | Transition documentation | Comments (maybe) | Explicit tuple |
-| Testing burden | 25+ tests | ~5 tests for transition logic |
 
 ---
 
@@ -295,28 +341,25 @@ using ConnectionSM = StateMachine<
 
 **Answer:**
 
-`StrictTransitionPolicy` builds a **transition matrix at compile time** and checks every transition at runtime:
+`StrictTransitionPolicy` validates every transition at runtime against the declared list:
 
 ```cpp
-// From StateMachine.h (simplified)
-static constexpr auto transition_matrix = build_transition_matrix<TransitionList>();
-
+// Behavior (conceptual — see StateMachine.h for actual implementation):
 template <typename TNextState>
 void transition() {
-    constexpr int nextIndex = get_state_index<TNextState>();
-    const int currentIndex = mCurrentStateIndex;
+    // Compile-time: is TNextState even a valid state type?
+    static_assert(contains_state<TNextState>, "Target state type not found");
     
-    // Compile-time: is TNextState even a valid state?
-    static_assert(nextIndex != -1, "Target state type not found in StateMachine");
-    
-    // Runtime: is this transition allowed?
-    if (!transition_matrix[currentIndex][nextIndex]) {
-        throw std::runtime_error("Invalid transition");
+    // Runtime: is this transition allowed from current state?
+    if (!is_allowed(currentState, TNextState)) {
+        throw std::runtime_error(
+            "CTSM Error: Transition is not valid under StrictTransitionPolicy");
+        // State unchanged — safe to retry or handle error
     }
     
-    dispatch_exit_action(currentIndex);
-    mCurrentStateIndex = nextIndex;
-    dispatch_entry_action(nextIndex);
+    exit_current_state();
+    update_to(TNextState);
+    enter_new_state();
 }
 ```
 
@@ -325,7 +368,7 @@ void transition() {
 ```
                   Idle  Connecting  Connected  Disconnecting  Failed
 Idle               -        ✓          -            -           -
-Connecting         -        -          ✓            -           ✓
+Connecting         -        -          ✓            ✓           ✓
 Connected          -        -          -            ✓           ✓
 Disconnecting      ✓        -          -            -           ✓
 Failed             ✓        -          -            -           -
@@ -337,7 +380,9 @@ Now if you write:
 sm.transition<Connected>();  // While in Idle
 ```
 
-You get a **runtime exception**: "Invalid transition". The bug is caught immediately, not weeks later in production.
+You get a **runtime exception**: `"CTSM Error: Transition is not valid under StrictTransitionPolicy"`. The bug is caught immediately, not weeks later in production.
+
+**Note:** The error message doesn't include state names. In debugging, inspect `sm_.currentStateIndex()` or add logging around transition calls.
 
 **Alternative: AnyToAnyTransitionPolicy**
 
@@ -362,20 +407,15 @@ using FlexibleSM = StateMachine<
 `NoExceptActionPolicy` uses `static_assert` to verify that all `on_entry` and `on_exit` methods are `noexcept`:
 
 ```cpp
-// From StateMachine.h
-template <typename State, typename Context>
-struct ActionPolicyEnforcer<NoExceptActionPolicy, State, Context> {
-    static constexpr void validate() noexcept {
-        static_assert(
-            noexcept(std::declval<State>().on_entry(std::declval<Context&>())),
-            "NoExceptActionPolicy requires State::on_entry() to be noexcept"
-        );
-        static_assert(
-            noexcept(std::declval<State>().on_exit(std::declval<Context&>())),
-            "NoExceptActionPolicy requires State::on_exit() to be noexcept"
-        );
-    }
-};
+// Conceptual enforcement (exact implementation may differ):
+static_assert(
+    noexcept(std::declval<State>().on_entry(std::declval<Context&>())),
+    "NoExceptActionPolicy requires State::on_entry() to be noexcept"
+);
+static_assert(
+    noexcept(std::declval<State>().on_exit(std::declval<Context&>())),
+    "NoExceptActionPolicy requires State::on_exit() to be noexcept"
+);
 ```
 
 If you write:
@@ -457,7 +497,7 @@ sm.transition<UnknownState>();
 
 **5. Queried state must exist:**
 ```cpp
-sm.is_in_state<UnknownState>();
+sm.isInState<UnknownState>();
 // error: static assertion failed: Queried state type not found in StateMachine
 ```
 
@@ -474,31 +514,39 @@ struct ThrowingState {
 
 ### Question 8: What's the runtime cost?
 
-**Answer: usually negligible, but measure it.**
+**Answer: Near-zero, but measure if it's in a hot path.**
 
-A `StateMachine` transition is fundamentally the same shape as a carefully-written `switch`: a small amount of control-flow plus the work in your entry/exit actions. With `StrictTransitionPolicy`, you also pay an **O(1) transition validity check** (a lookup in a `constexpr` matrix).
+A `StateMachine` transition is fundamentally the same shape as a carefully-written `switch`: a small amount of control-flow plus the work in your entry/exit actions. With `StrictTransitionPolicy`, you also pay an **O(1) transition validity check**.
 
 1. **State storage:** Single integer (`mCurrentStateIndex`)
 2. **Transition check:** Array lookup (with `StrictTransitionPolicy`)
 3. **State query:** Integer comparison
-4. **Action dispatch:** Compile-time resolved to direct calls
+4. **Action dispatch:** Indirect call via function-pointer table; overhead is small; measure if hot
 
-The transition matrix is `constexpr`—it's computed at compile time and embedded as constant data.
+Operationally, a transition does: (1) validate against allowed transitions (Strict only), (2) run current state's `on_exit`, (3) update state index, (4) run new state's `on_entry`.
 
-```cpp
-// This:
-sm.transition<Connected>();
+**What you should claim:** The abstraction is designed to have minimal overhead—comparable to a well-written switch statement. If this state machine sits in a hot path (millions of transitions per second), benchmark it against your hand-rolled alternative with your actual compiler and optimization flags.
 
-// Compiles to approximately:
-if (!transition_matrix[current][CONNECTED_INDEX]) throw ...;
-current_state_exit_actions[current](context);
-current = CONNECTED_INDEX;
-Connected{}.on_entry(context);
-```
+---
 
-**What you should claim:** the abstraction is designed to be “near-zero overhead” for the dispatch/validation, and it makes correctness and maintainability explicit. If this state machine sits in a hot path, include a micro-benchmark in your codebase and compare against your best hand-written `switch` for your actual compiler + optimization flags.
+### Question 9: What does StateMachine NOT solve?
 
-**Thread-safety note:** `StateMachine` does not automatically make transitions “atomic” across threads. If multiple threads can call `transition()` or query state concurrently, you still need external synchronization (mutex, message passing, confinement to one thread, etc.).
+**Answer:**
+
+Be explicit about the boundaries:
+
+1. **Thread safety:** `StateMachine` is not thread-safe. If multiple threads can call `transition()` or query state concurrently, you need external synchronization (mutex, strand, message queue).
+
+2. **Late callback correlation:** The original bug involved a callback firing after `disconnect()`. `StateMachine` makes the *transition* throw if invalid, but it doesn't prevent the callback from *trying*. You still need generation counters or cancellation tokens to correlate callbacks with the current "attempt."
+
+3. **Business semantics:** You still decide what `disconnect()` during `Connecting` *should* do:
+   - Option A: Throw (not allowed)
+   - Option B: Transition to `Disconnecting` and cancel the connect
+   - Option C: Record "disconnect requested" and handle in callback
+   
+   `StateMachine` enforces your decision; it doesn't make it for you.
+
+4. **Destructor cleanup:** The destructor does NOT call `on_exit()` on the current state. If cleanup is required, explicitly transition to a terminal state before destruction.
 
 ---
 
@@ -531,6 +579,9 @@ struct Idle {
 struct Connecting {
     void on_entry(ConnContext& ctx) noexcept {
         ctx.socket.async_connect(ctx.host);
+        // NOTE: This fires an async operation. The callback must be correlated
+        // to the current attempt (generation counter) or cancelled on exit.
+        // See "Note on late callbacks" below.
     }
     void on_exit(ConnContext& ctx) noexcept {}
 };
@@ -544,7 +595,8 @@ struct Connected {
 
 struct Disconnecting {
     void on_entry(ConnContext& ctx) noexcept {
-        ctx.socket.async_close();
+        ctx.socket.cancel();      // Best-effort cancel; callback may still fire (see late callbacks note)
+        ctx.socket.async_close(); // Start close
     }
     void on_exit(ConnContext& ctx) noexcept {}
 };
@@ -556,11 +608,13 @@ struct Failed {
     void on_exit(ConnContext& ctx) noexcept {}
 };
 
-// Transition list
+// Transition list — includes disconnect during connect (common production requirement)
+// Syntax: std::tuple of std::pair<From, To> (see User Manual for full API reference)
 using Transitions = std::tuple<
     std::pair<Idle, Connecting>,
     std::pair<Connecting, Connected>,
     std::pair<Connecting, Failed>,
+    std::pair<Connecting, Disconnecting>,  // Allow disconnect during connect
     std::pair<Connected, Disconnecting>,
     std::pair<Connected, Failed>,
     std::pair<Disconnecting, Idle>,
@@ -572,9 +626,11 @@ using ConnectionSM = fat_p::StateMachine<
     ConnContext,
     Transitions,
     fat_p::StrictTransitionPolicy,
-    fat_p::NoExceptActionPolicy,
+    fat_p::NoExceptActionPolicy,  // Hooks can't throw; report errors via context or state
     0, Idle, Connecting, Connected, Disconnecting, Failed
 >;
+// We use NoExceptActionPolicy because connection lifecycle hooks should not throw.
+// Errors are reported by transitioning to Failed, not by exceptions mid-transition.
 
 class ConnectionManager {
     ConnContext ctx_;
@@ -597,7 +653,7 @@ public:
     }
     
     void disconnect() {
-        sm_.transition<Disconnecting>();  // Throws if not in Connected
+        sm_.transition<Disconnecting>();  // Works from Connected or Connecting
     }
     
     void on_disconnect_complete() {
@@ -613,26 +669,134 @@ public:
     }
     
     void send(const std::string& data) {
-        if (!sm_.is_in_state<Connected>()) {
+        if (!sm_.isInState<Connected>()) {
             throw std::logic_error("Cannot send: not connected");
         }
         ctx_.socket.send(data);
     }
     
     bool is_connected() const {
-        return sm_.is_in_state<Connected>();
+        return sm_.isInState<Connected>();
+    }
+    
+    // For wiring up callbacks (typically done once at construction)
+    Socket& socket() { return ctx_.socket; }
+};
+```
+
+**Usage: Wiring Up the Async Callbacks**
+
+```cpp
+// In your application code:
+ConnectionManager conn;
+
+void setup_connection(const std::string& host) {
+    // Wire up the socket's async callbacks to drive the state machine
+    conn.socket().set_connect_callback([&](bool success) {
+        if (success) {
+            conn.on_connect_success();
+        } else {
+            conn.on_connect_failure();
+        }
+    });
+    
+    conn.socket().set_close_callback([&]() {
+        conn.on_disconnect_complete();
+    });
+    
+    conn.socket().set_error_callback([&]() {
+        conn.on_socket_error();
+    });
+    
+    // Start connecting
+    conn.connect(host);
+}
+
+// User clicks "Disconnect" while still connecting — this now works correctly:
+void on_disconnect_button() {
+    conn.disconnect();  // Connecting → Disconnecting: cancels connect, starts close
+}
+```
+
+**The transition logic is fixed.** The original code closed the socket but let the callback corrupt state. Now `disconnect()` transitions to `Disconnecting`, which calls `cancel()` on pending operations. However, if your platform's `cancel()` doesn't guarantee callbacks won't fire, you also need generation correlation (see note below).
+
+**Alternative policy: Disallow disconnect during Connecting**
+
+If your product requires that users wait for connection to complete (or fail) before disconnecting, remove the transition:
+
+```cpp
+using StrictTransitions = std::tuple<
+    std::pair<Idle, Connecting>,
+    std::pair<Connecting, Connected>,
+    std::pair<Connecting, Failed>,
+    // NO Connecting → Disconnecting
+    std::pair<Connected, Disconnecting>,
+    std::pair<Connected, Failed>,
+    std::pair<Disconnecting, Idle>,
+    std::pair<Disconnecting, Failed>,
+    std::pair<Failed, Idle>
+>;
+
+// Now disconnect() during Connecting throws:
+void on_disconnect_button() {
+    try {
+        conn.disconnect();
+    } catch (const std::runtime_error& e) {
+        // "CTSM Error: Transition is not valid under StrictTransitionPolicy"
+        show_error("Please wait for connection to complete");
+    }
+}
+```
+
+The state machine enforces whichever policy you choose. The point is that you *made* a choice, and it's visible in the transition list.
+
+---
+
+**Bugs fixed:**
+
+1. ✅ **disconnect during Connecting** → properly cancels and transitions to Disconnecting
+2. ✅ **on_socket_error cleanup** → `Failed::on_entry` always closes socket
+3. ✅ **Entry/exit actions** → guaranteed to run on every transition
+4. ✅ **Invalid transitions** → throw immediately with clear error
+5. ✅ **send() fails loudly** → explicit exception
+
+**Still requires application-level handling:**
+
+- ❗ Late callbacks need generation counter or cancellation check (see note below)
+- ❗ Thread safety needs external synchronization
+- ❗ Destructor doesn't call on_exit — don't rely on `on_exit` for mandatory cleanup; use explicit transitions before destruction or RAII members in Context
+
+**Note on late callbacks:** If `cancel()` doesn't guarantee the callback won't fire, you need a generation counter:
+
+```cpp
+struct ConnContext {
+    Socket socket;
+    std::string host;
+    uint64_t connect_generation = 0;  // Incremented on each connect attempt
+    // ...
+};
+
+struct Connecting {
+    void on_entry(ConnContext& ctx) noexcept {
+        ++ctx.connect_generation;
+        uint64_t my_gen = ctx.connect_generation;
+        
+        ctx.socket.async_connect(ctx.host, [&ctx, my_gen](bool success) {
+            if (my_gen != ctx.connect_generation) return;  // Stale callback
+            // Route to ConnectionManager event handler (which calls sm_.transition<...>())
+            if (success) {
+                ctx.on_connect_success();
+            } else {
+                ctx.on_connect_failure();
+            }
+        });
     }
 };
 ```
 
-**Bugs fixed:**
+In practice, `ConnContext` holds function pointers or a reference to the `ConnectionManager` so callbacks can route events back to the state machine owner.
 
-1. ✅ **disconnect during Connecting** → throws immediately
-2. ✅ **on_socket_error cleanup** → `Failed::on_entry` always closes socket
-3. ✅ **Retry logic centralized** → the only way to change state is through `transition<...>()` (still requires external synchronization if used from multiple threads)
-4. ✅ **Entry/exit actions** → guaranteed to run
-5. ✅ **Invalid transitions** → throw immediately
-6. ✅ **send() fails loudly** → explicit exception
+**If you do nothing else, do this:** every async completion must prove it belongs to the current attempt before it can transition state.
 
 ---
 
@@ -657,7 +821,7 @@ The transition is straightforward but not trivial:
 2. **Identify transitions** → existing switch conditions become tuple entries
 3. **Extract entry/exit actions** → scattered code moves to state structs
 4. **Create context** → shared data moves to context struct
-5. **Update callers** → state checks become `is_in_state<T>()`
+5. **Update callers** → state checks become `isInState<T>()`
 
 Expect 2-4 hours for a typical 5-state machine. The payoff is immediate: entry/exit bugs vanish, invalid transitions throw.
 
@@ -684,7 +848,7 @@ It's worth it when:
 
 1. **Switch-based state machines are bug magnets** — missing transitions, forgotten actions, silent failures
 
-2. **StateMachine encodes transitions in the type system** — invalid states and transitions become compile or runtime errors
+2. **StateMachine encodes transitions in the type system** — invalid states are compile errors; invalid transitions are runtime errors
 
 3. **Entry/exit actions are automatic** — just implement `on_entry` and `on_exit`
 
@@ -694,150 +858,31 @@ It's worth it when:
 
 5. **Compile-time guarantees include:** unique states, valid initial index, target state existence
 
-6. **Runtime cost is zero** — compiles to equivalent switch/jump table
+6. **Runtime overhead is minimal** — comparable to a switch statement; benchmark if it's in a hot path
+
+7. **StateMachine doesn't solve everything** — thread safety, late callbacks, and business semantics are still your responsibility
 
 ---
 
-## Alternatives to Fat-P StateMachine
+## When to Look Elsewhere
 
-### When StateMachine Is the Right Choice
+Fat-P StateMachine handles the common case: flat state machines with 3-15 states, explicit transitions, automatic entry/exit hooks. This covers connection managers, protocol handlers, UI flows, game entity states—the vast majority of state machines in production code.
 
-Fat-P `StateMachine` excels when you need:
-- **Explicit transition validation** — only listed transitions are allowed
-- **Automatic entry/exit actions** — no forgotten cleanup
-- **Zero runtime overhead** — compiles to equivalent switch
-- **Simple adoption** — no external dependencies, header-only
-- **Moderate complexity** — typically 3-15 states
+**Boost.SML and Boost.MSM** exist for UML statechart features: hierarchical states, orthogonal regions, history states, built-in guards. If you genuinely need these, Boost is there.
 
-### When to Consider Alternatives
+But be honest about the tradeoffs:
 
-| Requirement | StateMachine | Alternative |
-|-------------|--------------|-------------|
-| Dynamic state creation at runtime | ❌ | Boost.SML, custom |
-| 50+ states | Unwieldy | Boost.SML, code generation |
-| Parallel/orthogonal regions | ❌ | Boost.SML, Boost.MSM |
-| History states (remember sub-state) | ❌ | Boost.SML, Boost.MSM |
-| Guard conditions on transitions | Manual | Boost.SML (built-in) |
-| Hierarchical states | ❌ | Boost.SML, Boost.MSM |
-| UML state chart compliance | Partial | Boost.MSM |
-| Event queuing | Manual | Boost.SML |
+| | Fat-P StateMachine | Boost.SML/MSM |
+|---|---|---|
+| Learning curve | 30 minutes | Days to weeks |
+| Compile time impact | Negligible | Significant |
+| Error messages | Clear static_asserts | Template vomit |
+| Dependencies | None | Boost |
+| Features you'll use | All of them | 20% |
 
-### Alternative Libraries
+Most teams that reach for Boost.SML don't need hierarchical states—they need explicit transitions and automatic cleanup. That's Fat-P.
 
-**Boost.SML (State Machine Language)**
-```cpp
-// Boost.SML example - more features, steeper learning curve
-#include <boost/sml.hpp>
-namespace sml = boost::sml;
-
-struct connect {};
-struct disconnect {};
-struct timeout {};
-
-struct ConnectionSM {
-  auto operator()() const {
-    using namespace sml;
-    return make_transition_table(
-      *"idle"_s + event<connect> / start_connecting = "connecting"_s,
-      "connecting"_s + event<timeout> = "failed"_s,
-      "connecting"_s + on_entry<_> / [] { log("entering connecting"); },
-      "connected"_s + event<disconnect> = "disconnecting"_s
-    );
-  }
-};
-```
-
-**Pros:**
-- Guards, actions, and events are first-class
-- Hierarchical and orthogonal states
-- UML-compliant
-- Zero runtime overhead (like Fat-P)
-- Excellent error messages
-
-**Cons:**
-- Heavy template metaprogramming (longer compile times)
-- Steeper learning curve
-- Larger dependency (Boost)
-
-**Boost.MSM (Meta State Machine)**
-- Full UML state chart support
-- Even heavier compile times than SML
-- More verbose syntax
-- Best for complex, formally-specified state machines
-
-**Hand-Rolled State Pattern (OOP)**
-```cpp
-// Classic GoF State pattern
-class State {
-public:
-    virtual void handle(Context&, Event) = 0;
-    virtual void on_entry(Context&) {}
-    virtual void on_exit(Context&) {}
-};
-
-class Idle : public State { /* ... */ };
-class Connecting : public State { /* ... */ };
-```
-
-**Pros:**
-- Familiar OOP pattern
-- Easy to understand
-- No template complexity
-
-**Cons:**
-- Heap allocation per state (or complex pooling)
-- Virtual dispatch overhead
-- No compile-time transition validation
-- Easy to forget entry/exit actions
-
-### Decision Matrix
-
-```
-Start here:
-    │
-    ▼
-Do you need hierarchical or parallel states?
-    │
-    ├─ Yes → Boost.SML or Boost.MSM
-    │
-    ▼ No
-    │
-Do you need guard conditions on many transitions?
-    │
-    ├─ Yes → Boost.SML (or add guards manually to Fat-P)
-    │
-    ▼ No
-    │
-More than ~20 states?
-    │
-    ├─ Yes → Consider Boost.SML or code generation
-    │
-    ▼ No
-    │
-Need minimal dependencies and fast compile?
-    │
-    ├─ Yes → Fat-P StateMachine ✓
-    │
-    ▼ No
-    │
-Boost.SML (more features, longer compile)
-```
-
-### Migration Path
-
-If you start with Fat-P `StateMachine` and later need more features:
-
-1. **Adding guards**: Implement in your transition methods
-   ```cpp
-   void request_connect() {
-       if (!can_connect()) return;  // Manual guard
-       sm_.transition<Connecting>();
-   }
-   ```
-
-2. **Moving to Boost.SML**: The mental model is similar—states as types, transitions as declarations. The main work is learning SML's DSL syntax.
-
-3. **Keeping both**: Use Fat-P for simple state machines, Boost.SML for complex ones. They can coexist in the same codebase.
+If you later discover you need orthogonal regions or history states, migration to Boost.SML is straightforward: the mental model (states as types, transitions as declarations) is the same. Start simple.
 
 ---
 
