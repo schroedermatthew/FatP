@@ -199,7 +199,7 @@ jobs:
         run: ./test_shm
 
   # ===========================================================================
-  # Header Self-Containment (Fat-P §6.2)
+  # Header Self-Containment (Fat-P Section 6.2)
   # ===========================================================================
   header-check:
     name: Header Self-Containment
@@ -216,7 +216,7 @@ jobs:
             -I./include/fat_p \
             -c test_include.cpp -o /dev/null
           
-          echo "✓ Header is self-contained"
+          echo "[OK] Header is self-contained"
 
   # ===========================================================================
   # Strict Warnings
@@ -236,7 +236,7 @@ jobs:
               -Werror \
               -DENABLE_TEST_APPLICATION -I./include/fat_p \
               -o test_strict ${{ env.TEST_SRC }}
-          echo "✓ No warnings"
+          echo "[OK] No warnings"
 
   # ===========================================================================
   # Benchmarks - Linux GCC (Weekly/Manual)
@@ -485,9 +485,9 @@ jobs:
           for dir in all-benchmarks/benchmark-*/; do
             name=$(basename "$dir")
             if ls "$dir"/*.csv 1>/dev/null 2>&1; then
-              echo "| $name | ✓ |" >> summary.md
+              echo "| $name | [OK] |" >> summary.md
             else
-              echo "| $name | ✗ |" >> summary.md
+              echo "| $name | [X] |" >> summary.md
             fi
           done
           
@@ -520,7 +520,7 @@ jobs:
   # ===========================================================================
   ci-success:
     name: CI Success
-    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
     if: ${{ always() }}
     steps:
@@ -531,6 +531,7 @@ jobs:
           if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
-          echo "✓ All checks passed"
+          echo "All checks passed"
