@@ -28,6 +28,7 @@ FATP_META:
 
 /**
  * @file SortedContainer.h
+ * @layer Domain
  * @brief A policy-based sorted vector container that maintains order on inserts.
  *
  * @details Uses Policy-Based Design for uniqueness, comparison, allocation,
@@ -576,7 +577,7 @@ public:
      */
     [[nodiscard]] const_iterator begin() const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         return mInternalContainer.get().begin();
     }
 
@@ -588,7 +589,7 @@ public:
      */
     [[nodiscard]] const_iterator end() const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         return mInternalContainer.get().end();
     }
 
@@ -618,7 +619,7 @@ public:
      */
     [[nodiscard]] const_reverse_iterator rbegin() const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         return mInternalContainer.get().rbegin();
     }
 
@@ -630,7 +631,7 @@ public:
      */
     [[nodiscard]] const_reverse_iterator rend() const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         return mInternalContainer.get().rend();
     }
 
@@ -676,7 +677,7 @@ public:
     template <typename Func>
     void forEach(Func&& func) const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         for (const auto& elem : mInternalContainer.get())
         {
             std::forward<Func>(func)(elem);
@@ -693,7 +694,7 @@ public:
     template <typename Func>
     bool forEachWhile(Func&& func) const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         for (const auto& elem : mInternalContainer.get())
         {
             if (!std::forward<Func>(func)(elem))
@@ -715,7 +716,7 @@ public:
      */
     [[nodiscard]] size_type size() const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         return mInternalContainer.get().size();
     }
 
@@ -726,7 +727,7 @@ public:
      */
     [[nodiscard]] bool empty() const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         return mInternalContainer.get().empty();
     }
 
@@ -738,7 +739,7 @@ public:
      */
     [[nodiscard]] size_type capacity() const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         if constexpr (concepts::reservable<InternalContainer>)
         {
             return mInternalContainer.get().capacity();
@@ -755,7 +756,7 @@ public:
      */
     [[nodiscard]] size_type max_size() const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         return mInternalContainer.get().max_size();
     }
 
@@ -767,7 +768,7 @@ public:
      */
     void reserve(size_type n)
     {
-        auto guard = this->lock();
+        [[maybe_unused]] auto guard = this->lock();
         if constexpr (concepts::reservable<InternalContainer>)
         {
             mInternalContainer.get().reserve(n);
@@ -781,7 +782,7 @@ public:
      */
     void shrink_to_fit()
     {
-        auto guard = this->lock();
+        [[maybe_unused]] auto guard = this->lock();
         if constexpr (concepts::has_shrink_to_fit<InternalContainer>)
         {
             mInternalContainer.get().shrink_to_fit();
@@ -798,7 +799,7 @@ public:
      */
     void clear()
     {
-        auto guard = this->lock();
+        [[maybe_unused]] auto guard = this->lock();
         mInternalContainer.get().clear();
         validateInvariant_unlocked();
     }
@@ -818,7 +819,7 @@ public:
     template <typename U = T, typename... EpsParams, typename = std::enable_if_t<std::is_convertible_v<U, T>>>
     [[nodiscard]] Expected<bool, std::string> insert(U&& value, EpsParams... eps)
     {
-        auto guard = this->lock();
+        [[maybe_unused]] auto guard = this->lock();
         static_assert(std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>,
                       "T must be movable or copyable");
         try
@@ -884,7 +885,7 @@ public:
     template <typename InputIt, typename... EpsParams>
     [[nodiscard]] Expected<void, std::string> insertRange(InputIt first, InputIt last, EpsParams... eps)
     {
-        auto guard = this->lock();
+        [[maybe_unused]] auto guard = this->lock();
         try
         {
             using iter_category = typename std::iterator_traits<InputIt>::iterator_category;
@@ -963,7 +964,7 @@ public:
      */
     [[nodiscard]] Expected<bool, std::string> erase(const T& value)
     {
-        auto guard = this->lock();
+        [[maybe_unused]] auto guard = this->lock();
         try
         {
             auto it = find_unlocked(value);
@@ -993,7 +994,7 @@ public:
     template <typename Pred>
     size_type erase_if(Pred pred)
     {
-        auto guard = this->lock();
+        [[maybe_unused]] auto guard = this->lock();
         auto& c = mInternalContainer.get();
         auto old_size = c.size();
         c.erase(std::remove_if(c.begin(), c.end(), pred), c.end());
@@ -1012,7 +1013,7 @@ public:
      */
     size_type erase_range(const T& first_val, const T& last_val)
     {
-        auto guard = this->lock();
+        [[maybe_unused]] auto guard = this->lock();
         auto& c = mInternalContainer.get();
         auto first = std::lower_bound(c.begin(), c.end(), first_val, mCompare);
         auto last = std::lower_bound(first, c.end(), last_val, mCompare);
@@ -1036,7 +1037,7 @@ public:
      */
     [[nodiscard]] size_type count(const T& value) const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         auto [lower, upper] =
             std::equal_range(mInternalContainer.get().begin(), mInternalContainer.get().end(), value, mCompare);
         return static_cast<size_type>(std::distance(lower, upper));
@@ -1054,7 +1055,7 @@ public:
      */
     [[nodiscard]] bool contains(const T& value) const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         auto it = std::lower_bound(mInternalContainer.get().begin(), mInternalContainer.get().end(), value, mCompare);
         return it != mInternalContainer.get().end() && !mCompare(*it, value) && !mCompare(value, *it);
     }
@@ -1070,7 +1071,7 @@ public:
      */
     [[nodiscard]] const_iterator find(const T& value) const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         return find_unlocked(value);
     }
 
@@ -1087,7 +1088,7 @@ public:
      */
     [[nodiscard]] std::optional<T> findCopy(const T& value) const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         auto it = find_unlocked(value);
         if (it != mInternalContainer.get().end())
         {
@@ -1111,7 +1112,7 @@ public:
     template <typename Func>
     bool findApply(const T& value, Func&& func) const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         auto it = find_unlocked(value);
         if (it != mInternalContainer.get().end())
         {
@@ -1132,7 +1133,7 @@ public:
      */
     [[nodiscard]] const_iterator lower_bound(const T& value) const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         return std::lower_bound(mInternalContainer.get().begin(), mInternalContainer.get().end(), value, mCompare);
     }
 
@@ -1147,7 +1148,7 @@ public:
      */
     [[nodiscard]] const_iterator upper_bound(const T& value) const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         return std::upper_bound(mInternalContainer.get().begin(), mInternalContainer.get().end(), value, mCompare);
     }
 
@@ -1162,7 +1163,7 @@ public:
      */
     [[nodiscard]] std::pair<const_iterator, const_iterator> equal_range(const T& value) const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         return std::equal_range(mInternalContainer.get().begin(), mInternalContainer.get().end(), value, mCompare);
     }
 
@@ -1199,7 +1200,7 @@ public:
      */
     [[nodiscard]] InternalContainer toVector() const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         return mInternalContainer.get();
     }
 
@@ -1231,7 +1232,7 @@ public:
     template <typename Func>
     decltype(auto) withInternalContainer(Func&& func) const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         return std::forward<Func>(func)(mInternalContainer.get());
     }
 
@@ -1243,7 +1244,7 @@ public:
      */
     void validateInvariant() const
     {
-        auto guard = this->lock_shared();
+        [[maybe_unused]] auto guard = this->lock_shared();
         validateInvariant_unlocked();
     }
 

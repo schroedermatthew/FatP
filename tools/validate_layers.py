@@ -59,7 +59,20 @@ def extract_includes(content: str) -> list:
     return includes
 
 def main():
-    headers_dir = Path('/home/claude/fat_p_code/fat_p')
+    # Auto-detect repo root: script is in tools/, headers in include/fat_p/
+    script_dir = Path(__file__).resolve().parent
+    repo_root = script_dir.parent  # tools/ -> repo root
+    headers_dir = repo_root / 'include' / 'fat_p'
+    
+    if not headers_dir.exists():
+        # Fallback: try current directory structure
+        headers_dir = Path.cwd() / 'include' / 'fat_p'
+    
+    if not headers_dir.exists():
+        print(f"ERROR: Cannot find headers directory. Tried:")
+        print(f"  {repo_root / 'include' / 'fat_p'}")
+        print(f"  {Path.cwd() / 'include' / 'fat_p'}")
+        return 2
     
     # Build layer map for all headers
     header_layers = {}

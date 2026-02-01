@@ -382,7 +382,7 @@ public:
     template <typename Callable>
     [[nodiscard]] bool registerType(const K& key, Callable&& creator)
     {
-        std::unique_lock<MutexType> lock(mMutex);
+        [[maybe_unused]] std::unique_lock<MutexType> lock(mMutex);
         return mRegistry.try_emplace(key, std::forward<Callable>(creator)).second;
     }
 
@@ -397,7 +397,7 @@ public:
 
         // Phase 1: Lookup under lock
         {
-            std::shared_lock<MutexType> lock(mMutex);
+            [[maybe_unused]] std::shared_lock<MutexType> lock(mMutex);
             auto it = mRegistry.find(key);
             if (it == mRegistry.end())
             {
@@ -413,13 +413,13 @@ public:
 
     [[nodiscard]] bool hasType(const K& key) const
     {
-        std::shared_lock<MutexType> lock(mMutex);
+        [[maybe_unused]] std::shared_lock<MutexType> lock(mMutex);
         return mRegistry.count(key) > 0;
     }
 
     [[nodiscard]] size_t size() const
     {
-        std::shared_lock<MutexType> lock(mMutex);
+        [[maybe_unused]] std::shared_lock<MutexType> lock(mMutex);
         return mRegistry.size();
     }
 
@@ -430,7 +430,7 @@ public:
 
     void clear()
     {
-        std::unique_lock<MutexType> lock(mMutex);
+        [[maybe_unused]] std::unique_lock<MutexType> lock(mMutex);
         mRegistry.clear();
     }
 };

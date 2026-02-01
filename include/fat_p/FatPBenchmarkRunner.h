@@ -1209,7 +1209,7 @@ inline void DoNotOptimize(const T& value)
     // For integral types, XOR into sink
     if constexpr (std::is_integral_v<T> || std::is_pointer_v<T>)
     {
-        g_benchmark_sink ^=
+        g_benchmark_sink = g_benchmark_sink ^
             static_cast<std::int64_t>(reinterpret_cast<std::uintptr_t>(static_cast<const void*>(&value)));
     }
     else if constexpr (std::is_floating_point_v<T>)
@@ -1221,12 +1221,12 @@ inline void DoNotOptimize(const T& value)
             std::int64_t i;
         } u;
         u.f = value;
-        g_benchmark_sink ^= u.i;
+        g_benchmark_sink = g_benchmark_sink ^ u.i;
     }
     else
     {
         // For complex types, use address
-        g_benchmark_sink ^= reinterpret_cast<std::int64_t>(&value);
+        g_benchmark_sink = g_benchmark_sink ^ reinterpret_cast<std::int64_t>(&value);
     }
 }
 
@@ -1235,7 +1235,7 @@ inline void DoNotOptimize(const T& value)
  */
 inline void preventOpt(std::int64_t value)
 {
-    g_benchmark_sink ^= value;
+    g_benchmark_sink = g_benchmark_sink ^ value;
 }
 
 // ============================================================================

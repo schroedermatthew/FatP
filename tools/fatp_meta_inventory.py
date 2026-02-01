@@ -18,27 +18,6 @@
 #     undefs_total: 0
 #     includes_windows_h: false
 
-# FATP_META:
-#   meta_version: 1
-#   component: Tooling
-#   file_role: tooling
-#   path: tools/fatp_meta_inventory.py
-#   layer: Testing
-#   summary: "Repository-wide FATP_META inventory and validation (stdlib-only)."
-#   api_stability: internal
-#   related:
-#     docs_search: "FATP_META"
-#   hygiene:
-#     pragma_once: false
-#     include_guard: false
-#     defines_total: 0
-#     defines_unprefixed: 0
-#     undefs_total: 0
-#     includes_windows_h: false
-#   generated:
-#     by: fatp-meta-tool
-#     mode: authored
-#
 """fatp_meta_inventory.py
 
 Repository-wide FATP_META inventory and validation.
@@ -487,6 +466,7 @@ def main(argv: List[str]) -> int:
     ap.add_argument("--print-path-mismatch", action="store_true", help="Print files with FATP_META.path mismatch.")
     ap.add_argument("--print-schema-fail", action="store_true", help="Print files failing required key checks.")
     ap.add_argument("--print-layout-fail", action="store_true", help="Print files failing layout checks.")
+    ap.add_argument("--print-version-bad", action="store_true", help="Print files with bad meta_version.")
     ap.add_argument("--limit", type=int, default=200, help="Print limit per category (default: 200).")
     ap.add_argument("--fail-on-issues", action="store_true", help="Exit non-zero if any issues are found.")
     args = ap.parse_args(argv)
@@ -520,6 +500,7 @@ def main(argv: List[str]) -> int:
     path_mis = [r.path for r in reports if any(i.code == "path_mismatch" for i in r.issues)]
     schema = [r.path for r in reports if any(i.code == "schema" for i in r.issues)]
     layout = [r.path for r in reports if any(i.code == "layout" for i in r.issues)]
+    version_bad = [r.path for r in reports if any(i.code == "meta_version" for i in r.issues)]
 
     lim = None if args.limit < 0 else args.limit
     if args.print_missing:
@@ -530,6 +511,8 @@ def main(argv: List[str]) -> int:
         _print_list("Schema failures (required keys)", schema, lim)
     if args.print_layout_fail:
         _print_list("Layout failures", layout, lim)
+    if args.print_version_bad:
+        _print_list("Bad meta_version (expected 1)", version_bad, lim)
 
     if args.json_out:
         out = Path(args.json_out)
