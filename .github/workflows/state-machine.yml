@@ -54,10 +54,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -d "$FATP_ROOT" || { echo "❌ Missing $FATP_ROOT"; exit 1; }
-          test -d "$HEADER_DIR" || { echo "❌ Missing $HEADER_DIR"; exit 1; }
-          test -d "$TEST_DIR" || { echo "❌ Missing $TEST_DIR"; exit 1; }
-          test -f "$TEST_SRC" || { echo "❌ Missing $TEST_SRC"; exit 1; }
+          test -d "$FATP_ROOT" || { echo "[X] Missing $FATP_ROOT"; exit 1; }
+          test -d "$HEADER_DIR" || { echo "[X] Missing $HEADER_DIR"; exit 1; }
+          test -d "$TEST_DIR" || { echo "[X] Missing $TEST_DIR"; exit 1; }
+          test -f "$TEST_SRC" || { echo "[X] Missing $TEST_SRC"; exit 1; }
 
       - name: Install GCC 13
         run: sudo apt-get update && sudo apt-get install -y g++-13
@@ -81,7 +81,7 @@ jobs:
           set -euo pipefail
           mkdir -p build
           for src in "$HYGIENE_SELF" "$HYGIENE_ORDER"; do
-            test -f "$src" || { echo "❌ Missing hygiene TU: $src"; exit 1; }
+            test -f "$src" || { echo "[X] Missing hygiene TU: $src"; exit 1; }
             exe="build/$(basename "$src" .cpp)_gcc"
             g++-13 -std=c++20 -O2 -pthread -Wall -Wextra -Wpedantic \
               -I"$FATP_ROOT" -I"$HEADER_DIR" -I"$TEST_DIR" \
@@ -101,8 +101,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -d "$FATP_ROOT" || { echo "❌ Missing $FATP_ROOT"; exit 1; }
-          test -f "$TEST_SRC" || { echo "❌ Missing $TEST_SRC"; exit 1; }
+          test -d "$FATP_ROOT" || { echo "[X] Missing $FATP_ROOT"; exit 1; }
+          test -f "$TEST_SRC" || { echo "[X] Missing $TEST_SRC"; exit 1; }
 
       - name: Install Clang 16
         shell: bash
@@ -133,7 +133,7 @@ jobs:
           set -euo pipefail
           mkdir -p build
           for src in "$HYGIENE_SELF" "$HYGIENE_ORDER"; do
-            test -f "$src" || { echo "❌ Missing hygiene TU: $src"; exit 1; }
+            test -f "$src" || { echo "[X] Missing hygiene TU: $src"; exit 1; }
             exe="build/$(basename "$src" .cpp)_clang"
             clang++-16 -std=c++20 -O2 -pthread -Wall -Wextra -Wpedantic \
               -Wno-gnu-zero-variadic-macro-arguments \
@@ -285,12 +285,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f "$HEADER" || { echo "❌ Missing header: $HEADER"; exit 1; }
+          test -f "$HEADER" || { echo "[X] Missing header: $HEADER"; exit 1; }
           mkdir -p build
-          cat > build/header_compile.cpp <<'EOF'
-#include "StateMachine.h"
-int main() { return 0; }
-EOF
+          echo '#include "StateMachine.h"' > build/header_compile.cpp
+          echo 'int main() { return 0; }' >> build/header_compile.cpp
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I"$FATP_ROOT" -I"$HEADER_DIR" \
             -c build/header_compile.cpp -o /dev/null
@@ -307,7 +305,7 @@ EOF
         shell: bash
         run: |
           set -euo pipefail
-          test -f "$TEST_SRC" || { echo "❌ Missing $TEST_SRC"; exit 1; }
+          test -f "$TEST_SRC" || { echo "[X] Missing $TEST_SRC"; exit 1; }
           mkdir -p build
           g++-13 -std=c++20 -O2 -pthread \
             -Wall -Wextra -Wpedantic -Werror \
@@ -329,11 +327,11 @@ EOF
         run: |
           set -euo pipefail
           dir="$COMPILE_FAIL_DIR"
-          test -d "$dir" || { echo "❌ Missing compile-fail dir: $dir"; exit 1; }
+          test -d "$dir" || { echo "[X] Missing compile-fail dir: $dir"; exit 1; }
 
           mapfile -t files < <(find "$dir" -maxdepth 1 -name "compile_fail_StateMachine_*.cpp" -print | sort)
           if [ ${#files[@]} -eq 0 ]; then
-            echo "❌ No compile-fail files found (expected compile_fail_StateMachine_*.cpp)"
+            echo "[X] No compile-fail files found (expected compile_fail_StateMachine_*.cpp)"
             exit 1
           fi
 
@@ -342,10 +340,10 @@ EOF
             if g++-13 -std=c++20 -Wall -Wextra -Wpedantic \
               -I"$FATP_ROOT" -I"$HEADER_DIR" -I"$TEST_DIR" \
               -c "$f" -o /tmp/compile_fail.o; then
-              echo "❌ ERROR: expected compilation failure but succeeded: $f"
+              echo "[X] ERROR: expected compilation failure but succeeded: $f"
               exit 1
             fi
-            echo "✓ Failed as expected"
+            echo "[OK] Failed as expected"
           done
 
   compile-fail-clang:
@@ -364,11 +362,11 @@ EOF
         run: |
           set -euo pipefail
           dir="$COMPILE_FAIL_DIR"
-          test -d "$dir" || { echo "❌ Missing compile-fail dir: $dir"; exit 1; }
+          test -d "$dir" || { echo "[X] Missing compile-fail dir: $dir"; exit 1; }
 
           mapfile -t files < <(find "$dir" -maxdepth 1 -name "compile_fail_StateMachine_*.cpp" -print | sort)
           if [ ${#files[@]} -eq 0 ]; then
-            echo "❌ No compile-fail files found (expected compile_fail_StateMachine_*.cpp)"
+            echo "[X] No compile-fail files found (expected compile_fail_StateMachine_*.cpp)"
             exit 1
           fi
 
@@ -378,10 +376,10 @@ EOF
               -Wno-gnu-zero-variadic-macro-arguments \
               -I"$FATP_ROOT" -I"$HEADER_DIR" -I"$TEST_DIR" \
               -c "$f" -o /tmp/compile_fail.o; then
-              echo "❌ ERROR: expected compilation failure but succeeded: $f"
+              echo "[X] ERROR: expected compilation failure but succeeded: $f"
               exit 1
             fi
-            echo "✓ Failed as expected"
+            echo "[OK] Failed as expected"
           done
 
   compile-fail-msvc:
@@ -411,7 +409,7 @@ EOF
             if ($LASTEXITCODE -eq 0) {
               throw "ERROR: expected compilation failure but succeeded: $($f.Name)"
             }
-            Write-Host "✓ Failed as expected"
+            Write-Host "[OK] Failed as expected"
           }
 
   ci-success:
@@ -453,9 +451,9 @@ EOF
           for j in "${jobs[@]}"; do
             result="${{ needs[j].result }}"
             if [ "$result" != "success" ]; then
-              echo "❌ Job failed: $j ($result)"
+              echo "[X] Job failed: $j ($result)"
               exit 1
             fi
           done
 
-          echo "✓ StateMachine CI passed"
+          echo "[OK] StateMachine CI passed"
