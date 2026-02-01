@@ -9,16 +9,15 @@
 name: Layer & Dependency Verification
 
 on:
-  push:
-    branches: [main, master]
   pull_request:
-    branches: [main, master]
-
+    types: [labeled]
+  workflow_dispatch:
 jobs:
   # ===========================================================================
   # Layer Tag Verification
   # ===========================================================================
   verify-layers:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Verify Layer Dependencies
     runs-on: ubuntu-latest
     steps:
@@ -30,7 +29,7 @@ jobs:
           
           found=0
           missing=0
-          for header in FAT_P/FAT_P/fat_p/*.h; do
+          for header in include/fat_p/*.h; do
             if [ ! -f "$header" ]; then
               continue
             fi
@@ -42,7 +41,7 @@ jobs:
           done
 
           if [ $found -eq 0 ]; then
-            echo "❌ No headers found under FAT_P/FAT_P/fat_p/*.h"
+            echo "❌ No headers found under include/fat_p/*.h"
             exit 1
           fi
           
@@ -77,7 +76,7 @@ jobs:
           violations=0
           found=0
           
-          for header in FAT_P/FAT_P/fat_p/*.h; do
+          for header in include/fat_p/*.h; do
             if [ ! -f "$header" ]; then
               continue
             fi
@@ -105,7 +104,7 @@ jobs:
               inc_file=$(echo "$inc" | grep -oP '"[^"]+"' | tr -d '"')
               # Normalize includes like "fat_p/Foo.h" to "Foo.h"
               inc_file=$(basename "$inc_file")
-              inc_path="FAT_P/FAT_P/fat_p/$inc_file"
+              inc_path="include/fat_p/$inc_file"
               
               if [ ! -f "$inc_path" ]; then
                 continue  # External include
@@ -123,7 +122,7 @@ jobs:
           done
 
           if [ $found -eq 0 ]; then
-            echo "❌ No headers found under FAT_P/FAT_P/fat_p/*.h"
+            echo "❌ No headers found under include/fat_p/*.h"
             exit 1
           fi
           
@@ -140,6 +139,7 @@ jobs:
   # Forbidden Dependency Scan
   # ===========================================================================
   scan-forbidden-deps:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Scan Forbidden Dependencies
     runs-on: ubuntu-latest
     steps:
@@ -154,7 +154,7 @@ jobs:
           violations=0
           
           # Check for Boost
-          matches=$(grep -rn '#include.*[<"]boost/' FAT_P/FAT_P/fat_p/ 2>/dev/null || true)
+          matches=$(grep -rn '#include.*[<"]boost/' include/fat_p/ 2>/dev/null || true)
           if [ -n "$matches" ]; then
             echo "❌ Forbidden: Boost"
             echo "$matches"
@@ -162,7 +162,7 @@ jobs:
           fi
           
           # Check for Abseil
-          matches=$(grep -rn '#include.*[<"]absl/' FAT_P/FAT_P/fat_p/ 2>/dev/null || true)
+          matches=$(grep -rn '#include.*[<"]absl/' include/fat_p/ 2>/dev/null || true)
           if [ -n "$matches" ]; then
             echo "❌ Forbidden: Abseil"
             echo "$matches"
@@ -170,7 +170,7 @@ jobs:
           fi
           
           # Check for fmt
-          matches=$(grep -rn '#include.*[<"]fmt/' FAT_P/FAT_P/fat_p/ 2>/dev/null || true)
+          matches=$(grep -rn '#include.*[<"]fmt/' include/fat_p/ 2>/dev/null || true)
           if [ -n "$matches" ]; then
             echo "❌ Forbidden: fmt"
             echo "$matches"
@@ -178,7 +178,7 @@ jobs:
           fi
           
           # Check for Eigen
-          matches=$(grep -rn '#include.*[<"]Eigen/' FAT_P/FAT_P/fat_p/ 2>/dev/null || true)
+          matches=$(grep -rn '#include.*[<"]Eigen/' include/fat_p/ 2>/dev/null || true)
           if [ -n "$matches" ]; then
             echo "❌ Forbidden: Eigen"
             echo "$matches"
@@ -186,7 +186,7 @@ jobs:
           fi
           
           # Check for nlohmann/json
-          matches=$(grep -rn '#include.*[<"]nlohmann/' FAT_P/FAT_P/fat_p/ 2>/dev/null || true)
+          matches=$(grep -rn '#include.*[<"]nlohmann/' include/fat_p/ 2>/dev/null || true)
           if [ -n "$matches" ]; then
             echo "❌ Forbidden: nlohmann/json"
             echo "$matches"
@@ -194,7 +194,7 @@ jobs:
           fi
           
           # Check for spdlog
-          matches=$(grep -rn '#include.*[<"]spdlog/' FAT_P/FAT_P/fat_p/ 2>/dev/null || true)
+          matches=$(grep -rn '#include.*[<"]spdlog/' include/fat_p/ 2>/dev/null || true)
           if [ -n "$matches" ]; then
             echo "❌ Forbidden: spdlog"
             echo "$matches"
@@ -202,7 +202,7 @@ jobs:
           fi
           
           # Check for catch2/gtest/doctest (in main headers, not tests)
-          matches=$(grep -rn '#include.*[<"]catch2/\|#include.*[<"]gtest/\|#include.*[<"]doctest/' FAT_P/FAT_P/fat_p/ 2>/dev/null || true)
+          matches=$(grep -rn '#include.*[<"]catch2/\|#include.*[<"]gtest/\|#include.*[<"]doctest/' include/fat_p/ 2>/dev/null || true)
           if [ -n "$matches" ]; then
             echo "❌ Forbidden: Test frameworks in library headers"
             echo "$matches"
@@ -225,7 +225,7 @@ jobs:
     name: Verification Success
     needs: [verify-layers, scan-forbidden-deps]
     runs-on: ubuntu-latest
-    if: always()
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always()) }}
     steps:
       - name: Check results
         run: |

@@ -5,6 +5,7 @@
 [Bb]in/
 [Oo]bj/
 **/.vs/     # Visual Studio 2022 hidden folder (in any subdirectory)
+.vs/
 *.VC.db
 *.VC.opendb
 *.aps
@@ -52,7 +53,7 @@ packages/
 # vcpkg portfiles, build trees, and installed packages
 # It is recommended to use vcpkg in manifest mode (vcpkg.json) and ignore the vcpkg directory itself
 vcpkg/
-vcpkg_installed/
+.vcpkg_installed/
 # Ignore vcpkg-related files that might be generated in the project root if not using manifest mode correctly
 vcpkg.json.in
 vcpkg-root

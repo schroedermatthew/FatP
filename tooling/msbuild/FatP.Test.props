@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="UserMacros">
+    <FatPIncludeDir>$(SolutionDir)..\include</FatPIncludeDir>
+    <FatPComponentsDir>$(SolutionDir)..\components</FatPComponentsDir>
+    <FatPThirdPartyDir>$(SolutionDir)..\third_party</FatPThirdPartyDir>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IncludePath>$(FatPIncludeDir);$(FatPComponentsDir);$(IncludePath)</IncludePath>
+    <AdditionalIncludeDirectories>$(FatPThirdPartyDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    <ExternalIncludeDirectories>$(FatPThirdPartyDir)</ExternalIncludeDirectories>
+    <ExternalWarningLevel>Level3</ExternalWarningLevel>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <ConformanceMode>true</ConformanceMode>
+      <WarningLevel>Level4</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <DisableSpecificWarnings>4100;4189;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <PreprocessorDefinitions>
+        UNICODE;_UNICODE;NOMINMAX;WIN32_LEAN_AND_MEAN;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)
+      </PreprocessorDefinitions>
+      <AdditionalOptions>
+        /utf-8 /Zc:__cplusplus /Zc:preprocessor %(AdditionalOptions)
+      </AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+</Project>

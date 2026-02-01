@@ -18,32 +18,33 @@
 name: StateMachine CI (manual)
 
 on:
+  pull_request:
+    types: [labeled]
   workflow_dispatch:
     inputs:
       soak_iters:
-        description: "Optional: FATP_STATE_MACHINE_SOAK_ITERS (empty = default)"
+        description: "Soak iteration count for stress jobs"
         required: false
-        default: ""
-
+        default: "0"
 concurrency:
   group: statemachine-ci-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  FATP_ROOT: FAT_P/FAT_P
-  HEADER_DIR: FAT_P/FAT_P/fat_p
-  TEST_DIR: FAT_P/FAT_P/tests
+  FATP_ROOT: .
+  HEADER_DIR: include/fat_p
+  TEST_DIR: components/StateMachine/tests
+  HEADER: include/fat_p/StateMachine.h
 
-  HEADER: FAT_P/FAT_P/fat_p/StateMachine.h
+  TEST_SRC: components/StateMachine/tests/test_StateMachine.cpp
+  HYGIENE_SELF: components/StateMachine/tests/test_StateMachine_HeaderSelfContained.cpp
+  HYGIENE_ORDER: components/StateMachine/tests/test_StateMachine_HeaderIncludeOrder.cpp
 
-  TEST_SRC: FAT_P/FAT_P/tests/test_StateMachine.cpp
-  HYGIENE_SELF: FAT_P/FAT_P/tests/test_StateMachine_HeaderSelfContained.cpp
-  HYGIENE_ORDER: FAT_P/FAT_P/tests/test_StateMachine_HeaderIncludeOrder.cpp
-
-  COMPILE_FAIL_DIR: FAT_P/FAT_P/tests/compile_fail
+  COMPILE_FAIL_DIR: components/StateMachine/tests/compile_fail
 
 jobs:
   linux-gcc:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: linux-gcc (GCC-13, C++20)
     runs-on: ubuntu-24.04
     steps:
@@ -64,7 +65,7 @@ jobs:
       - name: Build + run StateMachine unit tests
         shell: bash
         env:
-          FATP_STATE_MACHINE_SOAK_ITERS: ${{ inputs.soak_iters }}
+          FATP_STATE_MACHINE_SOAK_ITERS: ${{ github.event.inputs.soak_iters || '0' }}
         run: |
           set -euo pipefail
           mkdir -p build
@@ -90,6 +91,7 @@ jobs:
           done
 
   linux-clang:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: linux-clang (Clang-16, C++20)
     runs-on: ubuntu-22.04
     steps:
@@ -114,7 +116,7 @@ jobs:
       - name: Build + run StateMachine unit tests
         shell: bash
         env:
-          FATP_STATE_MACHINE_SOAK_ITERS: ${{ inputs.soak_iters }}
+          FATP_STATE_MACHINE_SOAK_ITERS: ${{ github.event.inputs.soak_iters || '0' }}
         run: |
           set -euo pipefail
           mkdir -p build
@@ -142,6 +144,7 @@ jobs:
           done
 
   windows-msvc:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: windows-msvc (MSVC, C++20)
     runs-on: windows-2022
     steps:
@@ -158,7 +161,7 @@ jobs:
       - name: Build + run StateMachine unit tests
         shell: pwsh
         env:
-          FATP_STATE_MACHINE_SOAK_ITERS: ${{ inputs.soak_iters }}
+          FATP_STATE_MACHINE_SOAK_ITERS: ${{ github.event.inputs.soak_iters || '0' }}
         run: |
           $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force -Path build | Out-Null
@@ -193,6 +196,7 @@ jobs:
           }
 
   sanitizer-asan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: sanitizer-asan (Clang-16)
     runs-on: ubuntu-22.04
     steps:
@@ -205,7 +209,7 @@ jobs:
       - name: Build + run (ASan)
         shell: bash
         env:
-          FATP_STATE_MACHINE_SOAK_ITERS: ${{ inputs.soak_iters }}
+          FATP_STATE_MACHINE_SOAK_ITERS: ${{ github.event.inputs.soak_iters || '0' }}
         run: |
           set -euo pipefail
           mkdir -p build
@@ -218,6 +222,7 @@ jobs:
           ./build/test_StateMachine_asan
 
   sanitizer-ubsan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: sanitizer-ubsan (Clang-16)
     runs-on: ubuntu-22.04
     steps:
@@ -230,7 +235,7 @@ jobs:
       - name: Build + run (UBSan)
         shell: bash
         env:
-          FATP_STATE_MACHINE_SOAK_ITERS: ${{ inputs.soak_iters }}
+          FATP_STATE_MACHINE_SOAK_ITERS: ${{ github.event.inputs.soak_iters || '0' }}
         run: |
           set -euo pipefail
           mkdir -p build
@@ -243,6 +248,7 @@ jobs:
           ./build/test_StateMachine_ubsan
 
   sanitizer-tsan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: sanitizer-tsan (Clang-16)
     runs-on: ubuntu-22.04
     steps:
@@ -255,7 +261,7 @@ jobs:
       - name: Build + run (TSan)
         shell: bash
         env:
-          FATP_STATE_MACHINE_SOAK_ITERS: ${{ inputs.soak_iters }}
+          FATP_STATE_MACHINE_SOAK_ITERS: ${{ github.event.inputs.soak_iters || '0' }}
         run: |
           set -euo pipefail
           mkdir -p build
@@ -268,6 +274,7 @@ jobs:
           ./build/test_StateMachine_tsan
 
   header-check:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: header-check (StateMachine.h standalone)
     runs-on: ubuntu-24.04
     steps:
@@ -289,6 +296,7 @@ EOF
             -c build/header_compile.cpp -o /dev/null
 
   strict-warnings:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: strict-warnings (Werror)
     runs-on: ubuntu-24.04
     steps:
@@ -309,6 +317,7 @@ EOF
             "$TEST_SRC" -o build/test_StateMachine_werror
 
   compile-fail-gcc:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: compile-fail (GCC-13)
     runs-on: ubuntu-24.04
     steps:
@@ -340,6 +349,7 @@ EOF
           done
 
   compile-fail-clang:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: compile-fail (Clang-16)
     runs-on: ubuntu-22.04
     steps:
@@ -375,6 +385,7 @@ EOF
           done
 
   compile-fail-msvc:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: compile-fail (MSVC)
     runs-on: windows-2022
     steps:
@@ -418,7 +429,7 @@ EOF
       - compile-fail-clang
       - compile-fail-msvc
     runs-on: ubuntu-latest
-    if: always()
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always()) }}
     steps:
       - name: Check results
         shell: bash

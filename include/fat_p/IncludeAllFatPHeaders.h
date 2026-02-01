@@ -1,0 +1,259 @@
+#pragma once
+/*
+FATP_META:
+  meta_version: 1
+  component: IncludeAllFatPHeaders
+  file_role: internal_header
+  path: include/fat_p/IncludeAllFatPHeaders.h
+  namespace: fat_p
+  layer: Testing
+  summary: "Test support header that includes all public FAT-P headers."
+  api_stability: in_work
+  related:
+    docs_search: "IncludeAllFatPHeaders"
+    headers:
+      - include/fat_p/AlignedVector.h
+      - include/fat_p/AllocationStrategies.h
+      - include/fat_p/AsyncOperations.h
+      - include/fat_p/AtomicSharedPtr.h
+      - include/fat_p/BinaryLite.h
+      - include/fat_p/BitSet.h
+      - include/fat_p/CSRMatrix.h
+      - include/fat_p/CSRMatrixParallel.h
+      - include/fat_p/CSRMatrixPartitioning.h
+      - include/fat_p/CSRMatrix_HPC.h
+      - include/fat_p/CacheUtilities.h
+      - include/fat_p/CborLite.h
+      - include/fat_p/CborStreamLite.h
+      - include/fat_p/CheckedArithmetic.h
+      - include/fat_p/CheckedArithmeticBase.h
+      - include/fat_p/CheckedArithmeticFP.h
+      - include/fat_p/CheckedArithmeticInt.h
+      - include/fat_p/CheckedArithmeticPolicies.h
+      - include/fat_p/CheckedArithmetic_IntSimd.h
+      - include/fat_p/CheckedArithmetic_IntSimd_AVX2.h
+      - include/fat_p/CheckedArithmetic_IntSimd_Common.h
+      - include/fat_p/CheckedArithmetic_IntSimd_NEON.h
+      - include/fat_p/CheckedArithmetic_IntSimd_SSE2.h
+      - include/fat_p/CircularBuffer.h
+      - include/fat_p/ComparisonTolerances.h
+      - include/fat_p/Concepts.h
+      - include/fat_p/ConcurrencyPolicies.h
+      - include/fat_p/ConstexprUtilities.h
+      - include/fat_p/ContractException.h
+      - include/fat_p/CoroutineTask.h
+      - include/fat_p/CppFeatureDetection.h
+      - include/fat_p/DebugOnly.h
+      - include/fat_p/DiagnosticLogger_Core.h
+      - include/fat_p/DiagnosticLogger_IO.h
+      - include/fat_p/DiagnosticLogger_Json.h
+      - include/fat_p/DiagnosticLogger_Sinks.h
+      - include/fat_p/DiagnosticLogger_TestUtilities.h
+      - include/fat_p/EnforcedInit.h
+      - include/fat_p/EnhancedBoundsChecking.h
+      - include/fat_p/EnumPlus.h
+      - include/fat_p/EqualityAny.h
+      - include/fat_p/EqualityComparisons.h
+      - include/fat_p/EqualityTensor.h
+      - include/fat_p/Expected.h
+      - include/fat_p/Factory.h
+      - include/fat_p/FastHashMap.h
+      - include/fat_p/FatPBenchmarkRunner.h
+      - include/fat_p/FatPBinary.h
+      - include/fat_p/FatPCbor.h
+      - include/fat_p/FatPCborStream.h
+      - include/fat_p/FatPConcepts.h
+      - include/fat_p/FatPConfig.h
+      - include/fat_p/FatPJson.h
+      - include/fat_p/FatPJsonStream.h
+      - include/fat_p/SimdDetection.h
+      - include/fat_p/FatPTest.h
+      - include/fat_p/FeatureManager.h
+      - include/fat_p/FlatMap.h
+      - include/fat_p/FlatSet.h
+      - include/fat_p/FloatingPointComparison.h
+      - include/fat_p/HpcVector.h
+      - include/fat_p/IdGenerator.h
+      - include/fat_p/IntrusiveList.h
+      - include/fat_p/JsonLite.h
+      - include/fat_p/JsonStreamLite.h
+      - include/fat_p/LockFreeQueue.h
+      - include/fat_p/PolicyQueue.h
+      - include/fat_p/WorkQueue.h
+      - include/fat_p/LockFreeRingBuffer.h
+      - include/fat_p/MemoryMappedFile.h
+      - include/fat_p/NumaAlignedAllocator.h
+      - include/fat_p/NumaAllocator.h
+      - include/fat_p/ObjectPool.h
+      - include/fat_p/PipeOperator.h
+      - include/fat_p/PlatformDetection.h
+      - include/fat_p/PolicyIterator.h
+      - include/fat_p/RateLimiter.h
+      - include/fat_p/Reflection.h
+      - include/fat_p/ScopeGuard.h
+      - include/fat_p/ScopeGuardExpected.h
+      - include/fat_p/ScopeGuardPolicies.h
+      - include/fat_p/ServiceLocator.h
+      - include/fat_p/Signal.h
+      - include/fat_p/SimdVector.h
+      - include/fat_p/SlidingFileWindow.h
+      - include/fat_p/SlotMap.h
+      - include/fat_p/SmallVector.h
+      - include/fat_p/SortedContainer.h
+      - include/fat_p/SparseSet.h
+      - include/fat_p/StableHashMap.h
+      - include/fat_p/Stacktrace.h
+      - include/fat_p/StateMachine.h
+      - include/fat_p/StringPool.h
+      - include/fat_p/Stringify.h
+      - include/fat_p/StrongId.h
+      - include/fat_p/Tensor.h
+      - include/fat_p/TensorEinsum.h
+      - include/fat_p/TensorIteration.h
+      - include/fat_p/TensorMath.h
+      - include/fat_p/TensorSerializer.h
+      - include/fat_p/TensorStorage.h
+      - include/fat_p/TensorStridePolicy.h
+      - include/fat_p/ThreadPool.h
+      - include/fat_p/ValueGuard.h
+      - include/fat_p/ViewLifetimeTracking.h
+      - include/fat_p/enforce.h
+      - include/fat_p/enforce_contextual.h
+      - include/fat_p/enforce_contextual_policies.h
+      - include/fat_p/enforce_enforcers.h
+      - include/fat_p/enforce_predicates.h
+      - include/fat_p/enforce_raiser_selector.h
+      - include/fat_p/enforce_raisers.h
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
+// test_include_all_headers.cpp
+//
+// Compile-only hygiene gate for Fat-P.
+//
+// Systemic Hygiene Policy (Section 6.1): Maintain a translation unit that
+// includes ALL public headers. This must compile on supported toolchains.
+//
+// Success criterion: this file compiles. No runtime assertions are required.
+
+#include "AlignedVector.h"
+#include "AllocationStrategies.h"
+#include "AsyncOperations.h"
+#include "AtomicSharedPtr.h"
+#include "BinaryLite.h"
+#include "BitSet.h"
+#include "CacheUtilities.h"
+#include "CborLite.h"
+#include "CborStreamLite.h"
+#include "CheckedArithmetic.h"
+#include "CheckedArithmetic_IntSimd.h"
+#include "CheckedArithmetic_IntSimd_AVX2.h"
+#include "CheckedArithmetic_IntSimd_Common.h"
+#include "CheckedArithmetic_IntSimd_NEON.h"
+#include "CheckedArithmetic_IntSimd_SSE2.h"
+#include "CheckedArithmeticBase.h"
+#include "CheckedArithmeticFP.h"
+#include "CheckedArithmeticInt.h"
+#include "CheckedArithmeticPolicies.h"
+#include "CircularBuffer.h"
+#include "ComparisonTolerances.h"
+#include "Concepts.h"
+#include "ConcurrencyPolicies.h"
+#include "ConstexprUtilities.h"
+#include "ContractException.h"
+#include "CoroutineTask.h"
+#include "CppFeatureDetection.h"
+#include "CSRMatrix.h"
+#include "CSRMatrix_HPC.h"
+#include "CSRMatrixParallel.h"
+#include "CSRMatrixPartitioning.h"
+#include "DebugOnly.h"
+#include "DiagnosticLogger_Core.h"
+#include "DiagnosticLogger_IO.h"
+#include "DiagnosticLogger_Json.h"
+#include "DiagnosticLogger_Sinks.h"
+#include "DiagnosticLogger_TestUtilities.h"
+#include "enforce.h"
+#include "enforce_contextual.h"
+#include "enforce_contextual_policies.h"
+#include "enforce_enforcers.h"
+#include "enforce_predicates.h"
+#include "enforce_raiser_selector.h"
+#include "enforce_raisers.h"
+#include "EnforcedInit.h"
+#include "EnhancedBoundsChecking.h"
+#include "EnumPlus.h"
+#include "EqualityAny.h"
+#include "EqualityComparisons.h"
+#include "EqualityTensor.h"
+#include "Expected.h"
+#include "Factory.h"
+#include "FastHashMap.h"
+#include "FatPBenchmarkRunner.h"
+#include "FatPBinary.h"
+#include "FatPCbor.h"
+#include "FatPCborStream.h"
+#include "FatPConcepts.h"
+#include "FatPConfig.h"
+#include "FatPJson.h"
+#include "FatPJsonStream.h"
+#include "SimdDetection.h"
+#include "FatPTest.h"
+#include "FeatureManager.h"
+#include "FlatMap.h"
+#include "FlatSet.h"
+#include "FloatingPointComparison.h"
+#include "HpcVector.h"
+#include "IdGenerator.h"
+#include "IntrusiveList.h"
+#include "JsonLite.h"
+#include "JsonStreamLite.h"
+#include "LockFreeQueue.h"
+#include "PlatformDetection.h"
+#include "PolicyQueue.h"
+#include "WorkQueue.h"
+#include "LockFreeRingBuffer.h"
+#include "MemoryMappedFile.h"
+#include "NumaAlignedAllocator.h"
+#include "NumaAllocator.h"
+#include "ObjectPool.h"
+#include "PipeOperator.h"
+#include "PolicyIterator.h"
+#include "RateLimiter.h"
+#include "Reflection.h"
+#include "ScopeGuard.h"
+#include "ScopeGuardExpected.h"
+#include "ScopeGuardPolicies.h"
+#include "ServiceLocator.h"
+#include "Signal.h"
+#include "SimdVector.h"
+#include "SlidingFileWindow.h"
+#include "SlotMap.h"
+#include "SmallVector.h"
+#include "SortedContainer.h"
+#include "SparseSet.h"
+#include "StableHashMap.h"
+#include "Stacktrace.h"
+#include "StateMachine.h"
+#include "Stringify.h"
+#include "StringPool.h"
+#include "StrongId.h"
+#include "Tensor.h"
+#include "TensorEinsum.h"
+#include "TensorIteration.h"
+#include "TensorMath.h"
+#include "TensorSerializer.h"
+#include "TensorStorage.h"
+#include "TensorStridePolicy.h"
+#include "ThreadPool.h"
+#include "ValueGuard.h"
+#include "ViewLifetimeTracking.h"

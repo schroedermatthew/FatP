@@ -6,36 +6,26 @@
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/ThreadPool.h
-#   Tests:      FAT_P/FAT_P/tests/test_ThreadPool.cpp
+#   Headers:    include/fat_p/ThreadPool.h
+#   Tests:      components/ThreadPool/tests/test_ThreadPool.cpp
 # =============================================================================
 
 name: ThreadPool CI
 
 on:
-  push:
-    branches: [main, master]
-    paths:
-      - 'FAT_P/FAT_P/fat_p/ThreadPool.h'
-      - 'FAT_P/FAT_P/tests/test_ThreadPool.cpp'
-      - '.github/workflows/thread-pool.yml'
   pull_request:
-    branches: [main, master]
-    paths:
-      - 'FAT_P/FAT_P/fat_p/ThreadPool.h'
-      - 'FAT_P/FAT_P/tests/test_ThreadPool.cpp'
-      - '.github/workflows/thread-pool.yml'
+    types: [labeled]
   workflow_dispatch:
-
 env:
   HEADER: ThreadPool.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_ThreadPool.cpp
+  TEST_SRC: components/ThreadPool/tests/test_ThreadPool.cpp
 
 jobs:
   # ===========================================================================
   # Linux GCC Build (C++20)
   # ===========================================================================
   linux-gcc:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Linux GCC-13 C++20
     runs-on: ubuntu-24.04
     steps:
@@ -50,7 +40,7 @@ jobs:
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run tests
@@ -60,6 +50,7 @@ jobs:
   # Linux Clang Build (C++20)
   # ===========================================================================
   linux-clang:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Linux Clang-16 C++20
     runs-on: ubuntu-22.04
     steps:
@@ -78,7 +69,7 @@ jobs:
             -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run tests
@@ -88,6 +79,7 @@ jobs:
   # Windows MSVC Build (C++20)
   # ===========================================================================
   windows-msvc:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Windows MSVC C++20
     runs-on: windows-latest
     steps:
@@ -107,6 +99,7 @@ jobs:
   # Sanitizers (C++20)
   # ===========================================================================
   sanitizer-asan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: AddressSanitizer
     runs-on: ubuntu-24.04
     steps:
@@ -117,7 +110,7 @@ jobs:
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run with ASan
@@ -126,6 +119,7 @@ jobs:
         run: ./test_bin
 
   sanitizer-ubsan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: UndefinedBehaviorSanitizer
     runs-on: ubuntu-24.04
     steps:
@@ -136,7 +130,7 @@ jobs:
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run with UBSan
@@ -148,6 +142,7 @@ jobs:
   # Header Self-Containment (C++20)
   # ===========================================================================
   header-check:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Header Self-Containment
     runs-on: ubuntu-24.04
     steps:
@@ -159,7 +154,7 @@ jobs:
           echo 'int main() { return 0; }' >> test_include.cpp
           
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             -c test_include.cpp -o /dev/null
           
           echo "✓ Header is self-contained"
@@ -168,6 +163,7 @@ jobs:
   # Strict Warnings (C++20)
   # ===========================================================================
   strict-warnings:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Strict Warnings
     runs-on: ubuntu-24.04
     steps:
@@ -180,7 +176,7 @@ jobs:
               -Wconversion -Wsign-conversion \
               -Wshadow -Wformat=2 \
               -Werror \
-              -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
+              -DENABLE_TEST_APPLICATION -I./include/fat_p \
               -o test_strict ${{ env.TEST_SRC }}
           echo "✓ No warnings"
 
@@ -191,7 +187,7 @@ jobs:
     name: CI Success
     needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
-    if: always()
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always()) }}
     steps:
       - name: Check results
         run: |

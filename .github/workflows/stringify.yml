@@ -3,65 +3,73 @@
 # =============================================================================
 # CI workflow for Stringify component
 #
-# C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
+# C++20 primary build. Manual trigger only per Fat-P CI policy.
+#
+# Compiler Matrix:
+#   - GCC 13, 14
+#   - Clang 17, 18
+#   - MSVC 2022
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/Stringify.h
-#   Tests:      FAT_P/FAT_P/tests/test_Stringify.cpp
+#   Headers:    include/fat_p/Stringify.h
+#   Tests:      components/Stringify/tests/test_Stringify.cpp
 # =============================================================================
 
 name: Stringify CI
 
 on:
-  push:
-    branches: [main, master]
-    paths:
-      - 'FAT_P/FAT_P/fat_p/Stringify.h'
-      - 'FAT_P/FAT_P/tests/test_Stringify.cpp'
-      - '.github/workflows/stringify.yml'
   pull_request:
-    branches: [main, master]
-    paths:
-      - 'FAT_P/FAT_P/fat_p/Stringify.h'
-      - 'FAT_P/FAT_P/tests/test_Stringify.cpp'
-      - '.github/workflows/stringify.yml'
+    types: [labeled]
   workflow_dispatch:
-
 env:
   HEADER: Stringify.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_Stringify.cpp
+  TEST_SRC: components/Stringify/tests/test_Stringify.cpp
 
 jobs:
   # ===========================================================================
-  # Linux GCC Build (C++20)
+  # Linux GCC Matrix (C++20)
   # ===========================================================================
   linux-gcc:
-    name: Linux GCC-13 C++20
-    runs-on: ubuntu-24.04
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+    name: Linux GCC-${{ matrix.version }} C++20
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 13
+            runner: ubuntu-24.04
+          - version: 14
+            runner: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Install GCC
-        run: sudo apt-get update && sudo apt-get install -y g++-13
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
 
       - name: Build tests
         run: |
-          g++-13 -std=c++20 \
+          g++-${{ matrix.version }} -std=c++20 \
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run tests
         run: ./test_bin
 
   # ===========================================================================
-  # Linux Clang Build (C++20)
+  # Linux Clang Matrix (C++20)
   # ===========================================================================
   linux-clang:
-    name: Linux Clang-16 C++20
-    runs-on: ubuntu-22.04
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+    name: Linux Clang-${{ matrix.version }} C++20
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [17, 18]
     steps:
       - uses: actions/checkout@v4
 
@@ -69,16 +77,16 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 16
+          sudo ./llvm.sh ${{ matrix.version }}
 
       - name: Build tests
         run: |
-          clang++-16 -std=c++20 \
+          clang++-${{ matrix.version }} -std=c++20 \
             -Wall -Wextra -Wpedantic -Werror \
             -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run tests
@@ -88,8 +96,9 @@ jobs:
   # Windows MSVC Build (C++20)
   # ===========================================================================
   windows-msvc:
-    name: Windows MSVC C++20
-    runs-on: windows-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+    name: Windows MSVC 2022 C++20
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 
@@ -104,20 +113,24 @@ jobs:
         run: .\test_bin.exe
 
   # ===========================================================================
-  # Sanitizers (C++20)
+  # Sanitizers (C++20) - Using GCC 14 for best coverage
   # ===========================================================================
   sanitizer-asan:
-    name: AddressSanitizer
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+    name: AddressSanitizer (GCC-14)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install GCC 14
+        run: sudo apt-get update && sudo apt-get install -y g++-14
+
       - name: Build with ASan
         run: |
-          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+          g++-14 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run with ASan
@@ -126,17 +139,21 @@ jobs:
         run: ./test_bin
 
   sanitizer-ubsan:
-    name: UndefinedBehaviorSanitizer
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+    name: UndefinedBehaviorSanitizer (GCC-14)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install GCC 14
+        run: sudo apt-get update && sudo apt-get install -y g++-14
+
       - name: Build with UBSan
         run: |
-          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+          g++-14 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run with UBSan
@@ -144,62 +161,199 @@ jobs:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
         run: ./test_bin
 
+  sanitizer-tsan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+    name: ThreadSanitizer (GCC-14)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC 14
+        run: sudo apt-get update && sudo apt-get install -y g++-14
+
+      - name: Build with TSan
+        run: |
+          g++-14 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=thread -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run with TSan
+        env:
+          TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+        run: ./test_bin
+
   # ===========================================================================
-  # Header Self-Containment (C++20)
+  # Header Self-Containment Loop (C++20)
   # ===========================================================================
-  header-check:
+  header-self-containment:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Header Self-Containment
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Test header compiles standalone
+      - name: Install GCC 14
+        run: sudo apt-get update && sudo apt-get install -y g++-14
+
+      - name: Test all Stringify-related headers compile standalone
         run: |
-          echo '#include "${{ env.HEADER }}"' > test_include.cpp
-          echo 'int main() { return 0; }' >> test_include.cpp
+          HEADER_DIR="include/fat_p"
+          HEADERS=(
+            "Stringify.h"
+            "Concepts.h"
+            "CppFeatureDetection.h"
+          )
           
-          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
-            -I./FAT_P/FAT_P/fat_p \
-            -c test_include.cpp -o /dev/null
+          failed=0
+          for header in "${HEADERS[@]}"; do
+            echo "Testing $header..."
+            cat > test_include.cpp << EOF
+          #include "$header"
+          int main() { return 0; }
+          EOF
+            if g++-14 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+              -I./$HEADER_DIR \
+              -c test_include.cpp -o /dev/null 2>&1; then
+              echo "✓ $header is self-contained"
+            else
+              echo "✗ $header failed self-containment check"
+              failed=$((failed + 1))
+            fi
+          done
           
-          echo "✓ Header is self-contained"
+          if [ $failed -gt 0 ]; then
+            echo "❌ $failed header(s) failed self-containment"
+            exit 1
+          fi
+          echo "✓ All headers are self-contained"
 
   # ===========================================================================
   # Strict Warnings (C++20)
   # ===========================================================================
   strict-warnings:
-    name: Strict Warnings
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+    name: Strict Warnings (GCC-14)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install GCC 14
+        run: sudo apt-get update && sudo apt-get install -y g++-14
+
       - name: Compile with strict warnings
         run: |
-          g++-13 -std=c++20 \
+          g++-14 -std=c++20 \
               -Wall -Wextra -Wpedantic \
               -Wconversion -Wsign-conversion \
               -Wshadow -Wformat=2 \
+              -Wnull-dereference \
+              -Wdouble-promotion \
               -Werror \
-              -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
+              -DENABLE_TEST_APPLICATION -I./include/fat_p \
               -o test_strict ${{ env.TEST_SRC }}
           echo "✓ No warnings"
+
+  # ===========================================================================
+  # Clang Static Analysis
+  # ===========================================================================
+  clang-tidy:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+    name: Clang-Tidy Analysis
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang tools
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18
+          sudo apt-get install -y clang-tidy-18
+
+      - name: Run clang-tidy on header
+        run: |
+          # Create a simple test file that includes the header
+          cat > analyze.cpp << EOF
+          #include "Stringify.h"
+          int main() {
+              return fat_p::toString(42).empty() ? 1 : 0;
+          }
+          EOF
+          
+          # Run clang-tidy with key checks
+          clang-tidy-18 analyze.cpp \
+            -checks='-*,bugprone-*,performance-*,modernize-use-nullptr,modernize-use-override' \
+            -- -std=c++20 -I./include/fat_p \
+            2>&1 | tee tidy_output.txt
+          
+          # Check for errors (warnings are OK)
+          if grep -q "error:" tidy_output.txt; then
+            echo "❌ clang-tidy found errors"
+            exit 1
+          fi
+          echo "✓ clang-tidy passed"
 
   # ===========================================================================
   # CI Gate
   # ===========================================================================
   ci-success:
     name: CI Success
-    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
+    needs: 
+      - linux-gcc
+      - linux-clang
+      - windows-msvc
+      - sanitizer-asan
+      - sanitizer-ubsan
+      - sanitizer-tsan
+      - header-self-containment
+      - strict-warnings
+      - clang-tidy
     runs-on: ubuntu-latest
-    if: always()
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always()) }}
     steps:
       - name: Check results
         run: |
-          if [[ "${{ needs.linux-gcc.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.linux-clang.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
+          echo "=== CI Results ==="
+          echo "linux-gcc: ${{ needs.linux-gcc.result }}"
+          echo "linux-clang: ${{ needs.linux-clang.result }}"
+          echo "windows-msvc: ${{ needs.windows-msvc.result }}"
+          echo "sanitizer-asan: ${{ needs.sanitizer-asan.result }}"
+          echo "sanitizer-ubsan: ${{ needs.sanitizer-ubsan.result }}"
+          echo "sanitizer-tsan: ${{ needs.sanitizer-tsan.result }}"
+          echo "header-self-containment: ${{ needs.header-self-containment.result }}"
+          echo "strict-warnings: ${{ needs.strict-warnings.result }}"
+          echo "clang-tidy: ${{ needs.clang-tidy.result }}"
+          echo ""
+          
+          # Check all required jobs
+          if [[ "${{ needs.linux-gcc.result }}" != "success" ]]; then
+            echo "❌ linux-gcc failed"; exit 1
+          fi
+          if [[ "${{ needs.linux-clang.result }}" != "success" ]]; then
+            echo "❌ linux-clang failed"; exit 1
+          fi
+          if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then
+            echo "❌ windows-msvc failed"; exit 1
+          fi
+          if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then
+            echo "❌ sanitizer-asan failed"; exit 1
+          fi
+          if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then
+            echo "❌ sanitizer-ubsan failed"; exit 1
+          fi
+          if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then
+            echo "❌ sanitizer-tsan failed"; exit 1
+          fi
+          if [[ "${{ needs.header-self-containment.result }}" != "success" ]]; then
+            echo "❌ header-self-containment failed"; exit 1
+          fi
+          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then
+            echo "❌ strict-warnings failed"; exit 1
+          fi
+          if [[ "${{ needs.clang-tidy.result }}" != "success" ]]; then
+            echo "❌ clang-tidy failed"; exit 1
+          fi
+          
           echo "✓ All checks passed"

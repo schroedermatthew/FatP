@@ -6,47 +6,27 @@
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/FeatureManager.h
-#   Tests:      FAT_P/FAT_P/tests/test_FeatureManager.cpp
+#   Headers:    include/fat_p/FeatureManager.h
+#   Tests:      components/FeatureManager/tests/test_FeatureManager.cpp
 # =============================================================================
 
 name: FeatureManager CI
 
 on:
-  push:
-    branches: [main, master]
-    paths:
-      - 'FAT_P/FAT_P/fat_p/FeatureManager.h'
-      - 'FAT_P/FAT_P/tests/test_FeatureManager.cpp'
-      - 'FAT_P/FAT_P/benchmarks/benchmark_FeatureManager.cpp'
-      - '.github/workflows/feature-manager.yml'
   pull_request:
-    branches: [main, master]
-    paths:
-      - 'FAT_P/FAT_P/fat_p/FeatureManager.h'
-      - 'FAT_P/FAT_P/tests/test_FeatureManager.cpp'
-      - 'FAT_P/FAT_P/benchmarks/benchmark_FeatureManager.cpp'
-      - '.github/workflows/feature-manager.yml'
-  schedule:
-    - cron: '0 2 * * 0'  # Weekly benchmarks
+    types: [labeled]
   workflow_dispatch:
-    inputs:
-      run_benchmarks:
-        description: 'Run benchmarks'
-        required: false
-        default: 'false'
-        type: boolean
-
 env:
   HEADER: FeatureManager.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_FeatureManager.cpp
-  BENCH_SRC: FAT_P/FAT_P/benchmarks/benchmark_FeatureManager.cpp
+  TEST_SRC: components/FeatureManager/tests/test_FeatureManager.cpp
+  BENCH_SRC: components/FeatureManager/benchmarks/benchmark_FeatureManager.cpp
 
 jobs:
   # ===========================================================================
   # Linux GCC Build (C++20)
   # ===========================================================================
   linux-gcc:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Linux GCC-13 C++20
     runs-on: ubuntu-24.04
     steps:
@@ -61,7 +41,7 @@ jobs:
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run tests
@@ -71,6 +51,7 @@ jobs:
   # Linux Clang Build (C++20)
   # ===========================================================================
   linux-clang:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Linux Clang-16 C++20
     runs-on: ubuntu-22.04
     steps:
@@ -89,7 +70,7 @@ jobs:
             -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run tests
@@ -99,6 +80,7 @@ jobs:
   # Windows MSVC Build (C++20)
   # ===========================================================================
   windows-msvc:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Windows MSVC C++20
     runs-on: windows-latest
     steps:
@@ -118,6 +100,7 @@ jobs:
   # Sanitizers (C++20)
   # ===========================================================================
   sanitizer-asan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: AddressSanitizer
     runs-on: ubuntu-24.04
     steps:
@@ -128,7 +111,7 @@ jobs:
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run with ASan
@@ -137,6 +120,7 @@ jobs:
         run: ./test_bin
 
   sanitizer-ubsan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: UndefinedBehaviorSanitizer
     runs-on: ubuntu-24.04
     steps:
@@ -147,7 +131,7 @@ jobs:
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run with UBSan
@@ -159,6 +143,7 @@ jobs:
   # Header Self-Containment (C++20)
   # ===========================================================================
   header-check:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Header Self-Containment
     runs-on: ubuntu-24.04
     steps:
@@ -170,7 +155,7 @@ jobs:
           echo 'int main() { return 0; }' >> test_include.cpp
           
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             -c test_include.cpp -o /dev/null
           
           echo "✓ Header is self-contained"
@@ -179,6 +164,7 @@ jobs:
   # Strict Warnings (C++20)
   # ===========================================================================
   strict-warnings:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Strict Warnings
     runs-on: ubuntu-24.04
     steps:
@@ -191,7 +177,7 @@ jobs:
               -Wconversion -Wsign-conversion \
               -Wshadow -Wformat=2 \
               -Werror \
-              -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
+              -DENABLE_TEST_APPLICATION -I./include/fat_p \
               -o test_strict ${{ env.TEST_SRC }}
           echo "✓ No warnings"
 
@@ -201,7 +187,7 @@ jobs:
   benchmarks:
     name: Benchmark GCC-13 C++20
     runs-on: ubuntu-24.04
-    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true') }}
     steps:
       - uses: actions/checkout@v4
 
@@ -221,7 +207,7 @@ jobs:
       - name: Build benchmark
         run: |
           g++-13 -std=c++20 -O3 -DNDEBUG $AVX_FLAGS \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.BENCH_SRC }} -o bench_bin
 
       - name: Run benchmarks
@@ -244,7 +230,7 @@ jobs:
     name: CI Success
     needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
-    if: always()
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always()) }}
     steps:
       - name: Check results
         run: |

@@ -1,0 +1,192 @@
+
+==========================================================
+STRINGIFY UNIT TESTS
+==========================================================
+
+=== Concept Detection ===
+[01:08:53] Running: concept_has_to_string_method ... PASSED (0.000189 ms)
+[01:08:53] Running: concept_has_to_string_snake_method ... PASSED (0.000257 ms)
+[01:08:53] Running: concept_has_custom_string_method ... PASSED (0.000164 ms)
+[01:08:53] Running: concept_streamable ... PASSED (0.000165 ms)
+[01:08:53] Running: concept_wstreamable ... PASSED (0.000183 ms)
+[01:08:53] Running: concept_printable_range ... PASSED (0.000107 ms)
+[01:08:53] Running: concept_std_string_type ... PASSED (6.9e-05 ms)
+[01:08:53] Running: concept_stringifiable ... PASSED (0.000191 ms)
+
+=== Integer Stringification ===
+[01:08:53] Running: int_basic ... PASSED (0.003456 ms)
+[01:08:53] Running: int_boundaries ... PASSED (0.002583 ms)
+[01:08:53] Running: int_all_types ... PASSED (0.002335 ms)
+[01:08:53] Running: int_fast_path_performance ...   std::to_string(int): 5.29961 ns, toString(int): 5.58724 ns
+PASSED (10.8943 ms)
+
+=== Float Stringification ===
+[01:08:53] Running: float_basic ... PASSED (0.043184 ms)
+[01:08:53] Running: float_special_values ... PASSED (0.005482 ms)
+[01:08:53] Running: float_precision_option ... PASSED (0.023906 ms)
+[01:08:53] Running: float_scientific_notation ... PASSED (0.013397 ms)
+[01:08:53] Running: float_fast_path_performance ...   std::to_string(double): 78.5209 ns, toString(double): 75.0929 ns
+PASSED (153.633 ms)
+
+=== Boolean Stringification ===
+[01:08:53] Running: bool_text_mode ... PASSED (0.012164 ms)
+[01:08:53] Running: bool_numeric_mode ... PASSED (0.002112 ms)
+[01:08:53] Running: bool_fast_path_performance ...   toString(bool): 0.157669 ns
+PASSED (0.159529 ms)
+
+=== String Passthrough ===
+[01:08:53] Running: string_std_string ... PASSED (0.002031 ms)
+[01:08:53] Running: string_c_string ... PASSED (0.000673 ms)
+[01:08:53] Running: string_null_c_string ... PASSED (0.003623 ms)
+[01:08:53] Running: string_char_array ... PASSED (0.001003 ms)
+
+=== Enum Stringification ===
+[01:08:53] Running: enum_with_stringifier ... PASSED (0.001628 ms)
+[01:08:53] Running: enum_without_stringifier ... PASSED (0.002072 ms)
+[01:08:53] Running: enum_unscoped ... PASSED (0.000717 ms)
+[01:08:53] Running: enum_in_container ... PASSED (0.014112 ms)
+
+=== Custom Method Stringification ===
+[01:08:53] Running: custom_to_string_method ... PASSED (0.001091 ms)
+[01:08:53] Running: custom_to_string_snake_method ... PASSED (0.001596 ms)
+[01:08:53] Running: custom_both_methods_prefers_camel_case ... PASSED (0.000583 ms)
+[01:08:53] Running: custom_streamable ... PASSED (0.013915 ms)
+
+=== Pair Stringification ===
+[01:08:53] Running: pair_basic ... PASSED (0.004898 ms)
+[01:08:53] Running: pair_nested ... PASSED (0.001441 ms)
+[01:08:53] Running: pair_with_container ... PASSED (0.003554 ms)
+
+=== Tuple Stringification ===
+[01:08:53] Running: tuple_basic ... PASSED (0.008781 ms)
+[01:08:53] Running: tuple_empty ... PASSED (0.001147 ms)
+[01:08:53] Running: tuple_single ... PASSED (0.001375 ms)
+[01:08:53] Running: tuple_nested ... PASSED (0.002015 ms)
+
+=== Optional Stringification ===
+[01:08:53] Running: optional_with_value ... PASSED (0.000904 ms)
+[01:08:53] Running: optional_empty ... PASSED (0.000455 ms)
+[01:08:53] Running: optional_nested ... PASSED (0.000633 ms)
+
+=== Container Stringification ===
+[01:08:53] Running: container_vector ... PASSED (0.001547 ms)
+[01:08:53] Running: container_array ... PASSED (0.001577 ms)
+[01:08:53] Running: container_list ... PASSED (0.002296 ms)
+[01:08:53] Running: container_deque ... PASSED (0.002521 ms)
+[01:08:53] Running: container_forward_list ... PASSED (0.002143 ms)
+[01:08:53] Running: container_set ... PASSED (0.003075 ms)
+[01:08:53] Running: container_nested ... PASSED (0.00288 ms)
+[01:08:53] Running: container_custom_delimiters ... PASSED (0.003499 ms)
+
+=== Map Stringification ===
+[01:08:53] Running: map_basic ... PASSED (0.003482 ms)
+[01:08:53] Running: map_empty ... PASSED (0.00095 ms)
+[01:08:53] Running: map_unordered ... PASSED (0.005776 ms)
+
+=== Recursion Depth Guard ===
+[01:08:53] Running: depth_guard_default ... PASSED (0.008907 ms)
+[01:08:53] Running: depth_guard_custom ... PASSED (0.005207 ms)
+[01:08:53] Running: depth_guard_reset ... PASSED (0.0062 ms)
+
+=== Type Priority Edge Cases ===
+[01:08:53] Running: priority_fake_pair_uses_to_string ... PASSED (0.002063 ms)
+[01:08:53] Running: priority_iterable_uses_to_string ... PASSED (0.001566 ms)
+[01:08:53] Running: priority_non_stringifiable_placeholder ... PASSED (0.002844 ms)
+
+=== StringifyOptions ===
+[01:08:53] Running: options_default_values ... PASSED (0.000169 ms)
+[01:08:53] Running: options_placeholder ... PASSED (0.001405 ms)
+[01:08:53] Running: options_classic_locale ... PASSED (0.003636 ms)
+
+=== Convenience Functions ===
+[01:08:53] Running: to_string_or ... PASSED (0.001325 ms)
+[01:08:53] Running: try_to_string_success ... PASSED (0.001374 ms)
+[01:08:53] Running: try_to_string_exception ... PASSED (0.122214 ms)
+[01:08:53] Running: to_w_string_basic ... PASSED (0.048251 ms)
+[01:08:53] Running: to_string_padded_right ... PASSED (0.001681 ms)
+[01:08:53] Running: to_string_padded_left ... PASSED (0.00195 ms)
+[01:08:53] Running: to_string_padded_center ... PASSED (0.002139 ms)
+[01:08:53] Running: to_string_padded_no_padding_needed ... PASSED (0.00108 ms)
+[01:08:53] Running: to_string_formatted ... PASSED (0.009781 ms)
+[01:08:53] Running: to_string_pointer ... PASSED (0.006467 ms)
+[01:08:53] Running: to_string_pointer_decimal ... PASSED (0.007151 ms)
+[01:08:53] Running: to_string_concat ... PASSED (0.004769 ms)
+
+=== Thread Safety ===
+[01:08:53] Running: thread_safety_concurrent ... PASSED (2.26476 ms)
+[01:08:53] Running: thread_safety_error_independence ... PASSED (0.431722 ms)
+
+=== Corner Cases: Integers ===
+[01:08:53] Running: corner_char_as_integer ... PASSED (0.001259 ms)
+[01:08:53] Running: corner_int8_uint8 ... PASSED (0.001288 ms)
+[01:08:53] Running: corner_unsigned_boundaries ... PASSED (0.002293 ms)
+
+=== Corner Cases: Floats ===
+[01:08:53] Running: corner_float_negative_zero ... PASSED (0.003353 ms)
+[01:08:53] Running: corner_float_denormalized ... PASSED (0.021611 ms)
+[01:08:53] Running: corner_float_extremes ... PASSED (0.003121 ms)
+[01:08:53] Running: corner_float_long_double ... PASSED (0.011378 ms)
+
+=== Corner Cases: Strings ===
+[01:08:53] Running: corner_string_embedded_null ... PASSED (0.001223 ms)
+[01:08:53] Running: corner_string_unicode ... PASSED (0.000735 ms)
+[01:08:53] Running: corner_string_view ... PASSED (0.001516 ms)
+[01:08:53] Running: corner_string_special_chars ... PASSED (0.0019 ms)
+
+=== Corner Cases: Containers ===
+[01:08:53] Running: corner_container_single_element ... PASSED (0.004161 ms)
+[01:08:53] Running: corner_container_multimap ... PASSED (0.006082 ms)
+[01:08:53] Running: corner_container_multiset ... PASSED (0.003642 ms)
+[01:08:53] Running: corner_container_unordered_set ... PASSED (0.006187 ms)
+[01:08:53] Running: corner_container_of_pairs ... PASSED (0.002268 ms)
+[01:08:53] Running: corner_container_of_optionals ... PASSED (0.002281 ms)
+
+=== Corner Cases: Tuples/Arrays ===
+[01:08:53] Running: corner_tuple_homogeneous ... PASSED (0.002929 ms)
+[01:08:53] Running: corner_std_array_as_container ... PASSED (0.001238 ms)
+[01:08:53] Running: corner_pair_with_non_stringifiable ... PASSED (0.002107 ms)
+
+=== Corner Cases: Optionals ===
+[01:08:53] Running: corner_optional_triple_nested ... PASSED (0.000921 ms)
+[01:08:53] Running: corner_optional_of_non_stringifiable ... PASSED (0.001827 ms)
+
+=== Corner Cases: Enums ===
+[01:08:53] Running: corner_enum_negative_underlying ... PASSED (0.002172 ms)
+[01:08:53] Running: corner_enum_uint64_underlying ... PASSED (0.001318 ms)
+
+=== Corner Cases: Custom Types ===
+[01:08:53] Running: corner_custom_empty_return ... PASSED (0.000768 ms)
+[01:08:53] Running: corner_custom_non_const_method ... PASSED (0.002781 ms)
+
+=== Corner Cases: References/Qualifiers ===
+[01:08:53] Running: corner_const_reference ... PASSED (0.002453 ms)
+[01:08:53] Running: corner_rvalue ... PASSED (0.004292 ms)
+[01:08:53] Running: corner_pointer_non_null ... PASSED (0.021766 ms)
+
+=== Corner Cases: Options ===
+[01:08:53] Running: corner_options_all_float_options ... PASSED (0.00863 ms)
+[01:08:53] Running: corner_options_container_all ... PASSED (0.00438 ms)
+
+=== Stress Tests ===
+[01:08:53] Running: stress_large_container ... PASSED (0.731551 ms)
+[01:08:53] Running: stress_deeply_nested_at_limit ... PASSED (0.006521 ms)
+[01:08:53] Running: stress_many_map_entries ... PASSED (0.11972 ms)
+[01:08:53] Running: stress_long_string_passthrough ... PASSED (0.411006 ms)
+[01:08:53] Running: stress_wide_tuple ... PASSED (0.003471 ms)
+[01:08:53] Running: stress_rapid_allocation ... PASSED (2.46254 ms)
+[01:08:53] Running: stress_mixed_types_rapid ... PASSED (0.672175 ms)
+[01:08:53] Running: stress_concurrent_high_load ... PASSED (6.24624 ms)
+
+=== Soak Tests ===
+[01:08:53] Running: soak_sustained_operation ...   Sustained 1469779 iterations over 500ms
+PASSED (500.008 ms)
+[01:08:54] Running: soak_memory_stability ... PASSED (77.2839 ms)
+[01:08:54] Running: soak_error_recovery ... PASSED (0.966201 ms)
+[01:08:54] Running: soak_depth_guard_repeated ... PASSED (0.594095 ms)
+[01:08:54] Running: soak_concurrent_sustained ...   4 threads, 127895991 total ops over 300ms
+PASSED (301.381 ms)
+
+=== Test Summary ===
+Passed: 120
+Failed: 0
+Total:  120

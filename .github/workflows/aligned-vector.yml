@@ -4,9 +4,9 @@
 # CI workflow for AlignedVector component
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/AlignedVector.h
-#   Tests:      FAT_P/FAT_P/tests/test_AlignedVector.cpp
-#   Benchmarks: FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp
+#   Headers:    include/fat_p/AlignedVector.h
+#   Tests:      components/AlignedVector/tests/test_AlignedVector.cpp
+#   Benchmarks: components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp
 #
 # Fat-P Guidelines compliance:
 #   - Section 6.1: Include-all compile test
@@ -17,39 +17,20 @@
 name: AlignedVector CI
 
 on:
-  push:
-    branches: [main, master]
-    paths:
-      - 'FAT_P/FAT_P/fat_p/AlignedVector.h'
-      - 'FAT_P/FAT_P/tests/test_AlignedVector.cpp'
-      - 'FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp'
-      - '.github/workflows/aligned_vector.yml'
   pull_request:
-    branches: [main, master]
-    paths:
-      - 'FAT_P/FAT_P/fat_p/AlignedVector.h'
-      - 'FAT_P/FAT_P/tests/test_AlignedVector.cpp'
-      - 'FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp'
-  schedule:
-    - cron: '0 2 * * 0'  # Weekly benchmarks
+    types: [labeled]
   workflow_dispatch:
-    inputs:
-      run_benchmarks:
-        description: 'Run benchmarks'
-        required: false
-        default: 'false'
-        type: boolean
-
 env:
-  INCLUDE_DIR: FAT_P/FAT_P/fat_p
-  TEST_SRC: FAT_P/FAT_P/tests/test_AlignedVector.cpp
-  BENCH_SRC: FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp
+  INCLUDE_DIR: include/fat_p
+  TEST_SRC: components/AlignedVector/tests/test_AlignedVector.cpp
+  BENCH_SRC: components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp
 
 jobs:
   # ===========================================================================
   # Linux GCC Builds
   # ===========================================================================
   linux-gcc:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-latest
     strategy:
@@ -79,8 +60,8 @@ jobs:
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
+            -I./include/fat_p \
+            components/AlignedVector/tests/test_AlignedVector.cpp -o test_av
 
       - name: Run tests
         run: ./test_av
@@ -89,6 +70,7 @@ jobs:
   # Linux Clang Builds
   # ===========================================================================
   linux-clang:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-22.04
     strategy:
@@ -122,8 +104,8 @@ jobs:
             -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
+            -I./include/fat_p \
+            components/AlignedVector/tests/test_AlignedVector.cpp -o test_av
 
       - name: Run tests
         run: ./test_av
@@ -132,6 +114,7 @@ jobs:
   # Windows MSVC Build
   # ===========================================================================
   windows-msvc:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Windows MSVC C++${{ matrix.std }}
     runs-on: windows-latest
     strategy:
@@ -156,6 +139,7 @@ jobs:
   # Sanitizers
   # ===========================================================================
   sanitizer-asan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: AddressSanitizer
     runs-on: ubuntu-latest
     steps:
@@ -166,8 +150,8 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
+            -I./include/fat_p \
+            components/AlignedVector/tests/test_AlignedVector.cpp -o test_av
 
       - name: Run with ASan
         env:
@@ -175,6 +159,7 @@ jobs:
         run: ./test_av
 
   sanitizer-ubsan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: UndefinedBehaviorSanitizer
     runs-on: ubuntu-latest
     steps:
@@ -185,8 +170,8 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
+            -I./include/fat_p \
+            components/AlignedVector/tests/test_AlignedVector.cpp -o test_av
 
       - name: Run with UBSan
         env:
@@ -194,6 +179,7 @@ jobs:
         run: ./test_av
 
   sanitizer-tsan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: ThreadSanitizer
     runs-on: ubuntu-latest
     steps:
@@ -204,8 +190,8 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -g -O1 \
             -fsanitize=thread -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
-            FAT_P/FAT_P/tests/test_AlignedVector.cpp -o test_av
+            -I./include/fat_p \
+            components/AlignedVector/tests/test_AlignedVector.cpp -o test_av
 
       - name: Run with TSan
         env:
@@ -216,6 +202,7 @@ jobs:
   # Header Self-Containment (Fat-P §6.2)
   # ===========================================================================
   header-check:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Header Self-Containment
     runs-on: ubuntu-latest
     steps:
@@ -227,7 +214,7 @@ jobs:
           echo 'int main() { return 0; }' >> test_include.cpp
           
           g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             -c test_include.cpp -o /dev/null
           
           echo "✓ Header is self-contained"
@@ -250,8 +237,8 @@ jobs:
           int main() { fat_p::AlignedVector<int> v; return 0; }
           EOF
           
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./FAT_P/FAT_P/fat_p -c test1.cpp -o /dev/null
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./FAT_P/FAT_P/fat_p -c test2.cpp -o /dev/null
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p -c test1.cpp -o /dev/null
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p -c test2.cpp -o /dev/null
           
           echo "✓ Include order independent"
 
@@ -259,6 +246,7 @@ jobs:
   # Strict Warnings Check
   # ===========================================================================
   strict-warnings:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Strict Warnings
     runs-on: ubuntu-latest
     steps:
@@ -271,8 +259,8 @@ jobs:
               -Wconversion -Wsign-conversion \
               -Wshadow -Wformat=2 \
               -Werror \
-              -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
-              -o test_strict FAT_P/FAT_P/tests/test_AlignedVector.cpp
+              -DENABLE_TEST_APPLICATION -I./include/fat_p \
+              -o test_strict components/AlignedVector/tests/test_AlignedVector.cpp
           echo "✓ No warnings"
 
   # ===========================================================================
@@ -281,7 +269,7 @@ jobs:
   benchmarks-gcc:
     name: Benchmark GCC-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true') }}
     strategy:
       fail-fast: false
       matrix:
@@ -327,9 +315,9 @@ jobs:
         run: |
           g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -O3 -DNDEBUG $AVX_FLAGS \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             -I/usr/include/eigen3 \
-            FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp -o bench_av
+            components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp -o bench_av
 
       - name: Run benchmarks
         env:
@@ -353,7 +341,7 @@ jobs:
   benchmarks-clang:
     name: Benchmark Clang-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-22.04
-    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true') }}
     strategy:
       fail-fast: false
       matrix:
@@ -402,9 +390,9 @@ jobs:
         run: |
           clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -O3 -DNDEBUG $AVX_FLAGS \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             -I/usr/include/eigen3 \
-            FAT_P/FAT_P/benchmarks/benchmark_AlignedVector.cpp -o bench_av
+            components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp -o bench_av
 
       - name: Run benchmarks
         env:
@@ -428,7 +416,7 @@ jobs:
   benchmarks-msvc:
     name: Benchmark MSVC C++${{ matrix.std }}
     runs-on: windows-latest
-    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true') }}
     strategy:
       fail-fast: false
       matrix:
@@ -479,7 +467,7 @@ jobs:
     name: Benchmark Summary
     needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
     runs-on: ubuntu-latest
-    if: ${{ always() && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true') }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always() && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true')) }}
     steps:
       - name: Download all benchmark artifacts
         uses: actions/download-artifact@v4
@@ -535,7 +523,7 @@ jobs:
     name: CI Success
     needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
-    if: always()
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always()) }}
     steps:
       - name: Check results
         run: |

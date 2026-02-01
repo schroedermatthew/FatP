@@ -6,9 +6,9 @@
 # C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
-#   Headers:    FAT_P/FAT_P/fat_p/StableHashMap.h
-#   Tests:      FAT_P/FAT_P/tests/test_StableHashMap.cpp
-#   Benchmarks: FAT_P/FAT_P/benchmarks/benchmark_FatPHashMap.cpp
+#   Headers:    include/fat_p/StableHashMap.h
+#   Tests:      components/StableHashMap/tests/test_StableHashMap.cpp
+#   Benchmarks: components/StableHashMap/benchmarks/benchmark_FatPHashMap.cpp
 #
 # Third-party libraries for benchmarks:
 #   - tsl::robin_map (Tessil/robin-map)
@@ -20,39 +20,19 @@
 name: StableHashMap CI
 
 on:
-  push:
-    branches: [main, master]
-    paths:
-      - 'FAT_P/FAT_P/fat_p/StableHashMap.h'
-      - 'FAT_P/FAT_P/tests/test_StableHashMap.cpp'
-      - 'FAT_P/FAT_P/benchmarks/benchmark_FatPHashMap.cpp'
-      - 'FAT_P/FAT_P/fat_p/FatPBenchmarkRunner.h'
-      - '.github/workflows/stable-hash-map.yml'
   pull_request:
-    branches: [main, master]
-    paths:
-      - 'FAT_P/FAT_P/fat_p/StableHashMap.h'
-      - 'FAT_P/FAT_P/tests/test_StableHashMap.cpp'
-      - 'FAT_P/FAT_P/benchmarks/benchmark_FatPHashMap.cpp'
-      - 'FAT_P/FAT_P/fat_p/FatPBenchmarkRunner.h'
-      - '.github/workflows/stable-hash-map.yml'
+    types: [labeled]
   workflow_dispatch:
-    inputs:
-      run_benchmarks:
-        description: 'Run benchmarks'
-        required: false
-        default: 'false'
-        type: boolean
-
 env:
   HEADER: StableHashMap.h
-  TEST_SRC: FAT_P/FAT_P/tests/test_StableHashMap.cpp
+  TEST_SRC: components/StableHashMap/tests/test_StableHashMap.cpp
 
 jobs:
   # ===========================================================================
   # Linux GCC Build (C++20)
   # ===========================================================================
   linux-gcc:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Linux GCC-13 C++20
     runs-on: ubuntu-24.04
     steps:
@@ -67,7 +47,7 @@ jobs:
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run tests
@@ -77,6 +57,7 @@ jobs:
   # Linux Clang Build (C++20)
   # ===========================================================================
   linux-clang:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Linux Clang-16 C++20
     runs-on: ubuntu-22.04
     steps:
@@ -95,7 +76,7 @@ jobs:
             -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run tests
@@ -105,6 +86,7 @@ jobs:
   # Windows MSVC Build (C++20)
   # ===========================================================================
   windows-msvc:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Windows MSVC C++20
     runs-on: windows-latest
     steps:
@@ -124,6 +106,7 @@ jobs:
   # Sanitizers (C++20)
   # ===========================================================================
   sanitizer-asan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: AddressSanitizer
     runs-on: ubuntu-24.04
     steps:
@@ -134,7 +117,7 @@ jobs:
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run with ASan
@@ -143,6 +126,7 @@ jobs:
         run: ./test_bin
 
   sanitizer-ubsan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: UndefinedBehaviorSanitizer
     runs-on: ubuntu-24.04
     steps:
@@ -153,7 +137,7 @@ jobs:
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run with UBSan
@@ -165,6 +149,7 @@ jobs:
   # Header Self-Containment (C++20)
   # ===========================================================================
   header-check:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Header Self-Containment
     runs-on: ubuntu-24.04
     steps:
@@ -176,7 +161,7 @@ jobs:
           echo 'int main() { return 0; }' >> test_include.cpp
           
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             -c test_include.cpp -o /dev/null
           
           echo "✓ Header is self-contained"
@@ -185,6 +170,7 @@ jobs:
   # Strict Warnings (C++20)
   # ===========================================================================
   strict-warnings:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Strict Warnings
     runs-on: ubuntu-24.04
     steps:
@@ -197,7 +183,7 @@ jobs:
               -Wconversion -Wsign-conversion \
               -Wshadow -Wformat=2 \
               -Werror \
-              -DENABLE_TEST_APPLICATION -I./FAT_P/FAT_P/fat_p \
+              -DENABLE_TEST_APPLICATION -I./include/fat_p \
               -o test_strict ${{ env.TEST_SRC }}
           echo "✓ No warnings"
 
@@ -207,7 +193,7 @@ jobs:
   benchmarks-gcc:
     name: Benchmark GCC-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-24.04
-    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event.inputs.run_benchmarks == 'true') }}
     strategy:
       fail-fast: false
       matrix:
@@ -273,12 +259,12 @@ jobs:
           done
           
           g++-${{ matrix.version }} -std=c++${{ matrix.std }} -O3 -DNDEBUG -march=native \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             -I$HOME/thirdparty/robin-map/include \
             -I$HOME/thirdparty/unordered_dense/include \
             -I$HOME/thirdparty/abseil-install/include \
             -L$HOME/thirdparty/abseil-install/lib \
-            FAT_P/FAT_P/benchmarks/benchmark_FatPHashMap.cpp \
+            components/StableHashMap/benchmarks/benchmark_FatPHashMap.cpp \
             -o bench_hashmap \
             -Wl,--start-group $ABSL_LIBS -Wl,--end-group \
             -pthread
@@ -305,7 +291,7 @@ jobs:
   benchmarks-clang:
     name: Benchmark Clang-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-22.04
-    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event.inputs.run_benchmarks == 'true') }}
     strategy:
       fail-fast: false
       matrix:
@@ -377,12 +363,12 @@ jobs:
           done
           
           clang++-${{ matrix.version }} -std=c++${{ matrix.std }} -O3 -DNDEBUG -march=native \
-            -I./FAT_P/FAT_P/fat_p \
+            -I./include/fat_p \
             -I$HOME/thirdparty/robin-map/include \
             -I$HOME/thirdparty/unordered_dense/include \
             -I$HOME/thirdparty/abseil-install/include \
             -L$HOME/thirdparty/abseil-install/lib \
-            FAT_P/FAT_P/benchmarks/benchmark_FatPHashMap.cpp \
+            components/StableHashMap/benchmarks/benchmark_FatPHashMap.cpp \
             -o bench_hashmap \
             -Wl,--start-group $ABSL_LIBS -Wl,--end-group \
             -pthread
@@ -409,7 +395,7 @@ jobs:
   benchmarks-msvc:
     name: Benchmark MSVC C++${{ matrix.std }}
     runs-on: windows-latest
-    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event.inputs.run_benchmarks == 'true') }}
     strategy:
       fail-fast: false
       matrix:
@@ -497,7 +483,7 @@ jobs:
     name: Benchmark Summary
     needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
     runs-on: ubuntu-latest
-    if: ${{ always() && github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always() && github.event.inputs.run_benchmarks == 'true') }}
     steps:
       - name: Download all benchmark artifacts
         uses: actions/download-artifact@v4
@@ -539,7 +525,7 @@ jobs:
     name: CI Success
     needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
-    if: always()
+    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always()) }}
     steps:
       - name: Check results
         run: |

@@ -4,11 +4,14 @@ doc_type: governance
 status: draft
 audience: contributors
 applies_to:
-  - fat_p/**/*.h
-  - tests/**/*.{h,cpp}
-  - benchmarks/**/*.cpp
+  - include/fat_p/**/*.{h,hpp,inl}
+  - components/**/*.{h,hpp,inl,cpp,cc,cxx}
+  - cmake/**/*.{cmake}
+  - CMakeLists.txt
+  - tools/**/*.{py,sh,ps1}
+  - tooling/**/*.{py,sh,ps1}
 version: 1
-last_updated: 2026-01-19
+last_updated: 2026-01-31
 ---
 
 # FAT-P Meta Header Guidelines
@@ -26,13 +29,16 @@ last_updated: 2026-01-19
 
 ## Applicability
 
-`FATP_META` is required for:
+`FATP_META` is required for every **repository-authored code file** in the paths listed in the front-matter `applies_to:` block.
 
-- all public headers in `fat_p/`
-- all test translation units in `tests/`
-- all benchmark translation units in `benchmarks/`
+Exclusions (no `FATP_META` required):
 
-It is recommended (optional) for internal-only headers and tooling sources.
+- YAML files (`.yml`, `.yaml`) including `.github/workflows/*`
+- Vendored code under `ThirdParty/`
+- Generated directories (for example `.vcpkg_installed/`, `build/`)
+- Non-code artifacts (for example `results/` outputs)
+
+**Rationale:** Requiring metadata on the code surface enables deterministic indexing (component ownership, layer classification, and cross-links) and allows CI to detect drift when files move.
 
 ## Placement rules
 
@@ -56,9 +62,24 @@ Legacy compatibility: headers that still use include guards follow the same orde
 2. Place `FATP_META` immediately after the existing header comment block.
 3. Otherwise, place it at the top of the file before includes.
 
+
+### CMake files (`CMakeLists.txt`, `.cmake`)
+
+1. If the file begins with a `cmake_minimum_required(...)` line, keep it first.
+2. Place `FATP_META` immediately after that line.
+3. Otherwise, place `FATP_META` at the top of the file before any CMake commands.
+
+### Script files (`.py`, `.sh`, `.ps1`)
+
+1. If the file has a shebang line (`#!...`), keep it first.
+2. Place `FATP_META` immediately after the shebang (or at the top if there is no shebang).
+3. Place `FATP_META` before any executable statements.
+
 ## Format
 
-`FATP_META` is a C-style comment block that begins with the sentinel line `FATP_META:` followed by YAML:
+`FATP_META` is a comment block that begins with the sentinel line `FATP_META:` followed by YAML. The YAML content MUST be identical across file types; only the comment wrapper changes.
+
+### C/C++ block comment form
 
 ```cpp
 /*
@@ -67,6 +88,18 @@ FATP_META:
   ...
 */
 ```
+
+### Line-comment form (CMake, Python, shell, PowerShell)
+
+Each YAML line is prefixed with the file’s line comment marker plus a single space.
+
+```text
+# FATP_META:
+#   meta_version: 1
+#   ...
+```
+
+Parsing rule for tooling: remove the comment marker and one following space from each `FATP_META` line, then parse the remaining text as YAML.
 
 ### Comment terminator safety (critical)
 
@@ -122,9 +155,11 @@ If you need a “hint” that would normally be written as a recursive glob, use
 
 - `public_header`
 - `internal_header`
+- `source`          # non-test, non-benchmark translation unit
 - `test`
 - `benchmark`
 - `doc_support`
+- `build_script`    # CMake and build glue authored in-repo
 - `tooling`
 
 ### `api_stability` enum
@@ -159,11 +194,11 @@ Recommended structure:
 ```yaml
 related:
   docs:
-    - Documentation/.../Component_User_Manual.md
+    - components/<Component>/docs/<Component>_User_Manual.md
   tests:
-    - tests/tests/test_Component.cpp
+    - components/<Component>/tests/test_<Component>.cpp
   benchmarks:
-    - benchmarks/benchmarks/benchmark_Component.cpp
+    - components/<Component>/benchmarks/benchmark_<Component>.cpp
 ```
 
 For components that are still `in_work`, you may include **plain-text search fields** instead of glob patterns:
@@ -283,7 +318,7 @@ Add a CI “meta lint” step with these checks:
 
 3. **Consistency**
    - `path` matches the file location.
-   - `file_role` matches extension and directory (`tests/` → `test`, `benchmarks/` → `benchmark`).
+   - `file_role` matches extension and directory (`components/*/tests/` → `test`, `components/*/benchmarks/` → `benchmark`).
    - `related.*` targets exist when present.
 
 4. **No drift**
@@ -298,23 +333,23 @@ Add a CI “meta lint” step with these checks:
 /*
 FATP_META:
   meta_version: 1
-  component: StableHashMap
+  component: AlignedVector
   file_role: public_header
-  path: fat_p/fat_p/StableHashMap.h
+  path: include/fat_p/AlignedVector.h
   namespace: fat_p
   layer: Containers
-  summary: Reference-stable hash map with SwissTable-style control-byte probing.
+  summary: Cache-aligned contiguous storage vector.
   api_stability: candidate
   related:
     docs:
-      - Documentation/Documentation/Associative Containers/StableHashMap_User_Manual.md
+      - components/AlignedVector/docs/AlignedVector_User_Manual.md
     tests:
-      - tests/tests/test_StableHashMap.cpp
+      - components/AlignedVector/tests/test_AlignedVector.cpp
     benchmarks:
-      - benchmarks/benchmarks/benchmark_FatPHashMap.cpp
+      - components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp
   hygiene:
     pragma_once: true
-    defines_total: 2
+    defines_total: 0
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
@@ -333,14 +368,14 @@ FATP_META:
   meta_version: 1
   component: AsyncOperations
   file_role: public_header
-  path: fat_p/fat_p/AsyncOperations.h
+  path: include/fat_p/AsyncOperations.h
   namespace: fat_p
   summary: Public header for AsyncOperations.
   api_stability: in_work
   related:
     docs_search: "AsyncOperations"
     tests:
-      - tests/tests/test_AsyncOperations.cpp
+      - components/AsyncOperations/tests/test_AsyncOperations.cpp
   hygiene:
     pragma_once: true
     defines_total: 0
@@ -359,25 +394,25 @@ Test and benchmark files omit `layer` but must still use `FATP_` prefixed macros
 
 ```cpp
 /**
- * @file test_SmallVector.cpp
- * @brief Unit tests for SmallVector.h
+ * @file test_AlignedVector.cpp
+ * @brief Unit tests for AlignedVector.h
  */
 /*
 FATP_META:
   meta_version: 1
-  component: SmallVector
+  component: AlignedVector
   file_role: test
-  path: tests/test_SmallVector.cpp
-  namespace: fat_p::testing::smallvector
-  summary: "Unit tests for SmallVector."
+  path: components/AlignedVector/tests/test_AlignedVector.cpp
+  namespace: fat_p::testing::alignedvector
+  summary: Unit tests for AlignedVector.
   related:
     headers:
-      - fat_p/SmallVector.h
-      - fat_p/FatPTest.h
+      - include/fat_p/AlignedVector.h
+      - include/fat_p/FatPTest.h
   hygiene:
     pragma_once: false
     include_guard: false
-    defines_total: 2
+    defines_total: 0
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
@@ -386,6 +421,7 @@ FATP_META:
     mode: autogen
 */
 ```
+
 
 Note: `layer` is omitted (not applicable to test files). Macros should use `FATP_` prefix (`defines_unprefixed: 0`) to prevent collisions in unity builds.
 
@@ -402,13 +438,13 @@ tools/validate_layers.py     # Validate layer dependency hierarchy
 
 ```bash
 # Validate all headers
-python tools/fatp_meta_parser.py --validate fat_p/
+python tools/fatp_meta_parser.py --validate include/fat_p/
 
 # Dump parsed metadata as JSON
-python tools/fatp_meta_parser.py --dump fat_p/StableHashMap.h
+python tools/fatp_meta_parser.py --dump include/fat_p/AlignedVector.h
 
 # Quiet mode (errors only)
-python tools/fatp_meta_parser.py --validate -q fat_p/
+python tools/fatp_meta_parser.py --validate -q include/fat_p/
 ```
 
 The parser tolerates common whitespace issues (tabs, small indentation errors on top-level keys) to avoid CI failures from minor formatting drift.

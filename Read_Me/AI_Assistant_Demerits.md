@@ -6,13 +6,18 @@
 
 | Violation | ChatGPT | Claude | Gemini | GROK |
 |-----------|---------|--------|--------|------|
-| Did not read Guidelines carefully | | 5 | | |
+| Did not read Guidelines carefully | | 8 | | |
 | Did not follow code naming conventions | 1 | 1 |  |  |
 | Delivered code without compiling | 1 | 1 |  |  |
 | Lied about compiling and testing | 1 | | | |
-| Provided links to documents that were not changed | 2 | 1 |  |  |
-| Did not implement required changes | 9 |  |  |  |
+| Provided links to documents that were not changed | 3 | 3 |  |  |
+| Asked user to perform edits instead of providing corrected files | 1 |  |  |  |
+| Claimed completion but delivered files with incomplete FATP_META schema | 1 |  |  |  |
+| Did not implement required changes | 10 |  |  |  |
+| Added AI comments (NEW, FIXED, Removed, etc.) | | 1 |  |  |
+| Lied about capabilities |  |  |  | 1 |
+| Delivered corrupted code | 10 |  |  |  |
 
 ---
 
-*Last updated: 2026-01-25*
+*Last updated: 2026-01-31*

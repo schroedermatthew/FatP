@@ -51,7 +51,7 @@ not a governance document):
 
 | Requirement | Specification |
 |-------------|---------------|
-| **C++ Standard** | C++20 default; C++17 minimum (see §1.1.1) |
+| **C++ Standard** | C++20 minimum |
 | **Architecture** | Header-only |
 | **Dependencies** | std + permitted system APIs/intrinsics; no third-party libraries (see §1.6) |
 | **Weight** | Lightweight |
@@ -59,95 +59,101 @@ not a governance document):
 
 #### 1.1.1 C++ Standard Policy
 
-**Default build standard:** C++20
+**Minimum required standard:** C++20
 
-**Minimum guaranteed support:** C++17 for the following layers only:
-- `Foundation`
-- `Containers`
-- `Concurrency`
+All Fat-P components require C++20. There is no C++17 compatibility layer.
 
-These layer names refer to the value of `FATP_META.layer` in each file.
-
-**Best-effort C++17 support:** `Domain`, `Integration`, `Testing`
-- These layers may freely use C++20 features when they materially improve correctness, clarity, or performance
-- Preserve C++17 compatibility only when it can be done without spreading conditional compilation
+**Rationale:** C++20 provides concepts, ranges, `std::source_location`, `<=>`, and other features that eliminate significant complexity from the codebase. Supporting C++17 would require extensive conditional compilation that adds maintenance burden without sufficient benefit.
 
 #### 1.1.2 Centralized Feature Detection
 
-All C++ standard and library feature detection must live in a single header (`CppStandardDetection.h`).
+All C++ standard and library feature detection must live in two headers:
+- `CppFeatureDetection.h` — C++ language/library feature detection
+- `PlatformDetection.h` — Compiler, OS, SIMD, hardware detection
 
 **Rules:**
 - Other headers may **not** probe `__cplusplus`, `_MSVC_LANG`, or use feature-test macros directly
-- Feature macros must represent actual library availability, not merely language mode
-- Use standard feature-test macros (e.g., `__cpp_concepts`, `__cpp_lib_ranges`) where available
+- C++20 is enforced via `#error` at the top of `CppFeatureDetection.h`
+- Feature macros are only needed for:
+  - C++20 features with unreliable library support (e.g., `std::format`, `std::jthread`)
+  - C++23/26 features
+- C++20 features that are universally available should be used directly without macros
 
-**Example `CppStandardDetection.h` pattern:**
+**Example `CppFeatureDetection.h` pattern:**
 
 ```cpp
 #pragma once
+#include <version>
 
-// Language standard detection
-#if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
-    #define FATP_CPP20_OR_LATER 1
+// Enforce C++20 minimum
+#if defined(_MSVC_LANG)
+#define FATP_CPLUSPLUS _MSVC_LANG
 #else
-    #define FATP_CPP20_OR_LATER 0
+#define FATP_CPLUSPLUS __cplusplus
 #endif
 
-// Feature detection via standard feature-test macros
-#if defined(__cpp_concepts) && __cpp_concepts >= 201907L
-    #define FATP_HAS_CONCEPTS 1
-#else
-    #define FATP_HAS_CONCEPTS 0
+#if FATP_CPLUSPLUS < 202002L
+#error "Fat-P requires C++20 or later"
 #endif
 
-#if defined(__cpp_lib_ranges) && __cpp_lib_ranges >= 201911L
-    #define FATP_HAS_RANGES 1
+// C++23/26 detection
+#if FATP_CPLUSPLUS >= 202302L
+#define FATP_CPP23_OR_LATER 1
 #else
-    #define FATP_HAS_RANGES 0
+#define FATP_CPP23_OR_LATER 0
 #endif
 
-#if defined(__cpp_lib_source_location)
-    #define FATP_HAS_SOURCE_LOCATION 1
+// C++20 features with unreliable library support - still need detection
+#if defined(__cpp_lib_format) && __cpp_lib_format >= 201907L
+#define FATP_HAS_FORMAT 1
 #else
-    #define FATP_HAS_SOURCE_LOCATION 0
+#define FATP_HAS_FORMAT 0
 #endif
 
-#if defined(__cpp_lib_span) && __cpp_lib_span >= 202002L
-    #define FATP_HAS_STD_SPAN 1
+// C++23 features - need detection
+#if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
+#define FATP_HAS_EXPECTED 1
 #else
-    #define FATP_HAS_STD_SPAN 0
-#endif
-
-#if defined(__cpp_lib_three_way_comparison)
-    #define FATP_HAS_SPACESHIP 1
-#else
-    #define FATP_HAS_SPACESHIP 0
+#define FATP_HAS_EXPECTED 0
 #endif
 ```
 
-#### 1.1.3 C++20 Feature Usage Rules
+**Features that do NOT need detection macros (use directly):**
+- `<concepts>`, `<ranges>`, `<span>`, `<compare>`
+- `std::source_location`
+- Three-way comparison (`<=>`)
+- Concepts and requires clauses
+- `std::bit_cast`, `std::to_array`
 
-**In Foundation/Containers/Concurrency layers:**
-- C++20 features are permitted only if:
-  1. The feature is compile-time gated via `CppStandardDetection.h`
-  2. A C++17 equivalent exists in the same component
-  3. Both variants preserve semantics (diagnostics may differ)
+#### 1.1.3 C++20 Feature Usage
 
-**In higher layers (Domain/Integration/Testing):**
-- Use C++20 freely without fallback
-- Document if a component requires C++20 in the `@file` header
+C++20 features should be used directly without guards or fallbacks:
+
+**Preferred patterns:**
+- Use `requires` clauses instead of `std::enable_if`
+- Use `std::ranges::range` instead of custom `has_begin`/`has_end` traits
+- Use `std::source_location` instead of `__FILE__`/`__LINE__` macros
+- Use `<=>` with appropriate constraints (`requires std::three_way_comparable<T>`)
+- Use concepts from `<concepts>` and `<ranges>` instead of custom SFINAE traits
+
+**Exception — features with unreliable library support:**
+- `std::format` — keep `FATP_HAS_FORMAT` detection and `ostringstream` fallback
+- `std::jthread` — keep detection if used
+- Synchronization primitives (`std::latch`, `std::barrier`, `std::semaphore`) — keep detection if used
 
 #### 1.1.4 Anti-Spaghetti Rules
 
-Conditional code for standard differences lives only in:
-- The centralized detection header (`CppStandardDetection.h`), or
-- Narrow compatibility points such as `enforce` source-location capture
+With C++20 minimum, conditional compilation for standard differences should be minimal.
+
+**Allowed conditional compilation:**
+- Detection of C++23/26 features
+- Detection of unreliable C++20 library features (`std::format`, `std::jthread`, etc.)
+- Platform-specific code (via `PlatformDetection.h`)
 
 **Prohibited:**
-- No "syntax emulation" macros (`FATP_CONCEPT`, `FATP_REQUIRES`, etc.)
-- No `#if FATP_CPP20` scattered throughout headers
-
-**Preferred:** One shared implementation with thin C++17 and C++20 front-ends where needed.
+- `#if FATP_HAS_CONCEPTS` or similar guards for guaranteed C++20 features
+- C++17 fallback code paths
+- "Syntax emulation" macros (`FATP_CONCEPT`, `FATP_REQUIRES`, etc.)
 
 ### 1.2 Design Philosophy
 
@@ -202,6 +208,63 @@ This principle requires judgment. The goal is zero-overhead for unused capabilit
 
 **Rationale:** Third-party dependencies create version conflicts, build complexity, and maintenance burden. Fat-P must remain buildable with only a standard-compliant compiler.
 
+### 1.7 Repository Structure
+
+Fat-P is organized by **component**. A component is the unit of ownership for API, tests, benchmarks, and documentation.
+
+Repository layout (paths are repo-relative):
+
+```
+FatP/
+├── include/fat_p/              # Public headers (installed API surface)
+├── components/<Component>/     # Component-local sources, tests, benchmarks, docs
+│   ├── docs/
+│   ├── tests/
+│   ├── benchmarks/
+│   └── results/
+├── cmake/                      # CMake helpers (component discovery, options)
+├── tools/                      # Validation scripts and automation
+├── tooling/                    # Build tooling (vcpkg integration, etc.)
+├── ThirdParty/                 # Vendored sources (metadata-exempt)
+└── .github/workflows/          # CI workflows (metadata-exempt; YAML)
+```
+
+#### 1.7.1 Path conventions
+
+**FATP_META.path**
+
+- `FATP_META.path` MUST be the **repo-relative path** using forward slashes.
+- Public headers under `include/fat_p/` MUST use:
+  - `include/fat_p/<Header>.h`
+- Component-local sources MUST use their real location, for example:
+  - `components/AlignedVector/tests/test_AlignedVector.cpp`
+  - `components/Stringify/benchmarks/benchmark_Stringify.cpp`
+
+**Include directives**
+
+- Include public headers as:
+  - `#include "Stringify.h"`
+- The build system MUST provide `include/fat_p/` on the include path for all targets that consume Fat-P.
+
+**CI workflow paths**
+
+- Workflow YAML is rooted at `.github/workflows/`.
+- Any path references inside workflows MUST be repo-relative (for example, `components/<Component>/tests/...`).
+
+#### 1.7.2 FATP_META scope
+
+Every **repository-authored code file** MUST contain a `FATP_META` block in the format specified by **FatPMetaHeaderGuidelines.md**.
+
+Exclusions (no `FATP_META` required):
+
+- YAML files (`.yml`, `.yaml`) including `.github/workflows/*`
+- Vendored code under `ThirdParty/`
+- Generated directories (for example `.vcpkg_installed/`, `build/`)
+- Non-code artifacts (for example `results/` outputs)
+
+**Rationale:** Repo-relative paths make metadata checkable, reduce ambiguity during refactors, and let CI verify that metadata stays aligned with file moves.
+
+
 ---
 
 ## 2. Layer System
@@ -239,7 +302,7 @@ FATP_META:
   meta_version: 1
   component: ComponentName
   file_role: public_header
-  path: fat_p/ComponentName.h
+  path: include/fat_p/ComponentName.h
   namespace: fat_p
   layer: Containers
   summary: One-line summary.
@@ -270,16 +333,18 @@ Domain holds **first-class Fat-P components** that implement coherent abstractio
 **Allowed dependencies:** All lower layers.
 **Forbidden:** Including Integration or Testing headers.
 
-### 2.4 C++17 Guarantee by Layer
+### 2.4 C++ Standard by Layer
 
-| Layer | C++17 Guarantee |
-|-------|-----------------|
-| Foundation | **Guaranteed** — must compile under C++17 |
-| Containers | **Guaranteed** — must compile under C++17 |
-| Concurrency | **Guaranteed** — must compile under C++17 |
-| Domain | Best-effort — may use C++20 features |
-| Integration | Best-effort — may use C++20 features |
-| Testing | Best-effort — may use C++20 features |
+All layers require C++20:
+
+| Layer | C++ Standard |
+|-------|--------------|
+| Foundation | C++20 required |
+| Containers | C++20 required |
+| Concurrency | C++20 required |
+| Domain | C++20 required |
+| Integration | C++20 required |
+| Testing | C++20 required |
 
 ### 2.5 Legacy Layer Mapping
 
@@ -1113,7 +1178,7 @@ FATP_META:
   meta_version: 1
   component: StableHashMap
   file_role: public_header
-  path: fat_p/StableHashMap.h
+  path: include/fat_p/StableHashMap.h
   namespace: fat_p
   layer: Containers
   summary: Robin Hood hash map with tombstone-free deletion.
@@ -1139,7 +1204,7 @@ FATP_META:
 ```
 # Project
 PROJECT_NAME           = "Fat-P Library"
-PROJECT_BRIEF          = "Header-only C++17 utilities for HPC"
+PROJECT_BRIEF          = "Header-only C++20 utilities for HPC"
 
 # Input
 INPUT                  = .
@@ -2099,6 +2164,16 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 
 ## Changelog
 
+### v3.2 (January 2026)
+- **BREAKING:** Changed minimum C++ standard from C++17 to C++20
+- Removed all C++17 compatibility requirements and fallback code paths
+- Split `CppStandardDetection.h` into `CppFeatureDetection.h` and `PlatformDetection.h`
+- Updated Section 1.1.1: C++20 is now the minimum required standard (no C++17 support)
+- Updated Section 1.1.2: Feature detection only needed for unreliable C++20 features and C++23/26
+- Updated Section 1.1.3: C++20 features should be used directly without guards
+- Updated Section 1.1.4: Removed C++17 fallback allowances
+- Removed layer-based C++17 guarantees (all layers now require C++20)
+
 ### v3.1 (January 2026)
 - **RESTORED:** Sections 3-11 that were accidentally truncated in v3.0
 - Added Section 5.3: STL-compatible method naming exception (snake_case for STL interfaces only)
@@ -2202,4 +2277,4 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 
 ---
 
-*Fat-P Library Development Guidelines v3.1 -- January 2026*
+*Fat-P Library Development Guidelines v3.2 -- January 2026*

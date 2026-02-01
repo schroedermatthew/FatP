@@ -1,0 +1,12 @@
+{
+  "ExcludedItems": [
+    ".git/",
+    ".vs/",
+    "build/",
+    "out/",
+    "install/",
+    "CMakeFiles/",
+    "vcpkg_installed/",
+    "vs/vcpkg_installed/"
+  ]
+}
