@@ -25,14 +25,14 @@
  *   - boost::alignment::aligned_allocator: If boost available
  *
  * Build (minimal):
- *   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_AlignedVector.cpp -o bench_av
- *   clang++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_AlignedVector.cpp -o bench_av
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native benchmark_AlignedVector.cpp -o bench_av
+ *   clang++ -std=c++20 -O3 -DNDEBUG -march=native benchmark_AlignedVector.cpp -o bench_av
  *
  * Build (Windows MSVC):
- *   cl /std:c++17 /O2 /DNDEBUG /EHsc /arch:AVX2 benchmark_AlignedVector.cpp /link advapi32.lib
+ *   cl /std:c++20 /O2 /DNDEBUG /EHsc /arch:AVX2 benchmark_AlignedVector.cpp /link advapi32.lib
  *
  * Build (with Boost):
- *   g++ -std=c++17 -O3 -DNDEBUG -march=native -I/path/to/boost benchmark_AlignedVector.cpp -o bench_av
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native -I/path/to/boost benchmark_AlignedVector.cpp -o bench_av
  *
  * Environment Variables (all optional):
  *   FATP_BENCH_WARMUP_RUNS   - Warmup iterations (default: 3)

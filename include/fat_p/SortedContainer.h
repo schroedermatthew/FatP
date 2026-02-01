@@ -28,7 +28,6 @@ FATP_META:
 
 /**
  * @file SortedContainer.h
- * @layer Domain
  * @brief A policy-based sorted vector container that maintains order on inserts.
  *
  * @details Uses Policy-Based Design for uniqueness, comparison, allocation,

@@ -16,14 +16,14 @@
  * - boost::lockfree::queue (optional via __has_include)
  *
  * Compile (minimal):
- *   g++ -std=c++17 -O3 -DNDEBUG -march=native -pthread benchmark_LockFreeQueue.cpp -o bench_lfq
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native -pthread benchmark_LockFreeQueue.cpp -o bench_lfq
  *
  * Compile (with moodycamel):
- *   g++ -std=c++17 -O3 -DNDEBUG -march=native -pthread -I/path/to/concurrentqueue \
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native -pthread -I/path/to/concurrentqueue \
  *       benchmark_LockFreeQueue.cpp -o bench_lfq
  *
  * Windows (MSVC):
- *   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_LockFreeQueue.cpp
+ *   cl /std:c++20 /O2 /DNDEBUG /EHsc benchmark_LockFreeQueue.cpp
  *
  * Environment variables:
  *   FATP_BENCH_WARMUP_RUNS   - warmup batches (default: 3)

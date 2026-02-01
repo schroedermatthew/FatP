@@ -37,13 +37,13 @@
 //   7. isLinked() / is_linked() Check (membership query)
 //
 // Build (minimal):
-//   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_IntrusiveList.cpp -o bench_il
+//   g++ -std=c++20 -O3 -DNDEBUG -march=native benchmark_IntrusiveList.cpp -o bench_il
 //
 // Build (MSVC):
-//   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_IntrusiveList.cpp /link advapi32.lib
+//   cl /std:c++20 /O2 /DNDEBUG /EHsc benchmark_IntrusiveList.cpp /link advapi32.lib
 //
 // Build (with competitors):
-//   g++ -std=c++17 -O3 -DNDEBUG -march=native -I/path/to/boost -I/path/to/EASTL benchmark_IntrusiveList.cpp -o bench_il
+//   g++ -std=c++20 -O3 -DNDEBUG -march=native -I/path/to/boost -I/path/to/EASTL benchmark_IntrusiveList.cpp -o bench_il
 //
 // Environment Variables (all optional):
 //   FATP_BENCH_WARMUP_RUNS   - Warmup iterations (default: 3)

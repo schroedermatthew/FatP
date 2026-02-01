@@ -31,8 +31,6 @@ FATP_META:
 /**
  * @file CircularBuffer.h
  * @brief Fixed-capacity circular buffer with O(1) push/pop operations
- *
- * @layer Containers
  */
 
 #include <atomic>

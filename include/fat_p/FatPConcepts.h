@@ -27,8 +27,6 @@ FATP_META:
  * @file FatPConcepts.h
  * @brief Fat-P library-specific C++20 concepts.
  *
- * @layer Foundation
- *
  * @details Provides C++20 concepts for detecting and constraining Fat-P library types.
  *
  * All concepts use snake_case naming for STL compatibility.

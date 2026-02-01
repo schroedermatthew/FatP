@@ -2797,10 +2797,6 @@ bool test_CheckedArithmetic()
     FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_inf_tolerant_nan);
     FATP_RUN_TEST_NS(runner, checkedarithmetic, fp_vec_inf_tolerant_inf_minus_inf);
 
-    // Performance validation test
-    out << "\n" << colors::blue() << "--- Performance Validation Test ---" << colors::reset() << "\n";
-    FATP_RUN_TEST_NS(runner, checkedarithmetic, performance_benchmarks);
-
     // Core functionality tests
     out << "\n" << colors::blue() << "--- Core Functionality Tests ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_add);

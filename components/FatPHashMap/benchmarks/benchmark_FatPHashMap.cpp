@@ -20,8 +20,8 @@
 // Competitor Libraries: Auto-detected via __has_include (tsl, ankerl, absl, boost, llvm, folly)
 //
 // Build:
-//   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_FatPHashMap.cpp -o bench_hm
-//   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_FatPHashMap.cpp /link advapi32.lib
+//   g++ -std=c++20 -O3 -DNDEBUG -march=native benchmark_FatPHashMap.cpp -o bench_hm
+//   cl /std:c++20 /O2 /DNDEBUG /EHsc benchmark_FatPHashMap.cpp /link advapi32.lib
 //
 // Environment Variables (all optional):
 //   FATP_BENCH_WARMUP_RUNS()   - Warmup iterations (default: 3)

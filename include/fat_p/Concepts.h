@@ -27,8 +27,6 @@ FATP_META:
  * @file Concepts.h
  * @brief C++20 concepts for type constraints.
  *
- * @layer Foundation
- *
  * @details Provides C++20 concepts for compile-time type introspection.
  *
  * All concepts use snake_case naming for STL compatibility.

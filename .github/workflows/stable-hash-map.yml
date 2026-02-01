@@ -3,63 +3,92 @@
 # =============================================================================
 # CI workflow for StableHashMap component
 #
-# C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
-#
 # Directory structure:
 #   Headers:    include/fat_p/StableHashMap.h
 #   Tests:      components/StableHashMap/tests/test_StableHashMap.cpp
 #   Benchmarks: components/StableHashMap/benchmarks/benchmark_FatPHashMap.cpp
 #
-# Third-party libraries for benchmarks:
-#   - tsl::robin_map (Tessil/robin-map)
-#   - ankerl::unordered_dense (martinus/unordered_dense)
-#   - absl::flat_hash_map (abseil-cpp)
-#   - boost::unordered_flat_map (libboost-dev)
+# Fat-P Guidelines compliance:
+#   - Section 6.1: Include-all compile test
+#   - Section 6.2: Header self-contained tests
+#   - Section 6.4: Warning cleanliness (-Wall -Wextra -Wpedantic -Werror)
 # =============================================================================
 
 name: StableHashMap CI
 
 on:
-  pull_request:
-    types: [labeled]
   workflow_dispatch:
+    inputs:
+      run_benchmarks:
+        description: 'Run benchmarks'
+        type: boolean
+        default: false
 env:
-  HEADER: StableHashMap.h
+  INCLUDE_DIR: include/fat_p
   TEST_SRC: components/StableHashMap/tests/test_StableHashMap.cpp
+  BENCH_SRC: components/StableHashMap/benchmarks/benchmark_FatPHashMap.cpp
 
 jobs:
   # ===========================================================================
-  # Linux GCC Build (C++20)
+  # Linux GCC Builds
   # ===========================================================================
   linux-gcc:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
-    name: Linux GCC-13 C++20
-    runs-on: ubuntu-24.04
+    name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 12
+            std: 20
+          - version: 13
+            std: 20
+          - version: 13
+            std: 23
+          - version: 14
+            std: 20
+          - version: 14
+            std: 23
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Install GCC
-        run: sudo apt-get update && sudo apt-get install -y g++-13
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
 
       - name: Build tests
         run: |
-          g++-13 -std=c++20 \
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
+            ${{ env.TEST_SRC }} -o test_shm
 
       - name: Run tests
-        run: ./test_bin
+        run: ./test_shm
 
   # ===========================================================================
-  # Linux Clang Build (C++20)
+  # Linux Clang Builds
   # ===========================================================================
   linux-clang:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
-    name: Linux Clang-16 C++20
+    name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 15
+            std: 20
+          - version: 16
+            std: 20
+          - version: 16
+            std: 23
+          - version: 17
+            std: 20
+          - version: 17
+            std: 23
+
     steps:
       - uses: actions/checkout@v4
 
@@ -67,28 +96,32 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 16
+          sudo ./llvm.sh ${{ matrix.version }}
 
       - name: Build tests
         run: |
-          clang++-16 -std=c++20 \
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
+            ${{ env.TEST_SRC }} -o test_shm
 
       - name: Run tests
-        run: ./test_bin
+        run: ./test_shm
 
   # ===========================================================================
-  # Windows MSVC Build (C++20)
+  # Windows MSVC Build
   # ===========================================================================
   windows-msvc:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
-    name: Windows MSVC C++20
+    name: Windows MSVC C++${{ matrix.std }}
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [20, 23]
+
     steps:
       - uses: actions/checkout@v4
 
@@ -96,89 +129,107 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build tests
+        shell: pwsh
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_StableHashMap.cpp /Fe:test_bin.exe /link advapi32.lib
+          $std = "${{ matrix.std }}"
+          $stdFlag = if ($std -eq "23") { "/std:c++latest" } else { "/std:c++$std" }
+          cl $stdFlag /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\StableHashMap\tests\test_StableHashMap.cpp /Fe:test_shm.exe /link advapi32.lib
 
       - name: Run tests
-        run: .\test_bin.exe
+        run: .\test_shm.exe
 
   # ===========================================================================
-  # Sanitizers (C++20)
+  # Sanitizers
   # ===========================================================================
   sanitizer-asan:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: AddressSanitizer
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Build with ASan
         run: |
-          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+          g++ -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
+            ${{ env.TEST_SRC }} -o test_shm
 
       - name: Run with ASan
         env:
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
-        run: ./test_bin
+        run: ./test_shm
 
   sanitizer-ubsan:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: UndefinedBehaviorSanitizer
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Build with UBSan
         run: |
-          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+          g++ -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
+            ${{ env.TEST_SRC }} -o test_shm
 
       - name: Run with UBSan
         env:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
-        run: ./test_bin
+        run: ./test_shm
 
-  # ===========================================================================
-  # Header Self-Containment (C++20)
-  # ===========================================================================
-  header-check:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
-    name: Header Self-Containment
-    runs-on: ubuntu-24.04
+  sanitizer-tsan:
+    name: ThreadSanitizer
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Test header compiles standalone
+      - name: Build with TSan
         run: |
-          echo '#include "${{ env.HEADER }}"' > test_include.cpp
+          g++ -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=thread -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_shm
+
+      - name: Run with TSan
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+        run: ./test_shm
+
+  # ===========================================================================
+  # Header Self-Containment (Fat-P §6.2)
+  # ===========================================================================
+  header-check:
+    name: Header Self-Containment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test StableHashMap.h compiles standalone
+        run: |
+          echo '#include "StableHashMap.h"' > test_include.cpp
           echo 'int main() { return 0; }' >> test_include.cpp
           
-          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+          g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I./include/fat_p \
             -c test_include.cpp -o /dev/null
           
           echo "✓ Header is self-contained"
 
   # ===========================================================================
-  # Strict Warnings (C++20)
+  # Strict Warnings
   # ===========================================================================
   strict-warnings:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Strict Warnings
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Compile with strict warnings
         run: |
-          g++-13 -std=c++20 \
+          g++ -std=c++20 \
               -Wall -Wextra -Wpedantic \
               -Wconversion -Wsign-conversion \
               -Wshadow -Wformat=2 \
@@ -188,218 +239,157 @@ jobs:
           echo "✓ No warnings"
 
   # ===========================================================================
-  # Benchmarks - Linux GCC (Manual)
+  # Benchmarks - Linux GCC (Weekly/Manual)
   # ===========================================================================
   benchmarks-gcc:
-    name: Benchmark GCC-${{ matrix.version }} C++${{ matrix.std }}
-    runs-on: ubuntu-24.04
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event.inputs.run_benchmarks == 'true') }}
+    name: Benchmark GCC-${{ matrix.version }} C++23
+    runs-on: ubuntu-latest
+    if: ${{ inputs.run_benchmarks }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - version: 12
-            std: 17
-          - version: 12
-            std: 20
-          - version: 13
-            std: 17
-          - version: 13
-            std: 20
-          - version: 13
-            std: 23
+        version: [13, 14]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install build tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y g++-${{ matrix.version }} cmake ninja-build libboost-dev
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
 
-      - name: Cache third-party libraries
+      - name: Install competitor libraries
+        run: |
+          sudo apt-get install -y \
+            libboost-dev \
+            libabsl-dev
+          
+          echo "Installed competitor libraries:"
+          echo "  - Boost (boost/unordered)"
+          echo "  - Abseil (absl/container)"
+
+      - name: Cache header-only libraries
         id: cache-thirdparty
         uses: actions/cache@v4
         with:
           path: ~/thirdparty
-          key: hashmap-thirdparty-v3-${{ runner.os }}-gcc${{ matrix.version }}
+          key: hashmap-thirdparty-${{ runner.os }}-v1
 
-      - name: Install third-party hash map libraries
+      - name: Install header-only libraries
         if: steps.cache-thirdparty.outputs.cache-hit != 'true'
         run: |
           mkdir -p $HOME/thirdparty
-
-          # tsl::robin_map (header-only)
           git clone --depth 1 https://github.com/Tessil/robin-map.git $HOME/thirdparty/robin-map
-
-          # ankerl::unordered_dense (header-only)
           git clone --depth 1 https://github.com/martinus/unordered_dense.git $HOME/thirdparty/unordered_dense
 
-          # abseil-cpp (needs build)
-          git clone --depth 1 https://github.com/abseil/abseil-cpp.git $HOME/thirdparty/abseil-cpp
-          cd $HOME/thirdparty/abseil-cpp
-          mkdir build && cd build
-          CXX=g++-${{ matrix.version }} cmake -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_STANDARD=${{ matrix.std }} \
-            -DABSL_BUILD_TESTING=OFF \
-            -DABSL_USE_GOOGLETEST_HEAD=OFF \
-            -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/abseil-install \
-            ..
-          ninja
-          ninja install
-
-      - name: Build benchmarks
+      - name: Build benchmark
         run: |
-          # Build list of all abseil libraries for linking
-          ABSL_LIBS=""
-          for lib in $(find $HOME/thirdparty/abseil-install/lib -name "libabsl_*.a" | sort); do
-            libname=$(basename "$lib" .a | sed 's/^lib//')
-            ABSL_LIBS="$ABSL_LIBS -l$libname"
-          done
-          
-          g++-${{ matrix.version }} -std=c++${{ matrix.std }} -O3 -DNDEBUG -march=native \
+          g++-${{ matrix.version }} -std=c++23 \
+            -O3 -DNDEBUG -march=native \
             -I./include/fat_p \
             -I$HOME/thirdparty/robin-map/include \
             -I$HOME/thirdparty/unordered_dense/include \
-            -I$HOME/thirdparty/abseil-install/include \
-            -L$HOME/thirdparty/abseil-install/lib \
-            components/StableHashMap/benchmarks/benchmark_FatPHashMap.cpp \
-            -o bench_hashmap \
-            -Wl,--start-group $ABSL_LIBS -Wl,--end-group \
+            ${{ env.BENCH_SRC }} -o bench_shm \
+            -labsl_hash -labsl_raw_hash_set -labsl_hashtablez_sampler \
+            -labsl_synchronization -labsl_stacktrace -labsl_symbolize \
+            -labsl_base -labsl_spinlock_wait -labsl_malloc_internal \
             -pthread
 
       - name: Run benchmarks
         env:
-          FATP_BENCH_BATCHES: 15
           FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: 1
-          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
-        run: ./bench_hashmap 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
+          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp23.csv
+        run: ./bench_shm 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp23.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-gcc${{ matrix.version }}-cpp${{ matrix.std }}
+          name: benchmark-gcc${{ matrix.version }}-cpp23
           path: |
-            results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
-            benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
+            results_gcc${{ matrix.version }}_cpp23.csv
+            benchmark_gcc${{ matrix.version }}_cpp23.log
 
   # ===========================================================================
-  # Benchmarks - Linux Clang (Manual)
+  # Benchmarks - Linux Clang (Weekly/Manual)
   # ===========================================================================
   benchmarks-clang:
-    name: Benchmark Clang-${{ matrix.version }} C++${{ matrix.std }}
+    name: Benchmark Clang-${{ matrix.version }} C++23
     runs-on: ubuntu-22.04
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event.inputs.run_benchmarks == 'true') }}
+    if: ${{ inputs.run_benchmarks }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - version: 14
-            std: 17
-          - version: 15
-            std: 17
-          - version: 15
-            std: 20
-          - version: 16
-            std: 17
-          - version: 16
-            std: 20
-          - version: 17
-            std: 20
-          - version: 17
-            std: 23
+        version: [16, 17]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Clang and build tools
+      - name: Install Clang
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
-          sudo apt-get install -y cmake ninja-build libboost-dev
 
-      - name: Cache third-party libraries
+      - name: Install competitor libraries
+        run: |
+          sudo apt-get install -y \
+            libboost-dev \
+            libabsl-dev
+          
+          echo "Installed competitor libraries:"
+          echo "  - Boost (boost/unordered)"
+          echo "  - Abseil (absl/container)"
+
+      - name: Cache header-only libraries
         id: cache-thirdparty
         uses: actions/cache@v4
         with:
           path: ~/thirdparty
-          key: hashmap-thirdparty-v3-${{ runner.os }}-clang${{ matrix.version }}
+          key: hashmap-thirdparty-${{ runner.os }}-v1
 
-      - name: Install third-party hash map libraries
+      - name: Install header-only libraries
         if: steps.cache-thirdparty.outputs.cache-hit != 'true'
         run: |
           mkdir -p $HOME/thirdparty
-
-          # tsl::robin_map (header-only)
           git clone --depth 1 https://github.com/Tessil/robin-map.git $HOME/thirdparty/robin-map
-
-          # ankerl::unordered_dense (header-only)
           git clone --depth 1 https://github.com/martinus/unordered_dense.git $HOME/thirdparty/unordered_dense
 
-          # abseil-cpp (needs build)
-          git clone --depth 1 https://github.com/abseil/abseil-cpp.git $HOME/thirdparty/abseil-cpp
-          cd $HOME/thirdparty/abseil-cpp
-          mkdir build && cd build
-          CXX=clang++-${{ matrix.version }} cmake -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_STANDARD=${{ matrix.std }} \
-            -DABSL_BUILD_TESTING=OFF \
-            -DABSL_USE_GOOGLETEST_HEAD=OFF \
-            -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/abseil-install \
-            ..
-          ninja
-          ninja install
-
-      - name: Build benchmarks
+      - name: Build benchmark
         run: |
-          # Build list of all abseil libraries for linking
-          ABSL_LIBS=""
-          for lib in $(find $HOME/thirdparty/abseil-install/lib -name "libabsl_*.a" | sort); do
-            libname=$(basename "$lib" .a | sed 's/^lib//')
-            ABSL_LIBS="$ABSL_LIBS -l$libname"
-          done
-          
-          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} -O3 -DNDEBUG -march=native \
+          clang++-${{ matrix.version }} -std=c++23 \
+            -O3 -DNDEBUG -march=native \
             -I./include/fat_p \
             -I$HOME/thirdparty/robin-map/include \
             -I$HOME/thirdparty/unordered_dense/include \
-            -I$HOME/thirdparty/abseil-install/include \
-            -L$HOME/thirdparty/abseil-install/lib \
-            components/StableHashMap/benchmarks/benchmark_FatPHashMap.cpp \
-            -o bench_hashmap \
-            -Wl,--start-group $ABSL_LIBS -Wl,--end-group \
+            ${{ env.BENCH_SRC }} -o bench_shm \
+            -labsl_hash -labsl_raw_hash_set -labsl_hashtablez_sampler \
+            -labsl_synchronization -labsl_stacktrace -labsl_symbolize \
+            -labsl_base -labsl_spinlock_wait -labsl_malloc_internal \
             -pthread
 
       - name: Run benchmarks
         env:
-          FATP_BENCH_BATCHES: 15
           FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: 1
-          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
-        run: ./bench_hashmap 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp23.csv
+        run: ./bench_shm 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp23.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-clang${{ matrix.version }}-cpp${{ matrix.std }}
+          name: benchmark-clang${{ matrix.version }}-cpp23
           path: |
-            results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
-            benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+            results_clang${{ matrix.version }}_cpp23.csv
+            benchmark_clang${{ matrix.version }}_cpp23.log
 
   # ===========================================================================
-  # Benchmarks - Windows MSVC (Manual)
+  # Benchmarks - Windows MSVC (Weekly/Manual)
   # ===========================================================================
   benchmarks-msvc:
-    name: Benchmark MSVC C++${{ matrix.std }}
+    name: Benchmark MSVC C++23
     runs-on: windows-latest
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event.inputs.run_benchmarks == 'true') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        std: [17, 20, 23]
+    if: ${{ inputs.run_benchmarks }}
 
     steps:
       - uses: actions/checkout@v4
@@ -415,12 +405,12 @@ jobs:
           path: |
             ${{ env.VCPKG_INSTALLATION_ROOT }}/installed
             ${{ env.VCPKG_INSTALLATION_ROOT }}/packages
-          key: vcpkg-hashmap-static-${{ runner.os }}-v1
+          key: vcpkg-hashmap-${{ runner.os }}-v1
 
       - name: Install competitor libraries via vcpkg
         run: |
-          vcpkg install abseil:x64-windows-static
-          vcpkg install boost-unordered:x64-windows-static
+          vcpkg install abseil:x64-windows
+          vcpkg install boost-unordered:x64-windows
           
           echo "Installed competitor libraries via vcpkg"
 
@@ -439,51 +429,44 @@ jobs:
           git clone --depth 1 https://github.com/Tessil/robin-map.git thirdparty/robin-map
           git clone --depth 1 https://github.com/martinus/unordered_dense.git thirdparty/unordered_dense
 
-      - name: Build benchmarks
+      - name: Build benchmark
         shell: pwsh
         run: |
-          $std = "${{ matrix.std }}"
-          $stdFlag = if ($std -eq "23") { "/std:c++latest" } else { "/std:c++$std" }
-          
-          # Collect all abseil static libraries
-          $abslLibs = Get-ChildItem "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static\lib\absl_*.lib" | ForEach-Object { $_.FullName }
-          $abslLibsStr = $abslLibs -join " "
-          
-          cl /nologo $stdFlag /O2 /DNDEBUG /EHsc /permissive- /MT `
-            /I.\FAT_P\FAT_P\fat_p `
+          cl /nologo /std:c++latest /O2 /DNDEBUG /EHsc /permissive- `
+            /I.\include\fat_p `
             /I.\thirdparty\robin-map\include `
             /I.\thirdparty\unordered_dense\include `
-            /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static\include" `
-            FAT_P\FAT_P\benchmarks\benchmark_FatPHashMap.cpp `
-            /Fe:bench_hashmap.exe `
-            /link /LIBPATH:"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static\lib" $abslLibsStr advapi32.lib
+            /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include" `
+            components\StableHashMap\benchmarks\benchmark_FatPHashMap.cpp `
+            /Fe:bench_shm.exe `
+            /link /LIBPATH:"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\lib" advapi32.lib
 
       - name: Run benchmarks
         shell: pwsh
         env:
-          FATP_BENCH_BATCHES: "15"
-          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: "1"
-          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp${{ matrix.std }}.csv
+          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp23.csv
         run: |
-          .\bench_hashmap.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
+          .\bench_shm.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp23.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-msvc-cpp${{ matrix.std }}
+          name: benchmark-msvc-cpp23
           path: |
-            results_msvc_cpp${{ matrix.std }}.csv
-            benchmark_msvc_cpp${{ matrix.std }}.log
+            results_msvc_cpp23.csv
+            benchmark_msvc_cpp23.log
 
   # ===========================================================================
-  # Benchmark Summary
+  # Benchmark Summary (Aggregates all benchmark artifacts)
   # ===========================================================================
   benchmark-summary:
     name: Benchmark Summary
     needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always() && github.event.inputs.run_benchmarks == 'true') }}
+    if: ${{ always() && inputs.run_benchmarks }}
     steps:
       - name: Download all benchmark artifacts
         uses: actions/download-artifact@v4
@@ -494,10 +477,10 @@ jobs:
 
       - name: Aggregate results
         run: |
-          echo "# Benchmark Summary - HashMap" > summary.md
+          echo "# Benchmark Summary - StableHashMap" > summary.md
           echo "" >> summary.md
-          echo "| Configuration | Status |" >> summary.md
-          echo "|---------------|--------|" >> summary.md
+          echo "| Compiler | Standard | Status |" >> summary.md
+          echo "|----------|----------|--------|" >> summary.md
           
           for dir in all-benchmarks/benchmark-*/; do
             name=$(basename "$dir")
@@ -505,6 +488,20 @@ jobs:
               echo "| $name | ✓ |" >> summary.md
             else
               echo "| $name | ✗ |" >> summary.md
+            fi
+          done
+          
+          echo "" >> summary.md
+          echo "## Individual Results" >> summary.md
+          
+          for dir in all-benchmarks/benchmark-*/; do
+            name=$(basename "$dir")
+            echo "" >> summary.md
+            echo "### $name" >> summary.md
+            if [ -f "$dir"/*.log ]; then
+              echo '```' >> summary.md
+              tail -50 "$dir"/*.log >> summary.md
+              echo '```' >> summary.md
             fi
           done
           
@@ -525,7 +522,7 @@ jobs:
     name: CI Success
     needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always()) }}
+    if: ${{ always() }}
     steps:
       - name: Check results
         run: |

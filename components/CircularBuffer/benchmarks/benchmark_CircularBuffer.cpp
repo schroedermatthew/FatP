@@ -18,14 +18,14 @@
  * - moodycamel::BlockingReaderWriterCircularBuffer (optional via __has_include)
  *
  * Compile (minimal):
- *   g++ -std=c++17 -O3 -DNDEBUG -march=native -pthread benchmark_CircularBuffer.cpp -o bench_cb
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native -pthread benchmark_CircularBuffer.cpp -o bench_cb
  *
  * Compile (with boost):
- *   g++ -std=c++17 -O3 -DNDEBUG -march=native -pthread -I/path/to/boost \
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native -pthread -I/path/to/boost \
  *       benchmark_CircularBuffer.cpp -o bench_cb
  *
  * Windows (MSVC):
- *   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_CircularBuffer.cpp /link advapi32.lib
+ *   cl /std:c++20 /O2 /DNDEBUG /EHsc benchmark_CircularBuffer.cpp /link advapi32.lib
  *
  * Environment variables:
  *   FATP_BENCH_WARMUP_RUNS   - warmup batches (default: 3)

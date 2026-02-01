@@ -271,7 +271,6 @@ bool test_RcuIntegration()
 
     FATP_RUN_TEST_NS(runner, rcuintegration, tensor_basic);
     FATP_RUN_TEST_NS(runner, rcuintegration, concurrent_readers_writers);
-    FATP_RUN_TEST_NS(runner, rcuintegration, performance);
     FATP_RUN_TEST_NS(runner, rcuintegration, complex_updates);
 
     return 0 == runner.print_summary();

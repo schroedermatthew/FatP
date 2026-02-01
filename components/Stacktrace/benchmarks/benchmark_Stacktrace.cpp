@@ -41,10 +41,10 @@ FATP_META:
  * No competitors are compared (backend is compile-time selected per platform).
  *
  * Compile (GCC/Clang):
- *   g++ -std=c++17 -O2 -g -DNDEBUG benchmark_Stacktrace.cpp -o bench_stacktrace -ldl
+ *   g++ -std=c++20 -O2 -g -DNDEBUG benchmark_Stacktrace.cpp -o bench_stacktrace -ldl
  *
  * Compile (MSVC):
- *   cl /std:c++17 /O2 /Zi /DNDEBUG /EHsc benchmark_Stacktrace.cpp
+ *   cl /std:c++20 /O2 /Zi /DNDEBUG /EHsc benchmark_Stacktrace.cpp
  *
  * Environment variables:
  *   FATP_BENCH_WARMUP_RUNS   - Warmup batches (default: 3)

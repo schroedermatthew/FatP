@@ -27,8 +27,8 @@
 //     - std::vector<T> + index
 //
 // Build:
-//   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_SlotMap.cpp -o bench_sm
-//   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_SlotMap.cpp /link advapi32.lib
+//   g++ -std=c++20 -O3 -DNDEBUG -march=native benchmark_SlotMap.cpp -o bench_sm
+//   cl /std:c++20 /O2 /DNDEBUG /EHsc benchmark_SlotMap.cpp /link advapi32.lib
 //
 // Environment Variables (all optional):
 //   FATP_BENCH_WARMUP_RUNS()   - Warmup iterations (default: 3)

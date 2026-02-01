@@ -27,14 +27,14 @@
  *   - boost::pool: Raw segregated storage (same genre as BlockAllocator)
  *
  * Build (minimal):
- *   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_AllocationStrategies.cpp -o bench_alloc -pthread
- *   clang++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_AllocationStrategies.cpp -o bench_alloc -pthread
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native benchmark_AllocationStrategies.cpp -o bench_alloc -pthread
+ *   clang++ -std=c++20 -O3 -DNDEBUG -march=native benchmark_AllocationStrategies.cpp -o bench_alloc -pthread
  *
  * Build (Windows MSVC):
- *   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_AllocationStrategies.cpp /link advapi32.lib
+ *   cl /std:c++20 /O2 /DNDEBUG /EHsc benchmark_AllocationStrategies.cpp /link advapi32.lib
  *
  * Build (with Boost):
- *   g++ -std=c++17 -O3 -DNDEBUG -march=native -I/path/to/boost benchmark_AllocationStrategies.cpp -o bench_alloc
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native -I/path/to/boost benchmark_AllocationStrategies.cpp -o bench_alloc
  * -pthread
  *
  * Environment Variables (all optional):

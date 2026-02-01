@@ -27,8 +27,6 @@ FATP_META:
  * @file WorkQueue.h
  * @brief Sharded lock-free work queue (MPMC) with relaxed global ordering
  *
- * @layer Concurrency
- *
  * @details
  * A scalable work-queue optimized for many producers and many consumers.
  *

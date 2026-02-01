@@ -29,13 +29,13 @@
  *     - Raw int - Performance baseline
  *
  * Build (minimal):
- *   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_StrongId.cpp -o bench_strongid
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native benchmark_StrongId.cpp -o bench_strongid
  *
  * Build (MSVC):
- *   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_StrongId.cpp /Fe:bench_strongid.exe
+ *   cl /std:c++20 /O2 /DNDEBUG /EHsc benchmark_StrongId.cpp /Fe:bench_strongid.exe
  *
  * Build (with competitors):
- *   g++ -std=c++17 -O3 -DNDEBUG -march=native \
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native \
  *       -I/path/to/NamedType/include \
  *       -I/path/to/type_safe/include \
  *       -I/path/to/strong_type/include \

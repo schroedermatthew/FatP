@@ -57,13 +57,13 @@ FATP_META:
 //     - boost::pool_allocator - Pool-backed allocator
 //
 // Build (minimal):
-//   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_ObjectPool.cpp -o bench_objpool -lpthread
+//   g++ -std=c++20 -O3 -DNDEBUG -march=native benchmark_ObjectPool.cpp -o bench_objpool -lpthread
 //
 // Build (MSVC):
-//   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_ObjectPool.cpp /link advapi32.lib
+//   cl /std:c++20 /O2 /DNDEBUG /EHsc benchmark_ObjectPool.cpp /link advapi32.lib
 //
 // Build (with competitors):
-//   g++ -std=c++17 -O3 -DNDEBUG -march=native -I/path/to/boost \
+//   g++ -std=c++20 -O3 -DNDEBUG -march=native -I/path/to/boost \
 //       -I/path/to/foonathan -I/path/to/EASTL benchmark_ObjectPool.cpp -o bench_objpool -lpthread
 //
 // Environment Variables (all optional):

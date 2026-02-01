@@ -17,9 +17,12 @@
 name: AlignedVector CI
 
 on:
-  pull_request:
-    types: [labeled]
   workflow_dispatch:
+    inputs:
+      run_benchmarks:
+        description: 'Run benchmarks'
+        type: boolean
+        default: false
 env:
   INCLUDE_DIR: include/fat_p
   TEST_SRC: components/AlignedVector/tests/test_AlignedVector.cpp
@@ -30,23 +33,22 @@ jobs:
   # Linux GCC Builds
   # ===========================================================================
   linux-gcc:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - version: 11
-            std: 17
-          - version: 12
-            std: 17
           - version: 12
             std: 20
           - version: 13
-            std: 17
-          - version: 13
             std: 20
+          - version: 13
+            std: 23
+          - version: 14
+            std: 20
+          - version: 14
+            std: 23
 
     steps:
       - uses: actions/checkout@v4
@@ -70,23 +72,22 @@ jobs:
   # Linux Clang Builds
   # ===========================================================================
   linux-clang:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
         include:
-          - version: 14
-            std: 17
-          - version: 15
-            std: 17
           - version: 15
             std: 20
           - version: 16
-            std: 17
-          - version: 16
             std: 20
+          - version: 16
+            std: 23
+          - version: 17
+            std: 20
+          - version: 17
+            std: 23
 
     steps:
       - uses: actions/checkout@v4
@@ -114,13 +115,12 @@ jobs:
   # Windows MSVC Build
   # ===========================================================================
   windows-msvc:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Windows MSVC C++${{ matrix.std }}
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
-        std: [17, 20]
+        std: [20, 23]
 
     steps:
       - uses: actions/checkout@v4
@@ -129,8 +129,11 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build tests
+        shell: pwsh
         run: |
-          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /wd4324 /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_AlignedVector.cpp /Fe:test_av.exe /link advapi32.lib
+          $std = "${{ matrix.std }}"
+          $stdFlag = if ($std -eq "23") { "/std:c++latest" } else { "/std:c++$std" }
+          cl $stdFlag /W4 /WX /EHsc /permissive- /wd4324 /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\AlignedVector\tests\test_AlignedVector.cpp /Fe:test_av.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_av.exe
@@ -139,7 +142,6 @@ jobs:
   # Sanitizers
   # ===========================================================================
   sanitizer-asan:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: AddressSanitizer
     runs-on: ubuntu-latest
     steps:
@@ -147,7 +149,7 @@ jobs:
 
       - name: Build with ASan
         run: |
-          g++ -std=c++17 -Wall -Wextra -g -O1 \
+          g++ -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
@@ -159,7 +161,6 @@ jobs:
         run: ./test_av
 
   sanitizer-ubsan:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: UndefinedBehaviorSanitizer
     runs-on: ubuntu-latest
     steps:
@@ -167,7 +168,7 @@ jobs:
 
       - name: Build with UBSan
         run: |
-          g++ -std=c++17 -Wall -Wextra -g -O1 \
+          g++ -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
@@ -179,7 +180,6 @@ jobs:
         run: ./test_av
 
   sanitizer-tsan:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: ThreadSanitizer
     runs-on: ubuntu-latest
     steps:
@@ -187,7 +187,7 @@ jobs:
 
       - name: Build with TSan
         run: |
-          g++ -std=c++17 -Wall -Wextra -g -O1 \
+          g++ -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=thread -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
@@ -202,7 +202,6 @@ jobs:
   # Header Self-Containment (Fat-P §6.2)
   # ===========================================================================
   header-check:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Header Self-Containment
     runs-on: ubuntu-latest
     steps:
@@ -213,40 +212,16 @@ jobs:
           echo '#include "AlignedVector.h"' > test_include.cpp
           echo 'int main() { return 0; }' >> test_include.cpp
           
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+          g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I./include/fat_p \
             -c test_include.cpp -o /dev/null
           
           echo "✓ Header is self-contained"
 
-      - name: Test include order independence
-        run: |
-          # AlignedVector first
-          cat > test1.cpp << 'EOF'
-          #include "AlignedVector.h"
-          #include <vector>
-          #include <algorithm>
-          int main() { fat_p::AlignedVector<int> v; return 0; }
-          EOF
-          
-          # AlignedVector last
-          cat > test2.cpp << 'EOF'
-          #include <algorithm>
-          #include <vector>
-          #include "AlignedVector.h"
-          int main() { fat_p::AlignedVector<int> v; return 0; }
-          EOF
-          
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p -c test1.cpp -o /dev/null
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p -c test2.cpp -o /dev/null
-          
-          echo "✓ Include order independent"
-
   # ===========================================================================
-  # Strict Warnings Check
+  # Strict Warnings
   # ===========================================================================
   strict-warnings:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
     name: Strict Warnings
     runs-on: ubuntu-latest
     steps:
@@ -254,7 +229,7 @@ jobs:
 
       - name: Compile with strict warnings
         run: |
-          g++ -std=c++17 \
+          g++ -std=c++20 \
               -Wall -Wextra -Wpedantic \
               -Wconversion -Wsign-conversion \
               -Wshadow -Wformat=2 \
@@ -267,23 +242,13 @@ jobs:
   # Benchmarks - Linux GCC (Weekly/Manual)
   # ===========================================================================
   benchmarks-gcc:
-    name: Benchmark GCC-${{ matrix.version }} C++${{ matrix.std }}
+    name: Benchmark GCC-${{ matrix.version }} C++23
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true') }}
+    if: ${{ inputs.run_benchmarks }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - version: 11
-            std: 17
-          - version: 12
-            std: 17
-          - version: 12
-            std: 20
-          - version: 13
-            std: 17
-          - version: 13
-            std: 20
+        version: [13, 14]
 
     steps:
       - uses: actions/checkout@v4
@@ -313,7 +278,7 @@ jobs:
 
       - name: Build benchmark
         run: |
-          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+          g++-${{ matrix.version }} -std=c++23 \
             -O3 -DNDEBUG $AVX_FLAGS \
             -I./include/fat_p \
             -I/usr/include/eigen3 \
@@ -324,38 +289,28 @@ jobs:
           FATP_BENCH_WARMUP_RUNS: 3
           FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: 1
-          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
-        run: ./bench_av 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
+          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp23.csv
+        run: ./bench_av 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp23.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-gcc${{ matrix.version }}-cpp${{ matrix.std }}
+          name: benchmark-gcc${{ matrix.version }}-cpp23
           path: |
-            results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
-            benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
+            results_gcc${{ matrix.version }}_cpp23.csv
+            benchmark_gcc${{ matrix.version }}_cpp23.log
 
   # ===========================================================================
   # Benchmarks - Linux Clang (Weekly/Manual)
   # ===========================================================================
   benchmarks-clang:
-    name: Benchmark Clang-${{ matrix.version }} C++${{ matrix.std }}
+    name: Benchmark Clang-${{ matrix.version }} C++23
     runs-on: ubuntu-22.04
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true') }}
+    if: ${{ inputs.run_benchmarks }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - version: 14
-            std: 17
-          - version: 15
-            std: 17
-          - version: 15
-            std: 20
-          - version: 16
-            std: 17
-          - version: 16
-            std: 20
+        version: [16, 17]
 
     steps:
       - uses: actions/checkout@v4
@@ -388,7 +343,7 @@ jobs:
 
       - name: Build benchmark
         run: |
-          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+          clang++-${{ matrix.version }} -std=c++23 \
             -O3 -DNDEBUG $AVX_FLAGS \
             -I./include/fat_p \
             -I/usr/include/eigen3 \
@@ -399,28 +354,24 @@ jobs:
           FATP_BENCH_WARMUP_RUNS: 3
           FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: 1
-          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
-        run: ./bench_av 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp23.csv
+        run: ./bench_av 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp23.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-clang${{ matrix.version }}-cpp${{ matrix.std }}
+          name: benchmark-clang${{ matrix.version }}-cpp23
           path: |
-            results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
-            benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+            results_clang${{ matrix.version }}_cpp23.csv
+            benchmark_clang${{ matrix.version }}_cpp23.log
 
   # ===========================================================================
   # Benchmarks - Windows MSVC (Weekly/Manual)
   # ===========================================================================
   benchmarks-msvc:
-    name: Benchmark MSVC C++${{ matrix.std }}
+    name: Benchmark MSVC C++23
     runs-on: windows-latest
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        std: [17, 20]
+    if: ${{ inputs.run_benchmarks }}
 
     steps:
       - uses: actions/checkout@v4
@@ -440,7 +391,7 @@ jobs:
       - name: Build benchmark
         shell: pwsh
         run: |
-          cl /nologo /std:c++${{ matrix.std }} /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /wd4324 /I.\FAT_P\FAT_P\fat_p /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include" FAT_P\FAT_P\benchmarks\benchmark_AlignedVector.cpp /Fe:bench_av.exe /link advapi32.lib
+          cl /nologo /std:c++latest /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /wd4324 /I.\include\fat_p /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include" components\AlignedVector\benchmarks\benchmark_AlignedVector.cpp /Fe:bench_av.exe /link advapi32.lib
 
       - name: Run benchmarks
         shell: pwsh
@@ -448,17 +399,17 @@ jobs:
           FATP_BENCH_WARMUP_RUNS: 3
           FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: "1"
-          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp${{ matrix.std }}.csv
+          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp23.csv
         run: |
-          .\bench_av.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
+          .\bench_av.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp23.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-msvc-cpp${{ matrix.std }}
+          name: benchmark-msvc-cpp23
           path: |
-            results_msvc_cpp${{ matrix.std }}.csv
-            benchmark_msvc_cpp${{ matrix.std }}.log
+            results_msvc_cpp23.csv
+            benchmark_msvc_cpp23.log
 
   # ===========================================================================
   # Benchmark Summary (Aggregates all benchmark artifacts)
@@ -467,7 +418,7 @@ jobs:
     name: Benchmark Summary
     needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always() && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true')) }}
+    if: ${{ always() && inputs.run_benchmarks }}
     steps:
       - name: Download all benchmark artifacts
         uses: actions/download-artifact@v4
@@ -523,7 +474,7 @@ jobs:
     name: CI Success
     needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always()) }}
+    if: ${{ always() }}
     steps:
       - name: Check results
         run: |

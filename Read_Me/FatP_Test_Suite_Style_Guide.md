@@ -56,16 +56,6 @@ FATP_TEST_CASE(insert)
     return true;
 }
 
-// ============================================================================
-// Benchmarks
-// ============================================================================
-
-void run_benchmarks()
-{
-    std::cout << colors::cyan() << "Component Benchmarks:" << colors::reset() << "\n";
-    // ...
-}
-
 } // namespace fat_p::testing::componentns
 
 // ============================================================================
@@ -84,8 +74,6 @@ bool test_Component()
     FATP_RUN_TEST_NS(runner, componentns, basic_operations);
     FATP_RUN_TEST_NS(runner, componentns, insert);
     // ...
-    
-    componentns::run_benchmarks();
     
     return 0 == runner.print_summary();
 }
@@ -332,7 +320,8 @@ Test suites should cover these areas (as applicable to the component):
 | **Header hygiene** | Compile-only `test_X_HeaderSelfContained.cpp` for each public header (self-contained, include-order independent) |
 | **Compile-fail contract** | Expected-fail translation units proving invalid configurations are rejected at compile time |
 | **Stress/fuzz** | Random operations, reference oracle comparison |
-| **Performance** | Benchmarks vs std:: equivalent |
+
+**Note:** Performance benchmarks belong in separate benchmark files under `components/<Component>/benchmarks/`, not in unit tests. Unit tests focus on correctness verification only.
 
 ### Basic Operations
 
@@ -507,106 +496,6 @@ FATP_ASSERT_EQ FAILED: Size should be 3
 
 ---
 
-## Benchmarking
-
-### Basic Structure
-
-```cpp
-void run_benchmarks()
-{
-    std::cout << colors::cyan() << "Component Benchmarks:" << colors::reset() << "\n";
-    
-    volatile int accumulator = 0;
-    double time = measure_perf(
-        [&accumulator]() {
-            // Operation to measure
-            accumulator += 1;
-        },
-        100000,  // iterations
-        1000     // warmup
-    );
-    
-    std::cout << "Operation: " << format_time(time) << "\n";
-    DoNotOptimize(accumulator);
-}
-```
-
-### Comparison Benchmarks
-
-Always compare against `std::` equivalent (when one exists):
-
-```cpp
-void benchmark_find(size_t N)
-{
-    // Build both containers
-    YourContainer<int, int> yours;
-    std::map<int, int> theirs;
-    
-    for (int i = 0; i < N; ++i)
-    {
-        yours.insert({i, i * 10});
-        theirs.insert({i, i * 10});
-    }
-    
-    // Benchmark yours
-    volatile int yours_sum = 0;
-    double yours_time = measure_perf(
-        [&yours, &yours_sum, i = 0]() mutable {
-            auto it = yours.find(i % N);
-            if (it != yours.end()) yours_sum += it->second;
-            ++i;
-        },
-        100000, 1000);
-    DoNotOptimize(yours_sum);
-    
-    // Benchmark theirs
-    volatile int theirs_sum = 0;
-    double theirs_time = measure_perf(
-        [&theirs, &theirs_sum, i = 0]() mutable {
-            auto it = theirs.find(i % N);
-            if (it != theirs.end()) theirs_sum += it->second;
-            ++i;
-        },
-        100000, 1000);
-    DoNotOptimize(theirs_sum);
-    
-    // Report
-    std::cout << "Ours: " << format_time(yours_time)
-              << " | std::map: " << format_time(theirs_time) << "\n";
-}
-```
-
-### Conditional Benchmarking
-
-Skip benchmarks in debug builds:
-
-```cpp
-#ifdef ENABLE_TEST_APPLICATION
-int main()
-{
-    bool success = fat_p::testing::test_Component();
-    
-#ifndef NDEBUG
-    std::cout << "\n[Debug build - skipping benchmarks]\n";
-#else
-    fat_p::testing::componentns::run_benchmarks();
-#endif
-    
-    return success ? 0 : 1;
-}
-#endif
-```
-
-### Benchmark Categories
-
-1. **Single operations** -- Insert, find, erase on populated container
-2. **Iteration** -- Sequential access, range-for performance  
-3. **Build from empty** -- Construction + N insertions
-4. **Comparison** -- Your implementation vs std:: equivalent
-5. **Sensitivity analysis** -- Vary size, load factor, etc.
-
----
-
 ## Helper Types
 
 Each test suite defines its own helper types as needed. These are **examples** from existing tests, not a required catalog:
@@ -720,9 +609,6 @@ bool test_Component()
     FATP_RUN_TEST_NS(runner, componentns, insert);
     FATP_RUN_TEST_NS(runner, componentns, erase);
     
-    // Benchmarks run after tests
-    componentns::run_benchmarks();
-    
     return 0 == runner.print_summary();
 }
 
@@ -751,9 +637,6 @@ bool test_StrongId()
     out << "\n" << colors::blue() << "--- Comparison Operators ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, strongid, equality_comparison);
     FATP_RUN_TEST_NS(runner, strongid, less_than_comparison);
-    
-    // Benchmarks
-    strongid::run_benchmarks();
     
     return 0 == runner.print_summary();
 }
@@ -809,15 +692,10 @@ Compile standalone: `g++ -std=c++17 -O2 -DENABLE_TEST_APPLICATION test_Component
 - [ ] Use `FATP_ASSERT_TRUE`/`FATP_ASSERT_FALSE` for boolean conditions
 - [ ] Use `FATP_ASSERT_CLOSE`/`FATP_ASSERT_CLOSE_EPS` for floating-point comparisons
 
-### Benchmarks
-- [ ] Compare against std:: equivalent (when one exists)
-- [ ] Use `DoNotOptimize()` to prevent optimization
-- [ ] Consider conditional execution based on NDEBUG
-
 ### Naming
 - [ ] Test names are descriptive: `basic_insert_get` not `test7`
 - [ ] Namespace matches component: `slotmap`, `strongid`, `valueguard`
 
 ---
 
-*Fat-P Test Suite Style Guide v2.2 -- January 2026*
+*Fat-P Test Suite Style Guide v2.3 -- February 2026*

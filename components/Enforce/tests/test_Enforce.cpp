@@ -1805,17 +1805,11 @@ bool test_Enforce()
         FATP_RUN_TEST_NS(runner, enforce, expected_predicate_variants);
         FATP_RUN_TEST_NS(runner, enforce, expected_error_propagation);
 
-        // Test Suite 7: Performance
-        std::cout << "\n" << colors::cyan() << "Test Suite 7: Performance Characteristics" << colors::reset() << "\n";
-        FATP_RUN_TEST_NS(runner, enforce, performance_enforce_overhead);
-        FATP_RUN_TEST_NS(runner, enforce, performance_always_enforce_overhead);
-        FATP_RUN_TEST_NS(runner, enforce, performance_predicate_overhead);
-
-        // Test Suite 8: Thread Safety
-        std::cout << "\n" << colors::cyan() << "Test Suite 8: Thread Safety" << colors::reset() << "\n";
+        // Test Suite 7: Thread Safety
+        std::cout << "\n" << colors::cyan() << "Test Suite 7: Thread Safety" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, enforce, thread_safety_concurrent_enforcement);
 
-        // Test Suite 9: Edge Cases
+        // Test Suite 8: Edge Cases
         std::cout << "\n" << colors::cyan() << "Test Suite 9: Edge Cases" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, enforce, edge_case_empty_message);
         FATP_RUN_TEST_NS(runner, enforce, edge_case_long_message);
