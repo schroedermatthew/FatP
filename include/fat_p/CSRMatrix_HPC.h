@@ -1,9 +1,36 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: CSRMatrix_HPC
+  file_role: public_header
+  path: include/fat_p/CSRMatrix_HPC.h
+  namespace: fat_p
+  layer: Domain
+  summary: "Public header for CSRMatrix_HPC."
+  api_stability: in_work
+  related:
+    docs_search: "CSRMatrix_HPC"
+    tests:
+      - components/CSRMatrix/tests/test_CSRMatrix_HPC.cpp
+      - components/CSRMatrix/tests/test_CSRMatrix_HPC_Parallel.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file CSRMatrix_HPC.h
  * @brief High-Performance CSR Matrix with NUMA locality, cache prefetching, and contract enforcement
  *
- *
- * @layer Domain
  *
  * @version 1.1
  *
@@ -53,34 +80,6 @@
  * Requires: C++17
  */
 
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: CSRMatrix_HPC
-  file_role: public_header
-  path: include/fat_p/CSRMatrix_HPC.h
-  namespace: fat_p
-  layer: Domain
-  summary: "Public header for CSRMatrix_HPC."
-  api_stability: in_work
-  related:
-    docs_search: "CSRMatrix_HPC"
-    tests:
-      - components/CSRMatrix/tests/test_CSRMatrix_HPC.cpp
-      - components/CSRMatrix/tests/test_CSRMatrix_HPC_Parallel.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -143,7 +142,6 @@ inline ThreadPool& default_hpc_thread_pool()
 // ============================================================================
 // Work Partitioner (Internal)
 // ============================================================================
-
 
 /**
  * @brief High-Performance Compressed Sparse Row matrix

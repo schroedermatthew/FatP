@@ -29,8 +29,6 @@ FATP_META:
  * @file Stacktrace.h
  * @brief Portable stack trace capture utilities with multi-backend support
  *
- * @layer Foundation
- *
  * Provides cross-platform stack trace capture with automatic backend selection:
  * - C++23 std::stacktrace (preferred when available)
  * - libunwind (Linux/macOS)

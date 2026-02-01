@@ -1,18 +1,3 @@
-/**
- * @file Factory.h
- * @brief Policy-based factory with compile-time customization.
- *
- * @layer Domain
- *
- * Provides two implementations:
- * 1. Factory - Modern policy-based factory with full customization
- * 2. SimpleVariadicFactory - Legacy-compatible lightweight factory
- *
- * @note Use SimpleVariadicFactory for EqualityAny.h compatibility
- * @note Use Factory for new code with full policy customization
- * @note Creators are invoked outside locks to allow reentrancy (e.g., nested factory calls)
- */
-
 #pragma once
 
 /*
@@ -40,6 +25,20 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file Factory.h
+ * @brief Policy-based factory with compile-time customization.
+ *
+ * Provides two implementations:
+ * 1. Factory - Modern policy-based factory with full customization
+ * 2. SimpleVariadicFactory - Legacy-compatible lightweight factory
+ *
+ * @note Use SimpleVariadicFactory for EqualityAny.h compatibility
+ * @note Use Factory for new code with full policy customization
+ * @note Creators are invoked outside locks to allow reentrancy (e.g., nested factory calls)
+ */
+
 #include "ConcurrencyPolicies.h"
 #include "enforce.h"
 #include "Expected.h"

@@ -1,9 +1,3 @@
-/**
- * @file FatPCbor.h
- * @brief FAT-P CBOR serialization adapters
- *
- * @layer Domain
- */
 #pragma once
 
 /*
@@ -31,6 +25,13 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file FatPCbor.h
+ * @brief FAT-P CBOR serialization adapters
+ *
+ */
+
 #include "CborLite.h"
 #include "enforce.h"
 #include "Expected.h"

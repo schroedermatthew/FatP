@@ -1,32 +1,5 @@
-/**
- * @file ViewLifetimeTracking.h
- * @brief Debug-only lifetime tracking for views and references
- *
- *
- * @layer Domain
- *
- * @version 1.0
- *
- * Provides compile-time-configurable lifetime tracking to detect:
- * - Dangling references (view outlives source)
- * - Use-after-free errors
- * - Invalid weak pointer access
- *
- * Features:
- * - Zero overhead in release builds (NDEBUG)
- * - Thread-safe tracking (optional)
- * - Integration with Tensor views and std::weak_ptr
- * - Clear error messages with source location
- *
- * Usage:
- *   LifetimeTracker<Tensor<int>> tracker(tensor);
- *   auto view = tracker.create_view();
- *   // view.check_valid() throws if tensor destroyed
- *
- * Requires: C++17
- */
-
 #pragma once
+
 /*
 FATP_META:
   meta_version: 1
@@ -52,6 +25,33 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file ViewLifetimeTracking.h
+ * @brief Debug-only lifetime tracking for views and references
+ *
+ *
+ * @version 1.0
+ *
+ * Provides compile-time-configurable lifetime tracking to detect:
+ * - Dangling references (view outlives source)
+ * - Use-after-free errors
+ * - Invalid weak pointer access
+ *
+ * Features:
+ * - Zero overhead in release builds (NDEBUG)
+ * - Thread-safe tracking (optional)
+ * - Integration with Tensor views and std::weak_ptr
+ * - Clear error messages with source location
+ *
+ * Usage:
+ *   LifetimeTracker<Tensor<int>> tracker(tensor);
+ *   auto view = tracker.create_view();
+ *   // view.check_valid() throws if tensor destroyed
+ *
+ * Requires: C++17
+ */
+
 #include <atomic>
 #include <iostream>
 #include <memory>

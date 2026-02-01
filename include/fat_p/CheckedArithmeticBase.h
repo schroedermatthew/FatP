@@ -1,9 +1,33 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: CheckedArithmeticBase
+  file_role: public_header
+  path: include/fat_p/CheckedArithmeticBase.h
+  namespace: fat_p
+  layer: Foundation
+  summary: "Public header for CheckedArithmeticBase."
+  api_stability: in_work
+  related:
+    docs_search: "CheckedArithmeticBase"
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file CheckedArithmeticBase.h
  * @brief Core types, enums, and detection traits for checked arithmetic
  *
- *
- * @layer Foundation
  *
  * @version 3.1
  *
@@ -49,31 +73,7 @@
  * where return types depend on policy selection.
  * =============================================================================
  */
-#pragma once
 
-/*
-FATP_META:
-  meta_version: 1
-  component: CheckedArithmeticBase
-  file_role: public_header
-  path: include/fat_p/CheckedArithmeticBase.h
-  namespace: fat_p
-  layer: Foundation
-  summary: "Public header for CheckedArithmeticBase."
-  api_stability: in_work
-  related:
-    docs_search: "CheckedArithmeticBase"
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include <cstdint>
 #include <ostream>
 #include <type_traits>

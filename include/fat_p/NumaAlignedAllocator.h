@@ -1,9 +1,33 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: NumaAlignedAllocator
+  file_role: public_header
+  path: include/fat_p/NumaAlignedAllocator.h
+  namespace: fat_p
+  layer: Containers
+  summary: "Public header for NumaAlignedAllocator."
+  api_stability: in_work
+  related:
+    docs_search: "NumaAlignedAllocator"
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file NumaAlignedAllocator.h
  * @brief Combined NUMA-aware + cache-aligned allocator for HPC workloads
  *
- *
- * @layer Domain
  *
  * @version 1.2
  *
@@ -41,31 +65,6 @@
  * Requires: C++17, NumaAllocator.h
  */
 
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: NumaAlignedAllocator
-  file_role: public_header
-  path: include/fat_p/NumaAlignedAllocator.h
-  namespace: fat_p
-  layer: Containers
-  summary: "Public header for NumaAlignedAllocator."
-  api_stability: in_work
-  related:
-    docs_search: "NumaAlignedAllocator"
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include "NumaAllocator.h" // Provides NumaInfo, policies, platform detection
 
 #include <cstddef>

@@ -1,9 +1,3 @@
-/**
- * @file FatPCborStream.h
- * @brief FAT-P streaming CBOR serialization
- *
- * @layer Domain
- */
 #pragma once
 
 /*
@@ -31,6 +25,13 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file FatPCborStream.h
+ * @brief FAT-P streaming CBOR serialization
+ *
+ */
+
 /**
  * @file FatPCborStream.h
  * @brief Enhanced streaming CBOR parser with policy-based design and Expected error handling

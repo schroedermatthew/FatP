@@ -1,9 +1,39 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: Tensor
+  file_role: public_header
+  path: include/fat_p/Tensor.h
+  namespace: fat_p
+  layer: Domain
+  summary: "Public header for Tensor."
+  api_stability: in_work
+  related:
+    docs_search: "Tensor"
+    tests:
+      - components/ConcurrencyPolicies/tests/test_RcuIntegration.cpp
+      - components/Tensor/tests/test_Tensor.cpp
+      - components/Tensor/tests/test_TensorComparison.cpp
+      - components/Tensor/tests/test_TensorEinsum.cpp
+      - components/Tensor/tests/test_TensorSerializer.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file Tensor.h
  * @brief High-performance N-dimensional tensor with policy-based iterators
  *
- *
- * @layer Domain
  *
  * @version 5.1 - Enhanced Safety Features: Bounds Checking, View Lifetime Tracking, RCU Integration
  *
@@ -51,38 +81,6 @@
  * @author cpp_utilities
  * @date 2025
  */
-
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: Tensor
-  file_role: public_header
-  path: include/fat_p/Tensor.h
-  namespace: fat_p
-  layer: Domain
-  summary: "Public header for Tensor."
-  api_stability: in_work
-  related:
-    docs_search: "Tensor"
-    tests:
-      - components/ConcurrencyPolicies/tests/test_RcuIntegration.cpp
-      - components/Tensor/tests/test_Tensor.cpp
-      - components/Tensor/tests/test_TensorComparison.cpp
-      - components/Tensor/tests/test_TensorEinsum.cpp
-      - components/Tensor/tests/test_TensorSerializer.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 
 #include <algorithm>
 #include <array>
@@ -1468,7 +1466,6 @@ public:
         return col(index);
     }
 #endif
-
 
     // =========================================================================
     // AVX-512 Optimized Operations (v5.0)

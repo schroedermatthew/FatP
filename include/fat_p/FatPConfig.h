@@ -1,13 +1,3 @@
-/**
- * @file FatPConfig.h
- * @brief Central configuration macros for FAT-P library
- *
- * @layer Foundation
- *
- * @details
- * Central configuration + portability macros for the Fat-P header-only library.
- * Systemic Hygiene Policy Rule F: single source of truth for configuration macros.
- */
 #pragma once
 
 /*
@@ -33,6 +23,15 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file FatPConfig.h
+ * @brief Central configuration macros for FAT-P library
+ *
+ * @details
+ * Central configuration + portability macros for the Fat-P header-only library.
+ * Systemic Hygiene Policy Rule F: single source of truth for configuration macros.
+ */
 
 #include <cstddef>
 

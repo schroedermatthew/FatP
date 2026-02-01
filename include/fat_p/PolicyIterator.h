@@ -1,21 +1,5 @@
-/**
- * @file PolicyIterator.h
- * @brief Policy-based iterator with customizable traversal strategies.
- *
- * @layer Domain
- *
- * Provides a compile-time configurable iterator that delegates advancing and
- * dereferencing to policy classes. Supports standard, stride, filtering,
- * transform, and tensor iteration with static dispatch for zero runtime overhead.
- *
- * @note Precondition checks are debug-only via enforce; release builds have zero overhead.
- * @note Thread-safety: Not internally synchronized; use external synchronization.
- *
- * @see enforce.h for contract checking.
- * @see TensorStridePolicy.h for multi-dimensional array traversal.
- */
-
 #pragma once
+
 /*
 FATP_META:
   meta_version: 1
@@ -43,6 +27,22 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file PolicyIterator.h
+ * @brief Policy-based iterator with customizable traversal strategies.
+ *
+ * Provides a compile-time configurable iterator that delegates advancing and
+ * dereferencing to policy classes. Supports standard, stride, filtering,
+ * transform, and tensor iteration with static dispatch for zero runtime overhead.
+ *
+ * @note Precondition checks are debug-only via enforce; release builds have zero overhead.
+ * @note Thread-safety: Not internally synchronized; use external synchronization.
+ *
+ * @see enforce.h for contract checking.
+ * @see TensorStridePolicy.h for multi-dimensional array traversal.
+ */
+
 #include <cstddef>
 #include <iterator>
 #include <optional>

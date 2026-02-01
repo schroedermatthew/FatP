@@ -1,9 +1,3 @@
-/**
- * @file ComparisonTolerances.h
- * @brief Tolerance definitions for floating-point comparisons
- *
- * @layer Foundation
- */
 #pragma once
 
 /*
@@ -29,6 +23,13 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file ComparisonTolerances.h
+ * @brief Tolerance definitions for floating-point comparisons
+ *
+ */
+
 #include <cmath>
 #include <limits>
 

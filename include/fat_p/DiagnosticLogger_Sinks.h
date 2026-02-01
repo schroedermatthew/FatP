@@ -1,28 +1,3 @@
-/**
- * @file DiagnosticLogger_Sinks.h
- * @brief Standard sink implementations for the diagnostic logging system.
- *
- *
- *
- * @layer Domain
- *
- * @details This header provides concrete sink implementations including
- * ConsoleSink for stdout output and initialization utilities. Separated
- * from DiagnosticLogger_Core.h to allow lightweight inclusion of the
- * core logging infrastructure without pulling in <iostream>.
- *
- * LAZY INITIALIZATION:
- * Including this header automatically registers ConsoleSink as the default
- * sink factory. When you use LOG_INFO() etc. without explicitly adding sinks,
- * a ConsoleSink is automatically created on first use.
- *
- * To disable auto-initialization:
- * - Call logger.addSink(...) with your own sinks, OR
- * - Call logger.clearSinks() to explicitly use no sinks, OR
- * - Call logger.disableAutoInit() before any logging
- *
- * @dependencies DiagnosticLogger_Core.h
- */
 #pragma once
 
 /*
@@ -50,6 +25,31 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file DiagnosticLogger_Sinks.h
+ * @brief Standard sink implementations for the diagnostic logging system.
+ *
+ *
+ *
+ * @details This header provides concrete sink implementations including
+ * ConsoleSink for stdout output and initialization utilities. Separated
+ * from DiagnosticLogger_Core.h to allow lightweight inclusion of the
+ * core logging infrastructure without pulling in <iostream>.
+ *
+ * LAZY INITIALIZATION:
+ * Including this header automatically registers ConsoleSink as the default
+ * sink factory. When you use LOG_INFO() etc. without explicitly adding sinks,
+ * a ConsoleSink is automatically created on first use.
+ *
+ * To disable auto-initialization:
+ * - Call logger.addSink(...) with your own sinks, OR
+ * - Call logger.clearSinks() to explicitly use no sinks, OR
+ * - Call logger.disableAutoInit() before any logging
+ *
+ * @dependencies DiagnosticLogger_Core.h
+ */
+
 #include "DiagnosticLogger_Core.h"
 
 #include <iostream>

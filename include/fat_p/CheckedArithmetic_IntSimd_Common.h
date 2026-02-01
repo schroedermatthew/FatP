@@ -1,21 +1,3 @@
-/**
- * @file CheckedArithmetic_IntSimd_Common.h
- * @brief Common traits and helpers for integer SIMD acceleration
- *
- *
- * @layer Foundation
- *
- * @version 1.0
- *
- * This provides the foundational infrastructure for checked integer SIMD
- * operations across SSE2, AVX2, and NEON architectures.
- *
- * Design: detect -> scalar fallback
- * - Perform SIMD arithmetic (fast path)
- * - Check for overflow using architecture-specific masks
- * - If overflow detected, fall back to scalar mChecked* for proper error handling
- */
-
 #pragma once
 
 /*
@@ -41,6 +23,23 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file CheckedArithmetic_IntSimd_Common.h
+ * @brief Common traits and helpers for integer SIMD acceleration
+ *
+ *
+ * @version 1.0
+ *
+ * This provides the foundational infrastructure for checked integer SIMD
+ * operations across SSE2, AVX2, and NEON architectures.
+ *
+ * Design: detect -> scalar fallback
+ * - Perform SIMD arithmetic (fast path)
+ * - Check for overflow using architecture-specific masks
+ * - If overflow detected, fall back to scalar mChecked* for proper error handling
+ */
+
 #include <cstddef>
 #include <cstdint>
 #include <limits>

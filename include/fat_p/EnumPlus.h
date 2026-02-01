@@ -1,10 +1,5 @@
-/**
- * @file EnumPlus.h
- * @brief Enhanced enum utilities with string conversion and iteration
- *
- * @layer Domain
- */
 #pragma once
+
 /*
 FATP_META:
   meta_version: 1
@@ -30,6 +25,12 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file EnumPlus.h
+ * @brief Enhanced enum utilities with string conversion and iteration
+ *
+ */
 
 #include <algorithm>
 #include <array>

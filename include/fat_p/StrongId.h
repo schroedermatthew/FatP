@@ -36,8 +36,6 @@ FATP_META:
  * @brief Provides the StrongId template for creating strong, type-safe ID
  * wrappers with zero runtime overhead.
  *
- * @layer Foundation
- *
  * @details The StrongId template wraps an underlying integral type (T) and
  * uses a unique Tag struct to create a distinct, compile-time type. This
  * prevents accidental mixing of semantically different ID types (e.g.,

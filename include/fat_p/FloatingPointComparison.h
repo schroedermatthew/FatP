@@ -1,20 +1,3 @@
-/**
- * @file FloatingPointComparison.h
- * @brief Robust floating-point comparison utilities.
- *
- * @layer Foundation
- *
- * Provides policy-based floating-point comparison with support for absolute,
- * relative, ULP, and hybrid tolerance strategies. Handles special cases
- * (NaN, infinity, signed zero) correctly.
- *
- * CHANGE LOG:
- * - Added <cstdlib> for std::abs integer support.
- * - OPTIMIZED LOGIC (Standard/Hybrid): Absolute Tolerance check now runs BEFORE
- *   Sign Consistency check. This creates a stable "noise floor" around zero,
- *   treating +noise and -noise as equal if within absolute epsilon.
- * - UlpComparisonPolicy and RelativeComparisonPolicy remain strict regarding signs.
- */
 #pragma once
 
 /*
@@ -44,6 +27,23 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file FloatingPointComparison.h
+ * @brief Robust floating-point comparison utilities.
+ *
+ * Provides policy-based floating-point comparison with support for absolute,
+ * relative, ULP, and hybrid tolerance strategies. Handles special cases
+ * (NaN, infinity, signed zero) correctly.
+ *
+ * CHANGE LOG:
+ * - Added <cstdlib> for std::abs integer support.
+ * - OPTIMIZED LOGIC (Standard/Hybrid): Absolute Tolerance check now runs BEFORE
+ *   Sign Consistency check. This creates a stable "noise floor" around zero,
+ *   treating +noise and -noise as equal if within absolute epsilon.
+ * - UlpComparisonPolicy and RelativeComparisonPolicy remain strict regarding signs.
+ */
+
 #include "CppFeatureDetection.h"
 
 #include <algorithm> // For std::max

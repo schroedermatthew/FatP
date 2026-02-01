@@ -1,21 +1,5 @@
-/**
- * @file enforce.h
- * @brief Provides macro implementations for contract enforcement using
- * predefined and generic predicates with various policies.
- *
- *
- *
- * @layer Foundation
- *
- * @section zero_cost_guarantee Zero-Cost Guarantee
- *
- * All `FATP_DEBUG_ENFORCE*` and `FATP_ENFORCE` macros are GUARANTEED to generate zero code
- * in release builds (when NDEBUG is defined). This is achieved via `if constexpr`
- * which ensures the enforcement code is never instantiated, not merely "optimized away".
- *
- * The `FATP_ALWAYS_ENFORCE*` macros always generate code regardless of build mode.
- */
 #pragma once
+
 /*
 FATP_META:
   meta_version: 1
@@ -41,6 +25,23 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file enforce.h
+ * @brief Provides macro implementations for contract enforcement using
+ * predefined and generic predicates with various policies.
+ *
+ *
+ *
+ * @section zero_cost_guarantee Zero-Cost Guarantee
+ *
+ * All `FATP_DEBUG_ENFORCE*` and `FATP_ENFORCE` macros are GUARANTEED to generate zero code
+ * in release builds (when NDEBUG is defined). This is achieved via `if constexpr`
+ * which ensures the enforcement code is never instantiated, not merely "optimized away".
+ *
+ * The `FATP_ALWAYS_ENFORCE*` macros always generate code regardless of build mode.
+ */
+
 #include <type_traits>
 #include <utility>
 

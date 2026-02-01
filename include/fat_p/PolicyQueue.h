@@ -1,34 +1,3 @@
-/**
- * @file PolicyQueue.h
- * @brief Policy-selected lock-free queue variants (single or sharded)
- *
- * @layer Concurrency
- *
- * @details
- * PolicyQueue provides a small policy-based facade selecting between existing
- * Fat-P lock-free queue implementations.
- *
- * Supported topology policies:
- * - policy_queue::SingleTopology: wraps fat_p::LockFreeQueue (bounded MPMC,
- *   strict FIFO).
- * - policy_queue::ShardedTopology: wraps fat_p::work_queue::WorkQueue (bounded MPMC,
- *   work-queue semantics; no global FIFO; sharded for scaling).
- *
- * Semantics:
- * - Exactly-once delivery for successful enqueue/dequeue.
- * - Ordering depends on the topology policy.
- *
- * Progress:
- * - Lock-free (no claim-then-wait phases).
- *
- * Complexity:
- * - SingleTopology: O(1) expected per op.
- * - ShardedTopology: O(1) expected; O(shards) worst-case near full/empty.
- *
- * Thread-safety:
- * - Full MPMC lock-free.
- */
-
 #pragma once
 
 /*
@@ -54,6 +23,35 @@ FATP_META:
     undefs_total: 0
     includes_windows_h: false
 */
+
+/**
+ * @file PolicyQueue.h
+ * @brief Policy-selected lock-free queue variants (single or sharded)
+ *
+ * @details
+ * PolicyQueue provides a small policy-based facade selecting between existing
+ * Fat-P lock-free queue implementations.
+ *
+ * Supported topology policies:
+ * - policy_queue::SingleTopology: wraps fat_p::LockFreeQueue (bounded MPMC,
+ *   strict FIFO).
+ * - policy_queue::ShardedTopology: wraps fat_p::work_queue::WorkQueue (bounded MPMC,
+ *   work-queue semantics; no global FIFO; sharded for scaling).
+ *
+ * Semantics:
+ * - Exactly-once delivery for successful enqueue/dequeue.
+ * - Ordering depends on the topology policy.
+ *
+ * Progress:
+ * - Lock-free (no claim-then-wait phases).
+ *
+ * Complexity:
+ * - SingleTopology: O(1) expected per op.
+ * - ShardedTopology: O(1) expected; O(shards) worst-case near full/empty.
+ *
+ * Thread-safety:
+ * - Full MPMC lock-free.
+ */
 
 #include "LockFreeQueue.h"
 #include "WorkQueue.h"

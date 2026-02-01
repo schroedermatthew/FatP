@@ -32,8 +32,6 @@ FATP_META:
  *
  *
  *
- * @layer Domain
- *
  * @details String pooling (interning) for memory-efficient string storage.
  * Deduplicates identical strings, returning references to single canonical copy.
  *

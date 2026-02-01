@@ -1,11 +1,39 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: ConcurrencyPolicies
+  file_role: public_header
+  path: include/fat_p/ConcurrencyPolicies.h
+  namespace: fat_p
+  layer: Concurrency
+  summary: "Public header for ConcurrencyPolicies."
+  api_stability: in_work
+  related:
+    docs_search: "ConcurrencyPolicies"
+    tests:
+      - components/ConcurrencyPolicies/tests/test_ConcurrencyPolicies.cpp
+      - components/IdGenerator/tests/test_IdGenerator.cpp
+      - components/ConcurrencyPolicies/tests/test_RcuIntegration.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 17
+    defines_unprefixed: 2
+    undefs_total: 0
+    includes_windows_h: true
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file ConcurrencyPolicies.h
  * @brief Defines various synchronization policies for use with a policy-based
  * design, such as ScopeGuard, Enforcer, or smart resource handles.
  *
  *
- *
- * @layer Concurrency
  *
  * @details This header provides a comprehensive set of concurrency primitives ranging from
  * zero-cost (single-threaded) to advanced lock-free synchronization (RCU, hazard pointers,
@@ -50,35 +78,6 @@
  *   19. SharedTimedMutexPolicy - Shared mutex with timeout
  */
 
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: ConcurrencyPolicies
-  file_role: public_header
-  path: include/fat_p/ConcurrencyPolicies.h
-  namespace: fat_p
-  layer: Concurrency
-  summary: "Public header for ConcurrencyPolicies."
-  api_stability: in_work
-  related:
-    docs_search: "ConcurrencyPolicies"
-    tests:
-      - components/ConcurrencyPolicies/tests/test_ConcurrencyPolicies.cpp
-      - components/IdGenerator/tests/test_IdGenerator.cpp
-      - components/ConcurrencyPolicies/tests/test_RcuIntegration.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 17
-    defines_unprefixed: 2
-    undefs_total: 0
-    includes_windows_h: true
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include "CppFeatureDetection.h"
 
 // =============================================================================
@@ -790,7 +789,6 @@ public:
     {
         return const_cast<SpinlockSynchronizationPolicy&>(*this);
     }
-
 
     static SpinlockSynchronizationPolicy& getStaticLock()
     {

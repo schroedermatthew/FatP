@@ -1,17 +1,3 @@
-/**
- * @file enforce_raisers.h
- * @brief Defines the policy classes that determine how a contract failure
- * is handled (e.g., throw exception, log warning, abort, or ignore).
- *
- *
- *
- * @layer Foundation
- *
- * @details This system centralizes error consequence definition using
- * policy classes (Raisers), allowing enforcement macros to maintain a
- * clean, consistent interface while providing flexible failure handling
- * tailored to different contexts (logic, runtime, allocation).
- */
 #pragma once
 
 /*
@@ -37,6 +23,20 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file enforce_raisers.h
+ * @brief Defines the policy classes that determine how a contract failure
+ * is handled (e.g., throw exception, log warning, abort, or ignore).
+ *
+ *
+ *
+ * @details This system centralizes error consequence definition using
+ * policy classes (Raisers), allowing enforcement macros to maintain a
+ * clean, consistent interface while providing flexible failure handling
+ * tailored to different contexts (logic, runtime, allocation).
+ */
+
 #if !defined(FATP_USE_IOSTREAM)
 #define FATP_USE_IOSTREAM 1
 #endif

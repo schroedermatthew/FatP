@@ -1,9 +1,33 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: CheckedArithmeticFP
+  file_role: public_header
+  path: include/fat_p/CheckedArithmeticFP.h
+  namespace: fat_p
+  layer: Foundation
+  summary: "Public header for CheckedArithmeticFP."
+  api_stability: in_work
+  related:
+    docs_search: "CheckedArithmeticFP"
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 1
+    defines_unprefixed: 1
+    undefs_total: 1
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file CheckedArithmeticFP.h
  * @brief Checked arithmetic operations for floating-point types
  *
- *
- * @layer Foundation
  *
  * @version 3.0
  *
@@ -40,31 +64,7 @@
  *   CheckedArithmeticFP.h       <- This file (FP ops)
  *   CheckedArithmetic.h         <- Umbrella
  */
-#pragma once
 
-/*
-FATP_META:
-  meta_version: 1
-  component: CheckedArithmeticFP
-  file_role: public_header
-  path: include/fat_p/CheckedArithmeticFP.h
-  namespace: fat_p
-  layer: Foundation
-  summary: "Public header for CheckedArithmeticFP."
-  api_stability: in_work
-  related:
-    docs_search: "CheckedArithmeticFP"
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 1
-    defines_unprefixed: 1
-    undefs_total: 1
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include "CheckedArithmeticPolicies.h"
 #include "enforce.h"
 #include "SimdVector.h"

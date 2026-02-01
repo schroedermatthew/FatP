@@ -1,29 +1,3 @@
-/**
- * @file ScopeGuardPolicies.h
- * @brief Defines policies governing the exception-handling behavior of ScopeGuard destructors.
- *
- *
- *
- * @layer Foundation
- *
- * @details This file provides a set of policy tags and their corresponding executor
- * specializations. Each policy dictates how exceptions from the cleanup action are
- * managed in the ScopeGuard destructor. The policies ensure compliance with C++'s
- * destructor exception safety rules while offering flexibility for different use cases,
- * such as strict no-throw enforcement or diagnostic logging.
- *
- * Available Policies:
- * - ScopeGuardNothrowPolicy: Requires noexcept actions (compile-time check)
- * - ScopeGuardTerminatePolicy: Calls std::terminate() on exception (default)
- * - ScopeGuardLogAndSwallowPolicy: Logs and suppresses exceptions
- * - ScopeGuardRethrowPolicy: Re-throws exceptions (use with caution!)
- *
- * Requirements:
- * - C++17 or later
- * - No external dependencies beyond standard library
- * - Header-only
- * - Single-threaded use only
- */
 #pragma once
 
 /*
@@ -51,6 +25,32 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file ScopeGuardPolicies.h
+ * @brief Defines policies governing the exception-handling behavior of ScopeGuard destructors.
+ *
+ *
+ *
+ * @details This file provides a set of policy tags and their corresponding executor
+ * specializations. Each policy dictates how exceptions from the cleanup action are
+ * managed in the ScopeGuard destructor. The policies ensure compliance with C++'s
+ * destructor exception safety rules while offering flexibility for different use cases,
+ * such as strict no-throw enforcement or diagnostic logging.
+ *
+ * Available Policies:
+ * - ScopeGuardNothrowPolicy: Requires noexcept actions (compile-time check)
+ * - ScopeGuardTerminatePolicy: Calls std::terminate() on exception (default)
+ * - ScopeGuardLogAndSwallowPolicy: Logs and suppresses exceptions
+ * - ScopeGuardRethrowPolicy: Re-throws exceptions (use with caution!)
+ *
+ * Requirements:
+ * - C++17 or later
+ * - No external dependencies beyond standard library
+ * - Header-only
+ * - Single-threaded use only
+ */
+
 #include <exception>
 #include <iostream>
 #include <string>

@@ -1,13 +1,3 @@
-/**
- * @file EqualityComparisons.h
- * @brief Recursive equality comparison framework for containers and nested types.
- *
- * @layer Domain
- *
- * Builds on FloatingPointComparison.h to provide recursive comparison for
- * containers, pairs, tuples, and user-defined types. Includes diagnostic
- * logging on mismatch with element indices and values.
- */
 #pragma once
 
 /*
@@ -36,6 +26,16 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file EqualityComparisons.h
+ * @brief Recursive equality comparison framework for containers and nested types.
+ *
+ * Builds on FloatingPointComparison.h to provide recursive comparison for
+ * containers, pairs, tuples, and user-defined types. Includes diagnostic
+ * logging on mismatch with element indices and values.
+ */
+
 #include <cstddef>
 #include <functional>
 #include <iterator>

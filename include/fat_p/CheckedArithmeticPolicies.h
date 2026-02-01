@@ -1,9 +1,33 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: CheckedArithmeticPolicies
+  file_role: public_header
+  path: include/fat_p/CheckedArithmeticPolicies.h
+  namespace: fat_p
+  layer: Foundation
+  summary: "Public header for CheckedArithmeticPolicies."
+  api_stability: in_work
+  related:
+    docs_search: "CheckedArithmeticPolicies"
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 10
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file CheckedArithmeticPolicies.h
  * @brief Policy classes and type traits for checked arithmetic
  *
- *
- * @layer Foundation
  *
  * @version 3.1
  *
@@ -53,31 +77,7 @@
  *   CheckedArithmeticFP.h       <- Depends on this
  *   CheckedArithmetic.h         <- Umbrella
  */
-#pragma once
 
-/*
-FATP_META:
-  meta_version: 1
-  component: CheckedArithmeticPolicies
-  file_role: public_header
-  path: include/fat_p/CheckedArithmeticPolicies.h
-  namespace: fat_p
-  layer: Foundation
-  summary: "Public header for CheckedArithmeticPolicies."
-  api_stability: in_work
-  related:
-    docs_search: "CheckedArithmeticPolicies"
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 10
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include "CheckedArithmeticBase.h"
 #include "CppFeatureDetection.h"
 #include "Expected.h"

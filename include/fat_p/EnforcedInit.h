@@ -1,32 +1,3 @@
-/**
- * @file EnforcedInit.h
- * @brief Provides the EnforcedInit<T> wrapper to enforce that an object is
- * explicitly initialized exactly once before it can be accessed.
- *
- *
- *
- * @layer Domain
- *
- * @details This utility leverages C++17's **std::optional<T>** for safe,
- * standardized memory management and lifecycle control. The library's
- * **contextual contract system** is used to enforce the core contract:
- * preventing access before initialization and preventing multiple calls
- * to init(). Supports conditional thread-safety via ConcurrencyPolicy,
- * customizable checks via CheckPolicy, and optional reset via ResetPolicy.
- * For trivial T, uses union+bool storage to optimize size/perf.
- * Lazy init support; move semantics if T movable.
- * Static asserts for T requirements (destructible, etc.).
- *
- * @version 2.1 - MSVC COMPILATION FIX
- * All critical issues fixed:
- * - Fixed const-correctness with getLock() calls
- * - Policies are default-constructed, not copied (correct design)
- * - Member functions defined outside class to avoid MSVC template parsing issues
- * - Removed dangerous const lazy_init overload
- * - Fixed ConditionVarPolicy deadlock
- * - Fixed SFINAE ambiguity in get() overloads
- * - Added noexcept specifications where appropriate
- */
 #pragma once
 
 /*
@@ -54,6 +25,35 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file EnforcedInit.h
+ * @brief Provides the EnforcedInit<T> wrapper to enforce that an object is
+ * explicitly initialized exactly once before it can be accessed.
+ *
+ *
+ *
+ * @details This utility leverages C++17's **std::optional<T>** for safe,
+ * standardized memory management and lifecycle control. The library's
+ * **contextual contract system** is used to enforce the core contract:
+ * preventing access before initialization and preventing multiple calls
+ * to init(). Supports conditional thread-safety via ConcurrencyPolicy,
+ * customizable checks via CheckPolicy, and optional reset via ResetPolicy.
+ * For trivial T, uses union+bool storage to optimize size/perf.
+ * Lazy init support; move semantics if T movable.
+ * Static asserts for T requirements (destructible, etc.).
+ *
+ * @version 2.1 - MSVC COMPILATION FIX
+ * All critical issues fixed:
+ * - Fixed const-correctness with getLock() calls
+ * - Policies are default-constructed, not copied (correct design)
+ * - Member functions defined outside class to avoid MSVC template parsing issues
+ * - Removed dangerous const lazy_init overload
+ * - Fixed ConditionVarPolicy deadlock
+ * - Fixed SFINAE ambiguity in get() overloads
+ * - Added noexcept specifications where appropriate
+ */
+
 #if !defined(FATP_USE_OPTIONAL)
 #define FATP_USE_OPTIONAL 1
 #endif
@@ -244,7 +244,6 @@ struct ConditionVarPolicy
     {
         return cv_mutex_;
     }
-
 
     [[nodiscard]] LockGuard lock() noexcept
     {

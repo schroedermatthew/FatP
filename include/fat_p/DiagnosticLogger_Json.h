@@ -1,16 +1,3 @@
-/**
- * @file DiagnosticLogger_Json.h
- * @brief Extension for Structured JSON Logging.
- *
- *
- * @layer Domain
- *
- * @dependencies DiagnosticLogger_Core.h, JsonLite.h
- *
- * FIXES APPLIED (v2.1):
- * - ADL Support for user-defined types (using-declaration idiom)
- * - Compile-time filtering via if constexpr (zero-overhead guarantee)
- */
 #pragma once
 
 /*
@@ -38,6 +25,19 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file DiagnosticLogger_Json.h
+ * @brief Extension for Structured JSON Logging.
+ *
+ *
+ * @dependencies DiagnosticLogger_Core.h, JsonLite.h
+ *
+ * FIXES APPLIED (v2.1):
+ * - ADL Support for user-defined types (using-declaration idiom)
+ * - Compile-time filtering via if constexpr (zero-overhead guarantee)
+ */
+
 #include "DiagnosticLogger_Core.h"
 #include "JsonLite.h"
 

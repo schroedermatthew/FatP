@@ -1,34 +1,3 @@
-/**
- * @file ThreadPool.h
- * @brief Production-ready thread pool with work stealing, priority queues, and hybrid idle strategy
- *
- *
- *
- * @layer Concurrency
- *
- * @details High-performance thread pool implementation featuring:
- * - Work stealing for load balancing (mutex-protected deques)
- * - Priority-based task scheduling (global priority queue + local queues)
- * - Exception-safe task execution with diagnostics
- * - Graceful shutdown with pending task completion
- * - Low contention design with per-thread queues
- * - Hybrid idle strategy: spin then sleep
- * - Randomized victim selection (Fisher-Yates) for fair stealing
- *
- * @section performance Performance Characteristics
- * - Task submission: ~100-200ns (lock acquisition)
- * - Work stealing: O(N) worst case, amortized O(1) with shuffle
- * - Spin-wait reduces latency for bursty workloads
- * - Cache-line aligned queues prevent false sharing
- *
- * @section thread_safety Thread Safety
- * - All public methods are thread-safe
- * - Multiple threads may submit concurrently
- * - Internal synchronization via mutexes and atomics
- *
- * @version 2.0
- */
-
 #pragma once
 
 /*
@@ -56,6 +25,36 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file ThreadPool.h
+ * @brief Production-ready thread pool with work stealing, priority queues, and hybrid idle strategy
+ *
+ *
+ *
+ * @details High-performance thread pool implementation featuring:
+ * - Work stealing for load balancing (mutex-protected deques)
+ * - Priority-based task scheduling (global priority queue + local queues)
+ * - Exception-safe task execution with diagnostics
+ * - Graceful shutdown with pending task completion
+ * - Low contention design with per-thread queues
+ * - Hybrid idle strategy: spin then sleep
+ * - Randomized victim selection (Fisher-Yates) for fair stealing
+ *
+ * @section performance Performance Characteristics
+ * - Task submission: ~100-200ns (lock acquisition)
+ * - Work stealing: O(N) worst case, amortized O(1) with shuffle
+ * - Spin-wait reduces latency for bursty workloads
+ * - Cache-line aligned queues prevent false sharing
+ *
+ * @section thread_safety Thread Safety
+ * - All public methods are thread-safe
+ * - Multiple threads may submit concurrently
+ * - Internal synchronization via mutexes and atomics
+ *
+ * @version 2.0
+ */
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>

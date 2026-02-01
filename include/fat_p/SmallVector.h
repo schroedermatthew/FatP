@@ -34,8 +34,6 @@ FATP_META:
  *
  *
  *
- * @layer Containers
- *
  * @details
  * SmallVector optimizes the common case of small collections by storing up to InlineCapacity
  * elements directly within the object, avoiding heap allocations entirely. When the size exceeds

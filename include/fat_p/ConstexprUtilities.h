@@ -1,13 +1,3 @@
-/**
- * @file ConstexprUtilities.h
- * @brief Compile-time utility functions and metaprogramming helpers
- *
- * @layer Foundation
- *
- * @details
- * Compile-time utilities for hashing, arithmetic, and string operations
- * C++17 header-only library
- */
 #pragma once
 
 /*
@@ -35,6 +25,16 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file ConstexprUtilities.h
+ * @brief Compile-time utility functions and metaprogramming helpers
+ *
+ * @details
+ * Compile-time utilities for hashing, arithmetic, and string operations
+ * C++17 header-only library
+ */
+
 #include "CppFeatureDetection.h"
 
 #include <cmath>

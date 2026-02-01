@@ -1,7 +1,32 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: CheckedArithmeticInt
+  file_role: public_header
+  path: include/fat_p/CheckedArithmeticInt.h
+  namespace: fat_p
+  layer: Foundation
+  summary: "Public header for CheckedArithmeticInt."
+  api_stability: in_work
+  related:
+    docs_search: "CheckedArithmeticInt"
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file CheckedArithmeticInt.h
  * @brief Checked arithmetic operations for integer types
- * @layer Foundation
  *
  * This header provides overflow-checked arithmetic operations for integers:
  *
@@ -43,31 +68,7 @@
  *   CheckedArithmeticFP.h       <- Floating-point ops
  *   CheckedArithmetic.h         <- Umbrella
  */
-#pragma once
 
-/*
-FATP_META:
-  meta_version: 1
-  component: CheckedArithmeticInt
-  file_role: public_header
-  path: include/fat_p/CheckedArithmeticInt.h
-  namespace: fat_p
-  layer: Foundation
-  summary: "Public header for CheckedArithmeticInt."
-  api_stability: in_work
-  related:
-    docs_search: "CheckedArithmeticInt"
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include "CheckedArithmeticPolicies.h"
 #include "enforce.h"
 

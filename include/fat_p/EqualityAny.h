@@ -1,16 +1,3 @@
-/**
- * @file EqualityAny.h
- * @brief Runtime equality comparison for std::any via type registry.
- *
- * @layer Domain
- *
- * Extends EqualityComparisons.h to support runtime type comparison of std::any
- * values using a thread-safe registry of comparison functions.
- *
- * @note Thread-safety: Registry operations are thread-safe. However, the caller
- *       must ensure the std::any objects being compared are not concurrently
- *       modified during comparison.
- */
 #pragma once
 
 /*
@@ -40,6 +27,19 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file EqualityAny.h
+ * @brief Runtime equality comparison for std::any via type registry.
+ *
+ * Extends EqualityComparisons.h to support runtime type comparison of std::any
+ * values using a thread-safe registry of comparison functions.
+ *
+ * @note Thread-safety: Registry operations are thread-safe. However, the caller
+ *       must ensure the std::any objects being compared are not concurrently
+ *       modified during comparison.
+ */
+
 #include <any>
 #include <array>
 #include <cassert>

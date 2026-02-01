@@ -1,31 +1,3 @@
-/**
- * @file CSRMatrix.h
- * @brief Compressed Sparse Row (CSR) matrix format for sparse linear algebra
- *
- * High-performance sparse matrix storage and operations optimized for HPC workloads.
- * CSR format is optimal for sparse matrix-vector multiplication (SpMV).
- *
- * Key Features:
- * - Space-efficient storage (O(nnz) instead of O(m*n))
- * - Fast matrix-vector multiplication with NaN-safe alpha/beta form
- * - Parallel SpMV support via OpenMP
- * - Matrix transpose, addition, and multiplication
- * - Configurable duplicate handling in COO construction
- * - Conversion from/to dense format
- *
- * CSR Format:
- * - mValues: Non-zero values (size = nnz)
- * - col_indices_: Column index of each non-zero (size = nnz)
- * - row_ptrs_: Start of each row in values array (size = rows + 1)
- *
- * Design Notes:
- * - Enforces sparse semantics: explicit zeros are removed automatically
- * - DuplicatePolicy::Keep stores multiple entries per position; linear operations
- *   (matvec, to_dense) sum them, and operator() also sums for consistency
- *
- * @layer Domain
- */
-
 #pragma once
 
 /*
@@ -54,6 +26,34 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file CSRMatrix.h
+ * @brief Compressed Sparse Row (CSR) matrix format for sparse linear algebra
+ *
+ * High-performance sparse matrix storage and operations optimized for HPC workloads.
+ * CSR format is optimal for sparse matrix-vector multiplication (SpMV).
+ *
+ * Key Features:
+ * - Space-efficient storage (O(nnz) instead of O(m*n))
+ * - Fast matrix-vector multiplication with NaN-safe alpha/beta form
+ * - Parallel SpMV support via OpenMP
+ * - Matrix transpose, addition, and multiplication
+ * - Configurable duplicate handling in COO construction
+ * - Conversion from/to dense format
+ *
+ * CSR Format:
+ * - mValues: Non-zero values (size = nnz)
+ * - col_indices_: Column index of each non-zero (size = nnz)
+ * - row_ptrs_: Start of each row in values array (size = rows + 1)
+ *
+ * Design Notes:
+ * - Enforces sparse semantics: explicit zeros are removed automatically
+ * - DuplicatePolicy::Keep stores multiple entries per position; linear operations
+ *   (matvec, to_dense) sum them, and operator() also sums for consistency
+ *
+ */
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>

@@ -1,10 +1,36 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: ScopeGuard
+  file_role: public_header
+  path: include/fat_p/ScopeGuard.h
+  namespace: fat_p
+  layer: Foundation
+  summary: "Public header for ScopeGuard."
+  api_stability: in_work
+  related:
+    docs_search: "ScopeGuard"
+    tests:
+      - components/ScopeGuard/tests/test_ScopeGuard.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 14
+    defines_unprefixed: 10
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file ScopeGuard.h
  * @brief Provides the ScopeGuard class for general-purpose RAII scope-exit cleanup.
  *
  *
- *
- * @layer Foundation
  *
  * @details This RAII utility executes a user-provided cleanup action upon scope exit,
  * with customizable exception handling via policies. It supports move semantics for
@@ -44,33 +70,7 @@
  *         (defaults to ScopeGuardTerminatePolicy).
  * @tparam ActionPolicy The policy for action storage (defaults to DefaultActionPolicy).
  */
-#pragma once
 
-/*
-FATP_META:
-  meta_version: 1
-  component: ScopeGuard
-  file_role: public_header
-  path: include/fat_p/ScopeGuard.h
-  namespace: fat_p
-  layer: Foundation
-  summary: "Public header for ScopeGuard."
-  api_stability: in_work
-  related:
-    docs_search: "ScopeGuard"
-    tests:
-      - components/ScopeGuard/tests/test_ScopeGuard.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 14
-    defines_unprefixed: 10
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include <exception>
 #include <type_traits>
 #include <utility>

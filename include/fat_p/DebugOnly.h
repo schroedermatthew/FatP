@@ -1,15 +1,5 @@
-/**
- * @file DebugOnly.h
- * @brief Debug-only utilities that compile to nothing in release builds
- *
- * @layer Foundation
- *
- * @details
- * Zero-overhead debug-only storage for C++17/20
- * Stores values in debug builds, compiles to nothing in release.
- * Use for debug labels, performance counters, creation tracking, and invariant checks.
- */
 #pragma once
+
 /*
 FATP_META:
   meta_version: 1
@@ -36,6 +26,16 @@ FATP_META:
     mode: autogen
 */
 
+/**
+ * @file DebugOnly.h
+ * @brief Debug-only utilities that compile to nothing in release builds
+ *
+ * @details
+ * Zero-overhead debug-only storage for C++17/20
+ * Stores values in debug builds, compiles to nothing in release.
+ * Use for debug labels, performance counters, creation tracking, and invariant checks.
+ */
+
 #include "Concepts.h"
 #include "FatPConfig.h"
 
@@ -43,7 +43,6 @@ FATP_META:
 #include <ostream>
 #include <type_traits>
 #include <utility>
-
 
 namespace fat_p
 {
@@ -55,7 +54,6 @@ struct DebugOnly;
 // NOTE: Type traits (streamable, hashable, equality_comparable, totally_ordered)
 // are provided by Concepts.h. DebugOnly uses fat_p::concepts::* from that header
 // to avoid duplication and ensure composability per Systemic Hygiene Policy.
-
 
 // ============================================================================
 // DebugOnly<T> - Debug Build Implementation (NDEBUG not defined)
@@ -639,7 +637,6 @@ constexpr void swap(DebugOnly<T>&, DebugOnly<T>&) noexcept
 
 #endif // NDEBUG
 
-
 // ============================================================================
 // Helper Macros for Safe Cross-Mode Access
 // ============================================================================
@@ -672,7 +669,6 @@ constexpr void swap(DebugOnly<T>&, DebugOnly<T>&) noexcept
 #else
 #define FATP_DEBUG_ONLY_LOG(stream, val) ((void)0)
 #endif
-
 
 // ============================================================================
 // std::hash specialization

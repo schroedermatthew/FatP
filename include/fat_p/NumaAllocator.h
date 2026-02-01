@@ -1,10 +1,36 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: NumaAllocator
+  file_role: public_header
+  path: include/fat_p/NumaAllocator.h
+  namespace: fat_p
+  layer: Containers
+  summary: "Public header for NumaAllocator."
+  api_stability: in_work
+  related:
+    docs_search: "NumaAllocator"
+    tests:
+      - components/NumaAllocator/tests/test_NumaAllocator.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 6
+    defines_unprefixed: 2
+    undefs_total: 1
+    includes_windows_h: true
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file NumaAllocator.h
  * @brief NUMA-aware memory allocator for many-core HPC systems
  *
  *
- *
- * @layer Domain
  *
  * @details Optimized memory allocation for Non-Uniform Memory Access (NUMA) architectures.
  * Reduces inter-node memory latency by allocating on local NUMA nodes.
@@ -33,34 +59,6 @@
  *
  * Requires: C++17
  */
-
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: NumaAllocator
-  file_role: public_header
-  path: include/fat_p/NumaAllocator.h
-  namespace: fat_p
-  layer: Containers
-  summary: "Public header for NumaAllocator."
-  api_stability: in_work
-  related:
-    docs_search: "NumaAllocator"
-    tests:
-      - components/NumaAllocator/tests/test_NumaAllocator.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 6
-    defines_unprefixed: 2
-    undefs_total: 1
-    includes_windows_h: true
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 
 #include <algorithm>
 #include <atomic>

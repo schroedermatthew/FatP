@@ -1,9 +1,35 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: SimdVector
+  file_role: public_header
+  path: include/fat_p/SimdVector.h
+  namespace: fat_p
+  layer: Containers
+  summary: "Public header for SimdVector."
+  api_stability: in_work
+  related:
+    docs_search: "SimdVector"
+    tests:
+      - components/SimdVector/tests/test_SimdVector.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file SimdVector.h
  * @brief Universal SIMD wrapper for vectorized HPC operations
  *
- *
- * @layer Foundation
  *
  * @version 1.2.2
  *
@@ -32,33 +58,6 @@
  *       masks are derived from comparisons or logical operations on comparison results.
  */
 
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: SimdVector
-  file_role: public_header
-  path: include/fat_p/SimdVector.h
-  namespace: fat_p
-  layer: Containers
-  summary: "Public header for SimdVector."
-  api_stability: in_work
-  related:
-    docs_search: "SimdVector"
-    tests:
-      - components/SimdVector/tests/test_SimdVector.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include <algorithm>
 #include <array>
 #include <cmath>

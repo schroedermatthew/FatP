@@ -1,8 +1,36 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: TensorStridePolicy
+  file_role: public_header
+  path: include/fat_p/TensorStridePolicy.h
+  namespace: fat_p
+  layer: Domain
+  summary: "Public header for TensorStridePolicy."
+  api_stability: in_work
+  related:
+    docs_search: "TensorStridePolicy"
+    tests:
+      - components/PolicyIterator/tests/test_PolicyIterator.cpp
+    benchmarks:
+      - components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file TensorStridePolicy.h
  * @brief Multi-dimensional tensor iterator policy for PolicyIterator.
- *
- * @layer Domain
  *
  * Provides true N-dimensional tensor iteration with configurable shape and strides.
  * Uses SmallVector for zero-allocation storage of typical tensor dimensions (â‰¤8D).
@@ -84,34 +112,6 @@
  * @see SmallVector.h for the inline-storage container used internally.
  */
 
-#pragma once
-/*
-FATP_META:
-  meta_version: 1
-  component: TensorStridePolicy
-  file_role: public_header
-  path: include/fat_p/TensorStridePolicy.h
-  namespace: fat_p
-  layer: Domain
-  summary: "Public header for TensorStridePolicy."
-  api_stability: in_work
-  related:
-    docs_search: "TensorStridePolicy"
-    tests:
-      - components/PolicyIterator/tests/test_PolicyIterator.cpp
-    benchmarks:
-      - components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include <cstddef>
 #include <initializer_list>
 #include <iterator>

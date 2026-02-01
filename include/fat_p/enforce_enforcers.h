@@ -1,17 +1,5 @@
-/**
- * @file enforce_enforcers.h
- * @brief Defines the core RAII object used by all contract enforcement
- * macros, specializing on the chosen Raiser policy for failure handling.
- *
- *
- *
- * @layer Foundation
- *
- * @details This file contains the primary Enforcer class and the factory
- * functions necessary to implement the fluent contract syntax:
- * `enforce(cond)("msg", value, ...).`
- */
 #pragma once
+
 /*
 FATP_META:
   meta_version: 1
@@ -35,6 +23,19 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file enforce_enforcers.h
+ * @brief Defines the core RAII object used by all contract enforcement
+ * macros, specializing on the chosen Raiser policy for failure handling.
+ *
+ *
+ *
+ * @details This file contains the primary Enforcer class and the factory
+ * functions necessary to implement the fluent contract syntax:
+ * `enforce(cond)("msg", value, ...).`
+ */
+
 #include "CppFeatureDetection.h"
 #include "FatPConfig.h"
 

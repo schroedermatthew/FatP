@@ -1,36 +1,3 @@
-/**
- * @file CoroutineTask.h
- * @brief C++20 coroutine support with Expected-based error handling
- *
- *
- * @layer Domain
- *
- * @version 2.0
- *
- * @details Provides lightweight coroutine task types for asynchronous operations
- * with compile-time error handling via Expected<T,E>. Supports both eager and
- * lazy evaluation, task composition, and cancellation.
- *
- * Key features:
- * - CoroutineTask<T>: Basic coroutine with Expected error handling
- * - Generator<T>: Lazy generator for sequence production
- * - Task composition utilities (when_all, when_any)
- * - Cancellation support
- * - Zero-overhead abstractions (no virtual dispatch)
- * - Exception-safe by default
- *
- * @comparison
- * - vs std::generator (C++23): More control, Expected integration
- * - vs cppcoro: Lighter weight, header-only, no dependencies
- * - vs folly::coro: Simpler API, integrated with Expected
- *
- * @performance
- * - Coroutine frame allocation: ~10-20 ns (compiler-optimized)
- * - Resume/suspend: ~5-10 ns
- * - Generator iteration: ~2-5 ns per yield
- *
- * Requires: C++20, Expected.h
- */
 #pragma once
 
 /*
@@ -58,6 +25,39 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file CoroutineTask.h
+ * @brief C++20 coroutine support with Expected-based error handling
+ *
+ *
+ * @version 2.0
+ *
+ * @details Provides lightweight coroutine task types for asynchronous operations
+ * with compile-time error handling via Expected<T,E>. Supports both eager and
+ * lazy evaluation, task composition, and cancellation.
+ *
+ * Key features:
+ * - CoroutineTask<T>: Basic coroutine with Expected error handling
+ * - Generator<T>: Lazy generator for sequence production
+ * - Task composition utilities (when_all, when_any)
+ * - Cancellation support
+ * - Zero-overhead abstractions (no virtual dispatch)
+ * - Exception-safe by default
+ *
+ * @comparison
+ * - vs std::generator (C++23): More control, Expected integration
+ * - vs cppcoro: Lighter weight, header-only, no dependencies
+ * - vs folly::coro: Simpler API, integrated with Expected
+ *
+ * @performance
+ * - Coroutine frame allocation: ~10-20 ns (compiler-optimized)
+ * - Resume/suspend: ~5-10 ns
+ * - Generator iteration: ~2-5 ns per yield
+ *
+ * Requires: C++20, Expected.h
+ */
+
 #include "CppFeatureDetection.h"
 
 // Only compile if coroutine library support is available

@@ -1,10 +1,5 @@
-/**
- * @file EnhancedBoundsChecking.h
- * @brief Enhanced bounds checking with detailed diagnostics
- *
- * @layer Foundation
- */
 #pragma once
+
 /*
 FATP_META:
   meta_version: 1
@@ -30,6 +25,12 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file EnhancedBoundsChecking.h
+ * @brief Enhanced bounds checking with detailed diagnostics
+ *
+ */
 
 #include "enforce.h"
 #include <sstream>

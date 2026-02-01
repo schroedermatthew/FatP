@@ -1,24 +1,3 @@
-/**
- * @file ObjectPool.h
- * @brief High-performance object pool with concurrency policy support
- *
- *
- *
- * @layer Domain
- *
- * @details Object pool that integrates with fat_p concurrency infrastructure.
- *
- * Critical fixes implemented:
- * - CRITICAL-1: Deleted move operations (prevents use-after-free)
- * - CRITICAL-2: static_assert for Node layout (prevents fragile cast)
- * - CRITICAL-3: [[nodiscard]] on acquire() (prevents silent leaks)
- * - CRITICAL-4: Debug assertion in destructor (detects unreleased objects)
- * - CRITICAL-5: reserve() before free_list_ modification (exception safety)
- * - CRITICAL-6: try-catch in acquire() (constructor exception safety)
- *
- * @version 3.2
- */
-
 #pragma once
 
 /*
@@ -46,6 +25,26 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file ObjectPool.h
+ * @brief High-performance object pool with concurrency policy support
+ *
+ *
+ *
+ * @details Object pool that integrates with fat_p concurrency infrastructure.
+ *
+ * Critical fixes implemented:
+ * - CRITICAL-1: Deleted move operations (prevents use-after-free)
+ * - CRITICAL-2: static_assert for Node layout (prevents fragile cast)
+ * - CRITICAL-3: [[nodiscard]] on acquire() (prevents silent leaks)
+ * - CRITICAL-4: Debug assertion in destructor (detects unreleased objects)
+ * - CRITICAL-5: reserve() before free_list_ modification (exception safety)
+ * - CRITICAL-6: try-catch in acquire() (constructor exception safety)
+ *
+ * @version 3.2
+ */
+
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

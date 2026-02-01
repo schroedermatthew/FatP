@@ -1,8 +1,36 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: FastHashMap
+  file_role: public_header
+  path: include/fat_p/FastHashMap.h
+  namespace: fat_p
+  layer: Containers
+  summary: "Public header for FastHashMap."
+  api_stability: in_work
+  related:
+    docs_search: "FastHashMap"
+    tests:
+      - components/FatPHashMap/tests/test_FastHashMap.cpp
+    benchmarks:
+      - components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 7
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file FastHashMap.h
  * @brief High-performance hash map optimized for speed over stability
- *
- * @layer Containers
  *
  * @details
  * A single-header Swiss table implementation with configurable deletion policy
@@ -68,35 +96,7 @@
  * - MSVC:      /arch:AVX2
  * - GCC/Clang: -mavx2 or -march=native
  */
-#pragma once
 
-/*
-FATP_META:
-  meta_version: 1
-  component: FastHashMap
-  file_role: public_header
-  path: include/fat_p/FastHashMap.h
-  namespace: fat_p
-  layer: Containers
-  summary: "Public header for FastHashMap."
-  api_stability: in_work
-  related:
-    docs_search: "FastHashMap"
-    tests:
-      - components/FatPHashMap/tests/test_FastHashMap.cpp
-    benchmarks:
-      - components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 7
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

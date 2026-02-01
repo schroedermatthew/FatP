@@ -1,22 +1,3 @@
-/**
- * @file PlatformDetection.h
- * @brief Compiler, platform, and architecture detection.
- *
- * @layer Foundation
- *
- * Centralized detection of:
- * - Compiler (MSVC, GCC, Clang)
- * - Operating system (Windows, POSIX, Linux, macOS)
- * - CPU architecture (x64, x86, ARM64, ARM32)
- * - Hardware features (NUMA)
- * - Build configuration (debug/release)
- *
- * For SIMD detection, use SimdDetection.h instead.
- *
- * All Fat-P headers should use the macros defined here rather than probing
- * compiler/platform macros directly.
- */
-
 #pragma once
 
 /*
@@ -40,6 +21,23 @@ FATP_META:
     undefs_total: 0
     includes_windows_h: false
 */
+
+/**
+ * @file PlatformDetection.h
+ * @brief Compiler, platform, and architecture detection.
+ *
+ * Centralized detection of:
+ * - Compiler (MSVC, GCC, Clang)
+ * - Operating system (Windows, POSIX, Linux, macOS)
+ * - CPU architecture (x64, x86, ARM64, ARM32)
+ * - Hardware features (NUMA)
+ * - Build configuration (debug/release)
+ *
+ * For SIMD detection, use SimdDetection.h instead.
+ *
+ * All Fat-P headers should use the macros defined here rather than probing
+ * compiler/platform macros directly.
+ */
 
 // =============================================================================
 // Compiler Detection

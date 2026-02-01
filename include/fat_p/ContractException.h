@@ -1,3 +1,32 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: ContractException
+  file_role: public_header
+  path: include/fat_p/ContractException.h
+  namespace: fat_p
+  layer: Foundation
+  summary: "Public header for ContractException."
+  api_stability: in_work
+  related:
+    docs_search: "ContractException"
+    tests:
+      - components/ContractException/tests/test_ContractException.cpp
+      - components/Enforce/tests/test_Enforce.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file ContractException.h
  * @brief Defines the base exception classes for the policy-based contract
@@ -9,8 +38,6 @@
  * of the failure.
  *
  *
- *
- * @layer Foundation
  *
  * @section usage Usage Examples:
  * @code
@@ -51,34 +78,7 @@
  * @note Thread-safe: Each exception is independent, safe for concurrent throwing
  * @note C++17 minimum required for std::is_base_of_v and std::is_constructible_v
  */
-#pragma once
 
-/*
-FATP_META:
-  meta_version: 1
-  component: ContractException
-  file_role: public_header
-  path: include/fat_p/ContractException.h
-  namespace: fat_p
-  layer: Foundation
-  summary: "Public header for ContractException."
-  api_stability: in_work
-  related:
-    docs_search: "ContractException"
-    tests:
-      - components/ContractException/tests/test_ContractException.cpp
-      - components/Enforce/tests/test_Enforce.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include <ostream>
 #include <stdexcept>
 #include <string>

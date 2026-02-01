@@ -33,8 +33,6 @@ FATP_META:
  * @file FlatMap.h
  * @brief Sorted vector-backed associative container with contiguous storage
  *
- * @layer Containers
- *
  * FlatMap provides an ordered key-value container backed by a sorted vector,
  * offering cache-friendly iteration and O(log n) lookup. Suitable for small
  * to medium-sized collections where insertion/deletion frequency is low

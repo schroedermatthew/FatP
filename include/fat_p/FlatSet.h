@@ -1,16 +1,3 @@
-/**
- * @file FlatSet.h
- * @brief Sorted vector-backed set container with contiguous storage
- *
- * @layer Containers
- *
- * FlatSet provides an ordered set container backed by a sorted vector,
- * offering cache-friendly iteration and O(log n) lookup. Suitable for small
- * to medium-sized collections where insertion/deletion frequency is low
- * relative to lookup frequency.
- *
- * @note Thread-safety: NOT thread-safe. Caller must synchronize.
- */
 #pragma once
 
 /*
@@ -41,6 +28,19 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file FlatSet.h
+ * @brief Sorted vector-backed set container with contiguous storage
+ *
+ * FlatSet provides an ordered set container backed by a sorted vector,
+ * offering cache-friendly iteration and O(log n) lookup. Suitable for small
+ * to medium-sized collections where insertion/deletion frequency is low
+ * relative to lookup frequency.
+ *
+ * @note Thread-safety: NOT thread-safe. Caller must synchronize.
+ */
+
 #include <algorithm>
 #include <functional>
 #include <initializer_list>

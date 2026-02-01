@@ -1,27 +1,3 @@
-/**
- * @file FeatureManager.h
- * @brief Runtime feature flag management with compile-time optimization
- *
- * @layer Domain
- *
- * @details
- * A modern C++17 header-only library for managing feature flags with complex dependencies,
- * relationships, and validation. Designed for scenarios where features have interdependencies
- * (Requires, Implies, Conflicts, MutuallyExclusive) and need automatic resolution.
- * Key features:
- * - Cycle detection with detailed error messages showing full dependency path
- * - Pluggable thread-safety policies (single-threaded, mutex, spinlock, shared_mutex)
- * - Type-safe group states with custom enums
- * - Observer pattern with priority ordering and RAII lifetime management
- * - JSON and GraphViz DOT serialization
- * - RAII helpers for scoped state changes
- * - Optimized with SortedContainer for relationship storage (cache-friendly)
- * Performance characteristics:
- * - Add feature: O(log n)
- * - Enable/disable: O(d x log n) where d = dependency depth (limited to MAX_VALIDATION_DEPTH)
- * - Validate: O(n x d x log n)
- * - Memory: ~550 bytes per feature with 5 relationships (using SortedContainer)
- */
 #pragma once
 
 /*
@@ -51,6 +27,30 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file FeatureManager.h
+ * @brief Runtime feature flag management with compile-time optimization
+ *
+ * @details
+ * A modern C++17 header-only library for managing feature flags with complex dependencies,
+ * relationships, and validation. Designed for scenarios where features have interdependencies
+ * (Requires, Implies, Conflicts, MutuallyExclusive) and need automatic resolution.
+ * Key features:
+ * - Cycle detection with detailed error messages showing full dependency path
+ * - Pluggable thread-safety policies (single-threaded, mutex, spinlock, shared_mutex)
+ * - Type-safe group states with custom enums
+ * - Observer pattern with priority ordering and RAII lifetime management
+ * - JSON and GraphViz DOT serialization
+ * - RAII helpers for scoped state changes
+ * - Optimized with SortedContainer for relationship storage (cache-friendly)
+ * Performance characteristics:
+ * - Add feature: O(log n)
+ * - Enable/disable: O(d x log n) where d = dependency depth (limited to MAX_VALIDATION_DEPTH)
+ * - Validate: O(n x d x log n)
+ * - Memory: ~550 bytes per feature with 5 relationships (using SortedContainer)
+ */
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -1067,7 +1067,6 @@ private:
         }
     }
 
-
     template <typename StateEnum>
     Expected<StateEnum, std::string> compute_group_state_impl(const std::string& group_name) const
     {
@@ -1739,7 +1738,6 @@ public:
         auto guard = mSync.lock();
         return validate_unlocked();
     }
-
 
     // Add observer with priority
     //

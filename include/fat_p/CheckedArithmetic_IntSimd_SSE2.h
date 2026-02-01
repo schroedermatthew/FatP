@@ -1,20 +1,3 @@
-/**
- * @file CheckedArithmetic_IntSimd_SSE2.h
- * @brief SSE2 (128-bit) integer SIMD acceleration for checked arithmetic
- *
- *
- * @layer Foundation
- *
- * @version 1.1 (Fixed brace style)
- *
- * Provides 4-wide int32 and 2-wide int64 acceleration for add/sub operations.
- * Uses detect -> scalar fallback pattern for proper error classification.
- *
- * Overflow Detection:
- * - Signed: (a^r) & (b^r) with sign bit check
- * - Unsigned: result < operand (via bias trick for SIMD compare)
- */
-
 #pragma once
 
 /*
@@ -40,6 +23,22 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file CheckedArithmetic_IntSimd_SSE2.h
+ * @brief SSE2 (128-bit) integer SIMD acceleration for checked arithmetic
+ *
+ *
+ * @version 1.1 (Fixed brace style)
+ *
+ * Provides 4-wide int32 and 2-wide int64 acceleration for add/sub operations.
+ * Uses detect -> scalar fallback pattern for proper error classification.
+ *
+ * Overflow Detection:
+ * - Signed: (a^r) & (b^r) with sign bit check
+ * - Unsigned: result < operand (via bias trick for SIMD compare)
+ */
+
 #include "CheckedArithmetic_IntSimd_Common.h"
 
 #if defined(FATP_INT_SIMD_SSE2)

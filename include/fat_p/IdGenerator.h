@@ -1,25 +1,3 @@
-/**
- * @file IdGenerator.h
- * @brief Policy-based unique identifier generator with type-safe IDs and recycling.
- *
- *
- *
- * @layer Domain
- *
- * @details Provides a flexible ID generation system with:
- *   - Sequential, bounded, or random allocation strategies
- *   - Configurable recycling policies (FIFO, Min-First, None)
- *   - Thread-safe and single-threaded variants
- *   - StrongId integration for type safety
- *   - Expected-based error handling
- *   - RAII IdGuard for automatic cleanup
- *   - O(1) active ID tracking via unordered_set with lazy max
- *   - Batch generation/release with single lock acquisition
- *   - Seeded random generation for reproducibility
- *
- * @version 1.4
- */
-
 #pragma once
 
 /*
@@ -47,6 +25,27 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file IdGenerator.h
+ * @brief Policy-based unique identifier generator with type-safe IDs and recycling.
+ *
+ *
+ *
+ * @details Provides a flexible ID generation system with:
+ *   - Sequential, bounded, or random allocation strategies
+ *   - Configurable recycling policies (FIFO, Min-First, None)
+ *   - Thread-safe and single-threaded variants
+ *   - StrongId integration for type safety
+ *   - Expected-based error handling
+ *   - RAII IdGuard for automatic cleanup
+ *   - O(1) active ID tracking via unordered_set with lazy max
+ *   - Batch generation/release with single lock acquisition
+ *   - Seeded random generation for reproducibility
+ *
+ * @version 1.4
+ */
+
 #include <algorithm>
 #include <cassert>
 #include <cstdint>

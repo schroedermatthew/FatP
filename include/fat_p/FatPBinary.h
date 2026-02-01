@@ -1,23 +1,5 @@
-/**
- * @file FatPBinary.h
- * @brief FAT-P binary serialization format
- *
- * @layer Domain
- *
- * @details
- * Fat-P integrated binary serialization with Expected-based error handling,
- * HpcVector-backed buffers, and native fat_p type support.
- * This is the FAT-P INTEGRATION layer built on top of BinaryLite.h.
- * For standalone binary serialization without fat_p dependencies, use BinaryLite.h.
- * Features:
- * - BinaryResult<T> = Expected<T, BinaryError> for explicit error handling
- * - BinaryBuffer = HpcVector<uint8_t, 64> for SIMD-aligned storage
- * - BinaryTraits<T> for extensible type serialization
- * - Native support for fat_p types (Expected, SmallVector, StrongId, EnumPlus)
- * - Little-endian format optimized for internal data exchange
- * C++17, header-only
- */
 #pragma once
+
 /*
 FATP_META:
   meta_version: 1
@@ -43,6 +25,24 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file FatPBinary.h
+ * @brief FAT-P binary serialization format
+ *
+ * @details
+ * Fat-P integrated binary serialization with Expected-based error handling,
+ * HpcVector-backed buffers, and native fat_p type support.
+ * This is the FAT-P INTEGRATION layer built on top of BinaryLite.h.
+ * For standalone binary serialization without fat_p dependencies, use BinaryLite.h.
+ * Features:
+ * - BinaryResult<T> = Expected<T, BinaryError> for explicit error handling
+ * - BinaryBuffer = HpcVector<uint8_t, 64> for SIMD-aligned storage
+ * - BinaryTraits<T> for extensible type serialization
+ * - Native support for fat_p types (Expected, SmallVector, StrongId, EnumPlus)
+ * - Little-endian format optimized for internal data exchange
+ * C++17, header-only
+ */
 
 // These headers can be mocked for standalone testing
 #ifndef FATP_EXPECTED_H

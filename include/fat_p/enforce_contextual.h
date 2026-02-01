@@ -1,13 +1,3 @@
-/**
- * @file enforce_contextual.h
- * @brief Defines macros and template functions for contextual contract enforcement that
- * automatically adapt failure behavior based on the function's noexcept specification.
- * @layer Foundation
- *
- * @details This system uses the FATP_CONTEXTUAL_RESOLVER metafunction to select the
- * appropriate raiser: NoThrowRaiser if the function is noexcept, or the default throwing
- * raiser (mapped from PredicateType or explicitly specified) unless explicitly overridden.
- */
 #pragma once
 
 /*
@@ -35,6 +25,17 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file enforce_contextual.h
+ * @brief Defines macros and template functions for contextual contract enforcement that
+ * automatically adapt failure behavior based on the function's noexcept specification.
+ *
+ * @details This system uses the FATP_CONTEXTUAL_RESOLVER metafunction to select the
+ * appropriate raiser: NoThrowRaiser if the function is noexcept, or the default throwing
+ * raiser (mapped from PredicateType or explicitly specified) unless explicitly overridden.
+ */
+
 #include <type_traits>
 #include <utility>
 

@@ -31,7 +31,6 @@ FATP_META:
 /**
  * @file SlotMap.h
  * @brief Generational index container providing stable handles and O(1) access.
- * @layer Containers
  *
  * @details A container that provides stable handles even after element removal.
  * Uses generational counters to detect stale/dangling handles (ABA safety).

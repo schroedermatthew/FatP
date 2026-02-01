@@ -1,3 +1,31 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: PipeOperator
+  file_role: public_header
+  path: include/fat_p/PipeOperator.h
+  namespace: fat_p
+  layer: Foundation
+  summary: "Public header for PipeOperator."
+  api_stability: in_work
+  related:
+    docs_search: "PipeOperator"
+    tests:
+      - components/PipeOperator/tests/test_PipeOperator.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file PipeOperator.h
  * @brief Functional pipe operator for value and Expected type composition
@@ -34,36 +62,8 @@
  * Pipe operations are thread-safe for distinct Expected objects.
  * Concurrent piping of the same Expected requires external synchronization.
  *
- * @layer Domain
  */
 
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: PipeOperator
-  file_role: public_header
-  path: include/fat_p/PipeOperator.h
-  namespace: fat_p
-  layer: Foundation
-  summary: "Public header for PipeOperator."
-  api_stability: in_work
-  related:
-    docs_search: "PipeOperator"
-    tests:
-      - components/PipeOperator/tests/test_PipeOperator.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include <functional>
 #include <type_traits>
 #include <utility>

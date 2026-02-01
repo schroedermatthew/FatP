@@ -1,18 +1,5 @@
-/**
- * @file enforce_predicates.h
- * @brief Defines the Predicate policy structs used by contract macros to
- * perform specialized, type-safe checks on various C++ types (pointers,
- * containers, arithmetic values).
- *
- *
- *
- * @layer Foundation
- *
- * @details Each predicate provides a static `check` method that returns a
- * boolean result. They use C++20 concepts and `if constexpr` to offer
- * zero-overhead checks whenever possible.
- */
 #pragma once
+
 /*
 FATP_META:
   meta_version: 1
@@ -36,6 +23,20 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file enforce_predicates.h
+ * @brief Defines the Predicate policy structs used by contract macros to
+ * perform specialized, type-safe checks on various C++ types (pointers,
+ * containers, arithmetic values).
+ *
+ *
+ *
+ * @details Each predicate provides a static `check` method that returns a
+ * boolean result. They use C++20 concepts and `if constexpr` to offer
+ * zero-overhead checks whenever possible.
+ */
+
 #include <algorithm>
 #include <cmath>
 #include <concepts>

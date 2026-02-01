@@ -1,10 +1,36 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: RateLimiter
+  file_role: public_header
+  path: include/fat_p/RateLimiter.h
+  namespace: fat_p
+  layer: Concurrency
+  summary: "Public header for RateLimiter."
+  api_stability: in_work
+  related:
+    docs_search: "RateLimiter"
+    tests:
+      - components/RateLimiter/tests/test_RateLimiter.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file RateLimiter.h
  * @brief Token bucket and sliding window rate limiters for API throttling
  *
  *
- *
- * @layer Concurrency
  *
  * @details Multiple rate limiting algorithms for controlling request rates.
  * Integrates with CheckedArithmetic for overflow-safe calculations.
@@ -52,33 +78,6 @@
  * - Tested on Intel Core i7-8850H @ 2.60GHz, 32GB RAM
  */
 
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: RateLimiter
-  file_role: public_header
-  path: include/fat_p/RateLimiter.h
-  namespace: fat_p
-  layer: Concurrency
-  summary: "Public header for RateLimiter."
-  api_stability: in_work
-  related:
-    docs_search: "RateLimiter"
-    tests:
-      - components/RateLimiter/tests/test_RateLimiter.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include <algorithm>
 #include <atomic>
 #include <chrono>

@@ -1,9 +1,3 @@
-/**
- * @file CSRMatrixPartitioning.h
- * @brief Partitioning utilities for CSRMatrix parallel operations
- *
- * @layer Domain
- */
 #pragma once
 
 /*
@@ -29,6 +23,13 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file CSRMatrixPartitioning.h
+ * @brief Partitioning utilities for CSRMatrix parallel operations
+ *
+ */
+
 /**
  * @file CSRMatrixPartitioning.h
  * @brief Shared work partitioning helpers for CSRMatrix parallel/HPC algorithms.

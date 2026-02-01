@@ -1,23 +1,3 @@
-/**
- * @file CheckedArithmetic_IntSimd_NEON.h
- * @brief NEON (128-bit) integer SIMD acceleration for checked arithmetic
- *
- *
- * @layer Foundation
- *
- * @version 1.1 (Fixed brace style)
- *
- * Provides 4-wide int32 and 2-wide int64 (AArch64 only) acceleration.
- *
- * Key Technique: Differential Saturation
- * - Compute both wrapping and saturating results
- * - If they differ, overflow occurred
- * - This is uniquely efficient on NEON which has native saturating arithmetic
- *
- * SaturatingPolicy Optimization:
- * - Maps directly to hardware vqadd/vqsub instructions (zero overhead)
- */
-
 #pragma once
 
 /*
@@ -43,6 +23,25 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file CheckedArithmetic_IntSimd_NEON.h
+ * @brief NEON (128-bit) integer SIMD acceleration for checked arithmetic
+ *
+ *
+ * @version 1.1 (Fixed brace style)
+ *
+ * Provides 4-wide int32 and 2-wide int64 (AArch64 only) acceleration.
+ *
+ * Key Technique: Differential Saturation
+ * - Compute both wrapping and saturating results
+ * - If they differ, overflow occurred
+ * - This is uniquely efficient on NEON which has native saturating arithmetic
+ *
+ * SaturatingPolicy Optimization:
+ * - Maps directly to hardware vqadd/vqsub instructions (zero overhead)
+ */
+
 #include "CheckedArithmetic_IntSimd_Common.h"
 
 #if defined(FATP_INT_SIMD_NEON)

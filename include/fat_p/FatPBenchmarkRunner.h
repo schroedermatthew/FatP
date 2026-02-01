@@ -1,8 +1,45 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: FatPBenchmarkRunner
+  file_role: public_header
+  path: include/fat_p/FatPBenchmarkRunner.h
+  namespace: fat_p
+  layer: Testing
+  summary: "Public header for FatPBenchmarkRunner."
+  api_stability: in_work
+  related:
+    docs_search: "FatPBenchmarkRunner"
+    tests:
+      - components/FatPBenchmarkRunner/tests/test_FatPBenchmarkRunner.cpp
+    benchmarks:
+      - components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp
+      - components/AllocationStrategies/benchmarks/benchmark_AllocationStrategies.cpp
+      - benchmarks/benchmark_EqualityComparisonsAny.cpp
+      - components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp
+      - components/FeatureManager/benchmarks/benchmark_FeatureManager.cpp
+      - components/FlatMapSet/benchmarks/benchmark_FlatMapSet.cpp
+      - components/FloatingPointComparison/benchmarks/benchmark_FloatingPointComparison.cpp
+      - components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp
+      - components/SlotMap/benchmarks/benchmark_SlotMap.cpp
+      - components/SmallVector/benchmarks/benchmark_SmallVector.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 4
+    defines_unprefixed: 3
+    undefs_total: 0
+    includes_windows_h: true
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file FatPBenchmarkRunner.h
  * @brief Unified benchmark infrastructure for Fat-P components.
- *
- * @layer Testing
  *
  * @details
  * Comprehensive benchmarking toolkit that consolidates all Fat-P benchmark
@@ -68,44 +105,6 @@
  *   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark.cpp
  */
 
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: FatPBenchmarkRunner
-  file_role: public_header
-  path: include/fat_p/FatPBenchmarkRunner.h
-  namespace: fat_p
-  layer: Testing
-  summary: "Public header for FatPBenchmarkRunner."
-  api_stability: in_work
-  related:
-    docs_search: "FatPBenchmarkRunner"
-    tests:
-      - components/FatPBenchmarkRunner/tests/test_FatPBenchmarkRunner.cpp
-    benchmarks:
-      - components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp
-      - components/AllocationStrategies/benchmarks/benchmark_AllocationStrategies.cpp
-      - benchmarks/benchmark_EqualityComparisonsAny.cpp
-      - components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp
-      - components/FeatureManager/benchmarks/benchmark_FeatureManager.cpp
-      - components/FlatMapSet/benchmarks/benchmark_FlatMapSet.cpp
-      - components/FloatingPointComparison/benchmarks/benchmark_FloatingPointComparison.cpp
-      - components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp
-      - components/SlotMap/benchmarks/benchmark_SlotMap.cpp
-      - components/SmallVector/benchmarks/benchmark_SmallVector.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 4
-    defines_unprefixed: 3
-    undefs_total: 0
-    includes_windows_h: true
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 // ============================================================================
 // MSVC Compatibility - Must be before ANY includes
 // ============================================================================
@@ -562,7 +561,6 @@ inline bool read_int64_from_file(const char* path, int64_t& outValue)
     return true;
 }
 
-
 inline bool read_proc_cpuinfo_double(const char* key, double& outValue)
 {
     std::ifstream f("/proc/cpuinfo");
@@ -670,7 +668,6 @@ inline bool read_proc_cpuinfo_model_base_mhz(double& outMHz)
     return false;
 }
 
-
 #endif
 
 } // namespace detail
@@ -763,7 +760,6 @@ inline bool read_proc_cpuinfo_model_base_mhz(double& outMHz)
             info.mRefIsMax = false;
         }
     }
-
 
 #endif
 

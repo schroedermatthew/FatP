@@ -1,11 +1,38 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: ValueGuard
+  file_role: public_header
+  path: include/fat_p/ValueGuard.h
+  namespace: fat_p
+  layer: Domain
+  summary: "Public header for ValueGuard."
+  api_stability: in_work
+  related:
+    docs_search: "ValueGuard"
+    tests:
+      - tests/test_FatPTypeTraits.cpp
+      - components/ValueGuard/tests/test_ValueGuard.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file ValueGuard.h
  * @brief Provides the ValueGuard<T, Policy> class for temporary value
  * mutation with policy-driven restoration.
  *
  *
- *
- * @layer Domain
  *
  * @details This RAII utility temporarily assigns a new value to a target
  * variable and restores the original upon scope exit, with support for
@@ -36,34 +63,6 @@
  * @version 2.4
  * @date 2025
  */
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: ValueGuard
-  file_role: public_header
-  path: include/fat_p/ValueGuard.h
-  namespace: fat_p
-  layer: Domain
-  summary: "Public header for ValueGuard."
-  api_stability: in_work
-  related:
-    docs_search: "ValueGuard"
-    tests:
-      - tests/test_FatPTypeTraits.cpp
-      - components/ValueGuard/tests/test_ValueGuard.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 
 #include <algorithm>   // for std::swap
 #include <functional>  // for std::invoke

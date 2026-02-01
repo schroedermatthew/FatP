@@ -1,10 +1,36 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: SlidingFileWindow
+  file_role: public_header
+  path: include/fat_p/SlidingFileWindow.h
+  namespace: fat_p
+  layer: Domain
+  summary: "Public header for SlidingFileWindow."
+  api_stability: in_work
+  related:
+    docs_search: "SlidingFileWindow"
+    tests:
+      - components/SlidingFileWindow/tests/test_SlidingFileWindow.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file SlidingFileWindow.h
  * @brief Policy-based sliding window access to large binary files with on-demand paging.
  *
  *
- *
- * @layer Domain
  *
  * @details Provides efficient deque-like access to large binary files that don't fit in memory.
  * Uses a sliding window mechanism with configurable size and automatic paging. Elements are
@@ -78,33 +104,6 @@
  * @note Header-only, no external dependencies beyond standard library
  */
 
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: SlidingFileWindow
-  file_role: public_header
-  path: include/fat_p/SlidingFileWindow.h
-  namespace: fat_p
-  layer: Domain
-  summary: "Public header for SlidingFileWindow."
-  api_stability: in_work
-  related:
-    docs_search: "SlidingFileWindow"
-    tests:
-      - components/SlidingFileWindow/tests/test_SlidingFileWindow.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include <algorithm>
 #include <cassert>
 #include <cstdint>

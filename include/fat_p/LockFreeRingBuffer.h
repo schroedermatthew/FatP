@@ -1,35 +1,3 @@
-/**
- * @file LockFreeRingBuffer.h
- * @brief Lock-free ring buffers for SPSC and MPMC scenarios
- *
- * @layer Concurrency
- *
- * @details Provides two lock-free ring buffer implementations:
- *
- * - LockFreeRingBuffer<T>: Wait-free SPSC (single-producer single-consumer)
- *   Optimal for audio/video pipelines, logging, and inter-thread communication.
- *
- * - LockFreeRingBufferMPMC<T>: Lock-free MPMC (multi-producer multi-consumer)
- *   Uses per-slot sequence numbers for correctness under concurrent access.
- *
- * Thread-safety:
- * - SPSC: Exactly ONE producer thread and ONE consumer thread
- * - MPMC: Any number of producers and consumers
- *
- * @section usage Usage Example
- * @code
- * // SPSC usage
- * LockFreeRingBuffer<int> spsc(1024);
- * spsc.push(42);              // Producer thread only
- * auto val = spsc.pop();      // Consumer thread only
- *
- * // MPMC usage
- * LockFreeRingBufferMPMC<int> mpmc(1024);
- * mpmc.push(42);              // Any thread
- * auto val = mpmc.pop();      // Any thread
- * @endcode
- */
-
 #pragma once
 
 /*
@@ -57,6 +25,36 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file LockFreeRingBuffer.h
+ * @brief Lock-free ring buffers for SPSC and MPMC scenarios
+ *
+ * @details Provides two lock-free ring buffer implementations:
+ *
+ * - LockFreeRingBuffer<T>: Wait-free SPSC (single-producer single-consumer)
+ *   Optimal for audio/video pipelines, logging, and inter-thread communication.
+ *
+ * - LockFreeRingBufferMPMC<T>: Lock-free MPMC (multi-producer multi-consumer)
+ *   Uses per-slot sequence numbers for correctness under concurrent access.
+ *
+ * Thread-safety:
+ * - SPSC: Exactly ONE producer thread and ONE consumer thread
+ * - MPMC: Any number of producers and consumers
+ *
+ * @section usage Usage Example
+ * @code
+ * // SPSC usage
+ * LockFreeRingBuffer<int> spsc(1024);
+ * spsc.push(42);              // Producer thread only
+ * auto val = spsc.pop();      // Consumer thread only
+ *
+ * // MPMC usage
+ * LockFreeRingBufferMPMC<int> mpmc(1024);
+ * mpmc.push(42);              // Any thread
+ * auto val = mpmc.pop();      // Any thread
+ * @endcode
+ */
 
 #include "FatPConfig.h"
 

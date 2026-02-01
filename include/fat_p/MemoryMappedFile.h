@@ -1,10 +1,36 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: MemoryMappedFile
+  file_role: public_header
+  path: include/fat_p/MemoryMappedFile.h
+  namespace: fat_p
+  layer: Domain
+  summary: "Public header for MemoryMappedFile."
+  api_stability: in_work
+  related:
+    docs_search: "MemoryMappedFile"
+    tests:
+      - components/MemoryMappedFile/tests/test_MemoryMappedFile.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 3
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: true
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file MemoryMappedFile.h
  * @brief Cross-platform memory-mapped file I/O for high-performance file access
  *
  *
- *
- * @layer Domain
  *
  * @details Memory-mapped files provide OS-level file caching and zero-copy I/O.
  * Significantly faster than traditional read/write for large files or random access.
@@ -53,34 +79,6 @@
  * - Windows: -ladvapi32 (usually automatic)
  * - Tested on Intel Core i7-8850H @ 2.60GHz, 32GB RAM
  */
-
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: MemoryMappedFile
-  file_role: public_header
-  path: include/fat_p/MemoryMappedFile.h
-  namespace: fat_p
-  layer: Domain
-  summary: "Public header for MemoryMappedFile."
-  api_stability: in_work
-  related:
-    docs_search: "MemoryMappedFile"
-    tests:
-      - components/MemoryMappedFile/tests/test_MemoryMappedFile.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 3
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: true
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 
 #include <cstddef>
 #include <cstdint>

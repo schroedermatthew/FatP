@@ -31,8 +31,6 @@ FATP_META:
  * @brief Advanced compile-time reflection system with unified C++17/C++20 macro syntax
  *
  *
- * @layer Domain
- *
  * @version 3.0.1 - Unified REFLECT_REGISTER for both C++17 and C++20 (MSVC-compatible)
  *
  * C++20: NTTP-based field names, compile-time strings

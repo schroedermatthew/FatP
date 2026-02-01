@@ -1,27 +1,3 @@
-/**
- * @file TensorIteration.h
- * @brief Composition helpers for efficient N-dimensional tensor iteration.
- *
- * @layer Domain
- *
- * This file provides convenient functions for iterating over N-dimensional
- * tensors using composition of optimized Stride1D/Stride2D policies.
- *
- * Performance strategy:
- * - 1D tensors use Stride1DPolicy directly
- * - 2D tensors use Stride2DPolicy directly
- * - 3D+ tensors use scalar outer loops with Stride2DPolicy for inner 2D
- *
- * This achieves equivalent performance to hand-written nested loops while
- * eliminating boilerplate and reducing opportunities for errors.
- *
- * @note This file requires both PolicyIterator.h and TensorStridePolicy.h
- *
- * Part of the Fat-P Library.
- *
- * @copyright This file is part of a proprietary library. All rights reserved.
- */
-
 #pragma once
 
 /*
@@ -51,6 +27,29 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file TensorIteration.h
+ * @brief Composition helpers for efficient N-dimensional tensor iteration.
+ *
+ * This file provides convenient functions for iterating over N-dimensional
+ * tensors using composition of optimized Stride1D/Stride2D policies.
+ *
+ * Performance strategy:
+ * - 1D tensors use Stride1DPolicy directly
+ * - 2D tensors use Stride2DPolicy directly
+ * - 3D+ tensors use scalar outer loops with Stride2DPolicy for inner 2D
+ *
+ * This achieves equivalent performance to hand-written nested loops while
+ * eliminating boilerplate and reducing opportunities for errors.
+ *
+ * @note This file requires both PolicyIterator.h and TensorStridePolicy.h
+ *
+ * Part of the Fat-P Library.
+ *
+ * @copyright This file is part of a proprietary library. All rights reserved.
+ */
+
 // Explicit includes for header self-containment (do not rely on transitive includes)
 #include <cstddef>
 #include <initializer_list>

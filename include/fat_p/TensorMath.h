@@ -1,9 +1,35 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: TensorMath
+  file_role: public_header
+  path: include/fat_p/TensorMath.h
+  namespace: fat_p
+  layer: Domain
+  summary: "Public header for TensorMath."
+  api_stability: in_work
+  related:
+    docs_search: "TensorMath"
+    tests:
+      - components/Tensor/tests/test_TensorMath.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file TensorMath.h
  * @brief General N-dimensional tensor arithmetic with SIMD optimization
  *
- *
- * @layer Domain
  *
  * @version 1.1 - Fixed SaturatingPolicy namespace issue
  *
@@ -32,33 +58,7 @@
  *
  * Requires: C++17, CheckedArithmetic.h (for checked policies)
  */
-#pragma once
 
-/*
-FATP_META:
-  meta_version: 1
-  component: TensorMath
-  file_role: public_header
-  path: include/fat_p/TensorMath.h
-  namespace: fat_p
-  layer: Domain
-  summary: "Public header for TensorMath."
-  api_stability: in_work
-  related:
-    docs_search: "TensorMath"
-    tests:
-      - components/Tensor/tests/test_TensorMath.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include "CheckedArithmetic.h"
 #include <algorithm>
 #include <array>

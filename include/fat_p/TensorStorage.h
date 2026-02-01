@@ -1,34 +1,3 @@
-/**
- * @file TensorStorage.h
- * @brief Lock-free reference-counted storage for Tensor data
- *
- *
- * @layer Domain
- *
- * @version 2.0
- *
- * @details Provides custom reference-counted storage with atomic operations
- * for improved multi-threaded performance compared to std::shared_ptr.
- *
- * Key Features:
- * - Lock-free atomic reference counting
- * - 10-20% faster than std::shared_ptr in read-heavy scenarios
- * - Zero overhead for single-threaded use
- * - Custom allocator support
- * - Proper alignment for SIMD operations
- * - Policy-based memory ordering for safety vs. performance tradeoffs
- *
- * Performance Benefits:
- * - Atomic load/store without full memory barriers in common cases
- * - Optimized for read-heavy workloads (tensor views)
- * - Reduced contention in multi-threaded scenarios
- *
- * Requires: C++17
- *
- * @author cpp_utilities
- * @date 2025
- */
-
 #pragma once
 
 /*
@@ -56,6 +25,36 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file TensorStorage.h
+ * @brief Lock-free reference-counted storage for Tensor data
+ *
+ *
+ * @version 2.0
+ *
+ * @details Provides custom reference-counted storage with atomic operations
+ * for improved multi-threaded performance compared to std::shared_ptr.
+ *
+ * Key Features:
+ * - Lock-free atomic reference counting
+ * - 10-20% faster than std::shared_ptr in read-heavy scenarios
+ * - Zero overhead for single-threaded use
+ * - Custom allocator support
+ * - Proper alignment for SIMD operations
+ * - Policy-based memory ordering for safety vs. performance tradeoffs
+ *
+ * Performance Benefits:
+ * - Atomic load/store without full memory barriers in common cases
+ * - Optimized for read-heavy workloads (tensor views)
+ * - Reduced contention in multi-threaded scenarios
+ *
+ * Requires: C++17
+ *
+ * @author cpp_utilities
+ * @date 2025
+ */
+
 #include <atomic>
 #include <cstddef>
 #include <memory>

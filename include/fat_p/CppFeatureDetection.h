@@ -26,8 +26,6 @@ FATP_META:
  * @file CppFeatureDetection.h
  * @brief C++ language and library feature detection.
  *
- * @layer Foundation
- *
  * Centralized detection of C++ standard version and library feature availability.
  * All Fat-P headers must use the macros defined here rather than probing
  * __cplusplus or feature-test macros directly.

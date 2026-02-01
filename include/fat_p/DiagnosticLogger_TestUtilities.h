@@ -1,12 +1,3 @@
-/**
- * @file DiagnosticLogger_TestUtilities.h
- * @brief Test utilities for DiagnosticLogger using ScopeGuard for safe state management
- *
- * This file provides RAII-based utilities for temporarily changing logger state
- * during tests, ensuring automatic restoration even in the presence of exceptions.
- *
- * @layer Testing
- */
 #pragma once
 
 /*
@@ -32,6 +23,16 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file DiagnosticLogger_TestUtilities.h
+ * @brief Test utilities for DiagnosticLogger using ScopeGuard for safe state management
+ *
+ * This file provides RAII-based utilities for temporarily changing logger state
+ * during tests, ensuring automatic restoration even in the presence of exceptions.
+ *
+ */
+
 #include "DiagnosticLogger_Core.h"
 #include "ScopeGuard.h"
 

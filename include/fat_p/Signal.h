@@ -1,10 +1,36 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: Signal
+  file_role: public_header
+  path: include/fat_p/Signal.h
+  namespace: fat_p
+  layer: Domain
+  summary: "Public header for Signal."
+  api_stability: in_work
+  related:
+    docs_search: "Signal"
+    tests:
+      - components/Signal/tests/test_Signal.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file Signal.h
  * @brief High-performance Signal/Slot implementation for the fat_p library
  *
  *
- *
- * @layer Domain
  *
  * @details A cache-friendly, policy-based signal-slot system that integrates
  * with the fat_p ecosystem. Designed to solve three hard problems without
@@ -70,33 +96,6 @@
  * @endcode
  */
 
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: Signal
-  file_role: public_header
-  path: include/fat_p/Signal.h
-  namespace: fat_p
-  layer: Domain
-  summary: "Public header for Signal."
-  api_stability: in_work
-  related:
-    docs_search: "Signal"
-    tests:
-      - components/Signal/tests/test_Signal.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include <algorithm>
 #include <atomic>
 #include <functional>

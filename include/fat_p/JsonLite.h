@@ -1,10 +1,37 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: JsonLite
+  file_role: public_header
+  path: include/fat_p/JsonLite.h
+  namespace: fat_p
+  layer: Domain
+  summary: "Public header for JsonLite."
+  api_stability: in_work
+  related:
+    docs_search: "JsonLite"
+    tests:
+      - components/DiagnosticLogger/tests/test_DiagnosticLogger_Json.cpp
+      - components/Json/tests/test_JsonLite.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 64
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file JsonLite.h
  * @brief Lightweight JSON library for C++ configuration and parameter management
  *
  *
- *
- * @layer Foundation
  *
  * @section overview Overview
  * JsonLite is a modern C++17 header-only JSON library designed specifically for
@@ -64,34 +91,6 @@
  *
  */
 
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: JsonLite
-  file_role: public_header
-  path: include/fat_p/JsonLite.h
-  namespace: fat_p
-  layer: Domain
-  summary: "Public header for JsonLite."
-  api_stability: in_work
-  related:
-    docs_search: "JsonLite"
-    tests:
-      - components/DiagnosticLogger/tests/test_DiagnosticLogger_Json.cpp
-      - components/Json/tests/test_JsonLite.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 64
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -2093,7 +2092,6 @@ inline JsonValue to_json(const JsonValue& value)
 {
     return value;
 }
-
 
 #define FATP_JSON_EXPAND(x) x
 
@@ -4906,7 +4904,6 @@ inline JsonValue to_json(const JsonValue& value)
         const auto& obj = std::get<fat_p::JsonObject>(j);                          \
         FATP_JSON_FOR_EACH(FATP_JSON_FROM_FIELD, __VA_ARGS__)                      \
     }
-
 
 namespace json_detail
 {

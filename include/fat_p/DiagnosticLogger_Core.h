@@ -1,25 +1,3 @@
-/**
- * @file DiagnosticLogger_Core.h
- * @brief Core high-performance logging infrastructure.
- * @layer Foundation
- *
- * PHILOSOPHY: "The Race Car"
- * - Zero overhead when disabled (<5ns).
- * - Minimal compile time impact.
- * - Strict C++17 compliance.
- *
- * This header provides the core Logger class, interfaces (ISink, IFormatter),
- * logging macros, LoggerRegistry for named loggers, and SinkFactory for lazy
- * initialization. Concrete sink implementations like ConsoleSink are provided
- * in DiagnosticLogger_Sinks.h to avoid pulling in <iostream>.
- *
- * FEATURES:
- * - Named loggers via LoggerRegistry
- * - Lazy initialization via SinkFactory
- * - Compile-time log level filtering
- * - Lock-free fast path checks
- * - Thread-safe sink management
- */
 #pragma once
 
 /*
@@ -47,6 +25,29 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file DiagnosticLogger_Core.h
+ * @brief Core high-performance logging infrastructure.
+ *
+ * PHILOSOPHY: "The Race Car"
+ * - Zero overhead when disabled (<5ns).
+ * - Minimal compile time impact.
+ * - Strict C++17 compliance.
+ *
+ * This header provides the core Logger class, interfaces (ISink, IFormatter),
+ * logging macros, LoggerRegistry for named loggers, and SinkFactory for lazy
+ * initialization. Concrete sink implementations like ConsoleSink are provided
+ * in DiagnosticLogger_Sinks.h to avoid pulling in <iostream>.
+ *
+ * FEATURES:
+ * - Named loggers via LoggerRegistry
+ * - Lazy initialization via SinkFactory
+ * - Compile-time log level filtering
+ * - Lock-free fast path checks
+ * - Thread-safe sink management
+ */
+
 #include <atomic>
 #include <chrono>
 #include <functional>

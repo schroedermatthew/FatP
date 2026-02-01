@@ -1,16 +1,5 @@
-/**
- * @file TensorSerializer.h
- * @brief Tensor serialization and deserialization
- *
- * @layer Domain
- *
- * @details
- * Big-endian serialization for cross-platform tensor storage
- * Always serializes in big-endian (network byte order) for guaranteed portability.
- * Uses compile-time fixed type IDs and portable byte-swap intrinsics.
- * Requires: C++17, Tensor.h, Expected.h
- */
 #pragma once
+
 /*
 FATP_META:
   meta_version: 1
@@ -36,6 +25,17 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file TensorSerializer.h
+ * @brief Tensor serialization and deserialization
+ *
+ * @details
+ * Big-endian serialization for cross-platform tensor storage
+ * Always serializes in big-endian (network byte order) for guaranteed portability.
+ * Uses compile-time fixed type IDs and portable byte-swap intrinsics.
+ * Requires: C++17, Tensor.h, Expected.h
+ */
 
 #include "Expected.h"
 #include "Tensor.h"

@@ -1,3 +1,26 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: SimdDetection
+  file_role: public_header
+  path: include/fat_p/SimdDetection.h
+  namespace: fat_p::simd
+  layer: Foundation
+  summary: "SIMD capability detection (compile-time and runtime)."
+  api_stability: stable
+  related:
+    - include/fat_p/PlatformDetection.h
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file SimdDetection.h
  * @brief Centralized SIMD capability detection for Fat-P components.
@@ -36,30 +59,7 @@
  *   MSVC requires explicit /arch:AVX2 or /arch:AVX512 flags.
  *   Unlike GCC/Clang's -march=native, MSVC does not auto-detect.
  *
- * @layer Foundation
  */
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: SimdDetection
-  file_role: public_header
-  path: include/fat_p/SimdDetection.h
-  namespace: fat_p::simd
-  layer: Foundation
-  summary: "SIMD capability detection (compile-time and runtime)."
-  api_stability: stable
-  related:
-    - include/fat_p/PlatformDetection.h
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 
 #include "PlatformDetection.h"
 

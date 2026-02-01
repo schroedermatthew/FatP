@@ -1,25 +1,3 @@
-/**
- * @file CSRMatrixParallel.h
- * @brief ThreadPool-based parallel operations for CSRMatrix
- *
- *
- *
- * @layer Domain
- *
- * @details Extends CSRMatrix with work-balanced parallel algorithms using
- * fat_p::ThreadPool instead of OpenMP. Key advantages:
- * - Work stealing automatically balances irregular row lengths
- * - No OpenMP dependency (header-only, pure C++)
- * - Consistent with rest of fat_p library
- *
- * Performance vs OpenMP:
- * - OpenMP schedule(static): Poor for sparse matrices (load imbalance)
- * - OpenMP schedule(dynamic): Better, but still row-granularity
- * - ThreadPool: Work-balanced partitions + work stealing = best scaling
- *
- * @version 1.2
- */
-
 #pragma once
 
 /*
@@ -47,6 +25,27 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file CSRMatrixParallel.h
+ * @brief ThreadPool-based parallel operations for CSRMatrix
+ *
+ *
+ *
+ * @details Extends CSRMatrix with work-balanced parallel algorithms using
+ * fat_p::ThreadPool instead of OpenMP. Key advantages:
+ * - Work stealing automatically balances irregular row lengths
+ * - No OpenMP dependency (header-only, pure C++)
+ * - Consistent with rest of fat_p library
+ *
+ * Performance vs OpenMP:
+ * - OpenMP schedule(static): Poor for sparse matrices (load imbalance)
+ * - OpenMP schedule(dynamic): Better, but still row-granularity
+ * - ThreadPool: Work-balanced partitions + work stealing = best scaling
+ *
+ * @version 1.2
+ */
+
 #include "CSRMatrix.h"
 #include "CSRMatrixPartitioning.h"
 #include "ThreadPool.h"
@@ -83,7 +82,6 @@ struct ParallelConfig
 // ============================================================================
 // Work Partitioner
 // ============================================================================
-
 
 // ============================================================================
 // CSRMatrixParallel - ThreadPool-based Operations

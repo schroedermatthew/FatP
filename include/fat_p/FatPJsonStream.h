@@ -1,9 +1,3 @@
-/**
- * @file FatPJsonStream.h
- * @brief FAT-P streaming JSON serialization
- *
- * @layer Domain
- */
 #pragma once
 
 /*
@@ -31,6 +25,13 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file FatPJsonStream.h
+ * @brief FAT-P streaming JSON serialization
+ *
+ */
+
 /**
  * @file FatPJsonStream.h
  * @brief Enhanced streaming JSON parser with policy-based design and Expected

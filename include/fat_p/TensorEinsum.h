@@ -1,21 +1,3 @@
-/**
- * @file TensorEinsum.h
- * @brief Einstein summation notation for Tensor operations
- *
- * Implements a subset of Einstein summation notation for common tensor operations.
- * Supports patterns like:
- *   - Matrix multiplication: "ij,jk->ik"
- *   - Batch matrix multiplication: "bij,bjk->bik"
- *   - Outer product: "i,j->ij"
- *   - Inner product: "i,i->"
- *   - Transpose: "ij->ji"
- *   - Trace: "ii->"
- *   - Sum reductions: "ij->i", "ij->j", "ij->"
- *   - Element-wise: "ij,ij->ij"
- *
- * @layer Domain
- */
-
 #pragma once
 
 /*
@@ -43,6 +25,24 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file TensorEinsum.h
+ * @brief Einstein summation notation for Tensor operations
+ *
+ * Implements a subset of Einstein summation notation for common tensor operations.
+ * Supports patterns like:
+ *   - Matrix multiplication: "ij,jk->ik"
+ *   - Batch matrix multiplication: "bij,bjk->bik"
+ *   - Outer product: "i,j->ij"
+ *   - Inner product: "i,i->"
+ *   - Transpose: "ij->ji"
+ *   - Trace: "ii->"
+ *   - Sum reductions: "ij->i", "ij->j", "ij->"
+ *   - Element-wise: "ij,ij->ij"
+ *
+ */
+
 #include "Tensor.h"
 #include <algorithm>
 #include <cctype>

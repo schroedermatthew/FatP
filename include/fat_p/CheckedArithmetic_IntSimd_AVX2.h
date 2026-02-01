@@ -1,21 +1,3 @@
-/**
- * @file CheckedArithmetic_IntSimd_AVX2.h
- * @brief AVX2 (256-bit) integer SIMD acceleration for checked arithmetic
- *
- *
- * @layer Foundation
- *
- * @version 1.2 (Added uint64_t add, fixed brace style)
- *
- * Provides 8-wide int32 and 4-wide int64 acceleration for add/sub/mul operations.
- * Uses detect -> scalar fallback pattern for proper error classification.
- *
- * Multiplication uses wide-multiply approach:
- * - int32 * int32 -> int64 intermediate
- * - Bounds check against INT32_MIN/MAX
- * - No intermediate overflow possible
- */
-
 #pragma once
 
 /*
@@ -41,6 +23,23 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file CheckedArithmetic_IntSimd_AVX2.h
+ * @brief AVX2 (256-bit) integer SIMD acceleration for checked arithmetic
+ *
+ *
+ * @version 1.2 (Added uint64_t add, fixed brace style)
+ *
+ * Provides 8-wide int32 and 4-wide int64 acceleration for add/sub/mul operations.
+ * Uses detect -> scalar fallback pattern for proper error classification.
+ *
+ * Multiplication uses wide-multiply approach:
+ * - int32 * int32 -> int64 intermediate
+ * - Bounds check against INT32_MIN/MAX
+ * - No intermediate overflow possible
+ */
+
 #include "CheckedArithmetic_IntSimd_Common.h"
 
 #if defined(FATP_INT_SIMD_AVX2)

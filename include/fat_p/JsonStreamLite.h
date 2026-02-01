@@ -1,9 +1,3 @@
-/**
- * @file JsonStreamLite.h
- * @brief Streaming JSON parser with incremental processing
- *
- * @layer Foundation
- */
 #pragma once
 
 /*
@@ -31,6 +25,13 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file JsonStreamLite.h
+ * @brief Streaming JSON parser with incremental processing
+ *
+ */
+
 /**
  * @file JsonStreamLite.h
  * @brief Streaming JSON parser with incremental DOM construction

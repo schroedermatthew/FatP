@@ -1,8 +1,34 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: LockFreeQueue
+  file_role: public_header
+  path: include/fat_p/LockFreeQueue.h
+  namespace: fat_p
+  layer: Concurrency
+  summary: "Lock-free MPMC queue with sequence-number ABA prevention."
+  api_stability: stable
+  related:
+    docs_search: "LockFreeQueue"
+    tests:
+      - components/LockFreeContainers/tests/test_LockFreeQueue.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file LockFreeQueue.h
  * @brief Lock-free MPMC queue with sequence-number-based ABA prevention
- *
- * @layer Concurrency
  *
  * @details Lock-free multi-producer multi-consumer queue using atomic operations
  * with per-slot sequence numbers for ABA problem prevention. Provides O(1)
@@ -38,34 +64,6 @@
  * auto stats = queue.stats();
  * @endcode
  */
-
-#pragma once
-
-/*
-FATP_META:
-  meta_version: 1
-  component: LockFreeQueue
-  file_role: public_header
-  path: include/fat_p/LockFreeQueue.h
-  namespace: fat_p
-  layer: Concurrency
-  summary: "Lock-free MPMC queue with sequence-number ABA prevention."
-  api_stability: stable
-  related:
-    docs_search: "LockFreeQueue"
-    tests:
-      - components/LockFreeContainers/tests/test_LockFreeQueue.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 
 #include "FatPConfig.h"
 

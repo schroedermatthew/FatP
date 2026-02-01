@@ -1,8 +1,39 @@
+#pragma once
+
+/*
+FATP_META:
+  meta_version: 1
+  component: StableHashMap
+  file_role: public_header
+  path: include/fat_p/StableHashMap.h
+  namespace: fat_p
+  layer: Containers
+  summary: Reference-stable hash map with SIMD control-byte probing and configurable node allocation.
+  api_stability: candidate
+  related:
+    docs:
+      - Documentation/Associative Containers/StableHashMap_User_Manual.md
+      - Documentation/Associative Containers/StableHashMap_Overview.md
+      - Documentation/Associative Containers/Companion Guide - StableHashMap.md
+    tests:
+      - components/FatPHashMap/tests/test_StableHashMap.cpp
+    benchmarks:
+      - components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 /**
  * @file StableHashMap.h
  * @brief Reference-stable hash map with SIMD-accelerated probing
- *
- * @layer Containers
  *
  * @details
  * Features:
@@ -36,38 +67,6 @@
  * Erase:  4.6x faster
  * Compiler flags for AVX2: -mavx2 or -march=native (GCC/Clang), /arch:AVX2 (MSVC)
  */
-#pragma once
-/*
-FATP_META:
-  meta_version: 1
-  component: StableHashMap
-  file_role: public_header
-  path: include/fat_p/StableHashMap.h
-  namespace: fat_p
-  layer: Containers
-  summary: Reference-stable hash map with SIMD control-byte probing and configurable node allocation.
-  api_stability: candidate
-  related:
-    docs:
-      - Documentation/Associative Containers/StableHashMap_User_Manual.md
-      - Documentation/Associative Containers/StableHashMap_Overview.md
-      - Documentation/Associative Containers/Companion Guide - StableHashMap.md
-    tests:
-      - components/FatPHashMap/tests/test_StableHashMap.cpp
-    benchmarks:
-      - components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp
-  hygiene:
-    pragma_once: true
-    include_guard: false
-    defines_total: 0
-    defines_unprefixed: 0
-    undefs_total: 0
-    includes_windows_h: false
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
-
 
 #include <cassert>
 #include <cstddef>
@@ -106,7 +105,6 @@ namespace fat_p
 
 namespace stablehash_detail
 {
-
 
 #if defined(FATP_STABLEHASHMAP_TESTING)
 struct StableHashMapTestingAccess;
@@ -637,7 +635,6 @@ private:
 
     static constexpr size_t kMinCapacity = Group::kWidth * 2;
 
-
     static double validate_max_load_factor(double load_factor)
     {
         // Requirements: 0 < lf <= 1.0 (reserve() arithmetic and termination guarantees)
@@ -733,7 +730,6 @@ private:
             growth_threshold_ = 1;
         }
     }
-
 
     void deallocate()
     {

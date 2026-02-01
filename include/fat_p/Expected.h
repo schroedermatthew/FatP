@@ -35,8 +35,6 @@ FATP_META:
  *
  *
  *
- * @layer Foundation
- *
  * @section features Key Features
  * - Complete monadic interface (map, and_then, or_else, transform_error)
  * - value_or_else() for lazy defaults

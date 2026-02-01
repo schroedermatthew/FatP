@@ -1,26 +1,3 @@
-/**
- * @file DiagnosticLogger_IO.h
- * @brief Extension for File I/O, Rotation, Ring Buffers, Async Logging, and Resilience.
- *
- *
- * @layer Domain
- *
- * @dependencies <filesystem>, <fstream>, CircularBuffer, ThreadPool, ScopeGuard
- *
- * FIXES APPLIED (v2.0):
- * - P1.3: Fixed loop underflow in rotation
- * - P1.5: Fixed tellp() error handling
- * - P2.1: Exception-safe constructors (no throws)
- * - P3.1: RingBufferSink now uses CircularBuffer
- * - P3.2: Added AsyncSink using mutex-protected queue + ThreadPool
- * - P3.3: Added RateLimitingSink
- * - P3.4: Added FilteringSink
- *
- * IMPROVEMENTS (v2.1):
- * - Added ScopeGuard integration for safer resource management
- * - Enhanced RotatingFileSink::rotate() with guaranteed file reopening
- * - Enhanced ResilientSink with automatic failure state management
- */
 #pragma once
 
 /*
@@ -49,6 +26,29 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+/**
+ * @file DiagnosticLogger_IO.h
+ * @brief Extension for File I/O, Rotation, Ring Buffers, Async Logging, and Resilience.
+ *
+ *
+ * @dependencies <filesystem>, <fstream>, CircularBuffer, ThreadPool, ScopeGuard
+ *
+ * FIXES APPLIED (v2.0):
+ * - P1.3: Fixed loop underflow in rotation
+ * - P1.5: Fixed tellp() error handling
+ * - P2.1: Exception-safe constructors (no throws)
+ * - P3.1: RingBufferSink now uses CircularBuffer
+ * - P3.2: Added AsyncSink using mutex-protected queue + ThreadPool
+ * - P3.3: Added RateLimitingSink
+ * - P3.4: Added FilteringSink
+ *
+ * IMPROVEMENTS (v2.1):
+ * - Added ScopeGuard integration for safer resource management
+ * - Enhanced RotatingFileSink::rotate() with guaranteed file reopening
+ * - Enhanced ResilientSink with automatic failure state management
+ */
+
 #include "DiagnosticLogger_Core.h"
 #include "ScopeGuard.h"
 #include "ThreadPool.h"
