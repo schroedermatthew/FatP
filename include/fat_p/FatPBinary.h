@@ -16,9 +16,9 @@ FATP_META:
       - components/BinarySerialization/tests/test_FatPBinary.cpp
   hygiene:
     pragma_once: true
-    include_guard: true
-    defines_total: 2
-    defines_unprefixed: 1
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
   generated:
@@ -41,7 +41,7 @@ FATP_META:
  * - BinaryTraits<T> for extensible type serialization
  * - Native support for fat_p types (Expected, SmallVector, StrongId, EnumPlus)
  * - Little-endian format optimized for internal data exchange
- * C++17, header-only
+ * C++20, header-only
  */
 
 // These headers can be mocked for standalone testing
@@ -499,13 +499,13 @@ public:
             return make_unexpected(tag.error());
         }
 
-        auto len_result = readLe<std::uint64_t>();
-        if (!len_result)
+        auto lenResult = readLe<std::uint64_t>();
+        if (!lenResult)
         {
-            return make_unexpected(len_result.error());
+            return make_unexpected(lenResult.error());
         }
 
-        const auto len = static_cast<std::size_t>(*len_result);
+        const auto len = static_cast<std::size_t>(*lenResult);
         if (remaining() < len)
         {
             return make_unexpected(BinaryError("Buffer underflow reading string"));
@@ -524,13 +524,13 @@ public:
             return make_unexpected(tag.error());
         }
 
-        auto len_result = readLe<std::uint64_t>();
-        if (!len_result)
+        auto lenResult = readLe<std::uint64_t>();
+        if (!lenResult)
         {
-            return make_unexpected(len_result.error());
+            return make_unexpected(lenResult.error());
         }
 
-        const auto len = static_cast<std::size_t>(*len_result);
+        const auto len = static_cast<std::size_t>(*lenResult);
         if (remaining() < len)
         {
             return make_unexpected(BinaryError("Buffer underflow reading bytes"));
@@ -901,13 +901,13 @@ struct BinaryTraits<std::vector<T, Alloc>>
     template <typename Reader>
     static BinaryResult<std::vector<T, Alloc>> decode(Reader& reader)
     {
-        auto len_result = reader.readArrayHeader();
-        if (!len_result)
+        auto lenResult = reader.readArrayHeader();
+        if (!lenResult)
         {
-            return make_unexpected(len_result.error());
+            return make_unexpected(lenResult.error());
         }
 
-        const auto len = *len_result;
+        const auto len = *lenResult;
         if (len > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max()))
         {
             return make_unexpected(BinaryError("Array length too large"));
@@ -951,13 +951,13 @@ struct BinaryTraits<std::map<K, V, Compare, Alloc>>
     template <typename Reader>
     static BinaryResult<std::map<K, V, Compare, Alloc>> decode(Reader& reader)
     {
-        auto len_result = reader.readMapHeader();
-        if (!len_result)
+        auto lenResult = reader.readMapHeader();
+        if (!lenResult)
         {
-            return make_unexpected(len_result.error());
+            return make_unexpected(lenResult.error());
         }
 
-        const auto len = *len_result;
+        const auto len = *lenResult;
         if (len > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max()))
         {
             return make_unexpected(BinaryError("Map length too large"));

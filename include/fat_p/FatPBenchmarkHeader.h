@@ -1,6 +1,31 @@
 // ===========================================================================
 // FatPBenchmarkHeader.h - Standardized benchmark header output
 // ===========================================================================
+/*
+FATP_META:
+  meta_version: 1
+  component: Benchmark
+  file_role: internal_header
+  path: include/fat_p/FatPBenchmarkHeader.h
+  namespace: fat_p::bench
+  layer: Infrastructure
+  summary: "Standardized benchmark header output utilities."
+  api_stability: in_work
+  related:
+    docs_search: "Benchmark"
+    headers:
+      - include/fat_p/FatPBenchmarkRunner.h
+  hygiene:
+    pragma_once: false
+    include_guard: true
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+  generated:
+    by: fatp-meta-tool
+    mode: manual
+*/
 // Usage:
 //   #include "FatPBenchmarkHeader.h"
 //   

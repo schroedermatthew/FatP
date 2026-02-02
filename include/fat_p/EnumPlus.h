@@ -114,7 +114,7 @@ public:
     {
     }
 
-    // DELETE construction from underlying type — enforces strong typing
+    // DELETE construction from underlying type -- enforces strong typing
     EnumPlusWrapper(underlying_type) = delete;
     EnumPlusWrapper& operator=(underlying_type) = delete;
 

@@ -33,7 +33,7 @@ FATP_META:
  * @brief Multi-dimensional tensor iterator policy for PolicyIterator.
  *
  * Provides true N-dimensional tensor iteration with configurable shape and strides.
- * Uses SmallVector for zero-allocation storage of typical tensor dimensions (â‰¤8D).
+ * Uses SmallVector for zero-allocation storage of typical tensor dimensions (<=8D).
  *
  * @note **Performance guidance:** For hot 1D/2D row-major loops, prefer
  *       Stride1DPolicy / Stride2DPolicy (defined at the end of this file).
@@ -52,7 +52,7 @@ FATP_META:
  * - advance()/retreat(): O(1) amortized, O(dims) worst case on rollover
  * - currentOffset(): O(1) - cached value
  *
- * Memory: Zero heap allocation for â‰¤8 dimensions (MaxInlineDims).
+ * Memory: Zero heap allocation for <=8 dimensions (MaxInlineDims).
  *
  * CONTIGUOUS vs NON-CONTIGUOUS DETECTION:
  * @code
@@ -82,9 +82,9 @@ FATP_META:
  *   Iteration: [0,0], [1,0], [2,0], [0,1], ... [2,3]
  *
  * MEMORY FOOTPRINT:
- * With default MaxInlineDims=8, sizeof(TensorStridePolicy) â‰ˆ 296 bytes.
- * This is the tradeoff for zero heap allocation on â‰¤8 dimensions.
- * If memory is critical, reduce MaxInlineDims (e.g., MaxInlineDims=4 for â‰ˆ152 bytes).
+ * With default MaxInlineDims=8, sizeof(TensorStridePolicy) ~ 296 bytes.
+ * This is the tradeoff for zero heap allocation on <=8 dimensions.
+ * If memory is critical, reduce MaxInlineDims (e.g., MaxInlineDims=4 for ~152 bytes).
  *
  * MEMORY REQUIREMENTS:
  * The caller must ensure that ALL computed offsets lie within [0, end-base).
@@ -136,8 +136,8 @@ inline constexpr std::size_t kDefaultTensorDims = 8;
 // TensorStridePolicy is the "general correctness" option: it supports true N-dimensional
 // iteration with configurable shape + strides (including permuted axes and non-trivial layouts).
 //
-// This generality has an inherent cost. In tight microbenchmarksâ€”especially for contiguous
-// traversal and simple reductionsâ€”the compiler is less likely to auto-vectorize/unroll an
+// This generality has an inherent cost. In tight microbenchmarks--especially for contiguous
+// traversal and simple reductions--the compiler is less likely to auto-vectorize/unroll an
 // iterator-driven loop than a raw pointer loop. As a result, TensorStridePolicy can be
 // multiple times slower than hand-written loops or tuned libraries (e.g., Eigen) on contiguous
 // data.

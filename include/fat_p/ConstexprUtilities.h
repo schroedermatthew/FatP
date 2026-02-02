@@ -32,7 +32,7 @@ FATP_META:
  *
  * @details
  * Compile-time utilities for hashing, arithmetic, and string operations
- * C++17 header-only library
+ * C++20 header-only library
  */
 
 #include "CppFeatureDetection.h"

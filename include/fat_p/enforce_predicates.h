@@ -3,7 +3,7 @@
 /*
 FATP_META:
   meta_version: 1
-  component: enforce_predicates
+  component: Enforce
   file_role: public_header
   path: include/fat_p/enforce_predicates.h
   namespace: fat_p

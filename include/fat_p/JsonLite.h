@@ -34,7 +34,7 @@ FATP_META:
  *
  *
  * @section overview Overview
- * JsonLite is a modern C++17 header-only JSON library designed specifically for
+ * JsonLite is a modern C++20 header-only JSON library designed specifically for
  * application configuration files, parameter persistence, and structured data
  * serialization where simplicity and minimal external dependencies are priorities.
  *
@@ -42,7 +42,7 @@ FATP_META:
  * For fat_p component integration, use FatPJson.h instead.
  *
  * @section features Features
- * - C++17 header-only library (single file, no build configuration)
+ * - C++20 header-only library (single file, no build configuration)
  * - Zero external dependencies
  * - Policy-based design for compile-time customization
  * - Type-safe variant-based JSON value representation
@@ -97,7 +97,7 @@ FATP_META:
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib> // std::abort (used in unreachableAfterEnforce)
+#include <cstdlib> // std::abort (used in unreachable_after_enforce)
 #include <deque>
 #include <fstream>
 #include <iomanip>
@@ -115,7 +115,7 @@ FATP_META:
 #include <string_view>
 #include <tuple>
 #include <type_traits>
-#include <typeinfo> // typeid (used in checkedCast error messages)
+#include <typeinfo> // typeid (used in checked_cast error messages)
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -187,17 +187,17 @@ struct SourceLocation
 /**
  * @brief Appends a single value to an output string stream
  *
- * @details Base case for the variadic appendToStream template. Simply streams
+ * @details Base case for the variadic append_to_stream template. Simply streams
  * the value to the output string stream using operator<<.
  *
  * @tparam T Type of value to append (must support operator<<)
  * @param oss Output string stream to append to
  * @param value Value to append
  *
- * @see appendToStream(std::ostringstream&, const T&, const Args&...)
+ * @see append_to_stream(std::ostringstream&, const T&, const Args&...)
  */
 template <typename T>
-inline void appendToStream(std::ostringstream& oss, const T& value)
+inline void append_to_stream(std::ostringstream& oss, const T& value)
 {
     oss << value;
 }
@@ -211,7 +211,7 @@ inline void appendToStream(std::ostringstream& oss, const T& value)
  *
  * @code{.cpp}
  * std::ostringstream oss;
- * appendToStream(oss, "Error:", 42, "value", 3.14);
+ * append_to_stream(oss, "Error:", 42, "value", 3.14);
  * // Result: "Error: 42 value 3.14 "
  * @endcode
  *
@@ -224,21 +224,21 @@ inline void appendToStream(std::ostringstream& oss, const T& value)
  * @see FATP_JSON_ENFORCE_impl
  */
 template <typename T, typename... Args>
-inline void appendToStream(std::ostringstream& oss, const T& first, const Args&... rest)
+inline void append_to_stream(std::ostringstream& oss, const T& first, const Args&... rest)
 {
     oss << first << " ";
-    appendToStream(oss, rest...);
+    append_to_stream(oss, rest...);
 }
 
 /**
- * @brief Base case for variadic appendToStream (no arguments)
+ * @brief Base case for variadic append_to_stream (no arguments)
  *
  * @details Terminal case of the recursive template that does nothing.
  * This is called when all arguments have been processed.
  *
  * @param oss Output string stream (unused in base case)
  */
-inline void appendToStream(std::ostringstream&)
+inline void append_to_stream(std::ostringstream&)
 {
 }
 
@@ -274,7 +274,7 @@ template <typename... Args>
         if constexpr (sizeof...(args) > 0)
         {
             oss << " - ";
-            appendToStream(oss, std::forward<Args>(args)...);
+            append_to_stream(oss, std::forward<Args>(args)...);
         }
 
         throw std::runtime_error(oss.str());
@@ -330,7 +330,7 @@ template <typename... Args>
 //
 // JsonLite is designed to be usable without any other Fat-P components.
 // These utilities live in fat_p::json_lite to avoid collision with the
-// full Fat-P versions (e.g., checkedCast in CheckedArithmetic.h).
+// full Fat-P versions (e.g., checked_cast in CheckedArithmetic.h).
 //
 // Use fat_p::jl:: as a short alias.
 //
@@ -346,13 +346,13 @@ namespace json_lite
  *
  * @code{.cpp}
  * int64_t big = 1000;
- * int small = json_lite::checkedCast<int>(big);  // OK
+ * int small = json_lite::checked_cast<int>(big);  // OK
  *
  * int64_t too_big = INT_MAX + 1LL;
- * int fail = json_lite::checkedCast<int>(too_big);  // Throws!
+ * int fail = json_lite::checked_cast<int>(too_big);  // Throws!
  *
  * int negative = -1;
- * unsigned int ufail = json_lite::checkedCast<unsigned int>(negative);  // Throws!
+ * unsigned int ufail = json_lite::checked_cast<unsigned int>(negative);  // Throws!
  * @endcode
  *
  * @tparam To   Target integral type
@@ -365,7 +365,7 @@ namespace json_lite
  * @see from_json
  */
 template <typename To, typename From>
-inline To checkedCast(From value)
+inline To checked_cast(From value)
 {
     // Case 1: Same type - no conversion needed, zero overhead
     if constexpr (std::is_same_v<To, From>)
@@ -507,7 +507,7 @@ inline constexpr double double_epsilon = std::numeric_limits<double>::epsilon() 
  * @throws std::runtime_error if validation fails
  */
 template <typename IntType>
-inline void convertDoubleToInt(double d, IntType& result, const char* typeName)
+inline void convert_double_to_int(double d, IntType& result, const char* typeName)
 {
     static_assert(std::is_integral_v<IntType>, "IntType must be an integral type");
 
@@ -611,7 +611,7 @@ inline void convertDoubleToInt(double d, IntType& result, const char* typeName)
  *
  * @see FATP_JSON_ENFORCE
  */
-[[noreturn]] inline void unreachableAfterEnforce()
+[[noreturn]] inline void unreachable_after_enforce()
 {
     std::abort();
 }
@@ -1186,7 +1186,7 @@ struct PolicyContext
     bool escape_unicode = true;
 
     template <typename Policy>
-    static PolicyContext fromPolicy()
+    static PolicyContext from_policy()
     {
         PolicyContext ctx;
         ctx.numeric_precision = Policy::numeric_precision;
@@ -1196,22 +1196,22 @@ struct PolicyContext
     }
 };
 
-inline thread_local std::unique_ptr<PolicyContext> currentPolicyContext = nullptr;
+inline thread_local std::unique_ptr<PolicyContext> current_policy_context = nullptr;
 
 template <typename Policy>
 struct PolicyScope
 {
-    std::unique_ptr<PolicyContext> prevCtx;
+    std::unique_ptr<PolicyContext> prev_ctx;
 
     PolicyScope()
-        : prevCtx(std::move(currentPolicyContext))
+        : prev_ctx(std::move(current_policy_context))
     {
-        currentPolicyContext = std::make_unique<PolicyContext>(PolicyContext::fromPolicy<Policy>());
+        current_policy_context = std::make_unique<PolicyContext>(PolicyContext::from_policy<Policy>());
     }
 
     ~PolicyScope()
     {
-        currentPolicyContext = std::move(prevCtx);
+        current_policy_context = std::move(prev_ctx);
     }
 
     PolicyScope(const PolicyScope&) = delete;
@@ -1221,21 +1221,21 @@ struct PolicyScope
 };
 
 template <typename Policy>
-inline int getEffectiveNumericPrecision()
+inline int get_effective_numeric_precision()
 {
-    return currentPolicyContext ? currentPolicyContext->numeric_precision : Policy::numeric_precision;
+    return current_policy_context ? current_policy_context->numeric_precision : Policy::numeric_precision;
 }
 
 template <typename Policy>
-inline bool getEffectiveAllowNanInf()
+inline bool get_effective_allow_nan_inf()
 {
-    return currentPolicyContext ? currentPolicyContext->allow_nan_inf : Policy::allow_nan_inf;
+    return current_policy_context ? current_policy_context->allow_nan_inf : Policy::allow_nan_inf;
 }
 
 template <typename Policy>
-inline bool getEffectiveEscapeUnicode()
+inline bool get_effective_escape_unicode()
 {
-    return currentPolicyContext ? currentPolicyContext->escape_unicode : Policy::escape_unicode;
+    return current_policy_context ? current_policy_context->escape_unicode : Policy::escape_unicode;
 }
 
 } // namespace json_detail
@@ -1250,7 +1250,7 @@ namespace json_detail
  * @param indent Number of space characters to output
  */
 template <typename Os>
-inline void outputIndent(Os& os, int indent)
+inline void output_indent(Os& os, int indent)
 {
     for (int i = 0; i < indent; ++i)
     {
@@ -1269,7 +1269,7 @@ inline void outputIndent(Os& os, int indent)
  * @param codepoint Unicode codepoint to escape (0x000000 to 0x10FFFF)
  */
 template <typename Os>
-inline void outputUnicodeEscape(Os& os, uint32_t codepoint)
+inline void output_unicode_escape(Os& os, uint32_t codepoint)
 {
     if (codepoint <= 0xFFFF)
     {
@@ -1300,13 +1300,13 @@ inline void outputUnicodeEscape(Os& os, uint32_t codepoint)
  * @param os Output stream to write to
  * @param s String view to escape and output
  *
- * @see outputUnicodeEscape
+ * @see output_unicode_escape
  * @see StandardJsonPolicy::escape_unicode
  */
 template <typename Os, typename Policy>
-void escapeString(Os& os, std::string_view s)
+void escape_string(Os& os, std::string_view s)
 {
-    bool escape_unicode = getEffectiveEscapeUnicode<Policy>();
+    bool escape_unicode = get_effective_escape_unicode<Policy>();
     os << '"';
 
     for (size_t i = 0; i < s.size();)
@@ -1350,7 +1350,7 @@ void escapeString(Os& os, std::string_view s)
         // Control characters (0x00-0x1F)
         if (c < 0x20)
         {
-            outputUnicodeEscape(os, c);
+            output_unicode_escape(os, c);
             ++i;
             continue;
         }
@@ -1393,7 +1393,7 @@ void escapeString(Os& os, std::string_view s)
         else
         {
             // Invalid lead byte - escape as-is
-            outputUnicodeEscape(os, c);
+            output_unicode_escape(os, c);
             ++i;
             continue;
         }
@@ -1401,7 +1401,7 @@ void escapeString(Os& os, std::string_view s)
         // Incomplete sequence
         if (i + bytes > s.size())
         {
-            outputUnicodeEscape(os, c);
+            output_unicode_escape(os, c);
             ++i;
             continue;
         }
@@ -1421,12 +1421,12 @@ void escapeString(Os& os, std::string_view s)
 
         if (!valid)
         {
-            outputUnicodeEscape(os, c);
+            output_unicode_escape(os, c);
             ++i;
             continue;
         }
 
-        outputUnicodeEscape(os, codepoint);
+        output_unicode_escape(os, codepoint);
         i += bytes;
     }
 
@@ -1453,7 +1453,7 @@ void escapeString(Os& os, std::string_view s)
  * @see StandardJsonPolicy::number_format
  */
 template <typename Os, typename T, typename Policy>
-void dumpScalar(Os& os, const T& obj)
+void dump_scalar(Os& os, const T& obj)
 {
     if constexpr (std::is_same_v<T, bool>)
     {
@@ -1470,7 +1470,7 @@ void dumpScalar(Os& os, const T& obj)
             // NaN handling: JSON has no NaN literal, so either use extension or null
             if (std::isnan(obj))
             {
-                bool allow_nan_inf = getEffectiveAllowNanInf<Policy>();
+                bool allow_nan_inf = get_effective_allow_nan_inf<Policy>();
                 if (allow_nan_inf)
                 {
                     os << "NaN";
@@ -1483,7 +1483,7 @@ void dumpScalar(Os& os, const T& obj)
             // Infinity handling: same rationale as NaN
             else if (std::isinf(obj))
             {
-                bool allow_nan_inf = getEffectiveAllowNanInf<Policy>();
+                bool allow_nan_inf = get_effective_allow_nan_inf<Policy>();
                 if (allow_nan_inf)
                 {
                     os << (obj > 0 ? "Infinity" : "-Infinity");
@@ -1507,7 +1507,7 @@ void dumpScalar(Os& os, const T& obj)
                 }
                 else
                 {
-                    int numeric_precision = getEffectiveNumericPrecision<Policy>();
+                    int numeric_precision = get_effective_numeric_precision<Policy>();
                     constexpr auto format = Policy::number_format;
 
                     if constexpr (format == NumberFormat::Fixed)
@@ -1549,7 +1549,7 @@ void dumpScalar(Os& os, const T& obj)
     }
     else if constexpr (std::is_convertible_v<T, std::string_view>)
     {
-        escapeString<Os, Policy>(os, obj);
+        escape_string<Os, Policy>(os, obj);
     }
 }
 
@@ -1692,7 +1692,7 @@ inline constexpr bool is_sequence_container_v = is_sequence_container<T>::value;
  * @throws std::runtime_error if depth exceeds Policy::max_dump_depth
  */
 template <typename Policy>
-inline void checkDumpDepth(int indent)
+inline void check_dump_depth(int indent)
 {
     // Derive nesting depth from indentation level
     // Guard against indent_step == 0 to prevent division by zero
@@ -1771,7 +1771,7 @@ struct JsonDispatcher<
         else
         {
             // Built-in scalar: bool, integer, float, or string
-            json_detail::dumpScalar<Os, T, Policy>(os, obj);
+            json_detail::dump_scalar<Os, T, Policy>(os, obj);
         }
     }
 };
@@ -1814,20 +1814,20 @@ struct JsonDispatcher<std::pair<T1, T2>, Policy>
         }
         if (pretty)
         {
-            json_detail::outputIndent(os, indent + Policy::indent_step);
+            json_detail::output_indent(os, indent + Policy::indent_step);
         }
         JsonDispatcher<T1, Policy>::dump(os, p.first, pretty, indent + Policy::indent_step);
         os << ',';
         if (pretty)
         {
             os << '\n';
-            json_detail::outputIndent(os, indent + Policy::indent_step);
+            json_detail::output_indent(os, indent + Policy::indent_step);
         }
         JsonDispatcher<T2, Policy>::dump(os, p.second, pretty, indent + Policy::indent_step);
         if (pretty)
         {
             os << '\n';
-            json_detail::outputIndent(os, indent);
+            json_detail::output_indent(os, indent);
         }
         os << ']';
     }
@@ -1865,7 +1865,7 @@ struct JsonDispatcher<
     template <typename Os>
     static void dump(Os& os, const T& cont, bool pretty = Policy::pretty_print, int indent = 0)
     {
-        json_detail::checkDumpDepth<Policy>(indent);
+        json_detail::check_dump_depth<Policy>(indent);
         os << '[';
         if (pretty && !cont.empty())
         {
@@ -1882,7 +1882,7 @@ struct JsonDispatcher<
             if (pretty)
             {
                 os << '\n';
-                json_detail::outputIndent(os, indent + Policy::indent_step);
+                json_detail::output_indent(os, indent + Policy::indent_step);
             }
             first = false;
             JsonDispatcher<json_detail::ContainerValueT<T>, Policy>::dump(os,
@@ -1893,7 +1893,7 @@ struct JsonDispatcher<
         if (pretty && !cont.empty())
         {
             os << '\n';
-            json_detail::outputIndent(os, indent);
+            json_detail::output_indent(os, indent);
         }
         os << ']';
     }
@@ -1915,7 +1915,7 @@ struct JsonDispatcher<
     template <typename Os>
     static void dump(Os& os, const T& cont, bool pretty = Policy::pretty_print, int indent = 0)
     {
-        json_detail::checkDumpDepth<Policy>(indent);
+        json_detail::check_dump_depth<Policy>(indent);
         os << '{';
         if (pretty && !cont.empty())
         {
@@ -1931,14 +1931,14 @@ struct JsonDispatcher<
             if (pretty)
             {
                 os << '\n';
-                json_detail::outputIndent(os, indent + Policy::indent_step);
+                json_detail::output_indent(os, indent + Policy::indent_step);
             }
             first = false;
 
             // String-convertible keys: use directly
             if constexpr (std::is_convertible_v<typename T::key_type, std::string_view>)
             {
-                json_detail::escapeString<Os, Policy>(os, elem.first);
+                json_detail::escape_string<Os, Policy>(os, elem.first);
             }
             else
             {
@@ -1946,7 +1946,7 @@ struct JsonDispatcher<
                 std::ostringstream key_stream;
                 key_stream.imbue(std::locale::classic());
                 key_stream << elem.first;
-                json_detail::escapeString<Os, Policy>(os, key_stream.str());
+                json_detail::escape_string<Os, Policy>(os, key_stream.str());
             }
 
             os << (pretty ? " : " : ":");
@@ -1958,7 +1958,7 @@ struct JsonDispatcher<
         if (pretty && !cont.empty())
         {
             os << '\n';
-            json_detail::outputIndent(os, indent);
+            json_detail::output_indent(os, indent);
         }
         os << '}';
     }
@@ -2015,7 +2015,7 @@ void dump_tuple_impl(Os& os, const Tuple& tup, std::index_sequence<I...>, bool p
          if (pretty)
          {
              os << '\n';
-             outputIndent(os, indent + Policy::indent_step);
+             output_indent(os, indent + Policy::indent_step);
          }
          first = false;
          JsonDispatcher<std::tuple_element_t<I, Tuple>, Policy>::dump(os,
@@ -2026,7 +2026,7 @@ void dump_tuple_impl(Os& os, const Tuple& tup, std::index_sequence<I...>, bool p
     if (pretty && sizeof...(I) > 0)
     {
         os << '\n';
-        outputIndent(os, indent);
+        output_indent(os, indent);
     }
     os << ']';
 }
@@ -5303,7 +5303,7 @@ inline JsonValue parse_number(std::string_view s, size_t& pos)
                       start,
                       "value",
                       std::string(s.substr(start, scan_pos - start)));
-    unreachableAfterEnforce();
+    unreachable_after_enforce();
 }
 
 /**
@@ -5372,7 +5372,7 @@ inline JsonArray parse_array(std::string_view s, size_t& pos, size_t depth)
     }
 
     FATP_JSON_ENFORCE(false, "JSON parse error: unterminated array");
-    unreachableAfterEnforce();
+    unreachable_after_enforce();
 }
 
 /**
@@ -5453,7 +5453,7 @@ inline JsonObject parse_object(std::string_view s, size_t& pos, size_t depth)
     }
 
     FATP_JSON_ENFORCE(false, "JSON parse error: unterminated object");
-    unreachableAfterEnforce();
+    unreachable_after_enforce();
 }
 
 /**
@@ -5525,7 +5525,7 @@ inline JsonValue parse_value(std::string_view s, size_t& pos, size_t depth)
     }
 
     FATP_JSON_ENFORCE(false, "JSON parse error: invalid value", "position", pos);
-    unreachableAfterEnforce();
+    unreachable_after_enforce();
 }
 
 } // namespace json_detail
@@ -5847,7 +5847,7 @@ inline T json_decode(const JsonValue& j)
  * @brief Convert JsonValue to C++ primitives via output reference
  *
  * @details These overloads extract values from JsonValue into C++ types.
- * Numeric conversions use checkedCast for overflow detection. Double values
+ * Numeric conversions use checked_cast for overflow detection. Double values
  * are validated for fractional parts when converting to integers.
  *
  * @param j Input JsonValue
@@ -5867,12 +5867,12 @@ inline void from_json(const JsonValue& j, int& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checkedCast<int>(i64);
+        value = json_lite::checked_cast<int>(i64);
     }
     else if (j.is_number())
     {
         // Double path: validate no fractional part, then range check
-        json_detail::convertDoubleToInt(std::get<double>(j), value, "int");
+        json_detail::convert_double_to_int(std::get<double>(j), value, "int");
     }
     else
     {
@@ -5885,11 +5885,11 @@ inline void from_json(const JsonValue& j, unsigned int& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checkedCast<unsigned int>(i64);
+        value = json_lite::checked_cast<unsigned int>(i64);
     }
     else if (j.is_number())
     {
-        json_detail::convertDoubleToInt(std::get<double>(j), value, "unsigned int");
+        json_detail::convert_double_to_int(std::get<double>(j), value, "unsigned int");
     }
     else
     {
@@ -5902,11 +5902,11 @@ inline void from_json(const JsonValue& j, long& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checkedCast<long>(i64);
+        value = json_lite::checked_cast<long>(i64);
     }
     else if (j.is_number())
     {
-        json_detail::convertDoubleToInt(std::get<double>(j), value, "long");
+        json_detail::convert_double_to_int(std::get<double>(j), value, "long");
     }
     else
     {
@@ -5919,11 +5919,11 @@ inline void from_json(const JsonValue& j, unsigned long& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checkedCast<unsigned long>(i64);
+        value = json_lite::checked_cast<unsigned long>(i64);
     }
     else if (j.is_number())
     {
-        json_detail::convertDoubleToInt(std::get<double>(j), value, "unsigned long");
+        json_detail::convert_double_to_int(std::get<double>(j), value, "unsigned long");
     }
     else
     {
@@ -5940,7 +5940,7 @@ inline void from_json(const JsonValue& j, long long& value)
     }
     else if (j.is_number())
     {
-        json_detail::convertDoubleToInt(std::get<double>(j), value, "long long");
+        json_detail::convert_double_to_int(std::get<double>(j), value, "long long");
     }
     else
     {
@@ -5953,11 +5953,11 @@ inline void from_json(const JsonValue& j, unsigned long long& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checkedCast<unsigned long long>(i64);
+        value = json_lite::checked_cast<unsigned long long>(i64);
     }
     else if (j.is_number())
     {
-        json_detail::convertDoubleToInt(std::get<double>(j), value, "unsigned long long");
+        json_detail::convert_double_to_int(std::get<double>(j), value, "unsigned long long");
     }
     else
     {
@@ -6010,11 +6010,11 @@ inline void from_json(const JsonValue& j, signed char& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checkedCast<signed char>(i64);
+        value = json_lite::checked_cast<signed char>(i64);
     }
     else if (j.is_number())
     {
-        // Inline validation for small types (convertDoubleToInt not specialized)
+        // Inline validation for small types (convert_double_to_int not specialized)
         double d = std::get<double>(j);
         double intpart;
         FATP_JSON_ENFORCE(fabs(std::modf(d, &intpart)) <= json_detail::double_epsilon,
@@ -6043,7 +6043,7 @@ inline void from_json(const JsonValue& j, unsigned char& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checkedCast<unsigned char>(i64);
+        value = json_lite::checked_cast<unsigned char>(i64);
     }
     else if (j.is_number())
     {
@@ -6074,7 +6074,7 @@ inline void from_json(const JsonValue& j, short& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checkedCast<short>(i64);
+        value = json_lite::checked_cast<short>(i64);
     }
     else if (j.is_number())
     {
@@ -6106,7 +6106,7 @@ inline void from_json(const JsonValue& j, unsigned short& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checkedCast<unsigned short>(i64);
+        value = json_lite::checked_cast<unsigned short>(i64);
     }
     else if (j.is_number())
     {

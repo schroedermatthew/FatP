@@ -29,7 +29,7 @@ FATP_META:
 /**
  * @file CborLite.h
  * @brief Minimal CBOR encoder/decoder with no Fat-P dependencies beyond the namespace.
- * C++17, header-only, standard library only.
+ * C++20, header-only, standard library only.
  */
 
 #include <cstddef>
@@ -307,11 +307,11 @@ public:
         ensureAvailable(mSize, mPos, 1U);
         const std::uint8_t initial = mData[mPos++];
 
-        const std::uint8_t major_bits = initial >> 5U;
+        const std::uint8_t majorBits = initial >> 5U;
         const std::uint8_t ai = initial & 0x1FU;
 
         ItemHeader header{};
-        header.major = static_cast<MajorType>(major_bits);
+        header.major = static_cast<MajorType>(majorBits);
         header.argument = readArgument(mData, mPos, mSize, ai);
         return header;
     }

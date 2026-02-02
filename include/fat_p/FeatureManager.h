@@ -33,7 +33,7 @@ FATP_META:
  * @brief Runtime feature flag management with compile-time optimization
  *
  * @details
- * A modern C++17 header-only library for managing feature flags with complex dependencies,
+ * A modern C++20 header-only library for managing feature flags with complex dependencies,
  * relationships, and validation. Designed for scenarios where features have interdependencies
  * (Requires, Implies, Conflicts, MutuallyExclusive) and need automatic resolution.
  * Key features:

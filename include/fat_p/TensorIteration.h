@@ -196,7 +196,7 @@ inline void computeRowMajorStrides(const std::size_t* shape, std::ptrdiff_t* str
  * @pre All shape dimensions > 0
  * @pre All strides > 0
  *
- * Iteration order: dim[0] (slowest) â†’ dim[1] â†’ ... â†’ dim[N-1] (fastest)
+ * Iteration order: dim[0] (slowest) -> dim[1] -> ... -> dim[N-1] (fastest)
  *
  * @par Performance
  * Equivalent to hand-written nested loops. The innermost 2 dimensions
@@ -232,7 +232,7 @@ void iterateND(T* base,
     FATP_ENFORCE(shape.size() == strides.size(), "Shape and strides must have same size");
     FATP_ENFORCE(shape.size() >= 1, "At least 1 dimension required");
 
-    // Use SmallVector to avoid heap allocation for typical tensor ranks (â‰¤8D)
+    // Use SmallVector to avoid heap allocation for typical tensor ranks (<=8D)
     SmallVector<std::size_t, 8> shapeVec(shape);
     SmallVector<std::ptrdiff_t, 8> strideVec(strides);
 

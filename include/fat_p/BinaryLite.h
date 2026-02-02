@@ -17,7 +17,7 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: false
-    defines_total: 1
+    defines_total: 0
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
@@ -33,7 +33,7 @@ FATP_META:
  * @details
  * Lightweight binary serialization library - standalone with minimal dependencies
  * Simple little-endian format optimized for speed and simplicity
- * C++17, header-only
+ * C++20, header-only
  * This is the STANDALONE version with minimal external dependencies.
  * For fat_p component integration (Expected-based API, HpcVector buffers,
  * fat_p type serialization), use FatPBinary.h instead.
