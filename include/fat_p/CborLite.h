@@ -73,7 +73,7 @@ struct ItemHeader
 // Low-level helpers
 // ----------------------------------------------------------------------------
 
-inline void write_type_and_argument(buffer& out, MajorType mt, std::uint64_t arg)
+inline void writeTypeAndArgument(buffer& out, MajorType mt, std::uint64_t arg)
 {
     const std::uint8_t major = static_cast<std::uint8_t>(mt) << 5U;
 
@@ -120,7 +120,7 @@ inline void write_type_and_argument(buffer& out, MajorType mt, std::uint64_t arg
     out.push_back(static_cast<byte>(arg & 0xFFU));
 }
 
-inline void ensure_available(std::size_t size, std::size_t pos, std::size_t required)
+inline void ensureAvailable(std::size_t size, std::size_t pos, std::size_t required)
 {
     if (pos + required > size)
     {
@@ -128,7 +128,7 @@ inline void ensure_available(std::size_t size, std::size_t pos, std::size_t requ
     }
 }
 
-inline std::size_t safe_to_size_t(std::uint64_t value, const char* context)
+inline std::size_t safeToSizeT(std::uint64_t value, const char* context)
 {
     if (value > std::numeric_limits<std::size_t>::max())
     {
@@ -137,7 +137,7 @@ inline std::size_t safe_to_size_t(std::uint64_t value, const char* context)
     return static_cast<std::size_t>(value);
 }
 
-inline std::uint64_t read_argument(const byte* data, std::size_t& pos, std::size_t size, std::uint8_t ai)
+inline std::uint64_t readArgument(const byte* data, std::size_t& pos, std::size_t size, std::uint8_t ai)
 {
     if (ai < 24U)
     {
@@ -146,7 +146,7 @@ inline std::uint64_t read_argument(const byte* data, std::size_t& pos, std::size
 
     if (ai == 24U)
     {
-        ensure_available(size, pos, 1U);
+        ensureAvailable(size, pos, 1U);
         const auto value = data[pos];
         ++pos;
         return value;
@@ -154,7 +154,7 @@ inline std::uint64_t read_argument(const byte* data, std::size_t& pos, std::size
 
     if (ai == 25U)
     {
-        ensure_available(size, pos, 2U);
+        ensureAvailable(size, pos, 2U);
         const std::uint64_t result =
             (static_cast<std::uint64_t>(data[pos]) << 8U) | static_cast<std::uint64_t>(data[pos + 1U]);
         pos += 2U;
@@ -163,7 +163,7 @@ inline std::uint64_t read_argument(const byte* data, std::size_t& pos, std::size
 
     if (ai == 26U)
     {
-        ensure_available(size, pos, 4U);
+        ensureAvailable(size, pos, 4U);
         std::uint64_t result = 0;
         for (int i = 0; i < 4; ++i)
         {
@@ -175,7 +175,7 @@ inline std::uint64_t read_argument(const byte* data, std::size_t& pos, std::size
 
     if (ai == 27U)
     {
-        ensure_available(size, pos, 8U);
+        ensureAvailable(size, pos, 8U);
         std::uint64_t result = 0;
         for (int i = 0; i < 8; ++i)
         {
@@ -205,16 +205,16 @@ public:
         return mOut;
     }
 
-    void write_uint(std::uint64_t value)
+    void writeUint(std::uint64_t value)
     {
-        write_type_and_argument(mOut, MajorType::UnsignedInt, value);
+        writeTypeAndArgument(mOut, MajorType::UnsignedInt, value);
     }
 
-    void write_int(std::int64_t value)
+    void writeInt(std::int64_t value)
     {
         if (value >= 0)
         {
-            write_uint(static_cast<std::uint64_t>(value));
+            writeUint(static_cast<std::uint64_t>(value));
         }
         else
         {
@@ -222,54 +222,54 @@ public:
             // For negative integers, CBOR encodes -1-n where n is stored.
             // ~value == -value - 1 for two's complement, but without overflow.
             const auto n = static_cast<std::uint64_t>(~value);
-            write_type_and_argument(mOut, MajorType::NegativeInt, n);
+            writeTypeAndArgument(mOut, MajorType::NegativeInt, n);
         }
     }
 
-    void write_bool(bool value)
+    void writeBool(bool value)
     {
         const std::uint8_t base = 0xF4U; // false
         const std::uint8_t offset = value ? 1U : 0U;
         mOut.push_back(static_cast<byte>(base + offset));
     }
 
-    void write_null()
+    void writeNull()
     {
         mOut.push_back(static_cast<byte>(0xF6U));
     }
 
-    void write_bytes(const byte* data, std::size_t size)
+    void writeBytes(const byte* data, std::size_t size)
     {
-        write_type_and_argument(mOut, MajorType::ByteString, static_cast<std::uint64_t>(size));
+        writeTypeAndArgument(mOut, MajorType::ByteString, static_cast<std::uint64_t>(size));
         mOut.insert(mOut.end(), data, data + size);
     }
 
-    void write_bytes(const buffer& b)
+    void writeBytes(const buffer& b)
     {
         if (!b.empty())
         {
-            write_bytes(b.data(), b.size());
+            writeBytes(b.data(), b.size());
         }
         else
         {
-            write_type_and_argument(mOut, MajorType::ByteString, 0U);
+            writeTypeAndArgument(mOut, MajorType::ByteString, 0U);
         }
     }
 
-    void write_text(const std::string& s)
+    void writeText(const std::string& s)
     {
-        write_type_and_argument(mOut, MajorType::TextString, static_cast<std::uint64_t>(s.size()));
+        writeTypeAndArgument(mOut, MajorType::TextString, static_cast<std::uint64_t>(s.size()));
         mOut.insert(mOut.end(), s.begin(), s.end());
     }
 
-    void begin_array(std::size_t size)
+    void beginArray(std::size_t size)
     {
-        write_type_and_argument(mOut, MajorType::Array, static_cast<std::uint64_t>(size));
+        writeTypeAndArgument(mOut, MajorType::Array, static_cast<std::uint64_t>(size));
     }
 
-    void begin_map(std::size_t size)
+    void beginMap(std::size_t size)
     {
-        write_type_and_argument(mOut, MajorType::Map, static_cast<std::uint64_t>(size));
+        writeTypeAndArgument(mOut, MajorType::Map, static_cast<std::uint64_t>(size));
     }
 
 private:
@@ -284,41 +284,41 @@ class Decoder
 {
 public:
     Decoder(const byte* data, std::size_t size) noexcept
-        : data_(data)
-        , size_(size)
+        : mData(data)
+        , mSize(size)
         , mPos(0)
     {
     }
 
     explicit Decoder(const buffer& b) noexcept
-        : data_(b.data())
-        , size_(b.size())
+        : mData(b.data())
+        , mSize(b.size())
         , mPos(0)
     {
     }
 
     bool eof() const noexcept
     {
-        return mPos >= size_;
+        return mPos >= mSize;
     }
 
-    ItemHeader read_header()
+    ItemHeader readHeader()
     {
-        ensure_available(size_, mPos, 1U);
-        const std::uint8_t initial = data_[mPos++];
+        ensureAvailable(mSize, mPos, 1U);
+        const std::uint8_t initial = mData[mPos++];
 
         const std::uint8_t major_bits = initial >> 5U;
         const std::uint8_t ai = initial & 0x1FU;
 
         ItemHeader header{};
         header.major = static_cast<MajorType>(major_bits);
-        header.argument = read_argument(data_, mPos, size_, ai);
+        header.argument = readArgument(mData, mPos, mSize, ai);
         return header;
     }
 
-    std::uint64_t read_uint()
+    std::uint64_t readUint()
     {
-        const ItemHeader header = read_header();
+        const ItemHeader header = readHeader();
         if (header.major != MajorType::UnsignedInt)
         {
             throw std::runtime_error("CBOR: expected unsigned integer");
@@ -326,9 +326,9 @@ public:
         return header.argument;
     }
 
-    std::int64_t read_int()
+    std::int64_t readInt()
     {
-        const ItemHeader header = read_header();
+        const ItemHeader header = readHeader();
 
         if (header.major == MajorType::UnsignedInt)
         {
@@ -354,10 +354,10 @@ public:
         throw std::runtime_error("CBOR: expected integer");
     }
 
-    bool read_bool()
+    bool readBool()
     {
-        ensure_available(size_, mPos, 1U);
-        const std::uint8_t v = data_[mPos++];
+        ensureAvailable(mSize, mPos, 1U);
+        const std::uint8_t v = mData[mPos++];
         if (v == 0xF4U)
         {
             return false;
@@ -369,73 +369,73 @@ public:
         throw std::runtime_error("CBOR: expected bool");
     }
 
-    void read_null()
+    void readNull()
     {
-        ensure_available(size_, mPos, 1U);
-        const std::uint8_t v = data_[mPos++];
+        ensureAvailable(mSize, mPos, 1U);
+        const std::uint8_t v = mData[mPos++];
         if (v != 0xF6U)
         {
             throw std::runtime_error("CBOR: expected null");
         }
     }
 
-    std::string read_text()
+    std::string readText()
     {
-        const ItemHeader header = read_header();
+        const ItemHeader header = readHeader();
         if (header.major != MajorType::TextString)
         {
             throw std::runtime_error("CBOR: expected text string");
         }
 
-        const auto len = safe_to_size_t(header.argument, "text string");
-        ensure_available(size_, mPos, len);
+        const auto len = safeToSizeT(header.argument, "text string");
+        ensureAvailable(mSize, mPos, len);
 
-        const char* begin = reinterpret_cast<const char*>(data_ + mPos);
+        const char* begin = reinterpret_cast<const char*>(mData + mPos);
         std::string result(begin, begin + len);
         mPos += len;
         return result;
     }
 
-    buffer read_bytes()
+    buffer readBytes()
     {
-        const ItemHeader header = read_header();
+        const ItemHeader header = readHeader();
         if (header.major != MajorType::ByteString)
         {
             throw std::runtime_error("CBOR: expected byte string");
         }
 
-        const auto len = safe_to_size_t(header.argument, "byte string");
-        ensure_available(size_, mPos, len);
+        const auto len = safeToSizeT(header.argument, "byte string");
+        ensureAvailable(mSize, mPos, len);
 
         buffer out;
-        out.insert(out.end(), data_ + mPos, data_ + mPos + len);
+        out.insert(out.end(), mData + mPos, mData + mPos + len);
         mPos += len;
         return out;
     }
 
-    std::size_t read_array_length()
+    std::size_t readArrayLength()
     {
-        const ItemHeader header = read_header();
+        const ItemHeader header = readHeader();
         if (header.major != MajorType::Array)
         {
             throw std::runtime_error("CBOR: expected array");
         }
-        return safe_to_size_t(header.argument, "array");
+        return safeToSizeT(header.argument, "array");
     }
 
-    std::size_t read_map_length()
+    std::size_t readMapLength()
     {
-        const ItemHeader header = read_header();
+        const ItemHeader header = readHeader();
         if (header.major != MajorType::Map)
         {
             throw std::runtime_error("CBOR: expected map");
         }
-        return safe_to_size_t(header.argument, "map");
+        return safeToSizeT(header.argument, "map");
     }
 
 private:
-    const byte* data_;
-    std::size_t size_;
+    const byte* mData;
+    std::size_t mSize;
     std::size_t mPos;
 };
 

@@ -151,48 +151,48 @@ public:
     // Unsigned integer writes
     // ========================================================================
 
-    void write_uint8(std::uint8_t value)
+    void writeUint8(std::uint8_t value)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Uint8));
         mBuffer.push_back(value);
     }
 
-    void write_uint16(std::uint16_t value)
+    void writeUint16(std::uint16_t value)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Uint16));
-        write_le(value);
+        writeLe(value);
     }
 
-    void write_uint32(std::uint32_t value)
+    void writeUint32(std::uint32_t value)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Uint32));
-        write_le(value);
+        writeLe(value);
     }
 
-    void write_uint64(std::uint64_t value)
+    void writeUint64(std::uint64_t value)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Uint64));
-        write_le(value);
+        writeLe(value);
     }
 
     template <typename UInt, typename = std::enable_if_t<std::is_unsigned_v<UInt> && std::is_integral_v<UInt>>>
-    void write_uint(UInt value)
+    void writeUint(UInt value)
     {
         if constexpr (sizeof(UInt) == 1)
         {
-            write_uint8(static_cast<std::uint8_t>(value));
+            writeUint8(static_cast<std::uint8_t>(value));
         }
         else if constexpr (sizeof(UInt) == 2)
         {
-            write_uint16(static_cast<std::uint16_t>(value));
+            writeUint16(static_cast<std::uint16_t>(value));
         }
         else if constexpr (sizeof(UInt) == 4)
         {
-            write_uint32(static_cast<std::uint32_t>(value));
+            writeUint32(static_cast<std::uint32_t>(value));
         }
         else
         {
-            write_uint64(static_cast<std::uint64_t>(value));
+            writeUint64(static_cast<std::uint64_t>(value));
         }
     }
 
@@ -200,48 +200,48 @@ public:
     // Signed integer writes
     // ========================================================================
 
-    void write_int8(std::int8_t value)
+    void writeInt8(std::int8_t value)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Int8));
         mBuffer.push_back(static_cast<std::uint8_t>(value));
     }
 
-    void write_int16(std::int16_t value)
+    void writeInt16(std::int16_t value)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Int16));
-        write_le(value);
+        writeLe(value);
     }
 
-    void write_int32(std::int32_t value)
+    void writeInt32(std::int32_t value)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Int32));
-        write_le(value);
+        writeLe(value);
     }
 
-    void write_int64(std::int64_t value)
+    void writeInt64(std::int64_t value)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Int64));
-        write_le(value);
+        writeLe(value);
     }
 
     template <typename SInt, typename = std::enable_if_t<std::is_signed_v<SInt> && std::is_integral_v<SInt>>>
-    void write_int(SInt value)
+    void writeInt(SInt value)
     {
         if constexpr (sizeof(SInt) == 1)
         {
-            write_int8(static_cast<std::int8_t>(value));
+            writeInt8(static_cast<std::int8_t>(value));
         }
         else if constexpr (sizeof(SInt) == 2)
         {
-            write_int16(static_cast<std::int16_t>(value));
+            writeInt16(static_cast<std::int16_t>(value));
         }
         else if constexpr (sizeof(SInt) == 4)
         {
-            write_int32(static_cast<std::int32_t>(value));
+            writeInt32(static_cast<std::int32_t>(value));
         }
         else
         {
-            write_int64(static_cast<std::int64_t>(value));
+            writeInt64(static_cast<std::int64_t>(value));
         }
     }
 
@@ -249,57 +249,57 @@ public:
     // Other primitive writes
     // ========================================================================
 
-    void write_float(float value)
+    void writeFloat(float value)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Float32));
-        write_le(value);
+        writeLe(value);
     }
 
-    void write_double(double value)
+    void writeDouble(double value)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Float64));
-        write_le(value);
+        writeLe(value);
     }
 
-    void write_bool(bool value)
+    void writeBool(bool value)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Bool));
         mBuffer.push_back(value ? 1U : 0U);
     }
 
-    void write_string(const std::string& value)
+    void writeString(const std::string& value)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::String));
-        write_le(static_cast<std::uint64_t>(value.size()));
+        writeLe(static_cast<std::uint64_t>(value.size()));
 
         const auto* data = reinterpret_cast<const std::uint8_t*>(value.data());
         mBuffer.insert(mBuffer.end(), data, data + value.size());
     }
 
-    void write_bytes(const std::uint8_t* data, std::size_t size)
+    void writeBytes(const std::uint8_t* data, std::size_t size)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Bytes));
-        write_le(static_cast<std::uint64_t>(size));
+        writeLe(static_cast<std::uint64_t>(size));
         mBuffer.insert(mBuffer.end(), data, data + size);
     }
 
     template <typename ByteContainer>
-    void write_bytes(const ByteContainer& bytes)
+    void writeBytes(const ByteContainer& bytes)
     {
         static_assert(detail::is_binary_byte_container_v<ByteContainer>, "ByteContainer must store uint8_t");
-        write_bytes(bytes.data(), bytes.size());
+        writeBytes(bytes.data(), bytes.size());
     }
 
-    void write_array_header(std::uint64_t size)
+    void writeArrayHeader(std::uint64_t size)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Array));
-        write_le(size);
+        writeLe(size);
     }
 
-    void write_map_header(std::uint64_t size)
+    void writeMapHeader(std::uint64_t size)
     {
         mBuffer.push_back(static_cast<std::uint8_t>(binary::TypeTag::Map));
-        write_le(size);
+        writeLe(size);
     }
 
     std::size_t size() const noexcept
@@ -311,7 +311,7 @@ private:
     Buffer& mBuffer;
 
     template <typename T>
-    void write_le(T value)
+    void writeLe(T value)
     {
         static_assert(std::is_trivially_copyable_v<T>, "Type must be trivially copyable");
 
@@ -328,8 +328,8 @@ class BinaryReader
 {
 public:
     BinaryReader(const std::uint8_t* data, std::size_t size) noexcept
-        : data_(data)
-        , size_(size)
+        : mData(data)
+        , mSize(size)
         , mPos(0)
     {
     }
@@ -342,7 +342,7 @@ public:
 
     std::size_t remaining() const noexcept
     {
-        return size_ - mPos;
+        return mSize - mPos;
     }
 
     bool empty() const noexcept
@@ -350,71 +350,71 @@ public:
         return remaining() == 0U;
     }
 
-    BinaryResult<binary::TypeTag> peek_type() const
+    BinaryResult<binary::TypeTag> peekType() const
     {
-        if (mPos >= size_)
+        if (mPos >= mSize)
         {
             return make_unexpected(BinaryError("Buffer underflow peeking type"));
         }
-        return static_cast<binary::TypeTag>(data_[mPos]);
+        return static_cast<binary::TypeTag>(mData[mPos]);
     }
 
     // ========================================================================
     // Unsigned integer reads
     // ========================================================================
 
-    BinaryResult<std::uint8_t> read_uint8()
+    BinaryResult<std::uint8_t> readUint8()
     {
-        auto tag = expect_tag(binary::TypeTag::Uint8);
+        auto tag = expectTag(binary::TypeTag::Uint8);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
-        return read_byte();
+        return readByte();
     }
 
-    BinaryResult<std::uint16_t> read_uint16()
+    BinaryResult<std::uint16_t> readUint16()
     {
-        auto tag = expect_tag(binary::TypeTag::Uint16);
+        auto tag = expectTag(binary::TypeTag::Uint16);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
-        return read_le<std::uint16_t>();
+        return readLe<std::uint16_t>();
     }
 
-    BinaryResult<std::uint32_t> read_uint32()
+    BinaryResult<std::uint32_t> readUint32()
     {
-        auto tag = expect_tag(binary::TypeTag::Uint32);
+        auto tag = expectTag(binary::TypeTag::Uint32);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
-        return read_le<std::uint32_t>();
+        return readLe<std::uint32_t>();
     }
 
-    BinaryResult<std::uint64_t> read_uint64()
+    BinaryResult<std::uint64_t> readUint64()
     {
-        auto tag = expect_tag(binary::TypeTag::Uint64);
+        auto tag = expectTag(binary::TypeTag::Uint64);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
-        return read_le<std::uint64_t>();
+        return readLe<std::uint64_t>();
     }
 
     // ========================================================================
     // Signed integer reads
     // ========================================================================
 
-    BinaryResult<std::int8_t> read_int8()
+    BinaryResult<std::int8_t> readInt8()
     {
-        auto tag = expect_tag(binary::TypeTag::Int8);
+        auto tag = expectTag(binary::TypeTag::Int8);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
-        auto byte = read_byte();
+        auto byte = readByte();
         if (!byte)
         {
             return make_unexpected(byte.error());
@@ -422,68 +422,68 @@ public:
         return static_cast<std::int8_t>(*byte);
     }
 
-    BinaryResult<std::int16_t> read_int16()
+    BinaryResult<std::int16_t> readInt16()
     {
-        auto tag = expect_tag(binary::TypeTag::Int16);
+        auto tag = expectTag(binary::TypeTag::Int16);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
-        return read_le<std::int16_t>();
+        return readLe<std::int16_t>();
     }
 
-    BinaryResult<std::int32_t> read_int32()
+    BinaryResult<std::int32_t> readInt32()
     {
-        auto tag = expect_tag(binary::TypeTag::Int32);
+        auto tag = expectTag(binary::TypeTag::Int32);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
-        return read_le<std::int32_t>();
+        return readLe<std::int32_t>();
     }
 
-    BinaryResult<std::int64_t> read_int64()
+    BinaryResult<std::int64_t> readInt64()
     {
-        auto tag = expect_tag(binary::TypeTag::Int64);
+        auto tag = expectTag(binary::TypeTag::Int64);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
-        return read_le<std::int64_t>();
+        return readLe<std::int64_t>();
     }
 
     // ========================================================================
     // Other primitive reads
     // ========================================================================
 
-    BinaryResult<float> read_float()
+    BinaryResult<float> readFloat()
     {
-        auto tag = expect_tag(binary::TypeTag::Float32);
+        auto tag = expectTag(binary::TypeTag::Float32);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
-        return read_le<float>();
+        return readLe<float>();
     }
 
-    BinaryResult<double> read_double()
+    BinaryResult<double> readDouble()
     {
-        auto tag = expect_tag(binary::TypeTag::Float64);
+        auto tag = expectTag(binary::TypeTag::Float64);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
-        return read_le<double>();
+        return readLe<double>();
     }
 
-    BinaryResult<bool> read_bool()
+    BinaryResult<bool> readBool()
     {
-        auto tag = expect_tag(binary::TypeTag::Bool);
+        auto tag = expectTag(binary::TypeTag::Bool);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
-        auto byte = read_byte();
+        auto byte = readByte();
         if (!byte)
         {
             return make_unexpected(byte.error());
@@ -491,15 +491,15 @@ public:
         return *byte != 0;
     }
 
-    BinaryResult<std::string> read_string()
+    BinaryResult<std::string> readString()
     {
-        auto tag = expect_tag(binary::TypeTag::String);
+        auto tag = expectTag(binary::TypeTag::String);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
 
-        auto len_result = read_le<std::uint64_t>();
+        auto len_result = readLe<std::uint64_t>();
         if (!len_result)
         {
             return make_unexpected(len_result.error());
@@ -511,20 +511,20 @@ public:
             return make_unexpected(BinaryError("Buffer underflow reading string"));
         }
 
-        std::string result(reinterpret_cast<const char*>(data_ + mPos), len);
+        std::string result(reinterpret_cast<const char*>(mData + mPos), len);
         mPos += len;
         return result;
     }
 
-    BinaryResult<std::vector<std::uint8_t>> read_bytes()
+    BinaryResult<std::vector<std::uint8_t>> readBytes()
     {
-        auto tag = expect_tag(binary::TypeTag::Bytes);
+        auto tag = expectTag(binary::TypeTag::Bytes);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
 
-        auto len_result = read_le<std::uint64_t>();
+        auto len_result = readLe<std::uint64_t>();
         if (!len_result)
         {
             return make_unexpected(len_result.error());
@@ -536,47 +536,47 @@ public:
             return make_unexpected(BinaryError("Buffer underflow reading bytes"));
         }
 
-        std::vector<std::uint8_t> result(data_ + mPos, data_ + mPos + len);
+        std::vector<std::uint8_t> result(mData + mPos, mData + mPos + len);
         mPos += len;
         return result;
     }
 
-    BinaryResult<std::uint64_t> read_array_header()
+    BinaryResult<std::uint64_t> readArrayHeader()
     {
-        auto tag = expect_tag(binary::TypeTag::Array);
+        auto tag = expectTag(binary::TypeTag::Array);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
-        return read_le<std::uint64_t>();
+        return readLe<std::uint64_t>();
     }
 
-    BinaryResult<std::uint64_t> read_map_header()
+    BinaryResult<std::uint64_t> readMapHeader()
     {
-        auto tag = expect_tag(binary::TypeTag::Map);
+        auto tag = expectTag(binary::TypeTag::Map);
         if (!tag)
         {
             return make_unexpected(tag.error());
         }
-        return read_le<std::uint64_t>();
+        return readLe<std::uint64_t>();
     }
 
 private:
-    const std::uint8_t* data_;
-    std::size_t size_;
+    const std::uint8_t* mData;
+    std::size_t mSize;
     std::size_t mPos;
 
-    BinaryResult<std::uint8_t> read_byte()
+    BinaryResult<std::uint8_t> readByte()
     {
-        if (mPos >= size_)
+        if (mPos >= mSize)
         {
             return make_unexpected(BinaryError("Buffer underflow reading byte"));
         }
-        return data_[mPos++];
+        return mData[mPos++];
     }
 
     template <typename T>
-    BinaryResult<T> read_le()
+    BinaryResult<T> readLe()
     {
         static_assert(std::is_trivially_copyable_v<T>, "Type must be trivially copyable");
 
@@ -586,19 +586,19 @@ private:
         }
 
         T value;
-        std::memcpy(&value, data_ + mPos, sizeof(T));
+        std::memcpy(&value, mData + mPos, sizeof(T));
         mPos += sizeof(T);
         return value;
     }
 
-    BinaryResult<void> expect_tag(binary::TypeTag expected)
+    BinaryResult<void> expectTag(binary::TypeTag expected)
     {
-        if (mPos >= size_)
+        if (mPos >= mSize)
         {
             return make_unexpected(BinaryError("Buffer underflow reading tag"));
         }
 
-        const auto actual = static_cast<binary::TypeTag>(data_[mPos++]);
+        const auto actual = static_cast<binary::TypeTag>(mData[mPos++]);
         if (actual != expected)
         {
             return make_unexpected(BinaryError("Type mismatch: expected " + std::to_string(static_cast<int>(expected)) +
@@ -625,7 +625,7 @@ struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_signed_
     template <typename Writer>
     static void encode(Writer& writer, T value)
     {
-        writer.write_int(value);
+        writer.writeInt(value);
     }
 
     template <typename Reader>
@@ -633,7 +633,7 @@ struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_signed_
     {
         BinaryResult<std::int64_t> result;
 
-        auto tag = reader.peek_type();
+        auto tag = reader.peekType();
         if (!tag)
         {
             return make_unexpected(tag.error());
@@ -643,7 +643,7 @@ struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_signed_
         {
             case binary::TypeTag::Int8:
             {
-                auto v = reader.read_int8();
+                auto v = reader.readInt8();
                 if (!v)
                 {
                     return make_unexpected(v.error());
@@ -653,7 +653,7 @@ struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_signed_
             }
             case binary::TypeTag::Int16:
             {
-                auto v = reader.read_int16();
+                auto v = reader.readInt16();
                 if (!v)
                 {
                     return make_unexpected(v.error());
@@ -663,7 +663,7 @@ struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_signed_
             }
             case binary::TypeTag::Int32:
             {
-                auto v = reader.read_int32();
+                auto v = reader.readInt32();
                 if (!v)
                 {
                     return make_unexpected(v.error());
@@ -673,7 +673,7 @@ struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_signed_
             }
             case binary::TypeTag::Int64:
             {
-                auto v = reader.read_int64();
+                auto v = reader.readInt64();
                 if (!v)
                 {
                     return make_unexpected(v.error());
@@ -705,7 +705,7 @@ struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_unsigne
     template <typename Writer>
     static void encode(Writer& writer, T value)
     {
-        writer.write_uint(value);
+        writer.writeUint(value);
     }
 
     template <typename Reader>
@@ -713,7 +713,7 @@ struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_unsigne
     {
         BinaryResult<std::uint64_t> result;
 
-        auto tag = reader.peek_type();
+        auto tag = reader.peekType();
         if (!tag)
         {
             return make_unexpected(tag.error());
@@ -723,7 +723,7 @@ struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_unsigne
         {
             case binary::TypeTag::Uint8:
             {
-                auto v = reader.read_uint8();
+                auto v = reader.readUint8();
                 if (!v)
                 {
                     return make_unexpected(v.error());
@@ -733,7 +733,7 @@ struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_unsigne
             }
             case binary::TypeTag::Uint16:
             {
-                auto v = reader.read_uint16();
+                auto v = reader.readUint16();
                 if (!v)
                 {
                     return make_unexpected(v.error());
@@ -743,7 +743,7 @@ struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_unsigne
             }
             case binary::TypeTag::Uint32:
             {
-                auto v = reader.read_uint32();
+                auto v = reader.readUint32();
                 if (!v)
                 {
                     return make_unexpected(v.error());
@@ -753,7 +753,7 @@ struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_unsigne
             }
             case binary::TypeTag::Uint64:
             {
-                auto v = reader.read_uint64();
+                auto v = reader.readUint64();
                 if (!v)
                 {
                     return make_unexpected(v.error());
@@ -811,13 +811,13 @@ struct BinaryTraits<bool>
     template <typename Writer>
     static void encode(Writer& writer, bool value)
     {
-        writer.write_bool(value);
+        writer.writeBool(value);
     }
 
     template <typename Reader>
     static BinaryResult<bool> decode(Reader& reader)
     {
-        return reader.read_bool();
+        return reader.readBool();
     }
 };
 
@@ -831,13 +831,13 @@ struct BinaryTraits<float>
     template <typename Writer>
     static void encode(Writer& writer, float value)
     {
-        writer.write_float(value);
+        writer.writeFloat(value);
     }
 
     template <typename Reader>
     static BinaryResult<float> decode(Reader& reader)
     {
-        return reader.read_float();
+        return reader.readFloat();
     }
 };
 
@@ -851,13 +851,13 @@ struct BinaryTraits<double>
     template <typename Writer>
     static void encode(Writer& writer, double value)
     {
-        writer.write_double(value);
+        writer.writeDouble(value);
     }
 
     template <typename Reader>
     static BinaryResult<double> decode(Reader& reader)
     {
-        return reader.read_double();
+        return reader.readDouble();
     }
 };
 
@@ -871,13 +871,13 @@ struct BinaryTraits<std::string>
     template <typename Writer>
     static void encode(Writer& writer, const std::string& value)
     {
-        writer.write_string(value);
+        writer.writeString(value);
     }
 
     template <typename Reader>
     static BinaryResult<std::string> decode(Reader& reader)
     {
-        return reader.read_string();
+        return reader.readString();
     }
 };
 
@@ -891,7 +891,7 @@ struct BinaryTraits<std::vector<T, Alloc>>
     template <typename Writer>
     static void encode(Writer& writer, const std::vector<T, Alloc>& vec)
     {
-        writer.write_array_header(static_cast<std::uint64_t>(vec.size()));
+        writer.writeArrayHeader(static_cast<std::uint64_t>(vec.size()));
         for (const auto& elem : vec)
         {
             BinaryTraits<T>::encode(writer, elem);
@@ -901,7 +901,7 @@ struct BinaryTraits<std::vector<T, Alloc>>
     template <typename Reader>
     static BinaryResult<std::vector<T, Alloc>> decode(Reader& reader)
     {
-        auto len_result = reader.read_array_header();
+        auto len_result = reader.readArrayHeader();
         if (!len_result)
         {
             return make_unexpected(len_result.error());
@@ -940,7 +940,7 @@ struct BinaryTraits<std::map<K, V, Compare, Alloc>>
     template <typename Writer>
     static void encode(Writer& writer, const std::map<K, V, Compare, Alloc>& m)
     {
-        writer.write_map_header(static_cast<std::uint64_t>(m.size()));
+        writer.writeMapHeader(static_cast<std::uint64_t>(m.size()));
         for (const auto& kv : m)
         {
             BinaryTraits<K>::encode(writer, kv.first);
@@ -951,7 +951,7 @@ struct BinaryTraits<std::map<K, V, Compare, Alloc>>
     template <typename Reader>
     static BinaryResult<std::map<K, V, Compare, Alloc>> decode(Reader& reader)
     {
-        auto len_result = reader.read_map_header();
+        auto len_result = reader.readMapHeader();
         if (!len_result)
         {
             return make_unexpected(len_result.error());
@@ -991,19 +991,19 @@ struct BinaryTraits<std::map<K, V, Compare, Alloc>>
 // ============================================================================
 
 template <typename T, typename Writer>
-void binary_encode(Writer& writer, const T& value)
+void binaryEncode(Writer& writer, const T& value)
 {
     BinaryTraits<T>::encode(writer, value);
 }
 
 template <typename T, typename Reader>
-BinaryResult<T> binary_decode(Reader& reader)
+BinaryResult<T> binaryDecode(Reader& reader)
 {
     return BinaryTraits<T>::decode(reader);
 }
 
 template <typename T, typename ByteContainer>
-BinaryResult<void> binary_encode_to(ByteContainer& buffer, const T& value)
+BinaryResult<void> binaryEncodeTo(ByteContainer& buffer, const T& value)
 {
     static_assert(detail::is_binary_byte_container_v<ByteContainer>,
                   "ByteContainer must store uint8_t and provide "
@@ -1022,7 +1022,7 @@ BinaryResult<void> binary_encode_to(ByteContainer& buffer, const T& value)
 }
 
 template <typename T, typename ByteContainer>
-BinaryResult<T> binary_decode_from(const ByteContainer& buffer)
+BinaryResult<T> binaryDecodeFrom(const ByteContainer& buffer)
 {
     static_assert(detail::is_binary_byte_container_v<ByteContainer>,
                   "ByteContainer must store uint8_t and provide "

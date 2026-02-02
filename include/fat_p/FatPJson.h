@@ -802,7 +802,7 @@ std::enable_if_t<json_detail::has_enum_string_policy_v<E>, void> from_json(const
                       "expected",
                       "string",
                       "got",
-                      json_detail::type_name(j));
+                      json_detail::typeName(j));
 
     try
     {
@@ -833,7 +833,7 @@ safe_from_json_enum(const JsonValue& j) noexcept
         return unexpected(JsonError{JsonErrorCode::TypeError,
                                     "Enum deserialization requires string type",
                                     0,
-                                    std::string(json_detail::type_name(j))});
+                                    std::string(json_detail::typeName(j))});
     }
 
     try
@@ -1105,7 +1105,7 @@ template <typename T>
         }
 
         return unexpected(
-            JsonError{JsonErrorCode::TypeError, "Expected numeric type", 0, std::string(json_detail::type_name(j))});
+            JsonError{JsonErrorCode::TypeError, "Expected numeric type", 0, std::string(json_detail::typeName(j))});
     }
     catch (const std::exception& e)
     {

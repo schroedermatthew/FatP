@@ -97,7 +97,7 @@ FATP_META:
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib> // std::abort (used in unreachable_after_enforce)
+#include <cstdlib> // std::abort (used in unreachableAfterEnforce)
 #include <deque>
 #include <fstream>
 #include <iomanip>
@@ -115,7 +115,7 @@ FATP_META:
 #include <string_view>
 #include <tuple>
 #include <type_traits>
-#include <typeinfo> // typeid (used in checked_cast error messages)
+#include <typeinfo> // typeid (used in checkedCast error messages)
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -187,17 +187,17 @@ struct SourceLocation
 /**
  * @brief Appends a single value to an output string stream
  *
- * @details Base case for the variadic append_to_stream template. Simply streams
+ * @details Base case for the variadic appendToStream template. Simply streams
  * the value to the output string stream using operator<<.
  *
  * @tparam T Type of value to append (must support operator<<)
  * @param oss Output string stream to append to
  * @param value Value to append
  *
- * @see append_to_stream(std::ostringstream&, const T&, const Args&...)
+ * @see appendToStream(std::ostringstream&, const T&, const Args&...)
  */
 template <typename T>
-inline void append_to_stream(std::ostringstream& oss, const T& value)
+inline void appendToStream(std::ostringstream& oss, const T& value)
 {
     oss << value;
 }
@@ -211,7 +211,7 @@ inline void append_to_stream(std::ostringstream& oss, const T& value)
  *
  * @code{.cpp}
  * std::ostringstream oss;
- * append_to_stream(oss, "Error:", 42, "value", 3.14);
+ * appendToStream(oss, "Error:", 42, "value", 3.14);
  * // Result: "Error: 42 value 3.14 "
  * @endcode
  *
@@ -224,21 +224,21 @@ inline void append_to_stream(std::ostringstream& oss, const T& value)
  * @see FATP_JSON_ENFORCE_impl
  */
 template <typename T, typename... Args>
-inline void append_to_stream(std::ostringstream& oss, const T& first, const Args&... rest)
+inline void appendToStream(std::ostringstream& oss, const T& first, const Args&... rest)
 {
     oss << first << " ";
-    append_to_stream(oss, rest...);
+    appendToStream(oss, rest...);
 }
 
 /**
- * @brief Base case for variadic append_to_stream (no arguments)
+ * @brief Base case for variadic appendToStream (no arguments)
  *
  * @details Terminal case of the recursive template that does nothing.
  * This is called when all arguments have been processed.
  *
  * @param oss Output string stream (unused in base case)
  */
-inline void append_to_stream(std::ostringstream&)
+inline void appendToStream(std::ostringstream&)
 {
 }
 
@@ -274,7 +274,7 @@ template <typename... Args>
         if constexpr (sizeof...(args) > 0)
         {
             oss << " - ";
-            append_to_stream(oss, std::forward<Args>(args)...);
+            appendToStream(oss, std::forward<Args>(args)...);
         }
 
         throw std::runtime_error(oss.str());
@@ -330,7 +330,7 @@ template <typename... Args>
 //
 // JsonLite is designed to be usable without any other Fat-P components.
 // These utilities live in fat_p::json_lite to avoid collision with the
-// full Fat-P versions (e.g., checked_cast in CheckedArithmetic.h).
+// full Fat-P versions (e.g., checkedCast in CheckedArithmetic.h).
 //
 // Use fat_p::jl:: as a short alias.
 //
@@ -346,13 +346,13 @@ namespace json_lite
  *
  * @code{.cpp}
  * int64_t big = 1000;
- * int small = json_lite::checked_cast<int>(big);  // OK
+ * int small = json_lite::checkedCast<int>(big);  // OK
  *
  * int64_t too_big = INT_MAX + 1LL;
- * int fail = json_lite::checked_cast<int>(too_big);  // Throws!
+ * int fail = json_lite::checkedCast<int>(too_big);  // Throws!
  *
  * int negative = -1;
- * unsigned int ufail = json_lite::checked_cast<unsigned int>(negative);  // Throws!
+ * unsigned int ufail = json_lite::checkedCast<unsigned int>(negative);  // Throws!
  * @endcode
  *
  * @tparam To   Target integral type
@@ -365,7 +365,7 @@ namespace json_lite
  * @see from_json
  */
 template <typename To, typename From>
-inline To checked_cast(From value)
+inline To checkedCast(From value)
 {
     // Case 1: Same type - no conversion needed, zero overhead
     if constexpr (std::is_same_v<To, From>)
@@ -497,7 +497,7 @@ inline constexpr double double_epsilon = std::numeric_limits<double>::epsilon() 
  * @tparam IntType Target integral type
  * @param d Double value to convert
  * @param result Reference to store the converted value
- * @param type_name Type name for error messages
+ * @param typeName Type name for error messages
  *
  * @details Validates that:
  * - Value has no fractional part (within epsilon tolerance)
@@ -507,7 +507,7 @@ inline constexpr double double_epsilon = std::numeric_limits<double>::epsilon() 
  * @throws std::runtime_error if validation fails
  */
 template <typename IntType>
-inline void convert_double_to_int(double d, IntType& result, const char* type_name)
+inline void convertDoubleToInt(double d, IntType& result, const char* typeName)
 {
     static_assert(std::is_integral_v<IntType>, "IntType must be an integral type");
 
@@ -517,7 +517,7 @@ inline void convert_double_to_int(double d, IntType& result, const char* type_na
                       "value",
                       d,
                       "target_type",
-                      type_name);
+                      typeName);
 
     if constexpr (std::is_unsigned_v<IntType>)
     {
@@ -526,7 +526,7 @@ inline void convert_double_to_int(double d, IntType& result, const char* type_na
                           "value",
                           d,
                           "target_type",
-                          type_name);
+                          typeName);
     }
 
     if constexpr (std::is_signed_v<IntType> && sizeof(IntType) >= 8)
@@ -541,7 +541,7 @@ inline void convert_double_to_int(double d, IntType& result, const char* type_na
                               "value",
                               d,
                               "target_type",
-                              type_name);
+                              typeName);
         }
 
         IntType candidate = static_cast<IntType>(intpart);
@@ -555,7 +555,7 @@ inline void convert_double_to_int(double d, IntType& result, const char* type_na
                               "converted",
                               candidate,
                               "target_type",
-                              type_name);
+                              typeName);
         }
 
         if (intpart > 0.0 && candidate < 0)
@@ -567,7 +567,7 @@ inline void convert_double_to_int(double d, IntType& result, const char* type_na
                               "converted",
                               candidate,
                               "target_type",
-                              type_name);
+                              typeName);
         }
 
         result = candidate;
@@ -582,7 +582,7 @@ inline void convert_double_to_int(double d, IntType& result, const char* type_na
                           "value",
                           d,
                           "target_type",
-                          type_name);
+                          typeName);
 
         IntType candidate = static_cast<IntType>(intpart);
 
@@ -596,7 +596,7 @@ inline void convert_double_to_int(double d, IntType& result, const char* type_na
                               "converted",
                               candidate,
                               "target_type",
-                              type_name);
+                              typeName);
         }
 
         result = candidate;
@@ -611,7 +611,7 @@ inline void convert_double_to_int(double d, IntType& result, const char* type_na
  *
  * @see FATP_JSON_ENFORCE
  */
-[[noreturn]] inline void unreachable_after_enforce()
+[[noreturn]] inline void unreachableAfterEnforce()
 {
     std::abort();
 }
@@ -955,9 +955,9 @@ namespace json_detail
  * JsonValue j2 = "hello";
  * JsonValue j3 = true;
  *
- * assert(type_name(j1) == "integer");
- * assert(type_name(j2) == "string");
- * assert(type_name(j3) == "boolean");
+ * assert(typeName(j1) == "integer");
+ * assert(typeName(j2) == "string");
+ * assert(typeName(j3) == "boolean");
  * @endcode
  *
  * @note Returns "number" for any numeric type, "integer" specifically for int64_t
@@ -965,7 +965,7 @@ namespace json_detail
  *
  * @see JsonValue
  */
-inline std::string_view type_name(const JsonValue& j) noexcept
+inline std::string_view typeName(const JsonValue& j) noexcept
 {
     if (j.is_null())
     {
@@ -1186,7 +1186,7 @@ struct PolicyContext
     bool escape_unicode = true;
 
     template <typename Policy>
-    static PolicyContext from_policy()
+    static PolicyContext fromPolicy()
     {
         PolicyContext ctx;
         ctx.numeric_precision = Policy::numeric_precision;
@@ -1196,22 +1196,22 @@ struct PolicyContext
     }
 };
 
-inline thread_local std::unique_ptr<PolicyContext> current_policy_context = nullptr;
+inline thread_local std::unique_ptr<PolicyContext> currentPolicyContext = nullptr;
 
 template <typename Policy>
 struct PolicyScope
 {
-    std::unique_ptr<PolicyContext> prev_ctx;
+    std::unique_ptr<PolicyContext> prevCtx;
 
     PolicyScope()
-        : prev_ctx(std::move(current_policy_context))
+        : prevCtx(std::move(currentPolicyContext))
     {
-        current_policy_context = std::make_unique<PolicyContext>(PolicyContext::from_policy<Policy>());
+        currentPolicyContext = std::make_unique<PolicyContext>(PolicyContext::fromPolicy<Policy>());
     }
 
     ~PolicyScope()
     {
-        current_policy_context = std::move(prev_ctx);
+        currentPolicyContext = std::move(prevCtx);
     }
 
     PolicyScope(const PolicyScope&) = delete;
@@ -1221,21 +1221,21 @@ struct PolicyScope
 };
 
 template <typename Policy>
-inline int get_effective_numeric_precision()
+inline int getEffectiveNumericPrecision()
 {
-    return current_policy_context ? current_policy_context->numeric_precision : Policy::numeric_precision;
+    return currentPolicyContext ? currentPolicyContext->numeric_precision : Policy::numeric_precision;
 }
 
 template <typename Policy>
-inline bool get_effective_allow_nan_inf()
+inline bool getEffectiveAllowNanInf()
 {
-    return current_policy_context ? current_policy_context->allow_nan_inf : Policy::allow_nan_inf;
+    return currentPolicyContext ? currentPolicyContext->allow_nan_inf : Policy::allow_nan_inf;
 }
 
 template <typename Policy>
-inline bool get_effective_escape_unicode()
+inline bool getEffectiveEscapeUnicode()
 {
-    return current_policy_context ? current_policy_context->escape_unicode : Policy::escape_unicode;
+    return currentPolicyContext ? currentPolicyContext->escape_unicode : Policy::escape_unicode;
 }
 
 } // namespace json_detail
@@ -1250,7 +1250,7 @@ namespace json_detail
  * @param indent Number of space characters to output
  */
 template <typename Os>
-inline void output_indent(Os& os, int indent)
+inline void outputIndent(Os& os, int indent)
 {
     for (int i = 0; i < indent; ++i)
     {
@@ -1269,7 +1269,7 @@ inline void output_indent(Os& os, int indent)
  * @param codepoint Unicode codepoint to escape (0x000000 to 0x10FFFF)
  */
 template <typename Os>
-inline void output_unicode_escape(Os& os, uint32_t codepoint)
+inline void outputUnicodeEscape(Os& os, uint32_t codepoint)
 {
     if (codepoint <= 0xFFFF)
     {
@@ -1300,13 +1300,13 @@ inline void output_unicode_escape(Os& os, uint32_t codepoint)
  * @param os Output stream to write to
  * @param s String view to escape and output
  *
- * @see output_unicode_escape
+ * @see outputUnicodeEscape
  * @see StandardJsonPolicy::escape_unicode
  */
 template <typename Os, typename Policy>
-void escape_string(Os& os, std::string_view s)
+void escapeString(Os& os, std::string_view s)
 {
-    bool escape_unicode = get_effective_escape_unicode<Policy>();
+    bool escape_unicode = getEffectiveEscapeUnicode<Policy>();
     os << '"';
 
     for (size_t i = 0; i < s.size();)
@@ -1350,7 +1350,7 @@ void escape_string(Os& os, std::string_view s)
         // Control characters (0x00-0x1F)
         if (c < 0x20)
         {
-            output_unicode_escape(os, c);
+            outputUnicodeEscape(os, c);
             ++i;
             continue;
         }
@@ -1393,7 +1393,7 @@ void escape_string(Os& os, std::string_view s)
         else
         {
             // Invalid lead byte - escape as-is
-            output_unicode_escape(os, c);
+            outputUnicodeEscape(os, c);
             ++i;
             continue;
         }
@@ -1401,7 +1401,7 @@ void escape_string(Os& os, std::string_view s)
         // Incomplete sequence
         if (i + bytes > s.size())
         {
-            output_unicode_escape(os, c);
+            outputUnicodeEscape(os, c);
             ++i;
             continue;
         }
@@ -1421,12 +1421,12 @@ void escape_string(Os& os, std::string_view s)
 
         if (!valid)
         {
-            output_unicode_escape(os, c);
+            outputUnicodeEscape(os, c);
             ++i;
             continue;
         }
 
-        output_unicode_escape(os, codepoint);
+        outputUnicodeEscape(os, codepoint);
         i += bytes;
     }
 
@@ -1453,7 +1453,7 @@ void escape_string(Os& os, std::string_view s)
  * @see StandardJsonPolicy::number_format
  */
 template <typename Os, typename T, typename Policy>
-void dump_scalar(Os& os, const T& obj)
+void dumpScalar(Os& os, const T& obj)
 {
     if constexpr (std::is_same_v<T, bool>)
     {
@@ -1470,7 +1470,7 @@ void dump_scalar(Os& os, const T& obj)
             // NaN handling: JSON has no NaN literal, so either use extension or null
             if (std::isnan(obj))
             {
-                bool allow_nan_inf = get_effective_allow_nan_inf<Policy>();
+                bool allow_nan_inf = getEffectiveAllowNanInf<Policy>();
                 if (allow_nan_inf)
                 {
                     os << "NaN";
@@ -1483,7 +1483,7 @@ void dump_scalar(Os& os, const T& obj)
             // Infinity handling: same rationale as NaN
             else if (std::isinf(obj))
             {
-                bool allow_nan_inf = get_effective_allow_nan_inf<Policy>();
+                bool allow_nan_inf = getEffectiveAllowNanInf<Policy>();
                 if (allow_nan_inf)
                 {
                     os << (obj > 0 ? "Infinity" : "-Infinity");
@@ -1507,7 +1507,7 @@ void dump_scalar(Os& os, const T& obj)
                 }
                 else
                 {
-                    int numeric_precision = get_effective_numeric_precision<Policy>();
+                    int numeric_precision = getEffectiveNumericPrecision<Policy>();
                     constexpr auto format = Policy::number_format;
 
                     if constexpr (format == NumberFormat::Fixed)
@@ -1549,7 +1549,7 @@ void dump_scalar(Os& os, const T& obj)
     }
     else if constexpr (std::is_convertible_v<T, std::string_view>)
     {
-        escape_string<Os, Policy>(os, obj);
+        escapeString<Os, Policy>(os, obj);
     }
 }
 
@@ -1692,7 +1692,7 @@ inline constexpr bool is_sequence_container_v = is_sequence_container<T>::value;
  * @throws std::runtime_error if depth exceeds Policy::max_dump_depth
  */
 template <typename Policy>
-inline void check_dump_depth(int indent)
+inline void checkDumpDepth(int indent)
 {
     // Derive nesting depth from indentation level
     // Guard against indent_step == 0 to prevent division by zero
@@ -1771,7 +1771,7 @@ struct JsonDispatcher<
         else
         {
             // Built-in scalar: bool, integer, float, or string
-            json_detail::dump_scalar<Os, T, Policy>(os, obj);
+            json_detail::dumpScalar<Os, T, Policy>(os, obj);
         }
     }
 };
@@ -1814,20 +1814,20 @@ struct JsonDispatcher<std::pair<T1, T2>, Policy>
         }
         if (pretty)
         {
-            json_detail::output_indent(os, indent + Policy::indent_step);
+            json_detail::outputIndent(os, indent + Policy::indent_step);
         }
         JsonDispatcher<T1, Policy>::dump(os, p.first, pretty, indent + Policy::indent_step);
         os << ',';
         if (pretty)
         {
             os << '\n';
-            json_detail::output_indent(os, indent + Policy::indent_step);
+            json_detail::outputIndent(os, indent + Policy::indent_step);
         }
         JsonDispatcher<T2, Policy>::dump(os, p.second, pretty, indent + Policy::indent_step);
         if (pretty)
         {
             os << '\n';
-            json_detail::output_indent(os, indent);
+            json_detail::outputIndent(os, indent);
         }
         os << ']';
     }
@@ -1865,7 +1865,7 @@ struct JsonDispatcher<
     template <typename Os>
     static void dump(Os& os, const T& cont, bool pretty = Policy::pretty_print, int indent = 0)
     {
-        json_detail::check_dump_depth<Policy>(indent);
+        json_detail::checkDumpDepth<Policy>(indent);
         os << '[';
         if (pretty && !cont.empty())
         {
@@ -1882,7 +1882,7 @@ struct JsonDispatcher<
             if (pretty)
             {
                 os << '\n';
-                json_detail::output_indent(os, indent + Policy::indent_step);
+                json_detail::outputIndent(os, indent + Policy::indent_step);
             }
             first = false;
             JsonDispatcher<json_detail::ContainerValueT<T>, Policy>::dump(os,
@@ -1893,7 +1893,7 @@ struct JsonDispatcher<
         if (pretty && !cont.empty())
         {
             os << '\n';
-            json_detail::output_indent(os, indent);
+            json_detail::outputIndent(os, indent);
         }
         os << ']';
     }
@@ -1915,7 +1915,7 @@ struct JsonDispatcher<
     template <typename Os>
     static void dump(Os& os, const T& cont, bool pretty = Policy::pretty_print, int indent = 0)
     {
-        json_detail::check_dump_depth<Policy>(indent);
+        json_detail::checkDumpDepth<Policy>(indent);
         os << '{';
         if (pretty && !cont.empty())
         {
@@ -1931,14 +1931,14 @@ struct JsonDispatcher<
             if (pretty)
             {
                 os << '\n';
-                json_detail::output_indent(os, indent + Policy::indent_step);
+                json_detail::outputIndent(os, indent + Policy::indent_step);
             }
             first = false;
 
             // String-convertible keys: use directly
             if constexpr (std::is_convertible_v<typename T::key_type, std::string_view>)
             {
-                json_detail::escape_string<Os, Policy>(os, elem.first);
+                json_detail::escapeString<Os, Policy>(os, elem.first);
             }
             else
             {
@@ -1946,7 +1946,7 @@ struct JsonDispatcher<
                 std::ostringstream key_stream;
                 key_stream.imbue(std::locale::classic());
                 key_stream << elem.first;
-                json_detail::escape_string<Os, Policy>(os, key_stream.str());
+                json_detail::escapeString<Os, Policy>(os, key_stream.str());
             }
 
             os << (pretty ? " : " : ":");
@@ -1958,7 +1958,7 @@ struct JsonDispatcher<
         if (pretty && !cont.empty())
         {
             os << '\n';
-            json_detail::output_indent(os, indent);
+            json_detail::outputIndent(os, indent);
         }
         os << '}';
     }
@@ -2015,7 +2015,7 @@ void dump_tuple_impl(Os& os, const Tuple& tup, std::index_sequence<I...>, bool p
          if (pretty)
          {
              os << '\n';
-             output_indent(os, indent + Policy::indent_step);
+             outputIndent(os, indent + Policy::indent_step);
          }
          first = false;
          JsonDispatcher<std::tuple_element_t<I, Tuple>, Policy>::dump(os,
@@ -2026,7 +2026,7 @@ void dump_tuple_impl(Os& os, const Tuple& tup, std::index_sequence<I...>, bool p
     if (pretty && sizeof...(I) > 0)
     {
         os << '\n';
-        output_indent(os, indent);
+        outputIndent(os, indent);
     }
     os << ']';
 }
@@ -4769,7 +4769,7 @@ inline JsonValue to_json(const JsonValue& value)
                           "expected",                                              \
                           "object",                                                \
                           "got",                                                   \
-                          fat_p::json_detail::type_name(j));                       \
+                          fat_p::json_detail::typeName(j));                       \
         const auto& obj = std::get<fat_p::JsonObject>(j);                          \
         FATP_JSON_FOR_EACH(FATP_JSON_FROM_FIELD, __VA_ARGS__)                      \
     }
@@ -4829,7 +4829,7 @@ inline JsonValue to_json(const JsonValue& value)
                           "expected",                                              \
                           "object",                                                \
                           "got",                                                   \
-                          fat_p::json_detail::type_name(j));                       \
+                          fat_p::json_detail::typeName(j));                       \
         const auto& obj = std::get<fat_p::JsonObject>(j);                          \
         FATP_JSON_FOR_EACH(FATP_JSON_FROM_FIELD_OPT, __VA_ARGS__)                  \
     }
@@ -4900,7 +4900,7 @@ inline JsonValue to_json(const JsonValue& value)
                           "expected",                                              \
                           "object",                                                \
                           "got",                                                   \
-                          fat_p::json_detail::type_name(j));                       \
+                          fat_p::json_detail::typeName(j));                       \
         const auto& obj = std::get<fat_p::JsonObject>(j);                          \
         FATP_JSON_FOR_EACH(FATP_JSON_FROM_FIELD, __VA_ARGS__)                      \
     }
@@ -5303,7 +5303,7 @@ inline JsonValue parse_number(std::string_view s, size_t& pos)
                       start,
                       "value",
                       std::string(s.substr(start, scan_pos - start)));
-    unreachable_after_enforce();
+    unreachableAfterEnforce();
 }
 
 /**
@@ -5372,7 +5372,7 @@ inline JsonArray parse_array(std::string_view s, size_t& pos, size_t depth)
     }
 
     FATP_JSON_ENFORCE(false, "JSON parse error: unterminated array");
-    unreachable_after_enforce();
+    unreachableAfterEnforce();
 }
 
 /**
@@ -5453,7 +5453,7 @@ inline JsonObject parse_object(std::string_view s, size_t& pos, size_t depth)
     }
 
     FATP_JSON_ENFORCE(false, "JSON parse error: unterminated object");
-    unreachable_after_enforce();
+    unreachableAfterEnforce();
 }
 
 /**
@@ -5525,7 +5525,7 @@ inline JsonValue parse_value(std::string_view s, size_t& pos, size_t depth)
     }
 
     FATP_JSON_ENFORCE(false, "JSON parse error: invalid value", "position", pos);
-    unreachable_after_enforce();
+    unreachableAfterEnforce();
 }
 
 } // namespace json_detail
@@ -5847,7 +5847,7 @@ inline T json_decode(const JsonValue& j)
  * @brief Convert JsonValue to C++ primitives via output reference
  *
  * @details These overloads extract values from JsonValue into C++ types.
- * Numeric conversions use checked_cast for overflow detection. Double values
+ * Numeric conversions use checkedCast for overflow detection. Double values
  * are validated for fractional parts when converting to integers.
  *
  * @param j Input JsonValue
@@ -5858,7 +5858,7 @@ inline T json_decode(const JsonValue& j)
  */
 inline void from_json(const JsonValue& j, bool& value)
 {
-    FATP_JSON_ENFORCE(j.is_bool(), "JSON type mismatch", "expected", "boolean", "got", json_detail::type_name(j));
+    FATP_JSON_ENFORCE(j.is_bool(), "JSON type mismatch", "expected", "boolean", "got", json_detail::typeName(j));
     value = std::get<bool>(j);
 }
 
@@ -5867,16 +5867,16 @@ inline void from_json(const JsonValue& j, int& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checked_cast<int>(i64);
+        value = json_lite::checkedCast<int>(i64);
     }
     else if (j.is_number())
     {
         // Double path: validate no fractional part, then range check
-        json_detail::convert_double_to_int(std::get<double>(j), value, "int");
+        json_detail::convertDoubleToInt(std::get<double>(j), value, "int");
     }
     else
     {
-        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::type_name(j));
+        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::typeName(j));
     }
 }
 
@@ -5885,15 +5885,15 @@ inline void from_json(const JsonValue& j, unsigned int& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checked_cast<unsigned int>(i64);
+        value = json_lite::checkedCast<unsigned int>(i64);
     }
     else if (j.is_number())
     {
-        json_detail::convert_double_to_int(std::get<double>(j), value, "unsigned int");
+        json_detail::convertDoubleToInt(std::get<double>(j), value, "unsigned int");
     }
     else
     {
-        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::type_name(j));
+        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::typeName(j));
     }
 }
 
@@ -5902,15 +5902,15 @@ inline void from_json(const JsonValue& j, long& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checked_cast<long>(i64);
+        value = json_lite::checkedCast<long>(i64);
     }
     else if (j.is_number())
     {
-        json_detail::convert_double_to_int(std::get<double>(j), value, "long");
+        json_detail::convertDoubleToInt(std::get<double>(j), value, "long");
     }
     else
     {
-        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::type_name(j));
+        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::typeName(j));
     }
 }
 
@@ -5919,15 +5919,15 @@ inline void from_json(const JsonValue& j, unsigned long& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checked_cast<unsigned long>(i64);
+        value = json_lite::checkedCast<unsigned long>(i64);
     }
     else if (j.is_number())
     {
-        json_detail::convert_double_to_int(std::get<double>(j), value, "unsigned long");
+        json_detail::convertDoubleToInt(std::get<double>(j), value, "unsigned long");
     }
     else
     {
-        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::type_name(j));
+        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::typeName(j));
     }
 }
 
@@ -5940,11 +5940,11 @@ inline void from_json(const JsonValue& j, long long& value)
     }
     else if (j.is_number())
     {
-        json_detail::convert_double_to_int(std::get<double>(j), value, "long long");
+        json_detail::convertDoubleToInt(std::get<double>(j), value, "long long");
     }
     else
     {
-        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::type_name(j));
+        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::typeName(j));
     }
 }
 
@@ -5953,15 +5953,15 @@ inline void from_json(const JsonValue& j, unsigned long long& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checked_cast<unsigned long long>(i64);
+        value = json_lite::checkedCast<unsigned long long>(i64);
     }
     else if (j.is_number())
     {
-        json_detail::convert_double_to_int(std::get<double>(j), value, "unsigned long long");
+        json_detail::convertDoubleToInt(std::get<double>(j), value, "unsigned long long");
     }
     else
     {
-        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::type_name(j));
+        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::typeName(j));
     }
 }
 
@@ -5978,7 +5978,7 @@ inline void from_json(const JsonValue& j, float& value)
     }
     else
     {
-        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::type_name(j));
+        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::typeName(j));
     }
 }
 
@@ -5995,13 +5995,13 @@ inline void from_json(const JsonValue& j, double& value)
     }
     else
     {
-        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::type_name(j));
+        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::typeName(j));
     }
 }
 
 inline void from_json(const JsonValue& j, std::string& value)
 {
-    FATP_JSON_ENFORCE(j.is_string(), "JSON type mismatch", "expected", "string", "got", json_detail::type_name(j));
+    FATP_JSON_ENFORCE(j.is_string(), "JSON type mismatch", "expected", "string", "got", json_detail::typeName(j));
     value = std::get<std::string>(j);
 }
 
@@ -6010,11 +6010,11 @@ inline void from_json(const JsonValue& j, signed char& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checked_cast<signed char>(i64);
+        value = json_lite::checkedCast<signed char>(i64);
     }
     else if (j.is_number())
     {
-        // Inline validation for small types (convert_double_to_int not specialized)
+        // Inline validation for small types (convertDoubleToInt not specialized)
         double d = std::get<double>(j);
         double intpart;
         FATP_JSON_ENFORCE(fabs(std::modf(d, &intpart)) <= json_detail::double_epsilon,
@@ -6034,7 +6034,7 @@ inline void from_json(const JsonValue& j, signed char& value)
     }
     else
     {
-        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::type_name(j));
+        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::typeName(j));
     }
 }
 
@@ -6043,7 +6043,7 @@ inline void from_json(const JsonValue& j, unsigned char& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checked_cast<unsigned char>(i64);
+        value = json_lite::checkedCast<unsigned char>(i64);
     }
     else if (j.is_number())
     {
@@ -6065,7 +6065,7 @@ inline void from_json(const JsonValue& j, unsigned char& value)
     }
     else
     {
-        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::type_name(j));
+        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::typeName(j));
     }
 }
 
@@ -6074,7 +6074,7 @@ inline void from_json(const JsonValue& j, short& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checked_cast<short>(i64);
+        value = json_lite::checkedCast<short>(i64);
     }
     else if (j.is_number())
     {
@@ -6097,7 +6097,7 @@ inline void from_json(const JsonValue& j, short& value)
     }
     else
     {
-        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::type_name(j));
+        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::typeName(j));
     }
 }
 
@@ -6106,7 +6106,7 @@ inline void from_json(const JsonValue& j, unsigned short& value)
     if (j.is_int())
     {
         int64_t i64 = std::get<int64_t>(j);
-        value = json_lite::checked_cast<unsigned short>(i64);
+        value = json_lite::checkedCast<unsigned short>(i64);
     }
     else if (j.is_number())
     {
@@ -6128,7 +6128,7 @@ inline void from_json(const JsonValue& j, unsigned short& value)
     }
     else
     {
-        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::type_name(j));
+        FATP_JSON_ENFORCE(false, "JSON type mismatch", "expected", "number", "got", json_detail::typeName(j));
     }
 }
 /** @} */
@@ -6538,7 +6538,7 @@ void from_json(const JsonValue& j, std::array<T, N>& arr)
                       "expected",
                       "array for std::array",
                       "got",
-                      json_detail::type_name(j));
+                      json_detail::typeName(j));
     const auto& json_arr = std::get<JsonArray>(j);
     FATP_JSON_ENFORCE(json_arr.size() == N, "JSON array size mismatch", "expected", N, "got", json_arr.size());
     for (size_t i = 0; i < N; ++i)
@@ -6551,7 +6551,7 @@ void from_json(const JsonValue& j, std::array<T, N>& arr)
 template <typename T>
 void from_json(const JsonValue& j, std::vector<T>& vec)
 {
-    FATP_JSON_ENFORCE(j.is_array(), "JSON type mismatch", "expected", "array", "got", json_detail::type_name(j));
+    FATP_JSON_ENFORCE(j.is_array(), "JSON type mismatch", "expected", "array", "got", json_detail::typeName(j));
     const auto& arr = std::get<JsonArray>(j);
     vec.clear();
     vec.reserve(arr.size());
@@ -6572,7 +6572,7 @@ void from_json(const JsonValue& j, std::set<T>& s)
                       "expected",
                       "array for std::set",
                       "got",
-                      json_detail::type_name(j));
+                      json_detail::typeName(j));
     const auto& arr = std::get<JsonArray>(j);
     s.clear();
     for (const auto& elem : arr)
@@ -6592,7 +6592,7 @@ void from_json(const JsonValue& j, std::unordered_set<T>& s)
                       "expected",
                       "array for std::unordered_set",
                       "got",
-                      json_detail::type_name(j));
+                      json_detail::typeName(j));
     const auto& arr = std::get<JsonArray>(j);
     s.clear();
     s.reserve(arr.size());
@@ -6613,7 +6613,7 @@ void from_json(const JsonValue& j, std::deque<T>& d)
                       "expected",
                       "array for std::deque",
                       "got",
-                      json_detail::type_name(j));
+                      json_detail::typeName(j));
     const auto& arr = std::get<JsonArray>(j);
     d.clear();
     for (const auto& elem : arr)
@@ -6633,7 +6633,7 @@ void from_json(const JsonValue& j, std::list<T>& lst)
                       "expected",
                       "array for std::list",
                       "got",
-                      json_detail::type_name(j));
+                      json_detail::typeName(j));
     const auto& arr = std::get<JsonArray>(j);
     lst.clear();
     for (const auto& elem : arr)
@@ -6697,7 +6697,7 @@ K convert_map_key(const std::string& key)
 template <typename K, typename V>
 void from_json(const JsonValue& j, std::map<K, V>& m)
 {
-    FATP_JSON_ENFORCE(j.is_object(), "JSON type mismatch", "expected", "object", "got", json_detail::type_name(j));
+    FATP_JSON_ENFORCE(j.is_object(), "JSON type mismatch", "expected", "object", "got", json_detail::typeName(j));
     const auto& obj = std::get<JsonObject>(j);
     m.clear();
     for (const auto& [key, val] : obj)
@@ -6729,7 +6729,7 @@ void from_json(const JsonValue& j, std::unordered_map<K, V>& m)
                       "expected",
                       "object for std::unordered_map",
                       "got",
-                      json_detail::type_name(j));
+                      json_detail::typeName(j));
     const auto& obj = std::get<JsonObject>(j);
     m.clear();
     m.reserve(obj.size());
@@ -6785,7 +6785,7 @@ void from_json(const JsonValue& j, std::pair<T1, T2>& p)
                       "expected",
                       "array for pair",
                       "got",
-                      json_detail::type_name(j));
+                      json_detail::typeName(j));
     const auto& arr = std::get<JsonArray>(j);
     FATP_JSON_ENFORCE(arr.size() == 2, "JSON array size mismatch for pair", "expected", 2, "got", arr.size());
     from_json(arr[0], p.first);
@@ -6801,7 +6801,7 @@ void from_json(const JsonValue& j, std::tuple<Ts...>& tup)
                       "expected",
                       "array for tuple",
                       "got",
-                      json_detail::type_name(j));
+                      json_detail::typeName(j));
     const auto& arr = std::get<JsonArray>(j);
     constexpr size_t expected_size = sizeof...(Ts);
     FATP_JSON_ENFORCE(arr.size() == expected_size,
@@ -6884,7 +6884,7 @@ T from_json(const JsonValue& j, const std::string& key)
                       "expected",
                       "object",
                       "got",
-                      json_detail::type_name(j),
+                      json_detail::typeName(j),
                       "key",
                       key);
     const auto& obj = std::get<JsonObject>(j);

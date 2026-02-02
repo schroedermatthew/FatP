@@ -43,8 +43,8 @@ FATP_META:
 namespace fat_p::testing::fatpbinary
 {
 
-using fat_p::binary_fatp::binary_decode_from;
-using fat_p::binary_fatp::binary_encode_to;
+using fat_p::binary_fatp::binaryDecodeFrom;
+using fat_p::binary_fatp::binaryEncodeTo;
 using fat_p::binary_fatp::BinaryBuffer;
 using fat_p::binary_fatp::BinaryError;
 using fat_p::binary_fatp::BinaryReader;
@@ -77,10 +77,10 @@ FATP_TEST_CASE(int_roundtrip)
     for (int v : values)
     {
         BinaryBuffer buf;
-        auto enc = binary_encode_to(buf, v);
+        auto enc = binaryEncodeTo(buf, v);
         FATP_ASSERT_TRUE(enc.has_value(), "Encode int failed");
 
-        auto dec = binary_decode_from<int>(buf);
+        auto dec = binaryDecodeFrom<int>(buf);
         FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
         FATP_ASSERT_EQ(*dec, v, "int roundtrip");
     }
@@ -96,10 +96,10 @@ FATP_TEST_CASE(uint64_roundtrip)
     for (std::uint64_t v : values)
     {
         BinaryBuffer buf;
-        auto enc = binary_encode_to(buf, v);
+        auto enc = binaryEncodeTo(buf, v);
         FATP_ASSERT_TRUE(enc.has_value(), "Encode uint64 failed");
 
-        auto dec = binary_decode_from<std::uint64_t>(buf);
+        auto dec = binaryDecodeFrom<std::uint64_t>(buf);
         FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
         FATP_ASSERT_EQ(*dec, v, "uint64 roundtrip");
     }
@@ -111,19 +111,19 @@ FATP_TEST_CASE(bool_roundtrip)
 {
     {
         BinaryBuffer buf;
-        auto enc = binary_encode_to(buf, true);
+        auto enc = binaryEncodeTo(buf, true);
         FATP_ASSERT_TRUE(enc.has_value(), "Encode true failed");
 
-        auto dec = binary_decode_from<bool>(buf);
+        auto dec = binaryDecodeFrom<bool>(buf);
         FATP_ASSERT_TRUE(dec.has_value() && *dec == true, "true roundtrip");
     }
 
     {
         BinaryBuffer buf;
-        auto enc = binary_encode_to(buf, false);
+        auto enc = binaryEncodeTo(buf, false);
         FATP_ASSERT_TRUE(enc.has_value(), "Encode false failed");
 
-        auto dec = binary_decode_from<bool>(buf);
+        auto dec = binaryDecodeFrom<bool>(buf);
         FATP_ASSERT_TRUE(dec.has_value() && *dec == false, "false roundtrip");
     }
 
@@ -137,10 +137,10 @@ FATP_TEST_CASE(float_roundtrip)
     for (float v : values)
     {
         BinaryBuffer buf;
-        auto enc = binary_encode_to(buf, v);
+        auto enc = binaryEncodeTo(buf, v);
         FATP_ASSERT_TRUE(enc.has_value(), "Encode float failed");
 
-        auto dec = binary_decode_from<float>(buf);
+        auto dec = binaryDecodeFrom<float>(buf);
         FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
         FATP_ASSERT_EQ(*dec, v, "float roundtrip");
     }
@@ -155,10 +155,10 @@ FATP_TEST_CASE(double_roundtrip)
     for (double v : values)
     {
         BinaryBuffer buf;
-        auto enc = binary_encode_to(buf, v);
+        auto enc = binaryEncodeTo(buf, v);
         FATP_ASSERT_TRUE(enc.has_value(), "Encode double failed");
 
-        auto dec = binary_decode_from<double>(buf);
+        auto dec = binaryDecodeFrom<double>(buf);
         FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
         FATP_ASSERT_CLOSE_EPS(*dec, v, 1e-12, "double roundtrip");
     }
@@ -173,10 +173,10 @@ FATP_TEST_CASE(string_roundtrip)
     for (const auto& s : values)
     {
         BinaryBuffer buf;
-        auto enc = binary_encode_to(buf, s);
+        auto enc = binaryEncodeTo(buf, s);
         FATP_ASSERT_TRUE(enc.has_value(), "Encode string failed");
 
-        auto dec = binary_decode_from<std::string>(buf);
+        auto dec = binaryDecodeFrom<std::string>(buf);
         FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
         FATP_ASSERT_EQ(*dec, s, "string roundtrip");
     }
@@ -193,10 +193,10 @@ FATP_TEST_CASE(vector_int_roundtrip)
     std::vector<int> v = {1, 2, 3, 4, 5};
 
     BinaryBuffer buf;
-    auto enc = binary_encode_to(buf, v);
+    auto enc = binaryEncodeTo(buf, v);
     FATP_ASSERT_TRUE(enc.has_value(), "Encode vector failed");
 
-    auto dec = binary_decode_from<std::vector<int>>(buf);
+    auto dec = binaryDecodeFrom<std::vector<int>>(buf);
     FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
     FATP_ASSERT_EQ(dec->size(), v.size(), "vector size");
     for (std::size_t i = 0; i < v.size(); ++i)
@@ -212,10 +212,10 @@ FATP_TEST_CASE(nested_vector_roundtrip)
     std::vector<std::vector<int>> v = {{1, 2}, {3, 4, 5}, {}, {6}};
 
     BinaryBuffer buf;
-    auto enc = binary_encode_to(buf, v);
+    auto enc = binaryEncodeTo(buf, v);
     FATP_ASSERT_TRUE(enc.has_value(), "Encode nested vector failed");
 
-    auto dec = binary_decode_from<std::vector<std::vector<int>>>(buf);
+    auto dec = binaryDecodeFrom<std::vector<std::vector<int>>>(buf);
     FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
     FATP_ASSERT_EQ(dec->size(), v.size(), "outer vector size");
     for (std::size_t i = 0; i < v.size(); ++i)
@@ -231,10 +231,10 @@ FATP_TEST_CASE(empty_vector_roundtrip)
     std::vector<int> v = {};
 
     BinaryBuffer buf;
-    auto enc = binary_encode_to(buf, v);
+    auto enc = binaryEncodeTo(buf, v);
     FATP_ASSERT_TRUE(enc.has_value(), "Encode empty vector failed");
 
-    auto dec = binary_decode_from<std::vector<int>>(buf);
+    auto dec = binaryDecodeFrom<std::vector<int>>(buf);
     FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
     FATP_ASSERT_TRUE(dec->empty(), "empty vector roundtrip");
 
@@ -246,10 +246,10 @@ FATP_TEST_CASE(vector_string_roundtrip)
     std::vector<std::string> v = {"one", "two", "three", "", "with spaces"};
 
     BinaryBuffer buf;
-    auto enc = binary_encode_to(buf, v);
+    auto enc = binaryEncodeTo(buf, v);
     FATP_ASSERT_TRUE(enc.has_value(), "Encode vector<string> failed");
 
-    auto dec = binary_decode_from<std::vector<std::string>>(buf);
+    auto dec = binaryDecodeFrom<std::vector<std::string>>(buf);
     FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
     FATP_ASSERT_EQ(dec->size(), v.size(), "vector<string> size");
     for (std::size_t i = 0; i < v.size(); ++i)
@@ -269,10 +269,10 @@ FATP_TEST_CASE(map_roundtrip)
     std::map<std::string, int> m{{"a", 1}, {"b", 2}, {"c", 3}};
 
     BinaryBuffer buf;
-    auto enc = binary_encode_to(buf, m);
+    auto enc = binaryEncodeTo(buf, m);
     FATP_ASSERT_TRUE(enc.has_value(), "Encode map failed");
 
-    auto dec = binary_decode_from<std::map<std::string, int>>(buf);
+    auto dec = binaryDecodeFrom<std::map<std::string, int>>(buf);
     FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
     FATP_ASSERT_EQ(dec->size(), m.size(), "map size");
     FATP_ASSERT_EQ(dec->at("a"), 1, "map value a");
@@ -286,10 +286,10 @@ FATP_TEST_CASE(nested_map_roundtrip)
     std::map<std::string, std::map<int, std::string>> m{{"x", {{1, "a"}, {2, "b"}}}, {"y", {{3, "c"}}}};
 
     BinaryBuffer buf;
-    auto enc = binary_encode_to(buf, m);
+    auto enc = binaryEncodeTo(buf, m);
     FATP_ASSERT_TRUE(enc.has_value(), "Encode nested map failed");
 
-    auto dec = binary_decode_from<std::map<std::string, std::map<int, std::string>>>(buf);
+    auto dec = binaryDecodeFrom<std::map<std::string, std::map<int, std::string>>>(buf);
     FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
     FATP_ASSERT_EQ(dec->size(), m.size(), "outer map size");
 
@@ -301,10 +301,10 @@ FATP_TEST_CASE(empty_map_roundtrip)
     std::map<std::string, int> m{};
 
     BinaryBuffer buf;
-    auto enc = binary_encode_to(buf, m);
+    auto enc = binaryEncodeTo(buf, m);
     FATP_ASSERT_TRUE(enc.has_value(), "Encode empty map failed");
 
-    auto dec = binary_decode_from<std::map<std::string, int>>(buf);
+    auto dec = binaryDecodeFrom<std::map<std::string, int>>(buf);
     FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
     FATP_ASSERT_TRUE(dec->empty(), "empty map roundtrip");
 
@@ -329,10 +329,10 @@ FATP_TEST_CASE(enum_roundtrip)
     for (TestEnum v : values)
     {
         BinaryBuffer buf;
-        auto enc = binary_encode_to(buf, v);
+        auto enc = binaryEncodeTo(buf, v);
         FATP_ASSERT_TRUE(enc.has_value(), "Encode enum failed");
 
-        auto dec = binary_decode_from<TestEnum>(buf);
+        auto dec = binaryDecodeFrom<TestEnum>(buf);
         FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
         FATP_ASSERT_TRUE(*dec == v, "enum roundtrip");
     }
@@ -347,15 +347,15 @@ FATP_TEST_CASE(enum_roundtrip)
 FATP_TEST_CASE(cross_container)
 {
     BinaryBuffer hbuf;
-    auto enc = binary_encode_to(hbuf, std::string("test123"));
+    auto enc = binaryEncodeTo(hbuf, std::string("test123"));
     FATP_ASSERT_TRUE(enc.has_value(), "Encode failed");
 
     std::vector<std::uint8_t> sbuf(hbuf.begin(), hbuf.end());
 
-    auto r1 = binary_decode_from<std::string>(hbuf);
+    auto r1 = binaryDecodeFrom<std::string>(hbuf);
     FATP_ASSERT_TRUE(r1.has_value() && *r1 == "test123", "Decode from HpcVector");
 
-    auto r2 = binary_decode_from<std::string>(sbuf);
+    auto r2 = binaryDecodeFrom<std::string>(sbuf);
     FATP_ASSERT_TRUE(r2.has_value() && *r2 == "test123", "Decode from std::vector");
 
     return true;
@@ -369,7 +369,7 @@ FATP_TEST_CASE(decode_invalid_tag)
 {
     std::vector<std::uint8_t> bad = {0xFFU};
 
-    auto dec = binary_decode_from<int>(bad);
+    auto dec = binaryDecodeFrom<int>(bad);
     FATP_ASSERT_TRUE(!dec.has_value(), "Invalid tag should fail");
     FATP_ASSERT_TRUE(!dec.error().message.empty(), "Error message should exist");
 
@@ -380,11 +380,11 @@ FATP_TEST_CASE(decode_truncated_string)
 {
     BinaryBuffer buf;
     BinaryWriter<BinaryBuffer> writer(buf);
-    writer.write_string("abcdefghij");
+    writer.writeString("abcdefghij");
 
     std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + 5);
 
-    auto dec = binary_decode_from<std::string>(truncated);
+    auto dec = binaryDecodeFrom<std::string>(truncated);
     FATP_ASSERT_TRUE(!dec.has_value(), "Truncated string should fail");
 
     return true;
@@ -395,13 +395,13 @@ FATP_TEST_CASE(decode_truncated_vector)
     std::vector<int> v = {1, 2, 3, 4, 5};
 
     BinaryBuffer buf;
-    auto enc = binary_encode_to(buf, v);
+    auto enc = binaryEncodeTo(buf, v);
     FATP_ASSERT_TRUE(enc.has_value(), "Encode failed");
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
-        auto dec = binary_decode_from<std::vector<int>>(truncated);
+        auto dec = binaryDecodeFrom<std::vector<int>>(truncated);
         FATP_ASSERT_TRUE(!dec.has_value(), "Truncated vector should fail");
     }
 
@@ -411,10 +411,10 @@ FATP_TEST_CASE(decode_truncated_vector)
 FATP_TEST_CASE(decode_type_mismatch_string_as_int)
 {
     BinaryBuffer buf;
-    auto enc = binary_encode_to(buf, std::string("not an int"));
+    auto enc = binaryEncodeTo(buf, std::string("not an int"));
     FATP_ASSERT_TRUE(enc.has_value(), "Encode string failed");
 
-    auto dec = binary_decode_from<int>(buf);
+    auto dec = binaryDecodeFrom<int>(buf);
     FATP_ASSERT_TRUE(!dec.has_value(), "Type mismatch should fail");
 
     return true;
@@ -423,10 +423,10 @@ FATP_TEST_CASE(decode_type_mismatch_string_as_int)
 FATP_TEST_CASE(decode_type_mismatch_int_as_string)
 {
     BinaryBuffer buf;
-    auto enc = binary_encode_to(buf, 42);
+    auto enc = binaryEncodeTo(buf, 42);
     FATP_ASSERT_TRUE(enc.has_value(), "Encode int failed");
 
-    auto dec = binary_decode_from<std::string>(buf);
+    auto dec = binaryDecodeFrom<std::string>(buf);
     FATP_ASSERT_TRUE(!dec.has_value(), "Type mismatch should fail");
 
     return true;
@@ -435,10 +435,10 @@ FATP_TEST_CASE(decode_type_mismatch_int_as_string)
 FATP_TEST_CASE(decode_type_mismatch_double_as_bool)
 {
     BinaryBuffer buf;
-    auto enc = binary_encode_to(buf, 3.14);
+    auto enc = binaryEncodeTo(buf, 3.14);
     FATP_ASSERT_TRUE(enc.has_value(), "Encode double failed");
 
-    auto dec = binary_decode_from<bool>(buf);
+    auto dec = binaryDecodeFrom<bool>(buf);
     FATP_ASSERT_TRUE(!dec.has_value(), "Type mismatch should fail");
 
     return true;
@@ -448,13 +448,13 @@ FATP_TEST_CASE(decode_empty_buffer)
 {
     std::vector<std::uint8_t> empty;
 
-    auto dec_int = binary_decode_from<int>(empty);
+    auto dec_int = binaryDecodeFrom<int>(empty);
     FATP_ASSERT_TRUE(!dec_int.has_value(), "Empty buffer should fail for int");
 
-    auto dec_str = binary_decode_from<std::string>(empty);
+    auto dec_str = binaryDecodeFrom<std::string>(empty);
     FATP_ASSERT_TRUE(!dec_str.has_value(), "Empty buffer should fail for string");
 
-    auto dec_vec = binary_decode_from<std::vector<int>>(empty);
+    auto dec_vec = binaryDecodeFrom<std::vector<int>>(empty);
     FATP_ASSERT_TRUE(!dec_vec.has_value(), "Empty buffer should fail for vector");
 
     return true;
@@ -463,7 +463,7 @@ FATP_TEST_CASE(decode_empty_buffer)
 FATP_TEST_CASE(decode_impossible_length)
 {
     BinaryBuffer buf;
-    auto enc = binary_encode_to(buf, std::string("abcd"));
+    auto enc = binaryEncodeTo(buf, std::string("abcd"));
     FATP_ASSERT_TRUE(enc.has_value(), "Encode failed");
 
     std::vector<std::uint8_t> mutated(buf.begin(), buf.end());
@@ -476,7 +476,7 @@ FATP_TEST_CASE(decode_impossible_length)
         mutated[4] = 0x00U;
     }
 
-    auto dec = binary_decode_from<std::string>(mutated);
+    auto dec = binaryDecodeFrom<std::string>(mutated);
     FATP_ASSERT_TRUE(!dec.has_value(), "Impossible length should fail");
 
     return true;
@@ -487,13 +487,13 @@ FATP_TEST_CASE(decode_partial_map)
     std::map<std::string, int> m{{"a", 1}, {"b", 2}};
 
     BinaryBuffer buf;
-    auto enc = binary_encode_to(buf, m);
+    auto enc = binaryEncodeTo(buf, m);
     FATP_ASSERT_TRUE(enc.has_value(), "Encode failed");
 
     std::size_t cut = buf.size() * 2 / 3;
     std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
 
-    auto dec = binary_decode_from<std::map<std::string, int>>(truncated);
+    auto dec = binaryDecodeFrom<std::map<std::string, int>>(truncated);
     FATP_ASSERT_TRUE(!dec.has_value(), "Partial map should fail");
 
     return true;
@@ -504,13 +504,13 @@ FATP_TEST_CASE(decode_nested_truncation)
     std::vector<std::vector<int>> nested = {{1, 2}, {3, 4, 5}, {6}};
 
     BinaryBuffer buf;
-    auto enc = binary_encode_to(buf, nested);
+    auto enc = binaryEncodeTo(buf, nested);
     FATP_ASSERT_TRUE(enc.has_value(), "Encode failed");
 
     std::size_t cut = buf.size() / 2;
     std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
 
-    auto dec = binary_decode_from<std::vector<std::vector<int>>>(truncated);
+    auto dec = binaryDecodeFrom<std::vector<std::vector<int>>>(truncated);
     FATP_ASSERT_TRUE(!dec.has_value(), "Truncated nested should fail");
 
     return true;
@@ -526,7 +526,7 @@ FATP_TEST_CASE(decode_huge_length_protection)
     const auto* len_bytes = reinterpret_cast<const std::uint8_t*>(&huge_len);
     buf.insert(buf.end(), len_bytes, len_bytes + sizeof(huge_len));
 
-    auto dec = binary_decode_from<std::vector<int>>(buf);
+    auto dec = binaryDecodeFrom<std::vector<int>>(buf);
     FATP_ASSERT_TRUE(!dec.has_value(), "Huge length should fail");
 
     return true;
@@ -546,10 +546,10 @@ FATP_TEST_CASE(fuzz_ints)
         const int v = dist(rng);
 
         BinaryBuffer buf;
-        auto enc = binary_encode_to(buf, v);
+        auto enc = binaryEncodeTo(buf, v);
         FATP_ASSERT_TRUE(enc.has_value(), "Encode int failed");
 
-        auto dec = binary_decode_from<int>(buf);
+        auto dec = binaryDecodeFrom<int>(buf);
         FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
         FATP_ASSERT_EQ(*dec, v, "fuzz int");
     }
@@ -567,10 +567,10 @@ FATP_TEST_CASE(fuzz_doubles)
         const double v = dist(rng);
 
         BinaryBuffer buf;
-        auto enc = binary_encode_to(buf, v);
+        auto enc = binaryEncodeTo(buf, v);
         FATP_ASSERT_TRUE(enc.has_value(), "Encode double failed");
 
-        auto dec = binary_decode_from<double>(buf);
+        auto dec = binaryDecodeFrom<double>(buf);
         FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
         FATP_ASSERT_CLOSE_EPS(*dec, v, 1e-9, "fuzz double");
     }
@@ -595,10 +595,10 @@ FATP_TEST_CASE(fuzz_strings)
         }
 
         BinaryBuffer buf;
-        auto enc = binary_encode_to(buf, s);
+        auto enc = binaryEncodeTo(buf, s);
         FATP_ASSERT_TRUE(enc.has_value(), "Encode string failed");
 
-        auto dec = binary_decode_from<std::string>(buf);
+        auto dec = binaryDecodeFrom<std::string>(buf);
         FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
         FATP_ASSERT_EQ(*dec, s, "fuzz string");
     }
@@ -623,10 +623,10 @@ FATP_TEST_CASE(fuzz_vector_int)
         }
 
         BinaryBuffer buf;
-        auto enc = binary_encode_to(buf, v);
+        auto enc = binaryEncodeTo(buf, v);
         FATP_ASSERT_TRUE(enc.has_value(), "Encode vector failed");
 
-        auto dec = binary_decode_from<std::vector<int>>(buf);
+        auto dec = binaryDecodeFrom<std::vector<int>>(buf);
         FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
         FATP_ASSERT_EQ(dec->size(), v.size(), "fuzz vector size");
         for (std::size_t i = 0; i < v.size(); ++i)
@@ -664,10 +664,10 @@ FATP_TEST_CASE(fuzz_map_string_int)
         }
 
         BinaryBuffer buf;
-        auto enc = binary_encode_to(buf, m);
+        auto enc = binaryEncodeTo(buf, m);
         FATP_ASSERT_TRUE(enc.has_value(), "Encode map failed");
 
-        auto dec = binary_decode_from<std::map<std::string, int>>(buf);
+        auto dec = binaryDecodeFrom<std::map<std::string, int>>(buf);
         FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
         FATP_ASSERT_EQ(dec->size(), m.size(), "fuzz map size");
     }
@@ -711,10 +711,10 @@ FATP_TEST_CASE(fuzz_nested_structures)
         }
 
         BinaryBuffer buf;
-        auto enc = binary_encode_to(buf, v);
+        auto enc = binaryEncodeTo(buf, v);
         FATP_ASSERT_TRUE(enc.has_value(), "Encode nested failed");
 
-        auto dec = binary_decode_from<std::vector<std::map<std::string, int>>>(buf);
+        auto dec = binaryDecodeFrom<std::vector<std::map<std::string, int>>>(buf);
         FATP_ASSERT_TRUE(dec.has_value(), dec.error().message.c_str());
         FATP_ASSERT_EQ(dec->size(), v.size(), "fuzz nested outer size");
     }

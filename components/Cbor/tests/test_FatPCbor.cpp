@@ -286,7 +286,7 @@ struct CborTraits<::fat_p::testing::fatpcbor::Complex>
     template <typename Writer>
     static void encode(Writer& w, const testing::fatpcbor::Complex& x)
     {
-        w.write_map_header(3U);
+        w.writeMapHeader(3U);
         CborTraits<std::string>::encode(w, std::string("a"));
         CborTraits<int>::encode(w, x.a);
         CborTraits<std::string>::encode(w, std::string("b"));
@@ -298,7 +298,7 @@ struct CborTraits<::fat_p::testing::fatpcbor::Complex>
     template <typename Reader>
     static CborResult<testing::fatpcbor::Complex> decode(Reader& r)
     {
-        auto len = r.read_map_header();
+        auto len = r.readMapHeader();
         if (!len)
         {
             return make_unexpected(len.error());
@@ -561,9 +561,9 @@ FATP_TEST_CASE(decode_trailing_garbage)
     FATP_ASSERT_EQ(*r, value, "Decoded value");
 
     CborReader reader(mutated);
-    auto v1 = reader.read_int();
+    auto v1 = reader.readInt();
     FATP_ASSERT_TRUE(v1.has_value(), "First read should succeed");
-    auto v2 = reader.read_int();
+    auto v2 = reader.readInt();
     FATP_ASSERT_TRUE(!v2.has_value(), "Second read should fail on garbage");
 
     return true;

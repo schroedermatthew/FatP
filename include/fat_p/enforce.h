@@ -16,7 +16,7 @@ FATP_META:
       - components/Enforce/tests/test_Enforce.cpp
   hygiene:
     pragma_once: true
-    include_guard: true
+    include_guard: false
     defines_total: 90
     defines_unprefixed: 0
     undefs_total: 0

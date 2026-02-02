@@ -15,8 +15,8 @@ FATP_META:
     tests:
       - components/BinarySerialization/tests/test_BinaryLite.cpp
   hygiene:
-    pragma_once: false
-    include_guard: true
+    pragma_once: true
+    include_guard: false
     defines_total: 1
     defines_unprefixed: 0
     undefs_total: 0
@@ -69,32 +69,32 @@ namespace detail
 // C++20 has std::endian; for C++17 we use compiler intrinsics
 #if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && defined(__ORDER_BIG_ENDIAN__)
 // GCC, Clang, and most modern compilers
-inline constexpr bool is_little_endian = (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
-inline constexpr bool is_big_endian = (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__);
+inline constexpr bool kIsLittleEndian = (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
+inline constexpr bool kIsBigEndian = (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__);
 #elif defined(_MSC_VER)
 // MSVC: x86/x64 is always little-endian
-inline constexpr bool is_little_endian = true;
-inline constexpr bool is_big_endian = false;
+inline constexpr bool kIsLittleEndian = true;
+inline constexpr bool kIsBigEndian = false;
 #else
 // Fallback: runtime detection (evaluated once at startup)
-inline const bool is_little_endian = []() {
+inline const bool kIsLittleEndian = []() {
     const std::uint32_t test = 0x01020304;
     return *reinterpret_cast<const std::uint8_t*>(&test) == 0x04;
 }();
-inline const bool is_big_endian = !is_little_endian;
+inline const bool kIsBigEndian = !kIsLittleEndian;
 #endif
 
 // Byte swap functions for converting between native and little-endian
-inline std::uint8_t byte_swap(std::uint8_t v) noexcept
+inline std::uint8_t byteSwap(std::uint8_t v) noexcept
 {
     return v;
 }
-inline std::int8_t byte_swap(std::int8_t v) noexcept
+inline std::int8_t byteSwap(std::int8_t v) noexcept
 {
     return v;
 }
 
-inline std::uint16_t byte_swap(std::uint16_t v) noexcept
+inline std::uint16_t byteSwap(std::uint16_t v) noexcept
 {
 #if defined(_MSC_VER)
     return _byteswap_ushort(v);
@@ -105,12 +105,12 @@ inline std::uint16_t byte_swap(std::uint16_t v) noexcept
 #endif
 }
 
-inline std::int16_t byte_swap(std::int16_t v) noexcept
+inline std::int16_t byteSwap(std::int16_t v) noexcept
 {
-    return static_cast<std::int16_t>(byte_swap(static_cast<std::uint16_t>(v)));
+    return static_cast<std::int16_t>(byteSwap(static_cast<std::uint16_t>(v)));
 }
 
-inline std::uint32_t byte_swap(std::uint32_t v) noexcept
+inline std::uint32_t byteSwap(std::uint32_t v) noexcept
 {
 #if defined(_MSC_VER)
     return _byteswap_ulong(v);
@@ -121,12 +121,12 @@ inline std::uint32_t byte_swap(std::uint32_t v) noexcept
 #endif
 }
 
-inline std::int32_t byte_swap(std::int32_t v) noexcept
+inline std::int32_t byteSwap(std::int32_t v) noexcept
 {
-    return static_cast<std::int32_t>(byte_swap(static_cast<std::uint32_t>(v)));
+    return static_cast<std::int32_t>(byteSwap(static_cast<std::uint32_t>(v)));
 }
 
-inline std::uint64_t byte_swap(std::uint64_t v) noexcept
+inline std::uint64_t byteSwap(std::uint64_t v) noexcept
 {
 #if defined(_MSC_VER)
     return _byteswap_uint64(v);
@@ -140,29 +140,29 @@ inline std::uint64_t byte_swap(std::uint64_t v) noexcept
 #endif
 }
 
-inline std::int64_t byte_swap(std::int64_t v) noexcept
+inline std::int64_t byteSwap(std::int64_t v) noexcept
 {
-    return static_cast<std::int64_t>(byte_swap(static_cast<std::uint64_t>(v)));
+    return static_cast<std::int64_t>(byteSwap(static_cast<std::uint64_t>(v)));
 }
 
 // Float/double byte swapping via type punning
-inline float byte_swap(float v) noexcept
+inline float byteSwap(float v) noexcept
 {
     static_assert(sizeof(float) == sizeof(std::uint32_t), "float must be 32-bit");
     std::uint32_t bits;
     std::memcpy(&bits, &v, sizeof(bits));
-    bits = byte_swap(bits);
+    bits = byteSwap(bits);
     float result;
     std::memcpy(&result, &bits, sizeof(result));
     return result;
 }
 
-inline double byte_swap(double v) noexcept
+inline double byteSwap(double v) noexcept
 {
     static_assert(sizeof(double) == sizeof(std::uint64_t), "double must be 64-bit");
     std::uint64_t bits;
     std::memcpy(&bits, &v, sizeof(bits));
-    bits = byte_swap(bits);
+    bits = byteSwap(bits);
     double result;
     std::memcpy(&result, &bits, sizeof(result));
     return result;
@@ -170,7 +170,7 @@ inline double byte_swap(double v) noexcept
 
 // Convert native to little-endian
 template <typename T>
-T native_to_le(T v) noexcept
+T nativeToLe(T v) noexcept
 {
     if constexpr (sizeof(T) == 1)
     {
@@ -178,9 +178,9 @@ T native_to_le(T v) noexcept
     }
     else
     {
-        if (is_big_endian)
+        if (kIsBigEndian)
         {
-            return byte_swap(v);
+            return byteSwap(v);
         }
         return v;
     }
@@ -188,7 +188,7 @@ T native_to_le(T v) noexcept
 
 // Convert little-endian to native
 template <typename T>
-T le_to_native(T v) noexcept
+T leToNative(T v) noexcept
 {
     if constexpr (sizeof(T) == 1)
     {
@@ -196,9 +196,9 @@ T le_to_native(T v) noexcept
     }
     else
     {
-        if (is_big_endian)
+        if (kIsBigEndian)
         {
-            return byte_swap(v);
+            return byteSwap(v);
         }
         return v;
     }
@@ -233,7 +233,7 @@ enum class TypeTag : std::uint8_t
 // Low-Level Encoding/Decoding Helpers
 // ============================================================================
 
-inline void ensure_available(std::size_t size, std::size_t pos, std::size_t required)
+inline void ensureAvailable(std::size_t size, std::size_t pos, std::size_t required)
 {
     if (pos + required > size)
     {
@@ -241,7 +241,7 @@ inline void ensure_available(std::size_t size, std::size_t pos, std::size_t requ
     }
 }
 
-inline std::size_t safe_to_size_t(std::uint64_t value, const char* context)
+inline std::size_t safeToSizeT(std::uint64_t value, const char* context)
 {
     if (value > std::numeric_limits<std::size_t>::max())
     {
@@ -251,36 +251,36 @@ inline std::size_t safe_to_size_t(std::uint64_t value, const char* context)
 }
 
 template <typename T>
-void write_le(std::vector<std::uint8_t>& buffer, T value)
+void writeLe(std::vector<std::uint8_t>& buffer, T value)
 {
     static_assert(std::is_trivially_copyable_v<T>, "Type must be trivially copyable");
 
     // Convert to little-endian before writing
-    const T le_value = detail::native_to_le(value);
-    const auto* bytes = reinterpret_cast<const std::uint8_t*>(&le_value);
+    const T leValue = detail::nativeToLe(value);
+    const auto* bytes = reinterpret_cast<const std::uint8_t*>(&leValue);
     buffer.insert(buffer.end(), bytes, bytes + sizeof(T));
 }
 
 template <typename T>
-T read_le(const std::uint8_t* data, std::size_t& pos, std::size_t size)
+T readLe(const std::uint8_t* data, std::size_t& pos, std::size_t size)
 {
     static_assert(std::is_trivially_copyable_v<T>, "Type must be trivially copyable");
 
-    ensure_available(size, pos, sizeof(T));
+    ensureAvailable(size, pos, sizeof(T));
 
-    T le_value;
-    std::memcpy(&le_value, data + pos, sizeof(T));
+    T leValue;
+    std::memcpy(&leValue, data + pos, sizeof(T));
     pos += sizeof(T);
     // Convert from little-endian to native
-    return detail::le_to_native(le_value);
+    return detail::leToNative(leValue);
 }
 
-inline void copy_data(std::vector<std::uint8_t>& buffer, const std::uint8_t* src, std::size_t len)
+inline void copyData(std::vector<std::uint8_t>& buffer, const std::uint8_t* src, std::size_t len)
 {
 #ifdef __AVX2__
-    const std::size_t old_size = buffer.size();
-    buffer.resize(old_size + len);
-    std::uint8_t* dst = buffer.data() + old_size;
+    const std::size_t oldSize = buffer.size();
+    buffer.resize(oldSize + len);
+    std::uint8_t* dst = buffer.data() + oldSize;
 
     std::size_t i = 0;
     for (; i + 32 <= len; i += 32)
@@ -313,113 +313,113 @@ public:
         return mOut;
     }
 
-    void write_uint8(std::uint8_t value)
+    void writeUint8(std::uint8_t value)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::Uint8));
         mOut.push_back(value);
     }
 
-    void write_uint16(std::uint16_t value)
+    void writeUint16(std::uint16_t value)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::Uint16));
-        write_le(mOut, value);
+        writeLe(mOut, value);
     }
 
-    void write_uint32(std::uint32_t value)
+    void writeUint32(std::uint32_t value)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::Uint32));
-        write_le(mOut, value);
+        writeLe(mOut, value);
     }
 
-    void write_uint64(std::uint64_t value)
+    void writeUint64(std::uint64_t value)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::Uint64));
-        write_le(mOut, value);
+        writeLe(mOut, value);
     }
 
-    void write_int8(std::int8_t value)
+    void writeInt8(std::int8_t value)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::Int8));
         mOut.push_back(static_cast<std::uint8_t>(value));
     }
 
-    void write_int16(std::int16_t value)
+    void writeInt16(std::int16_t value)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::Int16));
-        write_le(mOut, value);
+        writeLe(mOut, value);
     }
 
-    void write_int32(std::int32_t value)
+    void writeInt32(std::int32_t value)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::Int32));
-        write_le(mOut, value);
+        writeLe(mOut, value);
     }
 
-    void write_int64(std::int64_t value)
+    void writeInt64(std::int64_t value)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::Int64));
-        write_le(mOut, value);
+        writeLe(mOut, value);
     }
 
-    void write_float(float value)
+    void writeFloat(float value)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::Float32));
-        write_le(mOut, value);
+        writeLe(mOut, value);
     }
 
-    void write_double(double value)
+    void writeDouble(double value)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::Float64));
-        write_le(mOut, value);
+        writeLe(mOut, value);
     }
 
-    void write_bool(bool value)
+    void writeBool(bool value)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::Bool));
         mOut.push_back(value ? 1U : 0U);
     }
 
-    void write_string(const std::string& value)
+    void writeString(const std::string& value)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::String));
-        write_le(mOut, static_cast<std::uint64_t>(value.size()));
-        copy_data(mOut, reinterpret_cast<const std::uint8_t*>(value.data()), value.size());
+        writeLe(mOut, static_cast<std::uint64_t>(value.size()));
+        copyData(mOut, reinterpret_cast<const std::uint8_t*>(value.data()), value.size());
     }
 
-    void write_bytes(const std::uint8_t* data, std::size_t size)
+    void writeBytes(const std::uint8_t* data, std::size_t size)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::Bytes));
-        write_le(mOut, static_cast<std::uint64_t>(size));
-        copy_data(mOut, data, size);
+        writeLe(mOut, static_cast<std::uint64_t>(size));
+        copyData(mOut, data, size);
     }
 
-    void write_bytes(const std::vector<std::uint8_t>& data)
+    void writeBytes(const std::vector<std::uint8_t>& data)
     {
-        write_bytes(data.data(), data.size());
+        writeBytes(data.data(), data.size());
     }
 
-    void begin_array(std::size_t size)
+    void beginArray(std::size_t size)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::Array));
-        write_le(mOut, static_cast<std::uint64_t>(size));
+        writeLe(mOut, static_cast<std::uint64_t>(size));
     }
 
-    void begin_map(std::size_t size)
+    void beginMap(std::size_t size)
     {
         mOut.push_back(static_cast<std::uint8_t>(TypeTag::Map));
-        write_le(mOut, static_cast<std::uint64_t>(size));
+        writeLe(mOut, static_cast<std::uint64_t>(size));
     }
 
     // Untagged writes for when caller manages type information
     template <typename T>
-    void write_raw(T value)
+    void writeRaw(T value)
     {
-        write_le(mOut, value);
+        writeLe(mOut, value);
     }
 
-    void write_raw_bytes(const std::uint8_t* data, std::size_t size)
+    void writeRawBytes(const std::uint8_t* data, std::size_t size)
     {
-        copy_data(mOut, data, size);
+        copyData(mOut, data, size);
     }
 
 private:
@@ -434,8 +434,8 @@ class Decoder
 {
 public:
     Decoder(const std::uint8_t* data, std::size_t size) noexcept
-        : data_(data)
-        , size_(size)
+        : mData(data)
+        , mSize(size)
         , mPos(0)
     {
     }
@@ -447,12 +447,12 @@ public:
 
     bool eof() const noexcept
     {
-        return mPos >= size_;
+        return mPos >= mSize;
     }
 
     std::size_t remaining() const noexcept
     {
-        return size_ - mPos;
+        return mSize - mPos;
     }
 
     std::size_t position() const noexcept
@@ -460,140 +460,140 @@ public:
         return mPos;
     }
 
-    TypeTag peek_type() const
+    TypeTag peekType() const
     {
-        ensure_available(size_, mPos, 1);
-        return static_cast<TypeTag>(data_[mPos]);
+        ensureAvailable(mSize, mPos, 1);
+        return static_cast<TypeTag>(mData[mPos]);
     }
 
-    std::uint8_t read_uint8()
+    std::uint8_t readUint8()
     {
-        expect_tag(TypeTag::Uint8);
-        return data_[mPos++];
+        expectTag(TypeTag::Uint8);
+        return mData[mPos++];
     }
 
-    std::uint16_t read_uint16()
+    std::uint16_t readUint16()
     {
-        expect_tag(TypeTag::Uint16);
-        return read_le<std::uint16_t>(data_, mPos, size_);
+        expectTag(TypeTag::Uint16);
+        return readLe<std::uint16_t>(mData, mPos, mSize);
     }
 
-    std::uint32_t read_uint32()
+    std::uint32_t readUint32()
     {
-        expect_tag(TypeTag::Uint32);
-        return read_le<std::uint32_t>(data_, mPos, size_);
+        expectTag(TypeTag::Uint32);
+        return readLe<std::uint32_t>(mData, mPos, mSize);
     }
 
-    std::uint64_t read_uint64()
+    std::uint64_t readUint64()
     {
-        expect_tag(TypeTag::Uint64);
-        return read_le<std::uint64_t>(data_, mPos, size_);
+        expectTag(TypeTag::Uint64);
+        return readLe<std::uint64_t>(mData, mPos, mSize);
     }
 
-    std::int8_t read_int8()
+    std::int8_t readInt8()
     {
-        expect_tag(TypeTag::Int8);
-        return static_cast<std::int8_t>(data_[mPos++]);
+        expectTag(TypeTag::Int8);
+        return static_cast<std::int8_t>(mData[mPos++]);
     }
 
-    std::int16_t read_int16()
+    std::int16_t readInt16()
     {
-        expect_tag(TypeTag::Int16);
-        return read_le<std::int16_t>(data_, mPos, size_);
+        expectTag(TypeTag::Int16);
+        return readLe<std::int16_t>(mData, mPos, mSize);
     }
 
-    std::int32_t read_int32()
+    std::int32_t readInt32()
     {
-        expect_tag(TypeTag::Int32);
-        return read_le<std::int32_t>(data_, mPos, size_);
+        expectTag(TypeTag::Int32);
+        return readLe<std::int32_t>(mData, mPos, mSize);
     }
 
-    std::int64_t read_int64()
+    std::int64_t readInt64()
     {
-        expect_tag(TypeTag::Int64);
-        return read_le<std::int64_t>(data_, mPos, size_);
+        expectTag(TypeTag::Int64);
+        return readLe<std::int64_t>(mData, mPos, mSize);
     }
 
-    float read_float()
+    float readFloat()
     {
-        expect_tag(TypeTag::Float32);
-        return read_le<float>(data_, mPos, size_);
+        expectTag(TypeTag::Float32);
+        return readLe<float>(mData, mPos, mSize);
     }
 
-    double read_double()
+    double readDouble()
     {
-        expect_tag(TypeTag::Float64);
-        return read_le<double>(data_, mPos, size_);
+        expectTag(TypeTag::Float64);
+        return readLe<double>(mData, mPos, mSize);
     }
 
-    bool read_bool()
+    bool readBool()
     {
-        expect_tag(TypeTag::Bool);
-        ensure_available(size_, mPos, 1);
-        return data_[mPos++] != 0;
+        expectTag(TypeTag::Bool);
+        ensureAvailable(mSize, mPos, 1);
+        return mData[mPos++] != 0;
     }
 
-    std::string read_string()
+    std::string readString()
     {
-        expect_tag(TypeTag::String);
-        const auto len64 = read_le<std::uint64_t>(data_, mPos, size_);
-        const auto len = safe_to_size_t(len64, "string");
-        ensure_available(size_, mPos, len);
+        expectTag(TypeTag::String);
+        const auto len64 = readLe<std::uint64_t>(mData, mPos, mSize);
+        const auto len = safeToSizeT(len64, "string");
+        ensureAvailable(mSize, mPos, len);
 
-        std::string result(reinterpret_cast<const char*>(data_ + mPos), len);
+        std::string result(reinterpret_cast<const char*>(mData + mPos), len);
         mPos += len;
         return result;
     }
 
-    std::vector<std::uint8_t> read_bytes()
+    std::vector<std::uint8_t> readBytes()
     {
-        expect_tag(TypeTag::Bytes);
-        const auto len64 = read_le<std::uint64_t>(data_, mPos, size_);
-        const auto len = safe_to_size_t(len64, "bytes");
-        ensure_available(size_, mPos, len);
+        expectTag(TypeTag::Bytes);
+        const auto len64 = readLe<std::uint64_t>(mData, mPos, mSize);
+        const auto len = safeToSizeT(len64, "bytes");
+        ensureAvailable(mSize, mPos, len);
 
-        std::vector<std::uint8_t> result(data_ + mPos, data_ + mPos + len);
+        std::vector<std::uint8_t> result(mData + mPos, mData + mPos + len);
         mPos += len;
         return result;
     }
 
-    std::size_t read_array_length()
+    std::size_t readArrayLength()
     {
-        expect_tag(TypeTag::Array);
-        const auto len64 = read_le<std::uint64_t>(data_, mPos, size_);
-        return safe_to_size_t(len64, "array");
+        expectTag(TypeTag::Array);
+        const auto len64 = readLe<std::uint64_t>(mData, mPos, mSize);
+        return safeToSizeT(len64, "array");
     }
 
-    std::size_t read_map_length()
+    std::size_t readMapLength()
     {
-        expect_tag(TypeTag::Map);
-        const auto len64 = read_le<std::uint64_t>(data_, mPos, size_);
-        return safe_to_size_t(len64, "map");
+        expectTag(TypeTag::Map);
+        const auto len64 = readLe<std::uint64_t>(mData, mPos, mSize);
+        return safeToSizeT(len64, "map");
     }
 
     // Untagged reads for when caller manages type information
     template <typename T>
-    T read_raw()
+    T readRaw()
     {
-        return read_le<T>(data_, mPos, size_);
+        return readLe<T>(mData, mPos, mSize);
     }
 
-    void read_raw_bytes(std::uint8_t* dest, std::size_t len)
+    void readRawBytes(std::uint8_t* dest, std::size_t len)
     {
-        ensure_available(size_, mPos, len);
-        std::memcpy(dest, data_ + mPos, len);
+        ensureAvailable(mSize, mPos, len);
+        std::memcpy(dest, mData + mPos, len);
         mPos += len;
     }
 
 private:
-    const std::uint8_t* data_;
-    std::size_t size_;
+    const std::uint8_t* mData;
+    std::size_t mSize;
     std::size_t mPos;
 
-    void expect_tag(TypeTag expected)
+    void expectTag(TypeTag expected)
     {
-        ensure_available(size_, mPos, 1);
-        const auto actual = static_cast<TypeTag>(data_[mPos++]);
+        ensureAvailable(mSize, mPos, 1);
+        const auto actual = static_cast<TypeTag>(mData[mPos++]);
         if (actual != expected)
         {
             throw std::runtime_error("Binary: type mismatch, expected " + std::to_string(static_cast<int>(expected)) +
@@ -623,7 +623,7 @@ public:
     template <typename T>
     OutputArchive& operator&(const T& value)
     {
-        serialize_impl(value);
+        serializeImpl(value);
         return *this;
     }
 
@@ -647,7 +647,7 @@ private:
     std::ostream& mOs;
 
     template <typename T>
-    void serialize_impl(const T& value)
+    void serializeImpl(const T& value)
     {
         if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>)
         {
@@ -692,7 +692,7 @@ public:
     template <typename T>
     InputArchive& operator&(T& value)
     {
-        deserialize_impl(value);
+        deserializeImpl(value);
         return *this;
     }
 
@@ -710,10 +710,10 @@ public:
 private:
     std::istream& mIs;
 
-    static constexpr std::size_t MAX_STRING_LENGTH = 16 * 1024 * 1024; // 16MB default
+    static constexpr std::size_t kMaxStringLength = 16 * 1024 * 1024; // 16MB default
 
     template <typename T>
-    void deserialize_impl(T& value)
+    void deserializeImpl(T& value)
     {
         if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>)
         {
@@ -729,7 +729,7 @@ private:
                 throw std::runtime_error("Binary: failed to read string length");
             }
 
-            if (len > MAX_STRING_LENGTH)
+            if (len > kMaxStringLength)
             {
                 throw std::runtime_error("Binary: string length exceeds limit");
             }

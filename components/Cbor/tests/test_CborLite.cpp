@@ -69,10 +69,10 @@ FATP_TEST_CASE(uint_roundtrip)
     {
         buffer buf;
         Encoder enc(buf);
-        enc.write_uint(v);
+        enc.writeUint(v);
 
         Decoder dec(buf);
-        FATP_ASSERT_EQ(dec.read_uint(), v, "uint roundtrip");
+        FATP_ASSERT_EQ(dec.readUint(), v, "uint roundtrip");
     }
 
     return true;
@@ -86,10 +86,10 @@ FATP_TEST_CASE(int_positive_roundtrip)
     {
         buffer buf;
         Encoder enc(buf);
-        enc.write_int(v);
+        enc.writeInt(v);
 
         Decoder dec(buf);
-        FATP_ASSERT_EQ(dec.read_int(), v, "positive int roundtrip");
+        FATP_ASSERT_EQ(dec.readInt(), v, "positive int roundtrip");
     }
 
     return true;
@@ -104,10 +104,10 @@ FATP_TEST_CASE(int_negative_roundtrip)
     {
         buffer buf;
         Encoder enc(buf);
-        enc.write_int(v);
+        enc.writeInt(v);
 
         Decoder dec(buf);
-        FATP_ASSERT_EQ(dec.read_int(), v, "negative int roundtrip");
+        FATP_ASSERT_EQ(dec.readInt(), v, "negative int roundtrip");
     }
 
     return true;
@@ -117,12 +117,12 @@ FATP_TEST_CASE(bool_roundtrip)
 {
     buffer buf;
     Encoder enc(buf);
-    enc.write_bool(false);
-    enc.write_bool(true);
+    enc.writeBool(false);
+    enc.writeBool(true);
 
     Decoder dec(buf);
-    FATP_ASSERT_TRUE(!dec.read_bool(), "false roundtrip");
-    FATP_ASSERT_TRUE(dec.read_bool(), "true roundtrip");
+    FATP_ASSERT_TRUE(!dec.readBool(), "false roundtrip");
+    FATP_ASSERT_TRUE(dec.readBool(), "true roundtrip");
 
     return true;
 }
@@ -131,10 +131,10 @@ FATP_TEST_CASE(null_roundtrip)
 {
     buffer buf;
     Encoder enc(buf);
-    enc.write_null();
+    enc.writeNull();
 
     Decoder dec(buf);
-    dec.read_null();
+    dec.readNull();
     FATP_ASSERT_TRUE(dec.eof(), "should be at EOF after null");
 
     return true;
@@ -148,10 +148,10 @@ FATP_TEST_CASE(text_roundtrip)
     {
         buffer buf;
         Encoder enc(buf);
-        enc.write_text(s);
+        enc.writeText(s);
 
         Decoder dec(buf);
-        FATP_ASSERT_EQ(dec.read_text(), s, "text roundtrip");
+        FATP_ASSERT_EQ(dec.readText(), s, "text roundtrip");
     }
 
     return true;
@@ -163,10 +163,10 @@ FATP_TEST_CASE(bytes_roundtrip)
 
     buffer buf;
     Encoder enc(buf);
-    enc.write_bytes(payload);
+    enc.writeBytes(payload);
 
     Decoder dec(buf);
-    const buffer out = dec.read_bytes();
+    const buffer out = dec.readBytes();
     FATP_ASSERT_EQ(out.size(), payload.size(), "bytes size");
     for (std::size_t i = 0; i < payload.size(); ++i)
     {
@@ -182,10 +182,10 @@ FATP_TEST_CASE(empty_bytes_roundtrip)
 
     buffer buf;
     Encoder enc(buf);
-    enc.write_bytes(empty_payload);
+    enc.writeBytes(empty_payload);
 
     Decoder dec(buf);
-    const buffer out = dec.read_bytes();
+    const buffer out = dec.readBytes();
     FATP_ASSERT_TRUE(out.empty(), "empty bytes roundtrip");
 
     return true;
@@ -195,10 +195,10 @@ FATP_TEST_CASE(array_header)
 {
     buffer buf;
     Encoder enc(buf);
-    enc.begin_array(5U);
+    enc.beginArray(5U);
 
     Decoder dec(buf);
-    FATP_ASSERT_EQ(dec.read_array_length(), 5U, "array length");
+    FATP_ASSERT_EQ(dec.readArrayLength(), 5U, "array length");
 
     return true;
 }
@@ -207,10 +207,10 @@ FATP_TEST_CASE(map_header)
 {
     buffer buf;
     Encoder enc(buf);
-    enc.begin_map(3U);
+    enc.beginMap(3U);
 
     Decoder dec(buf);
-    FATP_ASSERT_EQ(dec.read_map_length(), 3U, "map length");
+    FATP_ASSERT_EQ(dec.readMapLength(), 3U, "map length");
 
     return true;
 }
@@ -220,19 +220,19 @@ FATP_TEST_CASE(multiple_values)
     buffer buf;
     Encoder enc(buf);
 
-    enc.write_uint(42ULL);
-    enc.write_int(-123LL);
-    enc.write_text("test");
-    enc.write_bool(true);
-    enc.write_null();
+    enc.writeUint(42ULL);
+    enc.writeInt(-123LL);
+    enc.writeText("test");
+    enc.writeBool(true);
+    enc.writeNull();
 
     Decoder dec(buf);
 
-    FATP_ASSERT_EQ(dec.read_uint(), 42ULL, "uint");
-    FATP_ASSERT_EQ(dec.read_int(), -123LL, "int");
-    FATP_ASSERT_EQ(dec.read_text(), "test", "text");
-    FATP_ASSERT_TRUE(dec.read_bool(), "bool");
-    dec.read_null();
+    FATP_ASSERT_EQ(dec.readUint(), 42ULL, "uint");
+    FATP_ASSERT_EQ(dec.readInt(), -123LL, "int");
+    FATP_ASSERT_EQ(dec.readText(), "test", "text");
+    FATP_ASSERT_TRUE(dec.readBool(), "bool");
+    dec.readNull();
     FATP_ASSERT_TRUE(dec.eof(), "should be at EOF");
 
     return true;
@@ -246,7 +246,7 @@ FATP_TEST_CASE(truncated_uint_1byte)
 {
     buffer buf;
     Encoder enc(buf);
-    enc.write_uint(255ULL);
+    enc.writeUint(255ULL);
 
     FATP_ASSERT_EQ(buf.size(), 2U, "uint8 should be 2 bytes");
 
@@ -254,7 +254,7 @@ FATP_TEST_CASE(truncated_uint_1byte)
 
     FATP_ASSERT_THROWS(([&] {
                            Decoder dec(truncated);
-                           (void)dec.read_uint();
+                           (void)dec.readUint();
                        }()),
                        std::runtime_error,
                        "truncated uint8 should throw");
@@ -266,14 +266,14 @@ FATP_TEST_CASE(truncated_uint_2byte)
 {
     buffer buf;
     Encoder enc(buf);
-    enc.write_uint(1000ULL);
+    enc.writeUint(1000ULL);
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         buffer truncated(buf.begin(), buf.begin() + cut);
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
-                               (void)dec.read_uint();
+                               (void)dec.readUint();
                            }()),
                            std::runtime_error,
                            "truncated uint16 should throw");
@@ -286,14 +286,14 @@ FATP_TEST_CASE(truncated_uint_4byte)
 {
     buffer buf;
     Encoder enc(buf);
-    enc.write_uint(100000ULL);
+    enc.writeUint(100000ULL);
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         buffer truncated(buf.begin(), buf.begin() + cut);
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
-                               (void)dec.read_uint();
+                               (void)dec.readUint();
                            }()),
                            std::runtime_error,
                            "truncated uint32 should throw");
@@ -306,14 +306,14 @@ FATP_TEST_CASE(truncated_uint_8byte)
 {
     buffer buf;
     Encoder enc(buf);
-    enc.write_uint(0x100000000ULL);
+    enc.writeUint(0x100000000ULL);
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         buffer truncated(buf.begin(), buf.begin() + cut);
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
-                               (void)dec.read_uint();
+                               (void)dec.readUint();
                            }()),
                            std::runtime_error,
                            "truncated uint64 should throw");
@@ -328,14 +328,14 @@ FATP_TEST_CASE(truncated_text)
 
     buffer buf;
     Encoder enc(buf);
-    enc.write_text(s);
+    enc.writeText(s);
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         buffer truncated(buf.begin(), buf.begin() + cut);
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
-                               (void)dec.read_text();
+                               (void)dec.readText();
                            }()),
                            std::runtime_error,
                            "truncated text should throw");
@@ -350,14 +350,14 @@ FATP_TEST_CASE(truncated_bytes)
 
     buffer buf;
     Encoder enc(buf);
-    enc.write_bytes(payload);
+    enc.writeBytes(payload);
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
         buffer truncated(buf.begin(), buf.begin() + cut);
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
-                               (void)dec.read_bytes();
+                               (void)dec.readBytes();
                            }()),
                            std::runtime_error,
                            "truncated bytes should throw");
@@ -370,11 +370,11 @@ FATP_TEST_CASE(wrong_type_uint_from_text)
 {
     buffer buf;
     Encoder enc(buf);
-    enc.write_text("not an integer");
+    enc.writeText("not an integer");
 
     FATP_ASSERT_THROWS(([&] {
                            Decoder dec(buf);
-                           (void)dec.read_uint();
+                           (void)dec.readUint();
                        }()),
                        std::runtime_error,
                        "uint from text should throw");
@@ -386,11 +386,11 @@ FATP_TEST_CASE(wrong_type_text_from_uint)
 {
     buffer buf;
     Encoder enc(buf);
-    enc.write_uint(12345ULL);
+    enc.writeUint(12345ULL);
 
     FATP_ASSERT_THROWS(([&] {
                            Decoder dec(buf);
-                           (void)dec.read_text();
+                           (void)dec.readText();
                        }()),
                        std::runtime_error,
                        "text from uint should throw");
@@ -402,11 +402,11 @@ FATP_TEST_CASE(wrong_type_bool_from_int)
 {
     buffer buf;
     Encoder enc(buf);
-    enc.write_int(1LL);
+    enc.writeInt(1LL);
 
     FATP_ASSERT_THROWS(([&] {
                            Decoder dec(buf);
-                           (void)dec.read_bool();
+                           (void)dec.readBool();
                        }()),
                        std::runtime_error,
                        "bool from int should throw");
@@ -418,11 +418,11 @@ FATP_TEST_CASE(wrong_type_array_from_map)
 {
     buffer buf;
     Encoder enc(buf);
-    enc.begin_map(3U);
+    enc.beginMap(3U);
 
     FATP_ASSERT_THROWS(([&] {
                            Decoder dec(buf);
-                           (void)dec.read_array_length();
+                           (void)dec.readArrayLength();
                        }()),
                        std::runtime_error,
                        "array from map should throw");
@@ -436,21 +436,21 @@ FATP_TEST_CASE(empty_buffer)
 
     FATP_ASSERT_THROWS(([&] {
                            Decoder dec(empty);
-                           (void)dec.read_uint();
+                           (void)dec.readUint();
                        }()),
                        std::runtime_error,
                        "empty buffer uint should throw");
 
     FATP_ASSERT_THROWS(([&] {
                            Decoder dec(empty);
-                           (void)dec.read_text();
+                           (void)dec.readText();
                        }()),
                        std::runtime_error,
                        "empty buffer text should throw");
 
     FATP_ASSERT_THROWS(([&] {
                            Decoder dec(empty);
-                           (void)dec.read_bool();
+                           (void)dec.readBool();
                        }()),
                        std::runtime_error,
                        "empty buffer bool should throw");
@@ -464,7 +464,7 @@ FATP_TEST_CASE(invalid_bool_value)
 
     FATP_ASSERT_THROWS(([&] {
                            Decoder dec(bad);
-                           (void)dec.read_bool();
+                           (void)dec.readBool();
                        }()),
                        std::runtime_error,
                        "invalid bool value should throw");
@@ -478,7 +478,7 @@ FATP_TEST_CASE(invalid_null_value)
 
     FATP_ASSERT_THROWS(([&] {
                            Decoder dec(bad);
-                           dec.read_null();
+                           dec.readNull();
                        }()),
                        std::runtime_error,
                        "invalid null value should throw");
@@ -492,7 +492,7 @@ FATP_TEST_CASE(indefinite_length_rejected)
 
     FATP_ASSERT_THROWS(([&] {
                            Decoder dec(bad);
-                           (void)dec.read_bytes();
+                           (void)dec.readBytes();
                        }()),
                        std::runtime_error,
                        "indefinite length should throw");
@@ -517,7 +517,7 @@ FATP_TEST_CASE(impossible_text_length)
 
     FATP_ASSERT_THROWS(([&] {
                            Decoder dec(buf);
-                           (void)dec.read_text();
+                           (void)dec.readText();
                        }()),
                        std::runtime_error,
                        "impossible text length should throw");
@@ -529,15 +529,15 @@ FATP_TEST_CASE(read_past_eof)
 {
     buffer buf;
     Encoder enc(buf);
-    enc.write_uint(42ULL);
+    enc.writeUint(42ULL);
 
     Decoder dec(buf);
-    (void)dec.read_uint();
+    (void)dec.readUint();
 
     FATP_ASSERT_TRUE(dec.eof(), "should be at EOF");
 
     FATP_ASSERT_THROWS(([&] {
-                           (void)dec.read_uint();
+                           (void)dec.readUint();
                        }()),
                        std::runtime_error,
                        "reading past EOF should throw");
@@ -559,10 +559,10 @@ FATP_TEST_CASE(fuzz_uint)
 
         buffer buf;
         Encoder enc(buf);
-        enc.write_uint(v);
+        enc.writeUint(v);
 
         Decoder dec(buf);
-        FATP_ASSERT_EQ(dec.read_uint(), v, "fuzz uint");
+        FATP_ASSERT_EQ(dec.readUint(), v, "fuzz uint");
     }
 
     return true;
@@ -580,10 +580,10 @@ FATP_TEST_CASE(fuzz_int)
 
         buffer buf;
         Encoder enc(buf);
-        enc.write_int(v);
+        enc.writeInt(v);
 
         Decoder dec(buf);
-        FATP_ASSERT_EQ(dec.read_int(), v, "fuzz int");
+        FATP_ASSERT_EQ(dec.readInt(), v, "fuzz int");
     }
 
     return true;
@@ -607,10 +607,10 @@ FATP_TEST_CASE(fuzz_text)
 
         buffer buf;
         Encoder enc(buf);
-        enc.write_text(s);
+        enc.writeText(s);
 
         Decoder dec(buf);
-        FATP_ASSERT_EQ(dec.read_text(), s, "fuzz text");
+        FATP_ASSERT_EQ(dec.readText(), s, "fuzz text");
     }
 
     return true;
@@ -634,10 +634,10 @@ FATP_TEST_CASE(fuzz_bytes)
 
         buffer buf;
         Encoder enc(buf);
-        enc.write_bytes(payload);
+        enc.writeBytes(payload);
 
         Decoder dec(buf);
-        const buffer result = dec.read_bytes();
+        const buffer result = dec.readBytes();
         FATP_ASSERT_EQ(result.size(), payload.size(), "fuzz bytes size");
         for (std::size_t j = 0; j < payload.size(); ++j)
         {
@@ -667,13 +667,13 @@ FATP_TEST_CASE(fuzz_multiple_values)
         {
             const auto v = val_dist(rng);
             values.push_back(v);
-            enc.write_int(v);
+            enc.writeInt(v);
         }
 
         Decoder dec(buf);
         for (std::size_t i = 0; i < count; ++i)
         {
-            FATP_ASSERT_EQ(dec.read_int(), values[i], "fuzz multiple values");
+            FATP_ASSERT_EQ(dec.readInt(), values[i], "fuzz multiple values");
         }
         FATP_ASSERT_TRUE(dec.eof(), "should be at EOF");
     }
@@ -702,17 +702,17 @@ FATP_TEST_CASE(fuzz_mixed_types)
             case 0:
             {
                 const auto v = static_cast<std::uint64_t>(rng());
-                enc.write_uint(v);
+                enc.writeUint(v);
                 Decoder dec(buf);
-                FATP_ASSERT_EQ(dec.read_uint(), v, "mixed uint");
+                FATP_ASSERT_EQ(dec.readUint(), v, "mixed uint");
                 break;
             }
             case 1:
             {
                 const auto v = int_dist(rng);
-                enc.write_int(v);
+                enc.writeInt(v);
                 Decoder dec(buf);
-                FATP_ASSERT_EQ(dec.read_int(), v, "mixed int");
+                FATP_ASSERT_EQ(dec.readInt(), v, "mixed int");
                 break;
             }
             case 2:
@@ -723,24 +723,24 @@ FATP_TEST_CASE(fuzz_mixed_types)
                 {
                     s.push_back(static_cast<char>(ch_dist(rng)));
                 }
-                enc.write_text(s);
+                enc.writeText(s);
                 Decoder dec(buf);
-                FATP_ASSERT_EQ(dec.read_text(), s, "mixed text");
+                FATP_ASSERT_EQ(dec.readText(), s, "mixed text");
                 break;
             }
             case 3:
             {
                 const bool v = (rng() % 2) == 1;
-                enc.write_bool(v);
+                enc.writeBool(v);
                 Decoder dec(buf);
-                FATP_ASSERT_EQ(dec.read_bool(), v, "mixed bool");
+                FATP_ASSERT_EQ(dec.readBool(), v, "mixed bool");
                 break;
             }
             case 4:
             {
-                enc.write_null();
+                enc.writeNull();
                 Decoder dec(buf);
-                dec.read_null();
+                dec.readNull();
                 break;
             }
             default:

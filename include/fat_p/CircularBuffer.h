@@ -12,8 +12,8 @@ FATP_META:
   api_stability: candidate
   related:
     docs:
-      - Documentation/IN WORK/CircularBuffer_Overview.md
-      - Documentation/IN WORK/CircularBuffer_User_Manual.md
+      - components/CircularBuffer/docs/CircularBuffer_Overview.md
+      - components/CircularBuffer/docs/CircularBuffer_User_Manual.md
     tests:
       - components/CircularBuffer/tests/test_CircularBuffer.cpp
   hygiene:
