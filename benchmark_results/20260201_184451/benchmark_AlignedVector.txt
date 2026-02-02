@@ -1,0 +1,300 @@
+﻿[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  fat_p::AlignedVector Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1950 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::AlignedVector (primary)
+  [x] std::vector (baseline)
+  [x] boost::alignment::aligned_allocator
+  [ ] Eigen (not detected)
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. Correctness verified after each benchmark
+  6. CPU frequency stabilized before measurement
+
+Cooling: section=500ms size=100ms case=50ms
+
+Checking initial CPU state...
+[2026-02-01 18:44:52] Initial CPU: 3133 MHz (base: 3686)
+Waiting for CPU to stabilize...
+  [CPU stable at 2159 MHz, variance 4.5%]
+
+
+================================================================================
+  ALIGNMENT VERIFICATION
+================================================================================
+
+Contract: Verifies alignment guarantees across multiple allocations. All allocations must meet specified alignment.
+
+[2026-02-01 18:44:53] Alignment Verification CPU: 2211 MHz (base: 3686)
+
+--- Alignment = 16 bytes ---
+
+  Allocations: 1000, Violations: 0 [PASS]
+
+--- Alignment = 32 bytes ---
+
+  Allocations: 1000, Violations: 0 [PASS]
+
+--- Alignment = 64 bytes ---
+
+  Allocations: 1000, Violations: 0 [PASS]
+
+--- Alignment = 128 bytes ---
+
+  Allocations: 1000, Violations: 0 [PASS]
+
+--- Alignment = 256 bytes ---
+
+  Allocations: 1000, Violations: 0 [PASS]
+
+================================================================================
+  SEQUENTIAL ITERATION (Sum)
+================================================================================
+
+Contract: Measures cache-line alignment benefit for SIMD auto-vectorization. assume_aligned() provides compiler hints for aligned loads.
+
+[2026-02-01 18:44:53] Sequential Iteration CPU: 2690 MHz (base: 3686)
+
+--- N = 10000 ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+                   std::vector        0.37 ns/elem        0.40 ns/elem      0.09  [0.35, 0.45]
+             AlignedVector<64>        0.37 ns/elem        0.39 ns/elem      0.04  [0.37, 0.41]
+AlignedVector<64>::assume_aligned        0.37 ns/elem        0.37 ns/elem      0.01  [0.37, 0.38]
+            AlignedVector<128>        0.37 ns/elem        0.37 ns/elem      0.01  [0.37, 0.38]
+  boost::aligned_allocator<64>        0.37 ns/elem        0.40 ns/elem      0.07  [0.36, 0.43]
+
+--- N = 100000 ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+                   std::vector        0.37 ns/elem        0.37 ns/elem      0.01  [0.37, 0.38]
+             AlignedVector<64>        0.37 ns/elem        0.37 ns/elem      0.01  [0.36, 0.38]
+AlignedVector<64>::assume_aligned        0.37 ns/elem        0.37 ns/elem      0.01  [0.37, 0.37]
+            AlignedVector<128>        0.37 ns/elem        0.38 ns/elem      0.01  [0.37, 0.38]
+  boost::aligned_allocator<64>        0.37 ns/elem        0.37 ns/elem      0.01  [0.37, 0.38]
+
+================================================================================
+  SIMD DOT PRODUCT
+================================================================================
+
+Contract: Tests fused multiply-add vectorization potential. assume_aligned() enables compiler to use aligned SIMD loads.
+
+[2026-02-01 18:44:54] Dot Product CPU: 2137 MHz (base: 3686)
+
+--- N = 10000 ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+                   std::vector        0.37 ns/elem        0.37 ns/elem      0.04  [0.35, 0.39]
+             AlignedVector<64>        0.37 ns/elem        0.36 ns/elem      0.01  [0.36, 0.37]
+AlignedVector<64>::assume_aligned        0.36 ns/elem        0.38 ns/elem      0.07  [0.34, 0.41]
+
+--- N = 100000 ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+                   std::vector        0.36 ns/elem        0.37 ns/elem      0.01  [0.36, 0.37]
+             AlignedVector<64>        0.37 ns/elem        0.36 ns/elem      0.01  [0.36, 0.37]
+AlignedVector<64>::assume_aligned        0.36 ns/elem        0.37 ns/elem      0.02  [0.36, 0.37]
+
+================================================================================
+  SIMD SAXPY (Explicit AVX2)
+================================================================================
+
+Contract: Skipped: AVX2 not enabled at compile time. Build with -mavx2 or -march=native (or /arch:AVX2 on MSVC). 
+
+
+================================================================================
+  RANDOM ACCESS
+================================================================================
+
+Contract: Measures cache behavior with non-sequential access. Alignment has less impact here; tests baseline overhead.
+
+[2026-02-01 18:44:56] Random Access CPU: 2359 MHz (base: 3686)
+
+--- N = 10000 ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+                   std::vector        0.58 ns/elem        0.55 ns/elem      0.08  [0.51, 0.59]
+             AlignedVector<64>        0.58 ns/elem        0.54 ns/elem      0.08  [0.50, 0.58]
+
+--- N = 100000 ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+                   std::vector        0.40 ns/elem        0.40 ns/elem      0.01  [0.39, 0.40]
+             AlignedVector<64>        0.40 ns/elem        0.40 ns/elem      0.02  [0.39, 0.41]
+
+================================================================================
+  PUSH_BACK GROWTH
+================================================================================
+
+Contract: Measures amortized insertion cost. 'reserved' variant pre-allocates to isolate allocation overhead from element construction.
+
+[2026-02-01 18:44:56] Push Back CPU: 2137 MHz (base: 3686)
+
+--- N = 1000 ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+            std::vector (grow)        1.71 ns/elem        1.62 ns/elem      0.33  [1.44, 1.79]
+        std::vector (reserved)        0.60 ns/elem        0.92 ns/elem      0.90  [0.46, 1.39]
+  [NOTE] High variance (stddev > median)
+      AlignedVector<64> (grow)        0.73 ns/elem        0.82 ns/elem      0.17  [0.73, 0.92]
+  AlignedVector<64> (reserved)        0.42 ns/elem        0.48 ns/elem      0.10  [0.43, 0.54]
+
+--- N = 10000 ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+            std::vector (grow)        0.87 ns/elem        0.91 ns/elem      0.11  [0.85, 0.97]
+        std::vector (reserved)        0.58 ns/elem        0.58 ns/elem      0.04  [0.56, 0.61]
+      AlignedVector<64> (grow)        0.55 ns/elem        0.56 ns/elem      0.04  [0.54, 0.58]
+  AlignedVector<64> (reserved)        0.39 ns/elem        0.38 ns/elem      0.01  [0.38, 0.39]
+
+================================================================================
+  INSERT AT MIDDLE
+================================================================================
+
+Contract: Measures O(n) insertion at middle position. Tests element shifting performance.
+
+[2026-02-01 18:44:57] Insert CPU: 2617 MHz (base: 3686)
+
+--- Initial size = 1000, inserting 100 elements ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+                   std::vector       17.46 ns/insert       20.97 ns/insert      7.79  [16.94, 24.99]
+             AlignedVector<64>       17.84 ns/insert       19.16 ns/insert      3.98  [17.11, 21.22]
+
+--- Initial size = 10000, inserting 100 elements ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+                   std::vector      128.88 ns/insert      130.44 ns/insert      5.06  [127.82, 133.05]
+             AlignedVector<64>      129.44 ns/insert      132.36 ns/insert     10.85  [126.75, 137.96]
+
+================================================================================
+  SHIFT MICROBENCH (memmove fast-path)
+================================================================================
+
+Contract: Isolates the cost of shifting elements during insert/erase range operations. Compares a trivially copyable element type (int) that can use bulk memmove shifts against an equivalent-size non-trivially copyable wrapper that forces element-wise moves. Reported as ns per shifted element.
+
+[2026-02-01 18:44:58] Shift/memmove CPU: 2911 MHz (base: 3686)
+
+--- N = 10000, range K = 32 at middle ---
+
+
+--- insert(pos, first, last)   [shift right] ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+AlignedVector<int,64> (trivial => memmove shift)        0.03 ns/shifted-elem        0.03 ns/shifted-elem      0.00  [0.03, 0.03]
+AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)        0.26 ns/shifted-elem        0.25 ns/shifted-elem      0.03  [0.24, 0.27]
+
+--- erase(first, last)        [shift left] ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+AlignedVector<int,64> (trivial => memmove shift)        0.02 ns/shifted-elem        0.02 ns/shifted-elem      0.00  [0.02, 0.02]
+AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)        0.19 ns/shifted-elem        0.20 ns/shifted-elem      0.03  [0.18, 0.21]
+
+--- N = 100000, range K = 32 at middle ---
+
+
+--- insert(pos, first, last)   [shift right] ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+AlignedVector<int,64> (trivial => memmove shift)        0.04 ns/shifted-elem        0.05 ns/shifted-elem      0.02  [0.04, 0.05]
+AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)        0.19 ns/shifted-elem        0.19 ns/shifted-elem      0.01  [0.19, 0.20]
+
+--- erase(first, last)        [shift left] ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+AlignedVector<int,64> (trivial => memmove shift)        0.03 ns/shifted-elem        0.03 ns/shifted-elem      0.00  [0.03, 0.03]
+AlignedVector<NonTrivialInt,64> (non-trivial => loop shift)        0.19 ns/shifted-elem        0.19 ns/shifted-elem      0.01  [0.19, 0.20]
+
+================================================================================
+  COPY AND MOVE OPERATIONS
+================================================================================
+
+Contract: Copy construction should be O(n). Move construction/assignment should be O(1). This section reports:
+  1) copy-ctor (bulk copy)
+  2) move-ctor (rotation; no allocation)
+  3) move-assign (rotation; no allocation)
+  4) construct+move (includes allocation+fill; O(n), not a pure move test)
+
+[2026-02-01 18:44:59] Copy/Move CPU: 2137 MHz (base: 3686)
+
+--- N = 10000 ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+         std::vector copy-ctor     1083.20 ns/op     1067.79 ns/op     25.97  [1054.38, 1081.20]
+std::vector move-ctor (rotation)        0.50 ns/op        0.49 ns/op      0.02  [0.48, 0.51]
+std::vector move-assign (rotation)        0.42 ns/op        0.42 ns/op      0.01  [0.41, 0.43]
+std::vector construct+move (alloc+fill)     2596.00 ns/op     2644.73 ns/op    297.13  [2491.30, 2798.17]
+   AlignedVector<64> copy-ctor      986.20 ns/op      983.59 ns/op     32.74  [966.68, 1000.50]
+AlignedVector<64> move-ctor (rotation)        0.44 ns/op        0.45 ns/op      0.03  [0.43, 0.46]
+AlignedVector<64> move-assign (rotation)        0.41 ns/op        0.40 ns/op      0.01  [0.39, 0.40]
+AlignedVector<64> construct+move (alloc+fill)     4748.00 ns/op     4755.13 ns/op    335.84  [4581.71, 4928.56]
+
+--- N = 100000 ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+         std::vector copy-ctor    29272.00 ns/op    28976.43 ns/op   1483.91  [28210.14, 29742.72]
+std::vector move-ctor (rotation)        0.50 ns/op        0.49 ns/op      0.01  [0.49, 0.50]
+std::vector move-assign (rotation)        0.41 ns/op        0.41 ns/op      0.01  [0.40, 0.41]
+std::vector construct+move (alloc+fill)    39900.00 ns/op    40301.00 ns/op   1318.26  [39620.25, 40981.75]
+   AlignedVector<64> copy-ctor    28590.50 ns/op    28584.77 ns/op   1470.10  [27825.61, 29343.92]
+AlignedVector<64> move-ctor (rotation)        0.45 ns/op        0.46 ns/op      0.04  [0.44, 0.48]
+AlignedVector<64> move-assign (rotation)        0.39 ns/op        0.39 ns/op      0.01  [0.39, 0.40]
+AlignedVector<64> construct+move (alloc+fill)    63534.00 ns/op    64098.07 ns/op   2142.65  [62991.61, 65204.53]
+
+================================================================================
+  CORNER CASES
+================================================================================
+
+Contract: Tests edge cases that may trigger different code paths. Empty vector operations, single element, capacity boundary.
+
+[2026-02-01 18:45:00] Corner Cases CPU: 2322 MHz (base: 3686)
+
+--- Empty Vector Operations ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+   std::vector empty begin/end        2.34 ns/op        2.35 ns/op      0.04  [2.33, 2.37]
+ AlignedVector empty begin/end        3.57 ns/op        3.54 ns/op      0.08  [3.50, 3.58]
+
+--- Single Element Push/Pop Cycle ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+          std::vector push/pop        1.38 ns/cycle        1.49 ns/cycle      0.14  [1.42, 1.56]
+        AlignedVector push/pop        0.94 ns/cycle        1.10 ns/cycle      0.41  [0.89, 1.31]
+
+--- Insert at Capacity (Reallocation) ---
+
+                     Container        Median          Mean      Stddev  CI95
+-------------------------------------------------------------------------------
+           std::vector realloc      656.25 ns/realloc      679.19 ns/realloc    170.18  [591.31, 767.07]
+         AlignedVector realloc     1035.55 ns/realloc     1054.17 ns/realloc    244.83  [927.74, 1180.59]
+
+================================================================================
+  Benchmark Complete
+================================================================================
+[2026-02-01 18:45:00] Final CPU: 2359 MHz (base: 3686)

@@ -17,8 +17,6 @@
 name: PolicyIterator CI
 
 on:
-  pull_request:
-    types: [labeled]
   workflow_dispatch:
 env:
   INCLUDE_DIR: include/fat_p
@@ -30,7 +28,7 @@ jobs:
   # Linux GCC Builds
   # ===========================================================================
   linux-gcc:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-latest
     strategy:
@@ -70,7 +68,7 @@ jobs:
   # Linux Clang Builds
   # ===========================================================================
   linux-clang:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-22.04
     strategy:
@@ -114,7 +112,7 @@ jobs:
   # Windows MSVC Build
   # ===========================================================================
   windows-msvc:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Windows MSVC C++${{ matrix.std }}
     runs-on: windows-latest
     strategy:
@@ -139,7 +137,7 @@ jobs:
   # Sanitizers
   # ===========================================================================
   sanitizer-asan:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: AddressSanitizer
     runs-on: ubuntu-latest
     steps:
@@ -159,7 +157,7 @@ jobs:
         run: ./test_pi
 
   sanitizer-ubsan:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: UndefinedBehaviorSanitizer
     runs-on: ubuntu-latest
     steps:
@@ -179,7 +177,7 @@ jobs:
         run: ./test_pi
 
   sanitizer-tsan:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: ThreadSanitizer
     runs-on: ubuntu-latest
     steps:
@@ -202,7 +200,7 @@ jobs:
   # Header Self-Containment (Fat-P §6.2)
   # ===========================================================================
   header-check:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Header Self-Containment
     runs-on: ubuntu-latest
     steps:
@@ -278,7 +276,7 @@ jobs:
   # Strict Warnings Check
   # ===========================================================================
   strict-warnings:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Strict Warnings
     runs-on: ubuntu-latest
     steps:
@@ -301,7 +299,7 @@ jobs:
   benchmarks-gcc:
     name: Benchmark GCC-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true') }}
+    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -373,7 +371,7 @@ jobs:
   benchmarks-clang:
     name: Benchmark Clang-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-22.04
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true') }}
+    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -448,7 +446,7 @@ jobs:
   benchmarks-msvc:
     name: Benchmark MSVC C++${{ matrix.std }}
     runs-on: windows-latest
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true') }}
+    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -501,7 +499,7 @@ jobs:
     name: Benchmark Summary
     needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always() && (github.event_name == 'schedule' || github.event.inputs.run_benchmarks == 'true')) }}
+    if: ${{ always() && github.event.inputs.run_benchmarks == 'true' }}
     steps:
       - name: Download all benchmark artifacts
         uses: actions/download-artifact@v4
@@ -557,7 +555,7 @@ jobs:
     name: CI Success
     needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always()) }}
+    if: always()
     steps:
       - name: Check results
         run: |

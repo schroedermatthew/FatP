@@ -118,6 +118,7 @@ FATP_META:
 #endif
 
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 #include "IntrusiveList.h"
 
 // Suppress warnings from third-party headers (MSVC only)
@@ -2085,52 +2086,47 @@ int main(int argc, char* argv[])
     // Apply benchmark scope (Windows priority/affinity)
     BenchmarkScope scope(!g_config.noScope);
 
-    std::cout << std::string(80, '=') << "\n";
-    std::cout << "  IntrusiveList Comprehensive Benchmark Suite\n";
-    std::cout << std::string(80, '=') << "\n";
-
-    std::cout << "\nPlatform: ";
-#if defined(_WIN32) || defined(_WIN64)
-    std::cout << "Windows";
-#else
-    std::cout << "Linux";
-#endif
-    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << ", seed=" << g_config.seed
-              << ")\n";
-
-    // Print competitor detection
-    std::cout << "\nCompetitor libraries detected:\n";
-    std::cout << "  [x] fat_p::IntrusiveList (fast policy)\n";
-    std::cout << "  [x] fat_p::IntrusiveList (safe policy)\n";
-    std::cout << "  [x] std::list<T*> (baseline)\n";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "IntrusiveList";
+    hdr.warmup = WARMUP_RUNS();
+    hdr.measured = MEASURED_RUNS();
+    hdr.seed = g_config.seed;
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::IntrusiveList<FastPolicy>", true, "primary"});
+    hdr.competitors.push_back({"fat_p::IntrusiveList<SafePolicy>", true, "primary"});
+    hdr.competitors.push_back({"std::list<T*>", true, "baseline"});
 #if HAS_BOOST_INTRUSIVE
-    std::cout << "  [x] boost::intrusive::list\n";
+    hdr.competitors.push_back({"boost::intrusive::list", true, ""});
 #else
-    std::cout << "  [ ] boost::intrusive::list (install: vcpkg install boost-intrusive)\n";
+    hdr.competitors.push_back({"boost::intrusive::list", false, "vcpkg install boost-intrusive"});
 #endif
 #if HAS_EASTL
-    std::cout << "  [x] eastl::intrusive_list\n";
+    hdr.competitors.push_back({"eastl::intrusive_list", true, ""});
 #else
-    std::cout << "  [ ] eastl::intrusive_list (install: vcpkg install eastl)\n";
+    hdr.competitors.push_back({"eastl::intrusive_list", false, "vcpkg install eastl"});
 #endif
 #if HAS_LLVM_ILIST
-    std::cout << "  [x] llvm::simple_ilist\n";
+    hdr.competitors.push_back({"llvm::simple_ilist", true, ""});
 #else
-    std::cout << "  [ ] llvm::simple_ilist (install: apt install llvm-dev)\n";
+    hdr.competitors.push_back({"llvm::simple_ilist", false, "apt install llvm-dev"});
 #endif
 #if HAS_ETL
-    std::cout << "  [x] etl::intrusive_list\n";
+    hdr.competitors.push_back({"etl::intrusive_list", true, ""});
 #else
-    std::cout << "  [ ] etl::intrusive_list (install: https://github.com/ETLCPP/etl)\n";
+    hdr.competitors.push_back({"etl::intrusive_list", false, "github.com/ETLCPP/etl"});
 #endif
+    
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = false;
+    hdr.has_stabilization = !g_config.noStabilize;
+    
+    fat_p::bench::print_standard_header(hdr);
 
-    // Print design invariants
-    std::cout << "\nDesign Invariants:\n";
-    std::cout << "  1. Each measured run executes exactly one timed iteration per library\n";
-    std::cout << "  2. Library execution order is randomized per run\n";
-    std::cout << "  3. Setup/teardown outside timed regions\n";
-    std::cout << "  4. All libraries observe same distribution of machine states\n";
-    std::cout << "  5. Medians are the primary reported statistic\n\n";
 
     // ========================================================================
     // Build adapters

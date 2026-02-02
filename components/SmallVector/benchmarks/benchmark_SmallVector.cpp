@@ -100,6 +100,7 @@ FATP_META:
 #endif
 
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 #include "SmallVector.h"
 
 #pragma warning(push, 0)
@@ -2449,48 +2450,56 @@ int main(int argc, char* argv[])
     // Apply benchmark scope (Windows priority/affinity) unless disabled
     BenchmarkScope scope(!g_config.noScope);
 
-    std::cout << "================================================================================\n";
-    std::cout << "  SmallVector Comprehensive Benchmark Suite\n";
-    std::cout << "================================================================================\n";
-    std::cout << "\nPlatform: ";
-#if defined(_WIN32) || defined(_WIN64)
-    std::cout << "Windows";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "SmallVector";
+    hdr.warmup = WARMUP_RUNS();
+    hdr.measured = MEASURED_RUNS();
+    hdr.seed = g_config.seed;
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::SmallVector", true, "primary"});
+    hdr.competitors.push_back({"std::vector", true, "baseline"});
+#if HAS_BOOST_SMALL_VECTOR
+    hdr.competitors.push_back({"boost::container::small_vector", true, ""});
 #else
-    std::cout << "Linux";
+    hdr.competitors.push_back({"boost::container::small_vector", false, "vcpkg install boost-container"});
 #endif
-    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << ", seed=" << g_config.seed
-              << ")\n";
+#if HAS_LLVM_SMALL_VECTOR
+    hdr.competitors.push_back({"llvm::SmallVector", true, ""});
+#else
+    hdr.competitors.push_back({"llvm::SmallVector", false, "apt install llvm-dev"});
+#endif
+#if HAS_ABSL_INLINED_VECTOR
+    hdr.competitors.push_back({"absl::InlinedVector", true, ""});
+#else
+    hdr.competitors.push_back({"absl::InlinedVector", false, "vcpkg install abseil"});
+#endif
+#if HAS_FOLLY_SMALL_VECTOR
+    hdr.competitors.push_back({"folly::small_vector", true, ""});
+#else
+    hdr.competitors.push_back({"folly::small_vector", false, "not detected"});
+#endif
+#if HAS_ANKERL_SVECTOR
+    hdr.competitors.push_back({"ankerl::svector", true, ""});
+#else
+    hdr.competitors.push_back({"ankerl::svector", false, "not detected"});
+#endif
+#if HAS_EASTL_FIXED_VECTOR
+    hdr.competitors.push_back({"eastl::fixed_vector", true, ""});
+#else
+    hdr.competitors.push_back({"eastl::fixed_vector", false, "vcpkg install eastl"});
+#endif
+    
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = true;
+    hdr.has_stabilization = !g_config.noStabilize;
+    
+    fat_p::bench::print_standard_header(hdr);
 
-    std::cout << "Competitor libraries: ";
-#if HAS_BOOST
-    std::cout << "boost ";
-#endif
-#if HAS_FOLLY
-    std::cout << "folly ";
-#endif
-#if HAS_LLVM
-    std::cout << "llvm ";
-#endif
-#if HAS_ABSL
-    std::cout << "absl ";
-#endif
-#if HAS_ANKERL
-    std::cout << "ankerl ";
-#endif
-#if HAS_EASTL
-    std::cout << "eastl ";
-#endif
-#if !HAS_BOOST && !HAS_FOLLY && !HAS_LLVM && !HAS_ABSL && !HAS_ANKERL && !HAS_EASTL
-    std::cout << "(none found)";
-#endif
-    std::cout << "\n\n";
-
-    std::cout << "Design Invariants:\n";
-    std::cout << "  1. Each measured run executes exactly one timed iteration per library\n";
-    std::cout << "  2. Library execution order is randomized per run\n";
-    std::cout << "  3. Setup/teardown outside timed regions\n";
-    std::cout << "  4. All libraries observe same distribution of machine states\n";
-    std::cout << "  5. Medians are the primary reported statistic\n\n";
 
     // Default sizes
     std::vector<size_t> core_sizes = {100, 1000, 10000};

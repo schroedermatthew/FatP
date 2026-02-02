@@ -95,6 +95,7 @@ FATP_META:
 
 #include "AllocationStrategies.h"
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 
 // ============================================================================
 // Optional Competitor Detection
@@ -1164,39 +1165,31 @@ int main(int argc, char* argv[])
     // Apply benchmark scope (Windows priority/affinity)
     fat_p::bench::BenchmarkScope scope(!g_config.noScope);
 
-    std::cout << "================================================================================\n";
-    std::cout << "  AllocationStrategies Comprehensive Benchmark Suite\n";
-    std::cout << "================================================================================\n";
-
-    // Platform info
-    std::cout << "\nPlatform: ";
-#if defined(_WIN32) || defined(_WIN64)
-    std::cout << "Windows";
-#elif defined(__APPLE__)
-    std::cout << "macOS";
-#else
-    std::cout << "Linux";
-#endif
-    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << ", seed=" << g_config.seed
-              << ")\n";
-
-    // Competitor detection
-    std::cout << "\nCompetitor libraries: std::pmr";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "AllocationStrategies";
+    hdr.warmup = WARMUP_RUNS();
+    hdr.measured = MEASURED_RUNS();
+    hdr.seed = g_config.seed;
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::AllocationStrategies", true, "primary"});
+    hdr.competitors.push_back({"std::pmr", true, "baseline"});
 #if FATP_HAS_BOOST_POOL
-    std::cout << " boost::pool";
+    hdr.competitors.push_back({"boost::pool", true, ""});
+#else
+    hdr.competitors.push_back({"boost::pool", false, "not detected"});
 #endif
-    std::cout << "\n\n";
-
-    // CPU frequency detection
-    fat_p::bench::print_cpu_detection_info(std::cout);
-    std::cout << "\n";
-
-    // Design invariants
-    std::cout << "Design Invariants:\n";
-    std::cout << "  1. Round-robin execution with randomized order per run\n";
-    std::cout << "  2. Setup/teardown outside timed regions\n";
-    std::cout << "  3. Medians are the primary reported statistic\n";
-    std::cout << "  4. Correctness verified after each benchmark\n\n";
+    
+    // Configuration
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = true;
+    hdr.has_stabilization = !g_config.noStabilize;
+    
+    fat_p::bench::print_standard_header(hdr);
 
     // Wait for CPU stability
     if (!g_config.noStabilize)

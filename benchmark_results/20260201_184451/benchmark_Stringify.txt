@@ -1,0 +1,104 @@
+﻿[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  fat_p::Stringify Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1950 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::stringify (primary)
+  [x] std::to_string (baseline)
+  [x] std::ostringstream (baseline)
+  [x] std::format (C++20)
+  [x] fmt::format
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. CPU frequency stabilized before measurement
+
+--- Section 1: Integer Stringification ---
+Contract: Convert int to std::string. No locale formatting.
+
+[2026-02-01 19:29:52] CPU: 3354 MHz (base: 3686)
+  std::to_string (baseline)     7.36       ns  (mean: 7.78, stddev: 1.27)  CI95: [7.07, 8.48]
+  fat_p::toString               8.62       ns  (mean: 9.08, stddev: 1.15)  CI95: [8.45, 9.72]
+    -> fat_p::toString: 0.85x SLOWER than baseline
+  std::format                   39.37      ns  (mean: 40.91, stddev: 3.26)  CI95: [39.10, 42.71]
+    -> std::format: 0.19x SLOWER than baseline
+  std::ostringstream            267.27     ns  (mean: 267.95, stddev: 3.39)  CI95: [266.08, 269.83]
+    -> std::ostringstream: 0.03x SLOWER than baseline
+  fmt::format                   19.04      ns  (mean: 19.50, stddev: 1.32)  CI95: [18.77, 20.23]
+    -> fmt::format: 0.39x SLOWER than baseline
+
+--- Section 2: Floating-Point Stringification ---
+Contract: Convert double to std::string. Default precision.
+
+[2026-02-01 19:29:53] CPU: 2653 MHz (base: 3686)
+  std::to_string (baseline)     196.13     ns  (mean: 197.79, stddev: 3.40)  CI95: [195.91, 199.67]
+  fat_p::toString               83.11      ns  (mean: 82.08, stddev: 3.14)  CI95: [80.34, 83.81]
+    -> fat_p::toString: 2.36x FASTER than baseline
+  std::format                   85.33      ns  (mean: 84.51, stddev: 3.66)  CI95: [82.49, 86.53]
+    -> std::format: 2.30x FASTER than baseline
+  std::ostringstream            406.62     ns  (mean: 407.37, stddev: 3.44)  CI95: [405.48, 409.27]
+    -> std::ostringstream: 0.48x SLOWER than baseline
+  fmt::format                   85.83      ns  (mean: 83.57, stddev: 3.66)  CI95: [81.55, 85.60]
+    -> fmt::format: 2.29x FASTER than baseline
+
+--- Section 3: Boolean Stringification ---
+Contract: Convert bool to 'true'/'false' string.
+
+[2026-02-01 19:29:54] CPU: 2359 MHz (base: 3686)
+  ternary (baseline)            4.68       ns  (mean: 4.79, stddev: 0.42)  CI95: [4.56, 5.02]
+  fat_p::toString               4.69       ns  (mean: 5.24, stddev: 0.97)  CI95: [4.71, 5.78]
+    -> fat_p::toString: 1.00x SAME than baseline
+
+--- Section 4: Container Stringification ---
+Contract: Convert vector<int> to '[elem, ...]' format. Fat-P unique.
+
+[2026-02-01 19:29:54] CPU: 2911 MHz (base: 3686)
+  manual loop (baseline)        110.40     ns  (mean: 110.41, stddev: 0.26)  CI95: [110.27, 110.56]
+  fat_p::toString               111.30     ns  (mean: 111.70, stddev: 0.72)  CI95: [111.30, 112.10]
+    -> fat_p::toString: 0.99x SAME than baseline
+
+--- Section 5: Map Stringification ---
+Contract: Convert map<string,int> to '{k: v, ...}' format. Fat-P unique.
+
+[2026-02-01 19:29:54] CPU: 2911 MHz (base: 3686)
+  manual loop (baseline)        66.30      ns  (mean: 66.39, stddev: 0.29)  CI95: [66.23, 66.55]
+  fat_p::toString               59.40      ns  (mean: 59.81, stddev: 1.06)  CI95: [59.22, 60.39]
+    -> fat_p::toString: 1.12x FASTER than baseline
+
+--- Section 6: Tuple/Pair Stringification ---
+Contract: Convert tuple to '(a, b, c)' format. Fat-P unique.
+
+[2026-02-01 19:29:54] CPU: 2911 MHz (base: 3686)
+  fat_p::toString(tuple)        109.42     ns  (mean: 115.65, stddev: 15.73)  CI95: [106.96, 124.34]
+  fat_p::toString(pair)         41.00      ns  (mean: 41.15, stddev: 0.44)  CI95: [40.91, 41.39]
+
+--- Section 7: Optional Stringification ---
+Contract: Convert optional<int> to value or 'nullopt'.
+
+[2026-02-01 19:29:54] CPU: 2948 MHz (base: 3686)
+  fat_p::toString(has_value)    9.57       ns  (mean: 9.58, stddev: 0.06)  CI95: [9.55, 9.61]
+  fat_p::toString(nullopt)      5.57       ns  (mean: 5.61, stddev: 0.09)  CI95: [5.56, 5.66]
+
+--- Section 8: String Concatenation (toStringConcat) ---
+Contract: Concatenate multiple values into single string.
+
+[2026-02-01 19:29:54] CPU: 2948 MHz (base: 3686)
+  manual + (baseline)           211.85     ns  (mean: 219.78, stddev: 16.78)  CI95: [210.51, 229.05]
+  fat_p::toStringConcat         97.81      ns  (mean: 103.87, stddev: 21.42)  CI95: [92.03, 115.70]
+    -> fat_p::toStringConcat: 2.17x FASTER than baseline
+  std::format                   106.12     ns  (mean: 110.02, stddev: 12.56)  CI95: [103.08, 116.96]
+    -> std::format: 2.00x FASTER than baseline
+
+--- Correctness Verification ---
+  Integer: PASS
+  Container: PASS
+
+================================================================================
+  Benchmark Complete
+================================================================================

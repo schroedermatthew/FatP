@@ -94,6 +94,7 @@ FATP_META:
 #include <vector>
 
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 
 // ============================================================================
 // Library Detection
@@ -805,8 +806,9 @@ public:
 #if HAS_ENTT
 class EnTTAdapter final : public ISlotMapAdapter
 {
-    // EnTT uses entity IDs (uint32_t by default) with version bits for ABA protection
-    entt::basic_registry<entt::entity> mRegistry;
+    // Use unique_ptr to ensure complete registry destruction/recreation
+    // This resets EnTT's internal entity placeholder counter
+    std::unique_ptr<entt::basic_registry<entt::entity>> mRegistry;
     std::vector<entt::entity> mEntities;
 
 public:
@@ -817,21 +819,23 @@ public:
 
     void setup(size_t N) override
     {
-        mRegistry = entt::basic_registry<entt::entity>{};
-        // EnTT doesn't have a direct reserve, but we can hint
+        // Fully destroy and recreate to reset entity ID counter
+        mRegistry = std::make_unique<entt::basic_registry<entt::entity>>();
         mEntities.clear();
         mEntities.reserve(N);
     }
 
     void teardown() override
     {
-        mRegistry.clear();
         mEntities.clear();
+        mRegistry.reset(); // Fully destroy registry (unique_ptr::reset)
     }
 
     void clear() override
     {
-        mRegistry.clear();
+        if (mRegistry) {
+            mRegistry->clear();
+        }
         mEntities.clear();
     }
 
@@ -841,8 +845,8 @@ public:
         mEntities.reserve(in.N);
         for (int64_t v : in.values)
         {
-            auto e = mRegistry.create();
-            mRegistry.emplace<TestValue>(e, TestValue(v));
+            auto e = mRegistry->create();
+            mRegistry->emplace<TestValue>(e, TestValue(v));
             mEntities.push_back(e);
         }
     }
@@ -858,8 +862,8 @@ public:
                 mEntities.clear();
                 for (int64_t v : in.values)
                 {
-                    auto e = mRegistry.create();
-                    mRegistry.emplace<TestValue>(e, TestValue(v));
+                    auto e = mRegistry->create();
+                    mRegistry->emplace<TestValue>(e, TestValue(v));
                     mEntities.push_back(e);
                     ++ops;
                 }
@@ -871,9 +875,9 @@ public:
                     if (idx < mEntities.size())
                     {
                         auto e = mEntities[idx];
-                        if (mRegistry.valid(e))
+                        if (mRegistry->valid(e))
                         {
-                            auto* ptr = mRegistry.try_get<TestValue>(e);
+                            auto* ptr = mRegistry->try_get<TestValue>(e);
                             if (ptr)
                             {
                                 benchmark_sink += ptr->checksum();
@@ -891,10 +895,10 @@ public:
                     if (idx < mEntities.size())
                     {
                         auto e = mEntities[idx];
-                        // mRegistry.valid() checks version
-                        if (mRegistry.valid(e))
+                        // mRegistry->valid() checks version
+                        if (mRegistry->valid(e))
                         {
-                            auto* ptr = mRegistry.try_get<TestValue>(e);
+                            auto* ptr = mRegistry->try_get<TestValue>(e);
                             if (ptr)
                             {
                                 benchmark_sink += ptr->checksum();
@@ -907,7 +911,7 @@ public:
 
             case Case::Iteration:
             {
-                auto view = mRegistry.view<TestValue>();
+                auto view = mRegistry->view<TestValue>();
                 for (auto e : view)
                 {
                     auto& val = view.get<TestValue>(e);
@@ -923,9 +927,9 @@ public:
                     if (idx < mEntities.size())
                     {
                         auto e = mEntities[idx];
-                        if (mRegistry.valid(e))
+                        if (mRegistry->valid(e))
                         {
-                            mRegistry.destroy(e);
+                            mRegistry->destroy(e);
                         }
                     }
                     ++ops;
@@ -935,9 +939,9 @@ public:
             case Case::EraseAll:
                 for (auto e : mEntities)
                 {
-                    if (mRegistry.valid(e))
+                    if (mRegistry->valid(e))
                     {
-                        mRegistry.destroy(e);
+                        mRegistry->destroy(e);
                     }
                     ++ops;
                 }
@@ -950,8 +954,8 @@ public:
 
                 for (size_t i = 0; i < batch && i < in.values.size(); ++i)
                 {
-                    auto e = mRegistry.create();
-                    mRegistry.emplace<TestValue>(e, TestValue(in.values[i]));
+                    auto e = mRegistry->create();
+                    mRegistry->emplace<TestValue>(e, TestValue(in.values[i]));
                     mEntities.push_back(e);
                     ++ops;
                 }
@@ -960,9 +964,9 @@ public:
                 {
                     size_t idx = rng() % mEntities.size();
                     auto e = mEntities[idx];
-                    if (mRegistry.valid(e))
+                    if (mRegistry->valid(e))
                     {
-                        auto* ptr = mRegistry.try_get<TestValue>(e);
+                        auto* ptr = mRegistry->try_get<TestValue>(e);
                         if (ptr)
                         {
                             benchmark_sink += ptr->checksum();
@@ -978,9 +982,9 @@ public:
                     {
                         size_t idx = rng() % mEntities.size();
                         auto e = mEntities[idx];
-                        if (mRegistry.valid(e))
+                        if (mRegistry->valid(e))
                         {
-                            mRegistry.destroy(e);
+                            mRegistry->destroy(e);
                         }
                         mEntities[idx] = mEntities.back();
                         mEntities.pop_back();
@@ -997,25 +1001,25 @@ public:
                 mEntities.clear();
                 for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
                 {
-                    auto e = mRegistry.create();
-                    mRegistry.emplace<TestValue>(e, TestValue(in.values[i]));
+                    auto e = mRegistry->create();
+                    mRegistry->emplace<TestValue>(e, TestValue(in.values[i]));
                     mEntities.push_back(e);
                     ++ops;
                 }
 
                 for (size_t i = 0; i < half && i < mEntities.size(); ++i)
                 {
-                    if (mRegistry.valid(mEntities[i]))
+                    if (mRegistry->valid(mEntities[i]))
                     {
-                        mRegistry.destroy(mEntities[i]);
+                        mRegistry->destroy(mEntities[i]);
                     }
                     ++ops;
                 }
 
                 for (size_t i = 0; i < half && i < in.values.size(); ++i)
                 {
-                    auto e = mRegistry.create();
-                    mRegistry.emplace<TestValue>(e, TestValue(in.values[i] + 1000000));
+                    auto e = mRegistry->create();
+                    mRegistry->emplace<TestValue>(e, TestValue(in.values[i] + 1000000));
                     mEntities.push_back(e);
                     ++ops;
                 }
@@ -2319,6 +2323,7 @@ void benchmark_mixed_workload()
 #endif
     adapters.push_back(std::make_unique<UnorderedMapAdapter>());
     adapters.push_back(std::make_unique<StdMapAdapter>());
+    adapters.push_back(std::make_unique<VectorAdapter>());
 
     std::mt19937_64 rng(77);
     std::vector<size_t> sizes = {1000, 10000, 50000};
@@ -2457,60 +2462,50 @@ int main(int argc, char* argv[])
     // Apply benchmark scope (Windows priority/affinity) unless disabled
     BenchmarkScope scope(!g_config.noScope);
 
-    std::cout << "================================================================================\n";
-    std::cout << "  SlotMap Comprehensive Benchmark Suite\n";
-    std::cout << "================================================================================\n";
-
-    std::cout << "\nPlatform: ";
-#if defined(_WIN32) || defined(_WIN64)
-    std::cout << "Windows";
-#else
-    std::cout << "Linux";
-#endif
-    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << ", seed=" << g_config.seed
-              << ")\n";
-
-    std::cout << "\nLibraries detected:\n";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "SlotMap";
+    hdr.warmup = WARMUP_RUNS();
+    hdr.measured = MEASURED_RUNS();
+    hdr.seed = g_config.seed;
+    
+    // Competitors - must match actual adapters used in benchmarks
 #if HAS_FATP_SLOTMAP
-    std::cout << "  [x] fat_p::SlotMap\n";
+    hdr.competitors.push_back({"fat_p::SlotMap", true, "primary"});
 #else
-    std::cout << "  [ ] fat_p::SlotMap (not found)\n";
+    hdr.competitors.push_back({"fat_p::SlotMap", false, "not detected"});
 #endif
 #if HAS_ENTT
-    std::cout << "  [x] entt::registry (popular ECS library)\n";
+    hdr.competitors.push_back({"entt::registry", true, ""});
 #else
-    std::cout << "  [ ] entt::registry (install: vcpkg install entt)\n";
+    hdr.competitors.push_back({"entt::registry", false, "not detected"});
 #endif
 #if HAS_PLF_HIVE
-    std::cout << "  [x] plf::hive (stable pointer container)\n";
+    hdr.competitors.push_back({"plf::hive", true, ""});
 #else
-    std::cout << "  [ ] plf::hive (get: github.com/mattreecebentley/plf_hive)\n";
+    hdr.competitors.push_back({"plf::hive", false, "not detected"});
 #endif
 #if HAS_SG14_SLOTMAP
-    std::cout << "  [x] sg14::slot_map (WG21 study group reference)\n";
+    hdr.competitors.push_back({"sg14::slot_map", true, ""});
 #else
-    std::cout << "  [ ] sg14::slot_map (get: github.com/WG21-SG14/SG14)\n";
+    hdr.competitors.push_back({"sg14::slot_map", false, "not detected"});
 #endif
-#if HAS_BOOST_STABLE_VECTOR
-    std::cout << "  [x] boost::container::stable_vector\n";
-#else
-    std::cout << "  [ ] boost::container::stable_vector\n";
-#endif
-    std::cout << "  [x] std::unordered_map (baseline)\n";
-    std::cout << "  [x] std::map (baseline)\n";
-    std::cout << "  [x] std::vector (baseline)\n";
-    std::cout << "\n";
+    hdr.competitors.push_back({"std::unordered_map", true, "baseline"});
+    hdr.competitors.push_back({"std::map", true, "baseline"});
+    hdr.competitors.push_back({"std::vector (raw)", true, "baseline"});
+    
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = true;
+    hdr.has_stabilization = !g_config.noStabilize;
+    hdr.cool_section_ms = COOLING_DELAY_SECTION_MS;
+    hdr.cool_size_ms = COOLING_DELAY_SIZE_MS;
+    hdr.cool_case_ms = COOLING_DELAY_CASE_MS;
+    
+    fat_p::bench::print_standard_header(hdr);
 
-    // CPU detection
-    fat_p::bench::print_cpu_detection_info(std::cout);
-    std::cout << "\n";
-
-    std::cout << "Design Invariants:\n";
-    std::cout << "  1. Each measured run executes exactly one timed iteration per library\n";
-    std::cout << "  2. Library execution order is randomized per run\n";
-    std::cout << "  3. Setup/teardown outside timed regions\n";
-    std::cout << "  4. All libraries observe same distribution of machine states\n";
-    std::cout << "  5. Medians are the primary reported statistic\n\n";
 
     std::cout << "Expected Results:\n";
     std::cout << "  - SlotMap excels at: iteration (dense storage), O(1) operations, ABA safety\n";

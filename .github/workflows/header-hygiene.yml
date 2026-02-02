@@ -7,12 +7,10 @@
 name: Header Hygiene
 
 on:
-  pull_request:
-    types: [labeled]
   workflow_dispatch:
 jobs:
   header-self-containment:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Header Self-Containment
     runs-on: ${{ matrix.os }}
     strategy:
@@ -76,7 +74,7 @@ jobs:
           fi
 
   include-all-headers:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Include All Headers
     runs-on: ${{ matrix.os }}
     strategy:
@@ -120,7 +118,7 @@ jobs:
           echo "PASSED: IncludeAllFatPHeaders.h compiles successfully"
 
   windows-header-check:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Windows Header Check
     runs-on: windows-latest
     

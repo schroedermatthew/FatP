@@ -109,6 +109,7 @@ FATP_META:
 #include <vector>
 
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 #include "ServiceLocator.h"
 #include "StableHashMap.h"
 
@@ -3779,37 +3780,33 @@ int main(int argc, char* argv[])
     // Apply benchmark scope (Windows priority/affinity) unless disabled
     fat_p::bench::BenchmarkScope scope(!g_config.noScope);
 
-    std::cout << "================================================================================\n";
-    std::cout << "  ServiceLocator Comprehensive Benchmark Suite\n";
-    std::cout << "================================================================================\n";
-
-    // Print platform and configuration
-    std::cout << "\nPlatform: ";
-#if defined(_WIN32) || defined(_WIN64)
-    std::cout << "Windows";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "ServiceLocator";
+    hdr.warmup = WARMUP_RUNS();
+    hdr.measured = MEASURED_RUNS();
+    hdr.seed = g_config.seed;
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::DefaultServiceLocator", true, "primary"});
+    hdr.competitors.push_back({"fat_p::ThreadSafeServiceLocator", true, "primary"});
+    hdr.competitors.push_back({"std::unordered_map<type_index>", true, "baseline"});
+    hdr.competitors.push_back({"Direct pointer", true, "baseline"});
+#if HAS_ENTT
+    hdr.competitors.push_back({"entt::locator", true, ""});
 #else
-    std::cout << "Linux";
+    hdr.competitors.push_back({"entt::locator", false, "vcpkg install entt"});
 #endif
-    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << ", seed=" << g_config.seed
-              << ")\n";
+    
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = false;
+    hdr.has_stabilization = !g_config.noStabilize;
+    
+    fat_p::bench::print_standard_header(hdr);
 
-    // Print detected competitors
-    std::cout << "Competitor libraries: ";
-#if FATP_HAS_ENTT
-    std::cout << "entt ";
-#endif
-#if !FATP_HAS_ENTT
-    std::cout << "(none - install entt via vcpkg for EnTT comparison)";
-#endif
-    std::cout << "\n\n";
-
-    // Print design invariants
-    std::cout << "Design Invariants:\n";
-    std::cout << "  1. Each measured run executes exactly one timed iteration per library\n";
-    std::cout << "  2. Library execution order is randomized per run\n";
-    std::cout << "  3. Setup/teardown outside timed regions\n";
-    std::cout << "  4. All libraries observe same distribution of machine states\n";
-    std::cout << "  5. Medians are the primary reported statistic\n\n";
 
     // Build adapter list
     std::vector<std::unique_ptr<ILocatorAdapter>> adapters;

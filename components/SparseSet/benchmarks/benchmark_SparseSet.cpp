@@ -99,6 +99,7 @@ FATP_META:
 #include <vector>
 
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 #include "FlatSet.h"
 #include "SparseSet.h"
 
@@ -1788,53 +1789,37 @@ int main(int argc, char* argv[])
     // Apply benchmark scope (Windows priority/affinity) unless disabled
     BenchmarkScope scope(!g_config.noScope);
 
-    std::cout << "================================================================================\n";
-    std::cout << "  SparseSet Comprehensive Benchmark Suite\n";
-    std::cout << "================================================================================\n";
-
-    std::cout << "\nPlatform: ";
-#if defined(_WIN32) || defined(_WIN64)
-    std::cout << "Windows";
-#else
-    std::cout << "Linux";
-#endif
-    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << ", seed=" << g_config.seed
-              << ")\n";
-
-    std::cout << "\nLibraries detected:\n";
-    std::cout << "  [x] fat_p::SparseSet<8>  (uint8_t, max 256 elements)\n";
-    std::cout << "  [x] fat_p::SparseSet<32> (uint32_t, handles large N)\n";
-    std::cout << "  [x] fat_p::FlatSet\n";
-#if HAS_LLVM_SPARSESET
-    std::cout << "  [x] llvm::SparseSet<8>   (default uint8_t, max 256 elements)\n";
-    std::cout << "  [x] llvm::SparseSet<32>  (uint32_t, handles large N)\n";
-#else
-    std::cout << "  [ ] llvm::SparseSet (install: vcpkg install llvm)\n";
-#endif
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "SparseSet";
+    hdr.warmup = WARMUP_RUNS();
+    hdr.measured = MEASURED_RUNS();
+    hdr.seed = g_config.seed;
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::SparseSet<8>", true, "primary"});
+    hdr.competitors.push_back({"fat_p::SparseSet<32>", true, "primary"});
+    hdr.competitors.push_back({"fat_p::FlatSet", true, "sibling"});
+    hdr.competitors.push_back({"std::unordered_set", true, "baseline"});
+    hdr.competitors.push_back({"std::set", true, "baseline"});
 #if HAS_ENTT
-    std::cout << "  [x] entt::sparse_set (ECS sparse set)\n";
+    hdr.competitors.push_back({"entt::sparse_set", true, ""});
 #else
-    std::cout << "  [ ] entt::sparse_set (install: vcpkg install entt)\n";
+    hdr.competitors.push_back({"entt::sparse_set", false, "vcpkg install entt"});
 #endif
-#if HAS_ABSL
-    std::cout << "  [x] absl::flat_hash_set (Swiss Table)\n";
-#else
-    std::cout << "  [ ] absl::flat_hash_set (install: vcpkg install abseil)\n";
-#endif
-    std::cout << "  [x] std::unordered_set (baseline)\n";
-    std::cout << "  [x] std::set (baseline)\n";
-    std::cout << "\n";
+    
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = true;
+    hdr.has_stabilization = !g_config.noStabilize;
+    hdr.cool_section_ms = COOLING_DELAY_SECTION_MS;
+    hdr.cool_size_ms = COOLING_DELAY_SIZE_MS;
+    hdr.cool_case_ms = COOLING_DELAY_CASE_MS;
+    
+    fat_p::bench::print_standard_header(hdr);
 
-    // CPU detection
-    fat_p::bench::print_cpu_detection_info(std::cout);
-    std::cout << "\n";
-
-    std::cout << "Design Invariants:\n";
-    std::cout << "  1. Each measured run executes exactly one timed iteration per library\n";
-    std::cout << "  2. Library execution order is randomized per run\n";
-    std::cout << "  3. Setup/teardown outside timed regions\n";
-    std::cout << "  4. All libraries observe same distribution of machine states\n";
-    std::cout << "  5. Medians are the primary reported statistic\n\n";
 
     std::cout << "Expected Results:\n";
     std::cout << "  - SparseSet excels at: insert/erase churn, iteration\n";

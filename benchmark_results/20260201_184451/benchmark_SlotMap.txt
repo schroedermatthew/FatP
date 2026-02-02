@@ -1,0 +1,267 @@
+﻿[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  fat_p::SlotMap Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1950 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::SlotMap (primary)
+  [x] entt::registry
+  [x] plf::hive
+  [x] sg14::slot_map
+  [x] std::unordered_map (baseline)
+  [x] std::map (baseline)
+  [x] std::vector (raw) (baseline)
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. Correctness verified after each benchmark
+  6. CPU frequency stabilized before measurement
+
+Cooling: section=2000ms size=1000ms case=300ms
+
+Expected Results:
+  - SlotMap excels at: iteration (dense storage), O(1) operations, ABA safety
+  - EnTT: similar design, optimized for ECS patterns
+  - plf::hive: stable pointers, good iteration, no handle safety
+  - unordered_map: fast lookup but scattered iteration
+  - std::map: consistent O(log n) but slowest overall
+  - std::vector: fastest raw access but no handle safety
+
+Checking initial CPU state...
+[2026-02-01 19:23:51] Initial CPU: 3022 MHz (base: 3686)
+Waiting for CPU to stabilize...
+[WARNING: CPU frequency still unstable after 30s]
+WARNING: CPU frequency still fluctuating, results may have higher variance.
+
+
+================================================================================
+  SECTION 1: Core Operations (Insert, Access, Erase)
+================================================================================
+[2026-02-01 19:24:21] Section start CPU: 2506 MHz (base: 3686)
+
+--- N = 1000 ---
+[2026-02-01 19:24:21] CPU: 2506 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2432 MHz]
+  Sequential Insert:
+              fat_p::SlotMap:    10.40 ns/op (+/-  0.09)
+              entt::registry:    17.60 ns/op (+/-  1.46)
+                   plf::hive:     6.70 ns/op (+/-  0.15)
+              sg14::slot_map:    13.40 ns/op (+/-  0.11)
+          std::unordered_map:    20.20 ns/op (+/-  0.19)
+                    std::map:    32.50 ns/op (+/-  1.24)
+           std::vector (raw):     8.00 ns/op (+/-  0.05)
+  Random Access (valid):
+              fat_p::SlotMap:     1.90 ns/op (+/-  0.05)
+              entt::registry:     5.00 ns/op (+/-  0.67)
+                   plf::hive:     1.60 ns/op (+/-  0.05)
+              sg14::slot_map:     2.10 ns/op (+/-  0.04)
+          std::unordered_map:     5.60 ns/op (+/-  0.21)
+                    std::map:    23.50 ns/op (+/-  2.21)
+           std::vector (raw):     1.60 ns/op (+/-  0.04)
+  Erase (25%):
+              fat_p::SlotMap:     6.00 ns/op (+/-  0.22)
+              entt::registry:    34.00 ns/op (+/-  1.36)
+                   plf::hive:     8.00 ns/op (+/-  0.71)
+              sg14::slot_map:     6.00 ns/op (+/-  0.80)
+          std::unordered_map:    18.00 ns/op (+/- 46.93)
+                    std::map:    44.00 ns/op (+/-304.39)
+           std::vector (raw):     2.00 ns/op (+/-  0.21)
+
+--- N = 10000 ---
+[2026-02-01 19:25:03] CPU: 2359 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2285 MHz]
+  Sequential Insert:
+              fat_p::SlotMap:    15.01 ns/op (+/-  1.99)
+              entt::registry:    30.02 ns/op (+/-  1.15)
+                   plf::hive:    12.03 ns/op (+/-  1.95)
+              sg14::slot_map:    18.33 ns/op (+/- 10.21)
+          std::unordered_map:    42.11 ns/op (+/-  6.13)
+                    std::map:    66.93 ns/op (+/-  8.38)
+           std::vector (raw):    12.22 ns/op (+/-  0.47)
+  Random Access (valid):
+              fat_p::SlotMap:     2.69 ns/op (+/-  0.14)
+              entt::registry:     6.07 ns/op (+/-  0.04)
+                   plf::hive:     2.03 ns/op (+/-  0.09)
+              sg14::slot_map:     2.81 ns/op (+/-  0.11)
+          std::unordered_map:    13.23 ns/op (+/-  0.70)
+                    std::map:    67.36 ns/op (+/-  8.42)
+           std::vector (raw):     1.71 ns/op (+/-  0.08)
+  Erase (25%):
+              fat_p::SlotMap:     7.44 ns/op (+/-  1.84)
+              entt::registry:    38.20 ns/op (+/-  6.93)
+                   plf::hive:     9.52 ns/op (+/- 30.24)
+              sg14::slot_map:     6.16 ns/op (+/-  0.23)
+          std::unordered_map:    29.68 ns/op (+/- 32.12)
+                    std::map:   143.40 ns/op (+/- 18.32)
+           std::vector (raw):     0.60 ns/op (+/-  0.03)
+
+--- N = 100000 ---
+[2026-02-01 19:25:53] CPU: 2359 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2543 MHz]
+  Sequential Insert:
+              fat_p::SlotMap:    15.46 ns/op (+/-  0.87)
+              entt::registry:    29.38 ns/op (+/-  2.29)
+                   plf::hive:    11.53 ns/op (+/-  0.89)
+              sg14::slot_map:    17.84 ns/op (+/-  3.04)
+          std::unordered_map:    49.72 ns/op (+/-  4.28)
+                    std::map:    77.93 ns/op (+/-  3.73)
+           std::vector (raw):    12.11 ns/op (+/-  1.45)
+  Random Access (valid):
+              fat_p::SlotMap:    11.62 ns/op (+/-  3.55)
+              entt::registry:    15.29 ns/op (+/-  3.53)
+                   plf::hive:     7.88 ns/op (+/-  2.57)
+              sg14::slot_map:     7.76 ns/op (+/-  2.40)
+          std::unordered_map:    17.59 ns/op (+/-  3.86)
+                    std::map:   169.11 ns/op (+/-  4.63)
+           std::vector (raw):     4.39 ns/op (+/-  1.95)
+  Erase (25%):
+              fat_p::SlotMap:    30.05 ns/op (+/-  7.98)
+              entt::registry:    61.23 ns/op (+/-  8.57)
+                   plf::hive:    20.77 ns/op (+/-  6.16)
+              sg14::slot_map:    15.48 ns/op (+/-  3.07)
+          std::unordered_map:    43.63 ns/op (+/- 10.77)
+                    std::map:   280.60 ns/op (+/- 17.66)
+           std::vector (raw):     0.50 ns/op (+/-  0.41)
+[Cooling: before ABA safety test] [Ready: 3059 MHz]
+
+================================================================================
+  SECTION 2: ABA Safety Test (Generational Index Validation)
+================================================================================
+[2026-02-01 19:27:13] Section start CPU: 3059 MHz (base: 3686)
+
+  Testing fat_p::SlotMap ABA protection:
+    Erased handles correctly invalidated: 5000/5000 [PASS]
+    Old handles invalid after slot reuse: 5000/5000 [PASS]
+    New handles valid: 10000/10000 [PASS]
+
+  Testing entt::registry ABA protection:
+    Destroyed entities correctly invalidated: 5000/5000 [PASS]
+[Cooling: before iteration benchmark] [Ready: 2248 MHz]
+
+================================================================================
+  SECTION 3: Iteration Speed (Dense Storage Advantage)
+================================================================================
+[2026-02-01 19:27:24] Section start CPU: 2248 MHz (base: 3686)
+
+--- N = 1000 ---
+[2026-02-01 19:27:24] CPU: 2248 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2359 MHz]
+  Iteration:
+              fat_p::SlotMap:     1.90 ns/op (+/-  0.44)
+              entt::registry:     2.10 ns/op (+/-  0.55)
+                   plf::hive:     2.20 ns/op (+/-  0.58)
+          std::unordered_map:     2.70 ns/op (+/-  0.71)
+                    std::map:     4.10 ns/op (+/-  1.09)
+           std::vector (raw):     1.90 ns/op (+/-  0.50)
+
+--- N = 10000 ---
+[2026-02-01 19:27:40] CPU: 2359 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2285 MHz]
+  Iteration:
+              fat_p::SlotMap:     1.22 ns/op (+/-  0.03)
+              entt::registry:     1.40 ns/op (+/-  0.04)
+                   plf::hive:     1.45 ns/op (+/-  0.07)
+          std::unordered_map:     2.90 ns/op (+/-  0.05)
+                    std::map:     3.97 ns/op (+/-  7.76)
+           std::vector (raw):     1.22 ns/op (+/-  0.04)
+
+--- N = 100000 ---
+[2026-02-01 19:27:52] CPU: 2248 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2359 MHz]
+  Iteration:
+              fat_p::SlotMap:     2.03 ns/op (+/-  0.53)
+              entt::registry:     1.60 ns/op (+/-  0.83)
+                   plf::hive:     2.30 ns/op (+/-  0.49)
+          std::unordered_map:     6.52 ns/op (+/-  0.92)
+                    std::map:     8.02 ns/op (+/-  6.31)
+           std::vector (raw):     2.50 ns/op (+/-  0.36)
+
+--- N = 500000 ---
+[2026-02-01 19:28:07] CPU: 2432 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2285 MHz]
+  Iteration:
+              fat_p::SlotMap:     2.22 ns/op (+/-  0.79)
+              entt::registry:     3.45 ns/op (+/-  0.55)
+                   plf::hive:     3.56 ns/op (+/-  0.80)
+          std::unordered_map:    26.30 ns/op (+/-  4.42)
+                    std::map:    20.10 ns/op (+/-  3.79)
+           std::vector (raw):     3.34 ns/op (+/-  0.93)
+[Cooling: before mixed workload] [Ready: 2617 MHz]
+
+================================================================================
+  SECTION 4: Mixed Workload (Insert/Access/Erase Interleaved)
+================================================================================
+[2026-02-01 19:28:32] Section start CPU: 2617 MHz (base: 3686)
+
+--- N = 1000 ---
+[2026-02-01 19:28:32] CPU: 2617 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2506 MHz]
+  Mixed Workload:
+              fat_p::SlotMap:     8.80 ns/op (+/-  0.50)
+              entt::registry:    26.40 ns/op (+/-  1.95)
+                   plf::hive:     7.60 ns/op (+/-  0.38)
+          std::unordered_map:    16.00 ns/op (+/-  0.80)
+                    std::map:    22.00 ns/op (+/-  2.35)
+           std::vector (raw):     7.20 ns/op (+/-  4.71)
+
+--- N = 10000 ---
+[2026-02-01 19:28:35] CPU: 2506 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2432 MHz]
+  Mixed Workload:
+              fat_p::SlotMap:     7.12 ns/op (+/-  0.38)
+              entt::registry:    16.88 ns/op (+/-  0.54)
+                   plf::hive:     6.52 ns/op (+/-  0.37)
+          std::unordered_map:    16.00 ns/op (+/-  0.68)
+                    std::map:    46.72 ns/op (+/-  1.33)
+           std::vector (raw):     5.56 ns/op (+/-  0.04)
+
+--- N = 50000 ---
+[2026-02-01 19:28:41] CPU: 2432 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2653 MHz]
+  Mixed Workload:
+              fat_p::SlotMap:     9.59 ns/op (+/-  1.02)
+              entt::registry:    17.04 ns/op (+/-  1.57)
+                   plf::hive:     9.62 ns/op (+/-  1.41)
+          std::unordered_map:    17.26 ns/op (+/-  1.26)
+                    std::map:    65.06 ns/op (+/- 12.94)
+           std::vector (raw):     7.58 ns/op (+/-  6.35)
+
+================================================================================
+  Memory Overhead Comparison (Theoretical)
+================================================================================
+
+  Per-element overhead (excluding value storage):
+    fat_p::SlotMap:      ~12 bytes (slot: 8B + erase_map entry: 4B)
+    entt::registry:      ~8-12 bytes (sparse set + component pool)
+    plf::hive:           ~0-8 bytes (skipfield metadata, amortized)
+    sg14::slot_map:      ~12 bytes (similar to fat_p)
+    std::unordered_map:  ~8-16 bytes (bucket pointer + next pointer)
+    std::map:            ~32-40 bytes (RB-tree node: color + 3 pointers)
+    std::vector:         ~0 bytes (dense, but no handle safety)
+
+  Feature comparison:
+    Container             ABA-Safe  O(1) Access  Dense Iter  Stable Ptr
+    -----------------------------------------------------------------------
+    fat_p::SlotMap        Yes       Yes          Yes         No
+    entt::registry        Yes       Yes          Yes         No
+    plf::hive             No        No           Yes         Yes
+    sg14::slot_map        Yes       Yes          Yes         No
+    std::unordered_map    No        Yes*         No          Yes
+    std::map              No        No           No          Yes
+    std::vector           No        Yes          Yes         No
+    (* average case)
+
+  fat_p::SlotMap<TestValue> with 10000 elements:
+    size():        10000
+    capacity():    12138
+    slot_count():  10000
+    sizeof(TestValue): 40 bytes
+
+================================================================================
+  Benchmark Complete
+================================================================================

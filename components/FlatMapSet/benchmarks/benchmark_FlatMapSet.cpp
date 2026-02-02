@@ -87,6 +87,7 @@ FATP_META:
 #include <vector>
 
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 
 // Fat-P FlatMap/FlatSet (conditional - implementation may be pending)
 #if __has_include("FlatMap.h")
@@ -2709,63 +2710,61 @@ int main(int argc, char* argv[])
         }
     }
 
-    std::cout << "================================================================================\n";
-    std::cout << "  FlatMap/FlatSet Comprehensive Benchmark Suite\n";
-    std::cout << "================================================================================\n";
-
-    std::cout << "\nPlatform: ";
-#if defined(_WIN32) || defined(_WIN64)
-    std::cout << "Windows";
-#else
-    std::cout << "Linux";
-#endif
-    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << ", seed=" << g_config.seed
-              << ")\n";
-
-    std::cout << "Competitor libraries: ";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "FlatMap/FlatSet";
+    hdr.warmup = WARMUP_RUNS();
+    hdr.measured = MEASURED_RUNS();
+    hdr.seed = g_config.seed;
+    
+    // Competitors
 #if HAS_FATP_FLATMAP
-    std::cout << "fat_p::FlatMap ";
+    hdr.competitors.push_back({"fat_p::FlatMap", true, "primary"});
 #else
-    std::cout << "(fat_p::FlatMap pending) ";
+    hdr.competitors.push_back({"fat_p::FlatMap", false, "pending"});
 #endif
 #if HAS_FATP_FLATSET
-    std::cout << "fat_p::FlatSet ";
+    hdr.competitors.push_back({"fat_p::FlatSet", true, "primary"});
 #else
-    std::cout << "(fat_p::FlatSet pending) ";
+    hdr.competitors.push_back({"fat_p::FlatSet", false, "pending"});
 #endif
+    hdr.competitors.push_back({"std::map", true, "baseline"});
+    hdr.competitors.push_back({"std::set", true, "baseline"});
 #if HAS_BOOST_FLAT
-    std::cout << "boost::flat_{map,set} ";
+    hdr.competitors.push_back({"boost::flat_map / boost::flat_set", true, ""});
+#else
+    hdr.competitors.push_back({"boost::flat_map / boost::flat_set", false, "not detected"});
 #endif
 #if HAS_ABSL_BTREE
-    std::cout << "absl::btree_{map,set} ";
+    hdr.competitors.push_back({"absl::btree_map / absl::btree_set", true, ""});
+#else
+    hdr.competitors.push_back({"absl::btree_map / absl::btree_set", false, "not detected"});
 #endif
 #if HAS_FOLLY
-    std::cout << "folly::sorted_vector_map ";
+    hdr.competitors.push_back({"folly::sorted_vector_map", true, ""});
+#else
+    hdr.competitors.push_back({"folly::sorted_vector_map", false, "not detected"});
 #endif
 #if HAS_STD_FLATMAP
-    std::cout << "std::flat_{map,set}(C++23) ";
+    hdr.competitors.push_back({"std::flat_map / std::flat_set", true, "C++23"});
+#else
+    hdr.competitors.push_back({"std::flat_map / std::flat_set", false, "C++23 not available"});
 #endif
-#if !HAS_BOOST_FLAT && !HAS_ABSL_BTREE && !HAS_FOLLY && !HAS_STD_FLATMAP
-    std::cout << "(comparing against std::{map,set} only)";
-#endif
-    std::cout << "\n\n";
-
-    // CPU detection
-    fat_p::bench::print_cpu_detection_info(std::cout);
-    std::cout << "\n";
+    
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = false;
+    hdr.has_stabilization = !g_config.noStabilize;
+    
+    fat_p::bench::print_standard_header(hdr);
 
     if (path_insert_only)
     {
         benchmark_pathological_insert();
         return 0;
     }
-
-    std::cout << "Design Invariants:\n";
-    std::cout << "  1. Each measured run executes exactly one timed iteration per library\n";
-    std::cout << "  2. Library execution order is randomized per run\n";
-    std::cout << "  3. Setup/teardown outside timed regions\n";
-    std::cout << "  4. All libraries observe same distribution of machine states\n";
-    std::cout << "  5. Medians are the primary reported statistic\n\n";
 
     std::cout << "Expected Results:\n";
     std::cout << "  - FlatMap excels at: iteration, find, bulk insert (sorted)\n";

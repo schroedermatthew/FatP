@@ -65,6 +65,7 @@ FATP_META:
 
 #include "CppFeatureDetection.h"
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 #include "Stringify.h"
 
 #if FATP_HAS_FORMAT
@@ -192,26 +193,37 @@ int main()
     // Apply benchmark scope (Windows priority/affinity)
     BenchmarkScope scope(!config.noScope);
 
-    std::cout << "================================================================================\n";
-    std::cout << "  Stringify Comprehensive Benchmark Suite\n";
-    std::cout << "================================================================================\n\n";
-
-    print_cpu_context(std::cout);
-
-    std::cout << "\nConfiguration:\n";
-    std::cout << "  Measured runs: " << config.measuredRuns << "\n";
-    std::cout << "  Warmup runs: " << config.warmupRuns << "\n";
-    std::cout << "  Seed: " << config.seed << "\n";
-
-    std::cout << "\nCompetitor libraries: std::to_string";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "Stringify";
+    hdr.warmup = config.warmupRuns;
+    hdr.measured = config.measuredRuns;
+    hdr.seed = config.seed;
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::stringify", true, "primary"});
+    hdr.competitors.push_back({"std::to_string", true, "baseline"});
+    hdr.competitors.push_back({"std::ostringstream", true, "baseline"});
 #if FATP_HAS_FORMAT
-    std::cout << " std::format";
+    hdr.competitors.push_back({"std::format", true, "C++20"});
+#else
+    hdr.competitors.push_back({"std::format", false, "not available"});
 #endif
-    std::cout << " std::ostringstream";
 #if HAS_FMT
-    std::cout << " fmt::format";
+    hdr.competitors.push_back({"fmt::format", true, ""});
+#else
+    hdr.competitors.push_back({"fmt::format", false, "not detected"});
 #endif
-    std::cout << "\n\n";
+    
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = false;
+    hdr.has_stabilization = !config.noStabilize;
+    
+    fat_p::bench::print_standard_header(hdr);
+
 
     constexpr std::size_t N = 100'000;
 

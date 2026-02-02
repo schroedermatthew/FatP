@@ -13,8 +13,6 @@
 name: JsonLite CI
 
 on:
-  pull_request:
-    types: [labeled]
   workflow_dispatch:
 env:
   HEADER: JsonLite.h
@@ -25,7 +23,7 @@ jobs:
   # Linux GCC Build (C++20)
   # ===========================================================================
   linux-gcc:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Linux GCC-13 C++20
     runs-on: ubuntu-24.04
     steps:
@@ -50,7 +48,7 @@ jobs:
   # Linux Clang Build (C++20)
   # ===========================================================================
   linux-clang:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Linux Clang-16 C++20
     runs-on: ubuntu-22.04
     steps:
@@ -79,7 +77,7 @@ jobs:
   # Windows MSVC Build (C++20)
   # ===========================================================================
   windows-msvc:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Windows MSVC C++20
     runs-on: windows-latest
     steps:
@@ -99,7 +97,7 @@ jobs:
   # Sanitizers (C++20)
   # ===========================================================================
   sanitizer-asan:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: AddressSanitizer
     runs-on: ubuntu-24.04
     steps:
@@ -119,7 +117,7 @@ jobs:
         run: ./test_bin
 
   sanitizer-ubsan:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: UndefinedBehaviorSanitizer
     runs-on: ubuntu-24.04
     steps:
@@ -142,7 +140,7 @@ jobs:
   # Header Self-Containment (C++20)
   # ===========================================================================
   header-check:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Header Self-Containment
     runs-on: ubuntu-24.04
     steps:
@@ -163,7 +161,7 @@ jobs:
   # Strict Warnings (C++20)
   # ===========================================================================
   strict-warnings:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Strict Warnings
     runs-on: ubuntu-24.04
     steps:
@@ -187,7 +185,7 @@ jobs:
     name: CI Success
     needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always()) }}
+    if: always()
     steps:
       - name: Check results
         run: |

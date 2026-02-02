@@ -126,6 +126,7 @@ FATP_META:
 // Rationale: Boost is widely deployed reference point
 #if __has_include(<boost/lockfree/queue.hpp>)
 #include <boost/lockfree/queue.hpp>
+#include "FatPBenchmarkHeader.h"
 #define HAS_BOOST_LOCKFREE 1
 #else
 #define HAS_BOOST_LOCKFREE 0
@@ -2641,25 +2642,37 @@ bool verify_correctness()
 
 int main()
 {
-    std::cout << "================================================================================\n";
-    std::cout << "  Fat-P LockFreeQueue / LockFreeRingBuffer Benchmark Suite\n";
-    std::cout << "================================================================================\n\n";
-
-    // Print competitor libraries detected (required by style guide)
-    std::cout << "Competitor libraries detected:\n";
-    std::cout << "  [x] std::mutex + std::queue (baseline)\n";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "LockFreeQueue";
+    hdr.warmup = 3;  // Default
+    hdr.measured = 15;  // Default
+    hdr.seed = 12345;
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::LockFreeQueue", true, "primary"});
+    hdr.competitors.push_back({"fat_p::LockFreeRingBuffer", true, "primary"});
+    hdr.competitors.push_back({"std::mutex + std::queue", true, "baseline"});
 #if HAS_MOODYCAMEL
-    std::cout << "  [x] moodycamel::ConcurrentQueue\n";
+    hdr.competitors.push_back({"moodycamel::ConcurrentQueue", true, ""});
 #else
-    std::cout << "  [ ] moodycamel::ConcurrentQueue "
-              << "(install: https://github.com/cameron314/concurrentqueue)\n";
+    hdr.competitors.push_back({"moodycamel::ConcurrentQueue", false, "github.com/cameron314/concurrentqueue"});
 #endif
 #if HAS_BOOST_LOCKFREE
-    std::cout << "  [x] boost::lockfree::queue\n";
+    hdr.competitors.push_back({"boost::lockfree::queue", true, ""});
 #else
-    std::cout << "  [ ] boost::lockfree::queue (install: vcpkg install boost-lockfree)\n";
+    hdr.competitors.push_back({"boost::lockfree::queue", false, "vcpkg install boost-lockfree"});
 #endif
-    std::cout << "\n";
+    
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = true;
+    hdr.has_stabilization = true;
+    
+    fat_p::bench::print_standard_header(hdr);
+
 
     // Load and print configuration (required by style guide)
     auto cfg = loadConfig();

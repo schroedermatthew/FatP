@@ -107,6 +107,7 @@ FATP_META:
 #include <vector>
 
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 
 // ============================================================================
 // Library Detection
@@ -1896,53 +1897,47 @@ int main(int argc, char* argv[])
     // Apply benchmark scope (Windows priority/affinity)
     BenchmarkScope scope(!g_config.noScope);
 
-    std::cout << std::string(80, '=') << "\n";
-    std::cout << "  ObjectPool Comprehensive Benchmark Suite\n";
-    std::cout << std::string(80, '=') << "\n";
-
-    std::cout << "\nPlatform: ";
-#if defined(_WIN32) || defined(_WIN64)
-    std::cout << "Windows";
-#else
-    std::cout << "Linux";
-#endif
-    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << ", seed=" << g_config.seed << ")\n";
-
-    std::cout << "\nCompetitor libraries detected:\n";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "ObjectPool";
+    hdr.warmup = WARMUP_RUNS();
+    hdr.measured = MEASURED_RUNS();
+    hdr.seed = g_config.seed;
+    
+    // Competitors
 #if HAS_FATP_OBJECTPOOL
-    std::cout << "  [x] fat_p::ObjectPool\n";
+    hdr.competitors.push_back({"fat_p::ObjectPool", true, "primary"});
 #else
-    std::cout << "  [ ] fat_p::ObjectPool (not found - include ObjectPool.h)\n";
+    hdr.competitors.push_back({"fat_p::ObjectPool", false, "include ObjectPool.h"});
 #endif
 #if HAS_BOOST_POOL
-    std::cout << "  [x] boost::object_pool\n";
+    hdr.competitors.push_back({"boost::object_pool", true, ""});
 #else
-    std::cout << "  [ ] boost::object_pool (install: vcpkg install boost-pool)\n";
+    hdr.competitors.push_back({"boost::object_pool", false, "vcpkg install boost-pool"});
 #endif
 #if HAS_FOONATHAN_MEMORY
-    std::cout << "  [x] foonathan::memory_pool\n";
+    hdr.competitors.push_back({"foonathan::memory_pool", true, ""});
 #else
-    std::cout << "  [ ] foonathan::memory_pool (install: vcpkg install foonathan-memory)\n";
+    hdr.competitors.push_back({"foonathan::memory_pool", false, "vcpkg install foonathan-memory"});
 #endif
 #if HAS_EASTL_POOL
-    std::cout << "  [x] EASTL::fixed_pool [!grow] (fixed-capacity, no auto-grow)\n";
+    hdr.competitors.push_back({"EASTL::fixed_pool", true, "fixed-capacity, no auto-grow"});
 #else
-    std::cout << "  [ ] EASTL::fixed_pool (install: vcpkg install eastl)\n";
+    hdr.competitors.push_back({"EASTL::fixed_pool", false, "vcpkg install eastl"});
 #endif
-    std::cout << "  [x] std::pmr::unsynchronized_pool_resource (C++17)\n";
-    std::cout << "  [x] std::pmr::synchronized_pool_resource (C++17, thread-safe)\n";
-    std::cout << "  [x] new/delete (baseline)\n\n";
+    hdr.competitors.push_back({"std::pmr::unsynchronized_pool_resource", true, "C++17"});
+    hdr.competitors.push_back({"std::pmr::synchronized_pool_resource", true, "C++17 thread-safe"});
+    hdr.competitors.push_back({"new/delete", true, "baseline"});
+    
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = false;
+    hdr.has_stabilization = !g_config.noStabilize;
+    
+    fat_p::bench::print_standard_header(hdr);
 
-    // CPU detection
-    fat_p::bench::print_cpu_detection_info(std::cout);
-    std::cout << "\n";
-
-    std::cout << "Design Invariants:\n";
-    std::cout << "  1. Each measured run executes exactly one timed iteration per library\n";
-    std::cout << "  2. Library execution order is randomized per run\n";
-    std::cout << "  3. Setup/teardown outside timed regions\n";
-    std::cout << "  4. All libraries observe same distribution of machine states\n";
-    std::cout << "  5. Medians are the primary reported statistic\n\n";
 
     // CPU stabilization
     if (!g_config.noStabilize)

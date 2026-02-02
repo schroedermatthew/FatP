@@ -65,6 +65,7 @@ FATP_META:
 */
 
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 #include "PolicyIterator.h"
 #include "TensorIteration.h"
 #include "TensorStridePolicy.h"
@@ -1783,47 +1784,53 @@ void benchSizeScaling(const BenchConfig& cfg)
 
 int main()
 {
-    std::cout << R"(
-================================================================================
-  PolicyIterator Benchmark Suite
-  Fat-P Library - Policy-Based Iterator Performance
-================================================================================
-)";
-
-    std::cout << "  Library comparisons (auto-detected via __has_include):\n";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    auto cfg = BenchConfig::fromEnv();
+    
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "PolicyIterator";
+    hdr.warmup = cfg.warmupRuns;
+    hdr.measured = cfg.measuredRuns;
+    hdr.seed = cfg.seed;
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::PolicyIterator", true, "primary"});
+    hdr.competitors.push_back({"Raw pointer iteration", true, "baseline"});
+    hdr.competitors.push_back({"Manual loop", true, "baseline"});
 #if HAS_BOOST_ITERATOR
-    std::cout << "    [x] Boost.Iterator\n";
+    hdr.competitors.push_back({"Boost.Iterator", true, ""});
 #else
-    std::cout << "    [ ] Boost.Iterator  (not found: <boost/iterator/filter_iterator.hpp>)\n";
+    hdr.competitors.push_back({"Boost.Iterator", false, "boost/iterator/filter_iterator.hpp"});
 #endif
 #if HAS_RANGE_V3
-    std::cout << "    [x] range-v3\n";
+    hdr.competitors.push_back({"range-v3", true, ""});
 #else
-    std::cout << "    [ ] range-v3        (not found: <range/v3/view/filter.hpp>)\n";
+    hdr.competitors.push_back({"range-v3", false, "range/v3/view/filter.hpp"});
 #endif
 #if HAS_EIGEN
-    std::cout << "    [x] Eigen\n";
+    hdr.competitors.push_back({"Eigen", true, ""});
 #else
-    std::cout << "    [ ] Eigen           (not found: <Eigen/Dense> or <eigen3/Eigen/Dense>)\n";
+    hdr.competitors.push_back({"Eigen", false, "Eigen/Dense"});
 #endif
 #if HAS_XTENSOR
-    std::cout << "    [x] xtensor\n";
+    hdr.competitors.push_back({"xtensor", true, ""});
 #else
-    std::cout << "    [ ] xtensor         (requires C++20 or header not found)\n";
+    hdr.competitors.push_back({"xtensor", false, "requires C++20"});
 #endif
 #if HAS_BOOST_MULTIARRAY
-    std::cout << "    [x] Boost.MultiArray\n";
+    hdr.competitors.push_back({"Boost.MultiArray", true, ""});
 #else
-    std::cout << "    [ ] Boost.MultiArray (not found: <boost/multi_array.hpp>)\n";
+    hdr.competitors.push_back({"Boost.MultiArray", false, "boost/multi_array.hpp"});
 #endif
-
-    auto cfg = BenchConfig::fromEnv();
-
-    std::cout << "\nConfiguration:\n";
-    cfg.print(std::cout);
-
-    std::cout << "\nPlatform: " << getPlatformString() << ", Compiler: " << getCompilerString() << "\n";
-    std::cout << "Timestamp: " << getTimestampIso() << "\n";
+    
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = false;
+    hdr.has_stabilization = !cfg.noStabilize;
+    
+    fat_p::bench::print_standard_header(hdr);
 
     std::cout << "\nInitial CPU state:\n";
     print_cpu_context(std::cout, "Benchmark start");

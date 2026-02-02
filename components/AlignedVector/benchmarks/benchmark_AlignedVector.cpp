@@ -108,6 +108,7 @@ FATP_META:
 
 #include "AlignedVector.h"
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 
 // ============================================================================
 // Optional Competitor Detection
@@ -2109,50 +2110,40 @@ int main(int argc, char* argv[])
     // Apply benchmark scope (Windows priority/affinity)
     fat_p::bench::BenchmarkScope scope(!g_config.noScope);
 
-    std::cout << "================================================================================\n";
-    std::cout << "  AlignedVector Comprehensive Benchmark Suite\n";
-    std::cout << "================================================================================\n";
-
-    // Platform info
-    std::cout << "\nPlatform: ";
-#if defined(_WIN32) || defined(_WIN64)
-    std::cout << "Windows";
-#elif defined(__APPLE__)
-    std::cout << "macOS";
-#else
-    std::cout << "Linux";
-#endif
-    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << ", seed=" << g_config.seed
-              << ")\n";
-
-    // Competitor detection
-    std::cout << "\nCompetitor libraries: ";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "AlignedVector";
+    hdr.warmup = WARMUP_RUNS();
+    hdr.measured = MEASURED_RUNS();
+    hdr.seed = g_config.seed;
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::AlignedVector", true, "primary"});
+    hdr.competitors.push_back({"std::vector", true, "baseline"});
 #if HAS_BOOST_ALIGN
-    std::cout << "boost::alignment ";
+    hdr.competitors.push_back({"boost::alignment::aligned_allocator", true, ""});
+#else
+    hdr.competitors.push_back({"boost::alignment", false, "not detected"});
 #endif
 #if HAS_EIGEN
-    std::cout << "Eigen ";
+    hdr.competitors.push_back({"Eigen::aligned_allocator", true, ""});
+#else
+    hdr.competitors.push_back({"Eigen", false, "not detected"});
 #endif
-#if !HAS_BOOST_ALIGN && !HAS_EIGEN
-    std::cout << "(none detected - using std::vector baseline)";
-#endif
-    std::cout << "\n\n";
+    
+    // Configuration
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = true;
+    hdr.has_stabilization = !g_config.noStabilize;
+    hdr.cool_section_ms = COOLING_DELAY_SECTION_MS;
+    hdr.cool_size_ms = COOLING_DELAY_SIZE_MS;
+    hdr.cool_case_ms = COOLING_DELAY_CASE_MS;
+    
+    fat_p::bench::print_standard_header(hdr);
 
-    // CPU frequency detection
-    fat_p::bench::print_cpu_detection_info(std::cout);
-    std::cout << "\n";
-
-    // Design invariants
-    std::cout << "Design Invariants:\n";
-    std::cout << "  1. Round-robin execution with randomized order per run\n";
-    std::cout << "  2. Setup/teardown outside timed regions\n";
-    std::cout << "  3. Medians are the primary reported statistic\n";
-    std::cout << "  4. Correctness verified after each benchmark\n";
-    std::cout << "\n";
-
-    std::cout << "Cooling delays: section=" << COOLING_DELAY_SECTION_MS << "ms, "
-              << "size=" << COOLING_DELAY_SIZE_MS << "ms, "
-              << "case=" << COOLING_DELAY_CASE_MS << "ms\n\n";
 
     // Wait for CPU stability
     if (!g_config.noStabilize)

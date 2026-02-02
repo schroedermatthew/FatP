@@ -61,6 +61,7 @@ FATP_META:
 #include <vector>
 
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 #include "FeatureManager.h"
 
 namespace
@@ -419,9 +420,40 @@ int main()
     using namespace fat_p::bench;
 
     // -------------------------------------------------------------------------
-    // 1. Create Runner with Standard Setup
+    // 1. Configuration and Standardized Header
     // -------------------------------------------------------------------------
-    BenchmarkRunner runner = makeRunner("FeatureManager");
+    BenchConfig config = BenchConfig::fromEnv();
+    BenchmarkScope scope(!config.noScope);
+    
+    // Standardized header (via FatPBenchmarkHeader.h)
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "FeatureManager";
+    hdr.warmup = config.warmupRuns;
+    hdr.measured = config.measuredRuns;
+    hdr.seed = config.seed;
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::FeatureManager", true, "primary"});
+    hdr.competitors.push_back({"std::map<string, bool>", true, "baseline"});
+    hdr.competitors.push_back({"Manual if/else chain", true, "baseline"});
+    // No external competitor libraries for FeatureManager
+    
+    hdr.has_extended_config = true;
+    hdr.min_batch_ms = config.minBatchMs;
+    hdr.scope_enabled = !config.noScope;
+    hdr.stabilize_enabled = !config.noStabilize;
+    hdr.cooldown_enabled = !config.noCooldown;
+    hdr.is_multi_library = false;
+    hdr.has_correctness_checks = true;
+    hdr.has_stabilization = !config.noStabilize;
+    
+    fat_p::bench::print_standard_header(hdr);
+    
+    // Wait for CPU stability
+    waitForStableCpu(config);
+    
+    // Create runner (without printing header again)
+    BenchmarkRunner runner("FeatureManager", config);
     const auto& cfg = runner.config();
 
     // -------------------------------------------------------------------------

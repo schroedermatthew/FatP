@@ -57,6 +57,7 @@ FATP_META:
 
 #include "BitSet.h"
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 
 #pragma warning(push, 0)
 #if __has_include(<boost/dynamic_bitset.hpp>)
@@ -907,33 +908,46 @@ int main(int argc, char* argv[]) {
     (void)argc; (void)argv;
     g_config = fat_p::bench::BenchConfig::fromEnv();
 
-    std::cout << "======================================================================\n";
-    std::cout << "  BitSet Comprehensive Benchmark Suite\n";
-    std::cout << "======================================================================\n\n";
-    std::cout << "Competitors detected:\n";
-    std::cout << "  std::bitset             : YES\n";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "BitSet";
+    hdr.warmup = WARMUP_RUNS();
+    hdr.measured = MEASURED_RUNS();
+    hdr.seed = 12345;  // BitSet uses fixed seed
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::BitSet", true, "primary"});
+    hdr.competitors.push_back({"std::bitset", true, "baseline"});
 #if HAS_BOOST
-    std::cout << "  boost::dynamic_bitset   : YES\n";
+    hdr.competitors.push_back({"boost::dynamic_bitset", true, ""});
 #else
-    std::cout << "  boost::dynamic_bitset   : NO\n";
+    hdr.competitors.push_back({"boost::dynamic_bitset", false, "not detected"});
 #endif
 #if HAS_LLVM
-    std::cout << "  llvm::BitVector         : YES\n";
-    std::cout << "  llvm::SmallBitVector    : YES\n";
+    hdr.competitors.push_back({"llvm::BitVector", true, ""});
+    hdr.competitors.push_back({"llvm::SmallBitVector", true, ""});
 #else
-    std::cout << "  llvm::BitVector         : NO\n";
+    hdr.competitors.push_back({"llvm::BitVector", false, "not detected"});
 #endif
 #if HAS_CROARING
-    std::cout << "  roaring::Roaring        : YES (CRoaring compressed bitmaps)\n";
+    hdr.competitors.push_back({"roaring::Roaring", true, "CRoaring"});
 #else
-    std::cout << "  roaring::Roaring        : NO\n";
+    hdr.competitors.push_back({"roaring::Roaring", false, "not detected"});
 #endif
 #if HAS_BITMAGIC
-    std::cout << "  bm::bvector<>           : YES (BitMagic)\n";
+    hdr.competitors.push_back({"bm::bvector", true, "BitMagic"});
 #else
-    std::cout << "  bm::bvector<>           : NO\n";
+    hdr.competitors.push_back({"bm::bvector", false, "not detected"});
 #endif
-    std::cout << "\nSettings: warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << "\n";
+    
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = false;
+    
+    fat_p::bench::print_standard_header(hdr);
+
 
     constexpr size_t MEDIUM = 1024;
     constexpr size_t LARGE = 10000;

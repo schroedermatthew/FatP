@@ -3,7 +3,7 @@
 **Status:** Active  
 **Applies to:** All benchmark translation units (`benchmarks/benchmark_*.cpp`)  
 **Authority:** Subordinate to the *Fat-P Library Development Guidelines*  
-**Version:** 1.3 (January 2026)
+**Version:** 1.4 (February 2026)
 
 ## Purpose
 
@@ -15,7 +15,7 @@ Benchmarks are part of the public credibility story:
 * Performance claims are established by benchmarks.
 * Benchmarks must be reproducible, honest about semantics, and robust to machine state drift.
 
-Reference implementations: `benchmark_StableHashMap.cpp`, `benchmark_SmallVector.cpp`, `BenchmarkHarness.h`
+Reference implementations: `benchmark_StableHashMap.cpp`, `benchmark_SmallVector.cpp`, `include/fat_p/FatPBenchmarkRunner.h`, `include/fat_p/FatPBenchmarkHeader.h`
 
 ---
 
@@ -36,15 +36,16 @@ benchmark_ComponentName.cpp
 // 4. Platform configuration (warmup/batches + platform differences)
 // 5. CPU frequency monitoring (+ optional stabilization)
 // 6. Benchmark scope (priority/affinity)
-// 7. Timer (+ minimum duration / calibration)
-// 8. Statistics
-// 9. Data generation
-// 10. Correctness guardrails (checks OUTSIDE timed regions)
-// 11. Contract note (semantic equivalence)
-// 12. Adapter interface (if comparing libraries)
-// 13. Benchmark cases
-// 14. Output formatting (+ machine-readable export)
-// 15. Main
+// 7. Startup header printing (standardized format - see "Startup Header Format")
+// 8. Timer (+ minimum duration / calibration)
+// 9. Statistics
+// 10. Data generation
+// 11. Correctness guardrails (checks OUTSIDE timed regions)
+// 12. Contract note (semantic equivalence)
+// 13. Adapter interface (if comparing libraries)
+// 14. Benchmark cases
+// 15. Output formatting (+ machine-readable export)
+// 16. Main
 ```
 
 ---
@@ -100,7 +101,7 @@ static constexpr size_t DEFAULT_MEASURED_RUNS = 50;
 Either:
 
 1. **Implement locally** following this guide's accuracy requirements, or
-2. **Use shared helper** (`FatPBenchmarkUtils.h`, `BenchmarkHarness.h`, or `FatPTest.h`) if it meets the same `ref_is_max` rules.
+2. **Use shared helper** (`include/fat_p/FatPBenchmarkRunner.h` or `include/fat_p/FatPTest.h`) if it meets the same `ref_is_max` rules.
 
 If using a shared helper, verify it:
 
@@ -780,6 +781,232 @@ if (stats.stddev > stats.median && stats.median > 0)
 
 ---
 
+## Startup Header Format (P0 - Required)
+
+All benchmarks must print a standardized startup header for consistency across the suite. This aids log parsing, reproducibility, and professional presentation.
+
+### Header Section Order
+
+```
+1. [BenchmarkScope] line (if enabled)
+2. Title banner (80 '=' chars)
+3. Platform line
+4. Competitors block
+5. Configuration block (if extended config)
+6. CPU diagnostics (condensed)
+7. Design Invariants
+8. Optional sections (cooling, correctness, expected results)
+9. Stabilization status
+```
+
+### Title Banner
+
+**Always 80 characters wide, always use `fat_p::` prefix:**
+
+```cpp
+void print_startup_banner(const std::string& component)
+{
+    std::cout << std::string(80, '=') << "\n";
+    std::cout << "  fat_p::" << component << " Benchmark Suite\n";
+    std::cout << std::string(80, '=') << "\n\n";
+}
+```
+
+**Example:**
+```
+================================================================================
+  fat_p::StableHashMap Benchmark Suite
+================================================================================
+```
+
+**Do not use:**
+- Different widths (70, 72, etc.)
+- "Comprehensive Benchmark Suite"
+- "FAT-P" (use lowercase `fat_p::`)
+- Bare component name without namespace
+
+### Platform Line
+
+**Single line with canonical field names:**
+
+```
+Platform: Windows-x64 MSVC-1942 | warmup=3 measured=15 seed=12345
+```
+
+**Rules:**
+- OS-arch: `Windows-x64`, `Linux-x64`, `Linux-arm64`, `macOS-arm64`
+- Compiler-version: `MSVC-1942`, `GCC-13.2`, `Clang-17.0`
+- Use `measured=` (not `batches=`)
+- No spaces around `=`
+- Pipe separator `|` between platform and config
+
+### Competitors Block
+
+**Use `[x]`/`[ ]` checklist format:**
+
+```
+Competitors:
+  [x] fat_p::StableHashMap (primary)
+  [x] tsl::robin_map
+  [x] ankerl::unordered_dense
+  [x] std::unordered_map (baseline)
+  [ ] boost::unordered_flat_map (not detected)
+```
+
+**Rules:**
+- Header is `Competitors:` (not "Competitor libraries:", "Libraries detected:", etc.)
+- `[x]` for detected, `[ ]` for not found
+- Primary implementation first with `(primary)` tag
+- Baselines labeled with `(baseline)`
+- Brief notes in parentheses only
+
+**Do not use:**
+- Inline format: `Competitor libraries: tsl ankerl absl`
+- Space-separated lists
+- Different header names per benchmark
+
+### Extended Configuration Block
+
+**Only include if benchmark has config beyond Platform line basics:**
+
+```
+Configuration:
+  Target work:    5000000 ops/batch
+  Min batch ms:   50
+  Scope:          ON
+  Stabilize:      ON
+  Cooldown:       ON
+```
+
+**Rules:**
+- Header is `Configuration:` (capitalized)
+- Field names left-aligned
+- Use `ON`/`OFF` for booleans (not "enabled"/"disabled"/"true"/"false")
+- Two-space indent
+
+### CPU Diagnostics (Condensed)
+
+**Single-line summary by default:**
+
+```
+CPU: 2469 MHz (base: 3686 MHz) [THROTTLED 33%]
+```
+
+**Rules:**
+- Show `[THROTTLED N%]` only when reference is true base frequency
+- Show `[TURBO]` only when above base
+- Use `(max: N MHz)` without throttle claim when using max fallback
+- Full CPUID diagnostics only when `FATP_BENCH_VERBOSE_STATS=1`
+
+### Design Invariants
+
+**Use consistent header and wording:**
+
+```
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. Correctness verified after each benchmark
+```
+
+**Rules:**
+- Header is `Design Invariants:` (capital I)
+- Numbered list
+- Two-space indent
+- Include only applicable invariants (e.g., skip #1 and #3 for single-library benchmarks)
+
+### Optional Sections
+
+**Cooling delays (if enabled):**
+```
+Cooling: section=500ms size=100ms case=50ms
+```
+
+**Correctness verification (if pre-flight checks):**
+```
+Correctness:
+  [PASS] FIFO ordering
+  [PASS] Capacity enforcement
+  [PASS] Thread safety (SPSC)
+```
+
+**Expected results (for complex comparisons):**
+```
+Expected Results:
+  - fat_p::SlotMap excels at: iteration, O(1) ops, ABA safety
+  - std::unordered_map: fast lookup, scattered iteration
+```
+
+### Stabilization Status
+
+**Timestamp + status at end of header:**
+
+```
+[2026-02-01 09:02:34] CPU stable at 2410 MHz (65% of base, variance 6.1%)
+```
+
+Or if not stable:
+```
+[2026-02-01 09:02:34] WARNING: CPU not stable after 6s (2395 MHz, 65% of base)
+```
+
+### ASCII-Only Output (P0 - Required)
+
+All benchmark output must be ASCII-only. No Unicode characters.
+
+| Instead of | Use |
+|------------|-----|
+| ✓ | `[PASS]` or `[x]` |
+| ✗ | `[FAIL]` or `[ ]` |
+| ❌ | `[X]` or `[FAIL]` |
+| ⚠ | `[WARNING]` or `[!]` |
+| § | `Section` |
+
+**Rationale:** Ensures consistent display across terminals, log viewers, CI systems, and Windows consoles.
+
+### Complete Example
+
+```
+[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  fat_p::StableHashMap Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1942 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::StableHashMap (primary)
+  [x] tsl::robin_map
+  [x] ankerl::unordered_dense
+  [x] absl::flat_hash_map
+  [x] std::unordered_map (baseline)
+
+Configuration:
+  Target work:    5000000 ops/batch
+  Min batch ms:   50
+  Scope:          ON
+  Stabilize:      ON
+  Cooldown:       ON
+
+CPU: 2432 MHz (base: 3686 MHz) [THROTTLED 34%]
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. Correctness verified after each benchmark
+
+Cooling: section=2000ms size=1000ms case=300ms
+
+[2026-02-01 09:02:34] CPU stable at 2410 MHz (65% of base, variance 6.1%)
+
+```
+
+---
+
 ## Machine-Readable Output (CSV/JSON)
 
 Benchmarks must support machine-readable export for regression tracking.
@@ -877,6 +1104,11 @@ Acceptable patterns:
 * [ ] Optional CSV/JSON output via env vars
 * [ ] Build instructions in file header
 * [ ] ISA flags are feature-gated (avoid illegal-instruction execution)
+* [ ] **Startup header uses standardized format (Section "Startup Header Format")**
+* [ ] **Title banner: 80 chars, `fat_p::Component Benchmark Suite`**
+* [ ] **Platform line: canonical field names (`measured=` not `batches=`)**
+* [ ] **Competitors block: `[x]`/`[ ]` format with `(primary)`/`(baseline)` tags**
+* [ ] **ASCII-only output (no Unicode symbols)**
 
 ---
 
@@ -895,4 +1127,4 @@ Sequential runs are acceptable only when the benchmark has a single measured cas
 
 ---
 
-*Fat-P Benchmark Code Style Guide v1.3 — January 2026*
+*Fat-P Benchmark Code Style Guide v1.4 — February 2026*

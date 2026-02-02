@@ -60,6 +60,7 @@ FATP_META:
 #include <vector>
 
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 #include "FloatingPointComparison.h"
 
 namespace
@@ -211,20 +212,34 @@ int main()
     // Apply benchmark scope (Windows priority/affinity)
     BenchmarkScope scope(!config.noScope);
 
-    std::cout << "================================================================\n";
-    std::cout << "  FloatingPointComparison Benchmark\n";
-    std::cout << "================================================================\n\n";
-
-    print_cpu_context(std::cout);
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "FloatingPointComparison";
+    hdr.warmup = config.warmupRuns;
+    hdr.measured = config.measuredRuns;
+    hdr.seed = config.seed;
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::floatEqual<StandardPolicy>", true, "primary"});
+    hdr.competitors.push_back({"fat_p::approximateEqual", true, "primary"});
+    hdr.competitors.push_back({"Manual absolute epsilon", true, "baseline"});
+    hdr.competitors.push_back({"Manual relative epsilon", true, "baseline"});
+    hdr.competitors.push_back({"Direct operator==", true, "baseline"});
+    // No external competitor libraries for this utility component
+    
+    // Configuration
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = false;  // Single-library utility comparison
+    hdr.has_correctness_checks = false;
+    hdr.has_stabilization = !config.noStabilize;
+    
+    fat_p::bench::print_standard_header(hdr);
 
     constexpr std::size_t N = 1'000'000;
 
-    std::cout << "\nConfiguration:\n";
-    std::cout << "  Operations per batch: " << N << "\n";
-    std::cout << "  Measured runs: " << config.measuredRuns << "\n";
-    std::cout << "  Warmup runs: " << config.warmupRuns << "\n";
-    std::cout << "  Seed: " << config.seed << "\n\n";
-
+    std::cout << "Operations per batch: " << N << "\n\n";
     // Generate test data using configured seed
     auto normal_data = generate_normal_pairs(N, config.seed);
     auto multiscale_data = generate_multiscale_pairs(N, config.seed);

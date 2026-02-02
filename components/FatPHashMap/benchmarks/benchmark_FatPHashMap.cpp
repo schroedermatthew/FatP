@@ -96,6 +96,7 @@ FATP_META:
 
 #include "FastHashMap.h"
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 
 #define FATP_STABLEHASHMAP_DIAGNOSTICS 1
 #include "StableHashMap.h"
@@ -3559,58 +3560,59 @@ int main(int argc, char* argv[])
     // Apply benchmark scope (Windows priority/affinity) unless disabled
     BenchmarkScope scope(!g_config.noScope);
 
-    std::cout << "================================================================================\n";
-    std::cout << "  StableHashMap Comprehensive Benchmark Suite (Round-Robin Architecture)\n";
-    std::cout << "================================================================================\n";
-    std::cout << "\nPlatform: ";
-#if defined(_WIN32) || defined(_WIN64)
-    std::cout << "Windows";
-#else
-    std::cout << "Linux";
-#endif
-    std::cout << " (warmup=" << WARMUP_RUNS() << ", measured=" << MEASURED_RUNS() << ", seed=" << g_config.seed
-              << ")\n";
-
-    std::cout << "Competitor libraries: ";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "StableHashMap";
+    hdr.warmup = WARMUP_RUNS();
+    hdr.measured = MEASURED_RUNS();
+    hdr.seed = g_config.seed;
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::StableHashMap", true, "primary"});
+    hdr.competitors.push_back({"std::unordered_map", true, "baseline"});
 #if HAS_TSL
-    std::cout << "tsl ";
+    hdr.competitors.push_back({"tsl::robin_map", true, ""});
+#else
+    hdr.competitors.push_back({"tsl::robin_map", false, "not detected"});
 #endif
 #if HAS_ANKERL
-    std::cout << "ankerl ";
+    hdr.competitors.push_back({"ankerl::unordered_dense", true, ""});
+#else
+    hdr.competitors.push_back({"ankerl::unordered_dense", false, "not detected"});
 #endif
 #if HAS_ABSL
-    std::cout << "absl ";
+    hdr.competitors.push_back({"absl::flat_hash_map", true, ""});
+#else
+    hdr.competitors.push_back({"absl::flat_hash_map", false, "not detected"});
 #endif
 #if HAS_BOOST_FLAT
-    std::cout << "boost ";
+    hdr.competitors.push_back({"boost::unordered_flat_map", true, ""});
+#else
+    hdr.competitors.push_back({"boost::unordered_flat_map", false, "not detected"});
 #endif
 #if HAS_FOLLY
-    std::cout << "folly ";
+    hdr.competitors.push_back({"folly::F14FastMap", true, ""});
+#else
+    hdr.competitors.push_back({"folly::F14FastMap", false, "not detected"});
 #endif
 #if HAS_LLVM
-    std::cout << "llvm ";
+    hdr.competitors.push_back({"llvm::DenseMap", true, ""});
+#else
+    hdr.competitors.push_back({"llvm::DenseMap", false, "not detected"});
 #endif
-#if !HAS_TSL && !HAS_ANKERL && !HAS_ABSL && !HAS_BOOST_FLAT && !HAS_FOLLY && !HAS_LLVM
-    std::cout << "(none found)";
-#endif
-    std::cout << "\n\n";
+    
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = true;
+    hdr.has_stabilization = !g_config.noStabilize;
+    hdr.cool_section_ms = COOLING_DELAY_SECTION_MS;
+    hdr.cool_size_ms = COOLING_DELAY_SIZE_MS;
+    hdr.cool_case_ms = COOLING_DELAY_CASE_MS;
+    
+    fat_p::bench::print_standard_header(hdr);
 
-    // CPU frequency detection diagnostics
-    fat_p::bench::print_cpu_detection_info(std::cout);
-    std::cout << "\n";
-
-    std::cout << "Design Invariants:\n";
-    std::cout << "  1. Each measured run executes exactly one timed iteration per library\n";
-    std::cout << "  2. Library execution order is randomized per run\n";
-    std::cout << "  3. Setup/reserve outside timed regions (Insert is amortized)\n";
-    std::cout << "  4. All libraries observe same distribution of machine states\n";
-    std::cout << "  5. Medians are the primary reported statistic\n";
-    std::cout << "  6. Waits for CPU frequency to stabilize before each test\n\n";
-
-    std::cout << "Cooling delays (min sleep): section=" << COOLING_DELAY_SECTION_MS << "ms, "
-              << "size=" << COOLING_DELAY_SIZE_MS << "ms, "
-              << "case=" << COOLING_DELAY_CASE_MS << "ms\n";
-    std::cout << "Stability detection: frequency variance < 10% AND >= 60% of base (under load)\n\n";
 
     // Wait for initial CPU stability (unless disabled)
     if (!g_config.noStabilize)

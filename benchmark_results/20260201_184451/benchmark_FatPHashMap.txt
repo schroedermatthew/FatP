@@ -1,0 +1,1017 @@
+﻿[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  fat_p::StableHashMap Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1950 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::StableHashMap (primary)
+  [x] std::unordered_map (baseline)
+  [x] tsl::robin_map
+  [x] ankerl::unordered_dense
+  [x] absl::flat_hash_map
+  [x] boost::unordered_flat_map
+  [ ] folly::F14FastMap (not detected)
+  [x] llvm::DenseMap
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. Correctness verified after each benchmark
+  6. CPU frequency stabilized before measurement
+
+Cooling: section=2000ms size=1000ms case=300ms
+
+Checking initial CPU state...
+[2026-02-01 18:45:16] Initial CPU: 2469 MHz (base: 3686)
+Waiting for CPU to stabilize before benchmarks...
+[Waiting: 2786 MHz (variance: 22.5%, need <10.0%)]   
+[Waiting: 2735 MHz (variance: 13.5%, need <10.0%)]   
+[Waiting: 2735 MHz (variance: 13.5%, need <10.0%)]   
+[Waiting: 2720 MHz (variance: 16.3%, need <10.0%)]   
+[Waiting: 2646 MHz (variance: 16.7%, need <10.0%)]   
+[Waiting: 2668 MHz (variance: 16.6%, need <10.0%)]   
+[Waiting: 2558 MHz (variance: 21.6%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 22.2%, need <10.0%)]   
+[Waiting: 2528 MHz (variance: 21.9%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 21.7%, need <10.0%)]   
+[Waiting: 2462 MHz (variance: 12.0%, need <10.0%)]   
+[Waiting: 2528 MHz (variance: 11.7%, need <10.0%)]   
+[Waiting: 2476 MHz (variance: 14.9%, need <10.0%)]   
+[Waiting: 2528 MHz (variance: 20.4%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 20.0%, need <10.0%)]   
+[Waiting: 2646 MHz (variance: 19.5%, need <10.0%)]   
+[Waiting: 2698 MHz (variance: 23.2%, need <10.0%)]   
+[Waiting: 2705 MHz (variance: 21.8%, need <10.0%)]   
+[Waiting: 2617 MHz (variance: 22.5%, need <10.0%)]   
+[Waiting: 2587 MHz (variance: 22.8%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 22.7%, need <10.0%)]   
+[Waiting: 2698 MHz (variance: 41.0%, need <10.0%)]   
+[Waiting: 2852 MHz (variance: 37.5%, need <10.0%)]   
+[Waiting: 3052 MHz (variance: 31.4%, need <10.0%)]   
+[Waiting: 3125 MHz (variance: 22.4%, need <10.0%)]   
+[Waiting: 3103 MHz (variance: 26.1%, need <10.0%)]   
+[Waiting: 2956 MHz (variance: 24.9%, need <10.0%)]   
+[Waiting: 2867 MHz (variance: 25.7%, need <10.0%)]   
+[Waiting: 2631 MHz (variance: 25.2%, need <10.0%)]   
+[Waiting: 2639 MHz (variance: 26.5%, need <10.0%)]   
+[Waiting: 2587 MHz (variance: 27.1%, need <10.0%)]   
+[Waiting: 2528 MHz (variance: 27.7%, need <10.0%)]   
+[Waiting: 2454 MHz (variance: 28.5%, need <10.0%)]   
+[Waiting: 2528 MHz (variance: 23.3%, need <10.0%)]   
+[Waiting: 2410 MHz (variance: 10.7%, need <10.0%)]   
+[Waiting: 2395 MHz (variance: 10.8%, need <10.0%)]   
+[Waiting: 2425 MHz (variance: 10.6%, need <10.0%)]   
+[Waiting: 2432 MHz (variance: 10.6%, need <10.0%)]   
+[Waiting: 2447 MHz (variance: 13.6%, need <10.0%)]   
+[Waiting: 2462 MHz (variance: 13.5%, need <10.0%)]   
+[Waiting: 2513 MHz (variance: 11.7%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 11.7%, need <10.0%)]   
+[Waiting: 2535 MHz (variance: 10.2%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 17.2%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 15.3%, need <10.0%)]   
+[Waiting: 2631 MHz (variance: 15.4%, need <10.0%)]   
+[Waiting: 2617 MHz (variance: 15.5%, need <10.0%)]   
+[Waiting: 2668 MHz (variance: 13.8%, need <10.0%)]   
+[Waiting: 2661 MHz (variance: 12.5%, need <10.0%)]   
+[Waiting: 2609 MHz (variance: 12.7%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 15.6%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 18.8%, need <10.0%)]   
+[Waiting: 2609 MHz (variance: 25.4%, need <10.0%)]   
+[Waiting: 2646 MHz (variance: 25.1%, need <10.0%)]   
+[Waiting: 2749 MHz (variance: 26.8%, need <10.0%)]   
+[Waiting: 2860 MHz (variance: 25.8%, need <10.0%)]   
+[Waiting: 2875 MHz (variance: 16.7%, need <10.0%)]   
+[Waiting: 2830 MHz (variance: 16.9%, need <10.0%)]   
+[Waiting: 2676 MHz (variance: 24.8%, need <10.0%)]   
+[Waiting: 2617 MHz (variance: 19.7%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 18.8%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 18.6%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 18.6%, need <10.0%)]   
+[Waiting: 2690 MHz (variance: 16.4%, need <10.0%)]   
+[Waiting: 2661 MHz (variance: 16.6%, need <10.0%)]   
+[Waiting: 2727 MHz (variance: 13.5%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 18.1%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 21.5%, need <10.0%)]   
+[Waiting: 2462 MHz (variance: 18.0%, need <10.0%)]   
+[Waiting: 2506 MHz (variance: 17.6%, need <10.0%)]   
+[Waiting: 2440 MHz (variance: 16.6%, need <10.0%)]   
+[Waiting: 2462 MHz (variance: 16.5%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 16.2%, need <10.0%)]   
+[Waiting: 2535 MHz (variance: 11.6%, need <10.0%)]   
+[CPU stable at 2425 MHz (66% of base, variance: 9.1%)]
+
+
+================================================================================
+  CORE OPERATIONS BENCHMARK (Round-Robin)
+================================================================================
+
+Comparing FastHashMap and StableHashMap (std::hash vs SplitMix64Hash)
+vs std::unordered_map vs tsl::robin_map vs ankerl::unordered_dense vs absl::flat_hash_map vs boost::unordered_flat_map vs llvm::DenseMap
+
+Methodology:
+  - 3 warmup + 15 measured runs per test
+  - Round-robin execution with randomized order per run
+  - All libraries observe same distribution of machine states
+  - Primary metric: median (ns/op)
+  - FastHashMap SIMD backend: SSE2
+  - StableHashMap SIMD backend: SSE2
+  - FastHashMap policies: BackwardShift (BS), Tombstone (TS)
+  - StableHashMap: Reference-stable (pointers valid across insert/reserve)
+
+Cases (ns/op):
+  Insert: insert N unique keys into empty map (after reserve)
+  Find(hit): find N present keys
+  Find(miss): find N absent keys
+  Erase: erase 25% of present keys (random order)
+  Churn: key replacement churn (erase one existing key, insert new key; size constant)
+
+[2026-02-01 18:45:21] CPU: 2322 MHz (base: 3686)
+N = 10000
+[2026-02-01 18:45:21] Insert (amortized) CPU: 2322 MHz (base: 3686)
+[Waiting: 2454 MHz (variance: 18.0%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 17.5%, need <10.0%)]   
+[Waiting: 2558 MHz (variance: 10.1%, need <10.0%)]   
+[Waiting: 2535 MHz (variance: 10.2%, need <10.0%)]   
+[Waiting: 2528 MHz (variance: 10.2%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 10.3%, need <10.0%)]   
+[Waiting: 2484 MHz (variance: 11.9%, need <10.0%)]   
+[CPU stable at 2410 MHz (65% of base, variance: 4.6%)]
+[2026-02-01 18:45:22] Find(hit) CPU: 2432 MHz (base: 3686)
+[Waiting: 2609 MHz (variance: 18.4%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 19.0%, need <10.0%)]   
+[Waiting: 2418 MHz (variance: 12.2%, need <10.0%)]   
+[CPU stable at 2381 MHz (65% of base, variance: 4.6%)]
+[2026-02-01 18:45:23] Find(miss) CPU: 2432 MHz (base: 3686)
+[Waiting: 3015 MHz (variance: 34.2%, need <10.0%)]   
+[Waiting: 3022 MHz (variance: 34.1%, need <10.0%)]   
+[Waiting: 2993 MHz (variance: 39.4%, need <10.0%)]   
+[Waiting: 2830 MHz (variance: 44.3%, need <10.0%)]   
+[Waiting: 2609 MHz (variance: 48.0%, need <10.0%)]   
+[Waiting: 2388 MHz (variance: 26.2%, need <10.0%)]   
+[Waiting: 2366 MHz (variance: 18.7%, need <10.0%)]   
+[Waiting: 2410 MHz (variance: 16.8%, need <10.0%)]   
+[Waiting: 2454 MHz (variance: 12.0%, need <10.0%)]   
+[Waiting: 2454 MHz (variance: 12.0%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 18.8%, need <10.0%)]   
+[Waiting: 2631 MHz (variance: 26.6%, need <10.0%)]   
+[Waiting: 2720 MHz (variance: 25.7%, need <10.0%)]   
+[Waiting: 2727 MHz (variance: 25.7%, need <10.0%)]   
+[Waiting: 2735 MHz (variance: 24.3%, need <10.0%)]   
+[Waiting: 2646 MHz (variance: 25.1%, need <10.0%)]   
+[Waiting: 2513 MHz (variance: 19.1%, need <10.0%)]   
+[Waiting: 2425 MHz (variance: 13.7%, need <10.0%)]   
+[Waiting: 2432 MHz (variance: 13.6%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 17.7%, need <10.0%)]   
+[Waiting: 2462 MHz (variance: 18.0%, need <10.0%)]   
+[Waiting: 2462 MHz (variance: 18.0%, need <10.0%)]   
+[Waiting: 2484 MHz (variance: 13.4%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 13.0%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 13.0%, need <10.0%)]   
+[Waiting: 2602 MHz (variance: 12.7%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 12.8%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 12.8%, need <10.0%)]   
+[Waiting: 2513 MHz (variance: 16.1%, need <10.0%)]   
+[Waiting: 2528 MHz (variance: 19.0%, need <10.0%)]   
+[Waiting: 2469 MHz (variance: 19.4%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 19.2%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 26.7%, need <10.0%)]   
+[Waiting: 2683 MHz (variance: 22.0%, need <10.0%)]   
+[Waiting: 2617 MHz (variance: 22.5%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 21.1%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 24.1%, need <10.0%)]   
+[Waiting: 2535 MHz (variance: 13.1%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 13.3%, need <10.0%)]   
+[Waiting: 2484 MHz (variance: 13.4%, need <10.0%)]   
+[Waiting: 2476 MHz (variance: 13.4%, need <10.0%)]   
+[Waiting: 2484 MHz (variance: 13.4%, need <10.0%)]   
+[CPU stable at 2447 MHz (66% of base, variance: 3.0%)]
+[2026-02-01 18:45:26] Erase (25%) CPU: 2506 MHz (base: 3686)
+[Waiting: 2565 MHz (variance: 18.7%, need <10.0%)]   
+[Waiting: 2528 MHz (variance: 19.0%, need <10.0%)]   
+[Waiting: 2506 MHz (variance: 19.1%, need <10.0%)]   
+[Waiting: 2447 MHz (variance: 19.6%, need <10.0%)]   
+[CPU stable at 2373 MHz (64% of base, variance: 9.3%)]
+[2026-02-01 18:45:27] Churn CPU: 2506 MHz (base: 3686)
+-------------------------------------------------------------------------------
+                           Map    Insert      Find      Miss     Erase     Churn
+-------------------------------------------------------------------------------
+               FastHashMap[BS]      6.44      4.69      4.33     27.64     19.29
+    FastHashMap[BS]+SplitMix64      3.98      2.54      2.79     21.16     15.26
+               FastHashMap[TS]      6.67      4.57      4.40      4.68     19.24
+    FastHashMap[TS]+SplitMix64      4.15      2.47      2.78      2.80     14.60
+                 StableHashMap     25.98      6.59      4.75     18.00     32.25
+      StableHashMap+SplitMix64     24.58      3.37      2.06     13.56     27.11
+     StableHashMap[Block]+SM64      5.80      3.11      2.05      4.12     15.12
+            std::unordered_map     32.28      6.83      8.55     22.12     27.23
+                tsl::robin_map      7.26      5.44      6.10      8.64     10.06
+       ankerl::unordered_dense     18.36      7.48      2.87     17.88     14.43
+           absl::flat_hash_map     11.64      2.94      3.88      6.72     11.02
+           absl::node_hash_map     29.83      3.30      3.85     16.48     22.90
+     boost::unordered_flat_map      6.60      1.94      1.43      2.48      2.87
+     boost::unordered_node_map     24.33      2.22      1.47     12.72     17.23
+                llvm::DenseMap      7.06      4.78      9.22      5.36     20.00
+
+Speedup vs std::unordered_map:
+  Flat/Fast Maps:
+    Top 3 Insert: FastHashMap[BS]+SplitMix64 (8.11x), FastHashMap[TS]+SplitMix64 (7.78x), FastHashMap[BS] (5.01x)
+    Top 3 Find: boost::unordered_flat_map (3.52x), FastHashMap[TS]+SplitMix64 (2.77x), FastHashMap[BS]+SplitMix64 (2.69x)
+    Top 3 Miss: boost::unordered_flat_map (5.98x), FastHashMap[TS]+SplitMix64 (3.08x), FastHashMap[BS]+SplitMix64 (3.06x)
+    Top 3 Erase: boost::unordered_flat_map (8.92x), FastHashMap[TS]+SplitMix64 (7.90x), FastHashMap[TS] (4.73x)
+    Top 3 Churn: boost::unordered_flat_map (9.49x), tsl::robin_map (2.71x), absl::flat_hash_map (2.47x)
+  Node-Based Maps (reference-stable):
+    Top 3 Insert: StableHashMap[Block]+SM64 (5.57x), boost::unordered_node_map (1.33x), StableHashMap+SplitMix64 (1.31x)
+    Top 3 Find: boost::unordered_node_map (3.08x), StableHashMap[Block]+SM64 (2.20x), absl::node_hash_map (2.07x)
+    Top 3 Miss: boost::unordered_node_map (5.82x), StableHashMap[Block]+SM64 (4.17x), StableHashMap+SplitMix64 (4.15x)
+    Top 3 Erase: StableHashMap[Block]+SM64 (5.37x), boost::unordered_node_map (1.74x), StableHashMap+SplitMix64 (1.63x)
+    Top 3 Churn: StableHashMap[Block]+SM64 (1.80x), boost::unordered_node_map (1.58x), absl::node_hash_map (1.19x)
+
+  All Results:
+    FastHashMap[BS]                 5.01x insert,  1.46x find,  1.97x miss,  0.80x erase,  1.41x churn
+    FastHashMap[BS]+SplitMix64      8.11x insert,  2.69x find,  3.06x miss,  1.05x erase,  1.79x churn
+    FastHashMap[TS]                 4.84x insert,  1.49x find,  1.94x miss,  4.73x erase,  1.42x churn
+    FastHashMap[TS]+SplitMix64      7.78x insert,  2.77x find,  3.08x miss,  7.90x erase,  1.87x churn
+    StableHashMap                   1.24x insert,  1.04x find,  1.80x miss,  1.23x erase,  0.84x churn
+    StableHashMap+SplitMix64        1.31x insert,  2.03x find,  4.15x miss,  1.63x erase,  1.00x churn
+    StableHashMap[Block]+SM64       5.57x insert,  2.20x find,  4.17x miss,  5.37x erase,  1.80x churn
+    tsl::robin_map                  4.45x insert,  1.26x find,  1.40x miss,  2.56x erase,  2.71x churn
+    ankerl::unordered_dense         1.76x insert,  0.91x find,  2.98x miss,  1.24x erase,  1.89x churn
+    absl::flat_hash_map             2.77x insert,  2.32x find,  2.20x miss,  3.29x erase,  2.47x churn
+    absl::node_hash_map             1.08x insert,  2.07x find,  2.22x miss,  1.34x erase,  1.19x churn
+    boost::unordered_flat_map       4.89x insert,  3.52x find,  5.98x miss,  8.92x erase,  9.49x churn
+    boost::unordered_node_map       1.33x insert,  3.08x find,  5.82x miss,  1.74x erase,  1.58x churn
+    llvm::DenseMap                  4.57x insert,  1.43x find,  0.93x miss,  4.13x erase,  1.36x churn
+  [NOTE] FastHashMap[TS]: high variance (stddev 7.86 > median 6.67) - system noise or memory pressure
+  [NOTE] FastHashMap[TS]+SplitMix64: high variance (stddev 8.12 > median 4.15) - system noise or memory pressure
+  [NOTE] StableHashMap: high variance (stddev 9.68 > median 6.59) - system noise or memory pressure
+  [NOTE] tsl::robin_map: high variance (stddev 7.46 > median 5.44) - system noise or memory pressure
+  [NOTE] absl::node_hash_map: high variance (stddev 6.62 > median 3.85) - system noise or memory pressure
+  [NOTE] llvm::DenseMap: high variance (stddev 5.65 > median 5.36) - system noise or memory pressure
+
+[Cooling: before next size][Waiting: 2432 MHz (variance: 15.2%, need <10.0%)]   
+[Waiting: 2359 MHz (variance: 18.8%, need <10.0%)]   
+[Waiting: 2329 MHz (variance: 12.7%, need <10.0%)]   
+[Waiting: 2418 MHz (variance: 22.9%, need <10.0%)]   
+[Waiting: 2469 MHz (variance: 22.4%, need <10.0%)]   
+[Waiting: 2513 MHz (variance: 22.0%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 14.5%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 16.1%, need <10.0%)]   
+[CPU stable at 2425 MHz (66% of base, variance: 9.1%)]
+ [Ready: 2580 MHz]
+[2026-02-01 18:45:29] CPU: 2580 MHz (base: 3686)
+N = 100000
+[2026-02-01 18:45:29] Insert (amortized) CPU: 2580 MHz (base: 3686)
+[Waiting: 2786 MHz (variance: 13.2%, need <10.0%)]   
+[Waiting: 2793 MHz (variance: 11.9%, need <10.0%)]   
+[Waiting: 2668 MHz (variance: 19.3%, need <10.0%)]   
+[Waiting: 2617 MHz (variance: 19.7%, need <10.0%)]   
+[Waiting: 2558 MHz (variance: 17.3%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 11.8%, need <10.0%)]   
+[Waiting: 2506 MHz (variance: 14.7%, need <10.0%)]   
+[Waiting: 2639 MHz (variance: 15.4%, need <10.0%)]   
+[Waiting: 2639 MHz (variance: 15.4%, need <10.0%)]   
+[Waiting: 2639 MHz (variance: 15.4%, need <10.0%)]   
+[Waiting: 2631 MHz (variance: 15.4%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 15.7%, need <10.0%)]   
+[Waiting: 2469 MHz (variance: 14.9%, need <10.0%)]   
+[Waiting: 2440 MHz (variance: 15.1%, need <10.0%)]   
+[Waiting: 2418 MHz (variance: 15.2%, need <10.0%)]   
+[Waiting: 2462 MHz (variance: 25.4%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 23.4%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 22.7%, need <10.0%)]   
+[Waiting: 2631 MHz (variance: 19.6%, need <10.0%)]   
+[Waiting: 2668 MHz (variance: 15.2%, need <10.0%)]   
+[Waiting: 2565 MHz (variance: 12.9%, need <10.0%)]   
+[Waiting: 2565 MHz (variance: 12.9%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 13.0%, need <10.0%)]   
+[Waiting: 2528 MHz (variance: 13.1%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 13.0%, need <10.0%)]   
+[Waiting: 2528 MHz (variance: 16.0%, need <10.0%)]   
+[Waiting: 2454 MHz (variance: 10.5%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 16.1%, need <10.0%)]   
+[Waiting: 2513 MHz (variance: 16.1%, need <10.0%)]   
+[Waiting: 2447 MHz (variance: 19.6%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 19.2%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 18.8%, need <10.0%)]   
+[Waiting: 2447 MHz (variance: 13.6%, need <10.0%)]   
+[Waiting: 2476 MHz (variance: 13.4%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 13.3%, need <10.0%)]   
+[Waiting: 2617 MHz (variance: 35.2%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 35.7%, need <10.0%)]   
+[Waiting: 2705 MHz (variance: 30.0%, need <10.0%)]   
+[Waiting: 2779 MHz (variance: 29.2%, need <10.0%)]   
+[Waiting: 2845 MHz (variance: 27.2%, need <10.0%)]   
+[Waiting: 2720 MHz (variance: 19.0%, need <10.0%)]   
+[Waiting: 2705 MHz (variance: 21.8%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 22.7%, need <10.0%)]   
+[Waiting: 2565 MHz (variance: 17.2%, need <10.0%)]   
+[Waiting: 2535 MHz (variance: 17.4%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 17.4%, need <10.0%)]   
+[Waiting: 2535 MHz (variance: 18.9%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 18.8%, need <10.0%)]   
+[Waiting: 2513 MHz (variance: 11.7%, need <10.0%)]   
+[Waiting: 2513 MHz (variance: 11.7%, need <10.0%)]   
+[Waiting: 2469 MHz (variance: 11.9%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 10.1%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 12.9%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 13.0%, need <10.0%)]   
+[Waiting: 2639 MHz (variance: 16.8%, need <10.0%)]   
+[Waiting: 2602 MHz (variance: 21.2%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 21.7%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 21.7%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 21.7%, need <10.0%)]   
+[Waiting: 2513 MHz (variance: 17.6%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 15.7%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 17.2%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 14.5%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 14.3%, need <10.0%)]   
+[Waiting: 2609 MHz (variance: 19.8%, need <10.0%)]   
+[Waiting: 2587 MHz (variance: 19.9%, need <10.0%)]   
+[Waiting: 2609 MHz (variance: 15.5%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 15.6%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 15.7%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 10.1%, need <10.0%)]   
+[Waiting: 2617 MHz (variance: 16.9%, need <10.0%)]   
+[Waiting: 2631 MHz (variance: 14.0%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 14.0%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 14.0%, need <10.0%)]   
+[Waiting: 2617 MHz (variance: 14.1%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 14.6%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 34.7%, need <10.0%)]   
+[Waiting: 2668 MHz (variance: 34.5%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 35.1%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 35.1%, need <10.0%)]   
+[Waiting: 2676 MHz (variance: 28.9%, need <10.0%)]   
+[CPU stable at 2506 MHz (68% of base, variance: 8.8%)]
+[2026-02-01 18:45:35] Find(hit) CPU: 2543 MHz (base: 3686)
+[Waiting: 2705 MHz (variance: 46.3%, need <10.0%)]   
+[Waiting: 2779 MHz (variance: 38.5%, need <10.0%)]   
+[Waiting: 2845 MHz (variance: 36.3%, need <10.0%)]   
+[Waiting: 2705 MHz (variance: 12.3%, need <10.0%)]   
+[Waiting: 2712 MHz (variance: 12.2%, need <10.0%)]   
+[Waiting: 2698 MHz (variance: 15.0%, need <10.0%)]   
+[Waiting: 2646 MHz (variance: 16.7%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 20.2%, need <10.0%)]   
+[Waiting: 2469 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2476 MHz (variance: 11.9%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 11.8%, need <10.0%)]   
+[Waiting: 2565 MHz (variance: 17.2%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 12.6%, need <10.0%)]   
+[Waiting: 2631 MHz (variance: 11.2%, need <10.0%)]   
+[Waiting: 2661 MHz (variance: 11.1%, need <10.0%)]   
+[Waiting: 2683 MHz (variance: 11.0%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 26.0%, need <10.0%)]   
+[Waiting: 2484 MHz (variance: 26.7%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 26.6%, need <10.0%)]   
+[Waiting: 2484 MHz (variance: 25.2%, need <10.0%)]   
+[Waiting: 2535 MHz (variance: 30.5%, need <10.0%)]   
+[Waiting: 2661 MHz (variance: 22.2%, need <10.0%)]   
+[Waiting: 2727 MHz (variance: 13.5%, need <10.0%)]   
+[Waiting: 2845 MHz (variance: 16.8%, need <10.0%)]   
+[Waiting: 2911 MHz (variance: 16.5%, need <10.0%)]   
+[Waiting: 2845 MHz (variance: 19.4%, need <10.0%)]   
+[Waiting: 2808 MHz (variance: 19.7%, need <10.0%)]   
+[Waiting: 2764 MHz (variance: 25.3%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 25.3%, need <10.0%)]   
+[CPU stable at 2476 MHz (67% of base, variance: 7.4%)]
+[2026-02-01 18:45:38] Find(miss) CPU: 2543 MHz (base: 3686)
+[Waiting: 2499 MHz (variance: 10.3%, need <10.0%)]   
+[Waiting: 2587 MHz (variance: 21.4%, need <10.0%)]   
+[Waiting: 2631 MHz (variance: 21.0%, need <10.0%)]   
+[Waiting: 2705 MHz (variance: 20.4%, need <10.0%)]   
+[Waiting: 2698 MHz (variance: 21.9%, need <10.0%)]   
+[Waiting: 2668 MHz (variance: 22.1%, need <10.0%)]   
+[Waiting: 2639 MHz (variance: 19.6%, need <10.0%)]   
+[Waiting: 2609 MHz (variance: 16.9%, need <10.0%)]   
+[Waiting: 2565 MHz (variance: 17.2%, need <10.0%)]   
+[Waiting: 2661 MHz (variance: 18.0%, need <10.0%)]   
+[Waiting: 2617 MHz (variance: 14.1%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 17.1%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 10.3%, need <10.0%)]   
+[Waiting: 2469 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2462 MHz (variance: 10.5%, need <10.0%)]   
+[Waiting: 2484 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2447 MHz (variance: 18.1%, need <10.0%)]   
+[Waiting: 2432 MHz (variance: 15.2%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 26.3%, need <10.0%)]   
+[Waiting: 2646 MHz (variance: 32.0%, need <10.0%)]   
+[Waiting: 2676 MHz (variance: 31.7%, need <10.0%)]   
+[Waiting: 2808 MHz (variance: 17.1%, need <10.0%)]   
+[Waiting: 2764 MHz (variance: 25.3%, need <10.0%)]   
+[Waiting: 2676 MHz (variance: 26.2%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 19.9%, need <10.0%)]   
+[Waiting: 2565 MHz (variance: 20.1%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 11.8%, need <10.0%)]   
+[Waiting: 2668 MHz (variance: 24.9%, need <10.0%)]   
+[Waiting: 2668 MHz (variance: 24.9%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 26.4%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 28.1%, need <10.0%)]   
+[Waiting: 2646 MHz (variance: 27.9%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2476 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2528 MHz (variance: 20.4%, need <10.0%)]   
+[Waiting: 2528 MHz (variance: 20.4%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 20.1%, need <10.0%)]   
+[Waiting: 2609 MHz (variance: 19.8%, need <10.0%)]   
+[Waiting: 2690 MHz (variance: 16.4%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 14.2%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 14.2%, need <10.0%)]   
+[Waiting: 2535 MHz (variance: 14.5%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 14.8%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2506 MHz (variance: 10.3%, need <10.0%)]   
+[Waiting: 2506 MHz (variance: 10.3%, need <10.0%)]   
+[Waiting: 2484 MHz (variance: 10.4%, need <10.0%)]   
+[CPU stable at 2447 MHz (66% of base, variance: 4.5%)]
+[2026-02-01 18:45:43] Erase (25%) CPU: 2469 MHz (base: 3686)
+[Waiting: 2676 MHz (variance: 16.5%, need <10.0%)]   
+[Waiting: 2690 MHz (variance: 13.7%, need <10.0%)]   
+[CPU stable at 2587 MHz (70% of base, variance: 7.1%)]
+[2026-02-01 18:45:44] Churn CPU: 2653 MHz (base: 3686)
+-------------------------------------------------------------------------------
+                           Map    Insert      Find      Miss     Erase     Churn
+-------------------------------------------------------------------------------
+               FastHashMap[BS]      7.82      6.67      8.01     40.48     30.68
+    FastHashMap[BS]+SplitMix64      5.18      4.28      5.83     31.80     25.82
+               FastHashMap[TS]      7.61      5.60      7.64      5.26     19.08
+    FastHashMap[TS]+SplitMix64      4.86      3.38      5.63      3.30     13.82
+                 StableHashMap     29.33     11.35      8.76     28.82     54.35
+      StableHashMap+SplitMix64     27.65      7.34      4.97     22.92     48.58
+     StableHashMap[Block]+SM64      9.33      5.64      4.74      7.13     14.81
+            std::unordered_map     41.33     10.15     11.53     34.71     57.87
+                tsl::robin_map     14.11      7.88      9.62     12.32     13.53
+       ankerl::unordered_dense     24.15     11.08      6.04     30.24     26.20
+           absl::flat_hash_map     12.65      3.87      6.52     11.92     19.66
+           absl::node_hash_map     33.55      5.00      6.50     26.19     53.15
+     boost::unordered_flat_map      7.38      2.96      2.44      3.55     10.61
+     boost::unordered_node_map     29.52      3.99      2.63     20.21     43.26
+                llvm::DenseMap      8.28      3.85      7.12      3.79     10.19
+
+Speedup vs std::unordered_map:
+  Flat/Fast Maps:
+    Top 3 Insert: FastHashMap[TS]+SplitMix64 (8.51x), FastHashMap[BS]+SplitMix64 (7.98x), boost::unordered_flat_map (5.60x)
+    Top 3 Find: boost::unordered_flat_map (3.43x), FastHashMap[TS]+SplitMix64 (3.00x), llvm::DenseMap (2.64x)
+    Top 3 Miss: boost::unordered_flat_map (4.72x), FastHashMap[TS]+SplitMix64 (2.05x), FastHashMap[BS]+SplitMix64 (1.98x)
+    Top 3 Erase: FastHashMap[TS]+SplitMix64 (10.50x), boost::unordered_flat_map (9.78x), llvm::DenseMap (9.15x)
+    Top 3 Churn: llvm::DenseMap (5.68x), boost::unordered_flat_map (5.45x), tsl::robin_map (4.28x)
+  Node-Based Maps (reference-stable):
+    Top 3 Insert: StableHashMap[Block]+SM64 (4.43x), StableHashMap+SplitMix64 (1.49x), StableHashMap (1.41x)
+    Top 3 Find: boost::unordered_node_map (2.54x), absl::node_hash_map (2.03x), StableHashMap[Block]+SM64 (1.80x)
+    Top 3 Miss: boost::unordered_node_map (4.39x), StableHashMap[Block]+SM64 (2.43x), StableHashMap+SplitMix64 (2.32x)
+    Top 3 Erase: StableHashMap[Block]+SM64 (4.87x), boost::unordered_node_map (1.72x), StableHashMap+SplitMix64 (1.51x)
+    Top 3 Churn: StableHashMap[Block]+SM64 (3.91x), boost::unordered_node_map (1.34x), StableHashMap+SplitMix64 (1.19x)
+
+  All Results:
+    FastHashMap[BS]                 5.28x insert,  1.52x find,  1.44x miss,  0.86x erase,  1.89x churn
+    FastHashMap[BS]+SplitMix64      7.98x insert,  2.37x find,  1.98x miss,  1.09x erase,  2.24x churn
+    FastHashMap[TS]                 5.43x insert,  1.81x find,  1.51x miss,  6.60x erase,  3.03x churn
+    FastHashMap[TS]+SplitMix64      8.51x insert,  3.00x find,  2.05x miss, 10.50x erase,  4.19x churn
+    StableHashMap                   1.41x insert,  0.89x find,  1.32x miss,  1.20x erase,  1.06x churn
+    StableHashMap+SplitMix64        1.49x insert,  1.38x find,  2.32x miss,  1.51x erase,  1.19x churn
+    StableHashMap[Block]+SM64       4.43x insert,  1.80x find,  2.43x miss,  4.87x erase,  3.91x churn
+    tsl::robin_map                  2.93x insert,  1.29x find,  1.20x miss,  2.82x erase,  4.28x churn
+    ankerl::unordered_dense         1.71x insert,  0.92x find,  1.91x miss,  1.15x erase,  2.21x churn
+    absl::flat_hash_map             3.27x insert,  2.62x find,  1.77x miss,  2.91x erase,  2.94x churn
+    absl::node_hash_map             1.23x insert,  2.03x find,  1.77x miss,  1.33x erase,  1.09x churn
+    boost::unordered_flat_map       5.60x insert,  3.43x find,  4.72x miss,  9.78x erase,  5.45x churn
+    boost::unordered_node_map       1.40x insert,  2.54x find,  4.39x miss,  1.72x erase,  1.34x churn
+    llvm::DenseMap                  4.99x insert,  2.64x find,  1.62x miss,  9.15x erase,  5.68x churn
+
+[Cooling: before next size][Waiting: 2440 MHz (variance: 10.6%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 14.7%, need <10.0%)]   
+[Waiting: 2454 MHz (variance: 15.0%, need <10.0%)]   
+[Waiting: 2535 MHz (variance: 14.5%, need <10.0%)]   
+[Waiting: 2609 MHz (variance: 14.1%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 14.0%, need <10.0%)]   
+[Waiting: 2565 MHz (variance: 14.4%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 12.9%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 16.3%, need <10.0%)]   
+[CPU stable at 2432 MHz (66% of base, variance: 9.1%)]
+ [Ready: 2580 MHz]
+[2026-02-01 18:45:49] CPU: 2580 MHz (base: 3686)
+N = 1000000
+[2026-02-01 18:45:49] Insert (amortized) CPU: 2395 MHz (base: 3686)
+[Waiting: 2403 MHz (variance: 12.3%, need <10.0%)]   
+[Waiting: 2447 MHz (variance: 10.5%, need <10.0%)]   
+[Waiting: 2462 MHz (variance: 10.5%, need <10.0%)]   
+[Waiting: 2469 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2558 MHz (variance: 13.0%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 14.6%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 14.6%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 14.5%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 19.0%, need <10.0%)]   
+[Waiting: 2476 MHz (variance: 14.9%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 14.8%, need <10.0%)]   
+[Waiting: 2469 MHz (variance: 14.9%, need <10.0%)]   
+[Waiting: 2410 MHz (variance: 10.7%, need <10.0%)]   
+[Waiting: 2476 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2469 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2432 MHz (variance: 13.6%, need <10.0%)]   
+[Waiting: 2506 MHz (variance: 19.1%, need <10.0%)]   
+[Waiting: 2506 MHz (variance: 19.1%, need <10.0%)]   
+[Waiting: 2462 MHz (variance: 19.5%, need <10.0%)]   
+[Waiting: 2462 MHz (variance: 19.5%, need <10.0%)]   
+[Waiting: 2535 MHz (variance: 16.0%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 11.8%, need <10.0%)]   
+[Waiting: 2565 MHz (variance: 11.5%, need <10.0%)]   
+[CPU stable at 2661 MHz (72% of base, variance: 9.7%)]
+[2026-02-01 18:46:04] Find(hit) CPU: 2801 MHz (base: 3686)
+[Waiting: 2034 MHz (variance: 12.7%, need <10.0%)]   
+[Waiting: 2086 MHz (variance: 14.1%, need <10.0%)]   
+[Waiting: 2307 MHz (variance: 51.1%, need <10.0%)]   
+[Waiting: 2366 MHz (variance: 48.3%, need <10.0%)]   
+[Waiting: 2565 MHz (variance: 35.9%, need <10.0%)]   
+[Waiting: 2661 MHz (variance: 33.2%, need <10.0%)]   
+[Waiting: 2749 MHz (variance: 32.2%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 28.7%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 28.6%, need <10.0%)]   
+[Waiting: 2440 MHz (variance: 18.1%, need <10.0%)]   
+[Waiting: 2336 MHz (variance: 22.1%, need <10.0%)]   
+[Waiting: 2344 MHz (variance: 20.4%, need <10.0%)]   
+[Waiting: 2366 MHz (variance: 20.2%, need <10.0%)]   
+[Waiting: 2410 MHz (variance: 15.3%, need <10.0%)]   
+[Waiting: 2454 MHz (variance: 13.5%, need <10.0%)]   
+[Waiting: 2476 MHz (variance: 10.4%, need <10.0%)]   
+[CPU stable at 2462 MHz (67% of base, variance: 3.0%)]
+[2026-02-01 18:46:24] Find(miss) CPU: 2469 MHz (base: 3686)
+[Waiting: 2307 MHz (variance: 38.3%, need <10.0%)]   
+[Waiting: 2381 MHz (variance: 52.6%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 49.7%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 46.3%, need <10.0%)]   
+[Waiting: 2617 MHz (variance: 46.5%, need <10.0%)]   
+[Waiting: 2661 MHz (variance: 38.8%, need <10.0%)]   
+[Waiting: 2447 MHz (variance: 22.6%, need <10.0%)]   
+[Waiting: 2336 MHz (variance: 14.2%, need <10.0%)]   
+[CPU stable at 2270 MHz (62% of base, variance: 3.2%)]
+[2026-02-01 18:46:41] Erase (25%) CPU: 2322 MHz (base: 3686)
+[Waiting: 2359 MHz (variance: 18.8%, need <10.0%)]   
+[Waiting: 2395 MHz (variance: 10.8%, need <10.0%)]   
+[Waiting: 2395 MHz (variance: 10.8%, need <10.0%)]   
+[Waiting: 2476 MHz (variance: 25.3%, need <10.0%)]   
+[Waiting: 2676 MHz (variance: 45.5%, need <10.0%)]   
+[Waiting: 2816 MHz (variance: 43.2%, need <10.0%)]   
+[Waiting: 2978 MHz (variance: 33.4%, need <10.0%)]   
+[Waiting: 3000 MHz (variance: 29.5%, need <10.0%)]   
+[Waiting: 2934 MHz (variance: 31.4%, need <10.0%)]   
+[Waiting: 2779 MHz (variance: 23.9%, need <10.0%)]   
+[Waiting: 2705 MHz (variance: 19.1%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 11.1%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 11.1%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 11.1%, need <10.0%)]   
+[Waiting: 2609 MHz (variance: 14.1%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 12.9%, need <10.0%)]   
+[Waiting: 2484 MHz (variance: 11.9%, need <10.0%)]   
+[Waiting: 2425 MHz (variance: 15.2%, need <10.0%)]   
+[Waiting: 2381 MHz (variance: 15.5%, need <10.0%)]   
+[Waiting: 2344 MHz (variance: 15.7%, need <10.0%)]   
+[Waiting: 2329 MHz (variance: 12.7%, need <10.0%)]   
+[Waiting: 2410 MHz (variance: 19.9%, need <10.0%)]   
+[Waiting: 2425 MHz (variance: 19.8%, need <10.0%)]   
+[Waiting: 2454 MHz (variance: 19.5%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 16.3%, need <10.0%)]   
+[Waiting: 2513 MHz (variance: 16.1%, need <10.0%)]   
+[Waiting: 2447 MHz (variance: 13.6%, need <10.0%)]   
+[Waiting: 2587 MHz (variance: 24.2%, need <10.0%)]   
+[Waiting: 2587 MHz (variance: 24.2%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 25.8%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 25.6%, need <10.0%)]   
+[Waiting: 2631 MHz (variance: 25.2%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 15.9%, need <10.0%)]   
+[Waiting: 2705 MHz (variance: 32.7%, need <10.0%)]   
+[Waiting: 2816 MHz (variance: 23.6%, need <10.0%)]   
+[Waiting: 2793 MHz (variance: 23.7%, need <10.0%)]   
+[Waiting: 2875 MHz (variance: 23.1%, need <10.0%)]   
+[Waiting: 2845 MHz (variance: 28.5%, need <10.0%)]   
+[Waiting: 2683 MHz (variance: 20.6%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 20.8%, need <10.0%)]   
+[Waiting: 2617 MHz (variance: 21.1%, need <10.0%)]   
+[Waiting: 2469 MHz (variance: 20.9%, need <10.0%)]   
+[Waiting: 2535 MHz (variance: 20.3%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 20.5%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 20.7%, need <10.0%)]   
+[Waiting: 2646 MHz (variance: 37.6%, need <10.0%)]   
+[Waiting: 2904 MHz (variance: 40.6%, need <10.0%)]   
+[Waiting: 3022 MHz (variance: 39.0%, need <10.0%)]   
+[Waiting: 3022 MHz (variance: 39.0%, need <10.0%)]   
+[Waiting: 2978 MHz (variance: 39.6%, need <10.0%)]   
+[Waiting: 2852 MHz (variance: 41.3%, need <10.0%)]   
+[Waiting: 2690 MHz (variance: 37.0%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 17.1%, need <10.0%)]   
+[Waiting: 2646 MHz (variance: 15.3%, need <10.0%)]   
+[Waiting: 2639 MHz (variance: 16.8%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 17.2%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 13.3%, need <10.0%)]   
+[Waiting: 2506 MHz (variance: 16.2%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 16.3%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 14.5%, need <10.0%)]   
+[Waiting: 2535 MHz (variance: 16.0%, need <10.0%)]   
+[Waiting: 2565 MHz (variance: 15.8%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 17.2%, need <10.0%)]   
+[Waiting: 2602 MHz (variance: 17.0%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 17.1%, need <10.0%)]   
+[Waiting: 2683 MHz (variance: 13.7%, need <10.0%)]   
+[Waiting: 2735 MHz (variance: 13.5%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 18.1%, need <10.0%)]   
+[Waiting: 2676 MHz (variance: 17.9%, need <10.0%)]   
+[Waiting: 2712 MHz (variance: 17.7%, need <10.0%)]   
+[Waiting: 2712 MHz (variance: 17.7%, need <10.0%)]   
+[Waiting: 2690 MHz (variance: 17.8%, need <10.0%)]   
+[Waiting: 2720 MHz (variance: 12.2%, need <10.0%)]   
+[Waiting: 2646 MHz (variance: 16.7%, need <10.0%)]   
+[Waiting: 2602 MHz (variance: 17.0%, need <10.0%)]   
+[Waiting: 2447 MHz (variance: 24.1%, need <10.0%)]   
+[Waiting: 2381 MHz (variance: 18.6%, need <10.0%)]   
+[Waiting: 2344 MHz (variance: 15.7%, need <10.0%)]   
+[Waiting: 2381 MHz (variance: 21.7%, need <10.0%)]   
+[Waiting: 2359 MHz (variance: 21.9%, need <10.0%)]   
+[Waiting: 2447 MHz (variance: 10.5%, need <10.0%)]   
+[Waiting: 2484 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2683 MHz (variance: 42.6%, need <10.0%)]   
+[Waiting: 2793 MHz (variance: 40.9%, need <10.0%)]   
+[Waiting: 2867 MHz (variance: 39.8%, need <10.0%)]   
+[Waiting: 2919 MHz (variance: 39.1%, need <10.0%)]   
+[Waiting: 2934 MHz (variance: 36.4%, need <10.0%)]   
+[Waiting: 2771 MHz (variance: 22.6%, need <10.0%)]   
+[Waiting: 2742 MHz (variance: 17.5%, need <10.0%)]   
+[Waiting: 2720 MHz (variance: 17.6%, need <10.0%)]   
+[Waiting: 2735 MHz (variance: 17.5%, need <10.0%)]   
+[Waiting: 2749 MHz (variance: 14.7%, need <10.0%)]   
+[Waiting: 2808 MHz (variance: 17.1%, need <10.0%)]   
+[Waiting: 2808 MHz (variance: 17.1%, need <10.0%)]   
+[Waiting: 2727 MHz (variance: 23.0%, need <10.0%)]   
+[Waiting: 2631 MHz (variance: 29.4%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 29.8%, need <10.0%)]   
+[Waiting: 2476 MHz (variance: 28.3%, need <10.0%)]   
+[Waiting: 2425 MHz (variance: 18.2%, need <10.0%)]   
+[Waiting: 2403 MHz (variance: 18.4%, need <10.0%)]   
+[Waiting: 2395 MHz (variance: 20.0%, need <10.0%)]   
+[Waiting: 2373 MHz (variance: 20.2%, need <10.0%)]   
+[Waiting: 2336 MHz (variance: 20.5%, need <10.0%)]   
+[Waiting: 2484 MHz (variance: 49.0%, need <10.0%)]   
+[Waiting: 2639 MHz (variance: 46.1%, need <10.0%)]   
+[Waiting: 2727 MHz (variance: 43.2%, need <10.0%)]   
+[Waiting: 2779 MHz (variance: 42.4%, need <10.0%)]   
+[Waiting: 2816 MHz (variance: 35.3%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 23.9%, need <10.0%)]   
+[Waiting: 2587 MHz (variance: 22.8%, need <10.0%)]   
+[Waiting: 2727 MHz (variance: 28.4%, need <10.0%)]   
+[Waiting: 2771 MHz (variance: 26.6%, need <10.0%)]   
+[Waiting: 2757 MHz (variance: 29.4%, need <10.0%)]   
+[Waiting: 2793 MHz (variance: 29.0%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 33.3%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 14.8%, need <10.0%)]   
+[Waiting: 2440 MHz (variance: 15.1%, need <10.0%)]   
+[Waiting: 2440 MHz (variance: 15.1%, need <10.0%)]   
+[Waiting: 2476 MHz (variance: 22.3%, need <10.0%)]   
+[Waiting: 2587 MHz (variance: 18.5%, need <10.0%)]   
+[Waiting: 2683 MHz (variance: 17.9%, need <10.0%)]   
+[Waiting: 2698 MHz (variance: 17.8%, need <10.0%)]   
+[Waiting: 2720 MHz (variance: 14.9%, need <10.0%)]   
+[Waiting: 2823 MHz (variance: 32.6%, need <10.0%)]   
+[Waiting: 2808 MHz (variance: 32.8%, need <10.0%)]   
+[Waiting: 2786 MHz (variance: 33.1%, need <10.0%)]   
+[Waiting: 2779 MHz (variance: 34.5%, need <10.0%)]   
+[Waiting: 2830 MHz (variance: 33.9%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 13.9%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 12.6%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 12.9%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 15.7%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 15.9%, need <10.0%)]   
+[Waiting: 2528 MHz (variance: 16.0%, need <10.0%)]   
+[Waiting: 2447 MHz (variance: 18.1%, need <10.0%)]   
+[Waiting: 2410 MHz (variance: 13.8%, need <10.0%)]   
+[Waiting: 2410 MHz (variance: 13.8%, need <10.0%)]   
+[Waiting: 2425 MHz (variance: 12.2%, need <10.0%)]   
+[Waiting: 2432 MHz (variance: 10.6%, need <10.0%)]   
+[Waiting: 2432 MHz (variance: 10.6%, need <10.0%)]   
+[Waiting: 2535 MHz (variance: 30.5%, need <10.0%)]   
+[Waiting: 2617 MHz (variance: 29.6%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 29.5%, need <10.0%)]   
+[Waiting: 2712 MHz (variance: 27.2%, need <10.0%)]   
+[Waiting: 2705 MHz (variance: 27.2%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 18.8%, need <10.0%)]   
+[Waiting: 2528 MHz (variance: 19.0%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 18.8%, need <10.0%)]   
+[Waiting: 2462 MHz (variance: 16.5%, need <10.0%)]   
+[Waiting: 2484 MHz (variance: 16.3%, need <10.0%)]   
+[Waiting: 2720 MHz (variance: 40.7%, need <10.0%)]   
+[Waiting: 2867 MHz (variance: 38.6%, need <10.0%)]   
+[Waiting: 2970 MHz (variance: 37.2%, need <10.0%)]   
+[Waiting: 3081 MHz (variance: 32.3%, need <10.0%)]   
+[Waiting: 3147 MHz (variance: 21.1%, need <10.0%)]   
+[Waiting: 2978 MHz (variance: 27.2%, need <10.0%)]   
+[Waiting: 2816 MHz (variance: 11.8%, need <10.0%)]   
+[Waiting: 2830 MHz (variance: 14.3%, need <10.0%)]   
+[Waiting: 2779 MHz (variance: 14.6%, need <10.0%)]   
+[Waiting: 2749 MHz (variance: 14.7%, need <10.0%)]   
+[Waiting: 2705 MHz (variance: 23.2%, need <10.0%)]   
+[Waiting: 2735 MHz (variance: 22.9%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 13.9%, need <10.0%)]   
+[Waiting: 2602 MHz (variance: 14.2%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 14.2%, need <10.0%)]   
+[Waiting: 2602 MHz (variance: 14.2%, need <10.0%)]   
+[Waiting: 2558 MHz (variance: 14.4%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 14.3%, need <10.0%)]   
+[Waiting: 2506 MHz (variance: 19.1%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 18.8%, need <10.0%)]   
+[Waiting: 2631 MHz (variance: 21.0%, need <10.0%)]   
+[Waiting: 2646 MHz (variance: 20.9%, need <10.0%)]   
+[Waiting: 2771 MHz (variance: 29.3%, need <10.0%)]   
+[Waiting: 3044 MHz (variance: 33.9%, need <10.0%)]   
+[Waiting: 3177 MHz (variance: 25.5%, need <10.0%)]   
+[Waiting: 3125 MHz (variance: 34.2%, need <10.0%)]   
+[Waiting: 3110 MHz (variance: 34.4%, need <10.0%)]   
+[Waiting: 3103 MHz (variance: 34.4%, need <10.0%)]   
+[Waiting: 2970 MHz (variance: 23.6%, need <10.0%)]   
+[Waiting: 2875 MHz (variance: 16.7%, need <10.0%)]   
+[Waiting: 2889 MHz (variance: 14.0%, need <10.0%)]   
+[Waiting: 2941 MHz (variance: 13.8%, need <10.0%)]   
+[Waiting: 2919 MHz (variance: 12.6%, need <10.0%)]   
+[Waiting: 2934 MHz (variance: 13.8%, need <10.0%)]   
+[Waiting: 2897 MHz (variance: 15.3%, need <10.0%)]   
+[Waiting: 2911 MHz (variance: 15.2%, need <10.0%)]   
+[Waiting: 2823 MHz (variance: 17.0%, need <10.0%)]   
+[Waiting: 2771 MHz (variance: 17.3%, need <10.0%)]   
+[Waiting: 2683 MHz (variance: 11.0%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 11.1%, need <10.0%)]   
+[Waiting: 2676 MHz (variance: 11.0%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 12.6%, need <10.0%)]   
+[Waiting: 2631 MHz (variance: 14.0%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 14.0%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 17.1%, need <10.0%)]   
+[Waiting: 2513 MHz (variance: 17.6%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 17.7%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 34.3%, need <10.0%)]   
+[Waiting: 2646 MHz (variance: 33.4%, need <10.0%)]   
+[Waiting: 2712 MHz (variance: 32.6%, need <10.0%)]   
+[Waiting: 2786 MHz (variance: 30.4%, need <10.0%)]   
+[Waiting: 2860 MHz (variance: 19.3%, need <10.0%)]   
+[Waiting: 2720 MHz (variance: 12.2%, need <10.0%)]   
+[Waiting: 2757 MHz (variance: 14.7%, need <10.0%)]   
+[Waiting: 2683 MHz (variance: 19.2%, need <10.0%)]   
+[Waiting: 2683 MHz (variance: 19.2%, need <10.0%)]   
+[Waiting: 2676 MHz (variance: 19.3%, need <10.0%)]   
+[Waiting: 2639 MHz (variance: 22.3%, need <10.0%)]   
+[Waiting: 2572 MHz (variance: 20.1%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 20.0%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 14.6%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 11.6%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 13.3%, need <10.0%)]   
+[Waiting: 2484 MHz (variance: 13.4%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 13.3%, need <10.0%)]   
+[Waiting: 2513 MHz (variance: 17.6%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 17.1%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 17.0%, need <10.0%)]   
+[Waiting: 2683 MHz (variance: 13.7%, need <10.0%)]   
+[Waiting: 2764 MHz (variance: 14.7%, need <10.0%)]   
+[Waiting: 2735 MHz (variance: 14.8%, need <10.0%)]   
+[Waiting: 2668 MHz (variance: 15.2%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 18.1%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 21.7%, need <10.0%)]   
+[Waiting: 2476 MHz (variance: 14.9%, need <10.0%)]   
+[Waiting: 2388 MHz (variance: 12.3%, need <10.0%)]   
+[Waiting: 2432 MHz (variance: 12.1%, need <10.0%)]   
+[Waiting: 2454 MHz (variance: 15.0%, need <10.0%)]   
+[Waiting: 2462 MHz (variance: 15.0%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 19.2%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 19.7%, need <10.0%)]   
+[Waiting: 2602 MHz (variance: 19.8%, need <10.0%)]   
+[Waiting: 2683 MHz (variance: 24.7%, need <10.0%)]   
+[Waiting: 2801 MHz (variance: 21.1%, need <10.0%)]   
+[Waiting: 2808 MHz (variance: 21.0%, need <10.0%)]   
+[Waiting: 2764 MHz (variance: 21.3%, need <10.0%)]   
+[Waiting: 2786 MHz (variance: 17.2%, need <10.0%)]   
+[Waiting: 2749 MHz (variance: 14.7%, need <10.0%)]   
+[Waiting: 2742 MHz (variance: 13.4%, need <10.0%)]   
+[Waiting: 2764 MHz (variance: 13.3%, need <10.0%)]   
+[Waiting: 2801 MHz (variance: 13.2%, need <10.0%)]   
+[Waiting: 2727 MHz (variance: 27.0%, need <10.0%)]   
+[Waiting: 2602 MHz (variance: 28.3%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 28.1%, need <10.0%)]   
+[Waiting: 2388 MHz (variance: 27.8%, need <10.0%)]   
+[CPU stable at 2410 MHz (65% of base, variance: 6.1%)]
+[2026-02-01 18:47:11] Churn CPU: 2506 MHz (base: 3686)
+-------------------------------------------------------------------------------
+                           Map    Insert      Find      Miss     Erase     Churn
+-------------------------------------------------------------------------------
+               FastHashMap[BS]     14.51     28.60      7.55     50.81     39.93
+    FastHashMap[BS]+SplitMix64     11.11     20.17      4.66     38.55     30.39
+               FastHashMap[TS]     13.88     23.78      6.44     20.31     25.40
+    FastHashMap[TS]+SplitMix64     10.06     16.07      4.23     13.22     16.38
+                 StableHashMap     39.58     25.46      7.00    115.07    135.93
+      StableHashMap+SplitMix64     36.93     15.87      3.79    103.11    134.84
+     StableHashMap[Block]+SM64     16.03     10.65      3.39     25.06     32.14
+            std::unordered_map     91.40     31.06     37.36    142.25    233.76
+                tsl::robin_map     28.20     23.11     21.81     31.75     34.32
+       ankerl::unordered_dense     39.52      9.09      5.77     36.60     25.11
+           absl::flat_hash_map     23.95     19.32      5.47     22.72     28.79
+           absl::node_hash_map     44.47     17.31      9.56    107.96    140.17
+     boost::unordered_flat_map     12.35      9.82      2.67     10.58     10.71
+     boost::unordered_node_map     38.31     11.54      4.90     95.42    114.21
+                llvm::DenseMap     18.95     11.34     15.63      9.80     21.48
+
+Speedup vs std::unordered_map:
+  Flat/Fast Maps:
+    Top 3 Insert: FastHashMap[TS]+SplitMix64 (9.09x), FastHashMap[BS]+SplitMix64 (8.22x), boost::unordered_flat_map (7.40x)
+    Top 3 Find: ankerl::unordered_dense (3.42x), boost::unordered_flat_map (3.16x), llvm::DenseMap (2.74x)
+    Top 3 Miss: boost::unordered_flat_map (14.00x), FastHashMap[TS]+SplitMix64 (8.82x), FastHashMap[BS]+SplitMix64 (8.02x)
+    Top 3 Erase: llvm::DenseMap (14.51x), boost::unordered_flat_map (13.45x), FastHashMap[TS]+SplitMix64 (10.76x)
+    Top 3 Churn: boost::unordered_flat_map (21.83x), FastHashMap[TS]+SplitMix64 (14.27x), llvm::DenseMap (10.88x)
+  Node-Based Maps (reference-stable):
+    Top 3 Insert: StableHashMap[Block]+SM64 (5.70x), StableHashMap+SplitMix64 (2.48x), boost::unordered_node_map (2.39x)
+    Top 3 Find: StableHashMap[Block]+SM64 (2.92x), boost::unordered_node_map (2.69x), StableHashMap+SplitMix64 (1.96x)
+    Top 3 Miss: StableHashMap[Block]+SM64 (11.01x), StableHashMap+SplitMix64 (9.85x), boost::unordered_node_map (7.62x)
+    Top 3 Erase: StableHashMap[Block]+SM64 (5.68x), boost::unordered_node_map (1.49x), StableHashMap+SplitMix64 (1.38x)
+    Top 3 Churn: StableHashMap[Block]+SM64 (7.27x), boost::unordered_node_map (2.05x), StableHashMap+SplitMix64 (1.73x)
+
+  All Results:
+    FastHashMap[BS]                 6.30x insert,  1.09x find,  4.95x miss,  2.80x erase,  5.85x churn
+    FastHashMap[BS]+SplitMix64      8.22x insert,  1.54x find,  8.02x miss,  3.69x erase,  7.69x churn
+    FastHashMap[TS]                 6.58x insert,  1.31x find,  5.80x miss,  7.00x erase,  9.20x churn
+    FastHashMap[TS]+SplitMix64      9.09x insert,  1.93x find,  8.82x miss, 10.76x erase, 14.27x churn
+    StableHashMap                   2.31x insert,  1.22x find,  5.34x miss,  1.24x erase,  1.72x churn
+    StableHashMap+SplitMix64        2.48x insert,  1.96x find,  9.85x miss,  1.38x erase,  1.73x churn
+    StableHashMap[Block]+SM64       5.70x insert,  2.92x find, 11.01x miss,  5.68x erase,  7.27x churn
+    tsl::robin_map                  3.24x insert,  1.34x find,  1.71x miss,  4.48x erase,  6.81x churn
+    ankerl::unordered_dense         2.31x insert,  3.42x find,  6.47x miss,  3.89x erase,  9.31x churn
+    absl::flat_hash_map             3.82x insert,  1.61x find,  6.83x miss,  6.26x erase,  8.12x churn
+    absl::node_hash_map             2.06x insert,  1.79x find,  3.91x miss,  1.32x erase,  1.67x churn
+    boost::unordered_flat_map       7.40x insert,  3.16x find, 14.00x miss, 13.45x erase, 21.83x churn
+    boost::unordered_node_map       2.39x insert,  2.69x find,  7.62x miss,  1.49x erase,  2.05x churn
+    llvm::DenseMap                  4.82x insert,  2.74x find,  2.39x miss, 14.51x erase, 10.88x churn
+  [NOTE] std::unordered_map: median 142.25 ns (node-based pointer chasing / cache locality effects)
+  [NOTE] std::unordered_map: median 233.76 ns (node-based pointer chasing / cache locality effects)
+
+--- Detailed Statistics for FastHashMap[BS] at N=1000000 ---
+  Insert (amortized): median=   14.51 mean=   14.56 +/-  0.35 CI95(mean)=[14.39,14.74] min=14.07 max=15.39
+     Find(hit): median=   28.60 mean=   28.64 +/-  0.62 CI95(mean)=[28.33,28.95] min=27.53 max=29.73
+    Find(miss): median=    7.55 mean=    7.51 +/-  0.66 CI95(mean)=[7.17,7.84] min=6.70 max=8.90
+   Erase (25%): median=   50.81 mean=   51.47 +/-  1.85 CI95(mean)=[50.53,52.40] min=49.11 max=54.66
+         Churn: median=   39.93 mean=   39.94 +/-  0.63 CI95(mean)=[39.62,40.26] min=39.11 max=41.46
+
+--- Detailed Statistics for FastHashMap[BS]+SplitMix64 at N=1000000 ---
+  Insert (amortized): median=   11.11 mean=   11.13 +/-  0.38 CI95(mean)=[10.94,11.33] min=10.37 max=11.79
+     Find(hit): median=   20.17 mean=   20.42 +/-  0.69 CI95(mean)=[20.07,20.77] min=19.90 max=22.17
+    Find(miss): median=    4.66 mean=    5.02 +/-  0.65 CI95(mean)=[4.69,5.34] min=4.44 max=6.52
+   Erase (25%): median=   38.55 mean=   38.19 +/-  2.28 CI95(mean)=[37.04,39.34] min=35.64 max=42.67
+         Churn: median=   30.39 mean=   30.47 +/-  0.56 CI95(mean)=[30.19,30.76] min=29.48 max=31.73
+
+--- Detailed Statistics for FastHashMap[TS] at N=1000000 ---
+  Insert (amortized): median=   13.88 mean=   13.85 +/-  0.29 CI95(mean)=[13.70,14.00] min=13.08 max=14.29
+     Find(hit): median=   23.78 mean=   23.75 +/-  0.85 CI95(mean)=[23.32,24.19] min=22.05 max=25.52
+    Find(miss): median=    6.44 mean=    6.42 +/-  0.55 CI95(mean)=[6.14,6.69] min=5.62 max=7.60
+   Erase (25%): median=   20.31 mean=   19.91 +/-  2.25 CI95(mean)=[18.77,21.05] min=16.91 max=23.29
+         Churn: median=   25.40 mean=   25.30 +/-  1.60 CI95(mean)=[24.49,26.10] min=22.84 max=27.87
+
+--- Detailed Statistics for FastHashMap[TS]+SplitMix64 at N=1000000 ---
+  Insert (amortized): median=   10.06 mean=   10.20 +/-  0.45 CI95(mean)=[9.97,10.42] min=9.59 max=11.07
+     Find(hit): median=   16.07 mean=   16.27 +/-  0.71 CI95(mean)=[15.91,16.63] min=15.23 max=17.33
+    Find(miss): median=    4.23 mean=    4.16 +/-  0.48 CI95(mean)=[3.92,4.41] min=3.59 max=5.13
+   Erase (25%): median=   13.22 mean=   13.25 +/-  1.47 CI95(mean)=[12.50,13.99] min=11.67 max=16.45
+         Churn: median=   16.38 mean=   16.66 +/-  1.04 CI95(mean)=[16.13,17.19] min=14.68 max=18.42
+
+--- Detailed Statistics for StableHashMap at N=1000000 ---
+  Insert (amortized): median=   39.58 mean=   39.99 +/-  2.44 CI95(mean)=[38.75,41.22] min=37.18 max=45.95
+     Find(hit): median=   25.46 mean=   25.58 +/-  1.86 CI95(mean)=[24.64,26.52] min=22.80 max=29.81
+    Find(miss): median=    7.00 mean=    7.10 +/-  0.55 CI95(mean)=[6.82,7.38] min=6.45 max=8.03
+   Erase (25%): median=  115.07 mean=  115.82 +/-  5.60 CI95(mean)=[112.99,118.66] min=104.64 max=123.97
+         Churn: median=  135.93 mean=  136.95 +/-  3.48 CI95(mean)=[135.19,138.71] min=132.53 max=145.75
+
+--- Detailed Statistics for StableHashMap+SplitMix64 at N=1000000 ---
+  Insert (amortized): median=   36.93 mean=   36.88 +/-  1.39 CI95(mean)=[36.18,37.59] min=34.93 max=39.41
+     Find(hit): median=   15.87 mean=   16.01 +/-  1.22 CI95(mean)=[15.40,16.63] min=14.53 max=18.87
+    Find(miss): median=    3.79 mean=    3.85 +/-  0.27 CI95(mean)=[3.71,3.99] min=3.50 max=4.36
+   Erase (25%): median=  103.11 mean=  103.82 +/-  4.12 CI95(mean)=[101.74,105.91] min=97.36 max=114.90
+         Churn: median=  134.84 mean=  134.70 +/-  5.98 CI95(mean)=[131.68,137.73] min=126.70 max=146.76
+
+--- Detailed Statistics for StableHashMap[Block]+SM64 at N=1000000 ---
+  Insert (amortized): median=   16.03 mean=   16.21 +/-  0.75 CI95(mean)=[15.84,16.59] min=15.43 max=17.76
+     Find(hit): median=   10.65 mean=   10.83 +/-  0.96 CI95(mean)=[10.34,11.31] min=9.65 max=13.01
+    Find(miss): median=    3.39 mean=    3.53 +/-  0.28 CI95(mean)=[3.38,3.67] min=3.16 max=4.09
+   Erase (25%): median=   25.06 mean=   26.90 +/-  3.05 CI95(mean)=[25.35,28.44] min=24.14 max=32.45
+         Churn: median=   32.14 mean=   33.13 +/-  2.17 CI95(mean)=[32.03,34.22] min=31.30 max=38.38
+
+[Cooling: before miss diagnostics][Waiting: 2388 MHz (variance: 47.8%, need <10.0%)]   
+[Waiting: 2447 MHz (variance: 46.7%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 41.3%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 37.1%, need <10.0%)]   
+[Waiting: 2609 MHz (variance: 33.9%, need <10.0%)]   
+[Waiting: 2432 MHz (variance: 10.6%, need <10.0%)]   
+[Waiting: 2454 MHz (variance: 10.5%, need <10.0%)]   
+[Waiting: 2454 MHz (variance: 10.5%, need <10.0%)]   
+[Waiting: 2469 MHz (variance: 13.4%, need <10.0%)]   
+[Waiting: 2454 MHz (variance: 13.5%, need <10.0%)]   
+[Waiting: 2454 MHz (variance: 13.5%, need <10.0%)]   
+[Waiting: 2425 MHz (variance: 13.7%, need <10.0%)]   
+[Waiting: 2432 MHz (variance: 13.6%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 30.7%, need <10.0%)]   
+[Waiting: 2580 MHz (variance: 30.0%, need <10.0%)]   
+[Waiting: 2676 MHz (variance: 28.9%, need <10.0%)]   
+[Waiting: 2712 MHz (variance: 27.2%, need <10.0%)]   
+[Waiting: 2690 MHz (variance: 31.5%, need <10.0%)]   
+[Waiting: 2543 MHz (variance: 21.7%, need <10.0%)]   
+[Waiting: 2491 MHz (variance: 22.2%, need <10.0%)]   
+[Waiting: 2476 MHz (variance: 19.3%, need <10.0%)]   
+[Waiting: 2499 MHz (variance: 19.2%, need <10.0%)]   
+[Waiting: 2609 MHz (variance: 16.9%, need <10.0%)]   
+[Waiting: 2661 MHz (variance: 16.6%, need <10.0%)]   
+[Waiting: 2661 MHz (variance: 16.6%, need <10.0%)]   
+[Waiting: 2594 MHz (variance: 17.0%, need <10.0%)]   
+[Waiting: 2550 MHz (variance: 17.3%, need <10.0%)]   
+[Waiting: 2469 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2469 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2469 MHz (variance: 10.4%, need <10.0%)]   
+[Waiting: 2462 MHz (variance: 10.5%, need <10.0%)]   
+[Waiting: 2454 MHz (variance: 10.5%, need <10.0%)]   
+[Waiting: 2447 MHz (variance: 10.5%, need <10.0%)]   
+[CPU stable at 2425 MHz (66% of base, variance: 6.1%)]
+ [Ready: 2543 MHz]
+
+================================================================================
+  MISS DIAGNOSTICS (Slim)
+================================================================================
+
+Random misses only (no H2-biased sets), fixed N=1,000,000.
+Purpose: regression tripwire for unsuccessful lookup behavior.
+
+[2026-02-01 18:48:07] MissDiag CPU: 2653 MHz (base: 3686)
+
+--- MISS DIAGNOSTIC: Random misses ---
+N=1000000 reserve=1000000
+                           Library  Median(ns)       Eq/miss     Hash/miss    Grp/miss   FullSlots/m   FullGrp/m    Tag/miss
+----------------------------------------------------------------------------------------------------------------------------
+      StableHashMap+SM64 (counted)        4.18          0.01          1.00        1.00          7.65        0.00        0.01
+StableHashMap[Block]+SM64 (counted)        3.69          0.01          1.00        1.00          7.65        0.00        0.01
+boost::unordered_node_map+SM64 (counted)        5.18          0.03          1.00           -             -           -           -
+[Cooling: miss reserve change][Waiting: 2491 MHz (variance: 20.7%, need <10.0%)]   
+[Waiting: 2425 MHz (variance: 19.8%, need <10.0%)]   
+[Waiting: 2373 MHz (variance: 10.9%, need <10.0%)]   
+[Waiting: 2388 MHz (variance: 10.8%, need <10.0%)]   
+[Waiting: 2395 MHz (variance: 10.8%, need <10.0%)]   
+[Waiting: 2440 MHz (variance: 16.6%, need <10.0%)]   
+[Waiting: 2425 MHz (variance: 19.8%, need <10.0%)]   
+[Waiting: 2403 MHz (variance: 19.9%, need <10.0%)]   
+[Waiting: 2381 MHz (variance: 20.1%, need <10.0%)]   
+[Waiting: 2388 MHz (variance: 20.1%, need <10.0%)]   
+[Waiting: 2521 MHz (variance: 45.3%, need <10.0%)]   
+[Waiting: 2653 MHz (variance: 41.7%, need <10.0%)]   
+[Waiting: 2690 MHz (variance: 41.1%, need <10.0%)]   
+[Waiting: 2735 MHz (variance: 36.4%, need <10.0%)]   
+[Waiting: 2757 MHz (variance: 32.1%, need <10.0%)]   
+[Waiting: 2602 MHz (variance: 15.6%, need <10.0%)]   
+[Waiting: 2587 MHz (variance: 12.8%, need <10.0%)]   
+[Waiting: 2624 MHz (variance: 12.6%, need <10.0%)]   
+[CPU stable at 2661 MHz (72% of base, variance: 6.9%)]
+ [Ready: 2617 MHz]
+
+--- MISS DIAGNOSTIC: Random misses ---
+N=1000000 reserve=2000000
+                           Library  Median(ns)       Eq/miss     Hash/miss    Grp/miss   FullSlots/m   FullGrp/m    Tag/miss
+----------------------------------------------------------------------------------------------------------------------------
+      StableHashMap+SM64 (counted)        3.91          0.00          1.00        1.00          3.81        0.00        0.00
+StableHashMap[Block]+SM64 (counted)        3.90          0.00          1.00        1.00          3.81        0.00        0.00
+boost::unordered_node_map+SM64 (counted)        5.09          0.02          1.00           -             -           -           -
+
+[Cooling: before pathological erase][CPU stable at 2447 MHz (66% of base, variance: 4.5%)]
+ [Ready: 2395 MHz]
+
+================================================================================
+  PATHOLOGICAL ERASE (TOMBSTONE DEGRADATION TEST)
+================================================================================
+
+Tests sustained churn on a single table without reset.
+Tombstone-based maps may degrade over time.
+Backward-shift maps stay stable.
+Methodology: 3 warmup + 15 measured runs
+             Round-robin execution with randomized order
+
+[2026-02-01 18:48:20] Starting CPU: 2395 MHz (base: 3686)
+N = 100000, Total operations = 5000000
+
+               StableHashMap:   105.65 ns/step (+/-0.78, CI:[105.05,105.84])
+    StableHashMap+SplitMix64:    96.17 ns/step (+/-1.01, CI:[95.58,96.60])
+   StableHashMap[Block]+SM64:    24.64 ns/step (+/-0.44, CI:[24.41,24.86])
+             FastHashMap[BS]:    31.85 ns/step (+/-0.51, CI:[31.72,32.24])
+  FastHashMap[BS]+SplitMix64:    23.94 ns/step (+/-0.15, CI:[23.89,24.05])
+             FastHashMap[TS]:    30.39 ns/step (+/-0.36, CI:[30.14,30.51])
+  FastHashMap[TS]+SplitMix64:    19.87 ns/step (+/-0.26, CI:[19.74,20.00])
+              tsl::robin_map:    17.83 ns/step (+/-0.21, CI:[17.77,17.98])
+     ankerl::unordered_dense:    22.98 ns/step (+/-0.95, CI:[22.37,23.33])
+         absl::flat_hash_map:    23.93 ns/step (+/-0.16, CI:[23.88,24.04])
+         absl::node_hash_map:    92.83 ns/step (+/-1.05, CI:[92.43,93.49])
+   boost::unordered_flat_map:     7.80 ns/step (+/-0.11, CI:[7.71,7.83])
+   boost::unordered_node_map:    77.82 ns/step (+/-1.16, CI:[77.09,78.27])
+              llvm::DenseMap:    21.64 ns/step (+/-0.31, CI:[21.47,21.79])
+          std::unordered_map:   113.33 ns/step (+/-0.66, CI:[113.18,113.85])
+
+================================================================================
+  Benchmark Complete
+================================================================================

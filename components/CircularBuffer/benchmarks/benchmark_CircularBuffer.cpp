@@ -99,6 +99,7 @@ FATP_META:
 
 #include "CircularBuffer.h"
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 #include "LockFreeRingBuffer.h"
 
 // ============================================================================
@@ -1464,27 +1465,40 @@ void benchmark_object_size()
 
 int main()
 {
-    std::cout << "================================================================================\n";
-    std::cout << "  Fat-P CircularBuffer Benchmark Suite\n";
-    std::cout << "================================================================================\n\n";
-
-    // Print competitor libraries detected (required by style guide)
-    std::cout << "Competitor libraries detected:\n";
-    std::cout << "  [x] fat_p::CircularBuffer (primary)\n";
-    std::cout << "  [x] fat_p::LockFreeRingBuffer (sibling SPSC)\n";
-    std::cout << "  [x] std::mutex + std::deque (baseline)\n";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "CircularBuffer";
+    hdr.warmup = g_config.warmupRuns;
+    hdr.measured = g_config.measuredRuns;
+    hdr.seed = g_config.seed;
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::CircularBuffer", true, "primary"});
+    hdr.competitors.push_back({"fat_p::LockFreeRingBuffer", true, "sibling SPSC"});
+    hdr.competitors.push_back({"std::mutex + std::deque", true, "baseline"});
 #if HAS_BOOST_SPSC
-    std::cout << "  [x] boost::lockfree::spsc_queue\n";
+    hdr.competitors.push_back({"boost::lockfree::spsc_queue", true, ""});
 #else
-    std::cout << "  [ ] boost::lockfree::spsc_queue (install: vcpkg install boost-lockfree)\n";
+    hdr.competitors.push_back({"boost::lockfree::spsc_queue", false, "vcpkg install boost-lockfree"});
 #endif
 #if HAS_MOODYCAMEL_SPSC
-    std::cout << "  [x] moodycamel::BlockingReaderWriterCircularBuffer\n";
+    hdr.competitors.push_back({"moodycamel::BlockingReaderWriterCircularBuffer", true, ""});
 #else
-    std::cout << "  [ ] moodycamel::BlockingReaderWriterCircularBuffer "
-              << "(install: https://github.com/cameron314/readerwriterqueue)\n";
+    hdr.competitors.push_back({"moodycamel::BlockingReaderWriterCircularBuffer", false, "github.com/cameron314/readerwriterqueue"});
 #endif
-    std::cout << "\n";
+    
+    hdr.has_extended_config = true;
+    hdr.target_work = g_config.targetWork;
+    hdr.min_batch_ms = g_config.minBatchMs;
+    hdr.scope_enabled = !g_config.noScope;
+    hdr.stabilize_enabled = !g_config.noStabilize;
+    hdr.cooldown_enabled = !g_config.noCooldown;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = true;
+    
+    fat_p::bench::print_standard_header(hdr);
 
     // Load configuration (required by style guide)
     g_config = loadConfig();

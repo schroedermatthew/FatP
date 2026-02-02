@@ -1,0 +1,149 @@
+﻿================================================================================
+  fat_p::CircularBuffer Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1950 | warmup=3 measured=50 seed=12345
+
+Competitors:
+  [x] fat_p::CircularBuffer (primary)
+  [x] fat_p::LockFreeRingBuffer (sibling SPSC)
+  [x] std::mutex + std::deque (baseline)
+  [x] boost::lockfree::spsc_queue
+  [x] moodycamel::BlockingReaderWriterCircularBuffer
+
+Configuration:
+  Target work:    1000000 ops/batch
+  Min batch ms:   50
+  Scope:          ON
+  Stabilize:      ON
+  Cooldown:       ON
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. Correctness verified after each benchmark
+  6. CPU frequency stabilized before measurement
+
+Configuration:
+  Warmup runs:    3
+  Measured runs:  15
+  Seed:           12345
+  Target work:    1000000
+  Min batch ms:   50
+  Scope:          enabled
+  Stabilize:      enabled
+  Cooldown:       enabled
+
+[2026-02-01 18:45:09] INIT CPU: 2580 MHz (base: 3686)
+
+Correctness verification:
+  [PASS] CircularBuffer FIFO ordering
+  [PASS] CircularBuffer capacity enforcement
+  [PASS] CircularBuffer SPSC thread safety
+
+[BenchmarkScope] High priority, CPU non-0 affinity
+
+================================================================================
+  Single-Threaded Throughput (push + pop cycle)
+================================================================================
+
+[2026-02-01 18:45:09] CPU: 2580 MHz (base: 3686)
+Contract note: Uncontended SPSC overhead. Measures push+pop per op. Capacity: 4096.
+
+Warmup (3 runs)...
+Measured runs (15 batches, round-robin)...
+
+Library                                       Median        Mean    Stddev  CI95
+------------------------------------------------------------------------------------------
+fat_p::CircularBuffer                           1.00        1.11      0.35  [0.93, 1.29] ns/op
+fat_p::LockFreeRingBuffer (SPSC)                1.15        1.27      0.42  [1.06, 1.48] ns/op
+std::mutex + std::deque (baseline)             22.46       24.78      6.23  [21.63, 27.93] ns/op
+boost::lockfree::spsc_queue                     1.25        1.38      0.45  [1.15, 1.60] ns/op
+moodycamel::BlockingRWCircularBuffer           20.68       23.25      7.42  [19.50, 27.01] ns/op
+
+[2026-02-01 18:45:09] END CPU: 2580 MHz (base: 3686)
+
+================================================================================
+  SPSC Throughput (dedicated producer/consumer threads)
+================================================================================
+
+[2026-02-01 18:45:09] CPU: 2580 MHz (base: 3686)
+Contract note: True SPSC pattern. Producer and consumer on separate threads. Capacity: 4096.
+
+Warmup (3 runs)...
+Measured runs (15 batches, round-robin)...
+
+Library                                       Median        Mean    Stddev  CI95
+------------------------------------------------------------------------------------------
+fat_p::CircularBuffer                          34.05       36.24      7.47  [32.45, 40.02] ns/op
+fat_p::LockFreeRingBuffer (SPSC)                8.16        9.58      4.67  [7.22, 11.94] ns/op
+std::mutex + std::deque (baseline)             95.82      114.39     38.02  [95.15, 133.63] ns/op
+boost::lockfree::spsc_queue                    21.43       22.41      6.34  [19.20, 25.62] ns/op
+moodycamel::BlockingRWCircularBuffer           67.85       79.06     28.94  [64.41, 93.70] ns/op
+
+[2026-02-01 18:45:14] END CPU: 3096 MHz (base: 3686)
+
+================================================================================
+  Burst Pattern (fill then drain cycles)
+================================================================================
+
+[2026-02-01 18:45:14] CPU: 3096 MHz (base: 3686)
+Contract note: Simulates batched workloads. Burst size: 1024, bursts: 1000.
+
+Warmup (3 runs)...
+Measured runs (15 batches, round-robin)...
+
+Library                                       Median        Mean    Stddev  CI95
+------------------------------------------------------------------------------------------
+fat_p::CircularBuffer                           0.89        0.97      0.17  [0.89, 1.06] ns/op
+fat_p::LockFreeRingBuffer (SPSC)                0.96        0.96      0.03  [0.95, 0.98] ns/op
+std::mutex + std::deque (baseline)              1.96        2.01      0.17  [1.92, 2.10] ns/op
+boost::lockfree::spsc_queue                     0.89        0.91      0.06  [0.88, 0.94] ns/op
+moodycamel::BlockingRWCircularBuffer           16.29       16.76      0.96  [16.27, 17.24] ns/op
+
+[2026-02-01 18:45:15] END CPU: 2580 MHz (base: 3686)
+
+================================================================================
+  Capacity Sensitivity (SPSC throughput vs buffer size)
+================================================================================
+
+[2026-02-01 18:45:15] CPU: 2580 MHz (base: 3686)
+Contract note: Fixed work per test. Smaller buffers may cause more contention.
+
+       Capacity   Median ns/op     Throughput
+--------------------------------------------------
+             64           9.79       102.2 Mops/s
+             1K           8.22       121.6 Mops/s
+             4K          10.70        93.4 Mops/s
+            64K           8.10       123.5 Mops/s
+
+[2026-02-01 18:45:16] END CPU: 2432 MHz (base: 3686)
+
+================================================================================
+  Object Size Impact
+================================================================================
+
+CircularBuffer object sizes (includes inline metadata):
+
+Type                                    sizeof (bytes)
+------------------------------------------------------------
+CircularBuffer<int64_t, 64>                         320
+CircularBuffer<int64_t, 1024>                       320
+CircularBuffer<int64_t, 4096>                       320
+LockFreeRingBuffer<int64_t>                         320
+
+Boost comparison:
+boost::lockfree::spsc_queue<int64_t>                 88
+
+Note: CircularBuffer uses cache-line aligned indices for false sharing prevention.
+Actual buffer storage is heap-allocated via unique_ptr.
+
+================================================================================
+  Summary
+================================================================================
+
+CircularBuffer benchmark suite completed.
+Hardware concurrency: 24 threads
+[2026-02-01 18:45:16] FINAL CPU: 2432 MHz (base: 3686)

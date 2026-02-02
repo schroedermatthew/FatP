@@ -1,0 +1,126 @@
+﻿================================================================================
+  fat_p::LockFreeQueue Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1950 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::LockFreeQueue (primary)
+  [x] fat_p::LockFreeRingBuffer (primary)
+  [x] std::mutex + std::queue (baseline)
+  [x] moodycamel::ConcurrentQueue
+  [x] boost::lockfree::queue
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. Correctness verified after each benchmark
+  6. CPU frequency stabilized before measurement
+
+Configuration:
+  Warmup runs:    3
+  Measured runs:  15
+  Seed:           12345
+  Target work:    1000000
+  Min batch ms:   50
+  Scope:          enabled
+  Stabilize:      enabled
+  Cooldown:       enabled
+  CSV output:     benchmark_results\20260201_184451\benchmark_LockFreeQueue.csv
+
+[INIT 19:02:53] CPU: 3686 MHz (base: 3686)
+
+Correctness verification:
+  [PASS] LockFreeQueue FIFO ordering
+  [PASS] LockFreeRingBuffer (SPSC) FIFO ordering
+  [PASS] LockFreeRingBufferMPMC FIFO ordering
+
+[BenchmarkScope] High priority, CPU non-0 affinity
+  [NOTE] Single-thread target work clamped from 1000000 to 131072 to avoid capacity overflow.
+
+================================================================================
+  Single-Threaded Throughput (enqueue + dequeue cycle)
+================================================================================
+
+[START 19:02:53] CPU: 3686 MHz (base: 3686)
+Contract: Pure queue overhead without contention. Measures enqueue+dequeue per op.
+
+Library                                  Median        Mean    Stddev  CI95
+------------------------------------------------------------------------------------------
+fat_p::LockFreeQueue                       8.07        8.30      0.60  [    7.99,     8.60]  ns/op
+fat_p::WorkQueue (sharded)                 8.64        8.59      0.34  [    8.42,     8.76]  ns/op
+fat_p::LockFreeRingBuffer (SPSC)           0.54        0.54      0.02  [    0.53,     0.55]  ns/op
+fat_p::LockFreeRingBufferMPMC              9.04        8.92      0.45  [    8.69,     9.14]  ns/op
+std::mutex + std::queue (baseline)        16.81       16.94      0.55  [   16.67,    17.22]  ns/op
+moodycamel::ConcurrentQueue                8.12        8.20      0.25  [    8.07,     8.32]  ns/op
+boost::lockfree::queue                    39.69       39.17      4.87  [   36.70,    41.63]  ns/op
+
+[END 19:02:54] CPU: 3686 MHz (base: 3686)
+
+================================================================================
+  SPSC Throughput (1 producer, 1 consumer threads)
+================================================================================
+
+[START 19:02:54] CPU: 3686 MHz (base: 3686)
+Contract: Dedicated producer and consumer threads. Native SPSC use case.
+
+Library                                  Median        Mean    Stddev  CI95
+------------------------------------------------------------------------------------------
+fat_p::LockFreeQueue                      11.87       13.30      4.23  [   11.16,    15.44]  ns/op
+fat_p::LockFreeRingBuffer (SPSC)          29.13       33.56     15.66  [   25.63,    41.48]  ns/op
+std::mutex + std::queue (baseline)        19.19       19.98      2.07  [   18.93,    21.03]  ns/op
+moodycamel::ConcurrentQueue               16.14       17.34      3.44  [   15.60,    19.08]  ns/op
+boost::lockfree::queue                   130.43      137.92     13.09  [  131.30,   144.55]  ns/op
+
+[END 19:03:02] CPU: 3686 MHz (base: 3686)
+
+================================================================================
+  MPMC Scaling (N producers, N consumers)
+================================================================================
+
+[START 19:03:02] CPU: 3686 MHz (base: 3686)
+Contract: Equal producer and consumer threads. Tests lock-free scaling.
+
+Thread counts: 1 2 4 8 12 16 
+
+Library                                      1T          2T          4T          8T         12T         16T
+-----------------------------------------------------------------------------------------------------------
+fat_p::LockFreeQueue                        6.0        21.7        60.1        80.3        87.2        88.6 ns/op
+fat_p::WorkQueue (sharded)                 12.7        12.0        20.6        27.2        57.0        32.7 ns/op
+fat_p::WorkQueue (round-robin)             17.4        20.0        48.0        69.7        71.4        74.7 ns/op
+fat_p::WorkQueue (stride-3)                10.2        22.5        47.6        71.0        72.9        69.5 ns/op
+fat_p::LockFreeRingBufferMPMC              11.6        21.4        71.7        85.6        88.3        93.5 ns/op
+std::mutex + std::queue (baseline)         24.3        18.5        46.0       200.2       314.9       240.7 ns/op
+moodycamel::ConcurrentQueue                20.4        35.8        50.2        48.8        44.2        41.0 ns/op
+boost::lockfree::queue                     84.3       108.0       278.2       254.3       274.0       314.2 ns/op
+
+[END 19:05:21] CPU: 3686 MHz (base: 3686)
+
+================================================================================
+  Asymmetric MPMC (MPSC, SPMC, Unbalanced)
+================================================================================
+
+[START 19:05:21] CPU: 3686 MHz (base: 3686)
+Contract: Tests non-symmetric producer/consumer ratios.
+
+
+Library                                   8P:1C     4P:1C     1P:8C     1P:4C     8P:2C     2P:8C
+-------------------------------------------------------------------------------------------------
+fat_p::LockFreeQueue                       47.9      40.8      74.7      45.7      62.4      80.4 ns/op
+fat_p::WorkQueue (sharded)                 22.0      16.6      23.7      20.8      23.8      23.6 ns/op
+fat_p::LockFreeRingBufferMPMC              49.0      43.8      76.2      49.6      65.3      80.5 ns/op
+std::mutex + std::queue (baseline)         36.7      19.6     181.7      28.9      59.4     147.9 ns/op
+moodycamel::ConcurrentQueue                15.5      15.9      78.4      75.2      64.6      49.7 ns/op
+boost::lockfree::queue                    149.4     148.7     285.2     212.1     245.4     259.5 ns/op
+
+[END 19:07:11] CPU: 3686 MHz (base: 3686)
+
+================================================================================
+  Summary
+================================================================================
+
+Benchmarks completed.
+Hardware concurrency: 24 threads
+[FINAL 19:07:11] CPU: 3686 MHz (base: 3686)

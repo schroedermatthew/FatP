@@ -1,0 +1,197 @@
+﻿================================================================================
+  fat_p::StateMachine Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1950 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::StateMachine<AnyToAnyPolicy> (primary)
+  [x] fat_p::StateMachine<StrictPolicy> (primary)
+  [x] Manual enum-switch (baseline)
+  [x] Manual fn-ptr table (baseline)
+  [x] std::variant + std::visit (C++17 baseline)
+  [x] boost::sml
+  [x] Boost.MSM
+  [x] TinyFSM
+
+Configuration:
+  Target work:    5000000 ops/batch
+  Min batch ms:   50
+  Scope:          ON
+  Stabilize:      ON
+  Cooldown:       ON
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. Correctness verified after each benchmark
+  6. CPU frequency stabilized before measurement
+
+
+================================================================================
+  Section 1: Core Transition Performance
+================================================================================
+
+Contract: transition() is O(1) for all implementations. All use 4 states with counting hooks.
+
+[2026-02-01 19:29:29] CPU: 2875 MHz (base: 3686)
+Implementation                           Median        Mean    Stddev   CI95
+-------------------------------------------------------------------------------
+fat_p AnyToAny                             7.64        7.33      1.22  [  6.71,   7.94] ns/op
+fat_p Strict                               7.58        7.35      1.15  [  6.77,   7.93] ns/op
+Manual enum-switch                         2.27        2.54      0.60  [  2.24,   2.85] ns/op
+Manual fn-ptr table                        3.40        3.65      0.87  [  3.21,   4.09] ns/op
+std::variant                               7.06        7.37      1.28  [  6.73,   8.02] ns/op
+[Boost].SML                                6.68        7.02      1.00  [  6.51,   7.53] ns/op
+TinyFSM                                    7.68        8.24      1.73  [  7.36,   9.11] ns/op
+Boost.MSM                                 11.61       12.23      1.73  [ 11.35,  13.10] ns/op
+
+[OK] Correctness validated for all 8 implementations
+
+
+================================================================================
+  Section 2a: Hook Overhead (Empty Hooks)
+================================================================================
+
+Contract: Baseline with empty on_entry/on_exit hooks. Measures pure dispatch overhead.
+
+[2026-02-01 19:29:34] CPU: 3538 MHz (base: 3686)
+Implementation                           Median        Mean    Stddev   CI95
+-------------------------------------------------------------------------------
+fat_p AnyToAny (empty)                     5.42        5.94      1.18  [  5.34,   6.53] ns/op
+fat_p Strict (empty)                       6.10        6.34      1.54  [  5.56,   7.11] ns/op
+Manual enum-switch (empty)                 2.17        2.12      0.10  [  2.06,   2.17] ns/op
+Manual fn-ptr table (empty)                2.94        3.05      0.48  [  2.81,   3.29] ns/op
+std::variant (empty)                       5.45        5.80      1.43  [  5.08,   6.53] ns/op
+[Boost].SML (empty)                        6.21        6.47      1.38  [  5.77,   7.17] ns/op
+TinyFSM (empty)                            6.68        7.07      1.26  [  6.44,   7.71] ns/op
+Boost.MSM (empty)                         10.98       11.04      2.36  [  9.85,  12.24] ns/op
+
+
+================================================================================
+  Section 2b: Hook Overhead (Counting Hooks)
+================================================================================
+
+Contract: Hooks increment a counter. Measures dispatch + minimal work.
+
+[2026-02-01 19:29:39] CPU: 2395 MHz (base: 3686)
+Implementation                           Median        Mean    Stddev   CI95
+-------------------------------------------------------------------------------
+fat_p AnyToAny                             4.79        4.86      0.18  [  4.76,   4.95] ns/op
+fat_p Strict                               6.05        6.04      0.14  [  5.97,   6.11] ns/op
+Manual enum-switch                         2.34        2.38      0.14  [  2.31,   2.45] ns/op
+Manual fn-ptr table                        2.83        2.81      0.11  [  2.75,   2.86] ns/op
+std::variant                               5.41        5.44      0.19  [  5.34,   5.53] ns/op
+[Boost].SML                                5.24        5.25      0.15  [  5.17,   5.32] ns/op
+TinyFSM                                    6.32        6.30      0.19  [  6.20,   6.40] ns/op
+Boost.MSM                                  8.64        8.63      0.18  [  8.54,   8.72] ns/op
+
+[OK] Correctness validated for all 8 implementations
+
+
+================================================================================
+  Section 3a: State Scaling (4 States)
+================================================================================
+
+Contract: 4-state machines with counting hooks. Baseline for scaling comparison.
+
+[2026-02-01 19:29:43] CPU: 3022 MHz (base: 3686)
+Implementation                           Median        Mean    Stddev   CI95
+-------------------------------------------------------------------------------
+fat_p AnyToAny                             4.92        5.58      1.03  [  5.06,   6.10] ns/op
+fat_p Strict                               6.12        6.47      0.95  [  5.99,   6.95] ns/op
+Manual enum-switch                         2.38        2.36      0.13  [  2.30,   2.42] ns/op
+Manual fn-ptr table                        2.81        3.18      0.76  [  2.80,   3.56] ns/op
+std::variant                               5.67        6.14      1.22  [  5.52,   6.76] ns/op
+[Boost].SML                                5.42        6.39      1.82  [  5.47,   7.32] ns/op
+TinyFSM                                    6.60        6.80      0.66  [  6.47,   7.14] ns/op
+Boost.MSM                                  9.06       10.82      3.14  [  9.23,  12.41] ns/op
+
+[OK] Correctness validated for all 8 implementations
+
+
+================================================================================
+  Section 3b: State Scaling (8 States)
+================================================================================
+
+Contract: 8-state machines with counting hooks. O(1) claim: should match 4-state performance.
+
+[2026-02-01 19:29:47] CPU: 3317 MHz (base: 3686)
+Implementation                           Median        Mean    Stddev   CI95
+-------------------------------------------------------------------------------
+fat_p AnyToAny (8-state)                   7.89        8.54      1.81  [  7.62,   9.46] ns/op
+fat_p Strict (8-state)                     7.88        8.11      1.08  [  7.56,   8.66] ns/op
+Manual enum-switch (8-state)               1.37        1.60      0.42  [  1.39,   1.81] ns/op
+Manual fn-ptr table (8-state)              1.99        2.08      0.20  [  1.97,   2.18] ns/op
+std::variant (8-state)                     7.17        7.53      1.06  [  6.99,   8.06] ns/op
+[Boost].SML (8-state)                      8.08        8.49      1.13  [  7.92,   9.06] ns/op
+
+[OK] Correctness validated for all 6 implementations
+
+
+================================================================================
+  Section 4: Self-Transition (No-Op) Performance
+================================================================================
+
+Contract: Self-transitions should early-exit without invoking hooks. Expected count is 1 (initial entry only).
+
+[2026-02-01 19:29:51] CPU: 3059 MHz (base: 3686)
+Implementation                           Median        Mean    Stddev   CI95
+-------------------------------------------------------------------------------
+fat_p AnyToAny                             0.44        0.56      0.19  [  0.47,   0.66] ns/op
+fat_p Strict                               0.44        0.54      0.16  [  0.45,   0.62] ns/op
+Manual enum-switch                         0.45        0.47      0.11  [  0.41,   0.52] ns/op
+Manual fn-ptr table                        0.44        0.53      0.17  [  0.45,   0.62] ns/op
+std::variant                               0.44        0.48      0.09  [  0.43,   0.52] ns/op
+[Boost].SML                                0.44        0.49      0.10  [  0.44,   0.54] ns/op
+TinyFSM                                    0.44        0.52      0.17  [  0.43,   0.60] ns/op
+Boost.MSM                                  0.45        0.62      0.22  [  0.51,   0.74] ns/op
+
+[OK] Correctness validated for all 8 implementations
+
+
+================================================================================
+  Section 5: State Query Performance
+================================================================================
+
+Contract: isInState<T>() / equivalent should be O(1). Query from initial state.
+
+[2026-02-01 19:29:51] CPU: 2875 MHz (base: 3686)
+Implementation                           Median        Mean    Stddev   CI95
+-------------------------------------------------------------------------------
+fat_p AnyToAny                             0.44        0.49      0.09  [  0.44,   0.54] ns/op
+fat_p Strict                               0.44        0.48      0.11  [  0.42,   0.53] ns/op
+Manual enum-switch                         0.44        0.50      0.13  [  0.43,   0.57] ns/op
+Manual fn-ptr table                        0.46        0.57      0.17  [  0.48,   0.65] ns/op
+std::variant                               0.44        0.49      0.09  [  0.44,   0.54] ns/op
+[Boost].SML                                0.44        0.48      0.07  [  0.45,   0.52] ns/op
+TinyFSM                                    0.44        0.48      0.13  [  0.41,   0.55] ns/op
+Boost.MSM                                  0.44        0.51      0.11  [  0.45,   0.56] ns/op
+
+[OK] All 8 implementations returned 5000000/5000000 true
+
+
+================================================================================
+  Summary
+================================================================================
+
+All benchmarks completed.
+
+Key comparisons:
+  - fat_p AnyToAny vs fat_p Strict: policy validation overhead
+  - fat_p vs Manual: abstraction overhead
+  - fat_p vs std::variant: type-safe alternative comparison
+  - 4-state vs 8-state: O(1) scaling validation
+  - Empty vs Counting hooks: hook invocation cost
+
+Implementation characteristics:
+  - fat_p AnyToAny: compile-time state set, O(1) fn-ptr dispatch, no validation
+  - fat_p Strict: same + O(1) matrix lookup for transition validation
+  - Manual enum-switch: runtime switch/case, inline-friendly
+  - Manual fn-ptr table: constexpr table, indirect call
+  - std::variant: type-safe union, visitor pattern dispatch
+
+[INFO] CSV written to: benchmark_results\20260201_184451\benchmark_StateMachine.csv
+[Sink: 2812042908]

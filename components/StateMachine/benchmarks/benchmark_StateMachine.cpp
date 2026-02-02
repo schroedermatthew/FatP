@@ -109,6 +109,7 @@ FATP_META:
 #include <vector>
 
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 #include "StateMachine.h"
 
 // ============================================================================
@@ -2684,53 +2685,50 @@ void benchmarkStateQuery()
 
 void printConfiguration()
 {
-    std::cout << "\n" << std::string(80, '=') << "\n";
-    std::cout << "  FAT-P StateMachine Benchmark Suite\n";
-    std::cout << std::string(80, '=') << "\n\n";
-
-    std::cout << "Configuration:\n";
-    std::cout << "  Seed:           " << g_config.seed << "\n";
-    std::cout << "  Warmup runs:    " << g_config.warmupRuns << "\n";
-    std::cout << "  Measured runs:  " << g_config.measuredRuns << "\n";
-    std::cout << "  Target work:    " << g_targetWork << " ops/batch\n";
-    std::cout << "  Min batch ms:   " << g_config.minBatchMs << "\n";
-    std::cout << "  Scope:          " << (g_config.noScope ? "OFF" : "ON") << "\n";
-    std::cout << "  Stabilize:      " << (g_config.noStabilize ? "OFF" : "ON") << "\n";
-    std::cout << "  Cooldown:       " << (g_config.noCooldown ? "OFF" : "ON") << "\n";
-    std::cout << "\n";
-
-    std::cout << "Design invariants:\n";
-    std::cout << "  1. Each measured run executes exactly one timed iteration per library\n";
-    std::cout << "  2. Library execution order is randomized per run (round-robin)\n";
-    std::cout << "  3. Setup/teardown occur outside timed regions\n";
-    std::cout << "  4. All libraries observe the same distribution of machine states\n";
-    std::cout << "  5. Medians are the primary reported statistic\n";
-    std::cout << "\n";
-
-    std::cout << "Competitors (tested in ALL applicable sections):\n";
-    std::cout << "  - fat_p::StateMachine<AnyToAnyTransitionPolicy>\n";
-    std::cout << "  - fat_p::StateMachine<StrictTransitionPolicy>\n";
-    std::cout << "  - Manual enum-switch state machine\n";
-    std::cout << "  - Manual function-pointer table state machine\n";
-    std::cout << "  - std::variant + std::visit (C++17 standard baseline)\n";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "StateMachine";
+    hdr.warmup = g_config.warmupRuns;
+    hdr.measured = g_config.measuredRuns;
+    hdr.seed = g_config.seed;
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::StateMachine<AnyToAnyPolicy>", true, "primary"});
+    hdr.competitors.push_back({"fat_p::StateMachine<StrictPolicy>", true, "primary"});
+    hdr.competitors.push_back({"Manual enum-switch", true, "baseline"});
+    hdr.competitors.push_back({"Manual fn-ptr table", true, "baseline"});
+    hdr.competitors.push_back({"std::variant + std::visit", true, "C++17 baseline"});
 #if HAS_BOOST_SML
-    std::cout << "  - [Boost::ext].SML (header-only)\n";
+    hdr.competitors.push_back({"boost::sml", true, ""});
 #else
-    std::cout << "  - [Boost::ext].SML (NOT FOUND - install boost/sml.hpp)\n";
+    hdr.competitors.push_back({"boost::sml", false, "not detected"});
 #endif
 #if HAS_BOOST_MSM
-    std::cout << "  - Boost.MSM (full Boost)\n";
+    hdr.competitors.push_back({"Boost.MSM", true, ""});
 #elif HAS_BOOST_MSM_HEADERS
-    std::cout << "  - Boost.MSM (present but disabled - define USE_BOOST_MSM=1)\n";
+    hdr.competitors.push_back({"Boost.MSM", false, "present but disabled"});
 #else
-    std::cout << "  - Boost.MSM (NOT FOUND - install Boost)\n";
+    hdr.competitors.push_back({"Boost.MSM", false, "not detected"});
 #endif
 #if HAS_TINYFSM
-    std::cout << "  - TinyFSM (header-only)\n";
+    hdr.competitors.push_back({"TinyFSM", true, ""});
 #else
-    std::cout << "  - TinyFSM (NOT FOUND - install tinyfsm.hpp)\n";
+    hdr.competitors.push_back({"TinyFSM", false, "not detected"});
 #endif
-    std::cout << "\n";
+    
+    hdr.has_extended_config = true;
+    hdr.target_work = g_targetWork;
+    hdr.min_batch_ms = g_config.minBatchMs;
+    hdr.scope_enabled = !g_config.noScope;
+    hdr.stabilize_enabled = !g_config.noStabilize;
+    hdr.cooldown_enabled = !g_config.noCooldown;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = true;
+    hdr.has_stabilization = !g_config.noStabilize;
+    
+    fat_p::bench::print_standard_header(hdr);
 }
 
 // ============================================================================

@@ -1,0 +1,523 @@
+# =============================================================================
+# .github/workflows/fatp-hash-map.yml
+# =============================================================================
+# CI workflow for FatPHashMap component (FastHashMap + StableHashMap)
+#
+# C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
+#
+# Directory structure:
+#   Headers:    include/fat_p/FastHashMap.h
+#               include/fat_p/StableHashMap.h
+#   Tests:      components/FatPHashMap/tests/test_FastHashMap.cpp
+#               components/FatPHashMap/tests/test_StableHashMap.cpp
+#   Benchmarks: components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp
+#
+# Third-party libraries for benchmarks:
+#   - tsl::robin_map (Tessil/robin-map)
+#   - ankerl::unordered_dense (martinus/unordered_dense)
+#   - absl::flat_hash_map (abseil-cpp)
+#   - boost::unordered_flat_map (libboost-dev)
+# =============================================================================
+
+name: FatPHashMap CI
+
+on:
+  workflow_dispatch:
+
+env:
+  COMPONENT_DIR: components/FatPHashMap
+
+jobs:
+  # ===========================================================================
+  # Linux GCC Build (C++20)
+  # ===========================================================================
+  linux-gcc:
+
+    name: Linux GCC-13 C++20
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-13
+
+      - name: Build and run FastHashMap tests
+        run: |
+          g++-13 -std=c++20 \
+            -Wall -Wextra -Wpedantic -Werror \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.COMPONENT_DIR }}/tests/test_FastHashMap.cpp -o test_fast
+          ./test_fast
+
+      - name: Build and run StableHashMap tests
+        run: |
+          g++-13 -std=c++20 \
+            -Wall -Wextra -Wpedantic -Werror \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.COMPONENT_DIR }}/tests/test_StableHashMap.cpp -o test_stable
+          ./test_stable
+
+  # ===========================================================================
+  # Linux Clang Build (C++20)
+  # ===========================================================================
+  linux-clang:
+
+    name: Linux Clang-16 C++20
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 16
+
+      - name: Build and run FastHashMap tests
+        run: |
+          clang++-16 -std=c++20 \
+            -Wall -Wextra -Wpedantic -Werror \
+            -Wno-gnu-zero-variadic-macro-arguments \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.COMPONENT_DIR }}/tests/test_FastHashMap.cpp -o test_fast
+          ./test_fast
+
+      - name: Build and run StableHashMap tests
+        run: |
+          clang++-16 -std=c++20 \
+            -Wall -Wextra -Wpedantic -Werror \
+            -Wno-gnu-zero-variadic-macro-arguments \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.COMPONENT_DIR }}/tests/test_StableHashMap.cpp -o test_stable
+          ./test_stable
+
+  # ===========================================================================
+  # Windows MSVC Build (C++20)
+  # ===========================================================================
+  windows-msvc:
+
+    name: Windows MSVC C++20
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build and run FastHashMap tests
+        run: |
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p ${{ env.COMPONENT_DIR }}\tests\test_FastHashMap.cpp /Fe:test_fast.exe /link advapi32.lib
+          .\test_fast.exe
+
+      - name: Build and run StableHashMap tests
+        run: |
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p ${{ env.COMPONENT_DIR }}\tests\test_StableHashMap.cpp /Fe:test_stable.exe /link advapi32.lib
+          .\test_stable.exe
+
+  # ===========================================================================
+  # Sanitizers (C++20)
+  # ===========================================================================
+  sanitizer-asan:
+
+    name: AddressSanitizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and run FastHashMap with ASan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=address -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.COMPONENT_DIR }}/tests/test_FastHashMap.cpp -o test_fast
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 ./test_fast
+
+      - name: Build and run StableHashMap with ASan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=address -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.COMPONENT_DIR }}/tests/test_StableHashMap.cpp -o test_stable
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 ./test_stable
+
+  sanitizer-ubsan:
+
+    name: UndefinedBehaviorSanitizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and run FastHashMap with UBSan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=undefined -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.COMPONENT_DIR }}/tests/test_FastHashMap.cpp -o test_fast
+          UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 ./test_fast
+
+      - name: Build and run StableHashMap with UBSan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=undefined -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.COMPONENT_DIR }}/tests/test_StableHashMap.cpp -o test_stable
+          UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 ./test_stable
+
+  # ===========================================================================
+  # Header Self-Containment (C++20)
+  # ===========================================================================
+  header-check:
+
+    name: Header Self-Containment
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test FastHashMap.h compiles standalone
+        run: |
+          echo '#include "FastHashMap.h"' > test_include.cpp
+          echo 'int main() { return 0; }' >> test_include.cpp
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+            -I./include/fat_p \
+            -c test_include.cpp -o /dev/null
+          echo "OK: FastHashMap.h is self-contained"
+
+      - name: Test StableHashMap.h compiles standalone
+        run: |
+          echo '#include "StableHashMap.h"' > test_include.cpp
+          echo 'int main() { return 0; }' >> test_include.cpp
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+            -I./include/fat_p \
+            -c test_include.cpp -o /dev/null
+          echo "OK: StableHashMap.h is self-contained"
+
+  # ===========================================================================
+  # Strict Warnings (C++20)
+  # ===========================================================================
+  strict-warnings:
+
+    name: Strict Warnings
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile FastHashMap with strict warnings
+        run: |
+          g++-13 -std=c++20 \
+              -Wall -Wextra -Wpedantic \
+              -Wconversion -Wsign-conversion \
+              -Wshadow -Wformat=2 \
+              -Werror \
+              -DENABLE_TEST_APPLICATION -I./include/fat_p \
+              -o test_fast ${{ env.COMPONENT_DIR }}/tests/test_FastHashMap.cpp
+          echo "OK: FastHashMap - no warnings"
+
+      - name: Compile StableHashMap with strict warnings
+        run: |
+          g++-13 -std=c++20 \
+              -Wall -Wextra -Wpedantic \
+              -Wconversion -Wsign-conversion \
+              -Wshadow -Wformat=2 \
+              -Werror \
+              -DENABLE_TEST_APPLICATION -I./include/fat_p \
+              -o test_stable ${{ env.COMPONENT_DIR }}/tests/test_StableHashMap.cpp
+          echo "OK: StableHashMap - no warnings"
+
+  # ===========================================================================
+  # Benchmarks - Linux GCC (Manual)
+  # ===========================================================================
+  benchmarks-gcc:
+    name: Benchmark GCC-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-24.04
+    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 13
+            std: 20
+          - version: 14
+            std: 23
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
+
+      - name: Build benchmarks
+        run: |
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} -O3 -DNDEBUG -march=native \
+            -I./include/fat_p \
+            ${{ env.COMPONENT_DIR }}/benchmarks/benchmark_FatPHashMap.cpp \
+            -o bench_hashmap
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_BATCHES: 15
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
+        run: ./bench_hashmap 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-gcc${{ matrix.version }}-cpp${{ matrix.std }}
+          path: |
+            results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
+            benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmarks - Linux Clang (Manual)
+  # ===========================================================================
+  benchmarks-clang:
+    name: Benchmark Clang-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-24.04
+    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 16
+            std: 20
+          - version: 17
+            std: 23
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang and Ninja
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.version }}
+          sudo apt-get install -y ninja-build
+
+      - name: Cache third-party libraries
+        id: cache-thirdparty
+        uses: actions/cache@v4
+        with:
+          path: ~/thirdparty
+          key: hashmap-thirdparty-clang${{ matrix.version }}-cpp${{ matrix.std }}-v2
+
+      - name: Install third-party libraries
+        if: steps.cache-thirdparty.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p $HOME/thirdparty
+
+          # tsl::robin_map (header-only)
+          git clone --depth 1 https://github.com/Tessil/robin-map.git $HOME/thirdparty/robin-map
+
+          # ankerl::unordered_dense (header-only)
+          git clone --depth 1 https://github.com/martinus/unordered_dense.git $HOME/thirdparty/unordered_dense
+
+          # abseil-cpp (needs build)
+          git clone --depth 1 https://github.com/abseil/abseil-cpp.git $HOME/thirdparty/abseil-cpp
+          cd $HOME/thirdparty/abseil-cpp
+          mkdir build && cd build
+          CXX=clang++-${{ matrix.version }} cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_STANDARD=${{ matrix.std }} \
+            -DABSL_BUILD_TESTING=OFF \
+            -DABSL_USE_GOOGLETEST_HEAD=OFF \
+            -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/abseil-install \
+            ..
+          ninja
+          ninja install
+
+      - name: Build benchmarks
+        run: |
+          # Build list of all abseil libraries for linking
+          ABSL_LIBS=""
+          for lib in $(find $HOME/thirdparty/abseil-install/lib -name "libabsl_*.a" | sort); do
+            libname=$(basename "$lib" .a | sed 's/^lib//')
+            ABSL_LIBS="$ABSL_LIBS -l$libname"
+          done
+          
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} -O3 -DNDEBUG -march=native \
+            -I./include/fat_p \
+            -I$HOME/thirdparty/robin-map/include \
+            -I$HOME/thirdparty/unordered_dense/include \
+            -I$HOME/thirdparty/abseil-install/include \
+            -L$HOME/thirdparty/abseil-install/lib \
+            ${{ env.COMPONENT_DIR }}/benchmarks/benchmark_FatPHashMap.cpp \
+            -o bench_hashmap \
+            -Wl,--start-group $ABSL_LIBS -Wl,--end-group \
+            -pthread
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_BATCHES: 15
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
+        run: ./bench_hashmap 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-clang${{ matrix.version }}-cpp${{ matrix.std }}
+          path: |
+            results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
+            benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmarks - Windows MSVC (Manual)
+  # ===========================================================================
+  benchmarks-msvc:
+    name: Benchmark MSVC C++${{ matrix.std }}
+    runs-on: windows-latest
+    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [20, 23]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Cache vcpkg packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.VCPKG_INSTALLATION_ROOT }}/installed
+            ${{ env.VCPKG_INSTALLATION_ROOT }}/packages
+          key: vcpkg-hashmap-static-${{ runner.os }}-v1
+
+      - name: Install competitor libraries via vcpkg
+        run: |
+          vcpkg install abseil:x64-windows-static
+          vcpkg install boost-unordered:x64-windows-static
+          echo "Installed competitor libraries via vcpkg"
+
+      - name: Cache header-only libraries
+        id: cache-headeronly
+        uses: actions/cache@v4
+        with:
+          path: thirdparty
+          key: hashmap-headeronly-${{ runner.os }}-v1
+
+      - name: Install header-only libraries
+        if: steps.cache-headeronly.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path thirdparty
+          git clone --depth 1 https://github.com/Tessil/robin-map.git thirdparty/robin-map
+          git clone --depth 1 https://github.com/martinus/unordered_dense.git thirdparty/unordered_dense
+
+      - name: Build benchmarks
+        shell: pwsh
+        run: |
+          $std = "${{ matrix.std }}"
+          $stdFlag = if ($std -eq "23") { "/std:c++latest" } else { "/std:c++$std" }
+          
+          # Collect all abseil static libraries
+          $abslLibs = Get-ChildItem "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static\lib\absl_*.lib" | ForEach-Object { $_.FullName }
+          $abslLibsStr = $abslLibs -join " "
+          
+          cl /nologo $stdFlag /O2 /DNDEBUG /EHsc /permissive- /MT `
+            /I.\include\fat_p `
+            /I.\thirdparty\robin-map\include `
+            /I.\thirdparty\unordered_dense\include `
+            /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static\include" `
+            ${{ env.COMPONENT_DIR }}\benchmarks\benchmark_FatPHashMap.cpp `
+            /Fe:bench_hashmap.exe `
+            /link /LIBPATH:"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static\lib" $abslLibsStr advapi32.lib
+
+      - name: Run benchmarks
+        shell: pwsh
+        env:
+          FATP_BENCH_BATCHES: "15"
+          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp${{ matrix.std }}.csv
+        run: |
+          .\bench_hashmap.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-msvc-cpp${{ matrix.std }}
+          path: |
+            results_msvc_cpp${{ matrix.std }}.csv
+            benchmark_msvc_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmark Summary
+  # ===========================================================================
+  benchmark-summary:
+    name: Benchmark Summary
+    needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
+    runs-on: ubuntu-latest
+    if: ${{ always() && github.event.inputs.run_benchmarks == 'true' }}
+    steps:
+      - name: Download all benchmark artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: benchmark-*
+          path: all-benchmarks
+          merge-multiple: false
+
+      - name: Aggregate results
+        run: |
+          echo "# Benchmark Summary - FatPHashMap" > summary.md
+          echo "" >> summary.md
+          echo "| Configuration | Status |" >> summary.md
+          echo "|---------------|--------|" >> summary.md
+          
+          for dir in all-benchmarks/benchmark-*/; do
+            name=$(basename "$dir")
+            if ls "$dir"/*.csv 1>/dev/null 2>&1; then
+              echo "| $name | OK |" >> summary.md
+            else
+              echo "| $name | FAIL |" >> summary.md
+            fi
+          done
+          
+          cat summary.md
+
+      - name: Upload combined results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-summary
+          path: |
+            all-benchmarks/
+            summary.md
+
+  # ===========================================================================
+  # CI Gate
+  # ===========================================================================
+  ci-success:
+    name: CI Success
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.linux-gcc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.linux-clang.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
+          echo "OK: All checks passed"

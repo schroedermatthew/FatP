@@ -9,15 +9,13 @@
 name: Layer & Dependency Verification
 
 on:
-  pull_request:
-    types: [labeled]
   workflow_dispatch:
 jobs:
   # ===========================================================================
   # Layer Tag Verification
   # ===========================================================================
   verify-layers:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Verify Layer Dependencies
     runs-on: ubuntu-latest
     steps:
@@ -139,7 +137,7 @@ jobs:
   # Forbidden Dependency Scan
   # ===========================================================================
   scan-forbidden-deps:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Scan Forbidden Dependencies
     runs-on: ubuntu-latest
     steps:
@@ -225,7 +223,7 @@ jobs:
     name: Verification Success
     needs: [verify-layers, scan-forbidden-deps]
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always()) }}
+    if: always()
     steps:
       - name: Check results
         run: |

@@ -1,0 +1,72 @@
+﻿================================================================================
+  fat_p::Stacktrace Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1950 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::Stacktrace (primary)
+  [x] Native backend (Windows DbgHelp) (baseline)
+
+Design Invariants:
+  1. Setup/teardown outside timed regions
+  2. Medians are the primary reported statistic
+
+Backend info:
+  Backend:       Windows DbgHelp
+  Real backend:  yes
+
+
+======================================================================
+  captureRaw() - Address Collection Only
+======================================================================
+
+Contract: Measures address capture without symbol resolution
+
+captureRaw()                          0.36 us/op  (mean: 0.37, stddev: 0.00)
+
+======================================================================
+  current() - Full Capture with Symbols
+======================================================================
+
+Contract: Measures capture + symbol resolution
+
+current()                             4.26 us/op  (mean: 4.32, stddev: 0.19)
+
+======================================================================
+  Formatting - toString() and toJson()
+======================================================================
+
+Contract: Measures output formatting from symbolized trace
+
+toString()                            2.96 us/op  (mean: 2.96, stddev: 0.05)
+toJson()                              5.01 us/op  (mean: 5.06, stddev: 0.09)
+
+======================================================================
+  Depth Scaling - captureRaw() at Various Stack Depths
+======================================================================
+
+Contract: Measures capture cost vs stack depth
+
+Depth                               Median  us/op
+--------------------------------------------------
+depth=5                               0.71  us/op
+depth=10                              1.01  us/op
+depth=20                              1.56  us/op
+depth=50                              2.01  us/op
+
+======================================================================
+  hash() - For Deduplication
+======================================================================
+
+Contract: Measures hash computation for container usage
+
+hash()                                7.87 ns/op  (mean: 7.89, stddev: 0.10)
+
+======================================================================
+  Summary
+======================================================================
+
+All benchmarks completed.
+Backend used: Windows DbgHelp
+

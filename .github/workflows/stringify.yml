@@ -18,8 +18,6 @@
 name: Stringify CI
 
 on:
-  pull_request:
-    types: [labeled]
   workflow_dispatch:
 env:
   HEADER: Stringify.h
@@ -30,7 +28,7 @@ jobs:
   # Linux GCC Matrix (C++20)
   # ===========================================================================
   linux-gcc:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Linux GCC-${{ matrix.version }} C++20
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -63,7 +61,7 @@ jobs:
   # Linux Clang Matrix (C++20)
   # ===========================================================================
   linux-clang:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Linux Clang-${{ matrix.version }} C++20
     runs-on: ubuntu-24.04
     strategy:
@@ -96,7 +94,7 @@ jobs:
   # Windows MSVC Build (C++20)
   # ===========================================================================
   windows-msvc:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Windows MSVC 2022 C++20
     runs-on: windows-2022
     steps:
@@ -116,7 +114,7 @@ jobs:
   # Sanitizers (C++20) - Using GCC 14 for best coverage
   # ===========================================================================
   sanitizer-asan:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: AddressSanitizer (GCC-14)
     runs-on: ubuntu-24.04
     steps:
@@ -139,7 +137,7 @@ jobs:
         run: ./test_bin
 
   sanitizer-ubsan:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: UndefinedBehaviorSanitizer (GCC-14)
     runs-on: ubuntu-24.04
     steps:
@@ -162,7 +160,7 @@ jobs:
         run: ./test_bin
 
   sanitizer-tsan:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: ThreadSanitizer (GCC-14)
     runs-on: ubuntu-24.04
     steps:
@@ -188,7 +186,7 @@ jobs:
   # Header Self-Containment Loop (C++20)
   # ===========================================================================
   header-self-containment:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Header Self-Containment
     runs-on: ubuntu-24.04
     steps:
@@ -233,7 +231,7 @@ jobs:
   # Strict Warnings (C++20)
   # ===========================================================================
   strict-warnings:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Strict Warnings (GCC-14)
     runs-on: ubuntu-24.04
     steps:
@@ -259,7 +257,7 @@ jobs:
   # Clang Static Analysis
   # ===========================================================================
   clang-tidy:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci') }}
+
     name: Clang-Tidy Analysis
     runs-on: ubuntu-24.04
     steps:
@@ -311,7 +309,7 @@ jobs:
       - strict-warnings
       - clang-tidy
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-ci')) && (always()) }}
+    if: always()
     steps:
       - name: Check results
         run: |

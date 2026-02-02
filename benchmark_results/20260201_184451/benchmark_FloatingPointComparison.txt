@@ -1,0 +1,53 @@
+﻿[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  fat_p::FloatingPointComparison Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1950 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::floatEqual<StandardPolicy> (primary)
+  [x] fat_p::approximateEqual (primary)
+  [x] Manual absolute epsilon (baseline)
+  [x] Manual relative epsilon (baseline)
+  [x] Direct operator== (baseline)
+
+Design Invariants:
+  1. Setup/teardown outside timed regions
+  2. Medians are the primary reported statistic
+  3. CPU frequency stabilized before measurement
+
+Operations per batch: 1000000
+
+--- Fat-P Policies vs Manual Baseline ---
+Contract: absolute/hybrid tolerance comparison semantics
+
+[2026-02-01 19:02:49] CPU: 3575 MHz (base: 3686)
+  Fat-P Standard                1.68       ns  (mean: 1.69, stddev: 0.07)  CI95: [1.65, 1.72]
+  Manual absolute               0.36       ns  (mean: 0.37, stddev: 0.02)  CI95: [0.36, 0.38]
+  Ratio: 4.63x
+
+  Fat-P Hybrid                  6.76       ns  (mean: 6.90, stddev: 0.24)  CI95: [6.77, 7.04]
+  Manual hybrid                 3.22       ns  (mean: 3.20, stddev: 0.10)  CI95: [3.15, 3.25]
+  Ratio: 2.10x
+
+--- Policy Comparison (Normal Values) ---
+Contract: epsilon-based floating-point equality
+
+[2026-02-01 19:02:50] CPU: 2875 MHz (base: 3686)
+  Standard                      1.68       ns  (mean: 1.74, stddev: 0.18)  CI95: [1.64, 1.84]
+  Relative                      2.24       ns  (mean: 2.26, stddev: 0.15)  CI95: [2.17, 2.34]
+  ULP                           6.63       ns  (mean: 6.73, stddev: 0.28)  CI95: [6.58, 6.89]
+  Hybrid                        6.71       ns  (mean: 6.76, stddev: 0.14)  CI95: [6.68, 6.84]
+
+--- Special Value Handling ---
+Contract: IEEE 754 NaN/Inf semantics
+
+[2026-02-01 19:02:50] CPU: 2543 MHz (base: 3686)
+  NaN                           1.51       ns  (mean: 1.53, stddev: 0.06)  CI95: [1.50, 1.56]
+  Infinity                      1.96       ns  (mean: 1.99, stddev: 0.06)  CI95: [1.96, 2.02]
+  Speedup vs normal: 4.4x (NaN), 3.4x (Inf)
+
+================================================================
+  Benchmark Complete
+================================================================

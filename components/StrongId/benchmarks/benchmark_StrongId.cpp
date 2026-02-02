@@ -106,6 +106,7 @@ FATP_META:
 #include <vector>
 
 #include "FatPBenchmarkRunner.h"
+#include "FatPBenchmarkHeader.h"
 
 // ============================================================================
 // Library Detection
@@ -1184,52 +1185,57 @@ int main()
     // Apply benchmark scope (Windows priority/affinity)
     BenchmarkScope scope(!g_config.noScope);
 
-    std::cout << std::string(72, '=') << "\n";
-    std::cout << "  StrongId Comprehensive Benchmark Suite\n";
-    std::cout << std::string(72, '=') << "\n\n";
-
-    // Print detected libraries
-    std::cout << "Competitor libraries detected:\n";
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "StrongId";
+    hdr.warmup = WARMUP_RUNS();
+    hdr.measured = MEASURED_RUNS();
+    hdr.seed = g_config.seed;
+    
+    // Competitors
 #if HAS_FATP_STRONGID
-    std::cout << "  [x] fat_p::StrongId (Checked + Unchecked)\n";
+    hdr.competitors.push_back({"fat_p::StrongId<Checked>", true, "primary"});
+    hdr.competitors.push_back({"fat_p::StrongId<Unchecked>", true, "primary"});
 #else
-    std::cout << "  [ ] fat_p::StrongId (not found - include StrongId.h)\n";
+    hdr.competitors.push_back({"fat_p::StrongId", false, "include StrongId.h"});
 #endif
 #if HAS_NAMED_TYPE
-    std::cout << "  [x] fluent::NamedType\n";
+    hdr.competitors.push_back({"fluent::NamedType", true, ""});
 #else
-    std::cout << "  [ ] fluent::NamedType (install: github.com/joboccara/NamedType)\n";
+    hdr.competitors.push_back({"fluent::NamedType", false, "github.com/joboccara/NamedType"});
 #endif
 #if HAS_TYPE_SAFE
-    std::cout << "  [x] ts::strong_typedef (type_safe)\n";
+    hdr.competitors.push_back({"ts::strong_typedef", true, "type_safe"});
 #else
-    std::cout << "  [ ] ts::strong_typedef (install: vcpkg install type-safe)\n";
+    hdr.competitors.push_back({"ts::strong_typedef", false, "vcpkg install type-safe"});
 #endif
 #if HAS_ROLLBEAR_STRONG_TYPE
-    std::cout << "  [x] strong::type (rollbear)\n";
+    hdr.competitors.push_back({"strong::type", true, "rollbear"});
 #else
-    std::cout << "  [ ] strong::type (install: github.com/rollbear/strong_type)\n";
+    hdr.competitors.push_back({"strong::type", false, "github.com/rollbear/strong_type"});
 #endif
 #if HAS_BOOST_STRONG_TYPEDEF
-    std::cout << "  [x] boost::strong_typedef\n";
+    hdr.competitors.push_back({"boost::strong_typedef", true, ""});
 #else
-    std::cout << "  [ ] boost::strong_typedef (install: vcpkg install boost-serialization)\n";
+    hdr.competitors.push_back({"boost::strong_typedef", false, "vcpkg install boost-serialization"});
 #endif
-    std::cout << "  [x] enum class (built-in)\n";
-    std::cout << "  [x] Manual wrapper struct (baseline)\n";
-    std::cout << "  [x] Raw int (baseline)\n";
-    std::cout << "\n";
-
-    // Print CPU info
-    print_cpu_context(std::cout);
-
-    std::cout << "\nConfiguration:\n";
-    std::cout << "  Warmup runs: " << WARMUP_RUNS() << "\n";
-    std::cout << "  Measured runs: " << MEASURED_RUNS() << "\n";
-    std::cout << "  Seed: " << g_config.seed << "\n";
+    hdr.competitors.push_back({"enum class", true, "built-in"});
+    hdr.competitors.push_back({"Manual wrapper struct", true, "baseline"});
+    hdr.competitors.push_back({"Raw int", true, "baseline"});
+    
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = true;
+    hdr.has_correctness_checks = false;
+    hdr.has_stabilization = !g_config.noStabilize;
+    
+    fat_p::bench::print_standard_header(hdr);
 
     // Generate test data
     const size_t N = TARGET_WORK();
+    std::cout << "Operations per run: " << N << "\n\n";
+    
     std::vector<int> values;
     values.reserve(N);
     std::mt19937_64 rng(g_config.seed);
@@ -1238,8 +1244,6 @@ int main()
     {
         values.push_back(dist(rng));
     }
-
-    std::cout << "  Operations per run: " << N << "\n\n";
 
     // Build adapters
     std::vector<std::unique_ptr<IStrongIdAdapter>> adapters;
@@ -1262,12 +1266,6 @@ int main()
     adapters.push_back(std::make_unique<EnumClassAdapter>());
     adapters.push_back(std::make_unique<ManualAdapter>());
     adapters.push_back(std::make_unique<RawIntAdapter>());
-
-    std::cout << "Design Invariants:\n";
-    std::cout << "  1. Each operation measured independently\n";
-    std::cout << "  2. Results normalized to nanoseconds per operation\n";
-    std::cout << "  3. Ratio column shows overhead vs raw int baseline\n";
-    std::cout << "  4. Medians are the primary reported statistic\n";
 
     // Run benchmarks
     runBenchmarkSuite(adapters, values);

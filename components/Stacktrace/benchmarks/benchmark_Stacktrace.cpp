@@ -53,6 +53,7 @@ FATP_META:
  */
 
 #include "Stacktrace.h"
+#include "FatPBenchmarkHeader.h"
 
 #include <algorithm>
 #include <chrono>
@@ -491,15 +492,32 @@ static void benchHash(const BenchConfig& cfg)
 
 int main()
 {
-    std::cout << "=== Fat-P Stacktrace Benchmark ===\n\n";
-
+    // =========================================================================
+    // Standardized header (via FatPBenchmarkHeader.h)
+    // =========================================================================
     auto cfg = BenchConfig::fromEnv();
+    
+    fat_p::bench::HeaderConfig hdr;
+    hdr.component = "Stacktrace";
+    hdr.warmup = cfg.warmupRuns;
+    hdr.measured = cfg.measuredRuns;
+    hdr.seed = 12345;  // Stacktrace doesn't use seed
+    
+    // Competitors
+    hdr.competitors.push_back({"fat_p::Stacktrace", true, "primary"});
+    hdr.competitors.push_back({"Native backend (" + std::string(fat_p::Stacktrace::backendName()) + ")", true, "baseline"});
+    // No external competitor libraries for Stacktrace
+    
+    hdr.has_extended_config = false;
+    hdr.is_multi_library = false;
+    hdr.has_correctness_checks = false;
+    hdr.has_stabilization = false;
+    
+    fat_p::bench::print_standard_header(hdr);
 
-    std::cout << "Configuration:\n";
-    std::cout << "  Warmup runs:   " << cfg.warmupRuns << "\n";
-    std::cout << "  Measured runs: " << cfg.measuredRuns << "\n";
+    std::cout << "Backend info:\n";
     std::cout << "  Backend:       " << fat_p::Stacktrace::backendName() << "\n";
-    std::cout << "  Real backend:  " << (fat_p::Stacktrace::hasRealBackend() ? "yes" : "no") << "\n";
+    std::cout << "  Real backend:  " << (fat_p::Stacktrace::hasRealBackend() ? "yes" : "no") << "\n\n";
 
     benchCaptureRaw(cfg);
     benchCurrent(cfg);

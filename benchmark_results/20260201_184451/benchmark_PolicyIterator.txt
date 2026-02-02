@@ -1,0 +1,263 @@
+﻿================================================================================
+  fat_p::PolicyIterator Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1950 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::PolicyIterator (primary)
+  [x] Raw pointer iteration (baseline)
+  [x] Manual loop (baseline)
+  [x] Boost.Iterator
+  [x] range-v3
+  [x] Eigen
+  [x] xtensor
+  [x] Boost.MultiArray
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. CPU frequency stabilized before measurement
+
+
+Initial CPU state:
+[2026-02-01 19:22:57] Benchmark start CPU: 2617 MHz (base: 3686)
+
+================================================================================
+  STANDARD ITERATION VS RAW POINTER
+================================================================================
+
+  Contract: Sequential sum accumulation, no predicate/transform
+
+[2026-02-01 19:22:57] Start CPU: 2617 MHz (base: 3686)
+  Results (ns/element):
+    Raw pointer             :     0.59 ns/op  (+/-  0.02)
+    PolicyIterator<Standard>:     0.60 ns/op  (+/-  0.01)
+
+  Overhead ratio: 1.00x
+
+================================================================================
+  STRIDE POLICIES VS MANUAL LOOPS + RANGE-V3
+================================================================================
+
+  Contract: Sum with fixed compile-time stride, bounds clamping included
+
+[2026-02-01 19:22:59] Start CPU: 2064 MHz (base: 3686)
+
+  --- Stride 2 ---
+
+    Manual loop             :     0.63 ns/op  (+/-  0.26)
+    PolicyIterator<Stride>  :     0.74 ns/op  (+/-  0.18)
+    range-v3::views::stride :     2.44 ns/op  (+/-  0.78)
+    vs Manual: Policy 1.17x, range-v3 3.85x
+
+  --- Stride 4 ---
+
+    Manual loop             :     1.10 ns/op  (+/-  0.12)
+    PolicyIterator<Stride>  :     1.23 ns/op  (+/-  0.34)
+    range-v3::views::stride :     2.79 ns/op  (+/-  0.47)
+    vs Manual: Policy 1.12x, range-v3 2.54x
+
+  --- Stride 8 ---
+
+    Manual loop             :     1.65 ns/op  (+/-  0.35)
+    PolicyIterator<Stride>  :     1.72 ns/op  (+/-  0.36)
+    range-v3::views::stride :     2.79 ns/op  (+/-  0.75)
+    vs Manual: Policy 1.04x, range-v3 1.68x
+
+================================================================================
+  FILTER POLICY VS MANUAL LOOP + BOOST + RANGE-V3
+================================================================================
+
+  Contract: Sum of even values only, predicate evaluation cost included
+
+[2026-02-01 19:23:01] Start CPU: 2137 MHz (base: 3686)
+  Match ratio: 50.0%
+
+  Results (ns/element scanned):
+    Manual if-check loop    :     3.05 ns/op  (+/-  1.14)
+    PolicyIterator<Filter>  :     3.30 ns/op  (+/-  0.97)
+    Boost.filter_iterator   :     3.25 ns/op  (+/-  0.90)
+    range-v3::views::filter :     3.31 ns/op  (+/-  0.60)
+
+  vs Manual:
+    PolicyIterator: 1.08x
+    Boost:          1.06x
+    range-v3:       1.08x
+
+================================================================================
+  TRANSFORM POLICY VS MANUAL LOOP + BOOST + RANGE-V3
+================================================================================
+
+  Contract: Sum of doubled values, transform cost included
+
+[2026-02-01 19:23:03] Start CPU: 3059 MHz (base: 3686)
+  Results (ns/element):
+    Manual transform loop   :     0.26 ns/op  (+/-  0.00)
+    PolicyIterator<Transform>:     0.27 ns/op  (+/-  0.01)
+    Boost.transform_iterator:     0.27 ns/op  (+/-  0.01)
+    range-v3::views::transform:     0.26 ns/op  (+/-  0.00)
+
+  vs Manual:
+    PolicyIterator: 1.03x
+    Boost:          1.02x
+    range-v3:       1.01x
+
+================================================================================
+  TENSOR STRIDE POLICY VS MANUAL + EIGEN + XTENSOR + BOOST
+================================================================================
+
+  Contract: Row-major matrix column iteration (strided access)
+
+[2026-02-01 19:23:05] Start CPU: 2211 MHz (base: 3686)
+  Matrix: 1000 x 1000 (1000000 elements)
+  Task: Sum first column (stride = 1000)
+
+  Results (ns/row):
+    Manual r*cols indexing  :     0.40 ns/op  (+/-  0.05)
+    TensorStridePolicy      :     1.70 ns/op  (+/-  0.06)
+    Stride1DPolicy          :     0.40 ns/op  (+/-  0.05)
+    Eigen::col(0).sum()     :     0.30 ns/op  (+/-  0.05)
+    xtensor strided_view    :     2.20 ns/op  (+/-  0.04)
+    Boost.MultiArray [][0]  :     0.40 ns/op  (+/-  0.04)
+
+  vs Manual:
+    TensorStridePolicy: 4.25x
+    Stride1DPolicy:     1.00x
+    Eigen:              0.75x
+    xtensor:            5.50x
+    Boost:              1.00x
+
+  TensorStridePolicy vs xtensor (strided iteration):
+    TensorStridePolicy: 1.70 ns
+    xtensor:            2.20 ns (0.77x)
+
+================================================================================
+  TENSOR: CONTIGUOUS VS NON-CONTIGUOUS VS SPECIALIZED + XTENSOR + BOOST
+================================================================================
+
+  Contract: Compare general TensorStridePolicy vs lightweight 1D/2D policies
+
+[2026-02-01 19:23:07] Start CPU: 2174 MHz (base: 3686)
+  Matrix: 1000 x 1000 (1000000 elements)
+
+  Full matrix iteration (ns/element):
+    Manual flat loop        :     0.25 ns/op  (+/-  0.11)
+    TensorStridePolicy (general):     0.94 ns/op  (+/-  0.40)
+    Stride2DPolicy (specialized):     0.26 ns/op  (+/-  0.11)
+    xtensor iterator        :     0.38 ns/op  (+/-  0.18)
+    Boost.MultiArray data() :     0.27 ns/op  (+/-  0.12)
+
+  Column iteration (ns/row, stride=1000):
+    TensorStridePolicy (general):     3.40 ns/op  (+/-  1.07)
+    Stride1DPolicy (specialized):     0.50 ns/op  (+/-  0.23)
+    xtensor strided_view    :     4.50 ns/op  (+/-  1.41)
+
+  vs Manual (full matrix):
+    TensorStridePolicy: 3.78x
+    Stride2DPolicy:     1.06x
+    xtensor:            1.53x
+    Boost:              1.09x
+
+  Stride1D vs TensorStride (column iteration):
+    TensorStridePolicy: 3.40 ns/row
+    Stride1DPolicy:     0.50 ns/row (0.15x)
+
+  TensorStridePolicy vs xtensor (strided iteration):
+    TensorStridePolicy: 3.40 ns
+    xtensor:            4.50 ns (0.76x)
+
+================================================================================
+  2D MATRIX FULL ITERATION: POLICIES VS EIGEN
+================================================================================
+
+  Contract: Sum all elements of 1000x1000 row-major matrix
+
+[2026-02-01 19:23:09] Start CPU: 2359 MHz (base: 3686)
+  Matrix: 1000 x 1000
+
+  Results (ns/element):
+    Manual flat loop        :     0.50 ns/op  (+/-  0.13)
+    Stride2DPolicy          :     0.48 ns/op  (+/-  0.12)
+    TensorStridePolicy 2D   :     1.90 ns/op  (+/-  0.45)
+    Eigen::sum()            :     0.31 ns/op  (+/-  0.08)
+    Eigen coeff (r,c) loop  :     0.46 ns/op  (+/-  0.12)
+
+  vs Manual:
+    Stride2DPolicy:     0.97x
+    TensorStridePolicy: 3.80x
+    Eigen::sum():       0.63x
+    Eigen coeff loop:   0.92x
+
+================================================================================
+  TENSOR ITERATION COMPOSITION HELPERS
+================================================================================
+
+  Contract: Compare iterateND composition vs manual loops vs TensorStridePolicy
+
+[2026-02-01 19:23:11] Start CPU: 2248 MHz (base: 3686)
+  3D Tensor: 50 x 100 x 200 (1000000 elements)
+  4D Tensor: 8 x 16 x 50 x 100 (640000 elements)
+
+  3D Results (ns/element):
+    Manual nested loop      :     0.24 ns/op  (+/-  0.03)
+    TensorStridePolicy      :     1.32 ns/op  (+/-  0.32)
+    iterateND (composition) :     0.49 ns/op  (+/-  0.15)
+
+  3D vs Manual:
+    TensorStridePolicy:     5.58x
+    iterateND (composition): 2.06x
+
+  4D Results (ns/element):
+    Manual nested loop      :     0.25 ns/op  (+/-  0.07)
+    TensorStridePolicy      :     0.90 ns/op  (+/-  0.14)
+    iterateND (composition) :     0.52 ns/op  (+/-  0.14)
+
+  4D vs Manual:
+    TensorStridePolicy:     3.60x
+    iterateND (composition): 2.06x
+
+  Composition vs TensorStridePolicy:
+    3D: iterateND is 2.71x faster
+    4D: iterateND is 1.74x faster
+
+================================================================================
+  SIZE SCALING (CACHE EFFECTS)
+================================================================================
+
+  Contract: Standard iteration sum at different data sizes
+
+[2026-02-01 19:23:13] Start CPU: 2543 MHz (base: 3686)
+
+  --- L1 (4K) (512 elements) ---
+
+    Raw pointer             :     0.20 ns/op  (+/-  0.07)
+    PolicyIterator          :     0.20 ns/op  (+/-  0.07)
+    Overhead ratio: 1.00x
+
+  --- L2 (32K) (4096 elements) ---
+
+    Raw pointer             :     0.20 ns/op  (+/-  0.01)
+    PolicyIterator          :     0.20 ns/op  (+/-  0.01)
+    Overhead ratio: 1.00x
+
+  --- L3 (512K) (65536 elements) ---
+
+    Raw pointer             :     0.19 ns/op  (+/-  0.00)
+    PolicyIterator          :     0.19 ns/op  (+/-  0.00)
+    Overhead ratio: 1.00x
+
+  --- RAM (8M) (1048576 elements) ---
+
+    Raw pointer             :     0.25 ns/op  (+/-  0.02)
+    PolicyIterator          :     0.26 ns/op  (+/-  0.01)
+    Overhead ratio: 1.01x
+
+
+================================================================================
+  BENCHMARK COMPLETE
+================================================================================
+
+[2026-02-01 19:23:13] Final state CPU: 2911 MHz (base: 3686)
