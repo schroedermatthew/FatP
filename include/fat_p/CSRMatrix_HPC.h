@@ -77,7 +77,7 @@ FATP_META:
  * - CacheUtilities.h (prefetching)
  * - CheckedArithmetic.h (overflow-safe arithmetic)
  *
- * Requires: C++17
+ * Requires: C++20
  */
 
 #include <algorithm>

@@ -171,8 +171,8 @@ public:
      * @param action The function object to execute on scope exit.
      */
     explicit ScopeGuard(F&& action) noexcept(std::is_nothrow_constructible_v<ActionStorage, F&&>)
-        : m_action_storage(std::forward<F>(action))
-        , m_execute(true)
+        : mActionStorage(std::forward<F>(action))
+        , mExecute(true)
     {
     }
 
@@ -191,8 +191,8 @@ public:
                   !(sizeof...(Args) == 1 &&
                     std::is_same_v<std::decay_t<std::tuple_element_t<0, std::tuple<Args...>>>, ScopeGuard>)>>
     explicit ScopeGuard(Args&&... args) noexcept(std::is_nothrow_constructible_v<ActionStorage, Args&&...>)
-        : m_action_storage(std::forward<Args>(args)...)
-        , m_execute(true)
+        : mActionStorage(std::forward<Args>(args)...)
+        , mExecute(true)
     {
     }
 
@@ -206,10 +206,10 @@ public:
      * @param other The source ScopeGuard to move from.
      */
     ScopeGuard(ScopeGuard&& other) noexcept(std::is_nothrow_move_constructible_v<ActionStorage>)
-        : m_action_storage(std::move(other.m_action_storage))
-        , m_execute(other.m_execute)
+        : mActionStorage(std::move(other.mActionStorage))
+        , mExecute(other.mExecute)
     {
-        other.m_execute = false;
+        other.mExecute = false;
     }
 
     /**
@@ -225,14 +225,14 @@ public:
     {
         if (this != &other)
         {
-            if (m_execute)
+            if (mExecute)
             {
-                ScopeGuardPolicyExecutor<ActionStorage, ThrowingPolicy>::execute(m_action_storage);
+                ScopeGuardPolicyExecutor<ActionStorage, ThrowingPolicy>::execute(mActionStorage);
             }
 
-            m_action_storage = std::move(other.m_action_storage);
-            m_execute = other.m_execute;
-            other.m_execute = false;
+            mActionStorage = std::move(other.mActionStorage);
+            mExecute = other.mExecute;
+            other.mExecute = false;
         }
         return *this;
     }
@@ -252,9 +252,9 @@ public:
      */
     ~ScopeGuard() noexcept(!std::is_same_v<ThrowingPolicy, ScopeGuardRethrowPolicy>)
     {
-        if (m_execute)
+        if (mExecute)
         {
-            ScopeGuardPolicyExecutor<ActionStorage, ThrowingPolicy>::execute(m_action_storage);
+            ScopeGuardPolicyExecutor<ActionStorage, ThrowingPolicy>::execute(mActionStorage);
         }
     }
 
@@ -267,7 +267,7 @@ public:
      */
     void dismiss() noexcept
     {
-        m_execute = false;
+        mExecute = false;
     }
 
     /**
@@ -281,7 +281,7 @@ public:
     {
         if (cond)
         {
-            m_execute = false;
+            mExecute = false;
         }
     }
 
@@ -292,12 +292,12 @@ public:
      */
     [[nodiscard]] bool is_active() const noexcept
     {
-        return m_execute;
+        return mExecute;
     }
 
 private:
-    ActionStorage m_action_storage;
-    bool m_execute;
+    ActionStorage mActionStorage;
+    bool mExecute;
 };
 
 /**
@@ -460,27 +460,27 @@ class ScopeGuardOnFail
 {
 public:
     explicit ScopeGuardOnFail(F&& action) noexcept(std::is_nothrow_move_constructible_v<F>)
-        : m_action(std::forward<F>(action))
-        , m_uncaught_exceptions(std::uncaught_exceptions())
-        , m_active(true)
+        : mAction(std::forward<F>(action))
+        , mUncaughtExceptions(std::uncaught_exceptions())
+        , mActive(true)
     {
     }
 
     ScopeGuardOnFail(ScopeGuardOnFail&& other) noexcept(std::is_nothrow_move_constructible_v<F>)
-        : m_action(std::move(other.m_action))
-        , m_uncaught_exceptions(other.m_uncaught_exceptions)
-        , m_active(other.m_active)
+        : mAction(std::move(other.mAction))
+        , mUncaughtExceptions(other.mUncaughtExceptions)
+        , mActive(other.mActive)
     {
-        other.m_active = false;
+        other.mActive = false;
     }
 
     ~ScopeGuardOnFail() noexcept
     {
-        if (m_active && std::uncaught_exceptions() > m_uncaught_exceptions)
+        if (mActive && std::uncaught_exceptions() > mUncaughtExceptions)
         {
             try
             {
-                m_action();
+                mAction();
             }
             catch (...)
             {
@@ -491,11 +491,11 @@ public:
 
     void dismiss() noexcept
     {
-        m_active = false;
+        mActive = false;
     }
     [[nodiscard]] bool is_active() const noexcept
     {
-        return m_active;
+        return mActive;
     }
 
     ScopeGuardOnFail(const ScopeGuardOnFail&) = delete;
@@ -512,11 +512,11 @@ public:
         if (this != &other)
         {
             // Execute current action if active and unwinding
-            if (m_active && std::uncaught_exceptions() > m_uncaught_exceptions)
+            if (mActive && std::uncaught_exceptions() > mUncaughtExceptions)
             {
                 try
                 {
-                    m_action();
+                    mAction();
                 }
                 catch (...)
                 {
@@ -524,18 +524,18 @@ public:
                 }
             }
 
-            m_action = std::move(other.m_action);
-            m_uncaught_exceptions = other.m_uncaught_exceptions;
-            m_active = other.m_active;
-            other.m_active = false;
+            mAction = std::move(other.mAction);
+            mUncaughtExceptions = other.mUncaughtExceptions;
+            mActive = other.mActive;
+            other.mActive = false;
         }
         return *this;
     }
 
 private:
-    F m_action;
-    int m_uncaught_exceptions;
-    bool m_active;
+    F mAction;
+    int mUncaughtExceptions;
+    bool mActive;
 };
 
 /**
@@ -560,27 +560,27 @@ class ScopeGuardOnSuccess
 {
 public:
     explicit ScopeGuardOnSuccess(F&& action) noexcept(std::is_nothrow_move_constructible_v<F>)
-        : m_action(std::forward<F>(action))
-        , m_uncaught_exceptions(std::uncaught_exceptions())
-        , m_active(true)
+        : mAction(std::forward<F>(action))
+        , mUncaughtExceptions(std::uncaught_exceptions())
+        , mActive(true)
     {
     }
 
     ScopeGuardOnSuccess(ScopeGuardOnSuccess&& other) noexcept(std::is_nothrow_move_constructible_v<F>)
-        : m_action(std::move(other.m_action))
-        , m_uncaught_exceptions(other.m_uncaught_exceptions)
-        , m_active(other.m_active)
+        : mAction(std::move(other.mAction))
+        , mUncaughtExceptions(other.mUncaughtExceptions)
+        , mActive(other.mActive)
     {
-        other.m_active = false;
+        other.mActive = false;
     }
 
     ~ScopeGuardOnSuccess() noexcept
     {
-        if (m_active && std::uncaught_exceptions() == m_uncaught_exceptions)
+        if (mActive && std::uncaught_exceptions() == mUncaughtExceptions)
         {
             try
             {
-                m_action();
+                mAction();
             }
             catch (...)
             {
@@ -591,11 +591,11 @@ public:
 
     void dismiss() noexcept
     {
-        m_active = false;
+        mActive = false;
     }
     [[nodiscard]] bool is_active() const noexcept
     {
-        return m_active;
+        return mActive;
     }
 
     ScopeGuardOnSuccess(const ScopeGuardOnSuccess&) = delete;
@@ -612,11 +612,11 @@ public:
         if (this != &other)
         {
             // Execute current action if active and NOT unwinding
-            if (m_active && std::uncaught_exceptions() == m_uncaught_exceptions)
+            if (mActive && std::uncaught_exceptions() == mUncaughtExceptions)
             {
                 try
                 {
-                    m_action();
+                    mAction();
                 }
                 catch (...)
                 {
@@ -624,18 +624,18 @@ public:
                 }
             }
 
-            m_action = std::move(other.m_action);
-            m_uncaught_exceptions = other.m_uncaught_exceptions;
-            m_active = other.m_active;
-            other.m_active = false;
+            mAction = std::move(other.mAction);
+            mUncaughtExceptions = other.mUncaughtExceptions;
+            mActive = other.mActive;
+            other.mActive = false;
         }
         return *this;
     }
 
 private:
-    F m_action;
-    int m_uncaught_exceptions;
-    bool m_active;
+    F mAction;
+    int mUncaughtExceptions;
+    bool mActive;
 };
 
 /**

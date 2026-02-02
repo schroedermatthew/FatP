@@ -145,105 +145,105 @@ public:
     using const_iterator = const_pointer;
 
     constexpr span() noexcept
-        : m_data(nullptr)
-        , m_size(0)
+        : mData(nullptr)
+        , mSize(0)
     {
     }
 
     constexpr span(pointer data, size_type size) noexcept
-        : m_data(data)
-        , m_size(size)
+        : mData(data)
+        , mSize(size)
     {
     }
 
     constexpr span(pointer first, pointer last) noexcept
-        : m_data(first)
-        , m_size(last - first)
+        : mData(first)
+        , mSize(last - first)
     {
     }
 
     constexpr reference operator[](size_type idx) const noexcept
     {
-        return m_data[idx];
+        return mData[idx];
     }
 
     constexpr reference at(size_type idx) const
     {
-        if (idx >= m_size)
+        if (idx >= mSize)
         {
             throw std::out_of_range("span::at: index out of bounds");
         }
-        return m_data[idx];
+        return mData[idx];
     }
 
     constexpr reference front() const noexcept
     {
-        return m_data[0];
+        return mData[0];
     }
 
     constexpr reference back() const noexcept
     {
-        return m_data[m_size - 1];
+        return mData[mSize - 1];
     }
 
     constexpr pointer data() const noexcept
     {
-        return m_data;
+        return mData;
     }
 
     constexpr size_type size() const noexcept
     {
-        return m_size;
+        return mSize;
     }
 
     constexpr size_type size_bytes() const noexcept
     {
-        return m_size * sizeof(T);
+        return mSize * sizeof(T);
     }
 
     constexpr bool empty() const noexcept
     {
-        return m_size == 0;
+        return mSize == 0;
     }
 
     constexpr iterator begin() const noexcept
     {
-        return m_data;
+        return mData;
     }
 
     constexpr iterator end() const noexcept
     {
-        return m_data + m_size;
+        return mData + mSize;
     }
 
     constexpr const_iterator cbegin() const noexcept
     {
-        return m_data;
+        return mData;
     }
 
     constexpr const_iterator cend() const noexcept
     {
-        return m_data + m_size;
+        return mData + mSize;
     }
 
     constexpr span first(size_type count) const noexcept
     {
-        return span(m_data, count);
+        return span(mData, count);
     }
 
     constexpr span last(size_type count) const noexcept
     {
-        return span(m_data + (m_size - count), count);
+        return span(mData + (mSize - count), count);
     }
 
     constexpr span subspan(size_type offset, size_type count) const noexcept
     {
-        return span(m_data + offset, count);
+        return span(mData + offset, count);
     }
 
 private:
-    pointer m_data;
-    size_type m_size;
+    pointer mData;
+    size_type mSize;
 };
 
 #else
@@ -367,14 +367,14 @@ private:
     bool open_posix(const std::string& filename, Mode mode);
 
     // Member variables - MUST BE AT END OF CLASS
-    void* m_data;
-    size_t m_size;
+    void* mData;
+    size_t mSize;
 
 #if FATP_PLATFORM_WINDOWS
-    HANDLE m_file_handle;
-    HANDLE m_map_handle;
+    HANDLE mFileHandle;
+    HANDLE mMapHandle;
 #else
-    int m_file_descriptor;
+    int mFileDescriptor;
 #endif
 };
 
@@ -383,13 +383,13 @@ private:
 // ============================================================================
 
 inline MemoryMappedFile::MemoryMappedFile() noexcept
-    : m_data(nullptr)
-    , m_size(0)
+    : mData(nullptr)
+    , mSize(0)
 #if FATP_PLATFORM_WINDOWS
-    , m_file_handle(INVALID_HANDLE_VALUE)
-    , m_map_handle(nullptr)
+    , mFileHandle(INVALID_HANDLE_VALUE)
+    , mMapHandle(nullptr)
 #else
-    , m_file_descriptor(-1)
+    , mFileDescriptor(-1)
 #endif
 {
 }
@@ -406,22 +406,22 @@ inline MemoryMappedFile::~MemoryMappedFile()
 }
 
 inline MemoryMappedFile::MemoryMappedFile(MemoryMappedFile&& other) noexcept
-    : m_data(other.m_data)
-    , m_size(other.m_size)
+    : mData(other.mData)
+    , mSize(other.mSize)
 #if FATP_PLATFORM_WINDOWS
-    , m_file_handle(other.m_file_handle)
-    , m_map_handle(other.m_map_handle)
+    , mFileHandle(other.mFileHandle)
+    , mMapHandle(other.mMapHandle)
 #else
-    , m_file_descriptor(other.m_file_descriptor)
+    , mFileDescriptor(other.mFileDescriptor)
 #endif
 {
-    other.m_data = nullptr;
-    other.m_size = 0;
+    other.mData = nullptr;
+    other.mSize = 0;
 #if FATP_PLATFORM_WINDOWS
-    other.m_file_handle = INVALID_HANDLE_VALUE;
-    other.m_map_handle = nullptr;
+    other.mFileHandle = INVALID_HANDLE_VALUE;
+    other.mMapHandle = nullptr;
 #else
-    other.m_file_descriptor = -1;
+    other.mFileDescriptor = -1;
 #endif
 }
 
@@ -431,22 +431,22 @@ inline MemoryMappedFile& MemoryMappedFile::operator=(MemoryMappedFile&& other) n
     {
         close();
 
-        m_data = other.m_data;
-        m_size = other.m_size;
+        mData = other.mData;
+        mSize = other.mSize;
 #if FATP_PLATFORM_WINDOWS
-        m_file_handle = other.m_file_handle;
-        m_map_handle = other.m_map_handle;
+        mFileHandle = other.mFileHandle;
+        mMapHandle = other.mMapHandle;
 #else
-        m_file_descriptor = other.m_file_descriptor;
+        mFileDescriptor = other.mFileDescriptor;
 #endif
 
-        other.m_data = nullptr;
-        other.m_size = 0;
+        other.mData = nullptr;
+        other.mSize = 0;
 #if FATP_PLATFORM_WINDOWS
-        other.m_file_handle = INVALID_HANDLE_VALUE;
-        other.m_map_handle = nullptr;
+        other.mFileHandle = INVALID_HANDLE_VALUE;
+        other.mMapHandle = nullptr;
 #else
-        other.m_file_descriptor = -1;
+        other.mFileDescriptor = -1;
 #endif
     }
     return *this;
@@ -473,34 +473,34 @@ inline bool MemoryMappedFile::open(const std::string& filename, Mode mode)
 
 inline void MemoryMappedFile::close() noexcept
 {
-    if (m_data)
+    if (mData)
     {
 #if FATP_PLATFORM_WINDOWS
-        UnmapViewOfFile(m_data);
+        UnmapViewOfFile(mData);
 #else
-        munmap(m_data, m_size);
+        munmap(mData, mSize);
 #endif
-        m_data = nullptr;
+        mData = nullptr;
     }
 
-    m_size = 0;
+    mSize = 0;
 
 #if FATP_PLATFORM_WINDOWS
-    if (m_map_handle)
+    if (mMapHandle)
     {
-        CloseHandle(m_map_handle);
-        m_map_handle = nullptr;
+        CloseHandle(mMapHandle);
+        mMapHandle = nullptr;
     }
-    if (m_file_handle != INVALID_HANDLE_VALUE)
+    if (mFileHandle != INVALID_HANDLE_VALUE)
     {
-        CloseHandle(m_file_handle);
-        m_file_handle = INVALID_HANDLE_VALUE;
+        CloseHandle(mFileHandle);
+        mFileHandle = INVALID_HANDLE_VALUE;
     }
 #else
-    if (m_file_descriptor >= 0)
+    if (mFileDescriptor >= 0)
     {
-        ::close(m_file_descriptor);
-        m_file_descriptor = -1;
+        ::close(mFileDescriptor);
+        mFileDescriptor = -1;
     }
 #endif
 }
@@ -508,71 +508,71 @@ inline void MemoryMappedFile::close() noexcept
 inline bool MemoryMappedFile::is_open() const noexcept
 {
 #if FATP_PLATFORM_WINDOWS
-    return m_file_handle != INVALID_HANDLE_VALUE;
+    return mFileHandle != INVALID_HANDLE_VALUE;
 #else
-    return m_file_descriptor >= 0;
+    return mFileDescriptor >= 0;
 #endif
 }
 
 inline void* MemoryMappedFile::data() noexcept
 {
-    return m_data;
+    return mData;
 }
 
 inline const void* MemoryMappedFile::data() const noexcept
 {
-    return m_data;
+    return mData;
 }
 
 inline size_t MemoryMappedFile::size() const noexcept
 {
-    return m_size;
+    return mSize;
 }
 
 template <typename T>
 inline fat_p::span<T> MemoryMappedFile::get_span() noexcept
 {
-    return fat_p::span<T>(static_cast<T*>(m_data), m_size / sizeof(T));
+    return fat_p::span<T>(static_cast<T*>(mData), mSize / sizeof(T));
 }
 
 template <typename T>
 inline fat_p::span<const T> MemoryMappedFile::get_span() const noexcept
 {
-    return fat_p::span<const T>(static_cast<const T*>(m_data), m_size / sizeof(T));
+    return fat_p::span<const T>(static_cast<const T*>(mData), mSize / sizeof(T));
 }
 
 inline void MemoryMappedFile::prefetch() const
 {
-    if (!m_data)
+    if (!mData)
     {
         return;
     }
 
 #if FATP_PLATFORM_WINDOWS
     WIN32_MEMORY_RANGE_ENTRY entry;
-    entry.VirtualAddress = m_data;
-    entry.NumberOfBytes = m_size;
+    entry.VirtualAddress = mData;
+    entry.NumberOfBytes = mSize;
     PrefetchVirtualMemory(GetCurrentProcess(), 1, &entry, 0);
 #elif defined(__linux__)
-    madvise(m_data, m_size, MADV_WILLNEED);
+    madvise(mData, mSize, MADV_WILLNEED);
 #endif
 }
 
 inline void MemoryMappedFile::flush(bool async)
 {
-    if (!m_data)
+    if (!mData)
     {
         return;
     }
 
 #if FATP_PLATFORM_WINDOWS
-    FlushViewOfFile(m_data, m_size);
+    FlushViewOfFile(mData, mSize);
     if (!async)
     {
-        FlushFileBuffers(m_file_handle);
+        FlushFileBuffers(mFileHandle);
     }
 #else
-    msync(m_data, m_size, async ? MS_ASYNC : MS_SYNC);
+    msync(mData, mSize, async ? MS_ASYNC : MS_SYNC);
 #endif
 }
 
@@ -584,23 +584,23 @@ inline bool MemoryMappedFile::open_windows(const std::string& filename, Mode mod
     DWORD share = FILE_SHARE_READ;
     DWORD creation = (mode == Mode::ReadOnly) ? OPEN_EXISTING : OPEN_ALWAYS;
 
-    m_file_handle = CreateFileA(filename.c_str(), access, share, nullptr, creation, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (m_file_handle == INVALID_HANDLE_VALUE)
+    mFileHandle = CreateFileA(filename.c_str(), access, share, nullptr, creation, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (mFileHandle == INVALID_HANDLE_VALUE)
     {
         return false;
     }
 
     // Get file size
     LARGE_INTEGER file_size;
-    if (!GetFileSizeEx(m_file_handle, &file_size))
+    if (!GetFileSizeEx(mFileHandle, &file_size))
     {
-        CloseHandle(m_file_handle);
-        m_file_handle = INVALID_HANDLE_VALUE;
+        CloseHandle(mFileHandle);
+        mFileHandle = INVALID_HANDLE_VALUE;
         return false;
     }
-    m_size = static_cast<size_t>(file_size.QuadPart);
+    mSize = static_cast<size_t>(file_size.QuadPart);
 
-    if (m_size == 0)
+    if (mSize == 0)
     {
         // Empty file
         return true;
@@ -610,23 +610,23 @@ inline bool MemoryMappedFile::open_windows(const std::string& filename, Mode mod
     DWORD protect = (mode == Mode::ReadOnly)  ? PAGE_READONLY
                     : (mode == Mode::Private) ? PAGE_WRITECOPY
                                               : PAGE_READWRITE;
-    m_map_handle = CreateFileMappingA(m_file_handle, nullptr, protect, 0, 0, nullptr);
-    if (!m_map_handle)
+    mMapHandle = CreateFileMappingA(mFileHandle, nullptr, protect, 0, 0, nullptr);
+    if (!mMapHandle)
     {
-        CloseHandle(m_file_handle);
-        m_file_handle = INVALID_HANDLE_VALUE;
+        CloseHandle(mFileHandle);
+        mFileHandle = INVALID_HANDLE_VALUE;
         return false;
     }
 
     // Map view
     DWORD map_access = (mode == Mode::ReadOnly) ? FILE_MAP_READ : FILE_MAP_WRITE;
-    m_data = MapViewOfFile(m_map_handle, map_access, 0, 0, m_size);
-    if (!m_data)
+    mData = MapViewOfFile(mMapHandle, map_access, 0, 0, mSize);
+    if (!mData)
     {
-        CloseHandle(m_map_handle);
-        CloseHandle(m_file_handle);
-        m_map_handle = nullptr;
-        m_file_handle = INVALID_HANDLE_VALUE;
+        CloseHandle(mMapHandle);
+        CloseHandle(mFileHandle);
+        mMapHandle = nullptr;
+        mFileHandle = INVALID_HANDLE_VALUE;
         return false;
     }
 
@@ -637,23 +637,23 @@ inline bool MemoryMappedFile::open_posix(const std::string& filename, Mode mode)
 {
     // Open file
     int flags = (mode == Mode::ReadOnly) ? O_RDONLY : O_RDWR;
-    m_file_descriptor = ::open(filename.c_str(), flags);
-    if (m_file_descriptor < 0)
+    mFileDescriptor = ::open(filename.c_str(), flags);
+    if (mFileDescriptor < 0)
     {
         return false;
     }
 
     // Get file size
     struct stat st;
-    if (fstat(m_file_descriptor, &st) < 0)
+    if (fstat(mFileDescriptor, &st) < 0)
     {
-        ::close(m_file_descriptor);
-        m_file_descriptor = -1;
+        ::close(mFileDescriptor);
+        mFileDescriptor = -1;
         return false;
     }
-    m_size = static_cast<size_t>(st.st_size);
+    mSize = static_cast<size_t>(st.st_size);
 
-    if (m_size == 0)
+    if (mSize == 0)
     {
         // Empty file
         return true;
@@ -663,12 +663,12 @@ inline bool MemoryMappedFile::open_posix(const std::string& filename, Mode mode)
     int prot = (mode == Mode::ReadOnly) ? PROT_READ : (PROT_READ | PROT_WRITE);
     int map_flags = (mode == Mode::Private) ? MAP_PRIVATE : MAP_SHARED;
 
-    m_data = mmap(nullptr, m_size, prot, map_flags, m_file_descriptor, 0);
-    if (m_data == MAP_FAILED)
+    mData = mmap(nullptr, mSize, prot, map_flags, mFileDescriptor, 0);
+    if (mData == MAP_FAILED)
     {
-        ::close(m_file_descriptor);
-        m_file_descriptor = -1;
-        m_data = nullptr;
+        ::close(mFileDescriptor);
+        mFileDescriptor = -1;
+        mData = nullptr;
         return false;
     }
 

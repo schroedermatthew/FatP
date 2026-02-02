@@ -31,12 +31,12 @@ FATP_META:
  * @brief Minimal thread-safe atomic wrapper for std::shared_ptr.
  *
  * @details Thin wrapper providing atomic operations on shared_ptr<T>.
- * Uses std::atomic<shared_ptr> on C++20, free functions on C++17.
+ * Uses std::atomic<shared_ptr> (C++20).
  *
  * This is an **atomic handle**, not an atomic object - atomicity applies
  * only to the pointer/control block, not to the managed object T.
  *
- * @note Requires C++17 minimum; C++20 for native wait/notify support.
+ * @note Requires C++20.
  * @author Fat-P Library
  * @version 1.0
  * @date 2025

@@ -264,33 +264,33 @@ public:
     {
         {
             auto read_lock = sync_policy_.lock_shared();
-            auto it = m_strings.find(str);
-            if (it != m_strings.end())
+            auto it = mStrings.find(str);
+            if (it != mStrings.end())
             {
-                detail::increment_stat(m_stats.total_interns);
-                detail::increment_stat(m_stats.memory_saved, str.size() + 1);
+                detail::increment_stat(mStats.total_interns);
+                detail::increment_stat(mStats.memory_saved, str.size() + 1);
                 return it->c_str();
             }
         }
 
         auto write_lock = sync_policy_.lock();
 
-        auto it = m_strings.find(str);
-        if (it != m_strings.end())
+        auto it = mStrings.find(str);
+        if (it != mStrings.end())
         {
-            detail::increment_stat(m_stats.total_interns);
-            detail::increment_stat(m_stats.memory_saved, str.size() + 1);
+            detail::increment_stat(mStats.total_interns);
+            detail::increment_stat(mStats.memory_saved, str.size() + 1);
             return it->c_str();
         }
 
-        auto [inserted_it, success] = m_strings.emplace(str);
+        auto [inserted_it, success] = mStrings.emplace(str);
 
         if (success)
         {
-            detail::increment_stat(m_stats.content_bytes, str.size() + 1);
+            detail::increment_stat(mStats.content_bytes, str.size() + 1);
         }
 
-        detail::increment_stat(m_stats.total_interns);
+        detail::increment_stat(mStats.total_interns);
 
         return inserted_it->c_str();
     }
@@ -327,7 +327,7 @@ public:
     bool contains(std::string_view str) const noexcept
     {
         auto lock = sync_policy_.lock_shared();
-        return m_strings.find(str) != m_strings.end();
+        return mStrings.find(str) != mStrings.end();
     }
 
     /**
@@ -338,8 +338,8 @@ public:
     const char* find(std::string_view str) const noexcept
     {
         auto lock = sync_policy_.lock_shared();
-        auto it = m_strings.find(str);
-        return (it != m_strings.end()) ? it->c_str() : nullptr;
+        auto it = mStrings.find(str);
+        return (it != mStrings.end()) ? it->c_str() : nullptr;
     }
 
     /**
@@ -348,7 +348,7 @@ public:
     size_t size() const noexcept
     {
         auto lock = sync_policy_.lock_shared();
-        return m_strings.size();
+        return mStrings.size();
     }
 
     /**
@@ -357,7 +357,7 @@ public:
     bool empty() const noexcept
     {
         auto lock = sync_policy_.lock_shared();
-        return m_strings.empty();
+        return mStrings.empty();
     }
 
     /**
@@ -380,7 +380,7 @@ public:
     void reserve(size_t n)
     {
         auto lock = sync_policy_.lock();
-        m_strings.reserve(n);
+        mStrings.reserve(n);
     }
 
     /**
@@ -391,10 +391,10 @@ public:
     void clear()
     {
         auto lock = sync_policy_.lock();
-        m_strings.clear();
-        detail::store_stat(m_stats.total_interns, 0);
-        detail::store_stat(m_stats.content_bytes, 0);
-        detail::store_stat(m_stats.memory_saved, 0);
+        mStrings.clear();
+        detail::store_stat(mStats.total_interns, 0);
+        detail::store_stat(mStats.content_bytes, 0);
+        detail::store_stat(mStats.memory_saved, 0);
     }
 
     /**
@@ -410,10 +410,10 @@ public:
 
         StringPoolStats result;
         // Query container directly for exact count under lock
-        result.unique_strings = m_strings.size();
-        result.total_interns = detail::load_stat(m_stats.total_interns);
-        result.content_bytes = detail::load_stat(m_stats.content_bytes);
-        result.memory_saved = detail::load_stat(m_stats.memory_saved);
+        result.unique_strings = mStrings.size();
+        result.total_interns = detail::load_stat(mStats.total_interns);
+        result.content_bytes = detail::load_stat(mStats.content_bytes);
+        result.memory_saved = detail::load_stat(mStats.memory_saved);
 
         if (result.total_interns > 0)
         {
@@ -433,13 +433,13 @@ public:
     void reset_stats()
     {
         auto lock = sync_policy_.lock();
-        detail::store_stat(m_stats.total_interns, m_strings.size());
+        detail::store_stat(mStats.total_interns, mStrings.size());
         // content_bytes is already accurate from incremental updates in intern()
-        detail::store_stat(m_stats.memory_saved, 0);
+        detail::store_stat(mStats.memory_saved, 0);
     }
 
 private:
-    detail::StringSet m_strings;
+    detail::StringSet mStrings;
 
     mutable SyncPolicy sync_policy_;
 
@@ -448,7 +448,7 @@ private:
         detail::StatType<SyncPolicy, size_t> total_interns{0};
         detail::StatType<SyncPolicy, size_t> content_bytes{0};
         detail::StatType<SyncPolicy, size_t> memory_saved{0};
-    } m_stats;
+    } mStats;
 };
 
 /**
@@ -465,43 +465,43 @@ class StringHandle
 {
 public:
     constexpr StringHandle() noexcept
-        : m_ptr(nullptr)
+        : mPtr(nullptr)
     {
     }
 
     constexpr StringHandle(const char* ptr) noexcept
-        : m_ptr(ptr)
+        : mPtr(ptr)
     {
     }
 
     const char* get() const noexcept
     {
-        return m_ptr;
+        return mPtr;
     }
 
     const char* c_str() const noexcept
     {
-        return m_ptr ? m_ptr : "";
+        return mPtr ? mPtr : "";
     }
 
     operator const char*() const noexcept
     {
-        return m_ptr;
+        return mPtr;
     }
 
     operator std::string_view() const noexcept
     {
-        return m_ptr ? std::string_view(m_ptr) : std::string_view();
+        return mPtr ? std::string_view(mPtr) : std::string_view();
     }
 
     bool operator==(const StringHandle& other) const noexcept
     {
-        return m_ptr == other.m_ptr;
+        return mPtr == other.mPtr;
     }
 
     bool operator!=(const StringHandle& other) const noexcept
     {
-        return m_ptr != other.m_ptr;
+        return mPtr != other.mPtr;
     }
 
     /**
@@ -523,16 +523,16 @@ public:
      */
     bool operator<(const StringHandle& other) const noexcept
     {
-        return std::less<const char*>{}(m_ptr, other.m_ptr);
+        return std::less<const char*>{}(mPtr, other.mPtr);
     }
 
     explicit operator bool() const noexcept
     {
-        return m_ptr != nullptr;
+        return mPtr != nullptr;
     }
 
 private:
-    const char* m_ptr;
+    const char* mPtr;
 };
 
 } // namespace fat_p

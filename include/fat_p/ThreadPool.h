@@ -115,27 +115,27 @@ public:
     ThreadPoolTask() = default;
 
     ThreadPoolTask(TaskFunction func, Priority pri = Priority::Normal)
-        : m_func(std::move(func))
-        , m_priority(pri)
-        , m_id(s_next_id.fetch_add(1, std::memory_order_relaxed))
+        : mFunc(std::move(func))
+        , mPriority(pri)
+        , mId(s_next_id.fetch_add(1, std::memory_order_relaxed))
     {
     }
 
     void execute() const
     {
-        if (m_func)
+        if (mFunc)
         {
-            m_func();
+            mFunc();
         }
     }
 
     Priority priority() const noexcept
     {
-        return m_priority;
+        return mPriority;
     }
     uint64_t id() const noexcept
     {
-        return m_id;
+        return mId;
     }
 
     /**
@@ -148,25 +148,25 @@ public:
      */
     bool operator<(const ThreadPoolTask& other) const noexcept
     {
-        if (m_priority != other.m_priority)
+        if (mPriority != other.mPriority)
         {
             // Lower enum value means lower priority
-            return static_cast<int>(m_priority) < static_cast<int>(other.m_priority);
+            return static_cast<int>(mPriority) < static_cast<int>(other.mPriority);
         }
         // FIFO: older tasks (smaller ID) should come first
         // So newer tasks (larger ID) are "less than" older tasks
-        return m_id > other.m_id;
+        return mId > other.mId;
     }
 
     explicit operator bool() const noexcept
     {
-        return static_cast<bool>(m_func);
+        return static_cast<bool>(mFunc);
     }
 
 private:
-    TaskFunction m_func;
-    Priority m_priority = Priority::Normal;
-    uint64_t m_id = 0;
+    TaskFunction mFunc;
+    Priority mPriority = Priority::Normal;
+    uint64_t mId = 0;
 
     static std::atomic<uint64_t> s_next_id;
 };
@@ -201,16 +201,16 @@ public:
     // Movable (mutex requires explicit handling)
     WorkStealingQueue(WorkStealingQueue&& other) noexcept
     {
-        std::lock_guard<std::mutex> lock(other.m_mutex);
-        m_tasks = std::move(other.m_tasks);
+        std::lock_guard<std::mutex> lock(other.mMutex);
+        mTasks = std::move(other.mTasks);
     }
 
     WorkStealingQueue& operator=(WorkStealingQueue&& other) noexcept
     {
         if (this != &other)
         {
-            std::scoped_lock lock(m_mutex, other.m_mutex);
-            m_tasks = std::move(other.m_tasks);
+            std::scoped_lock lock(mMutex, other.mMutex);
+            mTasks = std::move(other.mTasks);
         }
         return *this;
     }
@@ -220,8 +220,8 @@ public:
      */
     void push(ThreadPoolTask task)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_tasks.push_back(std::move(task));
+        std::lock_guard<std::mutex> lock(mMutex);
+        mTasks.push_back(std::move(task));
     }
 
     /**
@@ -230,13 +230,13 @@ public:
      */
     bool pop(ThreadPoolTask& task)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_tasks.empty())
+        std::lock_guard<std::mutex> lock(mMutex);
+        if (mTasks.empty())
         {
             return false;
         }
-        task = std::move(m_tasks.back());
-        m_tasks.pop_back();
+        task = std::move(mTasks.back());
+        mTasks.pop_back();
         return true;
     }
 
@@ -248,13 +248,13 @@ public:
      */
     bool steal(ThreadPoolTask& task)
     {
-        std::unique_lock<std::mutex> lock(m_mutex, std::try_to_lock);
-        if (!lock.owns_lock() || m_tasks.empty())
+        std::unique_lock<std::mutex> lock(mMutex, std::try_to_lock);
+        if (!lock.owns_lock() || mTasks.empty())
         {
             return false;
         }
-        task = std::move(m_tasks.front());
-        m_tasks.pop_front();
+        task = std::move(mTasks.front());
+        mTasks.pop_front();
         return true;
     }
 
@@ -264,8 +264,8 @@ public:
      */
     bool empty() const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        return m_tasks.empty();
+        std::lock_guard<std::mutex> lock(mMutex);
+        return mTasks.empty();
     }
 
     /**
@@ -274,13 +274,13 @@ public:
      */
     size_t size() const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        return m_tasks.size();
+        std::lock_guard<std::mutex> lock(mMutex);
+        return mTasks.size();
     }
 
 private:
-    std::deque<ThreadPoolTask> m_tasks;
-    mutable std::mutex m_mutex;
+    std::deque<ThreadPoolTask> mTasks;
+    mutable std::mutex mMutex;
 };
 
 // ============================================================================
@@ -325,8 +325,8 @@ public:
      * @param spin_us Microseconds to spin before sleeping (default: 2000)
      */
     explicit ThreadPool(size_t num_threads = 0, size_t spin_us = 2000)
-        : m_stop(false)
-        , m_spin_duration(std::chrono::microseconds(spin_us))
+        : mStop(false)
+        , mSpinDuration(std::chrono::microseconds(spin_us))
     {
         if (num_threads == 0)
         {
@@ -337,12 +337,12 @@ public:
             }
         }
 
-        m_num_threads = num_threads;
-        m_worker_queues.resize(num_threads);
+        mNumThreads = num_threads;
+        mWorkerQueues.resize(num_threads);
 
         for (size_t i = 0; i < num_threads; ++i)
         {
-            m_workers.emplace_back([this, i]() {
+            mWorkers.emplace_back([this, i]() {
                 worker_thread(i);
             });
         }
@@ -428,17 +428,17 @@ public:
         }
 
         {
-            std::lock_guard<std::mutex> lock(m_global_mutex);
+            std::lock_guard<std::mutex> lock(mGlobalMutex);
             for (const auto& func : tasks)
             {
                 if (func)
                 {
-                    m_global_queue.emplace(func, Priority::Normal);
-                    m_pending_tasks.fetch_add(1, std::memory_order_relaxed);
+                    mGlobalQueue.emplace(func, Priority::Normal);
+                    mPendingTasks.fetch_add(1, std::memory_order_relaxed);
                 }
             }
         }
-        m_global_cv.notify_all();
+        mGlobalCv.notify_all();
     }
 
     /**
@@ -446,7 +446,7 @@ public:
      */
     size_t thread_count() const noexcept
     {
-        return m_num_threads;
+        return mNumThreads;
     }
 
     /**
@@ -454,7 +454,7 @@ public:
      */
     size_t pending_tasks() const noexcept
     {
-        return m_pending_tasks.load(std::memory_order_acquire);
+        return mPendingTasks.load(std::memory_order_acquire);
     }
 
     /**
@@ -462,7 +462,7 @@ public:
      */
     size_t active_tasks() const noexcept
     {
-        return m_active_tasks.load(std::memory_order_acquire);
+        return mActiveTasks.load(std::memory_order_acquire);
     }
 
     /**
@@ -477,7 +477,7 @@ public:
      */
     bool is_shutdown() const noexcept
     {
-        return m_stop.load(std::memory_order_acquire);
+        return mStop.load(std::memory_order_acquire);
     }
 
     /**
@@ -485,7 +485,7 @@ public:
      */
     size_t exception_count() const noexcept
     {
-        return m_exception_count.load(std::memory_order_acquire);
+        return mExceptionCount.load(std::memory_order_acquire);
     }
 
     /**
@@ -496,10 +496,10 @@ public:
      */
     void wait_idle()
     {
-        std::unique_lock<std::mutex> lock(m_idle_mutex);
-        m_idle_cv.wait(lock, [this]() {
-            return m_pending_tasks.load(std::memory_order_acquire) == 0 &&
-                   m_active_tasks.load(std::memory_order_acquire) == 0;
+        std::unique_lock<std::mutex> lock(mIdle_mutex);
+        mIdle_cv.wait(lock, [this]() {
+            return mPendingTasks.load(std::memory_order_acquire) == 0 &&
+                   mActiveTasks.load(std::memory_order_acquire) == 0;
         });
     }
 
@@ -516,12 +516,12 @@ public:
     void shutdown()
     {
         bool expected = false;
-        if (m_stop.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
+        if (mStop.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
         {
             // Wake all workers to check stop flag
-            m_global_cv.notify_all();
+            mGlobalCv.notify_all();
 
-            for (auto& worker : m_workers)
+            for (auto& worker : mWorkers)
             {
                 if (worker.joinable())
                 {
@@ -531,8 +531,8 @@ public:
 
             // Notify any threads waiting on idle
             {
-                std::lock_guard<std::mutex> lock(m_idle_mutex);
-                m_idle_cv.notify_all();
+                std::lock_guard<std::mutex> lock(mIdle_mutex);
+                mIdle_cv.notify_all();
             }
         }
     }
@@ -543,27 +543,27 @@ private:
      */
     void enqueue_task(ThreadPoolTask task, Priority priority, bool notify)
     {
-        m_pending_tasks.fetch_add(1, std::memory_order_relaxed);
+        mPendingTasks.fetch_add(1, std::memory_order_relaxed);
 
         if (priority >= Priority::High)
         {
             // High/Critical goes to global queue for immediate visibility
-            std::lock_guard<std::mutex> lock(m_global_mutex);
-            m_global_queue.push(std::move(task));
+            std::lock_guard<std::mutex> lock(mGlobalMutex);
+            mGlobalQueue.push(std::move(task));
             if (notify)
             {
-                m_global_cv.notify_one();
+                mGlobalCv.notify_one();
             }
         }
         else
         {
             // Normal/Low goes to per-thread queue (round-robin)
-            size_t idx = m_next_queue.fetch_add(1, std::memory_order_relaxed) % m_num_threads;
-            m_worker_queues[idx].queue.push(std::move(task));
+            size_t idx = mNextQueue.fetch_add(1, std::memory_order_relaxed) % mNumThreads;
+            mWorkerQueues[idx].queue.push(std::move(task));
             if (notify)
             {
-                std::lock_guard<std::mutex> lock(m_global_mutex);
-                m_global_cv.notify_one();
+                std::lock_guard<std::mutex> lock(mGlobalMutex);
+                mGlobalCv.notify_one();
             }
         }
     }
@@ -577,7 +577,7 @@ private:
      * 3. Steal from other threads (load balancing)
      *
      * Idle strategy:
-     * 1. Spin for m_spin_duration (low latency)
+     * 1. Spin for mSpinDuration (low latency)
      * 2. Sleep on condition variable (CPU-friendly)
      */
     void worker_thread(size_t thread_idx)
@@ -589,7 +589,7 @@ private:
             bool got_task = false;
 
             // 1. Try local queue first (best cache locality)
-            if (m_worker_queues[thread_idx].queue.pop(task))
+            if (mWorkerQueues[thread_idx].queue.pop(task))
             {
                 got_task = true;
             }
@@ -609,8 +609,8 @@ private:
                 // Transition: pending -> active
                 // CRITICAL: Increment active BEFORE decrementing pending to prevent
                 // wait_idle() from seeing (pending==0 && active==0) while task is in-flight
-                m_active_tasks.fetch_add(1, std::memory_order_relaxed);
-                m_pending_tasks.fetch_sub(1, std::memory_order_relaxed);
+                mActiveTasks.fetch_add(1, std::memory_order_relaxed);
+                mPendingTasks.fetch_sub(1, std::memory_order_relaxed);
 
                 try
                 {
@@ -621,38 +621,38 @@ private:
                     // Count exceptions for diagnostics; keep worker alive
                     // Note: User exceptions are captured by packaged_task,
                     // this catches wrapper/infrastructure exceptions
-                    m_exception_count.fetch_add(1, std::memory_order_relaxed);
+                    mExceptionCount.fetch_add(1, std::memory_order_relaxed);
                 }
 
-                m_active_tasks.fetch_sub(1, std::memory_order_relaxed);
+                mActiveTasks.fetch_sub(1, std::memory_order_relaxed);
 
                 // Signal idle waiters if pool may be idle
-                if (m_pending_tasks.load(std::memory_order_acquire) == 0 &&
-                    m_active_tasks.load(std::memory_order_acquire) == 0)
+                if (mPendingTasks.load(std::memory_order_acquire) == 0 &&
+                    mActiveTasks.load(std::memory_order_acquire) == 0)
                 {
-                    std::lock_guard<std::mutex> lock(m_idle_mutex);
-                    m_idle_cv.notify_all();
+                    std::lock_guard<std::mutex> lock(mIdle_mutex);
+                    mIdle_cv.notify_all();
                 }
             }
             else
             {
                 // No work available
-                if (m_stop.load(std::memory_order_acquire))
+                if (mStop.load(std::memory_order_acquire))
                 {
                     break;
                 }
 
                 // PHASE 1: Spin-wait for low latency
-                if (m_spin_duration.count() > 0)
+                if (mSpinDuration.count() > 0)
                 {
                     auto spin_start = std::chrono::steady_clock::now();
                     bool found_work = false;
 
-                    while (std::chrono::steady_clock::now() - spin_start < m_spin_duration)
+                    while (std::chrono::steady_clock::now() - spin_start < mSpinDuration)
                     {
                         // Check without locking: local queue + atomic pending count
-                        if (m_pending_tasks.load(std::memory_order_acquire) > 0 ||
-                            m_stop.load(std::memory_order_acquire))
+                        if (mPendingTasks.load(std::memory_order_acquire) > 0 ||
+                            mStop.load(std::memory_order_acquire))
                         {
                             found_work = true;
                             break;
@@ -667,10 +667,10 @@ private:
                 }
 
                 // PHASE 2: OS wait (CPU-friendly for extended idle)
-                std::unique_lock<std::mutex> lock(m_global_mutex);
-                m_global_cv.wait_for(lock, std::chrono::milliseconds(10), [this]() {
-                    return m_stop.load(std::memory_order_acquire) ||
-                           m_pending_tasks.load(std::memory_order_acquire) > 0;
+                std::unique_lock<std::mutex> lock(mGlobalMutex);
+                mGlobalCv.wait_for(lock, std::chrono::milliseconds(10), [this]() {
+                    return mStop.load(std::memory_order_acquire) ||
+                           mPendingTasks.load(std::memory_order_acquire) > 0;
                 });
             }
         }
@@ -684,16 +684,16 @@ private:
      */
     bool try_pop_global(ThreadPoolTask& task)
     {
-        std::lock_guard<std::mutex> lock(m_global_mutex);
-        if (m_global_queue.empty())
+        std::lock_guard<std::mutex> lock(mGlobalMutex);
+        if (mGlobalQueue.empty())
         {
             return false;
         }
 
         // Move from top() - safe because we pop immediately
         // std::priority_queue::top() returns const&, but we own the container
-        task = std::move(const_cast<ThreadPoolTask&>(m_global_queue.top()));
-        m_global_queue.pop();
+        task = std::move(const_cast<ThreadPoolTask&>(mGlobalQueue.top()));
+        mGlobalQueue.pop();
         return true;
     }
 
@@ -711,18 +711,18 @@ private:
                                                                    std::this_thread::get_id())));
 
         // Resize if thread pool size changed (supports multiple pools per thread)
-        if (victims.size() != m_num_threads)
+        if (victims.size() != mNumThreads)
         {
-            victims.resize(m_num_threads);
+            victims.resize(mNumThreads);
             std::iota(victims.begin(), victims.end(), 0);
         }
 
         // Fisher-Yates shuffle for random but exhaustive search
         std::shuffle(victims.begin(), victims.end(), rng);
 
-        for (size_t victim_idx : victims)
+        for (size_t victimIdx : victims)
         {
-            if (victim_idx != my_idx && m_worker_queues[victim_idx].queue.steal(task))
+            if (victimIdx != my_idx && mWorkerQueues[victimIdx].queue.steal(task))
             {
                 return true;
             }
@@ -735,36 +735,36 @@ private:
     // ========================================================================
 
     // Shutdown flag
-    std::atomic<bool> m_stop;
+    std::atomic<bool> mStop;
 
     // Thread count (immutable after construction)
-    size_t m_num_threads{0};
+    size_t mNumThreads{0};
 
     // Round-robin counter for local queue assignment
-    std::atomic<size_t> m_next_queue{0};
+    std::atomic<size_t> mNextQueue{0};
 
     // Task accounting (for wait_idle and diagnostics)
-    std::atomic<size_t> m_pending_tasks{0};   // Tasks in queues
-    std::atomic<size_t> m_active_tasks{0};    // Tasks executing
-    std::atomic<size_t> m_exception_count{0}; // Unhandled exceptions
+    std::atomic<size_t> mPendingTasks{0};   // Tasks in queues
+    std::atomic<size_t> mActiveTasks{0};    // Tasks executing
+    std::atomic<size_t> mExceptionCount{0}; // Unhandled exceptions
 
     // Spin duration before sleeping
-    std::chrono::microseconds m_spin_duration;
+    std::chrono::microseconds mSpinDuration;
 
     // Worker threads
-    std::vector<std::thread> m_workers;
+    std::vector<std::thread> mWorkers;
 
     // Per-thread work queues (cache-line aligned)
-    std::vector<AlignedQueue> m_worker_queues;
+    std::vector<AlignedQueue> mWorkerQueues;
 
     // Global priority queue for High/Critical tasks
-    std::priority_queue<ThreadPoolTask> m_global_queue;
-    mutable std::mutex m_global_mutex;
-    std::condition_variable m_global_cv;
+    std::priority_queue<ThreadPoolTask> mGlobalQueue;
+    mutable std::mutex mGlobalMutex;
+    std::condition_variable mGlobalCv;
 
     // Dedicated CV for wait_idle (prevents TOCTOU race)
-    std::mutex m_idle_mutex;
-    std::condition_variable m_idle_cv;
+    std::mutex mIdle_mutex;
+    std::condition_variable mIdle_cv;
 };
 
 } // namespace fat_p

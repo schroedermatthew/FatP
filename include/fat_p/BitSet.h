@@ -41,9 +41,9 @@ FATP_META:
  * - STL-compatible iterator over set bits
  * - Unchecked accessors for HPC inner loops
  *
- * Compilation: Requires C++17
- * - g++ -std=c++17 -O3 -mpopcnt your_code.cpp
- * - cl /std:c++17 /O2 your_code.cpp
+ * Compilation: Requires C++20
+ * - g++ -std=c++20 -O3 -mpopcnt your_code.cpp
+ * - cl /std:c++20 /O2 your_code.cpp
  */
 
 #include <array>
@@ -235,19 +235,19 @@ public:
         using reference = size_t;
 
         Iterator(const BitSet* bitset, size_t pos) noexcept
-            : m_bitset(bitset)
-            , m_pos(pos)
+            : mBitset(bitset)
+            , mPos(pos)
         {
         }
 
         size_t operator*() const noexcept
         {
-            return m_pos;
+            return mPos;
         }
 
         Iterator& operator++() noexcept
         {
-            m_pos = m_bitset->find_next(m_pos);
+            mPos = mBitset->find_next(mPos);
             return *this;
         }
 
@@ -260,7 +260,7 @@ public:
 
         bool operator==(const Iterator& other) const noexcept
         {
-            return (m_bitset == other.m_bitset) && (m_pos == other.m_pos);
+            return (mBitset == other.mBitset) && (mPos == other.mPos);
         }
 
         bool operator!=(const Iterator& other) const noexcept
@@ -269,8 +269,8 @@ public:
         }
 
     private:
-        const BitSet* m_bitset;
-        size_t m_pos;
+        const BitSet* mBitset;
+        size_t mPos;
     };
 
     using iterator = Iterator;
@@ -280,7 +280,7 @@ public:
      * @brief Construct bit set with all bits cleared
      */
     constexpr BitSet() noexcept
-        : m_words{}
+        : mWords{}
     {
     }
 
@@ -290,7 +290,7 @@ public:
      * @throws std::out_of_range if any index >= N
      */
     BitSet(std::initializer_list<size_t> indices)
-        : m_words{}
+        : mWords{}
     {
         for (size_t idx : indices)
         {
@@ -387,7 +387,7 @@ public:
      */
     void set_unchecked(size_t index) noexcept
     {
-        m_words[index / BITS_PER_WORD] |= (1ULL << (index % BITS_PER_WORD));
+        mWords[index / BITS_PER_WORD] |= (1ULL << (index % BITS_PER_WORD));
     }
 
     /**
@@ -396,7 +396,7 @@ public:
      */
     void clear_unchecked(size_t index) noexcept
     {
-        m_words[index / BITS_PER_WORD] &= ~(1ULL << (index % BITS_PER_WORD));
+        mWords[index / BITS_PER_WORD] &= ~(1ULL << (index % BITS_PER_WORD));
     }
 
     /**
@@ -405,7 +405,7 @@ public:
      */
     void flip_unchecked(size_t index) noexcept
     {
-        m_words[index / BITS_PER_WORD] ^= (1ULL << (index % BITS_PER_WORD));
+        mWords[index / BITS_PER_WORD] ^= (1ULL << (index % BITS_PER_WORD));
     }
 
     /**
@@ -415,7 +415,7 @@ public:
      */
     [[nodiscard]] bool test_unchecked(size_t index) const noexcept
     {
-        return (m_words[index / BITS_PER_WORD] & (1ULL << (index % BITS_PER_WORD))) != 0;
+        return (mWords[index / BITS_PER_WORD] & (1ULL << (index % BITS_PER_WORD))) != 0;
     }
 
     /**
@@ -439,9 +439,9 @@ public:
     {
         for (size_t i = 0; i < NUM_WORDS - 1; ++i)
         {
-            m_words[i] = ~0ULL;
+            mWords[i] = ~0ULL;
         }
-        m_words[NUM_WORDS - 1] = LAST_WORD_MASK;
+        mWords[NUM_WORDS - 1] = LAST_WORD_MASK;
     }
 
     /**
@@ -451,7 +451,7 @@ public:
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            m_words[i] = 0;
+            mWords[i] = 0;
         }
     }
 
@@ -462,9 +462,9 @@ public:
     {
         for (size_t i = 0; i < NUM_WORDS - 1; ++i)
         {
-            m_words[i] = ~m_words[i];
+            mWords[i] = ~mWords[i];
         }
-        m_words[NUM_WORDS - 1] = (~m_words[NUM_WORDS - 1]) & LAST_WORD_MASK;
+        mWords[NUM_WORDS - 1] = (~mWords[NUM_WORDS - 1]) & LAST_WORD_MASK;
     }
 
     /**
@@ -517,16 +517,16 @@ public:
         if (start_word == end_word)
         {
             uint64_t mask = detail::mask_up_to(end_bit) & detail::mask_from(start_bit);
-            m_words[start_word] |= mask;
+            mWords[start_word] |= mask;
         }
         else
         {
-            m_words[start_word] |= detail::mask_from(start_bit);
+            mWords[start_word] |= detail::mask_from(start_bit);
             for (size_t i = start_word + 1; i < end_word; ++i)
             {
-                m_words[i] = ~0ULL;
+                mWords[i] = ~0ULL;
             }
-            m_words[end_word] |= detail::mask_up_to(end_bit);
+            mWords[end_word] |= detail::mask_up_to(end_bit);
         }
     }
 
@@ -555,16 +555,16 @@ public:
         if (start_word == end_word)
         {
             uint64_t mask = detail::mask_up_to(end_bit) & detail::mask_from(start_bit);
-            m_words[start_word] &= ~mask;
+            mWords[start_word] &= ~mask;
         }
         else
         {
-            m_words[start_word] &= ~detail::mask_from(start_bit);
+            mWords[start_word] &= ~detail::mask_from(start_bit);
             for (size_t i = start_word + 1; i < end_word; ++i)
             {
-                m_words[i] = 0;
+                mWords[i] = 0;
             }
-            m_words[end_word] &= ~detail::mask_up_to(end_bit);
+            mWords[end_word] &= ~detail::mask_up_to(end_bit);
         }
     }
 
@@ -593,23 +593,23 @@ public:
         if (start_word == end_word)
         {
             uint64_t mask = detail::mask_up_to(end_bit) & detail::mask_from(start_bit);
-            m_words[start_word] ^= mask;
+            mWords[start_word] ^= mask;
         }
         else
         {
-            m_words[start_word] ^= detail::mask_from(start_bit);
+            mWords[start_word] ^= detail::mask_from(start_bit);
             for (size_t i = start_word + 1; i < end_word; ++i)
             {
-                m_words[i] = ~m_words[i];
+                mWords[i] = ~mWords[i];
             }
-            m_words[end_word] ^= detail::mask_up_to(end_bit);
+            mWords[end_word] ^= detail::mask_up_to(end_bit);
         }
 
         if constexpr (LAST_WORD_BITS != 0)
         {
             if (end_word == NUM_WORDS - 1)
             {
-                m_words[NUM_WORDS - 1] &= LAST_WORD_MASK;
+                mWords[NUM_WORDS - 1] &= LAST_WORD_MASK;
             }
         }
     }
@@ -640,15 +640,15 @@ public:
         if (start_word == end_word)
         {
             uint64_t mask = detail::mask_up_to(end_bit) & detail::mask_from(start_bit);
-            return detail::popcnt64(m_words[start_word] & mask);
+            return detail::popcnt64(mWords[start_word] & mask);
         }
 
-        size_t cnt = detail::popcnt64(m_words[start_word] & detail::mask_from(start_bit));
+        size_t cnt = detail::popcnt64(mWords[start_word] & detail::mask_from(start_bit));
         for (size_t i = start_word + 1; i < end_word; ++i)
         {
-            cnt += detail::popcnt64(m_words[i]);
+            cnt += detail::popcnt64(mWords[i]);
         }
-        cnt += detail::popcnt64(m_words[end_word] & detail::mask_up_to(end_bit));
+        cnt += detail::popcnt64(mWords[end_word] & detail::mask_up_to(end_bit));
         return cnt;
     }
 
@@ -669,7 +669,7 @@ public:
         size_t total = 0;
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            total += detail::popcnt64(m_words[i]);
+            total += detail::popcnt64(mWords[i]);
         }
         return total;
     }
@@ -681,7 +681,7 @@ public:
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            if (m_words[i] != 0)
+            if (mWords[i] != 0)
             {
                 return true;
             }
@@ -704,12 +704,12 @@ public:
     {
         for (size_t i = 0; i < NUM_WORDS - 1; ++i)
         {
-            if (m_words[i] != ~0ULL)
+            if (mWords[i] != ~0ULL)
             {
                 return false;
             }
         }
-        return m_words[NUM_WORDS - 1] == LAST_WORD_MASK;
+        return mWords[NUM_WORDS - 1] == LAST_WORD_MASK;
     }
 
     /**
@@ -759,7 +759,7 @@ public:
             }
         }
 
-        return static_cast<unsigned long>(m_words[0]);
+        return static_cast<unsigned long>(mWords[0]);
     }
 
     /**
@@ -782,7 +782,7 @@ public:
             }
         }
 
-        return static_cast<unsigned long long>(m_words[0]);
+        return static_cast<unsigned long long>(mWords[0]);
     }
 
     // ========================================================================
@@ -797,9 +797,9 @@ public:
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            if (m_words[i] != 0)
+            if (mWords[i] != 0)
             {
-                size_t idx = i * BITS_PER_WORD + detail::ctz64(m_words[i]);
+                size_t idx = i * BITS_PER_WORD + detail::ctz64(mWords[i]);
                 return (idx < N) ? idx : N;
             }
         }
@@ -822,7 +822,7 @@ public:
         size_t word_idx = after / BITS_PER_WORD;
         size_t bit_offset = after % BITS_PER_WORD;
 
-        uint64_t word = m_words[word_idx] & detail::mask_from(bit_offset);
+        uint64_t word = mWords[word_idx] & detail::mask_from(bit_offset);
         if (word != 0)
         {
             size_t idx = word_idx * BITS_PER_WORD + detail::ctz64(word);
@@ -831,9 +831,9 @@ public:
 
         for (size_t i = word_idx + 1; i < NUM_WORDS; ++i)
         {
-            if (m_words[i] != 0)
+            if (mWords[i] != 0)
             {
-                size_t idx = i * BITS_PER_WORD + detail::ctz64(m_words[i]);
+                size_t idx = i * BITS_PER_WORD + detail::ctz64(mWords[i]);
                 return (idx < N) ? idx : N;
             }
         }
@@ -849,9 +849,9 @@ public:
     {
         for (size_t i = NUM_WORDS; i-- > 0;)
         {
-            if (m_words[i] != 0)
+            if (mWords[i] != 0)
             {
-                size_t bit_pos = 63 - detail::clz64(m_words[i]);
+                size_t bit_pos = 63 - detail::clz64(mWords[i]);
                 size_t idx = i * BITS_PER_WORD + bit_pos;
                 return (idx < N) ? idx : N;
             }
@@ -876,7 +876,7 @@ public:
         const size_t word_idx = before / BITS_PER_WORD;
         const size_t bit_offset = before % BITS_PER_WORD;
 
-        uint64_t word = m_words[word_idx] & detail::mask_up_to(bit_offset);
+        uint64_t word = mWords[word_idx] & detail::mask_up_to(bit_offset);
         if (word != 0)
         {
             return word_idx * BITS_PER_WORD + (63 - detail::clz64(word));
@@ -884,9 +884,9 @@ public:
 
         for (size_t i = word_idx; i-- > 0;)
         {
-            if (m_words[i] != 0)
+            if (mWords[i] != 0)
             {
-                return i * BITS_PER_WORD + (63 - detail::clz64(m_words[i]));
+                return i * BITS_PER_WORD + (63 - detail::clz64(mWords[i]));
             }
         }
 
@@ -901,13 +901,13 @@ public:
     {
         for (size_t i = 0; i < NUM_WORDS - 1; ++i)
         {
-            if (m_words[i] != ~0ULL)
+            if (mWords[i] != ~0ULL)
             {
-                return i * BITS_PER_WORD + detail::ctz64(~m_words[i]);
+                return i * BITS_PER_WORD + detail::ctz64(~mWords[i]);
             }
         }
 
-        const uint64_t last_inverted = ~m_words[NUM_WORDS - 1] & LAST_WORD_MASK;
+        const uint64_t last_inverted = ~mWords[NUM_WORDS - 1] & LAST_WORD_MASK;
         if (last_inverted != 0)
         {
             const size_t idx = (NUM_WORDS - 1) * BITS_PER_WORD + detail::ctz64(last_inverted);
@@ -933,7 +933,7 @@ public:
         const size_t word_idx = after / BITS_PER_WORD;
         const size_t bit_offset = after % BITS_PER_WORD;
 
-        uint64_t word = ~m_words[word_idx] & detail::mask_from(bit_offset);
+        uint64_t word = ~mWords[word_idx] & detail::mask_from(bit_offset);
         if (word_idx == NUM_WORDS - 1)
         {
             word &= LAST_WORD_MASK;
@@ -947,15 +947,15 @@ public:
 
         for (size_t i = word_idx + 1; i < NUM_WORDS - 1; ++i)
         {
-            if (m_words[i] != ~0ULL)
+            if (mWords[i] != ~0ULL)
             {
-                return i * BITS_PER_WORD + detail::ctz64(~m_words[i]);
+                return i * BITS_PER_WORD + detail::ctz64(~mWords[i]);
             }
         }
 
         if (word_idx < NUM_WORDS - 1)
         {
-            const uint64_t last_inverted = ~m_words[NUM_WORDS - 1] & LAST_WORD_MASK;
+            const uint64_t last_inverted = ~mWords[NUM_WORDS - 1] & LAST_WORD_MASK;
             if (last_inverted != 0)
             {
                 const size_t idx = (NUM_WORDS - 1) * BITS_PER_WORD + detail::ctz64(last_inverted);
@@ -972,7 +972,7 @@ public:
      */
     [[nodiscard]] size_t find_last_zero() const noexcept
     {
-        const uint64_t last_inverted = ~m_words[NUM_WORDS - 1] & LAST_WORD_MASK;
+        const uint64_t last_inverted = ~mWords[NUM_WORDS - 1] & LAST_WORD_MASK;
         if (last_inverted != 0)
         {
             const size_t bit_pos = 63 - detail::clz64(last_inverted);
@@ -982,9 +982,9 @@ public:
 
         for (size_t i = NUM_WORDS - 1; i-- > 0;)
         {
-            if (m_words[i] != ~0ULL)
+            if (mWords[i] != ~0ULL)
             {
-                const size_t bit_pos = 63 - detail::clz64(~m_words[i]);
+                const size_t bit_pos = 63 - detail::clz64(~mWords[i]);
                 return i * BITS_PER_WORD + bit_pos;
             }
         }
@@ -1005,7 +1005,7 @@ public:
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            if ((m_words[i] & ~other.m_words[i]) != 0)
+            if ((mWords[i] & ~other.mWords[i]) != 0)
             {
                 return false;
             }
@@ -1022,7 +1022,7 @@ public:
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            if ((m_words[i] & other.m_words[i]) != 0)
+            if ((mWords[i] & other.mWords[i]) != 0)
             {
                 return true;
             }
@@ -1038,7 +1038,7 @@ public:
         size_t dist = 0;
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            dist += detail::popcnt64(m_words[i] ^ other.m_words[i]);
+            dist += detail::popcnt64(mWords[i] ^ other.mWords[i]);
         }
         return dist;
     }
@@ -1068,9 +1068,9 @@ public:
         BitSet result;
         for (size_t i = 0; i < NUM_WORDS - 1; ++i)
         {
-            result.m_words[i] = ~m_words[i];
+            result.mWords[i] = ~mWords[i];
         }
-        result.m_words[NUM_WORDS - 1] = (~m_words[NUM_WORDS - 1]) & LAST_WORD_MASK;
+        result.mWords[NUM_WORDS - 1] = (~mWords[NUM_WORDS - 1]) & LAST_WORD_MASK;
         return result;
     }
 
@@ -1079,7 +1079,7 @@ public:
         BitSet result;
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            result.m_words[i] = m_words[i] & other.m_words[i];
+            result.mWords[i] = mWords[i] & other.mWords[i];
         }
         return result;
     }
@@ -1089,7 +1089,7 @@ public:
         BitSet result;
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            result.m_words[i] = m_words[i] | other.m_words[i];
+            result.mWords[i] = mWords[i] | other.mWords[i];
         }
         return result;
     }
@@ -1099,7 +1099,7 @@ public:
         BitSet result;
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            result.m_words[i] = m_words[i] ^ other.m_words[i];
+            result.mWords[i] = mWords[i] ^ other.mWords[i];
         }
         return result;
     }
@@ -1108,7 +1108,7 @@ public:
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            m_words[i] &= other.m_words[i];
+            mWords[i] &= other.mWords[i];
         }
         return *this;
     }
@@ -1117,7 +1117,7 @@ public:
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            m_words[i] |= other.m_words[i];
+            mWords[i] |= other.mWords[i];
         }
         return *this;
     }
@@ -1126,7 +1126,7 @@ public:
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            m_words[i] ^= other.m_words[i];
+            mWords[i] ^= other.mWords[i];
         }
         return *this;
     }
@@ -1160,7 +1160,7 @@ public:
         {
             for (size_t i = word_shift; i < NUM_WORDS; ++i)
             {
-                result.m_words[i] = m_words[i - word_shift];
+                result.mWords[i] = mWords[i - word_shift];
             }
         }
         else
@@ -1168,15 +1168,15 @@ public:
             const size_t inv_shift = BITS_PER_WORD - bit_shift;
             for (size_t i = NUM_WORDS - 1; i > word_shift; --i)
             {
-                result.m_words[i] = (m_words[i - word_shift] << bit_shift) |
-                                    (m_words[i - word_shift - 1] >> inv_shift);
+                result.mWords[i] = (mWords[i - word_shift] << bit_shift) |
+                                    (mWords[i - word_shift - 1] >> inv_shift);
             }
-            result.m_words[word_shift] = m_words[0] << bit_shift;
+            result.mWords[word_shift] = mWords[0] << bit_shift;
         }
 
         if constexpr (LAST_WORD_BITS != 0)
         {
-            result.m_words[NUM_WORDS - 1] &= LAST_WORD_MASK;
+            result.mWords[NUM_WORDS - 1] &= LAST_WORD_MASK;
         }
 
         return result;
@@ -1207,7 +1207,7 @@ public:
         {
             for (size_t i = 0; i < NUM_WORDS - word_shift; ++i)
             {
-                result.m_words[i] = m_words[i + word_shift];
+                result.mWords[i] = mWords[i + word_shift];
             }
         }
         else
@@ -1215,15 +1215,15 @@ public:
             const size_t inv_shift = BITS_PER_WORD - bit_shift;
             for (size_t i = 0; i < NUM_WORDS - word_shift - 1; ++i)
             {
-                result.m_words[i] = (m_words[i + word_shift] >> bit_shift) |
-                                    (m_words[i + word_shift + 1] << inv_shift);
+                result.mWords[i] = (mWords[i + word_shift] >> bit_shift) |
+                                    (mWords[i + word_shift + 1] << inv_shift);
             }
-            result.m_words[NUM_WORDS - word_shift - 1] = m_words[NUM_WORDS - 1] >> bit_shift;
+            result.mWords[NUM_WORDS - word_shift - 1] = mWords[NUM_WORDS - 1] >> bit_shift;
         }
 
         if constexpr (LAST_WORD_BITS != 0)
         {
-            result.m_words[NUM_WORDS - 1] &= LAST_WORD_MASK;
+            result.mWords[NUM_WORDS - 1] &= LAST_WORD_MASK;
         }
 
         return result;
@@ -1249,7 +1249,7 @@ public:
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
-            if (m_words[i] != other.m_words[i])
+            if (mWords[i] != other.mWords[i])
             {
                 return false;
             }
@@ -1285,7 +1285,7 @@ public:
      */
     [[nodiscard]] const uint64_t* data() const noexcept
     {
-        return m_words.data();
+        return mWords.data();
     }
 
     /**
@@ -1294,7 +1294,7 @@ public:
      */
     [[nodiscard]] uint64_t* data() noexcept
     {
-        return m_words.data();
+        return mWords.data();
     }
 
     /**
@@ -1306,7 +1306,7 @@ public:
     }
 
 private:
-    std::array<uint64_t, NUM_WORDS> m_words;
+    std::array<uint64_t, NUM_WORDS> mWords;
 };
 
 } // namespace fat_p
