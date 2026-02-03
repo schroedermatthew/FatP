@@ -226,12 +226,7 @@ private:
     size_t mCapacity = InlineCapacity;
 
     // EBO allows zero-size allocators to occupy no space
-    // [[no_unique_address]] is C++20 but GCC/Clang support it in C++17 mode
-#if __has_cpp_attribute(no_unique_address)
     [[no_unique_address]] Allocator mAllocator;
-#else
-    Allocator mAllocator;
-#endif
 
     // Inline buffer for small element storage - no heap allocation needed
     // Placed LAST to keep hot fields (data_, size_, mCapacity) in first cache line
@@ -2146,7 +2141,6 @@ SmallVector(InputIt, InputIt, Alloc = Alloc())
 // PMR Support
 // ==================================================================================
 
-#if __has_include(<memory_resource>)
 #include <memory_resource>
 namespace fat_p
 {
@@ -2157,4 +2151,3 @@ namespace fat_p
 template <typename T, size_t N>
 using PMRSmallVector = SmallVector<T, N, std::pmr::polymorphic_allocator<T>>;
 } // namespace fat_p
-#endif

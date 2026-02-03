@@ -18,7 +18,7 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: false
-    defines_total: 64
+    defines_total: 63
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
@@ -109,6 +109,7 @@ FATP_META:
 #include <memory>
 #include <optional>
 #include <set>
+#include <source_location>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -145,44 +146,8 @@ namespace fat_p
  */
 namespace json_detail
 {
-/**
- * @struct SourceLocation
- * @brief Lightweight structure for capturing source code location information
- *
- * @details Stores file name, line number, and function name for error reporting.
- * This is a simple alternative to std::source_location (C++20) that works in C++17.
- * Used by FATP_JSON_ENFORCE macro to provide detailed error messages with context.
- *
- * @see FATP_JSON_ENFORCE
- * @see FATP_JSON_LOCUS
- */
-struct SourceLocation
-{
-    const char* file;     ///< Source file name from __FILE__
-    int line;             ///< Source line number from __LINE__
-    const char* function; ///< Function name from __func__
-};
-
-/**
- * @def FATP_JSON_LOCUS
- * @brief Macro to capture current source location
- *
- * @details Expands to a SourceLocation structure initialized with the current
- * file, line, and function. Used internally by FATP_JSON_ENFORCE for error reporting.
- *
- * @code{.cpp}
- * SourceLocation loc = FATP_JSON_LOCUS;
- * std::cout << "Error at " << loc.file << ":" << loc.line << std::endl;
- * @endcode
- *
- * @see SourceLocation
- * @see FATP_JSON_ENFORCE
- */
-#define FATP_JSON_LOCUS                  \
-    ::fat_p::json_detail::SourceLocation \
-    {                                    \
-        __FILE__, __LINE__, __func__     \
-    }
+/// @brief Source location type alias for error reporting
+using SourceLocation = std::source_location;
 
 /**
  * @brief Appends a single value to an output string stream
@@ -269,7 +234,7 @@ template <typename... Args>
     if (!condition)
     {
         std::ostringstream oss;
-        oss << "JSON Error at " << loc.file << ":" << loc.line << " in " << loc.function;
+        oss << "JSON Error at " << loc.file_name() << ":" << loc.line() << " in " << loc.function_name();
 
         if constexpr (sizeof...(args) > 0)
         {
@@ -308,7 +273,7 @@ template <typename... Args>
 // Implementation notes:
 // - do-while(0) wrapper ensures safe use in all control flow contexts (if/else, etc.)
 // - Condition is stringified (#condition) and included in error message
-// - FATP_JSON_LOCUS captures __FILE__, __LINE__, __func__ at the call site
+// - std::source_location::current() captures source location at the call site
 // - ##__VA_ARGS__ handles the zero-args case (GCC/Clang extension, C++20 standard)
 // - No ODR issues: macro expands inline, FATP_JSON_ENFORCE_impl is in detail namespace
 #define FATP_JSON_ENFORCE(condition, ...)                                 \
@@ -317,7 +282,7 @@ template <typename... Args>
         if (!(condition))                                                 \
         {                                                                 \
             ::fat_p::json_detail::FATP_JSON_ENFORCE_impl(false,           \
-                                                         FATP_JSON_LOCUS, \
+                                                         std::source_location::current(), \
                                                          "condition: ",   \
                                                          #condition,      \
                                                          ##__VA_ARGS__);  \

@@ -41,7 +41,7 @@ FATP_META:
  * - Lazy loading (OS handles paging)
  * - Exception-safe RAII lifecycle
  * - Multiple mapping regions support
- * - C++17 compatible (uses std::span in C++20+, custom span in C++17)
+ * - C++20 minimum (uses std::span)
  *
  * @version 1.1.0
  * @date 2025-11
@@ -89,11 +89,7 @@ FATP_META:
 #include "CppFeatureDetection.h"
 #include "PlatformDetection.h"
 
-// Include std::span if available (detected in CppStandardDetection.h)
-#if FATP_HAS_STD_SPAN
 #include <span>
-#endif
-
 // Platform-specific includes (detection already done in CppStandardDetection.h)
 #if FATP_PLATFORM_WINDOWS
 #ifndef WIN32_LEAN_AND_MEAN
@@ -114,143 +110,6 @@ FATP_META:
 
 namespace fat_p
 {
-
-#if !FATP_HAS_STD_SPAN
-// ============================================================================
-// Lightweight span implementation for C++17
-// ============================================================================
-
-/**
- * @brief Minimal std::span-like implementation for C++17 compatibility
- * @tparam T Element type
- *
- * Provides a non-owning view over a contiguous sequence of elements.
- * Compatible with C++17, subset of C++20 std::span functionality.
- *
- * Note: When compiling with C++20 or later, std::span is used instead.
- */
-template <typename T>
-class span
-{
-public:
-    using element_type = T;
-    using value_type = std::remove_cv_t<T>;
-    using size_type = size_t;
-    using difference_type = ptrdiff_t;
-    using pointer = T*;
-    using const_pointer = const T*;
-    using reference = T&;
-    using const_reference = const T&;
-    using iterator = pointer;
-    using const_iterator = const_pointer;
-
-    constexpr span() noexcept
-        : mData(nullptr)
-        , mSize(0)
-    {
-    }
-
-    constexpr span(pointer data, size_type size) noexcept
-        : mData(data)
-        , mSize(size)
-    {
-    }
-
-    constexpr span(pointer first, pointer last) noexcept
-        : mData(first)
-        , mSize(last - first)
-    {
-    }
-
-    constexpr reference operator[](size_type idx) const noexcept
-    {
-        return mData[idx];
-    }
-
-    constexpr reference at(size_type idx) const
-    {
-        if (idx >= mSize)
-        {
-            throw std::out_of_range("span::at: index out of bounds");
-        }
-        return mData[idx];
-    }
-
-    constexpr reference front() const noexcept
-    {
-        return mData[0];
-    }
-
-    constexpr reference back() const noexcept
-    {
-        return mData[mSize - 1];
-    }
-
-    constexpr pointer data() const noexcept
-    {
-        return mData;
-    }
-
-    constexpr size_type size() const noexcept
-    {
-        return mSize;
-    }
-
-    constexpr size_type size_bytes() const noexcept
-    {
-        return mSize * sizeof(T);
-    }
-
-    constexpr bool empty() const noexcept
-    {
-        return mSize == 0;
-    }
-
-    constexpr iterator begin() const noexcept
-    {
-        return mData;
-    }
-
-    constexpr iterator end() const noexcept
-    {
-        return mData + mSize;
-    }
-
-    constexpr const_iterator cbegin() const noexcept
-    {
-        return mData;
-    }
-
-    constexpr const_iterator cend() const noexcept
-    {
-        return mData + mSize;
-    }
-
-    constexpr span first(size_type count) const noexcept
-    {
-        return span(mData, count);
-    }
-
-    constexpr span last(size_type count) const noexcept
-    {
-        return span(mData + (mSize - count), count);
-    }
-
-    constexpr span subspan(size_type offset, size_type count) const noexcept
-    {
-        return span(mData + offset, count);
-    }
-
-private:
-    pointer mData;
-    size_type mSize;
-};
-
-#else
-// Use std::span for C++20 and later
-using std::span;
-#endif // !FATP_HAS_STD_SPAN
-
 // ============================================================================
 // Memory Mapped File
 // ============================================================================
@@ -337,18 +196,18 @@ public:
     /**
      * @brief Get typed span view of mapped memory
      * @tparam T Element type
-     * @return fat_p::span<T> view
+     * @return std::span<T> view
      */
     template <typename T>
-    fat_p::span<T> get_span() noexcept;
+    std::span<T> get_span() noexcept;
 
     /**
      * @brief Get const typed span view of mapped memory
      * @tparam T Element type
-     * @return fat_p::span<const T> view
+     * @return std::span<const T> view
      */
     template <typename T>
-    fat_p::span<const T> get_span() const noexcept;
+    std::span<const T> get_span() const noexcept;
 
     /**
      * @brief Prefetch pages into memory (hint to OS)
@@ -530,15 +389,15 @@ inline size_t MemoryMappedFile::size() const noexcept
 }
 
 template <typename T>
-inline fat_p::span<T> MemoryMappedFile::get_span() noexcept
+inline std::span<T> MemoryMappedFile::get_span() noexcept
 {
-    return fat_p::span<T>(static_cast<T*>(mData), mSize / sizeof(T));
+    return std::span<T>(static_cast<T*>(mData), mSize / sizeof(T));
 }
 
 template <typename T>
-inline fat_p::span<const T> MemoryMappedFile::get_span() const noexcept
+inline std::span<const T> MemoryMappedFile::get_span() const noexcept
 {
-    return fat_p::span<const T>(static_cast<const T*>(mData), mSize / sizeof(T));
+    return std::span<const T>(static_cast<const T*>(mData), mSize / sizeof(T));
 }
 
 inline void MemoryMappedFile::prefetch() const

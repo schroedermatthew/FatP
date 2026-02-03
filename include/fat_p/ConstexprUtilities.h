@@ -17,7 +17,7 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: false
-    defines_total: 2
+    defines_total: 0
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
@@ -48,17 +48,6 @@ FATP_META:
 
 namespace fat_p
 {
-
-// =============================================================================
-// C++20 Detection and Macros
-// =============================================================================
-
-#if FATP_CPP20_OR_LATER
-#define FATP_CONSTEVAL consteval
-#else
-#define FATP_CONSTEVAL constexpr
-#endif
-
 // =============================================================================
 // Hashing Utilities
 // =============================================================================
@@ -75,7 +64,7 @@ namespace fat_p
  * @note Not suitable for cryptographic purposes.
  * @note Empty string returns the FNV offset basis (2166136261).
  */
-[[nodiscard]] FATP_CONSTEVAL uint32_t constexpr_hash(std::string_view s) noexcept
+[[nodiscard]] consteval uint32_t constexpr_hash(std::string_view s) noexcept
 {
     constexpr uint32_t FNV_PRIME = 16777619U;
     constexpr uint32_t FNV_OFFSET_BASIS = 2166136261U;
@@ -99,7 +88,7 @@ namespace fat_p
  *
  * @note Empty string returns the FNV offset basis (14695981039346656037).
  */
-[[nodiscard]] FATP_CONSTEVAL uint64_t constexpr_hash64(std::string_view s) noexcept
+[[nodiscard]] consteval uint64_t constexpr_hash64(std::string_view s) noexcept
 {
     constexpr uint64_t FNV_PRIME = 1099511628211ULL;
     constexpr uint64_t FNV_OFFSET_BASIS = 14695981039346656037ULL;
@@ -140,7 +129,7 @@ namespace fat_p
  *   constexpr auto h = hash_values("namespace", "class", "method");
  */
 template <typename... Args>
-[[nodiscard]] FATP_CONSTEVAL uint64_t hash_values(const Args&... args) noexcept
+[[nodiscard]] consteval uint64_t hash_values(const Args&... args) noexcept
 {
     uint64_t seed = 0;
     ((seed = hash_combine(seed, constexpr_hash64(args))), ...);
