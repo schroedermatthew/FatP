@@ -106,8 +106,8 @@ FATP_META:
 #include <thread>
 #include <vector>
 
-#include "FatPBenchmarkRunner.h"
 #include "FatPBenchmarkHeader.h"
+#include "FatPBenchmarkRunner.h"
 
 // ============================================================================
 // Library Detection
@@ -240,7 +240,9 @@ static inline void prevent_opt_ptr(T* ptr)
 static inline void cpu_warmup_burst(int milliseconds)
 {
     if (milliseconds <= 0)
+    {
         return;
+    }
 
     auto start = std::chrono::steady_clock::now();
     auto duration = std::chrono::milliseconds(milliseconds);
@@ -273,7 +275,9 @@ static bool wait_for_cpu_stable(double max_variance_percent = 10.0,
     if (!initial_info.has_reliable_detection())
     {
         if (verbose)
+        {
             std::cout << "[CPU frequency detection unavailable - using fixed cooling delay]\n";
+        }
         std::this_thread::sleep_for(std::chrono::seconds(3));
         return true;
     }
@@ -295,13 +299,16 @@ static bool wait_for_cpu_stable(double max_variance_percent = 10.0,
         recent_readings.push_back(info.mCurrentFreqMHz);
 
         if (recent_readings.size() > window_size)
+        {
             recent_readings.erase(recent_readings.begin());
+        }
 
         if (recent_readings.size() >= window_size)
         {
             double min_freq = *std::min_element(recent_readings.begin(), recent_readings.end());
             double max_freq = *std::max_element(recent_readings.begin(), recent_readings.end());
-            double avg_freq = std::accumulate(recent_readings.begin(), recent_readings.end(), 0.0) / recent_readings.size();
+            double avg_freq =
+                std::accumulate(recent_readings.begin(), recent_readings.end(), 0.0) / recent_readings.size();
 
             double variance_pct = (max_freq - min_freq) / avg_freq * 100.0;
             bool is_stable = (variance_pct <= max_variance_percent) && (avg_freq >= min_required_freq);
@@ -313,8 +320,8 @@ static bool wait_for_cpu_stable(double max_variance_percent = 10.0,
                     if (verbose)
                     {
                         double pct_of_base = (avg_freq / base_freq) * 100.0;
-                        std::cout << "[CPU stable at " << static_cast<int>(avg_freq) << " MHz ("
-                                  << std::fixed << std::setprecision(0) << pct_of_base << "% of base)]\n";
+                        std::cout << "[CPU stable at " << static_cast<int>(avg_freq) << " MHz (" << std::fixed
+                                  << std::setprecision(0) << pct_of_base << "% of base)]\n";
                     }
                     return true;
                 }
@@ -328,17 +335,23 @@ static bool wait_for_cpu_stable(double max_variance_percent = 10.0,
     }
 
     if (verbose)
+    {
         std::cout << "[WARNING: CPU frequency still unstable after " << timeout_seconds << "s]\n";
+    }
     return false;
 }
 
 static inline void cooling_delay(int min_sleep_ms, const char* reason = nullptr)
 {
     if (g_config.noCooldown)
+    {
         return;
+    }
 
     if (reason)
+    {
         std::cout << "[Cooling: " << reason << "]" << std::flush;
+    }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(min_sleep_ms));
     wait_for_cpu_stable(10.0, 15, 200, false);
@@ -347,9 +360,13 @@ static inline void cooling_delay(int min_sleep_ms, const char* reason = nullptr)
     {
         auto info = fat_p::bench::capture_cpu_frequency();
         if (info.has_reliable_detection())
+        {
             std::cout << " [Ready: " << static_cast<int>(info.mCurrentFreqMHz) << " MHz]\n";
+        }
         else
+        {
             std::cout << " [Ready]\n";
+        }
     }
 }
 
@@ -381,7 +398,9 @@ struct Statistics
     {
         Statistics s{};
         if (samples.empty())
+        {
             return s;
+        }
 
         std::sort(samples.begin(), samples.end());
         size_t n = samples.size();
@@ -427,8 +446,15 @@ struct SmallTrivial
     int64_t b;
 
     SmallTrivial() = default;
-    explicit SmallTrivial(int64_t v) : a(v), b(v * 2) {}
-    int64_t checksum() const { return a ^ b; }
+    explicit SmallTrivial(int64_t v)
+        : a(v)
+        , b(v * 2)
+    {
+    }
+    int64_t checksum() const
+    {
+        return a ^ b;
+    }
 };
 static_assert(sizeof(SmallTrivial) == 16, "SmallTrivial should be 16 bytes");
 static_assert(std::is_trivially_destructible_v<SmallTrivial>, "SmallTrivial should be trivially destructible");
@@ -444,17 +470,32 @@ struct MediumObject
     char name[16];
     char padding_[8]; // Explicit padding to reach 64 bytes
 
-    MediumObject() : id(0), x(0), y(0), z(0), health(100), flags(0)
+    MediumObject()
+        : id(0)
+        , x(0)
+        , y(0)
+        , z(0)
+        , health(100)
+        , flags(0)
     {
         std::memset(name, 0, sizeof(name));
         std::memset(padding_, 0, sizeof(padding_));
     }
-    explicit MediumObject(int64_t v) : id(v), x(static_cast<double>(v)), y(v * 0.5), z(v * 0.25), health(100), flags(0)
+    explicit MediumObject(int64_t v)
+        : id(v)
+        , x(static_cast<double>(v))
+        , y(v * 0.5)
+        , z(v * 0.25)
+        , health(100)
+        , flags(0)
     {
         std::memset(name, 0, sizeof(name));
         std::memset(padding_, 0, sizeof(padding_));
     }
-    int64_t checksum() const { return id + static_cast<int64_t>(x + y + z) + health + flags; }
+    int64_t checksum() const
+    {
+        return id + static_cast<int64_t>(x + y + z) + health + flags;
+    }
 };
 static_assert(sizeof(MediumObject) == 64, "MediumObject should be 64 bytes");
 
@@ -465,19 +506,28 @@ struct LargeObject
     double matrix[4][4];
     char buffer[120];
 
-    LargeObject() : id(0)
+    LargeObject()
+        : id(0)
     {
         std::memset(matrix, 0, sizeof(matrix));
         std::memset(buffer, 0, sizeof(buffer));
     }
-    explicit LargeObject(int64_t v) : id(v)
+    explicit LargeObject(int64_t v)
+        : id(v)
     {
         for (int i = 0; i < 4; ++i)
+        {
             for (int j = 0; j < 4; ++j)
+            {
                 matrix[i][j] = static_cast<double>(v + i * 4 + j);
+            }
+        }
         std::memset(buffer, static_cast<int>(v & 0xFF), sizeof(buffer));
     }
-    int64_t checksum() const { return id + static_cast<int64_t>(matrix[0][0] + matrix[3][3]); }
+    int64_t checksum() const
+    {
+        return id + static_cast<int64_t>(matrix[0][0] + matrix[3][3]);
+    }
 };
 static_assert(sizeof(LargeObject) == 256, "LargeObject should be 256 bytes");
 
@@ -490,14 +540,26 @@ struct NonTrivialObject
     static inline std::atomic<int64_t> construct_count{0};
     static inline std::atomic<int64_t> destruct_count{0};
 
-    NonTrivialObject() : data(std::make_unique<int64_t[]>(8)), size(8) { ++construct_count; }
-    explicit NonTrivialObject(int64_t v) : data(std::make_unique<int64_t[]>(8)), size(8)
+    NonTrivialObject()
+        : data(std::make_unique<int64_t[]>(8))
+        , size(8)
+    {
+        ++construct_count;
+    }
+    explicit NonTrivialObject(int64_t v)
+        : data(std::make_unique<int64_t[]>(8))
+        , size(8)
     {
         ++construct_count;
         for (size_t i = 0; i < size; ++i)
+        {
             data[i] = v + static_cast<int64_t>(i);
+        }
     }
-    ~NonTrivialObject() { ++destruct_count; }
+    ~NonTrivialObject()
+    {
+        ++destruct_count;
+    }
 
     // Move only
     NonTrivialObject(NonTrivialObject&&) = default;
@@ -505,7 +567,10 @@ struct NonTrivialObject
     NonTrivialObject(const NonTrivialObject&) = delete;
     NonTrivialObject& operator=(const NonTrivialObject&) = delete;
 
-    int64_t checksum() const { return data ? data[0] + data[size - 1] : 0; }
+    int64_t checksum() const
+    {
+        return data ? data[0] + data[size - 1] : 0;
+    }
 
     static void reset_counts()
     {
@@ -536,16 +601,26 @@ static inline const char* case_name(Case c)
 {
     switch (c)
     {
-        case Case::AcquireRelease: return "Acquire+Release";
-        case Case::BulkAcquire: return "Bulk Acquire";
-        case Case::InterleavedOps: return "Interleaved Ops";
-        case Case::TryAcquireSuccess: return "try_acquire (success)";
-        case Case::TryAcquireFail: return "try_acquire (fail)";
-        case Case::RAIIWrapper: return "RAII Wrapper";
-        case Case::PoolReuse: return "Pool Reuse";
-        case Case::Construction: return "Construction Cost";
-        case Case::UninitializedAcquire: return "Uninitialized Acquire";
-        case Case::ZeroedAcquire: return "Zeroed Acquire";
+        case Case::AcquireRelease:
+            return "Acquire+Release";
+        case Case::BulkAcquire:
+            return "Bulk Acquire";
+        case Case::InterleavedOps:
+            return "Interleaved Ops";
+        case Case::TryAcquireSuccess:
+            return "try_acquire (success)";
+        case Case::TryAcquireFail:
+            return "try_acquire (fail)";
+        case Case::RAIIWrapper:
+            return "RAII Wrapper";
+        case Case::PoolReuse:
+            return "Pool Reuse";
+        case Case::Construction:
+            return "Construction Cost";
+        case Case::UninitializedAcquire:
+            return "Uninitialized Acquire";
+        case Case::ZeroedAcquire:
+            return "Zeroed Acquire";
     }
     return "Unknown";
 }
@@ -564,7 +639,9 @@ struct Inputs
     static Inputs make(size_t n, uint64_t seed = 0)
     {
         if (seed == 0)
+        {
             seed = g_config.seed;
+        }
 
         Inputs in;
         in.N = n;
@@ -573,7 +650,9 @@ struct Inputs
         in.values.resize(n);
         std::mt19937_64 rng(seed);
         for (size_t i = 0; i < n; ++i)
+        {
             in.values[i] = static_cast<int64_t>(i * 1000 + rng() % 1000);
+        }
 
         in.release_order.resize(n);
         std::iota(in.release_order.begin(), in.release_order.end(), 0);
@@ -599,12 +678,30 @@ struct IPoolAdapter
     virtual void release(T* obj) = 0;
     virtual size_t capacity() const = 0;
     virtual size_t available() const = 0;
-    virtual bool supports_try_acquire() const { return false; }
-    virtual bool supports_uninitialized() const { return false; }
-    virtual bool supports_compact() const { return false; }
-    virtual T* acquire_uninitialized() { return nullptr; }
-    virtual T* acquire_zeroed() { return nullptr; }
-    virtual bool try_compact_free_list() { return false; }
+    virtual bool supports_try_acquire() const
+    {
+        return false;
+    }
+    virtual bool supports_uninitialized() const
+    {
+        return false;
+    }
+    virtual bool supports_compact() const
+    {
+        return false;
+    }
+    virtual T* acquire_uninitialized()
+    {
+        return nullptr;
+    }
+    virtual T* acquire_zeroed()
+    {
+        return nullptr;
+    }
+    virtual bool try_compact_free_list()
+    {
+        return false;
+    }
 };
 
 // ============================================================================
@@ -619,7 +716,10 @@ class FatPPoolAdapter final : public IPoolAdapter<T>
     size_t block_size_ = 64;
 
 public:
-    const char* name() const override { return "fat_p::ObjectPool"; }
+    const char* name() const override
+    {
+        return "fat_p::ObjectPool";
+    }
 
     void setup(size_t capacity) override
     {
@@ -630,22 +730,49 @@ public:
         pool_->reserve_blocks(blocks_needed);
     }
 
-    void teardown() override { pool_.reset(); }
+    void teardown() override
+    {
+        pool_.reset();
+    }
 
-    T* acquire(int64_t value) override { return pool_->acquire(value); }
+    T* acquire(int64_t value) override
+    {
+        return pool_->acquire(value);
+    }
 
-    T* try_acquire(int64_t value) override { return pool_->try_acquire(value); }
+    T* try_acquire(int64_t value) override
+    {
+        return pool_->try_acquire(value);
+    }
 
-    void release(T* obj) override { pool_->release(obj); }
+    void release(T* obj) override
+    {
+        pool_->release(obj);
+    }
 
-    size_t capacity() const override { return pool_ ? pool_->capacity() : 0; }
-    size_t available() const override { return pool_ ? pool_->available() : 0; }
+    size_t capacity() const override
+    {
+        return pool_ ? pool_->capacity() : 0;
+    }
+    size_t available() const override
+    {
+        return pool_ ? pool_->available() : 0;
+    }
 
-    bool supports_try_acquire() const override { return true; }
+    bool supports_try_acquire() const override
+    {
+        return true;
+    }
 
-    bool supports_uninitialized() const override { return std::is_trivially_destructible_v<T>; }
+    bool supports_uninitialized() const override
+    {
+        return std::is_trivially_destructible_v<T>;
+    }
 
-    bool supports_compact() const override { return true; }
+    bool supports_compact() const override
+    {
+        return true;
+    }
 
     bool try_compact_free_list() override
     {
@@ -689,7 +816,10 @@ class BoostPoolAdapter final : public IPoolAdapter<T>
     size_t acquired_ = 0;
 
 public:
-    const char* name() const override { return "boost::object_pool"; }
+    const char* name() const override
+    {
+        return "boost::object_pool";
+    }
 
     void setup(size_t capacity) override
     {
@@ -721,11 +851,19 @@ public:
     {
         pool_->destroy(obj);
         if (acquired_ > 0)
+        {
             --acquired_;
+        }
     }
 
-    size_t capacity() const override { return capacity_; }
-    size_t available() const override { return capacity_ > acquired_ ? capacity_ - acquired_ : 0; }
+    size_t capacity() const override
+    {
+        return capacity_;
+    }
+    size_t available() const override
+    {
+        return capacity_ > acquired_ ? capacity_ - acquired_ : 0;
+    }
 };
 #endif
 
@@ -743,7 +881,10 @@ class FoonathanPoolAdapter final : public IPoolAdapter<T>
     size_t acquired_ = 0;
 
 public:
-    const char* name() const override { return "foonathan::memory_pool"; }
+    const char* name() const override
+    {
+        return "foonathan::memory_pool";
+    }
 
     void setup(size_t capacity) override
     {
@@ -780,11 +921,19 @@ public:
         obj->~T();
         pool_->deallocate_node(obj);
         if (acquired_ > 0)
+        {
             --acquired_;
+        }
     }
 
-    size_t capacity() const override { return capacity_; }
-    size_t available() const override { return capacity_ > acquired_ ? capacity_ - acquired_ : 0; }
+    size_t capacity() const override
+    {
+        return capacity_;
+    }
+    size_t available() const override
+    {
+        return capacity_ > acquired_ ? capacity_ - acquired_ : 0;
+    }
 };
 #endif
 
@@ -803,7 +952,10 @@ class EastlPoolAdapter final : public IPoolAdapter<T>
     size_t acquired_ = 0;
 
 public:
-    const char* name() const override { return "EASTL::fixed_pool [!grow]"; }
+    const char* name() const override
+    {
+        return "EASTL::fixed_pool [!grow]";
+    }
 
     void setup(size_t capacity) override
     {
@@ -850,12 +1002,20 @@ public:
             obj->~T();
             pool_->deallocate(obj);
             if (acquired_ > 0)
+            {
                 --acquired_;
+            }
         }
     }
 
-    size_t capacity() const override { return capacity_; }
-    size_t available() const override { return capacity_ > acquired_ ? capacity_ - acquired_ : 0; }
+    size_t capacity() const override
+    {
+        return capacity_;
+    }
+    size_t available() const override
+    {
+        return capacity_ > acquired_ ? capacity_ - acquired_ : 0;
+    }
 };
 #endif
 
@@ -871,7 +1031,10 @@ class PmrPoolAdapter final : public IPoolAdapter<T>
     size_t acquired_ = 0;
 
 public:
-    const char* name() const override { return "std::pmr::unsync_pool"; }
+    const char* name() const override
+    {
+        return "std::pmr::unsync_pool";
+    }
 
     void setup(size_t capacity) override
     {
@@ -898,7 +1061,10 @@ public:
         return ptr;
     }
 
-    T* try_acquire(int64_t value) override { return acquire(value); }
+    T* try_acquire(int64_t value) override
+    {
+        return acquire(value);
+    }
 
     void release(T* obj) override
     {
@@ -906,11 +1072,19 @@ public:
         std::allocator_traits<std::pmr::polymorphic_allocator<T>>::destroy(alloc, obj);
         alloc.deallocate(obj, 1);
         if (acquired_ > 0)
+        {
             --acquired_;
+        }
     }
 
-    size_t capacity() const override { return capacity_; }
-    size_t available() const override { return capacity_ > acquired_ ? capacity_ - acquired_ : 0; }
+    size_t capacity() const override
+    {
+        return capacity_;
+    }
+    size_t available() const override
+    {
+        return capacity_ > acquired_ ? capacity_ - acquired_ : 0;
+    }
 };
 
 // ============================================================================
@@ -924,7 +1098,10 @@ class NewDeleteAdapter final : public IPoolAdapter<T>
     size_t acquired_ = 0;
 
 public:
-    const char* name() const override { return "new/delete"; }
+    const char* name() const override
+    {
+        return "new/delete";
+    }
 
     void setup(size_t capacity) override
     {
@@ -932,7 +1109,10 @@ public:
         acquired_ = 0;
     }
 
-    void teardown() override { acquired_ = 0; }
+    void teardown() override
+    {
+        acquired_ = 0;
+    }
 
     T* acquire(int64_t value) override
     {
@@ -940,17 +1120,28 @@ public:
         return new T(value);
     }
 
-    T* try_acquire(int64_t value) override { return acquire(value); }
+    T* try_acquire(int64_t value) override
+    {
+        return acquire(value);
+    }
 
     void release(T* obj) override
     {
         delete obj;
         if (acquired_ > 0)
+        {
             --acquired_;
+        }
     }
 
-    size_t capacity() const override { return capacity_; }
-    size_t available() const override { return capacity_ > acquired_ ? capacity_ - acquired_ : 0; }
+    size_t capacity() const override
+    {
+        return capacity_;
+    }
+    size_t available() const override
+    {
+        return capacity_ > acquired_ ? capacity_ - acquired_ : 0;
+    }
 };
 
 // ============================================================================
@@ -991,7 +1182,9 @@ void benchmark_acquire_release(std::vector<std::unique_ptr<IPoolAdapter<T>>>& ad
 
         std::vector<BenchResult> results;
         for (auto& adapter : adapters)
+        {
             results.push_back({adapter->name(), {}});
+        }
 
         // Warmup
         for (size_t run = 0; run < WARMUP_RUNS(); ++run)
@@ -1041,7 +1234,8 @@ void benchmark_acquire_release(std::vector<std::unique_ptr<IPoolAdapter<T>>>& ad
         {
             auto stats = Statistics::compute(r.samples);
             std::cout << "  " << std::setw(26) << r.library << ": median=" << std::setw(8) << stats.median
-                      << " ns/op  mean=" << std::setw(8) << stats.mean << " +/-" << std::setw(6) << stats.stddev << "\n";
+                      << " ns/op  mean=" << std::setw(8) << stats.mean << " +/-" << std::setw(6) << stats.stddev
+                      << "\n";
         }
 
         // Speedup vs new/delete
@@ -1086,7 +1280,9 @@ void benchmark_bulk_acquire(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapt
 
         std::vector<BenchResult> results;
         for (auto& adapter : adapters)
+        {
             results.push_back({adapter->name(), {}});
+        }
 
         std::vector<T*> acquired(N);
 
@@ -1098,9 +1294,13 @@ void benchmark_bulk_acquire(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapt
                 adapters[idx]->setup(N * 2); // Extra capacity to avoid growth during measurement
 
                 for (size_t i = 0; i < N; ++i)
+                {
                     acquired[i] = adapters[idx]->acquire(in.values[i]);
+                }
                 for (size_t i = 0; i < N; ++i)
+                {
                     adapters[idx]->release(acquired[i]);
+                }
 
                 adapters[idx]->teardown();
             }
@@ -1128,7 +1328,9 @@ void benchmark_bulk_acquire(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapt
 
                 // Release outside timed region
                 for (size_t i = 0; i < N; ++i)
+                {
                     adapters[idx]->release(acquired[i]);
+                }
 
                 adapters[idx]->teardown();
                 results[idx].samples.push_back(ns_per_op(elapsed, N));
@@ -1139,16 +1341,22 @@ void benchmark_bulk_acquire(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapt
         {
             adapters[0]->setup(N * 2);
             for (size_t i = 0; i < N; ++i)
+            {
                 acquired[i] = adapters[0]->acquire(in.values[i]);
+            }
 
             // Verify all pointers are unique
             std::sort(acquired.begin(), acquired.end());
             bool all_unique = std::adjacent_find(acquired.begin(), acquired.end()) == acquired.end();
             if (!all_unique)
+            {
                 std::cout << "  [WARNING] Duplicate pointers detected!\n";
+            }
 
             for (size_t i = 0; i < N; ++i)
+            {
                 adapters[0]->release(acquired[i]);
+            }
             adapters[0]->teardown();
         }
 
@@ -1158,7 +1366,8 @@ void benchmark_bulk_acquire(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapt
         {
             auto stats = Statistics::compute(r.samples);
             std::cout << "  " << std::setw(26) << r.library << ": median=" << std::setw(8) << stats.median
-                      << " ns/op  mean=" << std::setw(8) << stats.mean << " +/-" << std::setw(6) << stats.stddev << "\n";
+                      << " ns/op  mean=" << std::setw(8) << stats.mean << " +/-" << std::setw(6) << stats.stddev
+                      << "\n";
         }
     }
 }
@@ -1191,7 +1400,9 @@ void benchmark_interleaved(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapte
 
         std::vector<BenchResult> results;
         for (auto& adapter : adapters)
+        {
             results.push_back({adapter->name(), {}});
+        }
 
         // Pre-allocate storage for acquired pointers
         std::vector<T*> live_objects;
@@ -1224,7 +1435,9 @@ void benchmark_interleaved(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapte
 
                 // Cleanup
                 for (T* obj : live_objects)
+                {
                     adapters[idx]->release(obj);
+                }
                 adapters[idx]->teardown();
             }
         }
@@ -1268,7 +1481,9 @@ void benchmark_interleaved(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapte
 
                 // Cleanup outside timed region
                 for (T* obj : live_objects)
+                {
                     adapters[idx]->release(obj);
+                }
 
                 adapters[idx]->teardown();
                 results[idx].samples.push_back(ns_per_op(elapsed, ops));
@@ -1281,7 +1496,8 @@ void benchmark_interleaved(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapte
         {
             auto stats = Statistics::compute(r.samples);
             std::cout << "  " << std::setw(26) << r.library << ": median=" << std::setw(8) << stats.median
-                      << " ns/op  mean=" << std::setw(8) << stats.mean << " +/-" << std::setw(6) << stats.stddev << "\n";
+                      << " ns/op  mean=" << std::setw(8) << stats.mean << " +/-" << std::setw(6) << stats.stddev
+                      << "\n";
         }
     }
 }
@@ -1314,7 +1530,9 @@ void benchmark_pool_reuse(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapter
 
         std::vector<BenchResult> results;
         for (auto& adapter : adapters)
+        {
             results.push_back({adapter->name(), {}});
+        }
 
         std::vector<T*> acquired(N);
 
@@ -1331,11 +1549,15 @@ void benchmark_pool_reuse(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapter
 
                 // Phase 1: Acquire all (outside timing)
                 for (size_t i = 0; i < N; ++i)
+                {
                     acquired[i] = adapters[idx]->acquire(in.values[i]);
+                }
 
                 // Phase 2: Release in random order (outside timing)
                 for (size_t i : in.release_order)
+                {
                     adapters[idx]->release(acquired[i]);
+                }
 
                 // Phase 3: Re-acquire all (TIMED - tests free list reuse)
                 Timer t;
@@ -1349,7 +1571,9 @@ void benchmark_pool_reuse(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapter
 
                 // Cleanup
                 for (size_t i = 0; i < N; ++i)
+                {
                     adapters[idx]->release(acquired[i]);
+                }
 
                 adapters[idx]->teardown();
                 results[idx].samples.push_back(ns_per_op(elapsed, N));
@@ -1362,7 +1586,8 @@ void benchmark_pool_reuse(std::vector<std::unique_ptr<IPoolAdapter<T>>>& adapter
         {
             auto stats = Statistics::compute(r.samples);
             std::cout << "  " << std::setw(26) << r.library << ": median=" << std::setw(8) << stats.median
-                      << " ns/op  mean=" << std::setw(8) << stats.mean << " +/-" << std::setw(6) << stats.stddev << "\n";
+                      << " ns/op  mean=" << std::setw(8) << stats.mean << " +/-" << std::setw(6) << stats.stddev
+                      << "\n";
         }
     }
 }
@@ -1411,7 +1636,9 @@ void benchmark_pool_reuse_with_compact(std::vector<std::unique_ptr<IPoolAdapter<
 
         std::vector<BenchResult> results;
         for (auto& adapter : adapters)
+        {
             results.push_back({adapter->name(), {}});
+        }
 
         std::vector<T*> acquired(N);
 
@@ -1428,11 +1655,15 @@ void benchmark_pool_reuse_with_compact(std::vector<std::unique_ptr<IPoolAdapter<
 
                 // Phase 1: Acquire all (outside timing)
                 for (size_t i = 0; i < N; ++i)
+                {
                     acquired[i] = adapters[idx]->acquire(in.values[i]);
+                }
 
                 // Phase 2: Release in random order (outside timing)
                 for (size_t i : in.release_order)
+                {
                     adapters[idx]->release(acquired[i]);
+                }
 
                 // Phase 2.5: Compact the free list (outside timing)
                 adapters[idx]->try_compact_free_list();
@@ -1449,7 +1680,9 @@ void benchmark_pool_reuse_with_compact(std::vector<std::unique_ptr<IPoolAdapter<
 
                 // Cleanup
                 for (size_t i = 0; i < N; ++i)
+                {
                     adapters[idx]->release(acquired[i]);
+                }
 
                 adapters[idx]->teardown();
                 results[idx].samples.push_back(ns_per_op(elapsed, N));
@@ -1462,7 +1695,8 @@ void benchmark_pool_reuse_with_compact(std::vector<std::unique_ptr<IPoolAdapter<
         {
             auto stats = Statistics::compute(r.samples);
             std::cout << "  " << std::setw(26) << r.library << ": median=" << std::setw(8) << stats.median
-                      << " ns/op  mean=" << std::setw(8) << stats.mean << " +/-" << std::setw(6) << stats.stddev << "\n";
+                      << " ns/op  mean=" << std::setw(8) << stats.mean << " +/-" << std::setw(6) << stats.stddev
+                      << "\n";
         }
     }
 }
@@ -1496,7 +1730,9 @@ void benchmark_pool_reuse_full_cycle(std::vector<std::unique_ptr<IPoolAdapter<T>
 
         std::vector<BenchResult> results;
         for (auto& adapter : adapters)
+        {
             results.push_back({adapter->name(), {}});
+        }
 
         std::vector<T*> acquired(N);
 
@@ -1513,7 +1749,9 @@ void benchmark_pool_reuse_full_cycle(std::vector<std::unique_ptr<IPoolAdapter<T>
 
                 // Phase 1: Acquire all (outside timing - this is the "warm" state)
                 for (size_t i = 0; i < N; ++i)
+                {
                     acquired[i] = adapters[idx]->acquire(in.values[i]);
+                }
 
                 // === TIMED REGION: Full flush-and-refill cycle ===
                 Timer t;
@@ -1521,7 +1759,9 @@ void benchmark_pool_reuse_full_cycle(std::vector<std::unique_ptr<IPoolAdapter<T>
 
                 // Phase 2: Release in random order (TIMED)
                 for (size_t i : in.release_order)
+                {
                     adapters[idx]->release(acquired[i]);
+                }
 
                 // Phase 3: Compact if supported (TIMED)
                 adapters[idx]->try_compact_free_list();
@@ -1538,7 +1778,9 @@ void benchmark_pool_reuse_full_cycle(std::vector<std::unique_ptr<IPoolAdapter<T>
 
                 // Cleanup (outside timing)
                 for (size_t i = 0; i < N; ++i)
+                {
                     adapters[idx]->release(acquired[i]);
+                }
 
                 adapters[idx]->teardown();
 
@@ -1554,7 +1796,8 @@ void benchmark_pool_reuse_full_cycle(std::vector<std::unique_ptr<IPoolAdapter<T>
         {
             auto stats = Statistics::compute(r.samples);
             std::cout << "  " << std::setw(26) << r.library << ": median=" << std::setw(8) << stats.median
-                      << " ns/op  mean=" << std::setw(8) << stats.mean << " +/-" << std::setw(6) << stats.stddev << "\n";
+                      << " ns/op  mean=" << std::setw(8) << stats.mean << " +/-" << std::setw(6) << stats.stddev
+                      << "\n";
         }
     }
 }
@@ -1601,7 +1844,9 @@ void benchmark_specialized_acquire()
             acquire_samples.push_back(ns_per_op(elapsed, N));
 
             for (size_t i = 0; i < N; ++i)
+            {
                 pool.release(acquired[i]);
+            }
         }
 
         // Benchmark: acquire_uninitialized()
@@ -1623,7 +1868,9 @@ void benchmark_specialized_acquire()
             uninit_samples.push_back(ns_per_op(elapsed, N));
 
             for (size_t i = 0; i < N; ++i)
+            {
                 pool.release(acquired[i]);
+            }
         }
 
         // Benchmark: acquire_zeroed()
@@ -1651,7 +1898,9 @@ void benchmark_specialized_acquire()
             zeroed_samples.push_back(ns_per_op(elapsed, N));
 
             for (size_t i = 0; i < N; ++i)
+            {
                 pool.release(acquired[i]);
+            }
         }
 
         // Print results
@@ -1665,7 +1914,9 @@ void benchmark_specialized_acquire()
         std::cout << "  " << std::setw(26) << "acquire_uninitialized()" << ": median=" << std::setw(8)
                   << uninit_stats.median << " ns/op";
         if (acquire_stats.median > 0)
+        {
             std::cout << "  (" << std::setprecision(1) << (acquire_stats.median / uninit_stats.median) << "x faster)";
+        }
         std::cout << "\n";
 
         std::cout << "  " << std::setw(26) << "acquire_zeroed()" << ": median=" << std::setw(8) << zeroed_stats.median
@@ -1698,7 +1949,9 @@ void benchmark_multithreaded()
     for (size_t num_threads : thread_counts)
     {
         if (num_threads > max_threads)
+        {
             continue;
+        }
 
         std::cout << "\n--- " << num_threads << " threads, " << OPS_PER_THREAD << " ops/thread ---\n";
         cooling_delay(COOLING_DELAY_SIZE_MS, "thread count transition");
@@ -1719,7 +1972,9 @@ void benchmark_multithreaded()
 
                 auto worker = [&](size_t thread_id) {
                     while (!start_flag.load(std::memory_order_acquire))
+                    {
                         std::this_thread::yield();
+                    }
 
                     size_t local_ops = 0;
                     for (size_t i = 0; i < OPS_PER_THREAD; ++i)
@@ -1733,14 +1988,18 @@ void benchmark_multithreaded()
                 };
 
                 for (size_t t = 0; t < num_threads; ++t)
+                {
                     threads.emplace_back(worker, t);
+                }
 
                 Timer timer;
                 timer.start();
                 start_flag.store(true, std::memory_order_release);
 
                 for (auto& th : threads)
+                {
                     th.join();
+                }
 
                 double elapsed = timer.elapsed_ns();
                 size_t ops = total_ops.load();
@@ -1752,8 +2011,8 @@ void benchmark_multithreaded()
 
             std::cout << std::fixed << std::setprecision(2);
             std::cout << "  " << std::setw(26) << "fat_p::ThreadSafePool"
-                      << ": median=" << std::setw(8) << stats.median
-                      << " ns/op  throughput=" << std::setprecision(0) << std::setw(10) << throughput << " ops/sec\n";
+                      << ": median=" << std::setw(8) << stats.median << " ns/op  throughput=" << std::setprecision(0)
+                      << std::setw(10) << throughput << " ops/sec\n";
         }
 
         // ---- std::pmr::synchronized_pool_resource ----
@@ -1772,7 +2031,9 @@ void benchmark_multithreaded()
 
                 auto worker = [&](size_t thread_id) {
                     while (!start_flag.load(std::memory_order_acquire))
+                    {
                         std::this_thread::yield();
+                    }
 
                     std::pmr::polymorphic_allocator<MediumObject> alloc(&pool);
                     size_t local_ops = 0;
@@ -1780,7 +2041,9 @@ void benchmark_multithreaded()
                     {
                         MediumObject* obj = alloc.allocate(1);
                         std::allocator_traits<std::pmr::polymorphic_allocator<MediumObject>>::construct(
-                            alloc, obj, static_cast<int64_t>(thread_id * 1000000 + i));
+                            alloc,
+                            obj,
+                            static_cast<int64_t>(thread_id * 1000000 + i));
                         prevent_opt(obj->checksum());
                         std::allocator_traits<std::pmr::polymorphic_allocator<MediumObject>>::destroy(alloc, obj);
                         alloc.deallocate(obj, 1);
@@ -1790,14 +2053,18 @@ void benchmark_multithreaded()
                 };
 
                 for (size_t t = 0; t < num_threads; ++t)
+                {
                     threads.emplace_back(worker, t);
+                }
 
                 Timer timer;
                 timer.start();
                 start_flag.store(true, std::memory_order_release);
 
                 for (auto& th : threads)
+                {
                     th.join();
+                }
 
                 double elapsed = timer.elapsed_ns();
                 size_t ops = total_ops.load();
@@ -1809,8 +2076,8 @@ void benchmark_multithreaded()
 
             std::cout << std::fixed << std::setprecision(2);
             std::cout << "  " << std::setw(26) << "std::pmr::sync_pool"
-                      << ": median=" << std::setw(8) << stats.median
-                      << " ns/op  throughput=" << std::setprecision(0) << std::setw(10) << throughput << " ops/sec\n";
+                      << ": median=" << std::setw(8) << stats.median << " ns/op  throughput=" << std::setprecision(0)
+                      << std::setw(10) << throughput << " ops/sec\n";
         }
     }
 }
@@ -1905,7 +2172,7 @@ int main(int argc, char* argv[])
     hdr.warmup = WARMUP_RUNS();
     hdr.measured = MEASURED_RUNS();
     hdr.seed = g_config.seed;
-    
+
     // Competitors
 #if HAS_FATP_OBJECTPOOL
     hdr.competitors.push_back({"fat_p::ObjectPool", true, "primary"});
@@ -1930,12 +2197,12 @@ int main(int argc, char* argv[])
     hdr.competitors.push_back({"std::pmr::unsynchronized_pool_resource", true, "C++17"});
     hdr.competitors.push_back({"std::pmr::synchronized_pool_resource", true, "C++17 thread-safe"});
     hdr.competitors.push_back({"new/delete", true, "baseline"});
-    
+
     hdr.has_extended_config = false;
     hdr.is_multi_library = true;
     hdr.has_correctness_checks = false;
     hdr.has_stabilization = !g_config.noStabilize;
-    
+
     fat_p::bench::print_standard_header(hdr);
 
 
@@ -1946,7 +2213,9 @@ int main(int argc, char* argv[])
         print_cpu_context("Initial");
         std::cout << "Waiting for CPU to stabilize...\n";
         if (!wait_for_cpu_stable(10.0, 30, 200, true))
+        {
             std::cout << "WARNING: CPU frequency still fluctuating, results may have higher variance.\n";
+        }
         std::cout << "\n";
     }
 

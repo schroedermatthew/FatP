@@ -7,7 +7,7 @@ FATP_META:
   file_role: public_header
   path: include/fat_p/DiagnosticLogger_Core.h
   namespace: fat_p
-  layer: Domain
+  layer: Foundation
   summary: "Public header for DiagnosticLogger_Core."
   api_stability: in_work
   related:

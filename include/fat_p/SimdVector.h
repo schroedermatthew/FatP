@@ -7,7 +7,7 @@ FATP_META:
   file_role: public_header
   path: include/fat_p/SimdVector.h
   namespace: fat_p
-  layer: Containers
+  layer: Foundation
   summary: "Public header for SimdVector."
   api_stability: in_work
   related:

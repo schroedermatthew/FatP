@@ -62,30 +62,47 @@ using namespace std::chrono;
 struct CustomToString
 {
     int value;
-    std::string toString() const { return "Custom(" + std::to_string(value) + ")"; }
+    std::string toString() const
+    {
+        return "Custom(" + std::to_string(value) + ")";
+    }
 };
 
 struct CustomToStringSnake
 {
     int value;
-    std::string to_string() const { return "Snake(" + std::to_string(value) + ")"; }
+    std::string to_string() const
+    {
+        return "Snake(" + std::to_string(value) + ")";
+    }
 };
 
 struct CustomBothMethods
 {
     int value;
-    std::string toString() const { return "CamelCase"; }
-    std::string to_string() const { return "snake_case"; }
+    std::string toString() const
+    {
+        return "CamelCase";
+    }
+    std::string to_string() const
+    {
+        return "snake_case";
+    }
 };
 
 struct BadToStringReturnInt
 {
-    int toString() const { return 42; }
+    int toString() const
+    {
+        return 42;
+    }
 };
 
 struct BadToStringReturnVoid
 {
-    void to_string() const {}
+    void to_string() const
+    {
+    }
 };
 
 struct CustomStreamable
@@ -113,7 +130,10 @@ struct NonStringifiable
 
 struct ThrowingToString
 {
-    std::string toString() const { throw std::runtime_error("Intentional error"); }
+    std::string toString() const
+    {
+        throw std::runtime_error("Intentional error");
+    }
 };
 
 struct FakePairWithToString
@@ -121,20 +141,47 @@ struct FakePairWithToString
     using first_type = int;
     using second_type = std::string;
     int data;
-    std::string toString() const { return "FakePair(" + std::to_string(data) + ")"; }
+    std::string toString() const
+    {
+        return "FakePair(" + std::to_string(data) + ")";
+    }
 };
 
 struct IterableWithToString
 {
     std::vector<int> data = {1, 2, 3};
-    auto begin() const { return data.begin(); }
-    auto end() const { return data.end(); }
-    std::string toString() const { return "IterableCustom"; }
+    auto begin() const
+    {
+        return data.begin();
+    }
+    auto end() const
+    {
+        return data.end();
+    }
+    std::string toString() const
+    {
+        return "IterableCustom";
+    }
 };
 
-enum class Color { Red, Green, Blue };
-enum class Priority { Low = 1, Medium = 5, High = 10 };
-enum UnscopedEnum { A = 100, B = 200, C = 300 };
+enum class Color
+{
+    Red,
+    Green,
+    Blue
+};
+enum class Priority
+{
+    Low = 1,
+    Medium = 5,
+    High = 10
+};
+enum UnscopedEnum
+{
+    A = 100,
+    B = 200,
+    C = 300
+};
 
 } // namespace fat_p::testing::stringify
 
@@ -147,9 +194,12 @@ struct EnumStringifier<testing::stringify::Color>
     {
         switch (c)
         {
-            case testing::stringify::Color::Red: return "Red";
-            case testing::stringify::Color::Green: return "Green";
-            case testing::stringify::Color::Blue: return "Blue";
+            case testing::stringify::Color::Red:
+                return "Red";
+            case testing::stringify::Color::Green:
+                return "Green";
+            case testing::stringify::Color::Blue:
+                return "Blue";
         }
         return nullptr;
     }
@@ -284,13 +334,17 @@ FATP_TEST_CASE(int_basic)
 FATP_TEST_CASE(int_boundaries)
 {
     FATP_ASSERT_EQ(toString(std::numeric_limits<int>::max()),
-                   std::to_string(std::numeric_limits<int>::max()), "int max");
+                   std::to_string(std::numeric_limits<int>::max()),
+                   "int max");
     FATP_ASSERT_EQ(toString(std::numeric_limits<int>::min()),
-                   std::to_string(std::numeric_limits<int>::min()), "int min");
+                   std::to_string(std::numeric_limits<int>::min()),
+                   "int min");
     FATP_ASSERT_EQ(toString(std::numeric_limits<long long>::max()),
-                   std::to_string(std::numeric_limits<long long>::max()), "long long max");
+                   std::to_string(std::numeric_limits<long long>::max()),
+                   "long long max");
     FATP_ASSERT_EQ(toString(std::numeric_limits<long long>::min()),
-                   std::to_string(std::numeric_limits<long long>::min()), "long long min");
+                   std::to_string(std::numeric_limits<long long>::min()),
+                   "long long min");
     return true;
 }
 
@@ -315,10 +369,10 @@ FATP_TEST_CASE(float_basic)
 {
     auto r1 = toString(3.14);
     FATP_ASSERT_TRUE(r1.find("3.14") != std::string::npos, "double basic");
-    
+
     auto r2 = toString(3.14f);
     FATP_ASSERT_TRUE(r2.find("3.14") != std::string::npos, "float basic");
-    
+
     FATP_ASSERT_EQ(toString(0.0), "0", "zero double");
     return true;
 }
@@ -327,10 +381,10 @@ FATP_TEST_CASE(float_special_values)
 {
     auto inf_str = toString(std::numeric_limits<double>::infinity());
     FATP_ASSERT_TRUE(inf_str.find("inf") != std::string::npos || inf_str.find("Inf") != std::string::npos, "infinity");
-    
+
     auto neg_inf_str = toString(-std::numeric_limits<double>::infinity());
     FATP_ASSERT_TRUE(neg_inf_str.find("inf") != std::string::npos, "negative infinity");
-    
+
     auto nan_str = toString(std::nan(""));
     FATP_ASSERT_TRUE(nan_str.find("nan") != std::string::npos || nan_str.find("NaN") != std::string::npos, "NaN");
     return true;
@@ -341,10 +395,10 @@ FATP_TEST_CASE(float_precision_option)
     StringifyOptions opts;
     opts.float_precision = 2;
     FATP_ASSERT_EQ(toString(3.14159, opts), "3.14", "precision 2");
-    
+
     opts.float_precision = 4;
     FATP_ASSERT_EQ(toString(3.14159, opts), "3.1416", "precision 4");
-    
+
     opts.float_precision = 0;
     FATP_ASSERT_EQ(toString(3.14159, opts), "3", "precision 0");
     return true;
@@ -355,7 +409,7 @@ FATP_TEST_CASE(float_scientific_notation)
     StringifyOptions opts;
     opts.scientific_notation = true;
     opts.float_precision = 2;
-    
+
     auto result = toString(12345.0, opts);
     FATP_ASSERT_TRUE(result.find("e") != std::string::npos || result.find("E") != std::string::npos,
                      "scientific notation");
@@ -370,7 +424,7 @@ FATP_TEST_CASE(bool_text_mode)
 {
     FATP_ASSERT_EQ(toString(true), "true", "true as text");
     FATP_ASSERT_EQ(toString(false), "false", "false as text");
-    
+
     StringifyOptions opts;
     opts.show_bool_as_text = true;
     FATP_ASSERT_EQ(toString(true, opts), "true", "explicit text mode");
@@ -403,7 +457,7 @@ FATP_TEST_CASE(string_c_string)
 {
     const char* cs = "c-string";
     FATP_ASSERT_EQ(toString(cs), "c-string", "const char*");
-    
+
     char mutable_str[] = "mutable";
     FATP_ASSERT_EQ(toString(mutable_str), "mutable", "char array");
     return true;
@@ -413,7 +467,7 @@ FATP_TEST_CASE(string_null_c_string)
 {
     const char* null_ptr = nullptr;
     FATP_ASSERT_EQ(toString(null_ptr), "<non-stringifiable>", "null const char*");
-    
+
     StringifyOptions opts;
     opts.placeholder = "NULL";
     FATP_ASSERT_EQ(toString(null_ptr, opts), "NULL", "null with custom placeholder");
@@ -424,7 +478,7 @@ FATP_TEST_CASE(string_char_array)
 {
     char arr[] = "array";
     FATP_ASSERT_EQ(toString(arr), "array", "char[]");
-    
+
     const char const_arr[] = "const array";
     FATP_ASSERT_EQ(toString(const_arr), "const array", "const char[]");
     return true;
@@ -507,7 +561,7 @@ FATP_TEST_CASE(pair_basic)
 {
     std::pair<int, int> p1{1, 2};
     FATP_ASSERT_EQ(toString(p1), "(1, 2)", "int pair");
-    
+
     std::pair<std::string, int> p2{"key", 42};
     FATP_ASSERT_EQ(toString(p2), "(key, 42)", "string-int pair");
     return true;
@@ -572,7 +626,7 @@ FATP_TEST_CASE(optional_with_value)
 {
     std::optional<int> opt = 42;
     FATP_ASSERT_EQ(toString(opt), "42", "optional with value");
-    
+
     std::optional<std::string> opt_str = "hello";
     FATP_ASSERT_EQ(toString(opt_str), "hello", "optional string");
     return true;
@@ -582,7 +636,7 @@ FATP_TEST_CASE(optional_empty)
 {
     std::optional<int> empty;
     FATP_ASSERT_EQ(toString(empty), "nullopt", "empty optional");
-    
+
     std::optional<std::string> empty_str = std::nullopt;
     FATP_ASSERT_EQ(toString(empty_str), "nullopt", "nullopt");
     return true;
@@ -592,7 +646,7 @@ FATP_TEST_CASE(optional_nested)
 {
     std::optional<std::optional<int>> nested = std::optional<int>{42};
     FATP_ASSERT_EQ(toString(nested), "42", "nested optional");
-    
+
     std::optional<std::optional<int>> nested_empty = std::optional<int>{};
     FATP_ASSERT_EQ(toString(nested_empty), "nullopt", "nested empty optional");
     return true;
@@ -606,7 +660,7 @@ FATP_TEST_CASE(container_vector)
 {
     std::vector<int> v{1, 2, 3, 4, 5};
     FATP_ASSERT_EQ(toString(v), "[1, 2, 3, 4, 5]", "vector");
-    
+
     std::vector<int> empty;
     FATP_ASSERT_EQ(toString(empty), "[]", "empty vector");
     return true;
@@ -705,7 +759,7 @@ FATP_TEST_CASE(depth_guard_default)
     using V3 = std::vector<V2>;
     using V4 = std::vector<V3>;
     using V5 = std::vector<V4>;
-    
+
     V5 deep = {{{{{1}}}}};
     auto result = toString(deep);
     FATP_ASSERT_TRUE(result.find("<max depth>") != std::string::npos, "default depth limit");
@@ -715,7 +769,7 @@ FATP_TEST_CASE(depth_guard_default)
 FATP_TEST_CASE(depth_guard_custom)
 {
     std::vector<std::vector<std::vector<int>>> v3{{{1}}};
-    
+
     StringifyOptions opts;
     opts.max_container_depth = 2;
     auto result = toString(v3, opts);
@@ -727,8 +781,8 @@ FATP_TEST_CASE(depth_guard_reset)
 {
     using V5 = std::vector<std::vector<std::vector<std::vector<std::vector<int>>>>>;
     V5 deep = {{{{{1}}}}};
-    (void)toString(deep);  // Hit limit
-    
+    (void)toString(deep); // Hit limit
+
     std::vector<int> simple{1, 2, 3};
     FATP_ASSERT_EQ(toString(simple), "[1, 2, 3]", "depth guard resets");
     return true;
@@ -780,11 +834,11 @@ FATP_TEST_CASE(options_default_values)
 FATP_TEST_CASE(options_placeholder)
 {
     NonStringifiable ns{1};
-    
+
     StringifyOptions opts;
     opts.placeholder = "N/A";
     FATP_ASSERT_EQ(toString(ns, opts), "N/A", "custom placeholder");
-    
+
     opts.placeholder = "";
     FATP_ASSERT_EQ(toString(ns, opts), "", "empty placeholder");
     return true;
@@ -823,7 +877,7 @@ FATP_TEST_CASE(try_to_string_exception)
     ThrowingToString thrower;
     std::string result;
     FATP_ASSERT_FALSE(tryToString(thrower, result), "tryToString returns false on exception");
-    
+
     auto error = getLastStringifyError();
     FATP_ASSERT_TRUE(error.find("Intentional") != std::string::npos, "error message captured");
     return true;
@@ -833,7 +887,7 @@ FATP_TEST_CASE(to_w_string_basic)
 {
     FATP_ASSERT_TRUE(toWString(42) == L"42", "toWString int");
     FATP_ASSERT_TRUE(toWString(true).find(L"true") != std::wstring::npos, "toWString bool");
-    
+
     auto wdouble = toWString(3.14);
     FATP_ASSERT_TRUE(wdouble.find(L"3.14") != std::wstring::npos, "toWString double");
     return true;
@@ -872,7 +926,7 @@ FATP_TEST_CASE(to_string_formatted)
 {
     FATP_ASSERT_TRUE(toStringFormatted(3.14159, 2).find("3.14") != std::string::npos, "precision 2");
     FATP_ASSERT_TRUE(toStringFormatted(3.14159, 4).find("3.1416") != std::string::npos, "precision 4");
-    
+
     auto sci = toStringFormatted(12345.0, 2, false);
     FATP_ASSERT_TRUE(sci.find("e") != std::string::npos || sci.find("E") != std::string::npos, "scientific");
     return true;
@@ -883,7 +937,7 @@ FATP_TEST_CASE(to_string_pointer)
     int value = 42;
     auto ptr_str = toStringPointer(&value);
     FATP_ASSERT_TRUE(ptr_str.find("0x") != std::string::npos, "pointer hex prefix");
-    
+
     FATP_ASSERT_EQ(toStringPointer(static_cast<int*>(nullptr)), "nullptr", "null pointer");
     FATP_ASSERT_EQ(toStringPointer(static_cast<int*>(nullptr), {}, "NULL"), "NULL", "custom null");
     return true;
@@ -915,16 +969,18 @@ FATP_TEST_CASE(thread_safety_concurrent)
 {
     constexpr size_t NUM_THREADS = 4;
     constexpr size_t ITERATIONS = 1000;
-    
+
     std::atomic<size_t> success_count{0};
     std::atomic<size_t> error_count{0};
     std::atomic<bool> start_flag{false};
     std::vector<std::thread> threads;
-    
+
     auto worker = [&](size_t thread_id) {
         while (!start_flag.load(std::memory_order_acquire))
+        {
             std::this_thread::yield();
-        
+        }
+
         for (size_t i = 0; i < ITERATIONS; ++i)
         {
             try
@@ -932,12 +988,16 @@ FATP_TEST_CASE(thread_safety_concurrent)
                 volatile auto s1 = toString(static_cast<int>(thread_id * 1000 + i));
                 volatile auto s2 = toString(3.14159 * static_cast<double>(thread_id));
                 volatile auto s3 = toString(std::vector<int>{1, 2, 3});
-                
+
                 std::string out;
                 if (tryToString(static_cast<int>(i), out))
+                {
                     success_count.fetch_add(1, std::memory_order_relaxed);
-                
-                (void)s1; (void)s2; (void)s3;
+                }
+
+                (void)s1;
+                (void)s2;
+                (void)s3;
             }
             catch (...)
             {
@@ -945,15 +1005,19 @@ FATP_TEST_CASE(thread_safety_concurrent)
             }
         }
     };
-    
+
     for (size_t t = 0; t < NUM_THREADS; ++t)
+    {
         threads.emplace_back(worker, t);
-    
+    }
+
     start_flag.store(true, std::memory_order_release);
-    
+
     for (auto& t : threads)
+    {
         t.join();
-    
+    }
+
     FATP_ASSERT_EQ(error_count.load(), 0u, "no exceptions");
     FATP_ASSERT_EQ(success_count.load(), NUM_THREADS * ITERATIONS, "all succeeded");
     return true;
@@ -965,27 +1029,35 @@ FATP_TEST_CASE(thread_safety_error_independence)
     std::atomic<size_t> correct_errors{0};
     std::atomic<bool> start_flag{false};
     std::vector<std::thread> threads;
-    
+
     auto worker = [&]([[maybe_unused]] size_t thread_id) {
         while (!start_flag.load(std::memory_order_acquire))
+        {
             std::this_thread::yield();
-        
+        }
+
         ThrowingToString thrower;
         std::string out;
         (void)tryToString(thrower, out);
-        
+
         if (getLastStringifyError().find("Intentional") != std::string::npos)
+        {
             correct_errors.fetch_add(1, std::memory_order_relaxed);
+        }
     };
-    
+
     for (size_t t = 0; t < NUM_THREADS; ++t)
+    {
         threads.emplace_back(worker, t);
-    
+    }
+
     start_flag.store(true, std::memory_order_release);
-    
+
     for (auto& t : threads)
+    {
         t.join();
-    
+    }
+
     FATP_ASSERT_EQ(correct_errors.load(), NUM_THREADS, "each thread has independent error state");
     return true;
 }
@@ -997,15 +1069,15 @@ FATP_TEST_CASE(thread_safety_error_independence)
 FATP_TEST_CASE(corner_char_as_integer)
 {
     // char should stringify as a number, not as a character
-    char c = 'A';  // ASCII 65
+    char c = 'A'; // ASCII 65
     // Note: char may be treated as character or int depending on implementation
     auto result = toString(c);
     // Either "65" or "A" is acceptable depending on how char is handled
     FATP_ASSERT_TRUE(result == "65" || result == "A", "char stringification");
-    
+
     signed char sc = -10;
     FATP_ASSERT_EQ(toString(sc), "-10", "signed char");
-    
+
     unsigned char uc = 200;
     FATP_ASSERT_EQ(toString(uc), "200", "unsigned char");
     return true;
@@ -1015,13 +1087,13 @@ FATP_TEST_CASE(corner_int8_uint8)
 {
     int8_t i8 = -128;
     FATP_ASSERT_EQ(toString(i8), "-128", "int8_t min");
-    
+
     i8 = 127;
     FATP_ASSERT_EQ(toString(i8), "127", "int8_t max");
-    
+
     uint8_t u8 = 0;
     FATP_ASSERT_EQ(toString(u8), "0", "uint8_t zero");
-    
+
     u8 = 255;
     FATP_ASSERT_EQ(toString(u8), "255", "uint8_t max");
     return true;
@@ -1030,9 +1102,11 @@ FATP_TEST_CASE(corner_int8_uint8)
 FATP_TEST_CASE(corner_unsigned_boundaries)
 {
     FATP_ASSERT_EQ(toString(std::numeric_limits<unsigned int>::max()),
-                   std::to_string(std::numeric_limits<unsigned int>::max()), "uint max");
+                   std::to_string(std::numeric_limits<unsigned int>::max()),
+                   "uint max");
     FATP_ASSERT_EQ(toString(std::numeric_limits<uint64_t>::max()),
-                   std::to_string(std::numeric_limits<uint64_t>::max()), "uint64 max");
+                   std::to_string(std::numeric_limits<uint64_t>::max()),
+                   "uint64 max");
     return true;
 }
 
@@ -1063,15 +1137,15 @@ FATP_TEST_CASE(corner_float_extremes)
     double tiny = std::numeric_limits<double>::epsilon();
     auto tiny_result = toString(tiny);
     FATP_ASSERT_TRUE(!tiny_result.empty(), "epsilon stringifies");
-    
+
     double huge = std::numeric_limits<double>::max();
     auto huge_result = toString(huge);
     FATP_ASSERT_TRUE(!huge_result.empty(), "max double stringifies");
-    FATP_ASSERT_TRUE(huge_result.find("e") != std::string::npos || 
-                     huge_result.find("E") != std::string::npos ||
-                     huge_result.size() > 100, "max double is very large");
-    
-    double tiny_pos = std::numeric_limits<double>::min();  // smallest positive normalized
+    FATP_ASSERT_TRUE(huge_result.find("e") != std::string::npos || huge_result.find("E") != std::string::npos ||
+                         huge_result.size() > 100,
+                     "max double is very large");
+
+    double tiny_pos = std::numeric_limits<double>::min(); // smallest positive normalized
     auto tiny_pos_result = toString(tiny_pos);
     FATP_ASSERT_TRUE(!tiny_pos_result.empty(), "min positive stringifies");
     return true;
@@ -1102,7 +1176,7 @@ FATP_TEST_CASE(corner_string_embedded_null)
 FATP_TEST_CASE(corner_string_unicode)
 {
     // UTF-8 encoded string (without u8 prefix which changed in C++20)
-    std::string utf8 = "Hello \xe4\xb8\x96\xe7\x95\x8c";  // "Hello 世界" in UTF-8
+    std::string utf8 = "Hello \xe4\xb8\x96\xe7\x95\x8c"; // "Hello 世界" in UTF-8
     auto result = toString(utf8);
     FATP_ASSERT_EQ(result, utf8, "UTF-8 preserved");
     return true;
@@ -1113,7 +1187,7 @@ FATP_TEST_CASE(corner_string_view)
     std::string_view sv = "string_view test";
     auto result = toString(sv);
     FATP_ASSERT_EQ(result, "string_view test", "string_view");
-    
+
     std::string_view empty_sv;
     FATP_ASSERT_EQ(toString(empty_sv), "", "empty string_view");
     return true;
@@ -1135,7 +1209,7 @@ FATP_TEST_CASE(corner_container_single_element)
 {
     std::vector<int> single{42};
     FATP_ASSERT_EQ(toString(single), "[42]", "single element vector");
-    
+
     std::list<std::string> single_list{"only"};
     FATP_ASSERT_EQ(toString(single_list), "[only]", "single element list");
     return true;
@@ -1223,12 +1297,10 @@ FATP_TEST_CASE(corner_pair_with_non_stringifiable)
 
 FATP_TEST_CASE(corner_optional_triple_nested)
 {
-    std::optional<std::optional<std::optional<int>>> triple = 
-        std::optional<std::optional<int>>{std::optional<int>{42}};
+    std::optional<std::optional<std::optional<int>>> triple = std::optional<std::optional<int>>{std::optional<int>{42}};
     FATP_ASSERT_EQ(toString(triple), "42", "triple nested optional");
-    
-    std::optional<std::optional<std::optional<int>>> triple_empty = 
-        std::optional<std::optional<int>>{std::nullopt};
+
+    std::optional<std::optional<std::optional<int>>> triple_empty = std::optional<std::optional<int>>{std::nullopt};
     FATP_ASSERT_EQ(toString(triple_empty), "nullopt", "triple nested nullopt");
     return true;
 }
@@ -1238,7 +1310,7 @@ FATP_TEST_CASE(corner_optional_of_non_stringifiable)
     std::optional<NonStringifiable> opt = NonStringifiable{42};
     auto result = toString(opt);
     FATP_ASSERT_EQ(result, "<non-stringifiable>", "optional of non-stringifiable");
-    
+
     std::optional<NonStringifiable> empty_opt;
     FATP_ASSERT_EQ(toString(empty_opt), "nullopt", "empty optional of non-stringifiable");
     return true;
@@ -1248,8 +1320,16 @@ FATP_TEST_CASE(corner_optional_of_non_stringifiable)
 // Corner Cases - Enums
 // =============================================================================
 
-enum class SignedEnum : int { Negative = -5, Zero = 0, Positive = 5 };
-enum class BigEnum : uint64_t { Big = 0xFFFFFFFFFFFFFFFFULL };
+enum class SignedEnum : int
+{
+    Negative = -5,
+    Zero = 0,
+    Positive = 5
+};
+enum class BigEnum : uint64_t
+{
+    Big = 0xFFFFFFFFFFFFFFFFULL
+};
 
 FATP_TEST_CASE(corner_enum_negative_underlying)
 {
@@ -1272,13 +1352,19 @@ FATP_TEST_CASE(corner_enum_uint64_underlying)
 
 struct EmptyToString
 {
-    std::string toString() const { return ""; }
+    std::string toString() const
+    {
+        return "";
+    }
 };
 
 struct NonConstToString
 {
     int value = 42;
-    std::string toString() { return "NonConst(" + std::to_string(value) + ")"; }  // non-const!
+    std::string toString()
+    {
+        return "NonConst(" + std::to_string(value) + ")";
+    } // non-const!
 };
 
 FATP_TEST_CASE(corner_custom_empty_return)
@@ -1295,8 +1381,8 @@ FATP_TEST_CASE(corner_custom_non_const_method)
     // This may or may not compile depending on concept definition
     // If it fails to compile, that's actually correct behavior
     auto result = toString(ncts);
-    FATP_ASSERT_TRUE(result.find("NonConst") != std::string::npos || 
-                     result == "<non-stringifiable>", "non-const toString handling");
+    FATP_ASSERT_TRUE(result.find("NonConst") != std::string::npos || result == "<non-stringifiable>",
+                     "non-const toString handling");
     return true;
 }
 
@@ -1308,7 +1394,7 @@ FATP_TEST_CASE(corner_const_reference)
 {
     const int ci = 42;
     FATP_ASSERT_EQ(toString(ci), "42", "const int");
-    
+
     const std::vector<int> cv{1, 2, 3};
     FATP_ASSERT_EQ(toString(cv), "[1, 2, 3]", "const vector");
     return true;
@@ -1326,7 +1412,7 @@ FATP_TEST_CASE(corner_pointer_non_null)
 {
     int value = 42;
     int* ptr = &value;
-    
+
     // Raw pointer should go through streamable path (prints address)
     auto result = toString(ptr);
     // Should be an address like "0x7fff..." or similar
@@ -1344,7 +1430,7 @@ FATP_TEST_CASE(corner_options_all_float_options)
     opts.float_precision = 3;
     opts.scientific_notation = true;
     opts.use_classic_locale = true;
-    
+
     auto result = toString(12345.6789, opts);
     FATP_ASSERT_TRUE(result.find("e") != std::string::npos || result.find("E") != std::string::npos,
                      "scientific with precision");
@@ -1359,9 +1445,9 @@ FATP_TEST_CASE(corner_options_container_all)
     opts.container_close = ">>";
     opts.container_separator = " | ";
     opts.max_container_depth = 1;
-    
+
     FATP_ASSERT_EQ(toString(v, opts), "<<1 | 2 | 3>>", "all container options");
-    
+
     std::vector<std::vector<int>> nested{{1}};
     auto nested_result = toString(nested, opts);
     FATP_ASSERT_TRUE(nested_result.find("<max depth>") != std::string::npos, "depth 1 limit");
@@ -1377,7 +1463,7 @@ FATP_TEST_CASE(stress_large_container)
     // Stress test: Large container with many elements
     std::vector<int> large(10000);
     std::iota(large.begin(), large.end(), 0);
-    
+
     auto result = toString(large);
     FATP_ASSERT_TRUE(result.find("[0, 1, 2") != std::string::npos, "starts correctly");
     FATP_ASSERT_TRUE(result.find("9999]") != std::string::npos, "ends correctly");
@@ -1399,8 +1485,10 @@ FATP_TEST_CASE(stress_many_map_entries)
 {
     std::map<int, std::string> large_map;
     for (int i = 0; i < 1000; ++i)
+    {
         large_map[i] = "value" + std::to_string(i);
-    
+    }
+
     auto result = toString(large_map);
     FATP_ASSERT_TRUE(result.find("{0: value0") != std::string::npos, "first entry");
     FATP_ASSERT_TRUE(result.find("999: value999}") != std::string::npos, "last entry");
@@ -1418,8 +1506,7 @@ FATP_TEST_CASE(stress_long_string_passthrough)
 
 FATP_TEST_CASE(stress_wide_tuple)
 {
-    auto wide = std::make_tuple(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 
-                                 11, 12, 13, 14, 15, 16, 17, 18, 19, 20);
+    auto wide = std::make_tuple(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20);
     auto result = toString(wide);
     FATP_ASSERT_TRUE(result.find("(1, 2, 3") != std::string::npos, "starts correctly");
     FATP_ASSERT_TRUE(result.find("19, 20)") != std::string::npos, "ends correctly");
@@ -1430,15 +1517,17 @@ FATP_TEST_CASE(stress_rapid_allocation)
 {
     // Stress test: Rapid repeated allocations
     constexpr size_t ITERATIONS = 10000;
-    
+
     for (size_t i = 0; i < ITERATIONS; ++i)
     {
         volatile auto s1 = toString(static_cast<int>(i));
         volatile auto s2 = toString(std::vector<int>{1, 2, 3});
         volatile auto s3 = toStringConcat("iter=", i, " data=", 3.14);
-        (void)s1; (void)s2; (void)s3;
+        (void)s1;
+        (void)s2;
+        (void)s3;
     }
-    
+
     // If we get here without crash/hang, test passes
     return true;
 }
@@ -1446,7 +1535,7 @@ FATP_TEST_CASE(stress_rapid_allocation)
 FATP_TEST_CASE(stress_mixed_types_rapid)
 {
     constexpr size_t ITERATIONS = 5000;
-    
+
     for (size_t i = 0; i < ITERATIONS; ++i)
     {
         volatile auto s1 = toString(static_cast<int>(i));
@@ -1455,7 +1544,12 @@ FATP_TEST_CASE(stress_mixed_types_rapid)
         volatile auto s4 = toString(std::make_pair(i, "test"));
         volatile auto s5 = toString(std::optional<int>(static_cast<int>(i)));
         volatile auto s6 = toString(Color::Red);
-        (void)s1; (void)s2; (void)s3; (void)s4; (void)s5; (void)s6;
+        (void)s1;
+        (void)s2;
+        (void)s3;
+        (void)s4;
+        (void)s5;
+        (void)s6;
     }
     return true;
 }
@@ -1464,33 +1558,41 @@ FATP_TEST_CASE(stress_concurrent_high_load)
 {
     constexpr size_t NUM_THREADS = 8;
     constexpr size_t ITERATIONS = 5000;
-    
+
     std::atomic<size_t> total_ops{0};
     std::atomic<bool> start_flag{false};
     std::vector<std::thread> threads;
-    
+
     auto worker = [&](size_t thread_id) {
         while (!start_flag.load(std::memory_order_acquire))
+        {
             std::this_thread::yield();
-        
+        }
+
         for (size_t i = 0; i < ITERATIONS; ++i)
         {
             volatile auto s1 = toString(static_cast<int>(thread_id * 10000 + i));
             volatile auto s2 = toString(std::vector<int>{1, 2, 3, 4, 5});
             volatile auto s3 = toString(std::make_pair(thread_id, i));
             total_ops.fetch_add(3, std::memory_order_relaxed);
-            (void)s1; (void)s2; (void)s3;
+            (void)s1;
+            (void)s2;
+            (void)s3;
         }
     };
-    
+
     for (size_t t = 0; t < NUM_THREADS; ++t)
+    {
         threads.emplace_back(worker, t);
-    
+    }
+
     start_flag.store(true, std::memory_order_release);
-    
+
     for (auto& t : threads)
+    {
         t.join();
-    
+    }
+
     FATP_ASSERT_EQ(total_ops.load(), NUM_THREADS * ITERATIONS * 3, "all operations completed");
     return true;
 }
@@ -1505,20 +1607,23 @@ FATP_TEST_CASE(soak_sustained_operation)
     auto start = high_resolution_clock::now();
     constexpr auto DURATION = std::chrono::milliseconds(500);
     size_t iterations = 0;
-    
+
     while (high_resolution_clock::now() - start < DURATION)
     {
         volatile auto s1 = toString(static_cast<int>(iterations));
         volatile auto s2 = toString(3.14159);
         volatile auto s3 = toString(std::vector<int>{1, 2, 3});
         volatile auto s4 = toString(std::make_tuple(1, "test", 3.14));
-        (void)s1; (void)s2; (void)s3; (void)s4;
+        (void)s1;
+        (void)s2;
+        (void)s3;
+        (void)s4;
         ++iterations;
     }
-    
+
     auto& out = *get_test_config().output;
     out << "  Sustained " << iterations << " iterations over 500ms\n";
-    
+
     FATP_ASSERT_TRUE(iterations > 1000, "sufficient throughput");
     return true;
 }
@@ -1527,24 +1632,26 @@ FATP_TEST_CASE(soak_memory_stability)
 {
     // Soak test: Memory stability - repeated allocations should not leak
     constexpr size_t ITERATIONS = 50000;
-    
+
     for (size_t i = 0; i < ITERATIONS; ++i)
     {
         std::string result = toString(std::vector<int>(100, static_cast<int>(i)));
         FATP_ASSERT_TRUE(result.size() > 200, "reasonable output");
         // result goes out of scope, memory freed
     }
-    
+
     // Additional check with maps (more complex allocation pattern)
     for (size_t i = 0; i < ITERATIONS / 10; ++i)
     {
         std::map<int, std::string> m;
         for (int j = 0; j < 10; ++j)
+        {
             m[j] = "value" + std::to_string(j);
+        }
         std::string result = toString(m);
         FATP_ASSERT_TRUE(result.size() > 50, "map output");
     }
-    
+
     return true;
 }
 
@@ -1552,20 +1659,20 @@ FATP_TEST_CASE(soak_error_recovery)
 {
     // Soak test: Repeated error conditions and recovery
     constexpr size_t ITERATIONS = 1000;
-    
+
     ThrowingToString thrower;
-    
+
     for (size_t i = 0; i < ITERATIONS; ++i)
     {
         std::string out;
         bool result = tryToString(thrower, out);
         FATP_ASSERT_FALSE(result, "should fail");
-        
+
         // Immediately after error, normal operation should work
         auto normal = toString(42);
         FATP_ASSERT_EQ(normal, "42", "recovery after error");
     }
-    
+
     return true;
 }
 
@@ -1573,20 +1680,20 @@ FATP_TEST_CASE(soak_depth_guard_repeated)
 {
     // Soak test: Repeated depth limit hits and recovery
     using V5 = std::vector<std::vector<std::vector<std::vector<std::vector<int>>>>>;
-    
+
     constexpr size_t ITERATIONS = 1000;
-    
+
     for (size_t i = 0; i < ITERATIONS; ++i)
     {
         V5 deep = {{{{{static_cast<int>(i)}}}}};
         auto result = toString(deep);
         FATP_ASSERT_TRUE(result.find("<max depth>") != std::string::npos, "hit limit");
-        
+
         // Recovery
         auto simple = toString(std::vector<int>{1, 2, 3});
         FATP_ASSERT_EQ(simple, "[1, 2, 3]", "recovery");
     }
-    
+
     return true;
 }
 
@@ -1595,16 +1702,18 @@ FATP_TEST_CASE(soak_concurrent_sustained)
     // Soak test: Concurrent sustained operation
     constexpr size_t NUM_THREADS = 4;
     constexpr auto DURATION = std::chrono::milliseconds(300);
-    
+
     std::atomic<size_t> total_iterations{0};
     std::atomic<bool> stop_flag{false};
     std::atomic<bool> start_flag{false};
     std::vector<std::thread> threads;
-    
+
     auto worker = [&](size_t thread_id) {
         while (!start_flag.load(std::memory_order_acquire))
+        {
             std::this_thread::yield();
-        
+        }
+
         size_t local_count = 0;
         while (!stop_flag.load(std::memory_order_relaxed))
         {
@@ -1614,20 +1723,24 @@ FATP_TEST_CASE(soak_concurrent_sustained)
         }
         total_iterations.fetch_add(local_count, std::memory_order_relaxed);
     };
-    
+
     for (size_t t = 0; t < NUM_THREADS; ++t)
+    {
         threads.emplace_back(worker, t);
-    
+    }
+
     start_flag.store(true, std::memory_order_release);
     std::this_thread::sleep_for(DURATION);
     stop_flag.store(true, std::memory_order_release);
-    
+
     for (auto& t : threads)
+    {
         t.join();
-    
+    }
+
     auto& out = *get_test_config().output;
     out << "  " << NUM_THREADS << " threads, " << total_iterations.load() << " total ops over 300ms\n";
-    
+
     FATP_ASSERT_TRUE(total_iterations.load() > 10000, "sufficient concurrent throughput");
     return true;
 }
@@ -1669,56 +1782,67 @@ bool test_Stringify()
         FATP_RUN_TEST_NS(runner, stringify, concept_std_string_type);
         FATP_RUN_TEST_NS(runner, stringify, concept_stringifiable);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Integer Stringification ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Integer Stringification ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, int_basic);
         FATP_RUN_TEST_NS(runner, stringify, int_boundaries);
         FATP_RUN_TEST_NS(runner, stringify, int_all_types);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Float Stringification ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Float Stringification ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, float_basic);
         FATP_RUN_TEST_NS(runner, stringify, float_special_values);
         FATP_RUN_TEST_NS(runner, stringify, float_precision_option);
         FATP_RUN_TEST_NS(runner, stringify, float_scientific_notation);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Boolean Stringification ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Boolean Stringification ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, bool_text_mode);
         FATP_RUN_TEST_NS(runner, stringify, bool_numeric_mode);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== String Passthrough ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== String Passthrough ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, string_std_string);
         FATP_RUN_TEST_NS(runner, stringify, string_c_string);
         FATP_RUN_TEST_NS(runner, stringify, string_null_c_string);
         FATP_RUN_TEST_NS(runner, stringify, string_char_array);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Enum Stringification ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Enum Stringification ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, enum_with_stringifier);
         FATP_RUN_TEST_NS(runner, stringify, enum_without_stringifier);
         FATP_RUN_TEST_NS(runner, stringify, enum_unscoped);
         FATP_RUN_TEST_NS(runner, stringify, enum_in_container);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Custom Method Stringification ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Custom Method Stringification ===" << colors::reset()
+                  << "\n";
         FATP_RUN_TEST_NS(runner, stringify, custom_to_string_method);
         FATP_RUN_TEST_NS(runner, stringify, custom_to_string_snake_method);
         FATP_RUN_TEST_NS(runner, stringify, custom_both_methods_prefers_camel_case);
         FATP_RUN_TEST_NS(runner, stringify, custom_streamable);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Pair Stringification ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Pair Stringification ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, pair_basic);
         FATP_RUN_TEST_NS(runner, stringify, pair_nested);
         FATP_RUN_TEST_NS(runner, stringify, pair_with_container);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Tuple Stringification ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Tuple Stringification ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, tuple_basic);
         FATP_RUN_TEST_NS(runner, stringify, tuple_empty);
         FATP_RUN_TEST_NS(runner, stringify, tuple_single);
         FATP_RUN_TEST_NS(runner, stringify, tuple_nested);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Optional Stringification ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Optional Stringification ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, optional_with_value);
         FATP_RUN_TEST_NS(runner, stringify, optional_empty);
         FATP_RUN_TEST_NS(runner, stringify, optional_nested);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Container Stringification ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Container Stringification ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, container_vector);
         FATP_RUN_TEST_NS(runner, stringify, container_array);
         FATP_RUN_TEST_NS(runner, stringify, container_list);
@@ -1728,17 +1852,20 @@ bool test_Stringify()
         FATP_RUN_TEST_NS(runner, stringify, container_nested);
         FATP_RUN_TEST_NS(runner, stringify, container_custom_delimiters);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Map Stringification ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Map Stringification ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, map_basic);
         FATP_RUN_TEST_NS(runner, stringify, map_empty);
         FATP_RUN_TEST_NS(runner, stringify, map_unordered);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Recursion Depth Guard ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Recursion Depth Guard ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, depth_guard_default);
         FATP_RUN_TEST_NS(runner, stringify, depth_guard_custom);
         FATP_RUN_TEST_NS(runner, stringify, depth_guard_reset);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Type Priority Edge Cases ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Type Priority Edge Cases ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, priority_fake_pair_uses_to_string);
         FATP_RUN_TEST_NS(runner, stringify, priority_iterable_uses_to_string);
         FATP_RUN_TEST_NS(runner, stringify, priority_non_stringifiable_placeholder);
@@ -1748,7 +1875,8 @@ bool test_Stringify()
         FATP_RUN_TEST_NS(runner, stringify, options_placeholder);
         FATP_RUN_TEST_NS(runner, stringify, options_classic_locale);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Convenience Functions ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Convenience Functions ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, to_string_or);
         FATP_RUN_TEST_NS(runner, stringify, try_to_string_success);
         FATP_RUN_TEST_NS(runner, stringify, try_to_string_exception);
@@ -1766,24 +1894,28 @@ bool test_Stringify()
         FATP_RUN_TEST_NS(runner, stringify, thread_safety_concurrent);
         FATP_RUN_TEST_NS(runner, stringify, thread_safety_error_independence);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Corner Cases: Integers ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Corner Cases: Integers ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, corner_char_as_integer);
         FATP_RUN_TEST_NS(runner, stringify, corner_int8_uint8);
         FATP_RUN_TEST_NS(runner, stringify, corner_unsigned_boundaries);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Corner Cases: Floats ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Corner Cases: Floats ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, corner_float_negative_zero);
         FATP_RUN_TEST_NS(runner, stringify, corner_float_denormalized);
         FATP_RUN_TEST_NS(runner, stringify, corner_float_extremes);
         FATP_RUN_TEST_NS(runner, stringify, corner_float_long_double);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Corner Cases: Strings ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Corner Cases: Strings ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, corner_string_embedded_null);
         FATP_RUN_TEST_NS(runner, stringify, corner_string_unicode);
         FATP_RUN_TEST_NS(runner, stringify, corner_string_view);
         FATP_RUN_TEST_NS(runner, stringify, corner_string_special_chars);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Corner Cases: Containers ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Corner Cases: Containers ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, corner_container_single_element);
         FATP_RUN_TEST_NS(runner, stringify, corner_container_multimap);
         FATP_RUN_TEST_NS(runner, stringify, corner_container_multiset);
@@ -1791,29 +1923,38 @@ bool test_Stringify()
         FATP_RUN_TEST_NS(runner, stringify, corner_container_of_pairs);
         FATP_RUN_TEST_NS(runner, stringify, corner_container_of_optionals);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Corner Cases: Tuples/Arrays ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Corner Cases: Tuples/Arrays ===" << colors::reset()
+                  << "\n";
         FATP_RUN_TEST_NS(runner, stringify, corner_tuple_homogeneous);
         FATP_RUN_TEST_NS(runner, stringify, corner_std_array_as_container);
         FATP_RUN_TEST_NS(runner, stringify, corner_pair_with_non_stringifiable);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Corner Cases: Optionals ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Corner Cases: Optionals ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, corner_optional_triple_nested);
         FATP_RUN_TEST_NS(runner, stringify, corner_optional_of_non_stringifiable);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Corner Cases: Enums ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Corner Cases: Enums ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, corner_enum_negative_underlying);
         FATP_RUN_TEST_NS(runner, stringify, corner_enum_uint64_underlying);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Corner Cases: Custom Types ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Corner Cases: Custom Types ===" << colors::reset()
+                  << "\n";
         FATP_RUN_TEST_NS(runner, stringify, corner_custom_empty_return);
         FATP_RUN_TEST_NS(runner, stringify, corner_custom_non_const_method);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Corner Cases: References/Qualifiers ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold()
+                  << "=== Corner Cases: References/Qualifiers ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, corner_const_reference);
         FATP_RUN_TEST_NS(runner, stringify, corner_rvalue);
         FATP_RUN_TEST_NS(runner, stringify, corner_pointer_non_null);
 
-        std::cout << "\n" << colors::cyan() << colors::bold() << "=== Corner Cases: Options ===" << colors::reset() << "\n";
+        std::cout << "\n"
+                  << colors::cyan() << colors::bold() << "=== Corner Cases: Options ===" << colors::reset() << "\n";
         FATP_RUN_TEST_NS(runner, stringify, corner_options_all_float_options);
         FATP_RUN_TEST_NS(runner, stringify, corner_options_container_all);
 

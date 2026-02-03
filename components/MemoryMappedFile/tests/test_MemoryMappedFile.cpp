@@ -8,6 +8,7 @@ FATP_META:
   component: MemoryMappedFile
   file_role: test
   path: components/MemoryMappedFile/tests/test_MemoryMappedFile.cpp
+  layer: Testing
   namespace: fat_p::testing::memorymappedfile
   summary: "Unit tests for MemoryMappedFile."
   api_stability: in_work

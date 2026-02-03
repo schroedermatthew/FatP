@@ -8,6 +8,7 @@ FATP_META:
   component: TensorComparison
   file_role: test
   path: components/Tensor/tests/test_TensorComparison.cpp
+  layer: Testing
   namespace: fat_p
   summary: "Unit tests for TensorComparison."
   api_stability: in_work

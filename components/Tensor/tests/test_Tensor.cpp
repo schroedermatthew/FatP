@@ -8,6 +8,7 @@ FATP_META:
   component: Tensor
   file_role: test
   path: components/Tensor/tests/test_Tensor.cpp
+  layer: Testing
   namespace: fat_p::testing::tensor
   summary: "Unit tests for Tensor."
   api_stability: in_work

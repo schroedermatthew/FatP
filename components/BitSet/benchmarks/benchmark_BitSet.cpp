@@ -1,6 +1,3 @@
-// benchmark_BitSet.cpp - FAT-P BitSet comprehensive benchmark suite
-// Competitors: std::bitset, boost::dynamic_bitset, llvm::BitVector, CRoaring, BitMagic
-
 /*
 FATP_META:
   meta_version: 1
@@ -25,6 +22,8 @@ FATP_META:
     mode: autogen
 */
 
+// benchmark_BitSet.cpp - FAT-P BitSet comprehensive benchmark suite
+// Competitors: std::bitset, boost::dynamic_bitset, llvm::BitVector, CRoaring, BitMagic
 
 // Suppress conversion warnings from vendor libraries (LLVM, roaring, BitMagic, absl)
 #ifdef _MSC_VER

@@ -8,6 +8,7 @@ FATP_META:
   component: CSRMatrix_HPC_Parallel
   file_role: test
   path: components/CSRMatrix/tests/test_CSRMatrix_HPC_Parallel.cpp
+  layer: Testing
   namespace: fat_p
   summary: "Unit tests for CSRMatrix_HPC_Parallel."
   api_stability: in_work

@@ -67,9 +67,10 @@ All Fat-P components require C++20. There is no C++17 compatibility layer.
 
 #### 1.1.2 Centralized Feature Detection
 
-All C++ standard and library feature detection must live in two headers:
+All C++ standard and library feature detection must live in three headers:
 - `CppFeatureDetection.h` — C++ language/library feature detection
-- `PlatformDetection.h` — Compiler, OS, SIMD, hardware detection
+- `PlatformDetection.h` — Compiler, OS, hardware detection
+- `SimdDetection.h` — SIMD instruction set detection (SSE, AVX, NEON, etc.)
 
 **Rules:**
 - Other headers may **not** probe `__cplusplus`, `_MSVC_LANG`, or use feature-test macros directly
@@ -1520,7 +1521,7 @@ See Section 2 for the complete six-layer architecture. The legacy layer names be
 | Infrastructure | Containers | `FastHashMap`, `StableHashMap`, `SmallVector` | `std` only |
 | CoreUtility | Foundation | `Stringify`, `TypeTraits`, `DiagnosticLogger_Core`, `FloatingPointComparison` | `std` + Containers |
 | Enforcement | Foundation | `enforce.h`, `Expected.h`, `ContractException` | `std` + Containers + Foundation |
-| Policy | Domain | `SortedContainer`, `ConcurrencyPolicies` | All below |
+| Policy | Domain | `SortedContainer` | All below |
 | Application | Domain | `EqualityComparisons`, `Tensor`, `DiagnosticLogger` (full) | All below |
 | Serialization | Domain | `FatPJson`, `FatPCbor`, `BinaryLite` | All below |
 
@@ -1530,6 +1531,47 @@ See Section 2 for the complete six-layer architecture. The legacy layer names be
 - `DiagnosticLogger.h` (full system) = **Domain** (rich features, higher dependencies)
 
 Headers with a `_Core` suffix are lightweight base components intended for broad use. The full-featured version (without suffix) lives in a higher layer.
+
+#### Foundation Layer Components That Are Commonly Misclassified
+
+**DO NOT INFER LAYER FROM COMPONENT NAME.** The following components have names that suggest higher layers but are actually **Foundation**:
+
+| Component | Why It's Foundation | Common Misclassification |
+|-----------|--------------------|-----------------------|
+| `DiagnosticLogger_Core.h` | Minimal logging hook with zero dependencies; usable by all layers | Domain (confused with full DiagnosticLogger) |
+| `ConcurrencyPolicies.h` | Policy *definitions* only (no threading code); tag types and traits | Concurrency (name contains "Concurrency") |
+| `SimdVector.h` | Low-level SIMD abstraction; foundational numeric primitive | Containers (name contains "Vector") |
+| `ComparisonTolerances.h` | Numeric tolerance types; no dependencies | Domain (seems "application-level") |
+
+**Critical distinctions:**
+
+- `DiagnosticLogger_Core.h` = **Foundation** (minimal logging hook, usable everywhere)
+- `DiagnosticLogger.h` (full system) = **Domain** (rich features, higher dependencies)
+- `ConcurrencyPolicies.h` = **Foundation** (policy tag types only)
+- `ThreadPool.h`, `LockFreeQueue.h` = **Concurrency** (actual threading primitives)
+- `SimdVector.h` = **Foundation** (SIMD intrinsics wrapper)
+- `SmallVector.h`, `AlignedVector.h` = **Containers** (data structure implementations)
+
+#### AI Assistant Layer Assignment Rules
+
+When creating or modifying FATP_META blocks:
+
+1. **NEVER infer layer from component name** - "Vector" doesn't mean Containers, "Concurrency" doesn't mean Concurrency layer
+2. **Read the existing FATP_META** in the header file - it is authoritative
+3. **Check the include graph** - a header's layer must be ≥ all headers it includes
+4. **When uncertain, ASK** - do not guess or "correct" based on naming patterns
+5. **`*_Core.h` headers are typically Foundation** - they are minimal interfaces for broad use
+
+**Specific corrections that must never be reverted:**
+
+```
+SimdVector.h            → layer: Foundation   (NOT Containers)
+DiagnosticLogger_Core.h → layer: Foundation   (NOT Domain)
+ConcurrencyPolicies.h   → layer: Foundation   (NOT Concurrency)
+```
+
+These assignments are intentional and based on dependency analysis, not naming conventions.
+
 
 **Enforcement rule:** If you're adding a dependency to a component, check what layer it's in. Containers (bottom layer) must not pull in `Expected`, `enforce`, or diagnostics.
 
@@ -1901,11 +1943,19 @@ Before flagging any dependency as a violation:
 1. Check if the included header has `FATP_META.layer`
 2. If present, verify the inclusion is permitted by the layer hierarchy (Section 2)
 3. If missing, **ask the human maintainer** for clarification before claiming violation
-4. Never assume a component's layer from its name alone
+4. **NEVER assume a component's layer from its name alone** - this is a primary source of corruption
 5. Remember: `*_Core.h` headers are typically Foundation layer, not the same as the full version
+6. The header's existing FATP_META `layer:` field is authoritative - do not "correct" it based on naming
 
-**Critical:** `DiagnosticLogger_Core.h` is **Foundation** layer. It is NOT in the Domain layer. Do not flag its use as a layer violation.
+**Critical - Components with misleading names:**
 
+| Component | Actual Layer | Why Name Misleads |
+|-----------|-------------|-------------------|
+| `DiagnosticLogger_Core.h` | **Foundation** | Name suggests logging = Domain |
+| `ConcurrencyPolicies.h` | **Foundation** | Name contains "Concurrency" |
+| `SimdVector.h` | **Foundation** | Name contains "Vector" |
+
+These are **Foundation** layer. Do not flag their use by other Foundation headers as layer violations. Do not "fix" their layer assignments to match their names.
 #### Output Requirements
 
 Every AI-generated artifact must:

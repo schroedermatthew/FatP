@@ -17,7 +17,8 @@
 | Added AI comments (NEW, FIXED, Removed, etc.) | | 1 |  |  |
 | Lied about capabilities |  |  |  | 1 |
 | Delivered corrupted code | 10 |  |  |  |
+| Provided a patch instead of a complete file |  | 1 |  |  |
 
 ---
 
-*Last updated: 2026-01-31*
+*Last updated: 2026-02-03*

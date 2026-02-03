@@ -15,6 +15,7 @@ FATP_META:
   component: Stringify
   file_role: header_self_contained_test
   path: components/Stringify/tests/test_Stringify_HeaderSelfContained.cpp
+  layer: Testing
   namespace: fat_p::testing
   summary: "Compile-only self-containment check for Stringify.h"
   api_stability: stable

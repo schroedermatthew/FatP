@@ -1,6 +1,4 @@
-// ===========================================================================
-// FatPBenchmarkHeader.h - Standardized benchmark header output
-// ===========================================================================
+#pragma once
 /*
 FATP_META:
   meta_version: 1
@@ -8,7 +6,7 @@ FATP_META:
   file_role: internal_header
   path: include/fat_p/FatPBenchmarkHeader.h
   namespace: fat_p::bench
-  layer: Infrastructure
+  layer: Testing
   summary: "Standardized benchmark header output utilities."
   api_stability: in_work
   related:
@@ -26,6 +24,10 @@ FATP_META:
     by: fatp-meta-tool
     mode: manual
 */
+
+// ===========================================================================
+// FatPBenchmarkHeader.h - Standardized benchmark header output
+// ===========================================================================
 // Usage:
 //   #include "FatPBenchmarkHeader.h"
 //   
@@ -46,9 +48,6 @@ FATP_META:
 //       // ... benchmark code ...
 //   }
 // ===========================================================================
-
-#ifndef FATP_BENCHMARK_HEADER_H
-#define FATP_BENCHMARK_HEADER_H
 
 #include <iostream>
 #include <iomanip>
@@ -331,5 +330,3 @@ inline void print_standard_header(const HeaderConfig& cfg) {
 }
 
 } // namespace fat_p::bench
-
-#endif // FATP_BENCHMARK_HEADER_H

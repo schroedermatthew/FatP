@@ -8,6 +8,7 @@ FATP_META:
   component: TensorStorage
   file_role: test
   path: components/Tensor/tests/test_TensorStorage.cpp
+  layer: Testing
   namespace: fat_p
   summary: "Unit tests for TensorStorage."
   api_stability: in_work

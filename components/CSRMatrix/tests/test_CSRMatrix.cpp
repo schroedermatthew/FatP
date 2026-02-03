@@ -20,6 +20,7 @@ FATP_META:
   component: CSRMatrix
   file_role: test
   path: components/CSRMatrix/tests/test_CSRMatrix.cpp
+  layer: Testing
   namespace: fat_p
   summary: "Unit tests for CSRMatrix."
   api_stability: in_work

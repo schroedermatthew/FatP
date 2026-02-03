@@ -820,7 +820,8 @@ FATP_TEST_CASE(type_traits)
         static_assert(concepts::scope_guard_type<BasicGuard>, "ScopeGuard should be detected");
         static_assert(concepts::scope_guard_type<PolicyGuard>, "ScopeGuard with policy should be detected");
         static_assert(!concepts::scope_guard_type<int>, "int should not be detected as ScopeGuard");
-        static_assert(!concepts::scope_guard_type<std::function<void()>>, "std::function should not be detected as ScopeGuard");
+        static_assert(!concepts::scope_guard_type<std::function<void()>>,
+                      "std::function should not be detected as ScopeGuard");
 
         FATP_ASSERT_TRUE(concepts::scope_guard_type<BasicGuard>, "Runtime check: BasicGuard");
         FATP_ASSERT_FALSE(concepts::scope_guard_type<double>, "Runtime check: double");
@@ -844,7 +845,8 @@ FATP_TEST_CASE(type_traits)
 
         using SuccessGuard = ScopeGuardOnSuccess<std::function<void()>>;
 
-        static_assert(concepts::scope_guard_type<SuccessGuard>, "ScopeGuardOnSuccess should be detected as scope guard");
+        static_assert(concepts::scope_guard_type<SuccessGuard>,
+                      "ScopeGuardOnSuccess should be detected as scope guard");
 
         FATP_ASSERT_TRUE(concepts::scope_guard_type<SuccessGuard>, "Runtime check: SuccessGuard");
     }

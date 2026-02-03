@@ -15,6 +15,7 @@ FATP_META:
   component: StateMachine
   file_role: header_self_contained_test
   path: components/StateMachine/tests/test_StateMachine_HeaderSelfContained.cpp
+  layer: Testing
   namespace: fat_p::testing
   summary: "Compile-only self-containment check for StateMachine.h"
   api_stability: stable

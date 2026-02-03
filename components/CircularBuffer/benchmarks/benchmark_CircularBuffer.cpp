@@ -98,8 +98,8 @@ FATP_META:
 #endif
 
 #include "CircularBuffer.h"
-#include "FatPBenchmarkRunner.h"
 #include "FatPBenchmarkHeader.h"
+#include "FatPBenchmarkRunner.h"
 #include "LockFreeRingBuffer.h"
 
 // ============================================================================
@@ -1069,8 +1069,8 @@ void run_round_robin_benchmark(const std::string& title,
     // Print results table
     std::cout << "\n";
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << std::setw(40) << std::left << "Library" << std::setw(12) << std::right << "Median"
-              << std::setw(12) << "Mean" << std::setw(10) << "Stddev"
+    std::cout << std::setw(40) << std::left << "Library" << std::setw(12) << std::right << "Median" << std::setw(12)
+              << "Mean" << std::setw(10) << "Stddev"
               << "  CI95\n";
     std::cout << std::string(90, '-') << "\n";
 
@@ -1220,7 +1220,9 @@ void benchmark_single_threaded()
                               g_config.warmupRuns,
                               g_config.measuredRuns,
                               g_config.seed,
-                              [](ISpscAdapter* a, size_t ops) { return a->run_single_threaded(ops); });
+                              [](ISpscAdapter* a, size_t ops) {
+                                  return a->run_single_threaded(ops);
+                              });
 }
 
 // ============================================================================
@@ -1240,15 +1242,16 @@ void benchmark_spsc_throughput()
     adapters.push_back(std::make_unique<MoodycamelSpscAdapter>(kDefaultCapacity));
 #endif
 
-    run_round_robin_benchmark(
-        "SPSC Throughput (dedicated producer/consumer threads)",
-        "True SPSC pattern. Producer and consumer on separate threads. Capacity: 4096.",
-        adapters,
-        g_config.targetWork,
-        g_config.warmupRuns,
-        g_config.measuredRuns,
-        g_config.seed,
-        [](ISpscAdapter* a, size_t ops) { return a->run_spsc(ops); });
+    run_round_robin_benchmark("SPSC Throughput (dedicated producer/consumer threads)",
+                              "True SPSC pattern. Producer and consumer on separate threads. Capacity: 4096.",
+                              adapters,
+                              g_config.targetWork,
+                              g_config.warmupRuns,
+                              g_config.measuredRuns,
+                              g_config.seed,
+                              [](ISpscAdapter* a, size_t ops) {
+                                  return a->run_spsc(ops);
+                              });
 }
 
 // ============================================================================
@@ -1278,7 +1281,9 @@ void benchmark_burst_pattern()
                               g_config.warmupRuns,
                               g_config.measuredRuns,
                               g_config.seed,
-                              [burst_size](ISpscAdapter* a, size_t b) { return a->run_burst(burst_size, b); });
+                              [burst_size](ISpscAdapter* a, size_t b) {
+                                  return a->run_burst(burst_size, b);
+                              });
 }
 
 // ============================================================================
@@ -1473,7 +1478,7 @@ int main()
     hdr.warmup = g_config.warmupRuns;
     hdr.measured = g_config.measuredRuns;
     hdr.seed = g_config.seed;
-    
+
     // Competitors
     hdr.competitors.push_back({"fat_p::CircularBuffer", true, "primary"});
     hdr.competitors.push_back({"fat_p::LockFreeRingBuffer", true, "sibling SPSC"});
@@ -1486,9 +1491,10 @@ int main()
 #if HAS_MOODYCAMEL_SPSC
     hdr.competitors.push_back({"moodycamel::BlockingReaderWriterCircularBuffer", true, ""});
 #else
-    hdr.competitors.push_back({"moodycamel::BlockingReaderWriterCircularBuffer", false, "github.com/cameron314/readerwriterqueue"});
+    hdr.competitors.push_back(
+        {"moodycamel::BlockingReaderWriterCircularBuffer", false, "github.com/cameron314/readerwriterqueue"});
 #endif
-    
+
     hdr.has_extended_config = true;
     hdr.target_work = g_config.targetWork;
     hdr.min_batch_ms = g_config.minBatchMs;
@@ -1497,7 +1503,7 @@ int main()
     hdr.cooldown_enabled = !g_config.noCooldown;
     hdr.is_multi_library = true;
     hdr.has_correctness_checks = true;
-    
+
     fat_p::bench::print_standard_header(hdr);
 
     // Load configuration (required by style guide)

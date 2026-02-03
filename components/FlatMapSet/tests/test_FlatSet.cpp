@@ -8,6 +8,7 @@ FATP_META:
   component: FlatSet
   file_role: test
   path: components/FlatMapSet/tests/test_FlatSet.cpp
+  layer: Testing
   namespace: fat_p
   summary: "Unit tests for FlatSet."
   api_stability: in_work

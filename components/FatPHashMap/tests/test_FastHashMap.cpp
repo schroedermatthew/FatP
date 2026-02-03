@@ -23,6 +23,7 @@ FATP_META:
   component: FastHashMap
   file_role: test
   path: components/FatPHashMap/tests/test_FastHashMap.cpp
+  layer: Testing
   namespace: fat_p
   summary: "Unit tests for FastHashMap."
   api_stability: in_work

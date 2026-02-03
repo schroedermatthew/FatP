@@ -8,6 +8,7 @@ FATP_META:
   component: FloatingPointComparison
   file_role: test
   path: components/FloatingPointComparison/tests/test_FloatingPointComparison.cpp
+  layer: Testing
   namespace: fat_p
   summary: "Unit tests for FloatingPointComparison."
   api_stability: in_work

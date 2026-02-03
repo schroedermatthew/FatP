@@ -8,6 +8,7 @@ FATP_META:
   component: JsonStreamLite
   file_role: test
   path: components/Json/tests/test_JsonStreamLite.cpp
+  layer: Testing
   namespace: fat_p
   summary: "Unit tests for JsonStreamLite."
   api_stability: in_work

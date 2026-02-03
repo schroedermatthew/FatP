@@ -1,3 +1,30 @@
+/*
+FATP_META:
+  meta_version: 1
+  component: SmallVector
+  file_role: benchmark
+  path: components/SmallVector/benchmarks/benchmark_SmallVector.cpp
+  layer: Testing
+  namespace: fat_p
+  summary: "Benchmarks for SmallVector."
+  api_stability: in_work
+  related:
+    docs_search: "SmallVector"
+    headers:
+      - include/fat_p/FatPBenchmarkRunner.h
+      - include/fat_p/SmallVector.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 7
+    defines_unprefixed: 7
+    undefs_total: 0
+    includes_windows_h: true
+  generated:
+    by: fatp-meta-tool
+    mode: autogen
+*/
+
 // benchmark_SmallVector.cpp
 //
 // FAT-P SmallVector benchmarks using unified FatPBenchmarkRunner infrastructure.
@@ -53,32 +80,6 @@
 //   ./bench_sv
 //   FATP_BENCH_OUTPUT_CSV=results.csv ./bench_sv
 
-/*
-FATP_META:
-  meta_version: 1
-  component: SmallVector
-  file_role: benchmark
-  path: components/SmallVector/benchmarks/benchmark_SmallVector.cpp
-  layer: Testing
-  namespace: fat_p
-  summary: "Benchmarks for SmallVector."
-  api_stability: in_work
-  related:
-    docs_search: "SmallVector"
-    headers:
-      - include/fat_p/FatPBenchmarkRunner.h
-      - include/fat_p/SmallVector.h
-  hygiene:
-    pragma_once: false
-    include_guard: false
-    defines_total: 7
-    defines_unprefixed: 7
-    undefs_total: 0
-    includes_windows_h: true
-  generated:
-    by: fatp-meta-tool
-    mode: autogen
-*/
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -99,8 +100,8 @@ FATP_META:
 #include <malloc.h>
 #endif
 
-#include "FatPBenchmarkRunner.h"
 #include "FatPBenchmarkHeader.h"
+#include "FatPBenchmarkRunner.h"
 #include "SmallVector.h"
 
 #pragma warning(push, 0)
@@ -134,13 +135,13 @@ FATP_META:
 #include <llvm/ADT/SmallVector.h>
 #define HAS_LLVM 1
 #if defined(_WIN32) || defined(_WIN64)
-#pragma comment(lib, "ws2_32.lib")  // LLVMSupport.lib requires Windows Sockets
+#pragma comment(lib, "ws2_32.lib") // LLVMSupport.lib requires Windows Sockets
 #endif
 #elif __has_include(<llvm-18/llvm/ADT/SmallVector.h>)
 #include <llvm-18/llvm/ADT/SmallVector.h>
 #define HAS_LLVM 1
 #if defined(_WIN32) || defined(_WIN64)
-#pragma comment(lib, "ws2_32.lib")  // LLVMSupport.lib requires Windows Sockets
+#pragma comment(lib, "ws2_32.lib") // LLVMSupport.lib requires Windows Sockets
 #endif
 #else
 #define HAS_LLVM 0
@@ -173,11 +174,23 @@ FATP_META:
 // EASTL requires a custom new[] operator override - provide minimal implementation
 // This is only needed if not already provided by your project
 #if !defined(EASTL_USER_DEFINED_ALLOCATOR)
-void* operator new[](size_t size, const char* /*name*/, int /*flags*/, unsigned /*debugFlags*/, const char* /*file*/, int /*line*/)
+void* operator new[](size_t size,
+                     const char* /*name*/,
+                     int /*flags*/,
+                     unsigned /*debugFlags*/,
+                     const char* /*file*/,
+                     int /*line*/)
 {
     return malloc(size);
 }
-void* operator new[](size_t size, size_t alignment, size_t /*alignmentOffset*/, const char* /*name*/, int /*flags*/, unsigned /*debugFlags*/, const char* /*file*/, int /*line*/)
+void* operator new[](size_t size,
+                     size_t alignment,
+                     size_t /*alignmentOffset*/,
+                     const char* /*name*/,
+                     int /*flags*/,
+                     unsigned /*debugFlags*/,
+                     const char* /*file*/,
+                     int /*line*/)
 {
 #if defined(_WIN32)
     return _aligned_malloc(size, alignment);
@@ -541,7 +554,7 @@ public:
                     mVec->push_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::EmplaceBack:
@@ -550,7 +563,7 @@ public:
                     mVec->emplace_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::RandomAccess:
@@ -642,7 +655,7 @@ public:
                     mVec->push_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::EmplaceBack:
@@ -651,7 +664,7 @@ public:
                     mVec->emplace_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::RandomAccess:
@@ -750,7 +763,7 @@ public:
                     mVec->push_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::EmplaceBack:
@@ -759,7 +772,7 @@ public:
                     mVec->emplace_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::RandomAccess:
@@ -859,7 +872,7 @@ public:
                     mVec->push_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::EmplaceBack:
@@ -868,7 +881,7 @@ public:
                     mVec->emplace_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::RandomAccess:
@@ -968,7 +981,7 @@ public:
                     mVec->push_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::EmplaceBack:
@@ -977,7 +990,7 @@ public:
                     mVec->emplace_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::RandomAccess:
@@ -1077,7 +1090,7 @@ public:
                     mVec->push_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::EmplaceBack:
@@ -1086,7 +1099,7 @@ public:
                     mVec->emplace_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::RandomAccess:
@@ -1186,7 +1199,7 @@ public:
                     mVec->push_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::EmplaceBack:
@@ -1195,7 +1208,7 @@ public:
                     mVec->emplace_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::RandomAccess:
@@ -1297,7 +1310,7 @@ public:
                     mVec->push_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::EmplaceBack:
@@ -1306,7 +1319,7 @@ public:
                     mVec->emplace_back(v);
                     ++ops;
                 }
-                benchmark_sink += static_cast<int64_t>(mVec->size());  // DCE barrier
+                benchmark_sink += static_cast<int64_t>(mVec->size()); // DCE barrier
                 break;
 
             case Case::RandomAccess:
@@ -1857,7 +1870,9 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_std(size_t iterations)
             Timer t;
             t.start();
             for (size_t i = 0; i < N; ++i)
+            {
                 vec.emplace_back(static_cast<int64_t>(i));
+            }
             fatp_total += t.elapsed_ns();
             benchmark_sink += vec.size();
         }
@@ -1867,7 +1882,9 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_std(size_t iterations)
             Timer t;
             t.start();
             for (size_t i = 0; i < N; ++i)
+            {
                 vec.emplace_back(static_cast<int64_t>(i));
+            }
             other_total += t.elapsed_ns();
             benchmark_sink += vec.size();
         }
@@ -1876,8 +1893,7 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_std(size_t iterations)
     double fatp_ns = fatp_total / (iterations * N);
     double other_ns = other_total / (iterations * N);
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "fat_p=" << std::setw(5) << fatp_ns
-              << "  std::vec=" << std::setw(5) << other_ns << "\n";
+    std::cout << "fat_p=" << std::setw(5) << fatp_ns << "  std::vec=" << std::setw(5) << other_ns << "\n";
 }
 
 #if HAS_BOOST
@@ -1893,7 +1909,9 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_boost(size_t iterations)
             Timer t;
             t.start();
             for (size_t i = 0; i < N; ++i)
+            {
                 vec.emplace_back(static_cast<int64_t>(i));
+            }
             fatp_total += t.elapsed_ns();
             benchmark_sink += vec.size();
         }
@@ -1902,7 +1920,9 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_boost(size_t iterations)
             Timer t;
             t.start();
             for (size_t i = 0; i < N; ++i)
+            {
                 vec.emplace_back(static_cast<int64_t>(i));
+            }
             other_total += t.elapsed_ns();
             benchmark_sink += vec.size();
         }
@@ -1911,8 +1931,7 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_boost(size_t iterations)
     double fatp_ns = fatp_total / (iterations * N);
     double other_ns = other_total / (iterations * N);
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "fat_p=" << std::setw(5) << fatp_ns
-              << "  boost=" << std::setw(5) << other_ns << "\n";
+    std::cout << "fat_p=" << std::setw(5) << fatp_ns << "  boost=" << std::setw(5) << other_ns << "\n";
 }
 #endif
 
@@ -1929,7 +1948,9 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_llvm(size_t iterations)
             Timer t;
             t.start();
             for (size_t i = 0; i < N; ++i)
+            {
                 vec.emplace_back(static_cast<int64_t>(i));
+            }
             fatp_total += t.elapsed_ns();
             benchmark_sink += vec.size();
         }
@@ -1938,7 +1959,9 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_llvm(size_t iterations)
             Timer t;
             t.start();
             for (size_t i = 0; i < N; ++i)
+            {
                 vec.emplace_back(static_cast<int64_t>(i));
+            }
             other_total += t.elapsed_ns();
             benchmark_sink += vec.size();
         }
@@ -1947,8 +1970,7 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_llvm(size_t iterations)
     double fatp_ns = fatp_total / (iterations * N);
     double other_ns = other_total / (iterations * N);
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "fat_p=" << std::setw(5) << fatp_ns
-              << "  llvm=" << std::setw(5) << other_ns << "\n";
+    std::cout << "fat_p=" << std::setw(5) << fatp_ns << "  llvm=" << std::setw(5) << other_ns << "\n";
 }
 #endif
 
@@ -1965,7 +1987,9 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_folly(size_t iterations)
             Timer t;
             t.start();
             for (size_t i = 0; i < N; ++i)
+            {
                 vec.emplace_back(static_cast<int64_t>(i));
+            }
             fatp_total += t.elapsed_ns();
             benchmark_sink += vec.size();
         }
@@ -1974,7 +1998,9 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_folly(size_t iterations)
             Timer t;
             t.start();
             for (size_t i = 0; i < N; ++i)
+            {
                 vec.emplace_back(static_cast<int64_t>(i));
+            }
             other_total += t.elapsed_ns();
             benchmark_sink += vec.size();
         }
@@ -1983,8 +2009,7 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_folly(size_t iterations)
     double fatp_ns = fatp_total / (iterations * N);
     double other_ns = other_total / (iterations * N);
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "fat_p=" << std::setw(5) << fatp_ns
-              << "  folly=" << std::setw(5) << other_ns << "\n";
+    std::cout << "fat_p=" << std::setw(5) << fatp_ns << "  folly=" << std::setw(5) << other_ns << "\n";
 }
 #endif
 
@@ -2001,7 +2026,9 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_absl(size_t iterations)
             Timer t;
             t.start();
             for (size_t i = 0; i < N; ++i)
+            {
                 vec.emplace_back(static_cast<int64_t>(i));
+            }
             fatp_total += t.elapsed_ns();
             benchmark_sink += vec.size();
         }
@@ -2010,7 +2037,9 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_absl(size_t iterations)
             Timer t;
             t.start();
             for (size_t i = 0; i < N; ++i)
+            {
                 vec.emplace_back(static_cast<int64_t>(i));
+            }
             other_total += t.elapsed_ns();
             benchmark_sink += vec.size();
         }
@@ -2019,8 +2048,7 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_absl(size_t iterations)
     double fatp_ns = fatp_total / (iterations * N);
     double other_ns = other_total / (iterations * N);
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "fat_p=" << std::setw(5) << fatp_ns
-              << "  absl=" << std::setw(5) << other_ns << "\n";
+    std::cout << "fat_p=" << std::setw(5) << fatp_ns << "  absl=" << std::setw(5) << other_ns << "\n";
 }
 #endif
 
@@ -2037,7 +2065,9 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_ankerl(size_t iterations)
             Timer t;
             t.start();
             for (size_t i = 0; i < N; ++i)
+            {
                 vec.emplace_back(static_cast<int64_t>(i));
+            }
             fatp_total += t.elapsed_ns();
             benchmark_sink += vec.size();
         }
@@ -2046,7 +2076,9 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_ankerl(size_t iterations)
             Timer t;
             t.start();
             for (size_t i = 0; i < N; ++i)
+            {
                 vec.emplace_back(static_cast<int64_t>(i));
+            }
             other_total += t.elapsed_ns();
             benchmark_sink += vec.size();
         }
@@ -2055,8 +2087,7 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_ankerl(size_t iterations)
     double fatp_ns = fatp_total / (iterations * N);
     double other_ns = other_total / (iterations * N);
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "fat_p=" << std::setw(5) << fatp_ns
-              << "  ankerl=" << std::setw(5) << other_ns << "\n";
+    std::cout << "fat_p=" << std::setw(5) << fatp_ns << "  ankerl=" << std::setw(5) << other_ns << "\n";
 }
 #endif
 
@@ -2073,7 +2104,9 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_eastl(size_t iterations)
             Timer t;
             t.start();
             for (size_t i = 0; i < N; ++i)
+            {
                 vec.emplace_back(static_cast<int64_t>(i));
+            }
             fatp_total += t.elapsed_ns();
             benchmark_sink += vec.size();
         }
@@ -2082,7 +2115,9 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_eastl(size_t iterations)
             Timer t;
             t.start();
             for (size_t i = 0; i < N; ++i)
+            {
                 vec.emplace_back(static_cast<int64_t>(i));
+            }
             other_total += t.elapsed_ns();
             benchmark_sink += vec.size();
         }
@@ -2091,8 +2126,7 @@ FATP_BENCH_NOINLINE void benchmark_fastpath_vs_eastl(size_t iterations)
     double fatp_ns = fatp_total / (iterations * N);
     double other_ns = other_total / (iterations * N);
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "fat_p=" << std::setw(5) << fatp_ns
-              << "  eastl=" << std::setw(5) << other_ns << "\n";
+    std::cout << "fat_p=" << std::setw(5) << fatp_ns << "  eastl=" << std::setw(5) << other_ns << "\n";
 }
 #endif
 
@@ -2458,7 +2492,7 @@ int main(int argc, char* argv[])
     hdr.warmup = WARMUP_RUNS();
     hdr.measured = MEASURED_RUNS();
     hdr.seed = g_config.seed;
-    
+
     // Competitors
     hdr.competitors.push_back({"fat_p::SmallVector", true, "primary"});
     hdr.competitors.push_back({"std::vector", true, "baseline"});
@@ -2492,12 +2526,12 @@ int main(int argc, char* argv[])
 #else
     hdr.competitors.push_back({"eastl::fixed_vector", false, "vcpkg install eastl"});
 #endif
-    
+
     hdr.has_extended_config = false;
     hdr.is_multi_library = true;
     hdr.has_correctness_checks = true;
     hdr.has_stabilization = !g_config.noStabilize;
-    
+
     fat_p::bench::print_standard_header(hdr);
 
 

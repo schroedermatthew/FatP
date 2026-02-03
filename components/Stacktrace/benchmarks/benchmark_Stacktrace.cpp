@@ -52,8 +52,8 @@ FATP_META:
  *   FATP_BENCH_VERBOSE_STATS - Print raw samples (default: 0)
  */
 
-#include "Stacktrace.h"
 #include "FatPBenchmarkHeader.h"
+#include "Stacktrace.h"
 
 #include <algorithm>
 #include <chrono>
@@ -496,23 +496,24 @@ int main()
     // Standardized header (via FatPBenchmarkHeader.h)
     // =========================================================================
     auto cfg = BenchConfig::fromEnv();
-    
+
     fat_p::bench::HeaderConfig hdr;
     hdr.component = "Stacktrace";
     hdr.warmup = cfg.warmupRuns;
     hdr.measured = cfg.measuredRuns;
-    hdr.seed = 12345;  // Stacktrace doesn't use seed
-    
+    hdr.seed = 12345; // Stacktrace doesn't use seed
+
     // Competitors
     hdr.competitors.push_back({"fat_p::Stacktrace", true, "primary"});
-    hdr.competitors.push_back({"Native backend (" + std::string(fat_p::Stacktrace::backendName()) + ")", true, "baseline"});
+    hdr.competitors.push_back(
+        {"Native backend (" + std::string(fat_p::Stacktrace::backendName()) + ")", true, "baseline"});
     // No external competitor libraries for Stacktrace
-    
+
     hdr.has_extended_config = false;
     hdr.is_multi_library = false;
     hdr.has_correctness_checks = false;
     hdr.has_stabilization = false;
-    
+
     fat_p::bench::print_standard_header(hdr);
 
     std::cout << "Backend info:\n";

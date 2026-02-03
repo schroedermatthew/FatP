@@ -401,7 +401,8 @@ FATP_TEST_CASE(type_trait)
 {
     static_assert(concepts::circular_buffer_type<CircularBuffer<int, 8>>,
                   "CircularBuffer should satisfy circular_buffer_type concept");
-    static_assert(!concepts::circular_buffer_type<std::vector<int>>, "std::vector should not satisfy circular_buffer_type concept");
+    static_assert(!concepts::circular_buffer_type<std::vector<int>>,
+                  "std::vector should not satisfy circular_buffer_type concept");
     return true;
 }
 

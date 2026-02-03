@@ -8,6 +8,7 @@ FATP_META:
   component: TensorSerializer
   file_role: test
   path: components/Tensor/tests/test_TensorSerializer.cpp
+  layer: Testing
   namespace: fat_p
   summary: "Unit tests for TensorSerializer."
   api_stability: in_work

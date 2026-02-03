@@ -18,6 +18,7 @@ FATP_META:
   component: TensorMath
   file_role: test
   path: components/Tensor/tests/test_TensorMath.cpp
+  layer: Testing
   namespace: fat_p
   summary: "Unit tests for TensorMath."
   api_stability: in_work

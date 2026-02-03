@@ -31,6 +31,7 @@ FATP_META:
   component: JsonLite
   file_role: test
   path: components/Json/tests/test_JsonLite.cpp
+  layer: Testing
   namespace: fat_p
   summary: "Unit tests for JsonLite."
   api_stability: in_work

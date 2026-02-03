@@ -17,6 +17,7 @@ FATP_META:
   component: HpcVector
   file_role: test
   path: components/HpcVector/tests/test_HpcVector.cpp
+  layer: Testing
   namespace: fat_p::testing::hpcvector
   summary: "Unit tests for HpcVector."
   api_stability: in_work

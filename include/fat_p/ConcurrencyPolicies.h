@@ -7,7 +7,7 @@ FATP_META:
   file_role: public_header
   path: include/fat_p/ConcurrencyPolicies.h
   namespace: fat_p
-  layer: Concurrency
+  layer: Foundation
   summary: "Public header for ConcurrencyPolicies."
   api_stability: in_work
   related:

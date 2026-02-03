@@ -8,6 +8,7 @@ FATP_META:
   component: FlatMap
   file_role: test
   path: components/FlatMapSet/tests/test_FlatMap.cpp
+  layer: Testing
   namespace: fat_p
   summary: "Unit tests for FlatMap."
   api_stability: in_work
