@@ -18,6 +18,13 @@ name: AllocationStrategies CI
 
 on:
   workflow_dispatch:
+    inputs:
+      run_benchmarks:
+        description: 'Run benchmarks'
+        required: false
+        default: 'false'
+        type: boolean
+
 env:
   INCLUDE_DIR: include/fat_p
   TEST_SRC: components/AllocationStrategies/tests/test_AllocationStrategies.cpp
@@ -128,7 +135,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_AllocationStrategies.cpp /Fe:test_as.exe /link advapi32.lib
+          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\AllocationStrategies\tests\test_AllocationStrategies.cpp /Fe:test_as.exe
 
       - name: Run tests
         run: .\test_as.exe
@@ -239,14 +246,14 @@ jobs:
           #include "AllocationStrategies.h"
           int main() {
               fat_p::BlockAllocator<long> alloc;
-              long* p = alloc.allocate(42);
+              long* p = alloc.allocate(100);
               alloc.deallocate(p);
               return 0;
           }
           EOF
           
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p -c test1.cpp -o /dev/null
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p -c test2.cpp -o /dev/null
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test1.cpp -o /dev/null
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test2.cpp -o /dev/null
           
           echo "✓ Include order independent"
 
@@ -272,23 +279,19 @@ jobs:
           echo "✓ No warnings"
 
   # ===========================================================================
-  # Benchmarks - Linux GCC (Weekly/Manual)
+  # Benchmarks - Linux GCC (Manual)
   # ===========================================================================
   benchmarks-gcc:
     name: Benchmark GCC-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ inputs.run_benchmarks }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - version: 12
-            std: 17
-          - version: 12
+          - version: 13
             std: 20
-          - version: 13
-            std: 17
-          - version: 13
+          - version: 14
             std: 20
 
     steps:
@@ -337,25 +340,19 @@ jobs:
             benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
 
   # ===========================================================================
-  # Benchmarks - Linux Clang (Weekly/Manual)
+  # Benchmarks - Linux Clang (Manual)
   # ===========================================================================
   benchmarks-clang:
     name: Benchmark Clang-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-22.04
-    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ inputs.run_benchmarks }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - version: 14
-            std: 17
-          - version: 15
-            std: 17
-          - version: 15
+          - version: 16
             std: 20
-          - version: 16
-            std: 17
-          - version: 16
+          - version: 17
             std: 20
 
     steps:
@@ -407,16 +404,16 @@ jobs:
             benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
 
   # ===========================================================================
-  # Benchmarks - Windows MSVC (Weekly/Manual)
+  # Benchmarks - Windows MSVC (Manual)
   # ===========================================================================
   benchmarks-msvc:
     name: Benchmark MSVC C++${{ matrix.std }}
     runs-on: windows-latest
-    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ inputs.run_benchmarks }}
     strategy:
       fail-fast: false
       matrix:
-        std: [17, 20]
+        std: [20]
 
     steps:
       - uses: actions/checkout@v4
@@ -426,19 +423,11 @@ jobs:
         with:
           arch: x64
 
-      - name: Install competitor libraries via vcpkg
-        run: |
-          vcpkg install boost-pool:x64-windows
-          
-          echo "Installed competitor libraries via vcpkg"
-
       - name: Build benchmark
-        shell: pwsh
         run: |
-          cl /nologo /std:c++${{ matrix.std }} /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\FAT_P\FAT_P\fat_p /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include" FAT_P\FAT_P\benchmarks\benchmark_AllocationStrategies.cpp /Fe:bench_as.exe /link advapi32.lib
+          cl /nologo /std:c++${{ matrix.std }} /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\include\fat_p components\AllocationStrategies\benchmarks\benchmark_AllocationStrategies.cpp /Fe:bench_as.exe
 
       - name: Run benchmarks
-        shell: pwsh
         env:
           FATP_BENCH_WARMUP_RUNS: 3
           FATP_BENCH_BATCHES: 20
@@ -462,7 +451,7 @@ jobs:
     name: Benchmark Summary
     needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
     runs-on: ubuntu-latest
-    if: ${{ always() && github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ always() && inputs.run_benchmarks }}
     steps:
       - name: Download all benchmark artifacts
         uses: actions/download-artifact@v4
@@ -516,7 +505,7 @@ jobs:
   # ===========================================================================
   ci-success:
     name: CI Success
-    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -527,6 +516,7 @@ jobs:
           if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
           echo "✓ All checks passed"
