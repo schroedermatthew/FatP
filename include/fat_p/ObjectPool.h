@@ -233,7 +233,7 @@ public:
     template <typename... Args>
     [[nodiscard]] T* acquire(Args&&... args) // CRITICAL-3 FIX: [[nodiscard]]
     {
-        auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = sync_policy_.lock();
 
         if (!free_list_)
         {
@@ -283,7 +283,7 @@ public:
     [[nodiscard]] T* try_acquire(Args&&... args)
         noexcept(std::is_nothrow_constructible_v<T, Args...>)
     {
-        auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = sync_policy_.lock();
 
         if (!free_list_)
         {
@@ -340,7 +340,7 @@ public:
     template <typename U = T>
     [[nodiscard]] std::enable_if_t<std::is_trivially_destructible_v<U>, T*> acquire_uninitialized()
     {
-        auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = sync_policy_.lock();
 
         if (!free_list_)
         {
@@ -376,7 +376,7 @@ public:
                                    T*>
     acquire_zeroed()
     {
-        auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = sync_policy_.lock();
 
         if (!free_list_)
         {
@@ -415,7 +415,7 @@ public:
             return;
         }
 
-        auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = sync_policy_.lock();
 
 #ifndef NDEBUG
         // Double-release and foreign pointer detection
@@ -454,7 +454,7 @@ public:
      */
     void reserve_blocks(size_t n)
     {
-        auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = sync_policy_.lock();
 
         while (mBlocks.size() < n)
         {
@@ -480,7 +480,7 @@ public:
      */
     bool try_compact_free_list()
     {
-        auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = sync_policy_.lock();
 
         // Only compact when fully free
         const size_t total_capacity = mBlocks.size() * block_size_;
@@ -548,7 +548,7 @@ public:
      */
     Stats stats() const
     {
-        auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = sync_policy_.lock();
 
         const size_t total = mBlocks.size() * block_size_;
         const size_t avail = free_count_;
@@ -585,14 +585,14 @@ public:
     /// @brief Get total number of blocks allocated
     size_t num_blocks() const
     {
-        auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = sync_policy_.lock();
         return mBlocks.size();
     }
 
     /// @brief Get total capacity of the pool
     size_t capacity() const
     {
-        auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = sync_policy_.lock();
         return mBlocks.size() * block_size_;
     }
 
@@ -603,7 +603,7 @@ public:
      */
     size_t available() const
     {
-        auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = sync_policy_.lock();
 
         return free_count_;
     }
@@ -615,7 +615,7 @@ public:
     size_t active_count() const
     {
 #ifndef NDEBUG
-        auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = sync_policy_.lock();
         return acquired_count_;
 #else
         return 0; // Not tracked in release mode
