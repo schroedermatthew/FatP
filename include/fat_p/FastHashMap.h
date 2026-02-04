@@ -1581,7 +1581,7 @@ public:
     void reserve(size_t count)
     {
         assert(!mFrozen && "FastHashMap::reserve() called on frozen map");
-        size_t required = static_cast<size_t>(count / max_load_factor_) + 1;
+        size_t required = static_cast<size_t>(static_cast<double>(count) / max_load_factor_) + 1;
         if (required > mCapacity)
         {
             size_t new_cap = kMinCapacity;
